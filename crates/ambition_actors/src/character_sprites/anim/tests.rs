@@ -16,15 +16,12 @@ use ambition_characters::actor::BodyCombat;
 struct PickClusters {
     kinematics: crate::actor::BodyKinematics,
     ground: crate::actor::BodyGroundState,
-    wall: crate::actor::BodyWallState,
-    blink: crate::actor::BodyBlinkState,
+    /// The published maneuver projection the pickers consume (ADR 0024).
+    facts: ae::BodyMotionFacts,
     flight: crate::actor::BodyFlightState,
-    dash: crate::actor::BodyDashState,
-    ledge: crate::actor::BodyLedgeState,
     body_mode: crate::actor::BodyModeState,
     env_contact: crate::actor::BodyEnvironmentContact,
     abilities: crate::actor::BodyAbilities,
-    dodge: crate::actor::BodyDodgeState,
     shield: crate::actor::BodyShieldState,
 }
 
@@ -33,15 +30,11 @@ impl PickClusters {
         Self {
             kinematics: Default::default(),
             ground: Default::default(),
-            wall: Default::default(),
-            blink: Default::default(),
+            facts: Default::default(),
             flight: Default::default(),
-            dash: Default::default(),
-            ledge: Default::default(),
             body_mode: Default::default(),
             env_contact: Default::default(),
             abilities: Default::default(),
-            dodge: Default::default(),
             shield: Default::default(),
         }
     }
@@ -75,30 +68,20 @@ fn pick(
         attack,
         &c.kinematics,
         &c.ground,
-        &c.wall,
-        &c.blink,
+        &c.facts,
         &c.flight,
-        &c.dash,
-        &c.ledge,
         &c.body_mode,
         &c.env_contact,
         &c.abilities,
-        &c.dodge,
         &c.shield,
     )
 }
 
-fn hang_state(getup: ae::LedgeGetupKind, climbing: bool) -> ae::LedgeGrabState {
-    let contact = ae::LedgeContact {
-        wall_normal_x: -1.0,
-        anchor: ae::Vec2::new(86.0, 110.0),
-        climb_target: ae::Vec2::new(115.0, 77.0),
-    };
-    let mut state = ae::LedgeGrabState::hanging(contact);
-    state.elapsed = 0.1;
-    state.climbing = climbing;
-    state.getup_kind = getup;
-    state
+fn hang_state(getup: ae::LedgeGetupKind, climbing: bool) -> ae::LedgeFacts {
+    ae::LedgeFacts {
+        climbing,
+        getup_kind: getup,
+    }
 }
 
 /// While hanging (not climbing), the picker returns the static
@@ -113,7 +96,7 @@ fn hang_returns_ledge_grab_regardless_of_getup_kind() {
         ae::LedgeGetupKind::Attack,
     ] {
         let (anim, combat, blink_cam, mut clusters) = pick_inputs();
-        clusters.ledge.grab = Some(hang_state(kind, false));
+        clusters.facts.ledge = Some(hang_state(kind, false));
         assert_eq!(
             pick(&anim, &combat, &blink_cam, None, &clusters),
             CharacterAnim::LedgeGrab,
@@ -128,7 +111,7 @@ fn hang_returns_ledge_grab_regardless_of_getup_kind() {
 #[test]
 fn climbing_with_climb_kind_returns_ledge_getup() {
     let (anim, combat, blink_cam, mut clusters) = pick_inputs();
-    clusters.ledge.grab = Some(hang_state(ae::LedgeGetupKind::Climb, true));
+    clusters.facts.ledge = Some(hang_state(ae::LedgeGetupKind::Climb, true));
     assert_eq!(
         pick(&anim, &combat, &blink_cam, None, &clusters),
         CharacterAnim::LedgeGetup,
@@ -139,7 +122,7 @@ fn climbing_with_climb_kind_returns_ledge_getup() {
 #[test]
 fn climbing_with_roll_kind_returns_ledge_roll() {
     let (anim, combat, blink_cam, mut clusters) = pick_inputs();
-    clusters.ledge.grab = Some(hang_state(ae::LedgeGetupKind::Roll, true));
+    clusters.facts.ledge = Some(hang_state(ae::LedgeGetupKind::Roll, true));
     assert_eq!(
         pick(&anim, &combat, &blink_cam, None, &clusters),
         CharacterAnim::LedgeRoll,
@@ -153,7 +136,7 @@ fn climbing_with_roll_kind_returns_ledge_roll() {
 #[test]
 fn climbing_with_attack_kind_returns_ledge_getup_attack() {
     let (anim, combat, blink_cam, mut clusters) = pick_inputs();
-    clusters.ledge.grab = Some(hang_state(ae::LedgeGetupKind::Attack, true));
+    clusters.facts.ledge = Some(hang_state(ae::LedgeGetupKind::Attack, true));
     assert_eq!(
         pick(&anim, &combat, &blink_cam, None, &clusters),
         CharacterAnim::LedgeGetupAttack,
@@ -203,22 +186,22 @@ fn shield_active_with_ability_returns_block() {
 
 /// Grounded dodge roll picks `DodgeRoll`, but a roll that fires as
 /// part of a ledge getup keeps the dedicated `LedgeRoll` row. The
-/// engine drives both with the same `dodge.roll_timer`; this pins
+/// engine drives both with the same `dodge_rolling` fact; this pins
 /// the visual gate that picks the right pose for the situation.
 #[test]
 fn dodge_roll_grounded_vs_ledge_getup() {
-    // Grounded: no ledge state, just a dodge timer.
+    // Grounded: no ledge state, just the dodge-roll fact.
     let (anim, combat, blink_cam, mut clusters) = pick_inputs();
-    clusters.dodge.roll_timer = 0.2;
+    clusters.facts.dodge_rolling = true;
     assert_eq!(
         pick(&anim, &combat, &blink_cam, None, &clusters),
         CharacterAnim::DodgeRoll,
     );
-    // Ledge roll: same timer set, plus a ledge_grab climbing roll.
+    // Ledge roll: same fact set, plus a ledge climbing roll.
     // The ledge-state branch must win.
     let (anim, combat, blink_cam, mut clusters) = pick_inputs();
-    clusters.dodge.roll_timer = 0.2;
-    clusters.ledge.grab = Some(hang_state(ae::LedgeGetupKind::Roll, true));
+    clusters.facts.dodge_rolling = true;
+    clusters.facts.ledge = Some(hang_state(ae::LedgeGetupKind::Roll, true));
     assert_eq!(
         pick(&anim, &combat, &blink_cam, None, &clusters),
         CharacterAnim::LedgeRoll,
@@ -411,15 +394,11 @@ fn pick_actor(
     pick_actor_anim(
         &c.kinematics,
         &c.ground,
-        &c.wall,
-        &c.blink,
+        &c.facts,
         &c.flight,
-        &c.dash,
-        &c.ledge,
         &c.body_mode,
         &c.env_contact,
         &c.abilities,
-        &c.dodge,
         &c.shield,
         swing,
         state,
@@ -567,7 +546,7 @@ fn actors_animate_from_real_state_regardless_of_disposition() {
 fn actors_animate_rich_cluster_abilities() {
     // Dash: a brain that fires the body's dash limb → Dash, mid-air or not.
     let mut c = PickClusters::defaults();
-    c.dash.timer = 0.2;
+    c.facts.dashing = true;
     assert_eq!(pick_actor(&c, None, actor_state()), CharacterAnim::Dash);
 
     // Flight toggled on (not the aerial archetype flag — the real flight cluster)

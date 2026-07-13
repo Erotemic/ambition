@@ -33,15 +33,14 @@ pub struct ActorSpriteData {
     pub config: &'static ActorConfig,
     pub attack: &'static BodyMelee,
     pub ground: &'static ambition_actors::actor::BodyGroundState,
-    pub wall: &'static ambition_actors::actor::BodyWallState,
-    pub blink: &'static ambition_actors::actor::BodyBlinkState,
+    /// The published semantic movement facts (ADR 0024) — maneuver reads
+    /// (dash/blink/wall/ledge/dodge/glide) come from here, never from policy
+    /// internals.
+    pub motion_facts: &'static ae::BodyMotionFacts,
     pub flight: &'static ambition_actors::actor::BodyFlightState,
-    pub dash: &'static ambition_actors::actor::BodyDashState,
-    pub ledge: &'static ambition_actors::actor::BodyLedgeState,
     pub body_mode: &'static ambition_actors::actor::BodyModeState,
     pub env_contact: &'static ambition_actors::actor::BodyEnvironmentContact,
     pub abilities: &'static ambition_actors::actor::BodyAbilities,
-    pub dodge: &'static ambition_actors::actor::BodyDodgeState,
     pub shield: &'static ambition_actors::actor::BodyShieldState,
     /// Movement-driven presentation overlays (wall-jump / dash-startup / landing /
     /// shoot poses), shared with the player. `Option` so an actor spawned without
@@ -115,7 +114,7 @@ impl ActorAnimIndex {
 
 /// Resolve EVERY brain-driven actor's animation frame from its REAL ECS clusters
 /// — the SAME `Body*` movement/ability clusters, and the SAME picker, the player
-/// uses ([`ambition_actors::character_sprites::pick_actor_anim`] → `body_view_from_clusters`).
+/// uses ([`ambition_actors::character_sprites::pick_actor_anim`] → `body_view_from_body`).
 /// One path, disposition-agnostic: an enemy and an NPC animate from identical
 /// reads. Whatever a brain (or an LLM) drives the actor's clusters into — a dash,
 /// a blink, flight, a shield, a ladder climb, a wall-grab, a dodge-roll, a
@@ -128,15 +127,11 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
         let anim = ambition_actors::character_sprites::pick_actor_anim(
             a.kin,
             a.ground,
-            a.wall,
-            a.blink,
+            a.motion_facts,
             a.flight,
-            a.dash,
-            a.ledge,
             a.body_mode,
             a.env_contact,
             a.abilities,
-            a.dodge,
             a.shield,
             a.attack.swing.as_ref(),
             ambition_actors::character_sprites::ActorAnimState {

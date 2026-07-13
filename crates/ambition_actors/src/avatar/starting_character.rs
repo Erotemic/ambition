@@ -135,12 +135,10 @@ fn sync_worn_motion_model_preserving_state(
     catalog: &CharacterCatalog,
     character_id: &str,
     current: &mut MotionModel,
-    clusters: &mut ambition_engine_core::BodyClustersMut<'_>,
 ) {
     ambition_engine_core::switch_motion_model(
         current,
         motion_model_spec_for_character_id(catalog, character_id),
-        clusters,
     );
 }
 
@@ -283,11 +281,10 @@ pub fn apply_worn_character_gameplay(
             &mut ActionSet,
             &mut ActorMoveset,
             Ref<crate::actor::BodyAbilities>,
+            // The one transition seam (`switch_motion_model`): a cross-model
+            // re-wear initializes destination-private state inside the new
+            // variant value; no cluster is touched (ADR 0024).
             &mut MotionModel,
-            // The full body clusters, so a cross-model re-wear initializes the
-            // destination policy's cluster-resident private state through the
-            // ONE transition seam (`switch_motion_model`).
-            ambition_engine_core::BodyClusterQueryData,
             Has<ambition_projectiles::PlayerProjectileState>,
         ),
         Or<(Changed<WornCharacter>, Changed<crate::actor::BodyAbilities>)>,
@@ -307,7 +304,6 @@ pub fn apply_worn_character_gameplay(
         mut moveset,
         abilities,
         mut motion_model,
-        mut cluster_item,
         has_projectile_state,
     ) in &mut worn
     {
@@ -332,8 +328,7 @@ pub fn apply_worn_character_gameplay(
             // a wear/re-wear may replace the model; doing this for a live
             // ability edit would reset SurfaceMomentum's persistent riding
             // state to Airborne.
-            let mut clusters = cluster_item.as_clusters_mut();
-            sync_worn_motion_model_preserving_state(&catalog, id, &mut motion_model, &mut clusters);
+            sync_worn_motion_model_preserving_state(&catalog, id, &mut motion_model);
             continue;
         }
 

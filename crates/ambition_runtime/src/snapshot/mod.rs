@@ -1135,6 +1135,12 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
         "published by the frame resolution phase every tick from the live environment",
     );
 
+    // ADR 0024 O4: the semantic maneuver projection is rewritten from the
+    // body's (snapshotted) `MotionModel` after every movement step.
+    registry.declare_derived::<ambition_engine_core::BodyMotionFacts>(
+        "republished from the body's movement policy after every movement step",
+    );
+
     // The SimView and its indexes: netcode.md excludes these structurally
     // ("rebuilt every tick by construction").
     registry.declare_derived::<ambition_sim_view::BodyPoseView>(

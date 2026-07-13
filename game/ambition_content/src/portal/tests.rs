@@ -26,6 +26,35 @@ const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::ORANGE);
 const PURPLE: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple);
 const YELLOW: PortalChannel = PortalChannel::Authored(PortalChannelColor::Yellow);
 
+/// Step a scratch body one tick through the REAL unified kernel with an
+/// axis-swept policy refreshed from `tuning` (the scratch's own model is
+/// threaded, so maneuver state persists across ticks like a live entity).
+fn step_axis_scratch(
+    world: &ae::World,
+    scratch: &mut ae::BodyClusterScratch,
+    input: ae::InputState,
+    dt: f32,
+    tuning: ae::movement::MovementTuning,
+) {
+    let frame = ae::MotionFrame::from_direction(ae::DEFAULT_GRAVITY_DIR, tuning.gravity);
+    let (model, mut clusters) = scratch.parts();
+    ae::switch_motion_model(
+        model,
+        ae::MotionModelSpec::AxisSwept(tuning.axis_swept_params()),
+    );
+    ae::step_motion(
+        model,
+        &mut clusters,
+        ae::MotionStepContext {
+            world,
+            input,
+            frame,
+            facing_intent: input.axes.x,
+            dt,
+        },
+    );
+}
+
 fn world_with_two_walls() -> RoomGeometry {
     // Left wall x[0,20], right wall x[380,400], both y[0,400].
     let blocks = vec![
@@ -1121,9 +1150,7 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
 #[test]
 fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
     use ambition_engine_core::body_clusters::BodyClusterScratch;
-    use ambition_engine_core::movement::{
-        update_player_with_tuning_scratch, InputState, DEFAULT_TUNING,
-    };
+    use ambition_engine_core::movement::{InputState, DEFAULT_TUNING};
     use ambition_portal::{transit_step, TransitStep};
 
     // A floor at y ∈ [880, 920] with the two apertures ALREADY carved (three
@@ -1173,7 +1200,7 @@ fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
         if crossing_speeds.len() >= 40 {
             break;
         }
-        update_player_with_tuning_scratch(
+        step_axis_scratch(
             &world,
             &mut scratch,
             InputState::default(),
@@ -1249,7 +1276,7 @@ fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
 /// pins below.
 fn floor_floor_round_trip_apex(drop: f32, tuning: ae::movement::MovementTuning) -> f32 {
     use ambition_engine_core::body_clusters::BodyClusterScratch;
-    use ambition_engine_core::movement::{update_player_with_tuning_scratch, InputState};
+    use ambition_engine_core::movement::InputState;
     use ambition_portal::{transit_step, TransitStep};
 
     let floor_y = 3000.0;
@@ -1291,7 +1318,7 @@ fn floor_floor_round_trip_apex(drop: f32, tuning: ae::movement::MovementTuning) 
     let mut transferred = false;
     let mut apex_y = f32::INFINITY;
     for _ in 0..4000 {
-        update_player_with_tuning_scratch(&world, &mut scratch, InputState::default(), dt, tuning);
+        step_axis_scratch(&world, &mut scratch, InputState::default(), dt, tuning);
         let step = transit_step(
             scratch.kinematics.pos,
             size,

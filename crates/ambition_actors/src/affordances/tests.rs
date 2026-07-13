@@ -10,7 +10,7 @@ use ambition_engine_core as ae;
 /// `app.update()` so the affordance compute chain runs end-to-end
 /// without pulling in the whole sandbox plugin graph.
 fn build_test_app() -> (App, Entity) {
-    use crate::actor::{BodyEnvironmentContact, BodyGroundState, BodyLedgeState, BodyModeState};
+    use crate::actor::{BodyEnvironmentContact, BodyGroundState, BodyModeState};
     use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
     use crate::control::PlayerInputFrame;
     use ambition_input::ControlFrame;
@@ -27,8 +27,8 @@ fn build_test_app() -> (App, Entity) {
         .init_resource::<bevy::input::ButtonInput<KeyCode>>()
         .init_resource::<bevy::input::touch::Touches>()
         .add_plugins(AffordancesPlugin);
-    // The affordance compute reads exactly these four cluster
-    // components: ground (on_ground), ledge (grab), body_mode
+    // The affordance compute reads exactly these four body facts:
+    // ground (on_ground), motion facts (ledge), body_mode
     // (body_mode), env_contact (water). Plus kinematics for the
     // intent system's facing read and `PlayerInputFrame` for the
     // actor-local aim. Start with grounded baseline + neutral input.
@@ -43,7 +43,7 @@ fn build_test_app() -> (App, Entity) {
                 on_ground: true,
                 ..Default::default()
             },
-            BodyLedgeState::default(),
+            ae::BodyMotionFacts::default(),
             BodyModeState::default(),
             BodyEnvironmentContact::default(),
             crate::physics::ResolvedMotionFrame::default(),
@@ -129,13 +129,14 @@ fn airborne_player_with_down_aim_reads_as_dair() {
 fn ledge_grab_flips_jump_and_shield() {
     let (mut app, player_entity) = build_test_app();
     {
+        // The affordance compute reads the published projection; no movement
+        // step runs in this harness, so pin the fact directly.
         let mut entity = app.world_mut().entity_mut(player_entity);
-        let mut ledge = entity.get_mut::<crate::actor::BodyLedgeState>().unwrap();
-        ledge.grab = Some(ae::LedgeGrabState::hanging(ae::LedgeContact {
-            wall_normal_x: 1.0,
-            anchor: ae::Vec2::ZERO,
-            climb_target: ae::Vec2::ZERO,
-        }));
+        let mut facts = entity.get_mut::<ae::BodyMotionFacts>().unwrap();
+        facts.ledge = Some(ae::LedgeFacts {
+            climbing: false,
+            getup_kind: ae::LedgeGetupKind::Climb,
+        });
     }
     app.update();
     let aff = read_affordances(&app);

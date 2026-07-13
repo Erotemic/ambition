@@ -810,6 +810,7 @@ pub fn integrate_sim_bodies(
             Option<&super::super::Mounted>,
             &mut MotionModel,
             &ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
+            &mut ambition_engine_core::BodyMotionFacts,
             Option<super::super::actor_clusters::ActorClusterQueryData>,
         ),
         (
@@ -840,6 +841,7 @@ pub fn integrate_sim_bodies(
             &mut crate::avatar::PlayerBodyFrameOutput,
             &mut MotionModel,
             &ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
+            &mut ambition_engine_core::BodyMotionFacts,
         ),
         With<crate::actor::PlayerEntity>,
     >,
@@ -859,6 +861,7 @@ pub fn integrate_sim_bodies(
         mounted,
         mut motion_model,
         resolved_frame,
+        mut motion_facts,
         clusters,
     ) in &mut actors
     {
@@ -889,6 +892,9 @@ pub fn integrate_sim_bodies(
             &mut vfx,
             &mut hit_events,
         );
+        // Publish the semantic movement facts this step produced (ADR 0024):
+        // presentation/combat consumers read THESE, never policy internals.
+        *motion_facts = ambition_engine_core::BodyMotionFacts::from_model(&motion_model);
     }
 
     // ── HOME/PLAYER bodies, integrated in this SAME phase ──────────────────────
@@ -912,6 +918,7 @@ pub fn integrate_sim_bodies(
         mut frame_out,
         mut motion_model,
         resolved_frame,
+        mut motion_facts,
     ) in &mut players
     {
         let mut clusters = cluster_item.as_clusters_mut();
@@ -932,6 +939,7 @@ pub fn integrate_sim_bodies(
             scaled_dt,
             &overlay,
         );
+        *motion_facts = ambition_engine_core::BodyMotionFacts::from_model(&motion_model);
     }
 }
 
@@ -1017,7 +1025,7 @@ pub fn apply_actor_contact_damage(
         Query<(
             &CenteredAabb,
             &crate::actor::BodyOffense,
-            &crate::actor::BodyDodgeState,
+            &ambition_engine_core::BodyMotionFacts,
             &crate::actor::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
             bevy::prelude::Has<crate::actor::PlayerEntity>,
@@ -1054,11 +1062,11 @@ pub fn apply_actor_contact_damage(
     // Pass 2 — resolve each victim through its published hurtbox.
     let victims = set.p1();
     for (attacker, target_entity, attack) in pending {
-        let Ok((hurtbox, offense, dodge, shield, combat, is_player)) = victims.get(target_entity)
+        let Ok((hurtbox, offense, facts, shield, combat, is_player)) = victims.get(target_entity)
         else {
             continue;
         };
-        if !crate::combat::util::body_vulnerable(offense, dodge, shield, combat) {
+        if !crate::combat::util::body_vulnerable(offense, facts.dodge_rolling, shield, combat) {
             continue;
         }
         if let Some(damage) = attack.hit_event(attacker, target_entity, hurtbox.aabb(), is_player) {

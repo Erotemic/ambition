@@ -161,8 +161,10 @@ fn cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state(
         "wearing sanic selects the momentum policy"
     );
 
-    // Live shared state + stale would-be axis maneuver state accumulated while
-    // riding as sanic.
+    // Live shared state accumulated while riding as sanic. Axis maneuver
+    // state cannot even EXIST under the momentum policy now (it lives inside
+    // the AxisSwept variant, ADR 0024 O4) — the assertions below pin that the
+    // fresh axis destination starts with none.
     let pose = ambition_engine_core::BodyKinematics {
         pos: ambition_engine_core::Vec2::new(321.0, 654.0),
         vel: ambition_engine_core::Vec2::new(900.0, -50.0),
@@ -172,14 +174,6 @@ fn cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state(
     *app.world_mut()
         .get_mut::<ambition_engine_core::BodyKinematics>(entity)
         .unwrap() = pose;
-    app.world_mut()
-        .get_mut::<ambition_engine_core::BodyGroundState>(entity)
-        .unwrap()
-        .coyote_timer = 0.1;
-    app.world_mut()
-        .get_mut::<ambition_engine_core::BodyWallState>(entity)
-        .unwrap()
-        .wall_clinging = true;
     app.world_mut()
         .get_mut::<ambition_engine_core::BodyDashState>(entity)
         .unwrap()
@@ -205,21 +199,14 @@ fn cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state(
         pose,
         "world pose, velocity, and facing survive the swap untouched"
     );
+    let MotionModel::AxisSwept(axis) = app.world().get::<MotionModel>(entity).unwrap() else {
+        unreachable!("asserted axis-swept above");
+    };
     assert_eq!(
-        app.world()
-            .get::<ambition_engine_core::BodyGroundState>(entity)
-            .unwrap()
-            .coyote_timer,
-        0.0,
+        axis.state.coyote_timer, 0.0,
         "the axis destination begins with NO imported coyote grace"
     );
-    assert!(
-        !app.world()
-            .get::<ambition_engine_core::BodyWallState>(entity)
-            .unwrap()
-            .wall_clinging,
-        "no imported wall engagement"
-    );
+    assert!(!axis.state.wall_clinging, "no imported wall engagement");
     assert_eq!(
         app.world()
             .get::<ambition_engine_core::BodyDashState>(entity)

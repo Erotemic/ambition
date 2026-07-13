@@ -348,7 +348,7 @@ fn app_with_victim() -> (App, Entity) {
                 ae::Vec2::new(28.0, 46.0),
             ),
             ambition_engine_core::BodyOffense::default(),
-            ambition_engine_core::BodyDodgeState::default(),
+            ambition_engine_core::BodyMotionFacts::default(),
             ambition_engine_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
         ))
@@ -943,7 +943,7 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
         },
         ae::CenteredAabb::from_center_size(ae::Vec2::new(128.0, 100.0), ae::Vec2::new(28.0, 46.0)),
         ambition_engine_core::BodyOffense::default(),
-        ambition_engine_core::BodyDodgeState::default(),
+        ambition_engine_core::BodyMotionFacts::default(),
         ambition_engine_core::BodyShieldState::default(),
         ambition_characters::actor::BodyCombat::default(),
     ));

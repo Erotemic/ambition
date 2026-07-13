@@ -229,6 +229,9 @@ pub fn start_attack(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
+    // The body's published maneuver facts (ADR 0024): the view's
+    // wall-cling / dashing reads are semantic, not policy internals.
+    facts: &ae::BodyMotionFacts,
     attack: &mut Option<MeleeSwing>,
     // Presentation-only slash-anim timer. `None` for a body with no
     // `BodyAnimFacts` (an actor) — the swing lifecycle is gameplay, the anim is
@@ -257,8 +260,8 @@ pub fn start_attack(
         size: clusters.kinematics.size,
         facing: clusters.kinematics.facing,
         on_ground: clusters.ground.on_ground,
-        wall_clinging: clusters.wall.wall_clinging,
-        dash_timer: clusters.dash.timer,
+        wall_clinging: facts.wall_clinging,
+        dashing: facts.dashing,
         abilities_directional_primary: clusters.abilities.abilities.directional_primary,
     };
     let frame = ae::AccelerationFrame::new(gravity_dir);
@@ -394,6 +397,8 @@ pub fn advance_attack(
     world: &ae::World,
     moving_platforms: &[MovingPlatformState],
     clusters: &mut ae::BodyClustersMut<'_>,
+    // Published maneuver facts for the active-phase strike view (ADR 0024).
+    facts: &ae::BodyMotionFacts,
     attack: &mut Option<MeleeSwing>,
     anim: Option<&mut BodyAnimFacts>,
     tuning: ae::MovementTuning,
@@ -422,8 +427,8 @@ pub fn advance_attack(
             size: clusters.kinematics.size,
             facing: clusters.kinematics.facing,
             on_ground: clusters.ground.on_ground,
-            wall_clinging: clusters.wall.wall_clinging,
-            dash_timer: clusters.dash.timer,
+            wall_clinging: facts.wall_clinging,
+            dashing: facts.dashing,
             abilities_directional_primary: clusters.abilities.abilities.directional_primary,
         };
         // THE gravity-resolved strike box. The authored sprite-manifest box is
@@ -561,6 +566,7 @@ pub fn start_body_melee(
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut bodies: Query<(
         ae::BodyClusterQueryData,
+        &ae::BodyMotionFacts,
         &physics::ResolvedMotionFrame,
         &mut BodyMelee,
         &BodyCombat,
@@ -591,6 +597,7 @@ pub fn start_body_melee(
     for actor in melee_actors {
         let Ok((
             mut cq,
+            facts,
             resolved_frame,
             mut melee,
             combat,
@@ -632,6 +639,7 @@ pub fn start_body_melee(
             &mut sfx_writer,
             &mut vfx_writer,
             &mut clusters,
+            facts,
             &mut melee.swing,
             anim.as_deref_mut(),
             frame,
@@ -677,6 +685,7 @@ pub fn advance_body_melee(
     mut bodies: Query<(
         Entity,
         ae::BodyClusterQueryData,
+        &ae::BodyMotionFacts,
         &physics::ResolvedMotionFrame,
         &mut BodyMelee,
         &ambition_characters::actor::pose::ActorFaction,
@@ -690,6 +699,7 @@ pub fn advance_body_melee(
     for (
         entity,
         mut cq,
+        facts,
         resolved_frame,
         mut melee,
         faction,
@@ -736,6 +746,7 @@ pub fn advance_body_melee(
             &world.0,
             &moving_platforms.0,
             &mut clusters,
+            facts,
             &mut melee.swing,
             anim.as_deref_mut(),
             tuning,
@@ -818,7 +829,7 @@ mod tests {
                 facing: 1.0,
                 on_ground: false,
                 wall_clinging: false,
-                dash_timer: 0.0,
+                dashing: false,
                 abilities_directional_primary: true,
             };
             attack_hitbox_from_view(&view, attack_spec_from_view(&view, AttackIntent::AirDown))

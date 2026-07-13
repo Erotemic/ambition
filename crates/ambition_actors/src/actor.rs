@@ -88,6 +88,10 @@ pub struct AncillaryMovementBundle {
     /// The per-tick environment-resolved frame artifact (ADR 0024): spawned at
     /// its default and published by the frame resolution phase each sim tick.
     pub frame: ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
+    /// The published semantic movement facts (ADR 0024): rewritten from the
+    /// body's policy after every movement step; THE read surface for
+    /// animation/combat/affordances/HUD instead of policy internals.
+    pub motion_facts: ambition_engine_core::BodyMotionFacts,
 }
 
 impl AncillaryMovementBundle {
@@ -98,6 +102,9 @@ impl AncillaryMovementBundle {
         let ambition_engine_core::BodyClusterScratch {
             abilities,
             kinematics: _,
+            // The movement policy is its own component in ECS; callers spawn it
+            // separately (ADR 0024).
+            model: _,
             base_size,
             ground,
             wall,
@@ -137,6 +144,7 @@ impl AncillaryMovementBundle {
             lifetime,
             combo_trace,
             frame: Default::default(),
+            motion_facts: Default::default(),
         }
     }
 }

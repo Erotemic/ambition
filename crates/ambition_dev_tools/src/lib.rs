@@ -31,7 +31,7 @@ pub use persistence::DeveloperPersistenceSchedulePlugin;
 use bevy::prelude::*;
 
 use ambition_engine_core::{
-    BodyAbilities, BodyBlinkState, BodyDashState, BodyFlightState, BodyJumpState,
+    BodyAbilities, BodyDashState, BodyFlightState, BodyJumpState, MotionModel,
 };
 use ambition_platformer_primitives::markers::PrimaryPlayerOnly;
 use dev_tools::{EditableAbilitySet, EditableMovementTuning};
@@ -48,14 +48,14 @@ pub fn sync_live_player_dev_edits_system(
         (
             &mut BodyAbilities,
             &mut BodyFlightState,
-            &mut BodyBlinkState,
+            &mut MotionModel,
             &mut BodyDashState,
             &mut BodyJumpState,
         ),
         PrimaryPlayerOnly,
     >,
 ) {
-    let Ok((mut abilities, mut flight, mut blink, mut dash, mut jump)) = player_q.single_mut()
+    let Ok((mut abilities, mut flight, mut model, mut dash, mut jump)) = player_q.single_mut()
     else {
         return;
     };
@@ -70,7 +70,7 @@ pub fn sync_live_player_dev_edits_system(
     dev_tools::sync_live_ability_edits_clusters(
         &mut abilities,
         &mut flight,
-        &mut blink,
+        &mut model,
         &mut dash,
         &mut jump,
         desired_abilities,

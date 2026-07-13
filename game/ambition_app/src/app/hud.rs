@@ -29,9 +29,11 @@ pub(super) struct HudCameraParams<'w, 's> {
             &'static ambition::actors::actor::BodyJumpState,
             &'static ambition::actors::actor::BodyMana,
             &'static ambition::actors::actor::BodyModeState,
-            &'static ambition::actors::actor::BodyLedgeState,
+            // The movement policy: the locomotion label + the debug ledge
+            // readout (climb progress) come from the model — this dev HUD
+            // deliberately reads the policy's internals (ADR 0024).
+            &'static ae::MotionModel,
             &'static ambition::actors::actor::BodyFlightState,
-            &'static ambition::actors::actor::BodyBlinkState,
             &'static ambition::actors::actor::BodyComboTrace,
             &'static ambition::characters::actor::BodyHealth,
             &'static ambition::characters::actor::BodyCombat,
@@ -131,9 +133,8 @@ pub(super) fn update_hud(
         hud_jump,
         hud_mana,
         hud_body_mode,
-        hud_ledge,
+        hud_model,
         hud_flight,
-        hud_blink,
         hud_combo,
         hud_health,
         hud_combat,
@@ -235,12 +236,10 @@ pub(super) fn update_hud(
         let joined = map_lines.join("\n");
         format!("\nMAP\n{joined}")
     };
-    // The engine ships a cluster-native `LocomotionState::from_clusters`
-    // that classifies these states from cluster components directly.
-    let locomotion = ae::LocomotionState::from_clusters(
-        hud_ground, hud_wall, hud_flight, hud_dash, hud_blink, hud_ledge,
-    )
-    .label();
+    // The engine ships a body-native `LocomotionState::from_body` that
+    // classifies these states from the policy + shared contact clusters.
+    let locomotion =
+        ae::LocomotionState::from_body(hud_model, hud_ground, hud_wall, hud_flight).label();
     let body_mode = hud_body_mode.body_mode.label();
     let movement_line = format!("\nLOCO: {locomotion}  BODY: {body_mode}");
     let attack_line = hud_attack
@@ -254,18 +253,23 @@ pub(super) fn update_hud(
             format!("\nATTACK: {intent} {phase} {pct:.0}% hits={hits}")
         })
         .unwrap_or_default();
-    let ledge_line = hud_ledge
-        .grab
-        .as_ref()
-        .map(|ledge| {
-            if ledge.climbing {
-                let pct = (ledge.climb_elapsed / ae::LEDGE_CLIMB_TIME).clamp(0.0, 1.0) * 100.0;
-                format!("\nLEDGE: climb {pct:.0}%")
-            } else {
-                "\nLEDGE: hang".to_string()
-            }
-        })
-        .unwrap_or_default();
+    // Debug readout of the axis policy's private hang state (dev-tool read).
+    let ledge_line = match hud_model {
+        ae::MotionModel::AxisSwept(axis) => axis
+            .state
+            .ledge_grab
+            .as_ref()
+            .map(|ledge| {
+                if ledge.climbing {
+                    let pct = (ledge.climb_elapsed / ae::LEDGE_CLIMB_TIME).clamp(0.0, 1.0) * 100.0;
+                    format!("\nLEDGE: climb {pct:.0}%")
+                } else {
+                    "\nLEDGE: hang".to_string()
+                }
+            })
+            .unwrap_or_default(),
+        _ => String::new(),
+    };
     if developer_tools.compact_hud {
         let world_name = &world.0.name;
         let mode_label = mode.get().label();

@@ -93,6 +93,9 @@ pub(crate) fn draw_debug_overlay(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
+            // The movement policy: the overlay is a dev tool and draws the
+            // policy's private internals (ledge anchor, blink aim) directly.
+            &ae::MotionModel,
             Option<&ambition::characters::actor::BodyHealth>,
             &ambition::actors::actor::BodyMelee,
         ),
@@ -128,7 +131,7 @@ pub(crate) fn draw_debug_overlay(
     } else {
         None
     };
-    let Ok((mut cluster_item, player_health, attack)) = player_q.single_mut() else {
+    let Ok((mut cluster_item, motion_model, player_health, attack)) = player_q.single_mut() else {
         return;
     };
     // Both debug-overlay helpers (`draw_player_debug`,
@@ -172,6 +175,7 @@ pub(crate) fn draw_debug_overlay(
         &mut gizmos,
         world,
         &clusters,
+        motion_model,
         &platform_set.0,
         attack.swing.as_ref(),
         actions,

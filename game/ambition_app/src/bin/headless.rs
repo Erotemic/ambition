@@ -126,6 +126,21 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             combat_q.single(sim.world()).cloned().unwrap_or_default()
         };
 
+        // The movement policy + its published projection (ADR 0024): the
+        // locomotion label reads the model; the trace flags read facts. Both
+        // copied out before the mutable cluster borrow below.
+        let (motion_model, motion_facts) = {
+            let mut model_q = sim.world_mut().query_filtered::<(
+                &ambition::engine_core::MotionModel,
+                &ambition::engine_core::BodyMotionFacts,
+            ), ambition::actors::actor::PrimaryPlayerOnly>(
+            );
+            let Ok((model, facts)) = model_q.single(sim.world()) else {
+                continue;
+            };
+            (model.clone(), *facts)
+        };
+
         // Query the player's 18 cluster components in one shot via
         // `BodyClusterQueryData::as_clusters_mut()` so the trace
         // recorder can read them through a `BodyClustersMut` view.
@@ -136,18 +151,17 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             continue;
         };
         let clusters = cluster_item.as_clusters_mut();
-        let locomotion_state = ambition::engine_core::LocomotionState::from_clusters(
+        let locomotion_state = ambition::engine_core::LocomotionState::from_body(
+            &motion_model,
             clusters.ground,
             clusters.wall,
             clusters.flight,
-            clusters.dash,
-            clusters.blink,
-            clusters.ledge,
         );
         let body_mode_state = ambition::engine_core::BodyMode::from_clusters(clusters.body_mode);
         record_simulation_frame(
             &mut buffer,
             &clusters,
+            &motion_facts,
             &combat,
             &clock,
             &safety,

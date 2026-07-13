@@ -296,7 +296,7 @@ fn enemy_glider_damages_a_different_faction_actor_physically() {
 fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
     use crate::actor::BodyKinematics;
     use crate::actor::PlayerEntity;
-    use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
+    use crate::actor::{BodyBaseSize, BodyOffense, BodyShieldState};
     use ambition_characters::actor::BodyCombat;
     let mut app = App::new();
     app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
@@ -336,7 +336,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
                 base_size: ae::Vec2::new(24.0, 40.0),
             },
             BodyOffense::default(),
-            BodyDodgeState::default(),
+            ambition_engine_core::BodyMotionFacts::default(),
             // Parry window OPEN.
             BodyShieldState {
                 active: true,
@@ -402,7 +402,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
 fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     use crate::actor::BodyKinematics;
     use crate::actor::PlayerEntity;
-    use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
+    use crate::actor::{BodyBaseSize, BodyOffense, BodyShieldState};
     use ambition_characters::actor::BodyCombat;
     let mut app = App::new();
     app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
@@ -453,7 +453,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
             base_size: ae::Vec2::new(24.0, 40.0),
         },
         BodyOffense::default(),
-        BodyDodgeState::default(),
+        ambition_engine_core::BodyMotionFacts::default(),
         BodyShieldState {
             active: false,
             parry_window_timer: 0.0,

@@ -98,11 +98,8 @@ pub fn rebuild_body_pose_views(
                 Entity,
                 &ambition_actors::actor::BodyKinematics,
                 Option<&ambition_actors::actor::BodyGroundState>,
-                Option<&ambition_actors::actor::BodyWallState>,
-                Option<&ambition_actors::actor::BodyBlinkState>,
+                Option<&ambition_engine_core::BodyMotionFacts>,
                 Option<&ambition_actors::actor::BodyFlightState>,
-                Option<&ambition_actors::actor::BodyDashState>,
-                Option<&ambition_actors::actor::BodyLedgeState>,
                 Option<&BodyCombat>,
                 Option<&ambition_actors::actor::BodyAnimFacts>,
                 Option<&ambition_actors::avatar::PlayerBlinkCameraState>,
@@ -111,7 +108,6 @@ pub fn rebuild_body_pose_views(
                 Option<&ambition_actors::actor::BodyModeState>,
                 Option<&ambition_actors::actor::BodyEnvironmentContact>,
                 Option<&ambition_actors::actor::BodyAbilities>,
-                Option<&ambition_actors::actor::BodyDodgeState>,
                 Option<&ambition_actors::actor::BodyShieldState>,
                 Option<&ambition_actors::actor::BodyMelee>,
                 Option<&ambition_engine_core::BodyBaseSize>,
@@ -130,24 +126,11 @@ pub fn rebuild_body_pose_views(
         .as_deref()
         .map_or(ambition_engine_core::Vec2::Y, |g| g.dir);
     for (
-        (
-            entity,
-            kinematics,
-            ground,
-            wall,
-            blink,
-            flight,
-            dash,
-            ledge,
-            combat,
-            anim_facts,
-            blink_cam,
-        ),
+        (entity, kinematics, ground, motion_facts, flight, combat, anim_facts, blink_cam),
         (
             body_mode,
             env_contact,
             abilities,
-            dodge,
             shield,
             active_attack,
             base_size,
@@ -166,14 +149,14 @@ pub fn rebuild_body_pose_views(
         // used to require — a partial body keeps `Idle` (it never animated
         // before either) while its transform facts stay live.
         let anim = match (
-            (ground, wall, blink, flight, dash, ledge),
+            (ground, motion_facts, flight),
             (combat, anim_facts, blink_cam),
-            (body_mode, env_contact, abilities, dodge, shield),
+            (body_mode, env_contact, abilities, shield),
         ) {
             (
-                (Some(ground), Some(wall), Some(blink), Some(flight), Some(dash), Some(ledge)),
+                (Some(ground), Some(motion_facts), Some(flight)),
                 (Some(combat), Some(anim_facts), Some(blink_cam)),
-                (Some(body_mode), Some(env_contact), Some(abilities), Some(dodge), Some(shield)),
+                (Some(body_mode), Some(env_contact), Some(abilities), Some(shield)),
             ) => ambition_actors::character_sprites::pick_player_anim(
                 anim_facts,
                 combat,
@@ -181,15 +164,11 @@ pub fn rebuild_body_pose_views(
                 active_attack.and_then(|a| a.swing.as_ref()),
                 kinematics,
                 ground,
-                wall,
-                blink,
+                motion_facts,
                 flight,
-                dash,
-                ledge,
                 body_mode,
                 env_contact,
                 abilities,
-                dodge,
                 shield,
             ),
             _ => CharacterAnim::Idle,

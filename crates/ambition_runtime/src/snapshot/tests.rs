@@ -299,19 +299,10 @@ fn every_engine_codec_round_trips_exactly() {
     // and an omitted field is exactly what `encode ∘ decode ∘ encode` cannot see.
     // `every_registered_component_survives_a_world_round_trip` below is the one
     // that catches it, by comparing hashes of a world rather than of a value.
-    round_trip(bc::BodyGroundState {
-        on_ground: true,
-        coyote_timer: 0.1,
-        drop_through_timer: -0.0,
-        rebound_cooldown: 3.0,
-    });
+    round_trip(bc::BodyGroundState { on_ground: true });
     round_trip(bc::BodyWallState {
         on_wall: true,
         wall_normal_x: -1.0,
-        wall_clinging: false,
-        wall_climbing: true,
-        pre_wall_vel: Vec2::new(1.0, 2.0),
-        pre_wall_vel_age: 0.5,
     });
     round_trip(bc::BodyJumpState {
         air_jumps_available: 2,
@@ -321,28 +312,14 @@ fn every_engine_codec_round_trips_exactly() {
     });
     round_trip(bc::BodyDashState {
         charges_available: 255,
-        timer: 0.2,
         cooldown: 0.3,
     });
     round_trip(bc::BodyFlightState {
         fly_enabled: true,
-        flight_phase: 6.28,
-        gliding: true,
-        fast_falling: false,
         carried_run: -12.0,
     });
-    round_trip(bc::BodyBlinkState {
-        cooldown: 1.0,
-        hold_active: true,
-        hold_timer: 0.4,
-        aiming: true,
-        aim_offset: Vec2::new(-3.0, 4.0),
-        grace_timer: 0.05,
-    });
-    round_trip(bc::BodyDodgeState {
-        roll_timer: 0.1,
-        cooldown: 0.9,
-    });
+    round_trip(bc::BodyBlinkState { cooldown: 1.0 });
+    round_trip(bc::BodyDodgeState { cooldown: 0.9 });
     round_trip(bc::BodyShieldState {
         active: true,
         parry_window_timer: 0.08,
@@ -357,13 +334,51 @@ fn every_engine_codec_round_trips_exactly() {
         max_speed: 1200.0,
     });
     round_trip(bc::BodyActionBuffer {
-        jump: 0.1,
-        dash: 0.2,
         attack: 0.3,
         pogo: 0.4,
         projectile: 0.5,
-        blink: 0.6,
     });
+    // The axis policy's PRIVATE maneuver state rides inside the MotionModel
+    // codec (ADR 0024 O4): every field — timers, buffers, blink telegraph,
+    // the ledge hang state machine — must survive the round trip.
+    {
+        use ambition_engine_core::ledge_grab::{LedgeContact, LedgeGrabState};
+        use ambition_engine_core::{AxisManeuverState, AxisSweptMotion, MotionModel};
+        let mut grab = LedgeGrabState::hanging(LedgeContact {
+            wall_normal_x: -1.0,
+            anchor: Vec2::new(86.0, 110.0),
+            climb_target: Vec2::new(115.0, 77.0),
+        });
+        grab.elapsed = 0.3;
+        grab.climbing = true;
+        grab.momentum_at_grab = Vec2::new(400.0, -50.0);
+        round_trip(MotionModel::AxisSwept(AxisSweptMotion {
+            params: Default::default(),
+            state: AxisManeuverState {
+                coyote_timer: 0.1,
+                drop_through_timer: -0.0,
+                rebound_cooldown: 3.0,
+                wall_clinging: true,
+                wall_climbing: false,
+                pre_wall_vel: Vec2::new(1.0, 2.0),
+                pre_wall_vel_age: 0.5,
+                buffer_jump: 0.1,
+                buffer_dash: 0.2,
+                buffer_blink: 0.6,
+                dash_timer: 0.2,
+                blink_hold_active: true,
+                blink_hold_timer: 0.4,
+                blink_aiming: true,
+                blink_aim_offset: Vec2::new(-3.0, 4.0),
+                blink_grace_timer: 0.05,
+                dodge_roll_timer: 0.1,
+                ledge_grab: Some(grab),
+                gliding: true,
+                fast_falling: false,
+                flight_phase: 6.28,
+            },
+        }));
+    }
     round_trip(bc::BodyBaseSize {
         base_size: Vec2::new(16.0, 32.0),
     });
@@ -473,19 +488,23 @@ fn every_registered_component_survives_a_world_round_trip() {
     let reg = engine_registry();
     let mut world = sim_world();
     let id = *live_ids(&mut world).get("placement:boss-1").unwrap();
+    // The grace timers / active-dash countdown live INSIDE the model variant
+    // now (ADR 0024 O4); the clusters keep the contact fact and the resources.
+    let mut model = ambition_engine_core::MotionModel::default();
+    if let ambition_engine_core::MotionModel::AxisSwept(axis) = &mut model {
+        axis.state.coyote_timer = 0.125;
+        axis.state.drop_through_timer = 0.25;
+        axis.state.rebound_cooldown = 0.5;
+        axis.state.dash_timer = 0.75;
+    }
     world.entity_mut(id).insert((
-        bc::BodyGroundState {
-            on_ground: true,
-            coyote_timer: 0.125,
-            drop_through_timer: 0.25,
-            rebound_cooldown: 0.5,
-        },
+        bc::BodyGroundState { on_ground: true },
         bc::BodyDashState {
             charges_available: 3,
-            timer: 0.75,
             cooldown: 1.5,
         },
         bc::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
+        model,
     ));
     let before = reg.hash_world(&world);
     let snap = take(&world, &reg);
@@ -494,13 +513,20 @@ fn every_registered_component_survives_a_world_round_trip() {
         bc::BodyGroundState::default(),
         bc::BodyDashState::default(),
         bc::BodyAbilities::new(ambition_engine_core::AbilitySet::basic()),
+        ambition_engine_core::MotionModel::default(),
     ));
     assert_ne!(reg.hash_world(&world), before);
 
     restore(&mut world, &snap, &reg).unwrap();
     assert_eq!(reg.hash_world(&world), before);
-    let ground = *world.entity(id).get::<bc::BodyGroundState>().unwrap();
-    assert_eq!(ground.coyote_timer, 0.125, "the timer came back");
+    let ambition_engine_core::MotionModel::AxisSwept(axis) = world
+        .entity(id)
+        .get::<ambition_engine_core::MotionModel>()
+        .unwrap()
+    else {
+        panic!("restore must bring back the axis policy");
+    };
+    assert_eq!(axis.state.coyote_timer, 0.125, "the timer came back");
     assert_eq!(
         world
             .entity(id)
@@ -1759,8 +1785,8 @@ fn two_equal_worlds_take_equal_snapshots() {
 #[test]
 fn restore_rewinds_the_movement_policy_and_its_private_state() {
     use ambition_engine_core::{
-        AdhesiveCrawlerMotion, CrawlerParams, CrawlerState, MomentumParams, MotionModel,
-        SurfaceMomentumMotion, SurfaceMotion, SurfaceRef,
+        AdhesiveCrawlerMotion, AxisManeuverState, AxisSweptMotion, CrawlerParams, CrawlerState,
+        MomentumParams, MotionModel, SurfaceMomentumMotion, SurfaceMotion, SurfaceRef,
     };
 
     let reg = engine_registry();
@@ -1797,17 +1823,38 @@ fn restore_rewinds_the_movement_policy_and_its_private_state() {
             }),
         ))
         .id();
+    // An axis body mid-maneuver: its private state (ADR 0024 O4) rides the
+    // MotionModel codec, so a rewind resumes the dash / cling / coyote grace.
+    let maneuver = AxisManeuverState {
+        coyote_timer: 0.09,
+        dash_timer: 0.14,
+        wall_clinging: true,
+        buffer_jump: 0.05,
+        blink_grace_timer: 0.2,
+        ..Default::default()
+    };
+    let jumper = world
+        .spawn((
+            SimId::placement("jumper"),
+            kin(Vec2::new(1.0, 2.0), Vec2::new(300.0, -100.0)),
+            MotionModel::AxisSwept(AxisSweptMotion {
+                params: Default::default(),
+                state: maneuver,
+            }),
+        ))
+        .id();
 
     let snap = take(&world, &reg);
 
-    // Wreck both policies: swap the rider to axis-swept (losing its ride) and
-    // shed the crawler.
+    // Wreck all three policies: swap the rider to axis-swept (losing its
+    // ride), shed the crawler, and clear the jumper's in-flight maneuvers.
     world.entity_mut(rider).insert(MotionModel::default());
     world
         .entity_mut(crawler)
         .insert(MotionModel::AdhesiveCrawler(AdhesiveCrawlerMotion::new(
             CrawlerParams::default(),
         )));
+    world.entity_mut(jumper).insert(MotionModel::default());
 
     restore(&mut world, &snap, &reg).unwrap();
 
@@ -1829,4 +1876,13 @@ fn restore_rewinds_the_movement_policy_and_its_private_state() {
         "the clung surface rewound"
     );
     assert_eq!(motion.params.crawl_speed, 77.0);
+
+    let restored = world.get::<MotionModel>(jumper).unwrap();
+    let MotionModel::AxisSwept(axis) = restored else {
+        panic!("restore must bring back the axis policy");
+    };
+    assert_eq!(
+        axis.state, maneuver,
+        "the axis policy's private maneuver state rewound exactly"
+    );
 }

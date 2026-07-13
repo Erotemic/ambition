@@ -145,32 +145,38 @@ pub fn integrate_home_body(
         axis.params = axis_tuning.axis_swept_params();
     }
 
-    // Ledge-platform carry is an axis-swept model-private affordance.  The
-    // movement dispatch itself remains one call for every policy.
-    if matches!(motion_model, crate::features::MotionModel::AxisSwept(_)) {
-        let player_aabb_pre = clusters.kinematics.aabb();
+    // Ledge-platform carry is an axis-swept model-private affordance (the hang
+    // state lives inside the variant, ADR 0024).  The movement dispatch itself
+    // remains one call for every policy.
+    let ledge_carry_delta = if let crate::features::MotionModel::AxisSwept(axis) = motion_model {
         let player_size_pre = clusters.kinematics.size;
-        let active_ledge_platform = clusters.ledge.grab.and_then(|grab| {
-            moving_platforms.iter().position(|platform| {
-                platform.matches_ledge_contact_in_frame(
-                    grab.contact,
-                    player_size_pre,
-                    motion_frame.down(),
-                )
+        axis.state
+            .ledge_grab
+            .and_then(|grab| {
+                moving_platforms.iter().position(|platform| {
+                    platform.matches_ledge_contact_in_frame(
+                        grab.contact,
+                        player_size_pre,
+                        motion_frame.down(),
+                    )
+                })
             })
-        });
-        if let Some(platform_delta) =
-            active_ledge_platform.map(|idx| moving_platforms[idx].last_delta())
-        {
-            match ledge_platform_carry(world, player_aabb_pre, platform_delta) {
-                LedgePlatformCarry::KnockOff => {
-                    clusters.ledge.knock_off_on_hit();
-                }
-                LedgePlatformCarry::Carry => {
-                    // Parent-frame carry (ADR 0024 external-constraint
-                    // authority): the platform moves the grabbed body.
-                    ae::movement::carry_body(clusters.kinematics, platform_delta);
-                    if let Some(grab) = clusters.ledge.grab.as_mut() {
+            .map(|idx| moving_platforms[idx].last_delta())
+    } else {
+        None
+    };
+    if let Some(platform_delta) = ledge_carry_delta {
+        let player_aabb_pre = clusters.kinematics.aabb();
+        match ledge_platform_carry(world, player_aabb_pre, platform_delta) {
+            LedgePlatformCarry::KnockOff => {
+                ae::movement::knock_off_ledge(motion_model, clusters.ledge);
+            }
+            LedgePlatformCarry::Carry => {
+                // Parent-frame carry (ADR 0024 external-constraint
+                // authority): the platform moves the grabbed body.
+                ae::movement::carry_body(clusters.kinematics, platform_delta);
+                if let crate::features::MotionModel::AxisSwept(axis) = motion_model {
+                    if let Some(grab) = axis.state.ledge_grab.as_mut() {
                         grab.contact.anchor += platform_delta;
                         grab.contact.climb_target += platform_delta;
                     }

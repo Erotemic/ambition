@@ -369,11 +369,11 @@ pub fn apply_movement_profile(
 /// Apply live ability-flag edits without rebuilding the player every frame.
 ///
 /// Mutates `BodyAbilities` + side-effects on `BodyFlightState`,
-/// `BodyBlinkState`, `BodyDashState`, and `BodyJumpState` directly.
+/// `MotionModel`, `BodyDashState`, and `BodyJumpState` directly.
 pub fn sync_live_ability_edits_clusters(
     abilities: &mut ambition_engine_core::BodyAbilities,
     flight: &mut ambition_engine_core::BodyFlightState,
-    blink: &mut ambition_engine_core::BodyBlinkState,
+    model: &mut ambition_engine_core::MotionModel,
     dash: &mut ambition_engine_core::BodyDashState,
     jump: &mut ambition_engine_core::BodyJumpState,
     desired: ae::AbilitySet,
@@ -387,9 +387,14 @@ pub fn sync_live_ability_edits_clusters(
         flight.fly_enabled = false;
     }
     if !desired.blink {
-        blink.hold_active = false;
-        blink.hold_timer = 0.0;
-        blink.aiming = false;
+        // Cancel any in-flight blink telegraph: hold/aim state is the axis
+        // policy's private maneuver state (ADR 0024), so this deliberate
+        // dev-tools poke goes through the model variant.
+        if let ambition_engine_core::MotionModel::AxisSwept(axis) = model {
+            axis.state.blink_hold_active = false;
+            axis.state.blink_hold_timer = 0.0;
+            axis.state.blink_aiming = false;
+        }
     }
     // Inline `refresh_movement_resources(tuning)` for the cluster path.
     dash.charges_available = desired.dash_charge_count();

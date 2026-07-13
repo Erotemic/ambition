@@ -223,8 +223,8 @@ pub struct BodyAnimFacts {
     /// Previous frame's pre-landing downward velocity; used to grade
     /// hard vs. soft landings.
     pub anim_prev_vel_y: f32,
-    /// Previous frame's `dash_timer`; used to detect the dash rising edge.
-    pub anim_prev_dash_timer: f32,
+    /// Previous frame's `dashing` fact; used to detect the dash rising edge.
+    pub anim_prev_dashing: bool,
     /// Time remaining for the projectile-release `Shoot` pose. Armed by
     /// `update_projectiles` whenever a projectile body is spawned (any
     /// kind — Fireball/Hadouken/HadoukenSuper). Single-shot, short.

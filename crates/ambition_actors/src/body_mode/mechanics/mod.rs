@@ -56,10 +56,7 @@ pub fn update_body_mode(
         &mut crate::actor::BodyJumpState,
         &crate::actor::BodyGroundState,
         &crate::features::MotionModel,
-        &crate::actor::BodyWallState,
-        &crate::actor::BodyDashState,
-        &crate::actor::BodyBlinkState,
-        &crate::actor::BodyLedgeState,
+        &ae::BodyMotionFacts,
         &crate::actor::BodyEnvironmentContact,
         &ambition_characters::brain::ActorControl,
         (
@@ -83,10 +80,7 @@ pub fn update_body_mode(
         mut jump_state,
         ground,
         motion,
-        wall,
-        dash,
-        blink,
-        ledge,
+        facts,
         env_contact,
         control,
         (caps, flight, resolved_frame),
@@ -104,12 +98,12 @@ pub fn update_body_mode(
         let control = &control.0;
 
         // Mid-action mechanics own the body shape — don't fight them.
-        if dash.timer > 0.0 || blink.aiming {
+        if facts.dashing || facts.blink_aiming {
             continue;
         }
         // Wall / ledge state owns its own posture; reverting it via crouch
         // would break the ledge-grab anchor invariant.
-        if wall.wall_clinging || wall.wall_climbing || ledge.grab.is_some() {
+        if facts.wall_clinging || facts.wall_climbing || facts.ledge.is_some() {
             continue;
         }
         // In-water posture: leave water swim mechanics alone.

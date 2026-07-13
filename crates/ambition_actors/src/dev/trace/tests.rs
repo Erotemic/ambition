@@ -66,7 +66,7 @@ fn ring_buffer_caps_at_capacity() {
                 dash_charges_available: 0,
                 air_jumps_available: 0,
                 blink_aiming: false,
-                blink_grace_timer: 0.0,
+                blink_grace: false,
                 locomotion: "Airborne".into(),
                 body_mode: "Standing".into(),
                 last_safe_pos: TracePoint::default(),
@@ -183,6 +183,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
+        &ae::BodyMotionFacts::default(),
         &ambition_characters::actor::BodyCombat::default(),
         &ambition_time::ClockState::default(),
         &crate::avatar::PlayerSafetyState::default(),
@@ -214,6 +215,7 @@ fn write_dump_writes_two_files() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
+        &ae::BodyMotionFacts::default(),
         &ambition_characters::actor::BodyCombat::default(),
         &ambition_time::ClockState::default(),
         &crate::avatar::PlayerSafetyState::default(),
@@ -287,6 +289,7 @@ fn synthesizes_input_edge_event_on_button_press() {
     update_previous_snapshot(
         &mut buf,
         &clusters,
+        &ae::BodyMotionFacts::default(),
         20,
         ControlFrame::default(),
         "test",
@@ -299,6 +302,7 @@ fn synthesizes_input_edge_event_on_button_press() {
     synthesize_events_from_diff(
         &mut buf,
         &clusters,
+        &ae::BodyMotionFacts::default(),
         20,
         controls,
         0.016,
@@ -336,6 +340,7 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
         update_previous_snapshot(
             &mut buf,
             &clusters_prev,
+            &ae::BodyMotionFacts::default(),
             20,
             ControlFrame::default(),
             "square_arena",
@@ -353,6 +358,7 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
     synthesize_events_from_diff(
         &mut buf,
         &clusters_cur,
+        &ae::BodyMotionFacts::default(),
         20,
         ControlFrame::default(),
         0.0069,
@@ -395,6 +401,7 @@ fn portal_transit_window_suppresses_teleport_autodump() {
         update_previous_snapshot(
             &mut buf,
             &clusters_prev,
+            &ae::BodyMotionFacts::default(),
             20,
             ControlFrame::default(),
             "square_arena",
@@ -412,6 +419,7 @@ fn portal_transit_window_suppresses_teleport_autodump() {
     synthesize_events_from_diff(
         &mut buf,
         &clusters_cur,
+        &ae::BodyMotionFacts::default(),
         20,
         ControlFrame::default(),
         0.0069,
@@ -442,6 +450,7 @@ fn reset_emits_event_and_suppresses_teleport_event() {
         update_previous_snapshot(
             &mut buf,
             &clusters_prev,
+            &ae::BodyMotionFacts::default(),
             20,
             ControlFrame::default(),
             "test",
@@ -456,6 +465,7 @@ fn reset_emits_event_and_suppresses_teleport_event() {
     synthesize_events_from_diff(
         &mut buf,
         &clusters_cur,
+        &ae::BodyMotionFacts::default(),
         20,
         ControlFrame::default(),
         0.016,
@@ -489,6 +499,7 @@ fn frame_includes_moving_platform_state() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
+        &ae::BodyMotionFacts::default(),
         &ambition_characters::actor::BodyCombat::default(),
         &ambition_time::ClockState::default(),
         &crate::avatar::PlayerSafetyState::default(),

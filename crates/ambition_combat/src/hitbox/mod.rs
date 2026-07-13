@@ -85,7 +85,7 @@ pub fn apply_hitbox_damage(
         Option<&ambition_characters::brain::Brain>,
         (
             &ambition_engine_core::BodyOffense,
-            &ambition_engine_core::BodyDodgeState,
+            &ambition_engine_core::BodyMotionFacts,
             &ambition_engine_core::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
         ),
@@ -208,9 +208,14 @@ pub fn apply_hitbox_damage(
                     // read below is FEEDBACK policy only: don't play the
                     // hit-landed sfx/burst for a hit the consumer will ignore
                     // (dodge roll, parry, i-frame window).
-                    let (offense, dodge, shield, combat) = vuln;
-                    let feedback =
-                        !is_player || crate::util::body_vulnerable(offense, dodge, shield, combat);
+                    let (offense, facts, shield, combat) = vuln;
+                    let feedback = !is_player
+                        || crate::util::body_vulnerable(
+                            offense,
+                            facts.dodge_rolling,
+                            shield,
+                            combat,
+                        );
                     let impact = midpoint(victim_aabb.center, world_volume.center());
                     if feedback {
                         vfx.write(VfxMessage::Impact { pos: impact });

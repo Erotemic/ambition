@@ -21,18 +21,18 @@ pub fn advance_actor_anim_overlays(
         (
             &crate::actor::BodyGroundState,
             &crate::actor::BodyKinematics,
-            &crate::actor::BodyDashState,
+            &ambition_engine_core::BodyMotionFacts,
             &mut crate::actor::BodyAnimFacts,
         ),
         Without<crate::actor::PlayerEntity>,
     >,
 ) {
     let dt = world_time.sim_dt();
-    for (ground, kin, dash, mut anim) in &mut actors {
+    for (ground, kin, facts, mut anim) in &mut actors {
         crate::features::advance_body_anim_overlays(
             ground.on_ground,
             kin.vel.y,
-            dash.timer,
+            facts.dashing,
             &mut anim,
             dt,
         );

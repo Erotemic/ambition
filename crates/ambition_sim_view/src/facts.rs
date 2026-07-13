@@ -505,14 +505,14 @@ pub fn rebuild_blink_preview_fact(
     player_q: Query<(
         &BodyKinematics,
         &ambition_engine_core::BodyAbilities,
-        &ambition_engine_core::BodyBlinkState,
+        &ambition_engine_core::BodyMotionFacts,
     )>,
 ) {
     use ambition_engine_core as ae;
     use ambition_input::read_gameplay_control_frame;
 
     fact.active = false;
-    let Ok((kin, abilities, blink_state)) =
+    let Ok((kin, abilities, motion_facts)) =
         controlled.0.and_then(|e| player_q.get(e).ok()).ok_or(())
     else {
         return;
@@ -524,7 +524,7 @@ pub fn rebuild_blink_preview_fact(
     };
     let controls = actions.map(read_gameplay_control_frame).unwrap_or_default();
 
-    if !(abilities.abilities.blink && (controls.blink_held || blink_state.aiming)) {
+    if !(abilities.abilities.blink && (controls.blink_held || motion_facts.blink_aiming)) {
         return;
     }
 
@@ -533,12 +533,12 @@ pub fn rebuild_blink_preview_fact(
     // resolves against, so the preview must use it too.
     let blink_world =
         ambition_actors::world::platforms::world_with_moving_platforms(&world.0, &platform_set.0);
-    let target = if blink_state.aiming {
+    let target = if motion_facts.blink_aiming {
         ae::blink_destination_to_point_clusters(
             &blink_world,
             kin,
             abilities,
-            kin.pos + blink_state.aim_offset,
+            kin.pos + motion_facts.blink_aim_offset,
         )
     } else {
         let aim = ae::Vec2::new(controls.axis_x, controls.axis_y)
@@ -549,7 +549,7 @@ pub fn rebuild_blink_preview_fact(
     *fact = BlinkPreviewFact {
         active: true,
         target,
-        precision: blink_state.aiming,
+        precision: motion_facts.blink_aiming,
         body_min_extent: kin.size.min_element(),
     };
 }

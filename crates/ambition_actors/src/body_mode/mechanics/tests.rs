@@ -5,8 +5,7 @@
 use super::*;
 use crate::actor::BodyKinematics;
 use crate::actor::{
-    BodyBaseSize, BodyBlinkState, BodyDashState, BodyEnvironmentContact, BodyGroundState,
-    BodyJumpState, BodyLedgeState, BodyModeState, BodyWallState,
+    BodyBaseSize, BodyEnvironmentContact, BodyGroundState, BodyJumpState, BodyModeState,
 };
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::body_mode::BodyModeCapabilities;
@@ -91,10 +90,7 @@ fn build_body_mode_test_app() -> (App, Entity) {
                 ..Default::default()
             },
             (
-                BodyWallState::default(),
-                BodyDashState::default(),
-                BodyBlinkState::default(),
-                BodyLedgeState::default(),
+                ambition_engine_core::BodyMotionFacts::default(),
                 BodyEnvironmentContact::default(),
                 BodyModeState::default(),
                 BodyJumpState::default(),
@@ -128,10 +124,7 @@ fn spawn_mode_body(app: &mut App, pos: Vec2, slot: Option<PlayerSlot>) -> Entity
             ..Default::default()
         },
         (
-            BodyWallState::default(),
-            BodyDashState::default(),
-            BodyBlinkState::default(),
-            BodyLedgeState::default(),
+            ambition_engine_core::BodyMotionFacts::default(),
             BodyEnvironmentContact::default(),
             BodyModeState::default(),
             BodyJumpState::default(),

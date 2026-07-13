@@ -300,7 +300,9 @@ pub struct AttackView {
     pub facing: f32,
     pub on_ground: bool,
     pub wall_clinging: bool,
-    pub dash_timer: f32,
+    /// Semantic fact (`BodyMotionFacts::dashing`) — the raw dash timer is
+    /// policy-private (ADR 0024).
+    pub dashing: bool,
     pub abilities_directional_primary: bool,
 }
 
@@ -337,7 +339,7 @@ pub fn resolve_attack_intent_from_view(
     if view.wall_clinging && back {
         return AttackIntent::WallOut;
     }
-    if view.dash_timer > 0.0 && !back {
+    if view.dashing && !back {
         return AttackIntent::DashForward;
     }
     if !view.on_ground {
@@ -500,7 +502,7 @@ mod tests {
             facing,
             on_ground: false,
             wall_clinging: false,
-            dash_timer: 0.0,
+            dashing: false,
             abilities_directional_primary: ambition_engine_core::AbilitySet::sandbox_all()
                 .directional_primary,
         }

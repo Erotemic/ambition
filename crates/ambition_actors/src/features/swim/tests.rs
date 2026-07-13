@@ -102,8 +102,12 @@ fn swim_ability_jump_press_becomes_upward_impulse() {
         "expected upward (negative) vel.y after swim stroke; got {}",
         scratch.kinematics.vel.y
     );
-    // Buffer must be cleared so the same press can't fire again.
-    assert_eq!(scratch.action_buffer.jump, 0.0);
+    // Buffer must be cleared so the same press can't fire again. The jump
+    // buffer is the axis policy's private maneuver state (ADR 0024).
+    let ae::MotionModel::AxisSwept(axis) = &model else {
+        panic!("test body is not axis-swept");
+    };
+    assert_eq!(axis.state.buffer_jump, 0.0);
 }
 
 /// Without a fresh press, water still applies passive buoyancy

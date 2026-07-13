@@ -53,7 +53,6 @@ mod tests {
         let mut scratch = ae::BodyClusterScratch::new_with_abilities(world.spawn, abilities);
         scratch.kinematics.pos = ae::Vec2::new(86.0, 110.0);
         scratch.kinematics.vel = ae::Vec2::new(30.0, 20.0);
-        scratch.wall.wall_clinging = true;
         scratch.wall.on_wall = true;
         scratch.wall.wall_normal_x = -1.0;
 
@@ -63,9 +62,18 @@ mod tests {
             ..Default::default()
         };
         let mut model = ae::MotionModel::axis_swept(ae::DEFAULT_AXIS_SWEPT_PARAMS);
+        // Maneuver state (cling, ledge grab) is policy-private (ADR 0024):
+        // arrange and assert through the axis variant.
+        let axis_state = |model: &ae::MotionModel| match model {
+            ae::MotionModel::AxisSwept(axis) => axis.state,
+            other => panic!("test body is not axis-swept: {other:?}"),
+        };
+        if let ae::MotionModel::AxisSwept(axis) = &mut model {
+            axis.state.wall_clinging = true;
+        }
         let events = step_axis(&world, &mut scratch, &mut model, input, 0.016);
         assert!(
-            scratch.ledge.grab.is_some(),
+            axis_state(&model).ledge_grab.is_some(),
             "engine tick should latch ledge state"
         );
         assert!(events.operations.contains(&ae::MovementOp::LedgeGrab));
@@ -83,7 +91,10 @@ mod tests {
             saw_start,
             "engine should start the climb after the hang delay"
         );
-        assert!(scratch.ledge.grab.map(|s| s.climbing).unwrap_or(false));
+        assert!(axis_state(&model)
+            .ledge_grab
+            .map(|s| s.climbing)
+            .unwrap_or(false));
 
         let mut saw_finish = false;
         for _ in 0..32 {
@@ -100,7 +111,7 @@ mod tests {
             saw_finish,
             "engine should finish the climb inside simulation ticks"
         );
-        assert!(scratch.ledge.grab.is_none());
+        assert!(axis_state(&model).ledge_grab.is_none());
         assert!(scratch.ground.on_ground);
     }
 }

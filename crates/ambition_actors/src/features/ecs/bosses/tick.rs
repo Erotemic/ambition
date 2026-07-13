@@ -696,6 +696,7 @@ pub fn integrate_boss_bodies(
             // The per-tick resolved frame published by the frame resolution
             // phase — the SAME artifact every other body integrates under.
             &'static ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
+            &'static mut ambition_engine_core::BodyMotionFacts,
         ),
         (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,
@@ -716,6 +717,7 @@ pub fn integrate_boss_bodies(
         mut combat,
         mut motion_model,
         resolved_frame,
+        mut motion_facts,
     ) in &mut bosses
     {
         // Self-heal the collision envelope onto `kin.size` (the seam sweeps it),
@@ -749,6 +751,7 @@ pub fn integrate_boss_bodies(
             &mut vfx,
             &mut hit_events,
         );
+        *motion_facts = ambition_engine_core::BodyMotionFacts::from_model(&motion_model);
     }
 }
 

@@ -26,8 +26,8 @@ fn dummy_attack_spec() -> crate::combat::AttackSpec {
         size: scratch.kinematics.size,
         facing: scratch.kinematics.facing,
         on_ground: scratch.ground.on_ground,
-        wall_clinging: scratch.wall.wall_clinging,
-        dash_timer: scratch.dash.timer,
+        wall_clinging: scratch.axis().wall_clinging,
+        dashing: scratch.axis().dash_timer > 0.0,
         abilities_directional_primary: scratch.abilities.abilities.directional_primary,
     };
     crate::combat::attack_spec_from_view(&view, crate::combat::AttackIntent::Forward)

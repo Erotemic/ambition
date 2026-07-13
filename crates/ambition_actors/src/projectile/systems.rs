@@ -391,7 +391,7 @@ pub fn step_projectiles(
             &crate::physics::ResolvedMotionFrame,
             &crate::features::CenteredAabb,
             &crate::actor::BodyOffense,
-            &crate::actor::BodyDodgeState,
+            &ambition_engine_core::BodyMotionFacts,
             &crate::actor::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
         ),
@@ -568,7 +568,7 @@ pub fn step_projectiles(
                 player_frame,
                 hurtbox,
                 offense,
-                dodge,
+                facts,
                 shield,
                 combat,
             ) in &player_body_q
@@ -605,7 +605,12 @@ pub fn step_projectiles(
                 // The ONE vulnerability rule (§A5). This site had drifted (it
                 // dropped the parry term); behavior is unchanged because a
                 // parrying shield reflects + breaks above before reaching here.
-                if !crate::combat::util::body_vulnerable(offense, dodge, shield, combat) {
+                if !crate::combat::util::body_vulnerable(
+                    offense,
+                    facts.dodge_rolling,
+                    shield,
+                    combat,
+                ) {
                     continue;
                 }
                 // Knockback side in the victim's LOCAL frame (fable review

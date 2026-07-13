@@ -104,7 +104,9 @@ pub struct PlayerTraceState {
     pub dash_charges_available: u8,
     pub air_jumps_available: u8,
     pub blink_aiming: bool,
-    pub blink_grace_timer: f32,
+    /// Post-blink grace i-frames active (the semantic fact; the raw timer is
+    /// policy-private, ADR 0024).
+    pub blink_grace: bool,
     pub locomotion: String,
     pub body_mode: String,
     pub last_safe_pos: TracePoint,
@@ -406,7 +408,7 @@ pub struct PreviousFrameSnapshot {
     pub on_ground: bool,
     pub fly_enabled: bool,
     pub blink_aiming: bool,
-    pub blink_grace_timer: f32,
+    pub blink_grace: bool,
     pub fast_falling: bool,
     pub dash_charges_available: u8,
     pub air_jumps_available: u8,

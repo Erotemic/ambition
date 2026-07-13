@@ -221,12 +221,13 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     }
 }
 
-/// Resolve a [`BodyLedgeState`] into the visual ledge read (`None` ⇒ not on a
-/// ledge): a held hang is `Grab`; once committed the getup-kind selects the
-/// climb / roll / attack getup. SHARED by every body — the player and any actor
-/// that grows a ledge-grab limb route through this one mapping.
-fn ledge_read(ledge: &crate::actor::BodyLedgeState) -> Option<LedgeRead> {
-    ledge.grab.as_ref().map(|s| {
+/// Resolve the published ledge facts ([`ae::LedgeFacts`]) into the visual ledge
+/// read (`None` ⇒ not on a ledge): a held hang is `Grab`; once committed the
+/// getup-kind selects the climb / roll / attack getup. SHARED by every body —
+/// the player and any actor that grows a ledge-grab limb route through this one
+/// mapping.
+fn ledge_read(ledge: Option<ae::LedgeFacts>) -> Option<LedgeRead> {
+    ledge.map(|s| {
         if !s.climbing {
             LedgeRead::Grab
         } else {
@@ -251,8 +252,8 @@ fn compact_from_mode(mode: ambition_engine_core::player_state::BodyMode) -> Comp
 }
 
 /// Fill every [`BodyAnimView`] field that is derived purely from the shared
-/// `Body*` movement/ability clusters — the reads that are IDENTICAL for every
-/// body, player or brain-driven actor. This is the convergence seam: whatever
+/// `Body*` clusters + the published [`ae::BodyMotionFacts`] projection — the
+/// reads that are IDENTICAL for every body, player or brain-driven actor. This is the convergence seam: whatever
 /// state a body's brain drives its real clusters into (a dash, a blink, flight,
 /// a shield, a ladder climb, a wall-grab, a crouch/slide) animates the same way
 /// for everyone, because everyone reads it here.
@@ -264,39 +265,35 @@ fn compact_from_mode(mode: ambition_engine_core::player_state::BodyMode) -> Comp
 /// wall-jump / interact / dash-startup / landing / blink-in), and the locomotion
 /// metric + speed thresholds. `speed` is seeded with the grounded metric
 /// (`|vx|`); an aerial adapter overrides it with total speed.
-pub fn body_view_from_clusters(
+pub fn body_view_from_body(
     kinematics: &crate::actor::BodyKinematics,
     ground: &crate::actor::BodyGroundState,
-    wall: &crate::actor::BodyWallState,
-    blink: &crate::actor::BodyBlinkState,
+    facts: &ae::BodyMotionFacts,
     flight: &crate::actor::BodyFlightState,
-    dash: &crate::actor::BodyDashState,
-    ledge: &crate::actor::BodyLedgeState,
     body_mode: &crate::actor::BodyModeState,
     env_contact: &crate::actor::BodyEnvironmentContact,
     abilities: &crate::actor::BodyAbilities,
-    dodge: &crate::actor::BodyDodgeState,
     shield: &crate::actor::BodyShieldState,
 ) -> BodyAnimView {
     use ambition_engine_core::player_state::BodyMode;
     BodyAnimView {
         // The dodge↔ledge guard: a roll that is part of a ledge getup keeps the
         // dedicated `LedgeRoll` row instead of the grounded `DodgeRoll`.
-        dodge_roll: dodge.roll_timer > 0.0 && ledge.grab.is_none(),
+        dodge_roll: facts.dodge_rolling && facts.ledge.is_none(),
         blocking: shield.active && abilities.abilities.shield,
-        blink_out: blink.aiming || blink.hold_active,
-        ledge: ledge_read(ledge),
+        blink_out: facts.blink_telegraph,
+        ledge: ledge_read(facts.ledge),
         flying: flight.fly_enabled,
         swimming: env_contact.water.is_some() && abilities.abilities.swim,
-        dashing: dash.timer > 0.0,
+        dashing: facts.dashing,
         // High-priority climb (ladder/vine) vs the low-priority compact silhouette
         // (slide/crawl/crouch) are distinct fields checked at distinct priorities.
         ladder_climbing: matches!(body_mode.body_mode, BodyMode::Climbing),
         wall_grab: !ground.on_ground
-            && wall.wall_clinging
-            && !wall.wall_climbing
+            && facts.wall_clinging
+            && !facts.wall_climbing
             && kinematics.vel.y.abs() < 40.0,
-        gliding: flight.gliding,
+        gliding: facts.gliding,
         airborne: !ground.on_ground,
         moving_up: kinematics.vel.y < -10.0, // top-left coords: vel.y < 0 = up
         compact: compact_from_mode(body_mode.body_mode),
@@ -313,33 +310,25 @@ pub fn pick_player_anim(
     attack: Option<&crate::MeleeSwing>,
     kinematics: &crate::actor::BodyKinematics,
     ground: &crate::actor::BodyGroundState,
-    wall: &crate::actor::BodyWallState,
-    blink: &crate::actor::BodyBlinkState,
+    facts: &ae::BodyMotionFacts,
     flight: &crate::actor::BodyFlightState,
-    dash: &crate::actor::BodyDashState,
-    ledge: &crate::actor::BodyLedgeState,
     body_mode: &crate::actor::BodyModeState,
     env_contact: &crate::actor::BodyEnvironmentContact,
     abilities: &crate::actor::BodyAbilities,
-    dodge: &crate::actor::BodyDodgeState,
     shield: &crate::actor::BodyShieldState,
 ) -> CharacterAnim {
     // Movement/ability fields come from the shared cluster builder (identical to
     // every actor); the player overlays its combat-cluster hit read, its own
     // presentation-timer reads, and its grounded thresholds. Each line below is
     // the exact predicate the old per-branch ladder used.
-    let mut v = body_view_from_clusters(
+    let mut v = body_view_from_body(
         kinematics,
         ground,
-        wall,
-        blink,
+        facts,
         flight,
-        dash,
-        ledge,
         body_mode,
         env_contact,
         abilities,
-        dodge,
         shield,
     );
     v.hit = combat.hitstun_timer > 0.05;
@@ -401,7 +390,7 @@ fn directional_attack_anim(attack: Option<&crate::MeleeSwing>) -> CharacterAnim 
 /// The actor-only animation facts that DON'T live in the shared movement
 /// clusters — the disposition reads ([`pick_actor_anim`] pulls everything else,
 /// the rich movement/ability state, straight from the actor's real `Body*`
-/// clusters via [`body_view_from_clusters`], exactly like the player). "Enemy"
+/// clusters via [`body_view_from_body`], exactly like the player). "Enemy"
 /// and "NPC" were never different animation contracts, just dispositions: both
 /// walk, attack, fly, take a hit, and die from the SAME cluster reads, so what an
 /// actor shows is its real ECS state, not its label.
@@ -444,31 +433,23 @@ pub struct ActorAnimState {
 pub fn pick_actor_anim(
     kinematics: &crate::actor::BodyKinematics,
     ground: &crate::actor::BodyGroundState,
-    wall: &crate::actor::BodyWallState,
-    blink: &crate::actor::BodyBlinkState,
+    facts: &ae::BodyMotionFacts,
     flight: &crate::actor::BodyFlightState,
-    dash: &crate::actor::BodyDashState,
-    ledge: &crate::actor::BodyLedgeState,
     body_mode: &crate::actor::BodyModeState,
     env_contact: &crate::actor::BodyEnvironmentContact,
     abilities: &crate::actor::BodyAbilities,
-    dodge: &crate::actor::BodyDodgeState,
     shield: &crate::actor::BodyShieldState,
     swing: Option<&crate::MeleeSwing>,
     state: ActorAnimState,
 ) -> CharacterAnim {
-    let mut v = body_view_from_clusters(
+    let mut v = body_view_from_body(
         kinematics,
         ground,
-        wall,
-        blink,
+        facts,
         flight,
-        dash,
-        ledge,
         body_mode,
         env_contact,
         abilities,
-        dodge,
         shield,
     );
     v.dead = !state.alive;

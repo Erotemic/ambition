@@ -371,6 +371,9 @@ pub(crate) fn draw_player_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
     clusters: &ae::BodyClustersMut<'_>,
+    // Dev-tool read: the overlay draws the policy's private internals (the
+    // ledge anchor/climb-target, the live blink aim) straight off the model.
+    motion_model: &ae::MotionModel,
     moving_platforms: &[ambition::actors::world::platforms::MovingPlatformState],
     attack: Option<&ambition::actors::MeleeSwing>,
     actions: Option<&ActionState<SandboxAction>>,
@@ -386,6 +389,8 @@ pub(crate) fn draw_player_debug(
     let on_ground = clusters.ground.on_ground;
     let on_wall = clusters.wall.on_wall;
     let wall_normal_x = clusters.wall.wall_normal_x;
+    // The overlay's maneuver reads via the same projection the sim publishes.
+    let facts = ae::BodyMotionFacts::from_model(motion_model);
     // The player's body box through the SAME shared combat-geometry path the
     // damage resolution, enemies, and bosses use (`collision_aabb`), so the
     // overlay provably draws the gameplay hurtbox by construction rather than a
@@ -442,8 +447,8 @@ pub(crate) fn draw_player_debug(
             size,
             facing,
             on_ground,
-            wall_clinging: clusters.wall.wall_clinging,
-            dash_timer: clusters.dash.timer,
+            wall_clinging: facts.wall_clinging,
+            dashing: facts.dashing,
             abilities_directional_primary: clusters.abilities.abilities.directional_primary,
         };
         if let Some(attack_state) = attack {
@@ -473,9 +478,14 @@ pub(crate) fn draw_player_debug(
         // gravity-correct hitbox, which is the only box that matters.)
     }
 
-    // Ledge grab / climb debug.
+    // Ledge grab / climb debug (anchor + climb target are policy-private
+    // internals — a dev overlay is allowed to look).
     if developer_tools.show_combat_preview {
-        if let Some(ledge) = clusters.ledge.grab.as_ref() {
+        let axis_ledge = match motion_model {
+            ae::MotionModel::AxisSwept(axis) => axis.state.ledge_grab.as_ref(),
+            _ => None,
+        };
+        if let Some(ledge) = axis_ledge {
             let anchor_box = ae::Aabb::new(ledge.contact.anchor, ae::Vec2::splat(5.0));
             let target_box = ae::Aabb::new(ledge.contact.climb_target, size * 0.35);
             draw_aabb(gizmos, world, anchor_box, cyan());
@@ -497,11 +507,11 @@ pub(crate) fn draw_player_debug(
     // Blink aim preview.
     if gameplay_active
         && developer_tools.show_blink_preview
-        && (controls.blink_held || clusters.blink.aiming)
+        && (controls.blink_held || facts.blink_aiming)
     {
         let blink_world = platforms::world_with_moving_platforms(world, moving_platforms);
-        let (desired, target) = if clusters.blink.aiming {
-            let desired = pos + clusters.blink.aim_offset;
+        let (desired, target) = if facts.blink_aiming {
+            let desired = pos + facts.blink_aim_offset;
             let target = ae::blink_destination_to_point_clusters(
                 &blink_world,
                 clusters.kinematics,

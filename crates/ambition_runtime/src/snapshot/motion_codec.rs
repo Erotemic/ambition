@@ -16,6 +16,7 @@ impl SnapshotState for ambition_engine_core::MotionModel {
             MotionModel::AxisSwept(motion) => {
                 put_u8(out, 0);
                 put_axis_swept_params(out, &motion.params);
+                put_axis_maneuver_state(out, &motion.state);
             }
             MotionModel::SurfaceMomentum(motion) => {
                 put_u8(out, 1);
@@ -43,7 +44,10 @@ impl SnapshotState for ambition_engine_core::MotionModel {
             SurfaceMomentumMotion,
         };
         Some(match r.u8()? {
-            0 => MotionModel::AxisSwept(AxisSweptMotion::new(axis_swept_params(r)?)),
+            0 => MotionModel::AxisSwept(AxisSweptMotion {
+                params: axis_swept_params(r)?,
+                state: axis_maneuver_state(r)?,
+            }),
             1 => {
                 let params = momentum_params(r)?;
                 let state = surface_motion(r)?;
@@ -69,6 +73,102 @@ impl SnapshotState for ambition_engine_core::MotionModel {
             _ => return None,
         })
     }
+}
+
+/// The axis policy's PRIVATE maneuver state (ADR 0024 O4) — every field, in
+/// declaration order, so a rollback into a dash / blink hold / ledge hang
+/// resumes exactly where it left off.
+fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &ambition_engine_core::AxisManeuverState) {
+    put_f32(out, state.coyote_timer);
+    put_f32(out, state.drop_through_timer);
+    put_f32(out, state.rebound_cooldown);
+    put_bool(out, state.wall_clinging);
+    put_bool(out, state.wall_climbing);
+    put_vec2(out, state.pre_wall_vel);
+    put_f32(out, state.pre_wall_vel_age);
+    put_f32(out, state.buffer_jump);
+    put_f32(out, state.buffer_dash);
+    put_f32(out, state.buffer_blink);
+    put_f32(out, state.dash_timer);
+    put_bool(out, state.blink_hold_active);
+    put_f32(out, state.blink_hold_timer);
+    put_bool(out, state.blink_aiming);
+    put_vec2(out, state.blink_aim_offset);
+    put_f32(out, state.blink_grace_timer);
+    put_f32(out, state.dodge_roll_timer);
+    put_ledge_grab(out, &state.ledge_grab);
+    put_bool(out, state.gliding);
+    put_bool(out, state.fast_falling);
+    put_f32(out, state.flight_phase);
+}
+
+fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisManeuverState> {
+    Some(ambition_engine_core::AxisManeuverState {
+        coyote_timer: r.f32()?,
+        drop_through_timer: r.f32()?,
+        rebound_cooldown: r.f32()?,
+        wall_clinging: r.bool()?,
+        wall_climbing: r.bool()?,
+        pre_wall_vel: r.vec2()?,
+        pre_wall_vel_age: r.f32()?,
+        buffer_jump: r.f32()?,
+        buffer_dash: r.f32()?,
+        buffer_blink: r.f32()?,
+        dash_timer: r.f32()?,
+        blink_hold_active: r.bool()?,
+        blink_hold_timer: r.f32()?,
+        blink_aiming: r.bool()?,
+        blink_aim_offset: r.vec2()?,
+        blink_grace_timer: r.f32()?,
+        dodge_roll_timer: r.f32()?,
+        ledge_grab: ledge_grab(r)?,
+        gliding: r.bool()?,
+        fast_falling: r.bool()?,
+        flight_phase: r.f32()?,
+    })
+}
+
+/// The hang state machine: a rollback into a hang must land on the same
+/// anchor, with the same carried momentum, or the getup goes somewhere else.
+fn put_ledge_grab(out: &mut Vec<u8>, grab: &Option<ambition_engine_core::LedgeGrabState>) {
+    match grab {
+        None => put_bool(out, false),
+        Some(g) => {
+            put_bool(out, true);
+            put_f32(out, g.contact.wall_normal_x);
+            put_vec2(out, g.contact.anchor);
+            put_vec2(out, g.contact.climb_target);
+            put_f32(out, g.elapsed);
+            put_bool(out, g.climbing);
+            g.getup_kind.encode(out);
+            put_f32(out, g.climb_elapsed);
+            put_vec2(out, g.momentum_at_grab);
+            g.grab_quality.encode(out);
+        }
+    }
+}
+
+fn ledge_grab(r: &mut Reader<'_>) -> Option<Option<ambition_engine_core::LedgeGrabState>> {
+    use ambition_engine_core::ledge_grab::{
+        LedgeContact, LedgeGetupKind, LedgeGrabQuality, LedgeGrabState,
+    };
+    Some(if r.bool()? {
+        Some(LedgeGrabState {
+            contact: LedgeContact {
+                wall_normal_x: r.f32()?,
+                anchor: r.vec2()?,
+                climb_target: r.vec2()?,
+            },
+            elapsed: r.f32()?,
+            climbing: r.bool()?,
+            getup_kind: LedgeGetupKind::decode(r)?,
+            climb_elapsed: r.f32()?,
+            momentum_at_grab: r.vec2()?,
+            grab_quality: LedgeGrabQuality::decode(r)?,
+        })
+    } else {
+        None
+    })
 }
 
 fn put_surface_motion(out: &mut Vec<u8>, state: ambition_engine_core::SurfaceMotion) {

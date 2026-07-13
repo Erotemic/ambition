@@ -236,6 +236,12 @@ impl SandboxSim {
             .app
             .world_mut()
             .query_filtered::<ambition::engine_core::BodyClusterQueryData, ambition::actors::actor::PrimaryPlayerOnly>();
+        // The published maneuver projection (ADR 0024): the observation's
+        // cling/glide/blink flags are semantic facts, not policy internals.
+        let mut facts_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&ambition::engine_core::BodyMotionFacts, ambition::actors::actor::PrimaryPlayerOnly>();
         let mut combat_query = self
             .app
             .world_mut()
@@ -283,6 +289,7 @@ impl SandboxSim {
             })
             .collect();
         let cluster = cluster_query.single(world).ok();
+        let facts = facts_query.single(world).ok();
         let health = health_query
             .single(world)
             .map(|h| h.health)
@@ -312,7 +319,6 @@ impl SandboxSim {
         let jump = cluster.as_ref().map(|c| &*c.jump);
         let dash = cluster.as_ref().map(|c| &*c.dash);
         let flight = cluster.as_ref().map(|c| &*c.flight);
-        let blink = cluster.as_ref().map(|c| &*c.blink);
         let body_mode = cluster.as_ref().map(|c| &*c.body_mode);
         let mana = cluster.as_ref().map(|c| &*c.mana);
         let offense = cluster.as_ref().map(|c| &*c.offense);
@@ -324,15 +330,15 @@ impl SandboxSim {
             player_size: (size.x, size.y),
             on_ground: ground.is_some_and(|g| g.on_ground),
             on_wall: wall.is_some_and(|w| w.on_wall),
-            wall_clinging: wall.is_some_and(|w| w.wall_clinging),
-            wall_climbing: wall.is_some_and(|w| w.wall_climbing),
+            wall_clinging: facts.is_some_and(|f| f.wall_clinging),
+            wall_climbing: facts.is_some_and(|f| f.wall_climbing),
             facing,
-            fast_falling: flight.is_some_and(|f| f.fast_falling),
+            fast_falling: facts.is_some_and(|f| f.fast_falling),
             fly_enabled: flight.is_some_and(|f| f.fly_enabled),
-            gliding: flight.is_some_and(|f| f.gliding),
+            gliding: facts.is_some_and(|f| f.gliding),
             dash_charges: dash.map(|d| d.charges_available).unwrap_or(0),
             air_jumps: jump.map(|j| j.air_jumps_available).unwrap_or(0),
-            blink_aiming: blink.is_some_and(|b| b.aiming),
+            blink_aiming: facts.is_some_and(|f| f.blink_aiming),
             hp: health.current,
             hp_max: health.max,
             mana: mana.map(|m| m.meter.current as i32).unwrap_or(0),

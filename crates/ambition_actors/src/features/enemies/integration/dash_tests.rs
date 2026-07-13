@@ -117,7 +117,6 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
         seed.kin.pos = ae::Vec2::new(0.0, 40.0);
         let mut model = crate::features::MotionModel::default();
         let mut em = seed.as_actor_mut();
-        let mut model = crate::features::MotionModel::default();
         em.update(
             &world,
             ae::Vec2::new(2000.0, em.kin.pos.y),
@@ -167,7 +166,6 @@ fn walk_run_staggered(stagger: (f32, f32), ticks: u32) -> f32 {
     frame.facing = 1.0;
     let dt = 1.0 / 60.0;
     for _ in 0..ticks {
-        let mut model = crate::features::MotionModel::default();
         em.update(
             &world,
             ae::Vec2::new(2000.0, em.kin.pos.y),
@@ -230,7 +228,6 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
     let mut frame = ActorControlFrame::neutral();
     frame.locomotion = ae::Vec2::new(1.0, 0.0);
     frame.dash_pressed = true;
-    let mut model = crate::features::MotionModel::default();
     em.update(
         &world,
         ae::Vec2::new(2000.0, em.kin.pos.y),
@@ -243,8 +240,11 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
         crate::time::feel::SandboxFeelTuning::default(),
         (0.0, 0.0),
     );
+    let crate::features::MotionModel::AxisSwept(axis) = &model else {
+        panic!("test body is not axis-swept");
+    };
     assert!(
-        em.dash.timer <= 0.0,
+        axis.state.dash_timer <= 0.0,
         "a body without the dash capability must not open a dash window"
     );
 }

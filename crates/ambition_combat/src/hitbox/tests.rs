@@ -329,7 +329,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
             // Every body carries the vulnerability trio (§A1 slice 3) — the
             // victim query is no longer `Option` over them.
             ambition_engine_core::BodyOffense::default(),
-            ambition_engine_core::BodyDodgeState::default(),
+            ambition_engine_core::BodyMotionFacts::default(),
             ambition_engine_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
         ))
@@ -445,7 +445,7 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
                 ae::Vec2::new(28.0, 46.0),
             ),
             ambition_engine_core::BodyOffense::default(),
-            ambition_engine_core::BodyDodgeState::default(),
+            ambition_engine_core::BodyMotionFacts::default(),
             ambition_engine_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
         ))
@@ -553,7 +553,7 @@ fn player_followowner_melee_strike_emits_player_slash_with_knock_x() {
         facing: 1.0,
         on_ground: true,
         wall_clinging: false,
-        dash_timer: 0.0,
+        dashing: false,
         abilities_directional_primary: true,
     };
     let spec = crate::attack_spec_from_view(&view, crate::AttackIntent::Forward);

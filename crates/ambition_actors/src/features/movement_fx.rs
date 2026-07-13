@@ -33,7 +33,7 @@ const WALL_JUMP_ANIM_HOLD_SECS: f32 = 0.18;
 /// one frame: decay the op-armed poses (slash / shoot / wall-jump / interact) and
 /// arm+decay the edge-derived poses (landing on the air→ground edge, graded hard
 /// vs soft by pre-touchdown speed; dash-startup on the dash rising edge). Body-
-/// generic — reads only `(on_ground, vel_y, dash_timer)` cluster state, no player
+/// generic — reads only `(on_ground, vel_y, dashing)` body facts, no player
 /// specifics — so the player tick AND every actor advance their overlays through
 /// the SAME code, and `pick_actor_anim` can show those poses for AI fighters too
 /// (fable review §A9). The op-armed timers are set elsewhere (attack / projectile /
@@ -41,7 +41,7 @@ const WALL_JUMP_ANIM_HOLD_SECS: f32 = 0.18;
 pub fn advance_body_anim_overlays(
     on_ground: bool,
     vel_y: f32,
-    dash_timer: f32,
+    dashing: bool,
     anim: &mut crate::actor::BodyAnimFacts,
     frame_dt: f32,
 ) {
@@ -77,7 +77,7 @@ pub fn advance_body_anim_overlays(
     }
 
     // Dash rising edge: no dash last frame, a dash this frame.
-    if dash_timer > 0.0 && anim.anim_prev_dash_timer <= 0.0 {
+    if dashing && !anim.anim_prev_dashing {
         anim.dash_startup_timer = DASH_STARTUP_SECS;
     } else {
         anim.dash_startup_timer = (anim.dash_startup_timer - frame_dt).max(0.0);
@@ -86,7 +86,7 @@ pub fn advance_body_anim_overlays(
     // Snapshot for the next frame's edge detection.
     anim.anim_prev_on_ground = on_ground;
     anim.anim_prev_vel_y = vel_y;
-    anim.anim_prev_dash_timer = dash_timer;
+    anim.anim_prev_dashing = dashing;
 }
 
 /// Arm the op-driven presentation overlays a movement frame implies on ANY body's

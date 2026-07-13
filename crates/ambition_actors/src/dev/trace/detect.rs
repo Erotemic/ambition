@@ -114,9 +114,10 @@ fn nearby_collision_around(
 fn collect_state_flips(
     prev: &PreviousFrameSnapshot,
     clusters: &ae::BodyClustersMut<'_>,
+    facts: &ae::BodyMotionFacts,
 ) -> Vec<String> {
     let mut flips = Vec::new();
-    let cur_ledge = clusters.ledge.grab.is_some();
+    let cur_ledge = facts.ledge.is_some();
     if cur_ledge != prev.ledge_grabbing {
         flips.push(format!(
             "ledge_grabbing: {} → {}",
@@ -182,6 +183,7 @@ fn nearby_collision(world: &ae::World, player_pos: ae::Vec2) -> Vec<CollisionTra
 #[allow(clippy::too_many_arguments)]
 pub fn build_frame(
     clusters: &ae::BodyClustersMut<'_>,
+    facts: &ae::BodyMotionFacts,
     combat: &ambition_characters::actor::BodyCombat,
     clock: &ambition_time::ClockState,
     safety: &crate::avatar::PlayerSafetyState,
@@ -215,21 +217,21 @@ pub fn build_frame(
             facing: clusters.kinematics.facing,
             on_ground: clusters.ground.on_ground,
             on_wall: clusters.wall.on_wall,
-            wall_clinging: clusters.wall.wall_clinging,
-            wall_climbing: clusters.wall.wall_climbing,
-            fast_falling: clusters.flight.fast_falling,
+            wall_clinging: facts.wall_clinging,
+            wall_climbing: facts.wall_climbing,
+            fast_falling: facts.fast_falling,
             fly_enabled: clusters.flight.fly_enabled,
             dash_charges_available: clusters.dash.charges_available,
             air_jumps_available: clusters.jump.air_jumps_available,
-            blink_aiming: clusters.blink.aiming,
-            blink_grace_timer: clusters.blink.grace_timer,
+            blink_aiming: facts.blink_aiming,
+            blink_grace: facts.blink_grace,
             locomotion: locomotion.into(),
             body_mode: body_mode.into(),
             last_safe_pos: safety.last_safe_pos.into(),
             time_alive: clusters.lifetime.time_alive,
             resets: clusters.lifetime.resets,
             wall_normal_x: clusters.wall.wall_normal_x,
-            ledge_grabbing: clusters.ledge.grab.is_some(),
+            ledge_grabbing: facts.ledge.is_some(),
             attacking: combat.attacking,
             hitstun_timer: combat.hitstun_timer,
             damage_invuln_timer: combat.damage_invuln_timer,
@@ -292,6 +294,7 @@ fn build_moving_platform_states(
 pub(crate) fn synthesize_events_from_diff(
     buffer: &mut GameplayTraceBuffer,
     clusters: &ae::BodyClustersMut<'_>,
+    facts: &ae::BodyMotionFacts,
     hp_current: i32,
     controls: ControlFrame,
     real_dt: f32,
@@ -326,10 +329,10 @@ pub(crate) fn synthesize_events_from_diff(
         suppressed_teleport = true;
     }
 
-    // A blink is an intentional same-room teleport (its grace timer starts the
+    // A blink is an intentional same-room teleport (its grace fact rises the
     // frame it fires), so the resulting big position delta is expected -- don't
     // let the velocity-budget check auto-dump on every blink.
-    if prev.blink_grace_timer <= 0.0 && clusters.blink.grace_timer > 0.0 {
+    if !prev.blink_grace && facts.blink_grace {
         suppressed_teleport = true;
     }
 
@@ -341,7 +344,7 @@ pub(crate) fn synthesize_events_from_diff(
     let budget = max_speed * real_dt.max(0.0) + TELEPORT_DETECTION_SLACK_PX;
     if !suppressed_teleport && dlen > budget && dlen > TELEPORT_DETECTION_SLACK_PX {
         let nearby_after = nearby_collision_around(world, clusters.kinematics.aabb(), 64.0);
-        let state_flips = collect_state_flips(&prev, clusters);
+        let state_flips = collect_state_flips(&prev, clusters, facts);
         let reason = format!("unexplained delta {dlen:.1}px (vel-budget {budget:.1}px)");
         buffer.push_event(GameplayTraceEvent::CollisionCorrection {
             tick,
@@ -394,7 +397,7 @@ pub(crate) fn synthesize_events_from_diff(
         buffer.push_event(GameplayTraceEvent::Jump { tick });
     }
 
-    if !prev.blink_aiming && clusters.blink.aiming {
+    if !prev.blink_aiming && facts.blink_aiming {
         buffer.push_event(GameplayTraceEvent::Blink {
             tick,
             from: prev.pos.into(),
@@ -402,7 +405,7 @@ pub(crate) fn synthesize_events_from_diff(
             precision: false,
         });
     }
-    if prev.blink_grace_timer <= 0.0 && clusters.blink.grace_timer > 0.0 {
+    if !prev.blink_grace && facts.blink_grace {
         buffer.push_event(GameplayTraceEvent::Blink {
             tick,
             from: prev.pos.into(),
@@ -521,6 +524,7 @@ pub fn record_frame(
 pub(crate) fn update_previous_snapshot(
     buffer: &mut GameplayTraceBuffer,
     clusters: &ae::BodyClustersMut<'_>,
+    facts: &ae::BodyMotionFacts,
     hp_current: i32,
     controls: ControlFrame,
     active_area: &str,
@@ -532,9 +536,9 @@ pub(crate) fn update_previous_snapshot(
         vel: clusters.kinematics.vel,
         on_ground: clusters.ground.on_ground,
         fly_enabled: clusters.flight.fly_enabled,
-        blink_aiming: clusters.blink.aiming,
-        blink_grace_timer: clusters.blink.grace_timer,
-        fast_falling: clusters.flight.fast_falling,
+        blink_aiming: facts.blink_aiming,
+        blink_grace: facts.blink_grace,
+        fast_falling: facts.fast_falling,
         dash_charges_available: clusters.dash.charges_available,
         air_jumps_available: clusters.jump.air_jumps_available,
         resets: clusters.lifetime.resets,
@@ -543,7 +547,7 @@ pub(crate) fn update_previous_snapshot(
         body_mode,
         active_area: active_area.into(),
         controls,
-        ledge_grabbing: clusters.ledge.grab.is_some(),
+        ledge_grabbing: facts.ledge.is_some(),
         wall_normal_x: clusters.wall.wall_normal_x,
         on_wall: clusters.wall.on_wall,
     });

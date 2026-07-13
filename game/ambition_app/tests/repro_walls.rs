@@ -24,11 +24,17 @@ fn step_axis_for_test(
     dt: f32,
     tuning: ae::MovementTuning,
 ) -> ae::FrameEvents {
-    let mut model = ae::MotionModel::axis_swept(tuning.axis_swept_params());
     let frame = ae::MotionFrame::from_direction(ae::DEFAULT_GRAVITY_DIR, tuning.gravity);
-    let mut clusters = scratch.as_mut();
+    // Thread the scratch body's OWN persistent model (a same-variant param
+    // refresh preserves maneuver state, ADR 0024) so arranged cling state and
+    // multi-step tests behave like a live entity.
+    let (model, mut clusters) = scratch.parts();
+    ae::switch_motion_model(
+        model,
+        ae::MotionModelSpec::AxisSwept(tuning.axis_swept_params()),
+    );
     ae::step_motion(
-        &mut model,
+        model,
         &mut clusters,
         ae::MotionStepContext {
             world,
@@ -100,7 +106,7 @@ fn square_arena_wall_cling_does_not_teleport() {
     player.ground.on_ground = false;
     player.wall.on_wall = true;
     player.wall.wall_normal_x = 1.0;
-    player.wall.wall_clinging = true;
+    player.axis_mut().wall_clinging = true;
 
     let initial = player.kinematics.pos;
     let _ = step_axis_for_test(
@@ -170,7 +176,7 @@ fn square_arena_wall_cling_with_subpixel_penetration_does_not_teleport() {
     player.ground.on_ground = false;
     player.wall.on_wall = true;
     player.wall.wall_normal_x = 1.0;
-    player.wall.wall_clinging = true;
+    player.axis_mut().wall_clinging = true;
 
     let initial = player.kinematics.pos;
     let _ = step_axis_for_test(
@@ -234,7 +240,7 @@ fn locate_teleport_target_block() {
         player.ground.on_ground = false;
         player.wall.on_wall = true;
         player.wall.wall_normal_x = 1.0;
-        player.wall.wall_clinging = true;
+        player.axis_mut().wall_clinging = true;
         player.kinematics.facing = -1.0;
         let initial = player.kinematics.pos;
         let _ = step_axis_for_test(
@@ -295,7 +301,7 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
     player.ground.on_ground = false;
     player.wall.on_wall = true;
     player.wall.wall_normal_x = 1.0;
-    player.wall.wall_clinging = true;
+    player.axis_mut().wall_clinging = true;
     player.kinematics.facing = -1.0;
 
     let initial = player.kinematics.pos;
@@ -319,7 +325,7 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
         player.kinematics.vel.y,
         player.ground.on_ground,
         player.wall.on_wall,
-        player.wall.wall_clinging
+        player.axis().wall_clinging
     );
     assert!(
         player.kinematics.pos.y >= 0.0 && player.kinematics.pos.y <= world.size.y,
@@ -362,7 +368,7 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
     player.ground.on_ground = false;
     player.wall.on_wall = true;
     player.wall.wall_normal_x = 1.0;
-    player.wall.wall_clinging = true;
+    player.axis_mut().wall_clinging = true;
     player.kinematics.facing = -1.0;
 
     for i in 0..200 {
@@ -452,7 +458,7 @@ fn wall_cling_displacement_budget_holds_across_pose_sweep() {
                     player.ground.on_ground = false;
                     player.wall.on_wall = true;
                     player.wall.wall_normal_x = 1.0;
-                    player.wall.wall_clinging = true;
+                    player.axis_mut().wall_clinging = true;
                     player.kinematics.facing = -1.0;
 
                     let initial = player.kinematics.pos;
@@ -547,7 +553,7 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
     player.ground.on_ground = false;
     player.wall.on_wall = true;
     player.wall.wall_normal_x = 1.0; // wall on the player's left → normal points right (+x)
-    player.wall.wall_clinging = true;
+    player.axis_mut().wall_clinging = true;
 
     let initial = player.kinematics.pos;
     let _ = step_axis_for_test(
@@ -653,7 +659,7 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
     player.ground.on_ground = false;
     player.wall.on_wall = true;
     player.wall.wall_normal_x = 1.0;
-    player.wall.wall_clinging = true;
+    player.axis_mut().wall_clinging = true;
     player.kinematics.facing = -1.0;
 
     let dt = 1.0 / 144.0;
@@ -663,7 +669,7 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
     // into the x=704..720 top-wall corner — exactly the
     // edge-touching-then-vertical-sweep configuration the trace blames.
     player.kinematics.vel = ae::Vec2::new(180.0, -560.0);
-    player.wall.wall_clinging = false;
+    player.axis_mut().wall_clinging = false;
     for frame in 0..40 {
         let pre = player.kinematics.pos;
         let pre_vel = player.kinematics.vel;
@@ -726,7 +732,7 @@ fn goblin_encounter_real_walljump_repro() {
     player.ground.on_ground = false;
     player.wall.on_wall = true;
     player.wall.wall_normal_x = 1.0;
-    player.wall.wall_clinging = true;
+    player.axis_mut().wall_clinging = true;
     player.kinematics.facing = -1.0;
 
     let dt = 1.0 / 144.0;
@@ -751,7 +757,7 @@ fn goblin_encounter_real_walljump_repro() {
                 player.kinematics.vel.x,
                 player.kinematics.vel.y,
                 moved,
-                player.wall.wall_clinging
+                player.axis().wall_clinging
             );
         }
         assert_within_displacement_budget(

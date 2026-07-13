@@ -22,7 +22,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition::actors::actor::{
-    BodyAbilities, BodyBlinkState, BodyDashState, BodyFlightState, BodyKinematics, BodyShieldState,
+    BodyAbilities, BodyBlinkState, BodyFlightState, BodyKinematics, BodyShieldState,
 };
 use ambition::actors::features::FeatureId;
 use ambition::characters::actor::BodyHealth;
@@ -140,12 +140,12 @@ fn observe_abilities(world: &mut World, id: &str, log: &mut AbilityLog) {
         &FeatureId,
         &BodyAbilities,
         &BodyShieldState,
-        &BodyDashState,
+        &ambition::engine_core::BodyMotionFacts,
         &BodyFlightState,
         &BodyBlinkState,
         &ActorControl,
     )>();
-    let Some((_, abil, shield, dash, flight, blink, control)) =
+    let Some((_, abil, shield, facts, flight, blink, control)) =
         q.iter(world).find(|(f, ..)| f.as_str() == id)
     else {
         return;
@@ -161,7 +161,7 @@ fn observe_abilities(world: &mut World, id: &str, log: &mut AbilityLog) {
     if shield.active {
         log.shield_active_frames += 1;
     }
-    if dash.timer > 0.0 {
+    if facts.dashing {
         log.dash_window_frames += 1;
     }
     if flight.fly_enabled {

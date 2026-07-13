@@ -287,23 +287,25 @@ pub fn emit_player_time_intent_system(
     // SLOT-0 BY DESIGN: bullet-time is a per-PLAYER feel-clock affordance (ADR
     // 0010/0011). Slot 0's blink slows slot 0's world; a second player would emit
     // its own intent against its own clock, not fight over this one.
-    primary: Query<(&crate::actor::BodyBlinkState, &BodyCombat), With<PrimaryPlayer>>,
+    primary: Query<(&ambition_engine_core::BodyMotionFacts, &BodyCombat), With<PrimaryPlayer>>,
     dev_state: Res<SandboxDevState>,
     feel: Res<SandboxFeelTuning>,
     mut writer: MessageWriter<ClockScaleRequest>,
 ) {
-    let Ok((blink, combat)) = primary.single() else {
+    let Ok((facts, combat)) = primary.single() else {
         return;
     };
     let (scale, requester, reason) = if combat.hitstop_timer > 0.0 {
         (0.0, ClockRequester::Engine, "hitstop")
-    } else if blink.aiming {
+    } else if facts.blink_aiming {
         (
             feel.bullet_time_scale,
             ClockRequester::Player(PlayerSlot::PRIMARY),
             "bullet_blink",
         )
-    } else if blink.hold_active {
+    } else if facts.blink_telegraph {
+        // The aiming arm above claimed precision aim, so a telegraph here is
+        // the charge HOLD specifically.
         (
             feel.blink_hold_slow_scale,
             ClockRequester::Player(PlayerSlot::PRIMARY),

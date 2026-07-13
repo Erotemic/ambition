@@ -6,7 +6,7 @@
 use super::*;
 use ambition_characters::actor::BodyCombat;
 use ambition_engine_core::BodyKinematics;
-use ambition_engine_core::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
+use ambition_engine_core::{BodyBaseSize, BodyMotionFacts, BodyOffense, BodyShieldState};
 use ambition_platformer_primitives::markers::PlayerEntity;
 use bevy::prelude::{App, MessageReader, ResMut, Resource, Update};
 
@@ -34,7 +34,7 @@ fn spawn_player(app: &mut App, pos: ae::Vec2) {
             base_size: ae::Vec2::new(28.0, 46.0),
         },
         BodyOffense::default(),
-        BodyDodgeState::default(),
+        BodyMotionFacts::default(),
         BodyShieldState::default(),
         BodyCombat::default(),
         ambition_platformer_primitives::frame_env::ResolvedMotionFrame::default(),
@@ -109,7 +109,7 @@ fn a_non_player_body_touching_a_hazard_takes_the_hit_too() {
             ambition_platformer_primitives::lifecycle::FeatureSimEntity,
             ae::CenteredAabb::from_center_size(pos, ae::Vec2::new(24.0, 40.0)),
             BodyOffense::default(),
-            BodyDodgeState::default(),
+            BodyMotionFacts::default(),
             BodyShieldState::default(),
             BodyCombat::default(),
             ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5)),
@@ -160,7 +160,7 @@ fn a_fast_body_cannot_tunnel_through_a_hazard_between_frames() {
             base_size: ae::Vec2::new(28.0, 46.0),
         },
         BodyOffense::default(),
-        BodyDodgeState::default(),
+        BodyMotionFacts::default(),
         BodyShieldState::default(),
         BodyCombat::default(),
         ambition_platformer_primitives::frame_env::ResolvedMotionFrame::default(),

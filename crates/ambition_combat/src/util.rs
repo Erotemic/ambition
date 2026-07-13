@@ -148,7 +148,7 @@ mod util_tests {
 }
 
 use ambition_characters::actor::BodyCombat;
-use ambition_engine_core::{BodyDodgeState, BodyOffense, BodyShieldState};
+use ambition_engine_core::{BodyOffense, BodyShieldState};
 use ambition_vfx::vfx::{SlashKind, VfxMessage};
 use bevy::prelude::MessageWriter;
 
@@ -159,13 +159,15 @@ use bevy::prelude::MessageWriter;
 /// (the projectile site dropped the parry term). i-frames / dodge-roll /
 /// parry / invincibility gate a PLAYER-side victim; the actor-side victim
 /// consumer applies its own (shield-directional) rule at consume time.
+/// `dodge_rolling` is the semantic fact (`BodyMotionFacts::dodge_rolling`) —
+/// the roll timer itself is policy-private (ADR 0024).
 pub fn body_vulnerable(
     offense: &BodyOffense,
-    dodge: &BodyDodgeState,
+    dodge_rolling: bool,
     shield: &BodyShieldState,
     combat: &BodyCombat,
 ) -> bool {
-    !offense.invincible && dodge.roll_timer <= 0.0 && !shield.parrying() && combat.vulnerable()
+    !offense.invincible && !dodge_rolling && !shield.parrying() && combat.vulnerable()
 }
 
 /// Whether a held shield blocks a hit coming from `hit_pos`: you can only guard

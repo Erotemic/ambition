@@ -20,7 +20,7 @@ pub fn update_ecs_hazards(
             Option<&ae::SweepSample>,
             &CenteredAabb,
             &ambition_engine_core::BodyOffense,
-            &ambition_engine_core::BodyDodgeState,
+            &ambition_engine_core::BodyMotionFacts,
             &ambition_engine_core::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
             // The victim's per-tick resolved frame (ADR 0024): the knockback
@@ -46,7 +46,7 @@ pub fn update_ecs_hazards(
             Option<&ae::SweepSample>,
             &CenteredAabb,
             &ambition_engine_core::BodyOffense,
-            &ambition_engine_core::BodyDodgeState,
+            &ambition_engine_core::BodyMotionFacts,
             &ambition_engine_core::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
             &ambition_characters::actor::BodyHealth,
@@ -90,7 +90,7 @@ pub fn update_ecs_hazards(
         // OVERNIGHT-TODO #17.8 (B-bucket iterate-all-players for
         // hazard hits). Single-player behavior preserved because the
         // iterator has exactly one entity today.
-        for (player_entity, kin, sweep, hurtbox, offense, dodge, shield, combat, resolved_frame) in
+        for (player_entity, kin, sweep, hurtbox, offense, facts, shield, combat, resolved_frame) in
             &player
         {
             // CC2 (the sweep law): a hazard touch is path-dependent — a fast body
@@ -101,7 +101,7 @@ pub fn update_ecs_hazards(
             // Bodies without a sample keep the historical `vel·dt`
             // approximation (delete the fallback when every mover writes one).
             let delta = sweep.map(|s| s.delta()).unwrap_or(kin.vel * dt);
-            if !crate::util::body_vulnerable(offense, dodge, shield, combat)
+            if !crate::util::body_vulnerable(offense, facts.dodge_rolling, shield, combat)
                 || !ae::cast::aabb_path_contacts(
                     hurtbox.center,
                     hurtbox.half_size,
@@ -155,7 +155,7 @@ pub fn update_ecs_hazards(
         // Non-player bodies: same hazard, same rule, pre-resolved victim.
         // Knockback is left to the victim consumer (actor knockback rides the
         // resolver, not the event — see §A2).
-        for (victim, kin, sweep, hurtbox, offense, dodge, shield, combat, health) in &actor_victims
+        for (victim, kin, sweep, hurtbox, offense, facts, shield, combat, health) in &actor_victims
         {
             // CC2: every body sweeps the same way (relativity principle) — an
             // actor lured onto spikes at speed can't tunnel them either. The
@@ -167,7 +167,7 @@ pub fn update_ecs_hazards(
                 .or_else(|| kin.map(|k| k.vel * dt))
                 .unwrap_or(ae::Vec2::ZERO);
             if health.current() <= 0
-                || !crate::util::body_vulnerable(offense, dodge, shield, combat)
+                || !crate::util::body_vulnerable(offense, facts.dodge_rolling, shield, combat)
                 || !ae::cast::aabb_path_contacts(
                     hurtbox.center,
                     hurtbox.half_size,

@@ -177,7 +177,7 @@ pub fn cleanup_timers_system(
         (
             &crate::actor::BodyKinematics,
             &crate::actor::BodyGroundState,
-            &crate::actor::BodyDashState,
+            &ae::BodyMotionFacts,
             &mut crate::actor::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
             &mut crate::avatar::PlayerBlinkCameraState,
@@ -186,7 +186,8 @@ pub fn cleanup_timers_system(
     >,
 ) {
     let frame_dt = time.delta_secs();
-    let Ok((kinematics, ground, dash, mut anim, mut combat, mut blink_cam)) = player_q.single_mut()
+    let Ok((kinematics, ground, motion_facts, mut anim, mut combat, mut blink_cam)) =
+        player_q.single_mut()
     else {
         return;
     };
@@ -200,7 +201,7 @@ pub fn cleanup_timers_system(
     crate::features::advance_body_anim_overlays(
         ground.on_ground,
         kinematics.vel.y,
-        dash.timer,
+        motion_facts.dashing,
         &mut anim,
         frame_dt,
     );

@@ -277,6 +277,9 @@ pub(crate) fn handle_player_damage_events(
     anim: &mut BodyAnimFacts,
     combat: &mut BodyCombat,
     motion_model: &mut ae::MotionModel,
+    // The published maneuver facts (ADR 0024): dodge-roll i-frames gate at
+    // consume time from the semantic projection, not the policy's timer.
+    facts: &ae::BodyMotionFacts,
 ) -> bool {
     let Some(damage) = damage_events.first().cloned() else {
         return false;
@@ -285,7 +288,12 @@ pub(crate) fn handle_player_damage_events(
     // dodge-roll i-frames, and an active parry drop the event before any state
     // mutates. The post-hit i-frame window is consumed inside the resolver —
     // the SAME rule for every body; emitters no longer decide it.
-    if !body_vulnerable(clusters.offense, clusters.dodge, clusters.shield, combat) {
+    if !body_vulnerable(
+        clusters.offense,
+        facts.dodge_rolling,
+        clusters.shield,
+        combat,
+    ) {
         return false;
     }
     let impact_pos = damage
@@ -384,8 +392,9 @@ pub(crate) fn handle_player_damage_events(
             }
             crate::combat::HitMode::Knockback => {
                 // Getting hit knocks you off a ledge grab — you fall with the
-                // knockback instead of hanging there immune.
-                clusters.ledge.knock_off_on_hit();
+                // knockback instead of hanging there immune. The hang state is
+                // policy-private, so the typed op goes through the model.
+                ae::movement::knock_off_ledge(motion_model, clusters.ledge);
                 apply_player_knockback(
                     sfx,
                     vfx,
@@ -650,6 +659,8 @@ pub fn apply_player_hit_events(
             // The body's movement policy: a death/safe respawn is a discrete
             // TRANSIT and must reconcile model-private attachment.
             &mut crate::features::MotionModel,
+            // The published maneuver projection (dodge i-frames, blink grace).
+            &ae::BodyMotionFacts,
         ),
         // SLOT-0 BY DESIGN: this is the PLAYER-VICTIM path — hitstop, the death
         // banner, the safe-position rewind. Actor-vs-actor damage runs through
@@ -729,6 +740,7 @@ pub fn apply_player_hit_events(
         control,
         resolved_frame,
         mut motion_model,
+        facts,
     ) in &mut player_q
     {
         let target_events: Vec<FeatureHitEvent> = resolved
@@ -766,6 +778,7 @@ pub fn apply_player_hit_events(
             &mut anim,
             &mut combat,
             &mut motion_model,
+            facts,
         );
         // Class-B transit authority (`collision-and-ccd.md` §3.2). Death and the
         // hazard safe-respawn both teleport the victim; recorded here because
@@ -783,7 +796,7 @@ pub fn apply_player_hit_events(
             damaged_this_frame,
             in_hitstun: combat.hitstun_timer > 0.0,
             feature_requested_reset: false,
-            blink_grace_active: clusters.blink.grace_timer > 0.0,
+            blink_grace_active: facts.blink_grace,
             room_transitioning: sim_state.room_transition_cooldown > 0.0,
         };
         remember_safe_player_position(&mut safety, &clusters, &safe_world, ctx);

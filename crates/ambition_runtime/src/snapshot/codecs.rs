@@ -277,19 +277,10 @@ impl SnapshotState for ambition_combat::components::ActorIntent {
     }
 }
 
-snapshot_pod!(bc::BodyGroundState {
-    on_ground: bool,
-    coyote_timer: f32,
-    drop_through_timer: f32,
-    rebound_cooldown: f32,
-});
+snapshot_pod!(bc::BodyGroundState { on_ground: bool });
 snapshot_pod!(bc::BodyWallState {
     on_wall: bool,
     wall_normal_x: f32,
-    wall_clinging: bool,
-    wall_climbing: bool,
-    pre_wall_vel: vec2,
-    pre_wall_vel_age: f32,
 });
 snapshot_pod!(bc::BodyJumpState {
     air_jumps_available: u8,
@@ -299,28 +290,14 @@ snapshot_pod!(bc::BodyJumpState {
 });
 snapshot_pod!(bc::BodyDashState {
     charges_available: u8,
-    timer: f32,
     cooldown: f32,
 });
 snapshot_pod!(bc::BodyFlightState {
     fly_enabled: bool,
-    flight_phase: f32,
-    gliding: bool,
-    fast_falling: bool,
     carried_run: f32,
 });
-snapshot_pod!(bc::BodyBlinkState {
-    cooldown: f32,
-    hold_active: bool,
-    hold_timer: f32,
-    aiming: bool,
-    aim_offset: vec2,
-    grace_timer: f32,
-});
-snapshot_pod!(bc::BodyDodgeState {
-    roll_timer: f32,
-    cooldown: f32,
-});
+snapshot_pod!(bc::BodyBlinkState { cooldown: f32 });
+snapshot_pod!(bc::BodyDodgeState { cooldown: f32 });
 snapshot_pod!(bc::BodyShieldState {
     active: bool,
     parry_window_timer: f32,
@@ -335,12 +312,9 @@ snapshot_pod!(bc::BodyLifetime {
     max_speed: f32,
 });
 snapshot_pod!(bc::BodyActionBuffer {
-    jump: f32,
-    dash: f32,
     attack: f32,
     pogo: f32,
     projectile: f32,
-    blink: f32,
 });
 snapshot_pod!(bc::BodyBaseSize { base_size: vec2 });
 snapshot_pod!(ambition_actors::features::ActorSurfaceState {
@@ -384,55 +358,12 @@ snapshot_unit_enum!(ambition_engine_core::movement::MovementOp {
     ShieldUp = 23,
 });
 
-/// A body hanging on a ledge. `grab: Option<LedgeGrabState>` is the whole state
-/// machine: a rollback into a hang must land on the same anchor, with the same
-/// carried momentum, or the getup goes somewhere else.
-impl SnapshotState for bc::BodyLedgeState {
-    fn encode(&self, out: &mut Vec<u8>) {
-        match &self.grab {
-            None => put_bool(out, false),
-            Some(g) => {
-                put_bool(out, true);
-                put_f32(out, g.contact.wall_normal_x);
-                put_vec2(out, g.contact.anchor);
-                put_vec2(out, g.contact.climb_target);
-                put_f32(out, g.elapsed);
-                put_bool(out, g.climbing);
-                g.getup_kind.encode(out);
-                put_f32(out, g.climb_elapsed);
-                put_vec2(out, g.momentum_at_grab);
-                g.grab_quality.encode(out);
-            }
-        }
-        put_f32(out, self.release_cooldown);
-    }
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        use ambition_engine_core::ledge_grab::{
-            LedgeContact, LedgeGetupKind, LedgeGrabQuality, LedgeGrabState,
-        };
-        let grab = if r.bool()? {
-            Some(LedgeGrabState {
-                contact: LedgeContact {
-                    wall_normal_x: r.f32()?,
-                    anchor: r.vec2()?,
-                    climb_target: r.vec2()?,
-                },
-                elapsed: r.f32()?,
-                climbing: r.bool()?,
-                getup_kind: LedgeGetupKind::decode(r)?,
-                climb_elapsed: r.f32()?,
-                momentum_at_grab: r.vec2()?,
-                grab_quality: LedgeGrabQuality::decode(r)?,
-            })
-        } else {
-            None
-        };
-        Some(bc::BodyLedgeState {
-            grab,
-            release_cooldown: r.f32()?,
-        })
-    }
-}
+// The hang state machine (`Option<LedgeGrabState>`) is axis-policy maneuver
+// state and rides in the `MotionModel` codec (motion_codec.rs); the shared
+// cluster keeps only the re-grab lockout.
+snapshot_pod!(bc::BodyLedgeState {
+    release_cooldown: f32,
+});
 
 /// The recent-movement trace a combo/chain rule reads. A `Vec`, so its order IS its
 /// meaning: the ops go out in the order they went in.

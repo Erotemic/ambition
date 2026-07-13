@@ -93,7 +93,7 @@ pub fn compute_player_affordances(
     #[cfg(feature = "portal")] player_q: Query<
         (
             &crate::actor::BodyGroundState,
-            &crate::actor::BodyLedgeState,
+            &ambition_engine_core::BodyMotionFacts,
             &crate::actor::BodyModeState,
             &crate::actor::BodyEnvironmentContact,
             Option<&ambition_portal::PortalGun>,
@@ -106,7 +106,7 @@ pub fn compute_player_affordances(
     #[cfg(not(feature = "portal"))] player_q: Query<
         (
             &crate::actor::BodyGroundState,
-            &crate::actor::BodyLedgeState,
+            &ambition_engine_core::BodyMotionFacts,
             &crate::actor::BodyModeState,
             &crate::actor::BodyEnvironmentContact,
         ),
@@ -118,7 +118,7 @@ pub fn compute_player_affordances(
     mut affordances: ResMut<PlayerAffordances>,
 ) {
     #[cfg(feature = "portal")]
-    let Ok((ground, ledge, body_mode, env_contact, portal_gun)) = player_q.single() else {
+    let Ok((ground, facts, body_mode, env_contact, portal_gun)) = player_q.single() else {
         // No primary player yet (e.g. boot-up before
         // `setup_simulation_system` runs). Leave affordances at their
         // defaults; the HUD renders "Jump / Attack / Shield / Dash /
@@ -126,12 +126,12 @@ pub fn compute_player_affordances(
         return;
     };
     #[cfg(not(feature = "portal"))]
-    let Ok((ground, ledge, body_mode, env_contact)) = player_q.single() else {
+    let Ok((ground, facts, body_mode, env_contact)) = player_q.single() else {
         return;
     };
     let body = PlayerBodyView {
         is_aerial: !ground.on_ground,
-        on_ledge: ledge.grab.is_some(),
+        on_ledge: facts.ledge.is_some(),
         is_morphed: matches!(
             body_mode.body_mode,
             ambition_engine_core::BodyMode::MorphBall

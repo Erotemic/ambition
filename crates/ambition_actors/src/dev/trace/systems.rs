@@ -12,6 +12,7 @@ use super::*;
 pub fn record_simulation_frame(
     buffer: &mut GameplayTraceBuffer,
     clusters: &ae::BodyClustersMut<'_>,
+    facts: &ae::BodyMotionFacts,
     combat: &ambition_characters::actor::BodyCombat,
     clock: &ambition_time::ClockState,
     safety: &crate::avatar::PlayerSafetyState,
@@ -34,6 +35,7 @@ pub fn record_simulation_frame(
     );
     let frame = build_frame(
         clusters,
+        facts,
         combat,
         clock,
         safety,
@@ -130,6 +132,10 @@ pub fn record_frame_system(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
+            // The movement policy + its published projection (ADR 0024): the
+            // locomotion label reads the model; the maneuver flags read facts.
+            &ae::MotionModel,
+            &ae::BodyMotionFacts,
             Option<&ambition_characters::actor::BodyHealth>,
             &crate::avatar::PlayerSafetyState,
             &crate::control::PlayerInputFrame,
@@ -152,7 +158,9 @@ pub fn record_frame_system(
     if teleported.read().next().is_some() {
         buffer.teleport_suppress_ticks = super::PORTAL_TELEPORT_SUPPRESS_FRAMES;
     }
-    let Ok((mut cluster_item, player_health, safety, input, combat)) = player_q.single_mut() else {
+    let Ok((mut cluster_item, model, facts, player_health, safety, input, combat)) =
+        player_q.single_mut()
+    else {
         return;
     };
     // Trace recording is read-only. Walks the cluster components
@@ -167,14 +175,8 @@ pub fn record_frame_system(
         .unwrap_or_else(|| "<unknown>".into());
     let mode_label = format!("{:?}", mode.get());
     let hp_current = player_health.map_or(0, |h| h.health.current);
-    let locomotion_state = ae::LocomotionState::from_clusters(
-        clusters.ground,
-        clusters.wall,
-        clusters.flight,
-        clusters.dash,
-        clusters.blink,
-        clusters.ledge,
-    );
+    let locomotion_state =
+        ae::LocomotionState::from_body(model, clusters.ground, clusters.wall, clusters.flight);
     let body_mode_state = ae::BodyMode::from_clusters(clusters.body_mode);
     let locomotion = locomotion_state.label().to_string();
     let body_mode = body_mode_state.label().to_string();
@@ -188,6 +190,7 @@ pub fn record_frame_system(
     synthesize_events_from_diff(
         &mut buffer,
         &clusters,
+        facts,
         hp_current,
         control_frame,
         real_dt,
@@ -200,6 +203,7 @@ pub fn record_frame_system(
     record_simulation_frame(
         &mut buffer,
         &clusters,
+        facts,
         combat,
         &clock,
         safety,
@@ -217,6 +221,7 @@ pub fn record_frame_system(
     update_previous_snapshot(
         &mut buffer,
         &clusters,
+        facts,
         hp_current,
         control_frame,
         &active_area,

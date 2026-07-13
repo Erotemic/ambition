@@ -9,6 +9,7 @@ use ambition_menu::render::bevy_ui::{
     spawn_bevy_ui_menu_with_assets, BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
 };
 use ambition_menu::{MenuColor, MenuControlKind, MenuPageModel, MenuRect, MenuTextAlign};
+use bevy::input::gamepad::{Gamepad, GamepadButton};
 use bevy::prelude::*;
 
 use crate::{
@@ -38,30 +39,35 @@ impl Plugin for BasicShellPresentationPlugin {
     }
 }
 
+/// Unified menu input: keyboard AND controller drive the same neutral
+/// navigation edges (up / down / confirm), so no downstream logic is duplicated
+/// per device. The D-pad mirrors the arrow keys; South (A / cross) mirrors
+/// Enter/Space. This is the "small neutral menu-action adapter" — the shell
+/// reads the raw input resources directly (it already depended on
+/// `ButtonInput<KeyCode>`) rather than pulling in the gameplay input stack.
 fn basic_shell_keyboard(
     keys: Option<Res<ButtonInput<KeyCode>>>,
+    pads: Query<&Gamepad>,
     launcher: Res<ShellLauncherState>,
     sequence: Res<ActiveShellSequence>,
     mut launcher_commands: MessageWriter<ShellLauncherCommand>,
     mut sequence_commands: MessageWriter<ShellSequenceCommand>,
 ) {
-    let Some(keys) = keys else {
-        return;
-    };
+    let (up, down, confirm) = menu_nav_edges(keys.as_deref(), &pads);
     if launcher.active {
-        if keys.just_pressed(KeyCode::ArrowUp) {
+        if up {
             launcher_commands.write(ShellLauncherCommand::Previous);
         }
-        if keys.just_pressed(KeyCode::ArrowDown) {
+        if down {
             launcher_commands.write(ShellLauncherCommand::Next);
         }
-        if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space) {
+        if confirm {
             launcher_commands.write(ShellLauncherCommand::LaunchSelected);
         }
     } else if let (Some(activation_id), Some(runtime)) =
         (sequence.activation_id, sequence.runtime.as_ref())
     {
-        if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space) {
+        if confirm {
             if runtime
                 .current()
                 .is_some_and(|segment| segment.policy.requires_acknowledgement)
@@ -72,6 +78,21 @@ fn basic_shell_keyboard(
             }
         }
     }
+}
+
+/// The neutral `(up, down, confirm)` navigation edges for this frame, unified
+/// across keyboard and every connected controller. Kept as a free function so
+/// the mapping is unit-testable without a live window.
+fn menu_nav_edges(
+    keys: Option<&ButtonInput<KeyCode>>,
+    pads: &Query<&Gamepad>,
+) -> (bool, bool, bool) {
+    let key = |code| keys.is_some_and(|k| k.just_pressed(code));
+    let pad = |button| pads.iter().any(|p| p.just_pressed(button));
+    let up = key(KeyCode::ArrowUp) || pad(GamepadButton::DPadUp);
+    let down = key(KeyCode::ArrowDown) || pad(GamepadButton::DPadDown);
+    let confirm = key(KeyCode::Enter) || key(KeyCode::Space) || pad(GamepadButton::South);
+    (up, down, confirm)
 }
 
 #[derive(Default)]
@@ -425,6 +446,54 @@ mod raw_input_tests {
         assert!(
             drained(&mut app).is_empty(),
             "keyboard drives no launcher command when the launcher is not focused"
+        );
+    }
+
+    /// Simulate one discrete controller button tap against a spawned `Gamepad`
+    /// component (`digital_mut` is Bevy's documented input-mocking seam).
+    fn pad_tap(app: &mut App, pad: Entity, button: bevy::input::gamepad::GamepadButton) {
+        {
+            let mut entity = app.world_mut().entity_mut(pad);
+            let mut gamepad = entity.get_mut::<bevy::input::gamepad::Gamepad>().unwrap();
+            gamepad.digital_mut().press(button);
+        }
+        app.update();
+        let mut entity = app.world_mut().entity_mut(pad);
+        let mut gamepad = entity.get_mut::<bevy::input::gamepad::Gamepad>().unwrap();
+        gamepad.digital_mut().clear();
+    }
+
+    #[test]
+    fn controller_dpad_and_south_drive_the_same_launcher_commands_as_the_keyboard() {
+        use bevy::input::gamepad::{Gamepad, GamepadButton};
+        let mut app = app_with_launcher(true);
+        let pad = app.world_mut().spawn(Gamepad::default()).id();
+
+        pad_tap(&mut app, pad, GamepadButton::DPadDown);
+        assert_eq!(
+            drained(&mut app),
+            vec![ShellLauncherCommand::Next],
+            "D-pad down navigates like ArrowDown"
+        );
+        pad_tap(&mut app, pad, GamepadButton::DPadUp);
+        assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Previous]);
+        pad_tap(&mut app, pad, GamepadButton::South);
+        assert_eq!(
+            drained(&mut app),
+            vec![ShellLauncherCommand::LaunchSelected],
+            "South (A / cross) confirms like Enter"
+        );
+    }
+
+    #[test]
+    fn controller_is_inert_when_launcher_is_not_active() {
+        use bevy::input::gamepad::{Gamepad, GamepadButton};
+        let mut app = app_with_launcher(false);
+        let pad = app.world_mut().spawn(Gamepad::default()).id();
+        pad_tap(&mut app, pad, GamepadButton::DPadDown);
+        assert!(
+            drained(&mut app).is_empty(),
+            "controller drives no launcher command when the launcher is not focused"
         );
     }
 }

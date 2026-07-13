@@ -301,20 +301,28 @@ fn exit_on_shell_request(mut events: MessageReader<ShellEvent>, mut exit: Messag
 }
 
 /// Universal semantic Quit to Home: while any gameplay session is live, F10
-/// retires it and returns to the host's home route. Presentation-level
-/// binding → semantic command; no provider names a route. (The in-game pause
-/// menu can grow a "Quit to Home" entry on top of the same command.)
+/// (keyboard) or the controller's Start button retires it and returns to the
+/// host's home route. Presentation-level binding → semantic command; no
+/// provider names a route. (The in-game pause menu can grow a "Quit to Home"
+/// entry on top of the same command.)
 fn quit_to_home_on_key(
     // Optional because it models DEVICE presence, not authority: a headless
     // host has no keyboard and simply has no key binding.
     keys: Option<Res<ButtonInput<KeyCode>>>,
+    pads: Query<&bevy::input::gamepad::Gamepad>,
     session: Res<ambition::game_shell::ActiveGameplaySession>,
     mut shell: MessageWriter<ShellCommand>,
 ) {
-    let Some(keys) = keys else {
+    if session.0.is_none() {
         return;
-    };
-    if session.0.is_some() && keys.just_pressed(KeyCode::F10) {
+    }
+    let keyboard_quit = keys
+        .as_deref()
+        .is_some_and(|keys| keys.just_pressed(KeyCode::F10));
+    let controller_quit = pads
+        .iter()
+        .any(|pad| pad.just_pressed(bevy::input::gamepad::GamepadButton::Start));
+    if keyboard_quit || controller_quit {
         shell.write(ShellCommand::QuitToHome);
     }
 }

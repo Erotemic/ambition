@@ -148,6 +148,19 @@ fn assert_home(app: &mut App, context: &str) {
 
 /// Select the launcher entry at `index` (registration order:
 /// Ambition, Sanic, Mary-O, Exit) and confirm it.
+/// Launcher rows = registered experience entries + built-in host actions (the
+/// Exit row, when the host shows it). Derived, never a literal.
+fn launcher_row_count(app: &App) -> usize {
+    use ambition::game_shell::{ShellLaunchCatalog, ShellLauncherPresentation};
+    let experiences = app.world().resource::<ShellLaunchCatalog>().entries.len();
+    let exit = app
+        .world()
+        .resource::<ShellLauncherPresentation>()
+        .exit_label
+        .is_some() as usize;
+    experiences + exit
+}
+
 fn launch_entry(app: &mut App, index: usize) {
     // Reset the cursor to the top deterministically, then walk down.
     for _ in 0..8 {
@@ -163,7 +176,10 @@ fn launch_entry(app: &mut App, index: usize) {
         .world()
         .resource::<ambition::game_shell::ShellLauncherState>()
         .selected;
-    let total = 4usize; // Ambition, Sanic, Mary-O, Exit
+    // Derive the row count from the registered entries plus the built-in host
+    // actions (the Exit row), never a hard-coded literal — adding a provider or
+    // toggling Exit must not silently desync this walk.
+    let total = launcher_row_count(app);
     let steps = (index + total - current % total) % total;
     for _ in 0..steps {
         app.world_mut().write_message(ShellLauncherCommand::Next);

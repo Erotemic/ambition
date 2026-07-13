@@ -63,6 +63,18 @@ impl Plugin for Smb1ExperiencePlugin {
     fn build(&self, app: &mut App) {
         crate::install_smb1_content(app);
 
+        // Mary-O authors no music or SFX. Declare that intent EXPLICITLY as an
+        // empty audio fragment so the session bridge selects deliberate silence
+        // for this provider rather than being unable to distinguish "silent by
+        // design" from "forgot to register audio" (which it refuses to guess).
+        {
+            use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+            app.register_audio_catalog_fragment(
+                AudioCatalogFragment::new(MARY_O_EXPERIENCE, None, None)
+                    .expect("Mary-O silent audio fragment is valid"),
+            );
+        }
+
         app.register_gameplay_experience(
             ExperienceRegistration::new(MARY_O_EXPERIENCE, "Mary-O", MARY_O_GAMEPLAY_ROUTE)
                 .with_description("SMB1 level 1-1: run, jump, grab the flag"),

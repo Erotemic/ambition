@@ -190,6 +190,10 @@ impl Plugin for GameplaySessionBridgePlugin {
             .init_resource::<GameplaySessionLinks>()
             .init_resource::<ActiveGameplaySession>()
             .init_resource::<ActiveAudioSelection>()
+            // Required, never Option: session-audio composition must fail loudly
+            // if the host was built without an audio system rather than treating
+            // a missing registry as "everyone is silent."
+            .init_resource::<AudioCatalogRegistry>()
             .add_message::<GameplaySessionEvent>()
             .configure_sets(
                 Update,
@@ -224,7 +228,7 @@ impl Plugin for GameplaySessionBridgePlugin {
 fn select_session_audio_authority(
     mut sessions: MessageReader<GameplaySessionEvent>,
     registry: Res<GameplaySessionRegistry>,
-    catalogs: Option<Res<AudioCatalogRegistry>>,
+    catalogs: Res<AudioCatalogRegistry>,
     mut selection: ResMut<ActiveAudioSelection>,
 ) {
     for event in sessions.read() {
@@ -234,15 +238,19 @@ fn select_session_audio_authority(
                     .profile(&activation.experience_id)
                     .and_then(|profile| profile.audio_provider.clone())
                     .unwrap_or_else(|| activation.experience_id.as_str().to_owned());
-                let (music, sfx) = catalogs
-                    .as_ref()
-                    .map(|catalogs| {
-                        (
-                            catalogs.music_for(&provider).cloned(),
-                            catalogs.sfx_for(&provider).cloned(),
-                        )
-                    })
-                    .unwrap_or((None, None));
+                // The registry is REQUIRED (never Option) so a host composed
+                // without an audio system cannot be silently mistaken for "every
+                // provider is deliberately silent." A gameplay provider must
+                // register a fragment — an explicitly-empty one for silence — so
+                // absence is a real composition error, not inferred quiet.
+                assert!(
+                    catalogs.has_provider(&provider),
+                    "gameplay provider '{provider}' activated a session but registered no \
+                     audio catalog fragment; register one (empty music/SFX for deliberate \
+                     silence) so composition is never mistaken for silence",
+                );
+                let music = catalogs.music_for(&provider).cloned();
+                let sfx = catalogs.sfx_for(&provider).cloned();
                 // Tag the selection with THIS session's scope token so a delayed
                 // retirement for an older session cannot silence it.
                 selection.select(Some(scope.0), provider, music, sfx);

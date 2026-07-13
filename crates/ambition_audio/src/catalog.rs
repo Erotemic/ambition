@@ -112,6 +112,14 @@ impl AudioCatalogRegistry {
         self.fragments.keys().map(String::as_str)
     }
 
+    /// Whether `provider_id` registered an audio fragment (music, SFX, or an
+    /// explicitly-empty one for deliberate silence). A registered-but-empty
+    /// fragment is how a silent provider declares intent; absence is a
+    /// composition error the session bridge refuses to treat as silence.
+    pub fn has_provider(&self, provider_id: &str) -> bool {
+        self.fragments.contains_key(provider_id)
+    }
+
     pub fn music_for(&self, provider_id: &str) -> Option<&MusicRegistry> {
         self.fragments.get(provider_id)?.music.as_ref()
     }

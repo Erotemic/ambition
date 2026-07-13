@@ -9,6 +9,7 @@ use crate::{
     AmbitionGameShellPlugin, ShellCommand, ShellHostConfiguration, ShellHostSpec,
     ShellRouteCatalog, ShellRouter,
 };
+use ambition_audio::catalog::AudioCatalogAppExt;
 use ambition_platformer_primitives::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -41,6 +42,11 @@ fn app() -> App {
     app.register_gameplay_experience(
         ExperienceRegistration::new(GAME, "Test game", GAME_ROUTE),
         ShellRouteSpec::new(GAME_ROUTE, GAME),
+    );
+    // Every gameplay provider must declare audio intent; the plain test game is
+    // deliberately silent, declared as an explicit empty fragment.
+    app.register_audio_catalog_fragment(
+        ambition_audio::catalog::AudioCatalogFragment::new(GAME, None, None).unwrap(),
     );
     app.world_mut()
         .resource_mut::<ShellRouteCatalog>()
@@ -146,7 +152,8 @@ fn session_activation_owns_audio_authority_and_home_retires_it() {
         ExperienceRegistration::new(SILENT_GAME, "Silent game", SILENT_ROUTE),
         ShellRouteSpec::new(SILENT_ROUTE, SILENT_GAME),
     );
-    // Only `test_game` registers audio; `silent_game` deliberately none.
+    // `test_game` authors music; `silent_game` registers an EXPLICIT empty
+    // fragment (deliberate silence — never inherits another provider's music).
     let mut catalogs = AudioCatalogRegistry::default();
     catalogs
         .register(
@@ -164,6 +171,9 @@ fn session_activation_owns_audio_authority_and_home_retires_it() {
             )
             .unwrap(),
         )
+        .unwrap();
+    catalogs
+        .register(AudioCatalogFragment::new(SILENT_GAME, None, None).unwrap())
         .unwrap();
     app.insert_resource(catalogs);
 
@@ -198,6 +208,32 @@ fn session_activation_owns_audio_authority_and_home_retires_it() {
     );
 }
 
+/// Issue 5: a gameplay provider that registered NO audio fragment is a
+/// composition error, not inferred silence. Activating it must fail loudly so a
+/// host built without an audio system can never be silently mistaken for "every
+/// provider is deliberately silent."
+#[test]
+#[should_panic(expected = "registered no audio catalog fragment")]
+fn activating_a_provider_with_no_audio_fragment_panics() {
+    const UNWIRED: &str = "unwired_game";
+    const UNWIRED_ROUTE: &str = "unwired_gameplay";
+
+    let mut app = App::new();
+    app.add_plugins((AmbitionGameShellPlugin, GameplaySessionBridgePlugin));
+    app.register_gameplay_experience(
+        ExperienceRegistration::new(UNWIRED, "Unwired game", UNWIRED_ROUTE),
+        ShellRouteSpec::new(UNWIRED_ROUTE, UNWIRED),
+    );
+    // Deliberately register NO audio fragment for `unwired_game`.
+    app.world_mut()
+        .resource_mut::<ShellRouteCatalog>()
+        .register(ShellRouteSpec::new(HOME, "home"));
+    app.world_mut()
+        .resource_mut::<ShellHostConfiguration>()
+        .spec = Some(ShellHostSpec::new(UNWIRED_ROUTE, HOME));
+    settle(&mut app);
+}
+
 /// W0: the canonical session instance captures the load barrier that
 /// authorized its activation.
 #[test]
@@ -219,6 +255,10 @@ fn session_instance_carries_its_load_barrier_identity() {
         ExperienceRegistration::new(LOADED_GAME, "Loaded game", LOADED_ROUTE),
         ShellRouteSpec::new(LOADED_ROUTE, LOADED_GAME)
             .requiring("load-plan".into(), "ready-barrier".into()),
+    );
+    // Declare the loaded game's audio intent (silent) so activation composes.
+    app.register_audio_catalog_fragment(
+        ambition_audio::catalog::AudioCatalogFragment::new(LOADED_GAME, None, None).unwrap(),
     );
     app.world_mut()
         .resource_mut::<ShellRouteCatalog>()

@@ -355,3 +355,76 @@ fn sequence_frame(sequence: &ActiveShellSequence) -> BasicSequenceFrame {
         ShellSegmentPresentation::Registered(_) => BasicSequenceFrame::default(),
     }
 }
+
+#[cfg(test)]
+mod raw_input_tests {
+    use super::*;
+    use crate::{ActiveShellSequence, ShellLauncherState, ShellSequenceCommand};
+    use bevy::input::ButtonInput;
+    use bevy::prelude::{App, KeyCode, Messages, Update};
+
+    fn app_with_launcher(active: bool) -> App {
+        let mut app = App::new();
+        app.add_message::<ShellLauncherCommand>();
+        app.add_message::<ShellSequenceCommand>();
+        app.init_resource::<ShellLauncherState>();
+        app.init_resource::<ActiveShellSequence>();
+        app.init_resource::<ButtonInput<KeyCode>>();
+        app.add_systems(Update, basic_shell_keyboard);
+        app.world_mut().resource_mut::<ShellLauncherState>().active = active;
+        app
+    }
+
+    /// Simulate one discrete key tap: press, run a frame, then clear the
+    /// per-frame `just_pressed` edge (no bevy InputPlugin does it here).
+    fn tap(app: &mut App, key: KeyCode) {
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(key);
+        app.update();
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .clear();
+    }
+
+    fn drained(app: &mut App) -> Vec<ShellLauncherCommand> {
+        app.world_mut()
+            .resource_mut::<Messages<ShellLauncherCommand>>()
+            .drain()
+            .collect()
+    }
+
+    #[test]
+    fn arrow_keys_move_the_launcher_cursor() {
+        let mut app = app_with_launcher(true);
+        tap(&mut app, KeyCode::ArrowDown);
+        assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Next]);
+        tap(&mut app, KeyCode::ArrowUp);
+        assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Previous]);
+    }
+
+    #[test]
+    fn enter_and_space_confirm_the_selection() {
+        let mut app = app_with_launcher(true);
+        tap(&mut app, KeyCode::Enter);
+        assert_eq!(
+            drained(&mut app),
+            vec![ShellLauncherCommand::LaunchSelected]
+        );
+        tap(&mut app, KeyCode::Space);
+        assert_eq!(
+            drained(&mut app),
+            vec![ShellLauncherCommand::LaunchSelected]
+        );
+    }
+
+    #[test]
+    fn keyboard_is_inert_when_launcher_is_not_active() {
+        let mut app = app_with_launcher(false);
+        tap(&mut app, KeyCode::ArrowDown);
+        assert!(
+            drained(&mut app).is_empty(),
+            "keyboard drives no launcher command when the launcher is not focused"
+        );
+    }
+}

@@ -18,9 +18,60 @@
 //! registered no audio. They never fall back to "whichever registry happens to
 //! be resident" — that would resurrect first-install-wins authority.
 
+use std::collections::BTreeSet;
+
 use bevy::prelude::Resource;
 
 use crate::spec::{MusicRegistry, SfxRegistry};
+
+/// Provider-relative playback authority for one frame of music intent.
+///
+/// The music director enforces this: a track id may drive the base channel only
+/// when the active provider authorizes it. This is precisely what stops a track
+/// that merely EXISTS in the process-wide combined asset library from being
+/// playable by a session whose provider never authored it — the combined library
+/// is *storage*, this is *permission*.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum MusicAuthority {
+    /// No gameplay session governs music this frame (frontend/title, or a
+    /// direct-entry host before selection). The director must not change base
+    /// playback — the host's frontend policy owns silence/title there.
+    #[default]
+    Ungoverned,
+    /// A session is live; only these track ids may play. An EMPTY set is a
+    /// provider that authored no music — DELIBERATE silence, not "retain
+    /// whatever is playing." That distinction is the fix for the ambiguity where
+    /// an empty candidate list meant "leave the previous track running."
+    Governed { authorized: BTreeSet<String> },
+}
+
+impl MusicAuthority {
+    /// A governed authority permitting exactly `authorized`.
+    pub fn governed(authorized: impl IntoIterator<Item = String>) -> Self {
+        Self::Governed {
+            authorized: authorized.into_iter().collect(),
+        }
+    }
+
+    /// True when `track_id` is allowed to drive playback this frame.
+    pub fn allows(&self, track_id: &str) -> bool {
+        match self {
+            Self::Ungoverned => true,
+            Self::Governed { authorized } => authorized.contains(track_id),
+        }
+    }
+
+    /// True when the active provider authored no music — the director must stop
+    /// playback rather than retain the previous session's track.
+    pub fn is_deliberate_silence(&self) -> bool {
+        matches!(self, Self::Governed { authorized } if authorized.is_empty())
+    }
+
+    /// True when a session governs playback (as opposed to a frontend route).
+    pub fn is_governed(&self) -> bool {
+        matches!(self, Self::Governed { .. })
+    }
+}
 
 /// Host policy for what plays at frontend/title routes (no gameplay session).
 ///
@@ -137,6 +188,29 @@ impl ActiveAudioSelection {
     pub fn sfx(&self) -> Option<&SfxRegistry> {
         self.current.as_ref().and_then(|a| a.sfx.as_ref())
     }
+
+    /// The provider-relative music authority implied by the current selection.
+    ///
+    /// - no selection → [`MusicAuthority::Ungoverned`] (frontend routes);
+    /// - a provider with authored music → `Governed` with exactly that
+    ///   provider's track ids;
+    /// - a provider that authored no music → `Governed` with an EMPTY set,
+    ///   i.e. deliberate silence.
+    ///
+    /// The director consults this so a track present in the process-wide
+    /// combined library but foreign to the active provider can never play.
+    pub fn music_authority(&self) -> MusicAuthority {
+        match &self.current {
+            None => MusicAuthority::Ungoverned,
+            Some(authority) => MusicAuthority::Governed {
+                authorized: authority
+                    .music
+                    .as_ref()
+                    .map(|music| music.tracks.iter().map(|track| track.id.clone()).collect())
+                    .unwrap_or_default(),
+            },
+        }
+    }
 }
 
 #[cfg(test)]
@@ -204,5 +278,45 @@ mod tests {
         // B's own retirement DOES clear it.
         selection.clear_if_owner(2);
         assert!(selection.current().is_none());
+    }
+
+    #[test]
+    fn no_selection_is_ungoverned_authority() {
+        let selection = ActiveAudioSelection::default();
+        assert_eq!(selection.music_authority(), MusicAuthority::Ungoverned);
+        // Ungoverned permits nothing to be *rejected* — the director must not
+        // change playback at a frontend route (the frontend policy owns it).
+        assert!(selection.music_authority().allows("anything"));
+        assert!(!selection.music_authority().is_deliberate_silence());
+    }
+
+    #[test]
+    fn a_music_provider_only_authorizes_its_own_tracks() {
+        // The heart of Issue 1: a Sanic session must not be able to play an
+        // Ambition track that merely EXISTS in the combined library.
+        let mut selection = ActiveAudioSelection::default();
+        selection.select(Some(7), "sanic", Some(music("you_are_too_slow")), None);
+        let authority = selection.music_authority();
+        assert!(authority.allows("you_are_too_slow"));
+        assert!(
+            !authority.allows("ambition_boss_theme"),
+            "a foreign provider's track is not authorized by this session"
+        );
+        assert!(!authority.is_deliberate_silence());
+        assert!(authority.is_governed());
+    }
+
+    #[test]
+    fn a_provider_with_no_music_is_deliberate_silence() {
+        // Mary-O authors no music: a live session, but nothing may play.
+        let mut selection = ActiveAudioSelection::default();
+        selection.select(Some(3), "mary_o", None, None);
+        let authority = selection.music_authority();
+        assert!(authority.is_governed());
+        assert!(
+            authority.is_deliberate_silence(),
+            "an empty authorized set is a stop request, not 'retain current'"
+        );
+        assert!(!authority.allows("you_are_too_slow"));
     }
 }

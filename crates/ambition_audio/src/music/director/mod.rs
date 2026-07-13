@@ -56,7 +56,31 @@ pub fn drive_music_director(
         director.seconds_in_loop += dt;
     }
 
-    let candidates = intent.simple_track_candidates.as_slice();
+    // Provider-relative authority (Issues 1 & 2). A governed-but-empty authority
+    // is a DELIBERATE stop: the active provider authored no music, so nothing —
+    // neither a simple track nor an adaptive cue — may play. Silence exactly once
+    // and leave the backend idle (guarded so we do not re-stop every frame).
+    if intent.authority.is_deliberate_silence() {
+        let already_silent =
+            director.mode == MusicDirectorMode::Idle && music_state.active_track.is_empty();
+        if !already_silent {
+            super::silence_music_backend(
+                &base_music_channel,
+                &layer_channels,
+                &mut director,
+                &mut music_state,
+            );
+        }
+        return;
+    }
+
+    // Only tracks the active provider authored may drive the base channel. A
+    // stale candidate carried over from another provider's resident request
+    // state is filtered out here, so it can never be resolved against the
+    // combined library.
+    let authorized =
+        simple::authorized_candidates(&intent.authority, &intent.simple_track_candidates);
+    let candidates = authorized.as_slice();
     match intent.adaptive.clone() {
         Some(AdaptiveCueDirective::Play { cue_id, state_id }) => {
             if let (Some(cue), Some(target_state)) = (

@@ -1,5 +1,25 @@
 use super::*;
 
+use crate::selection::MusicAuthority;
+
+/// Keep only the priority candidates the active provider is permitted to play.
+///
+/// This is the provider-relative-authority gate (Issue 1): a track id present in
+/// the process-wide combined [`AudioLibrary`] but foreign to the active provider
+/// is dropped here, BEFORE the director resolves anything against the library, so
+/// it can never drive the base channel. Under an ungoverned authority (frontend
+/// routes) nothing is dropped — the frontend policy owns playback there.
+pub(super) fn authorized_candidates(
+    authority: &MusicAuthority,
+    candidates: &[String],
+) -> Vec<String> {
+    candidates
+        .iter()
+        .filter(|id| authority.allows(id))
+        .cloned()
+        .collect()
+}
+
 pub(super) fn apply_simple_music_intent(
     director: &mut MusicDirectorState,
     library: &mut AudioLibrary,
@@ -70,5 +90,76 @@ pub(super) fn resume_simple_music(
         if set_mode_to_simple_track {
             director.mode = MusicDirectorMode::SimpleTrack;
         }
+    }
+}
+
+#[cfg(test)]
+mod authority_tests {
+    use super::*;
+    use crate::selection::MusicAuthority;
+
+    fn ids(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    /// Poison (Issue 1): Ambition ran, its resident room/radio/encounter request
+    /// state still names Ambition tracks. Quit to Home, then Sanic activates.
+    /// This frame's candidates carry the stale Ambition ids AND Sanic's default.
+    /// Only Sanic's own track survives the authority gate — the Ambition track
+    /// cannot play even though it exists in the combined library.
+    #[test]
+    fn a_foreign_providers_stale_track_is_filtered_out() {
+        let authority = MusicAuthority::governed(ids(&["you_are_too_slow"]));
+        let stale = ids(&[
+            "ambition_boss_theme", // stale encounter request (higher priority!)
+            "ambition_radio_lofi", // stale radio request
+            "you_are_too_slow",    // Sanic's own default (lowest priority)
+        ]);
+        assert_eq!(
+            authorized_candidates(&authority, &stale),
+            ids(&["you_are_too_slow"]),
+            "a Sanic session may only play Sanic-authored tracks"
+        );
+    }
+
+    /// Under the active provider's own authority every one of its tracks passes,
+    /// so Ambition's real priority order (boss > radio > room > default) is
+    /// preserved unchanged — the gate is a no-op for the authoring provider.
+    #[test]
+    fn the_authoring_provider_keeps_its_full_priority_list() {
+        let authority = MusicAuthority::governed(ids(&[
+            "ambition_boss_theme",
+            "ambition_radio_lofi",
+            "ambition_room_calm",
+        ]));
+        let candidates = ids(&["ambition_boss_theme", "ambition_room_calm"]);
+        assert_eq!(
+            authorized_candidates(&authority, &candidates),
+            candidates,
+            "the provider that authored these tracks plays them in priority order"
+        );
+    }
+
+    /// A frontend/ungoverned authority never rejects — the frontend policy, not
+    /// the director, owns what plays at the title.
+    #[test]
+    fn ungoverned_authority_filters_nothing() {
+        let candidates = ids(&["a_possible_morning"]);
+        assert_eq!(
+            authorized_candidates(&MusicAuthority::Ungoverned, &candidates),
+            candidates
+        );
+    }
+
+    /// A deliberately-silent provider (empty authorized set) drops everything;
+    /// the director's separate silence gate then stops the base channel.
+    #[test]
+    fn a_silent_provider_authorizes_nothing() {
+        let authority = MusicAuthority::governed(Vec::<String>::new());
+        assert!(authority.is_deliberate_silence());
+        assert!(
+            authorized_candidates(&authority, &ids(&["anything", "at_all"])).is_empty(),
+            "Mary-O authored no music: no candidate is authorized"
+        );
     }
 }

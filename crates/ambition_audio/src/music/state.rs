@@ -85,8 +85,15 @@ pub struct MusicIntent {
     /// Adaptive cue directive for this frame, if any content owns audio.
     /// `None` means "no adaptive claim — fall back to the simple track."
     pub adaptive: Option<AdaptiveCueDirective>,
-    /// Simple (single-track) candidates in priority order. The director
-    /// plays the first id that exists in its `AudioLibrary`. Empty means
-    /// "nothing requested" (the director keeps whatever is playing).
+    /// Simple (single-track) candidates in priority order. The director plays
+    /// the first id that BOTH exists in its `AudioLibrary` AND is permitted by
+    /// [`Self::authority`]. Empty means "nothing requested" (the director keeps
+    /// whatever is playing, subject to authority).
     pub simple_track_candidates: Vec<String>,
+    /// Provider-relative playback authority for this frame. The content layer
+    /// derives it from the active audio selection; the director enforces it so a
+    /// track present in the process-wide combined library but foreign to the
+    /// active provider can never play, and so a provider that authored no music
+    /// yields deliberate silence rather than a retained previous track.
+    pub authority: crate::selection::MusicAuthority,
 }

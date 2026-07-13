@@ -72,6 +72,10 @@ pub fn compute_music_intent(
 
     intent.adaptive = adaptive;
     intent.simple_track_candidates = candidates;
+    // Provider-relative authority: the director may only play tracks this
+    // session's provider authored. No selection is ungoverned (frontend); a
+    // provider with no music is deliberate silence.
+    intent.authority = audio_selection.music_authority();
 }
 
 /// Build the simple-track priority list. Priority: encounter music (boss beats

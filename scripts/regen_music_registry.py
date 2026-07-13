@@ -28,7 +28,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ASSETS_ROOT = REPO_ROOT / "crates" / "ambition_actors" / "assets"
 GENERATED_DIR = ASSETS_ROOT / "audio" / "music" / "generated"
-REGISTRY_PATH = REPO_ROOT / "crates" / "ambition_content" / "assets" / "audio" / "music_registry.ron"
+REGISTRY_PATH = REPO_ROOT / "game" / "ambition_content" / "assets" / "audio" / "music_registry.ron"
 
 # Track played at startup / when no radio station is selected.
 DEFAULT_TRACK = "long_lofi_drift"

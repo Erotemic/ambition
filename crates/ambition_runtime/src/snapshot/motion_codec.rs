@@ -29,11 +29,16 @@ impl SnapshotState for ambition_engine_core::MotionModel {
                 put_f32(out, motion.params.crawl_speed);
                 put_f32(out, motion.params.max_fall_speed);
                 match motion.state.attachment() {
-                    Some(normal) => {
-                        put_bool(out, true);
+                    None => put_u8(out, 0),
+                    Some(ambition_engine_core::CrawlAttachment::Block { normal }) => {
+                        put_u8(out, 1);
                         put_vec2(out, normal);
                     }
-                    None => put_bool(out, false),
+                    Some(ambition_engine_core::CrawlAttachment::Chain { chain, s }) => {
+                        put_u8(out, 2);
+                        put_u32(out, chain);
+                        put_f32(out, s);
+                    }
                 }
             }
         }
@@ -63,10 +68,11 @@ impl SnapshotState for ambition_engine_core::MotionModel {
                     crawl_speed: r.f32()?,
                     max_fall_speed: r.f32()?,
                 };
-                let state = if r.bool()? {
-                    CrawlerState::attached(r.vec2()?)
-                } else {
-                    CrawlerState::DETACHED
+                let state = match r.u8()? {
+                    0 => CrawlerState::DETACHED,
+                    1 => CrawlerState::attached(r.vec2()?),
+                    2 => CrawlerState::attached_to_chain(r.u32()?, r.f32()?),
+                    _ => return None,
                 };
                 MotionModel::AdhesiveCrawler(AdhesiveCrawlerMotion { params, state })
             }

@@ -395,7 +395,9 @@ mod tests {
         };
         assert_eq!(
             motion.state.attachment(),
-            Some(crate::Vec2::new(-1.0, 0.0)),
+            Some(crate::movement::CrawlAttachment::Block {
+                normal: crate::Vec2::new(-1.0, 0.0),
+            }),
             "same-variant refresh preserves the clung surface"
         );
         assert_eq!(motion.params, updated);

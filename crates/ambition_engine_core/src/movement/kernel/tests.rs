@@ -403,7 +403,7 @@ fn the_crawler_crawls_wraps_a_convex_corner_and_keeps_gluing() {
         let MotionModel::AdhesiveCrawler(crawler) = &model else {
             unreachable!();
         };
-        if let Some(normal) = crawler.state.attachment() {
+        if let Some(normal) = crawler.state.attached_normal(&world) {
             assert_eq!(
                 result.surface_normal, normal,
                 "published support fact must be the clung normal"
@@ -573,7 +573,7 @@ fn the_crawler_circumnavigates_an_island_gluing_to_all_four_faces() {
         let MotionModel::AdhesiveCrawler(crawler) = &model else {
             unreachable!();
         };
-        let Some(normal) = crawler.state.attachment() else {
+        let Some(normal) = crawler.state.attached_normal(&world) else {
             continue;
         };
         seen.insert((normal.x.round() as i32, normal.y.round() as i32));
@@ -639,7 +639,7 @@ fn an_oblique_frame_crawler_attaches_to_the_landed_surfaces_true_normal() {
         let MotionModel::AdhesiveCrawler(crawler) = &model else {
             unreachable!();
         };
-        if let Some(normal) = crawler.state.attachment() {
+        if let Some(normal) = crawler.state.attached_normal(&world) {
             attached = Some(normal);
             break;
         }
@@ -649,5 +649,89 @@ fn an_oblique_frame_crawler_attaches_to_the_landed_surfaces_true_normal() {
         Some(Vec2::new(0.0, -1.0)),
         "the attachment is the FLOOR's outward normal, not -frame.down ({:?})",
         -frame.down()
+    );
+}
+
+/// O6 headline evidence: TRUE arbitrary-angle attached crawling. A closed
+/// surface chain — a square island rotated by an arbitrary 0.731 rad — captures
+/// a falling crawler mid-air, and the crawler circumnavigates it: seated one
+/// half-thickness off the OBLIQUE surface at every step, transiting all four
+/// oblique corners (the polyline walk IS the corner transit), publishing the
+/// oblique attachment normal as the support fact. No world-axis case anywhere.
+#[test]
+fn the_crawler_circumnavigates_an_arbitrarily_rotated_chain_island() {
+    let center = Vec2::new(1000.0, 1000.0);
+    let square = [
+        Vec2::new(-150.0, -150.0),
+        Vec2::new(150.0, -150.0),
+        Vec2::new(150.0, 150.0),
+        Vec2::new(-150.0, 150.0),
+    ];
+    let points: Vec<Vec2> = square.iter().map(|p| center + rotate(*p, 0.731)).collect();
+    let chain = SurfaceChain::closed_loop("oblique_island", points);
+    let world = World::new(
+        "crawler_oblique_lap",
+        Vec2::splat(4_000.0),
+        Vec2::splat(500.0),
+        vec![],
+    )
+    .with_chains(vec![chain]);
+    let surface = &world.chains[0];
+
+    // Drop the crawler above the island; a slow terminal speed keeps the fall
+    // inside the adhesion capture window (adhesion is a touch, not a sweep).
+    let mut model = MotionModel::adhesive_crawler(CrawlerParams {
+        crawl_speed: 260.0,
+        max_fall_speed: 120.0,
+    });
+    let mut scratch = BodyClusterScratch::new_with_abilities(
+        center + Vec2::new(0.0, -320.0),
+        AbilitySet::default(),
+    );
+    scratch.kinematics.size = Vec2::new(24.0, 16.0);
+    scratch.kinematics.facing = 1.0;
+    let body_thick = scratch.kinematics.size.y * 0.5;
+    let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 300.0);
+
+    let mut segments_seen = std::collections::BTreeSet::new();
+    let mut attached_ticks = 0u32;
+    for _ in 0..2000 {
+        let result = step(
+            &mut model,
+            &world,
+            &mut scratch,
+            frame,
+            InputState::default(),
+        );
+        let MotionModel::AdhesiveCrawler(crawler) = &model else {
+            unreachable!();
+        };
+        let Some(crate::movement::CrawlAttachment::Chain { s, .. }) = crawler.state.attachment()
+        else {
+            continue;
+        };
+        attached_ticks += 1;
+        // Seated: one half-thickness off the OBLIQUE surface, every tick.
+        let (_, signed) = surface.project(scratch.kinematics.pos);
+        assert!(
+            (signed - body_thick).abs() <= 1.0,
+            "seated {signed:.2}px off the oblique surface (want ~{body_thick})"
+        );
+        // The published support fact is the ATTACHED oblique normal.
+        let normal = surface.frame_at(s).normal;
+        assert_eq!(result.surface_normal, normal);
+        assert!(
+            normal.x.abs() > 0.05 && normal.y.abs() > 0.05,
+            "the attachment normal is genuinely oblique: {normal:?}"
+        );
+        segments_seen.insert(surface.frame_at(s).segment);
+        if segments_seen.len() == 4 && attached_ticks > 60 {
+            break;
+        }
+    }
+    assert_eq!(
+        segments_seen.len(),
+        4,
+        "one lap crosses all four oblique faces; saw {segments_seen:?}"
     );
 }

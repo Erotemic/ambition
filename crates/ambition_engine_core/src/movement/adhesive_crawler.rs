@@ -44,28 +44,62 @@ impl Default for CrawlerParams {
     }
 }
 
+/// What the crawler is glued to.
+///
+/// The two variants mirror the world's two surface representations: cardinal
+/// AABB block faces (probe-based crawl, corner transit via probes) and
+/// [`SurfaceChain`](crate::world::SurfaceChain) polylines — arbitrary-angle
+/// surfaces whose crawl follows the chain's own local frame, so corner transit
+/// is the GEOMETRY (`frame_at` walks the polyline), never a world-axis case.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CrawlAttachment {
+    /// Clung to a block face whose outward unit normal is `normal`.
+    Block { normal: Vec2 },
+    /// Clung to `World::chains[chain]` at arc length `s` (rideable side).
+    Chain { chain: u32, s: f32 },
+}
+
 /// Crawler-private persistent state: the attachment. `None` = detached and
-/// falling; `Some(normal)` = clung to a surface whose outward unit normal is
-/// `normal`. Nothing outside the kernel may author this except through the
+/// falling. Nothing outside the kernel may author this except through the
 /// typed [`AdhesiveCrawlerMotion::detach`] operation (the cling-break hit
 /// reaction); the published support fact is the kernel result's
 /// `surface_normal`.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct CrawlerState {
-    attachment: Option<Vec2>,
+    attachment: Option<CrawlAttachment>,
 }
 
 impl CrawlerState {
     pub const DETACHED: Self = Self { attachment: None };
 
+    /// Clung to a block face with outward normal `normal`.
     pub fn attached(normal: Vec2) -> Self {
         Self {
-            attachment: Some(normal),
+            attachment: Some(CrawlAttachment::Block { normal }),
         }
     }
 
-    pub const fn attachment(self) -> Option<Vec2> {
+    /// Clung to a surface chain at arc length `s`.
+    pub fn attached_to_chain(chain: u32, s: f32) -> Self {
+        Self {
+            attachment: Some(CrawlAttachment::Chain { chain, s }),
+        }
+    }
+
+    pub const fn attachment(self) -> Option<CrawlAttachment> {
         self.attachment
+    }
+
+    /// The clung surface's outward normal, resolved against the live world
+    /// (a chain attachment's normal is the geometry's frame at `s`).
+    pub fn attached_normal(self, world: &World) -> Option<Vec2> {
+        match self.attachment? {
+            CrawlAttachment::Block { normal } => Some(normal),
+            CrawlAttachment::Chain { chain, s } => world
+                .chains
+                .get(chain as usize)
+                .map(|surface| surface.frame_at(s).normal),
+        }
     }
 
     pub const fn is_attached(self) -> bool {
@@ -142,10 +176,20 @@ pub(super) fn step_crawler(
         clusters.kinematics.facing = facing_intent.signum();
     }
 
-    let Some(normal) = motion.state.attachment() else {
-        fall_step(motion, world, clusters, frame, dt, contacts);
-        publish_attachment_contact(motion, world, clusters, contacts);
-        return;
+    let attachment = match motion.state.attachment() {
+        None => {
+            fall_step(motion, world, clusters, frame, dt, contacts);
+            publish_attachment_contact(motion, world, clusters, contacts);
+            return;
+        }
+        Some(attachment) => attachment,
+    };
+    let normal = match attachment {
+        CrawlAttachment::Chain { chain, s } => {
+            crawl_chain(motion, world, clusters, frame, dt, contacts, chain, s);
+            return;
+        }
+        CrawlAttachment::Block { normal } => normal,
     };
 
     // Emergent riding for a crawler: it is GLUED to its surface (it crawls
@@ -240,6 +284,82 @@ fn finish_attached(clusters: &mut BodyClustersMut<'_>) {
     clusters.ground.on_ground = true;
 }
 
+/// One attached-to-chain crawl tick: advance the arc-length cursor by the
+/// crawl speed, seat the body one half-thickness off the chain's local frame,
+/// and publish the Attachment contact from that frame. Corner/junction transit
+/// IS the polyline walk — `frame_at` blends across segments of ANY angle, so
+/// attached crawling is covariant by construction. An open chain's end
+/// detaches the crawler (it falls under the live frame); a closed chain wraps.
+#[allow(clippy::too_many_arguments)]
+fn crawl_chain(
+    motion: &mut AdhesiveCrawlerMotion,
+    world: &World,
+    clusters: &mut BodyClustersMut<'_>,
+    frame: MotionFrame,
+    dt: f32,
+    contacts: &mut Vec<Contact>,
+    chain: u32,
+    s: f32,
+) {
+    let Some(surface) = world.chains.get(chain as usize) else {
+        // The clung geometry is gone (room swap without a transit): fall.
+        motion.detach();
+        fall_step(motion, world, clusters, frame, dt, contacts);
+        return;
+    };
+    let facing = clusters.kinematics.facing;
+    let speed = motion.params.crawl_speed;
+    let next_s = s + facing * speed * dt;
+    let total = surface.total_length();
+    if !surface.closed && !(0.0..=total).contains(&next_s) {
+        // Crawled off an open end: detach and free-fall under the live frame.
+        motion.detach();
+        fall_step(motion, world, clusters, frame, dt, contacts);
+        return;
+    }
+    let f = surface.frame_at(next_s);
+    let body_thick = clusters.kinematics.size.y * 0.5;
+    clusters.kinematics.pos = f.point + f.normal * body_thick;
+    clusters.kinematics.vel = f.tangent * facing * speed;
+    motion.state = CrawlerState::attached_to_chain(
+        chain,
+        if surface.closed {
+            next_s.rem_euclid(total)
+        } else {
+            next_s
+        },
+    );
+    finish_attached(clusters);
+    contacts.push(Contact {
+        kind: ContactKind::Attachment,
+        point: f.point,
+        normal: f.normal,
+        toi: 0.0,
+        surface_velocity: surface.velocity,
+        source: crate::collision_semantics::ContactSource::Chain {
+            chain,
+            segment: f.segment as u32,
+        },
+    });
+}
+
+/// While falling, the first chain whose rideable side the body's underside
+/// touches captures the crawler (adhesion): projection within one
+/// half-thickness (+slop) on the `+normal` side.
+fn chain_capture(world: &World, pos: Vec2, body_thick: f32) -> Option<(u32, f32)> {
+    const CAPTURE_SLOP: f32 = 2.0;
+    for (index, surface) in world.chains.iter().enumerate() {
+        if surface.points.len() < 2 {
+            continue;
+        }
+        let (s, signed) = surface.project(pos);
+        if signed >= 0.0 && signed <= body_thick + CAPTURE_SLOP {
+            return Some((index as u32, s));
+        }
+    }
+    None
+}
+
 /// Push the tick's [`ContactKind::Attachment`] contact while attached — the
 /// crawler's semantic support fact. The clung block supplies the source kind
 /// and its frame motion; if the probe unexpectedly finds nothing the contact
@@ -250,7 +370,7 @@ fn publish_attachment_contact(
     clusters: &BodyClustersMut<'_>,
     contacts: &mut Vec<Contact>,
 ) {
-    let Some(normal) = motion.state.attachment() else {
+    let Some(normal) = motion.state.attached_normal(world) else {
         return;
     };
     let body_thick = clusters.kinematics.size.y * 0.5;
@@ -325,6 +445,17 @@ fn fall_step(
     sweep(clusters, side_axis);
     clusters.ground.on_ground = false;
     sweep(clusters, gravity_axis);
+
+    // Adhesion: a chain surface the body's underside touches captures the
+    // crawler mid-fall — arbitrary-angle attachment through the same geometry
+    // the momentum policy rides.
+    let body_thick = clusters.kinematics.size.y * 0.5;
+    if let Some((chain, s)) = chain_capture(world, clusters.kinematics.pos, body_thick) {
+        motion.state = CrawlerState::attached_to_chain(chain, s);
+        clusters.kinematics.vel = Vec2::ZERO;
+        clusters.ground.on_ground = true;
+        return;
+    }
 
     if clusters.ground.on_ground {
         // Attach to the LANDED surface's true outward normal (the semantic

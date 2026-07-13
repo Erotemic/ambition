@@ -1823,6 +1823,18 @@ fn restore_rewinds_the_movement_policy_and_its_private_state() {
             }),
         ))
         .id();
+    // A CHAIN-attached crawler: the arc-length attachment (arbitrary-angle
+    // surfaces) round-trips through the same codec.
+    let chain_crawler = world
+        .spawn((
+            SimId::placement("chain_crawler"),
+            kin(Vec2::new(11.0, 11.0), Vec2::ZERO),
+            MotionModel::AdhesiveCrawler(AdhesiveCrawlerMotion {
+                params: CrawlerParams::default(),
+                state: CrawlerState::attached_to_chain(3, 141.5),
+            }),
+        ))
+        .id();
     // An axis body mid-maneuver: its private state (ADR 0024 O4) rides the
     // MotionModel codec, so a rewind resumes the dash / cling / coyote grace.
     let maneuver = AxisManeuverState {
@@ -1872,10 +1884,22 @@ fn restore_rewinds_the_movement_policy_and_its_private_state() {
     };
     assert_eq!(
         motion.state.attachment(),
-        Some(Vec2::new(-1.0, 0.0)),
+        Some(ambition_engine_core::CrawlAttachment::Block {
+            normal: Vec2::new(-1.0, 0.0),
+        }),
         "the clung surface rewound"
     );
     assert_eq!(motion.params.crawl_speed, 77.0);
+
+    let restored = world.get::<MotionModel>(chain_crawler).unwrap();
+    let MotionModel::AdhesiveCrawler(motion) = restored else {
+        panic!("restore must bring back the chain-attached crawler policy");
+    };
+    assert_eq!(
+        motion.state.attachment(),
+        Some(ambition_engine_core::CrawlAttachment::Chain { chain: 3, s: 141.5 }),
+        "the chain arc-length attachment rewound"
+    );
 
     let restored = world.get::<MotionModel>(jumper).unwrap();
     let MotionModel::AxisSwept(axis) = restored else {

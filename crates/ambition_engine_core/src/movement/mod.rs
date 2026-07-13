@@ -38,7 +38,7 @@ mod simulation;
 pub(crate) mod surface_momentum;
 mod tuning;
 
-pub use adhesive_crawler::{AdhesiveCrawlerMotion, CrawlerParams, CrawlerState};
+pub use adhesive_crawler::{AdhesiveCrawlerMotion, CrawlAttachment, CrawlerParams, CrawlerState};
 pub use surface_momentum::{MomentumParams, SurfaceMotion, SurfaceRef};
 
 pub use abilities::resolve_shield;

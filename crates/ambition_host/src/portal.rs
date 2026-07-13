@@ -706,6 +706,12 @@ mod host_adapter {
 
     impl Plugin for PortalObservationPlugin {
         fn build(&self, app: &mut App) {
+            // This plugin registers the publishers that WRITE the presentation
+            // seam resources, so it owns their existence too. A host without
+            // Ambition's composition (a demo app under workspace feature
+            // unification) gets the documented zero-size default until the
+            // first `RoomGeometry` sync — wrong for a frame, never a panic.
+            app.init_resource::<PortalWorldFrame>();
             app.add_systems(Startup, load_portal_gun_art).add_systems(
                 Update,
                 (

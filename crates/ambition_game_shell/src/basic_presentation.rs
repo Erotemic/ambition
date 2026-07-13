@@ -81,6 +81,7 @@ struct BasicSequenceFrame {
     image_path: Option<String>,
 }
 
+#[allow(clippy::too_many_arguments)] // Bevy system: each param is one authority
 fn render_basic_shell(
     mut commands: Commands,
     launcher: Res<ShellLauncherState>,

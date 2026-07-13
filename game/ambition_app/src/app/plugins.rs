@@ -32,8 +32,8 @@ use super::hud::{update_hud, update_quest_panel};
 use super::player_tick::{apply_home_reset_policy, sync_player_presentation};
 use super::resources::init_sandbox_resources;
 use super::setup_systems::{
-    reload_visual_quality_assets_on_scale_change, setup_presentation_system,
-    setup_simulation_system,
+    reload_visual_quality_assets_on_scale_change, setup_host_presentation_system,
+    setup_presentation_system, setup_simulation_system,
 };
 use super::sim_systems::{apply_player_reset_input_system, apply_room_replay_request_system};
 use super::world_flow::{apply_room_transition_system, ensure_requested_room_parallax_system};
@@ -241,7 +241,11 @@ pub fn add_ldtk_runtime_plugin(app: &mut App) {
             Startup,
             (
                 ldtk_world::load_ldtk_asset_handle,
-                spawn_ldtk_world_root.after(setup_simulation_system),
+                // Direct entry constructs the world spine at boot; the shell
+                // host spawns SESSION-scoped roots per activation instead.
+                spawn_ldtk_world_root
+                    .after(setup_simulation_system)
+                    .run_if(super::shell_host::direct_entry),
             ),
         )
         .add_systems(
@@ -268,6 +272,29 @@ pub(super) fn spawn_ldtk_world_root(
     world_assets: Option<Res<ldtk_world::LdtkWorldAssets>>,
     sandbox_asset_collection: Option<Res<loading::SandboxAssetCollection>>,
 ) {
+    spawn_ldtk_world_roots_scoped(
+        &mut commands,
+        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
+        &asset_server,
+        &ldtk_index,
+        &room_set,
+        world_assets.as_deref(),
+        sandbox_asset_collection.as_deref(),
+    );
+}
+
+/// The LdtkWorldBundle spawn shared by direct startup (`UNSCOPED`,
+/// process-resident) and the shell host's per-session activation (scoped, so
+/// the session sweep retires the visual spine roots with the session).
+pub(crate) fn spawn_ldtk_world_roots_scoped(
+    commands: &mut Commands,
+    scope: ambition::platformer::lifecycle::SessionSpawnScope,
+    asset_server: &AssetServer,
+    ldtk_index: &ldtk_world::LdtkRuntimeIndex,
+    room_set: &rooms::RoomSet,
+    world_assets: Option<&ldtk_world::LdtkWorldAssets>,
+    sandbox_asset_collection: Option<&loading::SandboxAssetCollection>,
+) {
     // One LdtkWorldBundle per installed WorldManifest row. bevy_ecs_ldtk's
     // asset loader is per-file; Ambition's merged JSON loader doesn't
     // propagate into the Bevy asset system, so each .ldtk file needs its
@@ -279,20 +306,17 @@ pub(super) fn spawn_ldtk_world_root(
     let manifest = ldtk_world::world_manifest();
     for (index, source) in manifest.worlds.iter().enumerate() {
         let handle = world_assets
-            .as_ref()
             .and_then(|assets| assets.0.get(index).cloned())
             .or_else(|| {
                 // Web loading-state preload covers the primary world only.
                 (index == 0)
                     .then(|| {
-                        sandbox_asset_collection
-                            .as_ref()
-                            .map(|collection| collection.ldtk_project.clone())
+                        sandbox_asset_collection.map(|collection| collection.ldtk_project.clone())
                     })
                     .flatten()
             })
             .unwrap_or_else(|| asset_server.load(ldtk_world::world_bevy_asset_path(source)));
-        commands.spawn((
+        let mut root = commands.spawn((
             bevy_ecs_ldtk::prelude::LdtkWorldBundle {
                 ldtk_handle: handle.into(),
                 level_set: initial_level_set.clone(),
@@ -303,6 +327,7 @@ pub(super) fn spawn_ldtk_world_root(
             ldtk_world::LdtkWorldRoot,
             Name::new(format!("LDtk Runtime Spine Root ({})", source.id)),
         ));
+        scope.apply_to(&mut root);
     }
 }
 
@@ -426,7 +451,16 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 // this slot: audio init (and any future machinery startup
                 // work) orders `.after(the set)` instead of naming this
                 // app system.
-                setup_presentation_system.in_set(PresentationSetupSet),
+                setup_presentation_system
+                    .in_set(PresentationSetupSet)
+                    .run_if(super::shell_host::direct_entry),
+                setup_host_presentation_system
+                    .in_set(PresentationSetupSet)
+                    .run_if(
+                        bevy::ecs::schedule::common_conditions::resource_exists::<
+                            super::shell_host::AmbitionShellHosted,
+                        >,
+                    ),
                 ambition::dev_tools::profiling::phase_mark("after_setup_presentation"),
                 ambition::actors::menu::map::populate_map_rooms,
                 ambition::actors::menu::map::spawn_map_menu,

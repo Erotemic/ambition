@@ -176,6 +176,82 @@ pub(crate) fn setup_presentation_system(
     commands.insert_resource(game_assets);
 }
 
+/// HOST-mode presentation startup: cameras, `GameAssets`, the audio library,
+/// and a placeholder `SceneEntities`. No world visuals, no HUD, no player —
+/// those are SESSION-owned and spawn per activation
+/// (`shell_host::ambition_activate_session_visuals`). The launcher/title route
+/// therefore renders over an empty stage with zero gameplay entities.
+#[cfg(feature = "audio")]
+pub(crate) fn setup_host_presentation_system(
+    mut commands: Commands,
+    room_set: Res<rooms::RoomSet>,
+    music_registry: Res<data::MusicRegistry>,
+    sfx_registry: Res<data::SfxRegistry>,
+    catalogs: PresentationCatalogs,
+    mut audio_sources: ResMut<Assets<KiraAudioSource>>,
+    asset_server: Res<AssetServer>,
+    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    asset_config: Res<GameAssetConfig>,
+    quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
+) {
+    let game_assets = actor_game_assets::load_game_assets(
+        &asset_config,
+        &catalogs.characters,
+        &catalogs.bosses,
+        &catalogs.assets,
+        &asset_server,
+        &mut atlas_layouts,
+        &room_set.active_spec().metadata,
+        quality.as_deref().map(|q| &q.budget),
+    );
+    scene_setup::host_presentation_scaffold(&mut commands);
+    scene_setup::install_audio_library(
+        &mut commands,
+        &mut audio_sources,
+        &asset_server,
+        &catalogs.assets,
+        &music_registry,
+        &sfx_registry,
+    );
+    commands.insert_resource(game_assets);
+    // Placeholder pointers until the first session activation publishes real
+    // ones; consumers use fallible `.get(...)` and no-op on the placeholder.
+    commands.insert_resource(SceneEntities {
+        player: Entity::PLACEHOLDER,
+        hud: Entity::PLACEHOLDER,
+        quest_panel: Entity::PLACEHOLDER,
+    });
+}
+
+#[cfg(not(feature = "audio"))]
+pub(crate) fn setup_host_presentation_system(
+    mut commands: Commands,
+    room_set: Res<rooms::RoomSet>,
+    catalogs: PresentationCatalogs,
+    asset_server: Res<AssetServer>,
+    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    asset_config: Res<GameAssetConfig>,
+    quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
+) {
+    let game_assets = actor_game_assets::load_game_assets(
+        &asset_config,
+        &catalogs.characters,
+        &catalogs.bosses,
+        &catalogs.assets,
+        &asset_server,
+        &mut atlas_layouts,
+        &room_set.active_spec().metadata,
+        quality.as_deref().map(|q| &q.budget),
+    );
+    scene_setup::host_presentation_scaffold(&mut commands);
+    commands.insert_resource(game_assets);
+    commands.insert_resource(SceneEntities {
+        player: Entity::PLACEHOLDER,
+        hud: Entity::PLACEHOLDER,
+        quest_panel: Entity::PLACEHOLDER,
+    });
+}
+
 pub(crate) fn reload_visual_quality_assets_on_scale_change(
     quality: Res<ambition::render::quality::ResolvedVisualQuality>,
     asset_config: Res<GameAssetConfig>,

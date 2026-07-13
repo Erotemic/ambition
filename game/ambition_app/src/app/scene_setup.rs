@@ -68,6 +68,29 @@ pub fn presentation_world(
     let music_registry = params.music_registry;
     let sfx_registry = params.sfx_registry;
     presentation_world_inner(commands, params, player);
+    install_audio_library(
+        commands,
+        audio_sources,
+        asset_server,
+        catalog,
+        music_registry,
+        sfx_registry,
+    );
+}
+
+/// Build and insert the host-resident audio library (packed SFX bank +
+/// catalog-resolved music assets) and its playback state. An asset CACHE —
+/// host-owned, shared across sessions; the per-session audio AUTHORITY is
+/// `ambition::audio::selection::ActiveAudioSelection`.
+#[cfg(feature = "audio")]
+pub fn install_audio_library(
+    commands: &mut Commands,
+    audio_sources: &mut Assets<KiraAudioSource>,
+    asset_server: &AssetServer,
+    catalog: &SandboxAssetCatalog,
+    music_registry: &MusicRegistry,
+    sfx_registry: &SfxRegistry,
+) {
     let bank_provider = try_load_sfx_bank_via_catalog(catalog);
     // Resolve music-track ids through the sandbox asset catalog so the
     // library stores catalog-blessed paths (the generic library takes a
@@ -220,16 +243,40 @@ fn presentation_world_inner(
     params: PresentationSetup<'_>,
     player: Entity,
 ) {
-    let world = params.world;
-    let room_set = params.room_set;
-    let physics_settings = params.physics_settings;
-    let game_assets = params.game_assets;
-    let quality = params.quality;
     #[cfg(feature = "audio")]
     let ui_fonts = params.ui_fonts;
     #[cfg(not(feature = "audio"))]
     let ui_fonts: Option<&UiFonts> = None;
+    host_presentation_scaffold(commands);
+    session_presentation(
+        commands,
+        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
+        SessionPresentationSetup {
+            world: params.world,
+            room_set: params.room_set,
+            physics_settings: params.physics_settings,
+            game_assets: params.game_assets,
+            quality: params.quality,
+            ui_fonts,
+        },
+        player,
+    );
+}
 
+/// Borrowed inputs for the per-session half of the presentation scene.
+pub struct SessionPresentationSetup<'a> {
+    pub world: &'a RoomGeometry,
+    pub room_set: &'a RoomSet,
+    pub physics_settings: PhysicsSandboxSettings,
+    pub game_assets: &'a GameAssets,
+    pub quality: Option<&'a ambition::render::quality::ResolvedVisualQuality>,
+    pub ui_fonts: Option<&'a UiFonts>,
+}
+
+/// HOST-resident presentation scaffolding: the main + front-HUD cameras. Spawned
+/// once at startup and never owned by a gameplay session — the launcher/title
+/// route renders through the same cameras a session does.
+pub fn host_presentation_scaffold(commands: &mut Commands) {
     // The MAIN camera (order 0) renders the gameplay world (sprites on layer 0),
     // portal-window meshes, and the main-camera-only parallax layer. It NO LONGER
     // carries `IsDefaultUiCamera`: the default UI camera is now the dedicated
@@ -279,6 +326,25 @@ fn presentation_world_inner(
     commands.insert_resource(ambition::platformer::camera_layers::MainCameraEntity(
         main_camera,
     ));
+}
+
+/// SESSION-owned presentation: parallax, static room visuals, moving
+/// platforms, the HUD/quest text widgets, and the `SceneEntities` pointers.
+/// The direct-entry path calls it `UNSCOPED` at startup (process-resident,
+/// the pre-shell behavior); the shell host calls it with the activation's
+/// captured scope so the generic session sweep retires all of it.
+pub fn session_presentation(
+    commands: &mut Commands,
+    scope: ambition::platformer::lifecycle::SessionSpawnScope,
+    params: SessionPresentationSetup<'_>,
+    player: Entity,
+) {
+    let world = params.world;
+    let room_set = params.room_set;
+    let physics_settings = params.physics_settings;
+    let game_assets = params.game_assets;
+    let quality = params.quality;
+    let ui_fonts = params.ui_fonts;
 
     // `Instant::now()` is unsupported under `wasm32-unknown-unknown`
     // (panics with "time not implemented on this platform"). Gate the
@@ -288,7 +354,7 @@ fn presentation_world_inner(
     let t_room = std::time::Instant::now();
     spawn_parallax_layers(
         commands,
-        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
+        scope,
         &world.0,
         &room_set.active_spec().metadata,
         Some(game_assets),
@@ -296,7 +362,7 @@ fn presentation_world_inner(
     );
     spawn_room_visuals(
         commands,
-        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
+        scope,
         room_set.active_spec(),
         physics_settings,
         Some(game_assets),
@@ -310,7 +376,7 @@ fn presentation_world_inner(
     }
     platforms::spawn_moving_platforms(
         commands,
-        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
+        scope,
         &world.0,
         &platforms::moving_platforms_for_room(room_set.active_spec()),
     );
@@ -322,51 +388,51 @@ fn presentation_world_inner(
     // player entity. The app owns only the scene composition below (cameras, HUD,
     // audio); character presentation is engine-generic so demos share it.
 
-    let hud = commands
-        .spawn((
-            Text::new("Ambition"),
-            ui_fonts
-                .map(|fonts| fonts.text_font(14.0, UiFontWeight::Monospace))
-                .unwrap_or(TextFont {
-                    font_size: 14.0,
-                    ..default()
-                }),
-            TextColor(Color::srgba(0.82, 0.90, 1.0, 0.96)),
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(14.0),
-                top: Val::Px(10.0),
-                max_width: Val::Px(920.0),
+    let mut hud_entity = commands.spawn((
+        Text::new("Ambition"),
+        ui_fonts
+            .map(|fonts| fonts.text_font(14.0, UiFontWeight::Monospace))
+            .unwrap_or(TextFont {
+                font_size: 14.0,
                 ..default()
-            },
-            Name::new("Debug HUD"),
-            HudText,
-        ))
-        .id();
+            }),
+        TextColor(Color::srgba(0.82, 0.90, 1.0, 0.96)),
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(14.0),
+            top: Val::Px(10.0),
+            max_width: Val::Px(920.0),
+            ..default()
+        },
+        Name::new("Debug HUD"),
+        HudText,
+    ));
+    scope.apply_to(&mut hud_entity);
+    let hud = hud_entity.id();
 
     // Quest panel: top-right corner, dedicated text widget. Separated
     // from the debug HUD so the quest log doesn't trail the stats dump.
-    let quest_panel = commands
-        .spawn((
-            Text::new(""),
-            ui_fonts
-                .map(|fonts| fonts.text_font(14.0, UiFontWeight::Monospace))
-                .unwrap_or(TextFont {
-                    font_size: 14.0,
-                    ..default()
-                }),
-            TextColor(Color::srgba(0.92, 0.86, 0.62, 0.95)),
-            Node {
-                position_type: PositionType::Absolute,
-                right: Val::Px(14.0),
-                top: Val::Px(10.0),
-                max_width: Val::Px(360.0),
+    let mut quest_entity = commands.spawn((
+        Text::new(""),
+        ui_fonts
+            .map(|fonts| fonts.text_font(14.0, UiFontWeight::Monospace))
+            .unwrap_or(TextFont {
+                font_size: 14.0,
                 ..default()
-            },
-            Name::new("Quest Panel"),
-            QuestPanelText,
-        ))
-        .id();
+            }),
+        TextColor(Color::srgba(0.92, 0.86, 0.62, 0.95)),
+        Node {
+            position_type: PositionType::Absolute,
+            right: Val::Px(14.0),
+            top: Val::Px(10.0),
+            max_width: Val::Px(360.0),
+            ..default()
+        },
+        Name::new("Quest Panel"),
+        QuestPanelText,
+    ));
+    scope.apply_to(&mut quest_entity);
+    let quest_panel = quest_entity.id();
 
     // Overwrite the placeholder SceneEntities from simulation_world now
     // that the HUD entity exists. `commands.insert_resource` replaces the

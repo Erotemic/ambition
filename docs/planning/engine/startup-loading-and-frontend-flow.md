@@ -2,7 +2,7 @@
 
 > **Purpose:** define the desired reusable engine architecture first, then track the shortest dependency-ordered path from the current repository to that state.
 >
-> **Current status:** the load/shell cores, captured session ownership, shared shell-to-session bridge, standalone Sanic/Mary-O lifecycle, and App-local catalog registries exist. Process-global music/SFX registries have been removed. The current additive candidate completes the authored character-authority migration in source: catalog fragments are hardened; production consumers receive the App-local `CharacterCatalog`, hostile `CharacterRoster`, and `BossCatalog` explicitly; authored attack geometry resolves through an App-local Bevy resource; and the old roster/install/implicit-lookup seams are retired behind one policy ratchet. Rust compilation, focused tests, formatting, and the workspace-policy suite must still verify that candidate before it becomes `DONE`. Active-provider audio selection and the canonical active gameplay-session model remain open, followed by the launcher, real provider load plans, main Ambition provider, cross-experience proof, startup sequence, and loading activity.
+> **Current status (2026-07-13):** the multi-game host EXISTS and is proven headlessly. `./run_game.sh` composes the shell-routed host by default: the Ambition launcher (title screen) derives Ambition + Sanic + Mary-O + built-in Exit from provider registrations; each activates a fresh session-scoped gameplay session; `QuitToHome` (F10 in-session) retires the exact session; Exit leaves the process; `--direct` / `--start-room` preserve direct development entry. The App-local character/hostile/boss authority migration is verified `DONE` (compile + full focused suites + policy ratchet). The gameplay simulation carries ONE session gate (`GameplaySimulationRoot` + `simulation_authorized`): session-routed hosts freeze the whole sim — tick timeline included — at frontend routes. Active session audio authority (`ActiveAudioSelection`) is selected per activation by the shell bridge and retired at home. The X0 headless cross-experience cycle (launcher → Sanic → Mary-O → Ambition → Sanic → Exit) passes with zero-state and fresh-identity contracts at every boundary. Remaining: real provider load plans (routes currently activate without barriers), provider-authoring dedup (P0), the rendered/no-window ownership proof (X1), the startup/vanity sequence (B0), and the loading activity (B1).
 
 ## Desired end state
 
@@ -332,15 +332,28 @@ The repository currently contains:
 
 ### Important limitations in the current slice
 
-The current source must not yet be described as fully verified:
+Remaining honest gaps after the 2026-07-13 host campaign:
 
-- the playable-character, hostile-archetype, and boss authority implementation is code-complete as a candidate, but its Rust compilation, focused tests, formatting, and workspace-policy suite must pass before C0H/C1-char/C2-char become `DONE`;
-- audio fragments are App-local, but active provider/session audio selection and cross-experience replacement are not implemented;
-- the combined audio surface does not yet prove deterministic provider-relative SFX authority;
-- the launcher can still have gameplay-world authority through historically global resources;
-- real provider preparation plans do not yet govern activation;
-- the main Ambition game is not yet a provider;
-- no full cross-experience lifecycle test proves exact cleanup and replacement.
+- no provider registers real load-plan work yet: gameplay routes carry no
+  barrier, so activation is immediate (the load/authorization stack itself is
+  live and one-shot-tested);
+- the combined audio surface does not yet prove deterministic
+  provider-relative SFX authority (music selection is proven; SFX rides the
+  selection but has no cross-provider consumer test);
+- world-POINTER resources (`RoomGeometry`/`RoomSet`/metadata/indices) stay
+  process-resident between sessions as inert prepared data — republished per
+  activation, unread while the sim sleeps (the accepted session-scope
+  pattern), but not literally absent at the title;
+- persistent host chrome (map menu root, kaleidoscope/dev overlays,
+  `SceneEntities` placeholder) survives at the title; gameplay HUD/quest
+  widgets are session-scoped;
+- provider authoring still duplicates activation/host boilerplate across the
+  three customers (P0);
+- no rendered/no-window Ambition-host ownership cycle (X1) and no startup
+  vanity sequence (B0) / loading activity (B1);
+- the windowed lifecycle was exercised through the headless X0 acceptance
+  test and the demos' OV1 rendered suites; this dev VM has no display server,
+  so the literal `./run_game.sh` window pass remains for a machine with one.
 
 ## Evidence-backed ledger
 
@@ -349,22 +362,22 @@ The current source must not yet be described as fully verified:
 | ID | Status | Required result |
 |---|---|---|
 | C0 | DONE | Deterministic App-local character/audio fragment registries; real Ambition/Sanic/Mary-O coexistence; registration-order and separate-App isolation coverage; stable duplicate ownership diagnostics; candidate-before-commit App updates. |
-| C0H | OPEN (completion candidate implemented; verification required) | Playable-character, hostile-roster, boss, and audio fragments are immutable after validation; malformed RON is a structured error; registration revalidates and assembles a candidate before App mutation; duplicate identity ownership fails deterministically. Mark `DONE` only after focused Rust tests pass. |
-| C1-char | OPEN (completion candidate implemented; verification required) | Every production playable-character, hostile-archetype, and boss consumer uses explicit App-local authority: wear/re-wear, construction, brain/action/movement/body resolution, boss behavior/encounters/art/special rows, sprites, collision, manifests, room lowering, reset/hot reload, snapshots, projectiles, encounters/summons, interaction, dialogue, barks, and attack volumes. Playable-character consumers fail visibly when composition is absent; content-free hostile/boss resources remain explicit for reusable frontend/demo Apps, and W0 must reject activation when a selected provider's required fragments are absent. Separate Apps prove isolation and provider defaults coexist without a global winner. |
-| C2-char | OPEN (completion candidate implemented; verification required) | Production playable-character, hostile-roster, and boss install/override globals; the global attack-volume function pointer; engine-owned provider boss-asset lists; demo installers; and implicit sprite wrappers are removed. One workspace-policy ratchet rejects their return and rejects optional authority resources in production. Pure test fixtures may construct explicit values without becoming runtime authority. |
+| C0H | DONE (2026-07-13: workspace compiles; `ambition_characters` 375, `ambition_actors` 775, `ambition_audio`, `ambition_combat`, boss/roster/audio registry unit suites all green) | Playable-character, hostile-roster, boss, and audio fragments are immutable after validation; malformed RON is a structured error; registration revalidates and assembles a candidate before App mutation; duplicate identity ownership fails deterministically. |
+| C1-char | DONE (2026-07-13: full focused suites + `app_local_catalog_composition` + reachability/app suites green after repairing the untested candidate — see commit "repair + verify the inherited App-local authority patch") | Every production playable-character, hostile-archetype, and boss consumer uses explicit App-local authority: wear/re-wear, construction, brain/action/movement/body resolution, boss behavior/encounters/art/special rows, sprites, collision, manifests, room lowering, reset/hot reload, snapshots, projectiles, encounters/summons, interaction, dialogue, barks, and attack volumes. Playable-character consumers fail visibly when composition is absent; content-free hostile/boss resources remain explicit for reusable frontend/demo Apps, and W0 must reject activation when a selected provider's required fragments are absent. Separate Apps prove isolation and provider defaults coexist without a global winner. |
+| C2-char | DONE (2026-07-13: `ambition_workspace_policy` 33 green including `engine.character-authority-is-app-local`; the ratchet caught and forced the fix of two violations in the candidate itself) | Production playable-character, hostile-roster, and boss install/override globals; the global attack-volume function pointer; engine-owned provider boss-asset lists; demo installers; and implicit sprite wrappers are removed. One workspace-policy ratchet rejects their return and rejects optional authority resources in production. Pure test fixtures may construct explicit values without becoming runtime authority. |
 | C1-audio-registry | DONE | Process-global music/SFX registry APIs are removed; App-local provider fragments are registered and read explicitly by current bootstrap paths. |
-| C1-audio-session | OPEN | Active gameplay session selects provider-relative music/SFX authority; activation replaces prior authority; home retirement clears playback ownership; Sanic -> Mary-O switching is proven. |
+| C1-audio-session | DONE (2026-07-13: `ActiveAudioSelection` + shell-bridge selection; `session_activation_owns_audio_authority_and_home_retires_it` (shell) + provider/audio asserts at every X0 boundary; Sanic's hand-rolled music driver replaced by the provider-agnostic `drive_selected_session_music`) | Active gameplay session selects provider-relative music/SFX authority; activation replaces prior authority; home retirement clears playback ownership; Sanic -> Mary-O switching is proven. |
 | C2-audio | DONE | `install_music_registry`, `install_sfx_registry`, `authored_music_registry`, `authored_sfx_registry`, `MUSIC_REGISTRY_OVERRIDE`, and `SFX_REGISTRY_OVERRIDE` are deleted and guarded by policy. |
-| W0 | OPEN | One canonical App-local active gameplay-session representation owns current world/provider/session/load authority. |
-| W1 | BLOCKED on W0 | Frontend routes safely have no gameplay session; gameplay schedules sleep; placeholder worlds disappear. |
-| W2 | BLOCKED on W0 | Camera, HUD, dialog, map, cutscene UI, input, and audio receive explicit host/session ownership. |
-| L0 | BLOCKED on verified C2-char/W0 | Sanic and Mary-O contribute real preparation through `ambition_load` and produce immutable prepared sessions. |
+| W0 | DONE (2026-07-13: `ActiveGameplaySession` strengthened — provider identity, activation id, session scope, captured load-barrier identity (`session_instance_carries_its_load_barrier_identity`), per-experience `GameplaySessionProfile`; world authority republished per activation from immutable prepared data) | One canonical App-local active gameplay-session representation owns current world/provider/session/load authority. |
+| W1 | DONE (2026-07-13: `GameplaySimulationRoot` + `simulation_authorized` — one session gate over the whole sim incl. the tick timeline; `simulation_sleeps_at_the_launcher_and_wakes_per_session` (sanic_app) + frozen-timeline asserts at every X0 home visit. Deliberate residual: world-POINTER resources stay process-resident as inert prepared data and are republished per activation — the accepted session-scope-campaign pattern) | Frontend routes safely have no gameplay session; gameplay schedules sleep. |
+| W2 | OPEN (host mode: HUD/quest text, room visuals, parallax, moving platforms, LDtk spine roots, player, and audio authority are session-scoped; cameras + GameAssets + audio library are host-owned caches. Remaining: map/kaleidoscope menu roots and dev overlays are still host-resident chrome; a rendered X1 proof is absent) | Camera, HUD, dialog, map, cutscene UI, input, and audio receive explicit host/session ownership. |
+| L0 | OPEN (routes currently register no load barrier: activation is immediate; the load/authorization stack is live and one-shot-tested but no provider reports real preparation work yet) | Sanic and Mary-O contribute real preparation through `ambition_load` and produce immutable prepared sessions. |
 | L1 | BLOCKED on L0 | Retry, cancellation, supersession, streaming, promotion, and relaunch use fresh transaction authority. |
-| P0 | OPEN | Provider authoring surface is compact, documented by an example/test provider, and supplies reusable standalone/load/session defaults. |
-| A0 | BLOCKED on verified C2-char/W0/P0 | Main Ambition game becomes a provider using the shared lifecycle. |
-| A1 | BLOCKED on A0 | Ambition host derives Ambition + Sanic + Mary-O + Exit from registrations. |
-| X0 | BLOCKED on A1/L1/W2 | Headless cross-experience cycle proves exact replacement and no stale authority. |
-| X1 | BLOCKED on X0 | No-window rendered cycle proves camera/UI/input/audio ownership. |
+| P0 | OPEN (the provider contract is uniform — registration + Providers-set activation + scope teardown — and now has THREE customers, but Sanic/Mary-O/Ambition still hand-roll near-identical activation/host boilerplate; extract the shared shape) | Provider authoring surface is compact, documented by an example/test provider, and supplies reusable standalone/load/session defaults. |
+| A0 | DONE (2026-07-13: `AmbitionExperiencePlugin` — registration + session-scoped construction from immutable `AmbitionPreparedWorld` (real LDtk data); teardown is the generic scope sweep; direct entry preserved as host configuration (`--direct`/`--start-room`)) | Main Ambition game becomes a provider using the shared lifecycle. |
+| A1 | DONE (2026-07-13: `compose_ambition_shell_host` links the three providers; launcher entries derive from registrations (asserted in X0); Exit is a built-in launcher row emitting semantic `ExitProcess`, mapped to `AppExit` by the HOST) | Ambition host derives Ambition + Sanic + Mary-O + Exit from registrations. |
+| X0 | DONE (2026-07-13: `shell_host_lifecycle::the_full_multi_game_lifecycle_is_leak_free` — launcher → Sanic → Mary-O → Ambition → fresh Sanic → Exit; zero-state contract at every home (no session/scope/entities/players/audio, frozen timeline), identity contract in every game (provider, one player, worn character, room authority, audio provider, never-reused scope)) | Headless cross-experience cycle proves exact replacement and no stale authority. |
+| X1 | OPEN (the demo OV1 suites prove per-session presentation retirement for Sanic/Mary-O; the Ambition host has no no-window rendered cycle yet, and this VM has no display server for a literal windowed pass) | No-window rendered cycle proves camera/UI/input/audio ownership. |
 | B0 | OPEN | Startup sequence hands off to launcher while direct route entry remains available. |
 | B1 | OPEN | One deterministic loading activity proves engagement, ready-hold, Continue, cleanup, and destination isolation. |
 | F0 | LATER | Game-owned credits route and top-level cutscene adapter. |

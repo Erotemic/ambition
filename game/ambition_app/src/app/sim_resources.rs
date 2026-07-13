@@ -36,7 +36,12 @@ impl Plugin for SandboxSimulationResourcesPlugin {
                 // this slot: engine/host startup systems that need the sim
                 // world set up (e.g. the host's input-component attach)
                 // order `.after(the set)` instead of naming this system.
-                setup_simulation_system.in_set(SimulationSetupSet),
+                // Direct entry constructs the simulation world at boot; the
+                // shell host constructs a SESSION-scoped world per activation
+                // (`shell_host::ambition_activate_session`).
+                setup_simulation_system
+                    .in_set(SimulationSetupSet)
+                    .run_if(super::shell_host::direct_entry),
                 ambition::dev_tools::profiling::phase_mark("after_setup_simulation"),
             )
                 .chain(),

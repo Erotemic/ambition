@@ -30,6 +30,7 @@ mod plugins;
 mod resources;
 mod scene_setup;
 mod setup_systems;
+pub mod shell_host;
 mod sim_resources;
 mod sim_systems;
 pub(crate) mod world_flow;

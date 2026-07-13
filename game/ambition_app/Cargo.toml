@@ -40,6 +40,7 @@ visible = [
     "frame_pacing",
     "bevy_ui_menu",
     "kaleidoscope_menu",
+    "ambition/basic_shell_presentation",
 ]
 
 portal = ["ambition/portal", "ambition_content/portal"]
@@ -105,6 +106,11 @@ frame_pacing = ["ambition/frame_pacing", "dep:bevy_framepace"]
 profile = ["ambition/profile"]
 
 [dependencies]
+# The linked game providers of the multi-game shell host. The HOST depends on
+# providers; providers never depend on hosts (each also runs unchanged in its
+# own standalone demo app).
+ambition_demo_sanic = { path = "../ambition_demo_sanic" }
+ambition_demo_smb1 = { path = "../ambition_demo_smb1" }
 ambition = { path = "../../crates/ambition" }
 ambition_content = { path = "../ambition_content" }
 ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope" }
@@ -161,7 +167,5 @@ name = "trace_replay"
 required-features = ["rl_sim"]
 
 [dev-dependencies]
-ambition_demo_sanic = { path = "../ambition_demo_sanic" }
-ambition_demo_smb1 = { path = "../ambition_demo_smb1" }
 insta = { version = "1", features = ["ron"] }
 proptest = "1"

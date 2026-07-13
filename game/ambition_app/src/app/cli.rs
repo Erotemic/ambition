@@ -242,11 +242,24 @@ pub fn run_visible() {
     // sandbox plugin's `init_resource::<StartingCharacter>()` sees it already
     // present and leaves it untouched.
     insert_starting_character_override(&mut app);
+    // Host mode: the shell-routed multi-game title screen is the DEFAULT.
+    // Direct development entry (straight into gameplay, no launcher) is host
+    // configuration: `--direct`, or any explicit start-room request (the
+    // run_game.sh mode aliases pass `--start-room`, and their intent is to
+    // land in that room immediately).
+    let shell_hosted = !cli_direct_entry();
+    if shell_hosted {
+        app.insert_resource(super::shell_host::AmbitionShellHosted);
+    }
     app.add_plugins((
         SandboxSimulationPlugin,
         SandboxLdtkPlugin,
         SandboxPresentationPlugin,
     ));
+    if shell_hosted {
+        super::shell_host::compose_ambition_shell_host(&mut app);
+        super::shell_host::install_ambition_shell_visuals(&mut app);
+    }
     // AssetSource registration runs LAST so EmbeddedAssetRegistry
     // (added by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
@@ -255,6 +268,22 @@ pub fn run_visible() {
         ),
     );
     app.run();
+}
+
+/// True when this process should boot straight into gameplay (the pre-shell
+/// behavior): `--direct`, `AMBITION_DIRECT=1`, or an explicit start-room
+/// request.
+fn cli_direct_entry() -> bool {
+    if std::env::var("AMBITION_DIRECT").is_ok_and(|v| v == "1") {
+        return true;
+    }
+    std::env::args().any(|arg| {
+        arg == "--direct"
+            || arg == "--start-room"
+            || arg.starts_with("--start-room=")
+            || arg == "--room"
+            || arg.starts_with("--room=")
+    })
 }
 
 /// Read an optional starting-character override from the

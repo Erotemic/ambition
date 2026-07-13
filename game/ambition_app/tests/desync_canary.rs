@@ -641,7 +641,10 @@ fn the_snapshot_coverage_ledger() {
     // character/hostile/boss authority completion (BossCatalog{,Registry},
     // CharacterRoster{,Registry}, AuthoredAttackVolumeResolver, actor placement
     // lowering registry) — reviewed in known_resource_debt.txt.
-    const KNOWN_RESOURCE_DEBT: usize = 186;
+    // 2026-07-13 (shell-host campaign): +2 reviewed composition resources
+    // (AmbitionPreparedWorld immutable boot data, ActiveAudioSelection
+    // presentation authority) — reviewed in known_resource_debt.txt.
+    const KNOWN_RESOURCE_DEBT: usize = 188;
     assert!(
         resources.len() <= KNOWN_RESOURCE_DEBT,
         "{} unregistered `ambition_*` resources, up from the pinned \

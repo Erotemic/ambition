@@ -61,6 +61,20 @@ pub fn init_sandbox_resources(app: &mut App) {
                 .clone(),
         )
     };
+    // Direct-entry host: this process runs exactly one provider (Ambition), so
+    // the active audio authority is selected statically at composition. The
+    // shell-routed host instead selects audio per session activation through
+    // the shell bridge, and the title screen deliberately owns NO playback.
+    if !app
+        .world()
+        .contains_resource::<super::shell_host::AmbitionShellHosted>()
+    {
+        app.insert_resource(ambition::audio::selection::ActiveAudioSelection::selected(
+            ambition_content::AMBITION_CONTENT_PROVIDER,
+            Some(music_registry.clone()),
+            Some(sfx_registry.clone()),
+        ));
+    }
     let character_catalog = app
         .world()
         .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>()
@@ -156,6 +170,20 @@ pub fn init_sandbox_resources(app: &mut App) {
         room_set.active_spec().id.clone(),
     );
     let active_world = room_set.active_world().clone();
+
+    // The immutable boot-prepared world data the shell host's Ambition
+    // provider clones per activation. Captured here so activation republishes
+    // FRESH room state (and the boot-resolved starting character) instead of
+    // whatever a previous session left resident.
+    app.insert_resource(super::shell_host::AmbitionPreparedWorld {
+        room_set: room_set.clone(),
+        ldtk_index: ldtk_index.clone(),
+        starting_character: app
+            .world()
+            .get_resource::<ambition::actors::avatar::StartingCharacter>()
+            .cloned()
+            .unwrap_or_default(),
+    });
 
     app.insert_resource(ldtk_world::SandboxLdtkProject(ldtk_project.clone()))
         .insert_resource(RoomGeometry(active_world))

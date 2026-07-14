@@ -88,7 +88,7 @@ impl bevy::asset::io::AssetReader for ProviderGameAssetReader {
         &'a self,
         path: &'a std::path::Path,
     ) -> Result<Box<dyn bevy::asset::io::Reader + 'a>, bevy::asset::io::AssetReaderError> {
-        use bevy::asset::io::{AssetReader, AssetReaderError};
+        use bevy::asset::io::{AssetReaderError};
         match self.authored.read(path).await {
             Ok(reader) => Ok(Box::new(reader)),
             Err(AssetReaderError::NotFound(_)) => match self.shared.read(path).await {
@@ -103,7 +103,7 @@ impl bevy::asset::io::AssetReader for ProviderGameAssetReader {
         &'a self,
         path: &'a std::path::Path,
     ) -> Result<Box<dyn bevy::asset::io::Reader + 'a>, bevy::asset::io::AssetReaderError> {
-        use bevy::asset::io::{AssetReader, AssetReaderError};
+        use bevy::asset::io::{AssetReaderError};
         match self.authored.read_meta(path).await {
             Ok(reader) => Ok(Box::new(reader)),
             Err(AssetReaderError::NotFound(_)) => match self.shared.read_meta(path).await {
@@ -118,7 +118,7 @@ impl bevy::asset::io::AssetReader for ProviderGameAssetReader {
         &'a self,
         path: &'a std::path::Path,
     ) -> Result<Box<bevy::asset::io::PathStream>, bevy::asset::io::AssetReaderError> {
-        use bevy::asset::io::{AssetReader, AssetReaderError};
+        use bevy::asset::io::{AssetReaderError};
         match self.authored.read_directory(path).await {
             Ok(entries) => Ok(entries),
             Err(AssetReaderError::NotFound(_)) => self.shared.read_directory(path).await,
@@ -130,7 +130,7 @@ impl bevy::asset::io::AssetReader for ProviderGameAssetReader {
         &'a self,
         path: &'a std::path::Path,
     ) -> Result<bool, bevy::asset::io::AssetReaderError> {
-        use bevy::asset::io::{AssetReader, AssetReaderError};
+        use bevy::asset::io::{AssetReaderError};
         match self.authored.is_directory(path).await {
             Ok(true) => Ok(true),
             Ok(false) | Err(AssetReaderError::NotFound(_)) => {

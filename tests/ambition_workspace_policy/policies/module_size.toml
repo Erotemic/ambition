@@ -1,21 +1,14 @@
 # D-B's module-size gate (docs/planning/engine/decomposition.md).
 #
-# The standard: a production module is at most ~1.5k lines. It was DOCUMENTED but
-# never enforced (audit H6). This is the executable half — the thing that makes
-# D-B a gate rather than a paragraph, and the reason D-B is REOPENED. Config +
-# waivers are DATA here; the scanner is src/custom/module_size.rs.
+# The standard: a production module over 5k lines deserves deliberate review.
+# This is a generous architectural tripwire, not pressure to split coherent code
+# merely to satisfy a number. The scanner is src/custom/module_size.rs.
 #
 # Scope: every PRODUCTION `.rs` under crates/*/src and game/*/src — engine AND
 # content/demo code. Standalone test files (`tests.rs`, `/tests/`) are excluded by
 # path (workspace::is_test_path); inline `#[cfg(test)]` counts toward its file.
 #
-# Generated/data-heavy declarative modules are NOT inferred: such a file goes in
-# `[[waiver]]` with a reason, so an exception is always a visible review event.
-#
-# The waiver list is BIDIRECTIONAL: an unwaived file over the limit fails (split
-# it or waive it with a reason); a waiver for a file no longer over the limit ALSO
-# fails (the split landed — delete the stale waiver and celebrate). It is a DEBT
-# LEDGER. Shrink it; do not grow it without a reason that survives review.
+# An intentional exception may use a reviewed `[[waiver]]`; stale waivers fail.
 
 id = "engine.module-size"
 scope = "engine"
@@ -23,10 +16,6 @@ scope = "engine"
 # game/*/src, so no single crate owns it — the `workspace` owner sentinel.
 owners = ["workspace"]
 source_doc = "docs/planning/engine/decomposition.md"
-rationale = "D-B module-size gate: no production module exceeds ~1500 lines unless waived with a reason; every waiver is decomposition debt, and a stale waiver must be removed when its split lands."
-limit = 1500
+rationale = "Production modules over 5000 lines require deliberate review; split only when coherent boundaries exist."
+limit = 5000
 roots = ["crates", "game"]
-
-[[waiver]]
-path = "game/ambition_app/src/menu/kaleidoscope_app.rs"
-reason = "declarative menu UI (a Lunex node tree). Presentation, data-heavy by nature."

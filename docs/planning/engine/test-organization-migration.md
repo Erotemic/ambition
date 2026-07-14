@@ -1,10 +1,11 @@
 # Test-organization migration ledger
 
 **Status: COMPLETE (2026-07-10, commit `5950499` → HEAD).** Retained as HISTORICAL
-EVIDENCE of the migration, not as a live source of truth. The LIVE authorities are
-now: `tests/ambition_workspace_policy/policies/*.toml` + `src/custom/*.rs` (the
-guards themselves), `migration_matrix.toml` (the architecture_boundaries mapping,
-machine-checked), and `docs/concepts/test-placement.md` (the binding rule).
+EVIDENCE of the migration, not as a live source of truth. The live authorities are
+`tests/ambition_workspace_policy/policies/*.toml`, `src/custom/*.rs`, and
+`docs/concepts/test-placement.md`. Migration matrices are temporary scaffolding;
+do not extend this one, and remove its completeness machinery when it is no longer
+needed for active migration work.
 
 **Goal (achieved):** three clear test homes — (1) local behavioral tests inline or
 in adjacent `src/foo/tests.rs`; (2) public crate/assembled-system behavior in each

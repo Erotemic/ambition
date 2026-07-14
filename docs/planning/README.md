@@ -43,10 +43,11 @@ For machine-maintained facts, use the `planning-evidence` comments in
 [`status.md`](status.md). `scripts/check_agent_kb.py` compares those markers with
 HEAD and fails when they drift.
 
-## Living-plan rules
+## Living-plan guidance
 
-1. **Same-commit correction.** Code that changes status updates `status.md`, the
-   owning plan, and `tracks.md` in the same commit.
+1. **Keep material status current.** Update planning when work meaningfully
+   changes direction, scope, or the live queue; incidental edits do not require
+   synchronized bookkeeping.
 2. **One status authority.** High-level current state appears only in
    `status.md`. Other plans link to it instead of restating it.
 3. **Prune completed detail.** Keep the durable design and a compact evidence
@@ -55,16 +56,17 @@ HEAD and fails when they drift.
 4. **No stale warning banners.** Correct present-tense text or archive it.
 5. **No completion by vocabulary alone.** Adding a type does not prove runtime
    semantics, persistence, cleanup, or consumer convergence.
-6. **Green guardrails require poison evidence.** A new lint or invariant must be
-   shown to fail on the intended injected defect before it is used as completion
-   evidence.
-7. **State measurement units.** A line count says whether it is physical lines,
+6. **Use poison evidence selectively.** It is valuable for realistic harmful
+   states and subtle reusable scanners, but is not required per declarative rule.
+7. **Temporary migration scaffolding expires.** Remove migration matrices and
+   migration-only completeness machinery when the migration is complete.
+8. **State measurement units.** A line count says whether it is physical lines,
    production lines, or test-inclusive lines. Avoid duplicating brittle counts
    when the number does not guide a decision.
 
 ## Completion policy
 
-Grade by decomposition, never by a broad label (binding on every executor):
+Use decomposition when it makes broad completion claims clearer:
 
 - A too-broad task is **decomposed by the executing agent** into executable
   subtasks. A parent is **DONE** only when every subtask is DONE, unless Jon

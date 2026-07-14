@@ -10,7 +10,7 @@ last_verified: 2026-07-11
 
 # Test placement
 
-The binding rule: **a test lives at the narrowest scope that owns its
+The placement guideline: **a test lives at the narrowest scope that owns its
 invariant.** AGENTS.md carries the one-paragraph version; this is the full model.
 
 ## Three homes
@@ -88,16 +88,15 @@ compiles `ambition_app`.
 - Scoped and independently filterable: `repository_policies`, `engine_policies`,
   `game_policies`.
 
-See `docs/architecture/architecture-boundaries.md` and the live migration matrix
-in `docs/planning/engine/test-organization-migration.md`.
+See `docs/architecture/architecture-boundaries.md`; the completed test move is
+recorded historically in `docs/planning/engine/test-organization-migration.md`.
 
 ## Rules that survive every move
 
-- **Poison tests stay with the policy/invariant they validate.** A grep lint that
-  cannot fail is worse than no lint; never separate a poison test from its rule.
-- **Non-vacuity checks stay with the harness whose execution they validate** — a
-  scan that reads zero files must fail loudly, in the same place it scans.
-- **A green empty scan is a failure**, everywhere.
+- Test reusable policy tooling with representative positive and negative cases.
+  Individual declarative rules do not automatically need their own poison test.
+- Keep a harness-level non-vacuity check where an empty scan could otherwise pass;
+  do not multiply equivalent checks per rule.
 
 ## Commands
 

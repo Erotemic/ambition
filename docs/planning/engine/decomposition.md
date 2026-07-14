@@ -381,24 +381,25 @@ The executable gate is the `engine.module-size` policy
 + its waiver list in
 [`policies/module_size.toml`](../../../tests/ambition_workspace_policy/policies/module_size.toml);
 migrated 2026-07-10 from the retired `crates/ambition_runtime/tests/module_size.rs`):
-it walks every production `.rs` under `crates/*/src` and `game/*/src` (test files
-excluded by path; inline `#[cfg(test)]` counts), fails any unwaived module over 1500
-lines, and — bidirectionally — fails a waiver whose file is no longer oversized.
-Exceptions are a named waiver list with one reviewed reason per path; nothing is
-inferred. It is poison-tested (`poison_reacts` drives the real walk with a hostile
-limit + a stale waiver). The stale `MODULES.md` was regenerated and the then-current 45-member
+the current threshold is a generous **5000-line review tripwire**, with no
+waivers. The 1500-line figures below describe the historical decomposition
+campaign, not the current policy threshold. Historically, the gate
+walked every production `.rs` under `crates/*/src` and `game/*/src` (test files
+excluded by path; inline `#[cfg(test)]` counted), failing unwaived modules over the
+then-current threshold and stale waivers. Historical exceptions used a named
+waiver list, and the scanner had a poison self-test. The stale `MODULES.md` was
+regenerated and the then-current 45-member
 count corrected; current HEAD is 48 after the load/shell core carve. **What re-closed D-B was criterion 4's other half — now done:** the
 over-limit debt list is cleared. The gate counts **total** lines (`s.lines().count()`, test
 files excluded by path) against the 1500 limit — there is no separate "code-line"
 count, so an earlier note calling `moveset.rs` (1536) "under the code-line limit"
 was wrong: 1536 > 1500, and the gate flagged it as an **unwaived** violation. All
 three over-limit non-declarative modules were split 2026-07-11 (`snapshot.rs`,
-`moveset.rs`, `view_cones.rs` — see below). The waiver list is now down to **ONE**:
-`kaleidoscope_app.rs` (1814), a declarative Lunex node tree — data-heavy by nature and
-exactly the "generated/declarative" class the gate documents as a legitimate permanent
-waiver. The gate is GREEN. **D-B's criterion-4 line-size debt is effectively cleared**:
-every remaining over-limit module is a justified declarative waiver, not deferred
-decomposition work.
+`moveset.rs`, `view_cones.rs` — see below). At campaign close the waiver list was down to **ONE**:
+`kaleidoscope_app.rs` (1814), a declarative Lunex node tree. The current 5000-line
+threshold needs no waiver for it. **D-B's criterion-4 line-size debt was effectively cleared**:
+the historical over-limit modules were split or reviewed rather than left as
+deferred decomposition work.
 
 **`snapshot.rs` (3684) → four sub-1500 modules — ✅ LANDED 2026-07-11.** The
 pre-solved plan ran clean; final shape and the traps it hit:

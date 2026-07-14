@@ -8,8 +8,8 @@ declarative policies + custom scanners, not by rustc; fast directional feedback.
 ## Where the guards live
 
 The authoritative guards live in the sequestered workspace-policy package
-`tests/ambition_workspace_policy` (see
-`docs/planning/engine/test-organization-migration.md` for the migration matrix).
+`tests/ambition_workspace_policy` (the completed move is recorded in
+`docs/planning/engine/test-organization-migration.md`).
 That package inspects the workspace as DATA (parsed manifests + source walking)
 and links no production crate, so running the policy suite never compiles
 `ambition_app`.

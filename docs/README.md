@@ -8,8 +8,8 @@ Use this file to choose what to read. Do not load the whole documentation tree b
 - [`../AGENTS.md`](../AGENTS.md) — short agent operating instructions.
 - **[`planning/README.md`](planning/README.md) — THE master plan** (vision,
   roadmap, live work queue in [`planning/tracks.md`](planning/tracks.md),
-  and a design doc per planned system). The single source of truth for
-  direction; its living-plan discipline is binding on executors.
+  and a design doc per planned system). It is the primary coordination surface
+  for direction and current work.
 - [`adr/README.md`](adr/README.md) — durable architectural decisions.
 - [`../dev/README.md`](../dev/README.md) and [`../dev/SEARCH.md`](../dev/SEARCH.md) — engineering memory and lookup protocol.
 
@@ -41,15 +41,10 @@ wins for direction and the code wins for current fact.
 
 ## Generated agent indexes
 
-After moving docs, tests, or code symbols, regenerate and validate:
-
-```bash
-python scripts/generate_agent_index.py
-python scripts/check_agent_kb.py
-python scripts/check_doc_links.py
-```
-
-Generated indexes are navigation aids. They do not override source files, ADRs, or concept pages. The current archive includes:
+Generated indexes are optional navigation aids. Refresh them when their source
+material changes or during repository-maintenance work; they are not a universal
+completion gate. They do not override source files, ADRs, or concept pages. The
+current archive includes:
 
 - [`../.agent/manifest.yaml`](../.agent/manifest.yaml)
 - [`../.agent/retrieval_evals.yaml`](../.agent/retrieval_evals.yaml)

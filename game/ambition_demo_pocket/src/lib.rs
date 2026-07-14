@@ -118,9 +118,9 @@ pub fn install_pocket_content(app: &mut App) {
                 sample_rate: 44_100,
                 sfx: vec![
                     cue(None, 520.0),
-                    cue(Some(ambition::sfx::ids::UI_MENU_MOVE), 620.0),
-                    cue(Some(ambition::sfx::ids::UI_MENU_ACCEPT), 780.0),
-                    cue(Some(ambition::sfx::ids::UI_MENU_BACK), 440.0),
+                    cue(Some("ui.menu.move_icon"), 620.0),
+                    cue(Some("ui.menu.accept"), 780.0),
+                    cue(Some("ui.menu.back"), 440.0),
                 ],
             }),
         )

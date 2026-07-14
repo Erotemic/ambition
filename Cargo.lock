@@ -246,8 +246,8 @@ version = "0.1.0"
 dependencies = [
  "ambition",
  "ambition_content",
- "ambition_demo_sanic",
  "ambition_demo_pocket",
+ "ambition_demo_sanic",
  "ambition_demo_smb1",
  "ambition_menu_kaleidoscope",
  "bevy",

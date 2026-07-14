@@ -22,6 +22,13 @@ use crate::{
 #[derive(Component)]
 struct BasicSequenceRoot;
 
+#[derive(Default)]
+struct BasicSequenceFrame {
+    key: String,
+    text: String,
+    image_path: Option<String>,
+}
+
 /// Marker on the basic shell presentation's own launcher menu root, so its
 /// rebuild teardown never claims another producer's `BevyUiMenuRoot`.
 #[derive(Component)]

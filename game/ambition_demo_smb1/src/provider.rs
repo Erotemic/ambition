@@ -7,9 +7,8 @@ use ambition::game_shell::{
     GameplaySessionEvent, GameplaySessionSet, PreparedSessionRegistry, ShellEvent,
 };
 use ambition::provider::{
-    cleanup_prepared_platformer_sessions, AuthoredCatalogFragments,
-    PlatformerExperienceAuthoring, PlatformerPreparation, PlatformerSessionBuilder,
-    PreparedPlatformerSessions,
+    cleanup_prepared_platformer_sessions, AuthoredCatalogFragments, PlatformerExperienceAuthoring,
+    PlatformerPreparation, PlatformerSessionBuilder, PreparedPlatformerSessions,
 };
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
@@ -22,6 +21,8 @@ pub const MARY_O_EXPERIENCE: &str = "mary_o";
 pub const MARY_O_GAMEPLAY_ROUTE: &str = "mary_o_gameplay";
 pub const MARY_O_LAUNCHER_ROUTE: &str = "mary_o_launcher";
 pub const MARY_O_CHARACTER_ID: &str = "mary_o";
+pub const MARY_O_MUSIC_TRACK: &str = "support_theme";
+pub const MARY_O_MUSIC_ASSET_PATH: &str = "audio/music/generated/support_theme/full.ogg";
 
 #[derive(Clone)]
 pub struct Smb1SessionWorld {
@@ -55,8 +56,22 @@ impl Plugin for Smb1ExperiencePlugin {
         {
             use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
             app.register_audio_catalog_fragment(
-                AudioCatalogFragment::new(MARY_O_EXPERIENCE, None, None)
-                    .expect("Mary-O silent audio fragment is valid"),
+                AudioCatalogFragment::new(
+                    MARY_O_EXPERIENCE,
+                    // Mary-O runs on the "Support Theme" cue. Declaring it in the
+                    // provider fragment is what authorizes the session to select
+                    // and play it under provider-relative audio.
+                    Some(ambition::audio::spec::MusicRegistry {
+                        default_track: MARY_O_MUSIC_TRACK.to_string(),
+                        tracks: vec![ambition::audio::spec::MusicTrack {
+                            id: MARY_O_MUSIC_TRACK.to_string(),
+                            display_name: "Support Theme".to_string(),
+                            asset_path: Some(MARY_O_MUSIC_ASSET_PATH.to_string()),
+                        }],
+                    }),
+                    None,
+                )
+                .expect("Mary-O audio catalog is valid"),
             );
         }
         PlatformerExperienceAuthoring::new(

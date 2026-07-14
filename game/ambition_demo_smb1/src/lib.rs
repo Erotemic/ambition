@@ -164,8 +164,8 @@ const SMB1_CATALOG_RON: &str = r#"(
     characters: {
         "mary_o": (
             display_name: "Mary-O",
-            spritesheet: "sprites/mary_o_spritesheet.png",
-            manifest: "sprites/mary_o_spritesheet.ron",
+            spritesheet: "sprites/pirate_heavy_iron_mary_spritesheet.png",
+            manifest: "sprites/pirate_heavy_iron_mary_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,
@@ -200,7 +200,6 @@ pub fn install_smb1_content(app: &mut App) {
         )
         .expect("Mary-O character catalog should be valid"),
     );
-
 }
 
 impl Plugin for Smb1DemoContentPlugin {
@@ -236,11 +235,17 @@ impl Plugin for Smb1DemoContentPlugin {
 fn smb1_setup(
     mut commands: bevy::prelude::Commands,
     world: ambition::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition::runtime::demo_fixture::RoomSet>,
-    ldtk_index: ambition::platformer::lifecycle::SessionWorldRef<ambition::runtime::demo_fixture::LdtkRuntimeIndex>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<
+        ambition::runtime::demo_fixture::RoomSet,
+    >,
+    ldtk_index: ambition::platformer::lifecycle::SessionWorldRef<
+        ambition::runtime::demo_fixture::LdtkRuntimeIndex,
+    >,
     editable_abilities: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableAbilitySet>,
     editable_tuning: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableMovementTuning>,
-    starting_character: ambition::platformer::lifecycle::SessionWorldRef<ambition::runtime::demo_fixture::StartingCharacter>,
+    starting_character: ambition::platformer::lifecycle::SessionWorldRef<
+        ambition::runtime::demo_fixture::StartingCharacter,
+    >,
     asset_server: bevy::prelude::Res<bevy::asset::AssetServer>,
     character_catalog: bevy::prelude::Res<
         ambition::characters::actor::character_catalog::CharacterCatalog,
@@ -488,10 +493,13 @@ mod tests {
         fn shell(rules: Smb1RulesPlugin, mode: Option<&str>, dt: f32) -> App {
             let mut app = App::new();
             ambition::engine::add_headless_foundation(&mut app);
-            ambition::platformer::lifecycle::insert_session_world_component(app.world_mut(), ActiveRoomMetadata(RoomMetadata {
-                mode: mode.map(str::to_string),
-                ..Default::default()
-            }));
+            ambition::platformer::lifecycle::insert_session_world_component(
+                app.world_mut(),
+                ActiveRoomMetadata(RoomMetadata {
+                    mode: mode.map(str::to_string),
+                    ..Default::default()
+                }),
+            );
             app.insert_resource(ambition::time::WorldTime {
                 scaled_dt: dt,
                 ..Default::default()

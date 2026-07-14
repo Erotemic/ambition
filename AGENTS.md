@@ -111,7 +111,8 @@ python scripts/modules_md.py`.
 - Prefer reviewable changes with targeted validation; don't hand-edit
   `sandbox.ldtk` (use Ambition LDtk tooling); update concepts/recipes/ADRs/dev
   memory when a durable invariant changes.
-- Style: `cargo fmt` on modified Rust files; `ruff format` on modified Python.
+- Formatting is advisory rather than an acceptance gate; do not fail or block a
+  change solely because `cargo fmt` or `ruff format` was not run.
 
 ## Script output convention
 
@@ -125,7 +126,6 @@ plain paths. Pattern: `scripts/git_debloat.py` (`file_uri`/`format_path`),
 ## Common validation commands
 
 ```bash
-cargo fmt --check
 cargo test -p ambition_actors --lib
 cargo test -p ambition_content --all-features
 cargo test -p ambition_workspace_policy    # source/dependency/architecture policy

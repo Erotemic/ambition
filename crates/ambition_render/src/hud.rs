@@ -16,7 +16,10 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer_primitives::{
+    lifecycle::{ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt},
+    markers::{PlayerEntity, PrimaryPlayer},
+};
 use ambition_sim_view::PlayerHudFacts;
 
 /// Bar width / height in logical px.
@@ -46,12 +49,20 @@ pub struct MoneyLabel;
 /// Spawn the HUD overlay once, the first frame a primary player exists.
 pub fn spawn_player_hud(
     mut commands: Commands,
+    active_session: Option<Res<ActiveSessionScope>>,
     players: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>)>,
     existing: Query<(), With<PlayerHudRoot>>,
 ) {
     if !existing.is_empty() || players.is_empty() {
         return;
     }
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        // A shell host can retain a player for one deferred teardown frame.
+        // Never materialize new gameplay UI without a live session owner.
+        return;
+    };
     let track = Color::srgba(0.05, 0.06, 0.09, 0.85);
     let bar_node = || Node {
         width: Val::Px(BAR_W),
@@ -71,20 +82,23 @@ pub fn spawn_player_hud(
     };
 
     commands
-        .spawn((
-            PlayerHudRoot,
-            Node {
-                position_type: PositionType::Absolute,
-                // Top-left: the on-screen joystick lives bottom-left, so the
-                // status bars sit up top out of its way.
-                left: Val::Px(16.0),
-                top: Val::Px(34.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(5.0),
-                ..default()
-            },
-            Name::new("Player HUD"),
-        ))
+        .spawn_session_scoped(
+            session_scope,
+            (
+                PlayerHudRoot,
+                Node {
+                    position_type: PositionType::Absolute,
+                    // Top-left: the on-screen joystick lives bottom-left, so the
+                    // status bars sit up top out of its way.
+                    left: Val::Px(16.0),
+                    top: Val::Px(34.0),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(5.0),
+                    ..default()
+                },
+                Name::new("Player HUD"),
+            ),
+        )
         .with_children(|root| {
             // Health bar (red fill + HP label).
             root.spawn((bar_node(), BackgroundColor(track)))
@@ -195,6 +209,9 @@ fn set_text_if_changed(text: &mut Text, next: String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer_primitives::lifecycle::{
+        SessionScopePlugin, SessionScopeRetired, SessionScopedEntity,
+    };
 
     #[test]
     fn hud_mirrors_the_sim_built_facts() {
@@ -236,6 +253,30 @@ mod tests {
         }
         assert_eq!(hp_text.as_deref(), Some("HP 3/10"));
         assert_eq!(money_text.as_deref(), Some("$7"));
+    }
+
+    #[test]
+    fn hud_root_retires_with_its_exact_gameplay_session() {
+        let mut app = App::new();
+        app.add_plugins(SessionScopePlugin);
+        let scope = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+        app.world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, SessionScopedEntity(scope)));
+        app.add_systems(Update, spawn_player_hud);
+
+        app.update();
+
+        let mut owners = app
+            .world_mut()
+            .query_filtered::<&SessionScopedEntity, With<PlayerHudRoot>>();
+        let hud_owners: Vec<_> = owners.iter(app.world()).copied().collect();
+        assert_eq!(hud_owners, vec![SessionScopedEntity(scope)]);
+
+        app.world_mut().write_message(SessionScopeRetired(scope));
+        app.update();
+
+        let mut roots = app.world_mut().query::<&PlayerHudRoot>();
+        assert_eq!(roots.iter(app.world()).count(), 0);
     }
 
     #[test]

@@ -6,6 +6,7 @@
 //! request, where bank bytes come from, and how settings map into [`mix::MusicMix`].
 
 pub mod mix;
+pub mod output;
 pub mod selection;
 pub mod spec;
 
@@ -22,6 +23,7 @@ pub mod render;
 pub mod web_unlock;
 
 pub use mix::MusicMix;
+pub use output::AudioOutputMode;
 
 #[cfg(feature = "kira")]
 pub use bank_asset::{

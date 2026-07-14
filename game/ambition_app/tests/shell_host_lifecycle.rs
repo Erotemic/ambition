@@ -421,7 +421,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         &mut app,
         "pocket_gameplay",
         "pocket",
-        Some("pocket"),
+        Some(ambition_demo_pocket::POCKET_CHARACTER_ID),
         "pocket",
         "pocket",
     );

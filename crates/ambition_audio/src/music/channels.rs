@@ -71,9 +71,15 @@ pub struct MusicLayerChannels<'w> {
     layer3_b: Res<'w, AudioChannel<MusicLayer3BChannel>>,
     layer4_b: Res<'w, AudioChannel<MusicLayer4BChannel>>,
     layer5_b: Res<'w, AudioChannel<MusicLayer5BChannel>>,
+    output: Option<Res<'w, crate::output::AudioOutputMode>>,
 }
 
 impl<'w> MusicLayerChannels<'w> {
+    /// Return the host-selected final playback side effect.
+    pub fn output_mode(&self) -> crate::output::AudioOutputMode {
+        self.output.as_deref().copied().unwrap_or_default()
+    }
+
     pub(super) fn channel(&self, bank: MusicBank, slot: usize) -> &dyn MusicLayerChannel {
         match (bank, slot.min(MAX_LAYERS - 1)) {
             (MusicBank::A, 0) => &*self.layer0_a,
@@ -120,8 +126,10 @@ impl<'w> MusicLayerChannels<'w> {
         looped: bool,
         fade_ms: u64,
     ) {
-        self.channel(bank, slot)
-            .play_handle(handle, looped, fade_ms);
+        if self.output_mode().emits_to_device() {
+            self.channel(bank, slot)
+                .play_handle(handle, looped, fade_ms);
+        }
     }
 }
 

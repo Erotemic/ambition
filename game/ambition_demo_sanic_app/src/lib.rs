@@ -393,7 +393,14 @@ mod tests {
         }
 
         let mut app = super::build_windowed_demo_app(super::RenderMode::Headless);
-        app.update();
+        // This is an asset-publication test, not a shell/load-lifecycle test.
+        // Run the real Startup schedule that owns `load_sanic_game_assets`
+        // without also advancing Update into provider preparation/activation.
+        // Full standalone-host lifecycle coverage lives in the integration
+        // tests, while this test stays focused on PNG+RON -> GameAssets binding.
+        app.finish();
+        app.cleanup();
+        app.world_mut().run_schedule(bevy::app::Startup);
         let assets = app
             .world()
             .resource::<ambition::sprite_sheet::game_assets::GameAssets>();

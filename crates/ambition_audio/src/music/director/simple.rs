@@ -27,6 +27,7 @@ pub(super) fn apply_simple_music_intent(
     asset_server: &AssetServer,
     music_state: &mut MusicPlaybackState,
     base_music_channel: &AudioChannel<MusicChannel>,
+    output: crate::output::AudioOutputMode,
     simple_track_candidates: &[String],
 ) {
     let target = resolved_simple_track(library, simple_track_candidates);
@@ -39,6 +40,7 @@ pub(super) fn apply_simple_music_intent(
             asset_server,
             music_state,
             base_music_channel,
+            output,
             &target,
         );
         director.last_simple_track = Some(target.clone());
@@ -69,6 +71,7 @@ pub(super) fn resume_simple_music(
     asset_server: &AssetServer,
     music_state: &mut MusicPlaybackState,
     base_music_channel: &AudioChannel<MusicChannel>,
+    output: crate::output::AudioOutputMode,
     simple_track_candidates: &[String],
     set_mode_to_simple_track: bool,
 ) {
@@ -85,6 +88,7 @@ pub(super) fn resume_simple_music(
             asset_server,
             music_state,
             base_music_channel,
+            output,
             &target,
         );
         director.last_simple_track = Some(target.clone());

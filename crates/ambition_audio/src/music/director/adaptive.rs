@@ -404,6 +404,7 @@ pub(super) fn drive_outro_tail(
     asset_server: &AssetServer,
     music_state: &mut MusicPlaybackState,
     base_music_channel: &AudioChannel<MusicChannel>,
+    output: crate::output::AudioOutputMode,
     simple_track_candidates: &[String],
 ) {
     if director.mode != MusicDirectorMode::AdaptiveOutro {
@@ -431,6 +432,7 @@ pub(super) fn drive_outro_tail(
             asset_server,
             music_state,
             base_music_channel,
+            output,
             simple_track_candidates,
             false,
         );
@@ -459,6 +461,7 @@ pub(super) fn shutdown_adaptive_cue(
     asset_server: &AssetServer,
     music_state: &mut MusicPlaybackState,
     base_music_channel: &AudioChannel<MusicChannel>,
+    output: crate::output::AudioOutputMode,
     simple_track_candidates: &[String],
 ) {
     info!(
@@ -484,6 +487,7 @@ pub(super) fn shutdown_adaptive_cue(
         asset_server,
         music_state,
         base_music_channel,
+        output,
         simple_track_candidates,
         true,
     );

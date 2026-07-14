@@ -36,19 +36,57 @@ fn player_body(app: &mut App) -> Option<ambition::actors::actor::BodyKinematics>
     q.iter(app.world()).next().copied()
 }
 
+fn sim_tick(app: &App) -> u64 {
+    app.world().resource::<ambition::runtime::SimTick>().get()
+}
+
+/// Bevy's fixed-time accumulator can expend the activation frame before the
+/// provider publishes its player. Advance to the first post-activation frame
+/// that actually executes one simulation tick, then measure the strict
+/// one-frame/one-tick contract from that aligned boundary.
+fn align_post_activation_fixed_timeline(app: &mut App) {
+    for _ in 0..4 {
+        let before = sim_tick(app);
+        app.update();
+        let delta = sim_tick(app) - before;
+        match delta {
+            1 => return,
+            0 => continue,
+            other => panic!(
+                "one fixed frame must not expend more than one tick while aligning; got {other}"
+            ),
+        }
+    }
+    panic!("the fixed timeline did not advance after gameplay activation");
+}
+
+fn activate_player(app: &mut App) -> ambition::actors::actor::BodyKinematics {
+    for _ in 0..16 {
+        app.update();
+        if let Some(body) = player_body(app) {
+            return body;
+        }
+    }
+    panic!(
+        "the fresh load transaction must prepare and activate Mary-O within the test budget"
+    );
+}
+
 #[test]
 fn the_demo_shell_boots_from_the_engine_and_host_groups_alone() {
     let mut app = build_demo_app();
-    app.update(); // Startup only; the fixed accumulator expends nothing at dt=0.
+    let _player = activate_player(&mut app);
 
-    assert_eq!(
-        app.world().resource::<ambition::runtime::SimTick>().get(),
-        0,
-        "Startup alone must not advance the timeline"
+    assert!(
+        app.world()
+            .resource::<ambition::game_shell::ActiveGameplaySession>()
+            .0
+            .is_some(),
+        "the standalone shell must authorize the prepared gameplay session"
     );
     assert!(
         player_body(&mut app).is_some(),
-        "the content plugin's `simulation_world` must spawn the player body — \
+        "the provider's prepared-session activation must spawn the player body — \
          that is what the host's input attach binds to"
     );
 }
@@ -56,18 +94,24 @@ fn the_demo_shell_boots_from_the_engine_and_host_groups_alone() {
 #[test]
 fn the_demo_steps_the_real_simulation_on_the_fixed_timeline() {
     let mut app = build_demo_app();
-    app.update();
-    let spawn = player_body(&mut app).expect("player spawned").pos;
+    activate_player(&mut app);
+    align_post_activation_fixed_timeline(&mut app);
+    let spawn = player_body(&mut app).expect("player remains after alignment").pos;
+    let start_tick = sim_tick(&app);
 
-    for _ in 0..120 {
+    for frame in 0..120 {
+        let before = sim_tick(&app);
         app.update();
+        let after = sim_tick(&app);
+        assert_eq!(
+            after - before,
+            1,
+            "aligned fixed frame {frame} at exactly the tick dt must expend exactly one tick"
+        );
     }
 
-    assert_eq!(
-        app.world().resource::<ambition::runtime::SimTick>().get(),
-        119,
-        "one frame at exactly the tick dt expends exactly one tick"
-    );
+    let end_tick = sim_tick(&app);
+    assert_eq!(end_tick - start_tick, 120);
 
     // The body is in the REAL sim: it fell under gravity and landed on the
     // authored speedway floor. (Feel is not asserted — only that physics ran.)

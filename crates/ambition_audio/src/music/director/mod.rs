@@ -55,6 +55,7 @@ pub fn drive_music_director(
     mut music_state: ResMut<MusicPlaybackState>,
     settings: Res<MusicMix>,
 ) {
+    let output = layer_channels.output_mode();
     let provider_id = intent.provider_id.as_deref();
     let catalog = provider_id.and_then(|provider| catalogs.catalog_for(provider));
     let Some(mut assets) = assets else {
@@ -142,6 +143,7 @@ pub fn drive_music_director(
                     &asset_server,
                     &mut music_state,
                     &base_music_channel,
+                    output,
                     candidates,
                 );
             }
@@ -160,6 +162,7 @@ pub fn drive_music_director(
                     &asset_server,
                     &mut music_state,
                     &base_music_channel,
+                    output,
                     candidates,
                 );
             } else {
@@ -169,6 +172,7 @@ pub fn drive_music_director(
                     &asset_server,
                     &mut music_state,
                     &base_music_channel,
+                    output,
                     candidates,
                 );
             }
@@ -186,6 +190,7 @@ pub fn drive_music_director(
                 &asset_server,
                 &mut music_state,
                 &base_music_channel,
+                output,
                 candidates,
             );
             log_periodic_state(&mut director, cue, dt);

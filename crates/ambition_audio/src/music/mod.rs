@@ -85,11 +85,15 @@ pub fn drive_selected_session_music(
     selection: Res<crate::selection::ActiveAudioSelection>,
     asset_server: Res<AssetServer>,
     audio: Res<bevy_kira_audio::prelude::Audio>,
+    output: Option<Res<crate::output::AudioOutputMode>>,
 ) {
     if !selection.is_changed() {
         return;
     }
     audio.stop();
+    if !crate::output::emits_to_device(output.as_deref()) {
+        return;
+    }
     if let Some(music) = selection.music() {
         if let Some(track) = music.track(&music.default_track) {
             audio

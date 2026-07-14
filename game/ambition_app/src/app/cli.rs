@@ -299,6 +299,12 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     let asset_root = desktop_asset_root();
     eprintln!("ambition_app: asset root = {asset_root}");
     let mut app = App::new();
+    if matches!(render, VisibleRenderMode::NoWindow) {
+        // Automated no-window hosts exercise the real ownership, resolver, and
+        // playback-state path, but the final output side effect is recorded
+        // instead of issuing Kira `play` commands to the user's speakers.
+        app.insert_resource(ambition::audio::AudioOutputMode::Recording);
+    }
     // The game's OWN asset source (`game://`): the content crate's assets
     // dir in a dev checkout, the shipped `assets/` dir otherwise. The
     // WorldManifest rows address their .ldtk files through it, so the

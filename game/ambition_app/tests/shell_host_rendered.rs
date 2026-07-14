@@ -65,6 +65,14 @@ fn active_music_track(app: &App) -> String {
         .clone()
 }
 
+fn assert_recording_audio_output(app: &App) {
+    assert_eq!(
+        *app.world().resource::<ambition::audio::AudioOutputMode>(),
+        ambition::audio::AudioOutputMode::Recording,
+        "no-window tests must record accepted playback without issuing device play commands"
+    );
+}
+
 fn assert_title_ownership(app: &mut App, context: &str) {
     assert_eq!(
         active_route(app),
@@ -97,6 +105,7 @@ fn assert_title_ownership(app: &mut App, context: &str) {
 #[test]
 fn rendered_ownership_across_the_title_and_two_games() {
     let mut app = ambition_app::app::build_visible_app(VisibleRenderMode::NoWindow, true);
+    assert_recording_audio_output(&app);
     settle(&mut app);
     assert_title_ownership(&mut app, "boot title");
 
@@ -199,6 +208,7 @@ fn rendered_ownership_across_the_title_and_two_games() {
 #[test]
 fn provider_relative_music_drives_the_base_channel() {
     let mut app = ambition_app::app::build_visible_app(VisibleRenderMode::NoWindow, true);
+    assert_recording_audio_output(&app);
     settle(&mut app);
     assert_eq!(
         active_music_track(&app),
@@ -279,6 +289,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     use ambition::sfx::{ids, AudioContextOwner, OwnedSfxMessage, SfxMessage};
 
     let mut app = ambition_app::app::build_visible_app(VisibleRenderMode::NoWindow, true);
+    assert_recording_audio_output(&app);
     settle(&mut app);
 
     let menu = play_owned_sfx(

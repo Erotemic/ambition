@@ -483,6 +483,7 @@ pub fn start_default_music_when_ready(
     asset_server: Res<AssetServer>,
     state: Res<MusicPlaybackState>,
     music_channel: Res<AudioChannel<MusicChannel>>,
+    output: Option<Res<crate::output::AudioOutputMode>>,
     mut waiting_logged: Local<bool>,
 ) {
     if started.0 {
@@ -530,10 +531,12 @@ pub fn start_default_music_when_ready(
         "default music: track `{}` asset `{}` loaded; starting playback",
         track_id, asset_path
     );
-    music_channel.play(handle).looped().fade_in(AudioTween::new(
-        Duration::from_millis(220),
-        AudioEasing::InPowi(2),
-    ));
+    if crate::output::emits_to_device(output.as_deref()) {
+        music_channel.play(handle).looped().fade_in(AudioTween::new(
+            Duration::from_millis(220),
+            AudioEasing::InPowi(2),
+        ));
+    }
     started.0 = true;
 }
 
@@ -542,6 +545,7 @@ pub fn switch_to_music_track(
     asset_server: &AssetServer,
     state: &mut MusicPlaybackState,
     music_channel: &AudioChannel<MusicChannel>,
+    output: crate::output::AudioOutputMode,
     next_track: &str,
 ) {
     if library.track(next_track).is_none() {
@@ -549,11 +553,13 @@ pub fn switch_to_music_track(
         return;
     }
     state.active_track = next_track.to_string();
-    music_channel.stop().fade_out(AudioTween::new(
-        Duration::from_millis(180),
-        AudioEasing::OutPowi(2),
-    ));
-    play_music_track(library, asset_server, next_track, music_channel);
+    if output.emits_to_device() {
+        music_channel.stop().fade_out(AudioTween::new(
+            Duration::from_millis(180),
+            AudioEasing::OutPowi(2),
+        ));
+    }
+    play_music_track(library, asset_server, next_track, music_channel, output);
 }
 
 pub fn set_radio_track(
@@ -562,6 +568,7 @@ pub fn set_radio_track(
     radio: &mut RadioStationState,
     state: &mut MusicPlaybackState,
     music_channel: &AudioChannel<MusicChannel>,
+    output: crate::output::AudioOutputMode,
     next_track: &str,
 ) {
     if library.track(next_track).is_none() {
@@ -569,7 +576,14 @@ pub fn set_radio_track(
         return;
     }
     radio.set_selected_track(next_track);
-    switch_to_music_track(library, asset_server, state, music_channel, next_track);
+    switch_to_music_track(
+        library,
+        asset_server,
+        state,
+        music_channel,
+        output,
+        next_track,
+    );
 }
 
 fn play_music_track(
@@ -577,13 +591,16 @@ fn play_music_track(
     asset_server: &AssetServer,
     track_id: &str,
     music_channel: &AudioChannel<MusicChannel>,
+    output: crate::output::AudioOutputMode,
 ) {
     let Some(handle) = library.resolve_track_handle(track_id, asset_server) else {
         warn!("cannot play missing music track '{track_id}'");
         return;
     };
-    music_channel.play(handle).looped().fade_in(AudioTween::new(
-        Duration::from_millis(220),
-        AudioEasing::InPowi(2),
-    ));
+    if output.emits_to_device() {
+        music_channel.play(handle).looped().fade_in(AudioTween::new(
+            Duration::from_millis(220),
+            AudioEasing::InPowi(2),
+        ));
+    }
 }

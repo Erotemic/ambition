@@ -404,6 +404,8 @@ pub(crate) struct SystemMenuParams<'w> {
     music_channel: Option<
         Res<'w, bevy_kira_audio::prelude::AudioChannel<ambition::audio::library::MusicChannel>>,
     >,
+    #[cfg(feature = "audio")]
+    audio_output: Option<Res<'w, ambition::audio::AudioOutputMode>>,
 }
 
 impl SystemMenuParams<'_> {
@@ -444,6 +446,7 @@ impl SystemMenuParams<'_> {
                             radio,
                             music_state,
                             music_channel,
+                            self.audio_output.as_deref().copied().unwrap_or_default(),
                             &track_id,
                         );
                         return ambition::sfx::ids::UI_MENU_ACCEPT;

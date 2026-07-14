@@ -41,7 +41,8 @@ pub struct SandboxAudioPlugin;
 
 impl Plugin for SandboxAudioPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(KiraAudioPlugin)
+        app.init_resource::<ambition_audio::AudioOutputMode>()
+            .add_plugins(KiraAudioPlugin)
             .add_message::<ambition_audio::selection::AudioContextChanged>()
             // Async SFX-bank loader for profiles whose bank is not picked
             // up by the sync fast path in `setup::try_load_sfx_bank_via_catalog`
@@ -322,7 +323,9 @@ fn apply_frontend_music_policy(
         if let Some(track_id) = selection.preferred_track() {
             if selection.music_authority().allows(track_id) {
                 if let Some(handle) = library.resolve_track_handle(track_id, &asset_server) {
-                    base_music_channel.play(handle).looped();
+                    if layer_channels.output_mode().emits_to_device() {
+                        base_music_channel.play(handle).looped();
+                    }
                     music_state.active_track = track_id.to_owned();
                 }
             }

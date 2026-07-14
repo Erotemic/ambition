@@ -334,6 +334,7 @@ pub fn audio_play_sfx_messages(
     selection: Res<ActiveAudioSelection>,
     banks: Res<SfxBankResource>,
     sfx_channel: Res<AudioChannel<SfxChannel>>,
+    output: Option<Res<crate::output::AudioOutputMode>>,
     mut cache: ResMut<ProviderSfxHandleCache>,
     mut audio_sources: ResMut<Assets<KiraAudioSource>>,
     mut playback: ResMut<SfxPlaybackState>,
@@ -378,7 +379,9 @@ pub fn audio_play_sfx_messages(
             playback.missing_source = playback.missing_source.saturating_add(1);
             continue;
         };
-        sfx_channel.play(resolved.handle);
+        if crate::output::emits_to_device(output.as_deref()) {
+            sfx_channel.play(resolved.handle);
+        }
         playback.accepted_playbacks = playback.accepted_playbacks.saturating_add(1);
         playback.last_played = Some(SfxPlaybackRecord {
             owner,

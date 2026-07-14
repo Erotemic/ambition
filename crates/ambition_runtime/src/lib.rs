@@ -43,6 +43,7 @@ use bevy::time::{Fixed, Time};
 use ambition_platformer_primitives::schedule::SimScheduleExt as _;
 
 mod combat_schedule;
+pub mod session_world;
 pub mod input_stream;
 mod mode_scope;
 mod player_schedule;
@@ -334,3 +335,5 @@ pub fn add_headless_foundation(app: &mut App) {
     app.add_plugins(bevy::state::app::StatesPlugin);
     init_engine_states(app);
 }
+
+pub use session_world::{PlatformerSessionCatalogs, PlatformerSessionRequests, PlatformerSessionWorld};

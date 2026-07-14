@@ -111,9 +111,28 @@ fn assert_home(app: &mut App, context: &str) {
     assert!(
         app.world()
             .resource::<ActiveGameplaySession>()
-            .active_world()
+            .active_world_entity()
             .is_none(),
         "{context}: no active gameplay-world authority at home (session owns the world ref)"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition::session_world::SessionWorldProjectionAuthority>()
+            .owner,
+        None,
+        "{context}: no compatibility projection owns gameplay world state"
+    );
+    assert!(
+        app.world()
+            .resource::<ambition::game_shell::PreparedSessionRegistry>()
+            .is_empty(),
+        "{context}: no prepared-session publication remains"
+    );
+    assert!(
+        app.world()
+            .resource::<ambition::load::LoadCoordinator>()
+            .is_empty(),
+        "{context}: no provider load transaction remains"
     );
     assert_eq!(live_scope(app), None, "{context}: no live session scope");
     assert_eq!(
@@ -158,7 +177,7 @@ fn assert_home(app: &mut App, context: &str) {
 }
 
 /// Select the launcher entry at `index` (registration order:
-/// Ambition, Sanic, Mary-O, Exit) and confirm it.
+/// Ambition, Sanic, Mary-O, Pocket, Exit) and confirm it.
 /// Launcher rows = registered experience entries + built-in host actions (the
 /// Exit row, when the host shows it). Derived, never a literal.
 fn launcher_row_count(app: &App) -> usize {
@@ -236,12 +255,14 @@ fn assert_in_game(
     // The session is the canonical world authority: it references a prepared
     // world (a `RoomSet`), and that reference names THIS session's active room
     // — not a room resident from a prior provider's session.
-    let session_room = session
-        .active_world_as::<RoomSet>()
-        .unwrap_or_else(|| panic!("{context}: the session references its prepared world"))
-        .active_spec()
-        .id
-        .as_str()
+    let world_entity = session
+        .active_world_entity()
+        .unwrap_or_else(|| panic!("{context}: the session owns a live world entity"));
+    let session_room = app
+        .world()
+        .get::<ambition::runtime::PlatformerSessionWorld>(world_entity)
+        .unwrap_or_else(|| panic!("{context}: the live world entity carries platformer state"))
+        .active_room_id()
         .to_owned();
     assert_eq!(
         session_room,
@@ -329,9 +350,9 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .collect();
     assert_eq!(
         entries,
-        vec!["Ambition", "Sanic", "Mary-O"],
-        "launcher entries derive from the three registered providers \
-         (Exit is the built-in fourth row)"
+        vec!["Ambition", "Sanic", "Mary-O", "Pocket"],
+        "launcher entries derive from the four registered providers \
+         (Exit is the built-in fifth row)"
     );
 
     let mut seen_scopes: Vec<SessionScopeId> = Vec::new();
@@ -394,6 +415,26 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     settle(&mut app);
     assert_home(&mut app, "after mary-o");
 
+    // ── Pocket fourth-provider proof ───────────────────────────────────
+    launch_entry(&mut app, 3);
+    let scope = assert_in_game(
+        &mut app,
+        "pocket_gameplay",
+        "pocket",
+        Some("pocket"),
+        "pocket",
+        "pocket",
+    );
+    fresh(scope, "pocket");
+    assert_eq!(
+        app.world().resource::<RoomSet>().active_spec().id.as_str(),
+        "pocket_room",
+        "pocket: provider-authored world is active"
+    );
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    assert_home(&mut app, "after pocket");
+
     // ── Ambition ───────────────────────────────────────────────────────
     launch_entry(&mut app, 0);
     let scope = assert_in_game(
@@ -452,7 +493,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     assert_home(&mut app, "after sanic #2");
 
     // ── Exit ───────────────────────────────────────────────────────────
-    launch_entry(&mut app, 3);
+    launch_entry(&mut app, 4);
     app.update();
     assert!(
         app.world().resource::<ShellRouter>().exit_requested,

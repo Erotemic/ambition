@@ -7,7 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`ball_dash`](src/ball_dash.rs) | **The ball dash (spin dash)** — Track S's one new verb. |
-| [`provider`](src/provider.rs) | The Sanic **experience provider**: Sanic as a launchable, teardown-clean, host-independent shell experience. |
+| [`provider`](src/provider.rs) | The Sanic experience provider. |
 
 _2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

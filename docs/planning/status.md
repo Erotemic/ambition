@@ -38,7 +38,7 @@ is never equivalent to a passing acceptance test or an enforced invariant.
 <!-- planning-evidence: inline-test path=crates/ambition_characters/src/equipment.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_demo_smb1/src/flag.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_audio/src/catalog.rs kind=behavioral-local disposition=maintainer-review-pending -->
-<!-- planning-evidence: workspace-members count=48 -->
+<!-- planning-evidence: workspace-members count=49 -->
 <!-- planning-evidence: module-size waivers=1 unwaived-violations=0 stale-waivers=0 invalid-waivers=0 -->
 <!-- planning-evidence: cc3 status=ignored -->
 

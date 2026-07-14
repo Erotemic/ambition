@@ -110,6 +110,7 @@ profile = ["ambition/profile"]
 # providers; providers never depend on hosts (each also runs unchanged in its
 # own standalone demo app).
 ambition_demo_sanic = { path = "../ambition_demo_sanic" }
+ambition_demo_pocket = { path = "../ambition_demo_pocket" }
 ambition_demo_smb1 = { path = "../ambition_demo_smb1" }
 ambition = { path = "../../crates/ambition" }
 ambition_content = { path = "../ambition_content" }

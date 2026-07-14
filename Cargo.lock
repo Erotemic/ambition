@@ -247,6 +247,7 @@ dependencies = [
  "ambition",
  "ambition_content",
  "ambition_demo_sanic",
+ "ambition_demo_pocket",
  "ambition_demo_smb1",
  "ambition_menu_kaleidoscope",
  "bevy",
@@ -325,6 +326,7 @@ dependencies = [
 name = "ambition_content"
 version = "0.1.0"
 dependencies = [
+ "ambition",
  "ambition_actors",
  "ambition_asset_manager",
  "ambition_audio",
@@ -366,6 +368,14 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "serde",
+]
+
+[[package]]
+name = "ambition_demo_pocket"
+version = "0.1.0"
+dependencies = [
+ "ambition",
+ "bevy",
 ]
 
 [[package]]

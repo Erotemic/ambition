@@ -43,6 +43,7 @@ fn compose_smb1_shell(app: &mut App, home_route: &str) {
     use ambition_demo_smb1::{smb1_session_world, Smb1ExperiencePlugin, MARY_O_GAMEPLAY_ROUTE};
 
     app.add_plugins(ambition::game_shell::MinimalShellPlugins);
+    app.add_plugins(ambition::session_world::PlatformerSessionWorldProjectionPlugin);
     // The standalone launcher is an explicit frontend audio context. Mary-O
     // authors an empty fragment, so the launcher and gameplay are deliberately
     // silent rather than inheriting another provider's cached sounds.

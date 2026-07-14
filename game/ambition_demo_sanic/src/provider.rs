@@ -1,50 +1,28 @@
-//! The Sanic **experience provider**: Sanic as a launchable, teardown-clean,
-//! host-independent shell experience.
-//!
-//! A provider owns its experience identity, its route, its session construction,
-//! and its teardown — but NOT the host's initial route, home route, launcher, or
-//! process-exit policy. The same [`SanicExperiencePlugin`] therefore runs
-//! unchanged under the standalone Sanic host and (later) the Ambition host; only
-//! the host's [`ambition::game_shell::ShellHostSpec`] differs.
-//!
-//! World construction moved off `Startup` (which runs once and cannot rebuild)
-//! onto the shared gameplay-session bridge for this experience, so a
-//! launch → quit → relaunch cycle rebuilds a genuinely fresh session. Every
-//! entity the session spawns inherits the activation's
-//! [`SessionScopeId`](ambition::platformer::lifecycle::SessionScopeId) (the player
-//! body via `simulation_world`, the act state via the rules), so
-//! the bridge retires them together from the exact shell activation.
+//! The Sanic experience provider.
 
 use bevy::prelude::*;
 
 use ambition::engine_core as ae;
 use ambition::game_shell::{
-    ExperienceRegistration, GameplaySessionAppExt, GameplaySessionEvent, GameplaySessionSet,
-    ShellCompletionPolicy, ShellRouteSpec,
+    standard_preparation_failed_commands, standard_preparation_succeeded_commands,
+    GameplaySessionEvent, GameplaySessionSet, PreparedSessionRegistry, ShellEvent,
 };
-use ambition::platformer::lifecycle::{SessionRoot, SessionSpawnScope, SpawnSessionScopedExt};
+use ambition::provider::{
+    cleanup_prepared_platformer_sessions, AuthoredCatalogFragments,
+    PlatformerExperienceAuthoring, PlatformerSessionBuilder, PreparedPlatformerSessions,
+};
 use ambition::runtime::demo_fixture::{
-    simulation_world, ActiveRoomMetadata, EditableAbilitySet, EditableMovementTuning,
-    LdtkRuntimeIndex, RoomSet, SimulationSetup, StartingCharacter,
+    ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
+use ambition::runtime::PlatformerSessionWorld;
 
 use crate::{sanic_speedway, SanicRulesPlugin, SANIC_CHARACTER_ID, SPEEDWAY_ROOM_ID};
 
-/// The launcher-visible identity of this experience.
 pub const SANIC_EXPERIENCE: &str = "sanic";
-/// The route a host activates to enter Sanic gameplay.
 pub const SANIC_GAMEPLAY_ROUTE: &str = "sanic_gameplay";
-/// The conventional home route for the standalone Sanic host. A host is free to
-/// choose a different home; the provider never names it (that is the
-/// host-independence claim).
 pub const SANIC_LAUNCHER_ROUTE: &str = "sanic_launcher";
 
-/// The process-resident "current world" resources for one Sanic session.
-///
-/// Both a host (for its build-time initial world, so the fixed-tick sim has a
-/// `RoomGeometry`/`RoomSet` before the first activation) and the activation
-/// handler (per relaunch) build these from the SAME source, so there is one
-/// definition of what a Sanic session's world is.
+#[derive(Clone)]
 pub struct SanicSessionWorld {
     pub geometry: ae::RoomGeometry,
     pub room_set: RoomSet,
@@ -52,7 +30,6 @@ pub struct SanicSessionWorld {
     pub starting_character: StartingCharacter,
 }
 
-/// Build the "current world" resources for a Sanic session from the speedway.
 pub fn sanic_session_world() -> SanicSessionWorld {
     let room = sanic_speedway();
     let geometry = ae::RoomGeometry(room.world.clone());
@@ -66,60 +43,91 @@ pub fn sanic_session_world() -> SanicSessionWorld {
     }
 }
 
-/// The reusable Sanic provider: content registries, experience/route
-/// registration, the gameplay rules, and the session activation/teardown
-/// lifecycle. It does NOT insert a build-time world or configure a host — those
-/// are the host's job.
+struct SanicProviderMarker;
+type PreparedSanicSessions = PreparedPlatformerSessions<SanicProviderMarker>;
+
 pub struct SanicExperiencePlugin;
 
 impl Plugin for SanicExperiencePlugin {
     fn build(&self, app: &mut App) {
-        // Provider-authored character/audio fragments assemble into resources
-        // owned by this Bevy App. The same provider plugin is therefore safe in
-        // a standalone host and in a future multi-game host.
         crate::install_sanic_content(app);
+        PlatformerExperienceAuthoring::new(
+            SANIC_EXPERIENCE,
+            SANIC_GAMEPLAY_ROUTE,
+            "Sanic",
+            "Momentum speedway with a rideable loop",
+            "Prepare Sanic",
+            AuthoredCatalogFragments::new(SANIC_CHARACTER_ID, SANIC_EXPERIENCE),
+        )
+        .register(app);
 
-        // Advertise the experience + its gameplay route. The launcher catalog is
-        // derived from this registration, so no host writes a Sanic match.
-        app.register_gameplay_experience(
-            ExperienceRegistration::new(SANIC_EXPERIENCE, "Sanic", SANIC_GAMEPLAY_ROUTE)
-                .with_description("Momentum speedway with a rideable loop"),
-            ShellRouteSpec::new(SANIC_GAMEPLAY_ROUTE, SANIC_EXPERIENCE)
-                .on_complete(ShellCompletionPolicy::ReturnHome),
-        );
-        app.add_systems(
-            Update,
-            sanic_activate_session.in_set(GameplaySessionSet::Providers),
-        );
-
-        // The mode-gated gameplay rules. `spawn_sanic_mode_owner` additionally
-        // sleeps when no session is live, so the launcher does not resurrect the
-        // act state from stale "sanic" room metadata.
-        app.add_plugins(SanicRulesPlugin::hosted());
+        app.init_resource::<PreparedSanicSessions>()
+            .add_systems(
+                Update,
+                (
+                    sanic_prepare_session,
+                    cleanup_prepared_platformer_sessions::<SanicProviderMarker>,
+                )
+                    .chain()
+                    .in_set(ambition::load::AmbitionLoadSet::Contributors),
+            )
+            .add_systems(
+                Update,
+                sanic_activate_session.in_set(GameplaySessionSet::Providers),
+            )
+            .add_plugins(SanicRulesPlugin::hosted());
     }
 }
 
-/// Build the real Sanic session when the shell activates the gameplay route.
-///
-/// Receives the fresh scope minted by the shared bridge, constructs the world
-/// with that captured ownership context, and publishes the session's world
-/// resources.
-#[allow(clippy::too_many_arguments)]
+fn sanic_prepare_session(
+    mut shell_events: MessageReader<ShellEvent>,
+    ldtk_index: Res<LdtkRuntimeIndex>,
+    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
+    audio_catalogs: Res<ambition::audio::catalog::AudioCatalogRegistry>,
+    mut prepared_sessions: ResMut<PreparedSanicSessions>,
+    mut prepared_registry: ResMut<PreparedSessionRegistry>,
+    mut load_commands: MessageWriter<ambition::load::LoadCommand>,
+) {
+    let catalogs = AuthoredCatalogFragments::new(SANIC_CHARACTER_ID, SANIC_EXPERIENCE);
+    for event in shell_events.read() {
+        let ShellEvent::PreparationRequested(transaction) = event else {
+            continue;
+        };
+        if transaction.experience_id.as_str() != SANIC_EXPERIENCE {
+            continue;
+        }
+        if let Some((work_id, failure)) = catalogs.validate(&character_catalog, &audio_catalogs) {
+            for command in standard_preparation_failed_commands(transaction, work_id, failure) {
+                load_commands.write(command);
+            }
+            continue;
+        }
+        let source = sanic_session_world();
+        let live_world = PlatformerSessionWorld::new(
+            SANIC_EXPERIENCE,
+            source.room_set,
+            source.geometry,
+            source.metadata,
+            source.starting_character,
+            ldtk_index.clone(),
+        );
+        if prepared_sessions
+            .publish(transaction, live_world, &mut prepared_registry)
+            .is_none()
+        {
+            continue;
+        }
+        for command in standard_preparation_succeeded_commands(transaction) {
+            load_commands.write(command);
+        }
+    }
+}
+
 fn sanic_activate_session(
     mut events: MessageReader<GameplaySessionEvent>,
-    mut commands: Commands,
-    ldtk_index: Res<LdtkRuntimeIndex>,
-    editable_abilities: Res<EditableAbilitySet>,
-    editable_tuning: Res<EditableMovementTuning>,
-    asset_server: Res<AssetServer>,
-    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
-    character_roster: Res<ambition::actors::features::CharacterRoster>,
-    boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
-    mut geometry: ResMut<ae::RoomGeometry>,
-    mut room_set: ResMut<RoomSet>,
-    mut metadata: ResMut<ActiveRoomMetadata>,
-    mut starting_character: ResMut<StartingCharacter>,
-    mut active_session: ResMut<ambition::game_shell::ActiveGameplaySession>,
+    mut prepared_sessions: ResMut<PreparedSanicSessions>,
+    mut prepared_registry: ResMut<PreparedSessionRegistry>,
+    mut builder: PlatformerSessionBuilder,
 ) {
     for event in events.read() {
         let GameplaySessionEvent::Activated { activation, scope } = event else {
@@ -128,49 +136,13 @@ fn sanic_activate_session(
         if activation.experience_id.as_str() != SANIC_EXPERIENCE {
             continue;
         }
-        let scope = *scope;
-
-        commands.spawn_in_session(
-            scope,
-            (
-                Name::new(format!("{} session root", SANIC_EXPERIENCE)),
-                SessionRoot(scope),
-            ),
-        );
-
-        let world = sanic_session_world();
-        simulation_world(
-            &mut commands,
-            SessionSpawnScope::scoped(scope),
-            SimulationSetup {
-                world: &world.geometry,
-                room_set: &world.room_set,
-                ldtk_index: &ldtk_index,
-                editable_abilities: &editable_abilities,
-                editable_tuning: &editable_tuning,
-                starting_character: &world.starting_character,
-                character_catalog: &character_catalog,
-                character_roster: &character_roster,
-                boss_catalog: &boss_catalog,
-                default_character_id: crate::SANIC_CHARACTER_ID,
-                sandbox_data_asset: None,
-                sandbox_asset_collection: None,
-                asset_server: &asset_server,
-            },
-        );
-
-        // The session owns the reference to this world; the resident resources
-        // below are its published projection. A relaunch builds a fresh world,
-        // so `active_world_as::<RoomSet>()` differs from the prior session's.
-        active_session.attach_world_for(activation.activation_id, ambition::game_shell::SessionWorldRef::new(
-            world.room_set.clone(),
-        ));
-
-        // Republish the session's "current world" (a relaunch must overwrite any
-        // stale world left by the previous session).
-        *geometry = world.geometry;
-        *room_set = world.room_set;
-        *metadata = world.metadata;
-        *starting_character = world.starting_character;
+        let prepared = activation
+            .prepared_session
+            .as_ref()
+            .expect("Sanic routes require an exact prepared-session publication");
+        let live_world = prepared_sessions
+            .take(prepared, &mut prepared_registry)
+            .expect("Sanic prepared data must match the authorized transaction");
+        builder.build(activation, *scope, live_world, SANIC_CHARACTER_ID);
     }
 }

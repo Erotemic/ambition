@@ -12,17 +12,17 @@ use ambition_audio::catalog::{AudioCatalogRegistry, SfxBankRegistry};
 use ambition_audio::selection::{
     ActiveAudioSelection, AudioContextChanged, FrontendAudioProfile,
 };
-use ambition_sfx::{AudioContextOwner, SfxEmissionContext};
 use ambition_platformer_primitives::lifecycle::{
-    ActiveSessionScope, SessionGatedSimulation, SessionScopeId, SessionScopePlugin,
-    SessionScopeRetired, SessionScopeSet,
+    ActiveSessionScope, SessionGatedSimulation, SessionRoot, SessionScopeId, SessionScopePlugin,
+    SessionScopeRetired, SessionScopeSet, SpawnSessionScopedExt,
 };
+use ambition_sfx::{AudioContextOwner, SfxEmissionContext};
 use bevy::prelude::*;
 
 use crate::{
     ActiveShellExperience, AmbitionGameShellSet, ExperienceRegistration, LoadBarrierRef,
-    ShellActivationId, ShellEvent, ShellExperienceAppExt, ShellExperienceId, ShellRouteCatalog,
-    ShellRouteSpec,
+    PreparedSessionIdentity, ShellActivationId, ShellEvent, ShellExperienceAppExt,
+    ShellExperienceId, ShellRouteSpec,
 };
 
 /// Gameplay-session lifecycle facts delivered to provider systems.
@@ -98,57 +98,39 @@ impl GameplaySessionRegistry {
     }
 }
 
-/// A type-erased reference to the active session's prepared gameplay world.
+/// Exact gameplay audio authority captured with one session activation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GameplaySessionAudioContext {
+    pub owner: AudioContextOwner,
+    pub provider_id: String,
+}
+
+/// Marker and exact owner facts on the canonical live gameplay-world entity.
 ///
-/// The engine crate names no provider's world type, so the world is carried
-/// behind `Arc<dyn Any>`; a consumer (or a poison test) downcasts to the
-/// provider's concrete world. Equality is Arc pointer identity — two sessions
-/// referencing the SAME prepared world are equal, a fresh build is not — which
-/// is exactly what proves "session B does not observe session A's world."
-#[derive(Clone)]
-pub struct SessionWorldRef(std::sync::Arc<dyn std::any::Any + Send + Sync>);
-
-impl SessionWorldRef {
-    pub fn new<T: std::any::Any + Send + Sync>(world: T) -> Self {
-        Self(std::sync::Arc::new(world))
-    }
-
-    /// Reinterpret the world as `T`, or `None` if it was built by a different
-    /// provider (a different concrete type).
-    pub fn downcast_ref<T: std::any::Any>(&self) -> Option<&T> {
-        self.0.downcast_ref::<T>()
-    }
+/// The shell deliberately does not name a provider's concrete world bundle.
+/// Providers attach their typed components to this entity, while the shell
+/// owns only the exact activation/scope identity and lifetime.
+#[derive(Component, Clone, Debug, Eq, PartialEq)]
+pub struct GameplaySessionWorldRoot {
+    pub activation_id: ShellActivationId,
+    pub experience_id: ShellExperienceId,
+    pub scope: SessionScopeId,
+    pub audio: GameplaySessionAudioContext,
+    pub load: Option<LoadBarrierRef>,
+    pub prepared: Option<PreparedSessionIdentity>,
 }
-
-impl std::fmt::Debug for SessionWorldRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SessionWorldRef(<type-erased provider world>)")
-    }
-}
-
-impl PartialEq for SessionWorldRef {
-    fn eq(&self, other: &Self) -> bool {
-        std::sync::Arc::ptr_eq(&self.0, &other.0)
-    }
-}
-
-impl Eq for SessionWorldRef {}
 
 /// Canonical identity of the one active top-level gameplay session.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GameplaySessionInstance {
     pub activation: ActiveShellExperience,
     pub scope: SessionScopeId,
-    /// The load barrier that authorized this activation, when its route
-    /// required one. Captured at activation so acceptance checks can prove no
-    /// stale load transaction outlives the session it prepared.
     pub load: Option<LoadBarrierRef>,
-    /// The prepared gameplay world this session owns. `None` until the
-    /// provider's activation system attaches it (the bridge sets identity/scope
-    /// first; the provider builds and attaches the world in the same frame). A
-    /// frontend route has no session at all, so no world authority exists there
-    /// by construction — not merely because gameplay schedules are gated.
-    pub world: Option<SessionWorldRef>,
+    pub prepared: Option<PreparedSessionIdentity>,
+    pub audio: GameplaySessionAudioContext,
+    /// Canonical live gameplay-world entity. `None` only during the provider
+    /// phase of a fresh activation.
+    pub world: Option<Entity>,
 }
 
 /// App-local gameplay-session authority. It is `None` at launchers, credits,
@@ -157,36 +139,66 @@ pub struct GameplaySessionInstance {
 pub struct ActiveGameplaySession(pub Option<GameplaySessionInstance>);
 
 impl ActiveGameplaySession {
-    /// Attach a provider world only when `activation_id` still names the live
-    /// session. Delayed provider work from activation A cannot overwrite B's
-    /// world after a fast route replacement.
-    pub fn attach_world_for(
+    /// Spawn the canonical provider world only for the exact live activation.
+    pub fn spawn_world_for<B: Bundle>(
+        &mut self,
+        commands: &mut Commands,
+        activation: &ActiveShellExperience,
+        scope: SessionScopeId,
+        world: B,
+    ) -> Option<Entity> {
+        let instance = self.0.as_mut()?;
+        if instance.activation.activation_id != activation.activation_id
+            || instance.activation.experience_id != activation.experience_id
+            || instance.scope != scope
+            || instance.world.is_some()
+        {
+            return None;
+        }
+
+        let entity = commands
+            .spawn_in_session(
+                scope,
+                (
+                    Name::new(format!(
+                        "{} gameplay session world",
+                        activation.experience_id.as_str()
+                    )),
+                    SessionRoot(scope),
+                    GameplaySessionWorldRoot {
+                        activation_id: activation.activation_id,
+                        experience_id: activation.experience_id.clone(),
+                        scope,
+                        audio: instance.audio.clone(),
+                        load: instance.load.clone(),
+                        prepared: instance.prepared.clone(),
+                    },
+                    world,
+                ),
+            )
+            .id();
+        instance.world = Some(entity);
+        Some(entity)
+    }
+
+    /// Retire only the exact activation. Delayed retirement for A cannot
+    /// disturb B, including a same-provider relaunch.
+    pub fn retire_if_activation(
         &mut self,
         activation_id: ShellActivationId,
-        world: SessionWorldRef,
-    ) -> bool {
-        let Some(instance) = self.0.as_mut() else {
-            return false;
-        };
-        if instance.activation.activation_id != activation_id {
-            return false;
+    ) -> Option<GameplaySessionInstance> {
+        if self
+            .0
+            .as_ref()
+            .is_none_or(|instance| instance.activation.activation_id != activation_id)
+        {
+            return None;
         }
-        instance.world = Some(world);
-        true
+        self.0.take()
     }
 
-    /// The active session's prepared world reference, if a session is live AND
-    /// its provider has attached one.
-    pub fn active_world(&self) -> Option<&SessionWorldRef> {
-        self.0.as_ref().and_then(|instance| instance.world.as_ref())
-    }
-
-    /// The active world downcast to a provider's concrete world type. `None` at
-    /// a frontend route (no session), or when the active provider's world is a
-    /// different type.
-    pub fn active_world_as<T: std::any::Any>(&self) -> Option<&T> {
-        self.active_world()
-            .and_then(|world| world.downcast_ref::<T>())
+    pub fn active_world_entity(&self) -> Option<Entity> {
+        self.0.as_ref().and_then(|instance| instance.world)
     }
 }
 
@@ -314,6 +326,7 @@ fn select_shell_audio_context(
     mut sessions: MessageReader<GameplaySessionEvent>,
     mut shell_events: MessageReader<ShellEvent>,
     registry: Res<GameplaySessionRegistry>,
+    active_session: Res<ActiveGameplaySession>,
     catalogs: Res<AudioCatalogRegistry>,
     sfx_banks: Res<SfxBankRegistry>,
     frontend: Option<Res<FrontendAudioProfile>>,
@@ -325,23 +338,28 @@ fn select_shell_audio_context(
     for event in sessions.read() {
         match event {
             GameplaySessionEvent::Activated { activation, scope } => {
-                let provider = registry
-                    .profile(&activation.experience_id)
-                    .and_then(|profile| profile.audio_provider.clone())
-                    .unwrap_or_else(|| activation.experience_id.as_str().to_owned());
+                let instance = active_session
+                    .0
+                    .as_ref()
+                    .filter(|instance| {
+                        instance.activation.activation_id == activation.activation_id
+                            && instance.scope == *scope
+                    })
+                    .expect("session activation publishes exact audio identity first");
+                let provider = instance.audio.provider_id.as_str();
                 assert!(
-                    catalogs.has_provider(&provider),
+                    catalogs.has_provider(provider),
                     "gameplay provider '{provider}' activated a session but registered no audio catalog fragment; register an explicit empty fragment for silence",
                 );
                 let previous = selection.owner();
                 selection.select_gameplay(
                     scope.0,
-                    provider.clone(),
-                    catalogs.music_for(&provider).cloned(),
-                    catalogs.sfx_for(&provider).cloned(),
-                    sfx_banks.ids_for(&provider),
+                    provider.to_owned(),
+                    catalogs.music_for(provider).cloned(),
+                    catalogs.sfx_for(provider).cloned(),
+                    sfx_banks.ids_for(provider),
                 );
-                emission.set(AudioContextOwner::Gameplay(scope.0));
+                emission.set(instance.audio.owner);
                 let current = selection.owner();
                 if previous != current {
                     context_changes.write(AudioContextChanged { previous, current });
@@ -414,10 +432,10 @@ fn select_shell_audio_context(
 fn translate_shell_session_lifecycle(
     mut shell_events: MessageReader<ShellEvent>,
     registry: Res<GameplaySessionRegistry>,
-    routes: Res<ShellRouteCatalog>,
     mut active_scope: ResMut<ActiveSessionScope>,
     mut links: ResMut<GameplaySessionLinks>,
     mut active_session: ResMut<ActiveGameplaySession>,
+    mut loads: ResMut<ambition_load::LoadCoordinator>,
     mut session_events: MessageWriter<GameplaySessionEvent>,
     mut retired: MessageWriter<SessionScopeRetired>,
 ) {
@@ -425,16 +443,14 @@ fn translate_shell_session_lifecycle(
         match event {
             ShellEvent::RouteDeactivated(activation) => {
                 if let Some(scope) = links.unbind(activation.activation_id) {
-                    if active_session.0.as_ref().is_some_and(|session| {
-                        session.activation.activation_id == activation.activation_id
-                    }) {
-                        active_session.0 = None;
+                    let retired_session =
+                        active_session.retire_if_activation(activation.activation_id);
+                    if let Some(load) = retired_session
+                        .as_ref()
+                        .and_then(|session| session.load.as_ref())
+                    {
+                        loads.retire(&load.load_id);
                     }
-                    // Revoke spawn authority immediately. Exact entity cleanup
-                    // remains deferred to `SessionScopeSet::Cleanup`, but systems
-                    // later in this frame must not author new work into a retired
-                    // activation. `clear_if_current` also preserves a newer scope
-                    // when a gameplay-to-gameplay replacement occurs in one frame.
                     active_scope.clear_if_current(scope);
                     session_events.write(GameplaySessionEvent::Retiring {
                         activation: activation.clone(),
@@ -457,15 +473,19 @@ fn translate_shell_session_lifecycle(
                 );
                 let scope = active_scope.begin();
                 links.bind(activation.activation_id, scope);
+                let audio_provider = registry
+                    .profile(&activation.experience_id)
+                    .and_then(|profile| profile.audio_provider.clone())
+                    .unwrap_or_else(|| activation.experience_id.as_str().to_owned());
                 active_session.0 = Some(GameplaySessionInstance {
                     activation: activation.clone(),
                     scope,
-                    load: routes
-                        .get(&activation.route_id)
-                        .and_then(|route| route.required_barrier.clone()),
-                    // The provider's activation system attaches the prepared
-                    // world this frame (it runs after the bridge in
-                    // `GameplaySessionSet::Providers`).
+                    load: activation.load_authorization.clone(),
+                    prepared: activation.prepared_session.clone(),
+                    audio: GameplaySessionAudioContext {
+                        owner: AudioContextOwner::Gameplay(scope.0),
+                        provider_id: audio_provider,
+                    },
                     world: None,
                 });
                 session_events.write(GameplaySessionEvent::Activated {

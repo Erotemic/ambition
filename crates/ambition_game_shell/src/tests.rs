@@ -7,6 +7,7 @@ use crate::*;
 #[test]
 fn initial_and_home_routes_are_independent() {
     let mut loads = LoadCoordinator::default();
+    let mut prepared = PreparedSessionRegistry::default();
     let mut catalog = ShellRouteCatalog::default();
     catalog.register(ShellRouteSpec::new("direct-game", "game"));
     catalog.register(ShellRouteSpec::new("demo-home", "launcher"));
@@ -14,11 +15,11 @@ fn initial_and_home_routes_are_independent() {
         spec: Some(ShellHostSpec::new("direct-game", "demo-home")),
     };
     let mut router = ShellRouter::default();
-    let events = router.apply(ShellCommand::Initialize, &catalog, &host, &mut loads);
+    let events = router.apply(ShellCommand::Initialize, &catalog, &host, &mut loads, &mut prepared);
     assert!(
         matches!(events.last(), Some(ShellEvent::RouteActivated(active)) if active.route_id.as_str() == "direct-game")
     );
-    let events = router.apply(ShellCommand::QuitToHome, &catalog, &host, &mut loads);
+    let events = router.apply(ShellCommand::QuitToHome, &catalog, &host, &mut loads, &mut prepared);
     assert!(
         matches!(events.last(), Some(ShellEvent::RouteActivated(active)) if active.route_id.as_str() == "demo-home")
     );
@@ -27,6 +28,7 @@ fn initial_and_home_routes_are_independent() {
 #[test]
 fn route_waits_for_its_load_barrier() {
     let mut loads = LoadCoordinator::default();
+    let mut prepared = PreparedSessionRegistry::default();
     let load = ambition_load::LoadId::new("game-load");
     let barrier = ambition_load::LoadBarrierId::new("ready");
     loads.apply(LoadCommand::Begin(LoadPlanSpec::new(load.clone(), "Game")));
@@ -43,6 +45,7 @@ fn route_waits_for_its_load_barrier() {
         &catalog,
         &host,
         &mut loads,
+        &mut prepared,
     );
     assert!(matches!(
         events.as_slice(),
@@ -57,7 +60,7 @@ fn route_waits_for_its_load_barrier() {
         forecast: None,
     });
     let holds = ShellRouteHolds::default();
-    let events = router.advance_pending(&catalog, &mut loads, &holds);
+    let events = router.advance_pending(&catalog, &mut loads, &mut prepared, &holds);
     assert!(matches!(events.last(), Some(ShellEvent::RouteActivated(_))));
     assert_eq!(
         loads.request_commit(
@@ -71,6 +74,7 @@ fn route_waits_for_its_load_barrier() {
 #[test]
 fn completion_policy_routes_without_experience_knowing_target() {
     let mut loads = LoadCoordinator::default();
+    let mut prepared = PreparedSessionRegistry::default();
     let mut catalog = ShellRouteCatalog::default();
     catalog.register(
         ShellRouteSpec::new("credits", "credits").on_complete(ShellCompletionPolicy::ReturnHome),
@@ -80,13 +84,14 @@ fn completion_policy_routes_without_experience_knowing_target() {
         spec: Some(ShellHostSpec::new("credits", "home")),
     };
     let mut router = ShellRouter::default();
-    router.apply(ShellCommand::Initialize, &catalog, &host, &mut loads);
+    router.apply(ShellCommand::Initialize, &catalog, &host, &mut loads, &mut prepared);
     let activation_id = router.active.as_ref().unwrap().activation_id;
     let events = router.apply(
         ShellCommand::ExperienceCompleted { activation_id },
         &catalog,
         &host,
         &mut loads,
+        &mut prepared,
     );
     assert!(
         matches!(events.last(), Some(ShellEvent::RouteActivated(active)) if active.route_id.as_str() == "home")
@@ -96,6 +101,7 @@ fn completion_policy_routes_without_experience_knowing_target() {
 #[test]
 fn route_hold_delays_commit_and_activation() {
     let mut loads = LoadCoordinator::default();
+    let mut prepared = PreparedSessionRegistry::default();
     let load = ambition_load::LoadId::new("held-load");
     let barrier = ambition_load::LoadBarrierId::new("held-ready");
     loads.apply(LoadCommand::Begin(LoadPlanSpec::new(load.clone(), "Held")));
@@ -131,6 +137,7 @@ fn route_hold_delays_commit_and_activation() {
         &catalog,
         &host,
         &mut loads,
+        &mut prepared,
     );
     loads.apply(LoadCommand::SetDiscovery {
         load_id: load.clone(),
@@ -139,13 +146,13 @@ fn route_hold_delays_commit_and_activation() {
         forecast: None,
     });
     assert!(router
-        .advance_pending(&catalog, &mut loads, &holds)
+        .advance_pending(&catalog, &mut loads, &mut prepared, &holds)
         .is_empty());
     assert!(router.active.is_none());
 
     holds.release(&ShellRouteId::new("held"), &ShellHoldId::new("test-hold"));
     assert!(matches!(
-        router.advance_pending(&catalog, &mut loads, &holds).last(),
+        router.advance_pending(&catalog, &mut loads, &mut prepared, &holds).last(),
         Some(ShellEvent::RouteActivated(_))
     ));
 }

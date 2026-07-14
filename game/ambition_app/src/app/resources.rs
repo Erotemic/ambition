@@ -186,7 +186,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     // provider clones per activation. Captured here so activation republishes
     // FRESH room state (and the boot-resolved starting character) instead of
     // whatever a previous session left resident.
-    app.insert_resource(super::shell_host::AmbitionPreparedWorld {
+    app.insert_resource(ambition_content::provider::AmbitionPreparedWorld {
         room_set: room_set.clone(),
         ldtk_index: ldtk_index.clone(),
         starting_character: app

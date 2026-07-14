@@ -2,7 +2,7 @@
 
 > **Purpose:** define the desired reusable engine architecture first, then track the shortest dependency-ordered path from the current repository to that state.
 >
-> **Current status (2026-07-14):** the verified baseline contains the provider-derived Ambition launcher, exact gameplay session scopes, host-relative `QuitToHome`, the simulation authorization gate, App-local authored catalogs, provider-filtered music, controller/keyboard launcher input, and the optional startup card. The current working change is a deliberately uncommitted **Rust-verification candidate** that advances the audio model from provider permission metadata to one exact shell-activation audio context shared by frontend and gameplay. It adds frontend-owned title/menu audio, exact-owner SFX messages, provider-authored procedural and packed-bank source resolution, provider-composable adaptive cue definitions, activation-local audio reset, deterministic generated metadata, an independently compilable core audio feature boundary, playback-observable tests, and a headless path through the shipping shared-host composition. None of those candidate additions becomes `DONE` until formatting, compilation, focused tests, workspace tests, and the supported no-window host tests pass. Canonical live session-world consumption, Ambition provider extraction, provider-API deduplication, real load plans/prepared sessions, loading presentation/activity, and display/audio-device observation remain `OPEN`.
+> **Current status (2026-07-13):** the verified baseline remains the committed scoped-audio/frontend work. This overlay is an unverified Rust candidate for the next structural tranche: a typed session-owned live world entity replaces `Arc<dyn Any>` snapshots; exact prepared-session identity and fresh per-launch load transactions gate activation; Ambition moves into a reusable provider crate surface; Ambition, Sanic, Mary-O, and the new Pocket acceptance provider use one `PlatformerExperienceAuthoring` / `PreparedPlatformerSessions` / `PlatformerSessionBuilder` path; frontend routes retire session/load authority; shell input is reduced to one keyboard/controller/analog action vocabulary; and an optional deterministic loading activity proves load-scope input and cleanup without mutating destination state. These items remain `OPEN` until Cargo formatting, compilation, focused tests, workspace tests, Clippy, and executable host cycles pass. Literal visible and audible behavior remains unobserved in this environment.
 
 ## Desired end state
 
@@ -31,7 +31,7 @@ Standalone Mary-O process:
 
 Ambition host process:
     startup sequence -> Ambition launcher
-    launcher -> Ambition | Sanic | Mary-O | future providers | Exit
+    launcher -> Ambition | Sanic | Mary-O | Pocket | future providers | Exit
     every embedded gameplay session -> QuitToHome -> Ambition launcher
 ```
 
@@ -397,6 +397,11 @@ without compiler feedback:
 
 | ID | Status | Required result |
 |---|---|---|
+| W0-live-world | OPEN | Candidate: one exact session-scoped ECS world root owns mutable `RoomSet`, geometry, active-room metadata, starting character, runtime room index, catalog identity, and request state; a focused compatibility projection is inert at frontend routes. Awaiting Rust verification and remaining consumer migration. |
+| P0-provider-api | OPEN | Candidate: Ambition extraction plus common provider registration/preparation/prepared-store/session-builder surface; Pocket proves standalone/shared composition with no host match arm. Awaiting Rust verification. |
+| L0-fresh-load | OPEN | Candidate: every provider launch mints a fresh transaction, publishes exact prepared identity, requires ready barrier plus one-shot commit, and retires load authority with the session. Awaiting retry/cancel/supersession test execution. |
+| INPUT0 | OPEN | Candidate: startup, launcher, loading, and Quit-to-Home share keyboard, D-pad, face-button, Start-button, and analog-edge vocabulary. Awaiting visible/controller tests. |
+| LOAD-ACTIVITY0 | OPEN | Candidate: deterministic load-scoped activity consumes neutral input, records an optional result, respects ready hold, and owns no gameplay state. Awaiting feature-suite execution. |
 | C0 | DONE | Deterministic App-local character/audio fragment registries; real Ambition/Sanic/Mary-O coexistence; registration-order and separate-App isolation coverage; stable duplicate ownership diagnostics; candidate-before-commit App updates. |
 | C0H | DONE (2026-07-13: workspace compiles; `ambition_characters` 375, `ambition_actors` 775, `ambition_audio`, `ambition_combat`, boss/roster/audio registry unit suites all green) | Playable-character, hostile-roster, boss, and audio fragments are immutable after validation; malformed RON is a structured error; registration revalidates and assembles a candidate before App mutation; duplicate identity ownership fails deterministically. |
 | C1-char | DONE (2026-07-13: full focused suites + `app_local_catalog_composition` + reachability/app suites green after repairing the untested candidate — see commit "repair + verify the inherited App-local authority patch") | Every production playable-character, hostile-archetype, and boss consumer uses explicit App-local authority: wear/re-wear, construction, brain/action/movement/body resolution, boss behavior/encounters/art/special rows, sprites, collision, manifests, room lowering, reset/hot reload, snapshots, projectiles, encounters/summons, interaction, dialogue, barks, and attack volumes. Playable-character consumers fail visibly when composition is absent; content-free hostile/boss resources remain explicit for reusable frontend/demo Apps, and W0 must reject activation when a selected provider's required fragments are absent. Separate Apps prove isolation and provider defaults coexist without a global winner. |

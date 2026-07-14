@@ -11,12 +11,16 @@ mod plugin;
 
 #[cfg(feature = "basic_presentation")]
 mod basic_presentation;
+#[cfg(feature = "basic_presentation")]
+mod deterministic_activity;
 
 pub use model::*;
 pub use plugin::AmbitionLoadPresentationPlugin;
 
 #[cfg(feature = "basic_presentation")]
 pub use basic_presentation::BasicLoadPresentationPlugin;
+#[cfg(feature = "basic_presentation")]
+pub use deterministic_activity::{DeterministicLoadingActivityPlugin, DETERMINISTIC_LOADING_ACTIVITY_ID};
 
 use bevy::prelude::SystemSet;
 
@@ -41,7 +45,9 @@ impl bevy::prelude::PluginGroup for MinimalLoadPresentationPlugins {
         let builder =
             bevy::app::PluginGroupBuilder::start::<Self>().add(AmbitionLoadPresentationPlugin);
         #[cfg(feature = "basic_presentation")]
-        let builder = builder.add(BasicLoadPresentationPlugin);
+        let builder = builder
+            .add(BasicLoadPresentationPlugin)
+            .add(DeterministicLoadingActivityPlugin);
         builder
     }
 }
@@ -65,7 +71,8 @@ impl bevy::prelude::PluginGroup for MinimalLoadShellPlugins {
         #[cfg(feature = "basic_presentation")]
         let builder = builder
             .add(ambition_game_shell::BasicShellPresentationPlugin)
-            .add(BasicLoadPresentationPlugin);
+            .add(BasicLoadPresentationPlugin)
+            .add(DeterministicLoadingActivityPlugin);
         builder
     }
 }

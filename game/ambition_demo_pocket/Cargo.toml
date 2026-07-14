@@ -1,0 +1,15 @@
+[package]
+name = "ambition_demo_pocket"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Tiny fourth-provider acceptance fixture for Ambition's provider authoring surface."
+publish = false
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ambition = { path = "../../crates/ambition", default-features = false }
+bevy = { version = "0.18.1", default-features = false }

@@ -19,49 +19,6 @@ const GAME: &str = "test_game";
 const GAME_ROUTE: &str = "test_gameplay";
 const HOME: &str = "test_home";
 
-#[derive(Debug, PartialEq)]
-struct FakeWorldA(u32);
-#[derive(Debug, PartialEq)]
-struct FakeWorldB(&'static str);
-
-#[test]
-fn session_world_ref_downcasts_to_the_attached_type_only() {
-    let world = SessionWorldRef::new(FakeWorldA(7));
-    assert_eq!(world.downcast_ref::<FakeWorldA>(), Some(&FakeWorldA(7)));
-    assert!(
-        world.downcast_ref::<FakeWorldB>().is_none(),
-        "a world built by another provider (different type) does not downcast"
-    );
-}
-
-#[test]
-fn active_world_is_absent_without_a_session_and_present_after_attach() {
-    let mut session = ActiveGameplaySession::default();
-    // No session (frontend route) => no world authority, by construction.
-    assert!(session.active_world().is_none());
-    assert!(session.active_world_as::<FakeWorldA>().is_none());
-    // Attaching without an active session is a total no-op (never panics).
-    assert!(!session.attach_world_for(
-        ShellActivationId(1),
-        SessionWorldRef::new(FakeWorldA(1)),
-    ));
-    assert!(session.active_world().is_none());
-}
-
-#[test]
-fn a_fresh_session_world_is_a_distinct_reference_from_the_prior() {
-    // Session A attaches its world; session B (a later activation) attaches a
-    // freshly-built one. B's reference must not equal A's — the identity proof
-    // that B does not observe A's world.
-    let a = SessionWorldRef::new(FakeWorldA(1));
-    let b = SessionWorldRef::new(FakeWorldA(1)); // same *value*, different Arc
-    assert_ne!(
-        a, b,
-        "a fresh build is a distinct reference even if equal by value"
-    );
-    assert_eq!(a, a.clone(), "cloning shares the Arc — same reference");
-}
-
 #[derive(Resource, Default)]
 struct RetirementObservation {
     active_scope_seen: Option<Option<SessionScopeId>>,

@@ -14,10 +14,11 @@
 | [`progression_schedule`](src/progression_schedule.rs) | Progression-phase schedule plugin. |
 | [`projectile_schedule`](src/projectile_schedule.rs) | Projectile schedule seams owned by the runtime composition tier. |
 | [`room_schedule`](src/room_schedule.rs) | The engine half of the room-transition phase (E5 step 5): detection emits `RoomTransitionRequested`; the feature-side `reset_ecs_room_features` system tears down per-room ECS state. |
+| [`session_world`](src/session_world.rs) | Canonical live platformer-session world data. |
 | [`sim_core_resources`](src/sim_core_resources.rs) | The engine-generic simulation messages + resource defaults (E5 step 6). |
 | [`snapshot`](src/snapshot/mod.rs) | **N3.1's registration seam, and N0.4's desync canary.** |
 
-_10 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

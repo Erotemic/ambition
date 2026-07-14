@@ -1,39 +1,29 @@
-//! The Mary-O **experience provider**: SMB1 as a launchable, teardown-clean,
-//! host-independent shell experience.
-//!
-//! This is the second customer of the same shell-to-session bridge used by
-//! Sanic. The shared bridge mints and retires the engine-neutral session scope;
-//! this provider contributes only Mary-O registration, rules, and session
-//! construction. Two unrelated games therefore exercise one lifecycle rather
-//! than parallel activation bookkeeping.
+//! The Mary-O experience provider.
 
 use bevy::prelude::*;
 
 use ambition::engine_core as ae;
 use ambition::game_shell::{
-    ExperienceRegistration, GameplaySessionAppExt, GameplaySessionEvent, GameplaySessionSet,
-    ShellCompletionPolicy, ShellRouteSpec,
+    standard_preparation_failed_commands, standard_preparation_succeeded_commands,
+    GameplaySessionEvent, GameplaySessionSet, PreparedSessionRegistry, ShellEvent,
 };
-use ambition::platformer::lifecycle::{SessionRoot, SessionSpawnScope, SpawnSessionScopedExt};
+use ambition::provider::{
+    cleanup_prepared_platformer_sessions, AuthoredCatalogFragments,
+    PlatformerExperienceAuthoring, PlatformerSessionBuilder, PreparedPlatformerSessions,
+};
 use ambition::runtime::demo_fixture::{
-    simulation_world, ActiveRoomMetadata, EditableAbilitySet, EditableMovementTuning,
-    LdtkRuntimeIndex, RoomSet, SimulationSetup, StartingCharacter,
+    ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
+use ambition::runtime::PlatformerSessionWorld;
 
 use crate::{level_1_1, Smb1RulesPlugin, LEVEL_1_1_ROOM_ID};
 
-/// The launcher-visible identity of this experience.
 pub const MARY_O_EXPERIENCE: &str = "mary_o";
-/// The route a host activates to enter Mary-O gameplay.
 pub const MARY_O_GAMEPLAY_ROUTE: &str = "mary_o_gameplay";
-/// The conventional home route for the standalone Mary-O host. A host may choose
-/// a different home; the provider never names it.
 pub const MARY_O_LAUNCHER_ROUTE: &str = "mary_o_launcher";
-/// The catalog character the Mary-O session's player wears.
 pub const MARY_O_CHARACTER_ID: &str = "mary_o";
 
-/// The process-resident "current world" resources for one Mary-O session. See
-/// [`ambition_demo_sanic::SanicSessionWorld`] for the shared rationale.
+#[derive(Clone)]
 pub struct Smb1SessionWorld {
     pub geometry: ae::RoomGeometry,
     pub room_set: RoomSet,
@@ -41,7 +31,6 @@ pub struct Smb1SessionWorld {
     pub starting_character: StartingCharacter,
 }
 
-/// Build the "current world" resources for a Mary-O session from level 1-1.
 pub fn smb1_session_world() -> Smb1SessionWorld {
     let room = level_1_1();
     let geometry = ae::RoomGeometry(room.world.clone());
@@ -55,18 +44,14 @@ pub fn smb1_session_world() -> Smb1SessionWorld {
     }
 }
 
-/// The reusable Mary-O provider: content, experience/route registration, the
-/// gameplay rules, and the session activation/teardown lifecycle. Host-independent.
+struct Smb1ProviderMarker;
+type PreparedSmb1Sessions = PreparedPlatformerSessions<Smb1ProviderMarker>;
+
 pub struct Smb1ExperiencePlugin;
 
 impl Plugin for Smb1ExperiencePlugin {
     fn build(&self, app: &mut App) {
         crate::install_smb1_content(app);
-
-        // Mary-O authors no music or SFX. Declare that intent EXPLICITLY as an
-        // empty audio fragment so the session bridge selects deliberate silence
-        // for this provider rather than being unable to distinguish "silent by
-        // design" from "forgot to register audio" (which it refuses to guess).
         {
             use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
             app.register_audio_catalog_fragment(
@@ -74,39 +59,83 @@ impl Plugin for Smb1ExperiencePlugin {
                     .expect("Mary-O silent audio fragment is valid"),
             );
         }
+        PlatformerExperienceAuthoring::new(
+            MARY_O_EXPERIENCE,
+            MARY_O_GAMEPLAY_ROUTE,
+            "Mary-O",
+            "SMB1 level 1-1: run, jump, grab the flag",
+            "Prepare Mary-O",
+            AuthoredCatalogFragments::new(MARY_O_CHARACTER_ID, MARY_O_EXPERIENCE),
+        )
+        .register(app);
 
-        app.register_gameplay_experience(
-            ExperienceRegistration::new(MARY_O_EXPERIENCE, "Mary-O", MARY_O_GAMEPLAY_ROUTE)
-                .with_description("SMB1 level 1-1: run, jump, grab the flag"),
-            ShellRouteSpec::new(MARY_O_GAMEPLAY_ROUTE, MARY_O_EXPERIENCE)
-                .on_complete(ShellCompletionPolicy::ReturnHome),
-        );
-        app.add_systems(
-            Update,
-            smb1_activate_session.in_set(GameplaySessionSet::Providers),
-        );
-
-        app.add_plugins(Smb1RulesPlugin::hosted());
+        app.init_resource::<PreparedSmb1Sessions>()
+            .add_systems(
+                Update,
+                (
+                    smb1_prepare_session,
+                    cleanup_prepared_platformer_sessions::<Smb1ProviderMarker>,
+                )
+                    .chain()
+                    .in_set(ambition::load::AmbitionLoadSet::Contributors),
+            )
+            .add_systems(
+                Update,
+                smb1_activate_session.in_set(GameplaySessionSet::Providers),
+            )
+            .add_plugins(Smb1RulesPlugin::hosted());
     }
 }
 
-/// Build the real Mary-O session when the shell activates the gameplay route.
-#[allow(clippy::too_many_arguments)]
+fn smb1_prepare_session(
+    mut shell_events: MessageReader<ShellEvent>,
+    ldtk_index: Res<LdtkRuntimeIndex>,
+    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
+    audio_catalogs: Res<ambition::audio::catalog::AudioCatalogRegistry>,
+    mut prepared_sessions: ResMut<PreparedSmb1Sessions>,
+    mut prepared_registry: ResMut<PreparedSessionRegistry>,
+    mut load_commands: MessageWriter<ambition::load::LoadCommand>,
+) {
+    let catalogs = AuthoredCatalogFragments::new(MARY_O_CHARACTER_ID, MARY_O_EXPERIENCE);
+    for event in shell_events.read() {
+        let ShellEvent::PreparationRequested(transaction) = event else {
+            continue;
+        };
+        if transaction.experience_id.as_str() != MARY_O_EXPERIENCE {
+            continue;
+        }
+        if let Some((work_id, failure)) = catalogs.validate(&character_catalog, &audio_catalogs) {
+            for command in standard_preparation_failed_commands(transaction, work_id, failure) {
+                load_commands.write(command);
+            }
+            continue;
+        }
+        let source = smb1_session_world();
+        let live_world = PlatformerSessionWorld::new(
+            MARY_O_EXPERIENCE,
+            source.room_set,
+            source.geometry,
+            source.metadata,
+            source.starting_character,
+            ldtk_index.clone(),
+        );
+        if prepared_sessions
+            .publish(transaction, live_world, &mut prepared_registry)
+            .is_none()
+        {
+            continue;
+        }
+        for command in standard_preparation_succeeded_commands(transaction) {
+            load_commands.write(command);
+        }
+    }
+}
+
 fn smb1_activate_session(
     mut events: MessageReader<GameplaySessionEvent>,
-    mut commands: Commands,
-    ldtk_index: Res<LdtkRuntimeIndex>,
-    editable_abilities: Res<EditableAbilitySet>,
-    editable_tuning: Res<EditableMovementTuning>,
-    asset_server: Res<AssetServer>,
-    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
-    character_roster: Res<ambition::actors::features::CharacterRoster>,
-    boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
-    mut geometry: ResMut<ae::RoomGeometry>,
-    mut room_set: ResMut<RoomSet>,
-    mut metadata: ResMut<ActiveRoomMetadata>,
-    mut starting_character: ResMut<StartingCharacter>,
-    mut active_session: ResMut<ambition::game_shell::ActiveGameplaySession>,
+    mut prepared_sessions: ResMut<PreparedSmb1Sessions>,
+    mut prepared_registry: ResMut<PreparedSessionRegistry>,
+    mut builder: PlatformerSessionBuilder,
 ) {
     for event in events.read() {
         let GameplaySessionEvent::Activated { activation, scope } = event else {
@@ -115,46 +144,13 @@ fn smb1_activate_session(
         if activation.experience_id.as_str() != MARY_O_EXPERIENCE {
             continue;
         }
-        let scope = *scope;
-
-        commands.spawn_in_session(
-            scope,
-            (
-                Name::new(format!("{} session root", MARY_O_EXPERIENCE)),
-                SessionRoot(scope),
-            ),
-        );
-
-        let world = smb1_session_world();
-        simulation_world(
-            &mut commands,
-            SessionSpawnScope::scoped(scope),
-            SimulationSetup {
-                world: &world.geometry,
-                room_set: &world.room_set,
-                ldtk_index: &ldtk_index,
-                editable_abilities: &editable_abilities,
-                editable_tuning: &editable_tuning,
-                starting_character: &world.starting_character,
-                character_catalog: &character_catalog,
-                character_roster: &character_roster,
-                boss_catalog: &boss_catalog,
-                default_character_id: MARY_O_CHARACTER_ID,
-                sandbox_data_asset: None,
-                sandbox_asset_collection: None,
-                asset_server: &asset_server,
-            },
-        );
-
-        // The session owns the reference to this world; the resident resources
-        // below are its published projection.
-        active_session.attach_world_for(activation.activation_id, ambition::game_shell::SessionWorldRef::new(
-            world.room_set.clone(),
-        ));
-
-        *geometry = world.geometry;
-        *room_set = world.room_set;
-        *metadata = world.metadata;
-        *starting_character = world.starting_character;
+        let prepared = activation
+            .prepared_session
+            .as_ref()
+            .expect("Mary-O routes require an exact prepared-session publication");
+        let live_world = prepared_sessions
+            .take(prepared, &mut prepared_registry)
+            .expect("Mary-O prepared data must match the authorized transaction");
+        builder.build(activation, *scope, live_world, MARY_O_CHARACTER_ID);
     }
 }

@@ -1,5 +1,6 @@
 //! Plain Bevy UI reference presentation for load evidence and ready-hold.
 
+use ambition_game_shell::{shell_action_edges, ShellAnalogLatch};
 use bevy::prelude::*;
 
 use crate::{
@@ -28,28 +29,26 @@ impl Plugin for BasicLoadPresentationPlugin {
 
 fn basic_load_keyboard(
     keys: Option<Res<ButtonInput<KeyCode>>>,
+    pads: Query<&bevy::input::gamepad::Gamepad>,
     foreground: Res<LoadForegroundState>,
     model: Res<LoadPresentationModel>,
     mut actions: MessageWriter<LoadPresentationAction>,
+    mut analog: Local<ShellAnalogLatch>,
 ) {
-    let Some(keys) = keys else {
-        return;
-    };
     let Some(active) = foreground.active.as_ref() else {
         return;
     };
-    if active.phase == LoadForegroundPhase::ReadyHold
-        && (keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space))
-    {
+    let shell_actions = shell_action_edges(keys.as_deref(), &pads, &mut analog);
+    if active.phase == LoadForegroundPhase::ReadyHold && shell_actions.loading_continue {
         actions.write(LoadPresentationAction::Continue);
     }
     if active.phase == LoadForegroundPhase::Failed
         && model.failures.iter().any(|failure| failure.retryable)
-        && keys.just_pressed(KeyCode::KeyR)
+        && shell_actions.retry
     {
         actions.write(LoadPresentationAction::Retry);
     }
-    if keys.just_pressed(KeyCode::Escape) {
+    if shell_actions.back {
         actions.write(LoadPresentationAction::CancelToPrevious);
     }
 }

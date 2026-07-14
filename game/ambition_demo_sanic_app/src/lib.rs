@@ -52,6 +52,7 @@ fn compose_sanic_shell(app: &mut App, home_route: &str) {
     use ambition_demo_sanic::{sanic_session_world, SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
 
     app.add_plugins(ambition::game_shell::MinimalShellPlugins);
+    app.add_plugins(ambition::session_world::PlatformerSessionWorldProjectionPlugin);
     app.insert_resource(
         ambition::audio::selection::FrontendAudioProfile::new(
             ambition_demo_sanic::SANIC_EXPERIENCE,

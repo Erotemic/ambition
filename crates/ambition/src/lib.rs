@@ -7,6 +7,8 @@
 //! game content or the `ambition_app` shell.
 
 pub mod prelude;
+pub mod provider;
+pub mod session_world;
 
 pub use ambition_actors as actors;
 pub use ambition_asset_manager as asset_manager;

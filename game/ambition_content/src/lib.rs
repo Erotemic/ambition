@@ -19,6 +19,7 @@
 
 /// The authored audio registries (music/SFX RON), registered as an App-local
 /// provider fragment.
+pub mod provider;
 pub mod audio_registries;
 pub mod banter;
 pub mod bosses;

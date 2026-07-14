@@ -310,6 +310,20 @@ impl LoadCoordinator {
         self.plans.get(load_id).map(|plan| plan.spec.label.as_str())
     }
 
+    /// Remove a completed, cancelled, superseded, or retired route plan from
+    /// resident authority. Historical telemetry belongs elsewhere.
+    pub fn retire(&mut self, load_id: &LoadId) -> bool {
+        self.plans.remove(load_id).is_some()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.plans.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.plans.len()
+    }
+
     fn active_plan_mut(&mut self, load_id: &LoadId) -> Option<&mut PlanRecord> {
         self.plans
             .get_mut(load_id)

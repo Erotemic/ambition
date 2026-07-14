@@ -7,7 +7,10 @@ use ambition_load::{
 };
 use bevy::prelude::{Component, Message, Resource};
 
-use crate::{ShellActivationId, ShellExperienceId, ShellHoldId, ShellRouteId};
+use crate::{
+    PreparedSessionIdentity, PreparedSessionRegistry, ProviderLoadTransaction,
+    ProviderPreparationPlan, ShellActivationId, ShellExperienceId, ShellHoldId, ShellRouteId,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LoadBarrierRef {
@@ -23,11 +26,13 @@ pub enum ShellCompletionPolicy {
     ExitProcess,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ShellRouteSpec {
     pub id: ShellRouteId,
     pub experience: ShellExperienceId,
     pub required_barrier: Option<LoadBarrierRef>,
+    /// Fresh provider-authored work minted for every route request.
+    pub preparation: Option<ProviderPreparationPlan>,
     pub on_complete: ShellCompletionPolicy,
     pub parameters: BTreeMap<String, String>,
 }
@@ -38,6 +43,7 @@ impl ShellRouteSpec {
             id: id.into(),
             experience: experience.into(),
             required_barrier: None,
+            preparation: None,
             on_complete: ShellCompletionPolicy::Stay,
             parameters: BTreeMap::new(),
         }
@@ -48,6 +54,11 @@ impl ShellRouteSpec {
             load_id,
             barrier_id,
         });
+        self
+    }
+
+    pub fn preparing_with(mut self, plan: ProviderPreparationPlan) -> Self {
+        self.preparation = Some(plan);
         self
     }
 
@@ -105,6 +116,8 @@ pub struct ActiveShellExperience {
     pub route_id: ShellRouteId,
     pub experience_id: ShellExperienceId,
     pub parameters: BTreeMap<String, String>,
+    pub load_authorization: Option<LoadBarrierRef>,
+    pub prepared_session: Option<PreparedSessionIdentity>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -112,6 +125,7 @@ pub struct PendingShellRoute {
     pub route_id: ShellRouteId,
     pub push_history: bool,
     pub barrier: LoadBarrierRef,
+    pub requires_prepared_session: bool,
     pub terminal_reported: bool,
 }
 
@@ -123,6 +137,7 @@ pub struct ShellRouter {
     pub exit_requested: bool,
     initialized: bool,
     next_activation: u64,
+    next_load_transaction: u64,
 }
 
 #[derive(Resource, Default)]
@@ -192,10 +207,12 @@ pub enum ShellCommandRejection {
     StaleActivation(ShellActivationId),
     LoadFailed(BarrierReadiness),
     LoadCommitRejected(LoadCommitRejection),
+    PreparedSessionUnavailable(LoadBarrierRef),
 }
 
 #[derive(Message, Clone, Debug, Eq, PartialEq)]
 pub enum ShellEvent {
+    PreparationRequested(ProviderLoadTransaction),
     WaitingForLoad {
         route_id: ShellRouteId,
         barrier: LoadBarrierRef,
@@ -221,6 +238,7 @@ impl ShellRouter {
         catalog: &ShellRouteCatalog,
         host: &ShellHostConfiguration,
         loads: &mut LoadCoordinator,
+        prepared: &mut PreparedSessionRegistry,
     ) -> Vec<ShellEvent> {
         match command {
             ShellCommand::Initialize => {
@@ -233,22 +251,22 @@ impl ShellRouter {
                         )];
                     }
                     self.initialized = true;
-                    self.start_route(spec.initial_route.clone(), false, catalog, loads)
+                    self.start_route(spec.initial_route.clone(), false, catalog, loads, prepared)
                 } else {
                     vec![ShellEvent::CommandRejected(
                         ShellCommandRejection::HostNotConfigured,
                     )]
                 }
             }
-            ShellCommand::GoTo(route) => self.start_route(route, true, catalog, loads),
-            ShellCommand::ReplaceWith(route) => self.start_route(route, false, catalog, loads),
+            ShellCommand::GoTo(route) => self.start_route(route, true, catalog, loads, prepared),
+            ShellCommand::ReplaceWith(route) => self.start_route(route, false, catalog, loads, prepared),
             ShellCommand::Return => {
                 let route = self
                     .history
                     .pop()
                     .or_else(|| host.spec.as_ref().map(|spec| spec.home_route.clone()));
                 match route {
-                    Some(route) => self.start_route(route, false, catalog, loads),
+                    Some(route) => self.start_route(route, false, catalog, loads, prepared),
                     None => vec![ShellEvent::CommandRejected(
                         ShellCommandRejection::HostNotConfigured,
                     )],
@@ -257,7 +275,7 @@ impl ShellRouter {
             ShellCommand::QuitToHome => match host.spec.as_ref() {
                 Some(spec) => {
                     self.history.clear();
-                    self.start_route(spec.home_route.clone(), false, catalog, loads)
+                    self.start_route(spec.home_route.clone(), false, catalog, loads, prepared)
                 }
                 None => vec![ShellEvent::CommandRejected(
                     ShellCommandRejection::HostNotConfigured,
@@ -285,13 +303,13 @@ impl ShellRouter {
                 match policy {
                     ShellCompletionPolicy::Stay => Vec::new(),
                     ShellCompletionPolicy::GoTo(route) => {
-                        self.start_route(route, false, catalog, loads)
+                        self.start_route(route, false, catalog, loads, prepared)
                     }
                     ShellCompletionPolicy::ReturnHome => {
-                        self.apply(ShellCommand::QuitToHome, catalog, host, loads)
+                        self.apply(ShellCommand::QuitToHome, catalog, host, loads, prepared)
                     }
                     ShellCompletionPolicy::ExitProcess => {
-                        self.apply(ShellCommand::ExitProcess, catalog, host, loads)
+                        self.apply(ShellCommand::ExitProcess, catalog, host, loads, prepared)
                     }
                 }
             }
@@ -325,6 +343,7 @@ impl ShellRouter {
         &mut self,
         catalog: &ShellRouteCatalog,
         loads: &mut LoadCoordinator,
+        prepared: &mut PreparedSessionRegistry,
         holds: &ShellRouteHolds,
     ) -> Vec<ShellEvent> {
         let Some(pending) = self.pending.clone() else {
@@ -338,10 +357,33 @@ impl ShellRouter {
             .map(|snapshot| snapshot.readiness);
         match readiness {
             Some(BarrierReadiness::Ready) => {
+                if pending.requires_prepared_session
+                    && prepared.prepared(&pending.barrier).is_none()
+                {
+                    return Vec::new();
+                }
                 match loads.request_commit(&pending.barrier.load_id, &pending.barrier.barrier_id) {
                     Ok(()) => {
+                        let prepared_session = if pending.requires_prepared_session {
+                            let Some(identity) = prepared.consume(&pending.barrier) else {
+                                return vec![ShellEvent::CommandRejected(
+                                    ShellCommandRejection::PreparedSessionUnavailable(
+                                        pending.barrier,
+                                    ),
+                                )];
+                            };
+                            Some(identity)
+                        } else {
+                            None
+                        };
                         self.pending = None;
-                        self.activate(pending.route_id, pending.push_history, catalog)
+                        self.activate(
+                            pending.route_id,
+                            pending.push_history,
+                            catalog,
+                            Some(pending.barrier),
+                            prepared_session,
+                        )
                     }
                     Err(reason) => vec![ShellEvent::CommandRejected(
                         ShellCommandRejection::LoadCommitRejected(reason),
@@ -374,12 +416,65 @@ impl ShellRouter {
         push_history: bool,
         catalog: &ShellRouteCatalog,
         loads: &mut LoadCoordinator,
+        prepared: &mut PreparedSessionRegistry,
     ) -> Vec<ShellEvent> {
         let Some(route) = catalog.get(&route_id) else {
             return vec![ShellEvent::CommandRejected(
                 ShellCommandRejection::UnknownRoute(route_id),
             )];
         };
+
+        let previous_pending = self.pending.take();
+        let supersedes = previous_pending
+            .as_ref()
+            .map(|pending| pending.barrier.load_id.clone());
+        if let Some(previous) = previous_pending.as_ref() {
+            prepared.cancel(&previous.barrier);
+        }
+
+        if let Some(plan) = route.preparation.as_ref() {
+            self.next_load_transaction = self.next_load_transaction.saturating_add(1);
+            let load_id = LoadId::new(format!(
+                "shell.{}.{}",
+                route.id.as_str(),
+                self.next_load_transaction,
+            ));
+            for command in plan.begin_commands(load_id.clone(), supersedes.clone()) {
+                loads.apply(command);
+            }
+            if let Some(old_load) = supersedes.as_ref() {
+                loads.retire(old_load);
+            }
+            let barrier = LoadBarrierRef {
+                load_id,
+                barrier_id: plan.barrier.id.clone(),
+            };
+            let transaction = ProviderLoadTransaction {
+                route_id: route.id.clone(),
+                experience_id: route.experience.clone(),
+                barrier: barrier.clone(),
+            };
+            prepared.request(transaction.clone());
+            self.pending = Some(PendingShellRoute {
+                route_id: route_id.clone(),
+                push_history,
+                barrier: barrier.clone(),
+                requires_prepared_session: true,
+                terminal_reported: false,
+            });
+            return vec![
+                ShellEvent::PreparationRequested(transaction),
+                ShellEvent::WaitingForLoad { route_id, barrier },
+            ];
+        }
+
+        if let Some(previous) = previous_pending {
+            loads.apply(ambition_load::LoadCommand::Cancel {
+                load_id: previous.barrier.load_id.clone(),
+            });
+            loads.retire(&previous.barrier.load_id);
+        }
+
         if let Some(barrier) = route.required_barrier.clone() {
             let readiness = loads
                 .snapshot(&barrier.load_id, &barrier.barrier_id)
@@ -392,6 +487,13 @@ impl ShellRouter {
                             ShellCommandRejection::LoadCommitRejected(reason),
                         )];
                     }
+                    return self.activate(
+                        route_id,
+                        push_history,
+                        catalog,
+                        Some(barrier),
+                        None,
+                    );
                 }
                 Some(
                     state @ (BarrierReadiness::Failed
@@ -402,6 +504,7 @@ impl ShellRouter {
                         route_id: route_id.clone(),
                         push_history,
                         barrier: barrier.clone(),
+                        requires_prepared_session: false,
                         terminal_reported: true,
                     });
                     return vec![
@@ -414,13 +517,14 @@ impl ShellRouter {
                         route_id: route_id.clone(),
                         push_history,
                         barrier: barrier.clone(),
+                        requires_prepared_session: false,
                         terminal_reported: false,
                     });
                     return vec![ShellEvent::WaitingForLoad { route_id, barrier }];
                 }
             }
         }
-        self.activate(route_id, push_history, catalog)
+        self.activate(route_id, push_history, catalog, None, None)
     }
 
     fn activate(
@@ -428,6 +532,8 @@ impl ShellRouter {
         route_id: ShellRouteId,
         push_history: bool,
         catalog: &ShellRouteCatalog,
+        load_authorization: Option<LoadBarrierRef>,
+        prepared_session: Option<PreparedSessionIdentity>,
     ) -> Vec<ShellEvent> {
         let route = catalog
             .get(&route_id)
@@ -445,10 +551,13 @@ impl ShellRouter {
             route_id,
             experience_id: route.experience.clone(),
             parameters: route.parameters.clone(),
+            load_authorization,
+            prepared_session,
         };
         self.active = Some(active.clone());
         self.pending = None;
         events.push(ShellEvent::RouteActivated(active));
         events
     }
+
 }

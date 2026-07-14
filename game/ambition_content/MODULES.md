@@ -20,11 +20,12 @@
 | [`music`](src/music.rs) | Ambition's authored music-cue catalog + encounter bindings. |
 | [`plugin`](src/plugin.rs) | [`AmbitionContentPlugin`] — named Ambition game-content registration. |
 | [`portal`](src/portal/mod.rs) | Ambition-specific portal adapters. |
+| [`provider`](src/provider.rs) | Reusable Ambition gameplay provider. |
 | [`quest`](src/quest.rs) | Ambition's authored quests + their completion payouts. |
 | [`quests`](src/quests/mod.rs) | Named Ambition quest content registration. |
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 
-_17 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_18 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

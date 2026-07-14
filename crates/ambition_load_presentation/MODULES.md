@@ -7,10 +7,11 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`basic_presentation`](src/basic_presentation.rs) | Plain Bevy UI reference presentation for load evidence and ready-hold. |
+| [`deterministic_activity`](src/deterministic_activity.rs) | Optional deterministic loading activity acceptance fixture. |
 | [`model`](src/model.rs) | Load-foreground policy, semantic view model, and arbitrary activity protocol. |
 | [`plugin`](src/plugin.rs) | Shell-integrated hidden-grace, ready-hold, activity, and cleanup lifecycle. |
 
-_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

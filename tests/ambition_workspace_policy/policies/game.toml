@@ -63,7 +63,7 @@ watch_paths = ["Cargo.toml"]
 rationale = "umbrella + demo homes are registered members"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-members = ["ambition", "ambition_demo_sanic", "ambition_demo_smb1"]
+members = ["ambition", "ambition_demo_pocket", "ambition_demo_sanic", "ambition_demo_smb1"]
 
 [[policy]]
 id = "game.umbrella-not-app-shell"
@@ -102,6 +102,18 @@ allow = ["ambition"]
 manifest = "game/ambition_demo_sanic/Cargo.toml"
 
 [[policy]]
+id = "game.demo-pocket-umbrella-only"
+scope = "game"
+kind = "dependency-allowlist"
+owners = ["ambition"]
+watch_paths = ["game/ambition_demo_pocket/Cargo.toml"]
+rationale = "Pocket proves a fourth provider depends only on the umbrella"
+source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md"
+severity = "error"
+allow = ["ambition"]
+manifest = "game/ambition_demo_pocket/Cargo.toml"
+
+[[policy]]
 id = "game.demo-smb1-umbrella-only"
 scope = "game"
 kind = "dependency-allowlist"
@@ -118,11 +130,11 @@ id = "game.demos-reach-engine-through-facade"
 scope = "game"
 kind = "forbidden-source-reference"
 owners = ["ambition"]
-watch_paths = ["game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
+watch_paths = ["game/ambition_demo_pocket/src", "game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
 rationale = "demos reach the engine through the ambition facade"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
+roots = ["game/ambition_demo_pocket/src", "game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
 forbid = ["ambition_actors::", "ambition_runtime::", "ambition_render::", "ambition_app::"]
 
 
@@ -141,6 +153,7 @@ allow = [
     "ambition_content",
     "ambition_menu_kaleidoscope",
     "ambition_demo_sanic",
+    "ambition_demo_pocket",
     "ambition_demo_smb1",
 ]
 manifest = "game/ambition_app/Cargo.toml"
@@ -529,13 +542,13 @@ id = "game.providers-are-host-ignorant"
 scope = "game"
 kind = "forbidden-source-reference"
 owners = ["ambition_demo_sanic", "ambition_demo_smb1"]
-watch_paths = ["game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
+watch_paths = ["game/ambition_demo_pocket/src", "game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
 rationale = "A provider expresses one game; the HOST decides home/initial routes, launcher, and process exit. A provider that names the Ambition launcher route, the shell-hosted marker, a host crate, or issues QuitToHome/ExitProcess routing itself has grown a host dependency — the exact coupling the host-relative return contract exists to prevent. (Providers' own *_LAUNCHER_ROUTE consts are conventions their standalone hosts choose to use; naming ANOTHER host's home is the defect.)"
 source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md#host-and-frontend-model"
 severity = "error"
 production_only = true
 skip_tests = true
-roots = ["game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
+roots = ["game/ambition_demo_pocket/src", "game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
 forbid = [
     "ambition_launcher",
     "AmbitionShellHosted",

@@ -7,9 +7,11 @@
 //! experiences, not a universal gameplay state machine.
 
 mod experience;
+mod input;
 mod id;
 mod launcher;
 mod plugin;
+mod preparation;
 mod router;
 mod sequence;
 mod session;
@@ -21,8 +23,10 @@ pub use experience::{
     ExperienceAvailability, ExperienceRegistration, ShellExperienceAppExt, ShellExperienceRegistry,
 };
 pub use id::*;
+pub use input::*;
 pub use launcher::*;
 pub use plugin::{AmbitionGameShellPlugin, ShellLauncherPlugin, ShellSequencePlugin};
+pub use preparation::*;
 pub use router::*;
 pub use sequence::*;
 pub use session::*;

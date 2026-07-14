@@ -4,7 +4,7 @@
 //! `compose_ambition_shell_host` turns the visible Ambition app into a
 //! shell-routed host: `./run_game.sh` boots into the Ambition launcher
 //! (title screen), whose entries derive from registered experience providers
-//! (Ambition, Sanic, Mary-O — plus Exit). Selecting an entry activates that
+//! (Ambition, Sanic, Mary-O, Pocket — plus Exit). Selecting an entry activates that
 //! provider's gameplay session through the shared shell/session/load
 //! lifecycle; `QuitToHome` retires the exact session and resumes the
 //! launcher; Exit leaves the process.
@@ -25,21 +25,13 @@
 use bevy::prelude::*;
 
 use ambition::game_shell::{
-    ExperienceRegistration, GameplaySessionAppExt, GameplaySessionEvent, GameplaySessionSet,
-    ShellCommand, ShellCompletionPolicy, ShellEvent, ShellHostConfiguration, ShellHostSpec,
-    ShellRouteCatalog, ShellRouteSpec,
+    GameplaySessionEvent, ShellCommand, ShellCompletionPolicy, ShellEvent,
+    ShellHostConfiguration, ShellHostSpec, ShellRouteCatalog, ShellRouteSpec,
 };
-use ambition::platformer::lifecycle::SessionSpawnScope;
 
 use ambition::actors::ldtk_world;
-use ambition::actors::rooms;
-use ambition::actors::session::setup;
-use ambition::engine_core::RoomGeometry;
 use ambition::platformer::lifecycle::SessionScopeSet;
 
-/// The Ambition experience/provider identity and routes.
-pub const AMBITION_EXPERIENCE: &str = "ambition";
-pub const AMBITION_GAMEPLAY_ROUTE: &str = "ambition_gameplay";
 /// The host's home/title route. Providers never name it — `QuitToHome`
 /// resolves here because the HOST declared it, not because any game knows it.
 pub const AMBITION_LAUNCHER_ROUTE: &str = "ambition_launcher";
@@ -56,112 +48,13 @@ pub fn direct_entry(hosted: Option<Res<AmbitionShellHosted>>) -> bool {
     hosted.is_none()
 }
 
-/// The boot-prepared immutable Ambition world data every activation clones
-/// from: the validated LDtk room set, its runtime index, and the starting
-/// character resolved at boot (CLI/env overrides included). Captured once by
-/// `init_sandbox_resources`; each activation republishes FRESH copies so a
-/// relaunch cannot observe a previous session's room state, and a previously
-/// activated provider (which republished the shared world-pointer resources
-/// for ITS world) cannot leak into an Ambition session.
-#[derive(Resource, Clone)]
-pub struct AmbitionPreparedWorld {
-    pub room_set: rooms::RoomSet,
-    pub ldtk_index: ldtk_world::LdtkRuntimeIndex,
-    pub starting_character: ambition::actors::avatar::StartingCharacter,
-}
-
-/// The Ambition game as a reusable experience provider: registration + the
-/// session-construction system. Headless-safe — presentation and LDtk visual
-/// roots are wired by the visible plugin stacks, reacting to the same
-/// session events.
-pub struct AmbitionExperiencePlugin;
-
-impl Plugin for AmbitionExperiencePlugin {
-    fn build(&self, app: &mut App) {
-        app.register_gameplay_experience(
-            ExperienceRegistration::new(AMBITION_EXPERIENCE, "Ambition", AMBITION_GAMEPLAY_ROUTE)
-                .with_description("The main Ambition campaign"),
-            ShellRouteSpec::new(AMBITION_GAMEPLAY_ROUTE, AMBITION_EXPERIENCE)
-                .on_complete(ShellCompletionPolicy::ReturnHome),
-        );
-        app.add_systems(
-            Update,
-            ambition_activate_session.in_set(GameplaySessionSet::Providers),
-        );
-    }
-}
-
-/// Construct a fresh Ambition gameplay session for THIS activation: republish
-/// fresh world authority from the boot-prepared data, then spawn the
-/// simulation world with the activation's captured session scope so the
-/// generic scope sweep retires all of it on `QuitToHome`.
-#[allow(clippy::too_many_arguments)]
-fn ambition_activate_session(
-    mut sessions: MessageReader<GameplaySessionEvent>,
-    mut commands: Commands,
-    prepared: Res<AmbitionPreparedWorld>,
-    sandbox_data_asset: Option<Res<ambition::actors::session::data::SandboxDataAsset>>,
-    sandbox_asset_collection: Option<
-        Res<ambition::actors::assets::loading::SandboxAssetCollection>,
-    >,
-    asset_server: Res<AssetServer>,
-    editable_tuning: Res<ambition::dev_tools::dev_tools::EditableMovementTuning>,
-    editable_abilities: Res<ambition::dev_tools::dev_tools::EditableAbilitySet>,
-    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
-    character_roster: Res<ambition::actors::features::CharacterRoster>,
-    boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
-    mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
-    mut active_session: ResMut<ambition::game_shell::ActiveGameplaySession>,
-) {
-    for event in sessions.read() {
-        let GameplaySessionEvent::Activated { activation, scope } = event else {
-            continue;
-        };
-        if activation.experience_id.as_str() != AMBITION_EXPERIENCE {
-            continue;
-        }
-
-        // Fresh world authority: clones of the boot-prepared immutable data,
-        // never whatever a previous session (of any provider) left resident.
-        let room_set = prepared.room_set.clone();
-        let world = RoomGeometry(room_set.active_world().clone());
-        let starting_character = prepared.starting_character.clone();
-
-        let _player = setup::simulation_world(
-            &mut commands,
-            SessionSpawnScope::scoped(*scope),
-            setup::SimulationSetup {
-                world: &world,
-                room_set: &room_set,
-                ldtk_index: &prepared.ldtk_index,
-                editable_abilities: &editable_abilities,
-                editable_tuning: &editable_tuning,
-                starting_character: &starting_character,
-                character_catalog: &character_catalog,
-                character_roster: &character_roster,
-                boss_catalog: &boss_catalog,
-                default_character_id: ambition_content::character_catalog::PLAYABLE_ROSTER[0],
-                sandbox_data_asset: sandbox_data_asset.as_deref(),
-                sandbox_asset_collection: sandbox_asset_collection.as_deref(),
-                asset_server: &asset_server,
-            },
-        );
-        platform_set.0 =
-            ambition::actors::world::platforms::moving_platforms_for_room(room_set.active_spec());
-
-        // The session OWNS the reference to this activation's world; the
-        // resident resources below are its published projection. At a frontend
-        // route there is no session, so this authority is absent by
-        // construction — not merely gated.
-        active_session.attach_world_for(activation.activation_id, ambition::game_shell::SessionWorldRef::new(room_set.clone()));
-
-        commands.insert_resource(prepared.ldtk_index.clone());
-        commands.insert_resource(world);
-        commands.insert_resource(rooms::ActiveRoomMetadata::default());
-        commands.insert_resource(room_set);
-        commands.insert_resource(starting_character);
-    }
-}
+/// Ambition's gameplay implementation is a reusable provider crate. The host
+/// re-exports its public identities for compatibility while owning only home,
+/// startup, platform, and process policy.
+pub use ambition_content::provider::{
+    AmbitionExperienceConfig, AmbitionExperiencePlugin, AmbitionPreparedWorld,
+    AMBITION_EXPERIENCE, AMBITION_GAMEPLAY_ROUTE,
+};
 
 /// Compose the shell-routed multi-game host on top of the already-composed
 /// visible Ambition app: shell/load/session plugins, the three linked
@@ -188,14 +81,16 @@ pub fn compose_ambition_shell_host(app: &mut App) {
         ambition::load::AmbitionLoadPlugin,
         ambition::load_presentation::MinimalLoadPresentationPlugins,
     ));
+    app.add_plugins(ambition::session_world::PlatformerSessionWorldProjectionPlugin);
 
     // The linked providers. Each registers its experience, routes, catalog
     // fragments, session construction, and rules; the launcher below derives
     // its entries from these registrations — no per-game match arms.
     app.add_plugins((
-        AmbitionExperiencePlugin,
+        AmbitionExperiencePlugin::new(AmbitionExperienceConfig::default()),
         ambition_demo_sanic::SanicExperiencePlugin,
         ambition_demo_smb1::Smb1ExperiencePlugin,
+        ambition_demo_pocket::PocketExperiencePlugin,
     ));
 
     // Host routing: boot into the launcher; every provider's ReturnHome
@@ -288,7 +183,8 @@ pub fn install_ambition_shell_visuals(app: &mut App) {
 fn ambition_activate_session_visuals(
     mut sessions: MessageReader<GameplaySessionEvent>,
     mut commands: Commands,
-    prepared: Res<AmbitionPreparedWorld>,
+    active_session: Res<ambition::game_shell::ActiveGameplaySession>,
+    session_worlds: Query<&ambition::runtime::PlatformerSessionWorld>,
     game_assets: Option<Res<ambition::sprite_sheet::game_assets::GameAssets>>,
     ui_fonts: Option<Res<ambition::render::ui_fonts::UiFonts>>,
     asset_server: Res<AssetServer>,
@@ -313,8 +209,13 @@ fn ambition_activate_session_visuals(
             // session is sim-only by construction.
             continue;
         }
+        let Some(world_entity) = active_session.active_world_entity() else {
+            continue;
+        };
+        let Ok(session_world) = session_worlds.get(world_entity) else {
+            continue;
+        };
         let scope = ambition::platformer::lifecycle::SessionSpawnScope::scoped(*scope);
-        let world = RoomGeometry(prepared.room_set.active_world().clone());
         let Ok(player) = players.single() else {
             continue;
         };
@@ -324,8 +225,8 @@ fn ambition_activate_session_visuals(
             &mut commands,
             scope,
             super::scene_setup::SessionDressingSetup {
-                world: &world,
-                room_set: &prepared.room_set,
+                world: &session_world.geometry,
+                room_set: &session_world.room_set,
                 ui_fonts: ui_fonts.as_deref(),
             },
             player,
@@ -335,8 +236,8 @@ fn ambition_activate_session_visuals(
                 &mut commands,
                 scope,
                 &asset_server,
-                &prepared.ldtk_index,
-                &prepared.room_set,
+                &session_world.runtime_rooms,
+                &session_world.room_set,
                 world_assets.as_deref(),
                 sandbox_asset_collection.as_deref(),
             );
@@ -361,23 +262,17 @@ fn exit_on_shell_request(mut events: MessageReader<ShellEvent>, mut exit: Messag
 /// provider names a route. (The in-game pause menu can grow a "Quit to Home"
 /// entry on top of the same command.)
 fn quit_to_home_on_key(
-    // Optional because it models DEVICE presence, not authority: a headless
-    // host has no keyboard and simply has no key binding.
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<&bevy::input::gamepad::Gamepad>,
     session: Res<ambition::game_shell::ActiveGameplaySession>,
     mut shell: MessageWriter<ShellCommand>,
+    mut analog: Local<ambition::game_shell::ShellAnalogLatch>,
 ) {
     if session.0.is_none() {
         return;
     }
-    let keyboard_quit = keys
-        .as_deref()
-        .is_some_and(|keys| keys.just_pressed(KeyCode::F10));
-    let controller_quit = pads
-        .iter()
-        .any(|pad| pad.just_pressed(bevy::input::gamepad::GamepadButton::Start));
-    if keyboard_quit || controller_quit {
+    let actions = ambition::game_shell::shell_action_edges(keys.as_deref(), &pads, &mut analog);
+    if actions.quit_to_home {
         shell.write(ShellCommand::QuitToHome);
     }
 }

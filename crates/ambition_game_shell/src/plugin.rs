@@ -10,7 +10,8 @@ use ambition_load::{AmbitionLoadSet, LoadCoordinator};
 use crate::{
     ActiveShellSequence, AmbitionGameShellSet, ShellCommand, ShellEvent, ShellExperienceRegistry,
     ShellHostConfiguration, ShellInputFocus, ShellLaunchCatalog, ShellLauncherCommand,
-    ShellLauncherPresentation, ShellLauncherState, ShellRouteCatalog, ShellRouteHolds, ShellRouter,
+    PreparedSessionRegistry, ShellLauncherPresentation, ShellLauncherState, ShellRouteCatalog,
+    ShellRouteHolds, ShellRouter,
     ShellScopedEntity, ShellSegmentScopedEntity, ShellSequenceCatalog, ShellSequenceCommand,
     ShellSequenceRuntime, ShellSequenceSet, BASIC_LAUNCHER_EXPERIENCE,
 };
@@ -30,6 +31,7 @@ impl Plugin for AmbitionGameShellPlugin {
             .init_resource::<ShellRouteCatalog>()
             .init_resource::<ShellHostConfiguration>()
             .init_resource::<ShellRouter>()
+            .init_resource::<PreparedSessionRegistry>()
             .init_resource::<ShellInputFocus>()
             .init_resource::<ShellRouteHolds>()
             .add_message::<ShellCommand>()
@@ -133,12 +135,19 @@ fn process_shell_commands(
     catalog: Res<ShellRouteCatalog>,
     host: Res<ShellHostConfiguration>,
     mut loads: ResMut<LoadCoordinator>,
+    mut prepared: ResMut<PreparedSessionRegistry>,
     mut router: ResMut<ShellRouter>,
     mut focus: ResMut<ShellInputFocus>,
     mut events: MessageWriter<ShellEvent>,
 ) {
     for command in commands.read() {
-        for event in router.apply(command.clone(), &catalog, &host, &mut *loads) {
+        for event in router.apply(
+            command.clone(),
+            &catalog,
+            &host,
+            &mut loads,
+            &mut prepared,
+        ) {
             if let ShellEvent::RouteActivated(active) = &event {
                 focus.activation_id = Some(active.activation_id);
             }
@@ -153,12 +162,13 @@ fn process_shell_commands(
 fn advance_pending_route(
     catalog: Res<ShellRouteCatalog>,
     mut loads: ResMut<LoadCoordinator>,
+    mut prepared: ResMut<PreparedSessionRegistry>,
     mut router: ResMut<ShellRouter>,
     holds: Res<ShellRouteHolds>,
     mut focus: ResMut<ShellInputFocus>,
     mut events: MessageWriter<ShellEvent>,
 ) {
-    for event in router.advance_pending(&catalog, &mut *loads, &holds) {
+    for event in router.advance_pending(&catalog, &mut loads, &mut prepared, &holds) {
         if let ShellEvent::RouteActivated(active) = &event {
             focus.activation_id = Some(active.activation_id);
         }

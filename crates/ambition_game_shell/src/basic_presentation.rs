@@ -10,12 +10,13 @@ use ambition_menu::render::bevy_ui::{
 };
 use ambition_menu::{MenuColor, MenuControlKind, MenuPageModel, MenuRect, MenuTextAlign};
 use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
-use bevy::input::gamepad::{Gamepad, GamepadButton};
+use bevy::input::gamepad::Gamepad;
 use bevy::prelude::*;
 
 use crate::{
-    ActiveShellSequence, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherPresentation,
-    ShellLauncherState, ShellRouteId, ShellSegmentPresentation, ShellSequenceCommand,
+    shell_action_edges, ActiveShellSequence, ShellAnalogLatch, ShellLaunchCatalog,
+    ShellLauncherCommand, ShellLauncherPresentation, ShellLauncherState, ShellRouteId,
+    ShellSegmentPresentation, ShellSequenceCommand,
 };
 
 #[derive(Component)]
@@ -56,8 +57,10 @@ fn basic_shell_keyboard(
     mut launcher_commands: MessageWriter<ShellLauncherCommand>,
     mut sequence_commands: MessageWriter<ShellSequenceCommand>,
     mut sfx: SfxWriter,
+    mut analog: Local<ShellAnalogLatch>,
 ) {
-    let (up, down, confirm) = menu_nav_edges(keys.as_deref(), &pads);
+    let actions = shell_action_edges(keys.as_deref(), &pads, &mut analog);
+    let (up, down, confirm) = (actions.previous, actions.next, actions.confirm);
     if launcher.active {
         if up {
             launcher_commands.write(ShellLauncherCommand::Previous);
@@ -103,26 +106,6 @@ fn basic_shell_keyboard(
 /// The neutral `(up, down, confirm)` navigation edges for this frame, unified
 /// across keyboard and every connected controller. Kept as a free function so
 /// the mapping is unit-testable without a live window.
-fn menu_nav_edges(
-    keys: Option<&ButtonInput<KeyCode>>,
-    pads: &Query<&Gamepad>,
-) -> (bool, bool, bool) {
-    let key = |code| keys.is_some_and(|k| k.just_pressed(code));
-    let pad = |button| pads.iter().any(|p| p.just_pressed(button));
-    let up = key(KeyCode::ArrowUp) || pad(GamepadButton::DPadUp);
-    let down = key(KeyCode::ArrowDown) || pad(GamepadButton::DPadDown);
-    let confirm = key(KeyCode::Enter) || key(KeyCode::Space) || pad(GamepadButton::South);
-    (up, down, confirm)
-}
-
-#[derive(Default)]
-struct BasicSequenceFrame {
-    key: String,
-    text: String,
-    image_path: Option<String>,
-}
-
-#[allow(clippy::too_many_arguments)] // Bevy system: each param is one authority
 fn render_basic_shell(
     mut commands: Commands,
     launcher: Res<ShellLauncherState>,
@@ -514,7 +497,7 @@ mod raw_input_tests {
 
     #[test]
     fn controller_dpad_and_south_drive_the_same_launcher_commands_as_the_keyboard() {
-        use bevy::input::gamepad::{Gamepad, GamepadButton};
+        use bevy::input::gamepad::Gamepad;
         let mut app = app_with_launcher(true);
         let pad = app.world_mut().spawn(Gamepad::default()).id();
 
@@ -536,7 +519,7 @@ mod raw_input_tests {
 
     #[test]
     fn controller_is_inert_when_launcher_is_not_active() {
-        use bevy::input::gamepad::{Gamepad, GamepadButton};
+        use bevy::input::gamepad::Gamepad;
         let mut app = app_with_launcher(false);
         let pad = app.world_mut().spawn(Gamepad::default()).id();
         pad_tap(&mut app, pad, GamepadButton::DPadDown);

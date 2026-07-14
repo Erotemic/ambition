@@ -219,9 +219,10 @@ ambition_actors::features::enemies::CharacterRosterRegistry
 ambition_combat::authored_volumes::AuthoredAttackVolumeResolver
 ambition_world::placements::PlacementLoweringRegistry<ambition_actors::world::placements::ActorPlacementContext>
 
-# Reviewed diff (2026-07-13, shell-host campaign): session/shell composition
-# state, not rewindable sim state. AmbitionPreparedWorld is IMMUTABLE
-# boot-prepared world data each activation clones from; ActiveAudioSelection
-# is the session-derived audio playback authority (presentation-facing).
-ambition_app::app::shell_host::AmbitionPreparedWorld
+# Reviewed diff (2026-07-13, shell-host campaign; provider extraction updated
+# 2026-07-14): session/provider composition state, not rewindable sim state.
+# AmbitionPreparedWorld is IMMUTABLE boot-prepared world data each activation
+# clones from; ActiveAudioSelection is the session-derived audio playback
+# authority (presentation-facing).
+ambition_content::provider::AmbitionPreparedWorld
 ambition_audio::selection::ActiveAudioSelection

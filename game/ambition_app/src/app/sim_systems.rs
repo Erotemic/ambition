@@ -134,7 +134,11 @@ pub fn apply_room_replay_request_system(
     mut clock_resets: MessageWriter<ClockResetRequest>,
     boss_registry: Res<ambition::actors::boss_encounter::BossEncounterRegistry>,
     mut save: Option<ResMut<ambition::persistence::save::SandboxSave>>,
-    mut boss_music: Option<ambition::platformer::lifecycle::SessionWorldMut<ambition::encounter::EncounterMusicRequest>>,
+    mut boss_music: Option<
+        ambition::platformer::lifecycle::SessionWorldMut<
+            ambition::encounter::EncounterMusicRequest,
+        >,
+    >,
     // Cut-rope boss placements in the room — R4 keys "cleared" by placement
     // (`config.id`), so the replay clears those keys (the respawned boss carries
     // the same LDtk id).
@@ -167,7 +171,9 @@ pub fn apply_room_replay_request_system(
     ambition_content::bosses::reset_cut_rope_boss_attempt(
         &boss_registry,
         save.as_deref_mut(),
-        boss_music.as_deref_mut(),
+        // `Single<&mut T>` derefs to `Mut<T>`, so `as_deref_mut` yields
+        // `&mut Mut<T>`; peel the extra change-detection layer to `&mut T`.
+        boss_music.as_deref_mut().map(|m| &mut **m),
         &cut_rope_placements,
     );
 

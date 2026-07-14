@@ -25,7 +25,10 @@ fn test_app(world: Option<ambition_engine_core::RoomGeometry>) -> App {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     if let Some(w) = world {
-        app.insert_resource(w);
+        ambition_platformer_primitives::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            w,
+        );
     }
     app.add_systems(Update, grapple_system);
     app

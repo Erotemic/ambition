@@ -209,7 +209,10 @@ fn shell_simulation_waits_for_the_exact_world_root() {
         .world_mut()
         .run_system_once(simulation_authorized)
         .expect("run condition evaluates");
-    assert!(!authorized, "scope publication alone is not world authority");
+    assert!(
+        !authorized,
+        "scope publication alone is not world authority"
+    );
 
     insert_session_world_component(app.world_mut(), SessionWorldFixture(1));
     let authorized = app
@@ -246,13 +249,19 @@ fn stale_root_cannot_authorize_a_newer_shell_scope() {
         session_world_component::<SessionWorldFixture>(app.world()).is_none(),
         "stale world components are structurally unreadable"
     );
-    let root = app
-        .world()
-        .iter_entities()
-        .find(|entity| entity.contains::<SessionRoot>())
-        .expect("stale root still exists for poison repair")
-        .id();
-    app.world_mut().entity_mut(root).insert(SessionRoot(current));
+    let root = {
+        let world = app.world();
+        let mut roots = world
+            .try_query_filtered::<Entity, With<SessionRoot>>()
+            .expect("SessionRoot is registered");
+        roots
+            .iter(world)
+            .next()
+            .expect("stale root still exists for poison repair")
+    };
+    app.world_mut()
+        .entity_mut(root)
+        .insert(SessionRoot(current));
     assert!(app
         .world_mut()
         .run_system_once(simulation_authorized)

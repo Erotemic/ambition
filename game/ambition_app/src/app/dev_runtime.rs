@@ -296,7 +296,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     }
 
     let active_room = transaction.next_spec.id.clone();
-    **room_set = transaction.next_room_set;
+    *room_set = transaction.next_room_set;
     world.0 = transaction.next_spec.world.clone();
 
     // The repaired placement is a discrete TRANSIT (ADR 0024 authority):

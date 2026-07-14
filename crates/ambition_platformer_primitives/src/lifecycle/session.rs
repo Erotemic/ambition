@@ -19,6 +19,7 @@
 use std::ops::{Deref, DerefMut};
 
 use bevy::ecs::change_detection::Ref;
+use bevy::ecs::component::Mutable;
 use bevy::ecs::system::{Single, SystemParam};
 use bevy::prelude::*;
 
@@ -99,8 +100,7 @@ pub fn simulation_authorized(
     let Ok(root) = roots.single() else {
         return false;
     };
-    gate.is_none()
-        || scope.as_deref().and_then(ActiveSessionScope::current) == Some(root.0)
+    gate.is_none() || scope.as_deref().and_then(ActiveSessionScope::current) == Some(root.0)
 }
 
 /// A captured entity-ownership context.
@@ -211,12 +211,10 @@ pub struct SessionRoot(pub SessionScopeId);
 /// The root entity is the authority: at a frontend route no such entity exists,
 /// while a gameplay activation owns exactly one. Systems using this parameter
 /// therefore cannot accidentally fall back to process-resident world state.
-pub type SessionWorldRef<'w, 's, T> =
-    Single<'w, 's, Ref<'static, T>, With<SessionRoot>>;
+pub type SessionWorldRef<'w, 's, T> = Single<'w, 's, Ref<'static, T>, With<SessionRoot>>;
 
 /// Mutate one component on the exact canonical live session-world root.
-pub type SessionWorldMut<'w, 's, T> =
-    Single<'w, 's, &'static mut T, With<SessionRoot>>;
+pub type SessionWorldMut<'w, 's, T> = Single<'w, 's, &'static mut T, With<SessionRoot>>;
 
 /// True only while the exact canonical live session-world root exists.
 ///
@@ -232,16 +230,14 @@ pub fn session_world_exists(
     let Ok(root) = roots.single() else {
         return false;
     };
-    gate.is_none()
-        || active.as_deref().and_then(ActiveSessionScope::current) == Some(root.0)
+    gate.is_none() || active.as_deref().and_then(ActiveSessionScope::current) == Some(root.0)
 }
 
 fn unique_session_world_root(world: &World) -> Option<(Entity, SessionScopeId)> {
-    let mut roots = world.iter_entities().filter_map(|entity| {
-        entity
-            .get::<SessionRoot>()
-            .map(|root| (entity.id(), root.0))
-    });
+    // `try_query` builds read-only query state from `&World` and yields `None`
+    // when `SessionRoot` was never registered — the correct "no root" answer.
+    let mut query = world.try_query::<(Entity, &SessionRoot)>()?;
+    let mut roots = query.iter(world).map(|(entity, root)| (entity, root.0));
     let root = roots.next()?;
     assert!(
         roots.next().is_none(),
@@ -276,7 +272,9 @@ pub fn session_world_component<T: Component>(world: &World) -> Option<&T> {
 }
 
 /// Mutate one canonical session-world component at an imperative World boundary.
-pub fn session_world_component_mut<T: Component>(world: &mut World) -> Option<Mut<'_, T>> {
+pub fn session_world_component_mut<T: Component<Mutability = Mutable>>(
+    world: &mut World,
+) -> Option<Mut<'_, T>> {
     let entity = session_world_entity(world)?;
     world.get_mut::<T>(entity)
 }

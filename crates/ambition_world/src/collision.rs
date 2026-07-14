@@ -54,12 +54,14 @@ pub struct MovingPlatformSet(pub Vec<MovingPlatformState>);
 /// carry moving platforms / ECS solids / portal carves.
 #[derive(SystemParam)]
 pub struct CollisionWorld<'w, 's> {
-    room: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<'w, 's, ae::RoomGeometry>>,
+    room: Option<
+        ambition_platformer_primitives::lifecycle::SessionWorldRef<'w, 's, ae::RoomGeometry>,
+    >,
     platforms: Option<Res<'w, MovingPlatformSet>>,
     overlay: Option<Res<'w, FeatureEcsWorldOverlay>>,
 }
 
-impl CollisionWorld<'_> {
+impl CollisionWorld<'_, '_> {
     /// The full collision world: authored room + moving platforms + ECS solids,
     /// with portal apertures carved. This is what actor sweeps and traversal
     /// raycasts (grapple / blink / dive / body-mode clearance / dropped items)

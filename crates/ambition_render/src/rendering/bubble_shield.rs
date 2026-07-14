@@ -142,7 +142,7 @@ pub fn sync_bubble_shield_visual(
     mut commands: Commands,
     sprite: Option<Res<BubbleShieldSprite>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     // Every raised shield, resolved sim-side into the pooled-ring read-model
     // (E4): render positions rings, it no longer queries the live clusters.
     active: Res<ambition_sim_view::ShieldRingsView>,

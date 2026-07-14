@@ -61,7 +61,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(Time::<()>::default());
     app.insert_resource(ambition_time::WorldTime::default());
-    app.insert_resource(RoomGeometry(world));
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), RoomGeometry(world));
     // `update_projectiles` collides against the portal-carved world; no carves in
     // these tests, so the overlay is empty (collision == raw world).
     app.init_resource::<crate::features::FeatureEcsWorldOverlay>();

@@ -1167,7 +1167,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
         wt.scaled_dt = 0.05;
         wt.raw_dt = 0.05;
     }
-    app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(ae::World::new(
         "g5",
         ae::Vec2::new(2000.0, 2000.0),
         ae::Vec2::new(1000.0, 1000.0),

@@ -3,7 +3,7 @@
 #![allow(unused_imports)]
 
 use ambition_engine_core as ae;
-use bevy_ecs::prelude::{Message, Resource};
+use bevy_ecs::prelude::{Component, Message, Resource};
 use petgraph::graph::{Graph, NodeIndex};
 
 mod camera;

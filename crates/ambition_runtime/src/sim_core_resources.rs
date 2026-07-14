@@ -102,12 +102,9 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_encounter::EncounterView>()
             .init_resource::<ambition_actors::encounter::SwitchActivationQueue>()
             .init_resource::<ambition_actors::encounter::EncounterSwitchIndex>()
-            // One encounter music-intent stream: every encounter source writes
-            // its own priority tier on this single resource (`priority_track`
-            // beats `base_track`), so a per-frame base-source `None` can't
-            // clobber a concurrent focused fight's music.
-            .init_resource::<ambition_encounter::EncounterMusicRequest>()
-            .init_resource::<ambition_actors::rooms::RoomMusicRequest>()
+            // Room and encounter music intent live as components on the exact
+            // session-world root. Frontend routes therefore have no gameplay
+            // music request authority to inherit or mutate.
             // Sandbox save (encounter defeat + switch state). Loaded from
             // disk by the presentation half only — headless/RL never touch
             // disk; mutated by encounter/switch systems.

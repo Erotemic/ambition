@@ -201,8 +201,6 @@ pub fn install_smb1_content(app: &mut App) {
         .expect("Mary-O character catalog should be valid"),
     );
 
-    // Compatibility for remaining pure lookup consumers during the App-local
-    // catalog migration. New composition reads the App resource above.
 }
 
 impl Plugin for Smb1DemoContentPlugin {
@@ -212,12 +210,20 @@ impl Plugin for Smb1DemoContentPlugin {
 
         install_smb1_content(app);
         let room = level_1_1();
-        app.insert_resource(ae::RoomGeometry(room.world.clone()));
-        app.insert_resource(ActiveRoomMetadata(room.metadata.clone()));
-        app.insert_resource(RoomSet::from_parts(
-            LEVEL_1_1_ROOM_ID,
-            vec![room],
-            Vec::new(),
+        app.world_mut().spawn((
+            ambition::platformer::lifecycle::SessionRoot(
+                ambition::platformer::lifecycle::SessionScopeId(0),
+            ),
+            ambition::runtime::PlatformerSessionWorld::new(
+                provider::MARY_O_EXPERIENCE,
+                RoomSet::from_parts(LEVEL_1_1_ROOM_ID, vec![room.clone()], Vec::new()),
+                ae::RoomGeometry(room.world.clone()),
+                ActiveRoomMetadata(room.metadata.clone()),
+                ambition::runtime::demo_fixture::StartingCharacter::new(
+                    provider::MARY_O_CHARACTER_ID,
+                ),
+                ambition::runtime::demo_fixture::LdtkRuntimeIndex::default(),
+            ),
         ));
         app.add_systems(
             bevy::app::Startup,
@@ -229,12 +235,12 @@ impl Plugin for Smb1DemoContentPlugin {
 #[allow(clippy::too_many_arguments)]
 fn smb1_setup(
     mut commands: bevy::prelude::Commands,
-    world: bevy::prelude::Res<ae::RoomGeometry>,
-    room_set: bevy::prelude::Res<ambition::runtime::demo_fixture::RoomSet>,
-    ldtk_index: bevy::prelude::Res<ambition::runtime::demo_fixture::LdtkRuntimeIndex>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition::runtime::demo_fixture::RoomSet>,
+    ldtk_index: ambition::platformer::lifecycle::SessionWorldRef<ambition::runtime::demo_fixture::LdtkRuntimeIndex>,
     editable_abilities: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableAbilitySet>,
     editable_tuning: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableMovementTuning>,
-    starting_character: bevy::prelude::Res<ambition::runtime::demo_fixture::StartingCharacter>,
+    starting_character: ambition::platformer::lifecycle::SessionWorldRef<ambition::runtime::demo_fixture::StartingCharacter>,
     asset_server: bevy::prelude::Res<bevy::asset::AssetServer>,
     character_catalog: bevy::prelude::Res<
         ambition::characters::actor::character_catalog::CharacterCatalog,
@@ -482,7 +488,7 @@ mod tests {
         fn shell(rules: Smb1RulesPlugin, mode: Option<&str>, dt: f32) -> App {
             let mut app = App::new();
             ambition::engine::add_headless_foundation(&mut app);
-            app.insert_resource(ActiveRoomMetadata(RoomMetadata {
+            ambition::platformer::lifecycle::insert_session_world_component(app.world_mut(), ActiveRoomMetadata(RoomMetadata {
                 mode: mode.map(str::to_string),
                 ..Default::default()
             }));

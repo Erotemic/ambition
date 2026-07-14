@@ -124,9 +124,9 @@ pub fn record_frame_system(
     mut buffer: ResMut<GameplayTraceBuffer>,
     clock: Res<ambition_time::ClockState>,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
-    world: Res<RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
     time: Res<Time>,
-    rooms: Option<Res<crate::rooms::RoomSet>>,
+    rooms: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>>,
     mode: Res<State<ambition_platformer_primitives::schedule::GameMode>>,
     feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
     mut player_q: Query<

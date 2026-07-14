@@ -92,16 +92,30 @@ pub use world::{
 /// During startup, loading, and the launcher there is deliberately no gameplay
 /// session, so the complete per-frame presentation graph must stay dormant.
 fn session_presentation_is_ready(
-    active_session: Option<
+    gate: Option<
+        bevy::prelude::Res<
+            ambition_platformer_primitives::lifecycle::SessionGatedSimulation,
+        >,
+    >,
+    active: Option<
         bevy::prelude::Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>,
+    >,
+    roots: bevy::prelude::Query<
+        &ambition_platformer_primitives::lifecycle::SessionRoot,
     >,
     scene: Option<bevy::prelude::Res<SceneEntities>>,
 ) -> bool {
-    scene.is_some()
-        && active_session
-            .as_deref()
-            .and_then(|active| active.current())
-            .is_some()
+    let exact_world = roots.single().is_ok_and(|root| {
+        gate.is_none()
+            || active
+                .as_deref()
+                .and_then(
+                    ambition_platformer_primitives::lifecycle::ActiveSessionScope::current,
+                )
+                == Some(root.0)
+    });
+    exact_world
+        && scene.is_some_and(|scene| scene.player != bevy::prelude::Entity::PLACEHOLDER)
 }
 
 /// Module-local Bevy plugin: schedules player-bound visual systems

@@ -35,15 +35,15 @@ pub(crate) struct PresentationCatalogs<'w> {
 /// the presentation startup system later overwrites that with the real HUD entity.
 pub(super) fn setup_simulation_system(
     mut commands: Commands,
-    world: Res<RoomGeometry>,
-    room_set: Res<rooms::RoomSet>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     sandbox_data_asset: Option<Res<data::SandboxDataAsset>>,
     sandbox_asset_collection: Option<Res<loading::SandboxAssetCollection>>,
     asset_server: Res<AssetServer>,
-    ldtk_index: Res<ldtk_world::LdtkRuntimeIndex>,
+    ldtk_index: ambition::platformer::lifecycle::SessionWorldRef<ldtk_world::LdtkRuntimeIndex>,
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
-    starting_character: Res<ambition::actors::avatar::StartingCharacter>,
+    starting_character: ambition::platformer::lifecycle::SessionWorldRef<ambition::actors::avatar::StartingCharacter>,
     character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<ambition::actors::features::CharacterRoster>,
     boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
@@ -84,8 +84,8 @@ pub(super) fn setup_simulation_system(
 #[cfg(feature = "audio")]
 pub(crate) fn setup_presentation_system(
     mut commands: Commands,
-    world: Res<RoomGeometry>,
-    room_set: Res<rooms::RoomSet>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     music_registry: Res<data::MusicRegistry>,
     sfx_registry: Res<data::SfxRegistry>,
     catalogs: PresentationCatalogs,
@@ -184,7 +184,7 @@ pub(crate) fn setup_presentation_system(
 #[cfg(feature = "audio")]
 pub(crate) fn setup_host_presentation_system(
     mut commands: Commands,
-    room_set: Res<rooms::RoomSet>,
+    prepared_world: Res<ambition_content::provider::AmbitionPreparedWorld>,
     sfx_registry: Res<data::SfxRegistry>,
     audio_catalog: Res<ambition::audio::catalog::AudioCatalogRegistry>,
     catalogs: PresentationCatalogs,
@@ -240,7 +240,7 @@ pub(crate) fn setup_host_presentation_system(
         asset_catalog,
         &asset_server,
         &mut atlas_layouts,
-        &room_set.active_spec().metadata,
+        &prepared_world.room_set.active_spec().metadata,
         quality.as_deref().map(|q| &q.budget),
     );
     scene_setup::host_presentation_scaffold(&mut commands);
@@ -311,7 +311,7 @@ pub(crate) fn publish_resident_sfx_bank_authority(
 #[cfg(not(feature = "audio"))]
 pub(crate) fn setup_host_presentation_system(
     mut commands: Commands,
-    room_set: Res<rooms::RoomSet>,
+    prepared_world: Res<ambition_content::provider::AmbitionPreparedWorld>,
     catalogs: PresentationCatalogs,
     hosted: Option<Res<super::shell_host::AmbitionShellHosted>>,
     audio_catalog: Res<ambition::audio::catalog::AudioCatalogRegistry>,
@@ -352,7 +352,7 @@ pub(crate) fn setup_host_presentation_system(
         asset_catalog,
         &asset_server,
         &mut atlas_layouts,
-        &room_set.active_spec().metadata,
+        &prepared_world.room_set.active_spec().metadata,
         quality.as_deref().map(|q| &q.budget),
     );
     scene_setup::host_presentation_scaffold(&mut commands);
@@ -372,7 +372,7 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
     asset_config: Res<GameAssetConfig>,
     catalogs: PresentationCatalogs,
     asset_server: Res<AssetServer>,
-    room_set: Res<rooms::RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut game_assets: Option<ResMut<game_assets::GameAssets>>,
     mut last_scales: Local<Option<(TextureResolutionScale, TextureResolutionScale)>>,
@@ -407,8 +407,8 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
 #[cfg(not(feature = "audio"))]
 pub(crate) fn setup_presentation_system(
     mut commands: Commands,
-    world: Res<RoomGeometry>,
-    room_set: Res<rooms::RoomSet>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     catalogs: PresentationCatalogs,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     asset_server: Res<AssetServer>,

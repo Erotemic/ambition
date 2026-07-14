@@ -214,6 +214,9 @@ mod tests {
 
         let mut app = App::new();
         crate::schedule::configure_sandbox_sets(&mut app);
+        app.world_mut().spawn(ambition_platformer_primitives::lifecycle::SessionRoot(
+            ambition_platformer_primitives::lifecycle::SessionScopeId(0),
+        ));
         app.insert_resource(ambition_platformer_primitives::time::SimDt { dt: 0.016 });
         app.add_message::<crate::features::ResetRoomFeaturesEvent>();
         app.add_plugins(crate::gravity::GravityPlugin);

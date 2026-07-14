@@ -112,10 +112,11 @@ pub const SIM_TICK_HZ: f64 = 60.0;
 /// The canonical simulation-phase SETS + the engine resources every consumer
 /// needs before any `.in_set(SandboxSet::…)` registration or host override.
 ///
-/// First plugin in [`PlatformerEnginePlugins`]. Hosts override the resources
-/// by `insert_resource` BEFORE `add_plugins` (Bevy's `init_resource` never
-/// clobbers an existing value) — the `StartingCharacter` env-var override in
-/// the Ambition CLI relies on exactly that.
+/// First plugin in [`PlatformerEnginePlugins`]. Hosts may override ordinary
+/// engine configuration resources before `add_plugins` (Bevy's
+/// `init_resource` never clobbers an existing value). Live room/world state is
+/// not configured this way: providers publish it as components on the exact
+/// session root, while direct apps create the same root during composition.
 ///
 /// It is also where the group's `fixed_tick` choice becomes real: this plugin
 /// commits the [`SimSchedule`] label before any other plugin can read one.
@@ -182,9 +183,6 @@ impl Plugin for SandboxSetsPlugin {
         // Local input publishes it; body mode / interaction / transitions
         // consume it for the controlled body's slot.
         app.init_resource::<ambition_actors::control::SlotInteractionState>();
-        // Which character the local player spawns as (empty = the
-        // content-installed default). Hosts pre-insert to override.
-        app.init_resource::<ambition_actors::avatar::StartingCharacter>();
     }
 }
 
@@ -336,4 +334,6 @@ pub fn add_headless_foundation(app: &mut App) {
     init_engine_states(app);
 }
 
-pub use session_world::{PlatformerSessionCatalogs, PlatformerSessionRequests, PlatformerSessionWorld};
+pub use session_world::{
+    PlatformerSessionCatalogs, PlatformerSessionRequests, PlatformerSessionWorld,
+};

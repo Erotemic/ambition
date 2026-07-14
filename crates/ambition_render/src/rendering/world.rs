@@ -35,7 +35,7 @@ use ambition_world::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
 pub fn respawn_room_visuals_on_request(
     mut requests: MessageReader<ambition_world::rooms::RespawnRoomVisualsRequested>,
     mut commands: Commands,
-    room_set: Res<ambition_world::rooms::RoomSet>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
     physics_settings: Res<ambition_platformer_primitives::physics::PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
@@ -858,7 +858,7 @@ fn is_lock_wall_block(name: &str) -> bool {
 pub fn sync_lock_wall_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     overlay: Res<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,
     assets: Option<Res<GameAssets>>,
     existing: Query<(Entity, &LockWallVisual)>,
@@ -976,7 +976,10 @@ mod lock_wall_visual_tests {
     #[test]
     fn lock_wall_visual_tracks_overlay_gate_solids() {
         let mut app = App::new();
-        app.insert_resource(room());
+        ambition_platformer_primitives::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            room(),
+        );
         app.insert_resource(FeatureEcsWorldOverlay {
             gate_solids: vec![gate_wall()],
             ..Default::default()

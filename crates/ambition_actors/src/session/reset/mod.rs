@@ -94,10 +94,10 @@ pub fn process_sandbox_reset_request(
     mut encounter_registry: ResMut<EncounterRegistry>,
     mut boss_registry: ResMut<BossEncounterRegistry>,
     mut quest_registry: ResMut<QuestRegistry>,
-    mut music_request: ResMut<EncounterMusicRequest>,
+    mut music_request: ambition_platformer_primitives::lifecycle::SessionWorldMut<EncounterMusicRequest>,
     mut play_state: ResetPlayState<'_>,
-    mut room_set: ResMut<RoomSet>,
-    mut world: ResMut<ambition_engine_core::RoomGeometry>,
+    mut room_set: ambition_platformer_primitives::lifecycle::SessionWorldMut<RoomSet>,
+    mut world: ambition_platformer_primitives::lifecycle::SessionWorldMut<ambition_engine_core::RoomGeometry>,
     tuning: Res<ambition_dev_tools::dev_tools::EditableMovementTuning>,
     mut respawn_visuals: MessageWriter<crate::session::RespawnRoomVisualsRequested>,
     mut commands: SessionCommands<'_, '_>,
@@ -152,7 +152,7 @@ pub fn process_sandbox_reset_request(
     }
     *boss_registry = BossEncounterRegistry::default();
     *quest_registry = QuestRegistry::default();
-    *music_request = EncounterMusicRequest::default();
+    **music_request = EncounterMusicRequest::default();
 
     // 3. Despawn all room visuals (and their physics colliders if
     //    Avian2D installed any). The room-visual respawn path that

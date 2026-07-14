@@ -44,7 +44,7 @@ fn buffered_interact_toggles_an_adjacent_switch() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
-    app.init_resource::<crate::avatar::StartingCharacter>();
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), <crate::avatar::StartingCharacter>::default());
     app.insert_resource(NextState::<
         ambition_platformer_primitives::schedule::GameMode,
     >::default());
@@ -91,7 +91,7 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
-    app.init_resource::<crate::avatar::StartingCharacter>();
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), <crate::avatar::StartingCharacter>::default());
     app.insert_resource(NextState::<
         ambition_platformer_primitives::schedule::GameMode,
     >::default());

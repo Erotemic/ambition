@@ -6,7 +6,7 @@
 //! single simulation-owned relationship recorded by [`WornCharacter`].
 //!
 //! Before this component existed the worn id lived only in the app-local
-//! `StartingCharacter` *resource* (read once at spawn) and a render-only
+//! `StartingCharacter` session component (read once at spawn) and a render-only
 //! `PlayerSpriteCharacter` marker, so gameplay config and presentation each
 //! rediscovered the selection from a different authority. [`WornCharacter`] is
 //! the ONE identity both derive from:

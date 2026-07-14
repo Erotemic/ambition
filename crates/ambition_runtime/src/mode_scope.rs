@@ -40,8 +40,8 @@ use ambition_world::rooms::ActiveRoomMetadata;
 /// The absent-resource case is `false`: an app with no world installed is in no
 /// mode, so a hosted ruleset stays asleep rather than panicking. `None` mode
 /// metadata is the base game, and matches no named mode.
-pub fn in_mode(name: &'static str) -> impl FnMut(Option<Res<ActiveRoomMetadata>>) -> bool + Clone {
-    move |active: Option<Res<ActiveRoomMetadata>>| {
+pub fn in_mode(name: &'static str) -> impl FnMut(Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<ActiveRoomMetadata>>) -> bool + Clone {
+    move |active: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<ActiveRoomMetadata>>| {
         active.is_some_and(|active| active.0.mode.as_deref() == Some(name))
     }
 }
@@ -55,7 +55,7 @@ pub fn in_mode(name: &'static str) -> impl FnMut(Option<Res<ActiveRoomMetadata>>
 /// makes a mode a lifetime distinct from a room.
 pub fn despawn_departed_mode_entities(
     mut commands: Commands,
-    active: Option<Res<ActiveRoomMetadata>>,
+    active: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<ActiveRoomMetadata>>,
     scoped: Query<(Entity, &ModeScopedEntity)>,
 ) {
     let Some(active) = active else { return };
@@ -78,9 +78,9 @@ pub struct ModeScopePlugin;
 impl Plugin for ModeScopePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // After the metadata mirror publishes this frame's active room, so a
-        // room transition INTO a different mode tears the old mode down on the
-        // same frame it becomes stale.
+        // After the canonical metadata component publishes this frame's active
+        // room, so a transition INTO a different mode tears the old mode down
+        // on the same frame it becomes stale.
         app.add_systems(
             sim,
             despawn_departed_mode_entities

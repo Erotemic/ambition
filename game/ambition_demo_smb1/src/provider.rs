@@ -89,7 +89,6 @@ impl Plugin for Smb1ExperiencePlugin {
 
 fn smb1_prepare_session(
     mut shell_events: MessageReader<ShellEvent>,
-    ldtk_index: Res<LdtkRuntimeIndex>,
     mut prepared_sessions: ResMut<PreparedSmb1Sessions>,
     mut preparation: PlatformerPreparation,
 ) {
@@ -107,7 +106,7 @@ fn smb1_prepare_session(
             source.geometry,
             source.metadata,
             source.starting_character,
-            ldtk_index.clone(),
+            LdtkRuntimeIndex::default(),
         );
         preparation.prepare(transaction, live_world, &mut prepared_sessions);
     }

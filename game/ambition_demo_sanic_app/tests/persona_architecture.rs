@@ -3,7 +3,7 @@
 //! A standalone demo (no `ambition_app`) proves the canonical path end to end:
 //! the selected character becomes a simulation-owned `WornCharacter` identity ON
 //! the canonical player, gameplay derives from it, and the identity does NOT
-//! depend on the app-local `StartingCharacter` startup resource. This is the same
+//! depend on the session-owned `StartingCharacter` startup component. This is the same
 //! `WornCharacter` component + derive systems the full app uses — the demo just
 //! assembles them through the `ambition` umbrella.
 
@@ -60,23 +60,21 @@ fn canonical_player_carries_the_selected_identity_and_derives_gameplay() {
     );
 }
 
-/// **S1.4:** the canonical identity is INDEPENDENT of the app-local
-/// `StartingCharacter` startup resource. Once captured on the entity at spawn,
-/// nothing re-reads the resource for identity — mutating it afterwards does not
-/// change the player's `WornCharacter`, so presentation/gameplay never rediscover
-/// the selection from app-local startup state. (The resource stays live because
-/// other systems, e.g. the dialogue default, read it — this proves independence
-/// without pretending the resource is unused.)
+/// **S1.4:** the canonical identity is independent of the session world's
+/// startup-selection component. Once captured on the entity at spawn, changing
+/// that launch input does not rewrite the player's `WornCharacter`.
 #[test]
 fn identity_does_not_track_the_startup_selection_resource_after_spawn() {
     let mut app = ambition_demo_sanic_app::build_demo_app();
     settle_until_primary_player(&mut app);
     assert_eq!(worn_of_primary(&mut app).unwrap().id(), "sanic");
 
-    // Change the startup selection resource to a DIFFERENT id after spawn.
-    app.world_mut()
-        .resource_mut::<StartingCharacter>()
-        .character_id = "goblin".to_string();
+    // Change the session's startup selection to a DIFFERENT id after spawn.
+    ambition::platformer::lifecycle::session_world_component_mut::<StartingCharacter>(
+        app.world_mut(),
+    )
+    .expect("Sanic session world")
+    .character_id = "goblin".to_string();
     for _ in 0..5 {
         app.update();
     }
@@ -86,7 +84,7 @@ fn identity_does_not_track_the_startup_selection_resource_after_spawn() {
     assert_eq!(
         worn_of_primary(&mut app).unwrap().id(),
         "sanic",
-        "the canonical identity does not track the startup resource after spawn"
+        "the canonical identity does not track startup selection after spawn"
     );
     assert_eq!(primary_name(&mut app).as_deref(), Some("Sanic"));
 }

@@ -1,26 +1,26 @@
 //! The single encounter→audio music-intent stream.
 //!
-//! One `EncounterMusicRequest` resource carries the desired track from every
+//! One session-owned `EncounterMusicRequest` component carries the desired track from every
 //! encounter source with an EXPLICIT priority, so a per-frame encounter tick —
 //! which writes its source every frame, including `None` when nothing of its
 //! kind is in flight — can never clobber a concurrent higher-priority
 //! encounter's music.
 //!
-//! This replaces the old split into two resources (one for waves, one for the
+//! This replaces the old split into two process resources (one for waves, one for the
 //! boss fight). The split existed only to keep the per-frame `None` of the
 //! lower-priority source from stomping the higher one; naming the two by their
-//! priority tier on ONE resource expresses that ordering directly (unified
+//! priority tier on one session component expresses that ordering directly (unified
 //! encounter orchestration §6: "one encounter music-intent stream with explicit
 //! priority/source"). Neither field names a specific encounter kind — a boss
 //! fight is just a `priority_track` writer, a wave arena a `base_track` writer.
 
-use bevy::prelude::Resource;
+use bevy::prelude::Component;
 
 /// Music request from the encounter layer to the audio backend. Each source
 /// writes its OWN priority tier; the music-intent adapter reads
 /// [`Self::desired_track`] (priority beats base) and mirrors the winner into
 /// [`Self::last_applied`].
-#[derive(Resource, Default, Debug, Clone)]
+#[derive(Component, Default, Debug, Clone)]
 pub struct EncounterMusicRequest {
     /// Higher-priority encounter track (a focused fight — e.g. a boss).
     /// Overrides `base_track` while set.

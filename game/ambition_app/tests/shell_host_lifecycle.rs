@@ -33,7 +33,10 @@ use ambition::audio::selection::ActiveAudioSelection;
 use ambition::game_shell::{
     ActiveGameplaySession, ShellCommand, ShellLauncherCommand, ShellRouter,
 };
-use ambition::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionScopedEntity};
+use ambition::platformer::lifecycle::{
+    session_world_component, session_world_entity, ActiveSessionScope, SessionRoot, SessionScopeId,
+    SessionScopedEntity, SessionWorldMut,
+};
 use ambition_app::app::shell_host;
 
 fn shell_host_app() -> App {
@@ -82,6 +85,15 @@ fn session_entities(app: &mut App) -> usize {
     query.iter(app.world()).count()
 }
 
+fn session_roots(app: &mut App) -> usize {
+    let mut query = app.world_mut().query::<&SessionRoot>();
+    query.iter(app.world()).count()
+}
+
+fn live_room_set(app: &App) -> &RoomSet {
+    session_world_component::<RoomSet>(app.world()).expect("one exact live session room set")
+}
+
 fn sim_tick(app: &App) -> u64 {
     app.world().resource::<ambition::runtime::SimTick>().0
 }
@@ -116,12 +128,14 @@ fn assert_home(app: &mut App, context: &str) {
             .is_none(),
         "{context}: no active gameplay-world authority at home (session owns the world ref)"
     );
+    assert!(
+        session_world_entity(app.world()).is_none(),
+        "{context}: no canonical session-world root exists at home"
+    );
     assert_eq!(
-        app.world()
-            .resource::<ambition::session_world::SessionWorldProjectionAuthority>()
-            .owner,
-        None,
-        "{context}: no compatibility projection owns gameplay world state"
+        session_roots(app),
+        0,
+        "{context}: title structurally exposes no gameplay-world authority"
     );
     assert!(
         app.world()
@@ -253,22 +267,33 @@ fn assert_in_game(
         "{context}: session belongs to the selected provider"
     );
     let scope = instance.scope;
-    // The session is the canonical world authority: it references a prepared
-    // world (a `RoomSet`), and that reference names THIS session's active room
-    // — not a room resident from a prior provider's session.
+    // The exact session root is the sole live world authority. Its RoomSet
+    // component names THIS activation's active room; no resident projection
+    // exists to retain stale state across providers.
     let world_entity = session
         .active_world_entity()
         .unwrap_or_else(|| panic!("{context}: the session owns a live world entity"));
+    assert_eq!(
+        session_world_entity(app.world()),
+        Some(world_entity),
+        "{context}: the active session owns the unique canonical world root"
+    );
     let session_room = app
         .world()
-        .get::<ambition::runtime::PlatformerSessionWorld>(world_entity)
-        .unwrap_or_else(|| panic!("{context}: the live world entity carries platformer state"))
-        .active_room_id()
-        .to_owned();
+        .get::<RoomSet>(world_entity)
+        .unwrap_or_else(|| panic!("{context}: the live root carries RoomSet authority"))
+        .active_spec()
+        .id
+        .clone();
     assert_eq!(
         session_room,
-        app.world().resource::<RoomSet>().active_spec().id.as_str(),
-        "{context}: the session's world authority matches the resident projection"
+        live_room_set(app).active_spec().id,
+        "{context}: every reader observes the same root component"
+    );
+    assert_eq!(
+        session_roots(app),
+        1,
+        "{context}: exactly one canonical session-world root exists"
     );
     assert_eq!(
         live_scope(app),
@@ -382,8 +407,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .active_world_entity()
         .expect("sanic #1 owns a canonical world entity");
     assert_eq!(
-        app.world()
-            .resource::<RoomSet>()
+        live_room_set(&app)
             .active_spec()
             .metadata
             .mode
@@ -433,7 +457,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     );
     fresh(scope, "pocket");
     assert_eq!(
-        app.world().resource::<RoomSet>().active_spec().id.as_str(),
+        live_room_set(&app).active_spec().id.as_str(),
         "pocket_room",
         "pocket: provider-authored world is active"
     );
@@ -453,13 +477,11 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     );
     fresh(scope, "ambition");
     assert_eq!(
-        app.world().resource::<RoomSet>().active_spec().id.as_str(),
+        live_room_set(&app).active_spec().id.as_str(),
         "central_hub_complex",
         "ambition: the real LDtk entry room is the active world authority"
     );
-    let alternate_room = app
-        .world()
-        .resource::<RoomSet>()
+    let alternate_room = live_room_set(&app)
         .rooms
         .iter()
         .find(|room| room.id != "central_hub_complex")
@@ -468,20 +490,16 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     let alternate_room_for_edit = alternate_room.clone();
     app.world_mut()
         .run_system_once(
-            move |mut world: ambition::session_world::ActivePlatformerSessionWorldMut| {
-                world
-                    .edit(|live| {
-                        let index = live
-                            .room_set
-                            .room_index_by_id(&alternate_room_for_edit)
-                            .expect("alternate authored room exists");
-                        live.room_set.set_active(index);
-                        let spec = live.room_set.active_spec().clone();
-                        live.geometry = ambition::engine_core::RoomGeometry(spec.world.clone());
-                        live.active_room =
-                            ambition::actors::rooms::ActiveRoomMetadata(spec.metadata.clone());
-                    })
-                    .expect("Ambition's exact live session world is writable");
+            move |mut room_set: SessionWorldMut<RoomSet>,
+                  mut geometry: SessionWorldMut<ambition::engine_core::RoomGeometry>,
+                  mut active_room: SessionWorldMut<ambition::actors::rooms::ActiveRoomMetadata>| {
+                let index = room_set
+                    .room_index_by_id(&alternate_room_for_edit)
+                    .expect("alternate authored room exists");
+                room_set.set_active(index);
+                let spec = room_set.active_spec().clone();
+                geometry.0 = spec.world.clone();
+                active_room.0 = spec.metadata.clone();
             },
         )
         .expect("session-world mutation system runs");
@@ -493,16 +511,17 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .expect("Ambition world remains active");
     assert_eq!(
         app.world()
-            .get::<ambition::runtime::PlatformerSessionWorld>(live_entity)
-            .expect("canonical live world")
-            .active_room_id(),
+            .get::<RoomSet>(live_entity)
+            .expect("canonical live RoomSet")
+            .active_spec()
+            .id,
         alternate_room,
-        "a room change is recorded in the canonical mutable session world",
+        "a room change is recorded directly in the canonical mutable session world",
     );
     assert_eq!(
-        app.world().resource::<RoomSet>().active_spec().id.as_str(),
+        live_room_set(&app).active_spec().id.as_str(),
         alternate_room.as_str(),
-        "the compatibility projection follows the canonical world revision",
+        "all world readers observe the same exact root component",
     );
 
     let ambition_default_track = app
@@ -538,7 +557,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         "same-provider relaunch constructs a fresh mutable world entity",
     );
     assert_eq!(
-        app.world().resource::<RoomSet>().active_spec().id.as_str(),
+        live_room_set(&app).active_spec().id.as_str(),
         ambition_demo_sanic::SPEEDWAY_ROOM_ID,
         "same-provider relaunch starts from newly authored world state",
     );

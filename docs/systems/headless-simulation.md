@@ -42,7 +42,8 @@ binary does not currently accept `--ticks`.
 `HeadlessReport` summarizing what ran. It validates that:
 
 - the embedded LDtk world parses and validates,
-- `RoomSet` and the LDtk runtime resources initialize,
+- one canonical direct-session root owns `RoomSet`, geometry, active-room
+  metadata, starting-character selection, and the LDtk runtime index,
 - room/entity runtime-spine systems compile and tick on a no-display machine,
 - gameplay systems can run to completion under scripted `ControlFrame` input,
 - named content needed by the sim is installed through `AmbitionContentPlugin`.

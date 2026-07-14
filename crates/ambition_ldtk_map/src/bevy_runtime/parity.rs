@@ -69,7 +69,7 @@ impl LdtkRuntimeSpineParity {
 /// Once parity holds for a meaningful number of sandbox sessions and
 /// hot-reload edits, the JSON adapter's collision arms can retire.
 pub fn check_ldtk_runtime_spine_parity(
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     solid_index: Res<LdtkRuntimeSolidIndex>,
     one_way_index: Res<LdtkRuntimeOneWayIndex>,
     damage_index: Res<LdtkRuntimeDamageIndex>,

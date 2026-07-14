@@ -73,13 +73,15 @@ fn sandbox_simulation_plugin_inserts_core_resources() {
         world.get_resource::<ControlFrame>().is_some(),
         "ControlFrame resource missing — sim/presentation input seam broken"
     );
+    let root = ambition::platformer::lifecycle::session_world_entity(world)
+        .expect("direct app publishes one canonical session-world root");
     assert!(
-        world.get_resource::<RoomGeometry>().is_some(),
-        "RoomGeometry resource missing — active room world not seeded"
+        world.get::<RoomGeometry>(root).is_some(),
+        "RoomGeometry component missing from the canonical session root"
     );
     assert!(
-        world.get_resource::<RoomSet>().is_some(),
-        "RoomSet resource missing — LDtk world not parsed into rooms"
+        world.get::<RoomSet>(root).is_some(),
+        "RoomSet component missing from the canonical session root"
     );
     assert!(
         world.get_resource::<MovingPlatformSet>().is_some(),

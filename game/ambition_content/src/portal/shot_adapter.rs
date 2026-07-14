@@ -3,8 +3,8 @@
 //! Portal core's [`step_portal_shot`] is a pure helper over the reusable
 //! [`SolidWorldQuery`](ambition_actors::platformer_runtime::collision::SolidWorldQuery)
 //! seam (+ world bounds): it decides whether a shot travels, places a portal, or
-//! fizzles, without ever reading the concrete `Res<RoomGeometry>`. This adapter owns
-//! the concrete world — it reads `Res<RoomGeometry>`, calls the helper per shot, and
+//! fizzles, without ever reading the concrete `ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>`. This adapter owns
+//! the concrete world — it reads `ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>`, calls the helper per shot, and
 //! applies the [`PortalShotStep`] outcome (entity spawn/despawn + sfx). Moving
 //! the `RoomGeometry` read here keeps portal core's projectile step content-free.
 
@@ -23,7 +23,7 @@ use ambition_portal::{
 /// range / out of bounds / on a non-placeable surface (the rejection buzz).
 pub fn portal_projectile_step(
     time: Res<ambition_time::WorldTime>,
-    world: Res<RoomGeometry>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     mut commands: Commands,
     mut projectiles: Query<(Entity, &mut PortalShot)>,
     portals: Query<(Entity, &PlacedPortal)>,

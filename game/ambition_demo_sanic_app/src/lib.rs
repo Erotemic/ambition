@@ -43,16 +43,15 @@ pub fn build_demo_app_with_home(home_route: &str) -> App {
 /// Compose the Sanic experience under a thin standalone host: the session-scope
 /// mechanism, the minimal shell, the reusable Sanic provider, and a launcher
 /// home. The provider is host-independent — only these host lines (the two
-/// routes, the host spec, and the build-time world) are host-specific.
+/// routes, and the host spec) are host-specific.
 fn compose_sanic_shell(app: &mut App, home_route: &str) {
     use ambition::game_shell::{
         ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog,
         ShellRouteSpec,
     };
-    use ambition_demo_sanic::{sanic_session_world, SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
+    use ambition_demo_sanic::{SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
 
     app.add_plugins(ambition::game_shell::MinimalShellPlugins);
-    app.add_plugins(ambition::session_world::PlatformerSessionWorldProjectionPlugin);
     app.insert_resource(
         ambition::audio::selection::FrontendAudioProfile::new(
             ambition_demo_sanic::SANIC_EXPERIENCE,
@@ -79,14 +78,10 @@ fn compose_sanic_shell(app: &mut App, home_route: &str) {
         .resource_mut::<ShellHostConfiguration>()
         .spec = Some(ShellHostSpec::new(SANIC_GAMEPLAY_ROUTE, home_route));
 
-    // Build-time initial world so the fixed-tick sim already has a
-    // `RoomGeometry`/`RoomSet`/`ActiveRoomMetadata` on frame 1: `FixedUpdate`
-    // runs before `Update`, and the first shell activation lands in `Update`.
-    let world = sanic_session_world();
-    app.insert_resource(world.geometry);
-    app.insert_resource(world.room_set);
-    app.insert_resource(world.metadata);
-    app.insert_resource(world.starting_character);
+    // The shell-gated simulation stays dormant until the provider publishes
+    // its exact SessionRoot during activation. No process-resident bootstrap
+    // world is installed here; loading and launcher frames have zero world
+    // authority by construction.
 }
 
 /// The same demo, DRAWN — foundation swapped for `DefaultPlugins`, plus the
@@ -240,10 +235,14 @@ fn load_sanic_game_assets(
     catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-    active_room: Res<ambition::world::rooms::ActiveRoomMetadata>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
     mut game_assets: ResMut<ambition::sprite_sheet::game_assets::GameAssets>,
 ) {
+    // Startup asset binding precedes gameplay activation in the shared host, so
+    // derive the presentation theme from Sanic's immutable authored world rather
+    // than reaching for a not-yet-published live session root. Runtime consumers
+    // still read the exact `SessionRoot` components after activation.
+    let authored_room = ambition_demo_sanic::sanic_session_world().metadata;
     *game_assets = ambition::actors::assets::game_assets::load_game_assets(
         &config,
         &character_catalog,
@@ -251,7 +250,7 @@ fn load_sanic_game_assets(
         &catalog,
         &asset_server,
         &mut layouts,
-        &active_room.0,
+        &authored_room.0,
         quality.as_deref().map(|q| &q.budget),
     );
 

@@ -489,7 +489,7 @@ pub struct BlinkPreviewFact {
 #[allow(clippy::type_complexity)]
 pub fn rebuild_blink_preview_fact(
     mut fact: ResMut<BlinkPreviewFact>,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     mode: Res<bevy::prelude::State<ambition_platformer_primitives::schedule::GameMode>>,
     scene: Res<ambition_platformer_primitives::lifecycle::SceneEntities>,

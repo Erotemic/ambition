@@ -16,6 +16,7 @@ pub mod determinism;
 pub mod lifecycle;
 pub mod migration_matrix;
 pub mod module_size;
+pub mod session_world;
 
 use crate::model::CustomMeta;
 
@@ -30,5 +31,6 @@ pub fn metas() -> Vec<CustomMeta> {
     out.extend(control_frame::metas());
     out.extend(lifecycle::metas());
     out.extend(content_ownership::metas());
+    out.extend(session_world::metas());
     out
 }

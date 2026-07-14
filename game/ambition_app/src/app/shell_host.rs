@@ -81,7 +81,6 @@ pub fn compose_ambition_shell_host(app: &mut App) {
         ambition::load::AmbitionLoadPlugin,
         ambition::load_presentation::MinimalLoadPresentationPlugins,
     ));
-    app.add_plugins(ambition::session_world::PlatformerSessionWorldProjectionPlugin);
 
     // The linked providers. Each registers its experience, routes, catalog
     // fragments, session construction, and rules; the launcher below derives
@@ -167,7 +166,7 @@ pub fn compose_ambition_startup_sequence(app: &mut App) {
 /// windowed composition — headless hosts run the same lifecycle without it.
 pub fn install_ambition_shell_visuals(app: &mut App) {
     // Provider-agnostic per-session room presentation: parallax + static room
-    // visuals for WHATEVER RoomSet the activating provider republished —
+    // visuals for WHATEVER RoomSet the activating provider owns —
     // Sanic and Mary-O draw in this host through the same one system.
     app.add_plugins(ambition::render::platformer_presentation::SessionRoomVisualsPlugin);
     app.add_systems(
@@ -184,7 +183,11 @@ fn ambition_activate_session_visuals(
     mut sessions: MessageReader<GameplaySessionEvent>,
     mut commands: Commands,
     active_session: Res<ambition::game_shell::ActiveGameplaySession>,
-    session_worlds: Query<&ambition::runtime::PlatformerSessionWorld>,
+    session_worlds: Query<(
+        &ambition::engine_core::RoomGeometry,
+        &ambition::actors::rooms::RoomSet,
+        &ambition::actors::ldtk_world::LdtkRuntimeIndex,
+    )>,
     game_assets: Option<Res<ambition::sprite_sheet::game_assets::GameAssets>>,
     ui_fonts: Option<Res<ambition::render::ui_fonts::UiFonts>>,
     asset_server: Res<AssetServer>,
@@ -212,7 +215,7 @@ fn ambition_activate_session_visuals(
         let Some(world_entity) = active_session.active_world_entity() else {
             continue;
         };
-        let Ok(session_world) = session_worlds.get(world_entity) else {
+        let Ok((geometry, room_set, runtime_rooms)) = session_worlds.get(world_entity) else {
             continue;
         };
         let scope = ambition::platformer::lifecycle::SessionSpawnScope::scoped(*scope);
@@ -226,8 +229,8 @@ fn ambition_activate_session_visuals(
             &mut commands,
             scope,
             super::scene_setup::SessionDressingSetup {
-                world: &session_world.geometry,
-                room_set: &session_world.room_set,
+                world: geometry,
+                room_set,
                 ui_fonts: ui_fonts.as_deref(),
             },
             player,
@@ -237,8 +240,8 @@ fn ambition_activate_session_visuals(
                 &mut commands,
                 scope,
                 &asset_server,
-                &session_world.runtime_rooms,
-                &session_world.room_set,
+                runtime_rooms,
+                room_set,
                 world_assets.as_deref(),
                 sandbox_asset_collection.as_deref(),
             );

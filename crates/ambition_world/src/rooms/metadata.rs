@@ -11,21 +11,21 @@ use super::*;
 /// consumed by the music-intent adapter as the "default track" when no
 /// encounter override is active. The encounter system retains
 /// priority — a `Some(...)` from `EncounterMusicRequest::desired_track()`
-/// overrides this resource the same way it overrides the sandbox-wide
+/// overrides this component the same way it overrides the sandbox-wide
 /// default music track. Empty/absent room music falls back to
 /// the music registry's `default_track`.
-#[derive(Resource, Clone, Debug, Default)]
+#[derive(Component, Clone, Debug, Default)]
 pub struct RoomMusicRequest {
     pub desired_track: Option<String>,
 }
 
-/// Mirrors `RoomSet::active_metadata()` as a standalone Bevy resource.
+/// Focused active-room metadata on the same canonical session root as `RoomSet`.
 ///
-/// Synced by `sync_active_room_metadata` each frame the active room
-/// changes. Consumers (room music selection, ambient layer selection,
-/// renderer palette swaps) can subscribe via `Res<ActiveRoomMetadata>`
+/// Updated by `sync_active_room_metadata` when the active room changes. Consumers
+/// (room music selection, ambient layer selection,
+/// renderer palette swaps) can subscribe via `ambition_platformer_primitives::lifecycle::SessionWorldRef<ActiveRoomMetadata>`
 /// + change detection without importing the larger `RoomSet` type.
-#[derive(Resource, Clone, Debug, Default)]
+#[derive(Component, Clone, Debug, Default)]
 pub struct ActiveRoomMetadata(pub RoomMetadata);
 
 /// Optional declarative room metadata authored on LDtk levels.
@@ -41,7 +41,7 @@ pub struct ActiveRoomMetadata(pub RoomMetadata);
 /// Consumers: room music selection, ambient layer selection,
 /// renderer palette/theme variants, nameplate presentation policy. This
 /// struct is intentionally non-exhaustive — adding a metadata seam is
-/// cheaper than adding a new resource per consumer.
+/// cheaper than adding a separate session component per consumer.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RoomVisualProfile {
     /// Stable authored profile id (for example `intro_wakeup_room`).

@@ -157,7 +157,7 @@ fn pogo_target_for_attack_hitbox(world: &ae::World, attack: ae::Aabb) -> Option<
 /// they are one pogo (`PogoTarget` entities + `PogoOrb` blocks). `set_jump_
 /// velocity` SETS (idempotent), so no per-frame dedup — the owner bounces clear.
 pub fn pogo_moveset_off_world_orbs(
-    world: Res<RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
     moving_platforms: Res<MovingPlatformSet>,
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
     mut hitboxes: Query<(
@@ -683,7 +683,7 @@ pub fn advance_body_melee(
     character_catalog: Res<CharacterCatalog>,
     authored_volumes: Res<crate::combat::authored_volumes::AuthoredAttackVolumeResolver>,
     world_time: Res<ambition_time::WorldTime>,
-    world: Res<RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
     moving_platforms: Res<MovingPlatformSet>,
     editable_tuning: Res<EditableMovementTuning>,
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,

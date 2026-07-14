@@ -493,18 +493,19 @@ impl Plugin for SanicDemoContentPlugin {
         use bevy::prelude::IntoScheduleConfigs;
 
         install_sanic_content(app);
-        // The demo's player is explicitly the speedster rather than relying on
-        // whichever row happens to be the provider-relative catalog default.
-        app.insert_resource(ambition::runtime::demo_fixture::StartingCharacter::new(
-            "sanic",
-        ));
         let room = sanic_speedway();
-        app.insert_resource(ae::RoomGeometry(room.world.clone()));
-        app.insert_resource(ActiveRoomMetadata(room.metadata.clone()));
-        app.insert_resource(RoomSet::from_parts(
-            SPEEDWAY_ROOM_ID,
-            vec![room],
-            Vec::new(),
+        app.world_mut().spawn((
+            ambition::platformer::lifecycle::SessionRoot(
+                ambition::platformer::lifecycle::SessionScopeId(0),
+            ),
+            ambition::runtime::PlatformerSessionWorld::new(
+                SANIC_EXPERIENCE,
+                RoomSet::from_parts(SPEEDWAY_ROOM_ID, vec![room.clone()], Vec::new()),
+                ae::RoomGeometry(room.world.clone()),
+                ActiveRoomMetadata(room.metadata.clone()),
+                ambition::runtime::demo_fixture::StartingCharacter::new(SANIC_CHARACTER_ID),
+                ambition::runtime::demo_fixture::LdtkRuntimeIndex::default(),
+            ),
         ));
         app.add_systems(
             bevy::app::Startup,
@@ -519,12 +520,12 @@ impl Plugin for SanicDemoContentPlugin {
 #[allow(clippy::too_many_arguments)]
 fn sanic_setup(
     mut commands: bevy::prelude::Commands,
-    world: bevy::prelude::Res<ae::RoomGeometry>,
-    room_set: bevy::prelude::Res<ambition::runtime::demo_fixture::RoomSet>,
-    ldtk_index: bevy::prelude::Res<ambition::runtime::demo_fixture::LdtkRuntimeIndex>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition::runtime::demo_fixture::RoomSet>,
+    ldtk_index: ambition::platformer::lifecycle::SessionWorldRef<ambition::runtime::demo_fixture::LdtkRuntimeIndex>,
     editable_abilities: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableAbilitySet>,
     editable_tuning: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableMovementTuning>,
-    starting_character: bevy::prelude::Res<ambition::runtime::demo_fixture::StartingCharacter>,
+    starting_character: ambition::platformer::lifecycle::SessionWorldRef<ambition::runtime::demo_fixture::StartingCharacter>,
     asset_server: bevy::prelude::Res<bevy::asset::AssetServer>,
     character_catalog: bevy::prelude::Res<
         ambition::characters::actor::character_catalog::CharacterCatalog,

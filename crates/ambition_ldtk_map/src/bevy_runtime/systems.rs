@@ -7,7 +7,7 @@
 
 use std::collections::BTreeMap;
 
-use bevy::prelude::{Query, Res, ResMut, With};
+use bevy::prelude::{Query, ResMut, With};
 
 use ambition_engine_core as ae;
 
@@ -27,8 +27,8 @@ use super::indices::{
 /// carry the typed `LdtkSolid` component, so future collision authority can
 /// query a tight collision-only view without iterating the broader spine.
 pub fn rebuild_ldtk_runtime_solid_index(
-    room_set: Res<ambition_world::rooms::RoomSet>,
-    runtime_index: Res<LdtkRuntimeIndex>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
+    runtime_index: ambition_platformer_primitives::lifecycle::SessionWorldRef<LdtkRuntimeIndex>,
     mut solid_index: ResMut<LdtkRuntimeSolidIndex>,
     query: Query<&AmbitionLdtkEntity, With<LdtkSolid>>,
 ) {
@@ -71,8 +71,8 @@ pub fn rebuild_ldtk_runtime_solid_index(
 /// promoted one-way category. The JSON adapter still owns runtime
 /// collision authority pending the parity overlay.
 pub fn rebuild_ldtk_runtime_one_way_index(
-    room_set: Res<ambition_world::rooms::RoomSet>,
-    runtime_index: Res<LdtkRuntimeIndex>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
+    runtime_index: ambition_platformer_primitives::lifecycle::SessionWorldRef<LdtkRuntimeIndex>,
     mut one_way_index: ResMut<LdtkRuntimeOneWayIndex>,
     query: Query<&AmbitionLdtkEntity, With<LdtkOneWayPlatform>>,
 ) {
@@ -112,8 +112,8 @@ pub fn rebuild_ldtk_runtime_one_way_index(
 /// Rebuild the active-area-local index of promoted LDtk `DamageVolume`
 /// (and legacy `HazardBlock`) entities.
 pub fn rebuild_ldtk_runtime_damage_index(
-    room_set: Res<ambition_world::rooms::RoomSet>,
-    runtime_index: Res<LdtkRuntimeIndex>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
+    runtime_index: ambition_platformer_primitives::lifecycle::SessionWorldRef<LdtkRuntimeIndex>,
     mut damage_index: ResMut<LdtkRuntimeDamageIndex>,
     query: Query<(&AmbitionLdtkEntity, &LdtkDamageVolume)>,
 ) {
@@ -153,8 +153,8 @@ pub fn rebuild_ldtk_runtime_damage_index(
 /// entities into active-area-local Ambition coordinates so gameplay/debug
 /// systems can consume plugin output without reparsing the LDtk JSON file.
 pub fn rebuild_ldtk_runtime_spine_index(
-    room_set: Res<ambition_world::rooms::RoomSet>,
-    runtime_index: Res<LdtkRuntimeIndex>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
+    runtime_index: ambition_platformer_primitives::lifecycle::SessionWorldRef<LdtkRuntimeIndex>,
     mut spine_index: ResMut<LdtkRuntimeSpineIndex>,
     query: Query<&AmbitionLdtkEntity>,
 ) {

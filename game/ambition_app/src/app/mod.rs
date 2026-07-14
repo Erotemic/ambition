@@ -64,5 +64,5 @@ pub use plugins::{
     add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins, SandboxLdtkPlugin,
     SandboxPresentationPlugin, SandboxSimulationPlugin,
 };
-pub use resources::{init_sandbox_resources, StartRoomOverride};
+pub use resources::{init_sandbox_resources, StartRoomOverride, StartingCharacterOverride};
 pub use sim_systems::{apply_player_reset_input_system, apply_room_replay_request_system};

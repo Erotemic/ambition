@@ -907,7 +907,7 @@ mod host_bridges {
     use ambition_portal_presentation::{PortalSceneBody, PortalWorldFrame};
     use ambition_render::rendering::PlayerVisual;
 
-    pub fn sync_portal_world_frame(world: Res<RoomGeometry>, mut frame: ResMut<PortalWorldFrame>) {
+    pub fn sync_portal_world_frame(world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>, mut frame: ResMut<PortalWorldFrame>) {
         if frame.size != world.0.size {
             frame.size = world.0.size;
         }
@@ -932,7 +932,10 @@ fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
     use ambition_render::rendering::PlayerVisual;
     use host_bridges::{sync_portal_world_frame, tag_portal_scene_bodies};
     let mut app = App::new();
-    app.insert_resource(world_with_two_walls());
+    ambition::platformer::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        world_with_two_walls(),
+    );
     // Drive the visual through the same adapter chain the host runs: world-frame
     // sync + scene-body tagging bridge the sandbox types (RoomGeometry /
     // PlayerVisual) to the crate-owned seams the presentation system reads (auto
@@ -1069,7 +1072,10 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
     // (the FIRE/TRAVEL sfx moved to the `play_portal_sfx` adapter, Phase 5a).
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_portal::PortalShotFired>();
-    app.insert_resource(world_with_two_walls());
+    ambition::platformer::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        world_with_two_walls(),
+    );
     app.insert_resource(ambition_time::WorldTime {
         raw_dt: 1.0 / 60.0,
         scaled_dt: 1.0 / 60.0,
@@ -1440,7 +1446,7 @@ fn a_portal_on_a_moving_platform_rides_its_host_face() {
 
     let mut app = App::new();
     // Authored base: one anon fixture wall (unattributable on purpose).
-    app.insert_resource(RoomGeometry(ae::World::new(
+    ambition::platformer::lifecycle::insert_session_world_component(app.world_mut(), RoomGeometry(ae::World::new(
         "cc6",
         Vec2::new(2000.0, 1000.0),
         Vec2::ZERO,

@@ -9,7 +9,7 @@
 //! [`SolidWorldQuery`](ambition_engine_core::cast::SolidWorldQuery)
 //! seam — the pure [`step_portal_shot`] helper raycasts against it (plus a
 //! world-bounds rectangle) and decides the outcome, so portal core never reads
-//! the concrete `Res<RoomGeometry>`. The Bevy adapter that owns `RoomGeometry` lives in
+//! the concrete `ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>`. The Bevy adapter that owns `RoomGeometry` lives in
 //! the host portal adapter and calls the helper.
 
 use bevy::prelude::*;
@@ -99,7 +99,7 @@ pub fn is_portal_placeable(_hit: Vec2, _normal: Vec2) -> bool {
 
 /// Outcome of advancing one [`PortalShot`] by `dt` against the world seam. The
 /// pure decision; the Bevy adapter applies it (spawns/despawns entities, plays
-/// sfx). Keeps portal core's shot logic free of `Res<RoomGeometry>` and of ECS
+/// sfx). Keeps portal core's shot logic free of `ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>` and of ECS
 /// entity bookkeeping.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PortalShotStep {

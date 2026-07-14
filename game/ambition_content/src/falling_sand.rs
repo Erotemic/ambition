@@ -299,7 +299,7 @@ fn setup_particle_types(mut commands: Commands) {
 
 fn sync_falling_sand_room_state(
     mut commands: Commands,
-    room_set: Res<ambition_actors::rooms::RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
     save: Res<ambition_persistence::save::SandboxSave>,
     mut state: ResMut<FallingSandRoomState>,
     particles: Query<Entity, With<Particle>>,
@@ -329,7 +329,7 @@ fn sync_falling_sand_room_state(
 }
 
 fn seed_falling_sand_room_boundaries(
-    room_set: Res<ambition_actors::rooms::RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
     mut state: ResMut<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
 ) {
@@ -461,7 +461,7 @@ fn emit_particle_rect(
 }
 
 fn capture_falling_sand_switch_interactions(
-    room_set: Res<ambition_actors::rooms::RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
     mut state: ResMut<FallingSandRoomState>,
     mut save: ResMut<ambition_persistence::save::SandboxSave>,
     mut effects: MessageReader<ambition_actors::features::SwitchActivated>,
@@ -509,7 +509,7 @@ fn capture_falling_sand_switch_interactions(
 /// sprite stays "on" (green) while the spout is actually off.
 fn sync_falling_sand_switch_visuals(
     state: Res<FallingSandRoomState>,
-    room_set: Res<ambition_actors::rooms::RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
     mut switches: Query<(
         &ambition_actors::features::SwitchFeature,
         &mut ambition_actors::features::SwitchOn,
@@ -534,7 +534,7 @@ fn sync_falling_sand_switch_visuals(
 
 fn sync_falling_sand_spout_nozzles(
     mut commands: Commands,
-    room_set: Res<ambition_actors::rooms::RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
     state: Res<FallingSandRoomState>,
     existing: Query<(Entity, &FallingSandSpoutNozzle)>,
 ) {
@@ -676,7 +676,7 @@ const MIXED_SPOUTS: [SpoutMouth; 3] = [
 /// `bevy_falling_sand`'s own `render` feature draws the falling matter, and
 /// `sync_material_visuals` draws what has settled. One owner, two views of it.
 fn emit_falling_sand_spouts(
-    room_set: Res<ambition_actors::rooms::RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
     state: Res<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
     mut last_logged: Local<Option<FallingSandSpoutState>>,
@@ -890,9 +890,9 @@ fn tally_particles<'a>(
 
 fn project_particles_to_movement_world(
     mut commands: Commands,
-    room_set: Res<ambition_actors::rooms::RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
     state: Res<FallingSandRoomState>,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     mut overlay: ResMut<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,
     particles: Query<(&GridPosition, &Particle)>,
     visuals: Query<(Entity, &FallingSandMaterialVisual)>,
@@ -1053,7 +1053,7 @@ fn project_liquid(
 }
 
 fn grant_room_swim_controls(
-    room_set: Res<ambition_actors::rooms::RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
     mut state: ResMut<FallingSandRoomState>,
     mut players: Query<(Entity, &mut ambition_actors::actor::BodyAbilities)>,
 ) {
@@ -1097,7 +1097,7 @@ fn grant_room_swim_controls(
 fn log_falling_sand_diagnostics(
     time: Res<Time>,
     state: Res<FallingSandRoomState>,
-    room_set: Res<ambition_actors::rooms::RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
     particles: Query<(&Particle, &GridPosition)>,
     // Component-presence query: every particle that has Particle should
     // ALSO get Density/Speed/Movement/AirResistance/MovementRng inherited

@@ -3,8 +3,8 @@
 //! The player entity is a *control box*: it carries `Brain::Player(slot)`, the
 //! home-body integration loop, the player markers, and the full traversal
 //! ability kit. WHICH character that box *wears* — its sprite, its combat
-//! moveset, and its name — is chosen by the [`StartingCharacter`] resource.
-//! With no override the resource is EMPTY and resolves (at spawn) to the
+//! moveset, and its name — is chosen by the session-owned [`StartingCharacter`] component.
+//! With no override the component is EMPTY and resolves (at spawn) to the
 //! CONTENT-installed default character (C2) — the engine names no specific
 //! character — so an untouched build spawns exactly as it did before.
 //!
@@ -16,19 +16,18 @@
 //! too without creating a character-specific movement route. The worn body
 //! still enters the same frame-aware movement kernel as every other body.
 //!
-//! [`StartingCharacter`] is the STARTUP SELECTION resource. At spawn
+//! [`StartingCharacter`] is the session-owned startup selection. At spawn
 //! ([`crate::session::setup`]) the chosen id is both overlaid onto the body
 //! (moveset + name) AND recorded as the canonical [`WornCharacter`] identity
 //! component ON the player entity. From then on the entity's component — not
-//! this resource — is the single source both gameplay and presentation derive
+//! this component — is the single source both gameplay and presentation derive
 //! from: [`apply_worn_character_gameplay`] re-applies the kit on any change, and
 //! the reusable `ambition_render` binder installs the sprite from the same
-//! identity. Presentation no longer reads this app-local resource.
+//! identity. Presentation reads the same session-owned identity rather than process state.
 
 use bevy::ecs::change_detection::{DetectChanges, Ref};
-use bevy::ecs::resource::Resource;
 use bevy::ecs::system::{Commands, Query};
-use bevy::prelude::{Changed, Entity, Has, Name, Or, Res, With};
+use bevy::prelude::{Changed, Component, Entity, Has, Name, Or, Res, With};
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::WornCharacter;
@@ -44,7 +43,7 @@ use crate::features::MotionModel;
 /// wear the provider-relative default supplied by the session builder.
 /// [`Default`] is exactly that. The engine names no specific character (C2):
 /// which row is the default is CONTENT's choice, resolved lazily at spawn.
-#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
 pub struct StartingCharacter {
     /// A `character_catalog.ron` row id, or EMPTY for the content default.
     /// Ids without a renderable sheet still spawn a controllable player (the
@@ -68,7 +67,7 @@ impl StartingCharacter {
 
     /// The concrete catalog id to wear: the explicit override, or the
     /// content-installed default when unset. Resolve at spawn time, never at
-    /// resource init (the content default installs at the catalog choke point).
+    /// component construction (the content default installs at the catalog choke point).
     pub fn effective_id<'a>(&'a self, default_character_id: &'a str) -> &'a str {
         if self.character_id.is_empty() {
             default_character_id
@@ -82,7 +81,7 @@ impl StartingCharacter {
 // cycles) is CONTENT — it lives in `ambition_content::character_catalog`
 // (`PLAYABLE_ROSTER` / `next_playable`), beside the catalog data it indexes
 // (R3.2, residue #10). This module keeps only the engine machinery: the
-// StartingCharacter resource + the moveset overlay.
+// StartingCharacter component + the moveset overlay.
 
 // NOTE (2026-07-05): the old `overlay_character_moveset` fallback — empty worn
 // slots kept the player's swipe/bolt/shield — is GONE. Wearing is possession

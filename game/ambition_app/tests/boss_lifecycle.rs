@@ -79,8 +79,8 @@ fn force_kill_boss(sim: &mut SandboxSim, runtime_id: &str) {
 }
 
 fn music_track(sim: &SandboxSim) -> Option<String> {
-    sim.world()
-        .resource::<EncounterMusicRequest>()
+    ambition::platformer::lifecycle::session_world_component::<EncounterMusicRequest>(sim.world())
+        .expect("live encounter-music request")
         .priority_track
         .clone()
 }

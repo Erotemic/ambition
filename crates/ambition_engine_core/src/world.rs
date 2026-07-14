@@ -1118,7 +1118,7 @@ pub const MIN_STATE_REGION_THICKNESS: f32 = MAX_EXPECTED_BODY_SPEED / 60.0;
 /// platforms, ECS solids, portal carves) — built sandbox-side by the world
 /// overlay (`world_with_sandbox_solids` in `ambition_actors`).
 /// `RoomGeometry` is the geometry; the view is what you collide against.
-#[derive(bevy_ecs::resource::Resource, Clone)]
+#[derive(bevy_ecs::component::Component, Clone)]
 pub struct RoomGeometry(pub World);
 
 #[cfg(test)]

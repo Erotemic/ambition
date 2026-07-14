@@ -106,7 +106,7 @@ pub fn publish_portal_camera_clamp(
 /// presentation-only deltas (portal camera continuity, shake) onto a COPY.
 pub fn camera_follow(
     resolved: Res<ResolvedCameraSnapshot>,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     mut view_state: ResMut<CameraViewState>,
     shake: Res<ambition_platformer_primitives::camera_ease::CameraShakeState>,
     mut extra_clamp: ResMut<CameraExtraClamp>,

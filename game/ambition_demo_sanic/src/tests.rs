@@ -518,7 +518,7 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
         // The focused rules-only shell omits PlatformerEnginePlugins, whose
         // SimCoreResourcesPlugin normally registers the shared SFX message.
         app.add_message::<ambition::sfx::OwnedSfxMessage>();
-        app.insert_resource(ActiveRoomMetadata(RoomMetadata {
+        ambition::platformer::lifecycle::insert_session_world_component(app.world_mut(), ActiveRoomMetadata(RoomMetadata {
             mode: mode.map(str::to_string),
             ..Default::default()
         }));
@@ -559,7 +559,7 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
     app.update();
     app.update();
     assert!(elapsed(&mut app).is_some());
-    app.insert_resource(ActiveRoomMetadata::default()); // left the Sanic rooms
+    ambition::platformer::lifecycle::insert_session_world_component(app.world_mut(), ActiveRoomMetadata::default()); // left the Sanic rooms
     app.world_mut()
         .run_system_once(ambition::runtime::despawn_departed_mode_entities)
         .expect("the engine's mode sweep runs");
@@ -591,7 +591,7 @@ fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
     assert_eq!(room.metadata.mode.as_deref(), Some(SANIC_MODE));
 
     let mut app = App::new();
-    app.insert_resource(ActiveRoomMetadata(room.metadata.clone()));
+    ambition::platformer::lifecycle::insert_session_world_component(app.world_mut(), ActiveRoomMetadata(room.metadata.clone()));
     let awake = app
         .world_mut()
         .run_system_once(in_mode(SANIC_MODE))
@@ -599,7 +599,7 @@ fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
     assert!(awake, "a hosted Sanic ruleset wakes inside the speedway");
 
     // Ambition's own rooms carry no mode, so the demo's rules sleep there.
-    app.insert_resource(ActiveRoomMetadata::default());
+    ambition::platformer::lifecycle::insert_session_world_component(app.world_mut(), ActiveRoomMetadata::default());
     let awake = app
         .world_mut()
         .run_system_once(in_mode(SANIC_MODE))

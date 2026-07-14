@@ -80,7 +80,8 @@ concern, plus this map), not by more crates.
   surviving `PrimaryPlayerOnly` filter in this crate carries a comment saying why
   it is asking that one.
 - **The collision world** is `ambition_world::collision::CollisionWorld`, not
-  `Res<RoomGeometry>`. A sweep or raycast that reads the bare geometry misses
+  a bare `SessionWorldRef<RoomGeometry>`. A sweep or raycast that reads only
+  authored geometry misses
   moving platforms, ECS solids, and portal carves.
 
 ### The two lints that will fail you

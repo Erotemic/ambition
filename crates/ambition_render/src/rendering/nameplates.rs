@@ -129,7 +129,12 @@ impl Plugin for ActorNameplatePresentationPlugin {
                     .after(super::actors::sync_visuals)
                     .after(super::camera::camera_follow),
             )
-            .add_systems(Update, sync_actor_nameplates.in_set(ActorNameplateSet));
+            .add_systems(
+                Update,
+                sync_actor_nameplates
+                    .in_set(ActorNameplateSet)
+                    .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
+            );
     }
 }
 
@@ -167,10 +172,10 @@ impl ActorNameplateSettings {
 #[allow(clippy::type_complexity)]
 pub fn sync_actor_nameplates(
     mut commands: Commands,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     settings: Res<ActorNameplateSettings>,
     active_session: Option<Res<ActiveSessionScope>>,
-    active_metadata: Option<Res<ActiveRoomMetadata>>,
+    active_metadata: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<ActiveRoomMetadata>>,
     camera: Option<Res<CameraViewState>>,
     // Sim-built nameplate read-model (E4 slices 5+16): label / geometry /
     // liveness / controlled-body facts per actor id. Doors stay render-side

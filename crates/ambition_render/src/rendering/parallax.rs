@@ -143,8 +143,8 @@ pub fn spawn_parallax_layers(
 pub fn refresh_parallax_layers_on_quality_change(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    world: Res<ambition_engine_core::RoomGeometry>,
-    room_set: Res<ambition_world::rooms::RoomSet>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     layers: Query<

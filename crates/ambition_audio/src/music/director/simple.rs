@@ -107,8 +107,8 @@ mod authority_tests {
         list.iter().map(|s| s.to_string()).collect()
     }
 
-    /// Poison (Issue 1): Ambition ran, its resident room/radio/encounter request
-    /// state still names Ambition tracks. Quit to Home, then Sanic activates.
+    /// Poison (Issue 1): Ambition ran, and delayed room/radio/encounter request
+    /// evidence still names Ambition tracks. Quit to Home, then Sanic activates.
     /// This frame's candidates carry the stale Ambition ids AND Sanic's default.
     /// Only Sanic's own track survives the authority gate — the Ambition track
     /// cannot play even though it exists in the combined library.

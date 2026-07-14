@@ -40,10 +40,9 @@ fn compose_smb1_shell(app: &mut App, home_route: &str) {
         ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog,
         ShellRouteSpec,
     };
-    use ambition_demo_smb1::{smb1_session_world, Smb1ExperiencePlugin, MARY_O_GAMEPLAY_ROUTE};
+    use ambition_demo_smb1::{Smb1ExperiencePlugin, MARY_O_GAMEPLAY_ROUTE};
 
     app.add_plugins(ambition::game_shell::MinimalShellPlugins);
-    app.add_plugins(ambition::session_world::PlatformerSessionWorldProjectionPlugin);
     // The standalone launcher is an explicit frontend audio context. Mary-O
     // authors an empty fragment, so the launcher and gameplay are deliberately
     // silent rather than inheriting another provider's cached sounds.
@@ -64,13 +63,10 @@ fn compose_smb1_shell(app: &mut App, home_route: &str) {
         .resource_mut::<ShellHostConfiguration>()
         .spec = Some(ShellHostSpec::new(MARY_O_GAMEPLAY_ROUTE, home_route));
 
-    // Build-time initial world so the fixed-tick sim already has a
-    // `RoomGeometry`/`RoomSet`/`ActiveRoomMetadata` on frame 1.
-    let world = smb1_session_world();
-    app.insert_resource(world.geometry);
-    app.insert_resource(world.room_set);
-    app.insert_resource(world.metadata);
-    app.insert_resource(world.starting_character);
+    // The shell-gated simulation stays dormant until the provider publishes
+    // its exact SessionRoot during activation. No process-resident bootstrap
+    // world is installed here; loading and launcher frames have zero world
+    // authority by construction.
 }
 
 /// The same demo, DRAWN — foundation swapped for `DefaultPlugins`, plus the

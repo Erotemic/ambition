@@ -41,7 +41,7 @@ pub struct CutRopeBossArenaState {
 /// generic encounter script + falling-hazard mechanic. Also owns the cut-rope
 /// state reset on room enter/exit + room-feature reset.
 pub fn detect_cut_rope_rope_cut(
-    room_set: Res<RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<RoomSet>,
     mut state: ResMut<CutRopeBossArenaState>,
     mut hit_events: MessageReader<HitEvent>,
     mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
@@ -107,7 +107,7 @@ pub fn detect_cut_rope_rope_cut(
 /// `ForceKill`; the anvil PHYSICS is the generic `FallingHazard`.
 pub fn tick_cut_rope_flavor(
     world_time: Res<ambition_time::WorldTime>,
-    room_set: Res<RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<RoomSet>,
     mut state: ResMut<CutRopeBossArenaState>,
     heavy_object: Res<CutRopeHeavyObjectCycle>,
     mut gates: MessageReader<EncounterGate>,
@@ -195,7 +195,7 @@ pub fn tick_cut_rope_flavor(
 /// arena state. This is intentionally separate from the gameplay systems so the
 /// rendering query doesn't bloat their parameter arity.
 pub fn sync_cut_rope_boss_arena_prop_visuals(
-    room_set: Res<RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<RoomSet>,
     state: Res<CutRopeBossArenaState>,
     heavy_object: Res<CutRopeHeavyObjectCycle>,
     mut prop_visuals: Query<(
@@ -365,7 +365,7 @@ fn reset_cut_rope_arena_state_for_room(state: &mut CutRopeBossArenaState, room_i
 /// replay while gameplay is suspended, so this reset bridge runs in the ungated
 /// room-reset chain and restores rope/anvil visuals on the reset frame.
 pub fn reset_cut_rope_boss_arena_on_room_reset(
-    room_set: Res<RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<RoomSet>,
     mut state: ResMut<CutRopeBossArenaState>,
     mut heavy_object: ResMut<CutRopeHeavyObjectCycle>,
     mut reset_events: MessageReader<ResetRoomFeaturesEvent>,

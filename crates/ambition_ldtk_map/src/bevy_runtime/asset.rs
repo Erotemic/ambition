@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 use bevy::asset::{AssetServer, Handle};
-use bevy::prelude::{Commands, Component, Query, Res, ResMut, Resource, Transform, Vec3, With};
+use bevy::prelude::{Commands, Component, Query, Res, Resource, Transform, Vec3, With};
 use bevy_ecs_ldtk::prelude::LevelSet;
 
 use ambition_engine_core::config::WORLD_Z_BLOCK;
@@ -66,7 +66,7 @@ impl LdtkAreaBounds {
     }
 }
 
-#[derive(Resource, Clone, Debug)]
+#[derive(Component, Clone, Debug)]
 pub struct LdtkRuntimeIndex {
     active_area: String,
     area_level_iids: BTreeMap<String, Vec<String>>,
@@ -160,8 +160,8 @@ impl LdtkRuntimeIndex {
 }
 
 pub fn sync_ldtk_level_set(
-    room_set: Res<ambition_world::rooms::RoomSet>,
-    mut index: ResMut<LdtkRuntimeIndex>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
+    mut index: ambition_platformer_primitives::lifecycle::SessionWorldMut<LdtkRuntimeIndex>,
     mut ldtk_worlds: Query<&mut LevelSet, With<LdtkWorldRoot>>,
 ) {
     let active_area = room_set.active_spec().id.clone();
@@ -208,7 +208,7 @@ pub fn sync_ldtk_level_set(
 /// the level layout changes (room dimensions, `world_to_bevy`,
 /// LdtkSettings::level_spawn_behavior).
 pub fn sync_ldtk_world_transform(
-    room_set: Res<ambition_world::rooms::RoomSet>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
     mut ldtk_worlds: Query<&mut Transform, With<LdtkWorldRoot>>,
 ) {
     let active_world = room_set.active_world();

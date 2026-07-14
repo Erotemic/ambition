@@ -13,7 +13,7 @@ use super::*;
 /// behavior use the existing ECS actor path.
 pub fn spawn_cut_rope_victory_npc(
     mut commands: Commands,
-    room_set: Res<RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<RoomSet>,
     save: Res<ambition_persistence::save::SandboxSave>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<ambition_actors::features::CharacterRoster>,

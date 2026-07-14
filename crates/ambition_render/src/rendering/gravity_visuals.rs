@@ -22,7 +22,7 @@ pub struct GravityZoneVisual;
 /// where gravity changes (violet = up, teal = down/other).
 pub fn sync_gravity_zone_visual(
     mut commands: Commands,
-    world: Res<RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
     active_session: Option<Res<ActiveSessionScope>>,
     visuals: Query<Entity, With<GravityZoneVisual>>,
     zones: Query<&GravityZone>,
@@ -91,7 +91,7 @@ pub struct GravitySwitchVisual;
 /// orange when it's flipped, so the player can see the current gravity state.
 pub fn sync_gravity_switch_visual(
     mut commands: Commands,
-    world: Res<RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
     active_session: Option<Res<ActiveSessionScope>>,
     gravity: Option<Res<GravityField>>,
     visuals: Query<Entity, With<GravitySwitchVisual>>,

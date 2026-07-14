@@ -148,7 +148,7 @@ pub fn bind_worn_character_presentation(
 }
 
 pub fn sync_visuals(
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     entities: Option<Res<SceneEntities>>,
     assets: Option<Res<GameAssets>>,
     feature_views: Res<FeatureViewIndex>,

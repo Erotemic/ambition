@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use ambition_menu::map::{MapMenuState, MapRoomNode};
 
 pub fn track_room_visits(
-    room_set: Res<crate::rooms::RoomSet>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     mut map: ResMut<MapMenuState>,
     mut last: Local<Option<String>>,
     mut save: ResMut<ambition_persistence::save::SandboxSave>,

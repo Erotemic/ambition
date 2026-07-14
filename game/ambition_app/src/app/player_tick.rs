@@ -37,7 +37,7 @@ use super::world_flow::{reset_sandbox, RoomClock};
 /// movement phase; this owns the SANDBOX/ROOM reset, which is home policy.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_home_reset_policy(
-    world: Res<RoomGeometry>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut event_writers: SandboxEventWriters,

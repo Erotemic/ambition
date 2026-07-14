@@ -806,7 +806,7 @@ pub fn fire_held_ranged_system(
 #[allow(clippy::too_many_arguments)]
 pub fn held_projectile_step(
     time: Res<ambition_time::WorldTime>,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     overlay: Res<crate::features::FeatureEcsWorldOverlay>,
     mut commands: Commands,
     // `Without<FeatureSimEntity>` keeps this `&mut BodyKinematics` disjoint from

@@ -128,7 +128,7 @@ fn spawn_main_camera(mut commands: Commands) {
 /// gameplay-session lifecycle. Shell hosts wait for a real session activation.
 fn spawn_initial_room_visuals(
     mut commands: Commands,
-    room_set: Option<Res<RoomSet>>,
+    room_set: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomSet>>,
     physics_settings: Res<PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
@@ -167,7 +167,7 @@ fn sync_session_room_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
     mut presented: ResMut<PresentedSessionScope>,
-    room_set: Option<Res<RoomSet>>,
+    room_set: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomSet>>,
     physics_settings: Res<PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,

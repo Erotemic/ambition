@@ -60,7 +60,7 @@ impl Plugin for DemoRulesPlugin {
 }
 
 fn set_mode(app: &mut App, mode: Option<&str>) {
-    app.world_mut().resource_mut::<ActiveRoomMetadata>().0 = RoomMetadata {
+    ambition_platformer_primitives::lifecycle::session_world_component_mut::<ActiveRoomMetadata>(app.world_mut()).expect("active session room metadata").0 = RoomMetadata {
         mode: mode.map(str::to_string),
         ..Default::default()
     };
@@ -80,7 +80,7 @@ fn mode_scoped_entities(app: &mut App) -> Vec<String> {
 /// plugin knows the other exists, and neither owns a global state.
 fn two_hosted_demos() -> App {
     let mut app = App::new();
-    app.insert_resource(ActiveRoomMetadata::default());
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ActiveRoomMetadata::default());
     app.init_resource::<RuleTicks>();
     // The sweep as the engine group schedules it, minus the sim-schedule
     // plumbing this test does not need. `SandboxSet::Progression` membership is
@@ -169,7 +169,7 @@ fn a_room_change_inside_the_same_mode_spares_the_modes_entities() {
     app.world_mut().commands().spawn_mode_scoped("a", ());
     app.world_mut().flush();
 
-    app.world_mut().resource_mut::<ActiveRoomMetadata>().0 = RoomMetadata {
+    ambition_platformer_primitives::lifecycle::session_world_component_mut::<ActiveRoomMetadata>(app.world_mut()).expect("active session room metadata").0 = RoomMetadata {
         mode: Some("a".into()),
         biome: Some("a_second_room".into()),
         ..Default::default()
@@ -183,7 +183,7 @@ fn a_room_change_inside_the_same_mode_spares_the_modes_entities() {
 #[test]
 fn a_standalone_ruleset_runs_with_no_mode_at_all() {
     let mut app = App::new();
-    app.insert_resource(ActiveRoomMetadata::default());
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ActiveRoomMetadata::default());
     app.init_resource::<RuleTicks>();
     app.add_plugins(DemoRulesPlugin {
         mode: "a",

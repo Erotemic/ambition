@@ -34,7 +34,7 @@ fn test_app() -> App {
     });
     app.add_message::<EncounterGate>();
     app.init_resource::<GameplayBanner>();
-    app.init_resource::<EncounterMusicRequest>();
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), <EncounterMusicRequest>::default());
     app.add_systems(Update, tick_encounter_scripts);
     app
 }
@@ -170,7 +170,7 @@ fn falling_hazard_drops_when_aligned_and_fires_impact_gate() {
         raw_dt: 1.0 / 60.0,
         scaled_dt: 1.0 / 60.0,
     });
-    app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(ae::World::new(
         "t",
         ae::Vec2::new(2000.0, 2000.0),
         ae::Vec2::new(50.0, 50.0),

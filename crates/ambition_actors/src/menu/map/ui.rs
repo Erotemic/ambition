@@ -195,7 +195,7 @@ struct RoomLabel {
 pub fn sync_map_menu(
     mut commands: Commands,
     map: Res<MapMenuState>,
-    room_set: Res<crate::rooms::RoomSet>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     mut roots: Query<&mut Visibility, (With<MapMenuRoot>, Without<MinimapRoot>)>,
     mut minimap_roots: Query<&mut Visibility, (With<MinimapRoot>, Without<MapMenuRoot>)>,
     canvases: Query<Entity, With<MapMenuCanvas>>,

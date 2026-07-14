@@ -386,7 +386,7 @@ pub fn drive_boss_animators(
 /// player-brain snapshot because controller input is the point of that path.
 pub fn tick_boss_brains_system(
     world_time: Res<WorldTime>,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     // A possessed boss carries `Brain::Player(slot)` and reads its controller
@@ -673,7 +673,7 @@ pub(crate) fn horizontal_front_wall_clearance(
 /// `integrate_actor_body`; keep this as the boss orchestrator around that seam.
 pub fn integrate_boss_bodies(
     world_time: Res<WorldTime>,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,

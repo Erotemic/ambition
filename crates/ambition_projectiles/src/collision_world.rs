@@ -28,7 +28,7 @@ use bevy::prelude::{Query, Res};
 /// and could never transit a wall portal.
 #[derive(SystemParam)]
 pub struct ProjectileCollisionWorld<'w, 's> {
-    world: Res<'w, RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<'w, 's, RoomGeometry>,
     overlay: Res<'w, FeatureEcsWorldOverlay>,
     // Folded in here (rather than as its own top-level param) because the stepper
     // is already at Bevy's 16-param ceiling.

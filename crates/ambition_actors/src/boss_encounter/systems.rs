@@ -64,10 +64,10 @@ pub fn update_boss_encounters(
     registry: Res<BossEncounterRegistry>,
     mut banner: ResMut<crate::features::GameplayBanner>,
     mut save: ResMut<ambition_persistence::save::SandboxSave>,
-    mut music_request: ResMut<crate::encounter::EncounterMusicRequest>,
+    mut music_request: ambition_platformer_primitives::lifecycle::SessionWorldMut<crate::encounter::EncounterMusicRequest>,
     mut quests: ResMut<QuestRegistry>,
     mut cutscene_queue: ResMut<CutsceneTriggerQueue>,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     active_session: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
     reward_chests: Query<
         (

@@ -47,7 +47,7 @@ pub struct PortalHostScanned;
 /// Lazily attach just-placed portals to the identified face they sit on.
 pub fn attach_portal_hosts(
     mut commands: Commands,
-    room: Option<Res<RoomGeometry>>,
+    room: Option<ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>>,
     platforms: Option<Res<MovingPlatformSet>>,
     mut portals: Query<(Entity, &mut PlacedPortal), Without<PortalHostScanned>>,
 ) {
@@ -75,7 +75,7 @@ pub fn attach_portal_hosts(
 /// §5-P2 step 2: re-derive each hosted aperture's frame from its host face.
 pub fn refresh_hosted_portal_frames(
     mut commands: Commands,
-    room: Option<Res<RoomGeometry>>,
+    room: Option<ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>>,
     platforms: Option<Res<MovingPlatformSet>>,
     time: Option<Res<ambition_time::WorldTime>>,
     mut portals: Query<(Entity, &mut PlacedPortal)>,

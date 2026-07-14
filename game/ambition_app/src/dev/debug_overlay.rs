@@ -43,7 +43,7 @@ pub struct DebugOverlayLabel;
 /// frame, so toggling the overlay off (no pushes) clears the labels next frame.
 pub(crate) fn render_debug_overlay_labels(
     mut commands: Commands,
-    world: Res<RoomGeometry>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     mut labels: ResMut<DebugOverlayLabels>,
     existing: Query<Entity, With<DebugOverlayLabel>>,
 ) {
@@ -76,11 +76,11 @@ pub(crate) fn draw_debug_overlay() {}
 #[cfg(feature = "input")]
 pub(crate) fn draw_debug_overlay(
     mut gizmos: Gizmos,
-    world: Res<RoomGeometry>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     dev_state: Res<SandboxDevState>,
     platform_set: Res<ambition::world::collision::MovingPlatformSet>,
     developer_tools: Res<DeveloperTools>,
-    room_set: Res<RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<RoomSet>,
     ldtk_spine_index: Res<ambition::actors::ldtk_world::LdtkRuntimeSpineIndex>,
     camera_view: Res<CameraViewState>,
     mode: Res<State<GameMode>>,

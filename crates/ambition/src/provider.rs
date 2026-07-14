@@ -681,10 +681,6 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     sandbox_data_asset: Option<Res<'w, crate::actors::session::data::SandboxDataAsset>>,
     sandbox_asset_collection:
         Option<Res<'w, crate::actors::assets::loading::SandboxAssetCollection>>,
-    geometry: ResMut<'w, crate::engine_core::RoomGeometry>,
-    room_set: ResMut<'w, crate::actors::rooms::RoomSet>,
-    metadata: ResMut<'w, crate::actors::rooms::ActiveRoomMetadata>,
-    starting_character: ResMut<'w, crate::actors::avatar::StartingCharacter>,
     active_session: ResMut<'w, ActiveGameplaySession>,
 }
 
@@ -729,13 +725,8 @@ impl PlatformerSessionBuilder<'_, '_> {
 
         let world = self
             .active_session
-            .spawn_world_for(&mut self.commands, activation, scope, live_world.clone())
+            .spawn_world_for(&mut self.commands, activation, scope, live_world)
             .expect("provider activation still owns the session it is constructing");
-
-        *self.geometry = live_world.geometry;
-        *self.room_set = live_world.room_set;
-        *self.metadata = live_world.active_room;
-        *self.starting_character = live_world.starting_character;
 
         SessionBuildResult { player, world }
     }

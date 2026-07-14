@@ -29,7 +29,7 @@ fn respawn_from_the_room(world: &mut World, sim_id: &str) -> Option<Entity> {
         .get_resource::<ambition_actors::boss_encounter::BossCatalog>()?
         .clone();
     let room = {
-        let rooms = world.get_resource::<ambition_world::rooms::RoomSet>()?;
+        let rooms = ambition_platformer_primitives::lifecycle::session_world_component::<ambition_world::rooms::RoomSet>(world)?;
         rooms.rooms.get(rooms.active)?.clone()
     };
     let session_scope =
@@ -242,8 +242,7 @@ pub fn restore(
     // room restored into a world with none — or vice versa — is a state mismatch as surely
     // as two different ids, and the old both-`Some` guard let it through. `None == None`
     // (a headless fixture with no `RoomSet`) is not a mismatch and does not refuse.
-    let active_room = world
-        .get_resource::<ambition_world::rooms::RoomSet>()
+    let active_room = ambition_platformer_primitives::lifecycle::session_world_component::<ambition_world::rooms::RoomSet>(world)
         .map(|rs| rs.active_spec().id.clone());
     if snapshot.active_room != active_room {
         return Err(RestoreError::CrossRoomBoundary {

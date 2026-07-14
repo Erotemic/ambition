@@ -78,12 +78,12 @@ pub(super) fn sync_preset_input_map(
 pub(super) fn handle_ldtk_hot_reload(
     mut commands: ambition::platformer::lifecycle::SessionCommands<'_, '_>,
     keys: Res<ButtonInput<KeyCode>>,
-    mut world: ResMut<RoomGeometry>,
-    mut room_set: ResMut<rooms::RoomSet>,
+    mut world: ambition::platformer::lifecycle::SessionWorldMut<RoomGeometry>,
+    mut room_set: ambition::platformer::lifecycle::SessionWorldMut<rooms::RoomSet>,
     mut dev_state: ResMut<SandboxDevState>,
     mut sim_state: ResMut<ambition::actors::SandboxSimState>,
     mut dialogue: ResMut<ambition::dialog::DialogState>,
-    mut ldtk_index: ResMut<ldtk_world::LdtkRuntimeIndex>,
+    mut ldtk_index: ambition::platformer::lifecycle::SessionWorldMut<ldtk_world::LdtkRuntimeIndex>,
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
     editable_tuning: Res<EditableMovementTuning>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
@@ -296,7 +296,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     }
 
     let active_room = transaction.next_spec.id.clone();
-    *room_set = transaction.next_room_set;
+    **room_set = transaction.next_room_set;
     world.0 = transaction.next_spec.world.clone();
 
     // The repaired placement is a discrete TRANSIT (ADR 0024 authority):

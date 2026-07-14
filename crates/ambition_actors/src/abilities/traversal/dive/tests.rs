@@ -68,7 +68,7 @@ fn downward_dive_does_not_embed_in_the_floor() {
     // the body's half-HEIGHT, not half-width, or a down dive embeds in the floor.
     let mut app = test_app();
     let player = spawn_primary_player_holding(&mut app, DIVE_ID); // (100,100), 24x40
-    app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(ae::World::new(
         "test",
         ae::Vec2::new(600.0, 600.0),
         ae::Vec2::new(100.0, 100.0),

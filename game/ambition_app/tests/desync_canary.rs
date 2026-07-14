@@ -65,9 +65,9 @@ fn try_sim(room: &str) -> Result<SandboxSim, String> {
     let sim = SandboxSim::new_with_options(opts)
         .map_err(|e| format!("room `{room}` failed to build: {e}"))?;
     let active = {
-        let spec = sim
-            .world()
-            .get_resource::<ambition::world::rooms::RoomSet>()
+        let spec = ambition::platformer::lifecycle::session_world_component::<ambition::world::rooms::RoomSet>(
+                sim.world(),
+            )
             .ok_or_else(|| format!("room `{room}`: no RoomSet after build"))?
             .active_spec();
         if spec.id == room || spec.world.name == room {
@@ -712,9 +712,9 @@ fn every_placement_entity_is_owned_by_the_active_room_every_tick() {
         // (`placements`, `enemy_spawns`, `boss_spawns`) — the same three arms
         // `respawn_authored_entity` reconstructs from.
         let authored_by: BTreeMap<String, BTreeSet<String>> = {
-            let rs = s
-                .world()
-                .get_resource::<ambition::world::rooms::RoomSet>()
+            let rs = ambition::platformer::lifecycle::session_world_component::<ambition::world::rooms::RoomSet>(
+                    s.world(),
+                )
                 .expect("a RoomSet");
             let mut map: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
             for spec in &rs.rooms {
@@ -745,10 +745,10 @@ fn every_placement_entity_is_owned_by_the_active_room_every_tick() {
             s.step(policy.act());
 
             let active_id = {
-                let rs = s
-                    .world()
-                    .get_resource::<ambition::world::rooms::RoomSet>()
-                    .expect("a RoomSet");
+                let rs = ambition::platformer::lifecycle::session_world_component::<
+                    ambition::world::rooms::RoomSet,
+                >(s.world())
+                .expect("a RoomSet");
                 rs.active_spec().id.clone()
             };
             let live: Vec<String> = {
@@ -791,8 +791,9 @@ fn every_placement_entity_is_owned_by_the_active_room_every_tick() {
 
 /// The active room's `RoomSpec` id.
 fn active_room(s: &SandboxSim) -> String {
-    s.world()
-        .get_resource::<ambition::world::rooms::RoomSet>()
+    ambition::platformer::lifecycle::session_world_component::<ambition::world::rooms::RoomSet>(
+        s.world(),
+    )
         .map(|rs| rs.active_spec().id.clone())
         .unwrap_or_default()
 }
@@ -875,9 +876,7 @@ fn changing_only_the_active_room_changes_the_registered_hash() {
     let reg = registry_of(&mut s);
     let before = reg.hash_world(s.world());
 
-    let mut rooms = s
-        .world()
-        .get_resource::<RoomSet>()
+    let mut rooms = ambition::platformer::lifecycle::session_world_component::<RoomSet>(s.world())
         .expect("the sandbox sim has a RoomSet")
         .clone();
     // A second room, identical to the active one but for its id, made active. Nothing
@@ -886,7 +885,8 @@ fn changing_only_the_active_room_changes_the_registered_hash() {
     probe.id = format!("{}\u{0}hash-probe", probe.id);
     rooms.rooms.push(probe);
     rooms.active = rooms.rooms.len() - 1;
-    s.world_mut().insert_resource(rooms);
+    *ambition::platformer::lifecycle::session_world_component_mut::<RoomSet>(s.world_mut())
+        .expect("the sandbox sim has a mutable RoomSet") = rooms;
 
     let after = reg.hash_world(s.world());
     assert_ne!(

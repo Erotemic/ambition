@@ -2,7 +2,7 @@
 //! per-frame dynamic contributions a running sim adds to it.
 //!
 //! [`CollisionWorld`] is the single collision read-API every actor sweep/raycast
-//! should reach for instead of `Res<RoomGeometry>`: it composites the authored
+//! should reach for instead of `ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>`: it composites the authored
 //! room with moving platforms and the ECS overlay so player, NPC, enemy, and
 //! projectile all collide against one truth (the relativity principle as a
 //! correctness property), never the bare geometry.
@@ -45,15 +45,16 @@ pub struct MovingPlatformSet(pub Vec<MovingPlatformState>);
 /// moving platforms, ECS-owned solids, and portal carves — into the collision
 /// world a sweep or raycast should see.
 ///
-/// Every resource is optional so headless / minimal-app tests that insert only a
-/// room (or nothing) still satisfy the param. The composite degrades to the bare
+/// The canonical room component and every dynamic process resource are optional
+/// so headless / minimal-app tests that publish only a room (or nothing) still
+/// satisfy the parameter. The composite degrades to the bare
 /// authored geometry *exactly* when there are no dynamics — which is precisely
-/// when bare and composite are identical — so routing a former `Res<RoomGeometry>`
+/// when bare and composite are identical — so routing a former `ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>`
 /// reader through here changes behaviour only in production rooms that actually
 /// carry moving platforms / ECS solids / portal carves.
 #[derive(SystemParam)]
-pub struct CollisionWorld<'w> {
-    room: Option<Res<'w, ae::RoomGeometry>>,
+pub struct CollisionWorld<'w, 's> {
+    room: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<'w, 's, ae::RoomGeometry>>,
     platforms: Option<Res<'w, MovingPlatformSet>>,
     overlay: Option<Res<'w, FeatureEcsWorldOverlay>>,
 }
@@ -312,7 +313,10 @@ mod collision_world_tests {
     fn no_dynamics_borrows_base() {
         let mut app = App::new();
         app.init_resource::<SolidsProbe>();
-        app.insert_resource(room_one_block());
+        ambition_platformer_primitives::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            room_one_block(),
+        );
         // No platforms, no overlay → borrow the base, identical block count.
         assert_eq!(run(&mut app), Some((false, 1)));
     }
@@ -321,7 +325,10 @@ mod collision_world_tests {
     fn empty_overlay_still_borrows() {
         let mut app = App::new();
         app.init_resource::<SolidsProbe>();
-        app.insert_resource(room_one_block());
+        ambition_platformer_primitives::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            room_one_block(),
+        );
         app.insert_resource(FeatureEcsWorldOverlay::default());
         // An empty overlay is still the no-dynamics fast path.
         assert_eq!(run(&mut app), Some((false, 1)));
@@ -331,7 +338,10 @@ mod collision_world_tests {
     fn overlay_solids_compose_owned() {
         let mut app = App::new();
         app.init_resource::<SolidsProbe>();
-        app.insert_resource(room_one_block());
+        ambition_platformer_primitives::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            room_one_block(),
+        );
         app.insert_resource(FeatureEcsWorldOverlay {
             blocks: vec![ae::Block {
                 id: ae::GeoId::anon(),
@@ -358,7 +368,10 @@ mod collision_world_tests {
     fn gate_solids_compose_into_the_player_collision_view() {
         let mut app = App::new();
         app.init_resource::<SolidsProbe>();
-        app.insert_resource(room_one_block());
+        ambition_platformer_primitives::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            room_one_block(),
+        );
         app.insert_resource(FeatureEcsWorldOverlay {
             gate_solids: vec![gate_wall()],
             ..Default::default()

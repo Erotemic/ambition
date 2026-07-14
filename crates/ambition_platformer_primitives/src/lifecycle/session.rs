@@ -18,7 +18,8 @@
 
 use std::ops::{Deref, DerefMut};
 
-use bevy::ecs::system::SystemParam;
+use bevy::ecs::change_detection::Ref;
+use bevy::ecs::system::{Single, SystemParam};
 use bevy::prelude::*;
 
 use super::markers::RoomScopedEntity;
@@ -73,7 +74,7 @@ impl ActiveSessionScope {
 /// Marker resource: this App's gameplay simulation belongs to shell-routed
 /// gameplay sessions. Inserted by the session bridge (the host composition that
 /// routes gameplay through a launcher); never inserted by direct-entry apps or
-/// headless harnesses, which keep today's always-on simulation.
+/// headless harnesses, whose synchronously published root is sufficient authority.
 ///
 /// [`simulation_authorized`] reads it: with the marker present, the gameplay
 /// simulation root set runs only while a session scope is live, so launcher /
@@ -83,19 +84,23 @@ pub struct SessionGatedSimulation;
 
 /// Run condition for the gameplay-simulation root set.
 ///
-/// - No [`SessionGatedSimulation`] marker: the App did not opt into
-///   session-routed gameplay (direct-entry / headless) — simulate every frame.
-/// - Marker present: simulate only while [`ActiveSessionScope`] holds a live
-///   session. At frontend routes there is no session and the simulation —
-///   including its tick timeline — sleeps.
+/// Every app requires exactly one [`SessionRoot`] before gameplay systems may
+/// run. Direct-entry and headless apps do not require shell scope identity, but
+/// they still publish the same canonical root synchronously. Shell-routed hosts
+/// additionally require [`ActiveSessionScope`] to name that exact root. This
+/// keeps empty/minimal apps, frontend routes, provider preparation, and stale
+/// delayed roots structurally dormant instead of letting required world
+/// parameters fail validation.
 pub fn simulation_authorized(
     gate: Option<Res<SessionGatedSimulation>>,
     scope: Option<Res<ActiveSessionScope>>,
+    roots: Query<&SessionRoot>,
 ) -> bool {
-    match gate {
-        None => true,
-        Some(_) => scope.is_some_and(|scope| scope.current().is_some()),
-    }
+    let Ok(root) = roots.single() else {
+        return false;
+    };
+    gate.is_none()
+        || scope.as_deref().and_then(ActiveSessionScope::current) == Some(root.0)
 }
 
 /// A captured entity-ownership context.
@@ -200,6 +205,110 @@ pub struct SessionScopedEntity(pub SessionScopeId);
 /// Marker on the canonical root entity for a gameplay session.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SessionRoot(pub SessionScopeId);
+
+/// Read one component from the exact canonical live session-world root.
+///
+/// The root entity is the authority: at a frontend route no such entity exists,
+/// while a gameplay activation owns exactly one. Systems using this parameter
+/// therefore cannot accidentally fall back to process-resident world state.
+pub type SessionWorldRef<'w, 's, T> =
+    Single<'w, 's, Ref<'static, T>, With<SessionRoot>>;
+
+/// Mutate one component on the exact canonical live session-world root.
+pub type SessionWorldMut<'w, 's, T> =
+    Single<'w, 's, &'static mut T, With<SessionRoot>>;
+
+/// True only while the exact canonical live session-world root exists.
+///
+/// Direct-entry apps have no [`SessionGatedSimulation`] marker and therefore
+/// require only one root. Shell-routed hosts additionally require that root's
+/// scope to equal the active activation scope. A delayed root from A can never
+/// wake gameplay or presentation while B is current or still preparing.
+pub fn session_world_exists(
+    gate: Option<Res<SessionGatedSimulation>>,
+    active: Option<Res<ActiveSessionScope>>,
+    roots: Query<&SessionRoot>,
+) -> bool {
+    let Ok(root) = roots.single() else {
+        return false;
+    };
+    gate.is_none()
+        || active.as_deref().and_then(ActiveSessionScope::current) == Some(root.0)
+}
+
+fn unique_session_world_root(world: &World) -> Option<(Entity, SessionScopeId)> {
+    let mut roots = world.iter_entities().filter_map(|entity| {
+        entity
+            .get::<SessionRoot>()
+            .map(|root| (entity.id(), root.0))
+    });
+    let root = roots.next()?;
+    assert!(
+        roots.next().is_none(),
+        "more than one canonical SessionRoot exists"
+    );
+    Some(root)
+}
+
+/// Locate the one exact live session-world root without constructing a
+/// persistent query state. Useful at imperative App/World boundaries such as
+/// snapshot codecs, CLI inspection, and focused tests.
+///
+/// Shell-routed worlds additionally require the root owner to equal the active
+/// session scope. A delayed root from a retired activation therefore remains
+/// structurally unreadable even at imperative boundaries.
+pub fn session_world_entity(world: &World) -> Option<Entity> {
+    let (entity, owner) = unique_session_world_root(world)?;
+    if world.contains_resource::<SessionGatedSimulation>()
+        && world
+            .get_resource::<ActiveSessionScope>()
+            .and_then(ActiveSessionScope::current)
+            != Some(owner)
+    {
+        return None;
+    }
+    Some(entity)
+}
+
+/// Read one canonical session-world component at an imperative World boundary.
+pub fn session_world_component<T: Component>(world: &World) -> Option<&T> {
+    world.get::<T>(session_world_entity(world)?)
+}
+
+/// Mutate one canonical session-world component at an imperative World boundary.
+pub fn session_world_component_mut<T: Component>(world: &mut World) -> Option<Mut<'_, T>> {
+    let entity = session_world_entity(world)?;
+    world.get_mut::<T>(entity)
+}
+
+/// Insert one component into the canonical direct/test session-world root.
+///
+/// Provider activations should insert a complete prepared bundle through the
+/// shell. This helper exists for small direct hosts and focused tests that
+/// intentionally assemble the same root one component at a time.
+pub fn insert_session_world_component<T: Component>(world: &mut World, component: T) -> Entity {
+    let active_scope = world
+        .get_resource::<ActiveSessionScope>()
+        .and_then(ActiveSessionScope::current);
+    let gated = world.contains_resource::<SessionGatedSimulation>();
+    let entity = match unique_session_world_root(world) {
+        Some((entity, owner)) => {
+            assert!(
+                !gated || active_scope == Some(owner),
+                "cannot insert session-world state into stale root {owner:?} while {active_scope:?} is active"
+            );
+            entity
+        }
+        None => {
+            let owner = active_scope.unwrap_or(SessionScopeId(0));
+            world
+                .spawn((Name::new("direct session world"), SessionRoot(owner)))
+                .id()
+        }
+    };
+    world.entity_mut(entity).insert(component);
+    entity
+}
 
 /// Signal that a session scope has retired.
 #[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
@@ -309,196 +418,4 @@ impl Plugin for SessionScopePlugin {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use bevy::ecs::system::RunSystemOnce;
-
-    fn session_app() -> App {
-        let mut app = App::new();
-        app.add_plugins(SessionScopePlugin);
-        app
-    }
-
-    fn count_scoped(app: &mut App, scope: SessionScopeId) -> usize {
-        let mut query = app.world_mut().query::<&SessionScopedEntity>();
-        query
-            .iter(app.world())
-            .filter(|owner| owner.0 == scope)
-            .count()
-    }
-
-    fn nested_spawn_helper(commands: &mut Commands, scope: SessionSpawnScope) {
-        commands.spawn_session_scoped(scope, Name::new("nested-child"));
-    }
-
-    #[test]
-    fn direct_and_nested_spawns_share_the_captured_scope() {
-        let mut app = session_app();
-        let scope = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
-        let spawn_scope = app.world().resource::<ActiveSessionScope>().spawn_scope();
-
-        app.world_mut()
-            .run_system_once(move |mut commands: Commands| {
-                commands.spawn_session_scoped(spawn_scope, Name::new("root"));
-                commands.spawn_session_scoped(spawn_scope, Name::new("sibling"));
-                nested_spawn_helper(&mut commands, spawn_scope);
-            })
-            .unwrap();
-
-        assert_eq!(count_scoped(&mut app, scope), 3);
-    }
-
-    #[test]
-    fn captured_scope_survives_a_later_ambient_change() {
-        let mut app = session_app();
-        let a = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
-        let captured_a = app.world().resource::<ActiveSessionScope>().spawn_scope();
-        let b = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
-
-        app.world_mut()
-            .run_system_once(move |mut commands: Commands| {
-                commands.spawn_session_scoped(captured_a, Name::new("late-a"));
-            })
-            .unwrap();
-
-        assert_eq!(count_scoped(&mut app, a), 1);
-        assert_eq!(count_scoped(&mut app, b), 0);
-        assert_eq!(
-            app.world().resource::<ActiveSessionScope>().current(),
-            Some(b)
-        );
-    }
-
-    #[test]
-    fn one_command_queue_preserves_multiple_captured_owners() {
-        let mut app = session_app();
-        let a = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
-        let captured_a = app.world().resource::<ActiveSessionScope>().spawn_scope();
-        let b = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
-        let captured_b = app.world().resource::<ActiveSessionScope>().spawn_scope();
-
-        app.world_mut()
-            .run_system_once(move |mut commands: Commands| {
-                commands.spawn_session_scoped(captured_a, Name::new("queued-a"));
-                commands.spawn_session_scoped(captured_b, Name::new("queued-b"));
-            })
-            .unwrap();
-
-        assert_eq!(count_scoped(&mut app, a), 1);
-        assert_eq!(count_scoped(&mut app, b), 1);
-    }
-
-    #[test]
-    fn room_session_spawn_carries_both_lifetimes() {
-        let mut app = session_app();
-        let scope = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
-        app.world_mut()
-            .run_system_once(move |mut commands: Commands| {
-                commands.spawn_room_in_session(scope.into(), Name::new("room-feature"));
-            })
-            .unwrap();
-
-        let mut query = app
-            .world_mut()
-            .query::<(&RoomScopedEntity, &SessionScopedEntity)>();
-        let owners: Vec<_> = query.iter(app.world()).collect();
-        assert_eq!(owners.len(), 1);
-        assert_eq!(owners[0].1 .0, scope);
-    }
-
-    #[test]
-    fn begin_mints_distinct_ids() {
-        let mut app = session_app();
-        let mut active = app.world_mut().resource_mut::<ActiveSessionScope>();
-        let a = active.begin();
-        active.clear();
-        let b = active.begin();
-        let c = active.begin();
-        assert_eq!((a.0, b.0, c.0), (0, 1, 2));
-    }
-
-    #[test]
-    fn retiring_one_scope_is_exact() {
-        let mut app = session_app();
-        let a = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
-        app.world_mut()
-            .run_system_once(move |mut commands: Commands| {
-                commands.spawn_in_session(a, Name::new("a1"));
-                commands.spawn_in_session(a, Name::new("a2"));
-            })
-            .unwrap();
-        let b = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
-        app.world_mut()
-            .run_system_once(move |mut commands: Commands| {
-                commands.spawn_in_session(b, Name::new("b1"));
-            })
-            .unwrap();
-
-        app.world_mut().write_message(SessionScopeRetired(a));
-        app.update();
-
-        assert_eq!(count_scoped(&mut app, a), 0);
-        assert_eq!(count_scoped(&mut app, b), 1);
-    }
-
-    #[test]
-    fn retiring_a_stale_scope_leaves_the_live_one_active() {
-        let mut app = session_app();
-        let a = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
-        let b = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
-
-        app.world_mut().write_message(SessionScopeRetired(a));
-        app.update();
-
-        assert_eq!(
-            app.world().resource::<ActiveSessionScope>().current(),
-            Some(b)
-        );
-    }
-
-    #[test]
-    fn retiring_the_live_scope_clears_it() {
-        let mut app = session_app();
-        let a = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
-        app.world_mut().write_message(SessionScopeRetired(a));
-        app.update();
-        assert_eq!(app.world().resource::<ActiveSessionScope>().current(), None);
-    }
-
-    #[test]
-    fn optional_session_policy_distinguishes_legacy_from_shell_home() {
-        assert_eq!(
-            SessionSpawnScope::for_optional_active_session(None),
-            Some(SessionSpawnScope::UNSCOPED),
-        );
-
-        let mut active = ActiveSessionScope::default();
-        assert_eq!(
-            SessionSpawnScope::for_optional_active_session(Some(&active)),
-            None,
-        );
-        let scope = active.begin();
-        assert_eq!(
-            SessionSpawnScope::for_optional_active_session(Some(&active)),
-            Some(SessionSpawnScope::scoped(scope)),
-        );
-    }
-
-    #[test]
-    fn cleanup_leaves_unscoped_frontend_entities_intact() {
-        let mut app = session_app();
-        let a = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
-        let frontend = app.world_mut().spawn(Name::new("launcher-root")).id();
-        app.world_mut()
-            .run_system_once(move |mut commands: Commands| {
-                commands.spawn_in_session(a, Name::new("session-entity"));
-            })
-            .unwrap();
-
-        app.world_mut().write_message(SessionScopeRetired(a));
-        app.update();
-
-        assert!(app.world().get_entity(frontend).is_ok());
-        assert_eq!(count_scoped(&mut app, a), 0);
-    }
-}
+mod tests;

@@ -16,12 +16,13 @@ use super::{
 use ambition_engine_core as ae;
 use ambition_time::WorldTime;
 
-/// Mirror `RoomSet::active_metadata()` into the `ActiveRoomMetadata`
-/// resource, but only when the metadata actually changes. The
+/// Reconcile `RoomSet::active_metadata()` into the sibling
+/// `ActiveRoomMetadata` component on the same session root, but only when the
+/// metadata actually changes. The
 /// PartialEq guard means change-detection consumers (e.g. a future
 /// room-music selector) only fire when the active room's biome /
 /// music_track / ambient / theme really differ — not on every frame.
-pub fn sync_active_room_metadata(room_set: Res<RoomSet>, mut active: ResMut<ActiveRoomMetadata>) {
+pub fn sync_active_room_metadata(room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomSet>, mut active: ambition_platformer_primitives::lifecycle::SessionWorldMut<ActiveRoomMetadata>) {
     let current = room_set.active_metadata().clone();
     if current != active.0 {
         active.0 = current;
@@ -33,8 +34,8 @@ pub fn sync_active_room_metadata(room_set: Res<RoomSet>, mut active: ResMut<Acti
 /// override is active. Empty values clear the request, falling back to
 /// the music registry's `default_track`.
 pub fn sync_room_music_request(
-    active: Res<ActiveRoomMetadata>,
-    mut request: ResMut<RoomMusicRequest>,
+    active: ambition_platformer_primitives::lifecycle::SessionWorldRef<ActiveRoomMetadata>,
+    mut request: ambition_platformer_primitives::lifecycle::SessionWorldMut<RoomMusicRequest>,
 ) {
     let next = active.0.music_track.clone();
     if next != request.desired_track {
@@ -82,7 +83,7 @@ pub fn tick_portal_phases_system(
 /// fire while paused or in dialogue. The apply system itself is unconditional
 /// because it reads its own message queue and is a no-op when empty.
 pub fn detect_room_transition_system(
-    room_set: Res<RoomSet>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomSet>,
     sim_state: Res<crate::SandboxSimState>,
     portals: Res<GatePortalRegistry>,
     mut transition_writer: MessageWriter<RoomTransitionRequested>,

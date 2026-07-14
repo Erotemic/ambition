@@ -130,11 +130,11 @@ fn main() {
     app.insert_resource(asset_config);
     app.insert_resource(StartRoomOverride(config.room_id.clone()));
     // Optional "play as this character" override, inserted BEFORE the sandbox
-    // plugin so its `init_resource::<StartingCharacter>()` leaves it in place.
+    // preparation consumes it before publishing the exact session world.
     if let Some(character_id) = config.character.clone() {
         eprintln!("capture_scene: player wears character '{character_id}'");
-        app.insert_resource(ambition::actors::avatar::StartingCharacter::new(
-            character_id,
+        app.insert_resource(ambition_app::app::StartingCharacterOverride(
+            ambition::actors::avatar::StartingCharacter::new(character_id),
         ));
     }
     app.insert_resource(config);
@@ -300,8 +300,8 @@ fn setup_capture_target(
 
 fn apply_capture_snapshot(
     config: Res<SceneCaptureConfig>,
-    world: Res<ambition::engine_core::RoomGeometry>,
-    room_set: Res<ambition::actors::rooms::RoomSet>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<ambition::engine_core::RoomGeometry>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition::actors::rooms::RoomSet>,
     user_settings: Res<ambition::persistence::settings::UserSettings>,
     ease_tuning: Res<ambition::platformer::camera_ease::CameraEaseTuning>,
     mut view_state: ResMut<CameraViewState>,

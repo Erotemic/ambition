@@ -66,9 +66,19 @@ impl Plugin for FixtureContentPlugin {
             Vec::new(),
         );
         let room = RoomSpec::new("fixture_room", world.clone());
-        app.insert_resource(RoomGeometry(world));
-        app.insert_resource(ambition_runtime::demo_fixture::ActiveRoomMetadata::default());
-        app.insert_resource(RoomSet::from_parts("fixture_room", vec![room], Vec::new()));
+        app.world_mut().spawn((
+            ambition_platformer_primitives::lifecycle::SessionRoot(
+                ambition_platformer_primitives::lifecycle::SessionScopeId(0),
+            ),
+            ambition_runtime::PlatformerSessionWorld::new(
+                "fixture",
+                RoomSet::from_parts("fixture_room", vec![room], Vec::new()),
+                RoomGeometry(world),
+                ambition_runtime::demo_fixture::ActiveRoomMetadata::default(),
+                ambition_runtime::demo_fixture::StartingCharacter::default(),
+                ambition_runtime::demo_fixture::LdtkRuntimeIndex::default(),
+            ),
+        ));
         app.add_systems(
             Startup,
             fixture_setup.in_set(ambition_runtime::demo_fixture::SimulationSetupSet),
@@ -81,12 +91,12 @@ impl Plugin for FixtureContentPlugin {
 /// (and any other "after the world exists" startup work) orders correctly.
 fn fixture_setup(
     mut commands: Commands,
-    world: Res<RoomGeometry>,
-    room_set: Res<RoomSet>,
-    ldtk_index: Res<ambition_runtime::demo_fixture::LdtkRuntimeIndex>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomSet>,
+    ldtk_index: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_runtime::demo_fixture::LdtkRuntimeIndex>,
     editable_abilities: Res<ambition_runtime::demo_fixture::EditableAbilitySet>,
     editable_tuning: Res<ambition_runtime::demo_fixture::EditableMovementTuning>,
-    starting_character: Res<ambition_runtime::demo_fixture::StartingCharacter>,
+    starting_character: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_runtime::demo_fixture::StartingCharacter>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<ambition_runtime::demo_fixture::CharacterRoster>,
     boss_catalog: Res<ambition_runtime::demo_fixture::BossCatalog>,

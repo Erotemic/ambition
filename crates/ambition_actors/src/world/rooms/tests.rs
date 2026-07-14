@@ -62,7 +62,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     );
 
     let mut app = App::new();
-    app.insert_resource(set);
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), set);
     app.insert_resource(crate::SandboxSimState::default());
     app.insert_resource(GatePortalRegistry::default());
     app.init_resource::<SlotInteractionState>();
@@ -156,7 +156,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     );
 
     let mut app = App::new();
-    app.insert_resource(set);
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), set);
     app.insert_resource(crate::SandboxSimState::default());
     app.insert_resource(GatePortalRegistry::default());
     app.init_resource::<SlotInteractionState>();
@@ -260,7 +260,7 @@ fn active_metadata_returns_active_room_metadata() {
 fn sync_room_music_request_mirrors_metadata_music_track() {
     use bevy::prelude::*;
     let mut app = App::new();
-    app.insert_resource(ActiveRoomMetadata(RoomMetadata {
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ActiveRoomMetadata(RoomMetadata {
         biome: Some("cave".into()),
         music_track: Some("cave_loop".into()),
         ambient_profile: None,
@@ -270,22 +270,24 @@ fn sync_room_music_request_mirrors_metadata_music_track() {
         gallery: false,
         mode: None,
     }));
-    app.insert_resource(RoomMusicRequest::default());
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), RoomMusicRequest::default());
     app.add_systems(Update, sync_room_music_request);
     app.update();
     assert_eq!(
-        app.world().resource::<RoomMusicRequest>().desired_track,
+        ambition_platformer_primitives::lifecycle::session_world_component::<RoomMusicRequest>(app.world()).expect("session room music").desired_track,
         Some("cave_loop".into())
     );
 
     // Empty active metadata clears the request.
-    app.world_mut()
-        .resource_mut::<ActiveRoomMetadata>()
+    ambition_platformer_primitives::lifecycle::session_world_component_mut::<ActiveRoomMetadata>(
+        app.world_mut(),
+    )
+    .expect("session active-room metadata")
         .0
         .music_track = None;
     app.update();
     assert_eq!(
-        app.world().resource::<RoomMusicRequest>().desired_track,
+        ambition_platformer_primitives::lifecycle::session_world_component::<RoomMusicRequest>(app.world()).expect("session room music").desired_track,
         None
     );
 }
@@ -322,15 +324,15 @@ fn sync_active_room_metadata_publishes_active_value() {
         ],
         Vec::new(),
     );
-    app.insert_resource(set);
-    app.insert_resource(ActiveRoomMetadata::default());
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), set);
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ActiveRoomMetadata::default());
     app.add_systems(Update, sync_active_room_metadata);
     app.update();
-    assert_eq!(&app.world().resource::<ActiveRoomMetadata>().0, &m_hub);
+    assert_eq!(&ambition_platformer_primitives::lifecycle::session_world_component::<ActiveRoomMetadata>(app.world()).expect("session active-room metadata").0, &m_hub);
 
-    app.world_mut().resource_mut::<RoomSet>().set_active(1);
+    ambition_platformer_primitives::lifecycle::session_world_component_mut::<RoomSet>(app.world_mut()).expect("session room set").set_active(1);
     app.update();
-    assert_eq!(&app.world().resource::<ActiveRoomMetadata>().0, &m_lab);
+    assert_eq!(&ambition_platformer_primitives::lifecycle::session_world_component::<ActiveRoomMetadata>(app.world()).expect("session active-room metadata").0, &m_lab);
 }
 
 #[test]

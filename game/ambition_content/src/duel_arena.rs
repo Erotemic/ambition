@@ -90,7 +90,7 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
 /// re-staging after a reset re-emits them exactly as before.
 pub fn stage_duel_on_room_loaded(
     mut rooms: MessageReader<RoomLoaded>,
-    room_set: Res<RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<RoomSet>,
     mut spawns: MessageWriter<SpawnActorRequest>,
 ) {
     for message in rooms.read() {

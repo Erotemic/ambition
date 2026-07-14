@@ -37,6 +37,7 @@ fn engine_policies() {
     custom::control_frame::run(&ws, Scope::Engine, &mut report);
     custom::lifecycle::run(&ws, &mut report);
     custom::content_ownership::run(&ws, &mut report);
+    custom::session_world::run(&ws, &mut report);
     report.assert_ok();
 }
 
@@ -100,6 +101,11 @@ fn control_frame_allowlist_is_justified() {
 #[test]
 fn raw_spawn_gate_reacts() {
     custom::lifecycle::poison_self_tests();
+}
+
+#[test]
+fn canonical_session_world_gate_reacts() {
+    custom::session_world::poison_self_tests();
 }
 
 #[test]

@@ -84,7 +84,6 @@ impl Plugin for SanicExperiencePlugin {
 
 fn sanic_prepare_session(
     mut shell_events: MessageReader<ShellEvent>,
-    ldtk_index: Res<LdtkRuntimeIndex>,
     mut prepared_sessions: ResMut<PreparedSanicSessions>,
     mut preparation: PlatformerPreparation,
 ) {
@@ -102,7 +101,7 @@ fn sanic_prepare_session(
             source.geometry,
             source.metadata,
             source.starting_character,
-            ldtk_index.clone(),
+            LdtkRuntimeIndex::default(),
         );
         preparation.prepare(transaction, live_world, &mut prepared_sessions);
     }

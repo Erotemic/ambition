@@ -57,8 +57,9 @@ pub fn add_simulation_plugins(app: &mut App) {
 
     // The canonical simulation-phase sets + engine resources now live in
     // `ambition::runtime::SandboxSetsPlugin` (first in the engine group below).
-    // Hosts still override StartingCharacter etc. by inserting BEFORE
-    // `add_simulation_plugins` runs — init_resource never clobbers.
+    // Host configuration overrides are consumed before simulation plugins
+    // build. Live gameplay-world values are already components on the exact
+    // direct/session root; no canonical world value is initialized as a resource.
 
     // The sim-schedule mode (netcode N0.1) must be chosen before the FIRST sim
     // plugin builds — content is added below, ahead of the engine group, and it
@@ -255,20 +256,21 @@ pub fn add_ldtk_runtime_plugin(app: &mut App) {
                 // ADR 0015 §Coordinate-frame reconciliation — keep the
                 // LdtkWorldBundle's root transform aligned with the
                 // current active area's centered frame. Runs every
-                // frame; cheap and idempotent.
+                // gameplay frame; cheap and idempotent.
                 ldtk_world::sync_ldtk_world_transform,
-            ),
+            )
+                .run_if(ambition::platformer::lifecycle::session_world_exists),
         );
 }
 
 /// Spawn the `LdtkWorldBundle` entity. Runs in `add_ldtk_runtime_plugin`
 /// (visible binary only) after `setup_simulation_system` so the
-/// `LdtkRuntimeIndex` resource is available.
+/// `LdtkRuntimeIndex` session component is available.
 pub(super) fn spawn_ldtk_world_root(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    ldtk_index: Res<ldtk_world::LdtkRuntimeIndex>,
-    room_set: Res<rooms::RoomSet>,
+    ldtk_index: ambition::platformer::lifecycle::SessionWorldRef<ldtk_world::LdtkRuntimeIndex>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     world_assets: Option<Res<ldtk_world::LdtkWorldAssets>>,
     sandbox_asset_collection: Option<Res<loading::SandboxAssetCollection>>,
 ) {
@@ -406,13 +408,17 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.add_systems(Startup, ui_fonts::load_ui_fonts);
     app.add_systems(
         Update,
+        ambition::render::quality::sync_resolved_visual_quality,
+    );
+    app.add_systems(
+        Update,
         (
-            ambition::render::quality::sync_resolved_visual_quality,
             reload_visual_quality_assets_on_scale_change,
             ambition::render::rendering::refresh_entity_sprite_handles_on_game_assets_change,
             ambition::render::rendering::refresh_parallax_layers_on_quality_change,
         )
-            .chain(),
+            .chain()
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
     );
     #[cfg(feature = "portal_render")]
     app.add_systems(
@@ -441,7 +447,9 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         )
         .add_systems(
             Update,
-            (ambition::actors::menu::map::sync_map_menu,).after(SandboxSet::CoreSimulation),
+            (ambition::actors::menu::map::sync_map_menu,)
+                .after(SandboxSet::CoreSimulation)
+                .run_if(ambition::platformer::lifecycle::session_world_exists),
         )
         .add_systems(
             Startup,
@@ -482,7 +490,8 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 ambition::actors::menu::map::handle_map_menu_hotkeys,
             )
                 .chain()
-                .after(SandboxSet::CoreSimulation),
+                .after(SandboxSet::CoreSimulation)
+                .run_if(ambition::platformer::lifecycle::session_world_exists),
         );
 
     // Unified menu (the one menu): install backend-agnostic menu state first,
@@ -524,48 +533,52 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     )
         .chain()
         .after(camera_follow);
-    app.add_systems(Update, overlay);
+    app.add_systems(
+        Update,
+        overlay.run_if(ambition::platformer::lifecycle::session_world_exists),
+    );
 }
 
 fn install_fx_and_hud_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            fx::update_particles,
-            fx::update_explosions,
-            fx::update_impacts,
-            fx::update_speech_bubbles,
-            fx::update_speech_bubble_outlines,
-            windowing::window_mode_hotkeys,
+    app.add_systems(Update, windowing::window_mode_hotkeys)
+        .add_systems(
+            Update,
+            (
+                fx::update_particles,
+                fx::update_explosions,
+                fx::update_impacts,
+                fx::update_speech_bubbles,
+                fx::update_speech_bubble_outlines,
+            )
+                .chain()
+                .after(debug_overlay::draw_debug_overlay)
+                .run_if(ambition::platformer::lifecycle::session_world_exists),
         )
-            .chain()
-            .after(debug_overlay::draw_debug_overlay),
-    )
-    .add_systems(
-        Update,
-        (
-            update_hud,
-            ambition::render::rendering::sync_boss_health_bar_overlay,
-            ambition::dialog::dialog_reveal_tick,
-            ambition::render::dialog_ui::sync_dialog_ui,
-            ambition::render::cutscene::sync_cutscene_ui,
+        .add_systems(
+            Update,
+            (
+                update_hud,
+                ambition::render::rendering::sync_boss_health_bar_overlay,
+                ambition::dialog::dialog_reveal_tick,
+                ambition::render::dialog_ui::sync_dialog_ui,
+                ambition::render::cutscene::sync_cutscene_ui,
+            )
+                .chain()
+                .after(windowing::window_mode_hotkeys)
+                .run_if(ambition::platformer::lifecycle::session_world_exists),
         )
-            .chain()
-            .after(windowing::window_mode_hotkeys),
-    )
-    // Always-on player HUD overlay (health / mana / money bars). Spawns once
-    // a player exists, then mirrors the sim-built `PlayerHudFacts` each frame.
-    // Mana regen is a gameplay system (sim dt) — it lives SIM-side now
-    // (E4: no sim mutator in presentation), scheduled here at its old slot.
-    .add_systems(
-        Update,
-        (
-            ambition::actors::avatar::regen_player_mana,
-            ambition::render::hud::spawn_player_hud,
-            ambition::render::hud::update_player_hud,
-        )
-            .chain(),
-    );
+        // Always-on *during gameplay* player HUD overlay (health / mana /
+        // money bars). The title route owns no gameplay HUD authority.
+        .add_systems(
+            Update,
+            (
+                ambition::actors::avatar::regen_player_mana,
+                ambition::render::hud::spawn_player_hud,
+                ambition::render::hud::update_player_hud,
+            )
+                .chain()
+                .run_if(ambition::platformer::lifecycle::session_world_exists),
+        );
 }
 
 /// Health overlays, portal sprite sync, parallax, dialog redirect,
@@ -577,16 +590,23 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     app.add_systems(
         Update,
         ambition::render::rendering::sync_portal_capture_parallax_layers
-            .after(ambition::portal_presentation::PortalPresentationSet),
+            .after(ambition::portal_presentation::PortalPresentationSet)
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
     );
 
     app.add_systems(
         Update,
-        ambition::render::rendering::sync_health_overlays.after(sync_visuals),
+        ambition::render::rendering::sync_health_overlays
+            .after(sync_visuals)
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
     )
     // Idle barks fire on a 5-10s cadence while the boss is in an
     // attacking phase, so the scholar feels alive between strikes.
-    .add_systems(Update, ambition_content::bosses::tick_boss_idle_barks)
+    .add_systems(
+        Update,
+        ambition_content::bosses::tick_boss_idle_barks
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
+    )
     // Portal presentation: read GatePortalRegistry.phase + apply
     // visibility / animation row / ring-spin to the matching
     // PropVisual-named sprites + hide the redundant debug
@@ -602,11 +622,14 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             ambition::render::rendering::gate_portal_visuals::sync_portal_ring_rotation_system,
             ambition::render::rendering::gate_portal_visuals::hide_portal_loading_zone_visuals,
         )
-            .after(sync_visuals),
+            .after(sync_visuals)
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
     )
     .add_systems(
         Update,
-        ambition::render::rendering::sync_parallax_layers.after(camera_follow),
+        ambition::render::rendering::sync_parallax_layers
+            .after(camera_follow)
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
     )
     // Encounter / intro LockWall visuals. Reconciles `LockWallVisual`
     // Bevy entities against the collision overlay's `gate_solids` (the
@@ -618,7 +641,8 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         ambition::render::rendering::sync_lock_wall_visuals
-            .after(ambition::actors::encounter::update_encounters_from_world),
+            .after(ambition::actors::encounter::update_encounters_from_world)
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
     )
     // Dev "hide sprites" / "placeholder sprites" overrides — must run
     // after every other visibility- or sprite-setting system so they
@@ -639,17 +663,21 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             .after(sync_visuals)
             .after(ambition::render::rendering::morph_ball::sync_morph_ball_visual)
             .after(ambition::render::rendering::bubble_shield::sync_bubble_shield_visual)
-            .after(ambition::render::rendering::projectile_visuals::sync_projectile_visuals),
+            .after(ambition::render::rendering::projectile_visuals::sync_projectile_visuals)
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
     )
     // Mouse / touch dismissal for the map menu.
     .add_systems(
         Update,
-        ambition::actors::menu::map::map_menu_pointer_dismiss,
+        ambition::actors::menu::map::map_menu_pointer_dismiss
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
     )
     // Quest panel runs alongside the verbose HUD.
     .add_systems(
         Update,
-        update_quest_panel.after(ambition::render::dialog_ui::sync_dialog_ui),
+        update_quest_panel
+            .after(ambition::render::dialog_ui::sync_dialog_ui)
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
     );
 }
 
@@ -671,7 +699,8 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
                 .after(ambition::runtime::projectile_schedule::step_projectiles),
             ambition::render::rendering::projectile_visuals::sync_projectile_charge_visuals
                 .after(ambition::runtime::projectile_schedule::step_projectiles),
-        ),
+        )
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
     )
     // VFX + debris subscribe on the visible binary only. Audio's
     // subscriber lives in `add_audio_plugins` so the entire kira
@@ -687,11 +716,14 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
         )
             .chain()
             .after(SandboxSet::CoreSimulation)
-            .before(vfx_spawn_messages),
+            .before(vfx_spawn_messages)
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
     )
     .add_systems(
         Update,
-        vfx_spawn_messages.after(fx::process_explosion_requests),
+        vfx_spawn_messages
+            .after(fx::process_explosion_requests)
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
     );
     // Live blink-destination preview ring. Reads leafwing action state to
     // know when the blink button is held, so it lives behind the `input`
@@ -699,7 +731,9 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
     #[cfg(feature = "input")]
     app.add_systems(
         Update,
-        fx::update_blink_preview.after(SandboxSet::CoreSimulation),
+        fx::update_blink_preview
+            .after(SandboxSet::CoreSimulation)
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
     );
 }
 
@@ -712,7 +746,9 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
 pub(super) fn add_physics_debris_plugins(app: &mut App) {
     app.add_plugins(physics::AmbitionPhysicsPlugin).add_systems(
         Update,
-        physics_spawn_debris_messages.after(SandboxSet::CoreSimulation),
+        physics_spawn_debris_messages
+            .after(SandboxSet::CoreSimulation)
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
     );
 }
 

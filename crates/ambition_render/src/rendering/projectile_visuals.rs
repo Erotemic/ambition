@@ -253,7 +253,7 @@ fn build_sheet_visual(
 #[allow(clippy::too_many_arguments)]
 pub fn sync_projectile_visuals(
     mut commands: Commands,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     world_time: Res<ambition_time::WorldTime>,
     gravity: GravityCtx,
     asset_server: Res<AssetServer>,
@@ -355,7 +355,7 @@ pub fn sync_projectile_visuals(
 /// Rebuilt each frame; player-only (it is not projectile art).
 pub fn sync_projectile_charge_visuals(
     mut commands: Commands,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     active_session: Option<Res<ActiveSessionScope>>,
     // Sim-built pose read-model (E4): charge tier + body geometry facts, no
     // live cluster / projectile-state reads.

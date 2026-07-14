@@ -44,7 +44,7 @@ pub fn tick_encounter_scripts(
     )>,
     session_owners: Query<&SessionScopedEntity>,
     mut banner: ResMut<crate::features::GameplayBanner>,
-    mut music: ResMut<crate::encounter::EncounterMusicRequest>,
+    mut music: ambition_platformer_primitives::lifecycle::SessionWorldMut<crate::encounter::EncounterMusicRequest>,
 ) {
     let dt = world_time.sim_dt();
     let fired: Vec<String> = gates.read().map(|g| g.gate.clone()).collect();
@@ -183,7 +183,7 @@ pub struct FallingHazard {
 pub fn tick_falling_hazards(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     mut gates: MessageWriter<EncounterGate>,
     mut hazards: Query<(Entity, &mut CenteredAabb, &mut FallingHazard)>,
     targets: Query<&CenteredAabb, Without<FallingHazard>>,

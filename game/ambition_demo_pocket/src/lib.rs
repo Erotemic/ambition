@@ -165,7 +165,6 @@ impl Plugin for PocketExperiencePlugin {
 
 fn prepare(
     mut events: MessageReader<ShellEvent>,
-    ldtk_index: Res<LdtkRuntimeIndex>,
     mut sessions: ResMut<PreparedPocketSessions>,
     mut preparation: PlatformerPreparation,
 ) {
@@ -185,7 +184,7 @@ fn prepare(
             geometry,
             metadata,
             StartingCharacter::new(POCKET_CHARACTER_ID),
-            ldtk_index.clone(),
+            LdtkRuntimeIndex::default(),
         );
         preparation.prepare(transaction, live_world, &mut sessions);
     }

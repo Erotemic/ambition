@@ -162,11 +162,8 @@ fn assert_title_ownership(app: &mut App, context: &str) {
         "{context}: no moving-platform presentation",
     );
     assert!(
-        app.world()
-            .resource::<ambition::session_world::SessionWorldProjectionAuthority>()
-            .owner
-            .is_none(),
-        "{context}: resident world projection has no owner",
+        ambition::platformer::lifecycle::session_world_entity(app.world()).is_none(),
+        "{context}: no canonical gameplay-world root exists",
     );
     assert!(
         app.world().resource::<PreparedSessionRegistry>().is_empty(),

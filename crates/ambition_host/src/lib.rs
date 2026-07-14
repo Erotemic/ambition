@@ -218,7 +218,8 @@ impl Plugin for HostCameraPlugin {
                 .chain()
                 .after(ambition_render::rendering::animate_bosses)
                 // Read THIS tick's resolved snapshot, not last frame's.
-                .after(ambition_sim_view::camera_snapshot::resolve_camera_observation),
+                .after(ambition_sim_view::camera_snapshot::resolve_camera_observation)
+                .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
         );
 
         // The Ambition portal host-adapter observation glue (world-frame /
@@ -239,7 +240,8 @@ impl Plugin for HostCameraPlugin {
                     ambition_render::rendering::publish_portal_camera_clamp
                         .after(crate::portal::apply_portal_camera_continuity)
                         .before(ambition_sim_view::camera_snapshot::resolve_camera_observation),
-                ),
+                )
+                    .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
             );
             // Hosts drawing camera-anchored debug visuals order themselves
             // `.after(this system)` (the Ambition debug overlay does).

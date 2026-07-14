@@ -92,11 +92,11 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             let world_ref = sim.world();
             let clock = *world_ref.resource::<ambition::time::ClockState>();
             let control_frame = *world_ref.resource::<ControlFrame>();
-            let room_set = world_ref.resource::<RoomSet>();
+            let room_set = ambition::platformer::lifecycle::session_world_component::<RoomSet>(world_ref).expect("active session RoomSet");
             let game_mode = world_ref.resource::<State<GameModeState>>();
             let moving_platforms =
                 world_ref.resource::<ambition::world::collision::MovingPlatformSet>();
-            let game_world = world_ref.resource::<RoomGeometry>();
+            let game_world = ambition::platformer::lifecycle::session_world_component::<RoomGeometry>(world_ref).expect("active session RoomGeometry");
             let active_area = room_set.active_spec().id.clone();
             let mode_label = format!("{:?}", game_mode.get());
             (

@@ -18,7 +18,10 @@ pub use markers::{
 };
 pub use session::{
     despawn_retired_session_entities, simulation_authorized, ActiveSessionScope, SessionCommands,
-    SessionGatedSimulation, SessionRoot, SessionScopeId, SessionScopePlugin, SessionScopeRetired,
-    SessionScopeSet, SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+    insert_session_world_component, session_world_component, session_world_component_mut,
+    session_world_entity, session_world_exists,
+    SessionGatedSimulation, SessionRoot, SessionScopeId, SessionScopePlugin,
+    SessionScopeRetired, SessionScopeSet, SessionScopedEntity, SessionSpawnScope,
+    SessionWorldMut, SessionWorldRef, SpawnSessionScopedExt,
 };
 pub use spawn_ext::SpawnScopedExt;

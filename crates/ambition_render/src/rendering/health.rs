@@ -156,7 +156,7 @@ pub fn sync_boss_health_bar_overlay(
 
 pub fn sync_health_overlays(
     mut commands: Commands,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     dev_state: Res<ambition_dev_tools::SandboxDevState>,
     active_session: Option<Res<ActiveSessionScope>>,
     developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,

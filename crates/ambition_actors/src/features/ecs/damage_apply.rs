@@ -612,7 +612,7 @@ pub fn apply_player_hit_events(
     // `class_b` is the §3.2 transit ledger — death and hazard respawn are both
     // Class-B remaps, and this system is where the victim's entity id is known.
     (world, moving_platforms, mut class_b): (
-        Res<RoomGeometry>,
+        ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
         Res<MovingPlatformSet>,
         Option<ResMut<ambition_platformer_primitives::class_b::ClassBRemapLog>>,
     ),

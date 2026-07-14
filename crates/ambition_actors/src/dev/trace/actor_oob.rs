@@ -67,10 +67,10 @@ pub fn body_snapshot(
 pub fn record_actor_oob_frame_system(
     mut buffer: ResMut<ActorTraceBuffer>,
     world_time: Res<ambition_time::WorldTime>,
-    world: Res<RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
-    rooms: Option<Res<crate::rooms::RoomSet>>,
+    rooms: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>>,
     mode: Res<State<ambition_platformer_primitives::schedule::GameMode>>,
     bodies_q: Query<(
         Entity,

@@ -15,7 +15,6 @@ ambition_actors::affordances::devices::ActiveInputMethod
 ambition_actors::affordances::intent::PlayerIntent
 ambition_actors::affordances::interactable_proximity::NearestInteractable
 ambition_actors::affordances::pogo_proximity::PogoTargetBelow
-ambition_actors::avatar::starting_character::StartingCharacter
 ambition_actors::avatar::trail::PlayerTrailEnabled
 ambition_actors::boss_encounter::registry::BossEncounterRegistry
 ambition_actors::control::components::SlotInteractionState
@@ -70,14 +69,11 @@ ambition_dialog::bridge::DialogueRunnerEntity
 ambition_dialog::context::DialogueNodeIndex
 ambition_dialog::runtime::DialogState
 ambition_encounter::entity::EncounterView
-ambition_encounter::music::EncounterMusicRequest
 ambition_encounter::registry::EncounterRegistry
 ambition_engine_core::control_frame::ControlFrame
-ambition_engine_core::world::RoomGeometry
 ambition_gameplay_trace::actor_trace::ActorTraceBuffer
 ambition_gameplay_trace::buffer::GameplayTraceBuffer
 ambition_items::OwnedItems
-ambition_ldtk_map::bevy_runtime::asset::LdtkRuntimeIndex
 ambition_ldtk_map::bevy_runtime::indices::LdtkRuntimeDamageIndex
 ambition_ldtk_map::bevy_runtime::indices::LdtkRuntimeOneWayIndex
 ambition_ldtk_map::bevy_runtime::indices::LdtkRuntimeSolidIndex
@@ -137,9 +133,6 @@ ambition_time::ClockState
 ambition_world::collision::MovingPlatformSet
 ambition_world::placements::PlacementLoweringRegistry
 ambition_world::rooms::gate_portal::GatePortalRegistry
-ambition_world::rooms::metadata::ActiveRoomMetadata
-ambition_world::rooms::metadata::RoomMusicRequest
-ambition_world::rooms::room_graph::RoomSet
 bevy_asset::assets::Assets<ambition_actors::session::data::SandboxDataSpec>
 bevy_ecs::message::messages::Messages<ambition_actors::ActorDiedMessage>
 bevy_ecs::message::messages::Messages<ambition_actors::avatar::events::PlayerHealRequested>

@@ -85,7 +85,7 @@ pub fn tick_actor_brains(
         // Pre-collected projectiles snapshot (§A7): the live shots this actor perceives.
         Option<Res<crate::features::ecs::perception::PerceptionProjectiles>>,
     ),
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
@@ -789,7 +789,7 @@ pub(crate) fn integrate_actor_body(
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_sim_bodies(
     world_time: Res<WorldTime>,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
@@ -1431,7 +1431,7 @@ pub fn tick_npc_idle_barks(
         With<FeatureSimEntity>,
     >,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
-    room_set: Option<Res<crate::rooms::RoomSet>>,
+    room_set: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>>,
     // App-local authored voice. Required so a mis-composed production App
     // cannot silently erase provider-authored dialogue.
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,

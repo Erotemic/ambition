@@ -76,7 +76,7 @@ fn boss_is_gnu_ton(boss: &ambition_actors::features::BossRef<'_>) -> bool {
 /// base and the derive recomputes from scratch; dying mid-fight (boss back to
 /// alive) re-hides the ladders automatically.
 pub fn gate_gnu_ton_arena_ladder(
-    world: Res<RoomGeometry>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     bosses: Query<(BossClusterRef, &ambition_characters::actor::BodyHealth)>,
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
 ) {

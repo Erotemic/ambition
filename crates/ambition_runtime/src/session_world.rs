@@ -1,7 +1,10 @@
 //! Canonical live platformer-session world data.
 //!
-//! A shell-routed host attaches this component to the exact session-owned world
-//! entity. The runtime knows nothing about shell routes or host policy.
+//! The prepared value is a Bevy [`Bundle`]. A shell-routed host attaches it to
+//! the exact [`SessionRoot`](ambition_platformer_primitives::lifecycle::SessionRoot)
+//! entity for one gameplay activation; a direct host does the same once at
+//! startup. Every consumer reads or mutates these components on that root.
+//! There is no process-resident mirror and no two-way synchronization bridge.
 
 use bevy::prelude::*;
 
@@ -11,7 +14,7 @@ use ambition_actors::rooms::{ActiveRoomMetadata, RoomMusicRequest, RoomSet};
 use ambition_encounter::EncounterMusicRequest;
 use ambition_engine_core::RoomGeometry;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Component, Clone, Debug, Eq, PartialEq)]
 pub struct PlatformerSessionCatalogs {
     pub world_provider: String,
     pub character_provider: String,
@@ -29,23 +32,26 @@ impl PlatformerSessionCatalogs {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct PlatformerSessionRequests {
     pub room_music: RoomMusicRequest,
     pub encounter_music: EncounterMusicRequest,
 }
 
-/// Live mutable world for one exact gameplay activation.
-#[derive(Component, Clone)]
+/// Prepared and live world data for one exact gameplay activation.
+///
+/// Before activation this value is immutable preparation output. Activation
+/// inserts the bundle on the canonical session root; from that moment its
+/// component fields are the only mutable world authority.
+#[derive(Bundle, Clone)]
 pub struct PlatformerSessionWorld {
+    pub catalogs: PlatformerSessionCatalogs,
     pub room_set: RoomSet,
     pub geometry: RoomGeometry,
     pub active_room: ActiveRoomMetadata,
     pub starting_character: StartingCharacter,
     pub runtime_rooms: LdtkRuntimeIndex,
-    pub catalogs: PlatformerSessionCatalogs,
     pub requests: PlatformerSessionRequests,
-    pub revision: u64,
 }
 
 impl PlatformerSessionWorld {
@@ -65,7 +71,6 @@ impl PlatformerSessionWorld {
             starting_character,
             runtime_rooms,
             requests: PlatformerSessionRequests::default(),
-            revision: 0,
         }
     }
 

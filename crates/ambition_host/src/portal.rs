@@ -52,7 +52,7 @@ mod host_adapter {
     /// line-of-sight test. Absent controlled body ⇒ `present = false`, and the
     /// renderer falls back to the static window.
     pub fn sync_portal_viewer(
-        world: Res<RoomGeometry>,
+        world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
         controlled: Res<ControlledSubject>,
         bodies: Query<&BodyKinematics>,
         viewer: Option<ResMut<PortalViewer>>,
@@ -82,7 +82,7 @@ mod host_adapter {
     /// presentation crate only ever needs the world's size for its centered
     /// y-flip render transform, so the host copies that one field each frame
     /// (room transitions resize the world).
-    pub fn sync_portal_world_frame(world: Res<RoomGeometry>, mut frame: ResMut<PortalWorldFrame>) {
+    pub fn sync_portal_world_frame(world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>, mut frame: ResMut<PortalWorldFrame>) {
         if frame.size != world.0.size {
             frame.size = world.0.size;
         }
@@ -725,7 +725,8 @@ mod host_adapter {
                         sync_portal_debug_overlay_to_f1,
                         tag_portal_scene_bodies,
                     )
-                        .in_set(PortalObservationSet),
+                        .in_set(PortalObservationSet)
+                        .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
                     portal_dev_toggle_system,
                     portal_convention_toggle_system,
                 ),

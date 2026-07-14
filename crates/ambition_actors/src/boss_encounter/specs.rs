@@ -1,7 +1,7 @@
 //! App-local boss-encounter spec access.
 //!
 //! Named encounter data is assembled in [`super::BossCatalog`]. This module
-//! keeps the compatibility projection used by validation and registry code;
+//! exposes a read-only catalog view used by validation and registry code;
 //! it owns no process-global content state.
 
 use super::BossCatalog;

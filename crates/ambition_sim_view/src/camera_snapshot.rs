@@ -541,8 +541,8 @@ pub struct ResolvedCameraSnapshot {
 /// consumers order `.after(resolve_camera_observation)`.
 #[allow(clippy::too_many_arguments)]
 pub fn resolve_camera_observation(
-    world: bevy::prelude::Res<ae::RoomGeometry>,
-    room_set: bevy::prelude::Res<ambition_actors::rooms::RoomSet>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
     time: bevy::prelude::Res<bevy::prelude::Time>,
     developer_tools: bevy::prelude::Res<ambition_dev_tools::dev_tools::DeveloperTools>,
     encounter_view: bevy::prelude::Res<ambition_encounter::EncounterView>,

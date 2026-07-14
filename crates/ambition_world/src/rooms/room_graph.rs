@@ -154,7 +154,7 @@ pub struct RoomLoaded {
 }
 
 /// Small room graph for early loading-zone tests.
-#[derive(Resource, Clone, Debug)]
+#[derive(Component, Clone, Debug)]
 pub struct RoomSet {
     pub rooms: Vec<RoomSpec>,
     pub active: usize,

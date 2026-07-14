@@ -88,7 +88,7 @@ const WEAPON_WIDTH_PER_RIDER_HEIGHT: f32 = 64.0 / 72.0;
 pub fn sync_pirate_weapon_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     active_session: Option<Res<ActiveSessionScope>>,
     // Sim-built wielded-weapon read-model (E4 slices 1+11): hand position,
     // aim target, and wielder height per live gun-sword rider.

@@ -12,7 +12,7 @@ pub use ambition_persistence::quest::*;
 /// Push a `RoomEntered` quest event whenever the active room changes.
 /// Idempotent: only fires the frame the room id flips.
 pub fn push_room_entered_quest_events(
-    room_set: Res<crate::rooms::RoomSet>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     mut registry: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut last_room: Local<Option<String>>,
 ) {

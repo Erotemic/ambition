@@ -23,6 +23,14 @@ use super::cli::cli_start_room_arg;
 #[derive(Resource, Clone, Debug)]
 pub struct StartRoomOverride(pub String);
 
+/// Host composition input selecting the character for the next prepared world.
+///
+/// This resource is consumed during sandbox preparation and never becomes
+/// gameplay authority. The selected value is moved into the exact session-root
+/// [`StartingCharacter`](ambition::actors::avatar::StartingCharacter) component.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct StartingCharacterOverride(pub ambition::actors::avatar::StartingCharacter);
+
 #[cfg(test)]
 fn sandbox_init_failed() -> ! {
     panic!("sandbox resource initialization failed; see diagnostics above");
@@ -181,26 +189,48 @@ pub fn init_sandbox_resources(app: &mut App) {
         room_set.active_spec().id.clone(),
     );
     let active_world = room_set.active_world().clone();
+    let active_metadata = room_set.active_spec().metadata.clone();
+    // `StartingCharacterOverride` is composition input, not live gameplay
+    // authority. Consume it before publishing the session-root
+    // `StartingCharacter` component so the title route cannot observe a
+    // process-resident character selection.
+    let starting_character = app
+        .world_mut()
+        .remove_resource::<StartingCharacterOverride>()
+        .map(|selection| selection.0)
+        .unwrap_or_default();
 
-    // The immutable boot-prepared world data the shell host's Ambition
-    // provider clones per activation. Captured here so activation republishes
-    // FRESH room state (and the boot-resolved starting character) instead of
-    // whatever a previous session left resident.
+    // Immutable boot preparation. Every shell activation clones this value and
+    // inserts the resulting bundle on its exact session root.
     app.insert_resource(ambition_content::provider::AmbitionPreparedWorld {
         room_set: room_set.clone(),
         ldtk_index: ldtk_index.clone(),
-        starting_character: app
-            .world()
-            .get_resource::<ambition::actors::avatar::StartingCharacter>()
-            .cloned()
-            .unwrap_or_default(),
+        starting_character: starting_character.clone(),
     });
 
+    // Direct development uses the same componentized world model as shell
+    // sessions. The only difference is lifetime: the direct root is unscoped
+    // and lives until process exit.
+    if !app
+        .world()
+        .contains_resource::<super::shell_host::AmbitionShellHosted>()
+    {
+        app.world_mut().spawn((
+            ambition::platformer::lifecycle::SessionRoot(
+                ambition::platformer::lifecycle::SessionScopeId(0),
+            ),
+            ambition::runtime::PlatformerSessionWorld::new(
+                ambition_content::AMBITION_CONTENT_PROVIDER,
+                room_set,
+                RoomGeometry(active_world),
+                rooms::ActiveRoomMetadata(active_metadata),
+                starting_character,
+                ldtk_index,
+            ),
+        ));
+    }
+
     app.insert_resource(ldtk_world::SandboxLdtkProject(ldtk_project.clone()))
-        .insert_resource(RoomGeometry(active_world))
-        .insert_resource(rooms::ActiveRoomMetadata::default())
-        .insert_resource(room_set)
-        .insert_resource(ldtk_index)
         .insert_resource(ldtk_world::LdtkHotReloadState::from_catalog(
             &sandbox_catalog,
         ))

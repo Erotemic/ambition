@@ -134,7 +134,7 @@ fn min_app() -> App {
     app.insert_resource(EncounterRegistry::default());
     app.insert_resource(BossEncounterRegistry::default());
     app.insert_resource(QuestRegistry::default());
-    app.insert_resource(EncounterMusicRequest::default());
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), EncounterMusicRequest::default());
     app.insert_resource(crate::features::GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.insert_resource(crate::features::CharacterRoster::default());
@@ -166,7 +166,7 @@ fn min_app() -> App {
     app.insert_resource(crate::SandboxSimState::default());
     app.insert_resource(ambition_time::ClockState::default());
     app.insert_resource(ambition_dev_tools::SandboxDevState::default());
-    app.insert_resource(RoomGeometry(world.clone()));
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), RoomGeometry(world.clone()));
     // Construct a minimal RoomSet with one room so `start` and
     // `active` are both valid indices.
     let room_spec = crate::rooms::RoomSpec {
@@ -188,7 +188,7 @@ fn min_app() -> App {
         mount_links: Vec::new(),
         placements: Vec::new(),
     };
-    app.insert_resource(crate::rooms::RoomSet::from_parts(
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), crate::rooms::RoomSet::from_parts(
         "test",
         vec![room_spec],
         Vec::new(),
@@ -309,7 +309,7 @@ fn processor_warps_player_to_start_spawn() {
         req.request();
     }
     app.update();
-    let world = app.world().resource::<RoomGeometry>();
+    let world = ambition_platformer_primitives::lifecycle::session_world_component::<RoomGeometry>(app.world()).expect("session room geometry");
     let expected_spawn = world.0.spawn;
     let mut q = app
         .world_mut()
@@ -330,7 +330,7 @@ fn processor_restores_authored_start_room_platform() {
         75.0,
     );
     {
-        let mut room_set = app.world_mut().resource_mut::<RoomSet>();
+        let mut room_set = ambition_platformer_primitives::lifecycle::session_world_component_mut::<RoomSet>(app.world_mut()).expect("session room set");
         room_set.rooms[0].moving_platforms = vec![authored.clone()];
     }
     {

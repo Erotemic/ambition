@@ -85,7 +85,7 @@ const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 /// damage geometry — this system only mirrors rows into sprites.
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
-    world: Res<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     active_session: Option<Res<ActiveSessionScope>>,
     boss_frames: Res<ambition_sim_view::BossFrameIndex>,
     mut visuals: Query<(Entity, &GradientLaneVisual, &mut Transform, &mut Sprite)>,

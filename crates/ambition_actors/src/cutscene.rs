@@ -26,7 +26,7 @@ use ambition_platformer_primitives::schedule::SimScheduleExt;
 /// the new room has a binding and the cutscene hasn't been seen.
 pub fn auto_trigger_room_cutscenes(
     bindings: Res<RoomCutsceneBindings>,
-    room_set: Res<crate::rooms::RoomSet>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     mut queue: ResMut<CutsceneTriggerQueue>,
     mut last_room: Local<Option<String>>,
 ) {

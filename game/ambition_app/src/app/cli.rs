@@ -497,10 +497,7 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
             && world
                 .resource::<ambition::game_shell::PreparedSessionRegistry>()
                 .is_empty()
-            && world
-                .resource::<ambition::session_world::SessionWorldProjectionAuthority>()
-                .owner
-                .is_none()
+            && ambition::platformer::lifecycle::session_world_entity(world).is_none()
     }
 
     fn step_until_title_zero_state(app: &mut App, route: &str, budget: usize) -> bool {
@@ -741,8 +738,7 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     let active_profile = asset_config.asset_profile;
     app.insert_resource(asset_config);
     // Launch-time "choose your character": inserted BEFORE the plugins so the
-    // sandbox plugin's `init_resource::<StartingCharacter>()` sees it already
-    // present and leaves it untouched.
+    // sandbox preparation consumes it before publishing session authority.
     insert_starting_character_override(&mut app);
     // Host mode: the shell-routed multi-game title screen is the DEFAULT.
     // Direct development entry (straight into gameplay, no launcher) is host
@@ -816,7 +812,9 @@ fn insert_starting_character_override(app: &mut App) {
         return;
     }
     eprintln!("ambition_app: starting as character '{id}' (AMBITION_START_CHARACTER)");
-    app.insert_resource(ambition::actors::avatar::StartingCharacter::new(id));
+    app.insert_resource(super::resources::StartingCharacterOverride(
+        ambition::actors::avatar::StartingCharacter::new(id),
+    ));
 }
 
 /// Build + run the visible Bevy app for a browser (wasm32) target.

@@ -51,7 +51,7 @@ use ambition::vfx::VfxMessage;
 /// reset input.
 pub fn apply_player_reset_input_system(
     mut control_frame: ResMut<ControlFrame>,
-    world: Res<RoomGeometry>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
@@ -127,14 +127,14 @@ pub fn apply_player_reset_input_system(
 /// reset timing depend on UI/game-mode scheduling.
 pub fn apply_room_replay_request_system(
     mut replay_requests: MessageReader<ambition::actors::session::reset::RoomReplayRequested>,
-    world: Res<RoomGeometry>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     boss_registry: Res<ambition::actors::boss_encounter::BossEncounterRegistry>,
     mut save: Option<ResMut<ambition::persistence::save::SandboxSave>>,
-    mut boss_music: Option<ResMut<ambition::encounter::EncounterMusicRequest>>,
+    mut boss_music: Option<ambition::platformer::lifecycle::SessionWorldMut<ambition::encounter::EncounterMusicRequest>>,
     // Cut-rope boss placements in the room — R4 keys "cleared" by placement
     // (`config.id`), so the replay clears those keys (the respawned boss carries
     // the same LDtk id).

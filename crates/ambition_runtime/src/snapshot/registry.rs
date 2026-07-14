@@ -438,7 +438,7 @@ impl SnapshotRegistry {
     /// equal on both sides of every comparison it takes part in — while a genuine
     /// room-transition desync now shows up instead of hiding.
     fn hash_active_room(world: &World, h: &mut StateHasher) {
-        match world.get_resource::<ambition_world::rooms::RoomSet>() {
+        match ambition_platformer_primitives::lifecycle::session_world_component::<ambition_world::rooms::RoomSet>(world) {
             Some(rs) => h.write_str(rs.active_spec().id.as_str()),
             // A headless world with no `RoomSet` hashes a sentinel distinct from a room
             // that is literally named "".
@@ -656,10 +656,6 @@ pub const SIM_RESOURCE_EXCLUSIONS: &[(&str, &str)] = &[
     (
         "::LdtkWorldAssets",
         "ldtk_map: asset handles — loaded content",
-    ),
-    (
-        "::LdtkRuntimeIndex",
-        "ldtk_map: per-room derived render index — rebuilt on room load",
     ),
     (
         "::LdtkRuntimeSpineStats",

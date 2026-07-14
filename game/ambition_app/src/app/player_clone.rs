@@ -59,7 +59,7 @@ pub fn request_player_clone_on_key(
 pub fn spawn_requested_player_clone(
     mut commands: Commands,
     mut request: ResMut<SpawnPlayerCloneRequest>,
-    world: Res<RoomGeometry>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     // Optional: the headless RL harness has no loaded character sheets. Absent →
     // the clone falls back to a tinted rectangle (movement still works).
     game_assets: Option<Res<GameAssets>>,
@@ -246,7 +246,7 @@ pub fn despawn_player_clones_on_reset(
 
 /// Keep the clone's sprite on its simulated body.
 pub fn sync_player_clone_transform(
-    world: Res<RoomGeometry>,
+    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     mut clones: Query<
         (&ambition::actors::actor::BodyKinematics, &mut Transform),
         With<PlayerClone>,

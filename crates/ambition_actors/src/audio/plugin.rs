@@ -188,9 +188,9 @@ impl Plugin for SandboxAudioPlugin {
 }
 
 #[derive(SystemParam)]
-struct AudioRequestState<'w> {
-    encounter: Option<ResMut<'w, crate::encounter::EncounterMusicRequest>>,
-    room: Option<ResMut<'w, crate::rooms::RoomMusicRequest>>,
+struct AudioRequestState<'w, 's> {
+    encounter: Option<ambition_platformer_primitives::lifecycle::SessionWorldMut<'w, 's, crate::encounter::EncounterMusicRequest>>,
+    room: Option<ambition_platformer_primitives::lifecycle::SessionWorldMut<'w, 's, crate::rooms::RoomMusicRequest>>,
     radio: Option<ResMut<'w, super::RadioStationState>>,
     intent: Option<ResMut<'w, crate::music::MusicIntent>>,
     director: Option<ResMut<'w, crate::music::MusicDirectorState>>,
@@ -200,7 +200,7 @@ struct AudioRequestState<'w> {
 }
 
 /// Reset activation-local audio requests exactly when the shell audio owner
-/// changes. The bundle keeps the mutable request resources behind one Bevy parameter, well below
+/// changes. The bundle keeps the mutable request components behind one Bevy parameter, well below
 /// the system argument limit, while making same-provider relaunch as fresh as a
 /// cross-provider switch.
 fn reset_audio_request_state_on_context_change(
@@ -219,10 +219,10 @@ fn reset_audio_request_state_on_context_change(
         return;
     }
     if let Some(encounter) = state.encounter.as_deref_mut() {
-        *encounter = Default::default();
+        **encounter = Default::default();
     }
     if let Some(room) = state.room.as_deref_mut() {
-        *room = Default::default();
+        **room = Default::default();
     }
     if let Some(radio) = state.radio.as_deref_mut() {
         *radio = Default::default();
@@ -280,6 +280,7 @@ fn music_auto_start_when_ungated(gate: Option<Res<SessionGatedSimulation>>) -> b
 fn apply_frontend_music_policy(
     gate: Option<Res<SessionGatedSimulation>>,
     scope: Option<Res<ActiveSessionScope>>,
+    roots: Query<&ambition_platformer_primitives::lifecycle::SessionRoot>,
     base_music_channel: Res<bevy_kira_audio::prelude::AudioChannel<MusicChannel>>,
     layer_channels: crate::music::MusicLayerChannels,
     library: Option<ResMut<ambition_audio::library::AudioLibrary>>,
@@ -292,7 +293,7 @@ fn apply_frontend_music_policy(
     mut started: ResMut<DefaultMusicStarted>,
     mut applied_owner: Local<Option<ambition_sfx::AudioContextOwner>>,
 ) {
-    if simulation_authorized(gate, scope) {
+    if simulation_authorized(gate, scope, roots) {
         *applied_owner = None;
         return;
     }

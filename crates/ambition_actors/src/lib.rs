@@ -203,7 +203,7 @@ impl SafePositionContext {
     }
 }
 
-// `RoomGeometry` (the `Resource(World)` newtype for the active room's collision
+// `RoomGeometry` (the session-root component wrapping the active room's collision
 // geometry) lives in `ambition_engine_core`, next to the `World` it wraps
 // (fable review §D4, Jon-confirmed home) — so the renderer and a future
 // `ambition_world` name it there directly, not through this 95k crate.

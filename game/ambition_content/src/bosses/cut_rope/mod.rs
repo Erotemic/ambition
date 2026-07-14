@@ -191,7 +191,7 @@ pub fn reset_cut_rope_boss_attempt(
 /// Idempotent + waits until the authored anvil prop is available.
 pub fn setup_cut_rope_encounter(
     mut commands: Commands,
-    room_set: Res<RoomSet>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<RoomSet>,
     bosses: Query<&BossConfig>,
     encounters: Query<(Entity, &EncounterParticipants), Without<EncounterScript>>,
     behemoths: Query<(Entity, &BossConfig), Without<ReleaseOnDeath>>,

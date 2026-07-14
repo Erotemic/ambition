@@ -47,7 +47,6 @@ impl Plugin for LdtkRuntimeSpinePlugin {
         // The spine's own index/stat resources (anti-god rule 5: the owner
         // initializes). Empty defaults; the rebuild chain below fills them
         // from whatever LDtk entities exist (none, in a RON-only demo).
-        app.init_resource::<super::asset::LdtkRuntimeIndex>();
         app.init_resource::<super::indices::LdtkRuntimeSpineStats>();
         app.init_resource::<super::indices::LdtkRuntimeSpineIndex>();
         app.init_resource::<super::indices::LdtkRuntimeSolidIndex>();

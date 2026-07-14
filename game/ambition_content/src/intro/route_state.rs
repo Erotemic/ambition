@@ -160,7 +160,7 @@ pub fn compute_intro_flag_gated_lock_walls(
 /// each wall as a `LockWallVisual`, same as encounter lock walls.
 pub fn sync_intro_flag_gated_lock_walls(
     project: Option<Res<ambition_actors::world::ldtk_world::SandboxLdtkProject>>,
-    room_set: Option<Res<ambition_actors::rooms::RoomSet>>,
+    room_set: Option<ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>>,
     save: Option<Res<ambition_persistence::save::SandboxSave>>,
     overlay: Option<
         ResMut<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,

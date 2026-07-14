@@ -14,13 +14,14 @@ use bevy::input::gamepad::Gamepad;
 use bevy::prelude::*;
 
 use crate::{
-    shell_action_edges, ActiveShellSequence, ShellAnalogLatch, ShellLaunchCatalog,
-    ShellLauncherCommand, ShellLauncherPresentation, ShellLauncherState, ShellRouteId,
+    shell_action_edges, ActiveShellSequence, FrontendOwnedEntity,
+    FrontendPresentationKind, ShellAnalogLatch, ShellLaunchCatalog, ShellLauncherCommand,
+    ShellLauncherPresentation, ShellLauncherState, ShellRouteId, ShellRouter,
     ShellSegmentPresentation, ShellSequenceCommand,
 };
 
 #[derive(Component)]
-struct BasicSequenceRoot;
+pub struct BasicSequenceRoot;
 
 #[derive(Default)]
 struct BasicSequenceFrame {
@@ -119,6 +120,7 @@ fn render_basic_shell(
     catalog: Res<ShellLaunchCatalog>,
     launcher_presentation: Res<ShellLauncherPresentation>,
     sequence: Res<ActiveShellSequence>,
+    router: Res<ShellRouter>,
     asset_server: Option<Res<AssetServer>>,
     sequence_roots: Query<Entity, With<BasicSequenceRoot>>,
     // Identity, not species: only THIS presentation's launcher tree. Other
@@ -126,7 +128,11 @@ fn render_basic_shell(
     launcher_roots: Query<Entity, (With<BevyUiMenuRoot>, With<BasicShellUiRoot>)>,
     mut prior_key: Local<String>,
 ) {
-    let frame_key = shell_frame_key(&launcher, &catalog, &launcher_presentation, &sequence);
+    let frame_key = format!(
+        "{:?}:{}",
+        router.active.as_ref().map(|active| active.activation_id),
+        shell_frame_key(&launcher, &catalog, &launcher_presentation, &sequence),
+    );
     if *prior_key == frame_key {
         return;
     }
@@ -139,6 +145,10 @@ fn render_basic_shell(
         commands.entity(entity).despawn();
     }
 
+    let Some(activation_id) = router.active.as_ref().map(|active| active.activation_id) else {
+        return;
+    };
+
     if launcher.active {
         spawn_launcher_menu(
             &mut commands,
@@ -146,6 +156,7 @@ fn render_basic_shell(
             &catalog,
             &launcher_presentation,
             asset_server.as_deref(),
+            activation_id,
         );
         return;
     }
@@ -157,6 +168,10 @@ fn render_basic_shell(
     commands
         .spawn((
             BasicSequenceRoot,
+            FrontendOwnedEntity::shell(
+                activation_id,
+                FrontendPresentationKind::StartupRoot,
+            ),
             Node {
                 position_type: PositionType::Absolute,
                 width: Val::Percent(100.0),
@@ -208,6 +223,7 @@ fn spawn_launcher_menu(
     catalog: &ShellLaunchCatalog,
     presentation: &ShellLauncherPresentation,
     asset_server: Option<&AssetServer>,
+    activation_id: crate::ShellActivationId,
 ) {
     let mut page = MenuPageModel::new(
         BasicLauncherPage::Home,
@@ -317,7 +333,13 @@ fn spawn_launcher_menu(
         focused_tab: None,
     };
     let root = spawn_bevy_ui_menu_with_assets(commands, &view, asset_server);
-    commands.entity(root).insert(BasicShellUiRoot);
+    commands.entity(root).insert((
+        BasicShellUiRoot,
+        FrontendOwnedEntity::shell(
+            activation_id,
+            FrontendPresentationKind::LauncherRoot,
+        ),
+    ));
 }
 
 fn shell_frame_key(

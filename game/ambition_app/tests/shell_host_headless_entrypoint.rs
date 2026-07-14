@@ -14,3 +14,25 @@ fn shipping_shared_host_reaches_the_launcher_without_a_window() {
     assert!(report.launcher_active);
     assert!(!report.gameplay_session_active);
 }
+
+#[test]
+fn shipping_shared_host_executes_the_full_multi_provider_acceptance_cycle() {
+    let report = ambition_app::app::run_shared_host_acceptance_cycle();
+    assert!(report.completed, "{report}");
+    assert_eq!(report.title_zero_state_stops, 5);
+    assert!(report.exit_requested);
+    assert_eq!(
+        report.route_stops,
+        vec![
+            "ambition_launcher",
+            "ambition_gameplay",
+            "ambition_launcher",
+            "sanic_gameplay",
+            "ambition_launcher",
+            "mary_o_gameplay",
+            "ambition_launcher",
+            "sanic_gameplay",
+            "ambition_launcher",
+        ]
+    );
+}

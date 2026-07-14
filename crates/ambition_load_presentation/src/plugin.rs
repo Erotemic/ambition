@@ -3,7 +3,8 @@
 use std::time::Duration;
 
 use ambition_game_shell::{
-    AmbitionGameShellSet, ShellCommand, ShellEvent, ShellHoldId, ShellRouteHolds, ShellRouter,
+    AmbitionGameShellSet, ShellCommand, ShellEvent, ShellHoldId, ShellRouteCatalog,
+    ShellRouteHolds, ShellRouter,
 };
 use ambition_load::{BarrierReadiness, LoadCoordinator};
 use bevy::prelude::{
@@ -261,6 +262,7 @@ fn process_presentation_actions(
     mut foreground: ResMut<LoadForegroundState>,
     mut activity: ResMut<LoadActivityState>,
     mut holds: ResMut<ShellRouteHolds>,
+    routes: Res<ShellRouteCatalog>,
     mut shell: MessageWriter<ShellCommand>,
     mut events: MessageWriter<LoadPresentationEvent>,
 ) {
@@ -278,6 +280,18 @@ fn process_presentation_actions(
                         route_id: active.route_id.clone(),
                         barrier: active.barrier.clone(),
                     });
+                    // Provider-authored routes can be retried generically:
+                    // replacing the route mints a fresh transaction, supersedes
+                    // the failed plan, and prevents stale completion from
+                    // authorizing the new destination. Static external barriers
+                    // keep the original event-only contract so their owner can
+                    // rebuild the plan explicitly.
+                    if routes
+                        .get(&active.route_id)
+                        .is_some_and(|route| route.preparation.is_some())
+                    {
+                        shell.write(ShellCommand::ReplaceWith(active.route_id.clone()));
+                    }
                 }
             }
             LoadPresentationAction::CancelToPrevious => {

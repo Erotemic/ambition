@@ -4,12 +4,12 @@ use bevy::prelude::*;
 
 use ambition::engine_core as ae;
 use ambition::game_shell::{
-    standard_preparation_failed_commands, standard_preparation_succeeded_commands,
     GameplaySessionEvent, GameplaySessionSet, PreparedSessionRegistry, ShellEvent,
 };
 use ambition::provider::{
     cleanup_prepared_platformer_sessions, AuthoredCatalogFragments,
-    PlatformerExperienceAuthoring, PlatformerSessionBuilder, PreparedPlatformerSessions,
+    PlatformerExperienceAuthoring, PlatformerPreparation, PlatformerSessionBuilder,
+    PreparedPlatformerSessions,
 };
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
@@ -57,7 +57,10 @@ impl Plugin for SanicExperiencePlugin {
             "Sanic",
             "Momentum speedway with a rideable loop",
             "Prepare Sanic",
-            AuthoredCatalogFragments::new(SANIC_CHARACTER_ID, SANIC_EXPERIENCE),
+            AuthoredCatalogFragments::new(SANIC_CHARACTER_ID, SANIC_EXPERIENCE)
+                .with_music()
+                .with_procedural_sfx()
+                .with_packed_sfx(),
         )
         .register(app);
 
@@ -82,24 +85,14 @@ impl Plugin for SanicExperiencePlugin {
 fn sanic_prepare_session(
     mut shell_events: MessageReader<ShellEvent>,
     ldtk_index: Res<LdtkRuntimeIndex>,
-    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
-    audio_catalogs: Res<ambition::audio::catalog::AudioCatalogRegistry>,
     mut prepared_sessions: ResMut<PreparedSanicSessions>,
-    mut prepared_registry: ResMut<PreparedSessionRegistry>,
-    mut load_commands: MessageWriter<ambition::load::LoadCommand>,
+    mut preparation: PlatformerPreparation,
 ) {
-    let catalogs = AuthoredCatalogFragments::new(SANIC_CHARACTER_ID, SANIC_EXPERIENCE);
     for event in shell_events.read() {
         let ShellEvent::PreparationRequested(transaction) = event else {
             continue;
         };
         if transaction.experience_id.as_str() != SANIC_EXPERIENCE {
-            continue;
-        }
-        if let Some((work_id, failure)) = catalogs.validate(&character_catalog, &audio_catalogs) {
-            for command in standard_preparation_failed_commands(transaction, work_id, failure) {
-                load_commands.write(command);
-            }
             continue;
         }
         let source = sanic_session_world();
@@ -111,15 +104,7 @@ fn sanic_prepare_session(
             source.starting_character,
             ldtk_index.clone(),
         );
-        if prepared_sessions
-            .publish(transaction, live_world, &mut prepared_registry)
-            .is_none()
-        {
-            continue;
-        }
-        for command in standard_preparation_succeeded_commands(transaction) {
-            load_commands.write(command);
-        }
+        preparation.prepare(transaction, live_world, &mut prepared_sessions);
     }
 }
 

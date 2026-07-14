@@ -4,12 +4,12 @@ use bevy::prelude::*;
 
 use ambition::engine_core as ae;
 use ambition::game_shell::{
-    standard_preparation_failed_commands, standard_preparation_succeeded_commands,
     GameplaySessionEvent, GameplaySessionSet, PreparedSessionRegistry, ShellEvent,
 };
 use ambition::provider::{
     cleanup_prepared_platformer_sessions, AuthoredCatalogFragments,
-    PlatformerExperienceAuthoring, PlatformerSessionBuilder, PreparedPlatformerSessions,
+    PlatformerExperienceAuthoring, PlatformerPreparation, PlatformerSessionBuilder,
+    PreparedPlatformerSessions,
 };
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
@@ -90,24 +90,14 @@ impl Plugin for Smb1ExperiencePlugin {
 fn smb1_prepare_session(
     mut shell_events: MessageReader<ShellEvent>,
     ldtk_index: Res<LdtkRuntimeIndex>,
-    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
-    audio_catalogs: Res<ambition::audio::catalog::AudioCatalogRegistry>,
     mut prepared_sessions: ResMut<PreparedSmb1Sessions>,
-    mut prepared_registry: ResMut<PreparedSessionRegistry>,
-    mut load_commands: MessageWriter<ambition::load::LoadCommand>,
+    mut preparation: PlatformerPreparation,
 ) {
-    let catalogs = AuthoredCatalogFragments::new(MARY_O_CHARACTER_ID, MARY_O_EXPERIENCE);
     for event in shell_events.read() {
         let ShellEvent::PreparationRequested(transaction) = event else {
             continue;
         };
         if transaction.experience_id.as_str() != MARY_O_EXPERIENCE {
-            continue;
-        }
-        if let Some((work_id, failure)) = catalogs.validate(&character_catalog, &audio_catalogs) {
-            for command in standard_preparation_failed_commands(transaction, work_id, failure) {
-                load_commands.write(command);
-            }
             continue;
         }
         let source = smb1_session_world();
@@ -119,15 +109,7 @@ fn smb1_prepare_session(
             source.starting_character,
             ldtk_index.clone(),
         );
-        if prepared_sessions
-            .publish(transaction, live_world, &mut prepared_registry)
-            .is_none()
-        {
-            continue;
-        }
-        for command in standard_preparation_succeeded_commands(transaction) {
-            load_commands.write(command);
-        }
+        preparation.prepare(transaction, live_world, &mut prepared_sessions);
     }
 }
 

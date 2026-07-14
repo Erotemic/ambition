@@ -26,6 +26,16 @@ fn primary_name(app: &mut App) -> Option<String> {
     q.iter(app.world()).next().map(|n| n.as_str().to_string())
 }
 
+fn settle_until_primary_player(app: &mut App) {
+    for _ in 0..8 {
+        app.update();
+        if worn_of_primary(app).is_some() {
+            return;
+        }
+    }
+    panic!("the provider load plan did not activate a primary player");
+}
+
 /// **S1.1 + S1.2:** after startup the canonical player carries the selected
 /// character as a `WornCharacter` identity, and gameplay (its display name) is
 /// derived from that identity.
@@ -60,7 +70,7 @@ fn canonical_player_carries_the_selected_identity_and_derives_gameplay() {
 #[test]
 fn identity_does_not_track_the_startup_selection_resource_after_spawn() {
     let mut app = ambition_demo_sanic_app::build_demo_app();
-    app.update();
+    settle_until_primary_player(&mut app);
     assert_eq!(worn_of_primary(&mut app).unwrap().id(), "sanic");
 
     // Change the startup selection resource to a DIFFERENT id after spawn.

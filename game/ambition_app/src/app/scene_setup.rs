@@ -302,6 +302,9 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
         .spawn((
             Camera2d,
             ambition::platformer::camera_layers::MainCamera,
+            ambition::game_shell::FrontendOwnedEntity::host(
+                ambition::game_shell::FrontendPresentationKind::HostCamera,
+            ),
             main_camera_layers,
             ambition::render::screen_effects::ScreenEffectSettings::default(),
             Name::new("Main Camera"),
@@ -323,6 +326,9 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
             ..default()
         },
         ambition::platformer::camera_layers::FrontHudCamera,
+        ambition::game_shell::FrontendOwnedEntity::host(
+            ambition::game_shell::FrontendPresentationKind::FrontendUiCamera,
+        ),
         IsDefaultUiCamera,
         bevy::camera::visibility::RenderLayers::layer(
             ambition::platformer::camera_layers::FRONT_HUD_LAYER,

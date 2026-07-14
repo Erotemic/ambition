@@ -463,7 +463,8 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                     ),
                 ambition::dev_tools::profiling::phase_mark("after_setup_presentation"),
                 ambition::actors::menu::map::populate_map_rooms,
-                ambition::actors::menu::map::spawn_map_menu,
+                ambition::actors::menu::map::spawn_map_menu
+                    .run_if(super::shell_host::direct_entry),
                 ambition::dev_tools::profiling::phase_mark("after_map_menu_spawn"),
             )
                 .chain()

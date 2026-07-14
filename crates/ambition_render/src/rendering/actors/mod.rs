@@ -149,7 +149,7 @@ pub fn bind_worn_character_presentation(
 
 pub fn sync_visuals(
     world: Res<ambition_engine_core::RoomGeometry>,
-    entities: Res<SceneEntities>,
+    entities: Option<Res<SceneEntities>>,
     assets: Option<Res<GameAssets>>,
     feature_views: Res<FeatureViewIndex>,
     // The sim-built pose read-model (E4): position / roll / stance / flash
@@ -169,39 +169,42 @@ pub fn sync_visuals(
         Without<PlayerVisual>,
     >,
 ) {
-    if let Ok((mut transform, mut sprite, baseline, pose)) = player_query.get_mut(entities.player) {
-        transform.translation = world_to_bevy(&world.0, pose.pos, WORLD_Z_PLAYER);
-        // Aerial roll (portal somersault / future gravity-room orientation).
-        transform.rotation = Quat::from_rotation_z(pose.roll_angle);
-        if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
-            // Colored-rectangle fallback only — stretch to the collision-box
-            // size and tint by flash. Textured sprites (atlas OR plain image)
-            // keep their authored size and are tinted in the animation system.
-            sprite.custom_size = Some(BVec2::new(pose.size.x, pose.size.y));
-            let alpha = if pose.hit_flash_secs > 0.0 { 0.72 } else { 1.0 };
-            sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
-        } else if let Some(baseline) = baseline {
-            // HACK(crouch-sprite-row): when the player crouches (or
-            // morphs / crawls / slides), the engine shrinks the AABB
-            // and slides `pos.y` down to keep feet planted. The
-            // textured sprite was sized for the standing pose, so
-            // without compensation it floats below the floor by half
-            // the height delta. Re-scale the sprite's vertical extent
-            // by the same ratio the collision shrunk; the normalized
-            // sprite anchor preserves foot alignment automatically.
-            // Phase 1 also lets the development menu swap standing body
-            // profiles live. Scale the placeholder art against the recorded
-            // startup collision so body-profile experiments remain visual.
-            // Replace with authored body-profile rows once the generator emits
-            // them — see PlayerSpriteBaseline doc.
-            let base_y = pose.base_size.y.max(1.0);
-            let stance_ratio_y = (pose.size.y / base_y).clamp(0.1, 1.0);
-            let scale_x = pose.base_size.x / baseline.standing_collision.x.max(1.0);
-            let scale_y = pose.base_size.y / baseline.standing_collision.y.max(1.0);
-            sprite.custom_size = Some(BVec2::new(
-                baseline.standing_render.x * scale_x,
-                baseline.standing_render.y * scale_y * stance_ratio_y,
-            ));
+    let player = entities.as_deref().map(|entities| entities.player);
+    if let Some(player) = player {
+        if let Ok((mut transform, mut sprite, baseline, pose)) = player_query.get_mut(player) {
+            transform.translation = world_to_bevy(&world.0, pose.pos, WORLD_Z_PLAYER);
+            // Aerial roll (portal somersault / future gravity-room orientation).
+            transform.rotation = Quat::from_rotation_z(pose.roll_angle);
+            if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
+                // Colored-rectangle fallback only — stretch to the collision-box
+                // size and tint by flash. Textured sprites (atlas OR plain image)
+                // keep their authored size and are tinted in the animation system.
+                sprite.custom_size = Some(BVec2::new(pose.size.x, pose.size.y));
+                let alpha = if pose.hit_flash_secs > 0.0 { 0.72 } else { 1.0 };
+                sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
+            } else if let Some(baseline) = baseline {
+                // HACK(crouch-sprite-row): when the player crouches (or
+                // morphs / crawls / slides), the engine shrinks the AABB
+                // and slides `pos.y` down to keep feet planted. The
+                // textured sprite was sized for the standing pose, so
+                // without compensation it floats below the floor by half
+                // the height delta. Re-scale the sprite's vertical extent
+                // by the same ratio the collision shrunk; the normalized
+                // sprite anchor preserves foot alignment automatically.
+                // Phase 1 also lets the development menu swap standing body
+                // profiles live. Scale the placeholder art against the recorded
+                // startup collision so body-profile experiments remain visual.
+                // Replace with authored body-profile rows once the generator emits
+                // them — see PlayerSpriteBaseline doc.
+                let base_y = pose.base_size.y.max(1.0);
+                let stance_ratio_y = (pose.size.y / base_y).clamp(0.1, 1.0);
+                let scale_x = pose.base_size.x / baseline.standing_collision.x.max(1.0);
+                let scale_y = pose.base_size.y / baseline.standing_collision.y.max(1.0);
+                sprite.custom_size = Some(BVec2::new(
+                    baseline.standing_render.x * scale_x,
+                    baseline.standing_render.y * scale_y * stance_ratio_y,
+                ));
+            }
         }
     }
 

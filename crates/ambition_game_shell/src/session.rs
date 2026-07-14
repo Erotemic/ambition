@@ -20,7 +20,8 @@ use ambition_sfx::{AudioContextOwner, SfxEmissionContext};
 use bevy::prelude::*;
 
 use crate::{
-    ActiveShellExperience, AmbitionGameShellSet, ExperienceRegistration, LoadBarrierRef,
+    ActiveFrontendAuthority, ActiveShellExperience, AmbitionGameShellSet, ExperienceRegistration,
+    LoadBarrierRef, PresentationOwnershipPolicy,
     PreparedSessionIdentity, ShellActivationId, ShellEvent, ShellExperienceAppExt,
     ShellExperienceId, ShellRouteSpec,
 };
@@ -110,6 +111,12 @@ pub struct GameplaySessionAudioContext {
 /// The shell deliberately does not name a provider's concrete world bundle.
 /// Providers attach their typed components to this entity, while the shell
 /// owns only the exact activation/scope identity and lifetime.
+#[derive(Component, Clone, Copy, Debug, Eq, PartialEq)]
+pub struct GameplayInputOwner {
+    pub activation_id: ShellActivationId,
+    pub scope: SessionScopeId,
+}
+
 #[derive(Component, Clone, Debug, Eq, PartialEq)]
 pub struct GameplaySessionWorldRoot {
     pub activation_id: ShellActivationId,
@@ -280,6 +287,8 @@ impl Plugin for GameplaySessionBridgePlugin {
             .init_resource::<GameplaySessionRegistry>()
             .init_resource::<GameplaySessionLinks>()
             .init_resource::<ActiveGameplaySession>()
+            .init_resource::<ActiveFrontendAuthority>()
+            .init_resource::<PresentationOwnershipPolicy>()
             .init_resource::<ActiveAudioSelection>()
             .init_resource::<SfxEmissionContext>()
             // Required, never Option: session-audio composition must fail loudly
@@ -304,10 +313,36 @@ impl Plugin for GameplaySessionBridgePlugin {
                 (
                     translate_shell_session_lifecycle,
                     select_shell_audio_context,
+                    select_frontend_authority,
                 )
                     .chain()
                     .in_set(GameplaySessionSet::Bridge),
             );
+    }
+}
+
+
+fn select_frontend_authority(
+    mut events: MessageReader<ShellEvent>,
+    registry: Res<GameplaySessionRegistry>,
+    mut authority: ResMut<ActiveFrontendAuthority>,
+) {
+    for event in events.read() {
+        match event {
+            ShellEvent::RouteActivated(active) => {
+                authority.0 = (!registry.contains(&active.experience_id)).then_some(active.clone());
+            }
+            ShellEvent::RouteDeactivated(active)
+                if authority
+                    .0
+                    .as_ref()
+                    .is_some_and(|current| current.activation_id == active.activation_id) =>
+            {
+                authority.0 = None;
+            }
+            ShellEvent::ExitRequested => authority.0 = None,
+            _ => {}
+        }
     }
 }
 

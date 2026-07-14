@@ -1,6 +1,8 @@
 //! Plain Bevy UI reference presentation for load evidence and ready-hold.
 
-use ambition_game_shell::{shell_action_edges, ShellAnalogLatch};
+use ambition_game_shell::{
+    shell_action_edges, FrontendOwnedEntity, FrontendPresentationKind, ShellAnalogLatch,
+};
 use bevy::prelude::*;
 
 use crate::{
@@ -9,7 +11,7 @@ use crate::{
 };
 
 #[derive(Component)]
-struct BasicLoadRoot;
+pub struct BasicLoadRoot;
 
 #[derive(Default)]
 pub struct BasicLoadPresentationPlugin;
@@ -48,7 +50,9 @@ fn basic_load_keyboard(
     {
         actions.write(LoadPresentationAction::Retry);
     }
-    if shell_actions.back {
+    if shell_actions.quit_to_home {
+        actions.write(LoadPresentationAction::QuitToHome);
+    } else if shell_actions.back {
         actions.write(LoadPresentationAction::CancelToPrevious);
     }
 }
@@ -56,23 +60,40 @@ fn basic_load_keyboard(
 fn render_basic_load(
     mut commands: Commands,
     model: Res<LoadPresentationModel>,
+    foreground: Res<LoadForegroundState>,
     roots: Query<Entity, With<BasicLoadRoot>>,
     mut prior: Local<String>,
 ) {
     let text = format_model(&model);
-    if *prior == text {
+    let key = format!(
+        "{}:{text}",
+        foreground
+            .active
+            .as_ref()
+            .map(|active| active.barrier.load_id.as_str())
+            .unwrap_or("none")
+    );
+    if *prior == key {
         return;
     }
-    *prior = text.clone();
+    *prior = key;
     for entity in &roots {
         commands.entity(entity).despawn();
     }
     if text.is_empty() {
         return;
     }
+    let active = foreground
+        .active
+        .as_ref()
+        .expect("visible load presentation has an exact active foreground");
     commands
         .spawn((
             BasicLoadRoot,
+            FrontendOwnedEntity::load(
+                active.barrier.load_id.clone(),
+                FrontendPresentationKind::LoadingRoot,
+            ),
             Node {
                 position_type: PositionType::Absolute,
                 width: Val::Percent(100.0),
@@ -104,9 +125,9 @@ fn format_model(model: &LoadPresentationModel) -> String {
     }
     if let Some(failure) = model.failures.first() {
         let controls = if failure.retryable {
-            "R: retry · Escape: return"
+            "R: retry · Escape: previous · F10/Start: return home"
         } else {
-            "Escape: return"
+            "Escape: previous · F10/Start: return home"
         };
         return format!("Load failed\n\n{}\n\n{controls}", failure.player_message);
     }
@@ -134,6 +155,11 @@ fn format_model(model: &LoadPresentationModel) -> String {
         "{} complete · {} active · {} known remaining",
         model.completed_steps, model.active_steps, model.known_remaining_steps
     ));
+    append_work_section(&mut lines, "Working now", &model.active_labels);
+    append_work_section(&mut lines, "Completed", &model.completed_labels);
+    append_work_section(&mut lines, "Required next", &model.remaining_labels);
+    append_work_section(&mut lines, "Streaming after launch", &model.streamable_labels);
+    append_work_section(&mut lines, "Optional background work", &model.speculative_labels);
     if let Some(additional) = &model.estimated_additional_steps {
         lines.push(format!(
             "Approximately {}–{} additional steps may be discovered",
@@ -147,4 +173,11 @@ fn format_model(model: &LoadPresentationModel) -> String {
         lines.push("Ready — press Enter to continue".to_owned());
     }
     lines.join("\n\n")
+}
+
+fn append_work_section(lines: &mut Vec<String>, heading: &str, labels: &[String]) {
+    if labels.is_empty() {
+        return;
+    }
+    lines.push(format!("{heading}:\n{}", labels.join("\n")));
 }

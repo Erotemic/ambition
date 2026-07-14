@@ -8,6 +8,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use bevy::prelude::*;
 
 use ambition_menu::map::{MapMenuState, MapRoomNode, MAP_ZOOM_MAX, MAP_ZOOM_MIN};
+use ambition_platformer_primitives::lifecycle::SessionSpawnScope;
 
 const MAP_PANEL_WIDTH: f32 = 720.0;
 const MAP_PANEL_HEIGHT: f32 = 480.0;
@@ -61,8 +62,16 @@ pub struct MapRoomBox {
 pub struct MapRoomLabel;
 
 pub fn spawn_map_menu(mut commands: Commands) {
-    let root = commands
-        .spawn((
+    spawn_map_menu_with_scope(&mut commands, SessionSpawnScope::UNSCOPED);
+}
+
+/// Spawn the map and minimap under an explicit gameplay-session owner.
+///
+/// The process-resident direct-entry host uses [`spawn_map_menu`]. Shell hosts
+/// call this function when an Ambition gameplay session activates so the roots
+/// are absent at the title and are retired by the exact session cleanup.
+pub fn spawn_map_menu_with_scope(commands: &mut Commands, scope: SessionSpawnScope) {
+    let mut root_commands = commands.spawn((
             Button,
             Node {
                 position_type: PositionType::Absolute,
@@ -86,8 +95,9 @@ pub fn spawn_map_menu(mut commands: Commands) {
             Visibility::Hidden,
             MapMenuRoot,
             Name::new("Map menu root"),
-        ))
-        .id();
+        ));
+    scope.apply_to(&mut root_commands);
+    let root = root_commands.id();
     let title = commands
         .spawn((
             Text::new("MAP"),
@@ -126,8 +136,7 @@ pub fn spawn_map_menu(mut commands: Commands) {
         .id();
     commands.entity(root).add_children(&[title, status, canvas]);
 
-    let minimap_root = commands
-        .spawn((
+    let mut minimap_root_commands = commands.spawn((
             Node {
                 position_type: PositionType::Absolute,
                 right: Val::Px(12.0),
@@ -143,8 +152,9 @@ pub fn spawn_map_menu(mut commands: Commands) {
             Visibility::Hidden,
             MinimapRoot,
             Name::new("Minimap root"),
-        ))
-        .id();
+        ));
+    scope.apply_to(&mut minimap_root_commands);
+    let minimap_root = minimap_root_commands.id();
     let minimap_canvas = commands
         .spawn((
             Node {

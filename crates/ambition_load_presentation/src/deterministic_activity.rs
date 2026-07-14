@@ -1,15 +1,16 @@
 //! Optional deterministic loading activity acceptance fixture.
 
-use ambition_game_shell::{shell_action_edges, ShellAnalogLatch};
+use ambition_game_shell::{
+    shell_action_edges, FrontendOwnedEntity, FrontendPresentationKind, ShellAnalogLatch,
+};
 use bevy::input::gamepad::Gamepad;
 use bevy::prelude::*;
 
 use crate::{
     LoadActivityOutcome, LoadActivityScopedEntity, LoadActivitySignal, LoadActivityState,
-    LoadPresentationSet,
+    LoadPresentationSet, DETERMINISTIC_LOADING_ACTIVITY_ID,
 };
 
-pub const DETERMINISTIC_LOADING_ACTIVITY_ID: &str = "ambition.loading.edge-practice";
 const TARGET_EDGES: u64 = 4;
 
 #[derive(Component)]
@@ -56,6 +57,10 @@ fn spawn_activity(
         LoadActivityScopedEntity {
             activation_id: active.activation_id,
         },
+        FrontendOwnedEntity::load(
+            active.barrier.load_id.clone(),
+            FrontendPresentationKind::LoadingActivity,
+        ),
         Text::new("Loading practice: tap up/down four times (0/4)"),
         TextFont {
             font_size: 18.0,
@@ -121,5 +126,133 @@ fn drive_activity(
         } else {
             **text = format!("Loading practice: tap up/down four times ({}/4)", view.edges);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_game_shell::{
+        FrontendEntityOwner, FrontendPresentationKind, LoadBarrierRef, ShellRouteId,
+    };
+    use crate::{ActiveLoadActivity, LoadActivityId};
+    use ambition_load::{LoadBarrierId, LoadId};
+    use bevy::input::gamepad::{Gamepad, GamepadButton};
+
+    #[derive(Resource, Default, Debug, Eq, PartialEq)]
+    struct DestinationFixture(u64);
+
+    fn app() -> App {
+        let mut app = App::new();
+        app.add_message::<LoadActivitySignal>();
+        app.init_resource::<LoadActivityState>();
+        app.init_resource::<ButtonInput<KeyCode>>();
+        app.init_resource::<DestinationFixture>();
+        app.add_plugins(DeterministicLoadingActivityPlugin);
+        app.world_mut().resource_mut::<LoadActivityState>().active = Some(ActiveLoadActivity {
+            activation_id: 7,
+            activity_id: LoadActivityId::new(DETERMINISTIC_LOADING_ACTIVITY_ID),
+            route_id: ShellRouteId::new("destination"),
+            barrier: LoadBarrierRef {
+                load_id: LoadId::new("load-7"),
+                barrier_id: LoadBarrierId::new("ready"),
+            },
+        });
+        app
+    }
+
+    fn tap_key(app: &mut App, key: KeyCode) {
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(key);
+        app.update();
+        // `clear` only clears the transient edge sets; it deliberately leaves
+        // the key in `pressed`. Reset the key so a later tap of the same key
+        // creates a fresh `just_pressed` edge.
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .reset(key);
+    }
+
+    fn drain(app: &mut App) -> Vec<LoadActivitySignal> {
+        app.world_mut()
+            .resource_mut::<Messages<LoadActivitySignal>>()
+            .drain()
+            .collect()
+    }
+
+    #[test]
+    fn keyboard_activity_is_scoped_records_an_optional_result_and_never_mutates_destination() {
+        let mut app = app();
+        app.update();
+        let mut scoped = app.world_mut().query::<&LoadActivityScopedEntity>();
+        assert_eq!(scoped.iter(app.world()).count(), 1);
+        let mut owned = app.world_mut().query::<&FrontendOwnedEntity>();
+        let owner = owned
+            .iter(app.world())
+            .find(|owned| owned.kind == FrontendPresentationKind::LoadingActivity)
+            .expect("activity has explicit load ownership");
+        assert_eq!(
+            owner.owner,
+            FrontendEntityOwner::Load(LoadId::new("load-7")),
+        );
+
+        let mut signals = Vec::new();
+        for key in [
+            KeyCode::ArrowUp,
+            KeyCode::ArrowDown,
+            KeyCode::ArrowUp,
+            KeyCode::ArrowDown,
+        ] {
+            tap_key(&mut app, key);
+            signals.extend(drain(&mut app));
+        }
+        assert!(matches!(signals.first(), Some(LoadActivitySignal::Engaged { activation_id: 7 })));
+        assert!(matches!(
+            signals.last(),
+            Some(LoadActivitySignal::Finished { activation_id: 7, outcome })
+                if outcome.completed && outcome.score == Some(4)
+        ));
+        assert_eq!(*app.world().resource::<DestinationFixture>(), DestinationFixture(0));
+    }
+
+    #[test]
+    fn controller_dpad_drives_the_same_activity_actions() {
+        let mut app = app();
+        let pad = app.world_mut().spawn(Gamepad::default()).id();
+        app.update();
+        let mut signals = Vec::new();
+        for button in [
+            GamepadButton::DPadUp,
+            GamepadButton::DPadDown,
+            GamepadButton::DPadUp,
+            GamepadButton::DPadDown,
+        ] {
+            {
+                let mut entity = app.world_mut().entity_mut(pad);
+                entity
+                    .get_mut::<Gamepad>()
+                    .expect("fixture gamepad")
+                    .digital_mut()
+                    .press(button);
+            }
+            app.update();
+            signals.extend(drain(&mut app));
+            // As with keyboard `ButtonInput`, `clear` would leave the
+            // D-pad button held. Reset this button so the repeated direction
+            // below produces another edge.
+            app.world_mut()
+                .entity_mut(pad)
+                .get_mut::<Gamepad>()
+                .expect("fixture gamepad")
+                .digital_mut()
+                .reset(button);
+        }
+        assert!(signals.iter().any(|signal| matches!(
+            signal,
+            LoadActivitySignal::Finished { activation_id: 7, outcome }
+                if outcome.completed && outcome.score == Some(4)
+        )));
+        assert_eq!(*app.world().resource::<DestinationFixture>(), DestinationFixture(0));
     }
 }

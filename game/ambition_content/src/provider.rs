@@ -3,12 +3,12 @@
 use bevy::prelude::*;
 
 use ambition::game_shell::{
-    standard_preparation_failed_commands, standard_preparation_succeeded_commands,
     GameplaySessionEvent, GameplaySessionSet, PreparedSessionRegistry, ShellEvent,
 };
 use ambition::provider::{
     cleanup_prepared_platformer_sessions, AuthoredCatalogFragments,
-    PlatformerExperienceAuthoring, PlatformerSessionBuilder, PreparedPlatformerSessions,
+    PlatformerExperienceAuthoring, PlatformerPreparation, PlatformerSessionBuilder,
+    PreparedPlatformerSessions,
 };
 use ambition_actors::ldtk_world::LdtkRuntimeIndex;
 use ambition_actors::rooms::{ActiveRoomMetadata, RoomSet};
@@ -73,7 +73,11 @@ impl Plugin for AmbitionExperiencePlugin {
             AuthoredCatalogFragments::new(
                 crate::character_catalog::PLAYABLE_ROSTER[0],
                 crate::AMBITION_CONTENT_PROVIDER,
-            ),
+            )
+            .with_music()
+            .with_procedural_sfx()
+            .with_adaptive_cues()
+            .with_packed_sfx(),
         )
         .register(app);
 
@@ -94,11 +98,8 @@ impl Plugin for AmbitionExperiencePlugin {
 fn prepare_session(
     mut shell_events: MessageReader<ShellEvent>,
     prepared_world: Res<AmbitionPreparedWorld>,
-    character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    audio_catalogs: Res<ambition_audio::catalog::AudioCatalogRegistry>,
     mut prepared_sessions: ResMut<PreparedAmbitionSessions>,
-    mut prepared_registry: ResMut<PreparedSessionRegistry>,
-    mut load_commands: MessageWriter<ambition::load::LoadCommand>,
+    mut preparation: PlatformerPreparation,
 ) {
     for event in shell_events.read() {
         let ShellEvent::PreparationRequested(transaction) = event else {
@@ -117,27 +118,7 @@ fn prepare_session(
             prepared_world.starting_character.clone(),
             prepared_world.ldtk_index.clone(),
         );
-        let character_id = live_world
-            .starting_character
-            .effective_id(crate::character_catalog::PLAYABLE_ROSTER[0]);
-        let catalogs =
-            AuthoredCatalogFragments::new(character_id, crate::AMBITION_CONTENT_PROVIDER);
-        if let Some((work_id, failure)) = catalogs.validate(&character_catalog, &audio_catalogs) {
-            for command in standard_preparation_failed_commands(transaction, work_id, failure) {
-                load_commands.write(command);
-            }
-            continue;
-        }
-
-        if prepared_sessions
-            .publish(transaction, live_world, &mut prepared_registry)
-            .is_none()
-        {
-            continue;
-        }
-        for command in standard_preparation_succeeded_commands(transaction) {
-            load_commands.write(command);
-        }
+        preparation.prepare(transaction, live_world, &mut prepared_sessions);
     }
 }
 

@@ -484,3 +484,128 @@ mod composed {
         );
     }
 }
+
+#[test]
+fn provider_retry_supersedes_the_failed_transaction_and_rejects_stale_publication() {
+    let mut loads = LoadCoordinator::default();
+    let mut prepared = PreparedSessionRegistry::default();
+    let plan = ProviderPreparationPlan::new("Prepare fixture", "ready", "Ready")
+        .required("publish", "Publish prepared session");
+    let mut catalog = ShellRouteCatalog::default();
+    catalog.register(ShellRouteSpec::new("game", "fixture").preparing_with(plan));
+    let host = ShellHostConfiguration::default();
+    let mut router = ShellRouter::default();
+
+    let first_events = router.apply(
+        ShellCommand::GoTo(ShellRouteId::new("game")),
+        &catalog,
+        &host,
+        &mut loads,
+        &mut prepared,
+    );
+    let first = first_events
+        .iter()
+        .find_map(|event| match event {
+            ShellEvent::PreparationRequested(transaction) => Some(transaction.clone()),
+            _ => None,
+        })
+        .expect("first request creates a transaction");
+    loads.apply(LoadCommand::SetWorkState {
+        load_id: first.barrier.load_id.clone(),
+        work_id: ambition_load::LoadWorkId::new("publish"),
+        state: ambition_load::LoadWorkState::Failed(
+            ambition_load::LoadFailure::new("fixture failed", "fixture").retryable(true),
+        ),
+    });
+
+    let retry_events = router.apply(
+        ShellCommand::ReplaceWith(ShellRouteId::new("game")),
+        &catalog,
+        &host,
+        &mut loads,
+        &mut prepared,
+    );
+    let second = retry_events
+        .iter()
+        .find_map(|event| match event {
+            ShellEvent::PreparationRequested(transaction) => Some(transaction.clone()),
+            _ => None,
+        })
+        .expect("retry creates a replacement transaction");
+
+    assert_ne!(first.barrier.load_id, second.barrier.load_id);
+    assert!(
+        !loads.contains(&first.barrier.load_id),
+        "superseded plans are retired after their cancellation semantics are recorded",
+    );
+    assert!(loads.contains(&second.barrier.load_id));
+    assert!(
+        prepared.publish(&first).is_none(),
+        "a delayed publication for the failed transaction cannot become authoritative",
+    );
+    assert!(prepared.publish(&second).is_some());
+}
+
+#[test]
+fn same_provider_relaunch_mints_a_fresh_load_transaction() {
+    let mut loads = LoadCoordinator::default();
+    let mut prepared = PreparedSessionRegistry::default();
+    let plan = ProviderPreparationPlan::new("Prepare fixture", "ready", "Ready")
+        .required("publish", "Publish prepared session");
+    let mut catalog = ShellRouteCatalog::default();
+    catalog.register(ShellRouteSpec::new("game", "fixture").preparing_with(plan));
+    catalog.register(ShellRouteSpec::new("home", "launcher"));
+    let host = ShellHostConfiguration {
+        spec: Some(ShellHostSpec::new("home", "home")),
+    };
+    let mut router = ShellRouter::default();
+
+    let launch = |router: &mut ShellRouter,
+                      loads: &mut LoadCoordinator,
+                      prepared: &mut PreparedSessionRegistry| {
+        let events = router.apply(
+            ShellCommand::GoTo(ShellRouteId::new("game")),
+            &catalog,
+            &host,
+            loads,
+            prepared,
+        );
+        let transaction = events
+            .iter()
+            .find_map(|event| match event {
+                ShellEvent::PreparationRequested(transaction) => Some(transaction.clone()),
+                _ => None,
+            })
+            .expect("launch requests preparation");
+        assert!(prepared.publish(&transaction).is_some());
+        loads.apply(LoadCommand::SetWorkState {
+            load_id: transaction.barrier.load_id.clone(),
+            work_id: ambition_load::LoadWorkId::new("publish"),
+            state: ambition_load::LoadWorkState::Complete,
+        });
+        loads.apply(LoadCommand::SetDiscovery {
+            load_id: transaction.barrier.load_id.clone(),
+            barrier_id: transaction.barrier.barrier_id.clone(),
+            open: false,
+            forecast: None,
+        });
+        let holds = ShellRouteHolds::default();
+        assert!(matches!(
+            router.advance_pending(&catalog, loads, prepared, &holds).last(),
+            Some(ShellEvent::RouteActivated(_))
+        ));
+        transaction
+    };
+
+    let first = launch(&mut router, &mut loads, &mut prepared);
+    router.apply(
+        ShellCommand::QuitToHome,
+        &catalog,
+        &host,
+        &mut loads,
+        &mut prepared,
+    );
+    loads.retire(&first.barrier.load_id);
+    let second = launch(&mut router, &mut loads, &mut prepared);
+    assert_ne!(first.barrier.load_id, second.barrier.load_id);
+}

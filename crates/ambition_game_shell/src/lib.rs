@@ -7,6 +7,7 @@
 //! experiences, not a universal gameplay state machine.
 
 mod experience;
+mod frontend;
 mod input;
 mod id;
 mod launcher;
@@ -19,6 +20,7 @@ mod session;
 #[cfg(feature = "basic_presentation")]
 mod basic_presentation;
 
+pub use frontend::*;
 pub use experience::{
     ExperienceAvailability, ExperienceRegistration, ShellExperienceAppExt, ShellExperienceRegistry,
 };
@@ -32,7 +34,9 @@ pub use sequence::*;
 pub use session::*;
 
 #[cfg(feature = "basic_presentation")]
-pub use basic_presentation::BasicShellPresentationPlugin;
+pub use basic_presentation::{
+    BasicSequenceRoot, BasicShellPresentationPlugin, BasicShellUiRoot,
+};
 
 use bevy::prelude::SystemSet;
 

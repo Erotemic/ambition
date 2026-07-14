@@ -4,12 +4,12 @@ use bevy::prelude::*;
 
 use ambition::engine_core as ae;
 use ambition::game_shell::{
-    standard_preparation_failed_commands, standard_preparation_succeeded_commands,
     GameplaySessionEvent, GameplaySessionSet, PreparedSessionRegistry, ShellEvent,
 };
 use ambition::provider::{
     cleanup_prepared_platformer_sessions, AuthoredCatalogFragments,
-    PlatformerExperienceAuthoring, PlatformerSessionBuilder, PreparedPlatformerSessions,
+    PlatformerExperienceAuthoring, PlatformerPreparation, PlatformerSessionBuilder,
+    PreparedPlatformerSessions,
 };
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
@@ -142,7 +142,11 @@ impl Plugin for PocketExperiencePlugin {
             "Pocket",
             "Minimal fourth-provider architecture proof",
             "Prepare Pocket",
-            AuthoredCatalogFragments::new(POCKET_CHARACTER_ID, POCKET_EXPERIENCE),
+            AuthoredCatalogFragments::new(POCKET_CHARACTER_ID, POCKET_EXPERIENCE)
+                .with_procedural_sfx(),
+        )
+        .with_loading_activity(
+            ambition::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID,
         )
         .register(app);
         app.init_resource::<PreparedPocketSessions>()
@@ -162,24 +166,14 @@ impl Plugin for PocketExperiencePlugin {
 fn prepare(
     mut events: MessageReader<ShellEvent>,
     ldtk_index: Res<LdtkRuntimeIndex>,
-    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
-    audio_catalogs: Res<ambition::audio::catalog::AudioCatalogRegistry>,
     mut sessions: ResMut<PreparedPocketSessions>,
-    mut registry: ResMut<PreparedSessionRegistry>,
-    mut commands: MessageWriter<ambition::load::LoadCommand>,
+    mut preparation: PlatformerPreparation,
 ) {
-    let catalogs = AuthoredCatalogFragments::new(POCKET_CHARACTER_ID, POCKET_EXPERIENCE);
     for event in events.read() {
         let ShellEvent::PreparationRequested(transaction) = event else {
             continue;
         };
         if transaction.experience_id.as_str() != POCKET_EXPERIENCE {
-            continue;
-        }
-        if let Some((work_id, failure)) = catalogs.validate(&character_catalog, &audio_catalogs) {
-            for command in standard_preparation_failed_commands(transaction, work_id, failure) {
-                commands.write(command);
-            }
             continue;
         }
         let room = pocket_room();
@@ -193,12 +187,7 @@ fn prepare(
             StartingCharacter::new(POCKET_CHARACTER_ID),
             ldtk_index.clone(),
         );
-        if sessions.publish(transaction, live_world, &mut registry).is_none() {
-            continue;
-        }
-        for command in standard_preparation_succeeded_commands(transaction) {
-            commands.write(command);
-        }
+        preparation.prepare(transaction, live_world, &mut sessions);
     }
 }
 
@@ -254,5 +243,25 @@ mod tests {
             .expect("standalone host sees Pocket route")
             .preparation
             .is_some());
+        let authored = app
+            .world()
+            .resource::<ambition::provider::PlatformerAuthoredCatalogRegistry>()
+            .get(POCKET_EXPERIENCE)
+            .expect("standalone host sees Pocket's authoritative authored catalogs");
+        assert_eq!(authored.starting_character, POCKET_CHARACTER_ID);
+        assert_eq!(authored.audio_provider, POCKET_EXPERIENCE);
+        assert!(!authored.expects_music);
+        assert!(authored.expects_procedural_sfx);
+        assert!(!authored.expects_adaptive_cues);
+        assert!(!authored.expects_packed_sfx);
+        let loading = app
+            .world()
+            .resource::<ambition::load_presentation::LoadPresentationCatalog>()
+            .for_route(&ShellRouteId::new(POCKET_GAMEPLAY_ROUTE));
+        assert_eq!(
+            loading.activity.as_ref().map(|activity| activity.as_str()),
+            Some(ambition::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID),
+            "provider authoring selects the reusable load activity without host wiring",
+        );
     }
 }

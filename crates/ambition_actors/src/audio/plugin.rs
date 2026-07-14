@@ -17,7 +17,8 @@
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use bevy_kira_audio::prelude::{AudioApp, AudioControl, AudioPlugin as KiraAudioPlugin};
+use bevy_kira_audio::prelude::AudioControl;
+use ambition_audio::AmbitionAudioAppExt as _;
 
 use super::environment::{
     apply_audio_environment, detect_audio_environment, smooth_audio_environment, AudioEnvironment,
@@ -42,7 +43,7 @@ pub struct SandboxAudioPlugin;
 impl Plugin for SandboxAudioPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ambition_audio::AudioOutputMode>()
-            .add_plugins(KiraAudioPlugin)
+            .add_plugins(ambition_audio::AmbitionAudioBackendPlugin)
             .add_message::<ambition_audio::selection::AudioContextChanged>()
             // Async SFX-bank loader for profiles whose bank is not picked
             // up by the sync fast path in `setup::try_load_sfx_bank_via_catalog`
@@ -60,20 +61,20 @@ impl Plugin for SandboxAudioPlugin {
             .init_resource::<ambition_audio::render::ProviderSfxHandleCache>()
             .init_resource::<AudioEnvironment>()
             .init_resource::<DefaultMusicStarted>()
-            .add_audio_channel::<MusicChannel>()
-            .add_audio_channel::<SfxChannel>()
-            .add_audio_channel::<crate::music::MusicLayer0AChannel>()
-            .add_audio_channel::<crate::music::MusicLayer1AChannel>()
-            .add_audio_channel::<crate::music::MusicLayer2AChannel>()
-            .add_audio_channel::<crate::music::MusicLayer3AChannel>()
-            .add_audio_channel::<crate::music::MusicLayer4AChannel>()
-            .add_audio_channel::<crate::music::MusicLayer5AChannel>()
-            .add_audio_channel::<crate::music::MusicLayer0BChannel>()
-            .add_audio_channel::<crate::music::MusicLayer1BChannel>()
-            .add_audio_channel::<crate::music::MusicLayer2BChannel>()
-            .add_audio_channel::<crate::music::MusicLayer3BChannel>()
-            .add_audio_channel::<crate::music::MusicLayer4BChannel>()
-            .add_audio_channel::<crate::music::MusicLayer5BChannel>()
+            .add_ambition_audio_channel::<MusicChannel>()
+            .add_ambition_audio_channel::<SfxChannel>()
+            .add_ambition_audio_channel::<crate::music::MusicLayer0AChannel>()
+            .add_ambition_audio_channel::<crate::music::MusicLayer1AChannel>()
+            .add_ambition_audio_channel::<crate::music::MusicLayer2AChannel>()
+            .add_ambition_audio_channel::<crate::music::MusicLayer3AChannel>()
+            .add_ambition_audio_channel::<crate::music::MusicLayer4AChannel>()
+            .add_ambition_audio_channel::<crate::music::MusicLayer5AChannel>()
+            .add_ambition_audio_channel::<crate::music::MusicLayer0BChannel>()
+            .add_ambition_audio_channel::<crate::music::MusicLayer1BChannel>()
+            .add_ambition_audio_channel::<crate::music::MusicLayer2BChannel>()
+            .add_ambition_audio_channel::<crate::music::MusicLayer3BChannel>()
+            .add_ambition_audio_channel::<crate::music::MusicLayer4BChannel>()
+            .add_ambition_audio_channel::<crate::music::MusicLayer5BChannel>()
             .add_systems(
                 Startup,
                 (

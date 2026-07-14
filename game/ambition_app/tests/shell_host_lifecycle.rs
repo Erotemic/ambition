@@ -20,6 +20,7 @@
 //! demo providers run their real generated worlds — all in ONE App.
 
 use bevy::asset::AssetPlugin;
+use bevy::ecs::system::RunSystemOnce;
 use bevy::image::ImagePlugin;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
@@ -375,6 +376,11 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         "sanic #1",
     );
     fresh(scope, "sanic #1");
+    let sanic_world_1 = app
+        .world()
+        .resource::<ActiveGameplaySession>()
+        .active_world_entity()
+        .expect("sanic #1 owns a canonical world entity");
     assert_eq!(
         app.world()
             .resource::<RoomSet>()
@@ -451,6 +457,54 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         "central_hub_complex",
         "ambition: the real LDtk entry room is the active world authority"
     );
+    let alternate_room = app
+        .world()
+        .resource::<RoomSet>()
+        .rooms
+        .iter()
+        .find(|room| room.id != "central_hub_complex")
+        .map(|room| room.id.clone())
+        .expect("Ambition publishes more than one room");
+    let alternate_room_for_edit = alternate_room.clone();
+    app.world_mut()
+        .run_system_once(
+            move |mut world: ambition::session_world::ActivePlatformerSessionWorldMut| {
+                world
+                    .edit(|live| {
+                        let index = live
+                            .room_set
+                            .room_index_by_id(&alternate_room_for_edit)
+                            .expect("alternate authored room exists");
+                        live.room_set.set_active(index);
+                        let spec = live.room_set.active_spec().clone();
+                        live.geometry = ambition::engine_core::RoomGeometry(spec.world.clone());
+                        live.active_room =
+                            ambition::actors::rooms::ActiveRoomMetadata(spec.metadata.clone());
+                    })
+                    .expect("Ambition's exact live session world is writable");
+            },
+        )
+        .expect("session-world mutation system runs");
+    app.update();
+    let live_entity = app
+        .world()
+        .resource::<ActiveGameplaySession>()
+        .active_world_entity()
+        .expect("Ambition world remains active");
+    assert_eq!(
+        app.world()
+            .get::<ambition::runtime::PlatformerSessionWorld>(live_entity)
+            .expect("canonical live world")
+            .active_room_id(),
+        alternate_room,
+        "a room change is recorded in the canonical mutable session world",
+    );
+    assert_eq!(
+        app.world().resource::<RoomSet>().active_spec().id.as_str(),
+        alternate_room.as_str(),
+        "the compatibility projection follows the canonical world revision",
+    );
+
     let ambition_default_track = app
         .world()
         .resource::<ActiveAudioSelection>()
@@ -474,6 +528,20 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         "sanic #2",
     );
     fresh(scope, "sanic #2");
+    let sanic_world_2 = app
+        .world()
+        .resource::<ActiveGameplaySession>()
+        .active_world_entity()
+        .expect("sanic #2 owns a canonical world entity");
+    assert_ne!(
+        sanic_world_1, sanic_world_2,
+        "same-provider relaunch constructs a fresh mutable world entity",
+    );
+    assert_eq!(
+        app.world().resource::<RoomSet>().active_spec().id.as_str(),
+        ambition_demo_sanic::SPEEDWAY_ROOM_ID,
+        "same-provider relaunch starts from newly authored world state",
+    );
     // Provider-relative-authority poison (Issue 1): Ambition ran a moment ago and
     // its default track is still resident in the process-wide combined library.
     // A Sanic session must NOT be authorized to play it — the library is storage,

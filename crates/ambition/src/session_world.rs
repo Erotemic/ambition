@@ -317,3 +317,26 @@ fn capture_projection(
     world.revision = world.revision.wrapping_add(1);
     authority.synchronized_revision = Some(world.revision);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    #[test]
+    fn frontend_world_has_no_platformer_session_authority() {
+        let mut app = App::new();
+        let readable = app
+            .world_mut()
+            .run_system_once(|world: ActivePlatformerSessionWorld| world.get().is_some())
+            .expect("read-only session-world probe runs");
+        let editable = app
+            .world_mut()
+            .run_system_once(|mut world: ActivePlatformerSessionWorldMut| {
+                world.edit(|_| ()).is_some()
+            })
+            .expect("mutable session-world probe runs");
+        assert!(!readable);
+        assert!(!editable);
+    }
+}

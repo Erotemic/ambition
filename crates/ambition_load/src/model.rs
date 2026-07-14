@@ -288,8 +288,11 @@ pub struct LoadBarrierSnapshot {
     pub cancelled_steps: usize,
     pub estimated_additional_steps: Option<RangeInclusive<usize>>,
     pub estimated_total_remaining_steps: Option<RangeInclusive<usize>>,
+    pub completed_labels: Vec<String>,
     pub active_labels: Vec<String>,
     pub remaining_labels: Vec<String>,
+    pub streamable_labels: Vec<String>,
+    pub speculative_labels: Vec<String>,
     pub failures: Vec<LoadFailure>,
     pub estimate: Option<ProgressEstimate>,
 }

@@ -49,7 +49,8 @@ pub use cli::run_visible;
 pub use cli::run_web;
 #[cfg(not(target_arch = "wasm32"))]
 pub use cli::{
-    build_visible_app, run_shared_host_headless, SharedHostHeadlessReport, VisibleRenderMode,
+    build_visible_app, run_shared_host_acceptance_cycle, run_shared_host_headless,
+    SharedHostAcceptanceReport, SharedHostHeadlessReport, VisibleRenderMode,
 };
 pub use feedback::{ProgressionResources, SandboxEventWriters, SandboxQueues};
 pub use hud::update_quest_panel;

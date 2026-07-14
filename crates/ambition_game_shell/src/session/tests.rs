@@ -331,3 +331,79 @@ fn relaunch_receives_a_fresh_scope() {
     assert_ne!(first_activation, second_activation);
     assert_ne!(first_scope, second_scope);
 }
+
+fn activation(id: u64, experience: &str) -> ActiveShellExperience {
+    ActiveShellExperience {
+        activation_id: ShellActivationId(id),
+        route_id: format!("{experience}-route").into(),
+        experience_id: experience.into(),
+        parameters: Default::default(),
+        load_authorization: None,
+        prepared_session: None,
+    }
+}
+
+fn gameplay_instance(id: u64, experience: &str, scope: u64) -> GameplaySessionInstance {
+    let activation = activation(id, experience);
+    GameplaySessionInstance {
+        activation,
+        scope: SessionScopeId(scope),
+        load: None,
+        prepared: None,
+        audio: GameplaySessionAudioContext {
+            owner: AudioContextOwner::Gameplay(scope),
+            provider_id: experience.to_owned(),
+        },
+        world: None,
+    }
+}
+
+#[test]
+fn delayed_retirement_for_a_cannot_retire_b() {
+    let mut active = ActiveGameplaySession(Some(gameplay_instance(2, "provider-b", 22)));
+    assert!(active.retire_if_activation(ShellActivationId(1)).is_none());
+    assert_eq!(
+        active
+            .0
+            .as_ref()
+            .map(|instance| instance.activation.activation_id),
+        Some(ShellActivationId(2)),
+    );
+}
+
+#[derive(Component)]
+struct DelayedWorldPublicationFixture;
+
+#[test]
+fn delayed_world_publication_for_a_cannot_attach_to_b() {
+    let mut app = App::new();
+    app.insert_resource(ActiveGameplaySession(Some(gameplay_instance(
+        2,
+        "provider-b",
+        22,
+    ))));
+    let stale_activation = activation(1, "provider-a");
+    let published = app
+        .world_mut()
+        .run_system_once(
+            move |mut commands: Commands, mut active: ResMut<ActiveGameplaySession>| {
+                active.spawn_world_for(
+                    &mut commands,
+                    &stale_activation,
+                    SessionScopeId(11),
+                    DelayedWorldPublicationFixture,
+                )
+            },
+        )
+        .expect("publication fixture runs");
+    assert!(published.is_none());
+    let mut worlds = app
+        .world_mut()
+        .query_filtered::<Entity, With<DelayedWorldPublicationFixture>>();
+    assert_eq!(worlds.iter(app.world()).count(), 0);
+    assert!(app
+        .world()
+        .resource::<ActiveGameplaySession>()
+        .active_world_entity()
+        .is_none());
+}

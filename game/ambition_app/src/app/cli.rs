@@ -79,6 +79,11 @@ pub(super) fn cli_force_headless() -> bool {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+fn cli_headless_acceptance_cycle() -> bool {
+    std::env::args().any(|arg| arg == "--headless-acceptance-cycle")
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) fn cli_headless_ticks() -> u32 {
     let args: Vec<String> = std::env::args().collect();
     parse_headless_ticks(&args).unwrap_or(120)
@@ -175,9 +180,11 @@ mod headless_arg_tests {
 /// number of ticks with `--headless-ticks N` (default 120).
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run_visible() {
-    if cli_force_headless() || no_display_server_available() {
+    if cli_force_headless() || cli_headless_acceptance_cycle() || no_display_server_available() {
         let max_ticks = cli_headless_ticks();
-        let reason = if cli_force_headless() {
+        let reason = if cli_headless_acceptance_cycle() {
+            "--headless-acceptance-cycle flag"
+        } else if cli_force_headless() {
             "--headless flag"
         } else {
             "no DISPLAY / WAYLAND_DISPLAY env var"
@@ -200,8 +207,16 @@ pub fn run_visible() {
         eprintln!(
             "ambition_app: running the production shared host headlessly ({reason})"
         );
-        let report = run_shared_host_headless(max_ticks);
-        println!("{report}");
+        if cli_headless_acceptance_cycle() {
+            let report = run_shared_host_acceptance_cycle();
+            println!("{report}");
+            if !report.completed {
+                std::process::exit(1);
+            }
+        } else {
+            let report = run_shared_host_headless(max_ticks);
+            println!("{report}");
+        }
         return;
     }
     let shell_hosted = !cli_direct_entry();
@@ -277,6 +292,223 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
         active_route,
         launcher_active,
         gameplay_session_active,
+    }
+}
+
+
+/// Result of the executable multi-provider shipping-host acceptance cycle.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SharedHostAcceptanceReport {
+    pub completed: bool,
+    pub route_stops: Vec<String>,
+    pub title_zero_state_stops: u32,
+    pub exit_requested: bool,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl std::fmt::Display for SharedHostAcceptanceReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "shared-host acceptance: completed={}, zero-state-stops={}, exit={}, routes={}",
+            self.completed,
+            self.title_zero_state_stops,
+            self.exit_requested,
+            self.route_stops.join(" -> "),
+        )
+    }
+}
+
+/// Execute startup -> launcher -> Ambition -> launcher -> Sanic -> launcher ->
+/// Mary-O -> launcher -> Sanic -> launcher -> Exit through the exact shipping
+/// composition. This is exposed to `run_game.sh -- --headless-acceptance-cycle`.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
+    use ambition::game_shell::{
+        ShellCommand, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherState, ShellRouter,
+    };
+    use bevy::time::TimeUpdateStrategy;
+    use std::time::Duration;
+
+    fn active_route(app: &App) -> Option<&str> {
+        app.world()
+            .resource::<ShellRouter>()
+            .active
+            .as_ref()
+            .map(|active| active.route_id.as_str())
+    }
+
+    fn step_until(app: &mut App, route: &str, budget: usize) -> bool {
+        for _ in 0..budget {
+            app.update();
+            if active_route(app) == Some(route) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn title_is_zero_state(app: &App) -> bool {
+        let world = app.world();
+        world
+            .resource::<ambition::game_shell::ActiveGameplaySession>()
+            .0
+            .is_none()
+            && world
+                .resource::<ambition::platformer::lifecycle::ActiveSessionScope>()
+                .current()
+                .is_none()
+            && world
+                .resource::<ambition::load::LoadCoordinator>()
+                .is_empty()
+            && world
+                .resource::<ambition::game_shell::PreparedSessionRegistry>()
+                .is_empty()
+            && world
+                .resource::<ambition::session_world::SessionWorldProjectionAuthority>()
+                .owner
+                .is_none()
+    }
+
+    fn step_until_title_zero_state(app: &mut App, route: &str, budget: usize) -> bool {
+        for _ in 0..budget {
+            app.update();
+            if active_route(app) == Some(route) && title_is_zero_state(app) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn select_launcher_route(app: &mut App, route: &str) -> bool {
+        let target = app
+            .world()
+            .resource::<ShellLaunchCatalog>()
+            .entries
+            .iter()
+            .filter(|entry| entry.available)
+            .position(|entry| entry.route_id.as_str() == route);
+        let Some(target) = target else {
+            return false;
+        };
+        let selectable = app
+            .world()
+            .resource::<ShellLaunchCatalog>()
+            .entries
+            .iter()
+            .filter(|entry| entry.available)
+            .count()
+            + usize::from(
+                app.world()
+                    .resource::<ambition::game_shell::ShellLauncherPresentation>()
+                    .exit_label
+                    .is_some(),
+            );
+        if selectable == 0 {
+            return false;
+        }
+        for _ in 0..selectable {
+            if app.world().resource::<ShellLauncherState>().selected == target {
+                return true;
+            }
+            app.world_mut().write_message(ShellLauncherCommand::Next);
+            app.update();
+        }
+        app.world().resource::<ShellLauncherState>().selected == target
+    }
+
+    fn select_launcher_exit(app: &mut App) -> bool {
+        let target = app
+            .world()
+            .resource::<ShellLaunchCatalog>()
+            .entries
+            .iter()
+            .filter(|entry| entry.available)
+            .count();
+        let has_exit = app
+            .world()
+            .resource::<ambition::game_shell::ShellLauncherPresentation>()
+            .exit_label
+            .is_some();
+        if !has_exit {
+            return false;
+        }
+        let selectable = target + 1;
+        for _ in 0..selectable {
+            if app.world().resource::<ShellLauncherState>().selected == target {
+                return true;
+            }
+            app.world_mut().write_message(ShellLauncherCommand::Next);
+            app.update();
+        }
+        app.world().resource::<ShellLauncherState>().selected == target
+    }
+
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    super::shell_host::compose_ambition_startup_sequence(&mut app);
+    app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
+        1.0 / 60.0,
+    )));
+
+    let mut routes = Vec::new();
+    let mut title_zero_state_stops = 0_u32;
+    let launcher = super::shell_host::AMBITION_LAUNCHER_ROUTE;
+    let mut completed = step_until_title_zero_state(&mut app, launcher, 180);
+    if completed {
+        routes.push(launcher.to_owned());
+        title_zero_state_stops += 1;
+    }
+
+    for route in [
+        super::shell_host::AMBITION_GAMEPLAY_ROUTE,
+        "sanic_gameplay",
+        "mary_o_gameplay",
+        "sanic_gameplay",
+    ] {
+        if !completed {
+            break;
+        }
+        completed = select_launcher_route(&mut app, route);
+        if !completed {
+            break;
+        }
+        app.world_mut()
+            .write_message(ShellLauncherCommand::LaunchSelected);
+        completed = step_until(&mut app, route, 90);
+        if !completed {
+            break;
+        }
+        routes.push(route.to_owned());
+        app.world_mut().write_message(ShellCommand::QuitToHome);
+        completed = step_until_title_zero_state(&mut app, launcher, 90);
+        if completed {
+            routes.push(launcher.to_owned());
+            title_zero_state_stops += 1;
+        }
+    }
+
+    if completed {
+        completed = select_launcher_exit(&mut app);
+        if completed {
+            app.world_mut()
+                .write_message(ShellLauncherCommand::LaunchSelected);
+            for _ in 0..8 {
+                app.update();
+                if app.world().resource::<ShellRouter>().exit_requested {
+                    break;
+                }
+            }
+        }
+    }
+    let exit_requested = app.world().resource::<ShellRouter>().exit_requested;
+    completed &= exit_requested && title_zero_state_stops == 5;
+
+    SharedHostAcceptanceReport {
+        completed,
+        route_stops: routes,
+        title_zero_state_stops,
+        exit_requested,
     }
 }
 

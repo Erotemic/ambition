@@ -216,6 +216,7 @@ fn ambition_activate_session_visuals(
             continue;
         };
         let scope = ambition::platformer::lifecycle::SessionSpawnScope::scoped(*scope);
+        ambition::actors::menu::map::spawn_map_menu_with_scope(&mut commands, scope);
         let Ok(player) = players.single() else {
             continue;
         };

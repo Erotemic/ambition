@@ -17,10 +17,13 @@ mod deterministic_activity;
 pub use model::*;
 pub use plugin::AmbitionLoadPresentationPlugin;
 
+/// Stable identifier for the reusable neutral-input loading activity.
+pub const DETERMINISTIC_LOADING_ACTIVITY_ID: &str = "ambition.loading.edge-practice";
+
 #[cfg(feature = "basic_presentation")]
-pub use basic_presentation::BasicLoadPresentationPlugin;
+pub use basic_presentation::{BasicLoadPresentationPlugin, BasicLoadRoot};
 #[cfg(feature = "basic_presentation")]
-pub use deterministic_activity::{DeterministicLoadingActivityPlugin, DETERMINISTIC_LOADING_ACTIVITY_ID};
+pub use deterministic_activity::DeterministicLoadingActivityPlugin;
 
 use bevy::prelude::SystemSet;
 

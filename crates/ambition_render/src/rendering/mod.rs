@@ -88,6 +88,22 @@ pub use world::{
     spawn_surface_chain_visuals, sync_lock_wall_visuals,
 };
 
+/// Presentation systems below consume session-created resources and entities.
+/// During startup, loading, and the launcher there is deliberately no gameplay
+/// session, so the complete per-frame presentation graph must stay dormant.
+fn session_presentation_is_ready(
+    active_session: Option<
+        bevy::prelude::Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>,
+    >,
+    scene: Option<bevy::prelude::Res<SceneEntities>>,
+) -> bool {
+    scene.is_some()
+        && active_session
+            .as_deref()
+            .and_then(|active| active.current())
+            .is_some()
+}
+
 /// Module-local Bevy plugin: schedules player-bound visual systems
 /// (morph-ball sprite + bubble-shield sprite). Each follows the same
 /// pattern — build the texture once at startup, spawn lazily once the
@@ -112,7 +128,8 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     morph_ball::sync_morph_ball_visual,
                 )
                     .chain()
-                    .after(actors::sync_visuals),
+                    .after(actors::sync_visuals)
+                    .run_if(session_presentation_is_ready),
             )
             // Bubble shield visual: similar pattern — toggle / tint every
             // frame from `BodyShieldState::active` and
@@ -125,7 +142,8 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     bubble_shield::sync_bubble_shield_visual,
                 )
                     .chain()
-                    .after(actors::sync_visuals),
+                    .after(actors::sync_visuals)
+                    .run_if(session_presentation_is_ready),
             )
             // Load held-item prop sprites at startup.
             .add_systems(Startup, item_visuals::load_item_art)
@@ -140,7 +158,8 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     slash_visuals::spawn_slash_effects,
                     slash_visuals::animate_slash,
                     mark_beacon::sync_mark_beacon_visual.after(actors::sync_visuals),
-                ),
+                )
+                    .run_if(session_presentation_is_ready),
             );
 
         // Portal-gun visuals (placed-portal quads, partial-transit pieces, the
@@ -175,7 +194,8 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 (
                     gravity_visuals::sync_gravity_switch_visual.after(actors::sync_visuals),
                     gravity_visuals::sync_gravity_zone_visual.after(actors::sync_visuals),
-                ),
+                )
+                    .run_if(session_presentation_is_ready),
             );
         }
     }
@@ -275,12 +295,16 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .chain()
                 .in_set(
                     ambition_platformer_primitives::schedule::SandboxSet::PresentationVisualSync,
-                ),
+                )
+                .run_if(session_presentation_is_ready),
         );
 
         // Rebuild the active room's static visuals + parallax when the sim asks
         // for it (sandbox reset). The sim emits `RespawnRoomVisualsRequested`; we
         // own the actual spawn here so the sim never imports the render layer.
-        app.add_systems(Update, world::respawn_room_visuals_on_request);
+        app.add_systems(
+            Update,
+            world::respawn_room_visuals_on_request.run_if(session_presentation_is_ready),
+        );
     }
 }

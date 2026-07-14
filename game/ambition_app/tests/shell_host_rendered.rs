@@ -16,8 +16,17 @@
 
 use bevy::prelude::*;
 
-use ambition::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
-use ambition::platformer::lifecycle::{RoomVisual, SessionScopedEntity};
+use ambition::game_shell::{
+    ActiveFrontendAuthority, ActiveGameplaySession, BasicSequenceRoot, BasicShellUiRoot,
+    FrontendOwnedEntity, FrontendPresentationKind, GameplayInputOwner, GameplaySessionWorldRoot,
+    PreparedSessionRegistry, PresentationOwnershipClass, PresentationOwnershipPolicy,
+    ShellCommand, ShellLauncherCommand, ShellRouter,
+};
+use ambition::load::LoadCoordinator;
+use ambition::load_presentation::{BasicLoadRoot, LoadActivityState, LoadForegroundState};
+use ambition::platformer::lifecycle::{
+    ActiveSessionScope, RoomVisual, SessionScopedEntity,
+};
 use ambition::render::rendering::HudText;
 use ambition_app::app::{shell_host, VisibleRenderMode};
 
@@ -48,16 +57,21 @@ fn main_cameras(app: &mut App) -> usize {
 }
 
 fn launcher_ui_roots(app: &mut App) -> usize {
-    let mut query = app
-        .world_mut()
-        .query_filtered::<Entity, With<ambition::menu::render::bevy_ui::BevyUiMenuRoot>>();
-    query.iter(app.world()).count()
+    count::<BasicShellUiRoot>(app)
+}
+
+fn frontend_kind(app: &mut App, kind: FrontendPresentationKind) -> usize {
+    let mut query = app.world_mut().query::<&FrontendOwnedEntity>();
+    query
+        .iter(app.world())
+        .filter(|owned| owned.kind == kind)
+        .count()
 }
 
 /// The track the music director currently has on the base channel (empty =
 /// silence). This is the REAL playback state the director writes, not merely the
-/// selection — `build_visible_app` composes the actual audio director (the ALSA
-/// warnings on a device-less CI box are harmless; the state machine still runs).
+/// selection — `build_visible_app` composes the actual audio director against
+/// the in-memory recording backend, so no physical audio device is opened.
 fn active_music_track(app: &App) -> String {
     app.world()
         .resource::<ambition::audio::library::MusicPlaybackState>()
@@ -70,6 +84,12 @@ fn assert_recording_audio_output(app: &App) {
         *app.world().resource::<ambition::audio::AudioOutputMode>(),
         ambition::audio::AudioOutputMode::Recording,
         "no-window tests must record accepted playback without issuing device play commands"
+    );
+    let backend = app.world().resource::<ambition::audio::AudioBackendState>();
+    assert_eq!(backend.mode, ambition::audio::AudioOutputMode::Recording);
+    assert!(
+        !backend.device_backend_installed,
+        "recording tests must not initialize Kira's physical-device backend",
     );
 }
 
@@ -88,6 +108,112 @@ fn assert_title_ownership(app: &mut App, context: &str) {
         launcher_ui_roots(app),
         1,
         "{context}: exactly one launcher/frontend UI root owns the title"
+    );
+    assert_eq!(
+        frontend_kind(app, FrontendPresentationKind::HostCamera),
+        1,
+        "{context}: exactly one host world camera",
+    );
+    assert_eq!(
+        frontend_kind(app, FrontendPresentationKind::FrontendUiCamera),
+        1,
+        "{context}: exactly one host UI camera",
+    );
+    assert_eq!(
+        frontend_kind(app, FrontendPresentationKind::LauncherRoot),
+        1,
+        "{context}: launcher root has explicit frontend ownership",
+    );
+    assert_eq!(count::<BasicSequenceRoot>(app), 0, "{context}: startup root retired");
+    assert_eq!(count::<BasicLoadRoot>(app), 0, "{context}: loading root retired");
+    assert!(
+        app.world().resource::<ActiveGameplaySession>().0.is_none(),
+        "{context}: no gameplay-session authority",
+    );
+    assert!(
+        app.world().resource::<ActiveSessionScope>().current().is_none(),
+        "{context}: no active gameplay scope",
+    );
+    assert_eq!(count::<GameplaySessionWorldRoot>(app), 0, "{context}: no gameplay world");
+    assert_eq!(count::<GameplayInputOwner>(app), 0, "{context}: no gameplay input owner");
+    assert_eq!(
+        count::<ambition::platformer::markers::PlayerEntity>(app),
+        0,
+        "{context}: no player entity",
+    );
+    assert_eq!(
+        count::<ambition::render::hud::PlayerHudRoot>(app),
+        0,
+        "{context}: no gameplay HUD root",
+    );
+    assert_eq!(
+        count::<ambition::render::dialog_ui::DialogOverlayRoot>(app),
+        0,
+        "{context}: no gameplay dialog root",
+    );
+    assert_eq!(
+        count::<ambition::actors::menu::map::MapMenuRoot>(app),
+        0,
+        "{context}: no gameplay map root",
+    );
+    assert_eq!(
+        count::<ambition::actors::world::platforms::MovingPlatformVisual>(app),
+        0,
+        "{context}: no moving-platform presentation",
+    );
+    assert!(
+        app.world()
+            .resource::<ambition::session_world::SessionWorldProjectionAuthority>()
+            .owner
+            .is_none(),
+        "{context}: resident world projection has no owner",
+    );
+    assert!(
+        app.world().resource::<PreparedSessionRegistry>().is_empty(),
+        "{context}: no prepared-session identity survives",
+    );
+    assert!(
+        app.world().resource::<LoadCoordinator>().is_empty(),
+        "{context}: no provider load transaction survives",
+    );
+    assert!(
+        app.world().resource::<LoadForegroundState>().active.is_none(),
+        "{context}: no loading foreground survives",
+    );
+    assert!(
+        app.world().resource::<LoadActivityState>().active.is_none(),
+        "{context}: no loading activity survives",
+    );
+    let policy = app.world().resource::<PresentationOwnershipPolicy>();
+    assert_eq!(
+        policy.class("map"),
+        Some(PresentationOwnershipClass::GameplaySession),
+    );
+    assert_eq!(
+        policy.class("kaleidoscope"),
+        Some(PresentationOwnershipClass::Frontend),
+    );
+    assert_eq!(
+        policy.class("developer_overlays"),
+        Some(PresentationOwnershipClass::Frontend),
+    );
+    assert_eq!(
+        policy.class("debug_presentation"),
+        Some(PresentationOwnershipClass::Frontend),
+    );
+    let frontend = app
+        .world()
+        .resource::<ActiveFrontendAuthority>()
+        .0
+        .as_ref()
+        .expect("title owns exact frontend authority");
+    assert_eq!(frontend.route_id.as_str(), shell_host::AMBITION_LAUNCHER_ROUTE);
+    let selection = app
+        .world()
+        .resource::<ambition::audio::selection::ActiveAudioSelection>();
+    assert!(
+        matches!(selection.owner(), Some(ambition::sfx::AudioContextOwner::Frontend(_))),
+        "{context}: title owns a frontend audio context",
     );
     assert_eq!(
         count::<RoomVisual>(app),

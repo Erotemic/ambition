@@ -287,14 +287,39 @@ impl LoadCoordinator {
             cancelled_steps,
             estimated_additional_steps,
             estimated_total_remaining_steps,
-            active_labels: required
-                .iter()
+            completed_labels: plan
+                .work
+                .values()
+                .filter(|work| work.state.is_complete())
+                .map(|work| work.spec.label.clone())
+                .collect(),
+            active_labels: plan
+                .work
+                .values()
                 .filter(|work| matches!(&work.state, LoadWorkState::Running { .. }))
                 .map(|work| work.spec.label.clone())
                 .collect(),
             remaining_labels: required
                 .iter()
-                .filter(|work| !work.state.is_complete())
+                .filter(|work| matches!(&work.state, LoadWorkState::Planned))
+                .map(|work| work.spec.label.clone())
+                .collect(),
+            streamable_labels: plan
+                .work
+                .values()
+                .filter(|work| {
+                    matches!(work.spec.requirement, crate::ActivationRequirement::Degradable)
+                        && !work.state.is_complete()
+                })
+                .map(|work| work.spec.label.clone())
+                .collect(),
+            speculative_labels: plan
+                .work
+                .values()
+                .filter(|work| {
+                    matches!(work.spec.requirement, crate::ActivationRequirement::Speculative)
+                        && !work.state.is_complete()
+                })
                 .map(|work| work.spec.label.clone())
                 .collect(),
             failures,

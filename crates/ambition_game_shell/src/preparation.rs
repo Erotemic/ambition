@@ -14,7 +14,11 @@ pub const PREPARE_BARRIER_ID: &str = "activation-ready";
 pub const PREPARE_CATALOGS_WORK_ID: &str = "validate-catalogs";
 pub const PREPARE_WORLD_WORK_ID: &str = "prepare-world";
 pub const PREPARE_SPRITES_WORK_ID: &str = "resolve-sprite-manifest";
-pub const PREPARE_AUDIO_WORK_ID: &str = "validate-audio";
+pub const PREPARE_MUSIC_WORK_ID: &str = "validate-music";
+pub const PREPARE_SFX_WORK_ID: &str = "validate-sfx";
+pub const PREPARE_ADAPTIVE_WORK_ID: &str = "validate-adaptive-cues";
+pub const PREPARE_DEFAULTS_WORK_ID: &str = "validate-provider-defaults";
+pub const PREPARE_AUDIO_WORK_ID: &str = PREPARE_MUSIC_WORK_ID;
 pub const PREPARE_SESSION_WORK_ID: &str = "publish-prepared-session";
 pub const PREPARE_PACKED_SFX_WORK_ID: &str = "stream-packed-sfx";
 
@@ -25,9 +29,13 @@ pub fn standard_platformer_preparation_plan(
         .required(PREPARE_CATALOGS_WORK_ID, "Validate authored catalogs")
         .required(PREPARE_WORLD_WORK_ID, "Prepare world data")
         .required(PREPARE_SPRITES_WORK_ID, "Resolve sprite manifest")
-        .required(PREPARE_AUDIO_WORK_ID, "Validate music and sound effects")
+        .required(PREPARE_MUSIC_WORK_ID, "Validate music intent")
+        .required(PREPARE_SFX_WORK_ID, "Validate procedural sound effects")
+        .required(PREPARE_ADAPTIVE_WORK_ID, "Validate adaptive cue definitions")
+        .required(PREPARE_DEFAULTS_WORK_ID, "Validate provider defaults")
         .required(PREPARE_SESSION_WORK_ID, "Build prepared session")
         .streamable(PREPARE_PACKED_SFX_WORK_ID, "Stream packed sound bank")
+        .speculative("prewarm-neighbor-room", "Prewarm neighboring room presentation")
 }
 
 pub fn standard_preparation_succeeded_commands(
@@ -38,7 +46,10 @@ pub fn standard_preparation_succeeded_commands(
         PREPARE_CATALOGS_WORK_ID,
         PREPARE_WORLD_WORK_ID,
         PREPARE_SPRITES_WORK_ID,
-        PREPARE_AUDIO_WORK_ID,
+        PREPARE_MUSIC_WORK_ID,
+        PREPARE_SFX_WORK_ID,
+        PREPARE_ADAPTIVE_WORK_ID,
+        PREPARE_DEFAULTS_WORK_ID,
         PREPARE_SESSION_WORK_ID,
     ]
     .into_iter()

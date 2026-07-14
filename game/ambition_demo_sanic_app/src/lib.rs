@@ -108,6 +108,9 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     use bevy::window::{ExitCondition, WindowPlugin};
 
     let mut app = App::new();
+    if matches!(render, RenderMode::Headless) {
+        app.insert_resource(ambition::audio::AudioOutputMode::Recording);
+    }
     let asset_root = desktop_asset_root();
     eprintln!("sanic_demo: asset root = {asset_root}");
     let plugins = DefaultPlugins
@@ -172,16 +175,15 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     app.insert_resource(ClearColor(Color::srgb(0.025, 0.045, 0.09)));
     app.add_plugins(ambition::presentation::PlatformerPresentationPlugin);
 
-    if matches!(render, RenderMode::Windowed) {
-        // Keep headless render tests independent of the host audio device. The
-        // demo still uses Ambition's standard SfxMessage -> packed-bank bridge.
-        install_sanic_audio(&mut app, sfx_bank_path);
-        // Session music is authority-driven: the shell bridge selects Sanic's
-        // registered music registry on activation and clears it on Quit to
-        // Home; this shared driver plays whatever is selected. No
-        // Sanic-specific playback code remains.
-        app.add_systems(Update, ambition::audio::music::drive_selected_session_music);
-    }
+    // Windowed hosts use the physical Kira backend; headless presentation
+    // hosts select the device-free recording backend before this shared audio
+    // composition is installed. Both paths therefore exercise the same
+    // provider resolver, ownership, bank, and playback-evidence systems.
+    install_sanic_audio(&mut app, sfx_bank_path);
+    // Session music is authority-driven: the shell bridge selects Sanic's
+    // registered music registry on activation and clears it on Quit to Home;
+    // this shared driver plays whatever is selected.
+    app.add_systems(Update, ambition::audio::music::drive_selected_session_music);
     app
 }
 
@@ -286,9 +288,10 @@ fn load_sanic_game_assets(
 #[cfg(feature = "visible")]
 fn install_sanic_audio(app: &mut App, sfx_bank_path: Option<String>) {
     use bevy::prelude::IntoScheduleConfigs as _;
-    use bevy_kira_audio::prelude::AudioApp as _;
+    use ambition::audio::AmbitionAudioAppExt as _;
 
-    app.add_plugins(bevy_kira_audio::prelude::AudioPlugin);
+    app.init_resource::<ambition::audio::AudioOutputMode>()
+        .add_plugins(ambition::audio::AmbitionAudioBackendPlugin);
     if let Some(path) = sfx_bank_path {
         info!("sanic_demo: SFX bank path = {path}");
         app.insert_resource(ambition::audio::SfxBankAssetPath::new(
@@ -300,7 +303,7 @@ fn install_sanic_audio(app: &mut App, sfx_bank_path: Option<String>) {
     }
     app.add_plugins(ambition::audio::SfxBankAssetPlugin)
         .init_resource::<ambition::audio::render::ProviderSfxHandleCache>()
-        .add_audio_channel::<ambition::audio::library::SfxChannel>()
+        .add_ambition_audio_channel::<ambition::audio::library::SfxChannel>()
         .add_systems(Startup, setup_sanic_audio_library)
         .add_systems(
             Update,
@@ -373,6 +376,14 @@ mod tests {
             "Sanic's visible shell must resolve the shared Ambition asset tree; got {}",
             root.display()
         );
+    }
+
+    #[test]
+    fn headless_demo_uses_the_device_free_recording_audio_backend() {
+        let app = super::build_windowed_demo_app(super::RenderMode::Headless);
+        let backend = app.world().resource::<ambition::audio::AudioBackendState>();
+        assert_eq!(backend.mode, ambition::audio::AudioOutputMode::Recording);
+        assert!(!backend.device_backend_installed);
     }
 
     #[test]

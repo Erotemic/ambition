@@ -23,7 +23,9 @@ pub mod render;
 pub mod web_unlock;
 
 pub use mix::MusicMix;
-pub use output::AudioOutputMode;
+pub use output::{AudioBackendState, AudioOutputMode};
+#[cfg(feature = "kira")]
+pub use output::{AmbitionAudioAppExt, AmbitionAudioBackendPlugin};
 
 #[cfg(feature = "kira")]
 pub use bank_asset::{

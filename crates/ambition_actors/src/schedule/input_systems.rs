@@ -185,8 +185,21 @@ pub fn populate_control_frame_from_actions(
     // Outside cutscenes, decay the skip-hold counter so a stale
     // mid-cutscene press can't carry over.
     cutscene_request.skip_hold_seconds = 0.0;
-    *frame = match player_input.single() {
-        Ok(action_state) => {
+    let mut player_inputs = player_input.iter();
+    let action_state = player_inputs.next();
+    if player_inputs.next().is_some() {
+        // Two input-bearing player visuals are never a benign transition: they
+        // would compete to author the single simulation ControlFrame.
+        bevy::log::warn_once!(
+            "populate_control_frame_from_actions: multiple player ActionState \
+             components are active; gameplay input is NEUTRAL until exact player \
+             ownership is restored."
+        );
+        *frame = ControlFrame::default();
+        return;
+    }
+    *frame = match action_state {
+        Some(action_state) => {
             if mode.get().allows_gameplay() {
                 let (next_frame, next_state) = read_gameplay_control_frame_with_settings(
                     action_state,
@@ -203,22 +216,9 @@ pub fn populate_control_frame_from_actions(
                 read_menu_control_frame(action_state)
             }
         }
-        // No `ActionState<SandboxAction>` on a `PlayerVisual` body → neutral input.
-        // This is EXPECTED and benign for a single frame at startup/teardown (the
-        // body exists before `attach_player_input_components` runs, or after a
-        // despawn). But it must not SILENTLY mask a persistent disconnection —
-        // `MultipleEntities` is always a bug (two input-bearing bodies fighting for
-        // the frame), and a lasting `NoEntities` means the host bridge is wired to
-        // nothing. Surface both once so the neutral fallback is explicit, then
-        // default. (`warn_once` fires a single line, so it never spams per frame.)
-        Err(err) => {
-            bevy::log::warn_once!(
-                "populate_control_frame_from_actions: no unique player ActionState \
-                 ({err:?}); gameplay input is NEUTRAL. Benign for one startup/teardown \
-                 frame; if it persists the standard host-input path is disconnected."
-            );
-            ControlFrame::default()
-        }
+        // No gameplay player exists during startup, launcher, loading, and exact
+        // teardown. Neutral input is the contract in those states, not a warning.
+        None => ControlFrame::default(),
     };
 }
 

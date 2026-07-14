@@ -111,6 +111,16 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
         RenderMode::Windowed => app.add_plugins(plugins),
         RenderMode::Headless => app.add_plugins(
             plugins
+                // These tests construct several Apps in one process. Logging
+                // and Ctrl+C handlers are process-global and belong to a real
+                // executable host, not a manually stepped no-window fixture.
+                .disable::<bevy::log::LogPlugin>()
+                .disable::<bevy::app::TerminalCtrlCHandlerPlugin>()
+                // A `backends: None` renderer has no RenderApp. Do not install
+                // extract/render-only plugins that would report that expected
+                // absence as an error or warning.
+                .disable::<bevy::core_pipeline::CorePipelinePlugin>()
+                .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
                 .set(RenderPlugin {
                     render_creation: RenderCreation::Automatic(WgpuSettings {
                         backends: None,

@@ -54,6 +54,109 @@ pub(super) fn game_asset_root() -> String {
     }
 }
 
+/// A provider-owned `game://` source with a read-only fallback to the shared
+/// generated asset tree.
+///
+/// Authored worlds remain in `ambition_content/assets`, while LDtk's relative
+/// tileset and entity-sprite paths still name `sprites/...`. Those generated
+/// images are canonical under `ambition_actors/assets`. A single source-level
+/// fallback preserves the provider-owned world root without copying generated
+/// binaries into the content crate or emitting misleading `Path not found`
+/// errors for assets that are present in the shared tree.
+#[cfg(not(target_arch = "wasm32"))]
+struct ProviderGameAssetReader {
+    authored: bevy::asset::io::file::FileAssetReader,
+    shared: bevy::asset::io::file::FileAssetReader,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl ProviderGameAssetReader {
+    fn new(
+        authored_root: impl AsRef<std::path::Path>,
+        shared_root: impl AsRef<std::path::Path>,
+    ) -> Self {
+        Self {
+            authored: bevy::asset::io::file::FileAssetReader::new(authored_root),
+            shared: bevy::asset::io::file::FileAssetReader::new(shared_root),
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl bevy::asset::io::AssetReader for ProviderGameAssetReader {
+    async fn read<'a>(
+        &'a self,
+        path: &'a std::path::Path,
+    ) -> Result<Box<dyn bevy::asset::io::Reader + 'a>, bevy::asset::io::AssetReaderError> {
+        use bevy::asset::io::{AssetReader, AssetReaderError};
+        match self.authored.read(path).await {
+            Ok(reader) => Ok(Box::new(reader)),
+            Err(AssetReaderError::NotFound(_)) => match self.shared.read(path).await {
+                Ok(reader) => Ok(Box::new(reader)),
+                Err(error) => Err(error),
+            },
+            Err(error) => Err(error),
+        }
+    }
+
+    async fn read_meta<'a>(
+        &'a self,
+        path: &'a std::path::Path,
+    ) -> Result<Box<dyn bevy::asset::io::Reader + 'a>, bevy::asset::io::AssetReaderError> {
+        use bevy::asset::io::{AssetReader, AssetReaderError};
+        match self.authored.read_meta(path).await {
+            Ok(reader) => Ok(Box::new(reader)),
+            Err(AssetReaderError::NotFound(_)) => match self.shared.read_meta(path).await {
+                Ok(reader) => Ok(Box::new(reader)),
+                Err(error) => Err(error),
+            },
+            Err(error) => Err(error),
+        }
+    }
+
+    async fn read_directory<'a>(
+        &'a self,
+        path: &'a std::path::Path,
+    ) -> Result<Box<bevy::asset::io::PathStream>, bevy::asset::io::AssetReaderError> {
+        use bevy::asset::io::{AssetReader, AssetReaderError};
+        match self.authored.read_directory(path).await {
+            Ok(entries) => Ok(entries),
+            Err(AssetReaderError::NotFound(_)) => self.shared.read_directory(path).await,
+            Err(error) => Err(error),
+        }
+    }
+
+    async fn is_directory<'a>(
+        &'a self,
+        path: &'a std::path::Path,
+    ) -> Result<bool, bevy::asset::io::AssetReaderError> {
+        use bevy::asset::io::{AssetReader, AssetReaderError};
+        match self.authored.is_directory(path).await {
+            Ok(true) => Ok(true),
+            Ok(false) | Err(AssetReaderError::NotFound(_)) => {
+                self.shared.is_directory(path).await
+            }
+            Err(error) => Err(error),
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn game_asset_source_builder() -> bevy::asset::io::AssetSourceBuilder {
+    let authored_root = game_asset_root();
+    let shared_root = desktop_asset_root();
+    // Preserve the authored root's normal filesystem watcher/writer behavior;
+    // only replace the reader with the two-root fallback.
+    bevy::asset::io::AssetSourceBuilder::platform_default(&authored_root, None).with_reader(
+        move || {
+            Box::new(ProviderGameAssetReader::new(
+                authored_root.clone(),
+                shared_root.clone(),
+            ))
+        },
+    )
+}
+
 /// True when no display server is reachable for `bevy_winit` to attach to.
 /// Linux only — other platforms always return `false` and rely on Bevy's
 /// own diagnostics. The check is conservative: any of `DISPLAY`,
@@ -84,6 +187,17 @@ fn cli_headless_acceptance_cycle() -> bool {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+fn args_request_headless_ticks(args: &[String]) -> bool {
+    args.iter()
+        .any(|arg| arg == "--headless-ticks" || arg.starts_with("--headless-ticks="))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn cli_headless_ticks_requested() -> bool {
+    args_request_headless_ticks(&std::env::args().collect::<Vec<_>>())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) fn cli_headless_ticks() -> u32 {
     let args: Vec<String> = std::env::args().collect();
     parse_headless_ticks(&args).unwrap_or(120)
@@ -107,7 +221,7 @@ pub(super) fn parse_headless_ticks(args: &[String]) -> Option<u32> {
 
 #[cfg(test)]
 mod headless_arg_tests {
-    use super::parse_headless_ticks;
+    use super::{args_request_headless_ticks, parse_headless_ticks};
 
     fn args(slice: &[&str]) -> Vec<String> {
         slice.iter().map(|s| s.to_string()).collect()
@@ -125,6 +239,18 @@ mod headless_arg_tests {
             parse_headless_ticks(&args(&["--headless-ticks", "300"])),
             Some(300)
         );
+    }
+
+    #[test]
+    fn requesting_a_tick_budget_implies_headless_mode() {
+        assert!(args_request_headless_ticks(&args(&[
+            "--headless-ticks",
+            "120"
+        ])));
+        assert!(args_request_headless_ticks(&args(&[
+            "--headless-ticks=120"
+        ])));
+        assert!(!args_request_headless_ticks(&args(&["--headless"])));
     }
 
     #[test]
@@ -180,12 +306,18 @@ mod headless_arg_tests {
 /// number of ticks with `--headless-ticks N` (default 120).
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run_visible() {
-    if cli_force_headless() || cli_headless_acceptance_cycle() || no_display_server_available() {
+    if cli_force_headless()
+        || cli_headless_acceptance_cycle()
+        || cli_headless_ticks_requested()
+        || no_display_server_available()
+    {
         let max_ticks = cli_headless_ticks();
         let reason = if cli_headless_acceptance_cycle() {
             "--headless-acceptance-cycle flag"
         } else if cli_force_headless() {
             "--headless flag"
+        } else if cli_headless_ticks_requested() {
+            "--headless-ticks flag"
         } else {
             "no DISPLAY / WAYLAND_DISPLAY env var"
         };
@@ -543,10 +675,7 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     // tile-render spine loads content-owned files without the engine's
     // asset root ever containing a world. Must register before
     // DefaultPlugins builds AssetPlugin.
-    app.register_asset_source(
-        "game",
-        bevy::asset::io::AssetSourceBuilder::platform_default(&game_asset_root(), None),
-    );
+    app.register_asset_source("game", game_asset_source_builder());
     let plugins = DefaultPlugins.set(bevy::asset::AssetPlugin {
         // See `desktop_asset_root`: post-bisection the binary's
         // crate has no assets/ tree; the canonical one lives with
@@ -580,9 +709,14 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
                     // Tests build several Apps per process; the tracing
                     // subscriber is process-global.
                     .disable::<bevy::log::LogPlugin>()
-                    // `backends: None` omits the RenderApp; disable the
-                    // core-pipeline extractor that would report it missing.
+                    // A test process builds several Apps. Ctrl+C ownership is
+                    // process-global and belongs to executable hosts, not these
+                    // manually stepped no-window Apps.
+                    .disable::<bevy::app::TerminalCtrlCHandlerPlugin>()
+                    // `backends: None` omits the RenderApp; disable plugins whose
+                    // only job is to register extraction/render work there.
                     .disable::<bevy::core_pipeline::CorePipelinePlugin>()
+                    .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
                     .set(RenderPlugin {
                         render_creation: RenderCreation::Automatic(WgpuSettings {
                             backends: None,

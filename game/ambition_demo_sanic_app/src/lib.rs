@@ -143,10 +143,12 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
                 // diagnostics. Disable logging in this test-only shell instead of
                 // reporting expected global-subscriber/extract errors as failures.
                 .disable::<bevy::log::LogPlugin>()
-                // `backends: None` deliberately omits the RenderApp. Disable the
-                // core-pipeline extractor as well so it does not report the
-                // expected missing sub-app once per headless test App.
+                .disable::<bevy::app::TerminalCtrlCHandlerPlugin>()
+                // `backends: None` deliberately omits the RenderApp. Disable
+                // extract/render-only plugins so expected test topology stays
+                // silent instead of resembling a runtime failure.
                 .disable::<bevy::core_pipeline::CorePipelinePlugin>()
+                .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
                 .set(RenderPlugin {
                     render_creation: RenderCreation::Automatic(WgpuSettings {
                         backends: None,

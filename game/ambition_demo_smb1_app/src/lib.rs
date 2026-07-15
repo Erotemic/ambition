@@ -144,12 +144,174 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
     app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
     // Visible and headless hosts share one provider/shell/session lifecycle.
+    // The provider installs Mary-O's content definitions before the shared asset
+    // catalog is assembled below.
     compose_smb1_shell(&mut app, ambition_demo_smb1::MARY_O_LAUNCHER_ROUTE);
+    let sfx_bank_path = install_mary_o_asset_resources(&mut app);
 
     // OV1, closed: a camera, the room's static visuals, and the sprite/animation
     // chain. The minimal launcher/loading presentation is composed by the host.
+    // Without the asset resources installed above this plugin has an empty
+    // `GameAssets` to draw from and every actor and block renders as a colored
+    // rectangle — the exact divergence that made this demo assetless standalone
+    // while it rendered fine inside the hosted app.
     app.add_plugins(ambition::presentation::PlatformerPresentationPlugin);
+
+    // The windowed host uses the physical Kira backend. Mary-O's provider authors
+    // a run+jump SFX voice and the "Support Theme" music cue; this wires the same
+    // shared audio face the hosted app uses so both are audible standalone.
+    install_mary_o_audio(&mut app, sfx_bank_path);
+    app.add_systems(Update, ambition::audio::music::drive_selected_session_music);
     app
+}
+
+/// Build and insert the shared asset resources the generic presentation plugin
+/// reads — the single `SandboxAssetCatalog` and the `GameAssets` it fills. This
+/// is the standalone equivalent of what `ambition_app` does for the hosted demo,
+/// and the reason the two paths cannot silently diverge again: a demo that draws
+/// nothing standalone was exactly this install being absent. Returns the resolved
+/// SFX bank path so the audio face can bind it. Mirrors the Sanic demo shell.
+#[cfg(feature = "visible")]
+fn install_mary_o_asset_resources(app: &mut App) -> Option<String> {
+    use bevy::prelude::IntoScheduleConfigs as _;
+
+    let config = ambition::sprite_sheet::game_assets::GameAssetConfig::from_args();
+    // Level 1-1 is authored in code, not LDtk-backed, so build the ordinary shared
+    // catalog without world-file rows rather than installing a process-global world
+    // manifest just to reach sprites and block art.
+    let music = app
+        .world()
+        .resource::<ambition::audio::catalog::AudioCatalogRegistry>()
+        .music_for(ambition_demo_smb1::MARY_O_EXPERIENCE)
+        .expect("Mary-O provider registered its App-local music catalog")
+        .clone();
+    let character_catalog = app
+        .world()
+        .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>()
+        .clone();
+    let boss_catalog = app
+        .world()
+        .resource::<ambition::actors::boss_encounter::BossCatalog>()
+        .clone();
+    let catalog = ambition::actors::assets::sandbox_assets::build_sandbox_catalog_without_worlds(
+        &config,
+        &character_catalog,
+        &boss_catalog,
+        &music,
+    );
+    let sfx_bank_path = catalog.path_for(&ambition::asset_manager::sandbox_assets::ids::sfx_bank());
+
+    app.insert_resource(config);
+    app.insert_resource(catalog);
+    app.init_resource::<ambition::sprite_sheet::game_assets::GameAssets>();
+    app.add_systems(
+        Startup,
+        load_mary_o_game_assets.before(ambition::presentation::PlatformerPresentationSetupSet),
+    );
+    sfx_bank_path
+}
+
+/// Fill the shared `GameAssets` the generic presentation plugin consumes — the one
+/// path for Mary-O's character sheets (small and tall) and the level's block art.
+#[cfg(feature = "visible")]
+fn load_mary_o_game_assets(
+    config: Res<ambition::sprite_sheet::game_assets::GameAssetConfig>,
+    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
+    boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
+    catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    asset_server: Res<AssetServer>,
+    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+    quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
+    mut game_assets: ResMut<ambition::sprite_sheet::game_assets::GameAssets>,
+) {
+    // Startup asset binding precedes gameplay activation, so derive the theme from
+    // Mary-O's immutable authored room rather than a not-yet-published session root.
+    let authored_room = ambition_demo_smb1::smb1_session_world().metadata;
+    *game_assets = ambition::actors::assets::game_assets::load_game_assets(
+        &config,
+        &character_catalog,
+        &boss_catalog,
+        &catalog,
+        &asset_server,
+        &mut layouts,
+        &authored_room.0,
+        quality.as_deref().map(|q| &q.budget),
+    );
+
+    for (character_id, sheet_stem) in [
+        (
+            ambition_demo_smb1::MARY_O_CHARACTER_ID,
+            "super_mary_o_spritesheet",
+        ),
+        ("mary_o_tall", "super_mary_o_tall_spritesheet"),
+    ] {
+        if game_assets
+            .characters
+            .asset_for_character_id(character_id)
+            .is_some()
+        {
+            info!("mary_o_demo: bound sprites/{sheet_stem}.png through the shared character asset path");
+        } else {
+            warn!(
+                "mary_o_demo: no {character_id} sheet was bound; expected assets/sprites/\
+                 {sheet_stem}.png and {sheet_stem}.ron. The marked player fallback remains \
+                 visible. Rebuild after publishing the generated manifest (regen_sprites.sh)."
+            );
+        }
+    }
+}
+
+/// Minimal audio face for the demo: the packed SFX bank, one SFX channel, and the
+/// standard `SfxMessage` consumer, plus the library the music driver plays from.
+/// Mirrors the Sanic demo shell so both standalone demos are audible.
+#[cfg(feature = "visible")]
+fn install_mary_o_audio(app: &mut App, sfx_bank_path: Option<String>) {
+    use ambition::audio::AmbitionAudioAppExt as _;
+    use bevy::prelude::IntoScheduleConfigs as _;
+
+    app.init_resource::<ambition::audio::AudioOutputMode>()
+        .add_plugins(ambition::audio::AmbitionAudioBackendPlugin);
+    if let Some(path) = sfx_bank_path {
+        info!("mary_o_demo: SFX bank path = {path}");
+        app.insert_resource(ambition::audio::SfxBankAssetPath::new(
+            ambition_demo_smb1::MARY_O_EXPERIENCE,
+            path,
+        ));
+    } else {
+        warn!("mary_o_demo: no SFX bank path resolved; jump cues will be silent stubs");
+    }
+    app.add_plugins(ambition::audio::SfxBankAssetPlugin)
+        .init_resource::<ambition::audio::render::ProviderSfxHandleCache>()
+        .add_ambition_audio_channel::<ambition::audio::library::SfxChannel>()
+        .add_systems(Startup, setup_mary_o_audio_library)
+        .add_systems(
+            Update,
+            ambition::audio::audio_play_sfx_messages
+                .after(ambition::platformer::schedule::SandboxSet::CoreSimulation),
+        );
+}
+
+#[cfg(feature = "visible")]
+fn setup_mary_o_audio_library(
+    mut commands: Commands,
+    catalogs: Res<ambition::audio::catalog::AudioCatalogRegistry>,
+    mut audio_sources: ResMut<Assets<bevy_kira_audio::prelude::AudioSource>>,
+) {
+    let music = catalogs
+        .music_for(ambition_demo_smb1::MARY_O_EXPERIENCE)
+        .expect("Mary-O provider registered its App-local music catalog");
+    let sfx = catalogs
+        .sfx_for(ambition_demo_smb1::MARY_O_EXPERIENCE)
+        .expect("Mary-O provider registered its App-local SFX catalog");
+    let library = ambition::audio::library::AudioLibrary::new(
+        &mut audio_sources,
+        sfx,
+        music,
+        None,
+        None,
+        None,
+    );
+    commands.insert_resource(library);
 }
 
 /// Whether [`build_windowed_demo_app`] opens a window and creates a GPU device.

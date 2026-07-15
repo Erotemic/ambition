@@ -17,7 +17,7 @@ default = []
 # (`input`) — a windowed demo you cannot control is not a playable demo. Without
 # it the shell steps the sim headlessly (`tests/exit_3.rs`, the `mary_o_demo`
 # bin default).
-visible = ["ambition/visible", "ambition/basic_shell_presentation", "input"]
+visible = ["ambition/visible", "ambition/basic_shell_presentation", "ambition/audio", "input", "dep:bevy_kira_audio"]
 # The STANDARD host input path (leafwing bindings + the device->ControlFrame
 # bridge + the fixed-tick latch), the same production wiring the full app uses.
 # Folded into `visible` so the windowed binary is interactive.
@@ -32,3 +32,6 @@ ambition_demo_smb1 = { path = "../ambition_demo_smb1" }
 # Bevy's derives cannot be reached through a re-export (see the content crate's
 # manifest). The shell needs none, but `App`/`Update` come from here.
 bevy = { version = "0.18.1", default-features = false }
+# The windowed shell's audio face (jump SFX + music) uses the Kira backend, exactly
+# like the Sanic demo shell. Optional: the sim-only bin and exit-3 test never link it.
+bevy_kira_audio = { version = "0.25", default-features = false, features = ["ogg"], optional = true }

@@ -151,6 +151,22 @@ impl AbilityBase {
     }
 }
 
+/// The body's AUTHORED movement feel — a per-character override of the
+/// axis-swept tuning (jump arc, air-jump count, …).
+///
+/// The tuning analogue of [`AbilityBase`], and the third sibling of a
+/// character's per-body overrides (abilities, momentum, tuning). Its PRESENCE is
+/// the signal that this body's feel is authored: the player integrator refreshes
+/// the axis policy's live parameters from THIS instead of the global F3 dev
+/// tuning, so a body that carries it (a demo protagonist with a distinct jump)
+/// keeps its feel instead of tracking the shared inspector sliders — exactly as
+/// a `SurfaceMomentum` body's params already escape that refresh. A body WITHOUT
+/// it (the sandbox protagonist) still tracks the F3 editable live, so the dev
+/// tuning workflow is unchanged. The value is a full [`MovementTuning`] so the
+/// projection to `AxisSweptParams` stays the one existing path.
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug)]
+pub struct AuthoredMovementTuning(pub crate::movement::MovementTuning);
+
 /// Position, velocity, AABB size, and facing direction of a body.
 ///
 /// The foundational body state every controllable body in the platformer

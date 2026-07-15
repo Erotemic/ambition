@@ -164,6 +164,59 @@ impl MomentumParamsSpec {
     }
 }
 
+/// Per-character AXIS-swept movement feel, authored on the catalog row — the
+/// tuning twin of [`MomentumParamsSpec`] for the axis path (and the third
+/// per-body override sibling, alongside [`momentum`](CharacterCatalogEntry::momentum)
+/// and [`abilities`](CharacterCatalogEntry::abilities)).
+///
+/// A row that carries this field spawns its PLAYABLE body with an
+/// [`AuthoredMovementTuning`](ambition_engine_core::AuthoredMovementTuning)
+/// component, so the body's live axis parameters are refreshed from THIS instead
+/// of the global F3 dev tuning — a demo protagonist with a distinct jump keeps
+/// its feel instead of tracking the shared inspector sliders. A row without it
+/// (the default) leaves the body on the shared editable tuning, so every
+/// existing character — and the F3 dev workflow — is untouched.
+///
+/// The vocabulary starts at exactly the knobs a character varies today (the
+/// air-jump count, which turns the `AirJump` grant from a double into a triple
+/// jump). Finer axis knobs (a bespoke gravity/jump arc) are added HERE as a real
+/// consumer lands — the same discipline the grant vocabulary follows — and an
+/// omitted knob stays at the shared default, so `axis_tuning: Some(())` is the
+/// default feel with an authored *marker* (the body still escapes the F3 slider).
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+pub struct AxisTuningSpec {
+    /// Mid-air jump count. Needs the `AirJump` grant to have any effect (the
+    /// grant lights the *capability*; this is the *count*). The shared default
+    /// is 1 (a double jump); `2` makes `AirJump` a triple jump.
+    #[serde(default = "at_air_jumps")]
+    pub air_jumps: u8,
+}
+
+fn at_air_jumps() -> u8 {
+    ae::DEFAULT_TUNING.air_jumps
+}
+
+impl Default for AxisTuningSpec {
+    fn default() -> Self {
+        Self {
+            air_jumps: at_air_jumps(),
+        }
+    }
+}
+
+impl AxisTuningSpec {
+    /// Overlay the authored knobs onto the shared default tuning, producing the
+    /// full [`MovementTuning`](ambition_engine_core::MovementTuning) the axis
+    /// policy projects its `AxisSweptParams` from. Only the fields this spec
+    /// carries diverge from [`DEFAULT_TUNING`](ambition_engine_core::DEFAULT_TUNING).
+    pub fn to_kernel(&self) -> ae::MovementTuning {
+        ae::MovementTuning {
+            air_jumps: self.air_jumps,
+            ..ae::DEFAULT_TUNING
+        }
+    }
+}
+
 /// The composable grant vocabulary a catalog row lists to define its kit.
 ///
 /// A character is not one blessed preset; it is the **composition** of the grant
@@ -357,6 +410,13 @@ pub struct CharacterCatalogEntry {
     /// into that kit. See [`AbilityGrant`].
     #[serde(default)]
     pub abilities: Option<Vec<AbilityGrant>>,
+    /// Per-character axis-swept movement feel (the air-jump count today). `Some`
+    /// authors this body's tuning so its live parameters come from the row
+    /// instead of the global F3 dev tuning — the per-character analogue of
+    /// [`momentum`](Self::momentum) for the axis path. `None` (the default) keeps
+    /// the body on the shared editable tuning. See [`AxisTuningSpec`].
+    #[serde(default)]
+    pub axis_tuning: Option<AxisTuningSpec>,
 }
 
 impl CharacterCatalogEntry {

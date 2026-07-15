@@ -85,7 +85,9 @@ pub fn tick_actor_brains(
         // Pre-collected projectiles snapshot (§A7): the live shots this actor perceives.
         Option<Res<crate::features::ecs::perception::PerceptionProjectiles>>,
     ),
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
@@ -789,7 +791,9 @@ pub(crate) fn integrate_actor_body(
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_sim_bodies(
     world_time: Res<WorldTime>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
@@ -842,6 +846,10 @@ pub fn integrate_sim_bodies(
             &mut MotionModel,
             &ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
             &mut ambition_engine_core::BodyMotionFacts,
+            // A body that authors its own axis feel (a demo protagonist) carries
+            // this; the shared sandbox protagonist does not and tracks the F3
+            // dev tuning live (see the per-body resolve below).
+            Option<&ambition_engine_core::AuthoredMovementTuning>,
         ),
         With<crate::actor::PlayerEntity>,
     >,
@@ -905,7 +913,9 @@ pub fn integrate_sim_bodies(
     // affordance rides on `control_dt` inside the helper. No sandbox/room reset and
     // no presentation happen here — those are the home reset-POLICY and
     // PRESENTATION phases, which read the `PlayerBodyFrameOutput` this writes.
-    let player_tuning = editable_tuning.as_engine();
+    // The shared F3 dev tuning is the fallback; a body that authors its own feel
+    // (below) overrides it per-body. Built once, cheaply copied.
+    let editable_player_tuning = editable_tuning.as_engine();
     let _ = &user_settings;
     let player_feel = *feel_tuning;
     let frame_dt = world_time.raw_dt;
@@ -919,8 +929,15 @@ pub fn integrate_sim_bodies(
         mut motion_model,
         resolved_frame,
         mut motion_facts,
+        authored_tuning,
     ) in &mut players
     {
+        // Per-body feel: an authored protagonist keeps its own tuning; the
+        // sandbox protagonist tracks the live inspector sliders. This is the
+        // axis-path twin of a SurfaceMomentum body's params escaping the refresh.
+        let player_tuning = authored_tuning
+            .map(|t| t.0)
+            .unwrap_or(editable_player_tuning);
         let mut clusters = cluster_item.as_clusters_mut();
         let player_motion_frame = resolved_frame.get();
         crate::avatar::integrate_home_body(
@@ -1431,7 +1448,9 @@ pub fn tick_npc_idle_barks(
         With<FeatureSimEntity>,
     >,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
-    room_set: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>>,
+    room_set: Option<
+        ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+    >,
     // App-local authored voice. Required so a mis-composed production App
     // cannot silently erase provider-authored dialogue.
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,

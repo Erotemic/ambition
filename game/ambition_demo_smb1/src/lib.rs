@@ -200,6 +200,12 @@ const SMB1_CATALOG_RON: &str = r#"(
             // base back up to sandbox_all. Paired with the `peaceful` authored kit
             // (Authored, not HostCode) so she carries no combat verbs either.
             abilities: Some([RunJump, AirJump, WallMobility, FastFall]),
+            // Her AirJump grant is a TRIPLE jump: the grant lights the air-jump
+            // capability, this authored count (2 air jumps) is the feel. It rides
+            // an AuthoredMovementTuning marker so it comes from HER row, never the
+            // shared F3 dev tuning (which defaults air_jumps to 1) — the axis-path
+            // analogue of Sanic's authored `momentum`.
+            axis_tuning: Some((air_jumps: 2)),
             playable_kit: Authored,
             tags: ["player"],
         ),
@@ -506,6 +512,24 @@ mod tests {
                 && !mary_o_kit.attack
                 && !mary_o_kit.wall_climb,
             "but none of the full Ambition kit"
+        );
+        // Her AirJump grant is a TRIPLE jump: she authors a per-character axis
+        // tuning (air_jumps = 2) that rides an AuthoredMovementTuning marker, so
+        // the count comes from HER row rather than the shared F3 dev tuning
+        // (which defaults to 1). This is the axis-path analogue of `momentum`.
+        let mary_o_tuning = catalog
+            .axis_tuning(provider::MARY_O_CHARACTER_ID)
+            .expect("Mary-O authors an axis tuning");
+        assert_eq!(
+            mary_o_tuning.air_jumps, 2,
+            "two air jumps: a ground jump plus two = a triple jump"
+        );
+        // Everything else in her feel stays at the shared default — she overrides
+        // only what she authors (the gravity/jump arc Jon blessed is untouched).
+        assert_eq!(
+            mary_o_tuning.gravity,
+            ambition::engine_core::DEFAULT_TUNING.gravity,
+            "an un-authored knob stays at the default feel"
         );
         let defaults = app
             .world()

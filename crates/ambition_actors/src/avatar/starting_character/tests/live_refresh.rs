@@ -173,6 +173,72 @@ fn restricted_ability_base_survives_the_sandbox_default_mask() {
     );
 }
 
+/// The tuning sibling of [`restricted_ability_base_survives_the_sandbox_default_mask`]:
+/// a body that authors its own feel must read its air-jump COUNT from that
+/// authored tuning, never from the shared F3 dev tuning. The dev editable
+/// defaults `air_jumps` to 1 (a double jump); a demo protagonist authoring a
+/// triple jump carries [`AuthoredMovementTuning`] with `air_jumps = 2`, and the
+/// live sync must replenish two air jumps, not one. Without the per-body tuning
+/// source the global editable would silently cap her at a double jump.
+#[test]
+fn authored_movement_tuning_drives_the_air_jump_count_not_the_dev_editable() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    // Default editable = air_jumps 1: the value that would cap a double jump.
+    app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
+    app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
+    app.add_systems(
+        Update,
+        ambition_dev_tools::sync_live_player_dev_edits_system,
+    );
+
+    // A base that grants the air-jump capability (RunJump + AirJump).
+    let air_jump_base = ambition_engine_core::AbilitySet::compose(&[
+        ambition_engine_core::AbilityGrant::RunJump,
+        ambition_engine_core::AbilityGrant::AirJump,
+    ]);
+    let entity = app
+        .world_mut()
+        .spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            MotionModel::default(),
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    air_jump_base,
+                ),
+            ),
+            // Authored feel: a TRIPLE jump (two air jumps).
+            ambition_engine_core::AuthoredMovementTuning(ambition_engine_core::MovementTuning {
+                air_jumps: 2,
+                ..ambition_engine_core::DEFAULT_TUNING
+            }),
+        ))
+        .id();
+
+    // Force the sync's cluster refresh to run this frame by diverging the
+    // effective set from the base (the sync early-returns when they already
+    // agree); the refresh is where `air_jumps_available` is recomputed.
+    app.world_mut()
+        .get_mut::<BodyAbilities>(entity)
+        .unwrap()
+        .abilities = ambition_engine_core::AbilitySet::NONE;
+    app.update();
+
+    let available = app
+        .world()
+        .get::<ambition_engine_core::BodyJumpState>(entity)
+        .unwrap()
+        .air_jumps_available;
+    assert_eq!(
+        available, 2,
+        "the authored tuning's air_jumps (2) must drive the count, not the \
+         editable default (1)"
+    );
+}
+
 fn assert_riding_state(
     world: &World,
     entity: Entity,

@@ -31,7 +31,8 @@ pub use persistence::DeveloperPersistenceSchedulePlugin;
 use bevy::prelude::*;
 
 use ambition_engine_core::{
-    AbilityBase, BodyAbilities, BodyDashState, BodyFlightState, BodyJumpState, MotionModel,
+    AbilityBase, AuthoredMovementTuning, BodyAbilities, BodyDashState, BodyFlightState,
+    BodyJumpState, MotionModel,
 };
 use ambition_platformer_primitives::markers::PrimaryPlayerOnly;
 use dev_tools::{EditableAbilitySet, EditableMovementTuning};
@@ -61,16 +62,24 @@ pub fn sync_live_player_dev_edits_system(
             &mut MotionModel,
             &mut BodyDashState,
             &mut BodyJumpState,
+            // Presence means the body's feel is authored (a demo protagonist),
+            // so the resource-refresh below uses THAT tuning's air-jump count,
+            // never the shared editable's — the same rule the live integrator
+            // applies. Absent for the sandbox protagonist, which tracks F3.
+            Option<&AuthoredMovementTuning>,
         ),
         PrimaryPlayerOnly,
     >,
 ) {
-    let Ok((mut abilities, base, mut flight, mut model, mut dash, mut jump)) =
+    let Ok((mut abilities, base, mut flight, mut model, mut dash, mut jump, authored_tuning)) =
         player_q.single_mut()
     else {
         return;
     };
     let desired_abilities = base.abilities.intersect(editable_abilities.as_engine());
+    let effective_tuning = authored_tuning
+        .map(|t| t.0)
+        .unwrap_or_else(|| editable_tuning.as_engine());
     // Reading through `Mut<T>` is change-neutral; coercing it to `&mut T` is
     // not. Keep the equality guard here, before the helper call, so an
     // unchanged inspector resource does not mark `BodyAbilities` changed every
@@ -85,7 +94,7 @@ pub fn sync_live_player_dev_edits_system(
         &mut dash,
         &mut jump,
         desired_abilities,
-        editable_tuning.as_engine(),
+        effective_tuning,
     );
 }
 

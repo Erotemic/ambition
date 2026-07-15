@@ -52,12 +52,12 @@ pub mod world;
 pub use abilities::{AbilityGrant, AbilitySet};
 pub use bevy_math::Vec2;
 pub use body_clusters::{
-    refresh_movement_resources_clusters, reset_body_clusters, AbilityBase, BodyAbilities,
-    BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyClusterQueryData, BodyClusterQueryDataItem,
-    BodyClusterScratch, BodyClustersMut, BodyComboTrace, BodyDashState, BodyDodgeState,
-    BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics,
-    BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense, BodyShieldState,
-    BodyWallState, SweepSample,
+    refresh_movement_resources_clusters, reset_body_clusters, AbilityBase, AuthoredMovementTuning,
+    BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyClusterQueryData,
+    BodyClusterQueryDataItem, BodyClusterScratch, BodyClustersMut, BodyComboTrace, BodyDashState,
+    BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
+    BodyKinematics, BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense,
+    BodyShieldState, BodyWallState, SweepSample,
 };
 pub use combat_volume::CombatVolume;
 pub use control_frame::ControlFrame;

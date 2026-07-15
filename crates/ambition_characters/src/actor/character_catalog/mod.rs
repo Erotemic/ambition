@@ -24,7 +24,7 @@ pub mod validator;
     reason = "public surface; downstream phases consume these as they land"
 )]
 pub use entry::{
-    ActionSetPreset, BarkSituation, BrainPreset, CharacterBarks, CharacterBodyKind,
+    ActionSetPreset, AxisTuningSpec, BarkSituation, BrainPreset, CharacterBarks, CharacterBodyKind,
     CharacterCatalogData, CharacterCatalogEntry, CharacterTier, CompositionLayer, MeleePreset,
     MomentumParamsSpec, MoveStylePreset, PlayableKitSource, RangedPreset, SpecialPreset,
     SpriteTuningSpec,
@@ -159,6 +159,19 @@ impl CharacterCatalog {
     ) -> Option<ambition_engine_core::MomentumParams> {
         self.get(character_id)?
             .momentum
+            .as_ref()
+            .map(|spec| spec.to_kernel())
+    }
+
+    /// The authored axis-swept movement tuning for `character_id`'s playable
+    /// body. `Some` means the row authors its own feel (its live axis parameters
+    /// come from here, not the global F3 dev tuning); `None` keeps the body on
+    /// the shared editable tuning. The axis analogue of [`momentum_params`].
+    ///
+    /// [`momentum_params`]: Self::momentum_params
+    pub fn axis_tuning(&self, character_id: &str) -> Option<ambition_engine_core::MovementTuning> {
+        self.get(character_id)?
+            .axis_tuning
             .as_ref()
             .map(|spec| spec.to_kernel())
     }

@@ -105,7 +105,14 @@ pub fn motion_model_spec_for_character_id(
     match catalog.momentum_params(character_id) {
         Some(params) => ambition_engine_core::MotionModelSpec::SurfaceMomentum(params),
         None => ambition_engine_core::MotionModelSpec::AxisSwept(
-            ambition_engine_core::AxisSweptParams::default(),
+            // A character that authors its own axis feel seeds the model with it
+            // so the FIRST frame is already correct (the live integrator then
+            // refreshes from the body's `AuthoredMovementTuning` each tick); an
+            // un-authored character starts from the shared default.
+            catalog
+                .axis_tuning(character_id)
+                .map(|tuning| tuning.axis_swept_params())
+                .unwrap_or_default(),
         ),
     }
 }
@@ -324,6 +331,24 @@ pub fn apply_worn_character_gameplay(
             // ability edit would reset SurfaceMomentum's persistent riding
             // state to Airborne.
             sync_worn_motion_model_preserving_state(&catalog, id, &mut motion_model);
+
+            // Per-character axis FEEL rides a marker component: presence means
+            // "this body's tuning is authored, not the shared F3 dev tuning".
+            // Insert it when the worn identity authors a tuning, remove it when
+            // it does not — so a re-wear from an authored feel back to the
+            // sandbox protagonist returns the body to the live inspector sliders.
+            match catalog.axis_tuning(id) {
+                Some(tuning) => {
+                    commands
+                        .entity(entity)
+                        .insert(ambition_engine_core::AuthoredMovementTuning(tuning));
+                }
+                None => {
+                    commands
+                        .entity(entity)
+                        .remove::<ambition_engine_core::AuthoredMovementTuning>();
+                }
+            }
             continue;
         }
 

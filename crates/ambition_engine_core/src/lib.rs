@@ -49,11 +49,11 @@ pub mod world;
 
 // Re-export the public surface so story/sandbox crates can treat the engine as
 // the main mechanics API while the internals stay organized by concern.
-pub use abilities::AbilitySet;
+pub use abilities::{AbilityGrant, AbilitySet};
 pub use bevy_math::Vec2;
 pub use body_clusters::{
-    refresh_movement_resources_clusters, reset_body_clusters, BodyAbilities, BodyActionBuffer,
-    BodyBaseSize, BodyBlinkState, BodyClusterQueryData, BodyClusterQueryDataItem,
+    refresh_movement_resources_clusters, reset_body_clusters, AbilityBase, BodyAbilities,
+    BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyClusterQueryData, BodyClusterQueryDataItem,
     BodyClusterScratch, BodyClustersMut, BodyComboTrace, BodyDashState, BodyDodgeState,
     BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics,
     BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense, BodyShieldState,

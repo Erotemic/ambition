@@ -65,6 +65,13 @@ pub use ambition_engine_core::{
 #[derive(bevy::prelude::Bundle)]
 pub struct AncillaryMovementBundle {
     pub abilities: BodyAbilities,
+    /// The body's intrinsic capability set, captured at spawn from the same
+    /// `AbilitySet` the effective [`BodyAbilities`] starts at. Held constant so a
+    /// session mask (the F3 dev editable) can gate verbs off `abilities` without
+    /// erasing what the character was authored to do. Carried by EVERY body
+    /// (player + actors) so it is an inseparable companion of `BodyAbilities`,
+    /// never a component a spawn path can forget.
+    pub ability_base: ambition_engine_core::AbilityBase,
     /// §3.1 motion record — spawned default (zero-length at origin) and
     /// overwritten by the body's first simulation step.
     pub sweep: ambition_engine_core::SweepSample,
@@ -124,6 +131,7 @@ impl AncillaryMovementBundle {
             combo_trace,
         } = scratch;
         Self {
+            ability_base: ambition_engine_core::AbilityBase::new(abilities.abilities),
             abilities,
             sweep: Default::default(),
             base_size,

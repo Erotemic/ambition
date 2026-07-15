@@ -164,43 +164,24 @@ impl MomentumParamsSpec {
     }
 }
 
-/// A named movement/combat capability preset, authored on the catalog row.
+/// The composable grant vocabulary a catalog row lists to define its kit.
 ///
-/// The gameplay-side **mirror** of the engine's [`ae::AbilitySet`] presets: the
-/// kernel owns the actual bool set; this Deserialize twin names one of the
-/// blessed presets so an authored RON row stays a single word
-/// (`abilities: Some(Basic)`) instead of twenty-six booleans.
+/// A character is not one blessed preset; it is the **composition** of the grant
+/// bundles it carries. The kernel owns the algebra ([`ae::AbilitySet::compose`]);
+/// this is the same [`ae::AbilityGrant`] enum, re-exported so a RON row reads
+/// `abilities: Some([RunJump])` — a list that unions, not a single word that
+/// picks. Adding a verb to a character is appending a grant, never forking a
+/// preset roster.
 ///
-/// A character row that carries this field spawns its PLAYABLE body with that
-/// capability set instead of the session's shared `EditableAbilitySet` — the
-/// per-character analogue of [`momentum`](CharacterCatalogEntry::momentum). A row
-/// without it (the default) keeps the shared sandbox set, so every existing
-/// character is untouched. This is how a restricted-kit demo character (classic
-/// run + jump, no blink/dash/wall/fly) is authored without forcing the whole
-/// multi-game host into that reduced kit.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
-pub enum AbilityKitSpec {
-    /// Classic first-room kit: run + (variable) jump + reset, nothing else.
-    /// [`ae::AbilitySet::basic()`](ambition_engine_core::AbilitySet::basic).
-    Basic,
-    /// The engine's deliberately sane initial endgame subset.
-    /// [`ae::AbilitySet::sane_subset()`](ambition_engine_core::AbilitySet::sane_subset).
-    SaneSubset,
-    /// Every currently implemented verb.
-    /// [`ae::AbilitySet::sandbox_all()`](ambition_engine_core::AbilitySet::sandbox_all).
-    SandboxAll,
-}
-
-impl AbilityKitSpec {
-    /// Hydrate into the engine capability set the movement kernel consumes.
-    pub fn to_ability_set(self) -> ae::AbilitySet {
-        match self {
-            Self::Basic => ae::AbilitySet::basic(),
-            Self::SaneSubset => ae::AbilitySet::sane_subset(),
-            Self::SandboxAll => ae::AbilitySet::sandbox_all(),
-        }
-    }
-}
+/// A row that carries this field spawns its PLAYABLE body with the union of its
+/// grants as the body's [`AbilityBase`](ambition_engine_core::AbilityBase),
+/// which the session mask (the F3 dev editable) then gates — the per-character
+/// analogue of [`momentum`](CharacterCatalogEntry::momentum). A row without it
+/// (the default) keeps the shared sandbox set, so every existing character is
+/// untouched. This is how a restricted-kit demo character (classic run + jump,
+/// no blink/dash/wall/fly) is authored without forcing the whole multi-game host
+/// into that reduced kit.
+pub use ambition_engine_core::AbilityGrant;
 
 /// An occasion on which a character may speak a one-line speech bubble.
 /// Each variant maps to a named pool on [`CharacterBarks`]; the firing
@@ -366,15 +347,16 @@ pub struct CharacterCatalogEntry {
     /// so every existing character is untouched.
     #[serde(default)]
     pub momentum: Option<MomentumParamsSpec>,
-    /// Playable capability set (run / jump / blink / dash / wall / fly / …).
-    /// `Some` overrides the session's shared `EditableAbilitySet` for a body that
-    /// WEARS this character — the per-character analogue of [`momentum`](Self::momentum).
-    /// `None` (the default) keeps the shared sandbox set, so every existing row is
-    /// untouched. A restricted-kit demo character authors e.g. `Some(Basic)` here
-    /// (classic run + jump) instead of forcing the whole host into that kit. See
-    /// [`AbilityKitSpec`].
+    /// Playable capability set, authored as a list of composable grants
+    /// (run / jump / blink / dash / wall / fly / …). `Some` sets the body's
+    /// [`AbilityBase`](ambition_engine_core::AbilityBase) to the union of the
+    /// grants — the per-character analogue of [`momentum`](Self::momentum).
+    /// `None` (the default) keeps the shared sandbox set, so every existing row
+    /// is untouched. A restricted-kit demo character authors e.g.
+    /// `Some([RunJump])` (classic run + jump) instead of forcing the whole host
+    /// into that kit. See [`AbilityGrant`].
     #[serde(default)]
-    pub abilities: Option<AbilityKitSpec>,
+    pub abilities: Option<Vec<AbilityGrant>>,
 }
 
 impl CharacterCatalogEntry {

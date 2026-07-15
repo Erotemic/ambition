@@ -103,6 +103,76 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
     assert_riding_state(app.world(), entity, riding);
 }
 
+/// The bug this whole seam exists to kill: a body authored with a RESTRICTED
+/// base (classic run + jump) must keep it. The F3 dev editable defaults to
+/// `sandbox_all`; because it is now a session MASK over the body's
+/// [`AbilityBase`](ambition_engine_core::AbilityBase) — not a wholesale
+/// replacement — the restricted base survives the per-frame sync instead of
+/// being clobbered up to `sandbox_all` (which is exactly how Mary-O silently
+/// regained blink/dash/wall/fly every frame before this landed).
+#[test]
+fn restricted_ability_base_survives_the_sandbox_default_mask() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    // Default = sandbox_all: the permissive mask, the value that used to clobber.
+    app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
+    app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
+    app.add_systems(
+        Update,
+        ambition_dev_tools::sync_live_player_dev_edits_system,
+    );
+
+    let run_jump =
+        ambition_engine_core::AbilitySet::compose(&[ambition_engine_core::AbilityGrant::RunJump]);
+    let entity = app
+        .world_mut()
+        .spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            MotionModel::default(),
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    run_jump,
+                ),
+            ),
+        ))
+        .id();
+
+    // The old wholesale-replace bug clobbered on the FIRST frame; run several.
+    for _ in 0..5 {
+        app.update();
+    }
+    let effective = app.world().get::<BodyAbilities>(entity).unwrap().abilities;
+    assert_eq!(
+        effective, run_jump,
+        "run-jump base must survive a sandbox_all mask unchanged"
+    );
+    assert!(
+        !effective.blink && !effective.dash && !effective.wall_jump && !effective.fly,
+        "the permissive mask must NOT conjure verbs the base lacks — masks only remove"
+    );
+    assert!(
+        effective.jump && effective.move_horizontal,
+        "the base's own verbs stay lit"
+    );
+
+    // A restrictive mask edit CAN still gate a base verb off (the dev workflow).
+    app.world_mut()
+        .resource_mut::<ambition_dev_tools::dev_tools::EditableAbilitySet>()
+        .jump = false;
+    app.update();
+    assert!(
+        !app.world()
+            .get::<BodyAbilities>(entity)
+            .unwrap()
+            .abilities
+            .jump,
+        "the mask can still remove a verb the base grants"
+    );
+}
+
 fn assert_riding_state(
     world: &World,
     entity: Entity,

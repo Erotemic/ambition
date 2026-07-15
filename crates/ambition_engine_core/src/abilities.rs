@@ -216,6 +216,135 @@ impl AbilitySet {
         }
     }
 
+    /// The empty set: every verb denied. Identity element for [`union`].
+    ///
+    /// Composition of a character's grant bundles is a fold of `union` starting
+    /// here, so a character with no grants can do nothing until something is
+    /// composed onto it.
+    ///
+    /// [`union`]: AbilitySet::union
+    pub const NONE: Self = Self {
+        move_horizontal: false,
+        jump: false,
+        variable_jump: false,
+        double_jump: false,
+        fast_fall: false,
+        wall_jump: false,
+        wall_cling: false,
+        wall_climb: false,
+        dash: false,
+        double_dash: false,
+        fly: false,
+        blink: false,
+        precision_blink: false,
+        blink_through_soft_walls: false,
+        blink_through_hard_walls: false,
+        attack: false,
+        pogo: false,
+        directional_primary: false,
+        directional_special: false,
+        rebound: false,
+        reset: false,
+        ledge_grab: false,
+        swim: false,
+        glide: false,
+        dodge: false,
+        shield: false,
+    };
+
+    /// Field-wise OR: a verb is granted if *either* set grants it.
+    ///
+    /// This is the composition operator. A character is not a frozen preset; it
+    /// is the `union` of the grant bundles it carries (base kit ∪ gear ∪
+    /// upgrades). `union` is commutative, associative, and idempotent, with
+    /// [`NONE`] as its identity, so grant order never matters.
+    ///
+    /// [`NONE`]: AbilitySet::NONE
+    pub const fn union(self, other: Self) -> Self {
+        Self {
+            move_horizontal: self.move_horizontal || other.move_horizontal,
+            jump: self.jump || other.jump,
+            variable_jump: self.variable_jump || other.variable_jump,
+            double_jump: self.double_jump || other.double_jump,
+            fast_fall: self.fast_fall || other.fast_fall,
+            wall_jump: self.wall_jump || other.wall_jump,
+            wall_cling: self.wall_cling || other.wall_cling,
+            wall_climb: self.wall_climb || other.wall_climb,
+            dash: self.dash || other.dash,
+            double_dash: self.double_dash || other.double_dash,
+            fly: self.fly || other.fly,
+            blink: self.blink || other.blink,
+            precision_blink: self.precision_blink || other.precision_blink,
+            blink_through_soft_walls: self.blink_through_soft_walls
+                || other.blink_through_soft_walls,
+            blink_through_hard_walls: self.blink_through_hard_walls
+                || other.blink_through_hard_walls,
+            attack: self.attack || other.attack,
+            pogo: self.pogo || other.pogo,
+            directional_primary: self.directional_primary || other.directional_primary,
+            directional_special: self.directional_special || other.directional_special,
+            rebound: self.rebound || other.rebound,
+            reset: self.reset || other.reset,
+            ledge_grab: self.ledge_grab || other.ledge_grab,
+            swim: self.swim || other.swim,
+            glide: self.glide || other.glide,
+            dodge: self.dodge || other.dodge,
+            shield: self.shield || other.shield,
+        }
+    }
+
+    /// Field-wise AND with a mask: a verb survives only if *both* grant it.
+    ///
+    /// A mask can only ever REMOVE grants, never add them, so it is the safe
+    /// operator for a session-level capability restriction (a story moment that
+    /// forbids a verb, a dev toggle that gates one off) layered over whatever a
+    /// character composed. `intersect` with a mask of [`sandbox_all`] is the
+    /// identity.
+    ///
+    /// [`sandbox_all`]: AbilitySet::sandbox_all
+    pub const fn intersect(self, mask: Self) -> Self {
+        Self {
+            move_horizontal: self.move_horizontal && mask.move_horizontal,
+            jump: self.jump && mask.jump,
+            variable_jump: self.variable_jump && mask.variable_jump,
+            double_jump: self.double_jump && mask.double_jump,
+            fast_fall: self.fast_fall && mask.fast_fall,
+            wall_jump: self.wall_jump && mask.wall_jump,
+            wall_cling: self.wall_cling && mask.wall_cling,
+            wall_climb: self.wall_climb && mask.wall_climb,
+            dash: self.dash && mask.dash,
+            double_dash: self.double_dash && mask.double_dash,
+            fly: self.fly && mask.fly,
+            blink: self.blink && mask.blink,
+            precision_blink: self.precision_blink && mask.precision_blink,
+            blink_through_soft_walls: self.blink_through_soft_walls
+                && mask.blink_through_soft_walls,
+            blink_through_hard_walls: self.blink_through_hard_walls
+                && mask.blink_through_hard_walls,
+            attack: self.attack && mask.attack,
+            pogo: self.pogo && mask.pogo,
+            directional_primary: self.directional_primary && mask.directional_primary,
+            directional_special: self.directional_special && mask.directional_special,
+            rebound: self.rebound && mask.rebound,
+            reset: self.reset && mask.reset,
+            ledge_grab: self.ledge_grab && mask.ledge_grab,
+            swim: self.swim && mask.swim,
+            glide: self.glide && mask.glide,
+            dodge: self.dodge && mask.dodge,
+            shield: self.shield && mask.shield,
+        }
+    }
+
+    /// Compose a slice of grant bundles into one effective set.
+    ///
+    /// This is how a character is defined: not by picking a preset, but by the
+    /// `union` of the bundles it lists. An empty slice composes to [`NONE`].
+    pub fn compose(grants: &[AbilityGrant]) -> Self {
+        grants
+            .iter()
+            .fold(Self::NONE, |acc, grant| acc.union(grant.to_set()))
+    }
+
     /// Number of air jumps granted by the active ability set.
     pub const fn air_jump_count(self, tuning_air_jumps: u8) -> u8 {
         if self.double_jump {
@@ -286,6 +415,45 @@ impl Default for AbilitySet {
     }
 }
 
+/// A named, composable bundle of grants.
+///
+/// A character is not defined by picking ONE preset; it is defined by the set
+/// of grant bundles it carries, composed with [`AbilitySet::union`]. This is the
+/// authoring vocabulary: a catalog row lists its grants, and
+/// [`AbilitySet::compose`] folds them into the character's base capability set.
+///
+/// The vocabulary starts at exactly the bundles that have a consumer today.
+/// Finer-grained single-verb grants (a `WallMovement`, an `AirJumps`, a `Dash`)
+/// are added HERE as the systems behind them land — a character then composes
+/// them into its list instead of a preset gaining a new variant. That is the
+/// whole point of composition over presets: new verbs never fork the roster.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub enum AbilityGrant {
+    /// The classic run-and-jump floor: horizontal steering, a ground jump, and
+    /// variable jump height. The minimal kit a platformer protagonist needs.
+    RunJump,
+    /// The curated mid-game subset ([`AbilitySet::sane_subset`]).
+    SaneSubset,
+    /// Every implemented verb ([`AbilitySet::sandbox_all`]).
+    SandboxAll,
+}
+
+impl AbilityGrant {
+    /// The concrete verbs this bundle grants.
+    pub fn to_set(self) -> AbilitySet {
+        match self {
+            Self::RunJump => AbilitySet {
+                move_horizontal: true,
+                jump: true,
+                variable_jump: true,
+                ..AbilitySet::NONE
+            },
+            Self::SaneSubset => AbilitySet::sane_subset(),
+            Self::SandboxAll => AbilitySet::sandbox_all(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -347,5 +515,77 @@ mod tests {
         assert!(AbilitySet::sane_subset()
             .compatibility_warnings()
             .is_empty());
+    }
+
+    #[test]
+    fn none_is_the_union_identity() {
+        // Composing NONE with anything leaves it untouched, in both orders.
+        let s = AbilitySet::sane_subset();
+        assert_eq!(s.union(AbilitySet::NONE), s);
+        assert_eq!(AbilitySet::NONE.union(s), s);
+        // And NONE truly grants nothing.
+        assert_eq!(AbilitySet::NONE, AbilitySet::compose(&[]));
+    }
+
+    #[test]
+    fn union_adds_verbs_and_never_removes() {
+        // run_jump has no dash; unioning a dash-bearing set must ADD dash while
+        // keeping run_jump's own verbs — a grant can only turn things ON.
+        let run_jump = AbilityGrant::RunJump.to_set();
+        assert!(!run_jump.dash);
+        let composed = run_jump.union(AbilitySet::sandbox_all());
+        assert!(
+            composed.dash,
+            "union must add the verb the other set grants"
+        );
+        assert!(composed.jump, "union must keep run_jump's own jump");
+        // Poison: union with NONE must not silently drop a verb.
+        assert!(run_jump.union(AbilitySet::NONE).jump);
+        // sandbox_all ∪ anything is still sandbox_all (idempotent at the top).
+        assert_eq!(
+            AbilitySet::sandbox_all().union(run_jump),
+            AbilitySet::sandbox_all()
+        );
+    }
+
+    #[test]
+    fn intersect_only_removes_never_adds() {
+        // A mask can gate a verb OFF but can never grant one the base lacks.
+        let base = AbilityGrant::RunJump.to_set();
+        // Masking by sandbox_all (the permissive default) is the identity.
+        assert_eq!(base.intersect(AbilitySet::sandbox_all()), base);
+        // A restrictive mask removes jump.
+        let no_jump_mask = AbilitySet {
+            jump: false,
+            ..AbilitySet::sandbox_all()
+        };
+        assert!(!base.intersect(no_jump_mask).jump);
+        // Poison: a mask that grants blink must NOT add blink to a base without it.
+        let base_has_no_blink = AbilityGrant::RunJump.to_set();
+        assert!(!base_has_no_blink.blink);
+        let blink_mask = AbilitySet {
+            blink: true,
+            ..AbilitySet::NONE
+        };
+        assert!(
+            !base_has_no_blink.intersect(blink_mask).blink,
+            "intersect must never ADD a verb — masks only remove"
+        );
+    }
+
+    #[test]
+    fn compose_folds_a_grant_list_by_union() {
+        // A character listing multiple grants gets their union; order-independent.
+        let a = AbilitySet::compose(&[AbilityGrant::RunJump, AbilityGrant::SandboxAll]);
+        let b = AbilitySet::compose(&[AbilityGrant::SandboxAll, AbilityGrant::RunJump]);
+        assert_eq!(a, b, "compose must be order-independent");
+        assert_eq!(a, AbilitySet::sandbox_all());
+        // A single run-jump grant composes to exactly move + jump + variable_jump.
+        let run_jump = AbilitySet::compose(&[AbilityGrant::RunJump]);
+        assert!(run_jump.move_horizontal && run_jump.jump && run_jump.variable_jump);
+        assert!(
+            !run_jump.dash && !run_jump.blink && !run_jump.attack && !run_jump.wall_jump,
+            "run-jump must NOT grant sandbox verbs"
+        );
     }
 }

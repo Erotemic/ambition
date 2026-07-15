@@ -31,7 +31,7 @@ pub use persistence::DeveloperPersistenceSchedulePlugin;
 use bevy::prelude::*;
 
 use ambition_engine_core::{
-    BodyAbilities, BodyDashState, BodyFlightState, BodyJumpState, MotionModel,
+    AbilityBase, BodyAbilities, BodyDashState, BodyFlightState, BodyJumpState, MotionModel,
 };
 use ambition_platformer_primitives::markers::PrimaryPlayerOnly;
 use dev_tools::{EditableAbilitySet, EditableMovementTuning};
@@ -41,12 +41,22 @@ use dev_tools::{EditableAbilitySet, EditableMovementTuning};
 /// Registered by the host to run even while gameplay is suspended so the F3
 /// inspector stays responsive; the logic is body-state mutation and lives here
 /// beside the dev STATE it reads.
+///
+/// The editable ability set is a **session MASK**, not a wholesale replacement:
+/// the effective set is the body's intrinsic [`AbilityBase`] intersected with
+/// the editable set. A mask can only ever gate a verb OFF, never conjure one the
+/// character was not authored to have — so a restricted character (a demo
+/// protagonist authored with a run-and-jump kit) keeps its identity instead of
+/// being clobbered up to the inspector's `sandbox_all` default every frame. For
+/// the sandbox protagonist (base `sandbox_all`) the intersection equals the
+/// editable set, so the F3 experiment workflow is unchanged.
 pub fn sync_live_player_dev_edits_system(
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
     mut player_q: Query<
         (
             &mut BodyAbilities,
+            &AbilityBase,
             &mut BodyFlightState,
             &mut MotionModel,
             &mut BodyDashState,
@@ -55,11 +65,12 @@ pub fn sync_live_player_dev_edits_system(
         PrimaryPlayerOnly,
     >,
 ) {
-    let Ok((mut abilities, mut flight, mut model, mut dash, mut jump)) = player_q.single_mut()
+    let Ok((mut abilities, base, mut flight, mut model, mut dash, mut jump)) =
+        player_q.single_mut()
     else {
         return;
     };
-    let desired_abilities = editable_abilities.as_engine();
+    let desired_abilities = base.abilities.intersect(editable_abilities.as_engine());
     // Reading through `Mut<T>` is change-neutral; coercing it to `&mut T` is
     // not. Keep the equality guard here, before the helper call, so an
     // unchanged inspector resource does not mark `BodyAbilities` changed every

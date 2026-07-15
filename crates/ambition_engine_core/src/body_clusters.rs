@@ -129,6 +129,28 @@ impl BodyAbilities {
     }
 }
 
+/// The body's INTRINSIC capability set — the union of the grant bundles it was
+/// authored with, captured at spawn and held constant.
+///
+/// [`BodyAbilities`] is the *effective* set (what the movement kernel actually
+/// reads). This is the *base* it derives from: `effective = base ∩ session_mask`
+/// (∪ gear/upgrades once those land). Keeping the base separate is what lets a
+/// session-level restriction (the dev editable mask, a story lockout) gate a
+/// verb OFF without destroying the character's authored identity — mask it back
+/// open and the base is still there. Without this, the only place a body's
+/// intrinsic kit lived was the effective set, so anything that wrote the
+/// effective set (the F3 dev sync) erased the authored kit permanently.
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default)]
+pub struct AbilityBase {
+    pub abilities: AbilitySet,
+}
+
+impl AbilityBase {
+    pub fn new(abilities: AbilitySet) -> Self {
+        Self { abilities }
+    }
+}
+
 /// Position, velocity, AABB size, and facing direction of a body.
 ///
 /// The foundational body state every controllable body in the platformer

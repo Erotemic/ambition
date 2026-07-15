@@ -188,13 +188,15 @@ const SMB1_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            // Classic SMB1 grammar: run + jump, nothing else. The per-character
-            // capability set keeps Mary-O off the full Ambition kit (blink, dash,
+            // Classic Mary-O grammar: run + jump, nothing else. The per-character
+            // grant list keeps Mary-O off the full Ambition kit (blink, dash,
             // wall, fly, fireball) WITHOUT touching the shared session ability set,
-            // so the multi-game host's own protagonist is unaffected. Paired with
-            // the `peaceful` authored kit (Authored, not HostCode) so she carries
-            // no combat verbs either — the same shape Sanic uses.
-            abilities: Some(Basic),
+            // so the multi-game host's own protagonist is unaffected. It is her
+            // AbilityBase, which the session mask gates but can never clobber back
+            // up to sandbox_all. Paired with the `peaceful` authored kit (Authored,
+            // not HostCode) so she carries no combat verbs either — the same shape
+            // Sanic uses.
+            abilities: Some([RunJump]),
             playable_kit: Authored,
             tags: ["player"],
         ),
@@ -468,6 +470,28 @@ mod tests {
             .world()
             .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>();
         assert!(catalog.get(provider::MARY_O_CHARACTER_ID).is_some());
+        // Mary-O's authored grant list composes to exactly run + jump — no
+        // blink/dash/wall/fly. This is her AbilityBase; the session mask can only
+        // narrow it, never restore the full Ambition kit.
+        let mary_o_kit = catalog
+            .ability_set(provider::MARY_O_CHARACTER_ID)
+            .expect("Mary-O authors a grant list");
+        assert_eq!(
+            mary_o_kit,
+            ambition::engine_core::AbilitySet::compose(&[
+                ambition::engine_core::AbilityGrant::RunJump,
+            ]),
+            "Mary-O composes to the classic run-and-jump kit"
+        );
+        assert!(
+            mary_o_kit.jump
+                && mary_o_kit.move_horizontal
+                && !mary_o_kit.blink
+                && !mary_o_kit.dash
+                && !mary_o_kit.wall_jump
+                && !mary_o_kit.fly,
+            "run + jump only"
+        );
         let defaults = app
             .world()
             .resource::<ambition::characters::actor::character_catalog::CharacterCatalogDefaults>(

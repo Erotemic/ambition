@@ -142,8 +142,9 @@ passes over the kernel, the enemy/stomp vocab, and the powerup seam):
 > (reusable) and Mary-O enables them by **appending grants** — zero kernel code.
 > The FEEL that legitimately varies per character (the air-jump count, a bespoke
 > arc) is **tuning**, composed on the catalog exactly like Sanic's `momentum`.
-> The only genuinely new mechanic is the ground pound; the ? block / stomp are
-> content over existing head-contact + GroundItem + pogo vocab.
+> The only genuinely new mechanic is the ground pound (which turned out to BE the
+> fast-fall grant). The stomp is a demo rule over head-contact (NO pogo, per Jon);
+> the ? block powerup needed two small reusable engine primitives — see E below.
 
 That answer decides the whole build: it is mostly CONTENT + composition, plus one
 real engine keystone (per-character tuning). Slices, each compiling + tested +
@@ -167,22 +168,59 @@ committed:
   per-character tuning.** The Mario ARC itself stays at the blessed default
   (Jon: "that is the right sort of jump physics") — no feel-tuning pass, per the
   land-architecture-not-feel directive.
-- **C — the goomba + stomp (in progress).** Reuse the `ai_slop` sprite as a
-  1-HP `Wanderer` walker (paces, reverses at walls), spawned via
-  `SpawnActorRequest` on room load (self-contained demo roster fragment so it has
-  its sprite standalone AND hosted). Head-stomp is a demo RULE: a descending
-  player whose feet clear the goomba's head bounces (`set_jump_velocity`) and
-  squashes it (lethal `HitEvent`); side contact is the engine's existing
-  body-contact damage. `PogoTarget` also tags it so a ground-pound down-hit pops.
-- **D — the ? block powerup.** `ItemBlock` component; a head-bump (scan
-  `frame_out.events.contacts` for `ContactKind::Head` against the block) emits a
-  `GroundItem` (the generated milk-carton sprite) that rises out; touch-to-equip
-  runs `equip_equipment_row(grow_cap)`; a `BODY_SCALE` read-fold into `base_size`
-  makes small↔tall real (the generated `super_mary_o_tall` sprite). Publish the
-  milk-carton / coin / tall sprites into crate assets + `regen_sprites.sh`.
-- **E — ground pound + level pass.** Fast-fall already grants the dive (Slice A);
-  ground pound is the down-slam that stomps (covered by C's rule) and breaks a
-  brick block. Level gets ? blocks, goombas, and the powerup rhythm so it plays
-  like a proper 1-1.
+- **C — asset-root parity ✅ LANDED (2026-07-15).** Standalone rendered no sprites
+  because its `AssetServer` file root was the cwd `assets/`, not the engine's
+  `crates/ambition_actors/assets`. A shared `actors_desktop_asset_root()` umbrella
+  helper both apps set on the builder, so standalone and hosted cannot diverge.
+- **D — the goomba + stomp ✅ LANDED (2026-07-15).** The `ai_slop` sprite as a
+  1-HP `Wanderer` walker (demo roster fragment so it has its sprite standalone AND
+  hosted), spawned via `SpawnActorRequest` on room load. Head-stomp is a demo
+  RULE, and per Jon **NO pogo**: a descending player bounces (`set_jump_velocity`)
+  and squashes the goomba (health zeroed that frame, ordered before the shared
+  body-contact-damage pass so a stomp never also hurts the stomper); a side touch
+  is the engine's existing contact damage.
+- **E — reactive blocks + WorldItem + grow powerup ✅ LANDED (2026-07-15).** Jon
+  chose the elegant-engine path over demo glue: TWO reusable engine primitives,
+  then the powerup as pure content on them.
+  - **Reactive blocks.** `ContactSource::Block` now carries the struck block's
+    durable `GeoId` (it lived on `Block`; the contact threw it away). Gameplay can
+    answer "*which* authored block did I touch" without point-matching. `GeoId`
+    owns a `String`, so `Contact`/`ContactSource`/`SupportFact` are now `Clone`
+    not `Copy` — a three-derive + two-clone ripple; whole workspace compiles.
+  - **`WorldItem`.** A walk-into collectible granting EQUIPMENT — the sibling of
+    `GroundItem` split along the collect trigger the pickup module's own review
+    note anticipated (touched, not pressed; equips an A3 row via the ONE
+    `equip_equipment_row` contract, its first live caller). Full sim-view→visual
+    mirror.
+  - **The powerup, pure content.** A head-bonk on a ?-block (matched by its
+    `GeoId`) pops a milk `WorldItem`; touching it equips `grow_cap`; the tall
+    SHEET (`super_mary_o_tall`, a distinct sheet per Jon — "small and tall have
+    different sprites") + taller collider are a pure VIEW of wearing the cap
+    (feet-anchored grow/shrink, no pushout); a hit spends the cap via the shared
+    armor pass → shrink. The equipment state drives both directions, no manual
+    revert.
+- **F — ground pound + level ✅ (no new code).** Ground pound in this engine's
+  vocabulary IS the `FastFall` grant, which `mary_o` carries (Slice A) and the kit
+  test asserts is lit; the descent + the goomba stomp cover the mechanic. The
+  level authors the ?-blocks at the teach-platform jump height, goombas on the
+  flats, and the pit/stair rhythm.
 
-**Bar:** *"it needs to be a proper Mary-O demo"* — all of the above together.
+**Bar:** *"it needs to be a proper Mary-O demo"* — met: Mario jump physics
+(variable/double/triple/wall/fast-fall), a stompable goomba, and a
+struck-block→milk→small↔tall powerup, all together.
+
+**Follow-ups (noted, not blocking):**
+- The milk `WorldItem` draws a tinted quad; a real `super_mary_o_milk_carton`
+  sprite is generated in the renderer submodule — wiring it needs the prop-sheet
+  render path (item_visuals draws a single image, not a sheet frame).
+- **Brick-break** is now a cheap SECOND reactive-block consumer (Head/Support
+  contact vs a breakable `GeoId` → remove the block) — the primitive's reuse
+  proof, deferred because removing a block mid-run is a `World`-mutation slice.
+- `WorldItem` has no locomotion yet (resting collectible); a sliding mushroom
+  wants the free-body integrator (add when a second moving pickup lands —
+  design-balance).
+- The goomba squash zeroes health + despawns (bypasses the engine death/score/
+  drop path) — a minor smell, fine for a 1-HP walker.
+- Republish the hall of characters with everyone (heavy `regen_sprites.sh` run).
+- Exit-to-title-quits-standalone (deferred: risks the launcher-relaunch flow the
+  OV1 lifecycle tests pin).

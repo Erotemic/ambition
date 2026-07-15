@@ -407,3 +407,27 @@ Ambition protagonist's verbs. There needs to be a hook so whatever is currently
 CONTROLLED (worn character) or whatever UI is active drives the control-hint
 labels/icons. Same relativity principle as the rest of the engine: the prompt row
 is a function of the active control context, not a global constant.
+
+**9. `WorldItem` visual is a tinted quad, not the real sprite (2026-07-15).**
+`sync_world_item_visuals` (ambition_render) draws a colored `Sprite::from_color`
+per world item, tinted by row id. A real `super_mary_o_milk_carton` sheet is
+generated in the renderer submodule; wiring it needs the PROP-SHEET render path
+(the item visual draws one image, not a manifest frame rect). Follow-up: give
+`WorldItemFact` an optional sprite/anchor the render can bind, reusing the
+prop-sprite pipeline. Until then the quad is the shipped (draw-blind) visual.
+
+**10. `WorldItem` has no locomotion (2026-07-15).** A resting collectible only —
+a classic sliding mushroom wants a free-body integrator like `ground_item_physics`.
+Deliberately NOT abstracted at N=2 (design-balance): unify a `settle_free_body`
+helper across `GroundItem`/`WorldItem` when a THIRD moving pickup lands.
+
+**11. Goomba squash bypasses the engine death path (2026-07-15).** `bounce_squash_goombas`
+zeroes health + despawns directly, skipping the shared death/score/drop pipeline.
+Fine for a 1-HP walker with no drops; revisit if goombas ever drop or score.
+
+**12. Reactive-block reuse unproven — brick-break is the missing second consumer
+(2026-07-15).** `ContactSource::Block` now carries `GeoId` and the ?-block powerup
+is its first consumer. A brick-break (Head/Support vs a breakable `GeoId` → remove
+the block) would prove the primitive generalizes, but removing a block mid-run is a
+`World`-mutation slice, deferred. The engine-for-other-games oracle wants a second
+consumer eventually.

@@ -1,6 +1,6 @@
 //! Boss sprite upgrade + animation (the boss spritesheet resolver and per-boss
-//! animation). Split out of the actors renderer god-module; `use super::*`
-//! reaches the shared sprite-build helpers + the marker components / z-constants.
+//! animation). Split out of the actors renderer god-module; imports the shared
+//! sprite-build helpers + the marker components / z-constants explicitly.
 //!
 //! **A two-part boss is two linked actors, not two render layers.** The old
 //! split-layer render (fable review C7) drew a giant's body behind one-way
@@ -11,7 +11,13 @@
 //! layers can't be hit, possessed, or killed; limbs can. Deleted in the E6
 //! teardown (`refactor-chain.md` R2).
 
-use super::*;
+use bevy::math::Vec2 as BVec2;
+use bevy::prelude::*;
+
+use crate::rendering::primitives::{FeatureVisual, PlayerVisual};
+use ambition_sprite_sheet::boss::{self as sprites, BossAnimState, BossAnimator};
+use ambition_sprite_sheet::character::CharacterAnimator;
+use ambition_sprite_sheet::game_assets::GameAssets;
 
 /// Replace the static `boss_core.png` look on boss feature entities with
 /// the animated boss spritesheet once the asset is available. Symmetric

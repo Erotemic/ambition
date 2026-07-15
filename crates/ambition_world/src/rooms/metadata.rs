@@ -3,7 +3,7 @@
 //! Split out of the former 823-line `rooms/mod.rs` (2026-06-15); the
 //! parent re-exports every type so `rooms::*` paths are unchanged.
 
-use super::*;
+use bevy_ecs::prelude::Component;
 
 /// Track the music identifier the active room would like to play.
 ///

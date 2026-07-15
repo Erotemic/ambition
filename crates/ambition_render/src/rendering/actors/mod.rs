@@ -4,9 +4,7 @@
 //! initial colored rectangles into authored character sprites once
 //! the asset is loaded.
 
-#![allow(unused_imports)]
 use ambition_engine_core as ae;
-use ambition_engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
@@ -18,7 +16,6 @@ use ambition_combat::events::{BoundFeatureKind, FeatureVisualKind};
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_sim_view::FeatureViewIndex;
-use ambition_sprite_sheet::boss::{self as sprites, BossAnimState, BossAnimator};
 use ambition_sprite_sheet::character::{
     build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
     feet_anchor_for_render_size, player_placeholder_render_size, CharacterAnimator,
@@ -148,7 +145,9 @@ pub fn bind_worn_character_presentation(
 }
 
 pub fn sync_visuals(
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     entities: Option<Res<SceneEntities>>,
     assets: Option<Res<GameAssets>>,
     feature_views: Res<FeatureViewIndex>,

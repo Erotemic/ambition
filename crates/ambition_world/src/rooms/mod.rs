@@ -1,9 +1,7 @@
 //! Room graph and authored room IR.
 
-#![allow(unused_imports)]
-
 use ambition_engine_core as ae;
-use bevy_ecs::prelude::{Component, Message, Resource};
+use bevy_ecs::prelude::{Component, Message};
 use petgraph::graph::{Graph, NodeIndex};
 
 mod camera;

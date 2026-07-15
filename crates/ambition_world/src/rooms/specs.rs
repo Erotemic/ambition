@@ -3,7 +3,7 @@
 //! Split out of the former 823-line `rooms/mod.rs` (2026-06-15); the
 //! parent re-exports every type so `rooms::*` paths are unchanged.
 
-use super::*;
+use ambition_engine_core as ae;
 
 /// Static decorative prop authored as the `Prop` LDtk entity.
 ///

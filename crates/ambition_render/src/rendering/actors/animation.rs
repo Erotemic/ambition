@@ -2,7 +2,10 @@
 //!
 //! Split out of the former 883-line `actors/mod.rs` (2026-06-15).
 
-use super::*;
+use bevy::prelude::*;
+
+use crate::rendering::primitives::{FeatureVisual, PlayerVisual, PropVisual};
+use ambition_sprite_sheet::character::CharacterAnimator;
 
 /// The shared animation TAIL every animated actor (player, enemy, NPC) runs:
 /// request the chosen anim, tick the animator by the entity's dt, push the

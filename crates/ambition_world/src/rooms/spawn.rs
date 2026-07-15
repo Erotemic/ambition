@@ -5,9 +5,10 @@
 //! (edge inset for `EdgeExit`, target-zone center for `Door`/`Walk`). Helpers
 //! and the player-half/inset constants are `pub(super)` for sibling `graph`.
 
+use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 
-use super::*;
+use super::{LoadingZone, LoadingZoneActivation};
 
 pub(super) fn block_kind_label(kind: ae::BlockKind) -> &'static str {
     match kind {

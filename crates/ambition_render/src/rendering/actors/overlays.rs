@@ -3,10 +3,17 @@
 //!
 //! Split out of the former 883-line `actors/mod.rs` (2026-06-15).
 
-use super::*;
+use bevy::math::Vec2 as BVec2;
+use bevy::prelude::*;
+
+use crate::rendering::primitives::{feature_color, FeatureVisual, PlayerVisual};
+use ambition_combat::events::FeatureVisualKind;
+use ambition_engine_core as ae;
+use ambition_engine_core::config::world_to_bevy;
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
+use ambition_sim_view::FeatureViewIndex;
 
 /// When `DeveloperTools::hide_sprites` is enabled, force every `Sprite`-bearing
 /// entity to `Hidden` so only gizmo hitbox outlines remain visible. When the
@@ -85,7 +92,9 @@ const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 /// damage geometry — this system only mirrors rows into sprites.
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     active_session: Option<Res<ActiveSessionScope>>,
     boss_frames: Res<ambition_sim_view::BossFrameIndex>,
     mut visuals: Query<(Entity, &GradientLaneVisual, &mut Transform, &mut Sprite)>,

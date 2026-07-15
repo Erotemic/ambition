@@ -201,6 +201,34 @@ pub struct WorldItemVisual;
 #[derive(Resource, Default)]
 pub struct WorldItemArt(pub std::collections::HashMap<String, (Handle<Image>, Vec2)>);
 
+/// Resolve the provider-contributed
+/// [`WorldItemArtManifest`](ambition_platformer_primitives::world_item_art::WorldItemArtManifest)
+/// (pure `id → path + size` data every game registered at build time) into loaded
+/// image handles, filling [`WorldItemArt`]. This is the render half of the
+/// contribution seam: games declare their pickup art without a render dependency;
+/// the resolution — and the `AssetServer` — lives HERE, so a multi-game host's
+/// unioned manifest binds every provider's pickups at once. Absent manifest ⇒ an
+/// empty map (every item draws the quad fallback).
+pub fn build_world_item_art(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    manifest: Option<Res<ambition_platformer_primitives::world_item_art::WorldItemArtManifest>>,
+) {
+    let mut art = WorldItemArt::default();
+    if let Some(manifest) = manifest {
+        for entry in &manifest.0 {
+            art.0.insert(
+                entry.sprite_id.clone(),
+                (
+                    assets.load(entry.asset_path.clone()),
+                    Vec2::new(entry.size.x, entry.size.y),
+                ),
+            );
+        }
+    }
+    commands.insert_resource(art);
+}
+
 /// A sprite per walk-into world item: the real image when the item carries a
 /// `sprite` id bound in [`WorldItemArt`], else a colored quad tinted by the row it
 /// grants (grow-cap = cream, spark-blossom = ember, unknown = magenta) — the

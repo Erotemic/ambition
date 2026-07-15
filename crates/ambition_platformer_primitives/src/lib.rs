@@ -23,6 +23,8 @@ pub mod transit;
 
 pub mod feature_overlay;
 
+pub mod world_item_art;
+
 pub mod physics;
 
 pub mod shrine;

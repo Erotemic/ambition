@@ -157,6 +157,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             )
             // Load held-item prop sprites at startup.
             .add_systems(Startup, item_visuals::load_item_art)
+            // Resolve every provider's contributed walk-into pickup art (the
+            // `WorldItemArtManifest` data) into loaded `WorldItemArt` handles.
+            .add_systems(Startup, item_visuals::build_world_item_art)
             .add_systems(
                 Update,
                 (

@@ -53,6 +53,21 @@ pub struct MaryOExperiencePlugin;
 impl Plugin for MaryOExperiencePlugin {
     fn build(&self, app: &mut App) {
         crate::install_mary_o_content(app);
+        // Declare the milk-carton pickup art (pure id → path + size DATA; no render
+        // dependency here). The render layer resolves it into a real sprite through
+        // the shared `WorldItem` art seam, so the ?-block's milk draws as a carton
+        // instead of the cream placeholder quad in BOTH the standalone app and the
+        // multi-game host — this provider is the one seam both share. The flat prop
+        // image is published by regen_sprites.sh; until then the render falls back
+        // to the quad.
+        {
+            use ambition::platformer::world_item_art::{WorldItemArtAppExt, WorldItemArtEntry};
+            app.register_world_item_art([WorldItemArtEntry::new(
+                crate::powerups::MILK_SPRITE,
+                format!("sprites/props/{}.png", crate::powerups::MILK_SPRITE),
+                ae::Vec2::new(24.0, 28.0),
+            )]);
+        }
         {
             use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
             app.register_audio_catalog_fragment(

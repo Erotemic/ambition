@@ -61,11 +61,19 @@ mod tests {
     }
 }
 
-/// Per-actor combat capabilities, derived from the actor's authored
+/// Per-actor combat-CONSEQUENCE traits, derived from the actor's authored
 /// archetype DATA at spawn (`character_archetypes.ron`) and attached as a
 /// component so generic combat systems can branch on capabilities
 /// instead of matching named archetype enums. The content layer
 /// derives it; the kit only defines the vocabulary.
+///
+/// This carries what happens on death / to a weapon — NOT which movement verbs
+/// the body can use. Movement capability (blink / fly / shield / dash) is one
+/// vocabulary for every body: the body's [`ae::AbilitySet`]
+/// (`BodyAbilities` / `AbilityBase`), the same the player carries. A character's
+/// authored movement kit is unioned into that set at spawn
+/// (`ActorBody::from_kit`), so there is one movement-capability authority per
+/// body, never a parallel `can_*` mirror here.
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct CombatCapabilities {
     /// Detonates at the corpse on death (Enemy-faction blast), so a
@@ -82,35 +90,6 @@ pub struct CombatCapabilities {
     /// "steal the enemy's weapon" rule), resolved from authored data
     /// at spawn.
     pub drops_held_item: Option<ambition_characters::brain::HeldItemSpec>,
-    /// Movement kit: this body can **blink** (short-range collision-clamped
-    /// teleport). The body-side gate for the `blink` intent (invariant I3) — the
-    /// controller (AI brain or possessing human) only *attempts* a blink; the
-    /// body resolves it only when this is set and its blink cooldown is ready, so
-    /// the player kit is a per-body capability, never gated on "is the player".
-    pub can_blink: bool,
-    /// Movement kit: this body can **fly** — toggle between grounded and free-
-    /// mover (gravity-free) locomotion. The body-side gate for the `fly_toggle`
-    /// intent (I3): the controller decides WHEN to switch modes (the brain
-    /// prefers grounded and flies to traverse; a possessing human presses it),
-    /// the body flips its own gravity mode.
-    pub can_fly: bool,
-    /// Movement/defense kit: this body can **reactive-block** with a shield. The
-    /// body-side gate for the `shield_held` intent (I3): the controller decides
-    /// WHEN to raise the guard (the brain shields a perceived lunge it won't blink;
-    /// a possessing human holds the button), the body enforces the block — a
-    /// guarded hit from the faced side is negated (the same frame-agnostic
-    /// directional rule the player's shield uses, `shield_blocks_hit`). Never
-    /// gated on "is the player".
-    pub can_shield: bool,
-    /// Movement kit: this body can **dash** — a short burst above its walk speed.
-    /// The body-side gate for the `dash_pressed` intent (I3): the controller
-    /// decides WHEN to dash (the brain dashes to close a gap; a possessing human
-    /// presses it), the body owns the burst. For a grounded actor this enables the
-    /// **shared movement pipeline's dash limb** (the same real dash impulse the
-    /// player runs — `ActorBody::from_caps` flips on the `dash` ability), not a
-    /// bespoke actor burst. A body WITHOUT this capability still moves at its walk
-    /// speed on a Dash action (graceful fallback), it just doesn't dash.
-    pub can_dash: bool,
 }
 
 /// Composable per-body movement knobs (gravity, run, jump, fall cap) — the

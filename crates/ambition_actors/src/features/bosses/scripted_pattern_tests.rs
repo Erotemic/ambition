@@ -562,11 +562,8 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     seed.config.tuning.chase_speed = 1200.0;
     seed.config.tuning.max_run_speed = 1200.0;
     seed.config.tuning.flight_direct_velocity = true;
-    seed.caps = crate::combat::CombatCapabilities {
-        can_fly: true,
-        ..Default::default()
-    };
-    seed.body = super::super::ecs::actor_clusters::ActorBody::from_caps(&seed.caps, true);
+    // A floating boss: is_aerial forces flight into the body's movement kit.
+    seed.body = super::super::ecs::actor_clusters::ActorBody::from_kit(ae::AbilitySet::NONE, true);
     let behavior = BossBehaviorProfile::clockwork_warden();
     // World: a wall at x=400 blocks any rightward chase past it.
     let world = ae::World::new(

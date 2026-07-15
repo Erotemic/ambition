@@ -44,20 +44,21 @@ fn archetype_capabilities_match_the_legacy_identity_checks() {
 }
 
 /// The PROTAGONIST as an actor body (roadmap S6a / invariant I7): the
-/// `player_robot` archetype carries the FULL player kit as body-enforced
-/// capabilities — blink / fly / shield / dash all project into
-/// `CombatCapabilities`, and it has both a melee strike and the player's
-/// Hadouken ranged. This is what makes the player-robot droppable as a boss
-/// and fieldable as the spectator-arena's second combatant. (Authoring this is
-/// what forces the player kit to BE `CombatCapabilities`, per the convergence
-/// audit; the live player folds onto this same actor path in S6b.)
+/// `player_robot` archetype carries the FULL player kit as body movement
+/// capabilities — blink / fly / shield / dash all appear in its
+/// [`ae::AbilitySet`] movement kit, and it has both a melee strike and the
+/// player's Hadouken ranged. This is what makes the player-robot droppable as a
+/// boss and fieldable as the spectator-arena's second combatant. (Authoring
+/// this is what forces the player kit to BE the body's `AbilitySet` — the same
+/// vocabulary the live player runs — not a parallel enemy-only mirror; the live
+/// player folds onto this same actor path in S6b.)
 #[test]
 fn player_robot_archetype_carries_the_full_player_kit() {
     let spec = crate::features::enemies::test_spec("player_robot");
-    let caps = spec.combat_capabilities();
+    let kit = spec.movement_kit();
     assert!(
-        caps.can_blink && caps.can_fly && caps.can_shield && caps.can_dash,
-        "the player-robot body has the full movement kit as body capabilities: {caps:?}",
+        kit.blink && kit.fly && kit.shield && kit.dash,
+        "the player-robot body has the full movement kit in its AbilitySet: {kit:?}",
     );
     assert!(spec.melee.is_some(), "player-robot has a melee strike");
     assert!(

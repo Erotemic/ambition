@@ -140,12 +140,16 @@ impl ActorBody {
     /// the damage path reads `shield.active` off that ONE component). **blink**
     /// turns on with `can_blink` (the pipeline's blink limb; the driver emits the
     /// blink sfx/vfx from the returned `FrameEvents.blinks`).
-    pub fn from_caps(caps: &crate::combat::CombatCapabilities, is_aerial: bool) -> Self {
-        let mut abilities = Self::locomotion_abilities();
-        abilities.dash = caps.can_dash;
-        abilities.fly = is_aerial || caps.can_fly;
-        abilities.shield = caps.can_shield;
-        abilities.blink = caps.can_blink;
+    /// Seed a combat body's movement `AbilitySet` from its authored **movement
+    /// kit** (`CharacterArchetypeSpec::movement_kit`): the shared locomotion base
+    /// unioned with the character's authored verbs (blink / fly / shield / dash),
+    /// plus the `attack` verb every combat body carries. `is_aerial` forces
+    /// flight on regardless of the kit. This is the one place a character's
+    /// authored kit becomes the body's live capability set — the same
+    /// `AbilitySet` the player runs, so there is no parallel enemy-only mask.
+    pub fn from_kit(kit: ae::AbilitySet, is_aerial: bool) -> Self {
+        let mut abilities = Self::locomotion_abilities().union(kit);
+        abilities.fly = is_aerial || abilities.fly;
         // A combat body HAS the attack verb (capability); WHETHER it swings is gated
         // by its `ActionSet.melee` (a peaceful NPC's empty set emits no Melee message)
         // and its brain (policy). The shared `start_body_melee` phase reads this flag
@@ -473,7 +477,7 @@ impl ActorClusterSeed {
                 sprite_character_id,
             },
             motion: ActorMotionPath(motion),
-            body: ActorBody::from_caps(&spec.combat_capabilities(), spec.is_aerial),
+            body: ActorBody::from_kit(spec.movement_kit(), spec.is_aerial),
             caps: spec.combat_capabilities(),
             spec,
         };
@@ -619,7 +623,7 @@ impl ActorClusterSeed {
             motion: ActorMotionPath(motion),
             // A floating catalog body (the stochastic parrot) flies through the
             // shared flight limb from spawn; a grounded NPC runs the grounded spine.
-            body: ActorBody::from_caps(&crate::combat::CombatCapabilities::default(), is_aerial),
+            body: ActorBody::from_kit(ae::AbilitySet::NONE, is_aerial),
             caps: crate::combat::CombatCapabilities::default(),
             // Inert: peaceful actors never spawn through the archetype path that
             // reads `spec`. `Passive` resolves to the roster's fallback row.

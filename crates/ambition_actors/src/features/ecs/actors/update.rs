@@ -503,9 +503,12 @@ pub fn tick_actor_brains(
                             aerial: em.surface.gravity_scale <= 0.001,
                             alive: em.health.alive(),
                             can_fire: action_set.is_some_and(|a| a.ranged.is_some()),
-                            can_blink: em.caps.can_blink,
-                            can_dash: em.caps.can_dash,
-                            can_shield: em.caps.can_shield,
+                            // Movement capability is read off the body's own
+                            // `AbilitySet` — the single authority every body
+                            // shares — not a parallel `CombatCapabilities` mirror.
+                            can_blink: em.abilities.abilities.blink,
+                            can_dash: em.abilities.abilities.dash,
+                            can_shield: em.abilities.abilities.shield,
                             phase: self_peer.map(|p| p.phase).unwrap_or_default(),
                             phase_remaining: self_peer.map_or(0.0, |p| p.phase_remaining),
                             invulnerable: self_peer.is_some_and(|p| p.invulnerable),

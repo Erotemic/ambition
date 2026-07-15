@@ -319,7 +319,7 @@ fn perfect_cellular_automaton_provokes_to_its_boss_archetype() {
         "the PCA boss is grounded-base (prefers grounded), not a permanent flyer"
     );
     assert!(
-        spec.smash_can_fly,
+        spec.can_fly,
         "the PCA boss has the fly kit so it can traverse long distances airborne"
     );
     // It carries the glider as its ranged zoning tool.
@@ -327,30 +327,30 @@ fn perfect_cellular_automaton_provokes_to_its_boss_archetype() {
         spec.ranged.is_some(),
         "the PCA should have a ranged glider poke"
     );
-    // S3c: it carries the reactive-block kit. One authored flag projects into
-    // BOTH the brain's attempt (`smash_can_shield` -> `SmashCfg::can_shield`)
-    // AND the body's enforce gate (`CombatCapabilities::can_shield`).
+    // S3c: it carries the reactive-block kit. One authored verb feeds BOTH
+    // ports: the body's movement `AbilitySet` (enforce, via `movement_kit`) AND
+    // the brain's attempt (`SmashCfg::can_shield`, via `brain_spec`).
     assert!(
-        spec.smash_can_shield,
+        spec.can_shield,
         "the PCA boss has the reactive-block kit so it can guard a lunge it won't blink"
     );
     assert!(
-        spec.combat_capabilities().can_shield,
-        "the authored shield kit must project onto the body's enforce gate"
+        spec.movement_kit().shield,
+        "the authored shield kit must appear in the body's movement AbilitySet"
     );
     assert!(
         spec.brain_spec().smash_can_shield,
         "the authored shield kit must project onto the brain's attempt"
     );
     // S3d: it carries the dash kit (the body turns its dash-to-close decision
-    // into a real burst). Projects onto the body's enforce gate.
+    // into a real burst). Appears in the body's movement `AbilitySet`.
     assert!(
-        spec.smash_can_dash,
+        spec.can_dash,
         "the PCA boss has the dash kit so its dash-to-close becomes a real burst"
     );
     assert!(
-        spec.combat_capabilities().can_dash,
-        "the authored dash kit must project onto the body's enforce gate"
+        spec.movement_kit().dash,
+        "the authored dash kit must appear in the body's movement AbilitySet"
     );
 }
 

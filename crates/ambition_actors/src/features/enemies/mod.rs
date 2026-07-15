@@ -197,36 +197,33 @@ pub(crate) struct CharacterArchetypeSpec {
     /// is `Smash`; the per-flag kit (blink/shield/dash/fly) still layers on top.
     #[serde(default)]
     pub smash_duelist: bool,
-    /// Movement kit: this body can **blink** (short-range teleport). Authored
-    /// per archetype; projects into BOTH the Smash brain's blink-evade emission
-    /// (it *attempts* a blink on a perceived lunge) AND the body's
-    /// [`crate::combat::CombatCapabilities::can_blink`] gate (the body *enforces*
-    /// the capability + cooldown). One authored source, two projections —
-    /// attempt vs enforce (invariants I2/I3/I7).
+    // --- Movement kit ---
+    //
+    // The verbs THIS body has, independent of which brain drives it — the
+    // character IS its movement kit. Each authored verb feeds ONE authored
+    // [`ae::AbilitySet`] (`movement_kit`) that both ports read: the body
+    // unions it into its `AbilitySet` at spawn (`ActorBody::from_kit`, enforce)
+    // and the Smash brain reads the same verbs to decide when to attempt them
+    // (`brain_spec`, attempt). No `smash_` prefix: these are body capabilities,
+    // not Smash-template tuning (cf. `smash_heavy`/`smash_duelist`, which ARE).
+    /// Movement kit: this body can **blink** (short-range teleport).
     #[serde(default)]
-    pub smash_can_blink: bool,
+    pub can_blink: bool,
     /// Movement kit: grounded-base **hybrid flyer** — prefers to fight grounded
-    /// but takes to the air to cover a long traversal gap (brain preference;
-    /// flight is free for now). Projects into BOTH `SmashCfg::can_fly` (attempt)
-    /// and `CombatCapabilities::can_fly` (enforce).
+    /// but takes to the air to cover a long traversal gap. (`is_aerial` bodies
+    /// fly unconditionally; this is the grounded-base opt-in.)
     #[serde(default)]
-    pub smash_can_fly: bool,
+    pub can_fly: bool,
     /// Movement kit: this body can **reactive-block** — raise a shield to guard a
-    /// perceived lunge it won't blink away from. Projects into BOTH the Smash
-    /// brain's `can_shield` (it *attempts* a block: raises `shield_held` and
-    /// stands its ground) AND the body's
-    /// [`crate::combat::CombatCapabilities::can_shield`] gate (the body *enforces*
-    /// the block — a guarded hit from the faced side is negated). One authored
-    /// source, two projections — attempt vs enforce (invariants I2/I3/I7).
+    /// perceived lunge it won't blink away from.
     #[serde(default)]
-    pub smash_can_shield: bool,
-    /// Movement kit: this body can **dash** — a short burst above walk speed when
-    /// the brain commits a Dash (it dashes to close a gap; see `smash_dash_to_close`
-    /// for the brain's *decision* to dash). Projects ONLY into the body's
-    /// [`crate::combat::CombatCapabilities::can_dash`] enforce gate — the brain
-    /// already attempts a dash via its Dash action, the body owns the burst.
+    pub can_shield: bool,
+    /// Movement kit: this body can **dash** — a short burst above walk speed
+    /// (see `smash_dash_to_close` for the Smash brain's *decision* to dash; the
+    /// brain always attempts a dash via its Dash action, this lets the body
+    /// turn it into a real burst).
     #[serde(default)]
-    pub smash_can_dash: bool,
+    pub can_dash: bool,
     /// When provoked from peaceful, force an aggressive MeleeBrute brain
     /// with at least this aggro radius (cove PirateHeavy crew). `None` =
     /// use the template's default aggressive brain.
@@ -349,10 +346,28 @@ impl CharacterArchetypeSpec {
             smash_heavy: self.smash_heavy,
             smash_dash_to_close: self.smash_dash_to_close,
             smash_duelist: self.smash_duelist,
-            smash_can_blink: self.smash_can_blink,
-            smash_can_fly: self.smash_can_fly,
-            smash_can_shield: self.smash_can_shield,
+            smash_can_blink: self.can_blink,
+            smash_can_fly: self.can_fly,
+            smash_can_shield: self.can_shield,
             provoke_forced_brute_min_aggro: self.provoke_forced_brute_min_aggro,
+        }
+    }
+
+    /// The character's authored **movement kit** as an [`ae::AbilitySet`] — the
+    /// verbs this body HAS, in the one movement-capability vocabulary every body
+    /// (player, enemy, boss) shares. This is the single authored source both
+    /// ports read: the body unions it into its live `AbilitySet` at spawn
+    /// (`ActorBody::from_kit`), and the Smash brain reads the same verbs to
+    /// decide when to attempt them (`brain_spec`). Only the kit verbs are set;
+    /// locomotion (run/jump) and the `attack` verb are layered on by the body
+    /// seed, and `is_aerial` flight is forced there too.
+    pub(crate) fn movement_kit(&self) -> ae::AbilitySet {
+        ae::AbilitySet {
+            blink: self.can_blink,
+            fly: self.can_fly,
+            shield: self.can_shield,
+            dash: self.can_dash,
+            ..ae::AbilitySet::NONE
         }
     }
 
@@ -412,7 +427,9 @@ impl CharacterArchetypeSpec {
         }
     }
 
-    /// Project the authored capability flags into the combat kit.
+    /// Project the authored combat-CONSEQUENCE flags (death behaviors + weapon
+    /// drop) into the combat kit. Movement capability is NOT here — it lives on
+    /// the body's `AbilitySet` (see [`Self::movement_kit`]).
     pub(crate) fn combat_capabilities(&self) -> crate::combat::CombatCapabilities {
         crate::combat::CombatCapabilities {
             explodes_on_death: self.explodes_on_death,
@@ -420,10 +437,6 @@ impl CharacterArchetypeSpec {
             charge_crash_explodes: self.charge_crash_explodes,
             never_dies: self.never_dies,
             drops_held_item: self.held_item_spec(),
-            can_blink: self.smash_can_blink,
-            can_fly: self.smash_can_fly,
-            can_shield: self.smash_can_shield,
-            can_dash: self.smash_can_dash,
         }
     }
 }

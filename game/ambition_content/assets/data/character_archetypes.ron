@@ -125,7 +125,7 @@
         contact_strength: 0.75,
         damage_amount: 1,
         // Grounded-base HYBRID: it prefers to fight on the ground (so it descends
-        // on provoke), and uses `smash_can_fly` below to take to the air only to
+        // on provoke), and uses `can_fly` below to take to the air only to
         // cover a long traversal gap, then land.
         is_aerial: false,
         brain_template: Smash,
@@ -148,19 +148,19 @@
         smash_duelist: true,
         // Blink-evade: the PCA teleports out of a perceived lunge (body-enforced
         // capability + cooldown; a possessing player gets the same blink).
-        smash_can_blink: true,
+        can_blink: true,
         // Fly kit: prefers grounded, but takes to the air to close a long gap
         // (brain preference; flight is free for now). Body-enforced capability.
-        smash_can_fly: true,
+        can_fly: true,
         // Reactive block: the PCA guards a perceived lunge it won't blink away
         // from. The body negates a guarded hit from the faced side (a possessing
         // player gets the same shield). Body-enforced capability + the same
         // directional `shield_blocks_hit` rule the player's shield uses.
-        smash_can_shield: true,
+        can_shield: true,
         // Dash kit: the burst it uses to close (it already decides to dash via
         // `smash_dash_to_close`; this lets the body turn that into a real burst
         // above walk speed). Body-enforced capability + cooldown.
-        smash_can_dash: true,
+        can_dash: true,
         // Signature data-driven MOVE (fable review §A1, Path B — the first real
         // moveset consumer): "Cellular Pulse", a telegraphed close-range burst
         // authored entirely as data — a 0.40s Startup tell, a 0.14s Active window
@@ -238,10 +238,10 @@
         // Platform-fighter neutral game (the player kit moves and spaces).
         smash_duelist: true,
         // The full player kit, as body-enforced capabilities (S3a–d):
-        smash_can_blink: true,
-        smash_can_fly: true,
-        smash_can_shield: true,
-        smash_can_dash: true,
+        can_blink: true,
+        can_fly: true,
+        can_shield: true,
+        can_dash: true,
         // Signature data-driven MOVE (fable review §A1): "Theorem Chain" — a TWO-HIT
         // combo authored entirely as data (two Active windows on one proper-time
         // timeline, a light poke into a heavier follow-up). Proves the moveset

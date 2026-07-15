@@ -584,9 +584,12 @@ fn boss_actor_cluster(
     crate::combat::CombatCapabilities,
     crate::combat::CombatTuning,
 ) {
-    let caps = crate::combat::CombatCapabilities {
-        can_fly: true,
-        ..Default::default()
+    // A boss floats: its movement kit grants flight, unioned into the body's
+    // `AbilitySet` below. Death/weapon consequence traits stay default.
+    let caps = crate::combat::CombatCapabilities::default();
+    let movement_kit = ae::AbilitySet {
+        fly: true,
+        ..ae::AbilitySet::NONE
     };
     // Body-contact is now the SHARED `apply_actor_contact_damage` path (fable AD2):
     // drive the boss's contact tuning from its `behavior.body_damage` so a boss body
@@ -639,7 +642,7 @@ fn boss_actor_cluster(
         },
         super::super::components::BodyMelee::default(),
         crate::actor::AncillaryMovementBundle::from_scratch(
-            super::actor_clusters::ActorBody::from_caps(&caps, true).0,
+            super::actor_clusters::ActorBody::from_kit(movement_kit, true).0,
         ),
         // Every integrated body carries an explicit policy from spawn — the
         // boss is axis-swept (its direct-velocity flight rides the per-tick

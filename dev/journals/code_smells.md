@@ -60,6 +60,7 @@ Entry format:
 - **Suggested fix / size:** S remaining (debug-overlay stat labels → controlled subject via a read-only sub-query); the player-facing win is done.
 
 ## 2026-06-26 Characters are defined by named `EnemyArchetype` rows, not by their movement kit
+- **PARTIAL 2026-07-15 (commit 6875aeaea):** the PLAYER-ability axis of this now composes — `AbilitySet` gained `union`/`intersect`, `AbilityGrant` is a composable vocabulary, and a catalog row lists grants that union into `AbilityBase` (see the RESOLVED item ~line 386). The ENEMY-archetype-row bundle (HP + brain + `smash_can_*` caps as one frozen row) is STILL open — that is the bigger fish this entry is really about.
 - **Where:** `ambition_content/assets/data/enemy_archetypes.ron` + `EnemyArchetypeSpec` (`ambition_actors/src/features/enemies/mod.rs`); the spawn path resolves a string brain-key → a fixed archetype row that bundles HP + tuning + brain template + the capability flags (`smash_can_blink`, `smash_can_fly`, melee/ranged specs, …).
 - **Smell (Jon, 2026-06-26):** "There really shouldn't be archetypes; characters should be defined by what movements they have available to them." An archetype is a frozen bundle; the elegant model is a character = a **capability/kit set** (which verbs its body has: blink, fly, shield, dash, ledge, melee/ranged shapes, tilts, special) + tuning, composed freely, not picked from a closed roster of named rows. The S3 capability work is incrementally pushing this way (each verb is now a per-body `CombatCapabilities` flag projected from the spec into the body AND the brain), but the *source* is still a named archetype row rather than a kit the body simply HAS. The closed-archetype shape is the body-side analogue of the closed-`SpecialActionSpec`-enum tension already noted for the engine-for-other-games goal.
 - **Noticed while:** wiring blink (S3a) + fly (S3b) as body capabilities for the PCA — each verb needed a `smash_can_*` field threaded through the archetype row → spec → (brain cfg + body caps), which is the seam a kit-first model would make unnecessary.
@@ -383,14 +384,22 @@ per-experience shell-chrome seam), and it composes with #3/#4. Size: M.
 the working title. Mechanical but wide (crate rename = build churn); do it as its
 own commit. See [[feedback_entity_id_matches_label]]. Size: M (churn).
 
-**7. Design Q for Fable — ability sets should COMPOSE onto characters, not be
-reduced.** This session added a per-character `AbilityKitSpec` (Basic / SaneSubset
-/ SandboxAll preset picker) so Mary-O gets run+jump without touching the shared
-`EditableAbilitySet`. Jon: *"ability sets should probably compose onto
-characters"* — i.e. the deeper model is additive per-character grants
-(character/gear/upgrade contributes abilities that UNION), not "pick one of three
-fixed presets". The preset picker is a fine floor; the composition model is the
-design question. Ties into the upgrade-graph / progression vision.
+**7. ✅ RESOLVED 2026-07-15 (commit 6875aeaea) — ability sets compose onto
+characters.** The preset picker (`AbilityKitSpec`) is gone. `AbilitySet` gained
+the algebra (`NONE`/`union`/`intersect`); `AbilityGrant` is the composable
+vocabulary; a catalog row lists grants (`abilities: Option<Vec<AbilityGrant>>`)
+and `AbilitySet::compose` unions them into the body's `AbilityBase`. New verbs
+land as new grants a character appends, never as a preset the roster forks — the
+additive model Jon asked for, and the ability slice of the 2026-06-26
+closed-archetype smell (line ~62). The same landing fixed a still-live bug: the
+F3 dev-sync WHOLESALE-REPLACED the primary player's abilities with the global
+`EditableAbilitySet` (default `sandbox_all`), so Mary-O's authored run+jump was
+clobbered back to the full kit every frame. The editable is now a session MASK
+(`effective = base ∩ editable`) — a mask only removes, never adds, so the
+restricted base survives. Gear/upgrade UNION reuses the same `union` seam when a
+powerup that grants a movement verb lands (the milk/mushroom is the first
+candidate). ORIGINAL: this session added `AbilityKitSpec` (a preset picker) as a
+floor; Jon: *"ability sets should probably compose onto characters"*.
 
 **8. Design Q for Fable — on-screen control hints are hardcoded to the Ambition
 player.** The context-sensitive button icons/text appear pinned to the single

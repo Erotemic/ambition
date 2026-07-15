@@ -133,11 +133,16 @@ identities stay independent).
 ## Proposed — "a PROPER Mary-O" (2026-07-15, Jon) — NEEDS A PLANNING PASS
 
 Landed 2026-07-15 (session): real `super_mary_o` sprite, jump SFX, run+jump-only
-kit (per-character `AbilityKitSpec`), tiled surfaces (`Block::solid_tiled`),
-cyclic level (flag → `RoomReplayRequested`). That makes it a real slice; Jon wants
-it to become a PROPER Mary-O. Requirements, captured to plan — the movement split
-question below is the one that genuinely needs thought (candidate for a Fable
-planning pass, like the shell-UX cluster):
+kit, tiled surfaces (`Block::solid_tiled`), cyclic level (flag →
+`RoomReplayRequested`). Kit authoring landed the **ability-composition** keystone
+(commit 6875aeaea): Mary-O composes `abilities: Some([RunJump])`, a grant list
+that unions into her `AbilityBase`; the F3 dev editable is now a MASK over the
+base, not a wholesale replace — which also fixed a still-live bug where Mary-O's
+kit was clobbered back to the full Ambition set every frame. Adding a Mario verb
+below is now appending a grant, not forking a preset. That makes it a real slice;
+Jon wants it to become a PROPER Mary-O. Requirements, captured to plan — the
+movement split question below is the one that genuinely needs thought (candidate
+for a Fable planning pass, like the shell-UX cluster):
 
 - **Mario jump physics = the target feel.** "That is the right sort of jump
   physics." Mary-O is on the AxisSwept kernel path (NOT the momentum kernel Sanic

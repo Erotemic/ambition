@@ -181,6 +181,43 @@ pub fn reset_cut_rope_boss_attempt(
     }
 }
 
+/// On a generic [`RoomReplayRequested`](ambition_actors::session::reset::RoomReplayRequested),
+/// clear the cut-rope boss's per-attempt state (persisted "cleared" record,
+/// victory-NPC flag, intro music) for every cut-rope placement in the room.
+///
+/// This is the CONTENT half of the room-replay: the host's app-side replay
+/// consumer resets the player + world (and its `ResetRoomFeaturesEvent`
+/// respawns the boss), while this system — registered in the engine's
+/// `ContentRoomReplayResetSet` slot — owns the content-named attempt reset so
+/// the host consumer never names cut-rope. Both read the same message the frame
+/// it is emitted (independent reader cursors).
+pub fn reset_cut_rope_attempt_on_replay(
+    mut replay_requests: MessageReader<ambition_actors::session::reset::RoomReplayRequested>,
+    registry: Res<BossEncounterRegistry>,
+    mut save: Option<ResMut<ambition_persistence::save::SandboxSave>>,
+    mut music: Option<
+        ambition::platformer::lifecycle::SessionWorldMut<ambition_encounter::EncounterMusicRequest>,
+    >,
+    bosses: Query<&BossConfig>,
+) {
+    if replay_requests.read().count() == 0 {
+        return;
+    }
+    let placements: Vec<String> = bosses
+        .iter()
+        .filter(|config| is_cut_rope_boss(&config.behavior.id))
+        .map(|config| config.id.clone())
+        .collect();
+    reset_cut_rope_boss_attempt(
+        &registry,
+        save.as_deref_mut(),
+        // `Single<&mut T>` derefs to `Mut<T>`; peel the extra
+        // change-detection layer to `&mut T`.
+        music.as_deref_mut().map(|m| &mut **m),
+        &placements,
+    );
+}
+
 /// Express the WHOLE Smirking Behemoth fight as the generic encounter pieces
 /// (R5): attach `ReleaseOnDeath` to the entity (frees the victory NPC on death)
 /// + an `EncounterScript` to its encounter that DATA-drives the fight:

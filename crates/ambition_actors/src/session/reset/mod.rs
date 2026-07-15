@@ -36,6 +36,15 @@ pub struct ContentRoomResetSet;
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ContentDialogueFollowupSet;
 
+/// Player-input-phase slot for content systems that reset *content-named*
+/// per-attempt state when a [`RoomReplayRequested`] fires (e.g. clear a named
+/// boss's persisted "cleared" record before the room replays). Content plugins
+/// register their reset systems here; the host anchors the set before its
+/// generic replay consumer so the content reset lands the same frame the
+/// request does — the consumer never names content.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ContentRoomReplayResetSet;
+
 /// Replay the ACTIVE room in place: reset the controlled player to the
 /// room spawn and tear down + respawn the room's scoped state (bosses,
 /// features), leaving progress outside the room untouched. CONTENT emits
@@ -94,10 +103,14 @@ pub fn process_sandbox_reset_request(
     mut encounter_registry: ResMut<EncounterRegistry>,
     mut boss_registry: ResMut<BossEncounterRegistry>,
     mut quest_registry: ResMut<QuestRegistry>,
-    mut music_request: ambition_platformer_primitives::lifecycle::SessionWorldMut<EncounterMusicRequest>,
+    mut music_request: ambition_platformer_primitives::lifecycle::SessionWorldMut<
+        EncounterMusicRequest,
+    >,
     mut play_state: ResetPlayState<'_>,
     mut room_set: ambition_platformer_primitives::lifecycle::SessionWorldMut<RoomSet>,
-    mut world: ambition_platformer_primitives::lifecycle::SessionWorldMut<ambition_engine_core::RoomGeometry>,
+    mut world: ambition_platformer_primitives::lifecycle::SessionWorldMut<
+        ambition_engine_core::RoomGeometry,
+    >,
     tuning: Res<ambition_dev_tools::dev_tools::EditableMovementTuning>,
     mut respawn_visuals: MessageWriter<crate::session::RespawnRoomVisualsRequested>,
     mut commands: SessionCommands<'_, '_>,

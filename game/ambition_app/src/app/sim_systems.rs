@@ -121,6 +121,11 @@ pub fn apply_player_reset_input_system(
 /// Replay the ACTIVE room from a content-emitted request (the engine's
 /// generic `RoomReplayRequested` — e.g. a "try again" dialogue beat).
 ///
+/// Host-generic: this resets the player + world only. Any CONTENT-named
+/// per-attempt state (a boss's persisted "cleared" record, its music) is reset
+/// by content systems in `ContentRoomReplayResetSet`, which the app anchors
+/// before this consumer — so this system names no content.
+///
 /// This intentionally mirrors `apply_player_reset_input_system` instead of
 /// driving `ControlFrame::reset_pressed`: the command can run while gameplay
 /// input is suspended by dialogue, so relying on the input frame would make the
@@ -132,17 +137,6 @@ pub fn apply_room_replay_request_system(
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
-    boss_registry: Res<ambition::actors::boss_encounter::BossEncounterRegistry>,
-    mut save: Option<ResMut<ambition::persistence::save::SandboxSave>>,
-    mut boss_music: Option<
-        ambition::platformer::lifecycle::SessionWorldMut<
-            ambition::encounter::EncounterMusicRequest,
-        >,
-    >,
-    // Cut-rope boss placements in the room — R4 keys "cleared" by placement
-    // (`config.id`), so the replay clears those keys (the respawned boss carries
-    // the same LDtk id).
-    cut_rope_bosses: Query<&ambition::actors::features::ecs::boss_clusters::BossConfig>,
     mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
     mut sfx_writer: SfxWriter,
     mut vfx_writer: MessageWriter<VfxMessage>,
@@ -163,19 +157,6 @@ pub fn apply_room_replay_request_system(
     if replay_requests.read().count() == 0 {
         return;
     }
-    let cut_rope_placements: Vec<String> = cut_rope_bosses
-        .iter()
-        .filter(|config| ambition_content::bosses::is_cut_rope_boss(&config.behavior.id))
-        .map(|config| config.id.clone())
-        .collect();
-    ambition_content::bosses::reset_cut_rope_boss_attempt(
-        &boss_registry,
-        save.as_deref_mut(),
-        // `Single<&mut T>` derefs to `Mut<T>`, so `as_deref_mut` yields
-        // `&mut Mut<T>`; peel the extra change-detection layer to `&mut T`.
-        boss_music.as_deref_mut().map(|m| &mut **m),
-        &cut_rope_placements,
-    );
 
     let Ok((
         mut cluster_item,

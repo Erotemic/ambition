@@ -69,16 +69,11 @@ Entry format:
 - **Noticed while:** adding the `self_aerial` field for the aerial brain.
 - **Suggested fix / size:** S — add a `#[cfg(test)] ObservationFrame::at(distance_x)` (or a `Default`) in `observation.rs` and have the three `obs_at` helpers delegate, so a new field touches one place.
 
-## 2026-06-21 Dead `landed`/`killed` scaffold in `advance_attack` (+ possibly-broken pogo-off-enemy)
-- **Where:** game/ambition_app/src/app/world_flow/attack.rs ~316-347 (`advance_attack`)
-- **Smell:** `let landed = false; let killed = false;` are hardcoded (synchronous hit resolution moved to the ECS damage queue), so every block gated on them is dead: the connect-sound `SfxMessage::Hit` (line ~321) AND — more worryingly — the pogo-impulse-on-landing block (`if landed && abilities.pogo && spec.can_pogo ...`, ~329-347). Pogo off the *orb* is a separate live path (~260-285); pogo off a *landed enemy hit* via this block can never fire. Either it's genuinely broken (needs migrating to the ECS damage queue like the connect sound was) or it's residue to delete. Found while answering "is there an attack-connect sound?" — answer: yes, the generic `SfxMessage::Hit` from `features/ecs/damage/mod.rs:307`, NOT this dead site; there is no *distinct* hit-confirm cue.
-- **Noticed while:** investigating the mockingbird "swing doesn't fire / doesn't register while overlapping the boss" bug.
-- **Suggested fix / size:** S to delete the dead connect-sound lines; M to decide+fix the pogo-off-enemy path (verify in-game whether enemy pogo-bounce currently works, then either migrate to the ECS queue or remove). Don't blind-delete — the pogo block may be a latent bug, not just dead code.
+## 2026-06-21 Dead `landed`/`killed` scaffold in `advance_attack` — ✅ RESOLVED-BY-DRIFT 2026-07-15
+- **RESOLUTION:** stale — the melee-unification collapsed `advance_attack`/`attack_advance_system` into the body-generic `combat::attack::{start_body_melee, advance_body_melee}` (now `features/ecs/attack.rs`) and `game/ambition_app/src/app/world_flow/attack.rs` no longer exists. `grep 'landed = false|killed = false'` is empty across the tree — the hardcoded-false gates (dead connect-sound + dead pogo-on-landing block) are gone with the old system. Nothing to delete. NOTE: the *pogo-off-a-landed-enemy* QUESTION the entry raised (does an enemy pogo-bounce fire?) was never separately answered; if pogo-off-enemy is a wanted feel, it's a fresh gameplay item, not this dead scaffold.
 
-## 2026-06-13 Docs reference deleted RON-based levels
-- **Where:** docs that predate the LDtk-only world source (ADR 0009's "Consequences" implies RON-world-authoring docs remain unswept). NOTE: `check_doc_links.py` passes (links resolve); this is about stale *prose* describing removed RON room/world authoring, not broken links.
-- **Smell:** RON-shaped room/world levels were fully removed (LDtk is the only world source), but some docs still describe them as if extant. Jon's standing rule: a doc describing something that no longer exists is a smell.
-- **Suggested fix / size:** S — grep docs for "RON room|world|manifest|level" prose, archive or rewrite.
+## 2026-06-13 Docs reference deleted RON-based levels — ✅ RESOLVED 2026-07-15 (already correct)
+- **RESOLUTION:** swept it. The canonical world-authoring docs already flag RON room manifests as historical (`docs/concepts/ldtk-world-composition.md:25` "LDtk is the current world/level authoring source. Old RON room manifests are historical."; `docs/systems/ldtk-world-composition.md` lists "Old RON room manifests are historical" + "Treating old RON room docs as current" as an anti-pattern). Grepping the current-GUIDANCE doc set (`docs/systems`, `docs/recipes`, `docs/concepts`) for present-tense RON room/level authoring turned up only `sprite-rendering-surface.md:103` `assets/sprites/*.ron` (a live sprite manifest, not a level). The remaining 81 `.ron`+room/world/level hits are in brainstorms/ADRs (legit historical snapshots — must NOT be rewritten) or name RON's LIVE roles (tuning/audio/catalogs). No live-guidance doc misleads. No change.
 
 ## 2026-06-10 FeatureVisualKind::Sandbag variant in the generic kit
 - **Where:** crates/ambition_actors/src/mechanics/combat/events.rs (FeatureVisualKind)
@@ -132,11 +127,8 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 - **`EncounterSpec` builders** — `encounter/state.rs::spec()`, `encounter/rewards.rs::spec_with_trigger()`, `encounter/tests.rs::lab_spec()` each rebuild the 9-field `EncounterSpec`, but with different values (camera_zoom 1.2/1.0/1.5, reward `Health{2}` vs `default_encounter_reward()`) and different parameterization (waves vs trigger vs fixed). A shared builder would need a base+override shape; values already differ per test, so forcing it risks changing fixtures tests depend on. Left.
 - **`LdtkProject` synthetic fixtures** — `world/ldtk_world/tests/kinematic_paths.rs` has 6 `LdtkProject` literals. The world-audit agent rated them ~95% identical, but that held only for the first two: across all six the level dimensions diverge (only 2 use 640×480 / 40×30; one project has multiple levels). A single `synthetic_project(id, entities)` helper won't fit without a wide builder (px_wid/hei/c_wid/hei params), at which point the call sites aren't much shorter. Left.
 
-## 2026-06-23 Portal LDtk-emission field vs helper feature-gate mismatch
-- **Where:** `world/ldtk_world/conversion/mod.rs` — `RuntimeEntityEmission` fields `portal_gun_spawns`/`portals` are `#[cfg(feature = "portal")]` but their helper methods `portal_gun_spawn()`/`portal()` are `#[cfg(feature = "portal_ldtk")]`.
-- **Smell:** two gates for one concern. `portal_ldtk` implies `portal` (per Cargo.toml) so it compiles, but a reader checking the field gate would mis-predict the helper gate.
-- **Why not fixed:** changing a cfg gate can shift what compiles under each feature combo — needs a per-feature build check, not a blind edit; not behavior-preserving by inspection alone.
-- **Suggested fix / size:** S — align the helper gates to the field gate (or add a one-line comment explaining the asymmetry), then build under `--features portal` and `--features portal_ldtk` to confirm.
+## 2026-06-23 Portal LDtk-emission field vs helper feature-gate mismatch — ✅ RESOLVED-BY-DRIFT 2026-07-15
+- **RESOLUTION:** stale — a later refactor already fixed it. In `ambition_ldtk_map/src/conversion/mod.rs` the `portal_gun_spawns` field is now UNGATED (always present, an empty Vec when the feature is off), and the only asymmetry left is intentional + consistent: the builder `portal_gun_spawn()` + the `convert_portal_gun_spawn`/`convert_portal` converters carry BOTH a real `#[cfg(feature = "portal_ldtk")]` impl AND an explicit `#[cfg(not(...))]` fail-loud stub (`portal_compiled_out`). Verified `cargo check -p ambition_ldtk_map --no-default-features --features "ldtk_runtime,portal"` builds clean. No `#[cfg(feature = "portal")]`-vs-`portal_ldtk` field/helper split remains. No code change.
 
 ## 2026-06-23 `dialog_lint` fixed-arity command table is hand-synced + untested
 - **Where:** `dialog_lint.rs` (`FIXED_ARITY_COMMANDS` ~:19-31) must match the `In<...>` arities of the `cmd_*` fns in `dialog/yarn_bindings.rs`; the comment says "MUST match" but nothing tests it.
@@ -195,10 +187,8 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 - **`backends/sfizz_backend.py` VST3-hosted sfizz path shares little with the CLI path** — parameter setting/probing logic partially duplicates `pedalboard_backend`; low value until the sfizz-VST3 path is actually exercised.
 - **`agent/` studio scripts predate the audit fixes** — `agent/song_studio/studio.py` etc. still hand-roll analysis the packaged audits now expose (e.g. `audit mix_balance` CLI); worth folding the studio loop onto the packaged surfaces next time a song-studio pass happens.
 
-## 2026-07-02 `cargo test -p ambition_content` silently SKIPS the portal tests
-- **Where:** `ambition_content/Cargo.toml` has `default = []`; the `portal` module (and its 36 tests, incl. the transit conservation audits) compiles only under `--features portal`. The app crate enables the feature, so `-p ambition_app` integration tests cover portals, but the content crate's own suite skips them with no signal (53 pass, portal ones simply absent).
-- **Why it bit:** the carried-momentum drift regression (F13, fixed 81fd5016) shipped while `cargo test -p ambition_content` looked green — the failing coverage lived in the feature-gated module + an app test nobody re-ran. "N passed" reads as "covered" when a whole module was compiled out.
-- **Suggested fix / size:** S — either make the content crate's dev-profile tests always enable `portal` (`[dev-dependencies]` self-reference with features, or default the feature on since gameplay_core pins it anyway per the Cargo comment "the sandbox lib was never built fully bare"), or add a CI/test-runner note that content must be tested with `--features portal`.
+## 2026-07-02 `cargo test -p ambition_content` silently SKIPS the portal tests — ✅ RESOLVED 2026-07-15
+- **RESOLUTION:** added the `[dev-dependencies]` self-reference `ambition_content = { path = ".", features = ["portal"] }`, so the crate's OWN test build always enables `portal` (39 portal tests now run under a bare `cargo test -p ambition_content`; they were compiled out before). Chose the self-dev-dep over `default = ["portal"]` to keep zero blast radius on downstream crates — only content's dev/test profile gets the feature.
 
 ## 2026-07-02 Music audit gaps exposed by ear-testing gradient_ascent
 - **Where:** `tools/ambition_music_renderer` audit suite vs Jon's timestamped listen notes.
@@ -208,10 +198,8 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 - 2026-07-02 (between_objectives): audit/lead_collision derived a note's bar via int(start_beat // beats_per_bar) on float-accumulated beats; a bar-boundary note arriving as 223.99999999999997 was floored into the PREVIOUS bar and flagged as a false exposed tension against that bar's chord. Fixed with a +1e-6 nudge before flooring (all three floor sites). Underlying smell: build_score events carry nominal_bar/nominal_beat that audits could use instead of re-deriving from floats.
 - 2026-07-02 (pitch_stability tool limitation): `audit/pitch_stability` runs a monophonic pitch tracker over the rendered lead STEM, so it merges reverb-connected legato phrases into one "note" (observed note_seconds of 8.8s where the longest authored note is 2.9s) and reads the melody's own motion + sample vibrato as pitch "wobble". A verified-accepted cue (broken_transmitter, Sonatina violin lead) scores 23 wobbles/6 onsets up to 210 cents; between_objectives' flute scores 38/10 up to 400 cents at a fast melodic peak — same order of magnitude, i.e. normal for an expressive sustained SFZ lead, not a tuning defect. Real fix: segment the analysis on the MIDI note boundaries that `build_score` already emits (`_ambition_note_events` carry nominal_bar/nominal_beat/nominal_duration_beats) instead of re-detecting onsets from a reverberant stem. Until then, treat wobble_count as a guitar-scoop detector (sustained SINGLE notes bending), not a verdict on melodic leads.
 
-## 2026-07-03 (fable-review T1 fallout) — entity-sprite generator emits dead `FeatureVisualKind::Npc/Boss` labels
-- **Where:** `tools/ambition_sprite2d_renderer/.../targets/props/entities.py` generates `crates/ambition_actors/assets/sprites/**/entity_manifest.yaml` with `category: FeatureVisualKind::Npc` / `::Boss`. After AD1-T1 (8cef2245) those variants no longer exist — the enum is `{ Actor, Hazard, Breakable, Chest, Pickup, Switch }`.
-- **Why not fixed here:** the YAML is GENERATED (never hand-edit generated output), and the `category:` label is tooling metadata that no Rust code parses, so it doesn't break the build — but it names a dead variant. Fix belongs in the generator, not the output.
-- **Suggested fix / size:** XS — update `entities.py` to emit `FeatureVisualKind::Actor` for the actor rows (or drop the `FeatureVisualKind::`-prefixed label entirely, since nothing consumes it), then regen. Related: [fable-review E35].
+## 2026-07-03 (fable-review T1 fallout) — entity-sprite generator emits dead `FeatureVisualKind::Npc/Boss` labels — ✅ RESOLVED 2026-07-15
+- **RESOLUTION:** fixed the two dead rows in `entities.py` (`npc_terminal` + `boss_core`) to emit `FeatureVisualKind::Actor` (the live variant those actors map to). The generator is now correct on a fresh clone. No regen commit needed: the `entity_manifest.yaml` output is gitignored (0 tracked) AND no Rust parses the `category:` label, so the on-disk stale copy is inert. Left `sandbag_dummy` → `FeatureVisualKind::Sandbag` alone — that variant still EXISTS; its rename is the separate 2026-06-10 Sandbag→TrainingDummy item (needs `ambition_ldtk_tools`, not a blind edit).
 
 ## 2026-07-03 — `unified_body_movement` chase test fails — ✅ GREEN as of 2026-07-15 (root cause never pinned)
 - **UPDATE 2026-07-15:** the test PASSES at HEAD (all 3 in the file), stable across repeated runs of the same build. Note the original evidence compared two DIFFERENT commits, so "25px swing between two builds" may have been legitimate code drift, not build nondeterminism. Leaving the entry as a breadcrumb: if it flips red again across otherwise-identical builds, suspect TypeId-keyed hash iteration (varies per compilation) in the chase pipeline. Original entry below.
@@ -236,7 +224,8 @@ the fused profile never had, so a possessed boss's Attack now commands
 `hand_sweep`, not capability slot 0. Detail + the honest LOC accounting (it did
 NOT shrink `boss_encounter/`) in `docs/planning/engine/refactor-chain.md` §R2.
 
-## 2026-07-06 (E5 step 5) — `apply_room_replay_request_system` hard-codes cut-rope content in the APP
+## 2026-07-06 (E5 step 5) — `apply_room_replay_request_system` hard-codes cut-rope content in the APP — ✅ RESOLVED 2026-07-15
+- **RESOLUTION:** minted `ContentRoomReplayResetSet` (in `session/reset`, same pattern as `ContentRoomResetSet`/`ContentDialogueFollowupSet`). Content registers `reset_cut_rope_attempt_on_replay` (cut_rope/mod.rs) in that slot — it reads the same generic `RoomReplayRequested`, collects cut-rope placement ids, and calls the existing `reset_cut_rope_boss_attempt`. The app anchors the slot `.before(apply_room_replay_request_system)`, and the consumer dropped its 4 content-only params (`boss_registry`/`save`/`boss_music`/`cut_rope_bosses`), the cut-rope block, and both `ambition_content::bosses::*` references — so the host replay consumer now resets the player+world only and names no content. (Both systems read the message via independent reader cursors, so it lands the same frame.) Original entry below.
 - **Where:** `game/ambition_app/src/app/sim_systems.rs::apply_room_replay_request_system` — calls `ambition_content::bosses::{is_cut_rope_boss, reset_cut_rope_boss_attempt}` inline before the generic room replay.
 - **Context:** the E5-finish step-4 de-weave made the MESSAGE generic (`session::reset::RoomReplayRequested`, content emits from `ContentDialogueFollowupSet`), but the CONSUMER still hard-names cut-rope resets. That's why this system had to stay app-side in the E5 step-5 carve (the app may name content; the engine/host may not) — the readiness brief's "generic, de-woven" claim was only half true.
 - **Suggested fix / size:** S — mint a `ContentRoomReplayResetSet` slot (same pattern as `ContentRoomResetSet`): content registers a `reset_cut_rope_attempt_on_replay` system reading the same `RoomReplayRequested` message; the app consumer drops the `ambition_content` import. Then the replay consumer is host-generic and can move wherever the reset/world-flow concern lands.
@@ -257,16 +246,15 @@ resolvers) with no crate-local unit tests — worth adding sprite_sheet-side
 coverage rather than only testing through the actors adapter. Lesson reinforces
 F7: a carve that adds `mod tests;` must MOVE the fixture in the same commit.
 
-## 2026-07-09 — `ambition_actors::features::conversion_tests` is misnamed
+## 2026-07-09 — `ambition_actors::features::conversion_tests` is misnamed — ✅ RESOLVED 2026-07-15
 
-`crates/ambition_actors/src/features/conversion_tests.rs` (+ its inner
-`mod conversion_tests`) contains "headless movement + collision tests for the
-actor simulation" (NPC patrol/gravity/possession, enemy AI, archetype tuning) —
-NOT LDtk conversion tests. The name misled the fable audit F5.4 into listing it
-as a test-travel candidate for `ambition_ldtk_map`; on inspection it is
-correctly actor-side and stays. RENAME opportunity: `actor_movement_tests.rs`
-(and drop the redundant inner `mod conversion_tests` wrapper). Low-risk; deferred
-to avoid churn during the F9.2 arc.
+Renamed `conversion_tests.rs` → `actor_movement_tests.rs` (`git mv` + the
+`#[cfg(test)] mod` decl in `features/mod.rs` + the `features::ecs` re-export
+comment). Dropped the redundant inner `#[cfg(test)] mod conversion_tests { }`
+wrapper — the file decl already scopes the module as test-only — dedenting the
+854-line body one level (14 tests still green). The name now matches the content
+(headless NPC/enemy movement + collision, archetype tuning); no more fable-audit
+mislisting as an `ambition_ldtk_map` test-travel candidate.
 
 ## 2026-07-10 (R1) — the `ambition` umbrella re-exports `bevy`, but not its DERIVES
 
@@ -316,6 +304,15 @@ KeyCode/Gamepad unconditionally but the crate's bare bevy dep carried no input
 features; it only built when a co-built sibling unified them in. Fixed by adding
 `bevy_input_focus` + `gamepad` to the base dep (commit 8e492f1a3). The class
 stands: a lone `-p` build is the only thing that exposes these.
+
+**UPDATE 2026-07-15 (the check was run):** ran the suggested
+`cargo check --workspace --all-targets --all-features` — it came back CLEAN
+(exit 0), no compile rot in any feature-gated target. The union of all features
+happens to be coherent right now (no mutually-exclusive pair tripped a false
+failure). Only survivor was a dead `#[cfg(test)] use ambition_sfx::SfxMessage`
+in `features/ecs/mod.rs` (unused once its sole test consumer was cfg'd out under
+the union) — deleted. Worth re-running periodically; it's the cheapest net for
+the next rot.
 
 ## 2026-07-10 (R6b) — a gate script that greps only for success is silent on failure
 

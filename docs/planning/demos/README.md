@@ -38,6 +38,13 @@ finds). Start every `ambition_demo_<name>_app` by copying that fixture.
   demo touches ZERO engine crates. Every needed core change files an
   `oracle-violation` in [`../tracks.md`](../tracks.md) and becomes engine
   work executed OUTSIDE the demo's commits.
+- **The `bevy` manifest line is expected, not a violation:** a content crate
+  that defines its own `#[derive(Component)]`/`#[derive(Resource)]` must list
+  `bevy` directly in its `Cargo.toml`, even though it reaches engine types
+  through `ambition::…`. Bevy's derive macros resolve `::bevy_ecs` via the
+  consumer's own manifest, which the umbrella's re-export cannot satisfy. One
+  line, version pinned by the workspace — authoring through the umbrella "alone"
+  carries this asterisk.
 - **Adversarial discipline:** the demo agent may not "quickly fix" the
   engine. The violation log is the product as much as the demo.
 - **Headless-first:** every demo ships scripted reachability/win-path

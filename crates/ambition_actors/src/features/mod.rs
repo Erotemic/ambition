@@ -464,7 +464,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
 }
 
 #[cfg(test)]
-mod conversion_tests;
+mod actor_movement_tests;
 
 #[cfg(test)]
 mod sim_clock_tests {

@@ -48,6 +48,13 @@ pub use ambition_touch_input as touch_input;
 pub use ambition_ui_nav as ui_nav;
 pub use ambition_vfx as vfx;
 pub use ambition_world as world;
+// Re-exported so a game can name bevy TYPES through `ambition::bevy::…`. NOTE:
+// this does NOT let a crate `#[derive(Component)]`/`#[derive(Resource)]` through
+// the umbrella alone — bevy's derive macros resolve `::bevy_ecs` via the
+// CONSUMER's own Cargo.toml (`BevyManifest`), which a re-export does not satisfy.
+// A content crate that defines its own components/resources must ALSO list `bevy`
+// in its manifest (one line, version pinned by the workspace). See
+// docs/planning/demos/README.md.
 pub use bevy;
 
 /// Engine assembly helpers most games need first.

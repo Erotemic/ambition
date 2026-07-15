@@ -81,6 +81,12 @@ ron = "0.11"
 serde_json = "1"
 
 [dev-dependencies]
+# Self-reference so THIS crate's own test build always enables `portal` — the
+# module (and its ~36 transit-conservation tests) is otherwise compiled out under
+# the bare `default = []`, so `cargo test -p ambition_content` silently skipped it
+# (the F13 momentum-drift regression shipped "green" that way). Downstream crates
+# are unaffected; only content's dev/test profile gets the feature.
+ambition_content = { path = ".", features = ["portal"] }
 insta = { version = "1", features = ["ron"] }
 # The standalone Yarn compiler (same version bevy_yarnspinner pulls) for the
 # `yarn_compile` guard test — compiles the authored sources the way the

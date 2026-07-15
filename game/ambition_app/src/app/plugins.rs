@@ -113,10 +113,11 @@ fn register_app_local_sim_systems(app: &mut App) {
     let sim = app.sim_schedule();
     // ── The PlayerInput gap: the Ambition reset/replay consumers ──────────
     //
-    // Both call the app-only `world_flow::reset_sandbox`, and the replay
-    // consumer names content (the cut-rope attempt reset) — so they stay
+    // Both call the app-only `world_flow::reset_sandbox` — so they stay
     // app-side, slotted after the dev-edit sync and before the input timer
-    // (the exact position they held in the old inline chain).
+    // (the exact position they held in the old inline chain). The replay
+    // consumer is now host-generic (it no longer names content): the cut-rope
+    // per-attempt reset moved to content's `ContentRoomReplayResetSet`.
     app.add_systems(
         sim,
         (
@@ -129,12 +130,17 @@ fn register_app_local_sim_systems(app: &mut App) {
             .before(ambition::actors::control::input_timer_system),
     );
     // Content dialogue-followup emitters (e.g. cut-rope "try again") run
-    // before the replay consumer that drains their requests the same frame.
-    // The engine anchors the slot's PHASE (PlayerInput); the consumer edge is
-    // ours because the consumer is ours.
+    // before the replay consumer that drains their requests the same frame;
+    // content's replay-reset systems run before it too, so a named boss's
+    // per-attempt state is cleared the same frame the room replays. The engine
+    // anchors each slot's PHASE (PlayerInput); the consumer edge is ours
+    // because the consumer is ours.
     app.configure_sets(
         sim,
-        ambition::actors::session::reset::ContentDialogueFollowupSet
+        (
+            ambition::actors::session::reset::ContentDialogueFollowupSet,
+            ambition::actors::session::reset::ContentRoomReplayResetSet,
+        )
             .before(apply_room_replay_request_system),
     );
 
@@ -471,8 +477,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                     ),
                 ambition::dev_tools::profiling::phase_mark("after_setup_presentation"),
                 ambition::actors::menu::map::populate_map_rooms,
-                ambition::actors::menu::map::spawn_map_menu
-                    .run_if(super::shell_host::direct_entry),
+                ambition::actors::menu::map::spawn_map_menu.run_if(super::shell_host::direct_entry),
                 ambition::dev_tools::profiling::phase_mark("after_map_menu_spawn"),
             )
                 .chain()

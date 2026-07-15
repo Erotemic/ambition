@@ -30,8 +30,6 @@ use super::*;
 // re-exporting the shared body vocabulary.
 use crate::platformer_runtime::lifecycle::RoomVisual;
 use ambition_characters::actor::{BodyCombat, BodyHealth};
-#[cfg(test)]
-use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use bevy::prelude::{
@@ -83,7 +81,7 @@ pub use crate::combat::{
 pub use actors::{
     actor_component_snapshot, enemy_component_snapshot, sync_actor_components_from_cluster,
 };
-// Test-only re-export: `conversion_tests` pins this resolver via the `features::ecs`
+// Test-only re-export: `actor_movement_tests` pins this resolver via the `features::ecs`
 // path. Production callers use it through its own `actors::conversion` module, so
 // the re-export is unused (a dead import warning) outside `cfg(test)`.
 #[cfg(test)]

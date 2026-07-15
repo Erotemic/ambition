@@ -332,6 +332,7 @@ dependencies = [
  "ambition_audio",
  "ambition_characters",
  "ambition_combat",
+ "ambition_content",
  "ambition_cutscene",
  "ambition_dialog",
  "ambition_encounter",

@@ -129,3 +129,39 @@ enemies + HUD + title/results) [opus]; M5 hosting wing in ambition (Phase D-C)
 speedruns 1-1 headlessly; warp-pipe secret reachable; and the whole demo
 authored withOUT touching the momentum kernel (proves the two movement
 identities stay independent).
+
+## Proposed — "a PROPER Mary-O" (2026-07-15, Jon) — NEEDS A PLANNING PASS
+
+Landed 2026-07-15 (session): real `super_mary_o` sprite, jump SFX, run+jump-only
+kit (per-character `AbilityKitSpec`), tiled surfaces (`Block::solid_tiled`),
+cyclic level (flag → `RoomReplayRequested`). That makes it a real slice; Jon wants
+it to become a PROPER Mary-O. Requirements, captured to plan — the movement split
+question below is the one that genuinely needs thought (candidate for a Fable
+planning pass, like the shell-UX cluster):
+
+- **Mario jump physics = the target feel.** "That is the right sort of jump
+  physics." Mary-O is on the AxisSwept kernel path (NOT the momentum kernel Sanic
+  uses). Variable-jump already exists (`AbilitySet::variable_jump`). Task: tune the
+  AxisSwept params + gravity/air-control to the classic arc. **Open architecture
+  question:** how much of "Mario movement" is the movement KERNEL vs a layer a
+  SHELL higher? Jon: *"maybe some of it is in the movement kernel … wall jumps but
+  not sure if that is movement kernel, might be a shell higher. Need to think about
+  it."* Resolve this seam before building — it decides whether these verbs are
+  engine primitives (reusable) or demo-local rules.
+- **Wall jumps.** Kernel already has `wall_jump`/`wall_cling` abilities; decide if
+  Mary-O's wall jump is that primitive or a shell rule (see the seam question).
+- **Double / triple jump.** Kernel has `double_jump` (one extra air jump) +
+  `air_jumps` tuning. Triple needs the air-jump count to go past 1 — check whether
+  `air_jumps` already generalizes or needs a count knob.
+- **Ground pound.** A down slam (down-air / fast-fall into a stomp). Likely a
+  moveset move (`attack_air_down`-shaped) or a movement verb — depends on the seam
+  question. Classic pairs with breaking blocks / stomping enemies.
+- **Mushroom (the "milk" powerup) spawns from a block, small ↔ tall switch.** M1
+  already landed the equipment DATA + mechanism (`grow_cap` = size+armor) through
+  the umbrella. REMAINING (already noted in M1): the pickup ENTITY that emerges
+  from a `?`-block, equip-on-touch, and the live BODY-scale collision/render fold
+  (small↔tall Mary-O). Needs an elegant "spawn item from a struck block" seam.
+- **An enemy.** Reuse the `ai_slop` enemy archetype as the goomba/koopa (stompable;
+  classic head-stomp bounce + side-contact damage). This is M4's enemy leg.
+- **Bar:** *"it needs to be a proper Mary-O demo"* — the above together, not a
+  thin slice. Sequence after the movement-seam question is answered.

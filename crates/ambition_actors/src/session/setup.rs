@@ -123,8 +123,16 @@ pub fn simulation_world(
         session_scope,
     );
 
-    let mut initial_scratch =
-        crate::avatar::primary_player_scratch(world.0.spawn, editable_abilities.as_engine());
+    // Capability set travels WITH the worn character when the row authors one
+    // (the per-character analogue of the motion model below): a restricted-kit
+    // demo character — classic run + jump — declares it in the catalog instead of
+    // forcing the whole multi-game host onto the shared `EditableAbilitySet`. A
+    // row without an authored set keeps that shared sandbox set, so Ambition's own
+    // protagonist is untouched.
+    let base_abilities = character_catalog
+        .ability_set(starting_character.effective_id(default_character_id))
+        .unwrap_or_else(|| editable_abilities.as_engine());
+    let mut initial_scratch = crate::avatar::primary_player_scratch(world.0.spawn, base_abilities);
     ae::refresh_movement_resources_clusters(
         &initial_scratch.abilities,
         &mut initial_scratch.dash,

@@ -69,7 +69,28 @@ impl Plugin for Smb1ExperiencePlugin {
                             asset_path: Some(MARY_O_MUSIC_ASSET_PATH.to_string()),
                         }],
                     }),
-                    None,
+                    // Mary-O AUTHORS the cues she emits. The movement kernel writes
+                    // `SfxMessage::Jump` on every jump, but under provider-relative
+                    // audio a session only plays cues its fragment declares — an
+                    // undeclared `player.jump` is gated to silence. Declaring the
+                    // Jump cue (the classic run+jump grammar's one voice) is what
+                    // makes her jump audible. Procedurally synthesized from this
+                    // spec; no asset file needed.
+                    Some(ambition::audio::spec::SfxRegistry {
+                        sample_rate: 44_100,
+                        sfx: vec![ambition::audio::spec::SfxSpec {
+                            cue: Some(ambition::audio::spec::SoundCueKey::Jump),
+                            id: None,
+                            waveform: ambition::audio::spec::WaveformSpec::Sine,
+                            frequency: 460.0,
+                            frequency_end: 720.0,
+                            duration: 0.085,
+                            volume: 0.22,
+                            attack: 0.003,
+                            release: 0.045,
+                            noise: 0.0,
+                        }],
+                    }),
                 )
                 .expect("Mary-O audio catalog is valid"),
             );

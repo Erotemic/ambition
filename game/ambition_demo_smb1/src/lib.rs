@@ -42,6 +42,10 @@ pub const SMB1_MODE: &str = "mary_o";
 /// The level clock starts here and counts DOWN. It is the demo's one rule.
 pub const STARTING_TIME: f32 = 400.0;
 
+/// How long the flag tally sits on screen before the level loops. "The next
+/// level is the same level": completing the flagpole restarts 1-1, cyclically.
+pub const LEVEL_CYCLE_DWELL: f32 = 2.0;
+
 /// One tile. The whole level is authored on this grid, because the 1-1 grammar IS
 /// a grid grammar: a jump clears a few tiles, a pit is two or three wide.
 const T: f32 = 32.0;
@@ -77,47 +81,60 @@ pub fn level_1_1() -> RoomSpec {
 
     let mut blocks = Vec::new();
 
-    // A ground segment spanning tiles `[from, to)`, full depth.
-    let ground = |blocks: &mut Vec<ae::Block>, name: &str, from: f32, to: f32| {
-        blocks.push(ae::Block::solid(
+    // A ground segment spanning tiles `[from, to)`, full depth. Surfaces are
+    // TILED, not stretched entity art — the engine default a game should reach for
+    // (`Block::solid_tiled`). `idx` keeps each segment's tile-layer geo id unique.
+    let ground = |blocks: &mut Vec<ae::Block>, name: &str, idx: u16, from: f32, to: f32| {
+        blocks.push(ae::Block::solid_tiled(
             name,
             ae::Vec2::new(from * T, ground_top),
             ae::Vec2::new((to - from) * T, GROUND_TILES * T),
+            "mary_o_ground",
+            idx,
         ));
     };
 
     // 1 + 3. Open teach, then the widening pit rhythm.
-    ground(&mut blocks, "ground_open_teach", 0.0, 20.0);
-    ground(&mut blocks, "ground_after_pit_a", 22.0, 34.0); // 2-tile pit at [20,22)
-    ground(&mut blocks, "ground_after_pit_b", 37.0, 52.0); // 3-tile pit at [34,37)
-    ground(&mut blocks, "ground_after_pit_c", 57.0, 96.0); // 5-tile pit at [52,57)
+    ground(&mut blocks, "ground_open_teach", 0, 0.0, 20.0);
+    ground(&mut blocks, "ground_after_pit_a", 1, 22.0, 34.0); // 2-tile pit at [20,22)
+    ground(&mut blocks, "ground_after_pit_b", 2, 37.0, 52.0); // 3-tile pit at [34,37)
+    ground(&mut blocks, "ground_after_pit_c", 3, 57.0, 96.0); // 5-tile pit at [52,57)
 
-    // 2. The first platform: over SAFE ground, at jump height.
-    blocks.push(ae::Block::one_way(
+    // 2. The first platform: over SAFE ground, at jump height. Tiled, like the
+    // ground it teaches you to leave.
+    blocks.push(ae::Block::one_way_tiled(
         "teach_platform",
         ae::Vec2::new(12.0 * T, ground_top - 4.0 * T),
         ae::Vec2::new(3.0 * T, 0.5 * T),
+        "mary_o_platform",
+        0,
     ));
 
     // 3. The widest pit's stepping stone: the same jump, now load-bearing.
-    blocks.push(ae::Block::one_way(
+    blocks.push(ae::Block::one_way_tiled(
         "pit_c_stepping_stone",
         ae::Vec2::new(54.0 * T, ground_top - 3.0 * T),
         ae::Vec2::new(1.0 * T, 0.5 * T),
+        "mary_o_platform",
+        1,
     ));
 
     // 4. The stair pyramid: four up at x=66.., a gap, four down ending at x=75.
-    for step in 1..=4u32 {
+    for step in 1..=4u16 {
         let h = step as f32;
-        blocks.push(ae::Block::solid(
+        blocks.push(ae::Block::solid_tiled(
             format!("stair_up_{step}"),
             ae::Vec2::new((65.0 + h) * T, ground_top - h * T),
             ae::Vec2::new(T, h * T),
+            "mary_o_stairs",
+            step,
         ));
-        blocks.push(ae::Block::solid(
+        blocks.push(ae::Block::solid_tiled(
             format!("stair_down_{step}"),
             ae::Vec2::new((76.0 - h) * T, ground_top - (5.0 - h) * T),
             ae::Vec2::new(T, (5.0 - h) * T),
+            "mary_o_stairs",
+            step + 4,
         ));
     }
 
@@ -164,17 +181,21 @@ const SMB1_CATALOG_RON: &str = r#"(
     characters: {
         "mary_o": (
             display_name: "Mary-O",
-            spritesheet: "sprites/pirate_heavy_iron_mary_spritesheet.png",
-            manifest: "sprites/pirate_heavy_iron_mary_spritesheet.ron",
+            spritesheet: "sprites/super_mary_o_spritesheet.png",
+            manifest: "sprites/super_mary_o_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            // This fixture intentionally exercises the host-built protagonist
-            // kit. Declare that ownership explicitly; malformed Authored rows
-            // must never gain host capabilities by falling through.
-            playable_kit: HostCode,
+            // Classic SMB1 grammar: run + jump, nothing else. The per-character
+            // capability set keeps Mary-O off the full Ambition kit (blink, dash,
+            // wall, fly, fireball) WITHOUT touching the shared session ability set,
+            // so the multi-game host's own protagonist is unaffected. Paired with
+            // the `peaceful` authored kit (Authored, not HostCode) so she carries
+            // no combat verbs either — the same shape Sanic uses.
+            abilities: Some(Basic),
+            playable_kit: Authored,
             tags: ["player"],
         ),
     },
@@ -322,12 +343,19 @@ impl Plugin for Smb1RulesPlugin {
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.insert_resource(goal_pole());
+        // The cycle emitter writes this; the host's replay consumer drains it. The
+        // engine registers it too (`SandboxResetSchedulePlugin`), but a thin host
+        // may not, and `add_message` is idempotent — a no-op when already present.
+        app.add_message::<ambition::actors::session::reset::RoomReplayRequested>();
         // The flag runs BEFORE the clock: a level whose flag has been grabbed is
-        // over, and `tick_level_clock` reads the sequence to know it.
+        // over, and `tick_level_clock` reads the sequence to know it. The cycle
+        // emitter runs LAST so it sees the settled tally and its clock reset is not
+        // immediately decremented on the same frame.
         let rules = (
             spawn_smb1_mode_owner,
             flag::run_flag_sequence,
             tick_level_clock,
+            cycle_level_on_flag_tally,
         )
             .chain();
         if self.hosted {
@@ -383,6 +411,44 @@ fn tick_level_clock(
         }
         state.time_remaining = (state.time_remaining - time.scaled_dt).max(0.0);
     }
+}
+
+/// **Cyclic level completion.** Once the flag tally has settled, restart the
+/// level — "the next level is the same level," the classic arcade loop.
+///
+/// Emitting the engine's generic [`RoomReplayRequested`] restarts the ACTIVE room
+/// in place (player warped back to spawn, room-scoped state rebuilt); it is the
+/// exact "replay the current room" seam a "try again" beat uses, and "next level
+/// = same level" maps straight onto it with no new message type. Resetting the
+/// sequence to `Idle` and the clock to [`STARTING_TIME`] here is what arms the
+/// next lap so the tally does not re-fire every frame. The walk-off has already
+/// carried the body clear of the pole's grab band, so the freshly-`Idle` sequence
+/// cannot immediately re-grab in the one frame before the host warps the body home.
+///
+/// [`RoomReplayRequested`]: ambition::actors::session::reset::RoomReplayRequested
+fn cycle_level_on_flag_tally(
+    time: bevy::prelude::Res<ambition::time::WorldTime>,
+    mut dwell: bevy::prelude::Local<f32>,
+    mut owners: bevy::prelude::Query<(&mut flag::FlagSequence, &mut Smb1LevelState)>,
+    mut replay: bevy::prelude::MessageWriter<ambition::actors::session::reset::RoomReplayRequested>,
+) {
+    let Ok((mut sequence, mut level)) = owners.single_mut() else {
+        *dwell = 0.0;
+        return;
+    };
+    if !matches!(sequence.phase, flag::FlagPhase::Tallied { .. }) {
+        *dwell = 0.0;
+        return;
+    }
+    // Let the tally sit a beat before the level loops.
+    *dwell += time.scaled_dt;
+    if *dwell < LEVEL_CYCLE_DWELL {
+        return;
+    }
+    *dwell = 0.0;
+    *sequence = flag::FlagSequence::default();
+    level.time_remaining = STARTING_TIME;
+    replay.write(ambition::actors::session::reset::RoomReplayRequested);
 }
 
 /// Install the SMB1 demo content layer into an engine app.
@@ -529,6 +595,72 @@ mod tests {
         let mut app = shell(Smb1RulesPlugin::global(), None, STARTING_TIME * 2.0);
         app.update();
         assert_eq!(remaining(&mut app), Some(0.0));
+    }
+
+    /// **The level loops: a settled tally rearms the level after a dwell.** The
+    /// tally holds for [`LEVEL_CYCLE_DWELL`] before the sequence returns to `Idle`
+    /// and the clock refills — that reset is what the cycle emitter does on the
+    /// same line it writes `RoomReplayRequested` (so observing the reset proves the
+    /// emit ran), and it must NOT fire early or the tally would never be seen.
+    #[test]
+    fn a_settled_tally_rearms_the_level_after_a_dwell() {
+        use ambition::world::rooms::{ActiveRoomMetadata, RoomMetadata};
+
+        let mut app = App::new();
+        ambition::engine::add_headless_foundation(&mut app);
+        ambition::platformer::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ActiveRoomMetadata(RoomMetadata::default()),
+        );
+        // Half the dwell per frame: frame 1 arms nothing, frame 2 crosses it.
+        app.insert_resource(ambition::time::WorldTime {
+            scaled_dt: LEVEL_CYCLE_DWELL * 0.5,
+            ..Default::default()
+        });
+        app.add_plugins(Smb1RulesPlugin::global());
+
+        // First update spawns the mode owner; drive the clock below full so the
+        // rearm's refill is observable, then drop a settled tally onto the owner.
+        app.update();
+        {
+            let mut q = app
+                .world_mut()
+                .query::<(&mut flag::FlagSequence, &mut Smb1LevelState)>();
+            let world = app.world_mut();
+            let (mut seq, mut level) = q.iter_mut(world).next().expect("owner spawned");
+            seq.phase = flag::FlagPhase::Tallied { score: 800 };
+            level.time_remaining = 123.0;
+        }
+
+        fn state(app: &mut App) -> (flag::FlagPhase, f32) {
+            let mut q = app
+                .world_mut()
+                .query::<(&flag::FlagSequence, &Smb1LevelState)>();
+            let (seq, level) = q.iter(app.world()).next().unwrap();
+            (seq.phase, level.time_remaining)
+        }
+
+        // One dwell-half in: still tallied, clock untouched — the tally is on screen.
+        app.update();
+        let (phase, remaining) = state(&mut app);
+        assert!(
+            matches!(phase, flag::FlagPhase::Tallied { .. }),
+            "the tally must hold for the full dwell, not rearm early"
+        );
+        assert_eq!(remaining, 123.0, "the clock does not refill mid-dwell");
+
+        // Crossing the dwell rearms: sequence back to Idle, clock refilled.
+        app.update();
+        let (phase, remaining) = state(&mut app);
+        assert_eq!(
+            phase,
+            flag::FlagPhase::Idle,
+            "crossing the dwell returns the sequence to Idle for the next lap"
+        );
+        assert_eq!(
+            remaining, STARTING_TIME,
+            "the new lap starts with a full clock"
+        );
     }
 }
 

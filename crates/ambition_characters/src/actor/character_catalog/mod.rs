@@ -163,6 +163,14 @@ impl CharacterCatalog {
             .map(|spec| spec.to_kernel())
     }
 
+    /// The authored capability set for `character_id`'s playable body, if the row
+    /// declares one. `None` means "use the session's shared `EditableAbilitySet`".
+    pub fn ability_set(&self, character_id: &str) -> Option<ambition_engine_core::AbilitySet> {
+        self.get(character_id)?
+            .abilities
+            .map(|spec| spec.to_ability_set())
+    }
+
     pub fn body_kind(&self, character_id: &str) -> Option<CharacterBodyKind> {
         self.get(character_id).map(|entry| entry.body_kind)
     }

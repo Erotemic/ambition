@@ -253,6 +253,7 @@ expected_files=(
     cut_rope_anvil_spritesheet.png cut_rope_anvil_spritesheet.ron
     cut_rope_piano_spritesheet.png cut_rope_piano_spritesheet.ron
     cut_rope_rope_spritesheet.png cut_rope_rope_spritesheet.ron
+    super_mary_o_spritesheet.png super_mary_o_spritesheet.ron
     generic_explosions_spritesheet.png generic_explosions_spritesheet.ron
     smirking_behemoth_boss_spritesheet.png smirking_behemoth_boss_spritesheet.ron
     stochastic_parrot_spritesheet.png stochastic_parrot_spritesheet.ron
@@ -584,6 +585,11 @@ tackon_targets=(
     cut_rope_anvil
     cut_rope_piano
     cut_rope_rope
+    # Super Mary-O playable protagonist for the SMB1 demo (M-track).
+    # Its catalog row (game/ambition_demo_smb1) references
+    # sprites/super_mary_o_spritesheet.*; without this publish a fresh
+    # clone renders the demo character as a colored rectangle.
+    super_mary_o
     generic_explosions
     smirking_behemoth_boss
     stochastic_parrot

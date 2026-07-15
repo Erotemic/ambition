@@ -147,6 +147,54 @@ impl Block {
             velocity: Vec2::ZERO,
         }
     }
+
+    /// A solid surface drawn from the shared **tiled block-art path** (32px tiles
+    /// that repeat to fill the footprint) rather than a single stretched sprite.
+    ///
+    /// This is the constructor a game should reach for when authoring real
+    /// surfaces: [`Block::solid`] leaves the block on the `Anon` render source (one
+    /// stretched entity sprite, or a flat colored quad fallback), which reads
+    /// poorly as ground; a ground/platform reads as tiles. The only difference is
+    /// provenance — the block's [`GeoId`](crate::geo_id::GeoId) is stamped
+    /// `TileLayer`, which the renderer routes through the tiled path. `layer` names
+    /// the tile layer these blocks belong to and `index` disambiguates blocks that
+    /// share one layer. Mirrors the manual `block.id = GeoId::tile_layer(..)`
+    /// override, promoted to a one-call primitive so "surfaces are tiles" is the
+    /// easy default.
+    pub fn solid_tiled(
+        name: impl Into<String>,
+        min: Vec2,
+        size: Vec2,
+        layer: impl Into<String>,
+        index: u16,
+    ) -> Self {
+        Self {
+            id: crate::geo_id::GeoId::tile_layer(layer, index),
+            name: name.into(),
+            aabb: aabb_from_min_size(min, size),
+            kind: BlockKind::Solid,
+            velocity: Vec2::ZERO,
+        }
+    }
+
+    /// A one-way (jump-through) platform drawn from the tiled block-art path.
+    /// The tiled analogue of [`Block::one_way`]; see [`Block::solid_tiled`] for why
+    /// tiles are the surface default.
+    pub fn one_way_tiled(
+        name: impl Into<String>,
+        min: Vec2,
+        size: Vec2,
+        layer: impl Into<String>,
+        index: u16,
+    ) -> Self {
+        Self {
+            id: crate::geo_id::GeoId::tile_layer(layer, index),
+            name: name.into(),
+            aabb: aabb_from_min_size(min, size),
+            kind: BlockKind::OneWay,
+            velocity: Vec2::ZERO,
+        }
+    }
 }
 
 /// Authored water volume tuning. The simulation reads this when the

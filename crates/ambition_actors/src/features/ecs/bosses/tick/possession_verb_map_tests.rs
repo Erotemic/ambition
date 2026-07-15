@@ -37,7 +37,7 @@ fn possessed_verbs_resolve_directionally() {
         (ae::Vec2::new(0.0, -1.0), "converging_shockwave"), // up
     ];
     for (axis, expected) in cases {
-        let got = possessed_attack_choice(&melee_frame(axis), &behavior, None)
+        let got = possessed_attack_choice(&melee_frame(axis), &behavior, None, 1.0)
             .unwrap_or_else(|| panic!("aim {axis:?} resolves a move"));
         assert_eq!(
             got.move_id(),
@@ -47,13 +47,14 @@ fn possessed_verbs_resolve_directionally() {
     }
     // Back-aim: no authored `attack_back`, so the chain falls through to
     // the base `attack` verb — the sweep again, never a silent no-op.
-    let back = possessed_attack_choice(&melee_frame(ae::Vec2::new(-1.0, 0.0)), &behavior, None)
-        .expect("back aim falls through the chain to the base attack verb");
+    let back =
+        possessed_attack_choice(&melee_frame(ae::Vec2::new(-1.0, 0.0)), &behavior, None, 1.0)
+            .expect("back aim falls through the chain to the base attack verb");
     assert_eq!(back.move_id(), "hand_sweep");
 
     let mut special = ActorControlFrame::neutral();
     special.special_pressed = true;
-    let got = possessed_attack_choice(&special, &behavior, None)
+    let got = possessed_attack_choice(&special, &behavior, None, 1.0)
         .expect("the special button resolves the authored 'special' verb");
     assert_eq!(got, BossAttackProfile::Special("apple_rain".to_string()));
 }
@@ -77,13 +78,18 @@ fn a_boss_without_verbs_keeps_the_legacy_possession_mapping() {
     };
 
     // Melee (any aim — no verbs means direction cannot rebind it).
-    let got = possessed_attack_choice(&melee_frame(ae::Vec2::new(0.0, 1.0)), &behavior, Some(&cap))
-        .expect("legacy fallback: primary strike");
+    let got = possessed_attack_choice(
+        &melee_frame(ae::Vec2::new(0.0, 1.0)),
+        &behavior,
+        Some(&cap),
+        1.0,
+    )
+    .expect("legacy fallback: primary strike");
     assert_eq!(got, BossAttackProfile::Strike("floor_slam".to_string()));
 
     let mut special = ActorControlFrame::neutral();
     special.special_pressed = true;
-    let got = possessed_attack_choice(&special, &behavior, Some(&cap))
+    let got = possessed_attack_choice(&special, &behavior, Some(&cap), 1.0)
         .expect("legacy fallback: signature special");
     assert_eq!(
         got,
@@ -92,6 +98,7 @@ fn a_boss_without_verbs_keeps_the_legacy_possession_mapping() {
 
     // No input → no intent.
     assert!(
-        possessed_attack_choice(&ActorControlFrame::neutral(), &behavior, Some(&cap)).is_none()
+        possessed_attack_choice(&ActorControlFrame::neutral(), &behavior, Some(&cap), 1.0)
+            .is_none()
     );
 }

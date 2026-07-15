@@ -44,6 +44,7 @@ fn possessed_attack_choice(
     frame: &ambition_characters::actor::control::ActorControlFrame,
     behavior: &crate::features::bosses::BossBehaviorProfile,
     capability: Option<&ambition_characters::brain::BossCapability>,
+    facing: f32,
 ) -> Option<ambition_characters::brain::BossAttackProfile> {
     use ambition_characters::brain::BossAttackProfile;
     let verb_move = |verb: &str| -> Option<&String> {
@@ -59,7 +60,7 @@ fn possessed_attack_choice(
         let dir = if frame.pogo_pressed && !frame.melee_pressed {
             ambition_entity_catalog::AttackDir::Down
         } else {
-            crate::combat::moveset::attack_dir_from_axis(frame.attack_axis)
+            crate::combat::moveset::attack_dir_from_axis(frame.attack_axis, facing)
         };
         let authored = ambition_entity_catalog::directional_verb_chain(
             crate::combat::moveset::ATTACK_VERB,
@@ -386,7 +387,9 @@ pub fn drive_boss_animators(
 /// player-brain snapshot because controller input is the point of that path.
 pub fn tick_boss_brains_system(
     world_time: Res<WorldTime>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     // A possessed boss carries `Brain::Player(slot)` and reads its controller
@@ -475,7 +478,7 @@ pub fn tick_boss_brains_system(
             // that authors no verbs. Verb bindings are BLIND (Jon feel-checks).
             intent.clear();
             if let Some(profile) =
-                possessed_attack_choice(&frame, &boss.config.behavior, capability)
+                possessed_attack_choice(&frame, &boss.config.behavior, capability, boss.kin.facing)
             {
                 intent.active_profile = Some(profile);
             }
@@ -673,7 +676,9 @@ pub(crate) fn horizontal_front_wall_clearance(
 /// `integrate_actor_body`; keep this as the boss orchestrator around that seam.
 pub fn integrate_boss_bodies(
     world_time: Res<WorldTime>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,

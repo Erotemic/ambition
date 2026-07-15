@@ -504,21 +504,32 @@ pub fn advance_move_playback(
     }
 }
 
-/// Reduce a body-local attack aim axis to a discrete [`AttackDir`] for
-/// directional move selection. The axis is body/gravity-local (+x = facing,
-/// +y = gravity-down), so `y < 0` is "toward the head" (Up) under ANY gravity
-/// — the same frame the move's volume offsets live in. A forward or neutral aim
-/// both read `Neutral` (the plain jab); an aim opposite facing reads `Back`.
-/// Vertical wins ties so a clear up/down aim beats slight horizontal drift.
-pub fn attack_dir_from_axis(axis: ae::Vec2) -> AttackDir {
+/// Reduce an attack aim axis to a discrete [`AttackDir`] for directional move
+/// selection, relative to the body's current `facing` (±1).
+///
+/// The `axis` arrives gravity/screen-local (`+x` = screen-right, `+y` =
+/// gravity-down), the same value as locomotion — it is NOT pre-mirrored by
+/// facing. But [`AttackDir`] is FACING-relative (`+x` = facing, `Back` = opposite
+/// facing), so the horizontal arm folds facing in: `axis.x * facing` is the
+/// forward/back projection. Without this, pressing toward the way you just turned
+/// (move left → `axis.x < 0` while `facing = -1`) misreads as `Back` and fires
+/// the aerial back-attack in the wrong direction. This is the SAME transform the
+/// flat path (`resolve_attack_intent_from_view`) and the aim helper
+/// (`compute_aim`) already apply. The vertical arm is gravity-local (Up = toward
+/// the head under ANY gravity), so `y < 0` is Up with no facing term. Vertical
+/// wins ties so a clear up/down aim beats slight horizontal drift.
+pub fn attack_dir_from_axis(axis: ae::Vec2, facing: f32) -> AttackDir {
     const DEADZONE: f32 = 0.5;
+    // `facing` is ±1, so `(axis.x * facing).abs() == axis.x.abs()`: the tie
+    // comparison is unchanged; only the forward/back SIGN depends on facing.
+    let forward = axis.x * facing;
     if axis.y.abs() >= axis.x.abs() && axis.y.abs() > DEADZONE {
         if axis.y < 0.0 {
             AttackDir::Up
         } else {
             AttackDir::Down
         }
-    } else if axis.x < -DEADZONE {
+    } else if forward < -DEADZONE {
         AttackDir::Back
     } else {
         AttackDir::Neutral
@@ -583,7 +594,7 @@ pub fn trigger_moveset_moves(
             let dir = if frame.pogo_pressed && !frame.melee_pressed {
                 AttackDir::Down
             } else {
-                attack_dir_from_axis(frame.attack_axis)
+                attack_dir_from_axis(frame.attack_axis, kin.facing)
             };
             (
                 moveset

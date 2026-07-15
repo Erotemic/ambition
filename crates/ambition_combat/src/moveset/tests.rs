@@ -11,6 +11,55 @@ use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
 use bevy::prelude::*;
 
+/// **The attack direction is facing-relative, not screen-relative.** The aim
+/// axis arrives screen-local (`+x` = screen-right), but a forward press must read
+/// `Neutral` (the jab) no matter which way you face — and a press toward your BACK
+/// must read `Back`. Regression pin for the "move left + attack fired right" bug:
+/// facing was not folded into `attack_dir_from_axis`, so a left-facing forward
+/// press misclassified as `Back` and fired the aerial back-attack the wrong way.
+#[test]
+fn attack_dir_is_relative_to_facing() {
+    use ambition_engine_core::Vec2;
+
+    // Facing RIGHT (+1): screen-right is forward, screen-left is back.
+    assert_eq!(
+        attack_dir_from_axis(Vec2::new(1.0, 0.0), 1.0),
+        AttackDir::Neutral
+    );
+    assert_eq!(
+        attack_dir_from_axis(Vec2::new(-1.0, 0.0), 1.0),
+        AttackDir::Back
+    );
+
+    // Facing LEFT (-1): the mirror. Pressing screen-LEFT is now FORWARD (the bug
+    // case — must be Neutral, not Back), pressing screen-right is Back.
+    assert_eq!(
+        attack_dir_from_axis(Vec2::new(-1.0, 0.0), -1.0),
+        AttackDir::Neutral
+    );
+    assert_eq!(
+        attack_dir_from_axis(Vec2::new(1.0, 0.0), -1.0),
+        AttackDir::Back
+    );
+
+    // Vertical is gravity-local and facing-independent: Up (toward the head) is
+    // `y < 0` under either facing; Down is `y > 0`.
+    for facing in [1.0, -1.0] {
+        assert_eq!(
+            attack_dir_from_axis(Vec2::new(0.0, -1.0), facing),
+            AttackDir::Up
+        );
+        assert_eq!(
+            attack_dir_from_axis(Vec2::new(0.0, 1.0), facing),
+            AttackDir::Down
+        );
+    }
+
+    // A neutral (no-aim) press is the plain jab regardless of facing.
+    assert_eq!(attack_dir_from_axis(Vec2::ZERO, 1.0), AttackDir::Neutral);
+    assert_eq!(attack_dir_from_axis(Vec2::ZERO, -1.0), AttackDir::Neutral);
+}
+
 #[test]
 fn prefab_registry_expands_sword_slash_from_simple_melee_with_zero_new_code() {
     // A2 / R2.3: `sword_slash` is the `simple_melee` prefab + params, minted

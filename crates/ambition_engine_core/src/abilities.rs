@@ -432,6 +432,19 @@ pub enum AbilityGrant {
     /// The classic run-and-jump floor: horizontal steering, a ground jump, and
     /// variable jump height. The minimal kit a platformer protagonist needs.
     RunJump,
+    /// An extra jump in the air. On its own this is a *double* jump (the
+    /// [`air_jumps`](AxisSweptParams) tuning default is 1); a character that
+    /// authors a higher `air_jumps` count turns the same grant into a triple
+    /// jump without a new verb — the count is feel (tuning), the *capability*
+    /// is this flag.
+    AirJump,
+    /// Wall mobility: cling to (and slide down) a wall, and kick off it. The
+    /// pair a "run up a chimney" platformer move needs; deliberately excludes
+    /// `wall_climb` (climbing a wall is a different, ladder-like verb).
+    WallMobility,
+    /// Fast fall: press down in the air to dive faster. The gesture that a
+    /// ground-pound-style down-slam is built on.
+    FastFall,
     /// The curated mid-game subset ([`AbilitySet::sane_subset`]).
     SaneSubset,
     /// Every implemented verb ([`AbilitySet::sandbox_all`]).
@@ -446,6 +459,19 @@ impl AbilityGrant {
                 move_horizontal: true,
                 jump: true,
                 variable_jump: true,
+                ..AbilitySet::NONE
+            },
+            Self::AirJump => AbilitySet {
+                double_jump: true,
+                ..AbilitySet::NONE
+            },
+            Self::WallMobility => AbilitySet {
+                wall_jump: true,
+                wall_cling: true,
+                ..AbilitySet::NONE
+            },
+            Self::FastFall => AbilitySet {
+                fast_fall: true,
                 ..AbilitySet::NONE
             },
             Self::SaneSubset => AbilitySet::sane_subset(),
@@ -586,6 +612,40 @@ mod tests {
         assert!(
             !run_jump.dash && !run_jump.blink && !run_jump.attack && !run_jump.wall_jump,
             "run-jump must NOT grant sandbox verbs"
+        );
+    }
+
+    #[test]
+    fn the_platformer_mobility_grants_compose_a_richer_kit() {
+        // The exact kit a "proper" classic platformer protagonist composes: the
+        // run-jump floor plus an air jump, wall mobility, and a fast fall — each
+        // a single-verb grant appended to the list, none forking a preset.
+        let kit = AbilitySet::compose(&[
+            AbilityGrant::RunJump,
+            AbilityGrant::AirJump,
+            AbilityGrant::WallMobility,
+            AbilityGrant::FastFall,
+        ]);
+        // The floor survives.
+        assert!(kit.move_horizontal && kit.jump && kit.variable_jump);
+        // Each grant lit its own verb.
+        assert!(kit.double_jump, "AirJump grants the air jump flag");
+        assert!(
+            kit.wall_jump && kit.wall_cling,
+            "WallMobility grants both wall verbs"
+        );
+        assert!(kit.fast_fall, "FastFall grants the dive");
+        // WallMobility deliberately stops short of wall_climb, and nothing here
+        // conjured the sandbox-only verbs.
+        assert!(
+            !kit.wall_climb && !kit.blink && !kit.dash && !kit.fly && !kit.attack,
+            "the platformer kit is mobility only — no blink/dash/fly/climb/attack"
+        );
+        // A kit composed from these grants must not warn (each dependent verb has
+        // its prerequisite: air/wall jumps ride the RunJump ground jump).
+        assert!(
+            kit.compatibility_warnings().is_empty(),
+            "the composed platformer kit is internally consistent"
         );
     }
 }

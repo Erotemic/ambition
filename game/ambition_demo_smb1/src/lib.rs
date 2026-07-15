@@ -188,15 +188,18 @@ const SMB1_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            // Classic Mary-O grammar: run + jump, nothing else. The per-character
-            // grant list keeps Mary-O off the full Ambition kit (blink, dash,
-            // wall, fly, fireball) WITHOUT touching the shared session ability set,
-            // so the multi-game host's own protagonist is unaffected. It is her
-            // AbilityBase, which the session mask gates but can never clobber back
-            // up to sandbox_all. Paired with the `peaceful` authored kit (Authored,
-            // not HostCode) so she carries no combat verbs either — the same shape
-            // Sanic uses.
-            abilities: Some([RunJump]),
+            // A PROPER Mary-O moveset, composed grant-by-grant: the run+jump
+            // floor, an air jump (double jump — a triple jump once her authored
+            // `air_jumps` count below raises it), wall mobility (cling + kick), and
+            // a fast fall (the ground-pound dive). Each is a single-verb grant
+            // appended to the list — NOT a preset the roster forks — and the union
+            // of them is her AbilityBase. It still keeps her OFF the full Ambition
+            // kit (blink, dash, fly, fireball) without touching the shared session
+            // ability set, so the multi-game host's own protagonist is unaffected;
+            // the session mask can gate these verbs off but can never clobber the
+            // base back up to sandbox_all. Paired with the `peaceful` authored kit
+            // (Authored, not HostCode) so she carries no combat verbs either.
+            abilities: Some([RunJump, AirJump, WallMobility, FastFall]),
             playable_kit: Authored,
             tags: ["player"],
         ),
@@ -470,9 +473,10 @@ mod tests {
             .world()
             .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>();
         assert!(catalog.get(provider::MARY_O_CHARACTER_ID).is_some());
-        // Mary-O's authored grant list composes to exactly run + jump — no
-        // blink/dash/wall/fly. This is her AbilityBase; the session mask can only
-        // narrow it, never restore the full Ambition kit.
+        // Mary-O's authored grant list composes to her platformer moveset —
+        // run+jump, air jump, wall mobility, fast fall — and NOTHING from the
+        // full Ambition kit (blink/dash/fly/attack). This is her AbilityBase; the
+        // session mask can only narrow it, never restore the sandbox kit.
         let mary_o_kit = catalog
             .ability_set(provider::MARY_O_CHARACTER_ID)
             .expect("Mary-O authors a grant list");
@@ -480,17 +484,28 @@ mod tests {
             mary_o_kit,
             ambition::engine_core::AbilitySet::compose(&[
                 ambition::engine_core::AbilityGrant::RunJump,
+                ambition::engine_core::AbilityGrant::AirJump,
+                ambition::engine_core::AbilityGrant::WallMobility,
+                ambition::engine_core::AbilityGrant::FastFall,
             ]),
-            "Mary-O composes to the classic run-and-jump kit"
+            "Mary-O composes to the classic platformer moveset"
         );
         assert!(
             mary_o_kit.jump
                 && mary_o_kit.move_horizontal
-                && !mary_o_kit.blink
+                && mary_o_kit.double_jump
+                && mary_o_kit.wall_jump
+                && mary_o_kit.wall_cling
+                && mary_o_kit.fast_fall,
+            "the platformer verbs are all lit"
+        );
+        assert!(
+            !mary_o_kit.blink
                 && !mary_o_kit.dash
-                && !mary_o_kit.wall_jump
-                && !mary_o_kit.fly,
-            "run + jump only"
+                && !mary_o_kit.fly
+                && !mary_o_kit.attack
+                && !mary_o_kit.wall_climb,
+            "but none of the full Ambition kit"
         );
         let defaults = app
             .world()

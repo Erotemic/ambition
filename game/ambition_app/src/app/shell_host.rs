@@ -156,7 +156,8 @@ pub const AMBITION_STARTUP_ROUTE: &str = "ambition_startup";
 /// `on_complete` is `GoTo(launcher)`, and the startup route as the initial one.
 pub fn compose_ambition_startup_sequence(app: &mut App) {
     use ambition::game_shell::{
-        ShellExperienceId, ShellSegmentSpec, ShellSequenceCatalog, ShellSequenceSpec,
+        ShellExperienceId, ShellSegmentPolicy, ShellSegmentSpec, ShellSequenceCatalog,
+        ShellSequenceSpec,
     };
 
     app.world_mut()
@@ -170,10 +171,17 @@ pub fn compose_ambition_startup_sequence(app: &mut App) {
         .register(
             ShellExperienceId::new(AMBITION_STARTUP_EXPERIENCE),
             ShellSequenceSpec {
+                // Hold the vanity card longer than the 2s default so its ease-in
+                // / hold / ease-out (see `fade_basic_sequence_card`) has room to
+                // breathe. Still Immediately skippable (default skip policy).
                 segments: vec![ShellSegmentSpec::text(
                     "powered_by_ambition",
                     "Powered by Ambition",
-                )],
+                )
+                .with_policy(ShellSegmentPolicy {
+                    auto_advance_after: Some(std::time::Duration::from_millis(3600)),
+                    ..Default::default()
+                })],
             },
         );
     // Boot into the startup card; home stays the launcher, so the startup's

@@ -8,8 +8,8 @@
 
 mod experience;
 mod frontend;
-mod input;
 mod id;
+mod input;
 mod launcher;
 mod plugin;
 mod preparation;
@@ -20,10 +20,13 @@ mod session;
 #[cfg(feature = "basic_presentation")]
 mod basic_presentation;
 
-pub use frontend::*;
+#[cfg(feature = "basic_presentation")]
+mod pause_menu;
+
 pub use experience::{
     ExperienceAvailability, ExperienceRegistration, ShellExperienceAppExt, ShellExperienceRegistry,
 };
+pub use frontend::*;
 pub use id::*;
 pub use input::*;
 pub use launcher::*;
@@ -34,9 +37,10 @@ pub use sequence::*;
 pub use session::*;
 
 #[cfg(feature = "basic_presentation")]
-pub use basic_presentation::{
-    BasicSequenceRoot, BasicShellPresentationPlugin, BasicShellUiRoot,
-};
+pub use basic_presentation::{BasicSequenceRoot, BasicShellPresentationPlugin, BasicShellUiRoot};
+
+#[cfg(feature = "basic_presentation")]
+pub use pause_menu::{ShellPauseMenu, ShellPauseMenuPlugin, ShellPauseMenuSuppressed};
 
 use bevy::prelude::SystemSet;
 
@@ -67,7 +71,9 @@ impl bevy::prelude::PluginGroup for MinimalShellPlugins {
             .add(ShellSequencePlugin)
             .add(ShellLauncherPlugin);
         #[cfg(feature = "basic_presentation")]
-        let builder = builder.add(BasicShellPresentationPlugin);
+        let builder = builder
+            .add(BasicShellPresentationPlugin)
+            .add(ShellPauseMenuPlugin);
         builder
     }
 }

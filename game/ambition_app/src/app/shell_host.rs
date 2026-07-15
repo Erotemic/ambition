@@ -110,7 +110,31 @@ pub fn compose_ambition_shell_host(app: &mut App) {
         AMBITION_LAUNCHER_ROUTE,
     ));
 
-    app.add_systems(Update, (exit_on_shell_request, quit_to_home_on_key));
+    app.add_systems(
+        Update,
+        (
+            exit_on_shell_request,
+            quit_to_home_on_key,
+            sync_shell_pause_suppression,
+        ),
+    );
+}
+
+/// Ambition's own gameplay has the richer kaleidoscope pause menu, so the
+/// universal shell pause menu (which the hosted demos rely on) must yield while
+/// an Ambition room is live. `in_base_mode` is true iff the active session is
+/// Ambition's own (no demo mode tag) — the exact complement of the kaleidoscope's
+/// gate — so the two menus partition every live session with no overlap. In a
+/// standalone demo app this bridge is absent and the flag stays `false`.
+fn sync_shell_pause_suppression(
+    active: Option<
+        ambition::platformer::lifecycle::SessionWorldRef<
+            ambition::world::rooms::ActiveRoomMetadata,
+        >,
+    >,
+    mut suppressed: ResMut<ambition::game_shell::ShellPauseMenuSuppressed>,
+) {
+    suppressed.0 = ambition::runtime::in_base_mode(active);
 }
 
 /// The optional "Powered by Ambition" startup vanity sequence.

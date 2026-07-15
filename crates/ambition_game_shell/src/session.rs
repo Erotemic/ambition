@@ -9,9 +9,7 @@
 use std::collections::BTreeMap;
 
 use ambition_audio::catalog::{AudioCatalogRegistry, SfxBankRegistry};
-use ambition_audio::selection::{
-    ActiveAudioSelection, AudioContextChanged, FrontendAudioProfile,
-};
+use ambition_audio::selection::{ActiveAudioSelection, AudioContextChanged, FrontendAudioProfile};
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionRoot, SessionScopeId, SessionScopePlugin,
     SessionScopeRetired, SessionScopeSet, SpawnSessionScopedExt,
@@ -21,9 +19,8 @@ use bevy::prelude::*;
 
 use crate::{
     ActiveFrontendAuthority, ActiveShellExperience, AmbitionGameShellSet, ExperienceRegistration,
-    LoadBarrierRef, PresentationOwnershipPolicy,
-    PreparedSessionIdentity, ShellActivationId, ShellEvent, ShellExperienceAppExt,
-    ShellExperienceId, ShellRouteSpec,
+    LoadBarrierRef, PreparedSessionIdentity, PresentationOwnershipPolicy, ShellActivationId,
+    ShellEvent, ShellExperienceAppExt, ShellExperienceId, ShellRouteSpec,
 };
 
 /// Gameplay-session lifecycle facts delivered to provider systems.
@@ -138,6 +135,33 @@ pub struct GameplaySessionInstance {
     /// Canonical live gameplay-world entity. `None` only during the provider
     /// phase of a fresh activation.
     pub world: Option<Entity>,
+}
+
+#[cfg(test)]
+impl GameplaySessionInstance {
+    /// A minimal live-session instance for tests that only need
+    /// [`ActiveGameplaySession`] to read as "a session is live" (its
+    /// `.0.is_some()`); the field values are inert placeholders.
+    pub(crate) fn stub_live() -> Self {
+        Self {
+            activation: ActiveShellExperience {
+                activation_id: ShellActivationId(1),
+                route_id: crate::ShellRouteId::new("test_route"),
+                experience_id: ShellExperienceId::new("test_experience"),
+                parameters: BTreeMap::new(),
+                load_authorization: None,
+                prepared_session: None,
+            },
+            scope: SessionScopeId(1),
+            load: None,
+            prepared: None,
+            audio: GameplaySessionAudioContext {
+                owner: AudioContextOwner::Gameplay(1),
+                provider_id: "test".to_string(),
+            },
+            world: None,
+        }
+    }
 }
 
 /// App-local gameplay-session authority. It is `None` at launchers, credits,
@@ -320,7 +344,6 @@ impl Plugin for GameplaySessionBridgePlugin {
             );
     }
 }
-
 
 fn select_frontend_authority(
     mut events: MessageReader<ShellEvent>,

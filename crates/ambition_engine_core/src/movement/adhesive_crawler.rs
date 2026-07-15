@@ -387,6 +387,7 @@ fn publish_attachment_contact(
         surface_velocity: clung.map_or(Vec2::ZERO, |b| b.velocity),
         source: ContactSource::Block {
             kind: clung.map_or(crate::world::BlockKind::Solid, |b| b.kind),
+            id: clung.map_or(crate::geo_id::GeoId::anon(), |b| b.id.clone()),
         },
     });
 }

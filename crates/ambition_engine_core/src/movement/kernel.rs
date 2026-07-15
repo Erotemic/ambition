@@ -30,7 +30,10 @@ pub struct MotionStepContext<'a> {
 
 /// The tick's SEMANTIC support fact, selected from contact KINDS — never from
 /// contact-list ordering. A lateral graze can no longer masquerade as support.
-#[derive(Clone, Copy, Debug, PartialEq)]
+///
+/// Holds a [`Contact`], which owns its block's `GeoId` and so is `Clone`, not
+/// `Copy` — this fact is likewise `Clone`.
+#[derive(Clone, Debug, PartialEq)]
 pub enum SupportFact {
     /// No support or attachment this tick.
     Airborne,
@@ -226,13 +229,13 @@ fn support_fact(contacts: &[Contact]) -> SupportFact {
         .rev()
         .find(|contact| contact.kind == ContactKind::Attachment)
     {
-        return SupportFact::Attached(*contact);
+        return SupportFact::Attached(contact.clone());
     }
     contacts
         .iter()
         .rev()
         .find(|contact| contact.kind == ContactKind::Support)
-        .map(|contact| SupportFact::Supported(*contact))
+        .map(|contact| SupportFact::Supported(contact.clone()))
         .unwrap_or(SupportFact::Airborne)
 }
 

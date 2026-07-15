@@ -93,29 +93,22 @@ pub use world::{
 /// session, so the complete per-frame presentation graph must stay dormant.
 fn session_presentation_is_ready(
     gate: Option<
-        bevy::prelude::Res<
-            ambition_platformer_primitives::lifecycle::SessionGatedSimulation,
-        >,
+        bevy::prelude::Res<ambition_platformer_primitives::lifecycle::SessionGatedSimulation>,
     >,
     active: Option<
         bevy::prelude::Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>,
     >,
-    roots: bevy::prelude::Query<
-        &ambition_platformer_primitives::lifecycle::SessionRoot,
-    >,
+    roots: bevy::prelude::Query<&ambition_platformer_primitives::lifecycle::SessionRoot>,
     scene: Option<bevy::prelude::Res<SceneEntities>>,
 ) -> bool {
     let exact_world = roots.single().is_ok_and(|root| {
         gate.is_none()
             || active
                 .as_deref()
-                .and_then(
-                    ambition_platformer_primitives::lifecycle::ActiveSessionScope::current,
-                )
+                .and_then(ambition_platformer_primitives::lifecycle::ActiveSessionScope::current)
                 == Some(root.0)
     });
-    exact_world
-        && scene.is_some_and(|scene| scene.player != bevy::prelude::Entity::PLACEHOLDER)
+    exact_world && scene.is_some_and(|scene| scene.player != bevy::prelude::Entity::PLACEHOLDER)
 }
 
 /// Module-local Bevy plugin: schedules player-bound visual systems
@@ -165,6 +158,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 Update,
                 (
                     item_visuals::sync_ground_item_visuals.after(actors::sync_visuals),
+                    item_visuals::sync_world_item_visuals.after(actors::sync_visuals),
                     item_visuals::sync_held_item_visual.after(actors::sync_visuals),
                     item_visuals::sync_held_projectile_visuals.after(actors::sync_visuals),
                     shrine_visuals::sync_shrine_visual.after(actors::sync_visuals),

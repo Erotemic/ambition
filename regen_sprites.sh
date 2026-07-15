@@ -254,6 +254,7 @@ expected_files=(
     cut_rope_piano_spritesheet.png cut_rope_piano_spritesheet.ron
     cut_rope_rope_spritesheet.png cut_rope_rope_spritesheet.ron
     super_mary_o_spritesheet.png super_mary_o_spritesheet.ron
+    super_mary_o_tall_spritesheet.png super_mary_o_tall_spritesheet.ron
     generic_explosions_spritesheet.png generic_explosions_spritesheet.ron
     smirking_behemoth_boss_spritesheet.png smirking_behemoth_boss_spritesheet.ron
     stochastic_parrot_spritesheet.png stochastic_parrot_spritesheet.ron
@@ -590,6 +591,7 @@ tackon_targets=(
     # sprites/super_mary_o_spritesheet.*; without this publish a fresh
     # clone renders the demo character as a colored rectangle.
     super_mary_o
+    super_mary_o_tall
     generic_explosions
     smirking_behemoth_boss
     stochastic_parrot

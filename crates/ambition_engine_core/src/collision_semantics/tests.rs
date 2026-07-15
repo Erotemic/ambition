@@ -171,6 +171,7 @@ fn contact_tangent_winding_is_consistent() {
         surface_velocity: Vec2::ZERO,
         source: ContactSource::Block {
             kind: BlockKind::Solid,
+            id: crate::geo_id::GeoId::anon(),
         },
     };
     assert_eq!(c.tangent(), Vec2::new(1.0, 0.0));
@@ -198,7 +199,9 @@ fn block_face_contact_point_lies_on_the_face_for_all_cardinals() {
     assert_eq!(
         c.source,
         ContactSource::Block {
-            kind: BlockKind::Solid
+            kind: BlockKind::Solid,
+            // `Block::solid` fixtures default to an anonymous geometry id.
+            id: crate::geo_id::GeoId::anon(),
         }
     );
     // Body pressed against the block's left face (normal pointing -x).

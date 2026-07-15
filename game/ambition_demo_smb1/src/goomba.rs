@@ -8,9 +8,9 @@
 //!   (`mary_o_goomba`, a 1-HP `Wanderer` that paces and reverses at walls). Its
 //!   `body_contact_damage`/`attacks_player` default true, so a side touch hurts
 //!   Mary-O through the ONE shared body-contact-damage path — no bespoke code.
-//! - **The sprite** is the published `ai_slop` sheet, resolved by the catalog
-//!   `display_name` "Ai Slop" (registered as a demo character fragment so it
-//!   renders standalone AND hosted).
+//! - **The sprite** is the published `ai_slop` sheet, resolved by a demo catalog
+//!   row under a unique display name ("Mary-O Goomba" — Ambition owns "Ai Slop",
+//!   and catalog assembly rejects a duplicate) so it renders standalone AND hosted.
 //! - **The stomp** is a demo RULE, not the engine's attack-hitbox pogo (Jon:
 //!   Mary-O does not pogo; she *bounces* on enemies to squash them). A player
 //!   descending onto a goomba's head bounces up and squashes it.

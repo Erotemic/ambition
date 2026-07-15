@@ -25,11 +25,13 @@ fn grounded_player_step_reports_a_feet_contact() {
         .iter()
         .find(|c| (c.normal - Vec2::new(0.0, -1.0)).length() < 1e-3)
         .unwrap_or_else(|| panic!("a feet contact with an up normal, got {:?}", last.contacts));
-    assert_eq!(
-        feet.source,
-        ContactSource::Block {
-            kind: BlockKind::Solid
-        }
+    let ContactSource::Block { kind, id } = &feet.source else {
+        panic!("a feet contact against a block, got {:?}", feet.source);
+    };
+    assert_eq!(*kind, BlockKind::Solid);
+    assert!(
+        world.blocks.iter().any(|b| &b.id == id),
+        "the contact carries a real world block's geometry id"
     );
     // The floor is static: no frame motion on the contact.
     assert_eq!(feet.surface_velocity, Vec2::ZERO);

@@ -8,3 +8,6 @@ pub use ambition_items::*;
 
 pub mod persist;
 pub mod pickup;
+pub mod world_item;
+
+pub use world_item::{spawn_world_item, WorldItem, WorldItemPayload};

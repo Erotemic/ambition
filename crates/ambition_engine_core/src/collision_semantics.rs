@@ -283,10 +283,20 @@ pub fn classify_contact_normal(normal: Vec2, frame_down: Vec2) -> ContactKind {
 }
 
 /// What a contact was made against.
-#[derive(Clone, Copy, Debug, PartialEq)]
+///
+/// `Block` carries the struck block's durable [`GeoId`](crate::geo_id::GeoId) —
+/// the same identity `WorldDelta` ops and traces use — so a gameplay reader can
+/// answer "*which* authored block did I touch" (a ?-block bonk, brick-break, a
+/// coin block, a rider's platform) without point-matching against the world.
+/// That `GeoId` owns a `String`, so this enum (and [`Contact`]) is `Clone` but
+/// deliberately not `Copy`: identity is worth one small clone per block contact.
+#[derive(Clone, Debug, PartialEq)]
 pub enum ContactSource {
-    /// An axis-aligned world block.
-    Block { kind: BlockKind },
+    /// An axis-aligned world block, tagged with its durable geometry identity.
+    Block {
+        kind: BlockKind,
+        id: crate::geo_id::GeoId,
+    },
     /// A segment of a [`crate::world::SurfaceChain`] (`chain` indexes
     /// `World::chains`, `segment` the chain's segment list).
     Chain { chain: u32, segment: u32 },
@@ -301,7 +311,7 @@ pub enum ContactSource {
 /// - `tangent()` is `normal` rotated so that for a floor under down-gravity
 ///   (`normal == (0,-1)` with y growing downward) the tangent is `(1,0)` —
 ///   "rightward along the surface". `t = (-n.y, n.x)`, `n = (t.y, -t.x)`.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Contact {
     /// The semantic role this contact plays for the body (frame-relative,
     /// assigned at generation).
@@ -343,7 +353,10 @@ pub fn block_face_contact(
         normal,
         toi,
         surface_velocity: block.velocity,
-        source: ContactSource::Block { kind: block.kind },
+        source: ContactSource::Block {
+            kind: block.kind,
+            id: block.id.clone(),
+        },
     }
 }
 

@@ -244,6 +244,7 @@ fn ride_contact_source(world: &World, on: SurfaceRef, segment: usize) -> Contact
         },
         SurfaceRef::Block(i) => ContactSource::Block {
             kind: world.blocks[i].kind,
+            id: world.blocks[i].id.clone(),
         },
     }
 }
@@ -1337,7 +1338,10 @@ fn first_circle_hit(
                     toi,
                     normal: n,
                     surface_velocity: block.velocity,
-                    source: ContactSource::Block { kind: block.kind },
+                    source: ContactSource::Block {
+                        kind: block.kind,
+                        id: block.id.clone(),
+                    },
                     what: CircleHitTarget::Block { block: bi },
                 });
             }

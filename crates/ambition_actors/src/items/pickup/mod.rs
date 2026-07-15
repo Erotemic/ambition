@@ -71,6 +71,10 @@ impl Plugin for ItemPickupSimulationPlugin {
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 pickup_held_item_system
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                // Touch-to-collect equipment pickups (mushroom / flower). A
+                // sibling collect trigger to the pressed held-item pickup above.
+                crate::items::world_item::collect_world_items
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 fire_held_ranged_system
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 held_projectile_step
@@ -806,7 +810,9 @@ pub fn fire_held_ranged_system(
 #[allow(clippy::too_many_arguments)]
 pub fn held_projectile_step(
     time: Res<ambition_time::WorldTime>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     overlay: Res<crate::features::FeatureEcsWorldOverlay>,
     mut commands: Commands,
     // `Without<FeatureSimEntity>` keeps this `&mut BodyKinematics` disjoint from

@@ -54,6 +54,22 @@ pub(crate) const T: f32 = 32.0;
 /// Ground thickness, in tiles.
 const GROUND_TILES: f32 = 2.0;
 
+/// Tile columns of the ?-blocks (bonk from below for the milk powerup), and how
+/// many tiles above the ground they float. Shared by [`level_1_1`] (which builds
+/// the solid blocks) and [`power_block_id`]/[`power_block_min`] (which derive
+/// their durable [`GeoId`](ae::GeoId) and position) so the level and the powerup
+/// runtime can never disagree on which block is a ?-block or where it is.
+const POWER_BLOCK_COLUMNS: [f32; 2] = [6.0, 30.0];
+const POWER_BLOCK_ROW: f32 = 4.0;
+/// The IntGrid tile layer the ?-blocks are filed under, and the merge ordinal the
+/// first ?-block's [`GeoId`](ae::GeoId) starts at. `solid_tiled` stamps
+/// `GeoId::tile_layer(POWER_BLOCK_LAYER, POWER_BLOCK_BASE_INDEX + i)` — a STABLE
+/// identity the powerup runtime matches a head-bonk contact against (no
+/// point-matching): the engine's `ContactSource::Block` now carries the struck
+/// block's `GeoId`.
+const POWER_BLOCK_LAYER: &str = "mary_o_ground";
+const POWER_BLOCK_BASE_INDEX: u16 = 10;
+
 /// The level's world width and height. Named, rather than inlined into
 /// [`level_1_1`], because [`goal_pole`] must derive the flag's geometry from the
 /// same numbers the flag's BLOCK is built from — see `flag_geometry_oracle`.
@@ -120,6 +136,22 @@ pub fn level_1_1() -> RoomSpec {
         1,
     ));
 
+    // The ?-blocks: SOLID one-tile blocks floating at bonk height. Jump into one
+    // from below and the milk powerup pops out (see `powerups`). They are plain
+    // level geometry here; the powerup runtime recognizes a bonked ?-block by the
+    // durable `GeoId` `solid_tiled` stamps — `power_block_id(i)` re-derives the
+    // SAME id, so the level and the runtime never drift.
+    for i in 0..POWER_BLOCK_COLUMNS.len() {
+        let min = power_block_min(i);
+        blocks.push(ae::Block::solid_tiled(
+            format!("power_block_{i}"),
+            min,
+            ae::Vec2::new(T, T),
+            POWER_BLOCK_LAYER,
+            POWER_BLOCK_BASE_INDEX + i as u16,
+        ));
+    }
+
     // 4. The stair pyramid: four up at x=66.., a gap, four down ending at x=75.
     for step in 1..=4u16 {
         let h = step as f32;
@@ -152,6 +184,28 @@ pub fn level_1_1() -> RoomSpec {
     let mut room = RoomSpec::new(LEVEL_1_1_ROOM_ID, world);
     room.metadata.mode = Some(SMB1_MODE.to_string());
     room
+}
+
+/// The min corner of ?-block `i`, from the SAME constants [`level_1_1`] builds the
+/// `power_block_*` blocks out of — so the powerup runtime pops the milk out at the
+/// exact block it was authored at.
+pub fn power_block_min(i: usize) -> ae::Vec2 {
+    let ground_top = LEVEL_HEIGHT - GROUND_TILES * T;
+    ae::Vec2::new(POWER_BLOCK_COLUMNS[i] * T, ground_top - POWER_BLOCK_ROW * T)
+}
+
+/// The durable [`GeoId`](ae::GeoId) of ?-block `i` — the SAME id `solid_tiled`
+/// stamps in [`level_1_1`], which the engine reports on a head-bonk contact
+/// (`ContactSource::Block`). Matching against this is how the powerup runtime
+/// knows a specific ?-block was struck, with no point-matching.
+pub fn power_block_id(i: usize) -> ae::GeoId {
+    ae::GeoId::tile_layer(POWER_BLOCK_LAYER, POWER_BLOCK_BASE_INDEX + i as u16)
+}
+
+/// If `id` is one of the ?-blocks, its column index — the inverse of
+/// [`power_block_id`]. `None` for any other block the player bonks.
+pub fn power_block_index_for(id: &ae::GeoId) -> Option<usize> {
+    (0..POWER_BLOCK_COLUMNS.len()).find(|&i| power_block_id(i) == *id)
 }
 
 /// The pole's geometry, derived from the SAME constants [`level_1_1`] builds the
@@ -206,6 +260,28 @@ const SMB1_CATALOG_RON: &str = r#"(
             // an AuthoredMovementTuning marker so it comes from HER row, never the
             // shared F3 dev tuning (which defaults air_jumps to 1) — the axis-path
             // analogue of Sanic's authored `momentum`.
+            axis_tuning: Some((air_jumps: 2)),
+            playable_kit: Authored,
+            tags: ["player"],
+        ),
+        // TALL Mary-O: the grown form. A milk-powerup swaps the worn identity to
+        // this row (a distinct SHEET — `super_mary_o_tall` — not a scaled copy of
+        // the small sheet, per Jon), and the powerup runtime bumps her body size so
+        // the taller art draws bigger. Kit is byte-identical to `mary_o` — same
+        // grant list, same triple-jump `axis_tuning` (re-wearing re-reads
+        // `axis_tuning`, so a mismatch here would silently drop a jump on grow) and
+        // the same peaceful Authored kit — so growing changes only her LOOK and
+        // size, never her moveset.
+        "mary_o_tall": (
+            display_name: "Mary-O (Tall)",
+            spritesheet: "sprites/super_mary_o_tall_spritesheet.png",
+            manifest: "sprites/super_mary_o_tall_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            abilities: Some([RunJump, AirJump, WallMobility, FastFall]),
             axis_tuning: Some((air_jumps: 2)),
             playable_kit: Authored,
             tags: ["player"],
@@ -374,6 +450,7 @@ impl Plugin for Smb1RulesPlugin {
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.insert_resource(goal_pole());
+        app.init_resource::<powerups::SpentPowerBlocks>();
         // The cycle emitter writes this; the host's replay consumer drains it. The
         // engine registers it too (`SandboxResetSchedulePlugin`), but a thin host
         // may not, and `add_message` is idempotent — a no-op when already present.
@@ -403,12 +480,23 @@ impl Plugin for Smb1RulesPlugin {
             goomba::bounce_squash_goombas
                 .before(ambition::actors::features::apply_actor_contact_damage),
         );
+        // The powerup rules on the two engine primitives: re-arm the ?-blocks on
+        // (re)load, pop milk on a head-bonk, and keep the tall form in sync with
+        // wearing the cap. The engine's `collect_world_items` (touch → equip) sits
+        // between the bonk and the grow — no demo wiring for it.
+        let powerups = (
+            powerups::refill_power_blocks_on_room_loaded,
+            powerups::bonk_power_blocks,
+            powerups::sync_grown_form,
+        );
         if self.hosted {
             app.add_systems(sim, rules.run_if(ambition::runtime::in_mode(SMB1_MODE)));
             app.add_systems(sim, goombas.run_if(ambition::runtime::in_mode(SMB1_MODE)));
+            app.add_systems(sim, powerups.run_if(ambition::runtime::in_mode(SMB1_MODE)));
         } else {
             app.add_systems(sim, rules);
             app.add_systems(sim, goombas);
+            app.add_systems(sim, powerups);
         }
     }
 }

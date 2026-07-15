@@ -1,0 +1,245 @@
+//! `WorldItem` — a walk-into collectible that grants EQUIPMENT.
+//!
+//! The sibling of [`GroundItem`](super::pickup::GroundItem), split along the
+//! collect TRIGGER the pickup module's `AMBITION_REVIEW(discrete_ok)` note
+//! already anticipated: a `GroundItem` is a *held weapon* grabbed with a
+//! deliberate `Attack` press; a `WorldItem` is *touched* — bare AABB overlap
+//! auto-collects it, the way a mushroom / ring / heart is picked up by running
+//! into it. Its payload is an A3 [`EquipmentRow`], so collecting it routes
+//! through the ONE runtime equip contract
+//! ([`equip_equipment_row`]) a menu equip and a powerup pickup share.
+//!
+//! This is deliberately generic: "a thing in the world you collect to gain a
+//! capability or effect" is universal (Super Mary-O's grow-cap / spark-blossom,
+//! a heart, a power-up). What the row DOES is pure A3 data; this module only
+//! owns "touch it → equip it → it's gone."
+
+use bevy::prelude::*;
+
+use crate::actor::BodyKinematics;
+use crate::platformer_runtime::prelude::SpawnScopedExt;
+use ambition_characters::brain::ActionSet;
+use ambition_characters::equipment::{EquipmentRow, WornEquipment};
+use ambition_combat::moveset::{equip_equipment_row, ActorMoveset};
+use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer_primitives::markers::ControlledSubject;
+
+/// A collectible resting in the world. Touch it (AABB overlap) and its
+/// [`payload`](WorldItem::payload) is applied to the collecting body, then it
+/// despawns. Unlike a [`GroundItem`](super::pickup::GroundItem) there is no
+/// press gate and no held-weapon overlay — a `WorldItem` grants equipment.
+#[derive(Component, Clone, Debug)]
+pub struct WorldItem {
+    pub payload: WorldItemPayload,
+    pub pos: ae::Vec2,
+    pub half_extent: ae::Vec2,
+}
+
+impl WorldItem {
+    /// A collectible that equips `row` when touched.
+    pub fn equipping(row: EquipmentRow, pos: ae::Vec2, half_extent: ae::Vec2) -> Self {
+        Self {
+            payload: WorldItemPayload::Equip(row),
+            pos,
+            half_extent,
+        }
+    }
+
+    /// This item's world-space box.
+    pub fn aabb(&self) -> ae::Aabb {
+        ae::Aabb::new(self.pos, self.half_extent)
+    }
+}
+
+/// What collecting a [`WorldItem`] does. One variant today (equip a row); the
+/// enum is the seam a heal / score / stat pickup extends into.
+#[derive(Clone, Debug, PartialEq)]
+pub enum WorldItemPayload {
+    /// Equip this A3 row on the collecting body (its modifiers/armor fold at
+    /// read time; a granting row also rebuilds the moveset).
+    Equip(EquipmentRow),
+}
+
+/// Spawn a `WorldItem` into the active session, room-scoped so it despawns with
+/// the room (never leaks across a reload) — the same scoping a thrown
+/// [`GroundItem`](super::pickup::GroundItem) uses.
+pub fn spawn_world_item(commands: &mut Commands, item: WorldItem) {
+    commands.spawn_room_scoped((item, Name::new("World item")));
+}
+
+/// **Touch-to-collect.** The [`ControlledSubject`] (the driven body — player or
+/// possessed) collects a `WorldItem` it overlaps: the item's row is equipped
+/// through [`equip_equipment_row`], [`WornEquipment`] is inserted if the body
+/// wore none, a granting row's rebuilt moveset is inserted, and the item is
+/// despawned.
+///
+/// At most one item is collected per frame (`break` after the first, matching
+/// [`pickup_held_item_system`](super::pickup::pickup_held_item_system)); the
+/// demo's items are spatially separated, so "which one, if several overlap" —
+/// the only query-order dependence here — never arises in practice.
+pub fn collect_world_items(
+    mut commands: Commands,
+    controlled: Res<ControlledSubject>,
+    mut bodies: Query<(
+        &BodyKinematics,
+        &mut ActionSet,
+        Option<&mut WornEquipment>,
+        Option<&ActorMoveset>,
+    )>,
+    items: Query<(Entity, &WorldItem)>,
+) {
+    let Some(subject) = controlled.0 else {
+        return;
+    };
+    let Ok((kin, mut action_set, worn, moveset)) = bodies.get_mut(subject) else {
+        return;
+    };
+    let body_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
+    let current = moveset.map(|m| &m.0);
+
+    for (item_entity, item) in &items {
+        if !body_aabb.strict_intersects(item.aabb()) {
+            continue;
+        }
+        match &item.payload {
+            WorldItemPayload::Equip(row) => match worn {
+                // Already wearing a set: equip in place.
+                Some(mut worn) => {
+                    if let Some(rebuilt) =
+                        equip_equipment_row(&mut action_set, &mut worn, current, row.clone())
+                    {
+                        commands.entity(subject).insert(ActorMoveset(rebuilt));
+                    }
+                }
+                // No worn set yet: build one, equip into it, attach it.
+                None => {
+                    let mut fresh = WornEquipment::default();
+                    let rebuilt =
+                        equip_equipment_row(&mut action_set, &mut fresh, current, row.clone());
+                    commands.entity(subject).insert(fresh);
+                    if let Some(rebuilt) = rebuilt {
+                        commands.entity(subject).insert(ActorMoveset(rebuilt));
+                    }
+                }
+            },
+        }
+        commands.entity(item_entity).despawn();
+        break;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_characters::equipment::{EquipmentGrant, OnHit};
+
+    fn kin(pos: ae::Vec2) -> BodyKinematics {
+        BodyKinematics {
+            pos,
+            vel: ae::Vec2::ZERO,
+            size: ae::Vec2::new(28.0, 32.0),
+            facing: 1.0,
+        }
+    }
+
+    /// A plain armor row (grow-cap shape): collecting equips it, the body ends
+    /// up wearing it, and the item is gone.
+    fn armor_row() -> EquipmentRow {
+        EquipmentRow {
+            id: "grow_cap".into(),
+            modifiers: Vec::new(),
+            grants: Vec::new(),
+            on_hit: Some(OnHit::ConsumeAsArmor { downgrade_to: None }),
+        }
+    }
+
+    fn app_with_subject(pos: ae::Vec2) -> (App, Entity) {
+        let mut app = App::new();
+        let body = app
+            .world_mut()
+            .spawn((kin(pos), ActionSet::peaceful()))
+            .id();
+        app.insert_resource(ControlledSubject(Some(body)));
+        app.add_systems(Update, collect_world_items);
+        (app, body)
+    }
+
+    #[test]
+    fn touching_a_world_item_equips_its_row_and_despawns_it() {
+        let (mut app, body) = app_with_subject(ae::Vec2::ZERO);
+        let item = app
+            .world_mut()
+            .spawn(WorldItem::equipping(
+                armor_row(),
+                ae::Vec2::ZERO,
+                ae::Vec2::new(12.0, 12.0),
+            ))
+            .id();
+
+        app.update();
+
+        assert!(
+            app.world().get_entity(item).is_err(),
+            "a touched world item is collected (despawned)"
+        );
+        let worn = app
+            .world()
+            .get::<WornEquipment>(body)
+            .expect("collecting inserts a worn set on a bare body");
+        assert!(worn.wears("grow_cap"), "the row is now worn");
+    }
+
+    #[test]
+    fn a_world_item_out_of_reach_is_not_collected() {
+        let (mut app, body) = app_with_subject(ae::Vec2::ZERO);
+        let item = app
+            .world_mut()
+            .spawn(WorldItem::equipping(
+                armor_row(),
+                ae::Vec2::new(500.0, 0.0),
+                ae::Vec2::new(12.0, 12.0),
+            ))
+            .id();
+
+        app.update();
+
+        assert!(
+            app.world().get_entity(item).is_ok(),
+            "an item the body doesn't overlap stays in the world"
+        );
+        assert!(
+            app.world().get::<WornEquipment>(body).is_none(),
+            "and nothing is equipped"
+        );
+    }
+
+    /// A granting row rebuilds the moveset on collect — the WorldItem primitive
+    /// is the first LIVE caller of the equip contract, so this proves the
+    /// grant path, not just the read-time-only armor path.
+    #[test]
+    fn collecting_a_granting_row_rebuilds_the_moveset() {
+        use ambition_characters::brain::action_set::RangedActionSpec;
+        let (mut app, body) = app_with_subject(ae::Vec2::ZERO);
+        let row = EquipmentRow {
+            id: "spark".into(),
+            modifiers: Vec::new(),
+            grants: vec![EquipmentGrant::Ranged(RangedActionSpec::Bolt {
+                speed: 400.0,
+                damage: 5,
+            })],
+            on_hit: None,
+        };
+        app.world_mut().spawn(WorldItem::equipping(
+            row,
+            ae::Vec2::ZERO,
+            ae::Vec2::new(12.0, 12.0),
+        ));
+
+        app.update();
+
+        assert!(
+            app.world().get::<ActorMoveset>(body).is_some(),
+            "a granting row's collect installs a rebuilt moveset"
+        );
+    }
+}

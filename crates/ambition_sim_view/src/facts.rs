@@ -119,6 +119,35 @@ pub fn rebuild_ground_items_view(
     }));
 }
 
+/// Every walk-into world item's visual facts (position, box, the row it grants —
+/// so the renderer can pick an icon/tint per pickup).
+#[derive(Resource, Default, Clone, Debug)]
+pub struct WorldItemsView(pub Vec<WorldItemFact>);
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct WorldItemFact {
+    pub pos: ae::Vec2,
+    pub half_extent: ae::Vec2,
+    /// The equipment row id the item grants (e.g. `"grow_cap"`), used only to
+    /// choose the visual. An empty string if the payload has no id.
+    pub row_id: String,
+}
+
+pub fn rebuild_world_items_view(
+    mut view: ResMut<WorldItemsView>,
+    items: Query<&ambition_actors::items::world_item::WorldItem>,
+) {
+    use ambition_actors::items::world_item::WorldItemPayload;
+    view.0.clear();
+    view.0.extend(items.iter().map(|item| WorldItemFact {
+        pos: item.pos,
+        half_extent: item.half_extent,
+        row_id: match &item.payload {
+            WorldItemPayload::Equip(row) => row.id.clone(),
+        },
+    }));
+}
+
 /// Every in-flight held shot (gun-sword laser / fireball).
 #[derive(Resource, Default, Clone, Debug)]
 pub struct HeldShotsView(pub Vec<HeldShotFact>);
@@ -489,7 +518,9 @@ pub struct BlinkPreviewFact {
 #[allow(clippy::type_complexity)]
 pub fn rebuild_blink_preview_fact(
     mut fact: ResMut<BlinkPreviewFact>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     mode: Res<bevy::prelude::State<ambition_platformer_primitives::schedule::GameMode>>,
     scene: Res<ambition_platformer_primitives::lifecycle::SceneEntities>,
@@ -565,6 +596,7 @@ impl Plugin for SimViewPlugin {
         app.init_resource::<PlayerHudFacts>()
             .init_resource::<HeldItemView>()
             .init_resource::<GroundItemsView>()
+            .init_resource::<WorldItemsView>()
             .init_resource::<HeldShotsView>()
             .init_resource::<MarkBeaconsView>()
             .init_resource::<GravitySwitchesView>()
@@ -587,6 +619,7 @@ impl Plugin for SimViewPlugin {
                 rebuild_player_hud_facts,
                 rebuild_held_item_view,
                 rebuild_ground_items_view,
+                rebuild_world_items_view,
                 rebuild_held_shots_view,
                 rebuild_mark_beacons_view,
                 rebuild_gravity_switches_view,

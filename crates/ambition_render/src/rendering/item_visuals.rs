@@ -147,7 +147,9 @@ fn item_sprite(art: &ItemArt, spec_id: &str) -> Option<(Handle<Image>, Vec2)> {
 
 pub fn sync_ground_item_visuals(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     art: Option<Res<ItemArt>>,
     active_session: Option<Res<ActiveSessionScope>>,
     visuals: Query<Entity, With<GroundItemVisual>>,
@@ -186,6 +188,50 @@ pub fn sync_ground_item_visuals(
     }
 }
 
+/// Marks a sprite entity visualizing a [`WorldItem`](ambition_actors::items::world_item::WorldItem).
+#[derive(Component)]
+pub struct WorldItemVisual;
+
+/// A colored quad per walk-into world item so it's visible, tinted by the row it
+/// grants (grow-cap = cream, spark-blossom = ember, unknown = magenta). Draw-blind
+/// v1 art; swap in a real icon by matching `row_id` here once one is generated.
+/// Clear-and-rebuild each frame — few items — mirroring [`sync_ground_item_visuals`].
+pub fn sync_world_item_visuals(
+    mut commands: Commands,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
+    active_session: Option<Res<ActiveSessionScope>>,
+    visuals: Query<Entity, With<WorldItemVisual>>,
+    items: Res<ambition_sim_view::WorldItemsView>,
+) {
+    for entity in &visuals {
+        commands.entity(entity).despawn();
+    }
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
+    for item in &items.0 {
+        let translation = ambition_engine_core::config::world_to_bevy(&world.0, item.pos, 8.0);
+        let color = match item.row_id.as_str() {
+            "grow_cap" => Color::srgb(0.95, 0.93, 0.82),
+            "spark_blossom" => Color::srgb(0.95, 0.55, 0.20),
+            _ => Color::srgb(0.90, 0.20, 0.80),
+        };
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                WorldItemVisual,
+                Sprite::from_color(color, item.half_extent * 2.0),
+                Transform::from_translation(translation),
+                Name::new("World item visual"),
+            ),
+        );
+    }
+}
+
 /// Marks the sprite shown in the player's hand for the currently held item.
 #[derive(Component)]
 pub struct HeldItemVisual;
@@ -201,7 +247,9 @@ pub struct HeldItemVisual;
 /// input, so a possessed body's ranged item points where THAT body aims.
 pub fn sync_held_item_visual(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     art: Option<Res<ItemArt>>,
     active_session: Option<Res<ActiveSessionScope>>,
     held_view: Res<HeldItemView>,
@@ -297,7 +345,9 @@ pub struct HeldProjectileVisual;
 pub fn sync_held_projectile_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     active_session: Option<Res<ActiveSessionScope>>,
     visuals: Query<Entity, With<HeldProjectileVisual>>,
     shots: Res<HeldShotsView>,

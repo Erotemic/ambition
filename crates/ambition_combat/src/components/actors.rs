@@ -355,9 +355,10 @@ pub enum AggressionTarget {
 /// This is THE swing state for EVERY body — the human player and every
 /// brain-driven actor — so a swing's lifecycle (startup → active → recovery),
 /// per-swing hit dedup, and pogo bookkeeping have a single definition. The spec
-/// is stored already rotated into the body's world frame (the player does this
-/// at `start_attack`; an actor at `begin_melee_attack`), so `phase_at(elapsed)`
-/// and the hitbox geometry are read directly without re-rotating.
+/// is stored already rotated into the body's world frame (the moveset resolves
+/// the move's authored volumes into the gravity frame at spawn), so
+/// `phase_at(elapsed)` and the hitbox geometry are read directly without
+/// re-rotating.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MeleeSwing {
     /// Resolved swing parameters in WORLD frame (timing, reach, knockback, art).

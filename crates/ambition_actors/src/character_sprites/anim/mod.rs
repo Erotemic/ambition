@@ -335,12 +335,10 @@ pub fn pick_player_anim(
     v.blink_in = blink_cam.blink_in_timer > 0.0;
     v.shooting = anim.shoot_anim_timer > 0.0;
     // Gate the attack row on the live swing's PHASE (startup/active), the same
-    // read `pick_actor_anim` uses — NOT the flat `slash_anim_timer`. A
-    // `MovesetMelee` body (the player is one) drives its swing through the moveset
-    // runtime, which projects `BodyMelee.swing` but never arms `slash_anim_timer`
-    // (that timer is set only by the flat `start_attack`, which moveset bodies
-    // skip). Reading the timer left the player stuck on its locomotion row for the
-    // whole swing; the phase read works for both the moveset and flat paths.
+    // read `pick_actor_anim` uses — NOT `slash_anim_timer`. Every body melees
+    // through the moveset runtime, which projects `BodyMelee.swing` but never arms
+    // `slash_anim_timer`, so reading the timer left the body stuck on its
+    // locomotion row for the whole swing; the phase read is the melee row source.
     v.melee_attack = attack
         .filter(|s| {
             matches!(

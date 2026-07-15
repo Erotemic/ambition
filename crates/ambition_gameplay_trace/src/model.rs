@@ -143,10 +143,9 @@ pub struct PlayerTraceState {
     /// A positive value means a recent hit; useful for confirming
     /// whether contact damage fired (the thing that SETS hitstun).
     pub damage_invuln_timer: f32,
-    /// Whether the `attack` ability is enabled in the player's
-    /// `AbilitySet`. `start_attack` early-returns when this is false, so
-    /// a disabled attack ability is another way the swing can silently
-    /// not fire.
+    /// Whether the `attack` ability is enabled in the body's `AbilitySet`.
+    /// A disabled attack ability is another way the swing can silently not fire
+    /// (the moveset trigger only starts an `"attack"` move for a capable body).
     pub attack_ability_enabled: bool,
 }
 

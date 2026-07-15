@@ -426,54 +426,11 @@ pub fn spawn_melee_hitbox(
         .id()
 }
 
-/// THE ONE melee strike spawn — every body (player AND brain-driven actor) turns
-/// its active-frame swing into a damage hitbox AND its slash VFX through this one
-/// function, from a SINGLE gravity-resolved `world_box`. Because the hitbox and
-/// the slash are both derived from that one box, they can NEVER point in different
-/// directions (the bug where the player's screen-axis hitbox diverged from its
-/// gravity-rotated slash under rotated gravity). Debug the box once, here, and it
-/// is right for every character under every gravity.
-///
-/// `world_box` is the strike's damage AABB already rotated into the body's world
-/// frame (so it lands toward "forward" under any gravity). `knock_x` is the signed
-/// slash impulse (Player strikes); `knockback_strength` the aggressor push.
-#[allow(clippy::too_many_arguments)]
-pub fn spawn_melee_strike(
-    commands: &mut Commands,
-    vfx: &mut MessageWriter<VfxMessage>,
-    owner: Entity,
-    source: ActorFaction,
-    body_pos: ae::Vec2,
-    world_box: ae::Aabb,
-    damage: i32,
-    knockback_strength: f32,
-    knock_x: f32,
-    active_s: f32,
-    slash_kind: ambition_vfx::vfx::SlashKind,
-    frame_down: ae::Vec2,
-) -> Entity {
-    let local_offset = world_box.center() - body_pos;
-    let entity = spawn_melee_hitbox(
-        commands,
-        owner,
-        source,
-        local_offset,
-        world_box.half_size(),
-        damage,
-        knockback_strength,
-        knock_x,
-        active_s,
-        frame_down,
-    );
-    crate::util::emit_melee_slash(
-        vfx,
-        world_box.center(),
-        world_box.half_size(),
-        slash_kind,
-        local_offset,
-    );
-    entity
-}
+// The former `spawn_melee_strike` (hitbox + slash from one gravity-resolved box,
+// the flat player+actor melee path's strike spawn) is deleted: melee is a moveset
+// move now, and `advance_move_playback` spawns its own richer window-scoped strike
+// (convex authored blades, per-window multi-volumes, charge scaling, on-hit
+// techniques) inline. `spawn_melee_hitbox` above remains as the low-level primitive.
 
 #[cfg(test)]
 mod tests;

@@ -563,11 +563,11 @@ pub(crate) fn spawn_breakable(
     if breakable.pogo_refresh
         || (breakable.collision.blocks_movement() && breakable.trigger.allows_stand())
     {
-        // `PogoTargetContributor` feeds the flat player pogo (world `PogoOrb`
-        // blocks); `PogoTarget` makes the SAME breakable an on-hit pogo target
-        // for a moveset down-air — victim-pogo and world-orb pogo under one
-        // capability (fable review R2.5). A factionless breakable is eligible
-        // via the capability alone (`dispatch_hitbox_on_hit`).
+        // `PogoTargetContributor` feeds the world-orb pogo (`PogoOrb` collision
+        // blocks, reached by `pogo_moveset_off_world_orbs`); `PogoTarget` makes the
+        // SAME breakable an on-hit pogo target for a moveset down-air — victim-pogo
+        // and world-orb pogo under one capability (fable review R2.5). A factionless
+        // breakable is eligible via the capability alone (`dispatch_hitbox_on_hit`).
         entity.insert((PogoTargetContributor, crate::combat::on_hit::PogoTarget));
     }
 }

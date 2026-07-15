@@ -236,8 +236,8 @@ fn _silence_action_set_import(_: ActionSet) {}
 // (`melee_message_starts_enemy_windup_and_cooldown`,
 // `melee_message_can_start_windup_for_dismounted_pirate_heavy`,
 // `melee_message_during_cooldown_is_dropped`) exercised the deleted
-// actor-only `start_enemy_melee_from_brain_actions`. The unified
-// `combat::attack::start_body_melee` phase now owns melee-start for every body;
+// actor-only `start_enemy_melee_from_brain_actions`. Melee-start is a moveset
+// `"attack"` move for every body now (`combat::moveset::trigger_moveset_moves`);
 // it is pinned through the REAL schedule by
 // `ambition_app/tests/enemy_attacks_player.rs` (actor melee lands on the player),
 // `possession_end_to_end.rs` (possessed actor melee), and the body-generic

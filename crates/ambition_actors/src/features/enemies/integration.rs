@@ -152,11 +152,11 @@ impl<'a> ActorMut<'a> {
             );
         }
 
-        // Melee is NOT advanced here anymore. The body-generic `advance_body_melee`
-        // phase (Combat set) ticks EVERY body's `BodyMelee` swing + cooldown floors
-        // and spawns the active-edge strike, so movement integration owns movement
-        // only. The AI reads `self.attack` as of the previous frame's advance — a
-        // consistent one-frame view, no double-tick.
+        // Melee is NOT advanced here. A body's swing is a moveset `"attack"` move
+        // (Combat set): `advance_move_playback` ticks it on the owner's proper time
+        // and spawns the active-window strike, so movement integration owns movement
+        // only. The AI reads `self.attack` (the projected `BodyMelee` read-model) as
+        // of the previous frame's advance — a consistent one-frame view.
         let _ = tuning.enemy_attack_active;
 
         let ai = evaluate_enemy_ai_output(
@@ -383,12 +383,11 @@ impl<'a> ActorMut<'a> {
         )
     }
 
-    // `begin_melee_attack` is deleted. A body's melee swing is now begun by the
-    // body-generic `combat::attack::start_body_melee` phase (which resolves the
-    // swing through the SAME `attack_spec_from_view` pipeline the player uses and
-    // arms the recovery cooldown from the body's authored
-    // `ENEMY_ATTACK_COOLDOWN * attack_cooldown_mult`), and advanced/spawned by
-    // `advance_body_melee` — one melee lifecycle for every body.
+    // `begin_melee_attack` is deleted. A body's melee swing is a moveset
+    // `"attack"` move: the brain's `melee_pressed` edge starts it via
+    // `combat::moveset::trigger_moveset_moves` and `advance_move_playback` spawns
+    // the active-window strike — one melee lifecycle for every body, paced by the
+    // move's own duration rather than a separate recovery cooldown.
 
     pub fn body_damage_aabb(&self) -> Option<ae::Aabb> {
         if !self.config.tuning.body_contact_damage {

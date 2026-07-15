@@ -19,8 +19,10 @@ use super::*;
 ///
 /// The forward hit volume is a body-local rect sized from the spec's `reach_px`
 /// (offset a bit past the body, half-extent covering the reach + a torso-height
-/// band). Knockback is a sensible default; directional variants (up/down/air) and
-/// pogo remain on the flat player path for now (bulk-review: player-melee fold).
+/// band). Knockback is a sensible default. This base swing is the `"attack"`
+/// verb; the up/down-tilt, the four aerials, and the pogo down-air are DERIVED
+/// from it by [`directional_attack_variants`] — every direction runs through the
+/// moveset (there is no flat player melee path anymore).
 pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
     let (windup, active, recover, damage, reach) = spec.timeline();
     // The authored-melee path is now a thin adapter over the `simple_melee`

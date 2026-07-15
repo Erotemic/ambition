@@ -510,8 +510,9 @@ pub fn touching_rebound_aabb(world: &World, aabb: crate::Aabb) -> Option<Vec2> {
 }
 
 // `try_pogo_clusters` (the probe-based engine pogo) was removed 2026-06-16 — it
-// was a redundant duplicate of the sandbox hitbox pogo (`advance_attack`), which
-// detects the target with the real attack hitbox and bounces gravity-relatively.
+// was a redundant duplicate of the hitbox pogo, which detects the target with the
+// real attack hitbox and bounces gravity-relatively. That pogo now lives on the
+// moveset down-air (on-hit technique + `pogo_moveset_off_world_orbs`).
 
 #[cfg(test)]
 mod tests {

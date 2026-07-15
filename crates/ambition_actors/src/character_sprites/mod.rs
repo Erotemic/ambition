@@ -33,7 +33,7 @@ pub use ambition_sprite_sheet::{baked_sheet_registry, SheetRegistryPlugin};
 pub use anim::{pick_actor_anim, pick_player_anim, ActorAnimState, CharacterAnim};
 #[allow(
     unused_imports,
-    reason = "manifest_attack_hitbox_world is the reusable core; player_attack_hitbox_world is the live consumer (ambition_app advance_attack)."
+    reason = "manifest_attack_hitbox_world is the reusable core; player_attack_hitbox_world is the live consumer (the debug-overlay hitbox source)."
 )]
 pub use attack_hitbox::{
     actor_attack_hitbox_world, authored_attack_volume_resolver, manifest_attack_hitbox_world,

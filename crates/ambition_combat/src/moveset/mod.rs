@@ -73,13 +73,14 @@ mod prefabs;
 
 pub use prefabs::*;
 
-/// Marker: this body's basic melee swing is a data-driven moveset `"attack"`
-/// move, not the flat `BodyMelee` swing. The flat-melee phases
-/// (`start_body_melee` / `advance_body_melee`'s swing logic) SKIP a body carrying
-/// this marker — its swing is triggered by [`trigger_moveset_moves`] and run by
-/// [`advance_move_playback`], and its `BodyMelee` read-model is projected from the
-/// live [`MovePlayback`] by [`project_moveset_melee_to_body_melee`] so every
-/// existing consumer (actor anim index, view/telegraph index, HUD) keeps working.
+/// Marker: this body has a melee swing as a data-driven moveset `"attack"` move
+/// (the ONLY melee path — the flat `BodyMelee` driver is gone). The swing is
+/// triggered by [`trigger_moveset_moves`], run by [`advance_move_playback`], and
+/// its `BodyMelee` read-model is projected from the live [`MovePlayback`] by
+/// [`project_moveset_melee_to_body_melee`] so every consumer (actor anim index,
+/// view/telegraph index, HUD) keeps reading the same shape. Every body whose
+/// `ActionSet.melee` is `Some` carries this marker; it gates the projection
+/// query so a body with no attack move publishes no phantom swing.
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct MovesetMelee;
 
@@ -260,8 +261,8 @@ pub fn advance_move_playback(
     mut events: MessageWriter<MoveEventMessage>,
     // §7.2: a vfx-tagged volume draws its slash FROM the spawned hitbox
     // geometry — one box drives damage AND presentation, so they can never
-    // point different ways (the `spawn_melee_strike` invariant, restored onto
-    // the moveset path).
+    // point different ways (the one-box-drives-damage-and-slash invariant; this
+    // is the sole melee strike path).
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut players: Query<(
         Entity,
@@ -336,9 +337,8 @@ pub fn advance_move_playback(
             match (inside, live_slot) {
                 (true, None) => {
                     // Authored volume offsets are BODY-LOCAL (side, down); rotate
-                    // them through the owner's gravity frame at spawn — the same
-                    // resolution `spawn_melee_strike` performs — so an authored
-                    // above-the-head volume stays above the head under any
+                    // them through the owner's gravity frame at spawn — so an
+                    // authored above-the-head volume stays above the head under any
                     // gravity (fable review 2026-07-02 §B1: the unrotated form
                     // spawned it screen-up, into a sideways body's ceiling).
                     let body_frame = owner_frames
@@ -443,8 +443,8 @@ pub fn advance_move_playback(
                             frame_down,
                         };
                         // §7.2: the slash VFX rides the SAME resolved volume the
-                        // damage does (the `spawn_melee_strike` invariant) —
-                        // emitted once at the Active edge.
+                        // damage does (one box drives both) — emitted once at the
+                        // Active edge.
                         if let Some(tag) = &volume.vfx {
                             let kind = if tag == SLASH_POKE_VFX {
                                 ambition_vfx::vfx::SlashKind::Poke
@@ -513,9 +513,8 @@ pub fn advance_move_playback(
 /// facing), so the horizontal arm folds facing in: `axis.x * facing` is the
 /// forward/back projection. Without this, pressing toward the way you just turned
 /// (move left → `axis.x < 0` while `facing = -1`) misreads as `Back` and fires
-/// the aerial back-attack in the wrong direction. This is the SAME transform the
-/// flat path (`resolve_attack_intent_from_view`) and the aim helper
-/// (`compute_aim`) already apply. The vertical arm is gravity-local (Up = toward
+/// the aerial back-attack in the wrong direction. This is the SAME transform
+/// `resolve_attack_intent_from_view` and the aim helper (`compute_aim`) apply. The vertical arm is gravity-local (Up = toward
 /// the head under ANY gravity), so `y < 0` is Up with no facing term. Vertical
 /// wins ties so a clear up/down aim beats slight horizontal drift.
 pub fn attack_dir_from_axis(axis: ae::Vec2, facing: f32) -> AttackDir {
@@ -831,11 +830,11 @@ pub fn dispatch_move_events(
 /// [`advance_move_playback`], so this writes NO gameplay — it is purely the
 /// read-model the flat `BodyMelee` swing used to publish. A body with no live move
 /// has its projected swing cleared (its cooldown floors still tick in
-/// `advance_body_melee`).
+/// `tick_body_melee_cooldowns`).
 ///
-/// Runs AFTER `advance_move_playback` (so `t` is current) and after
-/// `advance_body_melee` (which skips `MovesetMelee` bodies' swing logic), making
-/// this the SOLE writer of a `MovesetMelee` body's swing.
+/// Runs AFTER `advance_move_playback` (so `t` is current). It is the SOLE writer
+/// of a `MovesetMelee` body's swing — there is no flat melee driver competing for
+/// it anymore.
 pub fn project_moveset_melee_to_body_melee(
     mut bodies: Query<(Option<&MovePlayback>, &mut BodyMelee), With<MovesetMelee>>,
 ) {

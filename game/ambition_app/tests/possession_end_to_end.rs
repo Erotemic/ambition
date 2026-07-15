@@ -149,9 +149,9 @@ fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
     };
 
     // Hold Attack across a window. The possessed actor carries Brain::Player, so
-    // its melee ActionSet resolves an ActorActionMessage::Melee addressed to
-    // ITSELF, which enters the ONE body melee lifecycle (`start_body_melee` →
-    // `advance_body_melee`) and, at the active edge, spawns a strike it OWNS. The
+    // its `melee_pressed` edge starts its `"attack"` moveset move (the ONE body
+    // melee lifecycle: `trigger_moveset_moves` → `advance_move_playback`) and, at
+    // the active window, spawns a strike it OWNS. The
     // vacated home avatar has no player brain, so its melee never engages and it
     // owns no strike. Observed over a window (not one frame) to be robust to the
     // fixed-timestep catch-up.

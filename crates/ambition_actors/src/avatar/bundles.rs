@@ -73,12 +73,12 @@ pub struct PlayerSimulationBundle {
     /// The player's melee as DATA (fable review R2.5 / I7): the controlled
     /// character's own swing, DERIVED into directional variants by
     /// `build_actor_moveset`, run through the SAME moveset runtime every actor
-    /// uses. `MovesetMelee` makes the flat swing (`start_body_melee`) skip this
-    /// body. Built from `action_set.melee`, so whatever character the player
-    /// wears defines the melee — the non-player-centric / relativity principle:
-    /// human, brain, or RL all attach to the same character behavior. Ranged
-    /// stays on the player's charge system (`None` here), specials on the
-    /// `Special` channel — `MovesetMelee` folds only the melee.
+    /// uses — the ONLY melee path (there is no flat player melee driver). Built
+    /// from `action_set.melee`, so whatever character the player wears defines the
+    /// melee — the non-player-centric / relativity principle: human, brain, or RL
+    /// all attach to the same character behavior. Ranged stays on the player's
+    /// charge system (`None` here), specials on the `Special` channel —
+    /// `MovesetMelee` marks the melee-swing move.
     pub moveset: crate::combat::moveset::ActorMoveset,
     pub moveset_melee: crate::combat::moveset::MovesetMelee,
     pub actor_control: ActorControl,

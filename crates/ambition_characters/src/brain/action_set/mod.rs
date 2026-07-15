@@ -778,12 +778,12 @@ pub fn resolve(
 ) -> Vec<ActionRequest> {
     let mut out = Vec::with_capacity(2);
     // A melee swing is triggered by the attack button OR the DEDICATED POGO button:
-    // pogo is the air-down variant of the same swing (its intent is resolved to
-    // `AirDown`/`can_pogo` downstream in `start_attack` from `frame.pogo_pressed`).
+    // pogo is the air-down variant of the same swing (the moveset resolves it to the
+    // `attack_air_down` move carrying the pogo on-hit technique from `pogo_pressed`).
     // Without the pogo trigger here the dedicated pogo button would emit no melee
-    // message, so `start_body_melee` would never start the swing that carries the
-    // bounce — the pogo-owned-by-the-sandbox-hitbox contract. AI brains never set
-    // `pogo_pressed`, so this only ever fires for a player-controlled body.
+    // message, so the moveset `"attack"` trigger would never start the swing that
+    // carries the bounce. AI brains never set `pogo_pressed`, so this only ever
+    // fires for a player-controlled body.
     if frame.melee_pressed || frame.pogo_pressed {
         if let Some(spec) = actions.melee {
             out.push(ActionRequest::Melee {

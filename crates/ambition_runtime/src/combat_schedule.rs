@@ -11,7 +11,7 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::features::ecs::attack::{advance_body_melee, start_body_melee};
+use ambition_actors::features::ecs::attack::tick_body_melee_cooldowns;
 use ambition_platformer_primitives::schedule::SimScheduleExt;
 use ambition_platformer_primitives::schedule::{gameplay_allowed, CombatSet, SandboxSet};
 
@@ -52,26 +52,17 @@ impl Plugin for CombatSchedulePlugin {
         app.add_systems(
             sim,
             (
-                // ONE body-generic melee lifecycle for EVERY body (player,
-                // possessed actor, autonomous hostile). `advance_body_melee` ticks
-                // every body's in-flight swing + cooldown floors and spawns the
-                // active-edge strike through the shared `spawn_melee_strike`;
-                // `start_body_melee` (chained after) turns each
-                // `ActorActionMessage::Melee` into a NEW swing on `msg.actor`.
-                // ADVANCE-before-START (like the old actor path, whose advance ran a
-                // phase earlier than its start) so a swing born THIS frame lives a
-                // full frame before it is first advanced — dt-robust regardless of
-                // the sim step size. Replaces the deleted player-only
-                // `attack_advance_system` AND actor-only
-                // `start_enemy_melee_from_brain_actions` + the inline
-                // `update_ecs_actors` edge-spawn — no player driver / actor driver
-                // split. Both run after `emit_brain_action_messages` (post-WorldPrep)
-                // and after all body movement (WorldPrep actors + PlayerSimulation).
-                (
-                    advance_body_melee.run_if(gameplay_allowed),
-                    start_body_melee.run_if(gameplay_allowed),
-                )
-                    .chain(),
+                // Melee is ONE path: a `"attack"`-verb moveset move (triggered by
+                // `trigger_moveset_moves`, advanced by `advance_move_playback`,
+                // projected back to `BodyMelee` for the read-model). No flat player
+                // or actor melee driver survives. What's left on `BodyMelee` is the
+                // cooldown FLOORS — the ranged refire floor (`ranged_cooldown`, I3)
+                // and the legacy melee-recovery floor — which this decrements every
+                // frame for every body (a ranged body freezes after one shot without
+                // it). The strike-spawning `advance_body_melee` / `start_body_melee`
+                // are deleted; this is only their surviving cooldown tick.
+                ambition_actors::features::ecs::attack::tick_body_melee_cooldowns
+                    .run_if(gameplay_allowed),
                 // EFFECTS-stage consumer: reads ActorActionMessage::Ranged
                 // emitted upstream by `emit_brain_action_messages`
                 // (PlayerInput set) and spawns enemy projectiles. Runs
@@ -245,7 +236,7 @@ impl Plugin for CombatSchedulePlugin {
             sim,
             (
                 CombatSet::ContentSpecials
-                    .after(start_body_melee)
+                    .after(tick_body_melee_cooldowns)
                     .before(ambition_vfx::apply_effects)
                     .in_set(SandboxSet::Combat),
                 CombatSet::ContentFlavor

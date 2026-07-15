@@ -152,8 +152,8 @@ fn resolve_returns_predictable_request_count_per_intent_subset() {
 #[test]
 fn resolve_emits_a_melee_request_for_a_dedicated_pogo_press() {
     // Regression: the DEDICATED pogo button (`pogo_pressed`, no `melee_pressed`)
-    // must resolve to a Melee request so `start_body_melee` starts the swing that
-    // carries the bounce — the pogo is the air-down variant of the same swing
+    // must resolve to a Melee request so the moveset `"attack"` trigger starts the
+    // swing that carries the bounce — the pogo is the air-down variant of the swing
     // (resolved to AirDown downstream from `pogo_pressed`). Dropping this made the
     // dedicated pogo button dead after the melee-unification (gravity_symmetry's
     // pogo test caught it end-to-end).

@@ -1,19 +1,18 @@
-//! ONE melee lifecycle for every body — the convergence proof for the
-//! melee-driver unification. There is no longer a player melee driver
-//! (`attack_advance_system`) and an actor melee driver
-//! (`start_enemy_melee_from_brain_actions` + the inline `update_ecs_actors`
-//! active-edge spawn). Instead, EVERY body — the human player, a possessed actor,
-//! an autonomous hostile — runs the SAME two body-generic phases through the real
-//! schedule:
+//! ONE melee lifecycle for every body — the convergence proof for the melee
+//! unification. There is no player melee driver and no actor melee driver, and no
+//! flat melee state machine at all: melee is a `"attack"`-verb MOVESET move for
+//! EVERY body — the human player, a possessed actor, an autonomous hostile — run
+//! through the real schedule:
 //!
-//!   `ActorActionMessage::Melee` (from `emit_brain_action_messages`)
-//!     → `combat::attack::start_body_melee`  (begins the ONE `BodyMelee` swing)
-//!     → `combat::attack::advance_body_melee` (ticks it, spawns the active-edge
-//!        strike through the shared `spawn_melee_strike`, owned by the body)
+//!   `melee_pressed` (control edge, any brain)
+//!     → `combat::moveset::trigger_moveset_moves`   (starts the `"attack"` move)
+//!     → `combat::moveset::advance_move_playback`   (spawns the active-window
+//!        strike + slash, owned by the body, on the owner's proper-time clock)
+//!     → `project_moveset_melee_to_body_melee`      (`BodyMelee` read-model)
 //!
 //! This pins, through `SandboxSim::step`, that BOTH the player and an autonomous
-//! hostile actor enter that identical `BodyMelee` lifecycle and own the strike
-//! their swing spawns. The possessed-actor case is pinned by
+//! hostile actor enter that identical melee lifecycle and own the strike their
+//! swing spawns. The possessed-actor case is pinned by
 //! `possession_end_to_end.rs`; the peaceful-NPC-with-kit case is the same path
 //! gated by its ActionSet (capability) + brain (policy) — a peaceful brain never
 //! presses attack, but a possessing human drives the identical lifecycle.
@@ -175,9 +174,9 @@ fn hostile_body_present(world: &mut World, feature_id: &str) -> bool {
     q.iter(world).any(|(f, _)| f.as_str() == feature_id)
 }
 
-/// The PLAYER's own melee now flows through the body-generic lifecycle (the
-/// deleted `attack_advance_system` is gone): pressing Attack engages its
-/// `BodyMelee` and spawns a strike it OWNS.
+/// The PLAYER's own melee flows through the moveset lifecycle (no flat melee
+/// driver exists): pressing Attack starts its `"attack"` move, projects a
+/// `BodyMelee` swing, and spawns a strike it OWNS.
 #[test]
 fn the_player_enters_the_body_melee_lifecycle_and_owns_its_strike() {
     let _guard = UNIFIED_MELEE_TEST_LOCK
@@ -200,12 +199,11 @@ fn the_player_enters_the_body_melee_lifecycle_and_owns_its_strike() {
 
     assert!(
         engaged,
-        "the player's BodyMelee lifecycle engages on Attack (via start_body_melee)"
+        "the player's BodyMelee lifecycle engages on Attack (via trigger_moveset_moves)"
     );
     assert!(
         owns_strike,
-        "the player's swing spawns a strike hitbox it OWNS (via advance_body_melee \
-         → spawn_melee_strike)"
+        "the player's swing spawns a strike hitbox it OWNS (via advance_move_playback)"
     );
 }
 

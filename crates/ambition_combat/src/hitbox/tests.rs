@@ -531,12 +531,12 @@ fn player_faction_hitbox_only_fires_once() {
     );
 }
 
-/// The unified player MELEE strike: a Player-faction FollowOwner hitbox owned by
-/// a body that has NO `CenteredAabb` (the player carries `BodyKinematics`) emits a
-/// `PlayerSlash` Volume hit each active tick, carrying the strike's signed
-/// `knock_x`, gated on the owner having an armed `MeleeSwing`. This is the path
-/// `advance_attack` now spawns through (replacing the per-frame Volume emit) — it
-/// pins owner-pos-via-kinematics + knock_x carriage + the swing gate.
+/// The player MELEE strike resolver path: a Player-faction FollowOwner hitbox
+/// owned by a body that has NO `CenteredAabb` (the player carries `BodyKinematics`)
+/// emits a `PlayerSlash` Volume hit each active tick, carrying the strike's signed
+/// `knock_x`, gated on the owner having an armed `MeleeSwing` (the moveset-projected
+/// read-model). Pins owner-pos-via-kinematics + knock_x carriage + the swing gate
+/// in `apply_hitbox_damage`.
 #[test]
 fn player_followowner_melee_strike_emits_player_slash_with_knock_x() {
     let mut app = App::new();

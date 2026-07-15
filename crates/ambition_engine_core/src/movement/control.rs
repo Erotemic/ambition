@@ -119,10 +119,11 @@ pub fn handle_blink_clusters(
 
 /// Cluster-ref attack handler used by `update_player_control_with_clusters`.
 ///
-/// Pogo (the dedicated button AND the air down-attack) is owned by the sandbox
-/// attack system (`advance_attack`), which detects the target with the real
-/// attack hitbox and bounces gravity-relatively. The engine here only applies the
-/// slash recoil + records the combo op for a plain melee press. The old
+/// Pogo (the dedicated button AND the air down-attack) is owned by the moveset
+/// down-air: the on-hit pogo technique (`dispatch_hitbox_on_hit`) for entity/
+/// breakable victims and `pogo_moveset_off_world_orbs` for world `PogoOrb` blocks,
+/// both bouncing gravity-relatively off the move's real hitbox. The engine here
+/// only applies the slash recoil + records the combo op for a plain melee press. The old
 /// probe-based `try_pogo_clusters` was a redundant second pogo mechanism (same
 /// `world.blocks` check, same `set_jump_velocity`, same `PogoBounce` event) and
 /// was removed (2026-06-16).

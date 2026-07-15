@@ -72,8 +72,10 @@ concern, plus this map), not by more crates.
   one kernel entry writes them: `ae::step_motion`. The player
   tick and `update_ecs_actors` are two Bevy systems calling the SAME body tick.
   Do not add a third.
-- **A body's melee** is `BodyMelee` / `MeleeSwing`, spawned through
-  `combat::hitbox::spawn_melee_strike` — ONE seam for the player and every actor.
+- **A body's melee** is a `"attack"`-verb moveset move (`combat::moveset`) for
+  every body — triggered by `trigger_moveset_moves`, struck by
+  `advance_move_playback`, and projected back into `BodyMelee` / `MeleeSwing` as
+  the anim/HUD read-model. ONE melee path; no player/actor driver split.
 - **Who the human is driving** is `ControlledSubject` (the entity carrying
   `Brain::Player(slot)`), never a possession flag and never `PrimaryPlayer`.
   `PrimaryPlayer` means *slot 0's own body*, which is a different question; every

@@ -245,16 +245,24 @@ impl EnemyActorSpawnPlan {
         let action_set = enemy_default_action_set(&enemy.spec);
         let combat_kit = enemy_combat_kit_for_spec(&enemy.spec);
         let held_item = super::brain_builders::held_item_for_spec(&enemy.spec);
-        // The character's signature moves AND its basic melee swing are authored on
-        // its archetype (data); `build_actor_moveset` folds both into ONE moveset —
+        // The character's signature moves AND its basic melee/ranged are authored on
+        // its archetype (data); `build_actor_moveset` folds them into ONE moveset —
         // the melee subsumption (§A1 / §3a): a plain swing is a `"attack"`-verb move
         // run by the SAME moveset runtime as the specials. Every hostile spawn path
         // (authored rooms, encounter mobs, runtime minions) carries them without a
         // per-path branch.
+        //
+        // The melee/ranged SOURCE is the resolved `action_set` (kit + held item),
+        // the SAME capability the brain's `emit_brain_action_messages` gate reads —
+        // NOT the raw `spec.melee`. Now that the flat melee driver is gone, a body
+        // that can emit a melee (its `ActionSet.melee` is `Some`, e.g. granted by a
+        // held weapon) MUST have a moveset `"attack"` move, or it could never swing.
+        // Building from `action_set` closes that gap definitionally: capability and
+        // moveset share one source.
         let moveset = crate::combat::moveset::build_actor_moveset(
             enemy.spec.signature_move.as_ref(),
-            enemy.spec.melee.as_ref(),
-            enemy.spec.ranged.as_ref(),
+            action_set.melee.as_ref(),
+            action_set.ranged.as_ref(),
         );
         Self {
             entity_name: entity_name.into(),
@@ -328,9 +336,9 @@ impl EnemyActorSpawnPlan {
         // an `ActorMoveset`; `trigger_moveset_moves` starts a move on a control verb
         // edge through the shared moveset runtime (§A1, Path B).
         if let Some(moveset) = self.moveset {
-            // A body whose moveset carries the `"attack"` verb has its basic melee
-            // subsumed by the moveset: mark it so the flat-melee phases skip it and
-            // its `BodyMelee` read-model is projected from the live move.
+            // A body whose moveset carries the `"attack"` verb melees through the
+            // moveset (the only melee path): mark it `MovesetMelee` so its
+            // `BodyMelee` read-model is projected from the live move.
             let has_attack = moveset
                 .verbs
                 .contains_key(crate::combat::moveset::ATTACK_VERB);

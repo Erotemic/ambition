@@ -189,13 +189,14 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     }
 }
 
-// Melee START is no longer an actor-specific consumer. `ActorActionMessage::Melee`
-// is turned into a swing by the body-generic `combat::attack::start_body_melee`
-// phase (which runs for EVERY body — player, possessed actor, autonomous hostile),
-// and the active-edge strike is spawned by `combat::attack::advance_body_melee`.
-// The old `start_enemy_melee_from_brain_actions` / `ActorMut::begin_melee_attack`
-// actor-only pair is deleted — one melee lifecycle, not a player driver plus an
-// actor driver.
+// Melee is a moveset move for EVERY body — there is no actor-specific (or
+// player-specific) melee driver. A body's melee capability (`ActionSet.melee`)
+// is folded into a `"attack"`-verb move at spawn (`build_actor_moveset`); the
+// brain's `melee_pressed` edge starts it via `combat::moveset::trigger_moveset_moves`
+// and `advance_move_playback` spawns the active-window strike. The old
+// `start_enemy_melee_from_brain_actions` / `ActorMut::begin_melee_attack` actor
+// pair AND the flat `start_body_melee` / `advance_body_melee` are all deleted —
+// one melee lifecycle.
 
 /// Helper: combat-tuning lookup. Lives on the test side to make
 /// the helper available to the unit tests below without leaking

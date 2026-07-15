@@ -5,9 +5,9 @@
 //! stand there. Bosses are fine. This pins the melee chain for a plain
 //! `ActorFaction::Enemy`, `hostile_to_player` actor: brain commits melee →
 //! `emit_brain_action_messages` resolves the ActionSet → `ActorActionMessage::Melee`
-//! → `start_enemy_melee_from_brain_actions` → `begin_melee_attack` → the
-//! windup→active edge spawns a strike. We observe every link so a failure says
-//! WHICH one is broken, not just "no attack".
+//! → the body's `"attack"` moveset move (`trigger_moveset_moves` →
+//! `advance_move_playback`) → the active window spawns a strike. We observe every
+//! link so a failure says WHICH one is broken, not just "no attack".
 
 #![cfg(feature = "rl_sim")]
 

@@ -207,10 +207,11 @@ fn slash_effect_size(hitbox_half_size: ae::Vec2) -> f32 {
 /// world hitbox center, `half_size` its half-extent, `dir` the gravity-relative
 /// body→strike offset (the renderer rotates the art along it).
 ///
-/// ONE BODY, ONE PATH: do NOT add another `VfxMessage::Slash` site — call this. (The
-/// two melee STATE MACHINES that call it — `MeleeSwing` here and
-/// `BodyMelee` in `update_ecs_actors` — are the next fork to collapse; see
-/// the `BIFURCATION:` note in dev/journals/code_smells.md.)
+/// ONE BODY, ONE PATH: do NOT add another `VfxMessage::Slash` site — call this.
+/// The former two-state-machine fork (the flat `MeleeSwing`/`BodyMelee` driver
+/// vs the `MovePlayback` moveset) is collapsed: melee is a `"attack"`-verb
+/// moveset move for every body, and `advance_move_playback` is the sole caller
+/// on the strike path.
 pub fn emit_melee_slash(
     vfx: &mut MessageWriter<VfxMessage>,
     center: ae::Vec2,

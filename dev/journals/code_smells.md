@@ -22,11 +22,8 @@ Entry format:
 
 ## Open
 
-## 2026-07-01 Portal TRANSIT-feel adapters still key on `PrimaryPlayer`, not the controlled body
-- **Where:** `ambition_content/src/portal/ability_adapter.rs` (`suppress_ledge_grab_during_transit`, `warp_portal_input`) + `transit_body_adapter.rs::portal_player_input_adapter` — all `(With<PlayerEntity>, With<PrimaryPlayer>)`.
-- **Smell:** the portal-gun USE path (input/fire/drop/pickup) now follows the controlled subject / holder (2026-07-01), but the transit-FEEL side effects (wall-ability suppression during transit, input warp on emergence, `PortalEmission`/`TrailContinuityBreak` traces) still only apply to the primary player. A possessed actor crossing a portal transits physically (transit_body_adapter tags every body generically ✓) but gets none of these input/feel guards, so possession-through-a-portal feels wrong. Not a gun-USE bug, so it was scoped out of the use-path pass.
-- **Noticed while:** the controlled-body pass (portal gun → holder).
-- **Suggested fix / size:** M — resolve `ControlledSubject` (fallback primary) and gate these on the transited body being the controlled subject, mirroring the input/fire adapters. Needs the transit event to carry / be matched against the controlled body.
+## 2026-07-01 Portal TRANSIT-feel adapters still key on `PrimaryPlayer` — ✅ RESOLVED 2026-07-15
+- **RESOLUTION (commit 00d249292):** `warp_portal_input` + `portal_player_input_adapter` resolve `ControlledSubject` (fallback primary) exactly like the use-path adapters, so a possessed body's emergence gets `PortalEmission`/`PortalInputWarp`/trace seams. Wall-ability suppression went further: BODY-GENERIC over `With<PortalTransit>` (the aperture-edge hazard is a property of transiting), with a paired `restore_wall_abilities_after_transit` that restores the four verbs from the body's own `AbilityBase` on latch removal — needed because the F3 per-frame re-sync only covers the primary player. Poison-tested both ways.
 
 ## 2026-07-01 Docs reference a removed `CharacterArchetype` (né `EnemyArchetype`) ENUM — ✅ RESOLVED 2026-07-11
 - **RESOLUTION:** the actual live stale refs (7, most of the original 8 had already been fixed by later refactors) reworded to the real path (`spec_for_brain`: brain key → `CharacterArchetypeSpec`): `spawn_actors.rs:75,882` + `entity_catalog/placements.rs:71` (Rust doc), and 4 RON comments (`character_catalog.ron` ×3, `character_archetypes.ron` ×1). `enemies/mod.rs:553` is CORRECT as-is (it names the *deleted* `CharacterArchetype::X.spec()` to explain what its test fixture replaced). Pure docs; no code change.
@@ -45,11 +42,8 @@ Entry format:
 - **Noticed while:** control-convergence pass 2.
 - **Suggested fix / size:** L — the fighter-unification mega-project (memory `project_fighter_unification`, S4/S5/S6). Merge into ONE `advance_body_melee` querying `ae::BodyClusterQueryData + BodyMelee + ActionSet` (matches player AND actors — both carry the ancillary clusters), pulling melee timing/active-edge out of `update_ecs_actors`. Deliberately NOT done blind in the control pass: it changes the player's core combat feel (pogo/directional/timing) and can't be GUI-verified here — the exact "right shape first, verify feel after" work that needs Jon at the controls. Bosses stay separate (no ancillary clusters).
 
-## 2026-07-01 Possessed BOSS moves but can't yet trigger its specials
-- **Where:** `features/ecs/bosses/tick.rs` (`tick_boss_brains_system` `Brain::Player` arm).
-- **Smell:** bosses are now architecturally possessable — the `unreachable!("bosses never Brain::Player")` and the `Without<BossConfig>` possession-candidate exclusion are gone, and a possessed boss reads slot input → moves via `velocity_target` through its float integrator. But boss ATTACKS are authored as scripted `BossPattern` profiles (`BossAttackState`), which the possession arm suspends — there's no mapping yet from player input → a chosen boss special.
-- **Noticed while:** control-convergence pass 2 (bringing bosses into `Brain::Player`).
-- **Suggested fix / size:** M — map player action input (attack/special press) to the boss's authored specials (e.g. cycle/select a `BossAttackProfile` and emit its `ActorActionMessage::Special`). Design question: which input picks which special. Progression-gating of WHICH boss is possessable is a separate targeting-policy layer above the body model.
+## 2026-07-01 Possessed BOSS moves but can't yet trigger its specials — ✅ RESOLVED (G5), verified 2026-07-15
+- **RESOLUTION:** the G5 possession-verb work landed `possessed_attack_choice` in `bosses/tick.rs`: a melee press reduces the controller aim to an `AttackDir` and walks `directional_verb_chain` over the profile's authored `possessed_verbs`; the special button resolves the `"special"` verb; a boss authoring no verbs keeps the legacy deterministic mapping (melee → slot(0) strike, special → signature content special). Pinned by `possession_verb_map_tests`. This entry predated G5 and was never closed.
 
 ## 2026-07-01 HUD / debug overlay still read the home avatar, not the controlled subject
 - **Where:** ~~`ambition_render/src/hud.rs`~~ (player-facing status HUD — RESOLVED 2026-07-01), `ambition_app/src/app/hud.rs`, `ambition_app/src/dev/debug_overlay.rs` (dev surfaces — still `PrimaryPlayerOnly`).
@@ -66,11 +60,8 @@ Entry format:
 - **Noticed while:** wiring blink (S3a) + fly (S3b) as body capabilities for the PCA — each verb needed a `smash_can_*` field threaded through the archetype row → spec → (brain cfg + body caps), which is the seam a kit-first model would make unnecessary.
 - **Suggested fix / size:** L, NOT now (explicitly deferred by Jon — "just a smell to log"). Direction: let a character author its capability set + tuning directly (data), drop the named-archetype indirection; the brain reads the kit, the body enforces it. Dovetails with the fighter-unification roadmap's "per-body capability set" and the engine-for-other-games keystone.
 
-## 2026-06-26 `BrainSnapshot.wall_contact` is defined + read but NEVER populated in production
-- **Where:** field `ambition_characters/src/brain/snapshot.rs` (`wall_contact: Option<WallContact>`); read by `Wanderer` (`state_machine/mod.rs::tick_wanderer`); the ONLY `Some` constructions are in tests (grep `wall_contact: Some` → test files only).
-- **Smell:** an aspirational seam. The Wanderer's climb-vs-reverse + chatter-pause logic keys on `wall_contact`, but every production snapshot builder sets it to `None`, so the puppy-slug's wall reactions never fire in-engine (it relies on a separate integrator-side facing flip, making the brain branch dead). It also looked like the natural seam for AI anti-corner during the duelist work — I deliberately did NOT use it precisely because it's unpopulated (would have been inert in-game).
-- **Noticed while:** looking for a production-faithful wall-awareness signal for the duelist neutral game (rejected it, used target-relative footsies instead).
-- **Suggested fix / size:** M — either populate `wall_contact` in the enemy snapshot builder from the integrator's already-computed wall-stop state (the `perp` side-speed stall check in `integration.rs`), or delete the field + the Wanderer branch if no consumer will wire it. Right now it's the worst of both: present, read, and dead.
+## 2026-06-26 `BrainSnapshot.wall_contact` defined + read but NEVER populated — ✅ RESOLVED 2026-07-15 (DELETED)
+- **RESOLUTION (commit aad8f81e1):** investigated populate-vs-delete; DELETE won. The puppy slug (the only Wanderer) is a `surface_walker` whose wall/surface response is the AdhesiveCrawler MOTION MODEL (kernel wraps corners) — the brain-level climb decision is superseded, and its `climbing` flag had no reader; the reverse arm is owned by the grounded integrator's patrol wall-stop (populating would double-flip against it). Deleted `WallContact`, the field, `WandererState`, and the `climb_walls`/`chatter_*` knobs through the catalog schema. Behavior-identical (the branch was unreachable).
 
 ## 2026-06-26 `ObservationFrame` flat-struct field additions ripple to 3 test literals
 - **Where:** `ambition_characters/src/brain/smash/{action,mode,emit}.rs` each have an `obs_at(...)` test helper that builds a full `ObservationFrame { .. }` literal.
@@ -222,7 +213,9 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 - **Why not fixed here:** the YAML is GENERATED (never hand-edit generated output), and the `category:` label is tooling metadata that no Rust code parses, so it doesn't break the build — but it names a dead variant. Fix belongs in the generator, not the output.
 - **Suggested fix / size:** XS — update `entities.py` to emit `FeatureVisualKind::Actor` for the actor rows (or drop the `FeatureVisualKind::`-prefixed label entirely, since nothing consumes it), then regen. Related: [fable-review E35].
 
-## 2026-07-03 — `unified_body_movement` chase test fails (pre-existing; smells of query-order non-determinism)
+## 2026-07-03 — `unified_body_movement` chase test fails — ✅ GREEN as of 2026-07-15 (root cause never pinned)
+- **UPDATE 2026-07-15:** the test PASSES at HEAD (all 3 in the file), stable across repeated runs of the same build. Note the original evidence compared two DIFFERENT commits, so "25px swing between two builds" may have been legitimate code drift, not build nondeterminism. Leaving the entry as a breadcrumb: if it flips red again across otherwise-identical builds, suspect TypeId-keyed hash iteration (varies per compilation) in the chase pipeline. Original entry below.
+## (original) 2026-07-03 — `unified_body_movement` chase test fails (pre-existing; smells of query-order non-determinism)
 - **Where:** `game/ambition_app/tests/unified_body_movement.rs::home_body_and_actor_body_move_through_the_same_integration_phase` (rl_sim). A `cellular_automaton_fighter` enemy spawned 160px RIGHT of the player should chase LEFT >5px over 40 fixed-60hz steps.
 - **Symptom:** it doesn't. Built+ran at the session-start commit 7c0872a7 (isolated worktree) → enemy moved x 1110→1134.8 (+25px, WRONG direction); at a later HEAD → 1110→1109.4 (−0.6px, right direction but far too small). A ~25px swing between two builds of a DETERMINISTIC fixed-60hz sim is the tell: an order-sensitive query somewhere in the chase pipeline (brain → ActorControl → `integrate_sim_bodies`) is iterating in `Entity`/HashMap order, not a stable id. [[feedback_query_order_determinism]]
 - **Why not fixed here:** pre-existing (fails at session start too — not a regression from the read-model/taxonomy work), and it's a focused gameplay/determinism debug, not a stale-test fix. Possibly tied to the PAUSED PCA encounter (`cellular_automaton_fighter` is the Perfect Cellular Automaton archetype).
@@ -316,6 +309,13 @@ gate still never builds: `portal_render`, `bevy_ui_menu`, `kaleidoscope_menu`,
 `mobile_touch`, `physics_debris`, `static_map`. A periodic
 `cargo check --workspace --all-targets --all-features` (or a per-feature matrix
 in CI) would catch the next one. Size: S for the check, unknown for what it finds.
+
+**UPDATE 2026-07-15 (another instance, fixed):** `cargo test -p
+ambition_game_shell` (bare features) NEVER compiled — `input.rs` reads
+KeyCode/Gamepad unconditionally but the crate's bare bevy dep carried no input
+features; it only built when a co-built sibling unified them in. Fixed by adding
+`bevy_input_focus` + `gamepad` to the base dep (commit 8e492f1a3). The class
+stands: a lone `-p` build is the only thing that exposes these.
 
 ## 2026-07-10 (R6b) — a gate script that greps only for success is silent on failure
 
@@ -440,7 +440,13 @@ like `update_nearest_interactable` already did, and read THAT body's clusters, s
 every renderer (the touch overlay today, a desktop row tomorrow) is
 relativity-correct for free — the fix is upstream at the affordance source.
 Poison-tested (possess a ledge-hanging actor → hints read Climb/Roll; drop
-possession → back to Jump/Shield). STILL OPEN: (a) the hint VOCABULARY is still
+possession → back to Jump/Shield). REVIEW FIX 2026-07-15 (commit 8e492f1a3): the
+INTENT half of 18ce82e35 read the per-body `PlayerInputFrame` MIRROR, which only
+the home avatar carries — during real possession the query missed and
+`PlayerIntent` froze at the pre-possession aim (the original test masked it by
+hand-spawning the mirror on the actor). Now resolves the driven body's input via
+its own `Brain::Player(slot)` → `SlotControls`, the same read the universal brain
+tick uses; possession-faithful poison test added. STILL OPEN: (a) the hint VOCABULARY is still
 the fixed six-variant enum (the Ambition protagonist's verbs) rather than sourced
 from the driven body's own `ActionSet`/`ActorMoveset`; (b) "whatever UI is active
 drives the row" (menu context) — no desktop hint row even exists yet (touch-only),

@@ -17,6 +17,7 @@
 //! the rest of the M-track; see `docs/planning/demos/super-mary-o.md`.
 
 pub mod flag;
+pub mod goomba;
 pub mod powerups;
 pub mod provider;
 
@@ -48,7 +49,7 @@ pub const LEVEL_CYCLE_DWELL: f32 = 2.0;
 
 /// One tile. The whole level is authored on this grid, because the 1-1 grammar IS
 /// a grid grammar: a jump clears a few tiles, a pit is two or three wide.
-const T: f32 = 32.0;
+pub(crate) const T: f32 = 32.0;
 
 /// Ground thickness, in tiles.
 const GROUND_TILES: f32 = 2.0;
@@ -209,6 +210,22 @@ const SMB1_CATALOG_RON: &str = r#"(
             playable_kit: Authored,
             tags: ["player"],
         ),
+        // The goomba's IDENTITY row: its sprite resolves from this display name.
+        // It points its OWN name at the published `ai_slop` sheet (Ambition owns
+        // the "Ai Slop" display name; a duplicate would fail catalog assembly when
+        // hosted). Behavior/HP/contact come from the `mary_o_goomba` ROSTER
+        // archetype (see `goomba.rs`), not this catalog row — this is only the
+        // sprite + name.
+        "mary_o_goomba": (
+            display_name: "Mary-O Goomba",
+            spritesheet: "sprites/ai_slop_spritesheet.png",
+            manifest: "sprites/ai_slop_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["enemy"],
+        ),
     },
 )"#;
 
@@ -232,6 +249,9 @@ pub fn install_smb1_content(app: &mut App) {
         )
         .expect("Mary-O character catalog should be valid"),
     );
+    // The goomba's hostile archetype (body/walk/contact) lives in a roster
+    // fragment beside the catalog identity above.
+    goomba::register_goomba_roster(app);
 }
 
 impl Plugin for Smb1DemoContentPlugin {
@@ -358,6 +378,11 @@ impl Plugin for Smb1RulesPlugin {
         // engine registers it too (`SandboxResetSchedulePlugin`), but a thin host
         // may not, and `add_message` is idempotent — a no-op when already present.
         app.add_message::<ambition::actors::session::reset::RoomReplayRequested>();
+        // The goomba stager reads room-load facts and writes spawn requests; the
+        // engine registers both in a full app, but a thin rules-only test harness
+        // may not, and `add_message` is idempotent.
+        app.add_message::<ambition::actors::rooms::RoomLoaded>();
+        app.add_message::<ambition::actors::features::SpawnActorRequest>();
         // The flag runs BEFORE the clock: a level whose flag has been grabbed is
         // over, and `tick_level_clock` reads the sequence to know it. The cycle
         // emitter runs LAST so it sees the settled tally and its clock reset is not
@@ -369,10 +394,21 @@ impl Plugin for Smb1RulesPlugin {
             cycle_level_on_flag_tally,
         )
             .chain();
+        // The goomba systems: stage the walkers when the room loads, and run the
+        // head-stomp BEFORE the engine's shared body-contact-damage pass so a
+        // squash never also hurts the stomper (the rule zeroes the goomba's health
+        // that frame, which the contact pass then skips).
+        let goombas = (
+            goomba::stage_goombas_on_room_loaded,
+            goomba::bounce_squash_goombas
+                .before(ambition::actors::features::apply_actor_contact_damage),
+        );
         if self.hosted {
             app.add_systems(sim, rules.run_if(ambition::runtime::in_mode(SMB1_MODE)));
+            app.add_systems(sim, goombas.run_if(ambition::runtime::in_mode(SMB1_MODE)));
         } else {
             app.add_systems(sim, rules);
+            app.add_systems(sim, goombas);
         }
     }
 }

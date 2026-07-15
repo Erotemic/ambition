@@ -85,15 +85,13 @@ Entry format:
 - **Smell:** the BossAttackProfile de-name is honest at the key/schedule/geometry/param layers, but the consumer impls still bake content (apple art identity, gnu-named fns, "GNU-ton boss:" spec docs).
 - **Suggested fix / size:** M — lift baked constants + projectile-art identity into RON spec fields; rename consumers to the vocabulary. The active target of the Technique/Effects framework design (2026-06-13).
 
-## 2026-06-15 Gravity-inversion residual design questions
-Found via the headless `gravity_symmetry.rs` harness. The input-frame gates (crouch,
-drop-through, attack-pogo, fast-fall, possession, ladder-jump, ledge, patrol wall-stop)
-are now gravity-relative. These four remain world-Y-locked — each is a DESIGN question
-(should it be gravity-relative?), cheaply verifiable by adding a symmetry case:
-- **Directional attack hitbox offset** — `ambition_combat/src/lib.rs:446` (`view.pos + spec.hitbox_offset`): down/up/forward offsets are world-locked, so directional attacks are screen-relative.
-- **`ground_gap_below_feet`** — `ambition_app/src/app/world_flow.rs:63` probes world-down for landing feedback.
-- **Thrown ground-item physics** — `ambition_actors/src/items/pickup/mod.rs:169` (`GROUND_ITEM_GRAVITY`): thrown items fall world-down regardless of the gravity field.
-- **Player knockback** — `apply_player_hit_events` builds `editable_tuning.as_engine()` without `apply_gravity_dir`; UNTESTED under a flip.
+## 2026-06-15 Gravity-inversion residual design questions — ✅ RESOLVED 2026-07-15 (Jon: all frame-relative, no exceptions)
+Jon's call: every one should be frame-relative, always, everywhere. On inspection three of the four were already done by later refactors; only the thrown-item LAUNCH was a live gameplay gap.
+- **Directional attack hitbox offset** — ALREADY frame-relative: `AttackSpec::into_world_frame(frame)` (attack.rs:287) rotates `hitbox_offset`/`half_size`/`self_impulse`/`knockback` through `frame.to_world` before the consumer adds it to `view.pos`. The only raw (un-rotated) `attack_hitbox_from_view(view, attack_spec_from_view(...))` calls are `#[cfg(test)]` helpers.
+- **Player knockback** — ALREADY frame-relative: the `as_engine()`-without-`apply_gravity_dir` path was replaced by `resolved_body_knockback_velocity` → `frame.to_world(local)` (damage_apply.rs:505) off the VICTIM's `ResolvedMotionFrame.down()` (:759). Launch is side-away-from-source + rise-against-gravity, rotated by the body's frame.
+- **Thrown ground-item physics** — the free-fall INTEGRATION was already gravity-relative (`gravity.dir_for` per-position + `apply_world_forces`; `GROUND_ITEM_GRAVITY` is just the magnitude). FIXED the remaining screen-locked bits: the throw LAUNCH velocity + ahead-offset are now authored body-local (forward/up) and rotated via `AccelerationFrame::new(gravity.dir_for(...)).to_world(...)` (identity under normal gravity), and the OOB despawn-guard generalized from world-down-only to all four world bounds so a side-flung item under a flip still parks.
+- **`ground_gap_below_feet`** (room-transition landing diagnostic, log-only) — now probes along the transiting body's `ResolvedMotionFrame.down()` instead of world-down: `feet_coord`/`head_coord`/`gravity_half` project blocks onto the gravity + side axes. Behavior-identical under normal gravity. (`TransitBodies` gained a read-only frame query, read before the mutable cluster borrow.)
+Verified: actors --lib 783 green (existing throw tests pin the normal-gravity parity); the throw/knockback both ride the same tested `to_world` seam as aim — no new symmetry test added (identity-guaranteed change, no bureaucratic bloat).
 
 ## 2026-06-21 Sprite-renderer path helpers duplicated + generated dir scattered
 - **Where:** `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/cli.py` (`package_dir`/`repo_root`/`sandbox_sprites_dir`/`generated_dir`) vs the now-deleted `paths.py`.

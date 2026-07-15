@@ -268,6 +268,10 @@ pub(crate) struct TransitBodies<'w, 's> {
     /// TRANSIT (ADR 0024 authority) and must reconcile model-private attachment.
     motion_models: Query<'w, 's, &'static mut ambition::actors::features::MotionModel>,
     combat: Query<'w, 's, &'static mut ambition::characters::actor::BodyCombat>,
+    /// The transiting body's resolved gravity frame — read (before the mutable
+    /// cluster borrow) so the landing diagnostic probes along the body's own
+    /// gravity, not world-down.
+    motion_frames: Query<'w, 's, &'static ambition::actors::physics::ResolvedMotionFrame>,
     presentation: Query<
         'w,
         's,
@@ -326,6 +330,14 @@ pub(crate) fn apply_room_transition_system(
         else {
             continue;
         };
+        // Read the body's gravity BEFORE the mutable cluster borrow (disjoint
+        // read), for the frame-relative landing diagnostic below. Falls back to
+        // world-down if the body carries no resolved frame yet.
+        let subject_gravity_dir = transit
+            .motion_frames
+            .get(subject)
+            .map(|frame| frame.down())
+            .unwrap_or(ae::Vec2::new(0.0, 1.0));
         let Ok(mut motion_model) = transit.motion_models.get_mut(subject) else {
             continue;
         };
@@ -416,6 +428,7 @@ pub(crate) fn apply_room_transition_system(
             &room_set,
             clusters.kinematics.pos,
             clusters.kinematics.size,
+            subject_gravity_dir,
             &world.0,
             &combat_reset.feature_overlay,
         );
@@ -443,6 +456,7 @@ fn log_room_transition_landing(
     room_set: &rooms::RoomSet,
     pos: ae::Vec2,
     size: ae::Vec2,
+    gravity_dir: ae::Vec2,
     world: &ae::World,
     feature_overlay: &ambition::platformer::feature_overlay::FeatureEcsWorldOverlay,
 ) {
@@ -451,7 +465,6 @@ fn log_room_transition_landing(
         .get(target_room)
         .map(|spec| spec.id.clone())
         .unwrap_or_else(|| format!("<index {target_room}>"));
-    let feet_y = pos.y + size.y * 0.5;
     let body = ae::Aabb::new(pos, size * 0.5);
     let overlapping_world = world
         .blocks
@@ -463,7 +476,7 @@ fn log_room_transition_landing(
         .iter()
         .filter(|b| b.aabb.strict_intersects(body))
         .count();
-    let gap = ground_gap_below_feet(feet_y, &body, world, feature_overlay);
+    let gap = ground_gap_below_feet(&body, gravity_dir, world, feature_overlay);
     let gap_desc = match gap {
         Some((distance, source)) => format!("{distance:.1}px ({source})"),
         None => "none within 256px".to_string(),

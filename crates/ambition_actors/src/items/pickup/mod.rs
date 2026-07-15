@@ -225,11 +225,16 @@ pub fn ground_item_physics(
                 ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
             ) && next_aabb.strict_intersects(block.aabb)
         });
-        let below_world = next.y > world.size.y + 200.0 || next.y < -200.0;
+        // Out of the world rectangle on ANY side (not just world-down) — so an
+        // item that flies off the side under a gravity flip parks too.
+        let outside_world = next.y > world.size.y + 200.0
+            || next.y < -200.0
+            || next.x > world.size.x + 200.0
+            || next.x < -200.0;
         if blocked {
             // Settle in place (simple — no slide).
             item.vel = Vec2::ZERO;
-        } else if below_world {
+        } else if outside_world {
             item.vel = Vec2::ZERO;
         } else {
             item.pos = next;
@@ -466,6 +471,7 @@ pub fn pickup_held_item_system(
 pub fn throw_held_item_system(
     mut commands: Commands,
     controlled: Res<ambition_platformer_primitives::markers::ControlledSubject>,
+    gravity: crate::physics::GravityCtx,
     mut bodies: Query<(
         &ActorControl,
         &BodyKinematics,
@@ -500,15 +506,21 @@ pub fn throw_held_item_system(
     }
     let spec = held.spec.clone();
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
-    let throw_pos = kin.pos + Vec2::new(facing * THROW_AHEAD, 0.0);
+    // The launch is authored in the body's LOCAL frame (x = forward/side,
+    // y = toward-feet) and rotated into the body's gravity frame, so the throw
+    // arcs "ahead + away from feet" under ANY gravity — identity under normal
+    // gravity. The subsequent free-fall (`ground_item_physics`) is already
+    // gravity-relative, so the whole toss now flips with the field.
+    let frame = ae::AccelerationFrame::new(gravity.dir_for(ae::Aabb::new(kin.pos, kin.size * 0.5)));
+    let throw_pos = kin.pos + frame.to_world(Vec2::new(facing * THROW_AHEAD, 0.0));
     commands.entity(player).remove::<HeldItem>();
     commands.entity(player).remove::<StashedActionSet>();
     commands.spawn_room_scoped((
         GroundItem {
             spec,
+            // Forward + away-from-feet, in the local frame → world.
+            vel: frame.to_world(Vec2::new(facing * THROW_SPEED_X, -THROW_SPEED_UP)),
             pos: throw_pos,
-            // Arc forward + up (y-down world, so up is -y).
-            vel: Vec2::new(facing * THROW_SPEED_X, -THROW_SPEED_UP),
             half_extent: Vec2::splat(PICKUP_HALF),
         },
         Name::new("Ground item: thrown"),

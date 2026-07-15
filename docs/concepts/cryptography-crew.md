@@ -8,6 +8,7 @@ aliases:
   - crypto roster
 implemented_by:
   - tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/toon_side.py
+  - tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/eve_eavesdropper.py
   - tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/review/
   - crates/ambition_actors/assets/sprites/
 related_docs:
@@ -48,15 +49,16 @@ Lean into the names as character ideas, not as job descriptions.
 
 ## Batch 1 — landed (2026-05-21)
 
-These six are PRESETS in `toon_side.py`, with review configs in
-`configs/review/` and rendered into `crates/ambition_actors/assets/sprites/` via
-`draw-runtime-npcs`.
+These six have review configs in `configs/review/` and render into
+`crates/ambition_actors/assets/sprites/` via `draw-runtime-npcs`. Bob, Alice,
+Eve, and Trent now use bespoke Python targets; Mallory and Judy remain on the
+shared toon target.
 
 | Name | Silhouette read | Prop | Palette signal |
 |---|---|---|---|
 | **Bob** | Workshop engineer with visible legs + workboots, vest open over a tee, tool belt with three hanging tools (key ring + wrench + hammer); ships in 3/4 (idle), side (walk), and front (talk/interact) views | Carabiner ring with 3 keys held in hand + the three belt tools | Warm tan vest + slate-blue tee + safety yellow |
 | **Alice** | Lean academic with a knee-length cinched traveling coat over the OTP-checker tabard, ankle-cuffed leggings + ankle boots, layered long hair (back mass + cheek curtains + bangs + forward braid) | Ribbon-tied cipher scroll held in hand | Deep teal coat + cream OTP tabard + amber sash |
-| **Eve** | Tall hooded cloak, brass ear-trumpet cupped to listen | Listening horn | Aubergine + slate + brass |
+| **Eve** | Cloak-first asymmetric eavesdropper; deep hood, broad drape, two visible gripping arms, and a large functional ear trumpet | Listening horn | Aubergine + slate + brass |
 | **Mallory** | Rigid tactical field jacket with chrome zip + diagonal strap, red mohawk-style hair | Tablet | Black + oxblood red |
 | **Trent** | Robe-first silhouette (no stick-figure peeking through), elongated head with jaw extension, full white flowing beard, gold chain of office with medallion | Handheld balance scales | Forest green + brushed gold |
 | **Judy** | Broad black judicial robe + crimson placket, full-bottom barrister wig, white jabot collar | Wooden gavel | Black + crimson + white |
@@ -139,14 +141,20 @@ file conventions.
 
 ## Templates
 
-Two adapters serve the crew today:
+Five renderer targets serve the landed crew today:
 
 - **`toon`** (`targets/characters/toon_side.py`) — the shared cartoon
-  template that ships Bob, Alice, Eve, Mallory, Judy. Stick-figure
-  construction underneath: capsule limbs + oval head + applied
+  template that still ships Mallory, Judy, and the batch-2 sketches. Its
+  construction underneath is capsule limbs + oval head + applied
   hair/outfit/prop dispatch tables. Easy to add new characters by
   authoring a preset; harder to escape the "everyone is basically
   the same body under the costume" read.
+- **`eve_eavesdropper`** (`targets/characters/eve_eavesdropper.py`) —
+  bespoke cloak-first target for Eve. The hood, mantle, split drape, satchel,
+  sleeves, hands, and oversized brass ear trumpet are independently layered.
+  Idle scans for sound, walk protects the horn across the chest, talk lowers it
+  for a free-hand gesture, and interact commits to a two-handed listening lean.
+  It never paints a ground ellipse, drop shadow, blur, or glow.
 - **`trent_elder`** (`targets/trent_elder.py`) — bespoke template
   for Trent. Robe-first composition (no capsule limbs poking out),
   elongated head with a jaw extension that gives the beard a real
@@ -208,7 +216,8 @@ from preset tuning alone.
   one-line registration in `adapters.py`. His review config sets
   `target: trent_elder` instead of `target: toon`.
 - Review configs in `configs/review/{alice,bob,eve,judy,mallory,trent}.yaml`
-  are added to `RUNTIME_REVIEW_NPCS` in `cli.py` so
+  are added to `RUNTIME_REVIEW_NPCS` in `cli.py`; Eve selects
+  `target: eve_eavesdropper` so the bespoke Python rig is used when
   `draw-runtime-npcs` installs them with the rest of the toon roster.
 - `python -m ambition_sprite2d_renderer draw-character configs/review/<name>.yaml --out-dir /tmp/preview`
   to iterate on one character without overwriting the live assets.

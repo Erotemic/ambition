@@ -676,3 +676,9 @@ Galwah is probably your friend with Fia in Act 1.
 A character named Sintheta might be fun if we can make it read more like
 Cynthea and less like sin-theta, even those it refers to the latter. Maybe
 Cyntheta? 
+
+---
+
+Ledge grab could be an ability unlock. And it might be funny if it's like: you
+got the ability to hold on to the ledge by you know, just doing it. Maybe we
+could phrase it like an RL sort of thing. You gained an emergent behavior.

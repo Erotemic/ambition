@@ -517,8 +517,8 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
 /// player in the drain alley after the intro escape. Toon-side adapter
 /// render; matches the Oiler review config (configs/review/oiler.yaml).
 
-/// Erdish — wandering graph-theory eccentric. Toon-side adapter render;
-/// matches the Erdish review config (configs/review/erdish.yaml).
+/// Erdish — wandering graph-theory eccentric. Bespoke prop-free scholar
+/// render; matches the Erdish review config (configs/review/erdish.yaml).
 
 /// Alice — unofficial cartographer. Toon-side adapter render; the
 /// `alice_cryptographer` archetype reads as "cautious local with a

@@ -209,14 +209,17 @@ fn render_basic_shell(
                 .zip(asset_server.as_deref())
                 .map(|(path, server)| server.load::<Image>(path.clone()))
             {
+                // Start transparent; the fade system eases it in (matching the
+                // text below, so neither content kind flashes for a frame).
+                let mut image = ImageNode::new(handle);
+                image.color.set_alpha(0.0);
                 root.spawn((
-                    ImageNode::new(handle),
+                    image,
                     Node {
                         width: Val::Percent(70.0),
                         height: Val::Percent(60.0),
                         ..default()
                     },
-                    // Start transparent; the fade system eases it in.
                     BasicSequenceCardContent,
                     Name::new("basic shell sequence image"),
                 ));

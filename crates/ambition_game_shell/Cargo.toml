@@ -26,4 +26,13 @@ ambition_audio = { path = "../ambition_audio", default-features = false }
 ambition_load = { path = "../ambition_load" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_sfx = { path = "../ambition_sfx" }
-bevy = { version = "0.18.1", default-features = false }
+# `input.rs` (shell_action_edges) is always compiled and reads KeyCode +
+# Gamepad, so the base dependency needs the input surface: `bevy_input_focus`
+# is the smallest feature that puts KeyCode in the prelude, and `gamepad`
+# un-configures `bevy::input::gamepad` (same pairing as ambition_input).
+# Without these, the crate only compiled when a co-built sibling happened to
+# unify them in — `cargo test -p ambition_game_shell` alone did not build.
+bevy = { version = "0.18.1", default-features = false, features = [
+    "bevy_input_focus",
+    "gamepad",
+] }

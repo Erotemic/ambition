@@ -115,10 +115,10 @@ pub fn compute_aim(axis_x: f32, axis_y: f32, facing: f32) -> Aim {
 
 /// Resource: per-frame snapshot of player-driven intent. Refreshed by
 /// [`compute_controlled_actor_intent`] once per frame, after the input
-/// pipeline has folded keyboard + gamepad + touch into the actor's
-/// `PlayerInputFrame`.
+/// pipeline has folded keyboard + gamepad + touch into the slot frame
+/// (`SlotControls`).
 ///
-/// The compute system runs only when the primary player exists; in
+/// The compute system runs only when a controlled body exists; in
 /// menu / startup states with no player yet, the resource keeps its
 /// previous (or default) value rather than panicking on a missing
 /// query.
@@ -127,19 +127,21 @@ pub struct PlayerIntent {
     pub aim: Aim,
 }
 
-/// Derive [`PlayerIntent`] from the controlled actor's own
-/// [`PlayerInputFrame`] and its facing direction. Runs after the input
-/// pipeline + touch fold + `sync_local_player_input_frame` so it sees
-/// the final merged input mirrored onto the actor.
+/// Derive [`PlayerIntent`] from the controlled body's slot input and its
+/// facing direction. Runs after the input pipeline + touch fold has
+/// published the finalized frame into `SlotControls`.
 ///
-/// Reads the input and facing from the CONTROLLED subject's own entity (the
+/// Reads the facing from the CONTROLLED subject's own entity (the
 /// [`ControlledSubject`] — a possessed actor while possessing, else the home
-/// avatar; the actor-local frame, not the global `Res<ControlFrame>`) so the
-/// intent is the driven body's own intent — the relativity principle / §4 of the
-/// restructuring blueprint — and the intent and affordances compute see exactly
-/// the same facing within one frame.
+/// avatar; the actor-local frame, not the global `Res<ControlFrame>`) and the
+/// input from that body's own `Brain::Player(slot)` — the same control seam
+/// the universal brain tick uses, so the intent is the driven body's own
+/// intent whether or not the body carries the player-specific
+/// `PlayerInputFrame` mirror (possessed actors don't). A body whose player
+/// brain is mid-transfer reads neutral, the conservative default.
 pub fn compute_controlled_actor_intent(
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    slots: Res<ambition_characters::brain::SlotControls>,
     controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
     primary: Query<
         Entity,
@@ -149,7 +151,7 @@ pub fn compute_controlled_actor_intent(
         ),
     >,
     player_q: Query<(
-        &crate::control::PlayerInputFrame,
+        Option<&ambition_characters::brain::Brain>,
         &crate::actor::BodyKinematics,
         &crate::physics::ResolvedMotionFrame,
     )>,
@@ -159,13 +161,20 @@ pub fn compute_controlled_actor_intent(
     let subject = controlled
         .and_then(|subject| subject.0)
         .or_else(|| primary.single().ok());
-    let Some((input, kinematics, resolved_frame)) = subject.and_then(|s| player_q.get(s).ok())
+    let Some((brain, kinematics, resolved_frame)) = subject.and_then(|s| player_q.get(s).ok())
     else {
         // No player yet — leave the resource at its default. Any
         // downstream consumer reads `Aim::Neutral`, which is the
         // correct conservative behavior pre-spawn.
         return;
     };
+    // The body's input is its slot's frame, resolved through its own player
+    // brain. A possessed actor has no `PlayerInputFrame` mirror, so this is
+    // the ONE input read that is correct for every controlled body.
+    let frame = brain
+        .and_then(ambition_characters::brain::Brain::player_slot)
+        .map(|slot| slots.get(slot))
+        .unwrap_or_default();
     // The body's own per-tick resolved frame (ADR 0024), not a global field.
     let gravity_dir = resolved_frame.down();
     let movement_mode = user_settings.as_deref().map_or(
@@ -174,7 +183,7 @@ pub fn compute_controlled_actor_intent(
     );
     let local_axis = ambition_engine_core::AccelerationFrame::new(gravity_dir).resolve_input(
         movement_mode,
-        ambition_engine_core::ScreenAxes::new(input.frame.axis_x, input.frame.axis_y),
+        ambition_engine_core::ScreenAxes::new(frame.axis_x, frame.axis_y),
     );
     let next = PlayerIntent {
         aim: compute_aim(local_axis.x, local_axis.y, kinematics.facing),

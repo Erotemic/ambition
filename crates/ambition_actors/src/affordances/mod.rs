@@ -203,12 +203,12 @@ impl Plugin for AffordancesPlugin {
                     compute_player_affordances,
                 )
                     .chain()
-                    // `compute_controlled_actor_intent` now reads the
-                    // actor-local `PlayerInputFrame` (mirrored inside the
-                    // `PlayerInput` set) rather than the global
-                    // `Res<ControlFrame>` (populated before
-                    // `CoreSimulation`). Pin the chain after the sync so
-                    // the intent still reflects this frame's input.
+                    // `compute_controlled_actor_intent` reads the controlled
+                    // body's slot frame (`SlotControls`, published by
+                    // `populate_slot_controls` inside the `PlayerInput` set)
+                    // rather than the global `Res<ControlFrame>`. Pin the
+                    // chain after the slot→body sync (which itself runs after
+                    // the publish) so the intent reflects this frame's input.
                     .after(crate::control::sync_local_player_input_frame)
                     .in_set(AffordancesSystemSet::Compute),
             )

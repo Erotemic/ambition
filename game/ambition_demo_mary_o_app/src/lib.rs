@@ -215,6 +215,7 @@ fn install_mary_o_asset_resources(app: &mut App) -> Option<String> {
 /// path for Mary-O's character sheets (small and tall) and the level's block art.
 #[cfg(feature = "visible")]
 fn load_mary_o_game_assets(
+    mut commands: Commands,
     config: Res<ambition::sprite_sheet::game_assets::GameAssetConfig>,
     character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
     boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
@@ -259,6 +260,23 @@ fn load_mary_o_game_assets(
             );
         }
     }
+
+    // Bind the milk-carton pickup art: the generic `WorldItem` render seam draws
+    // this real sprite for the ?-block's milk instead of the cream quad. Game-owned
+    // asset knowledge stays HERE, not in the reusable renderer. The flat prop image
+    // is published by regen_sprites.sh; until then the render falls back to the quad.
+    let mut world_item_art = ambition::render::rendering::WorldItemArt::default();
+    world_item_art.0.insert(
+        ambition_demo_mary_o::powerups::MILK_SPRITE.to_string(),
+        (
+            asset_server.load(format!(
+                "sprites/props/{}.png",
+                ambition_demo_mary_o::powerups::MILK_SPRITE
+            )),
+            bevy::math::Vec2::new(24.0, 28.0),
+        ),
+    );
+    commands.insert_resource(world_item_art);
 }
 
 /// Minimal audio face for the demo: the packed SFX bank, one SFX channel, and the

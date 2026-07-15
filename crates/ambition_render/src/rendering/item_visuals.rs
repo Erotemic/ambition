@@ -192,16 +192,27 @@ pub fn sync_ground_item_visuals(
 #[derive(Component)]
 pub struct WorldItemVisual;
 
-/// A colored quad per walk-into world item so it's visible, tinted by the row it
-/// grants (grow-cap = cream, spark-blossom = ember, unknown = magenta). Draw-blind
-/// v1 art; swap in a real icon by matching `row_id` here once one is generated.
-/// Clear-and-rebuild each frame — few items — mirroring [`sync_ground_item_visuals`].
+/// Game-supplied art for walk-into world items, keyed by the presentation `sprite`
+/// id a [`WorldItem`](ambition_actors::items::world_item::WorldItem) carries →
+/// `(image, on-screen display size)`. The engine owns the SEAM (this resource + the
+/// resolve in [`sync_world_item_visuals`]); each game fills it at startup with its
+/// own pickups' images (e.g. Mary-O's milk carton), keeping asset knowledge out of
+/// the reusable renderer. Absent / unmatched ⇒ the row-tinted placeholder quad.
+#[derive(Resource, Default)]
+pub struct WorldItemArt(pub std::collections::HashMap<String, (Handle<Image>, Vec2)>);
+
+/// A sprite per walk-into world item: the real image when the item carries a
+/// `sprite` id bound in [`WorldItemArt`], else a colored quad tinted by the row it
+/// grants (grow-cap = cream, spark-blossom = ember, unknown = magenta) — the
+/// draw-blind fallback. Clear-and-rebuild each frame — few items — mirroring
+/// [`sync_ground_item_visuals`].
 pub fn sync_world_item_visuals(
     mut commands: Commands,
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
         ambition_engine_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
+    art: Option<Res<WorldItemArt>>,
     visuals: Query<Entity, With<WorldItemVisual>>,
     items: Res<ambition_sim_view::WorldItemsView>,
 ) {
@@ -215,16 +226,32 @@ pub fn sync_world_item_visuals(
     };
     for item in &items.0 {
         let translation = ambition_engine_core::config::world_to_bevy(&world.0, item.pos, 8.0);
-        let color = match item.row_id.as_str() {
-            "grow_cap" => Color::srgb(0.95, 0.93, 0.82),
-            "spark_blossom" => Color::srgb(0.95, 0.55, 0.20),
-            _ => Color::srgb(0.90, 0.20, 0.80),
+        // A real bound sprite wins; otherwise the row-tinted quad.
+        let bound = item.sprite.as_deref().and_then(|id| {
+            art.as_ref()
+                .and_then(|a| a.0.get(id))
+                .map(|(image, size)| (image.clone(), *size))
+        });
+        let sprite = match bound {
+            Some((image, size)) => Sprite {
+                image,
+                custom_size: Some(size),
+                ..default()
+            },
+            None => {
+                let color = match item.row_id.as_str() {
+                    "grow_cap" => Color::srgb(0.95, 0.93, 0.82),
+                    "spark_blossom" => Color::srgb(0.95, 0.55, 0.20),
+                    _ => Color::srgb(0.90, 0.20, 0.80),
+                };
+                Sprite::from_color(color, item.half_extent * 2.0)
+            }
         };
         commands.spawn_session_scoped(
             session_scope,
             (
                 WorldItemVisual,
-                Sprite::from_color(color, item.half_extent * 2.0),
+                sprite,
                 Transform::from_translation(translation),
                 Name::new("World item visual"),
             ),

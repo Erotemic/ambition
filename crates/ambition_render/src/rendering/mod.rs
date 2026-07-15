@@ -83,6 +83,9 @@ pub use primitives::{
     HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, QuestPanelText,
     RoomScopedEntity, RoomVisual, SceneEntities,
 };
+// Game-supplied art map for walk-into world items; the reusable renderer owns the
+// seam, each game fills it with its own pickups' images.
+pub use item_visuals::WorldItemArt;
 pub use world::{
     refresh_entity_sprite_handles_on_game_assets_change, spawn_room_visuals,
     spawn_surface_chain_visuals, sync_lock_wall_visuals, sync_removed_block_visuals,

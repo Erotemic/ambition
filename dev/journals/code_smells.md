@@ -419,13 +419,23 @@ CONTROLLED (worn character) or whatever UI is active drives the control-hint
 labels/icons. Same relativity principle as the rest of the engine: the prompt row
 is a function of the active control context, not a global constant.
 
-**9. `WorldItem` visual is a tinted quad, not the real sprite (2026-07-15).**
-`sync_world_item_visuals` (ambition_render) draws a colored `Sprite::from_color`
-per world item, tinted by row id. A real `super_mary_o_milk_carton` sheet is
-generated in the renderer submodule; wiring it needs the PROP-SHEET render path
-(the item visual draws one image, not a manifest frame rect). Follow-up: give
-`WorldItemFact` an optional sprite/anchor the render can bind, reusing the
-prop-sprite pipeline. Until then the quad is the shipped (draw-blind) visual.
+**9. ✅ RESOLVED 2026-07-15 — `WorldItem` draws a real sprite via a game-owned art
+seam.** Added the generalizing seam the follow-up asked for: `WorldItem` +
+`WorldItemFact` carry an optional presentation `sprite` id (separate from the
+equipment row id — art id ≠ equipment id), and `sync_world_item_visuals` resolves
+it through a render-owned `WorldItemArt` map the GAME fills, so asset knowledge
+stays out of the reusable renderer. Mary-O tags its milk `WorldItem`
+(`MILK_SPRITE`) and the app binds `sprites/props/super_mary_o_milk_carton.png` into
+`WorldItemArt`; `regen_sprites.sh` publishes that flat canonical (tackon target +
+held_prop_map). Chose the FLAT prop image over the animated prop-SHEET path
+(`prop_asset_for_kind`): the sheet path needs a per-app `SandboxAssetCatalog` prop
+registration (a `CharacterSpriteCatalogRow` + manifest), heavy for a static pickup
+— the flat seam is small and self-contained, and the milk needs no idle bob. The
+row-tinted quad remains the fallback until a fresh clone runs regen, so it degrades
+draw-blind. NOTE (blind): shipped without a visual check (sprite gitignored/regen'd)
+— the 24×28 display size is a `blind fix:` candidate if the carton reads off. NOTE:
+the milk art is bound in the STANDALONE app only; the HOSTED (ambition_app) path
+would add the same `WorldItemArt` binding to show it there too.
 
 **10. `WorldItem` has no locomotion (2026-07-15).** A resting collectible only —
 a classic sliding mushroom wants a free-body integrator like `ground_item_physics`.

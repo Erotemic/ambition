@@ -37,6 +37,12 @@ const TALL_CHARACTER_ID: &str = "mary_o_tall";
 /// bonked ?-block and grows Mary-O when she touches it.
 const MILK_HALF: ae::Vec2 = ae::Vec2::new(12.0, 14.0);
 
+/// The presentation art id the milk `WorldItem` carries. The app binds it to the
+/// generated `super_mary_o_milk_carton` sprite in `WorldItemArt`; the render draws
+/// that image, or the cream quad until it is regenerated. Shared here so the spawn
+/// and the art binding name the exact same key.
+pub const MILK_SPRITE: &str = "super_mary_o_milk_carton";
+
 /// Row id of the grow-cap (mushroom-analog).
 pub const GROW_CAP_ID: &str = "grow_cap";
 /// Row id of the spark-blossom (flower-analog).
@@ -150,9 +156,12 @@ pub fn bonk_power_blocks(
         // The milk pops out resting on the block's top face (screen up = -y).
         let min = crate::power_block_min(i);
         let pos = ae::Vec2::new(min.x + crate::T * 0.5, min.y - MILK_HALF.y);
+        // Tag it with the milk-carton art id: the render binds it to the real sheet
+        // through the app's `WorldItemArt` (the milk sprite), falling back to the
+        // cream quad until the sprite is regenerated. See [`MILK_SPRITE`].
         spawn_world_item(
             &mut commands,
-            WorldItem::equipping(grow_cap(), pos, MILK_HALF),
+            WorldItem::equipping(grow_cap(), pos, MILK_HALF).with_sprite(MILK_SPRITE),
         );
     }
 }

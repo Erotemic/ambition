@@ -131,6 +131,9 @@ pub struct WorldItemFact {
     /// The equipment row id the item grants (e.g. `"grow_cap"`), used only to
     /// choose the visual. An empty string if the payload has no id.
     pub row_id: String,
+    /// Optional presentation art id (e.g. `"super_mary_o_milk_carton"`) the render
+    /// layer resolves to a real sprite; `None` draws the row-tinted quad.
+    pub sprite: Option<String>,
 }
 
 pub fn rebuild_world_items_view(
@@ -145,6 +148,7 @@ pub fn rebuild_world_items_view(
         row_id: match &item.payload {
             WorldItemPayload::Equip(row) => row.id.clone(),
         },
+        sprite: item.sprite.clone(),
     }));
 }
 

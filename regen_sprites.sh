@@ -592,6 +592,10 @@ tackon_targets=(
     # clone renders the demo character as a colored rectangle.
     super_mary_o
     super_mary_o_tall
+    # The milk-carton powerup pickup (M1). Rendered so its flat
+    # canonical can be copied into props/ below; the Mary-O demo's
+    # `WorldItemArt` draws it for the ?-block's milk `WorldItem`.
+    super_mary_o_milk_carton
     generic_explosions
     smirking_behemoth_boss
     stochastic_parrot
@@ -673,6 +677,9 @@ held_prop_map=(
     "lasersword_with_guns:gunsword"
     "portal_gun_blue:portal_gun_blue"
     "portal_gun_orange:portal_gun_orange"
+    # Mary-O milk-carton pickup: the flat canonical loads at runtime as
+    # sprites/props/super_mary_o_milk_carton.png (the app's WorldItemArt).
+    "super_mary_o_milk_carton:super_mary_o_milk_carton"
 )
 for pair in "${held_prop_map[@]}"; do
     src_target="${pair%%:*}"

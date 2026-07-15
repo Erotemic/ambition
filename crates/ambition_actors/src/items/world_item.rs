@@ -33,6 +33,12 @@ pub struct WorldItem {
     pub payload: WorldItemPayload,
     pub pos: ae::Vec2,
     pub half_extent: ae::Vec2,
+    /// Optional ART id for the render layer to draw this pickup as a real sprite
+    /// (e.g. a milk carton) instead of the row-tinted placeholder quad. It is a
+    /// PRESENTATION key, deliberately separate from the equipment `row` id (art id
+    /// ≠ equipment id): a game maps it to an image through its own `WorldItemArt`.
+    /// `None` keeps the draw-blind quad.
+    pub sprite: Option<String>,
 }
 
 impl WorldItem {
@@ -42,7 +48,15 @@ impl WorldItem {
             payload: WorldItemPayload::Equip(row),
             pos,
             half_extent,
+            sprite: None,
         }
+    }
+
+    /// Tag this item with a presentation art id the render layer resolves to a real
+    /// sprite (via the game's `WorldItemArt`), falling back to the quad if unbound.
+    pub fn with_sprite(mut self, sprite: impl Into<String>) -> Self {
+        self.sprite = Some(sprite.into());
+        self
     }
 
     /// This item's world-space box.
@@ -187,6 +201,21 @@ mod tests {
             .get::<WornEquipment>(body)
             .expect("collecting inserts a worn set on a bare body");
         assert!(worn.wears("grow_cap"), "the row is now worn");
+    }
+
+    /// The presentation `sprite` tag threads onto the item (default `None`) so the
+    /// render can bind a real image, while collect/equip ignores it entirely — art
+    /// id is separate from equipment id.
+    #[test]
+    fn tagging_an_item_with_a_sprite_carries_the_art_id() {
+        let item = WorldItem::equipping(armor_row(), ae::Vec2::ZERO, ae::Vec2::new(12.0, 12.0));
+        assert_eq!(item.sprite, None, "a plain item carries no art override");
+        let tagged = item.with_sprite("super_mary_o_milk_carton");
+        assert_eq!(tagged.sprite.as_deref(), Some("super_mary_o_milk_carton"));
+        assert!(
+            matches!(tagged.payload, WorldItemPayload::Equip(_)),
+            "the art tag leaves the equip payload untouched"
+        );
     }
 
     #[test]

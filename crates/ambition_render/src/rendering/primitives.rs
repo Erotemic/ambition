@@ -57,6 +57,18 @@ pub struct LockWallVisual {
     pub block_name: String,
 }
 
+/// Marker carrying an authored block visual's name, so a mid-run SUBTRACTION of
+/// that block (the collision overlay's `removed_block_names` — a content gate
+/// dropping authored geometry, e.g. a broken brick) can find and despawn its
+/// sprite. `spawn_block` tags every block visual with this; `sync_removed_block_visuals`
+/// reconciles them against the overlay. `block_name` is the authored
+/// [`Block::name`](ambition_engine_core::Block), the same key `removed_block_names`
+/// carries, so the match is exact.
+#[derive(Component, Clone, Debug)]
+pub struct BlockVisual {
+    pub block_name: String,
+}
+
 #[derive(Component)]
 pub struct FeatureVisual {
     pub id: String,

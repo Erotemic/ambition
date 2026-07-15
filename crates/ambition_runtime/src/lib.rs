@@ -43,7 +43,6 @@ use bevy::time::{Fixed, Time};
 use ambition_platformer_primitives::schedule::SimScheduleExt as _;
 
 mod combat_schedule;
-pub mod session_world;
 pub mod input_stream;
 mod mode_scope;
 mod player_schedule;
@@ -52,13 +51,14 @@ mod portal_schedule;
 mod progression_schedule;
 pub mod projectile_schedule;
 mod room_schedule;
+pub mod session_world;
 mod sim_core_resources;
 /// N3.1's opt-in sim-state registration seam, and N0.4's desync-canary hash.
 pub mod snapshot;
 
 pub use combat_schedule::CombatSchedulePlugin;
 /// The demo-hosting seam (D-C): gate a hosted ruleset on the active room's mode.
-pub use mode_scope::{despawn_departed_mode_entities, in_mode, ModeScopePlugin};
+pub use mode_scope::{despawn_departed_mode_entities, in_base_mode, in_mode, ModeScopePlugin};
 pub use player_schedule::PlayerSchedulePlugin;
 #[cfg(feature = "portal")]
 pub use portal_schedule::PortalSchedulePlugin;

@@ -40,10 +40,33 @@ use ambition_world::rooms::ActiveRoomMetadata;
 /// The absent-resource case is `false`: an app with no world installed is in no
 /// mode, so a hosted ruleset stays asleep rather than panicking. `None` mode
 /// metadata is the base game, and matches no named mode.
-pub fn in_mode(name: &'static str) -> impl FnMut(Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<ActiveRoomMetadata>>) -> bool + Clone {
-    move |active: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<ActiveRoomMetadata>>| {
-        active.is_some_and(|active| active.0.mode.as_deref() == Some(name))
-    }
+pub fn in_mode(
+    name: &'static str,
+) -> impl FnMut(
+    Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<ActiveRoomMetadata>>,
+) -> bool
+       + Clone {
+    move |active: Option<
+        ambition_platformer_primitives::lifecycle::SessionWorldRef<ActiveRoomMetadata>,
+    >| { active.is_some_and(|active| active.0.mode.as_deref() == Some(name)) }
+}
+
+/// Run condition: a live session is in Ambition's OWN base mode — an active room
+/// that carries no named demo mode tag.
+///
+/// The mirror of [`in_mode`]: where `in_mode("sanic")` wakes a hosted demo's rules
+/// only inside that demo's rooms, `in_base_mode` wakes the host's OWN chrome only
+/// when the live session is Ambition's, not a hosted Sanic/Mary-O/Pocket session.
+/// The absent-resource case is `false` (no active room ⇒ no session ⇒ frontend /
+/// title), so gating a host-only menu on this keeps it dormant on the title screen
+/// AND inside a hosted demo — exactly "a live session exists AND it is Ambition's
+/// mode". Pair it with the canonical session gate
+/// [`ambition_platformer_primitives::lifecycle::simulation_authorized`] when a
+/// system also needs the full scope-identity guarantee.
+pub fn in_base_mode(
+    active: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<ActiveRoomMetadata>>,
+) -> bool {
+    active.is_some_and(|active| active.0.mode.is_none())
 }
 
 /// Despawn every [`ModeScopedEntity`] whose mode is not the active room's.

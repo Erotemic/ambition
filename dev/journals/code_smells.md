@@ -350,14 +350,20 @@ work: menu chrome that belongs to a session is leaking into the host shell. Fix
 direction: gate the inventory toggle (and any gameplay-only menu) on "a live
 session exists AND it is Ambition's mode", not on the process being up. Size: S–M.
 
-**2. Attack fires the wrong direction after turning.** Move LEFT, press attack →
-the attack comes out to the RIGHT (or reads as a back-attack). Smells like the
-attack samples a facing/aim latched when movement *started* (or the pre-turn
-facing) instead of the body's current facing at the swing. Needs diagnosis —
-likely in the melee/aim resolution reading a stale `facing`/`ResolvedMotionFrame`
-rather than the live one. Look for where the swing's direction is chosen vs. where
-facing is updated in the same tick (ordering). Find the elegant fix (single source
-of truth for "which way am I facing NOW"). Size: S once located.
+**2. ✅ RESOLVED 2026-07-15 (commit bd3c41e9a, logged then fixed the next commit) —
+attack fires the wrong direction after turning.** Move LEFT, press attack → the
+attack came out RIGHT / read as a back-attack. Root cause: `attack_dir_from_axis`
+classified on the RAW aim axis (`+x` = screen-right) but `AttackDir` is FACING-
+relative (`+x` = facing), so a FORWARD press while facing left (`axis.x < 0`,
+`facing = -1`) misread as `Back` and fired the aerial back-attack the wrong way.
+Fix folded facing into the horizontal arm (`forward = axis.x * facing`, the same
+transform `resolve_attack_intent_from_view`/`compute_aim` already apply) and
+threaded `facing` through both callers (player moveset trigger reads `kin.facing`;
+possessed-boss path reads `boss.kin.facing`). The swing SIDE is the latched
+`MovePlayback.facing`, which is `kin.facing` integrated in `WorldPrep` *before* the
+`Combat`-phase trigger, so it is already the live facing — single source of truth
+confirmed. Regression test added (`moveset/tests.rs`). Entry was never marked
+resolved when logged.
 
 **3. Vanity / "powered by Ambition" card + title presentation timing.** The
 vanity card is too short and has no fade in / fade out — it needs both, and a
@@ -426,9 +432,19 @@ a classic sliding mushroom wants a free-body integrator like `ground_item_physic
 Deliberately NOT abstracted at N=2 (design-balance): unify a `settle_free_body`
 helper across `GroundItem`/`WorldItem` when a THIRD moving pickup lands.
 
-**11. Goomba squash bypasses the engine death path (2026-07-15).** `bounce_squash_goombas`
-zeroes health + despawns directly, skipping the shared death/score/drop pipeline.
-Fine for a 1-HP walker with no drops; revisit if goombas ever drop or score.
+**11. ✅ RESOLVED-BY-DESIGN 2026-07-15 — crony squash despawns directly, and that
+is correct.** `bounce_squash_cronies` zeroes health + despawns instead of routing
+through the shared actor-death path (`HitEvent` → `apply_actor_hit` →
+drops/score/debris). Investigated: that path is DEFERRED (consumed a stage later),
+so a hit event emitted at the stomp would leave the crony alive-and-hostile when
+`apply_actor_contact_damage` runs the same frame — it would hurt the stomper, the
+exact bug the same-frame neutralize exists to avoid. A crony also has no score and
+no drop table, so the shared path would carry nothing. The only thing a silent
+despawn dropped was the visible pop, now emitted as a dust `VfxMessage::Burst`
+through the engine's shared vfx seam. So: keep the direct neutralize; the death
+pipeline's ordering is wrong for a contact stomp. (If a future crony ever scores or
+drops, reconsider — but it would need a same-frame lethal application, not the
+deferred event.)
 
 **12. Reactive-block reuse unproven — brick-break is the missing second consumer
 (2026-07-15).** `ContactSource::Block` now carries `GeoId` and the ?-block powerup

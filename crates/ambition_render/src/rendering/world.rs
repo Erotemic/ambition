@@ -11,8 +11,8 @@ use bevy::sprite::Anchor;
 
 use super::nameplates::DoorNameplateSource;
 use super::primitives::{
-    block_color, feature_color, feature_z, spawn_world_label, FeatureVisual, LockWallVisual,
-    PropVisual, RoomVisual,
+    block_color, feature_color, feature_z, spawn_world_label, BlockVisual, FeatureVisual,
+    LockWallVisual, PropVisual, RoomVisual,
 };
 use ambition_combat::events::FeatureVisualKind;
 use ambition_engine_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
@@ -35,7 +35,9 @@ use ambition_world::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
 pub fn respawn_room_visuals_on_request(
     mut requests: MessageReader<ambition_world::rooms::RespawnRoomVisualsRequested>,
     mut commands: Commands,
-    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_world::rooms::RoomSet,
+    >,
     physics_settings: Res<ambition_platformer_primitives::physics::PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
@@ -606,6 +608,12 @@ pub fn spawn_block(
             sprite,
             Transform::from_translation(world_to_bevy(world, block.aabb.center(), WORLD_Z_BLOCK)),
             Name::new(format!("Block: {}", block.name)),
+            // Carry the authored name so a mid-run overlay subtraction (a broken
+            // brick, a gate-dropped wall) can despawn this sprite — the render half
+            // of `removed_block_names`, reconciled by `sync_removed_block_visuals`.
+            BlockVisual {
+                block_name: block.name.clone(),
+            },
             RoomVisual,
         ),
     );
@@ -858,7 +866,9 @@ fn is_lock_wall_block(name: &str) -> bool {
 pub fn sync_lock_wall_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     overlay: Res<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,
     assets: Option<Res<GameAssets>>,
     existing: Query<(Entity, &LockWallVisual)>,
@@ -938,6 +948,41 @@ pub fn sync_lock_wall_visuals(
     }
 }
 
+/// Despawn the sprite of any authored block the collision overlay is SUBTRACTING
+/// this frame (`removed_block_names`). This is the render half of the immutable-base
+/// subtraction seam: the overlay already drops the block from every collision read
+/// (`apply_overlay_subtractions`), and this makes it vanish from the DRAWN world too,
+/// so a broken brick (or any gate-dropped authored block) stops colliding AND stops
+/// drawing — the two halves of "remove a block mid-run" without editing the authored
+/// [`RoomGeometry`](ambition_engine_core::RoomGeometry) base.
+///
+/// One-directional by design: room (re)load respawns the full authored block set via
+/// [`spawn_room_visuals`], and the content contributor clears `removed_block_names`
+/// on a re-arm, so a rebuilt brick simply reappears with the room — no respawn logic
+/// is owed here. Generic over the block name, so it serves every game the reusable
+/// presentation plugin drives, not just Mary-O's bricks.
+pub fn sync_removed_block_visuals(
+    mut commands: Commands,
+    overlay: Option<Res<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>>,
+    blocks: Query<(Entity, &BlockVisual)>,
+) {
+    let Some(overlay) = overlay else {
+        return;
+    };
+    if overlay.removed_block_names.is_empty() {
+        return;
+    }
+    for (entity, visual) in &blocks {
+        if overlay
+            .removed_block_names
+            .iter()
+            .any(|name| name == &visual.block_name)
+        {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
 #[cfg(test)]
 mod lock_wall_visual_tests {
     use super::*;
@@ -1003,6 +1048,62 @@ mod lock_wall_visual_tests {
         assert!(
             lock_wall_names(&mut app).is_empty(),
             "dropping the gate solid despawns the LockWallVisual"
+        );
+    }
+
+    /// The removed-block reconcile despawns exactly the block visuals the overlay
+    /// is subtracting this frame (`removed_block_names`) — the render half of the
+    /// immutable-base subtraction. A broken brick's sprite vanishes; every other
+    /// block visual is left standing, and a re-armed brick (name dropped from the
+    /// list) simply respawns with the room, which is not this system's job.
+    #[test]
+    fn removed_block_visual_despawns_only_subtracted_blocks() {
+        let mut app = App::new();
+        let brick = app
+            .world_mut()
+            .spawn(BlockVisual {
+                block_name: "brick_1".to_string(),
+            })
+            .id();
+        let ground = app
+            .world_mut()
+            .spawn(BlockVisual {
+                block_name: "ground_open_teach".to_string(),
+            })
+            .id();
+        app.insert_resource(FeatureEcsWorldOverlay {
+            removed_block_names: vec!["brick_1".to_string()],
+            ..Default::default()
+        });
+        app.add_systems(Update, sync_removed_block_visuals);
+
+        app.update();
+        assert!(
+            app.world().get_entity(brick).is_err(),
+            "the subtracted brick's visual is despawned"
+        );
+        assert!(
+            app.world().get_entity(ground).is_ok(),
+            "an un-subtracted block's visual is left standing"
+        );
+    }
+
+    /// With no overlay resource (a minimal app), the reconcile is a graceful
+    /// no-op rather than a panic — it never despawns a block on its own.
+    #[test]
+    fn removed_block_visual_is_inert_without_an_overlay() {
+        let mut app = App::new();
+        let brick = app
+            .world_mut()
+            .spawn(BlockVisual {
+                block_name: "brick_1".to_string(),
+            })
+            .id();
+        app.add_systems(Update, sync_removed_block_visuals);
+        app.update();
+        assert!(
+            app.world().get_entity(brick).is_ok(),
+            "no overlay ⇒ nothing is subtracted"
         );
     }
 }

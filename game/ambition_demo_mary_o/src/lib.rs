@@ -16,6 +16,7 @@
 //! rows (M1), the camera scroll policy (M2), and the flagpole sequence (M3) are
 //! the rest of the M-track; see `docs/planning/demos/super-mary-o.md`.
 
+pub mod bricks;
 pub mod crony;
 pub mod flag;
 pub mod powerups;
@@ -69,6 +70,21 @@ const POWER_BLOCK_ROW: f32 = 4.0;
 /// block's `GeoId`.
 const POWER_BLOCK_LAYER: &str = "mary_o_ground";
 const POWER_BLOCK_BASE_INDEX: u16 = 10;
+
+/// Tile columns of the breakable BRICKS — the ?-block's plain sibling and the
+/// SECOND consumer of the reactive-block primitive (`ContactSource::Block` carrying
+/// a durable [`GeoId`](ae::GeoId)). A head-bonk BREAKS a brick (removes it from the
+/// world) — same durable-id match as the ?-block powerup, opposite effect: the
+/// ?-block ADDS a milk pickup, the brick SUBTRACTS itself. A short run over the
+/// ground after pit B, clear of the ?-blocks so the two motifs never blur. See
+/// [`bricks`].
+const BRICK_COLUMNS: [f32; 3] = [40.0, 41.0, 42.0];
+/// Bricks sit at the same bonk height as the ?-blocks.
+const BRICK_ROW: f32 = POWER_BLOCK_ROW;
+/// The IntGrid tile layer + merge-ordinal base for the bricks' durable `GeoId`s. A
+/// base index disjoint from the ?-blocks' so no brick ever shares an id with one.
+const BRICK_LAYER: &str = "mary_o_ground";
+const BRICK_BASE_INDEX: u16 = 20;
 
 /// The level's world width and height. Named, rather than inlined into
 /// [`level_1_1`], because [`goal_pole`] must derive the flag's geometry from the
@@ -152,6 +168,22 @@ pub fn level_1_1() -> RoomSpec {
         ));
     }
 
+    // The breakable bricks: SOLID one-tile blocks, same as any wall until a
+    // head-bonk breaks one. Plain level geometry here; `bricks::break_bricks`
+    // recognizes a bonked brick by the durable `GeoId` `solid_tiled` stamps —
+    // `brick_id(i)` re-derives the SAME id, so the level and the runtime never
+    // drift, exactly like the ?-blocks above.
+    for i in 0..BRICK_COLUMNS.len() {
+        let min = brick_min(i);
+        blocks.push(ae::Block::solid_tiled(
+            format!("brick_{i}"),
+            min,
+            ae::Vec2::new(T, T),
+            BRICK_LAYER,
+            BRICK_BASE_INDEX + i as u16,
+        ));
+    }
+
     // 4. The stair pyramid: four up at x=66.., a gap, four down ending at x=75.
     for step in 1..=4u16 {
         let h = step as f32;
@@ -207,6 +239,39 @@ pub fn power_block_id(i: usize) -> ae::GeoId {
 pub fn power_block_index_for(id: &ae::GeoId) -> Option<usize> {
     (0..POWER_BLOCK_COLUMNS.len()).find(|&i| power_block_id(i) == *id)
 }
+
+/// The min corner of brick `i`, from the SAME constants [`level_1_1`] builds the
+/// `brick_*` blocks out of — so the break runtime removes the exact authored brick.
+pub fn brick_min(i: usize) -> ae::Vec2 {
+    let ground_top = LEVEL_HEIGHT - GROUND_TILES * T;
+    ae::Vec2::new(BRICK_COLUMNS[i] * T, ground_top - BRICK_ROW * T)
+}
+
+/// The durable [`GeoId`](ae::GeoId) of brick `i` — the SAME id `solid_tiled` stamps
+/// in [`level_1_1`], which the engine reports on a head-bonk contact
+/// (`ContactSource::Block`). Matching against this is how [`bricks::break_bricks`]
+/// knows a specific brick was struck, with no point-matching.
+pub fn brick_id(i: usize) -> ae::GeoId {
+    ae::GeoId::tile_layer(BRICK_LAYER, BRICK_BASE_INDEX + i as u16)
+}
+
+/// If `id` is one of the bricks, its index — the inverse of [`brick_id`]. `None`
+/// for any other block. Disjoint from [`power_block_index_for`] by construction
+/// (the two use different `GeoId` base indices), so a bonk is a ?-block OR a brick,
+/// never both.
+pub fn brick_index_for(id: &ae::GeoId) -> Option<usize> {
+    (0..BRICK_COLUMNS.len()).find(|&i| brick_id(i) == *id)
+}
+
+/// The authored NAME of brick `i` (`brick_<i>`) — the key the collision overlay's
+/// `removed_block_names` subtraction and the render reconcile both match on. Kept
+/// beside [`brick_id`] so the name and the id are derived from the same `i`.
+pub fn brick_name(i: usize) -> String {
+    format!("brick_{i}")
+}
+
+/// How many bricks the level authors.
+pub const BRICK_COUNT: usize = BRICK_COLUMNS.len();
 
 /// The pole's geometry, derived from the SAME constants [`level_1_1`] builds the
 /// `goal_pole` block out of. A second source of truth for where the flag is would
@@ -451,6 +516,11 @@ impl Plugin for MaryORulesPlugin {
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.insert_resource(goal_pole());
         app.init_resource::<powerups::SpentPowerBlocks>();
+        app.init_resource::<bricks::BrokenBricks>();
+        // The brick overlay contributor writes the collision overlay; a full app
+        // inserts it (features/render plugins), but a thin rules-only harness may
+        // not, and `init_resource` is idempotent — a no-op when already present.
+        app.init_resource::<ambition::actors::features::FeatureEcsWorldOverlay>();
         // The cycle emitter writes this; the host's replay consumer drains it. The
         // engine registers it too (`SandboxResetSchedulePlugin`), but a thin host
         // may not, and `add_message` is idempotent — a no-op when already present.
@@ -460,6 +530,10 @@ impl Plugin for MaryORulesPlugin {
         // may not, and `add_message` is idempotent.
         app.add_message::<ambition::actors::rooms::RoomLoaded>();
         app.add_message::<ambition::actors::features::SpawnActorRequest>();
+        // The crony squash pops a dust burst through the engine's vfx seam; a full
+        // app registers this via the presentation plugins, but a thin rules-only
+        // harness may not, and `add_message` is idempotent.
+        app.add_message::<ambition::vfx::VfxMessage>();
         // The flag runs BEFORE the clock: a level whose flag has been grabbed is
         // over, and `tick_level_clock` reads the sequence to know it. The cycle
         // emitter runs LAST so it sees the settled tally and its clock reset is not
@@ -489,6 +563,15 @@ impl Plugin for MaryORulesPlugin {
             powerups::bonk_power_blocks,
             powerups::sync_grown_form,
         );
+        // The bricks — the reactive-block primitive's SECOND consumer: re-arm on
+        // (re)load, break the bonked one, and contribute broken bricks to the
+        // collision overlay's `removed_block_names` so they stop colliding (and, via
+        // the render reconcile, drawing). The contribution runs AFTER the engine's
+        // overlay rebuild clears that list — the same slot `contribute_encounter_lock_walls`
+        // takes — so the removals survive the per-frame clean slate.
+        let bricks = (bricks::refill_bricks_on_room_loaded, bricks::break_bricks);
+        let brick_overlay = bricks::contribute_broken_bricks_to_overlay
+            .after(ambition::actors::features::rebuild_feature_ecs_world_overlay);
         if self.hosted {
             app.add_systems(sim, rules.run_if(ambition::runtime::in_mode(MARY_O_MODE)));
             app.add_systems(sim, cronies.run_if(ambition::runtime::in_mode(MARY_O_MODE)));
@@ -496,10 +579,17 @@ impl Plugin for MaryORulesPlugin {
                 sim,
                 powerups.run_if(ambition::runtime::in_mode(MARY_O_MODE)),
             );
+            app.add_systems(sim, bricks.run_if(ambition::runtime::in_mode(MARY_O_MODE)));
+            app.add_systems(
+                sim,
+                brick_overlay.run_if(ambition::runtime::in_mode(MARY_O_MODE)),
+            );
         } else {
             app.add_systems(sim, rules);
             app.add_systems(sim, cronies);
             app.add_systems(sim, powerups);
+            app.add_systems(sim, bricks);
+            app.add_systems(sim, brick_overlay);
         }
     }
 }
@@ -726,6 +816,43 @@ mod tests {
             aabb("goal_pole").min.x > aabb("stair_down_1").max.x,
             "the goal is past the pyramid"
         );
+    }
+
+    /// The bricks are authored exactly where the break runtime expects them: a
+    /// `brick_<i>` block per column whose durable `GeoId` is `brick_id(i)`, solid
+    /// until bonked, and never sharing an id with a ?-block. The brick twin of the
+    /// ?-block/powerup agreement — the level and the reactive-block runtime can never
+    /// drift on which block is a brick or where it is.
+    #[test]
+    fn level_1_1_authors_the_bricks_the_break_runtime_expects() {
+        let room = level_1_1();
+        assert_eq!(BRICK_COUNT, BRICK_COLUMNS.len());
+        for i in 0..BRICK_COUNT {
+            let block = room
+                .world
+                .blocks
+                .iter()
+                .find(|b| b.name == brick_name(i))
+                .unwrap_or_else(|| panic!("brick {i} is authored into the level"));
+            assert_eq!(
+                block.id,
+                brick_id(i),
+                "brick {i}'s GeoId matches the runtime's"
+            );
+            assert_eq!(
+                brick_index_for(&block.id),
+                Some(i),
+                "the runtime resolves the authored brick back to its index"
+            );
+            assert!(
+                matches!(block.kind, ae::BlockKind::Solid),
+                "a brick is solid geometry until a bonk breaks it"
+            );
+            assert!(
+                power_block_index_for(&block.id).is_none(),
+                "a brick's id never collides with a ?-block's"
+            );
+        }
     }
 
     /// The room claims its mode, which is what a hosted `MaryORulesPlugin` wakes on.

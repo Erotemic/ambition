@@ -13,7 +13,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer_primitives::lifecycle::{ModeScopedEntity, SpawnScopedExt as _};
-use ambition_runtime::{despawn_departed_mode_entities, in_mode};
+use ambition_runtime::{despawn_departed_mode_entities, in_base_mode, in_mode};
 use ambition_world::rooms::{ActiveRoomMetadata, RoomMetadata};
 
 /// How many times each mode's gated rule has run.
@@ -60,7 +60,11 @@ impl Plugin for DemoRulesPlugin {
 }
 
 fn set_mode(app: &mut App, mode: Option<&str>) {
-    ambition_platformer_primitives::lifecycle::session_world_component_mut::<ActiveRoomMetadata>(app.world_mut()).expect("active session room metadata").0 = RoomMetadata {
+    ambition_platformer_primitives::lifecycle::session_world_component_mut::<ActiveRoomMetadata>(
+        app.world_mut(),
+    )
+    .expect("active session room metadata")
+    .0 = RoomMetadata {
         mode: mode.map(str::to_string),
         ..Default::default()
     };
@@ -80,7 +84,10 @@ fn mode_scoped_entities(app: &mut App) -> Vec<String> {
 /// plugin knows the other exists, and neither owns a global state.
 fn two_hosted_demos() -> App {
     let mut app = App::new();
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ActiveRoomMetadata::default());
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ActiveRoomMetadata::default(),
+    );
     app.init_resource::<RuleTicks>();
     // The sweep as the engine group schedules it, minus the sim-schedule
     // plumbing this test does not need. `SandboxSet::Progression` membership is
@@ -169,7 +176,11 @@ fn a_room_change_inside_the_same_mode_spares_the_modes_entities() {
     app.world_mut().commands().spawn_mode_scoped("a", ());
     app.world_mut().flush();
 
-    ambition_platformer_primitives::lifecycle::session_world_component_mut::<ActiveRoomMetadata>(app.world_mut()).expect("active session room metadata").0 = RoomMetadata {
+    ambition_platformer_primitives::lifecycle::session_world_component_mut::<ActiveRoomMetadata>(
+        app.world_mut(),
+    )
+    .expect("active session room metadata")
+    .0 = RoomMetadata {
         mode: Some("a".into()),
         biome: Some("a_second_room".into()),
         ..Default::default()
@@ -178,12 +189,71 @@ fn a_room_change_inside_the_same_mode_spares_the_modes_entities() {
     assert_eq!(mode_scoped_entities(&mut app), vec!["a"]);
 }
 
+/// `in_base_mode` is the mirror of [`in_mode`]: it wakes a host-only system ONLY
+/// when the live session is Ambition's own (an active room with no demo mode tag).
+/// This is the gate the inventory/pause toggle needs — it stays asleep on the
+/// title screen (no session) AND inside a hosted Sanic/Mary-O session.
+#[test]
+fn in_base_mode_wakes_only_in_ambitions_own_gameplay() {
+    #[derive(Resource, Default)]
+    struct ChromeTicks(u32);
+
+    fn count_chrome(mut ticks: ResMut<ChromeTicks>) {
+        ticks.0 += 1;
+    }
+
+    // A live session in the base game (no mode tag): Ambition's own chrome wakes.
+    let mut app = App::new();
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ActiveRoomMetadata::default(),
+    );
+    app.init_resource::<ChromeTicks>();
+    app.add_systems(Update, count_chrome.run_if(in_base_mode));
+
+    app.update();
+    assert_eq!(
+        app.world().resource::<ChromeTicks>().0,
+        1,
+        "a live session with no mode tag IS Ambition's own gameplay"
+    );
+
+    // A hosted demo mode: the host chrome sleeps — the session is the demo's.
+    set_mode(&mut app, Some("mary_o"));
+    app.update();
+    assert_eq!(
+        app.world().resource::<ChromeTicks>().0,
+        1,
+        "a hosted demo mode is not Ambition's mode, so host chrome must not wake"
+    );
+
+    // Back to the base game: it wakes again.
+    set_mode(&mut app, None);
+    app.update();
+    assert_eq!(app.world().resource::<ChromeTicks>().0, 2);
+
+    // No session world at all (title screen / frontend): the toggle can never
+    // fire — the exact leak this gate closes.
+    let mut title = App::new();
+    title.init_resource::<ChromeTicks>();
+    title.add_systems(Update, count_chrome.run_if(in_base_mode));
+    title.update();
+    assert_eq!(
+        title.world().resource::<ChromeTicks>().0,
+        0,
+        "no live session ⇒ host chrome cannot open on the title screen"
+    );
+}
+
 /// The standalone half of the constructor flag: ungated, the demo's rules run
 /// everywhere, because when the demo IS the game there is no mode to leave.
 #[test]
 fn a_standalone_ruleset_runs_with_no_mode_at_all() {
     let mut app = App::new();
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ActiveRoomMetadata::default());
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ActiveRoomMetadata::default(),
+    );
     app.init_resource::<RuleTicks>();
     app.add_plugins(DemoRulesPlugin {
         mode: "a",

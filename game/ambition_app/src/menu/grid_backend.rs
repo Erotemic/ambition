@@ -1140,7 +1140,17 @@ pub fn install_grid_unified_menu(app: &mut App) {
     app.add_systems(
         Update,
         (
-            grid_menu_open_routing.run_if(grid_backend_active),
+            // Open/close routing owns the pause + inventory keys, so it is gated on
+            // a LIVE Ambition session, not just the backend selection: a live
+            // session exists (`simulation_authorized`) AND it is Ambition's own
+            // mode (`in_base_mode` — the active room carries no hosted-demo mode
+            // tag). Without this the inventory/pause toggle leaks onto the title
+            // screen (no session, but `GameMode` defaults to `Playing`) and into a
+            // hosted Sanic/Mary-O session (whose chrome is the demo's, not this).
+            grid_menu_open_routing
+                .run_if(grid_backend_active)
+                .run_if(ambition::platformer::lifecycle::simulation_authorized)
+                .run_if(ambition::runtime::in_base_mode),
             grid_menu_nav
                 .run_if(grid_backend_active)
                 // Join the shared menu-nav consume set so the touch-joystick

@@ -143,10 +143,22 @@ pub fn stage_cronies_on_room_loaded(
 /// skips it; the body is then despawned. A SIDE touch (no head overlap) is left
 /// untouched here and lands as normal contact damage on Mary-O.
 ///
+/// **Why this despawns directly instead of routing through the shared actor-death
+/// path** (`HitEvent` → `apply_actor_hit` → drops/score/debris): that path is
+/// DEFERRED — a hit event emitted here is consumed a stage later, so the crony
+/// would still be alive-and-hostile when `apply_actor_contact_damage` runs THIS
+/// frame and would hurt the stomper (the exact bug the same-frame neutralize
+/// avoids). And a crony has no score value and no drop table, so there is nothing
+/// for the shared path to carry. The one thing a silent despawn would drop is the
+/// visible pop, so we emit a dust [`VfxMessage::Burst`] at the corpse through the
+/// engine's own vfx seam — a squash reads as a squash without adopting a death
+/// pipeline whose ordering is wrong for a contact stomp.
+///
 /// Mary-O runs under screen gravity (down = +y), so "descending" is `vel.y > 0`,
 /// her feet are the `+y` (max) edge, and a crony's head is its `-y` (min) edge.
 pub fn bounce_squash_cronies(
     mut commands: Commands,
+    mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
     mut players: Query<&mut ae::BodyKinematics, With<PrimaryPlayer>>,
     mut cronies: Query<
         (Entity, &ae::BodyKinematics, &mut BodyHealth),
@@ -169,6 +181,15 @@ pub fn bounce_squash_cronies(
         let on_head = feet >= g.min.y - STOMP_BAND && feet <= g.min.y + STOMP_BAND;
         if overlap_x && on_head {
             ae::movement::set_jump_velocity(&mut player.vel, ae::DEFAULT_GRAVITY_DIR, BOUNCE_SPEED);
+            // The squash pops a low, tan dust burst — the engine's shared particle
+            // seam, so the crony leaves a mark instead of blinking out.
+            vfx.write(ambition::vfx::VfxMessage::Burst {
+                pos: crony_kin.pos,
+                count: 12,
+                speed: 130.0,
+                color: [0.80, 0.68, 0.48, 1.0],
+                kind: ambition::vfx::ParticleKind::Dust,
+            });
             // Neutralize before the contact pass runs, then remove the body.
             health.health.current = 0;
             commands.entity(entity).despawn();
@@ -226,6 +247,7 @@ mod tests {
     #[test]
     fn a_descending_player_bounces_off_and_squashes_a_crony() {
         let mut app = App::new();
+        app.add_message::<ambition::vfx::VfxMessage>();
         app.add_systems(Update, bounce_squash_cronies);
         // Falling onto the head (screen gravity: +y is down, so vel.y > 0 falls).
         let (crony, player) = spawn_pair(&mut app, ae::Vec2::new(0.0, 240.0));
@@ -240,11 +262,20 @@ mod tests {
             vel.y < 0.0,
             "the stomp bounces the player back UP (screen gravity: up is -y), got {vel:?}"
         );
+        // The squash leaves a visible mark: a dust burst through the engine seam.
+        let bursts = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ambition::vfx::VfxMessage>>()
+            .drain()
+            .filter(|m| matches!(m, ambition::vfx::VfxMessage::Burst { .. }))
+            .count();
+        assert_eq!(bursts, 1, "a squash pops exactly one dust burst");
     }
 
     #[test]
     fn a_rising_player_does_not_squash_a_crony() {
         let mut app = App::new();
+        app.add_message::<ambition::vfx::VfxMessage>();
         app.add_systems(Update, bounce_squash_cronies);
         // Overlapping the crony's head band but moving UP — a side/undercut hit,
         // which the engine's contact-damage pass owns, not a stomp.

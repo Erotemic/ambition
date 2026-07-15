@@ -85,7 +85,7 @@ pub use primitives::{
 };
 pub use world::{
     refresh_entity_sprite_handles_on_game_assets_change, spawn_room_visuals,
-    spawn_surface_chain_visuals, sync_lock_wall_visuals,
+    spawn_surface_chain_visuals, sync_lock_wall_visuals, sync_removed_block_visuals,
 };
 
 /// Presentation systems below consume session-created resources and entities.
@@ -159,6 +159,10 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 (
                     item_visuals::sync_ground_item_visuals.after(actors::sync_visuals),
                     item_visuals::sync_world_item_visuals.after(actors::sync_visuals),
+                    // Despawn any authored block the collision overlay is subtracting
+                    // this frame (a broken brick, a gate-dropped wall) — the render
+                    // half of `removed_block_names`. Generic; every game gets it.
+                    sync_removed_block_visuals,
                     item_visuals::sync_held_item_visual.after(actors::sync_visuals),
                     item_visuals::sync_held_projectile_visuals.after(actors::sync_visuals),
                     shrine_visuals::sync_shrine_visual.after(actors::sync_visuals),

@@ -211,6 +211,12 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 // press AFTER the fold writes the pressed_this_frame bit.
                 kaleidoscope_menu_open_routing
                     .run_if(kaleidoscope_backend_active)
+                    // Gate the pause/inventory toggle on a LIVE Ambition session
+                    // (session exists AND it is Ambition's own mode), the mirror of
+                    // the Grid backend gate — so the menu cannot open on the title
+                    // screen or inside a hosted Sanic/Mary-O session.
+                    .run_if(ambition::platformer::lifecycle::simulation_authorized)
+                    .run_if(ambition::runtime::in_base_mode)
                     .in_set(ambition::actors::schedule::MenuNavConsume),
                 // Nav first (mutates the cursor), then republish (reads the cursor +
                 // inventory) so the highlight + detail panel reflect this frame's move.

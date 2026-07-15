@@ -130,43 +130,59 @@ speedruns 1-1 headlessly; warp-pipe secret reachable; and the whole demo
 authored withOUT touching the momentum kernel (proves the two movement
 identities stay independent).
 
-## Proposed — "a PROPER Mary-O" (2026-07-15, Jon) — NEEDS A PLANNING PASS
+## A PROPER Mary-O (2026-07-15, Jon) — EXECUTING
 
-Landed 2026-07-15 (session): real `super_mary_o` sprite, jump SFX, run+jump-only
-kit, tiled surfaces (`Block::solid_tiled`), cyclic level (flag →
-`RoomReplayRequested`). Kit authoring landed the **ability-composition** keystone
-(commit 6875aeaea): Mary-O composes `abilities: Some([RunJump])`, a grant list
-that unions into her `AbilityBase`; the F3 dev editable is now a MASK over the
-base, not a wholesale replace — which also fixed a still-live bug where Mary-O's
-kit was clobbered back to the full Ambition set every frame. Adding a Mario verb
-below is now appending a grant, not forking a preset. That makes it a real slice;
-Jon wants it to become a PROPER Mary-O. Requirements, captured to plan — the
-movement split question below is the one that genuinely needs thought (candidate
-for a Fable planning pass, like the shell-UX cluster):
+Jon: "let's do the maryo content." Building the full proper-Mary-O, not a thin
+slice. **The movement-seam question is RESOLVED against code** (three scout
+passes over the kernel, the enemy/stomp vocab, and the powerup seam):
 
-- **Mario jump physics = the target feel.** "That is the right sort of jump
-  physics." Mary-O is on the AxisSwept kernel path (NOT the momentum kernel Sanic
-  uses). Variable-jump already exists (`AbilitySet::variable_jump`). Task: tune the
-  AxisSwept params + gravity/air-control to the classic arc. **Open architecture
-  question:** how much of "Mario movement" is the movement KERNEL vs a layer a
-  SHELL higher? Jon: *"maybe some of it is in the movement kernel … wall jumps but
-  not sure if that is movement kernel, might be a shell higher. Need to think about
-  it."* Resolve this seam before building — it decides whether these verbs are
-  engine primitives (reusable) or demo-local rules.
-- **Wall jumps.** Kernel already has `wall_jump`/`wall_cling` abilities; decide if
-  Mary-O's wall jump is that primitive or a shell rule (see the seam question).
-- **Double / triple jump.** Kernel has `double_jump` (one extra air jump) +
-  `air_jumps` tuning. Triple needs the air-jump count to go past 1 — check whether
-  `air_jumps` already generalizes or needs a count knob.
-- **Ground pound.** A down slam (down-air / fast-fall into a stomp). Likely a
-  moveset move (`attack_air_down`-shaped) or a movement verb — depends on the seam
-  question. Classic pairs with breaking blocks / stomping enemies.
-- **Mushroom (the "milk" powerup) spawns from a block, small ↔ tall switch.** M1
-  already landed the equipment DATA + mechanism (`grow_cap` = size+armor) through
-  the umbrella. REMAINING (already noted in M1): the pickup ENTITY that emerges
-  from a `?`-block, equip-on-touch, and the live BODY-scale collision/render fold
-  (small↔tall Mary-O). Needs an elegant "spawn item from a struck block" seam.
-- **An enemy.** Reuse the `ai_slop` enemy archetype as the goomba/koopa (stompable;
-  classic head-stomp bounce + side-contact damage). This is M4's enemy leg.
-- **Bar:** *"it needs to be a proper Mary-O demo"* — the above together, not a
-  thin slice. Sequence after the movement-seam question is answered.
+> **Every "Mario move" is already a kernel primitive gated by an `AbilitySet`
+> flag or a tuning knob** — variable jump, double/triple jump (`air_jumps`
+> count), wall jump, wall cling, fast fall. So the VERBS live in the kernel
+> (reusable) and Mary-O enables them by **appending grants** — zero kernel code.
+> The FEEL that legitimately varies per character (the air-jump count, a bespoke
+> arc) is **tuning**, composed on the catalog exactly like Sanic's `momentum`.
+> The only genuinely new mechanic is the ground pound; the ? block / stomp are
+> content over existing head-contact + GroundItem + pogo vocab.
+
+That answer decides the whole build: it is mostly CONTENT + composition, plus one
+real engine keystone (per-character tuning). Slices, each compiling + tested +
+committed:
+
+- **A — moveset grants ✅ LANDED (2026-07-15).** Three single-verb `AbilityGrant`s
+  (`AirJump`, `WallMobility`, `FastFall`) — the finer-grained bundles the grant
+  vocab always anticipated. Mary-O's list is now
+  `[RunJump, AirJump, WallMobility, FastFall]`: run + variable + double jump, wall
+  cling/kick, fast-fall dive, still none of the Ambition kit. Zero kernel code —
+  the verbs already existed as `AbilitySet`-gated primitives.
+- **B — per-character axis tuning (KEYSTONE) ✅ LANDED (2026-07-15).** The tuning
+  sibling of the ability-composition keystone. `ae::AuthoredMovementTuning` marks
+  a body whose feel is authored, so its live axis params come from the row, not
+  the global F3 dev tuning (an axis body now escapes that refresh the way a
+  `SurfaceMomentum` body already did). Catalog gains `axis_tuning:
+  Option<AxisTuningSpec>` (serde-twin/`to_kernel`, mirroring `momentum`). Mary-O
+  authors `axis_tuning: Some((air_jumps: 2))` → her `AirJump` grant is a TRIPLE
+  jump, without touching Ambition's protagonist. Poison-tested. This is the
+  documented resolution of the seam question: **verbs are kernel grants; feel is
+  per-character tuning.** The Mario ARC itself stays at the blessed default
+  (Jon: "that is the right sort of jump physics") — no feel-tuning pass, per the
+  land-architecture-not-feel directive.
+- **C — the goomba + stomp (in progress).** Reuse the `ai_slop` sprite as a
+  1-HP `Wanderer` walker (paces, reverses at walls), spawned via
+  `SpawnActorRequest` on room load (self-contained demo roster fragment so it has
+  its sprite standalone AND hosted). Head-stomp is a demo RULE: a descending
+  player whose feet clear the goomba's head bounces (`set_jump_velocity`) and
+  squashes it (lethal `HitEvent`); side contact is the engine's existing
+  body-contact damage. `PogoTarget` also tags it so a ground-pound down-hit pops.
+- **D — the ? block powerup.** `ItemBlock` component; a head-bump (scan
+  `frame_out.events.contacts` for `ContactKind::Head` against the block) emits a
+  `GroundItem` (the generated milk-carton sprite) that rises out; touch-to-equip
+  runs `equip_equipment_row(grow_cap)`; a `BODY_SCALE` read-fold into `base_size`
+  makes small↔tall real (the generated `super_mary_o_tall` sprite). Publish the
+  milk-carton / coin / tall sprites into crate assets + `regen_sprites.sh`.
+- **E — ground pound + level pass.** Fast-fall already grants the dive (Slice A);
+  ground pound is the down-slam that stomps (covered by C's rule) and breaks a
+  brick block. Level gets ? blocks, goombas, and the powerup rhythm so it plays
+  like a proper 1-1.
+
+**Bar:** *"it needs to be a proper Mary-O demo"* — all of the above together.

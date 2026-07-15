@@ -3,7 +3,15 @@
 //! Split out of the former 1.8k-line `specials.rs` (2026-06-15) — see
 //! [`super`] (`specials/mod.rs`) for the shared module overview.
 
-use super::*;
+use bevy::prelude::*;
+
+use ambition_actors::features::{BossClusterRef, FeatureSimEntity};
+use ambition_characters::brain::{
+    action_set::ActionRequest, ActorActionMessage, SpecialActionSpec,
+};
+use ambition_engine_core as ae;
+use ambition_projectiles::enemy::EnemyProjectileSpawn;
+use ambition_vfx::{Effect, EffectRequest};
 
 // ---- Exploding Gradient's runaway nova (content-only, open-seam special) ----
 
@@ -103,8 +111,9 @@ pub fn spawn_gradient_nova_from_special_messages(
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
     use super::*;
+
+    use ambition_time::WorldTime;
 
     /// End-to-end wiring check (public-API only): drive a boss to fire the
     /// gradient nova and confirm the full burst of projectile entities

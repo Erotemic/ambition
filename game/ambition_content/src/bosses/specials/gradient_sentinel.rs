@@ -3,7 +3,16 @@
 //! Split out of the former 1.8k-line `specials.rs` (2026-06-15) — see
 //! [`super`] (`specials/mod.rs`) for the shared module overview.
 
-use super::*;
+use bevy::prelude::*;
+
+use ambition_actors::features::{BossClusterRef, FeatureSimEntity};
+use ambition_characters::brain::{
+    action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
+    SpecialActionSpec,
+};
+use ambition_engine_core::{self as ae, AabbExt};
+use ambition_projectiles::enemy::EnemyProjectileSpawn;
+use ambition_time::WorldTime;
 
 // ===================================================================
 // Migrated boss-special Techniques (from ambition_actors brain_effects).
@@ -858,7 +867,6 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
     use super::*;
 
     #[test]

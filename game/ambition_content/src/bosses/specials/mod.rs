@@ -11,20 +11,8 @@
 //!
 //! Migrated from `ambition_actors::features::ecs::brain_effects` one Technique
 //! at a time. First: the Smirking Behemoth eye beam.
-#![allow(unused_imports)]
 
 use bevy::prelude::*;
-
-use ambition_actors::actor::{BodyKinematics, PlayerEntity};
-use ambition_actors::features::{ActorFaction, ActorTarget, BossClusterRef, FeatureSimEntity};
-use ambition_characters::brain::{
-    action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
-    SpecialActionSpec,
-};
-use ambition_engine_core::{self as ae, AabbExt};
-use ambition_projectiles::enemy::EnemyProjectileSpawn;
-use ambition_time::WorldTime;
-use ambition_vfx::{Effect, EffectRequest};
 
 mod echo_fan;
 mod eye_beam;
@@ -34,13 +22,25 @@ mod mode_collapse;
 mod overflow_flood;
 mod seismic_stomp;
 
-pub use echo_fan::*;
-pub use eye_beam::*;
-pub use gradient_nova::*;
-pub use gradient_sentinel::*;
-pub use mode_collapse::*;
-pub use overflow_flood::*;
-pub use seismic_stomp::*;
+// Curated re-export of each Technique's public surface: the per-boss state
+// component (attached via required components + snapshot-registered) and the
+// `spawn_*_from_special_messages` system. Nothing outside this module consumes
+// them today — the hub feeds this file's plugin (below) and `snapshot::register`
+// — but they are the Techniques' genuine public API, so an explicit `pub use`
+// (not a glob) states it without re-globbing each submodule's private imports.
+pub use echo_fan::{spawn_echo_fan_from_special_messages, EchoFanState};
+pub use eye_beam::{spawn_eye_beam_from_special_messages, EyeBeamState};
+pub use gradient_nova::{spawn_gradient_nova_from_special_messages, ExplodingGradientState};
+pub use gradient_sentinel::{
+    spawn_gnu_apple_rain_from_special_messages,
+    spawn_gradient_cascade_minions_from_special_messages, spawn_minima_trap_from_special_messages,
+    spawn_overfit_volley_from_special_messages, spawn_saddle_point_from_special_messages,
+    AppleRainSpawnState, GradientCascadeState, MinimaTrapState, OverfitVolleyState,
+    SaddlePointState,
+};
+pub use mode_collapse::{spawn_mode_collapse_converge_from_special_messages, ModeCollapseState};
+pub use overflow_flood::{spawn_overflow_flood_from_special_messages, OverflowState};
+pub use seismic_stomp::{spawn_seismic_stomp_from_special_messages, SeismicStompState};
 
 use ambition_actors::features::BossConfig;
 use ambition_platformer_primitives::schedule::gameplay_allowed;

@@ -3,7 +3,14 @@
 //! Split out of the former 1.8k-line `specials.rs` (2026-06-15) — see
 //! [`super`] (`specials/mod.rs`) for the shared module overview.
 
-use super::*;
+use bevy::prelude::*;
+
+use ambition_actors::features::{BossClusterRef, FeatureSimEntity};
+use ambition_characters::brain::{
+    action_set::ActionRequest, ActorActionMessage, SpecialActionSpec,
+};
+use ambition_engine_core as ae;
+use ambition_vfx::{Effect, EffectRequest};
 
 // ---- T-Rex's seismic stomp (content-only, open-seam; world-space arena hazard) ----
 
@@ -114,7 +121,6 @@ pub fn spawn_seismic_stomp_from_special_messages(
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
     use super::*;
 
     #[test]

@@ -217,8 +217,9 @@ pub fn reconcile_kernel_bodies_after_portal_transit(
     }
 }
 
-/// Apply player-only input/trace side effects after generic portal transit.
-/// Reads [`PortalBodyTransited`] events and, for the primary-player entity only:
+/// Apply driven-body input/trace side effects after generic portal transit.
+/// Reads [`PortalBodyTransited`] events and, for the CONTROLLED subject only
+/// (a possessed actor while possessing, else the home avatar):
 ///
 /// - emits [`BodyTeleported`] (so the gameplay trace treats the position snap as
 ///   intentional and doesn't auto-dump on it),
@@ -226,6 +227,12 @@ pub fn reconcile_kernel_bodies_after_portal_transit(
 ///   into the exit wall for a short window), and
 /// - inserts the [`PortalInputWarp`] held-input warp **iff** this convention's
 ///   map flips horizontal movement and a movement input is held.
+///
+/// These are INPUT-feel guards, so they follow the body the local input stream
+/// is driving — possess an actor and send it through a portal, and its
+/// emergence is protected exactly like the home avatar's (previously it got
+/// none of these and possession-through-a-portal felt wrong). Autonomous
+/// actors still carry no input guards; their brains hold no input to warp.
 ///
 /// `PlayerMovementIntent` / `PortalEmission` / `PortalInputWarp` are INPUT and
 /// must never be referenced by the portal core. This runs `.after(portal_transit)`
@@ -238,12 +245,17 @@ pub fn portal_player_input_adapter(
     mut transited: MessageReader<PortalBodyTransited>,
     mut teleported: MessageWriter<BodyTeleported>,
     mut trail_breaks: MessageWriter<TrailContinuityBreak>,
-    players: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
+    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     let held = intent.as_deref().map_or(Vec2::ZERO, |i| i.dir);
+    let subject = controlled
+        .and_then(|subject| subject.0)
+        .or_else(|| primary.single().ok());
     for ev in transited.read() {
-        // Only the primary player carries input/trace side effects; actors don't.
-        if players.get(ev.body).is_err() {
+        // Only the DRIVEN body carries input/trace side effects; autonomous
+        // actors don't.
+        if Some(ev.body) != subject {
             continue;
         }
         // Trace: the position snap is intentional.

@@ -23,6 +23,7 @@
 use bevy::prelude::*;
 
 use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer_primitives::markers::ControlledSubject;
 use ambition_portal::pieces::portal_map_vec;
 use ambition_portal::{
     PlayerMovementIntent, PortalEmission, PortalInputWarp, PortalTransit, PortalTuning,
@@ -44,20 +45,21 @@ impl Default for SuppressWallAbilitiesInPortal {
     }
 }
 
-/// While the player is mid-transit, suppress the wall abilities (ledge-grab,
-/// cling, wall-jump, wall-climb) so they don't latch onto the carved aperture
+/// While a body is mid-transit, suppress its wall abilities (ledge-grab,
+/// cling, wall-jump, wall-climb) so it doesn't latch onto the carved aperture
 /// EDGES — the carve splits the host block, and those new edges read as grabbable
-/// ledges / climbable walls, so you'd cling "into" a portal and pop back out the
-/// entry instead of sinking through and crossing.
+/// ledges / climbable walls, so a body would cling "into" a portal and pop back
+/// out the entry instead of sinking through and crossing.
 ///
-/// IMPORTANT — this must re-apply EVERY frame, not set-once. `BodyAbilities` is
-/// wholesale-reset to the editable loadout every frame
-/// (`sync_live_ability_edits_clusters`: `abilities.abilities = desired`), so a
-/// save-once/restore-on-exit pattern is clobbered after a single frame (that was
-/// the "disable didn't work" bug). Re-applying each frame is robust against that
-/// reset, AND needs no save/restore — when transit ends, the per-frame reset
-/// restores the loadout automatically. (The wider structural smell — transient
-/// ability mods fighting a per-frame wholesale reset — is noted in TODO.md.)
+/// BODY-GENERIC (relativity): the aperture-edge hazard is a property of
+/// transiting, not of being the primary player — a possessed actor (or any
+/// wall-able actor) crossing a portal needs the same guard. Suppression
+/// re-applies every frame while the [`PortalTransit`] latch is present (robust
+/// against the primary player's per-frame F3 ability re-sync), and
+/// [`restore_wall_abilities_after_transit`] puts the verbs back from the body's
+/// own authored [`AbilityBase`](ambition_engine_core::AbilityBase) when the
+/// latch is removed — bodies outside the F3 re-sync (everything that isn't the
+/// primary player) would otherwise stay stripped forever.
 /// Gated on [`PortalTuning::suppress_wall_abilities`]. Runs before the movement
 /// integration.
 ///
@@ -66,19 +68,16 @@ impl Default for SuppressWallAbilitiesInPortal {
 /// portal crate (Stage 19 Phase 5a); identical-sim.
 pub fn suppress_ledge_grab_during_transit(
     tuning: Res<PortalTuning>,
-    mut players: Query<
-        (
-            &mut ambition_actors::actor::BodyAbilities,
-            Option<&PortalTransit>,
-        ),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
+    mut bodies: Query<&mut ambition_actors::actor::BodyAbilities, With<PortalTransit>>,
 ) {
     if !tuning.suppress_wall_abilities {
         return;
     }
-    for (mut abilities, transiting) in &mut players {
-        if transiting.is_some() {
+    for mut abilities in &mut bodies {
+        // Equality-guard through `Mut` so an already-suppressed body doesn't
+        // trip change detection every frame of a transit.
+        let a = abilities.abilities;
+        if a.ledge_grab || a.wall_cling || a.wall_jump || a.wall_climb {
             let a = &mut abilities.abilities;
             a.ledge_grab = false;
             a.wall_cling = false;
@@ -88,12 +87,50 @@ pub fn suppress_ledge_grab_during_transit(
     }
 }
 
-/// Apply the active portal input effects to the player's movement intent (which
-/// the content input adapter mirrors to/from the Ambition `ControlFrame` so the
-/// brain / movement see the adjusted axes): the same-wall held-input warp (soft —
-/// drops on release or a clearly different direction) and the emergence guard
-/// (held input can't push back into the exit wall while it's fresh). Both are
-/// deliberately mild so portals never feel like a hard input latch.
+/// When a body's [`PortalTransit`] latch is removed (transit finished or
+/// aborted), restore the four wall verbs from its authored
+/// [`AbilityBase`](ambition_engine_core::AbilityBase). The primary player gets
+/// this for free from the per-frame F3 ability re-sync, but that sync is
+/// primary-only — for every other body (a possessed actor, a wall-able enemy)
+/// the suppression in [`suppress_ledge_grab_during_transit`] would otherwise be
+/// permanent. Restoring from the BASE (not a saved copy) keeps this stateless;
+/// if a session mask also gates one of these verbs off for the primary, the F3
+/// re-sync re-applies the mask on the next frame.
+pub fn restore_wall_abilities_after_transit(
+    tuning: Res<PortalTuning>,
+    mut removed: RemovedComponents<PortalTransit>,
+    mut bodies: Query<(
+        &mut ambition_actors::actor::BodyAbilities,
+        &ambition_engine_core::AbilityBase,
+    )>,
+) {
+    if !tuning.suppress_wall_abilities {
+        return;
+    }
+    for entity in removed.read() {
+        let Ok((mut abilities, base)) = bodies.get_mut(entity) else {
+            continue;
+        };
+        let a = &mut abilities.abilities;
+        a.ledge_grab = base.abilities.ledge_grab;
+        a.wall_cling = base.abilities.wall_cling;
+        a.wall_jump = base.abilities.wall_jump;
+        a.wall_climb = base.abilities.wall_climb;
+    }
+}
+
+/// Apply the active portal input effects to the DRIVEN body's movement intent
+/// (which the content input adapter mirrors to/from the Ambition `ControlFrame`
+/// so the brain / movement see the adjusted axes): the same-wall held-input warp
+/// (soft — drops on release or a clearly different direction) and the emergence
+/// guard (held input can't push back into the exit wall while it's fresh). Both
+/// are deliberately mild so portals never feel like a hard input latch.
+///
+/// The body whose guards shape the input is the CONTROLLED subject (a possessed
+/// actor while possessing, else the home avatar) — `PlayerMovementIntent` is the
+/// local player's one input stream, and the guards only mean anything on the
+/// body that stream is driving. Same resolution as the portal-gun use path
+/// (`portal_input_adapter_system`).
 ///
 /// Reads the portal-owned [`PortalInputWarp`] / [`PortalEmission`] guards (set by
 /// [`portal_player_input_adapter`](super::transit_body_adapter::portal_player_input_adapter)
@@ -110,19 +147,21 @@ pub fn warp_portal_input(
     mut commands: Commands,
     intent: Option<ResMut<PlayerMovementIntent>>,
     tuning: Res<PortalTuning>,
-    mut player: Query<
-        (
-            Entity,
-            Option<&PortalInputWarp>,
-            Option<&mut PortalEmission>,
-        ),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
+    controlled: Option<Res<ControlledSubject>>,
+    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut bodies: Query<(
+        Entity,
+        Option<&PortalInputWarp>,
+        Option<&mut PortalEmission>,
+    )>,
 ) {
     let Some(mut intent) = intent else {
         return;
     };
-    let Ok((entity, warp, emission)) = player.single_mut() else {
+    let subject = controlled
+        .and_then(|subject| subject.0)
+        .or_else(|| primary.single().ok());
+    let Some((entity, warp, emission)) = subject.and_then(|s| bodies.get_mut(s).ok()) else {
         return;
     };
 

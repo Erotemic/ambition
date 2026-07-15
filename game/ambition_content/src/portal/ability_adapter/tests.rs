@@ -16,7 +16,9 @@ use ambition_portal::{
     PortalTransit, PortalTuning,
 };
 
-use super::{suppress_ledge_grab_during_transit, warp_portal_input};
+use super::{
+    restore_wall_abilities_after_transit, suppress_ledge_grab_during_transit, warp_portal_input,
+};
 
 const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
 
@@ -151,6 +153,106 @@ fn wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset() {
             .unwrap()
             .abilities
             .ledge_grab
+    );
+}
+
+/// The aperture-edge hazard is a property of TRANSITING, not of being the
+/// primary player: a plain actor (no player markers) mid-transit has its wall
+/// verbs suppressed, and — because no per-frame F3 re-sync covers it — the
+/// paired restore must put them back from its authored `AbilityBase` when the
+/// latch is removed. Without the restore the actor stays stripped forever.
+#[test]
+fn wall_ability_suppression_is_body_generic_and_restores_from_the_base() {
+    use ambition_actors::actor::BodyAbilities;
+    let mut app = App::new();
+    app.init_resource::<PortalTuning>();
+    app.add_systems(
+        Update,
+        (
+            suppress_ledge_grab_during_transit,
+            restore_wall_abilities_after_transit,
+        )
+            .chain(),
+    );
+    // An actor: NO PlayerEntity/PrimaryPlayer. Authored with ledge_grab +
+    // wall_jump (its base), currently transiting.
+    let mut authored = BodyAbilities::default();
+    authored.abilities.ledge_grab = true;
+    authored.abilities.wall_jump = true;
+    let actor = app
+        .world_mut()
+        .spawn((
+            authored.clone(),
+            ambition_engine_core::AbilityBase::new(authored.abilities),
+            PortalTransit {
+                straddling: BLUE,
+                crossed: false,
+            },
+        ))
+        .id();
+
+    app.update();
+    let a = &app.world().get::<BodyAbilities>(actor).unwrap().abilities;
+    assert!(
+        !a.ledge_grab && !a.wall_jump,
+        "a transiting ACTOR has its wall verbs suppressed too"
+    );
+
+    // Transit ends: the verbs come back from the authored base (no F3 re-sync
+    // exists for this body).
+    app.world_mut().entity_mut(actor).remove::<PortalTransit>();
+    app.update();
+    let a = &app.world().get::<BodyAbilities>(actor).unwrap().abilities;
+    assert!(
+        a.ledge_grab && a.wall_jump,
+        "transit end restores the actor's wall verbs from its AbilityBase"
+    );
+    assert!(
+        !a.wall_cling && !a.wall_climb,
+        "verbs the base never granted stay off"
+    );
+}
+
+/// The emergence guard follows the DRIVEN body: possess an actor, send it
+/// through a portal, and ITS `PortalEmission` shapes the local input stream —
+/// previously only the primary player's guard was consulted, so a possessed
+/// emergence had no input protection at all.
+#[test]
+fn emission_guard_follows_the_possessed_body() {
+    use crate::portal::{apply_movement_intent_to_control, sync_movement_intent_from_control};
+    use ambition_platformer_primitives::markers::ControlledSubject;
+    let mut app = App::new();
+    app.insert_resource(ControlFrame::default());
+    app.init_resource::<PlayerMovementIntent>();
+    app.init_resource::<PortalTuning>();
+    app.add_systems(
+        Update,
+        (
+            sync_movement_intent_from_control,
+            warp_portal_input,
+            apply_movement_intent_to_control,
+        )
+            .chain(),
+    );
+    // Home avatar has NO emission; the possessed actor is the one emerging
+    // from a right-wall portal (exit normal LEFT, into the room).
+    app.world_mut().spawn((PlayerEntity, PrimaryPlayer));
+    let possessed = app
+        .world_mut()
+        .spawn(PortalEmission {
+            exit_normal: Vec2::new(-1.0, 0.0),
+            timer: 1.0,
+        })
+        .id();
+    app.world_mut()
+        .insert_resource(ControlledSubject(Some(possessed)));
+
+    // Holding RIGHT (back into the wall) is stripped for the DRIVEN body.
+    app.world_mut().resource_mut::<ControlFrame>().axis_x = 1.0;
+    app.update();
+    assert!(
+        app.world().resource::<ControlFrame>().axis_x.abs() < 0.01,
+        "the POSSESSED body's emergence guard shapes the input stream"
     );
 }
 

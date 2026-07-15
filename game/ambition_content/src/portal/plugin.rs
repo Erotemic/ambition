@@ -15,7 +15,9 @@ use ambition_portal::{
     publish_portal_carves, PortalSet,
 };
 
-use super::ability_adapter::{suppress_ledge_grab_during_transit, warp_portal_input};
+use super::ability_adapter::{
+    restore_wall_abilities_after_transit, suppress_ledge_grab_during_transit, warp_portal_input,
+};
 use super::carve_adapter::{bridge_portal_carves, sync_portal_host_depths};
 use super::fire_adapter::resolve_portal_fire_intent;
 use super::input_adapter::portal_input_adapter_system;
@@ -60,14 +62,21 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .after(portal_transit),
         );
 
-        // Suppress ledge-grab while transiting so the carved aperture edges are
-        // not grabbed before movement integration probes for a ledge. Mutates the
-        // player's `BodyAbilities`, so it is Ambition ability glue (Stage 19
-        // Phase 5a), registered in the same `PortalSet::TransitGuards` slot the
-        // core used.
+        // Suppress wall abilities while transiting so the carved aperture edges
+        // are not grabbed before movement integration probes for a ledge — for
+        // ANY transiting body, not just the primary player. Mutates
+        // `BodyAbilities`, so it is Ambition ability glue (Stage 19 Phase 5a),
+        // registered in the same `PortalSet::TransitGuards` slot the core used.
+        // The paired restore puts the verbs back from the body's authored
+        // `AbilityBase` when its `PortalTransit` latch is removed (the primary
+        // player would also get this from the F3 re-sync; no other body would).
         app.add_systems(
             sim,
-            suppress_ledge_grab_during_transit.in_set(PortalSet::TransitGuards),
+            (
+                suppress_ledge_grab_during_transit,
+                restore_wall_abilities_after_transit,
+            )
+                .in_set(PortalSet::TransitGuards),
         );
 
         // CC6 host attachment: attribute placed portals to the identified

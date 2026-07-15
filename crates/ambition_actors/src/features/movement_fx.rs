@@ -294,8 +294,7 @@ pub fn handle_player_events(
     );
     // Body-generic op-driven overlay poses (the wall-jump push-off) — the SAME
     // arming the actor tick runs (§A9). Player-specific presentation the shared
-    // arming deliberately omits stays inline below: the blink-camera lerp and the
-    // brief any-action hit-flash.
+    // arming deliberately omits stays inline below: the blink-camera lerp.
     arm_movement_anim_overlays(anim, &events);
     for blink in &events.blinks {
         blink_cam.blink_in_duration = crate::BLINK_IN_ANIM_TIME;
@@ -303,7 +302,12 @@ pub fn handle_player_events(
         blink_cam.blink_camera_from = blink.from;
         blink_cam.blink_camera_to = blink.to;
     }
-    if events.hazard || !events.operations.is_empty() {
+    // The white hit-flash is DAMAGE feedback — a hazard hit reads as being hurt.
+    // Movement operations (jump, dash, blink, …) deliberately do NOT flash: an
+    // action is not a hit, and flashing the sprite white on every jump reads as
+    // taking damage. Real combat/hazard damage arms `hit_flash` through the damage
+    // path (`features::ecs::damage_apply`).
+    if events.hazard {
         combat.hit_flash = 0.12;
     }
 }

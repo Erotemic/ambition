@@ -79,6 +79,7 @@ pub enum SettingsItem {
     Back,
 
     // Video page.
+    VisualQuality,
     DisplayMode,
     CameraZoom,
     CameraAspect,
@@ -87,6 +88,7 @@ pub enum SettingsItem {
     Flashes,
     Colorblind,
     ShowFps,
+    FramePacing,
 
     // Video > Shaders page.
     ShaderStrength,
@@ -134,6 +136,9 @@ pub enum SettingsItem {
     Difficulty,
     Assist,
     PlayerDamageMultiplier,
+    MovementFrameMode,
+    AimFrameMode,
+    PortalReverseFacing,
     GameplayFlashes,
     DebugHud,
     QuestHud,
@@ -180,11 +185,15 @@ impl SettingsItem {
     ///
     /// (The whole `Video > Shaders` subpage, `KeyboardPreset`, and
     /// `ResetControlFiltering` ALL map to the IR now — added in stage 3b — so
-    /// they are no longer in the `None` set.)
+    /// they are no longer in the `None` set. 2026-07-15: `VisualQuality`,
+    /// `FramePacing`, `MovementFrameMode`, `AimFrameMode`, and
+    /// `PortalReverseFacing` — previously cube-only — were added as pause rows so
+    /// the two surfaces mirror; they map here too.)
     pub fn shared_option_id(self) -> Option<ambition_settings_menu::settings::SettingsOptionId> {
         use ambition_settings_menu::settings::SettingsOptionId as Id;
         Some(match self {
             // Video.
+            Self::VisualQuality => Id::VisualQuality,
             Self::DisplayMode => Id::DisplayMode,
             Self::CameraZoom => Id::CameraZoom,
             Self::CameraAspect => Id::CameraAspect,
@@ -192,6 +201,7 @@ impl SettingsItem {
             Self::Flashes => Id::Flashes,
             Self::Colorblind => Id::Colorblind,
             Self::ShowFps => Id::ShowFps,
+            Self::FramePacing => Id::FramePacing,
             // Audio.
             Self::MasterVolume => Id::MasterVolume,
             Self::MusicVolume => Id::MusicVolume,
@@ -235,6 +245,9 @@ impl SettingsItem {
             Self::Difficulty => Id::Difficulty,
             Self::Assist => Id::Assist,
             Self::PlayerDamageMultiplier => Id::PlayerDamage,
+            Self::MovementFrameMode => Id::MovementFrameMode,
+            Self::AimFrameMode => Id::AimFrameMode,
+            Self::PortalReverseFacing => Id::PortalReverseFacing,
             Self::DebugHud => Id::DebugHud,
             Self::QuestHud => Id::QuestHud,
             Self::TraceAutoDump => Id::TraceAutoDump,
@@ -256,6 +269,7 @@ impl SettingsItem {
                 Self::Back,
             ],
             SettingsPage::Video => &[
+                Self::VisualQuality,
                 Self::DisplayMode,
                 Self::CameraZoom,
                 Self::CameraAspect,
@@ -264,6 +278,7 @@ impl SettingsItem {
                 Self::Flashes,
                 Self::Colorblind,
                 Self::ShowFps,
+                Self::FramePacing,
                 Self::Back,
             ],
             SettingsPage::Shaders => &[
@@ -315,6 +330,9 @@ impl SettingsItem {
                 Self::Difficulty,
                 Self::Assist,
                 Self::PlayerDamageMultiplier,
+                Self::MovementFrameMode,
+                Self::AimFrameMode,
+                Self::PortalReverseFacing,
                 Self::GameplayFlashes,
                 Self::DebugHud,
                 Self::QuestHud,
@@ -383,7 +401,12 @@ impl SettingsItem {
             // `pause_label_from_shared` via the early `return` above; listing
             // them here (rather than a `_` wildcard) keeps the match exhaustive
             // so a *new* unmapped row can't silently fall through unlabelled.
-            Self::DisplayMode
+            Self::VisualQuality
+            | Self::FramePacing
+            | Self::MovementFrameMode
+            | Self::AimFrameMode
+            | Self::PortalReverseFacing
+            | Self::DisplayMode
             | Self::CameraZoom
             | Self::CameraAspect
             | Self::CameraFraming
@@ -894,7 +917,12 @@ pub fn apply_action(
         // `apply_settings_option` through the early `return` above; listed
         // explicitly (not a `_` wildcard) so a new unmapped row can't silently
         // become a no-op.
-        SettingsItem::DisplayMode
+        SettingsItem::VisualQuality
+        | SettingsItem::FramePacing
+        | SettingsItem::MovementFrameMode
+        | SettingsItem::AimFrameMode
+        | SettingsItem::PortalReverseFacing
+        | SettingsItem::DisplayMode
         | SettingsItem::CameraZoom
         | SettingsItem::CameraAspect
         | SettingsItem::CameraFraming

@@ -95,5 +95,5 @@ scope = "game"
 path = "game/ambition_demo_sanic"
 scope = "game"
 [[root]]
-path = "game/ambition_demo_smb1"
+path = "game/ambition_demo_mary_o"
 scope = "game"

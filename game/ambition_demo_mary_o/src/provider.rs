@@ -15,7 +15,7 @@ use ambition::runtime::demo_fixture::{
 };
 use ambition::runtime::PlatformerSessionWorld;
 
-use crate::{level_1_1, Smb1RulesPlugin, LEVEL_1_1_ROOM_ID};
+use crate::{level_1_1, MaryORulesPlugin, LEVEL_1_1_ROOM_ID};
 
 pub const MARY_O_EXPERIENCE: &str = "mary_o";
 pub const MARY_O_GAMEPLAY_ROUTE: &str = "mary_o_gameplay";
@@ -25,19 +25,19 @@ pub const MARY_O_MUSIC_TRACK: &str = "support_theme";
 pub const MARY_O_MUSIC_ASSET_PATH: &str = "audio/music/generated/support_theme/full.ogg";
 
 #[derive(Clone)]
-pub struct Smb1SessionWorld {
+pub struct MaryOSessionWorld {
     pub geometry: ae::RoomGeometry,
     pub room_set: RoomSet,
     pub metadata: ActiveRoomMetadata,
     pub starting_character: StartingCharacter,
 }
 
-pub fn smb1_session_world() -> Smb1SessionWorld {
+pub fn mary_o_session_world() -> MaryOSessionWorld {
     let room = level_1_1();
     let geometry = ae::RoomGeometry(room.world.clone());
     let metadata = ActiveRoomMetadata(room.metadata.clone());
     let room_set = RoomSet::from_parts(LEVEL_1_1_ROOM_ID, vec![room], Vec::new());
-    Smb1SessionWorld {
+    MaryOSessionWorld {
         geometry,
         room_set,
         metadata,
@@ -45,14 +45,14 @@ pub fn smb1_session_world() -> Smb1SessionWorld {
     }
 }
 
-struct Smb1ProviderMarker;
-type PreparedSmb1Sessions = PreparedPlatformerSessions<Smb1ProviderMarker>;
+struct MaryOProviderMarker;
+type PreparedMaryOSessions = PreparedPlatformerSessions<MaryOProviderMarker>;
 
-pub struct Smb1ExperiencePlugin;
+pub struct MaryOExperiencePlugin;
 
-impl Plugin for Smb1ExperiencePlugin {
+impl Plugin for MaryOExperiencePlugin {
     fn build(&self, app: &mut App) {
-        crate::install_smb1_content(app);
+        crate::install_mary_o_content(app);
         {
             use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
             app.register_audio_catalog_fragment(
@@ -99,33 +99,33 @@ impl Plugin for Smb1ExperiencePlugin {
             MARY_O_EXPERIENCE,
             MARY_O_GAMEPLAY_ROUTE,
             "Mary-O",
-            "SMB1 level 1-1: run, jump, grab the flag",
+            "Level 1-1: run, jump, grab the flag",
             "Prepare Mary-O",
             AuthoredCatalogFragments::new(MARY_O_CHARACTER_ID, MARY_O_EXPERIENCE),
         )
         .register(app);
 
-        app.init_resource::<PreparedSmb1Sessions>()
+        app.init_resource::<PreparedMaryOSessions>()
             .add_systems(
                 Update,
                 (
-                    smb1_prepare_session,
-                    cleanup_prepared_platformer_sessions::<Smb1ProviderMarker>,
+                    mary_o_prepare_session,
+                    cleanup_prepared_platformer_sessions::<MaryOProviderMarker>,
                 )
                     .chain()
                     .in_set(ambition::load::AmbitionLoadSet::Contributors),
             )
             .add_systems(
                 Update,
-                smb1_activate_session.in_set(GameplaySessionSet::Providers),
+                mary_o_activate_session.in_set(GameplaySessionSet::Providers),
             )
-            .add_plugins(Smb1RulesPlugin::hosted());
+            .add_plugins(MaryORulesPlugin::hosted());
     }
 }
 
-fn smb1_prepare_session(
+fn mary_o_prepare_session(
     mut shell_events: MessageReader<ShellEvent>,
-    mut prepared_sessions: ResMut<PreparedSmb1Sessions>,
+    mut prepared_sessions: ResMut<PreparedMaryOSessions>,
     mut preparation: PlatformerPreparation,
 ) {
     for event in shell_events.read() {
@@ -135,7 +135,7 @@ fn smb1_prepare_session(
         if transaction.experience_id.as_str() != MARY_O_EXPERIENCE {
             continue;
         }
-        let source = smb1_session_world();
+        let source = mary_o_session_world();
         let live_world = PlatformerSessionWorld::new(
             MARY_O_EXPERIENCE,
             source.room_set,
@@ -148,9 +148,9 @@ fn smb1_prepare_session(
     }
 }
 
-fn smb1_activate_session(
+fn mary_o_activate_session(
     mut events: MessageReader<GameplaySessionEvent>,
-    mut prepared_sessions: ResMut<PreparedSmb1Sessions>,
+    mut prepared_sessions: ResMut<PreparedMaryOSessions>,
     mut prepared_registry: ResMut<PreparedSessionRegistry>,
     mut builder: PlatformerSessionBuilder,
 ) {

@@ -11,10 +11,10 @@ use bevy::prelude::*;
 /// The shell owns entry: `initial_route = mary_o_gameplay` (direct standalone
 /// entry) and `home_route = mary_o_launcher`, so `QuitToHome` returns to a
 /// Mary-O-only launcher and a relaunch rebuilds a fresh, scope-clean session. The
-/// SAME [`Smb1ExperiencePlugin`](ambition_demo_smb1::Smb1ExperiencePlugin) powers
+/// SAME [`MaryOExperiencePlugin`](ambition_demo_mary_o::MaryOExperiencePlugin) powers
 /// direct entry and launcher relaunch.
 pub fn build_demo_app() -> App {
-    build_demo_app_with_home(ambition_demo_smb1::MARY_O_LAUNCHER_ROUTE)
+    build_demo_app_with_home(ambition_demo_mary_o::MARY_O_LAUNCHER_ROUTE)
 }
 
 /// The same standalone host with an explicitly named home route — exposed so a
@@ -25,7 +25,7 @@ pub fn build_demo_app_with_home(home_route: &str) -> App {
     ambition::engine::add_headless_foundation(&mut app);
     app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
     app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
-    compose_smb1_shell(&mut app, home_route);
+    compose_mary_o_shell(&mut app, home_route);
     // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
     let timestep = app.world().resource::<Time<Fixed>>().timestep();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
@@ -35,23 +35,23 @@ pub fn build_demo_app_with_home(home_route: &str) -> App {
 /// Compose the Mary-O experience under a thin standalone host: session-scope +
 /// minimal shell + the reusable provider + a launcher home. The provider is
 /// host-independent — only these host lines are host-specific.
-fn compose_smb1_shell(app: &mut App, home_route: &str) {
+fn compose_mary_o_shell(app: &mut App, home_route: &str) {
     use ambition::game_shell::{
         ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog,
         ShellRouteSpec,
     };
-    use ambition_demo_smb1::{Smb1ExperiencePlugin, MARY_O_GAMEPLAY_ROUTE};
+    use ambition_demo_mary_o::{MaryOExperiencePlugin, MARY_O_GAMEPLAY_ROUTE};
 
     app.add_plugins(ambition::game_shell::MinimalShellPlugins);
     // The standalone launcher is an explicit frontend audio context. Mary-O
     // authors an empty fragment, so the launcher and gameplay are deliberately
     // silent rather than inheriting another provider's cached sounds.
     app.insert_resource(ambition::audio::selection::FrontendAudioProfile::new(
-        ambition_demo_smb1::MARY_O_EXPERIENCE,
+        ambition_demo_mary_o::MARY_O_EXPERIENCE,
     ));
     app.add_plugins(ambition::load::AmbitionLoadPlugin);
     app.add_plugins(ambition::load_presentation::MinimalLoadPresentationPlugins);
-    app.add_plugins(Smb1ExperiencePlugin);
+    app.add_plugins(MaryOExperiencePlugin);
 
     app.world_mut()
         .resource_mut::<ShellRouteCatalog>()
@@ -146,7 +146,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     // Visible and headless hosts share one provider/shell/session lifecycle.
     // The provider installs Mary-O's content definitions before the shared asset
     // catalog is assembled below.
-    compose_smb1_shell(&mut app, ambition_demo_smb1::MARY_O_LAUNCHER_ROUTE);
+    compose_mary_o_shell(&mut app, ambition_demo_mary_o::MARY_O_LAUNCHER_ROUTE);
     let sfx_bank_path = install_mary_o_asset_resources(&mut app);
 
     // OV1, closed: a camera, the room's static visuals, and the sprite/animation
@@ -182,7 +182,7 @@ fn install_mary_o_asset_resources(app: &mut App) -> Option<String> {
     let music = app
         .world()
         .resource::<ambition::audio::catalog::AudioCatalogRegistry>()
-        .music_for(ambition_demo_smb1::MARY_O_EXPERIENCE)
+        .music_for(ambition_demo_mary_o::MARY_O_EXPERIENCE)
         .expect("Mary-O provider registered its App-local music catalog")
         .clone();
     let character_catalog = app
@@ -226,7 +226,7 @@ fn load_mary_o_game_assets(
 ) {
     // Startup asset binding precedes gameplay activation, so derive the theme from
     // Mary-O's immutable authored room rather than a not-yet-published session root.
-    let authored_room = ambition_demo_smb1::smb1_session_world().metadata;
+    let authored_room = ambition_demo_mary_o::mary_o_session_world().metadata;
     *game_assets = ambition::actors::assets::game_assets::load_game_assets(
         &config,
         &character_catalog,
@@ -240,7 +240,7 @@ fn load_mary_o_game_assets(
 
     for (character_id, sheet_stem) in [
         (
-            ambition_demo_smb1::MARY_O_CHARACTER_ID,
+            ambition_demo_mary_o::MARY_O_CHARACTER_ID,
             "super_mary_o_spritesheet",
         ),
         ("mary_o_tall", "super_mary_o_tall_spritesheet"),
@@ -274,7 +274,7 @@ fn install_mary_o_audio(app: &mut App, sfx_bank_path: Option<String>) {
     if let Some(path) = sfx_bank_path {
         info!("mary_o_demo: SFX bank path = {path}");
         app.insert_resource(ambition::audio::SfxBankAssetPath::new(
-            ambition_demo_smb1::MARY_O_EXPERIENCE,
+            ambition_demo_mary_o::MARY_O_EXPERIENCE,
             path,
         ));
     } else {
@@ -298,10 +298,10 @@ fn setup_mary_o_audio_library(
     mut audio_sources: ResMut<Assets<bevy_kira_audio::prelude::AudioSource>>,
 ) {
     let music = catalogs
-        .music_for(ambition_demo_smb1::MARY_O_EXPERIENCE)
+        .music_for(ambition_demo_mary_o::MARY_O_EXPERIENCE)
         .expect("Mary-O provider registered its App-local music catalog");
     let sfx = catalogs
-        .sfx_for(ambition_demo_smb1::MARY_O_EXPERIENCE)
+        .sfx_for(ambition_demo_mary_o::MARY_O_EXPERIENCE)
         .expect("Mary-O provider registered its App-local SFX catalog");
     let library = ambition::audio::library::AudioLibrary::new(
         &mut audio_sources,

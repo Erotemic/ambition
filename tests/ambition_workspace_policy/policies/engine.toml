@@ -2240,7 +2240,7 @@ rationale = "The shell may consume load truth but must not depend on the load pr
 source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md#ambition_game_shell"
 severity = "error"
 manifest = "crates/ambition_game_shell/Cargo.toml"
-deny = ["ambition_load_presentation", "ambition_render", "ambition_content", "ambition_app", "ambition_demo_sanic", "ambition_demo_sanic_app", "ambition_demo_smb1", "ambition_demo_smb1_app"]
+deny = ["ambition_load_presentation", "ambition_render", "ambition_content", "ambition_app", "ambition_demo_sanic", "ambition_demo_sanic_app", "ambition_demo_mary_o", "ambition_demo_mary_o_app"]
 
 [[policy]]
 id = "engine.load-presentation-dependency-direction"
@@ -2252,7 +2252,7 @@ rationale = "The reusable load presentation depends downward on load and shell c
 source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md#ambition_load_presentation"
 severity = "error"
 manifest = "crates/ambition_load_presentation/Cargo.toml"
-deny = ["ambition_render", "ambition_content", "ambition_app", "ambition_demo_sanic", "ambition_demo_sanic_app", "ambition_demo_smb1", "ambition_demo_smb1_app"]
+deny = ["ambition_render", "ambition_content", "ambition_app", "ambition_demo_sanic", "ambition_demo_sanic_app", "ambition_demo_mary_o", "ambition_demo_mary_o_app"]
 
 [[policy]]
 id = "engine.load-shell-source-content-free"
@@ -2264,7 +2264,7 @@ rationale = "Core load and shell crates must stay free of Ambition-specific cont
 source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md#constitutional-dependency-shape"
 severity = "error"
 roots = ["crates/ambition_load/src", "crates/ambition_game_shell/src", "crates/ambition_load_presentation/src"]
-forbid = ["ambition_content", "ambition_app", "ambition_demo_sanic", "ambition_demo_smb1"]
+forbid = ["ambition_content", "ambition_app", "ambition_demo_sanic", "ambition_demo_mary_o"]
 
 # ── App-local audio authority ratchet (audio process-global retirement) ──
 # The former process-global audio install/override seam is retired: authored
@@ -2277,11 +2277,11 @@ id = "engine.audio-authority-is-app-local"
 scope = "engine"
 kind = "forbidden-source-reference"
 owners = ["ambition_audio", "ambition_actors"]
-watch_paths = ["crates/ambition_actors/src", "crates/ambition_audio/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
+watch_paths = ["crates/ambition_actors/src", "crates/ambition_audio/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
 rationale = "Authored audio is App-local via AudioCatalogRegistry. The retired process-global install/override seam (install_music_registry / install_sfx_registry / authored_music_registry / authored_sfx_registry / *_REGISTRY_OVERRIDE) must never return; a new host reads the registry resource instead."
 source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md"
 severity = "error"
-roots = ["crates/ambition_actors/src", "crates/ambition_audio/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
+roots = ["crates/ambition_actors/src", "crates/ambition_audio/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
 forbid = ["install_music_registry", "install_sfx_registry", "authored_music_registry", "authored_sfx_registry", "MUSIC_REGISTRY_OVERRIDE", "SFX_REGISTRY_OVERRIDE"]
 
 # ── One frame-aware movement kernel (ADR 0024) ──

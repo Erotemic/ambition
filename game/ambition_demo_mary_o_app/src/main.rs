@@ -11,11 +11,11 @@
 //!   foundation
 //!   + PlatformerEnginePlugins   (the engine, content-free)
 //!   + PlatformerHostPlugins     (the windowed host's camera + input)
-//!   + Smb1DemoContentPlugin    (this demo's roster + world)
-//!   + Smb1RulesPlugin::global()(this demo's rules — it IS the game here)
+//!   + MaryODemoContentPlugin    (this demo's roster + world)
+//!   + MaryORulesPlugin::global()(this demo's rules — it IS the game here)
 //! ```
 //!
-//! It names `ambition` and `ambition_demo_smb1`. It does not name `ambition_app`,
+//! It names `ambition` and `ambition_demo_mary_o`. It does not name `ambition_app`,
 //! and `git log --stat` for this crate touches zero engine crates. If a demo ever
 //! needs an engine change to boot, that is an oracle violation and gets filed in
 //! `docs/planning/tracks.md`, not patched here.
@@ -34,13 +34,13 @@
 //! dev overlays — those are the GAME's, and `ambition_app` still assembles them.
 //!
 //! ```console
-//! $ cargo run -p ambition_demo_smb1_app --bin mary_o_demo -- --ticks 600
-//! $ cargo run -p ambition_demo_smb1_app --features visible --bin mary_o_demo -- --window
+//! $ cargo run -p ambition_demo_mary_o_app --bin mary_o_demo -- --ticks 600
+//! $ cargo run -p ambition_demo_mary_o_app --features visible --bin mary_o_demo -- --window
 //! ```
 
 use bevy::prelude::*;
 
-use ambition_demo_smb1::{Smb1LevelState, SMB1_MODE, STARTING_TIME};
+use ambition_demo_mary_o::{MaryOLevelState, MARY_O_MODE, STARTING_TIME};
 
 /// How many sim ticks to run before reporting. One second = 60.
 const DEFAULT_TICKS: u32 = 300;
@@ -49,8 +49,8 @@ fn main() {
     #[cfg(feature = "visible")]
     if std::env::args().any(|a| a == "--window") {
         // The drawn demo. One plugin more than the sim-only shell below.
-        ambition_demo_smb1_app::build_windowed_demo_app(
-            ambition_demo_smb1_app::RenderMode::Windowed,
+        ambition_demo_mary_o_app::build_windowed_demo_app(
+            ambition_demo_mary_o_app::RenderMode::Windowed,
         )
         .run();
         return;
@@ -60,7 +60,7 @@ fn main() {
 
     // The assembly lives in `lib.rs` so the exit-3 regression test builds the
     // SAME app this binary does.
-    let mut app = ambition_demo_smb1_app::build_demo_app();
+    let mut app = ambition_demo_mary_o_app::build_demo_app();
 
     app.update(); // Startup: builds the world, spawns the body. Zero ticks (dt=0).
     for _ in 0..ticks {
@@ -86,7 +86,7 @@ fn report(app: &mut App, requested: u32) {
     let tick = app.world().resource::<ambition::runtime::SimTick>().get();
 
     let remaining = {
-        let mut q = app.world_mut().query::<&Smb1LevelState>();
+        let mut q = app.world_mut().query::<&MaryOLevelState>();
         q.iter(app.world()).next().map(|s| s.time_remaining)
     };
 
@@ -100,7 +100,7 @@ fn report(app: &mut App, requested: u32) {
     };
 
     println!("mary_o_demo — the shell booted and stepped the real sim.");
-    println!("  mode            : {SMB1_MODE}");
+    println!("  mode            : {MARY_O_MODE}");
     println!("  ticks requested : {requested}");
     println!("  SimTick         : {tick}");
     match remaining {

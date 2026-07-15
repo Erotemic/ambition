@@ -16,13 +16,13 @@
 //! rows (M1), the camera scroll policy (M2), and the flagpole sequence (M3) are
 //! the rest of the M-track; see `docs/planning/demos/super-mary-o.md`.
 
+pub mod crony;
 pub mod flag;
-pub mod goomba;
 pub mod powerups;
 pub mod provider;
 
 pub use provider::{
-    smb1_session_world, Smb1ExperiencePlugin, Smb1SessionWorld, MARY_O_CHARACTER_ID,
+    mary_o_session_world, MaryOExperiencePlugin, MaryOSessionWorld, MARY_O_CHARACTER_ID,
     MARY_O_EXPERIENCE, MARY_O_GAMEPLAY_ROUTE, MARY_O_LAUNCHER_ROUTE,
 };
 
@@ -35,10 +35,10 @@ pub const LEVEL_1_1_ROOM_ID: &str = "mary_o_1_1";
 
 /// The game-MODE tag this demo's rooms carry (decomposition D-C).
 ///
-/// Ambition can host this demo alongside its own rooms; [`Smb1RulesPlugin`] gates
-/// its systems on `ambition::runtime::in_mode(SMB1_MODE)` so the level clock never
+/// Ambition can host this demo alongside its own rooms; [`MaryORulesPlugin`] gates
+/// its systems on `ambition::runtime::in_mode(MARY_O_MODE)` so the level clock never
 /// ticks in a room that is not Mary-O's.
-pub const SMB1_MODE: &str = "mary_o";
+pub const MARY_O_MODE: &str = "mary_o";
 
 /// The level clock starts here and counts DOWN. It is the demo's one rule.
 pub const STARTING_TIME: f32 = 400.0;
@@ -182,7 +182,7 @@ pub fn level_1_1() -> RoomSpec {
     let world = ae::World::new("Mary-O 1-1", ae::Vec2::new(width, height), spawn, blocks);
 
     let mut room = RoomSpec::new(LEVEL_1_1_ROOM_ID, world);
-    room.metadata.mode = Some(SMB1_MODE.to_string());
+    room.metadata.mode = Some(MARY_O_MODE.to_string());
     room
 }
 
@@ -223,7 +223,7 @@ pub fn goal_pole() -> flag::FlagPole {
 
 /// The demo's one-character catalog. Every demo installs its own roster; the
 /// engine ships none (ADR 0017).
-const SMB1_CATALOG_RON: &str = r#"(
+const MARY_O_CATALOG_RON: &str = r#"(
     brain_presets: { "stand_still": StandStill },
     action_set_presets: {
         "peaceful": (
@@ -286,14 +286,14 @@ const SMB1_CATALOG_RON: &str = r#"(
             playable_kit: Authored,
             tags: ["player"],
         ),
-        // The goomba's IDENTITY row: its sprite resolves from this display name.
+        // The crony's IDENTITY row: its sprite resolves from this display name.
         // It points its OWN name at the published `ai_slop` sheet (Ambition owns
         // the "Ai Slop" display name; a duplicate would fail catalog assembly when
-        // hosted). Behavior/HP/contact come from the `mary_o_goomba` ROSTER
-        // archetype (see `goomba.rs`), not this catalog row — this is only the
+        // hosted). Behavior/HP/contact come from the `mary_o_crony` ROSTER
+        // archetype (see `crony.rs`), not this catalog row — this is only the
         // sprite + name.
-        "mary_o_goomba": (
-            display_name: "Mary-O Goomba",
+        "mary_o_crony": (
+            display_name: "Mary-O Crony",
             spritesheet: "sprites/ai_slop_spritesheet.png",
             manifest: "sprites/ai_slop_spritesheet.ron",
             tier: MainHall,
@@ -307,12 +307,12 @@ const SMB1_CATALOG_RON: &str = r#"(
 
 /// Content plugin: registers Mary-O's App-local character fragment, installs
 /// the level, and adds the engine's sim-world setup. The shape `crates/ambition_host/tests/demo_shell_smoke.rs` prescribes.
-pub struct Smb1DemoContentPlugin;
+pub struct MaryODemoContentPlugin;
 
 /// Register Mary-O's immutable authored character fragment in one Bevy `App`.
-/// Shared by the historical [`Smb1DemoContentPlugin`] (Startup construction) and
-/// the new [`provider::Smb1ExperiencePlugin`] (shell-activation construction).
-pub fn install_smb1_content(app: &mut App) {
+/// Shared by the historical [`MaryODemoContentPlugin`] (Startup construction) and
+/// the new [`provider::MaryOExperiencePlugin`] (shell-activation construction).
+pub fn install_mary_o_content(app: &mut App) {
     use ambition::characters::actor::character_catalog::{
         CharacterCatalogAppExt, CharacterCatalogFragment,
     };
@@ -321,21 +321,21 @@ pub fn install_smb1_content(app: &mut App) {
         CharacterCatalogFragment::from_ron(
             provider::MARY_O_EXPERIENCE,
             Some(provider::MARY_O_CHARACTER_ID),
-            SMB1_CATALOG_RON,
+            MARY_O_CATALOG_RON,
         )
         .expect("Mary-O character catalog should be valid"),
     );
-    // The goomba's hostile archetype (body/walk/contact) lives in a roster
+    // The crony's hostile archetype (body/walk/contact) lives in a roster
     // fragment beside the catalog identity above.
-    goomba::register_goomba_roster(app);
+    crony::register_crony_roster(app);
 }
 
-impl Plugin for Smb1DemoContentPlugin {
+impl Plugin for MaryODemoContentPlugin {
     fn build(&self, app: &mut App) {
         use ambition::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet};
         use bevy::prelude::IntoScheduleConfigs;
 
-        install_smb1_content(app);
+        install_mary_o_content(app);
         let room = level_1_1();
         app.world_mut().spawn((
             ambition::platformer::lifecycle::SessionRoot(
@@ -354,13 +354,13 @@ impl Plugin for Smb1DemoContentPlugin {
         ));
         app.add_systems(
             bevy::app::Startup,
-            smb1_setup.in_set(ambition::runtime::demo_fixture::SimulationSetupSet),
+            mary_o_setup.in_set(ambition::runtime::demo_fixture::SimulationSetupSet),
         );
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-fn smb1_setup(
+fn mary_o_setup(
     mut commands: bevy::prelude::Commands,
     world: ambition::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
     room_set: ambition::platformer::lifecycle::SessionWorldRef<
@@ -410,12 +410,12 @@ fn smb1_setup(
 /// Mary-O's rooms tears it down through the engine's lifetime-scope vocabulary
 /// rather than any teardown code in this crate.
 #[derive(bevy::prelude::Component, Debug)]
-pub struct Smb1LevelState {
+pub struct MaryOLevelState {
     /// Counts DOWN from [`STARTING_TIME`]; clamps at zero.
     pub time_remaining: f32,
 }
 
-impl Default for Smb1LevelState {
+impl Default for MaryOLevelState {
     fn default() -> Self {
         Self {
             time_remaining: STARTING_TIME,
@@ -424,16 +424,16 @@ impl Default for Smb1LevelState {
 }
 
 /// Mary-O's level rules. ONE system list; a constructor flag decides its gating —
-/// [`Smb1RulesPlugin::hosted`] when Ambition hosts the demo alongside its own
-/// rooms, [`Smb1RulesPlugin::global`] when the demo IS the game.
+/// [`MaryORulesPlugin::hosted`] when Ambition hosts the demo alongside its own
+/// rooms, [`MaryORulesPlugin::global`] when the demo IS the game.
 ///
 /// That two demos with nothing else in common share this exact shape is the D-C
 /// pattern's whole point: a mode is a ROOM property, not a latch some plugin owns.
-pub struct Smb1RulesPlugin {
+pub struct MaryORulesPlugin {
     hosted: bool,
 }
 
-impl Smb1RulesPlugin {
+impl MaryORulesPlugin {
     /// Ambition hosts this demo: every rule sleeps outside Mary-O's rooms.
     pub fn hosted() -> Self {
         Self { hosted: true }
@@ -445,7 +445,7 @@ impl Smb1RulesPlugin {
     }
 }
 
-impl Plugin for Smb1RulesPlugin {
+impl Plugin for MaryORulesPlugin {
     fn build(&self, app: &mut App) {
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
@@ -455,7 +455,7 @@ impl Plugin for Smb1RulesPlugin {
         // engine registers it too (`SandboxResetSchedulePlugin`), but a thin host
         // may not, and `add_message` is idempotent — a no-op when already present.
         app.add_message::<ambition::actors::session::reset::RoomReplayRequested>();
-        // The goomba stager reads room-load facts and writes spawn requests; the
+        // The crony stager reads room-load facts and writes spawn requests; the
         // engine registers both in a full app, but a thin rules-only test harness
         // may not, and `add_message` is idempotent.
         app.add_message::<ambition::actors::rooms::RoomLoaded>();
@@ -465,19 +465,19 @@ impl Plugin for Smb1RulesPlugin {
         // emitter runs LAST so it sees the settled tally and its clock reset is not
         // immediately decremented on the same frame.
         let rules = (
-            spawn_smb1_mode_owner,
+            spawn_mary_o_mode_owner,
             flag::run_flag_sequence,
             tick_level_clock,
             cycle_level_on_flag_tally,
         )
             .chain();
-        // The goomba systems: stage the walkers when the room loads, and run the
+        // The crony systems: stage the walkers when the room loads, and run the
         // head-stomp BEFORE the engine's shared body-contact-damage pass so a
-        // squash never also hurts the stomper (the rule zeroes the goomba's health
+        // squash never also hurts the stomper (the rule zeroes the crony's health
         // that frame, which the contact pass then skips).
-        let goombas = (
-            goomba::stage_goombas_on_room_loaded,
-            goomba::bounce_squash_goombas
+        let cronies = (
+            crony::stage_cronies_on_room_loaded,
+            crony::bounce_squash_cronies
                 .before(ambition::actors::features::apply_actor_contact_damage),
         );
         // The powerup rules on the two engine primitives: re-arm the ?-blocks on
@@ -490,20 +490,23 @@ impl Plugin for Smb1RulesPlugin {
             powerups::sync_grown_form,
         );
         if self.hosted {
-            app.add_systems(sim, rules.run_if(ambition::runtime::in_mode(SMB1_MODE)));
-            app.add_systems(sim, goombas.run_if(ambition::runtime::in_mode(SMB1_MODE)));
-            app.add_systems(sim, powerups.run_if(ambition::runtime::in_mode(SMB1_MODE)));
+            app.add_systems(sim, rules.run_if(ambition::runtime::in_mode(MARY_O_MODE)));
+            app.add_systems(sim, cronies.run_if(ambition::runtime::in_mode(MARY_O_MODE)));
+            app.add_systems(
+                sim,
+                powerups.run_if(ambition::runtime::in_mode(MARY_O_MODE)),
+            );
         } else {
             app.add_systems(sim, rules);
-            app.add_systems(sim, goombas);
+            app.add_systems(sim, cronies);
             app.add_systems(sim, powerups);
         }
     }
 }
 
-fn spawn_smb1_mode_owner(
+fn spawn_mary_o_mode_owner(
     mut commands: bevy::prelude::Commands,
-    existing: bevy::prelude::Query<(), bevy::prelude::With<Smb1LevelState>>,
+    existing: bevy::prelude::Query<(), bevy::prelude::With<MaryOLevelState>>,
     session: Option<bevy::prelude::Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
 ) {
     use ambition::platformer::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
@@ -524,10 +527,10 @@ fn spawn_smb1_mode_owner(
         commands
             .spawn_session_scoped(
                 spawn_scope,
-                (Smb1LevelState::default(), flag::FlagSequence::default()),
+                (MaryOLevelState::default(), flag::FlagSequence::default()),
             )
             .insert(ambition::platformer::lifecycle::ModeScopedEntity(
-                SMB1_MODE.to_string(),
+                MARY_O_MODE.to_string(),
             ));
     }
 }
@@ -536,7 +539,7 @@ fn spawn_smb1_mode_owner(
 /// as they slow everything else. It clamps at zero rather than going negative.
 fn tick_level_clock(
     time: bevy::prelude::Res<ambition::time::WorldTime>,
-    mut level: bevy::prelude::Query<(&mut Smb1LevelState, &flag::FlagSequence)>,
+    mut level: bevy::prelude::Query<(&mut MaryOLevelState, &flag::FlagSequence)>,
 ) {
     for (mut state, sequence) in &mut level {
         // A level whose flag has been grabbed is over. The clock stopping is what
@@ -564,7 +567,7 @@ fn tick_level_clock(
 fn cycle_level_on_flag_tally(
     time: bevy::prelude::Res<ambition::time::WorldTime>,
     mut dwell: bevy::prelude::Local<f32>,
-    mut owners: bevy::prelude::Query<(&mut flag::FlagSequence, &mut Smb1LevelState)>,
+    mut owners: bevy::prelude::Query<(&mut flag::FlagSequence, &mut MaryOLevelState)>,
     mut replay: bevy::prelude::MessageWriter<ambition::actors::session::reset::RoomReplayRequested>,
 ) {
     let Ok((mut sequence, mut level)) = owners.single_mut() else {
@@ -586,9 +589,9 @@ fn cycle_level_on_flag_tally(
     replay.write(ambition::actors::session::reset::RoomReplayRequested);
 }
 
-/// Install the SMB1 demo content layer into an engine app.
+/// Install the Mary-O demo content layer into an engine app.
 pub fn add_demo_content(app: &mut App) {
-    app.add_plugins(Smb1DemoContentPlugin);
+    app.add_plugins(MaryODemoContentPlugin);
 }
 
 #[cfg(test)]
@@ -596,7 +599,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn smb1_demo_content_plugin_installs() {
+    fn mary_o_demo_content_plugin_installs() {
         let mut app = App::new();
         add_demo_content(&mut app);
         let catalog = app
@@ -725,11 +728,11 @@ mod tests {
         );
     }
 
-    /// The room claims its mode, which is what a hosted `Smb1RulesPlugin` wakes on.
+    /// The room claims its mode, which is what a hosted `MaryORulesPlugin` wakes on.
     #[test]
     fn level_1_1_claims_the_mary_o_mode() {
-        assert_eq!(level_1_1().metadata.mode.as_deref(), Some(SMB1_MODE));
-        assert_ne!(SMB1_MODE, "sanic", "two demos, two modes, one binary");
+        assert_eq!(level_1_1().metadata.mode.as_deref(), Some(MARY_O_MODE));
+        assert_ne!(MARY_O_MODE, "sanic", "two demos, two modes, one binary");
     }
 
     /// The level clock counts DOWN on the sim clock and clamps at zero. `hosted()`
@@ -740,10 +743,10 @@ mod tests {
         use ambition::world::rooms::{ActiveRoomMetadata, RoomMetadata};
 
         fn remaining(app: &mut App) -> Option<f32> {
-            let mut q = app.world_mut().query::<&Smb1LevelState>();
+            let mut q = app.world_mut().query::<&MaryOLevelState>();
             q.iter(app.world()).next().map(|s| s.time_remaining)
         }
-        fn shell(rules: Smb1RulesPlugin, mode: Option<&str>, dt: f32) -> App {
+        fn shell(rules: MaryORulesPlugin, mode: Option<&str>, dt: f32) -> App {
             let mut app = App::new();
             ambition::engine::add_headless_foundation(&mut app);
             ambition::platformer::lifecycle::insert_session_world_component(
@@ -763,23 +766,23 @@ mod tests {
 
         // Hosted, in a Mary-O room: the clock counts DOWN. (`.chain()` puts a sync
         // point between spawn and tick, so the owner ticks on its own first frame.)
-        let mut app = shell(Smb1RulesPlugin::hosted(), Some(SMB1_MODE), 1.0);
+        let mut app = shell(MaryORulesPlugin::hosted(), Some(MARY_O_MODE), 1.0);
         app.update();
         app.update();
         assert_eq!(remaining(&mut app), Some(STARTING_TIME - 2.0));
 
         // Hosted, in one of Ambition's own rooms: no owner, no clock.
-        let mut app = shell(Smb1RulesPlugin::hosted(), None, 1.0);
+        let mut app = shell(MaryORulesPlugin::hosted(), None, 1.0);
         app.update();
         assert_eq!(remaining(&mut app), None, "the rules sleep out of mode");
 
         // Standalone: the demo IS the game, so no mode is needed.
-        let mut app = shell(Smb1RulesPlugin::global(), None, 1.0);
+        let mut app = shell(MaryORulesPlugin::global(), None, 1.0);
         app.update();
         assert_eq!(remaining(&mut app), Some(STARTING_TIME - 1.0));
 
         // The clock clamps at zero rather than running negative.
-        let mut app = shell(Smb1RulesPlugin::global(), None, STARTING_TIME * 2.0);
+        let mut app = shell(MaryORulesPlugin::global(), None, STARTING_TIME * 2.0);
         app.update();
         assert_eq!(remaining(&mut app), Some(0.0));
     }
@@ -804,7 +807,7 @@ mod tests {
             scaled_dt: LEVEL_CYCLE_DWELL * 0.5,
             ..Default::default()
         });
-        app.add_plugins(Smb1RulesPlugin::global());
+        app.add_plugins(MaryORulesPlugin::global());
 
         // First update spawns the mode owner; drive the clock below full so the
         // rearm's refill is observable, then drop a settled tally onto the owner.
@@ -812,7 +815,7 @@ mod tests {
         {
             let mut q = app
                 .world_mut()
-                .query::<(&mut flag::FlagSequence, &mut Smb1LevelState)>();
+                .query::<(&mut flag::FlagSequence, &mut MaryOLevelState)>();
             let world = app.world_mut();
             let (mut seq, mut level) = q.iter_mut(world).next().expect("owner spawned");
             seq.phase = flag::FlagPhase::Tallied { score: 800 };
@@ -822,7 +825,7 @@ mod tests {
         fn state(app: &mut App) -> (flag::FlagPhase, f32) {
             let mut q = app
                 .world_mut()
-                .query::<(&flag::FlagSequence, &Smb1LevelState)>();
+                .query::<(&flag::FlagSequence, &MaryOLevelState)>();
             let (seq, level) = q.iter(app.world()).next().unwrap();
             (seq.phase, level.time_remaining)
         }

@@ -199,7 +199,7 @@ pub fn sync_grown_form(
 }
 
 /// Re-arm every ?-block when level 1-1 (re)loads, so a cyclic replay pops fresh
-/// milk. Mirrors the goomba restage; the milk items themselves are room-scoped and
+/// milk. Mirrors the crony restage; the milk items themselves are room-scoped and
 /// despawn with the room.
 pub fn refill_power_blocks_on_room_loaded(
     mut rooms: MessageReader<RoomLoaded>,

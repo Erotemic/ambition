@@ -18,7 +18,7 @@
 [[entry]]
 old_test = "architecture_boundaries_umbrella_crate_and_demo_homes_exist"
 disposition = "declarative"
-policies = ["game.umbrella-and-demo-members", "game.umbrella-not-app-shell", "game.umbrella-exposes-engine-surface", "game.demo-sanic-umbrella-only", "game.demo-smb1-umbrella-only", "game.demos-reach-engine-through-facade"]
+policies = ["game.umbrella-and-demo-members", "game.umbrella-not-app-shell", "game.umbrella-exposes-engine-surface", "game.demo-sanic-umbrella-only", "game.demo-mary-o-umbrella-only", "game.demos-reach-engine-through-facade"]
 
 [[entry]]
 old_test = "architecture_boundaries_app_uses_umbrella_manifest_surface"

@@ -16,14 +16,14 @@
 
 use bevy::prelude::*;
 
-use ambition_demo_smb1::{Smb1LevelState, SMB1_MODE, STARTING_TIME};
-use ambition_demo_smb1_app::build_demo_app;
+use ambition_demo_mary_o::{MaryOLevelState, MARY_O_MODE, STARTING_TIME};
+use ambition_demo_mary_o_app::build_demo_app;
 
 /// Seconds per sim tick under `PlatformerEnginePlugins::fixed_tick()`.
 const TICK_DT: f32 = 1.0 / 60.0;
 
 fn clock_remaining(app: &mut App) -> Option<f32> {
-    let mut q = app.world_mut().query::<&Smb1LevelState>();
+    let mut q = app.world_mut().query::<&MaryOLevelState>();
     q.iter(app.world()).next().map(|s| s.time_remaining)
 }
 
@@ -67,9 +67,7 @@ fn activate_player(app: &mut App) -> ambition::actors::actor::BodyKinematics {
             return body;
         }
     }
-    panic!(
-        "the fresh load transaction must prepare and activate Mary-O within the test budget"
-    );
+    panic!("the fresh load transaction must prepare and activate Mary-O within the test budget");
 }
 
 #[test]
@@ -96,7 +94,9 @@ fn the_demo_steps_the_real_simulation_on_the_fixed_timeline() {
     let mut app = build_demo_app();
     activate_player(&mut app);
     align_post_activation_fixed_timeline(&mut app);
-    let spawn = player_body(&mut app).expect("player remains after alignment").pos;
+    let spawn = player_body(&mut app)
+        .expect("player remains after alignment")
+        .pos;
     let start_tick = sim_tick(&app);
 
     for frame in 0..120 {
@@ -157,6 +157,6 @@ fn the_demos_own_rules_run_because_its_room_claims_its_mode() {
         60.0 * TICK_DT,
         start - end
     );
-    assert_eq!(SMB1_MODE, "mary_o");
+    assert_eq!(MARY_O_MODE, "mary_o");
     assert!(STARTING_TIME > 0.0);
 }

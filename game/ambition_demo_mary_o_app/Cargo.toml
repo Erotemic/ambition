@@ -1,5 +1,5 @@
 [package]
-name = "ambition_demo_smb1_app"
+name = "ambition_demo_mary_o_app"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
@@ -28,7 +28,7 @@ input = ["ambition/input"]
 # depends on `ambition`, never on `ambition_app`. That is the demo gate.
 ambition = { path = "../../crates/ambition", default-features = false }
 # The demo's own content + rules. The shell names nothing else.
-ambition_demo_smb1 = { path = "../ambition_demo_smb1" }
+ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
 # Bevy's derives cannot be reached through a re-export (see the content crate's
 # manifest). The shell needs none, but `App`/`Update` come from here.
 bevy = { version = "0.18.1", default-features = false }

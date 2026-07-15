@@ -586,8 +586,8 @@ tackon_targets=(
     cut_rope_anvil
     cut_rope_piano
     cut_rope_rope
-    # Super Mary-O playable protagonist for the SMB1 demo (M-track).
-    # Its catalog row (game/ambition_demo_smb1) references
+    # Super Mary-O playable protagonist for the Mary-O demo (M-track).
+    # Its catalog row (game/ambition_demo_mary_o) references
     # sprites/super_mary_o_spritesheet.*; without this publish a fresh
     # clone renders the demo character as a colored rectangle.
     super_mary_o

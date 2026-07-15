@@ -25,8 +25,8 @@
 use bevy::prelude::*;
 
 use ambition::game_shell::{
-    GameplaySessionEvent, ShellCommand, ShellCompletionPolicy, ShellEvent,
-    ShellHostConfiguration, ShellHostSpec, ShellRouteCatalog, ShellRouteSpec,
+    GameplaySessionEvent, ShellCommand, ShellCompletionPolicy, ShellEvent, ShellHostConfiguration,
+    ShellHostSpec, ShellRouteCatalog, ShellRouteSpec,
 };
 
 use ambition::actors::ldtk_world;
@@ -52,8 +52,8 @@ pub fn direct_entry(hosted: Option<Res<AmbitionShellHosted>>) -> bool {
 /// re-exports its public identities for compatibility while owning only home,
 /// startup, platform, and process policy.
 pub use ambition_content::provider::{
-    AmbitionExperienceConfig, AmbitionExperiencePlugin, AmbitionPreparedWorld,
-    AMBITION_EXPERIENCE, AMBITION_GAMEPLAY_ROUTE,
+    AmbitionExperienceConfig, AmbitionExperiencePlugin, AmbitionPreparedWorld, AMBITION_EXPERIENCE,
+    AMBITION_GAMEPLAY_ROUTE,
 };
 
 /// Compose the shell-routed multi-game host on top of the already-composed
@@ -67,13 +67,15 @@ pub fn compose_ambition_shell_host(app: &mut App) {
     // loops this track whenever no gameplay session is live (and enforces
     // silence otherwise); the host names the song, the engine owns the seam.
     app.insert_resource(
-        ambition::audio::selection::FrontendAudioProfile::new(ambition_content::AMBITION_CONTENT_PROVIDER)
-            .with_title_track("a_possible_morning")
-            .with_sfx([
-                ambition::sfx::ids::UI_MENU_MOVE,
-                ambition::sfx::ids::UI_MENU_ACCEPT,
-                ambition::sfx::ids::UI_MENU_BACK,
-            ]),
+        ambition::audio::selection::FrontendAudioProfile::new(
+            ambition_content::AMBITION_CONTENT_PROVIDER,
+        )
+        .with_title_track("a_possible_morning")
+        .with_sfx([
+            ambition::sfx::ids::UI_MENU_MOVE,
+            ambition::sfx::ids::UI_MENU_ACCEPT,
+            ambition::sfx::ids::UI_MENU_BACK,
+        ]),
     );
 
     app.add_plugins((
@@ -88,7 +90,7 @@ pub fn compose_ambition_shell_host(app: &mut App) {
     app.add_plugins((
         AmbitionExperiencePlugin::new(AmbitionExperienceConfig::default()),
         ambition_demo_sanic::SanicExperiencePlugin,
-        ambition_demo_smb1::Smb1ExperiencePlugin,
+        ambition_demo_mary_o::MaryOExperiencePlugin,
         ambition_demo_pocket::PocketExperiencePlugin,
     ));
 

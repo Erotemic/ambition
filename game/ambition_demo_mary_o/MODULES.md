@@ -1,8 +1,8 @@
-# `ambition_demo_smb1` — module map
+# `ambition_demo_mary_o` — module map
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_demo_smb1** — Super Mary-O demo content home — the M-track's world half.
+**ambition_demo_mary_o** — Super Mary-O demo content home — the M-track's world half.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

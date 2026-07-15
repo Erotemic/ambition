@@ -246,9 +246,9 @@ version = "0.1.0"
 dependencies = [
  "ambition",
  "ambition_content",
+ "ambition_demo_mary_o",
  "ambition_demo_pocket",
  "ambition_demo_sanic",
- "ambition_demo_smb1",
  "ambition_menu_kaleidoscope",
  "bevy",
  "bevy-inspector-egui",
@@ -371,6 +371,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_demo_mary_o"
+version = "0.1.0"
+dependencies = [
+ "ambition",
+ "bevy",
+]
+
+[[package]]
+name = "ambition_demo_mary_o_app"
+version = "0.1.0"
+dependencies = [
+ "ambition",
+ "ambition_demo_mary_o",
+ "bevy",
+ "bevy_kira_audio",
+]
+
+[[package]]
 name = "ambition_demo_pocket"
 version = "0.1.0"
 dependencies = [
@@ -392,24 +410,6 @@ version = "0.1.0"
 dependencies = [
  "ambition",
  "ambition_demo_sanic",
- "bevy",
- "bevy_kira_audio",
-]
-
-[[package]]
-name = "ambition_demo_smb1"
-version = "0.1.0"
-dependencies = [
- "ambition",
- "bevy",
-]
-
-[[package]]
-name = "ambition_demo_smb1_app"
-version = "0.1.0"
-dependencies = [
- "ambition",
- "ambition_demo_smb1",
  "bevy",
  "bevy_kira_audio",
 ]

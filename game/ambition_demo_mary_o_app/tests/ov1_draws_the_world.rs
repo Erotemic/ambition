@@ -26,7 +26,7 @@ use bevy::prelude::*;
 use ambition::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
 use ambition::platformer::lifecycle::{RoomVisual, SessionScopedEntity};
 
-use ambition_demo_smb1_app::{build_windowed_demo_app, RenderMode};
+use ambition_demo_mary_o_app::{build_windowed_demo_app, RenderMode};
 
 fn drawn_demo() -> App {
     build_windowed_demo_app(RenderMode::Headless)

@@ -378,11 +378,16 @@ to do"* — the seam should be one per-experience shell-menu primitive the host
 offers, not a bespoke menu per demo. This is the core of the Fable plan (a
 per-experience shell-chrome seam), and it composes with #3/#4. Size: M.
 
-**6. Rename `smb1` → `mary_o` across the code.** The mode string is already
-`"mary_o"`, but the crate (`ambition_demo_smb1`, `ambition_demo_smb1_app`), the
-`Smb1*` types, `SMB1_MODE`/`SMB1_CATALOG_RON` consts, and `smb1_*` fns still carry
-the working title. Mechanical but wide (crate rename = build churn); do it as its
-own commit. See [[feedback_entity_id_matches_label]]. Size: M (churn).
+**6. ✅ RESOLVED 2026-07-15 — `smb1` renamed to `mary_o` across the code.** The
+crates (`ambition_demo_smb1{,_app}` → `ambition_demo_mary_o{,_app}`), the `Smb1*`
+types (→ `MaryO*`), the `SMB1_MODE`/`SMB1_CATALOG_RON` consts (→ `MARY_O_*`), and
+the `smb1_*` fns (→ `mary_o_*`) all carry the game's own name now; the workspace
+policy configs and `run_game.sh` aliases followed. The enemy was also de-branded
+in the same pass: `goomba` → `crony` (file, `CRONY_*` consts, `mary_o_crony`
+brain key + catalog row, display name "Mary-O Crony"); it keeps its goomba-like
+stomp-walker actions and the `ai_slop` sprite. Only bare-prose "SMB1"/"goomba"
+references to the inspiration remain (combat `prefabs.rs`, planning docs), which
+is deliberate. See [[feedback_entity_id_matches_label]].
 
 **7. ✅ RESOLVED 2026-07-15 (commit 6875aeaea) — ability sets compose onto
 characters.** The preset picker (`AbilityKitSpec`) is gone. `AbilitySet` gained

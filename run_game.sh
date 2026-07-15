@@ -82,7 +82,7 @@ Common commands:
 Launch targets (mode aliases):
   (default)               The multi-game host — the Ambition title screen.
   sanic, sanic-demo       Sanic's standalone shell (ambition_demo_sanic_app).
-  mary-o, mary_o, smb1    Mary-O's standalone shell (ambition_demo_smb1_app).
+  mary-o, mary_o, maryo   Mary-O's standalone shell (ambition_demo_mary_o_app).
                           Demos default to windowed (--features visible + the
                           --window game arg).
   --headless, headless    Opt the selected demo into its sim-only shell (no
@@ -210,8 +210,8 @@ while [[ $# -gt 0 ]]; do
             target_bin="sanic_demo"
             target_kind="demo"
             ;;
-        mary-o|mary_o|maryo|mary-o-demo|smb1|smb1-demo)
-            target_pkg="ambition_demo_smb1_app"
+        mary-o|mary_o|maryo|mary-o-demo)
+            target_pkg="ambition_demo_mary_o_app"
             target_bin="mary_o_demo"
             target_kind="demo"
             ;;

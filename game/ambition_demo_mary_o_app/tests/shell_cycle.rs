@@ -11,8 +11,8 @@ use bevy::prelude::*;
 
 use ambition::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
 use ambition::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionScopedEntity};
-use ambition_demo_smb1::Smb1LevelState;
-use ambition_demo_smb1_app::{build_demo_app, build_demo_app_with_home};
+use ambition_demo_mary_o::MaryOLevelState;
+use ambition_demo_mary_o_app::{build_demo_app, build_demo_app_with_home};
 
 fn active_route(app: &App) -> Option<String> {
     app.world()
@@ -30,7 +30,7 @@ fn primary_players(app: &mut App) -> usize {
 }
 
 fn level_states(app: &mut App) -> usize {
-    let mut query = app.world_mut().query::<&Smb1LevelState>();
+    let mut query = app.world_mut().query::<&MaryOLevelState>();
     query.iter(app.world()).count()
 }
 
@@ -114,7 +114,7 @@ fn mary_o_launch_quit_relaunch_is_leak_free() {
     );
 }
 
-/// The SAME `Smb1ExperiencePlugin` under a DIFFERENT host resolves `QuitToHome` to
+/// The SAME `MaryOExperiencePlugin` under a DIFFERENT host resolves `QuitToHome` to
 /// THAT host's declared home route — the provider named neither launcher.
 #[test]
 fn mary_o_quit_to_home_is_host_relative() {

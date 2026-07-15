@@ -26,7 +26,7 @@ fn register_sanic(app: &mut App) {
 }
 
 fn register_mary_o(app: &mut App) {
-    ambition_demo_smb1::install_smb1_content(app);
+    ambition_demo_mary_o::install_mary_o_content(app);
 }
 
 fn character_ids(app: &App) -> Vec<String> {
@@ -110,7 +110,10 @@ fn three_real_providers_compose_independent_of_registration_order() {
         .combined_music_registry("ambition")
         .expect("real provider music ids must compose without collision");
 
-    assert_eq!(hostile_providers(&forward), vec!["ambition"]);
+    // Ambition owns its enemy roster; Mary-O owns the crony's. Both are their own
+    // App-local hostile-roster providers (BTreeMap-sorted), composed independent of
+    // registration order. Sanic authors no hostile roster, so it adds none.
+    assert_eq!(hostile_providers(&forward), vec!["ambition", "mary_o"]);
     assert_eq!(boss_providers(&forward), vec!["ambition"]);
     let bosses = forward.world().resource::<BossCatalog>();
     assert!(bosses.behavior("clockwork_warden").is_some());
@@ -143,11 +146,24 @@ fn separate_apps_select_independent_provider_sets() {
         .get_resource::<AudioCatalogRegistry>()
         .is_none());
 
+    // Sanic authors no hostile roster, so its App never inits that registry.
+    assert!(sanic
+        .world()
+        .get_resource::<CharacterRosterRegistry>()
+        .is_none());
+
+    // Mary-O authors one (its crony), and it is App-local: the registry holds
+    // only Mary-O's own provider, with zero contamination from Ambition's roster.
+    let mary_o_roster = mary_o
+        .world()
+        .get_resource::<CharacterRosterRegistry>()
+        .expect("Mary-O content publishes its own hostile roster (the crony)");
+    assert_eq!(
+        mary_o_roster.providers().collect::<Vec<_>>(),
+        vec!["mary_o"]
+    );
+
     for app in [&sanic, &mary_o] {
-        assert!(app
-            .world()
-            .get_resource::<CharacterRosterRegistry>()
-            .is_none());
         assert!(app.world().get_resource::<BossCatalogRegistry>().is_none());
         assert!(app.world().get_resource::<BossCatalog>().is_none());
     }

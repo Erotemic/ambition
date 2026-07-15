@@ -1079,7 +1079,6 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
             knockback_strength: 0.0,
             knockback_growth: 0.0,
             launch_dir: None,
-            knock_x: 0.0,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },
         ambition_vfx::HitboxHits::default(),

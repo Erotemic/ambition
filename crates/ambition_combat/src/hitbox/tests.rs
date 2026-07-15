@@ -24,7 +24,6 @@ fn follow_owner_hitbox_aabb_tracks_owner_position() {
         knockback_strength: 0.0,
         knockback_growth: 0.0,
         launch_dir: None,
-        knock_x: 0.0,
         frame_down: ae::Vec2::new(0.0, 1.0),
     };
     let aabb_a = hitbox.world_aabb(ae::Vec2::new(100.0, 100.0));
@@ -52,7 +51,6 @@ fn world_anchor_hitbox_ignores_owner_position() {
         knockback_strength: 0.0,
         knockback_growth: 0.0,
         launch_dir: None,
-        knock_x: 0.0,
         frame_down: ae::Vec2::new(0.0, 1.0),
     };
     let aabb_a = hitbox.world_aabb(ae::Vec2::new(0.0, 0.0));
@@ -98,7 +96,6 @@ fn tick_and_despawn_drops_expired_hitboxes() {
                 knockback_strength: 0.0,
                 knockback_growth: 0.0,
                 launch_dir: None,
-                knock_x: 0.0,
                 frame_down: ae::Vec2::new(0.0, 1.0),
             },
             HitboxLifetime { remaining_s: 0.01 },
@@ -135,7 +132,6 @@ fn tick_and_despawn_keeps_live_hitboxes() {
                 knockback_strength: 0.0,
                 knockback_growth: 0.0,
                 launch_dir: None,
-                knock_x: 0.0,
                 frame_down: ae::Vec2::new(0.0, 1.0),
             },
             HitboxLifetime { remaining_s: 5.0 },
@@ -146,68 +142,6 @@ fn tick_and_despawn_keeps_live_hitboxes() {
     assert!(
         app.world().get_entity(hitbox).is_ok(),
         "hitbox with multi-second lifetime should survive a single tick",
-    );
-}
-
-/// `spawn_melee_hitbox` populates a freshly-spawned entity with
-/// the three expected components — pinned so a future
-/// `Bundle`-ification of the spawn doesn't drop the `HitboxHits`
-/// hit-once tracker by accident.
-///
-/// The helper takes `&mut Commands`; drive it through a one-off
-/// system so Bevy provides a real Commands handle (and flushes
-/// the queue automatically when the system finishes).
-#[test]
-fn spawn_melee_hitbox_attaches_full_component_set() {
-    #[derive(Resource, Default)]
-    struct SpawnedHitbox(Option<Entity>);
-
-    let mut app = App::new();
-    app.add_plugins(MinimalPlugins);
-    app.init_resource::<SpawnedHitbox>();
-    let owner = dummy_entity();
-    app.add_systems(
-        Update,
-        move |mut commands: Commands, mut store: ResMut<SpawnedHitbox>| {
-            if store.0.is_some() {
-                return;
-            }
-            let entity = spawn_melee_hitbox(
-                &mut commands,
-                owner,
-                ActorFaction::Enemy,
-                ae::Vec2::new(-20.0, 0.0),
-                ae::Vec2::new(20.0, 14.0),
-                3,
-                1.5,
-                0.0,
-                0.42,
-                ae::Vec2::new(0.0, 1.0),
-            );
-            store.0 = Some(entity);
-        },
-    );
-    app.update();
-    let spawned = app
-        .world()
-        .resource::<SpawnedHitbox>()
-        .0
-        .expect("spawn_melee_hitbox should return an Entity");
-    let entity = app.world().entity(spawned);
-    let hitbox = entity.get::<Hitbox>().expect("Hitbox missing");
-    assert_eq!(hitbox.damage, 3);
-    assert!((hitbox.knockback_strength - 1.5).abs() < f32::EPSILON);
-    match hitbox.anchor {
-        HitboxAnchor::FollowOwner { local_offset } => {
-            assert_eq!(local_offset, ae::Vec2::new(-20.0, 0.0));
-        }
-        _ => panic!("expected FollowOwner anchor"),
-    }
-    let lifetime = entity.get::<HitboxLifetime>().expect("Lifetime missing");
-    assert!((lifetime.remaining_s - 0.42).abs() < f32::EPSILON);
-    assert!(
-        entity.get::<HitboxHits>().is_some(),
-        "HitboxHits hit-once tracker should be attached by default",
     );
 }
 
@@ -254,7 +188,6 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
             knockback_strength: 1.0,
             knockback_growth: 0.0,
             launch_dir: None,
-            knock_x: 0.0,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },
         HitboxLifetime { remaining_s: 0.2 },
@@ -315,7 +248,6 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
             knockback_strength: 0.0,
             knockback_growth: 0.0,
             launch_dir: None,
-            knock_x: 0.0,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },
         HitboxLifetime { remaining_s: 0.2 },
@@ -422,7 +354,6 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
             knockback_strength: 0.0,
             knockback_growth: 0.0,
             launch_dir: None,
-            knock_x: 0.0,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },
         HitboxLifetime { remaining_s: 0.2 },
@@ -515,7 +446,6 @@ fn player_faction_hitbox_only_fires_once() {
             knockback_strength: 0.0,
             knockback_growth: 0.0,
             launch_dir: None,
-            knock_x: 0.0,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },
         HitboxLifetime { remaining_s: 1.0 },
@@ -533,12 +463,11 @@ fn player_faction_hitbox_only_fires_once() {
 
 /// The player MELEE strike resolver path: a Player-faction FollowOwner hitbox
 /// owned by a body that has NO `CenteredAabb` (the player carries `BodyKinematics`)
-/// emits a `PlayerSlash` Volume hit each active tick, carrying the strike's signed
-/// `knock_x`, gated on the owner having an armed `MeleeSwing` (the moveset-projected
-/// read-model). Pins owner-pos-via-kinematics + knock_x carriage + the swing gate
-/// in `apply_hitbox_damage`.
+/// emits a single `PlayerSlash` Volume hit, gated on the owner having an armed
+/// `MeleeSwing` (the moveset-projected read-model). Pins owner-pos-via-kinematics +
+/// the swing gate + the Volume target in `apply_hitbox_damage`.
 #[test]
-fn player_followowner_melee_strike_emits_player_slash_with_knock_x() {
+fn player_followowner_melee_strike_emits_a_swing_gated_player_slash() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
@@ -586,7 +515,6 @@ fn player_followowner_melee_strike_emits_player_slash_with_knock_x() {
             knockback_strength: 0.0,
             knockback_growth: 0.0,
             launch_dir: None,
-            knock_x: 250.0,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },
         HitboxLifetime { remaining_s: 0.2 },
@@ -597,8 +525,8 @@ fn player_followowner_melee_strike_emits_player_slash_with_knock_x() {
     let cap = app.world().resource::<CapturedHits>();
     assert_eq!(cap.0.len(), 1, "the player FollowOwner strike emits a hit");
     assert!(
-        matches!(cap.0[0].source, HitSource::PlayerSlash { knock_x } if (knock_x - 250.0).abs() < 0.01),
-        "carries the strike's signed knock_x (was {:?})",
+        matches!(cap.0[0].source, HitSource::PlayerSlash { .. }),
+        "the melee strike resolves as a PlayerSlash source (was {:?})",
         cap.0[0].source,
     );
     assert!(matches!(cap.0[0].target, HitTarget::Volume));
@@ -637,7 +565,6 @@ fn player_followowner_strike_without_a_swing_is_inert() {
             knockback_strength: 0.0,
             knockback_growth: 0.0,
             launch_dir: None,
-            knock_x: 250.0,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },
         HitboxLifetime { remaining_s: 0.2 },

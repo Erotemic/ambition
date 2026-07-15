@@ -36,7 +36,7 @@ use super::components::ActorFaction;
 use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
 use super::targeting::{damage_lands, effective_faction};
 use super::util::midpoint;
-use crate::{actor_faction_from_hit_side, hit_side_from_actor_faction};
+use crate::actor_faction_from_hit_side;
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_time::WorldTime;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
@@ -313,8 +313,9 @@ pub fn apply_hitbox_damage(
                 // every active tick (the hitbox tracks the owner, so it connects on
                 // whatever frame it reaches the target), deduped per-swing via the
                 // owner's accumulating `MeleeSwing.hit_targets` (the universal
-                // resolver folds landed keys back in). The slash's signed `knock_x`
-                // rides the strike. No swing armed ⇒ no strike.
+                // resolver folds landed keys back in). Melee knockback rides the
+                // moveset volume's `knockback_strength`/`launch_dir`, so the slash
+                // event carries no signed impulse. No swing armed ⇒ no strike.
                 HitboxAnchor::FollowOwner { .. } => {
                     let Some(swing) = melee_owners
                         .get(hitbox.owner)
@@ -326,9 +327,7 @@ pub fn apply_hitbox_damage(
                     hit_events.write(HitEvent {
                         volume: world_volume.clone(),
                         damage: hitbox.damage.max(1),
-                        source: HitSource::PlayerSlash {
-                            knock_x: hitbox.knock_x,
-                        },
+                        source: HitSource::PlayerSlash { knock_x: 0.0 },
                         attacker: Some(hitbox.owner),
                         target: HitTarget::Volume,
                         mode: HitMode::Knockback,
@@ -346,9 +345,7 @@ pub fn apply_hitbox_damage(
                         hit_events.write(HitEvent {
                             volume: world_volume.clone(),
                             damage: hitbox.damage.max(1),
-                            source: HitSource::PlayerSlash {
-                                knock_x: hitbox.knock_x,
-                            },
+                            source: HitSource::PlayerSlash { knock_x: 0.0 },
                             attacker: Some(hitbox.owner),
                             target: HitTarget::Volume,
                             mode: HitMode::Knockback,
@@ -382,55 +379,11 @@ pub fn tick_and_despawn_hitboxes(
     }
 }
 
-/// Spawn helper: emit a fresh hitbox entity for a melee strike. The
-/// caller picks the local offset / half-extent / damage / faction
-/// based on the strike's archetype + facing. `knock_x` is the signed
-/// horizontal slash impulse for Player-faction strikes (0 for aggressor
-/// strikes, which knock via position-derived `knockback_strength`).
-#[allow(clippy::too_many_arguments)]
-pub fn spawn_melee_hitbox(
-    commands: &mut Commands,
-    owner: Entity,
-    source: ActorFaction,
-    local_offset: ae::Vec2,
-    half_extent: ae::Vec2,
-    damage: i32,
-    knockback_strength: f32,
-    knock_x: f32,
-    active_s: f32,
-    frame_down: ae::Vec2,
-) -> Entity {
-    commands
-        .spawn((
-            Hitbox {
-                owner,
-                source: hit_side_from_actor_faction(source),
-                anchor: HitboxAnchor::FollowOwner { local_offset },
-                half_extent,
-                shape: None,
-                facing: 1.0,
-                damage,
-                knockback_strength,
-                // Aggressor/player melee strikes are flat-knockback; percent
-                // growth is authored only on moveset volumes (CM1).
-                knockback_growth: 0.0,
-                launch_dir: None,
-                knock_x,
-                frame_down,
-            },
-            HitboxLifetime {
-                remaining_s: active_s.max(0.0),
-            },
-            HitboxHits::default(),
-        ))
-        .id()
-}
-
-// The former `spawn_melee_strike` (hitbox + slash from one gravity-resolved box,
-// the flat player+actor melee path's strike spawn) is deleted: melee is a moveset
-// move now, and `advance_move_playback` spawns its own richer window-scoped strike
-// (convex authored blades, per-window multi-volumes, charge scaling, on-hit
-// techniques) inline. `spawn_melee_hitbox` above remains as the low-level primitive.
+// The former flat melee strike spawns (`spawn_melee_strike` = hitbox + slash from
+// one gravity-resolved box, and its `spawn_melee_hitbox` primitive) are deleted:
+// melee is a moveset move now, and `advance_move_playback` spawns its own richer
+// window-scoped strike (convex authored blades, per-window multi-volumes, charge
+// scaling, on-hit techniques) inline — the sole melee strike spawn.
 
 #[cfg(test)]
 mod tests;

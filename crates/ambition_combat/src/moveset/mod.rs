@@ -439,7 +439,6 @@ pub fn advance_move_playback(
                             // CM1: the authored launch direction rides the
                             // volume through to the victim-side resolver.
                             launch_dir: volume.launch_dir.map(|(x, y)| ae::Vec2::new(x, y)),
-                            knock_x: 0.0,
                             frame_down,
                         };
                         // §7.2: the slash VFX rides the SAME resolved volume the

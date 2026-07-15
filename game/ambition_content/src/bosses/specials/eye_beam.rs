@@ -24,7 +24,9 @@ pub struct EyeBeamState {
     pub fired_this_strike: bool,
 }
 
-const EYE_BEAM_OWNER_PREFIX: &str = "smirking_behemoth_eye_beam";
+/// Owner-id prefix for this technique's beam projectiles (self / friendly-fire
+/// filtering + traces ONLY). Named for the technique, not the boss that wields it.
+const EYE_BEAM_OWNER_PREFIX: &str = "eye_beam";
 
 /// The eye-beam special's content key (matches the boss-schedule
 /// `Special("eye_beam")` beats in `boss_profiles.ron`).

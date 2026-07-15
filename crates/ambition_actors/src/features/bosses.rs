@@ -23,7 +23,7 @@ pub use ambition_characters::brain::boss_pattern::{BossAttackProfile, BossMoveme
 
 // `BossTickOutputs` (previously: `projectile_spawns: Vec<…>`) was
 // deleted with Task B of the actor/brain follow-up plan. Apple-rain
-// spawning moved to `spawn_gnu_apple_rain_from_special_messages` (an
+// spawning moved to `spawn_apple_rain_from_special_messages` (an
 // EFFECTS-stage consumer driven by `ActorActionMessage::Special`).
 // Future boss specials follow the same pattern — one consumer per
 // `SpecialActionSpec` variant — instead of accumulating side-channel

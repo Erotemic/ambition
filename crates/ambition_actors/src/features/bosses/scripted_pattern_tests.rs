@@ -229,7 +229,7 @@ fn gnu_ton_hand_slam_anchors_to_drawn_hands() {
 // prefix, self-aabb dodge, full-width coverage, reset-on-leave)
 // are now exercised in
 // `features/ecs/brain_effects.rs::tests` against the
-// EFFECTS consumer `spawn_gnu_apple_rain_from_special_messages`.
+// EFFECTS consumer `spawn_apple_rain_from_special_messages`.
 
 #[test]
 fn gnu_ton_apple_rain_volumes_are_empty_so_contact_does_not_double_count() {

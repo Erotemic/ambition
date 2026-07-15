@@ -49,13 +49,13 @@ const GRADIENT_CASCADE_MINION_COUNT: u8 = 2;
 
 /// Per-boss apple-rain accumulator: state moved out of `BossRuntime`
 /// to keep the runtime focused on body/HP and to let the EFFECTS
-/// consumer (`spawn_gnu_apple_rain_from_special_messages`) own the
-/// per-tick spawn cadence. Defaulted-attached to every boss; only
-/// the gnu_ton_rider encounter advances it (its ActionSet's `special` is
-/// `SpecialActionSpec::Special("apple_rain")`, so only it generates the
-/// Special messages the consumer reads). Per the actor/brain
-/// follow-up plan Task B: components hold state, consumers spawn
-/// effects.
+/// consumer (`spawn_apple_rain_from_special_messages`) own the
+/// per-tick spawn cadence. Defaulted-attached to every boss; only a
+/// boss whose `ActionSet.special` is `SpecialActionSpec::Special("apple_rain")`
+/// advances it (only such a boss generates the Special messages the
+/// consumer reads) — the `gnu_ton_rider` encounter is the current
+/// wielder. Per the actor/brain follow-up plan Task B: components hold
+/// state, consumers spawn effects.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct AppleRainSpawnState {
     /// Seconds carried over from the previous tick's apple-spawn.
@@ -78,12 +78,13 @@ const APPLE_RAIN_LIFETIME: f32 = 6.0;
 const APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER: f32 = 320.0;
 /// Owner-id prefix for this technique's apple projectiles (self / friendly-fire
 /// filtering + traces ONLY — art is data-driven via `ProjectileVisualKind::Apple`).
-/// Owned HERE in content: the engine names no boss's projectiles (crit 3).
-const GNU_TON_APPLE_OWNER_PREFIX: &str = "gnu_ton_apple";
+/// Named for the technique, not the boss that wields it: the engine names no
+/// boss's projectiles (crit 3), and neither does the technique name a boss.
+const APPLE_RAIN_OWNER_PREFIX: &str = "apple_rain";
 const PHI_FRAC: f32 = 0.618_033_99;
 
-/// Horizontal spawn lane (world x) for the `spawn_index`-th GNU-ton
-/// apple. Apples spread across the playable width by a golden-ratio
+/// Horizontal spawn lane (world x) for the `spawn_index`-th apple.
+/// Apples spread across the playable width by a golden-ratio
 /// sequence — even coverage without an obvious left-to-right sweep —
 /// then slide out from under the boss body so an apple never spawns
 /// already overlapping the boss head; it picks the nearer boss edge to
@@ -108,24 +109,24 @@ fn apple_rain_spawn_x(spawn_index: u32, world_width: f32, boss_aabb: ae::Aabb) -
     spawn_x
 }
 
-/// Spawn GNU-ton's apple rain in response to
+/// Spawn the apple-rain barrage in response to
 /// `ActorActionMessage::Special { spec: SpecialActionSpec::Special("apple_rain") }`.
 /// The boss runtime tags `frame.special_pressed = true` every tick
 /// its `BossAttackProfile::Special("apple_rain")` strike window is active;
 /// the resolver translates that into one `Special` message per
 /// tick. This consumer owns the spawn cadence, the
 /// golden-ratio x distribution, and the self-aabb dodge that keeps
-/// apples from landing on the giant's own head — all of which used
-/// to live inside `BossRuntime::tick_apple_rain`.
+/// apples from landing on the wielding boss's own head — all of which
+/// used to live inside `BossRuntime::tick_apple_rain`.
 ///
-/// Bosses whose Special slot is something other than DebrisRain
+/// Bosses whose Special slot is something other than `apple_rain`
 /// emit no messages this consumer cares about; bosses whose
 /// `BossPattern` brain doesn't fire `special_pressed` simply pass
 /// through. The per-boss `AppleRainSpawnState` resets to zero on
 /// any tick the message doesn't arrive, so the next strike window
 /// starts on a clean beat instead of inheriting a burst from
 /// leftover dt.
-pub fn spawn_gnu_apple_rain_from_special_messages(
+pub fn spawn_apple_rain_from_special_messages(
     world_time: Res<WorldTime>,
     world: ambition::platformer::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
     mut messages: MessageReader<ActorActionMessage>,
@@ -198,7 +199,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
                         damage,
                         max_lifetime: APPLE_RAIN_LIFETIME,
                         half_extent: APPLE_RAIN_HALF_EXTENT,
-                        owner_id: format!("{}:{}", GNU_TON_APPLE_OWNER_PREFIX, boss.config.id),
+                        owner_id: format!("{}:{}", APPLE_RAIN_OWNER_PREFIX, boss.config.id),
                         gravity: APPLE_RAIN_GRAVITY,
                         // The apple-rain fruit renders as the generated apple
                         // sprite (kept upright vs gravity) — keyed by kind, not
@@ -216,29 +217,30 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
 // Gradient Sentinel specials — state components + EFFECTS consumers
 // =================================================================
 //
-// The Gradient Sentinel boss carries four distinct specials that
-// don't fit the single `ActionSet::special` slot. Each special has
-// its own per-boss state component and EFFECTS consumer:
+// The Gradient Sentinel kit carries four more specials (beyond apple
+// rain) that don't fit the single `ActionSet::special` slot. Each has
+// its own per-boss state component and EFFECTS consumer, keyed by its
+// technique key:
 //
-//   MemorizedVolley     → sample player positions during telegraph,
+//   "overfit_volley"    → sample player positions during telegraph,
 //                       fire bolts at all samples on strike edge.
-//   PitTrap        → spawn a World-anchored pit hitbox at player
+//   "minima_trap"       → spawn a World-anchored pit hitbox at player
 //                       pos on strike edge + a puppy_slug minion.
-//   RotatingCross       → spawn 2 World hitboxes around the boss (one
+//   "saddle_point"      → spawn 2 World hitboxes around the boss (one
 //                       horizontal arm, one vertical) and rotate which
 //                       arm has damage live over the strike duration.
-//   MinionCascade   → spawn N "slop" minions (small_lurker) at the
+//   "gradient_cascade"  → spawn N "slop" minions (small_lurker) at the
 //                       top of the arena on strike edge.
 //
-// All four follow the AppleRain consumer pattern: per-boss state
+// All four follow the apple-rain consumer pattern: per-boss state
 // component, read `ActorActionMessage::Special { spec }` matched to
-// the variant, advance/reset state from the message stream + the
+// the technique key, advance/reset state from the message stream + the
 // boss's live `BossAttackState`. The brain emits the Special
 // messages directly from `tick_boss_brains_system` via
 // `boss_special_for_profile` (see `ambition_actors::features::bosses`).
 
-/// Per-boss state for MemorizedVolley. Sampled positions are
-/// memorized during the telegraph window; the strike edge fires one
+/// Per-boss state for the `overfit_volley` technique. Sampled positions
+/// are memorized during the telegraph window; the strike edge fires one
 /// bolt at every sample.
 #[derive(Component, Clone, Debug, Default)]
 pub struct OverfitVolleyState {
@@ -248,7 +250,7 @@ pub struct OverfitVolleyState {
     pub sample_accum: f32,
     /// Tracks the per-strike "have we fired yet?" gate. Reset when
     /// the strike window closes (telegraph or active drops the
-    /// MemorizedVolley profile).
+    /// `overfit_volley` profile).
     pub fired_this_strike: bool,
     /// Tracks the previous tick's "in-attack" status so the seed
     /// sample only happens once per telegraph (not every tick the
@@ -256,7 +258,7 @@ pub struct OverfitVolleyState {
     pub had_seed_sample: bool,
 }
 
-/// PitTrap is a one-shot per-strike action (spawn pit hitbox +
+/// `minima_trap` is a one-shot per-strike action (spawn pit hitbox +
 /// minion at strike edge). State is just the "fired" gate — the pit
 /// hitbox + minion are independent entities once spawned, so no
 /// further per-boss state is needed.
@@ -268,7 +270,7 @@ pub struct MinimaTrapState {
     pub spawn_index: u32,
 }
 
-/// Per-boss state for RotatingCross. Tracks which axis (horizontal arm
+/// Per-boss state for `saddle_point`. Tracks which axis (horizontal arm
 /// or vertical arm) is currently the damaging one + how much time
 /// is left in this axis before the toggle.
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -286,7 +288,7 @@ pub struct SaddlePointState {
     pub vertical_hitbox: Option<Entity>,
 }
 
-/// MinionCascade is one-shot per strike (spawn N minions at strike
+/// `gradient_cascade` is one-shot per strike (spawn N minions at strike
 /// edge). State is just the "fired" gate plus a spawn counter for
 /// unique minion ids.
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -295,7 +297,7 @@ pub struct GradientCascadeState {
     pub spawn_index: u32,
 }
 
-/// MemorizedVolley constants reused from the spec but baked here so
+/// `overfit_volley` constants reused from the spec but baked here so
 /// the consumer doesn't need to round-trip through the spec on every
 /// telegraph tick (the spec only arrives via the strike-tick
 /// message; sampling happens during telegraph too). Tuning lives in
@@ -304,15 +306,15 @@ const OVERFIT_VOLLEY_BOLT_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(8.0, 8.0);
 const OVERFIT_VOLLEY_BOLT_LIFETIME: f32 = 2.4;
 const OVERFIT_VOLLEY_OWNER_PREFIX: &str = "gradient_sentinel_overfit";
 
-/// EFFECTS consumer: MemorizedVolley position-sampling bolt barrage.
+/// EFFECTS consumer: `overfit_volley` position-sampling bolt barrage.
 ///
 /// Reads two things per tick:
 ///
-/// 1. `BossAttackState.telegraph_profile` — when set to
-///    `MemorizedVolley`, the consumer samples the player's position at
+/// 1. `BossAttackState.telegraph_profile` — when set to the
+///    `overfit_volley` profile, the consumer samples the player's position at
 ///    every `OVERFIT_VOLLEY_SAMPLE_INTERVAL_S` and pushes onto
 ///    `OverfitVolleyState.samples` (capped at `OVERFIT_VOLLEY_SAMPLE_COUNT`).
-/// 2. `ActorActionMessage::Special { spec: MemorizedVolley { .. } }` —
+/// 2. `ActorActionMessage::Special { spec: Special("overfit_volley") }` —
 ///    arrives every tick the strike is active; the consumer fires
 ///    one bolt per memorized sample on the first such message
 ///    (gated by `fired_this_strike`).
@@ -468,7 +470,7 @@ const MINIMA_TRAP_MINION_HALF_SIZE: ae::Vec2 = ae::Vec2::new(24.0, 11.0);
 /// frame it appears.
 const MINIMA_TRAP_MINION_SPAWN_OFFSET_PX: f32 = 90.0;
 
-/// EFFECTS consumer: PitTrap pit + optional puppy_slug.
+/// EFFECTS consumer: `minima_trap` pit + optional puppy_slug.
 ///
 /// On the first Special message of a strike (gated by
 /// `MinimaTrapState.fired_this_strike`):
@@ -612,7 +614,7 @@ pub fn spawn_minima_trap_from_special_messages(
 
 const SADDLE_POINT_KNOCKBACK: f32 = 1.6;
 
-/// EFFECTS consumer: RotatingCross rotating cross hazard.
+/// EFFECTS consumer: `saddle_point` rotating cross hazard.
 ///
 /// On the first Special message of a strike, spawns two World-anchored
 /// hitbox entities centered on the boss — one horizontal arm, one
@@ -787,7 +789,7 @@ fn gradient_cascade_minion_x_offset(i: i32, count: i32) -> f32 {
     (t - 0.5) * 2.0 * GRADIENT_CASCADE_X_SPREAD
 }
 
-/// EFFECTS consumer: MinionCascade — spawn N "slop" minions at the
+/// EFFECTS consumer: `gradient_cascade` — spawn N "slop" minions at the
 /// top of the arena.
 ///
 /// One-shot per strike. Spawns `minion_count` `small_lurker`
@@ -838,7 +840,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
         // Spread N minions evenly across [-X_SPREAD, +X_SPREAD] around
         // the boss x.
         // Encounter id = boss's canonical behavior id (see the
-        // PitTrap consumer above for the name-vs-id rationale).
+        // `minima_trap` consumer above for the name-vs-id rationale).
         let encounter_id = boss.config.behavior.id.clone();
         for i in 0..count {
             let x_off = gradient_cascade_minion_x_offset(i, count);

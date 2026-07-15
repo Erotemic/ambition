@@ -263,7 +263,8 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
         );
         // The meteor gauntlet has no melee/ranged verb — `Attack` is intercepted
         // by `meteor::fire_meteor_system`, which rains falling player-faction
-        // projectiles onto a zone ahead (GNU-ton's apple-rain, wielded).
+        // projectiles onto a zone ahead (a player-wielded analogue of the
+        // apple-rain technique).
         items.insert(
             "meteor",
             HeldItemSpec {

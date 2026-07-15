@@ -32,11 +32,10 @@ pub use echo_fan::{spawn_echo_fan_from_special_messages, EchoFanState};
 pub use eye_beam::{spawn_eye_beam_from_special_messages, EyeBeamState};
 pub use gradient_nova::{spawn_gradient_nova_from_special_messages, ExplodingGradientState};
 pub use gradient_sentinel::{
-    spawn_gnu_apple_rain_from_special_messages,
-    spawn_gradient_cascade_minions_from_special_messages, spawn_minima_trap_from_special_messages,
-    spawn_overfit_volley_from_special_messages, spawn_saddle_point_from_special_messages,
-    AppleRainSpawnState, GradientCascadeState, MinimaTrapState, OverfitVolleyState,
-    SaddlePointState,
+    spawn_apple_rain_from_special_messages, spawn_gradient_cascade_minions_from_special_messages,
+    spawn_minima_trap_from_special_messages, spawn_overfit_volley_from_special_messages,
+    spawn_saddle_point_from_special_messages, AppleRainSpawnState, GradientCascadeState,
+    MinimaTrapState, OverfitVolleyState, SaddlePointState,
 };
 pub use mode_collapse::{spawn_mode_collapse_converge_from_special_messages, ModeCollapseState};
 pub use overflow_flood::{spawn_overflow_flood_from_special_messages, OverflowState};
@@ -108,7 +107,7 @@ impl Plugin for BossSpecialContentPlugin {
         app.add_systems(
             sim,
             (
-                spawn_gnu_apple_rain_from_special_messages,
+                spawn_apple_rain_from_special_messages,
                 spawn_overfit_volley_from_special_messages,
                 spawn_eye_beam_from_special_messages,
                 spawn_mode_collapse_converge_from_special_messages,

@@ -13,11 +13,12 @@ fn top_level_order_and_dev_gating() {
     );
     let ids: Vec<_> = model.entries.iter().map(|e| e.id).collect();
     // The non-dev prefix is always present in this fixed order. Shaders is no
-    // longer a top-level entry (it rides under Video); Reset All Settings and
-    // Quit to Desktop are always present (Quit sits right after Reset All
-    // Settings, before the dev-only entries).
+    // longer a top-level entry (it rides under Video); Reset All Settings, Quit
+    // to Title, and Quit to Desktop are always present (the two exits sit right
+    // after Reset All Settings — Title above Desktop — before the dev-only
+    // entries).
     assert_eq!(
-        &ids[..8],
+        &ids[..9],
         &[
             SystemMenuEntryId::Radio,
             SystemMenuEntryId::Video,
@@ -26,12 +27,13 @@ fn top_level_order_and_dev_gating() {
             SystemMenuEntryId::Gameplay,
             SystemMenuEntryId::Language,
             SystemMenuEntryId::ResetAllSettings,
+            SystemMenuEntryId::QuitToHome,
             SystemMenuEntryId::Quit,
         ]
     );
     if DEV_BUILD {
         assert_eq!(
-            &ids[8..],
+            &ids[9..],
             &[
                 SystemMenuEntryId::Developer,
                 SystemMenuEntryId::ResetSandbox
@@ -40,7 +42,7 @@ fn top_level_order_and_dev_gating() {
     } else {
         assert_eq!(
             ids.len(),
-            8,
+            9,
             "non-dev builds omit Developer + Reset Sandbox"
         );
     }
@@ -79,18 +81,30 @@ fn quit_is_an_always_present_action_entry_after_reset_all() {
         SystemMenuTarget::Action(SystemMenuAction::Quit),
         "Quit fires an immediate action (no screen)"
     );
-    // Quit sits immediately after Reset All Settings.
-    let reset_pos = model
-        .entries
-        .iter()
-        .position(|e| e.id == SystemMenuEntryId::ResetAllSettings)
-        .unwrap();
-    let quit_pos = model
-        .entries
-        .iter()
-        .position(|e| e.id == SystemMenuEntryId::Quit)
-        .unwrap();
-    assert_eq!(quit_pos, reset_pos + 1);
+    // The two exits sit in order after Reset All Settings: Quit to Title, then
+    // Quit to Desktop.
+    let pos = |id| model.entries.iter().position(|e| e.id == id).unwrap();
+    let reset_pos = pos(SystemMenuEntryId::ResetAllSettings);
+    assert_eq!(pos(SystemMenuEntryId::QuitToHome), reset_pos + 1);
+    assert_eq!(pos(SystemMenuEntryId::Quit), reset_pos + 2);
+}
+
+#[test]
+fn quit_to_home_is_an_always_present_action_entry_above_quit() {
+    let model = SystemMenuModel::build(
+        &UserSettings::default(),
+        &RadioSnapshot::default(),
+        &DevSnapshot::default(),
+    );
+    let entry = model
+        .entry(SystemMenuEntryId::QuitToHome)
+        .expect("Quit to Title is always surfaced");
+    assert_eq!(entry.label, "Quit to Title");
+    assert_eq!(
+        entry.target,
+        SystemMenuTarget::Action(SystemMenuAction::QuitToHome),
+        "Quit to Title fires an immediate action (retire session -> title), no screen"
+    );
 }
 
 #[test]

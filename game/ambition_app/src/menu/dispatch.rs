@@ -121,6 +121,17 @@ pub(crate) fn dispatch_menu_action(
             play_ui(sfx, ambition::sfx::ids::UI_MENU_ACCEPT);
             info!("cube system action: reset sandbox");
         }
+        MenuPageAction::SystemAction(SystemMenuAction::QuitToHome) => {
+            // Immediate: retire the live session and return to the host's title
+            // screen via the SAME leak-free path F10 / Start fire
+            // (`quit_to_home_on_key`). The router resolves QuitToHome to the
+            // host-relative home route, so this row names no route. Fold the menu
+            // shut (which also unpauses) as the session tears down.
+            commands.write_message(ambition::game_shell::ShellCommand::QuitToHome);
+            *close_menu = true;
+            play_ui(sfx, ambition::sfx::ids::UI_MENU_ACCEPT);
+            info!("cube system action: quit to title");
+        }
         MenuPageAction::SystemAction(SystemMenuAction::Quit) => {
             // Immediate: request application exit and fold the menu shut. Mirrors
             // the old pause-menu Quit row (which is removed in a later phase).

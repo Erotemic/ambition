@@ -1430,6 +1430,9 @@ pub(crate) fn focus_for_action(
                 MenuPageAction::SystemAction(SystemMenuAction::ResetAllSettings) => {
                     SystemMenuEntryId::ResetAllSettings
                 }
+                MenuPageAction::SystemAction(SystemMenuAction::QuitToHome) => {
+                    SystemMenuEntryId::QuitToHome
+                }
                 MenuPageAction::SystemAction(SystemMenuAction::Quit) => SystemMenuEntryId::Quit,
                 _ => return MenuFocus::System(0),
             };

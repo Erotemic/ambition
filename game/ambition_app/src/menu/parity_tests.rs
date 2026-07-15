@@ -173,6 +173,7 @@ const ALL_SYSTEM_MENU_ENTRY_IDS: &[SystemMenuEntryId] = &[
     SystemMenuEntryId::Gameplay,
     SystemMenuEntryId::Language,
     SystemMenuEntryId::ResetAllSettings,
+    SystemMenuEntryId::QuitToHome,
     SystemMenuEntryId::Quit,
     SystemMenuEntryId::Developer,
     SystemMenuEntryId::ResetSandbox,
@@ -188,6 +189,7 @@ fn assert_all_system_menu_entry_ids_listed(id: SystemMenuEntryId) {
         | SystemMenuEntryId::Gameplay
         | SystemMenuEntryId::Language
         | SystemMenuEntryId::ResetAllSettings
+        | SystemMenuEntryId::QuitToHome
         | SystemMenuEntryId::Quit
         | SystemMenuEntryId::Developer
         | SystemMenuEntryId::ResetSandbox => {}

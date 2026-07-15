@@ -257,6 +257,10 @@ pub enum SystemMenuEntryId {
     /// Reset every persisted settings/dev resource back to defaults. Always
     /// present (mirrors the pause menu's Top-page `ResetAllSettings`).
     ResetAllSettings,
+    /// Retire the live gameplay session and return to the multi-game host's
+    /// title screen (the launcher), without quitting the process. Immediate
+    /// action, placed just above Quit to Desktop — the softer of the two exits.
+    QuitToHome,
     /// Quit the application to the desktop. Always present, immediate action
     /// (no drill screen), placed after Reset All Settings. Mirrors the pause
     /// menu's Top-page `Quit` (which is removed in a later phase).
@@ -277,6 +281,7 @@ impl SystemMenuEntryId {
             Self::Gameplay => "Gameplay",
             Self::Language => "Language",
             Self::ResetAllSettings => "Reset All Settings",
+            Self::QuitToHome => "Quit to Title",
             Self::Quit => "Quit to Desktop",
             Self::Developer => "Developer",
             Self::ResetSandbox => "Reset Sandbox",
@@ -292,6 +297,7 @@ impl SystemMenuEntryId {
             Self::Gameplay => "Debug and quest HUD overlays.",
             Self::Language => "Interface language (English only for now).",
             Self::ResetAllSettings => "Restore every setting and developer tool to its default.",
+            Self::QuitToHome => "Leave this session and return to the title screen.",
             Self::Quit => "Exit the game and return to the desktop.",
             Self::Developer => "Developer inspectors, debug visuals, and feel profiles.",
             Self::ResetSandbox => "Wipe the save and respawn at the start room.",
@@ -319,6 +325,11 @@ pub enum SystemMenuAction {
     /// Reset every persisted settings/dev resource to defaults, then close the
     /// menu. Mirrors the pause menu's `SettingsItem::ResetAllSettings`.
     ResetAllSettings,
+    /// Retire the live session and return to the host title screen (the app's
+    /// dispatch writes `ShellCommand::QuitToHome`), then close the menu. The
+    /// enum stays a pure semantic marker — the shell dependency lives in the
+    /// app's dispatcher, not this engine crate.
+    QuitToHome,
     /// Quit the application to the desktop (writes `AppExit::Success`), then
     /// close the menu. Mirrors the pause menu's Top-page `Quit`.
     Quit,
@@ -582,6 +593,15 @@ impl SystemMenuModel {
                 .description()
                 .to_string(),
             target: SystemMenuTarget::Action(SystemMenuAction::ResetAllSettings),
+        });
+
+        // Quit to Title: return to the host's title screen (retire the session),
+        // the softer exit — placed just above Quit to Desktop.
+        entries.push(SystemMenuEntry {
+            id: SystemMenuEntryId::QuitToHome,
+            label: SystemMenuEntryId::QuitToHome.label().to_string(),
+            description: SystemMenuEntryId::QuitToHome.description().to_string(),
+            target: SystemMenuTarget::Action(SystemMenuAction::QuitToHome),
         });
 
         // Quit to Desktop: always present, immediate action, placed right after

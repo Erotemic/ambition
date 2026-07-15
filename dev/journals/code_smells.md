@@ -368,24 +368,40 @@ possessed-boss path reads `boss.kin.facing`). The swing SIDE is the latched
 confirmed. Regression test added (`moveset/tests.rs`). Entry was never marked
 resolved when logged.
 
-**3. Vanity / "powered by Ambition" card + title presentation timing.** The
-vanity card is too short and has no fade in / fade out — it needs both, and a
-fade-*out* specifically. The title screen has no opening animation: the menu
-snaps in after a dramatic pause instead of fading in. And the soundtrack is tied
-to the BOOT sequence when it should be tied to the TITLE SCREEN. Presentation/feel
-cluster; part of the Fable shell-UX plan. Size: M.
+**3. ⏳ PARTIAL 2026-07-15 (commit fcef3a2b3) — vanity / title presentation
+timing.** DONE: the "Powered by Ambition" card now eases in / holds / eases out
+(`fade_basic_sequence_card` ramps the card CONTENT alpha from the sequence
+runtime's elapsed time, backdrop stays opaque black) and holds 3.6s instead of
+2s. `card_alpha` curve unit-tested. BLIND: the 0.55s fade + 3.6s hold are tuning
+Fable should confirm at the controls. STILL OPEN (deferred to the Fable shell-UX
+pass — feel + cross-crate audio): (a) the TITLE MENU still snaps in rather than
+fading — a fade there means alpha-ramping the externally-rendered `ambition_menu`
+launcher tree (its render is rebuild-on-change, no per-frame alpha), a bigger
+change than the card; (b) the menu SOUNDTRACK starts on the vanity card (the
+first Frontend audio context, via `select_shell_audio_context` →
+`apply_frontend_music_policy`), and tying it to the title screen specifically is
+cross-crate audio plumbing (suppress Frontend music for the startup route, or
+give the card a music-less audio profile). Both are squarely Fable's feel call.
 
-**4. "Exit to title screen" is missing from the Ambition pause menu.** Today you
-cannot leave a live Ambition session back to the multi-game title without quitting
-the process. The session-scope teardown already exists (launch/quit/relaunch is
-leak-free); this is a menu entry that fires the existing "retire session → return
-to launcher" path. Part of the Fable shell-UX plan. Size: S–M.
+**4. ✅ RESOLVED 2026-07-15 (commit 3036cdfa2) — "Quit to Title" added to the
+Ambition pause menu.** A `QuitToHome` entry on the kaleidoscope System page fires
+`ShellCommand::QuitToHome` — the exact leak-free session-retire path F10/Start
+already used — placed just above Quit to Desktop. The `SystemMenuAction` enum
+stays a pure marker (the ShellCommand write is in the app dispatcher, not the
+settings-menu engine crate). No-drift guards + an ordering test updated.
 
-**5. Sanic and Mary-O have no pause menus.** Each hosted experience needs a small,
-minimal menu: Pause, Quit to Desktop, Quit to Title. Jon: *"this should be elegant
-to do"* — the seam should be one per-experience shell-menu primitive the host
-offers, not a bespoke menu per demo. This is the core of the Fable plan (a
-per-experience shell-chrome seam), and it composes with #3/#4. Size: M.
+**5. ✅ RESOLVED 2026-07-15 (commit a50515594) — universal host pause menu.**
+`ShellPauseMenuPlugin` (ambition_game_shell, on `MinimalShellPlugins`) gives EVERY
+hosted experience + standalone demo app one menu — Resume / Quit to Title / Quit
+to Desktop — opened on Escape/Start, drawn with the same `ambition_menu` renderer
+the launcher uses, dispatching the same host-relative `ShellCommand`s
+(`QuitToHome` / `ExitProcess`). Jon's "elegant … one primitive the host offers,
+not a bespoke menu per demo" — satisfied. Coexists with Ambition's kaleidoscope
+via `ShellPauseMenuSuppressed`, which the host sets from `in_base_mode`: the shell
+menu runs for exactly the sessions the kaleidoscope does NOT (the two partition
+every live session). Input: added a `pause` edge (Esc/Start), narrowed the blunt
+`quit_to_home` to F10-only so Start opens a real menu instead of blind-retiring.
+Sim-pause via `GameMode::Paused` is best-effort (Option). Poison-tested.
 
 **6. ✅ RESOLVED 2026-07-15 — `smb1` renamed to `mary_o` across the code.** The
 crates (`ambition_demo_smb1{,_app}` → `ambition_demo_mary_o{,_app}`), the `Smb1*`
@@ -415,12 +431,20 @@ powerup that grants a movement verb lands (the milk/mushroom is the first
 candidate). ORIGINAL: this session added `AbilityKitSpec` (a preset picker) as a
 floor; Jon: *"ability sets should probably compose onto characters"*.
 
-**8. Design Q for Fable — on-screen control hints are hardcoded to the Ambition
-player.** The context-sensitive button icons/text appear pinned to the single
-Ambition protagonist's verbs. There needs to be a hook so whatever is currently
-CONTROLLED (worn character) or whatever UI is active drives the control-hint
-labels/icons. Same relativity principle as the rest of the engine: the prompt row
-is a function of the active control context, not a global constant.
+**8. ⏳ PARTIAL 2026-07-15 (commit 18ce82e35) — on-screen control hints follow the
+controlled subject now.** DONE (the relativity core): `compute_player_affordances`
+and `compute_controlled_actor_intent` read the primary/home avatar
+(`With<PrimaryPlayer>`) — so while possessing another body the hints described the
+vacated avatar. Both now resolve `ControlledSubject` (fallback primary) exactly
+like `update_nearest_interactable` already did, and read THAT body's clusters, so
+every renderer (the touch overlay today, a desktop row tomorrow) is
+relativity-correct for free — the fix is upstream at the affordance source.
+Poison-tested (possess a ledge-hanging actor → hints read Climb/Roll; drop
+possession → back to Jump/Shield). STILL OPEN: (a) the hint VOCABULARY is still
+the fixed six-variant enum (the Ambition protagonist's verbs) rather than sourced
+from the driven body's own `ActionSet`/`ActorMoveset`; (b) "whatever UI is active
+drives the row" (menu context) — no desktop hint row even exists yet (touch-only),
+so that half is moot until one lands. Both are follow-ups above this source fix.
 
 **9. ✅ RESOLVED 2026-07-15 — `WorldItem` draws a real sprite via a game-owned art
 seam.** Added the generalizing seam the follow-up asked for: `WorldItem` +

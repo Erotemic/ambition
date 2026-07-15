@@ -34,6 +34,7 @@
 //! the enum; the HUD updates for free because it just renders the
 //! variant's `VariantLabel::text`.
 
+use ambition_platformer_primitives::markers::ControlledSubject;
 use ambition_platformer_primitives::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
@@ -81,52 +82,62 @@ pub struct PlayerAffordances {
     pub special: SpecialVariant,
 }
 
-/// Recompute [`PlayerAffordances`] from the primary player's state
+/// Recompute [`PlayerAffordances`] from the CONTROLLED subject's state
 /// and the current world view. Skips writing when the table hasn't
 /// changed so Bevy's change-detection bit only flips on actual
 /// updates — relevant for downstream HUD systems that filter on
 /// `Changed<PlayerAffordances>`.
+///
+/// The body it reads is the [`ControlledSubject`] (the entity carrying
+/// `Brain::Player(PRIMARY)` — the home avatar, or a possessed actor while
+/// possessing), falling back to the primary player when nothing is possessed.
+/// The button hints therefore describe what the body you are DRIVING would do,
+/// not the vacated home avatar — the same relativity rule the camera, input,
+/// and the interact prompt ([`update_nearest_interactable`]) already follow.
 pub fn compute_player_affordances(
     intent: Res<PlayerIntent>,
     proximity: Res<NearestInteractable>,
     pogo: Res<PogoTargetBelow>,
-    #[cfg(feature = "portal")] player_q: Query<
-        (
-            &crate::actor::BodyGroundState,
-            &ambition_engine_core::BodyMotionFacts,
-            &crate::actor::BodyModeState,
-            &crate::actor::BodyEnvironmentContact,
-            Option<&ambition_portal::PortalGun>,
-        ),
+    controlled: Option<Res<ControlledSubject>>,
+    primary: Query<
+        Entity,
         (
             With<crate::actor::PlayerEntity>,
             With<crate::actor::PrimaryPlayer>,
         ),
     >,
-    #[cfg(not(feature = "portal"))] player_q: Query<
-        (
-            &crate::actor::BodyGroundState,
-            &ambition_engine_core::BodyMotionFacts,
-            &crate::actor::BodyModeState,
-            &crate::actor::BodyEnvironmentContact,
-        ),
-        (
-            With<crate::actor::PlayerEntity>,
-            With<crate::actor::PrimaryPlayer>,
-        ),
-    >,
+    #[cfg(feature = "portal")] player_q: Query<(
+        &crate::actor::BodyGroundState,
+        &ambition_engine_core::BodyMotionFacts,
+        &crate::actor::BodyModeState,
+        &crate::actor::BodyEnvironmentContact,
+        Option<&ambition_portal::PortalGun>,
+    )>,
+    #[cfg(not(feature = "portal"))] player_q: Query<(
+        &crate::actor::BodyGroundState,
+        &ambition_engine_core::BodyMotionFacts,
+        &crate::actor::BodyModeState,
+        &crate::actor::BodyEnvironmentContact,
+    )>,
     mut affordances: ResMut<PlayerAffordances>,
 ) {
+    // The driven body: possessed subject if any, else the home avatar.
+    let subject = controlled
+        .and_then(|subject| subject.0)
+        .or_else(|| primary.single().ok());
+    let Some(subject) = subject else {
+        // No player yet (e.g. boot-up before `setup_simulation_system` runs).
+        // Leave affordances at their defaults; the HUD renders "Jump / Attack /
+        // Shield / Dash / Interact / Special" which is the correct cold-start
+        // label.
+        return;
+    };
     #[cfg(feature = "portal")]
-    let Ok((ground, facts, body_mode, env_contact, portal_gun)) = player_q.single() else {
-        // No primary player yet (e.g. boot-up before
-        // `setup_simulation_system` runs). Leave affordances at their
-        // defaults; the HUD renders "Jump / Attack / Shield / Dash /
-        // Interact / Special" which is the correct cold-start label.
+    let Ok((ground, facts, body_mode, env_contact, portal_gun)) = player_q.get(subject) else {
         return;
     };
     #[cfg(not(feature = "portal"))]
-    let Ok((ground, facts, body_mode, env_contact)) = player_q.single() else {
+    let Ok((ground, facts, body_mode, env_contact)) = player_q.get(subject) else {
         return;
     };
     let body = PlayerBodyView {

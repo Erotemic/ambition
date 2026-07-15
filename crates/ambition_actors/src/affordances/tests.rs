@@ -144,6 +144,64 @@ fn ledge_grab_flips_jump_and_shield() {
     assert_eq!(aff.shield, ShieldVariant::Roll);
 }
 
+/// The affordance table describes the body you are DRIVING. Possess a second
+/// actor (via `ControlledSubject`) that is hanging on a ledge while the home
+/// avatar stands on flat ground: the hints must read the possessed body's ledge
+/// verbs (Climb / Roll), never the grounded home avatar's (Jump / Shield). This
+/// is the relativity fix — the compute follows `ControlledSubject`, not
+/// `PrimaryPlayer`.
+#[test]
+fn affordances_follow_the_possessed_body_not_the_home_avatar() {
+    use crate::actor::{BodyEnvironmentContact, BodyGroundState, BodyKinematics, BodyModeState};
+    use crate::control::PlayerInputFrame;
+    use ambition_platformer_primitives::markers::ControlledSubject;
+
+    let (mut app, _home) = build_test_app();
+    // The home avatar stays grounded, no ledge → its own verbs would be Jump/Shield.
+    // Spawn a possessed actor (NO PlayerEntity/PrimaryPlayer marker) hanging on a
+    // ledge, and drive it.
+    let possessed = app
+        .world_mut()
+        .spawn((
+            PlayerInputFrame::default(),
+            BodyKinematics::default(),
+            BodyGroundState {
+                on_ground: false,
+                ..Default::default()
+            },
+            ae::BodyMotionFacts {
+                ledge: Some(ae::LedgeFacts {
+                    climbing: false,
+                    getup_kind: ae::LedgeGetupKind::Climb,
+                }),
+                ..Default::default()
+            },
+            BodyModeState::default(),
+            BodyEnvironmentContact::default(),
+            crate::physics::ResolvedMotionFrame::default(),
+        ))
+        .id();
+    app.world_mut()
+        .insert_resource(ControlledSubject(Some(possessed)));
+
+    app.update();
+
+    let aff = read_affordances(&app);
+    assert_eq!(
+        aff.jump,
+        JumpVariant::Climb,
+        "the hint reads the DRIVEN (possessed) body on a ledge, not the grounded home avatar"
+    );
+    assert_eq!(aff.shield, ShieldVariant::Roll);
+
+    // Drop possession back to the home avatar: the hints snap back to its verbs.
+    app.world_mut().insert_resource(ControlledSubject(None));
+    app.update();
+    let aff = read_affordances(&app);
+    assert_eq!(aff.jump, JumpVariant::Jump, "back on the home avatar");
+    assert_eq!(aff.shield, ShieldVariant::Shield);
+}
+
 #[test]
 fn b_air_fires_when_aim_opposes_facing_aerial() {
     let (mut app, player_entity) = build_test_app();

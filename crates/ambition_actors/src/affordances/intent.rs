@@ -132,27 +132,35 @@ pub struct PlayerIntent {
 /// pipeline + touch fold + `sync_local_player_input_frame` so it sees
 /// the final merged input mirrored onto the actor.
 ///
-/// Reads the input and facing from the same primary-actor entity (the
-/// actor-local frame, not the global `Res<ControlFrame>`) so the intent
-/// is the actor's own intent — the relativity principle / §4 of the
-/// restructuring blueprint — and the intent and affordances compute see
-/// exactly the same facing within one frame.
+/// Reads the input and facing from the CONTROLLED subject's own entity (the
+/// [`ControlledSubject`] — a possessed actor while possessing, else the home
+/// avatar; the actor-local frame, not the global `Res<ControlFrame>`) so the
+/// intent is the driven body's own intent — the relativity principle / §4 of the
+/// restructuring blueprint — and the intent and affordances compute see exactly
+/// the same facing within one frame.
 pub fn compute_controlled_actor_intent(
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    player_q: Query<
-        (
-            &crate::control::PlayerInputFrame,
-            &crate::actor::BodyKinematics,
-            &crate::physics::ResolvedMotionFrame,
-        ),
+    controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
+    primary: Query<
+        Entity,
         (
             With<crate::actor::PlayerEntity>,
             With<crate::actor::PrimaryPlayer>,
         ),
     >,
+    player_q: Query<(
+        &crate::control::PlayerInputFrame,
+        &crate::actor::BodyKinematics,
+        &crate::physics::ResolvedMotionFrame,
+    )>,
     mut intent: ResMut<PlayerIntent>,
 ) {
-    let Ok((input, kinematics, resolved_frame)) = player_q.single() else {
+    // The driven body: possessed subject if any, else the home avatar.
+    let subject = controlled
+        .and_then(|subject| subject.0)
+        .or_else(|| primary.single().ok());
+    let Some((input, kinematics, resolved_frame)) = subject.and_then(|s| player_q.get(s).ok())
+    else {
         // No player yet — leave the resource at its default. Any
         // downstream consumer reads `Aim::Neutral`, which is the
         // correct conservative behavior pre-spawn.

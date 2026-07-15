@@ -331,3 +331,70 @@ filter must match the FAILURE signatures too**, not just the success marker:
 `grep -E "^test result|^error|FAILED|panicked"`. The other gate legs in this chain
 happened to be safe (`grep -E "FAILED|^error"`), which is the same lesson from the
 other side. Same class as the Monitor doctrine: *silence is not success.*
+
+## 2026-07-15 — Mary-O follow-up: outstanding items Jon flagged (multi-game host UX)
+
+Batch logged from a Mary-O demo session (sprite/sfx/kit/tiles/cycle landed
+separately). Jon's steer: *"start logging these to smells instead of taking care
+of them directly … take care of what we can and log anything we don't fix."* The
+shell-UX cluster (menus, exit-to-title, vanity/title timing, control hints) is
+going to Fable to plan; the two bugs below are the ones worth fixing directly.
+
+**1. The in-game Ambition inventory menu opens on the TITLE SCREEN.** Big smell,
+two ways: (a) it is *default* behavior nothing opted into, and (b) it should not
+be *possible* at all outside a live gameplay session. The inventory-open input /
+system is almost certainly registered globally rather than gated on an
+`ActiveSessionScope` / gameplay-mode `run_if`. Same family as the session-scope
+work: menu chrome that belongs to a session is leaking into the host shell. Fix
+direction: gate the inventory toggle (and any gameplay-only menu) on "a live
+session exists AND it is Ambition's mode", not on the process being up. Size: S–M.
+
+**2. Attack fires the wrong direction after turning.** Move LEFT, press attack →
+the attack comes out to the RIGHT (or reads as a back-attack). Smells like the
+attack samples a facing/aim latched when movement *started* (or the pre-turn
+facing) instead of the body's current facing at the swing. Needs diagnosis —
+likely in the melee/aim resolution reading a stale `facing`/`ResolvedMotionFrame`
+rather than the live one. Look for where the swing's direction is chosen vs. where
+facing is updated in the same tick (ordering). Find the elegant fix (single source
+of truth for "which way am I facing NOW"). Size: S once located.
+
+**3. Vanity / "powered by Ambition" card + title presentation timing.** The
+vanity card is too short and has no fade in / fade out — it needs both, and a
+fade-*out* specifically. The title screen has no opening animation: the menu
+snaps in after a dramatic pause instead of fading in. And the soundtrack is tied
+to the BOOT sequence when it should be tied to the TITLE SCREEN. Presentation/feel
+cluster; part of the Fable shell-UX plan. Size: M.
+
+**4. "Exit to title screen" is missing from the Ambition pause menu.** Today you
+cannot leave a live Ambition session back to the multi-game title without quitting
+the process. The session-scope teardown already exists (launch/quit/relaunch is
+leak-free); this is a menu entry that fires the existing "retire session → return
+to launcher" path. Part of the Fable shell-UX plan. Size: S–M.
+
+**5. Sanic and Mary-O have no pause menus.** Each hosted experience needs a small,
+minimal menu: Pause, Quit to Desktop, Quit to Title. Jon: *"this should be elegant
+to do"* — the seam should be one per-experience shell-menu primitive the host
+offers, not a bespoke menu per demo. This is the core of the Fable plan (a
+per-experience shell-chrome seam), and it composes with #3/#4. Size: M.
+
+**6. Rename `smb1` → `mary_o` across the code.** The mode string is already
+`"mary_o"`, but the crate (`ambition_demo_smb1`, `ambition_demo_smb1_app`), the
+`Smb1*` types, `SMB1_MODE`/`SMB1_CATALOG_RON` consts, and `smb1_*` fns still carry
+the working title. Mechanical but wide (crate rename = build churn); do it as its
+own commit. See [[feedback_entity_id_matches_label]]. Size: M (churn).
+
+**7. Design Q for Fable — ability sets should COMPOSE onto characters, not be
+reduced.** This session added a per-character `AbilityKitSpec` (Basic / SaneSubset
+/ SandboxAll preset picker) so Mary-O gets run+jump without touching the shared
+`EditableAbilitySet`. Jon: *"ability sets should probably compose onto
+characters"* — i.e. the deeper model is additive per-character grants
+(character/gear/upgrade contributes abilities that UNION), not "pick one of three
+fixed presets". The preset picker is a fine floor; the composition model is the
+design question. Ties into the upgrade-graph / progression vision.
+
+**8. Design Q for Fable — on-screen control hints are hardcoded to the Ambition
+player.** The context-sensitive button icons/text appear pinned to the single
+Ambition protagonist's verbs. There needs to be a hook so whatever is currently
+CONTROLLED (worn character) or whatever UI is active drives the control-hint
+labels/icons. Same relativity principle as the rest of the engine: the prompt row
+is a function of the active control context, not a global constant.

@@ -341,14 +341,17 @@ of them directly … take care of what we can and log anything we don't fix."* T
 shell-UX cluster (menus, exit-to-title, vanity/title timing, control hints) is
 going to Fable to plan; the two bugs below are the ones worth fixing directly.
 
-**1. The in-game Ambition inventory menu opens on the TITLE SCREEN.** Big smell,
-two ways: (a) it is *default* behavior nothing opted into, and (b) it should not
-be *possible* at all outside a live gameplay session. The inventory-open input /
-system is almost certainly registered globally rather than gated on an
-`ActiveSessionScope` / gameplay-mode `run_if`. Same family as the session-scope
-work: menu chrome that belongs to a session is leaking into the host shell. Fix
-direction: gate the inventory toggle (and any gameplay-only menu) on "a live
-session exists AND it is Ambition's mode", not on the process being up. Size: S–M.
+**1. ✅ RESOLVED 2026-07-15 (commit 319948611) — the in-game Ambition inventory
+menu opened on the TITLE SCREEN.** Both menu-open routers ran in `Update` with
+`GameMode` defaulting to `Playing`, so with no session the toggle still fired.
+Root cause was exactly as suspected: gated on the process being up, not on a live
+session. Fixed by gating both `grid_menu_open_routing` and
+`kaleidoscope_menu_open_routing` on `simulation_authorized.and(in_base_mode)` — a
+live Ambition session (a `SessionRoot` the active scope names) AND the active room
+carrying NO demo mode tag. Added `in_base_mode` as the reusable mirror of `in_mode`
+(ambition_runtime, re-exported `ambition::runtime`) so any host-only chrome can gate
+the same way. So the toggle is now impossible on the title screen AND inside a
+hosted demo session. Regression-tested.
 
 **2. ✅ RESOLVED 2026-07-15 (commit bd3c41e9a, logged then fixed the next commit) —
 attack fires the wrong direction after turning.** Move LEFT, press attack → the
@@ -433,9 +436,18 @@ registration (a `CharacterSpriteCatalogRow` + manifest), heavy for a static pick
 — the flat seam is small and self-contained, and the milk needs no idle bob. The
 row-tinted quad remains the fallback until a fresh clone runs regen, so it degrades
 draw-blind. NOTE (blind): shipped without a visual check (sprite gitignored/regen'd)
-— the 24×28 display size is a `blind fix:` candidate if the carton reads off. NOTE:
-the milk art is bound in the STANDALONE app only; the HOSTED (ambition_app) path
-would add the same `WorldItemArt` binding to show it there too.
+— the 24×28 display size is a `blind fix:` candidate if the carton reads off.
+UPDATE 2026-07-15 (commit 202a4c0fb): the STANDALONE-only host gap below is now
+CLOSED. The app-local `insert_resource(WorldItemArt)` was the wrong seam (bound milk
+in the standalone app only, and would clobber under a multi-provider host).
+Generalized to the catalog-fragment idiom: the game contributes pure DATA —
+`ambition::platformer::world_item_art::{WorldItemArtEntry, WorldItemArtManifest,
+register_world_item_art}` (in `ambition_platformer_primitives`, the crate render AND
+the render-dep-free provider both reach) — and render resolves it
+(`build_world_item_art` Startup → `WorldItemArt` handles). `MaryOExperiencePlugin`
+registers the milk entry; because BOTH the standalone app and the host add that one
+provider plugin, milk now draws in both, and the app-local binding is DELETED. The
+manifest is a UNION (extend, never replace) → safe when a host composes providers.
 
 **10. `WorldItem` has no locomotion (2026-07-15).** A resting collectible only —
 a classic sliding mushroom wants a free-body integrator like `ground_item_physics`.
@@ -456,9 +468,17 @@ pipeline's ordering is wrong for a contact stomp. (If a future crony ever scores
 drops, reconsider — but it would need a same-frame lethal application, not the
 deferred event.)
 
-**12. Reactive-block reuse unproven — brick-break is the missing second consumer
-(2026-07-15).** `ContactSource::Block` now carries `GeoId` and the ?-block powerup
-is its first consumer. A brick-break (Head/Support vs a breakable `GeoId` → remove
-the block) would prove the primitive generalizes, but removing a block mid-run is a
-`World`-mutation slice, deferred. The engine-for-other-games oracle wants a second
-consumer eventually.
+**12. ✅ RESOLVED 2026-07-15 (commit 319948611) — reactive-block reuse proven;
+brick-break is the second consumer.** `ContactSource::Block { GeoId }`'s head-bonk
+now drives TWO opposite effects: the ?-block ADDS a milk pickup, a brick SUBTRACTS
+itself. Mid-run removal reused the EXISTING immutable-base seam rather than a new
+`World`-mutation path: `bricks::contribute_broken_bricks_to_overlay` extends
+`FeatureEcsWorldOverlay::removed_block_names` (the same subtraction lock-walls use,
+contributed AFTER `rebuild_feature_ecs_world_overlay` clears it), so collision drops
+the broken brick with no base mutation. Completed that seam's MISSING render half —
+`BlockVisual { block_name }` on every `spawn_block` + `sync_removed_block_visuals`
+(ambition_render, in the reusable presentation) despawns a subtracted block's sprite —
+so `removed_block_names` now means collision AND render. Mary-O side stays small:
+`bricks.rs` (a `BrokenBricks` u32 bitset — NOT a HashSet, it's iterated each frame and
+the det-contract bans hash iteration) + brick geometry helpers mirroring the power
+blocks. The engine-for-other-games oracle's "second consumer" is satisfied.

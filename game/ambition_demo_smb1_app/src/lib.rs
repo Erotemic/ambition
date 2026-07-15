@@ -88,21 +88,34 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     use bevy::window::{ExitCondition, WindowPlugin};
 
     let mut app = App::new();
-    let plugins = DefaultPlugins.set(WindowPlugin {
-        primary_window: match render {
-            RenderMode::Windowed => Some(Window {
-                title: "Super Mary-O — 1-1".into(),
-                ..default()
-            }),
-            RenderMode::Headless => None,
-        },
-        exit_condition: match render {
-            RenderMode::Windowed => ExitCondition::OnAllClosed,
-            RenderMode::Headless => ExitCondition::DontExit,
-        },
-        close_when_requested: matches!(render, RenderMode::Windowed),
-        ..default()
-    });
+    let plugins = DefaultPlugins
+        // Point the AssetServer file root at the engine's on-disk asset tree
+        // (`crates/ambition_actors/assets`, where the generated sprite sheets
+        // live), exactly as the hosted app does — via the SHARED umbrella helper,
+        // so the two apps cannot diverge. Without this the default cwd-relative
+        // `"assets"` root has no `sprites/` tree and every character renders as a
+        // bare box. Set on the builder BEFORE `add_plugins`, since `AssetPlugin`
+        // reads its `file_path` when it builds and a later host plugin is too
+        // late to change it.
+        .set(bevy::asset::AssetPlugin {
+            file_path: ambition::asset_manager::actors_desktop_asset_root(),
+            ..default()
+        })
+        .set(WindowPlugin {
+            primary_window: match render {
+                RenderMode::Windowed => Some(Window {
+                    title: "Super Mary-O — 1-1".into(),
+                    ..default()
+                }),
+                RenderMode::Headless => None,
+            },
+            exit_condition: match render {
+                RenderMode::Windowed => ExitCondition::OnAllClosed,
+                RenderMode::Headless => ExitCondition::DontExit,
+            },
+            close_when_requested: matches!(render, RenderMode::Windowed),
+            ..default()
+        });
     match render {
         RenderMode::Windowed => app.add_plugins(plugins),
         RenderMode::Headless => app.add_plugins(

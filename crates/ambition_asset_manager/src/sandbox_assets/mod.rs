@@ -317,6 +317,65 @@ fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
     candidates
 }
 
+/// The AssetServer FILE-SOURCE root a windowed app must set as
+/// `AssetPlugin.file_path` on a loose desktop dev checkout: the absolute
+/// `crates/ambition_actors/assets` directory, where the generated sprite sheets,
+/// music, dialogue, and menu icons live.
+///
+/// Bevy's default file root is the cwd-relative `"assets"`, which in this
+/// workspace has no `sprites/` tree — so an app that does not override it renders
+/// every character as a bare box while the load silently no-ops (the profile gate
+/// resolves the file through [`desktop_candidate_roots`], but the default reader
+/// cannot). This is the ONE value that fixes that, and it is shared by the hosted
+/// app AND every standalone demo app precisely so the two cannot diverge — a demo
+/// that draws nothing standalone was exactly that divergence.
+///
+/// Resolution mirrors the candidate walker: an explicit `BEVY_ASSET_ROOT` wins
+/// (return the relative `"assets"` so the override keeps full control); else the
+/// dev-checkout absolute path when it exists; else the exe-relative `"assets"`
+/// default for shipped builds.
+pub fn actors_desktop_asset_root() -> String {
+    if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
+        return "assets".to_string();
+    }
+    let dev_assets =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_actors/assets");
+    match dev_assets.canonicalize() {
+        Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
+        _ => "assets".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod asset_root_tests {
+    use super::actors_desktop_asset_root;
+
+    /// The resolved root must be the directory that actually holds the generated
+    /// sprite sheets — the entire reason a windowed app sets it as the AssetServer
+    /// `file_path`, and the fix for "a demo renders every character as a bare box
+    /// standalone". Asserting the `sprites/` tree (not a specific file) keeps this
+    /// robust to sprite renames.
+    #[test]
+    fn resolved_root_contains_the_generated_sprite_tree() {
+        // An explicit override or a shipped build (no dev tree) both fall back to
+        // the relative `"assets"`; the disk assertion only applies to the dev
+        // checkout this test runs in.
+        if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
+            return;
+        }
+        let root = actors_desktop_asset_root();
+        if root == "assets" {
+            return;
+        }
+        let sprites = std::path::Path::new(&root).join("sprites");
+        assert!(
+            sprites.is_dir(),
+            "resolved actors asset root {root} must contain a sprites/ tree so \
+             AssetServer::load(\"sprites/…png\") resolves"
+        );
+    }
+}
+
 /// Build the full sandbox catalog: every visible-sandbox asset id +
 /// the active profile. Called once during `init_sandbox_resources`.
 ///

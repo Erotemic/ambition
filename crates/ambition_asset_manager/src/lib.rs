@@ -48,3 +48,6 @@ pub use resolver::{resolve, resolve_all, AssetResolutionError, ResolvedAsset};
 pub use bevy_integration::{
     path_for_active, AmbitionAssetCatalog, AmbitionAssetManagerPlugin, AmbitionAssetProfile,
 };
+
+#[cfg(feature = "bevy")]
+pub use sandbox_assets::actors_desktop_asset_root;

@@ -150,6 +150,32 @@ fn the_presentation_plugin_adds_no_hud_and_no_menu() {
         .is_some(),);
 }
 
+/// **Standalone points its AssetServer at the engine's sprite tree, not the
+/// empty cwd `assets/`.** The bug: the windowed demo took Bevy's default
+/// cwd-relative `"assets"` file root, which has no `sprites/` tree, so every
+/// character silently fell back to a bare box while the hosted app (which sets
+/// the actors-assets root) drew fine — a standalone/hosted divergence. The demo
+/// now sets the SAME shared engine root the hosted app uses; assert that root is
+/// the on-disk sprite tree, so a `load("sprites/…png")` can resolve. (The async
+/// load itself is not driven to completion by a manually-stepped headless app, so
+/// this asserts the configured root rather than polling a load state.)
+#[test]
+fn the_windowed_demo_asset_root_is_the_engine_sprite_tree() {
+    let root = ambition::asset_manager::actors_desktop_asset_root();
+    // Shipped/override builds fall back to the relative "assets"; this dev-checkout
+    // test proves the resolved root actually holds the character sheets.
+    if root != "assets" {
+        let sheet = std::path::Path::new(&root)
+            .join("sprites")
+            .join("super_mary_o_spritesheet.png");
+        assert!(
+            sheet.is_file(),
+            "the windowed demo's asset root {root} must contain the character \
+             sheets so standalone renders real sprites, not bare boxes"
+        );
+    }
+}
+
 #[test]
 fn visible_mary_o_presentation_retires_and_relaunches_with_the_session() {
     let mut app = drawn_demo();

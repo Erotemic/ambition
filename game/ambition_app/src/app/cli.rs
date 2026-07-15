@@ -25,17 +25,12 @@ use super::plugins::{SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimula
 /// 3. Otherwise (shipped builds) → Bevy's default exe-relative `"assets"`.
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn desktop_asset_root() -> String {
-    if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
-        return "assets".to_string();
-    }
-    // The app lives under `game/`, the machinery lib under `crates/` — the
-    // relative hop crosses the grouping directories (the E8 re-home).
-    let dev_assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../crates/ambition_actors/assets");
-    match dev_assets.canonicalize() {
-        Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
-        _ => "assets".to_string(),
-    }
+    // The single source of truth for the actors-assets file root now lives in
+    // `ambition_asset_manager` so the hosted app and every standalone demo app
+    // resolve it identically (a demo that rendered nothing standalone was exactly
+    // that divergence). It anchors on the machinery lib's own `CARGO_MANIFEST_DIR`,
+    // so it no longer matters which `game/` crate the running binary lives in.
+    ambition::asset_manager::actors_desktop_asset_root()
 }
 
 /// The `game://` asset source root: the content crate's `assets/` tree in
@@ -88,7 +83,7 @@ impl bevy::asset::io::AssetReader for ProviderGameAssetReader {
         &'a self,
         path: &'a std::path::Path,
     ) -> Result<Box<dyn bevy::asset::io::Reader + 'a>, bevy::asset::io::AssetReaderError> {
-        use bevy::asset::io::{AssetReaderError};
+        use bevy::asset::io::AssetReaderError;
         match self.authored.read(path).await {
             Ok(reader) => Ok(Box::new(reader)),
             Err(AssetReaderError::NotFound(_)) => match self.shared.read(path).await {
@@ -103,7 +98,7 @@ impl bevy::asset::io::AssetReader for ProviderGameAssetReader {
         &'a self,
         path: &'a std::path::Path,
     ) -> Result<Box<dyn bevy::asset::io::Reader + 'a>, bevy::asset::io::AssetReaderError> {
-        use bevy::asset::io::{AssetReaderError};
+        use bevy::asset::io::AssetReaderError;
         match self.authored.read_meta(path).await {
             Ok(reader) => Ok(Box::new(reader)),
             Err(AssetReaderError::NotFound(_)) => match self.shared.read_meta(path).await {
@@ -118,7 +113,7 @@ impl bevy::asset::io::AssetReader for ProviderGameAssetReader {
         &'a self,
         path: &'a std::path::Path,
     ) -> Result<Box<bevy::asset::io::PathStream>, bevy::asset::io::AssetReaderError> {
-        use bevy::asset::io::{AssetReaderError};
+        use bevy::asset::io::AssetReaderError;
         match self.authored.read_directory(path).await {
             Ok(entries) => Ok(entries),
             Err(AssetReaderError::NotFound(_)) => self.shared.read_directory(path).await,
@@ -130,12 +125,10 @@ impl bevy::asset::io::AssetReader for ProviderGameAssetReader {
         &'a self,
         path: &'a std::path::Path,
     ) -> Result<bool, bevy::asset::io::AssetReaderError> {
-        use bevy::asset::io::{AssetReaderError};
+        use bevy::asset::io::AssetReaderError;
         match self.authored.is_directory(path).await {
             Ok(true) => Ok(true),
-            Ok(false) | Err(AssetReaderError::NotFound(_)) => {
-                self.shared.is_directory(path).await
-            }
+            Ok(false) | Err(AssetReaderError::NotFound(_)) => self.shared.is_directory(path).await,
             Err(error) => Err(error),
         }
     }
@@ -322,9 +315,7 @@ pub fn run_visible() {
             "no DISPLAY / WAYLAND_DISPLAY env var"
         };
         if cli_direct_entry() {
-            eprintln!(
-                "ambition_app: running the explicit direct sandbox headlessly ({reason})"
-            );
+            eprintln!("ambition_app: running the explicit direct sandbox headlessly ({reason})");
             match crate::headless::run_headless(max_ticks) {
                 Ok(report) => {
                     println!("{report}");
@@ -336,9 +327,7 @@ pub fn run_visible() {
                 }
             }
         }
-        eprintln!(
-            "ambition_app: running the production shared host headlessly ({reason})"
-        );
+        eprintln!("ambition_app: running the production shared host headlessly ({reason})");
         if cli_headless_acceptance_cycle() {
             let report = run_shared_host_acceptance_cycle();
             println!("{report}");
@@ -426,7 +415,6 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
         gameplay_session_active,
     }
 }
-
 
 /// Result of the executable multi-provider shipping-host acceptance cycle.
 #[cfg(not(target_arch = "wasm32"))]

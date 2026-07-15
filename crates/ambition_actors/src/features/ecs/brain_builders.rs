@@ -14,7 +14,7 @@ use crate::features::ecs::actor_tuning::{ActorTuning, CharacterBrainSpec, Charac
 use ambition_characters::brain::{
     ActionSet, Brain, ChargeCrashCfg, ChargeCrashState, MeleeBruteCfg, MeleeBruteState,
     SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,
-    WandererCfg, WandererState,
+    WandererCfg,
 };
 
 /// Build the enemy's durable combat capability kit from archetype data.
@@ -78,7 +78,6 @@ pub(in crate::features) fn enemy_default_brain(enemy: &ActorConfig) -> Brain {
         CharacterBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
         CharacterBrainTemplate::Wanderer => Brain::StateMachine(StateMachineCfg::Wanderer {
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
-            state: WandererState::default(),
         }),
         CharacterBrainTemplate::MeleeBrute => melee_brute_brain_for_enemy(enemy),
         CharacterBrainTemplate::ChargeCrash => charge_crash_brain_for_enemy(enemy),

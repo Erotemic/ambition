@@ -101,7 +101,6 @@ pub fn tick_player_brains(
             attack_active_remaining: 0.0,
             attack_recover_remaining: 0.0,
             stun_remaining: 0.0,
-            wall_contact: None,
             // BossPattern-only inputs — inert for the player body.
             boss_encounter_phase: None,
             world_size: ae::Vec2::ZERO,

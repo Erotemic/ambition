@@ -47,12 +47,12 @@ pub use smash::{
     SpecificAction, TerrainAwareness,
 };
 #[allow(unused_imports)]
-pub use snapshot::{BrainSnapshot, WallContact};
+pub use snapshot::BrainSnapshot;
 #[allow(unused_imports)]
 pub use state_machine::{
     tick_state_machine, AuthoredWorldPatrolLane, ChargeCrashCfg, ChargeCrashState, MeleeBruteCfg,
     MeleeBruteState, PatrolCfg, PatrolState, SkirmisherCfg, SkirmisherState, SniperCfg,
-    SniperState, StateMachineCfg, WandererCfg, WandererState, NPC_PATROL_SPEED,
+    SniperState, StateMachineCfg, WandererCfg, NPC_PATROL_SPEED,
 };
 
 #[cfg(test)]

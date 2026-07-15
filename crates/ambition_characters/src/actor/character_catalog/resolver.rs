@@ -14,7 +14,7 @@ use crate::brain::action_set::{
 };
 use crate::brain::state_machine::{
     AuthoredWorldPatrolLane, MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState, SkirmisherCfg,
-    SkirmisherState, SniperCfg, SniperState, StateMachineCfg, WandererCfg, WandererState,
+    SkirmisherState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
 };
 use crate::brain::Brain;
 use crate::brain::{BossPatternCfg, BossPatternState};
@@ -53,21 +53,12 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
         },
         BrainPreset::Wanderer {
             speed,
-            climb_walls,
-            chatter_threshold,
-            chatter_window_s,
-            chatter_pause_s,
             aggressiveness,
         } => StateMachineCfg::Wanderer {
             cfg: WandererCfg {
                 speed: *speed,
-                climb_walls: *climb_walls,
-                chatter_threshold: *chatter_threshold,
-                chatter_window_s: *chatter_window_s,
-                chatter_pause_s: *chatter_pause_s,
                 aggressiveness: *aggressiveness,
             },
-            state: WandererState::default(),
         },
         BrainPreset::MeleeBrute {
             aggressiveness,

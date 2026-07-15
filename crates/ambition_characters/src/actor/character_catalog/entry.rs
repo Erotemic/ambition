@@ -457,10 +457,6 @@ pub enum BrainPreset {
     },
     Wanderer {
         speed: f32,
-        climb_walls: bool,
-        chatter_threshold: u8,
-        chatter_window_s: f32,
-        chatter_pause_s: f32,
         aggressiveness: f32,
     },
     MeleeBrute {

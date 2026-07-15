@@ -24,10 +24,6 @@
         ),
         "wanderer_puppy_slug": Wanderer(
             speed: 36.0,
-            climb_walls: true,
-            chatter_threshold: 3,
-            chatter_window_s: 1.0,
-            chatter_pause_s: 2.0,
             aggressiveness: 0.0,
         ),
         "melee_brute_striker": MeleeBrute(

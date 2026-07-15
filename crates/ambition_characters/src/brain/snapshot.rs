@@ -104,12 +104,6 @@ pub struct BrainSnapshot {
     /// Stun remaining (e.g. from a parry / pogo).
     pub stun_remaining: f32,
 
-    // --- Per-template inputs ---
-    /// Wall contact this tick. `None` = clear path. The brain-driver
-    /// system computes this only for brains that care (currently
-    /// `Wanderer`); other actors leave it `None`.
-    pub wall_contact: Option<WallContact>,
-
     // --- BossPattern inputs ---
     // The three fields a `BossPattern` brain needs beyond the shared
     // `actor_pos`/`target_pos`/`dt`: its encounter phase, the world bounds for the
@@ -150,20 +144,6 @@ pub struct BrainSnapshot {
     pub terrain: Option<crate::brain::smash::TerrainAwareness>,
 }
 
-/// Info about a wall the actor pressed against this tick.
-#[derive(Clone, Copy, Debug)]
-pub struct WallContact {
-    /// Outward-pointing normal of the wall surface in actor-local
-    /// terms. `(-1, 0)` = wall to the right (actor moving right hit
-    /// it); `(+1, 0)` = wall to the left. Same convention as
-    /// `EnemyRuntime::surface_normal`.
-    pub normal: ae::Vec2,
-    /// Whether the wall is climbable (has a `Climbable` overlap or
-    /// is a non-solid surface). Drives the `Wanderer` climb-vs-
-    /// reverse decision.
-    pub is_climbable: bool,
-}
-
 impl BrainSnapshot {
     /// Build a minimal snapshot — useful for tests where most fields
     /// are inert. Callers can `..BrainSnapshot::idle()` and override
@@ -190,7 +170,6 @@ impl BrainSnapshot {
             attack_active_remaining: 0.0,
             attack_recover_remaining: 0.0,
             stun_remaining: 0.0,
-            wall_contact: None,
             boss_encounter_phase: None,
             world_size: ae::Vec2::ZERO,
             front_wall_clearance: None,
@@ -276,7 +255,6 @@ mod tests {
         assert_eq!(s.attack_active_remaining, 0.0);
         assert_eq!(s.attack_recover_remaining, 0.0);
         assert_eq!(s.stun_remaining, 0.0);
-        assert!(s.wall_contact.is_none());
         assert!(s.alive);
         assert!(s.player_input.is_none(), "idle snapshot has no input");
         assert_eq!(s.control_down, ae::Vec2::new(0.0, 1.0));

@@ -24,7 +24,6 @@ fn brain_display_contains_label() {
         },
         StateMachineCfg::Wanderer {
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
-            state: WandererState::default(),
         },
     ] {
         let b = Brain::StateMachine(template);
@@ -202,7 +201,6 @@ fn brain_tick_survives_100_ticks_for_every_template() {
         },
         StateMachineCfg::Wanderer {
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
-            state: WandererState::default(),
         },
         StateMachineCfg::MeleeBrute {
             cfg: MeleeBruteCfg::STRIKER_DEFAULT,
@@ -359,7 +357,6 @@ fn brain_label_is_per_backend() {
     assert_eq!(
         Brain::StateMachine(StateMachineCfg::Wanderer {
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
-            state: WandererState::default()
         })
         .label(),
         "wanderer"

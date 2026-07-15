@@ -29,12 +29,10 @@ pub enum StateMachineCfg {
     StandStill,
     /// Fixed waypoint loop. `aggressiveness` controls engagement.
     Patrol { cfg: PatrolCfg, state: PatrolState },
-    /// Move forward; on wall, climb-if-able else reverse; pause on
-    /// rapid chatter. Drives the puppy slug today.
-    Wanderer {
-        cfg: WandererCfg,
-        state: WandererState,
-    },
+    /// Move forward in `actor_facing`. Drives the puppy slug today; wall and
+    /// surface handling is the BODY's (the crawler motion model wraps
+    /// surfaces; the grounded integrator's patrol wall-stop reverses facing).
+    Wanderer { cfg: WandererCfg },
     /// Approach + melee + recover. Aggressiveness gates engagement.
     MeleeBrute {
         cfg: MeleeBruteCfg,
@@ -141,7 +139,7 @@ pub fn tick_state_machine_with_actions(
     match sm {
         StateMachineCfg::StandStill => tick_stand_still(out),
         StateMachineCfg::Patrol { cfg, state } => tick_patrol(cfg, state, snapshot, out),
-        StateMachineCfg::Wanderer { cfg, state } => tick_wanderer(cfg, state, snapshot, out),
+        StateMachineCfg::Wanderer { cfg } => tick_wanderer(cfg, snapshot, out),
         StateMachineCfg::MeleeBrute { cfg, state } => tick_melee_brute(cfg, state, snapshot, out),
         StateMachineCfg::Skirmisher { cfg, state } => tick_skirmisher(cfg, state, snapshot, out),
         StateMachineCfg::Sniper { cfg, state } => tick_sniper(cfg, state, snapshot, out),
@@ -323,25 +321,17 @@ fn tick_patrol(
 
 // ===== Wanderer =====
 
-/// Forward-and-react brain. Drives the puppy slug today:
-/// - Always moves forward in `actor_facing`.
-/// - On wall contact: climb if `climb_walls` and the wall is
-///   climbable; otherwise reverse facing.
-/// - If facing flips too many times in a short window, pause for a
-///   beat so the actor doesn't oscillate in a corner.
+/// Forward-motion brain: always emits locomotion in `actor_facing`. Drives
+/// the puppy slug today. Wall response is deliberately NOT a brain concern —
+/// a surface-walker body (the crawler motion model) wraps corners in the
+/// kernel, and a grounded patroller's wall-stop reverse lives in the
+/// integrator. (The old brain-side climb-vs-reverse/chatter branch keyed on a
+/// `BrainSnapshot.wall_contact` no production builder ever populated — a dead
+/// seam, deleted 2026-07-15.)
 #[derive(Clone, Copy, Debug)]
 pub struct WandererCfg {
     /// Forward speed (px/s).
     pub speed: f32,
-    /// Try climbing a wall before reversing.
-    pub climb_walls: bool,
-    /// Reversal count within `chatter_window_s` that triggers a
-    /// pause.
-    pub chatter_threshold: u8,
-    /// Sliding window the chatter counter looks back over.
-    pub chatter_window_s: f32,
-    /// How long to pause after the chatter threshold trips.
-    pub chatter_pause_s: f32,
     /// Aggressiveness gate. `0.0` for the puppy slug; positive
     /// values would make a hostile Wanderer that triggers melee
     /// when in range of `target_pos`.
@@ -349,80 +339,22 @@ pub struct WandererCfg {
 }
 
 impl WandererCfg {
-    /// Puppy slug defaults — slither + climb + 3-reversals-in-1s
-    /// triggers a 2s pause.
+    /// Puppy slug defaults — slither forward; the crawler body owns walls.
     pub const PUPPY_SLUG_DEFAULT: Self = Self {
         speed: 36.0,
-        climb_walls: true,
-        chatter_threshold: 3,
-        chatter_window_s: 1.0,
-        chatter_pause_s: 2.0,
         aggressiveness: 0.0,
     };
 }
 
-/// Per-actor Wanderer state. Holds the chatter sliding window plus
-/// the current pause expiry.
-#[derive(Clone, Debug, Default)]
-pub struct WandererState {
-    /// Sim-time stamps of recent reversals; older entries are
-    /// pruned each tick. Bounded by the cfg's threshold.
-    pub recent_reversals: Vec<f32>,
-    /// Sim-time at which the current chatter-pause ends. 0.0 = no
-    /// pause active.
-    pub pause_until: f32,
-    /// Whether the actor is currently climbing a wall (overrides
-    /// the "forward" motion in favor of moving along the surface).
-    pub climbing: bool,
-}
-
 fn tick_wanderer(
     cfg: &WandererCfg,
-    state: &mut WandererState,
     snapshot: &BrainSnapshot,
     out: &mut crate::actor::control::ActorControlFrame,
 ) {
     *out = crate::actor::control::ActorControlFrame::neutral();
-
-    // Honor an active pause.
-    if snapshot.sim_time < state.pause_until {
-        return;
-    }
-
-    // Prune chatter history outside the window.
-    let cutoff = snapshot.sim_time - cfg.chatter_window_s;
-    state.recent_reversals.retain(|&t| t >= cutoff);
-
-    // Wall contact this tick? Decide climb-or-reverse.
-    if let Some(contact) = snapshot.wall_contact {
-        if cfg.climb_walls && contact.is_climbable {
-            // Switch to climbing along the surface. The integration
-            // layer's surface-walking path takes over for actors in
-            // climb mode (their velocity is computed tangent to the
-            // contact normal, not from a brain-level `desired_vel`).
-            // The brain just signals intent and stays out of the way.
-            state.climbing = true;
-            return;
-        }
-        // Reverse facing.
-        let new_facing = -snapshot.actor_facing.signum_or(1.0);
-        out.facing = new_facing;
-        state.recent_reversals.push(snapshot.sim_time);
-        state.climbing = false;
-        if state.recent_reversals.len() >= cfg.chatter_threshold as usize {
-            // Chatter trip — pause and clear the history so we
-            // don't immediately re-trigger.
-            state.pause_until = snapshot.sim_time + cfg.chatter_pause_s;
-            state.recent_reversals.clear();
-            return;
-        }
-        // Move in the new facing direction this tick.
-        out.locomotion = snapshot.locomotion_for(ae::Vec2::new(new_facing * cfg.speed, 0.0));
-        return;
-    }
-
-    // No wall contact: emit straight-ahead motion. (The `climbing`
-    // sub-state persists until the next wall contact resolves it.)
+    // Emit straight-ahead motion; the body owns wall/surface response (the
+    // crawler kernel wraps corners, the grounded integrator's patrol
+    // wall-stop reverses facing).
     out.facing = snapshot.actor_facing.signum_or(1.0);
     out.locomotion = snapshot.locomotion_for(ae::Vec2::new(out.facing * cfg.speed, 0.0));
 }

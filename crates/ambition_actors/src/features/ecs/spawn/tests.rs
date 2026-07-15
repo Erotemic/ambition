@@ -373,7 +373,6 @@ fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
         attack_active_remaining: 0.0,
         attack_recover_remaining: 0.0,
         stun_remaining: 0.0,
-        wall_contact: None,
         boss_encounter_phase: None,
         world_size: ambition_engine_core::Vec2::ZERO,
         front_wall_clearance: None,

@@ -1,5 +1,5 @@
 use super::*;
-use crate::brain::snapshot::{BrainSnapshot, WallContact};
+use crate::brain::snapshot::BrainSnapshot;
 
 /// Pin the SignumOr trait's "near-zero → fallback" semantics.
 /// Many brain ticks lean on this to keep facing stable when
@@ -230,183 +230,15 @@ fn peaceful_patrol_in_talk_range_holds_and_faces_target() {
 }
 
 #[test]
-fn wanderer_moves_forward_with_no_wall_contact() {
+fn wanderer_moves_forward_in_its_facing() {
     let cfg = WandererCfg::PUPPY_SLUG_DEFAULT;
-    let mut sm = StateMachineCfg::Wanderer {
-        cfg,
-        state: WandererState::default(),
-    };
+    let mut sm = StateMachineCfg::Wanderer { cfg };
     let mut s = BrainSnapshot::idle();
     s.actor_facing = 1.0;
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
     assert!(out.locomotion.x > 0.0);
     assert_eq!(out.facing, 1.0);
-}
-
-#[test]
-fn wanderer_reverses_on_non_climbable_wall() {
-    let mut cfg = WandererCfg::PUPPY_SLUG_DEFAULT;
-    cfg.climb_walls = true; // climb on, but wall isn't climbable
-    let mut sm = StateMachineCfg::Wanderer {
-        cfg,
-        state: WandererState::default(),
-    };
-    let mut s = BrainSnapshot::idle();
-    s.actor_facing = 1.0;
-    s.wall_contact = Some(WallContact {
-        normal: ae::Vec2::new(-1.0, 0.0),
-        is_climbable: false,
-    });
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
-    tick_state_machine(&mut sm, &s, &mut out);
-    // Facing flipped from +1 to -1; velocity goes left.
-    assert_eq!(out.facing, -1.0);
-    assert!(out.locomotion.x < 0.0);
-}
-
-#[test]
-fn wanderer_climbs_when_able() {
-    let mut cfg = WandererCfg::PUPPY_SLUG_DEFAULT;
-    cfg.climb_walls = true;
-    let mut s = BrainSnapshot::idle();
-    s.actor_facing = 1.0;
-    s.wall_contact = Some(WallContact {
-        normal: ae::Vec2::new(-1.0, 0.0),
-        is_climbable: true,
-    });
-    let mut sm = StateMachineCfg::Wanderer {
-        cfg,
-        state: WandererState::default(),
-    };
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
-    tick_state_machine(&mut sm, &s, &mut out);
-    // No reversal recorded; climbing flag flips on inside state.
-    if let StateMachineCfg::Wanderer { state, .. } = &sm {
-        assert!(state.climbing);
-        assert!(state.recent_reversals.is_empty());
-    } else {
-        unreachable!();
-    }
-    // Frame in climb mode emits zero motion (the actor walks
-    // along the surface via the integration's surface-walk path
-    // rather than the brain).
-    assert_eq!(out.locomotion, ae::Vec2::ZERO);
-}
-
-#[test]
-fn wanderer_climbing_to_walking_transition_via_wall_clear() {
-    // Wanderer that engaged climb mode (climb_walls=true,
-    // climbable wall) should keep climbing while wall stays;
-    // when wall clears, brain returns to forward walk.
-    let cfg = WandererCfg::PUPPY_SLUG_DEFAULT;
-    let mut sm = StateMachineCfg::Wanderer {
-        cfg,
-        state: WandererState::default(),
-    };
-    let mut s = BrainSnapshot::idle();
-    s.actor_facing = 1.0;
-    s.wall_contact = Some(crate::brain::snapshot::WallContact {
-        normal: ae::Vec2::new(-1.0, 0.0),
-        is_climbable: true,
-    });
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
-    tick_state_machine(&mut sm, &s, &mut out);
-    // Engaged climb mode → zero motion.
-    assert_eq!(out.locomotion, ae::Vec2::ZERO);
-    if let StateMachineCfg::Wanderer { state, .. } = &sm {
-        assert!(state.climbing);
-    }
-    // Clear wall — wanderer returns to forward walking.
-    s.wall_contact = None;
-    let mut out2 = crate::actor::control::ActorControlFrame::neutral();
-    tick_state_machine(&mut sm, &s, &mut out2);
-    // Note: brain's climbing flag persists until next wall
-    // contact resolves; what we test is that with NO wall
-    // the brain emits forward walk (per the early-return
-    // logic in tick_wanderer).
-    assert!(out2.locomotion.x > 0.0);
-}
-
-#[test]
-fn wanderer_resumes_walking_after_pause_expires() {
-    // Pause is time-bounded; once chatter_pause_s elapses past
-    // pause_until, the wanderer should resume forward motion.
-    let mut cfg = WandererCfg::PUPPY_SLUG_DEFAULT;
-    cfg.climb_walls = false;
-    cfg.chatter_threshold = 1; // first reversal trips pause
-    cfg.chatter_window_s = 0.5;
-    cfg.chatter_pause_s = 1.0;
-    let mut sm = StateMachineCfg::Wanderer {
-        cfg,
-        state: WandererState::default(),
-    };
-    let mut s = BrainSnapshot::idle();
-    s.actor_facing = 1.0;
-    // Trip the chatter via a reversal at t=0.
-    s.wall_contact = Some(crate::brain::snapshot::WallContact {
-        normal: ae::Vec2::new(-1.0, 0.0),
-        is_climbable: false,
-    });
-    s.sim_time = 0.0;
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
-    tick_state_machine(&mut sm, &s, &mut out);
-    // Pause is active.
-    if let StateMachineCfg::Wanderer { state, .. } = &sm {
-        assert!(state.pause_until > 0.5);
-    }
-    // Advance time past pause_until + remove wall contact.
-    s.sim_time = 2.0;
-    s.wall_contact = None;
-    let mut out2 = crate::actor::control::ActorControlFrame::neutral();
-    tick_state_machine(&mut sm, &s, &mut out2);
-    // Forward motion resumed.
-    assert!(
-        out2.locomotion.x != 0.0,
-        "wanderer should walk after pause expires"
-    );
-}
-
-#[test]
-fn wanderer_pauses_on_rapid_chatter() {
-    let mut cfg = WandererCfg::PUPPY_SLUG_DEFAULT;
-    cfg.chatter_threshold = 3;
-    cfg.chatter_window_s = 1.0;
-    cfg.chatter_pause_s = 2.0;
-    cfg.climb_walls = false; // ensure we reverse not climb
-    let mut sm = StateMachineCfg::Wanderer {
-        cfg,
-        state: WandererState::default(),
-    };
-    let mut s = BrainSnapshot::idle();
-    s.actor_facing = 1.0;
-    s.wall_contact = Some(WallContact {
-        normal: ae::Vec2::new(-1.0, 0.0),
-        is_climbable: false,
-    });
-    s.sim_time = 0.0;
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
-
-    // Three reversals across <1s should trip the pause on the
-    // third reversal.
-    s.sim_time = 0.0;
-    tick_state_machine(&mut sm, &s, &mut out);
-    s.actor_facing = out.facing;
-    s.sim_time = 0.2;
-    tick_state_machine(&mut sm, &s, &mut out);
-    s.actor_facing = out.facing;
-    s.sim_time = 0.4;
-    tick_state_machine(&mut sm, &s, &mut out);
-    // Pause should be active; frame is neutral.
-    if let StateMachineCfg::Wanderer { state, .. } = &sm {
-        assert!(state.pause_until > 0.4);
-    }
-    // Next tick during pause window → no motion.
-    s.sim_time = 0.5;
-    let mut out2 = crate::actor::control::ActorControlFrame::neutral();
-    out2.locomotion = ae::Vec2::new(99.0, 99.0);
-    tick_state_machine(&mut sm, &s, &mut out2);
-    assert_eq!(out2.locomotion, ae::Vec2::ZERO);
 }
 
 #[test]
@@ -756,7 +588,6 @@ fn brain_dispatch_50_actors_under_one_millisecond() {
         },
         StateMachineCfg::Wanderer {
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
-            state: WandererState::default(),
         },
         StateMachineCfg::MeleeBrute {
             cfg: MeleeBruteCfg::STRIKER_DEFAULT,
@@ -826,7 +657,6 @@ fn brain_templates_survive_zero_dt() {
         },
         StateMachineCfg::Wanderer {
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
-            state: WandererState::default(),
         },
         StateMachineCfg::MeleeBrute {
             cfg: MeleeBruteCfg::STRIKER_DEFAULT,
@@ -964,7 +794,6 @@ fn is_hostile_reports_per_cfg() {
     .is_hostile());
     assert!(!StateMachineCfg::Wanderer {
         cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
-        state: WandererState::default(),
     }
     .is_hostile());
     assert!(StateMachineCfg::MeleeBrute {

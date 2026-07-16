@@ -357,18 +357,27 @@ pub fn apply_world_forces(vel: &mut Vec2, gravity_magnitude: f32, gravity: &Grav
     // ── add new global forces here (wind, drag fields, gravity wells) ──
 }
 
-/// Render-space z-rotation that stands a body upright under `gravity_dir`: it
-/// points the sprite's local +Y ("up") along world-up (`-gravity`), accounting
-/// for the y-down→y-up render flip. Default gravity → angle 0. (Lives here with
-/// the gravity state; consumed by the portal orient-to-gravity roll.)
-pub fn gravity_upright_angle(gravity_dir: Vec2) -> f32 {
-    let g = gravity_dir.normalize_or_zero();
-    if g == Vec2::ZERO {
+/// Render-space z-rotation that points a sprite's local +Y ("up") along the
+/// given WORLD-space up direction, accounting for the y-down→y-up render flip.
+/// World-up (`(0,-1)`) → angle 0. The general form behind
+/// [`gravity_upright_angle`]; also stands a riding body's feet onto its ridden
+/// surface (up = the surface's outward normal).
+pub fn upright_angle_for_world_up(up: Vec2) -> f32 {
+    let u = up.normalize_or_zero();
+    if u == Vec2::ZERO {
         return 0.0;
     }
-    // World up = -g; the render frame flips y.
-    let render_up = Vec2::new(-g.x, g.y);
+    // The render frame flips y.
+    let render_up = Vec2::new(u.x, -u.y);
     render_up.y.atan2(render_up.x) - std::f32::consts::FRAC_PI_2
+}
+
+/// Render-space z-rotation that stands a body upright under `gravity_dir`: it
+/// points the sprite's local +Y ("up") along world-up (`-gravity`). Default
+/// gravity → angle 0. (Lives here with the gravity state; consumed by the
+/// body-roll righting reflex and the portal orient-to-gravity roll.)
+pub fn gravity_upright_angle(gravity_dir: Vec2) -> f32 {
+    upright_angle_for_world_up(-gravity_dir)
 }
 
 /// Horizontal `flip_x` for a sprite that may also be rotated by

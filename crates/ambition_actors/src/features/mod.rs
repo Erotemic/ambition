@@ -368,6 +368,22 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .before(tick_npc_idle_barks)
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
         );
+        // The body-orientation righting reflex: feet toward gravity — or, for a
+        // riding momentum body, feet onto the ridden surface via the
+        // `SurfaceUpright` fact the integration just published. Host-simulation
+        // owned so EVERY game gets it (it used to ride inside the portal
+        // plugin, which the demo hosts don't add); the portal transit systems
+        // only ADD roll, and run later, in `PlayerSimulation`.
+        app.add_systems(
+            sim,
+            (
+                ambition_platformer_primitives::orientation::ensure_actor_roll,
+                ambition_platformer_primitives::orientation::update_actor_roll,
+            )
+                .chain()
+                .after(integrate_sim_bodies)
+                .in_set(crate::schedule::SandboxSet::WorldPrep),
+        );
         // Settle decided feuds before targeting reads grudges: a body forgets a slain
         // foe (won't re-aggro if it revives) and a defeated body forgets its own feud
         // (revives as a normal NPC). Registered separately — the WorldPrep chain tuple

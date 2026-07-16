@@ -124,7 +124,7 @@ pub fn integrate_home_body(
     frame_dt: f32,
     scaled_dt: f32,
     feature_ecs_overlay: &FeatureEcsWorldOverlay,
-) {
+) -> Option<ae::Vec2> {
     let input = engine_input_from_actor_control(
         actor_control,
         feel,
@@ -221,6 +221,17 @@ pub fn integrate_home_body(
     });
     hurtbox.center = body.center();
     hurtbox.half_size = body.half_size();
+
+    // The ridden-surface presentation fact: a momentum rider plants its feet on
+    // the ground under it, so the caller publishes this tick's outward support
+    // normal as the body's visual up (`SurfaceUpright`). Axis bodies stay
+    // gravity-upright — a wall slide is not a stance change — and crawler
+    // enemies publish their own surface pose through the feature view.
+    (matches!(
+        motion_model,
+        crate::features::MotionModel::SurfaceMomentum(_)
+    ) && result.support.is_held())
+    .then_some(result.surface_normal)
 }
 
 /// Advance the world's moving platforms ONCE per frame, ahead of every body

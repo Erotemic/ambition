@@ -17,7 +17,6 @@ use super::{
     sync_portal_tuning_convention, tick_portal_cooldowns, BodyTeleported, PlayerMovementIntent,
     PortalBodyTransited, PortalCarves, PortalTuning,
 };
-use ambition_platformer_primitives::orientation::{ensure_actor_roll, update_actor_roll};
 use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// Top-level portal mechanic plugin.
@@ -135,14 +134,11 @@ impl Plugin for PortalSimulationPlugin {
         );
         app.add_systems(
             sim,
-            (
-                // Portals must not outlive their gun (the "destroyed" case).
-                despawn_orphaned_portals,
-                // Make sure a transiting actor can carry an aerial roll through portals.
-                ensure_actor_roll,
-            )
-                .chain()
-                .in_set(PortalSet::WeaponMaintenance),
+            // Portals must not outlive their gun (the "destroyed" case).
+            // (`ensure_actor_roll`/`update_actor_roll` used to ride here; the
+            // righting reflex is host-simulation owned now — the actors plugin
+            // registers it after body integration — and transit just ADDs roll.)
+            despawn_orphaned_portals.in_set(PortalSet::WeaponMaintenance),
         );
 
         app.add_systems(sim, clear_portals_on_reset.in_set(PortalSet::RoomReset));
@@ -171,7 +167,6 @@ impl Plugin for PortalSimulationPlugin {
                 tick_portal_cooldowns,
                 portal_transit,
                 portal_teleport_ground_items,
-                update_actor_roll,
             )
                 .chain()
                 .in_set(PortalSet::Transit),

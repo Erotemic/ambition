@@ -43,7 +43,7 @@ fn rig(world: ae::World) -> Rig {
     }
 }
 
-fn step(r: &mut Rig, frame: ActorControlFrame) {
+fn step(r: &mut Rig, frame: ActorControlFrame) -> Option<ae::Vec2> {
     let mut clusters = r.scratch.as_mut();
     integrate_home_body(
         frame,
@@ -60,7 +60,7 @@ fn step(r: &mut Rig, frame: ActorControlFrame) {
         DT,
         DT,
         &r.overlay,
-    );
+    )
 }
 
 #[test]
@@ -74,14 +74,22 @@ fn worn_momentum_home_body_rides_runs_and_jumps() {
     // chain's open end around x=1500 and falls out — not this test's
     // subject.
     let mut mid_run = false;
+    let mut riding_up = None;
     for _ in 0..240 {
-        step(&mut r, run);
+        riding_up = step(&mut r, run);
         if r.scratch.ground.on_ground && r.scratch.kinematics.pos.x > 500.0 {
             mid_run = true;
             break;
         }
     }
     assert!(mid_run, "rode the chain and advanced past x=500");
+    // The ridden-surface fact publishes the flat chain's outward normal (the
+    // roll reflex plants the rider's feet on it).
+    let up = riding_up.expect("a riding momentum body publishes its surface up");
+    assert!(
+        (up - ae::Vec2::new(0.0, -1.0)).length() < 1e-3,
+        "flat-floor ride publishes world-up: {up:?}"
+    );
     // The hurtbox publish followed the body.
     assert!((r.hurtbox.center - r.scratch.kinematics.pos).length() < 40.0);
     // The frame reports ride contacts (the contact vocabulary reaches the
@@ -96,8 +104,12 @@ fn worn_momentum_home_body_rides_runs_and_jumps() {
     // Jump: the GATED input path maps jump_pressed through.
     let mut jump = run;
     jump.jump_pressed = true;
-    step(&mut r, jump);
+    let airborne_up = step(&mut r, jump);
     assert!(!r.scratch.ground.on_ground, "left the surface");
+    assert!(
+        airborne_up.is_none(),
+        "an airborne tick clears the ridden-surface fact"
+    );
     assert!(
         r.scratch.kinematics.vel.y < -400.0,
         "launched along +normal: {:?}",

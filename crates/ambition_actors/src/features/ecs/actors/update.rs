@@ -870,6 +870,9 @@ pub fn integrate_sim_bodies(
             // this; the shared sandbox protagonist does not and tracks the F3
             // dev tuning live (see the per-body resolve below).
             Option<&ambition_engine_core::AuthoredMovementTuning>,
+            // The ridden-surface presentation fact this integration publishes
+            // (the roll righting reflex tilts a rider's feet onto it).
+            Option<&mut ambition_platformer_primitives::orientation::SurfaceUpright>,
         ),
         With<crate::actor::PlayerEntity>,
     >,
@@ -952,6 +955,7 @@ pub fn integrate_sim_bodies(
         resolved_frame,
         mut motion_facts,
         authored_tuning,
+        mut surface_upright,
     ) in &mut players
     {
         // Per-body feel: an authored protagonist keeps its own tuning; the
@@ -962,7 +966,7 @@ pub fn integrate_sim_bodies(
             .unwrap_or(editable_player_tuning);
         let mut clusters = cluster_item.as_clusters_mut();
         let player_motion_frame = resolved_frame.get();
-        crate::avatar::integrate_home_body(
+        let riding_up = crate::avatar::integrate_home_body(
             control.0,
             &world.0,
             &mut clusters,
@@ -979,6 +983,11 @@ pub fn integrate_sim_bodies(
             &overlay,
         );
         *motion_facts = ambition_engine_core::BodyMotionFacts::from_model(&motion_model);
+        // Publish the ridden-surface fact beside the motion facts (both are
+        // per-tick projections of this integration; the roll reflex consumes it).
+        if let Some(surface) = surface_upright.as_mut() {
+            surface.up = riding_up;
+        }
     }
 }
 

@@ -1159,6 +1159,12 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
         "republished from the body's movement policy after every movement step",
     );
 
+    // The ridden-surface presentation fact is republished beside the motion
+    // facts by the same movement step (None on every body that isn't riding).
+    registry.declare_derived::<ambition_platformer_primitives::orientation::SurfaceUpright>(
+        "republished from the body integration's support fact after every movement step",
+    );
+
     // The SimView and its indexes: netcode.md excludes these structurally
     // ("rebuilt every tick by construction").
     registry.declare_derived::<ambition_sim_view::BodyPoseView>(

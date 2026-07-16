@@ -55,18 +55,31 @@ pub fn populate_encounter_registry(
         lifecycle.apply_persisted(persisted);
         let waves = EncounterWaves::new(spec);
         let objective = waves.objective();
-        let entity = commands
-            .spawn((
-                Encounter::new(id.clone()),
-                // Stable simulation identity (E11): the authority enters the
-                // snapshot roster / state hash under its own namespace.
-                ambition_platformer_primitives::sim_id::SimId::encounter(&id),
-                lifecycle,
-                objective,
-                waves,
-                EncounterParticipants::default(),
-            ))
-            .id();
+        let mut entity = commands.spawn((
+            Encounter::new(id.clone()),
+            // Stable simulation identity (E11): the authority enters the
+            // snapshot roster / state hash under its own namespace.
+            ambition_platformer_primitives::sim_id::SimId::encounter(&id),
+            lifecycle,
+            objective,
+            EncounterParticipants::default(),
+        ));
+        // Authored staging policy (E12): generic consumers derive the lock
+        // wall / camera zoom / base track from the LIFECYCLE + these, never
+        // from the wave component.
+        if let Some(wall) = waves.spec.lock_wall.clone() {
+            entity.insert(ambition_encounter::EncounterLockWall(wall));
+        }
+        entity.insert(ambition_encounter::EncounterCameraZoom(
+            waves.spec.camera_zoom,
+        ));
+        if !waves.spec.music_track.is_empty() {
+            entity.insert(ambition_encounter::EncounterTrack(
+                waves.spec.music_track.clone(),
+            ));
+        }
+        entity.insert(waves);
+        let entity = entity.id();
         registry.insert(id, entity);
     }
     registry.specs_loaded = true;
@@ -405,6 +418,13 @@ pub fn apply_wave_encounter_effects(
     mut encounter_view: ResMut<EncounterView>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut banner_requests: MessageWriter<crate::features::GameplayBannerRequested>,
+    // The staging-policy view (E12): lifecycle + authored presentation
+    // effects, with no wave requirement — any encounter kind stages alike.
+    staged: Query<(
+        &EncounterLifecycle,
+        Option<&ambition_encounter::EncounterCameraZoom>,
+        Option<&ambition_encounter::EncounterTrack>,
+    )>,
     reward_chests: Query<
         (
             Entity,
@@ -481,16 +501,16 @@ pub fn apply_wave_encounter_effects(
         &reward_chests,
     );
 
-    // Music: pick the first wave encounter currently in flight and request its
-    // track (the base-priority source of the shared `EncounterMusicRequest`);
-    // otherwise clear it. Writing the base source every frame — including
-    // `None` — is safe: `desired_track()` ranks `priority_track` above
-    // `base_track`, so this can't clobber a concurrent focused fight's music.
-    let active_track = encounters.iter().find_map(|(_, lifecycle, waves, _)| {
+    // Music: pick the first encounter currently in flight with an authored
+    // track and request it (the base-priority source of the shared
+    // `EncounterMusicRequest`); otherwise clear it. Generic over the
+    // lifecycle + staging policy (E12). Writing the base source every frame —
+    // including `None` — is safe: `desired_track()` ranks `priority_track`
+    // above `base_track`, so this can't clobber a concurrent focused fight's
+    // music.
+    let active_track = staged.iter().find_map(|(lifecycle, _, track)| {
         if lifecycle.phase.in_flight() {
-            waves
-                .map(|w| w.spec.music_track.clone())
-                .filter(|t| !t.is_empty())
+            track.map(|t| t.0.clone())
         } else {
             None
         }
@@ -498,12 +518,13 @@ pub fn apply_wave_encounter_effects(
     music_request.base_track = active_track;
 
     // Publish the presentation read-model (§6): the camera zoom the active
-    // encounters want. Cross-crate presentation reads `EncounterView`, not
-    // the entities. `max`-based, so it is query-order-independent.
+    // encounters want, from the authored staging policy (E12). Cross-crate
+    // presentation reads `EncounterView`, not the entities. `max`-based, so
+    // it is query-order-independent.
     encounter_view.camera_zoom = ambition_encounter::active_encounter_camera_zoom(
-        encounters
+        staged
             .iter()
-            .filter_map(|(_, lifecycle, waves, _)| waves.map(|w| (lifecycle.phase, &w.spec))),
+            .filter_map(|(lifecycle, zoom, _)| zoom.map(|z| (lifecycle.phase, z.0))),
     );
 
     // Project the lifecycle to the save (Completed/Failed survive, in-flight

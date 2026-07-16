@@ -295,7 +295,7 @@ fn active_camera_zoom_picks_active_encounter() {
     let mut enc = WaveEncounter::new(spec);
     enc.start();
     assert_eq!(
-        active_encounter_camera_zoom([(enc.lifecycle.phase, &enc.waves.spec)]),
+        active_encounter_camera_zoom([(enc.lifecycle.phase, enc.waves.spec.camera_zoom)]),
         1.6
     );
 }
@@ -307,7 +307,7 @@ fn active_camera_zoom_falls_back_to_one_when_inactive() {
     let enc = WaveEncounter::new(spec);
     // Phase still Inactive — no zoom applied.
     assert_eq!(
-        active_encounter_camera_zoom([(enc.lifecycle.phase, &enc.waves.spec)]),
+        active_encounter_camera_zoom([(enc.lifecycle.phase, enc.waves.spec.camera_zoom)]),
         1.0
     );
 }
@@ -658,24 +658,52 @@ fn encounter_reward_chest_pos_sits_on_trigger_floor() {
 #[test]
 fn lock_wall_is_derived_while_active_and_dropped_when_inactive() {
     use super::lock_walls::desired_lock_wall_blocks;
-    let mut spec = lab_spec();
-    spec.lock_wall = Some(LockWallSpec {
+    let wall = LockWallSpec {
         min: [100.0, 100.0],
         size: [32.0, 200.0],
-    });
-    let mut enc = WaveEncounter::new(spec);
+    };
+    let mut enc = WaveEncounter::new(lab_spec());
     enc.start();
-    // In-flight phase → the gate solid is derived this frame.
-    let blocks =
-        desired_lock_wall_blocks([("goblin_encounter", enc.lifecycle.phase, &enc.waves.spec)]);
+    // In-flight phase → the gate solid is derived this frame. Generic (E12):
+    // the derivation reads the LIFECYCLE + the authored wall, never the kind.
+    let blocks = desired_lock_wall_blocks([("goblin_encounter", enc.lifecycle.phase, &wall)]);
     assert!(blocks.iter().any(|b| b.name == "lockwall:goblin_encounter"));
     // Reset back to Inactive — the overlay clears each frame, so "removal" is
     // simply the wall no longer being derived (no reconcile against a base).
     enc.lifecycle
         .reduce(0.0, [&EncounterCommandKind::Reset], &enc.parts, None);
-    let blocks =
-        desired_lock_wall_blocks([("goblin_encounter", enc.lifecycle.phase, &enc.waves.spec)]);
+    let blocks = desired_lock_wall_blocks([("goblin_encounter", enc.lifecycle.phase, &wall)]);
     assert!(!blocks.iter().any(|b| b.name == "lockwall:goblin_encounter"));
+}
+
+// ── Staging is generic over the lifecycle (E12) ────────────────
+
+/// E12 exit pin: a NON-wave encounter (no `EncounterWaves` anywhere) stages
+/// exactly like an arena — the lock/camera consumers read the generic
+/// lifecycle + authored staging policy, never the encounter kind. (The ECS
+/// queries enforce the same at compile time: neither consumer names
+/// `EncounterWaves` anymore.)
+#[test]
+fn a_non_wave_encounter_stages_the_same_lock_and_zoom() {
+    use super::lock_walls::desired_lock_wall_blocks;
+    let mut lifecycle = EncounterLifecycle::default();
+    lifecycle.reduce(
+        0.0,
+        [&EncounterCommandKind::Start],
+        &EncounterParticipants::default(),
+        None,
+    );
+    let wall = LockWallSpec {
+        min: [0.0, 0.0],
+        size: [16.0, 64.0],
+    };
+    let blocks = desired_lock_wall_blocks([("signal_puzzle", lifecycle.phase, &wall)]);
+    assert!(blocks.iter().any(|b| b.name == "lockwall:signal_puzzle"));
+    assert_eq!(
+        active_encounter_camera_zoom([(lifecycle.phase, 1.4)]),
+        1.4,
+        "zoom derives from the staging policy, not the wave component"
+    );
 }
 
 // ── Ownership-driven cleanup (E10) ─────────────────────────────

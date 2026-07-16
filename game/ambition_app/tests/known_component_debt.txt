@@ -59,6 +59,9 @@ ambition_combat::moveset::ActorMoveset
 ambition_combat::moveset::MovesetMelee
 ambition_encounter::entity::Encounter
 ambition_encounter::objective::EncounterObjective
+ambition_encounter::staging::EncounterCameraZoom
+ambition_encounter::staging::EncounterLockWall
+ambition_encounter::staging::EncounterTrack
 ambition_engine_core::body_clusters::AbilityBase
 ambition_platformer_primitives::body::PrimaryBody
 ambition_platformer_primitives::lifecycle::markers::FeatureSimEntity

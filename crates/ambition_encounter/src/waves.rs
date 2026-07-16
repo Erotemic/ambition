@@ -240,17 +240,19 @@ impl EncounterWaves {
 }
 
 /// The camera zoom the active encounters want this frame: the max authored
-/// `camera_zoom` over every in-flight encounter (`1.0` if none). The host
-/// publishes it into [`EncounterView`](crate::EncounterView) each tick.
-/// `max` (not first) so the result is order-independent — the encounter
-/// entities are queried, and query order is not stable.
-pub fn active_encounter_camera_zoom<'a>(
-    states: impl IntoIterator<Item = (EncounterPhase, &'a EncounterSpec)>,
+/// [`EncounterCameraZoom`](crate::EncounterCameraZoom) over every in-flight
+/// encounter (`1.0` if none). The host publishes it into
+/// [`EncounterView`](crate::EncounterView) each tick. `max` (not first) so the
+/// result is order-independent — the encounter entities are queried, and
+/// query order is not stable. Generic over the LIFECYCLE (E12): never asks
+/// what kind of encounter wants the zoom.
+pub fn active_encounter_camera_zoom(
+    states: impl IntoIterator<Item = (EncounterPhase, f32)>,
 ) -> f32 {
     let mut zoom = 1.0_f32;
-    for (phase, spec) in states {
+    for (phase, camera_zoom) in states {
         if phase.in_flight() {
-            zoom = zoom.max(spec.camera_zoom);
+            zoom = zoom.max(camera_zoom);
         }
     }
     zoom
@@ -466,13 +468,12 @@ mod tests {
 
     #[test]
     fn camera_zoom_reads_in_flight_encounters_only() {
-        let s = spec(vec![wave("w", 1)]);
         assert_eq!(
-            active_encounter_camera_zoom([(EncounterPhase::Active, &s)]),
+            active_encounter_camera_zoom([(EncounterPhase::Active, 1.2)]),
             1.2
         );
         assert_eq!(
-            active_encounter_camera_zoom([(EncounterPhase::Completed, &s)]),
+            active_encounter_camera_zoom([(EncounterPhase::Completed, 1.2)]),
             1.0
         );
     }

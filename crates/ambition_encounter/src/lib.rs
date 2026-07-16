@@ -16,6 +16,7 @@ pub mod participants;
 pub mod registry;
 pub mod rewards;
 pub mod spec;
+pub mod staging;
 pub mod timeline;
 pub mod waves;
 
@@ -37,6 +38,7 @@ pub use spec::{
     authored_encounter_waves, install_encounter_waves, EncounterMobSpec, EncounterSpec,
     EncounterWaveSpec, LockWallSpec,
 };
+pub use staging::{EncounterCameraZoom, EncounterLockWall, EncounterTrack};
 pub use timeline::{
     EncounterBeat, EncounterEffect, EncounterGate, EncounterScript, EncounterTrigger,
 };

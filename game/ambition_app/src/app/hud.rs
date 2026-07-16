@@ -76,14 +76,19 @@ pub(super) fn update_hud(
         &ambition::actors::boss_encounter::EncounterDef,
         &ambition::actors::boss_encounter::EncounterProgress,
     )>,
-    // E1: the wave HUD reads the live encounter ENTITIES (the registry is now
-    // just an index) — one line per in-flight wave encounter.
-    wave_encounters: Query<(
-        &ambition::encounter::Encounter,
-        &ambition::encounter::EncounterLifecycle,
-        &ambition::encounter::EncounterWaves,
-        &ambition::encounter::EncounterParticipants,
-    )>,
+    // E12: the encounter status line reads the generic LIFECYCLE on the live
+    // encounter entities — one line per in-flight encounter that is not
+    // already HUD-bound through `EncounterDef` (the member-progress line
+    // above). Wave detail is optional flavor, not a requirement.
+    lifecycle_encounters: Query<
+        (
+            &ambition::encounter::Encounter,
+            &ambition::encounter::EncounterLifecycle,
+            Option<&ambition::encounter::EncounterWaves>,
+            Option<&ambition::encounter::EncounterParticipants>,
+        ),
+        Without<ambition::actors::boss_encounter::EncounterDef>,
+    >,
     mut query: Query<&mut Text, With<HudText>>,
 ) {
     let _quest_registry = &progression.quests;
@@ -216,9 +221,16 @@ pub(super) fn update_hud(
     };
     let encounter_line = {
         let mut bits = Vec::new();
-        for (_enc, lifecycle, waves, participants) in &wave_encounters {
+        for (enc, lifecycle, waves, participants) in &lifecycle_encounters {
             if lifecycle.phase.in_flight() {
-                bits.push(waves.hud_summary(lifecycle.phase, participants));
+                bits.push(match (waves, participants) {
+                    (Some(waves), Some(participants)) => {
+                        waves.hud_summary(lifecycle.phase, participants)
+                    }
+                    // A non-wave encounter (signal puzzle, timed section)
+                    // reads its generic lifecycle status.
+                    _ => format!("[{}] {}", enc.id, lifecycle.phase.label()),
+                });
             }
         }
         if bits.is_empty() {

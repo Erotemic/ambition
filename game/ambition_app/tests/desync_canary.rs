@@ -664,7 +664,10 @@ fn the_snapshot_coverage_ledger() {
     // EncounterObjective, boss-wrap EncounterDef) — authored/immutable config;
     // the mutable state (lifecycle/participants/waves) IS registered. Reviewed
     // in known_component_debt.txt.
-    const KNOWN_DEBT: usize = 62;
+    // 2026-07-16 (E12): +3 reviewed authored STAGING policy components
+    // (EncounterLockWall / EncounterCameraZoom / EncounterTrack) — immutable
+    // presentation policy the generic consumers derive from; same review.
+    const KNOWN_DEBT: usize = 65;
     assert!(
         worst <= KNOWN_DEBT,
         "{worst} component types on SimId entities are neither registered as sim \

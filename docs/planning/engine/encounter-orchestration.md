@@ -2,12 +2,12 @@
 
 **Priority:** active architecture convergence.
 
-**Status:** **E8–E11 LANDED (2026-07-16).** HEAD has ONE encounter lifecycle
+**Status:** **E8–E12 LANDED (2026-07-16).** HEAD has ONE encounter lifecycle
 authority (`EncounterLifecycle` + the pure reducer), one generic command
 ingress (`EncounterCommand`), objective-driven completion,
-ownership/policy-driven cleanup, and a snapshot-registered authority with
-stable participant relations. Remaining: consumer convergence (E12) and the
-non-boss acceptance customer (E13).
+ownership/policy-driven cleanup, a snapshot-registered authority with stable
+participant relations, and generic consumers over lifecycle + staging policy.
+Remaining: the non-boss acceptance customer (E13).
 
 The detailed E0–E7 execution report is preserved at
 [`docs/archive/reviews/planning-history-2026-07-11/encounter-orchestration-e0-e7-report.md`](../../archive/reviews/planning-history-2026-07-11/encounter-orchestration-e0-e7-report.md).
@@ -125,11 +125,29 @@ coverage check matches by id as well as entity so a restore never double-wraps.
 (`known_component_debt.txt`). The command/event channels are registered (a
 pending Start replayed after a restore would double-apply).
 
-### 5. Consumer convergence
+### 5. Consumer convergence — ✅ LANDED (E12)
 
-Camera/music have shared read-model work, but HUD, locks, rewards, and persistence
-still consume wave- or boss-specific state. The architecture is not complete
-until consumers can depend on generic intent where their semantics are generic.
+Generic consumers now read the LIFECYCLE plus authored STAGING policy
+components (`EncounterLockWall` / `EncounterCameraZoom` / `EncounterTrack`,
+installed from the spec at populate): the lock-wall contributor, the
+`EncounterView` camera read-model, and the base-tier music request no longer
+name `EncounterWaves` — any encounter kind stages alike. The HUD's encounter
+status line reads the generic lifecycle (wave text is optional flavor); the
+member-HP line stays keyed on `EncounterDef` (that component IS the
+HUD-binding policy). Deliberately NOT converged, with rationale:
+
+- **Boss persistence + quest events** stay on the boss phase machine
+  (`save.bosses`, keyed by placement, written at death-OUTRO completion).
+  The outro gating is actor-local death presentation — moving the write to
+  the lifecycle's `Completed` (HP-zero) would shift quest/banter sequencing
+  earlier by the outro length, a blind behavioral change with no architectural
+  win. The wave save projection (`save.encounters`) rides the generic
+  lifecycle already.
+- **Reward chests** keep two adapters (trigger-floor chest from `spec.reward`
+  vs boss-anchor chest from the profile): both react to their completion
+  facts, but anchor derivation and payload resolution are genuinely different
+  authored policies, not a lifecycle fork. A shared reward-intent channel is
+  warranted when a third reward shape lands.
 
 ## Target model
 
@@ -175,8 +193,8 @@ stable signals; generic objectives consume them.
 
 ## Ordered patches
 
-These are the encounter track's executable subtasks; E8–E11 are **DONE**
-(2026-07-16), E12–E13 remain open.
+These are the encounter track's executable subtasks; E8–E12 are **DONE**
+(2026-07-16); E13 remains open.
 
 ### E8 — canonical lifecycle and command seam — ✅ DONE (commit 25c12870a)
 
@@ -214,13 +232,14 @@ caught (and now pins) the real bug this surfaced: a restored wrap whose
 participant caches were nulled read its boss as dead and replayed into a
 different future until resolution healed by id.
 
-### E12 — generic consumer convergence
+### E12 — generic consumer convergence — ✅ DONE
 
-Move HUD, locks, rewards, persistence, camera, and music to generic encounter
-intent where appropriate. Keep actor-local phase presentation actor-local.
-
-**Exit:** no generic consumer needs to ask whether an encounter is a boss or a
-wave in order to perform the same semantic action.
+**Exit met:** locks, camera, and base music derive from the lifecycle +
+staging components (compile-enforced: the consumers no longer name
+`EncounterWaves`); `a_non_wave_encounter_stages_the_same_lock_and_zoom` pins
+it behaviorally. Actor-local phase presentation (boss adaptive music, phase
+feedback, member HP rows, death-outro-gated persistence) stays actor-local —
+see the §5 rationale for what deliberately did not move.
 
 ### E13 — non-boss acceptance customer
 
@@ -243,7 +262,7 @@ every UNSATISFIED or PARTIAL criterion maps to an OPEN patch below.
 | Spawned/adopted cleanup is controlled by ownership policy | **SATISFIED** | — |
 | Actor-local phase remains independent | **SATISFIED** | — |
 | One lifecycle/objective/timeline authority | **SATISFIED** | — |
-| Generic presentation/reward/persistence intent | **PARTIAL** | E12 |
+| Generic presentation/reward/persistence intent | **SATISFIED** (staging generic; boss outro persistence + reward anchors recorded as actor-local/authored policy) | — |
 | One snapshot representation with stable participant relations | **SATISFIED** | — |
 | First non-boss customer proves reuse | **UNSATISFIED** | E13 |
 

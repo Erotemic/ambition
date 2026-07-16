@@ -7,28 +7,30 @@
 //! category composited into every collision read-path and surfaced to the render
 //! layer — so a lock wall collides and draws exactly as it did when it lived in
 //! the base, while the base stays immutable.
+//!
+//! Generic over the LIFECYCLE + staging policy (E12): any encounter kind that
+//! authors an [`EncounterLockWall`] seals while its lifecycle locks exits —
+//! the contributor never asks whether it is a wave arena or something else.
 
 use ambition_engine_core as ae;
 use bevy::prelude::*;
 
-use super::{Encounter, EncounterLifecycle, EncounterPhase, EncounterWaves};
+use super::{Encounter, EncounterLifecycle, EncounterPhase};
 use crate::features::FeatureEcsWorldOverlay;
+use ambition_encounter::{EncounterLockWall, LockWallSpec};
 
 /// The lock-wall solid blocks wanted THIS frame: one per in-flight encounter
-/// that has an authored `LockWall`. Block name format is
+/// that authors an [`EncounterLockWall`]. Block name format is
 /// `lockwall:<encounter_id>` so the render layer can surface them as
 /// `LockWallVisual` sprites (and a future per-id query can find them).
 pub(in crate::encounter) fn desired_lock_wall_blocks<'a>(
-    encounters: impl IntoIterator<Item = (&'a str, EncounterPhase, &'a super::EncounterSpec)>,
+    encounters: impl IntoIterator<Item = (&'a str, EncounterPhase, &'a LockWallSpec)>,
 ) -> Vec<ae::Block> {
     let mut blocks = Vec::new();
-    for (id, phase, spec) in encounters {
+    for (id, phase, wall) in encounters {
         if !phase.locks_exits() {
             continue;
         }
-        let Some(wall) = spec.lock_wall.as_ref() else {
-            continue;
-        };
         blocks.push(ae::Block::solid(
             format!("lockwall:{id}"),
             ae::Vec2::new(wall.min[0], wall.min[1]),
@@ -43,12 +45,12 @@ pub(in crate::encounter) fn desired_lock_wall_blocks<'a>(
 /// has cleared `gate_solids`, so the contribution is a clean per-frame derive of
 /// the encounter entities' live phase — no base mutation, no reconcile.
 pub fn contribute_encounter_lock_walls(
-    encounters: Query<(&Encounter, &EncounterLifecycle, &EncounterWaves)>,
+    encounters: Query<(&Encounter, &EncounterLifecycle, &EncounterLockWall)>,
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
 ) {
     overlay.gate_solids.extend(desired_lock_wall_blocks(
         encounters
             .iter()
-            .map(|(enc, lifecycle, waves)| (enc.id.as_str(), lifecycle.phase, &waves.spec)),
+            .map(|(enc, lifecycle, wall)| (enc.id.as_str(), lifecycle.phase, &wall.0)),
     ));
 }

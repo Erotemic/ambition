@@ -555,3 +555,47 @@ pass-through player-visible — an un-rolled runner passes through a monitor's
 26px box (its break rule fires only on stomp/roll overlap, so gameplay is
 coherent, but the box reads as intangible at walking speed). Same fix locus:
 the riding-side contact rework.
+
+**16. Live param modifiers don't survive a worn-identity refresh (2026-07-16).**
+A `WornCharacter` re-wear replaces a momentum body's `MomentumParams` wholesale
+from the catalog row (state-preserving, params-refreshing —
+`sync_worn_motion_model_preserving_state`). Any live modifier that multiplied
+the params and saved a baseline to restore (Sanic's `SpeedShoes`) is silently
+clobbered by the refresh, and its later "restore" writes a stale baseline over
+the new identity's authored params. The Sanic super paths are guarded (the
+super monitor removes live shoes; the speed monitor no-ops while super), but
+the dev D-toggle mid-shoes corner remains. Real fix: timed modifiers should
+re-derive the restore target from the worn identity's catalog row at expiry —
+never from a captured baseline — or ride a param-modifier stack the identity
+refresh re-applies.
+
+**17. Generated secondary-world `.ldtk` defs drift from sandbox (2026-07-16).**
+The dedicated-world generators (e.g. `generate_hall_of_characters`, cut-rope
+arena) clone their `defs` from sandbox.ldtk ONCE, at first scaffold. On every
+subsequent regen `_apply_to_dedicated_ldtk` only replaces the *level* via
+`area create --replace-existing`, never re-syncing defs. So when a new engine
+entity type lands in sandbox (here `SurfaceChain`/`SurfaceLoop` from the Sanic
+surface work), the hall's committed defs go stale and
+`validate <hall> --secondary-world sandbox` fails with "defs.entities is
+missing editor definitions for supported Ambition entities" — independent of
+any level content change. Real fix: the dedicated-world apply step should
+re-clone/merge entity defs from sandbox on every regen (or a shared
+`sync-defs` pass over all secondary worlds), not just on initial scaffold.
+
+**18. Non-character sprites default to `npc_` catalog ids (2026-07-16).**
+The actor-contract emitter's `_character_id_for`
+(`tools/ambition_sprite2d_renderer/.../authoring/actor_contract.py`) falls back
+to `npc_{stem}` for ANY target that doesn't declare an explicit `character_id`,
+regardless of whether the sprite is a character, prop, or projectile. So props
+render with NPC-namespaced ids and read as characters to anything that scans by
+id prefix (it misled the Hall-of-Characters authoring into cataloging Glider and
+Shrine as NPCs). The render directory (`targets/props|projectiles|characters/`)
+is NOT an authoritative role signal — `news_board` renders under `props/` yet is
+authored + placed as `npc_news_board` (an interactable board), so a directory-based
+default would wrongly rename it. Glider + Shrine are fixed by declaring explicit
+`prop_*` ids in their targets; `lasersword`, `lasersword_with_guns`,
+`creator_lab_props`, `intro_cart` still emit `npc_*` sidecars, and `news_board`
+should be a `prop_*` but is a cataloged+placed NPC today, so reclassifying it is a
+catalog+placement rename deferred as a smell. Real fix: give targets an explicit
+`role`/`kind` (character vs prop vs fx) that drives the id namespace, rather than
+defaulting everything to `npc_`.

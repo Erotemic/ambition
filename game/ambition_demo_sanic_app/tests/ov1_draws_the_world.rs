@@ -110,12 +110,18 @@ fn the_demo_loads_shared_assets_and_draws_landmarks_and_the_loop() {
             .map(|name| name.as_str().to_owned())
             .collect()
     };
+    // The LDtk-authored course's visible landmarks. The named ENTITY blocks
+    // (monitors, rebound pads) keep their identities; the IntGrid-lowered
+    // terrain draws under the loader's generic kind names ("ldtk solid" /
+    // "ldtk one-way" / "ldtk hazard") — authored names are erased by the
+    // IntGrid lowering (code smell #15), so kind presence is what's provable.
     for landmark in [
-        "Block: start_gantry",
-        "Block: distance_marker_1",
-        "Block: speed_booster",
-        "Block: finish_warning_spikes",
-        "Block: finish_tower",
+        "Block: monitor_super",
+        "Block: monitor_speed",
+        "Block: ReboundPad",
+        "Block: ldtk solid",
+        "Block: ldtk one-way",
+        "Block: ldtk hazard",
     ] {
         assert!(
             names.iter().any(|name| name == landmark),
@@ -126,7 +132,7 @@ fn the_demo_loads_shared_assets_and_draws_landmarks_and_the_loop() {
     let floor_is_tiled = {
         let mut q = app.world_mut().query::<(&Name, &Sprite)>();
         q.iter(app.world()).any(|(name, sprite)| {
-            name.as_str() == "Block: speedway_floor"
+            name.as_str() == "Block: ldtk solid"
                 && matches!(
                     &sprite.image_mode,
                     bevy::sprite::SpriteImageMode::Tiled { .. }
@@ -135,7 +141,7 @@ fn the_demo_loads_shared_assets_and_draws_landmarks_and_the_loop() {
     };
     assert!(
         floor_is_tiled,
-        "the procedural speedway floor must use Ambition's tiled ground sprite path"
+        "the speedway ground slabs must use Ambition's tiled ground sprite path"
     );
     let loop_segments = names
         .iter()

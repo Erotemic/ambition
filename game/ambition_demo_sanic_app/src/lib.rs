@@ -171,6 +171,10 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     // chain. No HUD, no menus, no dev stack — those are the GAME's.
     app.insert_resource(ClearColor(Color::srgb(0.025, 0.045, 0.09)));
     app.add_plugins(ambition::presentation::PlatformerPresentationPlugin);
+    // The engine's opt-in F1 debug visualizations (collision blocks, surface
+    // chains + normals, rebound vectors, read-model body/feature boxes).
+    // Shapes only — no dev HUD. Starts OFF; press F1 in-game.
+    app.add_plugins(ambition::render::rendering::debug_viz::DebugVizPlugin::default());
 
     // Windowed hosts use the physical Kira backend; headless presentation
     // hosts select the device-free recording backend before this shared audio

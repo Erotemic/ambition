@@ -1,5 +1,11 @@
-//! The individual debug-overlay layers — world bounds/grid/camera, entity
-//! hitboxes, health bars, feature/projectile/portal debug draws.
+//! The GAME-SPECIFIC debug-overlay layers — player policy internals, feature
+//! /projectile/portal debug draws, health bars, camera frame, LDtk spine.
+//!
+//! The engine-generic world layers (bounds/blocks/chains/grids/rebound/moving
+//! platforms) moved to `ambition::render::rendering::debug_viz` — any game
+//! opts into those via `DebugVizPlugin`; this overlay imports them back
+//! through the parent module's re-export and composes them with the layers
+//! here.
 //!
 //! Split out of the former 1001-line `debug_overlay.rs` (2026-06-15).
 
@@ -194,41 +200,6 @@ pub struct FeatureDebugQueries<'w, 's> {
     >,
 }
 
-pub(crate) fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
-    let room = ae::aabb_from_min_size(ae::Vec2::ZERO, world.size);
-    draw_aabb(gizmos, world, room, white_dim());
-}
-
-pub(crate) fn draw_micro_grid(gizmos: &mut Gizmos, world: &ae::World, minor: f32, major: f32) {
-    if minor <= 0.0 || major <= 0.0 {
-        return;
-    }
-    let minor_color = Color::srgba(0.45, 0.55, 0.70, 0.13);
-    let major_color = Color::srgba(0.70, 0.80, 1.00, 0.23);
-    let cols = (world.size.x / minor).ceil() as i32;
-    let rows = (world.size.y / minor).ceil() as i32;
-    for i in 0..=cols {
-        let x = (i as f32 * minor).min(world.size.x);
-        let is_major = (x / major).fract().abs() < 0.01;
-        let color = if is_major { major_color } else { minor_color };
-        gizmos.line_2d(
-            w2(world, ae::Vec2::new(x, 0.0)),
-            w2(world, ae::Vec2::new(x, world.size.y)),
-            color,
-        );
-    }
-    for i in 0..=rows {
-        let y = (i as f32 * minor).min(world.size.y);
-        let is_major = (y / major).fract().abs() < 0.01;
-        let color = if is_major { major_color } else { minor_color };
-        gizmos.line_2d(
-            w2(world, ae::Vec2::new(0.0, y)),
-            w2(world, ae::Vec2::new(world.size.x, y)),
-            color,
-        );
-    }
-}
-
 pub(crate) fn draw_camera_frame(gizmos: &mut Gizmos, world: &ae::World, view: &CameraViewState) {
     let requested = ae::Aabb::new(view.target_world, view.requested_view * 0.5);
     let visible = ae::Aabb::new(view.center_world, view.visible_view * 0.5);
@@ -239,96 +210,6 @@ pub(crate) fn draw_camera_frame(gizmos: &mut Gizmos, world: &ae::World, view: &C
         requested,
         Color::srgba(1.00, 0.95, 0.20, 0.22),
     );
-}
-
-pub(crate) fn draw_world_blocks(
-    gizmos: &mut Gizmos,
-    world: &ae::World,
-    developer_tools: &DeveloperTools,
-) {
-    for block in &world.blocks {
-        let color = match block.kind {
-            ae::BlockKind::Solid => gray(),
-            ae::BlockKind::BlinkWall {
-                tier: ae::BlinkWallTier::Soft,
-            } => magenta(),
-            ae::BlockKind::BlinkWall {
-                tier: ae::BlinkWallTier::Hard,
-            } => red(),
-            ae::BlockKind::OneWay => blue(),
-            ae::BlockKind::Hazard => red(),
-            ae::BlockKind::PogoOrb => green(),
-            ae::BlockKind::Rebound { .. } => orange(),
-        };
-        draw_aabb_styled(gizmos, world, block.aabb, color, developer_tools);
-    }
-}
-
-/// Momentum-surface debug (demo plan S3b): draw every `SurfaceChain` — its
-/// segments, and at each segment midpoint its TANGENT (green, along increasing
-/// arc length) and its outward NORMAL (yellow, the `+normal` side a body rides).
-/// Vertices get a small dot. Ships with the sanic_sandbox so the ride geometry
-/// (slopes, the loop's interior winding) is legible without playing it.
-pub(crate) fn draw_surface_chains(gizmos: &mut Gizmos, world: &ae::World) {
-    let seg_color = Color::srgba(0.30, 0.90, 1.00, 0.85); // cyan — the surface line
-    let normal_color = Color::srgba(1.00, 0.90, 0.20, 0.85); // yellow — ridden side
-    let tangent_color = Color::srgba(0.40, 1.00, 0.55, 0.75); // green — arc direction
-    let vertex_color = Color::srgba(1.00, 1.00, 1.00, 0.60);
-    for chain in &world.chains {
-        for &p in &chain.points {
-            let c = w2(world, p);
-            gizmos.line_2d(
-                c + ae::Vec2::new(-3.0, 0.0),
-                c + ae::Vec2::new(3.0, 0.0),
-                vertex_color,
-            );
-            gizmos.line_2d(
-                c + ae::Vec2::new(0.0, -3.0),
-                c + ae::Vec2::new(0.0, 3.0),
-                vertex_color,
-            );
-        }
-        for i in 0..chain.segment_count() {
-            let (a, b) = chain.segment(i);
-            gizmos.line_2d(w2(world, a), w2(world, b), seg_color);
-            let mid = (a + b) * 0.5;
-            // Normal + tangent quills (world-space lengths; w2 handles the flip).
-            let n = chain.normal(i);
-            let t = chain.tangent(i);
-            gizmos.line_2d(w2(world, mid), w2(world, mid + n * 22.0), normal_color);
-            gizmos.line_2d(w2(world, mid), w2(world, mid + t * 14.0), tangent_color);
-        }
-    }
-}
-
-/// Lightweight coarse grid drawn straight through gizmos. Used when
-/// `hide_sprites` strips the authored sprite grid so the player still
-/// has a spatial reference. Spacing matches `ambition::engine_core::config::GRID_STEP`
-/// (the same step the sprite grid spawned in `spawn_grid` uses).
-pub(crate) fn draw_world_grid(gizmos: &mut Gizmos, world: &ae::World) {
-    let step = ambition::engine_core::config::GRID_STEP;
-    if step <= 0.0 {
-        return;
-    }
-    let color = Color::srgba(0.45, 0.55, 0.70, 0.32);
-    let cols = (world.size.x / step).ceil() as i32;
-    let rows = (world.size.y / step).ceil() as i32;
-    for i in 0..=cols {
-        let x = (i as f32 * step).min(world.size.x);
-        gizmos.line_2d(
-            w2(world, ae::Vec2::new(x, 0.0)),
-            w2(world, ae::Vec2::new(x, world.size.y)),
-            color,
-        );
-    }
-    for j in 0..=rows {
-        let y = (j as f32 * step).min(world.size.y);
-        gizmos.line_2d(
-            w2(world, ae::Vec2::new(0.0, y)),
-            w2(world, ae::Vec2::new(world.size.x, y)),
-            color,
-        );
-    }
 }
 
 pub(crate) fn draw_loading_zones(gizmos: &mut Gizmos, world: &ae::World, zones: &[LoadingZone]) {
@@ -581,19 +462,6 @@ pub(crate) fn draw_player_debug(
         let a = w2(world, ae::Vec2::new(x0, meter_y));
         let b = w2(world, ae::Vec2::new(x0 + 7.0, meter_y));
         gizmos.line_2d(a, b, color);
-    }
-}
-
-pub(crate) fn draw_moving_platform_debug(
-    gizmos: &mut Gizmos,
-    world: &ae::World,
-    moving_platforms: &[ambition::actors::world::platforms::MovingPlatformState],
-) {
-    for platform in moving_platforms {
-        let aabb = platform.aabb();
-        draw_aabb(gizmos, world, aabb, blue());
-        let center = w2(world, aabb.center());
-        draw_arrow(gizmos, center, center + BVec2::new(44.0, 0.0), blue());
     }
 }
 
@@ -912,18 +780,5 @@ pub(crate) fn draw_projectile_debug<'a>(
     }
     for kin in enemy_bodies {
         draw_aabb_styled(gizmos, world, kin.aabb(), enemy_color, developer_tools);
-    }
-}
-
-pub(crate) fn draw_rebound_vectors(gizmos: &mut Gizmos, world: &ae::World) {
-    for block in &world.blocks {
-        let ae::BlockKind::Rebound { impulse } = block.kind else {
-            continue;
-        };
-        draw_aabb(gizmos, world, block.aabb, orange());
-        let start = w2(world, block.aabb.center());
-        let direction = impulse.normalize_or(ae::Vec2::new(0.0, -1.0));
-        let end = start + engine_delta_to_bevy(direction * 70.0);
-        draw_arrow(gizmos, start, end, orange());
     }
 }

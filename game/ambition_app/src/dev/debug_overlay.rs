@@ -32,6 +32,16 @@ mod prims;
 pub use gizmos::*;
 pub use prims::*;
 
+// The engine-generic palette, primitives, and world layers live in the shared
+// debug-viz module now (`DebugVizPlugin` gives them to any game); this richer
+// overlay composes them with its game-specific layers below.
+pub(crate) use ambition::render::rendering::debug_viz::{
+    blue, cyan, draw_aabb, draw_aabb_styled, draw_arrow, draw_combat_volume, draw_hitbox_volume,
+    draw_micro_grid, draw_moving_platform_debug, draw_rebound_vectors, draw_room_bounds,
+    draw_surface_chains, draw_world_blocks, draw_world_grid, engine_delta_to_bevy, gray, green,
+    magenta, orange, red, w2, white_dim, with_alpha, yellow,
+};
+
 /// Marker for the pooled `Text2d` entities that render debug-box labels.
 #[derive(Component)]
 pub struct DebugOverlayLabel;

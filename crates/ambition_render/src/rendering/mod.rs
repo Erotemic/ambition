@@ -26,10 +26,14 @@
 //!   ([`spawn_parallax_layers`], [`sync_parallax_layers`]).
 //! - [`camera`] — player-following camera with eased zoom around
 //!   encounter transitions ([`camera_follow`]).
+//! - [`debug_viz`] — the engine-generic F1 debug gizmo layers (world
+//!   blocks, surface chains, read-model body/feature boxes) + the opt-in
+//!   [`debug_viz::DebugVizPlugin`] a game host adds to get them.
 
 pub mod actors;
 pub mod bubble_shield;
 mod camera;
+pub mod debug_viz;
 mod features;
 pub mod gate_portal_visuals;
 pub mod gravity_visuals;

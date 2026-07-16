@@ -156,6 +156,10 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     // rectangle — the exact divergence that made this demo assetless standalone
     // while it rendered fine inside the hosted app.
     app.add_plugins(ambition::presentation::PlatformerPresentationPlugin);
+    // The engine's opt-in F1 debug visualizations (collision blocks, surface
+    // chains + normals, read-model body/feature boxes). Shapes only — no dev
+    // HUD. Starts OFF; press F1 in-game.
+    app.add_plugins(ambition::render::rendering::debug_viz::DebugVizPlugin::default());
 
     // The windowed host uses the physical Kira backend. Mary-O's provider authors
     // a run+jump SFX voice and the "Support Theme" music cue; this wires the same

@@ -39,33 +39,81 @@ fn sanic_speedway_composes_through_the_umbrella() {
     let room = sanic_speedway();
     assert_eq!(room.id, SPEEDWAY_ROOM_ID);
 
-    // Solid floor + visible landmarks made it into the world.
-    assert!(
-        room.world.blocks.iter().any(|b| b.name == "speedway_floor"),
-        "the speedway floor block is present"
-    );
-    let floor = room
+    // The LDtk-authored course made it into the world: solid ground (on the
+    // tiled terrain path), the pit gap, the pad trio, one-way platforms, the
+    // hazards, the named monitors, and the badnik spawns.
+    let ground: Vec<_> = room
         .world
         .blocks
         .iter()
-        .find(|block| block.name == "speedway_floor")
-        .unwrap();
-    assert!(
-        matches!(&floor.id.source, ae::GeoSource::TileLayer { .. }),
-        "the procedural ground opts into the canonical tiled terrain path"
+        .filter(|b| {
+            matches!(b.kind, ae::BlockKind::Solid)
+                && (b.aabb.min.y - FLOOR_TOP).abs() < 0.5
+                && matches!(&b.id.source, ae::GeoSource::TileLayer { .. })
+        })
+        .collect();
+    assert_eq!(
+        ground.len(),
+        2,
+        "the ground is two tiled solids split by the pit"
     );
-    for expected in [
-        "start_gantry",
-        "distance_marker_1",
-        "speed_booster",
-        "finish_warning_spikes",
-        "finish_tower",
-    ] {
+    assert!(
+        ground
+            .iter()
+            .any(|b| (b.aabb.max.x - PIT_LEFT_X).abs() < 0.5)
+            && ground
+                .iter()
+                .any(|b| (b.aabb.min.x - PIT_RIGHT_X).abs() < 0.5),
+        "the pit gap sits exactly between the two ground slabs"
+    );
+    let pads: Vec<ae::Vec2> = room
+        .world
+        .blocks
+        .iter()
+        .filter_map(|b| match b.kind {
+            ae::BlockKind::Rebound { impulse } => Some(impulse),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        pads.contains(&ae::Vec2::new(1120.0, -260.0))
+            && pads.contains(&ae::Vec2::new(0.0, -1000.0))
+            && pads.contains(&ae::Vec2::new(700.0, -700.0)),
+        "the booster, the vertical spring, and the diagonal spring are authored: {pads:?}"
+    );
+    let one_ways = room
+        .world
+        .blocks
+        .iter()
+        .filter(|b| matches!(b.kind, ae::BlockKind::OneWay))
+        .count();
+    assert!(
+        one_ways >= 8,
+        "the gantry, marker platforms, and the two spring perches are one-ways: {one_ways}"
+    );
+    let hazards = room
+        .world
+        .blocks
+        .iter()
+        .filter(|b| matches!(b.kind, ae::BlockKind::Hazard))
+        .count();
+    assert!(
+        hazards >= 3,
+        "the pit floor and both spike strips are hazards: {hazards}"
+    );
+    for monitor in [monitors::SUPER_MONITOR, monitors::SPEED_MONITOR] {
         assert!(
-            room.world.blocks.iter().any(|b| b.name == expected),
-            "landmark '{expected}' is present"
+            room.world.blocks.iter().any(|b| b.name == monitor),
+            "monitor '{monitor}' is authored as a named block"
         );
     }
+    assert_eq!(room.enemy_spawns.len(), 4, "four badniks pace the flats");
+    assert!(
+        room.enemy_spawns
+            .iter()
+            .all(|spawn| spawn.name == badnik::BADNIK_DISPLAY_NAME),
+        "every enemy spawn resolves the badnik identity row"
+    );
     assert_eq!(
         room.metadata.visual_profile.parallax_theme.as_deref(),
         Some("skybridge"),
@@ -80,7 +128,7 @@ fn sanic_speedway_composes_through_the_umbrella() {
     assert!(
         room.debug_labels
             .iter()
-            .any(|label| label.payload.text == "1200"),
+            .any(|label| label.payload.text == "1608"),
         "distance labels make displacement measurable"
     );
 
@@ -155,15 +203,46 @@ fn sanic_speedway_composes_through_the_umbrella() {
         .iter()
         .find(|chain| chain.name == "sanic_floor_route")
         .expect("momentum bodies have a floor guide that can branch into the ramp");
-    assert_eq!(floor_route.points.len(), 4);
+    // The LDtk-authored floor route carries the two rolling hills as real
+    // polyline geometry: many samples, all rising FROM the flat floor (the
+    // solid ground beneath never pokes through).
+    assert!(
+        floor_route.points.len() > 40,
+        "the hills are sampled into the floor route: {} points",
+        floor_route.points.len()
+    );
+    assert!(
+        floor_route.points.iter().all(|p| p.y <= FLOOR_TOP + 1.0e-3),
+        "hills only rise from the floor; the route never dips below the ground"
+    );
+    assert!(
+        floor_route.points.iter().any(|p| p.y < FLOOR_TOP - 80.0),
+        "the tall hill genuinely rises"
+    );
+    assert!(
+        room.world
+            .chains
+            .iter()
+            .any(|chain| chain.name == "sanic_floor_runout"),
+        "the pit splits the ground into two authored route chains"
+    );
     assert!(
         room.world.validate_surface_junctions().is_empty(),
         "every local and cross-chain route port resolves to the same projected point: {:?}",
         room.world.validate_surface_junctions()
     );
+    let ramp_fork_vertex = floor_route
+        .points
+        .iter()
+        .position(|p| (p.x - 1740.0).abs() < 0.5)
+        .expect("the floor route keeps its ramp-fork anchor vertex");
     assert!(
         loop_chain.junctions.iter().any(|junction| {
-            junction.ports == vec![ae::SurfacePort::local(0), ae::SurfacePort::chain(1, 1)]
+            junction.ports
+                == vec![
+                    ae::SurfacePort::local(0),
+                    ae::SurfacePort::chain(1, ramp_fork_vertex),
+                ]
         }),
         "the tiled floor and the ramp are one steerable route junction"
     );
@@ -195,7 +274,7 @@ fn sanic_speedway_composes_through_the_umbrella() {
         "the completed loop must flow into its runout without a tangent edge: loop={loop_closure_tangent:?}, runout={runout_tangent:?}"
     );
 
-    let floor_top = floor.aabb.min.y;
+    let floor_top = FLOOR_TOP;
     assert!((ramp_start.y - floor_top).abs() < 1.0e-3);
     assert!(entry.y < floor_top - 60.0, "the loop is visibly raised");
     assert!((exit.y - floor_top).abs() < 1.0e-3);
@@ -700,7 +779,14 @@ fn floor_route_steering_enters_the_ramp_without_jumping() {
         .position(|chain| chain.name == "sanic_floor_route")
         .expect("the speedway owns a momentum floor route");
     let floor = &room.world.chains[floor_index];
-    let branch_s = floor.arc_at_vertex(1);
+    // The ramp-fork junction vertex is located by POSITION: the hills give the
+    // floor route many vertices before it, so a fixed index would drift.
+    let branch_vertex = floor
+        .points
+        .iter()
+        .position(|p| (p.x - 1740.0).abs() < 0.5)
+        .expect("the floor route has its ramp-fork anchor vertex");
+    let branch_s = floor.arc_at_vertex(branch_vertex);
     let params = ae::MomentumParams {
         ground_accel: 0.0,
         brake: 0.0,

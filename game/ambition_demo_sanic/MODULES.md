@@ -6,10 +6,12 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`badnik`](src/badnik.rs) | The speedway badnik — a stompable, roll-through-able walker, pure content. |
 | [`ball_dash`](src/ball_dash.rs) | **The ball dash (spin dash)** — Track S's one new verb. |
+| [`monitors`](src/monitors.rs) | Monitor boxes — Sanic's power-up crates, pure content on two engine seams. |
 | [`provider`](src/provider.rs) | The Sanic experience provider. |
 
-_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

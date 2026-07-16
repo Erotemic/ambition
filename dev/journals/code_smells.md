@@ -530,3 +530,28 @@ gate; solids do not). Found during the speedway bug recon
 bugs). Not player-visible today because the spikes reset first, but any chain
 routed past a solid wall will exhibit it. Fix belongs with the surface-momentum
 contact rework, not a point patch.
+
+**14. Axis-swept walkers ignore chain terrain (2026-07-16).** Enemy walkers
+(`Wanderer` and kin) integrate against `World::blocks` only; `SurfaceChain`
+terrain is invisible to them. On the expanded Sanic speedway the rolling hills
+are chain geometry over a flat solid, so a badnik placed on a hill would pace
+the flat ground INSIDE the hill visual. Worked around by authoring
+`EnemySpawn`s only on flat stretches (`tools/author_speedway_ldtk.py` notes
+it). The real fix is a chain-aware ground probe for axis bodies — the inverse
+of smell #13's gap.
+
+**15. IntGrid lowering erases authored block names (2026-07-16).**
+`area create` lowers `Solid`/`OneWayPlatform`/`BlinkWall` entities into
+IntGrid paint, and the rect-merge reconstruction names blocks "ldtk solid"/
+"ldtk one-way" — the authored `name` is gone. Anything that identifies blocks
+by name (Sanic's monitors, Mary-O-style reactive blocks, the demo's tiled
+ground re-id) must either stay an ENTITY instance (`entity add` post-pass, as
+the monitors do) or re-derive identity positionally (as the speedway ground
+re-id does). If named gameplay blocks become common, the lowering should
+carry names into per-cell metadata or skip named entities.
+
+**Addendum to #13 (2026-07-16):** the Sanic monitor boxes make the riding
+pass-through player-visible — an un-rolled runner passes through a monitor's
+26px box (its break rule fires only on stomp/roll overlap, so gameplay is
+coherent, but the box reads as intangible at walking speed). Same fix locus:
+the riding-side contact rework.

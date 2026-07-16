@@ -12,7 +12,10 @@
 
 use ambition::engine_core as ae;
 
-use crate::{sanic_speedway, LOOP_CLOSURE_POINT_INDEX, LOOP_ENTRY_POINT_INDEX, LOOP_SEGMENTS};
+use crate::{
+    sanic_speedway, FLOOR_TOP, LOOP_CLOSURE_POINT_INDEX, LOOP_ENTRY_POINT_INDEX, LOOP_SEGMENTS,
+    PIT_LEFT_X, PIT_RIGHT_X,
+};
 
 /// The rig gravity every momentum test in this crate uses (60 Hz, y-down).
 const GRAVITY: f32 = 1450.0;
@@ -48,6 +51,9 @@ struct Sample {
     /// `Some((surface, arc, v_t))` while riding.
     ride: Option<(ae::SurfaceRef, f32, f32)>,
     lane: i8,
+    /// The kernel's world-hazard gate fired this tick (the game layer would
+    /// respawn the body; the probe records the fact).
+    reset: bool,
 }
 
 /// A traced surface-momentum body stepped through the production kernel —
@@ -117,7 +123,7 @@ impl Probe {
     /// One 60 Hz kernel tick under the standard downward gravity frame.
     fn step(&mut self, world: &ae::World, steer: ae::Vec2, jump: bool) {
         let mut clusters = self.scratch.as_mut();
-        ae::step_motion(
+        let result = ae::step_motion(
             &mut self.model,
             &mut clusters,
             ae::MotionStepContext {
@@ -146,6 +152,7 @@ impl Probe {
             vel: self.scratch.kinematics.vel,
             ride,
             lane: m.depth_lane,
+            reset: result.events.reset,
         });
     }
 
@@ -437,20 +444,23 @@ fn oracle_route_bias_isolation_held_up_reverse_rider_exits_after_one_lap() {
 fn oracle_flat_floor_landings_attach_to_the_route_chain_not_the_block() {
     let room = sanic_speedway();
     let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    let runout_idx = chain_index(&room.world, "sanic_floor_runout");
 
-    // Every drop point has clear sky down to the flat floor. (A drop above
-    // the raised structure belongs to Oracle G: since airborne collision went
-    // lane-blind it lands on the raised track itself, not the floor.)
+    // Every drop point has clear sky down to the ground route — clear of the
+    // one-way platforms (real landings since the momentum body learned to use
+    // them) and of the raised loop structure (Oracle G territory). Drops onto
+    // the hills still land on the ROUTE chain: the hills ARE the floor route.
     for (x, vx) in [
-        (300.0, 0.0),
-        (300.0, 250.0),
-        (900.0, -250.0),
-        (1200.0, 0.0),
-        (1500.0, 250.0),
+        (400.0, 0.0),
+        (480.0, 250.0),
+        (1200.0, -250.0),
+        // 1460, not 1500: the super monitor's lid at ~1490 is a REAL solid.
+        (1460.0, 0.0),
         (3300.0, 250.0),
+        (5600.0, 0.0),
     ] {
         let mut probe = Probe::airborne(
-            ae::Vec2::new(x, 520.0),
+            ae::Vec2::new(x, 480.0),
             ae::Vec2::new(vx, 0.0),
             0,
             sanic_params(),
@@ -465,9 +475,9 @@ fn oracle_flat_floor_landings_attach_to_the_route_chain_not_the_block() {
             ae::SurfaceMotion::Riding {
                 on: ae::SurfaceRef::Chain(c),
                 ..
-            } if c == floor_idx => {}
+            } if c == floor_idx || c == runout_idx => {}
             other => panic!(
-                "drop at x={x} vx={vx}: expected to land on the floor ROUTE CHAIN \
+                "drop at x={x} vx={vx}: expected to land on a ground ROUTE CHAIN \
                  (junction steering lives there); attached to {other:?} instead\n{}",
                 dump_tail(&probe.trace, 15)
             ),
@@ -859,11 +869,12 @@ fn oracle_drop_onto_the_overpass_lands_on_the_raised_track() {
     let room = sanic_speedway();
     let loop_idx = chain_index(&room.world, "sanic_loop");
 
-    // Straight drop above the post-loop overpass/descent. Under the old
+    // Straight drop above the post-loop descent (x=2700 keeps clear sky: the
+    // marker platform at ~2600 is a REAL landing now). Under the old
     // strict-lane rule a base-lane body fell THROUGH this visibly solid
     // foreground track to the floor beneath; lane-blind collision catches it.
     let mut probe = Probe::airborne(
-        ae::Vec2::new(2600.0, 520.0),
+        ae::Vec2::new(2700.0, 520.0),
         ae::Vec2::ZERO,
         0,
         sanic_params(),
@@ -882,5 +893,280 @@ fn oracle_drop_onto_the_overpass_lands_on_the_raised_track() {
         "a drop onto the overpass must land on the raised route: {:?}\n{}",
         probe.motion(),
         dump_tail(&probe.trace, 15)
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Oracle H — the expanded course: hills, platforms, springs, and the pit.
+//
+// The 2026-07-16 course expansion (LDtk-authored level) added rolling hills,
+// one-way platforms, a vertical + a diagonal spring, monitors, badniks, and a
+// hazard pit. These gates pin the layout promises: every platform is either
+// genuinely jumpable or spring-served, springs actually launch a rider, the
+// hills flow at speed, and the pit is exactly as lethal as authored.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Interpolated ground-route height under `x` (the hills are real geometry,
+/// so "the ground" is the chain surface, not the flat slab top).
+fn ground_y_at(room: &ambition::world::rooms::RoomSpec, x: f32) -> f32 {
+    let mut best = f32::MAX;
+    for name in ["sanic_floor_route", "sanic_floor_runout"] {
+        let chain = &room.world.chains[chain_index(&room.world, name)];
+        for pair in chain.points.windows(2) {
+            let (a, b) = (pair[0], pair[1]);
+            if (a.x..=b.x).contains(&x) && (b.x - a.x) > 1.0e-3 {
+                let t = (x - a.x) / (b.x - a.x);
+                best = best.min(a.y + (b.y - a.y) * t);
+            }
+        }
+    }
+    best
+}
+
+#[test]
+fn oracle_every_platform_is_jumpable_or_spring_served() {
+    let room = sanic_speedway();
+    let params = sanic_params();
+    // Ballistic jump apex under the rig gravity, with a landing margin.
+    let reachable_lift = params.jump_speed * params.jump_speed / (2.0 * GRAVITY) - 15.0;
+    for block in &room.world.blocks {
+        if !matches!(block.kind, ae::BlockKind::OneWay) {
+            continue;
+        }
+        let center_x = (block.aabb.min.x + block.aabb.max.x) * 0.5;
+        let lift = ground_y_at(&room, center_x) - block.aabb.min.y;
+        let spring_served = room.world.blocks.iter().any(|pad| {
+            matches!(pad.kind, ae::BlockKind::Rebound { impulse } if impulse.y <= -600.0)
+                && pad.aabb.min.x < block.aabb.max.x + 200.0
+                && pad.aabb.max.x > block.aabb.min.x - 200.0
+                && pad.aabb.min.y > block.aabb.min.y
+        });
+        assert!(
+            lift <= reachable_lift || spring_served,
+            "platform at ({:.0},{:.0}) lifts {lift:.0}px — beyond the {reachable_lift:.0}px \
+             jump apex and no spring serves it",
+            block.aabb.min.x,
+            block.aabb.min.y
+        );
+    }
+}
+
+#[test]
+fn oracle_a_floor_jump_lands_on_a_marker_platform() {
+    let room = sanic_speedway();
+    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    let floor = &room.world.chains[floor_idx];
+    // Stand on the flat floor beneath marker platform 2 (top y=528, lift 144
+    // — inside the ~169px apex) and jump straight up: the body passes through
+    // the platform from below (one-way) and lands ON its head coming down.
+    let (s, _) = floor.project(ae::Vec2::new(1608.0, FLOOR_TOP));
+    let mut probe = Probe::riding_chain(&room.world, floor_idx, s, 0.0, sanic_params());
+    probe.step(&room.world, ae::Vec2::ZERO, true);
+    for _ in 0..90 {
+        probe.step(&room.world, ae::Vec2::ZERO, false);
+    }
+    let landing = first_landing(&probe.trace).expect("the jump must land");
+    let on_platform = matches!(
+        landing.ride,
+        Some((ae::SurfaceRef::Block(i), ..))
+            if matches!(room.world.blocks[i].kind, ae::BlockKind::OneWay)
+    );
+    assert!(
+        on_platform,
+        "a full jump under a marker platform lands on the platform: {}\n{}",
+        fmt_sample(landing),
+        dump_tail(&probe.trace, 15)
+    );
+}
+
+#[test]
+fn oracle_the_vertical_spring_lifts_a_slow_walker_to_the_perch() {
+    let room = sanic_speedway();
+    let runout_idx = chain_index(&room.world, "sanic_floor_runout");
+    let runout = &room.world.chains[runout_idx];
+    // Walk onto the vertical spring (impulse (0,-1000)) at a stroll: the
+    // launch keeps the walk speed, rises past the 256px perch lift (a plain
+    // jump cannot reach it), and comes down on the perch.
+    let (s, _) = runout.project(ae::Vec2::new(4700.0, FLOOR_TOP));
+    let mut probe = Probe::riding_chain(&room.world, runout_idx, s, 100.0, sanic_params());
+    let mut peak = f32::MAX;
+    for _ in 0..150 {
+        probe.step(&room.world, ae::Vec2::ZERO, false);
+        peak = peak.min(probe.pos().y);
+        if probe.trace.len() > 5 && probe.riding() {
+            break;
+        }
+    }
+    assert!(
+        peak < FLOOR_TOP - 260.0,
+        "the spring must carry the walker past the perch lift: peak {peak}"
+    );
+    let landing = first_landing(&probe.trace).expect("the spring arc must land");
+    let on_perch = matches!(
+        landing.ride,
+        Some((ae::SurfaceRef::Block(i), ..))
+            if matches!(room.world.blocks[i].kind, ae::BlockKind::OneWay)
+                && (room.world.blocks[i].aabb.min.y - 416.0).abs() < 0.5
+    );
+    assert!(
+        on_perch,
+        "the walker lands on the spring perch: {}\n{}",
+        fmt_sample(landing),
+        dump_tail(&probe.trace, 15)
+    );
+}
+
+#[test]
+fn oracle_the_diagonal_spring_flings_the_runner_up_forward() {
+    let room = sanic_speedway();
+    let runout_idx = chain_index(&room.world, "sanic_floor_runout");
+    let runout = &room.world.chains[runout_idx];
+    let (s, _) = runout.project(ae::Vec2::new(5170.0, FLOOR_TOP));
+    let mut probe = Probe::riding_chain(&room.world, runout_idx, s, 150.0, sanic_params());
+    for _ in 0..150 {
+        probe.step(&room.world, ae::Vec2::ZERO, false);
+        if probe.trace.len() > 5 && probe.riding() {
+            break;
+        }
+    }
+    let launched = probe
+        .trace
+        .iter()
+        .any(|sample| sample.ride.is_none() && sample.vel.x > 600.0 && sample.vel.y < -500.0);
+    assert!(
+        launched,
+        "the diagonal pad launches up-forward\n{}",
+        dump_tail(&probe.trace, 15)
+    );
+    let landing = first_landing(&probe.trace).expect("the diagonal arc must land");
+    assert!(
+        landing.pos.x > 5350.0,
+        "the fling carries the runner forward: {}",
+        fmt_sample(landing)
+    );
+}
+
+#[test]
+fn oracle_the_pit_swallows_a_walker_and_a_speeding_jump_clears_it() {
+    let room = sanic_speedway();
+    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    let floor = &room.world.chains[floor_idx];
+
+    // A stroll off the west lip drops into the pit and touches the hazard
+    // floor: the kernel raises its reset event (the game layer respawns).
+    let (s, _) = floor.project(ae::Vec2::new(PIT_LEFT_X - 40.0, FLOOR_TOP));
+    let mut probe = Probe::riding_chain(&room.world, floor_idx, s, 250.0, sanic_params());
+    let mut entered_pit = false;
+    let mut reset_in_pit = false;
+    for _ in 0..240 {
+        probe.step(&room.world, ae::Vec2::X, false);
+        let pos = probe.pos();
+        let in_pit = pos.x > PIT_LEFT_X && pos.x < PIT_RIGHT_X && pos.y > FLOOR_TOP;
+        entered_pit |= in_pit;
+        if in_pit && probe.trace.last().is_some_and(|sample| sample.reset) {
+            reset_in_pit = true;
+            break;
+        }
+    }
+    assert!(entered_pit, "a walker falls into the pit");
+    assert!(
+        reset_in_pit,
+        "the pit hazard raises the kernel reset event\n{}",
+        dump_tail(&probe.trace, 10)
+    );
+
+    // A speeding runner who jumps at the lip sails over the 256px gap and
+    // continues on the east ground.
+    let (s, _) = floor.project(ae::Vec2::new(PIT_LEFT_X - 400.0, FLOOR_TOP));
+    let mut probe = Probe::riding_chain(&room.world, floor_idx, s, 900.0, sanic_params());
+    let mut jumped = false;
+    for _ in 0..240 {
+        let jump = !jumped && probe.pos().x > PIT_LEFT_X - 80.0 && probe.riding();
+        if jump {
+            jumped = true;
+        }
+        probe.step(&room.world, ae::Vec2::X, jump);
+        if probe.pos().x > PIT_RIGHT_X + 300.0 {
+            break;
+        }
+    }
+    assert!(jumped, "the runner reached the lip riding and jumped");
+    assert!(
+        probe.pos().x > PIT_RIGHT_X + 200.0 && probe.pos().y < FLOOR_TOP + 1.0,
+        "a jump at speed clears the pit onto the east ground: {:?}\n{}",
+        probe.pos(),
+        dump_tail(&probe.trace, 15)
+    );
+}
+
+#[test]
+fn oracle_hills_flow_without_pins_or_flapping() {
+    let room = sanic_speedway();
+    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    // Run the hills from the start, held right: momentum carries over both
+    // crests (brief airborne hops at speed are physical) with no position
+    // pins and no attach/shed flapping, reaching the booster approach.
+    let mut probe = Probe::riding_chain(&room.world, floor_idx, 180.0, 300.0, sanic_params());
+    for _ in 0..300 {
+        probe.step(&room.world, ae::Vec2::X, false);
+        if probe.pos().x > 1600.0 {
+            break;
+        }
+    }
+    assert!(
+        probe.pos().x > 1600.0,
+        "held-right crosses both hills to the booster approach\n{}",
+        dump_tail(&probe.trace, 20)
+    );
+    assert!(
+        find_pin(&probe.trace).is_none(),
+        "no position pin crossing the hills\n{}",
+        dump_tail(&probe.trace, 25)
+    );
+    assert!(
+        find_flapping(&probe.trace).is_none(),
+        "no ride-state flapping crossing the hills\n{}",
+        dump_tail(&probe.trace, 25)
+    );
+}
+
+#[test]
+fn oracle_full_course_run_reaches_the_finish() {
+    let room = sanic_speedway();
+    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    // The showcase line: hold Up+Right the whole way (hills → booster → ramp
+    // → ONE loop lap → runout), jump the pit at the lip and hop the spike
+    // strip. The run must reach the finish approach with no hazard reset
+    // (a reset shows as a giant backwards teleport to spawn).
+    let mut probe = Probe::riding_chain(&room.world, floor_idx, 180.0, 200.0, sanic_params());
+    let steer = ae::Vec2::new(1.0, -1.0);
+    let mut jumped_pit = false;
+    let mut jumped_spikes = false;
+    let mut best_x: f32 = 0.0;
+    for _ in 0..1800 {
+        let x = probe.pos().x;
+        let jump_now = (!jumped_pit && x > PIT_LEFT_X - 90.0 && x < PIT_LEFT_X && probe.riding())
+            || (!jumped_spikes && x > 5540.0 && x < 5640.0 && probe.riding());
+        if jump_now && x < PIT_LEFT_X {
+            jumped_pit = true;
+        } else if jump_now {
+            jumped_spikes = true;
+        }
+        probe.step(&room.world, steer, jump_now);
+        assert!(
+            !probe.trace.last().is_some_and(|sample| sample.reset),
+            "the showcase line must never trip a hazard reset (x={:.0})\n{}",
+            probe.pos().x,
+            dump_tail(&probe.trace, 20)
+        );
+        best_x = best_x.max(probe.pos().x);
+        if best_x > 6100.0 {
+            break;
+        }
+    }
+    assert!(
+        best_x > 6100.0,
+        "the scripted line reaches the finish approach: best x {best_x}\n{}",
+        dump_tail(&probe.trace, 30)
     );
 }

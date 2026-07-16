@@ -772,15 +772,10 @@ pub(super) fn spawn_boss_with_overrides(
             state: ambition_characters::brain::BossPatternState::default(),
         },
     );
-    // Bosses spawn with an offensive ActionSet — Bolt ranged +
-    // empty special slot. Per-boss specials (including GNU-ton's
-    // apple rain) are now emitted by `tick_boss_brains_system` via
-    // direct `MessageWriter<ActorActionMessage>` writes, looking up
-    // the spec through `boss_special_for_profile`. Keeping
-    // `special: None` here prevents the generic
-    // `emit_brain_action_messages` resolver from emitting a
-    // duplicate Special message that would double-fire the
-    // consumer.
+    // Bosses keep the ordinary ranged baseline, but their profile-driven
+    // strikes and content techniques live in the per-profile ActorMoveset built
+    // below. The boss brain publishes BossAttackIntent directly, so the generic
+    // one-slot ActionSet special route stays empty and cannot double-trigger it.
     let _ = encounter_id; // resolved upstream via `boss.behavior`
     let boss_action_set = ambition_characters::brain::ActionSet {
         ranged: Some(ambition_characters::brain::RangedActionSpec::Bolt {
@@ -859,7 +854,7 @@ pub(super) fn spawn_boss_with_overrides(
     // special — runs through the SHARED moveset runtime (one move per profile), so the
     // boss's melee/special path is the actor's, retiring both `sync_boss_strike_hitboxes`
     // and `dispatch_boss_special` (§A1). Built from the capability repertoire.
-    let boss_special_moves = crate::features::boss_attack_moveset(
+    let boss_attack_moves = crate::features::boss_attack_moveset(
         &boss_capability,
         &boss_attack_behavior,
         boss_attack_combat_size,
@@ -877,7 +872,7 @@ pub(super) fn spawn_boss_with_overrides(
         ambition_characters::brain::BossAttackIntent::default(),
         boss_capability,
     ));
-    if let Some(moveset) = boss_special_moves {
+    if let Some(moveset) = boss_attack_moves {
         entity.insert(moveset);
     }
     // Archetype swap AS2: the aerial actor movement cluster (18 ancillary body

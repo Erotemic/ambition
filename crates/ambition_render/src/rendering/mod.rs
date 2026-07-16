@@ -295,9 +295,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 actors::animate_bosses,
                 // HazardColumn vertical-column visual — yellow during
                 // telegraph, red during strike. Runs after
-                // `animate_bosses` so it can read the boss's
-                // `BossAttackState` after the brain has populated it
-                // upstream.
+                // `animate_bosses` so it can read the move-derived
+                // `BossAttackState` read model upstream.
                 actors::manage_gradient_lane_visual,
                 // Gun-sword visual on the rider — composite pirate-
                 // on-shark spawns are two linked entities (mount +

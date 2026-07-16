@@ -419,43 +419,55 @@ fn gradient_sentinel_phase2_includes_all_advanced_specials() {
     }
 }
 
-/// Every Strike profile in the schedule that `is_special()` must
-/// have a registered SpecialActionSpec via
-/// `boss_special_for_profile`. Otherwise the boss tick emits no
-/// Special message for that beat and the strike silently does
-/// nothing — the worst kind of design bug because the telegraph
-/// still plays.
+/// Every content-technique profile in the authored pattern must become a
+/// sustained effect on the canonical boss moveset. This replaces the deleted
+/// direct-special resolver check: the move itself is now the executable wiring.
 #[test]
-fn gradient_sentinel_every_special_strike_has_a_registered_spec() {
+fn gradient_sentinel_every_special_strike_is_a_moveset_effect() {
+    use ambition_characters::brain::{BossCapability, BossPatternCfg};
+
     let behavior = BossBehaviorProfile::clockwork_warden();
-    let BossAttackPattern::Scripted {
-        phase1,
-        phase2,
-        enrage,
-        ..
-    } = behavior.attack_pattern.clone()
-    else {
-        panic!("expected Scripted");
-    };
-    for (label, pattern) in [
-        ("phase1", &phase1),
-        ("phase2", &phase2),
-        ("enrage", &enrage),
-    ] {
-        for step in &pattern.steps {
-            if let BossPatternStep::Strike { profile, .. } = step {
-                if profile.is_special() {
-                    assert!(
-                        boss_special_for_profile(profile).is_some(),
-                        "{label} strike of {profile:?} has no registered \
-                         SpecialActionSpec — boss_special_for_profile must \
-                         return Some so tick_boss_brains_system can emit \
-                         the Special message",
-                    );
-                }
-            }
-        }
+    let mut cfg = BossPatternCfg::neutral_test();
+    cfg.aggressiveness = 1.0;
+    cfg.pattern = behavior.attack_pattern.clone();
+    cfg.movement = behavior.movement.clone();
+    cfg.movement_phase2 = behavior.movement_phase2.clone();
+    cfg.movement_enrage = behavior.movement_enrage.clone();
+    cfg.strike_speed_scale = behavior.strike_speed_scale;
+    cfg.cycle_attack_windup = behavior.attack_windup.max(0.01);
+    cfg.cycle_attack_active = behavior.attack_active.max(0.01);
+    cfg.cycle_attack_cooldown = behavior.attack_cooldown.max(0.05);
+
+    let capability = BossCapability::from_cfg(&cfg);
+    let telegraph_windows = cfg.telegraph_windows();
+    let moveset = boss_attack_moveset(
+        &capability,
+        &behavior,
+        behavior
+            .combat_size
+            .unwrap_or(ambition_engine_core::Vec2::new(100.0, 100.0)),
+        &telegraph_windows,
+    )
+    .expect("the authored pattern has attack moves");
+
+    let mut special_count = 0;
+    for (profile, _) in &capability.specials {
+        let Some(key) = profile.special_key() else {
+            continue;
+        };
+        special_count += 1;
+        let move_spec = moveset
+            .0
+            .move_by_id(&profile.move_id())
+            .unwrap_or_else(|| panic!("missing move for special profile {profile:?}"));
+        let effect = move_spec
+            .windows
+            .iter()
+            .find_map(|window| window.sustain_effect.as_ref())
+            .unwrap_or_else(|| panic!("special move {key:?} has no sustained effect"));
+        assert_eq!(effect.key.as_str(), key);
     }
+    assert!(special_count > 0, "fixture must exercise content techniques");
 }
 
 /// Every Telegraph step must be immediately followed by a Strike
@@ -594,7 +606,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     // `tick_boss_brains_system` + `update_ecs_bosses` do in the
     // real schedule.
     use ambition_characters::brain::{
-        tick_boss_pattern, BossAttackState, BossPatternCfg, BossPatternContext, BossPatternState,
+        tick_boss_pattern, BossAttackIntent, BossPatternCfg, BossPatternContext, BossPatternState,
     };
     let mut cfg = BossPatternCfg::neutral_test();
     cfg.aggressiveness = 1.0;
@@ -609,7 +621,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
         .max(0.01);
     cfg.cycle_attack_cooldown = behavior.attack_cooldown.max(0.05);
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let dt = 1.0 / 60.0;
     let combat_tuning = FeatureCombatTuning::default();
     for _ in 0..600 {
@@ -629,7 +641,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
                 hp_max: 100,
             },
             &mut frame,
-            &mut attack_state,
+            &mut attack_intent,
         );
         let mut model = crate::features::MotionModel::default();
         // Integrate through the shared flight limb (the boss's production path):

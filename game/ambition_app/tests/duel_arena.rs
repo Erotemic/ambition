@@ -4,7 +4,7 @@
 //!
 //! This is the "start a room and see how the sim plays out" test for the advanced
 //! fighter brain. It builds the full `SandboxSim` app with `start_room =
-//! "duel_arena"`, so the room's normal load path (`spawn_room_feature_entities` →
+//! "duel_arena"`, so the room's normal registry-backed placement path →
 //! the content `RoomLoaded` stager) auto-stages the fight — a Perfect Cell-ular
 //! Automaton vs a robot copy of the player, both plain `Npc`s holding a mutual
 //! GRUDGE against each other (not a hostile faction). The grudge drives relational
@@ -181,7 +181,7 @@ fn observe_abilities(world: &mut World, id: &str, log: &mut AbilityLog) {
 /// sprite metadata never applied.
 /// Resetting the room must RESET the duel fighters — they should be re-staged
 /// fresh (full HP, original spawn positions), not keep the mid-fight state. The
-/// reset warps to the start room and re-runs `spawn_room_feature_entities`, which
+/// reset warps to the start room and re-runs the registry-backed room staging, which
 /// re-stages the duel when the start room IS the duel arena (as here). Pins that a
 /// reset actually rebuilds the fighters rather than leaving the drained/displaced
 /// bodies in place.

@@ -1178,12 +1178,12 @@ fn tick_boss_pattern_via_state_machine(
         hp_current: (snapshot.health_fraction.clamp(0.0, 1.0) * 100.0).round() as i32,
         hp_max: 100,
     };
-    // The attack-state projection lives IN the pattern state; take it out to
-    // satisfy `tick_boss_pattern`'s separate `&mut`, then put it back. The boss
-    // tick reads `state.attack_state` afterward to mirror the ECS component.
-    let mut attack_state = core::mem::take(&mut state.attack_state);
-    super::tick_boss_pattern(cfg, state, &ctx, out, &mut attack_state);
-    state.attack_state = attack_state;
+    // The universal brain API has one generic control-frame output. Keep the
+    // boss-specific profile request as a transient cache on the pattern state so
+    // the ECS adapter can publish it without making `ActorControlFrame` boss-aware.
+    let mut attack_intent = core::mem::take(&mut state.attack_intent);
+    super::tick_boss_pattern(cfg, state, &ctx, out, &mut attack_intent);
+    state.attack_intent = attack_intent;
 }
 
 // ===== Trait helpers =====

@@ -232,12 +232,11 @@ pub fn spawn_apple_rain_from_special_messages(
 //   "gradient_cascade"  → spawn N "slop" minions (small_lurker) at the
 //                       top of the arena on strike edge.
 //
-// All four follow the apple-rain consumer pattern: per-boss state
-// component, read `ActorActionMessage::Special { spec }` matched to
-// the technique key, advance/reset state from the message stream + the
-// boss's live `BossAttackState`. The brain emits the Special
-// messages directly from `tick_boss_brains_system` via
-// `boss_special_for_profile` (see `ambition_actors::features::bosses`).
+// All four run through the shared boss moveset: the brain publishes a
+// `BossAttackIntent`, `trigger_boss_attack_moves` starts the profile's move, and
+// the move's sustained `Effect { key }` events reach these content techniques.
+// Per-boss technique state still observes the move-derived `BossAttackState`
+// read model for telegraph/strike edges; there is no direct boss-special resolver.
 
 /// Per-boss state for the `overfit_volley` technique. Sampled positions
 /// are memorized during the telegraph window; the strike edge fires one

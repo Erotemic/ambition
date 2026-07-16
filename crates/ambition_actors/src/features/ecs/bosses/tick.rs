@@ -9,18 +9,6 @@ use ambition_characters::brain::{
 use ambition_engine_core::AabbExt;
 use bevy::prelude::{Commands, Entity};
 
-/// Copy the profile fields the trigger reads from the boss pattern brain's
-/// freshly-computed attack projection (`BossPatternState.attack_state`) onto its
-/// [`BossAttackIntent`] (fable review §A1 intent/projection split). This is what
-/// `trigger_boss_attack_moves` reads to start a move. Since §A1 slice 1b the ECS
-/// [`BossAttackState`] component is NO LONGER the intent source and is no longer
-/// written here — it is written SOLELY by `project_boss_attack_state_from_move` as a
-/// pure projection of the live `MovePlayback`.
-fn mirror_intent(attack_state: &BossAttackState, intent: &mut BossAttackIntent) {
-    intent.telegraph_profile = attack_state.telegraph_profile.clone();
-    intent.active_profile = attack_state.active_profile.clone();
-}
-
 /// G5 (R10.6): resolve a POSSESSING controller's attack input into the boss's
 /// fire intent — the controller→verb→move map.
 ///
@@ -520,7 +508,7 @@ pub fn tick_boss_brains_system(
             boss_front_wall_clearance(&feature_world, &boss, target_pos, front_wall_standoff);
 
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-        let attack_projection = match &mut *brain {
+        let attack_request = match &mut *brain {
             Brain::StateMachine(StateMachineCfg::BossPattern { cfg, state }) => {
                 let ctx = ambition_characters::brain::BossPatternContext {
                     encounter_phase: boss.status.encounter_phase,
@@ -536,37 +524,29 @@ pub fn tick_boss_brains_system(
                     hp_current: health.current(),
                     hp_max: health.max(),
                 };
-                let mut attack_state = core::mem::take(&mut state.attack_state);
+                let mut attack_intent = core::mem::take(&mut state.attack_intent);
                 ambition_characters::brain::tick_boss_pattern(
                     cfg,
                     state,
                     &ctx,
                     &mut frame,
-                    &mut attack_state,
+                    &mut attack_intent,
                 );
-                state.attack_state = attack_state;
-                &state.attack_state
+                state.attack_intent = attack_intent;
+                &state.attack_intent
             }
             _ => unreachable!("non-BossPattern brains returned above"),
         };
         control.0 = frame;
-        // Publish the brain's fire INTENT for the trigger (§A1 split): the profile the
-        // pattern wants this frame (telegraph edge → windup; strike → strike), read
-        // STRAIGHT from the brain's freshly-ticked `BossPatternState.attack_state`. The
-        // ECS `BossAttackState` component is no longer written here (§A1 slice 1b) — the
-        // projection derives it from the move this intent starts.
-        mirror_intent(attack_projection, &mut intent);
+        // Publish the brain's transient profile request. This component is the
+        // move trigger's input; `BossAttackState` remains a separate read-model
+        // projected solely from the move that this request starts.
+        intent.clone_from(attack_request);
 
-        // Boss specials run through the SHARED moveset now (fable review §A1): a
-        // multi-special boss (the Gradient Sentinel authors four; GNU-ton its apple
-        // rain) can't fit `ActionSet`'s single special slot, so its `ActionSet.special`
-        // is `None` and the boss carries an `ActorMoveset` (one sustain-move per key,
-        // built at spawn). Mirroring the brain's `active_profile` into the ECS
-        // `BossAttackState` above is the whole wiring — `trigger_boss_attack_moves`
-        // reads it and starts the move, whose per-frame `Effect{key}` fires the content
-        // technique through `dispatch_move_events`. One path for every boss special AND
-        // the actor's; the bespoke `dispatch_boss_special` is retired.
-        control.0 = frame;
+        // Geometry strikes and content-technique specials now share this path:
+        // the profile request starts one authored move, whose active windows own
+        // hit volumes or sustained `Effect{key}` emission. There is no direct
+        // boss-special dispatch beside the moveset runtime.
     }
 }
 

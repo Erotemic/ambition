@@ -339,7 +339,7 @@ pub fn rebuild_feature_view_index(
                 kind: FeatureVisualKind::Actor,
                 visible,
                 // Hit-flash reads the shared combat mirror; telegraph /
-                // active windows read `BossAttackState` (the brain's
+                // active windows read `BossAttackState` (the move-derived
                 // source of truth, already a component).
                 flash: combat.hit_flash > 0.0
                     || attack_state.telegraph_profile.is_some()

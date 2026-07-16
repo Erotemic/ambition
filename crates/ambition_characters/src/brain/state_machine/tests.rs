@@ -703,8 +703,8 @@ fn boss_pattern_via_state_machine_matches_the_direct_tick() {
     // fills the BossPattern fields (`boss_encounter_phase` / `world_size` /
     // `front_wall_clearance`) onto the shared snapshot, so the universal path must
     // produce EXACTLY what a direct `tick_boss_pattern` call does: same frame, same
-    // attack-state projection. This parity is what makes the fold behavior-neutral.
-    use crate::brain::boss_pattern::{tick_boss_pattern, BossAttackState, BossPatternContext};
+    // profile intent. This parity is what makes the fold behavior-neutral.
+    use crate::brain::boss_pattern::{tick_boss_pattern, BossAttackIntent, BossPatternContext};
 
     let cfg = crate::brain::BossPatternCfg::neutral_test();
     let phase = crate::brain::boss_pattern::BossEncounterPhase::Phase1; // an attacking phase
@@ -716,7 +716,7 @@ fn boss_pattern_via_state_machine_matches_the_direct_tick() {
     // Direct path (the pre-fold call).
     let mut direct_state = crate::brain::BossPatternState::default();
     let mut direct_frame = crate::actor::control::ActorControlFrame::neutral();
-    let mut direct_attack = BossAttackState::default();
+    let mut direct_attack = BossAttackIntent::default();
     let ctx = BossPatternContext {
         encounter_phase: phase,
         actor_pos,
@@ -757,31 +757,15 @@ fn boss_pattern_via_state_machine_matches_the_direct_tick() {
     assert_eq!(uni_frame.melee_pressed, direct_frame.melee_pressed);
     assert_eq!(uni_frame.special_pressed, direct_frame.special_pressed);
 
-    // Attack-state projection parity — it lives in the brain state on the
-    // universal path (the seam that lets `Brain::tick`'s `(snapshot, out)`
-    // signature carry no separate attack-state out).
+    // Boss-specific intent parity — cached in the pattern state because the
+    // universal `Brain::tick` output remains a boss-agnostic control frame.
     let StateMachineCfg::BossPattern {
         state: uni_state, ..
     } = &sm
     else {
         panic!("still a BossPattern brain");
     };
-    assert_eq!(
-        uni_state.attack_state.telegraph_profile.is_some(),
-        direct_attack.telegraph_profile.is_some()
-    );
-    assert_eq!(
-        uni_state.attack_state.active_profile.is_some(),
-        direct_attack.active_profile.is_some()
-    );
-    assert_eq!(
-        uni_state.attack_state.telegraph_remaining,
-        direct_attack.telegraph_remaining
-    );
-    assert_eq!(
-        uni_state.attack_state.active_remaining,
-        direct_attack.active_remaining
-    );
+    assert_eq!(uni_state.attack_intent, direct_attack);
 }
 
 #[test]

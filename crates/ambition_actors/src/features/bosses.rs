@@ -1,9 +1,8 @@
-//! Boss runtime glue for the actor simulation: the [`boss_special_for_profile`]
-//! resolver that maps a `BossAttackProfile::Special(key)` to a
-//! `SpecialActionSpec` (the open seam `tick_boss_brains_system` uses to emit
-//! `ActorActionMessage::Special`). The boss PROFILE/pattern vocabulary and
-//! sprite metrics now live in `ambition_characters::brain::boss_pattern` and
-//! `crate::boss_encounter::behavior` and are re-exported here for legacy paths.
+//! Boss runtime glue for constructing the shared data-driven attack moveset.
+//!
+//! Boss brains emit [`BossAttackProfile`] intent; `trigger_boss_attack_moves`
+//! starts the corresponding move, and `MovePlayback` is the sole attack timeline
+//! for geometry and content-technique specials alike.
 
 // Boss policy vocabulary (`BossMovementProfile`, `BossPatternStep`,
 // `BossPattern`, `BossAttackPattern`, `BossAttackProfile`,
@@ -46,44 +45,12 @@ pub use ambition_characters::brain::boss_pattern::{BossAttackProfile, BossMoveme
 // `canonical_boss_id_from` / `boss_animation_keys_for_profile` moved to
 // `crate::boss_encounter::behavior` (Stage 20 / A2 stretch): the boss
 // PROFILE vocabulary is machinery (data-driven via boss_profiles.ron);
-// this module keeps the named special-spec resolver + tuning consts.
+// this module keeps generic moveset construction and strike tuning.
 #[cfg(test)]
 use crate::boss_encounter::behavior::canonical_boss_id_from;
 pub use crate::boss_encounter::behavior::{
     boss_animation_keys_for_profile, ActorSpriteMetrics, BossBehaviorProfile, BossRewardProfile,
 };
-
-/// Boss-side resolver for `Special`-flavored `BossAttackProfile`s.
-///
-/// The Gradient Sentinel carries multiple distinct specials
-/// (MemorizedVolley, PitTrap, RotatingCross, MinionCascade) — more
-/// than the single `ActionSet::special` slot can express. Rather
-/// than grow `ActionSet` or `ActorControlFrame` for one boss, the
-/// `tick_boss_brains_system` calls this function when the brain
-/// commits to a special-flavored profile and writes the resulting
-/// `ActorActionMessage::Special { spec }` directly via
-/// `MessageWriter`. The boss's `ActionSet.special` is set to `None`
-/// for multi-special bosses so the generic resolver doesn't fire a
-/// duplicate.
-///
-/// `None` means the profile doesn't have a registered special spec
-/// — the consumer should treat that as a no-op (defensive against
-/// schedule edits that introduce a profile before the spec wiring
-/// lands).
-pub fn boss_special_for_profile(
-    profile: &ambition_characters::brain::BossAttackProfile,
-) -> Option<ambition_characters::brain::SpecialActionSpec> {
-    use ambition_characters::brain::SpecialActionSpec;
-    // Open seam: a `Special` beat carries its content-technique key; the
-    // brain emits it verbatim as `SpecialActionSpec::Special(key)` and the
-    // matching content Technique reads its own params + emits the effects.
-    // Ordinary (geometry) profiles never route through here — they damage
-    // via `boss_attack_damage` reading `BossAttackState` directly, so they
-    // map to `None`. The engine names no boss special.
-    profile
-        .special_key()
-        .map(|key| SpecialActionSpec::Special(key.to_string()))
-}
 
 /// Aggressor push for a boss strike (matches the old `sync_boss_strike_hitboxes`
 /// / `boss_attack_damage` strike arm). Carried on the geometry move's hit volume.
@@ -218,8 +185,6 @@ pub fn boss_attack_moveset(
 
 #[cfg(test)]
 mod boss_profile_data_tests;
-#[cfg(test)]
-mod boss_special_resolver_tests;
 #[cfg(test)]
 mod canonical_boss_id_tests;
 #[cfg(test)]

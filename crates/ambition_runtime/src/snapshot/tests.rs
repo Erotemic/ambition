@@ -1678,7 +1678,7 @@ fn a_resolved_component_that_names_missing_content_is_dropped_and_denies_lossles
 #[test]
 fn a_boss_brain_rewinds_its_seed_its_cursor_and_its_clocks() {
     use ambition_characters::brain::boss_pattern::{
-        BossMacroState, BossPatternCfg, BossPatternState, CyclePhase,
+        BossAttackProfile, BossMacroState, BossPatternCfg, BossPatternState, CyclePhase,
     };
     use ambition_characters::brain::{Brain, StateMachineCfg};
 
@@ -1702,6 +1702,7 @@ fn a_boss_brain_rewinds_its_seed_its_cursor_and_its_clocks() {
             retreat_pos: ae_vec(40.0, -8.0),
         };
         s.last_hp = Some(77);
+        s.attack_intent.active_profile = Some(BossAttackProfile::Strike("floor_slam".into()));
     }
     world.entity_mut(boss).insert(brain);
     let before = reg.hash_world(&world);
@@ -1726,6 +1727,11 @@ fn a_boss_brain_rewinds_its_seed_its_cursor_and_its_clocks() {
     assert_eq!(s.step_index, 3, "the step cursor rewound");
     assert_eq!(s.step_elapsed, 0.75);
     assert_eq!(s.last_hp, Some(77));
+    assert_eq!(
+        s.attack_intent,
+        Default::default(),
+        "the per-tick output cache is recomputed rather than restored",
+    );
     assert!(
         matches!(s.macro_state, BossMacroState::Retreat { retreat_pos, .. } if retreat_pos.x == 40.0),
         "a boss that rewinds into Retreat rewinds to the same retreat POSITION"

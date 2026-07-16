@@ -55,7 +55,10 @@ fn boss_pattern_brain_emits_neutral_in_non_attacking_phase() {
     )));
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent {
+        telegraph_profile: None,
+        active_profile: Some(BossAttackProfile::Strike("stale".to_string())),
+    };
     let mut out = crate::actor::control::ActorControlFrame::default();
     out.melee_pressed = true; // pre-poison
     out.special_pressed = true;
@@ -65,13 +68,13 @@ fn boss_pattern_brain_emits_neutral_in_non_attacking_phase() {
         &mut state,
         &ctx(BossEncounterPhase::Dormant, 1.0 / 60.0),
         &mut out,
-        &mut attack_state,
+        &mut attack_intent,
     );
 
     assert!(!out.melee_pressed, "dormant phase must not emit melee");
     assert!(!out.special_pressed, "dormant phase must not emit special");
-    assert!(attack_state.active_profile.is_none());
-    assert!(attack_state.telegraph_profile.is_none());
+    assert!(attack_intent.active_profile.is_none());
+    assert!(attack_intent.telegraph_profile.is_none());
 }
 
 #[test]
@@ -81,7 +84,7 @@ fn boss_pattern_resets_cursor_on_phase_change() {
     )));
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::default();
 
     // Tick a while in Phase1 to advance the cursor past step 0.
@@ -91,7 +94,7 @@ fn boss_pattern_resets_cursor_on_phase_change() {
             &mut state,
             &ctx(BossEncounterPhase::Phase1, 0.05),
             &mut out,
-            &mut attack_state,
+            &mut attack_intent,
         );
     }
     assert!(
@@ -107,7 +110,7 @@ fn boss_pattern_resets_cursor_on_phase_change() {
         &mut state,
         &ctx(BossEncounterPhase::Phase2, 0.05),
         &mut out,
-        &mut attack_state,
+        &mut attack_intent,
     );
     // After one tick of the new phase, the elapsed should be 0.05
     // and the index back at 0 (assuming step 0 is longer than dt).
@@ -122,7 +125,7 @@ fn boss_pattern_telegraph_step_updates_telegraph_profile_state() {
     )));
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::default();
 
     // First tick — step 0 is Telegraph with 0.5s.
@@ -131,26 +134,26 @@ fn boss_pattern_telegraph_step_updates_telegraph_profile_state() {
         &mut state,
         &ctx(BossEncounterPhase::Phase1, 0.1),
         &mut out,
-        &mut attack_state,
+        &mut attack_intent,
     );
 
     assert_eq!(
-        attack_state.telegraph_profile,
+        attack_intent.telegraph_profile,
         Some(BossAttackProfile::Strike("floor_slam".to_string()))
     );
-    assert!(attack_state.active_profile.is_none());
+    assert!(attack_intent.active_profile.is_none());
     assert!(!out.melee_pressed, "telegraph must not emit melee");
     assert!(!out.special_pressed, "telegraph must not emit special");
 }
 
 #[test]
-fn boss_pattern_strike_step_emits_melee_intent() {
+fn boss_pattern_strike_step_emits_profile_intent_only() {
     let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::Strike(
         "floor_slam".to_string(),
     )));
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::default();
 
     // Walk past the telegraph (0.5s) to land in the strike step.
@@ -160,33 +163,29 @@ fn boss_pattern_strike_step_emits_melee_intent() {
             &mut state,
             &ctx(BossEncounterPhase::Phase1, 0.1),
             &mut out,
-            &mut attack_state,
+            &mut attack_intent,
         );
     }
 
     assert_eq!(
-        attack_state.active_profile,
+        attack_intent.active_profile,
         Some(BossAttackProfile::Strike("floor_slam".to_string())),
         "should be in Strike step after walking past 0.5s telegraph",
     );
     assert!(
-        out.melee_pressed,
-        "non-special Strike profile must emit melee_pressed",
-    );
-    assert!(
-        !out.special_pressed,
-        "non-special Strike profile must NOT emit special_pressed",
+        !out.melee_pressed && !out.special_pressed,
+        "boss attacks enter the moveset through BossAttackIntent, not generic button edges",
     );
 }
 
 #[test]
-fn debris_rain_strike_emits_special_intent() {
+fn debris_rain_strike_emits_profile_intent_only() {
     let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::Special(
         "apple_rain".into(),
     )));
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::default();
 
     // Walk past the telegraph.
@@ -196,21 +195,17 @@ fn debris_rain_strike_emits_special_intent() {
             &mut state,
             &ctx(BossEncounterPhase::Phase1, 0.1),
             &mut out,
-            &mut attack_state,
+            &mut attack_intent,
         );
     }
 
     assert_eq!(
-        attack_state.active_profile,
+        attack_intent.active_profile,
         Some(BossAttackProfile::Special("apple_rain".into())),
     );
     assert!(
-        out.special_pressed,
-        "DebrisRain Strike must emit special_pressed (routes through SpecialActionSpec)",
-    );
-    assert!(
-        !out.melee_pressed,
-        "special-typed profile must NOT emit melee_pressed",
+        !out.melee_pressed && !out.special_pressed,
+        "content-technique specials also enter through BossAttackIntent",
     );
 }
 
@@ -222,7 +217,7 @@ fn boss_pattern_cycle_advances_through_phases() {
     cfg.cycle_attack_windup = 0.2;
     cfg.cycle_attack_active = 0.2;
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::default();
 
     // Cooldown → Windup edge.
@@ -231,10 +226,10 @@ fn boss_pattern_cycle_advances_through_phases() {
         &mut state,
         &ctx(BossEncounterPhase::Phase1, 0.25),
         &mut out,
-        &mut attack_state,
+        &mut attack_intent,
     );
     assert_eq!(state.cycle_phase, CyclePhase::Windup);
-    assert!(attack_state.telegraph_profile.is_some());
+    assert!(attack_intent.telegraph_profile.is_some());
     assert!(!out.melee_pressed);
 
     // Windup → Active edge.
@@ -243,11 +238,11 @@ fn boss_pattern_cycle_advances_through_phases() {
         &mut state,
         &ctx(BossEncounterPhase::Phase1, 0.25),
         &mut out,
-        &mut attack_state,
+        &mut attack_intent,
     );
     assert_eq!(state.cycle_phase, CyclePhase::Active);
-    assert!(attack_state.active_profile.is_some());
-    assert!(out.melee_pressed, "cycle Active phase must emit melee");
+    assert!(attack_intent.active_profile.is_some());
+    assert!(!out.melee_pressed && !out.special_pressed);
 }
 
 #[test]
@@ -370,7 +365,7 @@ fn world_arena_lateral_boss_preserves_world_y_during_approach() {
     let mut state = BossPatternState::default();
     state.last_phase = Some(BossEncounterPhase::Phase1);
     state.macro_state = BossMacroState::Approach { remaining_s: 3.0 };
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_boss_pattern(
         &cfg,
@@ -381,7 +376,7 @@ fn world_arena_lateral_boss_preserves_world_y_during_approach() {
             0.05,
         ),
         &mut out,
-        &mut attack_state,
+        &mut attack_intent,
     );
     assert!(
         out.velocity_target.x > 0.0,
@@ -412,18 +407,18 @@ fn strike_speed_scale_reduces_velocity_during_active_special() {
     cfg.strike_speed_scale = 0.1;
     // Sample 1: no active strike — full speed.
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     let mut ctx = ctx(BossEncounterPhase::Phase1, 1.0 / 60.0);
     ctx.target_pos = ae::Vec2::new(500.0, 0.0); // pull toward +x
     ctx.actor_pos = ae::Vec2::ZERO;
-    tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_state);
+    tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_intent);
     let vel_no_strike = out.velocity_target.length();
 
     // Sample 2: active special strike — expect ~10% of the speed.
-    // Manually set attack_state.active_profile to a special.
+    // Manually set attack_intent.active_profile to a special.
     let mut state2 = BossPatternState::default();
-    let mut attack_state2 = BossAttackState::default();
+    let mut attack_intent2 = BossAttackIntent::default();
     // Pre-poison so the brain detects the strike (cycle mode will
     // overwrite, but we test the scale on the active-emit path).
     let mut out2 = crate::actor::control::ActorControlFrame::neutral();
@@ -435,11 +430,11 @@ fn strike_speed_scale_reduces_velocity_during_active_special() {
                                    // Tick twice to walk Cooldown→Windup→Active.
     let mut ctx2 = ctx;
     ctx2.dt = 0.06;
-    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
-    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
-    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
+    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_intent2);
+    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_intent2);
+    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_intent2);
     assert_eq!(
-        attack_state2.active_profile,
+        attack_intent2.active_profile,
         Some(BossAttackProfile::Special("overfit_volley".into())),
         "should be in active overfit_volley strike for the test",
     );
@@ -490,33 +485,33 @@ fn strike_speed_scale_reduces_velocity_during_active_melee_too() {
 
     // Sample 1: no active strike — full speed.
     let mut state1 = BossPatternState::default();
-    let mut attack_state1 = BossAttackState::default();
+    let mut attack_intent1 = BossAttackIntent::default();
     let mut out1 = crate::actor::control::ActorControlFrame::neutral();
     tick_boss_pattern(
         &cfg,
         &mut state1,
         &baseline_ctx,
         &mut out1,
-        &mut attack_state1,
+        &mut attack_intent1,
     );
     let vel_no_strike = out1.velocity_target.length();
 
     // Sample 2: active MELEE strike — expect heavy slowdown.
     let mut state2 = BossPatternState::default();
-    let mut attack_state2 = BossAttackState::default();
+    let mut attack_intent2 = BossAttackIntent::default();
     let mut out2 = crate::actor::control::ActorControlFrame::neutral();
     let mut ctx2 = baseline_ctx;
     ctx2.dt = 0.06;
-    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
-    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
-    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
+    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_intent2);
+    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_intent2);
+    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_intent2);
     assert_eq!(
-        attack_state2.active_profile,
+        attack_intent2.active_profile,
         Some(BossAttackProfile::Strike("floor_slam".to_string())),
         "should be in active FloorSlam strike for the test",
     );
     assert!(
-        !attack_state2.active_profile.as_ref().unwrap().is_special(),
+        !attack_intent2.active_profile.as_ref().unwrap().is_special(),
         "FloorSlam must not register as a special — this test guards against `is_special()` accidentally widening to melee profiles"
     );
     let vel_in_strike = out2.velocity_target.length();
@@ -578,7 +573,7 @@ fn macro_ctx(actor_pos: ae::Vec2, target_pos: ae::Vec2, dt: f32) -> BossPatternC
 fn macro_state_transitions_to_approach_when_player_too_far() {
     let cfg = macro_cfg();
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     let actor_pos = ae::Vec2::new(640.0, 400.0);
     let target_pos = ae::Vec2::new(1_100.0, 400.0); // ~460 px away > too_far(400)
@@ -587,7 +582,7 @@ fn macro_state_transitions_to_approach_when_player_too_far() {
         &mut state,
         &macro_ctx(actor_pos, target_pos, 0.05),
         &mut out,
-        &mut attack_state,
+        &mut attack_intent,
     );
     assert!(
         matches!(state.macro_state, BossMacroState::Approach { .. }),
@@ -608,7 +603,7 @@ fn macro_state_transitions_to_approach_when_player_too_far() {
 fn macro_state_transitions_to_retreat_when_player_too_close() {
     let cfg = macro_cfg();
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     let actor_pos = ae::Vec2::new(640.0, 400.0);
     let target_pos = ae::Vec2::new(700.0, 400.0); // 60 px away < too_close(100)
@@ -617,7 +612,7 @@ fn macro_state_transitions_to_retreat_when_player_too_close() {
         &mut state,
         &macro_ctx(actor_pos, target_pos, 0.05),
         &mut out,
-        &mut attack_state,
+        &mut attack_intent,
     );
     assert!(
         matches!(state.macro_state, BossMacroState::Retreat { .. }),
@@ -639,7 +634,7 @@ fn macro_state_transitions_to_retreat_when_player_too_close() {
 fn macro_state_periodically_retreats_after_engage_max_duration() {
     let cfg = macro_cfg();
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     // Mid-range distance — no too_close / too_far triggers.
     let actor_pos = ae::Vec2::new(640.0, 400.0);
@@ -651,7 +646,7 @@ fn macro_state_periodically_retreats_after_engage_max_duration() {
             &mut state,
             &macro_ctx(actor_pos, target_pos, 0.5),
             &mut out,
-            &mut attack_state,
+            &mut attack_intent,
         );
     }
     assert!(
@@ -668,7 +663,7 @@ fn macro_state_approach_returns_to_engage_at_engage_distance() {
     let cfg = macro_cfg();
     let mut state = BossPatternState::default();
     state.macro_state = BossMacroState::Approach { remaining_s: 3.0 };
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     let actor_pos = ae::Vec2::new(640.0, 400.0);
     let target_pos = ae::Vec2::new(740.0, 400.0); // 100 px < engage(200)
@@ -677,7 +672,7 @@ fn macro_state_approach_returns_to_engage_at_engage_distance() {
         &mut state,
         &macro_ctx(actor_pos, target_pos, 0.05),
         &mut out,
-        &mut attack_state,
+        &mut attack_intent,
     );
     assert!(
         matches!(state.macro_state, BossMacroState::Engage),
@@ -694,7 +689,7 @@ fn macro_state_can_approach_even_when_player_is_close_if_retreat_disabled() {
     cfg.macro_tuning.approach_duration_s = 8.0;
     cfg.macro_tuning.hold_position_while_engaged = true;
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     let actor_pos = ae::Vec2::new(640.0, 400.0);
     let target_pos = ae::Vec2::new(700.0, 400.0); // close, but not yet overlapping
@@ -703,7 +698,7 @@ fn macro_state_can_approach_even_when_player_is_close_if_retreat_disabled() {
         &mut state,
         &macro_ctx(actor_pos, target_pos, 0.05),
         &mut out,
-        &mut attack_state,
+        &mut attack_intent,
     );
     assert!(
         matches!(state.macro_state, BossMacroState::Approach { .. }),
@@ -726,7 +721,7 @@ fn contact_chase_mode_does_not_need_too_far_trigger() {
     cfg.macro_tuning.approach_duration_s = 8.0;
     cfg.macro_tuning.hold_position_while_engaged = true;
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_boss_pattern(
         &cfg,
@@ -737,7 +732,7 @@ fn contact_chase_mode_does_not_need_too_far_trigger() {
             0.05,
         ),
         &mut out,
-        &mut attack_state,
+        &mut attack_intent,
     );
     assert!(
         matches!(state.macro_state, BossMacroState::Approach { .. }),
@@ -761,7 +756,7 @@ fn macro_state_holds_when_front_wall_is_inside_standoff() {
     cfg.macro_tuning.front_wall_standoff = 48.0;
     cfg.macro_tuning.hold_position_while_engaged = true;
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     let mut ctx = macro_ctx(
         ae::Vec2::new(640.0, 400.0),
@@ -769,7 +764,7 @@ fn macro_state_holds_when_front_wall_is_inside_standoff() {
         0.05,
     );
     ctx.front_wall_clearance = Some(32.0);
-    tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_state);
+    tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_intent);
     assert_eq!(state.macro_state, BossMacroState::Engage);
     assert_eq!(out.velocity_target, ae::Vec2::ZERO);
 }
@@ -780,7 +775,7 @@ fn approach_clamps_to_front_wall_standoff_before_collision() {
     cfg.macro_tuning.front_wall_standoff = 48.0;
     let mut state = BossPatternState::default();
     state.macro_state = BossMacroState::Approach { remaining_s: 3.0 };
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     // Keep the player past `too_far_distance` (400) so the boss
     // stays in Approach and actually reaches the front-wall clamp.
@@ -793,7 +788,7 @@ fn approach_clamps_to_front_wall_standoff_before_collision() {
         0.10,
     );
     ctx.front_wall_clearance = Some(60.0);
-    tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_state);
+    tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_intent);
     assert!(
         matches!(state.macro_state, BossMacroState::Approach { .. }),
         "player past too_far should keep the boss approaching; got {:?}",
@@ -836,7 +831,7 @@ fn idle_attack_chance_can_gate_rest_into_eye_beam() {
     });
     cfg.macro_tuning.idle_attack_chance_per_second = 100.0;
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_boss_pattern(
         &cfg,
@@ -847,10 +842,10 @@ fn idle_attack_chance_can_gate_rest_into_eye_beam() {
             0.11,
         ),
         &mut out,
-        &mut attack_state,
+        &mut attack_intent,
     );
     assert!(matches!(
-        attack_state.telegraph_profile,
+        attack_intent.telegraph_profile,
         Some(BossAttackProfile::Special(ref k)) if k == "eye_beam"
     ));
 }
@@ -861,7 +856,7 @@ fn macro_state_stays_engage_when_tuning_disabled() {
     let mut cfg = macro_cfg();
     cfg.macro_tuning = BossMacroTuning::disabled();
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     // Player very far — would normally trigger Approach.
     let actor_pos = ae::Vec2::new(0.0, 0.0);
@@ -872,7 +867,7 @@ fn macro_state_stays_engage_when_tuning_disabled() {
             &mut state,
             &macro_ctx(actor_pos, target_pos, 0.1),
             &mut out,
-            &mut attack_state,
+            &mut attack_intent,
         );
     }
     assert_eq!(
@@ -884,15 +879,15 @@ fn macro_state_stays_engage_when_tuning_disabled() {
 
 #[test]
 fn peaceful_brain_does_not_emit_attack_intent() {
-    // aggressiveness == 0 means the cursor still advances but the
-    // attack-intent emit gate stays closed.
+    // A peaceful brain may advance its authored cursor, but the typed attack
+    // request and the generic actor button edges must both stay neutral.
     let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::Strike(
         "floor_slam".to_string(),
     )));
     cfg.aggressiveness = 0.0;
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
-    let mut attack_state = BossAttackState::default();
+    let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::default();
     for _ in 0..10 {
         tick_boss_pattern(
@@ -900,11 +895,12 @@ fn peaceful_brain_does_not_emit_attack_intent() {
             &mut state,
             &ctx(BossEncounterPhase::Phase1, 0.1),
             &mut out,
-            &mut attack_state,
+            &mut attack_intent,
         );
     }
     assert!(!out.melee_pressed);
     assert!(!out.special_pressed);
+    assert_eq!(attack_intent, BossAttackIntent::default());
 }
 
 // ===== BossCapability / special_repertoire =====
@@ -1053,8 +1049,8 @@ fn bd1_strike(id: &str, duration: f32) -> BossPatternStep {
     }
 }
 
-fn bd1_active_key(attack_state: &BossAttackState) -> Option<String> {
-    attack_state
+fn bd1_active_key(attack_intent: &BossAttackIntent) -> Option<String> {
+    attack_intent
         .active_profile
         .as_ref()
         .map(|p| p.move_id().to_string())
@@ -1064,12 +1060,12 @@ fn bd1_tick(
     cfg: &BossPatternCfg,
     state: &mut BossPatternState,
     c: &BossPatternContext,
-) -> BossAttackState {
+) -> BossAttackIntent {
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
-    let mut attack_state = core::mem::take(&mut state.attack_state);
-    tick_boss_pattern(cfg, state, c, &mut frame, &mut attack_state);
-    state.attack_state = attack_state.clone();
-    attack_state
+    let mut attack_intent = core::mem::take(&mut state.attack_intent);
+    tick_boss_pattern(cfg, state, c, &mut frame, &mut attack_intent);
+    state.attack_intent = attack_intent.clone();
+    attack_intent
 }
 
 fn bd1_pattern(phase1: BossPattern) -> BossAttackPattern {
@@ -1253,7 +1249,7 @@ fn bd1_an_on_hit_interrupt_steals_the_beat_and_gives_it_back() {
     }
     assert_eq!(state.stance, None, "the stance popped");
     assert_eq!(
-        bd1_active_key(&state.attack_state).as_deref(),
+        bd1_active_key(&state.attack_intent).as_deref(),
         Some("slow_slam")
     );
     assert!(

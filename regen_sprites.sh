@@ -254,10 +254,10 @@ expected_files=(
     cut_rope_piano_spritesheet.png cut_rope_piano_spritesheet.ron
     cut_rope_rope_spritesheet.png cut_rope_rope_spritesheet.ron
     super_mary_o_spritesheet.png super_mary_o_spritesheet.ron
-    super_mary_o_tall_spritesheet.png super_mary_o_tall_spritesheet.ron
     generic_explosions_spritesheet.png generic_explosions_spritesheet.ron
     smirking_behemoth_boss_spritesheet.png smirking_behemoth_boss_spritesheet.ron
     stochastic_parrot_spritesheet.png stochastic_parrot_spritesheet.ron
+    stochastic_parrot_v2_spritesheet.png stochastic_parrot_v2_spritesheet.ron
     imperfect_cellular_automaton_spritesheet.png imperfect_cellular_automaton_spritesheet.ron
     # Review-config NPCs added to review_cues for full hall coverage.
     goblin_brute_hammer_spritesheet.png goblin_brute_hammer_spritesheet.ron
@@ -586,19 +586,15 @@ tackon_targets=(
     cut_rope_anvil
     cut_rope_piano
     cut_rope_rope
-    # Super Mary-O playable protagonist for the Mary-O demo (M-track).
-    # Its catalog row (game/ambition_demo_mary_o) references
+    # Super Mary-O playable protagonist for the SMB1 demo (M-track).
+    # Its catalog row (game/ambition_demo_smb1) references
     # sprites/super_mary_o_spritesheet.*; without this publish a fresh
     # clone renders the demo character as a colored rectangle.
     super_mary_o
-    super_mary_o_tall
-    # The milk-carton powerup pickup (M1). Rendered so its flat
-    # canonical can be copied into props/ below; the Mary-O demo's
-    # `WorldItemArt` draws it for the ?-block's milk `WorldItem`.
-    super_mary_o_milk_carton
     generic_explosions
     smirking_behemoth_boss
     stochastic_parrot
+    stochastic_parrot_v2
     imperfect_cellular_automaton
     # Phase 6 + bonus follow-up: every tack-on character listed by
     # `list-targets` now has a catalog entry; publish them all so the
@@ -677,9 +673,6 @@ held_prop_map=(
     "lasersword_with_guns:gunsword"
     "portal_gun_blue:portal_gun_blue"
     "portal_gun_orange:portal_gun_orange"
-    # Mary-O milk-carton pickup: the flat canonical loads at runtime as
-    # sprites/props/super_mary_o_milk_carton.png (the app's WorldItemArt).
-    "super_mary_o_milk_carton:super_mary_o_milk_carton"
 )
 for pair in "${held_prop_map[@]}"; do
     src_target="${pair%%:*}"
@@ -778,7 +771,7 @@ echo "  ok: ${#expected_files[@]} expected files present"
 # the runtime asset roots into target/ambition_publish/diagnostics so the game
 # bundle ships runtime artifacts only. This is what keeps the Rust
 # `shipped_runtime_roots_have_no_leaked_diagnostics` test green after a regen.
-# See docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md.
+# See docs/planning/engine/data-driven-sprites-and-characters.md.
 echo "==> Publish boundary: sweeping diagnostics out of runtime roots:"
 if command -v "$python_bin" >/dev/null 2>&1; then
     "$python_bin" "$repo_root/scripts/sweep_runtime_diagnostics.py" \
@@ -794,7 +787,7 @@ fi
 # Tier names match the runtime `TextureResolutionScale` enum (full / half /
 # quarter / potato) — the game's pack consumer selects the tier dir from the
 # active quality budget. `build.rs` bakes each tier's ultrapack.json. See
-# docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md (W2).
+# docs/planning/engine/data-driven-sprites-and-characters.md (W2).
 #
 # Efficient by construction: the sheets were rendered ONCE above, so each tier
 # reads that pool (`--from-rendered`) and downsamples each isolated frame to

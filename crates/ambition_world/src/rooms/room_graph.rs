@@ -139,9 +139,9 @@ impl RoomTransitionRequested {
 }
 
 /// Bevy message emitted when a room's contents finish STAGING — written by
-/// `spawn_room_feature_entities`, the one choke point every staging path
-/// flows through (initial session build, room transitions, sandbox reset,
-/// LDtk hot-reload restage). The JD4 seam for imperative per-room content
+/// the registry-aware room-placement choke point every staging path uses
+/// (initial session build, room transitions, sandbox reset, and LDtk
+/// hot-reload restage). The JD4 seam for imperative per-room content
 /// staging: a content system reads this instead of change-detecting the
 /// active room id or hooking the engine's spawn internals.
 ///

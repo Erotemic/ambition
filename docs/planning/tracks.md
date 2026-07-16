@@ -5,21 +5,16 @@ Jon's decisions. Historical tracks and completion narratives are not retained
 here. Focused demo/game work may proceed in parallel when it does not create a
 second engine path.
 
-## 0. One placement-lowering authority — run first
+## Completed prerequisite: one placement-lowering authority
 
-**State:** OPEN.
-
-- Thread the App-installed `PlacementLoweringRegistry` through initial session construction and reset.
-- Make activation, reset, transition, and restore call one registry-aware lowering function.
-- Delete the no-registry production helper; tests construct an explicit registry when necessary.
-- Add one equivalence test covering the room-entry paths supported at HEAD.
-
-**Exit:** no production code constructs a second lowering registry; reset and
-restore cannot diverge by interpreter set.
+`7d972b6` threaded the App-installed `PlacementLoweringRegistry` through initial
+session construction, reset, and LDtk hot reload; transition and restore already
+used it. The no-registry production helper was deleted, and a focused test proves
+room staging uses the caller-supplied authority.
 
 ## 1. Extract and consolidate the provider protocol
 
-**State:** OPEN after track 0 establishes the room-construction choke point.
+**State:** OPEN and unblocked. The completed prerequisite established the room-construction choke point.
 
 - Create the provider lifecycle crate (working name `ambition_platformer_provider`).
 - Move substantive implementation out of `crates/ambition/src/provider.rs`.
@@ -67,7 +62,9 @@ product shell.
 
 ## 5. Converge boss behavior onto moveset authority
 
-**State:** PARTIAL.
+**State:** PARTIAL. The brain no longer owns a second attack timing projection or
+direct special resolver; it emits transient profile intent and `MovePlayback` is
+the execution authority. Remaining work is the broader phase/action-family fold.
 
 Keep boss decision policy sophisticated, but make attack execution, timing,
 cancellation, motion locks, and semantic effects use the shared move/action
@@ -96,10 +93,10 @@ the visual joystick/button overlay and presentation dependencies.
 
 ## 8. Finish valuable render/read-model cleanup
 
-**State:** OPEN, bounded.
+**State:** OPEN, bounded. The confirmed dead `ambition_render` input/interaction/
+Leafwing dependencies were removed in `7d972b6`.
 
-Remove dead dependencies first. Add read-model fields only for mutable simulation
-facts whose direct observation violates the one-way seam. Do not manufacture a
+Add read-model fields only for mutable simulation facts whose direct observation violates the one-way seam. Do not manufacture a
 `SimView` copy of immutable authored world data merely to reduce dependency
 count.
 

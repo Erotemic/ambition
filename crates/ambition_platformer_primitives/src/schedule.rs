@@ -264,8 +264,8 @@ pub enum SandboxSet {
     /// chain (between `Progression` and `FeatureViewSync`) because the
     /// reset path despawns every `RoomScopedEntity` (including every
     /// `RoomVisual`) and every feature sim entity, flips the active
-    /// room, and re-spawns the start room's feature set via
-    /// `spawn_room_feature_entities` — all mutations the cache must
+    /// room, and re-lowers the start room's feature set through the
+    /// installed placement registry — all mutations the cache must
     /// observe before presentation reads it.
     ResetProcessing,
     /// Rebuild the presentation-facing feature-view cache after every

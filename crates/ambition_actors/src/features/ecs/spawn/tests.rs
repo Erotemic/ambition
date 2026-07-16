@@ -186,14 +186,9 @@ fn boss_spawn_attaches_brain_components() {
         }
         other => panic!("expected BossPattern brain, got {:?}", other),
     }
-    // ActionSet carries an offensive baseline: Bolt ranged + no
-    // special slot. The special slot is intentionally `None`
-    // because boss specials are now emitted directly by
-    // `tick_boss_brains_system` via `boss_special_for_profile`
-    // (see `content/features/bosses.rs`) — the generic resolver
-    // would otherwise fire a duplicate Special message with a
-    // stale or wrong spec. The spawn default must be
-    // hostile-capable for ranged so a brain-driven boss can act.
+    // ActionSet carries an ordinary Bolt ranged baseline. Profile-driven boss
+    // strikes use the separate per-profile ActorMoveset and BossAttackIntent,
+    // so the generic one-slot special route stays empty and cannot double-fire.
     assert!(
         matches!(
             action_set.ranged,
@@ -203,8 +198,8 @@ fn boss_spawn_attaches_brain_components() {
     );
     assert!(
         action_set.special.is_none(),
-        "boss ActionSet.special should be None — multi-special bosses \
-             route through tick_boss_brains_system's direct-write path; got {:?}",
+        "boss ActionSet.special should be None — profile-driven boss attacks \
+             route through BossAttackIntent and the shared moveset; got {:?}",
         action_set.special,
     );
 

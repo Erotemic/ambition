@@ -113,11 +113,10 @@ pub fn boss_anim_state_for(
     attack_state: &ambition_characters::brain::BossAttackState,
     brain: &ambition_characters::brain::Brain,
 ) -> crate::boss_encounter::sprites::BossAnimState {
-    // attack_active / attack_windup read the brain's
-    // BossAttackState (single source of truth) instead of
-    // mirror fields on BossRuntime. pattern_timer comes from
-    // the brain's BossPatternState; non-BossPattern brains
-    // (test fixtures) fall back to 0.0.
+    // attack_active / attack_windup read the move-derived
+    // BossAttackState read-model instead of mirror fields on BossRuntime.
+    // pattern_timer remains durable brain cursor state; non-BossPattern
+    // brains (test fixtures) fall back to 0.0.
     let pattern_timer = brain
         .boss_pattern_state()
         .map(|s| s.pattern_timer)

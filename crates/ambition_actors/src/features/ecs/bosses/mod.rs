@@ -10,11 +10,10 @@
 //! 2. [`tick_boss_brains_system`] — for every boss with a
 //!    `Brain::StateMachine(BossPattern)`, build a
 //!    [`BossPatternContext`], call [`tick_boss_pattern`], and
-//!    write the resulting [`ActorControlFrame`] + [`BossAttackState`].
-//!    `BossAttackState` is the single source of truth for boss
-//!    attack state — debug overlay, damage application, and
-//!    vulnerable-volume rendering all read from it via the pure
-//!    helpers in `content/features/boss_attack_geometry`.
+//!    publish [`ActorControlFrame`] plus transient [`BossAttackIntent`].
+//!    The matching move is the execution authority; [`BossAttackState`]
+//!    is projected from its `MovePlayback` for debug, animation,
+//!    damage, and vulnerable-volume consumers.
 //! 3. [`update_ecs_bosses`] — **integration only**. Reads
 //!    `ActorControl::0.desired_vel`, integrates the boss body via
 //!    `BossMut::integrate_body` (boss cluster view), syncs presentation mirrors,

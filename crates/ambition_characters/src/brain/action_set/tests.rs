@@ -6,11 +6,9 @@ fn special_key(key: &str) -> SpecialActionSpec {
 
 #[test]
 fn special_action_spec_round_trips_through_ron() {
-    // Validates the serde derive: boss special-attack tunings can now be
-    // authored in RON, so the boss-attack feel (shot speed, damage, cadence)
-    // is iterable without a ~10-minute sandbox recompile — the foundation for
-    // moving `boss_special_for_profile`'s hardcoded constants into
-    // `boss_profiles.ron` (elevated #1's named first slice).
+    // Validates the serde derive for content-technique action identifiers. The
+    // boss moveset now carries those identifiers as ordinary move effects, while
+    // other actors may still author the same generic SpecialActionSpec in RON.
     let spec = SpecialActionSpec::Special("eye_beam".to_string());
     let serialized = ron::to_string(&spec).expect("SpecialActionSpec should serialize to RON");
     let restored: SpecialActionSpec =

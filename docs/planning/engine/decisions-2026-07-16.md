@@ -91,11 +91,11 @@ questions from LOC counts or terminology alone.
 
 ## 3. Immediate correctness repairs (small, standalone; not campaigns)
 
-1. **Placement-lowering unification.** Verified fork at HEAD: session setup
+1. **Placement-lowering unification — COMPLETED in `7d972b6`.** The verified fork was: session setup
    (`ambition_actors::session::setup`) and session reset
    (`session::reset`) lower placements through a LOCAL
-   `PlacementLoweringRegistry::default()` built inside
-   `features::ecs::spawn::spawn_room_feature_entities`, while room transition
+   `PlacementLoweringRegistry::default()` built inside the now-deleted
+   `features::ecs::spawn::spawn_room_feature_entities` helper, while room transition
    (`world::rooms::load`) and snapshot restore (`runtime::snapshot::restore`)
    use the App-installed registry that `WorldPrepSchedulePlugin` populates
    synchronously at plugin build. This is plain drift, not a bootstrap
@@ -110,13 +110,13 @@ questions from LOC counts or terminology alone.
    interpreter at HEAD (the closed six-family schema — see deferred #1), so
    the bypass breaks the intended extension oracle and reset/restore parity
    rather than a currently-exercised extension.
-2. **Render dead-dep removals** (`ambition_interaction`, `ambition_input`,
-   vestigial optional `leafwing-input-manager`) — opportunistic, anytime,
-   essentially zero architectural risk.
+2. **Render dead-dep removals — COMPLETED in `7d972b6`.** Removed
+   `ambition_interaction`, `ambition_input`, and the vestigial optional
+   `leafwing-input-manager` from `ambition_render`.
 
 ## 4. Larger campaigns — agreed priority order
 
-1. Placement-lowering unification (repair #1 above — runs first).
+1. Placement-lowering unification (repair #1 above — completed in `7d972b6`).
 2. Extract + consolidate `ambition_platformer_provider` (accepted #2).
 3. N3.2/session-authority: retire process-global mirrors; prove BOTH gates of
    accepted #10.

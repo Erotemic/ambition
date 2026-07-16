@@ -28,7 +28,8 @@ pub struct HealShrine {
 }
 
 // The heal/save shrine is now an LDtk-authored `ShrineSpawn` entity (spawned at
-// room load via `spawn_room_feature_entities`); the old debug spawner is retired.
+// room load through the installed placement-lowering registry); the old debug
+// spawner is retired.
 
 /// `Interact` while overlapping a [`HealShrine`] heals the body to full
 /// (health + mana) and writes a save checkpoint. `interact_pressed` is an edge,

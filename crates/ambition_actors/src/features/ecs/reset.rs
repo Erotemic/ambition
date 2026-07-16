@@ -179,12 +179,10 @@ pub fn reset_ecs_room_features(
         combat.alive = true;
         status.encounter = None;
         status.encounter_phase = crate::boss_encounter::BossEncounterPhase::Dormant;
-        // Brain-owned state: zero the per-actor `BossPatternState`
-        // (cursor / clocks / cycle phase / last_phase) and the
-        // `BossAttackState` mirror (live telegraph + active profile
-        // + remaining time). `ActorControl` is cleared too so a
-        // stale `desired_vel` from the previous attempt doesn't
-        // integrate on the post-reset frame.
+        // Reset the durable brain cursor/clocks and clear both transient
+        // control intent and the move-derived `BossAttackState` read-model.
+        // A stale `desired_vel` or projected attack from the previous attempt
+        // must not survive into the post-reset frame.
         if let ambition_characters::brain::Brain::StateMachine(
             ambition_characters::brain::StateMachineCfg::BossPattern { state, .. },
         ) = &mut *brain

@@ -5,19 +5,19 @@
 
 use super::*;
 
-/// Pure brain tick: advance the cursor/clocks, write movement and action intent,
-/// and mirror the live telegraph/active profile into [`BossAttackState`].
+/// Pure brain tick: advance the cursor/clocks and write movement plus
+/// [`BossAttackIntent`]. Move execution and live attack timing remain downstream.
 pub fn tick_boss_pattern(
     cfg: &BossPatternCfg,
     state: &mut BossPatternState,
     ctx: &BossPatternContext,
     out: &mut crate::actor::control::ActorControlFrame,
-    attack_state: &mut BossAttackState,
+    attack_intent: &mut BossAttackIntent,
 ) {
-    // Always start from a neutral frame so a leaked
-    // `melee_pressed = true` from a previous (now-stale) state
-    // can't survive into the next tick.
+    // Both outputs are per-tick facts. Clear them before every early return so
+    // a paused or suppressed brain cannot leak yesterday's attack request.
     *out = crate::actor::control::ActorControlFrame::neutral();
+    attack_intent.clear();
 
     if ctx.dt <= 0.0 {
         return;
@@ -71,11 +71,11 @@ pub fn tick_boss_pattern(
     // and clear the mirror so rendering doesn't keep drawing a stale
     // telegraph through a stagger window.
     if !ctx.encounter_phase.is_attacking() {
-        attack_state.clear();
+        attack_intent.clear();
         // Still emit desired_vel from the movement profile so a
         // boss in Dormant still keeps its sway phase (matches the
         // legacy behavior).
-        emit_desired_vel(cfg, state, ctx, out, attack_state);
+        emit_desired_vel(cfg, state, ctx, out, attack_intent);
         return;
     }
 
@@ -90,37 +90,29 @@ pub fn tick_boss_pattern(
             BossMacroState::Approach { .. } | BossMacroState::Retreat { .. }
         )
     {
-        attack_state.clear();
-        emit_desired_vel(cfg, state, ctx, out, attack_state);
+        attack_intent.clear();
+        emit_desired_vel(cfg, state, ctx, out, attack_intent);
         return;
     }
 
     match &cfg.pattern {
         BossAttackPattern::Scripted { .. } => {
-            advance_scripted(cfg, state, ctx, attack_state, phase_entered);
+            advance_scripted(cfg, state, ctx, attack_intent, phase_entered);
         }
         BossAttackPattern::Cycle => {
-            advance_cycle(cfg, state, ctx, attack_state);
+            advance_cycle(cfg, state, ctx, attack_intent);
         }
     }
 
-    // Edge tags into the ActorControlFrame: while a Strike is active,
-    // emit melee_pressed for ordinary profiles and special_pressed
-    // for profiles the EFFECTS consumer handles (apple rain today).
-    // ActionSet binds special_pressed to `SpecialActionSpec::Special("apple_rain")`;
-    // the resolver writes `ActorActionMessage::Special`; the consumer
-    // spawns the apples.
-    if cfg.aggressiveness > 0.0 {
-        if let Some(profile) = attack_state.active_profile.as_ref() {
-            if profile.is_special() {
-                out.special_pressed = true;
-            } else {
-                out.melee_pressed = true;
-            }
-        }
+    // Aggressiveness gates the typed boss-action channel itself. The old
+    // control-frame edge gate became ineffective once the moveset trigger began
+    // reading BossAttackIntent directly; clear here so peaceful boss policies
+    // can still advance their cursor without starting attacks.
+    if cfg.aggressiveness <= 0.0 {
+        attack_intent.clear();
     }
 
-    emit_desired_vel(cfg, state, ctx, out, attack_state);
+    emit_desired_vel(cfg, state, ctx, out, attack_intent);
 }
 
 /// The boss's one deterministic random stream (ADR 0023: no ambient RNG). A
@@ -174,13 +166,13 @@ fn advance_scripted(
     cfg: &BossPatternCfg,
     state: &mut BossPatternState,
     ctx: &BossPatternContext,
-    attack_state: &mut BossAttackState,
+    attack_intent: &mut BossAttackIntent,
     phase_entered: Option<BossEncounterPhase>,
 ) {
     let pattern = match cfg.pattern.pattern_for(ctx.encounter_phase) {
         Some(pattern) if !pattern.steps.is_empty() => pattern.clone(),
         _ => {
-            attack_state.clear();
+            attack_intent.clear();
             return;
         }
     };
@@ -195,7 +187,7 @@ fn advance_scripted(
         // Every arm of every `Select` was ineligible — an authored "do nothing in
         // this situation". Emit no attack and retry next tick, when the player may
         // have moved into a bucket that opens one.
-        attack_state.clear();
+        attack_intent.clear();
         state.rng_seed = rng.0;
         return;
     }
@@ -257,7 +249,7 @@ fn advance_scripted(
                     control_flow::resolve_timeline(&pattern.steps, ctx, &mut || rng.unit());
                 state.step_index = 0;
                 if state.timeline.is_empty() {
-                    attack_state.clear();
+                    attack_intent.clear();
                     state.rng_seed = rng.0;
                     return;
                 }
@@ -268,52 +260,23 @@ fn advance_scripted(
 
     let steps = &state.timeline;
     let Some(current) = steps.get(state.step_index).cloned() else {
-        attack_state.clear();
+        attack_intent.clear();
         return;
     };
-    let current_duration = step_duration(&current).max(0.01);
-    let elapsed = state.step_elapsed.clamp(0.0, current_duration);
-    let remaining = (current_duration - elapsed).max(0.0);
     match &current {
-        BossPatternStep::Telegraph {
-            profile, telegraph, ..
-        } => {
-            attack_state.telegraph_profile = Some(profile.clone());
-            // BD3: project the authored anticipation into the read-model, so
-            // presentation reads ONE place instead of re-walking the script.
-            attack_state.telegraph_spec = telegraph.clone().filter(|t| t.is_authored());
-            attack_state.telegraph_remaining = remaining;
-            attack_state.telegraph_elapsed = elapsed;
-            attack_state.active_profile = None;
-            attack_state.active_remaining = 0.0;
-            attack_state.active_elapsed = 0.0;
+        BossPatternStep::Telegraph { profile, .. } => {
+            attack_intent.telegraph_profile = Some(profile.clone());
+            attack_intent.active_profile = None;
         }
         BossPatternStep::Strike { profile, .. } => {
-            let previous_telegraph_elapsed = if state.step_index > 0 {
-                match &steps[state.step_index - 1] {
-                    BossPatternStep::Telegraph {
-                        profile: prev_profile,
-                        duration,
-                        ..
-                    } if prev_profile == profile => (*duration).max(0.0),
-                    _ => 0.0,
-                }
-            } else {
-                0.0
-            };
-            attack_state.telegraph_profile = None;
-            attack_state.telegraph_spec = None;
-            attack_state.telegraph_remaining = 0.0;
-            attack_state.telegraph_elapsed = 0.0;
-            attack_state.active_profile = Some(profile.clone());
-            attack_state.active_remaining = remaining;
-            attack_state.active_elapsed = previous_telegraph_elapsed + elapsed;
+            attack_intent.telegraph_profile = None;
+            attack_intent.active_profile = Some(profile.clone());
         }
-        // A cursor that ends a tick on control flow means the guard tripped; draw
-        // nothing rather than a stale volume.
+        // Control-flow and rest steps emit no request rather than carrying a
+        // stale profile into the move trigger.
         BossPatternStep::Rest { .. }
         | BossPatternStep::Stance { .. }
-        | BossPatternStep::Select { .. } => attack_state.clear(),
+        | BossPatternStep::Select { .. } => attack_intent.clear(),
     }
 }
 
@@ -381,13 +344,13 @@ fn clamp_world_lateral_approach_to_front_wall(
 /// Cycle-mode (legacy rhythm) phase advancement. Picks the active
 /// attack profile from `BossPatternStep`-less bosses by rotating
 /// through their authored `attacks` list — see `BossRuntime::cycle_pattern_volumes`
-/// for the rotation rule. The brain emits melee_pressed during the
-/// Active phase; volume rendering still reads `pattern_timer` directly.
+/// for the rotation rule. The brain emits only the current profile intent; the
+/// matching move owns windup, active timing, hitboxes, and effects.
 fn advance_cycle(
     cfg: &BossPatternCfg,
     state: &mut BossPatternState,
     ctx: &BossPatternContext,
-    attack_state: &mut BossAttackState,
+    attack_intent: &mut BossAttackIntent,
 ) {
     if state.cycle_phase_remaining > 0.0 {
         state.cycle_phase_remaining = (state.cycle_phase_remaining - ctx.dt).max(0.0);
@@ -419,31 +382,14 @@ fn advance_cycle(
     };
     match state.cycle_phase {
         CyclePhase::Windup => {
-            // Cycle telegraph and strike share the same profile —
-            // the legacy `attack_telegraph_volumes` and
-            // `attack_volumes` both routed through
-            // `cycle_pattern_volumes`. Mirror that here by writing
-            // the rotation's current profile into telegraph_profile.
-            let total = cfg.cycle_attack_windup.max(0.01);
-            attack_state.telegraph_profile = Some(profile);
-            attack_state.telegraph_remaining = state.cycle_phase_remaining;
-            attack_state.telegraph_elapsed = (total - state.cycle_phase_remaining).max(0.0);
-            attack_state.active_profile = None;
-            attack_state.active_remaining = 0.0;
-            attack_state.active_elapsed = 0.0;
+            attack_intent.telegraph_profile = Some(profile);
+            attack_intent.active_profile = None;
         }
         CyclePhase::Active => {
-            let total = cfg.cycle_attack_active.max(0.01);
-            let windup_total = cfg.cycle_attack_windup.max(0.01);
-            attack_state.telegraph_profile = None;
-            attack_state.telegraph_remaining = 0.0;
-            attack_state.telegraph_elapsed = 0.0;
-            attack_state.active_profile = Some(profile);
-            attack_state.active_remaining = state.cycle_phase_remaining;
-            attack_state.active_elapsed =
-                windup_total + (total - state.cycle_phase_remaining).max(0.0);
+            attack_intent.telegraph_profile = None;
+            attack_intent.active_profile = Some(profile);
         }
-        CyclePhase::Cooldown => attack_state.clear(),
+        CyclePhase::Cooldown => attack_intent.clear(),
     }
 }
 
@@ -573,7 +519,7 @@ fn emit_desired_vel(
     state: &BossPatternState,
     ctx: &BossPatternContext,
     out: &mut crate::actor::control::ActorControlFrame,
-    attack_state: &BossAttackState,
+    attack_intent: &BossAttackIntent,
 ) {
     if ctx.dt <= 0.0 {
         return;
@@ -688,7 +634,7 @@ fn emit_desired_vel(
     // Gradient-Sentinel-during-Approach feel like the boss never
     // attacked — it WAS attacking, but the melee strikes whiffed
     // because the boss kept chasing at 1.5× speed.
-    let in_active_strike = attack_state.active_profile.is_some();
+    let in_active_strike = attack_intent.active_profile.is_some();
     // Macro-state speed scaling. Approach commits visually with
     // `> 1.0` speed; Retreat backs off deliberately with `< 1.0`.
     // Engage keeps the legacy speed (1.0).

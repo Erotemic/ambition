@@ -682,3 +682,11 @@ Cyntheta?
 Ledge grab could be an ability unlock. And it might be funny if it's like: you
 got the ability to hold on to the ledge by you know, just doing it. Maybe we
 could phrase it like an RL sort of thing. You gained an emergent behavior.
+
+---
+
+Wondering if there is a way to incorporate NJW (Norman Wildberger). 
+
+Might be fun to include Goeff Hinton as something like Jeff Hinter. An NPC that
+provides hints, and says 1000 very loudly to themselves as they visualize a 2d
+space.

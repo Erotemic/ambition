@@ -12,7 +12,7 @@
 //!
 //! Domain logic lives in siblings: `enemies/` (grounded + aerial enemy
 //! integration onto the shared spine), `npcs` (per-NPC runtime glue + barks),
-//! `bosses` (boss special-spec resolver + tuning), `banter` (ambient combat
+//! `bosses` (boss moveset construction + tuning), `banter` (ambient combat
 //! chatter registry), and the private `ecs` tree (cluster components + the
 //! per-actor tick/spawn/damage systems).
 
@@ -77,8 +77,8 @@ pub use boss_attack_geometry::{
     SimpleActorGeometry,
 };
 pub use bosses::{
-    boss_attack_moveset, boss_special_for_profile, ActorSpriteMetrics, BossAttackProfile,
-    BossBehaviorProfile, BossMovementProfile, BossRewardProfile,
+    boss_attack_moveset, ActorSpriteMetrics, BossAttackProfile, BossBehaviorProfile,
+    BossMovementProfile, BossRewardProfile,
 };
 pub use bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,

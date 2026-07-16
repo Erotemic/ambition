@@ -2,11 +2,12 @@
 //!
 //! This module defines the content-free vocabulary for scripted boss brains:
 //! movement profiles, attack profiles, pattern steps, looping/cyclic attack
-//! schedules, per-boss tuning, per-actor cursors, and the live attack-state sink.
+//! schedules, per-boss tuning, per-actor cursors, and transient attack intent.
 //!
 //! [`tick_boss_pattern`] turns [`BossPatternCfg`] + [`BossPatternState`] +
 //! [`BossPatternContext`] into an [`crate::actor::control::ActorControlFrame`]
-//! plus [`BossAttackState`]. It is deliberately separate from [`BrainSnapshot`]
+//! plus [`BossAttackIntent`]. The matching move owns the execution timeline and
+//! projects [`BossAttackState`]. The boss tick is separate from [`BrainSnapshot`]
 //! because bosses need encounter phase, arena bounds, spawn anchors, and other
 //! boss-specific context that should not bloat every actor snapshot.
 //!
@@ -422,10 +423,9 @@ pub const BUILTIN_STRIKE_KEYS: &[&str] = &[
 ];
 
 impl BossAttackProfile {
-    /// True iff this profile is a content-Technique `Special` (damage flows
-    /// through a `SpecialActionSpec` message + EFFECTS consumer). False for a
-    /// `Strike`, whose damage flows through body-mounted hitbox volumes. The
-    /// brain reads this to route `special_pressed` vs `melee_pressed`.
+    /// True iff this profile is a content-Technique `Special`. Both variants
+    /// run through the shared move timeline: specials sustain a typed effect,
+    /// while geometry strikes carry body-mounted hitbox volumes.
     pub fn is_special(&self) -> bool {
         matches!(self, BossAttackProfile::Special(_))
     }
@@ -502,8 +502,8 @@ pub fn step_duration(step: &BossPatternStep) -> f32 {
 #[derive(Clone, Debug)]
 pub struct BossPatternCfg {
     /// Engagement gating shared with every other state-machine brain.
-    /// `0.0` means the brain is currently peaceful (cursor still
-    /// advances but no melee/special is emitted).
+    /// `0.0` means the brain is currently peaceful: its cursor still
+    /// advances, but it emits no [`BossAttackIntent`].
     pub aggressiveness: f32,
     /// Encounter id (matches `boss_encounter::encounter_id_from_name`).
     /// Stays a `String` so the brain can pull straight from the
@@ -524,12 +524,11 @@ pub struct BossPatternCfg {
     /// `BossMovementProfile` itself into a phase-aware variant.
     pub movement_phase2: Option<BossMovementProfile>,
     pub movement_enrage: Option<BossMovementProfile>,
-    /// Multiplier applied to the movement speed during an active
-    /// `is_special()` strike. Specials (RotatingCross, PitTrap,
-    /// MemorizedVolley, MinionCascade) anchor World-space hitboxes
+    /// Multiplier applied to movement speed during any active strike.
+    /// Content techniques may anchor world-space effects
     /// at the boss position; if the boss keeps sliding sideways
     /// during the strike the hitboxes drift away from the visible
-    /// telegraph. Set to `< 1.0` to slow the boss while a special is
+    /// telegraph. Set to `< 1.0` to slow the boss while a strike is
     /// committed. `1.0` keeps the legacy behavior.
     pub strike_speed_scale: f32,
     /// World-space anchor the movement profile sways around. Captured
@@ -551,9 +550,9 @@ pub struct BossPatternCfg {
     pub cycle_attack_cooldown: f32,
     /// Cycle-mode rotation of attack profiles. The brain picks
     /// `cycle_attacks[(pattern_timer / cycle_attack_cooldown).floor() % len]`
-    /// each tick and writes that into `BossAttackState.active_profile`
-    /// (during Active phase) or `BossAttackState.telegraph_profile`
-    /// (during Windup phase). Empty for `Scripted` bosses.
+    /// each tick and writes that into [`BossAttackIntent::active_profile`]
+    /// (during Active) or [`BossAttackIntent::telegraph_profile`]
+    /// (during Windup). Empty for `Scripted` bosses.
     pub cycle_attacks: Vec<BossAttackProfile>,
     /// Self-dodge horizontal amplitude (px). A boss that dodges its OWN
     /// strike adds a horizontal sway during the active window so it reads as
@@ -707,12 +706,11 @@ impl BossPatternCfg {
 /// Component-equivalent — held inside the `Brain::StateMachine(BossPattern{...})`
 /// variant so brain swaps don't accidentally drop the cursor.
 ///
-/// Includes the live [`BossAttackState`] projection: the telegraph/strike window
-/// is a pure FUNCTION of the pattern cursor, so it belongs in the brain state, not
-/// as a separate authority. `tick_boss_pattern` writes it each tick; the ECS
-/// `BossAttackState` component is a read-model mirror the boss tick copies out.
-/// (This is what lets the boss brain tick through the universal `Brain::tick` seam
-/// — its `(snapshot, out)` signature can't carry a separate attack-state out.)
+/// The cursor is durable simulation state. [`BossAttackIntent`] is only the
+/// transient output cache required by the universal `Brain::tick` seam: the ECS
+/// boss adapter copies it out each tick, and [`BossAttackState`] is projected
+/// separately from the authoritative live move. The intent cache is therefore
+/// deliberately omitted from rollback snapshots.
 #[derive(Clone, Debug, Default)]
 pub struct BossPatternState {
     /// Last encounter phase the brain ticked under. When the phase
@@ -748,11 +746,10 @@ pub struct BossPatternState {
     /// Tiny deterministic RNG state used only by optional probabilistic
     /// idle attack gates. Zero means "seed from cfg on first roll."
     pub rng_seed: u64,
-    /// Live telegraph/strike projection of the cursor above. Written by
-    /// [`tick_boss_pattern`]; mirrored into the ECS `BossAttackState` component by
-    /// the boss tick. Lives here (not just on the component) so the universal
-    /// `Brain::tick` path can produce it — see the struct docs.
-    pub attack_state: BossAttackState,
+    /// Transient per-tick attack request emitted by [`tick_boss_pattern`].
+    /// This is not an execution timeline and is not snapshotted: the live move
+    /// owns execution, while the ECS [`BossAttackState`] is projected from it.
+    pub attack_intent: BossAttackIntent,
 
     // ── BD1: control flow ────────────────────────────────────────────────────
     /// The RESOLVED timeline the cursor walks: the active step list with every
@@ -800,7 +797,7 @@ pub enum CyclePhase {
     Cooldown,
     /// Boss is telegraphing an attack; volumes draw but no damage.
     Windup,
-    /// Boss attack is live; `frame.melee_pressed` emits.
+    /// Boss attack is live; the active profile is emitted as intent.
     Active,
 }
 
@@ -1009,13 +1006,14 @@ impl BossPatternContext {
     }
 }
 
-/// Component-side mirror of the brain's live attack decision. Written by the
-/// boss brain tick system; read by rendering, damage, and `Special` consumers.
-/// This component is the source of truth for telegraph/active profile timing.
+/// Read-model projection of the authoritative live boss move. Written only by
+/// the move-projection system; read by rendering, animation, geometry, and damage
+/// consumers. The brain emits [`BossAttackIntent`] instead of writing this timing
+/// state directly.
 #[derive(Component, Clone, Debug, Default)]
 pub struct BossAttackState {
-    /// `Some(profile)` while the brain is inside a `Telegraph` step
-    /// for `profile`; `None` outside Telegraph.
+    /// `Some(profile)` while the live move is in its telegraph/windup window;
+    /// `None` outside that window.
     pub telegraph_profile: Option<BossAttackProfile>,
     /// Seconds left in the current telegraph window. `0.0` when no
     /// telegraph is active.
@@ -1024,13 +1022,12 @@ pub struct BossAttackState {
     /// Consumers use this to sample sprite-authored per-frame
     /// hit/hurt boxes without depending on presentation components.
     pub telegraph_elapsed: f32,
-    /// BD3: the authored anticipation for the live telegraph, projected out of the
-    /// pattern so presentation reads ONE read-model rather than re-walking the
-    /// script. `None` when nothing is telegraphing, or when the step authored no
-    /// [`TelegraphSpec`].
+    /// BD3: authored anticipation associated with the live telegraph. Presentation
+    /// reads this one read-model rather than re-walking the pattern. `None` when
+    /// nothing is telegraphing or no anticipation metadata is available.
     pub telegraph_spec: Option<TelegraphSpec>,
-    /// `Some(profile)` while the brain is inside a `Strike` step for
-    /// `profile`; `None` outside Strike.
+    /// `Some(profile)` while the live move is in its active strike window;
+    /// `None` outside that window.
     pub active_profile: Option<BossAttackProfile>,
     /// Seconds left in the current strike window. `0.0` when no
     /// strike is active.

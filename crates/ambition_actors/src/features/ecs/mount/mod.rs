@@ -214,7 +214,7 @@ pub struct Mounted;
 pub struct MountedSize(pub ae::Vec2);
 
 /// Room-authored mount links awaiting resolution (ADR 0020). Populated by
-/// `spawn_room_feature_entities` from `RoomSpec.mount_links` as `(rider_id,
+/// the registry-aware room staging path from `RoomSpec.mount_links` as `(rider_id,
 /// mount_id)` [`crate::combat::components::FeatureId`] pairs; drained by
 /// [`resolve_pending_mount_links`] once both actors exist. A pair whose
 /// entities have not spawned yet is retained for the next frame.

@@ -1004,7 +1004,6 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
         s.macro_state.encode(out);
         put_f32(out, s.engage_timer);
         put_u64(out, s.rng_seed);
-        s.attack_state.encode(out);
         put_timeline(out, &s.timeline);
         put_opt_str(out, s.stance.as_deref());
         put_u32(out, s.stance_stack.len() as u32);
@@ -1033,7 +1032,7 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
 
     fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
         use ambition_characters::brain::boss_pattern::{
-            BossAttackState, BossEncounterPhase, BossMacroState, CyclePhase,
+            BossEncounterPhase, BossMacroState, CyclePhase,
         };
         if r.u8()? == 0 {
             return Some(());
@@ -1052,7 +1051,6 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
         let macro_state = BossMacroState::decode(r)?;
         let engage_timer = r.f32()?;
         let rng_seed = r.u64()?;
-        let attack_state = BossAttackState::decode(r)?;
         let timeline = read_timeline(r)?;
         let stance = r.opt_str()?.map(str::to_string);
         let stance_stack = {
@@ -1092,7 +1090,8 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
         s.macro_state = macro_state;
         s.engage_timer = engage_timer;
         s.rng_seed = rng_seed;
-        s.attack_state = attack_state;
+        // Per-tick output cache: recompute after restore.
+        s.attack_intent = Default::default();
         s.timeline = timeline;
         s.stance = stance;
         s.stance_stack = stance_stack;

@@ -155,7 +155,9 @@ it preserves the misleading `Feature*` vocabulary while adding a second name.
 finds:
 
 - `crates/ambition_characters/src/equipment.rs`
-- `game/ambition_demo_smb1/src/flag.rs`
+- `crates/ambition_audio/src/catalog.rs`
+- `game/ambition_demo_mary_o/src/flag.rs`
+- `game/ambition_demo_mary_o/src/lib.rs`
 
 **Plan:** [`test-refactor-plan-2026-07-10.md`](test-refactor-plan-2026-07-10.md)
 

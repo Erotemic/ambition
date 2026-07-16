@@ -77,6 +77,11 @@ ordering.
 
 ## Questions for Jon
 
+- **2026-07-15 recon decisions D1–D8:** content-eviction campaign + generalized
+  named-content scanner, menu-host/rl_sim/provider extractions from the app and
+  facade, the cutscene/encounter-script/Yarn scripting ruling, shared-host
+  provider discovery, and post-fold boss-carve appetite. See
+  [`engine/recon-2026-07-15.md`](engine/recon-2026-07-15.md) §6.
 - **Q1/Q3:** intended 1.0 audience; engine name and repository-split timing.
 - **Q2-name:** retain `ambition_actors`, or choose a different public crate name.
 - **Q5:** confirm online netcode remains post-1.0 while local-N ships with Super

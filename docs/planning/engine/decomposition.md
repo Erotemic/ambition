@@ -218,7 +218,19 @@ ever shows in a profile. The costs that DO exist are paid deliberately: the E4
 read-model copies view facts once per tick (bought: netcode/RL/render
 decoupling — Q32), and the win is INCREMENTAL COMPILE.
 
-### Why these pieces are THE pieces (the elegance argument)
+### Re-measure 2026-07-15 (fable; units: TOTAL src lines incl. tests, unchanged)
+
+Five days of landed unification work moved the numbers; the ruling above is
+unaffected but the destination table is stale. HEAD `0d45956dd`:
+`ambition_actors` **68.7k** (63.5k at R3 — the melee/moveset unification churned
+20.8k/16.1k add/delete for +4.7k net), `characters` **23.4k**, `engine_core`
+**23.3k** (+4.9k, frame-authority + movement-kernel work), `app` **22.3k**,
+`content` **14.3k**, `render` **10.9k**, `combat` **10.0k**, `game_shell`
+**5.1k** (new mass: the multi-game host), `load`+`load_presentation` **2.8k**
+(new). The fresh whole-repo audit and the proposal queue built on these numbers
+is [`recon-2026-07-15.md`](recon-2026-07-15.md) — its headline: the residue is
+no longer in `ambition_actors`; it is named content re-accumulated in `crates/`
+and engine machinery accumulated in `ambition_app`.
 
 The crate boundaries follow the four real fault lines in the domain, not line
 counts: (1) **vocabulary vs. simulation** — schemas/registries/formats

@@ -61,6 +61,9 @@ ordering.
 | M19 | Demo rules are mode-scoped plugins. | [`demos/README.md`](demos/README.md) |
 | M20 | Determinism is a managed same-build contract now; cross-platform bit exactness is not promised. | [`engine/netcode.md`](engine/netcode.md) |
 | M21 | Encounter is orchestration, never an actor type. | [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md) |
+| M22 | Cutscenes are scripted with limited interaction; encounters are interactive with limited scripting. Separate domain models; no universal sequence DSL. | [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md) |
+| M23 | A content eviction terminates in a structurally open ownership shape (provider-owned catalog/registration/presentation plugin), never a relocated closed table. | [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md) |
+| M24 | One placement-lowering authority: activation, reset, transition, and restore all lower through the App-installed registry. | [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md) |
 
 ## Durable uncertainties
 
@@ -77,11 +80,11 @@ ordering.
 
 ## Questions for Jon
 
-- **2026-07-15 recon decisions D1–D8:** content-eviction campaign + generalized
-  named-content scanner, menu-host/rl_sim/provider extractions from the app and
-  facade, the cutscene/encounter-script/Yarn scripting ruling, shared-host
-  provider discovery, and post-fold boss-carve appetite. See
-  [`engine/recon-2026-07-15.md`](engine/recon-2026-07-15.md) §6.
+- ~~2026-07-15 recon decisions D1–D8~~ **RESOLVED 2026-07-16** — the
+  fable+GPT-5.6 consensus, ratified by Jon, is
+  [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md)
+  (accepted/rejected/deferred/repairs/campaigns/non-goals). Still open from it:
+  the placement extension model, the provider crate name, and R6e.
 - **Q1/Q3:** intended 1.0 audience; engine name and repository-split timing.
 - **Q2-name:** retain `ambition_actors`, or choose a different public crate name.
 - **Q5:** confirm online netcode remains post-1.0 while local-N ships with Super
@@ -96,4 +99,6 @@ Trustworthy docs or no docs · data-driven ECS · evaluate ecosystem crates befo
 custom infrastructure · verify against the real headless simulation · visual and
 feel commits remain BLIND until Jon judges them · commit is a checkpoint · record
 units for measurements · archive completed narratives instead of carrying them
-in the live queue.
+in the live queue · a NEW policy test must justify why the compiler, API design,
+or a behavioral test cannot enforce the invariant (Jon, 2026-07-16 — existing
+regression guards stay; no new scanner/poison ceremony without that justification).

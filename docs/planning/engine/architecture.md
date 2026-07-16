@@ -99,6 +99,15 @@ IR] pure while authored maps still declare rich content.
 | `ambition_portal` / `ambition_portal_presentation` | **[the exemplar pair]** | portal sim (incl. `PortalFrame`, swept transit) / portal rendering | copy this shape for every sim/presentation split |
 | `ambition_dev_tools` | **[the workbench]** | overlays, gizmos, editable tuning, profiling | may see everything; nothing sees it |
 
+**Cutscene vs encounter (M22, ruled 2026-07-16 — do not re-merge):** cutscenes
+are SCRIPTED systems with limited interaction; encounters are INTERACTIVE
+systems with limited scripting. They remain separate domain models with
+separate authored vocabularies. Shared micro-primitives (clocks, gates,
+cursors, typed effect emission) are permitted only when concrete duplication
+naturally exposes them; a universal sequence DSL is an explicit NON-goal. Yarn
+(words) is likewise its own domain. See
+[`decisions-2026-07-16.md`](decisions-2026-07-16.md).
+
 ### Tier 3 — the one big crate
 
 | Crate | ROLE |
@@ -225,6 +234,15 @@ there (fable, 2026-07-06 night) with a 5-step OPUS-SAFE execution queue.
    runs at ROOM-LOAD. The Tier-0 schema is the contract both the backend
    (writes) and the interpreter (reads) share without importing each other's
    runtime types.
+4b-open. **The placement EXTENSION model is deferred (2026-07-16).** The
+   Tier-0 `PlacementKind` vocabulary is closed (six families) and providers
+   register no interpreters of their own at HEAD. Whether provider-OWNED
+   placement families ever become a real extension seam (vs specialization
+   within the closed families) is [`decisions-2026-07-16.md`](decisions-2026-07-16.md)
+   deferred #1. This does NOT reopen the closed-schema preference above.
+   Regardless of the outcome, there is ONE lowering authority: the
+   App-installed registry, on every path (M24).
+
 5. **The world is NOT forever-immutable — the delta seam is RESERVED.**
    Gameplay may PERMANENTLY change the world (a destroyed wall, a dug tunnel, a
    permanently-opened gate). The architecture reserves a **base authored world

@@ -29,6 +29,27 @@ is not a completion gate.
 
 ## Priority queue
 
+### 0. Placement-lowering unification (added 2026-07-16 — runs FIRST)
+
+**State:** verified fork at HEAD. Session setup
+(`ambition_actors::session::setup`) and session reset (`session::reset`) lower
+authored placements through a LOCAL built-ins-only
+`PlacementLoweringRegistry::default()` (built inside
+`features::ecs::spawn::spawn_room_feature_entities`), while room transition
+(`world::rooms::load`) and snapshot restore (`runtime::snapshot::restore`) use
+the App-installed registry. Plain drift, not a bootstrap necessity —
+`WorldPrepSchedulePlugin` registers synchronously at plugin build, before any
+activation.
+
+**Plan:** [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md)
+§3 repair 1 (M24). Narrow patch only: thread the installed registry through
+setup + reset, DELETE the no-registry production helper, keep standalone
+registries in focused tests. Do NOT expand into the N3.2 campaign.
+
+**Exit evidence:** activation, reset, transition, and authored restore
+provably lower through the same function; the no-registry helper no longer
+exists.
+
 ### 1. Encounter convergence
 
 **State:** partial foundation, not a unified runtime authority.

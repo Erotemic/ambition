@@ -1,11 +1,13 @@
 # Decision record — 2026-07-16 recon consensus
 
-**Parties:** fable (recon, [`recon-2026-07-15.md`](recon-2026-07-15.md)) and
-GPT-5.6 (independent review), **mediated and ratified by Jon, 2026-07-16.**
-This record supersedes the recon doc's §6 decision table. Its purpose is that
-future audits do not reopen settled questions from LOC counts or terminology
-alone. Every claim below that is source-level was verified at HEAD before
-recording (file:symbol anchors, no line numbers).
+**Parties:** fable (recon, [`docs/archive/reviews/recon-2026-07-15.md`](../../archive/reviews/recon-2026-07-15.md)) and GPT-5.6 (independent review), mediated by Jon on 2026-07-16.
+
+This is the detailed consensus and evidence record. Direct decisions Jon made,
+including his stated confidence, are tracked separately in
+[`../maintainer-decisions.md`](../maintainer-decisions.md); future agents must not
+infer maintainer intent from agent agreement alone. This record supersedes the
+recon doc's §6 proposal table and exists so future audits do not reopen settled
+questions from LOC counts or terminology alone.
 
 ## 1. Accepted decisions
 

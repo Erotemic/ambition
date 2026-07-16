@@ -1,39 +1,41 @@
 # Roadmap
 
-The current repository state is summarized in [`status.md`](status.md); the
-current queue is [`tracks.md`](tracks.md). This document holds only phases,
-binding decisions, durable uncertainties, and questions that still require Jon.
+Current source-backed state is in [`status.md`](status.md); execution order is in
+[`tracks.md`](tracks.md); direct Jon decisions and confidence are in
+[`maintainer-decisions.md`](maintainer-decisions.md).
 
-**North-star oracle:** could another platformer be built by adding a content
-crate without editing core?
+**North-star oracle:** could another platformer be built by adding a provider and
+content crate without editing core?
 
 ## Phases
 
-- **P1 — unification:** complete. Historical detail is archived.
-- **P2 — decomposition and trust:** active tails. The crate/host/runtime split,
-  authored placement channel, mode scope, module-size policy, and demo assembly
-  exist. Remaining work is exact restore, enforceable collision/boss gates, and
-  real encounter lifecycle convergence.
-- **P3 — demo wave 1:** Sanic and Super Mary-O. Sanic needs reusable playable
-  presentation/input proof. Mary-O needs its remaining equipment customer and
-  full game acceptance.
-- **P4 — demo wave 2:** Super Smash Siblings, then Hollow Lite. This phase pulls
-  local multiplayer, the remaining combat stack, fighter-brain evaluation, and
-  boss-quality installation policy.
-- **P5 — long game:** relativity mechanics, moving/angled portals, online
-  lockstep/rollback, additional acceptance games, public engine naming/versioning,
-  and broader documentation refresh.
-- **Ambition-the-game:** remains the first customer throughout; it consumes each
-  capability rather than owning engine exceptions.
+- **P1 — unified mechanical foundation:** substantially landed. One body path,
+  explicit frames/time domains, world IR, movement models, moveset execution,
+  and one-way observation are foundations, not active decomposition campaigns.
+- **P2 — make the extension/lifecycle seams exclusive:** current priority.
+  Unify placement lowering, extract the provider protocol, finish session-root
+  authority/exact reconstruction, evict named content structurally, and extract
+  the simulation harness.
+- **P3 — first complete external-game proofs:** Sanic and Super Mary-O close
+  their full playable/headless acceptance loops without engine exceptions.
+- **P4 — richer mechanics and second consumers:** boss/moveset convergence,
+  encounter lifecycle convergence, Super Smash Siblings, and Hollow Lite. These
+  customers decide whether menu or boss crate extraction is warranted.
+- **P5 — mathematical and distributed generalization:** stronger frame/clock
+  mechanics, slower-light observation, moving/angled portals, rollback/netcode,
+  additional acceptance games, and public engine naming/versioning.
+
+Ambition-the-game remains the first customer throughout; it consumes capabilities
+rather than defining exceptions inside reusable crates.
 
 ## Acceptance-game matrix
 
 | Game | Primary stress | Phase |
 |---|---|---|
-| **Sanic** | momentum movement, hosted rules, playable presentation | P3 |
-| **Super Mary-O** | classic AABB, equipment powerups, sequencing | P3 |
+| **Sanic** | momentum movement, provider-owned playable identity, hosted rules | P3 |
+| **Super Mary-O** | classic AABB, equipment/powerups, sequencing | P3 |
 | **Super Smash Siblings** | N bodies/slots, full combat, local match state | P4 |
-| **Hollow Lite** | exploration, boss-quality pipeline, respawn policy | P4 |
+| **Hollow Lite** | exploration, encounter/boss quality, respawn/save policy | P4 |
 | MoneySeize | precision feel and economy | P5 |
 | Celeste slice | assist modes, wind, room gimmicks | P5 |
 | Metroid slice | item-gated traversal, maps, saves | P5 |
@@ -41,14 +43,13 @@ crate without editing core?
 | Dead Cells slice | runtime room-graph assembly | P5 |
 | Rain World slice | rig animation and ecosystem AI | far edge |
 
-## Binding decisions
+## Binding architecture decisions
 
 M1 two-port body · M2 one control seam · M3 actors/props, no player/enemy type
 axis · M4 relational state · M5 frame-agnostic mechanics · M6 install-time
 content registries · M7 sprite metadata owns combat volumes · M8 LDtk owns space,
 RON tuning, Yarn dialogue · M9 explicit time domains · M10 no generic pushout ·
-M11 replace rather than bridge pre-release · M12 runtime plugin group owns
-ordering.
+M11 replace rather than bridge pre-release · M12 runtime owns global ordering.
 
 | # | Decision | Owner |
 |---|---|---|
@@ -61,44 +62,24 @@ ordering.
 | M19 | Demo rules are mode-scoped plugins. | [`demos/README.md`](demos/README.md) |
 | M20 | Determinism is a managed same-build contract now; cross-platform bit exactness is not promised. | [`engine/netcode.md`](engine/netcode.md) |
 | M21 | Encounter is orchestration, never an actor type. | [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md) |
-| M22 | Cutscenes are scripted with limited interaction; encounters are interactive with limited scripting. Separate domain models; no universal sequence DSL. | [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md) |
-| M23 | A content eviction terminates in a structurally open ownership shape (provider-owned catalog/registration/presentation plugin), never a relocated closed table. | [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md) |
-| M24 | One placement-lowering authority: activation, reset, transition, and restore all lower through the App-installed registry. | [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md) |
+| M22 | Cutscenes and encounters remain separate domain models; no universal sequence DSL. | [`maintainer-decisions.md`](maintainer-decisions.md) |
+| M23 | Content eviction ends in an open provider-owned ownership shape. | [`maintainer-decisions.md`](maintainer-decisions.md) |
+| M24 | Activation, reset, transition, and restore use one App-installed placement-lowering authority. | [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md) |
 
 ## Durable uncertainties
 
-- **LDtk at scale:** keep the world IR backend-swappable.
-- **Bevy churn:** the runtime group and narrow crate interfaces are the shield.
-- **Feel drift:** repair with per-body data and differential tests, not divergent
-  kernels.
-- **Fighter-brain rollout cost:** L3 is budgeted and degradable; L2 remains a
-  valid shipped tier if rollout proves too expensive.
-- **Deep host services:** audio buses and save files may need a small explicit
-  host-services contract when a hosted demo first requires them.
-- **`features/` naming:** this is a naming decision only. No further
-  `ambition_actors` crate split is owed by the decomposition plan.
-
-## Questions for Jon
-
-- ~~2026-07-15 recon decisions D1–D8~~ **RESOLVED 2026-07-16** — the
-  fable+GPT-5.6 consensus, ratified by Jon, is
-  [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md)
-  (accepted/rejected/deferred/repairs/campaigns/non-goals). Still open from it:
-  the placement extension model, the provider crate name, and R6e.
-- **Q1/Q3:** intended 1.0 audience; engine name and repository-split timing.
-- **Q2-name:** retain `ambition_actors`, or choose a different public crate name.
-- **Q5:** confirm online netcode remains post-1.0 while local-N ships with Super
-  Smash Siblings.
-- **R6e:** choose a coherent `features/` module/type-family rename or explicitly
-  accept the documented current name. See
-  [`engine/refactor-chain.md`](engine/refactor-chain.md).
+- **LDtk at scale:** retain a backend-neutral world IR while actively developing one editor path.
+- **Bevy churn:** narrow crate and plugin interfaces remain the shield.
+- **Feel drift:** use per-body data and differential/property tests, never divergent kernels.
+- **Deep host services:** audio/save/network services may need a small explicit contract when a real provider demands it.
+- **Placement extension:** the common Tier-0 schema remains closed; whether providers ever receive a separate authored-placement channel is open.
+- **Public naming:** provider crate name, engine/repository split timing, and final `ambition_actors`/`features` names remain unsettled.
+- **Online netcode:** remains later than local multiplayer unless Jon changes scope.
 
 ## Standing practices
 
 Trustworthy docs or no docs · data-driven ECS · evaluate ecosystem crates before
-custom infrastructure · verify against the real headless simulation · visual and
-feel commits remain BLIND until Jon judges them · commit is a checkpoint · record
-units for measurements · archive completed narratives instead of carrying them
-in the live queue · a NEW policy test must justify why the compiler, API design,
-or a behavioral test cannot enforce the invariant (Jon, 2026-07-16 — existing
-regression guards stay; no new scanner/poison ceremony without that justification).
+custom infrastructure · verify against the real headless simulation · visual
+feel remains BLIND until judged · archive completed narratives · new scanners or
+poison tests require evidence that types/APIs/behavioral tests cannot enforce the
+invariant.

@@ -20,19 +20,16 @@ drift. Priorities may shuffle; the designs do not.
 game/
   ambition_demo_<name>/      — ONE content crate: worlds (own .ldtk), rosters/catalog rows,
                                movesets, rules plugin(s), mode/match state, HUD data
-  ambition_demo_<name>_app/  — the thin shell (~100 lines): foundation plugins +
+  ambition_demo_<name>_app/  — explicit composition root: foundation plugins +
                                PlatformerEnginePlugins + PlatformerHostPlugins +
                                <Name>DemoContentPlugin + <Name>RulesPlugin (global)
 ```
 
-**The executable reference:** `crates/ambition_host/tests/
-demo_shell_smoke.rs` (E5 step 6) IS this shape, live and gate-enforced —
-foundation + engine group + host group + a fixture content plugin that
-(1) installs its one-character catalog RON, (2) inserts its
-`RoomSet`/`RoomGeometry`/`ActiveRoomMetadata`, and (3) runs the engine's
-`session::setup::simulation_world` in a Startup system labeled
-`SimulationSetupSet` (which spawns the player box the host's input attach
-finds). Start every `ambition_demo_<name>_app` by copying that fixture.
+**The executable reference:** each demo installs the common engine/runtime/host
+composition and registers its provider explicitly. The accepted provider-lifecycle
+extraction will consolidate preparation, exact activation, session construction,
+and cleanup; demo apps should not copy those mechanics or call low-level session
+setup directly.
 
 - **Standalone:** depends only on engine crates. `git log --stat` for the
   demo touches ZERO engine crates. Every needed core change files an

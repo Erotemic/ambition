@@ -7,7 +7,7 @@
 //! Only a subset belongs under the runtime asset roots the game loads.
 //!
 //! This module is the first slice of
-//! `docs/planning/engine/data-driven-sprites-and-characters.md`: it makes the
+//! `docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md`: it makes the
 //! install boundary explicit without rewriting any runtime consumer.
 //!
 //! - [`classify`] — decide what a generated file *is* from its path shape.

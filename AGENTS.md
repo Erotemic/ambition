@@ -44,11 +44,11 @@ but do not override source files.
 - Prefer data-driven ECS flow: authored/generated data -> Bevy components/entities -> systems -> messages/effects.
 - LDtk owns world/level authoring. RON room manifests are historical; RON may still be used for tuning, save/settings, and other data where appropriate.
 - Preserve desktop, web, Android/mobile/touch, controller, and Steam Deck paths. iOS is deferred for hardware, not excluded.
-- **Crate layering:** foundations ← machinery (`ambition_actors`, being
-  decomposed) ← presentation (`ambition_render`) ← content (`ambition_content`)
-  ← app (`ambition_app`, the only crate naming both machinery and content;
-  the `ambition_workspace_policy` guards enforce it). Target stack + teardown:
-  `docs/planning/engine/architecture.md` + `.../decomposition.md`.
+- **Crate layering:** foundations and domain services feed the unified
+  simulation heart; observation/presentation consume it; runtime/provider/host
+  compose it; game providers own named content. `ambition_actors` is not awaiting
+  a size-driven carve. Current roles and accepted extractions are in
+  `docs/planning/engine/architecture.md` and `docs/planning/tracks.md`.
 
 ## Autonomous decision-making
 

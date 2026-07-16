@@ -4,7 +4,7 @@
 //! This module was `player/`. Its name was the last structural claim that the
 //! player is a KIND OF THING rather than a brain and a slot. Everything in it that
 //! was not actually the home avatar's has left (the S5/S6 fold,
-//! `docs/planning/engine/refactor-chain.md` R6):
+//! `docs/archive/reviews/refactor-chain-residue-2026-07-16.md` R6):
 //!
 //! | What left | Where it went | Why |
 //! |---|---|---|

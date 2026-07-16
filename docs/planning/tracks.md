@@ -1,213 +1,118 @@
 # Tracks — current executable queue
 
-This file contains current work only. The canonical HEAD summary is
-[`status.md`](status.md). Historical execution records through 2026-07-11 are
-archived in
-[`docs/archive/reviews/planning-history-2026-07-11/`](../archive/reviews/planning-history-2026-07-11/).
+This is the execution order established by the 2026-07-16 recon consensus and
+Jon's decisions. Historical tracks and completion narratives are not retained
+here. Focused demo/game work may proceed in parallel when it does not create a
+second engine path.
 
-Before changing a status, inspect the source and run the owning exit checks. Do
-not copy a prior completion grade forward without re-establishing its evidence.
+## 0. One placement-lowering authority — run first
 
-## Standing verification
+**State:** OPEN.
 
-The exact test set depends on the touched crates. Structural work normally runs:
+- Thread the App-installed `PlacementLoweringRegistry` through initial session construction and reset.
+- Make activation, reset, transition, and restore call one registry-aware lowering function.
+- Delete the no-registry production helper; tests construct an explicit registry when necessary.
+- Add one equivalence test covering the room-entry paths supported at HEAD.
 
-```bash
-cargo test -p ambition_actors --lib
-cargo test -p ambition_engine_core -p ambition_runtime -p ambition_host
-cargo test -p ambition_dialog -p ambition_sim_view -p ambition_combat
-cargo test -p ambition_characters
-cargo test -p ambition_content --features portal
-cargo test -p ambition_content --features ui --test yarn_compile
-cargo test -p ambition_app --features rl_sim
-python scripts/generate_agent_index.py
-```
+**Exit:** no production code constructs a second lowering registry; reset and
+restore cannot diverge by interpreter set.
 
-Poison tests land with the enforcement they prove. A diagnostic or ignored test
-is not a completion gate.
+## 1. Extract and consolidate the provider protocol
 
-## Priority queue
+**State:** OPEN after track 0 establishes the room-construction choke point.
 
-### 0. Placement-lowering unification (added 2026-07-16 — runs FIRST)
+- Create the provider lifecycle crate (working name `ambition_platformer_provider`).
+- Move substantive implementation out of `crates/ambition/src/provider.rs`.
+- Consolidate typed preparation storage, exact activation, session construction, and cleanup.
+- Keep provider installation explicit in the host composition root.
 
-**State:** verified fork at HEAD. Session setup
-(`ambition_actors::session::setup`) and session reset (`session::reset`) lower
-authored placements through a LOCAL built-ins-only
-`PlacementLoweringRegistry::default()` (built inside
-`features::ecs::spawn::spawn_room_feature_entities`), while room transition
-(`world::rooms::load`) and snapshot restore (`runtime::snapshot::restore`) use
-the App-installed registry. Plain drift, not a bootstrap necessity —
-`WorldPrepSchedulePlugin` registers synchronously at plugin build, before any
-activation.
+**Exit:** providers supply authoring/world preparation and optional hooks rather
+than copying the lifecycle; `ambition` is a facade again.
 
-**Plan:** [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md)
-§3 repair 1 (M24). Narrow patch only: thread the installed registry through
-setup + reset, DELETE the no-registry production helper, keep standalone
-registries in focused tests. Do NOT expand into the N3.2 campaign.
+## 2. Session-root exclusivity and exact reconstruction
 
-**Exit evidence:** activation, reset, transition, and authored restore
-provably lower through the same function; the no-registry helper no longer
-exists.
+**State:** OPEN / N3.2 campaign.
 
-### 1. Encounter convergence
+- Eliminate stale process-global mirrors, beginning with an audit of whether each `SceneEntities` handle should exist.
+- Give moving-platform live state mechanical session identity and deterministic reconstruction.
+- Align reset and restore around the same room/session construction services.
 
-**State:** partial foundation, not a unified runtime authority.
+**Exit gates, both required:**
 
-**Plan:** [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md)
+1. Activate A, exercise it, tear it down, activate B (or A with a fresh scope), and prove no entity, relationship, cache, read model, or raw handle refers to the old scope.
+2. Reset and restore reconstruct equivalent room-derived state through the same authorities and produce the expected canonical snapshot/observation result.
 
-**Next slice:** define the generic lifecycle and command ingress before adding a
-new customer. The slice must prove `Start`, `Signal`, objective success/failure,
-and retirement without routing through a boss-specific or wave-specific reducer.
+## 3. Structural content evictions — parallel-safe
 
-**Exit evidence:** a headless no-actor signal/timer encounter and an ordinary
-wave encounter use the same lifecycle reducer; cleanup behavior is selected by
-participant ownership/lifetime policy.
+**State:** OPEN and divisible into small patches.
 
-### 2. N3.2 exact restore
+Prioritize the closed item catalog, named render modules/art bindings, asset
+universe, projectile identities, input techniques, and dialogue/audio cast data.
+Each patch must install the correct provider-owned catalog, registration, or
+presentation seam and delete the engine-owned closed content.
 
-**State:** open. Existing validation and refusal paths are useful, but exact
-rollback across room context and dynamic births is not established.
+**Exit:** a second provider adds its named content without editing a reusable
+engine crate. No noun scanner is part of this track.
 
-**Plan:** [`engine/netcode.md`](engine/netcode.md)
+## 4. Extract `ambition_sim_harness`
 
-**Next slices, in order:**
+**State:** OPEN.
 
-1. atomic room-context restore;
-2. per-spawner reconstruction recipes;
-3. standalone preflight of cursor/resolved codecs before mutation;
-4. bounded rollback/resimulation proof.
+Move reset/step, typed actions, observations, reward/termination plumbing, and
+programmatic composition below `ambition_app`. The harness accepts plugin/provider
+composition rather than importing the flagship app.
 
-Do not relabel a refusal as exact restore. The acceptance test must restore and
-resimulate the difficult window rather than merely reject it.
+**Exit:** a demo or test can run through the harness without linking Ambition's
+product shell.
 
-### 3. Sanic visible/playable recovery
+## 5. Converge boss behavior onto moveset authority
 
-**State:** playable-persona ARCHITECTURE landed (`DONE`): canonical sim-owned
-`WornCharacter` identity → gameplay derive + generic `ambition_render` presentation
-binder (app + demos), standard host-input path proven headlessly, app duplicate
-binder deleted + guarded. ONE identity — dialogue now reads the entity's
-`WornCharacter` too (no `StartingCharacter` second authority). Gameplay derivation
-is now TOTAL and deterministic: the wear overlay resolves name + kit from identity +
-the body's persisted `AbilitySet`, never from prior component state. The
-`default_character_id`↔hardcoded-kit coupling is GONE — a new engine-neutral
-`PlayableKitSource::{Authored,HostCode}` catalog field decides whose kit a worn body
-uses, so the demo genuinely wears Sanic's authored PEACEFUL kit (no melee/ranged/
-special) while riding `SurfaceMomentum` (ball dash live), and a `HostCode`
-protagonist rebuilds its code kit on re-wear/restore (the old "documented gap" is
-closed). `visible` implies `input` so the windowed binary is playable. `OPEN`:
-native Sanic sheet provisioning only (demo draws a marked fallback). Per-slice
-statuses + test evidence in the plan.
+**State:** PARTIAL.
 
-**Plan:** [`demos/sanic-recovery.md`](demos/sanic-recovery.md)
+Keep boss decision policy sophisticated, but make attack execution, timing,
+cancellation, motion locks, and semantic effects use the shared move/action
+lifecycle. Delete each superseded boss-specific path when its family migrates.
 
-**Next slice:** provision the native Sanic sheet so the windowed demo draws real art.
+**Exit:** only then reassess whether any coherent boss crate remains.
 
-### 4. Unified swappable movement kernel
+## 6. Repair domain-plugin ownership
 
-**DONE**, including the frame-authority migration (commits `17685105` →
-`477700e9`). [ADR 0024](../adr/0024-frame-aware-unified-movement-kernel.md) is
-mechanically enforced: ONE frame resolution phase publishes every body's
-`ResolvedMotionFrame` (independent basis + accumulated `ForceZone`
-contributions) and every consumer reads it; ONE `step_motion` entry plus three
-named non-kernel authorities (`transit_body`/`carry_body`/
-`constrain_body_pose`); policy-private state lives inside the `MotionModel`
-variant with `BodyMotionFacts` as the only outside read surface; support is a
-semantic `SupportFact`; the crawler attaches at arbitrary angles through
-`SurfaceChain` geometry. Four poison-tested workspace-policy guards.
-[`engine/unified-movement-kernel.md`](engine/unified-movement-kernel.md)
-documents the invariants, ownership map, and residual debt (portal-transit
-orientation source; gravity-resource snapshot registration; device-latch
-typing; ball-dash typed op; block↔chain crawl transfer).
+**State:** OPEN.
 
-**Next slice:** none scheduled; pick up a residual-debt item opportunistically
-alongside the next snapshot-ledger or input pass.
+Audit runtime leaf-function knowledge. Domain crates install their local
+messages, resources, systems, and public schedule sets. Runtime retains the
+global phase graph and true cross-domain adapters.
 
-### 5. CC3 enforcement
+**Exit:** runtime orders domain sets more often than it names implementation
+leaf systems, and app/dev-specific setup is not hidden in the generic engine
+assembly.
 
-**State:** diagnostic rig landed; the comprehensive test remains ignored.
+## 7. Split touch semantics from touch presentation
 
-**Plan:** [`engine/collision-and-ccd.md`](engine/collision-and-ccd.md) §6
+**State:** OPEN.
 
-**Next slice:** decide the hard thresholds and make each illegal-state class fail
-under a deliberate poison fixture. Only then remove `#[ignore]` or add a separate
-non-ignored policy test.
+Separate raw touch/gesture folding and semantic `ControlFrame` production from
+the visual joystick/button overlay and presentation dependencies.
 
-### 6. BD5 boss validator (diagnostic — no active enforcement work)
+## 8. Finish valuable render/read-model cleanup
 
-**State:** PARTIAL / DIAGNOSTIC. The validator infrastructure exists and reports
-8 errors / 10 warnings as diagnostic findings. By maintainer decision it is
-**non-blocking**: not a gate, not a dependency for any other track.
+**State:** OPEN, bounded.
 
-**Plan:** [`engine/boss-design.md`](engine/boss-design.md) §11 (per-slice
-DONE/OPEN/BLOCKED).
+Remove dead dependencies first. Add read-model fields only for mutable simulation
+facts whose direct observation violates the one-way seam. Do not manufacture a
+`SimView` copy of immutable authored world data merely to reduce dependency
+count.
 
-**No enforcement work is queued.** Do NOT wire the validator into installation and
-do NOT drive errors to zero now — several rules are BLOCKED on missing engine
-expressivity (boss-feel representations), and the error/warning counts are not a
-failure condition. Revisit enforcement only when authoring bosses for feel or
-approaching shipment; an install gate is a separate maintainer decision.
+## 9. Reassess only after real consumers
 
-### 7. Super Mary-O completion
+- Menu-host extraction waits for Smash Siblings/Hollow Lite.
+- Boss decomposition waits for track 5.
+- `features/` naming remains low priority and must be coherent if attempted.
+- Provider-owned placement families remain a deferred design question; the closed common Tier-0 world schema is not reopened.
 
-**State:** equipment rows and mechanism, camera scroll policy, and flag sequence
-exist. The gameplay customer is incomplete.
+## Standing execution rule
 
-**Plan:** [`demos/super-mary-o.md`](demos/super-mary-o.md)
-
-**Next slices:** pickup/equip wiring, body-scale collision/render read-fold,
-enemies and shell prop, HUD/results, then the headless 1-1 run.
-
-### 8. R6e naming decision
-
-**State:** parked. `player/` has been dissolved; `features/` still names the
-actor/prop simulation tree.
-
-**Plan:** [`engine/refactor-chain.md`](engine/refactor-chain.md)
-
-**Decision:** either perform a coherent module-and-type-family rename, or accept
-the current name with the module map. A module-only rename is forbidden because
-it preserves the misleading `Feature*` vocabulary while adding a second name.
-
-### 9. Large inline-test debt
-
-**State:** the test-policy migration succeeded, but the repository-wide
-"no 200-line inline test module" claim is false. The machine inventory currently
-finds:
-
-- `crates/ambition_characters/src/equipment.rs`
-- `crates/ambition_audio/src/catalog.rs`
-- `game/ambition_demo_mary_o/src/flag.rs`
-- `game/ambition_demo_mary_o/src/lib.rs`
-
-**Plan:** [`test-refactor-plan-2026-07-10.md`](test-refactor-plan-2026-07-10.md)
-
-Extract these modules if the threshold is binding. Otherwise remove the threshold
-from project policy rather than declaring it met.
-
-## Open playtest and polish reports
-
-These are observations, not architecture-completion claims:
-
-| Report | Owning area | Required evidence |
-|---|---|---|
-| Slash VFX can render as a black square | render/sprite source | Reproduce in a real visual run and add a source-selection regression test. |
-| DI and smash-charge feel/input seams | combat/input | Jon's feel pass plus an explicit held/released attack signal if partial charge remains desired. |
-| Modal body morph still has duplicated presentation machinery | render/character presentation | Replace the bespoke sibling sprite with a body-sheet state only after visual parity is demonstrated. |
-| Shrine and glider sprites are broken | sprite publishing/rect metadata | Reproduce against the generated sheet and pin rect/manifest ownership. |
-| Portal gun should be an ordinary item | item/portal composition | One item owns one portal pair through the existing spawn capability; no portal-gun engine special case. |
-| Build cache can grow excessively | developer tooling | Measure target-dir growth and document an explicit prune workflow before automating deletion. |
-
-## Status-edit checklist
-
-Before writing `DONE`, `LANDED`, `ONE authority`, or `none remain`:
-
-1. Name the exact acceptance test or source invariant.
-2. Run it at HEAD.
-3. Search for competing owners and consumers, not only the newly added type.
-4. Update [`status.md`](status.md) and the owning plan in the same commit.
-5. Archive the execution narrative instead of appending it here.
-
-The binding decomposition + completion rules — DONE/OPEN/BLOCKED, caveated
-completion is not completion, and no invented status words in executable tables —
-are project planning policy and live in [`README.md`](README.md) §"Completion
-policy". This queue conforms to them; it does not restate them.
+Do not create a policy/scanner task merely to accompany an architectural patch.
+Use types, ownership, crate direction, visibility, and behavioral acceptance
+first. A new policy test needs a concrete recurring harmful state that those
+mechanisms cannot express.

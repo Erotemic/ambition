@@ -89,7 +89,7 @@ compiles `ambition_app`.
   `game_policies`.
 
 See `docs/architecture/architecture-boundaries.md`; the completed test move is
-recorded historically in `docs/planning/engine/test-organization-migration.md`.
+recorded historically in `docs/archive/reviews/planning-history-2026-07-11/test-refactor-execution-ledger-2026-07-10.md`.
 
 ## Rules that survive every move
 

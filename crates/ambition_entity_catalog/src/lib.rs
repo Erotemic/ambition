@@ -1,7 +1,7 @@
 //! Entity-contract + moveset vocabulary — the gameplay-truth schema.
 //!
 //! This crate is the typed spine of the `EntityCatalog` target in
-//! `docs/planning/engine/data-driven-sprites-and-characters.md`: entities as
+//! `docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md`: entities as
 //! **contract bundles** (not categories), and abilities as **Smash-model move
 //! timelines** that every actor plays through the same system.
 //!

@@ -138,17 +138,17 @@ platform and support
 
 Important current boundary notes:
 
-* `ambition_actors` is still a large machinery crate and compatibility
-  facade. Its decomposition is tracked in `docs/planning/engine/decomposition.md`
-  and `docs/planning/tracks.md`.
-* `ambition_sim_view` is the observation boundary. Presentation should migrate
-  toward reading observation facts instead of raw simulation internals.
-* `ambition_runtime` and `ambition_host` are the emerging engine assembly seams:
-  headless-safe simulation composition belongs in runtime; windowed host
-  composition belongs in host/app layers.
-* `ambition_content` owns named Ambition game content. Engine crates should not
-  name Ambition-specific content.
-* `ambition_portal` and `ambition_portal_presentation` are the exemplar split
+* `ambition_actors` is the unified simulation heart. It is not awaiting a
+  size-driven crate carve; remaining work removes content/lifecycle residue and
+  converges action paths.
+* `ambition_sim_view` is the observation boundary. Presentation and headless
+  consumers read stable facts rather than mutating simulation internals.
+* `ambition_runtime` owns headless-safe composition and global ordering;
+  `ambition_host` owns window/device/presentation composition. Provider lifecycle
+  and the programmatic simulation harness are accepted extraction seams.
+* Game providers own named content through catalogs, registrations, and
+  presentation plugins. Reusable engine crates do not own a flagship roster.
+* `ambition_portal` and `ambition_portal_presentation` remain the exemplar split
   between simulation semantics and presentation.
 
 The target crate stack, including crates that may not be fully carved out yet,

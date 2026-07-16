@@ -130,7 +130,7 @@ pub fn metas() -> Vec<CustomMeta> {
         scope: Scope::Engine,
         owners: vec!["ambition_platformer_primitives".to_string()],
         watch_paths: vec!["crates".to_string(), "game".to_string()],
-        source_doc: "docs/planning/engine/startup-loading-and-frontend-flow.md".to_string(),
+        source_doc: "docs/planning/engine/architecture.md".to_string(),
         severity: Severity::Error,
     }]
 }
@@ -145,7 +145,7 @@ pub fn run(ws: &Workspace, report: &mut Report) {
                 report.push(Diagnostic {
                     policy_id: POLICY_ID.to_string(),
                     owners: vec!["ambition_platformer_primitives".to_string()],
-                    source_doc: "docs/planning/engine/startup-loading-and-frontend-flow.md"
+                    source_doc: "docs/planning/engine/architecture.md"
                         .to_string(),
                     rationale: "live platformer world state exists only as components on the exact SessionRoot; process resources and synchronization bridges are forbidden"
                         .to_string(),

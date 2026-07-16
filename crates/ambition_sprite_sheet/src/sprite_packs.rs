@@ -15,7 +15,7 @@
 //! A consumer never reads pack pixels for gameplay: the synthesized
 //! [`SheetRecord`](ambition_sprite_sheet::SheetRecord) view carries no
 //! `body_metrics` (packs are visual storage truth only — see
-//! `docs/planning/engine/data-driven-sprites-and-characters.md`).
+//! `docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md`).
 
 use std::collections::HashMap;
 use std::sync::OnceLock;

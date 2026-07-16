@@ -108,7 +108,7 @@ const PROP_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
 /// loader first tries the quality-tiered ultrapack
 /// (`assets/sprite_packs/<tier>/`) for that packer target name, falling back
 /// to the per-target sheet when no pack exists. `intro_cart` is the pilot
-/// (docs/planning/engine/data-driven-sprites-and-characters.md, W2); extend
+/// (docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md, W2); extend
 /// per prop once verified.
 pub fn intro_prop_sprite_rows() -> Vec<(
     &'static str,

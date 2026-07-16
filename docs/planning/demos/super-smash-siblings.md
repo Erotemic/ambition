@@ -17,8 +17,8 @@ stretch). Percent-style damage display. A character select screen.
 
 | Role | What SSB uses it for | Must exist first |
 |---|---|---|
-| [the sim assembly] + [the windowed host] | app composition, mode scope (`in_mode("ssb")`), fixed-tick option | decomposition E5-finish ✅ (2026-07-06 night); netcode N0.1 ✅ LANDED (2026-07-09 — netcode.md N0.1) |
-| [the sim heart] | bodies, slots, possession (hosted mode seeds slot 1 from the possessed body), spawn/respawn primitives | E5-finish (exists today) |
+| [the sim assembly] + [the provider lifecycle] + [the windowed host] | app composition, exact session scope, mode scope, fixed-tick option | provider/session tracks 1–2; fixed-tick substrate landed |
+| [the sim heart] | bodies, slots, possession, spawn/respawn primitives | landed foundation; session-root cleanup continues |
 | [the combat resolver] | knockback growth + weight + `Unbounded` death policy (CM1), DI (CM2), smash/charge (CM3), cancels (CM4), per-move sfx/vfx (CM5), grab/throw/shield-stun (CM6), frame-data table (CM7) | CM1–CM7 |
 | [the movement kernel] | BOTH movers in one arena — that's the whole point (robot/mary-o/goblin on axis-swept; sanic on surface-momentum) | landed |
 | [the actor vocabulary] | fighter-brain CPU profiles L1–L9 | FB1–FB4 |
@@ -78,8 +78,7 @@ inline it in demo commits.
   local controller path proven with two bound devices in a headless
   input-injection test.
 - **F5** feel pass queue (BLIND commits; Jon tunes weights/kb bands).
-- **F6** hosting: the Colosseum wing in ambition (mode-tagged rooms,
-  possessed body seeds slot 1) — decomposition Phase D-C seam.
+- **F6** hosting: the Colosseum wing in Ambition through the common provider/session lifecycle; the controlled subject seeds slot 1 without a separate player path.
 
 ## Exit (Jon's, verbatim + sharpened)
 

@@ -48,8 +48,8 @@ becomes engine work.
    possession as brain transfer), data-driven combat (movesets, volumes,
    knockback), authored space through backend-agnostic IR, deterministic
    headless simulation, and a plugin-group bootstrap
-   (`ambition_runtime::PlatformerEnginePlugins`) that makes a new game's
-   `main.rs` ~100 lines.
+   (`ambition_runtime::PlatformerEnginePlugins`) plus an explicit provider/host
+   composition path that keeps product apps focused on product policy.
 2. **Ambition, the game** — the flagship content crate
    ([`game/`](game/)): *"Every upgrade a theorem, every boss a failed
    objective function, every biome a math world model."* The sandbox is ALSO

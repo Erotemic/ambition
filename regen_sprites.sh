@@ -778,7 +778,7 @@ echo "  ok: ${#expected_files[@]} expected files present"
 # the runtime asset roots into target/ambition_publish/diagnostics so the game
 # bundle ships runtime artifacts only. This is what keeps the Rust
 # `shipped_runtime_roots_have_no_leaked_diagnostics` test green after a regen.
-# See docs/planning/engine/data-driven-sprites-and-characters.md.
+# See docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md.
 echo "==> Publish boundary: sweeping diagnostics out of runtime roots:"
 if command -v "$python_bin" >/dev/null 2>&1; then
     "$python_bin" "$repo_root/scripts/sweep_runtime_diagnostics.py" \
@@ -794,7 +794,7 @@ fi
 # Tier names match the runtime `TextureResolutionScale` enum (full / half /
 # quarter / potato) — the game's pack consumer selects the tier dir from the
 # active quality budget. `build.rs` bakes each tier's ultrapack.json. See
-# docs/planning/engine/data-driven-sprites-and-characters.md (W2).
+# docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md (W2).
 #
 # Efficient by construction: the sheets were rendered ONCE above, so each tier
 # reads that pool (`--from-rendered`) and downsamples each isolated frame to

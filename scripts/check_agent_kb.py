@@ -158,9 +158,6 @@ PLANNING_FILE_MAX_LINES = {
     "docs/planning/tracks.md": 440,
     "docs/planning/roadmap.md": 360,
     "docs/planning/engine/encounter-orchestration.md": 640,
-    "docs/planning/engine/refactor-chain.md": 360,
-    "docs/planning/engine/fable-final-audit-2026-07-07.md": 80,
-    "docs/planning/test-refactor-plan-2026-07-10.md": 360,
 }
 
 FORBIDDEN_PLANNING_PATTERNS = [

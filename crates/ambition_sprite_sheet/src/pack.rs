@@ -29,7 +29,7 @@
 //! `resolve(target, animation, frame) → placement`. It deliberately does not
 //! replace the [`SheetRegistry`](crate::SheetRegistry) path; it is the schema a
 //! future consumer migrates onto once the tiered packs install into a runtime
-//! root. See `docs/planning/engine/data-driven-sprites-and-characters.md`.
+//! root. See `docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md`.
 
 use std::collections::HashMap;
 

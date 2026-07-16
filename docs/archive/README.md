@@ -10,6 +10,7 @@ Use the archive only when investigating why a decision happened or recovering de
 |---|---|
 | `FEATURES.md` | Retired capability snapshot. It is historical evidence, not the current feature inventory. |
 | `historical-roadmaps/` | Landed or abandoned implementation roadmaps kept when they still explain history. |
+| `reviews/` | Dated audits, recon reports, completed plans, and recent superseded context retained for investigation. |
 | `vertical-slices/` | Archived intro-v1 vertical-slice task handoffs. |
 | `music-labs/` | Old generated-music transition and balance experiments. |
 | `old-system-notes/` | Pre-KB system notes kept for historical context. |

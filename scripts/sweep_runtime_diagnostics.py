@@ -4,7 +4,7 @@
 The sprite generators emit human-only diagnostics — canonical reference poses,
 labeled preview sheets, pixel-grid debug overlays — right next to the runtime
 sheet records and page images. This sweep enforces the publish boundary from
-``docs/planning/engine/data-driven-sprites-and-characters.md``: the runtime
+``docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md``: the runtime
 asset roots hold runtime artifacts only.
 
 Diagnostics are MOVED, not deleted, into a staging diagnostics dir (default

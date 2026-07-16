@@ -171,7 +171,7 @@ the ONE `resolve_body_hit` (shield beats armor beats damage) with a new
 (`resolved_ranged`). The player damage system threads the worn set; actor/boss
 callers pass `None` (the resolver stays generic). Exit test met headlessly across
 three suites (armor sequence through the real resolver, grant→moveset verb map,
-Mul-at-trigger-resolve). M1 (`ambition_demo_smb1::powerups`) is the first consumer.
+Mul-at-trigger-resolve). M1 (`ambition_demo_mary_o::powerups`) is the first consumer.
 **Three v1 deviations, stated:** the mushroom's SIZE is a `Body` numeric modifier
 (the (a) path), not a component grant — one mechanism for numeric effects; a
 `downgrade_to` armor row is expected grant-free (the resolver rewrites the worn set

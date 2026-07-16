@@ -3,7 +3,7 @@
 # It holds every *repository-structure* test: source scans, dependency
 # boundaries, module-size limits, architecture ratchets, forbidden-name checks,
 # workspace consistency, and their poison tests. See
-# `docs/planning/engine/test-organization-migration.md` and
+# `docs/archive/reviews/planning-history-2026-07-11/test-refactor-execution-ledger-2026-07-10.md` and
 # `docs/architecture/architecture-boundaries.md`.
 #
 # It INSPECTS the workspace as data (parsed manifests + source walking); it does

@@ -202,7 +202,7 @@ Make cleanup explicitly consult ownership/lifetime policy. Adopted participants
 must survive encounter retirement unless a separately authored policy says
 otherwise; spawned participants must follow the selected cleanup rule.
 
-**Exit:** poison tests fail if adopted actors are despawned or spawned-owned
+**Exit:** behavioral ownership tests fail if adopted actors are despawned or spawned-owned
 actors leak under a cleanup policy.
 
 ### E11 — stable identity and snapshot registration

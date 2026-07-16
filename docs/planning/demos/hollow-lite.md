@@ -30,8 +30,7 @@ respawn policy — mode-scoped), the focus/heal technique registration,
 four enemy rows, the BOSS (authored through the pipeline — the BD8
 acceptance), HUD, title/results.
 
-**Engine prerequisites:** E5-finish ✅ (landed 2026-07-06 night); BD1–BD7; FB1–FB4; CM5; the respawn
-slice (tracks.md).
+**Engine prerequisites:** the provider/session lifecycle tracks, encounter lifecycle convergence, boss action convergence onto the shared moveset path, the fighter-brain/boss-quality foundations, and authored respawn/save policy.
 
 ## Design (v1 scope)
 

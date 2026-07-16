@@ -76,14 +76,57 @@ Completed slices:
   replaced by a generic wielded-item fact stream plus an App-local visual
   catalog populated by `ambition_content`; both light and heavy gun-sword ids
   use the content-owned art registration.
+- **Projectile visual identities** (`4a0c2d5`): the closed `ProjectileVisualKind`
+  enum + hardcoded `art()` table (apple/lasersword/glider asset paths) in
+  `ambition_projectiles` was replaced by an open `ProjectileVisualId` component +
+  an empty-by-default `ProjectileVisualCatalog` filled by
+  `ambition_content::projectiles`. The foundation `EnemyProjectileSpawn.visual_tag:
+  u16` opaque channel became an open `visual_id: String`.
+- **Input techniques** (`1ece162`): the closed named recognizers
+  (`detect_quarter_circle`/`_grace`/`_half_circle`) were deleted from
+  `ambition_input`, which now offers only the generic `detect_sequence` + an open
+  `MotionTechniqueCatalog`. `ambition_content::input_techniques` registers
+  `qcf`/`qcf_grace`/`hcf`; the fire system resolves gestures by id.
+- **Held/inventory item art** (`022200d`): the closed `ItemArt` resource +
+  `GAUNTLET_PROP_IDS` + literal-id `item_sprite()` match + hardcoded
+  `sprites/props/*.png` loads in `ambition_render` were replaced by the
+  `HeldItemArtManifest` contribution seam (like `WorldItemArt`), filled from
+  `ambition_content::items::held_visuals`.
 
-Next prioritize the closed item catalog, remaining named render/art bindings,
-asset universe, projectile identities, and input techniques. Each patch must
-install the correct provider-owned catalog, registration, or presentation seam
-and delete the engine-owned closed content.
+**Substantially met via existing seams (no reusable-crate edit needed to add
+content):**
+
+- *Item identities.* `install_item_catalog(ItemCatalog::from_ron(...))` already
+  lets a provider re-author every one of the 24 items' identity, flavor, and
+  wiring (`display_name`/`category`/`held_item_id`/`dialog_id`) as data in
+  `items.ron`. The fixed 6×4 = 24-slot OoT grid and its slot enum are Jon's
+  **deliberate machinery** (`crates/ambition_items` module doc), not a leak —
+  the same "a closed common schema is intentional, not reopened" stance this
+  track already takes for the Tier-0 world schema. Residual reusable-crate item
+  content is minor and disruptive-to-move for low value: the `Item::icon_path`
+  menu-grid asset paths (candidate to fold into `ItemMeta` data) and
+  `OwnedItems::starter()` (a convenience constructor used by several test
+  fixtures). Persistence is already string-`dialog_id`-keyed.
+- *Boss sprite sheets.* The App-local `ambition_actors::boss_encounter::BossCatalog`
+  is the provider seam; `ambition_sprite_sheet::boss::builtin_boss_sheets()` is a
+  documented **fallback-only** layout map that "a new provider does not edit."
+
+**Remaining (most-woven, lower marginal value):**
+
+- The `EntitySprite` / `ParallaxTheme` named-sprite enums and the asset-universe
+  residue (fonts, the `ambition/sandbox.ron` data id, sprite-pack tiers, the
+  `ambition_ldtk_map` world manifest ids) in `ambition_sprite_sheet` /
+  `ambition_asset_manager`. Audio is the reference model here — already evicted
+  via the provider-indexed `AudioCatalogRegistry`; the other asset kinds are
+  woven into the `sandbox_image_manifest` generation and are a larger, separate
+  patch. The `SandboxCatalogInputs` row seam already carries worlds / characters
+  / bosses / music provider-side.
 
 **Exit:** a second provider adds its named content without editing a reusable
-engine crate. No noun scanner is part of this track.
+engine crate. No noun scanner is part of this track. The dialogue, wielded-item,
+projectile-visual, input-technique, held-item-art, item-identity, and boss-sheet
+families now meet this at their seams; the remaining `EntitySprite`/asset-universe
+manifest families are the open tail.
 
 ## 4. Extract `ambition_sim_harness`
 

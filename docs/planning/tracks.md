@@ -65,7 +65,9 @@ than copying the lifecycle; `ambition` is a facade again.
 
 ## 3. Structural content evictions — parallel-safe
 
-**State:** PARTIAL and divisible into small patches.
+**State:** COMPLETE at the campaign's exit bar. Every family the 2026-07-16
+decision record named is evicted or ruled already-met at its seam; the only
+open tail is the deliberately deferred engine-default asset families below.
 
 Completed slices:
 
@@ -92,6 +94,13 @@ Completed slices:
   `sprites/props/*.png` loads in `ambition_render` were replaced by the
   `HeldItemArtManifest` contribution seam (like `WorldItemArt`), filled from
   `ambition_content::items::held_visuals`.
+- **Puppy-slug deep-dream presentation** (`250c1b95`): the last named-content
+  module the 2026-07-16 decision record called out (`deep_dream`, beside the
+  already-evicted `pirate_weapon`) left `ambition_render`. The renderer now
+  exposes the positioned, session-gated `ActorOverlaySet` seam; the material,
+  systems, embedded shader, and dev toggle live in
+  `ambition_content::presentation`. The engine asset root and `DeveloperTools`
+  carry no Ambition-named residue.
 
 **Substantially met via existing seams (no reusable-crate edit needed to add
 content):**
@@ -128,11 +137,13 @@ content):**
   the provider-indexed `AudioCatalogRegistry`; the `SandboxCatalogInputs` row seam
   already carries worlds / characters / bosses / music provider-side.
 
-**Exit:** a second provider adds its named content without editing a reusable
-engine crate. No noun scanner is part of this track. The dialogue, wielded-item,
-projectile-visual, input-technique, held-item-art, item-identity, and boss-sheet
-families now meet this at their seams; the remaining `EntitySprite`/asset-universe
-manifest families are the open tail.
+**Exit — met:** a second provider adds its named content without editing a
+reusable engine crate. No noun scanner is part of this track. The dialogue,
+wielded-item, projectile-visual, input-technique, held-item-art, actor-overlay
+(deep-dream), item-identity, and boss-sheet families all meet this at their
+seams; the `EntitySprite`/asset-universe manifest families remain the
+deliberately deferred tail (rationale above), to be reopened only when a
+provider actually differs.
 
 ## 4. Extract `ambition_sim_harness` — LANDED
 

@@ -2069,20 +2069,6 @@
             hall: ["A pelican. A bicycle. One entity. Don't ask which pedals.", "I fly by committee: two wings, two wheels, no consensus."],
         ),
         ),
-        "npc_glider": (
-            display_name: "Glider",
-            spritesheet: "sprites/glider_spritesheet.png",
-            manifest: "sprites/glider_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Standard,
-            composition: None,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            tags: ["misc"],
-        barks: (
-            hall: ["No engine. No complaints. Just the lean of the air.", "Gravity and I have an arrangement. It's mostly downhill."],
-        ),
-        ),
         "npc_fascist_enforcer": (
             display_name: "Fascist Enforcer",
             spritesheet: "sprites/fascist_enforcer_spritesheet.png",
@@ -2109,20 +2095,6 @@
             tags: ["misc"],
         barks: (
             hall: ["Softer than the others. Same appetite.", "Pet me and find out. (Please don't.)"],
-        ),
-        ),
-        "npc_shrine": (
-            display_name: "Shrine",
-            spritesheet: "sprites/shrine_spritesheet.png",
-            manifest: "sprites/shrine_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Standard,
-            composition: None,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            tags: ["prop"],
-        barks: (
-            hall: ["Kneel, don't kneel. The shrine keeps its own hours.", "I collect wishes. I do not process them."],
         ),
         ),
         "player_robot_fable": (

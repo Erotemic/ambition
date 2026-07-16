@@ -2040,7 +2040,7 @@
                 48,
             ],
             fields: (
-                character_id: "npc_glider",
+                character_id: "npc_fascist_enforcer",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -2057,7 +2057,7 @@
                 48,
             ],
             fields: (
-                character_id: "npc_fascist_enforcer",
+                character_id: "npc_puppy_slug_velvet",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -2074,7 +2074,7 @@
                 48,
             ],
             fields: (
-                character_id: "npc_puppy_slug_velvet",
+                character_id: "player_robot_fable",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -2091,7 +2091,7 @@
                 48,
             ],
             fields: (
-                character_id: "npc_shrine",
+                character_id: "sanic",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -2108,7 +2108,7 @@
                 48,
             ],
             fields: (
-                character_id: "player_robot_fable",
+                character_id: "super_sanic",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -2125,40 +2125,6 @@
                 48,
             ],
             fields: (
-                character_id: "sanic",
-                prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                944,
-                160,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "super_sanic",
-                prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1072,
-                160,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
                 character_id: "mary_o",
                 prompt: "Inspect",
                 dialogue_id: "",
@@ -2168,7 +2134,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                944,
                 160,
             ],
             size: [

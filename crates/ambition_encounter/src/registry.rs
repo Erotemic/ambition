@@ -122,15 +122,29 @@ mod tests {
     }
 }
 
-/// The encounter DOMAIN's registry plugin (track 6, decision #9): the crate
-/// owns its `id -> Entity` index and its cross-crate presentation read-model;
-/// the sim assembly only adds the plugin. Live encounter state stays on the
-/// encounter ENTITIES.
+/// The encounter DOMAIN's plugin (track 6, decision #9): the crate owns its
+/// `id -> Entity` index, its cross-crate presentation read-model, the generic
+/// command/event ingress, and the lifecycle reducer (registered into the
+/// public [`EncounterLifecycleSet`](crate::EncounterLifecycleSet), which the
+/// sim assembly positions). Live encounter state stays on the encounter
+/// ENTITIES.
 pub struct EncounterRegistryPlugin;
 
 impl bevy::prelude::Plugin for EncounterRegistryPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        use ambition_platformer_primitives::schedule::SimScheduleExt;
+        use bevy::prelude::IntoScheduleConfigs;
         app.init_resource::<EncounterRegistry>();
         app.init_resource::<crate::entity::EncounterView>();
+        // The generic clock mirror the reducer reads (the host overwrites it
+        // each frame; init never clobbers a pre-inserted resource).
+        app.init_resource::<ambition_platformer_primitives::time::SimDt>();
+        app.add_message::<crate::lifecycle::EncounterCommand>();
+        app.add_message::<crate::events::EncounterEventMsg>();
+        let sim = app.sim_schedule();
+        app.add_systems(
+            sim,
+            crate::lifecycle::reduce_encounter_lifecycles.in_set(crate::EncounterLifecycleSet),
+        );
     }
 }

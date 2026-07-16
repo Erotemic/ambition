@@ -4,22 +4,31 @@
 //! multi-binding iteration, and notes on the outro/restart race fix.
 
 use super::*;
-use crate::encounter::{EncounterPhase, EncounterRun, EncounterState};
+use crate::encounter::{EncounterPhase, EncounterRun, EncounterWaves};
 use std::collections::HashMap;
 
-/// A live encounter state fixture at `phase` (E1: the resolvers read encounter
-/// entities via an `id -> &EncounterState` lookup, not the registry).
-fn state_with_phase(phase: EncounterPhase) -> EncounterState {
-    EncounterState {
-        phase,
-        ..Default::default()
-    }
+/// A wave-policy fixture: the resolver keys adaptive states off the wave
+/// index/clock (`EncounterWaves.run`); the generic lifecycle supplies the
+/// phase separately.
+fn waves_fixture(run: EncounterRun) -> EncounterWaves {
+    let spec: crate::encounter::EncounterSpec = ron::from_str(
+        r#"(id: "t", waves: [], trigger_min: (0.0, 0.0), trigger_size: (10.0, 10.0),
+            camera_zoom: 1.0, lock_wall: None, intro_seconds: 0.0, music_track: "")"#,
+    )
+    .expect("minimal spec");
+    let mut waves = EncounterWaves::new(spec);
+    waves.run = run;
+    waves
 }
 
-/// A single-entry `id -> &EncounterState` lookup, matching what
+/// A single-entry `id -> (phase, &EncounterWaves)` lookup, matching what
 /// `compute_music_intent` builds from the encounter entities.
-fn lookup<'a>(id: &'a str, state: &'a EncounterState) -> HashMap<&'a str, &'a EncounterState> {
-    HashMap::from([(id, state)])
+fn lookup<'a>(
+    id: &'a str,
+    phase: EncounterPhase,
+    waves: &'a EncounterWaves,
+) -> HashMap<&'a str, (EncounterPhase, &'a EncounterWaves)> {
+    HashMap::from([(id, (phase, waves))])
 }
 
 fn binding(encounter_id: &str, cue_id: &str) -> EncounterMusicBinding {
@@ -44,7 +53,7 @@ fn director_with_active_cue(cue_id: Option<&str>) -> MusicDirectorState {
 
 #[test]
 fn unknown_encounter_with_inactive_cue_returns_none() {
-    let states: HashMap<&str, &EncounterState> = HashMap::new();
+    let states: HashMap<&str, (EncounterPhase, &EncounterWaves)> = HashMap::new();
     let director = director_with_active_cue(None);
     let bind = binding("nonexistent", "first_goblin_tune_v2");
     assert!(resolve_directive_for_binding(&bind, &states, &director).is_none());
@@ -52,7 +61,7 @@ fn unknown_encounter_with_inactive_cue_returns_none() {
 
 #[test]
 fn unknown_encounter_with_active_cue_returns_stop_now() {
-    let states: HashMap<&str, &EncounterState> = HashMap::new();
+    let states: HashMap<&str, (EncounterPhase, &EncounterWaves)> = HashMap::new();
     // The cue is currently playing for an encounter that no longer
     // exists — the resolver should stop it.
     let director = director_with_active_cue(Some("first_goblin_tune_v2"));
@@ -65,8 +74,12 @@ fn unknown_encounter_with_active_cue_returns_stop_now() {
 
 #[test]
 fn starting_phase_returns_starting_state_play() {
-    let state = state_with_phase(EncounterPhase::Starting { remaining: 1.0 });
-    let states = lookup("goblin_encounter", &state);
+    let waves = waves_fixture(EncounterRun::default());
+    let states = lookup(
+        "goblin_encounter",
+        EncounterPhase::Starting { remaining: 1.0 },
+        &waves,
+    );
     let director = director_with_active_cue(None);
     let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
@@ -80,11 +93,11 @@ fn starting_phase_returns_starting_state_play() {
 
 #[test]
 fn active_phase_uses_wave_state_by_index() {
-    let state = state_with_phase(EncounterPhase::Active {
-        wave_index: 2,
-        remaining_mobs: 1,
+    let waves = waves_fixture(EncounterRun {
+        wave_index: Some(2),
+        ..Default::default()
     });
-    let states = lookup("goblin_encounter", &state);
+    let states = lookup("goblin_encounter", EncounterPhase::Active, &waves);
     let director = director_with_active_cue(None);
     let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
@@ -98,8 +111,8 @@ fn active_phase_uses_wave_state_by_index() {
 
 #[test]
 fn cleared_phase_returns_cleared_state_play() {
-    let state = state_with_phase(EncounterPhase::Cleared);
-    let states = lookup("goblin_encounter", &state);
+    let waves = waves_fixture(EncounterRun::default());
+    let states = lookup("goblin_encounter", EncounterPhase::Completed, &waves);
     let director = director_with_active_cue(None);
     let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
@@ -113,8 +126,8 @@ fn cleared_phase_returns_cleared_state_play() {
 
 #[test]
 fn failed_phase_returns_stop_now() {
-    let state = state_with_phase(EncounterPhase::Failed);
-    let states = lookup("goblin_encounter", &state);
+    let waves = waves_fixture(EncounterRun::default());
+    let states = lookup("goblin_encounter", EncounterPhase::Failed, &waves);
     let director = director_with_active_cue(None);
     let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
@@ -125,21 +138,15 @@ fn failed_phase_returns_stop_now() {
 
 #[test]
 fn active_phase_wave2_promotes_to_reinforced_after_brute_delay() {
-    let state = EncounterState {
-        phase: EncounterPhase::Active {
-            wave_index: 1,
-            remaining_mobs: 3,
-        },
-        // Simulate enough wave_elapsed time to trigger the
-        // wave2_reinforced_state promotion (LARGE_BRUTE_DELAY_SECONDS
-        // is the threshold).
-        run: EncounterRun {
-            wave_elapsed: LARGE_BRUTE_DELAY_SECONDS + 0.1,
-            ..Default::default()
-        },
+    // Simulate enough wave_elapsed time to trigger the
+    // wave2_reinforced_state promotion (LARGE_BRUTE_DELAY_SECONDS
+    // is the threshold).
+    let waves = waves_fixture(EncounterRun {
+        wave_index: Some(1),
+        wave_elapsed: LARGE_BRUTE_DELAY_SECONDS + 0.1,
         ..Default::default()
-    };
-    let states = lookup("goblin_encounter", &state);
+    });
+    let states = lookup("goblin_encounter", EncounterPhase::Active, &waves);
     let director = director_with_active_cue(None);
     let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
@@ -175,8 +182,8 @@ fn resolver_iterates_multiple_bindings() {
         wave2_reinforced_state: None,
         cleared_state: "outro".into(),
     });
-    let state = state_with_phase(EncounterPhase::Cleared);
-    let states = lookup("imaginary_arena", &state);
+    let waves = waves_fixture(EncounterRun::default());
+    let states = lookup("imaginary_arena", EncounterPhase::Completed, &waves);
     let director = MusicDirectorState::default();
     // goblin_encounter binding has no encounter; imaginary_arena binding
     // is Cleared. The resolver iterates and returns the second

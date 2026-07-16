@@ -90,6 +90,17 @@ impl Plugin for ProgressionSchedulePlugin {
                 .after(ambition_actors::menu::map::sync_map_from_save)
                 .in_set(SandboxSet::Progression),
         );
+        // The generic encounter lifecycle reducer (E8 — a DOMAIN set, its
+        // system lives in `EncounterRegistryPlugin`): runs after the boss wrap
+        // + participant-liveness refresh (`update_encounter_progress`) so this
+        // frame's commands and liveness reduce this frame; the wave/boss
+        // EFFECT adapters order themselves `.after(EncounterLifecycleSet)`.
+        app.configure_sets(
+            sim,
+            ambition_encounter::EncounterLifecycleSet
+                .in_set(SandboxSet::Progression)
+                .after(ambition_actors::boss_encounter::update_encounter_progress),
+        );
 
         // Anchor the content slots into the engine chain at their exact former
         // positions. Content plugins register `.in_set(the slot)`; ordering is

@@ -1169,6 +1169,11 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry
         .register_message_channel::<ambition_combat::on_hit::OnHitEffectMessage>("on_hit_effect");
     registry.register_message_channel::<ambition_combat::moveset::MoveEventMessage>("move_event");
+    // E8 generic encounter ingress/events: a pending Start/Signal command (or
+    // a Completed event) replayed after a restore would double-apply.
+    registry
+        .register_message_channel::<ambition_encounter::EncounterCommand>("encounter_command");
+    registry.register_message_channel::<ambition_encounter::EncounterEventMsg>("encounter_event");
 
     // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be
     // snapshotted, restored, or defended by the canary. Hashing the COUNT means a

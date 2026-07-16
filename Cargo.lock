@@ -451,6 +451,7 @@ dependencies = [
  "ambition_engine_core",
  "ambition_interaction",
  "ambition_persistence",
+ "ambition_platformer_primitives",
  "bevy",
  "ron 0.11.0",
  "serde",

@@ -644,12 +644,12 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     // lock walls the gate contributors derive each frame in WorldPrep,
     // no longer mutated into the authored base) so the wall is visible
     // when an encounter slams it shut. Pinned after
-    // `update_encounters_from_world` so it runs late in the frame, well
+    // `drive_wave_encounters` so it runs late in the frame, well
     // after the WorldPrep contributor has populated `gate_solids`.
     .add_systems(
         Update,
         ambition::render::rendering::sync_lock_wall_visuals
-            .after(ambition::actors::encounter::update_encounters_from_world)
+            .after(ambition::actors::encounter::drive_wave_encounters)
             .run_if(ambition::platformer::lifecycle::session_world_exists),
     )
     // Dev "hide sprites" / "placeholder sprites" overrides — must run

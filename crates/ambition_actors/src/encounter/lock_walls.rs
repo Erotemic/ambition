@@ -11,27 +11,21 @@
 use ambition_engine_core as ae;
 use bevy::prelude::*;
 
-use super::{Encounter, EncounterPhase, EncounterState};
+use super::{Encounter, EncounterLifecycle, EncounterPhase, EncounterWaves};
 use crate::features::FeatureEcsWorldOverlay;
 
-/// The lock-wall solid blocks wanted THIS frame: one per Starting/Active
-/// encounter that has an authored `LockWall`. Block name format is
+/// The lock-wall solid blocks wanted THIS frame: one per in-flight encounter
+/// that has an authored `LockWall`. Block name format is
 /// `lockwall:<encounter_id>` so the render layer can surface them as
 /// `LockWallVisual` sprites (and a future per-id query can find them).
 pub(in crate::encounter) fn desired_lock_wall_blocks<'a>(
-    encounters: impl IntoIterator<Item = (&'a str, &'a EncounterState)>,
+    encounters: impl IntoIterator<Item = (&'a str, EncounterPhase, &'a super::EncounterSpec)>,
 ) -> Vec<ae::Block> {
     let mut blocks = Vec::new();
-    for (id, state) in encounters {
-        if !matches!(
-            state.phase,
-            EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
-        ) {
+    for (id, phase, spec) in encounters {
+        if !phase.locks_exits() {
             continue;
         }
-        let Some(spec) = state.spec.as_ref() else {
-            continue;
-        };
         let Some(wall) = spec.lock_wall.as_ref() else {
             continue;
         };
@@ -49,12 +43,12 @@ pub(in crate::encounter) fn desired_lock_wall_blocks<'a>(
 /// has cleared `gate_solids`, so the contribution is a clean per-frame derive of
 /// the encounter entities' live phase — no base mutation, no reconcile.
 pub fn contribute_encounter_lock_walls(
-    encounters: Query<(&Encounter, &EncounterState)>,
+    encounters: Query<(&Encounter, &EncounterLifecycle, &EncounterWaves)>,
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
 ) {
     overlay.gate_solids.extend(desired_lock_wall_blocks(
         encounters
             .iter()
-            .map(|(enc, state)| (enc.id.as_str(), state)),
+            .map(|(enc, lifecycle, waves)| (enc.id.as_str(), lifecycle.phase, &waves.spec)),
     ));
 }

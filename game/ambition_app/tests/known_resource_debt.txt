@@ -123,6 +123,7 @@ ambition_sim_view::facts::MarkBeaconsView
 ambition_sim_view::facts::PlayerHudFacts
 ambition_sim_view::facts::ShrinesView
 ambition_sim_view::facts::HostileWieldedItemsView
+ambition_sim_view::dialog_view::DialogView
 ambition_sim_view::facts::WorldItemsView
 ambition_sim_view::pose_view::ShieldRingsView
 ambition_sim_view::view_index::ActorRenderIndex

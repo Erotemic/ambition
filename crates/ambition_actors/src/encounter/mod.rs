@@ -15,13 +15,13 @@
 
 use ambition_platformer_primitives::schedule::SimScheduleExt;
 mod events;
+mod lifecycle_reexports;
 mod loading;
 mod lock_walls;
 mod music;
 mod registry;
 mod rewards;
 mod spec;
-mod state;
 mod switches;
 mod systems;
 
@@ -29,21 +29,26 @@ pub use ambition_encounter::{
     active_encounter_camera_zoom, install_encounter_waves, Encounter, EncounterParticipant,
     EncounterParticipants, EncounterRole, EncounterView,
 };
-pub use events::EncounterEvent;
+pub use events::{EncounterEvent, EncounterEventMsg};
+#[cfg(test)]
+pub(super) use lifecycle_reexports::ENCOUNTER_INTER_WAVE_DELAY_SECONDS;
+pub use lifecycle_reexports::{
+    EncounterCommand, EncounterCommandKind, EncounterLifecycle, EncounterLifecycleSet,
+    EncounterPhase, EncounterRun, EncounterWaves, WAVES_EXHAUSTED_SIGNAL,
+};
 pub use loading::load_encounter_specs_from_ldtk;
 pub use lock_walls::contribute_encounter_lock_walls;
 pub use music::EncounterMusicRequest;
 pub use registry::{EncounterRegistry, SwitchActivation};
 pub use rewards::{encounter_reward_chest_pos, encounter_reward_looted_flag};
 pub use spec::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
-#[cfg(test)]
-pub(super) use state::ENCOUNTER_INTER_WAVE_DELAY_SECONDS;
-pub use state::{EncounterPhase, EncounterRun, EncounterState};
 pub use switches::{
     rebuild_encounter_switch_index, EncounterSwitchIndex, SwitchActivated, SwitchActivationQueue,
     SwitchFeature, SwitchOn,
 };
-pub use systems::{populate_encounter_registry, update_encounters_from_world};
+pub use systems::{
+    apply_wave_encounter_effects, drive_wave_encounters, populate_encounter_registry,
+};
 
 /// Module-local Bevy plugin: schedules the `EncounterSimulation`
 /// simulation set — moving-platform sweep + encounter tick +
@@ -64,12 +69,21 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             sim,
             (
                 crate::world::platforms::sync_moving_platform,
-                update_encounters_from_world,
+                drive_wave_encounters,
                 crate::features::apply_gameplay_banner_requests,
                 crate::features::tick_gameplay_banner,
             )
                 .chain()
                 .in_set(crate::schedule::SandboxSet::EncounterSimulation),
+        );
+        // The wave EFFECT adapter reacts to this frame's lifecycle events, so
+        // it runs after the generic reducer (`EncounterLifecycleSet`, whose
+        // Progression position the runtime owns).
+        app.add_systems(
+            sim,
+            apply_wave_encounter_effects
+                .in_set(crate::schedule::SandboxSet::Progression)
+                .after(EncounterLifecycleSet),
         );
         // The lock-wall contribution runs a phase EARLIER, in WorldPrep: it
         // derives the seal walls onto the collision overlay's `gate_solids` from

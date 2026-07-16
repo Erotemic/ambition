@@ -80,7 +80,9 @@ pub(super) fn update_hud(
     // just an index) — one line per in-flight wave encounter.
     wave_encounters: Query<(
         &ambition::encounter::Encounter,
-        &ambition::encounter::EncounterState,
+        &ambition::encounter::EncounterLifecycle,
+        &ambition::encounter::EncounterWaves,
+        &ambition::encounter::EncounterParticipants,
     )>,
     mut query: Query<&mut Text, With<HudText>>,
 ) {
@@ -214,13 +216,9 @@ pub(super) fn update_hud(
     };
     let encounter_line = {
         let mut bits = Vec::new();
-        for (_enc, state) in &wave_encounters {
-            if matches!(
-                state.phase,
-                ambition::encounter::EncounterPhase::Starting { .. }
-                    | ambition::encounter::EncounterPhase::Active { .. }
-            ) {
-                bits.push(state.hud_summary());
+        for (_enc, lifecycle, waves, participants) in &wave_encounters {
+            if lifecycle.phase.in_flight() {
+                bits.push(waves.hud_summary(lifecycle.phase, participants));
             }
         }
         if bits.is_empty() {

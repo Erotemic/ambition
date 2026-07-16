@@ -8,7 +8,7 @@
 //! signal and the generic objective consumes it (§5), so the generic runtime
 //! never interprets game names.
 
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use bevy::prelude::*;
 
@@ -57,12 +57,13 @@ impl EncounterObjective {
 
 /// Evaluate a generic objective against the live encounter facts. `elapsed_secs`
 /// is time since the encounter went Active; `signals` is the set of signal keys
-/// received this encounter. Pure — headless-testable, order-independent.
+/// received this encounter (`BTreeSet` — the lifecycle's snapshot-registered
+/// storage, determinism contract). Pure — headless-testable, order-independent.
 pub fn objective_met(
     objective: &Objective,
     participants: &EncounterParticipants,
     elapsed_secs: f32,
-    signals: &HashSet<String>,
+    signals: &BTreeSet<String>,
 ) -> bool {
     match objective {
         Objective::AllWithRoleDefeated(role) => participants.all_with_role_defeated(*role),
@@ -103,7 +104,7 @@ mod tests {
         let obj = Objective::AllWithRoleDefeated(EncounterRole::PrimaryTarget);
         let alive = parts(vec![("boss", EncounterRole::PrimaryTarget, true)]);
         let dead = parts(vec![("boss", EncounterRole::PrimaryTarget, false)]);
-        let none = HashSet::new();
+        let none = BTreeSet::new();
         assert!(!objective_met(&obj, &alive, 0.0, &none));
         assert!(objective_met(&obj, &dead, 0.0, &none));
     }
@@ -115,9 +116,9 @@ mod tests {
             &Objective::Survive(3.0),
             &empty,
             3.5,
-            &HashSet::new()
+            &BTreeSet::new()
         ));
-        let mut signals = HashSet::new();
+        let mut signals = BTreeSet::new();
         signals.insert("gate_reached".to_string());
         assert!(objective_met(
             &Objective::ReceiveSignal("gate_reached".into()),

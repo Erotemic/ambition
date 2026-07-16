@@ -1239,7 +1239,9 @@ fn a_rewind_empties_the_message_channels_it_registered() {
 
     let snap = take(s.world(), &reg);
     let report = restore(s.world_mut(), &snap, &reg).expect("same-room restore");
-    assert_eq!(report.messages_cleared, 4);
+    // Every registered channel: actor_action, hit_event, on_hit_effect,
+    // move_event + the E8 encounter ingress pair (command, event).
+    assert_eq!(report.messages_cleared, 6);
     assert!(
         reg.pending_messages(s.world()).is_empty(),
         "a message from the abandoned future survived the rewind: {:?}",

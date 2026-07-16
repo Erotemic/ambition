@@ -1,48 +1,47 @@
-//! `EncounterEvent` — the output stream of the encounter state machine
-//! (`state.rs`). Trace markers (Started/WaveStarted/Cleared/...) plus the
-//! one side-effect variant `SpawnCommand` that `systems.rs` turns into a real
-//! ECS mob. Keeps the headless state machine decoupled from Bevy spawning.
+//! `EncounterEvent` — the output stream of the encounter lifecycle reducer and
+//! the wave director. Trace markers (Started/Completed/…) plus the one
+//! side-effect variant `SpawnCommand` the wave adapter turns into a real ECS
+//! mob. [`EncounterEventMsg`] is the ECS message form: the reducer publishes
+//! `{encounter, event}` and effect adapters (switch auto-green, banners,
+//! quests, trace) react without owning the lifecycle.
 
-/// Trace + side-effect events emitted by the encounter state machine.
-/// The sandbox projects these into `GameplayTraceEvent` and routes
-/// `SpawnCommand` to ECS actor spawning.
+/// One lifecycle/wave event. The encounter id travels on the enclosing
+/// [`EncounterEventMsg`]; the variants carry only their own payload.
 #[derive(Clone, Debug, PartialEq)]
 pub enum EncounterEvent {
-    Started {
-        id: String,
-    },
-    WaveStarted {
-        wave_index: usize,
-        label: String,
-    },
+    /// The lifecycle left `Inactive` (Start command accepted).
+    Started,
+    /// The win objective was met or `Complete` was commanded.
+    Completed,
+    /// The fail objective was met or `Fail` was commanded.
+    Failed,
+    /// The exit-seal state changed (derived from the phase transition).
+    LockChanged { locked: bool },
+    /// A signal key was recorded on the lifecycle (first receipt only).
+    SignalReceived { key: String },
+    /// A wave began (wave director).
+    WaveStarted { wave_index: usize, label: String },
     /// Trace-only "an enemy is about to spawn" marker. The actual
     /// spawn happens via `SpawnCommand`.
-    EnemySpawned {
-        kind: String,
-    },
+    EnemySpawned { kind: String },
     /// Side-effect: spawn a real ECS encounter mob with the given id /
-    /// brain / world position / size.
+    /// brain / world position / size (wave director).
     SpawnCommand {
         id: String,
         kind: String,
         pos: [f32; 2],
         size: [f32; 2],
     },
-    Cleared {
-        id: String,
-    },
-    Failed {
-        id: String,
-    },
-    LockChanged {
-        locked: bool,
-    },
 }
 
 impl EncounterEvent {
     pub fn label(&self) -> String {
         match self {
-            Self::Started { id } => format!("encounter_started:{id}"),
+            Self::Started => "encounter_started".to_string(),
+            Self::Completed => "encounter_completed".to_string(),
+            Self::Failed => "encounter_failed".to_string(),
+            Self::LockChanged { locked } => format!("encounter_lock_changed:{locked}"),
+            Self::SignalReceived { key } => format!("encounter_signal:{key}"),
             Self::WaveStarted { wave_index, label } => {
                 format!("encounter_wave_started:{wave_index}:{label}")
             }
@@ -50,9 +49,24 @@ impl EncounterEvent {
             Self::SpawnCommand { id, kind, .. } => {
                 format!("encounter_spawn_command:{kind}:{id}")
             }
-            Self::Cleared { id } => format!("encounter_cleared:{id}"),
-            Self::Failed { id } => format!("encounter_failed:{id}"),
-            Self::LockChanged { locked } => format!("encounter_lock_changed:{locked}"),
+        }
+    }
+}
+
+/// The ECS message wrapper: which encounter the event belongs to. Written by
+/// the lifecycle reducer (and the wave adapter for wave events); read by
+/// effect adapters and the trace.
+#[derive(bevy::prelude::Message, Clone, Debug)]
+pub struct EncounterEventMsg {
+    pub encounter: String,
+    pub event: EncounterEvent,
+}
+
+impl EncounterEventMsg {
+    pub fn new(encounter: impl Into<String>, event: EncounterEvent) -> Self {
+        Self {
+            encounter: encounter.into(),
+            event,
         }
     }
 }

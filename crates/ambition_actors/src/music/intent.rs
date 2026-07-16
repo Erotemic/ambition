@@ -16,7 +16,9 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 use crate::audio::RadioStationState;
-use crate::encounter::{Encounter, EncounterMusicRequest, EncounterPhase, EncounterState};
+use crate::encounter::{
+    Encounter, EncounterLifecycle, EncounterMusicRequest, EncounterPhase, EncounterWaves,
+};
 use crate::rooms::RoomMusicRequest;
 use ambition_audio::selection::ActiveAudioSelection;
 
@@ -37,7 +39,7 @@ pub(super) const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 pub fn compute_music_intent(
     catalogs: Res<AdaptiveMusicCatalogRegistry>,
     director: Option<Res<MusicDirectorState>>,
-    encounters: Query<(&Encounter, &EncounterState)>,
+    encounters: Query<(&Encounter, &EncounterLifecycle, &EncounterWaves)>,
     mut encounter_music: ambition_platformer_primitives::lifecycle::SessionWorldMut<
         EncounterMusicRequest,
     >,
@@ -48,10 +50,12 @@ pub fn compute_music_intent(
 ) {
     // The music director keys adaptive cues by encounter id; build the id →
     // live-state lookup from the encounter entities (E1 — the registry is now
-    // just an index, so the state is read from the entities directly).
-    let states: HashMap<&str, &EncounterState> = encounters
+    // just an index, so the state is read from the entities directly). The
+    // lifecycle supplies the generic phase; the wave policy supplies the
+    // wave index/clock the adaptive states key on.
+    let states: HashMap<&str, (EncounterPhase, &EncounterWaves)> = encounters
         .iter()
-        .map(|(enc, state)| (enc.id.as_str(), state))
+        .map(|(enc, lifecycle, waves)| (enc.id.as_str(), (lifecycle.phase, waves)))
         .collect();
     let active_catalog = audio_selection
         .provider_id()
@@ -127,7 +131,7 @@ fn simple_track_candidates(
 /// binding.)
 pub(super) fn resolve_adaptive_directive(
     catalog: &MusicCueCatalog,
-    states: &HashMap<&str, &EncounterState>,
+    states: &HashMap<&str, (EncounterPhase, &EncounterWaves)>,
     director: &MusicDirectorState,
 ) -> Option<AdaptiveCueDirective> {
     for binding in catalog.encounter_bindings() {
@@ -148,30 +152,31 @@ pub(super) fn resolve_adaptive_directive(
 ///   not playing — the binding doesn't claim audio this frame.
 pub(super) fn resolve_directive_for_binding(
     binding: &EncounterMusicBinding,
-    states: &HashMap<&str, &EncounterState>,
+    states: &HashMap<&str, (EncounterPhase, &EncounterWaves)>,
     director: &MusicDirectorState,
 ) -> Option<AdaptiveCueDirective> {
     let cue_active = director.active_cue_id.as_deref() == Some(binding.cue_id.as_str());
-    let Some(encounter) = states.get(binding.encounter_id.as_str()) else {
+    let Some((phase, waves)) = states.get(binding.encounter_id.as_str()) else {
         if cue_active {
             return Some(AdaptiveCueDirective::StopNow);
         }
         return None;
     };
 
-    match encounter.phase {
+    match phase {
         EncounterPhase::Starting { .. } => Some(AdaptiveCueDirective::Play {
             cue_id: binding.cue_id.clone(),
             state_id: binding.starting_state.clone(),
         }),
-        EncounterPhase::Active { wave_index, .. } => {
+        EncounterPhase::Active => {
+            let wave_index = waves.run.wave_index.unwrap_or(0);
             let mut state_id = binding
                 .wave_states
                 .get(wave_index)
                 .or_else(|| binding.wave_states.last())
                 .cloned()
                 .unwrap_or_else(|| binding.starting_state.clone());
-            if wave_index == 1 && encounter.run.wave_elapsed >= LARGE_BRUTE_DELAY_SECONDS {
+            if wave_index == 1 && waves.run.wave_elapsed >= LARGE_BRUTE_DELAY_SECONDS {
                 if let Some(reinforced) = &binding.wave2_reinforced_state {
                     state_id = reinforced.clone();
                 }
@@ -181,7 +186,7 @@ pub(super) fn resolve_directive_for_binding(
                 state_id,
             })
         }
-        EncounterPhase::Cleared => Some(AdaptiveCueDirective::Play {
+        EncounterPhase::Completed => Some(AdaptiveCueDirective::Play {
             cue_id: binding.cue_id.clone(),
             state_id: binding.cleared_state.clone(),
         }),

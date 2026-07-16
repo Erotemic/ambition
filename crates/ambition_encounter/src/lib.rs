@@ -1,23 +1,30 @@
-//! Generic encounter wave/lockdown vocabulary and headless state machine.
+//! Generic encounter orchestration: the ONE lifecycle authority, command
+//! ingress, objectives, participants, timeline, and wave policy.
 //!
-//! This crate owns the authored data, live phase machine, registry resources,
-//! music request resources, switch activation payload, and reward math. Host
-//! crates adapt it to LDtk, ECS spawning, banners, save/quest plumbing, and
-//! renderer/audio side effects.
+//! An encounter is orchestration, not an actor type. Every encounter entity —
+//! wave arena, boss wrap, signal-driven puzzle — carries the same generic
+//! [`EncounterLifecycle`] driven by [`EncounterCommand`]s and completed/failed
+//! by its [`EncounterObjective`] (E8/E9). Host crates adapt it to LDtk, ECS
+//! spawning, banners, save/quest plumbing, and renderer/audio side effects.
 
 pub mod entity;
 pub mod events;
+pub mod lifecycle;
 pub mod music;
 pub mod objective;
 pub mod participants;
 pub mod registry;
 pub mod rewards;
 pub mod spec;
-pub mod state;
 pub mod timeline;
+pub mod waves;
 
 pub use entity::{Encounter, EncounterView};
-pub use events::EncounterEvent;
+pub use events::{EncounterEvent, EncounterEventMsg};
+pub use lifecycle::{
+    reduce_encounter_lifecycles, EncounterCommand, EncounterCommandKind, EncounterLifecycle,
+    EncounterLifecycleSet, EncounterPhase,
+};
 pub use music::EncounterMusicRequest;
 pub use objective::{objective_met, EncounterObjective, Objective};
 pub use participants::{EncounterParticipant, EncounterParticipants, EncounterRole, Ownership};
@@ -27,10 +34,10 @@ pub use spec::{
     authored_encounter_waves, install_encounter_waves, EncounterMobSpec, EncounterSpec,
     EncounterWaveSpec, LockWallSpec,
 };
-pub use state::{
-    active_encounter_camera_zoom, EncounterPhase, EncounterRun, EncounterState,
-    ENCOUNTER_INTER_WAVE_DELAY_SECONDS,
-};
 pub use timeline::{
     EncounterBeat, EncounterEffect, EncounterGate, EncounterScript, EncounterTrigger,
+};
+pub use waves::{
+    active_encounter_camera_zoom, EncounterRun, EncounterWaves, ENCOUNTER_INTER_WAVE_DELAY_SECONDS,
+    WAVES_EXHAUSTED_SIGNAL,
 };

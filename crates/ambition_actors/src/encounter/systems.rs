@@ -1,12 +1,21 @@
-//! The Bevy wiring around the headless `state.rs` machine.
+//! The Bevy adapters around the generic encounter lifecycle (E8/E9).
+//!
 //! `populate_encounter_registry` (startup) loads specs from LDtk + the save and
-//! spawns one encounter ENTITY per spec (E1 — the live state lives on the
-//! entity's `EncounterState` component, not in a resource map);
-//! `update_encounters_from_world` is the per-frame tick over those entities:
-//! death/area-exit cancellation, switch-armed trigger entry, `tick_intro_or_wave`,
-//! applying `SpawnCommand`s to ECS mobs, auto-greening the cleared switch +
-//! reward chest, music request, presentation read-model, save projection, and
-//! trace push.
+//! spawns one encounter ENTITY per spec carrying the generic authority set
+//! (`Encounter` + `EncounterLifecycle` + `EncounterObjective` +
+//! `EncounterParticipants`) plus the wave policy (`EncounterWaves`).
+//!
+//! `drive_wave_encounters` (EncounterSimulation) is the wave ADAPTER: it emits
+//! lifecycle COMMANDS (trigger entry → `Start`, player death → `Fail`+`Reset`,
+//! area exit → `Reset`), refreshes participant liveness from the ECS mobs, and
+//! advances the spawn cadence — it never mutates the phase. The generic reducer
+//! (`ambition_encounter::reduce_encounter_lifecycles`, positioned by the
+//! runtime in `Progression`) is the only lifecycle owner.
+//!
+//! `apply_wave_encounter_effects` (Progression, after the reducer) reacts to
+//! lifecycle EVENTS: switch auto-green + mob cleanup + banner + quest on
+//! completion, reward-chest sync, music request, presentation read-model, save
+//! projection, and the trace sink.
 
 use bevy::prelude::*;
 
@@ -14,14 +23,15 @@ use ambition_engine_core as ae;
 use ambition_platformer_primitives::lifecycle::SessionCommands;
 
 use super::{
-    load_encounter_specs_from_ldtk, Encounter, EncounterEvent, EncounterMusicRequest,
-    EncounterParticipants, EncounterPhase, EncounterRegistry, EncounterRun, EncounterState,
-    EncounterSwitchIndex, EncounterView, SwitchActivationQueue,
+    load_encounter_specs_from_ldtk, Encounter, EncounterCommand, EncounterCommandKind,
+    EncounterEvent, EncounterEventMsg, EncounterLifecycle, EncounterMusicRequest,
+    EncounterParticipants, EncounterRegistry, EncounterSwitchIndex, EncounterView, EncounterWaves,
+    SwitchActivationQueue, WAVES_EXHAUSTED_SIGNAL,
 };
 
 /// Bevy startup system: load encounter specs from the embedded LDtk
-/// project, spawn one encounter entity per spec, and apply persisted states
-/// from the save.
+/// project, spawn one encounter entity per spec carrying the generic
+/// authority set + the wave policy, and apply persisted states from the save.
 pub fn populate_encounter_registry(
     mut commands: Commands,
     mut registry: ResMut<EncounterRegistry>,
@@ -41,15 +51,16 @@ pub fn populate_encounter_registry(
     let entries = load_encounter_specs_from_ldtk(&project.0, save.data());
     let count = entries.len();
     for (id, spec, persisted) in entries {
-        let mut state = EncounterState {
-            spec: Some(spec),
-            ..Default::default()
-        };
-        state.apply_persisted(persisted);
+        let mut lifecycle = EncounterLifecycle::with_intro(spec.intro_seconds);
+        lifecycle.apply_persisted(persisted);
+        let waves = EncounterWaves::new(spec);
+        let objective = waves.objective();
         let entity = commands
             .spawn((
                 Encounter::new(id.clone()),
-                state,
+                lifecycle,
+                objective,
+                waves,
                 EncounterParticipants::default(),
             ))
             .id();
@@ -65,28 +76,29 @@ pub fn populate_encounter_registry(
     );
 }
 
-/// Encounter cancellation: encounters that are `Active` only persist
-/// while the player is in the matching active area. Walking out
-/// (e.g. through the entry LoadingZone) resets the encounter to
-/// `Inactive` so the camera zoom + lock release on exit. This is
-/// deliberate sandbox UX — the encounter is "in play" only while the
-/// player is actually inside the room.
-pub fn update_encounters_from_world(
+/// The wave COMMAND adapter + spawn-cadence director. Emits lifecycle commands
+/// (never phase writes); the generic reducer applies them later this frame.
+///
+/// Cancellation policy (deliberate sandbox UX): an encounter is "in play" only
+/// while the player is actually inside its area — walking out resets it so the
+/// camera zoom + lock release on exit, and a fresh attempt fires on re-entry.
+pub fn drive_wave_encounters(
     mut commands: SessionCommands<'_, '_>,
     world_time: Res<ambition_time::WorldTime>,
     mut died_messages: MessageReader<crate::ActorDiedMessage>,
-    mut encounters: Query<(&Encounter, &mut EncounterState, &mut EncounterParticipants)>,
+    mut encounters: Query<(
+        &Encounter,
+        &EncounterLifecycle,
+        &mut EncounterWaves,
+        &mut EncounterParticipants,
+    )>,
     mut save: ResMut<ambition_persistence::save::SandboxSave>,
     mut switch_activations: ResMut<SwitchActivationQueue>,
     switch_index: Res<EncounterSwitchIndex>,
-    mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
     player_body_q: Query<&crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>,
-    mut music_request: ambition_platformer_primitives::lifecycle::SessionWorldMut<
-        EncounterMusicRequest,
-    >,
-    mut encounter_view: ResMut<EncounterView>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
-    mut banner_requests: MessageWriter<crate::features::GameplayBannerRequested>,
+    mut lifecycle_commands: MessageWriter<EncounterCommand>,
+    mut events_out: MessageWriter<EncounterEventMsg>,
     session_content: (
         ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
         Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
@@ -119,146 +131,126 @@ pub fn update_encounters_from_world(
     // bullet-time alongside the player (ADR 0010); we don't want a
     // grace-window to tick down while the world is stopped.
     let dt = world_time.sim_dt();
-    let mut events: Vec<(String, Vec<EncounterEvent>)> = Vec::new();
 
-    // 0. Player death this frame? Fail any in-flight encounter,
-    //    drop the lock wall, and despawn carryover encounter mobs
-    //    (the player reset already rebuilt room-local state, but the
-    //    encounter's live Minion participants still reference the old
-    //    mobs — clearing them here makes the next tick a clean fresh
-    //    attempt). The death-respawn path already moved the player back
-    //    to the room spawn, so the trigger AABB will re-fire on entry.
+    // 0. Player death this frame? Fail any in-flight encounter (the trace /
+    //    save see the loss), then Reset it in the same command batch so the
+    //    trigger re-fires cleanly on re-entry. Carryover mobs despawn and the
+    //    stale participant relations clear here — participant bookkeeping is
+    //    the adapter's, only the PHASE belongs to the reducer.
     let died_this_frame = died_messages.read().next().is_some();
     if died_this_frame {
-        for (enc, mut state, mut participants) in &mut encounters {
-            let in_flight = matches!(
-                state.phase,
-                EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
-            );
-            if in_flight {
-                let evs = state.on_player_death(&mut participants);
-                if !evs.is_empty() {
-                    events.push((enc.id.clone(), evs));
-                }
-                // After failing, snap to Inactive so the trigger can
-                // fire fresh once the player walks back in.
-                state.phase = EncounterPhase::Inactive;
-                state.lock_active = false;
-                state.run = EncounterRun::default();
+        for (enc, lifecycle, _waves, mut participants) in &mut encounters {
+            if lifecycle.phase.in_flight() {
+                lifecycle_commands
+                    .write(EncounterCommand::new(&enc.id, EncounterCommandKind::Fail));
+                lifecycle_commands
+                    .write(EncounterCommand::new(&enc.id, EncounterCommandKind::Reset));
                 participants.members.clear();
                 crate::features::despawn_encounter_mobs(&mut commands, &encounter_mobs, &enc.id);
             }
         }
     }
 
-    // 1. Cancel encounters whose area the player has left. Snaps back
-    //    to Inactive so the camera zoom + lock release on exit. A
-    //    fresh attempt will fire next time the player re-enters.
-    for (enc, mut state, mut participants) in &mut encounters {
-        let in_flight = matches!(
-            state.phase,
-            EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
-        );
-        if in_flight && enc.id != active_area {
-            state.phase = EncounterPhase::Inactive;
-            state.lock_active = false;
-            state.run = EncounterRun::default();
+    // 1. Reset encounters whose area the player has left, so the camera zoom
+    //    + lock release on exit. (Mobs deliberately linger — the death/re-arm
+    //    paths own their cleanup, preserving the pre-E8 behavior.)
+    for (enc, lifecycle, _waves, mut participants) in &mut encounters {
+        if lifecycle.phase.in_flight() && enc.id != active_area {
+            lifecycle_commands.write(EncounterCommand::new(&enc.id, EncounterCommandKind::Reset));
             participants.members.clear();
-            events.push((
-                enc.id.clone(),
-                vec![EncounterEvent::LockChanged { locked: false }],
-            ));
         }
     }
 
     // 2. Trigger entry. The SWITCH is the source of truth for "armed":
-    //    switch off = armed (red), switch on = disabled (green).
-    //    Phase Cleared/Failed snap back to Inactive here so a stale
-    //    persisted state doesn't lock out re-triggering after a
-    //    switch toggle. The trigger only fires when the encounter
-    //    isn't currently in flight AND the linked switch is off.
+    //    switch off = armed (red), switch on = disabled (green). A stale
+    //    terminal phase resets in the same command batch (the reducer applies
+    //    Reset then Start in order), so a persisted Completed/Failed doesn't
+    //    lock out re-triggering after a switch toggle.
     let armed_active = switch_index.encounter_armed(&active_area);
-    if let Some((_, mut state, mut participants)) = encounters
+    if let Some((enc, lifecycle, waves, mut participants)) = encounters
         .iter_mut()
-        .find(|(enc, _, _)| enc.id == active_area)
+        .find(|(enc, _, _, _)| enc.id == active_area)
     {
-        let in_flight = matches!(
-            state.phase,
-            EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
-        );
-        if !in_flight {
-            // Snap any stale Cleared/Failed back to Inactive so the
-            // trigger can fire on the next pass when the switch is
-            // armed.
-            if !matches!(state.phase, EncounterPhase::Inactive) {
-                state.phase = EncounterPhase::Inactive;
-                state.lock_active = false;
-                state.run = EncounterRun::default();
-                participants.members.clear();
-            }
-            if armed_active {
-                // Iterate every player so any player walking into
-                // the trigger fires the encounter — single-player
-                // behavior preserved because the iterator has one
-                // entity today. OVERNIGHT-TODO #17.8 (iterate-all-
-                // players "any player triggers" pattern).
-                for body in &player_body_q {
-                    let started = state.maybe_start(&mut participants, body.pos, body.size);
-                    if !started.is_empty() {
-                        events.push((active_area.clone(), started));
-                        break;
-                    }
+        if !lifecycle.phase.in_flight() && armed_active {
+            // Iterate every player so any player walking into the trigger
+            // fires the encounter — single-player behavior preserved because
+            // the iterator has one entity today. OVERNIGHT-TODO #17.8.
+            let trigger = waves.spec.trigger_aabb();
+            let entered = player_body_q.iter().any(|body| {
+                use bevy::math::bounding::IntersectsVolume;
+                let player_aabb = ae::aabb_from_min_size(
+                    ae::Vec2::new(
+                        body.pos.x - body.size.x * 0.5,
+                        body.pos.y - body.size.y * 0.5,
+                    ),
+                    body.size,
+                );
+                trigger.intersects(&player_aabb)
+            });
+            if entered {
+                if !matches!(
+                    lifecycle.phase,
+                    ambition_encounter::EncounterPhase::Inactive
+                ) {
+                    lifecycle_commands
+                        .write(EncounterCommand::new(&enc.id, EncounterCommandKind::Reset));
                 }
+                participants.members.clear();
+                lifecycle_commands
+                    .write(EncounterCommand::new(&enc.id, EncounterCommandKind::Start));
             }
         }
     }
 
-    // 3. Tick the active-area encounter (intro countdown / wave
-    //    progression / mob death tracking). Capture whether this
-    //    tick produced a Cleared event so we can auto-flip the
-    //    linked switch to green afterwards.
+    // 3. Drive the active-area wave director while its lifecycle is Active
+    //    (the reducer's phase from this frame's Progression pass — the
+    //    adapters read the authority, one frame behind at most).
     let mut spawn_commands: Vec<(String, String, [f32; 2], [f32; 2])> = Vec::new();
-    let mut just_cleared_id: Option<String> = None;
-    if let Some((_, mut state, mut participants)) = encounters
-        .iter_mut()
-        .find(|(enc, _, _)| enc.id == active_area)
-    {
-        if matches!(
-            state.phase,
-            EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
-        ) {
-            // Snapshot alive ids from the runtime BEFORE ticking, and refresh
-            // each live `Minion` participant's `alive` from it. The reducer's
-            // `retain` runs before its spawn loop, and this refresh runs before
-            // the reducer, so the mobs spawned in THIS tick (added after the
-            // refresh) aren't immediately reaped — they're tested against the
-            // next frame's snapshot.
-            let alive_lookup: std::collections::HashSet<String> = encounter_mobs
-                .iter()
-                .filter(|(_, mob, _, combat)| mob.encounter_id == active_area && combat.alive)
-                .map(|(_, _, id, _)| id.as_str().to_string())
-                .collect();
-            for member in &mut participants.members {
-                member.alive = alive_lookup.contains(&member.id);
-            }
-            let evs = state.tick_intro_or_wave(dt, &mut participants);
-            for ev in &evs {
-                match ev {
-                    EncounterEvent::SpawnCommand {
+    for (enc, lifecycle, mut waves, mut participants) in &mut encounters {
+        if enc.id != active_area {
+            continue;
+        }
+        match lifecycle.phase {
+            ambition_encounter::EncounterPhase::Active => {
+                // Refresh each Minion participant's `alive` from the runtime
+                // BEFORE the director tick. Mobs spawned later this tick are
+                // appended with `alive = true` and refreshed next frame (by
+                // then their entities exist).
+                let alive_lookup: std::collections::HashSet<String> = encounter_mobs
+                    .iter()
+                    .filter(|(_, mob, _, combat)| mob.encounter_id == enc.id && combat.alive)
+                    .map(|(_, _, id, _)| id.as_str().to_string())
+                    .collect();
+                for member in &mut participants.members {
+                    member.alive = alive_lookup.contains(&member.id);
+                }
+                let mut events = Vec::new();
+                let exhausted = waves.tick_active(dt, &mut participants, &mut events);
+                if exhausted {
+                    lifecycle_commands
+                        .write(EncounterCommand::signal(&enc.id, WAVES_EXHAUSTED_SIGNAL));
+                }
+                for event in events {
+                    if let EncounterEvent::SpawnCommand {
                         id,
                         kind,
                         pos,
                         size,
-                    } => spawn_commands.push((id.clone(), kind.clone(), *pos, *size)),
-                    EncounterEvent::Cleared { id } => {
-                        just_cleared_id = Some(id.clone());
+                    } = &event
+                    {
+                        spawn_commands.push((id.clone(), kind.clone(), *pos, *size));
                     }
-                    _ => {}
+                    events_out.write(EncounterEventMsg::new(&enc.id, event));
                 }
             }
-            if !evs.is_empty() {
-                events.push((active_area.clone(), evs));
+            ambition_encounter::EncounterPhase::Inactive => {
+                // A fresh attempt begins with a fresh run (spawn_counter
+                // survives so mob ids never collide across attempts).
+                if waves.run.wave_index.is_some() || waves.run.exhausted_signaled {
+                    waves.reset_run();
+                }
             }
+            _ => {}
         }
     }
 
@@ -277,34 +269,11 @@ pub fn update_encounters_from_world(
         );
     }
 
-    // 5. Auto-flip the linked switch to on (green) when the encounter
-    //    just cleared. The script's last beat is "switch goes green"
-    //    so the player can see they finished it. The encounter-mobs
-    //    cleanup happens too so the world is clean for the next time
-    //    they re-arm.
-    if let Some(encounter_id) = just_cleared_id {
-        if let Some(switch_id) = switch_index.switch_id_for_encounter(&encounter_id) {
-            save.data_mut().set_switch(&switch_id, true);
-        }
-        crate::features::despawn_encounter_mobs(&mut commands, &encounter_mobs, &encounter_id);
-        // Polish: surface a celebration banner so the player gets
-        // explicit "you cleared it" feedback (not just an ambient
-        // green switch).
-        banner_requests.write(crate::features::GameplayBannerRequested::new(
-            format!("ARENA CLEAR — {encounter_id}"),
-            3.0,
-        ));
-        // Quest hook: a "clear encounter" step can advance now.
-        quests.push_event(
-            ambition_persistence::quest::QuestAdvanceEvent::EncounterCleared(encounter_id.clone()),
-        );
-    }
-
-    // 6. Switch toggles. Just toggle the persisted switch state; the
+    // 5. Switch toggles. Just toggle the persisted switch state; the
     //    trigger gate consults `switch.on` directly. When the player
     //    re-arms (toggles to off), also drop any encounter-spawned
-    //    mobs from a prior attempt and snap any stale Cleared/Failed
-    //    phase back to Inactive so the next trigger fires cleanly.
+    //    mobs from a prior attempt and Reset any stale terminal phase
+    //    so the next trigger fires cleanly.
     let activations = std::mem::take(&mut switch_activations.0);
     for activation in activations {
         // Quest hook: every switch interaction sets a generic flag
@@ -323,7 +292,6 @@ pub fn update_encounters_from_world(
         // 2026-07-02 §B13: the old `dir.y = -dir.y` was a no-op on sideways
         // gravity). Done as a deferred world command so this system needn't take
         // `BaseGravity` as another param (Bevy's tuple limit).
-        // Toggle the persisted switch state so the switch sprite reads flipped.
         if activation.action.as_str() == "FlipGravity" {
             commands.queue(|world: &mut bevy::prelude::World| {
                 let mut base = world.resource_mut::<crate::physics::BaseGravity>();
@@ -367,20 +335,18 @@ pub fn update_encounters_from_world(
             activation.target_encounter.clone()
         };
         if !new_on {
-            // Re-arming: snap the encounter back to Inactive and
-            // drop carryover mobs.
-            if let Some((_, mut state, mut participants)) = encounters
+            // Re-arming: Reset the encounter (the reducer refuses Start from a
+            // terminal phase, so a stale Completed/Failed must clear) and drop
+            // carryover mobs.
+            if let Some((_, lifecycle, _, mut participants)) = encounters
                 .iter_mut()
-                .find(|(enc, _, _)| enc.id == target_id)
+                .find(|(enc, _, _, _)| enc.id == target_id)
             {
-                let in_flight = matches!(
-                    state.phase,
-                    EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
-                );
-                if !in_flight {
-                    state.phase = EncounterPhase::Inactive;
-                    state.lock_active = false;
-                    state.run = EncounterRun::default();
+                if !lifecycle.phase.in_flight() {
+                    lifecycle_commands.write(EncounterCommand::new(
+                        &target_id,
+                        EncounterCommandKind::Reset,
+                    ));
                     participants.members.clear();
                 }
             }
@@ -399,15 +365,105 @@ pub fn update_encounters_from_world(
             );
         }
     }
+}
 
-    // 6b. Reward chest sync runs after switch resets so a re-arm in this
-    //     same tick cannot spawn a deferred ECS chest that the clear path
-    //     cannot see yet. Gather the cleared encounters' (id, spec) so the
-    //     reward sync stays decoupled from the encounter state representation.
+/// Wave EFFECT adapter (Progression, after the generic reducer): reacts to
+/// this frame's lifecycle events and projects wave-encounter state onto its
+/// consumers — switch auto-green + celebration + quest + mob cleanup on
+/// completion, reward-chest sync, music request, presentation read-model,
+/// save projection, and the trace sink for every encounter event.
+pub fn apply_wave_encounter_effects(
+    mut commands: SessionCommands<'_, '_>,
+    mut events_in: MessageReader<EncounterEventMsg>,
+    encounters: Query<(
+        &Encounter,
+        &EncounterLifecycle,
+        Option<&EncounterWaves>,
+        Option<&EncounterParticipants>,
+    )>,
+    mut save: ResMut<ambition_persistence::save::SandboxSave>,
+    switch_index: Res<EncounterSwitchIndex>,
+    mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
+    player_body_q: Query<&crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>,
+    mut music_request: ambition_platformer_primitives::lifecycle::SessionWorldMut<
+        EncounterMusicRequest,
+    >,
+    mut encounter_view: ResMut<EncounterView>,
+    mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
+    mut banner_requests: MessageWriter<crate::features::GameplayBannerRequested>,
+    encounter_mobs: Query<(
+        Entity,
+        &crate::features::EncounterMob,
+        &crate::features::FeatureId,
+        &ambition_characters::actor::BodyCombat,
+    )>,
+    reward_chests: Query<
+        (
+            Entity,
+            &crate::features::EncounterRewardChest,
+            &crate::features::FeatureId,
+            Option<&crate::features::Opened>,
+        ),
+        With<crate::features::ChestFeature>,
+    >,
+) {
+    let Some(session_scope) = commands.spawn_scope() else {
+        return;
+    };
+    // Trace sink first — every encounter event (generic reducer + wave
+    // director) lands in the gameplay trace regardless of the player guard
+    // below, in the same `encounter:<id>:<label>` format as before E8.
+    let tick = trace.current_tick();
+    let mut completed_wave_ids: Vec<String> = Vec::new();
+    for msg in events_in.read() {
+        trace.push_event(crate::trace::GameplayTraceEvent::Sfx {
+            tick,
+            label: format!("encounter:{}:{}", msg.encounter, msg.event.label()),
+        });
+        if matches!(msg.event, EncounterEvent::Completed) {
+            // Wave-encounter completion effects apply only to encounters that
+            // actually carry the wave policy (a boss wrap or signal encounter
+            // has its own reward/consequence adapters).
+            let is_wave = encounters
+                .iter()
+                .any(|(enc, _, waves, _)| enc.id == msg.encounter && waves.is_some());
+            if is_wave {
+                completed_wave_ids.push(msg.encounter.clone());
+            }
+        }
+    }
+    if player_body_q.is_empty() {
+        return;
+    }
+
+    // Completion effects: auto-flip the linked switch to on (green) so the
+    // player can see they finished it, drop the wave's mob entities, surface
+    // a celebration banner, and advance any "clear encounter" quest step.
+    for encounter_id in &completed_wave_ids {
+        if let Some(switch_id) = switch_index.switch_id_for_encounter(encounter_id) {
+            save.data_mut().set_switch(&switch_id, true);
+        }
+        crate::features::despawn_encounter_mobs(&mut commands, &encounter_mobs, encounter_id);
+        banner_requests.write(crate::features::GameplayBannerRequested::new(
+            format!("ARENA CLEAR — {encounter_id}"),
+            3.0,
+        ));
+        quests.push_event(
+            ambition_persistence::quest::QuestAdvanceEvent::EncounterCleared(encounter_id.clone()),
+        );
+    }
+
+    // Reward chest sync: gather the completed encounters' (id, spec) so the
+    // reward sync stays decoupled from the encounter state representation.
     let cleared_specs: Vec<(String, super::EncounterSpec)> = encounters
         .iter()
-        .filter(|(_, state, _)| matches!(state.phase, EncounterPhase::Cleared))
-        .filter_map(|(enc, state, _)| state.spec.clone().map(|spec| (enc.id.clone(), spec)))
+        .filter(|(_, lifecycle, waves, _)| {
+            matches!(
+                lifecycle.phase,
+                ambition_encounter::EncounterPhase::Completed
+            ) && waves.is_some()
+        })
+        .filter_map(|(enc, _, waves, _)| waves.map(|w| (enc.id.clone(), w.spec.clone())))
         .collect();
     crate::features::sync_encounter_reward_chests_ecs(
         &mut commands,
@@ -417,26 +473,15 @@ pub fn update_encounters_from_world(
         &reward_chests,
     );
 
-    // 7. Lock-wall management: while any encounter is in Starting or Active, a
-    //    solid lock wall seals the arena exits. The wall is NOT mutated into the
-    //    authored base here — `contribute_encounter_lock_walls` (WorldPrep)
-    //    derives it onto the collision overlay's `gate_solids` each frame from
-    //    the encounter entities' live phase this tick just updated. Keeps
-    //    `RoomGeometry` authored-immutable mid-room.
-
-    // 8. Music: pick the first encounter currently in flight and request its
-    //    track (the base-priority source of the shared `EncounterMusicRequest`);
-    //    otherwise clear it. Writing the base source every frame — including
-    //    `None` — is safe: `desired_track()` ranks `priority_track` above
-    //    `base_track`, so this can't clobber a concurrent focused fight's music.
-    let active_track = encounters.iter().find_map(|(_, s, _)| {
-        if matches!(
-            s.phase,
-            EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
-        ) {
-            s.spec
-                .as_ref()
-                .map(|sp| sp.music_track.clone())
+    // Music: pick the first wave encounter currently in flight and request its
+    // track (the base-priority source of the shared `EncounterMusicRequest`);
+    // otherwise clear it. Writing the base source every frame — including
+    // `None` — is safe: `desired_track()` ranks `priority_track` above
+    // `base_track`, so this can't clobber a concurrent focused fight's music.
+    let active_track = encounters.iter().find_map(|(_, lifecycle, waves, _)| {
+        if lifecycle.phase.in_flight() {
+            waves
+                .map(|w| w.spec.music_track.clone())
                 .filter(|t| !t.is_empty())
         } else {
             None
@@ -444,30 +489,26 @@ pub fn update_encounters_from_world(
     });
     music_request.base_track = active_track;
 
-    // 8b. Publish the presentation read-model (§6): the camera zoom the active
-    //     encounters want. Cross-crate presentation reads `EncounterView`, not
-    //     the entities. `max`-based, so it is query-order-independent.
-    encounter_view.camera_zoom =
-        ambition_encounter::active_encounter_camera_zoom(encounters.iter().map(|(_, s, _)| s));
+    // Publish the presentation read-model (§6): the camera zoom the active
+    // encounters want. Cross-crate presentation reads `EncounterView`, not
+    // the entities. `max`-based, so it is query-order-independent.
+    encounter_view.camera_zoom = ambition_encounter::active_encounter_camera_zoom(
+        encounters
+            .iter()
+            .filter_map(|(_, lifecycle, waves, _)| waves.map(|w| (lifecycle.phase, &w.spec))),
+    );
 
-    // 9. Project phase to the save (Cleared/Failed survive, others
-    //    collapse to Untouched).
-    for (enc, state, _) in &encounters {
-        let persisted = state.to_persisted();
+    // Project the lifecycle to the save (Completed/Failed survive, in-flight
+    // collapses to Untouched). Wave encounters only — a boss wrap persists
+    // through `save.bosses`, keyed by placement.
+    for (enc, lifecycle, waves, _) in &encounters {
+        if waves.is_none() {
+            continue;
+        }
+        let persisted = lifecycle.to_persisted();
         let current = save.data().encounter(&enc.id);
         if persisted != current {
             save.data_mut().set_encounter(&enc.id, persisted);
-        }
-    }
-
-    // 10. Push trace events.
-    let tick = trace.current_tick();
-    for (encounter_id, evs) in events {
-        for ev in evs {
-            trace.push_event(crate::trace::GameplayTraceEvent::Sfx {
-                tick,
-                label: format!("encounter:{encounter_id}:{}", ev.label()),
-            });
         }
     }
 }

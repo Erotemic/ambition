@@ -21,8 +21,8 @@ use crate::boss_encounter::BossEncounterPhase;
 use crate::features::ecs::boss_clusters::{BossConfig, BossEncounter};
 use crate::features::FeatureSimEntity;
 use ambition_encounter::{
-    objective_met, EncounterObjective, EncounterParticipant, EncounterParticipants, EncounterRole,
-    Objective,
+    Encounter, EncounterCommand, EncounterCommandKind, EncounterLifecycle, EncounterObjective,
+    EncounterParticipant, EncounterParticipants, EncounterRole, Objective,
 };
 use ambition_platformer_primitives::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
@@ -54,10 +54,11 @@ pub struct EncounterDef {
 pub struct EncounterProgress {
     /// One entry per resolvable member, in [`EncounterParticipants`] order.
     pub members: Vec<MemberProgress>,
-    /// Whether the encounter's generic [`EncounterObjective`] is met this tick
-    /// (the generic projection the HUD / win read model observes — replaces the
-    /// boss-specific `all_members_dead`). Display/read-model only: the boss
-    /// death → save authority is still the phase machine (converged at E4).
+    /// Mirror of the generic lifecycle's `Completed` phase (E8 — the
+    /// reducer's objective evaluation is the one completion authority; this
+    /// is its HUD projection, one frame behind at most). Display/read-model
+    /// only: the boss death → save authority is still the phase machine
+    /// (converged at E4).
     pub complete: bool,
 }
 
@@ -89,6 +90,7 @@ impl MemberProgress {
 /// woken phase.
 pub fn sync_boss_encounter_entities(
     mut commands: Commands,
+    mut lifecycle_commands: MessageWriter<EncounterCommand>,
     bosses: Query<
         (
             Entity,
@@ -125,10 +127,14 @@ pub fn sync_boss_encounter_entities(
             continue;
         }
         // The boss is the encounter's single ADOPTED `PrimaryTarget`; the win is
-        // the generic "all PrimaryTargets defeated" objective.
+        // the generic "all PrimaryTargets defeated" objective, decided by the
+        // generic lifecycle reducer (E8) — started through the command ingress
+        // because the fight is already underway when the wrap appears.
         commands.spawn_session_scoped(
             SessionSpawnScope::new(owner.map(|owner| owner.0)),
             (
+                Encounter::new(config.id.clone()),
+                EncounterLifecycle::default(),
                 EncounterDef {
                     placement_id: config.id.clone(),
                     hud: true,
@@ -144,6 +150,10 @@ pub fn sync_boss_encounter_entities(
                 EncounterProgress::default(),
             ),
         );
+        lifecycle_commands.write(EncounterCommand::new(
+            config.id.clone(),
+            EncounterCommandKind::Start,
+        ));
     }
 }
 
@@ -157,7 +167,7 @@ pub fn update_encounter_progress(
     mut encounters: Query<(
         Entity,
         &mut EncounterParticipants,
-        Option<&EncounterObjective>,
+        Option<&EncounterLifecycle>,
         &mut EncounterProgress,
     )>,
     bosses: Query<(
@@ -166,8 +176,7 @@ pub fn update_encounter_progress(
         &ambition_characters::actor::BodyHealth,
     )>,
 ) {
-    let no_signals: HashSet<String> = HashSet::new();
-    for (entity, mut participants, objective, mut progress) in &mut encounters {
+    for (entity, mut participants, lifecycle, mut progress) in &mut encounters {
         progress.members.clear();
         let mut any_resolved = false;
         for member in &mut participants.members {
@@ -201,11 +210,11 @@ pub fn update_encounter_progress(
             commands.entity(entity).despawn();
             continue;
         }
-        // The generic projection the HUD/win read model observes: is the
-        // encounter's objective met? (Boss has no timer/signals here.)
-        progress.complete = objective
-            .map(|o| objective_met(&o.win, &participants, 0.0, &no_signals))
-            .unwrap_or(false);
+        // The generic projection the HUD read model observes: the lifecycle
+        // reducer's completion decision (E8 — objective evaluation happens
+        // there, once; this mirror is one frame behind at most).
+        progress.complete = lifecycle
+            .is_some_and(|lc| matches!(lc.phase, ambition_encounter::EncounterPhase::Completed));
     }
 }
 

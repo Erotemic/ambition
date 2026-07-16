@@ -38,6 +38,7 @@ fn awake_boss(
 #[test]
 fn active_boss_gets_a_single_boss_encounter_entity() {
     let mut app = App::new();
+    app.add_message::<ambition_encounter::EncounterCommand>();
     app.add_systems(Update, sync_boss_encounter_entities);
     let boss = app.world_mut().spawn(awake_boss("mockingbird", 30)).id();
 
@@ -45,15 +46,24 @@ fn active_boss_gets_a_single_boss_encounter_entity() {
 
     let mut q = app
         .world_mut()
-        .query::<(&EncounterDef, &EncounterParticipants)>();
+        .query::<(&EncounterDef, &EncounterParticipants, &EncounterLifecycle)>();
     let defs: Vec<_> = q.iter(app.world()).collect();
     assert_eq!(defs.len(), 1, "one active boss ⇒ one encounter entity");
-    let (def, parts) = defs[0];
+    let (def, parts, _lifecycle) = defs[0];
     assert_eq!(parts.members.len(), 1);
     assert_eq!(parts.members[0].entity, Some(boss));
     assert_eq!(parts.members[0].role, EncounterRole::PrimaryTarget);
     assert!(def.hud);
     assert_eq!(def.placement_id, "mockingbird_runtime");
+    // E8: the wrap starts its generic lifecycle through the command ingress.
+    let started: Vec<_> = app
+        .world()
+        .resource::<bevy::ecs::message::Messages<ambition_encounter::EncounterCommand>>()
+        .iter_current_update_messages()
+        .filter(|c| matches!(c.kind, EncounterCommandKind::Start))
+        .map(|c| c.encounter.clone())
+        .collect();
+    assert_eq!(started, vec!["mockingbird_runtime".to_string()]);
 
     // Idempotent: a second pass does not spawn a duplicate.
     app.update();
@@ -64,6 +74,7 @@ fn active_boss_gets_a_single_boss_encounter_entity() {
 #[test]
 fn progress_reflects_member_hp_and_phase() {
     let mut app = App::new();
+    app.add_message::<ambition_encounter::EncounterCommand>();
     app.add_systems(
         Update,
         (sync_boss_encounter_entities, update_encounter_progress).chain(),
@@ -85,6 +96,7 @@ fn progress_reflects_member_hp_and_phase() {
 #[test]
 fn encounter_retires_when_its_member_despawns() {
     let mut app = App::new();
+    app.add_message::<ambition_encounter::EncounterCommand>();
     app.add_systems(
         Update,
         (sync_boss_encounter_entities, update_encounter_progress).chain(),

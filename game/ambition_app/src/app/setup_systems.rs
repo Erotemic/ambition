@@ -50,6 +50,7 @@ pub(super) fn setup_simulation_system(
     character_roster: Res<ambition::actors::features::CharacterRoster>,
     boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
     placement_lowering: Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
+    content_staging: Res<ambition::actors::features::RoomContentStagingRegistry>,
     mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
 ) {
     let _player = setup::simulation_world(
@@ -65,6 +66,7 @@ pub(super) fn setup_simulation_system(
             character_catalog: &character_catalog,
             character_roster: &character_roster,
             placement_lowering: &placement_lowering,
+            content_staging: &content_staging,
             boss_catalog: &boss_catalog,
             default_character_id: ambition_content::character_catalog::PLAYABLE_ROSTER[0],
             sandbox_data_asset: sandbox_data_asset.as_deref(),

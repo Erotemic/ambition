@@ -607,6 +607,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     character_roster: Res<'w, ambition_actors::features::CharacterRoster>,
     boss_catalog: Res<'w, ambition_actors::boss_encounter::BossCatalog>,
     placement_lowering: Res<'w, ambition_actors::world::placements::PlacementLoweringRegistry>,
+    content_staging: Res<'w, ambition_actors::features::RoomContentStagingRegistry>,
     sandbox_data_asset: Option<Res<'w, ambition_actors::session::data::SandboxDataAsset>>,
     sandbox_asset_collection:
         Option<Res<'w, ambition_actors::assets::loading::SandboxAssetCollection>>,
@@ -647,6 +648,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 character_catalog: &self.character_catalog,
                 character_roster: &self.character_roster,
                 placement_lowering: &self.placement_lowering,
+                content_staging: &self.content_staging,
                 boss_catalog: &self.boss_catalog,
                 default_character_id,
                 sandbox_data_asset: self.sandbox_data_asset.as_deref(),

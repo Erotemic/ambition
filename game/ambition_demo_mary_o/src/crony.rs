@@ -22,7 +22,6 @@ use bevy::prelude::*;
 use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
 use ambition::actors::combat::components::ActorFaction;
 use ambition::actors::features::{SpawnActorKind, SpawnActorRequest};
-use ambition::actors::rooms::{RoomLoaded, RoomSet};
 use ambition::characters::actor::BodyHealth;
 use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::CharacterBrain;
@@ -108,30 +107,18 @@ fn crony_spawn_requests(player_spawn: ae::Vec2) -> Vec<SpawnActorRequest> {
         .collect()
 }
 
-/// When level 1-1 finishes staging (initial load, and every cyclic replay — the
-/// cronies `respawn: OnRoomReenter`), stage the walkers. Mirrors the duel-arena
-/// content seam: a plain `SpawnActorRequest` per enemy, drained by the engine's
-/// request applier.
-pub fn stage_cronies_on_room_loaded(
-    mut rooms: MessageReader<RoomLoaded>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<RoomSet>,
-    mut spawns: MessageWriter<SpawnActorRequest>,
+/// Register the walkers as level 1-1's content staging: whenever the level's
+/// contents are staged (initial load, every cyclic replay — the cronies
+/// `respawn: OnRoomReenter` — and a snapshot restore staging the room), the
+/// walkers stage with them. Mirrors the duel-arena content seam: a pure
+/// `RoomSpec` → `SpawnActorRequest`s stager, drained by room construction and
+/// applied by the engine's request applier.
+pub fn register_crony_content_staging(
+    registry: &mut ambition::actors::features::RoomContentStagingRegistry,
 ) {
-    for message in rooms.read() {
-        if message.room_id != LEVEL_1_1_ROOM_ID {
-            continue;
-        }
-        let Some(spec) = room_set
-            .rooms
-            .iter()
-            .find(|room| room.id == message.room_id)
-        else {
-            continue;
-        };
-        for request in crony_spawn_requests(spec.world.spawn) {
-            spawns.write(request);
-        }
-    }
+    registry.register(LEVEL_1_1_ROOM_ID, |spec| {
+        crony_spawn_requests(spec.world.spawn)
+    });
 }
 
 /// **The head-stomp.** A player descending onto a crony's head bounces up and

@@ -9,12 +9,16 @@
 //! player who wades into the crossfire. Once a fighter's grudge foe dies it
 //! goes target-less and stands down like any other NPC.
 //!
-//! Two entry points, both writing plain [`SpawnActorRequest`] messages the
-//! engine's request applier resolves (grudges cross-wired once the batch's
-//! entities exist):
-//! - [`stage_duel_on_room_loaded`] — walking into the authored duel-arena
-//!   room auto-stages the fight (the engine emits `RoomLoaded` when a
-//!   room's contents finish staging; no engine code names this room).
+//! Two entry points, both producing plain [`SpawnActorRequest`]s the engine's
+//! request applier resolves (grudges cross-wired once the batch's entities
+//! exist):
+//! - [`register_duel_content_staging`] — the duel-arena room stages the fight
+//!   as part of room CONSTRUCTION, through the engine's
+//!   [`RoomContentStagingRegistry`] seam. Registered staging (not a
+//!   `RoomLoaded` consumer) is what makes the fighters part of the room's
+//!   authoritative roster: activation, transition, reset, hot-reload, and a
+//!   snapshot restore that stages this room all rebuild them identically
+//!   (netcode.md N3.2b).
 //! - [`install_duel_yarn_binding`] — the `<<duel>>` dialogue command stages
 //!   the same fight beside the player, anywhere.
 
@@ -22,8 +26,7 @@ use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use ambition_actors::combat::components::ActorFaction;
-use ambition_actors::features::{SpawnActorKind, SpawnActorRequest};
-use ambition_actors::rooms::{RoomLoaded, RoomSet};
+use ambition_actors::features::{RoomContentStagingRegistry, SpawnActorKind, SpawnActorRequest};
 
 /// Feature id of the duel's PCA fighter.
 pub const DUEL_PCA_ID: &str = "duel_pca";
@@ -82,33 +85,17 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
     ]
 }
 
-/// Content system: when the duel-arena room's contents finish staging (the
-/// engine's `RoomLoaded` fact — fired on initial load, transitions, resets,
-/// and hot-reload restages alike), stage the exhibition fight so the pair is
-/// already battling the instant the player walks in. The fighters are
-/// runtime-staged actors, room-scoped like the rest of the room's spawns, so
-/// re-staging after a reset re-emits them exactly as before.
-pub fn stage_duel_on_room_loaded(
-    mut rooms: MessageReader<RoomLoaded>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<RoomSet>,
-    mut spawns: MessageWriter<SpawnActorRequest>,
-) {
-    for message in rooms.read() {
-        if message.room_id != DUEL_ARENA_ROOM_ID {
-            continue;
-        }
-        let Some(spec) = room_set
-            .rooms
-            .iter()
-            .find(|room| room.id == message.room_id)
-        else {
-            continue;
-        };
+/// Register the duel as the arena room's content staging: whenever the room's
+/// contents are staged — activation, transition, reset, hot-reload, and a
+/// snapshot restore staging the room — the exhibition fight stages with them,
+/// so the pair is already battling the instant the player walks in. A pure
+/// function of the `RoomSpec`, which is what lets a restore preflight predict
+/// the fighters' identities without touching the world.
+pub fn register_duel_content_staging(registry: &mut RoomContentStagingRegistry) {
+    registry.register(DUEL_ARENA_ROOM_ID, |spec| {
         let center = spec.world.spawn + ae::Vec2::new(DUEL_ARENA_OFFSET_X, 0.0);
-        for request in duel_spawn_requests(center) {
-            spawns.write(request);
-        }
-    }
+        duel_spawn_requests(center).to_vec()
+    });
 }
 
 /// `<<duel>>` — stage the spectator duel beside the player, anywhere. The

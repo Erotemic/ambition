@@ -51,6 +51,10 @@ pub struct SimulationSetup<'a> {
     /// room transition and snapshot restore consume — so there is no
     /// setup-only reconstruction of the six built-in interpreters.
     pub placement_lowering: &'a crate::world::placements::PlacementLoweringRegistry,
+    /// The App-installed room-content staging seam. Setup drains the start
+    /// room's registered content stagers exactly as transition, reset,
+    /// hot-reload, and restore staging do — one construction authority.
+    pub content_staging: &'a crate::features::RoomContentStagingRegistry,
     /// App-local boss profiles, encounter specs, sheets, and special rows.
     pub boss_catalog: &'a crate::boss_encounter::BossCatalog,
     /// Provider-selected default used only when `StartingCharacter` is empty.
@@ -91,6 +95,7 @@ pub fn simulation_world(
         character_catalog,
         character_roster,
         placement_lowering,
+        content_staging,
         boss_catalog,
         default_character_id,
         sandbox_data_asset,
@@ -125,6 +130,7 @@ pub fn simulation_world(
         boss_catalog,
         room_set.active_spec(),
         placement_lowering,
+        content_staging,
         session_scope,
     );
 

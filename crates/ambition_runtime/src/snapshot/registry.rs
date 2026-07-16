@@ -28,6 +28,11 @@ pub struct SnapshotRegistry {
     /// Declaring one is a CLAIM, and [`SnapshotRegistry::unclaimed_components`]
     /// is what stops the claim list from being the whole world.
     derived: Vec<(std::any::TypeId, &'static str)>,
+    /// Registered entry names declared **dynamic anchors** — see
+    /// [`SnapshotRegistry::declare_dynamic_anchor`]. `pub(super)` so `restore`
+    /// can consult them when predicting which `spawned(..)` identities are
+    /// rebuildable from blobs alone.
+    pub(super) dynamic_anchors: Vec<&'static str>,
 }
 
 impl SnapshotRegistry {
@@ -353,6 +358,32 @@ impl SnapshotRegistry {
         let _ = why;
         self.derived
             .push((std::any::TypeId::of::<C>(), std::any::type_name::<C>()));
+    }
+
+    /// Declare an already-registered component entry a **dynamic anchor**: a
+    /// dynamically-spawned entity (`SimId::spawned(..)`) whose snapshot rows
+    /// include this entry is a *self-contained* dynamic entity — every
+    /// component of its family is registered (or declared derived and healed
+    /// by a per-tick system), so `restore` may rebuild it from blobs alone,
+    /// exactly.
+    ///
+    /// This is the registered form of a spawn recipe for families whose whole
+    /// state rides the snapshot: the projectile family is the first. A family
+    /// that carries authored content its blobs do not (a summoned minion's
+    /// archetype) must NOT anchor here — it needs a construction-side recipe,
+    /// and until one exists its dead children refuse reconstruction.
+    ///
+    /// The name must already be registered: an anchor nobody encodes rows for
+    /// would accept ids it can never rebuild.
+    pub fn declare_dynamic_anchor(&mut self, name: &'static str) {
+        assert!(
+            self.entries
+                .iter()
+                .any(|e| e.name == name && matches!(e.kind, EntryKind::Component { .. })),
+            "dynamic anchor `{name}` is not a registered component entry — an anchor \
+             nobody encodes rows for would accept ids restore can never rebuild"
+        );
+        self.dynamic_anchors.push(name);
     }
 
     fn push(&mut self, name: &'static str, kind: EntryKind) {

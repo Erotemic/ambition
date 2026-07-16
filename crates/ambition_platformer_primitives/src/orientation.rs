@@ -58,9 +58,15 @@ const SURFACE_ROLL_TRACK_SPEED: f32 = 30.0;
 /// each non-projectile body that can be reoriented. Projectiles carry
 /// [`BodyKinematics`] too, but must not somersault upright mid-flight, so
 /// [`ProjectileGameplay`] filters them out.
+///
+/// Each half is ensured INDEPENDENTLY, not as a pair gated on one member:
+/// `ActorRoll` is snapshot-registered, so a restore patches it onto a rebuilt
+/// body — and an attacher gated only on `Without<ActorRoll>` would then never
+/// add the derived `SurfaceUpright` half (the N3.2b duel oracle caught exactly
+/// this). An "ensure" system must ensure every component it owns.
 pub fn ensure_actor_roll(
     mut commands: Commands,
-    bodies: Query<
+    missing_roll: Query<
         Entity,
         (
             With<BodyKinematics>,
@@ -68,11 +74,20 @@ pub fn ensure_actor_roll(
             Without<ProjectileGameplay>,
         ),
     >,
+    missing_surface_fact: Query<
+        Entity,
+        (
+            With<BodyKinematics>,
+            Without<SurfaceUpright>,
+            Without<ProjectileGameplay>,
+        ),
+    >,
 ) {
-    for entity in &bodies {
-        commands
-            .entity(entity)
-            .insert((ActorRoll::default(), SurfaceUpright::default()));
+    for entity in &missing_roll {
+        commands.entity(entity).insert(ActorRoll::default());
+    }
+    for entity in &missing_surface_fact {
+        commands.entity(entity).insert(SurfaceUpright::default());
     }
 }
 

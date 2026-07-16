@@ -232,6 +232,22 @@ pub fn restore(
     snapshot: &SimSnapshot,
     registry: &SnapshotRegistry,
 ) -> Result<RestoreReport, RestoreError> {
+    // **A snapshot never restores across sessions — the FIRST preflight.** The
+    // snapshot is bound at capture to its owning `SessionScopeId`; a stale
+    // snapshot from a retired session presented to a successor (same provider,
+    // same room, different scope) must refuse before any other check even looks
+    // at the world. This is what scopes a future rollback ring to one live
+    // session by construction rather than by convention.
+    let live_session = world
+        .get_resource::<ambition_platformer_primitives::lifecycle::ActiveSessionScope>()
+        .and_then(|scope| scope.current());
+    if snapshot.session != live_session {
+        return Err(RestoreError::SessionMismatch {
+            snapshot: snapshot.session.map(|s| s.0),
+            live: live_session.map(|s| s.0),
+        });
+    }
+
     // **The active room is restored sim state (netcode.md N3.2b).** A snapshot taken
     // in another room is not refused: the snapshot's room is STAGED — through the same
     // canonical construction a room transition runs (`RoomStaging`: the scoped-entity
@@ -324,23 +340,82 @@ pub fn restore(
     let ids = snapshot.sim_ids();
     let mut report = RestoreReport::default();
 
-    // **Unsupported-dynamic-reconstruction preflight (re-audit finding 5), BEFORE any
-    // mutation.** A `spawned(..)` id (the vocabulary appends `/<seq>`) that is in the
-    // snapshot but will not survive into reconciliation would have to be rebuilt from
-    // blobs alone — no room authors it and no spawn recipe exists, so the rebuild is not
-    // exact. Under a staged cross-room restore this includes a room-scoped dynamic
-    // entity the sweep is about to despawn (a projectile in flight at the snapshot
-    // tick): the honest boundary until spawn recipes land. Detecting it here, from the
-    // id string and the survivor prediction alone (no world mutation), lets restore
-    // refuse cleanly rather than after the sweep/despawn/rebuild work has already
-    // half-reconciled the world. `respawn_from_the_room` only ever handles `placement:`
-    // ids, so this is exactly the set that used to reach the inline
-    // `None if contains('/')` branch — moved ahead of the first despawn.
+    // **Predicted-roster preflight (re-audit finding 5 + GPT-5.6 closeout), BEFORE any
+    // mutation.** Every snapshot identity must either survive into reconciliation or be
+    // buildable by the world's own construction: the target room's authored lists
+    // (what `respawn_from_the_room` reconstructs from) plus its registered content
+    // staging — both predictable without mutating anything, because the staging seam's
+    // stagers are pure functions of the `RoomSpec`. An id outside the prediction —
+    // a `spawned(..)` child with no recipe (a projectile in flight at the snapshot
+    // tick, dead now), or a `placement:` id this room cannot produce — refuses here,
+    // with the world untouched, rather than bare-spawning a hollow identity for
+    // registered rows to patch. Room-less headless fixtures skip this: with no
+    // construction authority there is nothing to predict against, and the
+    // bare-identity respawn below remains their honest fixture path.
+    let authored: std::collections::BTreeSet<String> = match &staging {
+        Some(staging) => staging.predicted_authored_ids(),
+        // Same-room restore: missing authored ids are rebuilt one at a time by
+        // `respawn_from_the_room`, which reconstructs from the ACTIVE spec's three
+        // authored lists. Content-staged occupants are deliberately NOT predicted
+        // here: they are staged as a batch by room construction, and no
+        // single-occupant rebuild path exists yet (a same-room window spanning a
+        // content-staged death refuses honestly).
+        None => ambition_platformer_primitives::lifecycle::session_world_component::<
+            ambition_world::rooms::RoomSet,
+        >(world)
+        .map(|rooms| {
+            let spec = rooms.active_spec();
+            spec.placements
+                .iter()
+                .map(|p| p.id.0.clone())
+                .chain(spec.enemy_spawns.iter().map(|e| e.id.clone()))
+                .chain(spec.boss_spawns.iter().map(|b| b.id.clone()))
+                .collect()
+        })
+        .unwrap_or_default(),
+    };
+    // The blob-rebuildable dynamic identities: ids carrying a row under a
+    // registered DYNAMIC ANCHOR (`declare_dynamic_anchor`). Such a family's
+    // whole component set is registered, so a dead member rebuilds from blobs
+    // alone, exactly — the projectile family is the first.
+    let blob_rebuildable: std::collections::BTreeSet<&str> = snapshot
+        .entries
+        .iter()
+        .filter(|(name, _)| registry.dynamic_anchors.contains(name))
+        .flat_map(|(_, blob)| match blob {
+            EntryBlob::Component(rows) => rows.iter().map(|(id, _)| id.as_str()).collect(),
+            EntryBlob::Resource(_) => Vec::new(),
+        })
+        .collect();
     for id in &ids {
-        if !survivors.contains(*id) && id.contains('/') {
-            return Err(RestoreError::UnsupportedDynamicReconstruction {
+        if survivors.contains(*id) {
+            continue;
+        }
+        // A `spawned(..)` child (the vocabulary appends `/<seq>`) rebuilds from
+        // blobs alone when a dynamic anchor claims it; otherwise it refuses in
+        // ANY world — a dynamic entity outside an anchored family needs its
+        // spawner's recipe to come back whole, and none is registered.
+        if id.contains('/') {
+            if blob_rebuildable.contains(*id) {
+                continue;
+            }
+            return Err(RestoreError::UnsupportedReconstruction {
                 sim_id: (*id).to_string(),
             });
+        }
+        // In a room-backed world, everything else must be buildable by the target
+        // room's construction (authored lists ∪ registered content staging). A
+        // room-less fixture skips this: it has no construction authority to
+        // consult, and its bare-identity respawn path below is honest for it.
+        if active_room.is_some() {
+            let buildable = id
+                .strip_prefix("placement:")
+                .is_some_and(|iid| authored.contains(iid));
+            if !buildable {
+                return Err(RestoreError::UnsupportedReconstruction {
+                    sim_id: (*id).to_string(),
+                });
+            }
         }
     }
 
@@ -399,6 +474,24 @@ pub fn restore(
         room
     });
 
+    // **The identity invariant holds for the STAGED roster too** (GPT-5.6 closeout).
+    // The pre-staging check above ran against the OLD room's entities; staging just
+    // constructed a new roster (lowering + content staging + synchronous identity),
+    // and a construction bug that minted one id twice — a content stager colliding
+    // with an authored placement, a double-registered stager — would otherwise let
+    // the live-map build below silently pick one of the two. Same panic, same
+    // reason: a world with duplicate identity cannot be trusted, only fixed.
+    if report.staged_room.is_some() {
+        let staged_dups = duplicate_live_ids(world);
+        assert!(
+            staged_dups.is_empty(),
+            "restore: room staging produced {} duplicate SimId(s) — a construction bug \
+             (a content stager colliding with an authored placement?). Collisions \
+             (id, count): {staged_dups:?}",
+            staged_dups.len(),
+        );
+    }
+
     // Now the map is unambiguous — every id appears once, so no insert overwrites —
     // and, for a staged restore, it reflects the STAGED room's entity set: the
     // survivors of the sweep plus everything the canonical lowering just built.
@@ -424,6 +517,16 @@ pub fn restore(
                 report.patched += 1;
                 *entity
             }
+            // Gone since the snapshot, and a dynamic anchor claims it: the whole
+            // family is registered, so the entity IS its rows — spawn the identity
+            // and let the patch loop below put every component back, markers
+            // included. (`ProjectileOwner`, the family's one Entity handle, is
+            // derived: `heal_projectile_owners` re-resolves it from the id's
+            // parent at the next identity pass.)
+            None if blob_rebuildable.contains(*id) => {
+                report.respawned += 1;
+                world.spawn(SimId::from_snapshot((*id).to_string())).id()
+            }
             // Gone since the snapshot. Ask the ROOM to build it again before falling
             // back to a bare `SimId` — the blob carries what the entity became, and only
             // the room carries what it was.
@@ -432,10 +535,21 @@ pub fn restore(
                     report.rebuilt += 1;
                     entity
                 }
-                // Gone, and no room authors it. A `placement:`/`slot:` id with no room
-                // record is the headless-fixture path: respawn bare. A `spawned(..)` id in
-                // this position was already refused by the preflight above, so this arm
-                // only ever sees static ids the fixtures use.
+                // Gone, and the room could not build it. In a room-backed world this
+                // is a construction disagreement with the predicted-roster preflight
+                // (the id looked authored, the lowering declined) — refuse rather
+                // than hand back a hollow identity. This one residual is
+                // post-mutation: prediction reads the authored lists, construction
+                // runs the interpreters, and only construction is authoritative.
+                None if active_room.is_some() => {
+                    return Err(RestoreError::UnsupportedReconstruction {
+                        sim_id: (*id).to_string(),
+                    });
+                }
+                // A `placement:`/`slot:` id in a room-less world is the
+                // headless-fixture path: respawn bare, carrying only identity —
+                // there is no construction authority to consult and the fixtures'
+                // entities never had authored components to lose.
                 None => {
                     report.respawned += 1;
                     world.spawn(SimId::from_snapshot((*id).to_string())).id()

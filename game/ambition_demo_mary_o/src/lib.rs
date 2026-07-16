@@ -448,6 +448,9 @@ fn mary_o_setup(
     placement_lowering: bevy::prelude::Res<
         ambition::runtime::demo_fixture::PlacementLoweringRegistry,
     >,
+    content_staging: bevy::prelude::Res<
+        ambition::runtime::demo_fixture::RoomContentStagingRegistry,
+    >,
 ) {
     ambition::runtime::demo_fixture::simulation_world(
         &mut commands,
@@ -462,6 +465,7 @@ fn mary_o_setup(
             character_catalog: &character_catalog,
             character_roster: &character_roster,
             placement_lowering: &placement_lowering,
+            content_staging: &content_staging,
             boss_catalog: &boss_catalog,
             default_character_id: provider::MARY_O_CHARACTER_ID,
             sandbox_data_asset: None,
@@ -549,15 +553,19 @@ impl Plugin for MaryORulesPlugin {
             cycle_level_on_flag_tally,
         )
             .chain();
-        // The crony systems: stage the walkers when the room loads, and run the
-        // head-stomp BEFORE the engine's shared body-contact-damage pass so a
-        // squash never also hurts the stomper (the rule zeroes the crony's health
-        // that frame, which the contact pass then skips).
-        let cronies = (
-            crony::stage_cronies_on_room_loaded,
-            crony::bounce_squash_cronies
-                .before(ambition::actors::features::apply_actor_contact_damage),
+        // The walkers are level 1-1's registered content staging (part of room
+        // construction — every path, including restore staging, rebuilds them).
+        app.init_resource::<ambition::actors::features::RoomContentStagingRegistry>();
+        crony::register_crony_content_staging(
+            &mut app
+                .world_mut()
+                .resource_mut::<ambition::actors::features::RoomContentStagingRegistry>(),
         );
+        // The head-stomp runs BEFORE the engine's shared body-contact-damage
+        // pass so a squash never also hurts the stomper (the rule zeroes the
+        // crony's health that frame, which the contact pass then skips).
+        let cronies = crony::bounce_squash_cronies
+            .before(ambition::actors::features::apply_actor_contact_damage);
         // The powerup rules on the two engine primitives: re-arm the ?-blocks on
         // (re)load, pop milk on a head-bonk, and keep the tall form in sync with
         // wearing the cap. The engine's `collect_world_items` (touch → equip) sits

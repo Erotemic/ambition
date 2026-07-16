@@ -317,6 +317,19 @@ snapshot_pod!(bc::BodyActionBuffer {
     projectile: f32,
 });
 snapshot_pod!(bc::BodyBaseSize { base_size: vec2 });
+snapshot_pod!(ambition_characters::actor::body::BodyCombat {
+    hit_flash: f32,
+    hitstop_timer: f32,
+    damage_invuln_timer: f32,
+    hitstun_timer: f32,
+    recoil_lock_timer: f32,
+    attacking: bool,
+    alive: bool,
+    strike_count: i32,
+    attack_windup_timer: f32,
+    attack_timer: f32,
+    training_dummy: bool,
+});
 snapshot_pod!(ambition_actors::features::ActorSurfaceState {
     surface_normal: vec2,
     gravity_scale: f32,
@@ -1383,6 +1396,159 @@ pub fn mint_spawned_sim_ids(
             id,
             ambition_platformer_primitives::sim_id::SimIdCounter::default(),
         ));
+    }
+}
+
+// ─── The projectile family: the first blob-rebuildable dynamic family ────────
+//
+// Every component an in-flight projectile carries is registered below (the ZST
+// markers included), and `ProjectileOwner` — the one `Entity` handle — is
+// declared derived and healed per identity pass from the spawned id's parent.
+// That is what lets `register_engine_sim_state` declare `projectile_gameplay` a
+// DYNAMIC ANCHOR: a dead projectile in a snapshot rebuilds from blobs alone,
+// exactly, so a rollback window may span a projectile's whole life.
+
+snapshot_unit_enum!(ambition_platformer_primitives::projectile::WorldHitPolicy {
+    Bouncing = 0,
+    ExpireOnContact = 1,
+});
+
+snapshot_unit_enum!(ambition_projectiles::ProjectileKind {
+    Fireball = 0,
+    Hadouken = 1,
+    HadoukenSuper = 2,
+});
+
+impl SnapshotState for ambition_platformer_primitives::projectile::ProjectileGameplay {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.age);
+        put_f32(out, self.max_lifetime);
+        put_f32(out, self.gravity);
+        put_i32(out, self.damage);
+        put_u8(out, self.bounces_remaining);
+        self.world_hit.encode(out);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self {
+            age: r.f32()?,
+            max_lifetime: r.f32()?,
+            gravity: r.f32()?,
+            damage: r.i32()?,
+            bounces_remaining: r.u8()?,
+            world_hit: ambition_platformer_primitives::projectile::WorldHitPolicy::decode(r)?,
+        })
+    }
+}
+
+impl SnapshotState for ambition_projectiles::ProjectileSeq {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u64(out, self.0);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self(r.u64()?))
+    }
+}
+
+impl SnapshotState for ambition_projectiles::ProjectileOwnerId {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_str(out, &self.0);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self(r.str()?.to_string()))
+    }
+}
+
+impl SnapshotState for ambition_projectiles::ProjectileVisualId {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_str(out, &self.0);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self(r.str()?.to_string()))
+    }
+}
+
+/// The projectile markers are REGISTERED STATE, encoded as empty rows: presence
+/// is the datum. Restoring one restores the archetype — `LiveProjectile` routes
+/// the unified stepper, the art tags pick the renderer — which is exactly what
+/// a blob-alone rebuild needs and what a marker-less "recipe" would have had to
+/// reconstruct out-of-band.
+macro_rules! snapshot_marker {
+    ($ty:path) => {
+        impl SnapshotState for $ty {
+            fn encode(&self, _out: &mut Vec<u8>) {}
+            fn decode(_r: &mut Reader<'_>) -> Option<Self> {
+                Some(Self)
+            }
+        }
+    };
+}
+snapshot_marker!(ambition_projectiles::LiveProjectile);
+snapshot_marker!(ambition_projectiles::PlayerProjectile);
+snapshot_marker!(ambition_projectiles::enemy::EnemyProjectile);
+
+/// The global spawn-order stamp source. Two sims that stamped a different
+/// number of projectiles are not in the same state; a restore that left the
+/// counter at the abandoned future's value would stamp the replay's shots with
+/// different orderings than the original run's.
+impl SnapshotState for ambition_projectiles::ProjectileSeqCounter {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u64(out, self.0);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self(r.u64()?))
+    }
+}
+
+/// Re-resolve [`ProjectileOwner`](ambition_projectiles::ProjectileOwner) — the
+/// projectile family's one `Entity` handle — from the spawned id's parent.
+///
+/// N3.1 decision (2) forbids `Entity` in blobs, so the owner handle is DERIVED
+/// state: the durable fact is the parent prefix of the projectile's own
+/// `SimId` (`placement:duel_pca/0` names its firer in the id), and this system
+/// re-resolves it wherever the handle is missing or stale — a blob-rebuilt
+/// projectile after a restore, or a shot whose firer was itself rebuilt.
+/// Scheduled with the identity pair (head and tail of the sim tick), so an
+/// owner is healed before anything reads it.
+pub fn heal_projectile_owners(
+    mut commands: bevy::ecs::system::Commands,
+    projectiles: bevy::ecs::system::Query<
+        (
+            bevy::ecs::entity::Entity,
+            &ambition_platformer_primitives::sim_id::SimId,
+            Option<&ambition_projectiles::ProjectileOwner>,
+        ),
+        bevy::ecs::query::With<ambition_projectiles::LiveProjectile>,
+    >,
+    identities: bevy::ecs::system::Query<(
+        bevy::ecs::entity::Entity,
+        &ambition_platformer_primitives::sim_id::SimId,
+    )>,
+) {
+    let mut orphans: Vec<(bevy::ecs::entity::Entity, &str)> = Vec::new();
+    for (entity, id, owner) in &projectiles {
+        // A live, resolvable handle needs no healing.
+        if owner.is_some_and(|owner| identities.get(owner.0).is_ok()) {
+            continue;
+        }
+        // The parent is everything before the id's last `/<seq>` segment. An id
+        // with no `/` is not a spawned child and has no parent to resolve.
+        if let Some((parent, _seq)) = id.as_str().rsplit_once('/') {
+            orphans.push((entity, parent));
+        }
+    }
+    if orphans.is_empty() {
+        return;
+    }
+    let by_id: std::collections::BTreeMap<&str, bevy::ecs::entity::Entity> = identities
+        .iter()
+        .map(|(entity, id)| (id.as_str(), entity))
+        .collect();
+    for (entity, parent) in orphans {
+        if let Some(owner) = by_id.get(parent) {
+            commands
+                .entity(entity)
+                .insert(ambition_projectiles::ProjectileOwner(*owner));
+        }
     }
 }
 

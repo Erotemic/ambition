@@ -513,6 +513,15 @@ pub struct SimSnapshot {
     /// has a room, the other has none (`RestoreError::CrossRoomBoundary`).
     /// `None` for a headless world with no `RoomSet` (the unit-test fixtures).
     pub active_room: Option<String>,
+    /// **The session scope this snapshot belongs to** (GPT-5.6 closeout,
+    /// 2026-07-16). Bound at capture from `ActiveSessionScope::current()`;
+    /// `restore` refuses a scope mismatch before any other preflight
+    /// ([`RestoreError::SessionMismatch`]). A stale snapshot from a retired
+    /// session must never reconcile into a successor session that happens to
+    /// hold the same room — a rollback ring is scoped to ONE live session by
+    /// this field, not by convention. `None` = no session machinery (headless
+    /// fixtures), which only matches `None`.
+    pub session: Option<ambition_platformer_primitives::lifecycle::SessionScopeId>,
     /// **Every `SimId` carried by a live entity when the snapshot was taken** — sorted,
     /// with duplicates PRESERVED. The full identity roster, a superset of the
     /// component-row ids [`sim_ids`](Self::sim_ids) derives.
@@ -619,6 +628,11 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
         ambition_world::rooms::RoomSet,
     >(world)
     .map(|rs| rs.active_spec().id.clone());
+    // The owning session scope, bound at capture: a snapshot never restores
+    // across sessions (see `SimSnapshot::session`).
+    let session = world
+        .get_resource::<ambition_platformer_primitives::lifecycle::ActiveSessionScope>()
+        .and_then(|scope| scope.current());
     // The full identity roster: every live `SimId`, sorted, dups preserved. Captured
     // independently of which components an entity carries, so identity is validated even
     // for an entity with no registered state — the collision a per-component scan misses
@@ -656,6 +670,7 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
     SimSnapshot {
         tick,
         active_room,
+        session,
         roster,
         entries,
     }
@@ -844,19 +859,41 @@ pub enum RestoreError {
     /// the world (fetch a fresh snapshot). Only a project-authored cursor/resolved codec
     /// disagreement reaches that path — the common corrupt-blob case is transactional.
     DecodeFailed { entry: String, id: Option<String> },
-    /// The snapshot holds a dynamically-spawned entity (a `SimId::spawned(..)` id — the
-    /// vocabulary appends `/<seq>`) that **existed at the snapshot tick, is absent now,
-    /// and cannot be reconstructed** because no spawn recipe exists. Rebuilding it from
-    /// blobs ALONE is not exact: a dynamic entity needs its spawner's recipe to come back
-    /// whole, and N3.2 does not yet register spawn recipes.
+    /// The snapshot holds an identity that **existed at the snapshot tick, will not
+    /// survive into reconciliation, and cannot be reconstructed** by the world being
+    /// restored. Two shapes reach it:
+    ///
+    /// - a dynamically-spawned entity (a `SimId::spawned(..)` id — the vocabulary
+    ///   appends `/<seq>`) with no registered spawn recipe: rebuilding it from blobs
+    ///   ALONE is not exact, because a dynamic entity needs its spawner's recipe to
+    ///   come back whole;
+    /// - a `placement:` id that neither the target room's authored lists nor its
+    ///   registered content staging produce — an identity this room cannot build.
+    ///
+    /// A room-backed world REFUSES here rather than bare-spawning an identity-only
+    /// entity and patching registered rows onto it: that "success" would be a hollow
+    /// roster member with no authored components (GPT-5.6 closeout, 2026-07-16). The
+    /// bare-identity respawn survives only for room-less headless fixtures, which have
+    /// no construction authority to consult.
     ///
     /// This is precisely a **reconstruction** refusal — the entity died inside the window
     /// and restore is being asked to raise it — not a "birth inside the window" (an entity
     /// spawned AFTER the snapshot is future-only and simply despawned; re-audit finding 4).
-    /// It establishes ONE reconstruction refusal, not a general bounded-window guarantee.
-    /// Preflighted before any mutation (finding 5), so restore refuses cleanly rather than
-    /// after partial work. The honest boundary until spawn recipes land.
-    UnsupportedDynamicReconstruction { sim_id: String },
+    /// Preflighted against the predicted roster (survivors ∪ what the room's construction
+    /// will build) before any mutation (finding 5), so restore refuses cleanly rather than
+    /// after partial work.
+    UnsupportedReconstruction { sim_id: String },
+    /// **The snapshot belongs to a different session** (GPT-5.6 closeout, 2026-07-16).
+    /// A snapshot is bound at capture to the live [`SessionScopeId`]; presenting session
+    /// A's snapshot to session B — even one prepared by the same provider, holding the
+    /// same room — is refused before any other preflight runs. Restored entities and
+    /// relations must belong to the exact scope that owns the live world; reconciling
+    /// across scopes would resurrect A's state wearing B's identity. `None` = a world
+    /// with no session machinery (headless fixtures), which only matches `None`.
+    SessionMismatch {
+        snapshot: Option<u64>,
+        live: Option<u64>,
+    },
     /// **The snapshot is not well-formed against the registry restoring it** (re-audit
     /// finding 2) — caught by [`validate_snapshot`], a mutation-free phase that runs before
     /// restore touches a single entity. `take` cannot produce a malformed snapshot, so in a
@@ -897,13 +934,28 @@ impl std::fmt::Display for RestoreError {
                 "the snapshot's room `{room}` cannot be staged onto this world: {reason} \
                  — refused by the mutation-free staging preflight, live room untouched"
             ),
-            RestoreError::UnsupportedDynamicReconstruction { sim_id } => write!(
+            RestoreError::UnsupportedReconstruction { sim_id } => write!(
                 f,
-                "unsupported dynamic reconstruction: `{sim_id}` is a dynamically-spawned \
-                 entity that existed at the snapshot tick, is gone now, and no room authors \
-                 it — rebuilding it from blobs alone is not exact (no spawn recipe yet). \
+                "unsupported reconstruction: `{sim_id}` existed at the snapshot tick, will \
+                 not survive into reconciliation, and neither the target room's authored \
+                 lists, its registered content staging, nor a spawn recipe can rebuild it. \
                  Restore refuses rather than raise a naked entity."
             ),
+            RestoreError::SessionMismatch { snapshot, live } => {
+                fn scope(id: &Option<u64>) -> String {
+                    match id {
+                        Some(id) => format!("session scope {id}"),
+                        None => "no session".to_string(),
+                    }
+                }
+                write!(
+                    f,
+                    "session mismatch: the snapshot was taken under {}, the live world runs \
+                     {} — a snapshot never restores across sessions, whatever rooms they share",
+                    scope(snapshot),
+                    scope(live),
+                )
+            }
             RestoreError::MalformedSnapshot { reason } => write!(
                 f,
                 "malformed snapshot: {reason} — restore refuses a snapshot whose shape does \
@@ -1087,6 +1139,10 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry
         .register_component::<ambition_platformer_primitives::orientation::ActorRoll>("actor_roll");
     registry.register_component::<ambition_combat::components::ActorCooldowns>("actor_cooldowns");
+    // The body-generic reaction set (§A2 stagger: hitstop / hitstun /
+    // recoil-lock / i-frames). Mid-fight state on EVERY body; a rebuilt duel
+    // fighter without it replays a different tick 0 (the N3.2b duel oracle).
+    registry.register_component::<ambition_characters::actor::body::BodyCombat>("body_combat");
     registry.register_component::<ambition_engine_core::geometry::CenteredAabb>("centered_aabb");
 
     // A patrolling enemy's path cursor. Authored waypoints stay on the entity; only
@@ -1140,6 +1196,33 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_component::<ambition_characters::brain::ActorControl>("actor_control");
     registry.register_component::<ambition_time::ProperTimeScale>("proper_time_scale");
     registry.register_cursor::<ambition_actors::features::BossEncounter>("boss_encounter");
+
+    // ── The projectile family (the first blob-rebuildable dynamic family) ────
+    //
+    // Everything an in-flight projectile carries is registered — markers
+    // included, presence being the datum — and the one `Entity` handle
+    // (`ProjectileOwner`) is derived from the spawned id's parent, healed by
+    // `heal_projectile_owners` beside the identity pair. That complete
+    // coverage is what the DYNAMIC ANCHOR below asserts: a dead projectile in
+    // a snapshot rebuilds from blobs alone, exactly, so a rollback window may
+    // span a projectile's whole life (netcode.md N3.2b closeout).
+    registry.register_component::<ambition_platformer_primitives::projectile::ProjectileGameplay>(
+        "projectile_gameplay",
+    );
+    registry.register_component::<ambition_projectiles::ProjectileSeq>("projectile_seq");
+    registry.register_component::<ambition_projectiles::ProjectileOwnerId>("projectile_owner_id");
+    registry.register_component::<ambition_projectiles::ProjectileVisualId>("projectile_visual_id");
+    registry.register_component::<ambition_projectiles::ProjectileKind>("projectile_kind");
+    registry.register_component::<ambition_projectiles::LiveProjectile>("live_projectile");
+    registry.register_component::<ambition_projectiles::PlayerProjectile>("player_projectile");
+    registry.register_component::<ambition_projectiles::enemy::EnemyProjectile>("enemy_projectile");
+    registry
+        .register_resource::<ambition_projectiles::ProjectileSeqCounter>("projectile_seq_counter");
+    registry.declare_derived::<ambition_projectiles::ProjectileOwner>(
+        "re-resolved from the spawned id's parent by heal_projectile_owners, beside the \
+         identity pair",
+    );
+    registry.declare_dynamic_anchor("projectile_gameplay");
 
     // ── Encounter authority (E11) ────────────────────────────────────────────
     //
@@ -1220,6 +1303,16 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     // content beats in the restored past, and the atomic room transaction's own
     // staging emits one whose consumers' effects come back from the blobs instead.
     registry.register_message_channel::<ambition_world::rooms::RoomLoaded>("room_loaded");
+    // A spawn request or room transition queued in the abandoned future must
+    // not materialize in the restored past: an actor staged twice, a door
+    // walked through twice. (Restore's own staging drains its fresh spawn
+    // requests SYNCHRONOUSLY before this clear runs — see `RoomStaging::apply`.)
+    registry.register_message_channel::<ambition_actors::features::SpawnActorRequest>(
+        "spawn_actor_request",
+    );
+    registry.register_message_channel::<ambition_world::rooms::RoomTransitionRequested>(
+        "room_transition_requested",
+    );
 
     // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be
     // snapshotted, restored, or defended by the canary. Hashing the COUNT means a

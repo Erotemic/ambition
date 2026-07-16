@@ -66,6 +66,7 @@ pub fn load_room_geometry(
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     moving_platforms: &mut Vec<MovingPlatformState>,
     placement_lowering: &crate::world::placements::PlacementLoweringRegistry,
+    content_staging: &crate::features::RoomContentStagingRegistry,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     character_roster: &crate::features::CharacterRoster,
     boss_catalog: &crate::boss_encounter::BossCatalog,
@@ -130,6 +131,7 @@ pub fn load_room_geometry(
         boss_catalog,
         &spec,
         placement_lowering,
+        content_staging,
         session_scope,
     );
     // This guard prevents immediate backtracking when arriving inside/near a

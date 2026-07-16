@@ -168,12 +168,77 @@ Two enabling invariants landed with it, found by the gate:
   (session setup, transition, reset, hot-reload, staging), and the sync is a
   pure resource→visual mirror.
 
-Remaining honest boundaries, unchanged in kind: a snapshot holding a
-dynamically-spawned entity that will not survive into reconciliation (for a
-staged restore this includes room-scoped `spawned(..)` entities — a projectile
-in flight at the snapshot tick) refuses with
-`UnsupportedDynamicReconstruction` until spawn recipes land; a room-presence
-mismatch refuses as `CrossRoomBoundary`; restores never span sessions.
+### N3.2b closeout — complete roster, session binding, first spawn recipe (landed 2026-07-16)
+
+The GPT-5.6 closeout review found the staged room INCOMPLETE: occupants created
+by `RoomLoaded` consumers (the duel-arena fighters, Mary-O's cronies) were not
+part of room construction, so a staged restore bare-spawned their identities
+and patched blobs onto hollow entities. Landed corrections:
+
+1. **Room-content staging is part of construction.** Providers/content register
+   PURE stagers (`RoomSpec` → `SpawnActorRequest`s) into the App-installed
+   `RoomContentStagingRegistry`; `spawn_room_feature_entities_with_registry`
+   drains them on the sim side in every path — activation, transition, reset,
+   hot-reload, and restore staging (which also runs the canonical request
+   applier synchronously). `RoomLoaded` is now a pure notification (resource
+   re-arms, presentation); it never creates snapshot-authoritative entities.
+   This also fixed a latent determinism hole: the old consumers ran on the
+   presentation schedule, so staging timing was frame-rate-relative.
+2. **No bare-identity success in a room-backed world.** Restore preflights the
+   snapshot roster against the PREDICTED roster — survivors ∪ the target room's
+   authored lists ∪ its content-staged ids ∪ dynamic-anchor rows — and refuses
+   (`UnsupportedReconstruction`) before mutation for anything outside it. The
+   bare respawn survives only for room-less headless fixtures.
+3. **Snapshots are session-bound.** `SimSnapshot.session` captures the owning
+   `SessionScopeId`; a mismatch (`SessionMismatch`) is the FIRST preflight.
+   Gate: `a_snapshot_never_restores_across_sessions` (shell_host_lifecycle) —
+   A's snapshot into a same-provider, same-room session B refuses with B
+   untouched. A rollback ring is scoped to one session by construction.
+4. **The identity invariant is re-checked after staging** — a content stager
+   colliding with an authored placement cannot silently win a map insert.
+5. **The projectile family is the first spawn recipe** — the registered kind:
+   every component an in-flight projectile carries is a registered row (ZST
+   markers included; presence is the datum), `ProjectileSeqCounter` is a
+   registered resource, and `ProjectileOwner` (the one `Entity` handle) is
+   declared derived, healed from the spawned id's parent by
+   `heal_projectile_owners` beside the identity pair. `projectile_gameplay` is
+   declared a DYNAMIC ANCHOR: a dead projectile in a snapshot rebuilds from
+   blobs alone, exactly — a rollback window may span a projectile's whole
+   life. Projectiles are now room- and session-scoped spawns, like everything
+   else a room stages.
+6. **Pending cross-tick messages are restored state.** `SpawnActorRequest` and
+   `RoomTransitionRequested` joined the restore-cleared channels (9 total): a
+   spawn or door-walk queued in the abandoned future must not replay.
+
+Exit oracle: `a_staged_restore_rebuilds_the_duel_roster_completely` — a
+snapshot mid-duel (content-staged fighters, a glider projectile in flight), a
+forced door transition out, a staged restore back, and a component-set
+comparison at identical sim points (roster completeness: PASSING, hard gate).
+The replay-equality tooth is a **PINNED GAP**, not yet a passing gate: the
+replayed suffix diverges at tick 0 because the rebuilt fighters' remaining
+unregistered mutable state (candidates: `ActorAggression` — whose grudge holds
+an `Entity` and needs cursor-by-identity semantics like `ActorTarget` —
+`ActorDisposition`, brain-adjacent melee kit) is spawn-fresh where the
+originals' was fight-aged. `BodyCombat` (the §A2 stagger set) was registered
+during the closeout and was necessary but not sufficient. The oracle pins the
+divergence so the fix flips it loudly; `scratch_diag.rs` (ignored) is the
+per-entry diagnostic. This is the named NEXT SLICE before the rollback driver.
+
+**Transactionality, stated precisely:** every currently-preflightable refusal
+occurs before room mutation — session binding, room resolution, snapshot
+well-formedness, identity uniqueness, the predicted-roster check, and
+standalone codec probes. Cursor/resolved codec application failures (and the
+predicted-roster/construction disagreement) remain a post-mutation
+internal-consistency boundary until transactional codecs land; the caller must
+discard the world on those.
+
+Remaining honest boundaries: a dead `spawned(..)` entity outside an anchored
+family (a summoned minion; a lowering-spawned child like the giant hands under
+a STAGED restore) refuses with `UnsupportedReconstruction` until
+construction-side recipes land; a same-room window spanning a content-staged
+occupant's death refuses (batch staging exists, single-occupant rebuild does
+not); a room-presence mismatch refuses as `CrossRoomBoundary`; player-pool
+firing state (`PlayerProjectileState`) remains ledgered debt.
 
 ## Identity and ordering rules
 

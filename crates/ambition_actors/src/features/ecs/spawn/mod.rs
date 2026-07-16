@@ -11,6 +11,9 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer_primitives::lifecycle::SessionSpawnScope;
 use bevy::prelude::Commands;
 
+mod content_staging;
+pub use content_staging::RoomContentStagingRegistry;
+
 pub(crate) use super::spawn_actors::spawn_runtime_minion;
 
 /// Spawn ECS-native feature entities for every authored static
@@ -91,6 +94,7 @@ pub fn spawn_room_feature_entities_with_registry(
     boss_catalog: &BossCatalog,
     room: &crate::rooms::RoomSpec,
     registry: &crate::world::placements::PlacementLoweringRegistry,
+    content_staging: &RoomContentStagingRegistry,
     session_scope: SessionSpawnScope,
 ) {
     let paths = room_spec_paths(room);
@@ -146,15 +150,25 @@ pub fn spawn_room_feature_entities_with_registry(
     // them off `RoomSpec` directly.
 
     // Room-scoped faction targeting: reset to the combat baseline every room load
-    // so one room's relations overrides never linger into the next. (Per-room
-    // content staging — e.g. the spectator duel — happens in CONTENT systems
-    // consuming the `RoomLoaded` fact below, not here.)
+    // so one room's relations overrides never linger into the next.
     commands.insert_resource(crate::features::FactionRelations::default());
+
+    // Content-staged occupants (the spectator duel, a demo level's walkers):
+    // drain the registered pure stagers into the same request channel a
+    // runtime staging uses. Part of room CONSTRUCTION — not a `RoomLoaded`
+    // consumer — so a snapshot restore that stages this room rebuilds these
+    // occupants exactly as a transition does (N3.2b: the staged room carries
+    // the complete authoritative roster before blobs apply).
+    for request in content_staging.requests_for(room) {
+        commands.write_message(request);
+    }
 
     // The staging fact (JD4): every path that stages a room's contents flows
     // through this function, so this is the ONE emission site for
-    // `RoomLoaded`. Content systems consume it for imperative per-room
-    // staging. Requires `Messages<RoomLoaded>` to be registered (the sim
+    // `RoomLoaded`. Content systems consume it as a pure NOTIFICATION
+    // (resource re-arms, presentation beats) — never to create
+    // snapshot-authoritative entities; that is the content-staging registry's
+    // job above. Requires `Messages<RoomLoaded>` to be registered (the sim
     // resources plugin does; minimal test worlds add_message it).
     commands.write_message(crate::rooms::RoomLoaded {
         room_id: room.id.clone(),

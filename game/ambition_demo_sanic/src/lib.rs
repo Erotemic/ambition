@@ -587,6 +587,9 @@ fn sanic_setup(
     placement_lowering: bevy::prelude::Res<
         ambition::runtime::demo_fixture::PlacementLoweringRegistry,
     >,
+    content_staging: bevy::prelude::Res<
+        ambition::runtime::demo_fixture::RoomContentStagingRegistry,
+    >,
 ) {
     ambition::runtime::demo_fixture::simulation_world(
         &mut commands,
@@ -601,6 +604,7 @@ fn sanic_setup(
             character_catalog: &character_catalog,
             character_roster: &character_roster,
             placement_lowering: &placement_lowering,
+            content_staging: &content_staging,
             boss_catalog: &boss_catalog,
             default_character_id: SANIC_CHARACTER_ID,
             sandbox_data_asset: None,

@@ -77,6 +77,9 @@ pub struct ResetPlayState<'w> {
     /// The installed placement-lowering authority — reset re-stages the start
     /// room's placements through the SAME registry setup/transition/restore use.
     placement_lowering: Res<'w, crate::world::placements::PlacementLoweringRegistry>,
+    /// The installed room-content staging seam — same rule as the placement
+    /// registry: reset re-stages content-staged occupants, one authority.
+    content_staging: Res<'w, crate::features::RoomContentStagingRegistry>,
 }
 
 /// Cross-system trigger for "wipe the save and rebuild the runtime."
@@ -237,6 +240,7 @@ pub fn process_sandbox_reset_request(
         &play_state.boss_catalog,
         &start_spec,
         &play_state.placement_lowering,
+        &play_state.content_staging,
         session_scope,
     );
     play_state.moving_platforms.0 = platforms::moving_platforms_for_room(&start_spec);

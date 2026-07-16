@@ -23,6 +23,7 @@ ambition_actors::encounter::switches::EncounterSwitchIndex
 ambition_actors::encounter::switches::SwitchActivationQueue
 ambition_actors::features::banter::CombatBanterRegistry
 ambition_actors::features::ecs::actors::update::ActorSteering
+ambition_actors::features::ecs::spawn::content_staging::RoomContentStagingRegistry
 ambition_actors::features::ecs::mount::PendingMountLinks
 ambition_actors::features::ecs::perception::PerceptionPeers
 ambition_actors::features::ecs::perception::PerceptionProjectiles
@@ -106,7 +107,6 @@ ambition_portal::transit::PortalCarves
 ambition_portal::tuning::PortalTuning
 ambition_portal::types::PortalHostDepths
 ambition_projectiles::enemy::state::EnemyProjectileState
-ambition_projectiles::entity::ProjectileSeqCounter
 ambition_runtime::input_stream::InputStreamRecorder
 ambition_sim_view::anim_index::ActorAnimIndex
 ambition_sim_view::anim_index::BossFrameIndex
@@ -141,7 +141,6 @@ bevy_ecs::message::messages::Messages<ambition_actors::boss_encounter::encounter
 bevy_ecs::message::messages::Messages<ambition_encounter::timeline::EncounterGate>
 bevy_ecs::message::messages::Messages<ambition_actors::encounter::switches::SwitchActivated>
 bevy_ecs::message::messages::Messages<ambition_actors::features::ecs::mount::MountDied>
-bevy_ecs::message::messages::Messages<ambition_actors::features::ecs::spawn_actors::SpawnActorRequest>
 bevy_ecs::message::messages::Messages<ambition_actors::session::reset::RoomReplayRequested>
 bevy_ecs::message::messages::Messages<ambition_actors::time::time_control::ClockResetRequest>
 bevy_ecs::message::messages::Messages<ambition_actors::time::time_control::ClockScaleRequest>
@@ -170,7 +169,6 @@ bevy_ecs::message::messages::Messages<ambition_vfx::vfx::ExplosionRequest>
 bevy_ecs::message::messages::Messages<ambition_vfx::vfx::FireworksRequest>
 bevy_ecs::message::messages::Messages<ambition_vfx::vfx::VfxMessage>
 bevy_ecs::message::messages::Messages<ambition_world::rooms::RespawnRoomVisualsRequested>
-bevy_ecs::message::messages::Messages<ambition_world::rooms::room_graph::RoomTransitionRequested>
 bevy_ecs::message::messages::Messages<bevy_asset::event::AssetEvent<ambition_actors::session::data::SandboxDataSpec>>
 bevy_ecs::message::messages::Messages<bevy_asset::event::AssetLoadFailedEvent<ambition_actors::session::data::SandboxDataSpec>>
 bevy_ecs::message::messages::Messages<bevy_state::state::transitions::StateTransitionEvent<ambition_platformer_primitives::schedule::GameMode>>

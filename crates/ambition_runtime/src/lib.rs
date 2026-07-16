@@ -99,6 +99,7 @@ pub mod demo_fixture {
     pub use ambition_actors::avatar::StartingCharacter;
     pub use ambition_actors::boss_encounter::BossCatalog;
     pub use ambition_actors::features::CharacterRoster;
+    pub use ambition_actors::features::RoomContentStagingRegistry;
     pub use ambition_actors::ldtk_world::LdtkRuntimeIndex;
     pub use ambition_actors::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};
     pub use ambition_actors::session::setup::{simulation_world, SimulationSetup};
@@ -173,7 +174,11 @@ impl Plugin for SandboxSetsPlugin {
         // reads identity — snapshot, replay, and the N0.4 canary all key on it.
         app.add_systems(
             sim,
-            (snapshot::ensure_sim_id, snapshot::mint_spawned_sim_ids)
+            (
+                snapshot::ensure_sim_id,
+                snapshot::mint_spawned_sim_ids,
+                snapshot::heal_projectile_owners,
+            )
                 .chain()
                 .in_set(ambition_platformer_primitives::schedule::GameplaySimulationRoot)
                 .before(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
@@ -187,7 +192,11 @@ impl Plugin for SandboxSetsPlugin {
         // second scheduling; the `Without<SimId>` guard makes the pair idempotent.
         app.add_systems(
             sim,
-            (snapshot::ensure_sim_id, snapshot::mint_spawned_sim_ids)
+            (
+                snapshot::ensure_sim_id,
+                snapshot::mint_spawned_sim_ids,
+                snapshot::heal_projectile_owners,
+            )
                 .chain()
                 .in_set(ambition_platformer_primitives::schedule::GameplaySimulationRoot)
                 .after(ambition_platformer_primitives::schedule::SandboxSet::ResetProcessing)

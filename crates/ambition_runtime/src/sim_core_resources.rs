@@ -67,6 +67,9 @@ impl Plugin for SimCoreResourcesPlugin {
             // Content-free default. Provider plugins replace/assemble this at
             // App build time; `init_resource` never clobbers their resource.
             .init_resource::<ambition_actors::features::CharacterRoster>()
+            // The room-content staging seam: providers/content register pure
+            // stagers into it; an app with none stages rooms as authored.
+            .init_resource::<ambition_actors::features::RoomContentStagingRegistry>()
             // App-local boss authority. Boss-free providers keep the explicit
             // empty resource; content plugins assemble provider fragments.
             .init_resource::<ambition_actors::boss_encounter::BossCatalog>()

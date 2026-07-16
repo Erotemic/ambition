@@ -28,17 +28,28 @@ lifecycle implementation.
 
 ## 2. Restore the active room atomically
 
-**State: DONE (2026-07-16).** `restore` stages a differing snapshot room through
-the canonical construction (`RoomStaging` — sweep, active-spec/geometry swap,
-moving-platform rebuild, App-installed placement lowering), with every refusal
-detected by mutation-free preflight before the live room is touched. Identity is
-minted synchronously with the spawning tick, and read-model syncs own no reset.
-The exit was met exactly as written: `portal_lab` (the cross-room replay
-customer) is `CLEAN` in the desync canary — canonical identity and state hashes
-agree across a staged rewind/replay while raw entity allocation differs. The
-encounter-authority prerequisite was closed first (session-owned, persistent
-authorities — GPT-5.6 review corrections). Details: [`engine/netcode.md`](engine/netcode.md)
-N3.2b.
+**State: DONE + CLOSED OUT (2026-07-16).** `restore` stages a differing
+snapshot room through the canonical construction (`RoomStaging`), refusals are
+preflighted before mutation, identity is minted synchronously with the spawning
+tick, and read-model syncs own no reset. The GPT-5.6 closeout review then
+hardened the contract before the rollback driver: content-staged occupants
+(duel fighters, cronies) moved from `RoomLoaded` consumers into the
+`RoomContentStagingRegistry` construction seam so a staged room carries its
+COMPLETE authoritative roster; a room-backed restore refuses rather than
+bare-spawn a hollow identity; snapshots are bound to their `SessionScopeId`
+(the ring's scoping is construction, not convention); and the projectile family
+became the first blob-rebuildable dynamic family (dynamic anchor + derived
+owner healing), so a window may span a projectile's whole life. Exit oracles:
+`portal_lab` CLEAN and `a_staged_restore_rebuilds_the_duel_roster_completely`
+(snapshot mid-duel with a glider in flight, forced door out, staged restore
+back, complete component roster, bit-for-bit replay). Details:
+[`engine/netcode.md`](engine/netcode.md) N3.2b + closeout.
+
+The rollback driver (per-session snapshot ring + input history + restore +
+resimulate) may now be built on these contracts. Remaining named boundaries
+before or during that work: construction-side recipes for non-anchored spawned
+children (minions, giant hands under staging), single-occupant content-staged
+rebuild, `PlayerProjectileState` registration.
 
 ## 3. Close Super Mary-O level 1
 

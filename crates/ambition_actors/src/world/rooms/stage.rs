@@ -77,6 +77,7 @@ pub struct RoomStaging {
     target_index: usize,
     spec: RoomSpec,
     registry: PlacementLoweringRegistry,
+    content_staging: features::RoomContentStagingRegistry,
     character_catalog: ambition_characters::actor::character_catalog::CharacterCatalog,
     character_roster: features::CharacterRoster,
     boss_catalog: crate::boss_encounter::BossCatalog,
@@ -113,6 +114,13 @@ impl RoomStaging {
                 .get_resource::<PlacementLoweringRegistry>()
                 .ok_or(missing("PlacementLoweringRegistry"))?
                 .clone(),
+            // Default when absent: a world with no registered content stagers
+            // (a headless fixture) stages rooms with no content-staged
+            // occupants, which is exactly what its rooms contain.
+            content_staging: world
+                .get_resource::<features::RoomContentStagingRegistry>()
+                .cloned()
+                .unwrap_or_default(),
             character_catalog: world
                 .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
                 .ok_or(missing("CharacterCatalog"))?
@@ -137,11 +145,39 @@ impl RoomStaging {
         &self.spec.id
     }
 
+    /// Every identity `apply` will construct, predicted without mutating
+    /// anything: the authored placement/enemy/boss ids (the same three lists
+    /// `respawn_authored_entity` reconstructs from) plus the content-staged
+    /// occupants (the registered stagers are pure functions of the spec).
+    ///
+    /// This is the roster half of a restore's preflight: a snapshot identity
+    /// that neither survives the sweep nor appears here cannot come back
+    /// complete, and the restore refuses BEFORE the world is touched.
+    pub fn predicted_authored_ids(&self) -> std::collections::BTreeSet<String> {
+        self.spec
+            .placements
+            .iter()
+            .map(|p| p.id.0.clone())
+            .chain(self.spec.enemy_spawns.iter().map(|e| e.id.clone()))
+            .chain(self.spec.boss_spawns.iter().map(|b| b.id.clone()))
+            .chain(self.content_staging.staged_ids_for(&self.spec))
+            .collect()
+    }
+
     /// Make the prepared room the live one, through the canonical construction:
     /// the same scoped-entity sweep, active-spec/geometry swap, moving-platform
     /// rebuild, and placement lowering a room transition runs. Infallible —
     /// every refusal already happened in [`prepare`](Self::prepare).
     pub fn apply(self, world: &mut World) {
+        // Requests queued by the future we are abandoning must not materialize
+        // in the room we are staging: drop any pending spawn requests BEFORE
+        // the fresh construction writes its own into the same channel.
+        if let Some(mut pending) =
+            world.get_resource_mut::<bevy::ecs::message::Messages<features::SpawnActorRequest>>()
+        {
+            pending.clear();
+        }
+
         // Despawn the outgoing room's scoped entities — the transition's sweep,
         // with no carry-body exemption: a restore's survivors are exactly the
         // non-room-scoped entities, and the body's state comes back from blobs.
@@ -193,6 +229,7 @@ impl RoomStaging {
                 &self.boss_catalog,
                 &self.spec,
                 &self.registry,
+                &self.content_staging,
                 self.session_scope,
             );
             platforms::spawn_moving_platforms(
@@ -202,6 +239,17 @@ impl RoomStaging {
                 &platform_states,
             );
         }
+        world.flush();
+
+        // Materialize the content-staged occupants NOW, through the same
+        // canonical applier the schedule runs — a restore reconciles against
+        // this roster synchronously and cannot wait a frame for the scheduled
+        // drain. (The channel held only this staging's requests: the
+        // abandoned future's were cleared above.)
+        let _ = bevy::ecs::system::RunSystemOnce::run_system_once(
+            &mut *world,
+            features::apply_spawn_actor_requests,
+        );
         world.flush();
 
         // Presentation rebuilds from the request — the same message the sandbox

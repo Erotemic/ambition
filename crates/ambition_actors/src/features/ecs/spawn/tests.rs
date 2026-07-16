@@ -88,6 +88,7 @@ fn room_features_lower_through_the_caller_supplied_registry() {
             boss_catalog,
             &room,
             &registry,
+            &Default::default(),
             SessionSpawnScope::UNSCOPED,
         );
     });

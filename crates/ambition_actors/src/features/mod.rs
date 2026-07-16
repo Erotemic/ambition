@@ -138,8 +138,8 @@ pub use ecs::{
     FeatureEcsWorldOverlay, FeatureSimEntity, FriendlyFire, HazardFeature, HeldItem, Hitbox,
     HitboxAnchor, HitboxHits, HitboxLifetime, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot,
     MountClass, MountDeathImpact, MountDied, MountSlot, Mountable, Mounted, MountedBrainCache,
-    MountedSize, PendingChallenge, PendingMountLinks, RidingOn, SpawnActorKind, SpawnActorRequest,
-    CHALLENGE_GRACE_S,
+    MountedSize, PendingChallenge, PendingMountLinks, RidingOn, RoomContentStagingRegistry,
+    SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{

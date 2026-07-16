@@ -32,7 +32,16 @@ pub fn apply_enemy_projectile_effect_requests(
     mut commands: Commands,
     mut seq: ResMut<ProjectileSeqCounter>,
     mut requests: MessageReader<ambition_vfx::EffectRequest>,
+    active_session: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
 ) {
+    use ambition_platformer_primitives::lifecycle::{RoomScopedEntity, SessionSpawnScope};
+    // A projectile is ROOM- and SESSION-scoped like the rest of a room's
+    // spawns (see `apply_player_spawn_projectile_messages`).
+    let Some(scope) = SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        requests.clear();
+        return;
+    };
     for req in requests.read() {
         let ambition_vfx::Effect::Projectiles { shots } = &req.effect else {
             continue;
@@ -53,8 +62,10 @@ pub fn apply_enemy_projectile_effect_requests(
                 visual_id,
                 LiveProjectile,
                 EnemyProjectile,
+                RoomScopedEntity,
                 Name::new("Enemy projectile (sim)"),
             ));
+            scope.apply_to(&mut entity);
             if req.owner != Entity::PLACEHOLDER {
                 entity.insert(ProjectileOwner(req.owner));
             }

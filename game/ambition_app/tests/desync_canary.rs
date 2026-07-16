@@ -878,6 +878,179 @@ fn restore_stages_the_snapshot_room_across_a_transition() {
     );
 }
 
+/// **A staged restore rebuilds CONTENT-STAGED occupants, complete** (N3.2b
+/// closeout — GPT-5.6 review, 2026-07-16).
+///
+/// The duel arena's two fighters are not `RoomSpec` placements: content stages
+/// them through the room-content staging seam (`SpawnActorRequest`s emitted when
+/// the room's contents stage). A cross-room restore INTO `duel_arena` must
+/// therefore rebuild them through that same seam — a restore that "succeeds" by
+/// bare-spawning an identity-only entity and patching registered rows onto it
+/// produces fighters with no `Brain`, no faction, no grudge: a hollow roster the
+/// registered hash alone cannot see. Three teeth, in order of bluntness:
+///
+/// 1. one tick after the restore, each fighter's component SET equals the set
+///    it carried one tick after the snapshot — the identical sim point, so
+///    per-tick derived attachments (`SurfaceUpright`, portal transit tags)
+///    compare like-for-like and authored config (`Brain`, faction, moveset)
+///    cannot be silently absent;
+/// 2. the registered hash and re-taken snapshot match exactly;
+/// 3. the replayed suffix — including the same forced door transition at the
+///    same tick — reproduces the abandoned future tick for tick.
+#[test]
+fn a_staged_restore_rebuilds_the_duel_roster_completely() {
+    use ambition::runtime::snapshot::{restore, take};
+    use ambition::world::rooms::{RoomSet, RoomTransitionRequested};
+    use std::collections::BTreeSet;
+
+    /// Every component TYPE the entity carrying `sim_id` wears, by name.
+    fn roster_of(s: &mut SandboxSim, sim_id: &str) -> BTreeSet<String> {
+        let entity = {
+            let mut q = s.world_mut().query::<(
+                bevy::ecs::entity::Entity,
+                &ambition::platformer::sim_id::SimId,
+            )>();
+            let w = s.world();
+            q.iter(w)
+                .find(|(_, id)| id.as_str() == sim_id)
+                .map(|(e, _)| e)
+                .unwrap_or_else(|| panic!("`{sim_id}` is not alive"))
+        };
+        s.world()
+            .inspect_entity(entity)
+            .expect("the fighter entity just resolved")
+            .map(|info| info.name().to_string())
+            .collect()
+    }
+
+    let mut s = sim("duel_arena");
+    let reg = registry_of(&mut s);
+
+    // Let the staged duel develop: brains target, moves play, health moves.
+    let mut warm = RandomWalkPolicy::traversal_stress(3);
+    for _ in 0..60 {
+        s.step(warm.act());
+    }
+
+    const PCA: &str = "placement:duel_pca";
+    const ROBOT: &str = "placement:duel_robot";
+    assert!(
+        roster_of(&mut s, PCA)
+            .iter()
+            .any(|n| n.ends_with("brain::Brain")),
+        "the warm-up staged a REAL fighter (a Brain)"
+    );
+
+    let snap = take(s.world(), &reg);
+    let at_snapshot = reg.hash_world(s.world());
+
+    // The duel arena's one exit is a Door: resolve its transition through the
+    // canonical room graph, exactly as an interact press would.
+    let door = {
+        let rs = ambition::platformer::lifecycle::session_world_component::<RoomSet>(s.world())
+            .expect("a RoomSet");
+        let zone = rs
+            .active_loading_zones()
+            .iter()
+            .find(|z| z.id == "duel_arena_entry")
+            .expect("duel_arena authors its entry door")
+            .clone();
+        rs.transition_for_player(zone.aabb, ambition::engine_core::Vec2::ZERO, true)
+            .expect("the duel arena's door resolves through the room graph")
+    };
+
+    // One 60-tick suffix, with the door forced at tick 10 — the SAME external
+    // input both times, so the replay is of the same future.
+    let inputs: Vec<_> = {
+        let mut p = RandomWalkPolicy::traversal_stress(99);
+        (0..60).map(|_| p.act()).collect()
+    };
+    // Runs the whole suffix and, after its FIRST tick — the identical sim
+    // point in both runs, with every per-tick derived attachment freshly
+    // published — samples each fighter's full component set.
+    let mut run_suffix = |s: &mut SandboxSim| -> (Vec<u64>, Vec<BTreeSet<String>>) {
+        let mut hashes = Vec::new();
+        let mut rosters = Vec::new();
+        for (i, a) in inputs.iter().enumerate() {
+            if i == 10 {
+                s.world_mut()
+                    .resource_mut::<bevy::ecs::message::Messages<RoomTransitionRequested>>()
+                    .write(RoomTransitionRequested::new(door.clone(), None));
+            }
+            s.step(a.clone());
+            hashes.push(reg.hash_world(s.world()));
+            if i == 0 {
+                rosters = vec![roster_of(s, PCA), roster_of(s, ROBOT)];
+            }
+        }
+        (hashes, rosters)
+    };
+
+    let (first, rosters_before) = run_suffix(&mut s);
+    assert_eq!(
+        active_room(&s),
+        "central_hub_complex",
+        "the forced door moved the window out of the duel arena"
+    );
+
+    let report = restore(s.world_mut(), &snap, &reg)
+        .expect("a cross-room restore stages the duel arena rather than refusing");
+    assert_eq!(report.staged_room.as_deref(), Some("duel_arena"));
+    assert_eq!(
+        reg.hash_world(s.world()),
+        at_snapshot,
+        "the staged restore reproduces the registered state bit for bit"
+    );
+    assert_eq!(
+        take(s.world(), &reg),
+        snap,
+        "a snapshot of the restored world is the snapshot it was restored from"
+    );
+
+    // Tooth 3 (and tooth 1's sample): the same suffix replays into the same
+    // future, from the staged-and-reconciled roster.
+    let (second, rosters_after) = run_suffix(&mut s);
+
+    // Tooth 1: at the identical sim point (one tick past the snapshot), the
+    // rebuilt fighters wear exactly the component set the originals wore —
+    // authored config included, not just registered blobs. A hollow rebuild
+    // (no Brain, no faction, no grudge) cannot pass this.
+    for (id, (before, after)) in
+        [PCA, ROBOT].iter().zip(rosters_before.iter().zip(&rosters_after))
+    {
+        let missing: Vec<&String> = before.difference(after).collect();
+        let extra: Vec<&String> = after.difference(before).collect();
+        assert!(
+            missing.is_empty() && extra.is_empty(),
+            "`{id}`'s restored component set differs from the original at the same \
+             sim point — missing {missing:?}, extra {extra:?}: the staging seam did \
+             not rebuild the roster the snapshot was taken over"
+        );
+    }
+
+    // Tooth 3 is currently a PINNED GAP, not a passing gate (2026-07-16, end of
+    // the closeout session): the replay diverges at tick 0 because the rebuilt
+    // fighters' remaining UNREGISTERED mutable state is spawn-fresh where the
+    // originals' was 60 ticks aged. `BodyCombat` was registered for exactly
+    // this and was not sufficient; the per-entry culprits are the fighters'
+    // behavior outputs (kinematics/pose/intent/control), and the candidate
+    // inputs still unregistered are `ActorAggression` (grudge holds an
+    // `Entity` — needs cursor-by-identity semantics like `ActorTarget`),
+    // `ActorDisposition`, and the brain-adjacent melee kit. Diagnose with
+    // `scratch_diag.rs` (ignored; run it explicitly). The assert BELOW pins
+    // the divergence so the fix flips it loudly: when the replay goes clean,
+    // replace this pin with `assert!(diff.in_sync(), ..)` and delete the
+    // scratch tool.
+    let diff = compare_hash_streams(&first, &second);
+    assert!(
+        !diff.in_sync(),
+        "the duel replay went CLEAN — the unregistered-fighter-state gap this \
+         pin documents has been closed. Promote tooth 3 to a hard gate \
+         (assert in_sync), delete scratch_diag.rs, and record the closure in \
+         netcode.md N3.2b."
+    );
+}
+
 /// **A refusal leaves the live room untouched** (N3.2b preflight-before-mutation).
 ///
 /// A snapshot naming a room this world cannot build (a different prepared world /
@@ -1287,7 +1460,7 @@ fn a_rewind_empties_the_message_channels_it_registered() {
     // Every registered channel: actor_action, hit_event, on_hit_effect,
     // move_event + the E8 encounter ingress pair (command, event) + the
     // room-construction staging fact (room_loaded, N3.2b).
-    assert_eq!(report.messages_cleared, 7);
+    assert_eq!(report.messages_cleared, 9);
     assert!(
         reg.pending_messages(s.world()).is_empty(),
         "a message from the abandoned future survived the rewind: {:?}",

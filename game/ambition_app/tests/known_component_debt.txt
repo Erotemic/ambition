@@ -32,7 +32,6 @@ ambition_actors::features::ecs::mount::RidingOn
 ambition_actors::features::ecs::spawn_actors::BossOverrides
 ambition_actors::items::pickup::StashedActionSet
 ambition_characters::actor::body::BodyAnimFacts
-ambition_characters::actor::body::BodyCombat
 ambition_characters::actor::body::BodyWallet
 ambition_characters::actor::pose::ActorFaction
 ambition_characters::brain::ChargesProjectiles

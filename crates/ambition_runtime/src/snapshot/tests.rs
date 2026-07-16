@@ -1074,7 +1074,7 @@ fn restore_refuses_to_reconstruct_a_dead_dynamic_entity_without_a_recipe() {
         .id();
 
     match restore(&mut world, &snap, &reg) {
-        Err(RestoreError::UnsupportedDynamicReconstruction { sim_id }) => {
+        Err(RestoreError::UnsupportedReconstruction { sim_id }) => {
             assert_eq!(sim_id, child.as_str());
         }
         other => {

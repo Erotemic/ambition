@@ -115,6 +115,7 @@ pub(super) fn handle_ldtk_hot_reload(
         Res<ambition::actors::features::CharacterRoster>,
         Res<ambition::actors::boss_encounter::BossCatalog>,
         Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
+        Res<ambition::actors::features::RoomContentStagingRegistry>,
     ),
 ) {
     if keys.just_pressed(KeyCode::F12) {
@@ -178,6 +179,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &catalogs.2,
             &catalogs.3,
             &catalogs.4,
+            &catalogs.5,
             session_scope,
         );
         match result {
@@ -278,6 +280,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     character_roster: &ambition::actors::features::CharacterRoster,
     boss_catalog: &ambition::actors::boss_encounter::BossCatalog,
     placement_lowering: &ambition::actors::world::placements::PlacementLoweringRegistry,
+    content_staging: &ambition::actors::features::RoomContentStagingRegistry,
     session_scope: ambition::platformer::lifecycle::SessionSpawnScope,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
@@ -330,6 +333,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         boss_catalog,
         &transaction.next_spec,
         placement_lowering,
+        content_staging,
         session_scope,
     );
     dialogue.close();

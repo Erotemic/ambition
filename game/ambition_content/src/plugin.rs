@@ -89,11 +89,14 @@ impl Plugin for AmbitionContentPlugin {
             .expect("goblin_encounter.ron should parse as an encounter wave book"),
         );
 
-        // The spectator duel stages itself when its room finishes loading
-        // (the engine's RoomLoaded fact — JD4 room-mechanics-by-kind seam).
-        app.add_systems(
-            bevy::prelude::Update,
-            super::duel_arena::stage_duel_on_room_loaded,
+        // The spectator duel is the arena room's registered content staging:
+        // part of room construction (every path — activation, transition,
+        // reset, restore staging — rebuilds it), not a RoomLoaded consumer.
+        app.init_resource::<ambition_actors::features::RoomContentStagingRegistry>();
+        super::duel_arena::register_duel_content_staging(
+            &mut app
+                .world_mut()
+                .resource_mut::<ambition_actors::features::RoomContentStagingRegistry>(),
         );
         #[cfg(feature = "ui")]
         {

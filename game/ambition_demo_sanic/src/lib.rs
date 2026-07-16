@@ -700,6 +700,10 @@ impl Plugin for SanicRulesPlugin {
             tick_sanic_act,
             ball_dash::tick_ball_dash,
             ball_dash::tick_rolling,
+            // Project the roll authority (`Rolling`) onto the anim fact AFTER
+            // both the launch (insert) and the stand-up (remove) have settled,
+            // so the looping `ball` row tracks the physical ball for the frame.
+            ball_dash::mirror_ball_anim_fact,
             // The super form's derived traits (invincibility + sparkles) track
             // the worn identity every frame — toggle- and monitor-agnostic.
             sync_super_form_traits,

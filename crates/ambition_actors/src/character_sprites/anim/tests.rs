@@ -313,6 +313,70 @@ fn wall_jump_anim_timer_returns_wall_jump_when_airborne() {
 /// NPC / switch / chest open paths; held briefly while the
 /// interaction commits.
 #[test]
+fn rolling_fact_returns_the_looping_ball_over_air_and_dash_reads() {
+    // Grounded roll.
+    let (mut anim, combat, blink_cam, clusters) = pick_inputs();
+    anim.rolling = true;
+    assert_eq!(
+        pick(&anim, &combat, &blink_cam, None, &clusters),
+        CharacterAnim::Roll,
+    );
+    // A ball flying off a ramp is still a ball: rolling outranks the airborne
+    // Jump/Fall gate.
+    let (mut anim, combat, blink_cam, mut clusters) = pick_inputs();
+    anim.rolling = true;
+    clusters.ground.on_ground = false;
+    clusters.kinematics.vel.y = 300.0;
+    assert_eq!(
+        pick(&anim, &combat, &blink_cam, None, &clusters),
+        CharacterAnim::Roll,
+    );
+    // ...and outranks a still-draining dash-startup pre-roll (the launch tick
+    // can leave both facts set; the persistent curl wins).
+    let (mut anim, combat, blink_cam, clusters) = pick_inputs();
+    anim.rolling = true;
+    anim.dash_startup_timer = 0.05;
+    assert_eq!(
+        pick(&anim, &combat, &blink_cam, None, &clusters),
+        CharacterAnim::Roll,
+    );
+}
+
+#[test]
+fn skidding_fact_returns_skid_over_the_locomotion_tail() {
+    let (anim, combat, blink_cam, mut clusters) = pick_inputs();
+    clusters.ground.on_ground = true;
+    clusters.facts.skidding = true;
+    // Fast enough that the tail would otherwise read Run.
+    clusters.kinematics.vel.x = 400.0;
+    assert_eq!(
+        pick(&anim, &combat, &blink_cam, None, &clusters),
+        CharacterAnim::Skid,
+    );
+}
+
+#[test]
+fn the_ball_loops_and_falls_back_through_the_dodge_tumble() {
+    // The persistent curl must LOOP (a Sonic ball keeps spinning); the one-shot
+    // dodge tumble stays held.
+    assert!(!non_looping(CharacterAnim::Roll));
+    assert!(non_looping(CharacterAnim::DodgeRoll));
+    // Name resolution: `ball` is the loop, `roll` stays the dodge tumble.
+    assert_eq!(CharacterAnim::from_name("ball"), Some(CharacterAnim::Roll));
+    assert_eq!(
+        CharacterAnim::from_name("roll"),
+        Some(CharacterAnim::DodgeRoll)
+    );
+    assert_eq!(CharacterAnim::from_name("skid"), Some(CharacterAnim::Skid));
+    // A sheet without a ball row shows its curl (the dodge tumble), not a run.
+    assert_eq!(
+        CharacterAnim::Roll.base_pose(),
+        Some(CharacterAnim::DodgeRoll)
+    );
+    assert_eq!(CharacterAnim::Skid.base_pose(), Some(CharacterAnim::Run));
+}
+
+#[test]
 fn interact_anim_timer_returns_interact() {
     let (mut anim, combat, blink_cam, clusters) = pick_inputs();
     anim.interact_anim_timer = 0.20;

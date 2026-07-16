@@ -234,6 +234,29 @@ pub fn integrate_home_body(
     .then_some(result.surface_normal)
 }
 
+/// The grounded braking read behind `BodyMotionFacts::skidding`: the rider is
+/// steering against its own tangential travel while riding, fast enough that
+/// the fight reads as a skid rather than an ordinary walk-speed turn-around.
+/// `run` shares `v_t`'s sign convention (the kernel integrates
+/// `v_t += run * accel * dt`), so "against travel" is exactly a negative
+/// product. Published beside the ridden-surface fact after every movement step;
+/// axis walkers don't ride a tangent and stay non-skidding.
+pub fn surface_skidding(motion_model: &crate::features::MotionModel, run: f32) -> bool {
+    /// Below this tangential speed a direction change is a step, not a skid.
+    /// Sits just above the picker's run threshold so the pose only interrupts
+    /// a genuine run.
+    const SKID_MIN_SPEED: f32 = 240.0;
+    /// Deadzone so an analog flutter around neutral can't flicker the fact.
+    const SKID_MIN_INPUT: f32 = 0.25;
+    let crate::features::MotionModel::SurfaceMomentum(m) = motion_model else {
+        return false;
+    };
+    let ae::SurfaceMotion::Riding { v_t, .. } = m.state else {
+        return false;
+    };
+    run.abs() >= SKID_MIN_INPUT && v_t.abs() >= SKID_MIN_SPEED && run * v_t < 0.0
+}
+
 /// Advance the world's moving platforms ONCE per frame, ahead of every body
 /// integration (home + actors), so every body rides this frame's platform
 /// positions. Peeled out of the per-entity body loop so it can't multiply. Uses

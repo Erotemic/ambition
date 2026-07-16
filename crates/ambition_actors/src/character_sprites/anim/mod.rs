@@ -99,6 +99,9 @@ pub struct BodyAnimView {
     pub ledge: Option<LedgeRead>,
     pub flying: bool,
     pub swimming: bool,
+    /// Persistent curled ball (spin dash roll / morph ball). Outranks the
+    /// dash + airborne reads: a ball flying off a ramp is still a ball.
+    pub rolling: bool,
     pub dash_startup: bool,
     pub dashing: bool,
     pub ladder_climbing: bool,
@@ -109,6 +112,8 @@ pub struct BodyAnimView {
     pub moving_up: bool,
     /// `Some(hard)` while a landing-recovery pose is held (grounded only).
     pub landing: Option<bool>,
+    /// Grounded braking against travel (`BodyMotionFacts::skidding`).
+    pub skidding: bool,
     pub compact: CompactBody,
     pub locomotion: Locomotion,
     /// Locomotion speed in the metric the style uses (|vx| grounded, |v| aerial).
@@ -174,6 +179,9 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     if v.swimming {
         return Swim;
     }
+    if v.rolling {
+        return Roll;
+    }
     if v.dash_startup {
         return DashStartup;
     }
@@ -194,6 +202,9 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     }
     if let Some(hard) = v.landing {
         return if hard { LandHard } else { LandRecovery };
+    }
+    if v.skidding {
+        return Skid;
     }
     match v.compact {
         CompactBody::Slide => return Slide,
@@ -286,6 +297,7 @@ pub fn body_view_from_body(
         flying: flight.fly_enabled,
         swimming: env_contact.water.is_some() && abilities.abilities.swim,
         dashing: facts.dashing,
+        skidding: facts.skidding,
         // High-priority climb (ladder/vine) vs the low-priority compact silhouette
         // (slide/crawl/crouch) are distinct fields checked at distinct priorities.
         ladder_climbing: matches!(body_mode.body_mode, BodyMode::Climbing),
@@ -350,6 +362,7 @@ pub fn pick_player_anim(
     v.aiming = anim.aim_anim_active;
     v.wall_jump = anim.wall_jump_anim_timer > 0.0;
     v.interacting = anim.interact_anim_timer > 0.0;
+    v.rolling = anim.rolling;
     v.dash_startup = anim.dash_startup_timer > 0.0;
     v.landing = (anim.land_anim_timer > 0.0).then_some(anim.land_anim_hard);
     v.idle_below = 12.0;
@@ -414,6 +427,9 @@ pub struct ActorAnimState {
     pub dash_startup: bool,
     pub landing: Option<bool>,
     pub shooting: bool,
+    /// Persistent curled ball (`BodyAnimFacts::rolling`) — the same read the
+    /// player overlays, so a brain-driven body that curls up shows its ball.
+    pub rolling: bool,
 }
 
 /// Pick any brain-driven actor's animation through the shared [`pick_body_anim`]
@@ -474,6 +490,7 @@ pub fn pick_actor_anim(
     v.dash_startup = state.dash_startup;
     v.landing = state.landing;
     v.shooting = state.shooting;
+    v.rolling = state.rolling;
     if state.aerial {
         // A flyer reads Fly/Idle from the locomotion tail; suppress the airborne
         // Jump/Fall gate (it floats — `on_ground` is false but it isn't falling).

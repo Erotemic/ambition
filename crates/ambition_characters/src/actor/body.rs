@@ -242,6 +242,11 @@ pub struct BodyAnimFacts {
     /// interaction (door, NPC, pickup) consumes
     /// `interact_buffer_timer`.
     pub interact_anim_timer: f32,
+    /// The body is curled into a persistent rolling ball (spin dash roll,
+    /// morph ball). A STATE mirror like `aim_anim_active`, not a timer:
+    /// whatever verb owns the curl re-derives it every frame, and the picker
+    /// plays the looping `Roll` row while it holds.
+    pub rolling: bool,
 }
 
 impl BodyAnimFacts {

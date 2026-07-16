@@ -45,6 +45,12 @@ pub struct BodyMotionFacts {
     pub wall_climbing: bool,
     pub gliding: bool,
     pub fast_falling: bool,
+    /// Grounded braking against travel — steering opposite the body's own
+    /// tangential speed while riding. NOT part of the model projection (the
+    /// model alone can't know the input): the surface-momentum integration
+    /// republishes it right after [`Self::from_model`] each step, exactly like
+    /// the ridden-surface fact. Axis walkers leave it false today.
+    pub skidding: bool,
     /// Ledge engagement, if any.
     pub ledge: Option<LedgeFacts>,
 }
@@ -68,6 +74,8 @@ impl BodyMotionFacts {
             wall_climbing: state.wall_climbing,
             gliding: state.gliding,
             fast_falling: state.fast_falling,
+            // Input-relative; the integration republishes it post-projection.
+            skidding: false,
             ledge: state.ledge_grab.as_ref().map(|grab| LedgeFacts {
                 climbing: grab.climbing,
                 getup_kind: grab.getup_kind,

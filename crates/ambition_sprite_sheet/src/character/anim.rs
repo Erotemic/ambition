@@ -170,6 +170,17 @@ pub enum CharacterAnim {
     /// field on [`BodyAnimView`] is wired into the ladder so the moment that state
     /// surfaces on a cluster the picker reads it.
     Special = 44,
+    /// Persistent curled-ball locomotion — a body that IS a rolling ball for as
+    /// long as some verb holds it there (spin dash roll, morph ball). Generator
+    /// row `ball`. LOOPS, which is what distinguishes it from [`Self::DodgeRoll`]
+    /// (a one-shot tumble that holds its final frame): a Sonic-style ball keeps
+    /// spinning until the body stands back up. Selected while
+    /// `BodyAnimFacts::rolling` is set.
+    Roll = 45,
+    /// Grounded braking against travel — running one way while steering the
+    /// other. Generator row `skid`. Selected while `BodyMotionFacts::skidding`
+    /// is published (the surface-momentum integration owns the read).
+    Skid = 46,
 }
 
 impl CharacterAnim {
@@ -247,6 +258,10 @@ impl CharacterAnim {
             "charge" => Self::Charge,
             "block" | "shield" => Self::Block,
             "roll" | "dodge_roll" => Self::DodgeRoll,
+            // `ball` is the LOOPING curl (spin dash / morph ball); `roll` stays
+            // the one-shot dodge tumble so existing sheets keep their read.
+            "ball" => Self::Roll,
+            "skid" => Self::Skid,
             "wall_jump" => Self::WallJump,
             "interact" => Self::Interact,
             _ => return None,
@@ -307,6 +322,10 @@ impl CharacterAnim {
             Aim => Idle,
             // Defensive / utility.
             Block => Idle,
+            // A sheet without a looping ball still shows its curl for the
+            // persistent roll (held final tumble frame beats a standing run).
+            Roll => DodgeRoll,
+            Skid => Run,
             DodgeRoll => Idle,
             Interact => Idle,
             Swim => Idle,

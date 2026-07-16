@@ -46,8 +46,8 @@ pub mod systems;
 pub mod trail;
 
 pub use body_integration::{
-    advance_moving_platforms, integrate_home_body, ledge_platform_carry, LedgePlatformCarry,
-    PlayerBodyFrameOutput,
+    advance_moving_platforms, integrate_home_body, ledge_platform_carry, surface_skidding,
+    LedgePlatformCarry, PlayerBodyFrameOutput,
 };
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use starting_character::{

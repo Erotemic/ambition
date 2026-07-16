@@ -983,8 +983,11 @@ pub fn integrate_sim_bodies(
             &overlay,
         );
         *motion_facts = ambition_engine_core::BodyMotionFacts::from_model(&motion_model);
-        // Publish the ridden-surface fact beside the motion facts (both are
-        // per-tick projections of this integration; the roll reflex consumes it).
+        // Input-relative facts the model projection can't know: republished
+        // here, beside the ridden-surface fact (all are per-tick projections of
+        // this integration; the roll reflex and the anim picker consume them).
+        motion_facts.skidding =
+            crate::avatar::surface_skidding(&motion_model, control.0.locomotion.x);
         if let Some(surface) = surface_upright.as_mut() {
             surface.up = riding_up;
         }

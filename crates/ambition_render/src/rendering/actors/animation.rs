@@ -31,6 +31,16 @@ pub(crate) fn apply_character_frame(
     // `sync_visuals` instead of restoring the standing height at the lowered pos.
     stance_ratio_y: f32,
 ) {
+    // The stance squash is a PLACEHOLDER for sheets that lack a row for the
+    // compact pose (the fallback then shows standing art at a shrunken AABB).
+    // A sheet that natively owns the requested row drew the pose at world
+    // scale inside the fixed logical frame — squashing it again would flatten
+    // authored crouch/ball art, so the ratio collapses to 1.0.
+    let stance_ratio_y = if animator.spec.maps(anim) {
+        1.0
+    } else {
+        stance_ratio_y
+    };
     animator.request(anim);
     let index = animator.tick(dt);
     // Split sheets: select the page image the active animation draws from.

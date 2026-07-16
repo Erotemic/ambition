@@ -195,3 +195,28 @@ fn momentum_home_body_dies_in_pits_and_respawns_airborne() {
         "respawns airborne, never 'riding' a chain it left"
     );
 }
+
+/// The skid fact fires exactly when a rider steers AGAINST fast travel — not
+/// during ordinary running, not below skid speed, not airborne.
+#[test]
+fn surface_skidding_reads_opposing_input_against_fast_travel() {
+    let riding = |v_t: f32| {
+        let mut m = MomentumMotion::new(ae::MomentumParams::default());
+        m.state = ae::SurfaceMotion::Riding {
+            on: ae::SurfaceRef::Chain(0),
+            s: 0.0,
+            v_t,
+        };
+        MotionModel::SurfaceMomentum(m)
+    };
+    // Fast travel + opposing input = skid; aligned input or neutral is not.
+    assert!(super::surface_skidding(&riding(600.0), -1.0));
+    assert!(super::surface_skidding(&riding(-600.0), 1.0));
+    assert!(!super::surface_skidding(&riding(600.0), 1.0));
+    assert!(!super::surface_skidding(&riding(600.0), 0.0));
+    // A walk-speed direction change is a step, not a skid.
+    assert!(!super::surface_skidding(&riding(120.0), -1.0));
+    // Airborne there is no tangent to fight.
+    let airborne = MotionModel::SurfaceMomentum(MomentumMotion::new(ae::MomentumParams::default()));
+    assert!(!super::surface_skidding(&airborne, -1.0));
+}

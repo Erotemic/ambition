@@ -368,6 +368,28 @@ pub fn tick_rolling(
     }
 }
 
+/// Mirror the physical roll authority (the [`Rolling`] component that shrinks the
+/// body) onto the presentation fact the ONE animation picker reads, so a balled-up
+/// Sanic plays his looping `ball` row instead of a squished run. Per-frame
+/// re-derivation, like `aim_anim_active`: `BodyAnimFacts` booleans are
+/// presentation mirrors of live state, not latched timers. There is ONE authority
+/// for "is a ball" — the `Rolling` component `tick_ball_dash`/`tick_rolling` own —
+/// and this only projects it.
+pub fn mirror_ball_anim_fact(
+    mut bodies: Query<(
+        Option<&Rolling>,
+        &mut ambition::actors::actor::BodyAnimFacts,
+    )>,
+) {
+    for (rolling, mut anim) in &mut bodies {
+        let is_rolling = rolling.is_some();
+        // Change-detection courtesy: only touch the component on a real edge.
+        if anim.rolling != is_rolling {
+            anim.rolling = is_rolling;
+        }
+    }
+}
+
 /// Give the controlled body its charge state. Idempotent; runs every tick because
 /// possession can hand control to a body that has never revved.
 pub fn attach_ball_dash(

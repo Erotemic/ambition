@@ -163,6 +163,7 @@ pub fn sync_visuals(
             &mut Transform,
             &mut Sprite,
             Option<&PlayerSpriteBaseline>,
+            Option<&CharacterAnimator>,
             &ambition_sim_view::BodyPoseView,
         ),
         With<PlayerVisual>,
@@ -176,7 +177,9 @@ pub fn sync_visuals(
         .then(|| primary_player.iter().next())
         .flatten();
     if let Some(player) = player {
-        if let Ok((mut transform, mut sprite, baseline, pose)) = player_query.get_mut(player) {
+        if let Ok((mut transform, mut sprite, baseline, animator, pose)) =
+            player_query.get_mut(player)
+        {
             transform.translation = world_to_bevy(&world.0, pose.pos, WORLD_Z_PLAYER);
             // Aerial roll (portal somersault / future gravity-room orientation).
             transform.rotation = Quat::from_rotation_z(pose.roll_angle);
@@ -188,27 +191,49 @@ pub fn sync_visuals(
                 let alpha = if pose.hit_flash_secs > 0.0 { 0.72 } else { 1.0 };
                 sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
             } else if let Some(baseline) = baseline {
-                // HACK(crouch-sprite-row): when the player crouches (or
-                // morphs / crawls / slides), the engine shrinks the AABB
-                // and slides `pos.y` down to keep feet planted. The
-                // textured sprite was sized for the standing pose, so
-                // without compensation it floats below the floor by half
-                // the height delta. Re-scale the sprite's vertical extent
-                // by the same ratio the collision shrunk; the normalized
-                // sprite anchor preserves foot alignment automatically.
-                // Phase 1 also lets the development menu swap standing body
-                // profiles live. Scale the placeholder art against the recorded
-                // startup collision so body-profile experiments remain visual.
-                // Replace with authored body-profile rows once the generator emits
-                // them — see PlayerSpriteBaseline doc.
-                let base_y = pose.base_size.y.max(1.0);
-                let stance_ratio_y = (pose.size.y / base_y).clamp(0.1, 1.0);
+                // Body-profile experiment scale (live standing-profile swaps in
+                // the development menu): render against the recorded startup
+                // collision.
                 let scale_x = pose.base_size.x / baseline.standing_collision.x.max(1.0);
                 let scale_y = pose.base_size.y / baseline.standing_collision.y.max(1.0);
-                sprite.custom_size = Some(BVec2::new(
-                    baseline.standing_render.x * scale_x,
-                    baseline.standing_render.y * scale_y * stance_ratio_y,
-                ));
+                if animator.is_some_and(|a| a.spec.maps(pose.anim)) {
+                    // The sheet natively owns this pose's row: the art already
+                    // depicts the compact stance at world scale inside the fixed
+                    // logical frame (a curled ball, a crouch), so it renders at
+                    // the FULL standing frame size. The sim lowered `pos` to the
+                    // compact AABB's center to keep the feet planted — reverse
+                    // exactly that shift so the standing-frame render puts its
+                    // feet back on the same ground line.
+                    sprite.custom_size = Some(BVec2::new(
+                        baseline.standing_render.x * scale_x,
+                        baseline.standing_render.y * scale_y,
+                    ));
+                    let dy = (pose.base_size.y - pose.size.y) * 0.5;
+                    if dy > f32::EPSILON {
+                        // Feet sit on the +gravity face (world +y is down under
+                        // normal gravity); the standing center is `dy` opposite
+                        // gravity from the compact center.
+                        let feet_down = if pose.gravity_dir.y >= 0.0 { 1.0 } else { -1.0 };
+                        let render_pos = ae::Vec2::new(pose.pos.x, pose.pos.y - feet_down * dy);
+                        transform.translation = world_to_bevy(&world.0, render_pos, WORLD_Z_PLAYER);
+                    }
+                } else {
+                    // HACK(crouch-sprite-row): when the player crouches (or
+                    // morphs / crawls / slides) on a sheet WITHOUT a row for the
+                    // pose, the fallback shows standing art while the engine
+                    // shrinks the AABB and slides `pos.y` down to keep feet
+                    // planted. Re-scale the sprite's vertical extent by the same
+                    // ratio the collision shrunk; the normalized sprite anchor
+                    // preserves foot alignment automatically. Retires per-row as
+                    // generators emit real compact rows (the branch above) — see
+                    // PlayerSpriteBaseline doc.
+                    let base_y = pose.base_size.y.max(1.0);
+                    let stance_ratio_y = (pose.size.y / base_y).clamp(0.1, 1.0);
+                    sprite.custom_size = Some(BVec2::new(
+                        baseline.standing_render.x * scale_x,
+                        baseline.standing_render.y * scale_y * stance_ratio_y,
+                    ));
+                }
             }
         }
     }

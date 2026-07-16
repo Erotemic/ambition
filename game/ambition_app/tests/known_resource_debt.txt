@@ -219,3 +219,12 @@ ambition_world::placements::PlacementLoweringRegistry<ambition_actors::world::pl
 # authority (presentation-facing).
 ambition_content::provider::AmbitionPreparedWorld
 ambition_audio::selection::ActiveAudioSelection
+
+# Reviewed diff (2026-07-16, structural-content-eviction campaign): open,
+# content-owned art/technique registries. Both are IMMUTABLE config filled once
+# at plugin-build time (ambition_content) and only READ during the sim (the
+# projectile detonation-FX pick / the player gesture lookup) — never mutated, so
+# they carry no rewindable sim state and need no snapshot codec, exactly like the
+# other *Catalog/*Registry config resources above.
+ambition_input::motion_input::MotionTechniqueCatalog
+ambition_projectiles::visual::ProjectileVisualCatalog

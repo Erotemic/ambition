@@ -73,7 +73,7 @@ ambition_projectiles::entity::ProjectileOwner
 ambition_projectiles::entity::ProjectileOwnerId
 ambition_projectiles::entity::ProjectileSeq
 ambition_projectiles::state::PlayerProjectileState
-ambition_projectiles::visual_kind::ProjectileVisualKind
+ambition_projectiles::visual::ProjectileVisualId
 ambition_sprite_sheet::boss::BossAnimFrame
 bevy_ecs::name::Name
 bevy_transform::components::global_transform::GlobalTransform

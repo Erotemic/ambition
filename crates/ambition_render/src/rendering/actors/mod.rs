@@ -12,9 +12,9 @@ use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
     PropVisual,
 };
-use ambition_combat::events::{BoundFeatureKind, FeatureVisualKind};
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_persistence::settings::TextureResolutionScale;
+use ambition_platformer_primitives::feature_kind::{BoundFeatureKind, FeatureVisualKind};
 use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_sim_view::FeatureViewIndex;
 use ambition_sprite_sheet::character::{
@@ -265,7 +265,7 @@ pub fn sync_visuals(
     }
 }
 
-fn state_aware_entity_sprite(view: &ambition_combat::events::FeatureView) -> Option<EntitySprite> {
+fn state_aware_entity_sprite(view: &ambition_sim_view::FeatureView) -> Option<EntitySprite> {
     match view.kind {
         FeatureVisualKind::Breakable => view
             .breakable_state

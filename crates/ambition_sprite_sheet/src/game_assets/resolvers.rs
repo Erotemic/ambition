@@ -5,7 +5,7 @@ use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use super::*;
-use ambition_combat::events::FeatureVisualKind;
+use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
 use ambition_world::rooms::LoadingZoneActivation;
 
 pub fn entity_sprite(

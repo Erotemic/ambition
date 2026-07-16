@@ -369,7 +369,7 @@ pub struct DynamicFeatureFact {
     pub family: &'static str,
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
-    pub visual_kind: ambition_combat::FeatureVisualKind,
+    pub visual_kind: ambition_platformer_primitives::feature_kind::FeatureVisualKind,
     pub fighting: bool,
     /// The placeholder entity-sprite the spawn resolves to (from the actor's
     /// brain / the NPC's interactable / the chest payload).
@@ -423,7 +423,7 @@ pub fn rebuild_dynamic_feature_views(
         )>,
     >,
 ) {
-    use ambition_combat::FeatureVisualKind;
+    use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
     use ambition_sprite_sheet::game_assets;
     view.0.clear();
     for (id, aabb, disposition, config) in &ecs_mobs {

@@ -25,6 +25,7 @@ ambition_actors = { path = "../ambition_actors", default-features = false, featu
 ] }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_combat = { path = "../ambition_combat" }
+ambition_dialog = { path = "../ambition_dialog" }
 ambition_encounter = { path = "../ambition_encounter" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_engine_core = { path = "../ambition_engine_core" }

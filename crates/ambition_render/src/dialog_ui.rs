@@ -1,18 +1,21 @@
 //! The dialog-box overlay UI: spawns/refreshes the on-screen dialog panel.
 //!
-//! Render-only. [`sync_dialog_ui`] mirrors `ambition_dialog::DialogState`
-//! into a Bevy UI tree under [`DialogOverlayRoot`]; the per-choice
-//! `DialogChoiceSlot` marker bridges to the dialog pointer-input
-//! system. Fonts come from [`crate::ui_fonts`].
+//! Render-only. [`sync_dialog_ui`] mirrors the [`DialogView`] read-model
+//! (rebuilt sim-side from the dialogue runtime — recon C3: the renderer never
+//! reads live `DialogState`) into a Bevy UI tree under [`DialogOverlayRoot`];
+//! the per-choice `DialogChoiceSlot` marker bridges to the dialog
+//! pointer-input system through the shared `ambition_ui_nav` vocabulary.
+//! Fonts come from [`crate::ui_fonts`].
 
 use bevy::log::info;
 use bevy::prelude::*;
 
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 // The choice-row marker bridges this UI (which spawns it) and the sim-side
-// dialog pointer-input system (which reads it), so it lives in the sandbox
-// dialog module, not here.
-use ambition_dialog::{DialogChoiceSlot, DialogState};
+// dialog pointer-input system (which reads it), so it lives in the shared
+// ui-nav vocabulary crate, below both.
+use ambition_sim_view::DialogView;
+use ambition_ui_nav::DialogChoiceSlot;
 
 const DIALOG_CONTINUE_HINT: &str =
     "Tap an option, press Confirm / Jump / Interact, or drag / use Up-Down. Back closes.";
@@ -22,7 +25,7 @@ pub struct DialogOverlayRoot;
 
 pub fn sync_dialog_ui(
     mut commands: Commands,
-    dialogue: Res<DialogState>,
+    dialogue: Res<DialogView>,
     overlays: Query<Entity, With<DialogOverlayRoot>>,
     ui_fonts: Option<Res<UiFonts>>,
     mut logged_font_state: Local<bool>,
@@ -30,14 +33,14 @@ pub fn sync_dialog_ui(
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
     }
-    if !dialogue.active() {
+    if !dialogue.active {
         return;
     }
 
-    let title = dialogue.title();
-    let body = dialogue.body();
-    let options = dialogue.options();
-    let selected = dialogue.selected_option();
+    let title = dialogue.title.clone();
+    let body = dialogue.body.clone();
+    let options = &dialogue.option_labels;
+    let selected = dialogue.selected_option;
 
     let selected_marker = ui_fonts
         .as_deref()
@@ -127,11 +130,11 @@ pub fn sync_dialog_ui(
                     TextColor(Color::srgba(0.93, 0.96, 1.00, 1.0)),
                 ));
                 if !options.is_empty() {
-                    for (idx, option) in options.iter().enumerate() {
+                    for (idx, label) in options.iter().enumerate() {
                         spawn_dialog_choice_row(
                             parent,
                             idx,
-                            &option.label,
+                            label,
                             idx == selected,
                             selected_marker,
                             &dialog_font,

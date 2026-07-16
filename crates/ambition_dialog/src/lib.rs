@@ -36,13 +36,14 @@ mod bindings;
 #[cfg(feature = "ui")]
 mod bridge;
 
+pub use ambition_ui_nav::DialogChoiceSlot;
 #[allow(
     unused_imports,
     reason = "DialogChoice surfaces in the UI's choice-row layout"
 )]
 pub use content::DialogChoice;
 pub use context::{DialogueContext, DialogueNodeIndex, SELF_NODE_SUFFIX};
-pub use runtime::{DialogChoiceSlot, DialogState};
+pub use runtime::DialogState;
 pub use speech_sfx::{DialogueVoiceCatalog, DialogueVoiceCatalogAppExt, DialogueVoiceCatalogError};
 pub use systems::{dialog_input, dialog_pointer_input, dialog_reveal_tick};
 

@@ -101,6 +101,7 @@ pub use components::{
 // (E2): the hub keeps the names importable until it dissolves (E7/E8).
 pub use crate::encounter::{SwitchActivated, SwitchFeature, SwitchOn};
 pub use ambition_persistence::quest::QuestAdvanceRequested;
+pub use ambition_platformer_primitives::feature_kind::{BoundFeatureKind, FeatureVisualKind};
 pub use ecs::actor_bundles::{
     ChestBundle, EnemyActorBundle, FeatureBaseBundle, FeatureLifecycleBundle,
     FeatureRenderedBundle, PickupBundle,
@@ -147,9 +148,9 @@ pub use enemies::{
     CharacterRosterRegistry, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX,
 };
 pub use events::{
-    ActorStimulus, FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner,
-    GameplayBannerRequested, GameplaySfxRequested, HitEvent, HitKnockback, HitMode, HitSource,
-    HitTarget, NpcDialogueRequest, ResetRoomFeaturesEvent, RoomResetReason, SetFlagRequested,
+    ActorStimulus, FeatureCombatTuning, GameplayBanner, GameplayBannerRequested,
+    GameplaySfxRequested, HitEvent, HitKnockback, HitMode, HitSource, HitTarget,
+    NpcDialogueRequest, ResetRoomFeaturesEvent, RoomResetReason, SetFlagRequested,
 };
 pub use hazards::HazardRuntime;
 pub use npcs::{NPC_PATROL_SPEED, NPC_TALK_RADIUS};

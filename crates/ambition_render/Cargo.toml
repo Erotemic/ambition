@@ -20,14 +20,13 @@ portal_render = ["dep:ambition_portal_presentation"]
 
 [dependencies]
 ambition_sim_view = { path = "../ambition_sim_view" }
-ambition_combat = { path = "../ambition_combat" }
+ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_world = { path = "../ambition_world" }
 ambition_characters = { path = "../ambition_characters" }
-ambition_dialog = { path = "../ambition_dialog" }
 ambition_persistence = { path = "../ambition_persistence" }
 # The VFX message vocabulary `fx` re-exports (`ambition_vfx::vfx::*`).
 ambition_vfx = { path = "../ambition_vfx" }

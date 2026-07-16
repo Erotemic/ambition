@@ -13,8 +13,8 @@
 //! `ambition_render::*` directly.
 
 pub mod cutscene;
-/// The dialog-box overlay UI. Render-only; reads the reusable dialog state in
-/// `ambition_dialog`.
+/// The dialog-box overlay UI. Render-only; reads the `DialogView` read-model
+/// in `ambition_sim_view`.
 pub mod dialog_ui;
 pub mod fx;
 /// The in-world HUD overlay: health/mana bars, ability pips, banner text.

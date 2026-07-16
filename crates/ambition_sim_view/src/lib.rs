@@ -15,6 +15,7 @@
 use ambition_platformer_primitives::schedule::SimScheduleExt;
 mod anim_index;
 pub mod camera_snapshot;
+mod dialog_view;
 mod facts;
 mod pose_view;
 mod view_index;
@@ -23,6 +24,7 @@ pub use anim_index::{
     rebuild_actor_anim_index, rebuild_boss_frame_index, ActorAnimFrame, ActorAnimIndex,
     ActorSpriteData, BossFrameIndex, BossFrameView, HazardLaneFact,
 };
+pub use dialog_view::{rebuild_dialog_view, DialogView};
 pub use facts::*;
 pub use pose_view::{
     rebuild_body_pose_views, rebuild_shield_rings_view, BodyPoseView, ShieldRingFact,
@@ -31,7 +33,7 @@ pub use pose_view::{
 pub use view_index::{
     rebuild_actor_render_index, rebuild_boss_render_index, rebuild_feature_view_index,
     rebuild_nameplate_index, ActorRenderIndex, ActorRenderView, BossRenderIndex, BossRenderView,
-    FeatureViewIndex, NameplateFact, NameplateIndex,
+    FeatureView, FeatureViewIndex, NameplateFact, NameplateIndex,
 };
 
 /// Rebuilds the observation read-models once per frame, sim-side:
@@ -53,6 +55,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         app.init_resource::<ShieldRingsView>();
         app.init_resource::<BossFrameIndex>();
         app.init_resource::<NameplateIndex>();
+        app.init_resource::<DialogView>();
         app.add_systems(
             sim,
             (
@@ -75,6 +78,9 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // the per-body half of the pose read-model (E4 slices 1–4).
                 rebuild_body_pose_views,
                 rebuild_shield_rings_view,
+                // The dialogue overlay's row (recon C3): presentation reads
+                // THIS, never the live `DialogState`.
+                rebuild_dialog_view,
             )
                 .in_set(ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync),
         );

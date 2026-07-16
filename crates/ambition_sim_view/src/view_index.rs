@@ -11,9 +11,62 @@ use ambition_actors::features::HazardFeature;
 use ambition_actors::features::{
     ActorConfig, ActorDisposition, ActorIdentity, ActorRenderSize, ActorSurfaceState, BodyMelee,
     BossDeathAnimation, BossPhase, BreakableFeature, CenteredAabb, ChestFeature, Collected,
-    FeatureId, FeatureSimEntity, FeatureView, FeatureVisualKind, Opened, PickupFeature,
-    SwitchFeature, SwitchOn,
+    FeatureId, FeatureSimEntity, Opened, PickupFeature, SwitchFeature, SwitchOn,
 };
+use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
+
+/// One feature's per-frame render snapshot — THE read-model row of
+/// [`FeatureViewIndex`]. Moved here from `ambition_combat::events` (recon C2):
+/// the row is read-model vocabulary, not combat model, and it was the only
+/// reason the renderer depended on the combat crate.
+#[derive(Clone, Copy, Debug)]
+pub struct FeatureView {
+    pub pos: ae::Vec2,
+    pub size: ae::Vec2,
+    pub kind: FeatureVisualKind,
+    pub visible: bool,
+    pub flash: bool,
+    /// For `FeatureVisualKind::Breakable`: the current authored breakable
+    /// state, so presentation can select intact/cracked/broken art without
+    /// querying live ECS feature components. `None` for every other kind.
+    pub breakable_state: Option<ambition_interaction::BreakableState>,
+    /// For `FeatureVisualKind::Chest`: true once the chest has been opened.
+    /// Ignored for every other kind.
+    pub chest_opened: bool,
+    /// For `FeatureVisualKind::Actor`: true when the actor is in the FIGHTING
+    /// state (a fact about the actor itself — NOT "hostile to the player";
+    /// relativity principle). A STATE flag exactly like `flash`: a provoked NPC
+    /// enters it, an at-rest enemy hasn't engaged yet. Stamped at the rebuild
+    /// site from the disposition signal until the fighting-state machinery moves
+    /// onto a `FightingAble` capability component. Ignored for non-actor kinds.
+    pub fighting: bool,
+    /// For `FeatureVisualKind::Switch`: true when the switch reads as
+    /// "on" (encounter cleared / reset path armed). Renders green when
+    /// true, red when false. Ignored for other kinds.
+    pub switch_on: bool,
+    /// Z-axis rotation to apply to the rendered sprite, in radians
+    /// (Bevy frame; +π/2 is CCW). Non-zero for surface-walking
+    /// archetypes that crawl on walls/ceilings; everyone else
+    /// reports 0.0 and renders axis-aligned. Uses the engine → Bevy
+    /// rotation mapping shared by actor rendering.
+    pub rotation_rad: f32,
+    /// Liveness fact (E4 slice 5): actors/bosses read their combat/health
+    /// clusters (+ boss defeat), breakables `!broken`, hazards `active`;
+    /// state-less kinds (pickup/chest/switch) report `true`. Presentation
+    /// (nameplates, debug bars) reads THIS, never the live clusters.
+    pub alive: bool,
+    /// Seconds remaining on the damage flash (actors + live bosses; `0.0`
+    /// for everything else, including a boss corpse — death rows are
+    /// authored sprites and must not read as a lit silhouette).
+    pub hit_flash_secs: f32,
+    /// Health facts for the kinds that carry a pool (actors, bosses,
+    /// breakables); `0/0` elsewhere. Debug overlays read these by id.
+    pub hp_current: i32,
+    pub hp_max: i32,
+    /// Actor rows only: the sandbag/training-dummy depiction flag the debug
+    /// health overlay colors by.
+    pub training_dummy: bool,
+}
 
 /// Per-frame snapshot of every ECS-owned feature's `FeatureView`, keyed
 /// by [`FeatureId`].

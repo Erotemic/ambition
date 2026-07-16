@@ -222,3 +222,14 @@ mod tests {
         assert_eq!(update.outcome, RowPointerOutcome::None);
     }
 }
+
+/// Marker on a rendered dialog choice-row entity, carrying its option index.
+///
+/// The render layer's dialog UI spawns these; the sim-side dialog
+/// pointer-input system reads them to map a click to a choice. Content-free
+/// pointer-row vocabulary (this crate's concern), so the renderer and the
+/// input system both name it without either depending on the other.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug)]
+pub struct DialogChoiceSlot {
+    pub index: usize,
+}

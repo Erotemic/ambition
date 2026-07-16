@@ -596,7 +596,7 @@ pub fn enforce_mount_rider_link(
                     .remove::<Mounted>()
                     // Sprite-binding refresh so the rider's sheet
                     // re-resolves on the next presentation pass.
-                    .remove::<crate::combat::BoundFeatureKind>();
+                    .remove::<ambition_platformer_primitives::feature_kind::BoundFeatureKind>();
             }
             // Mount dead, rider already dissolved → steady state.
             (false, false) => {}

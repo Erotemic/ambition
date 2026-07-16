@@ -1,7 +1,6 @@
 //! Combat-kit message/event vocabulary + small shared value types.
 //!
-//! Holds the feature-visual taxonomy (`FeatureVisualKind`, `BoundFeatureKind`,
-//! the `FeatureView` render snapshot, `FeatureCombatTuning`), the hit model
+//! Holds `FeatureCombatTuning`, the hit model
 //! (`HitMode`, `HitKnockback`, `ActorStimulus`), the typed gameplay-effect
 //! messages consumed in [`bus`](super::bus) (`SetFlagRequested`,
 //! `QuestAdvanceRequested`, `SwitchActivated`, `GameplaySfxRequested`), the
@@ -10,92 +9,10 @@
 
 use super::*;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum FeatureVisualKind {
-    /// Any brain-carrying body — enemy, NPC, boss, sandbag. There is ONE actor
-    /// kind: "enemy vs NPC vs boss vs training-dummy" was never a render *type*,
-    /// only a STATE of one actor (see `FeatureView::fighting` for the combat
-    /// state and the sandbag/name fallback in the actor sprite-upgrade system for
-    /// the depiction). The taxonomy is actors|props; this is the actor arm.
-    Actor,
-    Hazard,
-    Breakable,
-    Chest,
-    Pickup,
-    /// Latched switch. Renders as a colored block whose color depends
-    /// on `FeatureView::switch_on` (red = off, green = on).
-    Switch,
-}
-
-/// Marker binding a feature visual to its kind + collision size (moved here from
-/// the render layer so the mount gameplay can remove it without importing presentation).
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct BoundFeatureKind {
-    pub kind: FeatureVisualKind,
-    pub collision_size: ae::Vec2,
-}
-
-impl BoundFeatureKind {
-    pub fn new(kind: FeatureVisualKind, collision: bevy::math::Vec2) -> Self {
-        Self {
-            kind,
-            collision_size: ae::Vec2::new(collision.x, collision.y),
-        }
-    }
-
-    pub fn matches(&self, kind: FeatureVisualKind, collision_size: ae::Vec2) -> bool {
-        self.kind == kind && (self.collision_size - collision_size).length_squared() <= 0.25
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct FeatureView {
-    pub pos: ae::Vec2,
-    pub size: ae::Vec2,
-    pub kind: FeatureVisualKind,
-    pub visible: bool,
-    pub flash: bool,
-    /// For `FeatureVisualKind::Breakable`: the current authored breakable
-    /// state, so presentation can select intact/cracked/broken art without
-    /// querying live ECS feature components. `None` for every other kind.
-    pub breakable_state: Option<ambition_interaction::BreakableState>,
-    /// For `FeatureVisualKind::Chest`: true once the chest has been opened.
-    /// Ignored for every other kind.
-    pub chest_opened: bool,
-    /// For `FeatureVisualKind::Actor`: true when the actor is in the FIGHTING
-    /// state (a fact about the actor itself — NOT "hostile to the player";
-    /// relativity principle). A STATE flag exactly like `flash`: a provoked NPC
-    /// enters it, an at-rest enemy hasn't engaged yet. Stamped at the rebuild
-    /// site from the disposition signal until the fighting-state machinery moves
-    /// onto a `FightingAble` capability component. Ignored for non-actor kinds.
-    pub fighting: bool,
-    /// For `FeatureVisualKind::Switch`: true when the switch reads as
-    /// "on" (encounter cleared / reset path armed). Renders green when
-    /// true, red when false. Ignored for other kinds.
-    pub switch_on: bool,
-    /// Z-axis rotation to apply to the rendered sprite, in radians
-    /// (Bevy frame; +π/2 is CCW). Non-zero for surface-walking
-    /// archetypes that crawl on walls/ceilings; everyone else
-    /// reports 0.0 and renders axis-aligned. Uses the engine → Bevy
-    /// rotation mapping shared by actor rendering.
-    pub rotation_rad: f32,
-    /// Liveness fact (E4 slice 5): actors/bosses read their combat/health
-    /// clusters (+ boss defeat), breakables `!broken`, hazards `active`;
-    /// state-less kinds (pickup/chest/switch) report `true`. Presentation
-    /// (nameplates, debug bars) reads THIS, never the live clusters.
-    pub alive: bool,
-    /// Seconds remaining on the damage flash (actors + live bosses; `0.0`
-    /// for everything else, including a boss corpse — death rows are
-    /// authored sprites and must not read as a lit silhouette).
-    pub hit_flash_secs: f32,
-    /// Health facts for the kinds that carry a pool (actors, bosses,
-    /// breakables); `0/0` elsewhere. Debug overlays read these by id.
-    pub hp_current: i32,
-    pub hp_max: i32,
-    /// Actor rows only: the sandbag/training-dummy depiction flag the debug
-    /// health overlay colors by.
-    pub training_dummy: bool,
-}
+// The feature-visual taxonomy (`FeatureVisualKind`, `BoundFeatureKind`) moved
+// to `ambition_platformer_primitives::feature_kind` and the `FeatureView`
+// read-model row to `ambition_sim_view` (recon C2): the taxonomy is foundation
+// vocabulary and the row is the read-model's own — neither is combat model.
 
 #[derive(Clone, Copy, Debug)]
 pub struct FeatureCombatTuning {

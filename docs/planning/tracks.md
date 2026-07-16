@@ -236,12 +236,33 @@ the visual joystick/button overlay and presentation dependencies.
 
 ## 8. Finish valuable render/read-model cleanup
 
-**State:** OPEN, bounded. The confirmed dead `ambition_render` input/interaction/
-Leafwing dependencies were removed in `7d972b6`.
+**State:** DONE at this track's bar. The confirmed dead `ambition_render`
+input/interaction/Leafwing dependencies were removed in `7d972b6`. The
+remaining recon items resolved as:
 
-Add read-model fields only for mutable simulation facts whose direct observation violates the one-way seam. Do not manufacture a
-`SimView` copy of immutable authored world data merely to reduce dependency
-count.
+- **C2 — landed.** `FeatureVisualKind`/`BoundFeatureKind` moved to
+  `ambition_platformer_primitives::feature_kind` (foundation taxonomy the sim
+  stamps and every consumer names); `FeatureView` moved to `ambition_sim_view`
+  (it is the `FeatureViewIndex` row). `ambition_render` AND
+  `ambition_sprite_sheet` no longer depend on `ambition_combat` at all.
+- **C3 — landed.** `DialogView` (active/title/body/option labels/selection)
+  is rebuilt in the FeatureViewSync tail, change-gated; `dialog_ui` is a pure
+  consumer, and the `DialogChoiceSlot` pointer bridge moved to
+  `ambition_ui_nav` (its own vocabulary). `ambition_render` no longer depends
+  on `ambition_dialog`.
+- **C4 — resolved, half no-change.** The Health-as-data half already reads
+  `FeatureViewIndex` hp facts. The `WornCharacter` observation stays: it is
+  the canonical presentation-binding seam itself (a worn identity IS the view
+  the binder renders); a read-model copy would be a manufactured mirror.
+- **C5 — rejected** per this track's standing rule: authored room data is
+  immutable; no `RoomVisualsView` copy merely to reduce dependency count.
+- **C6 — superseded** by the 2026-07-16 decision record: content-owned
+  presentation plugins on public render seams (portal, deep-dream) are the
+  ENDORSED shape, so a blanket "content names no render types" policy is
+  wrong; no policy added (standing execution rule).
+
+Rule that remains in force: add read-model fields only for mutable simulation
+facts whose direct observation violates the one-way seam.
 
 ## 9. Reassess only after real consumers
 

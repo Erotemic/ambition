@@ -7,9 +7,9 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use crate::rendering::primitives::{feature_color, FeatureVisual, PlayerVisual};
-use ambition_combat::events::FeatureVisualKind;
 use ambition_engine_core as ae;
 use ambition_engine_core::config::world_to_bevy;
+use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };

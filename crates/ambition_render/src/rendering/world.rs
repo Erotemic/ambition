@@ -14,8 +14,8 @@ use super::primitives::{
     block_color, feature_color, feature_z, spawn_world_label, BlockVisual, FeatureVisual,
     LockWallVisual, PropVisual, RoomVisual,
 };
-use ambition_combat::events::FeatureVisualKind;
 use ambition_engine_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
+use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };

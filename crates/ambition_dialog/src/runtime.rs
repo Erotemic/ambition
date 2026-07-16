@@ -12,23 +12,12 @@
 //! The pending-request seam keeps UI/gameplay callers independent of Bevy runner
 //! queries while giving one system ownership of runner access.
 
-use bevy::prelude::{Component, Entity, Resource};
+use bevy::prelude::{Entity, Resource};
 
 use crate::content::DialogChoice;
 use crate::context::DialogueContext;
 use ambition_engine_core::Vec2;
 use ambition_ui_nav::MenuFocusState;
-
-/// Marker on a rendered dialog choice-row entity, carrying its option index.
-///
-/// The render layer's `dialog_ui` spawns these; the sim-side
-/// [`crate::systems::dialog_pointer_input`] reads them to map a click to a
-/// choice. Content-free, so it lives in the sandbox dialog module — both the
-/// renderer and the input system name it without crossing the seam backwards.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct DialogChoiceSlot {
-    pub index: usize,
-}
 
 #[cfg(feature = "ui")]
 use bevy_yarnspinner::prelude::OptionId;

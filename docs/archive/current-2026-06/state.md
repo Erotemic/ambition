@@ -166,7 +166,6 @@ After doc moves or concept changes:
 
 ```bash
 python scripts/generate_agent_index.py
-python scripts/check_agent_kb.py
 python scripts/check_doc_links.py
 ```
 

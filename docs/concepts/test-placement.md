@@ -28,8 +28,8 @@ invariant.** AGENTS.md carries the one-paragraph version; this is the full model
   to relocate a test, and do not externalize private behavioral tests into an
   integration crate.
 
-**The 200-line trigger is a review proxy, not a verdict.** `scripts/check_agent_kb.py`
-flags any inline `#[cfg(test)]` module ≥ 200 lines. The real rule is SEMANTIC and
+**The 200-line trigger is a review proxy, not a verdict.** The repository
+inventory flags inline `#[cfg(test)]` modules ≥ 200 lines for review. The real rule is SEMANTIC and
 the proxy is imperfect (a genuinely hard problem): line count alone never
 establishes bad organization.
 
@@ -55,8 +55,8 @@ establishes bad organization.
 - **Dispositions and who sets them.** An agent may classify a module's `kind` and
   RECOMMEND a disposition — `maintainer-review-pending` (or `extract-pending` if it
   chooses to move the module now). `maintainer-approved-inline` is a PERMANENT
-  exception: the checker requires the path in the maintainer-owned
-  `MAINTAINER_APPROVED_INLINE` allowlist in `scripts/check_agent_kb.py`, and
+  exception: the path must appear in the maintainer-owned
+  `MAINTAINER_APPROVED_INLINE` allowlist, and
   repository policy reserves that entry to the maintainer. (An agent with write
   access could edit the allowlist; policy, not a mechanism, forbids it granting its
   own exception.)

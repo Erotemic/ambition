@@ -168,7 +168,6 @@ Consequences worth internalizing:
 
 ```bash
 python -m pytest tools/ambition_music_renderer/tests
-python scripts/check_agent_kb.py
 uv run --project ~/code/ambition/tools/ambition_music_renderer python -m ambition_music_renderer audit levels --check   # fail on any clipping cue
 ```
 

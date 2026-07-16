@@ -282,8 +282,9 @@ parallel-execution flakes remain (pre-existing red is still red; see below).
 - All 11 extracted implementation files' crates: `--lib` green (pure moves).
 - Full workspace `--no-run`: green (compiles after the file deletion + new package).
 - `cargo fmt --check` on every touched file, `check_doc_links.py`, `modules_md.py`:
-  clean. `check_agent_kb.py`: only pre-existing `dev/journals/*` broken links to
-  removed `TODO-*.md` (predate this work); no file I touched is flagged.
+  clean. The repository metadata audit reported only pre-existing
+  `dev/journals/*` broken links to removed `TODO-*.md`; no file touched by
+  this work was flagged.
 
 The one genuinely-failing test under `--workspace`,
 `the_demos_own_rules_run_because_its_room_claims_its_mode` (demo mode-scope timing
@@ -311,7 +312,7 @@ consistently standalone — they are resource-contention flakes under full paral
   demo mode-scope timing test (below) plus parallel resource-contention flakes.
   These are a separate reliability concern, not a structural-refactor gap.
 - Pre-existing (not this campaign): the demo mode-scope timing test above, and the
-  `dev/journals/*` broken `TODO-*.md` links flagged by `check_agent_kb.py`.
+  `dev/journals/*` broken `TODO-*.md` links found by the repository metadata audit.
 
 ## Commands (target model)
 

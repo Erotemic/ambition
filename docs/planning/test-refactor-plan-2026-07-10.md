@@ -41,9 +41,9 @@ The machine inventory currently finds these production files with inline
 - `crates/ambition_characters/src/equipment.rs`
 - `game/ambition_demo_smb1/src/flag.rs`
 
-The inventory is recomputed by `scripts/check_agent_kb.py` and compared with the
-`planning-evidence` markers in [`status.md`](status.md). A future extraction must
-update the marker list in the same commit.
+The machine-maintained inventory is compared with the `planning-evidence` markers
+in [`status.md`](status.md). A future extraction must update the marker list in
+the same commit.
 
 Exact line counts are intentionally not copied here; they change when either the
 implementation or tests change and do not affect the policy decision.
@@ -79,9 +79,7 @@ For each remaining file:
    visibility.
 3. Preserve test names and behavior.
 4. Run the crate's focused tests and the relevant workspace policy tests.
-5. Re-run `python scripts/check_agent_kb.py`; it must report the new exact debt
-   set.
-6. Update [`status.md`](status.md) in the same commit.
+5. Update the exact debt set in [`status.md`](status.md) in the same commit.
 
 ## Exit criteria
 

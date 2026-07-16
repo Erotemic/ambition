@@ -21,7 +21,6 @@ cargo test -p ambition_content --features portal
 cargo test -p ambition_content --features ui --test yarn_compile
 cargo test -p ambition_app --features rl_sim
 python scripts/generate_agent_index.py
-python scripts/check_agent_kb.py
 ```
 
 Poison tests land with the enforcement they prove. A diagnostic or ignored test

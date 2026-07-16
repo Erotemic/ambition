@@ -763,7 +763,7 @@ mandated for a different reason:
 
 Three PRE-EXISTING failures were fixed on the way, none of them this chain's: a
 `portal_render`-gated content test that had not compiled in weeks (R3), a RED
-`check_agent_kb.py` (ADR 0023 missing a required section, D-B), and four dead-code
+documentation-health audit failure (ADR 0023 missing a required section, D-B), and four dead-code
 warnings in `ambition_touch_input`. The workspace now builds `--all-targets
 --features rl_sim` with zero errors AND zero warnings.
 

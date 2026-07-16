@@ -48,5 +48,4 @@ For world/data changes, run the relevant LDtk tool/tests and at least one headle
 
 ```bash
 python scripts/generate_agent_index.py
-python scripts/check_agent_kb.py
 ```

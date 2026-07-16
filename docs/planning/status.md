@@ -15,8 +15,8 @@ Do not mark a track complete from a prose completion report alone. Re-run its ex
 checks against HEAD and update this page in the same commit.
 
 Prefer machine-derived evidence (forms 1–3) for numeric, universal, negative,
-enforcement-related, volatile, or overclaim-prone facts; the `planning-evidence`
-markers below are checked against source by `scripts/check_agent_kb.py`. When
+enforcement-related, volatile, or overclaim-prone facts; keep the
+`planning-evidence` markers below synchronized with source. When
 evidence is only prose or manual inspection, say so and give: the exact source
 owner, a command to corroborate it, and what it does NOT prove. Manual inspection
 is never equivalent to a passing acceptance test or an enforced invariant.
@@ -32,7 +32,7 @@ is never equivalent to a passing acceptance test or an enforced invariant.
 | Sanic visible/playable recovery | **OPEN.** Windowed rendering and ball dash exist; the reusable selected-character and proven input path remain the acceptance target. | `game/ambition_demo_sanic_app`; `game/ambition_demo_sanic/src/ball_dash.rs`; [`demos/sanic-recovery.md`](demos/sanic-recovery.md) | Focused end-to-end input test, reusable selected-character binder, deterministic asset provisioning, and two-profile acceptance. |
 | Super Mary-O | **PARTIAL.** Equipment data/mechanism, scroll policy, and flag sequence exist. Pickup wiring, live body-scale read-fold, and the full game shell remain. | `game/ambition_demo_mary_o` (renamed from `ambition_demo_smb1` 2026-07-15); [`demos/super-mary-o.md`](demos/super-mary-o.md) | Pickup/equip path, collision/render scale consumption, enemies/HUD/results, and the headless 1-1 acceptance run. |
 | Refactor R6e | **PARKED FOR A NAMING DECISION.** `player/` is gone; a half-rename of `features/` is explicitly rejected. | [`engine/refactor-chain.md`](engine/refactor-chain.md) | Jon chooses a full rename (`sim` plus coherent type names) or accepts the documented current name. |
-| Large inline-test | **OPEN — maintainer review pending.** Four production files carry ≥200-line inline `#[cfg(test)]` modules. Agent source inspection FINDS all `behavioral-local` (real local behavioral tests — equipment param-fold/scoping/armor/serde; Mary-O flag scoring/geometry/grab-invariant; Mary-O content-plugin catalog/kit composition; audio provider-catalog composition (`catalog.rs`: SFX-bank + adaptive-cue registries) — not workspace-policy or source-shape guardrails). That settles semantic OWNERSHIP (tests belong with the implementation), not physical LAYOUT. | Machine inventory + per-module `kind`/`disposition` markers in `scripts/check_agent_kb.py`; [`../concepts/test-placement.md`](../concepts/test-placement.md) | Jon decides: keep inline (a maintainer allowlist entry) or move to an adjacent private child module (`equipment/tests.rs`, `flag/tests.rs`) with no API widening. Agents cannot self-approve permanent inline. |
+| Large inline-test | **OPEN — maintainer review pending.** Four production files carry ≥200-line inline `#[cfg(test)]` modules. Agent source inspection FINDS all `behavioral-local` (real local behavioral tests — equipment param-fold/scoping/armor/serde; Mary-O flag scoring/geometry/grab-invariant; Mary-O content-plugin catalog/kit composition; audio provider-catalog composition (`catalog.rs`: SFX-bank + adaptive-cue registries) — not workspace-policy or source-shape guardrails). That settles semantic OWNERSHIP (tests belong with the implementation), not physical LAYOUT. | Machine-maintained inventory + per-module `kind`/`disposition` markers; [`../concepts/test-placement.md`](../concepts/test-placement.md) | Jon decides: keep inline (a maintainer allowlist entry) or move to an adjacent private child module (`equipment/tests.rs`, `flag/tests.rs`) with no API widening. Agents cannot self-approve permanent inline. |
 
 <!-- planning-evidence: boss-validator errors=8 warnings=10 -->
 <!-- planning-evidence: inline-test path=crates/ambition_characters/src/equipment.rs kind=behavioral-local disposition=maintainer-review-pending -->
@@ -49,11 +49,11 @@ These are current facts, not active tasks:
 
 - The workspace has 48 members (47 crates + the `ambition_workspace_policy`
   test-policy package). Machine-checked against `Cargo.toml`.
-- D-B's module-size policy counts physical source lines. The KB marker is a fast
-  source-derived cross-check (waivers / unwaived-violations / stale-waivers /
+- D-B's module-size policy counts physical source lines. Its planning marker is a
+  fast source-derived cross-check (waivers / unwaived-violations / stale-waivers /
   invalid-waivers, currently 0/0/0/0 — the old `kaleidoscope_app.rs` waiver is
   unnecessary under the 5000-line threshold); the AUTHORITATIVE behavioral gate is
-  `cargo test -p ambition_workspace_policy` — the KB check does not replace it.
+  `cargo test -p ambition_workspace_policy`.
 - D-C's mode-scoped rules seam exists and is consumed by the demo rules crates.
 - The generic platformer presentation plugin closes OV1 for Sanic and SMB1.
 - Sanic's ball dash is implemented in its rules crate without a Sanic-specific
@@ -103,9 +103,8 @@ Run:
 
 ```bash
 python scripts/generate_agent_index.py
-python scripts/check_agent_kb.py
 ```
 
-Then run the Rust tests named by the owning workstream before changing a status.
-A green documentation check proves the documented inventories agree with the
-source shape; it does not substitute for the Rust behavioral suites.
+Then corroborate the affected claims against source and run the Rust tests named
+by the owning workstream before changing a status. Generated navigation indexes
+do not substitute for the Rust behavioral suites.

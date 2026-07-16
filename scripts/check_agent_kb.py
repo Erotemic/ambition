@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Lightweight lint for Ambition's agent-readable repository knowledge base."""
+"""Audit Ambition's agent-readable repository knowledge base for consistency.
+
+This is a periodic CI/maintainer hygiene tool, not a routine validation step for
+ordinary code changes. Run it deliberately when auditing broad documentation or
+generated-index consistency.
+"""
 
 from __future__ import annotations
 

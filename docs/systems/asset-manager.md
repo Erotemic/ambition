@@ -60,7 +60,6 @@ Use targeted checks first:
 ```bash
 cargo test -p ambition_asset_manager
 cargo test -p ambition_actors --lib asset
-python scripts/check_agent_kb.py
 ```
 
 For platform changes, also run the relevant build recipe under `docs/recipes/`.

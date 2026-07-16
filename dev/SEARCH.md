@@ -45,7 +45,6 @@ Do not load the whole corpus into context. It is a lookup memory, not a cold-sta
 After symptom/invariant search, use generated indexes when you need concrete files, symbols, or tests:
 
 ```bash
-python scripts/check_agent_kb.py
 cat .agent/index/test_map.json
 cat .agent/index/symbol_index.json
 ```

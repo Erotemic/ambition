@@ -67,7 +67,6 @@ cargo test -p ambition_actors --lib          # machinery
 cargo test -p ambition_content --all-features  # named content
 cargo test -p ambition_app                    # assembly + integration suites (replay, boundaries, …)
 python scripts/generate_agent_index.py
-python scripts/check_agent_kb.py
 python scripts/check_doc_links.py
 ```
 

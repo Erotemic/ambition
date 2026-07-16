@@ -103,7 +103,7 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Headless room verification (no GPU): geometry-debug PNG renderer + spatial-anomaly report + CI guard | Available; renders collision, authored entities, moving platforms, kinematic paths, camera zones, and live boss hurtboxes; `-- report` scans every room for out-of-bounds entities / spawn-in-solid; `room_spatial_integrity` fails the build on a regression | `cargo run -p ambition_actors --example render_room_geometry -- <ROOM_ID\|all\|report>`; `docs/recipes/headless-room-verification.md` |
 | Trace recording / replay for movement bugs | Available | `docs/systems/gameplay-trace-recorder.md` |
 | Agent-readable indexes | Available, generated | `.agent/manifest.yaml`, `.agent/index/` |
-| Documentation health checks | Available | `scripts/check_agent_kb.py`, `scripts/check_doc_links.py` |
+| Documentation link checks | Available | `scripts/check_doc_links.py` |
 | LDtk area-spec coordinate drift check | Available | `tools/ambition_ldtk_tools` `level diff-specs --all`; `dev/benchmark-candidates/ldtk-area-spec-drift-2026-05-21.md` |
 | LDtk read-only spatial queries for LLM authoring (`intgrid query` / `entity measure` / `gates audit`) | Available | `tools/ambition_ldtk_tools`; `docs/concepts/llm-spatial-authoring-discipline.md` |
 | Music cue loudness/level report + clipping gate | Available | `python -m ambition_music_renderer audit levels --check`; `docs/recipes/generated-music-workflow.md` |

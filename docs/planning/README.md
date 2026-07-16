@@ -40,8 +40,7 @@ A previous agent's completion report is not evidence by itself. Terms such as
 counts require independent corroboration.
 
 For machine-maintained facts, use the `planning-evidence` comments in
-[`status.md`](status.md). `scripts/check_agent_kb.py` compares those markers with
-HEAD and fails when they drift.
+[`status.md`](status.md) and keep them synchronized with HEAD.
 
 ## Living-plan guidance
 

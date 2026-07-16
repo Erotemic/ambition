@@ -221,7 +221,6 @@ cargo test -p ambition_actors --lib
 cargo test -p ambition_content --all-features
 cargo test -p ambition_app
 cargo run -p ambition_app --bin headless -- 30
-python scripts/check_agent_kb.py
 python scripts/check_doc_links.py
 ```
 
@@ -232,7 +231,6 @@ When moving docs, tests, or code symbols, regenerate navigation indexes:
 
 ```bash
 python scripts/generate_agent_index.py
-python scripts/check_agent_kb.py
 python scripts/check_doc_links.py
 ```
 

@@ -578,7 +578,6 @@ cargo test -p ambition_workspace_policy
 cargo fmt --all -- --check
 python3 scripts/modules_md.py
 python3 scripts/generate_agent_index.py
-python3 scripts/check_agent_kb.py
 python3 scripts/check_doc_links.py
 ```
 

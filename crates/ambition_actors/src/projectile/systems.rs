@@ -118,6 +118,10 @@ pub fn charge_projectile_input(
     >,
     mut brain_actions: MessageReader<ambition_characters::brain::ActorActionMessage>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
+    // The open, content-owned motion-technique registry. The named gesture
+    // patterns (qcf / qcf_grace / hcf) live in content, not this crate; the fire
+    // policy below asks the catalog whether each fired.
+    technique_catalog: Res<ambition_projectiles::MotionTechniqueCatalog>,
     mut trace: ResMut<GameplayTraceBuffer>,
     // Firing emits `SpawnProjectile`; the player-pool consumer runs after this
     // system so newly-fired projectiles first tick next frame.
@@ -195,9 +199,9 @@ pub fn charge_projectile_input(
         // grace shape is a SUBSEQUENCE of the full QCF, so check Super
         // first; otherwise a 3-step input would fire a weak Hadouken.
         if tick_info.press {
-            let super_qcf = state.motion_buffer.detect_quarter_circle();
-            let half_circle = state.motion_buffer.detect_half_circle();
-            let grace_qcf = state.motion_buffer.detect_quarter_circle_grace();
+            let super_qcf = technique_catalog.detect("qcf", &state.motion_buffer);
+            let half_circle = technique_catalog.detect("hcf", &state.motion_buffer);
+            let grace_qcf = technique_catalog.detect("qcf_grace", &state.motion_buffer);
 
             let motion_kind = if (super_qcf.is_some() || half_circle.is_some())
                 && state.unlocked.hadouken_super

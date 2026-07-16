@@ -1,8 +1,16 @@
-//! Quarter-circle / half-circle motion-input recognition. Used by
-//! the sandbox to upgrade a plain Fireball press into Hadouken /
-//! HadoukenSuper when the player buffered the right gesture.
+//! Motion-input gesture recognition: a rolling directional buffer, a generic
+//! ordered-subsequence matcher ([`MotionInputBuffer::detect_sequence`]), and an
+//! **open, content-owned** [`MotionTechniqueCatalog`] of named techniques.
+//!
+//! The reusable input crate owns no named technique. A game registers its own
+//! motion techniques (a quarter-circle, a half-circle, a dragon-punch, …) from
+//! its content crate via [`MotionTechniqueAppExt::register_motion_technique`],
+//! each a set of direction patterns; the fire/action systems ask the catalog
+//! whether a registered technique fired this frame.
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
+
+use bevy::prelude::{App, Resource};
 
 /// Snapshot of a single recorded directional sample, captured by
 /// [`MotionInputBuffer`] for motion-input recognition.
@@ -115,85 +123,16 @@ impl MotionInputBuffer {
         self.samples.clear();
     }
 
-    /// Recognize a `Down → DownRight → Right` quarter-circle (or its
-    /// mirror image) finishing recently. Returns `Some(facing)` where
-    /// facing is +1 (right) or -1 (left) to match the player's
-    /// `facing` field.
-    ///
-    /// We don't require strict adjacency; intermediate Neutral or
-    /// extra cardinal samples are tolerated as long as the three key
-    /// directions appear in order within the buffer window.
-    pub fn detect_quarter_circle(&self) -> Option<f32> {
-        if let Some(facing) = self.detect_sequence(&[
-            MotionDirection::Down,
-            MotionDirection::DownRight,
-            MotionDirection::Right,
-        ]) {
-            return Some(facing);
-        }
-        if let Some(facing) = self.detect_sequence(&[
-            MotionDirection::Down,
-            MotionDirection::DownLeft,
-            MotionDirection::Left,
-        ]) {
-            return Some(facing);
-        }
-        None
-    }
-
-    /// Recognize a *grace* quarter-circle: just `Down → Right` (or
-    /// its mirror), without requiring the diagonal `DownRight`
-    /// midpoint. Hitting the diagonal is awkward on a keyboard with
-    /// 4 cardinal arrow keys, so the grace shape is the easy-mode
-    /// path to a Hadouken; the full 3-step
-    /// (`detect_quarter_circle`) gates the stronger projectile.
-    ///
-    /// IMPORTANT: this MUST be checked AFTER `detect_quarter_circle`
-    /// because a 3-step Down → DownRight → Right also satisfies
-    /// "Down somewhere before Right" and would match the grace form
-    /// — caller decides which gate fires first.
-    pub fn detect_quarter_circle_grace(&self) -> Option<f32> {
-        if let Some(facing) = self.detect_sequence(&[MotionDirection::Down, MotionDirection::Right])
-        {
-            return Some(facing);
-        }
-        if let Some(facing) = self.detect_sequence(&[MotionDirection::Down, MotionDirection::Left])
-        {
-            return Some(facing);
-        }
-        None
-    }
-
-    /// Recognize a half-circle: `Right → DownRight → Down → DownLeft → Left`
-    /// (or mirror). Treated as a stronger gesture than the quarter
-    /// circle and used in the sandbox to upgrade `Fireball` to
-    /// `Hadouken`. The mirror form returns `-1.0`.
-    pub fn detect_half_circle(&self) -> Option<f32> {
-        if let Some(facing) = self.detect_sequence(&[
-            MotionDirection::Right,
-            MotionDirection::DownRight,
-            MotionDirection::Down,
-            MotionDirection::DownLeft,
-            MotionDirection::Left,
-        ]) {
-            return Some(-facing);
-        }
-        if let Some(facing) = self.detect_sequence(&[
-            MotionDirection::Left,
-            MotionDirection::DownLeft,
-            MotionDirection::Down,
-            MotionDirection::DownRight,
-            MotionDirection::Right,
-        ]) {
-            return Some(-facing);
-        }
-        None
-    }
-
     /// Detect an ordered subsequence in the recent samples. Returns
     /// `Some(facing)` based on the final direction (`+1.0` for right,
     /// `-1.0` for left, `+1.0` for up/down ambiguity).
-    fn detect_sequence(&self, expected: &[MotionDirection]) -> Option<f32> {
+    ///
+    /// We don't require strict adjacency; intermediate Neutral or extra cardinal
+    /// samples are tolerated as long as the expected directions appear in order
+    /// within the buffer window. This is the generic substrate every named
+    /// [`MotionTechnique`] is built from — the reusable input crate names no
+    /// specific gesture.
+    pub fn detect_sequence(&self, expected: &[MotionDirection]) -> Option<f32> {
         if expected.is_empty() {
             return None;
         }
@@ -216,6 +155,104 @@ impl MotionInputBuffer {
             }
         }
         None
+    }
+}
+
+/// A named motion-input technique: any one of its `patterns` matching the recent
+/// buffer counts as the technique firing. `invert_facing` flips the reported
+/// facing — a half-circle conventionally fires the direction opposite the one it
+/// ends on, so its authored patterns request the flip.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MotionTechnique {
+    /// Alternative direction sequences (e.g. the right-facing and left-facing
+    /// forms of the same gesture). Matched by [`MotionInputBuffer::detect_sequence`].
+    pub patterns: Vec<Vec<MotionDirection>>,
+    /// Negate the facing the matched pattern reports.
+    pub invert_facing: bool,
+}
+
+impl MotionTechnique {
+    /// Build a technique from its alternative patterns (no facing inversion).
+    pub fn new(patterns: Vec<Vec<MotionDirection>>) -> Self {
+        Self {
+            patterns,
+            invert_facing: false,
+        }
+    }
+
+    /// Report `Some(facing)` if any of this technique's patterns is present in
+    /// `buffer`, with `invert_facing` applied.
+    pub fn detect(&self, buffer: &MotionInputBuffer) -> Option<f32> {
+        for pattern in &self.patterns {
+            if let Some(facing) = buffer.detect_sequence(pattern) {
+                return Some(if self.invert_facing { -facing } else { facing });
+            }
+        }
+        None
+    }
+}
+
+/// Open, content-populated registry of named motion techniques.
+///
+/// Empty by default; a game registers its own via
+/// [`MotionTechniqueAppExt::register_motion_technique`]. The reusable input crate
+/// names none — the fire/action systems query techniques by id, so a second game
+/// adds a gesture without editing this crate.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct MotionTechniqueCatalog {
+    techniques: BTreeMap<String, MotionTechnique>,
+}
+
+impl MotionTechniqueCatalog {
+    /// The registered technique for `id`, or `None`.
+    pub fn get(&self, id: &str) -> Option<&MotionTechnique> {
+        self.techniques.get(id)
+    }
+
+    /// Detect technique `id` against `buffer`. `None` if the id is unregistered
+    /// or no pattern matched.
+    pub fn detect(&self, id: &str, buffer: &MotionInputBuffer) -> Option<f32> {
+        self.techniques.get(id).and_then(|t| t.detect(buffer))
+    }
+
+    /// Register a named technique. Idempotent for an identical (id, technique);
+    /// panics on a conflicting re-registration so an authoring mistake is loud at
+    /// startup, matching the other content catalogs.
+    fn register(&mut self, id: impl Into<String>, technique: MotionTechnique) {
+        let id = id.into();
+        match self.techniques.get(&id) {
+            Some(existing) if *existing == technique => {}
+            Some(_) => {
+                panic!("motion technique {id:?} already registered with a different pattern set")
+            }
+            None => {
+                self.techniques.insert(id, technique);
+            }
+        }
+    }
+}
+
+/// Composition-time sugar for registering a named motion technique from a content
+/// crate, mirroring the other `register_*` content seams.
+pub trait MotionTechniqueAppExt {
+    fn register_motion_technique(
+        &mut self,
+        id: impl Into<String>,
+        technique: MotionTechnique,
+    ) -> &mut Self;
+}
+
+impl MotionTechniqueAppExt for App {
+    fn register_motion_technique(
+        &mut self,
+        id: impl Into<String>,
+        technique: MotionTechnique,
+    ) -> &mut Self {
+        self.init_resource::<MotionTechniqueCatalog>();
+        self.world_mut()
+            .resource_mut::<MotionTechniqueCatalog>()
+            .register(id, technique);
+        self
     }
 }
 

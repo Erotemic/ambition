@@ -10,9 +10,36 @@ use ambition_engine_core::Vec2;
 
 use crate::spawn::{ProjectileSpawner, SpawnFailure};
 use crate::{FireballChargeTuning, ProjectileKind};
-use crate::{MotionDirection, MotionInputBuffer};
+use crate::{MotionDirection, MotionInputBuffer, MotionTechnique};
 use crate::{ProjectileBody, ProjectileSolidHit};
 use ambition_engine_core::{aabb_from_min_size, Aabb, AabbExt};
+
+// The named gesture patterns now live in content; these mirror
+// `ambition_content::input_techniques` so the recognizer mechanics stay tested
+// against the reusable matcher here in the projectile-kit engine tests.
+fn qcf() -> MotionTechnique {
+    use MotionDirection::{Down, DownLeft, DownRight, Left, Right};
+    MotionTechnique::new(vec![
+        vec![Down, DownRight, Right],
+        vec![Down, DownLeft, Left],
+    ])
+}
+
+fn qcf_grace() -> MotionTechnique {
+    use MotionDirection::{Down, Left, Right};
+    MotionTechnique::new(vec![vec![Down, Right], vec![Down, Left]])
+}
+
+fn hcf() -> MotionTechnique {
+    use MotionDirection::{Down, DownLeft, DownRight, Left, Right};
+    MotionTechnique {
+        patterns: vec![
+            vec![Right, DownRight, Down, DownLeft, Left],
+            vec![Left, DownLeft, Down, DownRight, Right],
+        ],
+        invert_facing: true,
+    }
+}
 
 #[test]
 fn motion_buffer_recognizes_quarter_circle_right() {
@@ -26,7 +53,7 @@ fn motion_buffer_recognizes_quarter_circle_right() {
         buf.push(dir, t);
         t += 0.05;
     }
-    assert_eq!(buf.detect_quarter_circle(), Some(1.0));
+    assert_eq!(qcf().detect(&buf), Some(1.0));
 }
 
 #[test]
@@ -41,7 +68,7 @@ fn motion_buffer_recognizes_quarter_circle_left() {
         buf.push(dir, t);
         t += 0.05;
     }
-    assert_eq!(buf.detect_quarter_circle(), Some(-1.0));
+    assert_eq!(qcf().detect(&buf), Some(-1.0));
 }
 
 #[test]
@@ -59,7 +86,7 @@ fn motion_buffer_recognizes_half_circle() {
         t += 0.04;
     }
     // Half circle right-to-left: facing of the player should be left.
-    assert_eq!(buf.detect_half_circle(), Some(1.0));
+    assert_eq!(hcf().detect(&buf), Some(1.0));
 }
 
 #[test]
@@ -77,7 +104,7 @@ fn quarter_circle_tolerates_extra_samples() {
         buf.push(dir, t);
         t += 0.04;
     }
-    assert_eq!(buf.detect_quarter_circle(), Some(1.0));
+    assert_eq!(qcf().detect(&buf), Some(1.0));
 }
 
 #[test]
@@ -89,7 +116,7 @@ fn motion_buffer_window_prunes_old_samples() {
     buf.push(MotionDirection::Right, 1.0);
     // Quarter circle should NOT detect because the older two
     // samples were dropped.
-    assert_eq!(buf.detect_quarter_circle(), None);
+    assert_eq!(qcf().detect(&buf), None);
 }
 
 #[test]
@@ -311,7 +338,7 @@ fn grace_quarter_circle_recognizes_two_step() {
         buf.push(dir, t);
         t += 0.04;
     }
-    assert_eq!(buf.detect_quarter_circle_grace(), Some(1.0));
+    assert_eq!(qcf_grace().detect(&buf), Some(1.0));
     // The grace shape is a SUBSEQUENCE of the full QCF, so a
     // 3-step input also satisfies it.
     let mut buf = MotionInputBuffer::new(0.5);
@@ -324,7 +351,7 @@ fn grace_quarter_circle_recognizes_two_step() {
         buf.push(dir, t);
         t += 0.04;
     }
-    assert_eq!(buf.detect_quarter_circle_grace(), Some(1.0));
+    assert_eq!(qcf_grace().detect(&buf), Some(1.0));
 }
 
 /// The grace shape rejects a "straight forward press" (Right
@@ -336,7 +363,7 @@ fn grace_quarter_circle_rejects_straight_forward_only() {
     let mut buf = MotionInputBuffer::new(0.5);
     buf.push(MotionDirection::Right, 0.0);
     buf.push(MotionDirection::Right, 0.04);
-    assert_eq!(buf.detect_quarter_circle_grace(), None);
+    assert_eq!(qcf_grace().detect(&buf), None);
 }
 
 /// Fireball charge tiers scale damage and hitbox size on the
@@ -426,7 +453,7 @@ fn down_then_right_via_from_axis_recognizes_grace_qcf() {
         t += 0.04;
     }
     assert_eq!(
-        buf.detect_quarter_circle_grace(),
+        qcf_grace().detect(&buf),
         Some(1.0),
         "Down-then-Right via from_axis must register as grace QCF"
     );

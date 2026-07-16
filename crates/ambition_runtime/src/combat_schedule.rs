@@ -26,6 +26,10 @@ impl Plugin for CombatSchedulePlugin {
         // read; a game's content crate registers each named look into it. The
         // renderer inits it independently for its own art resolution.
         app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
+        // Open, content-owned motion-technique registry (qcf / hcf / …). Init the
+        // empty catalog so the player fire system's gesture lookup always has a
+        // resource to read; a game's content crate registers each named gesture.
+        app.init_resource::<ambition_projectiles::MotionTechniqueCatalog>();
         // App-local bridge from combat to sprite metadata. Every strike resolves
         // against the same CharacterCatalog resource as spawning and rendering;
         // separate Apps may compose different provider sets safely.

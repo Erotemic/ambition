@@ -26,10 +26,14 @@ pub mod settings;
 #[cfg(test)]
 mod tests;
 
-/// Fighting-game directional motion recognition (quarter / half-circle gesture
-/// detection over a rolling input buffer). Pure + headless; the Hadouken /
-/// special-move gate consumes it.
-pub use motion_input::{MotionDirection, MotionInputBuffer};
+/// Directional motion recognition (a rolling input buffer + a generic
+/// subsequence matcher) and the open, content-owned technique registry. Pure +
+/// headless; a game registers its own named gestures and the special-move gate
+/// consumes them.
+pub use motion_input::{
+    MotionDirection, MotionInputBuffer, MotionTechnique, MotionTechniqueAppExt,
+    MotionTechniqueCatalog,
+};
 
 #[cfg(feature = "input")]
 pub use actions::SandboxAction;

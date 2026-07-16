@@ -42,6 +42,7 @@ pub use ambition_actors::features;
 /// The named hostile-archetype data, contributed as an immutable provider
 /// fragment to the App-local roster assembly.
 pub mod enemy_roster;
+pub mod input_techniques;
 pub mod intro;
 pub mod items;
 #[cfg(feature = "audio")]

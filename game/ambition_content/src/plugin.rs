@@ -34,6 +34,11 @@ impl Plugin for AmbitionContentPlugin {
         // crate names none of these looks.
         super::projectiles::register(app);
 
+        // Register the player kit's named motion techniques (qcf / qcf_grace /
+        // hcf) into the reusable, empty-by-default motion-technique catalog. The
+        // reusable input crate names no gesture; the fire system asks by id.
+        super::input_techniques::register(app);
+
         // Contribute authored music/SFX to this Bevy App. Re-registering the
         // identical provider fragment is idempotent, so hosts may compose this
         // plugin without coordinating a process-global install order.

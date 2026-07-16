@@ -55,6 +55,35 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
     app.world_mut().spawn(bundle);
 }
 
+/// Register the player-kit motion techniques the fire policy expects (qcf /
+/// qcf_grace / hcf). Mirrors `ambition_content::input_techniques`, duplicated
+/// here because this crate cannot depend on the content crate.
+fn register_test_motion_techniques(app: &mut App) {
+    use ambition_projectiles::MotionDirection::{Down, DownLeft, DownRight, Left, Right};
+    use ambition_projectiles::{MotionTechnique, MotionTechniqueAppExt};
+    app.register_motion_technique(
+        "qcf",
+        MotionTechnique::new(vec![
+            vec![Down, DownRight, Right],
+            vec![Down, DownLeft, Left],
+        ]),
+    );
+    app.register_motion_technique(
+        "qcf_grace",
+        MotionTechnique::new(vec![vec![Down, Right], vec![Down, Left]]),
+    );
+    app.register_motion_technique(
+        "hcf",
+        MotionTechnique {
+            patterns: vec![
+                vec![Right, DownRight, Down, DownLeft, Left],
+                vec![Left, DownLeft, Down, DownRight, Right],
+            ],
+            invert_facing: true,
+        },
+    );
+}
+
 fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
@@ -79,6 +108,10 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     // The stepper resolves each shot's visual id through the (empty here) content
     // catalog for its detonation-FX pick; init it so the `Res` param validates.
     app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
+    // The fire policy resolves gestures through the content-owned technique
+    // catalog; register the player-kit patterns the charging tests exercise (the
+    // production set lives in `ambition_content::input_techniques`).
+    register_test_motion_techniques(&mut app);
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();

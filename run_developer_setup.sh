@@ -191,6 +191,8 @@ ensure_rust() {
     have cargo || fatal "cargo is not on PATH after Rust setup"
 
     cargo install cargo-llvm-cov
+    cargo install cargo-modules
+    cargo install cargo-sweep
 
     log "Rust ready: $(rustc --version)"
 }

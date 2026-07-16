@@ -250,10 +250,17 @@ in the generic engine assembly.
 
 ## 7. Split touch semantics from touch presentation
 
-**State:** OPEN.
-
-Separate raw touch/gesture folding and semantic `ControlFrame` production from
-the visual joystick/button overlay and presentation dependencies.
+**State:** DONE. The module split already existed inside
+`ambition_touch_input` (pure `state` fold vs `mobile_touch`-gated overlay);
+what remained was the DEPENDENCY split, now enforced by the crate graph: the
+semantic half (raw touch state → `ControlFrame`) compiles with no Bevy and no
+render stack at all — `bevy`, `ambition_render`, `ambition_actors`,
+`ambition_ui_nav`, `ambition_cutscene`, `ambition_persistence`, and
+`virtual_joystick` are all optional, enabled only by the `mobile_touch`
+overlay feature. `cargo tree` confirms zero render edges in the default
+graph; both feature configs and the app's `mobile_touch` build check green.
+(Also fixed a latent mis-gate: a menu-bridge test was `input`-gated while
+using `mobile_touch` modules.)
 
 ## 8. Finish valuable render/read-model cleanup
 

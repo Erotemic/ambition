@@ -6,7 +6,7 @@ use super::state::{apply_deadzone, fold_touch_into_control_frame, TouchButton, T
 /// on-screen joystick is a first-class menu nav source whose use does not
 /// get suppressed by the mouse hover-gate (Bug 2). Exercises the actual
 /// system wiring, not just the pure `touch_move_to_menu_dir` helper.
-#[cfg(feature = "input")]
+#[cfg(feature = "mobile_touch")]
 #[test]
 fn fold_system_touch_down_sets_menu_down_and_active_touch() {
     use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};

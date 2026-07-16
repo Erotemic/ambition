@@ -4,35 +4,49 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Mobile / touch presentation-input adapter for ambition: on-screen virtual joysticks + touch buttons rendered as a HUD and folded into the SAME ControlFrame the desktop leafwing pipeline produces. Extracted from ambition_app for app-thinness (ADR 0019) — reusable presentation adapter code, not host glue. Two layers: an always-built pure fold helper (state) and the mobile_touch-gated Bevy plugin (virtual_joystick UI + systems)."
+description = "Mobile / touch input for ambition, split along the semantics/presentation seam (track 7): an always-built PURE fold (raw touch state -> the semantic ControlFrame; no Bevy, no render deps) and a mobile_touch-gated presentation overlay (virtual_joystick UI + touch buttons drawn as a HUD) that folds into the SAME ControlFrame the desktop leafwing pipeline produces. Extracted from ambition_app for app-thinness (ADR 0019)."
 
 [lib]
 # rlib only: consumed by the ambition_app host. Packaging is the binary's job.
 crate-type = ["rlib"]
 
 [features]
-# Mirrors the app feature graph this crate was carved out of. The pure `state`
-# fold is ALWAYS built (only `ambition_input`); the touch Bevy plugin + its menu
-# bridge / layout / exclusion helpers are `mobile_touch`-gated so desktop /
-# headless / RL builds pull neither `virtual_joystick` nor the touch systems.
+# Track 7 (touch semantics vs presentation): the pure `state` fold — raw touch
+# state → semantic `ControlFrame` — is ALWAYS built and depends only on the
+# input/foundation seams. EVERYTHING presentation-facing (the virtual-joystick
+# overlay, fonts, menu bridge, sim/actors reach) is `mobile_touch`-gated AND
+# its crates are optional, so a desktop / headless / RL consumer of the fold
+# compiles no render stack at all.
 default = []
-input = ["ambition_actors/input", "ambition_render/input", "dep:leafwing-input-manager"]
-mobile_touch = ["input", "ambition_actors/mobile_touch", "dep:virtual_joystick"]
+input = ["ambition_actors?/input", "ambition_render?/input", "dep:leafwing-input-manager"]
+mobile_touch = [
+    "input",
+    "dep:ambition_actors",
+    "ambition_actors/input",
+    "ambition_actors/mobile_touch",
+    "dep:ambition_render",
+    "ambition_render/input",
+    "dep:ambition_cutscene",
+    "dep:ambition_ui_nav",
+    "dep:ambition_persistence",
+    "dep:bevy",
+    "dep:virtual_joystick",
+]
 
 [dependencies]
 # The device-side `ControlFrame` seam the pure fold writes (always needed).
 ambition_input = { path = "../ambition_input" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
-# The gated plugin/menu-bridge reach the sim + render + nav + cutscene layers,
-# same as when this code lived in the app. Non-optional (matching the app's own
-# arrangement) so the crate builds in every feature config the host uses; only
-# `leafwing` + `virtual_joystick` are gated, exactly as the app gated them.
-ambition_actors = { path = "../ambition_actors", default-features = false }
-ambition_render = { path = "../ambition_render" }
-ambition_cutscene = { path = "../ambition_cutscene" }
-ambition_ui_nav = { path = "../ambition_ui_nav" }
-ambition_persistence = { path = "../ambition_persistence" }
-bevy = { version = "0.18.1", default-features = false, features = ["ui_api", "bevy_state"] }
+# The gated plugin/menu-bridge reach the sim + render + nav + cutscene layers.
+# All OPTIONAL (track 7): only the `mobile_touch` overlay half needs them; the
+# semantic fold half must stand on the input seam alone.
+ambition_actors = { path = "../ambition_actors", default-features = false, optional = true }
+ambition_render = { path = "../ambition_render", optional = true }
+ambition_cutscene = { path = "../ambition_cutscene", optional = true }
+ambition_ui_nav = { path = "../ambition_ui_nav", optional = true }
+ambition_persistence = { path = "../ambition_persistence", optional = true }
+# The overlay half's UI/state features; the pure fold uses no Bevy at all.
+bevy = { version = "0.18.1", default-features = false, features = ["ui_api", "bevy_state"], optional = true }
 leafwing-input-manager = { version = "0.20", optional = true }
 virtual_joystick = { version = "2.7.2", default-features = false, optional = true }

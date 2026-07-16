@@ -10,10 +10,13 @@
 //! Extracted from `ambition_app::host::mobile_input` (app-thinness, ADR 0019):
 //! reusable touch presentation/input infrastructure any platformer host would
 //! want, so it lives beside the input/render seams rather than inside the app
-//! binary. The direct `ambition_render` edge is intentional: the crate draws its
-//! own overlay quads and text. The module has no app-only coupling — it
-//! reads/writes only the `ambition_input` / `ambition_actors` /
-//! `ambition_render` / `ambition_ui_nav` / `ambition_cutscene` library seams.
+//! binary. Track 7 split: the SEMANTIC half (raw touch state → `ControlFrame`,
+//! [`mod@state`]) is pure data on the `ambition_input` seam alone — no Bevy,
+//! no render stack; every PRESENTATION dependency (`bevy`, `ambition_render`,
+//! `ambition_actors`, `ambition_ui_nav`, `ambition_cutscene`,
+//! `ambition_persistence`, `virtual_joystick`) is optional and enabled only by
+//! the `mobile_touch` overlay feature, whose direct `ambition_render` edge is
+//! intentional: the overlay draws its own quads and text.
 //!
 //! Two layers:
 //!

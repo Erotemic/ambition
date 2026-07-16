@@ -6,9 +6,8 @@ use ambition::game_shell::{
     GameplaySessionEvent, GameplaySessionSet, PreparedSessionRegistry, ShellEvent,
 };
 use ambition::provider::{
-    cleanup_prepared_platformer_sessions, AuthoredCatalogFragments,
-    PlatformerExperienceAuthoring, PlatformerPreparation, PlatformerSessionBuilder,
-    PreparedPlatformerSessions,
+    cleanup_prepared_platformer_sessions, AuthoredCatalogFragments, PlatformerExperienceAuthoring,
+    PlatformerPreparation, PlatformerSessionBuilder, PreparedPlatformerSessions,
 };
 use ambition_actors::ldtk_world::LdtkRuntimeIndex;
 use ambition_actors::rooms::{ActiveRoomMetadata, RoomSet};
@@ -91,7 +90,10 @@ impl Plugin for AmbitionExperiencePlugin {
                     .chain()
                     .in_set(ambition::load::AmbitionLoadSet::Contributors),
             )
-            .add_systems(Update, activate_session.in_set(GameplaySessionSet::Providers));
+            .add_systems(
+                Update,
+                activate_session.in_set(GameplaySessionSet::Providers),
+            );
     }
 }
 

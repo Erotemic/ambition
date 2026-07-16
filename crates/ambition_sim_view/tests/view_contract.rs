@@ -239,9 +239,10 @@ fn feature_view_index_reflects_same_frame_reset_spawn() {
         )),
     ));
     configure_sandbox_sets(&mut app);
-    app.world_mut().spawn(ambition_platformer_primitives::lifecycle::SessionRoot(
-        ambition_platformer_primitives::lifecycle::SessionScopeId(0),
-    ));
+    app.world_mut()
+        .spawn(ambition_platformer_primitives::lifecycle::SessionRoot(
+            ambition_platformer_primitives::lifecycle::SessionScopeId(0),
+        ));
     app.add_systems(
         Update,
         (

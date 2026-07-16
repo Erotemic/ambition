@@ -407,11 +407,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .active_world_entity()
         .expect("sanic #1 owns a canonical world entity");
     assert_eq!(
-        live_room_set(&app)
-            .active_spec()
-            .metadata
-            .mode
-            .as_deref(),
+        live_room_set(&app).active_spec().metadata.mode.as_deref(),
         Some("sanic"),
         "sanic #1: Sanic's world authority is active"
     );

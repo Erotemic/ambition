@@ -30,9 +30,7 @@ pub mod ids;
 #[cfg(feature = "bevy")]
 mod message;
 #[cfg(feature = "bevy")]
-pub use message::{
-    AudioContextOwner, OwnedSfxMessage, SfxEmissionContext, SfxMessage, SfxWriter,
-};
+pub use message::{AudioContextOwner, OwnedSfxMessage, SfxEmissionContext, SfxMessage, SfxWriter};
 
 /// Stable, hashed identifier for an SFX entry. Construct via
 /// [`SfxId::from_static`] for compile-time hashing of literal ids

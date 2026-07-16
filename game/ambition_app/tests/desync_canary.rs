@@ -65,11 +65,11 @@ fn try_sim(room: &str) -> Result<SandboxSim, String> {
     let sim = SandboxSim::new_with_options(opts)
         .map_err(|e| format!("room `{room}` failed to build: {e}"))?;
     let active = {
-        let spec = ambition::platformer::lifecycle::session_world_component::<ambition::world::rooms::RoomSet>(
-                sim.world(),
-            )
-            .ok_or_else(|| format!("room `{room}`: no RoomSet after build"))?
-            .active_spec();
+        let spec = ambition::platformer::lifecycle::session_world_component::<
+            ambition::world::rooms::RoomSet,
+        >(sim.world())
+        .ok_or_else(|| format!("room `{room}`: no RoomSet after build"))?
+        .active_spec();
         if spec.id == room || spec.world.name == room {
             None
         } else {
@@ -712,10 +712,10 @@ fn every_placement_entity_is_owned_by_the_active_room_every_tick() {
         // (`placements`, `enemy_spawns`, `boss_spawns`) — the same three arms
         // `respawn_authored_entity` reconstructs from.
         let authored_by: BTreeMap<String, BTreeSet<String>> = {
-            let rs = ambition::platformer::lifecycle::session_world_component::<ambition::world::rooms::RoomSet>(
-                    s.world(),
-                )
-                .expect("a RoomSet");
+            let rs = ambition::platformer::lifecycle::session_world_component::<
+                ambition::world::rooms::RoomSet,
+            >(s.world())
+            .expect("a RoomSet");
             let mut map: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
             for spec in &rs.rooms {
                 let ids = spec
@@ -794,8 +794,8 @@ fn active_room(s: &SandboxSim) -> String {
     ambition::platformer::lifecycle::session_world_component::<ambition::world::rooms::RoomSet>(
         s.world(),
     )
-        .map(|rs| rs.active_spec().id.clone())
-        .unwrap_or_default()
+    .map(|rs| rs.active_spec().id.clone())
+    .unwrap_or_default()
 }
 
 /// **A rollback window may not span a room transition** (audit item 2 / reviewer).

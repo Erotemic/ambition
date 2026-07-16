@@ -72,30 +72,30 @@ pub fn spawn_map_menu(mut commands: Commands) {
 /// are absent at the title and are retired by the exact session cleanup.
 pub fn spawn_map_menu_with_scope(commands: &mut Commands, scope: SessionSpawnScope) {
     let mut root_commands = commands.spawn((
-            Button,
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Percent(50.0),
-                top: Val::Percent(50.0),
-                margin: UiRect {
-                    left: Val::Px(-MAP_PANEL_WIDTH * 0.5),
-                    top: Val::Px(-MAP_PANEL_HEIGHT * 0.5),
-                    ..default()
-                },
-                width: Val::Px(MAP_PANEL_WIDTH),
-                height: Val::Px(MAP_PANEL_HEIGHT),
-                padding: UiRect::all(Val::Px(MAP_PADDING)),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(8.0),
+        Button,
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Percent(50.0),
+            top: Val::Percent(50.0),
+            margin: UiRect {
+                left: Val::Px(-MAP_PANEL_WIDTH * 0.5),
+                top: Val::Px(-MAP_PANEL_HEIGHT * 0.5),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.04, 0.06, 0.10, 0.96)),
-            BorderColor::all(Color::srgba(0.42, 0.78, 1.00, 0.85)),
-            ZIndex(60),
-            Visibility::Hidden,
-            MapMenuRoot,
-            Name::new("Map menu root"),
-        ));
+            width: Val::Px(MAP_PANEL_WIDTH),
+            height: Val::Px(MAP_PANEL_HEIGHT),
+            padding: UiRect::all(Val::Px(MAP_PADDING)),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(8.0),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.04, 0.06, 0.10, 0.96)),
+        BorderColor::all(Color::srgba(0.42, 0.78, 1.00, 0.85)),
+        ZIndex(60),
+        Visibility::Hidden,
+        MapMenuRoot,
+        Name::new("Map menu root"),
+    ));
     scope.apply_to(&mut root_commands);
     let root = root_commands.id();
     let title = commands
@@ -137,22 +137,22 @@ pub fn spawn_map_menu_with_scope(commands: &mut Commands, scope: SessionSpawnSco
     commands.entity(root).add_children(&[title, status, canvas]);
 
     let mut minimap_root_commands = commands.spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                right: Val::Px(12.0),
-                top: Val::Px(12.0),
-                width: Val::Px(MINIMAP_WIDTH),
-                height: Val::Px(MINIMAP_HEIGHT),
-                padding: UiRect::all(Val::Px(MINIMAP_PADDING)),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.04, 0.06, 0.10, 0.78)),
-            BorderColor::all(Color::srgba(0.42, 0.78, 1.00, 0.65)),
-            ZIndex(40),
-            Visibility::Hidden,
-            MinimapRoot,
-            Name::new("Minimap root"),
-        ));
+        Node {
+            position_type: PositionType::Absolute,
+            right: Val::Px(12.0),
+            top: Val::Px(12.0),
+            width: Val::Px(MINIMAP_WIDTH),
+            height: Val::Px(MINIMAP_HEIGHT),
+            padding: UiRect::all(Val::Px(MINIMAP_PADDING)),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.04, 0.06, 0.10, 0.78)),
+        BorderColor::all(Color::srgba(0.42, 0.78, 1.00, 0.65)),
+        ZIndex(40),
+        Visibility::Hidden,
+        MinimapRoot,
+        Name::new("Minimap root"),
+    ));
     scope.apply_to(&mut minimap_root_commands);
     let minimap_root = minimap_root_commands.id();
     let minimap_canvas = commands

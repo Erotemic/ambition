@@ -160,7 +160,9 @@ impl LdtkRuntimeIndex {
 }
 
 pub fn sync_ldtk_level_set(
-    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_world::rooms::RoomSet,
+    >,
     mut index: ambition_platformer_primitives::lifecycle::SessionWorldMut<LdtkRuntimeIndex>,
     mut ldtk_worlds: Query<&mut LevelSet, With<LdtkWorldRoot>>,
 ) {
@@ -208,7 +210,9 @@ pub fn sync_ldtk_level_set(
 /// the level layout changes (room dimensions, `world_to_bevy`,
 /// LdtkSettings::level_spawn_behavior).
 pub fn sync_ldtk_world_transform(
-    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_world::rooms::RoomSet,
+    >,
     mut ldtk_worlds: Query<&mut Transform, With<LdtkWorldRoot>>,
 ) {
     let active_world = room_set.active_world();

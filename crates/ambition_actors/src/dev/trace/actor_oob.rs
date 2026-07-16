@@ -70,7 +70,9 @@ pub fn record_actor_oob_frame_system(
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
-    rooms: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>>,
+    rooms: Option<
+        ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+    >,
     mode: Res<State<ambition_platformer_primitives::schedule::GameMode>>,
     bodies_q: Query<(
         Entity,

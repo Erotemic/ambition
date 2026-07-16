@@ -183,12 +183,11 @@ pub fn poison_self_tests() {
     )
     .iter()
     .any(|v| v.contains("process-resource API")));
-    assert!(inspect_source(
-        Path::new("x.rs"),
-        "impl Resource for RoomGeometry {}"
-    )
-    .iter()
-    .any(|v| v.contains("implements Resource")));
+    assert!(
+        inspect_source(Path::new("x.rs"), "impl Resource for RoomGeometry {}")
+            .iter()
+            .any(|v| v.contains("implements Resource"))
+    );
     assert!(inspect_source(
         Path::new("x.rs"),
         "fn x(world: &mut World) { world.insert_resource::<RoomSet>(todo!()); }"

@@ -42,8 +42,16 @@ pub fn audio_source_from_sfx_spec(spec: &SfxSpec, sample_rate: u32) -> KiraAudio
         phase = (phase + TAU * frequency.max(1.0) / sample_rate as f32) % TAU;
         let tone = match spec.waveform {
             WaveformSpec::Sine => phase.sin(),
-            WaveformSpec::Square => if phase.sin() >= 0.0 { 1.0 } else { -1.0 },
-            WaveformSpec::Triangle => 2.0 * (2.0 * (phase / TAU - (phase / TAU + 0.5).floor())).abs() - 1.0,
+            WaveformSpec::Square => {
+                if phase.sin() >= 0.0 {
+                    1.0
+                } else {
+                    -1.0
+                }
+            }
+            WaveformSpec::Triangle => {
+                2.0 * (2.0 * (phase / TAU - (phase / TAU + 0.5).floor())).abs() - 1.0
+            }
             WaveformSpec::Saw => 2.0 * (phase / TAU) - 1.0,
         };
         noise_state = noise_state
@@ -151,7 +159,8 @@ impl ProviderSfxHandleCache {
             procedural
                 .and_then(|registry| registry.spec_for_id(id).map(|spec| (registry, spec)))
                 .map(|(registry, spec)| ResolvedSfxHandle {
-                    handle: audio_sources.add(audio_source_from_sfx_spec(spec, registry.sample_rate)),
+                    handle: audio_sources
+                        .add(audio_source_from_sfx_spec(spec, registry.sample_rate)),
                     source: SfxSourceIdentity {
                         kind: SfxSourceKind::Procedural,
                         fingerprint: procedural_sfx_fingerprint(registry.sample_rate, spec),
@@ -165,15 +174,12 @@ impl ProviderSfxHandleCache {
     }
 
     pub fn clear_provider(&mut self, provider_id: &str) {
-        self.handles.retain(|(provider, _), _| provider != provider_id);
+        self.handles
+            .retain(|(provider, _), _| provider != provider_id);
     }
 }
 
-
-fn cached_sfx_source_is_current(
-    cached: SfxSourceIdentity,
-    bank_fingerprint: Option<u64>,
-) -> bool {
+fn cached_sfx_source_is_current(cached: SfxSourceIdentity, bank_fingerprint: Option<u64>) -> bool {
     match bank_fingerprint {
         Some(fingerprint) => {
             cached.kind == SfxSourceKind::Bank && cached.fingerprint == fingerprint
@@ -208,7 +214,11 @@ pub struct SfxPlaybackState {
 
 impl SfxPlaybackState {
     pub fn clear_if_owner(&mut self, owner: AudioContextOwner) {
-        if self.last_played.as_ref().is_some_and(|record| record.owner == owner) {
+        if self
+            .last_played
+            .as_ref()
+            .is_some_and(|record| record.owner == owner)
+        {
             self.last_played = None;
         }
     }

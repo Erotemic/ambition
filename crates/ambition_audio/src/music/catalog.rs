@@ -315,12 +315,7 @@ impl LoadedMusicCueAssets {
     ) {
         for section in &cue.sections {
             for source in &section.sources {
-                let key = MusicSourceKey::new(
-                    provider_id,
-                    &cue.id,
-                    &section.id,
-                    &source.layer_id,
-                );
+                let key = MusicSourceKey::new(provider_id, &cue.id, &section.id, &source.layer_id);
                 if !self.sources.contains_key(&key) {
                     let rel = format!("{}/{}", cue.asset_root.trim_end_matches('/'), source.path);
                     self.sources.insert(key, asset_server.load(rel));
@@ -339,12 +334,7 @@ pub(super) struct MusicSourceKey {
 }
 
 impl MusicSourceKey {
-    pub(super) fn new(
-        provider_id: &str,
-        cue_id: &str,
-        section_id: &str,
-        layer_id: &str,
-    ) -> Self {
+    pub(super) fn new(provider_id: &str, cue_id: &str, section_id: &str, layer_id: &str) -> Self {
         Self {
             provider_id: provider_id.to_string(),
             cue_id: cue_id.to_string(),
@@ -367,15 +357,23 @@ pub struct AdaptiveMusicCatalogRegistry {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AdaptiveMusicCatalogError {
     EmptyProviderId,
-    InvalidCatalog { provider_id: String, errors: Vec<String> },
-    DuplicateProvider { provider_id: String },
+    InvalidCatalog {
+        provider_id: String,
+        errors: Vec<String>,
+    },
+    DuplicateProvider {
+        provider_id: String,
+    },
 }
 
 impl std::fmt::Display for AdaptiveMusicCatalogError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::EmptyProviderId => write!(f, "adaptive music provider id must not be empty"),
-            Self::InvalidCatalog { provider_id, errors } => write!(
+            Self::InvalidCatalog {
+                provider_id,
+                errors,
+            } => write!(
                 f,
                 "adaptive music catalog '{provider_id}' is invalid: {}",
                 errors.join("; ")

@@ -34,7 +34,10 @@ pub struct SfxBankAssetPath {
 impl SfxBankAssetPath {
     pub fn new(provider_id: impl Into<String>, asset_path: impl Into<String>) -> Self {
         let provider_id = provider_id.into();
-        assert!(!provider_id.trim().is_empty(), "SFX bank provider id cannot be empty");
+        assert!(
+            !provider_id.trim().is_empty(),
+            "SFX bank provider id cannot be empty"
+        );
         Self {
             provider_id,
             asset_path: asset_path.into(),

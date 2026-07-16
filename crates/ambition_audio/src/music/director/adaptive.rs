@@ -330,12 +330,7 @@ fn start_adaptive_state(
             .layer(&source.layer_id)
             .map(|layer| layer.slot.min(MAX_LAYERS - 1))
             .unwrap_or(0);
-        if let Some(handle) = assets.get(
-            provider_id,
-            &cue.id,
-            &section.id,
-            &source.layer_id,
-        ) {
+        if let Some(handle) = assets.get(provider_id, &cue.id, &section.id, &source.layer_id) {
             channels.play_layer(new_bank, slot, handle, section.looped, LAYER_START_FADE_MS);
             started += 1;
         } else {

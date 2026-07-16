@@ -71,7 +71,9 @@ use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 pub fn physics_spawn_debris_messages(
     mut commands: Commands,
     mut messages: MessageReader<DebrisBurstMessage>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     settings: Res<PhysicsSandboxSettings>,
     active_session: Option<Res<ActiveSessionScope>>,
 ) {

@@ -308,8 +308,10 @@ impl LoadCoordinator {
                 .work
                 .values()
                 .filter(|work| {
-                    matches!(work.spec.requirement, crate::ActivationRequirement::Degradable)
-                        && !work.state.is_complete()
+                    matches!(
+                        work.spec.requirement,
+                        crate::ActivationRequirement::Degradable
+                    ) && !work.state.is_complete()
                 })
                 .map(|work| work.spec.label.clone())
                 .collect(),
@@ -317,8 +319,10 @@ impl LoadCoordinator {
                 .work
                 .values()
                 .filter(|work| {
-                    matches!(work.spec.requirement, crate::ActivationRequirement::Speculative)
-                        && !work.state.is_complete()
+                    matches!(
+                        work.spec.requirement,
+                        crate::ActivationRequirement::Speculative
+                    ) && !work.state.is_complete()
                 })
                 .map(|work| work.spec.label.clone())
                 .collect(),

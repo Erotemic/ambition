@@ -27,11 +27,10 @@ pub use banter::{install_boss_banter, tick_boss_idle_barks};
 pub use cut_rope::{
     detect_cut_rope_rope_cut, emit_cut_rope_room_replay_after_dialogue_closes, is_cut_rope_boss,
     reset_cut_rope_attempt_on_replay, reset_cut_rope_boss_arena_on_room_reset,
-    reset_cut_rope_boss_attempt, setup_cut_rope_encounter,
-    spawn_cut_rope_victory_npc, sync_cut_rope_boss_arena_prop_visuals, tick_cut_rope_flavor,
-    CutRopeBossArenaState, CutRopeHeavyObjectCycle, PendingCutRopeRoomReplay,
-    SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID, CUT_ROPE_VICTORY_NPC_DIALOGUE_ID,
-    CUT_ROPE_VICTORY_NPC_ID,
+    reset_cut_rope_boss_attempt, setup_cut_rope_encounter, spawn_cut_rope_victory_npc,
+    sync_cut_rope_boss_arena_prop_visuals, tick_cut_rope_flavor, CutRopeBossArenaState,
+    CutRopeHeavyObjectCycle, PendingCutRopeRoomReplay, SmirkingBehemothVictoryNpc,
+    CUT_ROPE_BOSS_ID, CUT_ROPE_VICTORY_NPC_DIALOGUE_ID, CUT_ROPE_VICTORY_NPC_ID,
 };
 pub use gnu_ton::gate_gnu_ton_arena_ladder;
 

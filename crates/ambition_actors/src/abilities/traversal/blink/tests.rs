@@ -133,16 +133,19 @@ fn downward_blink_does_not_embed_in_the_floor() {
     let mut app = test_app();
     let player = spawn_player_holding(&mut app, BLINK_ID, 1.0); // (300,300), 24x40
                                                                 // Solid floor whose top edge is at y=350, just below the player.
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(ae::World::new(
-        "test",
-        ae::Vec2::new(600.0, 600.0),
-        ae::Vec2::new(300.0, 300.0),
-        vec![ae::Block::solid(
-            "floor",
-            ae::Vec2::new(0.0, 350.0),
-            ae::Vec2::new(600.0, 250.0),
-        )],
-    )));
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_engine_core::RoomGeometry(ae::World::new(
+            "test",
+            ae::Vec2::new(600.0, 600.0),
+            ae::Vec2::new(300.0, 300.0),
+            vec![ae::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 350.0),
+                ae::Vec2::new(600.0, 250.0),
+            )],
+        )),
+    );
     {
         let mut control = app.world_mut().get_mut::<ActorControl>(player).unwrap();
         control.0.melee_pressed = true;

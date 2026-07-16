@@ -158,8 +158,16 @@ fn format_model(model: &LoadPresentationModel) -> String {
     append_work_section(&mut lines, "Working now", &model.active_labels);
     append_work_section(&mut lines, "Completed", &model.completed_labels);
     append_work_section(&mut lines, "Required next", &model.remaining_labels);
-    append_work_section(&mut lines, "Streaming after launch", &model.streamable_labels);
-    append_work_section(&mut lines, "Optional background work", &model.speculative_labels);
+    append_work_section(
+        &mut lines,
+        "Streaming after launch",
+        &model.streamable_labels,
+    );
+    append_work_section(
+        &mut lines,
+        "Optional background work",
+        &model.speculative_labels,
+    );
     if let Some(additional) = &model.estimated_additional_steps {
         lines.push(format!(
             "Approximately {}–{} additional steps may be discovered",

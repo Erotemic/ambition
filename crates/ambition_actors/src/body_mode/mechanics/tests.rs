@@ -57,14 +57,17 @@ fn open_world() -> ae::World {
 
 fn build_body_mode_test_app() -> (App, Entity) {
     let mut app = App::new();
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(open_world()));
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_engine_core::RoomGeometry(open_world()),
+    );
     app.init_resource::<SlotInteractionState>();
-    let world_spawn = ambition_platformer_primitives::lifecycle::session_world_component::<ambition_engine_core::RoomGeometry>(
-        app.world(),
-    )
+    let world_spawn = ambition_platformer_primitives::lifecycle::session_world_component::<
+        ambition_engine_core::RoomGeometry,
+    >(app.world())
     .expect("session room geometry")
-        .0
-        .spawn;
+    .0
+    .spawn;
     app.add_systems(Update, super::update_body_mode);
     let player = app
         .world_mut()
@@ -145,15 +148,18 @@ fn spawn_mode_body(app: &mut App, pos: Vec2, slot: Option<PlayerSlot>) -> Entity
 #[test]
 fn controlled_actor_body_mode_input_does_not_affect_home_body() {
     let mut app = App::new();
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(open_world()));
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_engine_core::RoomGeometry(open_world()),
+    );
     app.init_resource::<SlotInteractionState>();
     app.add_systems(Update, super::update_body_mode);
-    let spawn = ambition_platformer_primitives::lifecycle::session_world_component::<ambition_engine_core::RoomGeometry>(
-        app.world(),
-    )
+    let spawn = ambition_platformer_primitives::lifecycle::session_world_component::<
+        ambition_engine_core::RoomGeometry,
+    >(app.world())
     .expect("session room geometry")
-        .0
-        .spawn;
+    .0
+    .spawn;
     // Vacated home body: has the kit, but NO player brain (someone else is driving).
     let home = spawn_mode_body(&mut app, spawn, None);
     // The possessed actor the primary controller is driving.
@@ -198,15 +204,18 @@ fn home_body_mode_still_works_when_home_is_controlled() {
 #[test]
 fn player_input_frame_is_not_body_mode_authority() {
     let mut app = App::new();
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(open_world()));
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_engine_core::RoomGeometry(open_world()),
+    );
     app.init_resource::<SlotInteractionState>();
     app.add_systems(Update, super::update_body_mode);
-    let spawn = ambition_platformer_primitives::lifecycle::session_world_component::<ambition_engine_core::RoomGeometry>(
-        app.world(),
-    )
+    let spawn = ambition_platformer_primitives::lifecycle::session_world_component::<
+        ambition_engine_core::RoomGeometry,
+    >(app.world())
     .expect("session room geometry")
-        .0
-        .spawn;
+    .0
+    .spawn;
     let body = spawn_mode_body(&mut app, spawn, Some(PlayerSlot::PRIMARY));
     // A NEUTRAL PlayerInputFrame — if the driver still read it, the body would never
     // crouch. The live crouch intent lives only on ActorControl.
@@ -255,17 +264,17 @@ fn momentum_riding_support_allows_the_controlled_body_to_crouch() {
 }
 
 fn place_player_on_test_ladder(app: &mut App, player: Entity, vel: Option<Vec2>) {
-    ambition_platformer_primitives::lifecycle::session_world_component_mut::<ambition_engine_core::RoomGeometry>(
-        app.world_mut(),
-    )
+    ambition_platformer_primitives::lifecycle::session_world_component_mut::<
+        ambition_engine_core::RoomGeometry,
+    >(app.world_mut())
     .expect("session room geometry")
-        .0
-        .climbable_regions
-        .push(ClimbableRegion::new(
-            ae::Aabb::new(Vec2::new(210.0, 820.0), Vec2::new(20.0, 200.0)),
-            ClimbableKind::Ladder,
-            ClimbableSpec::default(),
-        ));
+    .0
+    .climbable_regions
+    .push(ClimbableRegion::new(
+        ae::Aabb::new(Vec2::new(210.0, 820.0), Vec2::new(20.0, 200.0)),
+        ClimbableKind::Ladder,
+        ClimbableSpec::default(),
+    ));
     {
         let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
         kin.pos = Vec2::new(210.0, 820.0);
@@ -273,12 +282,12 @@ fn place_player_on_test_ladder(app: &mut App, player: Entity, vel: Option<Vec2>)
             kin.vel = vel;
         }
     }
-    let contact = ambition_platformer_primitives::lifecycle::session_world_component::<ambition_engine_core::RoomGeometry>(
-        app.world(),
-    )
+    let contact = ambition_platformer_primitives::lifecycle::session_world_component::<
+        ambition_engine_core::RoomGeometry,
+    >(app.world())
     .expect("session room geometry")
-        .0
-        .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
+    .0
+    .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
     app.world_mut()
         .get_mut::<BodyEnvironmentContact>(player)
         .unwrap()

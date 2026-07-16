@@ -25,11 +25,8 @@ pub struct DeterministicLoadingActivityPlugin;
 
 impl Plugin for DeterministicLoadingActivityPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            spawn_activity.in_set(LoadPresentationSet::Activity),
-        )
-        .add_systems(Update, drive_activity.in_set(LoadPresentationSet::Input));
+        app.add_systems(Update, spawn_activity.in_set(LoadPresentationSet::Activity))
+            .add_systems(Update, drive_activity.in_set(LoadPresentationSet::Input));
     }
 }
 
@@ -116,15 +113,19 @@ fn drive_activity(
                 completed: true,
                 ..default()
             };
-            outcome
-                .telemetry
-                .insert("neutral_navigation_edges".to_owned(), view.edges.to_string());
+            outcome.telemetry.insert(
+                "neutral_navigation_edges".to_owned(),
+                view.edges.to_string(),
+            );
             signals.write(LoadActivitySignal::Finished {
                 activation_id: view.activation_id,
                 outcome,
             });
         } else {
-            **text = format!("Loading practice: tap up/down four times ({}/4)", view.edges);
+            **text = format!(
+                "Loading practice: tap up/down four times ({}/4)",
+                view.edges
+            );
         }
     }
 }
@@ -132,10 +133,10 @@ fn drive_activity(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{ActiveLoadActivity, LoadActivityId};
     use ambition_game_shell::{
         FrontendEntityOwner, FrontendPresentationKind, LoadBarrierRef, ShellRouteId,
     };
-    use crate::{ActiveLoadActivity, LoadActivityId};
     use ambition_load::{LoadBarrierId, LoadId};
     use bevy::input::gamepad::{Gamepad, GamepadButton};
 
@@ -207,13 +208,19 @@ mod tests {
             tap_key(&mut app, key);
             signals.extend(drain(&mut app));
         }
-        assert!(matches!(signals.first(), Some(LoadActivitySignal::Engaged { activation_id: 7 })));
+        assert!(matches!(
+            signals.first(),
+            Some(LoadActivitySignal::Engaged { activation_id: 7 })
+        ));
         assert!(matches!(
             signals.last(),
             Some(LoadActivitySignal::Finished { activation_id: 7, outcome })
                 if outcome.completed && outcome.score == Some(4)
         ));
-        assert_eq!(*app.world().resource::<DestinationFixture>(), DestinationFixture(0));
+        assert_eq!(
+            *app.world().resource::<DestinationFixture>(),
+            DestinationFixture(0)
+        );
     }
 
     #[test]
@@ -253,6 +260,9 @@ mod tests {
             LoadActivitySignal::Finished { activation_id: 7, outcome }
                 if outcome.completed && outcome.score == Some(4)
         )));
-        assert_eq!(*app.world().resource::<DestinationFixture>(), DestinationFixture(0));
+        assert_eq!(
+            *app.world().resource::<DestinationFixture>(),
+            DestinationFixture(0)
+        );
     }
 }

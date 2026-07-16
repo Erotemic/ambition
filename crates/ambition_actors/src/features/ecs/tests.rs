@@ -296,7 +296,10 @@ fn interact_buffered_starts_npc_dialogue() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), <crate::avatar::StartingCharacter>::default());
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        <crate::avatar::StartingCharacter>::default(),
+    );
     app.add_message::<SetFlagRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();

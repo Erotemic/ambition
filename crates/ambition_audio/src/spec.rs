@@ -63,9 +63,7 @@ impl SfxRegistry {
     /// it. Playback uses this directly, so authorizing a cue and rendering its
     /// actual sound cannot drift onto another provider's resident handle.
     pub fn spec_for_id(&self, id: SfxId) -> Option<&SfxSpec> {
-        self.sfx
-            .iter()
-            .find(|spec| spec.sfx_id().ok() == Some(id))
+        self.sfx.iter().find(|spec| spec.sfx_id().ok() == Some(id))
     }
 }
 
@@ -141,9 +139,7 @@ impl SfxSpec {
             (None, Some(id)) if !id.trim().is_empty() => Ok(SfxId::new(id)),
             (None, Some(_)) => Err("procedural SFX id must not be empty".to_owned()),
             (None, None) => Err("procedural SFX must author either cue or id".to_owned()),
-            (Some(_), Some(_)) => {
-                Err("procedural SFX must not author both cue and id".to_owned())
-            }
+            (Some(_), Some(_)) => Err("procedural SFX must not author both cue and id".to_owned()),
         }
     }
 }

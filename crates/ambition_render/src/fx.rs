@@ -258,7 +258,9 @@ pub fn tick_firework_sequences(
 pub fn vfx_spawn_messages(
     mut commands: Commands,
     mut messages: MessageReader<VfxMessage>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
     mut speech_bubbles: Query<(&mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
@@ -509,7 +511,9 @@ fn apply_speech_bubble_visual(
 pub fn update_speech_bubbles(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     mut query: Query<(
         Entity,
         &mut SpeechBubbleVisual,
@@ -555,7 +559,9 @@ pub fn update_speech_bubble_outlines(
 pub fn update_explosions(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     mut query: Query<(
         Entity,
         &mut ExplosionVisual,
@@ -585,7 +591,9 @@ pub fn update_explosions(
 pub fn update_particles(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     mut query: Query<(Entity, &mut ParticleVisual, &mut Transform, &mut Sprite)>,
 ) {
     let dt = time.delta_secs();
@@ -616,7 +624,9 @@ pub fn update_particles(
 pub fn update_impacts(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     mut query: Query<(Entity, &mut ImpactVisual, &mut Transform, &mut Sprite)>,
 ) {
     let dt = time.delta_secs();
@@ -913,7 +923,9 @@ pub fn spawn_blink_effects(
 pub fn update_blink_preview(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     fact: Res<ambition_sim_view::BlinkPreviewFact>,
     active_session: Option<Res<ActiveSessionScope>>,
     mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,

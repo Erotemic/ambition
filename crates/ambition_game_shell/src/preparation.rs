@@ -22,20 +22,24 @@ pub const PREPARE_AUDIO_WORK_ID: &str = PREPARE_MUSIC_WORK_ID;
 pub const PREPARE_SESSION_WORK_ID: &str = "publish-prepared-session";
 pub const PREPARE_PACKED_SFX_WORK_ID: &str = "stream-packed-sfx";
 
-pub fn standard_platformer_preparation_plan(
-    label: impl Into<String>,
-) -> ProviderPreparationPlan {
+pub fn standard_platformer_preparation_plan(label: impl Into<String>) -> ProviderPreparationPlan {
     ProviderPreparationPlan::new(label, PREPARE_BARRIER_ID, "Ready to play")
         .required(PREPARE_CATALOGS_WORK_ID, "Validate authored catalogs")
         .required(PREPARE_WORLD_WORK_ID, "Prepare world data")
         .required(PREPARE_SPRITES_WORK_ID, "Resolve sprite manifest")
         .required(PREPARE_MUSIC_WORK_ID, "Validate music intent")
         .required(PREPARE_SFX_WORK_ID, "Validate procedural sound effects")
-        .required(PREPARE_ADAPTIVE_WORK_ID, "Validate adaptive cue definitions")
+        .required(
+            PREPARE_ADAPTIVE_WORK_ID,
+            "Validate adaptive cue definitions",
+        )
         .required(PREPARE_DEFAULTS_WORK_ID, "Validate provider defaults")
         .required(PREPARE_SESSION_WORK_ID, "Build prepared session")
         .streamable(PREPARE_PACKED_SFX_WORK_ID, "Stream packed sound bank")
-        .speculative("prewarm-neighbor-room", "Prewarm neighboring room presentation")
+        .speculative(
+            "prewarm-neighbor-room",
+            "Prewarm neighboring room presentation",
+        )
 }
 
 pub fn standard_preparation_succeeded_commands(
@@ -237,10 +241,7 @@ impl PreparedSessionRegistry {
         record.prepared.as_ref()
     }
 
-    pub(crate) fn consume(
-        &mut self,
-        barrier: &LoadBarrierRef,
-    ) -> Option<PreparedSessionIdentity> {
+    pub(crate) fn consume(&mut self, barrier: &LoadBarrierRef) -> Option<PreparedSessionIdentity> {
         let record = self.records.get_mut(&barrier.load_id)?;
         if record.transaction.barrier != *barrier || record.consumed {
             return None;

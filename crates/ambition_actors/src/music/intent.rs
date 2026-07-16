@@ -23,9 +23,7 @@ use ambition_audio::selection::ActiveAudioSelection;
 use ambition_audio::music::{
     AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent,
 };
-use ambition_audio::music::{
-    AdaptiveMusicCatalogRegistry, EncounterMusicBinding, MusicCueCatalog,
-};
+use ambition_audio::music::{AdaptiveMusicCatalogRegistry, EncounterMusicBinding, MusicCueCatalog};
 
 /// Delay after wave 2 starts before the music promotes to its "reinforced"
 /// (large-brute) state. Content tuning — owned here, not by the director.
@@ -40,7 +38,9 @@ pub fn compute_music_intent(
     catalogs: Res<AdaptiveMusicCatalogRegistry>,
     director: Option<Res<MusicDirectorState>>,
     encounters: Query<(&Encounter, &EncounterState)>,
-    mut encounter_music: ambition_platformer_primitives::lifecycle::SessionWorldMut<EncounterMusicRequest>,
+    mut encounter_music: ambition_platformer_primitives::lifecycle::SessionWorldMut<
+        EncounterMusicRequest,
+    >,
     room_music: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomMusicRequest>,
     radio: Option<Res<RadioStationState>>,
     audio_selection: Res<ActiveAudioSelection>,

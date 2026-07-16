@@ -70,7 +70,9 @@ pub enum ShrineVisualSource {
 /// sits at the floor.
 pub fn sync_shrine_visual(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     active_session: Option<Res<ActiveSessionScope>>,
     asset_server: Res<AssetServer>,
     sheet_registry: Option<Res<SheetRegistry>>,

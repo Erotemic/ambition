@@ -288,8 +288,8 @@ fn load_sanic_game_assets(
 /// direct authored loop; this avoids importing the full Ambition app director.
 #[cfg(feature = "visible")]
 fn install_sanic_audio(app: &mut App, sfx_bank_path: Option<String>) {
-    use bevy::prelude::IntoScheduleConfigs as _;
     use ambition::audio::AmbitionAudioAppExt as _;
+    use bevy::prelude::IntoScheduleConfigs as _;
 
     app.init_resource::<ambition::audio::AudioOutputMode>()
         .add_plugins(ambition::audio::AmbitionAudioBackendPlugin);

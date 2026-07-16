@@ -128,7 +128,10 @@ pub struct FrontendAudioProfile {
 impl FrontendAudioProfile {
     pub fn new(provider_id: impl Into<String>) -> Self {
         let provider_id = provider_id.into();
-        assert!(!provider_id.trim().is_empty(), "frontend audio provider cannot be empty");
+        assert!(
+            !provider_id.trim().is_empty(),
+            "frontend audio provider cannot be empty"
+        );
         Self {
             provider_id,
             title_track: None,
@@ -332,15 +335,21 @@ impl ActiveAudioSelection {
     }
 
     pub fn provider_id(&self) -> Option<&str> {
-        self.current.as_ref().map(|authority| authority.provider_id.as_str())
+        self.current
+            .as_ref()
+            .map(|authority| authority.provider_id.as_str())
     }
 
     pub fn music(&self) -> Option<&MusicRegistry> {
-        self.current.as_ref().and_then(|authority| authority.music.as_ref())
+        self.current
+            .as_ref()
+            .and_then(|authority| authority.music.as_ref())
     }
 
     pub fn sfx(&self) -> Option<&SfxRegistry> {
-        self.current.as_ref().and_then(|authority| authority.sfx.as_ref())
+        self.current
+            .as_ref()
+            .and_then(|authority| authority.sfx.as_ref())
     }
 
     pub fn preferred_track(&self) -> Option<&str> {

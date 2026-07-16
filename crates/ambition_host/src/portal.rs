@@ -82,7 +82,10 @@ mod host_adapter {
     /// presentation crate only ever needs the world's size for its centered
     /// y-flip render transform, so the host copies that one field each frame
     /// (room transitions resize the world).
-    pub fn sync_portal_world_frame(world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>, mut frame: ResMut<PortalWorldFrame>) {
+    pub fn sync_portal_world_frame(
+        world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
+        mut frame: ResMut<PortalWorldFrame>,
+    ) {
         if frame.size != world.0.size {
             frame.size = world.0.size;
         }

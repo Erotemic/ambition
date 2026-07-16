@@ -80,12 +80,14 @@ pub fn init_sandbox_resources(app: &mut App) {
     {
         // Bank ids are folded in by `publish_resident_sfx_bank_authority` once
         // the resident bank finishes loading; the cues are authorized here.
-        app.insert_resource(ambition::audio::selection::ActiveAudioSelection::selected_direct(
-            ambition_content::AMBITION_CONTENT_PROVIDER,
-            Some(music_registry.clone()),
-            Some(sfx_registry.clone()),
-            std::collections::BTreeSet::new(),
-        ));
+        app.insert_resource(
+            ambition::audio::selection::ActiveAudioSelection::selected_direct(
+                ambition_content::AMBITION_CONTENT_PROVIDER,
+                Some(music_registry.clone()),
+                Some(sfx_registry.clone()),
+                std::collections::BTreeSet::new(),
+            ),
+        );
         app.insert_resource(ambition::sfx::SfxEmissionContext::default());
         app.world_mut()
             .resource_mut::<ambition::sfx::SfxEmissionContext>()
@@ -126,10 +128,12 @@ pub fn init_sandbox_resources(app: &mut App) {
     #[cfg(feature = "audio")]
     let sfx_bank_asset_path = sandbox_catalog
         .path_for(&ambition::asset_manager::sandbox_assets::ids::sfx_bank())
-        .map(|path| ambition::audio::SfxBankAssetPath::new(
-            ambition_content::AMBITION_CONTENT_PROVIDER,
-            path,
-        ));
+        .map(|path| {
+            ambition::audio::SfxBankAssetPath::new(
+                ambition_content::AMBITION_CONTENT_PROVIDER,
+                path,
+            )
+        });
 
     let ldtk_project = match ldtk_world::LdtkProject::load_default(&sandbox_catalog) {
         Ok(project) => project,

@@ -7,9 +7,8 @@ use ambition::game_shell::{
     GameplaySessionEvent, GameplaySessionSet, PreparedSessionRegistry, ShellEvent,
 };
 use ambition::provider::{
-    cleanup_prepared_platformer_sessions, AuthoredCatalogFragments,
-    PlatformerExperienceAuthoring, PlatformerPreparation, PlatformerSessionBuilder,
-    PreparedPlatformerSessions,
+    cleanup_prepared_platformer_sessions, AuthoredCatalogFragments, PlatformerExperienceAuthoring,
+    PlatformerPreparation, PlatformerSessionBuilder, PreparedPlatformerSessions,
 };
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,

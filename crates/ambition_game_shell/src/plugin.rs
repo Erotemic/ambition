@@ -8,12 +8,12 @@ use bevy::prelude::{
 use ambition_load::{AmbitionLoadSet, LoadCoordinator};
 
 use crate::{
-    ActiveShellSequence, AmbitionGameShellSet, ShellCommand, ShellEvent, ShellExperienceRegistry,
-    ShellHostConfiguration, ShellInputFocus, ShellLaunchCatalog, ShellLauncherCommand,
-    PreparedSessionRegistry, ShellLauncherPresentation, ShellLauncherState, ShellRouteCatalog,
-    ShellRouteHolds, ShellRouter,
-    ShellScopedEntity, ShellSegmentScopedEntity, ShellSequenceCatalog, ShellSequenceCommand,
-    ShellSequenceRuntime, ShellSequenceSet, BASIC_LAUNCHER_EXPERIENCE,
+    ActiveShellSequence, AmbitionGameShellSet, PreparedSessionRegistry, ShellCommand, ShellEvent,
+    ShellExperienceRegistry, ShellHostConfiguration, ShellInputFocus, ShellLaunchCatalog,
+    ShellLauncherCommand, ShellLauncherPresentation, ShellLauncherState, ShellRouteCatalog,
+    ShellRouteHolds, ShellRouter, ShellScopedEntity, ShellSegmentScopedEntity,
+    ShellSequenceCatalog, ShellSequenceCommand, ShellSequenceRuntime, ShellSequenceSet,
+    BASIC_LAUNCHER_EXPERIENCE,
 };
 
 #[derive(Default)]
@@ -141,13 +141,7 @@ fn process_shell_commands(
     mut events: MessageWriter<ShellEvent>,
 ) {
     for command in commands.read() {
-        for event in router.apply(
-            command.clone(),
-            &catalog,
-            &host,
-            &mut loads,
-            &mut prepared,
-        ) {
+        for event in router.apply(command.clone(), &catalog, &host, &mut loads, &mut prepared) {
             if let ShellEvent::RouteActivated(active) = &event {
                 focus.activation_id = Some(active.activation_id);
             }

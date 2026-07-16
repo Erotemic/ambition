@@ -56,7 +56,9 @@ fn sim_emits_sfx_reset_when_control_frame_requests_reset() {
 
     app.update();
 
-    let messages = app.world().resource::<Messages<ambition::sfx::OwnedSfxMessage>>();
+    let messages = app
+        .world()
+        .resource::<Messages<ambition::sfx::OwnedSfxMessage>>();
     let reset_count = messages
         .iter_current_update_messages()
         .filter(|m| matches!(m.request, SfxMessage::Reset { .. }))

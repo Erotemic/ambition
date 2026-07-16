@@ -614,8 +614,10 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
         .map_or(0, |t| t.0);
     // The active room is captured so `restore` can refuse a window that spans a
     // transition. `respawn_from_the_room` already reaches `RoomSet`, so `take` may too.
-    let active_room = ambition_platformer_primitives::lifecycle::session_world_component::<ambition_world::rooms::RoomSet>(world)
-        .map(|rs| rs.active_spec().id.clone());
+    let active_room = ambition_platformer_primitives::lifecycle::session_world_component::<
+        ambition_world::rooms::RoomSet,
+    >(world)
+    .map(|rs| rs.active_spec().id.clone());
     // The full identity roster: every live `SimId`, sorted, dups preserved. Captured
     // independently of which components an entity carries, so identity is validated even
     // for an entity with no registered state — the collision a per-component scan misses

@@ -29,7 +29,9 @@ use ambition_sprite_sheet::game_assets::{entity_sprite_or_color, GameAssets};
 /// same frame; chests pick up their sprite via `state_aware_entity_sprite`.
 pub fn spawn_dynamic_feature_visuals(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     assets: Option<Res<GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
     existing: Query<&FeatureVisual>,

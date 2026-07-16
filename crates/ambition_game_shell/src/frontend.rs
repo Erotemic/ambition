@@ -85,7 +85,10 @@ impl Default for PresentationOwnershipPolicy {
             classes: BTreeMap::from([
                 ("map", PresentationOwnershipClass::GameplaySession),
                 ("room_visuals", PresentationOwnershipClass::GameplaySession),
-                ("moving_platforms", PresentationOwnershipClass::GameplaySession),
+                (
+                    "moving_platforms",
+                    PresentationOwnershipClass::GameplaySession,
+                ),
                 ("kaleidoscope", PresentationOwnershipClass::Frontend),
                 ("developer_overlays", PresentationOwnershipClass::Frontend),
                 ("debug_presentation", PresentationOwnershipClass::Frontend),
@@ -99,9 +102,7 @@ impl PresentationOwnershipPolicy {
         self.classes.get(name).copied()
     }
 
-    pub fn iter(
-        &self,
-    ) -> impl Iterator<Item = (&'static str, PresentationOwnershipClass)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (&'static str, PresentationOwnershipClass)> + '_ {
         self.classes.iter().map(|(name, class)| (*name, *class))
     }
 }

@@ -64,10 +64,7 @@ impl Plugin for AmbitionContentPlugin {
         {
             let cue_catalog = crate::music::ambition_music_cue_catalog();
             use ambition_audio::music::AdaptiveMusicCatalogAppExt;
-            app.register_adaptive_music_catalog(
-                crate::AMBITION_CONTENT_PROVIDER,
-                cue_catalog,
-            );
+            app.register_adaptive_music_catalog(crate::AMBITION_CONTENT_PROVIDER, cue_catalog);
         }
 
         // Install authored encounter wave timelines (goblin mob-lab, …) into the

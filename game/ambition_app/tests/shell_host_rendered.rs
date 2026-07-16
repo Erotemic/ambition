@@ -19,14 +19,12 @@ use bevy::prelude::*;
 use ambition::game_shell::{
     ActiveFrontendAuthority, ActiveGameplaySession, BasicSequenceRoot, BasicShellUiRoot,
     FrontendOwnedEntity, FrontendPresentationKind, GameplayInputOwner, GameplaySessionWorldRoot,
-    PreparedSessionRegistry, PresentationOwnershipClass, PresentationOwnershipPolicy,
-    ShellCommand, ShellLauncherCommand, ShellRouter,
+    PreparedSessionRegistry, PresentationOwnershipClass, PresentationOwnershipPolicy, ShellCommand,
+    ShellLauncherCommand, ShellRouter,
 };
 use ambition::load::LoadCoordinator;
 use ambition::load_presentation::{BasicLoadRoot, LoadActivityState, LoadForegroundState};
-use ambition::platformer::lifecycle::{
-    ActiveSessionScope, RoomVisual, SessionScopedEntity,
-};
+use ambition::platformer::lifecycle::{ActiveSessionScope, RoomVisual, SessionScopedEntity};
 use ambition::render::rendering::HudText;
 use ambition_app::app::{shell_host, VisibleRenderMode};
 
@@ -124,18 +122,37 @@ fn assert_title_ownership(app: &mut App, context: &str) {
         1,
         "{context}: launcher root has explicit frontend ownership",
     );
-    assert_eq!(count::<BasicSequenceRoot>(app), 0, "{context}: startup root retired");
-    assert_eq!(count::<BasicLoadRoot>(app), 0, "{context}: loading root retired");
+    assert_eq!(
+        count::<BasicSequenceRoot>(app),
+        0,
+        "{context}: startup root retired"
+    );
+    assert_eq!(
+        count::<BasicLoadRoot>(app),
+        0,
+        "{context}: loading root retired"
+    );
     assert!(
         app.world().resource::<ActiveGameplaySession>().0.is_none(),
         "{context}: no gameplay-session authority",
     );
     assert!(
-        app.world().resource::<ActiveSessionScope>().current().is_none(),
+        app.world()
+            .resource::<ActiveSessionScope>()
+            .current()
+            .is_none(),
         "{context}: no active gameplay scope",
     );
-    assert_eq!(count::<GameplaySessionWorldRoot>(app), 0, "{context}: no gameplay world");
-    assert_eq!(count::<GameplayInputOwner>(app), 0, "{context}: no gameplay input owner");
+    assert_eq!(
+        count::<GameplaySessionWorldRoot>(app),
+        0,
+        "{context}: no gameplay world"
+    );
+    assert_eq!(
+        count::<GameplayInputOwner>(app),
+        0,
+        "{context}: no gameplay input owner"
+    );
     assert_eq!(
         count::<ambition::platformer::markers::PlayerEntity>(app),
         0,
@@ -174,7 +191,10 @@ fn assert_title_ownership(app: &mut App, context: &str) {
         "{context}: no provider load transaction survives",
     );
     assert!(
-        app.world().resource::<LoadForegroundState>().active.is_none(),
+        app.world()
+            .resource::<LoadForegroundState>()
+            .active
+            .is_none(),
         "{context}: no loading foreground survives",
     );
     assert!(
@@ -204,12 +224,18 @@ fn assert_title_ownership(app: &mut App, context: &str) {
         .0
         .as_ref()
         .expect("title owns exact frontend authority");
-    assert_eq!(frontend.route_id.as_str(), shell_host::AMBITION_LAUNCHER_ROUTE);
+    assert_eq!(
+        frontend.route_id.as_str(),
+        shell_host::AMBITION_LAUNCHER_ROUTE
+    );
     let selection = app
         .world()
         .resource::<ambition::audio::selection::ActiveAudioSelection>();
     assert!(
-        matches!(selection.owner(), Some(ambition::sfx::AudioContextOwner::Frontend(_))),
+        matches!(
+            selection.owner(),
+            Some(ambition::sfx::AudioContextOwner::Frontend(_))
+        ),
         "{context}: title owns a frontend audio context",
     );
     assert_eq!(
@@ -423,7 +449,10 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
         },
     )
     .expect("the title owns and resolves its menu-move SFX");
-    assert_eq!(menu.provider_id, ambition_content::AMBITION_CONTENT_PROVIDER);
+    assert_eq!(
+        menu.provider_id,
+        ambition_content::AMBITION_CONTENT_PROVIDER
+    );
     assert!(matches!(menu.owner, AudioContextOwner::Frontend(_)));
     assert_eq!(menu.id, ids::UI_MENU_MOVE);
 
@@ -437,7 +466,10 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
         ambition_dash.provider_id,
         ambition_content::AMBITION_CONTENT_PROVIDER
     );
-    assert!(matches!(ambition_dash.owner, AudioContextOwner::Gameplay(_)));
+    assert!(matches!(
+        ambition_dash.owner,
+        AudioContextOwner::Gameplay(_)
+    ));
 
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);

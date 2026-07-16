@@ -71,7 +71,9 @@ pub fn spawn_moving_platforms(
 pub fn sync_moving_platform(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomSet>,
     mut platform_set: ResMut<ambition_world::collision::MovingPlatformSet>,
     mut active_platform_room: Local<Option<String>>,

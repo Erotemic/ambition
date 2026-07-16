@@ -15,11 +15,23 @@ fn initial_and_home_routes_are_independent() {
         spec: Some(ShellHostSpec::new("direct-game", "demo-home")),
     };
     let mut router = ShellRouter::default();
-    let events = router.apply(ShellCommand::Initialize, &catalog, &host, &mut loads, &mut prepared);
+    let events = router.apply(
+        ShellCommand::Initialize,
+        &catalog,
+        &host,
+        &mut loads,
+        &mut prepared,
+    );
     assert!(
         matches!(events.last(), Some(ShellEvent::RouteActivated(active)) if active.route_id.as_str() == "direct-game")
     );
-    let events = router.apply(ShellCommand::QuitToHome, &catalog, &host, &mut loads, &mut prepared);
+    let events = router.apply(
+        ShellCommand::QuitToHome,
+        &catalog,
+        &host,
+        &mut loads,
+        &mut prepared,
+    );
     assert!(
         matches!(events.last(), Some(ShellEvent::RouteActivated(active)) if active.route_id.as_str() == "demo-home")
     );
@@ -84,7 +96,13 @@ fn completion_policy_routes_without_experience_knowing_target() {
         spec: Some(ShellHostSpec::new("credits", "home")),
     };
     let mut router = ShellRouter::default();
-    router.apply(ShellCommand::Initialize, &catalog, &host, &mut loads, &mut prepared);
+    router.apply(
+        ShellCommand::Initialize,
+        &catalog,
+        &host,
+        &mut loads,
+        &mut prepared,
+    );
     let activation_id = router.active.as_ref().unwrap().activation_id;
     let events = router.apply(
         ShellCommand::ExperienceCompleted { activation_id },
@@ -152,7 +170,9 @@ fn route_hold_delays_commit_and_activation() {
 
     holds.release(&ShellRouteId::new("held"), &ShellHoldId::new("test-hold"));
     assert!(matches!(
-        router.advance_pending(&catalog, &mut loads, &mut prepared, &holds).last(),
+        router
+            .advance_pending(&catalog, &mut loads, &mut prepared, &holds)
+            .last(),
         Some(ShellEvent::RouteActivated(_))
     ));
 }
@@ -561,8 +581,8 @@ fn same_provider_relaunch_mints_a_fresh_load_transaction() {
     let mut router = ShellRouter::default();
 
     let launch = |router: &mut ShellRouter,
-                      loads: &mut LoadCoordinator,
-                      prepared: &mut PreparedSessionRegistry| {
+                  loads: &mut LoadCoordinator,
+                  prepared: &mut PreparedSessionRegistry| {
         let events = router.apply(
             ShellCommand::GoTo(ShellRouteId::new("game")),
             &catalog,
@@ -591,7 +611,9 @@ fn same_provider_relaunch_mints_a_fresh_load_transaction() {
         });
         let holds = ShellRouteHolds::default();
         assert!(matches!(
-            router.advance_pending(&catalog, loads, prepared, &holds).last(),
+            router
+                .advance_pending(&catalog, loads, prepared, &holds)
+                .last(),
             Some(ShellEvent::RouteActivated(_))
         ));
         transaction

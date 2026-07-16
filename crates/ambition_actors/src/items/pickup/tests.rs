@@ -337,12 +337,15 @@ fn thrown_item_arcs_and_settles_on_the_floor() {
         Vec2::new(0.0, 380.0),
         Vec2::new(400.0, 20.0),
     )];
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(ae::World::new(
-        "phys",
-        Vec2::new(400.0, 400.0),
-        Vec2::new(200.0, 360.0),
-        blocks,
-    )));
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_engine_core::RoomGeometry(ae::World::new(
+            "phys",
+            Vec2::new(400.0, 400.0),
+            Vec2::new(200.0, 360.0),
+            blocks,
+        )),
+    );
     app.insert_resource(ambition_time::WorldTime {
         raw_dt: 1.0 / 60.0,
         scaled_dt: 1.0 / 60.0,

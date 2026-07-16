@@ -290,7 +290,9 @@ impl SandboxSim {
             .single(world)
             .map(|h| h.health)
             .unwrap_or_else(|_| ambition::characters::actor::Health::new(20));
-        let room = ambition::platformer::lifecycle::session_world_component::<RoomSet>(world).expect("active session RoomSet").active_spec();
+        let room = ambition::platformer::lifecycle::session_world_component::<RoomSet>(world)
+            .expect("active session RoomSet")
+            .active_spec();
         let combat = combat_query.single(world).ok();
         let recently_damaged = combat.is_some_and(|c| c.damage_invuln_timer > 0.0);
         let in_hitstun = combat.is_some_and(|c| c.hitstun_timer > 0.0);
@@ -565,9 +567,9 @@ impl SandboxSim {
             ambition::engine_core::RoomGeometry,
         >(self.app.world_mut())
         .expect("active session RoomGeometry")
-            .0
-            .blocks
-            .push(block);
+        .0
+        .blocks
+        .push(block);
     }
 
     /// Returns the list of room ids the LDtk project compiled to.
@@ -575,10 +577,8 @@ impl SandboxSim {
     /// (`rl_smoke` binary) or RL training loops that pick a fresh
     /// room per episode.
     pub fn room_ids(&self) -> Vec<String> {
-        ambition::platformer::lifecycle::session_world_component::<RoomSet>(
-            self.app.world(),
-        )
-        .expect("active session RoomSet")
+        ambition::platformer::lifecycle::session_world_component::<RoomSet>(self.app.world())
+            .expect("active session RoomSet")
             .rooms
             .iter()
             .map(|r| r.id.clone())

@@ -34,16 +34,19 @@ fn insert_projectile_authority(app: &mut App) {
 fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
     let mut app = App::new();
     insert_projectile_authority(&mut app);
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(ae::World::new(
-        "phys",
-        ae::Vec2::new(800.0, 800.0),
-        ae::Vec2::new(400.0, 400.0),
-        vec![ae::Block::solid(
-            "floor",
-            ae::Vec2::new(0.0, 780.0),
-            ae::Vec2::new(800.0, 20.0),
-        )],
-    )));
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_engine_core::RoomGeometry(ae::World::new(
+            "phys",
+            ae::Vec2::new(800.0, 800.0),
+            ae::Vec2::new(400.0, 400.0),
+            vec![ae::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 780.0),
+                ae::Vec2::new(800.0, 20.0),
+            )],
+        )),
+    );
     app.insert_resource(ambition_time::WorldTime {
         raw_dt: 1.0 / 60.0,
         scaled_dt: 1.0 / 60.0,
@@ -125,12 +128,15 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
     use crate::enemy_projectile::test_support::spawn_ownerless_projectile;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(ae::World::new(
-        "phys",
-        ae::Vec2::new(800.0, 800.0),
-        ae::Vec2::new(400.0, 400.0),
-        vec![],
-    )));
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_engine_core::RoomGeometry(ae::World::new(
+            "phys",
+            ae::Vec2::new(800.0, 800.0),
+            ae::Vec2::new(400.0, 400.0),
+            vec![],
+        )),
+    );
     app.insert_resource(ambition_time::WorldTime {
         raw_dt: 1.0 / 60.0,
         scaled_dt: 1.0 / 60.0,
@@ -191,12 +197,15 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
 fn arena_projectile_app(relations: crate::features::FactionRelations) -> App {
     let mut app = App::new();
     insert_projectile_authority(&mut app);
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(ae::World::new(
-        "phys",
-        ae::Vec2::new(800.0, 800.0),
-        ae::Vec2::new(400.0, 400.0),
-        vec![],
-    )));
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_engine_core::RoomGeometry(ae::World::new(
+            "phys",
+            ae::Vec2::new(800.0, 800.0),
+            ae::Vec2::new(400.0, 400.0),
+            vec![],
+        )),
+    );
     app.insert_resource(ambition_time::WorldTime {
         raw_dt: 1.0 / 60.0,
         scaled_dt: 1.0 / 60.0,
@@ -306,12 +315,15 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
     use ambition_characters::actor::BodyCombat;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(ae::World::new(
-        "phys",
-        ae::Vec2::new(800.0, 800.0),
-        ae::Vec2::new(400.0, 400.0),
-        vec![],
-    )));
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_engine_core::RoomGeometry(ae::World::new(
+            "phys",
+            ae::Vec2::new(800.0, 800.0),
+            ae::Vec2::new(400.0, 400.0),
+            vec![],
+        )),
+    );
     app.insert_resource(ambition_time::WorldTime {
         raw_dt: 1.0 / 60.0,
         scaled_dt: 1.0 / 60.0,
@@ -413,12 +425,15 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     use ambition_characters::actor::BodyCombat;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(ae::World::new(
-        "phys",
-        ae::Vec2::new(800.0, 800.0),
-        ae::Vec2::new(400.0, 400.0),
-        vec![],
-    )));
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_engine_core::RoomGeometry(ae::World::new(
+            "phys",
+            ae::Vec2::new(800.0, 800.0),
+            ae::Vec2::new(400.0, 400.0),
+            vec![],
+        )),
+    );
     app.insert_resource(ambition_time::WorldTime {
         raw_dt: 1.0 / 60.0,
         scaled_dt: 1.0 / 60.0,

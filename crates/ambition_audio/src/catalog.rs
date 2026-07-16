@@ -663,7 +663,10 @@ mod tests {
         let reverse_err = reverse
             .register("a", BTreeMap::from([(id("clash"), 1)]))
             .unwrap_err();
-        assert_eq!(err, reverse_err, "diagnostics are registration-order independent");
+        assert_eq!(
+            err, reverse_err,
+            "diagnostics are registration-order independent"
+        );
         assert_eq!(err.to_string(), reverse_err.to_string());
         assert_eq!(reverse.providers().collect::<Vec<_>>(), vec!["b"]);
     }

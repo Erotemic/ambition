@@ -405,9 +405,10 @@ mod schedule_tests {
     fn portal_intent_brackets_do_not_clobber_the_fresh_move_axis() {
         let mut app = App::new();
         configure_sandbox_sets(&mut app);
-        app.world_mut().spawn(ambition_platformer_primitives::lifecycle::SessionRoot(
-            ambition_platformer_primitives::lifecycle::SessionScopeId(0),
-        ));
+        app.world_mut()
+            .spawn(ambition_platformer_primitives::lifecycle::SessionRoot(
+                ambition_platformer_primitives::lifecycle::SessionScopeId(0),
+            ));
         app.init_resource::<ControlFrame>();
         app.init_resource::<PlayerMovementIntent>();
         app.init_resource::<ambition_portal::PortalTuning>();
@@ -483,9 +484,10 @@ mod schedule_tests {
 
         let mut app = App::new();
         configure_sandbox_sets(&mut app);
-        app.world_mut().spawn(ambition_platformer_primitives::lifecycle::SessionRoot(
-            ambition_platformer_primitives::lifecycle::SessionScopeId(0),
-        ));
+        app.world_mut()
+            .spawn(ambition_platformer_primitives::lifecycle::SessionRoot(
+                ambition_platformer_primitives::lifecycle::SessionScopeId(0),
+            ));
         app.init_resource::<ControlFrame>();
         app.init_resource::<SlotControls>();
         // The controlled body carries `Brain::Player(PRIMARY)`, so the gated

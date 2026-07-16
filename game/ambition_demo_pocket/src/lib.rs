@@ -7,9 +7,8 @@ use ambition::game_shell::{
     GameplaySessionEvent, GameplaySessionSet, PreparedSessionRegistry, ShellEvent,
 };
 use ambition::provider::{
-    cleanup_prepared_platformer_sessions, AuthoredCatalogFragments,
-    PlatformerExperienceAuthoring, PlatformerPreparation, PlatformerSessionBuilder,
-    PreparedPlatformerSessions,
+    cleanup_prepared_platformer_sessions, AuthoredCatalogFragments, PlatformerExperienceAuthoring,
+    PlatformerPreparation, PlatformerSessionBuilder, PreparedPlatformerSessions,
 };
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
@@ -83,7 +82,9 @@ pub fn pocket_frontend_audio_profile() -> ambition::audio::selection::FrontendAu
 
 fn cue(id: Option<&str>, frequency: f32) -> ambition::audio::spec::SfxSpec {
     ambition::audio::spec::SfxSpec {
-        cue: id.is_none().then_some(ambition::audio::spec::SoundCueKey::Jump),
+        cue: id
+            .is_none()
+            .then_some(ambition::audio::spec::SoundCueKey::Jump),
         id: id.map(str::to_owned),
         waveform: ambition::audio::spec::WaveformSpec::Square,
         frequency,
@@ -145,9 +146,7 @@ impl Plugin for PocketExperiencePlugin {
             AuthoredCatalogFragments::new(POCKET_CHARACTER_ID, POCKET_EXPERIENCE)
                 .with_procedural_sfx(),
         )
-        .with_loading_activity(
-            ambition::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID,
-        )
+        .with_loading_activity(ambition::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID)
         .register(app);
         app.init_resource::<PreparedPocketSessions>()
             .add_systems(

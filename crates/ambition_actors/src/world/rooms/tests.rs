@@ -260,21 +260,31 @@ fn active_metadata_returns_active_room_metadata() {
 fn sync_room_music_request_mirrors_metadata_music_track() {
     use bevy::prelude::*;
     let mut app = App::new();
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ActiveRoomMetadata(RoomMetadata {
-        biome: Some("cave".into()),
-        music_track: Some("cave_loop".into()),
-        ambient_profile: None,
-        visual_theme: None,
-        visual_profile: Default::default(),
-        nameplate_policy: Default::default(),
-        gallery: false,
-        mode: None,
-    }));
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), RoomMusicRequest::default());
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ActiveRoomMetadata(RoomMetadata {
+            biome: Some("cave".into()),
+            music_track: Some("cave_loop".into()),
+            ambient_profile: None,
+            visual_theme: None,
+            visual_profile: Default::default(),
+            nameplate_policy: Default::default(),
+            gallery: false,
+            mode: None,
+        }),
+    );
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        RoomMusicRequest::default(),
+    );
     app.add_systems(Update, sync_room_music_request);
     app.update();
     assert_eq!(
-        ambition_platformer_primitives::lifecycle::session_world_component::<RoomMusicRequest>(app.world()).expect("session room music").desired_track,
+        ambition_platformer_primitives::lifecycle::session_world_component::<RoomMusicRequest>(
+            app.world()
+        )
+        .expect("session room music")
+        .desired_track,
         Some("cave_loop".into())
     );
 
@@ -283,11 +293,15 @@ fn sync_room_music_request_mirrors_metadata_music_track() {
         app.world_mut(),
     )
     .expect("session active-room metadata")
-        .0
-        .music_track = None;
+    .0
+    .music_track = None;
     app.update();
     assert_eq!(
-        ambition_platformer_primitives::lifecycle::session_world_component::<RoomMusicRequest>(app.world()).expect("session room music").desired_track,
+        ambition_platformer_primitives::lifecycle::session_world_component::<RoomMusicRequest>(
+            app.world()
+        )
+        .expect("session room music")
+        .desired_track,
         None
     );
 }
@@ -325,14 +339,35 @@ fn sync_active_room_metadata_publishes_active_value() {
         Vec::new(),
     );
     ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), set);
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ActiveRoomMetadata::default());
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ActiveRoomMetadata::default(),
+    );
     app.add_systems(Update, sync_active_room_metadata);
     app.update();
-    assert_eq!(&ambition_platformer_primitives::lifecycle::session_world_component::<ActiveRoomMetadata>(app.world()).expect("session active-room metadata").0, &m_hub);
+    assert_eq!(
+        &ambition_platformer_primitives::lifecycle::session_world_component::<ActiveRoomMetadata>(
+            app.world()
+        )
+        .expect("session active-room metadata")
+        .0,
+        &m_hub
+    );
 
-    ambition_platformer_primitives::lifecycle::session_world_component_mut::<RoomSet>(app.world_mut()).expect("session room set").set_active(1);
+    ambition_platformer_primitives::lifecycle::session_world_component_mut::<RoomSet>(
+        app.world_mut(),
+    )
+    .expect("session room set")
+    .set_active(1);
     app.update();
-    assert_eq!(&ambition_platformer_primitives::lifecycle::session_world_component::<ActiveRoomMetadata>(app.world()).expect("session active-room metadata").0, &m_lab);
+    assert_eq!(
+        &ambition_platformer_primitives::lifecycle::session_world_component::<ActiveRoomMetadata>(
+            app.world()
+        )
+        .expect("session active-room metadata")
+        .0,
+        &m_lab
+    );
 }
 
 #[test]

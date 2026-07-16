@@ -145,7 +145,9 @@ pub fn spawn_morph_ball_visual(
 /// AABB. Hides the regular player sprite while the ball is active so
 /// the standing-rig animation doesn't show through.
 pub fn sync_morph_ball_visual(
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     entities: Res<ambition_platformer_primitives::lifecycle::SceneEntities>,
     // Sim-built pose read-model (E4): body-mode + geometry facts, no live
     // cluster reads.
@@ -236,14 +238,15 @@ mod tests {
     /// `MorphBallVisual` sibling, and `SceneEntities` pointing at the body.
     fn rig(morph: bool) -> (App, Entity, Entity) {
         let mut app = App::new();
-        ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(
-            ambition_engine_core::World::new(
+        ambition_platformer_primitives::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ambition_engine_core::RoomGeometry(ambition_engine_core::World::new(
                 "t",
                 ambition_engine_core::Vec2::new(640.0, 480.0),
                 ambition_engine_core::Vec2::ZERO,
                 Vec::new(),
-            ),
-        ));
+            )),
+        );
         let player = app
             .world_mut()
             .spawn((

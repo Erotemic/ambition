@@ -259,7 +259,9 @@ impl ShellRouter {
                 }
             }
             ShellCommand::GoTo(route) => self.start_route(route, true, catalog, loads, prepared),
-            ShellCommand::ReplaceWith(route) => self.start_route(route, false, catalog, loads, prepared),
+            ShellCommand::ReplaceWith(route) => {
+                self.start_route(route, false, catalog, loads, prepared)
+            }
             ShellCommand::Return => {
                 let route = self
                     .history
@@ -487,13 +489,7 @@ impl ShellRouter {
                             ShellCommandRejection::LoadCommitRejected(reason),
                         )];
                     }
-                    return self.activate(
-                        route_id,
-                        push_history,
-                        catalog,
-                        Some(barrier),
-                        None,
-                    );
+                    return self.activate(route_id, push_history, catalog, Some(barrier), None);
                 }
                 Some(
                     state @ (BarrierReadiness::Failed
@@ -559,5 +555,4 @@ impl ShellRouter {
         events.push(ShellEvent::RouteActivated(active));
         events
     }
-
 }

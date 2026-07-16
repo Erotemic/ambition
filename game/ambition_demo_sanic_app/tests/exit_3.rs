@@ -94,7 +94,9 @@ fn the_demo_steps_the_real_simulation_on_the_fixed_timeline() {
     let mut app = build_demo_app();
     activate_player(&mut app);
     align_post_activation_fixed_timeline(&mut app);
-    let spawn = player_body(&mut app).expect("player remains after alignment").pos;
+    let spawn = player_body(&mut app)
+        .expect("player remains after alignment")
+        .pos;
     let start_tick = sim_tick(&app);
 
     for frame in 0..120 {

@@ -467,7 +467,10 @@ fn gradient_sentinel_every_special_strike_is_a_moveset_effect() {
             .unwrap_or_else(|| panic!("special move {key:?} has no sustained effect"));
         assert_eq!(effect.key.as_str(), key);
     }
-    assert!(special_count > 0, "fixture must exercise content techniques");
+    assert!(
+        special_count > 0,
+        "fixture must exercise content techniques"
+    );
 }
 
 /// Every Telegraph step must be immediately followed by a Strike

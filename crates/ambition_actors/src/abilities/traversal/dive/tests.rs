@@ -68,16 +68,19 @@ fn downward_dive_does_not_embed_in_the_floor() {
     // the body's half-HEIGHT, not half-width, or a down dive embeds in the floor.
     let mut app = test_app();
     let player = spawn_primary_player_holding(&mut app, DIVE_ID); // (100,100), 24x40
-    ambition_platformer_primitives::lifecycle::insert_session_world_component(app.world_mut(), ambition_engine_core::RoomGeometry(ae::World::new(
-        "test",
-        ae::Vec2::new(600.0, 600.0),
-        ae::Vec2::new(100.0, 100.0),
-        vec![ae::Block::solid(
-            "floor",
-            ae::Vec2::new(0.0, 200.0),
-            ae::Vec2::new(600.0, 400.0),
-        )],
-    )));
+    ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_engine_core::RoomGeometry(ae::World::new(
+            "test",
+            ae::Vec2::new(600.0, 600.0),
+            ae::Vec2::new(100.0, 100.0),
+            vec![ae::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 200.0),
+                ae::Vec2::new(600.0, 400.0),
+            )],
+        )),
+    );
     {
         let mut control = app.world_mut().get_mut::<ActorControl>(player).unwrap();
         control.0.melee_pressed = true;

@@ -23,9 +23,9 @@ pub mod render;
 pub mod web_unlock;
 
 pub use mix::MusicMix;
-pub use output::{AudioBackendState, AudioOutputMode};
 #[cfg(feature = "kira")]
 pub use output::{AmbitionAudioAppExt, AmbitionAudioBackendPlugin};
+pub use output::{AudioBackendState, AudioOutputMode};
 
 #[cfg(feature = "kira")]
 pub use bank_asset::{
@@ -34,6 +34,5 @@ pub use bank_asset::{
 };
 #[cfg(feature = "kira")]
 pub use render::{
-    ProviderSfxHandleCache, SfxPlaybackRecord, SfxPlaybackState, SfxSourceIdentity,
-    SfxSourceKind,
+    ProviderSfxHandleCache, SfxPlaybackRecord, SfxPlaybackState, SfxSourceIdentity, SfxSourceKind,
 };

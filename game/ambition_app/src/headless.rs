@@ -133,7 +133,12 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
         .clone();
     let spine_index = world.resource::<ldtk_world::LdtkRuntimeSpineIndex>();
     let solid_index = world.resource::<ldtk_world::LdtkRuntimeSolidIndex>();
-    let active_room_after = ambition::platformer::lifecycle::session_world_component::<RoomSet>(world).expect("active session RoomSet").active_spec().id.clone();
+    let active_room_after =
+        ambition::platformer::lifecycle::session_world_component::<RoomSet>(world)
+            .expect("active session RoomSet")
+            .active_spec()
+            .id
+            .clone();
     // Quest log + visited rooms are optional — both are inserted by
     // sandbox startup, but a hypothetical caller that swaps the plugin
     // set might omit them. Use try_resource where it exists so the

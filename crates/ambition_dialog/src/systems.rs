@@ -26,11 +26,7 @@ use bevy::window::PrimaryWindow;
 /// This is presentation only: Yarn still owns the line/option state
 /// machine, while the Bevy side owns the timing of what substring is
 /// visible right now.
-pub fn dialog_reveal_tick(
-    time: Res<Time>,
-    mut dialogue: ResMut<DialogState>,
-    mut sfx: SfxWriter,
-) {
+pub fn dialog_reveal_tick(time: Res<Time>, mut dialogue: ResMut<DialogState>, mut sfx: SfxWriter) {
     if !dialogue.active() || dialogue.current_line.is_empty() {
         return;
     }

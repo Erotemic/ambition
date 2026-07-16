@@ -907,7 +907,10 @@ mod host_bridges {
     use ambition_portal_presentation::{PortalSceneBody, PortalWorldFrame};
     use ambition_render::rendering::PlayerVisual;
 
-    pub fn sync_portal_world_frame(world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>, mut frame: ResMut<PortalWorldFrame>) {
+    pub fn sync_portal_world_frame(
+        world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+        mut frame: ResMut<PortalWorldFrame>,
+    ) {
         if frame.size != world.0.size {
             frame.size = world.0.size;
         }
@@ -1446,16 +1449,19 @@ fn a_portal_on_a_moving_platform_rides_its_host_face() {
 
     let mut app = App::new();
     // Authored base: one anon fixture wall (unattributable on purpose).
-    ambition::platformer::lifecycle::insert_session_world_component(app.world_mut(), RoomGeometry(ae::World::new(
-        "cc6",
-        Vec2::new(2000.0, 1000.0),
-        Vec2::ZERO,
-        vec![ae::Block::solid(
-            "anon-wall",
-            Vec2::new(0.0, 0.0),
-            Vec2::new(20.0, 400.0),
-        )],
-    )));
+    ambition::platformer::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        RoomGeometry(ae::World::new(
+            "cc6",
+            Vec2::new(2000.0, 1000.0),
+            Vec2::ZERO,
+            vec![ae::Block::solid(
+                "anon-wall",
+                Vec2::new(0.0, 0.0),
+                Vec2::new(20.0, 400.0),
+            )],
+        )),
+    );
     // One moving platform sweeping +x at 120 px/s — its collision block
     // carries the placement GeoId + per-tick displacement.
     let mut platform = MovingPlatformState::from_authored(

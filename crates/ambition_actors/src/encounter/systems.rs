@@ -81,7 +81,9 @@ pub fn update_encounters_from_world(
     switch_index: Res<EncounterSwitchIndex>,
     mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
     player_body_q: Query<&crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>,
-    mut music_request: ambition_platformer_primitives::lifecycle::SessionWorldMut<EncounterMusicRequest>,
+    mut music_request: ambition_platformer_primitives::lifecycle::SessionWorldMut<
+        EncounterMusicRequest,
+    >,
     mut encounter_view: ResMut<EncounterView>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut banner_requests: MessageWriter<crate::features::GameplayBannerRequested>,

@@ -150,7 +150,12 @@ fn scripted_thirty_idle_frames_emit_no_player_lifecycle_events() {
         let messages = app.world().resource::<Messages<OwnedSfxMessage>>();
         let lifecycle_count = messages
             .iter_current_update_messages()
-            .filter(|m| matches!(m.request, SfxMessage::Reset { .. } | SfxMessage::Death { .. }))
+            .filter(|m| {
+                matches!(
+                    m.request,
+                    SfxMessage::Reset { .. } | SfxMessage::Death { .. }
+                )
+            })
             .count();
         assert_eq!(
             lifecycle_count, 0,

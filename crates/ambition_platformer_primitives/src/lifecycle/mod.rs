@@ -17,11 +17,10 @@ pub use markers::{
     RoomScopedEntity, RoomVisual, RunScopedEntity, SceneEntities,
 };
 pub use session::{
-    despawn_retired_session_entities, simulation_authorized, ActiveSessionScope, SessionCommands,
-    insert_session_world_component, session_world_component, session_world_component_mut,
-    session_world_entity, session_world_exists,
-    SessionGatedSimulation, SessionRoot, SessionScopeId, SessionScopePlugin,
-    SessionScopeRetired, SessionScopeSet, SessionScopedEntity, SessionSpawnScope,
-    SessionWorldMut, SessionWorldRef, SpawnSessionScopedExt,
+    despawn_retired_session_entities, insert_session_world_component, session_world_component,
+    session_world_component_mut, session_world_entity, session_world_exists, simulation_authorized,
+    ActiveSessionScope, SessionCommands, SessionGatedSimulation, SessionRoot, SessionScopeId,
+    SessionScopePlugin, SessionScopeRetired, SessionScopeSet, SessionScopedEntity,
+    SessionSpawnScope, SessionWorldMut, SessionWorldRef, SpawnSessionScopedExt,
 };
 pub use spawn_ext::SpawnScopedExt;

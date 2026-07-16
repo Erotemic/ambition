@@ -123,7 +123,9 @@ fn slash_source(
 pub(crate) fn spawn_slash_effects(
     mut commands: Commands,
     mut messages: MessageReader<VfxMessage>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     sheet_registry: Option<Res<SheetRegistry>>,

@@ -16,8 +16,8 @@ use bevy::{
 };
 #[cfg(feature = "kira")]
 use bevy_kira_audio::prelude::{
-    AudioApp, AudioChannel, AudioInstance, AudioPlugin as KiraAudioPlugin, AudioSource,
-    MainTrack, OggLoader, WavLoader,
+    AudioApp, AudioChannel, AudioInstance, AudioPlugin as KiraAudioPlugin, AudioSource, MainTrack,
+    OggLoader, WavLoader,
 };
 
 /// Where accepted audio playback decisions are delivered.
@@ -95,9 +95,7 @@ impl AmbitionAudioAppExt for App {
             .unwrap_or_default();
         match mode {
             AudioOutputMode::Device => AudioApp::add_audio_channel::<T>(self),
-            AudioOutputMode::Recording => {
-                self.insert_resource(AudioChannel::<T>::default())
-            }
+            AudioOutputMode::Recording => self.insert_resource(AudioChannel::<T>::default()),
         }
     }
 }

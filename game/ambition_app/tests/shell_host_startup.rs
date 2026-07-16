@@ -181,7 +181,9 @@ fn startup_naturally_auto_advances_on_the_shipping_timeline() {
 
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     shell_host::compose_ambition_startup_sequence(&mut app);
-    app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(1.0 / 60.0)));
+    app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
+        1.0 / 60.0,
+    )));
     for _ in 0..150 {
         app.update();
     }

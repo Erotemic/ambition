@@ -22,7 +22,10 @@ use ambition_time::WorldTime;
 /// PartialEq guard means change-detection consumers (e.g. a future
 /// room-music selector) only fire when the active room's biome /
 /// music_track / ambient / theme really differ — not on every frame.
-pub fn sync_active_room_metadata(room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomSet>, mut active: ambition_platformer_primitives::lifecycle::SessionWorldMut<ActiveRoomMetadata>) {
+pub fn sync_active_room_metadata(
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomSet>,
+    mut active: ambition_platformer_primitives::lifecycle::SessionWorldMut<ActiveRoomMetadata>,
+) {
     let current = room_set.active_metadata().clone();
     if current != active.0 {
         active.0 = current;

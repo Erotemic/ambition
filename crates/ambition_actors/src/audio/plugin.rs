@@ -15,10 +15,10 @@
 //! `crate::schedule::setup_presentation_system` through the `pub(crate)`
 //! re-export added in `app.rs`.
 
+use ambition_audio::AmbitionAudioAppExt as _;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::AudioControl;
-use ambition_audio::AmbitionAudioAppExt as _;
 
 use super::environment::{
     apply_audio_environment, detect_audio_environment, smooth_audio_environment, AudioEnvironment,
@@ -189,8 +189,20 @@ impl Plugin for SandboxAudioPlugin {
 
 #[derive(SystemParam)]
 struct AudioRequestState<'w, 's> {
-    encounter: Option<ambition_platformer_primitives::lifecycle::SessionWorldMut<'w, 's, crate::encounter::EncounterMusicRequest>>,
-    room: Option<ambition_platformer_primitives::lifecycle::SessionWorldMut<'w, 's, crate::rooms::RoomMusicRequest>>,
+    encounter: Option<
+        ambition_platformer_primitives::lifecycle::SessionWorldMut<
+            'w,
+            's,
+            crate::encounter::EncounterMusicRequest,
+        >,
+    >,
+    room: Option<
+        ambition_platformer_primitives::lifecycle::SessionWorldMut<
+            'w,
+            's,
+            crate::rooms::RoomMusicRequest,
+        >,
+    >,
     radio: Option<ResMut<'w, super::RadioStationState>>,
     intent: Option<ResMut<'w, crate::music::MusicIntent>>,
     director: Option<ResMut<'w, crate::music::MusicDirectorState>>,

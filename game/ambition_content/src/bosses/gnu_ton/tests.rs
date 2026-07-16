@@ -13,7 +13,11 @@ use ambition_world::collision::world_with_sandbox_solids;
 /// The gate is now a derived overlay contributor, so the arena assertions
 /// read the VIEW — what player/actor collision actually sees — not the base.
 fn arena_view(app: &App) -> ae::World {
-    let base = &ambition_platformer_primitives::lifecycle::session_world_component::<RoomGeometry>(app.world()).expect("session room geometry").0;
+    let base = &ambition_platformer_primitives::lifecycle::session_world_component::<RoomGeometry>(
+        app.world(),
+    )
+    .expect("session room geometry")
+    .0;
     let overlay = app.world().resource::<FeatureEcsWorldOverlay>();
     world_with_sandbox_solids(base, &[], overlay)
 }
@@ -330,12 +334,12 @@ fn ladder_appears_when_boss_dies() {
         .health
         .current = 0;
     app.update();
-    let regions = &ambition_platformer_primitives::lifecycle::session_world_component::<ambition_engine_core::RoomGeometry>(
-        app.world(),
-    )
+    let regions = &ambition_platformer_primitives::lifecycle::session_world_component::<
+        ambition_engine_core::RoomGeometry,
+    >(app.world())
     .expect("session room geometry")
-        .0
-        .climbable_regions;
+    .0
+    .climbable_regions;
     assert_eq!(regions.len(), 1, "ladder should be back after defeat");
     assert_eq!(regions[0].kind, ae::ClimbableKind::Ladder);
 }
@@ -443,11 +447,11 @@ fn leaving_arena_resets_state_for_next_visit() {
     // Leave the arena (room change → world wholesale replaced,
     // boss entity despawned in the real flow but irrelevant
     // here since the room-name check fires first).
-    ambition_platformer_primitives::lifecycle::session_world_component_mut::<ambition_engine_core::RoomGeometry>(
-        app.world_mut(),
-    )
+    ambition_platformer_primitives::lifecycle::session_world_component_mut::<
+        ambition_engine_core::RoomGeometry,
+    >(app.world_mut())
     .expect("session room geometry")
-        .0 = ae::World::new(
+    .0 = ae::World::new(
         "some_other_room",
         ae::Vec2::new(2_000.0, 2_000.0),
         ae::Vec2::ZERO,
@@ -456,11 +460,11 @@ fn leaving_arena_resets_state_for_next_visit() {
     app.update();
 
     // Re-enter arena with fresh ladder + fresh (alive) boss.
-    ambition_platformer_primitives::lifecycle::session_world_component_mut::<ambition_engine_core::RoomGeometry>(
-        app.world_mut(),
-    )
+    ambition_platformer_primitives::lifecycle::session_world_component_mut::<
+        ambition_engine_core::RoomGeometry,
+    >(app.world_mut())
     .expect("session room geometry")
-        .0 = ae::World::new(
+    .0 = ae::World::new(
         ARENA_ROOM_NAME,
         ae::Vec2::new(2_000.0, 2_000.0),
         ae::Vec2::ZERO,

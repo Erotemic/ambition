@@ -17,9 +17,6 @@
 //! their machinery half (e.g. [`data`], [`features`]) so historical
 //! `crate::…` paths keep resolving.
 
-/// The authored audio registries (music/SFX RON), registered as an App-local
-/// provider fragment.
-pub mod provider;
 pub mod audio_registries;
 pub mod banter;
 pub mod bosses;
@@ -33,6 +30,9 @@ pub mod duel_arena;
 /// The falling-sand prototype room (self-gating content plugin).
 #[cfg(feature = "falling_sand")]
 pub mod falling_sand;
+/// The authored audio registries (music/SFX RON), registered as an App-local
+/// provider fragment.
+pub mod provider;
 // `features` (the feature-ECS actor/boss world) was promoted to
 // `ambition_actors::features` (lib root): machinery presentation/dev still read
 // its named bits (doc 20 B3/B4), so it stays in the sandbox lib when

@@ -42,6 +42,7 @@ pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 // Boss/profile and combat-kit data own their own cooldown/timing constants.
 
 pub mod banter;
+pub mod brain_command;
 // Stable facade for boss attack geometry.
 pub use crate::boss_encounter::attack_geometry as boss_attack_geometry;
 pub mod bosses;
@@ -102,6 +103,11 @@ pub use components::{
 pub use crate::encounter::{SwitchActivated, SwitchFeature, SwitchOn};
 pub use ambition_persistence::quest::QuestAdvanceRequested;
 pub use ambition_platformer_primitives::feature_kind::{BoundFeatureKind, FeatureVisualKind};
+pub use brain_command::{
+    apply_brain_commands, route_actor_directives, ActorActionKind, ActorActionRequest,
+    ActorAnimationDirective, ActorDirective, ActorDirectiveRequest, BrainCommand, BrainCommandKind,
+    BrainCommandPlugin, DispositionDirective, DispositionDirectiveKind,
+};
 pub use ecs::actor_bundles::{
     ChestBundle, EnemyActorBundle, FeatureBaseBundle, FeatureLifecycleBundle,
     FeatureRenderedBundle, PickupBundle,
@@ -139,8 +145,7 @@ pub use ecs::{
     HitboxAnchor, HitboxHits, HitboxLifetime, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot,
     MountClass, MountDeathImpact, MountDied, MountSlot, Mountable, Mounted, MountedBrainCache,
     MountedSize, PendingChallenge, PendingMountLinks, RidingOn, RoomContentStagingError,
-    RoomContentStagingRegistry,
-    SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    RoomContentStagingRegistry, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{

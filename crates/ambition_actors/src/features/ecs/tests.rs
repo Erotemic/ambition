@@ -61,6 +61,7 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
             dialogue_id: Some("hub_guide".into()),
             patrol_radius: 0.0,
             patrol_path_id: None,
+            brain_override: None,
         },
     );
     let (seed, _render) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc(
@@ -317,6 +318,7 @@ fn interact_buffered_starts_npc_dialogue() {
             dialogue_id: Some("hub_guide".into()),
             patrol_radius: 0.0,
             patrol_path_id: None,
+            brain_override: None,
         },
     );
     let (seed, _render) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc(

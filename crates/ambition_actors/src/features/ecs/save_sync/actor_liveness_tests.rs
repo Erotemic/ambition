@@ -24,6 +24,7 @@ fn spawn_guide_npc(app: &mut App, id: &str) -> bevy::prelude::Entity {
             dialogue_id: Some("hub_guide".into()),
             patrol_radius: 0.0,
             patrol_path_id: None,
+            brain_override: None,
         },
     );
     let (seed, _render) = super::super::actor_clusters::ActorClusterSeed::new_peaceful_npc(

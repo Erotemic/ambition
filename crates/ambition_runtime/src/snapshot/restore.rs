@@ -742,6 +742,13 @@ pub fn restore(
     }
     report.messages_cleared = registry.messages.len();
 
+    // Reconcile catalog-backed NPC brains to their restored `BrainBinding`. The
+    // `Brain` cursor is a no-op for peaceful NPC brains, so a rewind PAST a
+    // runtime brain switch would otherwise leave the live brain kind out of sync
+    // with the restored selection — and the next re-simulated tick would drive
+    // the wrong brain (a desync). Runs only where the kind actually diverged.
+    super::codecs::reconcile_brain_bindings(world);
+
     // **Stale state is measured AFTER reconciliation (audit H4), over the FINAL
     // restored roster.** Measuring it at the top — before the future-only entities are
     // despawned and the missing ones rebuilt — reported stale components on entities

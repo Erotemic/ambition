@@ -130,6 +130,50 @@ embedded catalog for the matching `display_name`, and stamps that on
 dialog UI) still match on display name today — the catalog drives
 *authoring* without forcing every consumer to change shape.
 
+## NPC brain authority (explicit, authorable, runtime-switchable)
+
+An NPC's brain is chosen ONLY by its explicit selection or the character
+catalog default — never by inspecting the resulting `Brain`. There is no
+"basic brain" classification, no `is_hostile` gate, and no `patrol_radius == 0`
+sentinel. The pieces (see
+`crates/ambition_characters/src/actor/character_catalog/binding.rs`):
+
+- **`default_brain` (catalog)** — the character's *canonical* behaviour: what it
+  normally does when spawned without an override. A talkable NPC placed as an
+  `NpcSpawn` uses its default unless the placement overrides it; a character
+  whose default is hostile (a fighter) spawns hostile unless overridden.
+- **`brain_override` (NpcSpawn placement)** — an optional preset name that sets
+  *this instance's* initial brain regardless of the character default. Absent /
+  empty means "use the catalog default". A stable preset id is authored (never a
+  serialized runtime `Brain`), resolved at spawn by `resolve_initial_brain`
+  (precedence: override → catalog default → clear error). `patrol_radius` /
+  `patrol_path_id` are PARAMETERS a *selected* patrol preset consumes for its
+  lane; they never select the brain.
+- **`BrainCommand::UsePreset` (runtime)** — replace an actor's current autonomous
+  behaviour with a fresh brain built from a preset, recording the override on its
+  `BrainBinding`. The one deterministic, snapshot-safe switch path
+  (`crates/ambition_actors/src/features/brain_command.rs`); ordinary gameplay
+  never edits the `Brain` component directly.
+- **`BrainCommand::RestoreDefault` (runtime)** — rebuild the character's canonical
+  default brain (a FRESH default; no suspended brain is resumed) and clear the
+  override.
+- **Action request vs animation directive** — `ActorDirective::RequestAction`
+  performs a real gameplay ACTION (a jump that moves the body); a separate
+  `ActorDirective::PlayAnimation` requests a visual PERFORMANCE with no gameplay
+  effect. They route to distinct channels, so an action can never be mistaken for
+  a mere animation. Disposition/faction changes (`SetDisposition`) are a third,
+  distinct concern — brain choice and allegiance are separate.
+
+Every actor spawned from a catalog row carries a `BrainBinding` (its default
+preset + current default/override selection); it is snapshot-registered, and a
+rewind past a runtime switch reconciles the live `Brain` back to the binding.
+
+Hall of Characters pedestals are ordinary, complete NPC instances that stand
+still because each carries an EXPLICIT `brain_override: "stand_still"` — not a
+room flag or inferred behaviour. That is why peaceful wanderers (puppy slugs)
+hold still on their pedestal while keeping full identity/body/dialogue and the
+ability to be switched to another brain later.
+
 ## How sprite loading uses the catalog
 
 `load_character_sprites_in` iterates `EMBEDDED_CATALOG.characters`.

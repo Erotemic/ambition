@@ -39,6 +39,7 @@ fn world_with_patrolling_npc(
             dialogue_id: Some(id.clone()),
             patrol_radius,
             patrol_path_id: None,
+            brain_override: None,
         },
     );
     let (seed, _render) = super::ecs::actor_clusters::ActorClusterSeed::new_peaceful_npc(
@@ -48,15 +49,24 @@ fn world_with_patrolling_npc(
         &interactable,
         &[],
     );
-    let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
-    let brain = crate::features::npcs::npc_brain_from_catalog(
-        &catalog,
-        &interactable,
-        seed.config.spawn.pos.x,
-        patrol_radius.max(0.0),
-        crate::features::NPC_TALK_RADIUS,
-        false,
-    );
+    // This is a patrol MOVEMENT test: it needs a patrol brain to drive the body,
+    // not the brain-SELECTION logic (which now lives in `resolve_npc_brain` and is
+    // tested there). Build the patrol brain directly from the placement lane so the
+    // test exercises patrol integration independent of catalog selection.
+    let brain = {
+        let mut cfg = ambition_characters::brain::PatrolCfg::NPC_DEFAULT;
+        cfg.lane = ambition_characters::brain::AuthoredWorldPatrolLane::new(
+            seed.config.spawn.pos.x,
+            patrol_radius.max(0.0),
+        );
+        cfg.aggro_radius = crate::features::NPC_TALK_RADIUS;
+        ambition_characters::brain::Brain::StateMachine(
+            ambition_characters::brain::StateMachineCfg::Patrol {
+                cfg,
+                state: ambition_characters::brain::PatrolState::default(),
+            },
+        )
+    };
     let player = crate::avatar::primary_player_scratch(
         ae::Vec2::new(1500.0, 540.0),
         ae::AbilitySet::sandbox_all(),
@@ -222,56 +232,6 @@ fn npc_with_zero_patrol_radius_stays_at_spawn_x() {
         "static NPC must not drift; was {original_x}, now {}",
         npc.kin.pos.x
     );
-}
-
-/// `npc_brain_from_catalog` picks Patrol vs StandStill from the authored
-/// fields. Pins the spawn-time mapping the unified actor tick depends on.
-#[test]
-fn npc_brain_from_catalog_picks_template_from_authored_fields() {
-    let interactable = |radius: f32| {
-        ambition_interaction::Interactable::new(
-            "kira",
-            "Talk",
-            ae::Aabb::new(ae::Vec2::new(800.0, 540.0), ae::Vec2::new(11.0, 19.0)),
-            ambition_interaction::InteractionKind::Npc {
-                character_id: None,
-                dialogue_id: Some("kira".into()),
-                patrol_radius: radius,
-                patrol_path_id: None,
-            },
-        )
-    };
-    let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
-    match crate::features::npcs::npc_brain_from_catalog(
-        &catalog,
-        &interactable(0.0),
-        800.0,
-        0.0,
-        crate::features::NPC_TALK_RADIUS,
-        false,
-    ) {
-        ambition_characters::brain::Brain::StateMachine(
-            ambition_characters::brain::StateMachineCfg::StandStill,
-        ) => {}
-        other => panic!("expected StandStill for zero-radius NPC, got {other:?}"),
-    }
-    match crate::features::npcs::npc_brain_from_catalog(
-        &catalog,
-        &interactable(64.0),
-        800.0,
-        64.0,
-        crate::features::NPC_TALK_RADIUS,
-        false,
-    ) {
-        ambition_characters::brain::Brain::StateMachine(
-            ambition_characters::brain::StateMachineCfg::Patrol { cfg, .. },
-        ) => {
-            assert_eq!(cfg.lane.radius_px, 64.0);
-            assert_eq!(cfg.aggressiveness, 0.0);
-            assert!(cfg.aggro_radius > 0.0);
-        }
-        other => panic!("expected Patrol for nonzero-radius NPC, got {other:?}"),
-    }
 }
 
 /// Pre-hostile NPC's catalog brain reports not-hostile; the EFFECTS-stage

@@ -87,6 +87,7 @@ fn spawn_victory_npc_entity(
             dialogue_id: Some(CUT_ROPE_VICTORY_NPC_DIALOGUE_ID.to_string()),
             patrol_radius: 0.0,
             patrol_path_id: None,
+            brain_override: None,
         },
         requires_facing: false,
         enabled: true,

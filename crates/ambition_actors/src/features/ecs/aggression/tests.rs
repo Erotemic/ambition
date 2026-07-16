@@ -20,6 +20,7 @@ fn spawn_npc_with_strikes(app: &mut App, strikes: i32) -> bevy::prelude::Entity 
             dialogue_id: None,
             patrol_radius: 0.0,
             patrol_path_id: None,
+            brain_override: None,
         },
     );
     // Peaceful actor = the unified enemy cluster with peaceful tuning.

@@ -186,6 +186,43 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
     Brain::StateMachine(cfg)
 }
 
+/// Build a runtime [`Brain`] from a preset, threading a per-spawn
+/// [`BrainBuildContext`](super::binding::BrainBuildContext).
+///
+/// Identical to [`brain_from_preset`] for every non-patrol preset. For a
+/// [`BrainPreset::Patrol`], the lane center is `ctx.spawn_world_x +
+/// spawn_local_x` and the lane radius is the placement's `patrol_radius`
+/// override when one was authored, else the preset's authored `radius`. The
+/// placement's patrol parameters PARAMETERIZE a chosen patrol preset — they
+/// never select it (that is the caller's explicit selection).
+pub fn brain_from_preset_with_context(
+    preset: &BrainPreset,
+    ctx: &super::binding::BrainBuildContext,
+) -> Brain {
+    if let BrainPreset::Patrol {
+        spawn_local_x,
+        radius,
+        speed,
+        aggressiveness,
+        aggro_radius,
+        attack_range,
+    } = preset
+    {
+        let lane_radius = ctx.patrol_radius.unwrap_or(*radius);
+        return Brain::StateMachine(StateMachineCfg::Patrol {
+            cfg: PatrolCfg {
+                lane: AuthoredWorldPatrolLane::new(ctx.spawn_world_x + spawn_local_x, lane_radius),
+                speed: *speed,
+                aggressiveness: *aggressiveness,
+                aggro_radius: *aggro_radius,
+                attack_range: *attack_range,
+            },
+            state: PatrolState::default(),
+        });
+    }
+    brain_from_preset(preset, ctx.spawn_world_x)
+}
+
 /// Build a runtime [`ActionSet`] from a preset.
 #[allow(
     dead_code,

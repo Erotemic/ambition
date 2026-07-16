@@ -395,6 +395,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_player",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -412,6 +413,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_robot",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -429,6 +431,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_goblin",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -446,6 +449,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_sandbag",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -463,6 +467,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_general",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -480,6 +485,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_goblin_cantina_chieftain",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -497,6 +503,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_pulse_voyager_captain",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -514,6 +521,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_tech_bro_disruptor",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -531,6 +539,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_noether",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -548,6 +557,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_pirate_admiral",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -565,6 +575,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_pirate_raider",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -582,6 +593,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_pirate_quartermaster",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -599,6 +611,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_pirate_lookout",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -616,6 +629,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_pirate_navigator",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -633,6 +647,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_stochastic_parrot",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -650,6 +665,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_perfect_cellular_automaton",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -667,6 +683,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_imperfect_cellular_automaton",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -684,6 +701,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_pirate_heavy_broadside_bess",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -701,6 +719,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_pirate_heavy_iron_mary",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -718,6 +737,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_pirate_heavy_salt_annet",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -735,6 +755,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_burning_flying_shark",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -752,6 +773,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -769,6 +791,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -786,6 +809,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_puppy_slug",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -803,6 +827,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_ninja_shadow_oni_leader",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -820,6 +845,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_ninja_shadow_duelist",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -837,6 +863,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_architect",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -854,6 +881,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_kernel_guide",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -871,6 +899,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_vault_keeper",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -888,6 +917,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_merchant_prototype",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -905,6 +935,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_alice",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -922,6 +953,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_bob",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -939,6 +971,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_creator",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -956,6 +989,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_creator_final",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -973,6 +1007,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_oiler",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -990,6 +1025,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_gate_janitor",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1007,6 +1043,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_manifest_clerk",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1024,6 +1061,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1041,6 +1079,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_erdish",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1058,6 +1097,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_lab_raider",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1075,6 +1115,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_salvage_guard",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1092,6 +1133,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_agent_swarm",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1109,6 +1151,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_ai_slop",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1126,6 +1169,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_colonial_statesman",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1143,6 +1187,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_craig",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1160,6 +1205,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_eve",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1177,6 +1223,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_raid_enforcer",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1194,6 +1241,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_galwah",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1211,6 +1259,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_general_hero",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1228,6 +1277,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_ghoul_skulker",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1245,6 +1295,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_girdle",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1262,6 +1313,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_goblin_brute_hammer",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1279,6 +1331,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_goblin_cave_dagger",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1296,6 +1349,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_goblin_desert_bow",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1313,6 +1367,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_goblin_forest_spear",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1330,6 +1385,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_ranged_skirmisher",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1347,6 +1403,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_exploding_mite",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1364,6 +1421,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_dividing_mite",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1381,6 +1439,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_goblin_frost_sword",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1398,6 +1457,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_goblin_shaman_staff",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1415,6 +1475,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_hand_saint",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1432,6 +1493,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_helpful_liar",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1449,6 +1511,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_judy",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1466,6 +1529,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_mallory",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1483,6 +1547,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_ninja_heavy",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1500,6 +1565,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_olivia",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1517,6 +1583,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_peggy",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1534,6 +1601,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_pirate_cutlass_viper",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1551,6 +1619,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1568,6 +1637,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1585,6 +1655,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1602,6 +1673,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1619,6 +1691,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1636,6 +1709,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_puppy_slug_variant2",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1653,6 +1727,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_robot_archivist",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1670,6 +1745,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_robot_caster",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1687,6 +1763,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_robot_diver",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1704,6 +1781,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_robot_engineer",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1721,6 +1799,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_robot_guardian",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1738,6 +1817,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_robot_medic",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1755,6 +1835,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_robot_miner",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1772,6 +1853,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_robot_runner",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1789,6 +1871,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1806,6 +1889,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1823,6 +1907,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_spaghetti_event",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1840,6 +1925,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_sybil",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1857,6 +1943,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_synthetic_friend",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1874,6 +1961,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_trent",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1891,6 +1979,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_trudy",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1908,6 +1997,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_victor",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1925,6 +2015,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_viking_heavy_shieldmaiden",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1942,6 +2033,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_viking_heavy_warrior",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1959,6 +2051,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_viking_shieldmaiden",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1976,6 +2069,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_viking_warrior",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -1993,6 +2087,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_walter",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2010,6 +2105,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_weird_hermit",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2027,6 +2123,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2044,6 +2141,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2061,6 +2159,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2078,6 +2177,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2095,6 +2195,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2112,6 +2213,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2129,6 +2231,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2146,6 +2249,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2163,6 +2267,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_bear_mauler",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2180,6 +2285,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_boss",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2197,6 +2303,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_dark_lord",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2214,6 +2321,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_flying_spaghetti_monster_boss",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2231,6 +2339,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_gnu_ton_boss",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2248,6 +2357,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_mantis_lancer",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2265,6 +2375,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_mockingbird_boss",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2282,6 +2393,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_raptor_stalker",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2299,6 +2411,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_smart_house",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2316,6 +2429,7 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_trex_enemy",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (
@@ -2333,6 +2447,7 @@
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
+                brain_override: "stand_still",
             ),
         ),
         (

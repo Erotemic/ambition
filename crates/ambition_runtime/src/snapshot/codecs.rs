@@ -1395,6 +1395,113 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
     }
 }
 
+/// **The explicit brain SELECTION** for a catalog-backed NPC: its character
+/// default preset plus whether it is on the default or an override. Self-contained
+/// (preset-id strings only — no `Entity`, no runtime brain), so it is a plain
+/// `register_component` and restores its own presence.
+///
+/// This is the authoritative snapshot state for "which brain is selected". The
+/// live [`Brain`](ambition_characters::brain::Brain) cursor is a no-op for the
+/// peaceful/patrol NPC brains, so after a rewind PAST a runtime brain switch the
+/// live brain kind could disagree with the restored selection —
+/// [`reconcile_brain_bindings`] rebuilds the brain from this binding to make them
+/// agree before the next re-simulated tick.
+impl SnapshotState for ambition_characters::actor::character_catalog::BrainBinding {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use ambition_characters::actor::character_catalog::BrainSelection;
+        put_str(out, self.default_preset.as_str());
+        match &self.selection {
+            BrainSelection::Default => put_u8(out, 0),
+            BrainSelection::Override(preset) => {
+                put_u8(out, 1);
+                put_str(out, preset.as_str());
+            }
+        }
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_characters::actor::character_catalog::{
+            BrainBinding, BrainPresetId, BrainSelection,
+        };
+        let default_preset = BrainPresetId::new(r.str()?.to_string());
+        let selection = match r.u8()? {
+            0 => BrainSelection::Default,
+            1 => BrainSelection::Override(BrainPresetId::new(r.str()?.to_string())),
+            _ => return None,
+        };
+        Some(BrainBinding {
+            default_preset,
+            selection,
+        })
+    }
+}
+
+/// Post-restore reconcile: rebuild a catalog-backed NPC's live `Brain` from its
+/// restored [`BrainBinding`] **only when the kind diverged** — i.e. a rewind
+/// crossed a runtime brain switch, so the live brain no longer matches the
+/// restored selection.
+///
+/// The `Brain` cursor is a no-op for peaceful/patrol NPC brains (their kind was
+/// authored-immutable before runtime switching existed), so it cannot restore a
+/// switched kind. Left unreconciled, the next re-simulated tick would drive the
+/// wrong brain — a desync. We compare `Brain::label()` (the variant name) against
+/// the brain the binding resolves to: identical → leave the live brain untouched
+/// (preserving its ticking state, exactly today's behavior); different → replace
+/// it with a fresh brain built from the binding via the same catalog seam spawn
+/// uses. Skips gracefully when the world has no `CharacterCatalog` (headless
+/// snapshot fixtures).
+pub fn reconcile_brain_bindings(world: &mut bevy::ecs::world::World) {
+    use ambition_characters::actor::character_catalog::{BrainBinding, BrainBuildContext};
+    use ambition_characters::actor::ActorPose;
+    use ambition_characters::brain::Brain;
+
+    // 1. Collect each catalog-backed NPC's active preset, spawn anchor, and the
+    //    live brain's variant label (an immutable pass).
+    let jobs: Vec<(bevy::ecs::entity::Entity, String, f32, &'static str)> = {
+        let Some(mut q) =
+            world.try_query::<(bevy::ecs::entity::Entity, &BrainBinding, &ActorPose, &Brain)>()
+        else {
+            return;
+        };
+        q.iter(world)
+            .map(|(entity, binding, pose, brain)| {
+                (
+                    entity,
+                    binding.active_preset().0.clone(),
+                    pose.origin().x,
+                    brain.label(),
+                )
+            })
+            .collect()
+    };
+    if jobs.is_empty() {
+        return;
+    }
+
+    // 2. Rebuild only where the KIND diverged, via the same catalog seam as spawn.
+    let rebuilt: Vec<(bevy::ecs::entity::Entity, Brain)> = {
+        let Some(catalog) =
+            world.get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
+        else {
+            return;
+        };
+        jobs.iter()
+            .filter_map(|(entity, preset, spawn_x, live_label)| {
+                let candidate =
+                    catalog.build_brain_from_preset(preset, &BrainBuildContext::at(*spawn_x))?;
+                (candidate.label() != *live_label).then_some((*entity, candidate))
+            })
+            .collect()
+    };
+
+    // 3. Write the reconciled brains back.
+    for (entity, brain) in rebuilt {
+        if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
+            entity_mut.insert(brain);
+        }
+    }
+}
+
 snapshot_unit_enum!(ambition_engine_core::reference_frame::GameplayFramePolicy {
     ControlledBodyLocal = 0,
     AccelerationFrame = 1,
@@ -2068,5 +2175,90 @@ impl SnapshotResolve for ambition_encounter::EncounterWaves {
         };
         waves.spawn_counter = spawn_counter;
         Ok(Some(waves))
+    }
+}
+
+#[cfg(test)]
+mod brain_reconcile_tests {
+    //! `reconcile_brain_bindings` is the post-restore step that keeps a
+    //! catalog-backed NPC's live `Brain` in agreement with its restored
+    //! `BrainBinding` after a rewind crosses a runtime brain switch.
+
+    use ambition_characters::actor::character_catalog::{
+        parse_catalog, BrainBinding, BrainPresetId, BrainSelection, CharacterCatalog,
+    };
+    use ambition_characters::actor::ActorPose;
+    use ambition_characters::brain::Brain;
+    use ambition_engine_core as ae;
+    use ambition_platformer_primitives::sim_id::SimId;
+    use bevy::prelude::World;
+
+    const CATALOG: &str = r#"(
+        brain_presets: {
+            "stand_still": StandStill,
+            "wanderer_puppy_slug": Wanderer(speed: 36.0, aggressiveness: 0.0),
+        },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "npc_puppy_slug": (
+                display_name: "Puppy Slug", spritesheet: "x.png", manifest: "x_spritesheet.ron",
+                tier: MainHall, body_kind: Crawler, composition: None,
+                default_brain: "wanderer_puppy_slug", default_action_set: "peaceful", tags: [],
+            ),
+        },
+    )"#;
+
+    fn world_with_npc(brain: Brain, binding: BrainBinding) -> (World, bevy::ecs::entity::Entity) {
+        let mut world = World::new();
+        world.insert_resource(CharacterCatalog::from_data(parse_catalog(CATALOG)));
+        let e = world
+            .spawn((
+                SimId::placement("puppy"),
+                brain,
+                binding,
+                ActorPose::from_parts(ae::Vec2::new(100.0, 0.0), ae::Vec2::new(8.0, 8.0), 1.0),
+            ))
+            .id();
+        (world, e)
+    }
+
+    #[test]
+    fn reconcile_rebuilds_the_brain_when_the_kind_diverged() {
+        // A rewind PAST a switch: the binding is Default (wanderer) but the live
+        // brain is a since-rewound stand_still. Reconcile rebuilds it to agree
+        // with the restored selection — otherwise the next re-simulated tick
+        // drives the wrong brain (a desync).
+        let (mut world, e) = world_with_npc(
+            Brain::stand_still(),
+            BrainBinding::new(
+                BrainPresetId::new("wanderer_puppy_slug"),
+                BrainSelection::Default,
+            ),
+        );
+        super::reconcile_brain_bindings(&mut world);
+        assert_eq!(
+            world.get::<Brain>(e).unwrap().label(),
+            "wanderer",
+            "a diverged brain is rebuilt from the restored binding"
+        );
+    }
+
+    #[test]
+    fn reconcile_leaves_a_matching_brain_untouched() {
+        // Binding is Override(stand_still) and the live brain IS stand_still: no
+        // divergence, so reconcile must not rebuild (it preserves live state).
+        let (mut world, e) = world_with_npc(
+            Brain::stand_still(),
+            BrainBinding::new(
+                BrainPresetId::new("wanderer_puppy_slug"),
+                BrainSelection::Override(BrainPresetId::new("stand_still")),
+            ),
+        );
+        super::reconcile_brain_bindings(&mut world);
+        assert_eq!(
+            world.get::<Brain>(e).unwrap().label(),
+            "stand_still",
+            "a matching brain kind is left as-is"
+        );
     }
 }

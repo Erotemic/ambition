@@ -163,11 +163,13 @@ fn interaction_kind_from_spec(
             dialogue_id,
             patrol_radius,
             patrol_path_id,
+            brain_override,
         } => ambition_interaction::InteractionKind::Npc {
             character_id: character_id.clone(),
             dialogue_id: dialogue_id.clone(),
             patrol_radius: *patrol_radius,
             patrol_path_id: patrol_path_id.clone(),
+            brain_override: brain_override.clone(),
         },
         crate::rooms::InteractionKindSpec::Chest => ambition_interaction::InteractionKind::Chest,
         crate::rooms::InteractionKindSpec::Pickup => ambition_interaction::InteractionKind::Pickup,

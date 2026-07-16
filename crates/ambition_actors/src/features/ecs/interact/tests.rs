@@ -181,6 +181,7 @@ fn spawn_pedestal(app: &mut App, pos: ae::Vec2, character_id: &str, dialogue_id:
             dialogue_id: Some(dialogue_id.to_string()),
             patrol_radius: 0.0,
             patrol_path_id: None,
+            brain_override: None,
         },
     );
     app.world_mut()
@@ -326,6 +327,7 @@ fn character_identity_beats_placement_identity() {
             dialogue_id: Some("hall_player".into()),
             patrol_radius: 0.0,
             patrol_path_id: None,
+            brain_override: None,
         },
     );
     let interaction = ActorInteraction {

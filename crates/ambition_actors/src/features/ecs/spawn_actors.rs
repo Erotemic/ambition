@@ -383,6 +383,11 @@ pub(super) struct NpcActorSpawnPlan {
     render_size: Option<ae::Vec2>,
     interactable: ambition_interaction::Interactable,
     brain: ambition_characters::brain::Brain,
+    /// The explicit brain binding (default preset + current selection) for a
+    /// catalog-backed NPC. `None` for anonymous NPCs (no catalog identity). When
+    /// present, it is attached so the actor's brain can be switched at runtime
+    /// (`BrainCommand`) and its selection survives snapshot/restore.
+    brain_binding: Option<ambition_characters::actor::character_catalog::BrainBinding>,
     action_set: ambition_characters::brain::ActionSet,
     combat_kit: crate::combat::CombatKit,
     aggression: super::ActorAggression,
@@ -429,20 +434,14 @@ impl NpcActorSpawnPlan {
             &interactable,
             paths,
         );
-        let patrol_radius = match &interactable.kind {
-            ambition_interaction::InteractionKind::Npc { patrol_radius, .. } => {
-                patrol_radius.max(0.0)
-            }
-            _ => 0.0,
-        };
-        let brain = super::super::npcs::npc_brain_from_catalog(
-            catalog,
-            &interactable,
-            seed.config.spawn.pos.x,
-            patrol_radius,
-            super::super::npcs::NPC_TALK_RADIUS,
-            seed.motion.0.is_some(),
-        );
+        // Explicit brain authority: the placement's `brain_override` (else the
+        // character's catalog `default_brain`) selects the brain; `patrol_radius`
+        // / `patrol_path_id` only PARAMETERIZE a selected patrol preset. No
+        // radius/motion/hostility inference. A catalog-backed NPC also gets a
+        // `BrainBinding` so its brain can be switched at runtime and its
+        // selection survives snapshot.
+        let (brain, brain_binding) =
+            super::super::npcs::resolve_npc_brain(catalog, &interactable, seed.config.spawn.pos.x);
         Self {
             entity_name: entity_name.into(),
             feature_id: id,
@@ -452,6 +451,7 @@ impl NpcActorSpawnPlan {
             render_size,
             interactable,
             brain,
+            brain_binding,
             // Body CAPABILITY, not AI POLICY: a peaceful NPC carries its authored
             // combat kit as its `ActionSet` (the same kit it fights with when
             // provoked), so the SAME body can throw its authored punch/swing when a
@@ -519,6 +519,13 @@ impl NpcActorSpawnPlan {
             ),
         );
         entity.insert(interaction);
+        // The explicit brain binding travels with the actor so runtime brain
+        // switches (`BrainCommand`) and snapshot/restore both read the same
+        // authoritative selection. Anonymous NPCs (no catalog identity) carry no
+        // binding.
+        if let Some(binding) = self.brain_binding {
+            entity.insert(binding);
+        }
         if let Some(moveset) = npc_moveset {
             let has_attack = moveset
                 .verbs

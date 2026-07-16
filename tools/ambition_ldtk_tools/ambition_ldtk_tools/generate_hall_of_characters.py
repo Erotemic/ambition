@@ -436,6 +436,13 @@ def build_spec(
                     "prompt": "Inspect",
                     "dialogue_id": hall_dialogue_ids.get(cid, ""),
                     "patrol_radius": 0,
+                    # Every Hall pedestal is a REAL NPC instance frozen by an
+                    # EXPLICIT stand-still brain override — not a Hall room flag or
+                    # inferred placement behaviour. This is why peaceful wanderers
+                    # (puppy slugs) hold still on their pedestal while keeping their
+                    # full identity/body/dialogue and the ability to be switched
+                    # back to their default brain later.
+                    "brain_override": "stand_still",
                 },
             )
         )
@@ -456,6 +463,8 @@ def build_spec(
                     "prompt": "Inspect",
                     "dialogue_id": hall_dialogue_ids.get(cid, ""),
                     "patrol_radius": 0,
+                    # Explicit stand-still override (see the main-hall pedestal note).
+                    "brain_override": "stand_still",
                 },
             )
         )

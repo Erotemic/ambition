@@ -1500,8 +1500,11 @@ fn a_rewind_empties_the_message_channels_it_registered() {
     let report = restore(s.world_mut(), &snap, &reg).expect("same-room restore");
     // Every registered channel: actor_action, hit_event, on_hit_effect,
     // move_event + the E8 encounter ingress pair (command, event) + the
-    // room-construction staging fact (room_loaded, N3.2b).
-    assert_eq!(report.messages_cleared, 9);
+    // room-construction staging fact (room_loaded, N3.2b) + spawn_actor_request +
+    // room_transition_requested + the runtime brain-switch authority
+    // (brain_command, actor_directive_request, actor_action_request,
+    // actor_animation_directive, disposition_directive).
+    assert_eq!(report.messages_cleared, 14);
     assert!(
         reg.pending_messages(s.world()).is_empty(),
         "a message from the abandoned future survived the rewind: {:?}",

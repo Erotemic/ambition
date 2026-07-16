@@ -13,12 +13,17 @@
 
 use bevy::prelude::*;
 
+pub mod binding;
 pub mod entry;
 pub mod loader;
 pub mod registry;
 pub mod resolver;
 pub mod validator;
 
+pub use binding::{
+    qualify_preset_like, resolve_initial_brain, BrainBinding, BrainBuildContext, BrainBuildError,
+    BrainPresetId, BrainSelection, InitialBrainSelection, PresetSource,
+};
 #[allow(
     unused_imports,
     reason = "public surface; downstream phases consume these as they land"
@@ -39,7 +44,7 @@ pub use registry::{
     CharacterCatalogDefaults, CharacterCatalogFragment, CharacterCatalogOwners,
     CharacterCatalogRegistry,
 };
-pub use resolver::{action_set_from_preset, brain_from_preset};
+pub use resolver::{action_set_from_preset, brain_from_preset, brain_from_preset_with_context};
 
 /// Bevy resource holding the parsed catalog. Inserted at Startup by
 /// [`CharacterCatalogPlugin`].
@@ -110,6 +115,39 @@ impl CharacterCatalog {
         let entry = self.get(character_id)?;
         let preset = self.0.brain_presets.get(&entry.default_brain)?;
         Some(brain_from_preset(preset, spawn_world_x))
+    }
+
+    /// Build a runtime [`crate::brain::Brain`] from a NAMED brain preset,
+    /// threading the per-spawn [`BrainBuildContext`] (patrol lane center / radius
+    /// / path). `None` if the preset name is not in `brain_presets`.
+    ///
+    /// This is the single seam `preset name → Brain`. Both
+    /// [`resolve_initial_brain`] (spawn) and the runtime `BrainCommand` reducer
+    /// call it, so a preset resolves identically at spawn and at a later runtime
+    /// switch. It never inspects the built brain.
+    pub fn build_brain_from_preset(
+        &self,
+        preset_name: &str,
+        ctx: &BrainBuildContext,
+    ) -> Option<crate::brain::Brain> {
+        let preset = self.0.brain_presets.get(preset_name)?;
+        Some(brain_from_preset_with_context(preset, ctx))
+    }
+
+    /// Whether a named brain preset exists in this catalog.
+    pub fn has_brain_preset(&self, preset_name: &str) -> bool {
+        self.0.brain_presets.contains_key(preset_name)
+    }
+
+    /// Whether a named brain preset is a `Patrol` preset — the presets that
+    /// consume placement `patrol_radius` / `patrol_path_id` parameters. Used by
+    /// content validation to flag patrol parameters attached to an incompatible
+    /// (non-patrol) preset.
+    pub fn brain_preset_is_patrol(&self, preset_name: &str) -> bool {
+        matches!(
+            self.0.brain_presets.get(preset_name),
+            Some(entry::BrainPreset::Patrol { .. })
+        )
     }
 
     /// Resolve a character_id into a runtime [`crate::brain::action_set::ActionSet`]

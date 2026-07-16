@@ -171,6 +171,61 @@ pub fn cmd_challenge(
         });
 }
 
+/// `<<use_brain "preset">>` — switch the NPC the player is talking to onto an
+/// explicit brain preset at runtime, changing its AUTONOMOUS behaviour (a
+/// dialogue outcome like "fight me" pairs this with a disposition change). Routes
+/// through the central [`ActorDirectiveRequest`] seam →
+/// [`BrainCommand`](crate::features::BrainCommand), so the runtime switch is
+/// deterministic and snapshot-safe; it never edits the `Brain` component directly.
+/// No-ops (with a log) if the speaker has no stable id (scripted/anonymous
+/// dialogue).
+///
+/// [`ActorDirectiveRequest`]: crate::features::ActorDirectiveRequest
+pub fn cmd_use_brain(
+    In(preset): In<String>,
+    dialogue: Res<ambition_dialog::DialogState>,
+    sim_ids: Query<&ambition_platformer_primitives::sim_id::SimId>,
+    mut directives: MessageWriter<crate::features::ActorDirectiveRequest>,
+) {
+    let Some(actor) = dialogue.speaker_entity() else {
+        warn!("<<use_brain>>: no speaker entity in dialogue context; ignoring");
+        return;
+    };
+    let Ok(sim_id) = sim_ids.get(actor) else {
+        warn!("<<use_brain>>: speaker has no SimId; ignoring");
+        return;
+    };
+    directives.write(crate::features::ActorDirectiveRequest {
+        target: sim_id.clone(),
+        directive: crate::features::ActorDirective::UseBrainPreset(
+            ambition_characters::actor::character_catalog::BrainPresetId::new(preset),
+        ),
+    });
+}
+
+/// `<<restore_brain>>` — restore the NPC the player is talking to back to its
+/// character-default brain (e.g. "you are free"). The runtime counterpart of the
+/// spawn-time `CharacterDefault`. Routes through the same
+/// [`ActorDirectiveRequest`](crate::features::ActorDirectiveRequest) seam.
+pub fn cmd_restore_brain(
+    dialogue: Res<ambition_dialog::DialogState>,
+    sim_ids: Query<&ambition_platformer_primitives::sim_id::SimId>,
+    mut directives: MessageWriter<crate::features::ActorDirectiveRequest>,
+) {
+    let Some(actor) = dialogue.speaker_entity() else {
+        warn!("<<restore_brain>>: no speaker entity in dialogue context; ignoring");
+        return;
+    };
+    let Ok(sim_id) = sim_ids.get(actor) else {
+        warn!("<<restore_brain>>: speaker has no SimId; ignoring");
+        return;
+    };
+    directives.write(crate::features::ActorDirectiveRequest {
+        target: sim_id.clone(),
+        directive: crate::features::ActorDirective::RestoreDefaultBrain,
+    });
+}
+
 /// `<<give_item "kind" count>>` — grant the player an item by adding
 /// to the live `OwnedItems` catalog resource. The kind string is
 /// resolved through [`crate::items::Item::from_dialog_id`]
@@ -413,6 +468,8 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let set_flag_id = commands.register_system(cmd_set_flag);
     let clear_flag_id = commands.register_system(cmd_clear_flag);
     let challenge_id = commands.register_system(cmd_challenge);
+    let use_brain_id = commands.register_system(cmd_use_brain);
+    let restore_brain_id = commands.register_system(cmd_restore_brain);
     let give_item_id = commands.register_system(cmd_give_item);
     let buy_item_id = commands.register_system(cmd_buy_item);
     let sell_item_id = commands.register_system(cmd_sell_item);
@@ -424,6 +481,8 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     cmds.add_command("set_flag", set_flag_id);
     cmds.add_command("clear_flag", clear_flag_id);
     cmds.add_command("challenge", challenge_id);
+    cmds.add_command("use_brain", use_brain_id);
+    cmds.add_command("restore_brain", restore_brain_id);
     cmds.add_command("give_item", give_item_id);
     cmds.add_command("buy_item", buy_item_id);
     cmds.add_command("sell_item", sell_item_id);

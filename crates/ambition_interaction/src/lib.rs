@@ -46,26 +46,30 @@ pub enum InteractionKind {
     Npc {
         /// Catalog `character_id` this NPC was authored from (LDtk `NpcSpawn`
         /// field). Carries the catalog join through to spawn so the runtime can
-        /// resolve the character's `default_brain` + `body_kind` from data
-        /// (instead of hardcoding Patrol/StandStill). `None` for NPCs built
-        /// without a catalog row (legacy / synthetic spawns).
+        /// resolve the character's `default_brain` + `body_kind` from data.
+        /// `None` for NPCs built without a catalog row (legacy / synthetic
+        /// spawns) — those get a plain stand-still brain and no brain binding.
         character_id: Option<String>,
         dialogue_id: Option<String>,
-        /// Half-range of the NPC's fallback patrol pace, in world pixels.
-        /// `0.0` (the default) means the NPC stands still unless
-        /// `patrol_path_id` is set. Values > 0 make the NPC pace between
-        /// `[spawn_x - patrol_radius, spawn_x + patrol_radius]` at the
-        /// sandbox's authored patrol speed. The NPC stops inside the player's
-        /// `talk_radius` so the player can open dialog without chasing a
-        /// moving target.
-        ///
-        /// Engine model only — the actual movement / gravity / collision lives
-        /// in `ambition_actors::features::NpcRuntime`.
+        /// Half-range of a *selected* patrol preset's pace, in world pixels. This
+        /// is a PARAMETER a chosen patrol brain preset consumes for its lane
+        /// radius — it does NOT select whether the NPC receives a patrol brain
+        /// (the explicit `brain_override` / catalog `default_brain` does). `0.0`
+        /// (the default) leaves the selected patrol preset's authored radius.
+        /// Ignored by every non-patrol preset. The NPC still stops inside the
+        /// player's `talk_radius` so dialog is reachable.
         patrol_radius: f32,
-        /// Optional authored `KinematicPathSpec` lookup id used by the sandbox
-        /// runtime to drive peaceful NPC patrols. When set, it takes
-        /// precedence over `patrol_radius`.
+        /// Optional authored `KinematicPathSpec` lookup id, threaded to a
+        /// selected patrol preset that supports one. Like `patrol_radius`, a
+        /// parameter for a chosen patrol brain — never a brain selector.
         patrol_path_id: Option<String>,
+        /// Explicit initial brain preset override (a `brain_presets` key). `None`
+        /// / empty means use the character's catalog `default_brain`. This is the
+        /// authored brain SELECTION; the runtime resolves it via
+        /// `ambition_characters`'s `resolve_initial_brain` without ever
+        /// inspecting the resulting brain.
+        #[serde(default)]
+        brain_override: Option<String>,
     },
     Chest,
     Pickup,

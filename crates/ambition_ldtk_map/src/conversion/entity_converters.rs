@@ -377,11 +377,14 @@ pub(super) fn convert_npc_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
         ambition_world::rooms::InteractionKindSpec::Npc {
             character_id: (!character_id.is_empty()).then(|| character_id.clone()),
             dialogue_id: field_string(entity, "dialogue_id"),
-            // Optional `patrol_radius` field on NpcSpawn. 0 (or unset)
-            // -> static NPC unless `path_id` is set.
+            // Optional `patrol_radius` field on NpcSpawn: a lane-radius PARAMETER
+            // consumed by a selected patrol brain preset, not a brain selector.
             patrol_radius: field_f32(entity, "patrol_radius").unwrap_or(0.0),
             patrol_path_id: field_string(entity, "path_id")
                 .or_else(|| field_string(entity, "patrol_path_id")),
+            // Optional explicit initial brain preset override. Absent/empty ->
+            // the character's catalog `default_brain`.
+            brain_override: field_string(entity, "brain_override"),
         },
     );
     let (id, name, aabb) = authored_triple(entity, display_name, min, size);

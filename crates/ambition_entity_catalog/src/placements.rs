@@ -149,6 +149,14 @@ pub enum InteractionKindSpec {
         dialogue_id: Option<String>,
         patrol_radius: f32,
         patrol_path_id: Option<String>,
+        /// Explicit initial brain preset override (a `brain_presets` key). `None`
+        /// / empty means use the character's catalog `default_brain`. A non-empty
+        /// value names the preset this placement's brain is instantiated from,
+        /// regardless of the character's default. The brain is NEVER selected by
+        /// inspecting radius/path/hostility; this string is the authored choice,
+        /// resolved by `ambition_characters`'s `resolve_initial_brain`.
+        #[serde(default)]
+        brain_override: Option<String>,
     },
     Chest,
     Pickup,

@@ -1,5 +1,5 @@
 //! Peaceful-actor (NPC) glue for the unified actor simulation: the catalog
-//! brain builder ([`npc_brain_from_catalog`]) and the hit/hostile/dialogue/
+//! brain resolver ([`resolve_npc_brain`]) and the hit/hostile/dialogue/
 //! idle-bark line resolvers. Peaceful actors are the SAME ECS cluster as hostile
 //! enemies now (see [`crate::features::ecs::actor_clusters`]); this module no
 //! longer owns a separate NPC runtime view — only the dialogue/bark selection and
@@ -42,57 +42,69 @@ const GENERIC_HIT_BARKS: &[&str] = &["Hey.", "Cut it out.", "Okay, now I'm mad."
 /// catalog `barks.provoked` pool). Named archetypes author their own.
 const GENERIC_HOSTILE_BARK: &str = "That's it!";
 
-/// Build the peaceful `Brain` component for a catalog/authored NPC.
+/// Resolve the explicit initial brain (and its runtime [`BrainBinding`]) for a
+/// placed NPC.
 ///
-/// Data-driven: if the NPC was authored from a catalog row that asks for a RICH,
-/// PEACEFUL brain (past Patrol/StandStill but not hostile — e.g. the lively
-/// Aerial flyer), honor the catalog `default_brain`. A placed `NpcSpawn` is
-/// peaceful/talkable BY CONSTRUCTION, so a catalog row whose `default_brain` is
-/// HOSTILE (some catalog rows carry a combat brain for when they spawn as
-/// ENEMIES) must NOT turn the friendly NPC into a player-chaser — those fall
-/// through to the peaceful patrol/standstill below. (An NPC only turns hostile
-/// by being struck past its retaliation threshold.)
+/// Precedence is entirely explicit: the placement's `brain_override` preset,
+/// else the character's catalog `default_brain`. The placement's `patrol_radius`
+/// / `patrol_path_id` are threaded only as PARAMETERS a *selected* patrol preset
+/// consumes (its lane radius / path); they never SELECT the brain. This function
+/// never inspects the resulting brain — there is no "basic brain" classification,
+/// no `is_hostile` gate, and no `patrol_radius == 0` sentinel.
 ///
-/// Drives the actor's movement at the unified tick; the cluster `config.brain`
-/// (an `CharacterBrain`) only feeds the integrator's patrol-stall intent.
-pub(crate) fn npc_brain_from_catalog(
-    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
-    interactable: &ambition_interaction::Interactable,
-    spawn_x: f32,
-    patrol_radius: f32,
-    talk_radius: f32,
-    has_motion: bool,
-) -> ambition_characters::brain::Brain {
-    if let ambition_interaction::InteractionKind::Npc {
-        character_id: Some(cid),
+/// An NPC placed without a `character_id` (legacy / synthetic) has no catalog
+/// identity to resolve a default from: it gets a plain stand-still brain and no
+/// binding (nothing to switch or snapshot). A catalog-backed NPC returns its
+/// binding so runtime gameplay can switch its brain and snapshot the selection.
+///
+/// Fails loud (panics) on unresolvable content — an unknown `character_id` or an
+/// unknown preset name — matching the catalog's pre-release fail-loud stance.
+/// Unknown preset names never fall back silently to the default or StandStill.
+pub(crate) fn resolve_npc_brain(
+    catalog: &CharacterCatalog,
+    interactable: &Interactable,
+    spawn_world_x: f32,
+) -> (ambition_characters::brain::Brain, Option<BrainBinding>) {
+    let InteractionKind::Npc {
+        character_id,
+        patrol_radius,
+        patrol_path_id,
+        brain_override,
         ..
     } = &interactable.kind
-    {
-        if let Some(brain) = catalog.build_default_brain(cid, spawn_x) {
-            let is_basic = matches!(
-                brain,
-                ambition_characters::brain::Brain::StateMachine(
-                    ambition_characters::brain::StateMachineCfg::Patrol { .. }
-                        | ambition_characters::brain::StateMachineCfg::StandStill
-                )
+    else {
+        return (ambition_characters::brain::Brain::stand_still(), None);
+    };
+    let Some(cid) = character_id.as_deref() else {
+        // Anonymous NPC: no catalog row, so no default to resolve and nothing to
+        // bind. A stand-still body is the honest inert default.
+        return (ambition_characters::brain::Brain::stand_still(), None);
+    };
+    let selection = InitialBrainSelection::from_authored(brain_override.as_deref());
+    let ctx =
+        BrainBuildContext::from_placement(spawn_world_x, *patrol_radius, patrol_path_id.clone());
+    match resolve_initial_brain(catalog, cid, &selection, &ctx) {
+        Ok((binding, brain)) => (brain, Some(binding)),
+        // No catalog row for this id in the current context — e.g. a provider
+        // character exhibited (the Hall) where its provider fragment isn't
+        // registered, or legacy content. The old heuristic fell back to
+        // stand-still here; keep that tolerance so a partial catalog never
+        // crashes a spawn. The body is an inert stand-still with no binding
+        // (nothing to switch or snapshot). Unknown-character validation belongs
+        // in a content test, not a spawn-time crash.
+        Err(ambition_characters::actor::character_catalog::BrainBuildError::UnknownCharacter(
+            _,
+        )) => {
+            bevy::log::warn!(
+                target: "ambition_actors::npcs",
+                "NPC `{cid}` has no character catalog row in this context; stand-still fallback",
             );
-            if !is_basic && !brain.is_hostile() {
-                return brain;
-            }
+            (ambition_characters::brain::Brain::stand_still(), None)
         }
-    }
-    if patrol_radius > 0.0 || has_motion {
-        let mut cfg = ambition_characters::brain::PatrolCfg::NPC_DEFAULT;
-        cfg.lane = ambition_characters::brain::AuthoredWorldPatrolLane::new(spawn_x, patrol_radius);
-        cfg.aggro_radius = talk_radius;
-        ambition_characters::brain::Brain::StateMachine(
-            ambition_characters::brain::StateMachineCfg::Patrol {
-                cfg,
-                state: ambition_characters::brain::PatrolState::default(),
-            },
-        )
-    } else {
-        ambition_characters::brain::Brain::stand_still()
+        // An authored `brain_override` naming a preset that does not exist (after
+        // namespace qualification) is a genuine content error with no valid
+        // interpretation — fail loud (pre-release stance), never silently fall back.
+        Err(err) => panic!("NPC spawn `{cid}`: {err}"),
     }
 }
 
@@ -104,7 +116,10 @@ pub(crate) fn npc_brain_from_catalog(
 // per-family cluster. That keeps dialogue an actor capability (the
 // `ActorInteraction` seam): any talkable actor can drive them.
 
-use ambition_characters::actor::character_catalog::{BarkSituation, CharacterCatalog};
+use ambition_characters::actor::character_catalog::{
+    resolve_initial_brain, BarkSituation, BrainBinding, BrainBuildContext, CharacterCatalog,
+    InitialBrainSelection,
+};
 use ambition_interaction::{Interactable, InteractionKind};
 
 pub(crate) fn npc_flag_id(id: &str) -> String {
@@ -253,6 +268,7 @@ mod tests {
                 dialogue_id: None,
                 patrol_radius: 0.0,
                 patrol_path_id: None,
+                brain_override: None,
             },
         )
     }

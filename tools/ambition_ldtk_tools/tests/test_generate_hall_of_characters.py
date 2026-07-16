@@ -22,6 +22,7 @@ from ambition_ldtk_tools.generate_hall_of_characters import (  # noqa: E402
     MAIN_SLOT_HEIGHT_PX,
     MAIN_SLOT_WIDTH_PX,
     basement_rows_for,
+    build_spec,
     derived_dims,
     main_floors_for,
     make_entity,
@@ -92,6 +93,23 @@ def test_merge_provider_entries_appends_and_dedupes():
     )
     assert merged_main == ["goblin", "robot", "sanic", "mary_o"]
     assert merged_basement == ["npc_trex_enemy", "smirking_behemoth_boss"]
+
+
+def test_every_pedestal_gets_the_explicit_stand_still_override():
+    """Every generated Hall NpcSpawn (main-hall AND basement) carries an EXPLICIT
+    `brain_override: "stand_still"`. That explicit preset — not a Hall room flag or
+    inferred placement behaviour — is why a peaceful wanderer (a puppy slug) holds
+    still on its pedestal. The Hall stays fully explicit."""
+    spec = build_spec(["alpha", "beta", "gamma"], ["boss_one"], {})
+    npc_entities = [e for e in spec["entities"] if e["type"] == "NpcSpawn"]
+    # 3 main-hall + 1 basement pedestal.
+    assert len(npc_entities) == 4
+    for entity in npc_entities:
+        assert entity["fields"]["brain_override"] == "stand_still", entity
+        # The pedestal remains a real, complete NPC (identity + inspect prompt),
+        # not a presentation-only exhibit.
+        assert entity["fields"]["character_id"] in {"alpha", "beta", "gamma", "boss_one"}
+        assert entity["fields"]["prompt"] == "Inspect"
 
 
 def test_make_entity_shape():

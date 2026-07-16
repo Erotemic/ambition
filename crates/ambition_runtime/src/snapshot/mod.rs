@@ -1202,12 +1202,9 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     // - `ActorStatus` / `ActorIntent` / `BodyModeState` carry unit enums and need a
     //   discriminant codec whose mapping is EXPLICIT, not declaration order.
     registry.register_component::<ambition_combat::components::BodyMelee>("body_melee");
-    registry.register_component::<ambition_combat::components::ActorDisposition>(
-        "actor_disposition",
-    );
-    registry.register_cursor::<ambition_combat::components::ActorAggression>(
-        "actor_aggression",
-    );
+    registry
+        .register_component::<ambition_combat::components::ActorDisposition>("actor_disposition");
+    registry.register_cursor::<ambition_combat::components::ActorAggression>("actor_aggression");
     registry.register_component::<ambition_characters::actor::pose::ActorPose>("actor_pose");
     // The canonical playable-persona identity. A restore patches it onto the
     // survivor; the identity/ability Changed<> derive re-applies gameplay and
@@ -1261,6 +1258,15 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     // The boss's mind: step cursor, stance clocks, and the seeded RNG. A cursor,
     // because the brain's KIND and tuning are authored and survive the patch.
     registry.register_cursor::<ambition_characters::brain::Brain>("brain");
+    // The explicit brain SELECTION for a catalog-backed NPC (default preset +
+    // current default/override). A plain component (self-contained preset-ids):
+    // the authoritative snapshot state for which brain is selected. The `Brain`
+    // cursor above is a no-op for peaceful NPC brains, so after a rewind past a
+    // runtime brain switch `codecs::reconcile_brain_bindings` (invoked by
+    // `restore`) rebuilds the live brain from THIS to keep the two in agreement.
+    registry.register_component::<ambition_characters::actor::character_catalog::BrainBinding>(
+        "brain_binding",
+    );
     registry
         .register_component::<ambition_actors::features::ActorSurfaceState>("actor_surface_state");
     registry.register_component::<ambition_combat::components::BodyEnvelope>("body_envelope");
@@ -1280,9 +1286,9 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_component::<ambition_platformer_primitives::lifecycle::RoomScopedEntity>(
         "room_scoped_entity",
     );
-    registry.register_component::<
-        ambition_platformer_primitives::lifecycle::SessionScopedEntity,
-    >("session_scoped_entity");
+    registry.register_component::<ambition_platformer_primitives::lifecycle::SessionScopedEntity>(
+        "session_scoped_entity",
+    );
 
     // ── The projectile family (the first blob-rebuildable dynamic family) ────
     //
@@ -1385,6 +1391,23 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     // a Completed event) replayed after a restore would double-apply.
     registry.register_message_channel::<ambition_encounter::EncounterCommand>("encounter_command");
     registry.register_message_channel::<ambition_encounter::EncounterEventMsg>("encounter_event");
+    // Runtime brain-switch authority + actor-directive routing. A `BrainCommand`
+    // (or a directive request that fans out to one) pending from the abandoned
+    // future would switch a brain twice in the restored past; the replayed input
+    // re-issues it, so clearing here is what makes the switch deterministic.
+    registry.register_message_channel::<ambition_actors::features::BrainCommand>("brain_command");
+    registry.register_message_channel::<ambition_actors::features::ActorDirectiveRequest>(
+        "actor_directive_request",
+    );
+    registry.register_message_channel::<ambition_actors::features::ActorActionRequest>(
+        "actor_action_request",
+    );
+    registry.register_message_channel::<ambition_actors::features::ActorAnimationDirective>(
+        "actor_animation_directive",
+    );
+    registry.register_message_channel::<ambition_actors::features::DispositionDirective>(
+        "disposition_directive",
+    );
     // The room-construction staging fact (N3.2b). Two reasons it must clear on
     // restore: a `RoomLoaded` pending from the abandoned future would re-stage
     // content beats in the restored past, and the atomic room transaction's own

@@ -37,6 +37,18 @@ runtime queries the catalog for the brain / action set / display
 name, and the sprite loader finds the spritesheet via the
 catalog's path.
 
+By default the placement uses the character's catalog `default_brain`.
+To give *this instance* a different initial brain, set the optional
+`brain_override` field to a `brain_presets` key (e.g. `stand_still` to
+freeze a wanderer on a Hall pedestal, or `patrol_peaceful` to make a
+fighter-defaulted character pace peacefully). The brain is chosen ONLY
+by this explicit override or the catalog default — never inferred from
+`patrol_radius`, path presence, or hostility. `patrol_radius` /
+`patrol_path_id` only tune a *selected* patrol preset's lane. Runtime
+gameplay (dialogue) can later switch the brain via `<<use_brain
+"preset">>` / `<<restore_brain>>`; see
+[`docs/systems/character-catalog.md`](../systems/character-catalog.md#npc-brain-authority-explicit-authorable-runtime-switchable).
+
 ### 3. Generate the sprite (if it's new art)
 
 The sprite generator lives in

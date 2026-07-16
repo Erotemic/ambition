@@ -300,6 +300,8 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_actors::cutscene::CutsceneSchedulePlugin)
             // Gameplay effects + feature view-sync schedules.
             .add(ambition_actors::features::GameplayEffectsSchedulePlugin)
+            // Runtime brain-switch authority (BrainCommand) + actor-directive routing.
+            .add(ambition_actors::features::BrainCommandPlugin)
             .add(ambition_sim_view::FeatureViewSyncSchedulePlugin)
             // The observation-boundary view resources (E4): HUD facts, held
             // items/shots, marks, shrines, gravity switches, gun-swords.

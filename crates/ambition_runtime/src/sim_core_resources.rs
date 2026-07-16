@@ -15,10 +15,11 @@
 //! below is only an explicit authority resource for Apps with no hostile
 //! provider; provider registration replaces it transactionally.
 //!
-//! Ownership notes (anti-god rule 5): several defaults here belong to
-//! domains whose plugins haven't been carved yet — the dev-tools editables
-//! (E1d), `MapMenuState` (E1e), `DialogState` (E1c). They are initialized
-//! here so the group is self-sufficient TODAY and re-home with their carves.
+//! Ownership notes (anti-god rule 5): the dev-tools editables, `DialogState`/
+//! `DialogueNodeIndex`, the encounter registries, and `MapMenuState` re-homed
+//! to their domain plugins (`DevToolsSimPlugin`, `DialogSimStatePlugin`,
+//! `EncounterRegistryPlugin`, `MapStatePlugin` — track 6, decision #9); this
+//! bundle keeps only engine-owned sim vocabulary.
 
 use bevy::prelude::*;
 
@@ -60,15 +61,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_actors::time::time_control::RequestedClockScale>()
             .init_resource::<ambition_time::ClockState>()
             .register_type::<ambition_platformer_primitives::schedule::GameMode>()
-            // Startup wall-clock profiler (the PostStartup report is the
-            // app's; the resource is engine so phase_mark works anywhere).
-            .init_resource::<ambition_dev_tools::profiling::StartupProfiler>()
             .init_resource::<ambition_actors::trace::GameplayTraceBuffer>()
-            .init_resource::<ambition_dialog::DialogState>()
-            // Which Yarn nodes content compiled (empty + unpopulated headless).
-            // The interact dispatcher reads it to resolve a self-conversation's
-            // branch; the Yarn bridge fills it when the runner spawns.
-            .init_resource::<ambition_dialog::DialogueNodeIndex>()
             .init_resource::<ambition_world::collision::MovingPlatformSet>()
             .init_resource::<ambition_actors::SandboxSimState>()
             // Content-free default. Provider plugins replace/assemble this at
@@ -77,7 +70,6 @@ impl Plugin for SimCoreResourcesPlugin {
             // App-local boss authority. Boss-free providers keep the explicit
             // empty resource; content plugins assemble provider fragments.
             .init_resource::<ambition_actors::boss_encounter::BossCatalog>()
-            .init_resource::<ambition_dev_tools::SandboxDevState>()
             .init_resource::<ambition_combat::GameplayBanner>()
             .init_resource::<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>()
             .init_resource::<ambition_sim_view::FeatureViewIndex>()
@@ -95,11 +87,6 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_projectiles::enemy::EnemyProjectileState>()
             // Anti-clump attack slot arbitration.
             .init_resource::<ambition_actors::combat::slots::CombatSlotsRes>()
-            // Encounter system (E1): the live state lives on the encounter
-            // ENTITIES; `EncounterRegistry` is the `id -> Entity` index and
-            // `EncounterView` is the cross-crate presentation read-model.
-            .init_resource::<ambition_encounter::EncounterRegistry>()
-            .init_resource::<ambition_encounter::EncounterView>()
             .init_resource::<ambition_actors::encounter::SwitchActivationQueue>()
             .init_resource::<ambition_actors::encounter::EncounterSwitchIndex>()
             // Room and encounter music intent live as components on the exact
@@ -122,7 +109,6 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_platformer_primitives::time::SimDt>()
             // Portal registry — per-portal lifecycle state machine.
             .init_resource::<ambition_actors::rooms::GatePortalRegistry>()
-            .init_resource::<ambition_menu::map::MapMenuState>()
             .init_resource::<ambition_platformer_primitives::camera_ease::CameraEaseState>()
             .init_resource::<ambition_platformer_primitives::camera_ease::CameraEaseTuning>()
             .init_resource::<ambition_platformer_primitives::camera_ease::CameraShakeState>()
@@ -135,12 +121,6 @@ impl Plugin for SimCoreResourcesPlugin {
             // its authored values (init never clobbers).
             .init_resource::<ambition_actors::time::feel::SandboxFeelTuning>()
             .init_resource::<ambition_actors::world::physics::PhysicsSandboxSettings>()
-            // Dev-editable tuning mirrors (read by the dev-edit sync in the
-            // player frame). Ownership moves to the dev-tools carve (E1d).
-            .init_resource::<ambition_dev_tools::dev_tools::DeveloperTools>()
-            .init_resource::<ambition_dev_tools::dev_tools::EditablePlayerStats>()
-            .init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>()
-            .init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>()
             // Engine-typed settings/inventory defaults; games pre-insert
             // their authored starters.
             .init_resource::<ambition_persistence::settings::UserSettings>()

@@ -85,3 +85,15 @@ impl MapMenuState {
         lines
     }
 }
+
+/// The map-menu DOMAIN's sim-state plugin (track 6, decision #9): the crate
+/// owns its own visited-rooms/map state; the sim assembly only adds the
+/// plugin. Deliberately a bare resource init — the menu-host reusable/product
+/// line is drawn by the second consumer (decision #7), not in advance.
+pub struct MapStatePlugin;
+
+impl bevy::prelude::Plugin for MapStatePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.init_resource::<MapMenuState>();
+    }
+}

@@ -78,9 +78,16 @@ impl Plugin for ProgressionSchedulePlugin {
                 ambition_actors::rooms::tick_portal_phases_system,
                 ambition_actors::menu::map::track_room_visits,
                 ambition_actors::menu::map::sync_map_from_save,
-                ambition_dev_tools::dev_tools::sync_player_stats_with_inspector,
             )
                 .chain()
+                .in_set(SandboxSet::Progression),
+        );
+        // The dev-tools inspector mirror (a DOMAIN set — its system lives in
+        // `DevToolsSimPlugin`) keeps its former chain-tail slot.
+        app.configure_sets(
+            sim,
+            ambition_dev_tools::DevInspectorMirrorSet
+                .after(ambition_actors::menu::map::sync_map_from_save)
                 .in_set(SandboxSet::Progression),
         );
 

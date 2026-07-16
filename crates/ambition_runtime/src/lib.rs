@@ -241,6 +241,13 @@ impl PluginGroup for PlatformerEnginePlugins {
             // The engine sim messages + resource defaults (E5 step 6) —
             // hosts override by insert-before-add (init never clobbers).
             .add(SimCoreResourcesPlugin)
+            // Domain-owned sim resources + dev live-edit sets (decision #9:
+            // the dev/dialog/encounter/menu domains install their own local
+            // state; the assembly below only ORDERS their public sets).
+            .add(ambition_dev_tools::DevToolsSimPlugin)
+            .add(ambition_dialog::DialogSimStatePlugin)
+            .add(ambition_encounter::EncounterRegistryPlugin)
+            .add(ambition_menu::map::MapStatePlugin)
             // N3.1's snapshot registry, with the engine's own state registered.
             // EARLY, so every plugin after it — including a downstream game's
             // content plugins — can `resource_mut::<SnapshotRegistry>()` and add

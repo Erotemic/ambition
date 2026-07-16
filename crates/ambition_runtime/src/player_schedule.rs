@@ -11,7 +11,7 @@
 //!
 //! - the reset pair (`apply_player_reset_input_system`,
 //!   `apply_room_replay_request_system`) pins
-//!   `.after(sync_live_player_dev_edits_system).before(input_timer_system)`
+//!   `.after(DevEditApplySet).before(input_timer_system)`
 //!   in `SandboxSet::PlayerInput`;
 //! - the home-reset/presentation pair (`apply_home_reset_policy`,
 //!   `sync_player_presentation`) pins
@@ -92,15 +92,25 @@ impl Plugin for PlayerSchedulePlugin {
                 // runtime system (gravity / zones / orient-roll) reads scaled
                 // dt without a sandbox dependency.
                 ambition_actors::mirror_sim_dt_into_runtime,
-                ambition_dev_tools::sync_live_player_dev_edits_system,
             )
                 .chain()
                 .in_set(SandboxSet::PlayerInput),
         );
 
+        // The dev-tools DOMAIN set (its systems live in `DevToolsSimPlugin`;
+        // decision #9: the assembly orders sets, never dev leaf systems).
+        // Positioned at part A's tail so live tuning edits apply before the
+        // input→brain chain consumes them.
+        app.configure_sets(
+            sim,
+            ambition_dev_tools::DevEditApplySet
+                .after(ambition_actors::mirror_sim_dt_into_runtime)
+                .in_set(SandboxSet::PlayerInput),
+        );
+
         // ── PlayerInput, part B: input → controlled subject → brains ──────
         //
-        // Ordered after part A's tail (`sync_live_player_dev_edits_system`).
+        // Ordered after part A's tail (the dev-tools `DevEditApplySet`).
         // The host's reset/replay pair slots into the A→B gap (module docs).
         app.add_systems(
             sim,
@@ -155,7 +165,7 @@ impl Plugin for PlayerSchedulePlugin {
             )
                 .chain()
                 .in_set(SandboxSet::PlayerInput)
-                .after(ambition_dev_tools::sync_live_player_dev_edits_system),
+                .after(ambition_dev_tools::DevEditApplySet),
         );
 
         // The content dialogue-followup slot lives in PlayerInput; the HOST

@@ -21,7 +21,7 @@ pub use events::EncounterEvent;
 pub use music::EncounterMusicRequest;
 pub use objective::{objective_met, EncounterObjective, Objective};
 pub use participants::{EncounterParticipant, EncounterParticipants, EncounterRole, Ownership};
-pub use registry::{EncounterRegistry, SwitchActivation};
+pub use registry::{EncounterRegistry, EncounterRegistryPlugin, SwitchActivation};
 pub use rewards::{encounter_reward_chest_pos, encounter_reward_looted_flag};
 pub use spec::{
     authored_encounter_waves, install_encounter_waves, EncounterMobSpec, EncounterSpec,

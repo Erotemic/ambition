@@ -25,8 +25,10 @@
 pub mod dev_tools;
 pub mod persistence;
 pub mod profiling;
+pub mod sim_plugin;
 
 pub use persistence::DeveloperPersistenceSchedulePlugin;
+pub use sim_plugin::{DevEditApplySet, DevInspectorMirrorSet, DevToolsSimPlugin};
 
 use bevy::prelude::*;
 

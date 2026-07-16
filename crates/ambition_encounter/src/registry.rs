@@ -121,3 +121,16 @@ mod tests {
         assert_eq!(SwitchActivation::parse_custom(""), None);
     }
 }
+
+/// The encounter DOMAIN's registry plugin (track 6, decision #9): the crate
+/// owns its `id -> Entity` index and its cross-crate presentation read-model;
+/// the sim assembly only adds the plugin. Live encounter state stays on the
+/// encounter ENTITIES.
+pub struct EncounterRegistryPlugin;
+
+impl bevy::prelude::Plugin for EncounterRegistryPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.init_resource::<EncounterRegistry>();
+        app.init_resource::<crate::entity::EncounterView>();
+    }
+}

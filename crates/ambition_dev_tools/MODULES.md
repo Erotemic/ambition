@@ -9,8 +9,9 @@
 | [`dev_tools`](src/dev_tools/mod.rs) | Developer-facing tuning and inspection tools. |
 | [`persistence`](src/persistence.rs) | Disk persistence for the [`DeveloperTools`] resource (developer.ron). |
 | [`profiling`](src/profiling.rs) | Lightweight startup profiler. |
+| [`sim_plugin`](src/sim_plugin.rs) | `DevToolsSimPlugin` — the dev-tools DOMAIN plugin for the simulation App. |
 
-_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

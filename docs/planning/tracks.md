@@ -217,15 +217,36 @@ execution machinery survives.
 
 ## 6. Repair domain-plugin ownership
 
-**State:** OPEN.
+**State:** REPAIRED at the decision-#9 bar (full audit + the drift families
+re-homed).
 
-Audit runtime leaf-function knowledge. Domain crates install their local
-messages, resources, systems, and public schedule sets. Runtime retains the
-global phase graph and true cross-domain adapters.
+- **Dev tools (the ruling's named example):** `DevToolsSimPlugin` owns the six
+  dev-editable resources and registers `sync_live_player_dev_edits_system` /
+  `sync_player_stats_with_inspector` into its public `DevEditApplySet` /
+  `DevInspectorMirrorSet`; the runtime's player/progression chains (and the
+  app's reset/replay slot) now order the SETS and name no dev leaf system.
+- **Dialog:** `DialogSimStatePlugin` owns `DialogState` + `DialogueNodeIndex`.
+- **Encounter:** `EncounterRegistryPlugin` owns `EncounterRegistry` +
+  `EncounterView` (the crate's first plugin surface).
+- **Menu:** `map::MapStatePlugin` owns `MapMenuState` — deliberately a bare
+  resource init; the menu-host line is drawn by the second consumer
+  (decision #7).
+- **Audited and KEPT in runtime** (class (a) cross-domain orchestration): the
+  phase-graph declaration, Class-B/SimId ledgers, the engine sim
+  message/tuning/time defaults, the `AuthoredAttackVolumeResolver` bridge, and
+  the player/progression/combat lifecycle chains (they name actor leaf systems
+  because they ARE the cross-domain lifecycle; converting them to actor-owned
+  sub-sets is a real but larger follow-on).
+- **Recorded follow-on (low value, do when a consumer lands):** first plugin
+  surfaces for `ambition_projectiles` (`ProjectileVisualCatalog`) /
+  `ambition_input` (`MotionTechniqueCatalog`) / `ambition_world`
+  (`MovingPlatformSet` — coordinate with its snapshot registration), plus the
+  minor `ShrineActivationPulse` (blocked on the shrine-ownership question,
+  decision #8) and `SlotInteractionState` inits.
 
-**Exit:** runtime orders domain sets more often than it names implementation
-leaf systems, and app/dev-specific setup is not hidden in the generic engine
-assembly.
+**Exit — met:** runtime orders domain sets for the dev/dialog/encounter/menu
+families and retains the global phase graph; no app/dev-specific setup hides
+in the generic engine assembly.
 
 ## 7. Split touch semantics from touch presentation
 

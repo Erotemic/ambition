@@ -176,16 +176,21 @@ Moving a bag of raw handles onto the root is not automatically a solution. First
 ask whether each handle should be derived from control/session relationships or a
 read model instead.
 
-Both gates are met (2026-07-16). The former `SceneEntities` process-global handle
-bag was **removed**: the home avatar is discovered by `PrimaryPlayerOnly`, the HUD
-and quest roots by their session-scoped `HudText`/`QuestPanelText` markers.
-Moving-platform live state (`MovingPlatformSet`) is an explicit session-owned
-cache — rebuilt from the room at every construction path, registered snapshot
-state so a within-room rollback reconstructs it exactly, and cleared on teardown.
-A provider-installed session-teardown pass resets the remaining session-scoped
-resource mirrors (possession, controlled subject, encounter/boss/quest registries)
-when the scope retires, so no stale mirror or dangling handle survives into the
-next activation. No compatibility handle bag was retained.
+The session-isolation gate and supported same-active-room reconstruction gate are
+met (2026-07-16). The former `SceneEntities` process-global handle bag was
+**removed**: the home avatar is discovered by `PrimaryPlayerOnly`, and HUD/quest
+roots by their session-scoped `HudText`/`QuestPanelText` markers.
+
+`MovingPlatformSet` is a lifecycle-scoped active-session cache under the current
+one-live-session host contract. It is rebuilt by every canonical room-construction
+path, registered snapshot state for exact within-room rollback, and cleared on
+teardown; the resource type does not independently encode a session ID.
+
+A provider-installed session-teardown pass resets the remaining active-session
+resource mirrors when the scope retires, so no stale mirror or dangling handle
+survives into the next activation. No compatibility handle bag was retained.
+Atomic replacement of the live room when a snapshot names a different active room
+remains the open N3.2 boundary; see [`netcode.md`](netcode.md).
 
 ## 6. World and geometry rules
 

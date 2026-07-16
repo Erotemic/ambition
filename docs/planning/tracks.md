@@ -1,307 +1,130 @@
 # Tracks — current executable queue
 
-This is the execution order established by the 2026-07-16 recon consensus and
-Jon's decisions. Historical tracks and completion narratives are not retained
-here. Focused demo/game work may proceed in parallel when it does not create a
-second engine path.
+This file is the live queue, not a completion ledger. The completed July 15–16
+architecture campaign is summarized in [`status.md`](status.md) and preserved in
+git history.
 
-## Completed prerequisite: one placement-lowering authority
+## 1. Converge encounter lifecycle authority
 
-`7d972b6` threaded the App-installed `PlacementLoweringRegistry` through initial
-session construction, reset, and LDtk hot reload; transition and restore already
-used it. The no-registry production helper was deleted, and a focused test proves
-room staging uses the caller-supplied authority.
+**State:** active.
 
-## 1. Extract and consolidate the provider protocol — COMPLETED
+Implement E8–E13 from
+[`engine/encounter-orchestration.md`](engine/encounter-orchestration.md).
+The important checkpoint is E11:
 
-`ambition_platformer_provider` now owns the provider lifecycle. The substantive
-preparation/activation implementation moved out of the deleted
-`crates/ambition/src/provider.rs`; `ambition::provider` is a re-export of the new
-crate. Typed preparation storage, exact activation, session construction, and
-cleanup are consolidated into ONE shared lifecycle: a provider supplies only a
-session-world source system and calls `PlatformerExperienceAuthoring::install`.
-The per-provider marker generic, the duplicated prepare/activate system pairs
-(Ambition, Sanic, Mary-O, Pocket), and the per-provider `PreparedPlatformerSessions`
-instances are gone. Host provider registration stays explicit in `shell_host.rs`.
+1. generic command ingress;
+2. objective-driven lifecycle and signal progress;
+3. explicit participant ownership and cleanup;
+4. stable encounter/participant identity with snapshot registration.
 
-**Exit — met:** providers supply authoring + a world-preparation source rather
-than copying the lifecycle; `ambition` is a facade again.
+At that checkpoint, one encounter authority must represent boss and non-boss
+encounters. Continue consumer convergence and the non-boss acceptance customer
+after atomic room restoration unless implementation evidence makes the order
+unnecessary.
 
-## 2. Session-root exclusivity and exact reconstruction
+**Exit:** HUD, locks, rewards, persistence, camera, and music consume one
+encounter model, and a signal-driven non-boss puzzle completes without a second
+lifecycle implementation.
 
-**State:** LANDED (both gates met); residual N3.1 restore debt tracked separately.
+## 2. Restore the active room atomically
 
-- `SceneEntities` was **removed**, not relocated: every former handle is now
-  derived from a canonical marker — the home avatar from `PrimaryPlayerOnly`, the
-  HUD/quest roots from their session-scoped `HudText`/`QuestPanelText` markers. No
-  process-global handle bag survives.
-- Moving-platform live state now has session identity and deterministic
-  reconstruction. `MovingPlatformSet` is registered snapshot state (RON codec in
-  `ambition_world`, `SnapshotState` in `ambition_runtime`), so a within-room
-  rollback restores the advancing kinematics exactly; it is rebuilt from the room
-  at every construction path and cleared on teardown.
-- A provider-installed `SessionTeardownPlugin` (`ambition_actors::session::teardown`)
-  resets the session-scoped resource mirrors — `MovingPlatformSet`,
-  `PossessionState`, `ControlledSubject`, `EncounterRegistry`/`EncounterView`,
-  `BossEncounterRegistry`, `QuestRegistry`, `SandboxSimState` — when the scope
-  retires, beside the generic entity sweep. No dangling handle or stale mirror
-  survives a teardown into the next activation.
-- Reset and restore already lower through the same App-installed placement
-  registry (`7d972b6`); this campaign added the moving-platform authority to that
-  shared reconstruction path.
+**State:** unblocked; sequence after encounter E11 so cross-room restore only has
+one encounter authority to reconstruct.
 
-**Exit gates, both required — both met:**
+The current snapshot path is exact for supported same-room reconstruction but
+returns `CrossRoomBoundary` when the captured active room differs from the live
+room.
 
-1. **Session isolation (met):** `game/ambition_demo_sanic_app/tests/session_isolation.rs`
-   drives the real host through activate A → seed the resource mirrors with A's
-   live handles → tear down → activate B, and proves no entity, scope,
-   resource handle, or read-model row refers to the retired scope.
-2. **Exact reconstruction (met):** the `desync_canary` restore-replay oracle
-   (`gap_run` clean bit-for-bit, `MovingPlatformSet` now in the state hash) plus a
-   focused `restore_reconstructs_moving_platform_kinematics` snapshot test and the
-   `ambition_world` codec round-trip. Boss/portal rooms remain DIRTY for restore
-   for the separate, pre-existing N3.1 reasons the coverage ledger records (active
-   room not yet restored sim state); that is N3.1 debt, not this campaign.
+Required transaction:
 
-## 3. Structural content evictions — parallel-safe
+1. preflight provider/world/room identity and required codecs;
+2. stage the snapshot room through the canonical room-loading and placement-
+   lowering path;
+3. rebuild room-scoped entities and mechanically significant derived state;
+4. apply registered snapshot state only after staging can succeed;
+5. leave the live session unchanged on refusal or failure;
+6. prove bounded cross-room rewind/replay equality.
 
-**State:** COMPLETE at the campaign's exit bar. Every family the 2026-07-16
-decision record named is evicted or ruled already-met at its seam; the only
-open tail is the deliberately deferred engine-default asset families below.
+**Exit:** portal/boss cross-room replay customers become `CLEAN`; raw Bevy entity
+allocation may differ, but canonical identity, relationships, observations, and
+state hashes agree.
 
-Completed slices:
+## 3. Close Super Mary-O level 1
 
-- Ambition dialogue cast names, aliases, and voice cue identities moved out of
-  `ambition_dialog`/`ambition_sfx` into a content-owned registration over the
-  open `DialogueVoiceCatalog`.
-- The named `pirate_weapon` renderer and closed gun-sword read model were
-  replaced by a generic wielded-item fact stream plus an App-local visual
-  catalog populated by `ambition_content`; both light and heavy gun-sword ids
-  use the content-owned art registration.
-- **Projectile visual identities** (`4a0c2d5`): the closed `ProjectileVisualKind`
-  enum + hardcoded `art()` table (apple/lasersword/glider asset paths) in
-  `ambition_projectiles` was replaced by an open `ProjectileVisualId` component +
-  an empty-by-default `ProjectileVisualCatalog` filled by
-  `ambition_content::projectiles`. The foundation `EnemyProjectileSpawn.visual_tag:
-  u16` opaque channel became an open `visual_id: String`.
-- **Input techniques** (`1ece162`): the closed named recognizers
-  (`detect_quarter_circle`/`_grace`/`_half_circle`) were deleted from
-  `ambition_input`, which now offers only the generic `detect_sequence` + an open
-  `MotionTechniqueCatalog`. `ambition_content::input_techniques` registers
-  `qcf`/`qcf_grace`/`hcf`; the fire system resolves gestures by id.
-- **Held/inventory item art** (`022200d`): the closed `ItemArt` resource +
-  `GAUNTLET_PROP_IDS` + literal-id `item_sprite()` match + hardcoded
-  `sprites/props/*.png` loads in `ambition_render` were replaced by the
-  `HeldItemArtManifest` contribution seam (like `WorldItemArt`), filled from
-  `ambition_content::items::held_visuals`.
-- **Puppy-slug deep-dream presentation** (`250c1b95`): the last named-content
-  module the 2026-07-16 decision record called out (`deep_dream`, beside the
-  already-evicted `pirate_weapon`) left `ambition_render`. The renderer now
-  exposes the positioned, session-gated `ActorOverlaySet` seam; the material,
-  systems, embedded shader, and dev toggle live in
-  `ambition_content::presentation`. The engine asset root and `DeveloperTools`
-  carry no Ambition-named residue.
+The engine-facing seams are already proven: world pickups equip through the shared
+item path; the grow cap changes worn identity and collider size; the spark blossom
+grants a real ranged move; bricks, cronies, flag scoring, tally, clock, and cyclic
+restart exist.
 
-**Substantially met via existing seams (no reusable-crate edit needed to add
-content):**
+Remaining customer work:
 
-- *Item identities.* `install_item_catalog(ItemCatalog::from_ron(...))` already
-  lets a provider re-author every one of the 24 items' identity, flavor, and
-  wiring (`display_name`/`category`/`held_item_id`/`dialog_id`) as data in
-  `items.ron`. The fixed 6×4 = 24-slot OoT grid and its slot enum are Jon's
-  **deliberate machinery** (`crates/ambition_items` module doc), not a leak —
-  the same "a closed common schema is intentional, not reopened" stance this
-  track already takes for the Tier-0 world schema. Residual reusable-crate item
-  content is minor and disruptive-to-move for low value: the `Item::icon_path`
-  menu-grid asset paths (candidate to fold into `ItemMeta` data) and
-  `OwnedItems::starter()` (a convenience constructor used by several test
-  fixtures). Persistence is already string-`dialog_id`-keyed.
-- *Boss sprite sheets.* The App-local `ambition_actors::boss_encounter::BossCatalog`
-  is the provider seam; `ambition_sprite_sheet::boss::builtin_boss_sheets()` is a
-  documented **fallback-only** layout map that "a new provider does not edit."
+- secret pipe and underground room;
+- sliding shell prop;
+- HUD, title, and results presentation;
+- a deterministic scripted run that completes level 1 through real controls,
+  collects a powerup, and exercises its effect.
 
-**Remaining, deliberately deferred (engine-default machinery, no live consumer):**
+**Exit:** visible and headless customers use the same provider, body, item, and
+level state with no Mary-O-only engine path.
 
-- The `EntitySprite` / `ParallaxTheme` named-sprite enums and the asset-universe
-  residue (fonts, the `ambition/sandbox.ron` data id, sprite-pack tiers, the
-  `ambition_ldtk_map` world manifest ids) in `ambition_sprite_sheet` /
-  `ambition_asset_manager`. Unlike the evicted families (boss/weapon asset paths,
-  fighting-game gestures, item props — genuine provider content a second
-  platformer differs on), these are **engine-default assets**: the demo providers
-  (Sanic, Mary-O) share the same UI fonts, quality-tier sprite packs, and
-  generic entity tiles. There is no live second-provider that needs a *different*
-  font or entity-sprite set, and they are woven into `sandbox_image_manifest`
-  generation. Per "add the override seam when the use case lands" (design
-  balance), these stay as reusable machinery until a provider actually differs.
-  Audio — the genuinely content-heavy asset kind — is already fully evicted via
-  the provider-indexed `AudioCatalogRegistry`; the `SandboxCatalogInputs` row seam
-  already carries worlds / characters / bosses / music provider-side.
+## 4. Close one complete Sanic act
 
-**Exit — met:** a second provider adds its named content without editing a
-reusable engine crate. No noun scanner is part of this track. The dialogue,
-wielded-item, projectile-visual, input-technique, held-item-art, actor-overlay
-(deep-dream), item-identity, and boss-sheet families all meet this at their
-seams; the `EntitySprite`/asset-universe manifest families remain the
-deliberately deferred tail (rationale above), to be reopened only when a
-provider actually differs.
+The provider persona, standard host input chain, transformation, ball dash,
+surface-momentum route, lifecycle, and geometry/orbit/stranding oracles are
+landed.
 
-## 4. Extract `ambition_sim_harness` — LANDED
+Remaining customer work:
 
-**State:** LANDED (exit gate met).
+- bits and drop-on-hit;
+- at least one enemy with rolling/stomp outcomes through shared contact/combat;
+- goal, HUD, results, and end-of-act sequence;
+- one complete authored act;
+- deterministic headless completion proving the rewarded high route is faster
+  than the lower safe route under the same control contract.
 
-`crates/ambition_sim_harness` now owns reset/step, the typed `AgentAction`
-(→ `ControlFrame`), the `AgentObservation` read-model, the example `reward`
-shaping, the `random_policy` fuzz driver, and `SandboxSim`. It sits below
-`ambition_app` and depends only on the `ambition` facade (which does not depend
-on `ambition_app`/`ambition_content`).
+Do not absorb movement/contact work owned by another active campaign.
 
-The single entanglement was inverted: `SandboxSim::build(options, compose)` takes
-a caller-supplied composition closure. The harness owns the engine half
-(`add_headless_foundation`, the fixed-tick sim-schedule choice, the time strategy,
-the startup pumps) and hands the App to `compose` for the game's content + sim
-plugins. `ambition_app::rl_sim` is a thin binding: it re-exports the harness and
-supplies `ambition_sim_composition` (LDtk validate + world install + start-room +
-`SandboxSimulationPlugin`) plus an `AmbitionSim` extension trait giving the
-ergonomic `SandboxSim::new()` constructors the RL binaries and behavior/oracle
-tests use. The Ambition-specific `run_headless`/`HeadlessReport` stay in
-`ambition_app`.
+## 5. Correct the fighter-rollout design before FB6
 
-**Exit — met:** `crates/ambition_sim_harness/tests/composes_below_the_app.rs`
-builds a minimal one-room session and drives step/observation/reset through the
-harness while linking only the `ambition` facade — never `ambition_app`.
+Do not implement the current FB6 text literally.
 
-## 5. Converge boss behavior onto moveset authority
+- A wall-clock cutoff cannot decide authoritative actions if replay/resimulation
+  is expected to rerun the brain deterministically. Prefer a fixed work budget,
+  with elapsed time as telemetry only, unless decisions become recorded external
+  inputs.
+- A live authoritative snapshot exposes facts outside the delayed `Perceived`
+  contract. Rollouts need a hypothetical state reconstructed solely from allowed
+  perceived facts, or a deliberately limited perceived-state forward model.
 
-**State:** CONVERGED (5cf27ae4d completed the phase/action-family fold begun in
-`c618f0c`). Family-by-family:
+**Exit:** the determinism and no-cheat contracts are explicit enough that an L3
+implementation cannot accidentally violate either one.
 
-- **Attack execution** (`c618f0c`): `MovePlayback` is the one execution
-  timeline; the brain emits transient profile intent; `BossAttackState` is a
-  pure projection of the live move.
-- **Timing** (`5cf27ae4d`): the cycle-mode `CyclePhase` windup/active/cooldown
-  machine — a second timing projection running the move's own durations in
-  parallel — is DELETED. Cycle mode is pure decision policy (rest clock +
-  rotation); the brain observes its live move back through
-  `BossPatternContext::live_attack` and sustains/rests off what the move
-  actually does.
-- **Cancellation**: an abandoned windup aborts at the trigger (intent
-  disappearance); a striking move is committed (the Smash convention). Bosses
-  author no `Cancelable` windows today — an authoring choice on the shared
-  vocabulary, not a missing mechanism.
-- **Motion locks** (`5cf27ae4d`): `MoveWindow::motion_scale` +
-  `MoveSpec::motion_scale_at` are the moveset's authored motion-lock primitive,
-  enforced at body integration for EVERY body and controller; the brain-side
-  `strike_speed_scale` damping (which possession bypassed) is deleted.
-- **Semantic effects** (`c618f0c` + `5cf27ae4d`): specials ride
-  `sustain_effect`/`Effect{key}`; telegraph cue/vfx (BD3), which the
-  convergence had left runtime-dead, now bake as rising-edge `MoveEvent`s
-  through the shared `dispatch_move_events` channel.
-- **Defensive hurtboxes — no fold needed, by inspection:**
-  `damageable_volumes` selects per-pose hurtbox rows (GNU-ton's head-only
-  descent window) from the actor's CURRENT POSE, and the pose is picked from
-  the projected `BossAttackState`, i.e. from the live move — one authority
-  chain already. Wiring `WindowTag::Invuln`/`Armor` for bosses would add a
-  SECOND vulnerability mechanism beside the sprite-metadata one; the per-pose
-  hurtbox pipeline belongs to the actor-geometry-unification track.
-- **Stays boss/encounter-owned by design:** the encounter phase machine
-  (Dormant→…→Death, music, phase-invuln gate), scripted encounter mechanics
-  (`CommandedMove`, `FallingHazard`), and the whole `boss_pattern` decision
-  brain (scripted cursor, Select/Stance/Interrupt, macro chase/retreat,
-  deterministic RNG) — decision policy is allowed to stay sophisticated.
+## 6. Finish the bounded boss animator fold
 
-**Exit reached — reassessment now open (Jon's call, maintainer decision #6):**
-whether any coherent boss crate remains to carve. Input from the fold: what is
-left boss-specific is decision policy (`boss_pattern`), encounter
-orchestration, and sprite-metadata geometry derivation — no boss-specific
-execution machinery survives.
+Verify and remove only genuine animation residue:
 
-## 6. Repair domain-plugin ownership
+- converge `BossAnim`/boss frame projection toward the shared `CharacterAnim`
+  vocabulary;
+- retire obsolete `target_pos` or equivalent mirrors where they remain live;
+- preserve boss decision policy and encounter orchestration where they are real
+  domain responsibilities.
 
-**State:** REPAIRED at the decision-#9 bar (full audit + the drift families
-re-homed).
+Do **not** reopen boss body integration: `integrate_boss_bodies` already delegates
+to the canonical actor/body kernel and writes the canonical motion sweep.
 
-- **Dev tools (the ruling's named example):** `DevToolsSimPlugin` owns the six
-  dev-editable resources and registers `sync_live_player_dev_edits_system` /
-  `sync_player_stats_with_inspector` into its public `DevEditApplySet` /
-  `DevInspectorMirrorSet`; the runtime's player/progression chains (and the
-  app's reset/replay slot) now order the SETS and name no dev leaf system.
-- **Dialog:** `DialogSimStatePlugin` owns `DialogState` + `DialogueNodeIndex`.
-- **Encounter:** `EncounterRegistryPlugin` owns `EncounterRegistry` +
-  `EncounterView` (the crate's first plugin surface).
-- **Menu:** `map::MapStatePlugin` owns `MapMenuState` — deliberately a bare
-  resource init; the menu-host line is drawn by the second consumer
-  (decision #7).
-- **Audited and KEPT in runtime** (class (a) cross-domain orchestration): the
-  phase-graph declaration, Class-B/SimId ledgers, the engine sim
-  message/tuning/time defaults, the `AuthoredAttackVolumeResolver` bridge, and
-  the player/progression/combat lifecycle chains (they name actor leaf systems
-  because they ARE the cross-domain lifecycle; converting them to actor-owned
-  sub-sets is a real but larger follow-on).
-- **Recorded follow-on (low value, do when a consumer lands):** first plugin
-  surfaces for `ambition_projectiles` (`ProjectileVisualCatalog`) /
-  `ambition_input` (`MotionTechniqueCatalog`) / `ambition_world`
-  (`MovingPlatformSet` — coordinate with its snapshot registration), plus the
-  minor `ShrineActivationPulse` (blocked on the shrine-ownership question,
-  decision #8) and `SlotInteractionState` inits.
+## Parallel maintenance
 
-**Exit — met:** runtime orders domain sets for the dev/dialog/encounter/menu
-families and retains the global phase graph; no app/dev-specific setup hides
-in the generic engine assembly.
+Small non-blocking work may proceed when it does not collide with the active
+campaigns:
 
-## 7. Split touch semantics from touch presentation
-
-**State:** DONE. The module split already existed inside
-`ambition_touch_input` (pure `state` fold vs `mobile_touch`-gated overlay);
-what remained was the DEPENDENCY split, now enforced by the crate graph: the
-semantic half (raw touch state → `ControlFrame`) compiles with no Bevy and no
-render stack at all — `bevy`, `ambition_render`, `ambition_actors`,
-`ambition_ui_nav`, `ambition_cutscene`, `ambition_persistence`, and
-`virtual_joystick` are all optional, enabled only by the `mobile_touch`
-overlay feature. `cargo tree` confirms zero render edges in the default
-graph; both feature configs and the app's `mobile_touch` build check green.
-(Also fixed a latent mis-gate: a menu-bridge test was `input`-gated while
-using `mobile_touch` modules.)
-
-## 8. Finish valuable render/read-model cleanup
-
-**State:** DONE at this track's bar. The confirmed dead `ambition_render`
-input/interaction/Leafwing dependencies were removed in `7d972b6`. The
-remaining recon items resolved as:
-
-- **C2 — landed.** `FeatureVisualKind`/`BoundFeatureKind` moved to
-  `ambition_platformer_primitives::feature_kind` (foundation taxonomy the sim
-  stamps and every consumer names); `FeatureView` moved to `ambition_sim_view`
-  (it is the `FeatureViewIndex` row). `ambition_render` AND
-  `ambition_sprite_sheet` no longer depend on `ambition_combat` at all.
-- **C3 — landed.** `DialogView` (active/title/body/option labels/selection)
-  is rebuilt in the FeatureViewSync tail, change-gated; `dialog_ui` is a pure
-  consumer, and the `DialogChoiceSlot` pointer bridge moved to
-  `ambition_ui_nav` (its own vocabulary). `ambition_render` no longer depends
-  on `ambition_dialog`.
-- **C4 — resolved, half no-change.** The Health-as-data half already reads
-  `FeatureViewIndex` hp facts. The `WornCharacter` observation stays: it is
-  the canonical presentation-binding seam itself (a worn identity IS the view
-  the binder renders); a read-model copy would be a manufactured mirror.
-- **C5 — rejected** per this track's standing rule: authored room data is
-  immutable; no `RoomVisualsView` copy merely to reduce dependency count.
-- **C6 — superseded** by the 2026-07-16 decision record: content-owned
-  presentation plugins on public render seams (portal, deep-dream) are the
-  ENDORSED shape, so a blanket "content names no render types" policy is
-  wrong; no policy added (standing execution rule).
-
-Rule that remains in force: add read-model fields only for mutable simulation
-facts whose direct observation violates the one-way seam.
-
-## 9. Reassess only after real consumers
-
-- Menu-host extraction waits for Smash Siblings/Hollow Lite.
-- Boss decomposition waits for track 5.
-- `features/` naming remains low priority and must be coherent if attempted.
-- Provider-owned placement families remain a deferred design question; the closed common Tier-0 world schema is not reopened.
+- current demo/documentation corrections;
+- generated module-map repair after structural changes settle;
+- one structurally complete content eviction at a time when a real named family
+  remains in a reusable crate;
+- narrow test strengthening for teardown/resource clearing.
 
 ## Standing execution rule
 
-Do not create a policy/scanner task merely to accompany an architectural patch.
-Use types, ownership, crate direction, visibility, and behavioral acceptance
-first. A new policy test needs a concrete recurring harmful state that those
-mechanisms cannot express.
+Use Rust types, ownership, crate direction, visibility, and ordinary behavioral
+acceptance tests before adding policy/scanner machinery. Historical journals stay
+historical. Completed execution narratives do not remain in this live queue.

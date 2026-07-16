@@ -10,17 +10,28 @@ lifecycle without editing engine internals.
 
 ## Current state
 
-Landed foundations include the surface-momentum kernel, chains/loops and route
-junctions, Sanic character data, the standalone/hosted demo shells, swept portal
-transit at speed, and the provider-owned ball-dash rule.
+Landed:
 
-The remaining acceptance work is product-facing rather than a new movement
-kernel:
+- the surface-momentum kernel, chains/loops, route junctions, and the speedway
+  room with deterministic route/loop/orbit/stranding oracles;
+- provider-owned Sanic and Super Sanic character profiles, native sprite binding,
+  transformation, and hosted/standalone shells;
+- the production keyboard/gamepad input path proven end to end through
+  device input → `ControlFrame` → fixed-tick latch → player slot → brain → body;
+- the provider-owned ball dash on the standard action/control seam;
+- leak-free launch, quit, and relaunch through the shared provider/session
+  lifecycle; and
+- basic act state, clock, and standard SFX publication.
 
-- deterministic provisioning and binding of the native Sanic art/profile;
-- an end-to-end standard input/slot/control proof in the runnable shell;
-- bits, enemies, HUD/results, and complete acts;
-- a headless act-completion run demonstrating that speed and route choice matter.
+Remaining acceptance work is product/content work:
+
+- bits and drop-on-hit behavior;
+- at least one complete enemy/contact loop using shared rolling/stomp/combat
+  vocabulary;
+- a provider-owned goal, HUD, results, and end-of-act sequence;
+- additional authored act content beyond the single speedway room; and
+- a deterministic headless completion proof in which the rewarded high route
+  beats the lower safe route under the same control contract.
 
 The detailed 2026-07-11 recovery investigation is archived at
 [`docs/archive/reviews/sanic-visible-playable-recovery-2026-07-11.md`](../../archive/reviews/sanic-visible-playable-recovery-2026-07-11.md).
@@ -52,10 +63,10 @@ and HUD. These remain content even when they expose a reusable engine gap.
 
 ## Acceptance
 
-A visible run must provide standard keyboard/gamepad input, native selected
-character art and animation, camera/audio, and the authored momentum route. A
-headless run must use the same selected profile and control path and complete act
-1 faster through the rewarded high route.
+A visible run provides standard keyboard/gamepad input, native selected-character
+art and animation, camera/audio, and the authored momentum route. The remaining
+headless gate uses that same selected profile and control path to complete act 1
+faster through the rewarded high route.
 
 The demo app remains small and contains no app-local input system, direct sprite
 binding, or dependency on `ambition_app`.

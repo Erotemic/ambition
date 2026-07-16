@@ -11,30 +11,49 @@ content crate without editing core?
 
 - **P1 — unified mechanical foundation:** substantially landed. One body path,
   explicit frames/time domains, world IR, movement models, moveset execution,
-  and one-way observation are foundations, not active decomposition campaigns.
-- **P2 — make the extension/lifecycle seams exclusive:** current priority.
-  Placement lowering is unified and the provider protocol is extracted into
-  `ambition_platformer_provider`; remaining P2 work is session-root
-  authority/exact reconstruction, structural named-content eviction, and the
-  simulation-harness extraction.
-- **P3 — first complete external-game proofs:** Sanic and Super Mary-O close
-  their full playable/headless acceptance loops without engine exceptions.
-- **P4 — richer mechanics and second consumers:** boss/moveset convergence,
-  encounter lifecycle convergence, Super Smash Siblings, and Hollow Lite. These
-  customers decide whether menu or boss crate extraction is warranted.
-- **P5 — mathematical and distributed generalization:** stronger frame/clock
-  mechanics, slower-light observation, moving/angled portals, rollback/netcode,
+  and one-way observation are foundations rather than active decomposition work.
+- **P2 — exclusive extension/lifecycle seams:** complete at the July 16 campaign
+  bar. Placement lowering, provider lifecycle, session ownership, programmatic
+  simulation, selected content ownership, touch separation, and repaired
+  render/domain seams have one authoritative path.
+- **P3 — complete external-game proofs:** current product priority. Finish one
+  complete headless/visible Super Mary-O level and one complete Sanic act without
+  engine exceptions.
+- **P4 — richer mechanics and second consumers:** active in parallel through
+  encounter lifecycle convergence; later customers include Super Smash Siblings
+  and Hollow Lite. Real second consumers decide menu or other crate boundaries.
+- **P5 — rollback and broader generalization:** atomic active-room restoration is
+  the current keystone. Later work includes a rollback driver, stronger
+  frame/clock mechanics, slower-light observation, moving/angled portals,
   additional acceptance games, and public engine naming/versioning.
+
+The phase labels describe customer maturity, not a requirement to serialize all
+work. Encounter convergence and atomic room restore may proceed while P3 demos
+close.
 
 Ambition-the-game remains the first customer throughout; it consumes capabilities
 rather than defining exceptions inside reusable crates.
 
+## Current critical path
+
+```text
+encounter E8–E11
+        ↓
+atomic active-room restore
+        ↓
+encounter E12–E13
+
+in parallel:
+  Super Mary-O level-1 acceptance
+  Sanic complete-act acceptance
+```
+
 ## Acceptance-game matrix
 
-| Game | Primary stress | Phase |
+| Game | Primary stress | Phase / state |
 |---|---|---|
-| **Sanic** | momentum movement, provider-owned playable identity, hosted rules | P3 |
-| **Super Mary-O** | classic AABB, equipment/powerups, sequencing | P3 |
+| **Sanic** | momentum movement, provider-owned playable identity, hosted rules | P3; mechanics/host path proven, complete act open |
+| **Super Mary-O** | classic AABB, equipment/powerups, sequencing | P3; core level mechanics landed, full level proof open |
 | **Super Smash Siblings** | N bodies/slots, full combat, local match state | P4 |
 | **Hollow Lite** | exploration, encounter/boss quality, respawn/save policy | P4 |
 | MoneySeize | precision feel and economy | P5 |
@@ -75,6 +94,7 @@ M11 replace rather than bridge pre-release · M12 runtime owns global ordering.
 - **Deep host services:** audio/save/network services may need a small explicit contract when a real provider demands it.
 - **Placement extension:** the common Tier-0 schema remains closed; whether providers ever receive a separate authored-placement channel is open.
 - **Public naming:** the provider crate shipped as `ambition_platformer_provider`; engine/repository split timing and final `ambition_actors`/`features` names remain unsettled.
+- **Boss carve:** convergence permits reassessment, but the current source review has not identified a concrete reuse, dependency, or build boundary; the maintainer ruling remains open.
 - **Online netcode:** remains later than local multiplayer unless Jon changes scope.
 
 ## Standing practices

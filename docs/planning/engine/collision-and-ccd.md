@@ -98,9 +98,10 @@ Contract rules (each is a review-flag when violated):
 1. **`prev` is recorded inside the kernel, never reconstructed.**
    `pos − vel·dt` is FORBIDDEN as a path source for readers that have a
    sample. Readers keep a `vel·dt` FALLBACK only for bodies without the
-   component (bare test hurtboxes, movers not yet writing one — bosses'
-   `integrate_boss_bodies` is the known remaining mover); delete each
-   fallback when its mover writes samples.
+   component (for example bare test hurtboxes or genuinely external movers);
+   delete each fallback when its mover writes samples. Bosses are not an
+   exception: `integrate_boss_bodies` delegates to the canonical actor/body
+   kernel and writes the shared motion sample.
 2. **Every mover writes its own segment.** The shared pipeline writes it
    in the kernel; non-pipeline movers (the surface-walker branch, the
    home momentum path) write theirs around their own step — same capture

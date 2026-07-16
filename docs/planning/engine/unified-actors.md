@@ -251,8 +251,10 @@ recognizable:
   alive/health/hit_flash) — a parallel island, a later slice.~~ **DONE (fable
   review §A1, 2026-07-03):** boss HP/liveness/hit_flash live on the shared
   `BodyHealth`/`BodyCombat`; `BossStatus` is renamed `BossEncounter` and holds
-  only encounter state. The remaining island is the integration fold (AS4b/AS4c)
-  and attack geometry (adjudicated in the review's AD2).
+  only encounter state. Boss body integration now delegates to the canonical
+  actor/body kernel; the bounded remaining island is animator/frame-state
+  vocabulary and any obsolete target mirrors, not a second movement path. Attack
+  geometry remains governed by the shared pose/sprite-metadata chain.
 - **Targeting — relational, decision made (step 5/B1).** `FactionRelations` +
   `select_actor_targets`; an Enemy targets an Npc with no player present. *Player-
   centrism to remove:* the player is an unconditional candidate and

@@ -12,18 +12,26 @@ Classic behavior must be authored through engine seams rather than a privileged
 
 Landed:
 
-- provider/demo shells and authored world path;
-- equipment rows and equipment-to-action/parameter machinery;
-- forward-only camera scroll policy as authored camera data;
-- provider-owned flag sequence and scoring geometry;
-- the initial grow/ranged powerup definitions.
+- provider/demo shells, the authored level-1 room grammar, fixed-tick simulation,
+  and the mode-scoped level clock;
+- ?-block bonks that spawn real world-item pickups, with equip-on-touch through
+  the shared item/equipment path;
+- the grow-cap armor row, distinct tall worn identity, collider/body-size update,
+  feet-planted grow/shrink behavior, and spark-blossom ranged move;
+- breakable bricks through durable block-contact identity;
+- crony enemies and shared stomp behavior;
+- forward-only authored camera policy; and
+- flag contact-height scoring, slide, walk-off, tally, dwell, and cyclic level
+  restart.
 
 Remaining acceptance work:
 
-- world pickup entities and equip-on-touch flow;
-- live body-size consumption by collision and presentation;
-- complete enemies, shell-prop behavior, HUD, results, and level content;
-- deterministic headless completion of the first level, including the secret pipe.
+- the secret pipe and underground room;
+- a brainless sliding shell prop;
+- HUD for score/coins/time/lives plus title/results presentation;
+- one deterministic scripted headless run that completes level 1 through real
+  controls, enters the secret, collects a powerup, and exercises its effect; and
+- additional planned levels after the level-1 acceptance gate closes.
 
 ## Consumes
 

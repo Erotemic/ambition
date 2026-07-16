@@ -58,8 +58,10 @@ same slot/control seam as local and replay input.
 ### N3 — rollback
 
 Rollback depends on exact reconstruction, not merely serializing many components.
-The active work is N3.2 below. A future rollback driver should be a consumer of the
-snapshot/session and simulation-harness surfaces, not a second runtime assembly.
+The same-room/session-ownership slice of N3.2 is landed; the active work is the
+atomic active-room transaction below. A future rollback driver should consume the
+snapshot/session and simulation-harness surfaces, not create a second runtime
+assembly.
 
 ## N3.1 — snapshot substrate
 
@@ -99,19 +101,44 @@ Both are required:
 A restore test that manually refreshes ambient global mirrors does not satisfy the
 session-isolation gate.
 
-**Status (landed).** Both gates are met. The `SceneEntities` process-global
-handle bag was removed (its responsibilities derive from canonical
-player/HUD/quest markers). `MovingPlatformSet` became registered snapshot state
-with deterministic rebuild-and-restore, closing the moving-platform half of
-property 4. A provider-installed `SessionTeardownPlugin` resets the remaining
-session-scoped resource mirrors (possession, controlled subject, encounter/boss/
-quest registries, sandbox sim state) on scope retirement, so the isolation gate is
-proved by driving the real host, not by refreshing global mirrors
-(`ambition_demo_sanic_app/tests/session_isolation.rs`). The exact-restore gate's
-bounded resimulation is the `desync_canary` restore-replay oracle, now with
-moving platforms in the state hash. Remaining N3.2 work is the atomic room-restore
-transaction (the active room as restored sim state), which keeps boss/portal rooms
-DIRTY for a cross-room rollback.
+### N3.2a — landed same-room/session slice
+
+The process-global `SceneEntities` handle bag was removed; its responsibilities
+are derived from canonical player/HUD/quest markers. A provider-installed
+`SessionTeardownPlugin` resets the remaining active-session resource mirrors on
+scope retirement, and `ambition_demo_sanic_app/tests/session_isolation.rs` proves
+isolation through the real host lifecycle.
+
+`MovingPlatformSet` is rebuilt by canonical room construction, registered as
+snapshot state, and explicitly cleared on teardown. It is lifecycle-scoped under
+the current one-live-session host contract; the type does not carry an independent
+session key.
+
+For supported snapshots that remain in the active room, the `desync_canary`
+restore/replay oracle proves bounded resimulation equality with moving-platform
+state included in the hash.
+
+### N3.2b — open atomic active-room transaction
+
+Restore still refuses a snapshot whose active room differs from the live room.
+This is the remaining exact-reconstruction boundary, not older N3.1 substrate
+debt.
+
+The transaction must:
+
+1. preflight provider/world/room identity and every required codec before
+   mutation;
+2. stage the snapshot room through canonical room loading and the App-installed
+   placement-lowering registry;
+3. rebuild room-scoped entities and mechanically significant derived state;
+4. apply registered snapshot state only after staging can succeed;
+5. leave the existing live room/session unchanged on refusal; and
+6. prove cross-room rewind/replay equality using canonical identity and state,
+   not raw Bevy entity allocation.
+
+Closing this boundary promotes the portal/boss cross-room replay customers from
+`DIRTY` to `CLEAN` and makes a rollback driver a pure consumer of the snapshot
+surface.
 
 ## Identity and ordering rules
 

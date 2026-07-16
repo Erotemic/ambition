@@ -27,6 +27,7 @@ pub mod content_validation;
 pub mod dialogue;
 /// The spectator-duel exhibition fight (RoomLoaded consumer + `<<duel>>`).
 pub mod duel_arena;
+pub mod encounters;
 /// The falling-sand prototype room (self-gating content plugin).
 #[cfg(feature = "falling_sand")]
 pub mod falling_sand;

@@ -106,6 +106,7 @@ impl Plugin for AmbitionContentPlugin {
 
         app.add_plugins(super::quests::AmbitionQuestContentPlugin);
         app.add_plugins(super::bosses::AmbitionBossContentPlugin);
+        app.add_plugins(super::encounters::AmbitionEncounterContentPlugin);
         app.add_plugins(super::dialogue::AmbitionDialogueContentPlugin);
 
         // Installs intro cutscenes, room bindings, dialogue, and visible-build NPC

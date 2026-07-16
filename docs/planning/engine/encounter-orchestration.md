@@ -2,12 +2,13 @@
 
 **Priority:** active architecture convergence.
 
-**Status:** **E8–E12 LANDED (2026-07-16).** HEAD has ONE encounter lifecycle
-authority (`EncounterLifecycle` + the pure reducer), one generic command
-ingress (`EncounterCommand`), objective-driven completion,
+**Status:** **COMPLETE — E8–E13 LANDED (2026-07-16).** HEAD has ONE encounter
+lifecycle authority (`EncounterLifecycle` + the pure reducer), one generic
+command ingress (`EncounterCommand`), objective-driven completion,
 ownership/policy-driven cleanup, a snapshot-registered authority with stable
-participant relations, and generic consumers over lifecycle + staging policy.
-Remaining: the non-boss acceptance customer (E13).
+participant relations, generic consumers over lifecycle + staging policy, and
+a shipped non-boss customer (the Noether attunement — a signal-driven,
+no-actor puzzle in `game/ambition_content/src/encounters.rs`).
 
 The detailed E0–E7 execution report is preserved at
 [`docs/archive/reviews/planning-history-2026-07-11/encounter-orchestration-e0-e7-report.md`](../../archive/reviews/planning-history-2026-07-11/encounter-orchestration-e0-e7-report.md).
@@ -193,8 +194,8 @@ stable signals; generic objectives consume them.
 
 ## Ordered patches
 
-These are the encounter track's executable subtasks; E8–E12 are **DONE**
-(2026-07-16); E13 remains open.
+These are the encounter track's executable subtasks; **all of E8–E13 are
+DONE** (2026-07-16).
 
 ### E8 — canonical lifecycle and command seam — ✅ DONE (commit 25c12870a)
 
@@ -241,13 +242,21 @@ it behaviorally. Actor-local phase presentation (boss adaptive music, phase
 feedback, member HP rows, death-outro-gated persistence) stays actor-local —
 see the §5 rationale for what deliberately did not move.
 
-### E13 — non-boss acceptance customer
+### E13 — non-boss acceptance customer — ✅ DONE
 
-Use the generic path for a race, puzzle, defense, or timed section. Sanic's race
-or a signal-driven no-actor puzzle is suitable.
+The **Noether attunement**: flip the symmetry room's gravity through all four
+kernel faces (`game/ambition_content/src/encounters.rs`). Content contributes
+exactly three things: the generic authority components at spawn (objective =
+`All` of four `ReceiveSignal`s; a prior completion loads terminal from the
+save flag), command EMITTERS (chamber entry → `Start`, each kernel flip →
+`Signal`), and an effect CONSUMER (celebration banner + save flag off the
+generic `Completed`). No new lifecycle, evaluator, cleanup path, or
+presentation authority.
 
-**Exit:** the customer adds content/rules without adding another lifecycle,
-objective evaluator, cleanup path, or presentation authority.
+**Exit met:** `game/ambition_app/tests/symmetry_attunement.rs` drives the
+real headless sim in the chamber: entry starts it, three flips hold the `All`
+objective out, the fourth completes it through the generic reducer, the flag
+persists, and a terminal phase refuses a restart.
 
 ## Acceptance ledger
 
@@ -264,8 +273,10 @@ every UNSATISFIED or PARTIAL criterion maps to an OPEN patch below.
 | One lifecycle/objective/timeline authority | **SATISFIED** | — |
 | Generic presentation/reward/persistence intent | **SATISFIED** (staging generic; boss outro persistence + reward anchors recorded as actor-local/authored policy) | — |
 | One snapshot representation with stable participant relations | **SATISFIED** | — |
-| First non-boss customer proves reuse | **UNSATISFIED** | E13 |
+| First non-boss customer proves reuse | **SATISFIED** | — |
 
-The architecture is complete only when the missing criteria are demonstrated by
-code and tests at HEAD. Line-count reduction is useful evidence of deleted
-parallel authority, but it is not a substitute for the semantic criteria above.
+Every criterion above is demonstrated by code and tests at HEAD (2026-07-16).
+The convergence deleted the parallel wave lifecycle outright (`EncounterState`
+and the `despawn_encounter_mobs` marker scan are gone); what remains
+boss-owned is decision policy, actor-local phase presentation, and the
+outro-gated persistence/reward policies recorded in §5.

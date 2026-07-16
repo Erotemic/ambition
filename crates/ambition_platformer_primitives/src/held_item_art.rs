@@ -47,7 +47,9 @@ impl HeldItemArtEntry {
 
 /// Accumulates every provider's [`HeldItemArtEntry`] before the render layer
 /// resolves them into loaded handles. Contributors EXTEND it (never replace), so
-/// composing several games unions their held-item art.
+/// composing several games unions their held-item art. If two contributions name
+/// the same `item_id`, the LAST-registered entry wins at resolution (the resolver
+/// folds the `Vec` in registration order), which is deterministic plugin-add order.
 #[derive(Resource, Default, Debug)]
 pub struct HeldItemArtManifest(pub Vec<HeldItemArtEntry>);
 

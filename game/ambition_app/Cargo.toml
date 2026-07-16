@@ -73,7 +73,7 @@ web_served_assets = ["visible_web_served", "web_platform"]
 web_served = ["ambition/web_served"]
 web_audio = ["audio", "ambition/web_audio"]
 
-rl_sim = ["ambition/rl_sim"]
+rl_sim = ["ambition/rl_sim", "dep:ambition_sim_harness"]
 headless = ["ambition/headless"]
 dev_tools = ["ambition/dev_tools", "dep:bevy-inspector-egui"]
 dev_hot_reload = ["ambition/dev_hot_reload"]
@@ -116,7 +116,7 @@ ambition = { path = "../../crates/ambition" }
 ambition_content = { path = "../ambition_content" }
 # The reusable programmatic sim harness (reset/step/action/observation/reward).
 # ambition_app supplies the Ambition-specific composition (see rl_sim::AmbitionSim).
-ambition_sim_harness = { path = "../../crates/ambition_sim_harness" }
+ambition_sim_harness = { path = "../../crates/ambition_sim_harness", optional = true }
 ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope" }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 bevy_common_assets = { version = "0.15", features = ["ron"] }

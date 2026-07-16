@@ -216,7 +216,7 @@ pub fn apply_placeholder_sprites_override(
             let feature_view = feature.and_then(|fv| feature_views.get(&fv.id));
             // Projectiles read their placeholder color from their visual id's
             // authored debug tint, resolved through the content-owned catalog.
-            let proj_tint = proj_id.map(|id| projectile_visuals.resolve(id.as_str()).debug_tint);
+            let proj_tint = proj_id.map(|id| projectile_visuals.debug_tint(id.as_str()));
             let placeholder_color = pick_placeholder_color(
                 feature_view.map(|v| (v.kind, v.fighting)),
                 player.is_some(),

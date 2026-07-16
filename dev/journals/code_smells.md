@@ -22,6 +22,19 @@ Entry format:
 
 ## Open
 
+## 2026-07-16 `ProjectileView.visual_id` allocates a `String` per projectile per sim tick
+- **Where:** `crates/ambition_sim_view/src/facts.rs:341` (`rebuild_projectile_views`)
+- **Smell:** the projectile-visual eviction (224dba72f) turned `ProjectileView.kind`
+  (`Copy` enum) into `visual_id: String`; the read-model is rebuilt from scratch every
+  tick by construction, so every live projectile now clones an id `String` per tick
+  even though the id is immutable after spawn. Pure alloc churn — worst under
+  bullet-hell volleys.
+- **Noticed while:** fable review of the opus structural-eviction commits.
+- **Suggested fix / size:** S–M. Either intern the id (`Arc<str>` in both
+  `ProjectileVisualId` and the view — clone becomes a refcount bump) or restructure
+  the rebuild to reuse rows keyed by entity. The `Arc<str>` route is smaller and keeps
+  the "rebuilt every tick" `declare_derived` claim intact.
+
 ## 2026-07-01 Portal TRANSIT-feel adapters still key on `PrimaryPlayer` — ✅ RESOLVED 2026-07-15
 - **RESOLUTION (commit 00d249292):** `warp_portal_input` + `portal_player_input_adapter` resolve `ControlledSubject` (fallback primary) exactly like the use-path adapters, so a possessed body's emergence gets `PortalEmission`/`PortalInputWarp`/trace seams. Wall-ability suppression went further: BODY-GENERIC over `With<PortalTransit>` (the aperture-edge hazard is a property of transiting), with a paired `restore_wall_abilities_after_transit` that restores the four verbs from the body's own `AbilityBase` on latch removal — needed because the F3 per-frame re-sync only covers the primary player. Poison-tested both ways.
 

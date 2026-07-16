@@ -328,7 +328,7 @@ pub fn sync_projectile_visuals(
         transform.translation =
             ambition_engine_core::config::world_to_bevy(&world.0, view.pos, projectile_z());
 
-        match visual_catalog.resolve(visual_id.as_str()).rotation {
+        match visual_catalog.rotation(visual_id.as_str()) {
             ProjectileRotation::FlipToTravel => {
                 sprite.flip_x = view.vel.x < 0.0;
             }

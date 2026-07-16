@@ -126,6 +126,14 @@ pub struct ProjectileArt {
 }
 
 impl ProjectileArt {
+    /// Rotation axis of the generic fallback look (used by [`Self::generic`] and
+    /// the catalog's borrow-only [`ProjectileVisualCatalog::rotation`] accessor,
+    /// so the two cannot drift).
+    pub const GENERIC_ROTATION: ProjectileRotation = ProjectileRotation::FlipToTravel;
+    /// Debug placeholder tint of the generic fallback look (see
+    /// [`Self::GENERIC_ROTATION`] for why this is a const).
+    pub const GENERIC_DEBUG_TINT: [f32; 4] = [1.0, 0.45, 0.18, 1.0];
+
     /// The engine's generic hostile-shot look — an orange-red quad. Used for any
     /// projectile whose visual id is unregistered (the content-free fallback: the
     /// reusable crate never names a projectile, but the model still draws
@@ -139,8 +147,8 @@ impl ProjectileArt {
                 min: 8.0,
                 scale: 1.0,
             },
-            rotation: ProjectileRotation::FlipToTravel,
-            debug_tint: [1.0, 0.45, 0.18, 1.0],
+            rotation: Self::GENERIC_ROTATION,
+            debug_tint: Self::GENERIC_DEBUG_TINT,
             label: "projectile".to_string(),
             expiry_vfx: None,
         }
@@ -166,12 +174,29 @@ impl ProjectileVisualCatalog {
 
     /// Resolve `id` → art, falling back to the generic hostile shot when the id
     /// is unregistered (or empty). Returns an owned art so callers needn't hold
-    /// the resource borrow across the frame.
+    /// the resource borrow across the frame. Clones the record — use the
+    /// per-axis accessors ([`Self::rotation`], [`Self::debug_tint`]) on
+    /// per-frame per-projectile paths instead.
     pub fn resolve(&self, id: &str) -> ProjectileArt {
         self.arts
             .get(id)
             .cloned()
             .unwrap_or_else(ProjectileArt::generic)
+    }
+
+    /// The rotation axis for `id`, generic fallback for unregistered ids.
+    /// Borrow-only (no art clone): the per-frame rotation refresh reads this
+    /// for every in-flight projectile.
+    pub fn rotation(&self, id: &str) -> ProjectileRotation {
+        self.get(id)
+            .map_or(ProjectileArt::GENERIC_ROTATION, |art| art.rotation)
+    }
+
+    /// The debug placeholder tint for `id`, generic fallback for unregistered
+    /// ids. Borrow-only (no art clone) for the placeholder-overlay refresh.
+    pub fn debug_tint(&self, id: &str) -> [f32; 4] {
+        self.get(id)
+            .map_or(ProjectileArt::GENERIC_DEBUG_TINT, |art| art.debug_tint)
     }
 
     /// Register a named look. Idempotent for identical (id, art); panics on a

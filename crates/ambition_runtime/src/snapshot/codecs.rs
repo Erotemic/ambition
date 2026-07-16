@@ -1385,3 +1385,213 @@ pub fn mint_spawned_sim_ids(
         ));
     }
 }
+
+// ─── Encounter authority (E11) ───────────────────────────────────────────────
+//
+// The generic encounter entity (`Encounter` + `SimId::encounter(id)`) carries
+// three snapshot-relevant components. `EncounterLifecycle` and
+// `EncounterParticipants` are plain state; `EncounterWaves` is a RESOLVED
+// codec — its authored `EncounterSpec` is content the surviving entity still
+// carries, so the blob stores only the live run (the choice, not the content).
+// Participant `entity` handles are NEVER serialized (N3.1 decision 2): the
+// durable identity is the id string, and the adapters re-resolve the live
+// entity every tick (wave liveness refresh / boss progress update).
+
+fn encounter_phase_tag(phase: ambition_encounter::EncounterPhase) -> u8 {
+    use ambition_encounter::EncounterPhase as P;
+    match phase {
+        P::Inactive => 0,
+        P::Starting { .. } => 1,
+        P::Active => 2,
+        P::Completed => 3,
+        P::Failed => 4,
+    }
+}
+
+impl SnapshotState for ambition_encounter::EncounterLifecycle {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use ambition_encounter::EncounterPhase as P;
+        put_u8(out, encounter_phase_tag(self.phase));
+        if let P::Starting { remaining } = self.phase {
+            put_f32(out, remaining);
+        }
+        put_f32(out, self.intro_seconds);
+        put_f32(out, self.elapsed_active);
+        // BTreeSet iterates sorted — canonical blob bytes by construction.
+        put_u32(out, self.signals.len() as u32);
+        for signal in &self.signals {
+            put_str(out, signal);
+        }
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_encounter::EncounterPhase as P;
+        let phase = match r.u8()? {
+            0 => P::Inactive,
+            1 => P::Starting {
+                remaining: r.f32()?,
+            },
+            2 => P::Active,
+            3 => P::Completed,
+            4 => P::Failed,
+            _ => return None,
+        };
+        let intro_seconds = r.f32()?;
+        let elapsed_active = r.f32()?;
+        let n = r.u32()? as usize;
+        let mut signals = std::collections::BTreeSet::new();
+        for _ in 0..n {
+            signals.insert(r.str()?.to_string());
+        }
+        Some(ambition_encounter::EncounterLifecycle {
+            phase,
+            intro_seconds,
+            elapsed_active,
+            signals,
+        })
+    }
+}
+
+fn encounter_role_tag(role: ambition_encounter::EncounterRole) -> u8 {
+    use ambition_encounter::EncounterRole as R;
+    match role {
+        R::PrimaryTarget => 0,
+        R::Elite => 1,
+        R::Minion => 2,
+        R::Hazard => 3,
+        R::Objective => 4,
+        R::Protected => 5,
+        R::Escort => 6,
+        R::Narrative => 7,
+        R::Rival => 8,
+    }
+}
+
+fn encounter_role_from_tag(tag: u8) -> Option<ambition_encounter::EncounterRole> {
+    use ambition_encounter::EncounterRole as R;
+    Some(match tag {
+        0 => R::PrimaryTarget,
+        1 => R::Elite,
+        2 => R::Minion,
+        3 => R::Hazard,
+        4 => R::Objective,
+        5 => R::Protected,
+        6 => R::Escort,
+        7 => R::Narrative,
+        8 => R::Rival,
+        _ => return None,
+    })
+}
+
+impl SnapshotState for ambition_encounter::EncounterParticipants {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u32(out, self.members.len() as u32);
+        for member in &self.members {
+            put_str(out, &member.id);
+            put_u8(out, encounter_role_tag(member.role));
+            put_bool(
+                out,
+                matches!(member.ownership, ambition_encounter::Ownership::Spawned),
+            );
+            put_bool(out, member.alive);
+            // `member.entity` is deliberately NOT here — an entity index is an
+            // allocator slot, not an identity. Re-resolved live from the id.
+        }
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let n = r.u32()? as usize;
+        let mut members = Vec::with_capacity(n);
+        for _ in 0..n {
+            let id = r.str()?.to_string();
+            let role = encounter_role_from_tag(r.u8()?)?;
+            let ownership = if r.bool()? {
+                ambition_encounter::Ownership::Spawned
+            } else {
+                ambition_encounter::Ownership::Adopted
+            };
+            let alive = r.bool()?;
+            members.push(ambition_encounter::EncounterParticipant {
+                id,
+                entity: None,
+                role,
+                ownership,
+                alive,
+            });
+        }
+        Some(ambition_encounter::EncounterParticipants { members })
+    }
+}
+
+impl SnapshotResolve for ambition_encounter::EncounterWaves {
+    fn encode_ref(&self, out: &mut Vec<u8>) {
+        // The live run — the spec is authored content resolved from the
+        // surviving component. Pending mobs are encoded verbatim (small POD;
+        // their delays were already adjusted by the inter-wave rule, so they
+        // are run state, not a pure spec subset).
+        put_bool(out, self.run.wave_index.is_some());
+        if let Some(wave_index) = self.run.wave_index {
+            put_u32(out, wave_index as u32);
+        }
+        put_u32(out, self.run.pending.len() as u32);
+        for mob in &self.run.pending {
+            put_str(out, &mob.kind);
+            put_f32(out, mob.spawn[0]);
+            put_f32(out, mob.spawn[1]);
+            put_f32(out, mob.size[0]);
+            put_f32(out, mob.size[1]);
+            put_f32(out, mob.delay);
+        }
+        put_f32(out, self.run.wave_elapsed);
+        put_bool(out, self.run.exhausted_signaled);
+        put_u32(out, self.spawn_counter);
+    }
+
+    fn resolve(
+        entity: &bevy::ecs::world::EntityWorldMut<'_>,
+        r: &mut Reader<'_>,
+    ) -> Result<Option<Self>, ResolveDecodeError> {
+        // Blob first (a truncated blob is Err regardless of content).
+        let wave_index = if r.bool().ok_or(ResolveDecodeError)? {
+            Some(r.u32().ok_or(ResolveDecodeError)? as usize)
+        } else {
+            None
+        };
+        let n = r.u32().ok_or(ResolveDecodeError)? as usize;
+        let mut pending = Vec::with_capacity(n);
+        for _ in 0..n {
+            let kind = r.str().ok_or(ResolveDecodeError)?.to_string();
+            let spawn = [
+                r.f32().ok_or(ResolveDecodeError)?,
+                r.f32().ok_or(ResolveDecodeError)?,
+            ];
+            let size = [
+                r.f32().ok_or(ResolveDecodeError)?,
+                r.f32().ok_or(ResolveDecodeError)?,
+            ];
+            let delay = r.f32().ok_or(ResolveDecodeError)?;
+            pending.push(ambition_encounter::EncounterMobSpec {
+                kind,
+                spawn,
+                size,
+                delay,
+            });
+        }
+        let wave_elapsed = r.f32().ok_or(ResolveDecodeError)?;
+        let exhausted_signaled = r.bool().ok_or(ResolveDecodeError)?;
+        let spawn_counter = r.u32().ok_or(ResolveDecodeError)?;
+        // The authored spec: content the surviving entity still carries.
+        let Some(existing) = entity.get::<ambition_encounter::EncounterWaves>() else {
+            return Ok(None);
+        };
+        let mut waves = ambition_encounter::EncounterWaves::new(existing.spec.clone());
+        waves.run = ambition_encounter::EncounterRun {
+            wave_index,
+            pending,
+            wave_elapsed,
+            exhausted_signaled,
+        };
+        waves.spawn_counter = spawn_counter;
+        Ok(Some(waves))
+    }
+}

@@ -20,8 +20,8 @@
 //! same body different indices — spawn order across archetypes is not part of the
 //! game's state. A snapshot keyed on `Entity` restores into a different world; a
 //! desync hash keyed on `Entity` cries wolf every run. So a `SimId` is a *string
-//! derived from the game's own facts*, and the three constructors below are the
-//! only three facts there are.
+//! derived from the game's own facts*, and the constructors below are the only
+//! facts there are.
 //!
 //! ## Why a `String` and not a `u64` hash
 //!
@@ -55,6 +55,15 @@ impl SimId {
         Self(format!("slot:{slot}"))
     }
 
+    /// An encounter AUTHORITY entity (E11), by its encounter id (the LDtk
+    /// trigger id for a wave arena, the boss placement id for a wrap). Its own
+    /// namespace on purpose: a boss wrap's id IS the boss's placement id, and
+    /// the boss BODY already owns `placement:{id}` — orchestration and body
+    /// are two rows, not one.
+    pub fn encounter(id: &str) -> Self {
+        Self(format!("encounter:{id}"))
+    }
+
     /// A dynamically-spawned sim entity: a projectile, a dropped item, a summoned
     /// add. `(spawner SimId, per-spawner counter)` — deterministic because the sim
     /// is, and legible because the parent is right there in the string.
@@ -73,8 +82,8 @@ impl SimId {
     /// The ONLY way to make a `SimId` from a raw string, and it is named for its
     /// one caller (`ambition_runtime::snapshot::restore`). Everything else must
     /// go through [`SimId::placement`] / [`SimId::player_slot`] /
-    /// [`SimId::spawned`], because those three ARE the vocabulary — a fourth way
-    /// to mint one is a fourth namespace to collide in.
+    /// [`SimId::spawned`] / [`SimId::encounter`], because those ARE the
+    /// vocabulary — another way to mint one is another namespace to collide in.
     pub fn from_snapshot(raw: String) -> Self {
         Self(raw)
     }
@@ -114,9 +123,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_three_constructors_never_collide() {
+    fn the_constructors_never_collide() {
         assert_ne!(SimId::placement("0"), SimId::player_slot(0));
         assert_ne!(SimId::placement("slot:0"), SimId::player_slot(0));
+        // A boss WRAP and the boss BODY share the raw id string but live in
+        // different namespaces (orchestration vs body).
+        assert_ne!(SimId::encounter("boss_1"), SimId::placement("boss_1"));
     }
 
     /// A spawned id names its parent, so a desync report reads as a sentence.

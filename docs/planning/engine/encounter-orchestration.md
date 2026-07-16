@@ -2,11 +2,12 @@
 
 **Priority:** active architecture convergence.
 
-**Status:** **E8–E10 LANDED (2026-07-16).** HEAD has ONE encounter lifecycle
+**Status:** **E8–E11 LANDED (2026-07-16).** HEAD has ONE encounter lifecycle
 authority (`EncounterLifecycle` + the pure reducer), one generic command
-ingress (`EncounterCommand`), objective-driven completion, and
-ownership/policy-driven cleanup. Remaining: snapshot identity (E11), consumer
-convergence (E12), and the non-boss acceptance customer (E13).
+ingress (`EncounterCommand`), objective-driven completion,
+ownership/policy-driven cleanup, and a snapshot-registered authority with
+stable participant relations. Remaining: consumer convergence (E12) and the
+non-boss acceptance customer (E13).
 
 The detailed E0–E7 execution report is preserved at
 [`docs/archive/reviews/planning-history-2026-07-11/encounter-orchestration-e0-e7-report.md`](../../archive/reviews/planning-history-2026-07-11/encounter-orchestration-e0-e7-report.md).
@@ -108,12 +109,21 @@ completion, re-arm) converge on the one ownership-driven adapter. Deliberate
 behavior change: abandoning an arena (area exit) now also despawns its spawned
 mobs — the pre-E10 lingering was accidental, not policy.
 
-### 4. Snapshot-stable identity
+### 4. Snapshot-stable identity — ✅ LANDED (E11)
 
-Encounter participant durable identity is currently a `String` plus an optional
-ECS `Entity`, not a snapshot-registered stable relation. The snapshot registry
-does not register the wave or boss encounter schemas. Entity-local storage alone
-is not a snapshot representation.
+Every encounter authority carries `SimId::encounter(id)` (its own namespace —
+a boss WRAP and the boss BODY share the raw id but are two roster rows). The
+registry registers `EncounterLifecycle` + `EncounterParticipants` as plain
+state and `EncounterWaves` as a RESOLVED codec (the blob stores the live run;
+the authored spec resolves from the surviving component). Participant `Entity`
+handles are never serialized: the durable identity is the id string, and the
+adapters re-resolve — including healing a restore-nulled cache by id
+(`update_encounter_progress` / the wave liveness refresh), and the boss wrap's
+coverage check matches by id as well as entity so a restore never double-wraps.
+`EncounterProgress` is declared derived; `Encounter` / `EncounterObjective` /
+`EncounterDef` are reviewed authored-config debt
+(`known_component_debt.txt`). The command/event channels are registered (a
+pending Start replayed after a restore would double-apply).
 
 ### 5. Consumer convergence
 
@@ -165,8 +175,8 @@ stable signals; generic objectives consume them.
 
 ## Ordered patches
 
-These are the encounter track's executable subtasks; E8–E10 are **DONE**
-(2026-07-16), E11–E13 remain open.
+These are the encounter track's executable subtasks; E8–E11 are **DONE**
+(2026-07-16), E12–E13 remain open.
 
 ### E8 — canonical lifecycle and command seam — ✅ DONE (commit 25c12870a)
 
@@ -193,14 +203,16 @@ fails if an adopted actor is despawned OR a spawned-owned actor leaks;
 `keep_policy_leaves_spawned_participants_in_the_world` proves the authored
 policy is consulted, not just the enum.
 
-### E11 — stable identity and snapshot registration
+### E11 — stable identity and snapshot registration — ✅ DONE
 
-Replace string-only durable relations with the repository's stable simulation
-identity model, register the encounter authority needed by rollback, and prove
-entity handles can be re-resolved after restore.
-
-**Exit:** snapshot/restore of an active encounter preserves lifecycle, objective
-progress, signals, and participant relations.
+**Exit met:** `ambition_runtime::snapshot::tests::restore_preserves_an_active_encounter`
+takes a mid-fight authority (Active phase, elapsed time, two signals, a
+dead-but-retained spawned relation + an adopted one, a mid-wave run), wrecks
+it, restores it, and asserts every field — with `entity: None` proving handles
+are re-resolved, never serialized. The desync canary's restore-replay oracle
+caught (and now pins) the real bug this surfaced: a restored wrap whose
+participant caches were nulled read its boss as dead and replayed into a
+different future until resolution healed by id.
 
 ### E12 — generic consumer convergence
 
@@ -232,7 +244,7 @@ every UNSATISFIED or PARTIAL criterion maps to an OPEN patch below.
 | Actor-local phase remains independent | **SATISFIED** | — |
 | One lifecycle/objective/timeline authority | **SATISFIED** | — |
 | Generic presentation/reward/persistence intent | **PARTIAL** | E12 |
-| One snapshot representation with stable participant relations | **UNSATISFIED** | E11 |
+| One snapshot representation with stable participant relations | **SATISFIED** | — |
 | First non-boss customer proves reuse | **UNSATISFIED** | E13 |
 
 The architecture is complete only when the missing criteria are demonstrated by

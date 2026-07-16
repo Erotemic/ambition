@@ -1121,6 +1121,18 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_component::<ambition_time::ProperTimeScale>("proper_time_scale");
     registry.register_cursor::<ambition_actors::features::BossEncounter>("boss_encounter");
 
+    // ── Encounter authority (E11) ────────────────────────────────────────────
+    //
+    // The generic encounter entity (`SimId::encounter(id)`): lifecycle +
+    // participant relations are plain state; the wave director resolves its
+    // authored spec from the surviving component (the blob carries only the
+    // live run). Participant `entity` handles are re-resolved live from ids,
+    // never serialized.
+    registry.register_component::<ambition_encounter::EncounterLifecycle>("encounter_lifecycle");
+    registry
+        .register_component::<ambition_encounter::EncounterParticipants>("encounter_participants");
+    registry.register_resolved::<ambition_encounter::EncounterWaves>("encounter_waves");
+
     // ── Structurally derived: rebuilt every tick by the system that maintains it ──
     //
     // N3.1: "if restoring something requires a rebuild pass, the rebuild must be the
@@ -1155,6 +1167,10 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.declare_derived::<ambition_sim_view::ProjectileView>(
         "SimView: rebuilt from the sim every tick, by construction",
     );
+    registry.declare_derived::<ambition_actors::boss_encounter::EncounterProgress>(
+        "recomputed every frame by update_encounter_progress from member \
+         BodyHealth/ActorPhaseState + the lifecycle",
+    );
 
     registry
         .register_resource_cursor::<ambition_combat::slots::CombatSlotsRes>("combat_slot_board");
@@ -1171,8 +1187,7 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_message_channel::<ambition_combat::moveset::MoveEventMessage>("move_event");
     // E8 generic encounter ingress/events: a pending Start/Signal command (or
     // a Completed event) replayed after a restore would double-apply.
-    registry
-        .register_message_channel::<ambition_encounter::EncounterCommand>("encounter_command");
+    registry.register_message_channel::<ambition_encounter::EncounterCommand>("encounter_command");
     registry.register_message_channel::<ambition_encounter::EncounterEventMsg>("encounter_event");
 
     // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be

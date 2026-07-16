@@ -9,7 +9,7 @@ use crate::boss_encounter::BossCatalog;
 use crate::features::CharacterRoster;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer_primitives::lifecycle::SessionSpawnScope;
-use bevy::prelude::{Commands, Entity, Query};
+use bevy::prelude::Commands;
 
 pub(crate) use super::spawn_actors::spawn_runtime_minion;
 

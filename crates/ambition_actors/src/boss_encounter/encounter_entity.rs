@@ -103,12 +103,19 @@ pub fn sync_boss_encounter_entities(
     >,
     encounters: Query<&EncounterParticipants>,
 ) {
-    let covered: HashSet<Entity> = encounters
+    // Coverage by cached entity AND by durable id: a snapshot restore nulls
+    // the entity caches (an Entity is never serialized), and re-wrapping an
+    // already-wrapped boss on the post-restore frame would fork the timeline.
+    let covered_entities: HashSet<Entity> = encounters
         .iter()
         .flat_map(|p| p.members.iter().filter_map(|m| m.entity))
         .collect();
+    let covered_ids: HashSet<&str> = encounters
+        .iter()
+        .flat_map(|p| p.members.iter().map(|m| m.id.as_str()))
+        .collect();
     for (entity, config, status, overrides, owner) in &bosses {
-        if covered.contains(&entity) {
+        if covered_entities.contains(&entity) || covered_ids.contains(config.id.as_str()) {
             continue;
         }
         // A boss spawned with `no_encounter` is a plain tough enemy — no
@@ -134,6 +141,9 @@ pub fn sync_boss_encounter_entities(
             SessionSpawnScope::new(owner.map(|owner| owner.0)),
             (
                 Encounter::new(config.id.clone()),
+                // Stable simulation identity (E11): its own `encounter:`
+                // namespace — the boss BODY owns `placement:{id}`.
+                ambition_platformer_primitives::sim_id::SimId::encounter(&config.id),
                 EncounterLifecycle::default(),
                 EncounterDef {
                     placement_id: config.id.clone(),
@@ -171,6 +181,7 @@ pub fn update_encounter_progress(
         &mut EncounterProgress,
     )>,
     bosses: Query<(
+        Entity,
         &BossConfig,
         &BossEncounter,
         &ambition_characters::actor::BodyHealth,
@@ -180,14 +191,23 @@ pub fn update_encounter_progress(
         progress.members.clear();
         let mut any_resolved = false;
         for member in &mut participants.members {
-            let Some((config, status, health)) = member.entity.and_then(|e| bosses.get(e).ok())
-            else {
+            // Live resolution is a CACHE over the durable id: prefer the
+            // cached entity, but heal a nulled cache (a snapshot restore
+            // never serializes Entity handles) by re-resolving the boss
+            // whose placement id IS this member's id.
+            let resolved = member.entity.and_then(|e| bosses.get(e).ok()).or_else(|| {
+                bosses
+                    .iter()
+                    .find(|(_, config, _, _)| config.id == member.id)
+            });
+            let Some((boss_entity, config, status, health)) = resolved else {
                 // The member left the world (room change / despawn): forget the
                 // stale entity + read it as not alive.
                 member.entity = None;
                 member.alive = false;
                 continue;
             };
+            member.entity = Some(boss_entity);
             any_resolved = true;
             member.alive = health.alive();
             // Phase comes from the entity-local copy; fall back to the synced

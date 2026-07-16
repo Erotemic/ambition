@@ -58,6 +58,9 @@ pub fn populate_encounter_registry(
         let entity = commands
             .spawn((
                 Encounter::new(id.clone()),
+                // Stable simulation identity (E11): the authority enters the
+                // snapshot roster / state hash under its own namespace.
+                ambition_platformer_primitives::sim_id::SimId::encounter(&id),
                 lifecycle,
                 objective,
                 waves,

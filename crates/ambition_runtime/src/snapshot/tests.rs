@@ -1996,3 +1996,130 @@ fn restore_reconstructs_moving_platform_kinematics() {
         "restore did not reconstruct the moving platform's rewound kinematic state"
     );
 }
+
+/// **E11 exit (encounter-orchestration.md):** snapshot/restore of an ACTIVE
+/// encounter preserves lifecycle (phase + elapsed time + received signals),
+/// participant relations (id/role/ownership/alive — with the live `Entity`
+/// handle re-resolved, never serialized), and the wave director's run.
+#[test]
+fn restore_preserves_an_active_encounter() {
+    use ambition_encounter::{
+        Encounter, EncounterLifecycle, EncounterMobSpec, EncounterParticipant,
+        EncounterParticipants, EncounterPhase, EncounterRole, EncounterRun, EncounterSpec,
+        EncounterWaves, Ownership,
+    };
+
+    let spec = EncounterSpec {
+        id: "arena".into(),
+        waves: vec![ambition_encounter::EncounterWaveSpec {
+            label: "w1".into(),
+            mobs: vec![EncounterMobSpec::new("m", [0.0, 0.0])],
+        }],
+        trigger_min: [0.0, 0.0],
+        trigger_size: [100.0, 100.0],
+        camera_zoom: 1.2,
+        lock_wall: None,
+        intro_seconds: 0.0,
+        music_track: String::new(),
+        reward: ambition_encounter::spec::default_encounter_reward(),
+    };
+
+    let mut lifecycle = EncounterLifecycle::default();
+    lifecycle.phase = EncounterPhase::Active;
+    lifecycle.elapsed_active = 3.25;
+    lifecycle.signals.insert("waves_exhausted".to_string());
+    lifecycle.signals.insert("switch_a".to_string());
+
+    let mut waves = EncounterWaves::new(spec);
+    waves.run = EncounterRun {
+        wave_index: Some(0),
+        pending: vec![EncounterMobSpec::new("large_brute", [50.0, 10.0]).with_delay(2.0)],
+        wave_elapsed: 1.5,
+        exhausted_signaled: true,
+    };
+    waves.spawn_counter = 5;
+
+    let mut world = World::new();
+    let mob = world.spawn_empty().id();
+    let mut spawned_member =
+        EncounterParticipant::spawned("encounter:arena:w0:1", Some(mob), EncounterRole::Minion);
+    spawned_member.alive = false; // dead but retained: the relation is state
+    let adopted_member =
+        EncounterParticipant::adopted("npc_1", world.spawn_empty().id(), EncounterRole::Protected);
+    let encounter = world
+        .spawn((
+            Encounter::new("arena"),
+            SimId::encounter("arena"),
+            lifecycle.clone(),
+            EncounterParticipants::new(vec![spawned_member, adopted_member]),
+            waves.clone(),
+        ))
+        .id();
+
+    let mut reg = SnapshotRegistry::default();
+    reg.register_component::<EncounterLifecycle>("encounter_lifecycle");
+    reg.register_component::<EncounterParticipants>("encounter_participants");
+    reg.register_resolved::<EncounterWaves>("encounter_waves");
+    let snap = take(&world, &reg);
+
+    // Wreck the activation: complete it, clear the signals/relations, reset
+    // the run.
+    {
+        let mut e = world.entity_mut(encounter);
+        let mut lc = e.get_mut::<EncounterLifecycle>().unwrap();
+        lc.phase = EncounterPhase::Completed;
+        lc.elapsed_active = 0.0;
+        lc.signals.clear();
+        e.get_mut::<EncounterParticipants>()
+            .unwrap()
+            .members
+            .clear();
+        let mut w = e.get_mut::<EncounterWaves>().unwrap();
+        w.reset_run();
+        w.spawn_counter = 99;
+    }
+
+    let report = restore(&mut world, &snap, &reg).expect("same-world restore");
+    assert_eq!(report.patched, 1, "the surviving authority was patched");
+    assert_eq!(
+        report.unapplied_rows, 0,
+        "every registered row applied: {report:?}"
+    );
+
+    let e = world.entity(encounter);
+    let lc = e.get::<EncounterLifecycle>().unwrap();
+    assert_eq!(lc.phase, EncounterPhase::Active);
+    assert_eq!(lc.elapsed_active, 3.25);
+    assert_eq!(
+        lc.signals.iter().cloned().collect::<Vec<_>>(),
+        ["switch_a", "waves_exhausted"],
+        "received signals survive the rewind"
+    );
+    let parts = e.get::<EncounterParticipants>().unwrap();
+    assert_eq!(parts.members.len(), 2);
+    assert_eq!(parts.members[0].id, "encounter:arena:w0:1");
+    assert_eq!(parts.members[0].role, EncounterRole::Minion);
+    assert_eq!(parts.members[0].ownership, Ownership::Spawned);
+    assert!(
+        !parts.members[0].alive,
+        "dead-but-retained relation survives"
+    );
+    assert_eq!(
+        parts.members[0].entity, None,
+        "an Entity is an allocator slot, not an identity — re-resolved live"
+    );
+    assert_eq!(parts.members[1].ownership, Ownership::Adopted);
+    assert!(parts.members[1].alive);
+    let w = e.get::<EncounterWaves>().unwrap();
+    assert_eq!(w.run.wave_index, Some(0));
+    assert_eq!(w.run.pending.len(), 1);
+    assert_eq!(w.run.pending[0].kind, "large_brute");
+    assert_eq!(w.run.pending[0].delay, 2.0);
+    assert_eq!(w.run.wave_elapsed, 1.5);
+    assert!(w.run.exhausted_signaled);
+    assert_eq!(w.spawn_counter, 5);
+    assert_eq!(
+        w.spec.id, "arena",
+        "authored spec resolved from the survivor"
+    );
+}

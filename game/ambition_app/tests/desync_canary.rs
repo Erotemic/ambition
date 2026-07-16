@@ -659,7 +659,12 @@ fn the_snapshot_coverage_ledger() {
          never saw one and `restore` never touched one. See netcode.md N3.1.",
         resources.len()
     );
-    const KNOWN_DEBT: usize = 59;
+    // 2026-07-16 (E11): +3 reviewed authored components on the newly
+    // SimId-carrying encounter-authority entities (Encounter identity,
+    // EncounterObjective, boss-wrap EncounterDef) — authored/immutable config;
+    // the mutable state (lifecycle/participants/waves) IS registered. Reviewed
+    // in known_component_debt.txt.
+    const KNOWN_DEBT: usize = 62;
     assert!(
         worst <= KNOWN_DEBT,
         "{worst} component types on SimId entities are neither registered as sim \

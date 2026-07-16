@@ -114,8 +114,7 @@ impl Plugin for MaryOExperiencePlugin {
     }
 }
 
-/// The provider's session-world source: authored level 1-1, fresh per
-/// preparation request.
+/// The provider's authored level 1-1 source for the shared preparation lifecycle.
 fn mary_o_prepared_session_world() -> PlatformerSessionWorld {
     let source = mary_o_session_world();
     PlatformerSessionWorld::new(

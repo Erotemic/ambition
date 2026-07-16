@@ -142,8 +142,7 @@ impl Plugin for PocketExperiencePlugin {
     }
 }
 
-/// The provider's session-world source: the authored pocket room, fresh per
-/// preparation request.
+/// The provider's authored pocket-room source for the shared preparation lifecycle.
 fn pocket_prepared_session_world() -> PlatformerSessionWorld {
     let room = pocket_room();
     let geometry = ae::RoomGeometry(room.world.clone());

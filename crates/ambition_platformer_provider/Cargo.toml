@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "The platformer experience-provider protocol: authored catalog identity, one shared preparation/activation lifecycle, and the session builder every shell-hosted platformer provider (Ambition, Sanic, Mary-O, Pocket) registers through."
+description = "The platformer experience-provider protocol: authored catalog identity, one shared preparation/activation lifecycle, and session construction for shell-hosted platformer providers."
 
 [features]
 default = []

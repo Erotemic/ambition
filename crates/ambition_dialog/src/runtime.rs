@@ -78,8 +78,8 @@ pub struct DialogState {
     /// Typewriter reveal state for the current line.
     pub(crate) line_reveal: LineRevealState,
     /// Presentation style for the current line, derived from Yarn markup.
-    /// Normal speech can use speaker voiceprints; styled speech uses generic
-    /// whisper/shout blips until per-speaker styled variants are authored.
+    /// Normal speech may use a provider-authored voiceprint; styled speech
+    /// uses the generic whisper/shout blips.
     pub(crate) speech_style: DialogSpeechStyle,
     /// Whether the line was marked by Yarn as the last line before
     /// an options block. This is the explicit "auto-advance into

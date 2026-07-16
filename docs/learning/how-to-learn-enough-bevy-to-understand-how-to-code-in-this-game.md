@@ -1506,17 +1506,15 @@ The title route should not merely ignore gameplay state. It should structurally 
 
 Read:
 
-- [`../../crates/ambition/src/provider.rs`](../../crates/ambition/src/provider.rs)
+- [`../../crates/ambition_platformer_provider/src/lib.rs`](../../crates/ambition_platformer_provider/src/lib.rs)
 - [`../../game/ambition_content/src/provider.rs`](../../game/ambition_content/src/provider.rs)
-- provider files in `game/ambition_demo_sanic`, `game/ambition_demo_smb1`, and `game/ambition_demo_pocket`.
+- provider files in `game/ambition_demo_sanic`, `game/ambition_demo_mary_o`, and `game/ambition_demo_pocket`.
 
 A provider contributes:
 
 - experience registration;
 - authored catalog fragments;
-- load preparation;
-- prepared-session storage;
-- activation systems;
+- a session-world source registered through the shared preparation/activation lifecycle;
 - gameplay and presentation plugins;
 - session-scoped entity construction;
 - teardown participation.
@@ -1944,7 +1942,7 @@ Source entrypoints:
 - [`../../crates/ambition_game_shell/src/session.rs`](../../crates/ambition_game_shell/src/session.rs)
 - [`../../crates/ambition_game_shell/src/router.rs`](../../crates/ambition_game_shell/src/router.rs)
 - [`../../crates/ambition_load/src/coordinator.rs`](../../crates/ambition_load/src/coordinator.rs)
-- [`../../crates/ambition/src/provider.rs`](../../crates/ambition/src/provider.rs)
+- [`../../crates/ambition_platformer_provider/src/lib.rs`](../../crates/ambition_platformer_provider/src/lib.rs)
 - [`../../crates/ambition/src/session_world.rs`](../../crates/ambition/src/session_world.rs)
 - [`../../crates/ambition_runtime/src/session_world.rs`](../../crates/ambition_runtime/src/session_world.rs)
 - [`../../crates/ambition_platformer_primitives/src/lifecycle/`](../../crates/ambition_platformer_primitives/src/lifecycle/)

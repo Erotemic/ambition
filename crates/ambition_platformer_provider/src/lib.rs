@@ -9,8 +9,8 @@
 //!   authored identity a provider declares: experience/route ids, starting
 //!   character, audio expectations, loading presentation.
 //! - The ONE preparation/activation lifecycle. A provider supplies a single
-//!   source system producing its exact [`PlatformerSessionWorld`]; this crate
-//!   validates the authored catalogs, publishes the typed
+//!   source system producing its authored [`PlatformerSessionWorld`] value; this
+//!   crate gives each matching load transaction an owned copy, validates the authored catalogs, publishes the typed
 //!   `PreparedSessionIdentity`, and on activation moves the prepared world onto
 //!   the live session root.
 //!
@@ -19,9 +19,11 @@
 //! ```text
 //! host selects an experience (shell route + provider load transaction)
 //!         ↓
-//! the provider's source system builds the exact PlatformerSessionWorld
+//! the provider's source system builds the authored PlatformerSessionWorld
+//! for the current matching request batch
 //!         ↓
-//! shared preparation validates catalogs against the authored fragments
+//! shared preparation gives each transaction an owned copy and validates it
+//! against the authored fragments
 //! and publishes a PreparedSessionIdentity (owner: PreparedPlatformerSessions)
 //!         ↓
 //! shared activation takes the prepared world by that exact identity and

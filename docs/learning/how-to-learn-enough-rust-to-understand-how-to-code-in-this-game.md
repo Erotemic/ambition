@@ -1878,7 +1878,7 @@ struct PlatformerSessionBuilder<'w, 's> {
 }
 ```
 
-Read the provider authoring surface in [`../../crates/ambition/src/provider.rs`](../../crates/ambition/src/provider.rs).
+Read the provider authoring surface in [`../../crates/ambition_platformer_provider/src/lifecycle.rs`](../../crates/ambition_platformer_provider/src/lifecycle.rs).
 
 A good `SystemParam` bundle:
 
@@ -1949,9 +1949,9 @@ Mark every clone and every resource projection. This is the best way to understa
 
 A provider is a game that can be linked into the shared host. Read:
 
-- [`../../crates/ambition/src/provider.rs`](../../crates/ambition/src/provider.rs)
+- [`../../crates/ambition_platformer_provider/src/lifecycle.rs`](../../crates/ambition_platformer_provider/src/lifecycle.rs)
 - [`../../game/ambition_content/src/provider.rs`](../../game/ambition_content/src/provider.rs)
-- the equivalent provider files in `game/ambition_demo_sanic`, `game/ambition_demo_smb1`, and `game/ambition_demo_pocket`.
+- the equivalent provider files in `game/ambition_demo_sanic`, `game/ambition_demo_mary_o`, and `game/ambition_demo_pocket`.
 
 The lifecycle is intentionally explicit:
 
@@ -1967,7 +1967,7 @@ route requested
 
 This section combines several advanced Rust ideas:
 
-- generic resources distinguished by a marker type;
+- one App-local prepared-session store keyed by exact load transactions;
 - newtyped IDs preventing accidental cross-use;
 - `BTreeMap` for deterministic App-local registries;
 - messages for lifecycle transitions;
@@ -1975,16 +1975,17 @@ This section combines several advanced Rust ideas:
 - `Option` and `Result` for stale or rejected work;
 - `SystemParam` bundles for coherent preparation and construction authority.
 
-### Why marker types exist
+### Why one shared prepared-session store is safe
 
-Two providers may prepare the same concrete `PlatformerSessionWorld` type. A zero-sized marker type makes their stores different Rust types:
+Every provider prepares the same concrete `PlatformerSessionWorld` type, but the
+store is keyed by the shell's exact `ProviderLoadTransaction`. Publication and
+activation both validate that transaction and consume its one-shot
+`PreparedSessionIdentity`. A provider therefore cannot take another provider's
+world merely because the concrete Rust type matches.
 
-```rust
-struct AmbitionProviderMarker;
-type PreparedAmbitionSessions = PreparedPlatformerSessions<AmbitionProviderMarker>;
-```
-
-This costs no runtime memory but prevents one provider from accidentally reading another provider's prepared-session resource.
+This is stronger and simpler than the older per-provider marker-resource pattern:
+the authorization identity, not a parallel family of resource types, separates
+prepared sessions.
 
 ### Exercise: add a non-shipping provider on paper
 
@@ -1993,9 +1994,7 @@ Without writing code, list everything a tiny fifth provider would need:
 - registration identity;
 - route;
 - character and audio fragments;
-- preparation system;
-- prepared-session store marker;
-- activation system;
+- a session-world source system passed to `PlatformerExperienceAuthoring::install`;
 - standalone host composition;
 - teardown behavior.
 
@@ -2450,7 +2449,7 @@ Source entrypoints:
 
 - [`../../crates/ambition_game_shell/src/lib.rs`](../../crates/ambition_game_shell/src/lib.rs)
 - [`../../crates/ambition_game_shell/src/session.rs`](../../crates/ambition_game_shell/src/session.rs)
-- [`../../crates/ambition/src/provider.rs`](../../crates/ambition/src/provider.rs)
+- [`../../crates/ambition_platformer_provider/src/lifecycle.rs`](../../crates/ambition_platformer_provider/src/lifecycle.rs)
 - [`../../crates/ambition_runtime/src/session_world.rs`](../../crates/ambition_runtime/src/session_world.rs)
 - [`../../crates/ambition/src/session_world.rs`](../../crates/ambition/src/session_world.rs)
 - [`../../crates/ambition_platformer_primitives/src/`](../../crates/ambition_platformer_primitives/src/)

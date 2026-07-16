@@ -72,8 +72,8 @@ impl Plugin for AmbitionExperiencePlugin {
     }
 }
 
-/// The provider's session-world source: every shell activation clones the
-/// boot-prepared LDtk world published by the app in [`AmbitionPreparedWorld`].
+/// The provider's session-world source: matching preparation requests clone
+/// the boot-prepared LDtk world published by the app in [`AmbitionPreparedWorld`].
 fn ambition_session_world(prepared_world: Res<AmbitionPreparedWorld>) -> PlatformerSessionWorld {
     let room_set = prepared_world.room_set.clone();
     PlatformerSessionWorld::new(

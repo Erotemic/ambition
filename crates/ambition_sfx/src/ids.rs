@@ -1,4 +1,7 @@
-//! Hand-maintained SFX ids for gameplay code that benefits from named constants.
+//! Hand-maintained SFX ids for reusable gameplay and presentation semantics.
+//!
+//! Provider-specific cast, story, and named-content cue ids belong in the
+//! provider/content crate rather than this generic runtime contract.
 //!
 //! Adding to this list is purely an ergonomics call: the bank stores everything
 //! regardless. Use `SfxId::from_static("foo.bar")` at the call site for one-off
@@ -80,30 +83,6 @@ pub const DIALOGUE_BLIP_GENERIC: SfxId = SfxId::from_static("dialogue.blip.gener
 pub const DIALOGUE_BLIP_WHISPER_GENERIC: SfxId =
     SfxId::from_static("dialogue.blip.whisper.generic");
 pub const DIALOGUE_BLIP_SHOUT_GENERIC: SfxId = SfxId::from_static("dialogue.blip.shout.generic");
-pub const DIALOGUE_BLIP_ALICE: SfxId = SfxId::from_static("dialogue.blip.alice");
-pub const DIALOGUE_BLIP_ARCHITECT: SfxId = SfxId::from_static("dialogue.blip.architect");
-pub const DIALOGUE_BLIP_BOB: SfxId = SfxId::from_static("dialogue.blip.bob");
-pub const DIALOGUE_BLIP_CREATOR: SfxId = SfxId::from_static("dialogue.blip.creator");
-pub const DIALOGUE_BLIP_DARK_LORD: SfxId = SfxId::from_static("dialogue.blip.dark_lord");
-pub const DIALOGUE_BLIP_GATE_JANITOR: SfxId = SfxId::from_static("dialogue.blip.gate_janitor");
-pub const DIALOGUE_BLIP_GOBLIN_CHIEFTAIN: SfxId =
-    SfxId::from_static("dialogue.blip.goblin_chieftain");
-pub const DIALOGUE_BLIP_HAND_SAINT: SfxId = SfxId::from_static("dialogue.blip.hand_saint");
-pub const DIALOGUE_BLIP_KERNEL_GUIDE: SfxId = SfxId::from_static("dialogue.blip.kernel_guide");
-pub const DIALOGUE_BLIP_MANIFEST_CLERK: SfxId = SfxId::from_static("dialogue.blip.manifest_clerk");
-pub const DIALOGUE_BLIP_MERCHANT_PROTOTYPE: SfxId =
-    SfxId::from_static("dialogue.blip.merchant_prototype");
-pub const DIALOGUE_BLIP_MILITARY_GENERAL: SfxId =
-    SfxId::from_static("dialogue.blip.military_general");
-pub const DIALOGUE_BLIP_NEWS_BOARD: SfxId = SfxId::from_static("dialogue.blip.news_board");
-pub const DIALOGUE_BLIP_NINJA: SfxId = SfxId::from_static("dialogue.blip.ninja");
-pub const DIALOGUE_BLIP_OILER: SfxId = SfxId::from_static("dialogue.blip.oiler");
-pub const DIALOGUE_BLIP_PIRATE: SfxId = SfxId::from_static("dialogue.blip.pirate");
-pub const DIALOGUE_BLIP_PULSE_VOYAGER: SfxId = SfxId::from_static("dialogue.blip.pulse_voyager");
-pub const DIALOGUE_BLIP_ROBOT: SfxId = SfxId::from_static("dialogue.blip.robot");
-pub const DIALOGUE_BLIP_TECH_BRO: SfxId = SfxId::from_static("dialogue.blip.tech_bro");
-pub const DIALOGUE_BLIP_VAULT_KEEPER: SfxId = SfxId::from_static("dialogue.blip.vault_keeper");
-pub const DIALOGUE_BLIP_WEIRD_HERMIT: SfxId = SfxId::from_static("dialogue.blip.weird_hermit");
 pub const DIALOGUE_LINE_ADVANCE: SfxId = SfxId::from_static("dialogue.line.advance");
 pub const DIALOGUE_CHOICE_APPEAR: SfxId = SfxId::from_static("dialogue.choice.appear");
 pub const DIALOGUE_CHOICE_SELECT: SfxId = SfxId::from_static("dialogue.choice.select");

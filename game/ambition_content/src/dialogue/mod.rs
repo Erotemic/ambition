@@ -1,8 +1,9 @@
 //! Named Ambition dialogue / cutscene content registration.
 //!
 //! Owns the install of the named cutscene library, the room → cutscene
-//! bindings, and the combat-banter registry (boss + pirate barks). The named
-//! cutscene *content* lives in [`cutscene_defaults`]; the reusable runtime
+//! bindings, the dialogue voiceprint catalog, and the combat-banter registry
+//! (boss + pirate barks). The named cutscene *content* lives in
+//! [`cutscene_defaults`]; the reusable runtime
 //! types live in `ambition_cutscene` and the playback systems in
 //! `ambition_actors::cutscene`. The banter *content* lives in
 //! `crate::banter` / `crate::bosses`; this module only owns assembling those
@@ -15,6 +16,7 @@
 use bevy::prelude::*;
 
 pub mod cutscene_defaults;
+mod voiceprints;
 /// The authored Yarn dialogue set (sources, the Yarn Spinner plugin
 /// constructor, and the validator's known-id surface).
 pub mod yarn;
@@ -23,11 +25,12 @@ pub mod yarn;
 pub use yarn::yarn_spinner_plugin;
 pub use yarn::{known_dialogue_ids, YARN_SOURCES};
 
-/// Installs the named Ambition cutscene + combat-banter content resources.
+/// Installs Ambition dialogue voices, cutscenes, and combat-banter content.
 pub struct AmbitionDialogueContentPlugin;
 
 impl Plugin for AmbitionDialogueContentPlugin {
     fn build(&self, app: &mut App) {
+        voiceprints::register(app);
         app.insert_resource(cutscene_defaults::default_cutscene_library())
             .insert_resource(ambition_cutscene::ActiveCutscene::default())
             .insert_resource(ambition_actors::cutscene_trigger::CutsceneTriggerQueue::default())

@@ -12,7 +12,9 @@ use bevy::prelude::*;
 
 use crate::runtime::DialogChoiceSlot;
 use crate::runtime::DialogState;
-use crate::speech_sfx::{should_play_talk_blip, talk_blip_id_for_speaker};
+use crate::speech_sfx::{
+    should_play_talk_blip, talk_blip_id_for_speaker, DialogueVoiceCatalog,
+};
 #[cfg(feature = "input")]
 use ambition_input::MenuControlFrame;
 use ambition_sfx::{SfxMessage, SfxWriter};
@@ -26,7 +28,12 @@ use bevy::window::PrimaryWindow;
 /// This is presentation only: Yarn still owns the line/option state
 /// machine, while the Bevy side owns the timing of what substring is
 /// visible right now.
-pub fn dialog_reveal_tick(time: Res<Time>, mut dialogue: ResMut<DialogState>, mut sfx: SfxWriter) {
+pub fn dialog_reveal_tick(
+    time: Res<Time>,
+    voice_catalog: Option<Res<DialogueVoiceCatalog>>,
+    mut dialogue: ResMut<DialogState>,
+    mut sfx: SfxWriter,
+) {
     if !dialogue.active() || dialogue.current_line.is_empty() {
         return;
     }
@@ -41,6 +48,7 @@ pub fn dialog_reveal_tick(time: Res<Time>, mut dialogue: ResMut<DialogState>, mu
         ) {
             sfx.write(SfxMessage::Play {
                 id: talk_blip_id_for_speaker(
+                    voice_catalog.as_deref(),
                     dialogue.speaker_label_for_sfx(),
                     dialogue.dialogue_id(),
                     dialogue.speech_style(),

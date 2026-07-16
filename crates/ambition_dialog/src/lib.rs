@@ -8,6 +8,8 @@
 //!   writes runner events back.
 //! - [`dialog_reveal_tick`] / [`dialog_input`] / [`dialog_pointer_input`] — the
 //!   typewriter reveal + input translators (the last two `input`-gated).
+//! - [`DialogueVoiceCatalog`] — the App-local seam through which a provider
+//!   contributes its cast voiceprints without naming characters here.
 //! - [`YarnBridgePlugin`] — the `bevy_yarnspinner` ↔ `DialogState` bridge, and
 //!   the [`YarnContentBindings`] installer seam a host registers its
 //!   game-specific Yarn vocabulary through (`ui`-gated).
@@ -41,6 +43,9 @@ mod bridge;
 pub use content::DialogChoice;
 pub use context::{DialogueContext, DialogueNodeIndex, SELF_NODE_SUFFIX};
 pub use runtime::{DialogChoiceSlot, DialogState};
+pub use speech_sfx::{
+    DialogueVoiceCatalog, DialogueVoiceCatalogAppExt, DialogueVoiceCatalogError,
+};
 pub use systems::{dialog_input, dialog_pointer_input, dialog_reveal_tick};
 
 #[cfg(feature = "ui")]

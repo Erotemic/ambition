@@ -9,9 +9,9 @@
 //! - [`SfxProvider`]: trait for fetching clips. Impls in this crate:
 //!   [`BankProvider`], [`FilesystemProvider`], [`SilentProvider`],
 //!   [`LayeredProvider`].
-//! - [`ids`]: hand-maintained const ids for the cues gameplay code references
-//!   often. Add entries there when the IDE help is worth a const; otherwise
-//!   `SfxId::from_static("foo.bar")` at the call site is fine.
+//! - [`ids`]: hand-maintained const ids for reusable gameplay/presentation
+//!   semantics. Provider-owned cast and content cue identities belong in the
+//!   provider crate and use the same open `SfxId` vocabulary.
 //!
 //! The default `bevy` feature supplies the request/message adapter. Consumers
 //! that only need ids, clips, and providers may disable default features to keep

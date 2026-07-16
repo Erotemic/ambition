@@ -247,23 +247,25 @@ pub fn tick_shrine_activation_pulse(
     }
 }
 
-/// Every wielded gun-sword's presentation facts: where the hand is, where
-/// it aims, and the wielder's height (the sprite scales off it). Resolved
-/// sim-side from the rider actors + the primary player's position.
+/// Presentation facts for every living hostile actor wielding an item: the
+/// authored item id, hand position, aim target, and wielder height. The sim
+/// publishes the open identity; presentation catalogs decide which ids have a
+/// visible over-hand prop and how that prop is drawn.
 #[derive(Resource, Default, Clone, Debug)]
-pub struct WieldedGunSwordsView(pub Vec<GunSwordFact>);
+pub struct HostileWieldedItemsView(pub Vec<HostileWieldedItemFact>);
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct GunSwordFact {
+#[derive(Clone, Debug, PartialEq)]
+pub struct HostileWieldedItemFact {
+    pub item_id: String,
     pub hand_world: ae::Vec2,
     pub aim_world: ae::Vec2,
-    pub rider_height: f32,
+    pub wielder_height: f32,
 }
 
 #[allow(clippy::type_complexity)]
-pub fn rebuild_wielded_gun_swords_view(
-    mut view: ResMut<WieldedGunSwordsView>,
-    rider_actors: Query<(
+pub fn rebuild_hostile_wielded_items_view(
+    mut view: ResMut<HostileWieldedItemsView>,
+    wielders: Query<(
         &ambition_actors::features::ActorDisposition,
         &ambition_actors::features::HeldItem,
         Option<&BodyKinematics>,
@@ -275,8 +277,8 @@ pub fn rebuild_wielded_gun_swords_view(
     let Ok(player) = player_q.single() else {
         return;
     };
-    for (disposition, held_item, kin, health) in &rider_actors {
-        if held_item.id() != "gun_sword" || disposition.is_peaceful() {
+    for (disposition, held_item, kin, health) in &wielders {
+        if disposition.is_peaceful() {
             continue;
         }
         let (Some(kin), Some(health)) = (kin, health) else {
@@ -285,15 +287,16 @@ pub fn rebuild_wielded_gun_swords_view(
         if !health.alive() {
             continue;
         }
-        let rider_height = kin.size.y;
-        view.0.push(GunSwordFact {
+        let wielder_height = kin.size.y;
+        view.0.push(HostileWieldedItemFact {
+            item_id: held_item.id().to_owned(),
             hand_world: ambition_actors::features::rider_hand_world_pos(
                 kin.pos,
                 kin.facing,
-                rider_height,
+                wielder_height,
             ),
             aim_world: player.pos,
-            rider_height,
+            wielder_height,
         });
     }
 }
@@ -605,7 +608,7 @@ impl Plugin for SimViewPlugin {
             .init_resource::<MarkBeaconsView>()
             .init_resource::<GravitySwitchesView>()
             .init_resource::<ShrinesView>()
-            .init_resource::<WieldedGunSwordsView>()
+            .init_resource::<HostileWieldedItemsView>()
             .init_resource::<DynamicFeatureViews>()
             .init_resource::<BlinkPreviewFact>();
         // The blink-preview resolve reads device actions, so it exists only
@@ -629,7 +632,7 @@ impl Plugin for SimViewPlugin {
                 rebuild_gravity_switches_view,
                 rebuild_shrines_view,
                 tick_shrine_activation_pulse,
-                rebuild_wielded_gun_swords_view,
+                rebuild_hostile_wielded_items_view,
                 rebuild_projectile_views,
                 rebuild_dynamic_feature_views,
             )

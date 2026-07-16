@@ -41,7 +41,7 @@ pub mod mark_beacon;
 pub mod morph_ball;
 mod nameplates;
 mod parallax;
-mod pirate_weapon;
+mod wielded_item_visuals;
 mod primitives;
 pub mod projectile_visuals;
 pub(crate) mod sheet_atlas;
@@ -71,9 +71,6 @@ pub use nameplates::{
     sync_actor_nameplates, ActorNameplatePresentationPlugin, ActorNameplateSet,
     ActorNameplateSettings, ActorNameplateVisual, DoorNameplateSource,
 };
-// Re-exported so simulation/effects code can place projectile-spawn
-// origins at the same hand position the visual lays the gun-sword on.
-// Keeps "where the muzzle is" defined in one module.
 #[cfg(feature = "portal_render")]
 pub use parallax::sync_portal_capture_parallax_layers;
 pub use parallax::{
@@ -86,6 +83,9 @@ pub use primitives::{
 // Game-supplied art map for walk-into world items; the reusable renderer owns the
 // seam, each game fills it with its own pickups' images.
 pub use item_visuals::WorldItemArt;
+pub use wielded_item_visuals::{
+    WieldedItemVisualAppExt, WieldedItemVisualCatalog, WieldedItemVisualSpec,
+};
 pub use world::{
     refresh_entity_sprite_handles_on_game_assets_change, spawn_room_visuals,
     spawn_surface_chain_visuals, sync_lock_wall_visuals, sync_removed_block_visuals,
@@ -225,7 +225,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
 /// Spawns dynamic feature visuals first (so `sync_visuals` finds them
 /// the same frame), then mirrors transforms / sprite atlas indices,
 /// upgrades enemy / boss sprites, ticks all the per-actor animators,
-/// and finishes with the pirate rider composite. Carved out of
+/// and finishes with provider-authored wielded-item overlays. Carved out of
 /// `app/plugins.rs::install_visual_animation_systems` per
 /// OVERNIGHT-TODO #6 — every system in this chain lives under
 /// `presentation/rendering/`.
@@ -238,6 +238,7 @@ pub struct PresentationVisualAnimationPlugin;
 impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
+        app.init_resource::<wielded_item_visuals::WieldedItemVisualCatalog>();
         deep_dream::add_puppy_slug_deep_dream_material_plugin(app);
         hit_flash::add_hit_flash_material_plugin(app);
         // The per-actor pose read-model (`ActorAnimIndex`) is rebuilt SIM-side
@@ -298,16 +299,9 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // `animate_bosses` so it can read the move-derived
                 // `BossAttackState` read model upstream.
                 actors::manage_gradient_lane_visual,
-                // Gun-sword visual on the rider — composite pirate-
-                // on-shark spawns are two linked entities (mount +
-                // rider) and the rider entity draws via the standard
-                // upgrade_actor_sprites path. The gun-sword sprite is
-                // the only piece NOT covered by the standard sheet
-                // (it's an over-hand prop tied to aim direction), so
-                // this system queries the rider entity directly via
-                // its [`RidingOn`] component and layers the weapon on
-                // top.
-                pirate_weapon::sync_pirate_weapon_visuals,
+                // Provider-authored over-hand item sprites consume the generic
+                // wielded-item read model and App-local visual catalog.
+                wielded_item_visuals::sync_wielded_item_visuals,
             )
                 .chain()
                 .in_set(

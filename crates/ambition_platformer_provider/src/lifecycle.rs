@@ -14,9 +14,9 @@
 //!   [`PreparedSessionRegistry`].
 //! - **Who owns the prepared value?** [`PreparedPlatformerSessions`], keyed by
 //!   the load transaction.
-//! - **When is the live session world created?** At preparation; activation
-//!   moves it (by exact identity) onto the session root via
-//!   [`PlatformerSessionBuilder::build`].
+//! - **When is live session state created?** Preparation owns the validated
+//!   world value; activation consumes it by exact identity and creates the live
+//!   session root and scoped entities through [`PlatformerSessionBuilder::build`].
 
 use std::collections::BTreeMap;
 
@@ -142,8 +142,8 @@ pub(crate) fn preparation_requested(
 }
 
 /// The shared preparation system body: piped after a provider's session-world
-/// source (tagged with its experience id), it prepares that world for every
-/// matching transaction.
+/// source (tagged with its experience id), it gives every matching transaction
+/// an owned copy of that authored world value.
 pub(crate) fn prepare_requested_sessions(
     In((experience_id, world)): In<(String, PlatformerSessionWorld)>,
     mut events: MessageReader<ShellEvent>,

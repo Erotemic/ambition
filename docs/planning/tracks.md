@@ -42,12 +42,22 @@ than copying the lifecycle; `ambition` is a facade again.
 
 ## 3. Structural content evictions — parallel-safe
 
-**State:** OPEN and divisible into small patches.
+**State:** PARTIAL and divisible into small patches.
 
-Prioritize the closed item catalog, named render modules/art bindings, asset
-universe, projectile identities, input techniques, and dialogue/audio cast data.
-Each patch must install the correct provider-owned catalog, registration, or
-presentation seam and delete the engine-owned closed content.
+Completed slices:
+
+- Ambition dialogue cast names, aliases, and voice cue identities moved out of
+  `ambition_dialog`/`ambition_sfx` into a content-owned registration over the
+  open `DialogueVoiceCatalog`.
+- The named `pirate_weapon` renderer and closed gun-sword read model were
+  replaced by a generic wielded-item fact stream plus an App-local visual
+  catalog populated by `ambition_content`; both light and heavy gun-sword ids
+  use the content-owned art registration.
+
+Next prioritize the closed item catalog, remaining named render/art bindings,
+asset universe, projectile identities, and input techniques. Each patch must
+install the correct provider-owned catalog, registration, or presentation seam
+and delete the engine-owned closed content.
 
 **Exit:** a second provider adds its named content without editing a reusable
 engine crate. No noun scanner is part of this track.

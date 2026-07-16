@@ -10,10 +10,10 @@
 //! Content branches on the three Yarn variables the bridge publishes from it:
 //!
 //! ```yarn
-//! title: hall_pirate_admiral
+//! title: hall_captain
 //! ---
 //! <<if $speaker_is_self>>
-//!     Admiral: ...
+//!     Captain: ...
 //! <<endif>>
 //! ===
 //! ```

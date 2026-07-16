@@ -57,8 +57,7 @@ impl Plugin for SanicExperiencePlugin {
     }
 }
 
-/// The provider's session-world source: the authored speedway, fresh per
-/// preparation request.
+/// The provider's authored speedway source for the shared preparation lifecycle.
 fn sanic_prepared_session_world() -> PlatformerSessionWorld {
     let source = sanic_session_world();
     PlatformerSessionWorld::new(

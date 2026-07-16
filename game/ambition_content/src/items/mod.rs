@@ -15,11 +15,17 @@
 
 use bevy::prelude::*;
 
+mod wielded_visuals;
+
 /// Installs the starter Ambition item-ownership roster.
 pub struct AmbitionItemRosterPlugin;
 
 impl Plugin for AmbitionItemRosterPlugin {
     fn build(&self, app: &mut App) {
+        // Presentation-only item art is provider-owned and registered through
+        // the reusable render catalog before the visual schedule consumes it.
+        wielded_visuals::register(app);
+
         // The 24-item catalog ownership model is always-on core state (pickups
         // and dialogue read/write it regardless of which menu renders it).
         app.insert_resource(ambition_items::OwnedItems::starter());

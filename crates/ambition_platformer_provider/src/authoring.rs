@@ -178,11 +178,12 @@ impl PlatformerExperienceAuthoring {
     /// Register the experience AND its session lifecycle in one call.
     ///
     /// `source` is the provider's whole remaining obligation: a system that
-    /// builds the exact [`PlatformerSessionWorld`] this experience plays in
-    /// (it may read the provider's own resources). The shared lifecycle runs
-    /// it when the shell requests preparation for this experience, validates
-    /// the authored catalogs, publishes the typed prepared-session identity,
-    /// and constructs the live session on activation.
+    /// builds the authored [`PlatformerSessionWorld`] this experience plays in
+    /// (it may read the provider's own resources). The shared lifecycle runs it
+    /// once on an update containing matching preparation requests, gives each
+    /// transaction an owned copy, validates the authored catalogs, publishes
+    /// the typed prepared-session identity, and constructs the live session on
+    /// activation.
     pub fn install<S, Marker>(self, app: &mut App, source: S)
     where
         S: IntoSystem<(), PlatformerSessionWorld, Marker>,

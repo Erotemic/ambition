@@ -12,7 +12,7 @@ use ambition_platformer_primitives::lifecycle::SessionSpawnScope;
 use bevy::prelude::Commands;
 
 mod content_staging;
-pub use content_staging::RoomContentStagingRegistry;
+pub use content_staging::{RoomContentStagingError, RoomContentStagingRegistry};
 
 pub(crate) use super::spawn_actors::spawn_runtime_minion;
 

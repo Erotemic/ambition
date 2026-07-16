@@ -148,6 +148,17 @@ struct UnregisteredThing(u32);
 #[derive(Component)]
 struct DerivedThing;
 
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+struct DynamicAnchor;
+
+impl SnapshotState for DynamicAnchor {
+    fn encode(&self, _out: &mut Vec<u8>) {}
+
+    fn decode(_r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self)
+    }
+}
+
 /// A component that is half authored content and half mutable cursor — the
 /// `ActorMotionPath` shape, in miniature.
 #[derive(Component, Debug, PartialEq)]
@@ -397,6 +408,35 @@ fn every_engine_codec_round_trips_exactly() {
     round_trip(ambition_combat::components::ActorCooldowns {
         attack_cooldown: 0.4,
         respawn_timer: 2.0,
+    });
+    round_trip(ambition_platformer_primitives::lifecycle::RoomScopedEntity);
+    round_trip(ambition_platformer_primitives::lifecycle::SessionScopedEntity(
+        ambition_platformer_primitives::lifecycle::SessionScopeId(42),
+    ));
+    round_trip(ambition_combat::components::ActorDisposition::Hostile);
+    round_trip(ambition_combat::components::BodyMelee {
+        swing: Some(ambition_combat::components::MeleeSwing {
+            spec: ambition_combat::AttackSpec {
+                intent: ambition_combat::AttackIntent::AirDown,
+                startup_seconds: 0.1,
+                active_seconds: 0.2,
+                recovery_seconds: 0.3,
+                hitbox_offset: Vec2::new(1.0, 2.0),
+                hitbox_half_size: Vec2::new(3.0, 4.0),
+                self_impulse: Vec2::new(5.0, 6.0),
+                knockback: Vec2::new(7.0, 8.0),
+                damage_kind: ambition_combat::DamageKind::Pogo,
+                can_pogo: true,
+                damage_override: Some(9),
+            },
+            elapsed: 0.15,
+            hit_targets: vec!["placement:a".to_string(), "placement:b".to_string()],
+            active_started: true,
+            pogo_applied: false,
+        }),
+        cooldown: 0.7,
+        ranged_cooldown: 0.8,
+        pending_axis: Vec2::new(-1.0, 0.0),
     });
     round_trip(ambition_engine_core::geometry::CenteredAabb {
         center: Vec2::new(5.0, 6.0),
@@ -1734,6 +1774,73 @@ fn a_boss_brain_rewinds_its_seed_its_cursor_and_its_clocks() {
     assert_eq!(reg.hash_world(&world), before);
 }
 
+/// The platform-fighter brain's reaction history and tactical clocks are mutable
+/// simulation state. Rebuilding the authored brain cfg is not enough: a replay
+/// must resume from the same delayed perception and decision cursor.
+#[test]
+fn a_smash_brain_rewinds_its_history_and_tactical_clocks() {
+    use ambition_characters::brain::smash::{BroadMode, SmashCfg, SmashState, OBS_HISTORY_LEN};
+    use ambition_characters::brain::{Brain, StateMachineCfg};
+
+    let registry = engine_registry();
+    let mut world = sim_world();
+    let actor = *live_ids(&mut world).get("placement:boss-1").unwrap();
+    let mut state = SmashState {
+        mode: BroadMode::Engage,
+        mode_dwell_s: 0.4,
+        rng_seed: 0x1234_5678_9ABC_DEF0,
+        dash_cooldown_remaining: 1.2,
+        spacing_phase: 2.3,
+        neutral_jump_cooldown: 0.6,
+        blink_cooldown: 0.7,
+        foray_timer: 0.8,
+        shield_hold_timer: 0.9,
+        neutral_reset_timer: 1.0,
+        was_attacking: true,
+        regroup_timer: 1.1,
+        last_health_fraction: 0.65,
+        damage_accum: 0.2,
+        time_since_offense: 3.0,
+        ..SmashState::default()
+    };
+    let mut samples = [(0.0, Vec2::ZERO); OBS_HISTORY_LEN];
+    samples[0] = (1.0, Vec2::new(10.0, 20.0));
+    samples[1] = (2.0, Vec2::new(30.0, 40.0));
+    state
+        .obs_history
+        .restore_snapshot_parts(samples, 2, 2)
+        .unwrap();
+    world.entity_mut(actor).insert(Brain::StateMachine(StateMachineCfg::Smash {
+        cfg: SmashCfg::DUELIST_DEFAULT,
+        state,
+    }));
+    let before = registry.hash_world(&world);
+    let snapshot = take(&world, &registry);
+
+    {
+        let mut entity = world.entity_mut(actor);
+        let mut brain = entity.get_mut::<Brain>().unwrap();
+        let Brain::StateMachine(StateMachineCfg::Smash { state, .. }) = &mut *brain else {
+            panic!("a Smash brain")
+        };
+        *state = SmashState::default();
+    }
+    assert_ne!(registry.hash_world(&world), before);
+
+    restore(&mut world, &snapshot, &registry).unwrap();
+    let brain = world.entity(actor).get::<Brain>().unwrap();
+    let Brain::StateMachine(StateMachineCfg::Smash { state, .. }) = brain else {
+        panic!("a restored Smash brain")
+    };
+    assert_eq!(state.mode, BroadMode::Engage);
+    assert_eq!(state.rng_seed, 0x1234_5678_9ABC_DEF0);
+    assert_eq!(state.regroup_timer, 1.1);
+    let (restored_samples, write, count) = state.obs_history.snapshot_parts();
+    assert_eq!((write, count), (2, 2));
+    assert_eq!(restored_samples[1], (2.0, Vec2::new(30.0, 40.0)));
+    assert_eq!(registry.hash_world(&world), before);
+}
+
 fn ae_vec(x: f32, y: f32) -> Vec2 {
     Vec2::new(x, y)
 }
@@ -2122,4 +2229,65 @@ fn restore_preserves_an_active_encounter() {
         w.spec.id, "arena",
         "authored spec resolved from the survivor"
     );
+}
+
+/// A dynamic entity reconstructed from blobs must recover the lifetime shell that
+/// normal spawning gave it, not merely its mechanical projectile state.
+#[test]
+fn a_blob_rebuilt_dynamic_entity_recovers_room_and_session_scope() {
+    use ambition_platformer_primitives::lifecycle::{
+        RoomScopedEntity, SessionScopeId, SessionScopedEntity,
+    };
+
+    let mut registry = SnapshotRegistry::default();
+    registry.register_component::<DynamicAnchor>("dynamic_anchor");
+    registry.register_component::<RoomScopedEntity>("room_scope");
+    registry.register_component::<SessionScopedEntity>("session_scope");
+    registry.declare_dynamic_anchor("dynamic_anchor");
+
+    let parent = SimId::placement("owner");
+    let child_id = SimId::spawned(&parent, 0);
+    let mut world = World::new();
+    let entity = world
+        .spawn((
+            child_id.clone(),
+            DynamicAnchor,
+            RoomScopedEntity,
+            SessionScopedEntity(SessionScopeId(7)),
+        ))
+        .id();
+    let snapshot = take(&world, &registry);
+    world.despawn(entity);
+
+    let report = restore(&mut world, &snapshot, &registry).expect("dynamic restore");
+    assert_eq!(report.respawned, 1);
+    let restored = *live_ids(&mut world).get(child_id.as_str()).unwrap();
+    assert!(world.entity(restored).contains::<RoomScopedEntity>());
+    assert_eq!(
+        world.entity(restored).get::<SessionScopedEntity>(),
+        Some(&SessionScopedEntity(SessionScopeId(7)))
+    );
+}
+
+#[test]
+fn prepared_world_identity_counts_toward_snapshot_size_and_refuses_mismatch() {
+    let registry = engine_registry();
+    let world = sim_world();
+    let mut snapshot = take(&world, &registry);
+    let baseline = snapshot.size_bytes();
+    snapshot.world = Some(SnapshotWorldIdentity {
+        world_provider: "world-provider".to_string(),
+        character_provider: "character-provider".to_string(),
+        audio_provider: "audio-provider".to_string(),
+        room_ids: vec!["alpha".to_string(), "beta".to_string()],
+    });
+    assert!(snapshot.size_bytes() > baseline);
+
+    let mut live = sim_world();
+    let before = registry.hash_world(&live);
+    assert!(matches!(
+        restore(&mut live, &snapshot, &registry),
+        Err(RestoreError::WorldMismatch { .. })
+    ));
+    assert_eq!(registry.hash_world(&live), before, "refusal mutated the world");
 }

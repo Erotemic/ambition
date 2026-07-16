@@ -484,21 +484,67 @@ impl std::fmt::Display for UnclaimedComponent {
     }
 }
 
+/// Prepared-world routing identity captured with an in-memory snapshot.
+///
+/// Session scope ids are local to one App and may repeat in another process. The
+/// provider ids and sorted room roster therefore form an independent guard against
+/// accidentally applying a snapshot to a different prepared platformer world. A
+/// future persisted/wire snapshot may strengthen this with an explicit content
+/// fingerprint; this is the current same-build rollback identity.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SnapshotWorldIdentity {
+    pub world_provider: String,
+    pub character_provider: String,
+    pub audio_provider: String,
+    /// Sorted room ids from the prepared world. This binds an in-memory rollback
+    /// snapshot to the world shape that authored it without serializing the room
+    /// contents themselves.
+    pub room_ids: Vec<String>,
+}
+
+impl SnapshotWorldIdentity {
+    fn from_world(world: &World) -> Option<Self> {
+        let catalogs = ambition_platformer_primitives::lifecycle::session_world_component::<
+            crate::PlatformerSessionCatalogs,
+        >(world)?;
+        let rooms = ambition_platformer_primitives::lifecycle::session_world_component::<
+            ambition_world::rooms::RoomSet,
+        >(world)?;
+        let mut room_ids = rooms
+            .rooms
+            .iter()
+            .map(|room| room.id.clone())
+            .collect::<Vec<_>>();
+        room_ids.sort();
+        Some(Self {
+            world_provider: catalogs.world_provider.clone(),
+            character_provider: catalogs.character_provider.clone(),
+            audio_provider: catalogs.audio_provider.clone(),
+            room_ids,
+        })
+    }
+
+    fn size_bytes(&self) -> usize {
+        self.world_provider.len()
+            + self.character_provider.len()
+            + self.audio_provider.len()
+            + self.room_ids.iter().map(String::len).sum::<usize>()
+    }
+}
+
 /// **A snapshot of the registered sim state at one tick.**
 ///
 /// ## Deviation from the sketch, stated rather than drifted
 ///
 /// netcode.md sketches `SimSnapshot { tick: u64, blobs: Vec<(StateTypeId,
-/// Box<[u8]>)> }` — one flat byte string per entry. This keeps the entity ROWS
+/// Box<[u8]>)> }` — one flat byte string per entry. This keeps the entity rows
 /// structured (`Vec<(SimId, Vec<u8>)>`) instead of concatenating them into a blob
-/// a reader has to re-split. The reason is decision (3): `restore` must group rows
-/// by `SimId` across entries to respawn one entity carrying all of its components.
-/// A flat blob would be parsed back into exactly this shape on the first line of
-/// `restore`, and the parse could fail. This cannot.
+/// a reader has to re-split. `restore` groups rows by `SimId` across entries to
+/// reconstruct one entity carrying all of its registered components.
 ///
 /// The wire format — where `Box<[u8]>` and a version tag earn their keep — is
-/// N3.3's, and it serializes THIS, which is why the per-entry bytes are already
-/// canonical and word-size-free.
+/// N3.3's, and it serializes this shape, which is why the per-entry bytes are
+/// already canonical and word-size-free.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SimSnapshot {
     /// The `SimTick` this was taken at. Not derived from the entries: a caller
@@ -522,6 +568,12 @@ pub struct SimSnapshot {
     /// this field, not by convention. `None` = no session machinery (headless
     /// fixtures), which only matches `None`.
     pub session: Option<ambition_platformer_primitives::lifecycle::SessionScopeId>,
+    /// The prepared platformer-world identity this snapshot belongs to. Session
+    /// counters are deterministic per App and may repeat in another process; the
+    /// provider ids plus sorted room roster prevent a snapshot from being accepted
+    /// by a different prepared world that happens to use the same local scope id.
+    /// `None` for room-less/headless fixtures.
+    pub world: Option<SnapshotWorldIdentity>,
     /// **Every `SimId` carried by a live entity when the snapshot was taken** — sorted,
     /// with duplicates PRESERVED. The full identity roster, a superset of the
     /// component-row ids [`sim_ids`](Self::sim_ids) derives.
@@ -606,8 +658,11 @@ impl SimSnapshot {
             .sum();
         // The active-room cursor and the identity roster are captured state too (findings
         // 2, 3), so they count against the window's memory budget.
-        entries
+        std::mem::size_of::<u64>() // tick
+            + entries
             + self.active_room.as_ref().map_or(0, |s| s.len())
+            + self.session.map_or(0, |_| std::mem::size_of::<u64>())
+            + self.world.as_ref().map_or(0, SnapshotWorldIdentity::size_bytes)
             + self.roster.iter().map(String::len).sum::<usize>()
     }
 }
@@ -633,6 +688,7 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
     let session = world
         .get_resource::<ambition_platformer_primitives::lifecycle::ActiveSessionScope>()
         .and_then(|scope| scope.current());
+    let world_identity = SnapshotWorldIdentity::from_world(world);
     // The full identity roster: every live `SimId`, sorted, dups preserved. Captured
     // independently of which components an entity carries, so identity is validated even
     // for an entity with no registered state — the collision a per-component scan misses
@@ -671,6 +727,7 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
         tick,
         active_room,
         session,
+        world: world_identity,
         roster,
         entries,
     }
@@ -894,6 +951,14 @@ pub enum RestoreError {
         snapshot: Option<u64>,
         live: Option<u64>,
     },
+    /// The snapshot was captured from a different prepared platformer world.
+    /// Checked before room staging or entity mutation. A local `SessionScopeId`
+    /// is not globally unique across Apps, so provider/world identity is an
+    /// independent part of the rollback ownership contract.
+    WorldMismatch {
+        snapshot: Option<SnapshotWorldIdentity>,
+        live: Option<SnapshotWorldIdentity>,
+    },
     /// **The snapshot is not well-formed against the registry restoring it** (re-audit
     /// finding 2) — caught by [`validate_snapshot`], a mutation-free phase that runs before
     /// restore touches a single entity. `take` cannot produce a malformed snapshot, so in a
@@ -956,6 +1021,11 @@ impl std::fmt::Display for RestoreError {
                     scope(live),
                 )
             }
+            RestoreError::WorldMismatch { snapshot, live } => write!(
+                f,
+                "prepared-world mismatch: snapshot identity {snapshot:?}, live identity \
+                 {live:?} — rollback cannot cross provider/content worlds"
+            ),
             RestoreError::MalformedSnapshot { reason } => write!(
                 f,
                 "malformed snapshot: {reason} — restore refuses a snapshot whose shape does \
@@ -1131,6 +1201,13 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     //   anyway ("each sim crate registers its components' serialization").
     // - `ActorStatus` / `ActorIntent` / `BodyModeState` carry unit enums and need a
     //   discriminant codec whose mapping is EXPLICIT, not declaration order.
+    registry.register_component::<ambition_combat::components::BodyMelee>("body_melee");
+    registry.register_component::<ambition_combat::components::ActorDisposition>(
+        "actor_disposition",
+    );
+    registry.register_cursor::<ambition_combat::components::ActorAggression>(
+        "actor_aggression",
+    );
     registry.register_component::<ambition_characters::actor::pose::ActorPose>("actor_pose");
     // The canonical playable-persona identity. A restore patches it onto the
     // survivor; the identity/ability Changed<> derive re-applies gameplay and
@@ -1196,6 +1273,16 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_component::<ambition_characters::brain::ActorControl>("actor_control");
     registry.register_component::<ambition_time::ProperTimeScale>("proper_time_scale");
     registry.register_cursor::<ambition_actors::features::BossEncounter>("boss_encounter");
+
+    // Lifetime ownership is restored state for dynamically reconstructed
+    // entities. In particular, a projectile rebuilt from its dynamic anchor must
+    // still retire on room transition and session teardown.
+    registry.register_component::<ambition_platformer_primitives::lifecycle::RoomScopedEntity>(
+        "room_scoped_entity",
+    );
+    registry.register_component::<
+        ambition_platformer_primitives::lifecycle::SessionScopedEntity,
+    >("session_scoped_entity");
 
     // ── The projectile family (the first blob-rebuildable dynamic family) ────
     //

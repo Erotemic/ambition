@@ -13,6 +13,26 @@ use super::*;
 // field the sim reads is a restore that silently rewinds to a different world; the
 // round-trip oracle in this module's tests is what catches one.
 
+impl SnapshotState for ambition_platformer_primitives::lifecycle::RoomScopedEntity {
+    fn encode(&self, _out: &mut Vec<u8>) {}
+
+    fn decode(_r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self)
+    }
+}
+
+impl SnapshotState for ambition_platformer_primitives::lifecycle::SessionScopedEntity {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u64(out, self.0.0);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self(
+            ambition_platformer_primitives::lifecycle::SessionScopeId(r.u64()?),
+        ))
+    }
+}
+
 impl SnapshotState for ambition_time::SimTick {
     fn encode(&self, out: &mut Vec<u8>) {
         put_u64(out, self.0);
@@ -582,6 +602,201 @@ impl SnapshotCursor for ambition_actors::features::BossEncounter {
     }
 }
 
+fn put_attack_intent(out: &mut Vec<u8>, intent: ambition_combat::AttackIntent) {
+    use ambition_combat::AttackIntent;
+    put_u8(
+        out,
+        match intent {
+            AttackIntent::Neutral => 0,
+            AttackIntent::Forward => 1,
+            AttackIntent::Back => 2,
+            AttackIntent::Up => 3,
+            AttackIntent::Down => 4,
+            AttackIntent::DashForward => 5,
+            AttackIntent::AirForward => 6,
+            AttackIntent::AirBack => 7,
+            AttackIntent::AirUp => 8,
+            AttackIntent::AirDown => 9,
+            AttackIntent::WallOut => 10,
+        },
+    );
+}
+
+fn read_attack_intent(r: &mut Reader<'_>) -> Option<ambition_combat::AttackIntent> {
+    use ambition_combat::AttackIntent;
+    match r.u8()? {
+        0 => Some(AttackIntent::Neutral),
+        1 => Some(AttackIntent::Forward),
+        2 => Some(AttackIntent::Back),
+        3 => Some(AttackIntent::Up),
+        4 => Some(AttackIntent::Down),
+        5 => Some(AttackIntent::DashForward),
+        6 => Some(AttackIntent::AirForward),
+        7 => Some(AttackIntent::AirBack),
+        8 => Some(AttackIntent::AirUp),
+        9 => Some(AttackIntent::AirDown),
+        10 => Some(AttackIntent::WallOut),
+        _ => None,
+    }
+}
+
+fn put_damage_kind(out: &mut Vec<u8>, kind: ambition_combat::DamageKind) {
+    use ambition_combat::DamageKind;
+    put_u8(
+        out,
+        match kind {
+            DamageKind::Slash => 0,
+            DamageKind::Pogo => 1,
+            DamageKind::Contact => 2,
+            DamageKind::Hazard => 3,
+            DamageKind::Projectile => 4,
+            DamageKind::Environmental => 5,
+            DamageKind::Custom => 6,
+        },
+    );
+}
+
+fn read_damage_kind(r: &mut Reader<'_>) -> Option<ambition_combat::DamageKind> {
+    use ambition_combat::DamageKind;
+    match r.u8()? {
+        0 => Some(DamageKind::Slash),
+        1 => Some(DamageKind::Pogo),
+        2 => Some(DamageKind::Contact),
+        3 => Some(DamageKind::Hazard),
+        4 => Some(DamageKind::Projectile),
+        5 => Some(DamageKind::Environmental),
+        6 => Some(DamageKind::Custom),
+        _ => None,
+    }
+}
+
+fn put_attack_spec(out: &mut Vec<u8>, spec: ambition_combat::AttackSpec) {
+    put_attack_intent(out, spec.intent);
+    put_f32(out, spec.startup_seconds);
+    put_f32(out, spec.active_seconds);
+    put_f32(out, spec.recovery_seconds);
+    put_vec2(out, spec.hitbox_offset);
+    put_vec2(out, spec.hitbox_half_size);
+    put_vec2(out, spec.self_impulse);
+    put_vec2(out, spec.knockback);
+    put_damage_kind(out, spec.damage_kind);
+    put_bool(out, spec.can_pogo);
+    match spec.damage_override {
+        Some(value) => {
+            put_bool(out, true);
+            put_i32(out, value);
+        }
+        None => put_bool(out, false),
+    }
+}
+
+fn read_attack_spec(r: &mut Reader<'_>) -> Option<ambition_combat::AttackSpec> {
+    Some(ambition_combat::AttackSpec {
+        intent: read_attack_intent(r)?,
+        startup_seconds: r.f32()?,
+        active_seconds: r.f32()?,
+        recovery_seconds: r.f32()?,
+        hitbox_offset: r.vec2()?,
+        hitbox_half_size: r.vec2()?,
+        self_impulse: r.vec2()?,
+        knockback: r.vec2()?,
+        damage_kind: read_damage_kind(r)?,
+        can_pogo: r.bool()?,
+        damage_override: if r.bool()? { Some(r.i32()?) } else { None },
+    })
+}
+
+impl SnapshotState for ambition_combat::components::BodyMelee {
+    fn encode(&self, out: &mut Vec<u8>) {
+        match &self.swing {
+            Some(swing) => {
+                put_bool(out, true);
+                put_attack_spec(out, swing.spec);
+                put_f32(out, swing.elapsed);
+                put_u32(out, swing.hit_targets.len() as u32);
+                for target in &swing.hit_targets {
+                    put_str(out, target);
+                }
+                put_bool(out, swing.active_started);
+                put_bool(out, swing.pogo_applied);
+            }
+            None => put_bool(out, false),
+        }
+        put_f32(out, self.cooldown);
+        put_f32(out, self.ranged_cooldown);
+        put_vec2(out, self.pending_axis);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let swing = if r.bool()? {
+            let spec = read_attack_spec(r)?;
+            let elapsed = r.f32()?;
+            let hit_count = r.u32()?;
+            let hit_targets = (0..hit_count)
+                .map(|_| Some(r.str()?.to_string()))
+                .collect::<Option<Vec<_>>>()?;
+            Some(ambition_combat::components::MeleeSwing {
+                spec,
+                elapsed,
+                hit_targets,
+                active_started: r.bool()?,
+                pogo_applied: r.bool()?,
+            })
+        } else {
+            None
+        };
+        Some(Self {
+            swing,
+            cooldown: r.f32()?,
+            ranged_cooldown: r.f32()?,
+            pending_axis: r.vec2()?,
+        })
+    }
+}
+
+snapshot_unit_enum!(ambition_combat::components::ActorDisposition {
+    Peaceful = 0,
+    Hostile = 1,
+});
+
+/// Mutable aggression policy and provocation count. The `target` and `grudge`
+/// fields are entity-handle caches/relationships: target selection republishes
+/// `target`, while content-staged batch reconstruction restores authored grudges.
+/// Encoding allocator-local `Entity` values would violate the stable-id contract.
+impl SnapshotCursor for ambition_combat::components::ActorAggression {
+    fn encode_cursor(&self, out: &mut Vec<u8>) {
+        use ambition_combat::components::AggressionMode;
+        match self.mode {
+            AggressionMode::Passive => put_u8(out, 0),
+            AggressionMode::RetaliatesWhenHit { strike_threshold } => {
+                put_u8(out, 1);
+                put_u8(out, strike_threshold);
+            }
+            AggressionMode::Hostile => put_u8(out, 2),
+        }
+        put_i32(out, self.strikes);
+    }
+
+    fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
+        use ambition_combat::components::AggressionMode;
+        let mode = match r.u8()? {
+            0 => AggressionMode::Passive,
+            1 => AggressionMode::RetaliatesWhenHit {
+                strike_threshold: r.u8()?,
+            },
+            2 => AggressionMode::Hostile,
+            _ => return None,
+        };
+        let strikes = r.i32()?;
+        self.mode = mode;
+        self.strikes = strikes;
+        // `target` is a derived per-tick cache. `grudge` remains the stable
+        // authored/relationship value installed by room/content staging.
+        self.target = None;
+        Some(())
+    }
+}
+
 impl SnapshotCursor for ambition_combat::components::ActorTarget {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
         put_vec2(out, self.pos);
@@ -943,146 +1158,240 @@ fn read_timeline(
     (0..n).map(|_| BossPatternStep::decode(r)).collect()
 }
 
-/// **The boss's mind, rewound.**
-///
-/// A `SnapshotCursor`, because `Brain` is half authored and half state: the brain's
-/// KIND and its tuning came from content and survive the patch, and only
-/// `BossPatternState`'s clocks, cursors, and **`rng_seed`** ride the blob. A seeded
-/// RNG that is not snapshot state is a determinism bug the canary would eventually
-/// catch, and netcode.md's checklist names it.
-///
-/// ## The `timeline` is instance state, not authored content
-///
-/// I first left `timeline` and `stance_stack` un-rewound, and called the resulting
-/// hazard a *constraint*: "a rollback window must not span a pattern re-resolve."
-/// `mockingbird_arena` then replayed exactly for twenty ticks and broke on the
-/// twenty-first, which is what a re-resolve inside the window looks like.
-///
-/// The framing was wrong. The AUTHORED thing is the `BossPattern`; the timeline is what
-/// **one weighted roll** made of it — *"the roll happens at RESOLUTION, not at the
-/// cursor, so a fight's timeline is a concrete list of beats before the first tick of
-/// it runs."* That is instance state by any definition, and rewinding a boss without
-/// rewinding the roll gives it a different fight. It is encoded, and so is the
-/// `stance_stack`, whose entries carry timelines of their own.
-///
-/// A resolved timeline holds only `Telegraph` / `Strike` / `Rest` / `Stance`: the
-/// `Select`s are rolled away at resolution. So the beats are small, and the blob is a
-/// handful of tags and floats — not the pattern, not the arms, not the weights.
+fn put_smash_mode(out: &mut Vec<u8>, mode: ambition_characters::brain::smash::BroadMode) {
+    use ambition_characters::brain::smash::BroadMode;
+    put_u8(
+        out,
+        match mode {
+            BroadMode::Idle => 0,
+            BroadMode::Approach => 1,
+            BroadMode::Retreat => 2,
+            BroadMode::Engage => 3,
+            BroadMode::Reposition => 4,
+            BroadMode::Recover => 5,
+        },
+    );
+}
+
+fn read_smash_mode(r: &mut Reader<'_>) -> Option<ambition_characters::brain::smash::BroadMode> {
+    use ambition_characters::brain::smash::BroadMode;
+    match r.u8()? {
+        0 => Some(BroadMode::Idle),
+        1 => Some(BroadMode::Approach),
+        2 => Some(BroadMode::Retreat),
+        3 => Some(BroadMode::Engage),
+        4 => Some(BroadMode::Reposition),
+        5 => Some(BroadMode::Recover),
+        _ => None,
+    }
+}
+
+fn put_smash_state(out: &mut Vec<u8>, state: &ambition_characters::brain::smash::SmashState) {
+    put_smash_mode(out, state.mode);
+    put_f32(out, state.mode_dwell_s);
+    put_u64(out, state.rng_seed);
+    put_f32(out, state.dash_cooldown_remaining);
+    let (samples, write, count) = state.obs_history.snapshot_parts();
+    for (time, pos) in samples {
+        put_f32(out, *time);
+        put_vec2(out, *pos);
+    }
+    put_u32(out, write as u32);
+    put_u32(out, count as u32);
+    put_f32(out, state.spacing_phase);
+    put_f32(out, state.neutral_jump_cooldown);
+    put_f32(out, state.blink_cooldown);
+    put_f32(out, state.foray_timer);
+    put_f32(out, state.shield_hold_timer);
+    put_f32(out, state.neutral_reset_timer);
+    put_bool(out, state.was_attacking);
+    put_f32(out, state.regroup_timer);
+    put_f32(out, state.last_health_fraction);
+    put_f32(out, state.damage_accum);
+    put_f32(out, state.time_since_offense);
+}
+
+fn read_smash_state(
+    r: &mut Reader<'_>,
+) -> Option<ambition_characters::brain::smash::SmashState> {
+    use ambition_characters::brain::smash::{SmashState, OBS_HISTORY_LEN};
+
+    let mode = read_smash_mode(r)?;
+    let mode_dwell_s = r.f32()?;
+    let rng_seed = r.u64()?;
+    let dash_cooldown_remaining = r.f32()?;
+    let mut samples = [(0.0, ambition_engine_core::Vec2::ZERO); OBS_HISTORY_LEN];
+    for sample in &mut samples {
+        *sample = (r.f32()?, r.vec2()?);
+    }
+    let history_write = r.u32()? as usize;
+    let history_count = r.u32()? as usize;
+    let spacing_phase = r.f32()?;
+    let neutral_jump_cooldown = r.f32()?;
+    let blink_cooldown = r.f32()?;
+    let foray_timer = r.f32()?;
+    let shield_hold_timer = r.f32()?;
+    let neutral_reset_timer = r.f32()?;
+    let was_attacking = r.bool()?;
+    let regroup_timer = r.f32()?;
+    let last_health_fraction = r.f32()?;
+    let damage_accum = r.f32()?;
+    let time_since_offense = r.f32()?;
+
+    let mut state = SmashState {
+        mode,
+        mode_dwell_s,
+        rng_seed,
+        dash_cooldown_remaining,
+        spacing_phase,
+        neutral_jump_cooldown,
+        blink_cooldown,
+        foray_timer,
+        shield_hold_timer,
+        neutral_reset_timer,
+        was_attacking,
+        regroup_timer,
+        last_health_fraction,
+        damage_accum,
+        time_since_offense,
+        ..SmashState::default()
+    };
+    state
+        .obs_history
+        .restore_snapshot_parts(samples, history_write, history_count)?;
+    Some(state)
+}
+
+/// Rewind the mutable cursor of state-machine brains while leaving authored tuning in place.
+/// Boss-pattern and Smash brains both carry replay-significant internal clocks/history.
 impl SnapshotCursor for ambition_characters::brain::Brain {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
-        let Some(s) = self.boss_pattern_state() else {
-            // Not a boss brain: nothing mutable that a rollback needs. The tag keeps
-            // "no state" distinguishable from a truncated blob.
-            put_u8(out, 0);
-            return;
-        };
-        put_u8(out, 1);
-        match &s.last_phase {
-            None => put_bool(out, false),
-            Some(p) => {
-                put_bool(out, true);
-                p.encode(out);
+        use ambition_characters::brain::{Brain, StateMachineCfg};
+        match self {
+            Brain::StateMachine(StateMachineCfg::BossPattern { state, .. }) => {
+                put_u8(out, 1);
+                match &state.last_phase {
+                    None => put_bool(out, false),
+                    Some(phase) => {
+                        put_bool(out, true);
+                        phase.encode(out);
+                    }
+                }
+                put_u32(out, state.step_index as u32);
+                put_f32(out, state.step_elapsed);
+                put_f32(out, state.movement_timer);
+                put_f32(out, state.pattern_timer);
+                put_f32(out, state.cycle_rest_remaining);
+                state.macro_state.encode(out);
+                put_f32(out, state.engage_timer);
+                put_u64(out, state.rng_seed);
+                put_timeline(out, &state.timeline);
+                put_opt_str(out, state.stance.as_deref());
+                put_u32(out, state.stance_stack.len() as u32);
+                for ret in &state.stance_stack {
+                    put_timeline(out, &ret.timeline);
+                    put_opt_str(out, ret.stance.as_deref());
+                    put_u32(out, ret.step_index as u32);
+                    put_f32(out, ret.step_elapsed);
+                }
+                put_u32(out, state.interrupt_cooldowns.len() as u32);
+                for value in &state.interrupt_cooldowns {
+                    put_f32(out, *value);
+                }
+                put_u32(out, state.interrupt_timers.len() as u32);
+                for value in &state.interrupt_timers {
+                    put_f32(out, *value);
+                }
+                match state.last_hp {
+                    None => put_bool(out, false),
+                    Some(hp) => {
+                        put_bool(out, true);
+                        put_i32(out, hp);
+                    }
+                }
             }
-        }
-        put_u32(out, s.step_index as u32);
-        put_f32(out, s.step_elapsed);
-        put_f32(out, s.movement_timer);
-        put_f32(out, s.pattern_timer);
-        put_f32(out, s.cycle_rest_remaining);
-        s.macro_state.encode(out);
-        put_f32(out, s.engage_timer);
-        put_u64(out, s.rng_seed);
-        put_timeline(out, &s.timeline);
-        put_opt_str(out, s.stance.as_deref());
-        put_u32(out, s.stance_stack.len() as u32);
-        for ret in &s.stance_stack {
-            put_timeline(out, &ret.timeline);
-            put_opt_str(out, ret.stance.as_deref());
-            put_u32(out, ret.step_index as u32);
-            put_f32(out, ret.step_elapsed);
-        }
-        put_u32(out, s.interrupt_cooldowns.len() as u32);
-        for v in &s.interrupt_cooldowns {
-            put_f32(out, *v);
-        }
-        put_u32(out, s.interrupt_timers.len() as u32);
-        for v in &s.interrupt_timers {
-            put_f32(out, *v);
-        }
-        match s.last_hp {
-            None => put_bool(out, false),
-            Some(hp) => {
-                put_bool(out, true);
-                put_i32(out, hp);
+            Brain::StateMachine(StateMachineCfg::Smash { state, .. }) => {
+                put_u8(out, 2);
+                put_smash_state(out, state);
             }
+            _ => put_u8(out, 0),
         }
     }
 
     fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
-        use ambition_characters::brain::boss_pattern::{BossEncounterPhase, BossMacroState};
-        if r.u8()? == 0 {
-            return Some(());
-        }
-        let last_phase = if r.bool()? {
-            Some(BossEncounterPhase::decode(r)?)
-        } else {
-            None
-        };
-        let step_index = r.u32()? as usize;
-        let step_elapsed = r.f32()?;
-        let movement_timer = r.f32()?;
-        let pattern_timer = r.f32()?;
-        let cycle_rest_remaining = r.f32()?;
-        let macro_state = BossMacroState::decode(r)?;
-        let engage_timer = r.f32()?;
-        let rng_seed = r.u64()?;
-        let timeline = read_timeline(r)?;
-        let stance = r.opt_str()?.map(str::to_string);
-        let stance_stack = {
-            use ambition_characters::brain::boss_pattern::StanceReturn;
-            let n = r.u32()?;
-            (0..n)
-                .map(|_| {
-                    Some(StanceReturn {
-                        timeline: read_timeline(r)?,
-                        stance: r.opt_str()?.map(str::to_string),
-                        step_index: r.u32()? as usize,
-                        step_elapsed: r.f32()?,
-                    })
-                })
-                .collect::<Option<Vec<_>>>()?
-        };
-        fn read_f32s(r: &mut Reader<'_>) -> Option<Vec<f32>> {
-            let n = r.u32()?;
-            (0..n).map(|_| r.f32()).collect()
-        }
-        let interrupt_cooldowns = read_f32s(r)?;
-        let interrupt_timers = read_f32s(r)?;
-        let last_hp = if r.bool()? { Some(r.i32()?) } else { None };
+        use ambition_characters::brain::{Brain, StateMachineCfg};
+        match r.u8()? {
+            0 => Some(()),
+            1 => {
+                use ambition_characters::brain::boss_pattern::{
+                    BossEncounterPhase, BossMacroState, StanceReturn,
+                };
+                let last_phase = if r.bool()? {
+                    Some(BossEncounterPhase::decode(r)?)
+                } else {
+                    None
+                };
+                let step_index = r.u32()? as usize;
+                let step_elapsed = r.f32()?;
+                let movement_timer = r.f32()?;
+                let pattern_timer = r.f32()?;
+                let cycle_rest_remaining = r.f32()?;
+                let macro_state = BossMacroState::decode(r)?;
+                let engage_timer = r.f32()?;
+                let rng_seed = r.u64()?;
+                let timeline = read_timeline(r)?;
+                let stance = r.opt_str()?.map(str::to_string);
+                let stance_stack = {
+                    let n = r.u32()?;
+                    (0..n)
+                        .map(|_| {
+                            Some(StanceReturn {
+                                timeline: read_timeline(r)?,
+                                stance: r.opt_str()?.map(str::to_string),
+                                step_index: r.u32()? as usize,
+                                step_elapsed: r.f32()?,
+                            })
+                        })
+                        .collect::<Option<Vec<_>>>()?
+                };
+                fn read_f32s(r: &mut Reader<'_>) -> Option<Vec<f32>> {
+                    let n = r.u32()?;
+                    (0..n).map(|_| r.f32()).collect()
+                }
+                let interrupt_cooldowns = read_f32s(r)?;
+                let interrupt_timers = read_f32s(r)?;
+                let last_hp = if r.bool()? { Some(r.i32()?) } else { None };
 
-        // A blob written by a boss brain, applied to one that is no longer a boss
-        // brain, would be a content change across a rollback. Leave it alone.
-        let Some(s) = self.boss_pattern_state_mut() else {
-            return Some(());
-        };
-        s.last_phase = last_phase;
-        s.step_index = step_index;
-        s.step_elapsed = step_elapsed;
-        s.movement_timer = movement_timer;
-        s.pattern_timer = pattern_timer;
-        s.cycle_rest_remaining = cycle_rest_remaining;
-        s.macro_state = macro_state;
-        s.engage_timer = engage_timer;
-        s.rng_seed = rng_seed;
-        // Per-tick output cache: recompute after restore.
-        s.attack_intent = Default::default();
-        s.timeline = timeline;
-        s.stance = stance;
-        s.stance_stack = stance_stack;
-        s.interrupt_cooldowns = interrupt_cooldowns;
-        s.interrupt_timers = interrupt_timers;
-        s.last_hp = last_hp;
-        Some(())
+                let Brain::StateMachine(StateMachineCfg::BossPattern { state, .. }) = self else {
+                    return Some(());
+                };
+                state.last_phase = last_phase;
+                state.step_index = step_index;
+                state.step_elapsed = step_elapsed;
+                state.movement_timer = movement_timer;
+                state.pattern_timer = pattern_timer;
+                state.cycle_rest_remaining = cycle_rest_remaining;
+                state.macro_state = macro_state;
+                state.engage_timer = engage_timer;
+                state.rng_seed = rng_seed;
+                state.attack_intent = Default::default();
+                state.timeline = timeline;
+                state.stance = stance;
+                state.stance_stack = stance_stack;
+                state.interrupt_cooldowns = interrupt_cooldowns;
+                state.interrupt_timers = interrupt_timers;
+                state.last_hp = last_hp;
+                Some(())
+            }
+            2 => {
+                let restored = read_smash_state(r)?;
+                if let Brain::StateMachine(StateMachineCfg::Smash { state, .. }) = self {
+                    *state = restored;
+                }
+                Some(())
+            }
+            _ => None,
+        }
     }
 }
 

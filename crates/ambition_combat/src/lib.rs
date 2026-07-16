@@ -83,7 +83,8 @@ use ambition_vfx::vfx::{DebrisBurstMessage, ParticleKind, PhysicsDebrisCue, VfxM
 use bevy::prelude::*;
 
 use ambition_engine_core::{Aabb, AabbExt, KinematicPath, Vec2};
-use ambition_entity_catalog::placements::{DamageKind, DamageTeam, HazardRespawn};
+pub use ambition_entity_catalog::placements::DamageKind;
+use ambition_entity_catalog::placements::{DamageTeam, HazardRespawn};
 
 /// Damage payload shared by hitboxes and persistent damage volumes.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]

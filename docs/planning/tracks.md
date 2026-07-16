@@ -4,54 +4,7 @@ This file is the live queue, not a completion ledger. The completed July 15–16
 architecture campaign is summarized in [`status.md`](status.md) and preserved in
 git history.
 
-## 1. Converge encounter lifecycle authority
-
-**State:** active.
-
-Implement E8–E13 from
-[`engine/encounter-orchestration.md`](engine/encounter-orchestration.md).
-The important checkpoint is E11:
-
-1. generic command ingress;
-2. objective-driven lifecycle and signal progress;
-3. explicit participant ownership and cleanup;
-4. stable encounter/participant identity with snapshot registration.
-
-At that checkpoint, one encounter authority must represent boss and non-boss
-encounters. Continue consumer convergence and the non-boss acceptance customer
-after atomic room restoration unless implementation evidence makes the order
-unnecessary.
-
-**Exit:** HUD, locks, rewards, persistence, camera, and music consume one
-encounter model, and a signal-driven non-boss puzzle completes without a second
-lifecycle implementation.
-
-## 2. Restore the active room atomically
-
-**State: DONE + CLOSED OUT (2026-07-16).** `restore` stages a differing
-snapshot room through the canonical construction (`RoomStaging`), refusals are
-preflighted before mutation, identity is minted synchronously with the spawning
-tick, and read-model syncs own no reset. The GPT-5.6 closeout review then
-hardened the contract before the rollback driver: content-staged occupants
-(duel fighters, cronies) moved from `RoomLoaded` consumers into the
-`RoomContentStagingRegistry` construction seam so a staged room carries its
-COMPLETE authoritative roster; a room-backed restore refuses rather than
-bare-spawn a hollow identity; snapshots are bound to their `SessionScopeId`
-(the ring's scoping is construction, not convention); and the projectile family
-became the first blob-rebuildable dynamic family (dynamic anchor + derived
-owner healing), so a window may span a projectile's whole life. Exit oracles:
-`portal_lab` CLEAN and `a_staged_restore_rebuilds_the_duel_roster_completely`
-(snapshot mid-duel with a glider in flight, forced door out, staged restore
-back, complete component roster, bit-for-bit replay). Details:
-[`engine/netcode.md`](engine/netcode.md) N3.2b + closeout.
-
-The rollback driver (per-session snapshot ring + input history + restore +
-resimulate) may now be built on these contracts. Remaining named boundaries
-before or during that work: construction-side recipes for non-anchored spawned
-children (minions, giant hands under staging), single-occupant content-staged
-rebuild, `PlayerProjectileState` registration.
-
-## 3. Close Super Mary-O level 1
+## 1. Close Super Mary-O level 1
 
 The engine-facing seams are already proven: world pickups equip through the shared
 item path; the grow cap changes worn identity and collider size; the spark blossom
@@ -69,7 +22,7 @@ Remaining customer work:
 **Exit:** visible and headless customers use the same provider, body, item, and
 level state with no Mary-O-only engine path.
 
-## 4. Close one complete Sanic act
+## 2. Close one complete Sanic act
 
 The provider persona, standard host input chain, transformation, ball dash,
 surface-momentum route, lifecycle, and geometry/orbit/stranding oracles are
@@ -86,7 +39,7 @@ Remaining customer work:
 
 Do not absorb movement/contact work owned by another active campaign.
 
-## 5. Correct the fighter-rollout design before FB6
+## 3. Correct the fighter-rollout design before FB6
 
 Do not implement the current FB6 text literally.
 
@@ -101,7 +54,7 @@ Do not implement the current FB6 text literally.
 **Exit:** the determinism and no-cheat contracts are explicit enough that an L3
 implementation cannot accidentally violate either one.
 
-## 6. Finish the bounded boss animator fold
+## 4. Finish the bounded boss animator fold
 
 Verify and remove only genuine animation residue:
 

@@ -78,6 +78,54 @@ fn respawn_from_the_room(world: &mut World, sim_id: &str) -> Option<Entity> {
     Some(entity)
 }
 
+/// Rebuild a room's content-staged actor batch through the canonical request applier.
+///
+/// Content stagers may define relationships between members of one batch (the duel
+/// fighters' mutual grudges are the current example), so restoring one missing member
+/// independently would produce a roster with the right ids but the wrong authored graph.
+/// When any snapshot member of a staged batch is absent, retire the whole live batch and
+/// replay the pure stager's requests together before snapshot rows are reconciled.
+fn rebuild_content_staged_batch(
+    world: &mut World,
+    requests: &[ambition_actors::features::SpawnActorRequest],
+) {
+    use ambition_combat::components::FeatureId;
+
+    let staged_ids = requests
+        .iter()
+        .map(|request| request.id.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    let existing = match world.try_query::<(Entity, &FeatureId)>() {
+        Some(mut query) => query
+            .iter(world)
+            .filter_map(|(entity, feature)| staged_ids.contains(feature.0.as_str()).then_some(entity))
+            .collect::<Vec<_>>(),
+        None => Vec::new(),
+    };
+    for entity in existing {
+        world.despawn(entity);
+    }
+
+    let mut messages = world
+        .get_resource_mut::<bevy::ecs::message::Messages<
+            ambition_actors::features::SpawnActorRequest,
+        >>()
+        .expect("content-staged reconstruction requires SpawnActorRequest messages");
+    messages.clear();
+    for request in requests {
+        messages.write(request.clone());
+    }
+    drop(messages);
+
+    let _ = bevy::ecs::system::RunSystemOnce::run_system_once(
+        &mut *world,
+        ambition_actors::features::apply_spawn_actor_requests,
+    );
+    world.flush();
+    let _ = bevy::ecs::system::RunSystemOnce::run_system_once(&mut *world, ensure_sim_id);
+    world.flush();
+}
+
 /// **Validate a snapshot's shape against the registry, before restore mutates anything**
 /// (re-audit finding 2).
 ///
@@ -248,6 +296,14 @@ pub fn restore(
         });
     }
 
+    let live_world_identity = SnapshotWorldIdentity::from_world(world);
+    if snapshot.world != live_world_identity {
+        return Err(RestoreError::WorldMismatch {
+            snapshot: snapshot.world.clone(),
+            live: live_world_identity,
+        });
+    }
+
     // **The active room is restored sim state (netcode.md N3.2b).** A snapshot taken
     // in another room is not refused: the snapshot's room is STAGED — through the same
     // canonical construction a room transition runs (`RoomStaging`: the scoped-entity
@@ -258,8 +314,10 @@ pub fn restore(
     //
     // Transactionality: `RoomStaging::prepare` is mutation-free (it resolves the room
     // and clones every construction service, refusing with the world untouched), and
-    // `apply` runs only after EVERY other preflight below has passed — so any refusal
-    // this function returns leaves the live room exactly as it was.
+    // `apply` runs only after every currently available standalone preflight below
+    // has passed. Cursor/resolved codecs are still applied after mutation; an
+    // internal decode inconsistency there may return from a partially changed world
+    // until the later transactional-codec work lands.
     //
     // The two `Option<String>` are compared WHOLE (re-audit finding 5): a snapshot with a
     // room restored into a world with none — or vice versa — is a session-shape mismatch
@@ -352,14 +410,33 @@ pub fn restore(
     // registered rows to patch. Room-less headless fixtures skip this: with no
     // construction authority there is nothing to predict against, and the
     // bare-identity respawn below remains their honest fixture path.
+    // Same-room content staging is prepared before mutation too. Its requests are pure
+    // functions of the active RoomSpec, just like cross-room `RoomStaging::prepare`.
+    // Keeping the owned requests lets reconciliation rebuild a coordinated batch when
+    // the rollback window spans one member's death.
+    let same_room_content_requests = if staging.is_none() {
+        let active_spec = ambition_platformer_primitives::lifecycle::session_world_component::<
+            ambition_world::rooms::RoomSet,
+        >(world)
+        .map(|rooms| rooms.active_spec().clone());
+        match active_spec {
+            Some(spec) => world
+                .get_resource::<ambition_actors::features::RoomContentStagingRegistry>()
+                .cloned()
+                .unwrap_or_default()
+                .try_requests_for(&spec)
+                .map_err(|err| RestoreError::RoomNotStageable {
+                    room: spec.id.clone(),
+                    reason: err.to_string(),
+                })?,
+            None => Vec::new(),
+        }
+    } else {
+        Vec::new()
+    };
+
     let authored: std::collections::BTreeSet<String> = match &staging {
         Some(staging) => staging.predicted_authored_ids(),
-        // Same-room restore: missing authored ids are rebuilt one at a time by
-        // `respawn_from_the_room`, which reconstructs from the ACTIVE spec's three
-        // authored lists. Content-staged occupants are deliberately NOT predicted
-        // here: they are staged as a batch by room construction, and no
-        // single-occupant rebuild path exists yet (a same-room window spanning a
-        // content-staged death refuses honestly).
         None => ambition_platformer_primitives::lifecycle::session_world_component::<
             ambition_world::rooms::RoomSet,
         >(world)
@@ -370,10 +447,30 @@ pub fn restore(
                 .map(|p| p.id.0.clone())
                 .chain(spec.enemy_spawns.iter().map(|e| e.id.clone()))
                 .chain(spec.boss_spawns.iter().map(|b| b.id.clone()))
+                .chain(same_room_content_requests.iter().map(|request| request.id.clone()))
                 .collect()
         })
         .unwrap_or_default(),
     };
+    let snapshot_ids = ids.iter().copied().collect::<std::collections::BTreeSet<_>>();
+    let same_room_batch_needs_rebuild = same_room_content_requests.iter().any(|request| {
+        let sim_id = SimId::placement(&request.id);
+        snapshot_ids.contains(sim_id.as_str()) && !survivors.contains(sim_id.as_str())
+    });
+    if same_room_batch_needs_rebuild
+        && world
+            .get_resource::<bevy::ecs::message::Messages<
+                ambition_actors::features::SpawnActorRequest,
+            >>()
+            .is_none()
+    {
+        return Err(RestoreError::RoomNotStageable {
+            room: active_room.clone().unwrap_or_default(),
+            reason: "content-staged reconstruction requires SpawnActorRequest messages"
+                .to_string(),
+        });
+    }
+
     // The blob-rebuildable dynamic identities: ids carrying a row under a
     // registered DYNAMIC ANCHOR (`declare_dynamic_anchor`). Such a family's
     // whole component set is registered, so a dead member rebuilds from blobs
@@ -471,21 +568,26 @@ pub fn restore(
         // duplicate. Run the SAME canonical identity pass, synchronously: no
         // restore-only code path (N3.1's rebuild rule).
         let _ = bevy::ecs::system::RunSystemOnce::run_system_once(&mut *world, ensure_sim_id);
+        world.flush();
         room
     });
 
-    // **The identity invariant holds for the STAGED roster too** (GPT-5.6 closeout).
+    if same_room_batch_needs_rebuild {
+        rebuild_content_staged_batch(world, &same_room_content_requests);
+    }
+
+    // **The identity invariant holds for every reconstructed roster too** (GPT-5.6 closeout).
     // The pre-staging check above ran against the OLD room's entities; staging just
     // constructed a new roster (lowering + content staging + synchronous identity),
     // and a construction bug that minted one id twice — a content stager colliding
     // with an authored placement, a double-registered stager — would otherwise let
     // the live-map build below silently pick one of the two. Same panic, same
     // reason: a world with duplicate identity cannot be trusted, only fixed.
-    if report.staged_room.is_some() {
+    if report.staged_room.is_some() || same_room_batch_needs_rebuild {
         let staged_dups = duplicate_live_ids(world);
         assert!(
             staged_dups.is_empty(),
-            "restore: room staging produced {} duplicate SimId(s) — a construction bug \
+            "restore: roster reconstruction produced {} duplicate SimId(s) — a construction bug \
              (a content stager colliding with an authored placement?). Collisions \
              (id, count): {staged_dups:?}",
             staged_dups.len(),

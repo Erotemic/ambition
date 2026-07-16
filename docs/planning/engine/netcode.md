@@ -137,7 +137,7 @@ How each required property is met:
    dynamic-reconstruction, standalone codec probes) before `apply`. Every
    refusal — `RoomNotStageable` (unknown room / missing service),
    `CrossRoomBoundary` (room-presence mismatch), `MalformedSnapshot`,
-   `UnsupportedDynamicReconstruction`, standalone `DecodeFailed` — leaves the
+   `UnsupportedReconstruction`, standalone `DecodeFailed` — leaves the
    live room untouched (gated by
    `an_unstageable_room_refuses_with_the_world_untouched`).
 2. **Canonical construction.** Staging shares `spawn_room_feature_entities_with_registry`,
@@ -189,40 +189,47 @@ and patched blobs onto hollow entities. Landed corrections:
    authored lists ∪ its content-staged ids ∪ dynamic-anchor rows — and refuses
    (`UnsupportedReconstruction`) before mutation for anything outside it. The
    bare respawn survives only for room-less headless fixtures.
-3. **Snapshots are session-bound.** `SimSnapshot.session` captures the owning
-   `SessionScopeId`; a mismatch (`SessionMismatch`) is the FIRST preflight.
-   Gate: `a_snapshot_never_restores_across_sessions` (shell_host_lifecycle) —
-   A's snapshot into a same-provider, same-room session B refuses with B
-   untouched. A rollback ring is scoped to one session by construction.
+3. **Snapshots are session- and prepared-world-bound.** `SimSnapshot.session`
+   captures the owning `SessionScopeId`; a mismatch (`SessionMismatch`) is the
+   FIRST preflight. `SimSnapshot.world` independently captures the prepared
+   provider ids and sorted room roster, so a local scope id reused by a different
+   App/world is not sufficient for acceptance (`WorldMismatch`). Gate:
+   `a_snapshot_never_restores_across_sessions` (shell_host_lifecycle) — A's
+   snapshot into a same-provider, same-room session B refuses with B untouched.
+   A future persisted wire format may strengthen the same-build world identity
+   with a content fingerprint.
 4. **The identity invariant is re-checked after staging** — a content stager
    colliding with an authored placement cannot silently win a map insert.
 5. **The projectile family is the first spawn recipe** — the registered kind:
-   every component an in-flight projectile carries is a registered row (ZST
-   markers included; presence is the datum), `ProjectileSeqCounter` is a
-   registered resource, and `ProjectileOwner` (the one `Entity` handle) is
-   declared derived, healed from the spawned id's parent by
-   `heal_projectile_owners` beside the identity pair. `projectile_gameplay` is
-   declared a DYNAMIC ANCHOR: a dead projectile in a snapshot rebuilds from
-   blobs alone, exactly — a rollback window may span a projectile's whole
-   life. Projectiles are now room- and session-scoped spawns, like everything
-   else a room stages.
+   every component an in-flight projectile carries is a registered row, including
+   `RoomScopedEntity` and `SessionScopedEntity` (marker presence and exact scope
+   are restored state). `ProjectileSeqCounter` is a registered resource, and
+   `ProjectileOwner` (the one `Entity` handle) is declared derived, healed from
+   the spawned id's parent by `heal_projectile_owners` beside the identity pair.
+   `projectile_gameplay` is a DYNAMIC ANCHOR: a dead projectile rebuilds from
+   blobs with its mechanical and lifetime shell intact, so a rollback window may
+   span the projectile's whole life without leaking it across a room/session end.
 6. **Pending cross-tick messages are restored state.** `SpawnActorRequest` and
    `RoomTransitionRequested` joined the restore-cleared channels (9 total): a
    spawn or door-walk queued in the abandoned future must not replay.
+7. **Same-room content-staged deaths rebuild through the coordinated batch.** If
+   one snapshot member is absent, restore replays the room's pure content-staging
+   requests as one batch before reconciliation. This preserves authored
+   cross-member relationships such as the duelists' mutual grudges instead of
+   independently bare-spawning one fighter.
+8. **Fight-aged mutable state is registered.** Smash-brain reaction history and
+   tactical clocks, `ActorDisposition`, the mutable aggression policy cursor,
+   and `BodyMelee` now rewind. The temporary per-entry duel diagnostic is gone.
 
-Exit oracle: `a_staged_restore_rebuilds_the_duel_roster_completely` — a
-snapshot mid-duel (content-staged fighters, a glider projectile in flight), a
-forced door transition out, a staged restore back, and a component-set
-comparison at identical sim points (roster completeness: PASSING, hard gate).
-The replay-equality tooth is a **PINNED GAP**, not yet a passing gate: the
-replayed suffix diverges at tick 0 because the rebuilt fighters' remaining
-unregistered mutable state (candidates: `ActorAggression` — whose grudge holds
-an `Entity` and needs cursor-by-identity semantics like `ActorTarget` —
-`ActorDisposition`, brain-adjacent melee kit) is spawn-fresh where the
-originals' was fight-aged. `BodyCombat` (the §A2 stagger set) was registered
-during the closeout and was necessary but not sufficient. The oracle pins the
-divergence so the fix flips it loudly; `scratch_diag.rs` (ignored) is the
-per-entry diagnostic. This is the named NEXT SLICE before the rollback driver.
+Exit oracles:
+
+- `a_staged_restore_rebuilds_the_duel_roster_completely` stages the complete
+  authored duel roster and replays the identical suffix bit for bit;
+- `same_room_restore_rebuilds_a_missing_content_staged_batch` spans one
+  fighter's same-room death and restores both the roster and bilateral authored
+  grudge relationships;
+- the projectile dynamic-rebuild test proves room/session lifetime markers are
+  restored with the mechanical projectile state.
 
 **Transactionality, stated precisely:** every currently-preflightable refusal
 occurs before room mutation — session binding, room resolution, snapshot
@@ -234,11 +241,11 @@ discard the world on those.
 
 Remaining honest boundaries: a dead `spawned(..)` entity outside an anchored
 family (a summoned minion; a lowering-spawned child like the giant hands under
-a STAGED restore) refuses with `UnsupportedReconstruction` until
-construction-side recipes land; a same-room window spanning a content-staged
-occupant's death refuses (batch staging exists, single-occupant rebuild does
-not); a room-presence mismatch refuses as `CrossRoomBoundary`; player-pool
-firing state (`PlayerProjectileState`) remains ledgered debt.
+a staged restore) refuses with `UnsupportedReconstruction` until a domain spawn
+recipe lands; a room-presence mismatch refuses as `CrossRoomBoundary`;
+`PlayerProjectileState` remains ledgered debt. Mutable relationships represented
+as allocator-local `Entity` handles remain domain-derived/authored responsibilities
+rather than snapshot bytes; raw entity handles are never serialized.
 
 ## Identity and ordering rules
 
@@ -251,7 +258,7 @@ firing state (`PlayerProjectileState`) remains ledgered debt.
 
 - [`architecture.md`](architecture.md) defines session/provider/runtime ownership.
 - [`decisions-2026-07-16.md`](decisions-2026-07-16.md) records the two required session gates.
-- [`../tracks.md`](../tracks.md) orders placement unification before the broader N3.2/session campaign.
+- [`../tracks.md`](../tracks.md) lists the remaining executable work after the N3.2/session campaign.
 - The accepted `ambition_sim_harness` extraction supplies the reusable reset/step/replay consumer surface.
 
 ## Later work

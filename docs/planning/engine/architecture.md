@@ -189,8 +189,10 @@ teardown; the resource type does not independently encode a session ID.
 A provider-installed session-teardown pass resets the remaining active-session
 resource mirrors when the scope retires, so no stale mirror or dangling handle
 survives into the next activation. No compatibility handle bag was retained.
-Atomic replacement of the live room when a snapshot names a different active room
-remains the open N3.2 boundary; see [`netcode.md`](netcode.md).
+Atomic replacement of the live room is also landed: restore stages the snapshot's
+room through canonical construction, rebuilds provider/content-authored occupants,
+and then reconciles registered state. See [`netcode.md`](netcode.md) for the exact
+supported boundary and remaining dynamic-family recipes.
 
 ## 6. World and geometry rules
 

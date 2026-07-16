@@ -40,12 +40,9 @@ ambition_characters::brain::action_set::ActionSet
 ambition_characters::brain::boss_pattern::BossCapability
 ambition_combat::components::CombatCapabilities
 ambition_combat::components::CombatTuning
-ambition_combat::components::actors::ActorAggression
-ambition_combat::components::actors::ActorDisposition
 ambition_combat::components::actors::ActorIdentity
 ambition_combat::components::actors::ActorInteraction
 ambition_combat::components::actors::ActorRenderSize
-ambition_combat::components::actors::BodyMelee
 ambition_combat::components::actors::BossDeathAnimation
 ambition_combat::components::actors::CombatKit
 ambition_combat::components::features::DamageableVolumes
@@ -65,7 +62,6 @@ ambition_engine_core::body_clusters::AbilityBase
 ambition_platformer_primitives::body::PrimaryBody
 ambition_platformer_primitives::lifecycle::markers::FeatureSimEntity
 ambition_platformer_primitives::lifecycle::markers::PlayerVisual
-ambition_platformer_primitives::lifecycle::markers::RoomScopedEntity
 ambition_platformer_primitives::lifecycle::markers::RoomVisual
 ambition_platformer_primitives::markers::PlayerEntity
 ambition_platformer_primitives::markers::PrimaryPlayer

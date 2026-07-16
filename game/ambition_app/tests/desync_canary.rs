@@ -664,10 +664,11 @@ fn the_snapshot_coverage_ledger() {
     // EncounterObjective, boss-wrap EncounterDef) — authored/immutable config;
     // the mutable state (lifecycle/participants/waves) IS registered. Reviewed
     // in known_component_debt.txt.
-    // 2026-07-16 (E12): +3 reviewed authored STAGING policy components
-    // (EncounterLockWall / EncounterCameraZoom / EncounterTrack) — immutable
-    // presentation policy the generic consumers derive from; same review.
-    const KNOWN_DEBT: usize = 65;
+    // 2026-07-16 (snapshot closeout): ActorAggression, ActorDisposition,
+    // BodyMelee, and RoomScopedEntity moved from reviewed debt into registered
+    // state. Lower the guard with the name-level inventory rather than leaving
+    // the old allowance available for unrelated substitutions.
+    const KNOWN_DEBT: usize = 61;
     assert!(
         worst <= KNOWN_DEBT,
         "{worst} component types on SimId entities are neither registered as sim \
@@ -1028,26 +1029,66 @@ fn a_staged_restore_rebuilds_the_duel_roster_completely() {
         );
     }
 
-    // Tooth 3 is currently a PINNED GAP, not a passing gate (2026-07-16, end of
-    // the closeout session): the replay diverges at tick 0 because the rebuilt
-    // fighters' remaining UNREGISTERED mutable state is spawn-fresh where the
-    // originals' was 60 ticks aged. `BodyCombat` was registered for exactly
-    // this and was not sufficient; the per-entry culprits are the fighters'
-    // behavior outputs (kinematics/pose/intent/control), and the candidate
-    // inputs still unregistered are `ActorAggression` (grudge holds an
-    // `Entity` — needs cursor-by-identity semantics like `ActorTarget`),
-    // `ActorDisposition`, and the brain-adjacent melee kit. Diagnose with
-    // `scratch_diag.rs` (ignored; run it explicitly). The assert BELOW pins
-    // the divergence so the fix flips it loudly: when the replay goes clean,
-    // replace this pin with `assert!(diff.in_sync(), ..)` and delete the
-    // scratch tool.
+    // Tooth 3: the staged roster's mutable behavior state — Smash-brain
+    // history/clocks, aggression/disposition, and the body melee cursor — rewinds
+    // with the rest of the registered sim. The identical suffix must therefore
+    // reproduce the abandoned future tick for tick.
     let diff = compare_hash_streams(&first, &second);
     assert!(
-        !diff.in_sync(),
-        "the duel replay went CLEAN — the unregistered-fighter-state gap this \
-         pin documents has been closed. Promote tooth 3 to a hard gate \
-         (assert in_sync), delete scratch_diag.rs, and record the closure in \
-         netcode.md N3.2b."
+        diff.in_sync(),
+        "the cross-room duel replay diverged at tick {:?}",
+        diff.first_divergence_tick
+    );
+}
+
+/// Same-room rollback can span the death of one content-staged actor. The pure
+/// room stager is replayed as a coordinated batch so authored cross-member
+/// relationships (the duelists' mutual grudges) are reconstructed too.
+#[test]
+fn same_room_restore_rebuilds_a_missing_content_staged_batch() {
+    use ambition::combat::components::ActorAggression;
+    use ambition::platformer::sim_id::SimId;
+    use ambition::runtime::snapshot::{restore, take};
+
+    const PCA: &str = "placement:duel_pca";
+    const ROBOT: &str = "placement:duel_robot";
+
+    let mut s = sim("duel_arena");
+    let reg = registry_of(&mut s);
+    let snapshot = take(s.world(), &reg);
+
+    let ids = {
+        let mut query = s
+            .world_mut()
+            .query::<(bevy::ecs::entity::Entity, &SimId)>();
+        query
+            .iter(s.world())
+            .map(|(entity, id)| (id.as_str().to_string(), entity))
+            .collect::<std::collections::BTreeMap<_, _>>()
+    };
+    s.world_mut().despawn(*ids.get(PCA).expect("PCA staged"));
+
+    restore(s.world_mut(), &snapshot, &reg).expect("same-room staged batch rebuilds");
+    assert_eq!(take(s.world(), &reg), snapshot);
+
+    let ids = {
+        let mut query = s
+            .world_mut()
+            .query::<(bevy::ecs::entity::Entity, &SimId)>();
+        query
+            .iter(s.world())
+            .map(|(entity, id)| (id.as_str().to_string(), entity))
+            .collect::<std::collections::BTreeMap<_, _>>()
+    };
+    let pca = *ids.get(PCA).expect("PCA restored");
+    let robot = *ids.get(ROBOT).expect("robot restored");
+    assert_eq!(
+        s.world().entity(pca).get::<ActorAggression>().unwrap().grudge,
+        Some(robot)
+    );
+    assert_eq!(
+        s.world().entity(robot).get::<ActorAggression>().unwrap().grudge,
+        Some(pca)
     );
 }
 

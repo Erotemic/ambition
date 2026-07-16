@@ -311,7 +311,7 @@ impl SmashCfg {
 /// At 60 fps this is ~0.53 s of history — comfortably longer than any
 /// authored `reaction_delay_s` (EASY = 0.30 s), so the delayed lookup is
 /// always covered once the buffer fills.
-const OBS_HISTORY_LEN: usize = 32;
+pub const OBS_HISTORY_LEN: usize = 32;
 
 /// Ring buffer of recent opponent observations `(sim_time, target_pos)`,
 /// used to apply **reaction latency**: each tick the brain perceives the
@@ -346,12 +346,35 @@ impl ObsHistory {
         self.count = (self.count + 1).min(OBS_HISTORY_LEN);
     }
 
+    /// Stable snapshot view of the reaction-history ring. The brain crate owns the
+    /// representation; rollback consumers receive the exact values without exposing
+    /// the fields for arbitrary mutation.
+    pub fn snapshot_parts(&self) -> (&[(f32, ae::Vec2); OBS_HISTORY_LEN], usize, usize) {
+        (&self.samples, self.write, self.count)
+    }
+
+    /// Restore the reaction-history ring from a validated snapshot cursor.
+    pub fn restore_snapshot_parts(
+        &mut self,
+        samples: [(f32, ae::Vec2); OBS_HISTORY_LEN],
+        write: usize,
+        count: usize,
+    ) -> Option<()> {
+        if write >= OBS_HISTORY_LEN || count > OBS_HISTORY_LEN {
+            return None;
+        }
+        self.samples = samples;
+        self.write = write;
+        self.count = count;
+        Some(())
+    }
+
     /// The opponent position the brain is allowed to perceive this tick: the
     /// most recent sample that is at least `delay` seconds old. Never returns
-    /// anything newer than `now - delay`, so the brain truly can't react
+    /// anything newer than `now - delay`, so the brain truly cannot react
     /// faster than its latency. Until the buffer covers the window (fight
-    /// start), returns the oldest sample it has — lag ramps up rather than
-    /// snapping on. `None` only when no sample has been recorded yet.
+    /// start), returns the oldest sample it has; `None` only when no sample has
+    /// been recorded yet.
     fn delayed(&self, now: f32, delay: f32) -> Option<ae::Vec2> {
         if self.count == 0 {
             return None;

@@ -51,6 +51,12 @@ pub enum RoomStagingError {
     /// session scope, the room set itself) is absent — a world that cannot
     /// build rooms cannot have one staged onto it.
     MissingService { service: &'static str },
+    /// A registered content stager produced an invalid stable-id roster. This
+    /// is detected while preparing the transaction, before the live room is
+    /// swept or any spawn commands are emitted.
+    InvalidContentStaging {
+        reason: features::RoomContentStagingError,
+    },
 }
 
 impl std::fmt::Display for RoomStagingError {
@@ -65,6 +71,9 @@ impl std::fmt::Display for RoomStagingError {
                 f,
                 "room staging needs `{service}`, which this world does not provide"
             ),
+            RoomStagingError::InvalidContentStaging { reason } => {
+                write!(f, "invalid target-room content staging: {reason}")
+            }
         }
     }
 }
@@ -78,6 +87,7 @@ pub struct RoomStaging {
     spec: RoomSpec,
     registry: PlacementLoweringRegistry,
     content_staging: features::RoomContentStagingRegistry,
+    content_staged_ids: Vec<String>,
     character_catalog: ambition_characters::actor::character_catalog::CharacterCatalog,
     character_roster: features::CharacterRoster,
     boss_catalog: crate::boss_encounter::BossCatalog,
@@ -107,6 +117,16 @@ impl RoomStaging {
         {
             return Err(missing("MovingPlatformSet"));
         }
+        let content_staging = world
+            .get_resource::<features::RoomContentStagingRegistry>()
+            .cloned()
+            .unwrap_or_default();
+        let content_staged_ids = content_staging
+            .try_requests_for(&spec)
+            .map_err(|reason| RoomStagingError::InvalidContentStaging { reason })?
+            .into_iter()
+            .map(|request| request.id)
+            .collect();
         Ok(Self {
             target_index,
             spec,
@@ -117,10 +137,8 @@ impl RoomStaging {
             // Default when absent: a world with no registered content stagers
             // (a headless fixture) stages rooms with no content-staged
             // occupants, which is exactly what its rooms contain.
-            content_staging: world
-                .get_resource::<features::RoomContentStagingRegistry>()
-                .cloned()
-                .unwrap_or_default(),
+            content_staging,
+            content_staged_ids,
             character_catalog: world
                 .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
                 .ok_or(missing("CharacterCatalog"))?
@@ -160,7 +178,7 @@ impl RoomStaging {
             .map(|p| p.id.0.clone())
             .chain(self.spec.enemy_spawns.iter().map(|e| e.id.clone()))
             .chain(self.spec.boss_spawns.iter().map(|b| b.id.clone()))
-            .chain(self.content_staging.staged_ids_for(&self.spec))
+            .chain(self.content_staged_ids.iter().cloned())
             .collect()
     }
 

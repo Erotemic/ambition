@@ -145,6 +145,18 @@ pub fn bind_worn_character_presentation(
     }
 }
 
+/// Restore the standing-frame sprite center for a compact native pose while
+/// keeping the body's feet planted along its actual gravity axis.
+///
+/// The simulation moves the compact AABB center *down* by `dy` along gravity.
+/// A native compact animation still renders in the full standing frame, so
+/// presentation reverses that displacement. This must be vector-based: rooms
+/// may use horizontal or diagonal gravity, not only screen-down/up gravity.
+fn native_compact_render_pos(pos: ae::Vec2, gravity_dir: ae::Vec2, dy: f32) -> ae::Vec2 {
+    let down = gravity_dir.normalize_or(ae::Vec2::new(0.0, 1.0));
+    pos - down * dy
+}
+
 pub fn sync_visuals(
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
         ambition_engine_core::RoomGeometry,
@@ -213,8 +225,7 @@ pub fn sync_visuals(
                         // Feet sit on the +gravity face (world +y is down under
                         // normal gravity); the standing center is `dy` opposite
                         // gravity from the compact center.
-                        let feet_down = if pose.gravity_dir.y >= 0.0 { 1.0 } else { -1.0 };
-                        let render_pos = ae::Vec2::new(pose.pos.x, pose.pos.y - feet_down * dy);
+                        let render_pos = native_compact_render_pos(pose.pos, pose.gravity_dir, dy);
                         transform.translation = world_to_bevy(&world.0, render_pos, WORLD_Z_PLAYER);
                     }
                 } else {
@@ -615,3 +626,51 @@ pub fn refresh_prop_sprites_on_game_assets_change(
 
 #[cfg(test)]
 mod worn_binder_tests;
+
+#[cfg(test)]
+mod compact_pose_tests {
+    use super::native_compact_render_pos;
+    use ambition_engine_core as ae;
+
+    fn assert_vec2_close(actual: ae::Vec2, expected: ae::Vec2) {
+        assert!(
+            (actual - expected).length() < 1.0e-5,
+            "expected {expected:?}, got {actual:?}"
+        );
+    }
+
+    #[test]
+    fn native_compact_pose_reverses_the_shift_along_gravity() {
+        let pos = ae::Vec2::new(10.0, 20.0);
+        let dy = 6.0;
+        assert_vec2_close(
+            native_compact_render_pos(pos, ae::Vec2::new(0.0, 1.0), dy),
+            ae::Vec2::new(10.0, 14.0),
+        );
+        assert_vec2_close(
+            native_compact_render_pos(pos, ae::Vec2::new(0.0, -1.0), dy),
+            ae::Vec2::new(10.0, 26.0),
+        );
+        assert_vec2_close(
+            native_compact_render_pos(pos, ae::Vec2::new(1.0, 0.0), dy),
+            ae::Vec2::new(4.0, 20.0),
+        );
+        assert_vec2_close(
+            native_compact_render_pos(pos, ae::Vec2::new(-1.0, 0.0), dy),
+            ae::Vec2::new(16.0, 20.0),
+        );
+        let diagonal = ae::Vec2::new(1.0, 1.0).normalize();
+        assert_vec2_close(
+            native_compact_render_pos(pos, diagonal, dy),
+            pos - diagonal * dy,
+        );
+    }
+
+    #[test]
+    fn native_compact_pose_uses_screen_down_for_a_zero_gravity_vector() {
+        assert_vec2_close(
+            native_compact_render_pos(ae::Vec2::new(3.0, 9.0), ae::Vec2::ZERO, 2.0),
+            ae::Vec2::new(3.0, 7.0),
+        );
+    }
+}

@@ -27,7 +27,10 @@ pub use lifecycle::{
 };
 pub use music::EncounterMusicRequest;
 pub use objective::{objective_met, EncounterObjective, Objective};
-pub use participants::{EncounterParticipant, EncounterParticipants, EncounterRole, Ownership};
+pub use participants::{
+    EncounterCleanupPolicy, EncounterParticipant, EncounterParticipants, EncounterRole, Ownership,
+    SpawnedCleanup,
+};
 pub use registry::{EncounterRegistry, EncounterRegistryPlugin, SwitchActivation};
 pub use rewards::{encounter_reward_chest_pos, encounter_reward_looted_flag};
 pub use spec::{

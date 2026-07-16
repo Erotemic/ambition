@@ -15,6 +15,9 @@ pub enum EncounterEvent {
     Completed,
     /// The fail objective was met or `Fail` was commanded.
     Failed,
+    /// The lifecycle returned to `Inactive` for a fresh attempt (Reset
+    /// command accepted from a non-Inactive phase).
+    Reset,
     /// The exit-seal state changed (derived from the phase transition).
     LockChanged { locked: bool },
     /// A signal key was recorded on the lifecycle (first receipt only).
@@ -40,6 +43,7 @@ impl EncounterEvent {
             Self::Started => "encounter_started".to_string(),
             Self::Completed => "encounter_completed".to_string(),
             Self::Failed => "encounter_failed".to_string(),
+            Self::Reset => "encounter_reset".to_string(),
             Self::LockChanged { locked } => format!("encounter_lock_changed:{locked}"),
             Self::SignalReceived { key } => format!("encounter_signal:{key}"),
             Self::WaveStarted { wave_index, label } => {

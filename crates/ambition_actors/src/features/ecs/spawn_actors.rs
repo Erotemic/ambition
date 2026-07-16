@@ -1365,19 +1365,6 @@ pub(super) fn spawn_encounter_mob(
     }
 }
 
-/// Despawn all ECS mobs owned by an encounter attempt.
-pub(super) fn despawn_encounter_mobs(
-    commands: &mut Commands,
-    mobs: &Query<(Entity, &EncounterMob, &FeatureId, &BodyCombat)>,
-    encounter_id: &str,
-) {
-    for (entity, mob, _, _) in mobs.iter() {
-        if mob.encounter_id == encounter_id {
-            commands.entity(entity).despawn();
-        }
-    }
-}
-
 /// Lib-side executor for `Effect::Summon`: materializes each summon via
 /// `spawn_runtime_minion`. Lives next to the spawner (not in
 /// `effects::apply_effects`) so the `ambition_vfx` crate stays free of the

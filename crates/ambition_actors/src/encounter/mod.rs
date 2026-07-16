@@ -47,7 +47,8 @@ pub use switches::{
     SwitchFeature, SwitchOn,
 };
 pub use systems::{
-    apply_wave_encounter_effects, drive_wave_encounters, populate_encounter_registry,
+    apply_encounter_cleanup, apply_wave_encounter_effects, drive_wave_encounters,
+    populate_encounter_registry,
 };
 
 /// Module-local Bevy plugin: schedules the `EncounterSimulation`
@@ -76,12 +77,15 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
                 .chain()
                 .in_set(crate::schedule::SandboxSet::EncounterSimulation),
         );
-        // The wave EFFECT adapter reacts to this frame's lifecycle events, so
-        // it runs after the generic reducer (`EncounterLifecycleSet`, whose
-        // Progression position the runtime owns).
+        // The wave EFFECT adapter + the ownership-driven cleanup adapter (E10)
+        // react to this frame's lifecycle events, so they run after the
+        // generic reducer (`EncounterLifecycleSet`, whose Progression position
+        // the runtime owns). Chained: effects still read the participant
+        // relations cleanup is about to prune.
         app.add_systems(
             sim,
-            apply_wave_encounter_effects
+            (apply_wave_encounter_effects, apply_encounter_cleanup)
+                .chain()
                 .in_set(crate::schedule::SandboxSet::Progression)
                 .after(EncounterLifecycleSet),
         );

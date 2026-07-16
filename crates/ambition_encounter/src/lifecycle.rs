@@ -182,6 +182,7 @@ impl EncounterLifecycle {
                         self.phase = EncounterPhase::Inactive;
                         self.elapsed_active = 0.0;
                         self.signals.clear();
+                        events.push(EncounterEvent::Reset);
                         if was_locked {
                             events.push(EncounterEvent::LockChanged { locked: false });
                         }

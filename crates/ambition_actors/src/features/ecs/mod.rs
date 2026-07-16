@@ -149,8 +149,7 @@ pub use save_sync::{
 };
 pub(crate) use spawn::spawn_runtime_minion;
 pub use spawn::{
-    despawn_encounter_mobs, respawn_authored_entity, spawn_encounter_mob,
-    spawn_room_feature_entities_with_registry,
+    respawn_authored_entity, spawn_encounter_mob, spawn_room_feature_entities_with_registry,
 };
 pub use spawn_actors::{
     apply_spawn_actor_requests, apply_summon_effects, BossOverrides, SpawnActorKind,

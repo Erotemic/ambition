@@ -134,30 +134,31 @@ pub fn drive_wave_encounters(
 
     // 0. Player death this frame? Fail any in-flight encounter (the trace /
     //    save see the loss), then Reset it in the same command batch so the
-    //    trigger re-fires cleanly on re-entry. Carryover mobs despawn and the
-    //    stale participant relations clear here — participant bookkeeping is
-    //    the adapter's, only the PHASE belongs to the reducer.
+    //    trigger re-fires cleanly on re-entry. The ownership-driven cleanup
+    //    adapter (E10) reacts to the resulting Failed/Reset events — no
+    //    despawn logic here.
+    let mut ending_this_tick: std::collections::HashSet<String> = std::collections::HashSet::new();
     let died_this_frame = died_messages.read().next().is_some();
     if died_this_frame {
-        for (enc, lifecycle, _waves, mut participants) in &mut encounters {
+        for (enc, lifecycle, _waves, _participants) in &encounters {
             if lifecycle.phase.in_flight() {
                 lifecycle_commands
                     .write(EncounterCommand::new(&enc.id, EncounterCommandKind::Fail));
                 lifecycle_commands
                     .write(EncounterCommand::new(&enc.id, EncounterCommandKind::Reset));
-                participants.members.clear();
-                crate::features::despawn_encounter_mobs(&mut commands, &encounter_mobs, &enc.id);
+                ending_this_tick.insert(enc.id.clone());
             }
         }
     }
 
     // 1. Reset encounters whose area the player has left, so the camera zoom
-    //    + lock release on exit. (Mobs deliberately linger — the death/re-arm
-    //    paths own their cleanup, preserving the pre-E8 behavior.)
-    for (enc, lifecycle, _waves, mut participants) in &mut encounters {
+    //    + lock release on exit. (E10 makes this cleanup ownership-driven: the
+    //    Reset event despawns the encounter's SPAWNED mobs — pre-E10 they
+    //    lingered until a death or re-arm, which was accidental, not policy.)
+    for (enc, lifecycle, _waves, _participants) in &encounters {
         if lifecycle.phase.in_flight() && enc.id != active_area {
             lifecycle_commands.write(EncounterCommand::new(&enc.id, EncounterCommandKind::Reset));
-            participants.members.clear();
+            ending_this_tick.insert(enc.id.clone());
         }
     }
 
@@ -207,22 +208,34 @@ pub fn drive_wave_encounters(
     //    adapters read the authority, one frame behind at most).
     let mut spawn_commands: Vec<(String, String, [f32; 2], [f32; 2])> = Vec::new();
     for (enc, lifecycle, mut waves, mut participants) in &mut encounters {
-        if enc.id != active_area {
+        if enc.id != active_area || ending_this_tick.contains(&enc.id) {
             continue;
         }
         match lifecycle.phase {
             ambition_encounter::EncounterPhase::Active => {
-                // Refresh each Minion participant's `alive` from the runtime
-                // BEFORE the director tick. Mobs spawned later this tick are
-                // appended with `alive = true` and refreshed next frame (by
-                // then their entities exist).
-                let alive_lookup: std::collections::HashSet<String> = encounter_mobs
+                // Refresh each Minion participant's liveness + cached entity
+                // from the runtime BEFORE the director tick (live resolution
+                // is a cache; the durable identity is the id). Mobs spawned
+                // later this tick are appended with `alive = true` and
+                // refreshed next frame (by then their entities exist).
+                let lookup: std::collections::HashMap<String, (Entity, bool)> = encounter_mobs
                     .iter()
-                    .filter(|(_, mob, _, combat)| mob.encounter_id == enc.id && combat.alive)
-                    .map(|(_, _, id, _)| id.as_str().to_string())
+                    .filter(|(_, mob, _, _)| mob.encounter_id == enc.id)
+                    .map(|(entity, _, id, combat)| {
+                        (id.as_str().to_string(), (entity, combat.alive))
+                    })
                     .collect();
                 for member in &mut participants.members {
-                    member.alive = alive_lookup.contains(&member.id);
+                    match lookup.get(&member.id) {
+                        Some((entity, alive)) => {
+                            member.entity = Some(*entity);
+                            member.alive = *alive;
+                        }
+                        None => {
+                            member.entity = None;
+                            member.alive = false;
+                        }
+                    }
                 }
                 let mut events = Vec::new();
                 let exhausted = waves.tick_active(dt, &mut participants, &mut events);
@@ -336,21 +349,19 @@ pub fn drive_wave_encounters(
         };
         if !new_on {
             // Re-arming: Reset the encounter (the reducer refuses Start from a
-            // terminal phase, so a stale Completed/Failed must clear) and drop
-            // carryover mobs.
-            if let Some((_, lifecycle, _, mut participants)) = encounters
-                .iter_mut()
-                .find(|(enc, _, _, _)| enc.id == target_id)
+            // terminal phase, so a stale Completed/Failed must clear); the
+            // ownership-driven cleanup adapter (E10) drops carryover mobs off
+            // the Reset event.
+            if let Some((_, lifecycle, _, _)) =
+                encounters.iter().find(|(enc, _, _, _)| enc.id == target_id)
             {
                 if !lifecycle.phase.in_flight() {
                     lifecycle_commands.write(EncounterCommand::new(
                         &target_id,
                         EncounterCommandKind::Reset,
                     ));
-                    participants.members.clear();
                 }
             }
-            crate::features::despawn_encounter_mobs(&mut commands, &encounter_mobs, &target_id);
             // Also drop any reward chest from a prior clear so the
             // next clear pays out fresh, and clear the persisted
             // "reward dropped" flag so re-clearing actually re-spawns
@@ -391,12 +402,6 @@ pub fn apply_wave_encounter_effects(
     mut encounter_view: ResMut<EncounterView>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut banner_requests: MessageWriter<crate::features::GameplayBannerRequested>,
-    encounter_mobs: Query<(
-        Entity,
-        &crate::features::EncounterMob,
-        &crate::features::FeatureId,
-        &ambition_characters::actor::BodyCombat,
-    )>,
     reward_chests: Query<
         (
             Entity,
@@ -437,13 +442,13 @@ pub fn apply_wave_encounter_effects(
     }
 
     // Completion effects: auto-flip the linked switch to on (green) so the
-    // player can see they finished it, drop the wave's mob entities, surface
-    // a celebration banner, and advance any "clear encounter" quest step.
+    // player can see they finished it, surface a celebration banner, and
+    // advance any "clear encounter" quest step. (Mob despawn moved to the
+    // ownership-driven cleanup adapter, E10.)
     for encounter_id in &completed_wave_ids {
         if let Some(switch_id) = switch_index.switch_id_for_encounter(encounter_id) {
             save.data_mut().set_switch(&switch_id, true);
         }
-        crate::features::despawn_encounter_mobs(&mut commands, &encounter_mobs, encounter_id);
         banner_requests.write(crate::features::GameplayBannerRequested::new(
             format!("ARENA CLEAR — {encounter_id}"),
             3.0,
@@ -510,5 +515,75 @@ pub fn apply_wave_encounter_effects(
         if persisted != current {
             save.data_mut().set_encounter(&enc.id, persisted);
         }
+    }
+}
+
+/// Ownership-driven participant cleanup (E10): when an encounter's lifecycle
+/// ENDS (Completed / Failed / Reset), consult each participant's [`Ownership`]
+/// and the encounter's optional
+/// [`EncounterCleanupPolicy`](ambition_encounter::EncounterCleanupPolicy):
+///
+/// - **Adopted** participants are NEVER touched — they pre-existed the
+///   orchestration (a boss survives its wrap retiring).
+/// - **Spawned** participants despawn under the default
+///   [`SpawnedCleanup::DespawnOnEnd`](ambition_encounter::SpawnedCleanup)
+///   (and their relation records leave the list — the entities left the
+///   world); an authored `Keep` policy hands them to the room instead.
+///
+/// Cleanup never asks what KIND of encounter ended — the relations + policy
+/// carry everything. Resolution uses the cached `member.entity`, falling back
+/// to the wave-mob id lookup for a participant spawned so recently the cache
+/// has not seen its entity yet (same-tick end).
+pub fn apply_encounter_cleanup(
+    mut commands: Commands,
+    mut events_in: MessageReader<EncounterEventMsg>,
+    mut encounters: Query<(
+        &Encounter,
+        &mut EncounterParticipants,
+        Option<&ambition_encounter::EncounterCleanupPolicy>,
+    )>,
+    encounter_mobs: Query<
+        (Entity, &crate::features::FeatureId),
+        With<crate::features::EncounterMob>,
+    >,
+) {
+    let mut ended: Vec<String> = Vec::new();
+    for msg in events_in.read() {
+        if matches!(
+            msg.event,
+            EncounterEvent::Completed | EncounterEvent::Failed | EncounterEvent::Reset
+        ) && !ended.contains(&msg.encounter)
+        {
+            ended.push(msg.encounter.clone());
+        }
+    }
+    for encounter_id in ended {
+        let Some((_, mut participants, policy)) = encounters
+            .iter_mut()
+            .find(|(enc, _, _)| enc.id == encounter_id)
+        else {
+            continue;
+        };
+        let policy = policy.copied().unwrap_or_default();
+        if matches!(policy.spawned, ambition_encounter::SpawnedCleanup::Keep) {
+            continue;
+        }
+        participants.members.retain(|member| {
+            if member.ownership != ambition_encounter::Ownership::Spawned {
+                return true;
+            }
+            let entity = member.entity.or_else(|| {
+                encounter_mobs
+                    .iter()
+                    .find(|(_, id)| id.as_str() == member.id)
+                    .map(|(entity, _)| entity)
+            });
+            if let Some(entity) = entity {
+                if let Ok(mut entity_commands) = commands.get_entity(entity) {
+                    entity_commands.despawn();
+                }
+            }
+            false
+        });
     }
 }

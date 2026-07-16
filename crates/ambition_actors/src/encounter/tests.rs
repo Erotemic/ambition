@@ -677,3 +677,132 @@ fn lock_wall_is_derived_while_active_and_dropped_when_inactive() {
         desired_lock_wall_blocks([("goblin_encounter", enc.lifecycle.phase, &enc.waves.spec)]);
     assert!(!blocks.iter().any(|b| b.name == "lockwall:goblin_encounter"));
 }
+
+// ── Ownership-driven cleanup (E10) ─────────────────────────────
+
+mod cleanup {
+    use super::*;
+    use crate::encounter::apply_encounter_cleanup;
+    use ambition_encounter::{
+        reduce_encounter_lifecycles, EncounterCleanupPolicy, EncounterCommand,
+        EncounterCommandKind, EncounterEventMsg, EncounterLifecycle, Ownership, SpawnedCleanup,
+    };
+    use bevy::prelude::*;
+
+    /// Minimal-plugin App running the REAL reducer + cleanup adapter, chained
+    /// exactly as the sim registers them.
+    fn cleanup_app() -> App {
+        let mut app = App::new();
+        app.init_resource::<ambition_platformer_primitives::time::SimDt>();
+        app.add_message::<EncounterCommand>();
+        app.add_message::<EncounterEventMsg>();
+        app.add_systems(
+            Update,
+            (reduce_encounter_lifecycles, apply_encounter_cleanup).chain(),
+        );
+        app
+    }
+
+    /// An encounter with one SPAWNED and one ADOPTED participant, both
+    /// resolved to live entities. Returns (spawned_entity, adopted_entity).
+    fn spawn_mixed_encounter(
+        app: &mut App,
+        policy: Option<EncounterCleanupPolicy>,
+    ) -> (Entity, Entity) {
+        let spawned = app.world_mut().spawn_empty().id();
+        let adopted = app.world_mut().spawn_empty().id();
+        let mut spawned_member =
+            EncounterParticipant::spawned("mob_1", Some(spawned), EncounterRole::Minion);
+        spawned_member.alive = true;
+        let adopted_member =
+            EncounterParticipant::adopted("npc_1", adopted, EncounterRole::Protected);
+        let mut entity = app.world_mut().spawn((
+            Encounter::new("arena"),
+            EncounterLifecycle::default(),
+            EncounterParticipants::new(vec![spawned_member, adopted_member]),
+        ));
+        if let Some(policy) = policy {
+            entity.insert(policy);
+        }
+        app.world_mut()
+            .write_message(EncounterCommand::new("arena", EncounterCommandKind::Start));
+        app.update();
+        (spawned, adopted)
+    }
+
+    fn members_of(app: &mut App) -> Vec<(String, Ownership)> {
+        let mut q = app.world_mut().query::<&EncounterParticipants>();
+        q.iter(app.world())
+            .next()
+            .expect("encounter exists")
+            .members
+            .iter()
+            .map(|m| (m.id.clone(), m.ownership))
+            .collect()
+    }
+
+    /// E10 exit: a spawned-owned actor must NOT leak when the encounter ends
+    /// under the (default) DespawnOnEnd policy — and the adopted actor must
+    /// NOT be despawned by the same cleanup.
+    #[test]
+    fn end_despawns_spawned_participants_and_never_adopted_ones() {
+        let mut app = cleanup_app();
+        let (spawned, adopted) = spawn_mixed_encounter(&mut app, None);
+        assert!(app.world().get_entity(spawned).is_ok());
+
+        app.world_mut()
+            .write_message(EncounterCommand::new("arena", EncounterCommandKind::Fail));
+        app.update();
+
+        assert!(
+            app.world().get_entity(spawned).is_err(),
+            "a spawned-owned participant leaked past its encounter's end"
+        );
+        assert!(
+            app.world().get_entity(adopted).is_ok(),
+            "an ADOPTED participant was despawned by encounter cleanup"
+        );
+        // The relation records follow the entities: spawned rows leave the
+        // list, adopted rows survive.
+        assert_eq!(
+            members_of(&mut app),
+            vec![("npc_1".into(), Ownership::Adopted)]
+        );
+    }
+
+    /// Reset (re-arm / area exit) is an end too: spawned participants follow
+    /// the cleanup rule, adopted survive.
+    #[test]
+    fn reset_applies_the_same_ownership_rule() {
+        let mut app = cleanup_app();
+        let (spawned, adopted) = spawn_mixed_encounter(&mut app, None);
+        app.world_mut()
+            .write_message(EncounterCommand::new("arena", EncounterCommandKind::Reset));
+        app.update();
+        assert!(app.world().get_entity(spawned).is_err());
+        assert!(app.world().get_entity(adopted).is_ok());
+    }
+
+    /// An authored `Keep` policy hands spawned participants to the room —
+    /// cleanup consults the POLICY, not just the ownership enum.
+    #[test]
+    fn keep_policy_leaves_spawned_participants_in_the_world() {
+        let mut app = cleanup_app();
+        let (spawned, adopted) = spawn_mixed_encounter(
+            &mut app,
+            Some(EncounterCleanupPolicy {
+                spawned: SpawnedCleanup::Keep,
+            }),
+        );
+        app.world_mut().write_message(EncounterCommand::new(
+            "arena",
+            EncounterCommandKind::Complete,
+        ));
+        app.update();
+        assert!(
+            app.world().get_entity(spawned).is_ok(),
+            "Keep policy must leave spawned participants alone"
+        );
+        assert!(app.world().get_entity(adopted).is_ok());
+    }
+}

@@ -189,19 +189,5 @@ pub fn spawn_encounter_mob(
     );
 }
 
-/// Despawn all ECS mobs owned by an encounter attempt.
-pub fn despawn_encounter_mobs(
-    commands: &mut Commands,
-    mobs: &Query<(
-        Entity,
-        &super::EncounterMob,
-        &super::FeatureId,
-        &super::BodyCombat,
-    )>,
-    encounter_id: &str,
-) {
-    super::spawn_actors::despawn_encounter_mobs(commands, mobs, encounter_id);
-}
-
 #[cfg(test)]
 mod tests;

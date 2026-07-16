@@ -45,6 +45,30 @@ pub enum Ownership {
     Adopted,
 }
 
+/// What happens to SPAWNED participants when the encounter leaves its
+/// in-flight phases (E10). Adopted participants are NEVER touched by
+/// encounter cleanup — they pre-existed the orchestration.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SpawnedCleanup {
+    /// Despawn spawned participants on any end (complete / fail / reset) —
+    /// the wave-arena rule, and the default.
+    #[default]
+    DespawnOnEnd,
+    /// Leave them in the world (an encounter that spawns permanent props or
+    /// hands its spawns to the room).
+    Keep,
+}
+
+/// The explicit cleanup/lifetime policy of one encounter entity (E10).
+/// Optional — an encounter without one gets the default
+/// ([`SpawnedCleanup::DespawnOnEnd`]). Consulted by the host cleanup adapter
+/// together with each participant's [`Ownership`]; cleanup never branches on
+/// what KIND of encounter this is.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct EncounterCleanupPolicy {
+    pub spawned: SpawnedCleanup,
+}
+
 /// One participant relation (§3).
 #[derive(Clone, Debug)]
 pub struct EncounterParticipant {

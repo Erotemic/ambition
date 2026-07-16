@@ -15,6 +15,7 @@
 
 use bevy::prelude::*;
 
+mod held_visuals;
 mod wielded_visuals;
 
 /// Installs the starter Ambition item-ownership roster.
@@ -25,6 +26,10 @@ impl Plugin for AmbitionItemRosterPlugin {
         // Presentation-only item art is provider-owned and registered through
         // the reusable render catalog before the visual schedule consumes it.
         wielded_visuals::register(app);
+        // Ground/held item prop art (axe / javelin / gun-sword / gauntlet icons)
+        // is contributed to the render layer's held-item manifest here; the
+        // reusable renderer names none of the asset paths.
+        held_visuals::register(app);
 
         // The 24-item catalog ownership model is always-on core state (pickups
         // and dialogue read/write it regardless of which menu renders it).

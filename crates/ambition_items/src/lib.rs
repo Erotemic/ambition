@@ -431,7 +431,8 @@ impl Item {
     /// `None` and fall back to the text label.
     ///
     /// The set of available sprites is the same `sprites/props/` art used for
-    /// ground/held items (`ItemArt` / `GAUNTLET_PROP_IDS` in the actor-sim pickup adapter):
+    /// ground/held items (the provider-contributed `HeldItemArtManifest`, resolved
+    /// into the render layer's `HeldItemArt`):
     /// the three physical weapons (axe/javelin/gunsword), the portal gun, and the
     /// abstract gauntlet abilities that have a generated icon. This is a deliberate,
     /// explicit map (not a derived lookup) so a missing sprite is a visible `None`

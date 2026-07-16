@@ -23,6 +23,7 @@ pub mod transit;
 
 pub mod feature_overlay;
 
+pub mod held_item_art;
 pub mod world_item_art;
 
 pub mod physics;

@@ -40,6 +40,29 @@ use crate::platforms::{world_with_moving_platforms, MovingPlatformState};
 #[derive(Resource, Default)]
 pub struct MovingPlatformSet(pub Vec<MovingPlatformState>);
 
+impl MovingPlatformSet {
+    /// Serialize the live moving-platform state to a deterministic byte string.
+    ///
+    /// Moving-platform kinematics (`pos`, sweep/path cursor, `last_delta`) are
+    /// genuine mutable session state the sim advances every tick, but they live
+    /// only in this resource — the visual entities carry an index, not the state.
+    /// A within-room rollback must therefore restore the resource, so it is
+    /// registered snapshot state. `MovingPlatformState` already derives
+    /// `Serialize`/`Deserialize`; RON round-trips it exactly for the managed
+    /// same-build determinism contract, and the encoding keeps the private
+    /// `motion` cursor encapsulated in the crate that owns it.
+    pub fn to_snapshot_ron(&self) -> String {
+        ron::to_string(&self.0).expect("moving-platform state is always serializable")
+    }
+
+    /// Rebuild from [`Self::to_snapshot_ron`] bytes. `None` on malformed input so
+    /// snapshot restore reports a decode failure rather than silently dropping
+    /// platform state.
+    pub fn from_snapshot_ron(s: &str) -> Option<Self> {
+        ron::from_str::<Vec<MovingPlatformState>>(s).ok().map(Self)
+    }
+}
+
 /// The single collision read-API. Composites the authored
 /// [`ambition_engine_core::RoomGeometry`] with the per-frame dynamic overlay —
 /// moving platforms, ECS-owned solids, and portal carves — into the collision
@@ -263,6 +286,60 @@ fn carve_portal_apertures(blocks: &mut Vec<ae::Block>, holes: &[ae::Aabb]) {
                 velocity: block.velocity,
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod moving_platform_snapshot_tests {
+    use super::*;
+
+    fn advanced_set() -> MovingPlatformSet {
+        let mut sweep = MovingPlatformState::from_sweep(
+            "lift_a",
+            "Lift A",
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(32.0, 8.0),
+            48.0,
+            30.0,
+        );
+        // Advance the platform so `pos`, the sweep cursor, and `last_delta` all
+        // diverge from the authored start — the exact mutable state a rollback
+        // must reconstruct.
+        for _ in 0..7 {
+            sweep.update(1.0 / 60.0);
+        }
+        let path = MovingPlatformState::from_path(
+            "patrol_b",
+            "Patrol B",
+            ae::Vec2::new(16.0, 16.0),
+            ae::KinematicPath::line(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(100.0, 0.0), 40.0),
+        );
+        MovingPlatformSet(vec![sweep, path])
+    }
+
+    #[test]
+    fn snapshot_ron_round_trips_advanced_platform_state() {
+        let set = advanced_set();
+        let bytes = set.to_snapshot_ron();
+        let restored =
+            MovingPlatformSet::from_snapshot_ron(&bytes).expect("advanced state decodes");
+        assert_eq!(
+            set.0, restored.0,
+            "moving-platform snapshot lost mutable kinematic state on round-trip"
+        );
+    }
+
+    #[test]
+    fn snapshot_ron_round_trips_the_empty_set() {
+        let set = MovingPlatformSet::default();
+        let bytes = set.to_snapshot_ron();
+        let restored = MovingPlatformSet::from_snapshot_ron(&bytes).expect("empty set decodes");
+        assert!(restored.0.is_empty());
+    }
+
+    #[test]
+    fn malformed_snapshot_bytes_decode_to_none() {
+        assert!(MovingPlatformSet::from_snapshot_ron("not ron at all {{{").is_none());
     }
 }
 

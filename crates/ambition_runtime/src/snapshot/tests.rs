@@ -1916,3 +1916,51 @@ fn restore_rewinds_the_movement_policy_and_its_private_state() {
         "the axis policy's private maneuver state rewound exactly"
     );
 }
+
+/// **Moving-platform kinematics are captured and restored** (N3.2 derived-state
+/// gate). The set lives only in the resource — the visual entities carry an
+/// index, not the state — so a within-room rollback must reconstruct it. This
+/// proves the resource is registered snapshot state: take a snapshot of an
+/// advanced platform, wreck the live set, restore, and demand the exact bytes back.
+#[test]
+fn restore_reconstructs_moving_platform_kinematics() {
+    use ambition_world::collision::MovingPlatformSet;
+    use ambition_world::platforms::MovingPlatformState;
+
+    let reg = engine_registry();
+    let mut world = sim_world();
+
+    let mut platform = MovingPlatformState::from_sweep(
+        "lift_a",
+        "Lift A",
+        Vec2::new(10.0, 20.0),
+        Vec2::new(32.0, 8.0),
+        48.0,
+        30.0,
+    );
+    for _ in 0..9 {
+        platform.update(1.0 / 60.0);
+    }
+    world.insert_resource(MovingPlatformSet(vec![platform.clone()]));
+
+    let snap = take(&world, &reg);
+
+    // The abandoned future: the platform keeps advancing, then is wiped.
+    for _ in 0..30 {
+        world
+            .resource_mut::<MovingPlatformSet>()
+            .0
+            .iter_mut()
+            .for_each(|p| {
+                p.update(1.0 / 60.0);
+            });
+    }
+    world.resource_mut::<MovingPlatformSet>().0.clear();
+
+    restore(&mut world, &snap, &reg).expect("same-room restore");
+    assert_eq!(
+        world.resource::<MovingPlatformSet>().0,
+        vec![platform],
+        "restore did not reconstruct the moving platform's rewound kinematic state"
+    );
+}

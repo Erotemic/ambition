@@ -165,6 +165,9 @@ fn min_app() -> App {
         let _ = PlayerBlinkCameraState::default();
     }
     app.insert_resource(crate::world::physics::PhysicsSandboxSettings::default());
+    // The reset processor re-stages the start room through the App-installed
+    // placement-lowering authority (7d972b6); the minimal app must provide it.
+    app.insert_resource(crate::world::placements::PlacementLoweringRegistry::default());
     app.insert_resource(ambition_world::collision::MovingPlatformSet::default());
     app.insert_resource(crate::SandboxSimState::default());
     app.insert_resource(ambition_time::ClockState::default());

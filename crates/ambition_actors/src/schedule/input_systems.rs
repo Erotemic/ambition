@@ -64,14 +64,12 @@ pub struct MenuNavConsume;
 
 /// Attach leafwing input state to every newly spawned player visual.
 ///
-/// This deliberately queries the lifecycle marker instead of requiring the
-/// process-global [`SceneEntities`](crate::platformer_runtime::lifecycle::SceneEntities)
-/// resource. Startup-built worlds and shell-activated/relaunched worlds create
-/// that resource at different schedule seams; a mandatory `Res<SceneEntities>`
-/// therefore made the input host panic before a late shell activation could
-/// spawn its player. The `Without<ActionState<_>>` filter makes this safe to run
-/// every frame and naturally handles relaunches without resetting held input on
-/// an already-wired player.
+/// This deliberately queries the lifecycle marker instead of a process-global
+/// player-handle resource. Startup-built worlds and shell-activated/relaunched
+/// worlds spawn their player at different schedule seams; discovering it by
+/// `With<PlayerVisual>, Without<ActionState<_>>` makes this safe to run every
+/// frame and naturally handles relaunches without resetting held input on an
+/// already-wired player.
 #[cfg(feature = "input")]
 pub fn attach_player_input_components(
     mut commands: Commands,
@@ -340,7 +338,7 @@ mod focus_gate_tests {
         app.add_systems(Update, attach_player_input_components);
 
         // A shell host starts before its first route activation. There is no
-        // SceneEntities resource and no player yet; the host must simply idle.
+        // player yet; the host must simply idle.
         app.update();
 
         let first = app

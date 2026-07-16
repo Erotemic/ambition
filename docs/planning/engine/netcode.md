@@ -99,6 +99,20 @@ Both are required:
 A restore test that manually refreshes ambient global mirrors does not satisfy the
 session-isolation gate.
 
+**Status (landed).** Both gates are met. The `SceneEntities` process-global
+handle bag was removed (its responsibilities derive from canonical
+player/HUD/quest markers). `MovingPlatformSet` became registered snapshot state
+with deterministic rebuild-and-restore, closing the moving-platform half of
+property 4. A provider-installed `SessionTeardownPlugin` resets the remaining
+session-scoped resource mirrors (possession, controlled subject, encounter/boss/
+quest registries, sandbox sim state) on scope retirement, so the isolation gate is
+proved by driving the real host, not by refreshing global mirrors
+(`ambition_demo_sanic_app/tests/session_isolation.rs`). The exact-restore gate's
+bounded resimulation is the `desync_canary` restore-replay oracle, now with
+moving platforms in the state hash. Remaining N3.2 work is the atomic room-restore
+transaction (the active room as restored sim state), which keeps boss/portal rooms
+DIRTY for a cross-room rollback.
+
 ## Identity and ordering rules
 
 - Authoritative dynamic entities carry stable simulation identity; raw Bevy `Entity` is not a serialized/network identity.

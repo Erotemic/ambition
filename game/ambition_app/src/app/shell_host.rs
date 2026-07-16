@@ -232,7 +232,6 @@ fn ambition_activate_session_visuals(
     // Present iff the LDtk plugin stack is composed (absent in the no-window
     // render recipe, where bevy_ecs_tilemap cannot run without a RenderApp).
     ldtk_projects: Option<Res<Assets<bevy_ecs_ldtk::assets::LdtkProject>>>,
-    players: Query<Entity, With<ambition::actors::actor::PrimaryPlayer>>,
 ) {
     for event in sessions.read() {
         let GameplaySessionEvent::Activated { activation, scope } = event else {
@@ -254,9 +253,6 @@ fn ambition_activate_session_visuals(
         };
         let scope = ambition::platformer::lifecycle::SessionSpawnScope::scoped(*scope);
         ambition::actors::menu::map::spawn_map_menu_with_scope(&mut commands, scope);
-        let Ok(player) = players.single() else {
-            continue;
-        };
         // Parallax + room visuals are the generic `SessionRoomVisualsPlugin`'s
         // job; this system adds only Ambition's own dressing.
         super::scene_setup::session_gameplay_dressing(
@@ -267,7 +263,6 @@ fn ambition_activate_session_visuals(
                 room_set,
                 ui_fonts: ui_fonts.as_deref(),
             },
-            player,
         );
         if ldtk_projects.is_some() {
             super::plugins::spawn_ldtk_world_roots_scoped(

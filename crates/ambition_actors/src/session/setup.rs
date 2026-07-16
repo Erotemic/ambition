@@ -19,7 +19,7 @@ use bevy::prelude::*;
 
 use crate::assets::loading::SandboxAssetCollection;
 use crate::ldtk_world::LdtkRuntimeIndex;
-use crate::platformer_runtime::lifecycle::{PlayerVisual, SceneEntities};
+use crate::platformer_runtime::lifecycle::PlayerVisual;
 use crate::rooms::RoomSet;
 use crate::session::data::SandboxDataAsset;
 use ambition_dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
@@ -76,8 +76,6 @@ pub struct SimulationSetup<'a> {
 ///   Leafwing's `ActionState` and `InputMap` get attached by the
 ///   presentation-side `attach_player_input_components` startup system;
 ///   sim-only builds stay leafwing-free per the ADR 0012 input seam.
-/// * inserting a `SceneEntities` resource with `hud: Entity::PLACEHOLDER`
-///   that `presentation_world` overwrites once the HUD entity exists
 pub fn simulation_world(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -194,13 +192,10 @@ pub fn simulation_world(
         starting_character.effective_id(default_character_id),
     );
 
-    // HUD entity is presentation-side; placeholder until presentation_world
-    // overwrites this resource.
-    commands.insert_resource(SceneEntities {
-        player,
-        hud: Entity::PLACEHOLDER,
-        quest_panel: Entity::PLACEHOLDER,
-    });
-
+    // The player entity is returned to the caller (the provider session builder
+    // or the direct-entry startup system). Presentation discovers this home
+    // avatar by its `PrimaryPlayer` marker — no process-global handle bag records
+    // it — and spawns the HUD/quest text as session-scoped, marker-tagged
+    // entities during its own setup.
     player
 }

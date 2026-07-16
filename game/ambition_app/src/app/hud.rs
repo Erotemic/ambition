@@ -10,7 +10,7 @@ use ambition::engine_core as ae;
 use ambition::engine_core::RoomGeometry;
 use ambition::input::KeyboardPreset;
 use ambition::platformer::schedule::GameMode;
-use ambition::render::rendering::{HudText, SceneEntities};
+use ambition::render::rendering::HudText;
 
 use super::feedback::ProgressionResources;
 use crate::host::windowing;
@@ -70,7 +70,6 @@ pub(super) fn update_hud(
     _ldtk_reload: Res<ldtk_world::LdtkHotReloadState>,
     progression: ProgressionResources,
     windows: Query<&Window, With<PrimaryWindow>>,
-    entities: Res<SceneEntities>,
     // R2: the boss HUD is a view bound to ENCOUNTER ENTITY progress, not the
     // global `BossEncounterRegistry`. A boss with no encounter ⇒ no HUD line.
     boss_encounters: Query<(
@@ -88,7 +87,9 @@ pub(super) fn update_hud(
     let _quest_registry = &progression.quests;
     let cutscene = &progression.cutscene;
     let map_state = &progression.map;
-    let Ok(mut text) = query.get_mut(entities.hud) else {
+    // The HUD text root is the one session-scoped `HudText` entity — discovered
+    // by marker, not through a process-global handle that dangles post-teardown.
+    let Ok(mut text) = query.single_mut() else {
         return;
     };
     if !developer_tools.show_hud || !camera_params.user_settings.gameplay.debug_hud_visible {
@@ -335,13 +336,11 @@ pub(super) fn update_hud(
 pub fn update_quest_panel(
     quests: Res<ambition_content::quest::QuestRegistry>,
     user_settings: Res<ambition::persistence::settings::UserSettings>,
-    entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<ambition::render::rendering::QuestPanelText>>,
 ) {
-    if entities.quest_panel == Entity::PLACEHOLDER {
-        return;
-    }
-    let Ok(mut text) = query.get_mut(entities.quest_panel) else {
+    // The quest panel is the one session-scoped `QuestPanelText` entity; no live
+    // session means no such entity and the update simply no-ops.
+    let Ok(mut text) = query.single_mut() else {
         return;
     };
     if !user_settings.gameplay.quest_hud_visible {

@@ -71,16 +71,6 @@ pub struct PlayerVisual;
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FeatureSimEntity;
 
-/// The scene's root entity handles (player sprite + HUD surfaces). Opaque `Entity`
-/// slots shared by setup, input, and presentation; runtime-owned so sim systems can
-/// reference them without importing presentation.
-#[derive(Resource)]
-pub struct SceneEntities {
-    pub player: Entity,
-    pub hud: Entity,
-    pub quest_panel: Entity,
-}
-
 /// Marker on the rendered loading-zone indicator entity (keyed by zone `id`).
 /// World/room systems spawn + reconcile these; content-free so they need no
 /// presentation import.

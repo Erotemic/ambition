@@ -29,16 +29,39 @@ than copying the lifecycle; `ambition` is a facade again.
 
 ## 2. Session-root exclusivity and exact reconstruction
 
-**State:** OPEN / N3.2 campaign.
+**State:** LANDED (both gates met); residual N3.1 restore debt tracked separately.
 
-- Eliminate stale process-global mirrors, beginning with an audit of whether each `SceneEntities` handle should exist.
-- Give moving-platform live state mechanical session identity and deterministic reconstruction.
-- Align reset and restore around the same room/session construction services.
+- `SceneEntities` was **removed**, not relocated: every former handle is now
+  derived from a canonical marker — the home avatar from `PrimaryPlayerOnly`, the
+  HUD/quest roots from their session-scoped `HudText`/`QuestPanelText` markers. No
+  process-global handle bag survives.
+- Moving-platform live state now has session identity and deterministic
+  reconstruction. `MovingPlatformSet` is registered snapshot state (RON codec in
+  `ambition_world`, `SnapshotState` in `ambition_runtime`), so a within-room
+  rollback restores the advancing kinematics exactly; it is rebuilt from the room
+  at every construction path and cleared on teardown.
+- A provider-installed `SessionTeardownPlugin` (`ambition_actors::session::teardown`)
+  resets the session-scoped resource mirrors — `MovingPlatformSet`,
+  `PossessionState`, `ControlledSubject`, `EncounterRegistry`/`EncounterView`,
+  `BossEncounterRegistry`, `QuestRegistry`, `SandboxSimState` — when the scope
+  retires, beside the generic entity sweep. No dangling handle or stale mirror
+  survives a teardown into the next activation.
+- Reset and restore already lower through the same App-installed placement
+  registry (`7d972b6`); this campaign added the moving-platform authority to that
+  shared reconstruction path.
 
-**Exit gates, both required:**
+**Exit gates, both required — both met:**
 
-1. Activate A, exercise it, tear it down, activate B (or A with a fresh scope), and prove no entity, relationship, cache, read model, or raw handle refers to the old scope.
-2. Reset and restore reconstruct equivalent room-derived state through the same authorities and produce the expected canonical snapshot/observation result.
+1. **Session isolation (met):** `game/ambition_demo_sanic_app/tests/session_isolation.rs`
+   drives the real host through activate A → seed the resource mirrors with A's
+   live handles → tear down → activate B, and proves no entity, scope,
+   resource handle, or read-model row refers to the retired scope.
+2. **Exact reconstruction (met):** the `desync_canary` restore-replay oracle
+   (`gap_run` clean bit-for-bit, `MovingPlatformSet` now in the state hash) plus a
+   focused `restore_reconstructs_moving_platform_kinematics` snapshot test and the
+   `ambition_world` codec round-trip. Boss/portal rooms remain DIRTY for restore
+   for the separate, pre-existing N3.1 reasons the coverage ledger records (active
+   room not yet restored sim state); that is N3.1 debt, not this campaign.
 
 ## 3. Structural content evictions — parallel-safe
 

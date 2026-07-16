@@ -10,11 +10,12 @@ use bevy::prelude::*;
 
 use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
-    PropVisual, SceneEntities,
+    PropVisual,
 };
 use ambition_combat::events::{BoundFeatureKind, FeatureVisualKind};
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_persistence::settings::TextureResolutionScale;
+use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_sim_view::FeatureViewIndex;
 use ambition_sprite_sheet::character::{
     build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
@@ -148,7 +149,10 @@ pub fn sync_visuals(
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
         ambition_engine_core::RoomGeometry,
     >,
-    entities: Option<Res<SceneEntities>>,
+    // The primary player body is discovered by its canonical marker, not a
+    // process-global handle bag: the home avatar is session-scoped, so after a
+    // teardown there is simply no primary player and this system no-ops.
+    primary_player: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     assets: Option<Res<GameAssets>>,
     feature_views: Res<FeatureViewIndex>,
     // The sim-built pose read-model (E4): position / roll / stance / flash
@@ -168,7 +172,9 @@ pub fn sync_visuals(
         Without<PlayerVisual>,
     >,
 ) {
-    let player = entities.as_deref().map(|entities| entities.player);
+    let player = (primary_player.iter().count() == 1)
+        .then(|| primary_player.iter().next())
+        .flatten();
     if let Some(player) = player {
         if let Ok((mut transform, mut sprite, baseline, pose)) = player_query.get_mut(player) {
             transform.translation = world_to_bevy(&world.0, pose.pos, WORLD_Z_PLAYER);

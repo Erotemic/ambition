@@ -14,7 +14,7 @@ mod spawn_ext;
 pub use cleanup::despawn_scoped_entity;
 pub use markers::{
     FeatureSimEntity, LoadingZoneVisual, ModeScopedEntity, PersistentEntity, PlayerVisual,
-    RoomScopedEntity, RoomVisual, RunScopedEntity, SceneEntities,
+    RoomScopedEntity, RoomVisual, RunScopedEntity,
 };
 pub use session::{
     despawn_retired_session_entities, insert_session_world_component, session_world_component,

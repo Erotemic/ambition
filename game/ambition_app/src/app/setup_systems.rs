@@ -13,7 +13,6 @@ use ambition::actors::world::physics;
 use ambition::dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use ambition::engine_core::RoomGeometry;
 use ambition::persistence::settings::TextureResolutionScale;
-use ambition::render::rendering::SceneEntities;
 use ambition::render::ui_fonts;
 use ambition::sprite_sheet::game_assets::{self, GameAssetConfig};
 
@@ -31,8 +30,9 @@ pub(crate) struct PresentationCatalogs<'w> {
 
 /// Sim-only startup. Calls `ambition::actors::session::setup::simulation_world` to spawn the
 /// LdtkWorldBundle and the player entity (with gameplay-essential components
-/// but no Sprite). Inserts SceneEntities with `hud: Entity::PLACEHOLDER`;
-/// the presentation startup system later overwrites that with the real HUD entity.
+/// but no Sprite). The presentation startup system discovers the home avatar by
+/// its `PrimaryPlayer` marker and spawns the HUD/quest text as session-scoped,
+/// marker-tagged entities.
 pub(super) fn setup_simulation_system(
     mut commands: Commands,
     world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
@@ -80,11 +80,10 @@ pub(super) fn setup_simulation_system(
     // `ambition::actors::avatar::PlayerSimulationBundle::new`.
 }
 
-/// Presentation startup. Runs after `setup_simulation_system` so the
-/// SceneEntities resource (with player Entity) is visible. Adds the
-/// player's Sprite, spawns Camera2d, room visuals, HUD text, generated
-/// Kira audio library, and overwrites SceneEntities to fill in the HUD
-/// entity.
+/// Presentation startup. Runs after `setup_simulation_system` so the home
+/// avatar (its `PrimaryPlayer` marker) is queryable. Adds the player's Sprite,
+/// spawns Camera2d, room visuals, and the marker-tagged HUD/quest text, plus the
+/// generated Kira audio library.
 #[cfg(feature = "audio")]
 pub(crate) fn setup_presentation_system(
     mut commands: Commands,
@@ -98,7 +97,6 @@ pub(crate) fn setup_presentation_system(
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
-    scene_entities: Res<SceneEntities>,
     ui_fonts: Option<Res<ui_fonts::UiFonts>>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
     mut profiler: ResMut<ambition::dev_tools::profiling::StartupProfiler>,
@@ -142,7 +140,6 @@ pub(crate) fn setup_presentation_system(
                 sfx_registry: &sfx_registry,
                 ui_fonts: ui_fonts.as_deref(),
             },
-            scene_entities.player,
         );
         let t_present = t1.elapsed().as_secs_f32() * 1000.0;
         eprintln!(
@@ -174,15 +171,13 @@ pub(crate) fn setup_presentation_system(
                 sfx_registry: &sfx_registry,
                 ui_fonts: ui_fonts.as_deref(),
             },
-            scene_entities.player,
         );
     }
     commands.insert_resource(game_assets);
 }
 
-/// HOST-mode presentation startup: cameras, `GameAssets`, the audio library,
-/// and a placeholder `SceneEntities`. No world visuals, no HUD, no player —
-/// those are SESSION-owned and spawn per activation
+/// HOST-mode presentation startup: cameras, `GameAssets`, and the audio library.
+/// No world visuals, no HUD, no player — those are SESSION-owned and spawn per activation
 /// (`shell_host::ambition_activate_session_visuals`). The launcher/title route
 /// therefore renders over an empty stage with zero gameplay entities.
 #[cfg(feature = "audio")]
@@ -262,13 +257,6 @@ pub(crate) fn setup_host_presentation_system(
     if let Some(catalog) = rebuilt_catalog {
         commands.insert_resource(catalog);
     }
-    // Placeholder pointers until the first session activation publishes real
-    // ones; consumers use fallible `.get(...)` and no-op on the placeholder.
-    commands.insert_resource(SceneEntities {
-        player: Entity::PLACEHOLDER,
-        hud: Entity::PLACEHOLDER,
-        quest_panel: Entity::PLACEHOLDER,
-    });
 }
 
 /// Once the resident SFX bank is loaded, publish its ids as Ambition's
@@ -364,11 +352,6 @@ pub(crate) fn setup_host_presentation_system(
     if let Some(catalog) = rebuilt_catalog {
         commands.insert_resource(catalog);
     }
-    commands.insert_resource(SceneEntities {
-        player: Entity::PLACEHOLDER,
-        hud: Entity::PLACEHOLDER,
-        quest_panel: Entity::PLACEHOLDER,
-    });
 }
 
 pub(crate) fn reload_visual_quality_assets_on_scale_change(
@@ -418,7 +401,6 @@ pub(crate) fn setup_presentation_system(
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
-    scene_entities: Res<SceneEntities>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
 ) {
     let game_assets = actor_game_assets::load_game_assets(
@@ -440,7 +422,6 @@ pub(crate) fn setup_presentation_system(
             game_assets: &game_assets,
             quality: quality.as_deref(),
         },
-        scene_entities.player,
     );
     commands.insert_resource(game_assets);
 }

@@ -530,10 +530,15 @@ pub fn rebuild_blink_preview_fact(
     >,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     mode: Res<bevy::prelude::State<ambition_platformer_primitives::schedule::GameMode>>,
-    scene: Res<ambition_platformer_primitives::lifecycle::SceneEntities>,
+    // The home avatar's raw input actions. Discovered by the primary-player
+    // marker instead of a process-global scene-handle bag: `PlayerVisual` carries
+    // the leafwing `ActionState`, `PrimaryPlayer` selects the one home body.
     action_query: Query<
         &leafwing_input_manager::prelude::ActionState<ambition_input::SandboxAction>,
-        With<ambition_platformer_primitives::lifecycle::PlayerVisual>,
+        (
+            With<ambition_platformer_primitives::lifecycle::PlayerVisual>,
+            With<ambition_platformer_primitives::markers::PrimaryPlayer>,
+        ),
     >,
     // The blink reticle previews from the CONTROLLED SUBJECT (the body
     // carrying `Brain::Player(PRIMARY)`) — the body you are driving — so it
@@ -556,7 +561,7 @@ pub fn rebuild_blink_preview_fact(
         return;
     };
     let actions = if mode.get().allows_gameplay() {
-        action_query.get(scene.player).ok()
+        action_query.single().ok()
     } else {
         None
     };

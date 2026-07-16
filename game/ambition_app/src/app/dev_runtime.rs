@@ -14,7 +14,7 @@ use ambition::engine_core as ae;
 use ambition::engine_core::RoomGeometry;
 #[cfg(feature = "input")]
 use ambition::input::{KeyboardPreset, SandboxAction};
-use ambition::render::rendering::{spawn_room_visuals, PlayerVisual, SceneEntities};
+use ambition::render::rendering::{spawn_room_visuals, PlayerVisual};
 
 /// Presentation-side debug hotkey reader.
 ///
@@ -55,20 +55,24 @@ pub(super) fn handle_debug_hotkeys(
 pub(super) fn sync_preset_input_map(
     dev_state: Res<SandboxDevState>,
     mut last_preset: Local<Option<usize>>,
-    entities: Res<SceneEntities>,
+    // The home avatar's leafwing components, by marker. `PrimaryPlayer` scopes to
+    // the one home body; no process-global player handle is consulted.
     mut player_input: Query<
         (
             &mut ActionState<SandboxAction>,
             &mut InputMap<SandboxAction>,
         ),
-        With<PlayerVisual>,
+        (
+            With<PlayerVisual>,
+            With<ambition::actors::actor::PrimaryPlayer>,
+        ),
     >,
 ) {
     let current = dev_state.preset_index;
     if *last_preset == Some(current) {
         return;
     }
-    if let Ok((mut action_state, mut input_map)) = player_input.get_mut(entities.player) {
+    if let Ok((mut action_state, mut input_map)) = player_input.single_mut() {
         *input_map = KeyboardPreset::by_index(dev_state.preset_index).input_map();
         action_state.reset_all();
     }

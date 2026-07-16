@@ -13,7 +13,7 @@ use ambition_platformer_primitives::lifecycle::{SessionSpawnScope, SpawnSessionS
 // canonical home is `ambition_platformer_primitives::lifecycle` (content-free, so sim
 // systems can tag visual entities without importing presentation).
 pub use ambition_platformer_primitives::lifecycle::{
-    LoadingZoneVisual, PlayerVisual, RoomScopedEntity, RoomVisual, SceneEntities,
+    LoadingZoneVisual, PlayerVisual, RoomScopedEntity, RoomVisual,
 };
 
 /// Standing-stance render size of the textured player sprite, recorded

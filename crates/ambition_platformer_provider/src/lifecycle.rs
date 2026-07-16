@@ -76,6 +76,12 @@ pub(crate) struct PlatformerProviderRuntimePlugin;
 
 impl Plugin for PlatformerProviderRuntimePlugin {
     fn build(&self, app: &mut App) {
+        // The provider owns the session lifecycle: it constructs the live session
+        // on activation and must retire its resource mirrors on teardown. This
+        // plugin is composed only by shell hosts, which also install
+        // `SessionScopePlugin`, so `SessionScopeSet::Cleanup` and
+        // `SessionScopeRetired` are available.
+        app.add_plugins(ambition_actors::session::SessionTeardownPlugin);
         app.init_resource::<PlatformerStreamingReadiness>()
             .init_resource::<PreparedPlatformerSessions>()
             .configure_sets(

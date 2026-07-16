@@ -21,9 +21,9 @@ use ambition::engine_core::RoomGeometry;
 use ambition::input::SandboxAction;
 use ambition::input::{read_gameplay_control_frame, ControlFrame};
 use ambition::platformer::schedule::GameMode;
+use ambition::render::rendering::CameraViewState;
 #[cfg(feature = "input")]
 use ambition::render::rendering::PlayerVisual;
-use ambition::render::rendering::{CameraViewState, SceneEntities};
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
@@ -84,14 +84,20 @@ pub(crate) fn draw_debug_overlay(
     ldtk_spine_index: Res<ambition::actors::ldtk_world::LdtkRuntimeSpineIndex>,
     camera_view: Res<CameraViewState>,
     mode: Res<State<GameMode>>,
-    entities: Res<SceneEntities>,
     // Per-frame buffer of debug-box labels; filled below, rendered as Text2d by
     // `render_debug_overlay_labels`. (In-flight projectile queries moved into
     // `FeatureDebugQueries` to keep this system under Bevy's 16-param ceiling.)
     mut overlay_labels: ResMut<DebugOverlayLabels>,
-    action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
+    action_query: Query<
+        &ActionState<SandboxAction>,
+        (
+            With<PlayerVisual>,
+            With<ambition::actors::actor::PrimaryPlayer>,
+        ),
+    >,
     mut player_q: Query<
         (
+            Entity,
             ae::BodyClusterQueryData,
             // The movement policy: the overlay is a dev tool and draws the
             // policy's private internals (ledge anchor, blink aim) directly.
@@ -128,11 +134,11 @@ pub(crate) fn draw_debug_overlay(
     // should not light up from those paused-mode inputs.
     let gameplay_active = mode.get().allows_gameplay();
     let actions = if gameplay_active {
-        action_query.get(entities.player).ok()
+        action_query.single().ok()
     } else {
         None
     };
-    let Ok((mut cluster_item, motion_model, player_health, attack, worn_character)) =
+    let Ok((player_entity, mut cluster_item, motion_model, player_health, attack, worn_character)) =
         player_q.single_mut()
     else {
         return;
@@ -203,7 +209,7 @@ pub(crate) fn draw_debug_overlay(
             &mut gizmos,
             world,
             &feature_q,
-            Some((entities.player, clusters.kinematics.pos)),
+            Some((player_entity, clusters.kinematics.pos)),
             &developer_tools,
             &mut overlay_labels,
         );

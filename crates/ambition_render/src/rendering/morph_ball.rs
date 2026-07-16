@@ -89,15 +89,15 @@ pub fn build_morph_ball_image() -> Image {
 
 /// Startup system: build the procedural morph ball image and stash its
 /// handle. The sibling visual is spawned by
-/// `spawn_morph_ball_visual` once `SceneEntities` is populated.
+/// `spawn_morph_ball_visual` once the sprite handle is ready.
 pub fn build_morph_ball_sprite(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let handle = images.add(build_morph_ball_image());
     commands.insert_resource(MorphBallSprite { handle });
 }
 
-/// Spawn the morph-ball sibling sprite tied to the live `SceneEntities`.
+/// Spawn the morph-ball sibling sprite tied to the primary player body.
 /// Runs each frame but inserts only when the `MorphBallVisual` query is
-/// empty — equivalent to a one-shot "after SceneEntities is ready"
+/// empty — equivalent to a one-shot "after the ball visual exists"
 /// guard that handles the visible-binary boot order without needing a
 /// dedicated state.
 pub fn spawn_morph_ball_visual(
@@ -148,17 +148,19 @@ pub fn sync_morph_ball_visual(
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
         ambition_engine_core::RoomGeometry,
     >,
-    entities: Res<ambition_platformer_primitives::lifecycle::SceneEntities>,
     // Sim-built pose read-model (E4): body-mode + geometry facts, no live
     // cluster reads.
     player_q: Query<
         &ambition_sim_view::BodyPoseView,
         ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
+    // The primary player's visual is discovered by marker, not a process-global
+    // handle: `PrimaryPlayer` names the home avatar, `PlayerVisual` its sprite.
     mut player_query: Query<
         &mut Visibility,
         (
             With<ambition_platformer_primitives::lifecycle::PlayerVisual>,
+            With<ambition_platformer_primitives::markers::PrimaryPlayer>,
             Without<MorphBallVisual>,
         ),
     >,
@@ -182,12 +184,12 @@ pub fn sync_morph_ball_visual(
         let render = bevy::math::Vec2::new(pose.size.x * 1.10, pose.size.y * 1.10);
         sprite.custom_size = Some(render);
         *ball_visibility = Visibility::Visible;
-        if let Ok(mut player_vis) = player_query.get_mut(entities.player) {
+        if let Ok(mut player_vis) = player_query.single_mut() {
             *player_vis = Visibility::Hidden;
         }
     } else {
         *ball_visibility = Visibility::Hidden;
-        if let Ok(mut player_vis) = player_query.get_mut(entities.player) {
+        if let Ok(mut player_vis) = player_query.single_mut() {
             // Inherited visibility lets the parent / overlay control
             // hiding (death overlay, room transition fade); we only
             // override to Visible when leaving morph ball, then drop
@@ -204,7 +206,7 @@ pub fn sync_morph_ball_visual(
 /// tracks.md's bug queue carries *"Morph ball still draws the robot"*. These
 /// three tests run `sync_morph_ball_visual` against the rig it actually sees — a
 /// `PlayerEntity + PrimaryPlayer + PlayerVisual` body carrying a `BodyPoseView`,
-/// one `MorphBallVisual` sibling, and `SceneEntities` pointing at the body — and
+/// one `MorphBallVisual` sibling — and
 /// the system is **correct**: it shows the ball, hides the body, and restores
 /// `Inherited` (never a hard `Visible`) on exit.
 ///
@@ -221,7 +223,7 @@ pub fn sync_morph_ball_visual(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer_primitives::lifecycle::{PlayerVisual, SceneEntities};
+    use ambition_platformer_primitives::lifecycle::PlayerVisual;
     use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
     use ambition_sim_view::BodyPoseView;
 
@@ -235,7 +237,7 @@ mod tests {
 
     /// The rig `sync_morph_ball_visual` actually runs against: a player body that
     /// carries `PlayerVisual` + `PrimaryPlayer` + a `BodyPoseView`, one
-    /// `MorphBallVisual` sibling, and `SceneEntities` pointing at the body.
+    /// `MorphBallVisual` sibling.
     fn rig(morph: bool) -> (App, Entity, Entity) {
         let mut app = App::new();
         ambition_platformer_primitives::lifecycle::insert_session_world_component(
@@ -267,11 +269,6 @@ mod tests {
                 Visibility::Hidden,
             ))
             .id();
-        app.insert_resource(SceneEntities {
-            player,
-            hud: Entity::PLACEHOLDER,
-            quest_panel: Entity::PLACEHOLDER,
-        });
         app.add_systems(Update, sync_morph_ball_visual);
         (app, player, ball)
     }

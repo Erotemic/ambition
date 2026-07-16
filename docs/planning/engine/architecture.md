@@ -176,6 +176,17 @@ Moving a bag of raw handles onto the root is not automatically a solution. First
 ask whether each handle should be derived from control/session relationships or a
 read model instead.
 
+Both gates are met (2026-07-16). The former `SceneEntities` process-global handle
+bag was **removed**: the home avatar is discovered by `PrimaryPlayerOnly`, the HUD
+and quest roots by their session-scoped `HudText`/`QuestPanelText` markers.
+Moving-platform live state (`MovingPlatformSet`) is an explicit session-owned
+cache — rebuilt from the room at every construction path, registered snapshot
+state so a within-room rollback reconstructs it exactly, and cleared on teardown.
+A provider-installed session-teardown pass resets the remaining session-scoped
+resource mirrors (possession, controlled subject, encounter/boss/quest registries)
+when the scope retires, so no stale mirror or dangling handle survives into the
+next activation. No compatibility handle bag was retained.
+
 ## 6. World and geometry rules
 
 Authored room geometry is base input. Transient runtime contributions are read

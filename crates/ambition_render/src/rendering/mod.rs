@@ -5,8 +5,8 @@
 //!
 //! ## Submodule layout (post-2026-05-09 split)
 //!
-//! - [`primitives`] — marker components ([`SceneEntities`],
-//!   [`PlayerVisual`], [`HudText`], [`QuestPanelText`], [`RoomVisual`],
+//! - [`primitives`] — marker components ([`PlayerVisual`],
+//!   [`HudText`], [`QuestPanelText`], [`RoomVisual`],
 //!   [`FeatureVisual`], [`HealthOverlayVisual`]) plus color / Z /
 //!   feature-kind helpers and `spawn_world_label`.
 //! - [`actors`] — per-frame sync of player + enemy + boss sprites
@@ -78,7 +78,7 @@ pub use parallax::{
 };
 pub use primitives::{
     HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, QuestPanelText,
-    RoomScopedEntity, RoomVisual, SceneEntities,
+    RoomScopedEntity, RoomVisual,
 };
 // Game-supplied art map for walk-into world items; the reusable renderer owns the
 // seam, each game fills it with its own pickups' images.
@@ -102,7 +102,16 @@ fn session_presentation_is_ready(
         bevy::prelude::Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>,
     >,
     roots: bevy::prelude::Query<&ambition_platformer_primitives::lifecycle::SessionRoot>,
-    scene: Option<bevy::prelude::Res<SceneEntities>>,
+    // The primary player body IS the readiness signal now: presentation runs only
+    // once the session has lowered its home avatar. Derived from the canonical
+    // marker instead of a process-global handle bag that outlives its session.
+    primary_player: bevy::prelude::Query<
+        (),
+        (
+            bevy::prelude::With<ambition_platformer_primitives::markers::PlayerEntity>,
+            bevy::prelude::With<ambition_platformer_primitives::markers::PrimaryPlayer>,
+        ),
+    >,
 ) -> bool {
     let exact_world = roots.single().is_ok_and(|root| {
         gate.is_none()
@@ -111,7 +120,7 @@ fn session_presentation_is_ready(
                 .and_then(ambition_platformer_primitives::lifecycle::ActiveSessionScope::current)
                 == Some(root.0)
     });
-    exact_world && scene.is_some_and(|scene| scene.player != bevy::prelude::Entity::PLACEHOLDER)
+    exact_world && !primary_player.is_empty()
 }
 
 /// Module-local Bevy plugin: schedules player-bound visual systems

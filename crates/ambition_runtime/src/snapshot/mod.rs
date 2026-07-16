@@ -1010,6 +1010,11 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_resource::<ambition_time::SimTick>("sim_tick");
     registry.register_resource::<ambition_time::WorldTime>("world_time");
     registry.register_resource::<ambition_actors::features::GameplayElapsed>("gameplay_elapsed");
+    // Moving-platform kinematics are mechanically significant session state the
+    // sim advances every tick; register them so a within-room rollback restores
+    // the platforms exactly rather than resuming from the abandoned future.
+    registry
+        .register_resource::<ambition_world::collision::MovingPlatformSet>("moving_platform_set");
     registry.register_component::<BodyKinematics>("body_kinematics");
     registry.register_component::<ambition_characters::actor::BodyHealth>("body_health");
 

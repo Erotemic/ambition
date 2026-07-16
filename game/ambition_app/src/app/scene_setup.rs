@@ -12,7 +12,6 @@ use bevy::prelude::*;
 #[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
-use ambition::actors::platformer_runtime::lifecycle::SceneEntities;
 use ambition::actors::rooms::RoomSet;
 #[cfg(feature = "audio")]
 use ambition::actors::session::data::{MusicRegistry, SfxRegistry};
@@ -63,11 +62,10 @@ pub fn presentation_world(
     asset_server: &AssetServer,
     catalog: &SandboxAssetCatalog,
     params: PresentationSetup<'_>,
-    player: Entity,
 ) {
     let music_registry = params.music_registry;
     let sfx_registry = params.sfx_registry;
-    presentation_world_inner(commands, params, player);
+    presentation_world_inner(commands, params);
     install_audio_library(
         commands,
         audio_sources,
@@ -127,8 +125,8 @@ pub fn install_audio_library(
 }
 
 #[cfg(not(feature = "audio"))]
-pub fn presentation_world(commands: &mut Commands, params: PresentationSetup<'_>, player: Entity) {
-    presentation_world_inner(commands, params, player);
+pub fn presentation_world(commands: &mut Commands, params: PresentationSetup<'_>) {
+    presentation_world_inner(commands, params);
 }
 
 /// Load a statically packed SFX bank.
@@ -245,11 +243,7 @@ fn load_bank_from_path(path: &std::path::Path) -> Option<BankProvider> {
     }
 }
 
-fn presentation_world_inner(
-    commands: &mut Commands,
-    params: PresentationSetup<'_>,
-    player: Entity,
-) {
+fn presentation_world_inner(commands: &mut Commands, params: PresentationSetup<'_>) {
     #[cfg(feature = "audio")]
     let ui_fonts = params.ui_fonts;
     #[cfg(not(feature = "audio"))]
@@ -266,7 +260,6 @@ fn presentation_world_inner(
             quality: params.quality,
             ui_fonts,
         },
-        player,
     );
 }
 
@@ -342,7 +335,7 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
 }
 
 /// SESSION-owned presentation: parallax, static room visuals, moving
-/// platforms, the HUD/quest text widgets, and the `SceneEntities` pointers.
+/// platforms, and the marker-tagged HUD/quest text widgets.
 /// The direct-entry path calls it `UNSCOPED` at startup (process-resident,
 /// the pre-shell behavior); the shell host calls it with the activation's
 /// captured scope so the generic session sweep retires all of it.
@@ -350,7 +343,6 @@ pub fn session_presentation(
     commands: &mut Commands,
     scope: ambition::platformer::lifecycle::SessionSpawnScope,
     params: SessionPresentationSetup<'_>,
-    player: Entity,
 ) {
     let world = params.world;
     let room_set = params.room_set;
@@ -394,7 +386,6 @@ pub fn session_presentation(
             room_set,
             ui_fonts: params.ui_fonts,
         },
-        player,
     );
 }
 
@@ -405,8 +396,8 @@ pub struct SessionDressingSetup<'a> {
     pub ui_fonts: Option<&'a UiFonts>,
 }
 
-/// The Ambition-specific SESSION dressing: moving platforms, the HUD/quest
-/// text widgets, and the `SceneEntities` pointers. Split from the generic
+/// The Ambition-specific SESSION dressing: moving platforms and the
+/// marker-tagged HUD/quest text widgets. Split from the generic
 /// room visuals so the shell host can delegate parallax/room visuals to the
 /// provider-agnostic `SessionRoomVisualsPlugin` (one system serves every
 /// linked game) while Ambition keeps its own dressing.
@@ -414,7 +405,6 @@ pub fn session_gameplay_dressing(
     commands: &mut Commands,
     scope: ambition::platformer::lifecycle::SessionSpawnScope,
     params: SessionDressingSetup<'_>,
-    player: Entity,
 ) {
     let world = params.world;
     let room_set = params.room_set;
@@ -453,7 +443,6 @@ pub fn session_gameplay_dressing(
         HudText,
     ));
     scope.apply_to(&mut hud_entity);
-    let hud = hud_entity.id();
 
     // Quest panel: top-right corner, dedicated text widget. Separated
     // from the debug HUD so the quest log doesn't trail the stats dump.
@@ -477,14 +466,8 @@ pub fn session_gameplay_dressing(
         QuestPanelText,
     ));
     scope.apply_to(&mut quest_entity);
-    let quest_panel = quest_entity.id();
 
-    // Overwrite the placeholder SceneEntities from simulation_world now
-    // that the HUD entity exists. `commands.insert_resource` replaces the
-    // existing resource on apply_deferred.
-    commands.insert_resource(SceneEntities {
-        player,
-        hud,
-        quest_panel,
-    });
+    // The HUD and quest-panel roots are session-scoped and marker-tagged
+    // (`HudText` / `QuestPanelText`); their consumers discover them by marker, so
+    // no process-global handle bag records them. They die with the session sweep.
 }

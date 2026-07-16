@@ -95,7 +95,6 @@ ambition_platformer_primitives::frame_env::ForceZones
 ambition_platformer_primitives::gravity::BaseGravity
 ambition_platformer_primitives::gravity::GravityField
 ambition_platformer_primitives::gravity::GravityZones
-ambition_platformer_primitives::lifecycle::markers::SceneEntities
 ambition_platformer_primitives::markers::ControlledSubject
 ambition_platformer_primitives::physics::PhysicsSandboxSettings
 ambition_platformer_primitives::schedule::SimSchedule
@@ -124,13 +123,13 @@ ambition_sim_view::facts::MarkBeaconsView
 ambition_sim_view::facts::PlayerHudFacts
 ambition_sim_view::facts::ShrinesView
 ambition_sim_view::facts::HostileWieldedItemsView
+ambition_sim_view::facts::WorldItemsView
 ambition_sim_view::pose_view::ShieldRingsView
 ambition_sim_view::view_index::ActorRenderIndex
 ambition_sim_view::view_index::BossRenderIndex
 ambition_sim_view::view_index::FeatureViewIndex
 ambition_sim_view::view_index::NameplateIndex
 ambition_time::ClockState
-ambition_world::collision::MovingPlatformSet
 ambition_world::placements::PlacementLoweringRegistry
 ambition_world::rooms::gate_portal::GatePortalRegistry
 bevy_asset::assets::Assets<ambition_actors::session::data::SandboxDataSpec>
@@ -195,6 +194,7 @@ ambition_audio::selection::FrontendAudioProfile
 ambition_sfx::message::SfxEmissionContext
 bevy_ecs::message::messages::Messages<ambition_audio::selection::AudioContextChanged>
 ambition_audio::catalog::AudioCatalogRegistry
+ambition_dialog::speech_sfx::DialogueVoiceCatalog
 ambition_characters::actor::character_catalog::registry::CharacterCatalogDefaults
 ambition_characters::actor::character_catalog::registry::CharacterCatalogOwners
 ambition_characters::actor::character_catalog::registry::CharacterCatalogRegistry

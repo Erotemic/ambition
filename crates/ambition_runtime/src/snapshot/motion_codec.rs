@@ -23,6 +23,15 @@ impl SnapshotState for ambition_engine_core::MotionModel {
                 put_momentum_params(out, &motion.params);
                 put_surface_motion(out, motion.state);
                 put_u8(out, motion.depth_lane as u8);
+                match motion.route_memory {
+                    None => put_bool(out, false),
+                    Some(memory) => {
+                        put_bool(out, true);
+                        put_u32(out, memory.chain as u32);
+                        put_u32(out, memory.vertex as u32);
+                        put_u8(out, memory.direction as u8);
+                    }
+                }
             }
             MotionModel::AdhesiveCrawler(motion) => {
                 put_u8(out, 2);
@@ -57,10 +66,20 @@ impl SnapshotState for ambition_engine_core::MotionModel {
                 let params = momentum_params(r)?;
                 let state = surface_motion(r)?;
                 let depth_lane = r.u8()? as i8;
+                let route_memory = if r.bool()? {
+                    Some(ambition_engine_core::RouteDeparture {
+                        chain: r.u32()? as usize,
+                        vertex: r.u32()? as usize,
+                        direction: r.u8()? as i8,
+                    })
+                } else {
+                    None
+                };
                 MotionModel::SurfaceMomentum(SurfaceMomentumMotion {
                     params,
                     state,
                     depth_lane,
+                    route_memory,
                 })
             }
             2 => {

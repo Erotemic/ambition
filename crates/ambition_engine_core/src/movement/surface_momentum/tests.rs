@@ -1105,6 +1105,7 @@ fn zero_speed_at_a_joint_chooses_support_and_keeps_jump_and_walk_available() {
             s: joint_s,
             v_t: 0.0,
         },
+        route_memory: None,
     };
     let params = MomentumParams::default();
 
@@ -1308,13 +1309,14 @@ fn route_junction_uses_vertical_steering_and_preserves_default_continuation() {
 
     // Forward arrival from the left ramp: up-right enters the loop occurrence,
     // down-right skips to the runout occurrence.
-    let loop_branch = choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::new(1.0, -1.0))
-        .expect("entry is an authored junction");
+    let loop_branch =
+        choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::new(1.0, -1.0), None)
+            .expect("entry is an authored junction");
     assert_eq!(loop_branch.vertex, 1);
     assert_eq!(loop_branch.direction, 1.0);
     assert!(loop_branch.is_default);
 
-    let bypass = choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::new(1.0, 1.0))
+    let bypass = choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::new(1.0, 1.0), None)
         .expect("entry is an authored junction");
     assert_eq!(bypass.vertex, 4);
     assert_eq!(bypass.direction, 1.0);
@@ -1324,22 +1326,47 @@ fn route_junction_uses_vertical_steering_and_preserves_default_continuation() {
     // chooses the descending ramp. Neutral steering keeps the authored loop
     // continuation on first arrival, then the authored ramp continuation after
     // one reverse revolution rather than spinning again.
-    let reverse_loop =
-        choose_route_branch(&world, on, 4, 4, -1.0, gframe(G), Vec2::new(-1.0, -1.0))
-            .expect("closure is an authored junction");
+    let reverse_loop = choose_route_branch(
+        &world,
+        on,
+        4,
+        4,
+        -1.0,
+        gframe(G),
+        Vec2::new(-1.0, -1.0),
+        None,
+    )
+    .expect("closure is an authored junction");
     assert_eq!(reverse_loop.vertex, 4);
     assert_eq!(reverse_loop.direction, -1.0);
     assert!(reverse_loop.is_default);
 
-    let reverse_ramp = choose_route_branch(&world, on, 4, 4, -1.0, gframe(G), Vec2::new(-1.0, 1.0))
-        .expect("closure is an authored junction");
+    let reverse_ramp = choose_route_branch(
+        &world,
+        on,
+        4,
+        4,
+        -1.0,
+        gframe(G),
+        Vec2::new(-1.0, 1.0),
+        None,
+    )
+    .expect("closure is an authored junction");
     assert_eq!(reverse_ramp.vertex, 1);
     assert_eq!(reverse_ramp.direction, -1.0);
     assert!(!reverse_ramp.is_default);
 
-    let after_reverse_lap =
-        choose_route_branch(&world, on, 1, 1, -1.0, gframe(G), Vec2::new(-1.0, 0.0))
-            .expect("entry is an authored junction");
+    let after_reverse_lap = choose_route_branch(
+        &world,
+        on,
+        1,
+        1,
+        -1.0,
+        gframe(G),
+        Vec2::new(-1.0, 0.0),
+        None,
+    )
+    .expect("entry is an authored junction");
     assert_eq!(after_reverse_lap.vertex, 1);
     assert_eq!(after_reverse_lap.direction, -1.0);
     assert!(
@@ -1348,7 +1375,7 @@ fn route_junction_uses_vertical_steering_and_preserves_default_continuation() {
     );
 
     let after_forward_lap =
-        choose_route_branch(&world, on, 4, 3, 1.0, gframe(G), Vec2::new(1.0, 0.0))
+        choose_route_branch(&world, on, 4, 3, 1.0, gframe(G), Vec2::new(1.0, 0.0), None)
             .expect("closure is an authored junction");
     assert_eq!(after_forward_lap.vertex, 4);
     assert_eq!(after_forward_lap.direction, 1.0);
@@ -1359,9 +1386,14 @@ fn route_junction_uses_vertical_steering_and_preserves_default_continuation() {
 
     let entry_s = chain.arc_at_vertex(1);
     let closure_s = chain.arc_at_vertex(4);
-    let (stopped_on, stopped_bypass) =
+    let (stopped_on, stopped_bypass, taken) =
         choose_route_branch_at_rest(&world, on, entry_s, 0.0, gframe(G), Vec2::new(1.0, 1.0))
             .expect("held direction selects a route from rest");
+    assert_eq!(
+        (taken.chain, taken.vertex, taken.direction),
+        (0, 4, 1),
+        "the rest switch reports the half-edge it took for the route memory"
+    );
     assert_eq!(stopped_on, on);
     assert!(
         stopped_bypass > closure_s,
@@ -1375,15 +1407,15 @@ fn route_junction_looks_past_a_shared_tangent_before_honoring_steering() {
     let world = world_with_chains(vec![chain]);
     let on = SurfaceRef::Chain(0);
 
-    let up = choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::new(1.0, -1.0))
+    let up = choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::new(1.0, -1.0), None)
         .expect("entry is an authored junction");
     assert_eq!(up.vertex, 1, "up-right selects the rising route");
 
-    let down = choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::new(1.0, 1.0))
+    let down = choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::new(1.0, 1.0), None)
         .expect("entry is an authored junction");
     assert_eq!(down.vertex, 4, "down-right selects the descending route");
 
-    let horizontal = choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::X)
+    let horizontal = choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::X, None)
         .expect("entry is an authored junction");
     assert_eq!(horizontal.vertex, 1);
     assert!(
@@ -1421,6 +1453,7 @@ fn cross_chain_junction_selects_a_ramp_without_an_airborne_hop() {
         &params,
         14.0,
         Vec2::new(1.0, -1.0),
+        &mut None,
     );
     let RideOutcome::Riding { on, s, v_t } = raised else {
         panic!("a route junction transfers while riding; it is not a jump");
@@ -1439,6 +1472,7 @@ fn cross_chain_junction_selects_a_ramp_without_an_airborne_hop() {
         &params,
         14.0,
         Vec2::X,
+        &mut None,
     );
     let RideOutcome::Riding { on, s, .. } = flat else {
         panic!("the flat continuation remains rideable");
@@ -1469,6 +1503,7 @@ fn route_junction_changes_arc_occurrence_without_reversing_speed() {
         &params,
         14.0,
         Vec2::new(1.0, 1.0),
+        &mut None,
     );
     let RideOutcome::Riding {
         on: result_on,
@@ -1492,6 +1527,7 @@ fn route_junction_changes_arc_occurrence_without_reversing_speed() {
         &params,
         14.0,
         Vec2::new(-1.0, 1.0),
+        &mut None,
     );
     let RideOutcome::Riding {
         on: result_on,
@@ -1510,12 +1546,21 @@ fn route_junction_changes_arc_occurrence_without_reversing_speed() {
 }
 
 #[test]
-fn depth_lanes_are_discrete_collision_planes() {
+fn depth_lanes_collide_exactly_plus_the_base_plane() {
+    // Exact-lane matches always collide.
     assert!(depth_lanes_collide(-1, -1));
     assert!(depth_lanes_collide(0, 0));
     assert!(depth_lanes_collide(1, 1));
-    assert!(!depth_lanes_collide(-1, 0));
+    // Lane 0 is the BASE PLANE: every body can land back on it, because every
+    // depth excursion rejoins the base world. Strict matching here stranded
+    // riders launched from a foreground/background rail: the base floor route
+    // was invisible and only the depth-agnostic block could catch them.
+    assert!(depth_lanes_collide(-1, 0));
+    assert!(depth_lanes_collide(1, 0));
+    // Non-zero lanes stay strict, so a base-plane body still passes
+    // foreground/background rails (the original shed-and-snag regression).
     assert!(!depth_lanes_collide(0, 1));
+    assert!(!depth_lanes_collide(0, -1));
     assert!(!depth_lanes_collide(-1, 1));
     assert!(!depth_lanes_collide(1, -1));
 }
@@ -1532,10 +1577,24 @@ fn airborne_sweep_ignores_tracks_on_other_depth_lanes() {
     let center = Vec2::new(0.0, 60.0);
     let delta = Vec2::new(0.0, 80.0);
 
-    let other_lanes = world_with_chains(vec![rail("back", -1), rail("center", 0)]);
+    let other_lane = world_with_chains(vec![rail("back", -1)]);
     assert!(
-        first_circle_hit(&other_lanes, center, 12.0, 1, delta).is_none(),
-        "a foreground rider must pass the coincident back/center rails"
+        first_circle_hit(&other_lane, center, 12.0, 1, delta).is_none(),
+        "a foreground rider must pass a coincident back rail"
+    );
+
+    let base = world_with_chains(vec![rail("back", -1), rail("center", 0)]);
+    let hit = first_circle_hit(&base, center, 12.0, 1, delta)
+        .expect("the base plane catches every airborne lane");
+    assert!(
+        matches!(
+            hit.what,
+            CircleHitTarget::Chain {
+                chain: 1,
+                segment: 0
+            }
+        ),
+        "lane 0 is the base plane a launched foreground rider lands back on"
     );
 
     let matching = world_with_chains(vec![rail("back", -1), rail("center", 0), rail("front", 1)]);
@@ -1549,7 +1608,7 @@ fn airborne_sweep_ignores_tracks_on_other_depth_lanes() {
                 segment: 0
             }
         ),
-        "the sweep must select only the matching depth lane"
+        "on a tie the exact-lane rail beats the coincident base plane"
     );
 }
 
@@ -1568,7 +1627,7 @@ fn toi_zero_tangent_scrapes_are_not_recaptured_as_landings() {
     ));
 
     assert!(
-        !grazing_chain_contact_at_release(
+        grazing_chain_contact_at_release(
             Vec2::new(0.0, -16.0),
             16.0,
             Vec2::ZERO,
@@ -1576,7 +1635,9 @@ fn toi_zero_tangent_scrapes_are_not_recaptured_as_landings() {
             tangent_scrape,
             0.0,
         ),
-        "an exactly tangent contact is not an overlap artifact"
+        "EXACT tangency is the canonical release state: a body launched from a \
+         joint is tangent with zero penetration, and recapturing it there is \
+         the every-tick attach/shed pin"
     );
 
     assert!(

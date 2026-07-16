@@ -4,13 +4,9 @@
 //! Every oracle drives the REAL `sanic_speedway()` geometry through the real
 //! movement kernel (`ae::step_motion`) with the catalog's authored momentum
 //! numbers, records a per-tick trace, and asserts the behavior a player is
-//! entitled to. Oracles that reproduce a live bug are `#[ignore]`d with the
-//! defect named in the reason string so the suite stays green while the bug
-//! stands; un-ignoring them is the acceptance gate for the fix. Run them with:
-//!
-//! ```text
-//! cargo test -p ambition_demo_sanic --lib -- --ignored --nocapture oracle_
-//! ```
+//! entitled to. All nine originally reproduced live defects (see the section
+//! comments); the 2026-07-16 solver fixes turned them green and they now
+//! stand as the speedway's permanent regression gates.
 
 use ambition::engine_core as ae;
 
@@ -21,13 +17,14 @@ const GRAVITY: f32 = 1450.0;
 const DT: f32 = 1.0 / 60.0;
 
 /// The catalog-authored Sanic momentum row: `ground_accel`/`top_speed`/
-/// `jump_speed` are authored, everything else hydrates from the same
-/// `MomentumParams::default()` production uses.
+/// `jump_speed`/`stick_factor` are authored, everything else hydrates from
+/// the same `MomentumParams::default()` production uses.
 fn sanic_params() -> ae::MomentumParams {
     ae::MomentumParams {
         ground_accel: 900.0,
         top_speed: 1200.0,
         jump_speed: 700.0,
+        stick_factor: 4.0,
         ..Default::default()
     }
 }
@@ -229,6 +226,23 @@ fn rode_chain(trace: &[Sample], chain: usize) -> bool {
         .any(|s| matches!(s.ride, Some((ae::SurfaceRef::Chain(c), _, _)) if c == chain))
 }
 
+/// Lap crossings up to (and including) the first sample satisfying `exit`,
+/// plus whether the exit was reached at all. Counting past the exit would
+/// blame the oracle's route for whatever the course does afterwards — e.g.
+/// the directional booster pad legitimately throwing the finished rider back
+/// toward the ramp for a fresh, player-held second entry.
+fn laps_until_exit(
+    trace: &[Sample],
+    loop_chain: usize,
+    top_s: f32,
+    exit: impl Fn(&Sample) -> bool,
+) -> (usize, bool) {
+    match trace.iter().position(exit) {
+        Some(end) => (loop_top_crossings(&trace[..=end], loop_chain, top_s), true),
+        None => (loop_top_crossings(trace, loop_chain, top_s), false),
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Oracle A/B — the course contract at AUTHORED params: a runner holding Up
 // (the input the course demands — it is the only way onto the ramp) must ride
@@ -244,7 +258,6 @@ fn rode_chain(trace: &[Sample], chain: usize) -> bool {
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-#[ignore = "BUG repro (convex-joint pin): at authored speed the ramp-top joints launch and instantly recapture the rider every tick — position pinned at full reported speed"]
 fn oracle_held_up_forward_run_rides_the_loop_exactly_once() {
     let room = sanic_speedway();
     let loop_idx = chain_index(&room.world, "sanic_loop");
@@ -265,10 +278,12 @@ fn oracle_held_up_forward_run_rides_the_loop_exactly_once() {
         "precondition: holding Up+Right must transfer from the floor guide onto the ramp\n{}",
         dump_tail(&probe.trace, 30)
     );
-    let laps = loop_top_crossings(&probe.trace, loop_idx, top_s);
-    let reached_overpass = probe.trace.iter().any(|s| {
-        matches!(s.ride, Some((ae::SurfaceRef::Chain(c), arc, _)) if c == loop_idx && arc > closure_s + 100.0)
-    });
+    let (laps, reached_overpass) = laps_until_exit(
+        &probe.trace,
+        loop_idx,
+        top_s,
+        |s| matches!(s.ride, Some((ae::SurfaceRef::Chain(c), arc, _)) if c == loop_idx && arc > closure_s + 100.0),
+    );
     assert!(
         laps == 1 && reached_overpass,
         "held Up must ride the loop exactly once and exit onto the overpass; \
@@ -278,7 +293,6 @@ fn oracle_held_up_forward_run_rides_the_loop_exactly_once() {
 }
 
 #[test]
-#[ignore = "BUG repro (convex-joint pin): the reverse runner pins ~100px up the descent in the same every-tick launch/recapture cycle, position frozen at full reported speed"]
 fn oracle_held_up_reverse_run_exits_down_the_ramp_after_one_lap() {
     let room = sanic_speedway();
     let loop_idx = chain_index(&room.world, "sanic_loop");
@@ -300,12 +314,12 @@ fn oracle_held_up_reverse_run_exits_down_the_ramp_after_one_lap() {
         "precondition: holding Up+Left must climb onto the runout at the x=2920 fork\n{}",
         dump_tail(&probe.trace, 30)
     );
-    let laps = loop_top_crossings(&probe.trace, loop_idx, top_s);
-    let exited_down_ramp = probe.trace.iter().any(|s| match s.ride {
-        Some((ae::SurfaceRef::Chain(c), arc, _)) if c == loop_idx => arc < entry_s - 100.0,
-        Some((ae::SurfaceRef::Chain(c), _, _)) if c == floor_idx => s.pos.x < 1700.0,
-        _ => false,
-    });
+    let (laps, exited_down_ramp) =
+        laps_until_exit(&probe.trace, loop_idx, top_s, |s| match s.ride {
+            Some((ae::SurfaceRef::Chain(c), arc, _)) if c == loop_idx => arc < entry_s - 100.0,
+            Some((ae::SurfaceRef::Chain(c), _, _)) if c == floor_idx => s.pos.x < 1700.0,
+            _ => false,
+        });
     assert!(
         laps == 1 && exited_down_ramp,
         "a reverse run must make exactly one revolution and leave down the entry ramp; \
@@ -343,7 +357,6 @@ fn sticky_topology_params() -> ae::MomentumParams {
 }
 
 #[test]
-#[ignore = "BUG repro (route-bias orbit): held Up re-selects a rising loop shoulder at the mouth on every pass; the rider laps forever instead of exiting onto the overpass"]
 fn oracle_route_bias_isolation_held_up_forward_rider_exits_after_one_lap() {
     let room = sanic_speedway();
     let loop_idx = chain_index(&room.world, "sanic_loop");
@@ -362,10 +375,12 @@ fn oracle_route_bias_isolation_held_up_forward_rider_exits_after_one_lap() {
     for _ in 0..900 {
         probe.step(&room.world, ae::Vec2::new(0.0, -1.0), false);
     }
-    let laps = loop_top_crossings(&probe.trace, loop_idx, top_s);
-    let reached_overpass = probe.trace.iter().any(|s| {
-        matches!(s.ride, Some((ae::SurfaceRef::Chain(c), arc, _)) if c == loop_idx && arc > closure_s + 100.0)
-    });
+    let (laps, reached_overpass) = laps_until_exit(
+        &probe.trace,
+        loop_idx,
+        top_s,
+        |s| matches!(s.ride, Some((ae::SurfaceRef::Chain(c), arc, _)) if c == loop_idx && arc > closure_s + 100.0),
+    );
     assert!(
         laps == 1 && reached_overpass,
         "held Up must ride the loop once and exit onto the overpass; \
@@ -375,7 +390,6 @@ fn oracle_route_bias_isolation_held_up_forward_rider_exits_after_one_lap() {
 }
 
 #[test]
-#[ignore = "BUG repro (route-bias orbit): the reverse rider holding Up re-enters the loop backward at the mouth on every pass instead of exiting down the ramp after one revolution"]
 fn oracle_route_bias_isolation_held_up_reverse_rider_exits_after_one_lap() {
     let room = sanic_speedway();
     let loop_idx = chain_index(&room.world, "sanic_loop");
@@ -394,10 +408,12 @@ fn oracle_route_bias_isolation_held_up_reverse_rider_exits_after_one_lap() {
     for _ in 0..900 {
         probe.step(&room.world, ae::Vec2::new(0.0, -1.0), false);
     }
-    let laps = loop_top_crossings(&probe.trace, loop_idx, top_s);
-    let exited_down_ramp = probe.trace.iter().any(|s| {
-        matches!(s.ride, Some((ae::SurfaceRef::Chain(c), arc, _)) if c == loop_idx && arc < entry_s - 100.0)
-    });
+    let (laps, exited_down_ramp) = laps_until_exit(
+        &probe.trace,
+        loop_idx,
+        top_s,
+        |s| matches!(s.ride, Some((ae::SurfaceRef::Chain(c), arc, _)) if c == loop_idx && arc < entry_s - 100.0),
+    );
     assert!(
         laps == 1 && exited_down_ramp,
         "a reverse rider holding Up must make exactly one revolution and leave down the \
@@ -416,7 +432,6 @@ fn oracle_route_bias_isolation_held_up_reverse_rider_exits_after_one_lap() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-#[ignore = "BUG repro (surface-authority): a landing WITH horizontal velocity attaches to the coincident floor BLOCK instead of the route chain — every moving landing strands the rider off the junction network"]
 fn oracle_flat_floor_landings_attach_to_the_route_chain_not_the_block() {
     let room = sanic_speedway();
     let floor_idx = chain_index(&room.world, "sanic_floor_route");
@@ -456,7 +471,6 @@ fn oracle_flat_floor_landings_attach_to_the_route_chain_not_the_block() {
 }
 
 #[test]
-#[ignore = "BUG repro (depth-lanes): an airborne body on lane +1 cannot see the lane-0 floor chain; the depth-agnostic floor block catches it instead"]
 fn oracle_descent_launched_rider_lands_on_the_route_chain() {
     let room = sanic_speedway();
     let floor_idx = chain_index(&room.world, "sanic_floor_route");
@@ -491,7 +505,6 @@ fn oracle_descent_launched_rider_lands_on_the_route_chain() {
 }
 
 #[test]
-#[ignore = "BUG repro (surface-authority): junctions only exist while riding a chain; a block-stranded rider crosses both raised-route forks holding Up and nothing happens"]
 fn oracle_block_stranded_rider_can_still_take_the_raised_route_by_holding_up() {
     let room = sanic_speedway();
     let loop_idx = chain_index(&room.world, "sanic_loop");
@@ -527,13 +540,15 @@ fn oracle_block_stranded_rider_can_still_take_the_raised_route_by_holding_up() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-#[ignore = "BUG repro (booster): rebound impulses are applied only in the axis-swept integration arm; the surface-momentum kernel never reads rebound blocks"]
-fn oracle_speed_booster_launches_a_momentum_rider() {
+fn oracle_speed_booster_boosts_a_momentum_rider() {
     let room = sanic_speedway();
     let floor_idx = chain_index(&room.world, "sanic_floor_route");
 
     // Run right across the pad at x=1640..1712 (authored impulse (1120,-260):
-    // "Feed the raised ramp with enough horizontal speed").
+    // "Feed the raised ramp with enough horizontal speed"). For a RIDING
+    // momentum body the pad is a speed booster: the impulse projects onto the
+    // running tangent, so the observable is tangential speed near the pad's
+    // 1120 px/s — not an airborne launch.
     let mut probe = Probe::riding_chain(&room.world, floor_idx, 1500.0, 600.0, sanic_params());
     for _ in 0..90 {
         probe.step(&room.world, ae::Vec2::X, false);
@@ -541,7 +556,7 @@ fn oracle_speed_booster_launches_a_momentum_rider() {
     let boosted = probe
         .trace
         .iter()
-        .any(|s| s.vel.y < -120.0 || (s.ride.is_none() && s.vel.x > 1000.0));
+        .any(|s| matches!(s.ride, Some((_, _, v_t)) if v_t.abs() > 1050.0) || s.vel.x > 1050.0);
     assert!(
         boosted,
         "the rider crossed the speed booster at running speed and the authored \
@@ -624,7 +639,6 @@ fn held(steer: ae::Vec2, ticks: usize) -> Vec<(ae::Vec2, bool)> {
 }
 
 #[test]
-#[ignore = "BUG repro (convex-joint pin): the detector fires on held-steer runs — every-tick launch/recapture freezes the position at full reported speed on the ramp top and the descent"]
 fn oracle_soak_position_never_pins_and_ride_state_never_flaps() {
     let room = sanic_speedway();
     let loop_idx = chain_index(&room.world, "sanic_loop");

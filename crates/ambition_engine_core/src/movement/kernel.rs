@@ -12,7 +12,7 @@ use crate::{BodyClustersMut, MotionFrame, SweepSample, Vec2, World};
 use super::adhesive_crawler;
 use super::model::MotionModel;
 use super::surface_momentum::{self, SurfaceBody, SurfaceInputs};
-use super::{touching_hazard_aabb, FrameEvents, InputState};
+use super::{touching_hazard_aabb, touching_rebound_aabb, FrameEvents, InputState};
 
 /// One deterministic movement tick's complete external context.
 #[derive(Clone, Copy)]
@@ -124,6 +124,7 @@ fn step_surface_momentum(
         radius: clusters.kinematics.size.min_element() * 0.5,
         depth_lane: motion.depth_lane,
         motion: motion.state,
+        route_memory: motion.route_memory,
     };
     let mut contacts = Vec::new();
     surface_momentum::step_surface_body(
@@ -147,6 +148,17 @@ fn step_surface_momentum(
     clusters.ground.on_ground = body.riding();
     motion.state = body.motion;
     motion.depth_lane = body.depth_lane;
+    motion.route_memory = body.route_memory;
+    // Rebound pads are a world gate, like hazards — not follower collision.
+    // The axis arm drains the same lookup in its integration step.
+    if let Some(impulse) = touching_rebound_aabb(ctx.world, clusters.kinematics.aabb()) {
+        surface_momentum::apply_pad_impulse(
+            ctx.world,
+            &mut motion.state,
+            &mut clusters.kinematics.vel,
+            impulse,
+        );
+    }
     write_sweep_sample(clusters, sweep_entry);
 
     let mut events = FrameEvents {

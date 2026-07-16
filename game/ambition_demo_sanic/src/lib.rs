@@ -350,10 +350,15 @@ const SANIC_CATALOG_RON: &str = r#"(
             // loop), which is also what `ball_dash` requires to charge/launch.
             // Without this the body is axis-swept and ball dash is inert — the
             // demo would be an Ambition player wearing the name "Sanic".
+            // `stick_factor` is the sticky-sneakers knob: at the authored top
+            // speed the ramp crest's convex joints legitimately exceed the
+            // physical (1.5x) hold, and a launched runner cannot ride the
+            // loop. 4.0 keeps the flagship route attached at full speed.
             momentum: Some((
                 ground_accel: 900.0,
                 top_speed: 1200.0,
                 jump_speed: 700.0,
+                stick_factor: 4.0,
             )),
         ),
         "super_sanic": (
@@ -374,6 +379,7 @@ const SANIC_CATALOG_RON: &str = r#"(
                 ground_accel: 900.0,
                 top_speed: 1200.0,
                 jump_speed: 700.0,
+                stick_factor: 4.0,
             )),
         ),
     },

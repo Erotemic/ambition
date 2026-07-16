@@ -149,6 +149,10 @@ pub struct SurfaceMomentumMotion {
     pub state: SurfaceMotion,
     /// Simulated-depth lane retained through airborne crossover motion.
     pub depth_lane: i8,
+    /// The junction half-edge most recently taken (see
+    /// [`crate::RouteDeparture`]): keeps a held steering bias from re-opening
+    /// the lap it just closed at a loop mouth.
+    pub route_memory: Option<crate::RouteDeparture>,
 }
 
 impl SurfaceMomentumMotion {
@@ -160,6 +164,7 @@ impl SurfaceMomentumMotion {
             params,
             state: SurfaceMotion::Airborne,
             depth_lane: 0,
+            route_memory: None,
         }
     }
 }

@@ -1787,7 +1787,8 @@ fn two_equal_worlds_take_equal_snapshots() {
 fn restore_rewinds_the_movement_policy_and_its_private_state() {
     use ambition_engine_core::{
         AdhesiveCrawlerMotion, AxisManeuverState, AxisSweptMotion, CrawlerParams, CrawlerState,
-        MomentumParams, MotionModel, SurfaceMomentumMotion, SurfaceMotion, SurfaceRef,
+        MomentumParams, MotionModel, RouteDeparture, SurfaceMomentumMotion, SurfaceMotion,
+        SurfaceRef,
     };
 
     let reg = engine_registry();
@@ -1808,6 +1809,13 @@ fn restore_rewinds_the_movement_policy_and_its_private_state() {
                 params: momentum_params,
                 state: riding,
                 depth_lane: -1,
+                // Mid-lap at a loop mouth: the junction half-edge taken must
+                // rewind too, or a rollback re-offers the lap to a held bias.
+                route_memory: Some(RouteDeparture {
+                    chain: 2,
+                    vertex: 32,
+                    direction: -1,
+                }),
             }),
         ))
         .id();
@@ -1877,6 +1885,15 @@ fn restore_rewinds_the_movement_policy_and_its_private_state() {
     };
     assert_eq!(motion.state, riding, "ride surface/arc/speed rewound");
     assert_eq!(motion.depth_lane, -1, "depth lane rewound");
+    assert_eq!(
+        motion.route_memory,
+        Some(RouteDeparture {
+            chain: 2,
+            vertex: 32,
+            direction: -1,
+        }),
+        "junction departure memory rewound"
+    );
     assert_eq!(motion.params.top_speed, 1234.0, "authored params rewound");
 
     let restored = world.get::<MotionModel>(crawler).unwrap();

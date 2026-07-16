@@ -25,7 +25,10 @@
 //!   (`stick_factor · max(L, 0)`). Concave joints (loop interiors) always
 //!   follow — the surface can push.
 //! - **No pushout** (M10): all airborne motion is swept to TOI; landing snaps
-//!   only by the contact-range discipline; nothing teleports.
+//!   only by the contact-range discipline; nothing teleports. A deflected
+//!   body SLIDES its remaining tick along the surviving velocity (bounded
+//!   sub-sweeps) — dropping the remainder froze bodies against non-attachable
+//!   contacts while velocity kept integrating.
 //! - Chains are one-sided: a body approaching from the back side passes
 //!   through. A solid [`Block`](crate::world::Block) IS a surface too — its
 //!   exterior boundary is a closed rectangular chain
@@ -111,6 +114,26 @@ pub enum SurfaceRef {
     Block(usize),
 }
 
+/// The half-edge (route occurrence + travel direction) by which a rider last
+/// left an authored [`crate::world::SurfaceJunction`].
+///
+/// A junction whose ports are coincident occurrences of one point (a loop
+/// mouth) offers the SAME half-edge set on every visit. Without memory, a
+/// held steering bias re-selects the lap-opening half-edge on every pass and
+/// the rider orbits forever. Remembering the last departure lets the solver
+/// refuse to re-offer, to a biased rider, the exact half-edge it most
+/// recently left this junction by — "don't take the same door you just came
+/// through" — while the authored default continuation is never suppressed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RouteDeparture {
+    /// Index of the authored chain that owns the departed half-edge.
+    pub chain: usize,
+    /// The junction-port vertex the half-edge leaves from.
+    pub vertex: usize,
+    /// `+1` = increasing arc length, `-1` = decreasing.
+    pub direction: i8,
+}
+
 /// Where the body is relative to the world's surfaces.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SurfaceMotion {
@@ -135,13 +158,20 @@ pub struct SurfaceBody {
     pub radius: f32,
     /// Simulated-depth lane retained while airborne.
     ///
-    /// Lanes are discrete collision planes: a body collides only with authored
-    /// chain segments on the same lane. Route traversal may change lanes while
-    /// riding, and ordinary solid blocks remain depth-agnostic. Treating lane
-    /// `0` as a wildcard made a rider shed from the loop's center plane and
-    /// immediately snag on its foreground/background rails.
+    /// Lane `0` is the BASE PLANE: every airborne body collides with lane-0
+    /// segments regardless of its own lane, because every depth excursion
+    /// (a foreground rail, a background ramp) ultimately rejoins the base
+    /// world and a launched rider must be able to land back on it. Non-zero
+    /// lanes are strict: a body collides with a non-zero-lane segment only
+    /// when its own lane matches, so a rider shed from the base plane can
+    /// never snag on a coincident foreground/background rail. Route traversal
+    /// may change lanes while riding, and ordinary solid blocks remain
+    /// depth-agnostic.
     pub depth_lane: i8,
     pub motion: SurfaceMotion,
+    /// See [`RouteDeparture`]: the junction half-edge most recently taken,
+    /// consulted to keep a held steering bias from re-opening the same lap.
+    pub route_memory: Option<RouteDeparture>,
 }
 
 impl SurfaceBody {
@@ -153,6 +183,7 @@ impl SurfaceBody {
             radius,
             depth_lane: 0,
             motion: SurfaceMotion::Airborne,
+            route_memory: None,
         }
     }
 
@@ -265,8 +296,17 @@ fn step_riding(
     let gravity = motion_frame.acceleration();
     let run = inputs.local_axes.x.clamp(-1.0, 1.0);
     let (on, s) =
-        choose_route_branch_at_rest(world, on, s, v_t, motion_frame, inputs.local_axes.vec())
-            .unwrap_or((on, s));
+        match choose_route_branch_at_rest(world, on, s, v_t, motion_frame, inputs.local_axes.vec())
+        {
+            Some((rest_on, rest_s, taken)) => {
+                // A route chosen from rest is a departure like any other: record
+                // it so a held bias cannot re-open the same lap at the far
+                // occurrence of this junction.
+                body.route_memory = Some(taken);
+                (rest_on, rest_s)
+            }
+            None => (on, s),
+        };
     let Some(chain) = resolve_surface(world, on) else {
         body.motion = SurfaceMotion::Airborne;
         return;
@@ -331,11 +371,22 @@ fn step_riding(
     let slope_accel = gravity.dot(mid.tangent) * params.slope_factor;
     v_t += slope_accel * dt;
 
-    // 2) Straight-run stick rule at the CURRENT frame.
+    // 2) Straight-run stick rule at the CURRENT frame. A shed body finishes
+    // the tick ballistically — leaving it parked at the shed point while its
+    // velocity keeps integrating is how "frozen at full speed" pins begin.
     let press = gravity.dot(-frame.normal); // >0: gravity pushes body onto surface
     let press_threshold = 0.25 * gravity.length();
     if press < press_threshold && v_t.abs() < params.min_stick_speed {
         shed(body, chain, frame.tangent, v_t, dt);
+        step_airborne(
+            body,
+            world,
+            params,
+            motion_frame,
+            SurfaceInputs::default(),
+            dt,
+            contacts,
+        );
         return;
     }
 
@@ -350,6 +401,7 @@ fn step_riding(
         params,
         body.radius,
         inputs.local_axes.vec(),
+        &mut body.route_memory,
     ) {
         RideOutcome::Riding {
             on: new_on,
@@ -385,6 +437,7 @@ fn step_riding(
             on: launch_on,
             frame,
             v_t: launch_v_t,
+            consumed,
         } => {
             let Some(launch_chain) = resolve_surface(world, launch_on) else {
                 body.motion = SurfaceMotion::Airborne;
@@ -394,6 +447,23 @@ fn step_riding(
             body.pos = frame.point + frame.normal * body.radius;
             body.depth_lane = launch_chain.segment_depth(frame.segment);
             shed(body, launch_chain, frame.tangent, launch_v_t, dt);
+            // Finish the tick ballistically, exactly like the jump branch.
+            // Dropping the unspent time here parked a launched body AT the
+            // joint while its speed stayed intact; the next tick re-attached
+            // it at the same arc and launched again — an every-tick
+            // attach/shed limit cycle with the position pinned to the pixel.
+            let dt_left = dt * (1.0 - consumed).clamp(0.0, 1.0);
+            if dt_left > 0.0 {
+                step_airborne(
+                    body,
+                    world,
+                    params,
+                    motion_frame,
+                    SurfaceInputs::default(),
+                    dt_left,
+                    contacts,
+                );
+            }
         }
     }
 }
@@ -412,7 +482,7 @@ fn choose_route_branch_at_rest(
     v_t: f32,
     frame: MotionFrame,
     local_axis: Vec2,
-) -> Option<(SurfaceRef, f32)> {
+) -> Option<(SurfaceRef, f32, RouteDeparture)> {
     let SurfaceRef::Chain(chain_index) = on else {
         return None;
     };
@@ -473,7 +543,15 @@ fn choose_route_branch_at_rest(
     } else {
         selected.clamp(0.0, target.total_length())
     };
-    Some((branch.on, selected))
+    let SurfaceRef::Chain(branch_chain) = branch.on else {
+        return None;
+    };
+    let taken = RouteDeparture {
+        chain: branch_chain,
+        vertex: branch.vertex,
+        direction: if branch.direction >= 0.0 { 1 } else { -1 },
+    };
+    Some((branch.on, selected, taken))
 }
 
 /// Resolve the tangent/normal ambiguity of a body resting exactly on an
@@ -629,6 +707,10 @@ enum RideOutcome {
         on: SurfaceRef,
         frame: SurfaceFrame,
         v_t: f32,
+        /// Fraction of this tick's arc distance already walked before the
+        /// launch. The caller finishes the remaining `dt * (1 - consumed)`
+        /// ballistically so a launch never freezes the frame's motion.
+        consumed: f32,
     },
 }
 
@@ -697,7 +779,6 @@ fn route_junction_ports(
 struct RouteBranch {
     on: SurfaceRef,
     vertex: usize,
-    segment: usize,
     direction: f32,
     tangent: Vec2,
     /// Coarse direction of the route after the junction, sampled far enough
@@ -709,6 +790,10 @@ struct RouteBranch {
 const ROUTE_LOOKAHEAD: f32 = 128.0;
 const ROUTE_SWITCH_MARGIN: f32 = 0.07;
 const ROUTE_BIAS_DEADZONE: f32 = 0.25;
+
+/// Spatial slop within which two swept surfaces count as the SAME contact
+/// (coincident authored geometry differs by floating-point only).
+const SURFACE_TIE_SLOP: f32 = 0.5;
 
 /// Return the player's deliberate route-selection direction.
 ///
@@ -757,7 +842,6 @@ fn outgoing_route_branches(world: &World, port: ResolvedPort) -> Vec<RouteBranch
         out.push(RouteBranch {
             on: SurfaceRef::Chain(port.chain),
             vertex: port.vertex,
-            segment,
             direction: 1.0,
             tangent: chain.tangent(segment),
             heading: route_branch_heading(chain, port.vertex, 1.0),
@@ -769,7 +853,6 @@ fn outgoing_route_branches(world: &World, port: ResolvedPort) -> Vec<RouteBranch
         out.push(RouteBranch {
             on: SurfaceRef::Chain(port.chain),
             vertex: port.vertex,
-            segment,
             direction: -1.0,
             tangent: -chain.tangent(segment),
             heading: route_branch_heading(chain, port.vertex, -1.0),
@@ -786,6 +869,18 @@ fn outgoing_route_branches(world: &World, port: ResolvedPort) -> Vec<RouteBranch
 /// LOOKAHEAD rather than only the immediate tangent: two paths can be
 /// tangent-continuous at the switch while one rises and the other falls a few
 /// pixels later. Left/Right never changes topology; it remains locomotion.
+///
+/// Two structural exclusions keep a switch a ROUTE choice rather than a
+/// teleport-turn or an orbit:
+/// - A branch whose tangent opposes the incoming travel direction is a
+///   direction reversal, not a route. Reversing remains ordinary
+///   braking/input behavior on a later tick, never a switch side effect —
+///   this also covers the immediate U-turn over the segment just traversed.
+/// - A biased rider is never offered the half-edge it most recently LEFT this
+///   junction by (`last_departure`). At a loop mouth the lap-opening
+///   half-edge is exactly the one the rider departed on, so a held Up biases
+///   toward the rising lap on every pass and orbits forever without this.
+///   The authored default continuation is never suppressed.
 fn choose_route_branch(
     world: &World,
     on: SurfaceRef,
@@ -794,6 +889,7 @@ fn choose_route_branch(
     travel_sign: f32,
     frame: MotionFrame,
     local_axis: Vec2,
+    last_departure: Option<RouteDeparture>,
 ) -> Option<RouteBranch> {
     let SurfaceRef::Chain(current_chain) = on else {
         return None;
@@ -804,14 +900,8 @@ fn choose_route_branch(
     let mut candidates = Vec::new();
     for port in ports {
         for mut branch in outgoing_route_branches(world, port) {
-            // Never synthesize an immediate U-turn back over the segment just
-            // traversed. Reversing remains ordinary braking/input behavior on a
-            // later tick, not a route-switch side effect.
-            if branch.on == on
-                && branch.segment == incoming_segment
-                && branch.tangent.dot(incoming) < -0.999
-            {
-                continue;
+            if branch.tangent.dot(incoming) < -1.0e-3 {
+                continue; // a reversal is not a route (see the doc above)
             }
             branch.is_default = port.chain == current_chain
                 && port.vertex == current_vertex
@@ -838,11 +928,19 @@ fn choose_route_branch(
     let Some(desired) = route_bias_direction(frame, local_axis) else {
         return Some(default);
     };
+    let departed = |branch: &RouteBranch| {
+        last_departure.is_some_and(|last| {
+            matches!(branch.on, SurfaceRef::Chain(chain) if chain == last.chain)
+                && branch.vertex == last.vertex
+                && branch.direction.signum() == f32::from(last.direction).signum()
+        })
+    };
     let branch_bias = |branch: RouteBranch| branch.heading.dot(desired);
     let default_score = branch_bias(default);
     let (best_score, best) = candidates
         .iter()
         .copied()
+        .filter(|branch| branch.is_default || !departed(branch))
         .map(|branch| (branch_bias(branch), branch))
         .max_by(|(a, _), (b, _)| a.total_cmp(b))?;
 
@@ -856,6 +954,9 @@ fn choose_route_branch(
 /// Walk `ds` of arc from `s`, applying the joint rule at every segment join
 /// crossed. An authored route switch may move the rider to another chain while
 /// preserving signed speed and the unspent distance from this tick.
+/// `route_memory` records the junction half-edge actually taken (switch or
+/// default), which [`choose_route_branch`] consults on later arrivals.
+#[allow(clippy::too_many_arguments)]
 fn advance_riding(
     world: &World,
     mut on: SurfaceRef,
@@ -866,11 +967,21 @@ fn advance_riding(
     params: &MomentumParams,
     radius: f32,
     local_axis: Vec2,
+    route_memory: &mut Option<RouteDeparture>,
 ) -> RideOutcome {
     let gravity = motion_frame.acceleration();
     let mut current = s;
     let mut remaining = ds;
     let mut routed_v_t = v_t;
+    let total_ds = ds.abs();
+    // Fraction of this tick's arc already walked when `leftover` remains.
+    let consumed_at = |leftover: f32| {
+        if total_ds > 1.0e-9 {
+            (1.0 - leftover.abs() / total_ds).clamp(0.0, 1.0)
+        } else {
+            1.0
+        }
+    };
     let max_hops = world
         .chains
         .iter()
@@ -903,10 +1014,16 @@ fn advance_riding(
         {
             let landed = current + remaining;
             if !chain.closed && (landed < 0.0 || landed > total) {
+                let overshoot = if landed > total {
+                    landed - total
+                } else {
+                    -landed
+                };
                 return RideOutcome::Launch {
                     on,
                     frame: departure_frame(chain, landed.clamp(0.0, total), frame.segment),
                     v_t: routed_v_t,
+                    consumed: consumed_at(overshoot),
                 };
             }
             return RideOutcome::Riding {
@@ -935,7 +1052,15 @@ fn advance_riding(
             travel_sign,
             motion_frame,
             local_axis,
+            *route_memory,
         ) {
+            if let SurfaceRef::Chain(branch_chain) = branch.on {
+                *route_memory = Some(RouteDeparture {
+                    chain: branch_chain,
+                    vertex: branch.vertex,
+                    direction: if branch.direction >= 0.0 { 1 } else { -1 },
+                });
+            }
             if !branch.is_default {
                 let Some(target) = resolve_surface(world, branch.on) else {
                     continue;
@@ -960,6 +1085,7 @@ fn advance_riding(
                 on,
                 frame: departure_frame(chain, at_join.clamp(0.0, total), frame.segment),
                 v_t: routed_v_t,
+                consumed: consumed_at(remaining),
             };
         }
         let entered = if remaining > 0.0 {
@@ -986,6 +1112,7 @@ fn advance_riding(
                     on,
                     frame: departure_frame(chain, current, frame.segment),
                     v_t: routed_v_t,
+                    consumed: consumed_at(remaining),
                 };
             }
         }
@@ -1046,95 +1173,112 @@ fn step_airborne(
         body.vel += (new_along - along) * side;
     }
 
-    let delta = body.vel * dt;
-    match first_circle_hit(world, body.pos, body.radius, body.depth_lane, delta) {
-        Some(hit) => {
-            body.pos += delta * hit.toi;
-            let mut report_contact = true;
-            // Landing is load-bearing: attach only to a surface gravity
-            // presses the body onto (floors/up-slopes in the local gravity
-            // frame). Walls and ceilings hit from the air DEFLECT — riding
-            // them is reached by continuity, never by bonking.
-            let press = gravity.dot(-hit.normal);
-            if press > 0.0 {
-                let (on, hit_segment) = match hit.what {
-                    CircleHitTarget::Chain { chain, segment } => {
-                        (SurfaceRef::Chain(chain), Some(segment))
-                    }
-                    CircleHitTarget::Block { block } => (SurfaceRef::Block(block), None),
-                };
-                let surface = resolve_surface(world, on)
-                    .expect("first_circle_hit only reports live surfaces");
-                let surface = surface.as_ref();
-                // Preserve the segment reported by the sweep. A global nearest
-                // projection is ambiguous at a 2.5D crossover where two route
-                // occurrences share the same screen-space point; projecting
-                // globally can teleport the rider back to the other visit and
-                // make a reverse loop repeat forever.
-                let s = hit_segment.map_or_else(
-                    || surface.project(body.pos).0,
-                    |segment| project_to_segment(surface, segment, body.pos),
-                );
-                let f = surface.frame_at(s);
-                let rel = body.vel - per_frame_to_per_sec(surface.velocity, dt);
-                let v_t = rel.dot(f.tangent);
-                if leaving_an_open_end(surface, s, v_t) {
-                    // The sweep touched only the endpoint of a chain the body is
-                    // already leaving. This is not a collision: consume the
-                    // remaining ballistic displacement instead of dropping the
-                    // frame remainder at TOI=0. Merely declining to attach leaves
-                    // the circle at the lip, where the same endpoint is reported
-                    // forever on subsequent frames.
-                    body.pos += delta * (1.0 - hit.toi);
-                    report_contact = false;
-                } else {
-                    body.pos = f.point + f.normal * body.radius;
-                    body.depth_lane = surface.segment_depth(f.segment);
-                    body.motion = SurfaceMotion::Riding { on, s, v_t };
-                    body.vel = v_t * f.tangent + per_frame_to_per_sec(surface.velocity, dt);
+    // Swept flight with bounded deflect-and-slide. A deflected body finishes
+    // its tick sliding along the surviving velocity: dropping the remainder
+    // at a TOI≈0 contact froze the position while velocity kept integrating —
+    // the visible "stuck on an edge, then unstuck at full speed".
+    let mut time_left = dt;
+    for _ in 0..3 {
+        let delta = body.vel * time_left;
+        if delta.length_squared() <= 1.0e-12 {
+            break;
+        }
+        let Some(hit) = first_circle_hit(world, body.pos, body.radius, body.depth_lane, delta)
+        else {
+            body.pos += delta;
+            break;
+        };
+        body.pos += delta * hit.toi;
+        time_left *= 1.0 - hit.toi;
+        // Landing is load-bearing: attach only to a surface FACE gravity
+        // presses the body onto (floors/up-slopes in the local gravity
+        // frame). Walls and ceilings hit from the air DEFLECT — riding them
+        // is reached by continuity, never by bonking. An endpoint CAP is not
+        // a rideable face either: its contact normal is radial, so deflecting
+        // on it makes the body pivot around a departed corner instead of
+        // re-attaching to the face it just launched from.
+        let press = gravity.dot(-hit.contact_normal);
+        let press_threshold = 0.25 * gravity.length();
+        if hit.face && press > 0.0 {
+            let (on, hit_segment) = match hit.what {
+                CircleHitTarget::Chain { chain, segment } => {
+                    (SurfaceRef::Chain(chain), Some(segment))
                 }
-            } else {
-                // Deflect: kill the into-surface velocity component; the
-                // remainder of this frame's motion is dropped (one swept
-                // TOI per frame, never a pushout).
-                let n = hit.normal;
-                let into = body.vel.dot(-n).max(0.0);
-                body.vel += into * n;
+                CircleHitTarget::Block { block } => (SurfaceRef::Block(block), None),
+            };
+            let surface =
+                resolve_surface(world, on).expect("first_circle_hit only reports live surfaces");
+            let surface = surface.as_ref();
+            // Preserve the segment reported by the sweep. A global nearest
+            // projection is ambiguous at a 2.5D crossover where two route
+            // occurrences share the same screen-space point; projecting
+            // globally can teleport the rider back to the other visit and
+            // make a reverse loop repeat forever.
+            let s = hit_segment.map_or_else(
+                || surface.project(body.pos).0,
+                |segment| project_to_segment(surface, segment, body.pos),
+            );
+            let f = surface.frame_at(s);
+            let rel = body.vel - per_frame_to_per_sec(surface.velocity, dt);
+            let v_t = rel.dot(f.tangent);
+            if leaving_an_open_end(surface, s, v_t) {
+                // The sweep touched only the very end of a chain the body is
+                // already leaving. This is not a collision: consume the
+                // remaining ballistic displacement instead of re-sweeping into
+                // the same lip contact (which would stall the tick there).
+                body.pos += body.vel * time_left;
+                break;
             }
-            if report_contact {
+            // Landing obeys the SAME stick rule as riding: a wall-like face
+            // the straight-run rule would shed on contact is not a landing.
+            // Attaching there anyway contradicted the shed one tick later and
+            // the pair flapped attach/shed at every steep-surface touch.
+            if press >= press_threshold || v_t.abs() >= params.min_stick_speed {
+                body.pos = f.point + f.normal * body.radius;
+                body.depth_lane = surface.segment_depth(f.segment);
+                body.motion = SurfaceMotion::Riding { on, s, v_t };
+                body.vel = v_t * f.tangent + per_frame_to_per_sec(surface.velocity, dt);
                 if let Some(sink) = contacts.as_deref_mut() {
-                    // Landing (now Riding) is a support contact by construction;
-                    // a deflect classifies frame-relatively (this solver has no
-                    // structural wall pass).
-                    let kind = if body.riding() {
-                        crate::collision_semantics::ContactKind::Support
-                    } else {
-                        crate::collision_semantics::classify_contact_normal(
-                            hit.normal,
-                            frame.down(),
-                        )
-                    };
+                    // Landing (now Riding) is a support contact by construction.
                     sink.push(Contact {
-                        kind,
-                        point: body.pos - hit.normal * body.radius,
-                        normal: hit.normal,
+                        kind: crate::collision_semantics::ContactKind::Support,
+                        point: body.pos - hit.contact_normal * body.radius,
+                        normal: hit.contact_normal,
                         toi: hit.toi,
                         surface_velocity: hit.surface_velocity,
                         source: hit.source,
                     });
                 }
+                break;
             }
         }
-        None => {
-            body.pos += delta;
+        // Deflect on the true contact normal, then slide the remaining time.
+        let n = hit.contact_normal;
+        let into = body.vel.dot(-n).max(0.0);
+        body.vel += into * n;
+        if let Some(sink) = contacts.as_deref_mut() {
+            // A deflect classifies frame-relatively (this solver has no
+            // structural wall pass).
+            sink.push(Contact {
+                kind: crate::collision_semantics::classify_contact_normal(n, frame.down()),
+                point: body.pos - n * body.radius,
+                normal: n,
+                toi: hit.toi,
+                surface_velocity: hit.surface_velocity,
+                source: hit.source,
+            });
         }
     }
 }
 
 struct CircleHit {
     toi: f32,
-    /// Surface outward normal (toward the body).
-    normal: Vec2,
+    /// True contact normal at impact: the face's outward normal for face
+    /// contacts, radial (center minus endpoint) for endpoint-cap contacts.
+    contact_normal: Vec2,
+    /// Whether the impact lies on the segment's interior span. Only face
+    /// contacts are rideable; caps deflect.
+    face: bool,
     surface_velocity: Vec2,
     source: ContactSource,
     what: CircleHitTarget,
@@ -1143,6 +1287,55 @@ struct CircleHit {
 enum CircleHitTarget {
     Chain { chain: usize, segment: usize },
     Block { block: usize },
+}
+
+/// True contact normal and face/cap classification for a circle centered at
+/// `center_at_impact` touching segment `(a, b)` with face normal `n`, while
+/// moving along `delta`.
+///
+/// A contact whose impact center projects inside the segment span touches the
+/// FACE (normal = the face normal). Beyond either end the circle touches the
+/// endpoint CAP: the normal is radial, and the contact is not a rideable
+/// surface — a launched body pivots around a cap instead of re-attaching to
+/// the face it departed. A contact exactly AT a vertex is classified by
+/// motion: entering the span is a landing on the face, leaving it is the
+/// departed corner's cap.
+fn contact_geometry(
+    center_at_impact: Vec2,
+    a: Vec2,
+    b: Vec2,
+    n: Vec2,
+    delta: Vec2,
+) -> (Vec2, bool) {
+    let ab = b - a;
+    let len_sq = ab.length_squared();
+    let t = if len_sq > 0.0 {
+        (center_at_impact - a).dot(ab) / len_sq
+    } else {
+        0.0
+    };
+    let along = delta.dot(ab);
+    let face = if t > 0.0 && t < 1.0 {
+        true
+    } else if t <= 0.0 {
+        // At the exact vertex, motion decides: entering (or purely radial)
+        // contact is a landing on the face; leaving is the departed corner's
+        // cap. A strict inequality here classified a dead-vertical drop onto
+        // a vertex as a cap and left it hovering on the deflect path.
+        t >= -1.0e-6 && along >= 0.0
+    } else {
+        t <= 1.0 + 1.0e-6 && along <= 0.0
+    };
+    if face {
+        return (n, true);
+    }
+    let cap = if t < 0.5 { a } else { b };
+    let radial = center_at_impact - cap;
+    if radial.length_squared() > 1.0e-9 {
+        (radial.normalize(), false)
+    } else {
+        (n, false)
+    }
 }
 
 fn project_to_segment(chain: &SurfaceChain, segment: usize, point: Vec2) -> f32 {
@@ -1168,17 +1361,26 @@ fn project_to_segment(chain: &SurfaceChain, segment: usize, point: Vec2) -> f32 
     }
 }
 
+/// Lane `0` is the base plane every airborne body can land on; non-zero lanes
+/// collide only with bodies whose lane matches (see
+/// [`SurfaceBody::depth_lane`]). Strict matching on the base plane stranded
+/// every rider that launched from a foreground/background excursion: the
+/// lane-0 floor route was invisible to it, and only the depth-agnostic solid
+/// block underneath could catch it — off the junction network.
 fn depth_lanes_collide(body_lane: i8, surface_lane: i8) -> bool {
-    body_lane == surface_lane
+    surface_lane == 0 || body_lane == surface_lane
 }
 
 /// Ignore a numerically immediate, nearly tangent chain contact.
 ///
-/// A circle released from a polygonal track joint is exactly tangent to the
-/// departure segment and may overlap the neighboring segment by a few
-/// hundredths of a pixel. Parry reports that as a TOI-zero hit. Reattaching on
-/// that hit creates the visible "caught on the rail" limit cycle. Genuine
-/// landings have either meaningful separation before impact or a substantial
+/// A circle released from a polygonal track joint is EXACTLY tangent to the
+/// departure segment (penetration zero, not merely small) and may overlap the
+/// neighboring segment by a few hundredths of a pixel. Parry reports either
+/// as a TOI-zero hit. Reattaching on that hit creates the visible "caught on
+/// the rail" limit cycle: the launch parks the body at the joint, the
+/// recapture re-attaches it at the same arc, and the pair repeat every tick
+/// with the position frozen at full reported speed. Genuine landings have
+/// either meaningful separation before impact (a real TOI) or a substantial
 /// into-surface component, so they remain collision candidates.
 fn grazing_chain_contact_at_release(
     center: Vec2,
@@ -1202,12 +1404,19 @@ fn grazing_chain_contact_at_release(
     let signed_distance = (center - segment_start).dot(normal);
     let penetration = radius - signed_distance;
     let inward_distance = (-delta.dot(normal)).max(0.0);
-    penetration > 0.0
-        && penetration <= CONTACT_SLOP
-        && inward_distance <= travel * MAX_NORMAL_FRACTION
+    // No positive-penetration requirement: the release case IS exact
+    // tangency. A separated approach cannot produce a TOI-zero hit, so the
+    // upper slop bound alone distinguishes release artifacts from landings.
+    penetration <= CONTACT_SLOP && inward_distance <= travel * MAX_NORMAL_FRACTION
 }
 
 /// Earliest swept-circle hit against chains (one-sided) and solid blocks.
+///
+/// Ties are not neutral: an authored chain is the ROUTE authority (junction
+/// steering only exists there), so when a chain and a block face are the same
+/// contact within [`SURFACE_TIE_SLOP`] of travel, the chain wins. Among
+/// chains, an exact-lane segment beats a base-plane segment on the same tie —
+/// specific over generic, both ways.
 fn first_circle_hit(
     world: &World,
     center: Vec2,
@@ -1227,13 +1436,17 @@ fn first_circle_hit(
     };
     let pose = Pose::translation(center.x, center.y);
     let vel = Vector::new(delta.x, delta.y);
-    let mut best: Option<CircleHit> = None;
+    // Two surfaces reached within half a pixel of each other along this
+    // frame's travel are the SAME contact, expressed in TOI units.
+    let tie_toi = SURFACE_TIE_SLOP / delta.length().max(1.0e-6);
+    let mut best: Option<(CircleHit, i8)> = None;
 
     // Chains: one-sided segments — land only when approaching the rideable
     // (+normal) side and moving into the surface.
     for (ci, chain) in world.chains.iter().enumerate() {
         for i in 0..chain.segment_count() {
-            if !depth_lanes_collide(depth_lane, chain.segment_depth(i)) {
+            let lane = chain.segment_depth(i);
+            if !depth_lanes_collide(depth_lane, lane) {
                 continue;
             }
             let (a, b) = chain.segment(i);
@@ -1260,23 +1473,46 @@ fn first_circle_hit(
             if grazing_chain_contact_at_release(center, radius, a, n, delta, toi) {
                 continue;
             }
-            if best.as_ref().is_none_or(|b| toi < b.toi) {
-                best = Some(CircleHit {
-                    toi,
-                    normal: n,
-                    surface_velocity: chain.velocity,
-                    source: ContactSource::Chain {
-                        chain: ci as u32,
-                        segment: i as u32,
+            let (contact_normal, face) = contact_geometry(center + delta * toi, a, b, n, delta);
+            if delta.dot(contact_normal) >= 0.0 {
+                // Separating along the TRUE contact normal: a cap graze parry
+                // still reports as touching is not a collision. (The face
+                // normal pre-filter cannot see this — at an endpoint cap the
+                // radial normal differs from the face normal.)
+                continue;
+            }
+            let replace = match &best {
+                None => true,
+                Some((current, current_lane)) => {
+                    toi < current.toi - tie_toi
+                        || (toi <= current.toi + tie_toi
+                            && lane == depth_lane
+                            && *current_lane != depth_lane)
+                }
+            };
+            if replace {
+                best = Some((
+                    CircleHit {
+                        toi,
+                        contact_normal,
+                        face,
+                        surface_velocity: chain.velocity,
+                        source: ContactSource::Chain {
+                            chain: ci as u32,
+                            segment: i as u32,
+                        },
+                        what: CircleHitTarget::Chain {
+                            chain: ci,
+                            segment: i,
+                        },
                     },
-                    what: CircleHitTarget::Chain {
-                        chain: ci,
-                        segment: i,
-                    },
-                });
+                    lane,
+                ));
             }
         }
     }
+    let best_chain = best.map(|(hit, _)| hit);
+    let mut best_block: Option<CircleHit> = None;
 
     // Solid blocks: their exterior boundaries are surfaces, swept exactly
     // like chain segments (per-face, one-sided from outside). A convex AABB
@@ -1333,10 +1569,15 @@ fn first_circle_hit(
             if buried {
                 continue;
             }
-            if best.as_ref().is_none_or(|b| toi < b.toi) {
-                best = Some(CircleHit {
+            if best_block.as_ref().is_none_or(|b| toi < b.toi) {
+                let (contact_normal, face) = contact_geometry(center_at_impact, a, b, n, delta);
+                if delta.dot(contact_normal) >= 0.0 {
+                    continue; // separating cap graze — not a collision
+                }
+                best_block = Some(CircleHit {
                     toi,
-                    normal: n,
+                    contact_normal,
+                    face,
                     surface_velocity: block.velocity,
                     source: ContactSource::Block {
                         kind: block.kind,
@@ -1347,7 +1588,20 @@ fn first_circle_hit(
             }
         }
     }
-    best
+    match (best_chain, best_block) {
+        (Some(chain_hit), Some(block_hit)) => {
+            // The block face wins only when it is genuinely earlier — never
+            // on the floating-point tie a chain authored over the same
+            // geometry produces (a guide chain and its floor block are ONE
+            // surface; the routable one is the authority).
+            if block_hit.toi < chain_hit.toi - tie_toi {
+                Some(block_hit)
+            } else {
+                Some(chain_hit)
+            }
+        }
+        (chain_hit, block_hit) => chain_hit.or(block_hit),
+    }
 }
 
 fn approach(value: f32, target: f32, delta: f32) -> f32 {
@@ -1355,6 +1609,45 @@ fn approach(value: f32, target: f32, delta: f32) -> f32 {
         (value + delta).min(target)
     } else {
         (value - delta).max(target)
+    }
+}
+
+/// Apply a world rebound-pad impulse to a surface-momentum body (the
+/// gameplay-layer world gate the kernel arm drains, mirroring the axis arm's
+/// `touching_rebound_aabb` consumption).
+///
+/// A RIDING body treats the pad as a SPEED BOOSTER: the impulse projects onto
+/// the local tangent and replaces `v_t` when that makes the body faster —
+/// the ride is not broken, because a surface rider's speed lives in the
+/// tangent, and launching it airborne would just hand the momentum back to
+/// gravity. An AIRBORNE body takes the impulse as its velocity, exactly like
+/// the axis-swept arm. Application is idempotent while overlapping the pad
+/// (set, never add), so no cooldown state is needed.
+pub(crate) fn apply_pad_impulse(
+    world: &World,
+    state: &mut SurfaceMotion,
+    vel: &mut Vec2,
+    impulse: Vec2,
+) {
+    match *state {
+        SurfaceMotion::Riding { on, s, v_t } => {
+            let Some(chain) = resolve_surface(world, on) else {
+                return;
+            };
+            let frame = chain.as_ref().frame_at(s);
+            let boosted = impulse.dot(frame.tangent);
+            if boosted.abs() > v_t.abs() {
+                *state = SurfaceMotion::Riding {
+                    on,
+                    s,
+                    v_t: boosted,
+                };
+                *vel = boosted * frame.tangent;
+            }
+        }
+        SurfaceMotion::Airborne => {
+            *vel = impulse;
+        }
     }
 }
 

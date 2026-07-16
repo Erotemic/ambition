@@ -39,7 +39,7 @@ pub(crate) mod surface_momentum;
 mod tuning;
 
 pub use adhesive_crawler::{AdhesiveCrawlerMotion, CrawlAttachment, CrawlerParams, CrawlerState};
-pub use surface_momentum::{MomentumParams, SurfaceMotion, SurfaceRef};
+pub use surface_momentum::{MomentumParams, RouteDeparture, SurfaceMotion, SurfaceRef};
 
 pub use abilities::resolve_shield;
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
@@ -48,7 +48,7 @@ pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters}
 pub use authority::{
     carry_body, constrain_body_pose, reconcile_transit, transit_body, TransitVelocity,
 };
-pub use collision::touching_hazard_aabb;
+pub use collision::{touching_hazard_aabb, touching_rebound_aabb};
 pub use events::{BlinkEvent, FrameEvents};
 pub use facts::{BodyMotionFacts, LedgeFacts};
 pub use input::InputState;

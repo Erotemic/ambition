@@ -325,12 +325,8 @@ mod tests {
     #[test]
     fn alias_precedence_follows_provider_registration_order() {
         let mut catalog = DialogueVoiceCatalog::default();
-        catalog
-            .register_voiceprint(ALPHA, &[], &["bob"])
-            .unwrap();
-        catalog
-            .register_voiceprint(BETA, &[], &["tech"])
-            .unwrap();
+        catalog.register_voiceprint(ALPHA, &[], &["bob"]).unwrap();
+        catalog.register_voiceprint(BETA, &[], &["tech"]).unwrap();
 
         assert_eq!(catalog.resolve("Bob Tech", ""), Some(ALPHA));
     }
@@ -338,26 +334,14 @@ mod tests {
     #[test]
     fn unknown_and_styled_speech_use_generic_variants() {
         let mut catalog = DialogueVoiceCatalog::default();
-        catalog
-            .register_voiceprint(ALPHA, &["alpha"], &[])
-            .unwrap();
+        catalog.register_voiceprint(ALPHA, &["alpha"], &[]).unwrap();
 
         assert_eq!(
-            talk_blip_id_for_speaker(
-                Some(&catalog),
-                "Mystery",
-                "",
-                DialogSpeechStyle::Normal,
-            ),
+            talk_blip_id_for_speaker(Some(&catalog), "Mystery", "", DialogSpeechStyle::Normal,),
             ids::DIALOGUE_BLIP_GENERIC,
         );
         assert_eq!(
-            talk_blip_id_for_speaker(
-                Some(&catalog),
-                "alpha",
-                "",
-                DialogSpeechStyle::Whisper,
-            ),
+            talk_blip_id_for_speaker(Some(&catalog), "alpha", "", DialogSpeechStyle::Whisper,),
             ids::DIALOGUE_BLIP_WHISPER_GENERIC,
         );
         assert_eq!(

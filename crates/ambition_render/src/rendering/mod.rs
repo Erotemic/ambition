@@ -41,12 +41,12 @@ pub mod mark_beacon;
 pub mod morph_ball;
 mod nameplates;
 mod parallax;
-mod wielded_item_visuals;
 mod primitives;
 pub mod projectile_visuals;
 pub(crate) mod sheet_atlas;
 pub mod shrine_visuals;
 pub(crate) mod slash_visuals;
+mod wielded_item_visuals;
 mod world;
 
 pub use actors::{

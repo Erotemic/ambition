@@ -43,9 +43,7 @@ mod bridge;
 pub use content::DialogChoice;
 pub use context::{DialogueContext, DialogueNodeIndex, SELF_NODE_SUFFIX};
 pub use runtime::{DialogChoiceSlot, DialogState};
-pub use speech_sfx::{
-    DialogueVoiceCatalog, DialogueVoiceCatalogAppExt, DialogueVoiceCatalogError,
-};
+pub use speech_sfx::{DialogueVoiceCatalog, DialogueVoiceCatalogAppExt, DialogueVoiceCatalogError};
 pub use systems::{dialog_input, dialog_pointer_input, dialog_reveal_tick};
 
 #[cfg(feature = "ui")]

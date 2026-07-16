@@ -40,9 +40,7 @@ impl WieldedItemVisualSpec {
         if !self.grip_px.is_finite() {
             return Err("grip_px must be finite");
         }
-        if !self.width_per_wielder_height.is_finite()
-            || self.width_per_wielder_height <= 0.0
-        {
+        if !self.width_per_wielder_height.is_finite() || self.width_per_wielder_height <= 0.0 {
             return Err("width_per_wielder_height must be finite and positive");
         }
         if !self.z_bias.is_finite() {
@@ -67,7 +65,10 @@ impl WieldedItemVisualCatalog {
     }
 
     fn register(&mut self, item_id: String, spec: WieldedItemVisualSpec) {
-        assert!(!item_id.trim().is_empty(), "wielded-item visual id is empty");
+        assert!(
+            !item_id.trim().is_empty(),
+            "wielded-item visual id is empty"
+        );
         spec.validate()
             .unwrap_or_else(|message| panic!("invalid wielded-item visual {item_id:?}: {message}"));
         if let Some(existing) = self.specs.get(&item_id) {

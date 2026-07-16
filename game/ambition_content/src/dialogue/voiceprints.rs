@@ -74,11 +74,7 @@ const VOICEPRINTS: &[VoiceprintDef] = &[
     },
     VoiceprintDef {
         cue: GOBLIN_CHIEFTAIN,
-        exact: &[
-            "goblin_chieftain",
-            "fretjaw",
-            "fretjaw_cantina_chieftain",
-        ],
+        exact: &["goblin_chieftain", "fretjaw", "fretjaw_cantina_chieftain"],
         aliases: &["goblin", "chieftain", "fretjaw"],
     },
     VoiceprintDef {
@@ -178,11 +174,7 @@ const VOICEPRINTS: &[VoiceprintDef] = &[
 
 pub(super) fn register(app: &mut App) {
     for voiceprint in VOICEPRINTS {
-        app.register_dialogue_voiceprint(
-            voiceprint.cue,
-            voiceprint.exact,
-            voiceprint.aliases,
-        );
+        app.register_dialogue_voiceprint(voiceprint.cue, voiceprint.exact, voiceprint.aliases);
     }
 }
 

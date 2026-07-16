@@ -58,10 +58,10 @@ same slot/control seam as local and replay input.
 ### N3 — rollback
 
 Rollback depends on exact reconstruction, not merely serializing many components.
-The same-room/session-ownership slice of N3.2 is landed; the active work is the
-atomic active-room transaction below. A future rollback driver should consume the
-snapshot/session and simulation-harness surfaces, not create a second runtime
-assembly.
+Both N3.2 slices are landed: the same-room/session-ownership slice and the atomic
+active-room transaction (a rollback window may span a room transition). A future
+rollback driver should consume the snapshot/session and simulation-harness
+surfaces, not create a second runtime assembly.
 
 ## N3.1 — snapshot substrate
 
@@ -118,27 +118,62 @@ For supported snapshots that remain in the active room, the `desync_canary`
 restore/replay oracle proves bounded resimulation equality with moving-platform
 state included in the hash.
 
-### N3.2b — open atomic active-room transaction
+### N3.2b — atomic active-room transaction (landed 2026-07-16)
 
-Restore still refuses a snapshot whose active room differs from the live room.
-This is the remaining exact-reconstruction boundary, not older N3.1 substrate
-debt.
+The active room is restored sim state. When a snapshot's room differs from the
+live one, `restore` STAGES the snapshot's room before reconciling, through
+`RoomStaging` (`ambition_actors::world::rooms`) — the same canonical
+construction a room transition runs: the room-scoped entity sweep, the
+active-spec/`RoomGeometry` swap, the moving-platform rebuild, and the
+App-installed placement-lowering registry. Staging deliberately performs NO
+arrival/clock/cooldown resets — the snapshot blobs applied afterwards are the
+authority for everything registered.
 
-The transaction must:
+How each required property is met:
 
-1. preflight provider/world/room identity and every required codec before
-   mutation;
-2. stage the snapshot room through canonical room loading and the App-installed
-   placement-lowering registry;
-3. rebuild room-scoped entities and mechanically significant derived state;
-4. apply registered snapshot state only after staging can succeed;
-5. leave the existing live room/session unchanged on refusal; and
-6. prove cross-room rewind/replay equality using canonical identity and state,
-   not raw Bevy entity allocation.
+1. **Preflight before mutation.** `RoomStaging::prepare` is mutation-free (it
+   resolves the target room and clones every construction service); it runs
+   with the other preflights (snapshot well-formedness, identity uniqueness,
+   dynamic-reconstruction, standalone codec probes) before `apply`. Every
+   refusal — `RoomNotStageable` (unknown room / missing service),
+   `CrossRoomBoundary` (room-presence mismatch), `MalformedSnapshot`,
+   `UnsupportedDynamicReconstruction`, standalone `DecodeFailed` — leaves the
+   live room untouched (gated by
+   `an_unstageable_room_refuses_with_the_world_untouched`).
+2. **Canonical construction.** Staging shares `spawn_room_feature_entities_with_registry`,
+   `moving_platforms_for_room`/`spawn_moving_platforms`, and the physics
+   retirement path with session setup, transition, and sandbox reset. The
+   staged bodies then receive identity through the SAME `ensure_sim_id` pass
+   the sim runs — executed synchronously by `restore`, never a restore-only
+   recipe.
+3. **Reconciliation against the right `RoomSpec`.** After staging, survivors
+   patch, the target room's authored entities rebuild + patch, and identities
+   the snapshot never knew (including staged-but-then-dead ones) despawn.
+   `RestoreReport::staged_room` names the staged room.
+4. **Cross-room rewind/replay equality.** `portal_lab` — whose 60-tick window
+   spans a room transition — is in the desync canary's `CLEAN` roster: restore
+   reproduces the registered hash bit for bit, a re-taken snapshot equals the
+   restored one, and the replayed future matches the abandoned one. The DIRTY
+   ledger emptied and was deleted.
 
-Closing this boundary promotes the portal/boss cross-room replay customers from
-`DIRTY` to `CLEAN` and makes a rollback driver a pure consumer of the snapshot
-surface.
+Two enabling invariants landed with it, found by the gate:
+
+- **Identity is synchronous with the tick that spawns a body.** The
+  `ensure_sim_id`/`mint_spawned_sim_ids` pair runs at the sim head AND after
+  the last in-tick spawner, so a boundary snapshot never captures an authored
+  body without identity.
+- **Read-model syncs own no reset.** `sync_moving_platform` carried a
+  `Local`-cached room-change reset that clobbered restored platform state with
+  authored starts; platform state is now installed exclusively by construction
+  (session setup, transition, reset, hot-reload, staging), and the sync is a
+  pure resource→visual mirror.
+
+Remaining honest boundaries, unchanged in kind: a snapshot holding a
+dynamically-spawned entity that will not survive into reconciliation (for a
+staged restore this includes room-scoped `spawned(..)` entities — a projectile
+in flight at the snapshot tick) refuses with
+`UnsupportedDynamicReconstruction` until spawn recipes land; a room-presence
+mismatch refuses as `CrossRoomBoundary`; restores never span sessions.
 
 ## Identity and ordering rules
 

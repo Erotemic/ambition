@@ -10,12 +10,14 @@
 use ambition_engine_core as ae;
 
 mod load;
+mod stage;
 mod systems;
 #[cfg(test)]
 mod tests;
 
 pub use ambition_world::rooms::*;
 pub use load::{load_room_geometry, RoomLoadResult};
+pub use stage::{RoomStaging, RoomStagingError};
 pub use systems::{
     detect_room_transition_system, sync_active_room_metadata, sync_room_music_request,
     tick_portal_phases_system,

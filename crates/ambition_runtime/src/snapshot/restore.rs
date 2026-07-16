@@ -232,28 +232,50 @@ pub fn restore(
     snapshot: &SimSnapshot,
     registry: &SnapshotRegistry,
 ) -> Result<RestoreReport, RestoreError> {
-    // **Room-transition boundary (audit item 2 / reviewer), checked BEFORE any entity
-    // is touched.** The active room is not yet restored sim state, so a snapshot taken
-    // in one room cannot be reconciled against another: `respawn_from_the_room` would
-    // consult the wrong `RoomSpec`. Refuse rather than partially restore — restoring
-    // only `RoomSet.active` + geometry, but not the room-scoped entities/platforms/
-    // clocks a transition rebuilds, would leave a world more inconsistent than this
-    // clean refusal. The full atomic room transaction is the bounded-window work.
+    // **The active room is restored sim state (netcode.md N3.2b).** A snapshot taken
+    // in another room is not refused: the snapshot's room is STAGED — through the same
+    // canonical construction a room transition runs (`RoomStaging`: the scoped-entity
+    // sweep, active-spec/geometry swap, moving-platform rebuild, and the App-installed
+    // placement lowering) — and only then are the registered blobs reconciled, so
+    // `respawn_from_the_room` consults the RIGHT `RoomSpec` and the room-scoped entity
+    // set is the snapshot's.
+    //
+    // Transactionality: `RoomStaging::prepare` is mutation-free (it resolves the room
+    // and clones every construction service, refusing with the world untouched), and
+    // `apply` runs only after EVERY other preflight below has passed — so any refusal
+    // this function returns leaves the live room exactly as it was.
     //
     // The two `Option<String>` are compared WHOLE (re-audit finding 5): a snapshot with a
-    // room restored into a world with none — or vice versa — is a state mismatch as surely
-    // as two different ids, and the old both-`Some` guard let it through. `None == None`
-    // (a headless fixture with no `RoomSet`) is not a mismatch and does not refuse.
+    // room restored into a world with none — or vice versa — is a session-shape mismatch
+    // no staging can bridge, and remains the `CrossRoomBoundary` refusal. `None == None`
+    // (a headless fixture with no `RoomSet`) needs no staging.
     let active_room = ambition_platformer_primitives::lifecycle::session_world_component::<
         ambition_world::rooms::RoomSet,
     >(world)
     .map(|rs| rs.active_spec().id.clone());
-    if snapshot.active_room != active_room {
-        return Err(RestoreError::CrossRoomBoundary {
-            snapshot_room: snapshot.active_room.clone(),
-            active_room,
-        });
-    }
+    let staging = match (&snapshot.active_room, &active_room) {
+        (snapshot_room, live_room) if snapshot_room == live_room => None,
+        (Some(snapshot_room), Some(_)) => {
+            match ambition_actors::world::rooms::RoomStaging::prepare(world, snapshot_room) {
+                Ok(staging) => Some(staging),
+                // The room names nothing the live session can build (a different
+                // prepared world), or a construction service is absent: refuse,
+                // world untouched.
+                Err(err) => {
+                    return Err(RestoreError::RoomNotStageable {
+                        room: snapshot_room.clone(),
+                        reason: err.to_string(),
+                    })
+                }
+            }
+        }
+        _ => {
+            return Err(RestoreError::CrossRoomBoundary {
+                snapshot_room: snapshot.active_room.clone(),
+                active_room,
+            })
+        }
+    };
 
     // **Identity invariant (audit H2), enforced BEFORE any lookup map is built.**
     // A `SimId` carried by two live entities, or two snapshot rows, makes every by-id
@@ -277,11 +299,25 @@ pub fn restore(
     // and touches nothing, so a rejected snapshot leaves the world exactly as it was.
     validate_snapshot(snapshot, registry)?;
 
-    // Now the map is unambiguous: every id appears once, so no insert overwrites.
-    let mut live: std::collections::BTreeMap<String, Entity> = std::collections::BTreeMap::new();
-    if let Some(mut q) = world.try_query::<(Entity, &SimId)>() {
-        for (entity, id) in q.iter(world) {
-            live.insert(id.as_str().to_string(), entity);
+    // The survivor prediction for the preflights below. Same-room: every live
+    // identity survives into reconciliation. Staged: the sweep will despawn every
+    // `RoomScopedEntity`, so only the identities OUTSIDE room scope survive it —
+    // the player, the session-lifetime encounter authorities, and their kin.
+    // Mutation-free: reads only queries.
+    let mut survivors: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    if staging.is_some() {
+        if let Some(mut q) =
+            world.try_query_filtered::<&SimId, bevy::ecs::query::Without<
+                ambition_platformer_primitives::lifecycle::RoomScopedEntity,
+            >>()
+        {
+            for id in q.iter(world) {
+                survivors.insert(id.as_str().to_string());
+            }
+        }
+    } else if let Some(mut q) = world.try_query::<&SimId>() {
+        for id in q.iter(world) {
+            survivors.insert(id.as_str().to_string());
         }
     }
 
@@ -290,15 +326,18 @@ pub fn restore(
 
     // **Unsupported-dynamic-reconstruction preflight (re-audit finding 5), BEFORE any
     // mutation.** A `spawned(..)` id (the vocabulary appends `/<seq>`) that is in the
-    // snapshot but gone from the live world would have to be rebuilt from blobs alone — no
-    // room authors it and no spawn recipe exists, so the rebuild is not exact. Detecting it
-    // here, from the id string and the live map alone (no world mutation), lets restore
-    // refuse cleanly rather than after the despawn/rebuild loop has already half-reconciled
-    // the world. `respawn_from_the_room` only ever handles `placement:` ids, so this is
-    // exactly the set that used to reach the inline `None if contains('/')` branch — moved
-    // ahead of the first despawn.
+    // snapshot but will not survive into reconciliation would have to be rebuilt from
+    // blobs alone — no room authors it and no spawn recipe exists, so the rebuild is not
+    // exact. Under a staged cross-room restore this includes a room-scoped dynamic
+    // entity the sweep is about to despawn (a projectile in flight at the snapshot
+    // tick): the honest boundary until spawn recipes land. Detecting it here, from the
+    // id string and the survivor prediction alone (no world mutation), lets restore
+    // refuse cleanly rather than after the sweep/despawn/rebuild work has already
+    // half-reconciled the world. `respawn_from_the_room` only ever handles `placement:`
+    // ids, so this is exactly the set that used to reach the inline
+    // `None if contains('/')` branch — moved ahead of the first despawn.
     for id in &ids {
-        if !live.contains_key(*id) && id.contains('/') {
+        if !survivors.contains(*id) && id.contains('/') {
             return Err(RestoreError::UnsupportedDynamicReconstruction {
                 sim_id: (*id).to_string(),
             });
@@ -343,7 +382,35 @@ pub fn restore(
         }
     }
 
-    // Spawned after the snapshot: they never happened.
+    // **Every mutation-free preflight has passed: stage the snapshot's room** (N3.2b).
+    // From here the transaction no longer refuses transactionally — staging is
+    // infallible after `prepare`, and the only remaining failure is the named
+    // residual on `RestoreError::DecodeFailed` (a project-authored cursor/resolved
+    // codec disagreement, which cannot be probed without a live target).
+    report.staged_room = staging.map(|staging| {
+        let room = staging.room_id().to_string();
+        staging.apply(world);
+        // The staged lowering spawns bodies that receive identity from
+        // `ensure_sim_id` at the head of the next sim tick — but reconciliation
+        // needs it NOW, or every staged body reads as absent and is rebuilt as a
+        // duplicate. Run the SAME canonical identity pass, synchronously: no
+        // restore-only code path (N3.1's rebuild rule).
+        let _ = bevy::ecs::system::RunSystemOnce::run_system_once(&mut *world, ensure_sim_id);
+        room
+    });
+
+    // Now the map is unambiguous — every id appears once, so no insert overwrites —
+    // and, for a staged restore, it reflects the STAGED room's entity set: the
+    // survivors of the sweep plus everything the canonical lowering just built.
+    let mut live: std::collections::BTreeMap<String, Entity> = std::collections::BTreeMap::new();
+    if let Some(mut q) = world.try_query::<(Entity, &SimId)>() {
+        for (entity, id) in q.iter(world) {
+            live.insert(id.as_str().to_string(), entity);
+        }
+    }
+
+    // Spawned after the snapshot — or staged just now by the room lowering but dead
+    // by the snapshot tick: they never happened / had already died.
     for (id, entity) in &live {
         if ids.binary_search(&id.as_str()).is_err() {
             world.despawn(*entity);

@@ -30,7 +30,7 @@ These are foundations to preserve, not active decomposition tracks.
 | Workstream | Current state | What closes it |
 |---|---|---|
 | Encounter lifecycle convergence | **DONE (2026-07-16).** One command/lifecycle/objective authority (`EncounterLifecycle` + reducer + `EncounterCommand` ingress); ownership/policy-driven cleanup; `SimId::encounter` + snapshot-registered relations; consumers derive from lifecycle + staging policy; the Noether attunement is the shipped non-boss customer. E8–E13 all closed with exit tests in [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md). | — closed; residual boss-owned pieces (outro-gated persistence, reward anchors, adaptive music) recorded there as actor-local/authored policy. |
-| Atomic active-room restoration | **OPEN.** Session isolation and same-room restore/resimulation are green, but restore deliberately refuses snapshots whose active room differs from the live room. | Preflight and transactionally reconstruct the snapshot room through canonical room staging/lowering, restore room-scoped state, and promote the portal/boss cross-room replay cases from `DIRTY` to `CLEAN`. See [`engine/netcode.md`](engine/netcode.md). |
+| Atomic active-room restoration | **DONE (2026-07-16).** `restore` stages a differing snapshot room through the canonical construction (`RoomStaging`: sweep, spec/geometry swap, platform rebuild, installed placement lowering) with every refusal preflighted before mutation; identity is minted synchronously with the spawning tick; `portal_lab`'s cross-transition window replays bit for bit and the desync canary's `DIRTY` ledger emptied and was deleted. See [`engine/netcode.md`](engine/netcode.md) N3.2b. | — closed; honest boundaries remain `UnsupportedDynamicReconstruction` (no spawn recipes yet) and room-presence mismatch. |
 | Super Mary-O acceptance | **PARTIAL, engine seams proven.** Pickups/equip, grown form, ranged powerup, bricks, crony stomp behavior, flag sequence, clock, tally, and cyclic restart exist. | Secret pipe/underground room, shell prop, HUD/title/results, and one deterministic scripted level-1 completion that collects and uses a real powerup. |
 | Sanic acceptance | **PARTIAL, movement and host seams proven.** Provider-owned persona, standard keyboard→slot→brain→body control, ball dash, transformation, lifecycle, and route/momentum oracles exist. | Bits/drop-on-hit, at least one complete enemy/contact loop, goal/HUD/results, a complete act, and a headless high-route-versus-low-route completion oracle. |
 | Fighter-brain L3 rollouts | **DESIGN CORRECTION REQUIRED.** The current proposal combines a wall-clock budget with deterministic authoritative simulation and proposes rollouts from a live snapshot despite the delayed `Perceived` contract. | Choose a deterministic work budget or recorded-input model, and define a rollout state built only from allowed perceived facts before implementation. |
@@ -38,17 +38,19 @@ These are foundations to preserve, not active decomposition tracks.
 
 ## Restore terminology
 
-Two different accomplishments must not be conflated:
+Two different accomplishments, both landed (2026-07-16):
 
-- **Landed:** leak-free sequential sessions and exact same-active-room
-  restore/resimulation for supported registered state.
-- **Open:** atomic replacement of the live room when a snapshot names a different
-  active room.
+- leak-free sequential sessions and exact same-active-room
+  restore/resimulation for supported registered state;
+- atomic replacement of the live room when a snapshot names a different
+  active room (the N3.2b staged transaction).
 
-`MovingPlatformSet` is a lifecycle-scoped active-session resource: it is rebuilt
-from room construction, snapshot-registered, and explicitly cleared on teardown.
-The type does not independently carry a session identifier; safety currently
-rests on the one-live-session host contract plus teardown.
+`MovingPlatformSet` is a lifecycle-scoped active-session resource: it is
+installed exclusively by construction (session setup, transition, sandbox
+reset, hot-reload, restore staging — the visual sync owns no reset),
+snapshot-registered, and explicitly cleared on teardown. The type does not
+independently carry a session identifier; safety currently rests on the
+one-live-session host contract plus teardown.
 
 ## Deferred
 

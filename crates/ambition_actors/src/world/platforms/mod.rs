@@ -7,14 +7,11 @@
 
 use ambition_engine_core as ae;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_BLOCK};
-use ambition_platformer_primitives::lifecycle::{
-    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
-};
+use ambition_platformer_primitives::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use crate::platformer_runtime::lifecycle::RoomVisual;
-use crate::rooms::RoomSet;
 
 pub use ambition_world::platforms::{
     moving_platforms_for_room, world_with_moving_platforms, MovingPlatformSpec, MovingPlatformState,
@@ -68,47 +65,25 @@ pub fn spawn_moving_platforms(
         .collect()
 }
 
+/// Mirror the authoritative [`MovingPlatformSet`] resource onto the platform
+/// visuals — a pure read-model sync, with NO reset authority.
+///
+/// Platform STATE is installed by construction: session setup, room transition
+/// (`load_room_geometry`), sandbox reset, LDtk hot-reload, and the N3.2b
+/// restore staging each reset the resource and (re)spawn the visuals through
+/// the same canonical calls. This system once carried a `Local`-cached
+/// room-change reset of its own; that hidden second authority clobbered
+/// freshly RESTORED platform state with authored starts on the first tick
+/// after a staged cross-room restore (state on a read-model — the same bug
+/// class as the moveset dedup accumulator).
 pub fn sync_moving_platform(
-    mut commands: Commands,
-    active_session: Option<Res<ActiveSessionScope>>,
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
         ambition_engine_core::RoomGeometry,
     >,
-    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomSet>,
-    mut platform_set: ResMut<ambition_world::collision::MovingPlatformSet>,
-    mut active_platform_room: Local<Option<String>>,
-    mut active_platform_source: Local<Option<Vec<MovingPlatformState>>>,
-    mut query: Query<(Entity, &MovingPlatformVisual, &mut Transform, &mut Sprite)>,
+    platform_set: Res<ambition_world::collision::MovingPlatformSet>,
+    mut query: Query<(&MovingPlatformVisual, &mut Transform, &mut Sprite)>,
 ) {
-    let Some(session_scope) =
-        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
-    else {
-        return;
-    };
-    let active_spec = room_set.active_spec();
-    let desired_start = moving_platforms_for_room(active_spec);
-
-    let source_changed = active_platform_room.as_deref() != Some(active_spec.id.as_str())
-        || active_platform_source
-            .as_ref()
-            .map(|source| source != &desired_start)
-            .unwrap_or(true);
-    if source_changed {
-        platform_set.0 = desired_start.clone();
-        *active_platform_room = Some(active_spec.id.clone());
-        *active_platform_source = Some(desired_start.clone());
-
-        let visual_count = query.iter().count();
-        if visual_count != desired_start.len() {
-            for (entity, _, _, _) in &mut query {
-                commands.entity(entity).despawn();
-            }
-            spawn_moving_platforms(&mut commands, session_scope, &world.0, &platform_set.0);
-            return;
-        }
-    }
-
-    for (_, visual, mut transform, mut sprite) in &mut query {
+    for (visual, mut transform, mut sprite) in &mut query {
         let Some(platform) = platform_set.0.get(visual.index) else {
             continue;
         };

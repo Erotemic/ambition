@@ -28,26 +28,17 @@ lifecycle implementation.
 
 ## 2. Restore the active room atomically
 
-**State:** unblocked; sequence after encounter E11 so cross-room restore only has
-one encounter authority to reconstruct.
-
-The current snapshot path is exact for supported same-room reconstruction but
-returns `CrossRoomBoundary` when the captured active room differs from the live
-room.
-
-Required transaction:
-
-1. preflight provider/world/room identity and required codecs;
-2. stage the snapshot room through the canonical room-loading and placement-
-   lowering path;
-3. rebuild room-scoped entities and mechanically significant derived state;
-4. apply registered snapshot state only after staging can succeed;
-5. leave the live session unchanged on refusal or failure;
-6. prove bounded cross-room rewind/replay equality.
-
-**Exit:** portal/boss cross-room replay customers become `CLEAN`; raw Bevy entity
-allocation may differ, but canonical identity, relationships, observations, and
-state hashes agree.
+**State: DONE (2026-07-16).** `restore` stages a differing snapshot room through
+the canonical construction (`RoomStaging` — sweep, active-spec/geometry swap,
+moving-platform rebuild, App-installed placement lowering), with every refusal
+detected by mutation-free preflight before the live room is touched. Identity is
+minted synchronously with the spawning tick, and read-model syncs own no reset.
+The exit was met exactly as written: `portal_lab` (the cross-room replay
+customer) is `CLEAN` in the desync canary — canonical identity and state hashes
+agree across a staged rewind/replay while raw entity allocation differs. The
+encounter-authority prerequisite was closed first (session-owned, persistent
+authorities — GPT-5.6 review corrections). Details: [`engine/netcode.md`](engine/netcode.md)
+N3.2b.
 
 ## 3. Close Super Mary-O level 1
 

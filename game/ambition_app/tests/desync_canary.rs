@@ -17,12 +17,12 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition::runtime::snapshot::{compare_hash_streams, SnapshotRegistry};
-use ambition_app::AmbitionSim;
 use ambition_app::rl_sim::TimestepMode;
+use ambition_app::AmbitionSim;
 use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
 
-/// The DIRTY probes below panic on purpose. Without this, every run prints four
-/// alarming backtraces for a test that passed.
+/// Some probes below (the ghost-room boot) panic on purpose. Without this,
+/// every run prints alarming backtraces for a test that passed.
 fn quietly<T>(f: impl FnOnce() -> T) -> std::thread::Result<T> {
     let prev = std::panic::take_hook();
     std::panic::set_hook(Box::new(|_| {}));
@@ -684,15 +684,15 @@ fn the_snapshot_coverage_ledger() {
 /// `central_hub_main` NPC alive while `portal_lab` is the world.
 ///
 /// This test is the audit's item-2 enforcement, and its result REFUTES the leak
-/// hypothesis: it PASSES. `portal_lab`'s rewind dirtiness is **not** a leak. The
-/// traversal policy bounces the player through a shared loading zone between
-/// `portal_lab` and `central_hub_complex`; while `central_hub_complex` is active its
-/// `NpcSpawn-0017` is legitimately alive, and it is despawned the instant the player
-/// transitions away (confirmed by trace: it lives only while its room is active). What
-/// makes the *rewind* dirty is separate: the 60-tick rollback window SPANS a room
-/// transition, and `restore` does not yet restore the active room, so it reconstructs
-/// against the wrong `RoomSpec`. That exact fix — the active room is sim state — is the
-/// bounded-window/room-restore work (netcode.md N3.2). See there.
+/// hypothesis: it PASSES. The traversal policy bounces the player through a shared
+/// loading zone between `portal_lab` and `central_hub_complex`; while
+/// `central_hub_complex` is active its `NpcSpawn-0017` is legitimately alive, and it
+/// is despawned the instant the player transitions away (confirmed by trace: it lives
+/// only while its room is active). The rewind side of this story is closed: the atomic
+/// room transaction (netcode.md N3.2b) stages the snapshot's room before reconciling,
+/// so `portal_lab`'s cross-transition window now rewinds exactly — see
+/// `restore_stages_the_snapshot_room_across_a_transition` and the CLEAN roster in
+/// `a_restored_sim_replays_the_future_it_was_rewound_from`.
 ///
 /// The invariant is precise: a live `placement:<iid>` that some room authors must be
 /// authored by the ACTIVE room. A `placement:<iid>` that NO room authors is a
@@ -807,21 +807,21 @@ fn active_room(s: &SandboxSim) -> String {
     .unwrap_or_default()
 }
 
-/// **A rollback window may not span a room transition** (audit item 2 / reviewer).
+/// **The atomic active-room transaction** (netcode.md N3.2b).
 ///
-/// The active room is not restored sim state, so a snapshot taken while one room was
-/// active cannot be reconciled against another — `respawn_from_the_room` would rebuild
-/// the snapshot's entities against the wrong `RoomSpec`. `restore` captures the active
-/// room in the snapshot and REFUSES the mismatch (`CrossRoomBoundary`) before touching a
-/// single entity, rather than produce a world more inconsistent than a clean refusal (a
-/// transition also rebuilds room-scoped entities, platforms, and clocks). This is the
-/// honest rollback boundary; the full atomic room restore is the bounded-window work.
+/// A rollback window MAY span a room transition: `restore` STAGES the snapshot's
+/// room — through the same canonical construction a room transition runs (the
+/// scoped-entity sweep, active-spec/geometry swap, moving-platform rebuild, and
+/// the App-installed placement lowering) — and then reconciles the registered
+/// blobs against the right `RoomSpec`. The restored world must be
+/// registered-state-identical to the taken one: same hash, same re-taken
+/// snapshot, active room included.
 ///
 /// `portal_lab`'s traversal bounces the player through a shared loading zone with
 /// `central_hub_complex`, which is exactly how a window comes to span a transition.
 #[test]
-fn restore_refuses_a_snapshot_that_spans_a_room_transition() {
-    use ambition::runtime::snapshot::{restore, take, RestoreError};
+fn restore_stages_the_snapshot_room_across_a_transition() {
+    use ambition::runtime::snapshot::{restore, take};
 
     let mut s = sim("portal_lab");
     let reg = registry_of(&mut s);
@@ -837,6 +837,7 @@ fn restore_refuses_a_snapshot_that_spans_a_room_transition() {
         }
     }
     let (snap, snap_room) = snap.expect("the traversal never left portal_lab in 400 ticks");
+    let at_snapshot = reg.hash_world(s.world());
 
     // Step until back in portal_lab, so the window now spans a transition.
     let mut returned = false;
@@ -849,24 +850,69 @@ fn restore_refuses_a_snapshot_that_spans_a_room_transition() {
     }
     assert!(returned, "the traversal never returned to portal_lab");
 
-    match restore(s.world_mut(), &snap, &reg) {
-        Err(RestoreError::CrossRoomBoundary {
-            snapshot_room,
-            active_room,
-        }) => {
-            // Both rooms exist here (a Some/Some mismatch); the guard now also refuses a
-            // Some/None presence mismatch (re-audit finding 5), covered by the runtime unit
-            // tests. This case remains the real cross-room transition.
-            assert_eq!(snapshot_room, Some(snap_room.clone()));
-            assert_eq!(active_room, Some("portal_lab".to_string()));
-            assert_ne!(snapshot_room, active_room);
-        }
-        other => panic!(
-            "restore did not reject a cross-room snapshot (taken in `{snap_room}`, world \
-             now in `portal_lab`) with CrossRoomBoundary — got {other:?}. It must refuse \
-             rather than rebuild entities against the wrong RoomSpec (audit item 2)."
-        ),
+    let report = restore(s.world_mut(), &snap, &reg).expect(
+        "a cross-room restore stages the snapshot's room through the canonical \
+         construction (N3.2b) rather than refusing",
+    );
+    assert_eq!(
+        report.staged_room.as_deref(),
+        Some(snap_room.as_str()),
+        "the transaction reports the room it staged"
+    );
+    assert_eq!(
+        active_room(&s),
+        snap_room,
+        "the snapshot's room is the live one after restore — the active room is \
+         restored sim state"
+    );
+    assert_eq!(
+        reg.hash_world(s.world()),
+        at_snapshot,
+        "a staged cross-room restore reproduces the registered state bit for bit"
+    );
+    assert_eq!(
+        take(s.world(), &reg),
+        snap,
+        "a snapshot of the staged-and-restored world is the snapshot it was \
+         restored from"
+    );
+}
+
+/// **A refusal leaves the live room untouched** (N3.2b preflight-before-mutation).
+///
+/// A snapshot naming a room this world cannot build (a different prepared world /
+/// content identity) is refused by the mutation-free staging preflight
+/// (`RoomNotStageable`), and the world after the refusal is REGISTERED-STATE
+/// IDENTICAL to the world before it — nothing was swept, swapped, or lowered.
+#[test]
+fn an_unstageable_room_refuses_with_the_world_untouched() {
+    use ambition::runtime::snapshot::{restore, take, RestoreError};
+
+    let mut s = sim("gap_run");
+    let reg = registry_of(&mut s);
+    let mut policy = RandomWalkPolicy::traversal_stress(3);
+    for _ in 0..40 {
+        s.step(policy.act());
     }
+
+    let mut snap = take(s.world(), &reg);
+    snap.active_room = Some("a_room_this_world_never_authored".to_string());
+    let before = reg.hash_world(s.world());
+
+    match restore(s.world_mut(), &snap, &reg) {
+        Err(RestoreError::RoomNotStageable { room, .. }) => {
+            assert_eq!(room, "a_room_this_world_never_authored");
+        }
+        other => {
+            panic!("restore accepted a snapshot whose room no RoomSet authors — got {other:?}")
+        }
+    }
+    assert_eq!(
+        reg.hash_world(s.world()),
+        before,
+        "the staging preflight refused AFTER mutating the world — the transaction \
+         is not atomic"
+    );
 }
 
 /// **The active room is IN the registered hash** (re-audit finding 2).
@@ -916,14 +962,11 @@ fn changing_only_the_active_room_changes_the_registered_hash() {
 /// state, diverges here on the tick it first matters — and `body_kinematics` is in
 /// the hash, so "feeds back into registered state" means "moves anything at all".
 ///
-/// **`gap_run` is CLEAN**: a plain platformer room rewinds and replays bit for bit.
-/// The other three do not, and the ledger says so rather than skipping them. Each
-/// carries state the registry has not reached yet — portals carry transit latches,
-/// the arenas carry brains and move playbacks (netcode.md N3.1's checklist).
-///
-/// The dirty list is asserted to be dirty. Fix a room and this test fails, telling
-/// you to promote it. A ledger you can only ever satisfy by lowering it is not a
-/// ledger.
+/// **Every proven room is CLEAN**: the plain platformer room, both boss arenas
+/// (brains, move playbacks, pattern clocks), and — since the atomic room
+/// transaction (N3.2b) — the portal lab, whose window spans a room transition.
+/// The DIRTY half of this ledger emptied and was deleted; a room that fails this
+/// oracle now is a regression to diagnose, not a row to record.
 #[test]
 fn a_restored_sim_replays_the_future_it_was_rewound_from() {
     /// Rooms where a rewind is exact. This list may grow. It may not shrink.
@@ -933,30 +976,24 @@ fn a_restored_sim_replays_the_future_it_was_rewound_from() {
     /// the day `BossEncounter.encounter` did: rewinding only the exposed
     /// `encounter_phase` mirror is rewinding a thermometer. **Two boss fights rewind and
     /// replay bit for bit.**
-    const CLEAN: &[&str] = &["gap_run", "gnu_ton_arena", "mockingbird_arena"];
-    /// Rooms whose rewind is not yet exact. `portal_lab` is DIRTY for a precise,
-    /// confirmed reason (audit item 2, traced in
-    /// `every_placement_entity_is_owned_by_the_active_room_every_tick`): its 60-tick
-    /// window SPANS a room transition. The snapshot is taken while `central_hub_complex`
-    /// is active — which authors `NpcSpawn-0017` — but the replay ends with `portal_lab`
-    /// active, and `restore` does not yet restore the active room, so it reconstructs
-    /// `NpcSpawn-0017` against the wrong `RoomSpec` (`respawned = 1`). It is NOT a
-    /// cross-room leak. It joins CLEAN when the active room becomes restored sim state
-    /// (netcode.md N3.2 room-restore / bounded window).
-    const DIRTY: &[&str] = &["portal_lab"];
+    ///
+    /// `portal_lab` joined it the day the active room became restored sim state
+    /// (netcode.md N3.2b): its 60-tick window SPANS a room transition (the snapshot is
+    /// taken while `central_hub_complex` is active; the replay ends in `portal_lab`),
+    /// and the atomic room transaction now STAGES the snapshot's room through the
+    /// canonical construction before reconciling — `NpcSpawn-0017` rebuilds against the
+    /// RIGHT `RoomSpec`, and **a cross-room rewind replays bit for bit**. The former
+    /// DIRTY ledger is empty and gone; a NEW room that fails this oracle gets a precise
+    /// diagnosis, not a ledger row.
+    const CLEAN: &[&str] = &[
+        "gap_run",
+        "gnu_ton_arena",
+        "mockingbird_arena",
+        "portal_lab",
+    ];
 
     for room in CLEAN {
         replay_after_rewind(room);
-    }
-
-    for room in DIRTY {
-        let clean = quietly(|| replay_after_rewind(room)).is_ok();
-        assert!(
-            !clean,
-            "`{room}` now rewinds exactly. Move it from DIRTY to CLEAN — and if that \
-             empties DIRTY, N3.1 is done: delete the honesty assertion in \
-             `a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_is_not`."
-        );
     }
 }
 
@@ -1248,8 +1285,9 @@ fn a_rewind_empties_the_message_channels_it_registered() {
     let snap = take(s.world(), &reg);
     let report = restore(s.world_mut(), &snap, &reg).expect("same-room restore");
     // Every registered channel: actor_action, hit_event, on_hit_effect,
-    // move_event + the E8 encounter ingress pair (command, event).
-    assert_eq!(report.messages_cleared, 6);
+    // move_event + the E8 encounter ingress pair (command, event) + the
+    // room-construction staging fact (room_loaded, N3.2b).
+    assert_eq!(report.messages_cleared, 7);
     assert!(
         reg.pending_messages(s.world()).is_empty(),
         "a message from the abandoned future survived the rewind: {:?}",

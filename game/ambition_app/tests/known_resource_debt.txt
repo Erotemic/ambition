@@ -170,7 +170,6 @@ bevy_ecs::message::messages::Messages<ambition_vfx::vfx::ExplosionRequest>
 bevy_ecs::message::messages::Messages<ambition_vfx::vfx::FireworksRequest>
 bevy_ecs::message::messages::Messages<ambition_vfx::vfx::VfxMessage>
 bevy_ecs::message::messages::Messages<ambition_world::rooms::RespawnRoomVisualsRequested>
-bevy_ecs::message::messages::Messages<ambition_world::rooms::room_graph::RoomLoaded>
 bevy_ecs::message::messages::Messages<ambition_world::rooms::room_graph::RoomTransitionRequested>
 bevy_ecs::message::messages::Messages<bevy_asset::event::AssetEvent<ambition_actors::session::data::SandboxDataSpec>>
 bevy_ecs::message::messages::Messages<bevy_asset::event::AssetLoadFailedEvent<ambition_actors::session::data::SandboxDataSpec>>

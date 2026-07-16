@@ -178,6 +178,21 @@ impl Plugin for SandboxSetsPlugin {
                 .in_set(ambition_platformer_primitives::schedule::GameplaySimulationRoot)
                 .before(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
         );
+        // ...and again at the TAIL, after the last in-tick spawner (room
+        // transition lowering, wave spawns, summons, sandbox reset), so identity
+        // is synchronous with the tick that spawned the body. Without this, a
+        // snapshot taken at the boundary of a transition tick captures the
+        // freshly-lowered bodies WITHOUT identity — invisible to the roster and
+        // unreproducible by the N3.2b staged restore. Same canonical systems,
+        // second scheduling; the `Without<SimId>` guard makes the pair idempotent.
+        app.add_systems(
+            sim,
+            (snapshot::ensure_sim_id, snapshot::mint_spawned_sim_ids)
+                .chain()
+                .in_set(ambition_platformer_primitives::schedule::GameplaySimulationRoot)
+                .after(ambition_platformer_primitives::schedule::SandboxSet::ResetProcessing)
+                .before(ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync),
+        );
         // Shrine activation pulse (interaction → save flash).
         app.init_resource::<ambition_actors::shrine::ShrineActivationPulse>();
         // Slot-keyed gesture/buffer authority (double-tap, interact buffer).

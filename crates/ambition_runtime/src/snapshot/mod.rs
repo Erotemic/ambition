@@ -504,13 +504,13 @@ pub struct SimSnapshot {
     /// The `SimTick` this was taken at. Not derived from the entries: a caller
     /// comparing two snapshots wants the tick before it wants the bytes.
     pub tick: u64,
-    /// The room active when the snapshot was taken, by its `RoomSpec` id. The active
-    /// room is sim state that `restore` does not yet restore, so a rollback window that
-    /// spans a room transition would reconcile the snapshot's entities against the
-    /// wrong `RoomSpec`. `restore` compares this against the world's current active room
-    /// and REFUSES a mismatch (`RestoreError::CrossRoomBoundary`) rather than partially
-    /// restore — a room transition also rebuilds room-scoped entities, platforms, and
-    /// clocks, so a partial restore is more inconsistent than a refusal (netcode.md N3.2).
+    /// The room active when the snapshot was taken, by its `RoomSpec` id — restored
+    /// sim state (netcode.md N3.2b). When it differs from the live room, `restore`
+    /// STAGES it through the canonical room construction (`RoomStaging`) before
+    /// reconciling, so a rollback window may span a room transition. What cannot be
+    /// staged refuses with the world untouched: a room the live `RoomSet` does not
+    /// author (`RestoreError::RoomNotStageable`), or a presence mismatch — one side
+    /// has a room, the other has none (`RestoreError::CrossRoomBoundary`).
     /// `None` for a headless world with no `RoomSet` (the unit-test fixtures).
     pub active_room: Option<String>,
     /// **Every `SimId` carried by a live entity when the snapshot was taken** — sorted,
@@ -612,8 +612,9 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
     let tick = world
         .get_resource::<ambition_time::SimTick>()
         .map_or(0, |t| t.0);
-    // The active room is captured so `restore` can refuse a window that spans a
-    // transition. `respawn_from_the_room` already reaches `RoomSet`, so `take` may too.
+    // The active room is captured as restored sim state: `restore` stages it when
+    // the window spans a transition (N3.2b). `respawn_from_the_room` already reaches
+    // `RoomSet`, so `take` may too.
     let active_room = ambition_platformer_primitives::lifecycle::session_world_component::<
         ambition_world::rooms::RoomSet,
     >(world)
@@ -740,6 +741,15 @@ pub struct RestoreReport {
     /// `respawned` (a whole entity rebuilt from blobs) and `stale_components` (a survivor's
     /// UNregistered state): this is registered state that was asked for and could not be given.
     pub unapplied_rows: usize,
+    /// **The room the atomic transaction STAGED** (N3.2b), when the snapshot's active
+    /// room differed from the live one: the canonical construction (scoped-entity
+    /// sweep, active-spec/geometry swap, moving-platform rebuild, installed placement
+    /// lowering) ran before reconciliation. `None` for a same-room restore. Entities
+    /// the staging swept are not counted in `despawned` (they are room construction,
+    /// not reconciliation); entities the lowering built appear as `patched` when the
+    /// snapshot knows them and as `despawned` when it does not (they had already died
+    /// by the snapshot tick).
+    pub staged_room: Option<String>,
 }
 
 impl RestoreReport {
@@ -799,23 +809,27 @@ impl RestoreReport {
 /// future netcode boundary logs it and refuses the rewind.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RestoreError {
-    /// The snapshot's active room and the world's do not MATCH — the rollback window
-    /// spans a room transition. Reconciling would rebuild the snapshot's entities against
-    /// the WRONG `RoomSpec`. The active room is not yet restored sim state, and a room
-    /// transition rebuilds room-scoped entities, moving platforms, and clocks that a
-    /// partial restore cannot reproduce, so restore refuses rather than produce a world
-    /// more inconsistent than the one it started from (netcode.md N3.2: room transitions
-    /// are rollback boundaries).
+    /// The snapshot and the world disagree about whether a room EXISTS at all — a
+    /// session-shape mismatch no staging can bridge (re-audit finding 5): a snapshot
+    /// taken with no room (`None`) restored into a world that now has one (`Some`), or
+    /// the reverse. A headless fixture with no `RoomSet` on either side is
+    /// `None == None` and does not refuse.
     ///
-    /// Each side is `Option<String>` because *presence itself* is state: a snapshot taken
-    /// with no room (`None`) restored into a world that now has one (`Some`) is as much a
-    /// mismatch as two different room ids, so restore compares the full options, not just
-    /// the both-`Some` case (re-audit finding 5). A headless fixture with no `RoomSet` on
-    /// either side is `None == None` and does not refuse.
+    /// A both-`Some` MISMATCH no longer lands here (netcode.md N3.2b): the snapshot's
+    /// room is STAGED through the canonical room construction before reconciliation, so
+    /// a rollback window may span a room transition. What cannot be staged refuses as
+    /// [`RestoreError::RoomNotStageable`] instead.
     CrossRoomBoundary {
         snapshot_room: Option<String>,
         active_room: Option<String>,
     },
+    /// The snapshot's active room differs from the live one and could not be STAGED:
+    /// the id names no room in the live session's `RoomSet` (a snapshot from a
+    /// different prepared world/content identity), or a canonical construction service
+    /// (the placement-lowering registry, a catalog, the session scope) is absent.
+    /// Detected by the mutation-free staging preflight (`RoomStaging::prepare`), so
+    /// the live room is untouched (N3.2b preflight-before-mutation).
+    RoomNotStageable { room: String, reason: String },
     /// A registered codec failed to decode its blob during restore — the bytes are
     /// corrupt, or the encoder and decoder disagree. A SILENT continue (the old
     /// `debug_assert!(false)` + leave-it-alone, which fired only in debug builds) would
@@ -871,12 +885,18 @@ impl std::fmt::Display for RestoreError {
                 }
                 write!(
                     f,
-                    "cross-room rollback boundary: snapshot taken in {}, world is now in {} \
-                     — a rollback window may not span a room transition",
+                    "cross-room boundary: snapshot taken with {}, world now has {} — the \
+                     two disagree about whether a room exists at all, a session-shape \
+                     mismatch no room staging can bridge",
                     room(snapshot_room),
                     room(active_room),
                 )
             }
+            RestoreError::RoomNotStageable { room, reason } => write!(
+                f,
+                "the snapshot's room `{room}` cannot be staged onto this world: {reason} \
+                 — refused by the mutation-free staging preflight, live room untouched"
+            ),
             RestoreError::UnsupportedDynamicReconstruction { sim_id } => write!(
                 f,
                 "unsupported dynamic reconstruction: `{sim_id}` is a dynamically-spawned \
@@ -1195,6 +1215,11 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     // a Completed event) replayed after a restore would double-apply.
     registry.register_message_channel::<ambition_encounter::EncounterCommand>("encounter_command");
     registry.register_message_channel::<ambition_encounter::EncounterEventMsg>("encounter_event");
+    // The room-construction staging fact (N3.2b). Two reasons it must clear on
+    // restore: a `RoomLoaded` pending from the abandoned future would re-stage
+    // content beats in the restored past, and the atomic room transaction's own
+    // staging emits one whose consumers' effects come back from the blobs instead.
+    registry.register_message_channel::<ambition_world::rooms::RoomLoaded>("room_loaded");
 
     // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be
     // snapshotted, restored, or defended by the canary. Hashing the COUNT means a

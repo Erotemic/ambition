@@ -4,9 +4,13 @@ catalog.
 
 Phase 5 of the character-catalog refactor (see
 `TODO-character-catalog-and-hall.md`). Reads
-`crates/ambition_actors/assets/data/character_catalog.ron`, lays out
+`game/ambition_content/assets/data/character_catalog.ron`, lays out
 one pedestal per character, and emits
 `tools/ambition_ldtk_tools/specs/hall_of_characters_area.ron`.
+
+Each pedestal's name is drawn by the runtime actor nameplate (which reads
+the character's own identity), so the hall authors no per-pedestal name
+label of its own.
 
 ## Layout
 
@@ -60,7 +64,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CATALOG_PATH = (
     REPO_ROOT
-    / "crates"
+    / "game"
     / "ambition_content"
     / "assets"
     / "data"
@@ -81,7 +85,7 @@ SPEC_PATH = (
 # level + its own entry zone that cross-targets the hub.
 HALL_LDTK_PATH = (
     REPO_ROOT
-    / "crates"
+    / "game"
     / "ambition_content"
     / "assets"
     / "worlds"
@@ -125,11 +129,14 @@ def derived_dims() -> tuple[int, int]:
 
 def parse_catalog(
     catalog_text: str,
-) -> tuple[list[str], list[str], dict[str, str], dict[str, str]]:
+) -> tuple[list[str], list[str], dict[str, str]]:
     """Read the catalog file and return:
 
-      (main_hall_ids_in_order, basement_ids_in_order, display_name_for_id,
-       hall_dialogue_id_for_id)
+      (main_hall_ids_in_order, basement_ids_in_order, hall_dialogue_id_for_id)
+
+    Display names are NOT read here: each pedestal's name is drawn by the
+    actor nameplate system (which reads the character's own identity), so the
+    hall no longer authors redundant `DebugLabel` overlays.
 
     The pyron upstream loses Rust enum discriminators on unit
     variants, so we regex `tier:` (and the optional `hall_dialogue_id:
@@ -139,9 +146,6 @@ def parse_catalog(
 
     data = ron_load(catalog_text)
     ids = list(data["characters"].keys())
-    display_names: dict[str, str] = {
-        cid: entry.get("display_name", cid) for cid, entry in data["characters"].items()
-    }
     tiers: dict[str, str] = {}
     hall_dialogue_ids: dict[str, str] = {}
     for cid in ids:
@@ -166,7 +170,7 @@ def parse_catalog(
 
     main = [cid for cid in ids if tiers[cid] == "MainHall"]
     basement = [cid for cid in ids if tiers[cid] == "Basement"]
-    return main, basement, display_names, hall_dialogue_ids
+    return main, basement, hall_dialogue_ids
 
 
 def make_entity(
@@ -183,7 +187,6 @@ def make_entity(
 def build_spec(
     main_ids: list[str],
     basement_ids: list[str],
-    display_names: dict[str, str],
     hall_dialogue_ids: dict[str, str] | None = None,
 ) -> dict:
     hall_dialogue_ids = hall_dialogue_ids or {}
@@ -423,20 +426,6 @@ def build_spec(
                 },
             )
         )
-        # DebugLabel above the pedestal.
-        label_w = MAIN_SLOT_WIDTH_PX - 8
-        entities.append(
-            make_entity(
-                "DebugLabel",
-                (x + 4, y + 4),
-                (label_w, 20),
-                {
-                    "name": f"hall_label_{cid}",
-                    "text": display_names.get(cid, cid),
-                    "category": "Custom",
-                },
-            )
-        )
 
     # --- Basement pedestals ---
     for slot_index, cid in enumerate(basement_ids):
@@ -454,19 +443,6 @@ def build_spec(
                     "prompt": "Inspect",
                     "dialogue_id": hall_dialogue_ids.get(cid, ""),
                     "patrol_radius": 0,
-                },
-            )
-        )
-        label_w = BASEMENT_SLOT_WIDTH_PX - 8
-        entities.append(
-            make_entity(
-                "DebugLabel",
-                (x + 4, y + 4),
-                (label_w, 24),
-                {
-                    "name": f"hall_label_{cid}",
-                    "text": display_names.get(cid, cid),
-                    "category": "Custom",
                 },
             )
         )
@@ -552,8 +528,8 @@ def main(argv: list[str] | None = None) -> int:
     from .ron_parse import dumps as ron_dumps
 
     text = args.catalog.read_text()
-    main_ids, basement_ids, display_names, hall_dialogue_ids = parse_catalog(text)
-    spec = build_spec(main_ids, basement_ids, display_names, hall_dialogue_ids)
+    main_ids, basement_ids, hall_dialogue_ids = parse_catalog(text)
+    spec = build_spec(main_ids, basement_ids, hall_dialogue_ids)
     out_text = HEADER + ron_dumps(spec)
     args.out.write_text(out_text)
 

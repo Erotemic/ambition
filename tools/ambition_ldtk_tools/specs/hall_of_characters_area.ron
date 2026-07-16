@@ -23,6 +23,7 @@
     music_track: "pulse_drift_voyage",
     ambient_profile: "hum",
     visual_theme: "default",
+    gallery: true,
     entities: [
         (
             type: "Solid",
@@ -369,22 +370,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                4,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_player",
-                text: "Player",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 176,
@@ -399,22 +384,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_robot",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                132,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_robot",
-                text: "Robot",
-                category: "Custom",
             ),
         ),
         (
@@ -435,22 +404,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                260,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_goblin",
-                text: "Goblin",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 432,
@@ -465,22 +418,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_sandbag",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                388,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_sandbag",
-                text: "Sandbag",
-                category: "Custom",
             ),
         ),
         (
@@ -501,22 +438,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                516,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_general",
-                text: "General",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 688,
@@ -531,22 +452,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_goblin_cantina_chieftain",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                644,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_goblin_cantina_chieftain",
-                text: "Fretjaw, Cantina Chieftain",
-                category: "Custom",
             ),
         ),
         (
@@ -567,22 +472,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                772,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_pulse_voyager_captain",
-                text: "Captain Pulse",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 944,
@@ -597,22 +486,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_tech_bro_disruptor",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                900,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_tech_bro_disruptor",
-                text: "Chadwick Disruptor III",
-                category: "Custom",
             ),
         ),
         (
@@ -633,22 +506,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1028,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_noether",
-                text: "Emmy No-Ether",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 1200,
@@ -663,22 +520,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_pirate_admiral",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                1156,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_pirate_admiral",
-                text: "Pirate Admiral",
-                category: "Custom",
             ),
         ),
         (
@@ -699,22 +540,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1284,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_pirate_raider",
-                text: "Pirate Raider",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 1456,
@@ -729,22 +554,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_pirate_quartermaster",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                1412,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_pirate_quartermaster",
-                text: "Pirate Quartermaster",
-                category: "Custom",
             ),
         ),
         (
@@ -765,22 +574,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1540,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_pirate_lookout",
-                text: "Pirate Lookout",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 1712,
@@ -795,22 +588,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_pirate_navigator",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                1668,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_pirate_navigator",
-                text: "Pirate Navigator",
-                category: "Custom",
             ),
         ),
         (
@@ -831,22 +608,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1796,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_stochastic_parrot",
-                text: "Stochastic Parrot",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 1968,
@@ -861,22 +622,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_perfect_cellular_automaton",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                1924,
-                980,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_perfect_cellular_automaton",
-                text: "Perfect Cellular Automaton",
-                category: "Custom",
             ),
         ),
         (
@@ -897,22 +642,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                4,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_imperfect_cellular_automaton",
-                text: "Imperfect Cellular Automaton",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 176,
@@ -927,22 +656,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_pirate_heavy_broadside_bess",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                132,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_pirate_heavy_broadside_bess",
-                text: "Broadside Bess",
-                category: "Custom",
             ),
         ),
         (
@@ -963,22 +676,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                260,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_pirate_heavy_iron_mary",
-                text: "Iron Mary",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 432,
@@ -993,22 +690,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_pirate_heavy_salt_annet",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                388,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_pirate_heavy_salt_annet",
-                text: "Salt Annet",
-                category: "Custom",
             ),
         ),
         (
@@ -1029,25 +710,43 @@
             ),
         ),
         (
-            type: "DebugLabel",
+            type: "NpcSpawn",
             px: [
-                516,
-                788,
+                688,
+                928,
             ],
             size: [
-                120,
-                20,
+                32,
+                48,
             ],
             fields: (
-                name: "hall_label_npc_burning_flying_shark",
-                text: "Burning Flying Shark",
-                category: "Custom",
+                character_id: "npc_giant_gnu",
+                prompt: "Inspect",
+                dialogue_id: "",
+                patrol_radius: 0,
             ),
         ),
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
+                928,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_giant_gnu_hands",
+                prompt: "Inspect",
+                dialogue_id: "",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                944,
                 928,
             ],
             size: [
@@ -1062,25 +761,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                644,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_puppy_slug",
-                text: "Puppy Slug",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                816,
+                1072,
                 928,
             ],
             size: [
@@ -1095,25 +778,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                772,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_ninja_shadow_oni_leader",
-                text: "Shadow Oni Leader",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                944,
+                1200,
                 928,
             ],
             size: [
@@ -1128,25 +795,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                900,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_ninja_shadow_duelist",
-                text: "Shadow Duelist",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1072,
+                1328,
                 928,
             ],
             size: [
@@ -1161,25 +812,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1028,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_architect",
-                text: "Architect NPC",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1200,
+                1456,
                 928,
             ],
             size: [
@@ -1194,25 +829,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1156,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_kernel_guide",
-                text: "Kernel Guide NPC",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1328,
+                1584,
                 928,
             ],
             size: [
@@ -1227,25 +846,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1284,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_vault_keeper",
-                text: "Vault Keeper NPC",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1456,
+                1712,
                 928,
             ],
             size: [
@@ -1260,25 +863,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1412,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_merchant_prototype",
-                text: "Merchant Prototype NPC",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1584,
+                1840,
                 928,
             ],
             size: [
@@ -1293,25 +880,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1540,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_alice",
-                text: "Alice",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1712,
+                1968,
                 928,
             ],
             size: [
@@ -1326,26 +897,10 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1668,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_bob",
-                text: "Bob",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1840,
-                928,
+                48,
+                736,
             ],
             size: [
                 32,
@@ -1359,26 +914,10 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1796,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_creator",
-                text: "Creator",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1968,
-                928,
+                176,
+                736,
             ],
             size: [
                 32,
@@ -1392,25 +931,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1924,
-                788,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_creator_final",
-                text: "Creator Final",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                48,
+                304,
                 736,
             ],
             size: [
@@ -1425,25 +948,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                4,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_oiler",
-                text: "Oiler",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                176,
+                432,
                 736,
             ],
             size: [
@@ -1458,25 +965,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                132,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_gate_janitor",
-                text: "Gate Janitor",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                304,
+                560,
                 736,
             ],
             size: [
@@ -1491,25 +982,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                260,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_manifest_clerk",
-                text: "Manifest Clerk",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                432,
+                688,
                 736,
             ],
             size: [
@@ -1524,25 +999,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                388,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_news_board",
-                text: "News Board",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                560,
+                816,
                 736,
             ],
             size: [
@@ -1557,25 +1016,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                516,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_erdish",
-                text: "Erdish",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                688,
+                944,
                 736,
             ],
             size: [
@@ -1590,25 +1033,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                644,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_lab_raider",
-                text: "Lab Raider",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                816,
+                1072,
                 736,
             ],
             size: [
@@ -1623,25 +1050,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                772,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_salvage_guard",
-                text: "Salvage Guard",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                944,
+                1200,
                 736,
             ],
             size: [
@@ -1656,25 +1067,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                900,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_agent_swarm",
-                text: "Agent Swarm",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1072,
+                1328,
                 736,
             ],
             size: [
@@ -1689,25 +1084,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1028,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_ai_slop",
-                text: "Ai Slop",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1200,
+                1456,
                 736,
             ],
             size: [
@@ -1722,25 +1101,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1156,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_colonial_statesman",
-                text: "Colonial Statesman",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1328,
+                1584,
                 736,
             ],
             size: [
@@ -1755,25 +1118,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1284,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_craig",
-                text: "Craig",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1456,
+                1712,
                 736,
             ],
             size: [
@@ -1788,25 +1135,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1412,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_eve",
-                text: "Eve",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1584,
+                1840,
                 736,
             ],
             size: [
@@ -1821,25 +1152,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1540,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_raid_enforcer",
-                text: "Raid Enforcer",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1712,
+                1968,
                 736,
             ],
             size: [
@@ -1854,26 +1169,10 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1668,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_galwah",
-                text: "Galwah",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1840,
-                736,
+                48,
+                544,
             ],
             size: [
                 32,
@@ -1887,26 +1186,10 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1796,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_general_hero",
-                text: "General Hero",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1968,
-                736,
+                176,
+                544,
             ],
             size: [
                 32,
@@ -1920,25 +1203,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1924,
-                596,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_ghoul_skulker",
-                text: "Ghoul Skulker",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                48,
+                304,
                 544,
             ],
             size: [
@@ -1953,25 +1220,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                4,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_girdle",
-                text: "Girdle",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                176,
+                432,
                 544,
             ],
             size: [
@@ -1986,25 +1237,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                132,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_goblin_brute_hammer",
-                text: "Goblin Brute Hammer",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                304,
+                560,
                 544,
             ],
             size: [
@@ -2019,25 +1254,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                260,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_goblin_cave_dagger",
-                text: "Goblin Cave Dagger",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                432,
+                688,
                 544,
             ],
             size: [
@@ -2052,25 +1271,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                388,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_goblin_desert_bow",
-                text: "Goblin Desert Bow",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                560,
+                816,
                 544,
             ],
             size: [
@@ -2085,25 +1288,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                516,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_goblin_forest_spear",
-                text: "Goblin Forest Spear",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                688,
+                944,
                 544,
             ],
             size: [
@@ -2118,25 +1305,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                644,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_ranged_skirmisher",
-                text: "Skirmisher",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                816,
+                1072,
                 544,
             ],
             size: [
@@ -2151,25 +1322,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                772,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_exploding_mite",
-                text: "Exploding Mite",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                944,
+                1200,
                 544,
             ],
             size: [
@@ -2184,25 +1339,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                900,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_dividing_mite",
-                text: "Dividing Mite",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1072,
+                1328,
                 544,
             ],
             size: [
@@ -2217,25 +1356,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1028,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_goblin_frost_sword",
-                text: "Goblin Frost Sword",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1200,
+                1456,
                 544,
             ],
             size: [
@@ -2250,25 +1373,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1156,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_goblin_shaman_staff",
-                text: "Goblin Shaman Staff",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1328,
+                1584,
                 544,
             ],
             size: [
@@ -2283,25 +1390,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1284,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_hand_saint",
-                text: "Hand Saint",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1456,
+                1712,
                 544,
             ],
             size: [
@@ -2316,25 +1407,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1412,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_helpful_liar",
-                text: "Helpful Liar",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1584,
+                1840,
                 544,
             ],
             size: [
@@ -2349,25 +1424,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1540,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_judy",
-                text: "Judy",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1712,
+                1968,
                 544,
             ],
             size: [
@@ -2382,26 +1441,10 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1668,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_mallory",
-                text: "Mallory",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1840,
-                544,
+                48,
+                352,
             ],
             size: [
                 32,
@@ -2415,26 +1458,10 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1796,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_ninja_heavy",
-                text: "Ninja Heavy",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1968,
-                544,
+                176,
+                352,
             ],
             size: [
                 32,
@@ -2448,25 +1475,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1924,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_olivia",
-                text: "Olivia",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                48,
+                304,
                 352,
             ],
             size: [
@@ -2481,25 +1492,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                4,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_peggy",
-                text: "Peggy",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                176,
+                432,
                 352,
             ],
             size: [
@@ -2514,25 +1509,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                132,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_pirate_cutlass_viper",
-                text: "Pirate Cutlass Viper",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                304,
+                560,
                 352,
             ],
             size: [
@@ -2547,25 +1526,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                260,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_player_combat_review",
-                text: "Player Combat Review",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                432,
+                688,
                 352,
             ],
             size: [
@@ -2580,25 +1543,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                388,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_player_extended",
-                text: "Player Extended",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                560,
+                816,
                 352,
             ],
             size: [
@@ -2613,25 +1560,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                516,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_player_social_review",
-                text: "Player Social Review",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                688,
+                944,
                 352,
             ],
             size: [
@@ -2646,25 +1577,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                644,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_player_traversal_review",
-                text: "Player Traversal Review",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                816,
+                1072,
                 352,
             ],
             size: [
@@ -2679,25 +1594,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                772,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_president_portrait",
-                text: "President Portrait",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                944,
+                1200,
                 352,
             ],
             size: [
@@ -2712,25 +1611,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                900,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_puppy_slug_variant2",
-                text: "Puppy Slug Variant2",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1072,
+                1328,
                 352,
             ],
             size: [
@@ -2745,25 +1628,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1028,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_robot_archivist",
-                text: "Robot Archivist",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1200,
+                1456,
                 352,
             ],
             size: [
@@ -2778,25 +1645,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1156,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_robot_caster",
-                text: "Robot Caster",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1328,
+                1584,
                 352,
             ],
             size: [
@@ -2811,25 +1662,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1284,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_robot_diver",
-                text: "Robot Diver",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1456,
+                1712,
                 352,
             ],
             size: [
@@ -2844,25 +1679,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1412,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_robot_engineer",
-                text: "Robot Engineer",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1584,
+                1840,
                 352,
             ],
             size: [
@@ -2877,25 +1696,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1540,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_robot_guardian",
-                text: "Robot Guardian",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1712,
+                1968,
                 352,
             ],
             size: [
@@ -2910,26 +1713,10 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1668,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_robot_medic",
-                text: "Robot Medic",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1840,
-                352,
+                48,
+                160,
             ],
             size: [
                 32,
@@ -2943,26 +1730,10 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1796,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_robot_miner",
-                text: "Robot Miner",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1968,
-                352,
+                176,
+                160,
             ],
             size: [
                 32,
@@ -2976,25 +1747,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1924,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_robot_runner",
-                text: "Robot Runner",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                48,
+                304,
                 160,
             ],
             size: [
@@ -3009,25 +1764,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                4,
-                20,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_sandbag_armored_review",
-                text: "Sandbag Armored Review",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                176,
+                432,
                 160,
             ],
             size: [
@@ -3042,25 +1781,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                132,
-                20,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_sandbag_full_review",
-                text: "Sandbag Full Review",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                304,
+                560,
                 160,
             ],
             size: [
@@ -3075,25 +1798,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                260,
-                20,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_spaghetti_event",
-                text: "Spaghetti Event",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                432,
+                688,
                 160,
             ],
             size: [
@@ -3108,25 +1815,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                388,
-                20,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_sybil",
-                text: "Sybil",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                560,
+                816,
                 160,
             ],
             size: [
@@ -3141,25 +1832,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                516,
-                20,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_synthetic_friend",
-                text: "Synthetic Friend",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                688,
+                944,
                 160,
             ],
             size: [
@@ -3174,25 +1849,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                644,
-                20,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_trent",
-                text: "Trent",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                816,
+                1072,
                 160,
             ],
             size: [
@@ -3207,25 +1866,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                772,
-                20,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_trudy",
-                text: "Trudy",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                944,
+                1200,
                 160,
             ],
             size: [
@@ -3240,25 +1883,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                900,
-                20,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_victor",
-                text: "Victor",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1072,
+                1328,
                 160,
             ],
             size: [
@@ -3273,25 +1900,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1028,
-                20,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_viking_heavy_shieldmaiden",
-                text: "Viking Heavy Shieldmaiden",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1200,
+                1456,
                 160,
             ],
             size: [
@@ -3306,25 +1917,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1156,
-                20,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_viking_heavy_warrior",
-                text: "Viking Heavy Warrior",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1328,
+                1584,
                 160,
             ],
             size: [
@@ -3339,25 +1934,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1284,
-                20,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_viking_shieldmaiden",
-                text: "Viking Shieldmaiden",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1456,
+                1712,
                 160,
             ],
             size: [
@@ -3372,25 +1951,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1412,
-                20,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_viking_warrior",
-                text: "Viking Warrior",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1584,
+                1840,
                 160,
             ],
             size: [
@@ -3405,25 +1968,9 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1540,
-                20,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_walter",
-                text: "Walter",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
-                1712,
+                1968,
                 160,
             ],
             size: [
@@ -3435,22 +1982,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_weird_hermit",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                1668,
-                20,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_weird_hermit",
-                text: "Weird Hermit",
-                category: "Custom",
             ),
         ),
         (
@@ -3471,22 +2002,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                4,
-                1188,
-            ],
-            size: [
-                504,
-                24,
-            ],
-            fields: (
-                name: "hall_label_npc_bear_mauler",
-                text: "Bear Mauler",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 744,
@@ -3501,22 +2016,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_boss",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                516,
-                1188,
-            ],
-            size: [
-                504,
-                24,
-            ],
-            fields: (
-                name: "hall_label_npc_boss",
-                text: "Boss",
-                category: "Custom",
             ),
         ),
         (
@@ -3537,22 +2036,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1028,
-                1188,
-            ],
-            size: [
-                504,
-                24,
-            ],
-            fields: (
-                name: "hall_label_npc_dark_lord",
-                text: "Dark Lord",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 1768,
@@ -3567,22 +2050,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_flying_spaghetti_monster_boss",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                1540,
-                1188,
-            ],
-            size: [
-                504,
-                24,
-            ],
-            fields: (
-                name: "hall_label_npc_flying_spaghetti_monster_boss",
-                text: "Flying Spaghetti Monster Boss",
-                category: "Custom",
             ),
         ),
         (
@@ -3603,22 +2070,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                4,
-                1572,
-            ],
-            size: [
-                504,
-                24,
-            ],
-            fields: (
-                name: "hall_label_npc_gnu_ton_boss",
-                text: "Gnu Ton Boss",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 744,
@@ -3633,22 +2084,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_mantis_lancer",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                516,
-                1572,
-            ],
-            size: [
-                504,
-                24,
-            ],
-            fields: (
-                name: "hall_label_npc_mantis_lancer",
-                text: "Mantis Lancer",
-                category: "Custom",
             ),
         ),
         (
@@ -3669,22 +2104,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                1028,
-                1572,
-            ],
-            size: [
-                504,
-                24,
-            ],
-            fields: (
-                name: "hall_label_npc_mockingbird_boss",
-                text: "Mockingbird Boss",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 1768,
@@ -3699,22 +2118,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_raptor_stalker",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                1540,
-                1572,
-            ],
-            size: [
-                504,
-                24,
-            ],
-            fields: (
-                name: "hall_label_npc_raptor_stalker",
-                text: "Raptor Stalker",
-                category: "Custom",
             ),
         ),
         (
@@ -3735,22 +2138,6 @@
             ),
         ),
         (
-            type: "DebugLabel",
-            px: [
-                4,
-                1956,
-            ],
-            size: [
-                504,
-                24,
-            ],
-            fields: (
-                name: "hall_label_npc_smart_house",
-                text: "Smart House",
-                category: "Custom",
-            ),
-        ),
-        (
             type: "NpcSpawn",
             px: [
                 744,
@@ -3765,22 +2152,6 @@
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_trex_enemy",
                 patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                516,
-                1956,
-            ],
-            size: [
-                504,
-                24,
-            ],
-            fields: (
-                name: "hall_label_npc_trex_enemy",
-                text: "Trex Enemy",
-                category: "Custom",
             ),
         ),
         (

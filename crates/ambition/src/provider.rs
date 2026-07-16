@@ -11,8 +11,7 @@ use crate::game_shell::{
     PreparedSessionRegistry, ProviderLoadTransaction, ShellCompletionPolicy, ShellRouteSpec,
     PREPARE_ADAPTIVE_WORK_ID, PREPARE_AUDIO_WORK_ID, PREPARE_CATALOGS_WORK_ID,
     PREPARE_DEFAULTS_WORK_ID, PREPARE_MUSIC_WORK_ID, PREPARE_PACKED_SFX_WORK_ID,
-    PREPARE_SESSION_WORK_ID, PREPARE_SFX_WORK_ID, PREPARE_SPRITES_WORK_ID,
-    PREPARE_WORLD_WORK_ID,
+    PREPARE_SESSION_WORK_ID, PREPARE_SFX_WORK_ID, PREPARE_SPRITES_WORK_ID, PREPARE_WORLD_WORK_ID,
 };
 use crate::platformer::lifecycle::{SessionScopeId, SessionSpawnScope};
 use crate::runtime::PlatformerSessionWorld;
@@ -28,10 +27,7 @@ pub struct AuthoredCatalogFragments {
 }
 
 impl AuthoredCatalogFragments {
-    pub fn new(
-        starting_character: impl Into<String>,
-        audio_provider: impl Into<String>,
-    ) -> Self {
+    pub fn new(starting_character: impl Into<String>, audio_provider: impl Into<String>) -> Self {
         Self {
             starting_character: starting_character.into(),
             audio_provider: audio_provider.into(),
@@ -67,15 +63,15 @@ impl AuthoredCatalogFragments {
         character_catalog: &crate::characters::actor::character_catalog::CharacterCatalog,
         audio_catalogs: &crate::audio::catalog::AudioCatalogRegistry,
     ) -> Option<(&'static str, crate::load::LoadFailure)> {
-        if character_catalog.get(self.starting_character.as_str()).is_none() {
+        if character_catalog
+            .get(self.starting_character.as_str())
+            .is_none()
+        {
             return Some((
                 PREPARE_CATALOGS_WORK_ID,
                 crate::load::LoadFailure::new(
                     "Starting character data is unavailable",
-                    format!(
-                        "character catalog has no '{}' row",
-                        self.starting_character
-                    ),
+                    format!("character catalog has no '{}' row", self.starting_character),
                 )
                 .retryable(true),
             ));
@@ -153,11 +149,11 @@ impl PlatformerExperienceAuthoring {
 
     pub fn with_loading_activity(mut self, activity_id: impl Into<String>) -> Self {
         let mut loading = crate::load_presentation::LoadExperienceSpec::basic(format!(
-            "{}.loading", self.experience_id
+            "{}.loading",
+            self.experience_id
         ));
         loading.activity = Some(crate::load_presentation::LoadActivityId::new(activity_id));
-        loading.ready_policy =
-            crate::load_presentation::ReadyTransitionPolicy::AutoUnlessEngaged;
+        loading.ready_policy = crate::load_presentation::ReadyTransitionPolicy::AutoUnlessEngaged;
         self.loading = Some(loading);
         self
     }
@@ -244,8 +240,7 @@ impl Plugin for PlatformerProviderRuntimePlugin {
         app.init_resource::<PlatformerStreamingReadiness>()
             .add_systems(
                 Update,
-                update_streamable_packed_sfx
-                    .in_set(crate::load::AmbitionLoadSet::Contributors),
+                update_streamable_packed_sfx.in_set(crate::load::AmbitionLoadSet::Contributors),
             );
     }
 }
@@ -282,8 +277,7 @@ fn update_streamable_packed_sfx(
 #[derive(SystemParam)]
 pub struct PlatformerPreparation<'w> {
     authored_catalogs: Res<'w, PlatformerAuthoredCatalogRegistry>,
-    character_catalog:
-        Res<'w, crate::characters::actor::character_catalog::CharacterCatalog>,
+    character_catalog: Res<'w, crate::characters::actor::character_catalog::CharacterCatalog>,
     audio_catalogs: Res<'w, crate::audio::catalog::AudioCatalogRegistry>,
     #[cfg(feature = "audio")]
     adaptive_catalogs: Option<Res<'w, crate::audio::music::AdaptiveMusicCatalogRegistry>>,
@@ -537,12 +531,8 @@ impl PlatformerPreparation<'_> {
             packed_sfx_streamable,
             deliberate_silence,
         };
-        let identity = sessions.publish_with_report(
-            transaction,
-            world,
-            report,
-            &mut self.registry,
-        )?;
+        let identity =
+            sessions.publish_with_report(transaction, world, report, &mut self.registry)?;
         self.complete(transaction, PREPARE_SESSION_WORK_ID);
         self.commands.write(crate::load::LoadCommand::SetDiscovery {
             load_id: transaction.barrier.load_id.clone(),
@@ -563,7 +553,11 @@ impl PlatformerPreparation<'_> {
         work_id: &'static str,
         failure: crate::load::LoadFailure,
     ) {
-        self.set_state(transaction, work_id, crate::load::LoadWorkState::Failed(failure));
+        self.set_state(
+            transaction,
+            work_id,
+            crate::load::LoadWorkState::Failed(failure),
+        );
         self.commands.write(crate::load::LoadCommand::SetDiscovery {
             load_id: transaction.barrier.load_id.clone(),
             barrier_id: transaction.barrier.barrier_id.clone(),
@@ -674,10 +668,10 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     editable_abilities: Res<'w, crate::dev_tools::dev_tools::EditableAbilitySet>,
     editable_tuning: Res<'w, crate::dev_tools::dev_tools::EditableMovementTuning>,
     asset_server: Res<'w, AssetServer>,
-    character_catalog:
-        Res<'w, crate::characters::actor::character_catalog::CharacterCatalog>,
+    character_catalog: Res<'w, crate::characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<'w, crate::actors::features::CharacterRoster>,
     boss_catalog: Res<'w, crate::actors::boss_encounter::BossCatalog>,
+    placement_lowering: Res<'w, crate::actors::world::placements::PlacementLoweringRegistry>,
     sandbox_data_asset: Option<Res<'w, crate::actors::session::data::SandboxDataAsset>>,
     sandbox_asset_collection:
         Option<Res<'w, crate::actors::assets::loading::SandboxAssetCollection>>,
@@ -710,6 +704,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 starting_character: &live_world.starting_character,
                 character_catalog: &self.character_catalog,
                 character_roster: &self.character_roster,
+                placement_lowering: &self.placement_lowering,
                 boss_catalog: &self.boss_catalog,
                 default_character_id,
                 sandbox_data_asset: self.sandbox_data_asset.as_deref(),
@@ -718,10 +713,12 @@ impl PlatformerSessionBuilder<'_, '_> {
             },
         );
 
-        self.commands.entity(player).insert(crate::game_shell::GameplayInputOwner {
-            activation_id: activation.activation_id,
-            scope,
-        });
+        self.commands
+            .entity(player)
+            .insert(crate::game_shell::GameplayInputOwner {
+                activation_id: activation.activation_id,
+                scope,
+            });
 
         let world = self
             .active_session
@@ -762,14 +759,12 @@ mod tests {
         let load_id = crate::load::LoadId::new("provider-load");
         let other_load_id = crate::load::LoadId::new("other-load");
         let mut loads = crate::load::LoadCoordinator::default();
-        loads.apply(crate::load::LoadCommand::Begin(crate::load::LoadPlanSpec::new(
-            load_id.clone(),
-            "Provider load",
-        )));
-        loads.apply(crate::load::LoadCommand::Begin(crate::load::LoadPlanSpec::new(
-            other_load_id.clone(),
-            "Other load",
-        )));
+        loads.apply(crate::load::LoadCommand::Begin(
+            crate::load::LoadPlanSpec::new(load_id.clone(), "Provider load"),
+        ));
+        loads.apply(crate::load::LoadCommand::Begin(
+            crate::load::LoadPlanSpec::new(other_load_id.clone(), "Other load"),
+        ));
 
         let mut pending = PlatformerStreamingReadiness::default();
         pending.pending_packed_sfx.insert(

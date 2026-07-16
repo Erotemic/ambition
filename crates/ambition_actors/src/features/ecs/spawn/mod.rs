@@ -32,51 +32,6 @@ pub(crate) fn room_spec_paths(
     paths
 }
 
-pub fn spawn_room_feature_entities(
-    commands: &mut Commands,
-    catalog: &CharacterCatalog,
-    roster: &CharacterRoster,
-    boss_catalog: &BossCatalog,
-    room: &crate::rooms::RoomSpec,
-    session_scope: SessionSpawnScope,
-) {
-    let mut registry = crate::world::placements::PlacementLoweringRegistry::default();
-    registry.register(
-        ambition_entity_catalog::placements::PlacementKind::Hazard,
-        super::spawn_static::lower_hazard_placement,
-    );
-    registry.register(
-        ambition_entity_catalog::placements::PlacementKind::Interactable,
-        super::spawn_static::lower_interactable_placement,
-    );
-    registry.register(
-        ambition_entity_catalog::placements::PlacementKind::Pickup,
-        super::spawn_static::lower_pickup_placement,
-    );
-    registry.register(
-        ambition_entity_catalog::placements::PlacementKind::Chest,
-        super::spawn_static::lower_chest_placement,
-    );
-    registry.register(
-        ambition_entity_catalog::placements::PlacementKind::Breakable,
-        super::spawn_static::lower_breakable_placement,
-    );
-    #[cfg(feature = "portal")]
-    registry.register(
-        ambition_entity_catalog::placements::PlacementKind::Portal,
-        super::spawn_static::lower_portal_placement,
-    );
-    spawn_room_feature_entities_with_registry(
-        commands,
-        catalog,
-        roster,
-        boss_catalog,
-        room,
-        &registry,
-        session_scope,
-    );
-}
-
 /// **Re-run the spawner for ONE authored entity, by its authored id.**
 ///
 /// `docs/planning/engine/netcode.md` N3.1 decision (3): *"restore = despawn-registered +

@@ -46,6 +46,11 @@ pub struct SimulationSetup<'a> {
     pub character_catalog: &'a ambition_characters::actor::character_catalog::CharacterCatalog,
     /// App-local hostile archetype definitions used by authored room lowering.
     pub character_roster: &'a crate::features::CharacterRoster,
+    /// The installed App-local placement-lowering authority. Setup lowers the
+    /// start room's authored placements through THIS registry — the same one
+    /// room transition and snapshot restore consume — so there is no
+    /// setup-only reconstruction of the six built-in interpreters.
+    pub placement_lowering: &'a crate::world::placements::PlacementLoweringRegistry,
     /// App-local boss profiles, encounter specs, sheets, and special rows.
     pub boss_catalog: &'a crate::boss_encounter::BossCatalog,
     /// Provider-selected default used only when `StartingCharacter` is empty.
@@ -87,6 +92,7 @@ pub fn simulation_world(
         starting_character,
         character_catalog,
         character_roster,
+        placement_lowering,
         boss_catalog,
         default_character_id,
         sandbox_data_asset,
@@ -114,12 +120,13 @@ pub fn simulation_world(
     let _ = asset_server;
     let _ = ldtk_index;
 
-    crate::features::spawn_room_feature_entities(
+    crate::features::spawn_room_feature_entities_with_registry(
         commands,
         character_catalog,
         character_roster,
         boss_catalog,
         room_set.active_spec(),
+        placement_lowering,
         session_scope,
     );
 

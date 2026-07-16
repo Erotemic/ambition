@@ -670,8 +670,6 @@ dependencies = [
  "ambition_dialog",
  "ambition_engine_core",
  "ambition_entity_catalog",
- "ambition_input",
- "ambition_interaction",
  "ambition_persistence",
  "ambition_platformer_primitives",
  "ambition_portal_presentation",
@@ -683,7 +681,6 @@ dependencies = [
  "ambition_vfx",
  "ambition_world",
  "bevy",
- "leafwing-input-manager",
 ]
 
 [[package]]

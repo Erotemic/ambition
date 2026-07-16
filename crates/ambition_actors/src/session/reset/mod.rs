@@ -74,6 +74,9 @@ pub struct ResetPlayState<'w> {
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<'w, crate::features::CharacterRoster>,
     boss_catalog: Res<'w, crate::boss_encounter::BossCatalog>,
+    /// The installed placement-lowering authority — reset re-stages the start
+    /// room's placements through the SAME registry setup/transition/restore use.
+    placement_lowering: Res<'w, crate::world::placements::PlacementLoweringRegistry>,
 }
 
 /// Cross-system trigger for "wipe the save and rebuild the runtime."
@@ -227,12 +230,13 @@ pub fn process_sandbox_reset_request(
         attack.clear();
         safety.last_safe_pos = world.0.spawn;
     }
-    crate::features::spawn_room_feature_entities(
+    crate::features::spawn_room_feature_entities_with_registry(
         &mut commands,
         &play_state.character_catalog,
         &play_state.character_roster,
         &play_state.boss_catalog,
         &start_spec,
+        &play_state.placement_lowering,
         session_scope,
     );
     play_state.moving_platforms.0 = platforms::moving_platforms_for_room(&start_spec);

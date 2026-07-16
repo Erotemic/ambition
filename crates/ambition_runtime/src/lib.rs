@@ -102,6 +102,7 @@ pub mod demo_fixture {
     pub use ambition_actors::ldtk_world::LdtkRuntimeIndex;
     pub use ambition_actors::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};
     pub use ambition_actors::session::setup::{simulation_world, SimulationSetup};
+    pub use ambition_actors::world::placements::PlacementLoweringRegistry;
     pub use ambition_dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
     pub use ambition_platformer_primitives::schedule::SimulationSetupSet;
 }

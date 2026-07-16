@@ -110,6 +110,7 @@ pub(super) fn handle_ldtk_hot_reload(
         Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
         Res<ambition::actors::features::CharacterRoster>,
         Res<ambition::actors::boss_encounter::BossCatalog>,
+        Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
     ),
 ) {
     if keys.just_pressed(KeyCode::F12) {
@@ -172,6 +173,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &catalogs.1,
             &catalogs.2,
             &catalogs.3,
+            &catalogs.4,
             session_scope,
         );
         match result {
@@ -271,6 +273,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     character_catalog: &ambition::characters::actor::character_catalog::CharacterCatalog,
     character_roster: &ambition::actors::features::CharacterRoster,
     boss_catalog: &ambition::actors::boss_encounter::BossCatalog,
+    placement_lowering: &ambition::actors::world::placements::PlacementLoweringRegistry,
     session_scope: ambition::platformer::lifecycle::SessionSpawnScope,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
@@ -316,12 +319,13 @@ pub(super) fn reload_ldtk_world_from_disk(
     );
     safety.last_safe_pos = transaction.safe_player_pos;
     *moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);
-    features::spawn_room_feature_entities(
+    features::spawn_room_feature_entities_with_registry(
         commands,
         character_catalog,
         character_roster,
         boss_catalog,
         &transaction.next_spec,
+        placement_lowering,
         session_scope,
     );
     dialogue.close();

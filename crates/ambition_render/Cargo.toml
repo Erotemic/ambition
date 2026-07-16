@@ -14,7 +14,7 @@ default = []
 # Forwarders: cfg(feature = "...") gates inside this crate key off OUR feature
 # names; app/content composition chooses the matching producer-side features so
 # mismatched combinations are a compile error, never a silent missing system.
-input = ["dep:leafwing-input-manager", "ambition_sim_view/input"]
+input = ["ambition_sim_view/input"]
 # The reusable portal renderer the world-sync code installs when portals draw.
 portal_render = ["dep:ambition_portal_presentation"]
 
@@ -23,14 +23,12 @@ ambition_sim_view = { path = "../ambition_sim_view" }
 ambition_combat = { path = "../ambition_combat" }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
-ambition_input = { path = "../ambition_input" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_world = { path = "../ambition_world" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_dialog = { path = "../ambition_dialog" }
 ambition_persistence = { path = "../ambition_persistence" }
-ambition_interaction = { path = "../ambition_interaction" }
 # The VFX message vocabulary `fx` re-exports (`ambition_vfx::vfx::*`).
 ambition_vfx = { path = "../ambition_vfx" }
 ambition_sfx = { path = "../ambition_sfx" }
@@ -55,5 +53,3 @@ bevy = { version = "0.18.1", default-features = false, features = [
     "scene",
     "png",
 ] }
-
-leafwing-input-manager = { version = "0.20", optional = true }

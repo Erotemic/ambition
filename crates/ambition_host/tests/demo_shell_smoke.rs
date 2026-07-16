@@ -93,13 +93,18 @@ fn fixture_setup(
     mut commands: Commands,
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
     room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomSet>,
-    ldtk_index: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_runtime::demo_fixture::LdtkRuntimeIndex>,
+    ldtk_index: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_runtime::demo_fixture::LdtkRuntimeIndex,
+    >,
     editable_abilities: Res<ambition_runtime::demo_fixture::EditableAbilitySet>,
     editable_tuning: Res<ambition_runtime::demo_fixture::EditableMovementTuning>,
-    starting_character: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_runtime::demo_fixture::StartingCharacter>,
+    starting_character: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_runtime::demo_fixture::StartingCharacter,
+    >,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<ambition_runtime::demo_fixture::CharacterRoster>,
     boss_catalog: Res<ambition_runtime::demo_fixture::BossCatalog>,
+    placement_lowering: Res<ambition_runtime::demo_fixture::PlacementLoweringRegistry>,
     asset_server: Res<AssetServer>,
 ) {
     ambition_runtime::demo_fixture::simulation_world(
@@ -114,6 +119,7 @@ fn fixture_setup(
             starting_character: &starting_character,
             character_catalog: &character_catalog,
             character_roster: &character_roster,
+            placement_lowering: &placement_lowering,
             boss_catalog: &boss_catalog,
             default_character_id: "player",
             sandbox_data_asset: None,

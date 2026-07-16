@@ -43,10 +43,13 @@ pub(super) fn setup_simulation_system(
     ldtk_index: ambition::platformer::lifecycle::SessionWorldRef<ldtk_world::LdtkRuntimeIndex>,
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
-    starting_character: ambition::platformer::lifecycle::SessionWorldRef<ambition::actors::avatar::StartingCharacter>,
+    starting_character: ambition::platformer::lifecycle::SessionWorldRef<
+        ambition::actors::avatar::StartingCharacter,
+    >,
     character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<ambition::actors::features::CharacterRoster>,
     boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
+    placement_lowering: Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
     mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
 ) {
     let _player = setup::simulation_world(
@@ -61,6 +64,7 @@ pub(super) fn setup_simulation_system(
             starting_character: &starting_character,
             character_catalog: &character_catalog,
             character_roster: &character_roster,
+            placement_lowering: &placement_lowering,
             boss_catalog: &boss_catalog,
             default_character_id: ambition_content::character_catalog::PLAYABLE_ROSTER[0],
             sandbox_data_asset: sandbox_data_asset.as_deref(),

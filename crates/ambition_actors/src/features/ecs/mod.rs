@@ -133,8 +133,8 @@ pub use falling_chest::update_ecs_falling_chests;
 pub use hazards::update_ecs_hazards;
 pub use held_items::HeldItem;
 pub use hitbox::{
-    apply_hitbox_damage, tick_and_despawn_hitboxes, Hitbox, HitboxAnchor,
-    HitboxHits, HitboxLifetime,
+    apply_hitbox_damage, tick_and_despawn_hitboxes, Hitbox, HitboxAnchor, HitboxHits,
+    HitboxLifetime,
 };
 pub use interact::interact_ecs_actors_and_switches;
 pub use mount::{
@@ -150,7 +150,7 @@ pub use save_sync::{
 pub(crate) use spawn::spawn_runtime_minion;
 pub use spawn::{
     despawn_encounter_mobs, respawn_authored_entity, spawn_encounter_mob,
-    spawn_room_feature_entities, spawn_room_feature_entities_with_registry,
+    spawn_room_feature_entities_with_registry,
 };
 pub use spawn_actors::{
     apply_spawn_actor_requests, apply_summon_effects, BossOverrides, SpawnActorKind,

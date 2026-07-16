@@ -27,6 +27,84 @@ fn make_enemy(brain_key: &str) -> ActorConfig {
     .config
 }
 
+/// The room-construction choke point lowers authored placements through EXACTLY
+/// the registry it is handed — not a locally reconstructed one. This is the
+/// invariant behind the setup/reset unification: setup, same-room reset, room
+/// transition, and snapshot restore all call
+/// `spawn_room_feature_entities_with_registry` with the ONE installed
+/// `PlacementLoweringRegistry`. Here we hand it a registry whose Hazard
+/// interpreter is a marker (not the built-in hazard spawn); a hazard placement
+/// then yields the marker, which the deleted default-six helper never could.
+#[test]
+fn room_features_lower_through_the_caller_supplied_registry() {
+    use crate::world::placements::{LoweringCtx, PlacementLoweringRegistry, PlacementRecord};
+    use ambition_engine_core::Vec2;
+    use ambition_entity_catalog::placements::{
+        DamageKind, DamageTeam, HazardRespawn, HazardSpec, PlacementKind, PlacementSchema,
+    };
+    use ambition_platformer_primitives::lifecycle::SessionSpawnScope;
+
+    #[derive(bevy::prelude::Component)]
+    struct TestLoweredMarker;
+
+    // A stand-in interpreter that leaves an observable trace only the passed
+    // registry could produce.
+    fn marker_hazard_lowering(_record: &PlacementRecord, ctx: &mut LoweringCtx<'_, '_, '_>) {
+        ctx.commands.spawn(TestLoweredMarker);
+    }
+
+    let mut registry = PlacementLoweringRegistry::default();
+    registry.register(PlacementKind::Hazard, marker_hazard_lowering);
+
+    let mut room = crate::rooms::RoomSpec::new(
+        "test_room",
+        ae::World::new("test_room", Vec2::splat(1000.0), Vec2::ZERO, Vec::new()),
+    );
+    room.placements.push(PlacementRecord::new(
+        "haz_1",
+        PlacementSchema::Hazard(HazardSpec {
+            damage: 1,
+            knockback: [0.0, 0.0],
+            kind: DamageKind::Hazard,
+            team: DamageTeam::Environment,
+            hitstop_seconds: 0.0,
+            respawn: HazardRespawn::Never,
+            path_id: None,
+        }),
+        ae::Aabb::new(Vec2::ZERO, Vec2::splat(4.0)),
+    ));
+
+    let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+    let roster = crate::features::enemies::test_roster();
+    let boss_catalog = crate::boss_encounter::test_boss_catalog();
+
+    let mut app = App::new();
+    app.add_message::<crate::rooms::RoomLoaded>();
+    app.add_systems(Update, move |mut commands: Commands| {
+        spawn_room_feature_entities_with_registry(
+            &mut commands,
+            &catalog,
+            &roster,
+            boss_catalog,
+            &room,
+            &registry,
+            SessionSpawnScope::UNSCOPED,
+        );
+    });
+    app.update();
+
+    let marker_count = app
+        .world_mut()
+        .query::<&TestLoweredMarker>()
+        .iter(app.world())
+        .count();
+    assert_eq!(
+        marker_count, 1,
+        "the hazard placement must lower through the supplied registry's marker \
+         interpreter — proving the room build uses the registry it is handed"
+    );
+}
+
 /// Regression net: spawning an encounter mob attaches a
 /// per-archetype Brain. `medium_striker` migrated from
 /// `MeleeBrute` to `Smash` in `character_archetypes.ron`; the test

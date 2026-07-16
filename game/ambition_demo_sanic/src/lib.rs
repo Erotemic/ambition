@@ -448,11 +448,7 @@ pub fn install_sanic_content(app: &mut App) {
 }
 
 /// An open provider-local procedural cue for shell/menu vocabulary.
-fn sanic_open_cue(
-    id: &str,
-    frequency: f32,
-    frequency_end: f32,
-) -> ambition::audio::spec::SfxSpec {
+fn sanic_open_cue(id: &str, frequency: f32, frequency_end: f32) -> ambition::audio::spec::SfxSpec {
     ambition::audio::spec::SfxSpec {
         cue: None,
         id: Some(id.to_owned()),
@@ -521,17 +517,26 @@ impl Plugin for SanicDemoContentPlugin {
 fn sanic_setup(
     mut commands: bevy::prelude::Commands,
     world: ambition::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition::runtime::demo_fixture::RoomSet>,
-    ldtk_index: ambition::platformer::lifecycle::SessionWorldRef<ambition::runtime::demo_fixture::LdtkRuntimeIndex>,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<
+        ambition::runtime::demo_fixture::RoomSet,
+    >,
+    ldtk_index: ambition::platformer::lifecycle::SessionWorldRef<
+        ambition::runtime::demo_fixture::LdtkRuntimeIndex,
+    >,
     editable_abilities: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableAbilitySet>,
     editable_tuning: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableMovementTuning>,
-    starting_character: ambition::platformer::lifecycle::SessionWorldRef<ambition::runtime::demo_fixture::StartingCharacter>,
+    starting_character: ambition::platformer::lifecycle::SessionWorldRef<
+        ambition::runtime::demo_fixture::StartingCharacter,
+    >,
     asset_server: bevy::prelude::Res<bevy::asset::AssetServer>,
     character_catalog: bevy::prelude::Res<
         ambition::characters::actor::character_catalog::CharacterCatalog,
     >,
     character_roster: bevy::prelude::Res<ambition::actors::features::CharacterRoster>,
     boss_catalog: bevy::prelude::Res<ambition::actors::boss_encounter::BossCatalog>,
+    placement_lowering: bevy::prelude::Res<
+        ambition::runtime::demo_fixture::PlacementLoweringRegistry,
+    >,
 ) {
     ambition::runtime::demo_fixture::simulation_world(
         &mut commands,
@@ -545,6 +550,7 @@ fn sanic_setup(
             starting_character: &starting_character,
             character_catalog: &character_catalog,
             character_roster: &character_roster,
+            placement_lowering: &placement_lowering,
             boss_catalog: &boss_catalog,
             default_character_id: SANIC_CHARACTER_ID,
             sandbox_data_asset: None,

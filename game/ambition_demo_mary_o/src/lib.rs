@@ -445,6 +445,9 @@ fn mary_o_setup(
     >,
     character_roster: bevy::prelude::Res<ambition::actors::features::CharacterRoster>,
     boss_catalog: bevy::prelude::Res<ambition::actors::boss_encounter::BossCatalog>,
+    placement_lowering: bevy::prelude::Res<
+        ambition::runtime::demo_fixture::PlacementLoweringRegistry,
+    >,
 ) {
     ambition::runtime::demo_fixture::simulation_world(
         &mut commands,
@@ -458,6 +461,7 @@ fn mary_o_setup(
             starting_character: &starting_character,
             character_catalog: &character_catalog,
             character_roster: &character_roster,
+            placement_lowering: &placement_lowering,
             boss_catalog: &boss_catalog,
             default_character_id: provider::MARY_O_CHARACTER_ID,
             sandbox_data_asset: None,

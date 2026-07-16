@@ -128,16 +128,30 @@ projectile-visual, input-technique, held-item-art, item-identity, and boss-sheet
 families now meet this at their seams; the remaining `EntitySprite`/asset-universe
 manifest families are the open tail.
 
-## 4. Extract `ambition_sim_harness`
+## 4. Extract `ambition_sim_harness` — LANDED
 
-**State:** OPEN.
+**State:** LANDED (exit gate met).
 
-Move reset/step, typed actions, observations, reward/termination plumbing, and
-programmatic composition below `ambition_app`. The harness accepts plugin/provider
-composition rather than importing the flagship app.
+`crates/ambition_sim_harness` now owns reset/step, the typed `AgentAction`
+(→ `ControlFrame`), the `AgentObservation` read-model, the example `reward`
+shaping, the `random_policy` fuzz driver, and `SandboxSim`. It sits below
+`ambition_app` and depends only on the `ambition` facade (which does not depend
+on `ambition_app`/`ambition_content`).
 
-**Exit:** a demo or test can run through the harness without linking Ambition's
-product shell.
+The single entanglement was inverted: `SandboxSim::build(options, compose)` takes
+a caller-supplied composition closure. The harness owns the engine half
+(`add_headless_foundation`, the fixed-tick sim-schedule choice, the time strategy,
+the startup pumps) and hands the App to `compose` for the game's content + sim
+plugins. `ambition_app::rl_sim` is a thin binding: it re-exports the harness and
+supplies `ambition_sim_composition` (LDtk validate + world install + start-room +
+`SandboxSimulationPlugin`) plus an `AmbitionSim` extension trait giving the
+ergonomic `SandboxSim::new()` constructors the RL binaries and behavior/oracle
+tests use. The Ambition-specific `run_headless`/`HeadlessReport` stay in
+`ambition_app`.
+
+**Exit — met:** `crates/ambition_sim_harness/tests/composes_below_the_app.rs`
+builds a minimal one-room session and drives step/observation/reset through the
+harness while linking only the `ambition` facade — never `ambition_app`.
 
 ## 5. Converge boss behavior onto moveset authority
 

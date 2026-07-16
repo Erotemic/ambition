@@ -103,7 +103,7 @@ mutable truth is being hidden.
 | **Simulation assembly** | `ambition_runtime` | headless-safe plugin composition and global schedule-set ordering |
 | **Platformer provider lifecycle** | `ambition_platformer_provider` | typed preparation, exact activation, session construction, cleanup |
 | **Windowed host** | `ambition_host` | device/window/presentation composition above the runtime |
-| **Programmatic harness** | accepted `ambition_sim_harness` extraction | reset/step, typed actions, observations, reward/termination adapters |
+| **Programmatic harness** | `ambition_sim_harness` (landed) | reset/step, typed actions, observations, reward/termination adapters; `SandboxSim::build` takes a caller-supplied composition so it links no product shell |
 | **SDK facade** | `ambition` | curated re-exports and convenient composition, not substantive lifecycle implementation |
 
 ### Tier 6 — games and providers

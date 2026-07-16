@@ -186,12 +186,13 @@ mod tests {
             "room",
             ae::World::new("room", ae::Vec2::new(128.0, 128.0), ae::Vec2::ZERO, vec![]),
         );
-        assert_eq!(
-            registry.try_requests_for(&room),
-            Err(RoomContentStagingError::DuplicateId {
-                room: "room".to_string(),
-                id: "duplicate".to_string(),
-            })
-        );
+        match registry.try_requests_for(&room) {
+            Err(RoomContentStagingError::DuplicateId { room, id }) => {
+                assert_eq!(room, "room");
+                assert_eq!(id, "duplicate");
+            }
+            Err(other) => panic!("expected DuplicateId, got {other:?}"),
+            Ok(_) => panic!("expected duplicate staged ids to be rejected"),
+        }
     }
 }

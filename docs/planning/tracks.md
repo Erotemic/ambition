@@ -172,15 +172,48 @@ harness while linking only the `ambition` facade — never `ambition_app`.
 
 ## 5. Converge boss behavior onto moveset authority
 
-**State:** PARTIAL. The brain no longer owns a second attack timing projection or
-direct special resolver; it emits transient profile intent and `MovePlayback` is
-the execution authority. Remaining work is the broader phase/action-family fold.
+**State:** CONVERGED (5cf27ae4d completed the phase/action-family fold begun in
+`c618f0c`). Family-by-family:
 
-Keep boss decision policy sophisticated, but make attack execution, timing,
-cancellation, motion locks, and semantic effects use the shared move/action
-lifecycle. Delete each superseded boss-specific path when its family migrates.
+- **Attack execution** (`c618f0c`): `MovePlayback` is the one execution
+  timeline; the brain emits transient profile intent; `BossAttackState` is a
+  pure projection of the live move.
+- **Timing** (`5cf27ae4d`): the cycle-mode `CyclePhase` windup/active/cooldown
+  machine — a second timing projection running the move's own durations in
+  parallel — is DELETED. Cycle mode is pure decision policy (rest clock +
+  rotation); the brain observes its live move back through
+  `BossPatternContext::live_attack` and sustains/rests off what the move
+  actually does.
+- **Cancellation**: an abandoned windup aborts at the trigger (intent
+  disappearance); a striking move is committed (the Smash convention). Bosses
+  author no `Cancelable` windows today — an authoring choice on the shared
+  vocabulary, not a missing mechanism.
+- **Motion locks** (`5cf27ae4d`): `MoveWindow::motion_scale` +
+  `MoveSpec::motion_scale_at` are the moveset's authored motion-lock primitive,
+  enforced at body integration for EVERY body and controller; the brain-side
+  `strike_speed_scale` damping (which possession bypassed) is deleted.
+- **Semantic effects** (`c618f0c` + `5cf27ae4d`): specials ride
+  `sustain_effect`/`Effect{key}`; telegraph cue/vfx (BD3), which the
+  convergence had left runtime-dead, now bake as rising-edge `MoveEvent`s
+  through the shared `dispatch_move_events` channel.
+- **Defensive hurtboxes — no fold needed, by inspection:**
+  `damageable_volumes` selects per-pose hurtbox rows (GNU-ton's head-only
+  descent window) from the actor's CURRENT POSE, and the pose is picked from
+  the projected `BossAttackState`, i.e. from the live move — one authority
+  chain already. Wiring `WindowTag::Invuln`/`Armor` for bosses would add a
+  SECOND vulnerability mechanism beside the sprite-metadata one; the per-pose
+  hurtbox pipeline belongs to the actor-geometry-unification track.
+- **Stays boss/encounter-owned by design:** the encounter phase machine
+  (Dormant→…→Death, music, phase-invuln gate), scripted encounter mechanics
+  (`CommandedMove`, `FallingHazard`), and the whole `boss_pattern` decision
+  brain (scripted cursor, Select/Stance/Interrupt, macro chase/retreat,
+  deterministic RNG) — decision policy is allowed to stay sophisticated.
 
-**Exit:** only then reassess whether any coherent boss crate remains.
+**Exit reached — reassessment now open (Jon's call, maintainer decision #6):**
+whether any coherent boss crate remains to carve. Input from the fold: what is
+left boss-specific is decision policy (`boss_pattern`), encounter
+orchestration, and sprite-metadata geometry derivation — no boss-specific
+execution machinery survives.
 
 ## 6. Repair domain-plugin ownership
 

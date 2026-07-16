@@ -1,5 +1,7 @@
 //! Unit tests for the standalone Sanic content and rules plugin.
 
+mod speedway_oracles;
+
 use super::*;
 
 #[test]

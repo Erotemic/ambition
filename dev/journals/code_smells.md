@@ -520,3 +520,13 @@ so `removed_block_names` now means collision AND render. Mary-O side stays small
 `bricks.rs` (a `BrokenBricks` u32 bitset — NOT a HashSet, it's iterated each frame and
 the det-contract bans hash iteration) + brick geometry helpers mirroring the power
 blocks. The engine-for-other-games oracle's "second consumer" is satisfied.
+
+**13. A riding surface-momentum body ignores solid blocks (2026-07-16).** While
+`SurfaceMotion::Riding`, `advance_riding` walks pure chain arc — no sweep against
+`World::blocks` — so a rider on the speedway's floor guide chain runs straight
+through the solid `finish_tower` (hazards still fire via the kernel's hazard
+gate; solids do not). Found during the speedway bug recon
+(`game/ambition_demo_sanic/src/tests/speedway_oracles.rs` documents the related
+bugs). Not player-visible today because the spikes reset first, but any chain
+routed past a solid wall will exhibit it. Fix belongs with the surface-momentum
+contact rework, not a point patch.

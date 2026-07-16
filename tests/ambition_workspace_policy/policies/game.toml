@@ -316,10 +316,10 @@ scope = "game"
 kind = "file-contains"
 owners = ["ambition_app"]
 watch_paths = ["crates/ambition_runtime/src/player_schedule.rs"]
-rationale = "engine player schedule references the moved systems via library paths"
+rationale = "engine player schedule references the moved systems via library paths (dev-tools live-edit is ordered as its domain SET per decision #9, not by leaf-system name)"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["ambition_dev_tools::sync_live_player_dev_edits_system", "ambition_actors::time::time_control::apply_suspended_time_scale_system", "ambition_actors::control::input_timer_system", "ambition_actors::control::interaction_input_system", "ambition_actors::control::cleanup_timers_system"]
+contains = ["ambition_dev_tools::DevEditApplySet", "ambition_actors::time::time_control::apply_suspended_time_scale_system", "ambition_actors::control::input_timer_system", "ambition_actors::control::interaction_input_system", "ambition_actors::control::cleanup_timers_system"]
 file = "crates/ambition_runtime/src/player_schedule.rs"
 
 [[policy]]

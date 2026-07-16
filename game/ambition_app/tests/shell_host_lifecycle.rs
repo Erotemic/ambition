@@ -427,14 +427,15 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         "mary-o",
     );
     fresh(scope, "mary-o");
-    // Mary-O registered no audio fragments: a DELIBERATE empty set, never
-    // Sanic's or Ambition's music.
-    assert!(
+    // Mary-O authors its own "Support Theme": provider-relative audio selects
+    // Mary-O's own track, never inherited residue from Sanic or Ambition.
+    assert_eq!(
         app.world()
             .resource::<ActiveAudioSelection>()
             .music()
-            .is_none(),
-        "mary-o: no inherited music from a previous provider"
+            .map(|registry| registry.default_track.as_str()),
+        Some("support_theme"),
+        "mary-o: plays its own authored theme, not a previous provider's music"
     );
 
     app.world_mut().write_message(ShellCommand::QuitToHome);

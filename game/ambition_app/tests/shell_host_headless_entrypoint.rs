@@ -8,8 +8,10 @@ use ambition_app::app::run_shared_host_headless;
 
 #[test]
 fn shipping_shared_host_reaches_the_launcher_without_a_window() {
-    let report = run_shared_host_headless(150);
-    assert_eq!(report.ticks_run, 150);
+    // The startup vanity card holds ~216 ticks (3600ms at 60fps) before
+    // auto-advancing; run past that with margin so the launcher is reached.
+    let report = run_shared_host_headless(240);
+    assert_eq!(report.ticks_run, 240);
     assert_eq!(report.active_route.as_deref(), Some("ambition_launcher"));
     assert!(report.launcher_active);
     assert!(!report.gameplay_session_active);

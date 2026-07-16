@@ -401,14 +401,15 @@ fn provider_relative_music_drives_the_base_channel() {
     settle(&mut app);
     assert_eq!(active_music_track(&app), "a_possible_morning");
 
-    // Mary-O authored no music: deliberate silence, not the retained theme.
+    // Mary-O authors its own "Support Theme": provider-relative audio switches
+    // to Mary-O's track, never Sanic's you_are_too_slow or the retained title.
     app.world_mut()
         .write_message(ShellCommand::GoTo("mary_o_gameplay".into()));
     settle(&mut app);
     assert_eq!(
         active_music_track(&app),
-        "",
-        "Mary-O is deliberately silent — a music-less provider STOPS playback"
+        "support_theme",
+        "Mary-O plays its own authored theme, never the previous provider's track"
     );
 }
 

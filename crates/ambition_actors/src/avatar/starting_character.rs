@@ -256,15 +256,19 @@ fn sync_charge_projectile_capability(
     charges_projectiles: bool,
     has_projectile_state: bool,
 ) {
+    // This kit refresh is deferred, and a session-scoped body can be despawned
+    // by session teardown in the same frame its worn identity last changed; the
+    // `try_` variants apply the capability iff the entity is still alive rather
+    // than erroring on a torn-down entity.
     let mut entity_commands = commands.entity(entity);
     if charges_projectiles {
-        entity_commands.insert(ambition_characters::brain::ChargesProjectiles);
+        entity_commands.try_insert(ambition_characters::brain::ChargesProjectiles);
         if !has_projectile_state {
-            entity_commands.insert(ambition_projectiles::PlayerProjectileState::default());
+            entity_commands.try_insert(ambition_projectiles::PlayerProjectileState::default());
         }
     } else {
-        entity_commands.remove::<ambition_characters::brain::ChargesProjectiles>();
-        entity_commands.remove::<ambition_projectiles::PlayerProjectileState>();
+        entity_commands.try_remove::<ambition_characters::brain::ChargesProjectiles>();
+        entity_commands.try_remove::<ambition_projectiles::PlayerProjectileState>();
     }
 }
 
@@ -341,12 +345,12 @@ pub fn apply_worn_character_gameplay(
                 Some(tuning) => {
                     commands
                         .entity(entity)
-                        .insert(ambition_engine_core::AuthoredMovementTuning(tuning));
+                        .try_insert(ambition_engine_core::AuthoredMovementTuning(tuning));
                 }
                 None => {
                     commands
                         .entity(entity)
-                        .remove::<ambition_engine_core::AuthoredMovementTuning>();
+                        .try_remove::<ambition_engine_core::AuthoredMovementTuning>();
                 }
             }
             continue;

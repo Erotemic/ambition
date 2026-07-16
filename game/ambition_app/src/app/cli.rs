@@ -571,7 +571,9 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
     let mut routes = Vec::new();
     let mut title_zero_state_stops = 0_u32;
     let launcher = super::shell_host::AMBITION_LAUNCHER_ROUTE;
-    let mut completed = step_until_title_zero_state(&mut app, launcher, 180);
+    // First hop passes through the startup vanity card, which holds ~216 ticks
+    // (3600ms at 60fps) before auto-advancing to the launcher; budget past it.
+    let mut completed = step_until_title_zero_state(&mut app, launcher, 260);
     if completed {
         routes.push(launcher.to_owned());
         title_zero_state_stops += 1;

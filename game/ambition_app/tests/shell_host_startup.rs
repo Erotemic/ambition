@@ -184,7 +184,10 @@ fn startup_naturally_auto_advances_on_the_shipping_timeline() {
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
         1.0 / 60.0,
     )));
-    for _ in 0..150 {
+    // The vanity card holds 3600ms (see `compose_ambition_startup_sequence`),
+    // i.e. ~216 ticks at 60fps, before auto-advancing; step past that with
+    // margin so the natural handoff to the launcher is observed.
+    for _ in 0..240 {
         app.update();
     }
     assert_eq!(

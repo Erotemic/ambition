@@ -47,6 +47,7 @@ pub mod items;
 #[cfg(feature = "audio")]
 pub mod music;
 pub mod plugin;
+pub mod projectiles;
 pub mod quest;
 pub mod quests;
 /// The LDtk world payload + Ambition's `WorldManifest` (install seam:

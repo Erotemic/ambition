@@ -1,7 +1,8 @@
 //! Sandbox PLAYER-faction projectile glue.
 //!
-//! The reusable projectile MODEL — shot vocabulary (`ProjectileKind` / visual
-//! kinds), the ECS components, `PlayerProjectileState`, the `SpawnProjectile`
+//! The reusable projectile MODEL — shot vocabulary (`ProjectileKind` / the open
+//! `ProjectileVisualId` + content-owned visual catalog), the ECS components,
+//! `PlayerProjectileState`, the `SpawnProjectile`
 //! pool + player-pool spawner, and pure portal transit — now lives in the
 //! [`ambition_projectiles`] crate (E2 carve) and is re-exported below so
 //! `crate::projectile::*` paths resolve unchanged for every sandbox consumer.

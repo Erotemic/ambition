@@ -119,15 +119,18 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         // Future items can extend this routing by id without changing the brain.
         let held_item_id = held_items.get(msg.actor).ok().map(|item| item.id());
         let uses_gun_sword = held_item_id == Some("gun_sword");
-        // The projectile's APPEARANCE is chosen by KIND, set here at the fire
-        // site: a gun-sword discharge is a spinning lasersword; otherwise the
-        // archetype's authored ranged visual (e.g. the PCA's Conway glider),
-        // defaulting to the generic hostile shot. The render layer reads this
-        // kind — never the owner-id string.
-        let visual_kind = if uses_gun_sword {
-            crate::projectile::ProjectileVisualKind::Lasersword
+        // The projectile's APPEARANCE is chosen by an OPEN visual id, set here at
+        // the fire site: a gun-sword discharge is the spinning `"lasersword"`;
+        // otherwise the archetype's authored ranged visual (e.g. the PCA's
+        // `"glider"`), defaulting to the empty/generic hostile shot. The render
+        // layer resolves this id through the content catalog — never the owner-id
+        // string. The held-item id → projectile-visual id mapping is game policy;
+        // when a second item needs its own discharge look this table can move to
+        // a content-owned held-item→projectile registration.
+        let visual_id = if uses_gun_sword {
+            "lasersword".to_string()
         } else {
-            enemy.config.tuning.ranged_visual
+            enemy.config.tuning.ranged_visual.clone()
         };
         let gravity_dir = -enemy
             .surface
@@ -165,7 +168,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             half_extent: PROJECTILE_HALF_EXTENT,
             owner_id: owner_id.clone(),
             gravity: 0.0,
-            visual_tag: visual_kind.to_tag(),
+            visual_id,
         };
         if uses_gun_sword {
             sfx.write(SfxMessage::Play {

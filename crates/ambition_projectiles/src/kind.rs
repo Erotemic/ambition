@@ -131,6 +131,14 @@ impl ProjectileKind {
         }
     }
 
+    /// The open projectile-visual id a player shot of this kind carries — the key
+    /// the content-owned [`ProjectileVisualCatalog`](crate::ProjectileVisualCatalog)
+    /// registers its art under. Matches [`Self::label`] today; kept distinct so
+    /// the gameplay tier and the render identity can diverge without a rename.
+    pub fn visual_id(self) -> &'static str {
+        self.label()
+    }
+
     /// Lower this named kind into the engine's generic [`ProjectileSpec`].
     /// `damage_multiplier` is the firer's outgoing-damage scaling.
     pub fn spec(self, origin: Vec2, direction: Vec2, damage_multiplier: f32) -> ProjectileSpec {

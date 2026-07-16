@@ -15,7 +15,7 @@ use bevy::sprite::Anchor;
 // --- Wielded / held gun-sword sprite ---------------------------------------
 // The spinning-lasersword sprite is the WIELDED weapon + the player's held
 // gun-sword shot (a `HeldProjectile`), distinct from the faction projectile
-// pool (whose art now flows through `ProjectileVisualKind`). These consumers
+// pool (whose art now flows through the `ProjectileVisualCatalog`). These consumers
 // keep their own static-frame helper.
 //
 // (Read from `lasersword_spritesheet.yaml`, row `idle`, frame 0.)

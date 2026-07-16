@@ -78,7 +78,7 @@ mod tests {
             half_extent: ae::Vec2::new(8.0, 8.0),
             owner_id: "pirate_1".into(),
             gravity: 0.0,
-            visual_tag: 0,
+            visual_id: String::new(),
         }
     }
 
@@ -110,7 +110,7 @@ mod tests {
             half_extent: ae::Vec2::new(8.0, 8.0),
             owner_id: "test".into(),
             gravity: 0.0,
-            visual_tag: 0,
+            visual_id: String::new(),
         });
         // A zero-length direction would NaN the initial_velocity; build
         // defaults to (1, 0) so the projectile has a sensible direction.

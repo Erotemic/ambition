@@ -66,12 +66,12 @@ pub struct EnemyProjectileSpawn {
     /// Per-second downward acceleration each tick. Zero for hitscan-like
     /// volleys; positive for arcing/falling projectiles (e.g. apple rain).
     pub gravity: f32,
-    /// Opaque visual-kind tag, carried for the render layer only. The physics
-    /// never interprets it (exactly like `ProjectileSpec::charge_tier`): a
-    /// game's content maps its named projectile look to/from this `u16` (in
-    /// Ambition, `ambition_projectiles::ProjectileVisualKind`).
-    /// `0` is the unspecified / generic default.
-    pub visual_tag: u16,
+    /// Opaque visual id, carried for the render layer only. The physics never
+    /// interprets it (exactly like `ProjectileSpec::charge_tier`): a game's
+    /// content registers a named projectile look under this string (in Ambition,
+    /// via `ambition_projectiles::ProjectileVisualCatalog`) and the render layer
+    /// resolves it. The empty string is the unspecified / generic default.
+    pub visual_id: String,
 }
 
 #[cfg(test)]

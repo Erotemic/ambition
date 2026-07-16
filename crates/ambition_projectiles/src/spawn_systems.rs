@@ -9,7 +9,7 @@ use crate::entity::{
     LiveProjectile, PlayerProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeqCounter,
 };
 use crate::spawn_message::{ProjectilePool, SpawnProjectile};
-use crate::visual_kind::ProjectileVisualKind;
+use crate::visual::ProjectileVisualId;
 
 /// Drain queued player-pool spawn messages into live projectile entities.
 pub fn apply_player_spawn_projectile_messages(
@@ -32,16 +32,17 @@ pub fn apply_player_spawn_projectile_messages(
             PlayerProjectile,
             Name::new("Player projectile (sim)"),
         ));
-        // Named kind rides as its own component (the engine body is generic):
-        // combat attribution, trace, and render read it off the entity. Every
-        // player shot also carries a visual identity (a kind-less shot — which
-        // shouldn't happen for the player — reads as a fireball), so player +
-        // enemy shots share ONE kind→art selection path in the render layer.
-        let visual = msg
+        // The named gameplay kind rides as its own component (the engine body is
+        // generic): combat attribution and trace read it off the entity. The
+        // OPEN visual id — the key the content art catalog registers under —
+        // rides beside it, so player + enemy shots share ONE id→art selection
+        // path in the render layer. A kind-less shot (shouldn't happen for the
+        // player) reads as the generic fireball look.
+        let visual_id = msg
             .kind
-            .map(ProjectileVisualKind::from)
-            .unwrap_or(ProjectileVisualKind::Fireball);
-        entity.insert(visual);
+            .map(|kind| kind.visual_id().to_string())
+            .unwrap_or_else(|| "fireball".to_string());
+        entity.insert(ProjectileVisualId(visual_id));
         if let Some(kind) = msg.kind {
             entity.insert(kind);
         }

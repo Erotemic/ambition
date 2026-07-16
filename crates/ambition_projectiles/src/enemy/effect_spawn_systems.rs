@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use crate::enemy::{EnemyProjectile, EnemyProjectileState};
 use crate::{
-    LiveProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeqCounter, ProjectileVisualKind,
+    LiveProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeqCounter, ProjectileVisualId,
 };
 
 /// Materialize enemy-pool projectiles from [`ambition_vfx::Effect::Projectiles`]
@@ -39,17 +39,18 @@ pub fn apply_enemy_projectile_effect_requests(
         };
         for shot in shots {
             let owner_id = shot.owner_id.clone();
-            // Decode the opaque visual tag the firing site stamped into the
-            // shot's visual identity. The render layer reads this component —
-            // not the owner-id string — to pick the projectile art.
-            let visual_kind = ProjectileVisualKind::from_tag(shot.visual_tag);
+            // Carry the open visual id the firing site stamped forward onto the
+            // entity. The render layer reads this component — not the owner-id
+            // string — and resolves it through the content art catalog. An empty
+            // id reads as the generic hostile shot. This crate never names one.
+            let visual_id = ProjectileVisualId(shot.visual_id.clone());
             let projectile = EnemyProjectileState::build(shot.clone());
             let mut entity = commands.spawn((
                 projectile.body.kin,
                 projectile.body.game,
                 seq.next(),
                 ProjectileOwnerId(owner_id),
-                visual_kind,
+                visual_id,
                 LiveProjectile,
                 EnemyProjectile,
                 Name::new("Enemy projectile (sim)"),

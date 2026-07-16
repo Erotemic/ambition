@@ -23,6 +23,9 @@ fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHit
 
 fn insert_projectile_authority(app: &mut App) {
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    // The stepper resolves each shot's visual id through the (empty here) content
+    // catalog for its detonation-FX pick; init it so the `Res` param validates.
+    app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
 }
 
 /// The faction-aware routing keystone: a **Player**-faction shot in the
@@ -92,7 +95,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
             half_extent: ae::Vec2::new(8.0, 8.0),
             owner_id: "player_volley".into(),
             gravity: 0.0,
-            visual_tag: 0,
+            visual_id: String::new(),
         },
         ActorFaction::Player,
     );
@@ -176,7 +179,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
             half_extent: ae::Vec2::new(8.0, 8.0),
             owner_id: String::new(),
             gravity: 0.0,
-            visual_tag: 0,
+            visual_id: String::new(),
         },
     );
 
@@ -249,7 +252,7 @@ fn spawn_overlapping_enemy_glider(app: &mut App, pos: ae::Vec2) {
             half_extent: ae::Vec2::new(8.0, 8.0),
             owner_id: "pca_glider".into(),
             gravity: 0.0,
-            visual_tag: 0,
+            visual_id: String::new(),
         },
         ActorFaction::Enemy,
     );
@@ -380,7 +383,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
             half_extent: ae::Vec2::new(8.0, 8.0),
             owner_id: "boss_bolt".into(),
             gravity: 0.0,
-            visual_tag: 0,
+            visual_id: String::new(),
         },
         ActorFaction::Enemy,
     );
@@ -499,7 +502,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
                 half_extent: ae::Vec2::new(8.0, 8.0),
                 owner_id: "boss_bolt".into(),
                 gravity: 0.0,
-                visual_tag: 0,
+                visual_id: String::new(),
             }],
         },
     });
@@ -519,12 +522,12 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     );
 }
 
-/// The spawn executor decodes the shot's opaque `visual_tag` into a
-/// `ProjectileVisualKind` component — the render layer's single art-selection
+/// The spawn executor carries the shot's open `visual_id` forward onto a
+/// `ProjectileVisualId` component — the render layer's single art-selection
 /// input, set without reading `owner_id`.
 #[test]
-fn spawn_executor_attaches_visual_kind_from_tag() {
-    use crate::projectile::ProjectileVisualKind;
+fn spawn_executor_attaches_visual_id() {
+    use crate::projectile::ProjectileVisualId;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
     app.add_message::<ambition_vfx::EffectRequest>();
@@ -542,16 +545,16 @@ fn spawn_executor_attaches_visual_kind_from_tag() {
                 half_extent: ae::Vec2::new(8.0, 8.0),
                 owner_id: "pca".into(),
                 gravity: 0.0,
-                visual_tag: ProjectileVisualKind::Glider.to_tag(),
+                visual_id: "glider".into(),
             }],
         },
     });
     app.update();
-    let mut q = app.world_mut().query::<&ProjectileVisualKind>();
-    let kinds: Vec<_> = q.iter(app.world()).copied().collect();
+    let mut q = app.world_mut().query::<&ProjectileVisualId>();
+    let ids: Vec<_> = q.iter(app.world()).map(|v| v.0.clone()).collect();
     assert_eq!(
-        kinds,
-        vec![ProjectileVisualKind::Glider],
-        "the Glider tag must materialize as a Glider visual-kind component"
+        ids,
+        vec!["glider".to_string()],
+        "the glider visual id must ride onto the spawned projectile"
     );
 }

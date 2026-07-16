@@ -110,11 +110,11 @@ fn ranged_message_for_non_pirate_uses_body_origin_not_hand() {
 }
 
 /// The ranged-fire consumer stamps the firing actor's authored ranged
-/// visual onto the spawned projectile (by KIND, not owner_id). A
-/// `cellular_automaton_fighter` authored `ranged_visual: Glider` fires a
-/// Glider-kind shot.
+/// visual id onto the spawned projectile (by open id, not owner_id). A
+/// `cellular_automaton_fighter` authored `ranged_visual: "glider"` fires a
+/// `"glider"`-id shot.
 #[test]
-fn ranged_shot_carries_archetype_authored_visual_kind() {
+fn ranged_shot_carries_archetype_authored_visual_id() {
     let mut app = build_app();
     let actor_pos = ae::Vec2::new(300.0, 300.0);
     let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
@@ -129,7 +129,7 @@ fn ranged_shot_carries_archetype_authored_visual_kind() {
     );
     let mut bundle = enemy_actor(enemy);
     // Author the ranged visual as the runtime archetype projection would.
-    bundle.1 .3.tuning.ranged_visual = crate::projectile::ProjectileVisualKind::Glider;
+    bundle.1 .3.tuning.ranged_visual = "glider".to_string();
     let actor = app.world_mut().spawn(bundle).id();
     app.world_mut()
         .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
@@ -148,11 +148,11 @@ fn ranged_shot_carries_archetype_authored_visual_kind() {
     app.update();
     let mut q = app
         .world_mut()
-        .query::<&crate::projectile::ProjectileVisualKind>();
-    let kinds: Vec<_> = q.iter(app.world()).copied().collect();
+        .query::<&crate::projectile::ProjectileVisualId>();
+    let ids: Vec<_> = q.iter(app.world()).map(|v| v.0.clone()).collect();
     assert_eq!(
-        kinds,
-        vec![crate::projectile::ProjectileVisualKind::Glider],
+        ids,
+        vec!["glider".to_string()],
         "the PCA's authored ranged_visual must ride onto the spawned shot"
     );
 }

@@ -301,13 +301,14 @@ pub fn rebuild_hostile_wielded_items_view(
     }
 }
 
-/// Per-projectile presentation pose (E4 slice 13): the art-selection kind
+/// Per-projectile presentation pose (E4 slice 13): the open art-selection id
 /// plus the frame's kinematic facts, written on the projectile entity
 /// sim-side. Render queries ONLY this component — never the live
-/// `BodyKinematics`. Removed when a pooled projectile stops being live.
-#[derive(Component, Clone, Copy, Debug)]
+/// `BodyKinematics` — and resolves `visual_id` through the content-owned
+/// `ProjectileVisualCatalog`. Removed when a pooled projectile stops being live.
+#[derive(Component, Clone, Debug)]
 pub struct ProjectileView {
-    pub kind: ambition_projectiles::ProjectileVisualKind,
+    pub visual_id: String,
     pub pos: ae::Vec2,
     pub vel: ae::Vec2,
     pub size: ae::Vec2,
@@ -320,7 +321,7 @@ pub fn rebuild_projectile_views(
         (
             Entity,
             &BodyKinematics,
-            &ambition_projectiles::ProjectileVisualKind,
+            &ambition_projectiles::ProjectileVisualId,
             Option<&mut ProjectileView>,
         ),
         With<ambition_projectiles::LiveProjectile>,
@@ -335,9 +336,9 @@ pub fn rebuild_projectile_views(
         ),
     >,
 ) {
-    for (entity, kin, kind, view) in &mut live {
+    for (entity, kin, visual_id, view) in &mut live {
         let next = ProjectileView {
-            kind: *kind,
+            visual_id: visual_id.0.clone(),
             pos: kin.pos,
             vel: kin.vel,
             size: kin.size,

@@ -66,8 +66,7 @@ fn player_robot_archetype_carries_the_full_player_kit() {
         "player-robot has the Hadouken ranged verb"
     );
     assert_eq!(
-        spec.ranged_visual,
-        crate::projectile::ProjectileVisualKind::Hadouken,
+        spec.ranged_visual, "hadouken",
         "the player-robot fires the player's signature projectile",
     );
     assert_eq!(

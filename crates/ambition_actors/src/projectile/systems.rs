@@ -373,7 +373,7 @@ pub fn step_projectiles(
             Option<&ProjectileOwnerId>,
             &ProjectileSeq,
             Option<&crate::projectile::ProjectileKind>,
-            Option<&crate::projectile::ProjectileVisualKind>,
+            Option<&crate::projectile::ProjectileVisualId>,
         ),
         (
             With<LiveProjectile>,
@@ -434,7 +434,9 @@ pub fn step_projectiles(
     //   lets a shot hit a same-faction body its firer feuds with (an `Npc` duelist's
     //   bolt). Read-only, so it may overlap `actor_victims`.
     // - `boss_catalog` — App-local authored boss geometry used by the hit predicate.
-    (actor_victims, owner_combat, boss_catalog): (
+    // - `visual_catalog` — the open, content-owned projectile art registry; the
+    //   detonation-FX pick resolves a shot's visual id through it.
+    (actor_victims, owner_combat, boss_catalog, visual_catalog): (
         Query<
             (
                 Entity,
@@ -446,6 +448,7 @@ pub fn step_projectiles(
         >,
         Query<(&ActorFaction, Option<&ActorAggression>)>,
         Res<crate::boss_encounter::BossCatalog>,
+        Res<ambition_projectiles::ProjectileVisualCatalog>,
     ),
 ) {
     let dt = world_time.sim_dt();
@@ -463,17 +466,20 @@ pub fn step_projectiles(
     ordered.sort_by_key(|(_, seq)| *seq);
 
     for (proj_entity, _) in ordered {
-        let Ok((_, mut kin, mut game, owner, _owner_id, _, kind, visual_kind)) =
+        let Ok((_, mut kin, mut game, owner, _owner_id, _, kind, visual_id)) =
             projectiles.get_mut(proj_entity)
         else {
             continue;
         };
         // Named kind for player shots (None for kind-less enemy volleys).
         let kind = kind.copied();
-        // Visual identity (every spawned shot carries one; default to the
-        // generic hostile look if somehow absent). Drives the detonation FX
-        // pick — by kind, not by sniffing the owner-id string.
-        let visual_kind = visual_kind.copied().unwrap_or_default();
+        // Open visual id (every spawned shot carries one; empty reads as the
+        // generic hostile look). Drives the detonation FX pick via the
+        // content-owned catalog — by id, not by sniffing the owner-id string.
+        let expiry_burst = visual_id
+            .map(|v| v.0.as_str())
+            .and_then(|id| visual_catalog.get(id))
+            .and_then(|art| art.expiry_vfx);
         let owner_entity = owner.map(|o| o.0);
         // The firer's real faction — the OWNER's, not the shot's stored label.
         // `None` = OWNERLESS (a truly ownerless volley, or a shot whose firer
@@ -497,7 +503,7 @@ pub fn step_projectiles(
         // inline by the body-overlap rule, not the center point (ADR 0024).
         let gravity_dir = gravity.dir_for(kin.aabb());
         if !game.tick(&mut kin, dt, gravity_dir) {
-            if let Some(boom) = visual_kind.expiry_vfx(kin.pos) {
+            if let Some(boom) = expiry_burst.map(|b| b.to_message(kin.pos)) {
                 vfx.write(boom);
                 sfx.write(SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_EXPLOSION,
@@ -747,7 +753,7 @@ pub fn step_projectiles(
                 sfx.write(SfxMessage::Hit { pos });
             }
             WorldHitOutcome::Expired { pos } => {
-                match visual_kind.expiry_vfx(pos) {
+                match expiry_burst.map(|b| b.to_message(pos)) {
                     Some(boom) => {
                         vfx.write(boom);
                         sfx.write(SfxMessage::Play {

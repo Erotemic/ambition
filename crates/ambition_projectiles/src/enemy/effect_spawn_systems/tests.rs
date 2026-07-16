@@ -6,9 +6,9 @@
 use super::*;
 use ambition_engine_core as ae;
 
-use crate::{ProjectileSeq, ProjectileVisualKind};
+use crate::{ProjectileSeq, ProjectileVisualId};
 
-fn spawn_request(owner_id: &str, visual_tag: u16) -> ambition_vfx::EffectRequest {
+fn spawn_request(owner_id: &str, visual_id: &str) -> ambition_vfx::EffectRequest {
     ambition_vfx::EffectRequest {
         owner: Entity::PLACEHOLDER,
         effect: ambition_vfx::Effect::Projectiles {
@@ -21,7 +21,7 @@ fn spawn_request(owner_id: &str, visual_tag: u16) -> ambition_vfx::EffectRequest
                 half_extent: ae::Vec2::new(8.0, 8.0),
                 owner_id: owner_id.into(),
                 gravity: 0.0,
-                visual_tag,
+                visual_id: visual_id.into(),
             }],
         },
     }
@@ -35,25 +35,21 @@ fn effect_request_spawns_enemy_projectile_entity_with_visual_and_sequence() {
     app.add_systems(Update, apply_enemy_projectile_effect_requests);
 
     app.world_mut()
-        .write_message(spawn_request("pca", ProjectileVisualKind::Glider.to_tag()));
+        .write_message(spawn_request("pca", "glider"));
     app.update();
 
     let mut q = app.world_mut().query_filtered::<
-        (&ProjectileOwnerId, &ProjectileVisualKind, &ProjectileSeq),
+        (&ProjectileOwnerId, &ProjectileVisualId, &ProjectileSeq),
         (With<EnemyProjectile>, With<LiveProjectile>),
     >();
     let rows: Vec<_> = q
         .iter(app.world())
-        .map(|(owner_id, visual_kind, seq)| (owner_id.0.clone(), *visual_kind, *seq))
+        .map(|(owner_id, visual_id, seq)| (owner_id.0.clone(), visual_id.0.clone(), *seq))
         .collect();
     assert_eq!(
         rows,
-        vec![(
-            "pca".to_string(),
-            ProjectileVisualKind::Glider,
-            ProjectileSeq(0),
-        ),],
-        "the substrate executor stamps owner id, visual kind, and deterministic sequence"
+        vec![("pca".to_string(), "glider".to_string(), ProjectileSeq(0)),],
+        "the substrate executor stamps owner id, visual id, and deterministic sequence"
     );
 }
 
@@ -65,7 +61,7 @@ fn effect_request_preserves_real_owner_entity_for_later_hit_attribution() {
     app.add_systems(Update, apply_enemy_projectile_effect_requests);
 
     let owner = app.world_mut().spawn_empty().id();
-    let mut req = spawn_request("boss_bolt", ProjectileVisualKind::EnemyDefault.to_tag());
+    let mut req = spawn_request("boss_bolt", "");
     req.owner = owner;
     app.world_mut().write_message(req);
     app.update();
@@ -88,10 +84,8 @@ fn placeholder_owner_remains_ownerless() {
     app.init_resource::<ProjectileSeqCounter>();
     app.add_systems(Update, apply_enemy_projectile_effect_requests);
 
-    app.world_mut().write_message(spawn_request(
-        "ownerless",
-        ProjectileVisualKind::EnemyDefault.to_tag(),
-    ));
+    app.world_mut()
+        .write_message(spawn_request("ownerless", ""));
     app.update();
 
     let mut q = app

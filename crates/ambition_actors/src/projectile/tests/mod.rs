@@ -76,6 +76,9 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     // Projectile state lives on the player; this counter only gives in-flight
     // projectile entities stable spawn order.
     app.init_resource::<crate::projectile::ProjectileSeqCounter>();
+    // The stepper resolves each shot's visual id through the (empty here) content
+    // catalog for its detonation-FX pick; init it so the `Res` param validates.
+    app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();

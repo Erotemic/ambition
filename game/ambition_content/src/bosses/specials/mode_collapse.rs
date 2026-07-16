@@ -141,7 +141,7 @@ pub fn spawn_mode_collapse_converge_from_special_messages(
                         half_extent: MC_RING_HALF_EXTENT,
                         owner_id: format!("{}:{}", MC_OWNER_PREFIX, boss.config.id),
                         gravity: 0.0,
-                        visual_tag: 0,
+                        visual_id: String::new(),
                     }],
                 },
             });

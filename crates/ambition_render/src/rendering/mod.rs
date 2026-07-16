@@ -248,6 +248,10 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
         app.init_resource::<wielded_item_visuals::WieldedItemVisualCatalog>();
+        // Open, content-owned projectile art registry (empty until a game's
+        // content crate registers looks). The renderer resolves each in-flight
+        // projectile's `ProjectileVisualId` through it.
+        app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
         deep_dream::add_puppy_slug_deep_dream_material_plugin(app);
         hit_flash::add_hit_flash_material_plugin(app);
         // The per-actor pose read-model (`ActorAnimIndex`) is rebuilt SIM-side

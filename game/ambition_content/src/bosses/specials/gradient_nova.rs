@@ -100,7 +100,7 @@ pub fn spawn_gradient_nova_from_special_messages(
                         half_extent: NOVA_HALF_EXTENT,
                         owner_id: format!("{}:{}", NOVA_OWNER_PREFIX, boss.config.id),
                         gravity: 0.0,
-                        visual_tag: 0,
+                        visual_id: String::new(),
                     }],
                 },
             });

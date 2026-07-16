@@ -132,7 +132,7 @@ pub fn fire_meteor_system(
                     half_extent: METEOR_HALF,
                     owner_id: "player_meteor".into(),
                     gravity: METEOR_GRAVITY,
-                    visual_tag: 0,
+                    visual_id: String::new(),
                 }],
             },
         });

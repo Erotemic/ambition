@@ -13,7 +13,9 @@ use ambition_entity_catalog::placements::RespawnPolicy;
 /// (like [`CombatCapabilities`], but plain tuning rather than special
 /// behaviors). Carried as a field on the enemy config component so
 /// the per-frame systems never call back into a named archetype enum.
-#[derive(Clone, Copy, Debug, PartialEq)]
+///
+/// `Clone` (not `Copy`): the open `ranged_visual` id is an owned `String`.
+#[derive(Clone, Debug, PartialEq)]
 pub struct ActorTuning {
     /// Resolved movement physics for this body (composed from the archetype
     /// hierarchy). The spine reads gravity/run/jump/fall from here, not constants.
@@ -80,12 +82,12 @@ pub struct ActorTuning {
     pub body_contact_damage: bool,
     /// Deep-dream visual jitter seed; `None` = no dream pass.
     pub dream_seed: Option<f32>,
-    /// Visual identity of this actor's ranged projectile, authored on the
+    /// Open visual id of this actor's ranged projectile, authored on the
     /// archetype. The ranged-fire effects consumer stamps it onto the spawned
-    /// shot so the render layer picks art by KIND (e.g. the PCA's Conway
-    /// glider) rather than by reading the owner-id string. `EnemyDefault` is
-    /// the generic orange shot.
-    pub ranged_visual: crate::projectile::ProjectileVisualKind,
+    /// shot so the render layer resolves art by id through the content-owned
+    /// catalog (e.g. the PCA's `"glider"`) rather than by reading the owner-id
+    /// string. The empty string is the generic orange shot.
+    pub ranged_visual: String,
 }
 
 impl Default for ActorTuning {
@@ -116,7 +118,7 @@ impl Default for ActorTuning {
             is_sandbag: false,
             body_contact_damage: false,
             dream_seed: None,
-            ranged_visual: crate::projectile::ProjectileVisualKind::EnemyDefault,
+            ranged_visual: String::new(),
         }
     }
 }

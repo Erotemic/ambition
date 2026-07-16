@@ -21,6 +21,11 @@ pub struct CombatSchedulePlugin;
 impl Plugin for CombatSchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        // Open, content-owned projectile art registry. Init the empty catalog so
+        // the projectile stepper's detonation-FX lookup always has a resource to
+        // read; a game's content crate registers each named look into it. The
+        // renderer inits it independently for its own art resolution.
+        app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
         // App-local bridge from combat to sprite metadata. Every strike resolves
         // against the same CharacterCatalog resource as spawning and rendering;
         // separate Apps may compose different provider sets safely.

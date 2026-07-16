@@ -239,13 +239,13 @@ pub(crate) struct CharacterArchetypeSpec {
     /// stay non-damaging until provoked.
     #[serde(default = "default_true")]
     pub body_contact_damage: bool,
-    /// Visual identity of this archetype's ranged projectile. Authored so the
-    /// render layer selects shot art by KIND (e.g. `Glider` for the Perfect
-    /// Cell-ular Automaton) instead of sniffing the owner-id string. Defaults
-    /// to the generic `EnemyDefault` (orange shot); archetypes with a distinct
-    /// projectile look name it explicitly.
+    /// Open visual id of this archetype's ranged projectile. Authored so the
+    /// render layer resolves shot art by id through the content-owned catalog
+    /// (e.g. `"glider"` for the Perfect Cell-ular Automaton) instead of sniffing
+    /// the owner-id string. Defaults to the empty string (the generic orange
+    /// shot); archetypes with a distinct projectile look name it explicitly.
     #[serde(default)]
-    pub ranged_visual: crate::projectile::ProjectileVisualKind,
+    pub ranged_visual: String,
     /// Data-driven signature MOVE repertoire — the Smash-model moveset this
     /// character carries (windows / hit volumes / timed effects, authored on the
     /// owner's proper-time clock). Attached at spawn as an `ActorMoveset`; a control
@@ -423,7 +423,7 @@ impl CharacterArchetypeSpec {
             is_sandbag: self.is_sandbag,
             body_contact_damage: self.body_contact_damage,
             dream_seed: self.dream_seed,
-            ranged_visual: self.ranged_visual,
+            ranged_visual: self.ranged_visual.clone(),
         }
     }
 

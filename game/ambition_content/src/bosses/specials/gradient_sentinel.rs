@@ -77,7 +77,8 @@ const APPLE_RAIN_GRAVITY: f32 = 540.0;
 const APPLE_RAIN_LIFETIME: f32 = 6.0;
 const APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER: f32 = 320.0;
 /// Owner-id prefix for this technique's apple projectiles (self / friendly-fire
-/// filtering + traces ONLY — art is data-driven via `ProjectileVisualKind::Apple`).
+/// filtering + traces ONLY — art is data-driven via the `"apple"` visual id
+/// registered in the projectile visual catalog).
 /// Named for the technique, not the boss that wields it: the engine names no
 /// boss's projectiles (crit 3), and neither does the technique name a boss.
 const APPLE_RAIN_OWNER_PREFIX: &str = "apple_rain";
@@ -204,7 +205,7 @@ pub fn spawn_apple_rain_from_special_messages(
                         // The apple-rain fruit renders as the generated apple
                         // sprite (kept upright vs gravity) — keyed by kind, not
                         // by the owner-id substring the visuals layer once read.
-                        visual_tag: ambition_projectiles::ProjectileVisualKind::Apple.to_tag(),
+                        visual_id: "apple".to_string(),
                     }],
                 },
             });
@@ -436,7 +437,7 @@ pub fn spawn_overfit_volley_from_special_messages(
                                     OVERFIT_VOLLEY_OWNER_PREFIX, boss.config.id
                                 ),
                                 gravity: 0.0,
-                                visual_tag: 0,
+                                visual_id: String::new(),
                             }],
                         },
                     });

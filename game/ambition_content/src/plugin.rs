@@ -27,6 +27,13 @@ impl Plugin for AmbitionContentPlugin {
         // and independent of other Apps in the process.
         super::enemy_roster::register(app);
 
+        // Register every named projectile look (player kit, apple rain,
+        // lasersword, glider) into the reusable, empty-by-default projectile
+        // visual catalog. Sim-scoped (not presentation-only) so the lasersword's
+        // detonation FX resolves in headless builds too; the reusable projectile
+        // crate names none of these looks.
+        super::projectiles::register(app);
+
         // Contribute authored music/SFX to this Bevy App. Re-registering the
         // identical provider fragment is idempotent, so hosts may compose this
         // plugin without coordinating a process-global install order.

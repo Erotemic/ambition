@@ -37,7 +37,7 @@ pub mod spawn;
 pub mod spawn_message;
 pub mod spawn_systems;
 pub mod state;
-pub mod visual_kind;
+pub mod visual;
 
 #[cfg(test)]
 mod engine_tests;
@@ -51,9 +51,9 @@ pub use spawn::{ProjectileSpawner, SpawnFailure};
 pub use spawn_message::{ProjectilePool, SpawnProjectile};
 pub use spawn_systems::apply_player_spawn_projectile_messages;
 pub use state::PlayerProjectileState;
-pub use visual_kind::{
-    ProjectileArt, ProjectileArtSource, ProjectileRenderSize, ProjectileRotation,
-    ProjectileVisualKind,
+pub use visual::{
+    ProjectileArt, ProjectileArtSource, ProjectileExpiryBurst, ProjectileRenderSize,
+    ProjectileRotation, ProjectileVisualAppExt, ProjectileVisualCatalog, ProjectileVisualId,
 };
 
 // The generic projectile-physics primitive (spec / body / collision) lives in

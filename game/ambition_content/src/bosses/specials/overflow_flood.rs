@@ -138,7 +138,7 @@ pub fn spawn_overflow_flood_from_special_messages(
                         half_extent: FLOOD_HALF_EXTENT,
                         owner_id: format!("{}:{}", FLOOD_OWNER_PREFIX, boss.config.id),
                         gravity: FLOOD_GRAVITY,
-                        visual_tag: 0,
+                        visual_id: String::new(),
                     }],
                 },
             });

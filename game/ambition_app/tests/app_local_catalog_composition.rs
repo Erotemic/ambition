@@ -110,10 +110,13 @@ fn three_real_providers_compose_independent_of_registration_order() {
         .combined_music_registry("ambition")
         .expect("real provider music ids must compose without collision");
 
-    // Ambition owns its enemy roster; Mary-O owns the crony's. Both are their own
-    // App-local hostile-roster providers (BTreeMap-sorted), composed independent of
-    // registration order. Sanic authors no hostile roster, so it adds none.
-    assert_eq!(hostile_providers(&forward), vec!["ambition", "mary_o"]);
+    // Ambition owns its enemy roster; Mary-O owns the crony's; Sanic owns the
+    // badnik's. Each is its own App-local hostile-roster provider
+    // (BTreeMap-sorted), composed independent of registration order.
+    assert_eq!(
+        hostile_providers(&forward),
+        vec!["ambition", "mary_o", "sanic"]
+    );
     assert_eq!(boss_providers(&forward), vec!["ambition"]);
     let bosses = forward.world().resource::<BossCatalog>();
     assert!(bosses.behavior("clockwork_warden").is_some());
@@ -146,11 +149,13 @@ fn separate_apps_select_independent_provider_sets() {
         .get_resource::<AudioCatalogRegistry>()
         .is_none());
 
-    // Sanic authors no hostile roster, so its App never inits that registry.
-    assert!(sanic
+    // Sanic authors one hostile roster (its badnik), and it is App-local: the
+    // registry holds only Sanic's own provider.
+    let sanic_roster = sanic
         .world()
         .get_resource::<CharacterRosterRegistry>()
-        .is_none());
+        .expect("Sanic content publishes its own hostile roster (the badnik)");
+    assert_eq!(sanic_roster.providers().collect::<Vec<_>>(), vec!["sanic"]);
 
     // Mary-O authors one (its crony), and it is App-local: the registry holds
     // only Mary-O's own provider, with zero contamination from Ambition's roster.

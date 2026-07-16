@@ -30,17 +30,22 @@ label of its own.
    | ▒▒▒▒▒▒▒▒[ladder back up]▒▒▒▒▒▒▒▒                      |
    +-------------------------------------------------------+
 
-Constants (designed for the current 99-entry catalog with room to
-grow to ~110 main-hall + ~16 basement):
+The hall GROWS to fit its roster: the number of main-hall floors and basement
+rows is DERIVED from the character counts (`main_floors_for` /
+`basement_rows_for`), so any number of characters is accommodated with no fixed
+capacity cap. Adding characters just makes the hall taller.
 
-  HALL_WIDTH_PX         = 2048
-  MAIN_SLOT_WIDTH_PX    = 128
-  MAIN_SLOT_HEIGHT_PX   = 192
-  MAIN_FLOORS_DEFAULT   = 6     (extend by changing this)
-  MAIN_SLOTS_PER_FLOOR  = 16
-  BASEMENT_SLOT_WIDTH_PX  = 256
-  BASEMENT_SLOT_HEIGHT_PX = 320
-  BASEMENT_SLOTS_PER_ROW  = 8
+  HALL_WIDTH_PX           = 2048
+  MAIN_SLOT_WIDTH_PX      = 128
+  MAIN_SLOT_HEIGHT_PX     = 192
+  MAIN_SLOTS_PER_FLOOR    = 16    (floors = ceil(main_count / 16))
+  BASEMENT_SLOT_WIDTH_PX  = 512
+  BASEMENT_SLOT_HEIGHT_PX = 384
+  BASEMENT_SLOTS_PER_ROW  = 4     (rows = ceil(basement_count / 4))
+
+Provider-owned characters (Sanic, Mary-O, ...) are not in this catalog file;
+they are exhibited by referencing their canonical ids in `PROVIDER_HALL_ENTRIES`
+and resolved at runtime against the assembled catalog.
 
 ## Usage
 
@@ -94,10 +99,13 @@ HALL_LDTK_PATH = (
 HALL_LDTK_IDENTIFIER = "ambition-hall-world"
 
 # --- Layout dimensions ---
+# The hall GROWS to fit its roster: the number of main-hall floors and basement
+# rows is derived from the character counts (`main_floors_for` /
+# `basement_rows_for`), so ANY number of characters is accommodated — there is no
+# fixed capacity cap, and adding characters simply makes the hall taller.
 HALL_WIDTH_PX = 2048
 MAIN_SLOT_WIDTH_PX = 128
 MAIN_SLOT_HEIGHT_PX = 192
-MAIN_FLOORS = 6
 MAIN_SLOTS_PER_FLOOR = 16
 BASEMENT_SLOT_WIDTH_PX = 512
 BASEMENT_SLOT_HEIGHT_PX = 384
@@ -108,15 +116,25 @@ HALL_WORLD_X = 40000  # to the right of every existing level (rightmost is x=390
 HALL_WORLD_Y = 0
 
 
-def derived_dims() -> tuple[int, int]:
-    """Return (pxWid, pxHei) for the hall."""
+def main_floors_for(main_count: int) -> int:
+    """Main-hall floors needed to seat `main_count` pedestals — ceil-divide by
+    the per-floor slot count. At least 1 so the hub-entry floor always exists."""
+    return max(1, -(-main_count // MAIN_SLOTS_PER_FLOOR))
+
+
+def basement_rows_for(basement_count: int) -> int:
+    """Basement rows needed to seat `basement_count` pedestals. At least 1 so
+    there is always a terminal basement floor even with no basement entries."""
+    return max(1, -(-basement_count // BASEMENT_SLOTS_PER_ROW))
+
+
+def derived_dims(main_count: int, basement_count: int) -> tuple[int, int]:
+    """Return (pxWid, pxHei) sized to seat exactly `main_count` main-hall and
+    `basement_count` basement pedestals. The hall grows to fit any roster; there
+    is no fixed floor/row cap."""
     width = HALL_WIDTH_PX
-    main_section = MAIN_FLOORS * MAIN_SLOT_HEIGHT_PX
-    # Basement section sized to comfortably fit the current 10
-    # Basement-tier entries plus headroom. With 4 slots/row, a 3-row
-    # basement section yields 12 slot capacity.
-    basement_rows = 3
-    basement_section = basement_rows * BASEMENT_SLOT_HEIGHT_PX
+    main_section = main_floors_for(main_count) * MAIN_SLOT_HEIGHT_PX
+    basement_section = basement_rows_for(basement_count) * BASEMENT_SLOT_HEIGHT_PX
     height = (
         CEILING_PX
         + main_section
@@ -190,7 +208,10 @@ def build_spec(
     hall_dialogue_ids: dict[str, str] | None = None,
 ) -> dict:
     hall_dialogue_ids = hall_dialogue_ids or {}
-    px_wid, px_hei = derived_dims()
+    # Floors/rows are SIZED to the roster (grows to fit any character count).
+    main_floors = main_floors_for(len(main_ids))
+    basement_rows = basement_rows_for(len(basement_ids))
+    px_wid, px_hei = derived_dims(len(main_ids), len(basement_ids))
 
     # --- Compute slot positions ---
     # Floor 1 is the lowest main floor (hub entry); Floor N is the
@@ -198,17 +219,17 @@ def build_spec(
     # in screen-space (y=0 is top).
     main_section_top = CEILING_PX
     basement_section_top = (
-        main_section_top + MAIN_FLOORS * MAIN_SLOT_HEIGHT_PX + FLOOR_THICKNESS_PX
+        main_section_top + main_floors * MAIN_SLOT_HEIGHT_PX + FLOOR_THICKNESS_PX
     )
 
-    # Floor index 0 is top (Floor N), floor index MAIN_FLOORS - 1 is bottom (Floor 1).
+    # Floor index 0 is top (Floor N), floor index main_floors - 1 is bottom (Floor 1).
     # We pack main_ids starting at Floor 1 (bottom-most), left to right,
     # so the first catalog entry sits at the hub-entry floor.
     def main_slot_world_xy(slot_index: int) -> tuple[int, int, int, int]:
         """Return (px_x, px_y, px_w, px_h) for slot # slot_index."""
         floor_from_bottom = slot_index // MAIN_SLOTS_PER_FLOOR
         col_in_floor = slot_index % MAIN_SLOTS_PER_FLOOR
-        floor_index_from_top = MAIN_FLOORS - 1 - floor_from_bottom
+        floor_index_from_top = main_floors - 1 - floor_from_bottom
         slot_top_y = main_section_top + floor_index_from_top * MAIN_SLOT_HEIGHT_PX
         slot_left_x = col_in_floor * MAIN_SLOT_WIDTH_PX
         return (slot_left_x, slot_top_y, MAIN_SLOT_WIDTH_PX, MAIN_SLOT_HEIGHT_PX)
@@ -269,9 +290,9 @@ def build_spec(
     # with a center gap for ladder drop. The bottom-most floor
     # (Floor 1, the hub-entry floor) is a Solid so the player has
     # something to land on.
-    # We have MAIN_FLOORS floors; that's MAIN_FLOORS - 1 platforms
+    # We have `main_floors` floors; that's main_floors - 1 platforms
     # *between* floors, plus the solid floor of Floor 1.
-    for i in range(MAIN_FLOORS - 1):
+    for i in range(main_floors - 1):
         floor_top_index = i  # from top
         platform_y = main_section_top + (floor_top_index + 1) * MAIN_SLOT_HEIGHT_PX
         # Solid left half + solid right half with a gap in the middle
@@ -297,7 +318,7 @@ def build_spec(
             )
         )
     # Solid floor under Floor 1 (the bottom of the main section).
-    floor1_top = main_section_top + MAIN_FLOORS * MAIN_SLOT_HEIGHT_PX
+    floor1_top = main_section_top + main_floors * MAIN_SLOT_HEIGHT_PX
     drop_hole_w = 96
     drop_hole_x = (px_wid - drop_hole_w) // 2
     entities.append(
@@ -329,12 +350,11 @@ def build_spec(
     # rows. The bottom-most basement row's floor stays whole as
     # the room's terminal floor.
     basement_floor_thickness = 16
-    basement_rows_total = 3
     drop_hole_w = 96
     drop_hole_x = (px_wid - drop_hole_w) // 2
-    for row in range(basement_rows_total):
+    for row in range(basement_rows):
         floor_top_y = basement_section_top + (row + 1) * BASEMENT_SLOT_HEIGHT_PX
-        is_last_row = row == basement_rows_total - 1
+        is_last_row = row == basement_rows - 1
         if is_last_row:
             # Terminal floor — no drop hole.
             entities.append(
@@ -368,7 +388,7 @@ def build_spec(
             )
 
     # --- PlayerStart at the hub-entry floor (left side) ---
-    floor1_slot_y = main_section_top + (MAIN_FLOORS - 1) * MAIN_SLOT_HEIGHT_PX
+    floor1_slot_y = main_section_top + (main_floors - 1) * MAIN_SLOT_HEIGHT_PX
     entities.append(
         make_entity(
             "PlayerStart",
@@ -399,16 +419,9 @@ def build_spec(
     )
 
     # --- NPC pedestals for each MainHall entry ---
+    # No capacity cap: `main_floors` was sized to hold every entry, so the hall
+    # grows to fit the roster rather than dropping trailing characters.
     for slot_index, cid in enumerate(main_ids):
-        if slot_index >= MAIN_FLOORS * MAIN_SLOTS_PER_FLOOR:
-            # Out of capacity — log + skip. The headless test will
-            # flag the overflow when it compares the catalog size to
-            # the spawn count.
-            sys.stderr.write(
-                f"[warn] hall capacity ({MAIN_FLOORS}x{MAIN_SLOTS_PER_FLOOR}) "
-                f"exhausted; skipping '{cid}' and subsequent main-hall entries.\n"
-            )
-            break
         x, y, w, h = main_slot_world_xy(slot_index)
         center_x = x + w // 2
         foot_y = y + h
@@ -507,6 +520,48 @@ HEADER = """\
 """
 
 
+# Provider-owned characters to EXHIBIT in the Hall. These ids are authored by
+# SEPARATE experience providers (ambition_demo_sanic, ambition_demo_mary_o, ...),
+# NOT by ambition_content's catalog, so they never appear via the tier scan of
+# the catalog file. We reference their CANONICAL ids here; at runtime each
+# resolves against the App-local ASSEMBLED catalog (every provider fragment is
+# merged before the Hall room loads). This is the authored inclusion list for
+# cross-provider exhibits — the single place to add/remove a provider character
+# from the Hall, never by editing the provider's own definition.
+#
+# (character_id, tier) where tier is "MainHall" or "Basement". Transformations
+# (super_sanic, mary_o_tall) are listed EXPLICITLY, never auto-expanded.
+PROVIDER_HALL_ENTRIES: list[tuple[str, str]] = [
+    ("sanic", "MainHall"),
+    ("super_sanic", "MainHall"),
+    ("mary_o", "MainHall"),
+    ("mary_o_tall", "MainHall"),
+]
+
+
+def merge_provider_entries(
+    main_ids: list[str],
+    basement_ids: list[str],
+    provider_entries: list[tuple[str, str]],
+) -> tuple[list[str], list[str]]:
+    """Append authored provider-owned exhibit ids to the section lists.
+
+    Skips any id already present in either section, so a native catalog row and
+    a provider reference never double up. Ordering is stable: catalog entries
+    first (in file order), then provider entries in authored order.
+    """
+    seen = set(main_ids) | set(basement_ids)
+    for cid, tier in provider_entries:
+        if cid in seen:
+            continue
+        seen.add(cid)
+        if tier == "Basement":
+            basement_ids.append(cid)
+        else:
+            main_ids.append(cid)
+    return main_ids, basement_ids
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalog", type=Path, default=CATALOG_PATH)
@@ -529,6 +584,9 @@ def main(argv: list[str] | None = None) -> int:
 
     text = args.catalog.read_text()
     main_ids, basement_ids, hall_dialogue_ids = parse_catalog(text)
+    main_ids, basement_ids = merge_provider_entries(
+        main_ids, basement_ids, PROVIDER_HALL_ENTRIES
+    )
     spec = build_spec(main_ids, basement_ids, hall_dialogue_ids)
     out_text = HEADER + ron_dumps(spec)
     args.out.write_text(out_text)
@@ -538,12 +596,16 @@ def main(argv: list[str] | None = None) -> int:
         applied = _apply_to_dedicated_ldtk(args.out, args.ldtk)
 
     if args.print_summary:
-        px_wid, px_hei = derived_dims()
+        px_wid, px_hei = derived_dims(len(main_ids), len(basement_ids))
         print(f"hall: {px_wid}x{px_hei} px")
         print(
-            f"  main_hall entries: {len(main_ids)} / capacity {MAIN_FLOORS * MAIN_SLOTS_PER_FLOOR}"
+            f"  main_hall entries: {len(main_ids)} "
+            f"({main_floors_for(len(main_ids))} floors x {MAIN_SLOTS_PER_FLOOR} slots)"
         )
-        print(f"  basement entries:  {len(basement_ids)}")
+        print(
+            f"  basement entries:  {len(basement_ids)} "
+            f"({basement_rows_for(len(basement_ids))} rows x {BASEMENT_SLOTS_PER_ROW} slots)"
+        )
         print(f"  spec written to:   {args.out}")
         if applied:
             print(f"  ldtk written to:   {args.ldtk}")

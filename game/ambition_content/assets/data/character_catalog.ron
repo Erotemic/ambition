@@ -2048,5 +2048,110 @@
         ),
         hall_dialogue_id: Some("hall_npc_weird_hermit"),
         ),
+
+        // ===== Newly cataloged Ambition-native characters =====
+        // These had sprites + actor sidecars but no catalog row, so they never
+        // reached the Hall. Added here (their canonical home) as inert `stand_still`
+        // exhibits. Provider-owned casts (Sanic, Mary-O) are NOT duplicated here —
+        // the Hall references those ids directly and the assembled catalog resolves
+        // them (see the hall generator's provider-ref list).
+        "willson": (
+            display_name: "Willson",
+            spritesheet: "sprites/willson_spritesheet.png",
+            manifest: "sprites/willson_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["misc"],
+        barks: (
+            hall: ["A pelican. A bicycle. One entity. Don't ask which pedals.", "I fly by committee: two wings, two wheels, no consensus."],
+        ),
+        ),
+        "npc_glider": (
+            display_name: "Glider",
+            spritesheet: "sprites/glider_spritesheet.png",
+            manifest: "sprites/glider_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["misc"],
+        barks: (
+            hall: ["No engine. No complaints. Just the lean of the air.", "Gravity and I have an arrangement. It's mostly downhill."],
+        ),
+        ),
+        "npc_fascist_enforcer": (
+            display_name: "Fascist Enforcer",
+            spritesheet: "sprites/fascist_enforcer_spritesheet.png",
+            manifest: "sprites/fascist_enforcer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["enemy"],
+        barks: (
+            hall: ["The badge does the thinking so I don't have to. That's the whole pitch, and the whole problem.", "Behind the glare is a smaller man taking orders."],
+        ),
+        ),
+        "npc_puppy_slug_velvet": (
+            display_name: "Velvet Puppy Slug",
+            spritesheet: "sprites/puppy_slug_velvet_spritesheet.png",
+            manifest: "sprites/puppy_slug_velvet_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Crawler,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["misc"],
+        barks: (
+            hall: ["Softer than the others. Same appetite.", "Pet me and find out. (Please don't.)"],
+        ),
+        ),
+        "npc_shrine": (
+            display_name: "Shrine",
+            spritesheet: "sprites/shrine_spritesheet.png",
+            manifest: "sprites/shrine_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["prop"],
+        barks: (
+            hall: ["Kneel, don't kneel. The shrine keeps its own hours.", "I collect wishes. I do not process them."],
+        ),
+        ),
+        "player_robot_fable": (
+            display_name: "Player Robot (Fable)",
+            spritesheet: "sprites/player_robot_fable_spritesheet.png",
+            manifest: "sprites/player_robot_fable_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["player"],
+        barks: (
+            hall: ["Same wiring, different story. The Fable cut.", "A variant of the variant. Somewhere there's an original."],
+        ),
+        ),
+        "npc_smirking_behemoth_boss": (
+            display_name: "Smirking Behemoth",
+            spritesheet: "sprites/smirking_behemoth_boss_spritesheet.png",
+            manifest: "sprites/smirking_behemoth_boss_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["enemy", "boss"],
+        barks: (
+            hall: ["I'm smirking because I already know how this ends.", "Big enough to fill the basement. Smug enough to enjoy it."],
+        ),
+        ),
     },
 )

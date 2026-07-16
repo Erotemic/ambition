@@ -145,7 +145,7 @@ scope = "game"
 kind = "dependency-allowlist"
 owners = ["ambition_app"]
 watch_paths = ["game/ambition_app/Cargo.toml"]
-rationale = "ambition_app uses the umbrella plus app-local content/extension crates and the reusable game providers it hosts"
+rationale = "ambition_app uses the umbrella plus app-local content/extension crates, the reusable game providers it hosts, and the reusable programmatic sim harness (below the shell) that it binds to Ambition's content"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 allow = [
@@ -155,6 +155,7 @@ allow = [
     "ambition_demo_sanic",
     "ambition_demo_pocket",
     "ambition_demo_mary_o",
+    "ambition_sim_harness",
 ]
 manifest = "game/ambition_app/Cargo.toml"
 

@@ -63,7 +63,7 @@ policies = ["engine.ambition_world-member", "engine.ambition_world-manifest-deny
 [[entry]]
 old_test = "architecture_boundaries_projectiles_crate_is_model_only"
 disposition = "declarative"
-policies = ["engine.ambition_projectiles-member", "engine.ambition_projectiles-manifest-deny", "engine.ambition_projectiles-source-purity", "engine.projectiles-actor-stepper-generic", "engine.projectiles-visual-kind-owns-expiry", "engine.projectiles-tests-travel-with-kit", "engine.projectiles-no-actor-facade-tests", "engine.projectiles-actor-mod-no-engine-tests"]
+policies = ["engine.ambition_projectiles-member", "engine.ambition_projectiles-manifest-deny", "engine.ambition_projectiles-source-purity", "engine.projectiles-actor-stepper-generic", "engine.projectiles-visual-owns-expiry", "engine.projectiles-tests-travel-with-kit", "engine.projectiles-no-actor-facade-tests", "engine.projectiles-actor-mod-no-engine-tests"]
 
 [[entry]]
 old_test = "architecture_boundaries_encounter_crate_is_state_only"

@@ -686,16 +686,16 @@ forbid = ["fn lasersword_detonation", "ExplosionKind::ClassicBurst"]
 file = "crates/ambition_actors/src/projectile/systems.rs"
 
 [[policy]]
-id = "engine.projectiles-visual-kind-owns-expiry"
+id = "engine.projectiles-visual-owns-expiry"
 scope = "engine"
 kind = "file-contains"
 owners = ["ambition_projectiles"]
-watch_paths = ["crates/ambition_projectiles/src/visual_kind.rs"]
-rationale = "ambition_projectiles::visual_kind owns the expiry VFX seam"
+watch_paths = ["crates/ambition_projectiles/src/visual.rs"]
+rationale = "ambition_projectiles::visual owns the GENERIC projectile expiry-VFX seam (ProjectileExpiryBurst, an authored data field on ProjectileArt); a game's content authors the named detonation, and the actor stepper reads it generically"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["pub fn expiry_vfx"]
-file = "crates/ambition_projectiles/src/visual_kind.rs"
+contains = ["pub struct ProjectileExpiryBurst"]
+file = "crates/ambition_projectiles/src/visual.rs"
 
 [[policy]]
 id = "engine.projectiles-tests-travel-with-kit"

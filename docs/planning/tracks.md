@@ -111,16 +111,22 @@ content):**
   is the provider seam; `ambition_sprite_sheet::boss::builtin_boss_sheets()` is a
   documented **fallback-only** layout map that "a new provider does not edit."
 
-**Remaining (most-woven, lower marginal value):**
+**Remaining, deliberately deferred (engine-default machinery, no live consumer):**
 
 - The `EntitySprite` / `ParallaxTheme` named-sprite enums and the asset-universe
   residue (fonts, the `ambition/sandbox.ron` data id, sprite-pack tiers, the
   `ambition_ldtk_map` world manifest ids) in `ambition_sprite_sheet` /
-  `ambition_asset_manager`. Audio is the reference model here — already evicted
-  via the provider-indexed `AudioCatalogRegistry`; the other asset kinds are
-  woven into the `sandbox_image_manifest` generation and are a larger, separate
-  patch. The `SandboxCatalogInputs` row seam already carries worlds / characters
-  / bosses / music provider-side.
+  `ambition_asset_manager`. Unlike the evicted families (boss/weapon asset paths,
+  fighting-game gestures, item props — genuine provider content a second
+  platformer differs on), these are **engine-default assets**: the demo providers
+  (Sanic, Mary-O) share the same UI fonts, quality-tier sprite packs, and
+  generic entity tiles. There is no live second-provider that needs a *different*
+  font or entity-sprite set, and they are woven into `sandbox_image_manifest`
+  generation. Per "add the override seam when the use case lands" (design
+  balance), these stay as reusable machinery until a provider actually differs.
+  Audio — the genuinely content-heavy asset kind — is already fully evicted via
+  the provider-indexed `AudioCatalogRegistry`; the `SandboxCatalogInputs` row seam
+  already carries worlds / characters / bosses / music provider-side.
 
 **Exit:** a second provider adds its named content without editing a reusable
 engine crate. No noun scanner is part of this track. The dialogue, wielded-item,

@@ -2,18 +2,11 @@
 
 use bevy::prelude::*;
 
-use ambition::game_shell::{
-    GameplaySessionEvent, GameplaySessionSet, PreparedSessionRegistry, ShellEvent,
-};
-use ambition::provider::{
-    cleanup_prepared_platformer_sessions, AuthoredCatalogFragments, PlatformerExperienceAuthoring,
-    PlatformerPreparation, PlatformerSessionBuilder, PreparedPlatformerSessions,
-};
+use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition_actors::ldtk_world::LdtkRuntimeIndex;
 use ambition_actors::rooms::{ActiveRoomMetadata, RoomSet};
 use ambition_engine_core::RoomGeometry;
 use ambition_runtime::PlatformerSessionWorld;
-use ambition_world::collision::MovingPlatformSet;
 
 pub const AMBITION_EXPERIENCE: &str = crate::AMBITION_CONTENT_PROVIDER;
 pub const AMBITION_GAMEPLAY_ROUTE: &str = "ambition_gameplay";
@@ -58,9 +51,6 @@ impl AmbitionExperiencePlugin {
     }
 }
 
-struct AmbitionProviderMarker;
-type PreparedAmbitionSessions = PreparedPlatformerSessions<AmbitionProviderMarker>;
-
 impl Plugin for AmbitionExperiencePlugin {
     fn build(&self, app: &mut App) {
         PlatformerExperienceAuthoring::new(
@@ -78,84 +68,22 @@ impl Plugin for AmbitionExperiencePlugin {
             .with_adaptive_cues()
             .with_packed_sfx(),
         )
-        .register(app);
-
-        app.init_resource::<PreparedAmbitionSessions>()
-            .add_systems(
-                Update,
-                (
-                    prepare_session,
-                    cleanup_prepared_platformer_sessions::<AmbitionProviderMarker>,
-                )
-                    .chain()
-                    .in_set(ambition::load::AmbitionLoadSet::Contributors),
-            )
-            .add_systems(
-                Update,
-                activate_session.in_set(GameplaySessionSet::Providers),
-            );
+        .install(app, ambition_session_world);
     }
 }
 
-fn prepare_session(
-    mut shell_events: MessageReader<ShellEvent>,
-    prepared_world: Res<AmbitionPreparedWorld>,
-    mut prepared_sessions: ResMut<PreparedAmbitionSessions>,
-    mut preparation: PlatformerPreparation,
-) {
-    for event in shell_events.read() {
-        let ShellEvent::PreparationRequested(transaction) = event else {
-            continue;
-        };
-        if transaction.experience_id.as_str() != AMBITION_EXPERIENCE {
-            continue;
-        }
-
-        let room_set = prepared_world.room_set.clone();
-        let live_world = PlatformerSessionWorld::new(
-            AMBITION_EXPERIENCE,
-            room_set.clone(),
-            RoomGeometry(room_set.active_world().clone()),
-            ActiveRoomMetadata(room_set.active_spec().metadata.clone()),
-            prepared_world.starting_character.clone(),
-            prepared_world.ldtk_index.clone(),
-        );
-        preparation.prepare(transaction, live_world, &mut prepared_sessions);
-    }
-}
-
-fn activate_session(
-    mut sessions: MessageReader<GameplaySessionEvent>,
-    mut prepared_sessions: ResMut<PreparedAmbitionSessions>,
-    mut prepared_registry: ResMut<PreparedSessionRegistry>,
-    mut builder: PlatformerSessionBuilder,
-    mut platform_set: ResMut<MovingPlatformSet>,
-) {
-    for event in sessions.read() {
-        let GameplaySessionEvent::Activated { activation, scope } = event else {
-            continue;
-        };
-        if activation.experience_id.as_str() != AMBITION_EXPERIENCE {
-            continue;
-        }
-
-        let prepared = activation
-            .prepared_session
-            .as_ref()
-            .expect("Ambition routes require an exact prepared-session publication");
-        let live_world = prepared_sessions
-            .take(prepared, &mut prepared_registry)
-            .expect("Ambition prepared data must match the authorized transaction");
-        platform_set.0 = ambition_actors::world::platforms::moving_platforms_for_room(
-            live_world.room_set.active_spec(),
-        );
-        builder.build(
-            activation,
-            *scope,
-            live_world,
-            crate::character_catalog::PLAYABLE_ROSTER[0],
-        );
-    }
+/// The provider's session-world source: every shell activation clones the
+/// boot-prepared LDtk world published by the app in [`AmbitionPreparedWorld`].
+fn ambition_session_world(prepared_world: Res<AmbitionPreparedWorld>) -> PlatformerSessionWorld {
+    let room_set = prepared_world.room_set.clone();
+    PlatformerSessionWorld::new(
+        AMBITION_EXPERIENCE,
+        room_set.clone(),
+        RoomGeometry(room_set.active_world().clone()),
+        ActiveRoomMetadata(room_set.active_spec().metadata.clone()),
+        prepared_world.starting_character.clone(),
+        prepared_world.ldtk_index.clone(),
+    )
 }
 
 #[cfg(test)]

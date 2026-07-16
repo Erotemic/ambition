@@ -47,7 +47,11 @@ portal_render = [
     "ambition_host/portal_render",
     "ambition_render/portal_render",
 ]
-audio = ["ambition_actors/audio", "ambition_audio/kira"]
+audio = [
+    "ambition_actors/audio",
+    "ambition_audio/kira",
+    "ambition_platformer_provider/audio",
+]
 ui = ["ambition_actors/ui"]
 bevy_ui_menu = ["ambition_actors/bevy_ui_menu", "ambition_menu/bevy_ui_menu"]
 kaleidoscope_menu = ["ambition_actors/kaleidoscope_menu", "ambition_menu/kaleidoscope_menu"]
@@ -80,6 +84,7 @@ ambition_load_presentation = { path = "../ambition_load_presentation", default-f
 ambition_menu = { path = "../ambition_menu" }
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
+ambition_platformer_provider = { path = "../ambition_platformer_provider" }
 ambition_portal = { path = "../ambition_portal" }
 ambition_portal_presentation = { path = "../ambition_portal_presentation" }
 ambition_projectiles = { path = "../ambition_projectiles" }

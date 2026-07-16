@@ -1,0 +1,29 @@
+[package]
+name = "ambition_platformer_provider"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The platformer experience-provider protocol: authored catalog identity, one shared preparation/activation lifecycle, and the session builder every shell-hosted platformer provider (Ambition, Sanic, Mary-O, Pocket) registers through."
+
+[features]
+default = []
+# Adaptive-music readiness checks name the Kira-side catalog registry.
+audio = ["ambition_audio/kira"]
+
+[dependencies]
+ambition_actors = { path = "../ambition_actors", default-features = false }
+ambition_audio = { path = "../ambition_audio", default-features = false }
+ambition_characters = { path = "../ambition_characters" }
+ambition_dev_tools = { path = "../ambition_dev_tools" }
+ambition_game_shell = { path = "../ambition_game_shell", default-features = false }
+ambition_load = { path = "../ambition_load" }
+ambition_load_presentation = { path = "../ambition_load_presentation", default-features = false }
+ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
+ambition_runtime = { path = "../ambition_runtime" }
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+ambition_world = { path = "../ambition_world" }
+bevy = { version = "0.18.1", default-features = false, features = ["bevy_asset"] }
+
+[dev-dependencies]
+ambition_sfx = { path = "../ambition_sfx" }

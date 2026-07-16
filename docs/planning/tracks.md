@@ -12,16 +12,19 @@ session construction, reset, and LDtk hot reload; transition and restore already
 used it. The no-registry production helper was deleted, and a focused test proves
 room staging uses the caller-supplied authority.
 
-## 1. Extract and consolidate the provider protocol
+## 1. Extract and consolidate the provider protocol — COMPLETED
 
-**State:** OPEN and unblocked. The completed prerequisite established the room-construction choke point.
+`ambition_platformer_provider` now owns the provider lifecycle. The substantive
+preparation/activation implementation moved out of the deleted
+`crates/ambition/src/provider.rs`; `ambition::provider` is a re-export of the new
+crate. Typed preparation storage, exact activation, session construction, and
+cleanup are consolidated into ONE shared lifecycle: a provider supplies only a
+session-world source system and calls `PlatformerExperienceAuthoring::install`.
+The per-provider marker generic, the duplicated prepare/activate system pairs
+(Ambition, Sanic, Mary-O, Pocket), and the per-provider `PreparedPlatformerSessions`
+instances are gone. Host provider registration stays explicit in `shell_host.rs`.
 
-- Create the provider lifecycle crate (working name `ambition_platformer_provider`).
-- Move substantive implementation out of `crates/ambition/src/provider.rs`.
-- Consolidate typed preparation storage, exact activation, session construction, and cleanup.
-- Keep provider installation explicit in the host composition root.
-
-**Exit:** providers supply authoring/world preparation and optional hooks rather
+**Exit — met:** providers supply authoring + a world-preparation source rather
 than copying the lifecycle; `ambition` is a facade again.
 
 ## 2. Session-root exclusivity and exact reconstruction

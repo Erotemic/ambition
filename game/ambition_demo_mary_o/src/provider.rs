@@ -3,13 +3,7 @@
 use bevy::prelude::*;
 
 use ambition::engine_core as ae;
-use ambition::game_shell::{
-    GameplaySessionEvent, GameplaySessionSet, PreparedSessionRegistry, ShellEvent,
-};
-use ambition::provider::{
-    cleanup_prepared_platformer_sessions, AuthoredCatalogFragments, PlatformerExperienceAuthoring,
-    PlatformerPreparation, PlatformerSessionBuilder, PreparedPlatformerSessions,
-};
+use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
@@ -44,9 +38,6 @@ pub fn mary_o_session_world() -> MaryOSessionWorld {
         starting_character: StartingCharacter::new(MARY_O_CHARACTER_ID),
     }
 }
-
-struct MaryOProviderMarker;
-type PreparedMaryOSessions = PreparedPlatformerSessions<MaryOProviderMarker>;
 
 pub struct MaryOExperiencePlugin;
 
@@ -118,71 +109,21 @@ impl Plugin for MaryOExperiencePlugin {
             "Prepare Mary-O",
             AuthoredCatalogFragments::new(MARY_O_CHARACTER_ID, MARY_O_EXPERIENCE),
         )
-        .register(app);
-
-        app.init_resource::<PreparedMaryOSessions>()
-            .add_systems(
-                Update,
-                (
-                    mary_o_prepare_session,
-                    cleanup_prepared_platformer_sessions::<MaryOProviderMarker>,
-                )
-                    .chain()
-                    .in_set(ambition::load::AmbitionLoadSet::Contributors),
-            )
-            .add_systems(
-                Update,
-                mary_o_activate_session.in_set(GameplaySessionSet::Providers),
-            )
-            .add_plugins(MaryORulesPlugin::hosted());
+        .install(app, mary_o_prepared_session_world);
+        app.add_plugins(MaryORulesPlugin::hosted());
     }
 }
 
-fn mary_o_prepare_session(
-    mut shell_events: MessageReader<ShellEvent>,
-    mut prepared_sessions: ResMut<PreparedMaryOSessions>,
-    mut preparation: PlatformerPreparation,
-) {
-    for event in shell_events.read() {
-        let ShellEvent::PreparationRequested(transaction) = event else {
-            continue;
-        };
-        if transaction.experience_id.as_str() != MARY_O_EXPERIENCE {
-            continue;
-        }
-        let source = mary_o_session_world();
-        let live_world = PlatformerSessionWorld::new(
-            MARY_O_EXPERIENCE,
-            source.room_set,
-            source.geometry,
-            source.metadata,
-            source.starting_character,
-            LdtkRuntimeIndex::default(),
-        );
-        preparation.prepare(transaction, live_world, &mut prepared_sessions);
-    }
-}
-
-fn mary_o_activate_session(
-    mut events: MessageReader<GameplaySessionEvent>,
-    mut prepared_sessions: ResMut<PreparedMaryOSessions>,
-    mut prepared_registry: ResMut<PreparedSessionRegistry>,
-    mut builder: PlatformerSessionBuilder,
-) {
-    for event in events.read() {
-        let GameplaySessionEvent::Activated { activation, scope } = event else {
-            continue;
-        };
-        if activation.experience_id.as_str() != MARY_O_EXPERIENCE {
-            continue;
-        }
-        let prepared = activation
-            .prepared_session
-            .as_ref()
-            .expect("Mary-O routes require an exact prepared-session publication");
-        let live_world = prepared_sessions
-            .take(prepared, &mut prepared_registry)
-            .expect("Mary-O prepared data must match the authorized transaction");
-        builder.build(activation, *scope, live_world, MARY_O_CHARACTER_ID);
-    }
+/// The provider's session-world source: authored level 1-1, fresh per
+/// preparation request.
+fn mary_o_prepared_session_world() -> PlatformerSessionWorld {
+    let source = mary_o_session_world();
+    PlatformerSessionWorld::new(
+        MARY_O_EXPERIENCE,
+        source.room_set,
+        source.geometry,
+        source.metadata,
+        source.starting_character,
+        LdtkRuntimeIndex::default(),
+    )
 }

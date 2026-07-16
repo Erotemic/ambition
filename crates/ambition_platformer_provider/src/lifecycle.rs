@@ -1,212 +1,48 @@
-//! Compact Bevy-native authoring surface for platformer experience providers.
+//! The shared provider lifecycle: preparation, prepared-session ownership,
+//! and activation into the live session world.
+//!
+//! Every experience registered through
+//! [`PlatformerExperienceAuthoring::install`](crate::authoring::PlatformerExperienceAuthoring::install)
+//! shares these systems; the provider contributes only its session-world
+//! source. The answers to the lifecycle questions live here:
+//!
+//! - **What does a provider prepare?** A [`PlatformerSessionWorld`], validated
+//!   against its [`AuthoredCatalogFragments`](crate::authoring::AuthoredCatalogFragments)
+//!   into a [`PlatformerPreparationReport`].
+//! - **What identity proves activation matches preparation?** The
+//!   [`PreparedSessionIdentity`] published through the shell's
+//!   [`PreparedSessionRegistry`].
+//! - **Who owns the prepared value?** [`PreparedPlatformerSessions`], keyed by
+//!   the load transaction.
+//! - **When is the live session world created?** At preparation; activation
+//!   moves it (by exact identity) onto the session root via
+//!   [`PlatformerSessionBuilder::build`].
 
-use std::{collections::BTreeMap, marker::PhantomData};
+use std::collections::BTreeMap;
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
-use crate::game_shell::{
-    standard_platformer_preparation_plan, ActiveGameplaySession, ActiveShellExperience,
-    ExperienceRegistration, GameplaySessionAppExt, PreparedSessionIdentity,
-    PreparedSessionRegistry, ProviderLoadTransaction, ShellCompletionPolicy, ShellRouteSpec,
-    PREPARE_ADAPTIVE_WORK_ID, PREPARE_AUDIO_WORK_ID, PREPARE_CATALOGS_WORK_ID,
-    PREPARE_DEFAULTS_WORK_ID, PREPARE_MUSIC_WORK_ID, PREPARE_PACKED_SFX_WORK_ID,
-    PREPARE_SESSION_WORK_ID, PREPARE_SFX_WORK_ID, PREPARE_SPRITES_WORK_ID, PREPARE_WORLD_WORK_ID,
+use ambition_game_shell::{
+    ActiveGameplaySession, ActiveShellExperience, GameplayInputOwner, GameplaySessionEvent,
+    GameplaySessionSet, PreparedSessionIdentity, PreparedSessionRegistry, ProviderLoadTransaction,
+    ShellEvent, PREPARE_ADAPTIVE_WORK_ID, PREPARE_CATALOGS_WORK_ID, PREPARE_DEFAULTS_WORK_ID,
+    PREPARE_MUSIC_WORK_ID, PREPARE_PACKED_SFX_WORK_ID, PREPARE_SESSION_WORK_ID,
+    PREPARE_SFX_WORK_ID, PREPARE_SPRITES_WORK_ID, PREPARE_WORLD_WORK_ID,
 };
-use crate::platformer::lifecycle::{SessionScopeId, SessionSpawnScope};
-use crate::runtime::PlatformerSessionWorld;
+use ambition_load::AmbitionLoadSet;
+use ambition_platformer_primitives::lifecycle::{SessionScopeId, SessionSpawnScope};
+use ambition_runtime::PlatformerSessionWorld;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AuthoredCatalogFragments {
-    pub starting_character: String,
-    pub audio_provider: String,
-    pub expects_music: bool,
-    pub expects_procedural_sfx: bool,
-    pub expects_adaptive_cues: bool,
-    pub expects_packed_sfx: bool,
-}
+use crate::authoring::PlatformerAuthoredCatalogRegistry;
 
-impl AuthoredCatalogFragments {
-    pub fn new(starting_character: impl Into<String>, audio_provider: impl Into<String>) -> Self {
-        Self {
-            starting_character: starting_character.into(),
-            audio_provider: audio_provider.into(),
-            expects_music: false,
-            expects_procedural_sfx: false,
-            expects_adaptive_cues: false,
-            expects_packed_sfx: false,
-        }
-    }
+/// Every provider's preparation system runs in this set (inside
+/// `AmbitionLoadSet::Contributors`); the shared prepared-session cleanup runs
+/// after it.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PlatformerPreparationSet;
 
-    pub fn with_music(mut self) -> Self {
-        self.expects_music = true;
-        self
-    }
-
-    pub fn with_procedural_sfx(mut self) -> Self {
-        self.expects_procedural_sfx = true;
-        self
-    }
-
-    pub fn with_adaptive_cues(mut self) -> Self {
-        self.expects_adaptive_cues = true;
-        self
-    }
-
-    pub fn with_packed_sfx(mut self) -> Self {
-        self.expects_packed_sfx = true;
-        self
-    }
-
-    pub fn validate(
-        &self,
-        character_catalog: &crate::characters::actor::character_catalog::CharacterCatalog,
-        audio_catalogs: &crate::audio::catalog::AudioCatalogRegistry,
-    ) -> Option<(&'static str, crate::load::LoadFailure)> {
-        if character_catalog
-            .get(self.starting_character.as_str())
-            .is_none()
-        {
-            return Some((
-                PREPARE_CATALOGS_WORK_ID,
-                crate::load::LoadFailure::new(
-                    "Starting character data is unavailable",
-                    format!("character catalog has no '{}' row", self.starting_character),
-                )
-                .retryable(true),
-            ));
-        }
-        if !audio_catalogs.has_provider(self.audio_provider.as_str()) {
-            return Some((
-                PREPARE_AUDIO_WORK_ID,
-                crate::load::LoadFailure::new(
-                    "Provider audio intent is unavailable",
-                    format!(
-                        "provider '{}' registered no explicit audio fragment",
-                        self.audio_provider
-                    ),
-                )
-                .retryable(true),
-            ));
-        }
-        None
-    }
-}
-
-#[derive(Resource, Default)]
-pub struct PlatformerAuthoredCatalogRegistry {
-    by_experience: BTreeMap<String, AuthoredCatalogFragments>,
-}
-
-impl PlatformerAuthoredCatalogRegistry {
-    pub fn get(&self, experience_id: &str) -> Option<&AuthoredCatalogFragments> {
-        self.by_experience.get(experience_id)
-    }
-
-    fn register(&mut self, experience_id: &str, fragments: AuthoredCatalogFragments) {
-        if let Some(existing) = self.by_experience.get(experience_id) {
-            assert_eq!(
-                existing, &fragments,
-                "platformer experience '{experience_id}' registered conflicting authored catalogs",
-            );
-            return;
-        }
-        self.by_experience
-            .insert(experience_id.to_owned(), fragments);
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct PlatformerExperienceAuthoring {
-    pub experience_id: String,
-    pub route_id: String,
-    pub label: String,
-    pub description: String,
-    pub preparation_label: String,
-    pub catalogs: AuthoredCatalogFragments,
-    pub loading: Option<crate::load_presentation::LoadExperienceSpec>,
-}
-
-impl PlatformerExperienceAuthoring {
-    pub fn new(
-        experience_id: impl Into<String>,
-        route_id: impl Into<String>,
-        label: impl Into<String>,
-        description: impl Into<String>,
-        preparation_label: impl Into<String>,
-        catalogs: AuthoredCatalogFragments,
-    ) -> Self {
-        Self {
-            experience_id: experience_id.into(),
-            route_id: route_id.into(),
-            label: label.into(),
-            description: description.into(),
-            preparation_label: preparation_label.into(),
-            catalogs,
-            loading: None,
-        }
-    }
-
-    pub fn with_loading_activity(mut self, activity_id: impl Into<String>) -> Self {
-        let mut loading = crate::load_presentation::LoadExperienceSpec::basic(format!(
-            "{}.loading",
-            self.experience_id
-        ));
-        loading.activity = Some(crate::load_presentation::LoadActivityId::new(activity_id));
-        loading.ready_policy = crate::load_presentation::ReadyTransitionPolicy::AutoUnlessEngaged;
-        self.loading = Some(loading);
-        self
-    }
-
-    pub fn with_loading_spec(
-        mut self,
-        loading: crate::load_presentation::LoadExperienceSpec,
-    ) -> Self {
-        self.loading = Some(loading);
-        self
-    }
-
-    pub fn register(&self, app: &mut App) {
-        // Provider registration is the authoritative composition seam. Install
-        // both preparation resources synchronously here before any provider
-        // systems can be initialized. The runtime plugin also uses `init`, but
-        // relying on a nested plugin build to publish the private streaming
-        // resource left thin standalone hosts vulnerable to first-update
-        // SystemParam validation failures.
-        app.init_resource::<PlatformerAuthoredCatalogRegistry>()
-            .init_resource::<PlatformerStreamingReadiness>();
-        if !app.is_plugin_added::<PlatformerProviderRuntimePlugin>() {
-            app.add_plugins(PlatformerProviderRuntimePlugin);
-        }
-        app.world_mut()
-            .resource_mut::<PlatformerAuthoredCatalogRegistry>()
-            .register(self.experience_id.as_str(), self.catalogs.clone());
-        app.register_gameplay_experience(
-            ExperienceRegistration::new(
-                self.experience_id.clone(),
-                self.label.clone(),
-                self.route_id.clone(),
-            )
-            .with_description(self.description.clone()),
-            ShellRouteSpec::new(self.route_id.clone(), self.experience_id.clone())
-                .preparing_with(standard_platformer_preparation_plan(
-                    self.preparation_label.clone(),
-                ))
-                .on_complete(ShellCompletionPolicy::ReturnHome),
-        );
-        if let Some(loading) = self.loading.clone() {
-            app.init_resource::<crate::load_presentation::LoadPresentationCatalog>();
-            app.world_mut()
-                .resource_mut::<crate::load_presentation::LoadPresentationCatalog>()
-                .by_route
-                .insert(
-                    crate::game_shell::ShellRouteId::new(self.route_id.clone()),
-                    loading,
-                );
-        }
-    }
-}
-
+/// What preparation proved about the session it published.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlatformerPreparationReport {
     pub starting_character: String,
@@ -224,32 +60,46 @@ pub struct PlatformerPreparationReport {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct PendingPackedSfxReadiness {
-    provider_id: String,
+pub(crate) struct PendingPackedSfxReadiness {
+    pub(crate) provider_id: String,
 }
 
 #[derive(Resource, Default)]
-struct PlatformerStreamingReadiness {
-    pending_packed_sfx: BTreeMap<crate::load::LoadId, PendingPackedSfxReadiness>,
+pub(crate) struct PlatformerStreamingReadiness {
+    pub(crate) pending_packed_sfx: BTreeMap<ambition_load::LoadId, PendingPackedSfxReadiness>,
 }
 
-struct PlatformerProviderRuntimePlugin;
+/// The once-per-app runtime half of the provider protocol: the shared
+/// prepared-session store, its cleanup, packed-SFX streaming readiness, and
+/// the one activation system every installed experience shares.
+pub(crate) struct PlatformerProviderRuntimePlugin;
 
 impl Plugin for PlatformerProviderRuntimePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PlatformerStreamingReadiness>()
+            .init_resource::<PreparedPlatformerSessions>()
+            .configure_sets(
+                Update,
+                PlatformerPreparationSet.in_set(AmbitionLoadSet::Contributors),
+            )
             .add_systems(
                 Update,
-                update_streamable_packed_sfx.in_set(crate::load::AmbitionLoadSet::Contributors),
+                (
+                    update_streamable_packed_sfx.in_set(AmbitionLoadSet::Contributors),
+                    cleanup_prepared_platformer_sessions
+                        .after(PlatformerPreparationSet)
+                        .in_set(AmbitionLoadSet::Contributors),
+                    activate_prepared_platformer_sessions.in_set(GameplaySessionSet::Providers),
+                ),
             );
     }
 }
 
 fn update_streamable_packed_sfx(
-    loads: Res<crate::load::LoadCoordinator>,
-    banks: Option<Res<crate::audio::catalog::SfxBankRegistry>>,
+    loads: Res<ambition_load::LoadCoordinator>,
+    banks: Option<Res<ambition_audio::catalog::SfxBankRegistry>>,
     mut readiness: ResMut<PlatformerStreamingReadiness>,
-    mut commands: MessageWriter<crate::load::LoadCommand>,
+    mut commands: MessageWriter<ambition_load::LoadCommand>,
 ) {
     readiness
         .pending_packed_sfx
@@ -265,35 +115,72 @@ fn update_streamable_packed_sfx(
         })
         .collect::<Vec<_>>();
     for load_id in ready {
-        commands.write(crate::load::LoadCommand::SetWorkState {
+        commands.write(ambition_load::LoadCommand::SetWorkState {
             load_id: load_id.clone(),
-            work_id: crate::load::LoadWorkId::new(PREPARE_PACKED_SFX_WORK_ID),
-            state: crate::load::LoadWorkState::Complete,
+            work_id: ambition_load::LoadWorkId::new(PREPARE_PACKED_SFX_WORK_ID),
+            state: ambition_load::LoadWorkState::Complete,
         });
         readiness.pending_packed_sfx.remove(&load_id);
     }
 }
 
+/// True when the shell requested preparation for `experience_id` this frame —
+/// the run gate that keeps a provider's session-world source from building
+/// worlds on frames nobody asked for.
+pub(crate) fn preparation_requested(
+    experience_id: String,
+) -> impl FnMut(MessageReader<ShellEvent>) -> bool {
+    move |mut events: MessageReader<ShellEvent>| {
+        events.read().any(|event| {
+            matches!(
+                event,
+                ShellEvent::PreparationRequested(transaction)
+                    if transaction.experience_id.as_str() == experience_id
+            )
+        })
+    }
+}
+
+/// The shared preparation system body: piped after a provider's session-world
+/// source (tagged with its experience id), it prepares that world for every
+/// matching transaction.
+pub(crate) fn prepare_requested_sessions(
+    In((experience_id, world)): In<(String, PlatformerSessionWorld)>,
+    mut events: MessageReader<ShellEvent>,
+    mut preparation: PlatformerPreparation,
+) {
+    for event in events.read() {
+        let ShellEvent::PreparationRequested(transaction) = event else {
+            continue;
+        };
+        if transaction.experience_id.as_str() != experience_id {
+            continue;
+        }
+        preparation.prepare(transaction, world.clone());
+    }
+}
+
+/// Catalog validation + prepared-session publication for one transaction.
 #[derive(SystemParam)]
-pub struct PlatformerPreparation<'w> {
+pub(crate) struct PlatformerPreparation<'w> {
     authored_catalogs: Res<'w, PlatformerAuthoredCatalogRegistry>,
-    character_catalog: Res<'w, crate::characters::actor::character_catalog::CharacterCatalog>,
-    audio_catalogs: Res<'w, crate::audio::catalog::AudioCatalogRegistry>,
+    character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
+    audio_catalogs: Res<'w, ambition_audio::catalog::AudioCatalogRegistry>,
     #[cfg(feature = "audio")]
-    adaptive_catalogs: Option<Res<'w, crate::audio::music::AdaptiveMusicCatalogRegistry>>,
-    sfx_banks: Option<Res<'w, crate::audio::catalog::SfxBankRegistry>>,
-    game_assets: Option<Res<'w, crate::sprite_sheet::game_assets::GameAssets>>,
+    adaptive_catalogs: Option<Res<'w, ambition_audio::music::AdaptiveMusicCatalogRegistry>>,
+    sfx_banks: Option<Res<'w, ambition_audio::catalog::SfxBankRegistry>>,
+    game_assets: Option<Res<'w, ambition_sprite_sheet::game_assets::GameAssets>>,
     registry: ResMut<'w, PreparedSessionRegistry>,
+    sessions: ResMut<'w, PreparedPlatformerSessions>,
     streaming: ResMut<'w, PlatformerStreamingReadiness>,
-    commands: MessageWriter<'w, crate::load::LoadCommand>,
+    commands: MessageWriter<'w, ambition_load::LoadCommand>,
 }
 
 impl PlatformerPreparation<'_> {
-    pub fn prepare<M: Send + Sync + 'static>(
+    pub(crate) fn prepare(
         &mut self,
         transaction: &ProviderLoadTransaction,
         world: PlatformerSessionWorld,
-        sessions: &mut PreparedPlatformerSessions<M>,
     ) -> Option<PreparedSessionIdentity> {
         let Some(authored) = self
             .authored_catalogs
@@ -303,7 +190,7 @@ impl PlatformerPreparation<'_> {
             self.fail(
                 transaction,
                 PREPARE_CATALOGS_WORK_ID,
-                crate::load::LoadFailure::new(
+                ambition_load::LoadFailure::new(
                     "Provider catalogs are unavailable",
                     format!(
                         "experience '{}' has no registered platformer authoring fragments",
@@ -327,7 +214,7 @@ impl PlatformerPreparation<'_> {
             self.set_state(
                 transaction,
                 work_id,
-                crate::load::LoadWorkState::Running { progress: None },
+                ambition_load::LoadWorkState::Running { progress: None },
             );
         }
 
@@ -347,7 +234,7 @@ impl PlatformerPreparation<'_> {
             self.fail(
                 transaction,
                 PREPARE_WORLD_WORK_ID,
-                crate::load::LoadFailure::new(
+                ambition_load::LoadFailure::new(
                     "World data is incomplete",
                     "prepared platformer world has an empty active room or provider identity",
                 )
@@ -368,7 +255,7 @@ impl PlatformerPreparation<'_> {
             self.fail(
                 transaction,
                 PREPARE_SPRITES_WORK_ID,
-                crate::load::LoadFailure::new(
+                ambition_load::LoadFailure::new(
                     "Character presentation is incomplete",
                     format!(
                         "character '{}' has no spritesheet or manifest path",
@@ -406,7 +293,7 @@ impl PlatformerPreparation<'_> {
             self.fail(
                 transaction,
                 PREPARE_MUSIC_WORK_ID,
-                crate::load::LoadFailure::new(
+                ambition_load::LoadFailure::new(
                     "Provider music is not ready",
                     format!(
                         "provider '{}' requires a music fragment but registered none",
@@ -422,7 +309,7 @@ impl PlatformerPreparation<'_> {
             self.fail(
                 transaction,
                 PREPARE_SFX_WORK_ID,
-                crate::load::LoadFailure::new(
+                ambition_load::LoadFailure::new(
                     "Provider procedural SFX are not ready",
                     format!(
                         "provider '{}' requires procedural SFX but registered none",
@@ -452,7 +339,7 @@ impl PlatformerPreparation<'_> {
             self.fail(
                 transaction,
                 PREPARE_ADAPTIVE_WORK_ID,
-                crate::load::LoadFailure::new(
+                ambition_load::LoadFailure::new(
                     "Adaptive music is not ready",
                     format!(
                         "provider '{}' requires adaptive cues but registered none",
@@ -474,7 +361,7 @@ impl PlatformerPreparation<'_> {
             self.fail(
                 transaction,
                 PREPARE_DEFAULTS_WORK_ID,
-                crate::load::LoadFailure::new(
+                ambition_load::LoadFailure::new(
                     "Provider defaults do not match the prepared world",
                     format!(
                         "expected character '{}' and audio provider '{}', got '{}' and '{}'",
@@ -500,11 +387,11 @@ impl PlatformerPreparation<'_> {
             transaction,
             PREPARE_PACKED_SFX_WORK_ID,
             if packed_sfx_streamable {
-                crate::load::LoadWorkState::Running { progress: None }
+                ambition_load::LoadWorkState::Running { progress: None }
             } else if packed_ids.is_empty() {
-                crate::load::LoadWorkState::Skipped
+                ambition_load::LoadWorkState::Skipped
             } else {
-                crate::load::LoadWorkState::Complete
+                ambition_load::LoadWorkState::Complete
             },
         );
         if packed_sfx_streamable {
@@ -532,51 +419,55 @@ impl PlatformerPreparation<'_> {
             deliberate_silence,
         };
         let identity =
-            sessions.publish_with_report(transaction, world, report, &mut self.registry)?;
+            self.sessions
+                .publish_with_report(transaction, world, report, &mut self.registry)?;
         self.complete(transaction, PREPARE_SESSION_WORK_ID);
-        self.commands.write(crate::load::LoadCommand::SetDiscovery {
-            load_id: transaction.barrier.load_id.clone(),
-            barrier_id: transaction.barrier.barrier_id.clone(),
-            open: false,
-            forecast: None,
-        });
+        self.commands
+            .write(ambition_load::LoadCommand::SetDiscovery {
+                load_id: transaction.barrier.load_id.clone(),
+                barrier_id: transaction.barrier.barrier_id.clone(),
+                open: false,
+                forecast: None,
+            });
         Some(identity)
     }
 
     fn complete(&mut self, transaction: &ProviderLoadTransaction, work_id: &'static str) {
-        self.set_state(transaction, work_id, crate::load::LoadWorkState::Complete);
+        self.set_state(transaction, work_id, ambition_load::LoadWorkState::Complete);
     }
 
     fn fail(
         &mut self,
         transaction: &ProviderLoadTransaction,
         work_id: &'static str,
-        failure: crate::load::LoadFailure,
+        failure: ambition_load::LoadFailure,
     ) {
         self.set_state(
             transaction,
             work_id,
-            crate::load::LoadWorkState::Failed(failure),
+            ambition_load::LoadWorkState::Failed(failure),
         );
-        self.commands.write(crate::load::LoadCommand::SetDiscovery {
-            load_id: transaction.barrier.load_id.clone(),
-            barrier_id: transaction.barrier.barrier_id.clone(),
-            open: false,
-            forecast: None,
-        });
+        self.commands
+            .write(ambition_load::LoadCommand::SetDiscovery {
+                load_id: transaction.barrier.load_id.clone(),
+                barrier_id: transaction.barrier.barrier_id.clone(),
+                open: false,
+                forecast: None,
+            });
     }
 
     fn set_state(
         &mut self,
         transaction: &ProviderLoadTransaction,
         work_id: &'static str,
-        state: crate::load::LoadWorkState,
+        state: ambition_load::LoadWorkState,
     ) {
-        self.commands.write(crate::load::LoadCommand::SetWorkState {
-            load_id: transaction.barrier.load_id.clone(),
-            work_id: crate::load::LoadWorkId::new(work_id),
-            state,
-        });
+        self.commands
+            .write(ambition_load::LoadCommand::SetWorkState {
+                load_id: transaction.barrier.load_id.clone(),
+                work_id: ambition_load::LoadWorkId::new(work_id),
+                state,
+            });
     }
 }
 
@@ -587,23 +478,18 @@ struct PreparedPlatformerRecord {
     report: PlatformerPreparationReport,
 }
 
-#[derive(Resource)]
-pub struct PreparedPlatformerSessions<M: Send + Sync + 'static> {
-    records: BTreeMap<crate::load::LoadId, PreparedPlatformerRecord>,
-    marker: PhantomData<fn() -> M>,
+/// The owner of every prepared-but-not-yet-activated session world, keyed by
+/// its load transaction. One resource serves all installed experiences: load
+/// ids are globally unique, and activation retires records by exact
+/// [`PreparedSessionIdentity`], so providers cannot observe each other's
+/// prepared worlds.
+#[derive(Resource, Default)]
+pub struct PreparedPlatformerSessions {
+    records: BTreeMap<ambition_load::LoadId, PreparedPlatformerRecord>,
 }
 
-impl<M: Send + Sync + 'static> Default for PreparedPlatformerSessions<M> {
-    fn default() -> Self {
-        Self {
-            records: BTreeMap::new(),
-            marker: PhantomData,
-        }
-    }
-}
-
-impl<M: Send + Sync + 'static> PreparedPlatformerSessions<M> {
-    pub fn publish_with_report(
+impl PreparedPlatformerSessions {
+    pub(crate) fn publish_with_report(
         &mut self,
         transaction: &ProviderLoadTransaction,
         world: PlatformerSessionWorld,
@@ -631,7 +517,7 @@ impl<M: Send + Sync + 'static> PreparedPlatformerSessions<M> {
         (record.transaction == identity.transaction).then_some(&record.report)
     }
 
-    pub fn take(
+    pub(crate) fn take(
         &mut self,
         identity: &PreparedSessionIdentity,
         registry: &mut PreparedSessionRegistry,
@@ -645,7 +531,7 @@ impl<M: Send + Sync + 'static> PreparedPlatformerSessions<M> {
         Some(record.world)
     }
 
-    pub fn retain_requested(&mut self, registry: &PreparedSessionRegistry) {
+    pub(crate) fn retain_requested(&mut self, registry: &PreparedSessionRegistry) {
         self.records
             .retain(|load_id, _| registry.contains_load(load_id));
     }
@@ -655,26 +541,70 @@ impl<M: Send + Sync + 'static> PreparedPlatformerSessions<M> {
     }
 }
 
-pub fn cleanup_prepared_platformer_sessions<M: Send + Sync + 'static>(
+fn cleanup_prepared_platformer_sessions(
     registry: Res<PreparedSessionRegistry>,
-    mut sessions: ResMut<PreparedPlatformerSessions<M>>,
+    mut sessions: ResMut<PreparedPlatformerSessions>,
 ) {
     sessions.retain_requested(&registry);
 }
 
+/// The one activation system. For every activated experience with authored
+/// platformer catalogs, it takes the prepared world by exact identity and
+/// constructs the live session; the prepared report's starting character is
+/// the session's default character (preparation proved it matches the world).
+fn activate_prepared_platformer_sessions(
+    mut events: MessageReader<GameplaySessionEvent>,
+    authored_catalogs: Res<PlatformerAuthoredCatalogRegistry>,
+    mut sessions: ResMut<PreparedPlatformerSessions>,
+    mut registry: ResMut<PreparedSessionRegistry>,
+    mut builder: PlatformerSessionBuilder,
+) {
+    for event in events.read() {
+        let GameplaySessionEvent::Activated { activation, scope } = event else {
+            continue;
+        };
+        let experience_id = activation.experience_id.as_str();
+        if authored_catalogs.get(experience_id).is_none() {
+            continue;
+        }
+        let prepared = activation.prepared_session.as_ref().unwrap_or_else(|| {
+            panic!("experience '{experience_id}' requires an exact prepared-session publication")
+        });
+        let default_character = sessions
+            .report(prepared)
+            .unwrap_or_else(|| {
+                panic!(
+                    "experience '{experience_id}' prepared data must match the authorized transaction"
+                )
+            })
+            .starting_character
+            .clone();
+        let live_world = sessions.take(prepared, &mut registry).unwrap_or_else(|| {
+            panic!(
+                "experience '{experience_id}' prepared data must match the authorized transaction"
+            )
+        });
+        builder.build(activation, *scope, live_world, default_character.as_str());
+    }
+}
+
+/// Constructs the live session for a prepared world: the simulation world and
+/// player under the activation's session scope, the input-owner binding, and
+/// the session-root publication through [`ActiveGameplaySession`].
 #[derive(SystemParam)]
 pub struct PlatformerSessionBuilder<'w, 's> {
     commands: Commands<'w, 's>,
-    editable_abilities: Res<'w, crate::dev_tools::dev_tools::EditableAbilitySet>,
-    editable_tuning: Res<'w, crate::dev_tools::dev_tools::EditableMovementTuning>,
+    editable_abilities: Res<'w, ambition_dev_tools::dev_tools::EditableAbilitySet>,
+    editable_tuning: Res<'w, ambition_dev_tools::dev_tools::EditableMovementTuning>,
     asset_server: Res<'w, AssetServer>,
-    character_catalog: Res<'w, crate::characters::actor::character_catalog::CharacterCatalog>,
-    character_roster: Res<'w, crate::actors::features::CharacterRoster>,
-    boss_catalog: Res<'w, crate::actors::boss_encounter::BossCatalog>,
-    placement_lowering: Res<'w, crate::actors::world::placements::PlacementLoweringRegistry>,
-    sandbox_data_asset: Option<Res<'w, crate::actors::session::data::SandboxDataAsset>>,
+    character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
+    character_roster: Res<'w, ambition_actors::features::CharacterRoster>,
+    boss_catalog: Res<'w, ambition_actors::boss_encounter::BossCatalog>,
+    placement_lowering: Res<'w, ambition_actors::world::placements::PlacementLoweringRegistry>,
+    sandbox_data_asset: Option<Res<'w, ambition_actors::session::data::SandboxDataAsset>>,
     sandbox_asset_collection:
-        Option<Res<'w, crate::actors::assets::loading::SandboxAssetCollection>>,
+        Option<Res<'w, ambition_actors::assets::loading::SandboxAssetCollection>>,
+    moving_platforms: ResMut<'w, ambition_world::collision::MovingPlatformSet>,
     active_session: ResMut<'w, ActiveGameplaySession>,
 }
 
@@ -692,10 +622,16 @@ impl PlatformerSessionBuilder<'_, '_> {
         live_world: PlatformerSessionWorld,
         default_character_id: &str,
     ) -> SessionBuildResult {
-        let player = crate::actors::session::setup::simulation_world(
+        // Live moving-platform state derives from the activating room. Rooms
+        // without authored platforms (every current demo) reset it to empty.
+        self.moving_platforms.0 = ambition_actors::world::platforms::moving_platforms_for_room(
+            live_world.room_set.active_spec(),
+        );
+
+        let player = ambition_actors::session::setup::simulation_world(
             &mut self.commands,
             SessionSpawnScope::scoped(scope),
-            crate::actors::session::setup::SimulationSetup {
+            ambition_actors::session::setup::SimulationSetup {
                 world: &live_world.geometry,
                 room_set: &live_world.room_set,
                 ldtk_index: &live_world.runtime_rooms,
@@ -713,12 +649,10 @@ impl PlatformerSessionBuilder<'_, '_> {
             },
         );
 
-        self.commands
-            .entity(player)
-            .insert(crate::game_shell::GameplayInputOwner {
-                activation_id: activation.activation_id,
-                scope,
-            });
+        self.commands.entity(player).insert(GameplayInputOwner {
+            activation_id: activation.activation_id,
+            scope,
+        });
 
         let world = self
             .active_session
@@ -732,9 +666,10 @@ impl PlatformerSessionBuilder<'_, '_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::authoring::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 
     #[test]
-    fn authoring_registration_installs_preparation_resources_synchronously() {
+    fn authoring_installation_registers_preparation_resources_synchronously() {
         let mut app = App::new();
         PlatformerExperienceAuthoring::new(
             "fixture",
@@ -744,7 +679,9 @@ mod tests {
             "Prepare fixture",
             AuthoredCatalogFragments::new("fixture_character", "fixture"),
         )
-        .register(&mut app);
+        .install(&mut app, || -> PlatformerSessionWorld {
+            unreachable!("the fixture never receives a preparation request")
+        });
 
         assert!(app
             .world()
@@ -752,18 +689,21 @@ mod tests {
         assert!(app
             .world()
             .contains_resource::<PlatformerStreamingReadiness>());
+        assert!(app
+            .world()
+            .contains_resource::<PreparedPlatformerSessions>());
     }
 
     #[test]
     fn packed_bank_readiness_completes_only_the_matching_streamable_transaction() {
-        let load_id = crate::load::LoadId::new("provider-load");
-        let other_load_id = crate::load::LoadId::new("other-load");
-        let mut loads = crate::load::LoadCoordinator::default();
-        loads.apply(crate::load::LoadCommand::Begin(
-            crate::load::LoadPlanSpec::new(load_id.clone(), "Provider load"),
+        let load_id = ambition_load::LoadId::new("provider-load");
+        let other_load_id = ambition_load::LoadId::new("other-load");
+        let mut loads = ambition_load::LoadCoordinator::default();
+        loads.apply(ambition_load::LoadCommand::Begin(
+            ambition_load::LoadPlanSpec::new(load_id.clone(), "Provider load"),
         ));
-        loads.apply(crate::load::LoadCommand::Begin(
-            crate::load::LoadPlanSpec::new(other_load_id.clone(), "Other load"),
+        loads.apply(ambition_load::LoadCommand::Begin(
+            ambition_load::LoadPlanSpec::new(other_load_id.clone(), "Other load"),
         ));
 
         let mut pending = PlatformerStreamingReadiness::default();
@@ -781,39 +721,39 @@ mod tests {
         );
 
         let mut app = App::new();
-        app.add_message::<crate::load::LoadCommand>()
+        app.add_message::<ambition_load::LoadCommand>()
             .insert_resource(loads)
             .insert_resource(pending)
-            .insert_resource(crate::audio::catalog::SfxBankRegistry::default())
+            .insert_resource(ambition_audio::catalog::SfxBankRegistry::default())
             .add_systems(Update, update_streamable_packed_sfx);
         app.update();
         assert!(app
             .world_mut()
-            .resource_mut::<Messages<crate::load::LoadCommand>>()
+            .resource_mut::<Messages<ambition_load::LoadCommand>>()
             .drain()
             .next()
             .is_none());
 
         app.world_mut()
-            .resource_mut::<crate::audio::catalog::SfxBankRegistry>()
+            .resource_mut::<ambition_audio::catalog::SfxBankRegistry>()
             .register(
                 "provider",
-                BTreeMap::from([(crate::sfx::SfxId::from_static("provider.ready"), 7)]),
+                BTreeMap::from([(ambition_sfx::SfxId::from_static("provider.ready"), 7)]),
             )
             .expect("fixture bank fragment registers");
         app.update();
         let commands = app
             .world_mut()
-            .resource_mut::<Messages<crate::load::LoadCommand>>()
+            .resource_mut::<Messages<ambition_load::LoadCommand>>()
             .drain()
             .collect::<Vec<_>>();
         assert_eq!(commands.len(), 1);
         assert!(matches!(
             &commands[0],
-            crate::load::LoadCommand::SetWorkState {
+            ambition_load::LoadCommand::SetWorkState {
                 load_id: completed_load,
                 work_id,
-                state: crate::load::LoadWorkState::Complete,
+                state: ambition_load::LoadWorkState::Complete,
             } if completed_load == &load_id && work_id.as_str() == PREPARE_PACKED_SFX_WORK_ID
         ));
         let readiness = app.world().resource::<PlatformerStreamingReadiness>();

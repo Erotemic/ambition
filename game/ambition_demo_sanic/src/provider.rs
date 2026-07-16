@@ -3,13 +3,7 @@
 use bevy::prelude::*;
 
 use ambition::engine_core as ae;
-use ambition::game_shell::{
-    GameplaySessionEvent, GameplaySessionSet, PreparedSessionRegistry, ShellEvent,
-};
-use ambition::provider::{
-    cleanup_prepared_platformer_sessions, AuthoredCatalogFragments, PlatformerExperienceAuthoring,
-    PlatformerPreparation, PlatformerSessionBuilder, PreparedPlatformerSessions,
-};
+use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
@@ -42,9 +36,6 @@ pub fn sanic_session_world() -> SanicSessionWorld {
     }
 }
 
-struct SanicProviderMarker;
-type PreparedSanicSessions = PreparedPlatformerSessions<SanicProviderMarker>;
-
 pub struct SanicExperiencePlugin;
 
 impl Plugin for SanicExperiencePlugin {
@@ -61,71 +52,21 @@ impl Plugin for SanicExperiencePlugin {
                 .with_procedural_sfx()
                 .with_packed_sfx(),
         )
-        .register(app);
-
-        app.init_resource::<PreparedSanicSessions>()
-            .add_systems(
-                Update,
-                (
-                    sanic_prepare_session,
-                    cleanup_prepared_platformer_sessions::<SanicProviderMarker>,
-                )
-                    .chain()
-                    .in_set(ambition::load::AmbitionLoadSet::Contributors),
-            )
-            .add_systems(
-                Update,
-                sanic_activate_session.in_set(GameplaySessionSet::Providers),
-            )
-            .add_plugins(SanicRulesPlugin::hosted());
+        .install(app, sanic_prepared_session_world);
+        app.add_plugins(SanicRulesPlugin::hosted());
     }
 }
 
-fn sanic_prepare_session(
-    mut shell_events: MessageReader<ShellEvent>,
-    mut prepared_sessions: ResMut<PreparedSanicSessions>,
-    mut preparation: PlatformerPreparation,
-) {
-    for event in shell_events.read() {
-        let ShellEvent::PreparationRequested(transaction) = event else {
-            continue;
-        };
-        if transaction.experience_id.as_str() != SANIC_EXPERIENCE {
-            continue;
-        }
-        let source = sanic_session_world();
-        let live_world = PlatformerSessionWorld::new(
-            SANIC_EXPERIENCE,
-            source.room_set,
-            source.geometry,
-            source.metadata,
-            source.starting_character,
-            LdtkRuntimeIndex::default(),
-        );
-        preparation.prepare(transaction, live_world, &mut prepared_sessions);
-    }
-}
-
-fn sanic_activate_session(
-    mut events: MessageReader<GameplaySessionEvent>,
-    mut prepared_sessions: ResMut<PreparedSanicSessions>,
-    mut prepared_registry: ResMut<PreparedSessionRegistry>,
-    mut builder: PlatformerSessionBuilder,
-) {
-    for event in events.read() {
-        let GameplaySessionEvent::Activated { activation, scope } = event else {
-            continue;
-        };
-        if activation.experience_id.as_str() != SANIC_EXPERIENCE {
-            continue;
-        }
-        let prepared = activation
-            .prepared_session
-            .as_ref()
-            .expect("Sanic routes require an exact prepared-session publication");
-        let live_world = prepared_sessions
-            .take(prepared, &mut prepared_registry)
-            .expect("Sanic prepared data must match the authorized transaction");
-        builder.build(activation, *scope, live_world, SANIC_CHARACTER_ID);
-    }
+/// The provider's session-world source: the authored speedway, fresh per
+/// preparation request.
+fn sanic_prepared_session_world() -> PlatformerSessionWorld {
+    let source = sanic_session_world();
+    PlatformerSessionWorld::new(
+        SANIC_EXPERIENCE,
+        source.room_set,
+        source.geometry,
+        source.metadata,
+        source.starting_character,
+        LdtkRuntimeIndex::default(),
+    )
 }

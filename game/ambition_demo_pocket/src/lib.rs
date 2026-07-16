@@ -3,13 +3,7 @@
 use bevy::prelude::*;
 
 use ambition::engine_core as ae;
-use ambition::game_shell::{
-    GameplaySessionEvent, GameplaySessionSet, PreparedSessionRegistry, ShellEvent,
-};
-use ambition::provider::{
-    cleanup_prepared_platformer_sessions, AuthoredCatalogFragments, PlatformerExperienceAuthoring,
-    PlatformerPreparation, PlatformerSessionBuilder, PreparedPlatformerSessions,
-};
+use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
@@ -129,9 +123,6 @@ pub fn install_pocket_content(app: &mut App) {
     );
 }
 
-struct PocketProviderMarker;
-type PreparedPocketSessions = PreparedPlatformerSessions<PocketProviderMarker>;
-
 pub struct PocketExperiencePlugin;
 
 impl Plugin for PocketExperiencePlugin {
@@ -147,70 +138,24 @@ impl Plugin for PocketExperiencePlugin {
                 .with_procedural_sfx(),
         )
         .with_loading_activity(ambition::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID)
-        .register(app);
-        app.init_resource::<PreparedPocketSessions>()
-            .add_systems(
-                Update,
-                (
-                    prepare,
-                    cleanup_prepared_platformer_sessions::<PocketProviderMarker>,
-                )
-                    .chain()
-                    .in_set(ambition::load::AmbitionLoadSet::Contributors),
-            )
-            .add_systems(Update, activate.in_set(GameplaySessionSet::Providers));
+        .install(app, pocket_prepared_session_world);
     }
 }
 
-fn prepare(
-    mut events: MessageReader<ShellEvent>,
-    mut sessions: ResMut<PreparedPocketSessions>,
-    mut preparation: PlatformerPreparation,
-) {
-    for event in events.read() {
-        let ShellEvent::PreparationRequested(transaction) = event else {
-            continue;
-        };
-        if transaction.experience_id.as_str() != POCKET_EXPERIENCE {
-            continue;
-        }
-        let room = pocket_room();
-        let geometry = ae::RoomGeometry(room.world.clone());
-        let metadata = ActiveRoomMetadata(room.metadata.clone());
-        let live_world = PlatformerSessionWorld::new(
-            POCKET_EXPERIENCE,
-            RoomSet::from_parts(POCKET_ROOM_ID, vec![room], Vec::new()),
-            geometry,
-            metadata,
-            StartingCharacter::new(POCKET_CHARACTER_ID),
-            LdtkRuntimeIndex::default(),
-        );
-        preparation.prepare(transaction, live_world, &mut sessions);
-    }
-}
-
-fn activate(
-    mut events: MessageReader<GameplaySessionEvent>,
-    mut sessions: ResMut<PreparedPocketSessions>,
-    mut registry: ResMut<PreparedSessionRegistry>,
-    mut builder: PlatformerSessionBuilder,
-) {
-    for event in events.read() {
-        let GameplaySessionEvent::Activated { activation, scope } = event else {
-            continue;
-        };
-        if activation.experience_id.as_str() != POCKET_EXPERIENCE {
-            continue;
-        }
-        let identity = activation
-            .prepared_session
-            .as_ref()
-            .expect("Pocket routes require exact prepared identity");
-        let world = sessions
-            .take(identity, &mut registry)
-            .expect("Pocket prepared world matches");
-        builder.build(activation, *scope, world, POCKET_CHARACTER_ID);
-    }
+/// The provider's session-world source: the authored pocket room, fresh per
+/// preparation request.
+fn pocket_prepared_session_world() -> PlatformerSessionWorld {
+    let room = pocket_room();
+    let geometry = ae::RoomGeometry(room.world.clone());
+    let metadata = ActiveRoomMetadata(room.metadata.clone());
+    PlatformerSessionWorld::new(
+        POCKET_EXPERIENCE,
+        RoomSet::from_parts(POCKET_ROOM_ID, vec![room], Vec::new()),
+        geometry,
+        metadata,
+        StartingCharacter::new(POCKET_CHARACTER_ID),
+        LdtkRuntimeIndex::default(),
+    )
 }
 
 #[cfg(test)]

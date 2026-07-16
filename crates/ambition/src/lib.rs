@@ -7,8 +7,13 @@
 //! game content or the `ambition_app` shell.
 
 pub mod prelude;
-pub mod provider;
 pub mod session_world;
+
+/// The platformer experience-provider protocol (authoring identity + the one
+/// shared preparation/activation lifecycle). Lives in
+/// `ambition_platformer_provider`; re-exported here so provider crates keep
+/// the `ambition::provider::…` path.
+pub use ambition_platformer_provider as provider;
 
 pub use ambition_actors as actors;
 pub use ambition_asset_manager as asset_manager;

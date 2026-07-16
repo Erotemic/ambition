@@ -101,7 +101,7 @@ mutable truth is being hidden.
 | Role | Current/future owner | Owns |
 |---|---|---|
 | **Simulation assembly** | `ambition_runtime` | headless-safe plugin composition and global schedule-set ordering |
-| **Platformer provider lifecycle** | accepted extraction from `crates/ambition/src/provider.rs` | typed preparation, exact activation, session construction, cleanup |
+| **Platformer provider lifecycle** | `ambition_platformer_provider` | typed preparation, exact activation, session construction, cleanup |
 | **Windowed host** | `ambition_host` | device/window/presentation composition above the runtime |
 | **Programmatic harness** | accepted `ambition_sim_harness` extraction | reset/step, typed actions, observations, reward/termination adapters |
 | **SDK facade** | `ambition` | curated re-exports and convenient composition, not substantive lifecycle implementation |

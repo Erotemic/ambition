@@ -162,6 +162,7 @@ dependencies = [
  "ambition_menu",
  "ambition_persistence",
  "ambition_platformer_primitives",
+ "ambition_platformer_provider",
  "ambition_portal",
  "ambition_portal_presentation",
  "ambition_projectiles",
@@ -619,6 +620,25 @@ name = "ambition_platformer_primitives"
 version = "0.1.0"
 dependencies = [
  "ambition_engine_core",
+ "bevy",
+]
+
+[[package]]
+name = "ambition_platformer_provider"
+version = "0.1.0"
+dependencies = [
+ "ambition_actors",
+ "ambition_audio",
+ "ambition_characters",
+ "ambition_dev_tools",
+ "ambition_game_shell",
+ "ambition_load",
+ "ambition_load_presentation",
+ "ambition_platformer_primitives",
+ "ambition_runtime",
+ "ambition_sfx",
+ "ambition_sprite_sheet",
+ "ambition_world",
  "bevy",
 ]
 

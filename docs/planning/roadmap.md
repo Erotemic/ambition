@@ -13,9 +13,10 @@ content crate without editing core?
   explicit frames/time domains, world IR, movement models, moveset execution,
   and one-way observation are foundations, not active decomposition campaigns.
 - **P2 — make the extension/lifecycle seams exclusive:** current priority.
-  Unify placement lowering, extract the provider protocol, finish session-root
-  authority/exact reconstruction, evict named content structurally, and extract
-  the simulation harness.
+  Placement lowering is unified and the provider protocol is extracted into
+  `ambition_platformer_provider`; remaining P2 work is session-root
+  authority/exact reconstruction, structural named-content eviction, and the
+  simulation-harness extraction.
 - **P3 — first complete external-game proofs:** Sanic and Super Mary-O close
   their full playable/headless acceptance loops without engine exceptions.
 - **P4 — richer mechanics and second consumers:** boss/moveset convergence,
@@ -73,7 +74,7 @@ M11 replace rather than bridge pre-release · M12 runtime owns global ordering.
 - **Feel drift:** use per-body data and differential/property tests, never divergent kernels.
 - **Deep host services:** audio/save/network services may need a small explicit contract when a real provider demands it.
 - **Placement extension:** the common Tier-0 schema remains closed; whether providers ever receive a separate authored-placement channel is open.
-- **Public naming:** provider crate name, engine/repository split timing, and final `ambition_actors`/`features` names remain unsettled.
+- **Public naming:** the provider crate shipped as `ambition_platformer_provider`; engine/repository split timing and final `ambition_actors`/`features` names remain unsettled.
 - **Online netcode:** remains later than local multiplayer unless Jon changes scope.
 
 ## Standing practices

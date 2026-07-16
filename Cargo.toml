@@ -30,6 +30,7 @@ members = [
     "crates/ambition_menu",
     "crates/ambition_persistence",
     "crates/ambition_platformer_primitives",
+    "crates/ambition_platformer_provider",
     "crates/ambition_portal",
     "crates/ambition_projectiles",
     "crates/ambition_render",

@@ -117,7 +117,10 @@ questions from LOC counts or terminology alone.
 ## 4. Larger campaigns — agreed priority order
 
 1. Placement-lowering unification (repair #1 above — completed in `7d972b6`).
-2. Extract + consolidate `ambition_platformer_provider` (accepted #2).
+2. Extract + consolidate `ambition_platformer_provider` (accepted #2 —
+   completed: crate created, `crates/ambition/src/provider.rs` deleted,
+   `ambition::provider` re-exports it, and the four duplicated prepare/activate
+   flows fold onto one shared `install`-based lifecycle).
 3. N3.2/session-authority: retire process-global mirrors; prove BOTH gates of
    accepted #10.
 4. Structurally-complete content evictions (accepted #1), interleaved with

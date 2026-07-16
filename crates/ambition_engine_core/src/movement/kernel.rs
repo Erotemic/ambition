@@ -142,6 +142,13 @@ fn step_surface_momentum(
     );
 
     clusters.kinematics.pos = body.pos;
+    // Rebound pads are a world gate, like hazards — not follower collision.
+    // The axis arm drains the same lookup in its integration step. Drained on
+    // the SurfaceBody itself so a spring pad can launch a rider airborne
+    // (with the occlusion bookkeeping every launch records).
+    if let Some(impulse) = touching_rebound_aabb(ctx.world, clusters.kinematics.aabb()) {
+        surface_momentum::apply_pad_impulse(ctx.world, &mut body, impulse, ctx.dt);
+    }
     clusters.kinematics.vel = body.vel;
     if ctx.facing_intent.abs() > 0.001 {
         clusters.kinematics.facing = ctx.facing_intent.signum();
@@ -151,16 +158,6 @@ fn step_surface_momentum(
     motion.depth_lane = body.depth_lane;
     motion.route_memory = body.route_memory;
     motion.occlusions = body.occlusions;
-    // Rebound pads are a world gate, like hazards — not follower collision.
-    // The axis arm drains the same lookup in its integration step.
-    if let Some(impulse) = touching_rebound_aabb(ctx.world, clusters.kinematics.aabb()) {
-        surface_momentum::apply_pad_impulse(
-            ctx.world,
-            &mut motion.state,
-            &mut clusters.kinematics.vel,
-            impulse,
-        );
-    }
     write_sweep_sample(clusters, sweep_entry);
 
     let mut events = FrameEvents {

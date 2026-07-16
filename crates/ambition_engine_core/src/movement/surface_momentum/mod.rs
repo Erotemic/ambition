@@ -328,7 +328,12 @@ fn resolve_surface(world: &World, on: SurfaceRef) -> Option<std::borrow::Cow<'_,
         SurfaceRef::Chain(i) => world.chains.get(i).map(std::borrow::Cow::Borrowed),
         SurfaceRef::Block(i) => {
             let block = world.blocks.get(i)?;
-            if !is_full_collision_surface(block.kind) {
+            // One-way platforms are rideable: the airborne sweep only lands on
+            // their head face, and once attached the boundary chain rides like
+            // any block (walking off an edge sheds at the corner as usual).
+            let rideable = is_full_collision_surface(block.kind)
+                || matches!(block.kind, crate::world::BlockKind::OneWay);
+            if !rideable {
                 return None;
             }
             Some(std::borrow::Cow::Owned(block.boundary_chain()))
@@ -1274,6 +1279,7 @@ fn step_airborne(
             body.depth_lane,
             delta,
             &body.occlusions,
+            frame.down(),
         ) else {
             body.pos += delta;
             break;
@@ -1586,12 +1592,18 @@ fn grazing_chain_contact_at_release(
     penetration <= CONTACT_SLOP && inward_distance <= travel * MAX_NORMAL_FRACTION
 }
 
-/// Earliest swept-circle hit against chains (one-sided) and solid blocks.
+/// Earliest swept-circle hit against chains (one-sided), solid blocks, and
+/// one-way platform head faces.
 ///
 /// The sweep is depth-lane BLIND — the visible track is solid from the air
 /// regardless of which lane the flight started on — except for the spans in
 /// `occlusions` (foreign-lane track the launch was coincident with, skipped
 /// until the flight separates; see [`OcclusionSpan`]).
+///
+/// A one-way platform participates as EXACTLY its gravity-opposing head face
+/// (`down` is the frame's down direction): one-way semantics are the same
+/// one-sidedness chains already have, so a rising body passes through from
+/// below and a falling body lands on top with no special-case landing rule.
 ///
 /// Ties are not neutral: an authored chain is the ROUTE authority (junction
 /// steering only exists there), so when a chain and a block face are the same
@@ -1605,6 +1617,7 @@ fn first_circle_hit(
     depth_lane: i8,
     delta: Vec2,
     occlusions: &DepthOcclusions,
+    down: Vec2,
 ) -> Option<CircleHit> {
     if delta.length_squared() <= 1.0e-12 {
         return None;
@@ -1712,13 +1725,17 @@ fn first_circle_hit(
     // segment casts cover everything the old whole-cuboid cast did — and
     // every hit is attachable.
     for (bi, block) in world.blocks.iter().enumerate() {
-        if !is_full_collision_surface(block.kind) {
+        let one_way = matches!(block.kind, crate::world::BlockKind::OneWay);
+        if !one_way && !is_full_collision_surface(block.kind) {
             continue;
         }
         let boundary = block.boundary_chain();
         for i in 0..boundary.segment_count() {
             let (a, b) = boundary.segment(i);
             let n = boundary.normal(i);
+            if one_way && n.dot(down) > -0.7 {
+                continue; // a one-way platform IS its head face; the rest is air
+            }
             if delta.dot(n) >= 0.0 {
                 continue; // moving away from / along the face
             }
@@ -1808,37 +1825,49 @@ fn approach(value: f32, target: f32, delta: f32) -> f32 {
 /// gameplay-layer world gate the kernel arm drains, mirroring the axis arm's
 /// `touching_rebound_aabb` consumption).
 ///
-/// A RIDING body treats the pad as a SPEED BOOSTER: the impulse projects onto
-/// the local tangent and replaces `v_t` when that makes the body faster —
-/// the ride is not broken, because a surface rider's speed lives in the
-/// tangent, and launching it airborne would just hand the momentum back to
-/// gravity. An AIRBORNE body takes the impulse as its velocity, exactly like
-/// the axis-swept arm. Application is idempotent while overlapping the pad
-/// (set, never add), so no cooldown state is needed.
-pub(crate) fn apply_pad_impulse(
-    world: &World,
-    state: &mut SurfaceMotion,
-    vel: &mut Vec2,
-    impulse: Vec2,
-) {
-    match *state {
+/// The pad's dominant axis IN THE LOCAL SURFACE FRAME decides what it is to a
+/// RIDING body:
+/// - Tangent-dominant (a floor booster): a SPEED BOOSTER — the impulse
+///   projects onto the running tangent and replaces `v_t` when that makes the
+///   body faster. The ride is not broken.
+/// - Normal-dominant (a spring): a LAUNCH — the body goes airborne with the
+///   impulse, KEEPING the momentum perpendicular to the impulse axis (a
+///   vertical spring never eats your run speed; that is the classic spring).
+///
+/// An AIRBORNE body takes the impulse along its axis while keeping its
+/// perpendicular momentum, so jumping onto a vertical spring also preserves
+/// horizontal speed. Application is idempotent while overlapping the pad
+/// (the impulse-axis component is SET, never added), so no cooldown state is
+/// needed.
+pub(crate) fn apply_pad_impulse(world: &World, body: &mut SurfaceBody, impulse: Vec2, dt: f32) {
+    if impulse.length_squared() <= 1.0e-6 {
+        return;
+    }
+    let axis = impulse.normalize();
+    let keep_perpendicular = |vel: Vec2| vel - vel.dot(axis) * axis;
+    match body.motion {
         SurfaceMotion::Riding { on, s, v_t } => {
             let Some(chain) = resolve_surface(world, on) else {
                 return;
             };
             let frame = chain.as_ref().frame_at(s);
-            let boosted = impulse.dot(frame.tangent);
-            if boosted.abs() > v_t.abs() {
-                *state = SurfaceMotion::Riding {
-                    on,
-                    s,
-                    v_t: boosted,
-                };
-                *vel = boosted * frame.tangent;
+            let off_surface = impulse.dot(frame.normal);
+            let along = impulse.dot(frame.tangent);
+            if off_surface > 0.0 && off_surface >= along.abs() {
+                // Spring: launch off the surface, exactly like a shed but with
+                // the pad's velocity. Coincident foreign-lane track suppresses
+                // the same way every launch does.
+                body.vel = impulse + keep_perpendicular(body.vel);
+                body.occlusions =
+                    collect_occlusions(world, body.pos, body.radius, body.depth_lane, body.vel, dt);
+                body.motion = SurfaceMotion::Airborne;
+            } else if along.abs() > v_t.abs() {
+                body.motion = SurfaceMotion::Riding { on, s, v_t: along };
+                body.vel = along * frame.tangent;
             }
         }
         SurfaceMotion::Airborne => {
-            *vel = impulse;
+            body.vel = impulse + keep_perpendicular(body.vel);
         }
     }
 }

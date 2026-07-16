@@ -42,6 +42,26 @@ impl LdtkProject {
     /// materializes `RoomSpec`, `ae::World`, loading zones, and graph links
     /// directly here.
     pub fn to_room_set(&self) -> Result<RoomSet, Vec<String>> {
+        // The game's installed WorldManifest names where play starts and
+        // which baked `ron-room` docs join the graph.
+        let manifest = super::manifest::world_manifest();
+        self.build_room_set(&manifest.entry_room, &manifest.ron_rooms)
+    }
+
+    /// Convert a SELF-CONTAINED project — a game crate's own embedded world
+    /// file (a demo's standalone level). No global-manifest read: play starts
+    /// in the caller's `entry_room` and no manifest-registered RON rooms are
+    /// appended, so the conversion works in processes that never install the
+    /// engine's world manifest.
+    pub fn to_room_set_with_entry(&self, entry_room: &str) -> Result<RoomSet, Vec<String>> {
+        self.build_room_set(entry_room, &[])
+    }
+
+    fn build_room_set(
+        &self,
+        entry_room: &str,
+        ron_rooms: &[super::manifest::RonRoomSource],
+    ) -> Result<RoomSet, Vec<String>> {
         let report = self.validate();
         if !report.is_ok() {
             return Err(report.errors);
@@ -55,10 +75,8 @@ impl LdtkProject {
                 .push(level);
         }
 
-        // The game's installed WorldManifest names where play starts; a
-        // project without that area (synthetic fixtures, partial checkouts)
-        // starts in its first composed area.
-        let entry_room = super::manifest::world_manifest().entry_room.as_str();
+        // A project without the named entry area (synthetic fixtures, partial
+        // checkouts) starts in its first composed area.
         let start_room = if area_levels.contains_key(entry_room) {
             entry_room.to_string()
         } else {
@@ -76,9 +94,7 @@ impl LdtkProject {
         }
         // Baked `ron-room` docs (W2): rooms that enter the graph as
         // serialized IR, no authoring backend behind them.
-        for doc in
-            ambition_world::ron_room::load_ron_rooms(&super::manifest::world_manifest().ron_rooms)?
-        {
+        for doc in ambition_world::ron_room::load_ron_rooms(ron_rooms)? {
             links.extend(doc.links);
             rooms.push(doc.spec);
         }

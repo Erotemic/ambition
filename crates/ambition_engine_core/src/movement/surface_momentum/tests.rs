@@ -1610,8 +1610,16 @@ fn airborne_sweep_is_lane_blind_except_launch_occlusions() {
 
     // The visible track is solid from the air no matter which lane the
     // flight started on — the player cannot perceive lane membership.
-    let hit = first_circle_hit(&world, center, 12.0, 1, delta, &DepthOcclusions::default())
-        .expect("airborne collision is lane-blind");
+    let hit = first_circle_hit(
+        &world,
+        center,
+        12.0,
+        1,
+        delta,
+        &DepthOcclusions::default(),
+        Vec2::new(0.0, 1.0),
+    )
+    .expect("airborne collision is lane-blind");
     assert!(matches!(
         hit.what,
         CircleHitTarget::Chain {
@@ -1629,7 +1637,16 @@ fn airborne_sweep_is_lane_blind_except_launch_occlusions() {
         last_segment: 0,
     });
     assert!(
-        first_circle_hit(&world, center, 12.0, 1, delta, &occlusions).is_none(),
+        first_circle_hit(
+            &world,
+            center,
+            12.0,
+            1,
+            delta,
+            &occlusions,
+            Vec2::new(0.0, 1.0)
+        )
+        .is_none(),
         "a launch-coincident foreign rail is not a hit until the flight clears it"
     );
 }
@@ -1645,8 +1662,16 @@ fn landing_ties_prefer_own_lane_then_base_plane() {
         lane_rail("center", 0),
         lane_rail("front", 1),
     ]);
-    let hit = first_circle_hit(&all, center, 12.0, 1, delta, &no_occlusions)
-        .expect("three coincident rails");
+    let hit = first_circle_hit(
+        &all,
+        center,
+        12.0,
+        1,
+        delta,
+        &no_occlusions,
+        Vec2::new(0.0, 1.0),
+    )
+    .expect("three coincident rails");
     assert!(
         matches!(
             hit.what,
@@ -1659,8 +1684,16 @@ fn landing_ties_prefer_own_lane_then_base_plane() {
     );
 
     let without_own = world_with_chains(vec![lane_rail("back", -1), lane_rail("center", 0)]);
-    let hit = first_circle_hit(&without_own, center, 12.0, 1, delta, &no_occlusions)
-        .expect("two coincident rails");
+    let hit = first_circle_hit(
+        &without_own,
+        center,
+        12.0,
+        1,
+        delta,
+        &no_occlusions,
+        Vec2::new(0.0, 1.0),
+    )
+    .expect("two coincident rails");
     assert!(
         matches!(
             hit.what,
@@ -1729,5 +1762,131 @@ fn segment_scoped_projection_preserves_the_route_occurrence_at_a_crossover() {
     assert!(
         runout_s - entry_s > 100.0,
         "the same screen-space point retains distinct topological arc positions"
+    );
+}
+
+#[test]
+fn a_falling_momentum_body_lands_on_a_one_way_platform_head() {
+    let platform =
+        crate::world::Block::one_way("gantry", Vec2::new(-60.0, 100.0), Vec2::new(120.0, 14.0));
+    let world = World::new(
+        "one-way-test",
+        Vec2::new(4000.0, 4000.0),
+        Vec2::ZERO,
+        vec![platform],
+    );
+
+    // Falling from above: the head face is a landing.
+    let mut body = SurfaceBody::new(Vec2::new(0.0, 60.0), 12.0);
+    body.vel = Vec2::new(0.0, 300.0);
+    for _ in 0..30 {
+        step_surface_body(
+            &mut body,
+            &world,
+            &frictionless(),
+            gframe(G),
+            SurfaceInputs::default(),
+            DT,
+            None,
+        );
+    }
+    assert!(
+        matches!(
+            body.motion,
+            SurfaceMotion::Riding {
+                on: SurfaceRef::Block(0),
+                ..
+            }
+        ),
+        "a one-way platform head catches a falling momentum body: {:?}",
+        body.motion
+    );
+
+    // Rising from below: the platform is air (one-way semantics emerge from
+    // the same one-sidedness chains have).
+    let mut body = SurfaceBody::new(Vec2::new(0.0, 160.0), 12.0);
+    body.vel = Vec2::new(0.0, -700.0);
+    for _ in 0..8 {
+        step_surface_body(
+            &mut body,
+            &world,
+            &frictionless(),
+            gframe(G),
+            SurfaceInputs::default(),
+            DT,
+            None,
+        );
+    }
+    assert!(
+        matches!(body.motion, SurfaceMotion::Airborne) && body.pos.y < 90.0,
+        "a rising body passes through a one-way platform: {:?} at {:?}",
+        body.motion,
+        body.pos
+    );
+}
+
+#[test]
+fn a_normal_dominant_pad_launches_a_rider_keeping_run_speed() {
+    let flat = SurfaceChain::open(
+        "flat",
+        vec![Vec2::new(-500.0, 300.0), Vec2::new(500.0, 300.0)],
+    );
+    let world = world_with_chains(vec![flat]);
+    let mut body = ride(0, 500.0, 600.0, &world, 14.0);
+    body.vel = Vec2::new(600.0, 0.0);
+
+    // A vertical spring: normal-dominant in the local frame. The rider
+    // launches with the spring's speed while KEEPING its run momentum.
+    apply_pad_impulse(&world, &mut body, Vec2::new(0.0, -1000.0), DT);
+    assert!(
+        matches!(body.motion, SurfaceMotion::Airborne),
+        "a spring launches the rider: {:?}",
+        body.motion
+    );
+    assert!(
+        (body.vel - Vec2::new(600.0, -1000.0)).length() < 1.0,
+        "vertical spring sets vertical speed and keeps run speed: {:?}",
+        body.vel
+    );
+
+    // Idempotent while overlapping: a second application changes nothing.
+    let before = body.vel;
+    apply_pad_impulse(&world, &mut body, Vec2::new(0.0, -1000.0), DT);
+    assert!(
+        (body.vel - before).length() < 1.0e-3,
+        "pad application is a fixed point while overlapping"
+    );
+}
+
+#[test]
+fn a_tangent_dominant_pad_boosts_the_ride_without_breaking_it() {
+    let flat = SurfaceChain::open(
+        "flat",
+        vec![Vec2::new(-500.0, 300.0), Vec2::new(500.0, 300.0)],
+    );
+    let world = world_with_chains(vec![flat]);
+    let mut body = ride(0, 500.0, 400.0, &world, 14.0);
+    body.vel = Vec2::new(400.0, 0.0);
+
+    apply_pad_impulse(&world, &mut body, Vec2::new(1120.0, -260.0), DT);
+    assert!(
+        matches!(body.motion, SurfaceMotion::Riding { v_t, .. } if (v_t - 1120.0).abs() < 1.0),
+        "a floor booster boosts tangential speed and keeps the ride: {:?}",
+        body.motion
+    );
+}
+
+#[test]
+fn an_airborne_pad_impulse_keeps_perpendicular_momentum() {
+    let world = world_with_chains(vec![]);
+    let mut body = SurfaceBody::new(Vec2::new(0.0, 0.0), 14.0);
+    body.vel = Vec2::new(500.0, 300.0);
+
+    // Jumping onto a vertical spring keeps horizontal speed.
+    apply_pad_impulse(&world, &mut body, Vec2::new(0.0, -900.0), DT);
+    assert!(
+        (body.vel - Vec2::new(500.0, -900.0)).length() < 1.0,
+        "airborne spring keeps the perpendicular component: {:?}",
+        body.vel
     );
 }

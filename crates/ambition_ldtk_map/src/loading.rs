@@ -177,6 +177,16 @@ impl LdtkProject {
         serde_json::from_str(&text)
             .map_err(|error| format!("could not parse LDtk project {}: {error}", path.display()))
     }
+
+    /// Parse an in-memory LDtk project JSON string — the entry point for a
+    /// GAME crate that ships its own `include_str!`-embedded world instead of
+    /// registering a row in the engine's world manifest (a demo's standalone
+    /// level file). No secondary-world merging: the caller owns exactly one
+    /// file.
+    pub fn from_json_str(text: &str) -> Result<Self, String> {
+        serde_json::from_str(text)
+            .map_err(|error| format!("could not parse LDtk project JSON: {error}"))
+    }
 }
 
 fn parse_world_text(text: &str, source: &WorldSource) -> Result<LdtkProject, String> {

@@ -31,23 +31,36 @@ const SYMMETRY_ROOM_ID: &str = "symmetry_room";
 /// Save flag remembering a completed attunement across save/load.
 pub const SYMMETRY_ATTUNEMENT_FLAG: &str = "symmetry_attunement_complete";
 
-/// The four kernel-face facts the puzzle consumes: LDtk `Switch` action →
-/// the stable signal key content publishes for it.
+/// The four kernel-face facts the puzzle consumes: the CHAMBER's authored
+/// switch id (the LDtk `Switch.id` in `symmetry_room`) → the stable signal key
+/// content publishes for it. Keyed on switch IDENTITY, not on the `SetGravity*`
+/// action: the puzzle is about THESE four faces, and a gravity switch authored
+/// in some other room must not count as a visited symmetry (GPT-5.6 review,
+/// 2026-07-16 — location comes free with identity, no active-room check).
 const KERNEL_FACES: [(&str, &str); 4] = [
-    ("SetGravityDown", "gravity_down"),
-    ("SetGravityLeft", "gravity_left"),
-    ("SetGravityUp", "gravity_up"),
-    ("SetGravityRight", "gravity_right"),
+    ("kernel_switch_down", "gravity_down"),
+    ("kernel_switch_left", "gravity_left"),
+    ("kernel_switch_up", "gravity_up"),
+    ("kernel_switch_right", "gravity_right"),
 ];
 
 /// Spawn the attunement authority once: the generic component set and nothing
 /// else — no waves, no participants, no bespoke state. A previously completed
 /// attunement (save flag) starts terminal, so the reducer refuses a restart.
+///
+/// SESSION-SCOPED, like every encounter authority: the session that activated
+/// the puzzle owns it, so retirement tears it down and the next session's
+/// spawn cannot mint a duplicate `SimId::encounter` (GPT-5.6 review,
+/// 2026-07-16). A shell host at a non-gameplay route sleeps; a headless app
+/// without session lifecycle gets the unscoped legacy mode.
 pub fn spawn_symmetry_attunement(
-    mut commands: Commands,
+    mut commands: ambition_platformer_primitives::lifecycle::SessionCommands,
     existing: Query<&Encounter>,
     save: Res<ambition_persistence::save::SandboxSave>,
 ) {
+    let Some(scope) = commands.spawn_scope() else {
+        return;
+    };
     if existing.iter().any(|enc| enc.id == SYMMETRY_ATTUNEMENT_ID) {
         return;
     }
@@ -55,7 +68,7 @@ pub fn spawn_symmetry_attunement(
     if save.data().flag(SYMMETRY_ATTUNEMENT_FLAG) {
         lifecycle.apply_persisted(PersistedEncounterState::Cleared);
     }
-    commands.spawn((
+    let mut entity = commands.spawn((
         Encounter::new(SYMMETRY_ATTUNEMENT_ID),
         ambition_platformer_primitives::sim_id::SimId::encounter(SYMMETRY_ATTUNEMENT_ID),
         lifecycle,
@@ -67,6 +80,7 @@ pub fn spawn_symmetry_attunement(
         )),
         EncounterParticipants::default(),
     ));
+    scope.apply_to(&mut entity);
 }
 
 /// Command EMITTER: entering the Noether Chamber starts the attunement;
@@ -98,7 +112,7 @@ pub fn drive_symmetry_attunement(
     for switch in switches.read() {
         if let Some((_, signal)) = KERNEL_FACES
             .iter()
-            .find(|(action, _)| *action == switch.activation.action)
+            .find(|(switch_id, _)| *switch_id == switch.activation.id)
         {
             lifecycle_commands.write(EncounterCommand::signal(SYMMETRY_ATTUNEMENT_ID, *signal));
         }

@@ -98,24 +98,81 @@ pub fn sync_boss_encounter_entities(
             &BossEncounter,
             Option<&crate::features::BossOverrides>,
             Option<&SessionScopedEntity>,
+            Option<&ambition_characters::actor::BodyHealth>,
         ),
         With<FeatureSimEntity>,
     >,
-    encounters: Query<&EncounterParticipants>,
+    encounters: Query<(&Encounter, &EncounterParticipants, &EncounterLifecycle)>,
 ) {
     // Coverage by cached entity AND by durable id: a snapshot restore nulls
     // the entity caches (an Entity is never serialized), and re-wrapping an
     // already-wrapped boss on the post-restore frame would fork the timeline.
     let covered_entities: HashSet<Entity> = encounters
         .iter()
-        .flat_map(|p| p.members.iter().filter_map(|m| m.entity))
+        .flat_map(|(_, p, _)| p.members.iter().filter_map(|m| m.entity))
         .collect();
     let covered_ids: HashSet<&str> = encounters
         .iter()
-        .flat_map(|p| p.members.iter().map(|m| m.id.as_str()))
+        .flat_map(|(_, p, _)| p.members.iter().map(|m| m.id.as_str()))
         .collect();
-    for (entity, config, status, overrides, owner) in &bosses {
+    for (entity, config, status, overrides, owner, health) in &bosses {
+        // Only orchestrate a boss that has actually woken — a Dormant boss
+        // (cleared / not yet entered) needs none.
+        let active = status
+            .encounter
+            .as_ref()
+            .map(|p| !matches!(p.phase, BossEncounterPhase::Dormant))
+            .unwrap_or(false);
         if covered_entities.contains(&entity) || covered_ids.contains(config.id.as_str()) {
+            // Already wrapped. The wrap PERSISTS for the session (a room exit
+            // resets it rather than despawning it — see
+            // `update_encounter_progress`), so a LIVING boss FIGHTING under a
+            // wrap that is not in flight means a fresh attempt: RE-ARM through
+            // the one ingress. `Death` and a dead body are both excluded — on
+            // the death frame the wrap completes before the boss's own phase
+            // machine reaches `Death`, and that just-won fight must not reset.
+            let fighting = status
+                .encounter
+                .as_ref()
+                .map(|p| {
+                    !matches!(
+                        p.phase,
+                        BossEncounterPhase::Dormant | BossEncounterPhase::Death
+                    )
+                })
+                .unwrap_or(false)
+                && health.is_some_and(|h| h.alive());
+            if fighting {
+                if let Some((enc, _, lifecycle)) = encounters
+                    .iter()
+                    .find(|(enc, _, _)| enc.id == config.id.as_str())
+                {
+                    match lifecycle.phase {
+                        // Room re-entry: the reset wrap waits Inactive.
+                        ambition_encounter::EncounterPhase::Inactive => {
+                            lifecycle_commands.write(EncounterCommand::new(
+                                enc.id.clone(),
+                                EncounterCommandKind::Start,
+                            ));
+                        }
+                        // A fresh incarnation fighting under a terminal wrap
+                        // (a re-armed boss): Reset re-arms, Start begins — the
+                        // reducer applies the pair in order, same frame (E9).
+                        ambition_encounter::EncounterPhase::Completed
+                        | ambition_encounter::EncounterPhase::Failed => {
+                            lifecycle_commands.write(EncounterCommand::new(
+                                enc.id.clone(),
+                                EncounterCommandKind::Reset,
+                            ));
+                            lifecycle_commands.write(EncounterCommand::new(
+                                enc.id.clone(),
+                                EncounterCommandKind::Start,
+                            ));
+                        }
+                        _ => {}
+                    }
+                }
+            }
             continue;
         }
         // A boss spawned with `no_encounter` is a plain tough enemy — no
@@ -123,13 +180,6 @@ pub fn sync_boss_encounter_entities(
         if overrides.is_some_and(|o| o.no_encounter) {
             continue;
         }
-        // Only wrap an encounter around a boss that has actually woken — a
-        // Dormant boss (cleared / not yet entered) needs no orchestration.
-        let active = status
-            .encounter
-            .as_ref()
-            .map(|p| !matches!(p.phase, BossEncounterPhase::Dormant))
-            .unwrap_or(false);
         if !active {
             continue;
         }
@@ -169,13 +219,22 @@ pub fn sync_boss_encounter_entities(
 
 /// Recompute each encounter's progress from its members' entity-local state
 /// (HP from the body's `BodyHealth` (§A1), phase from the entity-local `ActorPhaseState`
-/// copy). Despawns an encounter whose members have all left the world (room
-/// change), so stale encounters don't linger on the HUD. Runs after
-/// `sync_boss_encounter_entities` in the Progression set.
+/// copy). Runs after `sync_boss_encounter_entities` in the Progression set.
+///
+/// **The wrap PERSISTS for its session.** An encounter whose members have all
+/// left the world (room change) is RESET through the command ingress, never
+/// despawned: the authority keeps its durable member ids (relations, not a
+/// live-list), the caches heal by id on re-entry, and the sync system re-arms
+/// the fight with a fresh `Start`. A despawning wrap was the one encounter
+/// authority whose `encounter:` identity could be absent at snapshot-restore
+/// time, which would force restore to raise it as a naked entity — persistence
+/// removes that whole class (netcode.md N3.2b; GPT-5.6 review, 2026-07-16).
+/// The HUD does not linger either way: an unresolved member contributes no
+/// `MemberProgress` row, and an empty progress renders nothing.
 pub fn update_encounter_progress(
-    mut commands: Commands,
+    mut lifecycle_commands: MessageWriter<EncounterCommand>,
     mut encounters: Query<(
-        Entity,
+        &Encounter,
         &mut EncounterParticipants,
         Option<&EncounterLifecycle>,
         &mut EncounterProgress,
@@ -187,7 +246,7 @@ pub fn update_encounter_progress(
         &ambition_characters::actor::BodyHealth,
     )>,
 ) {
-    for (entity, mut participants, lifecycle, mut progress) in &mut encounters {
+    for (encounter, mut participants, lifecycle, mut progress) in &mut encounters {
         progress.members.clear();
         let mut any_resolved = false;
         for member in &mut participants.members {
@@ -201,10 +260,11 @@ pub fn update_encounter_progress(
                     .find(|(_, config, _, _)| config.id == member.id)
             });
             let Some((boss_entity, config, status, health)) = resolved else {
-                // The member left the world (room change / despawn): forget the
-                // stale entity + read it as not alive.
+                // The member left the world (room change / despawn): forget
+                // the stale entity. Its `alive` flag is left as last resolved
+                // — "unresolved" must NOT read as "defeated", or walking out
+                // of an arena would satisfy the defeat objective.
                 member.entity = None;
-                member.alive = false;
                 continue;
             };
             member.entity = Some(boss_entity);
@@ -224,10 +284,23 @@ pub fn update_encounter_progress(
                 max_hp: health.max(),
             });
         }
-        // Every member gone (boss despawned on a room change) ⇒ the encounter
-        // is over its world; retire it.
-        if !any_resolved {
-            commands.entity(entity).despawn();
+        // Every member gone (boss despawned on a room change) ⇒ the FIGHT is
+        // over its world. Reset the in-flight lifecycle through the ingress;
+        // the persistent wrap waits, Inactive, for the sync system's re-arm.
+        // A terminal wrap (Completed boss) is left alone — its outcome stands.
+        if !any_resolved && !participants.members.is_empty() {
+            if lifecycle.is_some_and(|lc| {
+                matches!(
+                    lc.phase,
+                    ambition_encounter::EncounterPhase::Starting { .. }
+                        | ambition_encounter::EncounterPhase::Active
+                )
+            }) {
+                lifecycle_commands.write(EncounterCommand::new(
+                    encounter.id.clone(),
+                    EncounterCommandKind::Reset,
+                ));
+            }
             continue;
         }
         // The generic projection the HUD read model observes: the lifecycle

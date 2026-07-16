@@ -48,13 +48,19 @@ pub enum Ownership {
 /// What happens to SPAWNED participants when the encounter leaves its
 /// in-flight phases (E10). Adopted participants are NEVER touched by
 /// encounter cleanup — they pre-existed the orchestration.
+///
+/// Either way, the end RELEASES spawned participants from the relation: an
+/// ended encounter owns nothing it spawned, so `Keep` is an explicit ownership
+/// handoff to the world, never a silently still-owned leftover (GPT-5.6
+/// review, 2026-07-16).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SpawnedCleanup {
-    /// Despawn spawned participants on any end (complete / fail / reset) —
-    /// the wave-arena rule, and the default.
+    /// Release AND despawn spawned participants on any end (complete / fail /
+    /// reset) — the wave-arena rule, and the default.
     #[default]
     DespawnOnEnd,
-    /// Leave them in the world (an encounter that spawns permanent props or
+    /// Release them from the encounter but leave them alive in the world as
+    /// ordinary unowned actors (an encounter that spawns permanent props or
     /// hands its spawns to the room).
     Keep,
 }

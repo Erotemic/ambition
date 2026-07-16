@@ -93,14 +93,27 @@ fn progress_reflects_member_hp_and_phase() {
     assert!(!progress.complete, "a living boss ⇒ objective not met");
 }
 
+/// **The wrap persists; the fight resets** (netcode.md N3.2b / GPT-5.6 review
+/// 2026-07-16). A room change removes the boss BODY, never the encounter
+/// authority: the wrap keeps its durable member id (relation, not live-list),
+/// resets its in-flight lifecycle through the one ingress, and re-arms with a
+/// fresh `Start` when the boss fights again — so an `encounter:` identity can
+/// never be absent at snapshot-restore time.
 #[test]
-fn encounter_retires_when_its_member_despawns() {
+fn the_wrap_persists_and_resets_when_its_member_leaves_the_world() {
     let mut app = App::new();
     app.add_message::<ambition_encounter::EncounterCommand>();
     app.add_systems(
         Update,
-        (sync_boss_encounter_entities, update_encounter_progress).chain(),
+        (
+            sync_boss_encounter_entities,
+            update_encounter_progress,
+            ambition_encounter::reduce_encounter_lifecycles,
+        )
+            .chain(),
     );
+    app.init_resource::<ambition_platformer_primitives::time::SimDt>();
+    app.add_message::<ambition_encounter::EncounterEventMsg>();
     let boss = app.world_mut().spawn(awake_boss("mockingbird", 40)).id();
     app.update();
     assert_eq!(
@@ -110,17 +123,49 @@ fn encounter_retires_when_its_member_despawns() {
             .count(),
         1
     );
+    let phase_of = |app: &mut App| {
+        app.world_mut()
+            .query::<(&EncounterDef, &EncounterLifecycle)>()
+            .iter(app.world())
+            .next()
+            .map(|(_, lc)| lc.phase)
+            .expect("the wrap exists")
+    };
+    assert_eq!(
+        phase_of(&mut app),
+        ambition_encounter::EncounterPhase::Active
+    );
 
-    // The boss leaves the world (room change).
+    // The boss leaves the world (room change). The AUTHORITY stays — with its
+    // durable member id and a nulled entity cache — and the fight resets.
     app.world_mut().entity_mut(boss).despawn();
     app.update();
+    let mut q = app
+        .world_mut()
+        .query::<(&EncounterDef, &EncounterParticipants)>();
+    let wraps: Vec<_> = q.iter(app.world()).collect();
+    assert_eq!(wraps.len(), 1, "the wrap persists for its session");
+    assert_eq!(wraps[0].1.members.len(), 1, "the durable relation persists");
+    assert_eq!(wraps[0].1.members[0].entity, None, "the cache is forgotten");
     assert_eq!(
-        app.world_mut()
-            .query::<&EncounterDef>()
-            .iter(app.world())
-            .count(),
-        0,
-        "an encounter whose members all left the world retires"
+        phase_of(&mut app),
+        ambition_encounter::EncounterPhase::Inactive,
+        "an in-flight fight whose members all left resets through the ingress"
+    );
+
+    // The boss returns (room re-entry respawns it). The SAME wrap heals its
+    // member cache by id and re-arms — no duplicate authority, a fresh fight.
+    let returned = app.world_mut().spawn(awake_boss("mockingbird", 40)).id();
+    app.update();
+    let mut q = app
+        .world_mut()
+        .query::<(&EncounterDef, &EncounterParticipants)>();
+    let wraps: Vec<_> = q.iter(app.world()).collect();
+    assert_eq!(wraps.len(), 1, "re-entry re-arms, never duplicates");
+    assert_eq!(wraps[0].1.members[0].entity, Some(returned));
+    assert_eq!(
+        phase_of(&mut app),
+        ambition_encounter::EncounterPhase::Active
     );
 }
 

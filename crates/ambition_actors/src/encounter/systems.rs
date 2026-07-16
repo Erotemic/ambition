@@ -32,8 +32,15 @@ use super::{
 /// Bevy startup system: load encounter specs from the embedded LDtk
 /// project, spawn one encounter entity per spec carrying the generic
 /// authority set + the wave policy, and apply persisted states from the save.
+///
+/// The authorities are SESSION-SCOPED: they belong to the live gameplay
+/// session exactly like the boss wraps, so retiring the session tears them
+/// down with everything else it owns. An unscoped authority would survive
+/// retirement while `SessionTeardownPlugin` clears the registry — and the
+/// next session's repopulation would then mint a DUPLICATE entity (and a
+/// duplicate `SimId::encounter`) per spec (GPT-5.6 review, 2026-07-16).
 pub fn populate_encounter_registry(
-    mut commands: Commands,
+    mut commands: ambition_platformer_primitives::lifecycle::SessionCommands,
     mut registry: ResMut<EncounterRegistry>,
     save: Res<ambition_persistence::save::SandboxSave>,
     // Optional: a RON-only app (demo shell, generated rooms) installs no
@@ -44,6 +51,13 @@ pub fn populate_encounter_registry(
     if registry.specs_loaded {
         return;
     }
+    // A shell host at a non-gameplay route has no session to own the
+    // authorities: sleep WITHOUT setting `specs_loaded`, so the first tick of
+    // an activated session populates. A legacy/headless app with no session
+    // lifecycle installed gets the unscoped spawn mode, as before.
+    let Some(scope) = commands.spawn_scope() else {
+        return;
+    };
     let Some(project) = project else {
         registry.specs_loaded = true;
         return;
@@ -79,6 +93,7 @@ pub fn populate_encounter_registry(
             ));
         }
         entity.insert(waves);
+        scope.apply_to(&mut entity);
         let entity = entity.id();
         registry.insert(id, entity);
     }
@@ -566,10 +581,14 @@ pub fn apply_encounter_cleanup(
         &mut EncounterParticipants,
         Option<&ambition_encounter::EncounterCleanupPolicy>,
     )>,
-    encounter_mobs: Query<
-        (Entity, &crate::features::FeatureId),
-        With<crate::features::EncounterMob>,
-    >,
+    // The GENERIC durable-id → live-entity resolution: a participant's id is
+    // the payload of its body's `SimId::placement(..)` — for a wave mob (its
+    // `FeatureId`) and a boss member (its config id) alike. Resolving through
+    // canonical simulation identity (not a type-specific marker query) means a
+    // snapshot-restored participant, whose entity CACHE is nulled by design,
+    // still cleans up correctly even if the encounter ends before a
+    // specialized adapter re-heals the cache (GPT-5.6 review, 2026-07-16).
+    sim_entities: Query<(Entity, &ambition_platformer_primitives::sim_id::SimId)>,
 ) {
     let mut ended: Vec<String> = Vec::new();
     for msg in events_in.read() {
@@ -589,22 +608,32 @@ pub fn apply_encounter_cleanup(
             continue;
         };
         let policy = policy.copied().unwrap_or_default();
-        if matches!(policy.spawned, ambition_encounter::SpawnedCleanup::Keep) {
-            continue;
-        }
+        let despawn = matches!(
+            policy.spawned,
+            ambition_encounter::SpawnedCleanup::DespawnOnEnd
+        );
+        // Both policies RELEASE the spawned participants from the ended
+        // encounter — the relation reflects what the encounter still owns,
+        // which after its end is nothing it spawned. `DespawnOnEnd`
+        // additionally removes the released bodies from the world; `Keep`
+        // leaves them alive as ordinary unowned actors (explicit release
+        // semantics, not a silent still-owned leftover).
         participants.members.retain(|member| {
             if member.ownership != ambition_encounter::Ownership::Spawned {
                 return true;
             }
-            let entity = member.entity.or_else(|| {
-                encounter_mobs
-                    .iter()
-                    .find(|(_, id)| id.as_str() == member.id)
-                    .map(|(entity, _)| entity)
-            });
-            if let Some(entity) = entity {
-                if let Ok(mut entity_commands) = commands.get_entity(entity) {
-                    entity_commands.despawn();
+            if despawn {
+                let wanted = ambition_platformer_primitives::sim_id::SimId::placement(&member.id);
+                let entity = member.entity.or_else(|| {
+                    sim_entities
+                        .iter()
+                        .find(|(_, sim)| **sim == wanted)
+                        .map(|(entity, _)| entity)
+                });
+                if let Some(entity) = entity {
+                    if let Ok(mut entity_commands) = commands.get_entity(entity) {
+                        entity_commands.despawn();
+                    }
                 }
             }
             false

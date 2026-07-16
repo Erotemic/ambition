@@ -812,9 +812,12 @@ mod cleanup {
     }
 
     /// An authored `Keep` policy hands spawned participants to the room —
-    /// cleanup consults the POLICY, not just the ownership enum.
+    /// cleanup consults the POLICY, not just the ownership enum. `Keep` is an
+    /// explicit ownership RELEASE, not a silently still-owned leftover: the
+    /// ended encounter drops its spawned relations while the bodies live on
+    /// as ordinary unowned actors (GPT-5.6 review, 2026-07-16).
     #[test]
-    fn keep_policy_leaves_spawned_participants_in_the_world() {
+    fn keep_policy_releases_spawned_participants_but_leaves_them_alive() {
         let mut app = cleanup_app();
         let (spawned, adopted) = spawn_mixed_encounter(
             &mut app,
@@ -829,7 +832,42 @@ mod cleanup {
         app.update();
         assert!(
             app.world().get_entity(spawned).is_ok(),
-            "Keep policy must leave spawned participants alone"
+            "Keep policy must leave spawned participants alive in the world"
+        );
+        assert!(app.world().get_entity(adopted).is_ok());
+        assert_eq!(
+            members_of(&mut app),
+            vec![("npc_1".into(), Ownership::Adopted)],
+            "an ended encounter owns nothing it spawned — Keep releases the relation"
+        );
+    }
+
+    /// The generic durable-id → live-entity resolution: cleanup despawns a
+    /// spawned participant whose entity CACHE is nulled (exactly a snapshot
+    /// restore's participants) by resolving `SimId::placement(member.id)` —
+    /// canonical simulation identity, not a type-specific marker query
+    /// (GPT-5.6 review, 2026-07-16).
+    #[test]
+    fn cleanup_resolves_a_nulled_participant_cache_through_sim_identity() {
+        let mut app = cleanup_app();
+        let (spawned, adopted) = spawn_mixed_encounter(&mut app, None);
+        // The body carries its canonical identity; the relation's cache is
+        // nulled, as a restored world's would be.
+        app.world_mut().entity_mut(spawned).insert(
+            ambition_platformer_primitives::sim_id::SimId::placement("mob_1"),
+        );
+        {
+            let mut q = app.world_mut().query::<&mut EncounterParticipants>();
+            let mut parts = q.iter_mut(app.world_mut()).next().expect("encounter");
+            parts.members[0].entity = None;
+        }
+        app.world_mut()
+            .write_message(EncounterCommand::new("arena", EncounterCommandKind::Fail));
+        app.update();
+        assert!(
+            app.world().get_entity(spawned).is_err(),
+            "a spawned participant with a nulled cache must still clean up, \
+             resolved by its canonical SimId"
         );
         assert!(app.world().get_entity(adopted).is_ok());
     }

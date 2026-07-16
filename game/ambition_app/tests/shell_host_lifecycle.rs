@@ -589,3 +589,91 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         "the HOST maps the shell exit request to Bevy AppExit"
     );
 }
+
+/// Every live encounter authority, as `(encounter id, owning session scope)`.
+fn encounter_authorities(app: &mut App) -> Vec<(String, Option<SessionScopeId>)> {
+    let mut query = app.world_mut().query::<(
+        &ambition::encounter::Encounter,
+        Option<&SessionScopedEntity>,
+    )>();
+    let mut rows: Vec<_> = query
+        .iter(app.world())
+        .map(|(enc, owner)| (enc.id.clone(), owner.map(|owner| owner.0)))
+        .collect();
+    rows.sort();
+    rows
+}
+
+/// **Encounter authorities belong to their session** (GPT-5.6 review,
+/// 2026-07-16).
+///
+/// The wave authorities (`populate_encounter_registry`) and the Noether
+/// attunement (content) must be spawned session-scoped, exactly like the boss
+/// wraps: `SessionTeardownPlugin` clears `EncounterRegistry` on retirement, so
+/// an authority that SURVIVED retirement would be duplicated — same
+/// `Encounter` id, same `SimId::encounter` — by the next session's
+/// repopulation, and identity uniqueness (the snapshot roster invariant)
+/// would be violated. Activate A, prove ownership; retire A, prove nothing
+/// remains; activate B, prove exactly one authority per id, all B's.
+#[test]
+fn the_encounter_authorities_belong_to_their_session() {
+    let mut app = shell_host_app();
+    settle(&mut app);
+    assert_home(&mut app, "boot");
+
+    // ── Session A: Ambition ────────────────────────────────────────────
+    launch_entry(&mut app, 0);
+    settle(&mut app);
+    let scope_a = live_scope(&app).expect("Ambition session A is live");
+    let authorities_a = encounter_authorities(&mut app);
+    assert!(
+        !authorities_a.is_empty(),
+        "Ambition's activation populates encounter authorities"
+    );
+    assert!(
+        authorities_a
+            .iter()
+            .any(|(id, _)| id == "symmetry_attunement"),
+        "the Noether attunement authority is among them: {authorities_a:?}"
+    );
+    for (id, owner) in &authorities_a {
+        assert_eq!(
+            *owner,
+            Some(scope_a),
+            "authority `{id}` is owned by session A"
+        );
+    }
+    let ids_a: Vec<&String> = authorities_a.iter().map(|(id, _)| id).collect();
+    let mut unique_a = ids_a.clone();
+    unique_a.dedup();
+    assert_eq!(ids_a, unique_a, "exactly one authority per encounter id");
+
+    // ── Retire A ───────────────────────────────────────────────────────
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    assert_home(&mut app, "after Ambition session A");
+    assert_eq!(
+        encounter_authorities(&mut app),
+        vec![],
+        "no encounter authority survives its session's retirement"
+    );
+
+    // ── Session B: Ambition again ──────────────────────────────────────
+    launch_entry(&mut app, 0);
+    settle(&mut app);
+    let scope_b = live_scope(&app).expect("Ambition session B is live");
+    assert_ne!(scope_a, scope_b, "session scopes are never reused");
+    let authorities_b = encounter_authorities(&mut app);
+    assert_eq!(
+        authorities_b.iter().map(|(id, _)| id).collect::<Vec<_>>(),
+        ids_a,
+        "session B repopulates the same authority roster, one per id"
+    );
+    for (id, owner) in &authorities_b {
+        assert_eq!(
+            *owner,
+            Some(scope_b),
+            "authority `{id}` is owned by session B, not a survivor of A"
+        );
+    }
+}

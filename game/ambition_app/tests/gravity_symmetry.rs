@@ -10,6 +10,7 @@
 
 mod common;
 use ambition::engine_core::{Block, Vec2};
+use ambition_app::AmbitionSim;
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
 

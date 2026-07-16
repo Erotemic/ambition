@@ -31,6 +31,7 @@ use ambition::characters::actor::{BodyCombat, BodyHealth};
 use ambition::encounter::EncounterParticipants;
 use ambition::engine_core::{self as ae, AabbExt};
 use ambition::entity_catalog::placements::BossBrain;
+use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::ecs::message::Messages;
 use bevy::prelude::World;

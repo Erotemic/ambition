@@ -32,6 +32,7 @@ use ambition::encounter::EncounterMusicRequest;
 use ambition::entity_catalog::placements::BossBrain;
 use ambition::persistence::save::SandboxSave;
 use ambition::persistence::save_data::PersistedEncounterState;
+use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::World;
 

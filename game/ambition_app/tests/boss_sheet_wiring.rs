@@ -225,7 +225,7 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
 fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
     use ambition::render::rendering::actor_sprite_path_owns;
     use ambition_app::rl_sim::TimestepMode;
-    use ambition_app::{SandboxSim, SandboxSimOptions};
+    use ambition_app::{AmbitionSim, SandboxSim, SandboxSimOptions};
 
     let mut rooms_checked = 0;
     let mut bosses_checked = 0;

@@ -29,6 +29,7 @@
 use serde::Deserialize;
 
 use ambition::engine_core::{ControlFrame, InputStream};
+use ambition_app::AmbitionSim;
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::SandboxSim;
 

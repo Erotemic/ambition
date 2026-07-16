@@ -24,7 +24,7 @@ use std::path::PathBuf;
 
 use ambition::actors::trace::{self, record_simulation_frame, DumpReason, GameplayTraceBuffer};
 use ambition::input::ControlFrame;
-use ambition_app::rl_sim::{SandboxSim, SandboxSimOptions, TimestepMode};
+use ambition_app::rl_sim::{AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
 
 fn parse_max_ticks(args: &[String]) -> u32 {
     // First positional non-flag arg is the tick count.

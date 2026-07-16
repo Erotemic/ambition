@@ -23,6 +23,7 @@
 
 use ambition::engine_core::{ControlFrame, InputStream};
 use ambition::runtime::InputStreamRecorder;
+use ambition_app::AmbitionSim;
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::SandboxSim;
 

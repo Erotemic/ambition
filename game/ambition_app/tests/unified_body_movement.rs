@@ -16,6 +16,7 @@ use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition::actors::control::PlayerInputFrame;
 use ambition::actors::features::FeatureId;
 use ambition::entity_catalog::placements::CharacterBrain;
+use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::{Entity, World};
 

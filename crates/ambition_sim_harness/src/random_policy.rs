@@ -1,4 +1,4 @@
-use super::AgentAction;
+use crate::AgentAction;
 
 /// Tiny deterministic LCG used by the RL demo binaries and fuzz tests.
 /// It is not a quality RNG; it is stable, cheap, and seed-reproducible.

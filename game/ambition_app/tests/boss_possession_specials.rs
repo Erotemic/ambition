@@ -32,6 +32,7 @@ use ambition::actors::features::{ActorFaction, FeatureId};
 use ambition::characters::brain::{BossAttackProfile, BossAttackState, BossCapability, Brain};
 use ambition::entity_catalog::placements::BossBrain;
 use ambition::vfx::HitSide;
+use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::{Entity, World};
 

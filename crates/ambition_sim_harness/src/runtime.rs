@@ -3,14 +3,12 @@ use bevy::time::TimeUpdateStrategy;
 
 use ambition::engine_core as ae;
 
-use crate::app::{SandboxSimulationPlugin, StartRoomOverride};
-use ambition::actors::ldtk_world;
 use ambition::actors::rooms::RoomSet;
 use ambition::input::ControlFrame;
 
-use super::action::AgentAction;
-use super::observation::{AgentObservation, EnemyObs, PickupObs};
-use super::options::{SandboxSimOptions, TimestepMode};
+use crate::action::AgentAction;
+use crate::observation::{AgentObservation, EnemyObs, PickupObs};
+use crate::options::{SandboxSimOptions, TimestepMode};
 
 /// A self-contained sandbox simulation, ready to be stepped programmatically.
 ///
@@ -29,74 +27,47 @@ pub struct SandboxSim {
 }
 
 impl SandboxSim {
-    /// Build a new simulation with the embedded LDtk world and the
-    /// default wall-clock timestep. See `new_with_timestep` for fixed-
-    /// timestep determinism.
-    pub fn new() -> Result<Self, String> {
-        Self::new_with_options(SandboxSimOptions::default())
-    }
-
-    /// Build a new simulation with the embedded LDtk world. Returns an
-    /// error string if the LDtk world fails validation — this matches
-    /// the policy that an invalid sandbox file is a hard error rather
-    /// than a silent default.
+    /// Build a new simulation, composing a caller-supplied game.
     ///
-    /// `timestep` controls how `Time` advances between `step` calls.
-    /// `WallClock` (default) lets Bevy pick up wall dt; `Fixed { dt }`
-    /// pins each step to exactly `dt` seconds for deterministic
-    /// trajectories.
+    /// The harness owns the *engine* half: it builds the `App`, adds the shared
+    /// headless foundation (`add_headless_foundation`), and — when `fixed_tick`
+    /// is set — chooses the sim schedule **before any sim plugin builds** (a
+    /// content plugin registers into `SimSchedule` too, so a late choice would
+    /// split the sim graph across two schedules, which `set_sim_schedule` panics
+    /// on). It then hands the App to `compose`, which installs *that game's*
+    /// content + sim plugins (validating the world, inserting any start-room
+    /// override, adding the sim assembly), returning an `Err` string on invalid
+    /// content — matching the policy that a bad content/world file is a hard
+    /// error rather than a silent default.
     ///
-    /// The first `app.update()` is run inside `new()` so the player entity
-    /// is spawned before the caller sees an observation. This makes
-    /// `sim.observation()` immediately valid.
-    pub fn new_with_timestep(timestep: TimestepMode) -> Result<Self, String> {
-        Self::new_with_options(SandboxSimOptions {
-            timestep,
-            ..SandboxSimOptions::default()
-        })
-    }
-
-    /// Build a new simulation with full options control. RL training loops that
-    /// want to focus on a specific room (e.g. only train on `goblin_encounter`) construct
-    /// via this entry point with a `start_room` override. The override matches
-    /// the visible binary's `--start-room` flag semantics.
-    pub fn new_with_options(options: SandboxSimOptions) -> Result<Self, String> {
-        // Validate the embedded world before constructing the App. Provider-owned
-        // catalogs are composed as App-local resources by the simulation plugin.
-        ambition_content::worlds::install();
-        let project = ldtk_world::LdtkProject::load_default_for_dev()?;
-        let report = project.validate();
-        if !report.is_ok() {
-            report.print_to_stderr();
-            return Err(format!(
-                "sandbox LDtk validation failed: {} error(s)",
-                report.errors.len()
-            ));
-        }
-        if let Err(errors) = project.to_room_set() {
-            return Err(errors.join("; "));
-        }
-
+    /// This is how the harness composes below the product shell: `ambition_app`
+    /// passes its own composition (see `ambition_app::rl_sim::AmbitionSim`); a
+    /// demo/test passes a minimal or provider-specific one — neither requires the
+    /// harness to know about any particular game.
+    ///
+    /// The first `app.update()` runs inside `build` so the player entity exists
+    /// before the caller's first `observation()` reads it (and a second under
+    /// `fixed_tick`, so both timestep modes reach the same one-step-executed state
+    /// at construction).
+    pub fn build(
+        options: SandboxSimOptions,
+        compose: impl FnOnce(&mut App, &SandboxSimOptions) -> Result<(), String>,
+    ) -> Result<Self, String> {
         let mut app = App::new();
         // The shared engine foundation — one definition in ambition::runtime.
         ambition::runtime::add_headless_foundation(&mut app);
 
         // Netcode N0.1: choose the sim schedule BEFORE the first sim plugin
-        // builds. `SandboxSimulationPlugin` adds CONTENT ahead of the engine
-        // group, and content registers into `SimSchedule` too — a late choice
-        // would split the sim graph across two schedules, which
-        // `set_sim_schedule` panics on rather than allow.
+        // builds (see the doc note above).
         if options.fixed_tick {
             use ambition::platformer::schedule::SimScheduleExt as _;
             app.set_sim_schedule(bevy::app::FixedUpdate);
         }
 
-        // Programmatic start-room override: insert before SandboxSimulationPlugin
-        // builds (which calls init_sandbox_resources and consumes the override).
-        if let Some(room_id) = options.start_room.clone() {
-            app.insert_resource(StartRoomOverride(room_id));
-        }
-        app.add_plugins(SandboxSimulationPlugin);
+        // Caller-supplied composition: content install + world validation +
+        // start-room override + the game's sim plugin(s). A content/world error
+        // propagates out as the constructor's `Err`.
+        compose(&mut app, &options)?;
 
         // Bind the local in same name the rest of the function uses.
         let timestep = options.timestep;
@@ -197,7 +168,7 @@ impl SandboxSim {
     }
 
     /// Step one frame and return the post-step observation paired with
-    /// the example shaped reward ([`super::reward::default_shaped`])
+    /// the example shaped reward ([`crate::reward::default_shaped`])
     /// computed over the pre→post transition. Convenience for RL loops
     /// that want the canonical example reward without threading the
     /// previous observation themselves; a task-specific harness should
@@ -205,7 +176,7 @@ impl SandboxSim {
     pub fn step_with_reward(&mut self, action: AgentAction) -> (AgentObservation, f32) {
         let prev = self.observation();
         let cur = self.step(action);
-        let reward = super::reward::default_shaped(&prev, &cur);
+        let reward = crate::reward::default_shaped(&prev, &cur);
         (cur, reward)
     }
 

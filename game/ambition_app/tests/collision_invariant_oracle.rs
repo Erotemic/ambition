@@ -33,6 +33,7 @@
 
 use ambition::engine_core as ae;
 use ambition::engine_core::RoomGeometry;
+use ambition_app::AmbitionSim;
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
 

@@ -27,6 +27,7 @@ use ambition::actors::actor::{
 use ambition::actors::features::FeatureId;
 use ambition::characters::actor::BodyHealth;
 use ambition::characters::brain::ActorControl;
+use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};
 use ambition_content::duel_arena::{DUEL_PCA_ID, DUEL_ROBOT_ID};
 use bevy::prelude::World;

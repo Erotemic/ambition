@@ -26,6 +26,7 @@ use ambition::actors::actor::BodyKinematics;
 use ambition::actors::features::ecs::boss_clusters::BossConfig;
 use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::BossBrain;
+use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::World;
 

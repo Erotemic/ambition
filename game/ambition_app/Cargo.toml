@@ -114,6 +114,9 @@ ambition_demo_pocket = { path = "../ambition_demo_pocket" }
 ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
 ambition = { path = "../../crates/ambition" }
 ambition_content = { path = "../ambition_content" }
+# The reusable programmatic sim harness (reset/step/action/observation/reward).
+# ambition_app supplies the Ambition-specific composition (see rl_sim::AmbitionSim).
+ambition_sim_harness = { path = "../../crates/ambition_sim_harness" }
 ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope" }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 bevy_common_assets = { version = "0.15", features = ["ron"] }

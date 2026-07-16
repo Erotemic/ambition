@@ -22,7 +22,7 @@
 //! room, hp, total resets, dash count, jump count, max distance from
 //! spawn).
 
-use ambition_app::{AgentObservation, RandomWalkPolicy, SandboxSim};
+use ambition_app::{AgentObservation, AmbitionSim, RandomWalkPolicy, SandboxSim};
 
 #[derive(Default, Clone, Copy)]
 struct RunStats {

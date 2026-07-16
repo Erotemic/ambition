@@ -21,7 +21,7 @@ pub mod rl_sim;
 pub use headless::{run_headless, HeadlessReport};
 #[cfg(feature = "rl_sim")]
 pub use rl_sim::{
-    AgentAction, AgentObservation, Lcg, RandomWalkPolicy, RandomWalkTuning, SandboxSim,
+    AgentAction, AgentObservation, AmbitionSim, Lcg, RandomWalkPolicy, RandomWalkTuning, SandboxSim,
     SandboxSimOptions, TimestepMode,
 };
 

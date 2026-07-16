@@ -23,7 +23,7 @@
 //! ```
 
 use ambition_app::rl_sim::TimestepMode;
-use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
+use ambition_app::{AmbitionSim, RandomWalkPolicy, SandboxSim, SandboxSimOptions};
 
 fn smoke_room(room_id: &str, steps: u32, seed: u64) -> Result<RoomReport, String> {
     let mut sim = SandboxSim::new_with_options(

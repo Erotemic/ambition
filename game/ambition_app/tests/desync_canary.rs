@@ -17,6 +17,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition::runtime::snapshot::{compare_hash_streams, SnapshotRegistry};
+use ambition_app::AmbitionSim;
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
 

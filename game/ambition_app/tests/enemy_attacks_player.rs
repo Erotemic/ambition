@@ -18,6 +18,7 @@ use ambition::actors::features::FeatureId;
 use ambition::characters::brain::{ActionSet, ActorControl};
 use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::CharacterBrain;
+use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::World;
 

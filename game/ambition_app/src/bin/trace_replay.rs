@@ -41,7 +41,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use ambition_app::rl_sim::TimestepMode;
-use ambition_app::{AgentAction, SandboxSim};
+use ambition_app::{AgentAction, AmbitionSim, SandboxSim};
 
 #[derive(Debug, Default, Clone, Copy)]
 struct RecordedControls {

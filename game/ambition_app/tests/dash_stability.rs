@@ -17,6 +17,7 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_app::AmbitionSim;
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
 

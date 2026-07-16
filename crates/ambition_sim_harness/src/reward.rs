@@ -12,7 +12,7 @@
 //! All terms read only fields already on [`AgentObservation`], so adding
 //! a reward costs nothing at the sim layer.
 
-use super::AgentObservation;
+use crate::AgentObservation;
 
 /// Survival term: a small positive tick reward for staying alive, a large
 /// penalty when a death/reset happened between the two observations

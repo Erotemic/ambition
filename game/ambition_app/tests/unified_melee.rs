@@ -26,6 +26,7 @@ use ambition::actors::combat::moveset::MovePlayback;
 use ambition::actors::features::{FeatureId, Hitbox};
 use ambition::characters::brain::{ActionSet, ActorControl};
 use ambition::entity_catalog::{placements::CharacterBrain, WindowTag};
+use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::{Entity, World};
 use std::sync::Mutex;

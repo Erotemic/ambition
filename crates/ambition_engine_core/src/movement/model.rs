@@ -153,6 +153,10 @@ pub struct SurfaceMomentumMotion {
     /// [`crate::RouteDeparture`]): keeps a held steering bias from re-opening
     /// the lap it just closed at a loop mouth.
     pub route_memory: Option<crate::RouteDeparture>,
+    /// Foreign-lane track the current flight launched coincident with (see
+    /// [`crate::OcclusionSpan`]): non-collidable until the body separates.
+    /// Empty while riding.
+    pub occlusions: crate::DepthOcclusions,
 }
 
 impl SurfaceMomentumMotion {
@@ -165,6 +169,7 @@ impl SurfaceMomentumMotion {
             state: SurfaceMotion::Airborne,
             depth_lane: 0,
             route_memory: None,
+            occlusions: crate::DepthOcclusions::default(),
         }
     }
 }

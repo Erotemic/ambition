@@ -6,7 +6,9 @@
 //! numbers, records a per-tick trace, and asserts the behavior a player is
 //! entitled to. All nine originally reproduced live defects (see the section
 //! comments); the 2026-07-16 solver fixes turned them green and they now
-//! stand as the speedway's permanent regression gates.
+//! stand as the speedway's permanent regression gates. Oracle G (jumps on the
+//! track land on the track) was added with the same-day depth-occlusion
+//! rework that made airborne collision lane-blind.
 
 use ambition::engine_core as ae;
 
@@ -436,12 +438,15 @@ fn oracle_flat_floor_landings_attach_to_the_route_chain_not_the_block() {
     let room = sanic_speedway();
     let floor_idx = chain_index(&room.world, "sanic_floor_route");
 
+    // Every drop point has clear sky down to the flat floor. (A drop above
+    // the raised structure belongs to Oracle G: since airborne collision went
+    // lane-blind it lands on the raised track itself, not the floor.)
     for (x, vx) in [
         (300.0, 0.0),
         (300.0, 250.0),
         (900.0, -250.0),
+        (1200.0, 0.0),
         (1500.0, 250.0),
-        (2600.0, 0.0),
         (3300.0, 250.0),
     ] {
         let mut probe = Probe::airborne(
@@ -742,5 +747,140 @@ fn oracle_soak_position_never_pins_and_ride_state_never_flaps() {
         "stuck/jitter detector fired {} time(s):\n\n{}",
         failures.len(),
         failures.join("\n\n")
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Oracle G — jumps on the track land on the track.
+//
+// Depth lanes are an implementation detail the player cannot perceive: the
+// ramp (-1), loop body (0), and mouth deck / shoulders / runout (+1) all read
+// as ONE solid course. Before the 2026-07-16 depth-occlusion rework, an
+// airborne body was frozen in the lane it launched from and fell clean
+// through every other lane's track — jump on the ramp holding forward and
+// the loop mouth was intangible; jump from the floor and the ramp face was.
+// Airborne collision is now lane-blind (launch-coincident foreign track is
+// suppressed only until the flight separates), and these gates pin the
+// Sonic entitlement: what you can see, you can land on.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The first riding sample after the probe has actually gone airborne.
+fn first_landing(trace: &[Sample]) -> Option<&Sample> {
+    let launch = trace.iter().position(|s| s.ride.is_none())?;
+    trace[launch..].iter().find(|s| s.ride.is_some())
+}
+
+#[test]
+fn oracle_ramp_jump_relands_on_the_ramp() {
+    let room = sanic_speedway();
+    let loop_idx = chain_index(&room.world, "sanic_loop");
+    let chain = &room.world.chains[loop_idx];
+    let mid_ramp_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX) * 0.5;
+
+    // A slow mid-ramp rider jumps and keeps its hands off: the perpendicular
+    // arc must come back down onto the ramp it left, exactly like jumping on
+    // any slope — not slip through to the base floor.
+    let mut probe = Probe::riding_chain(&room.world, loop_idx, mid_ramp_s, 120.0, sanic_params());
+    probe.step(&room.world, ae::Vec2::ZERO, true);
+    for _ in 0..120 {
+        probe.step(&room.world, ae::Vec2::ZERO, false);
+    }
+    let landing = first_landing(&probe.trace).expect("the jump arc must land within two seconds");
+    assert!(
+        matches!(landing.ride, Some((ae::SurfaceRef::Chain(c), ..)) if c == loop_idx),
+        "a hands-off ramp jump landed off the raised route: {}\n{}",
+        fmt_sample(landing),
+        dump_tail(&probe.trace, 20)
+    );
+}
+
+#[test]
+fn oracle_ramp_jump_held_forward_lands_on_the_track() {
+    let room = sanic_speedway();
+    let loop_idx = chain_index(&room.world, "sanic_loop");
+    let chain = &room.world.chains[loop_idx];
+    let upper_ramp_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX) * 0.75;
+
+    // The reported bug: jump on the upper ramp while holding toward the loop.
+    // Air steering carries the arc over the crest into the loop-mouth
+    // airspace; the mouth deck and shoulders must catch it. Before the
+    // rework the ramp-lane flight fell through the foreground track and hit
+    // the base floor.
+    let mut probe = Probe::riding_chain(&room.world, loop_idx, upper_ramp_s, 240.0, sanic_params());
+    probe.step(&room.world, ae::Vec2::X, true);
+    for _ in 0..150 {
+        probe.step(&room.world, ae::Vec2::X, false);
+    }
+    let landing = first_landing(&probe.trace).expect("the jump arc must land");
+    assert!(
+        matches!(landing.ride, Some((ae::SurfaceRef::Chain(c), ..)) if c == loop_idx),
+        "a forward ramp jump fell through the visible track and landed off the \
+         raised route: {}\n{}",
+        fmt_sample(landing),
+        dump_tail(&probe.trace, 20)
+    );
+}
+
+#[test]
+fn oracle_floor_jump_lands_on_the_ramp_face() {
+    let room = sanic_speedway();
+    let loop_idx = chain_index(&room.world, "sanic_loop");
+    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    let chain = &room.world.chains[loop_idx];
+    let entry_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX);
+
+    // A floor runner jumps just past the ramp's base; the descending arc
+    // comes down ON the raised ramp face. Landing there is the entitlement —
+    // the ramp is visibly solid ground — and it also exercises the full
+    // occlusion cycle: the launch starts coincident with the low ramp tail
+    // (suppressed), separates at the apex (released), then lands on the very
+    // track it launched beneath.
+    let mut probe = Probe::riding_chain(&room.world, floor_idx, 1780.0, 300.0, sanic_params());
+    probe.step(&room.world, ae::Vec2::ZERO, true);
+    for _ in 0..120 {
+        probe.step(&room.world, ae::Vec2::ZERO, false);
+    }
+    let landing = first_landing(&probe.trace).expect("the jump arc must land");
+    let on_ramp_face = matches!(
+        landing.ride,
+        Some((ae::SurfaceRef::Chain(c), s, _)) if c == loop_idx && s < entry_s
+    );
+    assert!(
+        on_ramp_face,
+        "a floor jump under the ramp face passed through it instead of landing \
+         on it: {}\n{}",
+        fmt_sample(landing),
+        dump_tail(&probe.trace, 20)
+    );
+}
+
+#[test]
+fn oracle_drop_onto_the_overpass_lands_on_the_raised_track() {
+    let room = sanic_speedway();
+    let loop_idx = chain_index(&room.world, "sanic_loop");
+
+    // Straight drop above the post-loop overpass/descent. Under the old
+    // strict-lane rule a base-lane body fell THROUGH this visibly solid
+    // foreground track to the floor beneath; lane-blind collision catches it.
+    let mut probe = Probe::airborne(
+        ae::Vec2::new(2600.0, 520.0),
+        ae::Vec2::ZERO,
+        0,
+        sanic_params(),
+    );
+    for _ in 0..240 {
+        probe.step(&room.world, ae::Vec2::ZERO, false);
+        if probe.riding() {
+            break;
+        }
+    }
+    assert!(
+        matches!(
+            probe.motion(),
+            ae::SurfaceMotion::Riding { on: ae::SurfaceRef::Chain(c), .. } if c == loop_idx
+        ),
+        "a drop onto the overpass must land on the raised route: {:?}\n{}",
+        probe.motion(),
+        dump_tail(&probe.trace, 15)
     );
 }

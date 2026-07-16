@@ -32,6 +32,13 @@ impl SnapshotState for ambition_engine_core::MotionModel {
                         put_u8(out, memory.direction as u8);
                     }
                 }
+                let span_count = motion.occlusions.iter().count();
+                put_u8(out, span_count as u8);
+                for span in motion.occlusions.iter() {
+                    put_u32(out, span.chain as u32);
+                    put_u32(out, span.first_segment as u32);
+                    put_u32(out, span.last_segment as u32);
+                }
             }
             MotionModel::AdhesiveCrawler(motion) => {
                 put_u8(out, 2);
@@ -75,11 +82,20 @@ impl SnapshotState for ambition_engine_core::MotionModel {
                 } else {
                     None
                 };
+                let mut occlusions = ambition_engine_core::DepthOcclusions::default();
+                for _ in 0..r.u8()? {
+                    occlusions.push(ambition_engine_core::OcclusionSpan {
+                        chain: r.u32()? as usize,
+                        first_segment: r.u32()? as usize,
+                        last_segment: r.u32()? as usize,
+                    });
+                }
                 MotionModel::SurfaceMomentum(SurfaceMomentumMotion {
                     params,
                     state,
                     depth_lane,
                     route_memory,
+                    occlusions,
                 })
             }
             2 => {

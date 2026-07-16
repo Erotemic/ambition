@@ -1106,6 +1106,7 @@ fn zero_speed_at_a_joint_chooses_support_and_keeps_jump_and_walk_available() {
             v_t: 0.0,
         },
         route_memory: None,
+        occlusions: DepthOcclusions::default(),
     };
     let params = MomentumParams::default();
 
@@ -1545,61 +1546,107 @@ fn route_junction_changes_arc_occurrence_without_reversing_speed() {
     assert!(v_t < 0.0, "route transfer preserves reverse speed");
 }
 
-#[test]
-fn depth_lanes_collide_exactly_plus_the_base_plane() {
-    // Exact-lane matches always collide.
-    assert!(depth_lanes_collide(-1, -1));
-    assert!(depth_lanes_collide(0, 0));
-    assert!(depth_lanes_collide(1, 1));
-    // Lane 0 is the BASE PLANE: every body can land back on it, because every
-    // depth excursion rejoins the base world. Strict matching here stranded
-    // riders launched from a foreground/background rail: the base floor route
-    // was invisible and only the depth-agnostic block could catch them.
-    assert!(depth_lanes_collide(-1, 0));
-    assert!(depth_lanes_collide(1, 0));
-    // Non-zero lanes stay strict, so a base-plane body still passes
-    // foreground/background rails (the original shed-and-snag regression).
-    assert!(!depth_lanes_collide(0, 1));
-    assert!(!depth_lanes_collide(0, -1));
-    assert!(!depth_lanes_collide(-1, 1));
-    assert!(!depth_lanes_collide(1, -1));
+fn lane_rail(name: &str, lane: i8) -> SurfaceChain {
+    SurfaceChain::open(
+        name,
+        vec![Vec2::new(-100.0, 100.0), Vec2::new(100.0, 100.0)],
+    )
+    .with_segment_depths(vec![lane])
 }
 
 #[test]
-fn airborne_sweep_ignores_tracks_on_other_depth_lanes() {
-    let rail = |name: &str, lane: i8| {
-        SurfaceChain::open(
-            name,
-            vec![Vec2::new(-100.0, 100.0), Vec2::new(100.0, 100.0)],
-        )
-        .with_segment_depths(vec![lane])
-    };
+fn launch_occlusions_collect_only_coincident_foreign_track() {
+    let far_rail = SurfaceChain::open(
+        "far-front",
+        vec![Vec2::new(-100.0, 400.0), Vec2::new(100.0, 400.0)],
+    )
+    .with_segment_depths(vec![2]);
+    let world = world_with_chains(vec![
+        lane_rail("back", -1),
+        lane_rail("base", 0),
+        lane_rail("own", 1),
+        far_rail,
+    ]);
+    // 10px above the stacked rails with radius 12: spatially coincident.
+    let pos = Vec2::new(0.0, 90.0);
+    let occlusions = collect_occlusions(&world, pos, 12.0, 1, Vec2::ZERO, 1.0 / 60.0);
+    // Only the coincident FOREIGN NON-ZERO lane is suppressed: the base plane
+    // is every layer at once (suppressing it could drop a flight out of the
+    // world), the body's own lane is the layer it launched in, and the far
+    // rail is beyond the launch envelope.
+    assert_eq!(
+        occlusions.iter().collect::<Vec<_>>(),
+        vec![OcclusionSpan {
+            chain: 0,
+            first_segment: 0,
+            last_segment: 0,
+        }]
+    );
+}
+
+#[test]
+fn occlusions_release_only_after_separation() {
+    let world = world_with_chains(vec![lane_rail("back", -1)]);
+    let mut body = SurfaceBody::new(Vec2::new(0.0, 90.0), 12.0);
+    body.depth_lane = 1;
+    body.occlusions = collect_occlusions(&world, body.pos, body.radius, 1, Vec2::ZERO, 1.0 / 60.0);
+    assert!(!body.occlusions.is_empty(), "the rail starts coincident");
+
+    // Still overlapping: the span survives the release pass.
+    release_cleared_occlusions(&mut body, &world, 1.0 / 60.0);
+    assert!(!body.occlusions.is_empty(), "no separation, no release");
+
+    // Separated by more than the body's one-tick reach: solid again, forever.
+    body.pos = Vec2::new(0.0, 40.0);
+    release_cleared_occlusions(&mut body, &world, 1.0 / 60.0);
+    assert!(body.occlusions.is_empty(), "separation releases the span");
+}
+
+#[test]
+fn airborne_sweep_is_lane_blind_except_launch_occlusions() {
     let center = Vec2::new(0.0, 60.0);
     let delta = Vec2::new(0.0, 80.0);
+    let world = world_with_chains(vec![lane_rail("back", -1)]);
 
-    let other_lane = world_with_chains(vec![rail("back", -1)]);
+    // The visible track is solid from the air no matter which lane the
+    // flight started on — the player cannot perceive lane membership.
+    let hit = first_circle_hit(&world, center, 12.0, 1, delta, &DepthOcclusions::default())
+        .expect("airborne collision is lane-blind");
+    assert!(matches!(
+        hit.what,
+        CircleHitTarget::Chain {
+            chain: 0,
+            segment: 0
+        }
+    ));
+
+    // …except track the launch was coincident with (the loop-mouth crossover
+    // no-snag guarantee): suppressed until the flight separates.
+    let mut occlusions = DepthOcclusions::default();
+    occlusions.push(OcclusionSpan {
+        chain: 0,
+        first_segment: 0,
+        last_segment: 0,
+    });
     assert!(
-        first_circle_hit(&other_lane, center, 12.0, 1, delta).is_none(),
-        "a foreground rider must pass a coincident back rail"
+        first_circle_hit(&world, center, 12.0, 1, delta, &occlusions).is_none(),
+        "a launch-coincident foreign rail is not a hit until the flight clears it"
     );
+}
 
-    let base = world_with_chains(vec![rail("back", -1), rail("center", 0)]);
-    let hit = first_circle_hit(&base, center, 12.0, 1, delta)
-        .expect("the base plane catches every airborne lane");
-    assert!(
-        matches!(
-            hit.what,
-            CircleHitTarget::Chain {
-                chain: 1,
-                segment: 0
-            }
-        ),
-        "lane 0 is the base plane a launched foreground rider lands back on"
-    );
+#[test]
+fn landing_ties_prefer_own_lane_then_base_plane() {
+    let center = Vec2::new(0.0, 60.0);
+    let delta = Vec2::new(0.0, 80.0);
+    let no_occlusions = DepthOcclusions::default();
 
-    let matching = world_with_chains(vec![rail("back", -1), rail("center", 0), rail("front", 1)]);
-    let hit = first_circle_hit(&matching, center, 12.0, 1, delta)
-        .expect("the matching foreground rail remains collidable");
+    let all = world_with_chains(vec![
+        lane_rail("back", -1),
+        lane_rail("center", 0),
+        lane_rail("front", 1),
+    ]);
+    let hit = first_circle_hit(&all, center, 12.0, 1, delta, &no_occlusions)
+        .expect("three coincident rails");
     assert!(
         matches!(
             hit.what,
@@ -1608,7 +1655,21 @@ fn airborne_sweep_ignores_tracks_on_other_depth_lanes() {
                 segment: 0
             }
         ),
-        "on a tie the exact-lane rail beats the coincident base plane"
+        "on a tie the last-ridden lane beats every other layer"
+    );
+
+    let without_own = world_with_chains(vec![lane_rail("back", -1), lane_rail("center", 0)]);
+    let hit = first_circle_hit(&without_own, center, 12.0, 1, delta, &no_occlusions)
+        .expect("two coincident rails");
+    assert!(
+        matches!(
+            hit.what,
+            CircleHitTarget::Chain {
+                chain: 1,
+                segment: 0
+            }
+        ),
+        "without an own-lane candidate the base plane beats a foreign lane"
     );
 }
 

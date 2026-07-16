@@ -134,6 +134,75 @@ pub struct RouteDeparture {
     pub direction: i8,
 }
 
+/// A contiguous run of one chain's segments that a body was spatially
+/// coincident with — while they belonged to a DIFFERENT non-zero depth lane —
+/// at the instant it went airborne.
+///
+/// Airborne collision is otherwise lane-blind: the visible track is solid no
+/// matter which lane a flight started from, because the player cannot
+/// perceive lane membership from the air. The one thing a launched body must
+/// NOT do is instantly snag a rail of another layer it was already inside or
+/// overlapping (the loop-mouth crossover): those spans are recorded here at
+/// launch and stay non-collidable until the flight separates from them —
+/// the depth analogue of the grazing-release guard and [`RouteDeparture`]
+/// ("the surface you just shared space with is not a hit until you leave").
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct OcclusionSpan {
+    /// Index of the occluded chain in `world.chains`.
+    pub chain: usize,
+    /// First segment of the coincident run (inclusive).
+    pub first_segment: usize,
+    /// Last segment of the coincident run (inclusive).
+    pub last_segment: usize,
+}
+
+/// A launching circle can straddle at most a handful of foreign-lane runs; the
+/// cap keeps the body `Copy` and the snapshot fixed-size. Collection order is
+/// deterministic (chain index, then segment index), so an overflow drops the
+/// same spans on every replay.
+pub const MAX_OCCLUSION_SPANS: usize = 4;
+
+/// The set of [`OcclusionSpan`]s an airborne body is suppressing, packed
+/// front-to-back. Empty while riding.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DepthOcclusions {
+    spans: [Option<OcclusionSpan>; MAX_OCCLUSION_SPANS],
+}
+
+impl DepthOcclusions {
+    /// Record a span; silently drops overflow beyond [`MAX_OCCLUSION_SPANS`].
+    pub fn push(&mut self, span: OcclusionSpan) {
+        if let Some(slot) = self.spans.iter_mut().find(|slot| slot.is_none()) {
+            *slot = Some(span);
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = OcclusionSpan> + '_ {
+        self.spans.iter().flatten().copied()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.spans.iter().all(Option::is_none)
+    }
+
+    fn occludes(&self, chain: usize, segment: usize) -> bool {
+        self.iter().any(|span| {
+            span.chain == chain && (span.first_segment..=span.last_segment).contains(&segment)
+        })
+    }
+
+    /// Drop every span the predicate rejects, keeping the pack order.
+    fn retain(&mut self, mut keep: impl FnMut(OcclusionSpan) -> bool) {
+        let mut packed = Self::default();
+        for span in self.iter() {
+            if keep(span) {
+                packed.push(span);
+            }
+        }
+        *self = packed;
+    }
+}
+
 /// Where the body is relative to the world's surfaces.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SurfaceMotion {
@@ -156,22 +225,23 @@ pub struct SurfaceBody {
     /// observers) while `Riding`.
     pub vel: Vec2,
     pub radius: f32,
-    /// Simulated-depth lane retained while airborne.
+    /// Simulated-depth lane of the segment last ridden.
     ///
-    /// Lane `0` is the BASE PLANE: every airborne body collides with lane-0
-    /// segments regardless of its own lane, because every depth excursion
-    /// (a foreground rail, a background ramp) ultimately rejoins the base
-    /// world and a launched rider must be able to land back on it. Non-zero
-    /// lanes are strict: a body collides with a non-zero-lane segment only
-    /// when its own lane matches, so a rider shed from the base plane can
-    /// never snag on a coincident foreground/background rail. Route traversal
-    /// may change lanes while riding, and ordinary solid blocks remain
+    /// While riding it tracks the surface; while airborne it is retained as a
+    /// PREFERENCE, not a filter: airborne collision is lane-blind (see
+    /// [`OcclusionSpan`]), and the lane only breaks landing ties — when two
+    /// surfaces are reached as the same contact, the layer the body last rode
+    /// wins over the base plane, which wins over a foreign lane. Route
+    /// traversal changes lanes while riding, and ordinary solid blocks remain
     /// depth-agnostic.
     pub depth_lane: i8,
     pub motion: SurfaceMotion,
     /// See [`RouteDeparture`]: the junction half-edge most recently taken,
     /// consulted to keep a held steering bias from re-opening the same lap.
     pub route_memory: Option<RouteDeparture>,
+    /// See [`OcclusionSpan`]: foreign-lane track this flight launched
+    /// coincident with, non-collidable until the body separates from it.
+    pub occlusions: DepthOcclusions,
 }
 
 impl SurfaceBody {
@@ -184,6 +254,7 @@ impl SurfaceBody {
             depth_lane: 0,
             motion: SurfaceMotion::Airborne,
             route_memory: None,
+            occlusions: DepthOcclusions::default(),
         }
     }
 
@@ -334,6 +405,8 @@ fn step_riding(
     // toward the body side), keeping the tangent momentum.
     if inputs.jump_pressed {
         body.vel = v_t * frame.tangent + params.jump_speed * frame.normal;
+        body.occlusions =
+            collect_occlusions(world, body.pos, body.radius, body.depth_lane, body.vel, dt);
         body.motion = SurfaceMotion::Airborne;
         // One airborne substep so the jump moves this frame.
         step_airborne(
@@ -377,7 +450,7 @@ fn step_riding(
     let press = gravity.dot(-frame.normal); // >0: gravity pushes body onto surface
     let press_threshold = 0.25 * gravity.length();
     if press < press_threshold && v_t.abs() < params.min_stick_speed {
-        shed(body, chain, frame.tangent, v_t, dt);
+        shed(body, world, chain, frame.tangent, v_t, dt);
         step_airborne(
             body,
             world,
@@ -446,7 +519,7 @@ fn step_riding(
             let launch_chain = launch_chain.as_ref();
             body.pos = frame.point + frame.normal * body.radius;
             body.depth_lane = launch_chain.segment_depth(frame.segment);
-            shed(body, launch_chain, frame.tangent, launch_v_t, dt);
+            shed(body, world, launch_chain, frame.tangent, launch_v_t, dt);
             // Finish the tick ballistically, exactly like the jump branch.
             // Dropping the unspent time here parked a launched body AT the
             // joint while its speed stayed intact; the next tick re-attached
@@ -677,9 +750,20 @@ fn leaving_an_open_end(chain: &SurfaceChain, s: f32, v_t: f32) -> bool {
     (s <= end_eps && v_t < 0.0) || (s >= total - end_eps && v_t > 0.0)
 }
 
-/// Leave the surface with the tangent momentum (plus the chain's own motion).
-fn shed(body: &mut SurfaceBody, chain: &SurfaceChain, tangent: Vec2, v_t: f32, dt: f32) {
+/// Leave the surface with the tangent momentum (plus the chain's own motion),
+/// recording the foreign-lane track this launch is coincident with so the
+/// flight passes it instead of snagging it (see [`OcclusionSpan`]).
+fn shed(
+    body: &mut SurfaceBody,
+    world: &World,
+    chain: &SurfaceChain,
+    tangent: Vec2,
+    v_t: f32,
+    dt: f32,
+) {
     body.vel = v_t * tangent + per_frame_to_per_sec(chain.velocity, dt);
+    body.occlusions =
+        collect_occlusions(world, body.pos, body.radius, body.depth_lane, body.vel, dt);
     body.motion = SurfaceMotion::Airborne;
 }
 
@@ -1183,8 +1267,14 @@ fn step_airborne(
         if delta.length_squared() <= 1.0e-12 {
             break;
         }
-        let Some(hit) = first_circle_hit(world, body.pos, body.radius, body.depth_lane, delta)
-        else {
+        let Some(hit) = first_circle_hit(
+            world,
+            body.pos,
+            body.radius,
+            body.depth_lane,
+            delta,
+            &body.occlusions,
+        ) else {
             body.pos += delta;
             break;
         };
@@ -1268,6 +1358,13 @@ fn step_airborne(
                 source: hit.source,
             });
         }
+    }
+    // Suppression is a flight-scoped artifact: landing re-enters the route
+    // network and drops it entirely, while a still-airborne body releases
+    // the spans it has separated from — cleared track is solid again.
+    match body.motion {
+        SurfaceMotion::Riding { .. } => body.occlusions = DepthOcclusions::default(),
+        SurfaceMotion::Airborne => release_cleared_occlusions(body, world, dt),
     }
 }
 
@@ -1361,14 +1458,93 @@ fn project_to_segment(chain: &SurfaceChain, segment: usize, point: Vec2) -> f32 
     }
 }
 
-/// Lane `0` is the base plane every airborne body can land on; non-zero lanes
-/// collide only with bodies whose lane matches (see
-/// [`SurfaceBody::depth_lane`]). Strict matching on the base plane stranded
-/// every rider that launched from a foreground/background excursion: the
-/// lane-0 floor route was invisible to it, and only the depth-agnostic solid
-/// block underneath could catch it — off the junction network.
-fn depth_lanes_collide(body_lane: i8, surface_lane: i8) -> bool {
-    surface_lane == 0 || body_lane == surface_lane
+/// How far beyond the circle's own radius a surface still counts as
+/// "coincident" for occlusion purposes — both when collecting spans at launch
+/// and when deciding a flight has separated from one.
+const OCCLUSION_CLEAR_SLOP: f32 = 2.0;
+
+fn point_segment_distance(p: Vec2, a: Vec2, b: Vec2) -> f32 {
+    let ab = b - a;
+    let len_sq = ab.length_squared();
+    let t = if len_sq > 0.0 {
+        ((p - a).dot(ab) / len_sq).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    p.distance(a + ab * t)
+}
+
+/// Collect the foreign-lane track a body launching at `pos` with velocity
+/// `vel` is coincident with (see [`OcclusionSpan`]).
+///
+/// The coincidence envelope is the circle inflated by ONE launch tick of
+/// travel: a shed a few pixels short of the crossover rail would otherwise
+/// sweep into it on the very tick it launches. Lane `0` is never collected —
+/// the base plane is every layer at once, so a body cannot be "behind" it and
+/// suppressing it could drop a flight out of the world.
+fn collect_occlusions(
+    world: &World,
+    pos: Vec2,
+    radius: f32,
+    launch_lane: i8,
+    vel: Vec2,
+    dt: f32,
+) -> DepthOcclusions {
+    let reach = radius + vel.length() * dt + OCCLUSION_CLEAR_SLOP;
+    let mut occlusions = DepthOcclusions::default();
+    for (ci, chain) in world.chains.iter().enumerate() {
+        let mut run: Option<(usize, usize)> = None;
+        for i in 0..chain.segment_count() {
+            let lane = chain.segment_depth(i);
+            let coincident = lane != 0 && lane != launch_lane && {
+                let (a, b) = chain.segment(i);
+                point_segment_distance(pos, a, b) < reach
+            };
+            if coincident {
+                run = match run {
+                    None => Some((i, i)),
+                    Some((first, _)) => Some((first, i)),
+                };
+            } else if let Some((first, last)) = run.take() {
+                occlusions.push(OcclusionSpan {
+                    chain: ci,
+                    first_segment: first,
+                    last_segment: last,
+                });
+            }
+        }
+        if let Some((first, last)) = run {
+            occlusions.push(OcclusionSpan {
+                chain: ci,
+                first_segment: first,
+                last_segment: last,
+            });
+        }
+    }
+    occlusions
+}
+
+/// Drop every occlusion the flight has separated from. Once the body is clear
+/// of a span, that track is ordinary solid again — permanently: suppression
+/// exists only to let a launch exit geometry it already shared space with.
+/// "Clear" uses the same one-tick-reach envelope as collection, so a span the
+/// body is still on a same-tick collision course with is never released
+/// mid-approach.
+fn release_cleared_occlusions(body: &mut SurfaceBody, world: &World, dt: f32) {
+    let (pos, radius) = (body.pos, body.radius);
+    let reach = radius + body.vel.length() * dt + OCCLUSION_CLEAR_SLOP;
+    body.occlusions.retain(|span| {
+        let Some(chain) = world.chains.get(span.chain) else {
+            return false;
+        };
+        let last = span
+            .last_segment
+            .min(chain.segment_count().saturating_sub(1));
+        (span.first_segment..=last).any(|i| {
+            let (a, b) = chain.segment(i);
+            point_segment_distance(pos, a, b) < reach
+        })
+    });
 }
 
 /// Ignore a numerically immediate, nearly tangent chain contact.
@@ -1412,17 +1588,23 @@ fn grazing_chain_contact_at_release(
 
 /// Earliest swept-circle hit against chains (one-sided) and solid blocks.
 ///
+/// The sweep is depth-lane BLIND — the visible track is solid from the air
+/// regardless of which lane the flight started on — except for the spans in
+/// `occlusions` (foreign-lane track the launch was coincident with, skipped
+/// until the flight separates; see [`OcclusionSpan`]).
+///
 /// Ties are not neutral: an authored chain is the ROUTE authority (junction
 /// steering only exists there), so when a chain and a block face are the same
 /// contact within [`SURFACE_TIE_SLOP`] of travel, the chain wins. Among
-/// chains, an exact-lane segment beats a base-plane segment on the same tie —
-/// specific over generic, both ways.
+/// chains on the same tie, the lane the body last rode beats the base plane,
+/// which beats a foreign lane — the specific layer over the generic one.
 fn first_circle_hit(
     world: &World,
     center: Vec2,
     radius: f32,
     depth_lane: i8,
     delta: Vec2,
+    occlusions: &DepthOcclusions,
 ) -> Option<CircleHit> {
     if delta.length_squared() <= 1.0e-12 {
         return None;
@@ -1439,6 +1621,17 @@ fn first_circle_hit(
     // Two surfaces reached within half a pixel of each other along this
     // frame's travel are the SAME contact, expressed in TOI units.
     let tie_toi = SURFACE_TIE_SLOP / delta.length().max(1.0e-6);
+    // Tie preference among coincident chain contacts: last-ridden lane, then
+    // the base plane, then any other layer.
+    let lane_rank = |lane: i8| -> u8 {
+        if lane == depth_lane {
+            2
+        } else if lane == 0 {
+            1
+        } else {
+            0
+        }
+    };
     let mut best: Option<(CircleHit, i8)> = None;
 
     // Chains: one-sided segments — land only when approaching the rideable
@@ -1446,7 +1639,7 @@ fn first_circle_hit(
     for (ci, chain) in world.chains.iter().enumerate() {
         for i in 0..chain.segment_count() {
             let lane = chain.segment_depth(i);
-            if !depth_lanes_collide(depth_lane, lane) {
+            if occlusions.occludes(ci, i) {
                 continue;
             }
             let (a, b) = chain.segment(i);
@@ -1486,8 +1679,7 @@ fn first_circle_hit(
                 Some((current, current_lane)) => {
                     toi < current.toi - tie_toi
                         || (toi <= current.toi + tie_toi
-                            && lane == depth_lane
-                            && *current_lane != depth_lane)
+                            && lane_rank(lane) > lane_rank(*current_lane))
                 }
             };
             if replace {

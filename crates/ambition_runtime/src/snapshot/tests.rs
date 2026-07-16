@@ -1787,8 +1787,8 @@ fn two_equal_worlds_take_equal_snapshots() {
 fn restore_rewinds_the_movement_policy_and_its_private_state() {
     use ambition_engine_core::{
         AdhesiveCrawlerMotion, AxisManeuverState, AxisSweptMotion, CrawlerParams, CrawlerState,
-        MomentumParams, MotionModel, RouteDeparture, SurfaceMomentumMotion, SurfaceMotion,
-        SurfaceRef,
+        DepthOcclusions, MomentumParams, MotionModel, OcclusionSpan, RouteDeparture,
+        SurfaceMomentumMotion, SurfaceMotion, SurfaceRef,
     };
 
     let reg = engine_registry();
@@ -1816,6 +1816,17 @@ fn restore_rewinds_the_movement_policy_and_its_private_state() {
                     vertex: 32,
                     direction: -1,
                 }),
+                // Mid-flight past a crossover: the launch-coincident spans
+                // must rewind too, or a rollback re-snags the passed rail.
+                occlusions: {
+                    let mut occlusions = DepthOcclusions::default();
+                    occlusions.push(OcclusionSpan {
+                        chain: 1,
+                        first_segment: 4,
+                        last_segment: 7,
+                    });
+                    occlusions
+                },
             }),
         ))
         .id();
@@ -1893,6 +1904,15 @@ fn restore_rewinds_the_movement_policy_and_its_private_state() {
             direction: -1,
         }),
         "junction departure memory rewound"
+    );
+    assert_eq!(
+        motion.occlusions.iter().collect::<Vec<_>>(),
+        vec![OcclusionSpan {
+            chain: 1,
+            first_segment: 4,
+            last_segment: 7,
+        }],
+        "launch-occlusion spans rewound"
     );
     assert_eq!(motion.params.top_speed, 1234.0, "authored params rewound");
 

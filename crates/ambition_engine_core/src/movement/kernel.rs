@@ -125,6 +125,7 @@ fn step_surface_momentum(
         depth_lane: motion.depth_lane,
         motion: motion.state,
         route_memory: motion.route_memory,
+        occlusions: motion.occlusions,
     };
     let mut contacts = Vec::new();
     surface_momentum::step_surface_body(
@@ -149,6 +150,7 @@ fn step_surface_momentum(
     motion.state = body.motion;
     motion.depth_lane = body.depth_lane;
     motion.route_memory = body.route_memory;
+    motion.occlusions = body.occlusions;
     // Rebound pads are a world gate, like hazards — not follower collision.
     // The axis arm drains the same lookup in its integration step.
     if let Some(impulse) = touching_rebound_aabb(ctx.world, clusters.kinematics.aabb()) {

@@ -39,7 +39,9 @@ pub(crate) mod surface_momentum;
 mod tuning;
 
 pub use adhesive_crawler::{AdhesiveCrawlerMotion, CrawlAttachment, CrawlerParams, CrawlerState};
-pub use surface_momentum::{MomentumParams, RouteDeparture, SurfaceMotion, SurfaceRef};
+pub use surface_momentum::{
+    DepthOcclusions, MomentumParams, OcclusionSpan, RouteDeparture, SurfaceMotion, SurfaceRef,
+};
 
 pub use abilities::resolve_shield;
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};

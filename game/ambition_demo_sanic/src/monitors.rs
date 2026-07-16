@@ -14,10 +14,15 @@
 //! via the render reconcile — stops drawing. Re-arms on room (re)load.
 //!
 //! Grants:
-//! - `monitor_super`  → wear the Super Sanic form (`WornCharacter` swap, the
-//!   same authority the D-toggle uses).
+//! - `monitor_super`  → the SUPER FORM: wear the Super Sanic identity
+//!   (`WornCharacter` swap, the same authority the D-toggle uses). The form
+//!   is NOT a timed grant — every super trait derives from the worn identity
+//!   (boosted movement from the catalog row; invincibility, destroy-on-touch,
+//!   and sparkles from `sync_super_form_traits` in the crate root) and the
+//!   D-toggle wears it off. Rings/resources come later; this is a demo.
 //! - `monitor_speed`  → SPEED SHOES: a timed multiplier on the body's OWN
 //!   `MomentumParams` (top speed + ground accel), restored exactly on expiry.
+//!   Skipped while super — the form's params are identity-authored.
 
 use bevy::prelude::*;
 
@@ -120,13 +125,22 @@ pub fn break_monitor_boxes(
         match block.name.as_str() {
             SUPER_MONITOR => {
                 // The transformation grant reuses the ONE identity authority
-                // (WornCharacter), exactly like the D-toggle.
+                // (WornCharacter), exactly like the D-toggle — the super row
+                // authors the boosted movement and every other super trait
+                // derives from the worn identity (`sync_super_form_traits`),
+                // so the wear IS the whole grant. The wear's params refresh
+                // replaces the live `MomentumParams` wholesale, which would
+                // orphan a live speed shoes' saved baseline — the form eats
+                // the shoes.
                 *worn = ambition::characters::actor::WornCharacter::new(SUPER_SANIC_CHARACTER_ID);
+                commands.entity(entity).remove::<SpeedShoes>();
             }
             SPEED_MONITOR => {
                 // Never stack: a second pair of shoes while one is live would
-                // save the already-multiplied params and "restore" them.
-                if shoes.is_none() {
+                // save the already-multiplied params and "restore" them — and
+                // shoes over the SUPER form would save the form's authored
+                // params and "restore" them after the form is toggled off.
+                if shoes.is_none() && worn.id() != SUPER_SANIC_CHARACTER_ID {
                     if let ae::MotionModel::SurfaceMomentum(momentum) = &mut *model {
                         commands.entity(entity).insert(SpeedShoes {
                             remaining: SPEED_SHOES_SECONDS,

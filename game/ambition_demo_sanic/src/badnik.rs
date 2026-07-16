@@ -73,8 +73,11 @@ pub fn register_badnik_roster(app: &mut App) {
 
 /// **The defeat rule.** A player descending onto a badnik's head bounces up
 /// and squashes it; a ROLLING player squashes it on any overlap and keeps its
-/// speed (rolling through a line of badniks is the point of rolling). A side
-/// touch while un-rolled is left alone and lands as normal contact damage.
+/// speed (rolling through a line of badniks is the point of rolling); a SUPER
+/// player squashes it on any overlap, full stop (the classic invincible-form
+/// contract — walking through badniks is the super fantasy). A side touch
+/// while un-rolled and un-super is left alone and lands as normal contact
+/// damage.
 ///
 /// Ordered BEFORE the shared body-contact-damage pass: the squash zeroes the
 /// badnik's health THIS frame (a component write, immediately visible), so the
@@ -88,7 +91,13 @@ pub fn defeat_badniks(
     mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
     mut sfx: ambition::sfx::SfxWriter,
     mut players: Query<
-        (&mut ae::BodyKinematics, Option<&crate::ball_dash::Rolling>),
+        (
+            &mut ae::BodyKinematics,
+            Option<&crate::ball_dash::Rolling>,
+            // Optional so the thin test harnesses need not dress the body; a
+            // real player always wears an identity.
+            Option<&ambition::characters::actor::WornCharacter>,
+        ),
         With<PrimaryPlayer>,
     >,
     mut badniks: Query<
@@ -96,13 +105,19 @@ pub fn defeat_badniks(
         (Without<PrimaryPlayer>, Without<PlayerEntity>),
     >,
 ) {
-    let Ok((mut player, rolling)) = players.single_mut() else {
+    let Ok((mut player, rolling, worn)) = players.single_mut() else {
         return;
     };
+    // The SUPER form squashes on touch — derived from the worn identity, the
+    // same read `sync_super_form_traits` keys invincibility on. It joins
+    // rolling for the kill condition but not for the bounce: a super stomp
+    // still bounces like any stomp.
+    let is_super = worn.is_some_and(|w| w.id() == crate::SUPER_SANIC_CHARACTER_ID);
     let rolling = rolling.is_some();
+    let lethal_touch = rolling || is_super;
     // Screen gravity is +y: "descending" is vel.y > 0, feet are the max-y edge.
     let falling = player.vel.y > 0.0;
-    if !rolling && !falling {
+    if !lethal_touch && !falling {
         return;
     }
     let p = player.aabb();
@@ -116,7 +131,7 @@ pub fn defeat_badniks(
         let feet = p.max.y;
         let stomp =
             falling && overlap_x && feet >= g.min.y - STOMP_BAND && feet <= g.min.y + STOMP_BAND;
-        let roll = rolling && overlap_x && overlap_y;
+        let roll = lethal_touch && overlap_x && overlap_y;
         if !stomp && !roll {
             continue;
         }
@@ -220,6 +235,42 @@ mod tests {
         assert!(
             app.world().get_entity(badnik).is_ok(),
             "a rising, un-rolled player leaves the badnik to the contact pass"
+        );
+    }
+
+    #[test]
+    fn a_super_player_squashes_a_badnik_on_any_touch() {
+        // Un-rolled, not falling — a plain walk-into. The worn SUPER identity
+        // alone makes the touch lethal to the badnik instead of the player.
+        let mut app = defeat_app();
+        let badnik = spawn_badnik(&mut app, ae::Vec2::new(10.0, 0.0));
+        app.world_mut().spawn((
+            PrimaryPlayer,
+            ambition::characters::actor::WornCharacter::new(crate::SUPER_SANIC_CHARACTER_ID),
+            kin(ae::Vec2::ZERO, ae::Vec2::new(120.0, 0.0)),
+        ));
+        app.update();
+        assert!(
+            app.world().get_entity(badnik).is_err(),
+            "a super player destroys a badnik on contact"
+        );
+    }
+
+    #[test]
+    fn the_base_form_walking_into_a_badnik_does_not_squash() {
+        // The same walk-into WITHOUT the super identity: the badnik survives
+        // (and the shared contact pass bills the player instead).
+        let mut app = defeat_app();
+        let badnik = spawn_badnik(&mut app, ae::Vec2::new(10.0, 0.0));
+        app.world_mut().spawn((
+            PrimaryPlayer,
+            ambition::characters::actor::WornCharacter::new(crate::SANIC_CHARACTER_ID),
+            kin(ae::Vec2::ZERO, ae::Vec2::new(120.0, 0.0)),
+        ));
+        app.update();
+        assert!(
+            app.world().get_entity(badnik).is_ok(),
+            "the base form's side touch leaves the badnik alive"
         );
     }
 }

@@ -883,6 +883,81 @@ fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
 }
 
 #[test]
+fn super_form_traits_track_the_worn_identity_both_ways() {
+    use ambition::characters::actor::{BodyHealth, Health, WornCharacter};
+
+    let mut app = App::new();
+    app.insert_resource(ambition::time::WorldTime {
+        raw_dt: 1.0 / 60.0,
+        scaled_dt: 1.0 / 60.0,
+    });
+    app.add_message::<ambition::vfx::VfxMessage>();
+    app.add_systems(bevy::prelude::Update, sync_super_form_traits);
+    let player = app
+        .world_mut()
+        .spawn((
+            ambition::actors::actor::PrimaryPlayer,
+            WornCharacter::new(SUPER_SANIC_CHARACTER_ID),
+            BodyHealth::new(Health::new(3)),
+            ae::BodyKinematics::default(),
+        ))
+        .id();
+    app.update();
+    assert!(
+        app.world()
+            .get::<BodyHealth>(player)
+            .unwrap()
+            .health
+            .invulnerable,
+        "wearing the super form derives invincibility"
+    );
+
+    // Toggle the identity off — the derived trait reverts the same frame,
+    // because it is derived, never stored.
+    *app.world_mut().get_mut::<WornCharacter>(player).unwrap() =
+        WornCharacter::new(SANIC_CHARACTER_ID);
+    app.update();
+    assert!(
+        !app.world()
+            .get::<BodyHealth>(player)
+            .unwrap()
+            .health
+            .invulnerable,
+        "wearing the form off revokes invincibility"
+    );
+}
+
+#[test]
+fn the_super_row_authors_a_real_movement_boost() {
+    // The transformation must be more than a sprite swap: the super row's
+    // authored momentum strictly dominates the base row's. Read through the
+    // same catalog hydration the runtime wear uses, so a RON edit that
+    // flattens the form (or a hydration regression) trips this.
+    let fragment =
+        ambition::characters::actor::character_catalog::CharacterCatalogFragment::from_ron(
+            provider::SANIC_EXPERIENCE,
+            Some(SANIC_CHARACTER_ID),
+            SANIC_CATALOG_RON,
+        )
+        .expect("demo catalog parses");
+    let catalog = ambition::characters::actor::character_catalog::CharacterCatalog::from_data(
+        fragment.catalog().clone(),
+    );
+    let base = catalog
+        .momentum_params(SANIC_CHARACTER_ID)
+        .expect("base row authors momentum");
+    let super_form = catalog
+        .momentum_params(SUPER_SANIC_CHARACTER_ID)
+        .expect("super row authors momentum");
+    assert!(
+        super_form.top_speed > base.top_speed
+            && super_form.ground_accel > base.ground_accel
+            && super_form.jump_speed > base.jump_speed,
+        "super movement strictly dominates base: {super_form:?} vs {base:?}"
+    );
+}
+
+#[test]
 fn rules_plugin_registers_its_mandatory_sfx_message_channel() {
     let mut app = App::new();
     assert!(

@@ -390,13 +390,20 @@ const SANIC_CATALOG_RON: &str = r#"(
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["player", "super", "transformation"],
-            // This slice is an identity/presentation transformation. It keeps
-            // the same authored peaceful kit and momentum tuning so D cannot
-            // accidentally become a second gameplay-authority path.
+            // The SUPER form is a real transformation, not a palette swap: the
+            // boosted movement is authored ON the identity row (classic Super
+            // Sonic ratios over the base row — ~2x accel, ~5/3 top speed,
+            // ~1.2x jump), so wearing the form IS the grant. A worn re-wear
+            // replaces params while PRESERVING live riding state
+            // (`sync_worn_motion_model_preserving_state`), and reverting to
+            // the base row restores the authored base exactly — one identity
+            // authority, no save/restore bookkeeping. The jump apex stays
+            // under the spring perch's 256px lift (840² / 2g ≈ 243px) so the
+            // perch remains spring-served even for a super runner.
             momentum: Some((
-                ground_accel: 900.0,
-                top_speed: 1200.0,
-                jump_speed: 700.0,
+                ground_accel: 1800.0,
+                top_speed: 2000.0,
+                jump_speed: 840.0,
                 stick_factor: 4.0,
             )),
         ),
@@ -689,6 +696,9 @@ impl Plugin for SanicRulesPlugin {
             tick_sanic_act,
             ball_dash::tick_ball_dash,
             ball_dash::tick_rolling,
+            // The super form's derived traits (invincibility + sparkles) track
+            // the worn identity every frame — toggle- and monitor-agnostic.
+            sync_super_form_traits,
         )
             .chain()
             .in_set(ambition::platformer::schedule::SandboxSet::GameplayEffects);
@@ -739,9 +749,12 @@ impl Plugin for SanicRulesPlugin {
 /// Toggle the controlled body between the two catalog-authored Sanic forms.
 ///
 /// This consumes the already-semantic Utility edge (`D` in the demo's classic
-/// keyboard preset), never a raw key. Both rows carry the same movement and
-/// peaceful action profile, so `WornCharacter` remains the single gameplay +
-/// presentation authority and the transformation cannot fork a second kit path.
+/// keyboard preset), never a raw key. The super row authors the form's boosted
+/// movement and `sync_super_form_traits` derives the rest (invincibility,
+/// sparkles, badnik destroy-on-touch) from the worn identity every frame — so
+/// this toggle grants and revokes the FULL form, and `WornCharacter` stays the
+/// single gameplay + presentation authority. No timer: a future ring drain can
+/// wear the form off the same way this toggle does.
 fn toggle_sanic_form(
     subject: Option<bevy::prelude::Res<ambition::platformer::markers::ControlledSubject>>,
     mut bodies: bevy::prelude::Query<(
@@ -773,6 +786,60 @@ fn toggle_sanic_form(
     sfx.write(ambition::sfx::SfxMessage::Dash {
         pos: kinematics.pos,
     });
+}
+
+/// How often the super form's sparkle trail pulses (sim seconds).
+const SUPER_SPARKLE_PERIOD: f32 = 0.15;
+
+/// Derive the super form's non-movement traits from the worn identity, every
+/// sim frame. The movement boost is authored on the `super_sanic` catalog row
+/// (the wear itself grants it); what the catalog CANNOT express lives here:
+///
+/// - **Invincibility**: `Health::invulnerable` tracks the worn identity, so
+///   badnik contact can't hurt a super Sanic. (Kernel hazards — the pit, the
+///   spikes — still reset the body: falling off the world outranks any form.)
+/// - **Sparkles**: a golden pulse trails the form, so the transformation reads
+///   on screen and not just on the spritesheet.
+///
+/// The form is NOT a timed grant: the D-toggle (or a future ring drain) wears
+/// it off, and every trait here reverts the same frame because it is derived,
+/// never stored. Badnik destroy-on-touch derives from the same identity read
+/// in `badnik::defeat_badniks`.
+fn sync_super_form_traits(
+    time: bevy::prelude::Res<ambition::time::WorldTime>,
+    mut sparkle_accum: bevy::prelude::Local<f32>,
+    mut vfx: bevy::prelude::MessageWriter<ambition::vfx::VfxMessage>,
+    mut players: bevy::prelude::Query<
+        (
+            &ambition::characters::actor::WornCharacter,
+            &mut ambition::characters::actor::BodyHealth,
+            &ae::BodyKinematics,
+        ),
+        bevy::prelude::With<ambition::actors::actor::PrimaryPlayer>,
+    >,
+) {
+    let Ok((worn, mut health, kinematics)) = players.single_mut() else {
+        return;
+    };
+    let is_super = worn.id() == SUPER_SANIC_CHARACTER_ID;
+    if health.health.invulnerable != is_super {
+        health.health.invulnerable = is_super;
+    }
+    if !is_super {
+        *sparkle_accum = 0.0;
+        return;
+    }
+    *sparkle_accum += time.scaled_dt;
+    if *sparkle_accum >= SUPER_SPARKLE_PERIOD {
+        *sparkle_accum -= SUPER_SPARKLE_PERIOD;
+        vfx.write(ambition::vfx::VfxMessage::Burst {
+            pos: kinematics.pos,
+            count: 3,
+            speed: 60.0,
+            color: [1.0, 0.9, 0.35, 1.0],
+            kind: ambition::vfx::ParticleKind::Shard,
+        });
+    }
 }
 
 /// Bring the act state into being the first frame the mode is live. Spawned

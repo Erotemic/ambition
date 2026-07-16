@@ -70,3 +70,43 @@ faster through the rewarded high route.
 
 The demo app remains small and contains no app-local input system, direct sprite
 binding, or dependency on `ambition_app`.
+
+## Proposed — polish backlog (2026-07-16)
+
+Landed this pass (commit `f558d124e` + generator bump `5e1ee9b`): the rev-dash
+**ball is now a real looping curl** (not a squished run) and momentum riders show
+a **skid** pose — both engine-reusable, through the ONE `pick_body_anim` ladder,
+with the stance-squash hack retired per pose whenever a sheet owns the row.
+
+Deferred, in priority order:
+
+- **Rev SFX suite (Jon: "the current rev sfx isn't very good").** The rev reuses
+  the generic Jump chirp per tap and the launch reuses Dash. Author dedicated
+  procedural cues in Sanic's `SfxRegistry` (content-side, no bank): an **ascending
+  spin-dash rev** picked by charge bucket (`BallDashStep::Charging(charge)` already
+  carries the float — 3 tiers reproduces the classic "reh-reh-REH" without engine
+  pitch support), and a distinct **launch/release whoosh** on `BallDashStep::Launch`.
+- **Wire the already-emitted-but-dropped engine cues.** The shared `emit_movement_fx`
+  writes `Pogo` for rebound pads (`MovementOp::Rebound`) and `Reset` on pit death,
+  but Sanic authorizes only Jump+Dash so both are silently dropped. Add `SfxSpec`s
+  with `cue: Pogo` (a bright spring "boing") and `cue: Reset` (a descending fail
+  tone) — authoring both authorizes AND voices them.
+- **Distinguish same-cue events.** Super transform ON vs OFF both play Dash;
+  monitor break, badnik pop, and the transform share Jump/Dash. Give the
+  transform a rising power chord and the monitor a glass-pop.
+- **Skid SFX** (a tire-scrape) gated on `BodyMotionFacts::skidding` rising — the
+  fact now exists; nothing voices it yet.
+- **Land SFX** is engine-wide missing (dust VFX only, `movement_fx.rs:259`) — a
+  shared touchdown thud would benefit every game, not just Sanic.
+- **Rings are decoration.** `sanic_speedway.ldtk` has 291 `ring` refs but there is
+  NO collection system, `RingCount`, ring-collect SFX, or ring-loss-on-hit — they
+  are pure scenery today. Either build the pickup+counter loop (a natural home for
+  a "lose your rings" hurt reaction that ties into the super-form drain the toggle
+  doc already anticipates) or accept them as visual dressing and thin them out.
+- **Optional engine enhancement:** a per-play pitch/gain on `SfxMessage` would let
+  ONE rev cue pitch-climb continuously instead of bucketed tiers — a reusable win
+  for any charge-up sound.
+- **Action-sprite survey:** the Sanic sheet is already rich (34 rows incl. the new
+  ball+skid). Small future adds only if a verb needs them — a ledge/edge teeter,
+  a goal/victory pose beyond `taunt`, a spring-launch upward stretch. Low priority;
+  no current verb is undrawn.

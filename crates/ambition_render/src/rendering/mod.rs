@@ -30,7 +30,6 @@
 pub mod actors;
 pub mod bubble_shield;
 mod camera;
-mod deep_dream;
 mod features;
 pub mod gate_portal_visuals;
 pub mod gravity_visuals;
@@ -77,8 +76,8 @@ pub use parallax::{
     refresh_parallax_layers_on_quality_change, spawn_parallax_layers, sync_parallax_layers,
 };
 pub use primitives::{
-    HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, QuestPanelText,
-    RoomScopedEntity, RoomVisual,
+    FeatureVisual, HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual,
+    QuestPanelText, RoomScopedEntity, RoomVisual,
 };
 // Game-supplied art map for walk-into world items; the reusable renderer owns the
 // seam, each game fills it with its own pickups' images.
@@ -90,6 +89,17 @@ pub use world::{
     refresh_entity_sprite_handles_on_game_assets_change, spawn_room_visuals,
     spawn_surface_chain_visuals, sync_lock_wall_visuals, sync_removed_block_visuals,
 };
+
+/// The public seam for CONTENT-OWNED per-actor overlay presentation: sibling
+/// meshes/materials that decorate animated actor sprites (e.g. Ambition's
+/// puppy-slug deep-dream pass). [`PresentationVisualAnimationPlugin`] positions
+/// this set inside the presentation visual-sync chain — after the character
+/// animators have advanced the frame the overlays mirror, before the renderer's
+/// own hit-flash mirror — and gates it on session readiness. A game adds its
+/// named overlay systems `.in_set(ActorOverlaySet)` from its content crate; the
+/// reusable renderer names no game's look.
+#[derive(bevy::prelude::SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ActorOverlaySet;
 
 /// Presentation systems below consume session-created resources and entities.
 /// During startup, loading, and the launcher there is deliberately no gameplay
@@ -253,8 +263,22 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // content crate registers looks). The renderer resolves each in-flight
         // projectile's `ProjectileVisualId` through it.
         app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
-        deep_dream::add_puppy_slug_deep_dream_material_plugin(app);
         hit_flash::add_hit_flash_material_plugin(app);
+        // Position the content-owned actor-overlay seam: after the character
+        // animator (overlays mirror the frame it just advanced), before the
+        // hit-flash mirror (the flash silhouette reads the sprite state overlay
+        // syncs may tint). The set carries the session gate so member systems
+        // stay dormant outside a running session, exactly like the chain below.
+        app.configure_sets(
+            Update,
+            ActorOverlaySet
+                .after(actors::animate_characters)
+                .before(hit_flash::sync_hit_flash_overlays)
+                .in_set(
+                    ambition_platformer_primitives::schedule::SandboxSet::PresentationVisualSync,
+                )
+                .run_if(session_presentation_is_ready),
+        );
         // The per-actor pose read-model (`ActorAnimIndex`) is rebuilt SIM-side
         // (E4 slice 19: `FeatureViewSyncSchedulePlugin` owns the resource and
         // the overlay-advance + rebuild pair, in the FeatureViewSync tail this
@@ -286,20 +310,16 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                     actors::refresh_prop_sprites_on_game_assets_change,
                 ),
                 actors::upgrade_boss_sprites,
-                // Attach the experimental material overlay after enemy sprite
-                // upgrade has produced a real atlas-backed Puppy Slug sprite.
-                deep_dream::attach_puppy_slug_deep_dream_overlays,
                 // Attach the hit-flash white-silhouette overlay to every
                 // character sprite (player + enemies + NPCs + bosses) once
                 // its texture / atlas is loaded. Sized as a sibling mesh
-                // — same world-space sync pattern as deep_dream.
+                // synced in world space every frame.
                 hit_flash::attach_hit_flash_overlays,
                 actors::animate_player,
                 actors::animate_characters,
-                // Mirror the current atlas frame into the overlay after the
-                // character animator has advanced for this frame.
-                deep_dream::sync_puppy_slug_deep_dream_overlays,
-                deep_dream::cleanup_puppy_slug_deep_dream_overlays,
+                // Content-owned overlays (the `ActorOverlaySet` seam) run here:
+                // after `animate_characters`, before the hit-flash mirror.
+                //
                 // Mirror the source sprite's atlas + transform into the
                 // hit-flash overlay and gate visibility on the current
                 // hit_flash timer. Runs after the animator so the overlay

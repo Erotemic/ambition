@@ -354,6 +354,9 @@ pub fn add_presentation_plugins(app: &mut App) {
     ));
     install_menu_setup_and_hotkeys(app);
     app.add_plugins(ambition::render::rendering::PresentationVisualAnimationPlugin);
+    // Ambition's named presentation passes (puppy-slug deep-dream) compose onto
+    // the renderer's public `ActorOverlaySet` seam the plugin above positions.
+    app.add_plugins(ambition_content::presentation::AmbitionPresentationPlugin);
     install_camera_and_debug_overlay_systems(app);
     app.add_plugins(ambition::render::rendering::ActorNameplatePresentationPlugin);
     install_fx_and_hud_systems(app);

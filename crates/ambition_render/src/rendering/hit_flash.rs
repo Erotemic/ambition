@@ -3,8 +3,9 @@
 //! Every character that can take damage (player, enemies, NPCs,
 //! bosses) flashes pure white for the duration of its `hit_flash`
 //! timer. The effect is implemented as a sibling `Material2d` mesh
-//! drawn on top of the source sprite — same pattern as the
-//! [`super::deep_dream`] puppy-slug overlay, but with a tiny shader
+//! drawn on top of the source sprite — the same world-space sibling
+//! pattern content-owned overlays use (the [`super::ActorOverlaySet`]
+//! seam) — with a tiny shader
 //! that just outputs `vec4(1, 1, 1, sample.alpha * intensity)`. When
 //! the timer expires the overlay is hidden (no GPU work) and the
 //! source sprite renders normally.
@@ -53,10 +54,10 @@ const REFERENCE_FLASH_SECONDS: f32 = 0.24;
 
 /// Z bias for the overlay mesh — must sit IN FRONT of every other
 /// per-character overlay so the white silhouette is never covered.
-/// The Puppy Slug deep-dream sibling material sits at
-/// `super::deep_dream::LOCAL_OVERLAY_Z_BIAS = 0.9`, so a flash bias
-/// below that gets the white blanked out by the rainbow tint. 1.5
-/// gives a comfortable margin over both deep_dream (0.9) and the
+/// Content-owned overlay siblings (the [`super::ActorOverlaySet`]
+/// seam — e.g. Ambition's puppy-slug deep-dream material) sit at a
+/// z bias of ~0.9, so a flash bias below that gets the white blanked
+/// out. 1.5 gives a comfortable margin over those (0.9) and the
 /// HazardColumn telegraph quad (+1.0 of boss z) without colliding
 /// with HUD layers, which live in the hundreds.
 const FLASH_OVERLAY_Z_BIAS: f32 = 1.5;

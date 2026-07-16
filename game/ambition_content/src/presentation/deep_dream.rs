@@ -1,5 +1,11 @@
 //! Per-sprite deep-dream shader experiment for the Puppy Slug enemy.
 //!
+//! Ambition-named content: this pass lives in the game's content crate and
+//! composes onto the reusable renderer through its public
+//! [`ActorOverlaySet`] seam — `ambition_render` names no enemy. The shader is
+//! an embedded asset of this crate (the `portal_clip.wgsl` pattern), so the
+//! engine's shared asset root carries no Ambition-specific shader either.
+//!
 //! The regular character sprite remains visible and authoritative: the normal
 //! `animate_characters` system still advances its atlas frame, facing bit, and
 //! hit tint. This module adds a separate world-space `Material2d` quad that
@@ -14,6 +20,7 @@
 //! post-process: if the material pipeline is alive, it should be visible.
 
 use bevy::{
+    asset::embedded_asset,
     image::TextureAtlasLayout,
     prelude::*,
     reflect::TypePath,
@@ -23,24 +30,61 @@ use bevy::{
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
 };
 
-use super::primitives::{FeatureVisual, PlayerVisual, PropVisual, RoomVisual};
 use ambition_platformer_primitives::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
-
-const SHADER_ASSET_PATH: &str = "shaders/puppy_slug_deep_dream.wgsl";
+use ambition_render::rendering::{
+    ActorOverlaySet, FeatureVisual, PlayerVisual, PropVisual, RoomVisual,
+};
 
 /// Keep the local material strong enough to read over the original sprite.
 const EFFECT_STRENGTH: f32 = 1.0;
 
 /// Draw the local overlay clearly in front of the source sprite. This is still
 /// below the foreground/player debug layers in normal rooms, but large enough
-/// to avoid same-z ordering surprises in the transparent 2D phase.
+/// to avoid same-z ordering surprises in the transparent 2D phase. The
+/// renderer's hit-flash overlay bias (1.5) deliberately clears this value so
+/// the white flash silhouette always draws over the dream material.
 const LOCAL_OVERLAY_Z_BIAS: f32 = 0.9;
 
-/// Install the material plugin that backs the puppy-slug deep-dream overlay.
-pub fn add_puppy_slug_deep_dream_material_plugin(app: &mut App) {
+/// Dev switch for A/B-testing the dream pass against sprite artifacts. Owned
+/// by content (the pass it disables is content); registered for the inspector
+/// so it stays reachable at runtime like the old `DeveloperTools` flag was.
+#[derive(Resource, Reflect, Default, Debug, Clone, Copy)]
+#[reflect(Resource)]
+pub struct PuppySlugDreamSettings {
+    /// Hide the sibling overlay material and skip the rainbow source tint;
+    /// the slug renders in its native palette.
+    pub disabled: bool,
+}
+
+/// Register the embedded shader, the material pipeline, the dev toggle, and
+/// the attach/sync/cleanup systems on the renderer's public overlay seam.
+pub fn install(app: &mut App) {
+    // `embedded_asset!` needs the AssetPlugin's registry; a headless app
+    // without an asset/render stack simply doesn't get the dream pass — the
+    // same guard `ambition_portal_presentation`'s clip material uses.
+    if app
+        .world()
+        .get_resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>()
+        .is_none()
+    {
+        return;
+    }
+    embedded_asset!(app, "shaders/puppy_slug_deep_dream.wgsl");
     app.add_plugins(Material2dPlugin::<PuppySlugDeepDreamMaterial>::default());
+    app.init_resource::<PuppySlugDreamSettings>();
+    app.register_type::<PuppySlugDreamSettings>();
+    app.add_systems(
+        Update,
+        (
+            attach_puppy_slug_deep_dream_overlays,
+            sync_puppy_slug_deep_dream_overlays,
+            cleanup_puppy_slug_deep_dream_overlays,
+        )
+            .chain()
+            .in_set(ActorOverlaySet),
+    );
 }
 
 /// Custom material used by the one-off puppy-slug shader.
@@ -69,7 +113,7 @@ pub struct PuppySlugDeepDreamMaterial {
 
 impl Material2d for PuppySlugDeepDreamMaterial {
     fn fragment_shader() -> ShaderRef {
-        SHADER_ASSET_PATH.into()
+        "embedded://ambition_content/presentation/shaders/puppy_slug_deep_dream.wgsl".into()
     }
 
     fn alpha_mode(&self) -> AlphaMode2d {
@@ -181,12 +225,13 @@ pub fn attach_puppy_slug_deep_dream_overlays(
 }
 
 /// Mirror the visible source sprite's current atlas frame into the overlay
-/// material. This runs after `animate_characters`, so it sees the same atlas
-/// index and facing flip that the normal sprite draws.
+/// material. This runs after `animate_characters` (the [`ActorOverlaySet`]
+/// position), so it sees the same atlas index and facing flip that the normal
+/// sprite draws.
 pub fn sync_puppy_slug_deep_dream_overlays(
     world_time: Res<ambition_time::WorldTime>,
     mut elapsed: Local<f32>,
-    developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,
+    settings: Res<PuppySlugDreamSettings>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
     mut sources: Query<
@@ -211,7 +256,7 @@ pub fn sync_puppy_slug_deep_dream_overlays(
 ) {
     let dt = world_time.wall_dt();
     *elapsed += dt;
-    let disabled = developer_tools.disable_puppy_slug_dream;
+    let disabled = settings.disabled;
 
     for (source_entity, source_transform, mut source_sprite, anchor, source, source_visibility) in
         &mut sources

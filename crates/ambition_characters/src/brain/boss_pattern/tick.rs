@@ -38,8 +38,7 @@ pub fn tick_boss_pattern(
     let phase_entered = if state.last_phase != Some(ctx.encounter_phase) {
         state.step_index = 0;
         state.step_elapsed = 0.0;
-        state.cycle_phase = CyclePhase::Cooldown;
-        state.cycle_phase_remaining = 0.0;
+        state.cycle_rest_remaining = 0.0;
         state.last_phase = Some(ctx.encounter_phase);
         // Reset to Engage on phase change so the macro timer
         // doesn't carry stale duration across the music swap.
@@ -75,7 +74,7 @@ pub fn tick_boss_pattern(
         // Still emit desired_vel from the movement profile so a
         // boss in Dormant still keeps its sway phase (matches the
         // legacy behavior).
-        emit_desired_vel(cfg, state, ctx, out, attack_intent);
+        emit_desired_vel(cfg, state, ctx, out);
         return;
     }
 
@@ -91,7 +90,7 @@ pub fn tick_boss_pattern(
         )
     {
         attack_intent.clear();
-        emit_desired_vel(cfg, state, ctx, out, attack_intent);
+        emit_desired_vel(cfg, state, ctx, out);
         return;
     }
 
@@ -112,7 +111,7 @@ pub fn tick_boss_pattern(
         attack_intent.clear();
     }
 
-    emit_desired_vel(cfg, state, ctx, out, attack_intent);
+    emit_desired_vel(cfg, state, ctx, out);
 }
 
 /// The boss's one deterministic random stream (ADR 0023: no ambient RNG). A
@@ -341,38 +340,51 @@ fn clamp_world_lateral_approach_to_front_wall(
     }
 }
 
-/// Cycle-mode (legacy rhythm) phase advancement. Picks the active
-/// attack profile from `BossPatternStep`-less bosses by rotating
-/// through their authored `attacks` list — see `BossRuntime::cycle_pattern_volumes`
-/// for the rotation rule. The brain emits only the current profile intent; the
-/// matching move owns windup, active timing, hitboxes, and effects.
+/// Cycle-mode (legacy rhythm) advancement. The brain here is PURE decision
+/// policy: it decides WHEN to request the next attack (the rest clock) and
+/// WHICH profile (the rotation); the requested move's own windows are the one
+/// windup→strike execution timeline. The brain observes that live move back
+/// through [`BossPatternContext::live_attack`] (the projected read-model)
+/// instead of running the old parallel `CyclePhase` windup/active clock:
+///
+/// - While the observed move WINDS UP, the request is sustained — the trigger
+///   treats a vanished intent as abandonment and aborts the windup, so every
+///   upstream suppression (phase change, macro movement, aggressiveness)
+///   still interrupts a telegraph exactly as before.
+/// - Once the observed move STRIKES it is committed (the Smash convention)
+///   and needs no further intent.
+/// - While ANY move is observed, the rest clock stays armed at its full
+///   duration; it drains only between moves, so the cadence is
+///   `move duration + rest` — the same rhythm the deleted three-phase clock
+///   produced, now with the move as the only timing authority.
 fn advance_cycle(
     cfg: &BossPatternCfg,
     state: &mut BossPatternState,
     ctx: &BossPatternContext,
     attack_intent: &mut BossAttackIntent,
 ) {
-    if state.cycle_phase_remaining > 0.0 {
-        state.cycle_phase_remaining = (state.cycle_phase_remaining - ctx.dt).max(0.0);
+    if let Some(live) = &ctx.live_attack {
+        state.cycle_rest_remaining = cfg.cycle_attack_cooldown.max(0.05);
+        if live.striking {
+            attack_intent.clear();
+        } else {
+            attack_intent.telegraph_profile = Some(live.profile.clone());
+            attack_intent.active_profile = None;
+        }
+        return;
     }
-    if state.cycle_phase_remaining <= 0.0 {
-        state.cycle_phase = match state.cycle_phase {
-            CyclePhase::Cooldown => CyclePhase::Windup,
-            CyclePhase::Windup => CyclePhase::Active,
-            CyclePhase::Active => CyclePhase::Cooldown,
-        };
-        state.cycle_phase_remaining = match state.cycle_phase {
-            CyclePhase::Cooldown => cfg.cycle_attack_cooldown.max(0.05),
-            CyclePhase::Windup => cfg.cycle_attack_windup.max(0.01),
-            CyclePhase::Active => cfg.cycle_attack_active.max(0.01),
-        };
+    if state.cycle_rest_remaining > 0.0 {
+        state.cycle_rest_remaining = (state.cycle_rest_remaining - ctx.dt).max(0.0);
+        attack_intent.clear();
+        return;
     }
 
-    // Pick the active profile from the cycle rotation. Matches the
-    // historic `BossRuntime::cycle_pattern_volumes` math
-    // `(pattern_timer / attack_cooldown).floor() % attacks.len()`
-    // — preserved for parity. Cfg with an empty `cycle_attacks`
-    // (defensively) falls back to the `full_body_pulse` strike.
+    // Rested and idle: request the rotation's current profile FROM ITS WINDUP
+    // (a telegraph edge). Matches the historic
+    // `BossRuntime::cycle_pattern_volumes` rotation math
+    // `(pattern_timer / attack_cooldown).floor() % attacks.len()` — preserved
+    // for parity. Cfg with an empty `cycle_attacks` (defensively) falls back
+    // to the `full_body_pulse` strike.
     let profile = if cfg.cycle_attacks.is_empty() {
         BossAttackProfile::Strike("full_body_pulse".to_string())
     } else {
@@ -380,17 +392,8 @@ fn advance_cycle(
         let idx = ((state.pattern_timer / cooldown) as usize) % cfg.cycle_attacks.len();
         cfg.cycle_attacks[idx].clone()
     };
-    match state.cycle_phase {
-        CyclePhase::Windup => {
-            attack_intent.telegraph_profile = Some(profile);
-            attack_intent.active_profile = None;
-        }
-        CyclePhase::Active => {
-            attack_intent.telegraph_profile = None;
-            attack_intent.active_profile = Some(profile);
-        }
-        CyclePhase::Cooldown => attack_intent.clear(),
-    }
+    attack_intent.telegraph_profile = Some(profile);
+    attack_intent.active_profile = None;
 }
 
 fn front_wall_standoff_reached(tuning: &BossMacroTuning, ctx: &BossPatternContext) -> bool {
@@ -519,7 +522,6 @@ fn emit_desired_vel(
     state: &BossPatternState,
     ctx: &BossPatternContext,
     out: &mut crate::actor::control::ActorControlFrame,
-    attack_intent: &BossAttackIntent,
 ) {
     if ctx.dt <= 0.0 {
         return;
@@ -613,28 +615,12 @@ fn emit_desired_vel(
     }
 
     let delta = target - ctx.actor_pos;
-    // Scale speed during ANY active strike so the boss doesn't
-    // outrun its own attack. Two reasons:
+    // NOTE: the old strike-speed throttle ("the boss mustn't outrun its own
+    // strike") is no longer brain-side policy. It is the move's authored
+    // motion lock — `MoveWindow::motion_scale` on the strike's Active window,
+    // enforced at body integration for ANY controller of the body (autonomous
+    // pattern or possessing player alike).
     //
-    // 1. Specials anchor World-space hitboxes at the boss's pos
-    //    (saddle cross, minima pit, cascade origin). Sliding
-    //    sideways after the strike started would visually
-    //    misalign the hazards from the boss.
-    // 2. Melee FollowOwner hitboxes (FloorSlam, SideSweep, etc.)
-    //    track the boss every tick. If the boss is chasing the
-    //    player at `approach_speed_scale × movement.speed`
-    //    during the 0.4 s Strike beat, a player who's still
-    //    running outpaces the strike. Holding the boss roughly
-    //    still during the active window lets the strike actually
-    //    *land* — the player gets a real telegraph-and-dodge
-    //    window instead of "the boss is moving so the strike
-    //    follows them everywhere I run."
-    //
-    // The previous behavior (special-only scaling) made
-    // Gradient-Sentinel-during-Approach feel like the boss never
-    // attacked — it WAS attacking, but the melee strikes whiffed
-    // because the boss kept chasing at 1.5× speed.
-    let in_active_strike = attack_intent.active_profile.is_some();
     // Macro-state speed scaling. Approach commits visually with
     // `> 1.0` speed; Retreat backs off deliberately with `< 1.0`.
     // Engage keeps the legacy speed (1.0).
@@ -643,12 +629,7 @@ fn emit_desired_vel(
         BossMacroState::Retreat { .. } => cfg.macro_tuning.retreat_speed_scale.max(0.0),
         BossMacroState::Engage => 1.0,
     };
-    let strike_scale = if in_active_strike {
-        cfg.strike_speed_scale.clamp(0.0, 1.0)
-    } else {
-        1.0
-    };
-    let speed = movement.speed() * macro_scale * strike_scale;
+    let speed = movement.speed() * macro_scale;
     let max_step = speed * ctx.dt;
     out.velocity_target = if delta.length() > max_step && max_step > 0.0 {
         delta.normalize_or_zero() * speed

@@ -97,7 +97,11 @@ fn telegraph_boss_app() -> (App, Entity) {
         &cap,
         &warden_behavior(),
         combat_size,
-        &[(BossAttackProfile::Strike("floor_slam".to_string()), 0.2)],
+        &[(
+            BossAttackProfile::Strike("floor_slam".to_string()),
+            0.2,
+            None,
+        )],
     )
     .expect("a boss with a telegraphed strike → a moveset");
 
@@ -211,4 +215,95 @@ fn interrupted_windup_is_aborted_before_the_strike() {
             .is_none(),
         "an abandoned windup is aborted before it can strike"
     );
+}
+
+/// Track-5 fold: the boss's authored `strike_speed_scale` is the MOVE's motion
+/// lock — baked onto the strike's Active window as `MoveWindow::motion_scale`
+/// and read back through `MoveSpec::motion_scale_at`, so body integration damps
+/// the boss's steering exactly while the strike window is live. No brain-side
+/// speed damping remains.
+#[test]
+fn the_strike_speed_throttle_is_baked_as_the_moves_motion_lock() {
+    let cap = BossCapability {
+        specials: vec![(BossAttackProfile::Strike("floor_slam".to_string()), 0.3)],
+    };
+    let behavior = warden_behavior(); // authors strike_speed_scale = 0.20
+    let moveset = crate::features::boss_attack_moveset(
+        &cap,
+        &behavior,
+        ambition_engine_core::Vec2::new(80.0, 80.0),
+        &[(
+            BossAttackProfile::Strike("floor_slam".to_string()),
+            0.2,
+            None,
+        )],
+    )
+    .expect("a strike → a moveset");
+    let slam = moveset.0.move_by_id("floor_slam").unwrap();
+    let active = &slam.windows[0];
+    assert!((active.motion_scale - behavior.strike_speed_scale).abs() < f32::EPSILON);
+    // The per-time accessor the body integrator reads: full steering during the
+    // windup, damped steering inside the strike window, full again after.
+    assert_eq!(
+        slam.motion_scale_at(0.1),
+        1.0,
+        "windup leaves steering free"
+    );
+    assert!(
+        (slam.motion_scale_at(0.3) - behavior.strike_speed_scale).abs() < f32::EPSILON,
+        "the strike window is the motion lock"
+    );
+    assert_eq!(slam.motion_scale_at(0.51), 1.0, "past the window");
+}
+
+/// Track-5 fold (BD3): an authored telegraph's cue/vfx are MOVE data — one-shot
+/// `MoveEvent`s on the windup's rising edge, dispatched by the SAME
+/// `dispatch_move_events` channel every actor move uses. A move with no authored
+/// spec (or no telegraph at all) authors no events.
+#[test]
+fn telegraph_cue_and_vfx_bake_as_rising_edge_move_events() {
+    use ambition_characters::brain::boss_pattern::TelegraphSpec;
+    use ambition_entity_catalog::MoveEventKind;
+    let cap = BossCapability {
+        specials: vec![
+            (BossAttackProfile::Strike("floor_slam".to_string()), 0.3),
+            (BossAttackProfile::Strike("side_sweep".to_string()), 0.3),
+        ],
+    };
+    let spec = TelegraphSpec {
+        pose: Some("wind_up".into()),
+        cue: Some("boss_windup".into()),
+        vfx: Some("sparks".into()),
+    };
+    let moveset = crate::features::boss_attack_moveset(
+        &cap,
+        &warden_behavior(),
+        ambition_engine_core::Vec2::new(80.0, 80.0),
+        &[(
+            BossAttackProfile::Strike("floor_slam".to_string()),
+            0.2,
+            Some(spec),
+        )],
+    )
+    .expect("a strike → a moveset");
+
+    let slam = moveset.0.move_by_id("floor_slam").unwrap();
+    assert_eq!(slam.events.len(), 2, "cue + vfx on the telegraph edge");
+    for ev in &slam.events {
+        assert!(
+            (ev.at_s - crate::features::bosses::TELEGRAPH_EDGE_S).abs() < f32::EPSILON,
+            "anticipation fires on the windup's rising edge"
+        );
+        // Both events sit strictly inside the windup: a move started at the
+        // strike edge (t0 = tel) never crosses them.
+        assert!(ev.at_s < 0.2);
+        assert!(matches!(
+            ev.kind,
+            MoveEventKind::Sfx { .. } | MoveEventKind::Vfx { .. }
+        ));
+    }
+
+    // No authored telegraph for side_sweep → no anticipation events.
+    let sweep = moveset.0.move_by_id("side_sweep").unwrap();
+    assert!(sweep.events.is_empty());
 }

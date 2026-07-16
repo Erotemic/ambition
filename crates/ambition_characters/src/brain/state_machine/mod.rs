@@ -1177,6 +1177,9 @@ fn tick_boss_pattern_via_state_machine(
         actor_facing: snapshot.actor_facing,
         hp_current: (snapshot.health_fraction.clamp(0.0, 1.0) * 100.0).round() as i32,
         hp_max: 100,
+        // This path ticks under a Dormant phase (see above) and never reaches
+        // the attack patterns, so there is no live move to observe.
+        live_attack: None,
     };
     // The universal brain API has one generic control-frame output. Keep the
     // boss-specific profile request as a transient cache on the pattern state so

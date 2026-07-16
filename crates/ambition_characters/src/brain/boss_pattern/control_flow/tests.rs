@@ -404,7 +404,10 @@ fn on_hit_taken_fires_at_or_above_its_threshold_and_respects_its_cooldown() {
         "still on cooldown"
     );
     // Burn the cooldown down.
-    let long = BossPatternContext { dt: 1.0, ..c };
+    let long = BossPatternContext {
+        dt: 1.0,
+        ..c.clone()
+    };
     assert_eq!(tick_interrupts(&rules, &mut s, &long, None, 0), None);
     assert_eq!(tick_interrupts(&rules, &mut s, &c, None, 5), Some(0));
 }

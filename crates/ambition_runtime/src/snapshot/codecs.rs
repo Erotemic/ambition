@@ -672,38 +672,19 @@ impl SnapshotState for ambition_characters::brain::boss_pattern::BossAttackState
         put_opt_profile(out, &self.telegraph_profile);
         put_f32(out, self.telegraph_remaining);
         put_f32(out, self.telegraph_elapsed);
-        match &self.telegraph_spec {
-            None => put_bool(out, false),
-            Some(spec) => {
-                put_bool(out, true);
-                put_opt_str(out, spec.pose.as_deref());
-                put_opt_str(out, spec.cue.as_deref());
-                put_opt_str(out, spec.vfx.as_deref());
-            }
-        }
         put_opt_profile(out, &self.active_profile);
         put_f32(out, self.active_remaining);
         put_f32(out, self.active_elapsed);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        use ambition_characters::brain::boss_pattern::{BossAttackState, TelegraphSpec};
+        use ambition_characters::brain::boss_pattern::BossAttackState;
         let telegraph_profile = read_opt_profile(r)?;
         let telegraph_remaining = r.f32()?;
         let telegraph_elapsed = r.f32()?;
-        let telegraph_spec = if r.bool()? {
-            Some(TelegraphSpec {
-                pose: r.opt_str()?.map(str::to_string),
-                cue: r.opt_str()?.map(str::to_string),
-                vfx: r.opt_str()?.map(str::to_string),
-            })
-        } else {
-            None
-        };
         Some(BossAttackState {
             telegraph_profile,
             telegraph_remaining,
             telegraph_elapsed,
-            telegraph_spec,
             active_profile: read_opt_profile(r)?,
             active_remaining: r.f32()?,
             active_elapsed: r.f32()?,
@@ -802,11 +783,6 @@ snapshot_unit_enum!(ambition_characters::brain::boss_pattern::BossEncounterPhase
     Stagger = 5,
     Enrage = 6,
     Death = 7,
-});
-snapshot_unit_enum!(ambition_characters::brain::boss_pattern::CyclePhase {
-    Cooldown = 0,
-    Windup = 1,
-    Active = 2,
 });
 /// Not a unit enum — `Approach` and `Retreat` carry their own clocks, and a boss
 /// that rewinds into `Retreat` must rewind to the same retreat POSITION. Explicit
@@ -999,8 +975,7 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
         put_f32(out, s.step_elapsed);
         put_f32(out, s.movement_timer);
         put_f32(out, s.pattern_timer);
-        s.cycle_phase.encode(out);
-        put_f32(out, s.cycle_phase_remaining);
+        put_f32(out, s.cycle_rest_remaining);
         s.macro_state.encode(out);
         put_f32(out, s.engage_timer);
         put_u64(out, s.rng_seed);
@@ -1031,9 +1006,7 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
     }
 
     fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
-        use ambition_characters::brain::boss_pattern::{
-            BossEncounterPhase, BossMacroState, CyclePhase,
-        };
+        use ambition_characters::brain::boss_pattern::{BossEncounterPhase, BossMacroState};
         if r.u8()? == 0 {
             return Some(());
         }
@@ -1046,8 +1019,7 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
         let step_elapsed = r.f32()?;
         let movement_timer = r.f32()?;
         let pattern_timer = r.f32()?;
-        let cycle_phase = CyclePhase::decode(r)?;
-        let cycle_phase_remaining = r.f32()?;
+        let cycle_rest_remaining = r.f32()?;
         let macro_state = BossMacroState::decode(r)?;
         let engage_timer = r.f32()?;
         let rng_seed = r.u64()?;
@@ -1085,8 +1057,7 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
         s.step_elapsed = step_elapsed;
         s.movement_timer = movement_timer;
         s.pattern_timer = pattern_timer;
-        s.cycle_phase = cycle_phase;
-        s.cycle_phase_remaining = cycle_phase_remaining;
+        s.cycle_rest_remaining = cycle_rest_remaining;
         s.macro_state = macro_state;
         s.engage_timer = engage_timer;
         s.rng_seed = rng_seed;

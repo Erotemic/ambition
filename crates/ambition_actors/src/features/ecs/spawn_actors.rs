@@ -744,7 +744,6 @@ pub(super) fn spawn_boss_with_overrides(
         movement: boss.config.behavior.movement.clone(),
         movement_phase2: boss.config.behavior.movement_phase2.clone(),
         movement_enrage: boss.config.behavior.movement_enrage.clone(),
-        strike_speed_scale: boss.config.behavior.strike_speed_scale,
         spawn: boss.config.spawn,
         combat_size: boss.as_ref().combat_size(),
         cycle_attack_windup: boss.config.behavior.attack_windup.max(0.01),

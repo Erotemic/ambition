@@ -406,6 +406,13 @@ pub fn tick_boss_brains_system(
             // onto the boss's own moves; `Option` for test fixtures that spawn a
             // boss without it.
             Option<&ambition_characters::brain::BossCapability>,
+            // The projected live-move read-model (LAST frame's — the projection
+            // runs after this tick). The autonomous pattern OBSERVES its own
+            // playing move through it: cycle mode sustains its request through
+            // the observed windup and rests once the move ends, instead of
+            // running a parallel windup/active clock. Read-only; the projection
+            // stays the sole writer.
+            Option<&BossAttackState>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -413,8 +420,17 @@ pub fn tick_boss_brains_system(
     let dt = world_time.sim_dt();
     let feature_world =
         ambition_world::collision::world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    for (_entity, feature, health, mut brain, mut control, mut intent, target, capability) in
-        &mut bosses
+    for (
+        _entity,
+        feature,
+        health,
+        mut brain,
+        mut control,
+        mut intent,
+        target,
+        capability,
+        attack_state,
+    ) in &mut bosses
     {
         let boss = feature.as_boss_ref();
         if !health.alive() {
@@ -523,6 +539,25 @@ pub fn tick_boss_brains_system(
                     actor_facing: boss.kin.facing,
                     hp_current: health.current(),
                     hp_max: health.max(),
+                    // The brain's observation of its own live move, from the
+                    // projected read-model (one frame stale, deterministically):
+                    // a telegraphing move reads as `striking: false`, a striking
+                    // move as `striking: true`, no move as `None`.
+                    live_attack: attack_state.and_then(|s| {
+                        if let Some(profile) = &s.active_profile {
+                            Some(ambition_characters::brain::LiveBossAttack {
+                                profile: profile.clone(),
+                                striking: true,
+                            })
+                        } else {
+                            s.telegraph_profile.as_ref().map(|profile| {
+                                ambition_characters::brain::LiveBossAttack {
+                                    profile: profile.clone(),
+                                    striking: false,
+                                }
+                            })
+                        }
+                    }),
                 };
                 let mut attack_intent = core::mem::take(&mut state.attack_intent);
                 ambition_characters::brain::tick_boss_pattern(
@@ -684,6 +719,10 @@ pub fn integrate_boss_bodies(
             // phase — the SAME artifact every other body integrates under.
             &'static ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
             &'static mut ambition_engine_core::BodyMotionFacts,
+            // The boss's live strike move, if any — its authored per-window
+            // motion lock (the strike-speed throttle, formerly brain policy)
+            // scales the steering intent inside `integrate_actor_body`.
+            Option<&'static crate::combat::moveset::MovePlayback>,
         ),
         (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,
@@ -705,6 +744,7 @@ pub fn integrate_boss_bodies(
         mut motion_model,
         resolved_frame,
         mut motion_facts,
+        playback,
     ) in &mut bosses
     {
         // Self-heal the collision envelope onto `kin.size` (the seam sweeps it),
@@ -732,6 +772,7 @@ pub fn integrate_boss_bodies(
             combat_tuning,
             &steering,
             resolved_frame.get(),
+            playback.map_or(1.0, |pb| pb.spec.motion_scale_at(pb.t)),
             dt,
             *feel_tuning,
             &mut sfx,

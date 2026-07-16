@@ -639,6 +639,12 @@ pub(crate) fn integrate_actor_body(
     combat_tuning: crate::features::FeatureCombatTuning,
     steering: &ActorSteering,
     motion_frame: ae::MotionFrame,
+    // The live move's authored motion lock (`MoveSpec::motion_scale_at` of the
+    // body's current `MovePlayback`; `1.0` with no move playing). Applied to the
+    // controller's steering intent HERE — controller attempts, body enforces —
+    // so a committed heavy strike damps its owner for every controller alike
+    // (autonomous brain, possession, replay).
+    move_motion_scale: f32,
     dt: f32,
     feel: crate::time::feel::SandboxFeelTuning,
     sfx: &mut ambition_sfx::SfxWriter,
@@ -646,10 +652,18 @@ pub(crate) fn integrate_actor_body(
     hit_events: &mut MessageWriter<HitEvent>,
 ) {
     // The brain's intent for this body, produced upstream in `tick_actor_brains`.
-    let brain_frame = control
+    let mut brain_frame = control
         .as_deref()
         .map(|c| c.0)
         .unwrap_or_else(ambition_characters::actor::control::ActorControlFrame::neutral);
+    // The move motion lock scales steering INTENT magnitude only (both the
+    // grounded throttle and the free-mover command) — frame-agnostic, and
+    // action edges (melee/fire/jump) pass through untouched.
+    let move_motion_scale = move_motion_scale.clamp(0.0, 1.0);
+    if move_motion_scale < 1.0 {
+        brain_frame.locomotion *= move_motion_scale;
+        brain_frame.velocity_target *= move_motion_scale;
+    }
     let previous_pos = em.kin.pos;
     // Pre-update grounded snapshot for the shared movement-fx landing dust (§A8).
     let was_grounded = em.ground.on_ground;
@@ -819,6 +833,9 @@ pub fn integrate_sim_bodies(
             &ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
             &mut ambition_engine_core::BodyMotionFacts,
             Option<super::super::actor_clusters::ActorClusterQueryData>,
+            // The body's live move, if any — its authored per-window motion
+            // lock scales the steering intent inside `integrate_actor_body`.
+            Option<&crate::combat::moveset::MovePlayback>,
         ),
         (
             With<FeatureSimEntity>,
@@ -874,6 +891,7 @@ pub fn integrate_sim_bodies(
         resolved_frame,
         mut motion_facts,
         clusters,
+        playback,
     ) in &mut actors
     {
         let Some(mut cq) = clusters else {
@@ -897,6 +915,7 @@ pub fn integrate_sim_bodies(
             combat_tuning,
             &steering,
             resolved_frame.get(),
+            playback.map_or(1.0, |pb| pb.spec.motion_scale_at(pb.t)),
             dt,
             *feel_tuning,
             &mut sfx,

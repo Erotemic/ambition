@@ -279,6 +279,18 @@ pub struct MoveWindow {
     /// Hit volumes live during this window (meaningful for `Active`).
     #[serde(default)]
     pub volumes: Vec<HitVolume>,
+    /// How much of the OWNER'S steering intent survives while its clock is
+    /// inside this window — the move's authored MOTION LOCK. `1.0` (the
+    /// default, every ordinary move) leaves steering untouched; `< 1.0` damps
+    /// it (a committed heavy strike the body mustn't outrun — the boss
+    /// strike-speed throttle authors this on its Active window); `0.0` roots
+    /// the body for the window. Enforced BODY-side at integration
+    /// ([`MoveSpec::motion_scale_at`]), so it holds for any controller —
+    /// autonomous brain or possessing player alike (controller attempts, body
+    /// enforces). Frame-agnostic: it scales intent magnitude, never a world
+    /// direction.
+    #[serde(default = "default_motion_scale")]
+    pub motion_scale: f32,
     /// A SUSTAINED content effect: while this window is active, an `Effect { key }`
     /// is emitted EVERY frame (not one-shot like a `MoveEvent`). This is how a move
     /// expresses a HELD/continuous special — a beam that lingers, a rain that keeps
@@ -396,6 +408,12 @@ fn default_charge_mult() -> f32 {
     1.0
 }
 
+/// Serde default for [`MoveWindow::motion_scale`]: the multiplicative
+/// identity, so every existing window leaves steering untouched (parity).
+fn default_motion_scale() -> f32 {
+    1.0
+}
+
 impl MoveSpec {
     /// CM5: validate this move's PRESENTATION event ids so a typo fails loudly
     /// at load, never as a silent missing sound/effect. `vfx_known` is the
@@ -434,6 +452,19 @@ impl MoveSpec {
         want: fn(&WindowTag) -> bool,
     ) -> impl Iterator<Item = &MoveWindow> {
         self.windows.iter().filter(move |w| want(&w.tag))
+    }
+
+    /// The steering-intent scale in force at proper-time `t` — the MOST
+    /// RESTRICTIVE (minimum) [`MoveWindow::motion_scale`] among the windows
+    /// containing `t`, `1.0` outside every window. The body integrator
+    /// multiplies the controller's steering intent by this each tick, so a
+    /// move's motion lock binds every controller of the body uniformly.
+    pub fn motion_scale_at(&self, t: f32) -> f32 {
+        self.windows
+            .iter()
+            .filter(|w| w.start_s <= t && t < w.end_s)
+            .map(|w| w.motion_scale.clamp(0.0, 1.0))
+            .fold(1.0, f32::min)
     }
 
     /// The active hit volumes at proper-time `t` seconds into the move.

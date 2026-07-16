@@ -1433,6 +1433,7 @@ fn cancel_window(into: &[&str], condition: CancelCondition) -> MoveWindow {
         },
         volumes: vec![],
         sustain_effect: None,
+        motion_scale: 1.0,
     }
 }
 

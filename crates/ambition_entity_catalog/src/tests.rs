@@ -134,6 +134,7 @@ fn startup(end_s: f32) -> MoveWindow {
         tag: WindowTag::Startup,
         volumes: vec![],
         sustain_effect: None,
+        motion_scale: 1.0,
     }
 }
 
@@ -180,6 +181,7 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
             tag: WindowTag::Startup,
             volumes: vec![],
             sustain_effect: None,
+            motion_scale: 1.0,
         },
         MoveWindow {
             start_s: 0.18,
@@ -212,6 +214,7 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
                 },
             ],
             sustain_effect: None,
+            motion_scale: 1.0,
         },
         MoveWindow {
             start_s: 0.26,
@@ -222,6 +225,7 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
             },
             volumes: vec![],
             sustain_effect: None,
+            motion_scale: 1.0,
         },
     ];
     let fd = m.frame_data();

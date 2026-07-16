@@ -155,6 +155,7 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
                 tag: WindowTag::Startup,
                 volumes: vec![],
                 sustain_effect: None,
+                motion_scale: 1.0,
             },
             MoveWindow {
                 start_s: windup,
@@ -162,6 +163,7 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
                 tag: WindowTag::Active,
                 volumes: vec![volume],
                 sustain_effect: None,
+                motion_scale: 1.0,
             },
             MoveWindow {
                 start_s: windup + active,
@@ -169,6 +171,7 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
                 tag: WindowTag::Recovery,
                 volumes: vec![],
                 sustain_effect: None,
+                motion_scale: 1.0,
             },
         ],
         events: {
@@ -275,6 +278,7 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
                 tag: WindowTag::Startup,
                 volumes: vec![],
                 sustain_effect: None,
+                motion_scale: 1.0,
             },
             // No Active hit volume — the projectile spawned by the fire event is the
             // damage. The Recovery window just holds the post-shot settle.
@@ -284,6 +288,7 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
                 tag: WindowTag::Recovery,
                 volumes: vec![],
                 sustain_effect: None,
+                motion_scale: 1.0,
             },
         ],
         events: vec![MoveEvent {
@@ -401,6 +406,7 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
                 tag: WindowTag::Startup,
                 volumes: vec![],
                 sustain_effect: None,
+                motion_scale: 1.0,
             },
             MoveWindow {
                 start_s: charge,
@@ -408,6 +414,7 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
                 tag: WindowTag::Active,
                 volumes: vec![volume],
                 sustain_effect: None,
+                motion_scale: 1.0,
             },
             MoveWindow {
                 start_s: charge + active,
@@ -415,6 +422,7 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
                 tag: WindowTag::Recovery,
                 volumes: vec![],
                 sustain_effect: None,
+                motion_scale: 1.0,
             },
         ],
         events: {

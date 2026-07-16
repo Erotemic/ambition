@@ -49,11 +49,15 @@ pub struct BossBehaviorProfile {
     pub movement_phase2: Option<BossMovementProfile>,
     #[serde(default)]
     pub movement_enrage: Option<BossMovementProfile>,
-    /// Multiplier applied to movement speed while an active special
-    /// strike is committed. `< 1.0` keeps the boss roughly anchored
-    /// so World-space special hitboxes (saddle cross, minima pit)
-    /// don't slide out from under the visual telegraph. `1.0` keeps
-    /// pre-Gradient-Sentinel behavior.
+    /// Multiplier applied to movement speed while a strike is committed.
+    /// `< 1.0` keeps the boss roughly anchored so World-space special hitboxes
+    /// (saddle cross, minima pit) don't slide out from under the visual
+    /// telegraph, and so a melee FollowOwner strike can actually land. `1.0`
+    /// leaves steering untouched. CONSUMED at moveset-bake time
+    /// (`boss_attack_moveset`): it becomes each strike move's Active-window
+    /// [`MoveWindow::motion_scale`](ambition_entity_catalog::MoveWindow), the
+    /// move's authored motion lock, enforced body-side at integration for any
+    /// controller of the body.
     pub strike_speed_scale: f32,
     /// Optional self-dodge: while a strike is committed, the boss side-steps
     /// with the authored `(amplitude_px, frequency_hz)` so it can weave out of

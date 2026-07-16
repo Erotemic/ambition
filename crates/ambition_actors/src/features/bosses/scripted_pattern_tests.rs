@@ -433,7 +433,6 @@ fn gradient_sentinel_every_special_strike_is_a_moveset_effect() {
     cfg.movement = behavior.movement.clone();
     cfg.movement_phase2 = behavior.movement_phase2.clone();
     cfg.movement_enrage = behavior.movement_enrage.clone();
-    cfg.strike_speed_scale = behavior.strike_speed_scale;
     cfg.cycle_attack_windup = behavior.attack_windup.max(0.01);
     cfg.cycle_attack_active = behavior.attack_active.max(0.01);
     cfg.cycle_attack_cooldown = behavior.attack_cooldown.max(0.05);
@@ -642,6 +641,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
                 actor_facing: 1.0,
                 hp_current: 100,
                 hp_max: 100,
+                live_attack: None,
             },
             &mut frame,
             &mut attack_intent,

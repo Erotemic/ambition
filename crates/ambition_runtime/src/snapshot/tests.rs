@@ -406,7 +406,7 @@ fn every_engine_codec_round_trips_exactly() {
         use ambition_actors::features::ecs::perception::{Perception, PerceptionMemory};
         use ambition_characters::actor::ActorFaction;
         use ambition_characters::brain::boss_pattern::{
-            BossAttackIntent, BossAttackProfile, BossAttackState, TelegraphSpec,
+            BossAttackIntent, BossAttackProfile, BossAttackState,
         };
         use ambition_characters::perception::{RememberedActor, WorldMemory};
 
@@ -420,11 +420,6 @@ fn every_engine_codec_round_trips_exactly() {
             telegraph_profile: None,
             telegraph_remaining: 0.4,
             telegraph_elapsed: 0.1,
-            telegraph_spec: Some(TelegraphSpec {
-                pose: Some("wind_up".into()),
-                cue: None,
-                vfx: Some("sparks".into()),
-            }),
             active_profile: Some(BossAttackProfile::Special("apple_rain".into())),
             active_remaining: 1.25,
             active_elapsed: -0.0,
@@ -1678,7 +1673,7 @@ fn a_resolved_component_that_names_missing_content_is_dropped_and_denies_lossles
 #[test]
 fn a_boss_brain_rewinds_its_seed_its_cursor_and_its_clocks() {
     use ambition_characters::brain::boss_pattern::{
-        BossAttackProfile, BossMacroState, BossPatternCfg, BossPatternState, CyclePhase,
+        BossAttackProfile, BossMacroState, BossPatternCfg, BossPatternState,
     };
     use ambition_characters::brain::{Brain, StateMachineCfg};
 
@@ -1696,7 +1691,7 @@ fn a_boss_brain_rewinds_its_seed_its_cursor_and_its_clocks() {
         s.step_index = 3;
         s.step_elapsed = 0.75;
         s.pattern_timer = 12.5;
-        s.cycle_phase = CyclePhase::Windup;
+        s.cycle_rest_remaining = 0.35;
         s.macro_state = BossMacroState::Retreat {
             remaining_s: 0.5,
             retreat_pos: ae_vec(40.0, -8.0),

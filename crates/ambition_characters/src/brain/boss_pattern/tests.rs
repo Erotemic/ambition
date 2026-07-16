@@ -38,6 +38,7 @@ fn ctx(phase: BossEncounterPhase, dt: f32) -> BossPatternContext {
         actor_facing: 1.0,
         hp_current: 100,
         hp_max: 100,
+        live_attack: None,
     }
 }
 
@@ -209,30 +210,72 @@ fn debris_rain_strike_emits_profile_intent_only() {
     );
 }
 
+/// Cycle mode is rest-then-request decision policy: the brain requests a
+/// telegraph edge when rested, SUSTAINS the request while it observes its own
+/// move winding up (a vanished intent aborts the windup at the trigger), goes
+/// quiet once the observed move is striking (committed — the Smash convention),
+/// and rests for `cycle_attack_cooldown` after the move ends. The move's own
+/// windows are the ONLY windup/active timeline; the brain runs no parallel
+/// clock.
 #[test]
-fn boss_pattern_cycle_advances_through_phases() {
+fn boss_pattern_cycle_requests_sustains_then_rests_off_the_observed_move() {
     let mut cfg = cfg_with(BossAttackPattern::Cycle);
     cfg.spawn = ae::Vec2::ZERO;
     cfg.cycle_attack_cooldown = 0.2;
-    cfg.cycle_attack_windup = 0.2;
-    cfg.cycle_attack_active = 0.2;
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
     let mut out = crate::actor::control::ActorControlFrame::default();
 
-    // Cooldown → Windup edge.
+    // Rested and idle (fresh state): request the rotation profile from its windup.
     tick_boss_pattern(
         &cfg,
         &mut state,
-        &ctx(BossEncounterPhase::Phase1, 0.25),
+        &ctx(BossEncounterPhase::Phase1, 0.05),
         &mut out,
         &mut attack_intent,
     );
-    assert_eq!(state.cycle_phase, CyclePhase::Windup);
-    assert!(attack_intent.telegraph_profile.is_some());
+    let requested = attack_intent
+        .telegraph_profile
+        .clone()
+        .expect("a rested cycle boss requests its next attack as a telegraph edge");
+    assert!(attack_intent.active_profile.is_none());
     assert!(!out.melee_pressed);
 
-    // Windup → Active edge.
+    // The trigger started the move; the brain now OBSERVES it winding up and
+    // sustains the request (so the trigger never reads abandonment).
+    let mut winding = ctx(BossEncounterPhase::Phase1, 0.05);
+    winding.live_attack = Some(LiveBossAttack {
+        profile: requested.clone(),
+        striking: false,
+    });
+    tick_boss_pattern(&cfg, &mut state, &winding, &mut out, &mut attack_intent);
+    assert_eq!(attack_intent.telegraph_profile, Some(requested.clone()));
+    assert!(attack_intent.active_profile.is_none());
+
+    // The observed move reached its strike: committed — no further intent.
+    let mut striking = ctx(BossEncounterPhase::Phase1, 0.05);
+    striking.live_attack = Some(LiveBossAttack {
+        profile: requested.clone(),
+        striking: true,
+    });
+    tick_boss_pattern(&cfg, &mut state, &striking, &mut out, &mut attack_intent);
+    assert!(attack_intent.telegraph_profile.is_none());
+    assert!(attack_intent.active_profile.is_none());
+
+    // The move ended: the rest clock (armed while the move played) drains
+    // before the next request...
+    tick_boss_pattern(
+        &cfg,
+        &mut state,
+        &ctx(BossEncounterPhase::Phase1, 0.05),
+        &mut out,
+        &mut attack_intent,
+    );
+    assert!(
+        attack_intent.telegraph_profile.is_none() && attack_intent.active_profile.is_none(),
+        "resting after the observed move ended",
+    );
+    // ...and once it elapses the next request fires.
     tick_boss_pattern(
         &cfg,
         &mut state,
@@ -240,9 +283,17 @@ fn boss_pattern_cycle_advances_through_phases() {
         &mut out,
         &mut attack_intent,
     );
-    assert_eq!(state.cycle_phase, CyclePhase::Active);
-    assert!(attack_intent.active_profile.is_some());
-    assert!(!out.melee_pressed && !out.special_pressed);
+    tick_boss_pattern(
+        &cfg,
+        &mut state,
+        &ctx(BossEncounterPhase::Phase1, 0.05),
+        &mut out,
+        &mut attack_intent,
+    );
+    assert!(
+        attack_intent.telegraph_profile.is_some(),
+        "rested again → next telegraph-edge request",
+    );
 }
 
 #[test]
@@ -388,138 +439,11 @@ fn world_arena_lateral_boss_preserves_world_y_during_approach() {
     );
 }
 
-/// During an active special strike, `strike_speed_scale` should
-/// shrink the emitted velocity_target so World-anchored hitboxes
-/// (saddle cross, minima pit) stay centered on the boss.
-#[test]
-fn strike_speed_scale_reduces_velocity_during_active_special() {
-    let mut cfg = cfg_with(BossAttackPattern::Cycle);
-    cfg.movement = BossMovementProfile::AnchorSway {
-        x_radius: 200.0,
-        y_bob: 0.0,
-        x_frequency: 0.0,
-        y_frequency: 0.0,
-        chase_scale: 1.0,
-        chase_limit: 1000.0,
-        speed: 400.0,
-    };
-    cfg.spawn = ae::Vec2::ZERO;
-    cfg.strike_speed_scale = 0.1;
-    // Sample 1: no active strike — full speed.
-    let mut state = BossPatternState::default();
-    let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
-    let mut ctx = ctx(BossEncounterPhase::Phase1, 1.0 / 60.0);
-    ctx.target_pos = ae::Vec2::new(500.0, 0.0); // pull toward +x
-    ctx.actor_pos = ae::Vec2::ZERO;
-    tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_intent);
-    let vel_no_strike = out.velocity_target.length();
-
-    // Sample 2: active special strike — expect ~10% of the speed.
-    // Manually set attack_intent.active_profile to a special.
-    let mut state2 = BossPatternState::default();
-    let mut attack_intent2 = BossAttackIntent::default();
-    // Pre-poison so the brain detects the strike (cycle mode will
-    // overwrite, but we test the scale on the active-emit path).
-    let mut out2 = crate::actor::control::ActorControlFrame::neutral();
-    // Drive cycle forward to Active phase with a special profile.
-    cfg.cycle_attacks = vec![BossAttackProfile::Special("overfit_volley".into())];
-    cfg.cycle_attack_cooldown = 0.05;
-    cfg.cycle_attack_windup = 0.01;
-    cfg.cycle_attack_active = 5.0; // long active so subsequent ticks stay there
-                                   // Tick twice to walk Cooldown→Windup→Active.
-    let mut ctx2 = ctx;
-    ctx2.dt = 0.06;
-    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_intent2);
-    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_intent2);
-    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_intent2);
-    assert_eq!(
-        attack_intent2.active_profile,
-        Some(BossAttackProfile::Special("overfit_volley".into())),
-        "should be in active overfit_volley strike for the test",
-    );
-    let vel_in_strike = out2.velocity_target.length();
-    assert!(
-        vel_in_strike < vel_no_strike * 0.5,
-        "expected speed during active special strike to be much lower than no-strike speed: {vel_in_strike} vs {vel_no_strike}",
-    );
-}
-
-/// Regression: `strike_speed_scale` must also apply during
-/// **melee** strikes, not just special strikes. The user
-/// reported "boss just floats around and never attacks" because
-/// the boss was chasing the player at 1.5× speed during the
-/// Strike beat; the FollowOwner melee hitbox tracked the
-/// moving boss but couldn't catch a player who was still
-/// running. Now any active strike (melee or special) slows
-/// the boss so the hitbox actually lands.
-#[test]
-fn strike_speed_scale_reduces_velocity_during_active_melee_too() {
-    let mut cfg = cfg_with(BossAttackPattern::Cycle);
-    cfg.movement = BossMovementProfile::AnchorSway {
-        x_radius: 200.0,
-        y_bob: 0.0,
-        x_frequency: 0.0,
-        y_frequency: 0.0,
-        chase_scale: 1.0,
-        chase_limit: 1000.0,
-        speed: 400.0,
-    };
-    cfg.spawn = ae::Vec2::ZERO;
-    cfg.strike_speed_scale = 0.1;
-    // Drive the cycle to an Active phase with a MELEE profile
-    // (FloorSlam — `is_special()` returns false). Without the
-    // fix, vel_in_strike would equal vel_no_strike because
-    // strike_speed_scale only triggered for specials.
-    cfg.cycle_attacks = vec![BossAttackProfile::Strike("floor_slam".to_string())];
-    cfg.cycle_attack_cooldown = 0.05;
-    cfg.cycle_attack_windup = 0.01;
-    cfg.cycle_attack_active = 5.0;
-
-    let baseline_ctx = {
-        let mut c = ctx(BossEncounterPhase::Phase1, 1.0 / 60.0);
-        c.target_pos = ae::Vec2::new(500.0, 0.0);
-        c.actor_pos = ae::Vec2::ZERO;
-        c
-    };
-
-    // Sample 1: no active strike — full speed.
-    let mut state1 = BossPatternState::default();
-    let mut attack_intent1 = BossAttackIntent::default();
-    let mut out1 = crate::actor::control::ActorControlFrame::neutral();
-    tick_boss_pattern(
-        &cfg,
-        &mut state1,
-        &baseline_ctx,
-        &mut out1,
-        &mut attack_intent1,
-    );
-    let vel_no_strike = out1.velocity_target.length();
-
-    // Sample 2: active MELEE strike — expect heavy slowdown.
-    let mut state2 = BossPatternState::default();
-    let mut attack_intent2 = BossAttackIntent::default();
-    let mut out2 = crate::actor::control::ActorControlFrame::neutral();
-    let mut ctx2 = baseline_ctx;
-    ctx2.dt = 0.06;
-    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_intent2);
-    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_intent2);
-    tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_intent2);
-    assert_eq!(
-        attack_intent2.active_profile,
-        Some(BossAttackProfile::Strike("floor_slam".to_string())),
-        "should be in active FloorSlam strike for the test",
-    );
-    assert!(
-        !attack_intent2.active_profile.as_ref().unwrap().is_special(),
-        "FloorSlam must not register as a special — this test guards against `is_special()` accidentally widening to melee profiles"
-    );
-    let vel_in_strike = out2.velocity_target.length();
-    assert!(
-        vel_in_strike < vel_no_strike * 0.5,
-        "expected speed during active MELEE strike to be much lower than no-strike speed: {vel_in_strike} vs {vel_no_strike}",
-    );
-}
+// NOTE: the old `strike_speed_scale` brain-damping tests are gone with the
+// mechanism: the strike-speed throttle is now the move's authored motion lock
+// (`MoveWindow::motion_scale` on the strike's Active window, asserted by the
+// boss moveset bake tests) and is enforced body-side at integration for every
+// controller alike.
 
 // -----------------------------------------------------------
 // Macro state machine tests — chase / engage / retreat

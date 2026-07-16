@@ -37,7 +37,7 @@ pub use boss_pattern::{
     tick_boss_pattern, BossAttackIntent, BossAttackPattern, BossAttackProfile, BossAttackState,
     BossCapability, BossEncounterPhase, BossMacroState, BossMacroTuning, BossMovementFramePolicy,
     BossMovementProfile, BossPattern, BossPatternCfg, BossPatternContext, BossPatternState,
-    BossPatternStep, CyclePhase,
+    BossPatternStep, LiveBossAttack,
 };
 #[allow(unused_imports)]
 pub use player::tick_player_brain;

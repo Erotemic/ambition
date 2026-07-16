@@ -56,6 +56,12 @@ pub use crate::boss_encounter::behavior::{
 /// / `boss_attack_damage` strike arm). Carried on the geometry move's hit volume.
 pub const BOSS_STRIKE_KNOCKBACK: f32 = 1.25;
 
+/// Timestamp for the telegraph's rising-edge `MoveEvent`s (BD3 cue/vfx). Move
+/// events fire on the first clock crossing STRICTLY past `at_s`
+/// (`at_s > t_prev`), so an exact `0.0` would never fire on a move started at
+/// `t0 = 0`; one millisecond is inside the very first sim tick of any windup.
+pub const TELEGRAPH_EDGE_S: f32 = 0.001;
+
 /// Build the boss's data-driven attack MOVESET from its capability repertoire —
 /// ONE moveset move per authored strike profile, so EVERY boss strike runs through
 /// the SAME moveset runtime an actor's swing does (fable review §A1: the moveset is
@@ -81,19 +87,26 @@ pub fn boss_attack_moveset(
     capability: &ambition_characters::brain::BossCapability,
     behavior: &BossBehaviorProfile,
     combat_size: ambition_engine_core::Vec2,
-    telegraph_windows: &[(ambition_characters::brain::BossAttackProfile, f32)],
+    telegraph_windows: &[(
+        ambition_characters::brain::BossAttackProfile,
+        f32,
+        Option<ambition_characters::brain::boss_pattern::TelegraphSpec>,
+    )],
 ) -> Option<crate::combat::moveset::ActorMoveset> {
     use ambition_engine_core::AabbExt;
     use ambition_entity_catalog::{
-        ClipBinding, EffectRef, HitVolume, MoveSpec, MoveWindow, MovesetContract, VolumeShape,
-        WindowTag,
+        ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
+        MovesetContract, VolumeShape, WindowTag,
     };
-    let telegraph_for = |profile: &ambition_characters::brain::BossAttackProfile| -> f32 {
+    let telegraph_for = |profile: &ambition_characters::brain::BossAttackProfile| -> (
+        f32,
+        Option<&ambition_characters::brain::boss_pattern::TelegraphSpec>,
+    ) {
         telegraph_windows
             .iter()
-            .find(|(p, _)| p == profile)
-            .map(|(_, t)| t.max(0.0))
-            .unwrap_or(0.0)
+            .find(|(p, _, _)| p == profile)
+            .map(|(_, t, spec)| (t.max(0.0), spec.as_ref()))
+            .unwrap_or((0.0, None))
     };
     let moves: Vec<MoveSpec> = capability
         .specials
@@ -106,9 +119,32 @@ pub fn boss_attack_moveset(
             // at `t0 = 0` plays the telegraph first. Either way the projected
             // `active_elapsed` folds in the telegraph offset because it reads the move's
             // own clock `t`.
-            let tel = telegraph_for(profile);
+            let (tel, telegraph_spec) = telegraph_for(profile);
             let active_start = tel;
             let active_end = tel + strike_s;
+            // BD3 anticipation as MOVE data: the authored telegraph cue/vfx fire as
+            // one-shot `MoveEvent`s on the windup's rising edge, through the SAME
+            // `dispatch_move_events` channel every actor move uses. Authored just
+            // after t=0 (events fire on the first clock crossing, `at_s > t_prev`);
+            // a move started at the strike edge (`t0 = tel`) never crosses them, so
+            // a skipped windup correctly plays no anticipation.
+            let mut events: Vec<MoveEvent> = Vec::new();
+            if tel > 0.0 {
+                if let Some(spec) = telegraph_spec {
+                    if let Some(cue) = spec.cue.clone() {
+                        events.push(MoveEvent {
+                            at_s: TELEGRAPH_EDGE_S,
+                            kind: MoveEventKind::Sfx { cue },
+                        });
+                    }
+                    if let Some(effect) = spec.vfx.clone() {
+                        events.push(MoveEvent {
+                            at_s: TELEGRAPH_EDGE_S,
+                            kind: MoveEventKind::Vfx { effect },
+                        });
+                    }
+                }
+            }
             let (volumes, sustain_effect) = if let Some(key) = profile.special_key() {
                 (Vec::new(), Some(EffectRef::new(key)))
             } else {
@@ -165,8 +201,15 @@ pub fn boss_attack_moveset(
                     tag: WindowTag::Active,
                     volumes,
                     sustain_effect,
+                    // The boss's authored strike-speed throttle IS the move's
+                    // motion lock: while the strike is live the body's steering
+                    // intent is scaled down at integration, so the boss cannot
+                    // outrun its own committed strike — for ANY controller
+                    // (autonomous pattern or possessing player alike; formerly a
+                    // brain-side damping that possession bypassed).
+                    motion_scale: behavior.strike_speed_scale.clamp(0.0, 1.0),
                 }],
-                events: Vec::new(),
+                events,
                 gates: Default::default(),
                 start_impulse: None,
                 smash_charge_mult: 1.0,

@@ -524,13 +524,6 @@ pub struct BossPatternCfg {
     /// `BossMovementProfile` itself into a phase-aware variant.
     pub movement_phase2: Option<BossMovementProfile>,
     pub movement_enrage: Option<BossMovementProfile>,
-    /// Multiplier applied to movement speed during any active strike.
-    /// Content techniques may anchor world-space effects
-    /// at the boss position; if the boss keeps sliding sideways
-    /// during the strike the hitboxes drift away from the visible
-    /// telegraph. Set to `< 1.0` to slow the boss while a strike is
-    /// committed. `1.0` keeps the legacy behavior.
-    pub strike_speed_scale: f32,
     /// World-space anchor the movement profile sways around. Captured
     /// from `BossRuntime::spawn` at spawn time so the brain doesn't
     /// have to query the runtime.
@@ -538,14 +531,19 @@ pub struct BossPatternCfg {
     /// Combat collision size (used for the soft world-bounds clamp on
     /// `desired_vel`). Captured from `BossRuntime::combat_size`.
     pub combat_size: ae::Vec2,
-    /// Cycle-mode windup duration (seconds). Used by `BossAttackPattern::Cycle`
-    /// to time the windup → active transition. Built from
+    /// Cycle-mode windup duration (seconds) — MOVE-AUTHORING input only: it
+    /// becomes each rotation move's telegraph prefix via
+    /// [`Self::telegraph_windows`] at spawn. The brain runs no windup clock of
+    /// its own; the live move's windows are the one timeline. Built from
     /// `BossBehaviorProfile::attack_windup.max(0.01)`.
     pub cycle_attack_windup: f32,
-    /// Cycle-mode active hit-window duration (seconds). Built from
+    /// Cycle-mode active hit-window duration (seconds) — MOVE-AUTHORING input
+    /// only, via [`Self::special_repertoire`]. Built from
     /// `BossBehaviorProfile::attack_active.max(combat_tuning.boss_attack_active).max(0.01)`.
     pub cycle_attack_active: f32,
-    /// Cycle-mode cooldown duration (seconds). Built from
+    /// Cycle-mode rest duration between attacks (seconds) — decision policy:
+    /// the pattern waits this long after a move ends before requesting the
+    /// next. Also the historic rotation divisor. Built from
     /// `BossBehaviorProfile::attack_cooldown.max(0.05)`.
     pub cycle_attack_cooldown: f32,
     /// Cycle-mode rotation of attack profiles. The brain picks
@@ -587,7 +585,6 @@ impl BossPatternCfg {
             },
             movement_phase2: None,
             movement_enrage: None,
-            strike_speed_scale: 1.0,
             spawn: ae::Vec2::ZERO,
             combat_size: ae::Vec2::new(100.0, 100.0),
             cycle_attack_windup: 0.5,
@@ -652,17 +649,27 @@ impl BossPatternCfg {
     /// profile with no authored telegraph (a bare `Strike`, or `Cycle` with no
     /// windup) is absent → the caller treats it as `0.0`. `Cycle` bosses telegraph
     /// with `cycle_attack_windup` for every rotation profile.
-    pub fn telegraph_windows(&self) -> Vec<(BossAttackProfile, f32)> {
-        let mut out: Vec<(BossAttackProfile, f32)> = Vec::new();
-        let mut push = |profile: &BossAttackProfile, duration: f32| {
-            if duration > 0.0 && !out.iter().any(|(p, _)| p == profile) {
-                out.push((profile.clone(), duration));
-            }
-        };
+    ///
+    /// Each entry also carries the FIRST-SEEN authored [`TelegraphSpec`] for the
+    /// profile (BD3 anticipation), so the moveset bake can express the cue/vfx as
+    /// `MoveEvent`s on the windup's rising edge — the shared move lifecycle owns
+    /// the anticipation presentation, not a parallel telegraph channel.
+    pub fn telegraph_windows(&self) -> Vec<(BossAttackProfile, f32, Option<TelegraphSpec>)> {
+        let mut out: Vec<(BossAttackProfile, f32, Option<TelegraphSpec>)> = Vec::new();
+        let mut push =
+            |profile: &BossAttackProfile, duration: f32, spec: Option<&TelegraphSpec>| {
+                if duration > 0.0 && !out.iter().any(|(p, _, _)| p == profile) {
+                    out.push((
+                        profile.clone(),
+                        duration,
+                        spec.filter(|s| s.is_authored()).cloned(),
+                    ));
+                }
+            };
         match &self.pattern {
             BossAttackPattern::Cycle => {
                 for profile in &self.cycle_attacks {
-                    push(profile, self.cycle_attack_windup);
+                    push(profile, self.cycle_attack_windup, None);
                 }
             }
             BossAttackPattern::Scripted {
@@ -675,10 +682,12 @@ impl BossPatternCfg {
                 for pattern in [intro, phase1, transition, phase2, enrage] {
                     for step in &pattern.steps {
                         if let BossPatternStep::Telegraph {
-                            profile, duration, ..
+                            profile,
+                            duration,
+                            telegraph,
                         } = step
                         {
-                            push(profile, *duration);
+                            push(profile, *duration, telegraph.as_ref());
                         }
                     }
                 }
@@ -731,12 +740,13 @@ pub struct BossPatternState {
     /// attack profile is current (`pattern_timer / cycle_attack_cooldown`).
     /// Advances by `dt` each tick.
     pub pattern_timer: f32,
-    /// Cycle-mode phase the brain is currently in. Scripted patterns
-    /// leave this at `CyclePhase::Cooldown` and ignore it.
-    pub cycle_phase: CyclePhase,
-    /// Seconds remaining in the current cycle phase. Drained by
-    /// `dt`; transition to the next cycle phase happens at 0.
-    pub cycle_phase_remaining: f32,
+    /// Cycle-mode REST clock: seconds until the pattern requests its next
+    /// attack, counting down only while no move is playing. This is decision
+    /// policy (when to attack next) — the windup→strike timeline itself is the
+    /// live move's own windows, observed back through
+    /// [`BossPatternContext::live_attack`], never a parallel brain clock.
+    /// Scripted patterns ignore it.
+    pub cycle_rest_remaining: f32,
     /// High-level chase/engage/retreat state. Defaults to `Engage`.
     pub macro_state: BossMacroState,
     /// Seconds spent in the current `Engage` window. Reset to 0
@@ -787,18 +797,6 @@ pub struct StanceReturn {
     /// Elapsed within that step. An interrupt keeps it, so a boss yanked out of a
     /// telegraph resumes the telegraph where it left off rather than restarting.
     pub step_elapsed: f32,
-}
-
-/// Three-state cycle-mode attack lifecycle.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum CyclePhase {
-    /// Boss is on cooldown between attacks; emits no intent.
-    #[default]
-    Cooldown,
-    /// Boss is telegraphing an attack; volumes draw but no damage.
-    Windup,
-    /// Boss attack is live; the active profile is emitted as intent.
-    Active,
 }
 
 /// High-level "what is the boss doing right now?" state, layered
@@ -957,9 +955,25 @@ impl BossMacroTuning {
     }
 }
 
+/// The brain's per-tick OBSERVATION of its own live attack move — built by the
+/// boss tick system from the projected [`BossAttackState`] read-model (one
+/// frame stale, deterministically). The move is the ONE execution timeline;
+/// the brain reads it back instead of running a parallel windup/active clock:
+/// cycle mode sustains its request through the observed windup (an intent that
+/// vanishes mid-windup tells the trigger to abort) and starts its rest clock
+/// when the observed move ends.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LiveBossAttack {
+    /// The profile of the move currently playing.
+    pub profile: BossAttackProfile,
+    /// `true` once the move is inside its Active (strike) window — committed;
+    /// `false` while it is still winding up.
+    pub striking: bool,
+}
+
 /// Per-tick read-only inputs to [`tick_boss_pattern`]. The boss tick
 /// system builds this from the boss entity's components.
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Clone, Debug)]
 pub struct BossPatternContext {
     /// Boss encounter phase this tick (forwarded by the system from
     /// `BossEncounterRegistry`). Drives pattern selection + the
@@ -993,6 +1007,11 @@ pub struct BossPatternContext {
     /// health is the only evidence of a hit it actually needs.
     pub hp_current: i32,
     pub hp_max: i32,
+    /// The boss's live attack move, observed from the projected
+    /// [`BossAttackState`] read-model (see [`LiveBossAttack`]). `None` when no
+    /// move is playing — including on the universal snapshot tick path, which
+    /// runs Dormant and never attacks.
+    pub live_attack: Option<LiveBossAttack>,
 }
 
 impl BossPatternContext {
@@ -1022,10 +1041,6 @@ pub struct BossAttackState {
     /// Consumers use this to sample sprite-authored per-frame
     /// hit/hurt boxes without depending on presentation components.
     pub telegraph_elapsed: f32,
-    /// BD3: authored anticipation associated with the live telegraph. Presentation
-    /// reads this one read-model rather than re-walking the pattern. `None` when
-    /// nothing is telegraphing or no anticipation metadata is available.
-    pub telegraph_spec: Option<TelegraphSpec>,
     /// `Some(profile)` while the live move is in its active strike window;
     /// `None` outside that window.
     pub active_profile: Option<BossAttackProfile>,
@@ -1074,7 +1089,6 @@ impl BossAttackState {
     /// phase (Dormant / Stagger / Death).
     pub fn clear(&mut self) {
         self.telegraph_profile = None;
-        self.telegraph_spec = None;
         self.telegraph_remaining = 0.0;
         self.telegraph_elapsed = 0.0;
         self.active_profile = None;

@@ -39,6 +39,7 @@ fn pogo_dair() -> MoveSpec {
                 vfx: None,
             }],
             sustain_effect: None,
+            motion_scale: 1.0,
         }],
         events: vec![],
         gates: Default::default(),

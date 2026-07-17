@@ -158,11 +158,22 @@ Each phase compiles, is tested, and lands as its own commit(s) on main.
   the scheme lacks (Sanic shows no Attack/Shot); dropped the `PlayerAffordances`
   label reach. Full app graph compiles; 35 touch tests green.
 
+- P4-minimal: in a menu/dialogue the touch overlay's select-functional
+  buttons (Jump/Interact) wear the menu confirm verb ("Select"/"Advance"), and
+  gameplay-only buttons hide. `ControlPrompt.menu_confirm` set per `GameMode`.
+  **Both halves of the original ask now land: character moves AND menu verbs.**
+
 Deferred consciously: `MoveSpec.display_name` field → P6 (authored with its
-fill-in); per-slot glyphs → P1/P5 (the overlay keeps its glyph subtitle);
-menu-context labels → P4 (the read-model publishes an explicit empty menu
-context today). P1, P3, P4, P5, P6 pending. **Not yet runtime-playtested** —
-compile + seam-unit verified; the on-screen relabel/hide wants a visual check.
+fill-in); per-slot glyphs → P1/P5 (the overlay keeps its glyph subtitle); the
+SPECIFIC menu item verb (Equip/Use from the app menu model) → P4b (needs the
+app-side provider); `SandboxAction::Special` slot → paired with P3's alias
+split. Pending: **P4b** (item verbs), **P1** (ActiveBindings source-of-truth +
+the live preset-split bug), **P3** (the kernel seam refactor — parity harness
+first, must cover an AI body + surgical special-split), **P5** (remap UX),
+**P6** (cast authoring). **Not yet runtime-playtested** — compile + seam-unit +
+end-to-end-touch-integration verified; the on-screen relabel/hide wants a
+visual check (headless env has no DISPLAY). P1/P3 are invasive (live input /
+kernel) and want Jon's playtest before landing fully.
 
 ### P0 — Action vocabulary + scheme derivation *(no behavior change)*
 

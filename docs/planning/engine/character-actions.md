@@ -146,11 +146,23 @@ Each phase compiles, is tested, and lands as its own commit(s) on main.
 `engine_core` struct changes are batched inside P3 (one full-rebuild window,
 ~10min build discipline).
 
-**Status:** P0a ✅ (`entity_catalog::action_scheme` vocabulary + combat
-derivation, 5 tests) and P0b ✅ (`characters::action_scheme` —
-`derive_action_scheme` + `ActorActionScheme` + parity guard, 4 tests) landed
-2026-07-17. Remaining P0 wiring (attach/reconcile the component onto bodies)
-rides with its first consumer in P2. P1–P6 pending.
+**Status (2026-07-17):** **P0 ✅ + P2 ✅ landed — the shippable milestone.**
+- P0a: `entity_catalog::action_scheme` vocabulary + combat derivation (5 tests).
+- P0b: `characters::action_scheme` — `derive_action_scheme` + `ActorActionScheme`
+  + scheme⇔behavior parity guard (4 tests).
+- P2a: `actors::action_scheme::reconcile_action_schemes` attaches the scheme to
+  every body from its live `AbilitySet` + moveset, change-detected (3 tests).
+- P2b: `sim_view::ControlPrompt` read-model — the controlled subject's labels,
+  follows possession (2 tests).
+- P2c: the touch overlay's buttons relabel from `ControlPrompt` and hide slots
+  the scheme lacks (Sanic shows no Attack/Shot); dropped the `PlayerAffordances`
+  label reach. Full app graph compiles; 35 touch tests green.
+
+Deferred consciously: `MoveSpec.display_name` field → P6 (authored with its
+fill-in); per-slot glyphs → P1/P5 (the overlay keeps its glyph subtitle);
+menu-context labels → P4 (the read-model publishes an explicit empty menu
+context today). P1, P3, P4, P5, P6 pending. **Not yet runtime-playtested** —
+compile + seam-unit verified; the on-screen relabel/hide wants a visual check.
 
 ### P0 — Action vocabulary + scheme derivation *(no behavior change)*
 

@@ -196,12 +196,26 @@ Landed:
   repro_walls (9). (A first regex attempt was reverted; the redone
   qualified-path transform — skip `-> [path::]InputState {`, comment-strip,
   hand-fix one shorthand init — landed cleanly. Steps 7-8 folded in here.)
-- **Remaining:** step 5 (the shared `binding→slot→scheme→gate` resolver consumed
-  by *both* the player brain and `ControlPrompt` — the drift-preventer), step 9
-  (Sanic ball-dash → a scheme technique; wire `techniques` into
-  `derive_action_scheme`), step 10 (retire the `special_pressed = blink_pressed`
-  alias — Special now has an input slot, needs the resolver to flow it), step 11
-  (explicit AI-body movement parity test), step 12 (ADR).
+- **Step 10 — LANDED** (`57e529123`): the `special_pressed = blink_pressed` alias
+  is retired. `ControlFrame` gained a `special_pressed` field (serde-default-safe
+  for the stream; per-field OR merge), sourced from `SandboxAction::Special`; the
+  brain reads it instead of blink. Surgical + positive test: Special fires
+  special not blink, Blink fires blink not special. Validated netcode-clean —
+  the `desync_canary` suite (incl. the snapshot-coverage ledger) is 19/19 green.
+- **Step 11 — LANDED** (`cf24c5558`): explicit AI-body movement parity test
+  (AI bodies route jump/dash/blink + the post-hit gates through the re-keyed
+  bridge).
+- **Step 12 — LANDED**: [ADR 0025](../../adr/0025-character-actions-input-ownership.md).
+- **Snapshot ledger:** `ControlPrompt` (resource) and `ActorActionScheme`
+  (component) recorded as reviewed derived debt — both are intentionally
+  unregistered (rebuilt/re-reconciled each tick from snapshotted authorities).
+- **Remaining (2 of 12): step 5** — the shared `binding→slot→scheme→gate`
+  resolver consumed by *both* the player brain and `ControlPrompt` (the
+  drift-preventer; refactors the player-brain input path) — and **step 9** —
+  Sanic ball-dash → a scheme technique (wire `techniques` into
+  `derive_action_scheme`, which still receives `&[]`). These two are
+  intertwined (a technique's slot flows through the resolver) and are best done
+  as one focused unit.
 
 Deferred consciously: `MoveSpec.display_name` field → P6 (authored with its
 fill-in); per-slot glyphs → P1/P5 (the overlay keeps its glyph subtitle); the

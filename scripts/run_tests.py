@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+"""Ambition test runner -- a pytest-like front door to the whole cargo suite.
+
+`./run_tests.sh` (which execs this) runs *everything that can run headlessly*:
+the default `cargo test --workspace`, PLUS one job per crate that has extra
+feature-gated tests, with those features turned on. Heavy/diagnostic tests are
+marked `#[ignore]` in Rust (the "skip marker") and are opt-in via `--heavy`.
+
+Why per-crate feature jobs: cargo unifies features per build graph, and there is
+no safe workspace-wide "--all-features" here (that would pull in android/web/wasm
+targets). So to actually COMPILE AND RUN a crate's `#[cfg(feature = "...")]`
+tests, we enable that crate's headless-safe features in its own `cargo test -p`
+invocation. The safe set is computed from each Cargo.toml (own features minus a
+platform/wasm/static-asset denylist), so it can't drift as features are added.
+
+Usage:
+  ./run_tests.sh                     # full headless suite (excludes #[ignore])
+  ./run_tests.sh --heavy             # ALSO run #[ignore]d tests + app acceptance
+  ./run_tests.sh --list              # print the job plan, run nothing
+  ./run_tests.sh -k <substr>         # only tests whose name contains <substr>
+  ./run_tests.sh -p <crate>          # only that crate's job (repeatable)
+  ./run_tests.sh --fast              # backbone only: `cargo test --workspace`
+  ./run_tests.sh -- --nocapture      # args after `--` go to libtest
+
+Exit code is nonzero if any job fails. A pytest-style summary is printed last.
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import subprocess
+import sys
+import time
+import tomllib
+from dataclasses import dataclass, field
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+CARGO = os.path.expanduser("~/.cargo/bin/cargo")
+if not os.path.exists(CARGO):
+    CARGO = "cargo"
+
+# Features that cannot run on a headless desktop test host: other-platform
+# selectors, wasm/web, and static-asset embedding (needs generated assets).
+# Everything else (visible, input, ui, audio, kira, portal*, dev_tools,
+# basic_presentation, falling_sand, mobile_touch, ...) is headless-safe here --
+# the suite already exercises them via default features.
+DENY_EXACT = {
+    "default",
+    "android", "android_dev", "android_platform",
+    "web", "web_platform", "web_served", "web_served_assets", "web_audio",
+    "visible_web", "visible_web_base", "visible_web_served",
+    "static_map", "static_core_assets", "static_sfx_bank",
+    "dev_hot_reload",
+    # `headless` swaps in a windowless render path; the default `visible` graph
+    # already runs headlessly in tests, and enabling both double-registers
+    # render setup. No test gates on `headless`, so denying it loses nothing.
+    "headless",
+}
+DENY_PREFIX = ("android", "web", "visible_web", "static_")
+
+
+def is_denied(feat: str) -> bool:
+    return feat in DENY_EXACT or feat.startswith(DENY_PREFIX)
+
+
+def workspace_members() -> list[Path]:
+    text = (REPO / "Cargo.toml").read_text()
+    body = re.search(r"members\s*=\s*\[(.*?)\]", text, re.S).group(1)
+    out = []
+    for line in body.splitlines():
+        line = line.strip().strip(",").strip()
+        if line and not line.startswith("#"):
+            out.append(REPO / line.strip('"'))
+    return out
+
+
+def expand_default(features: dict[str, list[str]]) -> set[str]:
+    """Feature names transitively pulled in by `default` (same-crate only)."""
+    seen: set[str] = set()
+    stack = list(features.get("default", []))
+    while stack:
+        f = stack.pop().split("/")[0]
+        if f in features and f not in seen:
+            seen.add(f)
+            stack.extend(features[f])
+    return seen
+
+
+def crate_has_tests(crate: Path) -> bool:
+    if (crate / "tests").is_dir():
+        return True
+    src = crate / "src"
+    if not src.is_dir():
+        return False
+    for rs in src.rglob("*.rs"):
+        t = rs.read_text(errors="replace")
+        if "#[test]" in t or "#[cfg(test)]" in t:
+            return True
+    return False
+
+
+@dataclass
+class Job:
+    name: str
+    argv: list[str]
+
+
+def build_jobs(only: list[str], heavy: bool, libtest_args: list[str]) -> list[Job]:
+    jobs: list[Job] = []
+
+    def libtest(extra: list[str] = ()) -> list[str]:
+        tail = list(libtest_args) + list(extra)
+        return (["--"] + tail) if tail else []
+
+    # Backbone: every crate's default-feature tests in one unified graph.
+    if not only:
+        jobs.append(Job("workspace (default features)",
+                        [CARGO, "test", "--workspace", *libtest()]))
+
+    # Per-crate feature jobs: enable each crate's headless-safe extra features so
+    # its #[cfg(feature = "...")] tests actually compile and run.
+    for crate in workspace_members():
+        cargo_toml = crate / "Cargo.toml"
+        if not cargo_toml.exists():
+            continue
+        name = crate.name
+        if only and name not in only:
+            continue
+        data = tomllib.loads(cargo_toml.read_text())
+        features = data.get("features", {})
+        default = expand_default(features)
+        extra = sorted(f for f in features
+                       if not is_denied(f) and f not in default)
+        if not extra or not crate_has_tests(crate):
+            continue
+        jobs.append(Job(f"{name} [{','.join(extra)}]",
+                        [CARGO, "test", "-p", name,
+                         "--features", ",".join(extra), *libtest()]))
+
+    # Heavy pass: rerun including #[ignore]d tests, plus the shipping-entrypoint
+    # acceptance cycles (full app boot).
+    if heavy and not only:
+        jobs.append(Job("workspace (+ ignored)",
+                        [CARGO, "test", "--workspace",
+                         *libtest(["--include-ignored"])]))
+        jobs.append(Job("acceptance: headless cycle",
+                        ["./run_game.sh", "--", "--headless-acceptance-cycle"]))
+        jobs.append(Job("acceptance: headless 120 ticks",
+                        ["./run_game.sh", "--", "--headless", "--headless-ticks", "120"]))
+    return jobs
+
+
+def run(jobs: list[Job], list_only: bool) -> int:
+    if list_only:
+        print(f"Planned {len(jobs)} job(s):\n")
+        for j in jobs:
+            print(f"  {j.name}")
+            print(f"      {' '.join(j.argv)}")
+        return 0
+
+    env = dict(os.environ)
+    env.setdefault("RUST_BACKTRACE", "1")
+    env.setdefault("CARGO_TERM_COLOR", "always")
+    results: list[tuple[str, bool, float]] = []
+    for j in jobs:
+        print(f"\n\033[1m==> {j.name}\033[0m")
+        print("    " + " ".join(j.argv))
+        start = time.monotonic()
+        rc = subprocess.run(j.argv, cwd=REPO, env=env).returncode
+        results.append((j.name, rc == 0, time.monotonic() - start))
+        if rc != 0:
+            print(f"\033[31m    FAILED ({j.name})\033[0m")
+
+    passed = sum(1 for _, ok, _ in results if ok)
+    failed = [n for n, ok, _ in results if not ok]
+    total = sum(d for _, _, d in results)
+    print("\n" + "=" * 60)
+    print(f"  {passed}/{len(results)} jobs passed in {total:.0f}s")
+    if failed:
+        print("  FAILED jobs:")
+        for n in failed:
+            print(f"    - {n}")
+    print("=" * 60)
+    return 1 if failed else 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        description="Ambition full test suite runner (pytest-like).",
+        formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
+    ap.add_argument("--heavy", action="store_true",
+                    help="also run #[ignore]d tests and app acceptance cycles")
+    ap.add_argument("--fast", action="store_true",
+                    help="backbone only: cargo test --workspace")
+    ap.add_argument("--list", action="store_true", help="print job plan, run nothing")
+    ap.add_argument("-k", metavar="SUBSTR", default=None,
+                    help="only tests whose name contains SUBSTR (libtest filter)")
+    ap.add_argument("-p", "--package", action="append", default=[],
+                    help="restrict to this crate's job (repeatable)")
+    ap.add_argument("cargo_extra", nargs="*",
+                    help="args after `--` forwarded to libtest")
+    args = ap.parse_args()
+
+    libtest_args = list(args.cargo_extra)
+    if args.k:
+        libtest_args.insert(0, args.k)
+
+    if args.fast:
+        jobs = [Job("workspace (default features)",
+                    [CARGO, "test", "--workspace"]
+                    + (["--"] + libtest_args if libtest_args else []))]
+    else:
+        jobs = build_jobs(args.package, args.heavy, libtest_args)
+    return run(jobs, args.list)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

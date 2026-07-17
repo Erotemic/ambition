@@ -32,6 +32,7 @@ use std::collections::{BTreeMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
+pub mod action_scheme;
 pub mod placements;
 
 // ---------------------------------------------------------------------------
@@ -415,6 +416,15 @@ fn default_motion_scale() -> f32 {
 }
 
 impl MoveSpec {
+    /// The player-facing label for this move — used by the action scheme to
+    /// name the slot this move occupies. Today a title-cased `id`
+    /// (`"sandbag_swat"` → `"Sandbag Swat"`); P6 adds an authored
+    /// `display_name: Option<String>` field that this reads first, filled in
+    /// the same commit that touches the move construction sites.
+    pub fn display(&self) -> String {
+        crate::action_scheme::title_case_id(&self.id)
+    }
+
     /// CM5: validate this move's PRESENTATION event ids so a typo fails loudly
     /// at load, never as a silent missing sound/effect. `vfx_known` is the
     /// injected cosmetic-vfx vocabulary oracle (this crate does not depend on

@@ -387,12 +387,14 @@ fn reconcile_temporary_control(world: &mut World) {
     }
 
     // The player's home avatar (keeps `PrimaryPlayer` even while its brain is
-    // vacated onto a possessed body).
-    let home = {
+    // vacated onto a possessed body). A defensive fallback only — the possessed
+    // body's snapshotted controller id is the authority (see below).
+    let primary_player_home = {
         let mut q = world.query_filtered::<Entity, bevy::ecs::query::With<PrimaryPlayer>>();
         q.iter(world).next()
     };
-    // Stable-id → entity, to rebuild raw-`Entity` relationships (mount links).
+    // Stable-id → entity, to rebuild raw-`Entity` relationships (mount links) and
+    // to resolve the authoritative possession controller id.
     let by_sim_id: std::collections::BTreeMap<String, Entity> = {
         let mut q = world.query::<(Entity, &SimId)>();
         q.iter(world)
@@ -401,12 +403,58 @@ fn reconcile_temporary_control(world: &mut World) {
     };
 
     // ── Possession ──────────────────────────────────────────────────────────
-    let possessed = bodies
+    // Exactly one body may be player-controlled. More than one is a corrupt
+    // snapshot (two vacated homes, a double-assigned slot); surface it rather than
+    // silently picking one.
+    let player_bodies: Vec<&Body> = bodies
         .iter()
-        .find(|b| matches!(b.control, TemporaryControl::Player { .. }))
-        .map(|b| b.entity);
+        .filter(|b| matches!(b.control, TemporaryControl::Player { .. }))
+        .collect();
+    if player_bodies.len() > 1 {
+        error!(
+            target: "ambition_actors::snapshot_reconcile",
+            "restore: {} bodies are player-controlled (expected <= 1); using the first",
+            player_bodies.len(),
+        );
+    }
+    let possessed = player_bodies.first().map(|b| (b.entity, b.control.clone()));
 
-    if let Some(target) = possessed {
+    if let Some((target, control)) = possessed {
+        // The controller is authoritative: resolve the stable id the snapshot
+        // stored, NOT whichever body happens to carry `PrimaryPlayer`. Diagnose a
+        // missing controller or a disagreement rather than silently diverging.
+        let controller_id = match &control {
+            TemporaryControl::Player { controller } => Some(controller.as_str().to_string()),
+            _ => None,
+        };
+        let home = match controller_id
+            .as_deref()
+            .and_then(|id| by_sim_id.get(id).copied())
+        {
+            Some(resolved) => {
+                if let Some(pp) = primary_player_home {
+                    if pp != resolved {
+                        warn!(
+                            target: "ambition_actors::snapshot_reconcile",
+                            "restore: possession controller id {:?} resolves to a different body \
+                             than PrimaryPlayer; trusting the stored controller id",
+                            controller_id,
+                        );
+                    }
+                }
+                Some(resolved)
+            }
+            None => {
+                warn!(
+                    target: "ambition_actors::snapshot_reconcile",
+                    "restore: possession controller id {:?} did not resolve to any body; \
+                     falling back to PrimaryPlayer",
+                    controller_id,
+                );
+                primary_player_home
+            }
+        };
+
         // A possessed body: install the player brain, vacate the home avatar, and
         // rebuild the possession bookkeeping. `restore_brain` is the CURRENT
         // autonomous source (so a source changed during possession resumes on
@@ -438,7 +486,7 @@ fn reconcile_temporary_control(world: &mut World) {
                 }
             }
         }
-        if let Some(home) = home {
+        if let Some(home) = primary_player_home {
             let home_drives = world
                 .get::<Brain>(home)
                 .map(Brain::is_player)
@@ -720,5 +768,57 @@ mod tests {
             "the home avatar drives again"
         );
         assert_eq!(w.resource::<PossessionState>().possessed, None);
+    }
+
+    /// The stored controller `SimId` is authoritative: reconcile resolves the home
+    /// avatar by that stable id, NOT by whichever body carries `PrimaryPlayer`.
+    /// Here the home has the controller id but no `PrimaryPlayer` marker, yet
+    /// possession still vacates and rebinds to it.
+    #[test]
+    fn possession_resolves_the_home_by_controller_id_not_primary_player() {
+        let mut w = World::new();
+        w.insert_resource(test_roster());
+        w.insert_resource(catalog());
+        w.init_resource::<PossessionState>();
+        // Home carries the controller id and a live player brain, but NOT the
+        // `PrimaryPlayer` marker — so a `PrimaryPlayer` lookup would find nothing.
+        let home = w
+            .spawn((SimId::player_slot(0), Brain::Player(PlayerSlot::PRIMARY)))
+            .id();
+        let brain = wanderer(&w);
+        let npc = w
+            .spawn((
+                SimId::placement("npc"),
+                BrainBinding::new(
+                    BrainPresetId::new("wanderer_x"),
+                    AutonomousSource::CatalogDefault,
+                ),
+                config_fixture(),
+                CombatKit::default(),
+                brain,
+                TemporaryControl::Player {
+                    controller: SimId::player_slot(0),
+                },
+                AuthoredBrainContext::from_placement(0.0, 0.0),
+            ))
+            .id();
+
+        reconcile_autonomous_actors(&mut w);
+
+        assert!(
+            w.get::<Brain>(npc).unwrap().is_player(),
+            "the possessed NPC carries the player brain"
+        );
+        assert!(
+            w.get::<Brain>(home).is_none(),
+            "the home avatar, resolved via the stored controller id, is vacated"
+        );
+        let possession = w.resource::<PossessionState>();
+        assert_eq!(possession.possessed, Some(npc));
+        assert_eq!(
+            possession.home,
+            Some(home),
+            "home resolved via the stored controller id, not PrimaryPlayer"
+        );
     }
 }

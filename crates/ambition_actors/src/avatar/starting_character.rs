@@ -244,9 +244,19 @@ fn apply_worn_character_kit(
     }
 
     let (set, charges_projectiles) = resolve_playable_action_set(source, authored, base_abilities);
+    // Fold `ActionSet.special` into a real `"special"`-verb move ONLY for the
+    // HostCode / compat player kit, whose special is a capability marker
+    // (bubble_shield) with no authored move. AUTHORED personas — bosses and other
+    // possessed characters — drive their specials through their authored path
+    // (`dispatch_boss_special` / signature moves), so folding a generic shell move
+    // here would CONFLICT: a possessed boss's `special_pressed` would fire the
+    // shell instead of (or on top of) its authored special.
+    let special = match source {
+        Some(ambition_characters::actor::character_catalog::PlayableKitSource::Authored) => None,
+        _ => set.special.as_ref(),
+    };
     *moveset = ActorMoveset(
-        build_actor_moveset(None, set.melee.as_ref(), None, set.special.as_ref())
-            .unwrap_or_default(),
+        build_actor_moveset(None, set.melee.as_ref(), None, special).unwrap_or_default(),
     );
     *action_set = set;
     charges_projectiles

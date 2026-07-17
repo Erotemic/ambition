@@ -94,6 +94,9 @@ impl From<RecordedControls> for AgentAction {
             jump_released: c.jump_released,
             dash: c.dash_pressed,
             attack: c.attack_pressed,
+            // Recorded traces predate the dedicated Special slot; a replay carries
+            // no special edge.
+            special: false,
             blink: c.blink_pressed,
             blink_held: c.blink_held,
             blink_released: c.blink_released,

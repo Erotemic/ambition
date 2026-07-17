@@ -37,6 +37,12 @@ pub struct AgentAction {
     pub jump_released: bool,
     pub dash: bool,
     pub attack: bool,
+    /// Signature special (`SandboxAction::Special`). A dedicated slot since the
+    /// `special_pressed = blink_pressed` alias was retired: pressing `blink` no
+    /// longer fires a body's special, so an agent/scripted driver sets THIS to
+    /// command the special (the folded player bubble_shield, a boss's authored
+    /// content special via `dispatch_boss_special`, …).
+    pub special: bool,
     pub blink: bool,
     pub blink_held: bool,
     pub blink_released: bool,
@@ -120,8 +126,9 @@ impl From<AgentAction> for ControlFrame {
             blink_pressed: a.blink,
             blink_held: a.blink_held,
             blink_released: a.blink_released,
-            // No dedicated special in the agent action space yet.
-            special_pressed: false,
+            // Dedicated special slot (the alias `special_pressed = blink_pressed`
+            // is retired): agents fire the special through `a.special`, not blink.
+            special_pressed: a.special,
             attack_pressed: a.attack,
             pogo_pressed: a.pogo,
             fly_toggle_pressed: a.fly_toggle,

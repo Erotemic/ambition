@@ -25,6 +25,7 @@ pub fn base() -> AgentAction {
         jump_released: false,
         dash: false,
         attack: false,
+        special: false,
         blink: false,
         blink_held: false,
         blink_released: false,

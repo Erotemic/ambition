@@ -202,6 +202,21 @@ pub(crate) fn provoke_actor_in_place(
                 em.config, combat_kit, held_item,
             );
         commands.entity(entity).insert((brain, action_set));
+        // Keep the autonomous brain binding HONEST. This installs a NON-catalog
+        // hostile brain (built from the roster archetype, not a `brain_preset`), so
+        // a catalog-backed NPC's binding must record that its live brain is now
+        // externally owned. Otherwise a snapshot reconcile would rebuild the
+        // catalog default over this attack brain while `ActorDisposition` stayed
+        // Hostile — the exact Brain/binding inconsistency this marks away. Deferred
+        // so it lands with the `(brain, action_set)` insert; a no-op for anonymous
+        // NPCs/enemies that carry no binding.
+        commands.queue(move |world: &mut bevy::prelude::World| {
+            if let Some(mut binding) =
+                world.get_mut::<ambition_characters::actor::character_catalog::BrainBinding>(entity)
+            {
+                binding.mark_external();
+            }
+        });
     }
     if chase {
         em.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Chase;

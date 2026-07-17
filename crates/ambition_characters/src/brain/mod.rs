@@ -260,6 +260,42 @@ impl Brain {
             },
         }
     }
+
+    /// Two brains share the same AUTHORED configuration iff they are the same
+    /// variant with equal immutable tuning — ignoring mutable runtime state
+    /// (patrol/skirmisher cursors, boss/smash clocks and history). This is
+    /// finer-grained than [`label`](Self::label): `wanderer_slow` and
+    /// `wanderer_fast` both label as `"wanderer"` but differ here.
+    ///
+    /// Snapshot reconciliation uses it to decide whether a live brain already
+    /// matches the brain a restored selection resolves to (leave the ticking
+    /// state in place) versus a genuinely different preset in the same family
+    /// (rebuild). `Smash` / `BossPattern` / `Player` compare by variant only:
+    /// their tuning is derived (sheet metrics) or their runtime state is exactly
+    /// what a rewind restores, so a same-variant match must PRESERVE the
+    /// cursor-restored brain rather than rebuild a fresh one.
+    pub fn same_authored_configuration(&self, other: &Self) -> bool {
+        use StateMachineCfg as C;
+        match (self, other) {
+            (Brain::Player(a), Brain::Player(b)) => a == b,
+            (Brain::StateMachine(a), Brain::StateMachine(b)) => match (a, b) {
+                (C::StandStill, C::StandStill) => true,
+                (C::Patrol { cfg: x, .. }, C::Patrol { cfg: y, .. }) => x == y,
+                (C::Wanderer { cfg: x }, C::Wanderer { cfg: y }) => x == y,
+                (C::MeleeBrute { cfg: x, .. }, C::MeleeBrute { cfg: y, .. }) => x == y,
+                (C::Skirmisher { cfg: x, .. }, C::Skirmisher { cfg: y, .. }) => x == y,
+                (C::Sniper { cfg: x, .. }, C::Sniper { cfg: y, .. }) => x == y,
+                (C::ChargeCrash { cfg: x, .. }, C::ChargeCrash { cfg: y, .. }) => x == y,
+                (C::Aerial { cfg: x, .. }, C::Aerial { cfg: y, .. }) => x == y,
+                (C::PlayerDemo { cfg: x, .. }, C::PlayerDemo { cfg: y, .. }) => x == y,
+                // Variant-only for the stateful brains (see the doc note).
+                (C::Smash { .. }, C::Smash { .. }) => true,
+                (C::BossPattern { .. }, C::BossPattern { .. }) => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
 }
 
 /// Sibling component holding the actor's last-tick control frame.

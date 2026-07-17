@@ -103,11 +103,7 @@ pub use components::{
 pub use crate::encounter::{SwitchActivated, SwitchFeature, SwitchOn};
 pub use ambition_persistence::quest::QuestAdvanceRequested;
 pub use ambition_platformer_primitives::feature_kind::{BoundFeatureKind, FeatureVisualKind};
-pub use brain_command::{
-    apply_brain_commands, route_actor_directives, ActorActionKind, ActorActionRequest,
-    ActorAnimationDirective, ActorDirective, ActorDirectiveRequest, BrainCommand, BrainCommandKind,
-    BrainCommandPlugin, DispositionDirective, DispositionDirectiveKind,
-};
+pub use brain_command::{apply_brain_commands, BrainCommand, BrainCommandKind, BrainCommandPlugin};
 pub use ecs::actor_bundles::{
     ChestBundle, EnemyActorBundle, FeatureBaseBundle, FeatureLifecycleBundle,
     FeatureRenderedBundle, PickupBundle,

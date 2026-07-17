@@ -146,27 +146,42 @@ sentinel. The pieces (see
   *this instance's* initial brain regardless of the character default. Absent /
   empty means "use the catalog default". A stable preset id is authored (never a
   serialized runtime `Brain`), resolved at spawn by `resolve_initial_brain`
-  (precedence: override → catalog default → clear error). `patrol_radius` /
-  `patrol_path_id` are PARAMETERS a *selected* patrol preset consumes for its
-  lane; they never select the brain.
+  (precedence: override → catalog default → clear error). Namespace rule: a
+  fully-qualified preset (`provider::name`) is used exactly; a raw name resolves
+  ONLY within the character's own provider namespace (no silent cross-provider
+  fallback). `patrol_radius` PARAMETERIZES a *selected* patrol preset's lane; it
+  never selects the brain. A `patrol_path_id` is a **separate** movement
+  attachment (`ActorMotionPath`), not a brain-build parameter.
+- **`AuthoredBrainContext` (spawn)** — a companion component capturing the actor's
+  authored home (spawn anchor + patrol radius). Retained through runtime switches
+  and snapshot-safe, so a `RestoreDefault` / reconcile rebuilds a patrol brain
+  around where it was AUTHORED, not wherever it wandered.
 - **`BrainCommand::UsePreset` (runtime)** — replace an actor's current autonomous
   behaviour with a fresh brain built from a preset, recording the override on its
   `BrainBinding`. The one deterministic, snapshot-safe switch path
   (`crates/ambition_actors/src/features/brain_command.rs`); ordinary gameplay
-  never edits the `Brain` component directly.
+  never edits the `Brain` component directly. A body under temporary control
+  (player possession / mounted) is not switched.
 - **`BrainCommand::RestoreDefault` (runtime)** — rebuild the character's canonical
   default brain (a FRESH default; no suspended brain is resumed) and clear the
   override.
-- **Action request vs animation directive** — `ActorDirective::RequestAction`
-  performs a real gameplay ACTION (a jump that moves the body); a separate
-  `ActorDirective::PlayAnimation` requests a visual PERFORMANCE with no gameplay
-  effect. They route to distinct channels, so an action can never be mistaken for
-  a mere animation. Disposition/faction changes (`SetDisposition`) are a third,
-  distinct concern — brain choice and allegiance are separate.
+- **Disposition is a separate authority.** Brain choice and allegiance are
+  distinct. Turning an NPC hostile ("fight me") goes through the existing
+  challenge/provocation path (`<<challenge>>` → `ActorStimulus::Challenged` →
+  `provoke_actor_in_place`), which installs a hostile brain and flips
+  `ActorDisposition`. That path is NON-catalog, so it marks the actor's
+  `BrainBinding` as `External`, keeping brain and binding consistent (reconcile
+  leaves an externally-owned brain to that authority instead of rebuilding the
+  catalog default over it). A dialogue outcome pairs `<<challenge>>` with
+  `<<use_brain "attack_preset">>`; "you are free" is `<<restore_brain>>` (→
+  `RestoreDefault`).
 
 Every actor spawned from a catalog row carries a `BrainBinding` (its default
-preset + current default/override selection); it is snapshot-registered, and a
-rewind past a runtime switch reconciles the live `Brain` back to the binding.
+preset + current selection: default / override / external) plus an
+`AuthoredBrainContext`; both are snapshot-registered. A rewind past a runtime
+switch reconciles the live `Brain` back to the binding, comparing *authored
+configuration* (not just the variant label, so `wanderer_slow` and `wanderer_fast`
+are told apart) and skipping player/mounted/external actors.
 
 Hall of Characters pedestals are ordinary, complete NPC instances that stand
 still because each carries an EXPLICIT `brain_override: "stand_still"` — not a

@@ -42,33 +42,41 @@ const GENERIC_HIT_BARKS: &[&str] = &["Hey.", "Cut it out.", "Okay, now I'm mad."
 /// catalog `barks.provoked` pool). Named archetypes author their own.
 const GENERIC_HOSTILE_BARK: &str = "That's it!";
 
-/// Resolve the explicit initial brain (and its runtime [`BrainBinding`]) for a
-/// placed NPC.
+/// Resolve the explicit initial brain (plus its runtime [`BrainBinding`] and the
+/// [`AuthoredBrainContext`] it will rebuild from) for a placed NPC.
 ///
-/// Precedence is entirely explicit: the placement's `brain_override` preset,
-/// else the character's catalog `default_brain`. The placement's `patrol_radius`
-/// / `patrol_path_id` are threaded only as PARAMETERS a *selected* patrol preset
-/// consumes (its lane radius / path); they never SELECT the brain. This function
-/// never inspects the resulting brain — there is no "basic brain" classification,
-/// no `is_hostile` gate, and no `patrol_radius == 0` sentinel.
+/// Precedence is entirely explicit: the placement's `brain_override` preset, else
+/// the character's catalog `default_brain`. The placement's `patrol_radius` is
+/// threaded only as a PARAMETER a *selected* patrol preset consumes (its lane
+/// radius); it never SELECTS the brain. A `patrol_path_id` is a separate movement
+/// attachment, not a brain-build parameter. This function never inspects the
+/// resulting brain — no "basic brain" classification, no `is_hostile` gate, and no
+/// `patrol_radius == 0` sentinel.
 ///
 /// An NPC placed without a `character_id` (legacy / synthetic) has no catalog
 /// identity to resolve a default from: it gets a plain stand-still brain and no
 /// binding (nothing to switch or snapshot). A catalog-backed NPC returns its
-/// binding so runtime gameplay can switch its brain and snapshot the selection.
+/// binding + authored context so runtime gameplay can switch its brain, rebuild
+/// its default around the authored home, and snapshot the selection.
 ///
-/// Fails loud (panics) on unresolvable content — an unknown `character_id` or an
-/// unknown preset name — matching the catalog's pre-release fail-loud stance.
-/// Unknown preset names never fall back silently to the default or StandStill.
+/// Fails loud (panics) on an unknown preset name — matching the catalog's
+/// pre-release fail-loud stance; unknown presets never fall back silently. An
+/// unknown `character_id` is tolerated (stand-still, no binding): a partial-provider
+/// composition (a Hall character whose provider fragment isn't registered in this
+/// host) is an intentional content contract, not a spawn-time crash — the
+/// prepared-content validation test is where unknown ids are caught for a host
+/// that DOES claim to own them.
 pub(crate) fn resolve_npc_brain(
     catalog: &CharacterCatalog,
     interactable: &Interactable,
     spawn_world_x: f32,
-) -> (ambition_characters::brain::Brain, Option<BrainBinding>) {
+) -> (
+    ambition_characters::brain::Brain,
+    Option<(BrainBinding, AuthoredBrainContext)>,
+) {
     let InteractionKind::Npc {
         character_id,
         patrol_radius,
-        patrol_path_id,
         brain_override,
         ..
     } = &interactable.kind
@@ -80,18 +88,17 @@ pub(crate) fn resolve_npc_brain(
         // bind. A stand-still body is the honest inert default.
         return (ambition_characters::brain::Brain::stand_still(), None);
     };
-    let selection = InitialBrainSelection::from_authored(brain_override.as_deref());
-    let ctx =
-        BrainBuildContext::from_placement(spawn_world_x, *patrol_radius, patrol_path_id.clone());
-    match resolve_initial_brain(catalog, cid, &selection, &ctx) {
-        Ok((binding, brain)) => (brain, Some(binding)),
-        // No catalog row for this id in the current context — e.g. a provider
-        // character exhibited (the Hall) where its provider fragment isn't
-        // registered, or legacy content. The old heuristic fell back to
-        // stand-still here; keep that tolerance so a partial catalog never
-        // crashes a spawn. The body is an inert stand-still with no binding
-        // (nothing to switch or snapshot). Unknown-character validation belongs
-        // in a content test, not a spawn-time crash.
+    let authored = AuthoredBrainContext::from_placement(spawn_world_x, *patrol_radius);
+    match resolve_initial_brain(
+        catalog,
+        cid,
+        brain_override.as_deref(),
+        &authored.build_context(),
+    ) {
+        Ok((binding, brain)) => (brain, Some((binding, authored))),
+        // No catalog row for this id in this host (a partial-provider composition,
+        // e.g. a Hall provider character not registered here). The body is an inert
+        // stand-still with no binding (nothing to switch or snapshot).
         Err(ambition_characters::actor::character_catalog::BrainBuildError::UnknownCharacter(
             _,
         )) => {
@@ -117,8 +124,7 @@ pub(crate) fn resolve_npc_brain(
 // `ActorInteraction` seam): any talkable actor can drive them.
 
 use ambition_characters::actor::character_catalog::{
-    resolve_initial_brain, BarkSituation, BrainBinding, BrainBuildContext, CharacterCatalog,
-    InitialBrainSelection,
+    resolve_initial_brain, AuthoredBrainContext, BarkSituation, BrainBinding, CharacterCatalog,
 };
 use ambition_interaction::{Interactable, InteractionKind};
 

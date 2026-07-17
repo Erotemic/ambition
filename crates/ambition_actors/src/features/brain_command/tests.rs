@@ -1,16 +1,18 @@
-//! Behaviour tests for the runtime brain-switch authority + directive routing.
+//! Behaviour tests for the runtime brain-switch authority.
 //!
-//! These pin the campaign's runtime-switching requirements: `UseBrainPreset`
-//! replaces the live brain, `RestoreDefault` rebuilds a fresh default, the same
-//! command replays deterministically, and a gameplay ACTION request is a
-//! different channel from a pure ANIMATION directive.
+//! These pin the campaign's runtime-switching requirements: `UsePreset` replaces
+//! the live brain, `RestoreDefault` rebuilds a fresh default around the AUTHORED
+//! home (not the current pose), the same command replays deterministically, a
+//! command only touches its target, and temporary control (player / mount) is
+//! never overwritten by an autonomous switch.
 
 use super::*;
 use ambition_characters::actor::character_catalog::{
-    parse_catalog, BrainBinding, BrainPresetId, BrainSelection, CharacterCatalog,
+    parse_catalog, AuthoredBrainContext, BrainBinding, BrainPresetId, BrainSelection,
+    CharacterCatalog,
 };
 use ambition_characters::actor::ActorPose;
-use ambition_characters::brain::Brain;
+use ambition_characters::brain::{Brain, PlayerSlot, StateMachineCfg};
 use ambition_engine_core as ae;
 use ambition_platformer_primitives::sim_id::SimId;
 use bevy::ecs::message::Messages;
@@ -22,6 +24,10 @@ const CATALOG: &str = r#"(
         "melee_brute_striker": MeleeBrute(
             aggressiveness: 1.0, aggro_radius: 220.0, attack_range: 36.0, chase_speed: 110.0,
         ),
+        "patrol_peaceful": Patrol(
+            spawn_local_x: 0.0, radius: 64.0, speed: 28.0,
+            aggressiveness: 0.0, aggro_radius: 80.0, attack_range: 0.0,
+        ),
     },
     action_set_presets: { "peaceful": (move_style: Walk) },
     characters: {
@@ -30,6 +36,11 @@ const CATALOG: &str = r#"(
             tier: MainHall, body_kind: Crawler, composition: None,
             default_brain: "wanderer_puppy_slug", default_action_set: "peaceful", tags: [],
         ),
+        "npc_patroller": (
+            display_name: "Patroller", spritesheet: "x.png", manifest: "x_spritesheet.ron",
+            tier: MainHall, body_kind: Standard, composition: None,
+            default_brain: "patrol_peaceful", default_action_set: "peaceful", tags: [],
+        ),
     },
 )"#;
 
@@ -37,74 +48,60 @@ fn catalog() -> CharacterCatalog {
     CharacterCatalog::from_data(parse_catalog(CATALOG))
 }
 
-/// Minimal App with the directive channels + the (route → apply) chain on Update.
+/// Minimal App with the `BrainCommand` channel + its reducer on `Update`.
 fn app() -> App {
     let mut app = App::new();
     app.add_message::<BrainCommand>();
-    app.add_message::<ActorDirectiveRequest>();
-    app.add_message::<ActorActionRequest>();
-    app.add_message::<ActorAnimationDirective>();
-    app.add_message::<DispositionDirective>();
     app.insert_resource(catalog());
-    app.add_systems(
-        Update,
-        (route_actor_directives, apply_brain_commands).chain(),
-    );
+    app.add_systems(Update, apply_brain_commands);
     app
 }
 
-/// A puppy-slug NPC entity carrying its default (wanderer) brain + binding.
-fn spawn_puppy(app: &mut App, sim: &str) -> Entity {
-    let binding = BrainBinding::new(
-        BrainPresetId::new("wanderer_puppy_slug"),
-        BrainSelection::Default,
-    );
-    let brain = catalog()
-        .build_default_brain("npc_puppy_slug", 100.0)
-        .expect("puppy default brain resolves");
+fn send(app: &mut App, cmd: BrainCommand) {
+    app.world_mut()
+        .resource_mut::<Messages<BrainCommand>>()
+        .write(cmd);
+}
+
+/// Spawn a catalog NPC carrying its default brain, binding, and authored context.
+fn spawn_npc(app: &mut App, sim: &str, character_id: &str, anchor_x: f32) -> Entity {
+    let cat = catalog();
+    let (binding, brain) = ambition_characters::actor::character_catalog::resolve_initial_brain(
+        &cat,
+        character_id,
+        None,
+        &ambition_characters::actor::character_catalog::BrainBuildContext::at(anchor_x),
+    )
+    .expect("catalog default resolves");
     app.world_mut()
         .spawn((
             SimId::placement(sim),
             brain,
             binding,
-            ActorPose::from_parts(ae::Vec2::new(100.0, 0.0), ae::Vec2::new(8.0, 8.0), 1.0),
+            AuthoredBrainContext::from_placement(anchor_x, 0.0),
+            ActorPose::from_parts(ae::Vec2::new(anchor_x, 0.0), ae::Vec2::new(8.0, 8.0), 1.0),
         ))
         .id()
 }
 
-fn request(app: &mut App, target: &str, directive: ActorDirective) {
-    app.world_mut()
-        .resource_mut::<Messages<ActorDirectiveRequest>>()
-        .write(ActorDirectiveRequest {
-            target: SimId::placement(target),
-            directive,
-        });
-}
-
-/// #5 — `UseBrainPreset` replaces the active brain with the requested preset and
+/// #5 — `UsePreset` replaces the active brain with the requested preset and
 /// records the override in the binding.
 #[test]
 fn use_preset_replaces_the_live_brain() {
     let mut app = app();
-    let e = spawn_puppy(&mut app, "puppy");
+    let e = spawn_npc(&mut app, "puppy", "npc_puppy_slug", 100.0);
     assert_eq!(app.world().get::<Brain>(e).unwrap().label(), "wanderer");
 
-    request(
+    send(
         &mut app,
-        "puppy",
-        ActorDirective::UseBrainPreset(BrainPresetId::new("melee_brute_striker")),
+        BrainCommand::use_preset(SimId::placement("puppy"), "melee_brute_striker"),
     );
     app.update();
 
-    assert_eq!(
-        app.world().get::<Brain>(e).unwrap().label(),
-        "melee_brute",
-        "UseBrainPreset must swap the live brain to the requested preset"
-    );
+    assert_eq!(app.world().get::<Brain>(e).unwrap().label(), "melee_brute");
     assert_eq!(
         app.world().get::<BrainBinding>(e).unwrap().selection,
         BrainSelection::Override(BrainPresetId::new("melee_brute_striker")),
-        "the binding records the override selection"
     );
 }
 
@@ -112,43 +109,63 @@ fn use_preset_replaces_the_live_brain() {
 #[test]
 fn restore_default_rebuilds_a_fresh_default_brain() {
     let mut app = app();
-    let e = spawn_puppy(&mut app, "puppy");
+    let e = spawn_npc(&mut app, "puppy", "npc_puppy_slug", 100.0);
 
-    // Override first, then restore.
-    request(
+    send(
         &mut app,
-        "puppy",
-        ActorDirective::UseBrainPreset(BrainPresetId::new("stand_still")),
+        BrainCommand::use_preset(SimId::placement("puppy"), "stand_still"),
     );
     app.update();
     assert_eq!(app.world().get::<Brain>(e).unwrap().label(), "stand_still");
 
-    request(&mut app, "puppy", ActorDirective::RestoreDefaultBrain);
+    send(
+        &mut app,
+        BrainCommand::restore_default(SimId::placement("puppy")),
+    );
     app.update();
 
-    assert_eq!(
-        app.world().get::<Brain>(e).unwrap().label(),
-        "wanderer",
-        "RestoreDefault rebuilds the character's default (wanderer) brain"
-    );
+    assert_eq!(app.world().get::<Brain>(e).unwrap().label(), "wanderer");
     assert_eq!(
         app.world().get::<BrainBinding>(e).unwrap().selection,
         BrainSelection::Default,
-        "the binding returns to Default"
     );
 }
 
-/// #14 — the same command replays deterministically: two independent runs of the
-/// same switch produce the identical resulting brain + binding.
+/// A `RestoreDefault` rebuilds a patrol brain around its AUTHORED home, not the
+/// actor's current pose — the fix for a patroller re-centering wherever it walked.
+#[test]
+fn restore_default_uses_the_authored_home_not_the_current_pose() {
+    let mut app = app();
+    let e = spawn_npc(&mut app, "wanderer", "npc_patroller", 100.0);
+    // The patroller wandered far from home.
+    app.world_mut().get_mut::<ActorPose>(e).unwrap().center.x = 900.0;
+
+    send(
+        &mut app,
+        BrainCommand::restore_default(SimId::placement("wanderer")),
+    );
+    app.update();
+
+    match app.world().get::<Brain>(e).unwrap() {
+        Brain::StateMachine(StateMachineCfg::Patrol { cfg, .. }) => {
+            assert_eq!(
+                cfg.lane.center_x, 100.0,
+                "the rebuilt patrol lane centers on the AUTHORED anchor, not the current pose"
+            );
+        }
+        other => panic!("expected a Patrol brain, got {other:?}"),
+    }
+}
+
+/// #14 — the same command replays deterministically.
 #[test]
 fn a_brain_switch_replays_deterministically() {
     let switch = || {
         let mut app = app();
-        let e = spawn_puppy(&mut app, "puppy");
-        request(
+        let e = spawn_npc(&mut app, "puppy", "npc_puppy_slug", 100.0);
+        send(
             &mut app,
-            "puppy",
-            ActorDirective::UseBrainPreset(BrainPresetId::new("melee_brute_striker")),
+            BrainCommand::use_preset(SimId::placement("puppy"), "melee_brute_striker"),
         );
         app.update();
         (
@@ -160,107 +177,100 @@ fn a_brain_switch_replays_deterministically() {
                 .clone(),
         )
     };
-    assert_eq!(
-        switch(),
-        switch(),
-        "the same switch must reproduce the same state"
-    );
+    assert_eq!(switch(), switch());
 }
 
-/// A command targeting a different SimId leaves this actor untouched (routing is
-/// by stable id, and only the matching entity is mutated).
+/// A command targeting a different SimId leaves this actor untouched.
 #[test]
 fn a_command_only_touches_its_target() {
     let mut app = app();
-    let e = spawn_puppy(&mut app, "puppy");
-    request(
+    let e = spawn_npc(&mut app, "puppy", "npc_puppy_slug", 100.0);
+    send(
         &mut app,
-        "someone_else",
-        ActorDirective::UseBrainPreset(BrainPresetId::new("stand_still")),
+        BrainCommand::use_preset(SimId::placement("someone_else"), "stand_still"),
+    );
+    app.update();
+    assert_eq!(app.world().get::<Brain>(e).unwrap().label(), "wanderer");
+}
+
+/// An unknown preset is rejected (binding + brain unchanged) — never a silent
+/// fall back to the default or StandStill.
+#[test]
+fn an_unknown_preset_is_rejected() {
+    let mut app = app();
+    let e = spawn_npc(&mut app, "puppy", "npc_puppy_slug", 100.0);
+    send(
+        &mut app,
+        BrainCommand::use_preset(SimId::placement("puppy"), "no_such_preset"),
     );
     app.update();
     assert_eq!(
         app.world().get::<Brain>(e).unwrap().label(),
         "wanderer",
-        "a command for another id must not change this actor"
+        "an unknown preset leaves the live brain unchanged"
+    );
+    assert_eq!(
+        app.world().get::<BrainBinding>(e).unwrap().selection,
+        BrainSelection::Default,
+        "an unknown preset leaves the binding unchanged"
     );
 }
 
-/// #15 — a jump ACTION request is a distinct channel from a jump ANIMATION
-/// directive: the action lands on the gameplay channel, the animation on the
-/// presentation channel, and neither leaks into the other.
+/// A player-controlled body is NOT switched by a brain command — its live brain
+/// is player control, and the autonomous command must not overwrite it.
 #[test]
-fn action_request_is_distinct_from_animation_directive() {
+fn a_player_controlled_body_is_not_switched() {
     let mut app = app();
-    request(
-        &mut app,
-        "puppy",
-        ActorDirective::RequestAction(ActorActionKind::Jump),
+    let binding = BrainBinding::new(
+        BrainPresetId::new("wanderer_puppy_slug"),
+        BrainSelection::Default,
     );
-    request(
+    let e = app
+        .world_mut()
+        .spawn((
+            SimId::placement("possessed"),
+            Brain::Player(PlayerSlot::PRIMARY),
+            binding,
+            AuthoredBrainContext::from_placement(100.0, 0.0),
+            ActorPose::from_parts(ae::Vec2::new(100.0, 0.0), ae::Vec2::new(8.0, 8.0), 1.0),
+        ))
+        .id();
+
+    send(
         &mut app,
-        "puppy",
-        ActorDirective::PlayAnimation("jump".to_string()),
+        BrainCommand::use_preset(SimId::placement("possessed"), "stand_still"),
     );
     app.update();
 
-    let actions: Vec<_> = app
-        .world_mut()
-        .resource_mut::<Messages<ActorActionRequest>>()
-        .drain()
-        .collect();
-    let anims: Vec<_> = app
-        .world_mut()
-        .resource_mut::<Messages<ActorAnimationDirective>>()
-        .drain()
-        .collect();
-
-    assert_eq!(
-        actions,
-        vec![ActorActionRequest {
-            target: SimId::placement("puppy"),
-            action: ActorActionKind::Jump,
-        }],
-        "a RequestAction(Jump) lands on the gameplay action channel"
+    assert!(
+        app.world().get::<Brain>(e).unwrap().is_player(),
+        "a possessed body keeps player control; the autonomous switch is ignored"
     );
     assert_eq!(
-        anims,
-        vec![ActorAnimationDirective {
-            target: SimId::placement("puppy"),
-            clip: "jump".to_string(),
-        }],
-        "a PlayAnimation(\"jump\") lands on the presentation channel"
+        app.world().get::<BrainBinding>(e).unwrap().selection,
+        BrainSelection::Default,
+        "the binding is left untouched while under temporary control"
     );
 }
 
-/// A brain directive routes to a `BrainCommand`, never onto the action or
-/// animation channels — the concerns stay separate.
+/// A mounted body is NOT switched by a brain command either.
 #[test]
-fn a_brain_directive_never_leaks_to_action_or_animation() {
+fn a_mounted_body_is_not_switched() {
     let mut app = app();
-    spawn_puppy(&mut app, "puppy");
-    request(
+    let e = spawn_npc(&mut app, "rider", "npc_puppy_slug", 100.0);
+    app.world_mut()
+        .entity_mut(e)
+        .insert(crate::features::ecs::Mounted);
+
+    send(
         &mut app,
-        "puppy",
-        ActorDirective::UseBrainPreset(BrainPresetId::new("stand_still")),
+        BrainCommand::use_preset(SimId::placement("rider"), "stand_still"),
     );
     app.update();
-    let actions = app
-        .world_mut()
-        .resource_mut::<Messages<ActorActionRequest>>()
-        .drain()
-        .count();
-    let anims = app
-        .world_mut()
-        .resource_mut::<Messages<ActorAnimationDirective>>()
-        .drain()
-        .count();
+
     assert_eq!(
-        actions, 0,
-        "a brain directive must not emit an action request"
-    );
-    assert_eq!(
-        anims, 0,
-        "a brain directive must not emit an animation directive"
+        app.world().get::<Brain>(e).unwrap().label(),
+        "wanderer",
+        "a mounted body's autonomous brain is not switched while it rides"
     );
 }

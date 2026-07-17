@@ -21,8 +21,8 @@ pub mod resolver;
 pub mod validator;
 
 pub use binding::{
-    qualify_preset_like, resolve_initial_brain, BrainBinding, BrainBuildContext, BrainBuildError,
-    BrainPresetId, BrainSelection, InitialBrainSelection, PresetSource,
+    qualify_preset_like, resolve_initial_brain, AuthoredBrainContext, BrainBinding,
+    BrainBuildContext, BrainBuildError, BrainPresetId, BrainSelection, PresetSource,
 };
 #[allow(
     unused_imports,
@@ -134,20 +134,42 @@ impl CharacterCatalog {
         Some(brain_from_preset_with_context(preset, ctx))
     }
 
-    /// Whether a named brain preset exists in this catalog.
+    /// Whether a named (already-qualified) brain preset exists in this catalog.
     pub fn has_brain_preset(&self, preset_name: &str) -> bool {
         self.0.brain_presets.contains_key(preset_name)
     }
 
-    /// Whether a named brain preset is a `Patrol` preset — the presets that
-    /// consume placement `patrol_radius` / `patrol_path_id` parameters. Used by
-    /// content validation to flag patrol parameters attached to an incompatible
-    /// (non-patrol) preset.
-    pub fn brain_preset_is_patrol(&self, preset_name: &str) -> bool {
-        matches!(
-            self.0.brain_presets.get(preset_name),
-            Some(entry::BrainPreset::Patrol { .. })
-        )
+    /// Prepared-content validation for a placement's `brain_override`, WITHOUT
+    /// building a brain. Applies the same deterministic namespace rule as spawn
+    /// ([`qualify_preset_like`]): a raw override resolves within the character's
+    /// own provider namespace, a fully-qualified override is used exactly.
+    ///
+    /// `None`/empty means the character default (already validated at catalog
+    /// assembly) → `Ok(None)`. An unknown character, or an override that does not
+    /// resolve, is a loud [`BrainBuildError`] — never a silent pass. Returns the
+    /// resolved preset key so a caller can log what it validated.
+    pub fn validate_brain_override(
+        &self,
+        character_id: &str,
+        authored_override: Option<&str>,
+    ) -> Result<Option<BrainPresetId>, BrainBuildError> {
+        let entry = self
+            .get(character_id)
+            .ok_or_else(|| BrainBuildError::UnknownCharacter(character_id.to_string()))?;
+        let Some(name) = authored_override.map(str::trim).filter(|s| !s.is_empty()) else {
+            return Ok(None);
+        };
+        let key = qualify_preset_like(entry.default_brain.as_str(), name);
+        if self.has_brain_preset(&key) {
+            Ok(Some(BrainPresetId::new(key)))
+        } else {
+            Err(BrainBuildError::UnknownPreset {
+                character_id: character_id.to_string(),
+                preset: name.to_string(),
+                resolved: key,
+                source: PresetSource::Override,
+            })
+        }
     }
 
     /// Resolve a character_id into a runtime [`crate::brain::action_set::ActionSet`]
@@ -345,5 +367,153 @@ mod tests {
         // Smash brains are hostile by construction (the encounter only
         // arms them on the explicit challenge choice).
         assert!(brain_from_preset(&preset, 0.0).is_hostile());
+    }
+
+    /// Prepared-content validation of `brain_override` against a MULTI-PROVIDER
+    /// assembled catalog (the real Hall composition: `default`/`sanic`/`mary_o`
+    /// each own their own `stand_still`). Proves the deterministic namespace rule:
+    /// a raw override resolves ONLY within the character's own provider namespace,
+    /// a qualified override is used exactly, and nothing leaks across providers.
+    mod brain_override_validation {
+        use super::*;
+
+        fn frag(provider: &str, ron: &str) -> CharacterCatalogFragment {
+            CharacterCatalogFragment::from_ron(provider, None::<String>, ron)
+                .expect("fragment parses")
+        }
+
+        fn character(id: &str, default_brain: &str) -> String {
+            format!(
+                r#""{id}": (
+                    display_name: "{id}", spritesheet: "x.png", manifest: "x_spritesheet.ron",
+                    tier: MainHall, body_kind: Standard, composition: None,
+                    default_brain: "{default_brain}", default_action_set: "peaceful", tags: [],
+                )"#
+            )
+        }
+
+        // The assembled host. `default` also owns a `shared_only` preset that the
+        // other providers do NOT — the cross-provider-leak probe.
+        fn host() -> CharacterCatalog {
+            let mut reg = CharacterCatalogRegistry::default();
+            reg.register(frag(
+                "default",
+                &format!(
+                    r#"(
+                    brain_presets: {{ "stand_still": StandStill, "shared_only": StandStill }},
+                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
+                    characters: {{ {} }},
+                )"#,
+                    character("amb_hero", "stand_still")
+                ),
+            ))
+            .unwrap();
+            reg.register(frag(
+                "sanic",
+                &format!(
+                    r#"(
+                    brain_presets: {{
+                        "stand_still": StandStill,
+                        "sanic_special": Wanderer(speed: 9.0, aggressiveness: 0.0),
+                    }},
+                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
+                    characters: {{ {} }},
+                )"#,
+                    character("sanic", "stand_still")
+                ),
+            ))
+            .unwrap();
+            reg.register(frag(
+                "mary_o",
+                &format!(
+                    r#"(
+                    brain_presets: {{ "stand_still": StandStill }},
+                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
+                    characters: {{ {} }},
+                )"#,
+                    character("mary_o", "stand_still")
+                ),
+            ))
+            .unwrap();
+            reg.assemble().expect("assembles").catalog
+        }
+
+        #[test]
+        fn each_provider_resolves_its_own_stand_still() {
+            let cat = host();
+            // Ambition-owned, Sanic, and Mary-O each resolve the RAW "stand_still"
+            // into their OWN provider namespace.
+            for (character, provider) in [
+                ("amb_hero", "default"),
+                ("sanic", "sanic"),
+                ("mary_o", "mary_o"),
+            ] {
+                assert_eq!(
+                    cat.validate_brain_override(character, Some("stand_still"))
+                        .unwrap(),
+                    Some(BrainPresetId::new(format!("{provider}::stand_still"))),
+                    "{character}'s raw stand_still resolves in {provider}",
+                );
+            }
+        }
+
+        #[test]
+        fn a_fully_qualified_override_is_used_exactly() {
+            let cat = host();
+            // Sanic authored with a fully-qualified preset from ANOTHER provider —
+            // used verbatim (it exists in the assembled catalog).
+            assert_eq!(
+                cat.validate_brain_override("sanic", Some("default::stand_still"))
+                    .unwrap(),
+                Some(BrainPresetId::new("default::stand_still")),
+            );
+        }
+
+        #[test]
+        fn a_provider_local_preset_resolves() {
+            let cat = host();
+            assert_eq!(
+                cat.validate_brain_override("sanic", Some("sanic_special"))
+                    .unwrap(),
+                Some(BrainPresetId::new("sanic::sanic_special")),
+            );
+        }
+
+        #[test]
+        fn a_raw_override_does_not_leak_across_providers() {
+            let cat = host();
+            // `shared_only` exists ONLY under `default`. Sanic authoring it raw must
+            // NOT silently resolve to `default::shared_only` — it fails, because a
+            // raw override resolves only in the character's own namespace.
+            let err = cat
+                .validate_brain_override("sanic", Some("shared_only"))
+                .unwrap_err();
+            assert!(
+                matches!(&err, BrainBuildError::UnknownPreset { resolved, .. } if resolved == "sanic::shared_only"),
+                "a raw cross-provider preset must fail, not leak: {err:?}",
+            );
+        }
+
+        #[test]
+        fn a_missing_preset_fails_and_empty_is_ok() {
+            let cat = host();
+            assert!(matches!(
+                cat.validate_brain_override("amb_hero", Some("no_such"))
+                    .unwrap_err(),
+                BrainBuildError::UnknownPreset { .. }
+            ));
+            // Absent / empty override is always valid (the character default).
+            assert_eq!(cat.validate_brain_override("amb_hero", None).unwrap(), None);
+            assert_eq!(
+                cat.validate_brain_override("amb_hero", Some("  ")).unwrap(),
+                None
+            );
+            // An unknown character is a loud error.
+            assert!(matches!(
+                cat.validate_brain_override("nobody", Some("stand_still"))
+                    .unwrap_err(),
+                BrainBuildError::UnknownCharacter(_)
+            ));
+        }
     }
 }

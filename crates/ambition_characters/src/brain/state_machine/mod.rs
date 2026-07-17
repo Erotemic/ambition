@@ -210,7 +210,7 @@ impl AuthoredWorldPatrolLane {
 /// Fixed authored-world paddle around a lane center. Hostility is
 /// controlled separately — a hostile Patrol brain still emits
 /// melee_pressed when in range and can flip facing to chase.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PatrolCfg {
     /// World/environment route lane. This is route-space, not local side.
     pub lane: AuthoredWorldPatrolLane,
@@ -328,7 +328,7 @@ fn tick_patrol(
 /// integrator. (The old brain-side climb-vs-reverse/chatter branch keyed on a
 /// `BrainSnapshot.wall_contact` no production builder ever populated — a dead
 /// seam, deleted 2026-07-15.)
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WandererCfg {
     /// Forward speed (px/s).
     pub speed: f32,
@@ -363,7 +363,7 @@ fn tick_wanderer(
 
 /// Approach + melee + recover. The brain decides WHEN to attack;
 /// the ActionSet decides WHAT the attack looks like.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MeleeBruteCfg {
     pub aggressiveness: f32,
     pub aggro_radius: f32,
@@ -432,7 +432,7 @@ fn tick_melee_brute(
 // ===== Skirmisher =====
 
 /// Strafe + ranged harass. Maintains a stand-off distance and fires.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SkirmisherCfg {
     pub aggressiveness: f32,
     pub aggro_radius: f32,
@@ -570,7 +570,7 @@ fn tick_skirmisher(
 
 /// Hold position + long-range fire. Like a Skirmisher but does not
 /// strafe — used by stationary turret-like enemies.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SniperCfg {
     pub aggressiveness: f32,
     pub aggro_radius: f32,
@@ -625,7 +625,7 @@ fn tick_sniper(
 /// Dedicated shark charge policy. The riderless burning shark uses
 /// this to lunge forward in bursts rather than simply marching like
 /// a melee brute.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ChargeCrashCfg {
     pub aggressiveness: f32,
     pub aggro_radius: f32,
@@ -763,7 +763,7 @@ fn aerial_hash01(seed: f32) -> f32 {
     x - x.floor()
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AerialCfg {
     /// `0.0` = lively peaceful bird; `>0.0` = aerial dive attacker.
     pub aggressiveness: f32,
@@ -1034,7 +1034,7 @@ fn tick_aerial_hostile(
 // `fly_toggle_pressed` on the shared [`ActorControlFrame`] — byte-identical to a
 // human pressing those buttons. The clock comes from `snapshot.sim_time`.
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PlayerDemoCfg {
     /// Horizontal run AXIS intent in `[-1, 1]` (NOT px/s), written straight to
     /// `locomotion`. Every self-locomoting brain — player and enemy alike — now

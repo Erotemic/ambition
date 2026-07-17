@@ -43,8 +43,9 @@ To give *this instance* a different initial brain, set the optional
 freeze a wanderer on a Hall pedestal, or `patrol_peaceful` to make a
 fighter-defaulted character pace peacefully). The brain is chosen ONLY
 by this explicit override or the catalog default — never inferred from
-`patrol_radius`, path presence, or hostility. `patrol_radius` /
-`patrol_path_id` only tune a *selected* patrol preset's lane. Runtime
+`patrol_radius`, path presence, or hostility. `patrol_radius` only tunes a
+*selected* patrol preset's lane; `patrol_path_id` is a separate movement
+attachment (`ActorMotionPath`), not a brain-build input. Runtime
 gameplay (dialogue) can later switch the brain via `<<use_brain
 "preset">>` / `<<restore_brain>>`; see
 [`docs/systems/character-catalog.md`](../systems/character-catalog.md#npc-brain-authority-explicit-authorable-runtime-switchable).

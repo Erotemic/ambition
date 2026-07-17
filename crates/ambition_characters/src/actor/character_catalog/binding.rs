@@ -1,30 +1,27 @@
 //! Explicit NPC brain authority.
 //!
-//! Replaces the old implicit heuristic (`npc_brain_from_catalog`): an NPC's
-//! brain is determined ONLY by its explicit initial [`InitialBrainSelection`]
-//! or the character catalog default — never by inspecting the resulting
-//! [`Brain`]. There is no "basic brain" classification, no `is_hostile` gate,
-//! no `patrol_radius == 0` sentinel, and no peaceful-specialized bypass.
+//! An NPC's brain is determined ONLY by its explicit authored override or the
+//! character catalog default — never by inspecting the resulting [`Brain`].
+//! There is no "basic brain" classification, no `is_hostile` gate, no
+//! `patrol_radius == 0` sentinel, and no peaceful-specialized bypass.
 //!
 //! The pieces:
 //! - [`BrainPresetId`] — a key into the catalog `brain_presets` map.
-//! - [`InitialBrainSelection`] — what a *placement* authors: the character
-//!   default, or an explicit preset override.
-//! - [`BrainBinding`] — the runtime component that records the character's
-//!   default preset plus whether the actor is currently on that default or an
-//!   override. This is the authoritative snapshot state for "which brain is
-//!   selected"; the live [`Brain`] is rebuilt from it deterministically.
-//! - [`BrainBuildContext`] — per-spawn parameters a *selected* preset consumes
-//!   (patrol lane center/radius/path). These parameterize a chosen preset; they
-//!   never choose it.
+//! - [`BrainBinding`] — the runtime component recording the character's default
+//!   preset plus the current [`BrainSelection`] (default / override / external).
+//!   This is the authoritative snapshot state for "which autonomous brain is
+//!   selected".
+//! - [`AuthoredBrainContext`] — the per-spawn parameters a selected preset
+//!   consumes (patrol lane anchor + radius), captured at spawn and retained so a
+//!   runtime rebuild uses the actor's authored home, not wherever it wandered to.
 //! - [`resolve_initial_brain`] — override → character default → clear error.
 //!
-//! Once an actor carries a [`BrainBinding`], runtime gameplay switches its brain
-//! through the authoritative command path (`ambition_actors`'s `BrainCommand`),
-//! which rebuilds the [`Brain`] from a preset via
-//! [`CharacterCatalog::build_brain_from_preset`] — the same seam this module
-//! uses at spawn, so a preset resolves identically at spawn and at a later
-//! runtime switch.
+//! Precedence and namespace resolution are deterministic (see
+//! [`resolve_initial_brain`]). Once an actor carries a [`BrainBinding`], runtime
+//! gameplay switches its brain through the authoritative command path
+//! (`ambition_actors`'s `BrainCommand`), which rebuilds the [`Brain`] via
+//! [`CharacterCatalog::build_brain_from_preset`] — the same seam this module uses
+//! at spawn, so a preset resolves identically at spawn and at a later switch.
 
 use super::CharacterCatalog;
 use crate::brain::Brain;
@@ -65,67 +62,37 @@ impl std::fmt::Display for BrainPresetId {
     }
 }
 
-/// What brain a placed NPC receives at spawn.
+/// Which brain an actor is currently running, relative to its catalog default.
 ///
-/// The serialized authoring form is an optional `brain_override` string field on
-/// the LDtk `NpcSpawn` entity: absent or empty means [`CharacterDefault`], a
-/// non-empty preset name means [`Preset`]. A runtime `Brain` is never serialized;
-/// only the stable preset id is authored, resolved when the actor is built.
-///
-/// [`CharacterDefault`]: InitialBrainSelection::CharacterDefault
-/// [`Preset`]: InitialBrainSelection::Preset
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub enum InitialBrainSelection {
-    /// Use the character's catalog `default_brain`.
-    #[default]
-    CharacterDefault,
-    /// Use an explicit preset instead of the catalog default.
-    Preset(BrainPresetId),
-}
-
-impl InitialBrainSelection {
-    /// Interpret an authored `brain_override` field. Absent, empty, or
-    /// whitespace-only means [`CharacterDefault`](Self::CharacterDefault).
-    pub fn from_authored(field: Option<&str>) -> Self {
-        match field.map(str::trim).filter(|s| !s.is_empty()) {
-            Some(name) => Self::Preset(BrainPresetId::new(name)),
-            None => Self::CharacterDefault,
-        }
-    }
-
-    /// The override preset id, if this selection is an explicit override.
-    pub fn preset_id(&self) -> Option<&BrainPresetId> {
-        match self {
-            Self::Preset(id) => Some(id),
-            Self::CharacterDefault => None,
-        }
-    }
-}
-
-/// Whether an actor is currently using its character-default brain or an
-/// explicit override preset. The mutable half of a [`BrainBinding`].
+/// The mutable half of a [`BrainBinding`]. `External` means the live `Brain` was
+/// installed by *another* authority (challenge/provocation, a mount transition,
+/// player possession) and is NOT a catalog preset — snapshot reconciliation must
+/// not try to rebuild it from `brain_presets` (that authority owns it).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BrainSelection {
-    /// Using the character's catalog default preset.
+    /// Running the character's catalog default preset.
     Default,
-    /// Using an explicit override preset (authored, or applied at runtime).
+    /// Running an explicit override preset (authored, or applied at runtime).
     Override(BrainPresetId),
+    /// Running a brain installed by a non-catalog authority (provoke/mount/etc.).
+    /// Not catalog-rebuildable; reconciliation leaves it to that authority.
+    External,
 }
 
-/// Runtime record of an NPC's brain choice: its character-default preset and
-/// whether it is currently on that default or an override.
+/// Runtime record of an NPC's autonomous brain choice: its character-default
+/// preset and which selection is currently live.
 ///
-/// This is the authoritative simulation state for "which brain is selected". The
-/// live [`Brain`] component is the instantiated, mutable state machine; on
-/// snapshot restore the `Brain` is rebuilt from this binding so the two always
-/// agree, and runtime switches (`BrainCommand`) mutate this binding + rebuild the
-/// `Brain` together.
+/// This is the authoritative simulation state for "which autonomous brain is
+/// selected". The live [`Brain`] component is the instantiated, mutable state
+/// machine; runtime switches (`BrainCommand`) mutate this binding + rebuild the
+/// `Brain` together, and snapshot reconciliation uses this binding to keep the
+/// two in agreement after a rewind that crossed a switch.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct BrainBinding {
     /// The character's catalog `default_brain`, captured at spawn. Restoring the
     /// default rebuilds a fresh brain from THIS preset.
     pub default_preset: BrainPresetId,
-    /// Whether the actor is on its default or an override right now.
+    /// Which selection is live right now.
     pub selection: BrainSelection,
 }
 
@@ -137,18 +104,25 @@ impl BrainBinding {
         }
     }
 
-    /// The preset id in effect right now: the override if one is selected, else
-    /// the character default.
-    pub fn active_preset(&self) -> &BrainPresetId {
+    /// The catalog preset in effect right now: the override if one is selected,
+    /// the character default when on the default, or `None` when the brain is
+    /// externally owned (provoke/mount/possession — not a catalog preset).
+    pub fn active_preset(&self) -> Option<&BrainPresetId> {
         match &self.selection {
-            BrainSelection::Override(id) => id,
-            BrainSelection::Default => &self.default_preset,
+            BrainSelection::Override(id) => Some(id),
+            BrainSelection::Default => Some(&self.default_preset),
+            BrainSelection::External => None,
         }
     }
 
     /// True iff an override preset is currently selected.
     pub fn is_override(&self) -> bool {
         matches!(self.selection, BrainSelection::Override(_))
+    }
+
+    /// True iff the live brain is owned by a non-catalog authority.
+    pub fn is_external(&self) -> bool {
+        matches!(self.selection, BrainSelection::External)
     }
 
     /// Switch to an override preset. (The caller rebuilds the live `Brain`.)
@@ -160,52 +134,86 @@ impl BrainBinding {
     pub fn restore_default(&mut self) {
         self.selection = BrainSelection::Default;
     }
+
+    /// Record that another authority installed the live brain (provoke / mount /
+    /// possession). Keeps the binding honest so reconciliation won't rebuild the
+    /// catalog default over an externally-owned brain.
+    pub fn mark_external(&mut self) {
+        self.selection = BrainSelection::External;
+    }
 }
 
-/// Per-spawn parameters a *selected* brain preset consumes when it is
-/// instantiated.
+/// Per-spawn parameters a *selected* brain preset consumes when instantiated.
 ///
-/// These parameterize a preset that was already chosen; they never SELECT the
-/// preset. A [`Patrol`](crate::brain::state_machine::StateMachineCfg::Patrol)
-/// preset consumes `spawn_world_x` for its lane center and, when the placement
-/// authored one, `patrol_radius` as a lane-radius override. Every non-patrol
-/// preset ignores the patrol fields.
+/// These parameterize a preset that was already chosen; they never SELECT it. A
+/// [`Patrol`](crate::brain::state_machine::StateMachineCfg::Patrol) preset
+/// consumes `spawn_world_x` for its lane center and, when authored, `patrol_radius`
+/// as a lane-radius override. Every non-patrol preset ignores the patrol field.
 ///
-/// [`Patrol`]: crate::brain::state_machine::StateMachineCfg::Patrol
+/// This is the transient build INPUT. The persistent, snapshot-safe form an actor
+/// carries is [`AuthoredBrainContext`], which produces one of these.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BrainBuildContext {
-    /// The actor's world-space spawn X — the patrol lane center anchor.
+    /// The patrol lane center anchor (world X).
     pub spawn_world_x: f32,
-    /// Placement lane-radius override for a selected patrol preset. `None` (or a
-    /// non-positive value) keeps the preset's authored radius.
+    /// Placement lane-radius override for a selected patrol preset. `None` keeps
+    /// the preset's authored radius.
     pub patrol_radius: Option<f32>,
-    /// Placement patrol path id, threaded to a selected patrol preset that
-    /// supports one. (The current lane-based patrol preset ignores it.)
-    pub patrol_path_id: Option<String>,
 }
 
 impl BrainBuildContext {
-    /// A context that only anchors the patrol lane center (no placement patrol
-    /// override) — the shape a runtime rebuild uses.
+    /// A context that only anchors the patrol lane center (no radius override).
     pub fn at(spawn_world_x: f32) -> Self {
         Self {
             spawn_world_x,
             patrol_radius: None,
-            patrol_path_id: None,
         }
     }
 
-    /// A context carrying a placement's authored patrol tuning. A non-positive
+    /// A context carrying a placement's authored patrol radius. A non-positive
     /// `patrol_radius` is treated as "unset" (keep the preset's radius).
-    pub fn from_placement(
-        spawn_world_x: f32,
-        patrol_radius: f32,
-        patrol_path_id: Option<String>,
-    ) -> Self {
+    pub fn from_placement(spawn_world_x: f32, patrol_radius: f32) -> Self {
         Self {
             spawn_world_x,
             patrol_radius: (patrol_radius > 0.0).then_some(patrol_radius),
-            patrol_path_id,
+        }
+    }
+}
+
+/// The authored brain-build context an actor carries for the life of the entity.
+///
+/// Captured at spawn from the placement (its world anchor + authored patrol
+/// radius) and kept through runtime brain switches, so `RestoreDefault` / a
+/// snapshot reconcile rebuild a patrol brain around its authored HOME, not
+/// wherever the actor happened to wander. A separate component (rather than a
+/// field on [`BrainBinding`]) so the binding stays compact and equality-friendly.
+///
+/// Note on patrol PATHS: a `path_id` is a separate movement attachment
+/// (`ActorMotionPath`), not a brain-build parameter — the lane-based patrol
+/// preset does not consume one. So it is deliberately absent here.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct AuthoredBrainContext {
+    /// The actor's authored world-space spawn X — the patrol lane center anchor.
+    pub spawn_anchor_x: f32,
+    /// The placement's authored patrol-radius override, if any.
+    pub patrol_radius: Option<f32>,
+}
+
+impl AuthoredBrainContext {
+    /// Capture a placement's authored patrol tuning. A non-positive radius is
+    /// treated as "unset".
+    pub fn from_placement(spawn_anchor_x: f32, patrol_radius: f32) -> Self {
+        Self {
+            spawn_anchor_x,
+            patrol_radius: (patrol_radius > 0.0).then_some(patrol_radius),
+        }
+    }
+
+    /// The transient build input a preset resolver consumes.
+    pub fn build_context(&self) -> BrainBuildContext {
+        BrainBuildContext {
+            spawn_world_x: self.spawn_anchor_x,
+            patrol_radius: self.patrol_radius,
         }
     }
 }
@@ -231,15 +239,17 @@ impl std::fmt::Display for PresetSource {
 
 /// Why an initial-brain resolution failed. Both variants are content errors: an
 /// unknown character id, or a named preset that isn't in the catalog. Neither
-/// falls back silently — the spawn site fails loud.
+/// falls back silently — the spawn/validation site fails loud.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BrainBuildError {
     /// `character_id` is not in the catalog.
     UnknownCharacter(String),
-    /// The selected preset name is not in `brain_presets`.
+    /// The selected preset name is not in `brain_presets`. `resolved` is the key
+    /// actually looked up after namespace qualification.
     UnknownPreset {
         character_id: String,
         preset: String,
+        resolved: String,
         source: PresetSource,
     },
 }
@@ -248,15 +258,20 @@ impl std::fmt::Display for BrainBuildError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnknownCharacter(id) => {
-                write!(f, "unknown character_id `{id}` (not in the character catalog)")
+                write!(
+                    f,
+                    "unknown character_id `{id}` (not in the character catalog)"
+                )
             }
             Self::UnknownPreset {
                 character_id,
                 preset,
+                resolved,
                 source,
             } => write!(
                 f,
-                "character `{character_id}`: {source} names unknown brain preset `{preset}` (not in brain_presets)"
+                "character `{character_id}`: {source} names unknown brain preset `{preset}` \
+                 (resolved to `{resolved}`, not in brain_presets)"
             ),
         }
     }
@@ -275,6 +290,12 @@ impl std::error::Error for BrainBuildError {}
 /// entry.default_brain` (or an actor's `BrainBinding::default_preset`). If `local`
 /// is already qualified, or `reference` is un-namespaced (a raw / single-fragment
 /// catalog, e.g. in tests), `local` is returned unchanged.
+///
+/// This is the whole namespace rule: a fully-qualified override is used exactly;
+/// a raw override resolves ONLY within the character's own provider namespace.
+/// There is no silent cross-provider fallback — a raw override the character's
+/// provider does not own is a content error, not a lookup into some other
+/// provider's presets.
 pub fn qualify_preset_like(reference: &str, local: &str) -> String {
     if local.contains("::") {
         return local.to_string();
@@ -287,15 +308,22 @@ pub fn qualify_preset_like(reference: &str, local: &str) -> String {
 
 /// Resolve the initial brain for a placed NPC.
 ///
-/// Precedence: explicit override preset → character catalog default → clear
-/// error. Returns both the runtime [`BrainBinding`] (for snapshot + later
-/// runtime switching) and a freshly instantiated [`Brain`]. This function NEVER
-/// inspects the resulting brain to decide anything — the selection is authored,
-/// the default is catalog data.
+/// `authored_override` is the raw `brain_override` field: `None`/empty/whitespace
+/// means the character default; a non-empty value is an explicit preset override.
+/// Precedence: explicit override → character catalog default → clear error.
+///
+/// Namespace resolution is deterministic ([`qualify_preset_like`]): a raw override
+/// resolves within the character's own provider namespace; a fully-qualified
+/// override is used exactly. An override that does not resolve is a loud
+/// [`BrainBuildError::UnknownPreset`] — never a silent fall back to the default.
+///
+/// Returns both the runtime [`BrainBinding`] (for snapshot + later runtime
+/// switching) and a freshly instantiated [`Brain`]. This function NEVER inspects
+/// the resulting brain to decide anything.
 pub fn resolve_initial_brain(
     catalog: &CharacterCatalog,
     character_id: &str,
-    selection: &InitialBrainSelection,
+    authored_override: Option<&str>,
     ctx: &BrainBuildContext,
 ) -> Result<(BrainBinding, Brain), BrainBuildError> {
     let entry = catalog
@@ -303,29 +331,37 @@ pub fn resolve_initial_brain(
         .ok_or_else(|| BrainBuildError::UnknownCharacter(character_id.to_string()))?;
     let default_preset = BrainPresetId::new(entry.default_brain.clone());
 
-    let binding_selection = match selection {
-        InitialBrainSelection::CharacterDefault => BrainSelection::Default,
-        // Authoring names a RAW local preset; qualify it into the character's
-        // namespace so it matches the assembled catalog's `provider::name` keys.
-        // The binding stores the QUALIFIED name so the runtime switch path and
-        // snapshot reconcile resolve it identically without re-qualifying.
-        InitialBrainSelection::Preset(id) => BrainSelection::Override(BrainPresetId::new(
-            qualify_preset_like(entry.default_brain.as_str(), id.as_str()),
-        )),
-    };
-    let binding = BrainBinding::new(default_preset, binding_selection);
+    // Interpret the authored field: empty/whitespace means "use the default".
+    let override_name = authored_override.map(str::trim).filter(|s| !s.is_empty());
 
-    let active = binding.active_preset();
+    let (selection, source, resolved_key) = match override_name {
+        Some(name) => {
+            // Authoring names a RAW local preset; qualify it into the character's
+            // namespace so it matches the assembled catalog's `provider::name`
+            // keys. The binding stores the QUALIFIED name so the runtime switch
+            // path and snapshot reconcile resolve it identically.
+            let key = qualify_preset_like(entry.default_brain.as_str(), name);
+            (
+                BrainSelection::Override(BrainPresetId::new(key.clone())),
+                PresetSource::Override,
+                key,
+            )
+        }
+        None => (
+            BrainSelection::Default,
+            PresetSource::CharacterDefault,
+            default_preset.0.clone(),
+        ),
+    };
+    let binding = BrainBinding::new(default_preset, selection);
+
     let brain = catalog
-        .build_brain_from_preset(active.as_str(), ctx)
+        .build_brain_from_preset(&resolved_key, ctx)
         .ok_or_else(|| BrainBuildError::UnknownPreset {
             character_id: character_id.to_string(),
-            preset: active.0.clone(),
-            source: if binding.is_override() {
-                PresetSource::Override
-            } else {
-                PresetSource::CharacterDefault
-            },
+            preset: override_name.unwrap_or(&resolved_key).to_string(),
+            resolved: resolved_key,
+            source,
         })?;
     Ok((binding, brain))
 }
@@ -377,28 +413,27 @@ mod tests {
 
     fn resolve(
         cid: &str,
-        selection: InitialBrainSelection,
+        authored: Option<&str>,
         ctx: BrainBuildContext,
     ) -> Result<(BrainBinding, Brain), BrainBuildError> {
-        resolve_initial_brain(&catalog(), cid, &selection, &ctx)
+        resolve_initial_brain(&catalog(), cid, authored, &ctx)
     }
 
     /// #1 — a puppy slug with no override receives its `wanderer_puppy_slug`
     /// default, and the binding records that default on the Default selection.
     #[test]
     fn character_default_resolves_the_catalog_default_brain() {
-        let (binding, brain) = resolve(
-            "npc_puppy_slug",
-            InitialBrainSelection::CharacterDefault,
-            BrainBuildContext::at(0.0),
-        )
-        .unwrap();
+        let (binding, brain) = resolve("npc_puppy_slug", None, BrainBuildContext::at(0.0)).unwrap();
         assert_eq!(brain.label(), "wanderer");
         assert_eq!(
             binding.default_preset,
             BrainPresetId::new("wanderer_puppy_slug")
         );
         assert_eq!(binding.selection, BrainSelection::Default);
+        assert_eq!(
+            binding.active_preset(),
+            Some(&BrainPresetId::new("wanderer_puppy_slug"))
+        );
     }
 
     /// #2 — a puppy slug with a `stand_still` override receives a StandStill
@@ -407,7 +442,7 @@ mod tests {
     fn stand_still_override_wins_over_the_wander_default() {
         let (binding, brain) = resolve(
             "npc_puppy_slug",
-            InitialBrainSelection::Preset(BrainPresetId::new("stand_still")),
+            Some("stand_still"),
             BrainBuildContext::at(0.0),
         )
         .unwrap();
@@ -429,12 +464,7 @@ mod tests {
     /// removed is_hostile gate no longer peaceful-izes a placed hostile default).
     #[test]
     fn hostile_default_is_used_without_an_override() {
-        let (_, brain) = resolve(
-            "npc_brute",
-            InitialBrainSelection::CharacterDefault,
-            BrainBuildContext::at(0.0),
-        )
-        .unwrap();
+        let (_, brain) = resolve("npc_brute", None, BrainBuildContext::at(0.0)).unwrap();
         assert_eq!(brain.label(), "melee_brute");
         assert!(
             brain.is_hostile(),
@@ -445,12 +475,8 @@ mod tests {
     /// #7 — a hostile character with a StandStill override stays stationary.
     #[test]
     fn hostile_character_with_stand_still_override_is_stationary() {
-        let (_, brain) = resolve(
-            "npc_brute",
-            InitialBrainSelection::Preset(BrainPresetId::new("stand_still")),
-            BrainBuildContext::at(0.0),
-        )
-        .unwrap();
+        let (_, brain) =
+            resolve("npc_brute", Some("stand_still"), BrainBuildContext::at(0.0)).unwrap();
         assert!(matches!(
             brain,
             Brain::StateMachine(StateMachineCfg::StandStill)
@@ -464,8 +490,8 @@ mod tests {
     fn patrol_radius_does_not_select_a_patrol_brain() {
         let (_, brain) = resolve(
             "npc_puppy_slug",
-            InitialBrainSelection::CharacterDefault,
-            BrainBuildContext::from_placement(0.0, 96.0, None),
+            None,
+            BrainBuildContext::from_placement(0.0, 96.0),
         )
         .unwrap();
         assert_eq!(
@@ -483,8 +509,8 @@ mod tests {
         // Placement radius override wins.
         let (_, brain) = resolve(
             "npc_patroller",
-            InitialBrainSelection::CharacterDefault,
-            BrainBuildContext::from_placement(100.0, 200.0, None),
+            None,
+            BrainBuildContext::from_placement(100.0, 200.0),
         )
         .unwrap();
         match brain {
@@ -495,12 +521,7 @@ mod tests {
             other => panic!("expected Patrol, got {other:?}"),
         }
         // No placement override -> the preset's authored radius (64).
-        let (_, brain) = resolve(
-            "npc_patroller",
-            InitialBrainSelection::CharacterDefault,
-            BrainBuildContext::at(100.0),
-        )
-        .unwrap();
+        let (_, brain) = resolve("npc_patroller", None, BrainBuildContext::at(100.0)).unwrap();
         match brain {
             Brain::StateMachine(StateMachineCfg::Patrol { cfg, .. }) => {
                 assert_eq!(
@@ -518,7 +539,7 @@ mod tests {
     fn unknown_preset_and_character_fail_resolution() {
         let err = resolve(
             "npc_puppy_slug",
-            InitialBrainSelection::Preset(BrainPresetId::new("no_such_preset")),
+            Some("no_such_preset"),
             BrainBuildContext::at(0.0),
         )
         .unwrap_err();
@@ -527,34 +548,46 @@ mod tests {
             "an unknown override preset is an Override-sourced error, not a silent fallback: {err:?}"
         );
 
-        let err = resolve(
-            "no_such_character",
-            InitialBrainSelection::CharacterDefault,
-            BrainBuildContext::at(0.0),
-        )
-        .unwrap_err();
+        let err = resolve("no_such_character", None, BrainBuildContext::at(0.0)).unwrap_err();
         assert!(matches!(err, BrainBuildError::UnknownCharacter(_)));
     }
 
-    /// The authored-field interpretation: absent / empty / whitespace means
-    /// CharacterDefault; a non-empty value is a preset override.
+    /// Empty / whitespace `brain_override` means the character default.
     #[test]
-    fn from_authored_maps_empty_to_default() {
-        assert_eq!(
-            InitialBrainSelection::from_authored(None),
-            InitialBrainSelection::CharacterDefault
+    fn empty_override_means_character_default() {
+        for authored in [Some(""), Some("   "), None] {
+            let (binding, _) =
+                resolve("npc_puppy_slug", authored, BrainBuildContext::at(0.0)).unwrap();
+            assert_eq!(binding.selection, BrainSelection::Default, "{authored:?}");
+        }
+    }
+
+    /// External selection has no active catalog preset — reconciliation reads
+    /// this to leave an externally-owned (provoked/mounted) brain alone.
+    #[test]
+    fn external_selection_has_no_active_preset() {
+        let mut binding = BrainBinding::new(
+            BrainPresetId::new("wanderer_puppy_slug"),
+            BrainSelection::Default,
         );
+        binding.mark_external();
+        assert!(binding.is_external());
+        assert_eq!(binding.active_preset(), None);
+    }
+
+    /// AuthoredBrainContext captures the placement home and reproduces a build
+    /// context — the same lane the spawn used, so a later rebuild recenters on the
+    /// authored anchor, not the actor's current pose.
+    #[test]
+    fn authored_context_reproduces_the_spawn_lane() {
+        let authored = AuthoredBrainContext::from_placement(100.0, 200.0);
+        let ctx = authored.build_context();
+        assert_eq!(ctx.spawn_world_x, 100.0);
+        assert_eq!(ctx.patrol_radius, Some(200.0));
+        // A non-positive radius is "unset".
         assert_eq!(
-            InitialBrainSelection::from_authored(Some("")),
-            InitialBrainSelection::CharacterDefault
-        );
-        assert_eq!(
-            InitialBrainSelection::from_authored(Some("   ")),
-            InitialBrainSelection::CharacterDefault
-        );
-        assert_eq!(
-            InitialBrainSelection::from_authored(Some("stand_still")),
-            InitialBrainSelection::Preset(BrainPresetId::new("stand_still"))
+            AuthoredBrainContext::from_placement(100.0, 0.0).patrol_radius,
+            None
         );
     }
 }

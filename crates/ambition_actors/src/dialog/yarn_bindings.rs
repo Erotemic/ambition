@@ -173,19 +173,17 @@ pub fn cmd_challenge(
 
 /// `<<use_brain "preset">>` — switch the NPC the player is talking to onto an
 /// explicit brain preset at runtime, changing its AUTONOMOUS behaviour (a
-/// dialogue outcome like "fight me" pairs this with a disposition change). Routes
-/// through the central [`ActorDirectiveRequest`] seam →
-/// [`BrainCommand`](crate::features::BrainCommand), so the runtime switch is
-/// deterministic and snapshot-safe; it never edits the `Brain` component directly.
-/// No-ops (with a log) if the speaker has no stable id (scripted/anonymous
-/// dialogue).
-///
-/// [`ActorDirectiveRequest`]: crate::features::ActorDirectiveRequest
+/// dialogue outcome like "fight me" pairs this with the `<<challenge>>` command
+/// for the disposition change). Emits a
+/// [`BrainCommand`](crate::features::BrainCommand) routed by the speaker's stable
+/// id, so the runtime switch is deterministic and snapshot-safe; it never edits
+/// the `Brain` component directly. No-ops (with a log) if the speaker has no
+/// stable id (scripted/anonymous dialogue).
 pub fn cmd_use_brain(
     In(preset): In<String>,
     dialogue: Res<ambition_dialog::DialogState>,
     sim_ids: Query<&ambition_platformer_primitives::sim_id::SimId>,
-    mut directives: MessageWriter<crate::features::ActorDirectiveRequest>,
+    mut commands: MessageWriter<crate::features::BrainCommand>,
 ) {
     let Some(actor) = dialogue.speaker_entity() else {
         warn!("<<use_brain>>: no speaker entity in dialogue context; ignoring");
@@ -195,22 +193,21 @@ pub fn cmd_use_brain(
         warn!("<<use_brain>>: speaker has no SimId; ignoring");
         return;
     };
-    directives.write(crate::features::ActorDirectiveRequest {
-        target: sim_id.clone(),
-        directive: crate::features::ActorDirective::UseBrainPreset(
-            ambition_characters::actor::character_catalog::BrainPresetId::new(preset),
-        ),
-    });
+    commands.write(crate::features::BrainCommand::use_preset(
+        sim_id.clone(),
+        ambition_characters::actor::character_catalog::BrainPresetId::new(preset),
+    ));
 }
 
 /// `<<restore_brain>>` — restore the NPC the player is talking to back to its
 /// character-default brain (e.g. "you are free"). The runtime counterpart of the
-/// spawn-time `CharacterDefault`. Routes through the same
-/// [`ActorDirectiveRequest`](crate::features::ActorDirectiveRequest) seam.
+/// spawn-time default selection. Emits a
+/// [`BrainCommand::restore_default`](crate::features::BrainCommand) by the
+/// speaker's stable id.
 pub fn cmd_restore_brain(
     dialogue: Res<ambition_dialog::DialogState>,
     sim_ids: Query<&ambition_platformer_primitives::sim_id::SimId>,
-    mut directives: MessageWriter<crate::features::ActorDirectiveRequest>,
+    mut commands: MessageWriter<crate::features::BrainCommand>,
 ) {
     let Some(actor) = dialogue.speaker_entity() else {
         warn!("<<restore_brain>>: no speaker entity in dialogue context; ignoring");
@@ -220,10 +217,9 @@ pub fn cmd_restore_brain(
         warn!("<<restore_brain>>: speaker has no SimId; ignoring");
         return;
     };
-    directives.write(crate::features::ActorDirectiveRequest {
-        target: sim_id.clone(),
-        directive: crate::features::ActorDirective::RestoreDefaultBrain,
-    });
+    commands.write(crate::features::BrainCommand::restore_default(
+        sim_id.clone(),
+    ));
 }
 
 /// `<<give_item "kind" count>>` — grant the player an item by adding

@@ -23,7 +23,7 @@ impl SnapshotState for ambition_platformer_primitives::lifecycle::RoomScopedEnti
 
 impl SnapshotState for ambition_platformer_primitives::lifecycle::SessionScopedEntity {
     fn encode(&self, out: &mut Vec<u8>) {
-        put_u64(out, self.0.0);
+        put_u64(out, self.0 .0);
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
@@ -1211,9 +1211,7 @@ fn put_smash_state(out: &mut Vec<u8>, state: &ambition_characters::brain::smash:
     put_f32(out, state.time_since_offense);
 }
 
-fn read_smash_state(
-    r: &mut Reader<'_>,
-) -> Option<ambition_characters::brain::smash::SmashState> {
+fn read_smash_state(r: &mut Reader<'_>) -> Option<ambition_characters::brain::smash::SmashState> {
     use ambition_characters::brain::smash::{SmashState, OBS_HISTORY_LEN};
 
     let mode = read_smash_mode(r)?;
@@ -1416,6 +1414,9 @@ impl SnapshotState for ambition_characters::actor::character_catalog::BrainBindi
                 put_u8(out, 1);
                 put_str(out, preset.as_str());
             }
+            // Externally-owned (provoke/mount/possession): the live brain is not a
+            // catalog preset, so reconcile leaves it to that authority.
+            BrainSelection::External => put_u8(out, 2),
         }
     }
 
@@ -1427,6 +1428,7 @@ impl SnapshotState for ambition_characters::actor::character_catalog::BrainBindi
         let selection = match r.u8()? {
             0 => BrainSelection::Default,
             1 => BrainSelection::Override(BrainPresetId::new(r.str()?.to_string())),
+            2 => BrainSelection::External,
             _ => return None,
         };
         Some(BrainBinding {
@@ -1436,41 +1438,109 @@ impl SnapshotState for ambition_characters::actor::character_catalog::BrainBindi
     }
 }
 
-/// Post-restore reconcile: rebuild a catalog-backed NPC's live `Brain` from its
-/// restored [`BrainBinding`] **only when the kind diverged** — i.e. a rewind
-/// crossed a runtime brain switch, so the live brain no longer matches the
-/// restored selection.
+/// The authored brain-build context (spawn anchor + patrol radius) a catalog NPC
+/// rebuilds its default/override brain from. A self-contained POD component, so a
+/// plain `register_component`. Snapshot-safe so a restored `RestoreDefault` /
+/// [`reconcile_brain_bindings`] recenters a patrol brain on its AUTHORED home, not
+/// wherever the actor wandered before the rewind.
+impl SnapshotState for ambition_characters::actor::character_catalog::AuthoredBrainContext {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.spawn_anchor_x);
+        match self.patrol_radius {
+            Some(r) => {
+                put_bool(out, true);
+                put_f32(out, r);
+            }
+            None => put_bool(out, false),
+        }
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(
+            ambition_characters::actor::character_catalog::AuthoredBrainContext {
+                spawn_anchor_x: r.f32()?,
+                patrol_radius: if r.bool()? { Some(r.f32()?) } else { None },
+            },
+        )
+    }
+}
+
+/// Post-restore reconcile: rebuild an AUTONOMOUS catalog-backed NPC's live `Brain`
+/// from its restored [`BrainBinding`] **only when its authored configuration
+/// diverged** — i.e. a rewind crossed a runtime brain switch, so the live brain no
+/// longer matches the restored selection.
 ///
-/// The `Brain` cursor is a no-op for peaceful/patrol NPC brains (their kind was
+/// The `Brain` cursor is a no-op for the peaceful/patrol NPC brains (their kind was
 /// authored-immutable before runtime switching existed), so it cannot restore a
 /// switched kind. Left unreconciled, the next re-simulated tick would drive the
-/// wrong brain — a desync. We compare `Brain::label()` (the variant name) against
-/// the brain the binding resolves to: identical → leave the live brain untouched
-/// (preserving its ticking state, exactly today's behavior); different → replace
-/// it with a fresh brain built from the binding via the same catalog seam spawn
-/// uses. Skips gracefully when the world has no `CharacterCatalog` (headless
-/// snapshot fixtures).
+/// wrong brain — a desync.
+///
+/// Correctness details:
+/// - **Configuration equality, not the label.** We compare via
+///   [`Brain::same_authored_configuration`], not `label()`: two presets in the same
+///   family (`wanderer_slow` / `wanderer_fast`) share a label but differ here, so a
+///   rewind across such a switch is caught. Same config → leave the live brain
+///   untouched, preserving the state the `Brain` cursor already restored (this is
+///   also the RESTORE ORDER guarantee: the cursor runs first, and reconcile only
+///   overwrites when the preset genuinely differs — in which case the cursor state
+///   was for the wrong brain anyway).
+/// - **Authored home.** A rebuild uses the actor's restored [`AuthoredBrainContext`]
+///   (its spawn anchor + patrol radius), not its current pose, so a restored patrol
+///   brain recenters where it was authored.
+/// - **Temporary control is untouchable.** A body under player possession
+///   (`Brain::Player`) or mount control (`Mounted`) is skipped — its live brain is
+///   control, not its autonomous selection; reconciling would clobber it.
+/// - **Externally-owned brains are left to their authority.** A binding whose
+///   selection is `External` (provoke/challenge installed a non-catalog hostile
+///   brain) has no `active_preset()` — reconcile skips it, so the disposition/provoke
+///   authority owns that brain across the rewind, never the catalog default.
+///
+/// Skips gracefully when the world has no `CharacterCatalog` (headless fixtures).
 pub fn reconcile_brain_bindings(world: &mut bevy::ecs::world::World) {
-    use ambition_characters::actor::character_catalog::{BrainBinding, BrainBuildContext};
+    use ambition_characters::actor::character_catalog::{
+        AuthoredBrainContext, BrainBinding, BrainBuildContext,
+    };
     use ambition_characters::actor::ActorPose;
     use ambition_characters::brain::Brain;
 
-    // 1. Collect each catalog-backed NPC's active preset, spawn anchor, and the
-    //    live brain's variant label (an immutable pass).
-    let jobs: Vec<(bevy::ecs::entity::Entity, String, f32, &'static str)> = {
-        let Some(mut q) =
-            world.try_query::<(bevy::ecs::entity::Entity, &BrainBinding, &ActorPose, &Brain)>()
-        else {
-            return;
-        };
+    struct Job {
+        entity: bevy::ecs::entity::Entity,
+        preset: String,
+        ctx: BrainBuildContext,
+        live: Brain,
+    }
+
+    // 1. Collect each AUTONOMOUS catalog-backed NPC's active preset, authored build
+    //    context, and a clone of its live brain (an immutable pass). Player /
+    //    mounted / external actors are filtered out here (see the doc note).
+    //    `query` (not `try_query`) so the optional `AuthoredBrainContext` / `Mounted`
+    //    component types are initialized even in a world that never spawned one — a
+    //    `try_query` returns `None` there and would silently skip reconciliation.
+    let jobs: Vec<Job> = {
+        let mut q = world.query::<(
+            bevy::ecs::entity::Entity,
+            &BrainBinding,
+            Option<&AuthoredBrainContext>,
+            &ActorPose,
+            &Brain,
+            bevy::ecs::query::Has<ambition_actors::features::Mounted>,
+        )>();
         q.iter(world)
-            .map(|(entity, binding, pose, brain)| {
-                (
+            .filter_map(|(entity, binding, authored, pose, brain, mounted)| {
+                if brain.is_player() || mounted {
+                    return None;
+                }
+                // `None` => External => an authority other than the catalog owns it.
+                let preset = binding.active_preset()?;
+                let ctx = authored
+                    .map(AuthoredBrainContext::build_context)
+                    .unwrap_or_else(|| BrainBuildContext::at(pose.origin().x));
+                Some(Job {
                     entity,
-                    binding.active_preset().0.clone(),
-                    pose.origin().x,
-                    brain.label(),
-                )
+                    preset: preset.0.clone(),
+                    ctx,
+                    live: brain.clone(),
+                })
             })
             .collect()
     };
@@ -1478,7 +1548,9 @@ pub fn reconcile_brain_bindings(world: &mut bevy::ecs::world::World) {
         return;
     }
 
-    // 2. Rebuild only where the KIND diverged, via the same catalog seam as spawn.
+    // 2. Rebuild only where the live brain's authored configuration differs from
+    //    the brain the restored selection resolves to, via the same catalog seam as
+    //    spawn.
     let rebuilt: Vec<(bevy::ecs::entity::Entity, Brain)> = {
         let Some(catalog) =
             world.get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
@@ -1486,10 +1558,10 @@ pub fn reconcile_brain_bindings(world: &mut bevy::ecs::world::World) {
             return;
         };
         jobs.iter()
-            .filter_map(|(entity, preset, spawn_x, live_label)| {
-                let candidate =
-                    catalog.build_brain_from_preset(preset, &BrainBuildContext::at(*spawn_x))?;
-                (candidate.label() != *live_label).then_some((*entity, candidate))
+            .filter_map(|job| {
+                let candidate = catalog.build_brain_from_preset(&job.preset, &job.ctx)?;
+                (!job.live.same_authored_configuration(&candidate))
+                    .then_some((job.entity, candidate))
             })
             .collect()
     };
@@ -2188,7 +2260,7 @@ mod brain_reconcile_tests {
         parse_catalog, BrainBinding, BrainPresetId, BrainSelection, CharacterCatalog,
     };
     use ambition_characters::actor::ActorPose;
-    use ambition_characters::brain::Brain;
+    use ambition_characters::brain::{Brain, PlayerSlot, StateMachineCfg};
     use ambition_engine_core as ae;
     use ambition_platformer_primitives::sim_id::SimId;
     use bevy::prelude::World;
@@ -2197,6 +2269,8 @@ mod brain_reconcile_tests {
         brain_presets: {
             "stand_still": StandStill,
             "wanderer_puppy_slug": Wanderer(speed: 36.0, aggressiveness: 0.0),
+            "wanderer_slow": Wanderer(speed: 20.0, aggressiveness: 0.0),
+            "wanderer_fast": Wanderer(speed: 200.0, aggressiveness: 0.0),
         },
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
@@ -2207,6 +2281,13 @@ mod brain_reconcile_tests {
             ),
         },
     )"#;
+
+    fn wanderer_speed(brain: &Brain) -> f32 {
+        match brain {
+            Brain::StateMachine(StateMachineCfg::Wanderer { cfg }) => cfg.speed,
+            other => panic!("expected a Wanderer brain, got {other:?}"),
+        }
+    }
 
     fn world_with_npc(brain: Brain, binding: BrainBinding) -> (World, bevy::ecs::entity::Entity) {
         let mut world = World::new();
@@ -2259,6 +2340,393 @@ mod brain_reconcile_tests {
             world.get::<Brain>(e).unwrap().label(),
             "stand_still",
             "a matching brain kind is left as-is"
+        );
+    }
+
+    #[test]
+    fn reconcile_distinguishes_same_family_presets() {
+        // Live brain is `wanderer_fast`; the restored binding selects
+        // `wanderer_slow`. Both label "wanderer", so a label check would MISS the
+        // divergence — configuration equality catches it and rebuilds to slow.
+        let cat = CharacterCatalog::from_data(parse_catalog(CATALOG));
+        let fast = cat
+            .build_brain_from_preset(
+                "wanderer_fast",
+                &ambition_characters::actor::character_catalog::BrainBuildContext::at(100.0),
+            )
+            .unwrap();
+        let (mut world, e) = world_with_npc(
+            fast,
+            BrainBinding::new(
+                BrainPresetId::new("wanderer_puppy_slug"),
+                BrainSelection::Override(BrainPresetId::new("wanderer_slow")),
+            ),
+        );
+        super::reconcile_brain_bindings(&mut world);
+        assert_eq!(
+            wanderer_speed(world.get::<Brain>(e).unwrap()),
+            20.0,
+            "reconcile rebuilds to the restored preset's config, not just its family label"
+        );
+    }
+
+    #[test]
+    fn reconcile_skips_an_externally_owned_brain() {
+        // An External selection (provoke installed a non-catalog brain): reconcile
+        // must leave the live brain to that authority, NOT rebuild the catalog
+        // default over it.
+        let (mut world, e) = world_with_npc(
+            Brain::stand_still(),
+            BrainBinding::new(
+                BrainPresetId::new("wanderer_puppy_slug"),
+                BrainSelection::External,
+            ),
+        );
+        super::reconcile_brain_bindings(&mut world);
+        assert_eq!(
+            world.get::<Brain>(e).unwrap().label(),
+            "stand_still",
+            "an externally-owned brain is left untouched (not rebuilt to the catalog default)"
+        );
+    }
+
+    #[test]
+    fn reconcile_skips_a_player_controlled_body() {
+        // A possessed body carries `Brain::Player`; reconcile must not overwrite
+        // player control with the autonomous selection.
+        let (mut world, e) = world_with_npc(
+            Brain::Player(PlayerSlot::PRIMARY),
+            BrainBinding::new(
+                BrainPresetId::new("wanderer_puppy_slug"),
+                BrainSelection::Default,
+            ),
+        );
+        super::reconcile_brain_bindings(&mut world);
+        assert!(
+            world.get::<Brain>(e).unwrap().is_player(),
+            "player control survives reconcile"
+        );
+    }
+}
+
+/// True snapshot take/restore ("rewind") tests for NPC brain switching — these
+/// drive the real [`take`](super::take)/[`restore`](super::restore) machinery
+/// (not just `reconcile_brain_bindings` in isolation), proving a rewind across a
+/// runtime brain switch / challenge restores the exact authored state.
+#[cfg(test)]
+mod brain_switch_rewind_tests {
+    use ambition_characters::actor::character_catalog::{
+        parse_catalog, AuthoredBrainContext, BrainBinding, BrainBuildContext, BrainPresetId,
+        BrainSelection, CharacterCatalog,
+    };
+    use ambition_characters::actor::ActorPose;
+    use ambition_characters::brain::{Brain, PlayerSlot, StateMachineCfg};
+    use ambition_combat::components::ActorDisposition;
+    use ambition_engine_core as ae;
+    use ambition_platformer_primitives::sim_id::SimId;
+    use bevy::prelude::World;
+
+    const CATALOG: &str = r#"(
+        brain_presets: {
+            "stand_still": StandStill,
+            "wanderer_puppy_slug": Wanderer(speed: 36.0, aggressiveness: 0.0),
+            "wanderer_slow": Wanderer(speed: 20.0, aggressiveness: 0.0),
+            "wanderer_fast": Wanderer(speed: 200.0, aggressiveness: 0.0),
+            "melee_brute_striker": MeleeBrute(
+                aggressiveness: 1.0, aggro_radius: 220.0, attack_range: 36.0, chase_speed: 110.0,
+            ),
+            "patrol_peaceful": Patrol(
+                spawn_local_x: 0.0, radius: 64.0, speed: 28.0,
+                aggressiveness: 0.0, aggro_radius: 80.0, attack_range: 0.0,
+            ),
+        },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "npc_puppy_slug": (
+                display_name: "Puppy Slug", spritesheet: "x.png", manifest: "x_spritesheet.ron",
+                tier: MainHall, body_kind: Crawler, composition: None,
+                default_brain: "wanderer_puppy_slug", default_action_set: "peaceful", tags: [],
+            ),
+            "npc_patroller": (
+                display_name: "Patroller", spritesheet: "x.png", manifest: "x_spritesheet.ron",
+                tier: MainHall, body_kind: Standard, composition: None,
+                default_brain: "patrol_peaceful", default_action_set: "peaceful", tags: [],
+            ),
+        },
+    )"#;
+
+    fn registry() -> super::super::SnapshotRegistry {
+        let mut reg = super::super::SnapshotRegistry::default();
+        reg.register_cursor::<Brain>("brain");
+        reg.register_component::<BrainBinding>("brain_binding");
+        reg.register_component::<AuthoredBrainContext>("authored_brain_context");
+        reg.register_component::<ActorDisposition>("actor_disposition");
+        reg
+    }
+
+    fn world() -> World {
+        let mut w = World::new();
+        w.insert_resource(CharacterCatalog::from_data(parse_catalog(CATALOG)));
+        w
+    }
+
+    fn build(world: &World, preset: &str, anchor_x: f32) -> Brain {
+        world
+            .resource::<CharacterCatalog>()
+            .build_brain_from_preset(preset, &BrainBuildContext::at(anchor_x))
+            .expect("preset builds")
+    }
+
+    fn spawn(
+        world: &mut World,
+        sim: &str,
+        brain: Brain,
+        binding: BrainBinding,
+        anchor_x: f32,
+    ) -> bevy::ecs::entity::Entity {
+        world
+            .spawn((
+                SimId::placement(sim),
+                brain,
+                binding,
+                AuthoredBrainContext::from_placement(anchor_x, 0.0),
+                ActorPose::from_parts(ae::Vec2::new(anchor_x, 0.0), ae::Vec2::new(8.0, 8.0), 1.0),
+                ActorDisposition::Peaceful,
+            ))
+            .id()
+    }
+
+    fn wanderer_speed(brain: &Brain) -> f32 {
+        match brain {
+            Brain::StateMachine(StateMachineCfg::Wanderer { cfg }) => cfg.speed,
+            other => panic!("expected Wanderer, got {other:?}"),
+        }
+    }
+
+    /// Override rewind: default selected, snapshot, switch to an override, restore
+    /// → the DEFAULT is back (selection + exact config), because the rewound
+    /// binding says Default and reconcile rebuilds it.
+    #[test]
+    fn override_rewind_restores_the_default() {
+        let reg = registry();
+        let mut w = world();
+        let brain = build(&w, "wanderer_puppy_slug", 100.0);
+        let e = spawn(
+            &mut w,
+            "npc",
+            brain,
+            BrainBinding::new(
+                BrainPresetId::new("wanderer_puppy_slug"),
+                BrainSelection::Default,
+            ),
+            100.0,
+        );
+
+        let snap = super::super::take(&w, &reg);
+
+        // Switch to stand_still (as `UsePreset` would).
+        *w.get_mut::<Brain>(e).unwrap() = Brain::stand_still();
+        w.get_mut::<BrainBinding>(e)
+            .unwrap()
+            .use_preset(BrainPresetId::new("stand_still"));
+
+        super::super::restore(&mut w, &snap, &reg).expect("restore");
+
+        assert_eq!(
+            w.get::<BrainBinding>(e).unwrap().selection,
+            BrainSelection::Default
+        );
+        assert_eq!(
+            wanderer_speed(w.get::<Brain>(e).unwrap()),
+            36.0,
+            "the exact default wanderer config is restored"
+        );
+    }
+
+    /// Same-family rewind: `wanderer_slow` selected, snapshot, switch to
+    /// `wanderer_fast`, restore → the exact SLOW config is back — a label check
+    /// would have missed it (both "wanderer").
+    #[test]
+    fn same_family_rewind_restores_the_exact_preset() {
+        let reg = registry();
+        let mut w = world();
+        let slow = build(&w, "wanderer_slow", 100.0);
+        let e = spawn(
+            &mut w,
+            "npc",
+            slow,
+            BrainBinding::new(
+                BrainPresetId::new("wanderer_puppy_slug"),
+                BrainSelection::Override(BrainPresetId::new("wanderer_slow")),
+            ),
+            100.0,
+        );
+
+        let snap = super::super::take(&w, &reg);
+
+        let fast = build(&w, "wanderer_fast", 100.0);
+        *w.get_mut::<Brain>(e).unwrap() = fast;
+        w.get_mut::<BrainBinding>(e)
+            .unwrap()
+            .use_preset(BrainPresetId::new("wanderer_fast"));
+
+        super::super::restore(&mut w, &snap, &reg).expect("restore");
+
+        assert_eq!(
+            wanderer_speed(w.get::<Brain>(e).unwrap()),
+            20.0,
+            "restore brings back the slow preset's config, not the fast one"
+        );
+    }
+
+    /// Challenge rewind (inverse boundary): snapshot BEFORE the challenge, provoke
+    /// (external hostile brain + Hostile disposition), restore → stand_still + the
+    /// pre-challenge (Peaceful) disposition are both back.
+    #[test]
+    fn rewind_to_before_a_challenge_restores_peaceful_stand_still() {
+        let reg = registry();
+        let mut w = world();
+        let brain = build(&w, "stand_still", 100.0);
+        let e = spawn(
+            &mut w,
+            "npc",
+            brain,
+            BrainBinding::new(
+                BrainPresetId::new("wanderer_puppy_slug"),
+                BrainSelection::Override(BrainPresetId::new("stand_still")),
+            ),
+            100.0,
+        );
+
+        let snap = super::super::take(&w, &reg);
+
+        // Provoke: a non-catalog hostile brain, Hostile disposition, External binding.
+        let attack = build(&w, "melee_brute_striker", 100.0);
+        *w.get_mut::<Brain>(e).unwrap() = attack;
+        *w.get_mut::<ActorDisposition>(e).unwrap() = ActorDisposition::Hostile;
+        w.get_mut::<BrainBinding>(e).unwrap().mark_external();
+
+        super::super::restore(&mut w, &snap, &reg).expect("restore");
+
+        assert_eq!(
+            w.get::<Brain>(e).unwrap().label(),
+            "stand_still",
+            "the pre-challenge stand_still brain is rebuilt from the restored binding"
+        );
+        assert_eq!(
+            *w.get::<ActorDisposition>(e).unwrap(),
+            ActorDisposition::Peaceful,
+            "the pre-challenge peaceful disposition is restored"
+        );
+    }
+
+    /// Challenge rewind (forward): snapshot AFTER the challenge (hostile), then
+    /// wrongly calm the actor, restore → the Hostile disposition and the external
+    /// attack brain are BOTH retained (reconcile does not clobber an External brain
+    /// back to the catalog default).
+    #[test]
+    fn rewind_to_after_a_challenge_keeps_hostile_and_the_attack_brain() {
+        let reg = registry();
+        let mut w = world();
+        let attack = build(&w, "melee_brute_striker", 100.0);
+        let mut binding = BrainBinding::new(
+            BrainPresetId::new("wanderer_puppy_slug"),
+            BrainSelection::Override(BrainPresetId::new("stand_still")),
+        );
+        binding.mark_external();
+        let e = spawn(&mut w, "npc", attack, binding, 100.0);
+        *w.get_mut::<ActorDisposition>(e).unwrap() = ActorDisposition::Hostile;
+
+        let snap = super::super::take(&w, &reg);
+
+        // The "present" we rewind FROM keeps the attack brain live (as real
+        // rollback does) but drifts other state.
+        *w.get_mut::<ActorDisposition>(e).unwrap() = ActorDisposition::Peaceful;
+
+        super::super::restore(&mut w, &snap, &reg).expect("restore");
+
+        assert_eq!(
+            *w.get::<ActorDisposition>(e).unwrap(),
+            ActorDisposition::Hostile,
+            "hostile disposition is restored"
+        );
+        assert_eq!(
+            w.get::<Brain>(e).unwrap().label(),
+            "melee_brute",
+            "the external attack brain is retained, not rebuilt to the catalog default"
+        );
+        assert!(
+            w.get::<BrainBinding>(e).unwrap().is_external(),
+            "the binding agrees: still External"
+        );
+    }
+
+    /// Authored-home rewind: a patroller that wandered far, its default reselected
+    /// on rewind, rebuilds its patrol lane around the AUTHORED anchor (carried by
+    /// the snapshot-restored `AuthoredBrainContext`), not its drifted pose.
+    #[test]
+    fn rewind_rebuilds_patrol_around_the_authored_home() {
+        let reg = registry();
+        let mut w = world();
+        let patrol = build(&w, "patrol_peaceful", 100.0);
+        let e = spawn(
+            &mut w,
+            "npc",
+            patrol,
+            BrainBinding::new(
+                BrainPresetId::new("patrol_peaceful"),
+                BrainSelection::Default,
+            ),
+            100.0,
+        );
+
+        let snap = super::super::take(&w, &reg);
+
+        // Wander far and switch brains (as a runtime override would).
+        w.get_mut::<ActorPose>(e).unwrap().center.x = 900.0;
+        *w.get_mut::<Brain>(e).unwrap() = Brain::stand_still();
+        w.get_mut::<BrainBinding>(e)
+            .unwrap()
+            .use_preset(BrainPresetId::new("stand_still"));
+
+        super::super::restore(&mut w, &snap, &reg).expect("restore");
+
+        match w.get::<Brain>(e).unwrap() {
+            Brain::StateMachine(StateMachineCfg::Patrol { cfg, .. }) => {
+                assert_eq!(
+                    cfg.lane.center_x, 100.0,
+                    "the rebuilt lane centers on the authored home, not the drifted pose (900)"
+                );
+            }
+            other => panic!("expected Patrol, got {other:?}"),
+        }
+    }
+
+    /// Temporary control survives a rewind: a possessed body (`Brain::Player`) is
+    /// NOT rebuilt to its autonomous selection by the post-restore reconcile.
+    #[test]
+    fn a_possessed_body_survives_restore_as_player() {
+        let reg = registry();
+        let mut w = world();
+        let e = spawn(
+            &mut w,
+            "npc",
+            Brain::Player(PlayerSlot::PRIMARY),
+            BrainBinding::new(
+                BrainPresetId::new("wanderer_puppy_slug"),
+                BrainSelection::Default,
+            ),
+            100.0,
+        );
+
+        let snap = super::super::take(&w, &reg);
+        // Drift some state, then restore.
+        w.get_mut::<ActorPose>(e).unwrap().center.x = 500.0;
+        super::super::restore(&mut w, &snap, &reg).expect("restore");
+
+        assert!(
+            w.get::<Brain>(e).unwrap().is_player(),
+            "player control is not clobbered by the autonomous reconcile across a rewind"
         );
     }
 }

@@ -502,21 +502,19 @@ impl ActorClusterSeed {
         interactable: &ambition_interaction::Interactable,
         paths: &[(String, ambition_engine_core::KinematicPath)],
     ) -> (Self, Option<ae::Vec2>) {
-        let (patrol_radius, patrol_path_id, motion) = match &interactable.kind {
+        // Only the motion attachment is derived from the placement here.
+        // `patrol_radius` PARAMETERIZES a selected patrol brain (consumed during
+        // brain resolution, not here), and `patrol_path_id` is the separate
+        // `ActorMotionPath` movement authority — neither classifies AI behaviour.
+        let motion = match &interactable.kind {
             ambition_interaction::InteractionKind::Npc {
-                patrol_radius,
-                patrol_path_id,
+                patrol_path_id: Some(path_id),
                 ..
-            } => {
-                let motion = patrol_path_id.as_deref().and_then(|path_id| {
-                    paths
-                        .iter()
-                        .find(|(p_id, _)| p_id == path_id)
-                        .map(|(_, path)| PathMotion::new(path.clone()))
-                });
-                (patrol_radius.max(0.0), patrol_path_id.clone(), motion)
-            }
-            _ => (0.0, None, None),
+            } => paths
+                .iter()
+                .find(|(p_id, _)| p_id == path_id)
+                .map(|(_, path)| PathMotion::new(path.clone())),
+            _ => None,
         };
         let character_id = match &interactable.kind {
             ambition_interaction::InteractionKind::Npc {
@@ -560,7 +558,6 @@ impl ActorClusterSeed {
             .as_ref()
             .and_then(PathMotion::start_pos)
             .unwrap_or_else(|| actor_spawn_center_for_collision(aabb, collision_size));
-        let has_patrol = patrol_radius > 0.0 || motion.is_some();
         // Body locomotion CAPABILITY vs AI POLICY (control-refactor convergence):
         // `max_run_speed` is the body's PHYSICAL top speed under direct control —
         // the same capability the player body has, so a possessed NPC is
@@ -579,13 +576,14 @@ impl ActorClusterSeed {
             is_aerial,
             ..Default::default()
         };
-        let config_brain = if has_patrol {
-            ambition_entity_catalog::placements::CharacterBrain::Patrol {
-                path_id: patrol_path_id,
-            }
-        } else {
-            ambition_entity_catalog::placements::CharacterBrain::Passive
-        };
+        // `config.brain` (the integrator-facing `CharacterBrain` read-model, which
+        // only feeds patrol-stall intent) is DERIVED from the actor's resolved
+        // autonomous `Brain` after spawn — never inferred here from `patrol_radius`
+        // / motion presence. A nonzero radius or a path no longer classifies AI
+        // behaviour; explicit brain selection is the sole authority. Seed it
+        // `Passive`; `NpcActorSpawnPlan::peaceful` overwrites it to `Patrol` iff the
+        // resolved brain is a Patrol brain.
+        let config_brain = ambition_entity_catalog::placements::CharacterBrain::Passive;
         let seed = Self {
             kin: BodyKinematics {
                 pos,

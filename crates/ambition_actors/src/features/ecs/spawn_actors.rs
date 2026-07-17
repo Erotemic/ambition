@@ -383,11 +383,16 @@ pub(super) struct NpcActorSpawnPlan {
     render_size: Option<ae::Vec2>,
     interactable: ambition_interaction::Interactable,
     brain: ambition_characters::brain::Brain,
-    /// The explicit brain binding (default preset + current selection) for a
-    /// catalog-backed NPC. `None` for anonymous NPCs (no catalog identity). When
-    /// present, it is attached so the actor's brain can be switched at runtime
-    /// (`BrainCommand`) and its selection survives snapshot/restore.
-    brain_binding: Option<ambition_characters::actor::character_catalog::BrainBinding>,
+    /// The explicit brain binding (default preset + current selection) and the
+    /// authored build context (patrol home + radius) for a catalog-backed NPC.
+    /// `None` for anonymous NPCs (no catalog identity). When present, both are
+    /// attached so the actor's brain can be switched at runtime (`BrainCommand`),
+    /// rebuilt around its authored home (`RestoreDefault`), and its selection +
+    /// context survive snapshot/restore.
+    brain_binding: Option<(
+        ambition_characters::actor::character_catalog::BrainBinding,
+        ambition_characters::actor::character_catalog::AuthoredBrainContext,
+    )>,
     action_set: ambition_characters::brain::ActionSet,
     combat_kit: crate::combat::CombatKit,
     aggression: super::ActorAggression,
@@ -425,7 +430,7 @@ impl NpcActorSpawnPlan {
         // a property of the PLACEMENT, and this placement is a person.
         hostile_spec.respawn = ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead;
         let combat_kit = super::brain_builders::enemy_combat_kit_for_spec(&hostile_spec);
-        let (seed, render_size) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc_in(
+        let (mut seed, render_size) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc_in(
             catalog,
             roster,
             id.clone(),
@@ -436,12 +441,33 @@ impl NpcActorSpawnPlan {
         );
         // Explicit brain authority: the placement's `brain_override` (else the
         // character's catalog `default_brain`) selects the brain; `patrol_radius`
-        // / `patrol_path_id` only PARAMETERIZE a selected patrol preset. No
-        // radius/motion/hostility inference. A catalog-backed NPC also gets a
-        // `BrainBinding` so its brain can be switched at runtime and its
-        // selection survives snapshot.
+        // only PARAMETERIZES a selected patrol preset. No radius/motion/hostility
+        // inference. A catalog-backed NPC also gets a `BrainBinding` +
+        // `AuthoredBrainContext` so its brain can be switched at runtime, rebuilt
+        // around its authored home, and its selection survives snapshot.
         let (brain, brain_binding) =
             super::super::npcs::resolve_npc_brain(catalog, &interactable, seed.config.spawn.pos.x);
+        // Derive the `CharacterBrain` read-model (patrol-stall intent) from the
+        // RESOLVED autonomous brain, not from `patrol_radius`: a body patrol-stalls
+        // iff its actual brain is a Patrol brain. Any other resolved brain (wanderer,
+        // stand_still, hostile default) is `Passive` — a wanderer reverses at walls
+        // through the integrator's own wall-stop, not this read-model.
+        seed.config.brain = if matches!(
+            brain,
+            ambition_characters::brain::Brain::StateMachine(
+                ambition_characters::brain::StateMachineCfg::Patrol { .. }
+            )
+        ) {
+            let path_id = match &interactable.kind {
+                ambition_interaction::InteractionKind::Npc { patrol_path_id, .. } => {
+                    patrol_path_id.clone()
+                }
+                _ => None,
+            };
+            ambition_entity_catalog::placements::CharacterBrain::Patrol { path_id }
+        } else {
+            ambition_entity_catalog::placements::CharacterBrain::Passive
+        };
         Self {
             entity_name: entity_name.into(),
             feature_id: id,
@@ -519,12 +545,12 @@ impl NpcActorSpawnPlan {
             ),
         );
         entity.insert(interaction);
-        // The explicit brain binding travels with the actor so runtime brain
-        // switches (`BrainCommand`) and snapshot/restore both read the same
-        // authoritative selection. Anonymous NPCs (no catalog identity) carry no
-        // binding.
-        if let Some(binding) = self.brain_binding {
-            entity.insert(binding);
+        // The explicit brain binding + authored context travel with the actor so
+        // runtime brain switches (`BrainCommand`), authored-home rebuilds
+        // (`RestoreDefault`), and snapshot/restore all read the same authoritative
+        // state. Anonymous NPCs (no catalog identity) carry neither.
+        if let Some((binding, authored_context)) = self.brain_binding {
+            entity.insert((binding, authored_context));
         }
         if let Some(moveset) = npc_moveset {
             let has_attack = moveset

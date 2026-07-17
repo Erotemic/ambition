@@ -1267,6 +1267,14 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_component::<ambition_characters::actor::character_catalog::BrainBinding>(
         "brain_binding",
     );
+    // The authored brain-build context (spawn anchor + patrol radius) a catalog
+    // NPC rebuilds its default/override brain from. Snapshot-safe so a restored
+    // `RestoreDefault`/reconcile recenters a patrol brain on its AUTHORED home,
+    // not the actor's current pose.
+    registry
+        .register_component::<ambition_characters::actor::character_catalog::AuthoredBrainContext>(
+            "authored_brain_context",
+        );
     registry
         .register_component::<ambition_actors::features::ActorSurfaceState>("actor_surface_state");
     registry.register_component::<ambition_combat::components::BodyEnvelope>("body_envelope");
@@ -1391,23 +1399,10 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     // a Completed event) replayed after a restore would double-apply.
     registry.register_message_channel::<ambition_encounter::EncounterCommand>("encounter_command");
     registry.register_message_channel::<ambition_encounter::EncounterEventMsg>("encounter_event");
-    // Runtime brain-switch authority + actor-directive routing. A `BrainCommand`
-    // (or a directive request that fans out to one) pending from the abandoned
+    // Runtime brain-switch authority. A `BrainCommand` pending from the abandoned
     // future would switch a brain twice in the restored past; the replayed input
     // re-issues it, so clearing here is what makes the switch deterministic.
     registry.register_message_channel::<ambition_actors::features::BrainCommand>("brain_command");
-    registry.register_message_channel::<ambition_actors::features::ActorDirectiveRequest>(
-        "actor_directive_request",
-    );
-    registry.register_message_channel::<ambition_actors::features::ActorActionRequest>(
-        "actor_action_request",
-    );
-    registry.register_message_channel::<ambition_actors::features::ActorAnimationDirective>(
-        "actor_animation_directive",
-    );
-    registry.register_message_channel::<ambition_actors::features::DispositionDirective>(
-        "disposition_directive",
-    );
     // The room-construction staging fact (N3.2b). Two reasons it must clear on
     // restore: a `RoomLoaded` pending from the abandoned future would re-stage
     // content beats in the restored past, and the atomic room transaction's own

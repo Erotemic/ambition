@@ -882,34 +882,60 @@ pub fn update_button_verb_from_prompt(
     }
 }
 
-/// Per-frame: show only the buttons that mean something in the current context.
+/// Whether a touch button is active in the current prompt context — the SINGLE
+/// source of truth consumed by BOTH on-screen visibility AND raw-touch hit
+/// testing, so a hidden button can never still be tapped at its old location.
 ///
-/// - **Gameplay:** hide any button whose slot the controlled subject's scheme
-///   doesn't carry (Sanic shows no Attack / Shot / Shield button).
-/// - **Menu / Dialogue:** hide the gameplay-only action buttons, keeping the
-///   select-functional Jump / Interact and the Menu / Back row so touch menu
-///   navigation stays usable.
-///
-/// Shown buttons use `Visibility::Inherited` (never `Visible`) so they still
-/// obey the overlay-wide [`TouchControlsVisible`] root toggle.
+/// - **Gameplay:** available iff the controlled subject's scheme carries the
+///   button's slot (Sanic — no Attack/Shot/Shield — cannot fire them by tapping
+///   the invisible circle).
+/// - **Menu / Dialogue:** only the select-functional Jump / Interact and the
+///   Menu / Back row.
+/// - **Empty** (no controllable subject / cold start): only the Menu / Back row
+///   — every gameplay action is hidden AND untappable, never a stale default.
+pub fn touch_action_available(action: TouchActionButton, prompt: &ControlPrompt) -> bool {
+    match prompt.context {
+        ControlContextKind::Gameplay => match touch_button_slot(action) {
+            Some(slot) => prompt.label_for(slot).is_some(),
+            None => true, // Start / Reset carry no gameplay slot; always available
+        },
+        ControlContextKind::Menu | ControlContextKind::Dialogue => {
+            is_menu_confirm_button(action) || is_menu_button(action)
+        }
+        ControlContextKind::Empty => is_menu_button(action),
+    }
+}
+
+/// Zero the held flag of any action unavailable this frame, so an unavailable
+/// action never registers touch — even through the raw fixed-layout hit test —
+/// and a held action that becomes unavailable produces a clean release edge
+/// (never a stuck hold or a dangling pending press).
+fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt) {
+    let avail = |a| touch_action_available(a, prompt);
+    now.jump &= avail(TouchActionButton::Jump);
+    now.attack &= avail(TouchActionButton::Attack);
+    now.dash &= avail(TouchActionButton::Dash);
+    now.blink &= avail(TouchActionButton::Blink);
+    now.interact &= avail(TouchActionButton::Interact);
+    now.projectile &= avail(TouchActionButton::Projectile);
+    now.fly_toggle &= avail(TouchActionButton::FlyToggle);
+    now.shield &= avail(TouchActionButton::Shield);
+    // Start / Reset are always available — no mask.
+}
+
+/// Per-frame: show exactly the buttons that are available this frame (see
+/// [`touch_action_available`]). Shown buttons use `Visibility::Inherited` (never
+/// `Visible`) so they still obey the overlay-wide [`TouchControlsVisible`] root
+/// toggle.
 pub fn sync_touch_button_visibility_from_prompt(
     prompt: Res<ControlPrompt>,
     mut buttons: Query<(&TouchActionButton, &mut Visibility)>,
 ) {
     for (action, mut vis) in &mut buttons {
-        let target = match prompt.context {
-            ControlContextKind::Gameplay => match touch_button_slot(*action) {
-                Some(slot) if prompt.label_for(slot).is_none() => Visibility::Hidden,
-                _ => Visibility::Inherited,
-            },
-            ControlContextKind::Menu | ControlContextKind::Dialogue => {
-                if is_menu_confirm_button(*action) || is_menu_button(*action) {
-                    Visibility::Inherited
-                } else {
-                    Visibility::Hidden
-                }
-            }
-            ControlContextKind::Empty => Visibility::Inherited,
+        let target = if touch_action_available(*action, &prompt) {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
         };
         if *vis != target {
             *vis = target;
@@ -1116,6 +1142,7 @@ fn update_buttons_from_interactions(
     touches: Res<Touches>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
+    prompt: Res<ControlPrompt>,
     mut state: ResMut<MobileTouchState>,
     mut edges: ResMut<TouchButtonEdges>,
 ) {
@@ -1159,6 +1186,10 @@ fn update_buttons_from_interactions(
             }
         }
     }
+
+    // A button hidden by the current prompt must not register touch even via
+    // the raw fixed-layout hit test above — one availability source of truth.
+    mask_unavailable(&mut now, &prompt);
 
     let make_btn = |held_now: bool, held_prev: bool| super::TouchButton {
         held: held_now,
@@ -1536,5 +1567,59 @@ mod prompt_tests {
             Visibility::Inherited,
             "Back button stays"
         );
+    }
+
+    #[test]
+    fn availability_predicate_covers_all_contexts() {
+        // Gameplay: available iff the scheme carries the slot.
+        let g = prompt(
+            ControlContextKind::Gameplay,
+            vec![(ControlSlot::Jump, "Jump")],
+        );
+        assert!(touch_action_available(TouchActionButton::Jump, &g));
+        assert!(!touch_action_available(TouchActionButton::Attack, &g));
+        assert!(touch_action_available(TouchActionButton::Start, &g)); // menu row always
+
+        // Menu: only select-functional + menu row.
+        let m = menu_prompt("Select");
+        assert!(touch_action_available(TouchActionButton::Jump, &m));
+        assert!(touch_action_available(TouchActionButton::Reset, &m));
+        assert!(!touch_action_available(TouchActionButton::Attack, &m));
+
+        // Empty: gameplay actions hidden, only the menu row survives.
+        let e = ControlPrompt::default(); // context = Empty
+        assert!(!touch_action_available(TouchActionButton::Jump, &e));
+        assert!(!touch_action_available(TouchActionButton::Attack, &e));
+        assert!(touch_action_available(TouchActionButton::Start, &e));
+    }
+
+    #[test]
+    fn hidden_action_is_not_tappable_end_to_end() {
+        // The regression the review flagged: hiding a button must ALSO disable
+        // its touch region, not just its visibility. Drive the interaction
+        // system with a "pressed" Attack button the scheme lacks.
+        let mut app = App::new();
+        app.insert_resource(prompt(
+            ControlContextKind::Gameplay,
+            vec![(ControlSlot::Jump, "Jump")], // Attack absent from the scheme
+        ));
+        app.init_resource::<Touches>();
+        app.init_resource::<ButtonInput<MouseButton>>();
+        app.init_resource::<MobileTouchState>();
+        app.init_resource::<TouchButtonEdges>();
+        app.add_systems(Update, update_buttons_from_interactions);
+        app.world_mut()
+            .spawn((Button, Interaction::Pressed, TouchActionButton::Attack));
+        app.world_mut()
+            .spawn((Button, Interaction::Pressed, TouchActionButton::Jump));
+        app.update();
+
+        let state = &app.world().resource::<MobileTouchState>().0;
+        assert!(!state.attack.held, "hidden Attack must not register a hold");
+        assert!(
+            !state.attack.pressed_this_frame,
+            "hidden Attack must not emit a press edge"
+        );
+        assert!(state.jump.held, "an available button still registers");
     }
 }

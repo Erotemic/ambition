@@ -25,8 +25,7 @@
 //! real-app wiring: `portal_transit` runs in the live schedule against a
 //! free-flying body and carries it through the pair.
 
-mod common;
-use common::{base, first_authored_portal_pair, fixed_60hz_room_sim};
+use crate::common::{base, first_authored_portal_pair, fixed_60hz_room_sim};
 
 use ambition::actors::platformer_runtime::body::BodyKinematics;
 use ambition::portal::{PortalBody, PortalPolicy};

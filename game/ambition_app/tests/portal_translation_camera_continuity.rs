@@ -3,8 +3,7 @@
 // presentation resources, and RL stepping API are enabled.
 #![cfg(all(feature = "portal", feature = "portal_render", feature = "rl_sim"))]
 
-mod common;
-use common::{base, hold_right};
+use crate::common::{base, hold_right};
 
 use ambition::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition::input::ControlFrame;

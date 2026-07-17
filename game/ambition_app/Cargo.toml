@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 description = "Ambition app shell: assembly, binaries, host glue, headless/RL drivers."
+# Integration tests are aggregated into a single `app_it` binary (tests/app_it.rs)
+# instead of one linked binary per `tests/*.rs`. Disable target auto-discovery so
+# the per-file modules aren't ALSO built as standalone targets. See tests/app_it.rs.
+autotests = false
 
 [lib]
 crate-type = ["rlib", "cdylib"]
@@ -169,6 +173,13 @@ required-features = ["rl_sim"]
 [[bin]]
 name = "trace_replay"
 required-features = ["rl_sim"]
+
+# Single aggregated integration-test binary. Every former tests/<name>.rs is a
+# `mod <name>;` submodule of tests/app_it.rs. Filter one with:
+#   cargo test -p ambition_app --test app_it -- <module_name>
+[[test]]
+name = "app_it"
+path = "tests/app_it.rs"
 
 [dev-dependencies]
 insta = { version = "1", features = ["ron"] }

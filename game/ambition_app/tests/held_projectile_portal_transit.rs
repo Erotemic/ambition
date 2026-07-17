@@ -18,8 +18,7 @@
 //! bolt's own solid-raycast would detonate on the floor before it could transit).
 //! Step the real app and assert the bolt jumps to the partner portal.
 
-mod common;
-use common::{base, first_floor_authored_portal_pair, fixed_60hz_room_sim};
+use crate::common::{base, first_floor_authored_portal_pair, fixed_60hz_room_sim};
 
 use ambition::actors::items::pickup::HeldProjectile;
 use ambition::actors::platformer_runtime::body::BodyKinematics;

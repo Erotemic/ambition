@@ -14,8 +14,7 @@
 //! toggle color → fire ORANGE aimed down (a floor portal at the feet) → standing
 //! on the floor portal teleports the player to the blue one on the far side.
 
-mod common;
-use common::{base, fixed_60hz_room_sim};
+use crate::common::{base, fixed_60hz_room_sim};
 
 use ambition_app::AgentAction;
 

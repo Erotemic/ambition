@@ -4,8 +4,7 @@
 //! row of three targets should clear them. Movement is checked via the public
 //! observation; the kills via a world query on the enemies' `BodyHealth`.
 
-mod common;
-use common::{base, fixed_60hz_room_sim};
+use crate::common::{base, fixed_60hz_room_sim};
 
 use ambition_app::{AgentAction, SandboxSim};
 

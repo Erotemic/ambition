@@ -16,8 +16,7 @@
 //! tested in `ambition::portal::lifecycle` and the host bridge, since a gun pair is
 //! auto-despawned here when the player holds no portal gun).
 
-mod common;
-use common::{authored_portal_pairs, base, fixed_60hz_room_sim};
+use crate::common::{authored_portal_pairs, base, fixed_60hz_room_sim};
 
 use ambition::actors::features::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition::portal::PlacedPortal;

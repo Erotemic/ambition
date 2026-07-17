@@ -22,11 +22,10 @@
 //! Driven through the public SandboxSim API, asserting only on observed player
 //! position / velocity / on-ground / reset counter.
 
-mod common;
-use common::{base, first_floor_authored_portal_pair};
+use crate::common::{base, first_floor_authored_portal_pair};
 
-use ambition_app::AmbitionSim;
 use ambition_app::rl_sim::TimestepMode;
+use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
 
 struct BounceStats {

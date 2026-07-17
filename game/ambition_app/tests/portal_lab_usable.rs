@@ -12,8 +12,7 @@
 //! portal transfer can do. Driven through the public SandboxSim API, asserting
 //! only on observed player position.
 
-mod common;
-use common::{base, fixed_60hz_room_sim};
+use crate::common::{base, fixed_60hz_room_sim};
 
 use ambition_app::AgentAction;
 

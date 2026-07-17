@@ -17,8 +17,7 @@
 //! PASSES, the live device->ControlFrame populate path is the only remaining
 //! suspect (not exercised by this seam).
 
-mod common;
-use common::base;
+use crate::common::base;
 
 use ambition_app::AgentAction;
 
@@ -30,7 +29,7 @@ const MIN_TRAVEL_PX: f32 = 20.0;
 fn fresh_sim() -> ambition_app::SandboxSim {
     // Default room spawns the player on flat floor; fixed 60Hz keeps the
     // trajectory deterministic.
-    common::fixed_60hz_sim()
+    crate::common::fixed_60hz_sim()
 }
 
 #[test]

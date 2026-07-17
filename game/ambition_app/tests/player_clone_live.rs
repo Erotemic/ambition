@@ -9,8 +9,7 @@
 //! no human input. Complements the engine-level proof in
 //! `ambition::actors::avatar::clone_probe_tests`.
 
-mod common;
-use common::base;
+use crate::common::base;
 
 use ambition::actors::actor::BodyGroundState;
 use ambition::actors::actor::BodyKinematics;
@@ -27,7 +26,7 @@ fn clone_state(world: &mut World) -> Option<(f32, f32, bool)> {
 
 #[test]
 fn brain_driven_player_clone_runs_and_leaves_the_ground_in_the_live_app() {
-    let mut sim = common::fixed_60hz_sim();
+    let mut sim = crate::common::fixed_60hz_sim();
     // Let the player settle into the room.
     sim.step_n(base(), 30);
 

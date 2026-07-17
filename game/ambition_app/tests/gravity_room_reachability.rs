@@ -11,8 +11,7 @@
 //! Both drive only "hold right" and assert on the public `SandboxSim` observation,
 //! so they're fast (sub-second) and don't depend on rendering.
 
-mod common;
-use common::{fixed_60hz_room_sim, hold_right};
+use crate::common::{fixed_60hz_room_sim, hold_right};
 
 #[test]
 fn wall_run_field_pulls_the_player_onto_the_right_wall() {

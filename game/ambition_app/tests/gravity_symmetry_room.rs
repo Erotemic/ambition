@@ -9,11 +9,9 @@
 //! assertions. If a mechanic is correct by construction, the same local input in
 //! each gravity well produces the same local trace up to the room rotation.
 
-mod common;
-
+use crate::common::{base, fixed_60hz_room_sim};
 use ambition::engine_core::{AccelerationFrame, Block, InputFrameMode, Vec2};
 use ambition_app::{AgentAction, SandboxSim};
-use common::{base, fixed_60hz_room_sim};
 use serde_json::json;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};

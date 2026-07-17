@@ -8,8 +8,7 @@
 //! Sequence: walk onto the ability (Attack to grab) → for each gap, walk to its
 //! near edge and Attack with aim right (a blink carries the player 150px across).
 
-mod common;
-use common::{base, fixed_60hz_room_sim};
+use crate::common::{base, fixed_60hz_room_sim};
 
 use ambition_app::{AgentAction, SandboxSim};
 

@@ -61,7 +61,11 @@ pub struct BallDashTuning {
     /// Charge bled off per second while crouched. Holding forever must not
     /// guarantee a max launch — the rev is a rhythm, not a timer.
     pub decay_per_s: f32,
-    /// Launch speed (px/s) at `charge == 1.0`.
+    /// Launch speed (px/s) at `charge == 1.0`. A full rev must OUT-run the
+    /// momentum top-speed cap (the launch writes `v_t` directly, which the kernel
+    /// permits above the cap) so a spin dash blasts through the loop: clearing a
+    /// radius-180 loop under 2250 gravity needs ~1300 px/s at the bottom, so the
+    /// full-charge launch sits comfortably above that with room for pre-loop drag.
     pub launch_speed: f32,
     /// Below this charge a crouch-release is just standing up. Without a floor,
     /// every crouch would fire a limp dash and the verb would feel like a bug.
@@ -84,7 +88,7 @@ impl Default for BallDashTuning {
         Self {
             rev_per_tap: 0.4,
             decay_per_s: 0.55,
-            launch_speed: 900.0,
+            launch_speed: 1600.0,
             min_launch_charge: 0.3,
             ball_size: ae::Vec2::new(24.0, 24.0),
             exit_speed: 90.0,

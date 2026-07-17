@@ -554,6 +554,49 @@ pub fn install_sanic_content(app: &mut App) {
         )
         .expect("Sanic audio catalogs should be valid"),
     );
+    // The animated ring sheet is CONTENT, not a property of one shell: register
+    // it here so it loads identically whether Sanic runs standalone or as a mode
+    // in the multi-game host (both add `SanicExperiencePlugin`, which calls this).
+    // A prop is not carried in the lean sanic asset catalog, so this mirrors
+    // Ambition's own intro-prop loader (a per-frame "insert if missing" GameAssets
+    // mutation) rather than the catalog-fragment path — see smell #19.
+    app.add_systems(bevy::prelude::Update, register_sanic_ring_prop_sheet);
+}
+
+/// Ensure the animated `sanic_ring_prop` sheet lives in `GameAssets.props` so the
+/// pickup renderer binds it (the ring's spinning sprite) instead of the static
+/// coin. Insert-if-missing rather than a one-shot latch: it self-heals after the
+/// host's wholesale `GameAssets` rebuild (the quality-scale reload wipes props),
+/// and the insert flips `GameAssets::is_changed()` so the prop-rebind pass runs.
+/// No-ops in a headless/sim-only build where no `GameAssets` (or renderer) exists.
+fn register_sanic_ring_prop_sheet(
+    game_assets: Option<bevy::prelude::ResMut<ambition::sprite_sheet::game_assets::GameAssets>>,
+    config: Option<bevy::prelude::Res<ambition::sprite_sheet::game_assets::GameAssetConfig>>,
+    asset_server: Option<bevy::prelude::Res<bevy::prelude::AssetServer>>,
+    layouts: Option<
+        bevy::prelude::ResMut<bevy::prelude::Assets<bevy::prelude::TextureAtlasLayout>>,
+    >,
+) {
+    let (Some(mut game_assets), Some(config), Some(asset_server), Some(mut layouts)) =
+        (game_assets, config, asset_server, layouts)
+    else {
+        return;
+    };
+    if config.no_assets || game_assets.characters.props.contains_key(RING_SPRITE_KIND) {
+        return;
+    }
+    if let Some(asset) = ambition::actors::character_sprites::load_prop_sheet_for_target(
+        &asset_server,
+        &mut layouts,
+        &config.sprite_folder,
+        RING_SPRITE_KIND,
+        &ambition::sprite_sheet::character::SheetTuning::new(1.0, 2),
+    ) {
+        game_assets
+            .characters
+            .props
+            .insert(RING_SPRITE_KIND.to_string(), asset);
+    }
 }
 
 /// The whole Sanic SFX table. Every cue is procedural (the provider ships no
@@ -950,7 +993,12 @@ fn toggle_sanic_form(
 }
 
 /// How often the super form's sparkle trail pulses (sim seconds).
-const SUPER_SPARKLE_PERIOD: f32 = 0.15;
+const SUPER_SPARKLE_PERIOD: f32 = 0.14;
+/// Radius of the sparkle orbit around the body centre (px).
+const SUPER_SPARKLE_RADIUS: f32 = 15.0;
+/// Upward bias of the sparkle ring (px, toward the torso) so the falling motes
+/// hover AROUND the body rather than pooling at the feet.
+const SUPER_SPARKLE_RISE: f32 = 8.0;
 
 /// Derive the super form's non-movement traits from the worn identity, every
 /// sim frame. The movement boost is authored on the `super_sanic` catalog row
@@ -969,6 +1017,7 @@ const SUPER_SPARKLE_PERIOD: f32 = 0.15;
 fn sync_super_form_traits(
     time: bevy::prelude::Res<ambition::time::WorldTime>,
     mut sparkle_accum: bevy::prelude::Local<f32>,
+    mut sparkle_orbit: bevy::prelude::Local<f32>,
     mut was_super: bevy::prelude::Local<bool>,
     mut vfx: bevy::prelude::MessageWriter<ambition::vfx::VfxMessage>,
     mut sfx: ambition::sfx::SfxWriter,
@@ -1009,12 +1058,19 @@ fn sync_super_form_traits(
     *sparkle_accum += time.scaled_dt;
     if *sparkle_accum >= SUPER_SPARKLE_PERIOD {
         *sparkle_accum -= SUPER_SPARKLE_PERIOD;
+        // Orbit the emit point AROUND the body so the motes read as a golden
+        // aura ring, not a stream out of one point (Shard's heavy gravity turned
+        // a centre-emit burst into a dribble). The golden-angle step spreads
+        // successive pulses evenly around the ring; the upward bias keeps the
+        // (still-falling) Spark motes hovering around the torso.
+        *sparkle_orbit += 2.399_963; // golden angle, radians
+        let ring = ae::Vec2::new(sparkle_orbit.cos(), sparkle_orbit.sin()) * SUPER_SPARKLE_RADIUS;
         vfx.write(ambition::vfx::VfxMessage::Burst {
-            pos: kinematics.pos,
-            count: 3,
-            speed: 60.0,
-            color: [1.0, 0.9, 0.35, 1.0],
-            kind: ambition::vfx::ParticleKind::Shard,
+            pos: kinematics.pos + ring - ae::Vec2::new(0.0, SUPER_SPARKLE_RISE),
+            count: 2,
+            speed: 26.0,
+            color: [1.0, 0.9, 0.4, 1.0],
+            kind: ambition::vfx::ParticleKind::Spark,
         });
     }
 }

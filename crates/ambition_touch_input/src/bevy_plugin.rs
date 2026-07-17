@@ -1372,3 +1372,92 @@ fn read_joystick_messages(
     *prev_move_x = state.0.move_x;
     *prev_move_y = state.0.move_y;
 }
+
+#[cfg(test)]
+mod prompt_tests {
+    use super::*;
+    use ambition_sim_view::PromptEntry;
+
+    fn prompt(context: ControlContextKind, entries: Vec<(ControlSlot, &str)>) -> ControlPrompt {
+        ControlPrompt {
+            context,
+            entries: entries
+                .into_iter()
+                .map(|(slot, label)| PromptEntry {
+                    slot,
+                    label: label.to_owned(),
+                    visual: None,
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn attack_button_relabels_from_the_prompt() {
+        let mut app = App::new();
+        app.insert_resource(prompt(
+            ControlContextKind::Gameplay,
+            vec![(ControlSlot::Attack, "Cleave")],
+        ));
+        app.add_systems(Update, update_button_verb_from_prompt);
+        let text = app
+            .world_mut()
+            .spawn((
+                TouchActionLabel(TouchActionButton::Attack),
+                ButtonVerb::Static("Atk"),
+            ))
+            .id();
+        app.update();
+
+        let verb = app.world().entity(text).get::<ButtonVerb>().unwrap();
+        assert_eq!(verb, &ButtonVerb::Dynamic("Cleave".to_owned()));
+    }
+
+    #[test]
+    fn button_for_a_slot_the_scheme_lacks_is_hidden() {
+        let mut app = App::new();
+        // Gameplay prompt with ONLY a Jump action (a movement-only body).
+        app.insert_resource(prompt(
+            ControlContextKind::Gameplay,
+            vec![(ControlSlot::Jump, "Jump")],
+        ));
+        app.add_systems(Update, sync_touch_button_visibility_from_prompt);
+        let jump = app
+            .world_mut()
+            .spawn((TouchActionButton::Jump, Visibility::Inherited))
+            .id();
+        let attack = app
+            .world_mut()
+            .spawn((TouchActionButton::Attack, Visibility::Inherited))
+            .id();
+        // The menu button must never be hidden by the gameplay scheme.
+        let start = app
+            .world_mut()
+            .spawn((TouchActionButton::Start, Visibility::Inherited))
+            .id();
+        app.update();
+
+        let vis = |e: Entity| *app.world().entity(e).get::<Visibility>().unwrap();
+        assert_eq!(vis(jump), Visibility::Inherited, "present slot stays shown");
+        assert_eq!(vis(attack), Visibility::Hidden, "absent slot is hidden");
+        assert_eq!(vis(start), Visibility::Inherited, "menu button untouched");
+    }
+
+    #[test]
+    fn menu_context_leaves_buttons_alone() {
+        // While a menu owns input, the gameplay scheme must not hide buttons
+        // (touch Jump/Interact still fold into menu select).
+        let mut app = App::new();
+        app.insert_resource(prompt(ControlContextKind::Menu, vec![]));
+        app.add_systems(Update, sync_touch_button_visibility_from_prompt);
+        let attack = app
+            .world_mut()
+            .spawn((TouchActionButton::Attack, Visibility::Inherited))
+            .id();
+        app.update();
+        assert_eq!(
+            *app.world().entity(attack).get::<Visibility>().unwrap(),
+            Visibility::Inherited
+        );
+    }
+}

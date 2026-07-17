@@ -61,9 +61,15 @@ fn control_clock_can_aim_blink_while_sim_clock_is_nearly_frozen() {
             &world,
             &mut scratch,
             InputState {
+                movement: crate::ActionEdges::EMPTY.with(
+                    crate::MovementAction::Blink,
+                    crate::Edge {
+                        pressed: i == 0,
+                        held: true,
+                        released: false,
+                    },
+                ),
                 axes: crate::LocalAxes::new(1.0, 0.0),
-                blink_pressed: i == 0,
-                blink_held: true,
                 ..Default::default()
             },
             1.0 / 60.0,

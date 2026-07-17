@@ -179,8 +179,14 @@ fn wall_walking_grounds_walks_and_jumps_off_a_side_wall() {
         &world,
         &mut scratch,
         InputState {
-            jump_pressed: true,
-            jump_held: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: true,
+                    held: true,
+                    released: false,
+                },
+            ),
             ..Default::default()
         },
         1.0 / 60.0,
@@ -191,7 +197,14 @@ fn wall_walking_grounds_walks_and_jumps_off_a_side_wall() {
             &world,
             &mut scratch,
             InputState {
-                jump_held: true,
+                movement: crate::ActionEdges::EMPTY.with(
+                    crate::MovementAction::Jump,
+                    crate::Edge {
+                        pressed: false,
+                        held: true,
+                        released: false,
+                    },
+                ),
                 ..Default::default()
             },
             1.0 / 60.0,
@@ -264,7 +277,14 @@ fn glide_caps_fall_speed_while_jump_held() {
         &world,
         &mut scratch,
         InputState {
-            jump_held: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: false,
+                    held: true,
+                    released: false,
+                },
+            ),
             ..Default::default()
         },
     );
@@ -299,7 +319,14 @@ fn glide_disengages_when_jump_released() {
         &world,
         &mut scratch,
         InputState {
-            jump_held: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: false,
+                    held: true,
+                    released: false,
+                },
+            ),
             ..Default::default()
         },
     );
@@ -325,7 +352,14 @@ fn glide_requires_ability_flag() {
         &world,
         &mut scratch,
         InputState {
-            jump_held: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: false,
+                    held: true,
+                    released: false,
+                },
+            ),
             ..Default::default()
         },
     );
@@ -355,7 +389,14 @@ fn glide_sustains_across_many_frames() {
             &world,
             &mut scratch,
             InputState {
-                jump_held: true,
+                movement: crate::ActionEdges::EMPTY.with(
+                    crate::MovementAction::Jump,
+                    crate::Edge {
+                        pressed: false,
+                        held: true,
+                        released: false,
+                    },
+                ),
                 control_dt: dt,
                 ..Default::default()
             },
@@ -409,8 +450,15 @@ fn fast_fall_requires_double_tap_signal() {
         &world,
         &mut scratch,
         InputState {
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::FastFall,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
             axes: crate::LocalAxes::new(0.0, 1.0),
-            fast_fall_pressed: true,
             ..Default::default()
         },
     );
@@ -426,7 +474,14 @@ fn fly_toggle_switches_mode_and_counters_gravity() {
         &world,
         &mut scratch,
         InputState {
-            fly_toggle_pressed: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::FlyToggle,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
             ..Default::default()
         },
     );

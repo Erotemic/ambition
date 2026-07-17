@@ -60,7 +60,8 @@ pub fn handle_jump_buffer_clusters(
 
     let on_ladder = env_contact.climbable.is_some();
 
-    if super::integration::wants_drop_through(input.local_axis().y, input.jump_pressed) && on_ladder
+    if super::integration::wants_drop_through(input.local_axis().y, input.jump_pressed())
+        && on_ladder
     {
         jump_state.ladder_drop_through_timer = ONE_WAY_DROP_THROUGH_GRACE;
         jump_state.ladder_drop_through_hold_lock = true;
@@ -87,7 +88,7 @@ pub fn handle_jump_buffer_clusters(
     }
 
     let can_ladder_jump = on_ladder && !ground.on_ground;
-    if super::integration::wants_drop_through(input.local_axis().y, input.jump_pressed)
+    if super::integration::wants_drop_through(input.local_axis().y, input.jump_pressed())
         && ground.on_ground
         && crate::movement::collision::standing_on_one_way_aabb(
             world,

@@ -135,7 +135,7 @@ fn step_surface_momentum(
         ctx.frame,
         SurfaceInputs {
             local_axes: ctx.input.axes,
-            jump_pressed: ctx.input.jump_pressed,
+            jump_pressed: ctx.input.jump_pressed(),
         },
         ctx.dt,
         Some(&mut contacts),

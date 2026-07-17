@@ -296,18 +296,50 @@ impl ActorControlFrame {
     /// presentation concern, so both are left at their defaults.
     pub fn to_input_state(&self) -> InputState {
         InputState {
+            movement: ambition_engine_core::ActionEdges::EMPTY
+                .with(
+                    ambition_engine_core::MovementAction::Jump,
+                    ambition_engine_core::Edge {
+                        pressed: self.jump_pressed,
+                        held: self.jump_held,
+                        released: self.jump_released,
+                    },
+                )
+                .with(
+                    ambition_engine_core::MovementAction::Dash,
+                    ambition_engine_core::Edge {
+                        pressed: self.dash_pressed,
+                        held: false,
+                        released: false,
+                    },
+                )
+                .with(
+                    ambition_engine_core::MovementAction::Blink,
+                    ambition_engine_core::Edge {
+                        pressed: self.blink_pressed,
+                        held: self.blink_held,
+                        released: self.blink_released,
+                    },
+                )
+                .with(
+                    ambition_engine_core::MovementAction::FlyToggle,
+                    ambition_engine_core::Edge {
+                        pressed: self.fly_toggle_pressed,
+                        held: false,
+                        released: false,
+                    },
+                )
+                .with(
+                    ambition_engine_core::MovementAction::FastFall,
+                    ambition_engine_core::Edge {
+                        pressed: self.fast_fall_pressed,
+                        held: false,
+                        released: false,
+                    },
+                ),
             axes: ambition_engine_core::LocalAxes::from_vec(self.locomotion),
-            jump_pressed: self.jump_pressed,
-            jump_held: self.jump_held,
-            jump_released: self.jump_released,
-            dash_pressed: self.dash_pressed,
-            fly_toggle_pressed: self.fly_toggle_pressed,
-            blink_pressed: self.blink_pressed,
-            blink_held: self.blink_held,
-            blink_released: self.blink_released,
             blink_quick_dir: ambition_engine_core::WorldVec2(self.blink_quick_dir),
             blink_aim_step: ambition_engine_core::WorldVec2(self.blink_aim_step),
-            fast_fall_pressed: self.fast_fall_pressed,
             attack_pressed: self.melee_pressed,
             pogo_pressed: self.pogo_pressed,
             interact_pressed: self.interact_pressed,
@@ -363,7 +395,7 @@ mod tests {
     fn to_input_state_maps_the_control_vocabulary() {
         let neutral = ActorControlFrame::neutral().to_input_state();
         assert_eq!(neutral.axes.x, 0.0);
-        assert!(!neutral.jump_pressed && !neutral.attack_pressed);
+        assert!(!neutral.jump_pressed() && !neutral.attack_pressed);
         assert!(!neutral.reset_pressed, "an actor never resets the room");
 
         let mut frame = ActorControlFrame::neutral();
@@ -375,7 +407,7 @@ mod tests {
         let input = frame.to_input_state();
         assert_eq!(input.axes.x, 0.6, "locomotion.x → local x");
         assert_eq!(input.axes.y, -0.2, "locomotion.y → local y");
-        assert!(input.jump_pressed && input.dash_pressed && input.shield_held);
+        assert!(input.jump_pressed() && input.dash_pressed() && input.shield_held);
         assert!(input.attack_pressed, "melee_pressed → attack_pressed");
     }
 

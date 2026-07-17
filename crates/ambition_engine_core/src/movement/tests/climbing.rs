@@ -354,8 +354,14 @@ fn ladder_jump_uses_jump_speed_without_leaving_climbing() {
         &world,
         &mut scratch,
         InputState {
-            jump_pressed: true,
-            jump_held: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: true,
+                    held: true,
+                    released: false,
+                },
+            ),
             axes: crate::LocalAxes::new(0.0, -1.0),
             control_dt: 1.0 / 60.0,
             ..InputState::default()
@@ -400,8 +406,14 @@ fn down_jump_on_ladder_falls_off_without_regrabbing() {
         &world,
         &mut scratch,
         InputState {
-            jump_pressed: true,
-            jump_held: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: true,
+                    held: true,
+                    released: false,
+                },
+            ),
             axes: crate::LocalAxes::new(0.0, 1.0),
             control_dt: 1.0 / 60.0,
             ..InputState::default()

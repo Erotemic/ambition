@@ -55,18 +55,50 @@ pub fn engine_input_from_actor_control(
     control_dt: f32,
 ) -> ae::InputState {
     let mut input = ae::InputState {
+        movement: ambition_engine_core::ActionEdges::EMPTY
+            .with(
+                ambition_engine_core::MovementAction::Jump,
+                ambition_engine_core::Edge {
+                    pressed: actor.jump_pressed,
+                    held: actor.jump_held,
+                    released: actor.jump_released,
+                },
+            )
+            .with(
+                ambition_engine_core::MovementAction::Dash,
+                ambition_engine_core::Edge {
+                    pressed: actor.dash_pressed,
+                    held: false,
+                    released: false,
+                },
+            )
+            .with(
+                ambition_engine_core::MovementAction::Blink,
+                ambition_engine_core::Edge {
+                    pressed: actor.blink_pressed,
+                    held: actor.blink_held,
+                    released: actor.blink_released,
+                },
+            )
+            .with(
+                ambition_engine_core::MovementAction::FlyToggle,
+                ambition_engine_core::Edge {
+                    pressed: actor.fly_toggle_pressed,
+                    held: false,
+                    released: false,
+                },
+            )
+            .with(
+                ambition_engine_core::MovementAction::FastFall,
+                ambition_engine_core::Edge {
+                    pressed: actor.fast_fall_pressed,
+                    held: false,
+                    released: false,
+                },
+            ),
         axes: ae::LocalAxes::from_vec(actor.locomotion),
-        jump_pressed: actor.jump_pressed,
-        jump_held: actor.jump_held,
-        jump_released: actor.jump_released,
-        dash_pressed: actor.dash_pressed,
-        fly_toggle_pressed: actor.fly_toggle_pressed,
-        blink_pressed: actor.blink_pressed,
-        blink_held: actor.blink_held,
-        blink_released: actor.blink_released,
         blink_quick_dir: ae::WorldVec2(actor.blink_quick_dir),
         blink_aim_step: ae::WorldVec2(actor.blink_aim_step),
-        fast_fall_pressed: actor.fast_fall_pressed,
         attack_pressed: actor.melee_pressed,
         pogo_pressed: actor.pogo_pressed,
         interact_pressed: actor.interact_pressed,
@@ -98,14 +130,15 @@ pub fn apply_post_hit_input_gates(
         // flight steering axis) so the knockback carries the body out and it
         // can't steer back in or act until it clears.
         input.axes = ae::LocalAxes::ZERO;
-        input.jump_pressed = false;
-        input.jump_held = false;
-        input.jump_released = false;
-        input.dash_pressed = false;
-        input.fast_fall_pressed = false;
-        input.blink_pressed = false;
-        input.blink_held = false;
-        input.blink_released = false;
+        // Strip all locomotion authority (fly-toggle is exempt — see above).
+        input.movement.set(ae::MovementAction::Jump, ae::Edge::NONE);
+        input.movement.set(ae::MovementAction::Dash, ae::Edge::NONE);
+        input
+            .movement
+            .set(ae::MovementAction::FastFall, ae::Edge::NONE);
+        input
+            .movement
+            .set(ae::MovementAction::Blink, ae::Edge::NONE);
         input.attack_pressed = false;
         input.pogo_pressed = false;
         input.interact_pressed = false;
@@ -116,12 +149,16 @@ pub fn apply_post_hit_input_gates(
         // the instant the recoil lock ends while i-frames are still ticking.
         let scale = feel.hitstun_control_scale.clamp(0.0, 1.0);
         input.axes = ae::LocalAxes::new(input.axes.x * scale, input.axes.y * scale);
-        input.jump_pressed = false;
-        input.dash_pressed = false;
-        input.fast_fall_pressed = false;
-        input.blink_pressed = false;
-        input.blink_held = false;
-        input.blink_released = false;
+        // No jump/dash/blink, but PRESERVE an in-progress jump's held/released
+        // (only the press EDGE is eaten, matching the pre-re-key behavior).
+        input.movement.set_pressed(ae::MovementAction::Jump, false);
+        input.movement.set(ae::MovementAction::Dash, ae::Edge::NONE);
+        input
+            .movement
+            .set(ae::MovementAction::FastFall, ae::Edge::NONE);
+        input
+            .movement
+            .set(ae::MovementAction::Blink, ae::Edge::NONE);
         input.interact_pressed = false;
     }
 }

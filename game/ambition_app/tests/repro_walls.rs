@@ -674,8 +674,15 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
         let pre = player.kinematics.pos;
         let pre_vel = player.kinematics.vel;
         let input = InputState {
+            movement: ae::ActionEdges::EMPTY.with(
+                ae::MovementAction::Jump,
+                ae::Edge {
+                    pressed: false,
+                    held: frame < 8,
+                    released: false,
+                },
+            ),
             axes: ae::LocalAxes::new(0.0, 0.0),
-            jump_held: frame < 8,
             control_dt: dt,
             ..Default::default()
         };
@@ -740,9 +747,15 @@ fn goblin_encounter_real_walljump_repro() {
         let pre = player.kinematics.pos;
         let pre_vel = player.kinematics.vel;
         let input = InputState {
+            movement: ae::ActionEdges::EMPTY.with(
+                ae::MovementAction::Jump,
+                ae::Edge {
+                    pressed: frame == 0,
+                    held: frame < 8,
+                    released: false,
+                },
+            ),
             axes: ae::LocalAxes::new(if frame == 0 { -1.0 } else { 0.0 }, 0.0),
-            jump_pressed: frame == 0,
-            jump_held: frame < 8,
             control_dt: dt,
             ..Default::default()
         };

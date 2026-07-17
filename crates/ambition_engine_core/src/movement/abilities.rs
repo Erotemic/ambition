@@ -37,10 +37,10 @@ pub(super) fn apply_intent(
     if can_turn && local_stick.x.abs() > 0.1 {
         kinematics.facing = local_stick.x.signum();
     }
-    if input.jump_pressed && abilities.abilities.jump {
+    if input.jump_pressed() && abilities.abilities.jump {
         state.buffer_jump = tuning.locomotion.jump_buffer;
     }
-    if input.dash_pressed && abilities.abilities.dash {
+    if input.dash_pressed() && abilities.abilities.dash {
         state.buffer_dash = tuning.abilities.dash_buffer;
     }
 }
@@ -55,7 +55,7 @@ pub(super) fn apply_fly_toggle(
     input: InputState,
     events: &mut FrameEvents,
 ) {
-    if input.fly_toggle_pressed && abilities.abilities.fly {
+    if input.fly_toggle_pressed() && abilities.abilities.fly {
         flight.fly_enabled = !flight.fly_enabled;
         if flight.fly_enabled {
             state.fast_falling = false;
@@ -168,7 +168,7 @@ pub(super) fn apply_jump_release(
     frame: MotionFrame,
 ) {
     let ascend_speed = -kinematics.vel.dot(frame.down());
-    if abilities.abilities.variable_jump && input.jump_released && ascend_speed > 120.0 {
+    if abilities.abilities.variable_jump && input.jump_released() && ascend_speed > 120.0 {
         let along_down = kinematics.vel.dot(frame.down());
         kinematics.vel += frame.down() * (along_down * 0.54 - along_down);
     }

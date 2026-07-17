@@ -293,7 +293,14 @@ fn forgiving_grab_still_allows_regular_ledge_jump_without_bonus_velocity() {
     let mut events = crate::movement::FrameEvents::default();
     let tuning = TestTuning::default();
     let input = InputState {
-        jump_pressed: true,
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Jump,
+            crate::Edge {
+                pressed: true,
+                held: false,
+                released: false,
+            },
+        ),
         ..InputState::default()
     };
 
@@ -494,8 +501,15 @@ fn ledge_jump_away_launches_player_outward() {
     let mut events = crate::movement::FrameEvents::default();
     let tuning = TestTuning::default();
     let input = InputState {
-        jump_pressed: true,
-        axes: crate::LocalAxes::new(-1.0, 0.0), // pressing away from the platform (away = wall_normal direction = -1)
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Jump,
+            crate::Edge {
+                pressed: true,
+                held: false,
+                released: false,
+            },
+        ),
+        axes: crate::LocalAxes::new(-1.0, 0.0),
         ..InputState::default()
     };
     let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
@@ -533,8 +547,15 @@ fn jump_toward_platform_now_hops_up_not_climbs() {
     let mut events = crate::movement::FrameEvents::default();
     let tuning = TestTuning::default();
     let input = InputState {
-        jump_pressed: true,
-        axes: crate::LocalAxes::new(1.0, 0.0), // pressing into the platform (into = -wall_normal = +1)
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Jump,
+            crate::Edge {
+                pressed: true,
+                held: false,
+                released: false,
+            },
+        ),
+        axes: crate::LocalAxes::new(1.0, 0.0),
         ..InputState::default()
     };
     let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
@@ -572,7 +593,14 @@ fn jump_with_no_horizontal_input_hops_up() {
     let mut events = crate::movement::FrameEvents::default();
     let tuning = TestTuning::default();
     let input = InputState {
-        jump_pressed: true,
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Jump,
+            crate::Edge {
+                pressed: true,
+                held: false,
+                released: false,
+            },
+        ),
         ..InputState::default()
     };
     let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
@@ -946,8 +974,15 @@ fn ledge_jump_options_also_arm_regrab_cooldown() {
         let mut events = crate::movement::FrameEvents::default();
         let tuning = TestTuning::default();
         let input = InputState {
-            jump_pressed: true,
-            axes: crate::LocalAxes::new(-1.0, 0.0), // away from a -1 wall_normal
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
+            axes: crate::LocalAxes::new(-1.0, 0.0),
             ..InputState::default()
         };
         let _ = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
@@ -963,7 +998,14 @@ fn ledge_jump_options_also_arm_regrab_cooldown() {
         let mut events = crate::movement::FrameEvents::default();
         let tuning = TestTuning::default();
         let input = InputState {
-            jump_pressed: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
             ..InputState::default()
         };
         let _ = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
@@ -1169,7 +1211,14 @@ fn ledge_jump_with_quick_action_carries_momentum() {
     let mut events = crate::movement::FrameEvents::default();
     let tuning = TestTuning::default();
     let input = InputState {
-        jump_pressed: true,
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Jump,
+            crate::Edge {
+                pressed: true,
+                held: false,
+                released: false,
+            },
+        ),
         ..InputState::default()
     };
     let _ = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
@@ -1232,7 +1281,14 @@ fn outward_ledge_release_does_not_apply_boost() {
     // (left) since wall_normal_x is -1.
     let away = away_from_platform_axis(contact);
     let input = InputState {
-        jump_pressed: true,
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Jump,
+            crate::Edge {
+                pressed: true,
+                held: false,
+                released: false,
+            },
+        ),
         axes: crate::LocalAxes::new(away, 0.0),
         ..InputState::default()
     };

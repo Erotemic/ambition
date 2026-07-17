@@ -164,13 +164,25 @@ fn drive(arm: Arm, spawn_local: Vec2, script: &[LocalInput]) -> Vec<LocalSample>
         .iter()
         .map(|li| {
             let input = InputState {
+                movement: crate::ActionEdges::EMPTY
+                    .with(
+                        crate::MovementAction::Jump,
+                        crate::Edge {
+                            pressed: li.jump_pressed,
+                            held: li.jump_held,
+                            released: false,
+                        },
+                    )
+                    .with(
+                        crate::MovementAction::Blink,
+                        crate::Edge {
+                            pressed: li.blink_pressed,
+                            held: li.blink_held,
+                            released: li.blink_released,
+                        },
+                    ),
                 axes: crate::LocalAxes::new(li.axis.x, li.axis.y),
-                jump_pressed: li.jump_pressed,
-                jump_held: li.jump_held,
                 attack_pressed: li.attack_pressed,
-                blink_pressed: li.blink_pressed,
-                blink_held: li.blink_held,
-                blink_released: li.blink_released,
                 blink_quick_dir: crate::WorldVec2(f.to_world(li.blink_quick_local)),
                 ..InputState::default()
             };

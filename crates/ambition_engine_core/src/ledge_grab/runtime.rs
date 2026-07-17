@@ -244,8 +244,9 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
 
     let want_roll = climb_unlocked && input.shield_held && clusters.abilities.abilities.shield;
     let want_ledge_release =
-        climb_unlocked && !want_roll && input.jump_pressed && input_away_from_platform;
-    let want_ledge_jump = climb_unlocked && !want_roll && !want_ledge_release && input.jump_pressed;
+        climb_unlocked && !want_roll && input.jump_pressed() && input_away_from_platform;
+    let want_ledge_jump =
+        climb_unlocked && !want_roll && !want_ledge_release && input.jump_pressed();
     let want_getup_attack = climb_unlocked
         && !want_roll
         && !want_ledge_release

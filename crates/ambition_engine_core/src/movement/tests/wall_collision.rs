@@ -70,8 +70,15 @@ fn one_way_platform_requires_down_plus_jump_to_drop_through() {
         &world,
         &mut scratch,
         InputState {
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
             axes: crate::LocalAxes::new(0.0, 1.0),
-            jump_pressed: true,
             ..Default::default()
         },
     );
@@ -122,9 +129,15 @@ fn wall_jump_does_not_catapult_through_left_wall() {
         &world,
         &mut scratch,
         InputState {
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: true,
+                    held: true,
+                    released: false,
+                },
+            ),
             axes: crate::LocalAxes::new(-1.0, 0.0),
-            jump_pressed: true,
-            jump_held: true,
             control_dt: 1.0 / 60.0,
             ..Default::default()
         },
@@ -502,7 +515,14 @@ fn flying_into_the_ceiling_corner_never_ejects_the_body_from_the_world() {
         &world,
         &mut scratch,
         InputState {
-            fly_toggle_pressed: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::FlyToggle,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
             ..Default::default()
         },
     );
@@ -717,8 +737,15 @@ fn one_way_drop_through_works_under_inverted_gravity() {
         &world,
         &mut scratch,
         InputState {
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
             axes: crate::LocalAxes::new(0.0, 1.0),
-            jump_pressed: true,
             ..Default::default()
         },
     );
@@ -866,8 +893,15 @@ fn one_way_platform_works_under_sideways_gravity() {
         &world,
         &mut scratch,
         InputState {
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
             axes: crate::LocalAxes::new(0.0, 1.0),
-            jump_pressed: true,
             ..Default::default()
         },
         1.0 / 60.0,

@@ -88,8 +88,14 @@ fn swim_ability_jump_press_becomes_upward_impulse() {
     scratch.kinematics.pos = ae::Vec2::new(500.0, 500.0);
     scratch.kinematics.vel = ae::Vec2::new(0.0, 600.0);
     let input = ae::InputState {
-        jump_pressed: true,
-        jump_held: true,
+        movement: ambition_engine_core::ActionEdges::EMPTY.with(
+            ambition_engine_core::MovementAction::Jump,
+            ambition_engine_core::Edge {
+                pressed: true,
+                held: true,
+                released: false,
+            },
+        ),
         control_dt: 0.016,
         ..ae::InputState::default()
     };

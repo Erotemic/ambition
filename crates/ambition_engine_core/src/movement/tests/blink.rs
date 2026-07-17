@@ -28,8 +28,14 @@ fn held_blink_arms_when_cooldown_clears_without_new_press() {
         &world,
         &mut scratch,
         InputState {
-            blink_pressed: true,
-            blink_held: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Blink,
+                crate::Edge {
+                    pressed: true,
+                    held: true,
+                    released: false,
+                },
+            ),
             ..Default::default()
         },
         1.0 / 60.0,
@@ -53,7 +59,14 @@ fn held_blink_arms_when_cooldown_clears_without_new_press() {
         &world,
         &mut scratch,
         InputState {
-            blink_held: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Blink,
+                crate::Edge {
+                    pressed: false,
+                    held: true,
+                    released: false,
+                },
+            ),
             ..Default::default()
         },
         1.0 / 60.0,
@@ -71,9 +84,15 @@ fn blink_ability_gates_teleport() {
     let mut scratch = scratch_with(abilities, world.spawn);
     let start = scratch.kinematics.pos;
     let input = InputState {
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Blink,
+            crate::Edge {
+                pressed: true,
+                held: true,
+                released: false,
+            },
+        ),
         axes: crate::LocalAxes::new(1.0, 0.0),
-        blink_pressed: true,
-        blink_held: true,
         ..Default::default()
     };
     let _ = update_player_control_with_tuning_scratch(
@@ -84,8 +103,15 @@ fn blink_ability_gates_teleport() {
         TEST_TUNING,
     );
     let input = InputState {
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Blink,
+            crate::Edge {
+                pressed: false,
+                held: false,
+                released: true,
+            },
+        ),
         axes: crate::LocalAxes::new(1.0, 0.0),
-        blink_released: true,
         ..Default::default()
     };
     let events = update_player_control_with_tuning_scratch(
@@ -108,9 +134,15 @@ fn quick_blink_moves_on_release() {
         &world,
         &mut scratch,
         InputState {
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Blink,
+                crate::Edge {
+                    pressed: true,
+                    held: true,
+                    released: false,
+                },
+            ),
             axes: crate::LocalAxes::new(1.0, 0.0),
-            blink_pressed: true,
-            blink_held: true,
             ..Default::default()
         },
     );
@@ -118,8 +150,15 @@ fn quick_blink_moves_on_release() {
         &world,
         &mut scratch,
         InputState {
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Blink,
+                crate::Edge {
+                    pressed: false,
+                    held: false,
+                    released: true,
+                },
+            ),
             blink_quick_dir: crate::WorldVec2(Vec2::new(1.0, 0.0)),
-            blink_released: true,
             ..Default::default()
         },
     );
@@ -139,9 +178,15 @@ fn held_blink_enters_precision_aiming() {
             &world,
             &mut scratch,
             InputState {
+                movement: crate::ActionEdges::EMPTY.with(
+                    crate::MovementAction::Blink,
+                    crate::Edge {
+                        pressed: blink_pressed,
+                        held: true,
+                        released: false,
+                    },
+                ),
                 blink_aim_step: crate::WorldVec2(Vec2::new(1.0, 0.0)),
-                blink_held: true,
-                blink_pressed,
                 ..Default::default()
             },
         );
@@ -151,8 +196,15 @@ fn held_blink_enters_precision_aiming() {
         &world,
         &mut scratch,
         InputState {
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Blink,
+                crate::Edge {
+                    pressed: false,
+                    held: false,
+                    released: true,
+                },
+            ),
             axes: crate::LocalAxes::new(1.0, 0.0),
-            blink_released: true,
             ..Default::default()
         },
     );
@@ -176,8 +228,15 @@ fn repeated_blinks_clamp_downward_velocity_each_time() {
             &world,
             &mut scratch,
             InputState {
+                movement: crate::ActionEdges::EMPTY.with(
+                    crate::MovementAction::Blink,
+                    crate::Edge {
+                        pressed: false,
+                        held: false,
+                        released: true,
+                    },
+                ),
                 axes: crate::LocalAxes::new(1.0, 0.0),
-                blink_released: true,
                 ..Default::default()
             },
             1.0 / 60.0,
@@ -205,8 +264,15 @@ fn post_blink_grace_suspends_gravity_for_tiny_window() {
         &world,
         &mut scratch,
         InputState {
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Blink,
+                crate::Edge {
+                    pressed: false,
+                    held: false,
+                    released: true,
+                },
+            ),
             axes: crate::LocalAxes::new(1.0, 0.0),
-            blink_released: true,
             ..Default::default()
         },
         1.0 / 60.0,

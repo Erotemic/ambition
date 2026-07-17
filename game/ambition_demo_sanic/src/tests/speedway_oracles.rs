@@ -129,8 +129,15 @@ impl Probe {
             ae::MotionStepContext {
                 world,
                 input: ae::InputState {
+                    movement: ae::ActionEdges::EMPTY.with(
+                        ae::MovementAction::Jump,
+                        ae::Edge {
+                            pressed: jump,
+                            held: false,
+                            released: false,
+                        },
+                    ),
                     axes: ae::LocalAxes::new(steer.x, steer.y),
-                    jump_pressed: jump,
                     ..ae::InputState::default()
                 },
                 frame: ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, GRAVITY))

@@ -58,13 +58,40 @@ fn step_axis_body(
 
 fn input_from_frame(f: &ActorControlFrame) -> InputState {
     InputState {
+        movement: ambition_engine_core::ActionEdges::EMPTY
+            .with(
+                ambition_engine_core::MovementAction::Jump,
+                ambition_engine_core::Edge {
+                    pressed: f.jump_pressed,
+                    held: f.jump_held,
+                    released: f.jump_released,
+                },
+            )
+            .with(
+                ambition_engine_core::MovementAction::Dash,
+                ambition_engine_core::Edge {
+                    pressed: f.dash_pressed,
+                    held: false,
+                    released: false,
+                },
+            )
+            .with(
+                ambition_engine_core::MovementAction::FlyToggle,
+                ambition_engine_core::Edge {
+                    pressed: f.fly_toggle_pressed,
+                    held: false,
+                    released: false,
+                },
+            )
+            .with(
+                ambition_engine_core::MovementAction::FastFall,
+                ambition_engine_core::Edge {
+                    pressed: f.fast_fall_pressed,
+                    held: false,
+                    released: false,
+                },
+            ),
         axes: ae::LocalAxes::from_vec(f.locomotion),
-        jump_pressed: f.jump_pressed,
-        jump_held: f.jump_held,
-        jump_released: f.jump_released,
-        dash_pressed: f.dash_pressed,
-        fly_toggle_pressed: f.fly_toggle_pressed,
-        fast_fall_pressed: f.fast_fall_pressed,
         attack_pressed: f.melee_pressed,
         pogo_pressed: f.pogo_pressed,
         interact_pressed: f.interact_pressed,

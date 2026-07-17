@@ -29,7 +29,14 @@ fn dodge_roll_triggers_on_ground_with_ability() {
         &world,
         &mut scratch,
         InputState {
-            dash_pressed: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Dash,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
             ..Default::default()
         },
     );
@@ -57,7 +64,14 @@ fn dodge_roll_blocked_by_cooldown() {
         &world,
         &mut scratch,
         InputState {
-            dash_pressed: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Dash,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
             ..Default::default()
         },
     );
@@ -79,7 +93,14 @@ fn dodge_roll_disabled_when_ability_off() {
         &world,
         &mut scratch,
         InputState {
-            dash_pressed: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Dash,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
             ..Default::default()
         },
     );

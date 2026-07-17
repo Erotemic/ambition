@@ -150,7 +150,7 @@ pub(super) fn integrate_velocity_clusters(
         )
     };
 
-    let drop_through = wants_drop_through(input.local_axis().y, input.jump_pressed)
+    let drop_through = wants_drop_through(input.local_axis().y, input.jump_pressed())
         || state.drop_through_timer > 0.0;
 
     let sweep = |clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
@@ -386,7 +386,7 @@ pub fn integrate_normal_spine(
     if !blink_hang_active {
         *kin_vel += frame.acceleration() * water_gravity_scale * dt;
     }
-    if input.fast_fall_pressed && ctx.can_fast_fall && !ctx.on_ground {
+    if input.fast_fall_pressed() && ctx.can_fast_fall && !ctx.on_ground {
         *fast_falling = true;
     }
     if *fast_falling && !blink_hang_active && ctx.water.is_none() {
@@ -397,7 +397,7 @@ pub fn integrate_normal_spine(
         && !*fast_falling
         && !blink_hang_active
         && ctx.water.is_none()
-        && input.jump_held
+        && input.jump_held()
         && kin_vel.dot(g) > 0.0;
 
     if ctx.can_move_horizontal {

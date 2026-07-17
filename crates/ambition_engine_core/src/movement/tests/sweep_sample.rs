@@ -104,8 +104,14 @@ fn a_control_phase_blink_is_never_path() {
         &world,
         &mut scratch,
         InputState {
-            blink_pressed: true,
-            blink_held: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Blink,
+                crate::Edge {
+                    pressed: true,
+                    held: true,
+                    released: false,
+                },
+            ),
             ..Default::default()
         },
         1.0 / 60.0,
@@ -115,8 +121,15 @@ fn a_control_phase_blink_is_never_path() {
         &world,
         &mut scratch,
         InputState {
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Blink,
+                crate::Edge {
+                    pressed: false,
+                    held: false,
+                    released: true,
+                },
+            ),
             blink_quick_dir: crate::WorldVec2(Vec2::new(1.0, 0.0)),
-            blink_released: true,
             ..Default::default()
         },
         1.0 / 60.0,

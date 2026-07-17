@@ -75,14 +75,19 @@ pub struct ActionEdges<A> {
     _marker: PhantomData<A>,
 }
 
+impl<A> ActionEdges<A> {
+    /// All edges clear — usable in `const` context (unlike `Default`).
+    pub const EMPTY: Self = Self {
+        pressed: 0,
+        held: 0,
+        released: 0,
+        _marker: PhantomData,
+    };
+}
+
 impl<A> Default for ActionEdges<A> {
     fn default() -> Self {
-        Self {
-            pressed: 0,
-            held: 0,
-            released: 0,
-            _marker: PhantomData,
-        }
+        Self::EMPTY
     }
 }
 
@@ -113,6 +118,18 @@ impl<A: ActionKey> ActionEdges<A> {
         set_bit(&mut self.pressed, b, edge.pressed);
         set_bit(&mut self.held, b, edge.held);
         set_bit(&mut self.released, b, edge.released);
+    }
+    /// Set one action's `pressed` bit alone (leaving held/released).
+    pub fn set_pressed(&mut self, action: A, on: bool) {
+        set_bit(&mut self.pressed, bit(action), on);
+    }
+    /// Set one action's `held` bit alone.
+    pub fn set_held(&mut self, action: A, on: bool) {
+        set_bit(&mut self.held, bit(action), on);
+    }
+    /// Set one action's `released` bit alone.
+    pub fn set_released(&mut self, action: A, on: bool) {
+        set_bit(&mut self.released, bit(action), on);
     }
     /// Builder form of [`set`](Self::set).
     #[must_use]
@@ -215,18 +232,10 @@ mod action_edge_tests {
 pub struct InputState {
     /// Locomotion stick in the controlled body's local frame.
     pub axes: LocalAxes,
-    pub jump_pressed: bool,
-    pub jump_held: bool,
-    pub jump_released: bool,
-    pub dash_pressed: bool,
-    /// Toggle free-flight mode when the ability is enabled.
-    pub fly_toggle_pressed: bool,
-    /// Blink/special button pressed this frame.
-    pub blink_pressed: bool,
-    /// Blink/special button held this frame.
-    pub blink_held: bool,
-    /// Blink/special button released this frame.
-    pub blink_released: bool,
+    /// The locomotion-verb edges — jump / dash / blink / fly-toggle / fast-fall.
+    /// The kernel dispatches locomotion on [`MovementAction`] through the typed
+    /// accessors below ([`Self::jump_pressed`] …), never on raw fields.
+    pub movement: ActionEdges<MovementAction>,
     /// WORLD-space quick-blink direction, already resolved through the movement
     /// frame mode at the input seam. The engine consumes this directly (it does
     /// NOT re-derive blink direction from the local `axes`), so quick blink is
@@ -239,10 +248,12 @@ pub struct InputState {
     /// precision aim offset. Decoupled from `blink_quick_dir` so quick blink and
     /// precision blink can use different frame policies on the same stick.
     pub blink_aim_step: WorldVec2,
-    /// Double-tap-down gesture recognized by the input layer. This is separate
-    /// from the local descend axis so down+attack can mean pogo without forcing
-    /// fast-fall.
-    pub fast_fall_pressed: bool,
+    // --- Movement-kernel signals sourced from NON-locomotion buttons. ---
+    // These gate movement-adjacent mechanics (slash-recoil + ledge get-up,
+    // ledge climb-confirm, the reset/respawn flag, shield deploy + dodge roll),
+    // so the kernel genuinely reads them — but they are NOT locomotion verbs and
+    // are deliberately kept as explicit named fields rather than broadened into
+    // `MovementAction`.
     pub attack_pressed: bool,
     /// Dedicated downward/pogo slash action. This is separate from
     /// `attack_pressed` so layouts can expose four main face-button verbs.
@@ -282,17 +293,9 @@ impl InputState {
     const fn const_default() -> Self {
         Self {
             axes: LocalAxes::ZERO,
-            jump_pressed: false,
-            jump_held: false,
-            jump_released: false,
-            dash_pressed: false,
-            fly_toggle_pressed: false,
-            blink_pressed: false,
-            blink_held: false,
-            blink_released: false,
+            movement: ActionEdges::EMPTY,
             blink_quick_dir: WorldVec2::ZERO,
             blink_aim_step: WorldVec2::ZERO,
-            fast_fall_pressed: false,
             attack_pressed: false,
             pogo_pressed: false,
             interact_pressed: false,
@@ -300,5 +303,50 @@ impl InputState {
             shield_held: false,
             control_dt: 0.0,
         }
+    }
+
+    // --- Typed locomotion accessors: the kernel reads these, never the raw
+    //     `movement` bitset. Each delegates to `ActionEdges` by `MovementAction`. ---
+    #[inline]
+    pub fn jump_pressed(&self) -> bool {
+        self.movement.pressed(MovementAction::Jump)
+    }
+    #[inline]
+    pub fn jump_held(&self) -> bool {
+        self.movement.held(MovementAction::Jump)
+    }
+    #[inline]
+    pub fn jump_released(&self) -> bool {
+        self.movement.released(MovementAction::Jump)
+    }
+    #[inline]
+    pub fn dash_pressed(&self) -> bool {
+        self.movement.pressed(MovementAction::Dash)
+    }
+    #[inline]
+    pub fn blink_pressed(&self) -> bool {
+        self.movement.pressed(MovementAction::Blink)
+    }
+    #[inline]
+    pub fn blink_held(&self) -> bool {
+        self.movement.held(MovementAction::Blink)
+    }
+    #[inline]
+    pub fn blink_released(&self) -> bool {
+        self.movement.released(MovementAction::Blink)
+    }
+    #[inline]
+    pub fn fly_toggle_pressed(&self) -> bool {
+        self.movement.pressed(MovementAction::FlyToggle)
+    }
+    #[inline]
+    pub fn fast_fall_pressed(&self) -> bool {
+        self.movement.pressed(MovementAction::FastFall)
+    }
+
+    /// Set one locomotion action's edges — the construction-side counterpart to
+    /// the accessors, used by the input bridges and tests.
+    pub fn set_movement(&mut self, action: MovementAction, edge: Edge) {
+        self.movement.set(action, edge);
     }
 }

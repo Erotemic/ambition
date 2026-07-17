@@ -39,7 +39,7 @@ pub fn handle_blink_clusters(
         return;
     }
 
-    if (input.blink_pressed || (input.blink_held && !state.blink_hold_active))
+    if (input.blink_pressed() || (input.blink_held() && !state.blink_hold_active))
         && blink.cooldown <= 0.0
     {
         state.blink_hold_active = true;
@@ -48,7 +48,7 @@ pub fn handle_blink_clusters(
         state.blink_aim_offset = facing_aim_offset;
     }
 
-    if state.blink_hold_active && input.blink_held {
+    if state.blink_hold_active && input.blink_held() {
         let control_dt = dt.min(1.0 / 20.0);
         state.blink_hold_timer += control_dt;
         if abilities.abilities.precision_blink
@@ -71,7 +71,7 @@ pub fn handle_blink_clusters(
         }
     }
 
-    if state.blink_hold_active && input.blink_released {
+    if state.blink_hold_active && input.blink_released() {
         // Quick blink direction in WORLD space, resolved through the MOVEMENT
         // frame mode at the seam (locomotion-framed). Zero stick → forward
         // along facing, which lives on the body's local side axis.
@@ -109,7 +109,7 @@ pub fn handle_blink_clusters(
         );
     }
 
-    if state.blink_hold_active && !input.blink_held && !input.blink_released {
+    if state.blink_hold_active && !input.blink_held() && !input.blink_released() {
         state.blink_hold_active = false;
         state.blink_aiming = false;
         state.blink_hold_timer = 0.0;

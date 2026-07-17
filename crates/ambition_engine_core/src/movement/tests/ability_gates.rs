@@ -23,7 +23,14 @@ fn double_jump_ability_controls_air_jump() {
         &world,
         &mut scratch,
         InputState {
-            jump_pressed: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
             ..Default::default()
         },
     );
@@ -38,7 +45,14 @@ fn double_jump_ability_controls_air_jump() {
         &world,
         &mut scratch,
         InputState {
-            jump_pressed: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
             ..Default::default()
         },
     );

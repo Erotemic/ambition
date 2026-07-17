@@ -116,8 +116,8 @@ impl RoomSfxId {
 
 /// Bevy message emitted when a room transition is triggered (player walks through
 /// a loading zone or door). The actual `load_room` call happens in
-/// `apply_room_transition_system`, which runs after the player tick in the
-/// `CoreSimulation` chain.
+/// the host's readiness-gated transition coordinator, which commits only after
+/// target preparation and one-shot authorization.
 ///
 /// Carries the resolved `RoomTransition` payload and the optional SFX id for the
 /// zone type so the apply system can emit the sound at the correct player position

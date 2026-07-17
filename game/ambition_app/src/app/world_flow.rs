@@ -3,7 +3,8 @@
 //! What remains here after the world-runtime / combat-runtime drains:
 //! - [`RoomClock`] — a sim-state plus clock-reset bundle for room-transition systems.
 //! - [`ground_gap_below_feet`] — the room-transition landing diagnostic helper.
-//! - the [`room_flow`] submodule (sandbox reset, room load, transition apply).
+//! - the [`room_flow`] submodule (sandbox reset + authorized room commit);
+//! - the [`room_transition_loading`] submodule (readiness transaction + preflight).
 //!
 //! The attack-phase machine, victim-side damage resolution, and movement-event
 //! Sfx/Vfx emission moved DOWN into `ambition::actors::combat::{attack,
@@ -16,7 +17,7 @@ use ambition::engine_core::{self as ae, AabbExt};
 use ambition::platformer::feature_overlay::FeatureEcsWorldOverlay;
 
 /// Bundle of room-reset sim resources, so systems that already sit near Bevy's
-/// 16-SystemParam limit (e.g. [`apply_room_transition_system`]) can request a
+/// 16-SystemParam limit (e.g. [`commit_ready_room_transition_system`]) can request a
 /// clock reset and mutate room-transition cooldown through one slot. The clock
 /// reset is emitted as data and consumed by the time-control owner.
 #[derive(bevy::ecs::system::SystemParam)]
@@ -26,8 +27,12 @@ pub(crate) struct RoomClock<'w> {
 }
 
 mod room_flow;
-pub use room_flow::ensure_requested_room_parallax_system;
-pub(crate) use room_flow::{apply_room_transition_system, reset_sandbox};
+mod room_transition_loading;
+pub(crate) use room_flow::{commit_ready_room_transition_system, reset_sandbox};
+pub(crate) use room_transition_loading::{
+    authorize_ready_room_transition_system, begin_room_transition_load_system,
+    RoomTransitionLoadState,
+};
 
 /// Probe along the body's gravity direction from its feet for the nearest
 /// landing face (within 256 px). Returns `(distance, source)` where `source`

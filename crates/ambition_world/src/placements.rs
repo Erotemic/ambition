@@ -16,6 +16,7 @@ use ambition_platformer_primitives::lifecycle::SessionSpawnScope;
 use bevy_app::App;
 use bevy_ecs::prelude::{Commands, Resource};
 use std::collections::HashMap;
+use std::fmt;
 
 /// One authored placement: WHERE (footprint) + WHAT (schema), durably named.
 ///
@@ -70,6 +71,32 @@ pub struct LoweringCtx<'w, 's, 'a, C: ?Sized = ()> {
 
 pub type LoweringFn<C = ()> = for<'w, 's, 'a> fn(&PlacementRecord, &mut LoweringCtx<'w, 's, 'a, C>);
 
+/// Mutation-free placement-lowering preflight failure.
+///
+/// Normal construction still treats a missing interpreter as a programmer/content
+/// installation bug and panics at the final lowering seam. Room-transition
+/// preparation uses this error before touching the live room so an incomplete
+/// target never tears down the source room first.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlacementLoweringError {
+    pub room_id: String,
+    pub placement_id: String,
+    pub kind: PlacementKind,
+    pub registered_kinds: Vec<PlacementKind>,
+}
+
+impl fmt::Display for PlacementLoweringError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "unknown placement kind {:?} for placement '{}' in room '{}'; registered kinds: {:?}",
+            self.kind, self.placement_id, self.room_id, self.registered_kinds,
+        )
+    }
+}
+
+impl std::error::Error for PlacementLoweringError {}
+
 /// Registry from authored placement kind to the simulation/content interpreter
 /// that lowers the record into live room-scoped entities.
 #[derive(Resource, Clone)]
@@ -102,17 +129,39 @@ impl<C: Send + Sync + 'static> PlacementLoweringRegistry<C> {
         kinds
     }
 
-    fn interpreter_for(&self, record: &PlacementRecord, room_id: &str) -> LoweringFn<C> {
+    /// Validate that every authored placement in `room_id` has an installed
+    /// lowering interpreter, without mutating the ECS world.
+    pub fn validate_room(
+        &self,
+        room_id: &str,
+        records: &[PlacementRecord],
+    ) -> Result<(), PlacementLoweringError> {
+        for record in records {
+            self.try_interpreter_for(record, room_id)?;
+        }
+        Ok(())
+    }
+
+    fn try_interpreter_for(
+        &self,
+        record: &PlacementRecord,
+        room_id: &str,
+    ) -> Result<LoweringFn<C>, PlacementLoweringError> {
         let kind = record.kind();
-        let Some(lower) = self.interpreters.get(&kind) else {
-            panic!(
-                "unknown placement kind {kind:?} for placement '{}' in room '{}'; registered kinds: {:?}",
-                record.id.as_str(),
-                room_id,
-                self.registered_kinds(),
-            );
-        };
-        *lower
+        self.interpreters
+            .get(&kind)
+            .copied()
+            .ok_or_else(|| PlacementLoweringError {
+                room_id: room_id.to_string(),
+                placement_id: record.id.as_str().to_string(),
+                kind,
+                registered_kinds: self.registered_kinds(),
+            })
+    }
+
+    fn interpreter_for(&self, record: &PlacementRecord, room_id: &str) -> LoweringFn<C> {
+        self.try_interpreter_for(record, room_id)
+            .unwrap_or_else(|err| panic!("{err}"))
     }
 
     pub fn lower<'w, 's, 'a>(
@@ -178,6 +227,16 @@ mod tests {
     #[test]
     fn placement_schema_reports_kind() {
         assert_eq!(sample_record("haz").kind(), PlacementKind::Hazard);
+    }
+
+    #[test]
+    fn room_validation_reports_missing_interpreter_without_panicking() {
+        let err = PlacementLoweringRegistry::<()>::default()
+            .validate_room("test_room", &[sample_record("haz_1")])
+            .expect_err("missing interpreter should be a preflight error");
+        assert_eq!(err.room_id, "test_room");
+        assert_eq!(err.placement_id, "haz_1");
+        assert_eq!(err.kind, PlacementKind::Hazard);
     }
 
     #[test]

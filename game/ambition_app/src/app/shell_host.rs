@@ -80,7 +80,6 @@ pub fn compose_ambition_shell_host(app: &mut App) {
 
     app.add_plugins((
         ambition::game_shell::MinimalShellPlugins,
-        ambition::load::AmbitionLoadPlugin,
         ambition::load_presentation::MinimalShellLoadPresentationPlugins,
     ));
 

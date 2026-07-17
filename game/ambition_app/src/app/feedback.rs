@@ -27,7 +27,7 @@ pub struct SandboxEventWriters<'w> {
 /// room transition or same-room reset (per-target slot reservations,
 /// in-flight enemy projectiles, …) PLUS the feature-overlay
 /// read-side that the transition logger needs. Bundling keeps
-/// consumers like `apply_room_transition_system` under Bevy's
+/// consumers like `commit_ready_room_transition_system` under Bevy's
 /// 16-`SystemParam` budget — without this they'd need a separate
 /// ResMut/Res for each piece.
 #[derive(SystemParam)]

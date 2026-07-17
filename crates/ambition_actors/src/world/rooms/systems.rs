@@ -74,17 +74,17 @@ pub fn tick_portal_phases_system(
 }
 
 /// Detect a loading-zone overlap and emit a [`RoomTransitionRequested`]
-/// message. The actual room load (despawn old, spawn new, reset player
-/// to spawn point) happens in the host's `apply_room_transition_system`,
-/// which runs immediately after this system in the `CoreSimulation` chain.
+/// message. The host begins a readiness transaction after detection while the
+/// current room remains authoritative; the actual room load (despawn old, spawn
+/// new, reset the controlled body to its arrival) commits only on a later sim
+/// tick after one-shot authorization.
 ///
-/// Ordering is player tick → detect transition → apply transition. Attacks may
-/// still advance on a transition frame, but replay fixtures confirm player-position
-/// determinism because attacks do not push the player.
+/// Attacks may still advance on the detection frame, but replay fixtures confirm
+/// player-position determinism because attacks do not push the player.
 ///
 /// Gated by `gameplay_allowed` at the registration site: transitions must not
-/// fire while paused or in dialogue. The apply system itself is unconditional
-/// because it reads its own message queue and is a no-op when empty.
+/// fire while paused or in dialogue. The host coordinator is unconditional and
+/// is a no-op when no transition transaction is active.
 pub fn detect_room_transition_system(
     room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomSet>,
     sim_state: Res<crate::SandboxSimState>,

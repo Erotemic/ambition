@@ -36,7 +36,10 @@ use super::setup_systems::{
     setup_presentation_system, setup_simulation_system,
 };
 use super::sim_systems::{apply_player_reset_input_system, apply_room_replay_request_system};
-use super::world_flow::{apply_room_transition_system, ensure_requested_room_parallax_system};
+use super::world_flow::{
+    authorize_ready_room_transition_system, begin_room_transition_load_system,
+    commit_ready_room_transition_system, RoomTransitionLoadState,
+};
 
 /// Register core simulation plugins, message types, and the gameplay
 /// schedule. Headless and visible both call this.
@@ -54,6 +57,16 @@ pub fn add_simulation_plugins(app: &mut App) {
     // role is migrated to presentation events end-to-end (or Avian gains
     // a headless-friendly init path), it lives in
     // `add_presentation_plugins`.
+
+    // Room transitions are load transactions in both direct-entry and shell
+    // hosts. Install the contributor-neutral coordinator at the simulation
+    // boundary; shell composition later adds only its route adapter and
+    // presentation. Avoid a duplicate when an alternate host installed it
+    // before this plugin.
+    if !app.is_plugin_added::<ambition::load::AmbitionLoadPlugin>() {
+        app.add_plugins(ambition::load::AmbitionLoadPlugin);
+    }
+    app.init_resource::<RoomTransitionLoadState>();
 
     // The canonical simulation-phase sets + engine resources now live in
     // `ambition::runtime::SandboxSetsPlugin` (first in the engine group below).
@@ -206,17 +219,19 @@ fn register_app_local_sim_systems(app: &mut App) {
             .before(ambition::actors::features::ecs::damage_apply::apply_player_hit_events),
     );
 
-    // ── The RoomTransition gap: the transition APPLY composer ─────────────
+    // ── The RoomTransition gap: readiness transaction + authorized commit ──
     //
-    // Detection (engine) emits `RoomTransitionRequested`; this pair consumes
-    // it, runs `load_room` + the render spawns, and applies the cross-domain
-    // arrival resets (the W1 composition tier); the engine's
-    // `reset_ecs_room_features` then tears down per-room ECS state.
+    // Detection emits `RoomTransitionRequested`. The app turns it into an
+    // exact `ambition_load` plan, preflights the target while the source room
+    // remains authoritative, obtains one-shot authorization on a later sim
+    // tick, and only then performs the existing synchronous construction and
+    // render commit. Phase 3 inserts cover presentation before that commit.
     app.add_systems(
         sim,
         (
-            ensure_requested_room_parallax_system,
-            apply_room_transition_system,
+            begin_room_transition_load_system,
+            authorize_ready_room_transition_system,
+            commit_ready_room_transition_system,
         )
             .chain()
             .in_set(SandboxSet::RoomTransition)

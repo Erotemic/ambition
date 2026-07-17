@@ -1,11 +1,9 @@
 //! Room lifecycle flow: sandbox reset, room load, parallax seeding, and the
-//! room-transition apply + landing log.
+//! authorized room-transition commit + landing log.
 //!
 //! Split out of the former 1211-line `world_flow.rs` (2026-06-15).
 
-use bevy::prelude::{
-    AssetServer, Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With,
-};
+use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With};
 
 use ambition::actors::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition::actors::rooms;
@@ -223,38 +221,8 @@ pub(crate) fn load_room(
     }
 }
 
-/// Bevy system: reads `RoomTransitionRequested` messages written by
-/// `detect_room_transition_system` and applies the room load.
-///
-/// Runs immediately after the player tick in the `CoreSimulation` chain
-/// so the player position, world, and room_set are updated before any
-/// other post-sim systems run in the same frame.
-pub fn ensure_requested_room_parallax_system(
-    mut requests: MessageReader<rooms::RoomTransitionRequested>,
-    mut game_assets: Option<ResMut<ambition::sprite_sheet::game_assets::GameAssets>>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
-    sandbox_catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
-    asset_server: Res<AssetServer>,
-    quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
-) {
-    let Some(assets) = game_assets.as_deref_mut() else {
-        return;
-    };
-    for request in requests.read() {
-        if let Some(target_spec) = room_set.rooms.get(request.transition.target_room) {
-            ambition::sprite_sheet::game_assets::ensure_parallax_layers_for_room(
-                assets,
-                &sandbox_catalog,
-                &asset_server,
-                &target_spec.metadata,
-                quality.as_deref().map(|q| &q.budget),
-            );
-        }
-    }
-}
-
 /// The bodies a room transition can relocate, bundled into one `SystemParam` to
-/// keep `apply_room_transition_system` under Bevy's 16-param limit.
+/// keep `commit_ready_room_transition_system` under Bevy's 16-param limit.
 ///
 /// A transition moves the CONTROLLED (observed) body — the home avatar during
 /// normal play, or a possessed actor. `clusters` is body-generic (`ae::BodyClusterQueryData`
@@ -288,13 +256,12 @@ pub(crate) struct TransitBodies<'w, 's> {
     /// this param because a room transition IS one of the four Class-B
     /// authorities, and this struct is the one that names the body it moves.
     /// `Option`, and bundled here rather than added to the system's signature —
-    /// `apply_room_transition_system` already sits at Bevy's 16-param ceiling.
+    /// `commit_ready_room_transition_system` already sits at Bevy's 16-param ceiling.
     class_b: Option<ResMut<'w, ambition::platformer::class_b::ClassBRemapLog>>,
 }
 
-pub(crate) fn apply_room_transition_system(
+pub(crate) fn commit_ready_room_transition_system(
     mut commands: Commands,
-    mut requests: MessageReader<rooms::RoomTransitionRequested>,
     mut event_writers: SandboxEventWriters,
     mut transit: TransitBodies,
     mut world: ambition::platformer::lifecycle::SessionWorldMut<RoomGeometry>,
@@ -308,7 +275,7 @@ pub(crate) fn apply_room_transition_system(
     feel_tuning: Res<SandboxFeelTuning>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     // Bundled into one tuple param to stay within Bevy's 16-param system limit.
-    load_resources: (
+    mut load_resources: (
         Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
         Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
         Res<ambition::actors::features::CharacterRoster>,
@@ -317,126 +284,176 @@ pub(crate) fn apply_room_transition_system(
         Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
         Option<Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
         Res<ambition::actors::features::RoomContentStagingRegistry>,
+        ResMut<super::RoomTransitionLoadState>,
+        ResMut<ambition::load::LoadCoordinator>,
+        MessageWriter<ambition::load::LoadEvent>,
     ),
     mut combat_reset: super::super::feedback::CombatRoomReset,
 ) {
-    for request in requests.read() {
-        // The transition relocates the CONTROLLED body — the body the local player
-        // is driving (home avatar or possessed actor), falling back to the primary
-        // player at startup. This is the same subject the detect side resolves, so
-        // the body that CROSSED the seam is the body that ARRIVES.
-        let Some(subject) = transit
-            .controlled
-            .as_deref()
-            .and_then(|c| c.0)
-            .or_else(|| transit.primary.single().ok())
-        else {
-            continue;
-        };
-        // Read the body's gravity BEFORE the mutable cluster borrow (disjoint
-        // read), for the frame-relative landing diagnostic below. Falls back to
-        // world-down if the body carries no resolved frame yet.
-        let subject_gravity_dir = transit
-            .motion_frames
-            .get(subject)
-            .map(|frame| frame.down())
-            .unwrap_or(ae::Vec2::new(0.0, 1.0));
-        let Ok(mut motion_model) = transit.motion_models.get_mut(subject) else {
-            continue;
-        };
-        let Ok(mut cluster_item) = transit.clusters.get_mut(subject) else {
-            continue;
-        };
-        let Ok(mut combat) = transit.combat.get_mut(subject) else {
-            continue;
-        };
-        // Home-only presentation: a possessed actor has no blink-camera / respawn
-        // point, and — being room-scoped — must be CARRIED through the seam instead
-        // of despawned with the old room. The home avatar is never room-scoped, so
-        // it needs no carry (None) and keeps its presentation resets.
-        let (mut blink_opt, mut safety_opt) = match transit.presentation.get_mut(subject).ok() {
-            Some((blink, safety)) => (Some(blink), Some(safety)),
-            None => (None, None),
-        };
-        let carry_body = if blink_opt.is_some() {
-            None
-        } else {
-            Some(subject)
-        };
-        // Any enemy volleys still in flight from the previous room
-        // would otherwise sail across the seam and hit the player
-        // mid-transition. The slot board is per-target and the live
-        // actor list is about to be torn down + rebuilt, so drop
-        // every reservation now and let the next tick rebuild.
-        combat_reset.clear_carryover();
-        let mut clusters = cluster_item.as_clusters_mut();
-        // Play the zone-entry SFX at the pre-load body position so it sounds
-        // like it originates from the door/edge the body walked through.
-        let pos_before = clusters.kinematics.pos;
-        if let Some(sfx_id) = &request.zone_sfx {
-            event_writers.sfx.write(SfxMessage::Play {
-                id: ambition::sfx::SfxId::new(sfx_id.as_str()),
-                pos: pos_before,
-            });
-        }
-        let Some(session_scope) =
-            ambition::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
-                load_resources.6.as_deref(),
-            )
-        else {
-            continue;
-        };
-        let target_room = request.transition.target_room;
-        load_room(
-            &mut commands,
-            &mut event_writers.sfx,
-            &mut event_writers.vfx,
-            &mut motion_model,
-            &mut clusters,
-            &mut dev_state,
-            &mut room_clock.sim_state,
-            &mut room_clock.clock_resets,
-            safety_opt.as_deref_mut(),
-            &mut moving_platforms.0,
-            &mut dialogue,
-            &mut combat,
-            blink_opt.as_deref_mut(),
-            &mut world,
-            &mut room_set,
-            &load_resources.0,
-            &load_resources.7,
-            &load_resources.1,
-            &load_resources.2,
-            &load_resources.3,
-            session_scope,
-            &room_visuals,
-            carry_body,
-            request.transition.clone(),
-            editable_tuning.as_engine(),
-            *feel_tuning,
-            *physics_settings,
-            load_resources.4.as_deref(),
-            load_resources.5.as_deref(),
+    let Some(active) = load_resources
+        .8
+        .active
+        .as_ref()
+        .filter(|active| {
+            active.phase
+                == super::room_transition_loading::RoomTransitionLoadPhase::CommitAuthorized
+        })
+        .cloned()
+    else {
+        return;
+    };
+
+    let target_still_matches = room_set
+        .rooms
+        .get(active.request.transition.target_room)
+        .is_some_and(|room| room.id == active.target_room_id);
+    let current_session = load_resources
+        .6
+        .as_deref()
+        .and_then(|scope| scope.current());
+    if active.session_scope != current_session
+        || room_set.active != active.source_room
+        || !target_still_matches
+    {
+        let detail = format!(
+            "discarding stale room transition {}: expected session {:?}, source '{}' at index {}, and target '{}'; current session is {:?}, active index is {}",
+            active.sequence,
+            active.session_scope,
+            active.source_room_id,
+            active.source_room,
+            active.target_room_id,
+            current_session,
+            room_set.active,
         );
-        // Class-B transit authority (`collision-and-ccd.md` §3.2): the load just
-        // relocated `subject` into the new room. Recorded AFTER the move, so a
-        // transition that bailed early never claims the frame's remap.
-        if let Some(log) = transit.class_b.as_mut() {
-            log.record(
-                subject,
-                ambition::platformer::class_b::ClassBRemap::RoomTransition,
-            );
+        for event in load_resources.9.apply(ambition::load::LoadCommand::Cancel {
+            load_id: active.barrier.load_id.clone(),
+        }) {
+            load_resources.10.write(event);
         }
-        log_room_transition_landing(
-            target_room,
-            &room_set,
-            clusters.kinematics.pos,
-            clusters.kinematics.size,
-            subject_gravity_dir,
-            &world.0,
-            &combat_reset.feature_overlay,
+        load_resources.9.retire(&active.barrier.load_id);
+        load_resources.8.active = None;
+        bevy::log::warn!(target: "ambition::room_transition", "{detail}");
+        return;
+    }
+
+    let request = active.request;
+    // The transition relocates the CONTROLLED body — the body the local player
+    // is driving (home avatar or possessed actor), falling back to the primary
+    // player at startup. This is the same subject the detect side resolves, so
+    // the body that CROSSED the seam is the body that ARRIVES.
+    let Some(subject) = transit
+        .controlled
+        .as_deref()
+        .and_then(|c| c.0)
+        .or_else(|| transit.primary.single().ok())
+    else {
+        return;
+    };
+    // Read the body's gravity BEFORE the mutable cluster borrow (disjoint
+    // read), for the frame-relative landing diagnostic below. Falls back to
+    // world-down if the body carries no resolved frame yet.
+    let subject_gravity_dir = transit
+        .motion_frames
+        .get(subject)
+        .map(|frame| frame.down())
+        .unwrap_or(ae::Vec2::new(0.0, 1.0));
+    let Ok(mut motion_model) = transit.motion_models.get_mut(subject) else {
+        return;
+    };
+    let Ok(mut cluster_item) = transit.clusters.get_mut(subject) else {
+        return;
+    };
+    let Ok(mut combat) = transit.combat.get_mut(subject) else {
+        return;
+    };
+    // Home-only presentation: a possessed actor has no blink-camera / respawn
+    // point, and — being room-scoped — must be CARRIED through the seam instead
+    // of despawned with the old room. The home avatar is never room-scoped, so
+    // it needs no carry (None) and keeps its presentation resets.
+    let (mut blink_opt, mut safety_opt) = match transit.presentation.get_mut(subject).ok() {
+        Some((blink, safety)) => (Some(blink), Some(safety)),
+        None => (None, None),
+    };
+    let carry_body = if blink_opt.is_some() {
+        None
+    } else {
+        Some(subject)
+    };
+    // Any enemy volleys still in flight from the previous room
+    // would otherwise sail across the seam and hit the player
+    // mid-transition. The slot board is per-target and the live
+    // actor list is about to be torn down + rebuilt, so drop
+    // every reservation now and let the next tick rebuild.
+    combat_reset.clear_carryover();
+    let mut clusters = cluster_item.as_clusters_mut();
+    // Play the zone-entry SFX at the pre-load body position so it sounds
+    // like it originates from the door/edge the body walked through.
+    let pos_before = clusters.kinematics.pos;
+    if let Some(sfx_id) = &request.zone_sfx {
+        event_writers.sfx.write(SfxMessage::Play {
+            id: ambition::sfx::SfxId::new(sfx_id.as_str()),
+            pos: pos_before,
+        });
+    }
+    let Some(session_scope) =
+        ambition::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
+            load_resources.6.as_deref(),
+        )
+    else {
+        return;
+    };
+    let target_room = request.transition.target_room;
+    load_room(
+        &mut commands,
+        &mut event_writers.sfx,
+        &mut event_writers.vfx,
+        &mut motion_model,
+        &mut clusters,
+        &mut dev_state,
+        &mut room_clock.sim_state,
+        &mut room_clock.clock_resets,
+        safety_opt.as_deref_mut(),
+        &mut moving_platforms.0,
+        &mut dialogue,
+        &mut combat,
+        blink_opt.as_deref_mut(),
+        &mut world,
+        &mut room_set,
+        &load_resources.0,
+        &load_resources.7,
+        &load_resources.1,
+        &load_resources.2,
+        &load_resources.3,
+        session_scope,
+        &room_visuals,
+        carry_body,
+        request.transition.clone(),
+        editable_tuning.as_engine(),
+        *feel_tuning,
+        *physics_settings,
+        load_resources.4.as_deref(),
+        load_resources.5.as_deref(),
+    );
+    // Class-B transit authority (`collision-and-ccd.md` §3.2): the load just
+    // relocated `subject` into the new room. Recorded AFTER the move, so a
+    // transition that bailed early never claims the frame's remap.
+    if let Some(log) = transit.class_b.as_mut() {
+        log.record(
+            subject,
+            ambition::platformer::class_b::ClassBRemap::RoomTransition,
         );
     }
+    log_room_transition_landing(
+        target_room,
+        &room_set,
+        clusters.kinematics.pos,
+        clusters.kinematics.size,
+        subject_gravity_dir,
+        &world.0,
+        &combat_reset.feature_overlay,
+    );
+    load_resources.9.retire(&active.barrier.load_id);
+    load_resources.8.active = None;
 }
 
 /// One-line diagnostic emitted on every room transition. Goal: when
@@ -452,7 +469,7 @@ pub(crate) fn apply_room_transition_system(
 ///   player above the floor (`world.0`-only collision check missed the
 ///   overlay floor) and gravity is about to pull them through.
 ///
-/// Cheap: runs once per RoomTransitionRequested, iterates blocks once
+/// Cheap: runs once per committed room transition, iterates blocks once
 /// to find the highest top-below-feet, no per-frame cost. Filter the
 /// browser console / log file with target `ambition::room_transition`.
 fn log_room_transition_landing(

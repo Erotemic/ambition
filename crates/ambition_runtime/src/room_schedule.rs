@@ -2,11 +2,11 @@
 //! `RoomTransitionRequested`; the feature-side `reset_ecs_room_features`
 //! system tears down per-room ECS state.
 //!
-//! The APPLY step — consuming the request, loading the room geometry, and
-//! spawning presentation — is the host/composition tier's job (the W1
-//! composer): the Ambition app registers its
-//! (`ensure_requested_room_parallax_system`, `apply_room_transition_system`)
-//! pair `.after(detect_room_transition_system)
+//! The PREPARE + COMMIT steps — consuming the request, proving target
+//! readiness, loading room geometry, and spawning presentation — are the
+//! host/composition tier's job (the W1 composer): the Ambition app registers its
+//! readiness-transaction + authorized-commit chain
+//! `.after(detect_room_transition_system)
 //! .before(reset_ecs_room_features)` in `SandboxSet::RoomTransition`. A demo
 //! host registers its own composer in the same gap.
 

@@ -28,6 +28,9 @@ pub use anim_index::{
 pub use control_prompt::{
     rebuild_control_prompt, ControlContextKind, ControlPrompt, PromptEntry,
 };
+// Re-exported so `ControlPrompt` consumers (the touch overlay) can name the
+// slot vocabulary without a direct `entity_catalog` dep.
+pub use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
 pub use dialog_view::{rebuild_dialog_view, DialogView};
 pub use facts::*;
 pub use pose_view::{

@@ -28,6 +28,7 @@ use super::menu_bridge::{fold_to_control_frame, fold_to_menu_control_frame};
 use super::state::TouchInputState;
 use ambition_input::{ControlFrame, KeyboardPreset, MenuInputState, SandboxAction};
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
+use ambition_sim_view::{ControlContextKind, ControlPrompt, ControlSlot};
 use ambition_ui_nav::DragScrollState;
 
 /// Global z-band for the on-screen touch HUD (joystick + action /
@@ -217,26 +218,31 @@ impl Plugin for TouchControlsPlugin {
                 )
                     .chain(),
             )
-            // Contextual button-label sync, decomposed into two
-            // narrow systems. `update_button_verb_from_affordances`
-            // reads `PlayerAffordances` (the per-frame "what would
-            // each press do" table) and writes the per-button
-            // `ButtonVerb`; `render_touch_button_text` folds whatever
-            // ButtonVerb/Glyph/Pressed components exist into the
-            // Text node. The split lets Phase 2 (glyph subtitle) and
-            // Phase 3 (pressed-state highlight) ride alongside
-            // without growing one god-system.
+            // Contextual button-label sync, decomposed into narrow
+            // systems. `update_button_verb_from_prompt` reads the
+            // `ControlPrompt` read-model (the controlled subject's own
+            // action names) and writes the per-button `ButtonVerb`;
+            // `sync_touch_button_visibility_from_prompt` hides buttons
+            // for slots the scheme lacks; `render_touch_button_text`
+            // folds whatever ButtonVerb/Glyph/Pressed components exist
+            // into the Text node. The split lets the glyph subtitle and
+            // pressed-state highlight ride alongside without growing one
+            // god-system.
             .add_systems(
                 Update,
                 (
-                    update_button_verb_from_affordances
-                        .after(ambition_actors::affordances::AffordancesSystemSet::Compute),
+                    // Labels now come from the CONTROLLED subject's action scheme
+                    // via the `ControlPrompt` read-model (not the fixed
+                    // smash-vocabulary affordance table), and buttons for slots
+                    // the scheme lacks are hidden.
+                    update_button_verb_from_prompt,
+                    sync_touch_button_visibility_from_prompt,
                     update_button_glyph_from_active_input
                         .after(ambition_actors::affordances::AffordancesSystemSet::Compute),
                     update_button_pressed_from_actions
                         .after(ambition_actors::affordances::AffordancesSystemSet::Compute),
                     render_touch_button_text
-                        .after(update_button_verb_from_affordances)
+                        .after(update_button_verb_from_prompt)
                         .after(update_button_glyph_from_active_input)
                         .after(update_button_pressed_from_actions),
                     sync_button_pressed_visual.after(update_button_pressed_from_actions),
@@ -758,12 +764,11 @@ fn spawn_action_button_at(
                 // frame.
                 TouchActionLabel(action),
                 // Component-driven verb display. Updated by
-                // `update_button_verb_from_affordances` from the
-                // global `PlayerAffordances` resource; rendered into
-                // `Text` by `render_touch_button_text`. Splitting
-                // these concerns means each per-frame derived value
-                // (verb, glyph) gets its own narrow update system
-                // instead of one god-system.
+                // `update_button_verb_from_prompt` from the
+                // `ControlPrompt` read-model; rendered into `Text` by
+                // `render_touch_button_text`. Splitting these concerns
+                // means each per-frame derived value (verb, glyph) gets
+                // its own narrow update system instead of one god-system.
                 ButtonVerb::Static(label),
                 // Per-device glyph subtitle (Phase 2). Empty until
                 // `update_button_glyph_from_active_input` writes the
@@ -776,13 +781,13 @@ fn spawn_action_button_at(
 
 /// Marker on the touch button's text node. Carries the
 /// `TouchActionButton` identity so the verb-update system can map it
-/// back to the correct affordance.
+/// back to the correct control slot.
 #[derive(Component)]
 pub struct TouchActionLabel(pub TouchActionButton);
 
 /// The verb-text to render under each touch button. Updated each
-/// frame by [`update_button_verb_from_affordances`] from the global
-/// [`ambition_actors::affordances::PlayerAffordances`] table. Held as
+/// frame by [`update_button_verb_from_prompt`] from the
+/// [`ambition_sim_view::ControlPrompt`] read-model. Held as
 /// component data (not computed inline in the render system) so
 /// independent concerns — verb, future glyph subtitle, future
 /// pressed-state highlight — each own their own component + update
@@ -809,57 +814,74 @@ impl ButtonVerb {
     }
 }
 
-/// Per-frame: read [`PlayerAffordances`] and write each button's
-/// [`ButtonVerb`].
+/// The control SLOT a touch button labels, or `None` for the menu/system
+/// buttons (Start / Reset) that carry no gameplay action.
+fn touch_button_slot(action: TouchActionButton) -> Option<ControlSlot> {
+    Some(match action {
+        TouchActionButton::Jump => ControlSlot::Jump,
+        TouchActionButton::Attack => ControlSlot::Attack,
+        TouchActionButton::Dash => ControlSlot::Dash,
+        TouchActionButton::Blink => ControlSlot::Blink,
+        TouchActionButton::Interact => ControlSlot::Interact,
+        TouchActionButton::Projectile => ControlSlot::Projectile,
+        TouchActionButton::FlyToggle => ControlSlot::Utility,
+        TouchActionButton::Shield => ControlSlot::QuickAction,
+        TouchActionButton::Start | TouchActionButton::Reset => return None,
+    })
+}
+
+/// Per-frame: label each touch button from the [`ControlPrompt`] read-model —
+/// the CONTROLLED subject's own action names (possess a body → the buttons
+/// rename). Reads the sim-published read-model, not the sim's live components.
 ///
-/// One narrow system, one concern. The render system folds the verb
-/// (and, in later phases, the glyph / pressed-state components) into
-/// the actual `Text` node.
-pub fn update_button_verb_from_affordances(
-    affordances: Res<ambition_actors::affordances::PlayerAffordances>,
+/// Only in the `Gameplay` context: menu / dialogue relabeling arrives in P4, so
+/// while a menu owns input the buttons keep their last gameplay labels (touch
+/// Jump / Interact still fold into menu select). A slot the scheme doesn't
+/// carry is left untouched here — [`sync_touch_button_visibility_from_prompt`]
+/// hides that button.
+pub fn update_button_verb_from_prompt(
+    prompt: Res<ControlPrompt>,
     mut labels: Query<(&TouchActionLabel, &mut ButtonVerb)>,
 ) {
-    use ambition_actors::affordances::{InteractVariant, VariantLabel};
+    if prompt.context != ControlContextKind::Gameplay {
+        return;
+    }
     for (TouchActionLabel(action), mut verb) in &mut labels {
-        let next: Option<String> = match action {
-            TouchActionButton::Jump => Some(affordances.jump.text().to_owned()),
-            TouchActionButton::Attack => Some(affordances.attack.text().to_owned()),
-            TouchActionButton::Dash => Some(affordances.dash.text().to_owned()),
-            TouchActionButton::Shield => Some(affordances.shield.text().to_owned()),
-            TouchActionButton::Interact => {
-                // `display()` handles the `Custom(prompt)` case
-                // transparently; for typed variants it returns the
-                // canonical text from `VariantLabel`.
-                Some(match &affordances.interact {
-                    InteractVariant::Custom(prompt) => prompt.as_ref().to_owned(),
-                    v => v.text().to_owned(),
-                })
-            }
-            // Projectile is the contextual "special" — it picks up
-            // the aim-driven variant (N-Special / S-Special / U-Special
-            // / D-Special / Hadouken). Blink stays static because the
-            // touch HUD has a separate dedicated Blink button whose
-            // outcome doesn't vary with stick direction.
-            TouchActionButton::Projectile => Some(affordances.special.text().to_owned()),
-            TouchActionButton::Blink => None,
-            // FlyToggle / Start / Reset don't have a contextual
-            // meaning today — leave the static label alone.
-            TouchActionButton::FlyToggle | TouchActionButton::Start | TouchActionButton::Reset => {
-                None
-            }
+        let Some(slot) = touch_button_slot(*action) else {
+            continue;
         };
-        if let Some(next) = next {
-            // Only flip when the string actually changes — keeps
-            // Bevy's change detection bit honest so the render
-            // system can filter on `Changed<ButtonVerb>` once
-            // performance matters.
-            let same = match &*verb {
-                ButtonVerb::Static(s) => *s == next,
-                ButtonVerb::Dynamic(s) => s == &next,
-            };
-            if !same {
-                *verb = ButtonVerb::Dynamic(next);
-            }
+        let Some(label) = prompt.label_for(slot) else {
+            continue;
+        };
+        // Only flip when the string actually changes, keeping `Changed<ButtonVerb>`
+        // honest for `render_touch_button_text`.
+        let same = matches!(&*verb, ButtonVerb::Dynamic(s) if s == label);
+        if !same {
+            *verb = ButtonVerb::Dynamic(label.to_owned());
+        }
+    }
+}
+
+/// Per-frame: hide any action button whose slot the controlled subject's scheme
+/// doesn't carry (Sanic — a movement character — shows no Attack / Shot /
+/// Shield button), show the rest.
+///
+/// Shown buttons use `Visibility::Inherited` (never `Visible`) so they still
+/// obey the overlay-wide [`TouchControlsVisible`] root toggle. Menu / system
+/// buttons (Start / Reset) and non-gameplay contexts are left visible so touch
+/// menu navigation keeps working.
+pub fn sync_touch_button_visibility_from_prompt(
+    prompt: Res<ControlPrompt>,
+    mut buttons: Query<(&TouchActionButton, &mut Visibility)>,
+) {
+    let gameplay = prompt.context == ControlContextKind::Gameplay;
+    for (action, mut vis) in &mut buttons {
+        let target = match touch_button_slot(*action) {
+            Some(slot) if gameplay && prompt.label_for(slot).is_none() => Visibility::Hidden,
+            _ => Visibility::Inherited,
+        };
+        if *vis != target {
+            *vis = target;
         }
     }
 }

@@ -24,6 +24,7 @@ mobile_touch = [
     "dep:ambition_actors",
     "ambition_actors/input",
     "ambition_actors/mobile_touch",
+    "dep:ambition_sim_view",
     "dep:ambition_render",
     "ambition_render/input",
     "dep:ambition_cutscene",
@@ -42,6 +43,9 @@ ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 # All OPTIONAL (track 7): only the `mobile_touch` overlay half needs them; the
 # semantic fold half must stand on the input seam alone.
 ambition_actors = { path = "../ambition_actors", default-features = false, optional = true }
+# The control-prompt read-model the overlay renders (label source; the actors
+# reach for glyph/pressed stays until P5).
+ambition_sim_view = { path = "../ambition_sim_view", optional = true }
 ambition_render = { path = "../ambition_render", optional = true }
 ambition_cutscene = { path = "../ambition_cutscene", optional = true }
 ambition_ui_nav = { path = "../ambition_ui_nav", optional = true }

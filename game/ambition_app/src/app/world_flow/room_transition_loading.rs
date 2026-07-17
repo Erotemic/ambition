@@ -12,7 +12,7 @@
 //! reveals the generic loading foreground.
 
 use bevy::prelude::{
-    AssetServer, MessageReader, MessageWriter, Res, ResMut, Resource,
+    AssetServer, MessageReader, MessageWriter, NextState, Res, ResMut, Resource,
 };
 
 use ambition::actors::rooms;
@@ -33,8 +33,17 @@ const PRESENTATION_REQUEST_WORK: &str = "room-transition.presentation-request";
 pub(crate) enum RoomTransitionLoadPhase {
     AwaitingReadiness,
     CommitAuthorized,
+    Committed,
     Failed,
 }
+
+/// Marker installed only by presentation-capable hosts.
+///
+/// When absent, a headless transition may commit as soon as readiness is
+/// authorized. When present, the visible adapter must prove an opaque cover
+/// survived a presentation frame before the synchronous commit can begin.
+#[derive(Resource, Default, Debug, Clone, Copy)]
+pub(crate) struct RoomTransitionPresentationAvailable;
 
 #[derive(Clone, Debug)]
 pub(crate) struct ActiveRoomTransitionLoad {
@@ -46,6 +55,8 @@ pub(crate) struct ActiveRoomTransitionLoad {
     pub(crate) request: rooms::RoomTransitionRequested,
     pub(crate) barrier: LoadBarrierRef,
     pub(crate) commit_not_before_tick: u64,
+    pub(crate) cover_required: bool,
+    pub(crate) cover_presented: bool,
     pub(crate) phase: RoomTransitionLoadPhase,
     pub(crate) failure: Option<String>,
 }
@@ -144,6 +155,38 @@ fn close_discovery(
     );
 }
 
+/// Convert a post-authorization commit precondition failure into ordinary load
+/// evidence. The source room is still intact at every caller, so visible hosts
+/// can offer retry/cancel and headless hosts can retire the failed transaction.
+pub(crate) fn fail_room_transition_commit_precondition(
+    state: &mut RoomTransitionLoadState,
+    loads: &mut LoadCoordinator,
+    events: &mut MessageWriter<LoadEvent>,
+    sequence: u64,
+    detail: String,
+) {
+    let Some(active) = state
+        .active
+        .as_mut()
+        .filter(|active| active.sequence == sequence)
+    else {
+        return;
+    };
+    set_work_state(
+        loads,
+        events,
+        &active.barrier.load_id,
+        CONSTRUCTION_PREFLIGHT_WORK,
+        LoadWorkState::Failed(
+            LoadFailure::new("The destination room could not be activated.", detail.clone())
+                .retryable(true),
+        ),
+    );
+    active.phase = RoomTransitionLoadPhase::Failed;
+    active.failure = Some(detail.clone());
+    bevy::log::error!(target: "ambition::room_transition", "{detail}");
+}
+
 /// Convert loading-zone detections into exact load transactions and perform the
 /// mutation-free target preflight.
 ///
@@ -164,9 +207,11 @@ pub(crate) fn begin_room_transition_load_system(
     asset_server: Option<Res<AssetServer>>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
     active_session: Option<Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
+    presentation_available: Option<Res<RoomTransitionPresentationAvailable>>,
     tick: Res<SimTick>,
     mut loads: ResMut<LoadCoordinator>,
     mut load_events: MessageWriter<LoadEvent>,
+    mut next_mode: ResMut<NextState<ambition::platformer::schedule::GameMode>>,
 ) {
     let current_session = active_session.as_deref().and_then(|scope| scope.current());
     for request in requests.read() {
@@ -258,6 +303,9 @@ pub(crate) fn begin_room_transition_load_system(
             );
         }
 
+        next_mode.set(ambition::platformer::schedule::GameMode::RoomTransition);
+
+        let cover_required = presentation_available.is_some();
         let mut active = ActiveRoomTransitionLoad {
             sequence,
             session_scope: current_session,
@@ -270,6 +318,8 @@ pub(crate) fn begin_room_transition_load_system(
             // on a later simulation step. This makes readiness and commit two
             // real phases and gives Phase 3 a place to insert cover rendering.
             commit_not_before_tick: tick.get().saturating_add(1),
+            cover_required,
+            cover_presented: !cover_required,
             phase: RoomTransitionLoadPhase::AwaitingReadiness,
             failure: None,
         };
@@ -446,6 +496,7 @@ pub(crate) fn authorize_ready_room_transition_system(
     };
     if active.phase != RoomTransitionLoadPhase::AwaitingReadiness
         || tick.get() < active.commit_not_before_tick
+        || (active.cover_required && !active.cover_presented)
     {
         return;
     }
@@ -500,6 +551,41 @@ pub(crate) fn authorize_ready_room_transition_system(
     }
 }
 
+
+/// Retire failed transitions in hosts that deliberately install no visible
+/// presentation adapter. A windowed host keeps the failed transaction resident
+/// so the loading foreground can offer retry/cancel while the source room stays
+/// intact.
+pub(crate) fn finalize_unpresented_room_transition_failure_system(
+    presentation_available: Option<Res<RoomTransitionPresentationAvailable>>,
+    mut state: ResMut<RoomTransitionLoadState>,
+    mut loads: ResMut<LoadCoordinator>,
+    mut load_events: MessageWriter<LoadEvent>,
+    mut next_mode: ResMut<NextState<ambition::platformer::schedule::GameMode>>,
+) {
+    if presentation_available.is_some()
+        || !state
+            .active
+            .as_ref()
+            .is_some_and(|active| active.phase == RoomTransitionLoadPhase::Failed)
+    {
+        return;
+    }
+    let active = state
+        .active
+        .take()
+        .expect("failed room transition was present above");
+    apply_load_command(
+        &mut loads,
+        &mut load_events,
+        ambition::load::LoadCommand::Cancel {
+            load_id: active.barrier.load_id.clone(),
+        },
+    );
+    loads.retire(&active.barrier.load_id);
+    next_mode.set(ambition::platformer::schedule::GameMode::Playing);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -533,6 +619,8 @@ mod tests {
             request: request("door", 1),
             barrier: LoadBarrierRef::new("load", "ready"),
             commit_not_before_tick: 1,
+            cover_required: false,
+            cover_presented: true,
             phase: RoomTransitionLoadPhase::AwaitingReadiness,
             failure: None,
         };
@@ -544,4 +632,26 @@ mod tests {
             Some(ambition::platformer::lifecycle::SessionScopeId(9)),
         ));
     }
+
+    #[test]
+    fn visible_transition_requires_cover_acknowledgment() {
+        let mut active = ActiveRoomTransitionLoad {
+            sequence: 1,
+            session_scope: None,
+            source_room: 0,
+            source_room_id: "a".to_string(),
+            target_room_id: "b".to_string(),
+            request: request("door", 1),
+            barrier: LoadBarrierRef::new("load", "ready"),
+            commit_not_before_tick: 1,
+            cover_required: true,
+            cover_presented: false,
+            phase: RoomTransitionLoadPhase::AwaitingReadiness,
+            failure: None,
+        };
+        assert!(active.cover_required && !active.cover_presented);
+        active.cover_presented = true;
+        assert!(active.cover_presented);
+    }
 }
+

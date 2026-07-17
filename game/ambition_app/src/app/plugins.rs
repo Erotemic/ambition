@@ -38,7 +38,8 @@ use super::setup_systems::{
 use super::sim_systems::{apply_player_reset_input_system, apply_room_replay_request_system};
 use super::world_flow::{
     authorize_ready_room_transition_system, begin_room_transition_load_system,
-    commit_ready_room_transition_system, RoomTransitionLoadState,
+    commit_ready_room_transition_system,
+    finalize_unpresented_room_transition_failure_system, RoomTransitionLoadState,
 };
 
 /// Register core simulation plugins, message types, and the gameplay
@@ -225,12 +226,14 @@ fn register_app_local_sim_systems(app: &mut App) {
     // exact `ambition_load` plan, preflights the target while the source room
     // remains authoritative, obtains one-shot authorization on a later sim
     // tick, and only then performs the existing synchronous construction and
-    // render commit. Phase 3 inserts cover presentation before that commit.
+    // render commit. Visible hosts additionally require a cover that has
+    // survived a presentation frame before authorization can succeed.
     app.add_systems(
         sim,
         (
             begin_room_transition_load_system,
             authorize_ready_room_transition_system,
+            finalize_unpresented_room_transition_failure_system,
             commit_ready_room_transition_system,
         )
             .chain()
@@ -357,6 +360,13 @@ pub(crate) fn spawn_ldtk_world_roots_scoped(
 /// Register presentation-side plugins (input, dialogue, inspector, audio
 /// and VFX subscribers, HUD, debug overlays). Visible binary only.
 pub fn add_presentation_plugins(app: &mut App) {
+    // Generic load presentation is a presentation-tier service, not a shell
+    // service. Install it for direct entry, shell-hosted play, and no-window
+    // presentation harnesses alike; the shell contributes only its adapter.
+    if !app.is_plugin_added::<ambition::load_presentation::AmbitionLoadPresentationPlugin>() {
+        app.add_plugins(ambition::load_presentation::MinimalLoadPresentationPlugins);
+    }
+    super::world_flow::install_room_transition_presentation(app);
     // The windowed-host face (E5 step 5): leafwing input bindings + the
     // camera follow/shake cluster (+ portal camera continuity). The SAME
     // group a windowed demo adds; the app-local presentation below layers

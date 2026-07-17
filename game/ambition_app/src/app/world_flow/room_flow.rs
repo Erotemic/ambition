@@ -287,6 +287,7 @@ pub(crate) fn commit_ready_room_transition_system(
         ResMut<super::RoomTransitionLoadState>,
         ResMut<ambition::load::LoadCoordinator>,
         MessageWriter<ambition::load::LoadEvent>,
+        ResMut<bevy::prelude::NextState<ambition::platformer::schedule::GameMode>>,
     ),
     mut combat_reset: super::super::feedback::CombatRoomReset,
 ) {
@@ -332,6 +333,9 @@ pub(crate) fn commit_ready_room_transition_system(
         }
         load_resources.9.retire(&active.barrier.load_id);
         load_resources.8.active = None;
+        load_resources
+            .11
+            .set(ambition::platformer::schedule::GameMode::Playing);
         bevy::log::warn!(target: "ambition::room_transition", "{detail}");
         return;
     }
@@ -347,6 +351,13 @@ pub(crate) fn commit_ready_room_transition_system(
         .and_then(|c| c.0)
         .or_else(|| transit.primary.single().ok())
     else {
+        super::room_transition_loading::fail_room_transition_commit_precondition(
+            &mut *load_resources.8,
+            &mut *load_resources.9,
+            &mut load_resources.10,
+            active.sequence,
+            "authorized room transition has no controlled or primary body".to_string(),
+        );
         return;
     };
     // Read the body's gravity BEFORE the mutable cluster borrow (disjoint
@@ -358,12 +369,33 @@ pub(crate) fn commit_ready_room_transition_system(
         .map(|frame| frame.down())
         .unwrap_or(ae::Vec2::new(0.0, 1.0));
     let Ok(mut motion_model) = transit.motion_models.get_mut(subject) else {
+        super::room_transition_loading::fail_room_transition_commit_precondition(
+            &mut *load_resources.8,
+            &mut *load_resources.9,
+            &mut load_resources.10,
+            active.sequence,
+            format!("controlled body {subject:?} has no MotionModel at room commit"),
+        );
         return;
     };
     let Ok(mut cluster_item) = transit.clusters.get_mut(subject) else {
+        super::room_transition_loading::fail_room_transition_commit_precondition(
+            &mut *load_resources.8,
+            &mut *load_resources.9,
+            &mut load_resources.10,
+            active.sequence,
+            format!("controlled body {subject:?} has no complete actor cluster at room commit"),
+        );
         return;
     };
     let Ok(mut combat) = transit.combat.get_mut(subject) else {
+        super::room_transition_loading::fail_room_transition_commit_precondition(
+            &mut *load_resources.8,
+            &mut *load_resources.9,
+            &mut load_resources.10,
+            active.sequence,
+            format!("controlled body {subject:?} has no BodyCombat at room commit"),
+        );
         return;
     };
     // Home-only presentation: a possessed actor has no blink-camera / respawn
@@ -400,6 +432,13 @@ pub(crate) fn commit_ready_room_transition_system(
             load_resources.6.as_deref(),
         )
     else {
+        super::room_transition_loading::fail_room_transition_commit_precondition(
+            &mut *load_resources.8,
+            &mut *load_resources.9,
+            &mut load_resources.10,
+            active.sequence,
+            "authorized room transition has no active session spawn scope".to_string(),
+        );
         return;
     };
     let target_room = request.transition.target_room;
@@ -452,8 +491,23 @@ pub(crate) fn commit_ready_room_transition_system(
         &world.0,
         &combat_reset.feature_overlay,
     );
-    load_resources.9.retire(&active.barrier.load_id);
-    load_resources.8.active = None;
+    if active.cover_required {
+        if let Some(current) = load_resources
+            .8
+            .active
+            .as_mut()
+            .filter(|current| current.sequence == active.sequence)
+        {
+            current.phase =
+                super::room_transition_loading::RoomTransitionLoadPhase::Committed;
+        }
+    } else {
+        load_resources.9.retire(&active.barrier.load_id);
+        load_resources.8.active = None;
+        load_resources
+            .11
+            .set(ambition::platformer::schedule::GameMode::Playing);
+    }
 }
 
 /// One-line diagnostic emitted on every room transition. Goal: when

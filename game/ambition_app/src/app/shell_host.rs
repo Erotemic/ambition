@@ -78,10 +78,18 @@ pub fn compose_ambition_shell_host(app: &mut App) {
         ]),
     );
 
-    app.add_plugins((
-        ambition::game_shell::MinimalShellPlugins,
-        ambition::load_presentation::MinimalShellLoadPresentationPlugins,
-    ));
+    app.add_plugins(ambition::game_shell::MinimalShellPlugins);
+    // The normal visible-app composition already installed contributor-neutral
+    // load presentation for direct and room-transition use. Keep this host
+    // composer valid in isolation as well, then add only the shell adapter.
+    if !app.is_plugin_added::<ambition::load_presentation::AmbitionLoadPresentationPlugin>() {
+        app.add_plugins(ambition::load_presentation::MinimalLoadPresentationPlugins);
+    }
+    if !app
+        .is_plugin_added::<ambition::load_presentation::AmbitionLoadShellPresentationPlugin>()
+    {
+        app.add_plugins(ambition::load_presentation::AmbitionLoadShellPresentationPlugin);
+    }
 
     // The linked providers. Each registers its experience, routes, catalog
     // fragments, session construction, and rules; the launcher below derives

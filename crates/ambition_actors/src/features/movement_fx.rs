@@ -340,9 +340,11 @@ mod tests {
 
     /// The body-generic emitter (shared by the player tick AND the actor tick)
     /// turns a frame's ops into movement SFX/VFX: a `Jump` op yields one `Jump`
-    /// SFX + a `Dust` VFX, and the air→ground transition adds the landing dust.
-    /// Pins that a future edit can't silently drop actor (or player) movement
-    /// presentation the way the old blink-only actor branch did (§A8).
+    /// SFX + a `Dust` VFX, and the air→ground transition adds the landing dust AND
+    /// the body-generic landing SFX. Pins that a future edit can't silently drop
+    /// actor (or player) movement presentation the way the old blink-only actor
+    /// branch did (§A8) — and that the landing cue fires for ANY body, not just the
+    /// player (the emit site is body-generic; a provider gates who voices it).
     #[test]
     fn emit_movement_fx_emits_jump_sfx_and_dust_plus_landing() {
         let mut events = ae::FrameEvents::default();
@@ -364,8 +366,19 @@ mod tests {
             .resource_mut::<bevy::ecs::message::Messages<VfxMessage>>()
             .drain()
             .collect();
-        assert_eq!(sfx.len(), 1, "a Jump op yields exactly one Jump SFX");
-        assert!(matches!(sfx[0], SfxMessage::Jump { .. }));
+        assert_eq!(
+            sfx.len(),
+            2,
+            "a Jump op plus the air→ground edge yield a Jump SFX and a Land SFX"
+        );
+        assert!(
+            sfx.iter().any(|m| matches!(m, SfxMessage::Jump { .. })),
+            "the jump cue"
+        );
+        assert!(
+            sfx.iter().any(|m| matches!(m, SfxMessage::Land { .. })),
+            "the body-generic landing cue (emitted for the player AND any actor)"
+        );
         assert_eq!(vfx.len(), 2, "the Jump dust + the air→ground landing dust");
         assert!(
             vfx.iter().all(|m| matches!(m, VfxMessage::Dust { .. })),

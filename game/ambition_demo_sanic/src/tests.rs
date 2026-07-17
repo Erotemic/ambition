@@ -1089,3 +1089,32 @@ fn the_ring_collect_cue_is_the_shared_currency_pickup_id() {
         "the Sanic registry must authorise the ring/coin pickup cue"
     );
 }
+
+#[test]
+fn the_speedway_tags_every_ring_with_the_animated_sprite() {
+    use ambition::entity_catalog::placements::PlacementSchema;
+    let room = sanic_speedway();
+    let rings: Vec<_> = room
+        .placements
+        .iter()
+        .filter(|record| is_ring_placement(record))
+        .collect();
+    assert!(
+        rings.len() >= 30,
+        "expected a field of rings; got {}",
+        rings.len()
+    );
+    // The demo assigns the render identity in code (like the badnik name), so the
+    // pickup renderer binds the spinning `sanic_ring_prop` sheet instead of the
+    // static coin.
+    for record in rings {
+        let PlacementSchema::Pickup(pickup) = &record.schema else {
+            unreachable!("is_ring_placement guarantees a pickup");
+        };
+        assert_eq!(
+            pickup.sprite.as_deref(),
+            Some(RING_SPRITE_KIND),
+            "every ring must name the animated sprite sheet"
+        );
+    }
+}

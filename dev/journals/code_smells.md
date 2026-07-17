@@ -599,3 +599,25 @@ should be a `prop_*` but is a cataloged+placed NPC today, so reclassifying it is
 catalog+placement rename deferred as a smell. Real fix: give targets an explicit
 `role`/`kind` (character vs prop vs fx) that drives the id namespace, rather than
 defaulting everything to `npc_`.
+
+**19. A lean-catalog game loads a prop sheet by BYPASSING the asset catalog (2026-07-17).**
+The animated ring pickup needs its `sanic_ring_prop` sheet in
+`GameAssets.characters.props`, but the Sanic app builds a lean
+`SandboxAssetCatalog` (`build_sandbox_catalog_without_worlds`) that registers
+character/entity/parallax sprites — NOT arbitrary props. Rather than teach the
+catalog about the prop, the app calls the new
+`character_sprites::load_prop_sheet_for_target` helper, which reads the
+build-embedded manifest spec (`try_load_spec_for_target`) and `asset_server.load`s
+`sprites/<target>_spritesheet.png` directly — sidestepping the catalog's
+profile/quality-tier authority (the ring always loads at base resolution). Fine
+for one demo prop, but it's an authority bypass: the elegant fix is a per-game
+"prop-sheet contribution" seam so a game registers prop targets into its asset
+catalog the way it already contributes character/audio catalog fragments, and
+props then load through the ONE catalog path (tiered + profile-gated) like
+characters. Worth building once a second demo wants animated props; until then the
+direct loader is the honest smaller thing. (Companion authoring note: rings carry
+their render identity via a new `PickupSpec.sprite` presentation field, assigned in
+`sanic_speedway()` beside the badnik-name patch. That keeps a render-only string on
+an authored placement spec the sim also reads — defensible as authored identity,
+like `PropSpec.kind`, but if presentation keeps accreting on placement specs the
+render-side answer is a pickup-art manifest, à la `WorldItemArtManifest`.)

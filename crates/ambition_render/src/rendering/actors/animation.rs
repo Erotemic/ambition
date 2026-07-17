@@ -210,6 +210,46 @@ pub fn animate_characters(
     }
 }
 
+/// Idle-tick the animation of every [`FeatureVisual`] that carries a
+/// [`CharacterAnimator`] — an animated pickup (a spinning ring), and any future
+/// animated feature (a pulsing hazard, a glowing switch). It is the feature
+/// counterpart to [`animate_props`]: `sync_visuals` positions these entities by
+/// id, and this advances their looping `idle` row. Players (their own picker),
+/// index-driven actors ([`animate_characters`]), props ([`animate_props`]), and
+/// portal sprites are excluded, so each animator is ticked by exactly one system.
+pub fn animate_feature_sprites(
+    world_time: Res<ambition_time::WorldTime>,
+    mut query: Query<
+        (
+            &mut Sprite,
+            &mut CharacterAnimator,
+            Option<&ambition_time::ProperTimeScale>,
+            Option<&mut bevy::sprite::Anchor>,
+        ),
+        (
+            With<FeatureVisual>,
+            Without<PropVisual>,
+            Without<PlayerVisual>,
+            Without<super::super::primitives::PortalSprite>,
+        ),
+    >,
+) {
+    for (mut sprite, mut animator, scale, anchor) in &mut query {
+        let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
+        apply_character_frame(
+            &mut sprite,
+            &mut animator,
+            anchor.map(|a| a.into_inner()),
+            ambition_sprite_sheet::character::CharacterAnim::Idle,
+            dt,
+            1.0,
+            ambition_engine_core::Vec2::Y,
+            Color::WHITE,
+            1.0,
+        );
+    }
+}
+
 /// Prop kinds whose authored "Idle" row depicts motion (e.g. rolling
 /// wheels). These props stay pinned at frame 0 in [`animate_props`]
 /// until a `PropMotionState` component lands to gate their tick by

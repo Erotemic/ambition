@@ -556,6 +556,26 @@ pub fn build_prop_sprite_asset(
     build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None, None)
 }
 
+/// Load a prop sprite sheet straight from its generated manifest TARGET, without
+/// a `SandboxAssetCatalog` — for a demo that registers one animated prop (a
+/// collectible ring) and doesn't carry that prop in its lean asset catalog. The
+/// spec comes from the build-embedded manifest index (`try_load_spec_for_target`)
+/// and the page-0 image resolves to `<sprite_folder>/<target>_spritesheet.png`,
+/// the same logical path the catalog would hand back at base resolution. Returns
+/// `None` when no manifest was embedded for `target` (the caller keeps the static
+/// fallback). Base resolution only — a demo prop needs no quality-tier gating.
+pub fn load_prop_sheet_for_target(
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    sprite_folder: &str,
+    target: &str,
+    tuning: &sheets::SheetTuning,
+) -> Option<CharacterSpriteAsset> {
+    let spec = sheets::try_load_spec_for_target(target, tuning)?;
+    let page0_path = format!("{sprite_folder}/{target}_spritesheet.png");
+    Some(load_sprite_pages(asset_server, layouts, &page0_path, &spec))
+}
+
 #[cfg(test)]
 mod sprite_body_collision_tests {
     use super::*;

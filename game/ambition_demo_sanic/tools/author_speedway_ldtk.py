@@ -91,10 +91,10 @@ def rect(etype: str, px: tuple[int, int], size: tuple[int, int], **fields) -> di
 # Rings are lowered as `currency:1` pickups: the shared collection loop credits
 # the player's wallet (the ring counter), sparks, and dings — the demo adds no
 # collection code. Authored at a runner's chest height so a grounded dash sweeps
-# them; arcs over the hills / pit reward the fast air routes. Size is the
-# PickupSpawn def box (28x34); `px` is its top-left, so a ring is centred on
-# (cx, cy).
-RING_SIZE = (28, 34)
+# them; arcs over the hills / pit reward the fast air routes. The box is SQUARE so
+# the round `sanic_ring_prop` sprite (bound demo-side) isn't stretched; `px` is
+# its top-left, so a ring is centred on (cx, cy).
+RING_SIZE = (30, 30)
 
 
 def ring(cx: float, cy: float) -> dict:

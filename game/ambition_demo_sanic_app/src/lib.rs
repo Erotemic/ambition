@@ -258,6 +258,28 @@ fn load_sanic_game_assets(
         quality.as_deref().map(|q| &q.budget),
     );
 
+    // Register the animated ring sheet as a prop the pickup renderer can bind.
+    // The sanic lean asset catalog doesn't carry props, so load it straight from
+    // its build-embedded manifest target (base resolution — one small demo prop).
+    if let Some(asset) = ambition::actors::character_sprites::load_prop_sheet_for_target(
+        &asset_server,
+        &mut layouts,
+        &config.sprite_folder,
+        ambition_demo_sanic::RING_SPRITE_KIND,
+        &ambition::sprite_sheet::character::SheetTuning::new(1.0, 2),
+    ) {
+        game_assets
+            .characters
+            .props
+            .insert(ambition_demo_sanic::RING_SPRITE_KIND.to_string(), asset);
+        info!("sanic_demo: bound the animated ring prop sheet");
+    } else {
+        warn!(
+            "sanic_demo: no {} manifest embedded; rings draw the static coin",
+            ambition_demo_sanic::RING_SPRITE_KIND
+        );
+    }
+
     for (character_id, sheet_stem) in [
         (ambition_demo_sanic::SANIC_CHARACTER_ID, "sanic_spritesheet"),
         (

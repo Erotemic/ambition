@@ -831,6 +831,60 @@ mod tests {
         assert_eq!(spec.path_id.as_deref(), Some("spike_run"));
     }
 
+    /// A `PickupSpawn` may author an optional animated sprite sheet: the reward
+    /// stays on `kind`, and the presentation override rides `PickupSpec.sprite`
+    /// (the pickup renderer binds it as a looping character sheet). Absent field
+    /// ⇒ `None` ⇒ the static per-kind sprite.
+    #[test]
+    fn pickup_spawn_carries_an_optional_animated_sprite() {
+        use ambition_entity_catalog::placements::{PickupKindSpec, PlacementSchema};
+        let project = synthetic_level(vec![
+            entity_at(
+                "PickupSpawn",
+                [64, 320],
+                [30, 30],
+                &[
+                    ("name", Value::String("ring".into())),
+                    ("kind", Value::String("currency:1".into())),
+                    ("sprite", Value::String("sanic_ring_prop".into())),
+                ],
+            ),
+            entity_at(
+                "PickupSpawn",
+                [128, 320],
+                [24, 24],
+                &[
+                    ("name", Value::String("coin".into())),
+                    ("kind", Value::String("currency:1".into())),
+                ],
+            ),
+        ]);
+        let room_set = project.to_room_set().expect("pickup project composes");
+        let room = &room_set.rooms[0];
+        let sprite_of = |name: &str| {
+            room.placements
+                .iter()
+                .find(|r| r.name == name)
+                .and_then(|r| match &r.schema {
+                    PlacementSchema::Pickup(p) => Some((p.kind.clone(), p.sprite.clone())),
+                    _ => None,
+                })
+                .expect("pickup lowered")
+        };
+        let (ring_kind, ring_sprite) = sprite_of("ring");
+        assert!(matches!(ring_kind, PickupKindSpec::Currency { amount: 1 }));
+        assert_eq!(
+            ring_sprite.as_deref(),
+            Some("sanic_ring_prop"),
+            "the authored sprite field rides the pickup spec"
+        );
+        assert_eq!(
+            sprite_of("coin").1,
+            None,
+            "a pickup without a sprite field stays on the static per-kind art"
+        );
+    }
+
     /// F7 dissolution (F9.2 arc exit): an INLINE-motion hazard is LIFTED to a
     /// room-level `KinematicPath` at conversion — it emits a normal hazard
     /// placement whose `path_id` references the synthesized path, so the

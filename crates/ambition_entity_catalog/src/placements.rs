@@ -174,6 +174,14 @@ pub struct PickupSpec {
     pub kind: PickupKindSpec,
     pub respawn: HazardRespawn,
     pub collected: bool,
+    /// Optional animated sprite sheet (a prop-kind key registered in
+    /// `GameAssets.characters.props`). When set and resolvable, the render binds
+    /// the pickup's visual as an idle-looping character sheet (a spinning ring, a
+    /// pulsing gem) instead of the static per-kind entity sprite; unresolved or
+    /// `None` falls back to the static coin/heart/ability art. Reward semantics
+    /// stay on `kind` — this is presentation only.
+    #[serde(default)]
+    pub sprite: Option<String>,
 }
 
 impl PickupSpec {
@@ -182,7 +190,14 @@ impl PickupSpec {
             kind,
             respawn: HazardRespawn::Never,
             collected: false,
+            sprite: None,
         }
+    }
+
+    /// Author an animated sprite sheet (a `GameAssets` prop kind) for this pickup.
+    pub fn with_sprite(mut self, sprite: impl Into<String>) -> Self {
+        self.sprite = Some(sprite.into());
+        self
     }
 }
 

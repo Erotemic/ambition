@@ -179,6 +179,26 @@ fn raised_full_loop_points(floor_top: f32) -> (Vec<ae::Vec2>, ae::Vec2) {
 pub const SANIC_CHARACTER_ID: &str = "sanic";
 pub const SUPER_SANIC_CHARACTER_ID: &str = "super_sanic";
 
+/// The animated ring sprite sheet (generated `sanic_ring_prop` target: an
+/// idle-spin row + a collect row). Registered as a `GameAssets` prop in the app
+/// and named on each ring pickup so the pickup renderer binds the spinning sheet
+/// instead of the static coin. The AABB is square so the round sprite isn't
+/// stretched.
+pub const RING_SPRITE_KIND: &str = "sanic_ring_prop";
+
+/// A ring placement: one of the `currency:1` pickups the author script lays down
+/// (named `ring`). The demo tags these with the animated sprite and the tests
+/// count them through this one predicate.
+pub fn is_ring_placement(record: &ambition::world::placements::PlacementRecord) -> bool {
+    use ambition::entity_catalog::placements::{PickupKindSpec, PlacementSchema};
+    record.name == "ring"
+        && matches!(
+            &record.schema,
+            PlacementSchema::Pickup(pickup)
+                if matches!(pickup.kind, PickupKindSpec::Currency { .. })
+        )
+}
+
 /// Sanic's own SFX vocabulary (provider-local open ids). Authoring a spec for
 /// each in the provider registry both AUTHORIZES the id under provider-relative
 /// playback and supplies its procedural voice — a Sanic session plays these and
@@ -242,6 +262,18 @@ pub fn sanic_speedway() -> RoomSpec {
     // resolves the badnik sheet).
     for spawn in &mut room.enemy_spawns {
         spawn.name = badnik::BADNIK_DISPLAY_NAME.to_string();
+    }
+    // Rings lower as generic `currency` pickups (LDtk owns their spatial layout);
+    // the demo supplies their render identity here, the same way it names the
+    // badnik above — the pickup renderer then binds the animated ring sheet.
+    for record in &mut room.placements {
+        if is_ring_placement(record) {
+            if let ambition::entity_catalog::placements::PlacementSchema::Pickup(pickup) =
+                &mut record.schema
+            {
+                pickup.sprite = Some(RING_SPRITE_KIND.to_string());
+            }
+        }
     }
     room.metadata.mode = Some(SANIC_MODE.to_string());
     // Borrow Ambition's generated skybridge stack. The visible shell loads the

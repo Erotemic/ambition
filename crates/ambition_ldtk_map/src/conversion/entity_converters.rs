@@ -399,9 +399,14 @@ pub(super) fn convert_npc_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
 
 pub(super) fn convert_pickup_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    let pickup = ambition_world::rooms::PickupSpec::new(parse_pickup_kind(
+    let mut pickup = ambition_world::rooms::PickupSpec::new(parse_pickup_kind(
         &field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string()),
     ));
+    // Optional animated sprite sheet (a `GameAssets` prop kind) — a spinning ring
+    // instead of the static per-kind entity art. Reward stays on `kind`.
+    if let Some(sprite) = field_string(entity, "sprite").filter(|s| !s.trim().is_empty()) {
+        pickup.sprite = Some(sprite.trim().to_string());
+    }
     let (id, name, aabb) = authored_triple(entity, name, min, size);
     let mut record =
         ambition_world::placements::PlacementRecord::new(id, PlacementSchema::Pickup(pickup), aabb);

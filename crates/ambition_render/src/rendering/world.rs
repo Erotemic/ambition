@@ -120,17 +120,36 @@ pub fn spawn_room_visuals(
     for record in &spec.placements {
         if let ambition_entity_catalog::placements::PlacementSchema::Pickup(pickup) = &record.schema
         {
-            spawn_authored_basic(
-                commands,
-                session_scope,
-                world,
-                record.id.as_str(),
-                &record.name,
-                record.aabb,
-                FeatureVisualKind::Pickup,
-                game_assets::entity_sprite_for_pickup(pickup),
-                assets,
-            );
+            // A pickup may author an animated sheet (a spinning ring, a pulsing
+            // gem): when it resolves to a prop asset, bind it as a looping
+            // character sheet; otherwise fall back to the static per-kind sprite.
+            let animated = pickup
+                .sprite
+                .as_deref()
+                .and_then(|kind| assets.and_then(|a| a.characters.prop_asset_for_kind(kind)));
+            if let Some(asset) = animated {
+                spawn_animated_pickup(
+                    commands,
+                    session_scope,
+                    world,
+                    record.id.as_str(),
+                    &record.name,
+                    record.aabb,
+                    asset,
+                );
+            } else {
+                spawn_authored_basic(
+                    commands,
+                    session_scope,
+                    world,
+                    record.id.as_str(),
+                    &record.name,
+                    record.aabb,
+                    FeatureVisualKind::Pickup,
+                    game_assets::entity_sprite_for_pickup(pickup),
+                    assets,
+                );
+            }
         }
     }
     // Chests lower through the single `placements` channel (fable audit F9.2).
@@ -748,6 +767,42 @@ fn spawn_authored_basic(
     if let Some(key) = entity_key {
         entity.insert(BoundEntitySprite::new(key));
     }
+}
+
+/// Spawn a pickup whose visual is an animated character sheet (a spinning ring,
+/// a pulsing gem). It is an ordinary [`FeatureVisual`] — `sync_visuals` positions
+/// it by id and hides it on collection, exactly like the static coin — that also
+/// carries a [`CharacterAnimator`], so the shared `animate_feature_sprites` idle
+/// tick spins its looping `idle` row. No prop conflation: a pickup is a feature,
+/// not a decorative prop; the animator is just presentation state on the feature.
+/// A collectible floats, so it is centre-anchored rather than foot-planted.
+fn spawn_animated_pickup(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    world: &ae::World,
+    id: &str,
+    name: &str,
+    aabb: ae::Aabb,
+    asset: &ambition_sprite_sheet::character::CharacterSpriteAsset,
+) {
+    let size = aabb.half_size() * 2.0;
+    let collision = BVec2::new(size.x, size.y);
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            build_character_sprite(asset, collision),
+            Anchor::CENTER,
+            CharacterAnimator::new(asset),
+            Transform::from_translation(world_to_bevy(
+                world,
+                aabb.center(),
+                feature_z(FeatureVisualKind::Pickup),
+            )),
+            Name::new(format!("Pickup sprite: {name}")),
+            FeatureVisual { id: id.to_string() },
+            RoomVisual,
+        ),
+    );
 }
 
 fn spawn_authored_hazard(

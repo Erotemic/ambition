@@ -19,7 +19,7 @@
 //! base; a content technique OVERRIDES whatever base action shares its slot
 //! (Sanic's spin claims the Attack slot in place of any moveset attack).
 
-use ambition_engine_core::AbilitySet;
+use ambition_engine_core::{AbilitySet, Edge};
 use ambition_entity_catalog::action_scheme::{
     ids, ActionGate, ActionId, ActionSchemeContract, ActionSpec, ControlSlot,
 };
@@ -44,6 +44,52 @@ pub struct ActorActionScheme(pub ActionSchemeContract);
 /// and where it lives," so the button can't lie about it.
 #[derive(Component, Debug, Clone, Default)]
 pub struct ActorTechniques(pub Vec<ActionSpec>);
+
+/// The per-tick resolved edges for the content TECHNIQUES a body's scheme puts on
+/// its control slots — the SANCTIONED seam a content technique consumes, in place
+/// of intercepting a raw combat verb in a fragile schedule window.
+///
+/// The shared resolver (the persona gate, [`resolve_worn_control`] semantics)
+/// fills this each tick: when a slot's action is [`ActionGate::Technique`], the
+/// slot's device edge is routed here under the technique id AND the raw combat
+/// verb (e.g. `melee_pressed`) is cleared — so a technique fires ONLY from its
+/// keyed edge, and a plain melee edge is no longer the content API. Derived state
+/// (rebuilt every tick from the scheme + control), never streamed or snapshotted:
+/// a rollback reconstructs it by re-resolving, exactly like the scheme itself.
+#[derive(Component, Debug, Clone, Default)]
+pub struct ResolvedTechniqueEdges(pub Vec<(String, Edge)>);
+
+impl ResolvedTechniqueEdges {
+    /// The edge routed to `id` this tick (`Edge::NONE` if the technique is not on
+    /// the scheme / not pressed).
+    pub fn edge(&self, id: &str) -> Edge {
+        self.0
+            .iter()
+            .find(|(k, _)| k == id)
+            .map(|(_, e)| *e)
+            .unwrap_or(Edge::NONE)
+    }
+
+    /// True iff technique `id` was pressed this tick.
+    pub fn pressed(&self, id: &str) -> bool {
+        self.edge(id).pressed
+    }
+
+    /// Route `edge` to technique `id`, replacing any prior entry this tick.
+    pub fn set(&mut self, id: &str, edge: Edge) {
+        if let Some(slot) = self.0.iter_mut().find(|(k, _)| k == id) {
+            slot.1 = edge;
+        } else {
+            self.0.push((id.to_owned(), edge));
+        }
+    }
+
+    /// Clear all routed edges — the resolver rebuilds them from scratch each tick,
+    /// so a released technique leaves no stale edge behind.
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+}
 
 /// One movement ability → (slot, action-id, movement-action-id) mapping. The
 /// bool is read off the `AbilitySet`; only enabled ones become actions, so a

@@ -129,9 +129,14 @@ pub struct BallDashInput {
     pub grounded_at_capture: bool,
 }
 
-/// Capture Sanic's X-button technique before `gate_worn_player_control` removes
-/// the peaceful persona's generic melee intent. Vacated bodies are reset so a
-/// possession handoff cannot replay a stale rev edge.
+/// Capture Sanic's spin-dash rev from the SANCTIONED technique edge the persona
+/// gate resolved onto its Attack slot — no longer by intercepting the raw
+/// `melee_pressed` verb in a fragile before-gate window. The body's action scheme
+/// declares `spin_dash` on the Attack slot (`ActorTechniques`), so
+/// `gate_worn_player_control` routes the Attack device edge into
+/// `ResolvedTechniqueEdges["spin_dash"]` (and clears the raw melee verb); this
+/// reads that edge. Runs AFTER the gate. Vacated bodies are reset so a possession
+/// handoff cannot replay a stale rev edge.
 pub fn capture_ball_dash_input(
     subject: Option<Res<ambition::platformer::markers::ControlledSubject>>,
     tuning: Res<BallDashTuning>,
@@ -139,6 +144,7 @@ pub fn capture_ball_dash_input(
         (
             Entity,
             &ambition::characters::brain::ActorControl,
+            &ambition::characters::action_scheme::ResolvedTechniqueEdges,
             &ambition::actors::features::MotionModel,
             &ambition::actors::actor::BodyGroundState,
             &mut BallDashInput,
@@ -147,7 +153,7 @@ pub fn capture_ball_dash_input(
     >,
 ) {
     let controlled = subject.and_then(|subject| subject.0);
-    for (entity, control, motion, ground, mut input) in &mut bodies {
+    for (entity, control, techniques, motion, ground, mut input) in &mut bodies {
         *input = if Some(entity) == controlled {
             let grounded_at_capture = ground.on_ground
                 || matches!(
@@ -159,7 +165,7 @@ pub fn capture_ball_dash_input(
             BallDashInput {
                 crouch_released: input.crouch_held && !crouch_held,
                 crouch_held,
-                rev_pressed: control.0.melee_pressed,
+                rev_pressed: techniques.pressed("spin_dash"),
                 grounded_at_capture,
             }
         } else {
@@ -434,8 +440,12 @@ pub fn attach_ball_dash(
             BallDash::default(),
             BallDashInput::default(),
             // Declare the spin-dash in the action scheme so Sanic's Attack
-            // button reads "Spin Dash" instead of being an empty slot.
+            // button reads "Spin Dash" instead of being an empty slot AND the
+            // persona gate routes its device edge as a technique.
             ambition::characters::action_scheme::ActorTechniques(vec![spin_dash_technique()]),
+            // The sanctioned edge the gate writes and `capture_ball_dash_input`
+            // reads — the seam that replaces the raw `melee_pressed` interception.
+            ambition::characters::action_scheme::ResolvedTechniqueEdges::default(),
         ));
     }
 }

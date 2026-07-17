@@ -846,28 +846,36 @@ impl Plugin for SanicRulesPlugin {
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.init_resource::<ball_dash::BallDashTuning>();
-        // Attach the mode-local state and consume Sanic's semantic input verbs
-        // before the generic peaceful-kit gate erases combat intent. Chaining
-        // provides an apply-deferred seam, so the first eligible X edge cannot be
-        // lost on a newly controlled body. Utility is D in the classic preset;
-        // the transform system consumes that edge so it cannot also toggle a
-        // host-code flight ability inherited by the control box.
-        let sanic_input_rules = (
-            ball_dash::attach_ball_dash,
-            ball_dash::capture_ball_dash_input,
-            toggle_sanic_form,
-        )
+        // BEFORE the persona gate: attach the mode-local state + DECLARE the
+        // spin-dash technique on the Attack slot, so the shared resolver inside
+        // `gate_worn_player_control` resolves Attack -> `Technique("spin_dash")`
+        // and routes its device edge into the sanctioned `ResolvedTechniqueEdges`
+        // (clearing the raw melee verb). Utility is D in the classic preset; the
+        // transform system consumes that edge so it cannot also toggle a host-code
+        // flight ability inherited by the control box.
+        let sanic_pre_gate = (ball_dash::attach_ball_dash, toggle_sanic_form)
             .chain()
             .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
             .after(ambition::actors::avatar::tick_player_brains)
             .before(ambition::actors::avatar::gate_worn_player_control);
+        // AFTER the gate: read Sanic's spin-dash rev from the sanctioned technique
+        // edge the gate resolved — the fragile before-gate `melee_pressed`
+        // interception window is GONE (a plain melee edge is no longer the API).
+        let sanic_post_gate = ball_dash::capture_ball_dash_input
+            .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
+            .after(ambition::actors::avatar::gate_worn_player_control);
         if self.hosted {
             app.add_systems(
                 sim,
-                sanic_input_rules.run_if(ambition::runtime::in_mode(SANIC_MODE)),
+                sanic_pre_gate.run_if(ambition::runtime::in_mode(SANIC_MODE)),
+            );
+            app.add_systems(
+                sim,
+                sanic_post_gate.run_if(ambition::runtime::in_mode(SANIC_MODE)),
             );
         } else {
-            app.add_systems(sim, sanic_input_rules);
+            app.add_systems(sim, sanic_pre_gate);
+            app.add_systems(sim, sanic_post_gate);
         }
 
         // The ball dash is a RULE, not world content: it exists while the Sanic

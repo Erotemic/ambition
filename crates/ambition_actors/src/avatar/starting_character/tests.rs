@@ -601,6 +601,11 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
             crate::actor::PlayerEntity,
             WornCharacter::new("sanic"),
             MotionModel::default(),
+            // The gate resolves the body's live authorities through the shared
+            // scheme; a peaceful `ActionSet` (no melee/ranged/special) + no
+            // moveset yields no combat slots, so the gate strips every combat
+            // verb below. `BodyAbilities` supplies the movement slots.
+            crate::actor::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
             ActionSet::peaceful(),
             ActorControl(frame),
         ))
@@ -616,6 +621,61 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
     assert!(!gated.projectile_pressed);
     assert!(!gated.projectile_held);
     assert!(!gated.projectile_released);
+}
+
+/// The gate CONSUMES the shared resolver: a body whose scheme puts a
+/// `Technique` on the Attack slot has its melee device edge ROUTED into the
+/// sanctioned `ResolvedTechniqueEdges` (and the raw verb cleared) — proving the
+/// resolver drives both gating AND the content-technique seam. A body with a
+/// real melee `Move` keeps its verb.
+#[test]
+fn gate_routes_a_technique_attack_slot_into_the_sanctioned_edge() {
+    use ambition_characters::action_scheme::{ActorTechniques, ResolvedTechniqueEdges};
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::{ActionSet, ActorControl};
+    use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec, ControlSlot};
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
+    app.add_systems(Update, gate_worn_player_control);
+
+    // A Sanic-shaped body: movement abilities, empty ActionSet, and a spin_dash
+    // technique claiming the Attack slot. Pressing melee this tick.
+    let mut frame = ActorControlFrame::neutral();
+    frame.melee_pressed = true;
+    let spin = ActionSpec {
+        id: ActionId::new("spin_dash"),
+        slot: ControlSlot::Attack,
+        display_name: Some("Spin Dash".to_owned()),
+        visual: None,
+        gate: ActionGate::Technique("spin_dash".to_owned()),
+    };
+    let body = app
+        .world_mut()
+        .spawn((
+            crate::actor::PlayerEntity,
+            WornCharacter::new("sanic"),
+            crate::actor::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
+            ActionSet::peaceful(),
+            ActorTechniques(vec![spin]),
+            ResolvedTechniqueEdges::default(),
+            ActorControl(frame),
+        ))
+        .id();
+    app.update();
+
+    let control = &app.world().get::<ActorControl>(body).unwrap().0;
+    assert!(
+        !control.melee_pressed,
+        "the raw melee verb is cleared — no longer the content API"
+    );
+    let edges = app.world().get::<ResolvedTechniqueEdges>(body).unwrap();
+    assert!(
+        edges.pressed("spin_dash"),
+        "the Attack device edge is routed into the sanctioned spin_dash technique edge"
+    );
 }
 
 /// A typo in a known Authored row is content corruption, not permission to gain

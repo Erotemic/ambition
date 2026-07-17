@@ -36,6 +36,12 @@ ambition_actors::items::pickup::StashedActionSet
 # ActionSet). Rollback reconstructs it by re-derivation (the ResolvedMotionFrame
 # precedent), so it is intentionally derived state with no codec of its own.
 ambition_characters::action_scheme::ActorActionScheme
+# ResolvedTechniqueEdges: the per-tick sanctioned technique edges the persona gate
+# routes onto a body's technique slots (Sanic's spin_dash), consumed by the
+# content technique system. Rebuilt every tick from the scheme + control (the
+# resolver clears and refills it), so it is derived state re-resolved on rollback —
+# nothing to stream or snapshot, exactly like the ActorControl edges it mirrors.
+ambition_characters::action_scheme::ResolvedTechniqueEdges
 ambition_characters::actor::body::BodyAnimFacts
 ambition_characters::actor::body::BodyWallet
 ambition_characters::actor::pose::ActorFaction

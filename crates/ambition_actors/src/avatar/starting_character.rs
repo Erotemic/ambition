@@ -393,7 +393,19 @@ pub fn gate_worn_player_control(
         (
             &WornCharacter,
             &ActionSet,
+            // The body's live combat/ability authorities — the SAME inputs the
+            // control-prompt read-model derives its labels from. The gate resolves
+            // them through the shared `derive_action_scheme` so what a slot GATES
+            // here and what the prompt SHOWS are one derivation (no UI drift).
+            &crate::actor::BodyAbilities,
+            Option<&ActorMoveset>,
+            Option<&ambition_characters::action_scheme::ActorTechniques>,
             &mut ambition_characters::brain::ActorControl,
+            // Sanctioned technique edges: when a slot resolves to `Technique`, the
+            // gate routes the slot's device edge here (and clears the raw verb),
+            // so a content technique reads THIS instead of intercepting a raw
+            // combat press. `Option` — only technique-bearing bodies carry it.
+            Option<&mut ambition_characters::action_scheme::ResolvedTechniqueEdges>,
             Has<ambition_characters::brain::ChargesProjectiles>,
             // Holding an item REPURPOSES the attack verb (the pickup stashes the
             // melee kit precisely so item-use fires instead), so the persona
@@ -404,16 +416,60 @@ pub fn gate_worn_player_control(
         With<crate::actor::PlayerEntity>,
     >,
 ) {
+    use ambition_characters::action_scheme::derive_action_scheme;
     use ambition_characters::actor::character_catalog::PlayableKitSource;
     use ambition_characters::brain::SpecialActionSpec;
+    use ambition_engine_core::Edge;
+    use ambition_entity_catalog::action_scheme::{ActionGate, ControlSlot};
 
-    for (worn, actions, mut control, has_charge_marker, holds_item) in &mut players {
-        if actions.melee.is_none() && !holds_item {
-            control.0.melee_pressed = false;
-            control.0.pogo_pressed = false;
-            control.0.attack_axis = ambition_engine_core::Vec2::ZERO;
+    for (worn, actions, abilities, moveset, techniques, mut control, mut tech_edges, has_charge_marker, holds_item) in
+        &mut players
+    {
+        // THE shared resolver — byte-identical to the call the ControlPrompt
+        // producer makes on the same immediate authorities.
+        let scheme = derive_action_scheme(
+            &abilities.abilities,
+            moveset.map(|m| &m.0),
+            Some(actions),
+            techniques.map_or(&[], |t| t.0.as_slice()),
+        );
+        if let Some(edges) = tech_edges.as_deref_mut() {
+            edges.clear();
         }
-        if actions.ranged.is_none() && !holds_item {
+
+        // Attack slot — resolve its gate:
+        //  * `Technique(id)`: route the melee edge to the sanctioned technique
+        //    edge and clear the raw verb (a plain melee edge is NO LONGER the
+        //    content API — the technique fires only from its keyed edge).
+        //  * absent: strip the melee verb (the persona-gate behavior, now keyed
+        //    on scheme presence rather than a parallel `ActionSet.melee` check).
+        //  * `Move`: keep it.
+        match scheme.action_for_slot(ControlSlot::Attack).map(|a| &a.gate) {
+            Some(ActionGate::Technique(id)) => {
+                if let Some(edges) = tech_edges.as_deref_mut() {
+                    edges.set(
+                        id,
+                        Edge {
+                            pressed: control.0.melee_pressed,
+                            held: false,
+                            released: false,
+                        },
+                    );
+                }
+                control.0.melee_pressed = false;
+                control.0.pogo_pressed = false;
+                control.0.attack_axis = ambition_engine_core::Vec2::ZERO;
+            }
+            None if !holds_item => {
+                control.0.melee_pressed = false;
+                control.0.pogo_pressed = false;
+                control.0.attack_axis = ambition_engine_core::Vec2::ZERO;
+            }
+            _ => {}
+        }
+
+        // Ranged (Projectile slot) — stripped iff the scheme lacks it.
+        if !scheme.has_slot(ControlSlot::Projectile) && !holds_item {
             control.0.fire = None;
         }
 

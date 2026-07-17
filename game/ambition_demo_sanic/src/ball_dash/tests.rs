@@ -229,8 +229,15 @@ fn set_ball_dash_input_with_contact(
     };
 }
 
+/// The spin-dash rev now comes from the SANCTIONED technique edge the persona
+/// gate resolves onto the Attack slot — NOT from a raw `melee_pressed` intercept.
+/// Proves both directions: the technique edge arms the rev, and a plain melee
+/// press with no technique edge does nothing (a raw melee edge is no longer the
+/// content API). Also preserves the crouch-release latching coverage.
 #[test]
-fn attack_input_is_captured_as_the_sanic_rev_before_generic_gating() {
+fn spin_dash_rev_comes_from_the_sanctioned_technique_edge_not_raw_melee() {
+    use ambition::characters::action_scheme::ResolvedTechniqueEdges;
+
     let mut app = App::new();
     app.insert_resource(BallDashTuning::default());
     // Reproduce the flat-floor seam: the generic ground cluster still reports
@@ -247,6 +254,7 @@ fn attack_input_is_captured_as_the_sanic_rev_before_generic_gating() {
             },
             BallDash::default(),
             BallDashInput::default(),
+            ResolvedTechniqueEdges::default(),
         ))
         .id();
     app.insert_resource(ambition::platformer::markers::ControlledSubject(Some(
@@ -254,14 +262,30 @@ fn attack_input_is_captured_as_the_sanic_rev_before_generic_gating() {
     )));
     app.add_systems(bevy::app::Update, capture_ball_dash_input);
 
+    let press_spin_dash = |app: &mut App| {
+        app.world_mut()
+            .get_mut::<ResolvedTechniqueEdges>(entity)
+            .unwrap()
+            .set(
+                "spin_dash",
+                ae::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            );
+    };
+
+    // Phase 1 — crouch held + the spin_dash technique edge pressed (as the gate
+    // routes the Attack press). Raw `melee_pressed` is ALSO set, to prove it is
+    // ignored: the rev arms from the technique edge alone.
     {
         let mut control = app.world_mut().get_mut::<ActorControl>(entity).unwrap();
         control.0.locomotion.y = 1.0;
         control.0.melee_pressed = true;
-        control.0.jump_pressed = false;
     }
+    press_spin_dash(&mut app);
     app.update();
-
     assert_eq!(
         *app.world().get::<BallDashInput>(entity).unwrap(),
         BallDashInput {
@@ -270,13 +294,32 @@ fn attack_input_is_captured_as_the_sanic_rev_before_generic_gating() {
             rev_pressed: true,
             grounded_at_capture: true,
         },
-        "the default X/attack edge becomes the mode-local spin-dash rev with its pre-compaction contact"
+        "the sanctioned spin_dash technique edge becomes the rev (raw melee is ignored)"
     );
 
+    // Phase 2 — the NEGATIVE: raw `melee_pressed` still true, but the technique
+    // edge is cleared (as the gate leaves it when Attack isn't pressed). No rev:
+    // a plain melee edge is no longer the spin-dash content API.
+    {
+        let mut control = app.world_mut().get_mut::<ActorControl>(entity).unwrap();
+        control.0.locomotion.y = 1.0;
+        control.0.melee_pressed = true;
+    }
+    app.world_mut()
+        .get_mut::<ResolvedTechniqueEdges>(entity)
+        .unwrap()
+        .clear();
+    app.update();
+    assert!(
+        !app.world().get::<BallDashInput>(entity).unwrap().rev_pressed,
+        "a plain melee edge is no longer the spin-dash content API"
+    );
+
+    // Phase 3 — release the crouch: the falling edge latches for the later
+    // gameplay phase (unchanged behavior, still driven by locomotion.y).
     {
         let mut control = app.world_mut().get_mut::<ActorControl>(entity).unwrap();
         control.0.locomotion.y = 0.0;
-        control.0.melee_pressed = false;
     }
     app.update();
     assert!(

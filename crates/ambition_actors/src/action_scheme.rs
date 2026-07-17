@@ -1,19 +1,27 @@
-//! Attaching + reconciling each body's [`ActorActionScheme`] from its live
-//! authorities.
+//! Materializing each body's [`ActorActionScheme`] — the OBSERVATION CACHE of its
+//! derived slot→action scheme.
 //!
-//! The scheme is DERIVED state (see
-//! [`ambition_characters::action_scheme`]): a pure function of the body's
-//! effective `AbilitySet` ([`BodyAbilities`]) and its moveset ([`ActorMoveset`]).
-//! This module is the reconcile seam — it re-derives the scheme whenever a
-//! source authority changes (equipment grant, ability mask, moveset swap) and
-//! writes it back only when the result actually differs, so a rollback that
-//! restores the authorities reconstructs the tick-correct scheme for free and
-//! `Changed<ActorActionScheme>` stays honest for downstream readers.
+//! **This component is NOT the authority.** The authoritative slot→gate
+//! resolution is the shared [`derive_action_scheme`] called DIRECTLY, each tick,
+//! on the body's immediate authorities at BOTH consumers: the gameplay persona
+//! gate (`gate_worn_player_control`) and the `ControlPrompt` read-model. Because
+//! both re-derive from the same current `AbilitySet` / moveset / `ActionSet` /
+//! techniques, the button and what it fires cannot drift — there is no lagged
+//! cache on the critical path.
+//!
+//! What this seam does is materialize that same derivation into a component, as a
+//! convenience OBSERVATION for readers that want the resolved scheme without
+//! re-deriving (RL observation, possession/debug tooling, the snapshot-coverage
+//! ledger). It re-derives whenever a source authority changes and writes back
+//! only when the result differs, and — ordered after the authority-mutation step
+//! — reflects the CURRENT tick's kit, so `Changed<ActorActionScheme>` stays
+//! honest. It is DERIVED state (a pure function of already-snapshotted
+//! authorities), so a rollback reconstructs it for free; nothing scheme-shaped is
+//! streamed or persisted.
 //!
 //! Content-declared TECHNIQUES ([`ActorTechniques`], e.g. Sanic's spin-dash) are
-//! folded in too: they give a bespoke content mechanic an identity + label on a
-//! control slot so the on-screen prompt can name it. The technique's BEHAVIOR
-//! stays content code; this seam only carries its declaration.
+//! folded into the derivation, so they claim + label their slot AND the gate
+//! routes their sanctioned edge; the technique's BEHAVIOR stays content code.
 
 use ambition_characters::action_scheme::{
     derive_action_scheme, ActorActionScheme, ActorTechniques,
@@ -66,24 +74,24 @@ pub fn reconcile_action_schemes(
     }
 }
 
-/// Wires [`reconcile_action_schemes`] into the sim schedule. Registered beside
-/// `AffordancesPlugin` (which the scheme + control-prompt read-model will
-/// retire in P3).
+/// Wires [`reconcile_action_schemes`] into the sim schedule.
 pub struct ActionSchemePlugin;
 
 impl Plugin for ActionSchemePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // `PlayerInput` is chained BEFORE `WorldPrep` (schedule.rs), so the
-        // scheme reconciled here reflects authorities as finalized on the
-        // PREVIOUS tick — a deterministic one-tick lag after an ability/moveset
-        // change. That is the correct model: the P3 input→action resolver (also
-        // in `PlayerInput`) and the control-prompt read-model (`FeatureViewSync`
-        // tail) then consume the SAME scheme, and a one-frame delay before a
-        // newly-granted action lights up on the HUD is imperceptible.
+        // Ordered AFTER the authority-mutation step (`apply_worn_character_gameplay`
+        // rewrites `ActionSet`/`ActorMoveset` on a kit swap), so this observation
+        // cache reflects the CURRENT tick's kit — not a one-tick-lagged view. It
+        // is not on the drift-critical path (the gate and the prompt both re-derive
+        // from the immediate authorities directly), but keeping the cache
+        // same-tick-honest means any observer reading `ActorActionScheme` sees the
+        // same thing gameplay and the HUD do.
         app.add_systems(
             sim,
-            reconcile_action_schemes.in_set(SandboxSet::PlayerInput),
+            reconcile_action_schemes
+                .in_set(SandboxSet::PlayerInput)
+                .after(crate::avatar::apply_worn_character_gameplay),
         );
     }
 }
@@ -266,16 +274,16 @@ mod tests {
             .has_slot(ControlSlot::Dash));
     }
 
-    /// The shared-resolution DRIFT GUARD (review step 5): the on-screen prompt
-    /// renders the derived `ActionScheme`, while gameplay's persona gate
-    /// (`gate_worn_player_control`) reads the body's immediate `ActionSet`
-    /// authority. Those are two views of ONE derivation, so a combat slot is in
-    /// the prompt's scheme IFF gameplay would let its verb fire. This test locks
-    /// them together: if the scheme derivation and the gate authority ever drift,
-    /// a button would advertise an action gameplay strips (or hide one it fires)
-    /// — and this fails. (Gameplay keeps the immediate `ActionSet` rather than
-    /// the one-tick-derived scheme deliberately, to avoid a stale gate on a
-    /// character swap; the guard is what makes that safe.)
+    /// A DERIVATION-LEVEL guard (not the resolver itself): a combat slot is in
+    /// the derived scheme IFF the `ActionSet` authority that gates its behavior
+    /// says the body has it. Both the gameplay gate (`gate_worn_player_control`)
+    /// and the `ControlPrompt` read-model now call the SAME `derive_action_scheme`
+    /// on the body's immediate authorities, so this equivalence is what makes the
+    /// shared resolver's two consumers agree. The end-to-end, same-tick proof that
+    /// they cannot drift across a kit swap lives in
+    /// `ambition_sim_view::control_prompt` (`a_same_tick_kit_swap_cannot_drift_...`),
+    /// which runs the real gate and the real prompt together; this test just pins
+    /// the pure derivation both rely on.
     #[test]
     fn prompt_scheme_and_gameplay_gate_authority_cannot_drift() {
         use ambition_characters::brain::action_set::ActionSet;

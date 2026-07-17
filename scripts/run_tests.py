@@ -60,6 +60,17 @@ DENY_EXACT = {
 }
 DENY_PREFIX = ("android", "web", "visible_web", "static_")
 
+# Big composition crates whose only non-default headless-safe features gate NO
+# test code (verified: app's portal_ldtk/profile, actors' profile, host, menu,
+# runtime). A feature job for them recompiles the entire Bevy/ambition graph in
+# a fresh feature-variant -- tens of GB of target artifacts -- for zero added
+# coverage (their real tests already run in the `--workspace` backbone). Skip
+# them. Every other crate's feature job unlocks tests, so it stays.
+SKIP_FEATURE_JOB = {
+    "ambition_app", "ambition_actors", "ambition_host",
+    "ambition_menu", "ambition_runtime",
+}
+
 
 def is_denied(feat: str) -> bool:
     return feat in DENY_EXACT or feat.startswith(DENY_PREFIX)
@@ -127,6 +138,8 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str]) -> list[Jo
             continue
         name = crate.name
         if only and name not in only:
+            continue
+        if name in SKIP_FEATURE_JOB and not only:
             continue
         data = tomllib.loads(cargo_toml.read_text())
         features = data.get("features", {})

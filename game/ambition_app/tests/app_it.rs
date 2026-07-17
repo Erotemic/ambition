@@ -12,6 +12,10 @@
 
 mod common;
 
+// Guard: this aggregate must stay in sync with the tests/ directory (see the
+// module for why `autotests = false` makes that a real hazard).
+mod app_it_sync;
+
 mod actor_phase_split;
 mod app_local_catalog_composition;
 mod blink_run_reachability;

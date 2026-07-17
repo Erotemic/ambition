@@ -327,3 +327,35 @@ fn visible_sanic_presentation_retires_and_relaunches_with_the_session() {
         "the launcher presentation retires when gameplay resumes"
     );
 }
+
+/// Rings must render via the ANIMATED pickup path (a `sanic_ring_prop` sheet),
+/// not the static coin fallback. Reproduces the runtime binding headlessly: the
+/// animated path names its entities "Pickup sprite: ring"; the static fallback
+/// names them "Room entity: ring".
+#[test]
+fn rings_render_with_the_animated_sheet_not_static_coins() {
+    let mut app = drawn_demo();
+    settle(&mut app);
+    let names: Vec<String> = {
+        let mut q = app.world_mut().query::<&Name>();
+        q.iter(app.world())
+            .map(|name| name.as_str().to_owned())
+            .collect()
+    };
+    let animated = names
+        .iter()
+        .filter(|n| n.as_str() == "Pickup sprite: ring")
+        .count();
+    let static_coins = names
+        .iter()
+        .filter(|n| n.as_str() == "Room entity: ring")
+        .count();
+    assert_eq!(
+        static_coins, 0,
+        "no ring may fall back to the static coin — found {static_coins} coins, {animated} animated"
+    );
+    assert!(
+        animated >= 30,
+        "every ring must bind the animated sanic_ring_prop sheet — found {animated}"
+    );
+}

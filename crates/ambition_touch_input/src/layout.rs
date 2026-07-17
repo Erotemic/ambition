@@ -19,6 +19,7 @@ use super::exclusion::{TouchExclusionAnchor, TouchExclusionZone};
 pub enum TouchActionButton {
     Jump,
     Attack,
+    Special,
     Dash,
     Blink,
     Interact,
@@ -98,7 +99,7 @@ pub fn movement_joystick_exclusion_zone() -> TouchExclusionZone {
 /// Canonical lower-right action layout used by both the rendered UI and
 /// raw multitouch hit testing. Keep all positions here so spacing fixes
 /// cannot drift between the visible overlay and the Android touch path.
-pub fn touch_action_layout() -> [TouchActionSpec; 8] {
+pub fn touch_action_layout() -> [TouchActionSpec; 9] {
     // Authored at the original 1.0-scale layout; `scaled` multiplies
     // through TOUCH_SCALE / TOUCH_FONT_SCALE so a single knob shrinks
     // the entire HUD without disturbing the diamond shape.
@@ -133,6 +134,12 @@ pub fn touch_action_layout() -> [TouchActionSpec; 8] {
         scaled(TouchActionButton::Dash, "Dash", 184.0, 148.0, 78.0, 14.0),
         scaled(TouchActionButton::Shield, "Shield", 5.0, 222.0, 72.0, 13.0),
         scaled(TouchActionButton::Jump, "Jump", 115.0, 218.0, 80.0, 15.0),
+        // Signature slot — lower-right corner (below Dash, sharing Shot's right
+        // column) so the diamond keeps a >=4px visible-circle gap from every
+        // neighbor. Hidden when the controlled scheme has no Special (the
+        // availability predicate gates both visibility and the hit test), so a
+        // movement-only character shows no phantom Special.
+        scaled(TouchActionButton::Special, "Special", 230.0, 228.0, 72.0, 13.0),
     ]
 }
 
@@ -210,9 +217,9 @@ mod layout_tests {
     const WINDOW: Vec2 = Vec2::new(1280.0, 720.0);
 
     #[test]
-    fn layout_has_eight_distinct_buttons_with_positive_size() {
+    fn layout_has_nine_distinct_buttons_with_positive_size() {
         let layout = touch_action_layout();
-        assert_eq!(layout.len(), 8);
+        assert_eq!(layout.len(), 9);
         for spec in layout {
             assert!(spec.size > 0.0, "{:?} has non-positive size", spec.action);
             assert!(!spec.label.is_empty());

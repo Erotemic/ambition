@@ -101,6 +101,25 @@ fn fold_sets_jump_flags_from_button_state() {
     assert!(!frame.jump_released);
 }
 
+/// Gate 5 (GPT-5.6 review): a special-bearing body can invoke Special THROUGH
+/// TOUCH. The dedicated Special button now folds into `ControlFrame.special_pressed`
+/// (it was hardcoded `false`), which is the exact bit the player brain reads and
+/// `trigger_moveset_moves` fires the folded bubble_shield special on — so the
+/// touch route reaches the same seam the keyboard Special key does.
+#[test]
+fn fold_sets_special_pressed_from_the_special_touch_button() {
+    let mut state = TouchInputState::default();
+    state.special = TouchButton::pressed_now();
+    let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
+    assert!(
+        frame.special_pressed,
+        "the touch Special button reaches ControlFrame.special_pressed"
+    );
+    // And an untouched Special button contributes nothing.
+    let idle = fold_touch_into_control_frame(TouchInputState::default(), 0.05, 0.05);
+    assert!(!idle.special_pressed);
+}
+
 #[test]
 fn fold_translates_aim_stick() {
     let mut state = TouchInputState::default();

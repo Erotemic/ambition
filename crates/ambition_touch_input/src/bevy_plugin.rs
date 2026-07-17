@@ -573,6 +573,7 @@ fn sync_touch_visibility_from_settings(
 struct TouchButtonEdges {
     jump: bool,
     attack: bool,
+    special: bool,
     dash: bool,
     blink: bool,
     interact: bool,
@@ -820,6 +821,7 @@ fn touch_button_slot(action: TouchActionButton) -> Option<ControlSlot> {
     Some(match action {
         TouchActionButton::Jump => ControlSlot::Jump,
         TouchActionButton::Attack => ControlSlot::Attack,
+        TouchActionButton::Special => ControlSlot::Special,
         TouchActionButton::Dash => ControlSlot::Dash,
         TouchActionButton::Blink => ControlSlot::Blink,
         TouchActionButton::Interact => ControlSlot::Interact,
@@ -914,6 +916,7 @@ fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt) {
     let avail = |a| touch_action_available(a, prompt);
     now.jump &= avail(TouchActionButton::Jump);
     now.attack &= avail(TouchActionButton::Attack);
+    now.special &= avail(TouchActionButton::Special);
     now.dash &= avail(TouchActionButton::Dash);
     now.blink &= avail(TouchActionButton::Blink);
     now.interact &= avail(TouchActionButton::Interact);
@@ -995,6 +998,7 @@ fn touch_action_to_sandbox_action(action: TouchActionButton) -> SandboxAction {
     match action {
         TouchActionButton::Jump => SandboxAction::Jump,
         TouchActionButton::Attack => SandboxAction::Attack,
+        TouchActionButton::Special => SandboxAction::Special,
         TouchActionButton::Dash => SandboxAction::Dash,
         TouchActionButton::Blink => SandboxAction::Blink,
         TouchActionButton::Interact => SandboxAction::Interact,
@@ -1070,6 +1074,7 @@ fn touch_button_held(state: &TouchInputState, action: TouchActionButton) -> bool
     match action {
         TouchActionButton::Jump => state.jump.held,
         TouchActionButton::Attack => state.attack.held,
+        TouchActionButton::Special => state.special.held,
         TouchActionButton::Dash => state.dash.held,
         TouchActionButton::Blink => state.blink.held,
         TouchActionButton::Interact => state.interact.held,
@@ -1198,6 +1203,7 @@ fn update_buttons_from_interactions(
     };
     state.0.jump = make_btn(now.jump, edges.jump);
     state.0.attack = make_btn(now.attack, edges.attack);
+    state.0.special = make_btn(now.special, edges.special);
     state.0.dash = make_btn(now.dash, edges.dash);
     state.0.blink = make_btn(now.blink, edges.blink);
     state.0.interact = make_btn(now.interact, edges.interact);
@@ -1216,6 +1222,7 @@ fn set_button_held(edges: &mut TouchButtonEdges, action: TouchActionButton, held
     match action {
         TouchActionButton::Jump => edges.jump = true,
         TouchActionButton::Attack => edges.attack = true,
+        TouchActionButton::Special => edges.special = true,
         TouchActionButton::Dash => edges.dash = true,
         TouchActionButton::Blink => edges.blink = true,
         TouchActionButton::Interact => edges.interact = true,
@@ -1579,6 +1586,25 @@ mod prompt_tests {
         assert!(touch_action_available(TouchActionButton::Jump, &g));
         assert!(!touch_action_available(TouchActionButton::Attack, &g));
         assert!(touch_action_available(TouchActionButton::Start, &g)); // menu row always
+
+        // Gate 5: the Special button follows the scheme's Special slot — shown +
+        // tappable only for a special-bearing body, hidden + untappable otherwise.
+        assert_eq!(
+            touch_button_slot(TouchActionButton::Special),
+            Some(ControlSlot::Special)
+        );
+        assert!(
+            !touch_action_available(TouchActionButton::Special, &g),
+            "no Special slot in this scheme -> hidden + untappable"
+        );
+        let g_special = prompt(
+            ControlContextKind::Gameplay,
+            vec![(ControlSlot::Jump, "Jump"), (ControlSlot::Special, "Bubble Shield")],
+        );
+        assert!(
+            touch_action_available(TouchActionButton::Special, &g_special),
+            "a special-bearing scheme makes the Special button available"
+        );
 
         // Menu: only select-functional + menu row.
         let m = menu_prompt("Select");

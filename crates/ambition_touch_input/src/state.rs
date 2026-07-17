@@ -72,6 +72,7 @@ pub struct TouchInputState {
     pub aim_y: f32,
     pub jump: TouchButton,
     pub attack: TouchButton,
+    pub special: TouchButton,
     pub dash: TouchButton,
     pub blink: TouchButton,
     pub interact: TouchButton,
@@ -151,10 +152,7 @@ pub fn fold_touch_into_control_frame(
         blink_pressed: state.blink.pressed_this_frame,
         blink_held: state.blink.held,
         blink_released: state.blink.released_this_frame,
-        // No dedicated touch Special button yet (the touch overlay has no
-        // Special slot until its layout adds one); the on-screen cluster's
-        // Special action awaits that pass.
-        special_pressed: false,
+        special_pressed: state.special.pressed_this_frame,
         attack_pressed: state.attack.pressed_this_frame,
         pogo_pressed: false,
         fly_toggle_pressed: state.fly_toggle.pressed_this_frame,
@@ -189,6 +187,7 @@ pub(crate) fn touch_state_is_active(state: &TouchInputState) -> bool {
         || state.aim_y.abs() > 1e-3;
     let any_button = state.jump.held
         || state.attack.held
+        || state.special.held
         || state.dash.held
         || state.blink.held
         || state.interact.held
@@ -199,6 +198,7 @@ pub(crate) fn touch_state_is_active(state: &TouchInputState) -> bool {
         || state.reset.held;
     let any_edge = state.jump.pressed_this_frame
         || state.attack.pressed_this_frame
+        || state.special.pressed_this_frame
         || state.dash.pressed_this_frame
         || state.blink.pressed_this_frame
         || state.interact.pressed_this_frame
@@ -213,6 +213,7 @@ pub(crate) fn touch_state_is_active(state: &TouchInputState) -> bool {
         || state.move_y_just_crossed_down;
     let any_release = state.jump.released_this_frame
         || state.attack.released_this_frame
+        || state.special.released_this_frame
         || state.dash.released_this_frame
         || state.blink.released_this_frame
         || state.interact.released_this_frame

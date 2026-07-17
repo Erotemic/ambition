@@ -106,6 +106,7 @@ pub fn fold_to_control_frame(
     frame.jump_released |= touch_frame.jump_released;
     frame.dash_pressed |= touch_frame.dash_pressed;
     frame.attack_pressed |= touch_frame.attack_pressed;
+    frame.special_pressed |= touch_frame.special_pressed;
     frame.blink_pressed |= touch_frame.blink_pressed;
     frame.blink_held |= touch_frame.blink_held;
     frame.blink_released |= touch_frame.blink_released;

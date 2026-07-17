@@ -282,9 +282,14 @@ impl KeyboardPreset {
             .with(SandboxAction::Start, GamepadButton::Start);
 
         map.insert(SandboxAction::Blink, self.actions.secondary);
-        // Dedicated Special key (keyboard only for now — the gamepad face +
-        // shoulder buttons are fully assigned; a gamepad Special binding awaits
-        // the remap pass). Distinct from Blink: the two are separate actions.
+        // Special is a FIRST-CLASS slot with its OWN dedicated key on every
+        // preset — no longer aliasing Blink. Dynamic-slot policy for the gamepad:
+        // every face/shoulder/trigger/stick button is already assigned (see the
+        // gamepad block below), so rather than double-bind a button (which would
+        // fire TWO actions at once), gamepad-Special is intentionally left to the
+        // remap UX (P5). Keyboard (this key) and the touch overlay's dedicated
+        // Special button cover it meanwhile. `special_is_a_dedicated_slot_...`
+        // pins this policy.
         map.insert(SandboxAction::Special, self.actions.special);
         map.insert(SandboxAction::QuickAction, self.actions.quick_action);
         map.insert(SandboxAction::Interact, self.actions.interact);
@@ -476,5 +481,23 @@ mod tests {
         // rather than panicking a HUD glyph system.
         assert_eq!(KeyboardPreset::by_index(4).id, PresetId::ArrowsZxc);
         assert_eq!(KeyboardPreset::by_index(usize::MAX).id, PresetId::ArrowsZxc);
+    }
+
+    /// Gate 5 (GPT-5.6 review) — the dynamic-slot policy for Special, pinned.
+    /// Special is a dedicated first-class slot: every keyboard preset binds it to
+    /// its OWN key, distinct from Blink (`secondary`) — the old alias is retired
+    /// at the binding layer too. The gamepad is fully assigned, so gamepad-Special
+    /// is deliberately deferred to remap; keyboard + the touch Special button are
+    /// its routes today. (If a future edit adds a gamepad Special binding, update
+    /// the policy comment in `input_map`.)
+    #[test]
+    fn special_is_a_dedicated_slot_distinct_from_blink_on_every_preset() {
+        for preset in KeyboardPreset::presets() {
+            assert_ne!(
+                preset.actions.special, preset.actions.secondary,
+                "{:?}: Special must not alias Blink (secondary)",
+                preset.id
+            );
+        }
     }
 }

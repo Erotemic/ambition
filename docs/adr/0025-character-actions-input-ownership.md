@@ -86,15 +86,23 @@ could disagree with what actually fired.
    mechanic's ownership fully out of the kernel is a per-mechanic follow-up.
 
 6. **One shared resolver, consumed by both gameplay and the prompt** *(landed)*.
-   A single resolution `control slot → character scheme → concrete action gate`,
-   `derive_action_scheme`, called on the body's IMMEDIATE authorities at BOTH the
-   persona gate (`gate_worn_player_control`, which gates/routes behavior) and the
-   `ControlPrompt` producer (which labels). Same function, same authorities, same
-   tick — so the on-screen buttons and gameplay **cannot drift** (a same-tick
-   kit-swap test runs both). A `Technique`-gated slot routes its device edge into
-   `ResolvedTechniqueEdges` (the sanctioned content-technique seam) and clears the
-   raw verb. `special_pressed = blink_pressed` is retired: the `Special` slot
-   drives `special_pressed`; blink drives blink.
+   Two pure functions: `derive_action_scheme` builds the ordered
+   `control slot → concrete action gate` scheme from the body's IMMEDIATE
+   authorities, and is called at BOTH the persona gate
+   (`gate_worn_player_control`) and the `ControlPrompt` producer — same function,
+   same authorities, same tick, so the on-screen buttons and gameplay **cannot
+   drift** (a same-tick kit-swap test runs both). The gate then APPLIES the scheme
+   through `resolve_control_slots`, the per-slot dispatch: for EVERY combat slot
+   (Attack/Special/Projectile/QuickAction) it routes a `Technique`-gated slot's
+   device edge into `ResolvedTechniqueEdges` (the sanctioned content-technique
+   seam, a **required component** of `ActorTechniques` so the sink is never
+   missing) and clears the raw verb, keeps `Move`s, and strips the verbs the scheme
+   doesn't own. A technique on a movement/Interact slot is **rejected** (surfaced
+   for a debug-assert, never silently dropped) — those cannot fire until the kernel
+   consumes actions (a per-mechanic follow-up, Decision 5). **`gate_worn_player_control`
+   is therefore NOT retired**: it is the dispatcher's consumer and remains until
+   that kernel re-key. `special_pressed = blink_pressed` is retired: the `Special`
+   slot drives `special_pressed`; blink drives blink.
 
 7. **Presentation reads a read-model, not the sim.** `ControlPrompt`
    (`ambition_sim_view`) is rebuilt each tick from the controlled subject's
@@ -128,5 +136,13 @@ could disagree with what actually fired.
 - The shared-resolver same-tick no-drift test: the real gate and the real prompt,
   run together across a kit swap, keep the visible slot and the executable verb in
   lockstep — `ambition_sim_view::control_prompt`.
+- The per-slot dispatch matrix: `resolve_control_slots` unit tests assert absent /
+  `Move` / `Technique` for Attack, Projectile, and Special, plus rejection of a
+  technique on a non-combat slot — `ambition_characters::action_scheme`.
+- The Bubble Shield production-schedule test: `AgentAction{special}` through the
+  full sim raises `BodyShieldState.active` on the press tick — `player_bubble_shield`
+  (app_it). And the menu Equip/Use provider is verified through its real
+  sim-schedule registration (`install_menu_confirm_provider`), not a hand-chained
+  pair — `kaleidoscope_app` tests.
 - A plain melee edge is no longer the spin-dash content API (both directions) —
   `ambition_demo_sanic::ball_dash`.

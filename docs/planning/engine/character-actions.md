@@ -132,9 +132,15 @@ Two remap layers fall out naturally:
   action's resolver), technique labels from technique state. `glyph_for` and
   the device-detection live on, re-homed with `ActiveBindings`.
 - `gate_worn_player_control`
-  (`crates/ambition_actors/src/avatar/starting_character.rs:388`) — a body
-  without an action simply has no scheme entry; nothing to strip after the
-  fact.
+  (`crates/ambition_actors/src/avatar/starting_character.rs`) — **NOT retired
+  yet.** The P3 end-state is a body without an action simply lacking a scheme
+  entry (nothing to strip after the fact), reached once the kernel consumes
+  actions directly. Until then the gate REMAINS — now as the consumer of the
+  shared per-slot dispatcher `resolve_control_slots`
+  (`crates/ambition_characters/src/action_scheme.rs`): it derives the scheme and
+  routes/strips EVERY combat slot's verb through that ONE pure function (Attack,
+  Special, Projectile, QuickAction), no longer an Attack-only special-case. Its
+  deletion is a P3 step, sequenced after the movement-kernel re-key.
 - The ball-dash `ActorControl` interception window
   (`game/ambition_demo_sanic/src/lib.rs:850-855`) — replaced by a scheme-
   declared technique consuming sanctioned edges. **Honesty note:** the chord
@@ -229,17 +235,30 @@ technique that was identity-only, no touch Special, hardcoded menu verb). Its
 seven gates are now genuinely landed:
 
 - **Gate 1 — the canonical player's Special is a real move.** `build_actor_moveset`
-  folds `ActionSet.special` into a `"special"`-verb `MoveSpec`; pressing Special
-  starts the bubble_shield move, and `sustain_bubble_shield` raises the ONE
-  shield while it plays. End-to-end test on the real bundle. (Enemy/boss
-  archetype specials stay authored — not re-folded.)
+  folds `ActionSet.special` into a `"special"`-verb `MoveSpec` — the Special is now
+  in the player's MOVESET, not a phantom capability. Pressing Special starts the
+  bubble_shield move, and `sustain_bubble_shield` raises the ONE shield on the
+  PRESS tick (it reads the `special_pressed` edge in `PlayerInput`, before the
+  `WorldPrep` kernel bridge, so the move being triggered later in `Combat` does not
+  make the guard one tick late) AND for the move's duration. A real
+  production-schedule app_it test (`player_bubble_shield`) drives
+  `AgentAction{special}` through the whole sim and asserts `BodyShieldState.active`
+  on the press tick. (Enemy/boss archetype specials stay authored — not re-folded;
+  possessed bosses are `Without<PlayerEntity>`, so the gate never touches them.)
 - **Gate 2 — one shared resolver, two consumers.** Both the persona gate
-  (`gate_worn_player_control`) and `ControlPrompt` now call the SAME
-  `derive_action_scheme` on the body's IMMEDIATE authorities each tick, resolving
-  a `ControlSlot` to its `ActionGate`. Not a guard — the actual resolution.
-- **Gate 3 — sanctioned technique edges.** New `ResolvedTechniqueEdges`: the gate
-  routes a `Technique`-gated slot's device edge there and clears the raw verb;
-  Sanic's ball-dash reads the `spin_dash` edge and the fragile
+  (`gate_worn_player_control`) and `ControlPrompt` call the SAME
+  `derive_action_scheme` on the body's IMMEDIATE authorities each tick to build the
+  scheme; the gate then APPLIES it through the pure per-slot dispatcher
+  `resolve_control_slots`, which handles EVERY slot — routes techniques, strips the
+  verbs the scheme doesn't own (Attack/Special/Projectile), keeps `Move`s, and
+  REJECTS (returns for a debug-assert, never silently drops) a technique declared
+  on a movement or Interact slot, since those await the P3 kernel re-key. Not a
+  guard — the actual resolution, unit-tested as a slot matrix.
+- **Gate 3 — sanctioned technique edges.** `ResolvedTechniqueEdges` is a
+  **required component** of `ActorTechniques`, so declaring a technique always
+  attaches the edge sink (no silent input loss). `resolve_control_slots` routes a
+  `Technique`-gated slot's device edge there and clears the raw verb; Sanic's
+  ball-dash reads the `spin_dash` edge and the fragile
   `.before(gate_worn_player_control)` interception is DELETED. A plain melee edge
   is no longer the content API (tested both directions).
 - **Gate 4 — no same-tick drift.** The prompt derives from immediate authorities
@@ -258,11 +277,22 @@ seven gates are now genuinely landed:
 - **Gate 7 — this reconciliation** + [ADR 0025](../../adr/0025-character-actions-input-ownership.md) updated to match.
 
 **Now genuinely landed:** the action vocabulary, the prompt + touch relabel, the
-movement-kernel re-key (`MovementAction`/`ActionEdges`), the `blink→special`
-alias retirement, the shared resolver, the technique-edge migration, the real
-player Special, the touch Special route, and the menu Equip/Use provider.
+`InputState` re-key (`MovementAction`/`ActionEdges`), the `blink→special` alias
+retirement, the shared resolver (`derive_action_scheme` + the per-slot dispatcher
+`resolve_control_slots`), the technique-edge migration, the real player Special,
+the touch Special route, and the menu Equip/Use provider.
+
+**Precisely what is and isn't done on the resolver/technique axis** (so this doc
+does not over-claim P3): technique routing is generic across the four COMBAT slots
+(Attack/Special/Projectile/QuickAction) — the dispatcher routes or strips each.
+Movement/Interact-slot techniques are *rejected*, not wired: firing a technique
+from Jump/Dash/Blink needs the kernel to consume actions (P3), which is NOT done.
+Consequently `gate_worn_player_control` is **NOT retired** — it is the dispatcher's
+consumer and remains until the P3 re-key deletes it.
+
 Validated — engine_core 329, characters 388, actors 816, combat 104, sim_view 16,
-demo_sanic 63, touch 41, plus the app menu provider path.
+demo_sanic 63, touch 41, plus the app menu provider path and the `player_bubble_shield`
+app_it integration test.
 
 Pending (genuinely NOT done): **P1** (`ActiveBindings` source-of-truth + the live
 preset-split bug + glyph re-home), **P5** (rebind-capture UX, gamepad glyphs from

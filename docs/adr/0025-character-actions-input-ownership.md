@@ -2,13 +2,14 @@
 
 ## Status
 
-Proposed; **partially implemented** (the vocabulary + the movement-kernel
-re-key have landed; the shared resolver and the alias retirement are still
-pending). Tracks `docs/planning/engine/character-actions.md`. Reviewed by
-GPT-5.6 (2026-07-17); this ADR records the design of record so the remaining
-seams don't drift from it.
+**Accepted; implemented** (the input-ownership seam — decisions 1–7 — is in;
+only the P1 bindings source, P5 remap UX, and P6 cast authoring remain, and a
+runtime playtest). Tracks `docs/planning/engine/character-actions.md`. A first
+implementation pass over-claimed completion; a GPT-5.6 follow-up review
+(2026-07-17) drove the remaining seams to done. This ADR records the design of
+record.
 
-Landed today (commits `8ab75893d` → `cf24c5558`):
+Landed:
 
 - The **`ActionScheme`** vocabulary (`ambition_entity_catalog::action_scheme`)
   and its per-character derivation (`ambition_characters::action_scheme`) from
@@ -17,13 +18,24 @@ Landed today (commits `8ab75893d` → `cf24c5558`):
   render, following `ControlledSubject`.
 - **`MovementAction`** + enum-indexed **`ActionEdges`** in `ambition_engine_core`,
   and the movement kernel consuming them through typed accessors
-  (`InputState` re-keyed). Parity: engine_core 329 movement tests + characters
-  387 + actors 810 + the demo_sanic momentum oracles + repro_walls all green.
-- Dedicated **`SandboxAction::Special`** input slot (blink is no longer its
-  source; the alias itself is retired in a later step).
+  (`InputState` re-keyed).
+- Dedicated **`SandboxAction::Special`** slot; the `special_pressed =
+  blink_pressed` alias is retired.
+- The **shared resolver** (§Decision 6): the persona gate and `ControlPrompt`
+  both call `derive_action_scheme` on the body's immediate authorities — the
+  same resolution feeds gating and labelling, so they cannot drift (proven by a
+  same-tick kit-swap test running both).
+- **Sanctioned technique edges** (`ResolvedTechniqueEdges`): the gate routes a
+  `Technique`-gated slot's device edge and clears the raw verb; Sanic's ball-dash
+  consumes the `spin_dash` edge and the before-gate interception is deleted.
+- The **canonical player's Special is a real move** (bubble_shield folded into
+  the moveset), and the **touch overlay has a dedicated Special button**.
+- The **menu Equip/Use provider** publishes the focused item's verb into
+  `MenuConfirmPrompt`, which `ControlPrompt.menu_confirm` folds in.
 
-Pending: the **shared resolver** (below, §Decision 6) and the
-`special_pressed = blink_pressed` alias retirement.
+Remaining (tracked in the plan doc): **P1** (`ActiveBindings` source-of-truth +
+the live preset-split bug), **P5** (remap UX + gamepad glyphs + gamepad Special),
+**P6** (cast authoring + `MoveSpec.display_name` + icons).
 
 ## Context
 
@@ -73,12 +85,16 @@ could disagree with what actually fired.
    rather than dishonestly broadened into `MovementAction`; relocating each
    mechanic's ownership fully out of the kernel is a per-mechanic follow-up.
 
-6. **One shared resolver, consumed by both the brain and the prompt** *(planned)*.
-   A single resolution `physical binding → control slot → character scheme →
-   concrete action gate`. The player brain uses it to drive behavior and
-   `ControlPrompt` uses it to label — so the on-screen buttons and gameplay
-   **cannot drift**. Retiring `special_pressed = blink_pressed` falls out of
-   this: the `Special` slot's gate drives `special_pressed`; blink drives blink.
+6. **One shared resolver, consumed by both gameplay and the prompt** *(landed)*.
+   A single resolution `control slot → character scheme → concrete action gate`,
+   `derive_action_scheme`, called on the body's IMMEDIATE authorities at BOTH the
+   persona gate (`gate_worn_player_control`, which gates/routes behavior) and the
+   `ControlPrompt` producer (which labels). Same function, same authorities, same
+   tick — so the on-screen buttons and gameplay **cannot drift** (a same-tick
+   kit-swap test runs both). A `Technique`-gated slot routes its device edge into
+   `ResolvedTechniqueEdges` (the sanctioned content-technique seam) and clears the
+   raw verb. `special_pressed = blink_pressed` is retired: the `Special` slot
+   drives `special_pressed`; blink drives blink.
 
 7. **Presentation reads a read-model, not the sim.** `ControlPrompt`
    (`ambition_sim_view`) is rebuilt each tick from the controlled subject's
@@ -92,8 +108,8 @@ could disagree with what actually fired.
 - **Netcode-safe by construction:** device intent is streamed; the deterministic
   scheme resolution replays identically. No scheme-shaped data in the stream or
   snapshot ledger.
-- **No UI/gameplay drift** once the shared resolver lands: one resolution feeds
-  both. Until then, a scheme⇔behavior parity guard stands in.
+- **No UI/gameplay drift:** one resolution (`derive_action_scheme` on immediate
+  authorities) feeds both the gate and the prompt every tick.
 - **Honest kernel boundary:** `MovementAction` is exactly the locomotion verbs;
   the other kernel signals are named, not hidden in a grab-bag or a dishonestly
   wide enum.
@@ -101,11 +117,16 @@ could disagree with what actually fired.
   a movement-only character (Sanic) shows only its real controls, never a
   phantom attack.
 
-## Guardrails (to add as the seams land)
+## Guardrails (landed)
 
-- Poison-grep that no resolved-action type is streamed / snapshot-registered
-  (the `ControlFrame`-is-POD invariant).
-- The scheme⇔behavior parity test (a slot is in the scheme iff the authority
-  that gates its behavior says the body has it).
-- The shared-resolver test: the value the brain resolves for a slot equals the
-  action `ControlPrompt` labels it with.
+- The derived types (`ActorActionScheme`, `ResolvedTechniqueEdges`,
+  `ControlPrompt`, `MenuConfirmPrompt`) are recorded in the snapshot-coverage
+  ledger as reviewed derived debt — a NEW unregistered type is a review event,
+  not a silent stream of resolved actions (the `ControlFrame`-is-POD invariant).
+- The scheme⇔behavior derivation guard (a slot is in the scheme iff the authority
+  that gates its behavior provides it) — `ambition_actors::action_scheme`.
+- The shared-resolver same-tick no-drift test: the real gate and the real prompt,
+  run together across a kit swap, keep the visible slot and the executable verb in
+  lockstep — `ambition_sim_view::control_prompt`.
+- A plain melee edge is no longer the spin-dash content API (both directions) —
+  `ambition_demo_sanic::ball_dash`.

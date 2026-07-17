@@ -2014,8 +2014,14 @@ fn render_set_is_gated_off_under_the_grid_backend() {
 #[test]
 fn menu_confirm_label_resolves_the_focused_item_verb() {
     let axe_idx = Item::ALL.iter().position(|&i| i == Item::Axe).unwrap();
-    let cell_idx = Item::ALL.iter().position(|&i| i == Item::HealthCell).unwrap();
-    assert!(Item::Axe.held_item_id().is_some(), "Axe is a held item -> Equip");
+    let cell_idx = Item::ALL
+        .iter()
+        .position(|&i| i == Item::HealthCell)
+        .unwrap();
+    assert!(
+        Item::Axe.held_item_id().is_some(),
+        "Axe is a held item -> Equip"
+    );
     assert!(
         Item::HealthCell.held_item_id().is_none(),
         "HealthCell is a consumable -> Use"
@@ -2034,29 +2040,48 @@ fn menu_confirm_label_resolves_the_focused_item_verb() {
         Some("Use")
     );
     // A page-turn focus carries no item verb (must NOT mislabel slot 0).
-    assert_eq!(menu_confirm_label(true, MenuFocus::EdgeLeft, Some(&owned)), None);
+    assert_eq!(
+        menu_confirm_label(true, MenuFocus::EdgeLeft, Some(&owned)),
+        None
+    );
     // Closed menu / absent roster / unowned slot -> None.
     assert_eq!(
         menu_confirm_label(false, MenuFocus::Item(axe_idx), Some(&owned)),
         None
     );
-    assert_eq!(menu_confirm_label(true, MenuFocus::Item(axe_idx), None), None);
     assert_eq!(
-        menu_confirm_label(true, MenuFocus::Item(cell_idx), Some(&OwnedItems::default())),
+        menu_confirm_label(true, MenuFocus::Item(axe_idx), None),
+        None
+    );
+    assert_eq!(
+        menu_confirm_label(
+            true,
+            MenuFocus::Item(cell_idx),
+            Some(&OwnedItems::default())
+        ),
         None,
         "an unowned slot has no verb"
     );
 }
 
-/// Gate 6 end-to-end through the REAL provider path: the app provider system
-/// (`publish_menu_confirm_prompt`) reads the live cursor + owned items + open
-/// overlay and publishes into `MenuConfirmPrompt`; the sim-side
-/// `rebuild_control_prompt` folds that into `ControlPrompt.menu_confirm`. No
-/// hand-injected string — the label comes from the focused Axe through the real
-/// systems, so runtime inventory controls say "Equip".
+/// Gate 6 end-to-end through the REAL provider path AND its production schedule
+/// registration: the app provider (`publish_menu_confirm_prompt`) reads the live
+/// cursor + owned items + open overlay and publishes into `MenuConfirmPrompt`; the
+/// sim-side `rebuild_control_prompt` folds that into `ControlPrompt.menu_confirm`.
+///
+/// Crucially, the two systems are wired by the REAL `install_menu_confirm_provider`
+/// — the same helper `install_unified_menu_shared` calls — into the SIM schedule's
+/// `FeatureViewSync` set, `.before` the reader. The test does NOT hand-chain them
+/// in `Update`; a single sim tick must carry the focused Axe's verb all the way to
+/// the prompt, which only holds if the writer is ordered before the reader in the
+/// same schedule (the cross-schedule staleness bug this registration fixes). We
+/// pin the sim schedule to `Update` so one `app.update()` is one deterministic sim
+/// tick.
 #[test]
 fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
+    use ambition::platformer::schedule::{SandboxSet, SimScheduleExt};
     use ambition::sim_view::{ControlContextKind, ControlPrompt, MenuConfirmPrompt};
+    use bevy::prelude::IntoScheduleConfigs;
 
     let axe_idx = Item::ALL.iter().position(|&i| i == Item::Axe).unwrap();
 
@@ -2080,14 +2105,16 @@ fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     app.world_mut()
         .resource_mut::<NextState<GameMode>>()
         .set(GameMode::Paused);
+
+    // Pin the sim schedule to `Update` so one update == one sim tick, then wire the
+    // reader into the same schedule/set production uses and register the provider
+    // through the REAL helper (not a manual `.chain()`).
+    app.set_sim_schedule(Update);
     app.add_systems(
         Update,
-        (
-            publish_menu_confirm_prompt,
-            ambition::sim_view::rebuild_control_prompt,
-        )
-            .chain(),
+        ambition::sim_view::rebuild_control_prompt.in_set(SandboxSet::FeatureViewSync),
     );
+    super::install_menu_confirm_provider(&mut app);
     app.update();
 
     let prompt = app.world().resource::<ControlPrompt>();
@@ -2095,6 +2122,7 @@ fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     assert_eq!(
         prompt.menu_confirm.as_deref(),
         Some("Equip"),
-        "the focused Axe's real verb flows app-provider -> MenuConfirmPrompt -> ControlPrompt"
+        "the focused Axe's real verb flows app-provider -> MenuConfirmPrompt -> ControlPrompt \
+         in ONE sim tick, because install_menu_confirm_provider orders the writer .before the reader"
     );
 }

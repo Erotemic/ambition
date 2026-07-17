@@ -68,13 +68,38 @@ pub fn install_unified_menu_shared(app: &mut App) {
         .init_resource::<KaleidoscopeSystemNav>()
         .init_resource::<CachedSystemMenu>()
         .init_resource::<VisualQualityConfirmState>()
-        .add_plugins(AmbitionInventoryUiPlugin)
-        // Publish the focused item's verb (Equip/Use) into the sim_view
-        // MenuConfirmPrompt so the on-screen menu-confirm control reads the real
-        // action. Backend-agnostic (reads the shared KaleidoscopeCursor), and
-        // self-gates on the overlay being open, so it lives with the shared
-        // resources rather than either backend.
-        .add_systems(Update, publish_menu_confirm_prompt);
+        .add_plugins(AmbitionInventoryUiPlugin);
+    // Publish the focused item's verb (Equip/Use) into the sim_view
+    // MenuConfirmPrompt so the on-screen menu-confirm control reads the real
+    // action. Backend-agnostic (reads the shared KaleidoscopeCursor), and
+    // self-gates on the overlay being open, so it lives with the shared
+    // resources rather than either backend. Registered in the SIM schedule,
+    // strictly before its reader — see `install_menu_confirm_provider`.
+    install_menu_confirm_provider(app);
+}
+
+/// Register the menu-confirm provider in the SIM schedule, ordered strictly
+/// before its reader.
+///
+/// `publish_menu_confirm_prompt` WRITES `ambition::sim_view::MenuConfirmPrompt`
+/// and `rebuild_control_prompt` READS it — and the reader lives in the sim
+/// schedule's [`SandboxSet::FeatureViewSync`]. Registering the writer in `Update`
+/// (a different schedule) made the read one frame stale under a `FixedUpdate`
+/// sim, and non-deterministic about WHICH frame's label it saw (Update and
+/// FixedUpdate interleave by wall-clock). Co-locating the writer in the same
+/// schedule + set and ordering it `.before` the reader makes the confirm label
+/// land the SAME sim tick the prompt is rebuilt, under any sim schedule — the
+/// producer→consumer edge is explicit, not incidental.
+pub(crate) fn install_menu_confirm_provider(app: &mut App) {
+    use ambition::platformer::schedule::{SandboxSet, SimScheduleExt};
+    use bevy::prelude::IntoScheduleConfigs;
+    let sim = app.sim_schedule();
+    app.add_systems(
+        sim,
+        publish_menu_confirm_prompt
+            .in_set(SandboxSet::FeatureViewSync)
+            .before(ambition::sim_view::rebuild_control_prompt),
+    );
 }
 
 /// The menu BACKEND SEAM as a single run-condition: gate a system on

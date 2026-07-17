@@ -34,6 +34,12 @@ pub enum SandboxAction {
     Attack,
     Dash,
     Blink,
+    /// Player signature SPECIAL — a dedicated slot, distinct from [`Self::Blink`].
+    /// Historically the player brain aliased `special_pressed = blink_pressed`
+    /// because there was no special input; this is that input. Default binding:
+    /// a per-preset keyboard key (gamepad Special awaits the remap pass, since
+    /// the face + shoulder buttons are already fully assigned).
+    Special,
     QuickAction,
     Interact,
     Modifier,

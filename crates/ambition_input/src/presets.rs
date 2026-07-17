@@ -37,6 +37,8 @@ pub struct ActionKeys {
     pub attack: KeyCode,
     pub dash: KeyCode,
     pub secondary: KeyCode,
+    /// Dedicated signature-special key (distinct from `secondary`/Blink).
+    pub special: KeyCode,
     pub quick_action: KeyCode,
     pub interact: KeyCode,
     pub modifier: KeyCode,
@@ -94,6 +96,7 @@ impl KeyboardPreset {
                 attack: KeyCode::KeyX,
                 dash: KeyCode::KeyC,
                 secondary: KeyCode::KeyA,
+                special: KeyCode::KeyG,
                 quick_action: KeyCode::KeyE,
                 interact: KeyCode::KeyF,
                 modifier: KeyCode::KeyS,
@@ -124,6 +127,7 @@ impl KeyboardPreset {
                 attack: KeyCode::KeyJ,
                 dash: KeyCode::KeyK,
                 secondary: KeyCode::KeyL,
+                special: KeyCode::KeyG,
                 quick_action: KeyCode::KeyI,
                 interact: KeyCode::KeyE,
                 modifier: KeyCode::ShiftLeft,
@@ -154,6 +158,7 @@ impl KeyboardPreset {
                 dash: KeyCode::KeyW,
                 attack: KeyCode::KeyE,
                 secondary: KeyCode::KeyR,
+                special: KeyCode::KeyH,
                 quick_action: KeyCode::KeyT,
                 interact: KeyCode::KeyF,
                 modifier: KeyCode::ShiftLeft,
@@ -184,6 +189,7 @@ impl KeyboardPreset {
                 dash: KeyCode::KeyI,
                 attack: KeyCode::KeyP,
                 secondary: KeyCode::KeyO,
+                special: KeyCode::KeyH,
                 quick_action: KeyCode::KeyJ,
                 interact: KeyCode::KeyE,
                 modifier: KeyCode::ShiftLeft,
@@ -276,6 +282,10 @@ impl KeyboardPreset {
             .with(SandboxAction::Start, GamepadButton::Start);
 
         map.insert(SandboxAction::Blink, self.actions.secondary);
+        // Dedicated Special key (keyboard only for now — the gamepad face +
+        // shoulder buttons are fully assigned; a gamepad Special binding awaits
+        // the remap pass). Distinct from Blink: the two are separate actions.
+        map.insert(SandboxAction::Special, self.actions.special);
         map.insert(SandboxAction::QuickAction, self.actions.quick_action);
         map.insert(SandboxAction::Interact, self.actions.interact);
         map.insert(SandboxAction::Modifier, self.actions.modifier);

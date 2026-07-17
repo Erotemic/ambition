@@ -171,6 +171,7 @@ fn keyboard_glyph(action: SandboxAction, preset: &KeyboardPreset) -> &'static st
         SandboxAction::Attack => key_glyph(keys.attack),
         SandboxAction::Dash => key_glyph(keys.dash),
         SandboxAction::Blink => key_glyph(keys.secondary),
+        SandboxAction::Special => key_glyph(keys.special),
         SandboxAction::QuickAction => key_glyph(keys.quick_action),
         SandboxAction::Interact => key_glyph(keys.interact),
         SandboxAction::Modifier => key_glyph(keys.modifier),
@@ -230,6 +231,9 @@ fn gamepad_glyph(action: SandboxAction, kind: GamepadKind) -> &'static str {
         SandboxAction::Attack => west,
         SandboxAction::Dash => rt,
         SandboxAction::Blink => east,
+        // No gamepad Special binding yet (face + shoulders full); empty glyph
+        // until the remap pass gives it a button.
+        SandboxAction::Special => "",
         SandboxAction::QuickAction => rb,
         SandboxAction::Interact => rb,
         SandboxAction::Modifier => lt,

@@ -103,11 +103,15 @@ Deferred, in priority order:
   collect the player gets the spark + ding but no on-screen tally. Building a
   demo-owned app-side HUD (`RINGS: N`) means relaxing the OV1 node-count assertion
   to distinguish presentation-plugin nodes from demo-owned HUD nodes.
-- **Dedicated ring sprite.** Rings currently draw as the engine's generic
-  `pickup_currency` coin. The `sanic_ring_prop` sprite target (idle-spin + collect
-  rows) already exists; binding it needs either a per-pickup art seam on the
-  Currency path or routing rings through the `Prop`/`WorldItem` art manifest (the
-  Mary-O milk-carton pattern).
+- ~~**Dedicated ring sprite.**~~ LANDED (commit `7dc7c1711`): rings draw the
+  animated `sanic_ring_prop` sheet via the new engine capability *animated feature
+  sprites* (`animate_feature_sprites` + `PickupSpec.sprite`) — a pickup carries an
+  optional prop-kind sheet and idle-spins, no PropVisual conflation. Remaining
+  polish: the sheet's `collect` row (a pop/sparkle) isn't played on pickup — the
+  ring idle-spins and the spark VFX covers collection; playing the collect row on
+  a brief render-held despawn is the follow-up. And the app loads the ring sheet
+  by bypassing the asset catalog (smell #19: a per-game prop-catalog contribution
+  seam is the elegant fix).
 - **Drop-on-hit scatter + super drain.** The `sanic.ring_loss` cue is authored
   ahead. A badnik/spike hit should scatter rings (a natural home for the "lose
   your rings" reaction) and a future super-form ring drain wears the form off the

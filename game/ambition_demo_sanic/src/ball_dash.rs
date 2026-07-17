@@ -404,6 +404,21 @@ pub fn mirror_ball_anim_fact(
     }
 }
 
+/// The spin-dash's ACTION-SCHEME declaration: it claims Sanic's Attack slot and
+/// names the on-screen button "Spin Dash". The technique's BEHAVIOR stays in
+/// this module (the crouch-rev-release chord on `ActorControl`); this only gives
+/// the mechanic an identity so the control prompt can label it honestly.
+fn spin_dash_technique() -> ambition::entity_catalog::action_scheme::ActionSpec {
+    use ambition::entity_catalog::action_scheme as sch;
+    sch::ActionSpec {
+        id: sch::ActionId::new("spin_dash"),
+        slot: sch::ControlSlot::Attack,
+        display_name: Some("Spin Dash".to_string()),
+        visual: None,
+        gate: sch::ActionGate::Technique("spin_dash".to_string()),
+    }
+}
+
 /// Give the controlled body its charge state. Idempotent; runs every tick because
 /// possession can hand control to a body that has never revved.
 pub fn attach_ball_dash(
@@ -415,9 +430,13 @@ pub fn attach_ball_dash(
         return;
     };
     if without.get(entity).is_ok() {
-        commands
-            .entity(entity)
-            .insert((BallDash::default(), BallDashInput::default()));
+        commands.entity(entity).insert((
+            BallDash::default(),
+            BallDashInput::default(),
+            // Declare the spin-dash in the action scheme so Sanic's Attack
+            // button reads "Spin Dash" instead of being an empty slot.
+            ambition::characters::action_scheme::ActorTechniques(vec![spin_dash_technique()]),
+        ));
     }
 }
 

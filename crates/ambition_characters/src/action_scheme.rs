@@ -35,6 +35,16 @@ use crate::brain::action_set::ActionSet;
 #[derive(Component, Debug, Clone, Default)]
 pub struct ActorActionScheme(pub ActionSchemeContract);
 
+/// Content-declared movement/action TECHNIQUES a body exposes — the seam by
+/// which a demo (Sanic's spin-dash, a ground-pound) gives its bespoke technique
+/// an identity in the action scheme: a slot, a display name, and a
+/// `Technique`-gated action the on-screen prompt renders. Each entry OVERRIDES
+/// any base action on its slot (derivation precedence). The technique's BEHAVIOR
+/// stays content code (e.g. `ball_dash`); this only declares "what it is called
+/// and where it lives," so the button can't lie about it.
+#[derive(Component, Debug, Clone, Default)]
+pub struct ActorTechniques(pub Vec<ActionSpec>);
+
 /// One movement ability → (slot, action-id, movement-action-id) mapping. The
 /// bool is read off the `AbilitySet`; only enabled ones become actions, so a
 /// body simply lacks a slot for a capability it doesn't have (no phantom

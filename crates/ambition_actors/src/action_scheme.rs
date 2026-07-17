@@ -10,11 +10,14 @@
 //! restores the authorities reconstructs the tick-correct scheme for free and
 //! `Changed<ActorActionScheme>` stays honest for downstream readers.
 //!
-//! Techniques are not wired here yet: content-declared movement techniques
-//! (Sanic's spin) become scheme actions in P3 when the input→action seam
-//! lands; today the scheme reflects abilities + moveset.
+//! Content-declared TECHNIQUES ([`ActorTechniques`], e.g. Sanic's spin-dash) are
+//! folded in too: they give a bespoke content mechanic an identity + label on a
+//! control slot so the on-screen prompt can name it. The technique's BEHAVIOR
+//! stays content code; this seam only carries its declaration.
 
-use ambition_characters::action_scheme::{derive_action_scheme, ActorActionScheme};
+use ambition_characters::action_scheme::{
+    derive_action_scheme, ActorActionScheme, ActorTechniques,
+};
 use ambition_characters::brain::action_set::ActionSet;
 use ambition_platformer_primitives::schedule::{SandboxSet, SimScheduleExt};
 use bevy::prelude::*;
@@ -34,25 +37,27 @@ pub fn reconcile_action_schemes(
         Ref<BodyAbilities>,
         Option<Ref<ActorMoveset>>,
         Option<Ref<ActionSet>>,
+        Option<Ref<ActorTechniques>>,
         Option<&ActorActionScheme>,
     )>,
 ) {
-    for (entity, abilities, moveset, action_set, existing) in &bodies {
+    for (entity, abilities, moveset, action_set, techniques, existing) in &bodies {
         let source_changed = abilities.is_changed()
             || moveset.as_ref().is_some_and(|m| m.is_changed())
-            || action_set.as_ref().is_some_and(|a| a.is_changed());
+            || action_set.as_ref().is_some_and(|a| a.is_changed())
+            || techniques.as_ref().is_some_and(|t| t.is_changed());
         if existing.is_some() && !source_changed {
             continue;
         }
-        // Techniques: none until the P3 input→action seam gives them a home.
         // Combat is unioned from the moveset AND the ActionSet (the canonical
         // player still fires ranged/special via the legacy pipeline, so the
-        // ActionSet is the authority that says those slots exist).
+        // ActionSet is the authority that says those slots exist); content
+        // techniques (Sanic's spin) override the base action on their slot.
         let derived = derive_action_scheme(
             &abilities.abilities,
             moveset.as_ref().map(|m| &m.0),
             action_set.as_deref(),
-            &[],
+            techniques.as_ref().map_or(&[], |t| t.0.as_slice()),
         );
         let differs = existing.is_none_or(|s| s.0 != derived);
         if differs {
@@ -154,6 +159,36 @@ mod tests {
             .expect("scheme attached even without a moveset");
         assert!(scheme.0.has_slot(ControlSlot::Jump));
         assert!(!scheme.0.has_slot(ControlSlot::Attack));
+    }
+
+    #[test]
+    fn a_content_technique_claims_and_labels_its_slot() {
+        use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec};
+        let mut app = app();
+        let spin = ActionSpec {
+            id: ActionId::new("spin_dash"),
+            slot: ControlSlot::Attack,
+            display_name: Some("Spin Dash".to_owned()),
+            visual: None,
+            gate: ActionGate::Technique("spin_dash".to_owned()),
+        };
+        // A movement-only body (empty moveset) with a spin-dash technique: its
+        // Attack slot is present and labelled by the technique, not a phantom.
+        let e = app
+            .world_mut()
+            .spawn((
+                BodyAbilities::new(ability_set(true, false)),
+                ActorTechniques(vec![spin]),
+            ))
+            .id();
+        app.update();
+
+        let scheme = &app.world().entity(e).get::<ActorActionScheme>().unwrap().0;
+        let attack = scheme
+            .action_for_slot(ControlSlot::Attack)
+            .expect("technique claims the Attack slot");
+        assert_eq!(attack.display(), "Spin Dash");
+        assert_eq!(attack.gate, ActionGate::Technique("spin_dash".to_owned()));
     }
 
     #[test]

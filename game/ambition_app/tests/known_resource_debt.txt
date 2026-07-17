@@ -113,6 +113,10 @@ ambition_sim_view::anim_index::BossFrameIndex
 ambition_sim_view::camera_snapshot::CameraExtraClamp
 ambition_sim_view::camera_snapshot::CameraViewport
 ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot
+# ControlPrompt: the "what does each control do right now" read-model, rebuilt
+# every tick from the controlled subject's action scheme (like every other
+# sim_view read-model here) — derived, never rewound state, no codec needed.
+ambition_sim_view::control_prompt::ControlPrompt
 ambition_sim_view::facts::BlinkPreviewFact
 ambition_sim_view::facts::DynamicFeatureViews
 ambition_sim_view::facts::GravitySwitchesView

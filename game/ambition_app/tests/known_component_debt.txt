@@ -31,6 +31,11 @@ ambition_actors::features::ecs::mount::Mounted
 ambition_actors::features::ecs::mount::RidingOn
 ambition_actors::features::ecs::spawn_actors::BossOverrides
 ambition_actors::items::pickup::StashedActionSet
+# ActorActionScheme: the body's derived slot→action scheme, re-reconciled every
+# tick from its already-snapshotted authorities (AbilitySet + moveset +
+# ActionSet). Rollback reconstructs it by re-derivation (the ResolvedMotionFrame
+# precedent), so it is intentionally derived state with no codec of its own.
+ambition_characters::action_scheme::ActorActionScheme
 ambition_characters::actor::body::BodyAnimFacts
 ambition_characters::actor::body::BodyWallet
 ambition_characters::actor::pose::ActorFaction

@@ -21,11 +21,12 @@
 
 use ambition_engine_core::{AbilitySet, Edge};
 use ambition_entity_catalog::action_scheme::{
-    ids, ActionGate, ActionId, ActionSchemeContract, ActionSpec, ControlSlot,
+    ids, ActionGate, ActionId, ActionSchemeContract, ActionSpec, ControlSlot, CANONICAL_SLOT_ORDER,
 };
 use ambition_entity_catalog::MovesetContract;
 use bevy::prelude::Component;
 
+use crate::actor::control::ActorControlFrame;
 use crate::brain::action_set::ActionSet;
 
 /// The Bevy-side carrier of a body's derived [`ActionSchemeContract`]. Mirrors
@@ -42,7 +43,14 @@ pub struct ActorActionScheme(pub ActionSchemeContract);
 /// any base action on its slot (derivation precedence). The technique's BEHAVIOR
 /// stays content code (e.g. `ball_dash`); this only declares "what it is called
 /// and where it lives," so the button can't lie about it.
+///
+/// **Requires [`ResolvedTechniqueEdges`]**: any body that DECLARES a technique
+/// gets the routed-edge component for free (Bevy required-components), so the
+/// shared resolver always has somewhere to write the technique's edge. Without
+/// this a technique-bearing body could silently drop its input on the tick
+/// before a separate ensure-system attached the edge component.
 #[derive(Component, Debug, Clone, Default)]
+#[require(ResolvedTechniqueEdges)]
 pub struct ActorTechniques(pub Vec<ActionSpec>);
 
 /// The per-tick resolved edges for the content TECHNIQUES a body's scheme puts on
@@ -89,6 +97,153 @@ impl ResolvedTechniqueEdges {
     pub fn clear(&mut self) {
         self.0.clear();
     }
+}
+
+/// A technique the derived scheme declared on a control slot the combat frame
+/// has NO device verb for yet — a movement slot (Jump / Dash / Blink / Utility)
+/// or Interact. Those need the Phase-3 kernel re-key before a technique can fire
+/// from them; until then [`resolve_control_slots`] REFUSES to pretend it wired
+/// one, and returns it here so the caller can surface the mistake (a
+/// debug-assert) instead of silently discarding the press.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnroutableTechnique {
+    pub slot: ControlSlot,
+    pub id: String,
+}
+
+/// Clear the Attack device verbs (a plain melee edge is not the content API once
+/// the Attack slot is a technique, and a slot-less body cannot melee).
+fn clear_attack(control: &mut ActorControlFrame) {
+    control.melee_pressed = false;
+    control.pogo_pressed = false;
+    control.attack_axis = ambition_engine_core::Vec2::ZERO;
+}
+
+/// Clear the ranged/charge device verbs on the Projectile slot.
+fn clear_projectile(control: &mut ActorControlFrame) {
+    control.fire = None;
+    control.projectile_pressed = false;
+    control.projectile_held = false;
+    control.projectile_released = false;
+}
+
+/// THE per-slot dispatch half of the shared resolver: [`derive_action_scheme`]
+/// says *what* each control slot does; this applies that to a body's live combat
+/// frame, routing techniques and stripping verbs the body doesn't own.
+///
+/// For every slot that carries a device verb in [`ActorControlFrame`] (Attack,
+/// Special, Projectile, and the shield on QuickAction):
+///
+/// - **`Technique(id)`** → route the slot's device edge into `edges[id]` and
+///   CLEAR the raw verb, so the content system reads the sanctioned edge and a
+///   bare melee/special/projectile press is no longer the API.
+/// - **`Move`** → keep the verb (the moveset runtime owns it).
+/// - **absent** → strip the verb, so a body without the slot cannot fire it.
+///   `holds_item` keeps Attack/Projectile alive (a held item repurposes them for
+///   throw/use), matching the persona-gate exception; Special has no such reuse.
+///
+/// A `Technique` declared on a slot WITHOUT a device verb here (a movement or
+/// Interact slot) is returned in the [`UnroutableTechnique`] list rather than
+/// dropped: those cannot fire until the kernel consumes actions (Phase 3).
+///
+/// Pure and Bevy-free (takes the frame + edges by reference) so the whole slot
+/// matrix is unit-testable without a world; `edges` is cleared first, so a
+/// released technique leaves no stale edge behind. The QuickAction shield's
+/// *presence* gating (special-key / held-item driven) stays with the caller —
+/// this routes only a technique explicitly placed there.
+pub fn resolve_control_slots(
+    scheme: &ActionSchemeContract,
+    control: &mut ActorControlFrame,
+    edges: &mut ResolvedTechniqueEdges,
+    holds_item: bool,
+) -> Vec<UnroutableTechnique> {
+    edges.clear();
+    let mut unroutable = Vec::new();
+
+    for slot in CANONICAL_SLOT_ORDER {
+        let gate = scheme.action_for_slot(slot).map(|a| a.gate.clone());
+        match slot {
+            ControlSlot::Attack => match gate.as_ref() {
+                Some(ActionGate::Technique(id)) => {
+                    edges.set(
+                        id,
+                        Edge {
+                            pressed: control.melee_pressed,
+                            ..Edge::NONE
+                        },
+                    );
+                    clear_attack(control);
+                }
+                // Absent AND no held item → strip. Move / held-item → keep.
+                None if !holds_item => clear_attack(control),
+                _ => {}
+            },
+            ControlSlot::Special => match gate.as_ref() {
+                Some(ActionGate::Technique(id)) => {
+                    edges.set(
+                        id,
+                        Edge {
+                            pressed: control.special_pressed,
+                            ..Edge::NONE
+                        },
+                    );
+                    control.special_pressed = false;
+                }
+                // The scheme lacks Special → a special press must not survive.
+                None => control.special_pressed = false,
+                // Move → the moveset "special" verb owns the press; keep it.
+                _ => {}
+            },
+            ControlSlot::Projectile => match gate.as_ref() {
+                Some(ActionGate::Technique(id)) => {
+                    edges.set(
+                        id,
+                        Edge {
+                            pressed: control.projectile_pressed,
+                            held: control.projectile_held,
+                            released: control.projectile_released,
+                        },
+                    );
+                    clear_projectile(control);
+                }
+                // Absent → strip the resolved ranged request (raw charge verbs are
+                // additionally gated by the caller's capability marker). Held item
+                // keeps the throw/use path alive.
+                None if !holds_item => control.fire = None,
+                _ => {}
+            },
+            ControlSlot::QuickAction => {
+                if let Some(ActionGate::Technique(id)) = gate.as_ref() {
+                    edges.set(
+                        id,
+                        Edge {
+                            held: control.shield_held,
+                            ..Edge::NONE
+                        },
+                    );
+                    control.shield_held = false;
+                }
+                // Non-technique QuickAction (the shield ability) is governed by the
+                // caller's special-key / held-item shield policy.
+            }
+            // Movement + Interact slots have NO device verb in this frame. A
+            // technique placed there has no wired path yet → reject, never drop.
+            ControlSlot::Jump
+            | ControlSlot::Dash
+            | ControlSlot::Blink
+            | ControlSlot::Utility
+            | ControlSlot::Interact => {
+                if let Some(ActionGate::Technique(id)) = gate.as_ref() {
+                    unroutable.push(UnroutableTechnique {
+                        slot,
+                        id: id.clone(),
+                    });
+                }
+            }
+        }
+    }
+
+    unroutable
 }
 
 /// One movement ability → (slot, action-id, movement-action-id) mapping. The
@@ -375,5 +530,214 @@ mod tests {
                 verbs.contains(&"ranged")
             );
         }
+    }
+
+    // ---- The per-slot dispatch resolver (`resolve_control_slots`) ---------------
+
+    /// Build a one-action scheme claiming `slot` with `gate` (or an empty scheme
+    /// when `gate` is `None`, i.e. the body does not own the slot).
+    fn one_slot_scheme(slot: ControlSlot, gate: Option<ActionGate>) -> ActionSchemeContract {
+        match gate {
+            Some(gate) => ActionSchemeContract::new(vec![ActionSpec {
+                id: ActionId::new("t"),
+                slot,
+                display_name: None,
+                visual: None,
+                gate,
+            }]),
+            None => ActionSchemeContract::default(),
+        }
+    }
+
+    /// Set the slot's device state hot: the press verb the resolver keeps/strips,
+    /// and (for Projectile) the resolved `fire` request the absence-strip clears.
+    fn set_hot(control: &mut ActorControlFrame, slot: ControlSlot) {
+        use crate::actor::control::ActorFireRequest;
+        match slot {
+            ControlSlot::Attack => control.melee_pressed = true,
+            ControlSlot::Special => control.special_pressed = true,
+            ControlSlot::Projectile => {
+                control.projectile_pressed = true;
+                control.fire = Some(ActorFireRequest::world_space(
+                    ambition_engine_core::Vec2::X,
+                    1.0,
+                ));
+            }
+            _ => unreachable!("only combat slots carry a device verb"),
+        }
+    }
+
+    /// The slot's keep/strip OBSERVABLE after the resolver: the melee/special press
+    /// verb, or (for Projectile) the resolved ranged `fire` request. The raw
+    /// `projectile_*` charge verbs are NOT the resolver's to strip on absence —
+    /// the caller's capability-marker block owns those — so Projectile is observed
+    /// through `fire`.
+    fn slot_kept(control: &ActorControlFrame, slot: ControlSlot) -> bool {
+        match slot {
+            ControlSlot::Attack => control.melee_pressed,
+            ControlSlot::Special => control.special_pressed,
+            ControlSlot::Projectile => control.fire.is_some(),
+            _ => unreachable!("only combat slots carry a device verb"),
+        }
+    }
+
+    /// The core dispatch matrix: for each of the three combat slots (Attack,
+    /// Projectile, Special), an ABSENT slot strips the verb, a `Move` keeps it,
+    /// and a `Technique` routes the device edge AND clears the raw verb.
+    #[test]
+    fn resolve_control_slots_dispatches_absent_move_and_technique_per_combat_slot() {
+        for slot in [
+            ControlSlot::Attack,
+            ControlSlot::Projectile,
+            ControlSlot::Special,
+        ] {
+            // Each row: (gate, kept-after, is-routed).
+            let rows = [
+                (None, false, false),
+                (Some(ActionGate::Move("v".into())), true, false),
+                (Some(ActionGate::Technique("t".into())), false, true),
+            ];
+            for (gate, kept, routed) in rows {
+                let scheme = one_slot_scheme(slot, gate.clone());
+                let mut control = ActorControlFrame::default();
+                set_hot(&mut control, slot);
+                let mut edges = ResolvedTechniqueEdges::default();
+
+                let unroutable = resolve_control_slots(&scheme, &mut control, &mut edges, false);
+
+                assert!(
+                    unroutable.is_empty(),
+                    "combat slot {slot:?} with {gate:?} must route cleanly, got {unroutable:?}"
+                );
+                assert_eq!(
+                    slot_kept(&control, slot),
+                    kept,
+                    "{slot:?} with {gate:?}: kept-after == {kept}"
+                );
+                assert_eq!(
+                    edges.pressed("t"),
+                    routed,
+                    "{slot:?} with {gate:?}: technique edge routed == {routed}"
+                );
+            }
+        }
+    }
+
+    /// A held item repurposes the Attack and Projectile verbs (throw / use), so an
+    /// ABSENT combat slot must NOT strip them while an item is held. Special has no
+    /// such reuse and is always stripped when absent.
+    #[test]
+    fn held_item_keeps_attack_and_projectile_but_not_special() {
+        let empty = ActionSchemeContract::default();
+        let mut control = ActorControlFrame::default();
+        control.melee_pressed = true;
+        control.projectile_pressed = true;
+        control.special_pressed = true;
+        let mut edges = ResolvedTechniqueEdges::default();
+
+        let unroutable =
+            resolve_control_slots(&empty, &mut control, &mut edges, /*holds_item*/ true);
+
+        assert!(unroutable.is_empty());
+        assert!(
+            control.melee_pressed,
+            "held item keeps the throw/attack verb"
+        );
+        assert!(
+            control.projectile_pressed,
+            "held item keeps the projectile verb"
+        );
+        assert!(
+            !control.special_pressed,
+            "special is stripped even with a held item"
+        );
+    }
+
+    /// A technique declared on a slot with NO device verb in the combat frame (a
+    /// movement or Interact slot) is REJECTED — returned so the caller can
+    /// debug-assert — rather than silently swallowed. Those slots wait on the
+    /// Phase-3 kernel re-key.
+    #[test]
+    fn technique_on_a_non_combat_slot_is_rejected_not_dropped() {
+        for slot in [
+            ControlSlot::Jump,
+            ControlSlot::Dash,
+            ControlSlot::Blink,
+            ControlSlot::Utility,
+            ControlSlot::Interact,
+        ] {
+            let scheme = one_slot_scheme(slot, Some(ActionGate::Technique("warp".into())));
+            let mut control = ActorControlFrame::default();
+            let mut edges = ResolvedTechniqueEdges::default();
+
+            let unroutable = resolve_control_slots(&scheme, &mut control, &mut edges, false);
+
+            assert_eq!(
+                unroutable,
+                vec![UnroutableTechnique {
+                    slot,
+                    id: "warp".to_owned(),
+                }],
+                "technique on {slot:?} must be reported, not routed"
+            );
+            assert!(
+                !edges.pressed("warp"),
+                "an unroutable technique routes NO edge"
+            );
+        }
+    }
+
+    /// The Sanic-shaped content proof, at the resolver level: a `spin_dash`
+    /// technique on the Attack slot routes the melee press into
+    /// `edges["spin_dash"]` and clears the raw melee verb, so `capture_ball_dash_input`
+    /// reads the sanctioned edge and a plain melee press is no longer the API.
+    #[test]
+    fn spin_dash_technique_routes_the_attack_edge() {
+        let spin = ActionSpec {
+            id: ActionId::new("spin_dash"),
+            slot: ControlSlot::Attack,
+            display_name: Some("Spin Dash".into()),
+            visual: None,
+            gate: ActionGate::Technique("spin_dash".into()),
+        };
+        // Full Sanic-ish scheme: jump + dash + the spin technique on Attack.
+        let ab = abilities(|a| {
+            a.jump = true;
+            a.dash = true;
+        });
+        let scheme = derive_action_scheme(&ab, None, None, std::slice::from_ref(&spin));
+
+        let mut control = ActorControlFrame::default();
+        control.melee_pressed = true;
+        control.pogo_pressed = true;
+        let mut edges = ResolvedTechniqueEdges::default();
+
+        let unroutable = resolve_control_slots(&scheme, &mut control, &mut edges, false);
+
+        assert!(unroutable.is_empty());
+        assert!(
+            edges.pressed("spin_dash"),
+            "the rev routes to the technique edge"
+        );
+        assert!(!control.melee_pressed, "the raw melee verb is cleared");
+        assert!(
+            !control.pogo_pressed,
+            "the pogo verb is cleared with the melee kit"
+        );
+    }
+
+    /// Declaring a technique auto-attaches [`ResolvedTechniqueEdges`] (Bevy
+    /// required-components), so the resolver always has an edge sink — a
+    /// technique-bearing body can never silently lose its input for lack of the
+    /// component.
+    #[test]
+    fn declaring_a_technique_auto_attaches_the_edge_component() {
+        use bevy::prelude::World;
+        let mut world = World::new();
+        let e = world.spawn(ActorTechniques(vec![])).id();
+        assert!(
+            world.get::<ResolvedTechniqueEdges>(e).is_some(),
+            "ActorTechniques must pull in ResolvedTechniqueEdges via #[require]"
+        );
     }
 }

@@ -441,11 +441,11 @@ pub fn attach_ball_dash(
             BallDashInput::default(),
             // Declare the spin-dash in the action scheme so Sanic's Attack
             // button reads "Spin Dash" instead of being an empty slot AND the
-            // persona gate routes its device edge as a technique.
+            // persona gate routes its device edge as a technique. Declaring the
+            // technique auto-attaches `ResolvedTechniqueEdges` (required-component
+            // of `ActorTechniques`) — the sanctioned edge the gate writes and
+            // `capture_ball_dash_input` reads — so the seam can never be missing.
             ambition::characters::action_scheme::ActorTechniques(vec![spin_dash_technique()]),
-            // The sanctioned edge the gate writes and `capture_ball_dash_input`
-            // reads — the seam that replaces the raw `melee_pressed` interception.
-            ambition::characters::action_scheme::ResolvedTechniqueEdges::default(),
         ));
     }
 }

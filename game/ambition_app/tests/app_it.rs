@@ -39,6 +39,7 @@ mod gravity_symmetry_room;
 mod held_projectile_portal_transit;
 mod input_stream_replay;
 mod movement_axis;
+mod player_bubble_shield;
 mod player_clone_live;
 mod player_phase_split;
 mod player_pilots_mount_end_to_end;

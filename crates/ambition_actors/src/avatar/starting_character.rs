@@ -426,14 +426,21 @@ pub fn gate_worn_player_control(
         With<crate::actor::PlayerEntity>,
     >,
 ) {
-    use ambition_characters::action_scheme::derive_action_scheme;
+    use ambition_characters::action_scheme::{derive_action_scheme, resolve_control_slots};
     use ambition_characters::actor::character_catalog::PlayableKitSource;
     use ambition_characters::brain::SpecialActionSpec;
-    use ambition_engine_core::Edge;
-    use ambition_entity_catalog::action_scheme::{ActionGate, ControlSlot};
 
-    for (worn, actions, abilities, moveset, techniques, mut control, mut tech_edges, has_charge_marker, holds_item) in
-        &mut players
+    for (
+        worn,
+        actions,
+        abilities,
+        moveset,
+        techniques,
+        mut control,
+        mut tech_edges,
+        has_charge_marker,
+        holds_item,
+    ) in &mut players
     {
         // THE shared resolver — byte-identical to the call the ControlPrompt
         // producer makes on the same immediate authorities.
@@ -443,45 +450,22 @@ pub fn gate_worn_player_control(
             Some(actions),
             techniques.map_or(&[], |t| t.0.as_slice()),
         );
-        if let Some(edges) = tech_edges.as_deref_mut() {
-            edges.clear();
-        }
 
-        // Attack slot — resolve its gate:
-        //  * `Technique(id)`: route the melee edge to the sanctioned technique
-        //    edge and clear the raw verb (a plain melee edge is NO LONGER the
-        //    content API — the technique fires only from its keyed edge).
-        //  * absent: strip the melee verb (the persona-gate behavior, now keyed
-        //    on scheme presence rather than a parallel `ActionSet.melee` check).
-        //  * `Move`: keep it.
-        match scheme.action_for_slot(ControlSlot::Attack).map(|a| &a.gate) {
-            Some(ActionGate::Technique(id)) => {
-                if let Some(edges) = tech_edges.as_deref_mut() {
-                    edges.set(
-                        id,
-                        Edge {
-                            pressed: control.0.melee_pressed,
-                            held: false,
-                            released: false,
-                        },
-                    );
-                }
-                control.0.melee_pressed = false;
-                control.0.pogo_pressed = false;
-                control.0.attack_axis = ambition_engine_core::Vec2::ZERO;
-            }
-            None if !holds_item => {
-                control.0.melee_pressed = false;
-                control.0.pogo_pressed = false;
-                control.0.attack_axis = ambition_engine_core::Vec2::ZERO;
-            }
-            _ => {}
-        }
-
-        // Ranged (Projectile slot) — stripped iff the scheme lacks it.
-        if !scheme.has_slot(ControlSlot::Projectile) && !holds_item {
-            control.0.fire = None;
-        }
+        // Per-slot dispatch: route every technique to its sanctioned edge, strip
+        // the verbs the scheme doesn't own (Attack/Special/Projectile), and keep
+        // the moveset `Move`s. A technique-bearing body always has
+        // `ResolvedTechniqueEdges` (required by `ActorTechniques`), so nothing is
+        // dropped for a missing sink; the local fallback only ever backs a body
+        // with no techniques (nothing routes into it).
+        let mut fallback_edges =
+            ambition_characters::action_scheme::ResolvedTechniqueEdges::default();
+        let edges = tech_edges.as_deref_mut().unwrap_or(&mut fallback_edges);
+        let unroutable = resolve_control_slots(&scheme, &mut control.0, edges, holds_item);
+        debug_assert!(
+            unroutable.is_empty(),
+            "action scheme declared a technique on a slot the combat gate cannot route \
+             yet (needs the Phase-3 kernel re-key): {unroutable:?}",
+        );
 
         let allows_body_shield = matches!(
             actions.special.as_ref(),
@@ -508,26 +492,33 @@ pub fn gate_worn_player_control(
     }
 }
 
-/// While a body's folded `"bubble_shield"` special MOVE is playing, hold its guard
-/// up through the ONE shield path (`shield_held` → `resolve_shield`) — so pressing
-/// Special actually deploys the bubble shield instead of playing a bare animation.
+/// Raise (and sustain) a `"bubble_shield"` persona's guard through the ONE shield
+/// path (`shield_held` → `resolve_shield`) — so pressing Special actually deploys
+/// the bubble shield instead of playing a bare animation.
 ///
-/// The special move's `id` equals the body's `ActionSet.special` key (that is how
-/// [`build_actor_moveset`] folds the marker in), so a `bubble_shield` persona
-/// raises [`ambition_engine_core::body_clusters::BodyShieldState`] BY IDENTITY
-/// while that move plays — no per-body wiring, and the on-screen Special button
-/// (which reads the SAME scheme) cannot advertise a shield the body won't raise.
+/// Two conditions force `shield_held`, and together they eliminate the one-tick
+/// lag the folded special would otherwise have:
 ///
-/// Runs in `PlayerInput` after [`gate_worn_player_control`] (which keeps a
-/// `bubble_shield` persona's `shield_held` alive) and before the `WorldPrep`
-/// kernel bridge, so the guard rises the same tick the kernel resolves it. It
-/// forces `shield_held` rather than poking `BodyShieldState` directly, so the
-/// kernel's parry-window/dash-gating rules apply uniformly — the special is just
-/// another way to raise the ONE shield.
+/// - **The press tick.** The special MOVE is triggered later in the tick
+///   (`trigger_moveset_moves` runs in `Combat`, after `PlayerInput`/`WorldPrep`),
+///   so on the tick Special is pressed there is no `MovePlayback` yet. Reading the
+///   `special_pressed` edge here — in `PlayerInput`, before the `WorldPrep` kernel
+///   bridge — raises the guard the SAME tick the button goes down.
+/// - **The move's duration.** Once the move is playing, its `id` equals the body's
+///   `ActionSet.special` key (that is how [`build_actor_moveset`] folds the marker
+///   in), so a `bubble_shield` persona keeps the guard up BY IDENTITY for as long
+///   as the move plays — no per-body wiring.
+///
+/// The on-screen Special button reads the SAME scheme, so it cannot advertise a
+/// shield the body won't raise. Forcing `shield_held` (rather than poking
+/// [`ambition_engine_core::body_clusters::BodyShieldState`] directly) keeps the
+/// kernel's parry-window / dash-gating rules uniform — the special is just another
+/// way to raise the ONE shield. Runs after [`gate_worn_player_control`], which
+/// keeps the persona's shield verb and (as a `Move`) its `special_pressed` alive.
 pub fn sustain_bubble_shield(
     mut bodies: Query<(
         &ActionSet,
-        &ambition_combat::moveset::MovePlayback,
+        Option<&ambition_combat::moveset::MovePlayback>,
         &mut ambition_characters::brain::ActorControl,
     )>,
 ) {
@@ -536,7 +527,12 @@ pub fn sustain_bubble_shield(
         let Some(SpecialActionSpec::Special(key)) = actions.special.as_ref() else {
             continue;
         };
-        if key == "bubble_shield" && playback.spec.id == *key {
+        if key != "bubble_shield" {
+            continue;
+        }
+        let pressed = control.0.special_pressed;
+        let playing = playback.is_some_and(|p| p.spec.id == *key);
+        if pressed || playing {
             control.0.shield_held = true;
         }
     }

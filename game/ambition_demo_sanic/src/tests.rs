@@ -31,6 +31,30 @@ fn sanic_demo_content_plugin_installs() {
     assert!(catalog.get(SUPER_SANIC_CHARACTER_ID).is_some());
 }
 
+/// The super-form transform-cue latch does not leak across a session turnover:
+/// a session that ended super must not make the next session emit a phantom
+/// detransform, and two consecutive super sessions each emit their own transform.
+#[test]
+fn super_form_edge_does_not_leak_across_sessions() {
+    // Within a session: a rising edge transforms, holding is silent, a falling
+    // edge detransforms.
+    assert_eq!(super_form_edge(Some(true), false), (Some(true), true));
+    assert_eq!(super_form_edge(Some(true), true), (None, true));
+    assert_eq!(super_form_edge(Some(false), true), (Some(false), false));
+
+    // Session A ends WHILE super (latch true): no controlled player resets the
+    // latch and fires NO cue.
+    assert_eq!(super_form_edge(None, true), (None, false));
+    // Session B starts normal with the reset latch: no phantom detransform.
+    assert_eq!(super_form_edge(Some(false), false), (None, false));
+
+    // Two consecutive super sessions each emit their own transform, because the
+    // latch resets to false between them.
+    assert_eq!(super_form_edge(Some(true), false), (Some(true), true)); // A transforms
+    assert_eq!(super_form_edge(None, true), (None, false)); // A retires, latch reset
+    assert_eq!(super_form_edge(Some(true), false), (Some(true), true)); // B transforms
+}
+
 /// The oracle: the momentum showcase room composes through the umbrella
 /// surface alone — floor geometry present, the Sonic loop validates, and the
 /// spawn sits inside the room bounds.

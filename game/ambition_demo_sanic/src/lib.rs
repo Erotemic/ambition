@@ -1030,29 +1030,45 @@ fn sync_super_form_traits(
         bevy::prelude::With<ambition::actors::actor::PrimaryPlayer>,
     >,
 ) {
-    let Ok((worn, mut health, kinematics)) = players.single_mut() else {
-        return;
+    // `None` = no controlled player (the session has retired; a player is present
+    // for every in-session frame, surviving room changes). Derive invincibility
+    // and capture the emit position while the body is borrowed.
+    let (worn_is_super, pos) = match players.single_mut() {
+        Ok((worn, mut health, kinematics)) => {
+            let is_super = worn.id() == SUPER_SANIC_CHARACTER_ID;
+            if health.health.invulnerable != is_super {
+                health.health.invulnerable = is_super;
+            }
+            (Some(is_super), kinematics.pos)
+        }
+        Err(_) => (None, ae::Vec2::ZERO),
     };
-    let is_super = worn.id() == SUPER_SANIC_CHARACTER_ID;
-    if health.health.invulnerable != is_super {
-        health.health.invulnerable = is_super;
-    }
-    // The transform sound derives from the worn-identity EDGE, so it fires once
-    // no matter what wore the form — the D-toggle, a monitor, or a future ring
-    // drain — instead of each of those sites emitting its own cue.
-    if is_super != *was_super {
-        *was_super = is_super;
+
+    // The transform SOUND derives from the worn-identity EDGE, so it fires once no
+    // matter what wore the form (the D-toggle, a monitor, a future ring drain). The
+    // edge is resolved session-turnover-safe: no controlled player RESETS the latch
+    // so the edge state never leaks into the next session — otherwise a session that
+    // ended super would fire a phantom detransform on the next session's first
+    // frame. These `Local` latches can't be reached by the resource-only
+    // `SessionTeardownPlugin`, so this IS their reset-on-retirement.
+    let (cue, next_super) = super_form_edge(worn_is_super, *was_super);
+    *was_super = next_super;
+    if let Some(to_super) = cue {
         sfx.write(ambition::sfx::SfxMessage::Play {
-            id: ambition::sfx::SfxId::from_static(if is_super {
+            id: ambition::sfx::SfxId::from_static(if to_super {
                 SFX_TRANSFORM
             } else {
                 SFX_DETRANSFORM
             }),
-            pos: kinematics.pos,
+            pos,
         });
     }
-    if !is_super {
+
+    // Sparkles only while a super body is present; otherwise the accumulator + orbit
+    // reset, so two consecutive super sessions start with identical sparkle phase.
+    if worn_is_super != Some(true) {
         *sparkle_accum = 0.0;
+        *sparkle_orbit = 0.0;
         return;
     }
     *sparkle_accum += time.scaled_dt;
@@ -1066,12 +1082,28 @@ fn sync_super_form_traits(
         *sparkle_orbit += 2.399_963; // golden angle, radians
         let ring = ae::Vec2::new(sparkle_orbit.cos(), sparkle_orbit.sin()) * SUPER_SPARKLE_RADIUS;
         vfx.write(ambition::vfx::VfxMessage::Burst {
-            pos: kinematics.pos + ring - ae::Vec2::new(0.0, SUPER_SPARKLE_RISE),
+            pos: pos + ring - ae::Vec2::new(0.0, SUPER_SPARKLE_RISE),
             count: 2,
             speed: 26.0,
             color: [1.0, 0.9, 0.4, 1.0],
             kind: ambition::vfx::ParticleKind::Spark,
         });
+    }
+}
+
+/// The super-form transform-cue edge, resolved so session-local latch state never
+/// leaks across a session turnover.
+///
+/// `worn_is_super` is `None` when no player is controlled (the session has
+/// retired). Returns `(cue, next_latch)`: a `Some(true)` cue is a transform, a
+/// `Some(false)` a detransform, `None` no cue. With no controlled player the latch
+/// RESETS to `false` and no cue fires, so a session that ended super cannot make
+/// the next session emit a phantom detransform on its first frame.
+fn super_form_edge(worn_is_super: Option<bool>, was_super: bool) -> (Option<bool>, bool) {
+    match worn_is_super {
+        None => (None, false),
+        Some(is_super) if is_super != was_super => (Some(is_super), is_super),
+        Some(_) => (None, was_super),
     }
 }
 

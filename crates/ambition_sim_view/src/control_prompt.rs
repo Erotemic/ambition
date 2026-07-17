@@ -74,6 +74,22 @@ impl ControlPrompt {
     }
 }
 
+/// The app-published menu confirm label — the CURRENTLY FOCUSED menu item's verb
+/// ("Equip" / "Use"), resolved by the app-tier menu model.
+///
+/// This is the tier-safe seam for menu presentation: `ControlPrompt` lives in
+/// `ambition_sim_view` (a lower tier), so it cannot see the app-tier menu model
+/// (`KaleidoscopeCursor`, `MenuPageAction`). Instead the app's menu provider
+/// resolves the focused item's verb each tick and PUSHES it down into this
+/// resource; [`rebuild_control_prompt`] reads it in the menu branch, falling back
+/// to the generic "Select" / "Advance" when the app publishes nothing (no menu
+/// open, or a non-item focus). One writer (the app provider), one reader (the
+/// prompt) — no producer race.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct MenuConfirmPrompt {
+    pub label: Option<String>,
+}
+
 /// Rebuild [`ControlPrompt`] from the controlled subject's action scheme.
 ///
 /// The scheme is resolved HERE from the subject's live authorities via the shared
@@ -98,18 +114,24 @@ pub fn rebuild_control_prompt(
         Option<&ActionSet>,
         Option<&ActorTechniques>,
     )>,
+    menu_confirm: Option<Res<MenuConfirmPrompt>>,
     mut prompt: ResMut<ControlPrompt>,
 ) {
-    // Menu / dialogue own input: no gameplay scheme. Publish an explicit
-    // context + the generic confirm verb so the overlay relabels the
-    // select-functional buttons and hides the rest. The specific item verb
-    // (Equip / Use) is supplied by the app-side provider (see `menu_confirm`).
+    // Menu / dialogue own input: no gameplay scheme. Publish an explicit context
+    // + a confirm verb so the overlay relabels the select-functional buttons and
+    // hides the rest. The SPECIFIC verb ("Equip" / "Use") comes from the app-side
+    // menu provider via `MenuConfirmPrompt`; absent that (no menu open, or a
+    // non-item focus), fall back to the generic context verb.
     if !mode.get().allows_gameplay() {
-        let (context, confirm) = match mode.get() {
+        let (context, fallback) = match mode.get() {
             GameMode::Dialogue => (ControlContextKind::Dialogue, "Advance"),
             _ => (ControlContextKind::Menu, "Select"),
         };
-        set_prompt(&mut prompt, context, Vec::new(), Some(confirm.to_owned()));
+        let confirm = menu_confirm
+            .as_ref()
+            .and_then(|p| p.label.clone())
+            .unwrap_or_else(|| fallback.to_owned());
+        set_prompt(&mut prompt, context, Vec::new(), Some(confirm));
         return;
     }
 
@@ -229,7 +251,7 @@ mod tests {
     }
 
     #[test]
-    fn menu_context_publishes_a_confirm_verb_not_the_scheme() {
+    fn menu_context_falls_back_to_the_generic_verb_with_no_provider() {
         let mut app = app();
         app.world_mut().spawn((
             PlayerEntity,
@@ -244,10 +266,36 @@ mod tests {
 
         let prompt = app.world().resource::<ControlPrompt>();
         assert_eq!(prompt.context, ControlContextKind::Menu);
+        // No `MenuConfirmPrompt` published -> the generic fallback verb.
         assert_eq!(prompt.menu_confirm.as_deref(), Some("Select"));
         // The gameplay scheme is NOT published while a menu owns input.
         assert!(prompt.entries.is_empty());
         assert_eq!(prompt.label_for(ControlSlot::Jump), None);
+    }
+
+    /// Gate 6 (GPT-5.6 review): the SPECIFIC menu verb comes from a published
+    /// provider, not a hardcoded string. When the app menu provider publishes the
+    /// focused item's verb into `MenuConfirmPrompt`, the prompt shows it ("Equip")
+    /// instead of the generic "Select". (The full app-menu-model -> provider path
+    /// is exercised end-to-end in the ambition_app menu tests; this pins the
+    /// sim_view read half.)
+    #[test]
+    fn a_published_menu_confirm_label_overrides_the_generic_verb() {
+        let mut app = app();
+        app.init_resource::<MenuConfirmPrompt>();
+        app.world_mut().resource_mut::<MenuConfirmPrompt>().label = Some("Equip".to_owned());
+        app.world_mut()
+            .resource_mut::<NextState<GameMode>>()
+            .set(GameMode::Paused);
+        app.update();
+
+        let prompt = app.world().resource::<ControlPrompt>();
+        assert_eq!(prompt.context, ControlContextKind::Menu);
+        assert_eq!(
+            prompt.menu_confirm.as_deref(),
+            Some("Equip"),
+            "the focused item's real verb overrides the generic Select"
+        );
     }
 
     #[test]

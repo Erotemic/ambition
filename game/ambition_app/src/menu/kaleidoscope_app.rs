@@ -68,7 +68,13 @@ pub fn install_unified_menu_shared(app: &mut App) {
         .init_resource::<KaleidoscopeSystemNav>()
         .init_resource::<CachedSystemMenu>()
         .init_resource::<VisualQualityConfirmState>()
-        .add_plugins(AmbitionInventoryUiPlugin);
+        .add_plugins(AmbitionInventoryUiPlugin)
+        // Publish the focused item's verb (Equip/Use) into the sim_view
+        // MenuConfirmPrompt so the on-screen menu-confirm control reads the real
+        // action. Backend-agnostic (reads the shared KaleidoscopeCursor), and
+        // self-gates on the overlay being open, so it lives with the shared
+        // resources rather than either backend.
+        .add_systems(Update, publish_menu_confirm_prompt);
 }
 
 /// The menu BACKEND SEAM as a single run-condition: gate a system on
@@ -1244,6 +1250,58 @@ pub(crate) fn owned_item_action(owned: &OwnedItems, idx: usize) -> Option<MenuPa
     } else {
         MenuPageAction::Use(item)
     })
+}
+
+/// The verb the on-screen menu-confirm control should show for the CURRENT menu
+/// focus: the focused inventory item's action ("Equip" / "Use"), or `None` when
+/// the menu is closed, the roster is absent, or the focus is on a page-turn /
+/// System control (no item verb → the prompt uses its generic "Select").
+///
+/// Pure so the whole focus→verb decision is unit-testable. Matches the
+/// `MenuFocus::Item` variant DIRECTLY rather than via `item_index()`, which
+/// clamps edge/System focus to slot 0 and would mislabel a page-turn as slot-0's
+/// verb.
+pub(crate) fn menu_confirm_label(
+    menu_open: bool,
+    focus: MenuFocus,
+    owned: Option<&OwnedItems>,
+) -> Option<String> {
+    if !menu_open {
+        return None;
+    }
+    let owned = owned?;
+    let MenuFocus::Item(idx) = focus else {
+        return None;
+    };
+    match owned_item_action(owned, idx)? {
+        MenuPageAction::Equip(_) => Some("Equip".to_owned()),
+        MenuPageAction::Use(_) => Some("Use".to_owned()),
+        _ => None,
+    }
+}
+
+/// P4b (GPT-5.6 review gate 6): publish the focused inventory item's verb into
+/// the sim_view `MenuConfirmPrompt`, so runtime inventory controls read "Equip" /
+/// "Use" instead of a generic "Select".
+///
+/// The tier-safe seam: `ControlPrompt` (sim_view, lower tier) can't see the app
+/// menu model, so the app resolves the verb here from the ONE focus source
+/// (`KaleidoscopeCursor`, shared by both inventory backends) + `OwnedItems`, and
+/// pushes it down. `rebuild_control_prompt` reads it and falls back to "Select"
+/// when we publish `None`. Change-gated so `Changed<MenuConfirmPrompt>` stays
+/// honest. Self-gates on the inventory overlay being open (backend-agnostic
+/// `InventoryUiState.visible`), so a closed menu clears the label.
+fn publish_menu_confirm_prompt(
+    ui_state: Option<Res<ambition::inventory_ui::InventoryUiState>>,
+    cursor: Res<KaleidoscopeCursor>,
+    owned: Option<Res<OwnedItems>>,
+    mut out: ResMut<ambition::sim_view::MenuConfirmPrompt>,
+) {
+    let menu_open = ui_state.map(|s| s.visible).unwrap_or(false);
+    let label = menu_confirm_label(menu_open, cursor.focus(), owned.as_deref());
+    if out.label != label {
+        out.label = label;
+    }
 }
 
 /// The edge-button focus on `to` that turns BACK toward `from` (Fix 1). After a page

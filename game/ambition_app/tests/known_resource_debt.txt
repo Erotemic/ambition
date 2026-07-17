@@ -117,6 +117,10 @@ ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot
 # every tick from the controlled subject's action scheme (like every other
 # sim_view read-model here) — derived, never rewound state, no codec needed.
 ambition_sim_view::control_prompt::ControlPrompt
+# MenuConfirmPrompt: the app-published focused-menu-item verb (Equip/Use) the
+# prompt reads in its menu branch. Presentation/UI provider state written by the
+# app menu each tick, not rewindable sim state — same category as ControlPrompt.
+ambition_sim_view::control_prompt::MenuConfirmPrompt
 ambition_sim_view::facts::BlinkPreviewFact
 ambition_sim_view::facts::DynamicFeatureViews
 ambition_sim_view::facts::GravitySwitchesView

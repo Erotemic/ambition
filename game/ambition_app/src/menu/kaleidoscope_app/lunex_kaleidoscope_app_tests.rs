@@ -2006,3 +2006,95 @@ fn render_set_is_gated_off_under_the_grid_backend() {
         "cube render set must NOT run when the menu is closed and settled"
     );
 }
+
+/// Gate 6 (GPT-5.6 review): the focused inventory item's verb resolves correctly
+/// — the pure decision the provider publishes. A HELD item focus → "Equip"; a
+/// consumable → "Use"; a page-turn / closed menu / absent roster / unowned slot →
+/// None (the prompt then uses its generic verb).
+#[test]
+fn menu_confirm_label_resolves_the_focused_item_verb() {
+    let axe_idx = Item::ALL.iter().position(|&i| i == Item::Axe).unwrap();
+    let cell_idx = Item::ALL.iter().position(|&i| i == Item::HealthCell).unwrap();
+    assert!(Item::Axe.held_item_id().is_some(), "Axe is a held item -> Equip");
+    assert!(
+        Item::HealthCell.held_item_id().is_none(),
+        "HealthCell is a consumable -> Use"
+    );
+
+    let mut owned = OwnedItems::default();
+    owned.grant(Item::Axe, 1);
+    owned.grant(Item::HealthCell, 1);
+
+    assert_eq!(
+        menu_confirm_label(true, MenuFocus::Item(axe_idx), Some(&owned)).as_deref(),
+        Some("Equip")
+    );
+    assert_eq!(
+        menu_confirm_label(true, MenuFocus::Item(cell_idx), Some(&owned)).as_deref(),
+        Some("Use")
+    );
+    // A page-turn focus carries no item verb (must NOT mislabel slot 0).
+    assert_eq!(menu_confirm_label(true, MenuFocus::EdgeLeft, Some(&owned)), None);
+    // Closed menu / absent roster / unowned slot -> None.
+    assert_eq!(
+        menu_confirm_label(false, MenuFocus::Item(axe_idx), Some(&owned)),
+        None
+    );
+    assert_eq!(menu_confirm_label(true, MenuFocus::Item(axe_idx), None), None);
+    assert_eq!(
+        menu_confirm_label(true, MenuFocus::Item(cell_idx), Some(&OwnedItems::default())),
+        None,
+        "an unowned slot has no verb"
+    );
+}
+
+/// Gate 6 end-to-end through the REAL provider path: the app provider system
+/// (`publish_menu_confirm_prompt`) reads the live cursor + owned items + open
+/// overlay and publishes into `MenuConfirmPrompt`; the sim-side
+/// `rebuild_control_prompt` folds that into `ControlPrompt.menu_confirm`. No
+/// hand-injected string — the label comes from the focused Axe through the real
+/// systems, so runtime inventory controls say "Equip".
+#[test]
+fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
+    use ambition::sim_view::{ControlContextKind, ControlPrompt, MenuConfirmPrompt};
+
+    let axe_idx = Item::ALL.iter().position(|&i| i == Item::Axe).unwrap();
+
+    let mut app = App::new();
+    app.add_plugins(bevy::state::app::StatesPlugin);
+    app.init_state::<GameMode>();
+    app.init_resource::<KaleidoscopeCursor>();
+    app.init_resource::<ControlPrompt>();
+    app.init_resource::<MenuConfirmPrompt>();
+    let mut owned = OwnedItems::default();
+    owned.grant(Item::Axe, 1);
+    app.insert_resource(owned);
+    app.insert_resource(ambition::inventory_ui::InventoryUiState {
+        visible: true,
+        ..Default::default()
+    });
+    // Focus the Axe and enter a menu (paused) mode.
+    app.world_mut()
+        .resource_mut::<KaleidoscopeCursor>()
+        .mark_keyboard(MenuFocus::Item(axe_idx));
+    app.world_mut()
+        .resource_mut::<NextState<GameMode>>()
+        .set(GameMode::Paused);
+    app.add_systems(
+        Update,
+        (
+            publish_menu_confirm_prompt,
+            ambition::sim_view::rebuild_control_prompt,
+        )
+            .chain(),
+    );
+    app.update();
+
+    let prompt = app.world().resource::<ControlPrompt>();
+    assert_eq!(prompt.context, ControlContextKind::Menu);
+    assert_eq!(
+        prompt.menu_confirm.as_deref(),
+        Some("Equip"),
+        "the focused Axe's real verb flows app-provider -> MenuConfirmPrompt -> ControlPrompt"
+    );
+}

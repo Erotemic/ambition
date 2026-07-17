@@ -26,7 +26,7 @@ pub use anim_index::{
     ActorSpriteData, BossFrameIndex, BossFrameView, HazardLaneFact,
 };
 pub use control_prompt::{
-    rebuild_control_prompt, ControlContextKind, ControlPrompt, PromptEntry,
+    rebuild_control_prompt, ControlContextKind, ControlPrompt, MenuConfirmPrompt, PromptEntry,
 };
 // Re-exported so `ControlPrompt` consumers (the touch overlay) can name the
 // slot vocabulary without a direct `entity_catalog` dep.
@@ -64,6 +64,9 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         app.init_resource::<NameplateIndex>();
         app.init_resource::<DialogView>();
         app.init_resource::<ControlPrompt>();
+        // The app-tier menu provider writes this; the prompt reads it. Default
+        // (no label) → the prompt uses the generic confirm verb.
+        app.init_resource::<MenuConfirmPrompt>();
         app.add_systems(
             sim,
             (

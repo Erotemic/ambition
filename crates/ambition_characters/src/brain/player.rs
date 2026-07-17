@@ -150,10 +150,11 @@ pub fn tick_player_brain_from_control(
     out.interact_pressed = c.interact_pressed;
     out.shield_held = c.shield_held;
     // No dedicated "special" input today — `blink_pressed` is the
-    // closest analog (blink is the player's signature ability).
-    // Promote that to `special_pressed` so a `Brain::Player` driving
-    // a different actor's ActionSet can resolve special there.
-    out.special_pressed = c.blink_pressed;
+    // Special now has its OWN dedicated input slot (`SandboxAction::Special` →
+    // `ControlFrame.special_pressed`), retiring the old
+    // `special_pressed = blink_pressed` alias. Blink and Special are separate
+    // actions: pressing blink no longer fires a body's signature special.
+    out.special_pressed = c.special_pressed;
 
     // Player-specific verbs (pogo, blink, fly_toggle, fast_fall,
     // projectile charge, aim). Promoted onto the frame so the

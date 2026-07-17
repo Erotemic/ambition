@@ -120,6 +120,8 @@ impl From<AgentAction> for ControlFrame {
             blink_pressed: a.blink,
             blink_held: a.blink_held,
             blink_released: a.blink_released,
+            // No dedicated special in the agent action space yet.
+            special_pressed: false,
             attack_pressed: a.attack,
             pogo_pressed: a.pogo,
             fly_toggle_pressed: a.fly_toggle,

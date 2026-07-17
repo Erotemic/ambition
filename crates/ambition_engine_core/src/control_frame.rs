@@ -57,6 +57,10 @@ pub struct ControlFrame {
     pub blink_pressed: bool,
     pub blink_held: bool,
     pub blink_released: bool,
+    /// Dedicated signature-SPECIAL slot (`SandboxAction::Special`). Distinct from
+    /// blink: the player brain sources `special_pressed` from THIS, retiring the
+    /// historical `special_pressed = blink_pressed` alias.
+    pub special_pressed: bool,
     pub attack_pressed: bool,
     pub pogo_pressed: bool,
     pub fly_toggle_pressed: bool,
@@ -131,6 +135,7 @@ impl ControlFrame {
             fast_fall_pressed: self.fast_fall_pressed | sample.fast_fall_pressed,
             blink_pressed: self.blink_pressed | sample.blink_pressed,
             blink_released: self.blink_released | sample.blink_released,
+            special_pressed: self.special_pressed | sample.special_pressed,
             attack_pressed: self.attack_pressed | sample.attack_pressed,
             pogo_pressed: self.pogo_pressed | sample.pogo_pressed,
             fly_toggle_pressed: self.fly_toggle_pressed | sample.fly_toggle_pressed,

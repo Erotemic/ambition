@@ -151,6 +151,10 @@ pub fn fold_touch_into_control_frame(
         blink_pressed: state.blink.pressed_this_frame,
         blink_held: state.blink.held,
         blink_released: state.blink.released_this_frame,
+        // No dedicated touch Special button yet (the touch overlay has no
+        // Special slot until its layout adds one); the on-screen cluster's
+        // Special action awaits that pass.
+        special_pressed: false,
         attack_pressed: state.attack.pressed_this_frame,
         pogo_pressed: false,
         fly_toggle_pressed: state.fly_toggle.pressed_this_frame,

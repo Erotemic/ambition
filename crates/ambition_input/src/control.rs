@@ -115,6 +115,7 @@ pub fn read_gameplay_control_frame_with_settings(
         blink_pressed: actions.just_pressed(&SandboxAction::Blink),
         blink_held: actions.pressed(&SandboxAction::Blink),
         blink_released: actions.just_released(&SandboxAction::Blink),
+        special_pressed: actions.just_pressed(&SandboxAction::Special),
         attack_pressed: actions.just_pressed(&SandboxAction::Attack),
         pogo_pressed: actions.just_pressed(&SandboxAction::Pogo),
         fly_toggle_pressed: actions.just_pressed(&SandboxAction::Utility),

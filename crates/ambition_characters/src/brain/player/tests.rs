@@ -255,7 +255,8 @@ fn blink_both_forms_screen_relative_by_default_quick_rotates_under_body_relative
 fn shield_and_special_pass_through() {
     let input = input_with(|c| {
         c.shield_held = true;
-        c.blink_pressed = true;
+        // Special now comes from its OWN dedicated slot (was aliased to blink).
+        c.special_pressed = true;
         c.dash_pressed = true;
         c.interact_pressed = true;
     });
@@ -266,6 +267,29 @@ fn shield_and_special_pass_through() {
     assert!(out.special_pressed);
     assert!(out.dash_pressed);
     assert!(out.interact_pressed);
+}
+
+#[test]
+fn blink_and_special_are_separate_actions() {
+    // The retired `special_pressed = blink_pressed` alias, asserted surgically
+    // and positively (review): the Special slot fires special and NOT blink;
+    // the Blink slot fires blink and NOT special.
+    let s = BrainSnapshot::idle();
+
+    let special_only = input_with(|c| c.special_pressed = true);
+    let mut out = crate::actor::control::ActorControlFrame::default();
+    tick_player_brain_from_control(&special_only, &s, &mut out);
+    assert!(out.special_pressed, "Special slot fires special");
+    assert!(!out.blink_pressed, "Special slot does not fire blink");
+
+    let blink_only = input_with(|c| c.blink_pressed = true);
+    let mut out = crate::actor::control::ActorControlFrame::default();
+    tick_player_brain_from_control(&blink_only, &s, &mut out);
+    assert!(out.blink_pressed, "Blink slot fires blink");
+    assert!(
+        !out.special_pressed,
+        "Blink slot no longer fires special (alias retired)"
+    );
 }
 
 #[test]

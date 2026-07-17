@@ -29,7 +29,7 @@
 
 use crate::combat::CombatCapabilities;
 use crate::features::ecs::actor_clusters::ActorConfig;
-use crate::features::CombatKit;
+use crate::features::{ActorAggression, ActorDisposition, CombatKit};
 use ambition_characters::actor::character_catalog::{
     qualify_preset_like, AuthoredBrainContext, BrainBinding, BrainBuildContext, BrainPresetId,
     CharacterCatalog,
@@ -38,7 +38,7 @@ use ambition_characters::actor::ActorPose;
 use ambition_characters::brain::{ActionSet, Brain};
 use ambition_platformer_primitives::sim_id::SimId;
 use bevy::prelude::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// A deterministic request to change an actor's selected autonomous brain, routed
 /// by stable [`SimId`]. Cleared on snapshot restore (like every sim command
@@ -76,6 +76,33 @@ impl BrainCommand {
             target,
             kind: BrainCommandKind::RestoreDefault,
         }
+    }
+}
+
+/// A compound **release from provocation** — the "you are free" gameplay
+/// operation (the inverse of a `<<challenge>>`). It invokes TWO distinct
+/// authorities together but atomically from the operation's perspective:
+///
+/// 1. **Disposition authority** — pacify the actor (peaceful disposition, passive
+///    aggression, grudge/target cleared) so it stops fighting and does not
+///    re-aggro on sight.
+/// 2. **Source authority** — restore the catalog-default autonomous source and its
+///    complete peaceful config, by emitting a [`BrainCommand::restore_default`]
+///    that [`apply_brain_commands`] (ordered after) applies through the one
+///    brain-selection seam.
+///
+/// This keeps the two authorities distinct (a bare [`BrainCommand::RestoreDefault`]
+/// never touches disposition), while giving "you are free" one deterministic,
+/// rollback-safe command. Cleared on snapshot restore like every command channel.
+#[derive(Message, Clone, Debug, PartialEq, Eq)]
+pub struct ReleaseProvocation {
+    /// Stable id of the actor being freed.
+    pub target: SimId,
+}
+
+impl ReleaseProvocation {
+    pub fn new(target: SimId) -> Self {
+        Self { target }
     }
 }
 
@@ -298,6 +325,41 @@ fn apply_catalog_mode(
     }
 }
 
+/// Drain [`ReleaseProvocation`]s ("you are free"): pacify each target (the
+/// disposition authority) and emit a [`BrainCommand::restore_default`] so
+/// [`apply_brain_commands`] restores its catalog-default source + complete peaceful
+/// config (the source authority). Ordered BEFORE `apply_brain_commands` so the
+/// emitted command applies the same frame.
+///
+/// Pacifying resets the aggression to fully passive (no grudge, no target, no
+/// accumulated strikes) and the disposition to peaceful, so a freed actor stops
+/// fighting immediately and does not re-aggro on sight — the deliberate "you are
+/// free" semantic, distinct from the target-liveness stand-down (which keeps the
+/// aggression mode so a duelist re-engages when a foe reappears).
+pub fn apply_release_provocations(
+    mut releases: MessageReader<ReleaseProvocation>,
+    mut brain_commands: MessageWriter<BrainCommand>,
+    mut actors: Query<(&SimId, &mut ActorDisposition, &mut ActorAggression)>,
+) {
+    let targets: BTreeSet<String> = releases
+        .read()
+        .map(|r| r.target.as_str().to_string())
+        .collect();
+    if targets.is_empty() {
+        return;
+    }
+    for (sim_id, mut disposition, mut aggression) in &mut actors {
+        if !targets.contains(sim_id.as_str()) {
+            continue;
+        }
+        // Disposition authority: pacify.
+        *aggression = ActorAggression::passive();
+        *disposition = ActorDisposition::Peaceful;
+        // Source authority: restore the catalog-default autonomous mode.
+        brain_commands.write(BrainCommand::restore_default(sim_id.clone()));
+    }
+}
+
 /// Update only the autonomous SOURCE of a binding (no live-`Brain` rebuild), for a
 /// command that arrives while the body is under temporary control. Returns whether
 /// the preset resolved (an unknown preset is rejected, never silently applied).
@@ -347,8 +409,8 @@ pub(crate) fn config_brain_for(
     }
 }
 
-/// Registers the [`BrainCommand`] channel and its reducer. Runs in the gameplay
-/// effects window of the sim schedule.
+/// Registers the [`BrainCommand`] + [`ReleaseProvocation`] channels and their
+/// reducers. Runs in the gameplay effects window of the sim schedule.
 pub struct BrainCommandPlugin;
 
 impl Plugin for BrainCommandPlugin {
@@ -357,11 +419,18 @@ impl Plugin for BrainCommandPlugin {
         use bevy::prelude::IntoScheduleConfigs;
 
         app.add_message::<BrainCommand>();
+        app.add_message::<ReleaseProvocation>();
 
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
-            apply_brain_commands.in_set(crate::schedule::SandboxSet::GameplayEffects),
+            (
+                // Release runs first so the `BrainCommand` it emits is applied by
+                // `apply_brain_commands` in the same frame.
+                apply_release_provocations.before(apply_brain_commands),
+                apply_brain_commands,
+            )
+                .in_set(crate::schedule::SandboxSet::GameplayEffects),
         );
     }
 }

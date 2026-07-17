@@ -199,15 +199,16 @@ pub fn cmd_use_brain(
     ));
 }
 
-/// `<<restore_brain>>` — restore the NPC the player is talking to back to its
-/// character-default brain (e.g. "you are free"). The runtime counterpart of the
-/// spawn-time default selection. Emits a
-/// [`BrainCommand::restore_default`](crate::features::BrainCommand) by the
-/// speaker's stable id.
+/// `<<restore_brain>>` — free the NPC the player is talking to ("you are free"):
+/// the inverse of `<<challenge>>`. Emits a
+/// [`ReleaseProvocation`](crate::features::ReleaseProvocation) by the speaker's
+/// stable id, which restores BOTH the peaceful disposition and the catalog-default
+/// autonomous source + complete config. (A bare `BrainCommand::RestoreDefault`
+/// would restore only the brain/source, leaving a provoked NPC still hostile.)
 pub fn cmd_restore_brain(
     dialogue: Res<ambition_dialog::DialogState>,
     sim_ids: Query<&ambition_platformer_primitives::sim_id::SimId>,
-    mut commands: MessageWriter<crate::features::BrainCommand>,
+    mut commands: MessageWriter<crate::features::ReleaseProvocation>,
 ) {
     let Some(actor) = dialogue.speaker_entity() else {
         warn!("<<restore_brain>>: no speaker entity in dialogue context; ignoring");
@@ -217,9 +218,7 @@ pub fn cmd_restore_brain(
         warn!("<<restore_brain>>: speaker has no SimId; ignoring");
         return;
     };
-    commands.write(crate::features::BrainCommand::restore_default(
-        sim_id.clone(),
-    ));
+    commands.write(crate::features::ReleaseProvocation::new(sim_id.clone()));
 }
 
 /// `<<give_item "kind" count>>` — grant the player an item by adding

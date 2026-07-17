@@ -8,7 +8,7 @@
 
 use super::*;
 use ambition_characters::actor::character_catalog::{
-    parse_catalog, AuthoredBrainContext, AutonomousBrainSource, BrainBinding, BrainPresetId,
+    parse_catalog, AuthoredBrainContext, AutonomousSource, BrainBinding, BrainPresetId,
     CharacterCatalog,
 };
 use ambition_characters::actor::ActorPose;
@@ -105,7 +105,7 @@ fn use_preset_replaces_the_live_brain() {
     assert_eq!(app.world().get::<Brain>(e).unwrap().label(), "melee_brute");
     assert_eq!(
         app.world().get::<BrainBinding>(e).unwrap().source,
-        AutonomousBrainSource::CatalogPreset(BrainPresetId::new("melee_brute_striker")),
+        AutonomousSource::CatalogPreset(BrainPresetId::new("melee_brute_striker")),
     );
 }
 
@@ -131,7 +131,7 @@ fn restore_default_rebuilds_a_fresh_default_brain() {
     assert_eq!(app.world().get::<Brain>(e).unwrap().label(), "wanderer");
     assert_eq!(
         app.world().get::<BrainBinding>(e).unwrap().source,
-        AutonomousBrainSource::CatalogDefault,
+        AutonomousSource::CatalogDefault,
     );
 }
 
@@ -211,7 +211,7 @@ fn an_unknown_preset_is_rejected() {
     );
     assert_eq!(
         app.world().get::<BrainBinding>(e).unwrap().source,
-        AutonomousBrainSource::CatalogDefault,
+        AutonomousSource::CatalogDefault,
         "an unknown preset leaves the binding unchanged"
     );
 }
@@ -224,7 +224,7 @@ fn a_player_controlled_body_updates_its_source_not_its_control() {
     let mut app = app();
     let binding = BrainBinding::new(
         BrainPresetId::new("wanderer_puppy_slug"),
-        AutonomousBrainSource::CatalogDefault,
+        AutonomousSource::CatalogDefault,
     );
     let e = app
         .world_mut()
@@ -249,7 +249,7 @@ fn a_player_controlled_body_updates_its_source_not_its_control() {
     );
     assert_eq!(
         app.world().get::<BrainBinding>(e).unwrap().source,
-        AutonomousBrainSource::CatalogPreset(BrainPresetId::new("stand_still")),
+        AutonomousSource::CatalogPreset(BrainPresetId::new("stand_still")),
         "the command updates the autonomous source that resumes on release — never lost"
     );
 }
@@ -277,7 +277,78 @@ fn a_mounted_body_updates_its_source_not_its_control() {
     );
     assert_eq!(
         app.world().get::<BrainBinding>(e).unwrap().source,
-        AutonomousBrainSource::CatalogPreset(BrainPresetId::new("stand_still")),
+        AutonomousSource::CatalogPreset(BrainPresetId::new("stand_still")),
         "the command updates the source that resumes on dismount — never lost"
+    );
+}
+
+/// "You are free" (`ReleaseProvocation`) invokes BOTH authorities atomically: it
+/// pacifies the actor (peaceful disposition, passive aggression, grudge + target
+/// cleared) AND restores the catalog-default source + the live default brain —
+/// even though the actor was provoked onto an override brain with a live grudge.
+/// A bare `RestoreDefault` would revert only the brain, leaving it hostile.
+#[test]
+fn release_provocation_pacifies_and_restores_default() {
+    use crate::features::{ActorAggression, ActorDisposition, ReleaseProvocation};
+
+    let mut app = App::new();
+    app.add_message::<BrainCommand>();
+    app.add_message::<ReleaseProvocation>();
+    app.insert_resource(catalog());
+    app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
+    app.add_systems(
+        Update,
+        (
+            apply_release_provocations.before(apply_brain_commands),
+            apply_brain_commands,
+        ),
+    );
+
+    let e = spawn_npc(&mut app, "hall_npc", "npc_puppy_slug", 100.0);
+    // Simulate a provoked actor: hostile disposition, a live grudge + target, and
+    // (below) an override onto a hostile brain.
+    let foe = app.world_mut().spawn_empty().id();
+    {
+        let mut aggr = ActorAggression::hostile();
+        aggr.target = Some(foe);
+        aggr.grudge = Some(foe);
+        aggr.strikes = 5;
+        app.world_mut()
+            .entity_mut(e)
+            .insert((ActorDisposition::Hostile, aggr));
+    }
+    send(
+        &mut app,
+        BrainCommand::use_preset(SimId::placement("hall_npc"), "melee_brute_striker"),
+    );
+    app.update();
+    assert_eq!(app.world().get::<Brain>(e).unwrap().label(), "melee_brute");
+
+    // "You are free".
+    app.world_mut()
+        .resource_mut::<Messages<ReleaseProvocation>>()
+        .write(ReleaseProvocation::new(SimId::placement("hall_npc")));
+    app.update();
+
+    assert!(
+        app.world()
+            .get::<ActorDisposition>(e)
+            .unwrap()
+            .is_peaceful(),
+        "the freed actor is peaceful again"
+    );
+    let aggr = app.world().get::<ActorAggression>(e).unwrap();
+    assert!(!aggr.is_aggressive(), "aggression is pacified to passive");
+    assert_eq!(aggr.grudge, None, "the grudge is cleared");
+    assert_eq!(aggr.target, None, "the combat target is cleared");
+    assert_eq!(
+        app.world().get::<BrainBinding>(e).unwrap().source,
+        AutonomousSource::CatalogDefault,
+        "the catalog-default autonomous source is restored"
+    );
+    assert_eq!(
+        app.world().get::<Brain>(e).unwrap().label(),
+        "wanderer",
+        "the live default brain is restored (not the hostile override)"
     );
 }

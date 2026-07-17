@@ -1016,8 +1016,9 @@ fn a_staged_restore_rebuilds_the_duel_roster_completely() {
     // rebuilt fighters wear exactly the component set the originals wore —
     // authored config included, not just registered blobs. A hollow rebuild
     // (no Brain, no faction, no grudge) cannot pass this.
-    for (id, (before, after)) in
-        [PCA, ROBOT].iter().zip(rosters_before.iter().zip(&rosters_after))
+    for (id, (before, after)) in [PCA, ROBOT]
+        .iter()
+        .zip(rosters_before.iter().zip(&rosters_after))
     {
         let missing: Vec<&String> = before.difference(after).collect();
         let extra: Vec<&String> = after.difference(before).collect();
@@ -1058,9 +1059,7 @@ fn same_room_restore_rebuilds_a_missing_content_staged_batch() {
     let snapshot = take(s.world(), &reg);
 
     let ids = {
-        let mut query = s
-            .world_mut()
-            .query::<(bevy::ecs::entity::Entity, &SimId)>();
+        let mut query = s.world_mut().query::<(bevy::ecs::entity::Entity, &SimId)>();
         query
             .iter(s.world())
             .map(|(entity, id)| (id.as_str().to_string(), entity))
@@ -1072,9 +1071,7 @@ fn same_room_restore_rebuilds_a_missing_content_staged_batch() {
     assert_eq!(take(s.world(), &reg), snapshot);
 
     let ids = {
-        let mut query = s
-            .world_mut()
-            .query::<(bevy::ecs::entity::Entity, &SimId)>();
+        let mut query = s.world_mut().query::<(bevy::ecs::entity::Entity, &SimId)>();
         query
             .iter(s.world())
             .map(|(entity, id)| (id.as_str().to_string(), entity))
@@ -1083,11 +1080,19 @@ fn same_room_restore_rebuilds_a_missing_content_staged_batch() {
     let pca = *ids.get(PCA).expect("PCA restored");
     let robot = *ids.get(ROBOT).expect("robot restored");
     assert_eq!(
-        s.world().entity(pca).get::<ActorAggression>().unwrap().grudge,
+        s.world()
+            .entity(pca)
+            .get::<ActorAggression>()
+            .unwrap()
+            .grudge,
         Some(robot)
     );
     assert_eq!(
-        s.world().entity(robot).get::<ActorAggression>().unwrap().grudge,
+        s.world()
+            .entity(robot)
+            .get::<ActorAggression>()
+            .unwrap()
+            .grudge,
         Some(pca)
     );
 }
@@ -1502,8 +1507,8 @@ fn a_rewind_empties_the_message_channels_it_registered() {
     // move_event + the E8 encounter ingress pair (command, event) + the
     // room-construction staging fact (room_loaded, N3.2b) + spawn_actor_request +
     // room_transition_requested + the runtime brain-switch authority
-    // (brain_command).
-    assert_eq!(report.messages_cleared, 10);
+    // (brain_command) + the "you are free" release (release_provocation).
+    assert_eq!(report.messages_cleared, 11);
     assert!(
         reg.pending_messages(s.world()).is_empty(),
         "a message from the abandoned future survived the rewind: {:?}",

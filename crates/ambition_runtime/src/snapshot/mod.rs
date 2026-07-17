@@ -1406,6 +1406,13 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     // future would switch a brain twice in the restored past; the replayed input
     // re-issues it, so clearing here is what makes the switch deterministic.
     registry.register_message_channel::<ambition_actors::features::BrainCommand>("brain_command");
+    // The compound "you are free" release. Same reasoning as `brain_command`: a
+    // pending release from the abandoned future would re-pacify a still-provoked
+    // actor in the restored past; the replayed dialogue input re-issues it.
+    registry
+        .register_message_channel::<ambition_actors::features::ReleaseProvocation>(
+            "release_provocation",
+        );
     // The room-construction staging fact (N3.2b). Two reasons it must clear on
     // restore: a `RoomLoaded` pending from the abandoned future would re-stage
     // content beats in the restored past, and the atomic room transaction's own

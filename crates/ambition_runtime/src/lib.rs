@@ -312,6 +312,10 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_actors::trace::TraceSchedulePlugin)
             // Per-frame affordance table (what would each verb do right now).
             .add(ambition_actors::affordances::AffordancesPlugin)
+            // Per-body derived action scheme (slot → action) — the source the
+            // control-prompt read-model (P2) and the input→action seam (P3)
+            // read. Reconciled from live AbilitySet + moveset.
+            .add(ambition_actors::action_scheme::ActionSchemePlugin)
             // The camera OBSERVATION seam (E4-17): the sim resolves ONE
             // follow-camera snapshot per tick (the only CameraEaseState
             // writer); presentation consumes it. Headless/RL readers too.

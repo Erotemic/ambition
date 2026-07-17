@@ -36,3 +36,4 @@ Use an ADR when a decision:
 - [0022: Respawn policy — dead stays dead by default; respawning is authored](0022-respawn-policy.md)
 - [0023: Same-build determinism is a contract, enforced by lints](0023-same-build-determinism.md)
 - [0024: One frame-aware movement kernel with explicit swappable policies](0024-frame-aware-unified-movement-kernel.md)
+- [0025: Character actions — device-shaped input slots, deterministic sim-side action resolution](0025-character-actions-input-ownership.md)

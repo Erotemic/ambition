@@ -8,7 +8,7 @@
 
 use super::*;
 use ambition_characters::actor::character_catalog::{
-    parse_catalog, AuthoredBrainContext, BrainBinding, BrainPresetId, BrainSelection,
+    parse_catalog, AuthoredBrainContext, AutonomousBrainSource, BrainBinding, BrainPresetId,
     CharacterCatalog,
 };
 use ambition_characters::actor::ActorPose;
@@ -53,6 +53,10 @@ fn app() -> App {
     let mut app = App::new();
     app.add_message::<BrainCommand>();
     app.insert_resource(catalog());
+    // apply_brain_commands keeps the possession/mount resume-brain in sync when a
+    // command lands during temporary control; the resource is present in prod
+    // (abilities plugin).
+    app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
     app.add_systems(Update, apply_brain_commands);
     app
 }
@@ -100,8 +104,8 @@ fn use_preset_replaces_the_live_brain() {
 
     assert_eq!(app.world().get::<Brain>(e).unwrap().label(), "melee_brute");
     assert_eq!(
-        app.world().get::<BrainBinding>(e).unwrap().selection,
-        BrainSelection::Override(BrainPresetId::new("melee_brute_striker")),
+        app.world().get::<BrainBinding>(e).unwrap().source,
+        AutonomousBrainSource::CatalogPreset(BrainPresetId::new("melee_brute_striker")),
     );
 }
 
@@ -126,8 +130,8 @@ fn restore_default_rebuilds_a_fresh_default_brain() {
 
     assert_eq!(app.world().get::<Brain>(e).unwrap().label(), "wanderer");
     assert_eq!(
-        app.world().get::<BrainBinding>(e).unwrap().selection,
-        BrainSelection::Default,
+        app.world().get::<BrainBinding>(e).unwrap().source,
+        AutonomousBrainSource::CatalogDefault,
     );
 }
 
@@ -170,11 +174,7 @@ fn a_brain_switch_replays_deterministically() {
         app.update();
         (
             app.world().get::<Brain>(e).unwrap().label().to_string(),
-            app.world()
-                .get::<BrainBinding>(e)
-                .unwrap()
-                .selection
-                .clone(),
+            app.world().get::<BrainBinding>(e).unwrap().source.clone(),
         )
     };
     assert_eq!(switch(), switch());
@@ -210,20 +210,21 @@ fn an_unknown_preset_is_rejected() {
         "an unknown preset leaves the live brain unchanged"
     );
     assert_eq!(
-        app.world().get::<BrainBinding>(e).unwrap().selection,
-        BrainSelection::Default,
+        app.world().get::<BrainBinding>(e).unwrap().source,
+        AutonomousBrainSource::CatalogDefault,
         "an unknown preset leaves the binding unchanged"
     );
 }
 
-/// A player-controlled body is NOT switched by a brain command — its live brain
-/// is player control, and the autonomous command must not overwrite it.
+/// A brain command during PLAYER possession does not disturb the live control
+/// brain, but it is NOT silently lost: it updates the autonomous SOURCE that
+/// resumes when possession ends.
 #[test]
-fn a_player_controlled_body_is_not_switched() {
+fn a_player_controlled_body_updates_its_source_not_its_control() {
     let mut app = app();
     let binding = BrainBinding::new(
         BrainPresetId::new("wanderer_puppy_slug"),
-        BrainSelection::Default,
+        AutonomousBrainSource::CatalogDefault,
     );
     let e = app
         .world_mut()
@@ -244,18 +245,19 @@ fn a_player_controlled_body_is_not_switched() {
 
     assert!(
         app.world().get::<Brain>(e).unwrap().is_player(),
-        "a possessed body keeps player control; the autonomous switch is ignored"
+        "a possessed body keeps player control; the live brain is not overwritten"
     );
     assert_eq!(
-        app.world().get::<BrainBinding>(e).unwrap().selection,
-        BrainSelection::Default,
-        "the binding is left untouched while under temporary control"
+        app.world().get::<BrainBinding>(e).unwrap().source,
+        AutonomousBrainSource::CatalogPreset(BrainPresetId::new("stand_still")),
+        "the command updates the autonomous source that resumes on release — never lost"
     );
 }
 
-/// A mounted body is NOT switched by a brain command either.
+/// A brain command during a MOUNT does not disturb the live (mounted) brain, but
+/// it updates the autonomous SOURCE that resumes on dismount — not lost.
 #[test]
-fn a_mounted_body_is_not_switched() {
+fn a_mounted_body_updates_its_source_not_its_control() {
     let mut app = app();
     let e = spawn_npc(&mut app, "rider", "npc_puppy_slug", 100.0);
     app.world_mut()
@@ -271,6 +273,11 @@ fn a_mounted_body_is_not_switched() {
     assert_eq!(
         app.world().get::<Brain>(e).unwrap().label(),
         "wanderer",
-        "a mounted body's autonomous brain is not switched while it rides"
+        "a mounted body's live brain is not switched while it rides"
+    );
+    assert_eq!(
+        app.world().get::<BrainBinding>(e).unwrap().source,
+        AutonomousBrainSource::CatalogPreset(BrainPresetId::new("stand_still")),
+        "the command updates the source that resumes on dismount — never lost"
     );
 }

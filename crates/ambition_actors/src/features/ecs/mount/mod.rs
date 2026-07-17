@@ -472,6 +472,9 @@ pub fn enforce_mount_rider_link(
         ),
         With<MountSlot>,
     >,
+    // Stable ids, to record the mount by `SimId` in the rider's temporary-control
+    // state (so a snapshot restores the mount link across a rewind).
+    sim_ids: Query<&ambition_platformer_primitives::sim_id::SimId>,
 ) {
     // Build a lookup of mount alive-ness + death impact. With two-pirate
     // fights this is O(R+M) per frame and the hashmap stays small. Liveness is
@@ -526,6 +529,16 @@ pub fn enforce_mount_rider_link(
                         cache.action_set.clone(),
                         Mounted,
                     ));
+                    // Record the mount by stable id for snapshot restore. Only when
+                    // the mount carries a `SimId` (otherwise the link isn't
+                    // reconstructible); the marker above still tracks live state.
+                    if let Ok(mount_id) = sim_ids.get(riding.mount) {
+                        commands.entity(rider_entity).insert(
+                            crate::features::TemporaryControl::Mounted {
+                                mount: mount_id.clone(),
+                            },
+                        );
+                    }
                 }
             }
             // Mount dead, rider currently mounted → dissolve. Flip gravity on,
@@ -594,6 +607,9 @@ pub fn enforce_mount_rider_link(
                 commands
                     .entity(rider_entity)
                     .remove::<Mounted>()
+                    // Back to autonomous control for snapshot purposes (a boss rider
+                    // keeps its authored brain but is no longer mount-controlled).
+                    .insert(crate::features::TemporaryControl::Autonomous)
                     // Sprite-binding refresh so the rider's sheet
                     // re-resolves on the next presentation pass.
                     .remove::<ambition_platformer_primitives::feature_kind::BoundFeatureKind>();

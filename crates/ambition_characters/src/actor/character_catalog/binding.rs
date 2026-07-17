@@ -8,9 +8,10 @@
 //! The pieces:
 //! - [`BrainPresetId`] — a key into the catalog `brain_presets` map.
 //! - [`BrainBinding`] — the runtime component recording the character's default
-//!   preset plus the current [`BrainSelection`] (default / override / external).
-//!   This is the authoritative snapshot state for "which autonomous brain is
-//!   selected".
+//!   preset plus its current [`AutonomousBrainSource`] (catalog default / catalog
+//!   preset override / provoked hostile archetype). This is the authoritative
+//!   snapshot state for "which autonomous actor mode should exist when no
+//!   temporary controller masks it".
 //! - [`AuthoredBrainContext`] — the per-spawn parameters a selected preset
 //!   consumes (patrol lane anchor + radius), captured at spawn and retained so a
 //!   runtime rebuild uses the actor's authored home, not wherever it wandered to.
@@ -62,84 +63,142 @@ impl std::fmt::Display for BrainPresetId {
     }
 }
 
-/// Which brain an actor is currently running, relative to its catalog default.
+/// A stable id for a hostile roster archetype — the brain-key that the
+/// provocation authority resolves (`hostile_brain_id_for_actor`) and rebuilds an
+/// actor from (`roster.spec_for_brain`). A newtype over `String` so it can't be
+/// confused with a character id or a catalog preset id.
 ///
-/// The mutable half of a [`BrainBinding`]. `External` means the live `Brain` was
-/// installed by *another* authority (challenge/provocation, a mount transition,
-/// player possession) and is NOT a catalog preset — snapshot reconciliation must
-/// not try to rebuild it from `brain_presets` (that authority owns it).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum BrainSelection {
-    /// Running the character's catalog default preset.
-    Default,
-    /// Running an explicit override preset (authored, or applied at runtime).
-    Override(BrainPresetId),
-    /// Running a brain installed by a non-catalog authority (provoke/mount/etc.).
-    /// Not catalog-rebuildable; reconciliation leaves it to that authority.
-    External,
+/// This is deliberately *just* a carrier: `ambition_characters` never interprets
+/// it (the roster and the archetype→config projection live in `ambition_actors`).
+/// It is what a [`AutonomousBrainSource::Provoked`] retains so a provoked actor is
+/// reconstructible from a snapshot — the whole archetype config (tuning, brain,
+/// action set, capabilities) is a deterministic function of this id plus the
+/// actor's durable combat kit, so the id is all a rollback needs to persist.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct HostileArchetypeId(pub String);
+
+impl HostileArchetypeId {
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
-/// Runtime record of an NPC's autonomous brain choice: its character-default
-/// preset and which selection is currently live.
+impl From<&str> for HostileArchetypeId {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+impl From<String> for HostileArchetypeId {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl std::fmt::Display for HostileArchetypeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// Which *autonomous* actor mode a catalog-backed actor should be in when no
+/// temporary controller (player possession / mount) is masking it.
 ///
-/// This is the authoritative simulation state for "which autonomous brain is
-/// selected". The live [`Brain`] component is the instantiated, mutable state
-/// machine; runtime switches (`BrainCommand`) mutate this binding + rebuild the
-/// `Brain` together, and snapshot reconciliation uses this binding to keep the
-/// two in agreement after a rewind that crossed a switch.
+/// The mutable half of a [`BrainBinding`]. Every variant is a STABLE,
+/// reconstructible source — a snapshot restores this and the whole autonomous
+/// configuration (live `Brain`, action set, disposition, archetype tuning) is
+/// rebuilt from it deterministically. There is no lossy "some other authority
+/// owns the live brain" escape hatch: a provoked actor names its hostile
+/// archetype, so a rewind can rerun the roster construction that produced it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AutonomousBrainSource {
+    /// The character's catalog default preset.
+    CatalogDefault,
+    /// An explicit catalog preset override (authored `brain_override`, or a
+    /// runtime `UsePreset` switch).
+    CatalogPreset(BrainPresetId),
+    /// A provoked hostile archetype (the challenge/provocation authority): the
+    /// live brain is built from the roster archetype named here, not a catalog
+    /// preset. Reconstructed by rerunning that construction, never rebuilt as a
+    /// catalog default.
+    Provoked { archetype: HostileArchetypeId },
+}
+
+/// Runtime record of an actor's autonomous brain choice: its character-default
+/// preset and which [`AutonomousBrainSource`] is currently live.
+///
+/// This is the authoritative simulation state for "which autonomous actor mode
+/// should exist when no temporary controller masks it". The live [`Brain`]
+/// component is the instantiated, mutable state machine; runtime switches
+/// (`BrainCommand`) and provocation mutate this binding + rebuild the coupled
+/// autonomous state together, and snapshot reconciliation uses this binding to
+/// reconstruct both after a rewind that crossed a switch or a provocation.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct BrainBinding {
     /// The character's catalog `default_brain`, captured at spawn. Restoring the
     /// default rebuilds a fresh brain from THIS preset.
     pub default_preset: BrainPresetId,
-    /// Which selection is live right now.
-    pub selection: BrainSelection,
+    /// Which autonomous source is live right now.
+    pub source: AutonomousBrainSource,
 }
 
 impl BrainBinding {
-    pub fn new(default_preset: BrainPresetId, selection: BrainSelection) -> Self {
+    pub fn new(default_preset: BrainPresetId, source: AutonomousBrainSource) -> Self {
         Self {
             default_preset,
-            selection,
+            source,
         }
     }
 
     /// The catalog preset in effect right now: the override if one is selected,
-    /// the character default when on the default, or `None` when the brain is
-    /// externally owned (provoke/mount/possession — not a catalog preset).
+    /// the character default when on the default, or `None` when the actor is
+    /// provoked (its live brain is a roster archetype, not a catalog preset).
     pub fn active_preset(&self) -> Option<&BrainPresetId> {
-        match &self.selection {
-            BrainSelection::Override(id) => Some(id),
-            BrainSelection::Default => Some(&self.default_preset),
-            BrainSelection::External => None,
+        match &self.source {
+            AutonomousBrainSource::CatalogPreset(id) => Some(id),
+            AutonomousBrainSource::CatalogDefault => Some(&self.default_preset),
+            AutonomousBrainSource::Provoked { .. } => None,
         }
     }
 
     /// True iff an override preset is currently selected.
     pub fn is_override(&self) -> bool {
-        matches!(self.selection, BrainSelection::Override(_))
+        matches!(self.source, AutonomousBrainSource::CatalogPreset(_))
     }
 
-    /// True iff the live brain is owned by a non-catalog authority.
-    pub fn is_external(&self) -> bool {
-        matches!(self.selection, BrainSelection::External)
+    /// True iff the actor is currently in a provoked hostile archetype.
+    pub fn is_provoked(&self) -> bool {
+        matches!(self.source, AutonomousBrainSource::Provoked { .. })
+    }
+
+    /// The provoked archetype id, if the actor is provoked.
+    pub fn provoked_archetype(&self) -> Option<&HostileArchetypeId> {
+        match &self.source {
+            AutonomousBrainSource::Provoked { archetype } => Some(archetype),
+            _ => None,
+        }
     }
 
     /// Switch to an override preset. (The caller rebuilds the live `Brain`.)
     pub fn use_preset(&mut self, preset: BrainPresetId) {
-        self.selection = BrainSelection::Override(preset);
+        self.source = AutonomousBrainSource::CatalogPreset(preset);
     }
 
     /// Return to the character default. (The caller rebuilds the live `Brain`.)
     pub fn restore_default(&mut self) {
-        self.selection = BrainSelection::Default;
+        self.source = AutonomousBrainSource::CatalogDefault;
     }
 
-    /// Record that another authority installed the live brain (provoke / mount /
-    /// possession). Keeps the binding honest so reconciliation won't rebuild the
-    /// catalog default over an externally-owned brain.
-    pub fn mark_external(&mut self) {
-        self.selection = BrainSelection::External;
+    /// Record that the actor was provoked into a hostile roster archetype. The
+    /// caller rebuilds the coupled autonomous state (brain / action set / tuning
+    /// / capabilities) from this archetype; a snapshot reconstructs it the same
+    /// way, so the provoked mode survives a rewind in both directions.
+    pub fn provoke(&mut self, archetype: HostileArchetypeId) {
+        self.source = AutonomousBrainSource::Provoked { archetype };
     }
 }
 
@@ -334,7 +393,7 @@ pub fn resolve_initial_brain(
     // Interpret the authored field: empty/whitespace means "use the default".
     let override_name = authored_override.map(str::trim).filter(|s| !s.is_empty());
 
-    let (selection, source, resolved_key) = match override_name {
+    let (source, preset_source, resolved_key) = match override_name {
         Some(name) => {
             // Authoring names a RAW local preset; qualify it into the character's
             // namespace so it matches the assembled catalog's `provider::name`
@@ -342,18 +401,18 @@ pub fn resolve_initial_brain(
             // path and snapshot reconcile resolve it identically.
             let key = qualify_preset_like(entry.default_brain.as_str(), name);
             (
-                BrainSelection::Override(BrainPresetId::new(key.clone())),
+                AutonomousBrainSource::CatalogPreset(BrainPresetId::new(key.clone())),
                 PresetSource::Override,
                 key,
             )
         }
         None => (
-            BrainSelection::Default,
+            AutonomousBrainSource::CatalogDefault,
             PresetSource::CharacterDefault,
             default_preset.0.clone(),
         ),
     };
-    let binding = BrainBinding::new(default_preset, selection);
+    let binding = BrainBinding::new(default_preset, source);
 
     let brain = catalog
         .build_brain_from_preset(&resolved_key, ctx)
@@ -361,7 +420,7 @@ pub fn resolve_initial_brain(
             character_id: character_id.to_string(),
             preset: override_name.unwrap_or(&resolved_key).to_string(),
             resolved: resolved_key,
-            source,
+            source: preset_source,
         })?;
     Ok((binding, brain))
 }
@@ -429,7 +488,7 @@ mod tests {
             binding.default_preset,
             BrainPresetId::new("wanderer_puppy_slug")
         );
-        assert_eq!(binding.selection, BrainSelection::Default);
+        assert_eq!(binding.source, AutonomousBrainSource::CatalogDefault);
         assert_eq!(
             binding.active_preset(),
             Some(&BrainPresetId::new("wanderer_puppy_slug"))
@@ -455,8 +514,8 @@ mod tests {
             BrainPresetId::new("wanderer_puppy_slug")
         );
         assert_eq!(
-            binding.selection,
-            BrainSelection::Override(BrainPresetId::new("stand_still"))
+            binding.source,
+            AutonomousBrainSource::CatalogPreset(BrainPresetId::new("stand_still"))
         );
     }
 
@@ -558,21 +617,30 @@ mod tests {
         for authored in [Some(""), Some("   "), None] {
             let (binding, _) =
                 resolve("npc_puppy_slug", authored, BrainBuildContext::at(0.0)).unwrap();
-            assert_eq!(binding.selection, BrainSelection::Default, "{authored:?}");
+            assert_eq!(
+                binding.source,
+                AutonomousBrainSource::CatalogDefault,
+                "{authored:?}"
+            );
         }
     }
 
-    /// External selection has no active catalog preset — reconciliation reads
-    /// this to leave an externally-owned (provoked/mounted) brain alone.
+    /// A provoked source names its hostile archetype and has no active catalog
+    /// preset — reconciliation reads this to rebuild the provoked mode from the
+    /// roster archetype rather than the catalog default.
     #[test]
-    fn external_selection_has_no_active_preset() {
+    fn provoked_source_has_no_active_preset() {
         let mut binding = BrainBinding::new(
             BrainPresetId::new("wanderer_puppy_slug"),
-            BrainSelection::Default,
+            AutonomousBrainSource::CatalogDefault,
         );
-        binding.mark_external();
-        assert!(binding.is_external());
+        binding.provoke(HostileArchetypeId::new("combatant"));
+        assert!(binding.is_provoked());
         assert_eq!(binding.active_preset(), None);
+        assert_eq!(
+            binding.provoked_archetype(),
+            Some(&HostileArchetypeId::new("combatant"))
+        );
     }
 
     /// AuthoredBrainContext captures the placement home and reproduces a build

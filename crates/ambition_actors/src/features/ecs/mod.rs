@@ -67,6 +67,7 @@ pub mod spawn_static;
 pub use mount::{rider_hand_world_pos, rider_hand_world_pos_in_frame};
 mod reset;
 mod save_sync;
+mod snapshot_reconcile;
 mod spawn;
 mod spawn_actors;
 mod target_volumes;
@@ -105,6 +106,7 @@ pub use boss_clusters::{
     boss_is_cleared, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig,
     BossEncounter, BossMut, BossRef,
 };
+pub use snapshot_reconcile::reconcile_autonomous_actors;
 // `boss_component_snapshot` is pub: the observation-boundary contract tests
 // (ambition_sim_view) build boss read-model components from a scratch boss.
 pub use crate::world::overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};

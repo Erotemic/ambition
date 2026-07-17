@@ -550,7 +550,14 @@ impl NpcActorSpawnPlan {
         // (`RestoreDefault`), and snapshot/restore all read the same authoritative
         // state. Anonymous NPCs (no catalog identity) carry neither.
         if let Some((binding, authored_context)) = self.brain_binding {
-            entity.insert((binding, authored_context));
+            // The autonomous body also carries its temporary-control state (starts
+            // `Autonomous`): possession / mount record their controller here by
+            // stable id, so a snapshot restores the control mode across a rewind.
+            entity.insert((
+                binding,
+                authored_context,
+                crate::features::TemporaryControl::Autonomous,
+            ));
         }
         if let Some(moveset) = npc_moveset {
             let has_attack = moveset

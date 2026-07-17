@@ -30,7 +30,9 @@ use bevy::prelude::*;
 
 use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
 
+use crate::features::TemporaryControl;
 use ambition_platformer_primitives::markers::ControlledSubject;
+use ambition_platformer_primitives::sim_id::SimId;
 
 use crate::actor::PlayerEntity;
 use crate::features::{CenteredAabb, FeatureSimEntity};
@@ -263,7 +265,12 @@ pub fn possession_trigger_system(
     commands
         .entity(target)
         .insert(Brain::Player(PlayerSlot::PRIMARY))
-        .insert(ActorControl::default());
+        .insert(ActorControl::default())
+        // Record the possession by stable id so a snapshot restores the control
+        // MODE across a rewind (the home avatar is always the primary player).
+        .insert(TemporaryControl::Player {
+            controller: SimId::player_slot(0),
+        });
 }
 
 /// Restore the home avatar's player brain and the target's authored brain +
@@ -287,10 +294,16 @@ fn release_possession(
     state.possessed = None;
 
     // Restore the actor's authored brain, clearing stale edges. Its faction was
-    // never touched (effective allegiance), so there is nothing to restore.
+    // never touched (effective allegiance), so there is nothing to restore. The
+    // cached `restore_brain` is kept in sync with the actor's autonomous SOURCE
+    // (refreshed by `BrainCommand` if it switched during possession), so releasing
+    // resumes the CURRENT selected source. Its temporary-control record returns to
+    // `Autonomous`.
     if let Some(brain) = state.restore_brain.take() {
         if let Ok(mut ec) = commands.get_entity(target) {
-            ec.insert(brain).insert(ActorControl::default());
+            ec.insert(brain)
+                .insert(ActorControl::default())
+                .insert(TemporaryControl::Autonomous);
         }
     }
 

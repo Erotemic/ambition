@@ -165,23 +165,34 @@ sentinel. The pieces (see
 - **`BrainCommand::RestoreDefault` (runtime)** — rebuild the character's canonical
   default brain (a FRESH default; no suspended brain is resumed) and clear the
   override.
-- **Disposition is a separate authority.** Brain choice and allegiance are
-  distinct. Turning an NPC hostile ("fight me") goes through the existing
+- **The autonomous source is one of three reconstructible things.** A
+  `BrainBinding` records the actor's `AutonomousBrainSource`: `CatalogDefault`,
+  `CatalogPreset(id)`, or `Provoked { archetype }`. Every variant is STABLE and
+  reconstructible — there is no lossy "some other authority owns the live brain"
+  escape hatch. Turning an NPC hostile ("fight me") goes through the existing
   challenge/provocation path (`<<challenge>>` → `ActorStimulus::Challenged` →
-  `provoke_actor_in_place`), which installs a hostile brain and flips
-  `ActorDisposition`. That path is NON-catalog, so it marks the actor's
-  `BrainBinding` as `External`, keeping brain and binding consistent (reconcile
-  leaves an externally-owned brain to that authority instead of rebuilding the
-  catalog default over it). A dialogue outcome pairs `<<challenge>>` with
-  `<<use_brain "attack_preset">>`; "you are free" is `<<restore_brain>>` (→
-  `RestoreDefault`).
+  `provoke_actor_in_place`), which builds a hostile brain from a roster archetype
+  (not a catalog preset) and flips `ActorDisposition`, recording the archetype's
+  stable id as `Provoked { archetype }`. Because the whole provoked config (brain,
+  action set, tuning, capabilities) is a deterministic function of that id plus the
+  actor's durable combat kit, a snapshot RERUNS the roster construction to
+  reconstruct the provoked mode in either rewind direction — the live provoke flip
+  and the snapshot rebuild share ONE projection (`project_provoked_archetype`).
+  "You are free" is `<<restore_brain>>` (→ `RestoreDefault`), which restores the
+  catalog-default source.
 
 Every actor spawned from a catalog row carries a `BrainBinding` (its default
-preset + current selection: default / override / external) plus an
-`AuthoredBrainContext`; both are snapshot-registered. A rewind past a runtime
-switch reconciles the live `Brain` back to the binding, comparing *authored
-configuration* (not just the variant label, so `wanderer_slow` and `wanderer_fast`
-are told apart) and skipping player/mounted/external actors.
+preset + current `AutonomousBrainSource`), an `AuthoredBrainContext`, and a
+`TemporaryControl` (player possession / mount by stable `SimId`); all three are
+snapshot-registered. A rewind reconciles in two coordinated passes:
+`reconcile_brain_bindings` rebuilds the live catalog `Brain` where its *authored
+configuration* diverged (comparing full config, not just the variant label, so
+`wanderer_slow`/`wanderer_fast` and two Smash / BossPattern presets are told
+apart), and `reconcile_autonomous_actors` (ambition_actors) reconstructs the
+archetype config — the provoked roster construction, or the peaceful catalog
+config — and restores the temporary-control mode (player/mount) across time from
+the stable ids. A `BrainCommand` issued while a body is possessed / mounted is not
+lost: it updates the autonomous source that resumes when control ends.
 
 Hall of Characters pedestals are ordinary, complete NPC instances that stand
 still because each carries an EXPLICIT `brain_override: "stand_still"` — not a

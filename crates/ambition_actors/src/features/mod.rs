@@ -43,6 +43,8 @@ pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 
 pub mod banter;
 pub mod brain_command;
+pub mod temporary_control;
+pub use temporary_control::TemporaryControl;
 // Stable facade for boss attack geometry.
 pub use crate::boss_encounter::attack_geometry as boss_attack_geometry;
 pub mod bosses;
@@ -124,7 +126,7 @@ pub use ecs::{
     enforce_mount_rider_link, fan_out_limb_intents, integrate_boss_bodies, integrate_sim_bodies,
     interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
     project_boss_attack_state_from_move, rebuild_feature_ecs_world_overlay,
-    refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
+    reconcile_autonomous_actors, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, resolve_pending_mount_links,
     respawn_authored_entity, route_boss_strikes_to_limbs, select_actor_targets,
     spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,

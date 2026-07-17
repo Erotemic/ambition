@@ -1406,34 +1406,40 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
 /// agree before the next re-simulated tick.
 impl SnapshotState for ambition_characters::actor::character_catalog::BrainBinding {
     fn encode(&self, out: &mut Vec<u8>) {
-        use ambition_characters::actor::character_catalog::BrainSelection;
+        use ambition_characters::actor::character_catalog::AutonomousBrainSource;
         put_str(out, self.default_preset.as_str());
-        match &self.selection {
-            BrainSelection::Default => put_u8(out, 0),
-            BrainSelection::Override(preset) => {
+        match &self.source {
+            AutonomousBrainSource::CatalogDefault => put_u8(out, 0),
+            AutonomousBrainSource::CatalogPreset(preset) => {
                 put_u8(out, 1);
                 put_str(out, preset.as_str());
             }
-            // Externally-owned (provoke/mount/possession): the live brain is not a
-            // catalog preset, so reconcile leaves it to that authority.
-            BrainSelection::External => put_u8(out, 2),
+            // Provoked: the live brain is a roster archetype, not a catalog
+            // preset. The stable archetype id is all a rebuild needs — reconcile
+            // reruns the roster construction from it (never a catalog default).
+            AutonomousBrainSource::Provoked { archetype } => {
+                put_u8(out, 2);
+                put_str(out, archetype.as_str());
+            }
         }
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         use ambition_characters::actor::character_catalog::{
-            BrainBinding, BrainPresetId, BrainSelection,
+            AutonomousBrainSource, BrainBinding, BrainPresetId, HostileArchetypeId,
         };
         let default_preset = BrainPresetId::new(r.str()?.to_string());
-        let selection = match r.u8()? {
-            0 => BrainSelection::Default,
-            1 => BrainSelection::Override(BrainPresetId::new(r.str()?.to_string())),
-            2 => BrainSelection::External,
+        let source = match r.u8()? {
+            0 => AutonomousBrainSource::CatalogDefault,
+            1 => AutonomousBrainSource::CatalogPreset(BrainPresetId::new(r.str()?.to_string())),
+            2 => AutonomousBrainSource::Provoked {
+                archetype: HostileArchetypeId::new(r.str()?.to_string()),
+            },
             _ => return None,
         };
         Some(BrainBinding {
             default_preset,
-            selection,
+            source,
         })
     }
 }
@@ -1462,6 +1468,46 @@ impl SnapshotState for ambition_characters::actor::character_catalog::AuthoredBr
                 patrol_radius: if r.bool()? { Some(r.f32()?) } else { None },
             },
         )
+    }
+}
+
+/// **Temporary-control state**: whether an autonomous body is masked by a player
+/// possession or a mount, by STABLE `SimId`. Registered so a rewind restores the
+/// control MODE across time (not just avoids clobbering a live one): the `Brain`
+/// cursor is a no-op for `Brain::Player`, and possession/mount relationships were
+/// re-derived from live components, so without this a rollback across a
+/// possess/release boundary left the body in the wrong mode. Reconciliation
+/// rebuilds the live control (`Brain::Player` / `Mounted`) and its relationships
+/// from the restored id.
+impl SnapshotState for ambition_actors::features::TemporaryControl {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use ambition_actors::features::TemporaryControl as T;
+        match self {
+            T::Autonomous => put_u8(out, 0),
+            T::Player { controller } => {
+                put_u8(out, 1);
+                put_str(out, controller.as_str());
+            }
+            T::Mounted { mount } => {
+                put_u8(out, 2);
+                put_str(out, mount.as_str());
+            }
+        }
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_actors::features::TemporaryControl as T;
+        use ambition_platformer_primitives::sim_id::SimId;
+        Some(match r.u8()? {
+            0 => T::Autonomous,
+            1 => T::Player {
+                controller: SimId::from_snapshot(r.str()?.to_string()),
+            },
+            2 => T::Mounted {
+                mount: SimId::from_snapshot(r.str()?.to_string()),
+            },
+            _ => return None,
+        })
     }
 }
 
@@ -2257,7 +2303,8 @@ mod brain_reconcile_tests {
     //! `BrainBinding` after a rewind crosses a runtime brain switch.
 
     use ambition_characters::actor::character_catalog::{
-        parse_catalog, BrainBinding, BrainPresetId, BrainSelection, CharacterCatalog,
+        parse_catalog, AutonomousBrainSource, BrainBinding, BrainPresetId, CharacterCatalog,
+        HostileArchetypeId,
     };
     use ambition_characters::actor::ActorPose;
     use ambition_characters::brain::{Brain, PlayerSlot, StateMachineCfg};
@@ -2313,7 +2360,7 @@ mod brain_reconcile_tests {
             Brain::stand_still(),
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                BrainSelection::Default,
+                AutonomousBrainSource::CatalogDefault,
             ),
         );
         super::reconcile_brain_bindings(&mut world);
@@ -2332,7 +2379,7 @@ mod brain_reconcile_tests {
             Brain::stand_still(),
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                BrainSelection::Override(BrainPresetId::new("stand_still")),
+                AutonomousBrainSource::CatalogPreset(BrainPresetId::new("stand_still")),
             ),
         );
         super::reconcile_brain_bindings(&mut world);
@@ -2359,7 +2406,7 @@ mod brain_reconcile_tests {
             fast,
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                BrainSelection::Override(BrainPresetId::new("wanderer_slow")),
+                AutonomousBrainSource::CatalogPreset(BrainPresetId::new("wanderer_slow")),
             ),
         );
         super::reconcile_brain_bindings(&mut world);
@@ -2371,22 +2418,25 @@ mod brain_reconcile_tests {
     }
 
     #[test]
-    fn reconcile_skips_an_externally_owned_brain() {
-        // An External selection (provoke installed a non-catalog brain): reconcile
-        // must leave the live brain to that authority, NOT rebuild the catalog
-        // default over it.
+    fn catalog_reconcile_skips_a_provoked_brain() {
+        // A provoked source names a roster archetype, not a catalog preset, so the
+        // CATALOG reconcile pass leaves it alone (it has no `active_preset`). The
+        // roster reconstruction is the autonomous-actor pass's job (ambition_actors),
+        // exercised by the full-host integration tests where a roster exists.
         let (mut world, e) = world_with_npc(
             Brain::stand_still(),
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                BrainSelection::External,
+                AutonomousBrainSource::Provoked {
+                    archetype: HostileArchetypeId::new("combatant"),
+                },
             ),
         );
         super::reconcile_brain_bindings(&mut world);
         assert_eq!(
             world.get::<Brain>(e).unwrap().label(),
             "stand_still",
-            "an externally-owned brain is left untouched (not rebuilt to the catalog default)"
+            "the catalog pass never rebuilds a provoked brain to the catalog default"
         );
     }
 
@@ -2398,7 +2448,7 @@ mod brain_reconcile_tests {
             Brain::Player(PlayerSlot::PRIMARY),
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                BrainSelection::Default,
+                AutonomousBrainSource::CatalogDefault,
             ),
         );
         super::reconcile_brain_bindings(&mut world);
@@ -2416,8 +2466,8 @@ mod brain_reconcile_tests {
 #[cfg(test)]
 mod brain_switch_rewind_tests {
     use ambition_characters::actor::character_catalog::{
-        parse_catalog, AuthoredBrainContext, BrainBinding, BrainBuildContext, BrainPresetId,
-        BrainSelection, CharacterCatalog,
+        parse_catalog, AuthoredBrainContext, AutonomousBrainSource, BrainBinding,
+        BrainBuildContext, BrainPresetId, CharacterCatalog, HostileArchetypeId,
     };
     use ambition_characters::actor::ActorPose;
     use ambition_characters::brain::{Brain, PlayerSlot, StateMachineCfg};
@@ -2439,6 +2489,24 @@ mod brain_switch_rewind_tests {
                 spawn_local_x: 0.0, radius: 64.0, speed: 28.0,
                 aggressiveness: 0.0, aggro_radius: 80.0, attack_range: 0.0,
             ),
+            // Two Smash presets of the SAME variant, differing only in authored
+            // tuning (aggro radius / chase speed): a label check would confuse them.
+            "smash_grunt": Smash(
+                aggro_radius: 460.0, engage_distance: 70.0, attack_range: 56.0,
+                too_close_distance: 30.0, chase_speed: 170.0, retreat_speed: 130.0,
+                crowding_threshold: 0.65, dash_to_close: false,
+                reaction_delay_s: 0.15, commit_probability: 0.85, accuracy: 0.85, mash_speed_hz: 6.0,
+            ),
+            "smash_duelist": Smash(
+                aggro_radius: 900.0, engage_distance: 90.0, attack_range: 56.0,
+                too_close_distance: 30.0, chase_speed: 240.0, retreat_speed: 130.0,
+                crowding_threshold: 0.65, dash_to_close: true,
+                reaction_delay_s: 0.05, commit_probability: 0.95, accuracy: 0.95, mash_speed_hz: 8.0,
+            ),
+            // Two BossPattern presets differing only in encounter id (the authored
+            // input; the rest of the cfg is derived from it).
+            "boss_alpha": BossPattern(aggressiveness: 1.0, encounter_id: "alpha"),
+            "boss_beta": BossPattern(aggressiveness: 1.0, encounter_id: "beta"),
         },
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
@@ -2517,7 +2585,7 @@ mod brain_switch_rewind_tests {
             brain,
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                BrainSelection::Default,
+                AutonomousBrainSource::CatalogDefault,
             ),
             100.0,
         );
@@ -2533,8 +2601,8 @@ mod brain_switch_rewind_tests {
         super::super::restore(&mut w, &snap, &reg).expect("restore");
 
         assert_eq!(
-            w.get::<BrainBinding>(e).unwrap().selection,
-            BrainSelection::Default
+            w.get::<BrainBinding>(e).unwrap().source,
+            AutonomousBrainSource::CatalogDefault
         );
         assert_eq!(
             wanderer_speed(w.get::<Brain>(e).unwrap()),
@@ -2557,7 +2625,7 @@ mod brain_switch_rewind_tests {
             slow,
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                BrainSelection::Override(BrainPresetId::new("wanderer_slow")),
+                AutonomousBrainSource::CatalogPreset(BrainPresetId::new("wanderer_slow")),
             ),
             100.0,
         );
@@ -2579,9 +2647,101 @@ mod brain_switch_rewind_tests {
         );
     }
 
+    fn smash_aggro(brain: &Brain) -> f32 {
+        match brain {
+            Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => cfg.aggro_radius,
+            other => panic!("expected Smash, got {other:?}"),
+        }
+    }
+
+    /// Same-family SMASH rewind: `smash_grunt` selected, snapshot, switch to
+    /// `smash_duelist` (same variant, different authored tuning), restore → the
+    /// exact grunt config is back. The old variant-only comparison would have kept
+    /// the duelist's tuning; the full-`SmashCfg` comparison catches it.
+    #[test]
+    fn same_family_smash_rewind_restores_the_exact_tuning() {
+        let reg = registry();
+        let mut w = world();
+        let grunt = build(&w, "smash_grunt", 100.0);
+        let e = spawn(
+            &mut w,
+            "npc",
+            grunt,
+            BrainBinding::new(
+                BrainPresetId::new("wanderer_puppy_slug"),
+                AutonomousBrainSource::CatalogPreset(BrainPresetId::new("smash_grunt")),
+            ),
+            100.0,
+        );
+
+        let snap = super::super::take(&w, &reg);
+
+        let duelist = build(&w, "smash_duelist", 100.0);
+        *w.get_mut::<Brain>(e).unwrap() = duelist;
+        w.get_mut::<BrainBinding>(e)
+            .unwrap()
+            .use_preset(BrainPresetId::new("smash_duelist"));
+
+        super::super::restore(&mut w, &snap, &reg).expect("restore");
+
+        assert_eq!(
+            smash_aggro(w.get::<Brain>(e).unwrap()),
+            460.0,
+            "the grunt's authored aggro radius is restored, not the duelist's 900"
+        );
+    }
+
+    fn boss_encounter(brain: &Brain) -> String {
+        match brain {
+            Brain::StateMachine(StateMachineCfg::BossPattern { cfg, .. }) => {
+                cfg.encounter_id.clone()
+            }
+            other => panic!("expected BossPattern, got {other:?}"),
+        }
+    }
+
+    /// Same-family BOSSPATTERN rewind: `boss_alpha` selected, snapshot, switch to
+    /// `boss_beta` (same variant, different encounter id), restore → the alpha
+    /// encounter is back. Variant-only comparison would have kept beta.
+    #[test]
+    fn same_family_boss_rewind_restores_the_exact_encounter() {
+        let reg = registry();
+        let mut w = world();
+        let alpha = build(&w, "boss_alpha", 100.0);
+        let e = spawn(
+            &mut w,
+            "npc",
+            alpha,
+            BrainBinding::new(
+                BrainPresetId::new("wanderer_puppy_slug"),
+                AutonomousBrainSource::CatalogPreset(BrainPresetId::new("boss_alpha")),
+            ),
+            100.0,
+        );
+
+        let snap = super::super::take(&w, &reg);
+
+        let beta = build(&w, "boss_beta", 100.0);
+        *w.get_mut::<Brain>(e).unwrap() = beta;
+        w.get_mut::<BrainBinding>(e)
+            .unwrap()
+            .use_preset(BrainPresetId::new("boss_beta"));
+
+        super::super::restore(&mut w, &snap, &reg).expect("restore");
+
+        assert_eq!(
+            boss_encounter(w.get::<Brain>(e).unwrap()),
+            "alpha",
+            "the alpha encounter is restored, not beta"
+        );
+    }
+
     /// Challenge rewind (inverse boundary): snapshot BEFORE the challenge, provoke
-    /// (external hostile brain + Hostile disposition), restore → stand_still + the
-    /// pre-challenge (Peaceful) disposition are both back.
+    /// (a hostile roster brain + `Provoked` source + Hostile disposition), restore →
+    /// the CATALOG pass rebuilds the pre-challenge stand_still from the restored
+    /// `CatalogPreset` binding, and the peaceful disposition comes back from its
+    /// blob. (The full config reconstruction — tuning / caps / action set — is the
+    /// autonomous-actor pass, covered by the integration tests where a roster exists.)
     #[test]
     fn rewind_to_before_a_challenge_restores_peaceful_stand_still() {
         let reg = registry();
@@ -2593,18 +2753,20 @@ mod brain_switch_rewind_tests {
             brain,
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                BrainSelection::Override(BrainPresetId::new("stand_still")),
+                AutonomousBrainSource::CatalogPreset(BrainPresetId::new("stand_still")),
             ),
             100.0,
         );
 
         let snap = super::super::take(&w, &reg);
 
-        // Provoke: a non-catalog hostile brain, Hostile disposition, External binding.
+        // Provoke: a hostile roster brain, Hostile disposition, Provoked source.
         let attack = build(&w, "melee_brute_striker", 100.0);
         *w.get_mut::<Brain>(e).unwrap() = attack;
         *w.get_mut::<ActorDisposition>(e).unwrap() = ActorDisposition::Hostile;
-        w.get_mut::<BrainBinding>(e).unwrap().mark_external();
+        w.get_mut::<BrainBinding>(e)
+            .unwrap()
+            .provoke(HostileArchetypeId::new("combatant"));
 
         super::super::restore(&mut w, &snap, &reg).expect("restore");
 
@@ -2620,10 +2782,12 @@ mod brain_switch_rewind_tests {
         );
     }
 
-    /// Challenge rewind (forward): snapshot AFTER the challenge (hostile), then
-    /// wrongly calm the actor, restore → the Hostile disposition and the external
-    /// attack brain are BOTH retained (reconcile does not clobber an External brain
-    /// back to the catalog default).
+    /// Challenge rewind (forward): snapshot AFTER the challenge (Provoked, hostile),
+    /// then wrongly calm the actor while its attack brain stays live, restore → the
+    /// Hostile disposition and the roster attack brain are BOTH retained (the catalog
+    /// pass never rebuilds a `Provoked` brain to the catalog default). With no roster
+    /// present here the brain is simply left untouched; the roster reconstruction of a
+    /// present that ALSO changed the brain is covered by the integration tests.
     #[test]
     fn rewind_to_after_a_challenge_keeps_hostile_and_the_attack_brain() {
         let reg = registry();
@@ -2631,9 +2795,9 @@ mod brain_switch_rewind_tests {
         let attack = build(&w, "melee_brute_striker", 100.0);
         let mut binding = BrainBinding::new(
             BrainPresetId::new("wanderer_puppy_slug"),
-            BrainSelection::Override(BrainPresetId::new("stand_still")),
+            AutonomousBrainSource::CatalogPreset(BrainPresetId::new("stand_still")),
         );
-        binding.mark_external();
+        binding.provoke(HostileArchetypeId::new("combatant"));
         let e = spawn(&mut w, "npc", attack, binding, 100.0);
         *w.get_mut::<ActorDisposition>(e).unwrap() = ActorDisposition::Hostile;
 
@@ -2653,11 +2817,11 @@ mod brain_switch_rewind_tests {
         assert_eq!(
             w.get::<Brain>(e).unwrap().label(),
             "melee_brute",
-            "the external attack brain is retained, not rebuilt to the catalog default"
+            "the roster attack brain is retained, not rebuilt to the catalog default"
         );
         assert!(
-            w.get::<BrainBinding>(e).unwrap().is_external(),
-            "the binding agrees: still External"
+            w.get::<BrainBinding>(e).unwrap().is_provoked(),
+            "the binding agrees: still Provoked"
         );
     }
 
@@ -2675,7 +2839,7 @@ mod brain_switch_rewind_tests {
             patrol,
             BrainBinding::new(
                 BrainPresetId::new("patrol_peaceful"),
-                BrainSelection::Default,
+                AutonomousBrainSource::CatalogDefault,
             ),
             100.0,
         );
@@ -2714,7 +2878,7 @@ mod brain_switch_rewind_tests {
             Brain::Player(PlayerSlot::PRIMARY),
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                BrainSelection::Default,
+                AutonomousBrainSource::CatalogDefault,
             ),
             100.0,
         );

@@ -22,7 +22,7 @@ use super::SmashState;
 /// [`SmashCfg::difficulty`]; an upcoming pass lifts this into
 /// `character_archetypes.ron` so designers can tune per-archetype
 /// without code edits.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DifficultyProfile {
     /// Seconds of observation lag on the OPPONENT. `tick_smash` perceives
     /// the opponent as it was this many seconds ago (via

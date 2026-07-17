@@ -150,71 +150,55 @@ pub(crate) fn provoke_actor_in_place(
         let spec = roster.spec_for_brain(
             &ambition_entity_catalog::placements::CharacterBrain::Custom(hostile_id.into()),
         );
-        em.config.tuning = spec.tuning();
-        // Re-sync the body's gravity to match the hostile archetype's locomotion
-        // mode — the same invariant `reset_to_spawn` enforces
-        // (`gravity_scale = if is_aerial { 0 } else { 1 }`). Without this, a
-        // peaceful *Floating* NPC (gravity_scale 0 at spawn) that provokes into a
-        // grounded archetype would keep `is_aerial`, so the integrator reads
-        // `velocity_target` (which the grounded Smash brain never sets) and the
-        // actor freezes in mid-air. The Perfect Cell-ular Automaton hits exactly
-        // this path: it floats peacefully, then descends to fight as a grounded
-        // brawler. (Aerial archetypes stay aerial; their brains drive
-        // `velocity_target`.)
-        em.surface.gravity_scale = if em.config.tuning.is_aerial { 0.0 } else { 1.0 };
-        em.config.brain_spec = spec.brain_spec();
-        em.config.brain =
-            ambition_entity_catalog::placements::CharacterBrain::Custom(hostile_id.into());
-        // Take on the hostile archetype's HP pool (the peaceful seed spawned with
-        // health=1; a provoked actor should fight at full archetype HP).
-        *em.health = ambition_characters::actor::BodyHealth::new(
-            ambition_characters::actor::Health::new(spec.max_health),
+        // The ONE definition of "what provocation produces" — shared verbatim with
+        // the post-restore reconstruction (`snapshot_reconcile`), so a provoked
+        // actor is identical whether it was just challenged or rebuilt from a
+        // snapshot. It builds the hostile brain from the archetype's HOSTILE tuning
+        // / brain-spec (an already-hostile actor is NOT re-derived here — that would
+        // zero its accumulated fire/footsies/mode cadence every stimulus; escalation
+        // that needs a different brain flows through the flip's archetype swap).
+        let proj = super::super::snapshot_reconcile::project_provoked_archetype(
+            &spec, hostile_id, em.config, combat_kit, held_item,
         );
-        // Keep the actor's own sprite sheet (its NPC name) when hostile — except
-        // the Kernel Guide, which uses the default enemy sheet (legacy quirk).
-        if em.config.name != "Kernel Guide NPC" {
-            em.config.sprite_override_npc_name = Some(em.config.name.clone());
-        }
-        commands.entity(entity).insert(spec.combat_capabilities());
+        em.config.tuning = proj.tuning;
+        // Re-sync gravity to the hostile archetype's locomotion mode — the same
+        // invariant `reset_to_spawn` enforces. Without it a peaceful *Floating* NPC
+        // (gravity 0) provoking into a grounded archetype would freeze mid-air (the
+        // grounded brain never sets `velocity_target`). The Perfect Cell-ular
+        // Automaton hits exactly this: floats peacefully, then descends to brawl.
+        em.surface.gravity_scale = proj.gravity_scale;
+        em.config.brain_spec = proj.brain_spec;
+        em.config.brain = proj.config_brain;
+        // Take on the hostile archetype's HP pool (the peaceful seed spawned at
+        // health=1; a provoked actor fights at full archetype HP).
+        *em.health = super::super::snapshot_reconcile::fresh_health_pool(proj.max_health);
+        em.config.sprite_override_npc_name = proj.sprite_override_npc_name;
+        commands.entity(entity).insert(proj.capabilities);
         *disposition = ActorDisposition::Hostile;
         // The provoked actor KEEPS its `ActorFaction` identity (no in-place flip to
         // `Enemy`). It hunts + hits its attacker through the per-actor GRUDGE
         // (`ActorAggression::grudge`, set by `apply_actor_stimuli`): targeting treats
         // the grudge entity as a foe, and the victim-side damage gate is `can_damage`
-        // (different-faction), which an Npc-vs-Player hit already passes — so the hit
-        // lands, knockback applies, and the i-frame gates the stream, all without
-        // mutating who this actor *is*. (Pre-S3e the victim gate was relational and a
-        // faction flip was the only way to land the hit; that's no longer true.)
-        // Build the hostile brain ONCE — on the peaceful→hostile flip. Re-deriving
-        // it on every later stimulus (each hit, each re-challenge) would overwrite
-        // the brain component with a FRESH one, zeroing all of its accumulated
-        // state every tick: the ranged/melee fire cadence, the footsies / dash /
-        // blink / neutral-jump timers, mode-dwell hysteresis. That is exactly what
-        // turned the Perfect Cell-ular Automaton from a varied duelist into a
-        // per-tick glider spammer — a continuously-struck (or re-challenged) actor
-        // never got to advance any cadence. An already-hostile actor keeps its
-        // live brain and its dueling state; only its target / chase mode update
-        // below. (Escalation that needs a genuinely different brain — e.g. a
-        // peaceful pirate forced into a Brute — flows through the archetype swap
-        // above, which only runs on the flip.)
-        let (brain, action_set) =
-            super::super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-                em.config, combat_kit, held_item,
-            );
-        commands.entity(entity).insert((brain, action_set));
-        // Keep the autonomous brain binding HONEST. This installs a NON-catalog
-        // hostile brain (built from the roster archetype, not a `brain_preset`), so
-        // a catalog-backed NPC's binding must record that its live brain is now
-        // externally owned. Otherwise a snapshot reconcile would rebuild the
-        // catalog default over this attack brain while `ActorDisposition` stayed
-        // Hostile — the exact Brain/binding inconsistency this marks away. Deferred
-        // so it lands with the `(brain, action_set)` insert; a no-op for anonymous
-        // NPCs/enemies that carry no binding.
+        // (different-faction), which an Npc-vs-Player hit already passes.
+        commands
+            .entity(entity)
+            .insert((proj.brain, proj.action_set));
+        // Record the provoked ARCHETYPE in the autonomous binding. The stable
+        // archetype id is all a rewind needs: the whole provoked config above is a
+        // deterministic function of it (via `project_provoked_archetype`), so a
+        // snapshot reconcile RERUNS that construction in either rewind direction
+        // rather than rebuilding the catalog default over it. Deferred so it lands
+        // with the `(brain, action_set)` insert; a no-op for anonymous NPCs/enemies
+        // that carry no binding.
         commands.queue(move |world: &mut bevy::prelude::World| {
             if let Some(mut binding) =
                 world.get_mut::<ambition_characters::actor::character_catalog::BrainBinding>(entity)
             {
-                binding.mark_external();
+                binding.provoke(
+                    ambition_characters::actor::character_catalog::HostileArchetypeId::new(
+                        hostile_id,
+                    ),
+                );
             }
         });
     }

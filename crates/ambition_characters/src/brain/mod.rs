@@ -270,10 +270,20 @@ impl Brain {
     /// Snapshot reconciliation uses it to decide whether a live brain already
     /// matches the brain a restored selection resolves to (leave the ticking
     /// state in place) versus a genuinely different preset in the same family
-    /// (rebuild). `Smash` / `BossPattern` / `Player` compare by variant only:
-    /// their tuning is derived (sheet metrics) or their runtime state is exactly
-    /// what a rewind restores, so a same-variant match must PRESERVE the
-    /// cursor-restored brain rather than rebuild a fresh one.
+    /// (rebuild). Every preset-backed variant compares its immutable authored
+    /// configuration, ignoring only mutable runtime state (patrol/skirmisher
+    /// cursors, boss/smash clocks and history):
+    /// - `Smash` compares the full [`SmashCfg`] — two Smash presets differing in
+    ///   any authored knob (aggro radius, engage distance, reach, chase/retreat
+    ///   speed, difficulty, …) are DISTINCT, so a rewind across such a switch
+    ///   rebuilds rather than keeping the future tuning.
+    /// - `BossPattern` compares `aggressiveness` + `encounter_id`, which are the
+    ///   only authored inputs a `BrainPreset::BossPattern` carries: every other
+    ///   `BossPatternCfg` field is DERIVED from `encounter_id` (pattern /
+    ///   movement / cycle attacks, via the encounter registry) or captured from
+    ///   the live runtime (`spawn` / `combat_size`), so comparing the two
+    ///   authored fields is both minimal and complete for the catalog path.
+    /// - `Player` compares its slot (the only state a `Player` brain carries).
     pub fn same_authored_configuration(&self, other: &Self) -> bool {
         use StateMachineCfg as C;
         match (self, other) {
@@ -288,9 +298,13 @@ impl Brain {
                 (C::ChargeCrash { cfg: x, .. }, C::ChargeCrash { cfg: y, .. }) => x == y,
                 (C::Aerial { cfg: x, .. }, C::Aerial { cfg: y, .. }) => x == y,
                 (C::PlayerDemo { cfg: x, .. }, C::PlayerDemo { cfg: y, .. }) => x == y,
-                // Variant-only for the stateful brains (see the doc note).
-                (C::Smash { .. }, C::Smash { .. }) => true,
-                (C::BossPattern { .. }, C::BossPattern { .. }) => true,
+                // The full authored SmashCfg — differing tuning is a different preset.
+                (C::Smash { cfg: x, .. }, C::Smash { cfg: y, .. }) => x == y,
+                // The authored preset inputs; the rest of the cfg is derived from
+                // encounter_id or captured at spawn (see the doc note).
+                (C::BossPattern { cfg: x, .. }, C::BossPattern { cfg: y, .. }) => {
+                    x.aggressiveness == y.aggressiveness && x.encounter_id == y.encounter_id
+                }
                 _ => false,
             },
             _ => false,

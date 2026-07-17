@@ -100,6 +100,7 @@ pub fn validate_content_graph(
     validate_ldtk_room_links(project, &mut report);
     validate_room_music_tracks(project, music, &mut report);
     validate_npc_dialogue_ids(project, character_catalog, &mut report);
+    validate_npc_brain_overrides(project, character_catalog, &mut report);
     validate_quest_conditions(project, music, &mut report);
     let boss_catalog = crate::bosses::authored_boss_catalog();
     validate_boss_music_tracks(music, &boss_catalog, &mut report);
@@ -315,6 +316,83 @@ fn validate_npc_dialogue_ids(
                     "level '{}' NpcSpawn '{}' references unknown dialogue_id '{}'",
                     level.identifier, entity.iid, dialogue_id
                 ));
+            }
+        }
+    }
+}
+
+/// Validate every authored `NpcSpawn.brain_override` against the *assembled*
+/// character catalog — the real content check the resolver's namespace rule was
+/// built for, run before any actor spawns.
+///
+/// For each `NpcSpawn` that names a `character_id`, the pair
+/// `(character_id, brain_override)` must resolve through
+/// [`CharacterCatalog::validate_brain_override`](ambition_characters::actor::character_catalog::CharacterCatalog::validate_brain_override):
+/// the character must exist, and a non-empty override must qualify inside the
+/// character's own provider namespace (a fully-qualified preset is used exactly;
+/// a raw preset resolves character-provider-local — never a silent cross-provider
+/// fallback). An empty/absent override is the character default and always
+/// passes.
+///
+/// An `NpcSpawn` with a `brain_override` but NO `character_id` is a content error
+/// on its own: there is no character whose namespace could qualify the override.
+/// (An anonymous NPC with neither field is a valid brainless placement and is
+/// skipped.)
+///
+/// This is the production host contract: an unresolved override is rejected here
+/// so `resolve_npc_brain` never has to tolerate an unknown preset at spawn time.
+///
+/// An UNKNOWN `character_id` is tolerated (skipped), because a partial composition
+/// — a single-provider host, or this embedded Ambition-only check — legitimately
+/// loads a catalog that does not own every character the shared Hall places
+/// (`sanic`, `mary_o`, …). The FULL multi-provider host passes the merged catalog,
+/// so nothing is skipped there and every Hall character is validated (proven by
+/// `app_local_catalog_composition`'s full-host test). A KNOWN character's override
+/// is validated in every composition — that is the part `resolve_npc_brain` must
+/// never have to tolerate at runtime.
+fn validate_npc_brain_overrides(
+    project: &LdtkProject,
+    character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    report: &mut ContentValidationReport,
+) {
+    use ambition_characters::actor::character_catalog::BrainBuildError;
+    for level in &project.levels {
+        for entity in level.all_entity_instances() {
+            if entity.identifier != "NpcSpawn" {
+                continue;
+            }
+            let character_id = field_string(entity, "character_id")
+                .map(|id| id.trim().to_string())
+                .filter(|id| !id.is_empty());
+            let brain_override = field_string(entity, "brain_override")
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty());
+
+            match (character_id, brain_override) {
+                // Anonymous placement, no brain authority — nothing to check.
+                (None, None) => {}
+                // An override with no character to qualify it against.
+                (None, Some(brain_override)) => report.push_error(format!(
+                    "level '{}' NpcSpawn '{}' has brain_override '{}' but no character_id \
+                     (a brain preset can only be qualified inside a character's provider namespace)",
+                    level.identifier, entity.iid, brain_override
+                )),
+                // A catalog-backed NPC: character must exist and the override (if
+                // any) must resolve. `validate_brain_override` handles both.
+                (Some(character_id), brain_override) => {
+                    match character_catalog
+                        .validate_brain_override(&character_id, brain_override.as_deref())
+                    {
+                        Ok(_) => {}
+                        // A character owned by a provider not loaded in this
+                        // composition — skipped (the full host validates it).
+                        Err(BrainBuildError::UnknownCharacter(_)) => {}
+                        Err(error) => report.push_error(format!(
+                            "level '{}' NpcSpawn '{}': {}",
+                            level.identifier, entity.iid, error
+                        )),
+                    }
+                }
             }
         }
     }

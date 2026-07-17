@@ -1275,6 +1275,9 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
         .register_component::<ambition_characters::actor::character_catalog::AuthoredBrainContext>(
             "authored_brain_context",
         );
+    // Temporary-control state (player possession / mount) by stable `SimId`, so a
+    // rewind restores the control MODE across time — see `reconcile_autonomous_actors`.
+    registry.register_component::<ambition_actors::features::TemporaryControl>("temporary_control");
     registry
         .register_component::<ambition_actors::features::ActorSurfaceState>("actor_surface_state");
     registry.register_component::<ambition_combat::components::BodyEnvelope>("body_envelope");

@@ -98,7 +98,9 @@ fn rebuild_content_staged_batch(
     let existing = match world.try_query::<(Entity, &FeatureId)>() {
         Some(mut query) => query
             .iter(world)
-            .filter_map(|(entity, feature)| staged_ids.contains(feature.0.as_str()).then_some(entity))
+            .filter_map(|(entity, feature)| {
+                staged_ids.contains(feature.0.as_str()).then_some(entity)
+            })
             .collect::<Vec<_>>(),
         None => Vec::new(),
     };
@@ -447,12 +449,19 @@ pub fn restore(
                 .map(|p| p.id.0.clone())
                 .chain(spec.enemy_spawns.iter().map(|e| e.id.clone()))
                 .chain(spec.boss_spawns.iter().map(|b| b.id.clone()))
-                .chain(same_room_content_requests.iter().map(|request| request.id.clone()))
+                .chain(
+                    same_room_content_requests
+                        .iter()
+                        .map(|request| request.id.clone()),
+                )
                 .collect()
         })
         .unwrap_or_default(),
     };
-    let snapshot_ids = ids.iter().copied().collect::<std::collections::BTreeSet<_>>();
+    let snapshot_ids = ids
+        .iter()
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>();
     let same_room_batch_needs_rebuild = same_room_content_requests.iter().any(|request| {
         let sim_id = SimId::placement(&request.id);
         snapshot_ids.contains(sim_id.as_str()) && !survivors.contains(sim_id.as_str())
@@ -742,12 +751,21 @@ pub fn restore(
     }
     report.messages_cleared = registry.messages.len();
 
-    // Reconcile catalog-backed NPC brains to their restored `BrainBinding`. The
-    // `Brain` cursor is a no-op for peaceful NPC brains, so a rewind PAST a
-    // runtime brain switch would otherwise leave the live brain kind out of sync
-    // with the restored selection — and the next re-simulated tick would drive
-    // the wrong brain (a desync). Runs only where the kind actually diverged.
+    // Reconcile catalog-backed NPC autonomous state to its restored `BrainBinding`
+    // source. Two coordinated passes, in this order:
+    //   1. CATALOG BRAIN (`reconcile_brain_bindings`): the `Brain` cursor is a
+    //      no-op for peaceful NPC brains, so a rewind PAST a runtime brain switch
+    //      would leave the live brain kind out of sync with the restored catalog
+    //      selection. Rebuilds it where the kind diverged.
+    //   2. AUTONOMOUS CONFIG (`reconcile_autonomous_actors`, ambition_actors): the
+    //      archetype config (tuning / brain-spec / capabilities / action set) is a
+    //      deterministic function of the source, reconstructed rather than
+    //      serialized — a provoked source reruns its roster construction; a catalog
+    //      source restores the peaceful config. Runs second so it can derive
+    //      `config.brain` from the pass-1 live brain. Both leave the registered
+    //      disposition / health / gravity blobs untouched.
     super::codecs::reconcile_brain_bindings(world);
+    ambition_actors::features::reconcile_autonomous_actors(world);
 
     // **Stale state is measured AFTER reconciliation (audit H4), over the FINAL
     // restored roster.** Measuring it at the top — before the future-only entities are

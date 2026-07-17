@@ -173,3 +173,58 @@ fn separate_apps_select_independent_provider_sets() {
         assert!(app.world().get_resource::<BossCatalog>().is_none());
     }
 }
+
+/// #13 — the FULL Hall validates against the merged Ambition + Sanic + Mary-O
+/// catalog. The embedded (Ambition-only) content check tolerates the Hall's
+/// cross-provider characters (`sanic`, `mary_o`, …); with every provider loaded,
+/// each Hall NPC's `character_id` exists and its `brain_override` resolves inside
+/// that character's provider namespace — no silent fallback, no unresolved actor.
+#[test]
+fn the_full_hall_validates_with_all_three_provider_catalogs() {
+    use ambition::actors::ldtk_world::{field_string, LdtkProject};
+
+    // The world manifest (which names the Hall's secondary world) must be
+    // installed before any world load, exactly as the content plugin does.
+    ambition_content::worlds::install();
+
+    let mut app = App::new();
+    register_ambition(&mut app);
+    register_sanic(&mut app);
+    register_mary_o(&mut app);
+    let catalog = app.world().resource::<CharacterCatalog>();
+
+    let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
+    let mut checked = 0;
+    for level in &project.levels {
+        if level.identifier != "hall_of_characters" {
+            continue;
+        }
+        for entity in level.all_entity_instances() {
+            if entity.identifier != "NpcSpawn" {
+                continue;
+            }
+            let character_id = field_string(entity, "character_id")
+                .map(|id| id.trim().to_string())
+                .filter(|id| !id.is_empty());
+            let brain_override = field_string(entity, "brain_override")
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty());
+            let Some(character_id) = character_id else {
+                continue;
+            };
+            catalog
+                .validate_brain_override(&character_id, brain_override.as_deref())
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "Hall NpcSpawn '{}' ({character_id}) fails full-host validation: {error}",
+                        entity.iid
+                    )
+                });
+            checked += 1;
+        }
+    }
+    assert!(
+        checked >= 4,
+        "expected the Hall to place several catalog NPCs (validated {checked})"
+    );
+}

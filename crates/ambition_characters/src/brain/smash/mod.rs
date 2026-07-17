@@ -47,7 +47,7 @@ pub use observation::{observe, CrowdingSignal, ObservationFrame, TerrainAwarenes
 /// state lives in [`SmashState`]. Designer-facing today — eventually
 /// migrates to data so per-archetype variants live in
 /// `character_archetypes.ron`.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SmashCfg {
     /// Maximum sensing distance (px). Outside this radius the brain
     /// idles regardless of target presence.

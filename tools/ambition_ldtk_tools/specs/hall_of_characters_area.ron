@@ -2137,7 +2137,7 @@
                 48,
             ],
             fields: (
-                character_id: "npc_fascist_enforcer",
+                character_id: "npc_ramen_nujan",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -2155,7 +2155,7 @@
                 48,
             ],
             fields: (
-                character_id: "npc_puppy_slug_velvet",
+                character_id: "npc_jeff_hinter",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -2173,7 +2173,7 @@
                 48,
             ],
             fields: (
-                character_id: "player_robot_fable",
+                character_id: "npc_jeff_hinter_armored",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -2191,7 +2191,7 @@
                 48,
             ],
             fields: (
-                character_id: "sanic",
+                character_id: "npc_leblanc",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -2209,7 +2209,7 @@
                 48,
             ],
             fields: (
-                character_id: "super_sanic",
+                character_id: "npc_fascist_enforcer",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -2227,7 +2227,7 @@
                 48,
             ],
             fields: (
-                character_id: "mary_o",
+                character_id: "npc_puppy_slug_velvet",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -2238,6 +2238,78 @@
             type: "NpcSpawn",
             px: [
                 944,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "player_robot_fable",
+                prompt: "Inspect",
+                dialogue_id: "",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1072,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "sanic",
+                prompt: "Inspect",
+                dialogue_id: "",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1200,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "super_sanic",
+                prompt: "Inspect",
+                dialogue_id: "",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1328,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "mary_o",
+                prompt: "Inspect",
+                dialogue_id: "",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1456,
                 160,
             ],
             size: [

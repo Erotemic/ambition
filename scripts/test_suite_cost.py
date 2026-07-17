@@ -42,6 +42,7 @@ import re
 import subprocess
 import sys
 import time
+import tomllib
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
@@ -152,29 +153,64 @@ def analyze_crate(crate_dir: Path, root: Path) -> CrateCost:
                 cost.inline_test_loc += loc
             cost.test_fns += count_test_fns(rs)
 
-    # Integration tests: top-level tests/*.rs are separate binaries; nested
-    # files under tests/subdir/ are submodules of one of those binaries.
+    # Integration tests. Cargo links one binary per top-level `tests/*.rs` ONLY
+    # when auto-discovery is on. A crate with `autotests = false` (e.g.
+    # `ambition_app`) builds just its explicit `[[test]]` targets; the other
+    # `tests/*.rs` files are `mod` submodules of one aggregate binary, not
+    # separate link steps. Read the manifest so the model reflects Cargo reality.
+    manifest: dict = {}
+    cargo_toml = crate_dir / "Cargo.toml"
+    if cargo_toml.exists():
+        try:
+            manifest = tomllib.loads(
+                cargo_toml.read_text(encoding="utf-8", errors="replace"))
+        except tomllib.TOMLDecodeError:
+            manifest = {}
+    autotests = manifest.get("package", {}).get("autotests", True)
+    explicit_tests = manifest.get("test", [])
+    if isinstance(explicit_tests, dict):  # a single `[test]` table
+        explicit_tests = [explicit_tests]
+
     tests = crate_dir / "tests"
     if tests.is_dir():
-        for rs in sorted(tests.glob("*.rs")):
-            cost.integration_targets += 1
-            cost.integration_target_names.append(rs.stem)
+        # Volume metrics count EVERY source file (aggregate submodules included):
+        # consolidating targets removes link steps, not test code.
         for rs in tests.rglob("*.rs"):
             cost.integration_files += 1
             cost.integration_loc += count_lines(rs)
             cost.test_fns += count_test_fns(rs)
-            if HEAVY_MARKER.search(rs.read_text(encoding="utf-8", errors="replace")):
-                # attribute heaviness to the owning top-level target once
-                pass
-        # heavy = top-level targets whose tree references bevy
-        for rs in sorted(tests.glob("*.rs")):
-            tree_txt = rs.read_text(encoding="utf-8", errors="replace")
-            sub = tests / rs.stem
-            if sub.is_dir():
-                for s in sub.rglob("*.rs"):
-                    tree_txt += s.read_text(encoding="utf-8", errors="replace")
-            if HEAVY_MARKER.search(tree_txt):
-                cost.heavy_targets += 1
+
+        # Real integration binaries = auto-discovered top-level files (if enabled)
+        # plus explicitly-declared `[[test]]` targets.
+        names: list[str] = []
+        if autotests:
+            names = [rs.stem for rs in sorted(tests.glob("*.rs"))]
+        for t in explicit_tests:
+            nm = t.get("name")
+            if not nm and t.get("path"):
+                nm = Path(t["path"]).stem
+            if nm and nm not in names:
+                names.append(nm)
+        cost.integration_targets = len(names)
+        cost.integration_target_names = names
+
+        # Heaviness (bevy-linking = slow to link). One aggregate binary links its
+        # whole tree together, so it is a single heavy target if any file pulls in
+        # bevy; with auto-discovery, attribute per top-level target as before.
+        if not autotests:
+            tree_txt = "".join(
+                rs.read_text(encoding="utf-8", errors="replace")
+                for rs in tests.rglob("*.rs"))
+            cost.heavy_targets = 1 if (names and HEAVY_MARKER.search(tree_txt)) else 0
+        else:
+            for rs in sorted(tests.glob("*.rs")):
+                tree_txt = rs.read_text(encoding="utf-8", errors="replace")
+                sub = tests / rs.stem
+                if sub.is_dir():
+                    for s in sub.rglob("*.rs"):
+                        tree_txt += s.read_text(encoding="utf-8", errors="replace")
+                if HEAVY_MARKER.search(tree_txt):
+                    cost.heavy_targets += 1
     return cost
 
 

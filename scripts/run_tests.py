@@ -19,7 +19,9 @@ Usage:
   ./run_tests.sh --list              # print the job plan, run nothing
   ./run_tests.sh -k <substr>         # only tests whose name contains <substr>
   ./run_tests.sh -p <crate>          # only that crate's job (repeatable)
-  ./run_tests.sh --fast              # backbone only: `cargo test --workspace`
+  ./run_tests.sh --fast              # backbone only (default features, no
+                                     #   feature jobs); honors -p if given
+An unknown -p package or an otherwise empty plan is a hard error.
   ./run_tests.sh -- --nocapture      # args after `--` go to libtest
 
 Exit code is nonzero if any job fails. A pytest-style summary is printed last.
@@ -118,43 +120,72 @@ class Job:
     argv: list[str]
 
 
-def build_jobs(only: list[str], heavy: bool, libtest_args: list[str]) -> list[Job]:
+def selected_members(only: list[str]) -> list[Path]:
+    """Workspace members with a `Cargo.toml`, validated against `only`.
+
+    An unknown package name is a HARD error: silently planning zero jobs (the old
+    behavior) makes a typo look like a green run.
+    """
+    members = [c for c in workspace_members() if (c / "Cargo.toml").exists()]
+    if only:
+        known = {c.name for c in members}
+        unknown = [p for p in only if p not in known]
+        if unknown:
+            raise SystemExit(
+                "run_tests: unknown package(s): " + ", ".join(sorted(unknown))
+                + "\n  known packages: "
+                + ", ".join(sorted(c.name for c in members)))
+    return members
+
+
+def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
+               fast: bool = False) -> list[Job]:
     jobs: list[Job] = []
+    members = selected_members(only)
 
     def libtest(extra: list[str] = ()) -> list[str]:
         tail = list(libtest_args) + list(extra)
         return (["--"] + tail) if tail else []
 
-    # Backbone: every crate's default-feature tests in one unified graph.
-    if not only:
+    # Default-feature jobs. Every SELECTED package gets its own `cargo test -p`,
+    # so a package filter can NEVER plan zero jobs; with no filter the whole
+    # workspace builds as one unified graph. `--fast` honors the same restriction
+    # (it only drops the feature/heavy passes below).
+    if only:
+        for crate in members:
+            if crate.name in only:
+                jobs.append(Job(f"{crate.name} (default features)",
+                                [CARGO, "test", "-p", crate.name, *libtest()]))
+    else:
         jobs.append(Job("workspace (default features)",
                         [CARGO, "test", "--workspace", *libtest()]))
 
     # Per-crate feature jobs: enable each crate's headless-safe extra features so
-    # its #[cfg(feature = "...")] tests actually compile and run.
-    for crate in workspace_members():
-        cargo_toml = crate / "Cargo.toml"
-        if not cargo_toml.exists():
-            continue
-        name = crate.name
-        if only and name not in only:
-            continue
-        if name in SKIP_FEATURE_JOB and not only:
-            continue
-        data = tomllib.loads(cargo_toml.read_text())
-        features = data.get("features", {})
-        default = expand_default(features)
-        extra = sorted(f for f in features
-                       if not is_denied(f) and f not in default)
-        if not extra or not crate_has_tests(crate):
-            continue
-        jobs.append(Job(f"{name} [{','.join(extra)}]",
-                        [CARGO, "test", "-p", name,
-                         "--features", ",".join(extra), *libtest()]))
+    # its #[cfg(feature = "...")] tests actually compile and run. Skipped under
+    # --fast (backbone only). Big composition crates whose extra features gate no
+    # test code are always skipped -- their default-feature job already runs every
+    # test, and a feature variant would recompile the whole graph for nothing.
+    if not fast:
+        for crate in members:
+            name = crate.name
+            if only and name not in only:
+                continue
+            if name in SKIP_FEATURE_JOB:
+                continue
+            data = tomllib.loads((crate / "Cargo.toml").read_text())
+            features = data.get("features", {})
+            default = expand_default(features)
+            extra = sorted(f for f in features
+                           if not is_denied(f) and f not in default)
+            if not extra or not crate_has_tests(crate):
+                continue
+            jobs.append(Job(f"{name} [{','.join(extra)}]",
+                            [CARGO, "test", "-p", name,
+                             "--features", ",".join(extra), *libtest()]))
 
     # Heavy pass: rerun including #[ignore]d tests, plus the shipping-entrypoint
-    # acceptance cycles (full app boot).
-    if heavy and not only:
+    # acceptance cycles (full app boot). Whole-suite, non-fast only.
+    if heavy and not only and not fast:
         jobs.append(Job("workspace (+ ignored)",
                         [CARGO, "test", "--workspace",
                          *libtest(["--include-ignored"])]))
@@ -162,6 +193,9 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str]) -> list[Jo
                         ["./run_game.sh", "--", "--headless-acceptance-cycle"]))
         jobs.append(Job("acceptance: headless 120 ticks",
                         ["./run_game.sh", "--", "--headless", "--headless-ticks", "120"]))
+
+    if not jobs:
+        raise SystemExit("run_tests: empty job plan (nothing to run)")
     return jobs
 
 
@@ -220,12 +254,7 @@ def main() -> int:
     if args.k:
         libtest_args.insert(0, args.k)
 
-    if args.fast:
-        jobs = [Job("workspace (default features)",
-                    [CARGO, "test", "--workspace"]
-                    + (["--"] + libtest_args if libtest_args else []))]
-    else:
-        jobs = build_jobs(args.package, args.heavy, libtest_args)
+    jobs = build_jobs(args.package, args.heavy, libtest_args, fast=args.fast)
     return run(jobs, args.list)
 
 

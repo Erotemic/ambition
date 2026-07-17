@@ -16,7 +16,8 @@ subject's declared actions, and the action's gate is what reaches the kernel
 interaction. The same declared action carries its presentation (display text,
 optional visual), so the on-screen buttons and the simulation **cannot
 disagree by construction**: the prompt asks the same resolver the brain calls
-on press.
+on press. (This property is structural from P3 on; through P0–P2 it is
+enforced by the scheme⇔behavior parity guard instead — see P0/P2.)
 
 The touch UI (and any future prompt surface) is a dumb presenter: it asks
 "what am I controlling?", receives an ordered list of labeled actions with
@@ -83,8 +84,13 @@ Two remap layers fall out naturally:
    latch and stream. Scheme resolution happens **sim-side and
    deterministically**, so rollback re-resolves identically even when the
    scheme changed inside the rollback window (powerup, possession, form
-   toggle). Streaming *resolved actions* is forbidden. (Worth an ADR when P3
-   lands.)
+   toggle). Streaming *resolved actions* is forbidden. This is mechanical,
+   not aspirational, because the scheme itself is **derived state** — a pure
+   function of already-snapshotted authorities (`AbilitySet`, `ActorMoveset`,
+   technique registrations) — so a rollback reconstructs the tick-correct
+   scheme for free from the restored authorities; nothing scheme-shaped
+   enters the stream or the snapshot ledger (the `ResolvedMotionFrame`
+   precedent). (Worth an ADR when P3 lands.)
 2. **One resolver, shared.** The function the brain uses to resolve a slot
    press is the same function the prompt producer calls to label the slot.
    The old affordances module's "Migration target" note wished for exactly
@@ -162,6 +168,22 @@ Each phase compiles, is tested, and lands as its own commit(s) on main.
   the SAME authorities that gate behavior today: `AbilitySet`
   (`engine_core/src/abilities.rs:20`) for movement actions,
   `ActorMoveset`/`ActionSet` for combat, content-registered techniques.
+- The scheme component is **derived, snapshot-DERIVED, reconciled on
+  change**: a reconcile system re-derives it whenever a source authority
+  changes (equipment grant, ability grant, form change — the
+  `reconcile_autonomous_actors` pattern), and the snapshot ledger registers
+  it DERIVED so restore re-derives instead of persisting (the
+  `ResolvedMotionFrame` precedent). This is what makes invariant 1's
+  rollback claim mechanical: the scheme never needs its own snapshot or
+  stream entry.
+- **Every derived action gets a slot, and Special gets a DEDICATED slot**:
+  new `SandboxAction::Special` variant (default bindings authored in P1).
+  Today the protagonist's blink button double-fires blink AND the bubble
+  special (`special_pressed = blink_pressed`), while the touch Shot button
+  wears the special's labels but fires ranged — two existing HUD lies.
+  One-slot-one-action splits them: blink slot → Blink, Special slot →
+  Bubble. Without this, retiring the alias in P3 strands every special
+  between P3 and P6.
 - Tests: derivation per capability profile (full-kit protagonist vs
   movement-only Sanic vs boss); deterministic ordering; poison test (empty
   scheme renders empty, never smash defaults); **scheme⇔behavior parity**
@@ -209,6 +231,9 @@ Each phase compiles, is tested, and lands as its own commit(s) on main.
 - **Payoff already here:** possess a body → buttons change, because the
   scheme is real — even though input still flows the old path (guarded by the
   P0 parity test).
+- P2 is a **shippable player-facing milestone** on its own; P3 (the seam
+  refactor) remains committed per Jon's full-seam decision, but it is a
+  separable risk window, not a prerequisite for the visible feature.
 
 ### P3 — The seam refactor: kernel consumes actions *(parity-gated)*
 
@@ -234,6 +259,11 @@ Each phase compiles, is tested, and lands as its own commit(s) on main.
   migrate; the interception window and `gate_worn_player_control` are
   deleted. Fast-fall **stays an axis-derived gesture edge** (double-tap-down
   is not a bindable slot), resolved where it is today.
+- Retiring the `special_pressed = blink_pressed` alias is safe ONLY because
+  Special owns its slot by P0/P1 — sequencing requirement, not polish. The
+  blink/special double-fire split is a DELIBERATE behavior change recorded
+  as an authored exception in the parity harness (pre-release, behavior not
+  sacred), and it fixes both existing HUD lies named in P0.
 - AI/boss brains: `to_input_state` path gets the same keying; brain-authored
   `ActorControlFrame`s write action edges directly (they already know their
   intent — no scheme lookup needed on the AI side, the scheme is authoring
@@ -322,6 +352,24 @@ Each phase compiles, is tested, and lands as its own commit(s) on main.
 5. Surface = touch overlay (desktop/gamepad prompt surface is a later
    consumer of the same `ControlPrompt`); cast authoring in scope (P6);
    remapping planned holistically (P1 model + P5 UX).
+
+## Review addendum (2026-07-17, Opus 4.8 review → addressed by Fable 5)
+
+1. **Rollback claim made mechanical** — the scheme is snapshot-DERIVED,
+   a pure function of already-snapshotted authorities, reconciled on
+   change; nothing scheme-shaped enters the stream or the ledger
+   (invariant 1 + P0).
+2. **Special-slot sequencing hole closed** — dedicated
+   `SandboxAction::Special` slot in P0/P1 so the P3 alias retirement
+   cannot strand specials before P6. The blink/special double-fire split
+   is an authored behavior change in the parity harness, and it fixes two
+   pre-existing HUD lies (Shot button wearing special labels; blink button
+   silently firing the special).
+3. **Honesty bound on the headline** — "cannot disagree by construction"
+   is a post-P3 structural property; through P0–P2 it is parity-guarded
+   (the law + P2).
+4. **P2 marked shippable** — the visible feature lands at P2; P3 stays
+   committed (Jon's full-seam decision stands) as a separable risk window.
 
 ## Open questions (small, decide at execution)
 

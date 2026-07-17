@@ -209,13 +209,26 @@ Landed:
 - **Snapshot ledger:** `ControlPrompt` (resource) and `ActorActionScheme`
   (component) recorded as reviewed derived debt — both are intentionally
   unregistered (rebuilt/re-reconciled each tick from snapshotted authorities).
-- **Remaining (2 of 12): step 5** — the shared `binding→slot→scheme→gate`
-  resolver consumed by *both* the player brain and `ControlPrompt` (the
-  drift-preventer; refactors the player-brain input path) — and **step 9** —
-  Sanic ball-dash → a scheme technique (wire `techniques` into
-  `derive_action_scheme`, which still receives `&[]`). These two are
-  intertwined (a technique's slot flows through the resolver) and are best done
-  as one focused unit.
+- **Step 5 — LANDED** (`4d84a0230`): the shared-resolution *drift guard*. The
+  `ActionScheme` IS the shared resolution: `ControlPrompt` renders it directly,
+  gameplay's persona gate reads the body's immediate `ActionSet`, and a test
+  locks them — a combat slot is in the prompt's scheme IFF gameplay lets its
+  verb fire (canonical player + peaceful persona). Gameplay keeps the immediate
+  authority (not the one-tick-derived scheme) deliberately, to avoid a
+  stale-gate on a character swap; the guard is what makes that safe. (Fully
+  routing the gate *through* the derived scheme is a deferred consolidation with
+  no behavioral payoff and a lag cost.)
+- **Step 9 — LANDED** (`aa14405b2`): content techniques wired into the scheme
+  via a new `ActorTechniques` component that `derive_action_scheme` folds in
+  (overriding the base action on the slot). Sanic declares a `spin_dash`
+  technique on the Attack slot, so its on-screen button reads **"Spin Dash."**
+  Per the plan's honesty note, the ball-dash BEHAVIOR stays content code; this
+  gives the mechanic its scheme identity + label. Full behavioral migration to
+  sanctioned action edges is a separate content pass.
+
+**All 12 review steps + the milestone are landed.** Everything validated —
+engine_core 329, characters 388, actors ~813, demo_sanic 63, repro_walls 9, and
+the desync_canary determinism suite (19/19, incl. the snapshot-coverage ledger).
 
 Deferred consciously: `MoveSpec.display_name` field → P6 (authored with its
 fill-in); per-slot glyphs → P1/P5 (the overlay keeps its glyph subtitle); the

@@ -771,7 +771,7 @@
             fields: (
                 character_id: "npc_giant_gnu",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_giant_gnu",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -789,7 +789,7 @@
             fields: (
                 character_id: "npc_giant_gnu_hands",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_giant_gnu_hands",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -1059,7 +1059,7 @@
             fields: (
                 character_id: "npc_news_board",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_news_board",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -1617,7 +1617,7 @@
             fields: (
                 character_id: "npc_player_combat_review",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_player_combat_review",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -1635,7 +1635,7 @@
             fields: (
                 character_id: "npc_player_extended",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_player_extended",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -1653,7 +1653,7 @@
             fields: (
                 character_id: "npc_player_social_review",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_player_social_review",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -1671,7 +1671,7 @@
             fields: (
                 character_id: "npc_player_traversal_review",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_player_traversal_review",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -1689,7 +1689,7 @@
             fields: (
                 character_id: "npc_president_portrait",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_president_portrait",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -1869,7 +1869,7 @@
             fields: (
                 character_id: "npc_sandbag_armored_review",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_sandbag_armored_review",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -1887,7 +1887,7 @@
             fields: (
                 character_id: "npc_sandbag_full_review",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_sandbag_full_review",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2121,7 +2121,7 @@
             fields: (
                 character_id: "willson",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_willson",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2139,7 +2139,7 @@
             fields: (
                 character_id: "npc_ramen_nujan",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_ramen_nujan",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2157,7 +2157,7 @@
             fields: (
                 character_id: "npc_jeff_hinter",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_jeff_hinter",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2175,7 +2175,7 @@
             fields: (
                 character_id: "npc_jeff_hinter_armored",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_jeff_hinter_armored",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2193,7 +2193,7 @@
             fields: (
                 character_id: "npc_leblanc",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_leblanc",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2211,7 +2211,7 @@
             fields: (
                 character_id: "npc_fascist_enforcer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_fascist_enforcer",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2229,7 +2229,7 @@
             fields: (
                 character_id: "npc_puppy_slug_velvet",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_puppy_slug_velvet",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2247,7 +2247,7 @@
             fields: (
                 character_id: "player_robot_fable",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_player_robot_fable",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2265,7 +2265,7 @@
             fields: (
                 character_id: "sanic",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_sanic",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2283,7 +2283,7 @@
             fields: (
                 character_id: "super_sanic",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_super_sanic",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2301,7 +2301,7 @@
             fields: (
                 character_id: "mary_o",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_mary_o",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2319,7 +2319,7 @@
             fields: (
                 character_id: "mary_o_tall",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_mary_o_tall",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2517,7 +2517,7 @@
             fields: (
                 character_id: "npc_smirking_behemoth_boss",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_smirking_behemoth_boss",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),

@@ -178,7 +178,8 @@ fn separate_apps_select_independent_provider_sets() {
 /// catalog. The embedded (Ambition-only) content check tolerates the Hall's
 /// cross-provider characters (`sanic`, `mary_o`, …); with every provider loaded,
 /// each Hall NPC's `character_id` exists and its `brain_override` resolves inside
-/// that character's provider namespace — no silent fallback, no unresolved actor.
+/// that character's provider namespace. It also proves every exhibit has a Hall
+/// bark and a catalog-backed LDtk dialogue binding that names a real Yarn node.
 #[test]
 fn the_full_hall_validates_with_all_three_provider_catalogs() {
     use ambition::actors::ldtk_world::{field_string, LdtkProject};
@@ -192,6 +193,14 @@ fn the_full_hall_validates_with_all_three_provider_catalogs() {
     register_sanic(&mut app);
     register_mary_o(&mut app);
     let catalog = app.world().resource::<CharacterCatalog>();
+
+    let yarn_titles: std::collections::BTreeSet<&str> = ambition_content::dialogue::YARN_SOURCES
+        .iter()
+        .flat_map(|(_, source)| source.lines())
+        .filter_map(|line| line.strip_prefix("title:"))
+        .map(str::trim)
+        .filter(|title| !title.is_empty())
+        .collect();
 
     let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
     let mut checked = 0;
@@ -220,6 +229,32 @@ fn the_full_hall_validates_with_all_three_provider_catalogs() {
                         entity.iid
                     )
                 });
+
+            let entry = catalog
+                .get(&character_id)
+                .unwrap_or_else(|| panic!("validated Hall character {character_id} disappeared"));
+            assert!(
+                !entry.barks.hall.is_empty(),
+                "Hall exhibit {character_id} has no authored Hall bark"
+            );
+            let expected_dialogue_id = entry
+                .hall_dialogue_id
+                .as_deref()
+                .unwrap_or_else(|| {
+                    panic!("Hall exhibit {character_id} has no catalog hall_dialogue_id")
+                });
+            let authored_dialogue_id = field_string(entity, "dialogue_id")
+                .filter(|id| !id.trim().is_empty())
+                .unwrap_or_else(|| panic!("Hall exhibit {character_id} has no LDtk dialogue_id"));
+            assert_eq!(
+                authored_dialogue_id.trim(),
+                expected_dialogue_id,
+                "Hall exhibit {character_id} dialogue binding drifted from its catalog row"
+            );
+            assert!(
+                yarn_titles.contains(expected_dialogue_id),
+                "Hall exhibit {character_id} references missing Yarn node {expected_dialogue_id}"
+            );
             checked += 1;
         }
     }

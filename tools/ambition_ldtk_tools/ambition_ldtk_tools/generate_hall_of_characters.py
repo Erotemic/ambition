@@ -538,29 +538,43 @@ HEADER = """\
 # cross-provider exhibits — the single place to add/remove a provider character
 # from the Hall, never by editing the provider's own definition.
 #
-# (character_id, tier) where tier is "MainHall" or "Basement". Transformations
+# (character_id, tier, hall_dialogue_id), where tier is "MainHall" or
+# "Basement". Transformations
 # (super_sanic, mary_o_tall) are listed EXPLICITLY, never auto-expanded.
-PROVIDER_HALL_ENTRIES: list[tuple[str, str]] = [
-    ("sanic", "MainHall"),
-    ("super_sanic", "MainHall"),
-    ("mary_o", "MainHall"),
-    ("mary_o_tall", "MainHall"),
+PROVIDER_HALL_ENTRIES: list[tuple[str, str, str]] = [
+    ("sanic", "MainHall", "hall_sanic"),
+    ("super_sanic", "MainHall", "hall_super_sanic"),
+    ("mary_o", "MainHall", "hall_mary_o"),
+    ("mary_o_tall", "MainHall", "hall_mary_o_tall"),
 ]
 
 
 def merge_provider_entries(
     main_ids: list[str],
     basement_ids: list[str],
-    provider_entries: list[tuple[str, str]],
-) -> tuple[list[str], list[str]]:
-    """Append authored provider-owned exhibit ids to the section lists.
+    hall_dialogue_ids: dict[str, str],
+    provider_entries: list[tuple[str, str, str]],
+) -> tuple[list[str], list[str], dict[str, str]]:
+    """Append authored provider-owned exhibits and their Hall dialogue binding.
 
-    Skips any id already present in either section, so a native catalog row and
+    The provider rows live in separate Rust-embedded catalog fragments, so this
+    cross-provider exhibit list is the Hall generator's only build-time view of
+    them. Runtime integration tests compare each generated binding against the
+    assembled catalog row, making any duplicate metadata drift fail loudly.
+
+    Skips an id already present in either section, so a native catalog row and
     a provider reference never double up. Ordering is stable: catalog entries
     first (in file order), then provider entries in authored order.
     """
     seen = set(main_ids) | set(basement_ids)
-    for cid, tier in provider_entries:
+    for cid, tier, dialogue_id in provider_entries:
+        existing = hall_dialogue_ids.get(cid)
+        if existing is not None and existing != dialogue_id:
+            raise ValueError(
+                f"provider Hall dialogue mismatch for {cid!r}: "
+                f"catalog={existing!r}, exhibit={dialogue_id!r}"
+            )
+        hall_dialogue_ids[cid] = dialogue_id
         if cid in seen:
             continue
         seen.add(cid)
@@ -568,7 +582,7 @@ def merge_provider_entries(
             basement_ids.append(cid)
         else:
             main_ids.append(cid)
-    return main_ids, basement_ids
+    return main_ids, basement_ids, hall_dialogue_ids
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -593,8 +607,8 @@ def main(argv: list[str] | None = None) -> int:
 
     text = args.catalog.read_text()
     main_ids, basement_ids, hall_dialogue_ids = parse_catalog(text)
-    main_ids, basement_ids = merge_provider_entries(
-        main_ids, basement_ids, PROVIDER_HALL_ENTRIES
+    main_ids, basement_ids, hall_dialogue_ids = merge_provider_entries(
+        main_ids, basement_ids, hall_dialogue_ids, PROVIDER_HALL_ENTRIES
     )
     spec = build_spec(main_ids, basement_ids, hall_dialogue_ids)
     out_text = HEADER + ron_dumps(spec)

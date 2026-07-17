@@ -37,11 +37,16 @@ The Hall is a playable index of the cast — and a living test of the catalog pi
 
 ## Remaining work (content + deletion)
 
-The architecture is in place; the migration + deletion are done. What remains is authoring:
+The architecture, migration, deletion, and Hall voice pass are complete:
 
 - ✅ DONE (R3.4, `248eb9cc`): barks migrated to the catalog; the legacy
   named-bark tables + registry deleted, not bridged. The catalog `barks` field is
   now the single source of truth via `bark_line_for_character_id`, with only a
   single engine-generic `GENERIC_HIT_BARKS` anonymous default remaining.
-1. Author `hall` bark lines + a `hall_dialogue_id` Yarn node for every character.
-2. Regenerate the Hall spec via the Python tool and re-embed it into LDtk.
+- ✅ DONE (2026-07-17): every generated Hall exhibit, including provider-owned
+  Sanic and Mary-O forms, has at least one `hall` bark and a catalog-backed
+  `hall_dialogue_id` with an authored Yarn node. The Hall spec and LDtk world are
+  regenerated from those bindings.
+- ✅ GUARDED: the full-host Hall integration test walks every generated
+  `NpcSpawn` and rejects missing bark pools, missing or drifted LDtk dialogue
+  bindings, and references to absent Yarn titles.

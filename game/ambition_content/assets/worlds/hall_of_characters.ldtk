@@ -7893,7 +7893,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_giant_gnu", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_giant_gnu"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -7924,7 +7927,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_giant_gnu_hands", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_giant_gnu_hands"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -8431,7 +8437,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_news_board", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_news_board"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -9482,7 +9491,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_player_combat_review", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_player_combat_review"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -9513,7 +9525,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_player_extended", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_player_extended"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -9544,7 +9559,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_player_social_review", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_player_social_review"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -9575,7 +9593,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_player_traversal_review", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_player_traversal_review"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -9606,7 +9627,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_president_portrait", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_president_portrait"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -9943,7 +9967,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_sandbag_armored_review", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_sandbag_armored_review"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -9974,7 +10001,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_sandbag_full_review", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_sandbag_full_review"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -10413,7 +10443,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_willson", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_willson"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -10444,7 +10477,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_ramen_nujan", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_ramen_nujan"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -10475,7 +10511,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_jeff_hinter", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_jeff_hinter"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -10506,7 +10545,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_jeff_hinter_armored", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_jeff_hinter_armored"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -10537,7 +10579,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_leblanc", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_leblanc"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -10568,7 +10613,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_fascist_enforcer", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_fascist_enforcer"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -10599,7 +10647,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_puppy_slug_velvet", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_puppy_slug_velvet"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -10630,7 +10681,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_player_robot_fable", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_player_robot_fable"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -10661,7 +10715,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_sanic", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_sanic"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -10692,7 +10749,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_super_sanic", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_super_sanic"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -10723,7 +10783,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_mary_o", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_mary_o"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -10754,7 +10817,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_mary_o_tall", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_mary_o_tall"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",
@@ -11125,7 +11191,10 @@
 									"id": "V_String",
 									"params": ["Inspect"]
 								}] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_smirking_behemoth_boss", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_smirking_behemoth_boss"]
+								}] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
 									"id": "V_String",

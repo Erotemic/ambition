@@ -443,6 +443,10 @@ const SANIC_CATALOG_RON: &str = r#"(
                 jump_speed: 700.0,
                 stick_factor: 4.0,
             )),
+            barks: (
+                hall: ["The pedestal asked me to idle. I said no.", "Where am I going? Yes.", "The camera is filing a complaint."],
+            ),
+            hall_dialogue_id: Some("hall_sanic"),
         ),
         "super_sanic": (
             sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
@@ -471,6 +475,10 @@ const SANIC_CATALOG_RON: &str = r#"(
                 jump_speed: 840.0,
                 stick_factor: 4.0,
             )),
+            barks: (
+                hall: ["The air is falling behind.", "Immortality is a ring budget.", "The universe may submit a request to slow down."],
+            ),
+            hall_dialogue_id: Some("hall_super_sanic"),
         ),
         // The badnik's IDENTITY row: its sprite resolves from this display
         // name (the Mary-O crony pattern). It points its OWN name at the

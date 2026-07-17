@@ -586,7 +586,8 @@
         // (target `giant_gnu`, collision_scale 4.5 matching the giant art). Its
         // rideability + heavy mass + own HP live on the `giant_gnu` archetype
         // (character_archetypes.ron); GNU-ton (the rider) stays the boss. Not a
-        // hall pedestal (inspect-silent, no dialogue).
+        // Hall exhibit as well as a gameplay mount; its gallery voice reflects
+        // that support role rather than pretending it is the rider.
         "npc_giant_gnu": (
             sprite_tuning: Some((collision_scale: 4.5, frame_sample_inset: 1)),
             display_name: "Giant GNU",
@@ -598,13 +599,18 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["mount", "giant"],
+            barks: (
+                hall: ["Gnu Ton brought a quotation. I asked for a saddle.", "GNU's not Unix. I am not the rider. Please keep up.", "Everyone wants the shoulders. Nobody asks about the knees."],
+            ),
+            hall_dialogue_id: Some("hall_npc_giant_gnu"),
         ),
 
         // ===== Giant GNU Hands (Q18 / G3 — the giant's two DRIVEN limb bodies).
         // A brainless actor body rendering the scholar-less `giant_gnu_hands`
         // sheet; the gnu_ton_rider boss's strikes drive it through the limb router.
         // Same 768x576 layout / collision_scale 4.5 as the giant body (they share
-        // the G1 sheet placement). Not a hall pedestal (inspect-silent).
+        // the G1 sheet placement). Its Hall voice leans into the absurdity of a
+        // separately cataloged, boss-driven hand instead of explaining it away.
         "npc_giant_gnu_hands": (
             sprite_tuning: Some((collision_scale: 4.5, frame_sample_inset: 1)),
             display_name: "Giant GNU Hand",
@@ -616,6 +622,10 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["limb", "giant"],
+            barks: (
+                hall: ["Talk to the hand. Appointment required for the giant.", "I am right-handed on alternate Tuesdays.", "Pointing is free. Punching is billable."],
+            ),
+            hall_dialogue_id: Some("hall_npc_giant_gnu_hands"),
         ),
 
         // ===== Puppy Slug (wanderer crawlid).
@@ -891,6 +901,10 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["intro", "prop_like"],
+            barks: (
+                hall: ["BREAKING: Smoke cleared of all wrongdoing.", "Correction: your memory has been flagged for tone.", "Officials confirm the wall was always missing."],
+            ),
+            hall_dialogue_id: Some("hall_npc_news_board"),
         ),
         "npc_erdish": (
             display_name: "Erdish",
@@ -1556,6 +1570,10 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["player", "variant"],
+            barks: (
+                hall: ["My hitboxes passed. My face needs less emotional availability.", "I die in eight directions and live in none.", "I'm the hero's crash-test cousin."],
+            ),
+            hall_dialogue_id: Some("hall_npc_player_combat_review"),
         ),
         "npc_player_extended": (
             display_name: "Player Extended",
@@ -1567,6 +1585,10 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["player", "variant"],
+            barks: (
+                hall: ["Thirty-seven verbs. Still no Tuesday.", "I have a swim cycle and nowhere to swim.", "The unused poses are the happiest."],
+            ),
+            hall_dialogue_id: Some("hall_npc_player_extended"),
         ),
         "npc_player_social_review": (
             display_name: "Player Social Review",
@@ -1578,6 +1600,10 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["player", "variant"],
+            barks: (
+                hall: ["Hello! I have rehearsed your reply.", "I can wave for an alarming number of frames.", "Please remain conversational. I am being evaluated."],
+            ),
+            hall_dialogue_id: Some("hall_npc_player_social_review"),
         ),
         "npc_player_traversal_review": (
             display_name: "Player Traversal Review",
@@ -1589,6 +1615,10 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["player", "variant"],
+            barks: (
+                hall: ["That railing is a route pretending to be furniture.", "The world says fall. One hand files an appeal.", "Standing still is my least polished move."],
+            ),
+            hall_dialogue_id: Some("hall_npc_player_traversal_review"),
         ),
         "npc_president_portrait": (
             display_name: "President Portrait",
@@ -1600,6 +1630,10 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["hub", "static"],
+            barks: (
+                hall: ["I have no position on whether I am still president.", "My approval rating is excellent inside this frame.", "The plaque is too small to audit."],
+            ),
+            hall_dialogue_id: Some("hall_npc_president_portrait"),
         ),
         "npc_puppy_slug_variant2": (
             display_name: "Puppy Slug Variant2",
@@ -1791,6 +1825,10 @@
             default_brain: "stand_still",
             default_action_set: "sandbag_punch",
             tags: ["training"],
+            barks: (
+                hall: ["Not compassion. Armor. Important distinction.", "My counterpunch was reclassified as bad data.", "The armor protects your conscience."],
+            ),
+            hall_dialogue_id: Some("hall_npc_sandbag_armored_review"),
         ),
         "npc_sandbag_full_review": (
             display_name: "Sandbag Full Review",
@@ -1802,6 +1840,10 @@
             default_brain: "stand_still",
             default_action_set: "sandbag_punch",
             tags: ["training"],
+            barks: (
+                hall: ["Burlap with a résumé.", "I can swim. Please do not test that.", "My favorite move is dodge. They never gave it to me."],
+            ),
+            hall_dialogue_id: Some("hall_npc_sandbag_full_review"),
         ),
         "npc_smart_house": (
             display_name: "Smart House",
@@ -2066,8 +2108,9 @@
             default_action_set: "peaceful",
             tags: ["misc"],
         barks: (
-            hall: ["A pelican. A bicycle. One entity. Don't ask which pedals.", "I fly by committee: two wings, two wheels, no consensus."],
+            hall: ["Two Ls, two wheels, one pelican.", "Sometimes the bicycle rides me.", "The smaller bicycle stays in the beak."],
         ),
+        hall_dialogue_id: Some("hall_willson"),
         ),
         "npc_ramen_nujan": (
             display_name: "Ramen-nujan",
@@ -2081,8 +2124,9 @@
             tags: ["mathematician", "peaceful"],
         barks: (
             idle: ["I dreamt the formulae; I merely wrote them down.", "The partitions grow faster than anyone expects."],
-            hall: ["An equation means nothing to me unless it expresses a thought of God.", "1729 — the smallest number that is a sum of two cubes two different ways. You're welcome."],
+            hall: ["I dreamt the answer. Proof can have it after breakfast.", "1729 has two doors and excellent secrets.", "The noodles were infinite. The bowl was not."],
         ),
+        hall_dialogue_id: Some("hall_npc_ramen_nujan"),
         ),
         "npc_jeff_hinter": (
             display_name: "Jeff Hinter",
@@ -2096,8 +2140,9 @@
             tags: ["mathematician", "peaceful"],
         barks: (
             idle: ["The gradient points downhill. All you have to do is follow it.", "Every mind in this hall is a very confident function approximator."],
-            hall: ["Backpropagate your regrets. I certainly do.", "I told them to be afraid, and they gave me a pedestal."],
+            hall: ["1000! No, not factorial. Volume.", "You keep having depth. It ruins the projection.", "That coat rack is overfitting as a professor."],
         ),
+        hall_dialogue_id: Some("hall_npc_jeff_hinter"),
         ),
         "npc_jeff_hinter_armored": (
             display_name: "Jeff Hinter (Armored)",
@@ -2111,8 +2156,9 @@
             tags: ["mathematician", "variant", "armored"],
         barks: (
             idle: ["Weights hardened. Overfitting is a survival trait now.", "Dropout? In this economy? I keep every neuron."],
-            hall: ["Adversarial examples bounce right off.", "Regularized, quantized, and armored."],
+            hall: ["Outliers removed. Invulnerability restored.", "Reality has not submitted results correctly.", "The manifold fits me beautifully."],
         ),
+        hall_dialogue_id: Some("hall_npc_jeff_hinter_armored"),
         ),
         "npc_leblanc": (
             display_name: "Madam LeBlanc",
@@ -2126,8 +2172,9 @@
             tags: ["mathematician", "peaceful"],
         barks: (
             idle: ["Algebra does not care whose name is on the envelope.", "I taught myself by the candlelight they kept trying to take away."],
-            hall: ["Address your letters to Monsieur LeBlanc. The mathematics will be identical.", "A prime p where 2p+1 is also prime — they named those after me. LeBlanc got nothing."],
+            hall: ["The M stands for Madam. Do keep up.", "I brought a proof. They brought a locked door. The proof won.", "Bring me a prime, its companion, and an academy to embarrass."],
         ),
+        hall_dialogue_id: Some("hall_npc_leblanc"),
         ),
         "npc_fascist_enforcer": (
             display_name: "Fascist Enforcer",
@@ -2140,8 +2187,9 @@
             default_action_set: "peaceful",
             tags: ["enemy"],
         barks: (
-            hall: ["The badge does the thinking so I don't have to. That's the whole pitch, and the whole problem.", "Behind the glare is a smaller man taking orders."],
+            hall: ["Papers.", "The order authorizes itself.", "If it is wrong, I will have obeyed correctly."],
         ),
+        hall_dialogue_id: Some("hall_npc_fascist_enforcer"),
         ),
         "npc_puppy_slug_velvet": (
             display_name: "Velvet Puppy Slug",
@@ -2154,8 +2202,9 @@
             default_action_set: "peaceful",
             tags: ["misc"],
         barks: (
-            hall: ["Softer than the others. Same appetite.", "Pet me and find out. (Please don't.)"],
+            hall: ["Bworple?", "*an unnecessary eye opens approvingly*", "Mrrrp. The other mouths have retained counsel."],
         ),
+        hall_dialogue_id: Some("hall_npc_puppy_slug_velvet"),
         ),
         "player_robot_fable": (
             display_name: "Player Robot (Fable)",
@@ -2168,8 +2217,9 @@
             default_action_set: "peaceful",
             tags: ["player"],
         barks: (
-            hall: ["Same wiring, different story. The Fable cut.", "A variant of the variant. Somewhere there's an original."],
+            hall: ["I reviewed the engine until I developed knees.", "This comment remains unresolved.", "Purpose is not a caller."],
         ),
+        hall_dialogue_id: Some("hall_player_robot_fable"),
         ),
         "npc_smirking_behemoth_boss": (
             display_name: "Smirking Behemoth",
@@ -2182,8 +2232,9 @@
             default_action_set: "peaceful",
             tags: ["enemy", "boss"],
         barks: (
-            hall: ["I'm smirking because I already know how this ends.", "Big enough to fill the basement. Smug enough to enjoy it."],
+            hall: ["The rope is decorative. Stop looking up.", "Health bar. Eyes down here.", "That piano is probably nothing."],
         ),
+        hall_dialogue_id: Some("hall_npc_smirking_behemoth_boss"),
         ),
     },
 )

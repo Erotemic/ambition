@@ -328,6 +328,10 @@ const MARY_O_CATALOG_RON: &str = r#"(
             axis_tuning: Some((air_jumps: 2)),
             playable_kit: Authored,
             tags: ["player"],
+            barks: (
+                hall: ["I solve masonry disputes from below.", "First jump: business. Second: insurance. Third: spite.", "Every pipe is hiding something."],
+            ),
+            hall_dialogue_id: Some("hall_mary_o"),
         ),
         // TALL Mary-O: the grown form. A milk-powerup swaps the worn identity to
         // this row (a distinct SHEET — `super_mary_o_tall` — not a scaled copy of
@@ -350,6 +354,10 @@ const MARY_O_CATALOG_RON: &str = r#"(
             axis_tuning: Some((air_jumps: 2)),
             playable_kit: Authored,
             tags: ["player"],
+            barks: (
+                hall: ["One power-up; every ceiling gets an opinion.", "Ask the doorframes whether taller is better.", "I shrink after one professional-grade mistake."],
+            ),
+            hall_dialogue_id: Some("hall_mary_o_tall"),
         ),
         // The crony's IDENTITY row: its sprite resolves from this display name.
         // It points its OWN name at the published `ai_slop` sheet (Ambition owns

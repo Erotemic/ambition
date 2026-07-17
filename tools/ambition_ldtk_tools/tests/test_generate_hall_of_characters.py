@@ -10,6 +10,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "ambition_ldtk_tools"))
 
@@ -81,18 +83,36 @@ def test_merge_provider_entries_appends_and_dedupes():
     pedestal)."""
     main = ["goblin", "robot"]
     basement = ["npc_trex_enemy"]
-    merged_main, merged_basement = merge_provider_entries(
+    merged_main, merged_basement, dialogue_ids = merge_provider_entries(
         main,
         basement,
+        {"robot": "hall_robot"},
         [
-            ("sanic", "MainHall"),
-            ("mary_o", "MainHall"),
-            ("smirking_behemoth_boss", "Basement"),
-            ("robot", "MainHall"),  # already present -> skipped
+            ("sanic", "MainHall", "hall_sanic"),
+            ("mary_o", "MainHall", "hall_mary_o"),
+            ("smirking_behemoth_boss", "Basement", "hall_behemoth"),
+            ("robot", "MainHall", "hall_robot"),  # already present -> skipped
         ],
     )
     assert merged_main == ["goblin", "robot", "sanic", "mary_o"]
     assert merged_basement == ["npc_trex_enemy", "smirking_behemoth_boss"]
+    assert dialogue_ids == {
+        "robot": "hall_robot",
+        "sanic": "hall_sanic",
+        "mary_o": "hall_mary_o",
+        "smirking_behemoth_boss": "hall_behemoth",
+    }
+
+
+def test_merge_provider_entries_rejects_dialogue_binding_drift():
+    """A provider exhibit must not silently override a catalog-owned binding."""
+    with pytest.raises(ValueError, match="provider Hall dialogue mismatch"):
+        merge_provider_entries(
+            ["sanic"],
+            [],
+            {"sanic": "hall_old_sanic"},
+            [("sanic", "MainHall", "hall_sanic")],
+        )
 
 
 def test_every_pedestal_gets_the_explicit_stand_still_override():

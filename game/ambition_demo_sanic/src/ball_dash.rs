@@ -297,7 +297,7 @@ pub fn tick_ball_dash(
             &tuning,
         ) {
             BallDashStep::Idle => {}
-            BallDashStep::Charging(_) => {
+            BallDashStep::Charging(charge) => {
                 // Reuse the shared dash-startup pose. A Sanic sheet with a
                 // dedicated row plays it; a lean sheet walks the standard
                 // fallback chain DashStartup -> Dash -> Run -> Walk -> Idle.
@@ -307,7 +307,13 @@ pub fn tick_ball_dash(
                     anim.dash_startup_timer = anim.dash_startup_timer.max(0.10);
                 }
                 if input.rev_pressed {
-                    sfx.write(ambition::sfx::SfxMessage::Jump { pos: kin.pos });
+                    // The rev climbs: the post-tap charge picks one of three
+                    // ascending tiers, so a full three-tap rev reads as the
+                    // classic "reh-reh-REH" without per-play pitch.
+                    sfx.write(ambition::sfx::SfxMessage::Play {
+                        id: ambition::sfx::SfxId::from_static(crate::rev_tier_id(charge)),
+                        pos: kin.pos,
+                    });
                 }
             }
             BallDashStep::Launch(charge) => {
@@ -325,7 +331,11 @@ pub fn tick_ball_dash(
                         kin.vel = frame.side * facing * speed;
                     }
                 }
-                sfx.write(ambition::sfx::SfxMessage::Dash { pos: kin.pos });
+                // The release whoosh — distinct from the generic dash cue.
+                sfx.write(ambition::sfx::SfxMessage::Play {
+                    id: ambition::sfx::SfxId::from_static(crate::SFX_LAUNCH),
+                    pos: kin.pos,
+                });
                 if rolling.is_none() {
                     commands.entity(entity).insert(Rolling {
                         restore_size: kin.size,

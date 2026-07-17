@@ -179,6 +179,33 @@ fn raised_full_loop_points(floor_top: f32) -> (Vec<ae::Vec2>, ae::Vec2) {
 pub const SANIC_CHARACTER_ID: &str = "sanic";
 pub const SUPER_SANIC_CHARACTER_ID: &str = "super_sanic";
 
+/// Sanic's own SFX vocabulary (provider-local open ids). Authoring a spec for
+/// each in the provider registry both AUTHORIZES the id under provider-relative
+/// playback and supplies its procedural voice — a Sanic session plays these and
+/// nothing else. The spin-dash rev is three ascending tiers so a charge builds
+/// the classic "reh-reh-REH" without needing per-play pitch on the message.
+pub const SFX_REV_TIERS: [&str; 3] = ["sanic.rev.0", "sanic.rev.1", "sanic.rev.2"];
+pub const SFX_LAUNCH: &str = "sanic.launch";
+pub const SFX_TRANSFORM: &str = "sanic.transform";
+pub const SFX_DETRANSFORM: &str = "sanic.detransform";
+pub const SFX_MONITOR: &str = "sanic.monitor";
+pub const SFX_BADNIK: &str = "sanic.badnik";
+pub const SFX_SKID: &str = "sanic.skid";
+pub const SFX_RING: &str = "sanic.ring";
+pub const SFX_RING_LOSS: &str = "sanic.ring_loss";
+
+/// Pick the rev tier from the post-tap charge (`0..=1`): the three buckets land
+/// on the three natural tap counts (`rev_per_tap` 0.4 → ~0.4, ~0.8, 1.0).
+pub fn rev_tier_id(charge: f32) -> &'static str {
+    if charge < 0.5 {
+        SFX_REV_TIERS[0]
+    } else if charge < 0.85 {
+        SFX_REV_TIERS[1]
+    } else {
+        SFX_REV_TIERS[2]
+    }
+}
+
 /// Visually authored distance markers. The floating marker platforms (in the
 /// LDtk file) and the one-shot milestone SFX share this table so the eye and
 /// ear measure the same positions instead of drifting as the speedway changes.
@@ -484,52 +511,116 @@ pub fn install_sanic_content(app: &mut App) {
             // resident in the shared bank cannot resolve here.
             Some(ambition::audio::spec::SfxRegistry {
                 sample_rate: 44_100,
-                sfx: vec![
-                    sanic_cue(ambition::audio::spec::SoundCueKey::Dash, 900.0, 1400.0),
-                    sanic_cue(ambition::audio::spec::SoundCueKey::Jump, 700.0, 1200.0),
-                    sanic_open_cue("ui.menu.move_icon", 760.0, 980.0),
-                    sanic_open_cue("ui.menu.accept", 880.0, 1320.0),
-                    sanic_open_cue("ui.menu.back", 620.0, 360.0),
-                ],
+                sfx: sanic_sfx_specs(),
             }),
         )
         .expect("Sanic audio catalogs should be valid"),
     );
 }
 
-/// An open provider-local procedural cue for shell/menu vocabulary.
-fn sanic_open_cue(id: &str, frequency: f32, frequency_end: f32) -> ambition::audio::spec::SfxSpec {
+/// The whole Sanic SFX table. Every cue is procedural (the provider ships no
+/// packed bank): the typed cues (`Dash`/`Jump`/`Pogo`/`Land`/`Reset`) voice the
+/// engine's shared movement/hazard events, and the open `sanic.*` ids voice the
+/// mode-local techniques (rev, launch, transform, monitor, badnik, skid, rings).
+/// Authoring each here is what authorizes it under provider-relative playback.
+fn sanic_sfx_specs() -> Vec<ambition::audio::spec::SfxSpec> {
+    use ambition::audio::spec::{SoundCueKey as Cue, WaveformSpec as Wave};
+    vec![
+        // Shared engine movement/vitals cues, in Sanic's bright voice.
+        sanic_cue(Cue::Dash, Wave::Square, 900.0, 1400.0, 0.12, 0.5, 0.0),
+        sanic_cue(Cue::Jump, Wave::Square, 700.0, 1200.0, 0.12, 0.5, 0.0),
+        // Springs / rebound pads: the engine writes `Pogo`; a bright rising boing.
+        sanic_cue(Cue::Pogo, Wave::Square, 420.0, 1350.0, 0.16, 0.5, 0.0),
+        // Touchdown footfall: a low, soft thud (the shared `Land` edge).
+        sanic_cue(Cue::Land, Wave::Sine, 190.0, 95.0, 0.09, 0.32, 0.12),
+        // Pit death / respawn reset: a descending "aww".
+        sanic_cue(Cue::Reset, Wave::Triangle, 520.0, 120.0, 0.34, 0.42, 0.0),
+        // Spin-dash rev — three ascending tiers picked by charge.
+        sanic_open(SFX_REV_TIERS[0], Wave::Saw, 300.0, 520.0, 0.10, 0.40, 0.05),
+        sanic_open(SFX_REV_TIERS[1], Wave::Saw, 430.0, 760.0, 0.10, 0.42, 0.05),
+        sanic_open(SFX_REV_TIERS[2], Wave::Saw, 580.0, 1020.0, 0.11, 0.45, 0.05),
+        // Launch/release whoosh (descending zip).
+        sanic_open(SFX_LAUNCH, Wave::Saw, 1300.0, 320.0, 0.22, 0.5, 0.10),
+        // Transform on (bright rising power chord) / off (softer descent).
+        sanic_open(SFX_TRANSFORM, Wave::Square, 520.0, 1500.0, 0.34, 0.5, 0.0),
+        sanic_open(SFX_DETRANSFORM, Wave::Square, 950.0, 420.0, 0.20, 0.4, 0.0),
+        // Monitor pop and badnik splat.
+        sanic_open(SFX_MONITOR, Wave::Square, 240.0, 900.0, 0.10, 0.45, 0.15),
+        sanic_open(SFX_BADNIK, Wave::Square, 720.0, 170.0, 0.12, 0.45, 0.20),
+        // Braking scrape (heavy noise).
+        sanic_open(SFX_SKID, Wave::Saw, 250.0, 190.0, 0.16, 0.38, 0.55),
+        // Rings: a bright collect ding and a scatter on loss.
+        sanic_open(SFX_RING, Wave::Triangle, 1000.0, 1560.0, 0.09, 0.40, 0.0),
+        sanic_open(SFX_RING_LOSS, Wave::Saw, 900.0, 220.0, 0.18, 0.42, 0.10),
+        // Shell / menu vocabulary.
+        sanic_open(
+            "ui.menu.move_icon",
+            Wave::Square,
+            760.0,
+            980.0,
+            0.09,
+            0.35,
+            0.0,
+        ),
+        sanic_open(
+            "ui.menu.accept",
+            Wave::Square,
+            880.0,
+            1320.0,
+            0.09,
+            0.35,
+            0.0,
+        ),
+        sanic_open("ui.menu.back", Wave::Square, 620.0, 360.0, 0.09, 0.35, 0.0),
+    ]
+}
+
+/// An open provider-local procedural cue (full control). `attack` is a short
+/// fixed onset; `release` trails a fixed fraction of the duration.
+fn sanic_open(
+    id: &str,
+    waveform: ambition::audio::spec::WaveformSpec,
+    frequency: f32,
+    frequency_end: f32,
+    duration: f32,
+    volume: f32,
+    noise: f32,
+) -> ambition::audio::spec::SfxSpec {
     ambition::audio::spec::SfxSpec {
         cue: None,
         id: Some(id.to_owned()),
-        waveform: ambition::audio::spec::WaveformSpec::Square,
+        waveform,
         frequency,
         frequency_end,
-        duration: 0.09,
-        volume: 0.35,
-        attack: 0.004,
-        release: 0.045,
-        noise: 0.0,
+        duration,
+        volume,
+        attack: 0.005,
+        release: (duration * 0.4).min(0.08),
+        noise,
     }
 }
 
-/// A bright, fast procedural cue spec in Sanic's voice.
+/// A typed engine cue in Sanic's voice (full control).
 fn sanic_cue(
     cue: ambition::audio::spec::SoundCueKey,
+    waveform: ambition::audio::spec::WaveformSpec,
     frequency: f32,
     frequency_end: f32,
+    duration: f32,
+    volume: f32,
+    noise: f32,
 ) -> ambition::audio::spec::SfxSpec {
     ambition::audio::spec::SfxSpec {
         cue: Some(cue),
         id: None,
-        waveform: ambition::audio::spec::WaveformSpec::Square,
+        waveform,
         frequency,
         frequency_end,
-        duration: 0.12,
-        volume: 0.5,
+        duration,
+        volume,
         attack: 0.005,
-        release: 0.06,
-        noise: 0.0,
+        release: (duration * 0.4).min(0.08),
+        noise,
     }
 }
 
@@ -707,6 +798,8 @@ impl Plugin for SanicRulesPlugin {
             // The super form's derived traits (invincibility + sparkles) track
             // the worn identity every frame — toggle- and monitor-agnostic.
             sync_super_form_traits,
+            // Braking scrape on the skid onset (reads the published skid fact).
+            emit_sanic_skid_sfx,
         )
             .chain()
             .in_set(ambition::platformer::schedule::SandboxSet::GameplayEffects);
@@ -754,6 +847,31 @@ impl Plugin for SanicRulesPlugin {
     }
 }
 
+/// Play the braking scrape on the frame the controlled body STARTS skidding.
+///
+/// `BodyMotionFacts::skidding` is published every step by the momentum
+/// integration (steer-against-fast-travel while riding); a rising edge fires the
+/// scrape once per skid onset instead of every tick it holds. One controlled body
+/// plays it, so a `Local` edge latch is sufficient.
+fn emit_sanic_skid_sfx(
+    subject: Option<bevy::prelude::Res<ambition::platformer::markers::ControlledSubject>>,
+    mut was_skidding: bevy::prelude::Local<bool>,
+    bodies: bevy::prelude::Query<(&ae::BodyMotionFacts, &ae::BodyKinematics)>,
+    mut sfx: ambition::sfx::SfxWriter,
+) {
+    let skid = subject.and_then(|s| s.0).and_then(|e| bodies.get(e).ok());
+    let (skidding, pos) = skid.map_or((false, ae::Vec2::ZERO), |(facts, kin)| {
+        (facts.skidding, kin.pos)
+    });
+    if skidding && !*was_skidding {
+        sfx.write(ambition::sfx::SfxMessage::Play {
+            id: ambition::sfx::SfxId::from_static(SFX_SKID),
+            pos,
+        });
+    }
+    *was_skidding = skidding;
+}
+
 /// Toggle the controlled body between the two catalog-authored Sanic forms.
 ///
 /// This consumes the already-semantic Utility edge (`D` in the demo's classic
@@ -768,14 +886,12 @@ fn toggle_sanic_form(
     mut bodies: bevy::prelude::Query<(
         &mut ambition::characters::brain::ActorControl,
         &mut ambition::characters::actor::WornCharacter,
-        &ae::BodyKinematics,
     )>,
-    mut sfx: ambition::sfx::SfxWriter,
 ) {
     let Some(entity) = subject.and_then(|subject| subject.0) else {
         return;
     };
-    let Ok((mut control, mut worn, kinematics)) = bodies.get_mut(entity) else {
+    let Ok((mut control, mut worn)) = bodies.get_mut(entity) else {
         return;
     };
     if !control.0.fly_toggle_pressed {
@@ -790,10 +906,9 @@ fn toggle_sanic_form(
         SUPER_SANIC_CHARACTER_ID => SANIC_CHARACTER_ID,
         _ => return,
     };
+    // The transform SOUND fires from the worn-identity edge in
+    // `sync_super_form_traits`, so wearing the form is all this does.
     *worn = ambition::characters::actor::WornCharacter::new(next);
-    sfx.write(ambition::sfx::SfxMessage::Dash {
-        pos: kinematics.pos,
-    });
 }
 
 /// How often the super form's sparkle trail pulses (sim seconds).
@@ -816,7 +931,9 @@ const SUPER_SPARKLE_PERIOD: f32 = 0.15;
 fn sync_super_form_traits(
     time: bevy::prelude::Res<ambition::time::WorldTime>,
     mut sparkle_accum: bevy::prelude::Local<f32>,
+    mut was_super: bevy::prelude::Local<bool>,
     mut vfx: bevy::prelude::MessageWriter<ambition::vfx::VfxMessage>,
+    mut sfx: ambition::sfx::SfxWriter,
     mut players: bevy::prelude::Query<
         (
             &ambition::characters::actor::WornCharacter,
@@ -832,6 +949,20 @@ fn sync_super_form_traits(
     let is_super = worn.id() == SUPER_SANIC_CHARACTER_ID;
     if health.health.invulnerable != is_super {
         health.health.invulnerable = is_super;
+    }
+    // The transform sound derives from the worn-identity EDGE, so it fires once
+    // no matter what wore the form — the D-toggle, a monitor, or a future ring
+    // drain — instead of each of those sites emitting its own cue.
+    if is_super != *was_super {
+        *was_super = is_super;
+        sfx.write(ambition::sfx::SfxMessage::Play {
+            id: ambition::sfx::SfxId::from_static(if is_super {
+                SFX_TRANSFORM
+            } else {
+                SFX_DETRANSFORM
+            }),
+            pos: kinematics.pos,
+        });
     }
     if !is_super {
         *sparkle_accum = 0.0;

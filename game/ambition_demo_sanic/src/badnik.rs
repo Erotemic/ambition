@@ -145,7 +145,8 @@ pub fn defeat_badniks(
             color: [0.85, 0.62, 0.35, 1.0],
             kind: ambition::vfx::ParticleKind::Dust,
         });
-        sfx.write(ambition::sfx::SfxMessage::Dash {
+        sfx.write(ambition::sfx::SfxMessage::Play {
+            id: ambition::sfx::SfxId::from_static(crate::SFX_BADNIK),
             pos: badnik_kin.pos,
         });
         // Neutralize before the contact pass runs, then remove the body.

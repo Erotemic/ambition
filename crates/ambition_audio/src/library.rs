@@ -46,6 +46,7 @@ impl SfxMessageCue for SfxMessage {
                 precision: true, ..
             } => SoundCue::PrecisionBlink,
             SfxMessage::Pogo { .. } => SoundCue::Pogo,
+            SfxMessage::Land { .. } => SoundCue::Land,
             SfxMessage::Slash { .. } => SoundCue::Slash,
             SfxMessage::Hit { .. } => SoundCue::Hit,
             SfxMessage::Death { .. } => SoundCue::Death,
@@ -88,13 +89,14 @@ pub enum SoundCue {
     Slash,
     Hit,
     Pogo,
+    Land,
     Reset,
     Death,
     Respawn,
 }
 
 impl SoundCue {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 12] = [
         Self::Jump,
         Self::DoubleJump,
         Self::Dash,
@@ -103,6 +105,7 @@ impl SoundCue {
         Self::Slash,
         Self::Hit,
         Self::Pogo,
+        Self::Land,
         Self::Reset,
         Self::Death,
         Self::Respawn,
@@ -136,6 +139,7 @@ impl From<SoundCue> for SoundCueKey {
             SoundCue::Slash => Self::Slash,
             SoundCue::Hit => Self::Hit,
             SoundCue::Pogo => Self::Pogo,
+            SoundCue::Land => Self::Land,
             SoundCue::Reset => Self::Reset,
             SoundCue::Death => Self::Death,
             SoundCue::Respawn => Self::Respawn,

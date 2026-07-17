@@ -121,7 +121,12 @@ pub fn break_monitor_boxes(
             color: [0.55, 0.75, 0.95, 1.0],
             kind: ambition::vfx::ParticleKind::Shard,
         });
-        sfx.write(ambition::sfx::SfxMessage::Jump { pos: center });
+        // The monitor's own pop (the super grant's transform sound fires
+        // separately from the worn-identity edge in `sync_super_form_traits`).
+        sfx.write(ambition::sfx::SfxMessage::Play {
+            id: ambition::sfx::SfxId::from_static(crate::SFX_MONITOR),
+            pos: center,
+        });
         match block.name.as_str() {
             SUPER_MONITOR => {
                 // The transformation grant reuses the ONE identity authority

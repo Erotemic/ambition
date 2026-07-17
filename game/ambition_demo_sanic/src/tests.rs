@@ -892,6 +892,9 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
         scaled_dt: 1.0 / 60.0,
     });
     app.add_message::<ambition::vfx::VfxMessage>();
+    // `sync_super_form_traits` now emits the transform cue on the worn-identity
+    // edge, so the SFX channel must exist for the SfxWriter system param.
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
     app.add_systems(bevy::prelude::Update, sync_super_form_traits);
     let player = app
         .world_mut()
@@ -974,4 +977,67 @@ fn rules_plugin_registers_its_mandatory_sfx_message_channel() {
         >(),
         "SanicRulesPlugin owns a mandatory SfxWriter dependency and must register it when a thin host has not"
     );
+}
+
+#[test]
+fn rev_tier_climbs_with_charge() {
+    // The three buckets land on the three natural tap counts (rev_per_tap 0.4).
+    assert_eq!(rev_tier_id(0.0), SFX_REV_TIERS[0]);
+    assert_eq!(rev_tier_id(0.4), SFX_REV_TIERS[0]);
+    assert_eq!(rev_tier_id(0.6), SFX_REV_TIERS[1]);
+    assert_eq!(rev_tier_id(0.8), SFX_REV_TIERS[1]);
+    assert_eq!(rev_tier_id(1.0), SFX_REV_TIERS[2]);
+    // Monotonic: never steps down as charge rises.
+    let mut prev = 0usize;
+    let mut c = 0.0;
+    while c <= 1.0 {
+        let tier = SFX_REV_TIERS
+            .iter()
+            .position(|id| *id == rev_tier_id(c))
+            .unwrap();
+        assert!(tier >= prev, "rev tier must not decrease with charge");
+        prev = tier;
+        c += 0.05;
+    }
+}
+
+#[test]
+fn the_sanic_sfx_registry_validates_with_every_new_cue() {
+    let registry = ambition::audio::spec::SfxRegistry {
+        sample_rate: 44_100,
+        sfx: sanic_sfx_specs(),
+    };
+    // No duplicate ids across the expanded table (rev tiers, launch, transform,
+    // monitor, badnik, skid, rings, Pogo/Land/Reset, menu).
+    registry
+        .validate()
+        .expect("the Sanic SFX table must have unique, well-formed ids");
+    // The mode-local techniques and the newly-voiced engine cues are all present.
+    let ids = registry.authorized_cue_ids();
+    for open in [
+        SFX_REV_TIERS[0],
+        SFX_REV_TIERS[1],
+        SFX_REV_TIERS[2],
+        SFX_LAUNCH,
+        SFX_TRANSFORM,
+        SFX_DETRANSFORM,
+        SFX_MONITOR,
+        SFX_BADNIK,
+        SFX_SKID,
+    ] {
+        assert!(
+            ids.contains(&ambition::sfx::SfxId::from_static(open)),
+            "registry must authorize {open}"
+        );
+    }
+    for cue in [
+        ambition::audio::spec::SoundCueKey::Pogo,
+        ambition::audio::spec::SoundCueKey::Land,
+        ambition::audio::spec::SoundCueKey::Reset,
+    ] {
+        assert!(
+            ids.contains(&cue.sfx_id()),
+            "registry must authorize the {cue:?} engine cue it now voices"
+        );
+    }
 }

@@ -258,10 +258,11 @@ pub fn emit_movement_fx(
     }
     if let Some(was_grounded) = was_grounded {
         if !was_grounded && on_ground {
-            vfx.write(VfxMessage::Dust {
-                pos: pos + ae::Vec2::new(0.0, size.y * 0.5),
-                facing,
-            });
+            let feet = pos + ae::Vec2::new(0.0, size.y * 0.5);
+            // Touchdown footfall. Emitted for every body; provider authority
+            // gates it, so a game hears it only by authoring `player.land`.
+            sfx.write(SfxMessage::Land { pos: feet });
+            vfx.write(VfxMessage::Dust { pos: feet, facing });
         }
     }
 }

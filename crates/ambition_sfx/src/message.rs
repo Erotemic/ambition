@@ -62,16 +62,44 @@ impl SfxEmissionContext {
 /// current context identity.
 #[derive(Clone, Copy, Debug)]
 pub enum SfxMessage {
-    Jump { pos: Vec2 },
-    DoubleJump { pos: Vec2 },
-    Dash { pos: Vec2 },
-    Blink { pos: Vec2, precision: bool },
-    Pogo { pos: Vec2 },
-    Slash { pos: Vec2 },
-    Hit { pos: Vec2 },
-    Death { pos: Vec2 },
-    Reset { pos: Vec2 },
-    Play { id: SfxId, pos: Vec2 },
+    Jump {
+        pos: Vec2,
+    },
+    DoubleJump {
+        pos: Vec2,
+    },
+    Dash {
+        pos: Vec2,
+    },
+    Blink {
+        pos: Vec2,
+        precision: bool,
+    },
+    Pogo {
+        pos: Vec2,
+    },
+    /// Touchdown after an airborne arc. Emitted once per landing edge by the
+    /// shared movement-fx pass (beside the landing dust), so any provider that
+    /// authors `player.land` voices a footfall without per-game wiring.
+    Land {
+        pos: Vec2,
+    },
+    Slash {
+        pos: Vec2,
+    },
+    Hit {
+        pos: Vec2,
+    },
+    Death {
+        pos: Vec2,
+    },
+    Reset {
+        pos: Vec2,
+    },
+    Play {
+        id: SfxId,
+        pos: Vec2,
+    },
 }
 
 /// Playback queue item with ownership captured at emission time.

@@ -146,6 +146,12 @@ Each phase compiles, is tested, and lands as its own commit(s) on main.
 `engine_core` struct changes are batched inside P3 (one full-rebuild window,
 ~10min build discipline).
 
+**Status:** P0a ✅ (`entity_catalog::action_scheme` vocabulary + combat
+derivation, 5 tests) and P0b ✅ (`characters::action_scheme` —
+`derive_action_scheme` + `ActorActionScheme` + parity guard, 4 tests) landed
+2026-07-17. Remaining P0 wiring (attach/reconcile the component onto bodies)
+rides with its first consumer in P2. P1–P6 pending.
+
 ### P0 — Action vocabulary + scheme derivation *(no behavior change)*
 
 - `ActionSchemeContract` in `crates/ambition_entity_catalog` **next to
@@ -155,10 +161,17 @@ Each phase compiles, is tested, and lands as its own commit(s) on main.
   constants; `ActionGate::{Movement, Technique, Move, Interact}`.
   `MovementAction` enum + `ActionEdges` go in `ambition_engine_core` (the
   kernel will consume them in P3).
-- `display_name: Option<String>` added to `MoveSpec`
-  (`entity_catalog/src/lib.rs:375`) and to technique/action specs, authored in
-  catalog RON / prefabs; fallback = title-cased id (`sandbag_swat` → "Sandbag
-  Swat"). (Rust `ron` parse test per parser-drift rule if RON schema grows.)
+- Move labels: `MoveSpec::display()` title-cases the id today
+  (`sandbag_swat` → "Sandbag Swat"). The authored `display_name:
+  Option<String>` field on `MoveSpec` lands in **P6** — added in the same
+  commit that fills it in at the move construction sites, so P0 doesn't
+  scatter `display_name: None` through ~14 literals for no consumer.
+  `ActionSpec` already carries `display_name` for scheme-level overrides.
+  (Rust `ron` parse test per parser-drift rule when the field lands.)
+- **Combat-slot invariant, encoded:** `combat_from_moveset` binds the
+  Projectile slot to the `"ranged"` verb, so the three combat slots
+  (Attack/Special/Projectile) line up 1:1 with the three moveset verbs.
+  Tested in `entity_catalog::action_scheme::tests`.
 - Runtime wrapper `ActorActionScheme(ActionSchemeContract)` component in
   `ambition_characters`, exactly the `ActorMoveset(MovesetContract)` pattern
   (`crates/ambition_combat/src/moveset/mod.rs:198`). Attached wherever
@@ -240,7 +253,16 @@ Each phase compiles, is tested, and lands as its own commit(s) on main.
 - **Parity harness FIRST** (bold-refactor discipline): headless movement
   traces for jump / dash / blink / fast-fall / fly-toggle / wall-jump /
   drop-through + Sanic spin-dash/ball across the refactor; gate = compiles +
-  parity holds.
+  parity holds. **Two coverage requirements (Opus review):**
+  (a) the harness MUST include an **AI-driven body** (a boss that
+  jumps/dashes), since re-keying `ActorControlFrame` touches every brain
+  that writes movement verbs (`brain/smash/arena.rs`,
+  `brain/fighter/options.rs`, `boss_pattern/seeds.rs`) — a player-only
+  harness would let a broken AI movement path pass green;
+  (b) the blink/special split's authored exception must be **surgical and
+  positive** — assert the special STILL fires on the new `Special` slot and
+  that blink no longer fires it, not merely suppress the old assertion, or
+  the exception hides a genuinely-broken special.
 - `ControlFrame` **unchanged in shape** (invariant 1). The brain
   (`characters/src/brain/player.rs:58`) stops per-verb bool copying: it
   resolves slot edges through `ActorActionScheme` and writes action-keyed

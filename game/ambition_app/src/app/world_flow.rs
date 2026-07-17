@@ -5,6 +5,7 @@
 //! - [`ground_gap_below_feet`] — the room-transition landing diagnostic helper.
 //! - the [`room_flow`] submodule (sandbox reset + authorized room commit);
 //! - the [`room_transition_loading`] submodule (readiness transaction + preflight);
+//! - the [`room_transition_assets`] submodule (room manifests, readiness, prefetch);
 //! - the [`room_transition_presentation`] submodule (cover-first adaptive UI).
 //!
 //! The attack-phase machine, victim-side damage resolution, and movement-event
@@ -28,6 +29,7 @@ pub(crate) struct RoomClock<'w> {
 }
 
 mod room_flow;
+mod room_transition_assets;
 mod room_transition_loading;
 mod room_transition_presentation;
 pub(crate) use room_flow::{commit_ready_room_transition_system, reset_sandbox};

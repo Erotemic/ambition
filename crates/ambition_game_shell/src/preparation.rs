@@ -38,10 +38,6 @@ pub fn standard_platformer_preparation_plan(label: impl Into<String>) -> Provide
         .required(PREPARE_DEFAULTS_WORK_ID, "Validate provider defaults")
         .required(PREPARE_SESSION_WORK_ID, "Build prepared session")
         .streamable(PREPARE_PACKED_SFX_WORK_ID, "Stream packed sound bank")
-        .speculative(
-            "prewarm-neighbor-room",
-            "Prewarm neighboring room presentation",
-        )
 }
 
 pub fn standard_preparation_succeeded_commands(

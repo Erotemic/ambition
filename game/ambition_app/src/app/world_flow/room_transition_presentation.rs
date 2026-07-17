@@ -23,6 +23,10 @@ use ambition::load_presentation::{
 };
 use ambition::platformer::schedule::GameMode;
 
+use super::room_transition_assets::{
+    poll_room_transition_asset_readiness_system, prefetch_neighbor_room_assets_system,
+    RoomAssetPrefetchState,
+};
 use super::room_transition_loading::{
     RoomTransitionLoadPhase, RoomTransitionLoadState, RoomTransitionPresentationAvailable,
 };
@@ -87,9 +91,21 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
     app.init_resource::<RoomTransitionPresentationAvailable>()
         .init_resource::<RoomTransitionPresentationConfig>()
         .init_resource::<RoomTransitionPresentationState>()
+        .init_resource::<RoomAssetPrefetchState>()
         .add_systems(
             Update,
-            drive_room_transition_presentation.before(LoadPresentationSet::Observe),
+            (
+                poll_room_transition_asset_readiness_system,
+                drive_room_transition_presentation,
+            )
+                .chain()
+                .before(LoadPresentationSet::Observe),
+        )
+        .add_systems(
+            Update,
+            prefetch_neighbor_room_assets_system
+                .after(LoadPresentationSet::Finalize)
+                .run_if(ambition::platformer::lifecycle::session_world_exists),
         )
         .add_systems(
             Update,

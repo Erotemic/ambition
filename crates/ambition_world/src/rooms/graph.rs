@@ -98,6 +98,28 @@ impl RoomSet {
         true
     }
 
+    /// Sorted, duplicate-free room indices reachable from the active room.
+    ///
+    /// This is the presentation-neutral prefetch seam: callers can prepare
+    /// likely next-room data without inspecting the private petgraph or
+    /// reimplementing loading-zone link resolution. It deliberately reports
+    /// graph adjacency only; choosing how much speculative work to perform is
+    /// owned by the loading/asset layer.
+    pub fn neighboring_room_indices(&self) -> Vec<usize> {
+        let Some(&active_node) = self.room_nodes.get(self.active) else {
+            return Vec::new();
+        };
+        let mut neighbors = self
+            .graph
+            .edges_directed(active_node, Direction::Outgoing)
+            .map(|edge| edge.target().index())
+            .filter(|&index| index < self.rooms.len())
+            .collect::<Vec<_>>();
+        neighbors.sort_unstable();
+        neighbors.dedup();
+        neighbors
+    }
+
     pub fn active_spec(&self) -> &RoomSpec {
         &self.rooms[self.active]
     }

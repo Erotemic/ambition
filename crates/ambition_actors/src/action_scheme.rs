@@ -222,4 +222,54 @@ mod tests {
             .0
             .has_slot(ControlSlot::Dash));
     }
+
+    /// The shared-resolution DRIFT GUARD (review step 5): the on-screen prompt
+    /// renders the derived `ActionScheme`, while gameplay's persona gate
+    /// (`gate_worn_player_control`) reads the body's immediate `ActionSet`
+    /// authority. Those are two views of ONE derivation, so a combat slot is in
+    /// the prompt's scheme IFF gameplay would let its verb fire. This test locks
+    /// them together: if the scheme derivation and the gate authority ever drift,
+    /// a button would advertise an action gameplay strips (or hide one it fires)
+    /// — and this fails. (Gameplay keeps the immediate `ActionSet` rather than
+    /// the one-tick-derived scheme deliberately, to avoid a stale gate on a
+    /// character swap; the guard is what makes that safe.)
+    #[test]
+    fn prompt_scheme_and_gameplay_gate_authority_cannot_drift() {
+        use ambition_characters::brain::action_set::ActionSet;
+        let ab = AbilitySet::sandbox_all();
+
+        // Canonical player: gate keeps melee/ranged/special; scheme shows them.
+        let action_set = crate::avatar::bundles::default_player_action_set(ab);
+        let moveset =
+            crate::combat::moveset::build_actor_moveset(None, action_set.melee.as_ref(), None);
+        let scheme = derive_action_scheme(&ab, moveset.as_ref(), Some(&action_set), &[]);
+        assert_eq!(
+            action_set.melee.is_some(),
+            scheme.has_slot(ControlSlot::Attack)
+        );
+        assert_eq!(
+            action_set.ranged.is_some(),
+            scheme.has_slot(ControlSlot::Projectile)
+        );
+        assert_eq!(
+            action_set.special.is_some(),
+            scheme.has_slot(ControlSlot::Special)
+        );
+
+        // A peaceful persona: the gate strips all combat AND the scheme lacks it.
+        let peaceful = ActionSet::default();
+        let scheme = derive_action_scheme(&ab, None, Some(&peaceful), &[]);
+        assert_eq!(
+            peaceful.melee.is_some(),
+            scheme.has_slot(ControlSlot::Attack)
+        );
+        assert_eq!(
+            peaceful.ranged.is_some(),
+            scheme.has_slot(ControlSlot::Projectile)
+        );
+        assert_eq!(
+            peaceful.special.is_some(),
+            scheme.has_slot(ControlSlot::Special)
+        );
+    }
 }

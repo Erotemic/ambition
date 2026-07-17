@@ -181,13 +181,27 @@ Landed:
 - **P3 groundwork:** dedicated `SandboxAction::Special` + per-preset key + glyph
   (blink is no longer Special's source); `MovementAction` enum + enum-indexed
   `ActionEdges` + typed accessors in `engine_core`.
-- **`InputState` re-key (P3 step 6) attempted and reverted.** The struct re-key
-  (movement verbs → `ActionEdges<MovementAction>`) + 18 kernel-reader conversions
-  worked, but the ~37 construction-literal rewrite via a regex script hit fragile
-  edge cases (function-signature false matches, comments before `..Default`,
-  missing imports). Reverted to the clean checkpoint rather than risk a subtle
-  transform bug in the movement kernel. **Redo the construction sites by hand or
-  with a `syn`/AST tool, not a regex** — the types are ready to consume.
+- **`InputState` re-key (P3 step 6) — LANDED with full parity** (`8c6c802f9`).
+  The movement kernel now dispatches locomotion on `MovementAction` through
+  enum-indexed `ActionEdges` + typed accessors: the 5 locomotion verbs collapse
+  into `movement: ActionEdges<MovementAction>`, `jump_pressed()` etc. are
+  accessor methods, and both bridges build the edges. `attack/interact/reset/
+  shield` stay explicit named fields — the kernel genuinely reads them
+  (slash-recoil, ledge get-up/climb-confirm, reset flag, shield/roll) and they
+  are not locomotion verbs, so they're honestly kept rather than dishonestly
+  broadened into `MovementAction`. The post-hit stagger gates preserve edge
+  granularity (hitstun eats only the jump *press*, keeping an in-progress jump's
+  held/released). **Parity net green:** engine_core 329 movement tests +
+  characters 387 + actors 810 + the demo_sanic speedway momentum oracles (63) +
+  repro_walls (9). (A first regex attempt was reverted; the redone
+  qualified-path transform — skip `-> [path::]InputState {`, comment-strip,
+  hand-fix one shorthand init — landed cleanly. Steps 7-8 folded in here.)
+- **Remaining:** step 5 (the shared `binding→slot→scheme→gate` resolver consumed
+  by *both* the player brain and `ControlPrompt` — the drift-preventer), step 9
+  (Sanic ball-dash → a scheme technique; wire `techniques` into
+  `derive_action_scheme`), step 10 (retire the `special_pressed = blink_pressed`
+  alias — Special now has an input slot, needs the resolver to flow it), step 11
+  (explicit AI-body movement parity test), step 12 (ADR).
 
 Deferred consciously: `MoveSpec.display_name` field → P6 (authored with its
 fill-in); per-slot glyphs → P1/P5 (the overlay keeps its glyph subtitle); the

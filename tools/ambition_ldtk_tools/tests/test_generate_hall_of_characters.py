@@ -29,6 +29,7 @@ from ambition_ldtk_tools.generate_hall_of_characters import (  # noqa: E402
     main_floors_for,
     make_entity,
     merge_provider_entries,
+    parse_catalog,
 )
 
 
@@ -130,6 +131,31 @@ def test_every_pedestal_gets_the_explicit_stand_still_override():
         # not a presentation-only exhibit.
         assert entity["fields"]["character_id"] in {"alpha", "beta", "gamma", "boss_one"}
         assert entity["fields"]["prompt"] == "Inspect"
+
+
+def test_parse_catalog_is_dependency_light_and_preserves_order():
+    catalog = r'''
+(
+    characters: {
+        "alpha": (
+            tier: MainHall,
+            barks: (hall: ["hello"]),
+            hall_dialogue_id: Some("hall_alpha"),
+        ),
+        "beta": (
+            tier: Basement,
+            hall_dialogue_id: Some("hall_beta"),
+        ),
+        "gamma": (
+            tier: MainHall,
+        ),
+    },
+)
+'''
+    main, basement, dialogue = parse_catalog(catalog)
+    assert main == ["alpha", "gamma"]
+    assert basement == ["beta"]
+    assert dialogue == {"alpha": "hall_alpha", "beta": "hall_beta"}
 
 
 def test_make_entity_shape():

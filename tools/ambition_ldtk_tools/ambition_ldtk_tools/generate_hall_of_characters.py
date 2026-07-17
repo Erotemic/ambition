@@ -61,8 +61,10 @@ Re-running with no catalog changes produces a byte-identical spec
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -156,32 +158,27 @@ def parse_catalog(
     actor nameplate system (which reads the character's own identity), so the
     hall no longer authors redundant `DebugLabel` overlays.
 
-    The pyron upstream loses Rust enum discriminators on unit
-    variants, so we regex `tier:` (and the optional `hall_dialogue_id:
-    Some("...")`) directly out of each entry block.
+    This intentionally scans only the catalog's top-level character entries
+    rather than importing the optional ``python-ron`` extension. The Hall
+    generator needs just three stable fields (id, tier, Hall dialogue id), and
+    all three are authored in a rigid top-level shape. Keeping this path
+    dependency-light lets adding a character regenerate the Hall in any normal
+    Python environment while the Rust runtime remains the authority for full
+    catalog deserialization.
     """
-    from .ron_parse import load as ron_load
-
-    data = ron_load(catalog_text)
-    ids = list(data["characters"].keys())
+    entry_pat = re.compile(
+        r'^ {8}"(?P<id>[a-z0-9_]+)"\s*:\s*\(', re.MULTILINE
+    )
+    matches = list(entry_pat.finditer(catalog_text))
+    ids = [match.group("id") for match in matches]
     tiers: dict[str, str] = {}
     hall_dialogue_ids: dict[str, str] = {}
-    for cid in ids:
-        key_pat = re.compile(r'"' + re.escape(cid) + r'"\s*:\s*\(', re.MULTILINE)
-        m = key_pat.search(catalog_text)
-        if not m:
-            tiers[cid] = "MainHall"
-            continue
-        # Bound the entry window at the next top-level character key (8-space
-        # indent) so a long `barks` list never pushes a trailing field
-        # (`hall_dialogue_id`) out of a fixed-size window.
-        rest = catalog_text[m.end() :]
-        next_key = re.search(r'\n {8}"[a-z0-9_]+"\s*:\s*\(', rest)
-        window = rest[: next_key.start()] if next_key else rest[:2000]
+    for idx, match in enumerate(matches):
+        cid = match.group("id")
+        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(catalog_text)
+        window = catalog_text[match.end() : end]
         tm = re.search(r"tier:\s*([A-Za-z_]+)", window)
         tiers[cid] = tm.group(1) if tm else "MainHall"
-        # Optional per-character Hall dialogue node. Regex the `Some("...")`
-        # so pyron's unit-variant blind spot doesn't drop it.
         hm = re.search(r'hall_dialogue_id:\s*Some\(\s*"([^"]+)"\s*\)', window)
         if hm:
             hall_dialogue_ids[cid] = hm.group(1)
@@ -616,7 +613,7 @@ def main(argv: list[str] | None = None) -> int:
 
     applied = False
     if not args.spec_only:
-        applied = _apply_to_dedicated_ldtk(args.out, args.ldtk)
+        applied = _apply_to_dedicated_ldtk(args.out, args.ldtk, spec)
 
     if args.print_summary:
         px_wid, px_hei = derived_dims(len(main_ids), len(basement_ids))
@@ -635,7 +632,9 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _apply_to_dedicated_ldtk(spec_path: Path, ldtk_path: Path) -> bool:
+def _apply_to_dedicated_ldtk(
+    spec_path: Path, ldtk_path: Path, spec_data: dict[str, Any] | None = None
+) -> bool:
     """Scaffold the dedicated hall `.ldtk` (clone defs from sandbox.ldtk) if it
     does not exist yet, then (re)build the hall level inside it from `spec_path`.
 
@@ -658,15 +657,33 @@ def _apply_to_dedicated_ldtk(spec_path: Path, ldtk_path: Path) -> bool:
     # zone (which legitimately cross-targets the hub in sandbox.ldtk) as an
     # "unknown room" false positive. The authoritative check is
     # `validate <hall> --secondary-world <sandbox>` (see the regen recipe).
-    rc = area_authoring.main(
-        [
-            str(spec_path),
-            "--ldtk",
-            str(ldtk_path),
-            "--replace-existing",
-            "--no-repair",
-        ]
-    )
+    # Area authoring accepts JSON for generated specs.  Feed it the in-memory
+    # spec through a temporary JSON file so this deterministic generator does
+    # not require the optional native ``python-ron`` parser merely to read back
+    # the RON it just wrote.  Hand-authored RON remains canonical on disk.
+    temp_path: Path | None = None
+    authoring_spec = spec_path
+    if spec_data is not None:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", prefix="hall_of_characters_", delete=False
+        ) as file:
+            json.dump(spec_data, file, indent=2)
+            file.write("\n")
+            temp_path = Path(file.name)
+        authoring_spec = temp_path
+    try:
+        rc = area_authoring.main(
+            [
+                str(authoring_spec),
+                "--ldtk",
+                str(ldtk_path),
+                "--replace-existing",
+                "--no-repair",
+            ]
+        )
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
     if rc != 0:
         print(f"error: area create into {ldtk_path} failed (rc={rc})", file=sys.stderr)
         return False

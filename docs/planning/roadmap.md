@@ -31,8 +31,32 @@ The phase labels describe customer maturity, not a requirement to serialize all
 work. Encounter convergence and atomic room restore may proceed while P3 demos
 close.
 
+## Next major engine-architecture push
+
+After the active character action/control migration, the next broad architecture
+campaign is
+[`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md).
+It establishes immutable fingerprinted session content, explicit construction
+provenance, pure preflightable construction plans, and transactional world
+replacement. Those are shared prerequisites for prefab-like authoring, robust hot
+reload, saves, exact reconstruction, rollback, and a credible external SDK. The
+plan is explicitly subordinate to the Unity/Unreal/Godot competitive objective:
+future agents should improve its mechanisms when a better route preserves the
+binding outcomes.
+
 Ambition-the-game remains the first customer throughout; it consumes capabilities
 rather than defining exceptions inside reusable crates.
+
+### Immediate room-loading integration
+
+[`engine/room-transition-loading.md`](engine/room-transition-loading.md) is the
+first major room-lifecycle customer of that campaign. Ordinary transitions must
+use the existing load coordinator instead of mutating directly: the source room
+remains authoritative until target readiness, fast loads stay inside hidden
+grace, expensive commits occur behind an already-rendered transition cover, and
+only perceptibly slow loads reveal a loading foreground. The plan also removes
+the accidental shell-route coupling from generic loading presentation and turns
+neighbor prewarming into concrete promotable work.
 
 ## Current critical path
 
@@ -85,6 +109,8 @@ M11 replace rather than bridge pre-release · M12 runtime owns global ordering.
 | M22 | Cutscenes and encounters remain separate domain models; no universal sequence DSL. | [`maintainer-decisions.md`](maintainer-decisions.md) |
 | M23 | Content eviction ends in an open provider-owned ownership shape. | [`maintainer-decisions.md`](maintainer-decisions.md) |
 | M24 | Activation, reset, transition, and restore use one App-installed placement-lowering authority. | [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md) |
+| M25 | Session content is assembled deterministically, fingerprinted, and frozen; world construction is planned and validated before mutation, with explicit entity provenance. | [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md) |
+| M26 | Room transitions are readiness-gated and progressively disclosed: the source room remains authoritative until one-shot target commit; fast loads avoid loading foregrounds, and slow or expensive commits occur behind a rendered cover without exposing partial rooms. | [`engine/room-transition-loading.md`](engine/room-transition-loading.md) |
 
 ## Durable uncertainties
 

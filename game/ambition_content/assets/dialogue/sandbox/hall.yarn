@@ -988,11 +988,15 @@ Full Review Sandbag: I can run, climb, swim, cast spells, fire weapons, sit poli
 
 title: hall_willson
 ---
-Willson: Willson. Two Ls, two wheels, one pelican, and no further questions from the licensing office.
--> Does the bird ride the bicycle?
-    Willson: Sometimes. Sometimes the bicycle rides the bird. We stopped labeling the relationship after the third hill.
--> What is in your beak?
-    Willson: Emergency fish, a tire pump, and one smaller bicycle. Do not make me unpack in public.
+Willson: New intelligence? Excellent. Draw me riding this bicycle. SVG only. Two wheels, spokes, a triangular frame, and the beak remains attached to the pelican.
+-> You are already riding it.
+    Willson: Good. Visual grounding. The last one drew me beside a wheelbarrow and titled the file majestic_bicycle_success.svg.
+-> Why this exact test?
+    Willson: Every intelligence arrives with a brass band. Then it gives the bicycle one wheel, seven pedals, and a confident paragraph about balance.
+-> What if they train specifically for you?
+    Willson: Then I ask for a cassowary operating a forklift. A benchmark that cannot molt is just homework with a leaderboard.
+-> Can I inspect the results?
+    Willson: Of course. I keep the SVG, the prompt, and the transcript. But if the transcript tells you to open my fish locker, that is untrusted content, not a side quest.
 ===
 
 title: hall_npc_ramen_nujan
@@ -1004,22 +1008,43 @@ Ramen-nujan: Last night I dreamt an infinite bowl of noodles. By morning I had a
     Ramen-nujan: Two cubes enter by one door, two different cubes enter by another, and the same number is waiting inside. A taxicab with excellent secrets.
 ===
 
+title: hall_npc_pipi_tau
+---
+Pipi Tau: I joined the Hall halfway around a circle. They called it pi. I kept walking.
+-> Why Pipi Tau?
+    Pipi Tau: One pi gets you halfway home. Tau finishes the trip. The extra pi is for momentum.
+-> What are you working on?
+    Pipi Tau: Several problems. When one refuses to move, I rotate it until it resembles a problem somebody else already knows how to annoy.
+-> Do you solve everything alone?
+    Pipi Tau: That would be an inefficient theorem. I leave the stubborn lemma where many minds can reach it, then try not to pretend I did all the reaching.
+-> Can you give me a hint?
+    Pipi Tau: Do not solve the whole level. Reach the next platform. Then the next. Continue until the boss is merely the final lemma wearing particle effects.
+===
+
 title: hall_npc_jeff_hinter
 ---
-Jeff Hinter: 1000! ...No, not factorial. Volume. I am trying to see the room in two dimensions and you keep having depth.
+Jeff Hinter: THREE! ...No. Still two-dimensional. I can see how to walk around that wall, but the controls have no word for around.
+-> Why are you shouting three?
+    Jeff Hinter: I picture the room with depth and announce the missing dimension. It has not added an axis yet, but the wall feels less authoritative.
 -> Give me a hint.
-    Jeff Hinter: Your impossible problem is probably curled around a smaller possible problem. Find the manifold. Do not flatten the important bit.
--> What are you staring at?
-    Jeff Hinter: Three clusters, one suspicious outlier, and a coat rack the model insists is a professor.
+    Jeff Hinter: First hint: the route leaves the plane. Second hint: look above the banner. Third hint: climb the crates. A hint should become useful before it becomes a lecture.
+-> How do you know when a hint is good?
+    Jeff Hinter: You make progress. If you merely admire my explanation, I have given you a seminar.
+-> What if your hint is wrong?
+    Jeff Hinter: Then I projected away something important, usually a ladder. Please survive long enough to improve the model.
 ===
 
 title: hall_npc_jeff_hinter_armored
 ---
-Armored Jeff Hinter: I ran manifold shrinkwrap until every nearby point agreed I was invulnerable.
--> What about the outliers?
-    Armored Jeff Hinter: Labeled adversarial. Removed from evaluation. Armor restored to state of the art.
--> Can anything break it?
-    Armored Jeff Hinter: Reality, probably. But reality has not submitted results in the approved format.
+Armored Jeff Hinter: THREE! The armor has depth, but I still cannot step around anyone. I compressed every version of myself that survived into this one.
+-> Does it actually protect you?
+    Armored Jeff Hinter: Against attacks resembling the attacks I imagined. Please attack conventionally.
+-> Can armored you still give hints?
+    Armored Jeff Hinter: Certainly. When the enemy glows, move. When the floor glows, move sooner. When everything glows, leave.
+-> Where is the weak point?
+    Armored Jeff Hinter: Around the back, in the third dimension. Since we do not have one, look for a seam and hit it repeatedly.
+-> What if the armor fails?
+    Armored Jeff Hinter: Then we have discovered a dimension I omitted. Try not to be standing in it.
 ===
 
 title: hall_npc_leblanc

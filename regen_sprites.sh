@@ -188,6 +188,7 @@ expected_files=(
     tech_bro_disruptor_spritesheet.png tech_bro_disruptor_spritesheet.yaml tech_bro_disruptor_spritesheet.ron
     # Tack-on targets that produce character sheets.
     burning_flying_shark_spritesheet.png burning_flying_shark_spritesheet.yaml burning_flying_shark_spritesheet.ron
+    pipi_tau_spritesheet.png pipi_tau_spritesheet.yaml pipi_tau_spritesheet.ron
     sanic_spritesheet.png sanic_spritesheet.yaml sanic_spritesheet.ron
     super_sanic_spritesheet.png super_sanic_spritesheet.yaml super_sanic_spritesheet.ron
     sanic_ring_prop_spritesheet.png sanic_ring_prop_spritesheet.yaml sanic_ring_prop_spritesheet.ron

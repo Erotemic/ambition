@@ -28,11 +28,10 @@ from typing import Any
 try:
     import pyron  # type: ignore
 except ImportError as ex:  # pragma: no cover
-    raise SystemExit(
-        "ron_parse requires the python-ron PyPI package. Install with:\n"
-        "  pip install --user --break-system-packages python-ron\n"
-        f"original error: {ex}"
-    )
+    pyron = None  # type: ignore[assignment]
+    _PYRON_IMPORT_ERROR: ImportError | None = ex
+else:
+    _PYRON_IMPORT_ERROR = None
 
 
 class RonParseError(Exception):
@@ -43,6 +42,12 @@ def load(text: str) -> Any:
     """Parse a RON document. Returns plain Python dict / list /
     str / int / float / bool / None values — a drop-in replacement
     for `yaml.safe_load` on the same data tree."""
+    if pyron is None:
+        raise SystemExit(
+            "RON input requires the python-ron PyPI package. Install with:\n"
+            "  pip install --user --break-system-packages python-ron\n"
+            f"original error: {_PYRON_IMPORT_ERROR}"
+        )
     try:
         return pyron.loads(text)
     except Exception as ex:

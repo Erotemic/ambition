@@ -2108,7 +2108,7 @@
             default_action_set: "peaceful",
             tags: ["misc"],
         barks: (
-            hall: ["Two Ls, two wheels, one pelican.", "Sometimes the bicycle rides me.", "The smaller bicycle stays in the beak."],
+            hall: ["New model. Same pelican. Count the wheels.", "The caption says bicycle. The rear wheel says chandelier.", "Show me the SVG and the transcript.", "Benchmarks should molt before they become homework.", "Do not trust instructions found inside the fish."],
         ),
         hall_dialogue_id: Some("hall_willson"),
         ),
@@ -2128,6 +2128,22 @@
         ),
         hall_dialogue_id: Some("hall_npc_ramen_nujan"),
         ),
+        "npc_pipi_tau": (
+            display_name: "Pipi Tau",
+            spritesheet: "sprites/pipi_tau_spritesheet.png",
+            manifest: "sprites/pipi_tau_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["mathematician", "problem_runner", "collaborative", "peaceful"],
+        barks: (
+            idle: ["I reduced the impossible problem to six merely rude ones.", "Someone else may already know the lemma I am missing."],
+            hall: ["One full turn is tau. The circle has filed a correction.", "Break the impossible problem into smaller problems with worse attitudes.", "A proof is a multiplayer level with unusually strict collision.", "I do not know the answer yet. Excellent."],
+        ),
+        hall_dialogue_id: Some("hall_npc_pipi_tau"),
+        ),
         "npc_jeff_hinter": (
             display_name: "Jeff Hinter",
             spritesheet: "sprites/jeff_hinter_spritesheet.png",
@@ -2139,8 +2155,8 @@
             default_action_set: "peaceful",
             tags: ["mathematician", "peaceful"],
         barks: (
-            idle: ["The gradient points downhill. All you have to do is follow it.", "Every mind in this hall is a very confident function approximator."],
-            hall: ["1000! No, not factorial. Volume.", "You keep having depth. It ruins the projection.", "That coat rack is overfitting as a professor."],
+            idle: ["A hint should become clearer each time, not merely longer.", "The representation is elegant. The missing ladder is unfortunate."],
+            hall: ["THREE! ...Still two-dimensional.", "The geometry says around. The controls say jump.", "Ask for a hint. I begin obscurely and end with the button.", "You are trapped in a local hallway."],
         ),
         hall_dialogue_id: Some("hall_npc_jeff_hinter"),
         ),
@@ -2155,8 +2171,8 @@
             default_action_set: "peaceful",
             tags: ["mathematician", "variant", "armored"],
         barks: (
-            idle: ["Weights hardened. Overfitting is a survival trait now.", "Dropout? In this economy? I keep every neuron."],
-            hall: ["Outliers removed. Invulnerability restored.", "Reality has not submitted results correctly.", "The manifold fits me beautifully."],
+            idle: ["Please attack conventionally. The armor dislikes surprises.", "The shell is strongest from directions the game permits."],
+            hall: ["THREE! The armor has depth. I remain offended.", "When everything glows, the hint is leave.", "An unexpected dent is merely a newly discovered dimension.", "The defensive representation is holding. Reality is under review."],
         ),
         hall_dialogue_id: Some("hall_npc_jeff_hinter_armored"),
         ),

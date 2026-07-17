@@ -69,7 +69,13 @@ pub fn reconcile_action_schemes(
         );
         let differs = existing.is_none_or(|s| s.0 != derived);
         if differs {
-            commands.entity(entity).insert(ActorActionScheme(derived));
+            // `try_insert`, not `insert`: this reconcile is deferred (Commands),
+            // and a session-scoped body can be despawned by session teardown in
+            // the same frame its authorities last changed — the same race the
+            // capability sync guards against. A raw `insert` on a torn-down entity
+            // errors ("ActorActionScheme insert ... entity ID is invalid"); the
+            // `try_` variant applies the cache iff the entity is still alive.
+            commands.entity(entity).try_insert(ActorActionScheme(derived));
         }
     }
 }

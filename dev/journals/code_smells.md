@@ -621,3 +621,33 @@ their render identity via a new `PickupSpec.sprite` presentation field, assigned
 an authored placement spec the sim also reads — defensible as authored identity,
 like `PropSpec.kind`, but if presentation keeps accreting on placement specs the
 render-side answer is a pickup-art manifest, à la `WorldItemArtManifest`.)
+
+---
+
+## 2026-07-17 — `shell_host_rendered` real-audio tests are order-fragile (test isolation)
+
+`provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work`
+(`game/ambition_app/tests/shell_host_rendered.rs:549`) asserts the per-App
+`SfxPlaybackState.accepted_playbacks` count is UNCHANGED after writing a
+stale-owner `OwnedSfxMessage` and stepping two frames. The assertion is fragile:
+the fresh session it launches emits its OWN (legitimate, current-owner) SFX during
+those two frames, and whether that SFX is *accepted* depends on whether the
+process-global real-audio device has been opened by an EARLIER test (a
+`shell_host_lifecycle` test). So the count moves by +1 (baseline: 16 vs 15; HEAD:
+20 vs 19 — same +1) and the test fails, but ONLY in the full app_it suite —
+it passes run alone and with its own module's siblings.
+
+CONFIRMED PRE-EXISTING: it fails identically on baseline `1d6872c25` (before the
+character-actions completion work), so it is a latent test-isolation bug, not a
+gameplay regression. It surfaced now only because the full `app_it` suite was run
+end-to-end (the prior "all landed" claim apparently never did — 8 app_it tests
+were red on that baseline; the character-actions work reduced that to this 1).
+
+Elegant fix (deferred — audio-test-infra, not the character-actions feature):
+either (a) capture `accepted_before` AFTER fully settling the launched session so
+its own SFX are already counted, and assert the DELTA excludes session-ambient
+audio; or (b) make the `shell_host_rendered` real-audio tests independent of the
+process-global device state (a per-test audio sink, or `#[serial]` + explicit
+device reset) so opening the device in one test can't leak into another's
+playback-accept path. Logged rather than fixed: it is orthogonal to the
+character-actions gates and touching the real-audio test harness is not zero-risk.

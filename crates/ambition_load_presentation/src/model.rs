@@ -4,8 +4,9 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::time::Duration;
 
-use ambition_game_shell::{LoadBarrierRef, ShellRouteId};
-use ambition_load::{BarrierReadiness, LoadBarrierSnapshot, LoadFailure, ProgressEstimate};
+use ambition_load::{
+    BarrierReadiness, LoadBarrierRef, LoadBarrierSnapshot, LoadFailure, ProgressEstimate,
+};
 use bevy::prelude::{Component, Message, Resource};
 
 macro_rules! string_id {
@@ -45,6 +46,7 @@ macro_rules! string_id {
 
 string_id!(LoadExperienceId);
 string_id!(LoadActivityId);
+string_id!(LoadPresentationOwnerId);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ReadyTransitionPolicy {
@@ -84,27 +86,6 @@ impl LoadExperienceSpec {
     }
 }
 
-#[derive(Resource)]
-pub struct LoadPresentationCatalog {
-    pub default: LoadExperienceSpec,
-    pub by_route: BTreeMap<ShellRouteId, LoadExperienceSpec>,
-}
-
-impl Default for LoadPresentationCatalog {
-    fn default() -> Self {
-        Self {
-            default: LoadExperienceSpec::basic("ambition.load.basic"),
-            by_route: BTreeMap::new(),
-        }
-    }
-}
-
-impl LoadPresentationCatalog {
-    pub fn for_route(&self, route: &ShellRouteId) -> &LoadExperienceSpec {
-        self.by_route.get(route).unwrap_or(&self.default)
-    }
-}
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LoadForegroundPhase {
     HiddenGrace,
@@ -115,13 +96,20 @@ pub enum LoadForegroundPhase {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActiveLoadForeground {
-    pub route_id: ShellRouteId,
+    pub owner: LoadPresentationOwnerId,
     pub barrier: LoadBarrierRef,
     pub spec: LoadExperienceSpec,
     pub phase: LoadForegroundPhase,
     pub elapsed: Duration,
     pub activity_activation_id: Option<u64>,
     pub engaged: bool,
+    pub ready_released: bool,
+}
+
+impl ActiveLoadForeground {
+    pub fn should_hold_ready(&self) -> bool {
+        self.phase == LoadForegroundPhase::ReadyHold && !self.ready_released
+    }
 }
 
 #[derive(Resource, Default)]
@@ -135,13 +123,22 @@ impl LoadForegroundState {
         self.next_activity_activation = self.next_activity_activation.saturating_add(1);
         self.next_activity_activation
     }
+
+    pub(crate) fn clear_owner(&mut self, owner: &LoadPresentationOwnerId) -> bool {
+        if self.active.as_ref().is_some_and(|active| &active.owner == owner) {
+            self.active = None;
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct LoadPresentationModel {
     pub visible: bool,
     pub ready_hold: bool,
-    pub route_id: Option<ShellRouteId>,
+    pub owner: Option<LoadPresentationOwnerId>,
     pub readiness: Option<BarrierReadiness>,
     pub stage: String,
     pub completed_steps: usize,
@@ -165,7 +162,7 @@ impl Default for LoadPresentationModel {
         Self {
             visible: false,
             ready_hold: false,
-            route_id: None,
+            owner: None,
             readiness: None,
             stage: String::new(),
             completed_steps: 0,
@@ -187,11 +184,7 @@ impl Default for LoadPresentationModel {
 }
 
 impl LoadPresentationModel {
-    pub fn from_snapshot(
-        route_id: ShellRouteId,
-        snapshot: LoadBarrierSnapshot,
-        foreground: &ActiveLoadForeground,
-    ) -> Self {
+    pub fn from_snapshot(snapshot: LoadBarrierSnapshot, foreground: &ActiveLoadForeground) -> Self {
         let ready = snapshot.ready();
         let mut estimate = foreground
             .spec
@@ -205,8 +198,8 @@ impl LoadPresentationModel {
         }
         Self {
             visible: foreground.phase != LoadForegroundPhase::HiddenGrace,
-            ready_hold: foreground.phase == LoadForegroundPhase::ReadyHold,
-            route_id: Some(route_id),
+            ready_hold: foreground.should_hold_ready(),
+            owner: Some(foreground.owner.clone()),
             readiness: Some(snapshot.readiness),
             stage: snapshot.label,
             completed_steps: snapshot.completed_steps,
@@ -231,7 +224,7 @@ impl LoadPresentationModel {
 pub struct ActiveLoadActivity {
     pub activation_id: u64,
     pub activity_id: LoadActivityId,
-    pub route_id: ShellRouteId,
+    pub owner: LoadPresentationOwnerId,
     pub barrier: LoadBarrierRef,
 }
 
@@ -268,22 +261,45 @@ pub enum LoadActivitySignal {
     },
 }
 
-#[derive(Message, Clone, Copy, Debug, Eq, PartialEq)]
-pub enum LoadPresentationAction {
-    Continue,
-    Retry,
-    CancelToPrevious,
-    QuitToHome,
+/// Contributor-neutral presentation lifecycle commands.
+///
+/// The caller owns retry, cancellation, routing, and commit semantics. This
+/// crate owns only the visible foreground and its ready-hold policy.
+#[derive(Message, Clone, Debug, PartialEq)]
+pub enum LoadPresentationCommand {
+    Begin {
+        owner: LoadPresentationOwnerId,
+        barrier: LoadBarrierRef,
+        spec: LoadExperienceSpec,
+    },
+    Finish {
+        owner: LoadPresentationOwnerId,
+    },
+    Cancel {
+        owner: LoadPresentationOwnerId,
+    },
 }
 
-/// Semantic requests that game-owned load contributors may handle.
+#[derive(Message, Clone, Debug, Eq, PartialEq)]
+pub enum LoadPresentationAction {
+    Continue { owner: LoadPresentationOwnerId },
+    Retry { owner: LoadPresentationOwnerId },
+    Cancel { owner: LoadPresentationOwnerId },
+    Quit { owner: LoadPresentationOwnerId },
+}
+
+/// Semantic requests routed back to the owner of the active presentation.
 ///
-/// The presentation layer cannot recreate a failed plan because retry policy
-/// and destination parameters belong to the composing game.
+/// The generic presentation cannot recreate a failed plan, choose a previous
+/// destination, or quit to a host route. Shell and room-transition adapters
+/// interpret these messages independently.
 #[derive(Message, Clone, Debug, Eq, PartialEq)]
 pub enum LoadPresentationEvent {
+    ContinueRequested { owner: LoadPresentationOwnerId },
     RetryRequested {
-        route_id: ShellRouteId,
+        owner: LoadPresentationOwnerId,
         barrier: LoadBarrierRef,
     },
+    CancelRequested { owner: LoadPresentationOwnerId },
+    QuitRequested { owner: LoadPresentationOwnerId },
 }

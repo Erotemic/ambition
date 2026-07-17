@@ -5,6 +5,27 @@ use std::ops::RangeInclusive;
 
 use crate::{LoadBarrierId, LoadId, LoadWorkId};
 
+/// Exact reference to one activation barrier in one load transaction.
+///
+/// This belongs to the contributor-neutral load domain: shells, room
+/// transitions, save restores, and future streaming coordinators all refer to
+/// the same readiness authority without manufacturing host-specific wrapper
+/// types.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LoadBarrierRef {
+    pub load_id: LoadId,
+    pub barrier_id: LoadBarrierId,
+}
+
+impl LoadBarrierRef {
+    pub fn new(load_id: impl Into<LoadId>, barrier_id: impl Into<LoadBarrierId>) -> Self {
+        Self {
+            load_id: load_id.into(),
+            barrier_id: barrier_id.into(),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum LoadPriority {
     Immediate,

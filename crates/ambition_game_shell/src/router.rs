@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use ambition_load::{
-    BarrierReadiness, LoadBarrierId, LoadCommitRejection, LoadCoordinator, LoadId,
+    BarrierReadiness, LoadBarrierId, LoadBarrierRef, LoadCommitRejection, LoadCoordinator, LoadId,
 };
 use bevy::prelude::{Component, Message, Resource};
 
@@ -11,12 +11,6 @@ use crate::{
     PreparedSessionIdentity, PreparedSessionRegistry, ProviderLoadTransaction,
     ProviderPreparationPlan, ShellActivationId, ShellExperienceId, ShellHoldId, ShellRouteId,
 };
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LoadBarrierRef {
-    pub load_id: LoadId,
-    pub barrier_id: LoadBarrierId,
-}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ShellCompletionPolicy {
@@ -50,10 +44,7 @@ impl ShellRouteSpec {
     }
 
     pub fn requiring(mut self, load_id: LoadId, barrier_id: LoadBarrierId) -> Self {
-        self.required_barrier = Some(LoadBarrierRef {
-            load_id,
-            barrier_id,
-        });
+        self.required_barrier = Some(LoadBarrierRef::new(load_id, barrier_id));
         self
     }
 
@@ -447,10 +438,7 @@ impl ShellRouter {
             if let Some(old_load) = supersedes.as_ref() {
                 loads.retire(old_load);
             }
-            let barrier = LoadBarrierRef {
-                load_id,
-                barrier_id: plan.barrier.id.clone(),
-            };
+            let barrier = LoadBarrierRef::new(load_id, plan.barrier.id.clone());
             let transaction = ProviderLoadTransaction {
                 route_id: route.id.clone(),
                 experience_id: route.experience.clone(),

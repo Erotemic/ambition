@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Shell-integrated loading foreground lifecycle, minimal progress UI, arbitrary activity hosting, ready-hold, and deterministic cleanup."
+description = "Contributor-neutral loading foreground lifecycle with shell adaptation, semantic progress, activities, ready-hold, and deterministic cleanup."
 publish = false
 
 [lib]

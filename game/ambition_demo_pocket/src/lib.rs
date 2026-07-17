@@ -198,7 +198,7 @@ mod tests {
         assert!(!authored.expects_packed_sfx);
         let loading = app
             .world()
-            .resource::<ambition::load_presentation::LoadPresentationCatalog>()
+            .resource::<ambition::load_presentation::ShellLoadPresentationCatalog>()
             .for_route(&ShellRouteId::new(POCKET_GAMEPLAY_ROUTE));
         assert_eq!(
             loading.activity.as_ref().map(|activity| activity.as_str()),

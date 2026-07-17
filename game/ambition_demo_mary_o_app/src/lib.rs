@@ -50,7 +50,7 @@ fn compose_mary_o_shell(app: &mut App, home_route: &str) {
         ambition_demo_mary_o::MARY_O_EXPERIENCE,
     ));
     app.add_plugins(ambition::load::AmbitionLoadPlugin);
-    app.add_plugins(ambition::load_presentation::MinimalLoadPresentationPlugins);
+    app.add_plugins(ambition::load_presentation::MinimalShellLoadPresentationPlugins);
     app.add_plugins(MaryOExperiencePlugin);
 
     app.world_mut()

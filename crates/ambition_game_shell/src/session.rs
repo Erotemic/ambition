@@ -15,11 +15,12 @@ use ambition_platformer_primitives::lifecycle::{
     SessionScopeRetired, SessionScopeSet, SpawnSessionScopedExt,
 };
 use ambition_sfx::{AudioContextOwner, SfxEmissionContext};
+use ambition_load::LoadBarrierRef;
 use bevy::prelude::*;
 
 use crate::{
     ActiveFrontendAuthority, ActiveShellExperience, AmbitionGameShellSet, ExperienceRegistration,
-    LoadBarrierRef, PreparedSessionIdentity, PresentationOwnershipPolicy, ShellActivationId,
+    PreparedSessionIdentity, PresentationOwnershipPolicy, ShellActivationId,
     ShellEvent, ShellExperienceAppExt, ShellExperienceId, ShellRouteSpec,
 };
 

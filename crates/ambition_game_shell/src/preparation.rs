@@ -8,7 +8,9 @@ use ambition_load::{
 };
 use bevy::prelude::Resource;
 
-use crate::{LoadBarrierRef, ShellExperienceId, ShellRouteId};
+use ambition_load::LoadBarrierRef;
+
+use crate::{ShellExperienceId, ShellRouteId};
 
 pub const PREPARE_BARRIER_ID: &str = "activation-ready";
 pub const PREPARE_CATALOGS_WORK_ID: &str = "validate-catalogs";

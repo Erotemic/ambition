@@ -42,18 +42,26 @@ fn basic_load_keyboard(
     };
     let shell_actions = shell_action_edges(keys.as_deref(), &pads, &mut analog);
     if active.phase == LoadForegroundPhase::ReadyHold && shell_actions.loading_continue {
-        actions.write(LoadPresentationAction::Continue);
+        actions.write(LoadPresentationAction::Continue {
+            owner: active.owner.clone(),
+        });
     }
     if active.phase == LoadForegroundPhase::Failed
         && model.failures.iter().any(|failure| failure.retryable)
         && shell_actions.retry
     {
-        actions.write(LoadPresentationAction::Retry);
+        actions.write(LoadPresentationAction::Retry {
+            owner: active.owner.clone(),
+        });
     }
     if shell_actions.quit_to_home {
-        actions.write(LoadPresentationAction::QuitToHome);
+        actions.write(LoadPresentationAction::Quit {
+            owner: active.owner.clone(),
+        });
     } else if shell_actions.back {
-        actions.write(LoadPresentationAction::CancelToPrevious);
+        actions.write(LoadPresentationAction::Cancel {
+            owner: active.owner.clone(),
+        });
     }
 }
 
@@ -125,21 +133,21 @@ fn format_model(model: &LoadPresentationModel) -> String {
     }
     if let Some(failure) = model.failures.first() {
         let controls = if failure.retryable {
-            "R: retry · Escape: previous · F10/Start: return home"
+            "R: retry · Escape: cancel · F10/Start: quit"
         } else {
-            "Escape: previous · F10/Start: return home"
+            "Escape: cancel · F10/Start: quit"
         };
         return format!("Load failed\n\n{}\n\n{controls}", failure.player_message);
     }
     match model.readiness {
         Some(ambition_load::BarrierReadiness::Failed) => {
-            return "Load failed\n\nEscape: return".to_owned();
+            return "Load failed\n\nEscape: cancel".to_owned();
         }
         Some(ambition_load::BarrierReadiness::Cancelled) => {
-            return "Load cancelled\n\nEscape: return".to_owned();
+            return "Load cancelled\n\nEscape: cancel".to_owned();
         }
         Some(ambition_load::BarrierReadiness::Superseded) => {
-            return "Load replaced by a newer request\n\nEscape: return".to_owned();
+            return "Load replaced by a newer request\n\nEscape: cancel".to_owned();
         }
         Some(
             ambition_load::BarrierReadiness::Preparing | ambition_load::BarrierReadiness::Ready,

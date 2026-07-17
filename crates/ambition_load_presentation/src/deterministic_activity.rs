@@ -134,10 +134,9 @@ fn drive_activity(
 mod tests {
     use super::*;
     use crate::{ActiveLoadActivity, LoadActivityId};
-    use ambition_game_shell::{
-        FrontendEntityOwner, FrontendPresentationKind, LoadBarrierRef, ShellRouteId,
-    };
-    use ambition_load::{LoadBarrierId, LoadId};
+    use ambition_game_shell::{FrontendEntityOwner, FrontendPresentationKind};
+    use ambition_load::{LoadBarrierId, LoadBarrierRef, LoadId};
+    use crate::LoadPresentationOwnerId;
     use bevy::input::gamepad::{Gamepad, GamepadButton};
 
     #[derive(Resource, Default, Debug, Eq, PartialEq)]
@@ -153,7 +152,7 @@ mod tests {
         app.world_mut().resource_mut::<LoadActivityState>().active = Some(ActiveLoadActivity {
             activation_id: 7,
             activity_id: LoadActivityId::new(DETERMINISTIC_LOADING_ACTIVITY_ID),
-            route_id: ShellRouteId::new("destination"),
+            owner: LoadPresentationOwnerId::new("fixture-owner"),
             barrier: LoadBarrierRef {
                 load_id: LoadId::new("load-7"),
                 barrier_id: LoadBarrierId::new("ready"),

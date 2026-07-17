@@ -1,11 +1,7 @@
-//! Shell-integrated hidden-grace, ready-hold, activity, and cleanup lifecycle.
+//! Contributor-neutral hidden-grace, ready-hold, activity, and cleanup lifecycle.
 
 use std::time::Duration;
 
-use ambition_game_shell::{
-    AmbitionGameShellSet, ShellCommand, ShellEvent, ShellHoldId, ShellRouteCatalog,
-    ShellRouteHolds, ShellRouter,
-};
 use ambition_load::{BarrierReadiness, LoadCoordinator};
 use bevy::prelude::{
     App, Commands, IntoScheduleConfigs, MessageReader, MessageWriter, Plugin, Query, Res, ResMut,
@@ -15,11 +11,9 @@ use bevy::prelude::{
 use crate::{
     ActiveLoadActivity, ActiveLoadForeground, LoadActivityScopedEntity, LoadActivitySignal,
     LoadActivityState, LoadForegroundPhase, LoadForegroundState, LoadPresentationAction,
-    LoadPresentationCatalog, LoadPresentationEvent, LoadPresentationModel, LoadPresentationSet,
+    LoadPresentationCommand, LoadPresentationEvent, LoadPresentationModel, LoadPresentationSet,
     ReadyTransitionPolicy,
 };
-
-const LOAD_PRESENTATION_HOLD: &str = "ambition.load-presentation.ready-hold";
 
 #[derive(Default)]
 pub struct AmbitionLoadPresentationPlugin;
@@ -27,10 +21,10 @@ pub struct AmbitionLoadPresentationPlugin;
 impl Plugin for AmbitionLoadPresentationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Time>()
-            .init_resource::<LoadPresentationCatalog>()
             .init_resource::<LoadForegroundState>()
             .init_resource::<LoadPresentationModel>()
             .init_resource::<LoadActivityState>()
+            .add_message::<LoadPresentationCommand>()
             .add_message::<LoadPresentationAction>()
             .add_message::<LoadPresentationEvent>()
             .add_message::<LoadActivitySignal>()
@@ -43,24 +37,15 @@ impl Plugin for AmbitionLoadPresentationPlugin {
                     LoadPresentationSet::Drive,
                     LoadPresentationSet::Input,
                     LoadPresentationSet::Actions,
-                )
-                    .chain()
-                    .after(AmbitionGameShellSet::Commands)
-                    .before(AmbitionGameShellSet::Pending),
-            )
-            .configure_sets(
-                Update,
-                (
                     LoadPresentationSet::Finalize,
                     LoadPresentationSet::Cleanup,
                     LoadPresentationSet::Render,
                 )
-                    .chain()
-                    .after(AmbitionGameShellSet::Pending),
+                    .chain(),
             )
             .add_systems(
                 Update,
-                observe_shell_waits.in_set(LoadPresentationSet::Observe),
+                observe_presentation_commands.in_set(LoadPresentationSet::Observe),
             )
             .add_systems(
                 Update,
@@ -73,7 +58,7 @@ impl Plugin for AmbitionLoadPresentationPlugin {
             )
             .add_systems(
                 Update,
-                finalize_activated_route.in_set(LoadPresentationSet::Finalize),
+                finalize_presentation_commands.in_set(LoadPresentationSet::Finalize),
             )
             .add_systems(
                 Update,
@@ -82,61 +67,40 @@ impl Plugin for AmbitionLoadPresentationPlugin {
     }
 }
 
-fn observe_shell_waits(
-    mut events: MessageReader<ShellEvent>,
-    catalog: Res<LoadPresentationCatalog>,
+fn observe_presentation_commands(
+    mut commands: MessageReader<LoadPresentationCommand>,
     mut foreground: ResMut<LoadForegroundState>,
     mut model: ResMut<LoadPresentationModel>,
     mut activity: ResMut<LoadActivityState>,
-    mut holds: ResMut<ShellRouteHolds>,
 ) {
-    for event in events.read() {
-        match event {
-            ShellEvent::WaitingForLoad { route_id, barrier } => {
-                let spec = catalog.for_route(route_id).clone();
-                if let Some(previous) = foreground.active.take() {
-                    holds.release(
-                        &previous.route_id,
-                        &ShellHoldId::new(LOAD_PRESENTATION_HOLD),
-                    );
-                }
-                holds.release(route_id, &ShellHoldId::new(LOAD_PRESENTATION_HOLD));
+    for command in commands.read() {
+        match command {
+            LoadPresentationCommand::Begin {
+                owner,
+                barrier,
+                spec,
+            } => {
                 foreground.active = Some(ActiveLoadForeground {
-                    route_id: route_id.clone(),
+                    owner: owner.clone(),
                     barrier: barrier.clone(),
-                    spec,
+                    spec: spec.clone(),
                     phase: LoadForegroundPhase::HiddenGrace,
                     elapsed: Duration::ZERO,
                     activity_activation_id: None,
                     engaged: false,
+                    ready_released: false,
                 });
                 activity.active = None;
                 *model = LoadPresentationModel::default();
             }
-            _ => {}
+            LoadPresentationCommand::Finish { owner }
+            | LoadPresentationCommand::Cancel { owner } => {
+                if foreground.clear_owner(owner) {
+                    activity.active = None;
+                    *model = LoadPresentationModel::default();
+                }
+            }
         }
-    }
-}
-
-fn finalize_activated_route(
-    mut events: MessageReader<ShellEvent>,
-    mut foreground: ResMut<LoadForegroundState>,
-    mut model: ResMut<LoadPresentationModel>,
-    mut activity: ResMut<LoadActivityState>,
-    mut holds: ResMut<ShellRouteHolds>,
-) {
-    for event in events.read() {
-        let ShellEvent::RouteActivated(_) = event else {
-            continue;
-        };
-        if let Some(previous) = foreground.active.take() {
-            holds.release(
-                &previous.route_id,
-                &ShellHoldId::new(LOAD_PRESENTATION_HOLD),
-            );
-        }
-        activity.active = None;
-        *model = LoadPresentationModel::default();
     }
 }
 
@@ -146,7 +110,6 @@ fn drive_foreground(
     mut foreground: ResMut<LoadForegroundState>,
     mut model: ResMut<LoadPresentationModel>,
     mut activity: ResMut<LoadActivityState>,
-    mut holds: ResMut<ShellRouteHolds>,
 ) {
     let Some(mut active) = foreground.active.take() else {
         *model = LoadPresentationModel::default();
@@ -170,19 +133,9 @@ fn drive_foreground(
             activity.active = Some(ActiveLoadActivity {
                 activation_id,
                 activity_id,
-                route_id: active.route_id.clone(),
+                owner: active.owner.clone(),
                 barrier: active.barrier.clone(),
             });
-        }
-        let needs_provisional_hold = active.spec.ready_policy
-            == ReadyTransitionPolicy::AwaitConfirmation
-            || (active.spec.ready_policy == ReadyTransitionPolicy::AutoUnlessEngaged
-                && active.spec.activity.is_some());
-        if needs_provisional_hold {
-            holds.hold(
-                active.route_id.clone(),
-                ShellHoldId::new(LOAD_PRESENTATION_HOLD),
-            );
         }
     }
 
@@ -191,27 +144,20 @@ fn drive_foreground(
         BarrierReadiness::Failed | BarrierReadiness::Cancelled | BarrierReadiness::Superseded
     ) {
         active.phase = LoadForegroundPhase::Failed;
-        holds.hold(
-            active.route_id.clone(),
-            ShellHoldId::new(LOAD_PRESENTATION_HOLD),
-        );
     } else if snapshot.ready() {
-        let should_hold = active.spec.ready_policy.holds_ready(
-            active.phase != LoadForegroundPhase::HiddenGrace,
-            active.engaged,
-        );
+        let should_hold = !active.ready_released
+            && active.spec.ready_policy.holds_ready(
+                active.phase != LoadForegroundPhase::HiddenGrace,
+                active.engaged,
+            );
         if should_hold {
             active.phase = LoadForegroundPhase::ReadyHold;
-            holds.hold(
-                active.route_id.clone(),
-                ShellHoldId::new(LOAD_PRESENTATION_HOLD),
-            );
-        } else {
-            holds.release(&active.route_id, &ShellHoldId::new(LOAD_PRESENTATION_HOLD));
+        } else if active.phase == LoadForegroundPhase::ReadyHold {
+            active.phase = LoadForegroundPhase::Visible;
         }
     }
 
-    *model = LoadPresentationModel::from_snapshot(active.route_id.clone(), snapshot, &active);
+    *model = LoadPresentationModel::from_snapshot(snapshot, &active);
     foreground.active = Some(active);
 }
 
@@ -219,7 +165,6 @@ fn process_activity_signals(
     mut signals: MessageReader<LoadActivitySignal>,
     mut foreground: ResMut<LoadForegroundState>,
     mut activity: ResMut<LoadActivityState>,
-    mut holds: ResMut<ShellRouteHolds>,
 ) {
     for signal in signals.read() {
         let Some(active_activity) = activity.active.as_ref() else {
@@ -237,12 +182,6 @@ fn process_activity_signals(
             LoadActivitySignal::Engaged { .. } => {
                 if let Some(active) = foreground.active.as_mut() {
                     active.engaged = true;
-                    if active.spec.ready_policy == ReadyTransitionPolicy::AutoUnlessEngaged {
-                        holds.hold(
-                            active.route_id.clone(),
-                            ShellHoldId::new(LOAD_PRESENTATION_HOLD),
-                        );
-                    }
                 }
             }
             LoadActivitySignal::Finished { outcome, .. } => {
@@ -258,61 +197,71 @@ fn process_activity_signals(
 
 fn process_presentation_actions(
     mut actions: MessageReader<LoadPresentationAction>,
-    mut router: ResMut<ShellRouter>,
     mut foreground: ResMut<LoadForegroundState>,
+    mut model: ResMut<LoadPresentationModel>,
     mut activity: ResMut<LoadActivityState>,
-    mut holds: ResMut<ShellRouteHolds>,
-    routes: Res<ShellRouteCatalog>,
-    mut shell: MessageWriter<ShellCommand>,
     mut events: MessageWriter<LoadPresentationEvent>,
 ) {
     for action in actions.read() {
+        let owner = match action {
+            LoadPresentationAction::Continue { owner }
+            | LoadPresentationAction::Retry { owner }
+            | LoadPresentationAction::Cancel { owner }
+            | LoadPresentationAction::Quit { owner } => owner,
+        };
+        let Some(active) = foreground.active.as_mut() else {
+            continue;
+        };
+        if &active.owner != owner {
+            continue;
+        }
         match action {
-            LoadPresentationAction::Continue => {
-                if let Some(active) = foreground.active.as_ref() {
-                    holds.release(&active.route_id, &ShellHoldId::new(LOAD_PRESENTATION_HOLD));
+            LoadPresentationAction::Continue { owner } => {
+                active.ready_released = true;
+                if active.phase == LoadForegroundPhase::ReadyHold {
+                    active.phase = LoadForegroundPhase::Visible;
                 }
                 activity.active = None;
+                model.ready_hold = false;
+                events.write(LoadPresentationEvent::ContinueRequested {
+                    owner: owner.clone(),
+                });
             }
-            LoadPresentationAction::Retry => {
-                if let Some(active) = foreground.active.as_ref() {
-                    events.write(LoadPresentationEvent::RetryRequested {
-                        route_id: active.route_id.clone(),
-                        barrier: active.barrier.clone(),
-                    });
-                    // Provider-authored routes can be retried generically:
-                    // replacing the route mints a fresh transaction, supersedes
-                    // the failed plan, and prevents stale completion from
-                    // authorizing the new destination. Static external barriers
-                    // keep the original event-only contract so their owner can
-                    // rebuild the plan explicitly.
-                    if routes
-                        .get(&active.route_id)
-                        .is_some_and(|route| route.preparation.is_some())
-                    {
-                        shell.write(ShellCommand::ReplaceWith(active.route_id.clone()));
-                    }
-                }
+            LoadPresentationAction::Retry { owner } => {
+                events.write(LoadPresentationEvent::RetryRequested {
+                    owner: owner.clone(),
+                    barrier: active.barrier.clone(),
+                });
             }
-            LoadPresentationAction::CancelToPrevious => {
-                let had_active_route = router.active.is_some();
-                if let Some(pending) = router.cancel_pending() {
-                    holds.release(&pending.route_id, &ShellHoldId::new(LOAD_PRESENTATION_HOLD));
-                }
-                foreground.active = None;
-                activity.active = None;
-                if !had_active_route {
-                    shell.write(ShellCommand::QuitToHome);
-                }
+            LoadPresentationAction::Cancel { owner } => {
+                events.write(LoadPresentationEvent::CancelRequested {
+                    owner: owner.clone(),
+                });
             }
-            LoadPresentationAction::QuitToHome => {
-                if let Some(pending) = router.cancel_pending() {
-                    holds.release(&pending.route_id, &ShellHoldId::new(LOAD_PRESENTATION_HOLD));
-                }
-                foreground.active = None;
-                activity.active = None;
-                shell.write(ShellCommand::QuitToHome);
+            LoadPresentationAction::Quit { owner } => {
+                events.write(LoadPresentationEvent::QuitRequested {
+                    owner: owner.clone(),
+                });
             }
+        }
+    }
+}
+
+fn finalize_presentation_commands(
+    mut commands: MessageReader<LoadPresentationCommand>,
+    mut foreground: ResMut<LoadForegroundState>,
+    mut model: ResMut<LoadPresentationModel>,
+    mut activity: ResMut<LoadActivityState>,
+) {
+    for command in commands.read() {
+        let owner = match command {
+            LoadPresentationCommand::Finish { owner }
+            | LoadPresentationCommand::Cancel { owner } => owner,
+            LoadPresentationCommand::Begin { .. } => continue,
+        };
+        if foreground.clear_owner(owner) {
+            activity.active = None;
+            *model = LoadPresentationModel::default();
         }
     }
 }

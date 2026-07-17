@@ -1,13 +1,15 @@
-//! Replaceable, shell-integrated presentation for unresolved load barriers.
+//! Replaceable, contributor-neutral presentation for unresolved load barriers.
 //!
-//! The crate consumes [`ambition_load`] facts and [`ambition_game_shell`]
-//! pending routes. It owns delayed reveal, honest semantic progress, optional
-//! arbitrary activity lifecycles, engagement, ready-hold, Continue, and scoped
-//! cleanup. It never manufactures readiness and contains no game-specific
-//! activity branches.
+//! The core plugin consumes [`ambition_load`] facts plus generic presentation
+//! commands. Shell routes are supported by a thin adapter; room transitions and
+//! future activation owners can drive the same lifecycle without fake routes.
+//! The crate owns delayed reveal, honest semantic progress, optional activity
+//! lifecycles, engagement, ready-hold, Continue, and scoped cleanup. It never
+//! manufactures readiness or destination policy.
 
 mod model;
 mod plugin;
+mod shell_adapter;
 
 #[cfg(feature = "basic_presentation")]
 mod basic_presentation;
@@ -16,6 +18,7 @@ mod deterministic_activity;
 
 pub use model::*;
 pub use plugin::AmbitionLoadPresentationPlugin;
+pub use shell_adapter::{AmbitionLoadShellPresentationPlugin, ShellLoadPresentationCatalog};
 
 /// Stable identifier for the reusable neutral-input loading activity.
 pub const DETERMINISTIC_LOADING_ACTIVITY_ID: &str = "ambition.loading.edge-practice";
@@ -41,12 +44,29 @@ pub enum LoadPresentationSet {
     Render,
 }
 
+/// Contributor-neutral presentation composition. It can run without a shell.
 pub struct MinimalLoadPresentationPlugins;
 
 impl bevy::prelude::PluginGroup for MinimalLoadPresentationPlugins {
     fn build(self) -> bevy::app::PluginGroupBuilder {
         let builder =
             bevy::app::PluginGroupBuilder::start::<Self>().add(AmbitionLoadPresentationPlugin);
+        #[cfg(feature = "basic_presentation")]
+        let builder = builder
+            .add(BasicLoadPresentationPlugin)
+            .add(DeterministicLoadingActivityPlugin);
+        builder
+    }
+}
+
+/// Shell adapter plus the contributor-neutral presentation composition.
+pub struct MinimalShellLoadPresentationPlugins;
+
+impl bevy::prelude::PluginGroup for MinimalShellLoadPresentationPlugins {
+    fn build(self) -> bevy::app::PluginGroupBuilder {
+        let builder = bevy::app::PluginGroupBuilder::start::<Self>()
+            .add(AmbitionLoadPresentationPlugin)
+            .add(AmbitionLoadShellPresentationPlugin);
         #[cfg(feature = "basic_presentation")]
         let builder = builder
             .add(BasicLoadPresentationPlugin)
@@ -70,7 +90,8 @@ impl bevy::prelude::PluginGroup for MinimalLoadShellPlugins {
             .add(ambition_game_shell::GameplaySessionBridgePlugin)
             .add(ambition_game_shell::ShellSequencePlugin)
             .add(ambition_game_shell::ShellLauncherPlugin)
-            .add(AmbitionLoadPresentationPlugin);
+            .add(AmbitionLoadPresentationPlugin)
+            .add(AmbitionLoadShellPresentationPlugin);
         #[cfg(feature = "basic_presentation")]
         let builder = builder
             .add(ambition_game_shell::BasicShellPresentationPlugin)

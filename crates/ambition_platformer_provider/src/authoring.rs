@@ -233,9 +233,9 @@ impl PlatformerExperienceAuthoring {
                 .on_complete(ShellCompletionPolicy::ReturnHome),
         );
         if let Some(loading) = self.loading.clone() {
-            app.init_resource::<ambition_load_presentation::LoadPresentationCatalog>();
+            app.init_resource::<ambition_load_presentation::ShellLoadPresentationCatalog>();
             app.world_mut()
-                .resource_mut::<ambition_load_presentation::LoadPresentationCatalog>()
+                .resource_mut::<ambition_load_presentation::ShellLoadPresentationCatalog>()
                 .by_route
                 .insert(ShellRouteId::new(self.route_id.clone()), loading);
         }

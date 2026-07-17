@@ -21,9 +21,9 @@ pub mod resolver;
 pub mod validator;
 
 pub use binding::{
-    qualify_preset_like, resolve_initial_brain, AuthoredBrainContext, AutonomousBrainSource,
-    BrainBinding, BrainBuildContext, BrainBuildError, BrainPresetId, HostileArchetypeId,
-    PresetSource,
+    qualify_preset_like, resolve_initial_brain, AuthoredBrainContext, AutonomousSource,
+    BossAutonomyId, BrainBinding, BrainBuildContext, BrainBuildError, BrainPresetId,
+    HostileArchetypeId, PresetSource,
 };
 #[allow(
     unused_imports,

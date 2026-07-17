@@ -1406,19 +1406,34 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
 /// agree before the next re-simulated tick.
 impl SnapshotState for ambition_characters::actor::character_catalog::BrainBinding {
     fn encode(&self, out: &mut Vec<u8>) {
-        use ambition_characters::actor::character_catalog::AutonomousBrainSource;
-        put_str(out, self.default_preset.as_str());
+        use ambition_characters::actor::character_catalog::AutonomousSource;
+        // `default_preset` is optional (absent for a boss binding, which has no
+        // catalog default): a presence byte then the string.
+        match &self.default_preset {
+            Some(preset) => {
+                put_u8(out, 1);
+                put_str(out, preset.as_str());
+            }
+            None => put_u8(out, 0),
+        }
         match &self.source {
-            AutonomousBrainSource::CatalogDefault => put_u8(out, 0),
-            AutonomousBrainSource::CatalogPreset(preset) => {
+            AutonomousSource::CatalogDefault => put_u8(out, 0),
+            AutonomousSource::CatalogPreset(preset) => {
                 put_u8(out, 1);
                 put_str(out, preset.as_str());
             }
             // Provoked: the live brain is a roster archetype, not a catalog
             // preset. The stable archetype id is all a rebuild needs — reconcile
             // reruns the roster construction from it (never a catalog default).
-            AutonomousBrainSource::Provoked { archetype } => {
+            AutonomousSource::Provoked { archetype } => {
                 put_u8(out, 2);
+                put_str(out, archetype.as_str());
+            }
+            // Boss: the live brain is a `BossPattern` rebuilt from the boss
+            // catalog by this id (or resumed from the suspended runtime), never a
+            // catalog preset. The stable boss id is all a rebuild needs.
+            AutonomousSource::Boss { archetype } => {
+                put_u8(out, 3);
                 put_str(out, archetype.as_str());
             }
         }
@@ -1426,14 +1441,21 @@ impl SnapshotState for ambition_characters::actor::character_catalog::BrainBindi
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         use ambition_characters::actor::character_catalog::{
-            AutonomousBrainSource, BrainBinding, BrainPresetId, HostileArchetypeId,
+            AutonomousSource, BossAutonomyId, BrainBinding, BrainPresetId, HostileArchetypeId,
         };
-        let default_preset = BrainPresetId::new(r.str()?.to_string());
+        let default_preset = match r.u8()? {
+            0 => None,
+            1 => Some(BrainPresetId::new(r.str()?.to_string())),
+            _ => return None,
+        };
         let source = match r.u8()? {
-            0 => AutonomousBrainSource::CatalogDefault,
-            1 => AutonomousBrainSource::CatalogPreset(BrainPresetId::new(r.str()?.to_string())),
-            2 => AutonomousBrainSource::Provoked {
+            0 => AutonomousSource::CatalogDefault,
+            1 => AutonomousSource::CatalogPreset(BrainPresetId::new(r.str()?.to_string())),
+            2 => AutonomousSource::Provoked {
                 archetype: HostileArchetypeId::new(r.str()?.to_string()),
+            },
+            3 => AutonomousSource::Boss {
+                archetype: BossAutonomyId::new(r.str()?.to_string()),
             },
             _ => return None,
         };
@@ -2303,7 +2325,7 @@ mod brain_reconcile_tests {
     //! `BrainBinding` after a rewind crosses a runtime brain switch.
 
     use ambition_characters::actor::character_catalog::{
-        parse_catalog, AutonomousBrainSource, BrainBinding, BrainPresetId, CharacterCatalog,
+        parse_catalog, AutonomousSource, BrainBinding, BrainPresetId, CharacterCatalog,
         HostileArchetypeId,
     };
     use ambition_characters::actor::ActorPose;
@@ -2360,7 +2382,7 @@ mod brain_reconcile_tests {
             Brain::stand_still(),
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousBrainSource::CatalogDefault,
+                AutonomousSource::CatalogDefault,
             ),
         );
         super::reconcile_brain_bindings(&mut world);
@@ -2379,7 +2401,7 @@ mod brain_reconcile_tests {
             Brain::stand_still(),
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousBrainSource::CatalogPreset(BrainPresetId::new("stand_still")),
+                AutonomousSource::CatalogPreset(BrainPresetId::new("stand_still")),
             ),
         );
         super::reconcile_brain_bindings(&mut world);
@@ -2406,7 +2428,7 @@ mod brain_reconcile_tests {
             fast,
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousBrainSource::CatalogPreset(BrainPresetId::new("wanderer_slow")),
+                AutonomousSource::CatalogPreset(BrainPresetId::new("wanderer_slow")),
             ),
         );
         super::reconcile_brain_bindings(&mut world);
@@ -2427,7 +2449,7 @@ mod brain_reconcile_tests {
             Brain::stand_still(),
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousBrainSource::Provoked {
+                AutonomousSource::Provoked {
                     archetype: HostileArchetypeId::new("combatant"),
                 },
             ),
@@ -2448,7 +2470,7 @@ mod brain_reconcile_tests {
             Brain::Player(PlayerSlot::PRIMARY),
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousBrainSource::CatalogDefault,
+                AutonomousSource::CatalogDefault,
             ),
         );
         super::reconcile_brain_bindings(&mut world);
@@ -2466,8 +2488,8 @@ mod brain_reconcile_tests {
 #[cfg(test)]
 mod brain_switch_rewind_tests {
     use ambition_characters::actor::character_catalog::{
-        parse_catalog, AuthoredBrainContext, AutonomousBrainSource, BrainBinding,
-        BrainBuildContext, BrainPresetId, CharacterCatalog, HostileArchetypeId,
+        parse_catalog, AuthoredBrainContext, AutonomousSource, BrainBinding, BrainBuildContext,
+        BrainPresetId, CharacterCatalog, HostileArchetypeId,
     };
     use ambition_characters::actor::ActorPose;
     use ambition_characters::brain::{Brain, PlayerSlot, StateMachineCfg};
@@ -2585,7 +2607,7 @@ mod brain_switch_rewind_tests {
             brain,
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousBrainSource::CatalogDefault,
+                AutonomousSource::CatalogDefault,
             ),
             100.0,
         );
@@ -2602,7 +2624,7 @@ mod brain_switch_rewind_tests {
 
         assert_eq!(
             w.get::<BrainBinding>(e).unwrap().source,
-            AutonomousBrainSource::CatalogDefault
+            AutonomousSource::CatalogDefault
         );
         assert_eq!(
             wanderer_speed(w.get::<Brain>(e).unwrap()),
@@ -2625,7 +2647,7 @@ mod brain_switch_rewind_tests {
             slow,
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousBrainSource::CatalogPreset(BrainPresetId::new("wanderer_slow")),
+                AutonomousSource::CatalogPreset(BrainPresetId::new("wanderer_slow")),
             ),
             100.0,
         );
@@ -2669,7 +2691,7 @@ mod brain_switch_rewind_tests {
             grunt,
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousBrainSource::CatalogPreset(BrainPresetId::new("smash_grunt")),
+                AutonomousSource::CatalogPreset(BrainPresetId::new("smash_grunt")),
             ),
             100.0,
         );
@@ -2714,7 +2736,7 @@ mod brain_switch_rewind_tests {
             alpha,
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousBrainSource::CatalogPreset(BrainPresetId::new("boss_alpha")),
+                AutonomousSource::CatalogPreset(BrainPresetId::new("boss_alpha")),
             ),
             100.0,
         );
@@ -2753,7 +2775,7 @@ mod brain_switch_rewind_tests {
             brain,
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousBrainSource::CatalogPreset(BrainPresetId::new("stand_still")),
+                AutonomousSource::CatalogPreset(BrainPresetId::new("stand_still")),
             ),
             100.0,
         );
@@ -2795,7 +2817,7 @@ mod brain_switch_rewind_tests {
         let attack = build(&w, "melee_brute_striker", 100.0);
         let mut binding = BrainBinding::new(
             BrainPresetId::new("wanderer_puppy_slug"),
-            AutonomousBrainSource::CatalogPreset(BrainPresetId::new("stand_still")),
+            AutonomousSource::CatalogPreset(BrainPresetId::new("stand_still")),
         );
         binding.provoke(HostileArchetypeId::new("combatant"));
         let e = spawn(&mut w, "npc", attack, binding, 100.0);
@@ -2839,7 +2861,7 @@ mod brain_switch_rewind_tests {
             patrol,
             BrainBinding::new(
                 BrainPresetId::new("patrol_peaceful"),
-                AutonomousBrainSource::CatalogDefault,
+                AutonomousSource::CatalogDefault,
             ),
             100.0,
         );
@@ -2878,7 +2900,7 @@ mod brain_switch_rewind_tests {
             Brain::Player(PlayerSlot::PRIMARY),
             BrainBinding::new(
                 BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousBrainSource::CatalogDefault,
+                AutonomousSource::CatalogDefault,
             ),
             100.0,
         );

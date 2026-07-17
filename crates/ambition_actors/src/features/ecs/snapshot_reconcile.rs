@@ -9,7 +9,7 @@
 //! RECONSTRUCTS it here, the same way spawn / provocation build it live. This is
 //! what makes provocation rollback-correct in BOTH directions:
 //!
-//! - Rewind INTO a provoked snapshot ([`AutonomousBrainSource::Provoked`]): rerun
+//! - Rewind INTO a provoked snapshot ([`AutonomousSource::Provoked`]): rerun
 //!   the roster archetype construction ([`project_provoked_archetype`], shared
 //!   with the live provoke flip) to rebuild the hostile brain / action set /
 //!   tuning / capabilities from the archetype id the binding retained.
@@ -36,8 +36,8 @@ use crate::features::ecs::actor_tuning::{ActorTuning, CharacterBrainSpec};
 use crate::features::enemies::{CharacterArchetypeSpec, CharacterRoster};
 use crate::features::TemporaryControl;
 use ambition_characters::actor::character_catalog::{
-    AuthoredBrainContext, AutonomousBrainSource, BrainBinding, BrainBuildContext,
-    CharacterBodyKind, CharacterCatalog,
+    AuthoredBrainContext, AutonomousSource, BrainBinding, BrainBuildContext, CharacterBodyKind,
+    CharacterCatalog,
 };
 use ambition_characters::actor::pose::ActorPose;
 use ambition_characters::actor::{BodyHealth, Health};
@@ -125,15 +125,15 @@ pub(crate) fn project_provoked_archetype(
 /// set, and `is_aerial` from the character's catalog body kind. The only
 /// non-constant input is `character_id` (for `is_aerial` + the resolved
 /// `config.brain` read-model).
-struct PeacefulConfig {
-    tuning: ActorTuning,
-    brain_spec: CharacterBrainSpec,
-    capabilities: CombatCapabilities,
-    action_set: ambition_characters::brain::ActionSet,
-    config_brain: CharacterBrain,
+pub(crate) struct PeacefulConfig {
+    pub(crate) tuning: ActorTuning,
+    pub(crate) brain_spec: CharacterBrainSpec,
+    pub(crate) capabilities: CombatCapabilities,
+    pub(crate) action_set: ambition_characters::brain::ActionSet,
+    pub(crate) config_brain: CharacterBrain,
 }
 
-fn peaceful_config(
+pub(crate) fn peaceful_config(
     catalog: &CharacterCatalog,
     character_id: Option<&str>,
     combat_kit: &CombatKit,
@@ -179,7 +179,7 @@ pub fn reconcile_autonomous_actors(world: &mut World) {
 
     struct Job {
         entity: Entity,
-        source: AutonomousBrainSource,
+        source: AutonomousSource,
         character_id: Option<String>,
     }
 
@@ -215,12 +215,18 @@ pub fn reconcile_autonomous_actors(world: &mut World) {
 
     for job in jobs {
         match &job.source {
-            AutonomousBrainSource::Provoked { archetype } => {
+            AutonomousSource::Provoked { archetype } => {
                 reconstruct_provoked(world, job.entity, archetype.as_str());
             }
-            AutonomousBrainSource::CatalogDefault | AutonomousBrainSource::CatalogPreset(_) => {
+            AutonomousSource::CatalogDefault | AutonomousSource::CatalogPreset(_) => {
                 restore_peaceful_config(world, job.entity, job.character_id.as_deref());
             }
+            // A boss's autonomous BossPattern brain is snapshotted by the ordinary
+            // brain codec (it is a `Brain` variant), and a boss carries no
+            // `ActorConfig` — so it is filtered out of this config-reconstruction
+            // loop above. Its temporary-control resumption is handled by the
+            // suspended-autonomous-runtime pass; nothing to reconstruct here.
+            AutonomousSource::Boss { .. } => {}
         }
     }
 }
@@ -304,7 +310,7 @@ pub(crate) fn fresh_health_pool(max_health: i32) -> BodyHealth {
 pub(crate) fn autonomous_brain_for_source(world: &World, entity: Entity) -> Option<Brain> {
     let binding = world.get::<BrainBinding>(entity)?;
     match &binding.source {
-        AutonomousBrainSource::Provoked { archetype } => {
+        AutonomousSource::Provoked { archetype } => {
             let roster = world.get_resource::<CharacterRoster>()?;
             let spec =
                 roster.spec_for_brain(&CharacterBrain::Custom(archetype.as_str().to_string()));
@@ -313,7 +319,7 @@ pub(crate) fn autonomous_brain_for_source(world: &World, entity: Entity) -> Opti
             let held = world.get::<HeldItem>(entity);
             Some(project_provoked_archetype(&spec, archetype.as_str(), config, kit, held).brain)
         }
-        AutonomousBrainSource::CatalogDefault | AutonomousBrainSource::CatalogPreset(_) => {
+        AutonomousSource::CatalogDefault | AutonomousSource::CatalogPreset(_) => {
             let catalog = world.get_resource::<CharacterCatalog>()?;
             let preset = binding.active_preset()?.as_str().to_string();
             let ctx = world
@@ -329,6 +335,12 @@ pub(crate) fn autonomous_brain_for_source(world: &World, entity: Entity) -> Opti
                 });
             catalog.build_brain_from_preset(&preset, &ctx)
         }
+        // A boss's autonomous brain is not rebuilt from a catalog preset: it is
+        // the live `BossPattern` captured into the suspended-autonomous-runtime at
+        // possession and resumed from there, so this catalog-preset resolver
+        // returns `None` for a boss source (the caller resumes from the captured
+        // runtime instead).
+        AutonomousSource::Boss { .. } => None,
     }
 }
 
@@ -448,18 +460,20 @@ fn reconcile_temporary_control(world: &mut World) {
     for body in &bodies {
         match &body.control {
             TemporaryControl::Mounted { mount } => {
-                // Install the mounted brain (from the rider's cache) and rebuild
-                // the rider↔mount link from the stable mount id.
-                let cached_brain = world
+                // Install the mounted mode (BOTH the mounted brain AND its action
+                // set, from the rider's cache) and rebuild the rider↔mount link
+                // from the stable mount id. Installing the brain without the action
+                // set would leave a mounted rider with a mismatched pair.
+                let cached = world
                     .get::<MountedBrainCache>(body.entity)
-                    .map(|cache| cache.brain.clone());
+                    .map(|cache| (cache.brain.clone(), cache.action_set.clone()));
                 let mount_entity = by_sim_id.get(mount.as_str()).copied();
                 if let Ok(mut em) = world.get_entity_mut(body.entity) {
                     if !em.contains::<Mounted>() {
                         em.insert(Mounted);
                     }
-                    if let Some(brain) = cached_brain {
-                        em.insert(brain);
+                    if let Some((brain, action_set)) = cached {
+                        em.insert((brain, action_set));
                     }
                     if let Some(mount_entity) = mount_entity {
                         em.insert(RidingOn {
@@ -552,7 +566,7 @@ mod tests {
                 SimId::placement("npc"),
                 BrainBinding::new(
                     BrainPresetId::new("wanderer_x"),
-                    AutonomousBrainSource::Provoked {
+                    AutonomousSource::Provoked {
                         archetype: HostileArchetypeId::new("combatant"),
                     },
                 ),
@@ -598,7 +612,7 @@ mod tests {
                 SimId::placement("npc"),
                 BrainBinding::new(
                     BrainPresetId::new("wanderer_x"),
-                    AutonomousBrainSource::CatalogDefault,
+                    AutonomousSource::CatalogDefault,
                 ),
                 config,
                 CombatKit::default(),
@@ -642,7 +656,7 @@ mod tests {
                 SimId::placement("npc"),
                 BrainBinding::new(
                     BrainPresetId::new("wanderer_x"),
-                    AutonomousBrainSource::CatalogDefault,
+                    AutonomousSource::CatalogDefault,
                 ),
                 config_fixture(),
                 CombatKit::default(),
@@ -685,7 +699,7 @@ mod tests {
                 SimId::placement("npc"),
                 BrainBinding::new(
                     BrainPresetId::new("wanderer_x"),
-                    AutonomousBrainSource::CatalogDefault,
+                    AutonomousSource::CatalogDefault,
                 ),
                 config_fixture(),
                 CombatKit::default(),

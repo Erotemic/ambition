@@ -20,19 +20,22 @@
 //!
 //! Provocation/challenge installs a hostile roster brain through its own
 //! authority (`provoke_actor_in_place`); it records the archetype in the binding
-//! as [`AutonomousBrainSource::Provoked`](ambition_characters::actor::character_catalog::AutonomousBrainSource::Provoked),
+//! as [`AutonomousSource::Provoked`](ambition_characters::actor::character_catalog::AutonomousSource::Provoked),
 //! which lets snapshot reconciliation RERUN the roster construction to
 //! reconstruct that mode rather than rebuild the catalog default over it.
 //! Ordinary gameplay never replaces a character-backed NPC's `Brain` directly;
 //! it emits a `BrainCommand` (autonomous catalog change) or routes through the
 //! provoke authority (disposition change).
 
+use crate::combat::CombatCapabilities;
+use crate::features::ecs::actor_clusters::ActorConfig;
+use crate::features::CombatKit;
 use ambition_characters::actor::character_catalog::{
     qualify_preset_like, AuthoredBrainContext, BrainBinding, BrainBuildContext, BrainPresetId,
     CharacterCatalog,
 };
 use ambition_characters::actor::ActorPose;
-use ambition_characters::brain::Brain;
+use ambition_characters::brain::{ActionSet, Brain};
 use ambition_platformer_primitives::sim_id::SimId;
 use bevy::prelude::*;
 use std::collections::BTreeMap;
@@ -76,6 +79,45 @@ impl BrainCommand {
     }
 }
 
+/// Resolve a command's target catalog preset from the binding, or `None` (with a
+/// warning) when it cannot be resolved. `RestoreDefault` needs a catalog default
+/// preset — a source with none (a boss binding) rejects the command rather than
+/// falling back to anything.
+fn resolve_command_preset(
+    sim_id: &SimId,
+    binding: &BrainBinding,
+    kind: &BrainCommandKind,
+) -> Option<BrainPresetId> {
+    match kind {
+        // Qualify a (possibly raw) command preset into the actor's namespace — the
+        // same one its default preset lives in — so authoring can use raw local
+        // names while the assembled catalog keys presets by `provider::name`.
+        BrainCommandKind::UsePreset(preset) => {
+            let namespace = binding
+                .default_preset
+                .as_ref()
+                .map(|p| p.as_str())
+                .unwrap_or_else(|| preset.as_str());
+            Some(BrainPresetId::new(qualify_preset_like(
+                namespace,
+                preset.as_str(),
+            )))
+        }
+        BrainCommandKind::RestoreDefault => match &binding.default_preset {
+            Some(default) => Some(default.clone()),
+            None => {
+                warn!(
+                    target: "ambition_actors::brain_command",
+                    "BrainCommand RestoreDefault for {}: binding has no catalog default preset \
+                     (not a catalog-backed actor); command rejected",
+                    sim_id.as_str(),
+                );
+                None
+            }
+        },
+    }
+}
+
 /// The single authoritative catalog-brain selection: rebuild the live `Brain`
 /// from the resolved preset and update the binding so the two agree. Returns
 /// `false` (leaving both unchanged) when the preset is unknown — never a silent
@@ -94,15 +136,8 @@ fn apply_brain_selection(
     ctx: &BrainBuildContext,
     kind: &BrainCommandKind,
 ) -> bool {
-    // Qualify a (possibly raw) command preset into the actor's namespace — the
-    // same one its default preset lives in — so authoring can use raw local names
-    // while the assembled catalog keys presets by `provider::name`.
-    let resolved_preset: BrainPresetId = match kind {
-        BrainCommandKind::UsePreset(preset) => BrainPresetId::new(qualify_preset_like(
-            binding.default_preset.as_str(),
-            preset.as_str(),
-        )),
-        BrainCommandKind::RestoreDefault => binding.default_preset.clone(),
+    let Some(resolved_preset) = resolve_command_preset(sim_id, binding, kind) else {
+        return false;
     };
     let Some(new_brain) = catalog.build_brain_from_preset(resolved_preset.as_str(), ctx) else {
         warn!(
@@ -135,16 +170,18 @@ pub fn apply_brain_commands(
     catalog: Res<CharacterCatalog>,
     mut commands_in: MessageReader<BrainCommand>,
     mut possession: ResMut<crate::abilities::traversal::possession::PossessionState>,
-    mut mount_caches: Query<&mut crate::features::MountedBrainCache>,
     mut actors: Query<(
         Entity,
         &SimId,
         &mut Brain,
         &mut BrainBinding,
         Option<&AuthoredBrainContext>,
-        Option<&mut crate::features::ecs::actor_clusters::ActorConfig>,
+        Option<&mut ActorConfig>,
         &ActorPose,
         Has<crate::features::ecs::Mounted>,
+        Option<&CombatKit>,
+        Option<&mut CombatCapabilities>,
+        Option<&mut ActionSet>,
     )>,
 ) {
     let mut by_id: BTreeMap<&str, Vec<&BrainCommandKind>> = BTreeMap::new();
@@ -157,7 +194,19 @@ pub fn apply_brain_commands(
     if by_id.is_empty() {
         return;
     }
-    for (entity, sim_id, mut brain, mut binding, authored, mut config, pose, mounted) in &mut actors
+    for (
+        entity,
+        sim_id,
+        mut brain,
+        mut binding,
+        authored,
+        config,
+        pose,
+        mounted,
+        kit,
+        caps,
+        action_set,
+    ) in &mut actors
     {
         let Some(kinds) = by_id.get(sim_id.as_str()) else {
             continue;
@@ -169,27 +218,24 @@ pub fn apply_brain_commands(
             .unwrap_or_else(|| BrainBuildContext::at(pose.origin().x));
 
         // Under temporary control (player possession / mount) the live `Brain` is
-        // the controller's, not the autonomous selection — so a switch updates the
-        // SOURCE that resumes when control ends, and is NEVER silently lost. The
-        // cached resume-brain (possession / mount) is refreshed so a LIVE release
-        // resumes the newly selected source; a snapshot restore reconstructs it
-        // from the source directly (`reconcile_autonomous_actors`).
+        // the controller's, not the autonomous selection — so a switch updates only
+        // the SOURCE that resumes when control ends, and is NEVER silently lost. We
+        // do NOT touch any mount cache (that is the MOUNTED mode, not the autonomous
+        // resume mode) — the suspended-autonomous-runtime pass owns resumption. The
+        // possession resume-brain is kept agreeing with the new source so a LIVE
+        // release resumes the newly selected mode; a snapshot restore reconstructs
+        // it from the source directly (`reconcile_autonomous_actors`).
         if brain.is_player() || mounted {
             let mut changed = false;
             for kind in kinds {
                 changed |= update_source_only(&catalog, sim_id, &mut binding, kind);
             }
-            if changed {
+            if changed && possession.possessed == Some(entity) {
                 if let Some(resumed) = binding
                     .active_preset()
                     .and_then(|preset| catalog.build_brain_from_preset(preset.as_str(), &ctx))
                 {
-                    if possession.possessed == Some(entity) {
-                        possession.restore_brain = Some(resumed.clone());
-                    }
-                    if let Ok(mut cache) = mount_caches.get_mut(entity) {
-                        cache.brain = resumed;
-                    }
+                    possession.restore_brain = Some(resumed);
                 }
             }
             continue;
@@ -200,15 +246,55 @@ pub fn apply_brain_commands(
             changed |=
                 apply_brain_selection(&catalog, sim_id, &mut brain, &mut binding, &ctx, kind);
         }
-        // Keep the `config.brain` read-model (patrol-stall intent / aggro
-        // classification) in agreement with the live brain — never let a runtime
-        // switch leave it stale. Derived exactly as the spawn plan does: `Patrol`
-        // iff the resolved brain is a Patrol brain, else `Passive`.
         if changed {
-            if let Some(config) = config.as_mut() {
-                config.brain = config_brain_for(&brain);
-            }
+            apply_catalog_mode(&catalog, &brain, config, kit, caps, action_set);
         }
+    }
+}
+
+/// Restore the COMPLETE catalog-default actor mode after a live autonomous switch
+/// (`UsePreset` / `RestoreDefault`) — not just the live brain. A prior provocation
+/// may have installed hostile tuning / capabilities / action set / sprite override;
+/// "you are free" (and any catalog switch) must revert ALL of it so the peaceful
+/// actor is coherent LIVE, matching what a snapshot reconcile reconstructs from the
+/// source. Uses the SHARED [`peaceful_config`](crate::features::ecs::snapshot_reconcile::peaceful_config)
+/// projection, so live and reconcile can never drift. `config.brain` is derived
+/// from the live brain inside that projection.
+///
+/// When the actor carries no combat kit to rebuild the full mode from, this falls
+/// back to keeping only the `config.brain` read-model in sync (the prior behavior).
+fn apply_catalog_mode(
+    catalog: &CharacterCatalog,
+    brain: &Brain,
+    config: Option<Mut<ActorConfig>>,
+    kit: Option<&CombatKit>,
+    caps: Option<Mut<CombatCapabilities>>,
+    action_set: Option<Mut<ActionSet>>,
+) {
+    let character_id = config.as_ref().and_then(|c| c.sprite_character_id.clone());
+    let Some(kit) = kit else {
+        if let Some(mut config) = config {
+            config.brain = config_brain_for(brain);
+        }
+        return;
+    };
+    let peaceful = crate::features::ecs::snapshot_reconcile::peaceful_config(
+        catalog,
+        character_id.as_deref(),
+        kit,
+        brain,
+    );
+    if let Some(mut config) = config {
+        config.tuning = peaceful.tuning;
+        config.brain_spec = peaceful.brain_spec;
+        config.brain = peaceful.config_brain;
+        config.sprite_override_npc_name = None;
+    }
+    if let Some(mut caps) = caps {
+        *caps = peaceful.capabilities;
+    }
+    if let Some(mut action_set) = action_set {
+        *action_set = peaceful.action_set;
     }
 }
 
@@ -221,12 +307,8 @@ fn update_source_only(
     binding: &mut BrainBinding,
     kind: &BrainCommandKind,
 ) -> bool {
-    let resolved: BrainPresetId = match kind {
-        BrainCommandKind::UsePreset(preset) => BrainPresetId::new(qualify_preset_like(
-            binding.default_preset.as_str(),
-            preset.as_str(),
-        )),
-        BrainCommandKind::RestoreDefault => binding.default_preset.clone(),
+    let Some(resolved) = resolve_command_preset(sim_id, binding, kind) else {
+        return false;
     };
     // Validate the preset resolves before recording it, so control never resumes
     // into an unknown brain.

@@ -67,7 +67,7 @@ pub mod spawn_static;
 pub use mount::{rider_hand_world_pos, rider_hand_world_pos_in_frame};
 mod reset;
 mod save_sync;
-mod snapshot_reconcile;
+pub(crate) mod snapshot_reconcile;
 mod spawn;
 mod spawn_actors;
 mod target_volumes;

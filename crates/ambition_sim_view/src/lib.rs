@@ -15,6 +15,7 @@
 use ambition_platformer_primitives::schedule::SimScheduleExt;
 mod anim_index;
 pub mod camera_snapshot;
+mod control_prompt;
 mod dialog_view;
 mod facts;
 mod pose_view;
@@ -23,6 +24,9 @@ mod view_index;
 pub use anim_index::{
     rebuild_actor_anim_index, rebuild_boss_frame_index, ActorAnimFrame, ActorAnimIndex,
     ActorSpriteData, BossFrameIndex, BossFrameView, HazardLaneFact,
+};
+pub use control_prompt::{
+    rebuild_control_prompt, ControlContextKind, ControlPrompt, PromptEntry,
 };
 pub use dialog_view::{rebuild_dialog_view, DialogView};
 pub use facts::*;
@@ -56,6 +60,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         app.init_resource::<BossFrameIndex>();
         app.init_resource::<NameplateIndex>();
         app.init_resource::<DialogView>();
+        app.init_resource::<ControlPrompt>();
         app.add_systems(
             sim,
             (
@@ -81,6 +86,9 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // The dialogue overlay's row (recon C3): presentation reads
                 // THIS, never the live `DialogState`.
                 rebuild_dialog_view,
+                // "What does each control do right now" for the controlled
+                // subject — the touch overlay reads this instead of the sim.
+                rebuild_control_prompt,
             )
                 .in_set(ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync),
         );

@@ -50,6 +50,11 @@ pub struct PromptEntry {
 pub struct ControlPrompt {
     pub context: ControlContextKind,
     pub entries: Vec<PromptEntry>,
+    /// In a `Menu` / `Dialogue` context, the label the confirm-functional
+    /// controls (touch Jump / Interact fold into menu-select) should show —
+    /// "Select" / "Advance" today, and the active menu's item verb (Equip /
+    /// Use) once P4b wires the app-side provider. `None` in gameplay.
+    pub menu_confirm: Option<String>,
 }
 
 impl ControlPrompt {
@@ -75,14 +80,16 @@ pub fn rebuild_control_prompt(
     schemes: Query<&ActorActionScheme>,
     mut prompt: ResMut<ControlPrompt>,
 ) {
-    // Menu / dialogue own input: no gameplay scheme, explicit context so the UI
-    // can relabel to menu verbs once P4 supplies them.
+    // Menu / dialogue own input: no gameplay scheme. Publish an explicit
+    // context + the generic confirm verb so the overlay relabels the
+    // select-functional buttons and hides the rest. The specific item verb
+    // (Equip / Use) arrives with the app-side provider in P4b.
     if !mode.get().allows_gameplay() {
-        let context = match mode.get() {
-            GameMode::Dialogue => ControlContextKind::Dialogue,
-            _ => ControlContextKind::Menu,
+        let (context, confirm) = match mode.get() {
+            GameMode::Dialogue => (ControlContextKind::Dialogue, "Advance"),
+            _ => (ControlContextKind::Menu, "Select"),
         };
-        set_prompt(&mut prompt, context, Vec::new());
+        set_prompt(&mut prompt, context, Vec::new(), Some(confirm.to_owned()));
         return;
     }
 
@@ -91,7 +98,7 @@ pub fn rebuild_control_prompt(
         .or_else(|| primary.single().ok());
     let Some(scheme) = subject.and_then(|e| schemes.get(e).ok()) else {
         // Cold start (no player yet) or a controlled body without a scheme.
-        set_prompt(&mut prompt, ControlContextKind::Empty, Vec::new());
+        set_prompt(&mut prompt, ControlContextKind::Empty, Vec::new(), None);
         return;
     };
 
@@ -104,15 +111,22 @@ pub fn rebuild_control_prompt(
             visual: action.visual.clone(),
         })
         .collect();
-    set_prompt(&mut prompt, ControlContextKind::Gameplay, entries);
+    set_prompt(&mut prompt, ControlContextKind::Gameplay, entries, None);
 }
 
 /// Write only when the prompt actually changed, so `Changed<ControlPrompt>`
 /// stays honest for the presentation systems that filter on it.
-fn set_prompt(prompt: &mut ControlPrompt, context: ControlContextKind, entries: Vec<PromptEntry>) {
-    if prompt.context != context || prompt.entries != entries {
+fn set_prompt(
+    prompt: &mut ControlPrompt,
+    context: ControlContextKind,
+    entries: Vec<PromptEntry>,
+    menu_confirm: Option<String>,
+) {
+    if prompt.context != context || prompt.entries != entries || prompt.menu_confirm != menu_confirm
+    {
         prompt.context = context;
         prompt.entries = entries;
+        prompt.menu_confirm = menu_confirm;
     }
 }
 
@@ -185,6 +199,28 @@ mod tests {
         // The attack label comes from the bound move id (title-cased).
         assert_eq!(prompt.label_for(ControlSlot::Attack), Some("Swat"));
         assert_eq!(prompt.label_for(ControlSlot::Special), None);
+    }
+
+    #[test]
+    fn menu_context_publishes_a_confirm_verb_not_the_scheme() {
+        let mut app = app();
+        app.world_mut().spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            scheme_component(true, Some("swat")),
+        ));
+        // Enter a paused (menu) mode and let the transition apply.
+        app.world_mut()
+            .resource_mut::<NextState<GameMode>>()
+            .set(GameMode::Paused);
+        app.update();
+
+        let prompt = app.world().resource::<ControlPrompt>();
+        assert_eq!(prompt.context, ControlContextKind::Menu);
+        assert_eq!(prompt.menu_confirm.as_deref(), Some("Select"));
+        // The gameplay scheme is NOT published while a menu owns input.
+        assert!(prompt.entries.is_empty());
+        assert_eq!(prompt.label_for(ControlSlot::Jump), None);
     }
 
     #[test]

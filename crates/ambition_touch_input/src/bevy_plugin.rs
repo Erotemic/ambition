@@ -830,55 +830,86 @@ fn touch_button_slot(action: TouchActionButton) -> Option<ControlSlot> {
     })
 }
 
-/// Per-frame: label each touch button from the [`ControlPrompt`] read-model —
-/// the CONTROLLED subject's own action names (possess a body → the buttons
-/// rename). Reads the sim-published read-model, not the sim's live components.
+/// The select-functional touch buttons: in a menu these fold into
+/// `MenuControlFrame.select`, so they wear the menu's confirm verb.
+fn is_menu_confirm_button(action: TouchActionButton) -> bool {
+    matches!(
+        action,
+        TouchActionButton::Jump | TouchActionButton::Interact
+    )
+}
+
+/// The dedicated menu-row buttons (Menu / Back) — always shown, never driven by
+/// the gameplay scheme.
+fn is_menu_button(action: TouchActionButton) -> bool {
+    matches!(action, TouchActionButton::Start | TouchActionButton::Reset)
+}
+
+/// Per-frame: label each touch button from the [`ControlPrompt`] read-model.
 ///
-/// Only in the `Gameplay` context: menu / dialogue relabeling arrives in P4, so
-/// while a menu owns input the buttons keep their last gameplay labels (touch
-/// Jump / Interact still fold into menu select). A slot the scheme doesn't
-/// carry is left untouched here — [`sync_touch_button_visibility_from_prompt`]
-/// hides that button.
+/// - **Gameplay:** the CONTROLLED subject's own action names (possess a body →
+///   the buttons rename); a slot the scheme lacks is left untouched (hidden by
+///   [`sync_touch_button_visibility_from_prompt`]).
+/// - **Menu / Dialogue:** the select-functional buttons (Jump / Interact) wear
+///   the menu's confirm verb ("Select" / "Advance" / a specific item verb) so a
+///   menu button never reads "Jump."
+///
+/// Reads the sim-published read-model, never the sim's live components.
 pub fn update_button_verb_from_prompt(
     prompt: Res<ControlPrompt>,
     mut labels: Query<(&TouchActionLabel, &mut ButtonVerb)>,
 ) {
-    if prompt.context != ControlContextKind::Gameplay {
-        return;
-    }
     for (TouchActionLabel(action), mut verb) in &mut labels {
-        let Some(slot) = touch_button_slot(*action) else {
-            continue;
+        let next: Option<String> = match prompt.context {
+            ControlContextKind::Gameplay => touch_button_slot(*action)
+                .and_then(|slot| prompt.label_for(slot))
+                .map(str::to_owned),
+            ControlContextKind::Menu | ControlContextKind::Dialogue => {
+                is_menu_confirm_button(*action)
+                    .then(|| prompt.menu_confirm.clone())
+                    .flatten()
+            }
+            ControlContextKind::Empty => None,
         };
-        let Some(label) = prompt.label_for(slot) else {
-            continue;
-        };
-        // Only flip when the string actually changes, keeping `Changed<ButtonVerb>`
-        // honest for `render_touch_button_text`.
-        let same = matches!(&*verb, ButtonVerb::Dynamic(s) if s == label);
-        if !same {
-            *verb = ButtonVerb::Dynamic(label.to_owned());
+        if let Some(next) = next {
+            // Only flip when the string actually changes, keeping
+            // `Changed<ButtonVerb>` honest for `render_touch_button_text`.
+            let same = matches!(&*verb, ButtonVerb::Dynamic(s) if *s == next);
+            if !same {
+                *verb = ButtonVerb::Dynamic(next);
+            }
         }
     }
 }
 
-/// Per-frame: hide any action button whose slot the controlled subject's scheme
-/// doesn't carry (Sanic — a movement character — shows no Attack / Shot /
-/// Shield button), show the rest.
+/// Per-frame: show only the buttons that mean something in the current context.
+///
+/// - **Gameplay:** hide any button whose slot the controlled subject's scheme
+///   doesn't carry (Sanic shows no Attack / Shot / Shield button).
+/// - **Menu / Dialogue:** hide the gameplay-only action buttons, keeping the
+///   select-functional Jump / Interact and the Menu / Back row so touch menu
+///   navigation stays usable.
 ///
 /// Shown buttons use `Visibility::Inherited` (never `Visible`) so they still
-/// obey the overlay-wide [`TouchControlsVisible`] root toggle. Menu / system
-/// buttons (Start / Reset) and non-gameplay contexts are left visible so touch
-/// menu navigation keeps working.
+/// obey the overlay-wide [`TouchControlsVisible`] root toggle.
 pub fn sync_touch_button_visibility_from_prompt(
     prompt: Res<ControlPrompt>,
     mut buttons: Query<(&TouchActionButton, &mut Visibility)>,
 ) {
-    let gameplay = prompt.context == ControlContextKind::Gameplay;
     for (action, mut vis) in &mut buttons {
-        let target = match touch_button_slot(*action) {
-            Some(slot) if gameplay && prompt.label_for(slot).is_none() => Visibility::Hidden,
-            _ => Visibility::Inherited,
+        let target = match prompt.context {
+            ControlContextKind::Gameplay => match touch_button_slot(*action) {
+                Some(slot) if prompt.label_for(slot).is_none() => Visibility::Hidden,
+                _ => Visibility::Inherited,
+            },
+            ControlContextKind::Menu | ControlContextKind::Dialogue => {
+                if is_menu_confirm_button(*action) || is_menu_button(*action) {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                }
+            }
+            ControlContextKind::Empty => Visibility::Inherited,
         };
         if *vis != target {
             *vis = target;
@@ -1389,6 +1420,15 @@ mod prompt_tests {
                     visual: None,
                 })
                 .collect(),
+            menu_confirm: None,
+        }
+    }
+
+    fn menu_prompt(confirm: &str) -> ControlPrompt {
+        ControlPrompt {
+            context: ControlContextKind::Menu,
+            entries: Vec::new(),
+            menu_confirm: Some(confirm.to_owned()),
         }
     }
 
@@ -1444,20 +1484,57 @@ mod prompt_tests {
     }
 
     #[test]
-    fn menu_context_leaves_buttons_alone() {
-        // While a menu owns input, the gameplay scheme must not hide buttons
-        // (touch Jump/Interact still fold into menu select).
+    fn menu_relabels_select_buttons_and_hides_gameplay_buttons() {
+        // In a menu the select-functional Jump reads the confirm verb (never
+        // "Jump"), gameplay-only Attack is hidden, and the Back button stays.
         let mut app = App::new();
-        app.insert_resource(prompt(ControlContextKind::Menu, vec![]));
-        app.add_systems(Update, sync_touch_button_visibility_from_prompt);
+        app.insert_resource(menu_prompt("Equip"));
+        app.add_systems(
+            Update,
+            (
+                update_button_verb_from_prompt,
+                sync_touch_button_visibility_from_prompt,
+            ),
+        );
+        let jump = app
+            .world_mut()
+            .spawn((
+                TouchActionButton::Jump,
+                Visibility::Inherited,
+                TouchActionLabel(TouchActionButton::Jump),
+                ButtonVerb::Static("Jump"),
+            ))
+            .id();
         let attack = app
             .world_mut()
             .spawn((TouchActionButton::Attack, Visibility::Inherited))
             .id();
+        let back = app
+            .world_mut()
+            .spawn((TouchActionButton::Reset, Visibility::Inherited))
+            .id();
         app.update();
+
+        let ent = |e: Entity| app.world().entity(e);
         assert_eq!(
-            *app.world().entity(attack).get::<Visibility>().unwrap(),
-            Visibility::Inherited
+            ent(jump).get::<ButtonVerb>().unwrap(),
+            &ButtonVerb::Dynamic("Equip".to_owned()),
+            "select button wears the menu confirm verb"
+        );
+        assert_eq!(
+            *ent(jump).get::<Visibility>().unwrap(),
+            Visibility::Inherited,
+            "select button stays shown"
+        );
+        assert_eq!(
+            *ent(attack).get::<Visibility>().unwrap(),
+            Visibility::Hidden,
+            "gameplay-only button hidden in a menu"
+        );
+        assert_eq!(
+            *ent(back).get::<Visibility>().unwrap(),
+            Visibility::Inherited,
+            "Back button stays"
         );
     }
 }

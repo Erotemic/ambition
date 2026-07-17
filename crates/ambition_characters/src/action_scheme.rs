@@ -26,6 +26,8 @@ use ambition_entity_catalog::action_scheme::{
 use ambition_entity_catalog::MovesetContract;
 use bevy::prelude::Component;
 
+use crate::brain::action_set::ActionSet;
+
 /// The Bevy-side carrier of a body's derived [`ActionSchemeContract`]. Mirrors
 /// the [`ambition_combat::moveset::ActorMoveset`] pattern: a component wrapping
 /// a headless contract. Read by the control-prompt read-model (P2) and, from
@@ -70,11 +72,65 @@ fn upsert(actions: &mut Vec<ActionSpec>, spec: ActionSpec) {
     actions.push(spec);
 }
 
+/// Combat actions unioned from BOTH authorities a body actually fires through:
+/// the moveset (attack + its authored labels) AND the `ActionSet` (ranged /
+/// special capability, which for the canonical player still fires via the
+/// legacy projectile / shield pipeline rather than the moveset). A combat slot
+/// is present if EITHER authority provides it — so the prompt can never
+/// advertise the protagonist as lacking Projectile / Special when those verbs
+/// actually work. Labels come from the moveset move when the verb is authored
+/// there, else the title-cased verb id.
+///
+/// (The genuine one-authority unification — folding ranged/special into the
+/// moveset and deleting the legacy paths — lands with the shared resolver; this
+/// union is the honest, non-lying interim that matches real behavior.)
+fn combat_actions(
+    moveset: Option<&MovesetContract>,
+    action_set: Option<&ActionSet>,
+) -> Vec<ActionSpec> {
+    let has_verb = |verb: &str| moveset.is_some_and(|m| m.verbs.contains_key(verb));
+    let move_label = |verb: &str| {
+        moveset
+            .and_then(|m| m.move_for_verb(verb))
+            .map(|mv| mv.display())
+    };
+
+    let mut out = Vec::new();
+    let mut push = |present: bool, slot: ControlSlot, verb: &str| {
+        if present {
+            out.push(ActionSpec {
+                id: ActionId::new(verb),
+                slot,
+                display_name: move_label(verb),
+                visual: None,
+                gate: ActionGate::Move(verb.to_owned()),
+            });
+        }
+    };
+    push(
+        has_verb(ids::ATTACK) || action_set.is_some_and(|a| a.melee.is_some()),
+        ControlSlot::Attack,
+        ids::ATTACK,
+    );
+    push(
+        has_verb(ids::RANGED) || action_set.is_some_and(|a| a.ranged.is_some()),
+        ControlSlot::Projectile,
+        ids::RANGED,
+    );
+    push(
+        has_verb(ids::SPECIAL) || action_set.is_some_and(|a| a.special.is_some()),
+        ControlSlot::Special,
+        ids::SPECIAL,
+    );
+    out
+}
+
 /// Derive a body's action scheme from its live authorities.
 ///
 /// - **Movement** actions from the `AbilitySet` (jump/dash/blink/fly/shield).
 /// - **Interact** is universal — every controllable body can attempt it.
-/// - **Combat** actions from the moveset (attack/special/ranged), if any.
+/// - **Combat** actions unioned from the moveset AND the `ActionSet`
+///   (see [`combat_actions`]).
 /// - **Techniques** (content-declared, already `Technique`-gated `ActionSpec`s)
 ///   are layered last and OVERRIDE any base action on the same slot.
 ///
@@ -82,6 +138,7 @@ fn upsert(actions: &mut Vec<ActionSpec>, spec: ActionSpec) {
 pub fn derive_action_scheme(
     abilities: &AbilitySet,
     moveset: Option<&MovesetContract>,
+    action_set: Option<&ActionSet>,
     techniques: &[ActionSpec],
 ) -> ActionSchemeContract {
     let mut actions = movement_actions(abilities);
@@ -99,10 +156,8 @@ pub fn derive_action_scheme(
         },
     );
 
-    if let Some(moveset) = moveset {
-        for spec in ActionSchemeContract::combat_from_moveset(moveset) {
-            upsert(&mut actions, spec);
-        }
+    for spec in combat_actions(moveset, action_set) {
+        upsert(&mut actions, spec);
     }
 
     for technique in techniques {
@@ -170,7 +225,7 @@ mod tests {
             a.blink = true;
         });
         let ms = moveset(&["attack", "special", "ranged"]);
-        let scheme = derive_action_scheme(&ab, Some(&ms), &[]);
+        let scheme = derive_action_scheme(&ab, Some(&ms), None, &[]);
         assert_eq!(
             slots(&scheme),
             vec![
@@ -192,7 +247,7 @@ mod tests {
             a.jump = true;
             a.dash = true;
         });
-        let scheme = derive_action_scheme(&ab, None, &[]);
+        let scheme = derive_action_scheme(&ab, None, None, &[]);
         assert_eq!(
             slots(&scheme),
             vec![ControlSlot::Jump, ControlSlot::Dash, ControlSlot::Interact]
@@ -214,7 +269,7 @@ mod tests {
             visual: Some(VisualId("icon.spin".to_owned())),
             gate: ActionGate::Technique("spin_dash".to_owned()),
         };
-        let scheme = derive_action_scheme(&ab, Some(&ms), std::slice::from_ref(&spin));
+        let scheme = derive_action_scheme(&ab, Some(&ms), None, std::slice::from_ref(&spin));
         let attack = scheme
             .action_for_slot(ControlSlot::Attack)
             .expect("attack slot claimed");
@@ -246,7 +301,7 @@ mod tests {
                 a.blink = blink;
             });
             let ms = moveset(&verbs);
-            let scheme = derive_action_scheme(&ab, Some(&ms), &[]);
+            let scheme = derive_action_scheme(&ab, Some(&ms), None, &[]);
 
             assert_eq!(scheme.has_slot(ControlSlot::Jump), jump);
             assert_eq!(scheme.has_slot(ControlSlot::Dash), dash);

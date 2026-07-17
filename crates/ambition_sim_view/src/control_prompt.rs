@@ -166,7 +166,7 @@ mod tests {
             }];
             m
         });
-        ActorActionScheme(derive_action_scheme(&a, moveset.as_ref(), &[]))
+        ActorActionScheme(derive_action_scheme(&a, moveset.as_ref(), None, &[]))
     }
 
     fn app() -> App {

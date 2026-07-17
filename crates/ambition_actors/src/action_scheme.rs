@@ -15,6 +15,7 @@
 //! lands; today the scheme reflects abilities + moveset.
 
 use ambition_characters::action_scheme::{derive_action_scheme, ActorActionScheme};
+use ambition_characters::brain::action_set::ActionSet;
 use ambition_platformer_primitives::schedule::{SandboxSet, SimScheduleExt};
 use bevy::prelude::*;
 
@@ -32,18 +33,27 @@ pub fn reconcile_action_schemes(
         Entity,
         Ref<BodyAbilities>,
         Option<Ref<ActorMoveset>>,
+        Option<Ref<ActionSet>>,
         Option<&ActorActionScheme>,
     )>,
 ) {
-    for (entity, abilities, moveset, existing) in &bodies {
-        let source_changed =
-            abilities.is_changed() || moveset.as_ref().is_some_and(|m| m.is_changed());
+    for (entity, abilities, moveset, action_set, existing) in &bodies {
+        let source_changed = abilities.is_changed()
+            || moveset.as_ref().is_some_and(|m| m.is_changed())
+            || action_set.as_ref().is_some_and(|a| a.is_changed());
         if existing.is_some() && !source_changed {
             continue;
         }
         // Techniques: none until the P3 input→action seam gives them a home.
-        let derived =
-            derive_action_scheme(&abilities.abilities, moveset.as_ref().map(|m| &m.0), &[]);
+        // Combat is unioned from the moveset AND the ActionSet (the canonical
+        // player still fires ranged/special via the legacy pipeline, so the
+        // ActionSet is the authority that says those slots exist).
+        let derived = derive_action_scheme(
+            &abilities.abilities,
+            moveset.as_ref().map(|m| &m.0),
+            action_set.as_deref(),
+            &[],
+        );
         let differs = existing.is_none_or(|s| s.0 != derived);
         if differs {
             commands.entity(entity).insert(ActorActionScheme(derived));
@@ -59,9 +69,13 @@ pub struct ActionSchemePlugin;
 impl Plugin for ActionSchemePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // Runs in the pre-player-tick input band, after `WorldPrep` has
-        // finalized this tick's abilities/movesets and before the control-prompt
-        // read-model (P2b) reads the scheme.
+        // `PlayerInput` is chained BEFORE `WorldPrep` (schedule.rs), so the
+        // scheme reconciled here reflects authorities as finalized on the
+        // PREVIOUS tick — a deterministic one-tick lag after an ability/moveset
+        // change. That is the correct model: the P3 input→action resolver (also
+        // in `PlayerInput`) and the control-prompt read-model (`FeatureViewSync`
+        // tail) then consume the SAME scheme, and a one-frame delay before a
+        // newly-granted action lights up on the HUD is imperceptible.
         app.add_systems(
             sim,
             reconcile_action_schemes.in_set(SandboxSet::PlayerInput),
@@ -140,6 +154,40 @@ mod tests {
             .expect("scheme attached even without a moveset");
         assert!(scheme.0.has_slot(ControlSlot::Jump));
         assert!(!scheme.0.has_slot(ControlSlot::Attack));
+    }
+
+    #[test]
+    fn canonical_player_scheme_advertises_every_real_combat_slot() {
+        // Built from the REAL default-player authorities, not hand-assembled
+        // booleans (the review's requirement): the bundle's melee-ONLY moveset
+        // plus the full ActionSet (Swipe + Bolt + bubble_shield). The prompt
+        // MUST advertise Attack, Projectile, AND Special — the protagonist
+        // fires all three, even though ranged/special still run through the
+        // legacy pipeline rather than the moveset.
+        let abilities = AbilitySet::sandbox_all();
+        let action_set = crate::avatar::bundles::default_player_action_set(abilities);
+        let moveset =
+            crate::combat::moveset::build_actor_moveset(None, action_set.melee.as_ref(), None);
+        // The bug this guards: the moveset alone is melee-only.
+        assert!(
+            !moveset
+                .as_ref()
+                .expect("player moveset")
+                .verbs
+                .contains_key("ranged"),
+            "the real player moveset is melee-only; the ActionSet is what carries ranged/special"
+        );
+
+        let scheme = derive_action_scheme(&abilities, moveset.as_ref(), Some(&action_set), &[]);
+        assert!(scheme.has_slot(ControlSlot::Attack), "melee -> Attack");
+        assert!(
+            scheme.has_slot(ControlSlot::Projectile),
+            "ranged Bolt -> Projectile"
+        );
+        assert!(
+            scheme.has_slot(ControlSlot::Special),
+            "bubble_shield -> Special"
+        );
     }
 
     #[test]

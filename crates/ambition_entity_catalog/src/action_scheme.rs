@@ -168,8 +168,23 @@ pub struct ActionSchemeContract {
 }
 
 impl ActionSchemeContract {
+    /// Build a normalized scheme: canonically ordered AND one-action-per-slot.
+    /// If duplicate slots are passed, the FIRST in canonical order wins (callers
+    /// wanting override semantics upsert before constructing) — so the invariant
+    /// downstream code relies on (`action_for_slot` is unambiguous, a slot is
+    /// shown once) holds by construction, not by caller discipline.
     pub fn new(actions: Vec<ActionSpec>) -> Self {
-        Self { actions }.sorted()
+        let mut contract = Self { actions }.sorted();
+        let mut seen_slots = Vec::new();
+        contract.actions.retain(|a| {
+            if seen_slots.contains(&a.slot) {
+                false
+            } else {
+                seen_slots.push(a.slot);
+                true
+            }
+        });
+        contract
     }
 
     /// The action on a given slot, if the subject claims it.
@@ -384,6 +399,27 @@ mod tests {
                 .action_for_slot(ControlSlot::Attack)
                 .map(|a| a.id.as_str()),
             Some("attack")
+        );
+    }
+
+    #[test]
+    fn new_enforces_one_action_per_slot() {
+        // Two actions claiming the same slot → the constructor normalizes to one,
+        // so `action_for_slot` is unambiguous and the slot renders once.
+        let mk = |id: &str| ActionSpec {
+            id: ActionId::new(id),
+            slot: ControlSlot::Attack,
+            display_name: None,
+            visual: None,
+            gate: ActionGate::Move("attack".to_owned()),
+        };
+        let scheme = ActionSchemeContract::new(vec![mk("swipe"), mk("cleave")]);
+        assert_eq!(
+            scheme
+                .iter()
+                .filter(|a| a.slot == ControlSlot::Attack)
+                .count(),
+            1
         );
     }
 }

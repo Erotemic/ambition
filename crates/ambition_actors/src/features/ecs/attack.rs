@@ -323,6 +323,46 @@ mod tests {
         ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 16.0))
     }
 
+    /// Review-required AI-body coverage for the `InputState` re-key: an actor /
+    /// AI brain drives movement by writing `ActorControlFrame` verbs, and the
+    /// bridge must route them onto the re-keyed `movement` edges the kernel now
+    /// consumes — including the edge-granular post-hit stagger gates.
+    #[test]
+    fn ai_body_movement_routes_through_action_edges_and_gates() {
+        use crate::time::feel::SandboxFeelTuning;
+        use ambition_characters::actor::control::ActorControlFrame;
+        let dt = 1.0 / 60.0;
+
+        // Normal: jump held + dash + blink-release route to the movement edges.
+        let mut frame = ActorControlFrame::neutral();
+        frame.jump_pressed = true;
+        frame.jump_held = true;
+        frame.dash_pressed = true;
+        frame.blink_released = true;
+        let input =
+            engine_input_from_actor_control(frame, SandboxFeelTuning::default(), 0.0, 0.0, dt);
+        assert!(input.jump_pressed() && input.jump_held());
+        assert!(input.dash_pressed());
+        assert!(input.blink_released() && !input.blink_pressed());
+
+        // Recoil lock: ALL locomotion stripped for the AI body too.
+        let mut recoiled = ActorControlFrame::neutral();
+        recoiled.jump_pressed = true;
+        recoiled.dash_pressed = true;
+        let input =
+            engine_input_from_actor_control(recoiled, SandboxFeelTuning::default(), 0.0, 1.0, dt);
+        assert!(!input.jump_pressed() && !input.dash_pressed());
+
+        // Hitstun: eats only the jump PRESS; an in-progress jump keeps held.
+        let mut stunned = ActorControlFrame::neutral();
+        stunned.jump_pressed = true;
+        stunned.jump_held = true;
+        let input =
+            engine_input_from_actor_control(stunned, SandboxFeelTuning::default(), 1.0, 0.0, dt);
+        assert!(!input.jump_pressed(), "hitstun eats the jump press");
+        assert!(input.jump_held(), "but an in-progress jump keeps held");
+    }
+
     #[test]
     fn attack_phase_pogo_rejects_ground_and_one_way_targets() {
         let attack = test_attack_box();

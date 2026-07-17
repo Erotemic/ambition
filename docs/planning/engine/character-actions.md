@@ -163,6 +163,32 @@ Each phase compiles, is tested, and lands as its own commit(s) on main.
   gameplay-only buttons hide. `ControlPrompt.menu_confirm` set per `GameMode`.
   **Both halves of the original ask now land: character moves AND menu verbs.**
 
+**GPT-5.6 review execution (2026-07-17):** the review flagged two correctness
+bugs to fix before the broad P3 migration, plus the settled `InputState` design
+(split at the ownership boundary; enum-indexed storage + typed accessors).
+Landed:
+- **Review #1 — hidden actions were still tappable.** One
+  `touch_action_available(action, prompt)` predicate now drives BOTH visibility
+  AND the raw hit test (`update_buttons_from_interactions` masks unavailable
+  actions out of the held/edge derivation); `Empty` context hides gameplay
+  buttons. Tap-hidden→no-edge test.
+- **Review #2 — the canonical player's scheme was wrong.** `derive_action_scheme`
+  now unions combat from the moveset **and** the `ActionSet` (the player's
+  ranged/special come from `ActionSet` + the legacy pipeline; its moveset is
+  melee-only), with a parity test built from the real default-player bundle.
+  Plus: `ActionSchemeContract::new` normalizes one-action-per-slot; corrected the
+  reconcile-ordering comment (`PlayerInput` is chained before `WorldPrep`).
+- **P3 groundwork:** dedicated `SandboxAction::Special` + per-preset key + glyph
+  (blink is no longer Special's source); `MovementAction` enum + enum-indexed
+  `ActionEdges` + typed accessors in `engine_core`.
+- **`InputState` re-key (P3 step 6) attempted and reverted.** The struct re-key
+  (movement verbs → `ActionEdges<MovementAction>`) + 18 kernel-reader conversions
+  worked, but the ~37 construction-literal rewrite via a regex script hit fragile
+  edge cases (function-signature false matches, comments before `..Default`,
+  missing imports). Reverted to the clean checkpoint rather than risk a subtle
+  transform bug in the movement kernel. **Redo the construction sites by hand or
+  with a `syn`/AST tool, not a regex** — the types are ready to consume.
+
 Deferred consciously: `MoveSpec.display_name` field → P6 (authored with its
 fill-in); per-slot glyphs → P1/P5 (the overlay keeps its glyph subtitle); the
 SPECIFIC menu item verb (Equip/Use from the app menu model) → P4b (needs the

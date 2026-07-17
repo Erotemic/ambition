@@ -194,23 +194,31 @@ mod tests {
     #[test]
     fn canonical_player_scheme_advertises_every_real_combat_slot() {
         // Built from the REAL default-player authorities, not hand-assembled
-        // booleans (the review's requirement): the bundle's melee-ONLY moveset
-        // plus the full ActionSet (Swipe + Bolt + bubble_shield). The prompt
-        // MUST advertise Attack, Projectile, AND Special — the protagonist
-        // fires all three, even though ranged/special still run through the
-        // legacy pipeline rather than the moveset.
+        // booleans (the review's requirement): the bundle's moveset (melee Swipe
+        // + the folded bubble_shield special) plus the full ActionSet (Swipe +
+        // Bolt + bubble_shield). The prompt MUST advertise Attack, Projectile,
+        // AND Special — the protagonist fires all three. Ranged still comes only
+        // from the ActionSet + legacy projectile pipeline (not the moveset).
         let abilities = AbilitySet::sandbox_all();
         let action_set = crate::avatar::bundles::default_player_action_set(abilities);
-        let moveset =
-            crate::combat::moveset::build_actor_moveset(None, action_set.melee.as_ref(), None);
-        // The bug this guards: the moveset alone is melee-only.
+        let moveset = crate::combat::moveset::build_actor_moveset(
+            None,
+            action_set.melee.as_ref(),
+            None,
+            action_set.special.as_ref(),
+        );
+        let moveset_ref = moveset.as_ref().expect("player moveset");
+        // The special is now a REAL moveset move (the Gate-1 fix): pressing
+        // Special fires `move_for_verb("special")`, no longer a phantom slot.
         assert!(
-            !moveset
-                .as_ref()
-                .expect("player moveset")
-                .verbs
-                .contains_key("ranged"),
-            "the real player moveset is melee-only; the ActionSet is what carries ranged/special"
+            moveset_ref.verbs.contains_key("special"),
+            "bubble_shield is folded into the player moveset as a real special move"
+        );
+        // Ranged is still NOT in the moveset — it rides the ActionSet + legacy
+        // projectile pipeline; the scheme's Projectile slot comes from the union.
+        assert!(
+            !moveset_ref.verbs.contains_key("ranged"),
+            "the player moveset has no ranged verb; the ActionSet carries ranged"
         );
 
         let scheme = derive_action_scheme(&abilities, moveset.as_ref(), Some(&action_set), &[]);
@@ -275,8 +283,12 @@ mod tests {
 
         // Canonical player: gate keeps melee/ranged/special; scheme shows them.
         let action_set = crate::avatar::bundles::default_player_action_set(ab);
-        let moveset =
-            crate::combat::moveset::build_actor_moveset(None, action_set.melee.as_ref(), None);
+        let moveset = crate::combat::moveset::build_actor_moveset(
+            None,
+            action_set.melee.as_ref(),
+            None,
+            action_set.special.as_ref(),
+        );
         let scheme = derive_action_scheme(&ab, moveset.as_ref(), Some(&action_set), &[]);
         assert_eq!(
             action_set.melee.is_some(),

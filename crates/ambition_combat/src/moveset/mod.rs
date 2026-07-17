@@ -66,6 +66,12 @@ pub const SWING_SFX_CUE: &str = "player.slash";
 /// The canonical verb id a body's ranged shot binds to in its moveset.
 pub const RANGED_VERB: &str = "ranged";
 
+/// The canonical verb id a body's signature special binds to in its moveset.
+/// `special_pressed` triggers `move_for_verb("special")`; a body only has a real
+/// special when its moveset actually authors this verb — the canonical player
+/// gets it by folding `ActionSet.special` in [`prefabs::build_actor_moveset`].
+pub const SPECIAL_VERB: &str = "special";
+
 // D-B split: the MoveSpec builders and actor-moveset construction live in
 // `prefabs.rs`. Re-exported so `moveset::<builder>` paths (and `tests.rs`'s
 // `use super::*`) are unchanged by the relocation.

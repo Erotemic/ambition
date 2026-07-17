@@ -156,6 +156,11 @@ impl Plugin for PlayerSchedulePlugin {
                 // Sanitize those direct verbs from the same worn kit before any
                 // simulation/effects phase consumes them.
                 ambition_actors::avatar::gate_worn_player_control,
+                // A folded `bubble_shield` special MOVE forces `shield_held` for
+                // its duration, so pressing Special raises the ONE shield through
+                // the same kernel path a held guard does. After the gate (which
+                // keeps the persona's shield verb alive), before WorldPrep.
+                ambition_actors::avatar::sustain_bubble_shield,
                 // Body-mode policy (crouch / morph / climb) consumes the
                 // CONTROLLED body's freshly-produced ActorControl + its slot
                 // gestures, so it runs AFTER `tick_player_brains` and before

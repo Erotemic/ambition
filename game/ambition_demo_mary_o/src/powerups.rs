@@ -256,8 +256,13 @@ mod tests {
         let mut actions = ActionSet::peaceful();
         assert!(actions.ranged.is_none());
         apply_equipment_grants(&mut actions, &worn);
-        let moveset = build_actor_moveset(None, actions.melee.as_ref(), actions.ranged.as_ref())
-            .expect("the blossom's ranged verb yields a moveset");
+        let moveset = build_actor_moveset(
+            None,
+            actions.melee.as_ref(),
+            actions.ranged.as_ref(),
+            actions.special.as_ref(),
+        )
+        .expect("the blossom's ranged verb yields a moveset");
         assert!(
             moveset.move_for_verb(RANGED_VERB).is_some(),
             "the spark-blossom grants a fireable ranged move"

@@ -635,3 +635,114 @@ fn malformed_authored_resolution_is_safe_peaceful_not_host_code() {
     assert!(set.special.is_none());
     assert!(!charges_projectiles);
 }
+
+/// Gate 1 (GPT-5.6 review): the canonical player's `Special("bubble_shield")` was
+/// a PHANTOM — `default_player_action_set` declared it, but the player's moveset
+/// was built melee-only, so `trigger_moveset_moves` (which fires `special_pressed`
+/// only when the moveset carries the `"special"` verb) started nothing. This is
+/// the end-to-end proof of the fix: build the moveset EXACTLY as the real player
+/// bundle does, press `special`, and observe the resulting move.
+#[test]
+fn pressing_special_starts_the_real_players_folded_bubble_shield_move() {
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::ActorControl;
+    use bevy::prelude::*;
+
+    // The REAL bundle authorities + the REAL moveset build (bundles.rs:135).
+    let action_set = crate::avatar::bundles::default_player_action_set(
+        ambition_engine_core::AbilitySet::sandbox_all(),
+    );
+    assert!(
+        matches!(
+            action_set.special.as_ref(),
+            Some(ambition_characters::brain::SpecialActionSpec::Special(k)) if k == "bubble_shield"
+        ),
+        "the canonical player declares the bubble_shield special capability"
+    );
+    let moveset = build_actor_moveset(
+        None,
+        action_set.melee.as_ref(),
+        None,
+        action_set.special.as_ref(),
+    )
+    .expect("player moveset");
+
+    let mut app = App::new();
+    app.add_systems(Update, ambition_combat::moveset::trigger_moveset_moves);
+    let mut frame = ActorControlFrame::neutral();
+    frame.special_pressed = true;
+    let body = app
+        .world_mut()
+        .spawn((
+            ambition_combat::moveset::ActorMoveset(moveset),
+            ActorControl(frame),
+            ambition_engine_core::BodyKinematics::default(),
+        ))
+        .id();
+    app.update();
+
+    let playback = app
+        .world()
+        .get::<ambition_combat::moveset::MovePlayback>(body)
+        .expect("pressing Special started a real move, not a phantom");
+    assert_eq!(
+        playback.spec.id, "bubble_shield",
+        "the started move IS the folded bubble_shield special"
+    );
+}
+
+/// The folded special is not a bare animation: while the `bubble_shield` special
+/// move plays, [`sustain_bubble_shield`] holds the guard up through the ONE shield
+/// input path, so the special deploys the real bubble shield. A DIFFERENT move
+/// (or a body whose special isn't bubble_shield) must NOT raise the guard.
+#[test]
+fn the_bubble_shield_special_move_holds_the_guard_up() {
+    use ambition_characters::brain::ActorControl;
+    use bevy::prelude::*;
+
+    let action_set = crate::avatar::bundles::default_player_action_set(
+        ambition_engine_core::AbilitySet::sandbox_all(),
+    );
+    let moveset = build_actor_moveset(
+        None,
+        action_set.melee.as_ref(),
+        None,
+        action_set.special.as_ref(),
+    )
+    .expect("player moveset");
+    let special = moveset.move_for_verb("special").expect("special move").clone();
+    let attack = moveset.move_for_verb("attack").expect("attack move").clone();
+
+    let mut app = App::new();
+    app.add_systems(Update, sustain_bubble_shield);
+
+    // Body A: the bubble_shield special is PLAYING → guard forced up.
+    let shielding = app
+        .world_mut()
+        .spawn((
+            action_set.clone(),
+            ambition_combat::moveset::MovePlayback::new(special, 1.0),
+            ActorControl::default(),
+        ))
+        .id();
+    // Body B: a plain ATTACK move is playing → guard is NOT forced (only the
+    // bubble_shield move raises it, by move identity).
+    let attacking = app
+        .world_mut()
+        .spawn((
+            action_set.clone(),
+            ambition_combat::moveset::MovePlayback::new(attack, 1.0),
+            ActorControl::default(),
+        ))
+        .id();
+    app.update();
+
+    assert!(
+        app.world().get::<ActorControl>(shielding).unwrap().0.shield_held,
+        "the bubble_shield special move forces the guard up"
+    );
+    assert!(
+        !app.world().get::<ActorControl>(attacking).unwrap().0.shield_held,
+        "a plain attack move does not raise the bubble shield"
+    );
+}

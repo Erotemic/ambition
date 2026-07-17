@@ -244,8 +244,10 @@ fn apply_worn_character_kit(
     }
 
     let (set, charges_projectiles) = resolve_playable_action_set(source, authored, base_abilities);
-    *moveset =
-        ActorMoveset(build_actor_moveset(None, set.melee.as_ref(), None).unwrap_or_default());
+    *moveset = ActorMoveset(
+        build_actor_moveset(None, set.melee.as_ref(), None, set.special.as_ref())
+            .unwrap_or_default(),
+    );
     *action_set = set;
     charges_projectiles
 }
@@ -436,6 +438,40 @@ pub fn gate_worn_player_control(
             control.0.projectile_pressed = false;
             control.0.projectile_held = false;
             control.0.projectile_released = false;
+        }
+    }
+}
+
+/// While a body's folded `"bubble_shield"` special MOVE is playing, hold its guard
+/// up through the ONE shield path (`shield_held` → `resolve_shield`) — so pressing
+/// Special actually deploys the bubble shield instead of playing a bare animation.
+///
+/// The special move's `id` equals the body's `ActionSet.special` key (that is how
+/// [`build_actor_moveset`] folds the marker in), so a `bubble_shield` persona
+/// raises [`ambition_engine_core::body_clusters::BodyShieldState`] BY IDENTITY
+/// while that move plays — no per-body wiring, and the on-screen Special button
+/// (which reads the SAME scheme) cannot advertise a shield the body won't raise.
+///
+/// Runs in `PlayerInput` after [`gate_worn_player_control`] (which keeps a
+/// `bubble_shield` persona's `shield_held` alive) and before the `WorldPrep`
+/// kernel bridge, so the guard rises the same tick the kernel resolves it. It
+/// forces `shield_held` rather than poking `BodyShieldState` directly, so the
+/// kernel's parry-window/dash-gating rules apply uniformly — the special is just
+/// another way to raise the ONE shield.
+pub fn sustain_bubble_shield(
+    mut bodies: Query<(
+        &ActionSet,
+        &ambition_combat::moveset::MovePlayback,
+        &mut ambition_characters::brain::ActorControl,
+    )>,
+) {
+    use ambition_characters::brain::SpecialActionSpec;
+    for (actions, playback, mut control) in &mut bodies {
+        let Some(SpecialActionSpec::Special(key)) = actions.special.as_ref() else {
+            continue;
+        };
+        if key == "bubble_shield" && playback.spec.id == *key {
+            control.0.shield_held = true;
         }
     }
 }

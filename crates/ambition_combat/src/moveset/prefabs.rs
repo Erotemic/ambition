@@ -632,10 +632,69 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
     ]
 }
 
+/// Convert an authored [`SpecialActionSpec`] into a data-driven `"special"`
+/// [`MoveSpec`] — the special subsumption, the mirror of
+/// [`attack_move_from_melee`] / [`fire_move_from_ranged`]. `ActionSet.special`
+/// stopped being an executable path (the flat resolver arm was retired); it is a
+/// pure capability marker, and the concrete move must live in the body's moveset
+/// on the `"special"` verb for [`super::trigger_moveset_moves`] to fire it on
+/// `special_pressed`. Without this the canonical player's `Special("bubble_shield")`
+/// marker had no move — pressing Special did nothing.
+///
+/// The move is a short Startup/Active/Recovery timeline with NO hit volumes: a
+/// signature special is not necessarily a strike, and its concrete GAMEPLAY
+/// consequence is content-defined by the key. The move `id` IS the key, so the
+/// consequence resolves by identity (e.g. `"bubble_shield"` raises the guard
+/// while the move plays, via `sustain_bubble_shield`), and the on-screen Special
+/// button reads the key's title-cased label ("Bubble Shield").
+pub fn special_move_from_spec(spec: &SpecialActionSpec) -> MoveSpec {
+    let SpecialActionSpec::Special(key) = spec;
+    let (windup, active, recover) = (0.08, 0.24, 0.13);
+    MoveSpec {
+        id: key.clone(),
+        clip: ClipBinding {
+            clip: "special".to_string(),
+            fallbacks: vec!["idle".to_string()],
+        },
+        duration_s: windup + active + recover,
+        windows: vec![
+            MoveWindow {
+                start_s: 0.0,
+                end_s: windup,
+                tag: WindowTag::Startup,
+                volumes: vec![],
+                sustain_effect: None,
+                motion_scale: 1.0,
+            },
+            MoveWindow {
+                start_s: windup,
+                end_s: windup + active,
+                tag: WindowTag::Active,
+                volumes: vec![],
+                sustain_effect: None,
+                motion_scale: 1.0,
+            },
+            MoveWindow {
+                start_s: windup + active,
+                end_s: windup + active + recover,
+                tag: WindowTag::Recovery,
+                volumes: vec![],
+                sustain_effect: None,
+                motion_scale: 1.0,
+            },
+        ],
+        events: vec![],
+        gates: Default::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+    }
+}
+
 pub fn build_actor_moveset(
     signature: Option<&MovesetContract>,
     melee: Option<&MeleeActionSpec>,
     ranged: Option<&RangedActionSpec>,
+    special: Option<&SpecialActionSpec>,
 ) -> Option<MovesetContract> {
     let mut contract = signature.cloned().unwrap_or_default();
     if let Some(melee) = melee {
@@ -666,6 +725,15 @@ pub fn build_actor_moveset(
             .insert(RANGED_VERB.to_string(), fire.id.clone());
         contract.moves.retain(|m| m.id != fire.id);
         contract.moves.push(fire);
+    }
+    if let Some(special) = special {
+        // The special folds LAST so a body's authored signature (`signature`
+        // arg) is the base and the ActionSet marker overlays it — idempotent by
+        // move id, so re-deriving on an equip/kit swap is stable.
+        let mv = special_move_from_spec(special);
+        contract.verbs.insert(SPECIAL_VERB.to_string(), mv.id.clone());
+        contract.moves.retain(|m| m.id != mv.id);
+        contract.moves.push(mv);
     }
     if contract.moves.is_empty() {
         None
@@ -703,6 +771,7 @@ pub fn equip_equipment_row(
             current,
             action_set.melee.as_ref(),
             action_set.ranged.as_ref(),
+            action_set.special.as_ref(),
         )
     } else {
         None

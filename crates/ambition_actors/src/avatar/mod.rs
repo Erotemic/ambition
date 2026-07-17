@@ -52,7 +52,8 @@ pub use body_integration::{
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use starting_character::{
     apply_worn_character_gameplay, apply_worn_character_overlay, apply_worn_motion_model,
-    gate_worn_player_control, motion_model_spec_for_character_id, StartingCharacter,
+    gate_worn_player_control, motion_model_spec_for_character_id, sustain_bubble_shield,
+    StartingCharacter,
 };
 // NOTE: the body vocabulary — `PlayerEntity` / `PrimaryPlayer` (markers),
 // `PrimaryPlayerOnly` (filter), `BodyKinematics` + the 18 movement clusters,

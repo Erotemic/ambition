@@ -1268,6 +1268,7 @@ fn a_fire_intent_triggers_the_ranged_move() {
             speed: 240.0,
             damage: 3,
         }),
+        None,
     )
     .expect("a ranged weapon → a moveset with a fire move");
     let fire = contract
@@ -1331,6 +1332,7 @@ fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
             speed: 300.0,
             damage: 1,
         }),
+        None,
     )
     .expect("melee + ranged → a moveset");
     let fire = contract.move_for_verb(RANGED_VERB).unwrap().clone();
@@ -1615,7 +1617,7 @@ fn a3_flower_grant_adds_and_removes_a_ranged_verb_in_the_derived_moveset() {
 
     // A peaceful body: no ranged verb in its derived moveset.
     let actions = ActionSet::peaceful();
-    let before = build_actor_moveset(None, actions.melee.as_ref(), actions.ranged.as_ref());
+    let before = build_actor_moveset(None, actions.melee.as_ref(), actions.ranged.as_ref(), None);
     assert!(
         before.map_or(true, |m| m.move_for_verb(RANGED_VERB).is_none()),
         "no flower, no ranged move"
@@ -1625,8 +1627,13 @@ fn a3_flower_grant_adds_and_removes_a_ranged_verb_in_the_derived_moveset() {
     // derivation turns it into a fireable move.
     let mut equipped = ActionSet::peaceful();
     apply_equipment_grants(&mut equipped, &worn);
-    let moveset = build_actor_moveset(None, equipped.melee.as_ref(), equipped.ranged.as_ref())
-        .expect("a ranged verb yields a moveset");
+    let moveset = build_actor_moveset(
+        None,
+        equipped.melee.as_ref(),
+        equipped.ranged.as_ref(),
+        None,
+    )
+    .expect("a ranged verb yields a moveset");
     assert!(
         moveset.move_for_verb(RANGED_VERB).is_some(),
         "the flower's ranged verb is in the derived moveset"
@@ -1637,7 +1644,7 @@ fn a3_flower_grant_adds_and_removes_a_ranged_verb_in_the_derived_moveset() {
     worn.unequip("fire_flower");
     let mut after = ActionSet::peaceful();
     apply_equipment_grants(&mut after, &worn);
-    let moveset = build_actor_moveset(None, after.melee.as_ref(), after.ranged.as_ref());
+    let moveset = build_actor_moveset(None, after.melee.as_ref(), after.ranged.as_ref(), None);
     assert!(
         moveset.map_or(true, |m| m.move_for_verb(RANGED_VERB).is_none()),
         "unequip removes the ranged move"

@@ -263,6 +263,11 @@ impl EnemyActorSpawnPlan {
             enemy.spec.signature_move.as_ref(),
             action_set.melee.as_ref(),
             action_set.ranged.as_ref(),
+            // Enemy/boss specials are AUTHORED in the archetype `signature_move`
+            // (real hitboxes/timelines); the `ActionSet.special` marker only
+            // mirrors it, so do NOT re-fold it here or it would clobber the
+            // authored move with the generic capability shell.
+            None,
         );
         Self {
             entity_name: entity_name.into(),
@@ -514,6 +519,9 @@ impl NpcActorSpawnPlan {
             None,
             self.action_set.melee.as_ref(),
             self.action_set.ranged.as_ref(),
+            // Peaceful NPC specials, like hostiles, are archetype-authored; the
+            // marker is not re-folded (see the hostile path).
+            None,
         );
         let motion_model = self.seed.config.tuning.motion_model();
         let cluster_bundle = self.seed.into_components();

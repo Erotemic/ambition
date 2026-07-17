@@ -20,6 +20,7 @@
 //! `ambition_content`; `ambition_actors` re-exports these modules at the
 //! historical `crate::actor` / `crate::brain` paths.
 
+pub mod action_scheme;
 pub mod actor;
 pub mod boss_encounter;
 pub mod brain;

@@ -78,35 +78,48 @@ Landed this pass (commit `f558d124e` + generator bump `5e1ee9b`): the rev-dash
 a **skid** pose — both engine-reusable, through the ONE `pick_body_anim` ladder,
 with the stance-squash hack retired per pose whenever a sheet owns the row.
 
+**SFX suite landed (commit `94e66909c`).** The whole Sanic sound palette was
+rebuilt: an **ascending three-tier spin-dash rev** picked by charge bucket
+(`rev_tier_id`) plus a distinct launch whoosh; the previously-dropped engine cues
+now authored+voiced (**Pogo** spring, **Reset** pit-death, and a new reusable
+engine **Land** cue emitted once per touchdown edge in `emit_movement_fx`);
+distinct **monitor**, **badnik**, and **skid** voices; and the **transform** sound
+derived from the worn-identity edge in `sync_super_form_traits` so it fires once
+regardless of cause (D-toggle / monitor / future ring drain).
+
+**Rings landed as a collection loop (commit `a8ab166ee`).** Correction to the note
+below: the "291 ring refs" were `ring` inside `String` — there were **zero** rings.
+`author_speedway_ldtk.py` now places **35 rings** as `currency:1` pickups, so the
+shared economy does the work with no demo collection code: `magnetize_pickups` +
+`collect_ecs_pickups` credit the player's `BodyWallet` (the ring counter), spark,
+and ding (the demo voices `world.coin.pickup`, the id that loop emits). Rings
+render as the shared coin sprite.
+
 Deferred, in priority order:
 
-- **Rev SFX suite (Jon: "the current rev sfx isn't very good").** The rev reuses
-  the generic Jump chirp per tap and the launch reuses Dash. Author dedicated
-  procedural cues in Sanic's `SfxRegistry` (content-side, no bank): an **ascending
-  spin-dash rev** picked by charge bucket (`BallDashStep::Charging(charge)` already
-  carries the float — 3 tiers reproduces the classic "reh-reh-REH" without engine
-  pitch support), and a distinct **launch/release whoosh** on `BallDashStep::Launch`.
-- **Wire the already-emitted-but-dropped engine cues.** The shared `emit_movement_fx`
-  writes `Pogo` for rebound pads (`MovementOp::Rebound`) and `Reset` on pit death,
-  but Sanic authorizes only Jump+Dash so both are silently dropped. Add `SfxSpec`s
-  with `cue: Pogo` (a bright spring "boing") and `cue: Reset` (a descending fail
-  tone) — authoring both authorizes AND voices them.
-- **Distinguish same-cue events.** Super transform ON vs OFF both play Dash;
-  monitor break, badnik pop, and the transform share Jump/Dash. Give the
-  transform a rising power chord and the monitor a glass-pop.
-- **Skid SFX** (a tire-scrape) gated on `BodyMotionFacts::skidding` rising — the
-  fact now exists; nothing voices it yet.
-- **Land SFX** is engine-wide missing (dust VFX only, `movement_fx.rs:259`) — a
-  shared touchdown thud would benefit every game, not just Sanic.
-- **Rings are decoration.** `sanic_speedway.ldtk` has 291 `ring` refs but there is
-  NO collection system, `RingCount`, ring-collect SFX, or ring-loss-on-hit — they
-  are pure scenery today. Either build the pickup+counter loop (a natural home for
-  a "lose your rings" hurt reaction that ties into the super-form drain the toggle
-  doc already anticipates) or accept them as visual dressing and thin them out.
+- **Persistent ring HUD counter.** The count lives in `BodyWallet` and is
+  proven by tests, but the standalone Sanic app renders no HUD/banner (that is
+  Ambition-app only; OV1 asserts the presentation face adds zero UI nodes). On
+  collect the player gets the spark + ding but no on-screen tally. Building a
+  demo-owned app-side HUD (`RINGS: N`) means relaxing the OV1 node-count assertion
+  to distinguish presentation-plugin nodes from demo-owned HUD nodes.
+- **Dedicated ring sprite.** Rings currently draw as the engine's generic
+  `pickup_currency` coin. The `sanic_ring_prop` sprite target (idle-spin + collect
+  rows) already exists; binding it needs either a per-pickup art seam on the
+  Currency path or routing rings through the `Prop`/`WorldItem` art manifest (the
+  Mary-O milk-carton pattern).
+- **Drop-on-hit scatter + super drain.** The `sanic.ring_loss` cue is authored
+  ahead. A badnik/spike hit should scatter rings (a natural home for the "lose
+  your rings" reaction) and a future super-form ring drain wears the form off the
+  same worn-identity seam the toggle uses.
+- **50/100-ring milestones** (extra life / jingle), and a **swept high-speed
+  collection** test — `collect_ecs_pickups` uses a per-frame overlap, so at Sonic
+  velocities a ring can tunnel; the magnet's 130px range masks it for now, but the
+  `cast::aabb_path_contacts` swept route (called out in `pickup/mod.rs`) is correct.
 - **Optional engine enhancement:** a per-play pitch/gain on `SfxMessage` would let
   ONE rev cue pitch-climb continuously instead of bucketed tiers — a reusable win
   for any charge-up sound.
-- **Action-sprite survey:** the Sanic sheet is already rich (34 rows incl. the new
+- **Action-sprite survey:** the Sanic sheet is already rich (34 rows incl. the
   ball+skid). Small future adds only if a verb needs them — a ledge/edge teeter,
   a goal/victory pose beyond `taunt`, a spring-launch upward stretch. Low priority;
   no current verb is undrawn.

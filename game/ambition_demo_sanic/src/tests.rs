@@ -1041,3 +1041,51 @@ fn the_sanic_sfx_registry_validates_with_every_new_cue() {
         );
     }
 }
+
+#[test]
+fn the_speedway_authors_a_field_of_collectible_rings() {
+    use ambition::entity_catalog::placements::{PickupKindSpec, PlacementSchema};
+    let room = sanic_speedway();
+    let rings = room
+        .placements
+        .iter()
+        .filter(|record| {
+            record.name == "ring"
+                && matches!(
+                    &record.schema,
+                    PlacementSchema::Pickup(pickup)
+                        if matches!(pickup.kind, PickupKindSpec::Currency { amount } if amount >= 1)
+                )
+        })
+        .count();
+    // Rings are lowered as `currency:1` pickups, so the shared collection loop
+    // (magnetize + collect_ecs_pickups) credits the player's wallet — the ring
+    // counter — with no demo-side collection code.
+    assert!(
+        rings >= 30,
+        "the speedway must author a field of collectible rings; got {rings}"
+    );
+}
+
+#[test]
+fn the_ring_collect_cue_is_the_shared_currency_pickup_id() {
+    // Rings ride the shared Currency pickup path, so `collect_ecs_pickups` emits
+    // `WORLD_COIN_PICKUP` on collect. The demo authorises + voices exactly that
+    // id (a private `sanic.ring` would be silently dropped by the authority gate).
+    assert_eq!(
+        ambition::sfx::SfxId::from_static(SFX_RING),
+        ambition::sfx::ids::WORLD_COIN_PICKUP,
+        "the ring ding must voice the id the shared currency-pickup loop emits"
+    );
+    // And the demo's registry authorises it.
+    let registry = ambition::audio::spec::SfxRegistry {
+        sample_rate: 44_100,
+        sfx: sanic_sfx_specs(),
+    };
+    assert!(
+        registry
+            .authorized_cue_ids()
+            .contains(&ambition::sfx::ids::WORLD_COIN_PICKUP),
+        "the Sanic registry must authorise the ring/coin pickup cue"
+    );
+}

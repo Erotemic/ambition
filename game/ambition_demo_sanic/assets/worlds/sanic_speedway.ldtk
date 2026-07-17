@@ -11,7 +11,7 @@
 	"iid": "ambition-sanic-speedway-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 106859,
+	"nextUid": 106894,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -1158,7 +1158,7 @@
 					"identifier": "brain_override",
 					"doc": null,
 					"__type": "String",
-					"uid": 106858,
+					"uid": 6842,
 					"type": "F_String",
 					"isArray": false,
 					"canBeNull": true,
@@ -6426,8 +6426,8 @@
 	"levels": [
 		{
 			"identifier": "sanic_speedway",
-			"iid": "sanic_speedway-106842",
-			"uid": 106842,
+			"iid": "sanic_speedway-106843",
+			"uid": 106843,
 			"worldX": 0,
 			"worldY": 0,
 			"worldDepth": 0,
@@ -6451,7 +6451,7 @@
 				{
 					"__identifier": "Collision",
 					"__type": "IntGrid",
-					"iid": "Collision-106843",
+					"iid": "Collision-106844",
 					"layerDefUid": 5024,
 					"intGridCsv": [
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -6978,13 +6978,13 @@
 					"__pxTotalOffsetY": 0,
 					"__tilesetDefUid": null,
 					"__tilesetRelPath": null,
-					"levelId": 106842,
+					"levelId": 106843,
 					"pxOffsetX": 0,
 					"pxOffsetY": 0,
 					"visible": true,
 					"optionalRules": [],
 					"autoLayerTiles": [],
-					"seed": 106842,
+					"seed": 106843,
 					"overrideTilesetUid": null,
 					"gridTiles": [],
 					"entityInstances": []
@@ -6992,7 +6992,7 @@
 				{
 					"__identifier": "Ambition",
 					"__type": "Entities",
-					"iid": "Ambition-106844",
+					"iid": "Ambition-106845",
 					"layerDefUid": 1070,
 					"intGridCsv": [],
 					"__cWid": 400,
@@ -7003,13 +7003,13 @@
 					"__pxTotalOffsetY": 0,
 					"__tilesetDefUid": null,
 					"__tilesetRelPath": null,
-					"levelId": 106842,
+					"levelId": 106843,
 					"pxOffsetX": 0,
 					"pxOffsetY": 0,
 					"visible": true,
 					"optionalRules": [],
 					"autoLayerTiles": [],
-					"seed": 106842,
+					"seed": 106843,
 					"overrideTilesetUid": null,
 					"gridTiles": [],
 					"entityInstances": [
@@ -7022,7 +7022,7 @@
 							"__smartColor": "#41D1FF",
 							"__worldX": 146,
 							"__worldY": 626,
-							"iid": "PlayerStart-106845",
+							"iid": "PlayerStart-106846",
 							"width": 28,
 							"height": 46,
 							"defUid": 2000,
@@ -7041,7 +7041,7 @@
 							"__smartColor": "#7ED957",
 							"__worldX": 0,
 							"__worldY": 656,
-							"iid": "SurfaceChain-106846",
+							"iid": "SurfaceChain-106847",
 							"width": 16,
 							"height": 16,
 							"defUid": 6814,
@@ -7069,7 +7069,7 @@
 							"__smartColor": "#7ED957",
 							"__worldX": 4256,
 							"__worldY": 656,
-							"iid": "SurfaceChain-106847",
+							"iid": "SurfaceChain-106848",
 							"width": 16,
 							"height": 16,
 							"defUid": 6814,
@@ -7095,7 +7095,7 @@
 							"__smartColor": "#7BDFF2",
 							"__worldX": 1640,
 							"__worldY": 650,
-							"iid": "ReboundPad-106848",
+							"iid": "ReboundPad-106849",
 							"width": 72,
 							"height": 22,
 							"defUid": 2010,
@@ -7114,7 +7114,7 @@
 							"__smartColor": "#7BDFF2",
 							"__worldX": 4680,
 							"__worldY": 648,
-							"iid": "ReboundPad-106849",
+							"iid": "ReboundPad-106850",
 							"width": 48,
 							"height": 24,
 							"defUid": 2010,
@@ -7133,7 +7133,7 @@
 							"__smartColor": "#7BDFF2",
 							"__worldX": 5152,
 							"__worldY": 648,
-							"iid": "ReboundPad-106850",
+							"iid": "ReboundPad-106851",
 							"width": 48,
 							"height": 24,
 							"defUid": 2010,
@@ -7152,7 +7152,7 @@
 							"__smartColor": "#FF6B6B",
 							"__worldX": 3136,
 							"__worldY": 640,
-							"iid": "EnemySpawn-106851",
+							"iid": "EnemySpawn-106852",
 							"width": 28,
 							"height": 32,
 							"defUid": 2008,
@@ -7171,7 +7171,7 @@
 							"__smartColor": "#FF6B6B",
 							"__worldX": 3552,
 							"__worldY": 640,
-							"iid": "EnemySpawn-106852",
+							"iid": "EnemySpawn-106853",
 							"width": 28,
 							"height": 32,
 							"defUid": 2008,
@@ -7190,7 +7190,7 @@
 							"__smartColor": "#FF6B6B",
 							"__worldX": 5056,
 							"__worldY": 640,
-							"iid": "EnemySpawn-106853",
+							"iid": "EnemySpawn-106854",
 							"width": 28,
 							"height": 32,
 							"defUid": 2008,
@@ -7209,7 +7209,7 @@
 							"__smartColor": "#FF6B6B",
 							"__worldX": 5760,
 							"__worldY": 640,
-							"iid": "EnemySpawn-106854",
+							"iid": "EnemySpawn-106855",
 							"width": 28,
 							"height": 32,
 							"defUid": 2008,
@@ -7220,6 +7220,881 @@
 							}] }]
 						},
 						{
+							"__identifier": "PickupSpawn",
+							"__grid": [12,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 206,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106856",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [206,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [16,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 266,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106857",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [266,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [20,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 326,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106858",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [326,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [28,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 456,
+							"__worldY": 611,
+							"iid": "PickupSpawn-106859",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [456,611],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [33,35],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 534,
+							"__worldY": 564,
+							"iid": "PickupSpawn-106860",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [534,564],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [38,34],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 611,
+							"__worldY": 545,
+							"iid": "PickupSpawn-106861",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [611,545],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [43,35],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 688,
+							"__worldY": 564,
+							"iid": "PickupSpawn-106862",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [688,564],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [47,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 766,
+							"__worldY": 611,
+							"iid": "PickupSpawn-106863",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [766,611],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [58,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 936,
+							"__worldY": 611,
+							"iid": "PickupSpawn-106864",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [936,611],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [65,35],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 1048,
+							"__worldY": 574,
+							"iid": "PickupSpawn-106865",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [1048,574],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [72,34],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 1161,
+							"__worldY": 559,
+							"iid": "PickupSpawn-106866",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [1161,559],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [79,35],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 1274,
+							"__worldY": 574,
+							"iid": "PickupSpawn-106867",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [1274,574],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [86,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 1386,
+							"__worldY": 611,
+							"iid": "PickupSpawn-106868",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [1386,611],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [92,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 1476,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106869",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [1476,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [96,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 1536,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106870",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [1536,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [99,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 1596,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106871",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [1596,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [184,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 2956,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106872",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [2956,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [188,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 3016,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106873",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [3016,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [192,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 3076,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106874",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [3076,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [250,37],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 4006,
+							"__worldY": 595,
+							"iid": "PickupSpawn-106875",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [4006,595],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [254,32],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 4078,
+							"__worldY": 527,
+							"iid": "PickupSpawn-106876",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [4078,527],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [259,32],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 4150,
+							"__worldY": 527,
+							"iid": "PickupSpawn-106877",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [4150,527],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [263,37],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 4222,
+							"__worldY": 595,
+							"iid": "PickupSpawn-106878",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [4222,595],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [271,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 4346,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106879",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [4346,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [275,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 4406,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106880",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [4406,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [279,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 4466,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106881",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [4466,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [282,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 4526,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106882",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [4526,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [286,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 4586,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106883",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [4586,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [288,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 4616,
+							"__worldY": 363,
+							"iid": "PickupSpawn-106884",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [4616,363],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [292,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 4676,
+							"__worldY": 363,
+							"iid": "PickupSpawn-106885",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [4676,363],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [296,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 4736,
+							"__worldY": 363,
+							"iid": "PickupSpawn-106886",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [4736,363],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [364,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 5836,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106887",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [5836,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [368,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 5896,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106888",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [5896,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [372,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 5956,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106889",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [5956,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [376,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 6016,
+							"__worldY": 615,
+							"iid": "PickupSpawn-106890",
+							"width": 28,
+							"height": 34,
+							"defUid": 2015,
+							"px": [6016,615],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "ring", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ring"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
 							"__identifier": "Solid",
 							"__grid": [93,40],
 							"__pivot": [0,0],
@@ -7228,7 +8103,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 1490,
 							"__worldY": 646,
-							"iid": "Solid-106856",
+							"iid": "Solid-106892",
 							"width": 26,
 							"height": 26,
 							"defUid": 2001,
@@ -7247,7 +8122,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 4650,
 							"__worldY": 390,
-							"iid": "Solid-106857",
+							"iid": "Solid-106893",
 							"width": 26,
 							"height": 26,
 							"defUid": 2001,
@@ -7262,7 +8137,7 @@
 				{
 					"__identifier": "Climbable",
 					"__type": "IntGrid",
-					"iid": "Climbable-106855",
+					"iid": "Climbable-106891",
 					"layerDefUid": 4201,
 					"intGridCsv": [
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -7789,13 +8664,13 @@
 					"__pxTotalOffsetY": 0,
 					"__tilesetDefUid": null,
 					"__tilesetRelPath": null,
-					"levelId": 106842,
+					"levelId": 106843,
 					"pxOffsetX": 0,
 					"pxOffsetY": 0,
 					"visible": true,
 					"optionalRules": [],
 					"autoLayerTiles": [],
-					"seed": 106842,
+					"seed": 106843,
 					"overrideTilesetUid": null,
 					"gridTiles": [],
 					"entityInstances": []

@@ -81,11 +81,72 @@ def points_field(points: list[tuple[float, float]]) -> str:
     return "; ".join(f"{x:g},{y:g}" for x, y in points)
 
 
-def rect(kind: str, px: tuple[int, int], size: tuple[int, int], **fields) -> dict:
-    entry: dict = {"type": kind, "px": list(px), "size": list(size)}
+def rect(etype: str, px: tuple[int, int], size: tuple[int, int], **fields) -> dict:
+    entry: dict = {"type": etype, "px": list(px), "size": list(size)}
     if fields:
         entry["fields"] = fields
     return entry
+
+
+# Rings are lowered as `currency:1` pickups: the shared collection loop credits
+# the player's wallet (the ring counter), sparks, and dings — the demo adds no
+# collection code. Authored at a runner's chest height so a grounded dash sweeps
+# them; arcs over the hills / pit reward the fast air routes. Size is the
+# PickupSpawn def box (28x34); `px` is its top-left, so a ring is centred on
+# (cx, cy).
+RING_SIZE = (28, 34)
+
+
+def ring(cx: float, cy: float) -> dict:
+    return rect(
+        "PickupSpawn",
+        (round(cx - RING_SIZE[0] / 2), round(cy - RING_SIZE[1] / 2)),
+        RING_SIZE,
+        name="ring",
+        kind="currency:1",
+    )
+
+
+def ring_line(x0: float, x1: float, cy: float, step: float = 60.0) -> list[dict]:
+    out, x = [], x0
+    while x <= x1 + 1e-3:
+        out.append(ring(x, cy))
+        x += step
+    return out
+
+
+def ring_arc(cx0: float, cx1: float, cy_flat: float, peak_rise: float, n: int) -> list[dict]:
+    """`n` rings tracing a shallow arc that peaks `peak_rise` above `cy_flat`."""
+    out = []
+    for i in range(n):
+        t = i / (n - 1)
+        cx = cx0 + (cx1 - cx0) * t
+        cy = cy_flat - peak_rise * math.sin(math.pi * t)
+        out.append(ring(cx, cy))
+    return out
+
+
+def ring_placements() -> list[dict]:
+    rings: list[dict] = []
+    # Opening straight — a welcoming line the first dash runs through.
+    rings += ring_line(220, 340, 632)
+    # Arcs following the two rolling hills (peaks track the sin^2 bumps).
+    rings += ring_arc(470, 780, 628, 66, 5)
+    rings += ring_arc(950, 1400, 628, 52, 5)
+    # Into the loop feed / spring at x=1640.
+    rings += ring_line(1490, 1610, 632)
+    # Out of the loop runout, before the first badnik at x=3136.
+    rings += ring_line(2970, 3110, 632)
+    # The classic reward arc over the pit (x 4000..4256) — collected by a body
+    # that carries enough speed to clear the gap.
+    rings += ring_arc(4020, 4236, 612, 78, 4)
+    # Runout straight leading to the vertical spring at x=4680.
+    rings += ring_line(4360, 4600, 632)
+    # High payout on the spring_perch (y=416): only the spring reaches it.
+    rings += ring_line(4630, 4790, 380)
+    # Home straight before the finish (kept clear of the spike strips).
+    rings += ring_line(5850, 6030, 632)
+    return rings
 
 
 def area_spec() -> dict:
@@ -145,6 +206,7 @@ def area_spec() -> dict:
         rect("EnemySpawn", (5056, 640), (28, 32), brain="sanic_badnik"),
         rect("EnemySpawn", (5760, 640), (28, 32), brain="sanic_badnik"),
     ]
+    entities += ring_placements()
     return {
         "id": "sanic_speedway",
         "level_id": "sanic_speedway",

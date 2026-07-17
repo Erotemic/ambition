@@ -191,7 +191,13 @@ pub const SFX_DETRANSFORM: &str = "sanic.detransform";
 pub const SFX_MONITOR: &str = "sanic.monitor";
 pub const SFX_BADNIK: &str = "sanic.badnik";
 pub const SFX_SKID: &str = "sanic.skid";
-pub const SFX_RING: &str = "sanic.ring";
+/// The ring-collect ding. Rings are lowered as `Currency` pickups, so the shared
+/// `collect_ecs_pickups` loop emits `ids::WORLD_COIN_PICKUP` on pickup — voicing
+/// THAT id (not a private `sanic.*` one) is what makes a ring audible. Kept in
+/// sync with `ambition::sfx::ids::WORLD_COIN_PICKUP` by a test.
+pub const SFX_RING: &str = "world.coin.pickup";
+/// Scatter cue for the (deferred) drop-on-hit; authored ahead so the loss path
+/// is a pure emit when it lands.
 pub const SFX_RING_LOSS: &str = "sanic.ring_loss";
 
 /// Pick the rev tier from the post-tap charge (`0..=1`): the three buckets land

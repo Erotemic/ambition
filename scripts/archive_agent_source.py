@@ -1466,7 +1466,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument('--skip-dirstats', action='store_true', help='do not generate the staged dirstats reports')
     parser.add_argument('--skip-live-inventory', action='store_true', help='do not generate the live-disk inventory or live git-status reports')
     parser.add_argument('--full', action='store_true', help='also run slower cargo reports: cargo check --workspace --lib and cargo-modules')
-    parser.add_argument('--quick', action='store_true', help='only stage the shallow clones; skip every heavy step (agent index, ECS inventory, dirstats, live-disk inventory). Implies all --skip-* flags and is incompatible with --full')
+    parser.add_argument('--quick', '--fast', action='store_true', help='only stage the shallow clones; skip every heavy step (agent index, ECS inventory, dirstats, live-disk inventory). Implies all --skip-* flags and is incompatible with --full')
     parser.add_argument('--allow-forbidden', action='store_true', help='bypass CONFIG["forbidden_path_globs"] guardrails for this run')
     parser.add_argument('--keep-stage', action='store_true', help='copy the staged archive root to .tmp-<prefix>-stage for debugging')
     parser.add_argument('-q', '--quiet', action='store_true', help='reduce logging')

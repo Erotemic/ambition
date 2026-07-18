@@ -83,20 +83,64 @@ impl ActiveSessionScope {
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct SessionGatedSimulation;
 
+/// Optional process-start gate for visible direct-entry hosts.
+///
+/// The canonical session world may be constructed synchronously before its
+/// presentation assets have settled. A visible host can insert this resource
+/// in the closed state, present an opaque loading surface while it gathers
+/// real readiness evidence, then open it once the first coherent gameplay
+/// frame is safe to reveal. Apps that do not insert the resource retain the
+/// existing behavior.
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InitialGameplayReadiness {
+    ready: bool,
+}
+
+impl InitialGameplayReadiness {
+    /// Construct a gate that keeps gameplay simulation dormant.
+    pub const fn closed() -> Self {
+        Self { ready: false }
+    }
+
+    /// Construct an already-open gate.
+    pub const fn open() -> Self {
+        Self { ready: true }
+    }
+
+    /// Allow gameplay simulation to begin.
+    pub fn mark_ready(&mut self) {
+        self.ready = true;
+    }
+
+    /// Whether gameplay may run.
+    pub const fn is_ready(self) -> bool {
+        self.ready
+    }
+}
+
 /// Run condition for the gameplay-simulation root set.
 ///
 /// Every app requires exactly one [`SessionRoot`] before gameplay systems may
 /// run. Direct-entry and headless apps do not require shell scope identity, but
-/// they still publish the same canonical root synchronously. Shell-routed hosts
-/// additionally require [`ActiveSessionScope`] to name that exact root. This
-/// keeps empty/minimal apps, frontend routes, provider preparation, and stale
-/// delayed roots structurally dormant instead of letting required world
-/// parameters fail validation.
+/// they still publish the same canonical root synchronously. A visible direct
+/// host may also install [`InitialGameplayReadiness`] while its first coherent
+/// presentation frame is being prepared. Shell-routed hosts additionally
+/// require [`ActiveSessionScope`] to name that exact root. This keeps
+/// empty/minimal apps, frontend routes, provider preparation, startup reveal,
+/// and stale delayed roots structurally dormant instead of letting required
+/// world parameters fail validation.
 pub fn simulation_authorized(
     gate: Option<Res<SessionGatedSimulation>>,
+    initial_readiness: Option<Res<InitialGameplayReadiness>>,
     scope: Option<Res<ActiveSessionScope>>,
     roots: Query<&SessionRoot>,
 ) -> bool {
+    if initial_readiness
+        .as_deref()
+        .is_some_and(|readiness| !readiness.is_ready())
+    {
+        return false;
+    }
     let Ok(root) = roots.single() else {
         return false;
     };

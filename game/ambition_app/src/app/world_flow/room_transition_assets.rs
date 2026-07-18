@@ -265,6 +265,19 @@ pub(crate) fn build_room_asset_manifest(
         Some(&quality.budget),
     );
 
+    build_loaded_room_asset_manifest(room, staged_actor_names, assets)
+}
+
+/// Describe the handles already selected for an active room without mutating
+/// the cache. Direct startup uses this after `load_game_assets` has loaded the
+/// active room's parallax theme; room transitions use
+/// [`build_room_asset_manifest`] because a target room may need lazy handle
+/// creation first.
+pub(crate) fn build_loaded_room_asset_manifest(
+    room: &RoomSpec,
+    staged_actor_names: &[String],
+    assets: &GameAssets,
+) -> RoomAssetManifest {
     let mut by_label = BTreeMap::new();
     add_room_specific_sprites(room, staged_actor_names, assets, &mut by_label);
 

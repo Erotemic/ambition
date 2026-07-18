@@ -815,6 +815,12 @@ scope with exhaustive authority tests.
 existing hidden-grace, ready-hold, retry, and cancellation test suite as a parity
 oracle.
 
+Direct gameplay startup now applies the same reveal invariant through ADR 0029:
+the product-owned cover exists before the window is exposed, activation-critical
+asset evidence must settle, gameplay/audio authority remains closed, and one
+complete covered ready frame precedes reveal. This closes the direct-entry
+partial-world flash; it does not by itself reduce synchronous Startup cost.
+
 ### Risk: every transition shows a loading panel
 
 **Countermeasure:** delayed reveal and progressive disclosure are binding.

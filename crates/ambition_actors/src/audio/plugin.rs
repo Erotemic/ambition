@@ -28,7 +28,8 @@ use ambition_audio::library::{
     start_default_music_when_ready, DefaultMusicStarted, MusicChannel, SfxChannel,
 };
 use ambition_platformer_primitives::lifecycle::{
-    simulation_authorized, ActiveSessionScope, SessionGatedSimulation,
+    simulation_authorized, ActiveSessionScope, InitialGameplayReadiness,
+    SessionGatedSimulation,
 };
 
 /// Public Bevy plugin: installs the Kira backend, channel resources,
@@ -155,11 +156,11 @@ impl Plugin for SandboxAudioPlugin {
                 )
                     .chain()
                     // Gameplay music only drives while the simulation is
-                    // authorized. In direct-entry apps there is no session gate,
-                    // so `simulation_authorized` is always true (unchanged). In a
-                    // session-routed host the chain sleeps at frontend/title
-                    // routes, so a stale room/encounter candidate cannot re-switch
-                    // the base channel frame after frame.
+                    // authorized. Direct visible startup may additionally hold
+                    // the initial-presentation readiness gate closed; session-
+                    // routed hosts sleep at frontend/title routes. In either
+                    // case a stale room/encounter candidate cannot switch the
+                    // base channel before gameplay authority exists.
                     .run_if(simulation_authorized)
                     .after(crate::schedule::SandboxSet::CoreSimulation),
             )
@@ -276,8 +277,18 @@ fn reset_audio_request_state_on_context_change(
 /// is NOT a session-routed host (no [`SessionGatedSimulation`] marker). A
 /// session-routed host starts music per activation through the director +
 /// `ActiveAudioSelection`; frontend routes use their explicit host profile.
-fn music_auto_start_when_ungated(gate: Option<Res<SessionGatedSimulation>>) -> bool {
-    gate.is_none()
+fn music_auto_start_when_ungated(
+    gate: Option<Res<SessionGatedSimulation>>,
+    readiness: Option<Res<InitialGameplayReadiness>>,
+) -> bool {
+    direct_music_auto_start_allowed(
+        gate.is_some(),
+        readiness.as_deref().map(|readiness| readiness.is_ready()),
+    )
+}
+
+fn direct_music_auto_start_allowed(session_gated: bool, initial_ready: Option<bool>) -> bool {
+    !session_gated && initial_ready.unwrap_or(true)
 }
 
 /// Apply the current frontend shell activation's audio profile.
@@ -287,10 +298,12 @@ fn music_auto_start_when_ungated(gate: Option<Res<SessionGatedSimulation>>) -> b
 /// title track and menu-SFX allowlist come from `FrontendAudioProfile`. On every
 /// frontend activation change this system stops gameplay channels, resets the
 /// director, and starts that context's title track (or deliberate silence).
-/// Direct-entry apps remain unaffected because their simulation stays authorized.
+/// Direct-entry apps remain unaffected because they do not install the session-routing marker;
+/// their separate initial-reveal gate only delays the normal direct music start.
 #[allow(clippy::too_many_arguments)]
 fn apply_frontend_music_policy(
     gate: Option<Res<SessionGatedSimulation>>,
+    readiness: Option<Res<InitialGameplayReadiness>>,
     scope: Option<Res<ActiveSessionScope>>,
     roots: Query<&ambition_platformer_primitives::lifecycle::SessionRoot>,
     base_music_channel: Res<bevy_kira_audio::prelude::AudioChannel<MusicChannel>>,
@@ -305,7 +318,14 @@ fn apply_frontend_music_policy(
     mut started: ResMut<DefaultMusicStarted>,
     mut applied_owner: Local<Option<ambition_sfx::AudioContextOwner>>,
 ) {
-    if simulation_authorized(gate, scope, roots) {
+    // A closed direct-start reveal gate is not a frontend route. Frontend
+    // music policy exists only in session-routed hosts; direct entry merely
+    // waits to start its normal track until the first coherent frame reveals.
+    let Some(gate) = gate else {
+        *applied_owner = None;
+        return;
+    };
+    if simulation_authorized(Some(gate), readiness, scope, roots) {
         *applied_owner = None;
         return;
     }
@@ -346,4 +366,17 @@ fn apply_frontend_music_policy(
         }
     }
     *applied_owner = owner;
+}
+
+#[cfg(test)]
+mod startup_readiness_tests {
+    use super::direct_music_auto_start_allowed;
+
+    #[test]
+    fn direct_music_waits_for_initial_readiness_without_becoming_frontend() {
+        assert!(!direct_music_auto_start_allowed(false, Some(false)));
+        assert!(direct_music_auto_start_allowed(false, Some(true)));
+        assert!(direct_music_auto_start_allowed(false, None));
+        assert!(!direct_music_auto_start_allowed(true, Some(true)));
+    }
 }

@@ -650,6 +650,12 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     let asset_root = desktop_asset_root();
     eprintln!("ambition_app: asset root = {asset_root}");
     let mut app = App::new();
+    let direct_windowed = matches!(render, VisibleRenderMode::Windowed) && !shell_hosted;
+    if direct_windowed {
+        app.insert_resource(
+            ambition::platformer::lifecycle::InitialGameplayReadiness::closed(),
+        );
+    }
     if matches!(render, VisibleRenderMode::NoWindow) {
         // Automated no-window hosts exercise the real ownership, resolver, and
         // playback-state path, but the final output side effect is recorded
@@ -676,6 +682,12 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
                 primary_window: Some(Window {
                     title: "Ambition - Tangent Space Sandbox (Bevy)".into(),
                     resolution: WindowResolution::new(WINDOW_W, WINDOW_H),
+                    // Direct entry exposes the window only after Startup has
+                    // built an opaque loading surface. This prevents the OS
+                    // compositor from briefly showing stale desktop pixels or
+                    // an uninitialized swapchain. Shell-hosted startup keeps
+                    // its existing visible route presentation.
+                    visible: !direct_windowed,
                     resizable: true,
                     resize_constraints: WindowResizeConstraints {
                         min_width: 640.0,
@@ -758,6 +770,9 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     if shell_hosted {
         super::shell_host::compose_ambition_shell_host(&mut app);
         super::shell_host::install_ambition_shell_visuals(&mut app);
+    }
+    if direct_windowed {
+        super::startup_loading::install_direct_startup_loading(&mut app);
     }
     // AssetSource registration runs LAST so EmbeddedAssetRegistry
     // (added by `AssetPlugin` inside `DefaultPlugins`) is already present.

@@ -30,6 +30,7 @@ mod plugins;
 mod resources;
 mod scene_setup;
 mod setup_systems;
+mod startup_loading;
 pub mod shell_host;
 mod sim_resources;
 mod sim_systems;

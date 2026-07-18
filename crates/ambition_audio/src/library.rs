@@ -337,6 +337,15 @@ impl AudioLibrary {
         self.music_tracks.iter().find(|track| track.id == id)
     }
 
+    /// Return an already-resolved playable handle without starting a load.
+    ///
+    /// Hosts that explicitly preload a track can use this to include the exact
+    /// handle in a broader activation-readiness manifest without taking mutable
+    /// ownership of the audio library every frame.
+    pub fn resolved_track_handle(&self, id: &str) -> Option<Handle<KiraAudioSource>> {
+        self.track(id).and_then(|track| track.source.handle.clone())
+    }
+
     pub fn track_count(&self) -> usize {
         self.music_tracks.len()
     }

@@ -288,6 +288,26 @@ fn direct_simulation_requires_the_same_canonical_root_without_shell_identity() {
 }
 
 #[test]
+fn direct_simulation_waits_for_initial_presentation_readiness_when_installed() {
+    let mut app = App::new();
+    insert_session_world_component(app.world_mut(), SessionWorldFixture(1));
+    app.insert_resource(InitialGameplayReadiness::closed());
+
+    assert!(!app
+        .world_mut()
+        .run_system_once(simulation_authorized)
+        .expect("run condition evaluates"));
+
+    app.world_mut()
+        .resource_mut::<InitialGameplayReadiness>()
+        .mark_ready();
+    assert!(app
+        .world_mut()
+        .run_system_once(simulation_authorized)
+        .expect("run condition evaluates"));
+}
+
+#[test]
 fn cleanup_leaves_unscoped_frontend_entities_intact() {
     let mut app = session_app();
     let a = app.world_mut().resource_mut::<ActiveSessionScope>().begin();

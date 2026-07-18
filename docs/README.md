@@ -46,8 +46,15 @@ material changes or during repository-maintenance work; they are not a universal
 completion gate. They do not override source files, ADRs, or concept pages. The
 current archive includes:
 
-- [`../.agent/manifest.yaml`](../.agent/manifest.yaml)
-- [`../.agent/retrieval_evals.yaml`](../.agent/retrieval_evals.yaml)
+- `.agent/README.md` — generated front door and counts;
+- `.agent/index/catalog.json` — compact index directory;
+- `.agent/index/crates/index.json` — per-crate drill-down packets;
+- `.agent/ecs_inventory/project.md` — Bevy/ECS project inventory;
+- [`../.agent/manifest.yaml`](../.agent/manifest.yaml) — generation metadata;
+- [`../.agent/retrieval_evals.yaml`](../.agent/retrieval_evals.yaml) — retrieval checks.
+
+Use `python scripts/agent_query.py "<task words>"` rather than reading the flat
+indexes directly. See [`recipes/fresh-agent-navigation.md`](recipes/fresh-agent-navigation.md).
 
 ## Reading rule
 

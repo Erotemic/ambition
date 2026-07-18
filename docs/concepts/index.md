@@ -23,6 +23,7 @@ Concept pages are durable, agent-readable memory. They define vocabulary, aliase
 | [`patch-overlays-and-repo-state.md`](patch-overlays-and-repo-state.md) | preparing overlay packages or replacing broad files |
 | [`brainstorms-design-incubation.md`](brainstorms-design-incubation.md) | using or editing `docs/brainstorms/` without demoting it to archive material |
 | [`engineering-memory.md`](engineering-memory.md) | searching `dev/` or promoting hard-won lessons into durable docs |
+| [`architecture-review-questions.md`](architecture-review-questions.md) | entering an unfamiliar subsystem or critically reviewing ownership, lifecycle, transactionality, identity, and public seams |
 
 ## Maintenance
 

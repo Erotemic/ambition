@@ -52,13 +52,17 @@ REQUIRED_FILES = [
     "dev/journals/index.md",
     "dev/benchmark-candidates/index.md",
     ".agent/manifest.yaml",
+    ".agent/README.md",
     ".agent/retrieval_evals.yaml",
     "scripts/generate_agent_index.py",
+    "scripts/agent_query.py",
+    "docs/recipes/fresh-agent-navigation.md",
+    "docs/concepts/architecture-review-questions.md",
 ]
 
 ALLOWED_TOP_LEVEL_DOCS = {"README.md"}
 CONCEPT_REQUIRED_KEYS = {"id", "aliases", "last_verified"}
-AGENTS_MAX_LINES = 150
+AGENTS_MAX_LINES = 180
 
 GENERATE_AGENT_INDEX_COMMAND = "python scripts/generate_agent_index.py"
 GENERATED_INDEX_FILES = {
@@ -70,6 +74,8 @@ GENERATED_INDEX_FILES = {
     ".agent/index/tool_index.json": "tools",
     ".agent/index/archive_index.json": "archive_docs",
     ".agent/index/doc_health.json": "doc_count",
+    ".agent/index/catalog.json": "counts",
+    ".agent/index/crates/index.json": "crates",
 }
 
 FORBIDDEN_LIVE_PATHS = [

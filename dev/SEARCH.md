@@ -42,11 +42,18 @@ Do not load the whole corpus into context. It is a lookup memory, not a cold-sta
 
 ## Generated localization aids
 
-After symptom/invariant search, use generated indexes when you need concrete files, symbols, or tests:
+After symptom/invariant search, ask the generated bundle for a compact packet
+instead of loading the complete JSON indexes:
 
 ```bash
-cat .agent/index/test_map.json
-cat .agent/index/symbol_index.json
+python scripts/agent_query.py "room transition loading"
+python scripts/agent_query.py symbol GroundContactTransition
+python scripts/agent_query.py ecs "room transition" --crate ambition_app
+python scripts/agent_query.py tests "ground contact"
+python scripts/agent_query.py crate ambition_runtime
 ```
 
-The generated indexes are navigation aids. Trust source code and current docs over generated summaries if they disagree.
+The drill-down workflow and raw shard locations are documented in
+`docs/recipes/fresh-agent-navigation.md`. Generated indexes are localization
+aids. Trust source code and current docs over generated summaries when they
+disagree.

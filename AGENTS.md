@@ -13,14 +13,28 @@ This is the repository operating guide for coding agents. Keep it short, session
 
 ## Cold start
 
-For non-trivial work, read in this order:
+For non-trivial work, read and localize in this order:
 
-1. `README.md`; `AGENTS.md`; `dev/README.md`; `dev/SEARCH.md`; `docs/README.md`.
-2. `docs/planning/README.md` → `docs/planning/vision.md` + `docs/planning/tracks.md` (the master plan + live queue)
-3. The crate's `MODULES.md` (its modules + the ONE concern each declares)
-4. One focused concept, system doc, recipe, tool doc, or planning doc for the task
+1. `README.md`, `AGENTS.md`, and `.agent/README.md` when present.
+2. Run `python scripts/agent_query.py "<task words>"` before broad source search.
+3. `docs/planning/README.md` → `docs/planning/vision.md` + `docs/planning/tracks.md` (the master plan + live queue).
+4. The likely crate's generated packet and `MODULES.md`.
+5. One focused concept, system doc, recipe, tool doc, or planning doc.
+6. Search `dev/journals` and `dev/benchmark-candidates` for the symptom or invariant.
 
-Do not read all of `docs/` or `dev/` by default.
+Do not read all of `docs/`, `dev/`, or a multi-megabyte flat index by default.
+See `docs/recipes/fresh-agent-navigation.md` for the drill-down protocol.
+
+## Generated navigation protocol
+
+Agent archives contain commit-matched navigation under `.agent/`. Use
+`.agent/index/catalog.json` for the overview, per-crate packets under
+`.agent/index/crates/`, and `.agent/ecs_inventory/crates/` for Bevy ownership,
+scheduling, resources, messages, and spawn sites. Use `scripts/agent_query.py`
+as the normal interface rather than dumping whole JSON indexes into context.
+Generated data localizes likely owners; confirm every result in source before
+editing. Source wins for implementation fact, and active planning/ADRs win for
+intended direction.
 
 ## Source-of-truth order
 

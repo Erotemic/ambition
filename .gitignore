@@ -98,6 +98,7 @@ tools/ambition_sprite2d_renderer/.parity-baseline/
 /tools/ambition_sprite2d_renderer/tpl/Godot_v*-stable_linux.x86_64
 .agent/reports
 .agent/ecs_inventory
+.agent/README.md
 .agent/index/
 .agent/dirstats*
 

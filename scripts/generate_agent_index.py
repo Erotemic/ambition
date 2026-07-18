@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_DIR = ROOT / ".agent" / "index"
 
-SKIP_DIRS = {".git", "target", ".venv", "__pycache__"}
+SKIP_DIRS = {".git", ".agent", ".worktrees", "target", ".venv", "__pycache__"}
 TEXT_EXTS = {".md", ".rs", ".toml", ".ron", ".yaml", ".yml", ".py", ".sh", ".json"}
 
 
@@ -300,6 +300,8 @@ ENTRY_DOC_CANDIDATES = (
     "docs/planning/roadmap.md",
     "docs/planning/tracks.md",
     "docs/planning/decision-principles.md",
+    "docs/recipes/fresh-agent-navigation.md",
+    "docs/concepts/architecture-review-questions.md",
     "MODULES.md",
 )
 
@@ -446,7 +448,14 @@ def main() -> int:
     write_json(INDEX_DIR / "archive_index.json", build_archive_index())
     write_json(INDEX_DIR / "doc_health.json", build_doc_health(files))
     update_agent_manifest(generated_meta())
-    print("generated .agent indexes and manifest")
+
+    # Build the progressive-disclosure catalog from the fresh flat indexes.
+    # The archive builder reruns this after ECS inventory so archive packets
+    # include current Bevy counts and per-crate inventory links.
+    from agent_query import build_catalog
+
+    build_catalog(quiet=True)
+    print("generated .agent indexes, catalog, crate packets, and manifest")
     return 0
 
 

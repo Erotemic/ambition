@@ -31,6 +31,9 @@ policy:
     - .agent/index/tool_index.json
     - .agent/index/archive_index.json
     - .agent/index/doc_health.json
+    - .agent/README.md
+    - .agent/index/catalog.json
+    - .agent/index/crates/*.json
 
 indexes:
   file_summaries: .agent/index/file_summaries.json
@@ -41,6 +44,12 @@ indexes:
   tool_index: .agent/index/tool_index.json
   archive_index: .agent/index/archive_index.json
   doc_health: .agent/index/doc_health.json
+  catalog: .agent/index/catalog.json
+  crate_index: .agent/index/crates/index.json
+
+query:
+  command: python scripts/agent_query.py
+  guide: .agent/README.md
 
 evals: .agent/retrieval_evals.yaml
 

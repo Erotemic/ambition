@@ -281,14 +281,7 @@ pub fn handle_player_events(
     let facing = clusters.kinematics.facing;
     let size = clusters.kinematics.size;
     // Body-generic SFX/VFX — the SAME emitter the actor tick uses.
-    emit_movement_fx(
-        sfx,
-        vfx,
-        &events,
-        pos,
-        facing,
-        size,
-    );
+    emit_movement_fx(sfx, vfx, &events, pos, facing, size);
     arm_ground_contact_anim_overlay(anim, events.ground_contact);
     // Body-generic op-driven overlay poses (the wall-jump push-off) — the SAME
     // arming the actor tick runs (§A9). Player-specific presentation the shared

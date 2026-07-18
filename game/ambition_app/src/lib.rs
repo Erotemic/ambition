@@ -21,8 +21,8 @@ pub mod rl_sim;
 pub use headless::{run_headless, HeadlessReport};
 #[cfg(feature = "rl_sim")]
 pub use rl_sim::{
-    AgentAction, AgentObservation, AmbitionSim, Lcg, RandomWalkPolicy, RandomWalkTuning, SandboxSim,
-    SandboxSimOptions, TimestepMode,
+    AgentAction, AgentObservation, AmbitionSim, Lcg, RandomWalkPolicy, RandomWalkTuning,
+    SandboxSim, SandboxSimOptions, TimestepMode,
 };
 
 /// Android shared-library entry point.

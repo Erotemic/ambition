@@ -1599,7 +1599,10 @@ mod prompt_tests {
         );
         let g_special = prompt(
             ControlContextKind::Gameplay,
-            vec![(ControlSlot::Jump, "Jump"), (ControlSlot::Special, "Bubble Shield")],
+            vec![
+                (ControlSlot::Jump, "Jump"),
+                (ControlSlot::Special, "Bubble Shield"),
+            ],
         );
         assert!(
             touch_action_available(TouchActionButton::Special, &g_special),

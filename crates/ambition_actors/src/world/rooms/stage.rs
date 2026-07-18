@@ -43,8 +43,12 @@ impl RoomConstructionPlanId {
 /// detected before any live-room mutation.
 #[derive(Clone, Debug, PartialEq)]
 pub enum RoomConstructionError {
-    UnknownRoom { room: String },
-    MissingService { service: &'static str },
+    UnknownRoom {
+        room: String,
+    },
+    MissingService {
+        service: &'static str,
+    },
     InvalidFeatures {
         room: String,
         reason: features::RoomFeatureConstructionError,
@@ -54,10 +58,9 @@ pub enum RoomConstructionError {
 impl std::fmt::Display for RoomConstructionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UnknownRoom { room } => write!(
-                f,
-                "no room named `{room}` in the prepared RoomSet"
-            ),
+            Self::UnknownRoom { room } => {
+                write!(f, "no room named `{room}` in the prepared RoomSet")
+            }
             Self::MissingService { service } => write!(
                 f,
                 "room construction needs `{service}`, which this world does not provide"
@@ -115,11 +118,11 @@ impl RoomConstructionPlan {
     pub fn prepare(world: &World, target_room_id: &str) -> Result<Self, RoomConstructionError> {
         let missing = |service| RoomConstructionError::MissingService { service };
         let rooms = session_world_component::<RoomSet>(world).ok_or(missing("session RoomSet"))?;
-        let target_index = rooms
-            .room_index_by_id(target_room_id)
-            .ok_or_else(|| RoomConstructionError::UnknownRoom {
+        let target_index = rooms.room_index_by_id(target_room_id).ok_or_else(|| {
+            RoomConstructionError::UnknownRoom {
                 room: target_room_id.to_string(),
-            })?;
+            }
+        })?;
         session_world_component::<ambition_engine_core::RoomGeometry>(world)
             .ok_or(missing("session RoomGeometry"))?;
         if world
@@ -169,13 +172,11 @@ impl RoomConstructionPlan {
         boss_catalog: &crate::boss_encounter::BossCatalog,
         session_scope: SessionSpawnScope,
     ) -> Result<Self, RoomConstructionError> {
-        let spec = rooms
-            .rooms
-            .get(target_index)
-            .cloned()
-            .ok_or_else(|| RoomConstructionError::UnknownRoom {
+        let spec = rooms.rooms.get(target_index).cloned().ok_or_else(|| {
+            RoomConstructionError::UnknownRoom {
                 room: format!("<room-index-{target_index}>"),
-            })?;
+            }
+        })?;
         Self::prepare_spec(
             target_index,
             spec,
@@ -244,10 +245,10 @@ impl RoomConstructionPlan {
     /// authored spec this plan prepared. This rejects a same-id hot reload from
     /// committing a stale in-flight transition.
     pub fn matches_room_spec(&self, candidate: &RoomSpec) -> bool {
-        let prepared = serde_json::to_vec(self.spec())
-            .expect("prepared RoomSpec must remain serializable");
-        let current = serde_json::to_vec(candidate)
-            .expect("candidate RoomSpec must remain serializable");
+        let prepared =
+            serde_json::to_vec(self.spec()).expect("prepared RoomSpec must remain serializable");
+        let current =
+            serde_json::to_vec(candidate).expect("candidate RoomSpec must remain serializable");
         prepared == current
     }
 
@@ -269,11 +270,7 @@ impl RoomConstructionPlan {
 
     /// Rebuild one authored authoritative root through this plan's frozen
     /// interpreter/catalog decisions.
-    pub fn respawn_authoritative_entity(
-        &self,
-        commands: &mut Commands,
-        authored_id: &str,
-    ) -> bool {
+    pub fn respawn_authoritative_entity(&self, commands: &mut Commands, authored_id: &str) -> bool {
         self.features
             .respawn_authoritative_entity(commands, self.session_scope, authored_id)
     }
@@ -449,7 +446,10 @@ mod tests {
         let a = prepare(empty_spec("same")).expect("first plan");
         let b = prepare(empty_spec("same")).expect("second plan");
         assert_eq!(a.id(), b.id());
-        assert_eq!(a.predicted_authoritative_ids(), b.predicted_authoritative_ids());
+        assert_eq!(
+            a.predicted_authoritative_ids(),
+            b.predicted_authoritative_ids()
+        );
     }
 
     #[test]

@@ -224,7 +224,11 @@ pub fn process_sandbox_reset_request(
     )) = player_q.single_mut()
     {
         let mut clusters = cluster_item.as_clusters_mut();
-        ae::reset_body_clusters(&mut motion_model, &mut clusters, room_plan.spec().world.spawn);
+        ae::reset_body_clusters(
+            &mut motion_model,
+            &mut clusters,
+            room_plan.spec().world.spawn,
+        );
         // reset_body_clusters uses DEFAULT_TUNING for the post-reset
         // dash/jump refresh; redo with the live tuning so a F3
         // editable-tuning session sees its overridden air_jumps /

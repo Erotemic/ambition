@@ -295,14 +295,12 @@ pub fn restore(
     .map(|rs| rs.active_spec().id.clone());
     let (room_plan, room_replacement_required) = match (&snapshot.active_room, &active_room) {
         (Some(snapshot_room), Some(live_room)) => {
-            let plan = ambition_actors::world::rooms::RoomConstructionPlan::prepare(
-                world,
-                snapshot_room,
-            )
-            .map_err(|error| RestoreError::RoomNotStageable {
-                room: snapshot_room.clone(),
-                reason: error.to_string(),
-            })?;
+            let plan =
+                ambition_actors::world::rooms::RoomConstructionPlan::prepare(world, snapshot_room)
+                    .map_err(|error| RestoreError::RoomNotStageable {
+                        room: snapshot_room.clone(),
+                        reason: error.to_string(),
+                    })?;
             (Some(plan), snapshot_room != live_room)
         }
         (None, None) => (None, false),

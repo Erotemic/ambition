@@ -85,9 +85,7 @@ pub fn compose_ambition_shell_host(app: &mut App) {
     if !app.is_plugin_added::<ambition::load_presentation::AmbitionLoadPresentationPlugin>() {
         app.add_plugins(ambition::load_presentation::MinimalLoadPresentationPlugins);
     }
-    if !app
-        .is_plugin_added::<ambition::load_presentation::AmbitionLoadShellPresentationPlugin>()
-    {
+    if !app.is_plugin_added::<ambition::load_presentation::AmbitionLoadShellPresentationPlugin>() {
         app.add_plugins(ambition::load_presentation::AmbitionLoadShellPresentationPlugin);
     }
 

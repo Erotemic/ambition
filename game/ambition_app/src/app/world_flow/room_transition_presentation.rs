@@ -18,9 +18,8 @@ use bevy::prelude::*;
 
 use ambition::load::{LoadCommand, LoadCoordinator, LoadEvent};
 use ambition::load_presentation::{
-    LoadExperienceSpec, LoadPresentationCommand,
-    LoadPresentationEvent, LoadPresentationModel, LoadPresentationOwnerId,
-    LoadPresentationSet, ReadyTransitionPolicy,
+    LoadExperienceSpec, LoadPresentationCommand, LoadPresentationEvent, LoadPresentationModel,
+    LoadPresentationOwnerId, LoadPresentationSet, ReadyTransitionPolicy,
 };
 use ambition::platformer::schedule::GameMode;
 
@@ -352,8 +351,8 @@ fn drive_room_transition_presentation(
         }
     };
     let target_rendered_under_cover = update_serial > commit_observed_at;
-    let foreground_minimum_satisfied = !runtime.visible_before_commit
-        || runtime.visible_elapsed >= config.minimum_visible;
+    let foreground_minimum_satisfied =
+        !runtime.visible_before_commit || runtime.visible_elapsed >= config.minimum_visible;
     if !target_rendered_under_cover || !foreground_minimum_satisfied {
         return;
     }
@@ -541,7 +540,10 @@ mod tests {
         telemetry.record(timing_sample(2), &config);
         telemetry.record(timing_sample(3), &config);
         assert_eq!(
-            telemetry.samples().map(|sample| sample.sequence).collect::<Vec<_>>(),
+            telemetry
+                .samples()
+                .map(|sample| sample.sequence)
+                .collect::<Vec<_>>(),
             vec![2, 3],
         );
     }

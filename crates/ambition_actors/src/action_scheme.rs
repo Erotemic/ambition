@@ -75,7 +75,9 @@ pub fn reconcile_action_schemes(
             // capability sync guards against. A raw `insert` on a torn-down entity
             // errors ("ActorActionScheme insert ... entity ID is invalid"); the
             // `try_` variant applies the cache iff the entity is still alive.
-            commands.entity(entity).try_insert(ActorActionScheme(derived));
+            commands
+                .entity(entity)
+                .try_insert(ActorActionScheme(derived));
         }
     }
 }

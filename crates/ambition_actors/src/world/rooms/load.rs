@@ -7,8 +7,7 @@
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, With};
 
 use super::{
-    validated_spawn, LoadingZoneActivation, RoomConstructionPlan, RoomSet, RoomSpec,
-    RoomTransition,
+    validated_spawn, LoadingZoneActivation, RoomConstructionPlan, RoomSet, RoomSpec, RoomTransition,
 };
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::time::feel::SandboxFeelTuning;

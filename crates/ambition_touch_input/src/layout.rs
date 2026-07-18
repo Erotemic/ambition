@@ -139,7 +139,14 @@ pub fn touch_action_layout() -> [TouchActionSpec; 9] {
         // neighbor. Hidden when the controlled scheme has no Special (the
         // availability predicate gates both visibility and the hit test), so a
         // movement-only character shows no phantom Special.
-        scaled(TouchActionButton::Special, "Special", 230.0, 228.0, 72.0, 13.0),
+        scaled(
+            TouchActionButton::Special,
+            "Special",
+            230.0,
+            228.0,
+            72.0,
+            13.0,
+        ),
     ]
 }
 

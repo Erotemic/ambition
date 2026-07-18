@@ -82,7 +82,10 @@ impl Plugin for AmbitionLoadShellPresentationPlugin {
     }
 }
 
-fn shell_owner(route_id: &ShellRouteId, load_id: &ambition_load::LoadId) -> LoadPresentationOwnerId {
+fn shell_owner(
+    route_id: &ShellRouteId,
+    load_id: &ambition_load::LoadId,
+) -> LoadPresentationOwnerId {
     LoadPresentationOwnerId::new(format!("shell:{}:{}", route_id.as_str(), load_id.as_str()))
 }
 
@@ -180,10 +183,7 @@ fn process_shell_presentation_events(
             LoadPresentationEvent::CancelRequested { .. } => {
                 let had_active_route = router.active.is_some();
                 if let Some(pending) = router.cancel_pending() {
-                    holds.release(
-                        &pending.route_id,
-                        &ShellHoldId::new(LOAD_PRESENTATION_HOLD),
-                    );
+                    holds.release(&pending.route_id, &ShellHoldId::new(LOAD_PRESENTATION_HOLD));
                 }
                 clear_shell_presentation(&mut state, &mut presentation);
                 if !had_active_route {
@@ -192,10 +192,7 @@ fn process_shell_presentation_events(
             }
             LoadPresentationEvent::QuitRequested { .. } => {
                 if let Some(pending) = router.cancel_pending() {
-                    holds.release(
-                        &pending.route_id,
-                        &ShellHoldId::new(LOAD_PRESENTATION_HOLD),
-                    );
+                    holds.release(&pending.route_id, &ShellHoldId::new(LOAD_PRESENTATION_HOLD));
                 }
                 clear_shell_presentation(&mut state, &mut presentation);
                 shell.write(ShellCommand::QuitToHome);
@@ -220,10 +217,7 @@ fn finalize_activated_route(
         if active.route_id != activated.route_id {
             continue;
         }
-        holds.release(
-            &active.route_id,
-            &ShellHoldId::new(LOAD_PRESENTATION_HOLD),
-        );
+        holds.release(&active.route_id, &ShellHoldId::new(LOAD_PRESENTATION_HOLD));
         clear_shell_presentation(&mut state, &mut presentation);
     }
 }

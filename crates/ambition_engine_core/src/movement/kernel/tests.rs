@@ -76,8 +76,7 @@ fn grounded_spawn_initializes_without_a_landing_edge() {
     let world = floor_world();
     let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
     let mut model = MotionModel::axis_swept(AxisSweptParams::default());
-    let mut scratch =
-        BodyClusterScratch::new_with_abilities(Vec2::ZERO, AbilitySet::default());
+    let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::ZERO, AbilitySet::default());
     scratch.kinematics.pos = Vec2::new(100.0, 400.0 - scratch.kinematics.size.y * 0.5);
     scratch.ground = crate::BodyGroundState::uninitialized();
 
@@ -102,12 +101,10 @@ fn airborne_spawn_can_land_during_its_first_tick() {
     let world = floor_world();
     let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
     let mut model = MotionModel::axis_swept(AxisSweptParams::default());
-    let mut scratch =
-        BodyClusterScratch::new_with_abilities(Vec2::ZERO, AbilitySet::default());
+    let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::ZERO, AbilitySet::default());
     // Start beyond the resting-contact slop but close enough that a fast
     // downward spawn crosses the floor during this first 1/60 s step.
-    scratch.kinematics.pos =
-        Vec2::new(100.0, 394.0 - scratch.kinematics.size.y * 0.5);
+    scratch.kinematics.pos = Vec2::new(100.0, 394.0 - scratch.kinematics.size.y * 0.5);
     scratch.kinematics.vel = Vec2::new(0.0, 600.0);
     scratch.ground = crate::BodyGroundState::uninitialized();
 

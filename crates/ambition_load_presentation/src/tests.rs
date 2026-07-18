@@ -127,14 +127,19 @@ fn generic_presentation_runs_without_shell_resources() {
     use bevy::prelude::*;
 
     let mut app = App::new();
-    app.add_plugins((ambition_load::AmbitionLoadPlugin, AmbitionLoadPresentationPlugin));
+    app.add_plugins((
+        ambition_load::AmbitionLoadPlugin,
+        AmbitionLoadPresentationPlugin,
+    ));
     app.insert_resource(Time::<()>::default());
 
     let load = LoadId::new("room-transition");
     let barrier = LoadBarrierId::new("target-ready");
     let owner = LoadPresentationOwnerId::new("room-transition:7");
     {
-        let mut loads = app.world_mut().resource_mut::<ambition_load::LoadCoordinator>();
+        let mut loads = app
+            .world_mut()
+            .resource_mut::<ambition_load::LoadCoordinator>();
         loads.apply(LoadCommand::Begin(LoadPlanSpec::new(
             load.clone(),
             "Prepare target room",
@@ -153,17 +158,18 @@ fn generic_presentation_runs_without_shell_resources() {
             state: LoadWorkState::Running { progress: None },
         });
     }
-    app.world_mut().write_message(LoadPresentationCommand::Begin {
-        owner: owner.clone(),
-        barrier: LoadBarrierRef::new(load.clone(), barrier.clone()),
-        spec: LoadExperienceSpec {
-            id: LoadExperienceId::new("room-transition"),
-            reveal_after: Duration::from_millis(100),
-            ready_policy: ReadyTransitionPolicy::AwaitConfirmation,
-            activity: None,
-            show_estimated_percentage: true,
-        },
-    });
+    app.world_mut()
+        .write_message(LoadPresentationCommand::Begin {
+            owner: owner.clone(),
+            barrier: LoadBarrierRef::new(load.clone(), barrier.clone()),
+            spec: LoadExperienceSpec {
+                id: LoadExperienceId::new("room-transition"),
+                reveal_after: Duration::from_millis(100),
+                ready_policy: ReadyTransitionPolicy::AwaitConfirmation,
+                activity: None,
+                show_estimated_percentage: true,
+            },
+        });
     app.update();
     assert!(!app.world().resource::<LoadPresentationModel>().visible);
 
@@ -174,7 +180,9 @@ fn generic_presentation_runs_without_shell_resources() {
     assert!(app.world().resource::<LoadPresentationModel>().visible);
 
     {
-        let mut loads = app.world_mut().resource_mut::<ambition_load::LoadCoordinator>();
+        let mut loads = app
+            .world_mut()
+            .resource_mut::<ambition_load::LoadCoordinator>();
         loads.apply(LoadCommand::SetWorkState {
             load_id: load.clone(),
             work_id: ambition_load::LoadWorkId::new("geometry"),
@@ -191,14 +199,20 @@ fn generic_presentation_runs_without_shell_resources() {
     assert!(app.world().resource::<LoadPresentationModel>().ready_hold);
 
     app.world_mut()
-        .write_message(LoadPresentationAction::Continue { owner: owner.clone() });
+        .write_message(LoadPresentationAction::Continue {
+            owner: owner.clone(),
+        });
     app.update();
     assert!(!app.world().resource::<LoadPresentationModel>().ready_hold);
 
     app.world_mut()
         .write_message(LoadPresentationCommand::Finish { owner });
     app.update();
-    assert!(app.world().resource::<LoadForegroundState>().active.is_none());
+    assert!(app
+        .world()
+        .resource::<LoadForegroundState>()
+        .active
+        .is_none());
 }
 
 #[test]
@@ -207,7 +221,10 @@ fn generic_failure_routes_actions_to_the_exact_owner_and_cleans_up() {
     use bevy::prelude::*;
 
     let mut app = App::new();
-    app.add_plugins((ambition_load::AmbitionLoadPlugin, AmbitionLoadPresentationPlugin));
+    app.add_plugins((
+        ambition_load::AmbitionLoadPlugin,
+        AmbitionLoadPresentationPlugin,
+    ));
     app.insert_resource(Time::<()>::default());
 
     let load = LoadId::new("room-transition-failure");
@@ -215,7 +232,9 @@ fn generic_failure_routes_actions_to_the_exact_owner_and_cleans_up() {
     let owner = LoadPresentationOwnerId::new("room-transition:failure");
     let failure = LoadFailure::new("Could not prepare room", "fixture failure").retryable(true);
     {
-        let mut loads = app.world_mut().resource_mut::<ambition_load::LoadCoordinator>();
+        let mut loads = app
+            .world_mut()
+            .resource_mut::<ambition_load::LoadCoordinator>();
         loads.apply(LoadCommand::Begin(LoadPlanSpec::new(
             load.clone(),
             "Prepare target room",
@@ -234,17 +253,18 @@ fn generic_failure_routes_actions_to_the_exact_owner_and_cleans_up() {
             state: LoadWorkState::Failed(failure.clone()),
         });
     }
-    app.world_mut().write_message(LoadPresentationCommand::Begin {
-        owner: owner.clone(),
-        barrier: LoadBarrierRef::new(load, barrier.clone()),
-        spec: LoadExperienceSpec {
-            id: LoadExperienceId::new("room-transition"),
-            reveal_after: Duration::ZERO,
-            ready_policy: ReadyTransitionPolicy::AutoAdvance,
-            activity: None,
-            show_estimated_percentage: true,
-        },
-    });
+    app.world_mut()
+        .write_message(LoadPresentationCommand::Begin {
+            owner: owner.clone(),
+            barrier: LoadBarrierRef::new(load, barrier.clone()),
+            spec: LoadExperienceSpec {
+                id: LoadExperienceId::new("room-transition"),
+                reveal_after: Duration::ZERO,
+                ready_policy: ReadyTransitionPolicy::AutoAdvance,
+                activity: None,
+                show_estimated_percentage: true,
+            },
+        });
     app.update();
 
     let model = app.world().resource::<LoadPresentationModel>();
@@ -253,7 +273,9 @@ fn generic_failure_routes_actions_to_the_exact_owner_and_cleans_up() {
     assert_eq!(model.failures, vec![failure]);
 
     app.world_mut()
-        .write_message(LoadPresentationAction::Retry { owner: owner.clone() });
+        .write_message(LoadPresentationAction::Retry {
+            owner: owner.clone(),
+        });
     app.update();
     let events = app
         .world_mut()
@@ -271,7 +293,11 @@ fn generic_failure_routes_actions_to_the_exact_owner_and_cleans_up() {
     app.world_mut()
         .write_message(LoadPresentationCommand::Cancel { owner });
     app.update();
-    assert!(app.world().resource::<LoadForegroundState>().active.is_none());
+    assert!(app
+        .world()
+        .resource::<LoadForegroundState>()
+        .active
+        .is_none());
     assert_eq!(
         app.world().resource::<LoadPresentationModel>(),
         &LoadPresentationModel::default(),

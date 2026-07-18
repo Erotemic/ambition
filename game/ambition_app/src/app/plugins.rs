@@ -38,8 +38,7 @@ use super::setup_systems::{
 use super::sim_systems::{apply_player_reset_input_system, apply_room_replay_request_system};
 use super::world_flow::{
     advance_room_transition_content_epoch_system, authorize_ready_room_transition_system,
-    begin_room_transition_load_system,
-    commit_ready_room_transition_system,
+    begin_room_transition_load_system, commit_ready_room_transition_system,
     finalize_unpresented_room_transition_failure_system, RoomTransitionContentEpoch,
     RoomTransitionLoadState,
 };

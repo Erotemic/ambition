@@ -125,7 +125,11 @@ impl LoadForegroundState {
     }
 
     pub(crate) fn clear_owner(&mut self, owner: &LoadPresentationOwnerId) -> bool {
-        if self.active.as_ref().is_some_and(|active| &active.owner == owner) {
+        if self
+            .active
+            .as_ref()
+            .is_some_and(|active| &active.owner == owner)
+        {
             self.active = None;
             true
         } else {
@@ -295,11 +299,17 @@ pub enum LoadPresentationAction {
 /// interpret these messages independently.
 #[derive(Message, Clone, Debug, Eq, PartialEq)]
 pub enum LoadPresentationEvent {
-    ContinueRequested { owner: LoadPresentationOwnerId },
+    ContinueRequested {
+        owner: LoadPresentationOwnerId,
+    },
     RetryRequested {
         owner: LoadPresentationOwnerId,
         barrier: LoadBarrierRef,
     },
-    CancelRequested { owner: LoadPresentationOwnerId },
-    QuitRequested { owner: LoadPresentationOwnerId },
+    CancelRequested {
+        owner: LoadPresentationOwnerId,
+    },
+    QuitRequested {
+        owner: LoadPresentationOwnerId,
+    },
 }

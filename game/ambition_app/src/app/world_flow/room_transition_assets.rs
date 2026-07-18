@@ -16,19 +16,16 @@ use bevy::prelude::{AssetServer, DetectChanges, Handle, Image, Res, ResMut, Reso
 use bevy::time::Real;
 
 use ambition::actors::features::RoomContentStagingRegistry;
-use ambition::actors::rooms::{InteractionKindSpec, RoomSpec, RoomSet};
+use ambition::actors::rooms::{InteractionKindSpec, RoomSet, RoomSpec};
 use ambition::asset_manager::sandbox_assets::SandboxAssetCatalog;
 use ambition::entity_catalog::placements::PlacementSchema;
 use ambition::load::{LoadCoordinator, LoadEvent, LoadFailure, LoadWorkState, UnitProgress};
-use ambition::platformer::lifecycle::{
-    ActiveSessionScope, SessionScopeId, SessionWorldRef,
-};
+use ambition::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionWorldRef};
 use ambition::render::quality::ResolvedVisualQuality;
 use ambition::sprite_sheet::boss::BossSpriteAsset;
 use ambition::sprite_sheet::character::CharacterSpriteAsset;
 use ambition::sprite_sheet::game_assets::{
-    ensure_parallax_layers_for_room, EntitySprite, GameAssets, ParallaxLayerAsset,
-    ParallaxTheme,
+    ensure_parallax_layers_for_room, EntitySprite, GameAssets, ParallaxLayerAsset, ParallaxTheme,
 };
 
 use super::room_transition_loading::{
@@ -139,11 +136,7 @@ fn add_character_asset(
         return;
     }
     for (index, page) in asset.pages.iter().enumerate() {
-        add_image_handle(
-            by_label,
-            format!("{label}:page:{index}"),
-            &page.texture,
-        );
+        add_image_handle(by_label, format!("{label}:page:{index}"), &page.texture);
     }
 }
 
@@ -153,11 +146,7 @@ fn add_boss_asset(
     asset: &BossSpriteAsset,
 ) {
     for (index, page) in asset.pages.iter().enumerate() {
-        add_image_handle(
-            by_label,
-            format!("{label}:page:{index}"),
-            &page.texture,
-        );
+        add_image_handle(by_label, format!("{label}:page:{index}"), &page.texture);
     }
 }
 
@@ -167,17 +156,9 @@ fn add_named_character(
     character_id: &str,
 ) {
     if let Some(asset) = assets.characters.asset_for_character_id(character_id) {
-        add_character_asset(
-            by_label,
-            &format!("character:{character_id}"),
-            asset,
-        );
+        add_character_asset(by_label, &format!("character:{character_id}"), asset);
     } else if let Some(asset) = assets.characters.npc_asset_for_name(character_id) {
-        add_character_asset(
-            by_label,
-            &format!("character-name:{character_id}"),
-            asset,
-        );
+        add_character_asset(by_label, &format!("character-name:{character_id}"), asset);
     }
 }
 
@@ -193,21 +174,13 @@ fn add_room_specific_sprites(
     // renderer's state-aware sprite-selection policy here.
     for &sprite in EntitySprite::ALL {
         if let Some(handle) = assets.entities.get(sprite) {
-            add_image_handle(
-                by_label,
-                format!("entity:{sprite:?}"),
-                handle,
-            );
+            add_image_handle(by_label, format!("entity:{sprite:?}"), handle);
         }
     }
 
     for prop in &room.props {
         if let Some(asset) = assets.characters.prop_asset_for_kind(&prop.kind) {
-            add_character_asset(
-                by_label,
-                &format!("prop:{}", prop.kind),
-                asset,
-            );
+            add_character_asset(by_label, &format!("prop:{}", prop.kind), asset);
         }
     }
 
@@ -225,11 +198,7 @@ fn add_room_specific_sprites(
             PlacementSchema::Pickup(spec) => {
                 if let Some(kind) = spec.sprite.as_deref() {
                     if let Some(asset) = assets.characters.prop_asset_for_kind(kind) {
-                        add_character_asset(
-                            by_label,
-                            &format!("pickup-prop:{kind}"),
-                            asset,
-                        );
+                        add_character_asset(by_label, &format!("pickup-prop:{kind}"), asset);
                     }
                 }
             }
@@ -475,8 +444,7 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
     let Some(active) = transitions.active.as_mut() else {
         return;
     };
-    if active.phase != RoomTransitionLoadPhase::AwaitingReadiness
-        || active.asset_readiness_complete
+    if active.phase != RoomTransitionLoadPhase::AwaitingReadiness || active.asset_readiness_complete
     {
         return;
     }
@@ -575,11 +543,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         cache.source_room_id = None;
         return;
     };
-    let identity_changed = cache.reset_for(
-        content_epoch.get(),
-        session_scope,
-        &source_room.id,
-    );
+    let identity_changed = cache.reset_for(content_epoch.get(), session_scope, &source_room.id);
     let refresh_manifests = identity_changed
         || room_set.is_changed()
         || placement_lowering.is_changed()
@@ -596,7 +560,9 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         .filter_map(|&index| room_set.rooms.get(index))
         .map(|room| room.id.clone())
         .collect::<BTreeSet<_>>();
-    cache.entries.retain(|room_id, _| neighbor_ids.contains(room_id));
+    cache
+        .entries
+        .retain(|room_id, _| neighbor_ids.contains(room_id));
 
     for index in neighbor_indices {
         let Some(room) = room_set.rooms.get(index) else {
@@ -610,27 +576,28 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         {
             continue;
         }
-        let construction_plan = match ambition::actors::rooms::RoomConstructionPlan::prepare_from_parts(
-            &room_set,
-            index,
-            &placement_lowering,
-            &content_staging,
-            &character_catalog,
-            &character_roster,
-            &boss_catalog,
-            spawn_scope,
-        ) {
-            Ok(plan) => plan,
-            Err(error) => {
-                cache.entries.remove(&room.id);
-                bevy::log::warn!(
-                    target: "ambition::room_transition",
-                    "could not prefetch construction for neighbor room '{}': {error}",
-                    room.id,
-                );
-                continue;
-            }
-        };
+        let construction_plan =
+            match ambition::actors::rooms::RoomConstructionPlan::prepare_from_parts(
+                &room_set,
+                index,
+                &placement_lowering,
+                &content_staging,
+                &character_catalog,
+                &character_roster,
+                &boss_catalog,
+                spawn_scope,
+            ) {
+                Ok(plan) => plan,
+                Err(error) => {
+                    cache.entries.remove(&room.id);
+                    bevy::log::warn!(
+                        target: "ambition::room_transition",
+                        "could not prefetch construction for neighbor room '{}': {error}",
+                        room.id,
+                    );
+                    continue;
+                }
+            };
         let staged_names = construction_plan.content_staged_names();
         let manifest = build_room_asset_manifest(
             room,

@@ -133,10 +133,10 @@ fn drive_activity(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::LoadPresentationOwnerId;
     use crate::{ActiveLoadActivity, LoadActivityId};
     use ambition_game_shell::{FrontendEntityOwner, FrontendPresentationKind};
     use ambition_load::{LoadBarrierId, LoadBarrierRef, LoadId};
-    use crate::LoadPresentationOwnerId;
     use bevy::input::gamepad::{Gamepad, GamepadButton};
 
     #[derive(Resource, Default, Debug, Eq, PartialEq)]

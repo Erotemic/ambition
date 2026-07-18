@@ -770,8 +770,14 @@ fn the_bubble_shield_special_move_holds_the_guard_up() {
         action_set.special.as_ref(),
     )
     .expect("player moveset");
-    let special = moveset.move_for_verb("special").expect("special move").clone();
-    let attack = moveset.move_for_verb("attack").expect("attack move").clone();
+    let special = moveset
+        .move_for_verb("special")
+        .expect("special move")
+        .clone();
+    let attack = moveset
+        .move_for_verb("attack")
+        .expect("attack move")
+        .clone();
 
     let mut app = App::new();
     app.add_systems(Update, sustain_bubble_shield);
@@ -798,11 +804,19 @@ fn the_bubble_shield_special_move_holds_the_guard_up() {
     app.update();
 
     assert!(
-        app.world().get::<ActorControl>(shielding).unwrap().0.shield_held,
+        app.world()
+            .get::<ActorControl>(shielding)
+            .unwrap()
+            .0
+            .shield_held,
         "the bubble_shield special move forces the guard up"
     );
     assert!(
-        !app.world().get::<ActorControl>(attacking).unwrap().0.shield_held,
+        !app.world()
+            .get::<ActorControl>(attacking)
+            .unwrap()
+            .0
+            .shield_held,
         "a plain attack move does not raise the bubble shield"
     );
 }

@@ -233,11 +233,7 @@ mod tests {
         let mut app = app();
         let body = app
             .world_mut()
-            .spawn((
-                PlayerEntity,
-                PrimaryPlayer,
-                authorities(true, Some("swat")),
-            ))
+            .spawn((PlayerEntity, PrimaryPlayer, authorities(true, Some("swat"))))
             .id();
         app.world_mut().resource_mut::<ControlledSubject>().0 = Some(body);
         app.update();
@@ -253,11 +249,8 @@ mod tests {
     #[test]
     fn menu_context_falls_back_to_the_generic_verb_with_no_provider() {
         let mut app = app();
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            authorities(true, Some("swat")),
-        ));
+        app.world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, authorities(true, Some("swat"))));
         // Enter a paused (menu) mode and let the transition apply.
         app.world_mut()
             .resource_mut::<NextState<GameMode>>()
@@ -392,7 +385,11 @@ mod tests {
                 .is_some()
         };
         let fires_melee = |app: &App| {
-            app.world().get::<ActorControl>(body).unwrap().0.melee_pressed
+            app.world()
+                .get::<ActorControl>(body)
+                .unwrap()
+                .0
+                .melee_pressed
         };
         assert!(shows_attack(&app), "striker kit advertises Attack");
         assert!(fires_melee(&app), "striker kit keeps the melee verb");

@@ -10,18 +10,18 @@ use std::collections::BTreeMap;
 
 use ambition_audio::catalog::{AudioCatalogRegistry, SfxBankRegistry};
 use ambition_audio::selection::{ActiveAudioSelection, AudioContextChanged, FrontendAudioProfile};
+use ambition_load::LoadBarrierRef;
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionRoot, SessionScopeId, SessionScopePlugin,
     SessionScopeRetired, SessionScopeSet, SpawnSessionScopedExt,
 };
 use ambition_sfx::{AudioContextOwner, SfxEmissionContext};
-use ambition_load::LoadBarrierRef;
 use bevy::prelude::*;
 
 use crate::{
     ActiveFrontendAuthority, ActiveShellExperience, AmbitionGameShellSet, ExperienceRegistration,
-    PreparedSessionIdentity, PresentationOwnershipPolicy, ShellActivationId,
-    ShellEvent, ShellExperienceAppExt, ShellExperienceId, ShellRouteSpec,
+    PreparedSessionIdentity, PresentationOwnershipPolicy, ShellActivationId, ShellEvent,
+    ShellExperienceAppExt, ShellExperienceId, ShellRouteSpec,
 };
 
 /// Gameplay-session lifecycle facts delivered to provider systems.

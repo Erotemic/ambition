@@ -151,12 +151,8 @@ impl GroundContactBaseline {
                 impact_speed: self.impact_speed,
             },
             (true, false) => GroundContactTransition::LeftGround,
-            (true, true) if self.initialized_now => {
-                GroundContactTransition::InitializedGrounded
-            }
-            (false, false) if self.initialized_now => {
-                GroundContactTransition::InitializedAirborne
-            }
+            (true, true) if self.initialized_now => GroundContactTransition::InitializedGrounded,
+            (false, false) if self.initialized_now => GroundContactTransition::InitializedAirborne,
             _ => GroundContactTransition::Unchanged,
         }
     }

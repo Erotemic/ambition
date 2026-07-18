@@ -318,9 +318,7 @@ pub(crate) fn commit_ready_room_transition_system(
                     .as_ref()
                     .is_some_and(|plan| plan.matches_room_spec(room))
         });
-    let current_session = active_session
-        .as_deref()
-        .and_then(|scope| scope.current());
+    let current_session = active_session.as_deref().and_then(|scope| scope.current());
     if active.content_epoch != content_epoch.get()
         || active.session_scope != current_session
         || room_set.active != active.source_room
@@ -518,8 +516,7 @@ pub(crate) fn commit_ready_room_transition_system(
             .as_mut()
             .filter(|current| current.sequence == active.sequence)
         {
-            current.phase =
-                super::room_transition_loading::RoomTransitionLoadPhase::Committed;
+            current.phase = super::room_transition_loading::RoomTransitionLoadPhase::Committed;
         }
     } else {
         loads.retire(&active.barrier.load_id);

@@ -413,9 +413,11 @@ fn every_engine_codec_round_trips_exactly() {
         respawn_timer: 2.0,
     });
     round_trip(ambition_platformer_primitives::lifecycle::RoomScopedEntity);
-    round_trip(ambition_platformer_primitives::lifecycle::SessionScopedEntity(
-        ambition_platformer_primitives::lifecycle::SessionScopeId(42),
-    ));
+    round_trip(
+        ambition_platformer_primitives::lifecycle::SessionScopedEntity(
+            ambition_platformer_primitives::lifecycle::SessionScopeId(42),
+        ),
+    );
     round_trip(ambition_combat::components::ActorDisposition::Hostile);
     round_trip(ambition_combat::components::BodyMelee {
         swing: Some(ambition_combat::components::MeleeSwing {
@@ -1816,10 +1818,12 @@ fn a_smash_brain_rewinds_its_history_and_tactical_clocks() {
         .obs_history
         .restore_snapshot_parts(samples, 2, 2)
         .unwrap();
-    world.entity_mut(actor).insert(Brain::StateMachine(StateMachineCfg::Smash {
-        cfg: SmashCfg::DUELIST_DEFAULT,
-        state,
-    }));
+    world
+        .entity_mut(actor)
+        .insert(Brain::StateMachine(StateMachineCfg::Smash {
+            cfg: SmashCfg::DUELIST_DEFAULT,
+            state,
+        }));
     let before = registry.hash_world(&world);
     let snapshot = take(&world, &registry);
 
@@ -2295,5 +2299,9 @@ fn prepared_world_identity_counts_toward_snapshot_size_and_refuses_mismatch() {
         restore(&mut live, &snapshot, &registry),
         Err(RestoreError::WorldMismatch { .. })
     ));
-    assert_eq!(registry.hash_world(&live), before, "refusal mutated the world");
+    assert_eq!(
+        registry.hash_world(&live),
+        before,
+        "refusal mutated the world"
+    );
 }

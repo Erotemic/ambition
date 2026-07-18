@@ -91,11 +91,7 @@ fn room_features_lower_through_the_caller_supplied_registry() {
     let mut app = App::new();
     app.add_message::<crate::rooms::RoomLoaded>();
     app.add_systems(Update, move |mut commands: Commands| {
-        spawn_room_feature_entities_from_plan(
-            &mut commands,
-            &plan,
-            SessionSpawnScope::UNSCOPED,
-        );
+        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED);
     });
     app.update();
 

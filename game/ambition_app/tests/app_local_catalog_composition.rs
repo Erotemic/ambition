@@ -237,12 +237,9 @@ fn the_full_hall_validates_with_all_three_provider_catalogs() {
                 !entry.barks.hall.is_empty(),
                 "Hall exhibit {character_id} has no authored Hall bark"
             );
-            let expected_dialogue_id = entry
-                .hall_dialogue_id
-                .as_deref()
-                .unwrap_or_else(|| {
-                    panic!("Hall exhibit {character_id} has no catalog hall_dialogue_id")
-                });
+            let expected_dialogue_id = entry.hall_dialogue_id.as_deref().unwrap_or_else(|| {
+                panic!("Hall exhibit {character_id} has no catalog hall_dialogue_id")
+            });
             let authored_dialogue_id = field_string(entity, "dialogue_id")
                 .filter(|id| !id.trim().is_empty())
                 .unwrap_or_else(|| panic!("Hall exhibit {character_id} has no LDtk dialogue_id"));

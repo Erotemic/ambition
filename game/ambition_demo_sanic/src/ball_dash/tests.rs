@@ -311,7 +311,10 @@ fn spin_dash_rev_comes_from_the_sanctioned_technique_edge_not_raw_melee() {
         .clear();
     app.update();
     assert!(
-        !app.world().get::<BallDashInput>(entity).unwrap().rev_pressed,
+        !app.world()
+            .get::<BallDashInput>(entity)
+            .unwrap()
+            .rev_pressed,
         "a plain melee edge is no longer the spin-dash content API"
     );
 

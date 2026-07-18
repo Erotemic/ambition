@@ -731,7 +731,9 @@ pub fn build_actor_moveset(
         // arg) is the base and the ActionSet marker overlays it — idempotent by
         // move id, so re-deriving on an equip/kit swap is stable.
         let mv = special_move_from_spec(special);
-        contract.verbs.insert(SPECIAL_VERB.to_string(), mv.id.clone());
+        contract
+            .verbs
+            .insert(SPECIAL_VERB.to_string(), mv.id.clone());
         contract.moves.retain(|m| m.id != mv.id);
         contract.moves.push(mv);
     }

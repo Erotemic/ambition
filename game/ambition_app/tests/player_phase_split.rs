@@ -15,8 +15,8 @@
 
 use ambition::actors::actor::PrimaryPlayerOnly;
 use ambition::engine_core::MovementOp;
-use ambition_app::AmbitionSim;
 use ambition_app::app::PlayerBodyFrameOutput;
+use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};
 use bevy::prelude::{Entity, World};
 

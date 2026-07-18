@@ -184,8 +184,7 @@ pub fn cleanup_timers_system(
     >,
 ) {
     let frame_dt = time.delta_secs();
-    let Ok((motion_facts, mut anim, mut combat, mut blink_cam)) = player_q.single_mut()
-    else {
+    let Ok((motion_facts, mut anim, mut combat, mut blink_cam)) = player_q.single_mut() else {
         return;
     };
     combat.hit_flash = (combat.hit_flash - frame_dt).max(0.0);

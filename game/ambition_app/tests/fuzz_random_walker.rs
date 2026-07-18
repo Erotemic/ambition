@@ -12,8 +12,8 @@
 //! message — the bug is then reproducible by running the same seed
 //! through `cargo run --bin rl_random_walker -- <STEPS> <SEED>`.
 
-use ambition_app::AmbitionSim;
 use ambition_app::rl_sim::TimestepMode;
+use ambition_app::AmbitionSim;
 use ambition_app::{RandomWalkPolicy, SandboxSim};
 
 /// Per-seed assertion: 200 steps of random play with the seed must

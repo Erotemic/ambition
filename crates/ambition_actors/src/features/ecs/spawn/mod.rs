@@ -192,12 +192,7 @@ impl RoomFeatureConstructionPlan {
             .iter()
             .find(|boss| boss.id == authored_id)
         {
-            super::spawn_actors::spawn_boss(
-                commands,
-                &self.boss_catalog,
-                session_scope,
-                boss,
-            );
+            super::spawn_actors::spawn_boss(commands, &self.boss_catalog, session_scope, boss);
             return true;
         }
         false
@@ -212,12 +207,7 @@ impl RoomFeatureConstructionPlan {
         self.placements
             .lower_all(commands, session_scope, &self.placement_context);
         for boss in &self.room.boss_spawns {
-            super::spawn_actors::spawn_boss(
-                commands,
-                &self.boss_catalog,
-                session_scope,
-                boss,
-            );
+            super::spawn_actors::spawn_boss(commands, &self.boss_catalog, session_scope, boss);
         }
         for ground_item in &self.room.ground_items {
             super::spawn_static::spawn_ground_item(commands, session_scope, ground_item);

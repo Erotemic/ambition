@@ -29,8 +29,8 @@
 use serde::Deserialize;
 
 use ambition::engine_core::{ControlFrame, InputStream};
-use ambition_app::AmbitionSim;
 use ambition_app::rl_sim::TimestepMode;
+use ambition_app::AmbitionSim;
 use ambition_app::SandboxSim;
 
 const FIXTURE_PATH: &str = "tests/fixtures/replay_central_hub_60f_v1.json";

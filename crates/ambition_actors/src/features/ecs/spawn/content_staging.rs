@@ -49,7 +49,10 @@ impl std::fmt::Display for RoomContentStagingError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::EmptyId { room } => {
-                write!(f, "content staging for room `{room}` produced an empty actor id")
+                write!(
+                    f,
+                    "content staging for room `{room}` produced an empty actor id"
+                )
             }
             Self::DuplicateId { room, id } => write!(
                 f,

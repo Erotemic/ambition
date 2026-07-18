@@ -20,9 +20,8 @@ use bevy::prelude::{
 
 use ambition::actors::rooms;
 use ambition::load::{
-    BarrierReadiness, LoadBarrierRef, LoadBarrierSpec, LoadCommitRejection,
-    LoadCoordinator, LoadEvent, LoadFailure, LoadId, LoadPlanSpec, LoadWorkId, LoadWorkSpec,
-    LoadWorkState,
+    BarrierReadiness, LoadBarrierRef, LoadBarrierSpec, LoadCommitRejection, LoadCoordinator,
+    LoadEvent, LoadFailure, LoadId, LoadPlanSpec, LoadWorkId, LoadWorkSpec, LoadWorkState,
 };
 use ambition::time::SimTick;
 
@@ -82,8 +81,12 @@ pub(crate) fn advance_room_transition_content_epoch_system(
         || character_catalog.is_changed()
         || character_roster.is_changed()
         || boss_catalog.is_changed()
-        || asset_catalog.as_ref().is_some_and(|catalog| catalog.is_changed())
-        || visual_quality.as_ref().is_some_and(|quality| quality.is_changed())
+        || asset_catalog
+            .as_ref()
+            .is_some_and(|catalog| catalog.is_changed())
+        || visual_quality
+            .as_ref()
+            .is_some_and(|quality| quality.is_changed())
     {
         epoch.value = epoch.value.wrapping_add(1).max(1);
     }
@@ -187,13 +190,7 @@ fn set_work_state(
     work_id: &str,
     state: LoadWorkState,
 ) {
-    set_room_transition_work_state(
-        loads,
-        events,
-        load_id,
-        LoadWorkId::new(work_id),
-        state,
-    );
+    set_room_transition_work_state(loads, events, load_id, LoadWorkId::new(work_id), state);
 }
 
 fn fail_work(
@@ -209,9 +206,7 @@ fn fail_work(
         events,
         load_id,
         work_id,
-        LoadWorkState::Failed(
-            LoadFailure::new(player_message, developer_detail).retryable(true),
-        ),
+        LoadWorkState::Failed(LoadFailure::new(player_message, developer_detail).retryable(true)),
     );
 }
 
@@ -255,8 +250,11 @@ pub(crate) fn fail_room_transition_commit_precondition(
         &active.barrier.load_id,
         CONSTRUCTION_PREFLIGHT_WORK,
         LoadWorkState::Failed(
-            LoadFailure::new("The destination room could not be activated.", detail.clone())
-                .retryable(true),
+            LoadFailure::new(
+                "The destination room could not be activated.",
+                detail.clone(),
+            )
+            .retryable(true),
         ),
     );
     active.phase = RoomTransitionLoadPhase::Failed;
@@ -294,23 +292,16 @@ pub(crate) fn begin_room_transition_load_system(
 ) {
     let current_session = active_session.as_deref().and_then(|scope| scope.current());
     for request in requests.read() {
-        if state
-            .active
-            .as_ref()
-            .is_some_and(|active| {
-                active.same_destination(request, current_session, content_epoch.get())
-            })
-        {
+        if state.active.as_ref().is_some_and(|active| {
+            active.same_destination(request, current_session, content_epoch.get())
+        }) {
             // Zone overlap may emit every tick until the eventual commit moves
             // the body. One transaction owns that destination; trigger noise is
             // not a new request.
             continue;
         }
 
-        let superseded = state
-            .active
-            .take()
-            .map(|active| active.barrier.load_id);
+        let superseded = state.active.take().map(|active| active.barrier.load_id);
         let sequence = state.mint_sequence();
         let source_room = room_set.active;
         let source_room_id = room_set
@@ -327,15 +318,9 @@ pub(crate) fn begin_room_transition_load_system(
             "room-transition:{sequence}:{source_room_id}->{target_label}"
         ));
         let barrier = LoadBarrierRef::new(load_id.clone(), ROOM_READY_BARRIER);
-        let asset_work_id = LoadWorkId::new(format!(
-            "{ROOM_ASSET_WORK_PREFIX}:{}",
-            target_label,
-        ));
+        let asset_work_id = LoadWorkId::new(format!("{ROOM_ASSET_WORK_PREFIX}:{}", target_label,));
 
-        let mut plan = LoadPlanSpec::new(
-            load_id.clone(),
-            format!("Prepare room {target_label}"),
-        );
+        let mut plan = LoadPlanSpec::new(load_id.clone(), format!("Prepare room {target_label}"));
         plan.supersedes = superseded.clone();
         apply_load_command(
             &mut loads,
@@ -543,17 +528,14 @@ pub(crate) fn begin_room_transition_load_system(
         };
         #[cfg(not(target_arch = "wasm32"))]
         let construction_preflight_started = std::time::Instant::now();
-        let prefetched_construction = asset_context
-            .prefetch
-            .as_deref_mut()
-            .and_then(|cache| {
-                cache.promote_construction_plan(
-                    content_epoch.get(),
-                    current_session,
-                    &active.source_room_id,
-                    target_spec,
-                )
-            });
+        let prefetched_construction = asset_context.prefetch.as_deref_mut().and_then(|cache| {
+            cache.promote_construction_plan(
+                content_epoch.get(),
+                current_session,
+                &active.source_room_id,
+                target_spec,
+            )
+        });
         active.prefetch_hit = prefetched_construction.is_some();
         let construction_plan_result = match prefetched_construction {
             Some(plan) => Ok(plan),
@@ -749,10 +731,7 @@ pub(crate) fn authorize_ready_room_transition_system(
             if active.cover_required && !active.cover_presented {
                 return;
             }
-            match loads.request_commit(
-                &active.barrier.load_id,
-                &active.barrier.barrier_id,
-            ) {
+            match loads.request_commit(&active.barrier.load_id, &active.barrier.barrier_id) {
                 Ok(()) => {
                     load_events.write(LoadEvent::CommitAuthorized {
                         load_id: active.barrier.load_id.clone(),
@@ -782,9 +761,7 @@ pub(crate) fn authorize_ready_room_transition_system(
                 }
             }
         }
-        BarrierReadiness::Failed
-        | BarrierReadiness::Cancelled
-        | BarrierReadiness::Superseded => {
+        BarrierReadiness::Failed | BarrierReadiness::Cancelled | BarrierReadiness::Superseded => {
             let detail = format!(
                 "room transition {} cannot commit because its barrier is {:?}",
                 active.sequence, snapshot.readiness,
@@ -931,4 +908,3 @@ mod tests {
         assert!(active.cover_presented);
     }
 }
-

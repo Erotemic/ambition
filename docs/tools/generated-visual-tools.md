@@ -34,17 +34,22 @@ when nothing changed; `--force` bypasses the cache.
 
 ## Sprite renderer — `tools/ambition_sprite2d_renderer/`
 
-Generates and publishes 2D character/entity spritesheets and their actor rigs.
+Generates and publishes 2D character/entity sprite sheets and their runtime-facing metadata.
 
-- **Source of truth = registered targets**, not the published PNGs. List them:
+- **Source of truth = registered targets**, not the published PNGs. A target may
+  be implemented with procedural Python, a config-driven generator, shared
+  family helpers, a rig, SVG parts, a scene graph, or a specialized hybrid.
+  Rigs are optional; the common contract is the published sheet plus metadata.
+  List targets with:
   ```bash
   cd tools/ambition_sprite2d_renderer
   python -m ambition_sprite2d_renderer list      # every target + its animation rows
   python -m ambition_sprite2d_renderer --help
   python -m pytest tests
   ```
-- **Adapter rig configs** (alice, bob, boss, goblin, ninja, robot, sandbag, …)
-  are YAML in the renderer *package* dir — note the doubled path segment:
+- **Config-driven character jobs** (alice, bob, boss, goblin, ninja, robot,
+  sandbag, …) are YAML in the renderer *package* dir — note the doubled path
+  segment:
   `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/*.yaml`.
   Review NPCs live under `…/configs/review/*.yaml`. Target registration is in
   `ambition_sprite2d_renderer/target_registry.py`.
@@ -96,8 +101,10 @@ using it as a runtime asset source.
 The whole point of the registry + `regen_*.sh` scripts is that **a fresh clone
 can reproduce every committed asset**. To keep that true:
 
-- New character/entity art → add a YAML config + register a target, then
-  `regen_sprites.sh`. Don't copy a render script and tweak it inline.
+- New character/entity art → register a target through the authoring family
+  that best fits the asset, then run `regen_sprites.sh`. Use a YAML config only
+  when the character genuinely belongs to a config-driven generator family.
+  Do not fork a render script inline without registering the result.
 - Never hand-edit a published `*_spritesheet.png` / `.ron` / `.yaml` under
   `assets/`; they are outputs and will be overwritten on the next regen.
 - A refactor that breaks `regen_sprites.sh` / `regen_backgrounds.sh` /

@@ -56,9 +56,16 @@ python -m ambition_sprite2d_renderer sheet <target>
 python -m ambition_sprite2d_renderer publish <target>
 ```
 
-Generator source is authoritative. Review the canonical pose, sheet, idle row,
-anchors, and debug hitbox views before publishing. Runtime files belong in the
-provider asset flow selected by the current target contract.
+The registered generator/target source is authoritative. Choose the authoring
+family that best serves the character: direct procedural Python, a shared
+procedural family, a config-driven generator, a rig or SVG-part workflow, a
+scene graph, or a specialized hybrid. A rig is optional and should not be
+introduced merely for consistency.
+
+Review the canonical pose, sheet, idle row, anchors, actor metadata, and debug
+hitbox views before publishing. Runtime files belong in the provider asset flow
+selected by the current target contract. The game consumes the published sheet
+and metadata, not the target's internal pose or drawing representation.
 
 ## 4. Place or register the character
 

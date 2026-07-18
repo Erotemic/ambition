@@ -218,11 +218,6 @@ pub struct BodyAnimFacts {
     pub land_anim_hard: bool,
     /// Time remaining for the brief dash pre-roll pose.
     pub dash_startup_timer: f32,
-    /// Previous frame's `on_ground`; used to detect the touchdown edge.
-    pub anim_prev_on_ground: bool,
-    /// Previous frame's pre-landing downward velocity; used to grade
-    /// hard vs. soft landings.
-    pub anim_prev_vel_y: f32,
     /// Previous frame's `dashing` fact; used to detect the dash rising edge.
     pub anim_prev_dashing: bool,
     /// Time remaining for the projectile-release `Shoot` pose. Armed by

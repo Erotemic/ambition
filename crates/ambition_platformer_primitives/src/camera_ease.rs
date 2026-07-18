@@ -145,22 +145,18 @@ pub const HARD_FALL_SHAKE_FLOOR_VY: f32 = 700.0;
 /// saturates beyond that.
 pub const HARD_FALL_SHAKE_GAIN: f32 = 1.0 / 60.0;
 
-/// Compute the shake amplitude for a player landing transition. Pure
+/// Compute the shake amplitude for a semantic landing transition. Pure
 /// function so the trigger logic in `player_simulation_phase` is
 /// unit-testable independent of the surrounding bevy plumbing.
 ///
-/// Returns 0.0 when the landing isn't a hard fall (no transition, or
-/// vy is below the dead-zone). Otherwise returns the post-gain
+/// Returns 0.0 when there was no landing, or when the impact speed is below
+/// the dead-zone. Otherwise returns the post-gain
 /// amplitude that should be fed to `shake.kick(...)`.
-pub fn hard_fall_shake_amplitude(
-    was_grounded: bool,
-    on_ground: bool,
-    pre_sim_fall_speed: f32,
-) -> f32 {
-    if was_grounded || !on_ground {
+pub fn hard_fall_shake_amplitude(impact_speed: Option<f32>) -> f32 {
+    let Some(impact_speed) = impact_speed else {
         return 0.0;
-    }
-    let excess = (pre_sim_fall_speed - HARD_FALL_SHAKE_FLOOR_VY).max(0.0);
+    };
+    let excess = (impact_speed - HARD_FALL_SHAKE_FLOOR_VY).max(0.0);
     excess * HARD_FALL_SHAKE_GAIN
 }
 

@@ -297,7 +297,10 @@ impl SnapshotState for ambition_combat::components::ActorIntent {
     }
 }
 
-snapshot_pod!(bc::BodyGroundState { on_ground: bool });
+snapshot_pod!(bc::BodyGroundState {
+    on_ground: bool,
+    contact_initialized: bool,
+});
 snapshot_pod!(bc::BodyWallState {
     on_wall: bool,
     wall_normal_x: f32,

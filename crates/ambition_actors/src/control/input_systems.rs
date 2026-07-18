@@ -175,8 +175,6 @@ pub fn cleanup_timers_system(
     mut dev_state: ResMut<ambition_dev_tools::SandboxDevState>,
     mut player_q: Query<
         (
-            &crate::actor::BodyKinematics,
-            &crate::actor::BodyGroundState,
             &ae::BodyMotionFacts,
             &mut crate::actor::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
@@ -186,8 +184,7 @@ pub fn cleanup_timers_system(
     >,
 ) {
     let frame_dt = time.delta_secs();
-    let Ok((kinematics, ground, motion_facts, mut anim, mut combat, mut blink_cam)) =
-        player_q.single_mut()
+    let Ok((motion_facts, mut anim, mut combat, mut blink_cam)) = player_q.single_mut()
     else {
         return;
     };
@@ -198,13 +195,7 @@ pub fn cleanup_timers_system(
     // also runs (fable review §A9).
     blink_cam.blink_in_timer = (blink_cam.blink_in_timer - frame_dt).max(0.0);
     blink_cam.camera_snap_timer = (blink_cam.camera_snap_timer - frame_dt).max(0.0);
-    crate::features::advance_body_anim_overlays(
-        ground.on_ground,
-        kinematics.vel.y,
-        motion_facts.dashing,
-        &mut anim,
-        frame_dt,
-    );
+    crate::features::advance_body_anim_overlays(motion_facts.dashing, &mut anim, frame_dt);
 }
 
 #[cfg(test)]

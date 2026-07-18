@@ -6,13 +6,15 @@
 //! plus the complete world-space acceleration for the body tick. It never lives
 //! inside a model spec and is never rebuilt by an individual solver.
 
-use crate::collision_semantics::{Contact, ContactKind};
+use crate::collision_semantics::{supporting_block, Contact, ContactKind};
 use crate::{BodyClustersMut, MotionFrame, SweepSample, Vec2, World};
 
 use super::adhesive_crawler;
 use super::model::MotionModel;
 use super::surface_momentum::{self, SurfaceBody, SurfaceInputs};
-use super::{touching_hazard_aabb, touching_rebound_aabb, FrameEvents, InputState};
+use super::{
+    touching_hazard_aabb, touching_rebound_aabb, FrameEvents, GroundContactTransition, InputState,
+};
 
 /// One deterministic movement tick's complete external context.
 #[derive(Clone, Copy)]
@@ -107,9 +109,94 @@ pub fn step_motion(
             );
             MotionStepResult::from_events(events, ctx.frame)
         }
-        MotionModel::SurfaceMomentum(momentum) => step_surface_momentum(momentum, clusters, ctx),
-        MotionModel::AdhesiveCrawler(crawler) => step_adhesive_crawler(crawler, clusters, ctx),
+        MotionModel::SurfaceMomentum(momentum) => {
+            let baseline = establish_ground_contact_baseline_from_sample(
+                clusters,
+                matches!(momentum.state, super::SurfaceMotion::Riding { .. }),
+                ctx.frame,
+            );
+            let mut result = step_surface_momentum(momentum, clusters, ctx);
+            result.events.ground_contact = baseline.transition_to(clusters.ground.on_ground);
+            result
+        }
+        MotionModel::AdhesiveCrawler(crawler) => {
+            let baseline = establish_ground_contact_baseline_from_sample(
+                clusters,
+                crawler.state.is_attached(),
+                ctx.frame,
+            );
+            let mut result = step_adhesive_crawler(crawler, clusters, ctx);
+            result.events.ground_contact = baseline.transition_to(clusters.ground.on_ground);
+            result
+        }
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(super) struct GroundContactBaseline {
+    grounded: bool,
+    initialized_now: bool,
+    impact_speed: f32,
+}
+
+impl GroundContactBaseline {
+    pub(super) fn with_impact_velocity(mut self, velocity: Vec2, frame: MotionFrame) -> Self {
+        self.impact_speed = velocity.dot(frame.down()).max(0.0);
+        self
+    }
+
+    pub(super) fn transition_to(self, grounded_now: bool) -> GroundContactTransition {
+        match (self.grounded, grounded_now) {
+            (false, true) => GroundContactTransition::Landed {
+                impact_speed: self.impact_speed,
+            },
+            (true, false) => GroundContactTransition::LeftGround,
+            (true, true) if self.initialized_now => {
+                GroundContactTransition::InitializedGrounded
+            }
+            (false, false) if self.initialized_now => {
+                GroundContactTransition::InitializedAirborne
+            }
+            _ => GroundContactTransition::Unchanged,
+        }
+    }
+}
+
+/// Establish the contact state at the step's entry pose before control or
+/// integration can interpret it. This is the distinction between
+/// `unknown -> grounded` (construction baseline, no landing) and
+/// `airborne -> grounded` (a real landing), including a body that spawns in
+/// the air and touches down during its first tick.
+fn establish_ground_contact_baseline_from_sample(
+    clusters: &mut BodyClustersMut<'_>,
+    sampled_grounded: bool,
+    frame: MotionFrame,
+) -> GroundContactBaseline {
+    let initialized_now = !clusters.ground.contact_initialized;
+    if initialized_now {
+        clusters.ground.on_ground = sampled_grounded;
+        clusters.ground.contact_initialized = true;
+    }
+    GroundContactBaseline {
+        grounded: clusters.ground.on_ground,
+        initialized_now,
+        impact_speed: clusters.kinematics.vel.dot(frame.down()).max(0.0),
+    }
+}
+
+pub(super) fn establish_axis_ground_contact_baseline(
+    world: &World,
+    clusters: &mut BodyClustersMut<'_>,
+    frame: MotionFrame,
+) -> GroundContactBaseline {
+    let sampled_grounded = supporting_block(
+        world,
+        clusters.kinematics.aabb_oriented(frame.down()),
+        frame.down(),
+        false,
+    )
+    .is_some();
+    establish_ground_contact_baseline_from_sample(clusters, sampled_grounded, frame)
 }
 
 fn step_surface_momentum(

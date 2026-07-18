@@ -460,13 +460,13 @@ mod tests {
             "same-id",
             "first",
             aabb,
-            ambition_entity_catalog::placements::CharacterBrain::Combatant,
+            ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
         ));
         spec.enemy_spawns.push(crate::rooms::Authored::new(
             "same-id",
             "second",
             aabb,
-            ambition_entity_catalog::placements::CharacterBrain::Combatant,
+            ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
         ));
         let error = prepare(spec).expect_err("duplicate roots must fail preparation");
         assert!(matches!(
@@ -485,7 +485,7 @@ mod tests {
             "enemy-1",
             "enemy",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(16.0)),
-            ambition_entity_catalog::placements::CharacterBrain::Combatant,
+            ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
         ));
         let plan = prepare(spec).expect("plan");
         let expected = plan.predicted_authoritative_ids().clone();

@@ -2,6 +2,36 @@ use crate::Vec2;
 
 use super::MovementOp;
 
+/// Semantic change in gravity-relative ground support across one movement
+/// step. Initialization is explicit so a fresh body resting on authored floor
+/// geometry does not impersonate a landing, while a body spawned airborne can
+/// still land during its very first integration step.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum GroundContactTransition {
+    /// A known contact baseline existed and did not change this step.
+    #[default]
+    Unchanged,
+    /// The body's first contact sample found it supported, and it remained
+    /// supported through this step.
+    InitializedGrounded,
+    /// The body's first contact sample found it airborne, and it remained
+    /// airborne through this step.
+    InitializedAirborne,
+    /// A known airborne baseline became supported during this step.
+    Landed { impact_speed: f32 },
+    /// A known supported baseline became airborne during this step.
+    LeftGround,
+}
+
+impl GroundContactTransition {
+    pub const fn landing_impact_speed(self) -> Option<f32> {
+        match self {
+            Self::Landed { impact_speed } => Some(impact_speed),
+            _ => None,
+        }
+    }
+}
+
 /// Engine event emitted when a blink teleports the player.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BlinkEvent {
@@ -17,6 +47,10 @@ pub struct FrameEvents {
     pub blinks: Vec<BlinkEvent>,
     pub reset: bool,
     pub hazard: bool,
+    /// The body's semantic ground-support transition for this movement step.
+    /// Presentation and gameplay reactions consume this rather than deriving
+    /// edges from default-initialized booleans.
+    pub ground_contact: GroundContactTransition,
     /// World contacts resolved this step (fable review 2026-07-05 AJ10: the
     /// contact vocabulary). Pure observability — resolution is unchanged;
     /// readers interpret (the debug overlay, a future general resolver).
@@ -50,6 +84,9 @@ impl FrameEvents {
         self.blinks.extend(other.blinks);
         self.reset |= other.reset;
         self.hazard |= other.hazard;
+        if other.ground_contact != GroundContactTransition::Unchanged {
+            self.ground_contact = other.ground_contact;
+        }
         self.contacts.extend(other.contacts);
     }
 }

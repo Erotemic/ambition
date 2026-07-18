@@ -113,7 +113,7 @@ impl AncillaryMovementBundle {
             // separately (ADR 0024).
             model: _,
             base_size,
-            ground,
+            mut ground,
             wall,
             jump,
             dash,
@@ -130,6 +130,11 @@ impl AncillaryMovementBundle {
             lifetime,
             combo_trace,
         } = scratch;
+        // A scratch body is an explicit state fixture, but an ECS spawn has no
+        // prior world-contact sample. The movement kernel will establish the
+        // gravity-relative baseline at the authored pose before its first
+        // control/integration step.
+        ground.invalidate();
         Self {
             ability_base: ambition_engine_core::AbilityBase::new(abilities.abilities),
             abilities,

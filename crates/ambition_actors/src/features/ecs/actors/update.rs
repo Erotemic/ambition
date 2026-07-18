@@ -665,8 +665,6 @@ pub(crate) fn integrate_actor_body(
         brain_frame.velocity_target *= move_motion_scale;
     }
     let previous_pos = em.kin.pos;
-    // Pre-update grounded snapshot for the shared movement-fx landing dust (§A8).
-    let was_grounded = em.ground.on_ground;
     let shark_charge_vec = brain_frame.velocity_target;
     // Respawn blink: `em.update` revives a dead body in place; apply the revive
     // flash here on the dead→alive transition (the damage-blink lives on
@@ -744,14 +742,13 @@ pub(crate) fn integrate_actor_body(
         em.kin.pos,
         em.kin.facing,
         em.kin.size,
-        em.ground.on_ground,
-        Some(was_grounded),
     );
     // Arm the op-driven overlay POSES this body earned this frame (the wall-jump
     // push-off) on its `BodyAnimFacts`, through the SAME body-generic arming the
     // player tick runs — so an AI fighter that wall-jumps shows the kick pose, not
     // just the dust (§A9 follow-up). `advance_actor_anim_overlays` decays it.
     if let Some(anim) = anim.as_deref_mut() {
+        crate::features::arm_ground_contact_anim_overlay(anim, move_events.ground_contact);
         crate::features::arm_movement_anim_overlays(anim, &move_events);
     }
     // Publish the actor's footprint ORIENTED to its reference frame (a

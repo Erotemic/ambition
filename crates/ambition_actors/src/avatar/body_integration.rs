@@ -35,19 +35,13 @@ use ambition_world::collision::world_with_sandbox_solids;
 /// and read by the two home-policy phases: the home reset POLICY (sandbox reset on
 /// `reset`) and the home PRESENTATION phase (screen shake / landing SFX / per-op
 /// anim/SFX/VFX). Body-generic in SHAPE — it carries only integration facts (this
-/// frame's `FrameEvents` + the landing inputs + a reset flag), never any player
+/// frame's `FrameEvents` + a reset flag), never any player
 /// presentation state — so movement stays a pure integrate-and-report phase.
 /// A required component of every player body.
 #[derive(Component, Default)]
 pub struct PlayerBodyFrameOutput {
     /// The movement tick's events (jump/dash/blink ops, blink endpoints, …).
     pub events: ae::FrameEvents,
-    /// Grounded state ENTERING the movement tick (for the hard-fall shake edge).
-    pub was_grounded: bool,
-    /// Fall speed entering the tick — the velocity component ALONG gravity
-    /// (hard-fall shake magnitude; frame-agnostic, fable review 2026-07-02 §B
-    /// minor: the raw `vel.y` form misfired under sideways gravity).
-    pub pre_sim_fall_speed: f32,
     /// The integration flagged a body reset this frame (drown / hazard /
     /// out-of-bounds / death). The body was already teleported to spawn by this
     /// phase; the home reset POLICY consumes this to run the full sandbox reset for
@@ -186,8 +180,6 @@ pub fn integrate_home_body(
     }
 
     let collision_world = world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
-    let was_grounded = clusters.ground.on_ground;
-    let pre_sim_fall_speed = clusters.kinematics.vel.dot(motion_frame.down());
     let result = ae::step_motion(
         motion_model,
         clusters,
@@ -206,8 +198,6 @@ pub fn integrate_home_body(
     }
 
     *frame_out = PlayerBodyFrameOutput {
-        was_grounded,
-        pre_sim_fall_speed,
         reset: result.events.reset,
         events: result.events,
     };

@@ -430,7 +430,10 @@ fn morphball_fits_one_grid_cell_tunnel() {
 fn locomotion_from_body_priority_order_and_non_axis_projection() {
     use crate::body_clusters::{BodyFlightState, BodyGroundState, BodyWallState};
     use crate::movement::{AxisSweptParams, MomentumParams, MotionModel};
-    let ground = BodyGroundState { on_ground: true };
+    let ground = BodyGroundState {
+        on_ground: true,
+        ..Default::default()
+    };
     let wall = BodyWallState::default();
     let flight = BodyFlightState::default();
     let model = MotionModel::axis_swept(AxisSweptParams::default());
@@ -457,7 +460,10 @@ fn locomotion_from_body_priority_order_and_non_axis_projection() {
         LocomotionState::Airborne,
         "non-axis policies project grounded/airborne from the support fact"
     );
-    let ground = BodyGroundState { on_ground: true };
+    let ground = BodyGroundState {
+        on_ground: true,
+        ..Default::default()
+    };
     assert_eq!(
         LocomotionState::from_body(&momentum, &ground, &wall, &flight),
         LocomotionState::Grounded

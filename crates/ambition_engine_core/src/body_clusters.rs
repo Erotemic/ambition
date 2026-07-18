@@ -288,9 +288,46 @@ impl Default for BodyBaseSize {
 /// coyote / drop-through / rebound grace timers are axis-policy maneuver
 /// state and live inside the model variant
 /// ([`crate::movement::AxisManeuverState`], ADR 0024).
-#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
 pub struct BodyGroundState {
     pub on_ground: bool,
+    /// Whether `on_ground` is a real contact sample for the body's current
+    /// pose. Freshly constructed and discretely transited bodies need one
+    /// gravity-relative support probe before ordinary movement can interpret a
+    /// `false -> true` change as a landing.
+    pub contact_initialized: bool,
+}
+
+impl BodyGroundState {
+    /// Ground state for a newly constructed or discontinuously repositioned
+    /// body. The movement kernel samples support at the current pose before
+    /// processing control or integration.
+    pub const fn uninitialized() -> Self {
+        Self {
+            on_ground: false,
+            contact_initialized: false,
+        }
+    }
+
+    /// Invalidate contact facts after a discrete pose change. The stale value
+    /// is cleared for readers outside the kernel; the next movement step
+    /// establishes a new baseline from world geometry.
+    pub fn invalidate(&mut self) {
+        self.on_ground = false;
+        self.contact_initialized = false;
+    }
+}
+
+impl Default for BodyGroundState {
+    /// A known-airborne value for scratch tests and explicit state fixtures.
+    /// Runtime spawn bundles deliberately replace this with
+    /// [`Self::uninitialized`].
+    fn default() -> Self {
+        Self {
+            on_ground: false,
+            contact_initialized: true,
+        }
+    }
 }
 
 /// Wall CONTACT facts, written by the shared collision doctrine. The
@@ -417,7 +454,7 @@ pub fn reset_body_clusters(
         axis.state = crate::movement::AxisManeuverState::default();
     }
     *clusters.base_size = BodyBaseSize { base_size: body };
-    *clusters.ground = BodyGroundState::default();
+    *clusters.ground = BodyGroundState::uninitialized();
     *clusters.wall = BodyWallState::default();
     *clusters.jump = BodyJumpState {
         air_jumps_available: air_jumps,

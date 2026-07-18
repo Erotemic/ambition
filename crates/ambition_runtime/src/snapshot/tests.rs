@@ -310,7 +310,10 @@ fn every_engine_codec_round_trips_exactly() {
     // and an omitted field is exactly what `encode ∘ decode ∘ encode` cannot see.
     // `every_registered_component_survives_a_world_round_trip` below is the one
     // that catches it, by comparing hashes of a world rather than of a value.
-    round_trip(bc::BodyGroundState { on_ground: true });
+    round_trip(bc::BodyGroundState {
+        on_ground: true,
+        contact_initialized: true,
+    });
     round_trip(bc::BodyWallState {
         on_wall: true,
         wall_normal_x: -1.0,
@@ -533,7 +536,10 @@ fn every_registered_component_survives_a_world_round_trip() {
         axis.state.dash_timer = 0.75;
     }
     world.entity_mut(id).insert((
-        bc::BodyGroundState { on_ground: true },
+        bc::BodyGroundState {
+            on_ground: true,
+            contact_initialized: true,
+        },
         bc::BodyDashState {
             charges_available: 3,
             cooldown: 1.5,

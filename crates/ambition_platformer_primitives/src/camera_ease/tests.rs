@@ -80,44 +80,29 @@ fn offset_below_dead_zone_is_zero() {
 }
 
 #[test]
-fn hard_fall_no_shake_when_already_grounded() {
-    // Player was already grounded last frame → no landing → no shake.
-    assert_eq!(
-        hard_fall_shake_amplitude(true, true, 800.0),
-        0.0,
-        "no transition → no shake"
-    );
-}
-
-#[test]
-fn hard_fall_no_shake_when_still_airborne() {
-    // Was airborne and still airborne → no landing → no shake.
-    assert_eq!(
-        hard_fall_shake_amplitude(false, false, 800.0),
-        0.0,
-        "no landing → no shake"
-    );
+fn hard_fall_no_shake_without_a_landing_event() {
+    assert_eq!(hard_fall_shake_amplitude(None), 0.0);
 }
 
 #[test]
 fn hard_fall_no_shake_below_floor_vy() {
     // A soft hop (vy < HARD_FALL_SHAKE_FLOOR_VY) shouldn't shake the camera.
     assert_eq!(
-        hard_fall_shake_amplitude(false, true, 200.0),
+        hard_fall_shake_amplitude(Some(200.0)),
         0.0,
         "soft landing → no shake"
     );
     // Right at the floor: still no shake (clamp at zero).
     assert_eq!(
-        hard_fall_shake_amplitude(false, true, HARD_FALL_SHAKE_FLOOR_VY),
+        hard_fall_shake_amplitude(Some(HARD_FALL_SHAKE_FLOOR_VY)),
         0.0
     );
 }
 
 #[test]
 fn hard_fall_amplitude_scales_with_excess_vy() {
-    let amp_a = hard_fall_shake_amplitude(false, true, HARD_FALL_SHAKE_FLOOR_VY + 60.0);
-    let amp_b = hard_fall_shake_amplitude(false, true, HARD_FALL_SHAKE_FLOOR_VY + 360.0);
+    let amp_a = hard_fall_shake_amplitude(Some(HARD_FALL_SHAKE_FLOOR_VY + 60.0));
+    let amp_b = hard_fall_shake_amplitude(Some(HARD_FALL_SHAKE_FLOOR_VY + 360.0));
     assert!(amp_a > 0.0, "kick fires above floor_vy");
     assert!(amp_b > amp_a, "bigger fall → bigger amplitude");
     // Amplitude scales linearly with excess: 6× the excess → 6× the kick.
@@ -132,7 +117,7 @@ fn hard_fall_amplitude_scales_with_excess_vy() {
 fn hard_fall_saturates_through_kick_cap() {
     // Terminal-velocity fall produces a huge raw amplitude;
     // the `kick()` clamp is what enforces the 14-px cap.
-    let raw = hard_fall_shake_amplitude(false, true, 5000.0);
+    let raw = hard_fall_shake_amplitude(Some(5000.0));
     assert!(raw > 14.0, "raw amplitude exceeds cap, kick will clamp");
     let mut shake = CameraShakeState::default();
     shake.kick(raw);

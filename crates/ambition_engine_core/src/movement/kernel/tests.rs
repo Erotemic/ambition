@@ -28,6 +28,19 @@ fn empty_world() -> World {
     )
 }
 
+fn floor_world() -> World {
+    World::new(
+        "ground_baseline",
+        Vec2::new(1000.0, 600.0),
+        Vec2::new(200.0, 100.0),
+        vec![Block::solid(
+            "floor",
+            Vec2::new(0.0, 400.0),
+            Vec2::new(1000.0, 40.0),
+        )],
+    )
+}
+
 fn step(
     model: &mut MotionModel,
     world: &World,
@@ -56,6 +69,87 @@ fn one_free_tick(model: &mut MotionModel, frame: MotionFrame, input: InputState)
     step(model, &world, &mut scratch, frame, input);
     let clusters = scratch.as_mut();
     (clusters.kinematics.pos - start, clusters.kinematics.vel)
+}
+
+#[test]
+fn grounded_spawn_initializes_without_a_landing_edge() {
+    let world = floor_world();
+    let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
+    let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+    let mut scratch =
+        BodyClusterScratch::new_with_abilities(Vec2::ZERO, AbilitySet::default());
+    scratch.kinematics.pos = Vec2::new(100.0, 400.0 - scratch.kinematics.size.y * 0.5);
+    scratch.ground = crate::BodyGroundState::uninitialized();
+
+    let result = step(
+        &mut model,
+        &world,
+        &mut scratch,
+        frame,
+        InputState::default(),
+    );
+
+    assert!(scratch.ground.on_ground);
+    assert!(scratch.ground.contact_initialized);
+    assert_eq!(
+        result.events.ground_contact,
+        GroundContactTransition::InitializedGrounded
+    );
+}
+
+#[test]
+fn airborne_spawn_can_land_during_its_first_tick() {
+    let world = floor_world();
+    let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
+    let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+    let mut scratch =
+        BodyClusterScratch::new_with_abilities(Vec2::ZERO, AbilitySet::default());
+    // Start beyond the resting-contact slop but close enough that a fast
+    // downward spawn crosses the floor during this first 1/60 s step.
+    scratch.kinematics.pos =
+        Vec2::new(100.0, 394.0 - scratch.kinematics.size.y * 0.5);
+    scratch.kinematics.vel = Vec2::new(0.0, 600.0);
+    scratch.ground = crate::BodyGroundState::uninitialized();
+
+    let result = step(
+        &mut model,
+        &world,
+        &mut scratch,
+        frame,
+        InputState::default(),
+    );
+
+    assert!(scratch.ground.on_ground);
+    assert_eq!(
+        result.events.ground_contact,
+        GroundContactTransition::Landed {
+            impact_speed: 600.0
+        }
+    );
+}
+
+#[test]
+fn airborne_spawn_initializes_without_fabricating_a_transition() {
+    let world = floor_world();
+    let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
+    let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+    let mut scratch =
+        BodyClusterScratch::new_with_abilities(Vec2::new(100.0, 100.0), AbilitySet::default());
+    scratch.ground = crate::BodyGroundState::uninitialized();
+
+    let result = step(
+        &mut model,
+        &world,
+        &mut scratch,
+        frame,
+        InputState::default(),
+    );
+
+    assert!(!scratch.ground.on_ground);
+    assert_eq!(
+        result.events.ground_contact,
+        GroundContactTransition::InitializedAirborne
+    );
 }
 
 fn rotate(v: Vec2, radians: f32) -> Vec2 {

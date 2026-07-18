@@ -51,7 +51,7 @@ pub use authority::{
     carry_body, constrain_body_pose, reconcile_transit, transit_body, TransitVelocity,
 };
 pub use collision::{touching_hazard_aabb, touching_rebound_aabb};
-pub use events::{BlinkEvent, FrameEvents};
+pub use events::{BlinkEvent, FrameEvents, GroundContactTransition};
 pub use facts::{BodyMotionFacts, LedgeFacts};
 pub use input::{ActionEdges, ActionKey, Edge, InputState, MovementAction};
 /// Screen-vertical input → gravity-relative "descend" intent (the vertical
@@ -401,6 +401,11 @@ pub(crate) fn update_body_with_frame_clusters(
 ) -> FrameEvents {
     let tuning = axis.params;
     let state = &mut axis.state;
+    // A body may be freshly constructed, or the control phase may perform a
+    // discrete transit (blink) that invalidates the departure contact. Sample
+    // the entry pose before control so first-tick jumps see real support, then
+    // re-sample only if control moved the body discontinuously.
+    let entry_baseline = kernel::establish_axis_ground_contact_baseline(world, clusters, frame);
     let control_dt = if input.control_dt > 0.0 {
         input.control_dt
     } else {
@@ -408,8 +413,15 @@ pub(crate) fn update_body_with_frame_clusters(
     };
     let mut events =
         update_body_control_in_frame(world, clusters, state, input, control_dt, frame, tuning);
-    let sim_events =
+    let baseline = if clusters.ground.contact_initialized {
+        entry_baseline
+    } else {
+        kernel::establish_axis_ground_contact_baseline(world, clusters, frame)
+    }
+    .with_impact_velocity(clusters.kinematics.vel, frame);
+    let mut sim_events =
         update_body_simulation_in_frame(world, clusters, state, input, raw_dt, frame, tuning);
+    sim_events.ground_contact = baseline.transition_to(clusters.ground.on_ground);
     events.extend(sim_events);
     events
 }

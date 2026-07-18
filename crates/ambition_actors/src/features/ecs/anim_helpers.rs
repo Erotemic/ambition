@@ -19,8 +19,6 @@ pub fn advance_actor_anim_overlays(
     world_time: Res<ambition_time::WorldTime>,
     mut actors: Query<
         (
-            &crate::actor::BodyGroundState,
-            &crate::actor::BodyKinematics,
             &ambition_engine_core::BodyMotionFacts,
             &mut crate::actor::BodyAnimFacts,
         ),
@@ -28,14 +26,8 @@ pub fn advance_actor_anim_overlays(
     >,
 ) {
     let dt = world_time.sim_dt();
-    for (ground, kin, facts, mut anim) in &mut actors {
-        crate::features::advance_body_anim_overlays(
-            ground.on_ground,
-            kin.vel.y,
-            facts.dashing,
-            &mut anim,
-            dt,
-        );
+    for (facts, mut anim) in &mut actors {
+        crate::features::advance_body_anim_overlays(facts.dashing, &mut anim, dt);
     }
 }
 

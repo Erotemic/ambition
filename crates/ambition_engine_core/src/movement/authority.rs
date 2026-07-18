@@ -74,7 +74,7 @@ pub fn transit_body(
 /// `BodyKinematics`, including cluster-less projectiles; its Ambition adapter
 /// completes the kernel-body reconciliation with this after the crossing).
 pub fn reconcile_transit(model: &mut MotionModel, clusters: &mut BodyClustersMut<'_>) {
-    clusters.ground.on_ground = false;
+    clusters.ground.invalidate();
     clusters.wall.on_wall = false;
     clusters.wall.wall_normal_x = 0.0;
     match model {
@@ -158,6 +158,10 @@ mod tests {
         assert_eq!(clusters.kinematics.pos, Vec2::new(900.0, 40.0));
         assert_eq!(clusters.kinematics.vel, Vec2::new(300.0, -50.0));
         assert!(!clusters.ground.on_ground, "support was a departure fact");
+        assert!(
+            !clusters.ground.contact_initialized,
+            "the destination must establish a fresh contact baseline"
+        );
         assert!(!clusters.wall.on_wall);
         let MotionModel::SurfaceMomentum(momentum) = &model else {
             panic!("transit never changes the policy");

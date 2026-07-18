@@ -41,12 +41,13 @@ composition:
 
 Ambition installs `AmbitionDialogUiPlugin` from its content-owned presentation
 module. Its product policy is a classic fully opaque panel horizontally
-centered in an upper-screen safe band, never vertically centered. The panel is
-height-capped so the normal player focus region and lower touch controls remain
-visible, with a speaker nameplate, portrait frame, readable body,
-bounded choice viewport, and a footer whose width is contained by the panel.
-The layout selects a mobile/short-window profile from the actual viewport and
-never shrinks body or choice text below the product's readability floor.
+centered in an upper-screen safe band, never vertically centered. A responsive
+choice window bounds the panel's normal height so the player focus region and
+lower touch controls usually remain visible. The speaker header, body, and
+footer keep their measured height and are never sacrificed to fit more options;
+only the choice list is windowed. The layout selects a mobile/short-window
+profile from the actual viewport and never shrinks body or choice text below the
+product's readability floor.
 
 Long option lists do not create a second presentation-only cursor. The renderer
 windows rows around `DialogView.selected_option`; every visible row keeps its

@@ -67,14 +67,50 @@ def default_sprite_assets_dir(anchor: Path | None = None) -> Path:
     )
 
 
+def _as_posix_relpath(path: Path, start: Path) -> str:
+    return str(Path(os.path.relpath(path, start))).replace("\\", "/")
+
+
 def rel_to_ldtk(ldtk: Path, path: Path) -> str:
-    """Return a forward-slash relative path from the LDtk file to ``path``."""
-    return str(Path(os.path.relpath(path.resolve(), ldtk.resolve().parent))).replace("\\", "/")
+    """Return the runtime-safe LDtk path for ``path``.
+
+    Authored worlds are loaded through the ``game://`` source rooted at
+    ``game/ambition_content/assets``. That source falls back to the shared
+    ``crates/ambition_actors/assets`` tree, so generated sprites must be
+    addressed through the virtual ``game://sprites`` mount rather than by a
+    filesystem traversal into another crate. Bevy rejects those ``../../..``
+    traversals before the fallback reader gets a chance to resolve them.
+    """
+    # Use lexical absolute paths here. ``game/ambition_content/assets/sprites``
+    # may itself be a symlink in a developer checkout; resolving it before we
+    # recognize the virtual mount would erase the ``game://sprites`` identity.
+    ldtk = Path(os.path.abspath(ldtk))
+    path = Path(os.path.abspath(path))
+    shared_sprites = Path(os.path.abspath(default_sprite_assets_dir(ldtk)))
+    try:
+        sprite_rel = path.relative_to(shared_sprites)
+    except ValueError:
+        pass
+    else:
+        virtual_path = (
+            Path(os.path.abspath(default_content_assets_dir(ldtk)))
+            / "sprites"
+            / sprite_rel
+        )
+        return _as_posix_relpath(virtual_path, ldtk.parent)
+    return _as_posix_relpath(path, ldtk.parent)
 
 
 def path_from_ldtk(ldtk: Path, rel: str) -> Path:
-    """Resolve an LDtk-relative path."""
-    return (ldtk.resolve().parent / rel).resolve()
+    """Resolve an LDtk path through the same virtual fallback as ``game://``."""
+    ldtk = Path(os.path.abspath(ldtk))
+    direct = Path(os.path.abspath(ldtk.parent / rel))
+    virtual_sprites = Path(os.path.abspath(default_content_assets_dir(ldtk))) / "sprites"
+    try:
+        sprite_rel = direct.relative_to(virtual_sprites)
+    except ValueError:
+        return direct
+    return Path(os.path.abspath(default_sprite_assets_dir(ldtk) / sprite_rel))
 
 
 def png_dimensions(path: Path) -> tuple[int, int] | None:

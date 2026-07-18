@@ -256,6 +256,7 @@ expected_files=(
     cut_rope_piano_spritesheet.png cut_rope_piano_spritesheet.ron
     cut_rope_rope_spritesheet.png cut_rope_rope_spritesheet.ron
     super_mary_o_spritesheet.png super_mary_o_spritesheet.ron
+    props/super_mary_o_milk_carton.png
     generic_explosions_spritesheet.png generic_explosions_spritesheet.ron
     smirking_behemoth_boss_spritesheet.png smirking_behemoth_boss_spritesheet.ron
     stochastic_parrot_spritesheet.png stochastic_parrot_spritesheet.ron
@@ -625,6 +626,10 @@ tackon_targets=(
     # sprites/super_mary_o_spritesheet.*; without this publish a fresh
     # clone renders the demo character as a colored rectangle.
     super_mary_o
+    # Mary-O's gameplay provider binds this generated pickup through
+    # WorldItemArt at sprites/props/super_mary_o_milk_carton.png. Publish
+    # the source target here, then copy its canonical pose into props/.
+    super_mary_o_milk_carton
     generic_explosions
     smirking_behemoth_boss
     stochastic_parrot
@@ -707,6 +712,7 @@ held_prop_map=(
     "lasersword_with_guns:gunsword"
     "portal_gun_blue:portal_gun_blue"
     "portal_gun_orange:portal_gun_orange"
+    "super_mary_o_milk_carton:super_mary_o_milk_carton"
 )
 for pair in "${held_prop_map[@]}"; do
     src_target="${pair%%:*}"

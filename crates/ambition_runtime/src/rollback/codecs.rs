@@ -1061,14 +1061,6 @@ fn put_timeline(
     }
 }
 
-fn read_timeline(
-    r: &mut Reader<'_>,
-) -> Option<Vec<ambition_characters::brain::boss_pattern::BossPatternStep>> {
-    use ambition_characters::brain::boss_pattern::BossPatternStep;
-    let n = r.u32()?;
-    (0..n).map(|_| BossPatternStep::decode(r)).collect()
-}
-
 fn put_smash_mode(out: &mut Vec<u8>, mode: ambition_characters::brain::smash::BroadMode) {
     use ambition_characters::brain::smash::BroadMode;
     put_u8(
@@ -1082,19 +1074,6 @@ fn put_smash_mode(out: &mut Vec<u8>, mode: ambition_characters::brain::smash::Br
             BroadMode::Recover => 5,
         },
     );
-}
-
-fn read_smash_mode(r: &mut Reader<'_>) -> Option<ambition_characters::brain::smash::BroadMode> {
-    use ambition_characters::brain::smash::BroadMode;
-    match r.u8()? {
-        0 => Some(BroadMode::Idle),
-        1 => Some(BroadMode::Approach),
-        2 => Some(BroadMode::Retreat),
-        3 => Some(BroadMode::Engage),
-        4 => Some(BroadMode::Reposition),
-        5 => Some(BroadMode::Recover),
-        _ => None,
-    }
 }
 
 fn put_smash_state(out: &mut Vec<u8>, state: &ambition_characters::brain::smash::SmashState) {
@@ -1120,55 +1099,6 @@ fn put_smash_state(out: &mut Vec<u8>, state: &ambition_characters::brain::smash:
     put_f32(out, state.last_health_fraction);
     put_f32(out, state.damage_accum);
     put_f32(out, state.time_since_offense);
-}
-
-fn read_smash_state(r: &mut Reader<'_>) -> Option<ambition_characters::brain::smash::SmashState> {
-    use ambition_characters::brain::smash::{SmashState, OBS_HISTORY_LEN};
-
-    let mode = read_smash_mode(r)?;
-    let mode_dwell_s = r.f32()?;
-    let rng_seed = r.u64()?;
-    let dash_cooldown_remaining = r.f32()?;
-    let mut samples = [(0.0, ambition_engine_core::Vec2::ZERO); OBS_HISTORY_LEN];
-    for sample in &mut samples {
-        *sample = (r.f32()?, r.vec2()?);
-    }
-    let history_write = r.u32()? as usize;
-    let history_count = r.u32()? as usize;
-    let spacing_phase = r.f32()?;
-    let neutral_jump_cooldown = r.f32()?;
-    let blink_cooldown = r.f32()?;
-    let foray_timer = r.f32()?;
-    let shield_hold_timer = r.f32()?;
-    let neutral_reset_timer = r.f32()?;
-    let was_attacking = r.bool()?;
-    let regroup_timer = r.f32()?;
-    let last_health_fraction = r.f32()?;
-    let damage_accum = r.f32()?;
-    let time_since_offense = r.f32()?;
-
-    let mut state = SmashState {
-        mode,
-        mode_dwell_s,
-        rng_seed,
-        dash_cooldown_remaining,
-        spacing_phase,
-        neutral_jump_cooldown,
-        blink_cooldown,
-        foray_timer,
-        shield_hold_timer,
-        neutral_reset_timer,
-        was_attacking,
-        regroup_timer,
-        last_health_fraction,
-        damage_accum,
-        time_since_offense,
-        ..SmashState::default()
-    };
-    state
-        .obs_history
-        .restore_snapshot_parts(samples, history_write, history_count)?;
-    Some(state)
 }
 
 /// Rewind the mutable cursor of state-machine brains while leaving authored tuning in place.

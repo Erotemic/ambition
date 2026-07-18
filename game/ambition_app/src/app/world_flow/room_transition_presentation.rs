@@ -99,6 +99,7 @@ impl Default for RoomTransitionTelemetry {
 }
 
 impl RoomTransitionTelemetry {
+    #[cfg(test)]
     pub(crate) fn samples(&self) -> impl DoubleEndedIterator<Item = &RoomTransitionTimingSample> {
         self.samples.iter()
     }

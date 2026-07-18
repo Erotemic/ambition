@@ -14,6 +14,7 @@ from ambition_ldtk_tools.ldtk import (
     find_layer_def,
     find_layer_instance,
     iter_entities,
+    path_from_ldtk,
     rel_to_ldtk,
 )
 
@@ -104,6 +105,49 @@ def test_canonical_repo_asset_paths_follow_content_split() -> None:
     assert default_sprite_assets_dir(repo) == (
         repo / "crates" / "ambition_actors" / "assets" / "sprites"
     )
+    content_sprite_mount = repo / "game" / "ambition_content" / "assets" / "sprites"
+    assert content_sprite_mount.resolve() == default_sprite_assets_dir(repo).resolve()
     assert default_character_catalog(repo).is_file()
     assert default_sandbox_ldtk(repo).is_file()
     assert default_hall_ldtk(repo).is_file()
+
+
+def test_cross_crate_sprites_use_the_game_source_virtual_mount(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    (repo / "crates").mkdir(parents=True)
+    (repo / "tools").mkdir()
+    ldtk = repo / "game" / "ambition_content" / "assets" / "worlds" / "sandbox.ldtk"
+    sprite = (
+        repo
+        / "crates"
+        / "ambition_actors"
+        / "assets"
+        / "sprites"
+        / "player_robot_spritesheet.png"
+    )
+    ldtk.parent.mkdir(parents=True)
+    sprite.parent.mkdir(parents=True)
+    ldtk.write_text("{}")
+    sprite.write_bytes(b"png")
+
+    rel = rel_to_ldtk(ldtk, sprite)
+    assert rel == "../sprites/player_robot_spritesheet.png"
+    assert path_from_ldtk(ldtk, rel) == sprite.resolve()
+
+
+def test_authoritative_world_tilesets_are_runtime_safe_and_resolvable() -> None:
+    import json
+
+    worlds = default_sandbox_ldtk().parent
+    for ldtk in sorted(worlds.glob("*.ldtk")):
+        project = json.loads(ldtk.read_text())
+        for tileset in project.get("defs", {}).get("tilesets", []):
+            rel = tileset.get("relPath")
+            if not rel:
+                continue
+            assert "crates/" not in rel, f"{ldtk}: unsafe repository traversal {rel!r}"
+            assert not Path(rel).is_absolute(), f"{ldtk}: absolute tileset path {rel!r}"
+            resolved = path_from_ldtk(ldtk, rel)
+            if rel.startswith("../sprites/"):
+                expected = default_sprite_assets_dir(ldtk) / rel.removeprefix("../sprites/")
+                assert resolved == expected.absolute(), (ldtk, rel, resolved, expected)

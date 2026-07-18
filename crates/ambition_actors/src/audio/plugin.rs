@@ -28,8 +28,7 @@ use ambition_audio::library::{
     start_default_music_when_ready, DefaultMusicStarted, MusicChannel, SfxChannel,
 };
 use ambition_platformer_primitives::lifecycle::{
-    simulation_authorized, ActiveSessionScope, InitialGameplayReadiness,
-    SessionGatedSimulation,
+    simulation_authorized, ActiveSessionScope, InitialGameplayReadiness, SessionGatedSimulation,
 };
 
 /// Public Bevy plugin: installs the Kira backend, channel resources,

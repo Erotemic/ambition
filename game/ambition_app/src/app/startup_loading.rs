@@ -105,12 +105,7 @@ struct StartupAssetInputs<'w, 's> {
 struct StartupUi<'w, 's> {
     windows: Query<'w, 's, &'static mut Window, With<PrimaryWindow>>,
     roots: Query<'w, 's, Entity, With<DirectStartupLoadingRoot>>,
-    progress_fill: Query<
-        'w,
-        's,
-        &'static mut Node,
-        With<DirectStartupLoadingProgressFill>,
-    >,
+    progress_fill: Query<'w, 's, &'static mut Node, With<DirectStartupLoadingProgressFill>>,
     texts: Query<
         'w,
         's,
@@ -130,10 +125,11 @@ struct StartupUi<'w, 's> {
 /// sandbox. Shell-hosted startup has its own route/load lifecycle, and no-window
 /// harnesses deliberately do not need a presentation cover.
 pub(super) fn install_direct_startup_loading(app: &mut App) {
-    app.init_resource::<DirectStartupLoadingState>().add_systems(
-        Startup,
-        spawn_direct_startup_loading_screen.after(PresentationSetupSet),
-    );
+    app.init_resource::<DirectStartupLoadingState>()
+        .add_systems(
+            Startup,
+            spawn_direct_startup_loading_screen.after(PresentationSetupSet),
+        );
     #[cfg(feature = "audio")]
     app.add_systems(
         Update,
@@ -144,14 +140,11 @@ pub(super) fn install_direct_startup_loading(app: &mut App) {
     #[cfg(not(feature = "audio"))]
     app.add_systems(
         Update,
-        drive_direct_startup_loading
-            .before(ambition::platformer::schedule::GameplaySimulationRoot),
+        drive_direct_startup_loading.before(ambition::platformer::schedule::GameplaySimulationRoot),
     );
 }
 
-fn spawn_direct_startup_loading_screen(
-    mut commands: Commands,
-) {
+fn spawn_direct_startup_loading_screen(mut commands: Commands) {
     // The loading surface deliberately uses Bevy's built-in font. Depending on
     // an asynchronously loaded product font would make the loading screen
     // itself pop in late, defeating its immediate-response purpose.
@@ -392,9 +385,10 @@ fn build_startup_manifest(
         }
     }
     #[cfg(feature = "audio")]
-    if let (Some(library), Some(music_state)) =
-        (inputs.audio_library.as_deref(), inputs.music_state.as_deref())
-    {
+    if let (Some(library), Some(music_state)) = (
+        inputs.audio_library.as_deref(),
+        inputs.music_state.as_deref(),
+    ) {
         if let Some(handle) = library.resolved_track_handle(&music_state.active_track) {
             supporting.push(StartupAssetDependency {
                 label: format!("music '{}'", music_state.active_track),

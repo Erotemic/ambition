@@ -15,7 +15,10 @@ use bevy::{
 };
 use bevy_ggrs::{GgrsPlugin, RollbackFrameRate};
 
-pub use bevy_ggrs::{GgrsSchedule, Rollback, RollbackFrameCount};
+pub use bevy_ggrs::{
+    AdvanceWorld, AdvanceWorldSystems, ConfirmedFrameCount, GgrsSchedule, LoadWorld,
+    LoadWorldSystems, Rollback, RollbackFrameCount, RunGgrsSystems,
+};
 
 /// Ambition-owned work that must run after every `bevy_ggrs` entity/data/map restore.
 #[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]

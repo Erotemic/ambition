@@ -33,8 +33,7 @@ pub use entry::{
     ActionSetPreset, AxisTuningSpec, BarkSituation, BrainPreset, CharacterBarks, CharacterBodyKind,
     CharacterCatalogData, CharacterCatalogEntry, CharacterPortraitRef, CharacterTier,
     CompositionLayer, MeleePreset, MomentumParamsSpec, MoveStylePreset, PlayableKitSource,
-    RangedPreset, SpecialPreset,
-    SpriteTuningSpec,
+    RangedPreset, SpecialPreset, SpriteTuningSpec,
 };
 #[allow(
     unused_imports,

@@ -1,12 +1,13 @@
-//! App-level dev presentation: the F1 debug overlay and the F3 FPS
-//! counter. These are pure presentation/host systems with no lib
-//! consumer, moved up from `ambition::actors::dev` (Stage 20 devtools
-//! split). The lib keeps the dev STATE (`DeveloperTools` + editable
-//! profiles, read by persistence/presentation), the gameplay `trace`
-//! recorder (written by sim code), and `profiling` (read by audio).
+//! App-level developer presentation: the F1 debug overlay, F3 FPS counter,
+//! and the F9 one-shot GGRS rollback proof. These are host/presentation systems with
+//! no simulation-state ownership. The observatory's control resource is
+//! platform-neutral so desktop keys and future Android developer UI can share
+//! one proof-request seam.
 pub mod debug_overlay;
 pub mod fps_overlay;
 pub mod portal_inspector;
+#[cfg(feature = "dev_tools")]
+pub mod rollback_observatory;
 
 use bevy::prelude::*;
 
@@ -22,6 +23,8 @@ impl Plugin for DevToolsPlugin {
     fn build(&self, app: &mut App) {
         // FPS overlay (ON by default on wasm, OFF on desktop; F3 toggles).
         app.add_plugins(fps_overlay::FpsOverlayPlugin);
+        #[cfg(feature = "dev_tools")]
+        app.add_plugins(rollback_observatory::RollbackObservatoryPlugin);
         install_egui_inspectors(app);
     }
 }

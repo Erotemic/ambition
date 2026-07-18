@@ -30,10 +30,10 @@ mod plugins;
 mod resources;
 mod scene_setup;
 mod setup_systems;
-mod startup_loading;
 pub mod shell_host;
 mod sim_resources;
 mod sim_systems;
+mod startup_loading;
 pub(crate) mod world_flow;
 
 #[cfg(feature = "input")]

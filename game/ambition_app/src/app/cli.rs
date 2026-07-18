@@ -650,11 +650,19 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     let asset_root = desktop_asset_root();
     eprintln!("ambition_app: asset root = {asset_root}");
     let mut app = App::new();
+    #[cfg(feature = "dev_tools")]
+    {
+        // The observatory is requested at runtime, but Bevy seals SimSchedule
+        // when the first simulation plugin registers. Developer-visible builds
+        // therefore use GGRS from construction onward. Ordinary play uses a
+        // zero-distance baseline; F9 installs one bounded proof pulse and then
+        // returns to that baseline.
+        use ambition::platformer::schedule::SimScheduleExt as _;
+        app.set_sim_schedule(ambition::runtime::rollback::GgrsSchedule);
+    }
     let direct_windowed = matches!(render, VisibleRenderMode::Windowed) && !shell_hosted;
     if direct_windowed {
-        app.insert_resource(
-            ambition::platformer::lifecycle::InitialGameplayReadiness::closed(),
-        );
+        app.insert_resource(ambition::platformer::lifecycle::InitialGameplayReadiness::closed());
     }
     if matches!(render, VisibleRenderMode::NoWindow) {
         // Automated no-window hosts exercise the real ownership, resolver, and

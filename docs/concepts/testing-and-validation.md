@@ -1,54 +1,94 @@
 ---
 id: testing-and-validation
-aliases:
-  - validation commands
-  - headless smoke
-  - regression tests
-  - property tests
+aliases: []
+status: current
+authority: durable-concept
+last_verified: 2026-07-18
 implemented_by:
-  - crates/ambition_engine_core/src/movement
-  - game/ambition_app/tests
-  - game/ambition_content/src
-  - crates/ambition_actors/src
-  - .github/workflows
-related_docs:
-  - docs/systems/testing-strategy.md
-  - docs/systems/headless-simulation.md
-  - docs/planning/tracks.md
-related_memory:
-  - dev/journals/cargo-test-command-lessons-2026-05-11.md
-  - dev/benchmark-candidates/cargo-test-single-filter-question-2026-05-11.md
-last_verified: 2026-05-17
+  - scripts/run_tests.py
+  - run_tests.sh
+  - crates/ambition_sim_harness
+  - tests/ambition_workspace_policy
 ---
 
 # Testing and validation
 
-## Definition
+Validation should prove the invariant at the narrowest owning layer, then prove
+that the assembled provider/host still uses that path.
 
-Testing and validation are part of the knowledge system. Every non-trivial patch should identify the narrowest useful test, the broader package check, and any manual/device validation that remains.
-
-## Core invariants
-
-- Run targeted tests before broad tests when debugging.
-- Validate command grammar before handing off commands.
-- Headless smoke protects sim/presentation boundaries without needing full interactive play.
-- Spatial changes should add regression tests or trace/debug evidence when practical.
-- Platform-specific changes need platform-specific evidence; desktop success does not prove Android/web success.
-
-## Edit protocol
-
-1. Use concept pages to identify expected tests.
-2. Search `dev/` for known command pitfalls.
-3. Prefer one precise regression test for a bug fix.
-4. Report what ran and what did not run.
-
-## Common commands
+## Canonical front door
 
 ```bash
-cargo fmt --check
-cargo test -p ambition_actors
-cargo test -p ambition_actors --lib
-cargo run -p ambition_app --bin headless
+./run_tests.sh
 ```
 
-Cargo accepts one test-name filter position per test binary. Use separate invocations or package/module filters instead of inventing multi-filter grammar.
+The runner executes the default workspace suite plus headless-safe feature jobs
+for crates whose tests are otherwise hidden behind features. It deliberately
+does not use workspace-wide `--all-features`, which would mix incompatible
+platform/device feature sets.
+
+Useful modes:
+
+```bash
+./run_tests.sh --list                 # inspect the generated job plan
+./run_tests.sh --fast                 # workspace default-feature backbone only
+./run_tests.sh -p ambition_world      # restrict to an owning crate
+./run_tests.sh -k room_transition     # libtest name substring across jobs
+./run_tests.sh --heavy                # ignored/acceptance cycles too
+./run_tests.sh -- --nocapture         # forward args to libtest
+```
+
+Unknown packages and empty selections are errors.
+
+## Validation ladder
+
+1. **Pure/local invariant** — unit/property test in the owning module or crate.
+2. **Domain ECS behavior** — owner plugin/system test with realistic resources.
+3. **Cross-domain assembly** — provider/runtime/harness or `ambition_app` test.
+4. **Headless scenario** — step the real simulation, replay, or room flow.
+5. **Visible/device acceptance** — only for visual feel, focus, layout, audio
+   device behavior, packaging, or performance.
+
+Do not skip levels 1–4 merely because the visible binary is hard to automate.
+Improve the headless seam instead.
+
+## What to test
+
+Prefer invariants and properties over tuned values:
+
+- actor/controller parity and one-path execution;
+- covariance under gravity/reference-frame changes;
+- no tunneling / no partial transactional commit;
+- deterministic registration, ordering, replay, and reconstruction;
+- provider/session isolation;
+- prompt/gameplay resolution agreement;
+- headless/visible authoritative-state agreement.
+
+Replay hashes and snapshot bytes are canaries. Re-baseline them when an intended
+pre-release semantic change preserves the real invariants.
+
+## Current integration layout
+
+App-level integration tests are aggregated under the `ambition_app` integration
+surface (including the `app_it` binary). Do not invent old standalone `--test`
+target names from historical docs. Use `-k` through the runner unless you have
+confirmed an exact current Cargo target:
+
+```bash
+python scripts/agent_query.py tests "<behavior>"
+./run_tests.sh -p ambition_app -k <substring>
+```
+
+## Non-Rust checks
+
+Use focused checks when relevant:
+
+```bash
+python scripts/check_doc_links.py
+python scripts/generate_agent_index.py
+python -m ambition_ldtk_tools validate <world.ldtk>
+```
+
+Formatting is useful but not a correctness oracle. A patch should not be blocked
+solely because formatting tooling is unavailable when behavior/invariants are
+otherwise validated.

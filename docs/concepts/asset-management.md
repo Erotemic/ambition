@@ -1,54 +1,67 @@
 ---
 id: asset-management
-aliases:
-  - asset manager
-  - asset catalog
-  - Bevy asset loading
-  - platform assets
+aliases: []
+status: current
+authority: durable-concept
+last_verified: 2026-07-18
 implemented_by:
-  - crates/ambition_asset_manager/src
-  - crates/ambition_asset_manager/src/sandbox_assets
-  - crates/ambition_actors/src/assets/mod.rs
-  - crates/ambition_actors/assets/ambition/sandbox.ron
+  - crates/ambition_asset_manager
+  - crates/ambition_load
+  - crates/ambition_load_presentation
+  - crates/ambition_audio
+  - game/ambition_content
 related_docs:
   - docs/systems/asset-manager.md
-  - docs/systems/asset-manager.md
-  - docs/planning/engine/architecture.md
-related_memory:
-  - dev/journals/lessons_learned.md
-last_verified: 2026-07-07
+  - docs/systems/ldtk-world-composition.md
+  - docs/concepts/content-and-provider-boundaries.md
 ---
 
 # Asset management
 
-## Definition
+Asset management turns stable logical/provider-owned identity into platform
+appropriate source data, Bevy handles, readiness evidence, and presentation.
 
-Asset management covers logical asset IDs, manifests, preload/profile policy, platform-aware resolution, and the bridge from generated/source assets into Bevy runtime handles.
+## Stable separation
 
-`ambition_asset_manager::sandbox_assets` owns the sandbox catalog/resource,
-stable ids, manifest builders, and embedded-source plugin. Gameplay-core's
-`assets` module is now an adapter/handle-loading tail: it assembles game rows
-for the catalog and keeps Bevy image handles plus gameplay presentation
-vocabulary until the E3/E6/E7 carves move those dependencies.
+- **Providers own named assets and catalogs.** Ambition-specific worlds, sprite
+  sheets, music, SFX cues, and art live with Ambition content.
+- **`ambition_asset_manager` owns reusable catalog/profile/handle machinery.**
+- **`ambition_load` owns headless loading plans, work states, and barriers.**
+- **`ambition_load_presentation` renders unresolved load evidence.** It never
+  manufactures readiness.
+- **Domain crates own typed runtime use.** For example, `ambition_audio` owns
+  audio catalogs/playback and render crates own image/material consumers.
+- **Hosts own platform packaging and device-side source availability.**
 
-## Core invariants
+Generated files are not runtime authority merely because they are checked in.
+The generator source/spec and the provider catalog together define how to
+reproduce and address them.
 
-- Logical asset identity should survive platform differences.
-- Desktop host-path checks do not imply Android APK asset availability.
-- Generated assets should be reproducible from source specs and generators.
-- Asset loading state should become explicit over time rather than hiding failures in ad hoc startup code.
+## Invariants
+
+- Logical IDs survive desktop/web/Android path differences.
+- Content IDs are provider-qualified where collisions are possible.
+- A handle being requested is not proof that an asset is ready.
+- Required versus degradable work is explicit in load evidence.
+- Preflight/preparation does not partially mutate the live session.
+- Presentation never claims readiness the coordinator has not observed.
+- Desktop host-path checks do not prove APK or web-served availability.
+- Generated outputs are deterministic or carry enough provenance to reproduce.
 
 ## Edit protocol
 
-1. Identify whether the change is logical catalog, runtime load state, generated output, or platform packaging.
-2. Preserve platform-aware paths and Android APK behavior.
-3. Search dev memory for asset/platform lessons before changing broad startup code.
-4. Update manifest/docs when adding a durable asset category.
-
-## Validation
+1. Classify the change: provider catalog, source/generator, reusable loader,
+   readiness transaction, platform packaging, or presentation consumer.
+2. Keep named content out of reusable crates.
+3. Preserve the old live authority until replacement content is ready to commit.
+4. Validate at least one headless path and every affected packaging target.
+5. Use `agent_query.py` to locate current owners rather than copying a path list
+   into this page.
 
 ```bash
-cargo test -p ambition_asset_manager
-cargo test -p ambition_actors --lib assets
-cargo run -p ambition_app --bin headless
+python scripts/agent_query.py "asset catalog loading readiness <asset kind>"
+python scripts/agent_query.py crate ambition_asset_manager
+python scripts/agent_query.py crate ambition_load
+python scripts/agent_query.py tests "asset readiness"
+./run_tests.sh -p ambition_asset_manager
 ```

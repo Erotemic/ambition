@@ -146,3 +146,20 @@ could disagree with what actually fired.
   pair — `kaleidoscope_app` tests.
 - A plain melee edge is no longer the spin-dash content API (both directions) —
   `ambition_demo_sanic::ball_dash`.
+
+
+## Current implications for agents
+
+- Treat `ControlFrame` as device/slot intent; do not stream, persist, or author
+  resolved character actions.
+- Derive `ActorActionScheme` from the controlled body's live capabilities,
+  moveset, equipment, and authorities. Do not add a second catalog of advertised
+  actions.
+- Route gameplay and `ControlPrompt` through the same slot resolver so visible
+  controls and executable behavior cannot drift.
+- Add a new mechanic at the owning movement/combat/projectile/interaction seam,
+  then expose it through action data for every controller kind.
+- Preserve `InputState::control_dt` as an input precision affordance; do not
+  resurrect a second player simulation clock or body pipeline.
+- Validate changes with `python scripts/agent_query.py tests "action scheme
+  prompt"` and focused `./run_tests.sh` filters before broad suites.

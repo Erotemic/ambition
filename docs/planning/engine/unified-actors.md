@@ -605,7 +605,7 @@ Every later step must move toward convergence, never away:
   `build_world_view`).
 - The proven seam: `ambition_app/src/app/player_clone.rs`, `player::clone_probe_tests`.
 - Verify in the real sim: `SandboxSim::new_with_options(..).step(AgentAction)`;
-  `ambition_app/tests/*`. Detailed specs: `docs/systems/brain-driver.md`,
+  `ambition_app/tests/*`. Detailed specs: `docs/systems/actors-brains-and-character-content.md`,
   `docs/recipes/extending-brains-and-action-sets.md`, `docs/adr/0016-actor-unification.md`.
 
 ## Gotchas (hard-won)

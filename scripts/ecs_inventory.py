@@ -32,7 +32,7 @@ reviewed in code review rather than hidden behind a prose summary.
 
 Run directly with an inline-metadata aware launcher, for example:
 
-    uv run tools/ecs_inventory.py
+    uv run --script scripts/ecs_inventory.py
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ try:
     from tree_sitter import Language, Parser
 except ImportError as ex:  # pragma: no cover - exercised only without deps installed.
     print(
-        "error: missing tree-sitter dependencies. Try: uv run tools/ecs_inventory.py",
+        "error: missing tree-sitter dependencies. Try: uv run --script scripts/ecs_inventory.py",
         file=sys.stderr,
     )
     raise

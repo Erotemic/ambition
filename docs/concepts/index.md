@@ -1,30 +1,50 @@
 # Concept index
 
-Concept pages are durable, agent-readable memory. They define vocabulary, aliases, invariants, edit protocols, implementation anchors, tests, and links to dev-memory evidence.
+Concept pages hold durable vocabulary, invariants, and edit protocols. They
+should survive crate moves. Exact current symbols and files belong in source,
+`MODULES.md`, and the generated `.agent/` indexes.
 
-## Core concepts
+## Read first
 
 | Concept | Read when |
 |---|---|
-| [`autonomous-decision-making.md`](autonomous-decision-making.md) | hitting an architecture/design fork while operating autonomously — how to make the choice Jon would, and when a decision is yours vs his |
-| [`bevy-native-data-driven-ecs.md`](bevy-native-data-driven-ecs.md) | deciding whether a system should be code-driven, RON-driven, LDtk-driven, or ECS-driven |
-| [`platform-targets.md`](platform-targets.md) | changing build features, input, assets, packaging, web, Android, mobile, controller, or Steam Deck paths |
-| [`tools-and-generated-content.md`](tools-and-generated-content.md) | using or documenting author-time generators, validators, asset renderers, or generated outputs |
-| [`movement-collision.md`](movement-collision.md) | touching movement, collision, body modes, slash/pogo, blink, ledges, wall cling, or OOB traces |
-| [`ldtk-world-composition.md`](ldtk-world-composition.md) | touching LDtk, active areas, loading zones, editor roundtrip, or world/runtime projection |
-| [`llm-spatial-authoring-discipline.md`](llm-spatial-authoring-discipline.md) | placing gates / walls / hitboxes / breakables / one-ways — read BEFORE asking "where exactly?" |
-| [`cryptography-crew.md`](cryptography-crew.md) | designing or drawing one of the 13 crypto-themed NPCs (Alice/Bob/Eve/Mallory/Trent/Judy/etc.) |
-| [`input-and-game-modes.md`](input-and-game-modes.md) | changing controls, Leafwing actions, pause/dialogue/cutscene modes, touch, controller, or mobile input |
-| [`asset-management.md`](asset-management.md) | changing asset IDs, platform profiles, web/static/served assets, Android bundles, or Steam Deck paths |
-| [`sim-presentation-seam.md`](sim-presentation-seam.md) | changing events/messages, presentation adapters, visual/audio effects, or headless paths |
-| [`testing-and-validation.md`](testing-and-validation.md) | choosing validation after a patch or adding regression coverage |
-| [`rust-module-boundaries.md`](rust-module-boundaries.md) | splitting Rust modules, moving tests, changing facades, imports, derives, or helper visibility |
-| [`generated-assets-audio.md`](generated-assets-audio.md) | changing generated music/SFX/sprite/background pipelines or reproducibility rules |
-| [`patch-overlays-and-repo-state.md`](patch-overlays-and-repo-state.md) | preparing overlay packages or replacing broad files |
-| [`brainstorms-design-incubation.md`](brainstorms-design-incubation.md) | using or editing `docs/brainstorms/` without demoting it to archive material |
-| [`engineering-memory.md`](engineering-memory.md) | searching `dev/` or promoting hard-won lessons into durable docs |
-| [`architecture-review-questions.md`](architecture-review-questions.md) | entering an unfamiliar subsystem or critically reviewing ownership, lifecycle, transactionality, identity, and public seams |
+| [`engine-mental-model.md`](engine-mental-model.md) | starting fresh, deciding which architectural layer owns a change, or reviewing a possible duplicate path |
+| [`content-and-provider-boundaries.md`](content-and-provider-boundaries.md) | adding named content, catalogs, providers, session activation, or world-lowering seams |
+| [`architecture-review-questions.md`](architecture-review-questions.md) | critically reviewing ownership, lifecycle, identity, transactionality, or public seams |
+| [`autonomous-decision-making.md`](autonomous-decision-making.md) | making an architecture/design decision without blocking on a question |
+
+## Engine contracts
+
+| Concept | Read when |
+|---|---|
+| [`bevy-native-data-driven-ecs.md`](bevy-native-data-driven-ecs.md) | deciding whether behavior belongs in authored data, ECS state, systems, or a tool |
+| [`input-and-game-modes.md`](input-and-game-modes.md) | changing devices, control authority, action slots, prompts, touch, menus, dialogue, or pause |
+| [`sim-presentation-seam.md`](sim-presentation-seam.md) | changing messages, read models, rendering, audio, UI, or headless behavior |
+| [`ldtk-world-composition.md`](ldtk-world-composition.md) | changing authored space, world records, lowering, loading zones, or room construction |
+| [`movement-collision.md`](movement-collision.md) | changing movement, collision, body modes, blink, ledges, hitboxes, or projectiles |
+| [`asset-management.md`](asset-management.md) | changing logical asset identity, provider catalogs, loading, or platform packaging |
+| [`platform-targets.md`](platform-targets.md) | changing desktop, web, Android/touch, controller, or Steam Deck support |
+
+## Engineering practice
+
+| Concept | Read when |
+|---|---|
+| [`testing-and-validation.md`](testing-and-validation.md) | choosing validation and merge gates |
+| [`test-placement.md`](test-placement.md) | deciding where a new test belongs |
+| [`rust-module-boundaries.md`](rust-module-boundaries.md) | splitting modules, changing visibility, moving tests, or creating facades |
+| [`tools-and-generated-content.md`](tools-and-generated-content.md) | adding or using generators, validators, and generated outputs |
+| [`generated-assets-audio.md`](generated-assets-audio.md) | changing reproducible music, SFX, sprite, or background generation |
+| [`engineering-memory.md`](engineering-memory.md) | searching or promoting hard-won lessons from `dev/` |
+| [`patch-overlays-and-repo-state.md`](patch-overlays-and-repo-state.md) | preparing overlays or broad file replacements |
+| [`llm-spatial-authoring-discipline.md`](llm-spatial-authoring-discipline.md) | placing gates, walls, hitboxes, one-ways, breakables, or encounter geometry |
+| [`brainstorms-design-incubation.md`](brainstorms-design-incubation.md) | handling Jon's active brainstorm space correctly |
+
+## Specialized references
+
+- [`cryptography-crew.md`](cryptography-crew.md) — the crypto-themed NPC cast.
 
 ## Maintenance
 
-When a durable invariant changes, update the concept page in the same patch as the code. If the change is architectural, update or add an ADR.
+When a durable invariant changes, update the concept in the same patch as the
+code and add/update an ADR when the decision is architectural. Do not preserve
+completed migration steps in a concept page.

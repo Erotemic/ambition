@@ -82,6 +82,6 @@ The brain + faction layers compose:
 - Damage routing reads faction; per-tick attack gating reads
   brain hostility.
 
-See `docs/systems/brain-driver.md` for the brain shape +
+See `docs/systems/actors-brains-and-character-content.md` for the brain shape +
 `docs/recipes/extending-brains-and-action-sets.md` for the
 extension procedure.

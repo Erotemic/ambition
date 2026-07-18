@@ -1,95 +1,64 @@
-# Boss encounter architecture direction
+---
+status: current
+last_verified: 2026-07-18
+related_docs:
+  - docs/systems/boss-behavior-profiles.md
+  - docs/systems/persistence-settings-and-progression.md
+---
 
-> **Actor unification (ADR 0016):** bosses ARE actors. `BossEncounterPhase`
-> lives in `crate::brain::boss_pattern` (not a boss-only module); the goal is one
-> unified actor+brain+boss-runtime unit with only *named* boss data in
-> `ambition_content`.
+# Boss encounter architecture
 
+A boss encounter composes generic encounter lifecycle with one or more actor
+profiles and provider-owned spatial/reward/presentation content.
 
-The current sandbox bosses share the same coarse encounter skeleton: intro,
-phase thresholds, transition, stagger, enrage, death, music request, and reward
-sync. That is useful scaffolding, but it should not become the place where every
-boss-specific trick is hard-coded.
-
-Future boss work should keep three layers distinct:
-
-1. **Encounter progression**: phase timing, save-state transitions, music and
-   cutscene requests, and victory events. This remains the generic state-machine
-   layer.
-2. **Boss behavior**: movement, attacks, arena interactions, tells, and special
-   vulnerabilities. This should become per-boss data/code rather than more
-   branches inside the generic encounter update loop.
-3. **Rewards and aftermath**: defeat drops, quest advancement, arena cleanup,
-   and reload synchronization. Mockingbird's pirate-hoard chest is the first
-   example, but future bosses should use a reward table/profile instead of
-   adding one-off `sync_<boss>_...` systems.
-
-The sandbox-side `boss_encounter` module is split around these seams so richer
-bosses can add behavior profiles without turning the facade into a long mixed
-system. If new bosses start needing custom gravity, moving arena hazards,
-scripted props, or multi-stage weak points, prefer introducing a per-boss runtime
-profile or behavior plugin over extending the generic encounter loop with named
-special cases.
-
-## Boss HP authority (2026-05-20)
-
-After OVERNIGHT-TODO #8, the engine `ae::BossEncounterState` is the
-single source of truth for boss HP. The sandbox `BossRuntime.health`
-is a one-way mirror updated each frame by `update_boss_encounters`;
-gameplay code SHOULD NOT mutate `boss.health` directly. The damage
-path is:
+## Flow
 
 ```text
-HitEvent { source: PlayerSlash | PlayerProjectile, target, volume } (player hits boss)
-  ↓
-apply_feature_hit_events (features/ecs/damage.rs)
-  ↓
-record_boss_damage (boss_encounter/damage.rs)
-  ↓ apply_player_damage on the engine state
-  ↓ publish_events  → music / cutscene / banner requests
-  ↓
-BossDamageOutcome { hp_remaining, killed, applied }
-  ↓ damage.rs mirrors `hp_remaining` onto `boss.health.current`
-  ↓ damage.rs fires death VFX / banner / debris when `killed`
-  ↓ damage.rs suppresses hit VFX when `applied == false`
-    (invulnerable phase swallowed the damage)
+provider encounter spec + LDtk placement
+    -> provider preparation/validation
+    -> room/session construction transaction
+    -> encounter state machine owns activation/waves/completion
+    -> actor profiles/brains request shared actions
+    -> combat/world domains emit authoritative facts
+    -> encounter consumes facts and commits completion/reward
+    -> read models drive UI/audio/VFX/camera
 ```
 
-Boss damage used to route through a `GameplayEffect::DamageBoss` bus
-variant + an `apply_boss_damage_effects` reader. That variant was a no-op
-observation seam and both it and the reader have been **deleted** (the
-`GameplayEffect` enum itself was later split into focused messages —
-`SetFlagRequested` / `QuestAdvanceRequested` / `SwitchActivated` /
-`GameplaySfxRequested`; none of those carry boss damage). Boss damage is
-now applied **inline** in the hit path (`apply_boss_hit` →
-`record_boss_damage`); a future tracing / quest / replay observer should
-add its own focused message rather than reviving the old bus seam.
+## Authority boundaries
 
-`record_boss_damage` returns `Option<BossDamageOutcome>` (`None` when
-the runtime id has no registered encounter — gracefully degrades
-when test fixtures don't install the boss machine). Unit tests in
-`boss_encounter::damage::tests` lock in the four outcome paths.
+- Encounter state owns activation, participants, gates, phase orchestration, and
+  one-shot completion.
+- Actor health/body/brain owns each participant's live state.
+- Combat owns accepted hit/damage facts.
+- Progression/persistence records durable completion/reward facts.
+- Provider content owns names, room placement, roster, rewards, music, dialogue,
+  and visual treatment.
+- Presentation never decides whether the encounter is complete.
 
-## Boss encounter spec as content (ADR 0017, current ownership)
+## Lifecycle
 
-The encounter's numeric fields (HP, phase thresholds, timings,
-music ids) are content rather than Rust constants. Each authored boss ships an
-encounter RON under `game/ambition_content/assets/data/boss_encounters/<id>.ron`.
-`ambition_content::bosses::register` embeds those specs in an App-local boss fragment
-into gameplay-core's generic holder during sandbox resource initialization.
+All encounter-spawned actors, walls, hazards, prompts, and temporary state must
+belong to an explicit session/room/encounter scope. Room replacement, reset, and
+snapshot restore use canonical construction and cleanup rather than bespoke
+lists.
 
-`ambition_actors` owns the reusable schema and encounter state machine.
-It does not own the named boss roster. Behavior/reward data comes from
-`game/ambition_content/assets/data/boss_profiles.ron`; LDtk owns spatial
-placement. That is the current ADR 0017 split: Rust = reusable behavior/schema,
-RON in `ambition_content` = named game content, LDtk = space.
+Completion and rewards are idempotent. Re-entering a completed encounter should
+follow provider policy without duplicating rewards or resurrecting stale gates.
 
-Layered guards keep the migration honest:
+## Validation
 
-- `specs::tests::every_on_disk_ron_matches_an_authored_profile` — orphan RON
-  files (typo'd filename, leftover from rename) trip with a focused diff.
-- `specs::tests::load_boss_specs_from_disk_has_no_duplicate_ids` — two files
-  with the same `id:` would make roster resolution ambiguous.
-- Python `tests/test_boss_encounters_ron.py` — schema pins fire without
-  compilation (catches missing field / out-of-range fraction / negative timing /
-  filename↔id mismatch).
+Test the full state machine headlessly:
+
+- inactive -> armed -> active -> phase/wave transitions -> completed;
+- defeat/reset/re-entry;
+- participant despawn and room replacement;
+- one-shot reward and persisted completion;
+- provider validation for unknown characters, rooms, moves, rewards, or audio IDs.
+
+```bash
+python scripts/agent_query.py "boss encounter lifecycle reward"
+python scripts/agent_query.py tests "encounter completion reset"
+./run_tests.sh -p ambition_encounter
+./run_tests.sh -p ambition_content -k encounter
+./run_tests.sh -k boss
+```

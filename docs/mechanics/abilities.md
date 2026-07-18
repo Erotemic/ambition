@@ -1,58 +1,84 @@
-# Abilities
+---
+status: current
+last_verified: 2026-07-18
+related_docs:
+  - docs/concepts/engine-mental-model.md
+  - docs/systems/actors-brains-and-character-content.md
+  - docs/adr/0025-character-actions-input-ownership.md
+---
 
-Abilities are reusable gameplay verbs. Keep reusable engine semantics in `crates/ambition_engine_core/src/` or focused sandbox modules, and keep presentation/content/progression wiring sandbox-specific.
+# Ability composition
 
-**Review date:** 2026-05-30. Reviewed against source archive `ambition-source-2026-05-30T104014-5-e721ea65c578`.
+An ability is reusable simulation capability attached to an actor body. A named
+character may select, tune, unlock, or visually present an ability, but must not
+own a private execution pipeline for it.
 
-## Current ability families
+## Durable flow
 
-| Family | Status | Notes |
-|---|---:|---|
-| Jump / air jump / coyote / jump buffer | Available | `engine_core::movement` owns coyote and jump buffering. Variable jump height exists through early-release velocity clipping. |
-| Dash / dash buffer / fast fall | Available | Dash buffering exists. Fast fall is player-specific movement policy. |
-| Blink | Available, partial buffering | Quick/precision blink and safe destination search exist. Holding can bridge cooldown, but there is not yet a general blink action buffer. |
-| Wall cling / wall jump / wall climb | Available, high-risk | Collision correction bugs belong in trace-backed tests. Dedicated wall-coyote polish is still a candidate improvement. |
-| Ledge grab / mantle | Partial but implemented | Engine and sandbox ledge behavior exist; animation/polish and ledge-action buffering remain incomplete. |
-| Body modes | Available vocabulary | See body-mode doc for compact shapes and traversal constraints. |
-| Combat verbs | Available, fragmented buffering | Directional slash, pogo, shield/parry, bubble shield, and projectiles exist. Pogo defaults to authored pogo orb/rebound surfaces, not plain floor/door solids, one-way platforms, or blink walls. Attack/pogo/projectile inputs do not yet share a general buffered-action system. |
-| Projectiles / motion inputs | Available | Fireball charge and Hadouken/HadoukenSuper recognition are implemented in the player projectile backend. |
-| Sprint jump / long jump | Not yet reusable | Horizontal-momentum-aware jump variants are not formalized as a reusable ability family. |
-| Grapple / tether / harpoon dash | Not yet reusable | Needs backend constraints, targeting semantics, and authoring vocabulary. |
+```text
+controller intent
+    -> semantic action slot
+    -> ActorActionScheme
+    -> shared slot resolver
+    -> ability request / MovePlayback / interaction
+    -> body, combat, projectile, or world domain mutates simulation
+    -> read model and semantic effects
+    -> provider presentation
+```
 
-## Input-buffer status
+The action scheme answers *what this body's slot currently means*. The ability
+implementation answers *whether and how that action executes*. Input devices,
+brains, menus, and HUD prompts do not duplicate ability policy.
 
-The current source has real action buffers for jump and dash only. These are engine timers (`jump_buffer_timer`, `dash_buffer_timer`) filled from the control pass and consumed when the corresponding action becomes legal.
+## What belongs where
 
-Missing or partial buffers:
+- **Provider content:** named move sets, character defaults, unlocks, tuning,
+  animation/audio bindings, and encounter restrictions.
+- **Character/action domain:** action slots, action schemes, brain/action-set
+  requests, gating, and action identity.
+- **Movement/combat/projectile/world domains:** authoritative mechanics and
+  outcomes.
+- **Presentation:** animation, sprites, trails, particles, sound, camera feedback,
+  and prompt glyphs.
 
-- **Attack:** player melee start now listens for the player brain's `ActorActionMessage::Melee`, but a press during active/recovery is still not a general queued attack.
-- **Pogo:** pogo start is still player-specific in the attack lifecycle, but valid pogo surfaces are centralized through `BlockKind::is_pogo_target()` so ground, one-way platforms, and blink walls do not become pogo targets by accident.
-- **Projectile/tool:** projectile press/hold/release and motion-input recognition exist, but failed cooldown/resource windows are not a general queued tool action.
-- **Blink:** held blink has cooldown bridging behavior, but there is no typed blink buffer window shared with other actions.
-- **Ledge actions:** ledge climb/jump/roll/attack behavior exists, but ledge-action inputs are not buffered as a family.
+## One body, one path
 
-When adding new Silksong-style polish, prefer a reusable `ActionBuffer` / `InputBuffer` shape over adding one more one-off timer per action.
+Before implementing a move, search for the equivalent behavior on another body
+or controller. If it exists, extract or route through the shared seam and delete
+the duplicate. Do not create `PlayerX` and `EnemyX` implementations that merely
+produce similar output.
 
-## Combat-hit status
+Separate orchestrating systems are acceptable when scheduling differs. Separate
+authoritative mechanic implementations are not.
 
-Combat damage now flows through the canonical `HitEvent` transport for player slash, pogo, projectile, hazard, enemy, and boss damage paths. Explicit hostile `Hitbox` entities still model enemy/boss active melee volumes, but their damage output joins the same hit-event pipeline.
+## Ability lifecycle
 
-The next reusable combat work should enrich `HitResult` semantics — stagger/poise, elements/status, hitstop, rejection reasons, and reward hooks — rather than adding more ad-hoc damage message variants.
+A robust ability can represent:
 
-## Placement rules
+- request and rejection reason;
+- windup, active, recovery, and cancellation windows;
+- movement locks or overrides;
+- costs, cooldowns, charges, and resource refunds;
+- armor, invulnerability, hurtbox, and body-mode changes;
+- spawned simulation entities or semantic effects;
+- completion/interruption facts for brains, replay, and UI.
 
-- Put reusable ability math and state vocabulary in `engine_core` or an explicitly focused sandbox mechanics module.
-- Put player ECS state, input bridging, animation, audio, VFX, and LDtk/content-specific unlocks in `ambition_actors`.
-- Put authored showcase-room procedures in recipes, not in this file.
-- Keep status summaries in `docs/mechanics/expressibility-checklist.md`.
+Not every ability needs every phase. The vocabulary should compose rather than
+forcing each move into a bespoke state machine.
 
-## Validation anchors
+## Validation questions
+
+- Can a human and a brain request the same ability?
+- Does the UI prompt use the same resolution result as gameplay?
+- Does the authoritative effect exist without animation or audio?
+- Is there exactly one emission/execution site for equivalent behavior?
+- Does a rotated gravity frame preserve the intended geometry?
+- Can the ability be interrupted, reset, restored, and replayed deterministically?
+- Can another provider supply different tuning and presentation?
+
+Find current implementation evidence with:
 
 ```bash
-cargo test -p ambition_actors --lib engine_core::movement
-cargo test -p ambition_actors --lib combat
-cargo test -p ambition_actors --lib projectile
-cargo test -p ambition_actors --lib brain::
-cargo test -p ambition_actors projectile
-cargo test -p ambition_app --test scripted_gameplay --features "rl_sim portal"
+python scripts/agent_query.py "action scheme ability MovePlayback"
+python scripts/agent_query.py tests "action resolution ability"
 ```

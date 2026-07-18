@@ -26,4 +26,4 @@ The sandbox already has authored interactables and NPC hooks. The durable idea i
 
 - Treat this ADR as architecture direction, not proof that a full Yarn/merchant pipeline is complete.
 - Before adding a one-off interaction UI, check actor/interactable vocabulary and game-mode pause docs.
-- Update `docs/systems/ui-navigation-and-pause.md`, `docs/systems/ui-navigation-and-pause.md`, or concept docs if interaction flow changes durably.
+- Update `docs/systems/input-control-and-ui.md`, `docs/systems/input-control-and-ui.md`, or concept docs if interaction flow changes durably.

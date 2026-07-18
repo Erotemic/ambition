@@ -1,54 +1,62 @@
+---
+status: current
+last_verified: 2026-07-18
+related_docs:
+  - docs/systems/headless-simulation.md
+  - docs/concepts/testing-and-validation.md
+---
+
 # Headless room verification
 
-How to check a room's spatial layout without launching the visible
-game — useful for reviewing authoring/collision changes in CI or on a
-headless box. All of this runs on a pure-Rust pixel buffer / data scan;
-no GPU, wgpu, or window.
+Use the real provider/runtime construction path. A hand-built `World` that skips
+loading, lifecycle, control, or lowering can prove a unit invariant, but it does
+not prove the assembled game.
 
-## Render a room to a PNG
-
-```bash
-cargo run -p ambition_actors --example render_room_geometry -- <ROOM_ID> [OUT.png]
-```
-
-Draws the lowered `RoomSpec`: filled collision blocks (gray Solid, blue
-OneWay, red Hazard, gold PogoOrb, purple BlinkWall, teal Rebound, tan
-moving-platform), outlined entity families (enemy/boss/NPC-switch/
-pickup/chest/breakable/hazard-volume/door), kinematic-path polylines +
-waypoints, camera-zone outlines, the spawn cross, and each boss's live
-rest-pose `damageable_volumes` hurtbox. Read the PNG to verify room
-boundaries, mid-air doors, encounter/boss placement, and
-hurtbox-vs-spawn-box alignment.
-
-- No `ROOM_ID` → lists every room id.
-- `-- all [DIR]` → renders every room into `DIR/room_<id>.png`.
-
-## Scan all rooms for spatial anomalies
+## Localize the existing seam
 
 ```bash
-cargo run -p ambition_actors --example render_room_geometry -- report
+python scripts/agent_query.py "headless room load provider"
+python scripts/agent_query.py tests "<room id or behavior>"
+python scripts/agent_query.py crate ambition_sim_harness
 ```
 
-Text-only. Flags runtime-projection bugs the LDtk validator can't see
-(it validates LDtk-level data, not the lowered `RoomSpec`): authored
-entity centers outside the room bounds, and player spawns embedded in a
-Solid block.
+Prefer extending an existing harness/helper over adding a second miniature app.
 
-## CI guard
+## Verification ladder
 
-The same checks run as a build-failing test so authoring regressions
-are caught automatically:
+1. **Pure/domain test** — prove the narrow transformation or policy.
+2. **Owning-crate assembled test** — construct the smallest real plugin/domain
+   composition.
+3. **Provider/runtime test** — prepare the provider, load the room through the
+   transaction, step simulation, and observe stable read models/traces.
+4. **Geometry render** — inspect authored collision/entities without a GPU.
+5. **Visible smoke** — reserve for presentation feel that cannot be inferred
+   from authoritative state.
+
+## Commands
 
 ```bash
-cargo test -p ambition_actors --test room_spatial_integrity
+python scripts/agent_query.py tests "<invariant>"
+./run_tests.sh -k <test_substring>
+./run_tests.sh -p <owning_package> -k <test_substring>
+cargo run -p ambition_actors --example render_room_geometry -- <ROOM_ID>
 ```
 
-## When to reach for this vs the LDtk validator
+`game/ambition_app` integration tests are aggregated through the current
+`app_it` test surface; do not invoke deleted historical test binaries. Let
+`./run_tests.sh` and `agent_query.py tests` choose the current package/test shape.
 
-- `python -m ambition_ldtk_tools ... validate` — LDtk-level data: entity
-  names, IntGrid meaning, mid-air doors, cross-world transition targets.
-- These tools — the **runtime projection** (`RoomSpec` after IntGrid
-  lowering): where collision/entities/paths actually land, and the
-  spatial integrity of the spawn + entities.
+## What to assert
 
-Use both; they cover different layers.
+Assert durable outcomes:
+
+- provider/session/room construction commits atomically;
+- expected stable IDs resolve and scoped entities exist;
+- the actor receives semantic control and uses the shared body/action path;
+- movement, interaction, hit, transition, or progression facts occur;
+- cleanup/reset removes the old scope and derived views converge;
+- gravity rotations or equivalent symmetries preserve the mechanic;
+- the test is non-vacuous (the target event/state was actually reached).
+
+Avoid pinning exact frame counts, velocities, coordinates, or visual assets unless
+they are the contract under test.

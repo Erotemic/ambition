@@ -1,46 +1,54 @@
-# LDtk world composition
+---
+status: current
+last_verified: 2026-07-18
+---
 
-LDtk is the current source of truth for world/level composition.
+# LDtk world composition and transactional room loading
 
-## Current rule
+This page records the current cross-crate implementation shape. The durable
+contract is in [`../concepts/ldtk-world-composition.md`](../concepts/ldtk-world-composition.md).
 
-- Author areas, collision layers, loading zones, and spatial entities in LDtk or via `ambition_ldtk_tools`.
-- Do not hand-edit `sandbox.ldtk` JSON for semantic changes.
-- Runtime code should project LDtk data into Bevy ECS and reusable engine types.
-- Old RON room manifests are historical.
+## Pipeline
 
-## Runtime concerns
+1. a provider owns one or more `.ldtk` payloads and a world manifest;
+2. `ambition_ldtk_map` imports LDtk layers/entities/fields into typed records;
+3. `ambition_world` owns reusable room specs, loading zones, collision/world
+   vocabulary, validation, and lowering contracts;
+4. provider/domain registrations supply content-specific lowering or staging;
+5. room preflight produces an immutable `RoomConstructionPlan` without mutating
+   the live room;
+6. `ambition_load` tracks required/degradable work and barrier readiness;
+7. the app/runtime room-transition coordinator authorizes one commit after the
+   plan and required assets are ready;
+8. canonical construction retires the old room and installs the target atomically;
+9. `ambition_load_presentation` may cover unresolved work but cannot authorize it.
 
-LDtk changes are high-risk because they affect:
+Some construction integration still lives in `ambition_actors` and app adapters
+while the decomposition continues. New code should strengthen the contracts
+above rather than create another loader/spawn path.
 
-- collision categories and IntGrid values,
-- loading-zone graph links,
-- player starts and spawn repair,
-- camera zones and visual profiles,
-- web/static map embedding,
-- Android packaged assets,
-- editor roundtrip metadata.
+## Transition invariants
 
-## Tools
+- repeated overlap with the same loading zone does not mint duplicate active
+  transactions;
+- a genuinely new target supersedes the prior transaction exactly;
+- the source room remains playable/authoritative until commit policy says
+  otherwise;
+- preflight and asset discovery do not leak target entities;
+- failures leave a valid source world and publish actionable load evidence;
+- hidden grace, cover, loading UI, and ready-hold are presentation policy;
+- readiness is contributor-neutral and headless observable;
+- restore/reset/hot reload converge on canonical lowering/construction.
 
-Use:
+## Authoring and validation
+
+Use `ambition_ldtk_tools`; do not hand-edit LDtk JSON. See
+[`../recipes/ldtk-authoring.md`](../recipes/ldtk-authoring.md).
 
 ```bash
-python -m ambition_ldtk_tools validate game/ambition_content/assets/worlds/sandbox.ldtk
-python -m ambition_ldtk_tools repair game/ambition_content/assets/worlds/sandbox.ldtk --in-place
-python -m ambition_ldtk_tools area create <spec.yaml> --backup
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate game/ambition_content/assets/worlds/sandbox.ldtk
+./run_tests.sh -p ambition_ldtk_map
+./run_tests.sh -p ambition_world
+./run_tests.sh -k room_transition
+./run_tests.sh -k construction_plan
 ```
-
-See `docs/tools/index.md` and `docs/recipes/ldtk-authoring.md`.
-
-## Common failure modes
-
-- Treating old RON room docs as current.
-- Moving zones without updating graph links.
-- Introducing entities without validator/tool support.
-- Breaking static-map/web or Android asset assumptions.
-- Forgetting spawn repair or transition cooldown behavior.
-
-## Validation
-
-Run LDtk validators and focused sandbox tests before broad tests. Search `dev/benchmark-candidates/` for LDtk collision/runtime traps.

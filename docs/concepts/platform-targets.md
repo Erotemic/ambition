@@ -1,60 +1,63 @@
 ---
 id: platform-targets
+aliases: []
 status: current
-aliases:
-  - web build
-  - Android build
-  - mobile touch
-  - Steam Deck
-  - controller support
-  - iOS deferred
+authority: durable-concept
+last_verified: 2026-07-18
 implemented_by:
-  - crates/ambition_actors/Cargo.toml
-  - build_for_web.sh
-  - build_for_android.sh
-  - deploy_to_steamdeck.sh
+  - crates/ambition_runtime
+  - crates/ambition_host
+  - crates/ambition_asset_manager
+  - crates/ambition_input
+  - crates/ambition_touch_input
+  - game/ambition_app
 related_docs:
   - docs/recipes/web-build.md
   - docs/recipes/android-build.md
-  - docs/systems/mobile-touch-controls.md
-  - docs/systems/asset-manager.md
-last_verified: 2026-05-17
 ---
 
 # Platform targets
 
-## Definition
+Ambition supports desktop first while preserving web, Android/touch, controller,
+and Steam Deck paths. iOS is deferred by available hardware/tooling, not ruled
+out architecturally.
 
-Ambition should keep a wide platform surface healthy: desktop, web, Android/mobile touch, controller, and Steam Deck. iOS is deferred until macOS test hardware is available.
+## Layering
 
-## Core invariant
+- `ambition_runtime` composes headless-safe simulation and schedule ordering.
+- provider crates contribute gameplay/content without assuming a windowing
+  platform.
+- `ambition_host` adds window/device/presentation policy.
+- app crates choose product features and packaging.
+- `ambition_input` defines semantic device adapters and presets.
+- `ambition_touch_input` adds the mobile touch presentation/input adapter.
+- asset/loading crates preserve logical identity while hosts choose platform
+  source/packaging details.
 
-Do not make a subsystem desktop-only by accident. If a feature touches input, assets, app features, audio, save/settings, or rendering, consider all active platform profiles.
+## Invariants
 
-## Current target matrix
+- Outcome-changing code runs headlessly and is not hidden behind visible/window
+  features.
+- Platform `cfg` and feature flags live at the narrowest host/adapter boundary.
+- Core/domain crates do not import Android, wasm, window, or device APIs merely
+  to preserve a convenience call site.
+- Web audio unlock and Android asset packaging are explicit readiness concerns.
+- Touch/controller labels derive from semantic actions and `ControlPrompt`, not
+  hard-coded keyboard text.
+- Desktop filesystem existence does not prove web/static/APK availability.
+- Platform-specific degradation is explicit and must not silently change game
+  rules.
 
-| Target | Current stance |
-|---|---|
-| Desktop | Primary dev/runtime target with debug tools and inspector paths. |
-| Web | Active wasm target with static and served-asset personas. |
-| Android | Active phone-test target with APK asset packaging and touch controls. |
-| Mobile touch | Touch controls should be used where available, not treated as a later rewrite. |
-| Controller / Steam Deck | Controller semantics and asset-root robustness matter. |
-| iOS | Deferred only because macOS test hardware is unavailable. |
+## Validation ladder
 
-## Edit protocol
+1. owner-crate tests with the relevant feature;
+2. `./run_tests.sh` headless suite;
+3. target compilation/build recipe;
+4. device/browser manual acceptance for input, audio, focus, and lifecycle.
 
-When changing platform-sensitive code:
+Use the current recipe rather than copying old Cargo feature strings:
 
-1. Check feature flags in `crates/ambition_actors/Cargo.toml`.
-2. Check the relevant recipe (`web-build`, `android-build`, mobile touch, asset manager).
-3. Preserve headless/minimal test paths where possible.
-4. Avoid assuming host filesystem access on web/Android.
-5. Preserve controller/touch semantic input paths.
-
-## Common failure modes
-
-- Adding a desktop-only plugin to a web/Android feature set.
-- Assuming loose filesystem assets instead of using the asset manager.
-- Updating keyboard controls but not touch/controller mapping.
-- Replacing broad app files and losing platform-specific entrypoints.
+```bash
+./build_for_web.sh
+./build_for_android.sh
+```

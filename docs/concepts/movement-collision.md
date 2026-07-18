@@ -1,57 +1,56 @@
 ---
 id: movement-collision
+aliases: []
 status: current
-aliases:
-  - wall cling
-  - y-sweep
-  - ledge grab
-  - body modes
-  - slash pogo
-  - shield parry
-  - projectile collision
+authority: durable-concept
+last_verified: 2026-07-18
 implemented_by:
-  - crates/ambition_engine_core/src/movement/mod.rs
-  - crates/ambition_platformer_primitives/src/kinematic.rs
-  - crates/ambition_combat/src/lib.rs
-  - crates/ambition_actors/src/projectile/mod.rs
-  - crates/ambition_engine_core/src/player_state.rs
-  - crates/ambition_engine_core/src/ledge_grab/mod.rs
+  - crates/ambition_engine_core/src/movement
+  - crates/ambition_engine_core/src/geometry.rs
+  - crates/ambition_world/src/collision.rs
+  - crates/ambition_combat
+  - crates/ambition_projectiles
 related_docs:
   - docs/mechanics/expressibility-checklist.md
   - docs/mechanics/body-modes.md
-  - docs/mechanics/projectiles-and-motion-inputs.md
-related_memory:
-  - dev/journals/movement-edge-touch-y-sweep-lessons-2026-05-11.md
-last_verified: 2026-05-17
+  - docs/planning/engine/collision-and-ccd.md
 ---
 
-# Movement collision
+# Movement and collision
 
-## Definition
+Movement/collision is a deterministic body pipeline shared by every controller
+kind. Presentation may visualize contacts and actions but does not define their
+geometry or outcomes.
 
-Movement collision covers kinematic player motion, swept collision, body modes, ledge behavior, blink safety, melee/pogo hitboxes, projectile collision, shield/parry state, and trace-backed regression tests.
+## Invariants
 
-## Core invariants
-
-- Edge-touch contacts must not become far-block vertical teleports.
-- One-way platforms block only appropriate downward contacts.
-- Body-mode resize must fail safely when the target shape does not fit.
-- Slash/pogo/projectile hitboxes should be computed from explicit intents/specs, not presentation sprites.
-- Shield/parry state is simulation state; the bubble sprite is presentation.
+- One actor/body kernel serves player, AI, possessed, and harness-controlled
+  bodies.
+- Fast movers and triggers use swept/path-aware evaluation; discrete endpoint
+  overlap is not enough.
+- One-way behavior is directional and reference-frame aware.
+- Contact at an edge must not become a far-block correction or teleport.
+- Body-shape changes are transactional: reject a target shape that cannot fit.
+- Hitboxes/hurtboxes/projectiles derive from explicit action/spec state, never
+  from a renderer sprite as authority.
+- Gravity/orientation assumptions are explicit. Tests should exercise rotated
+  or transformed frames where the mechanic claims covariance.
+- Moving geometry and attached bodies use explicit reference-frame semantics.
+- Out-of-bounds behavior is a world/lifecycle contract, not an ad hoc player
+  clamp.
 
 ## Edit protocol
 
-1. Search `dev/` for matching movement/collision traps.
-2. Read the focused engine module and tests.
-3. Add or update a regression test for the geometry case.
-4. Keep presentation effects in sandbox messages/systems.
-
-## Validation
+1. Query the exact mechanic and prior failure class.
+2. Find the pure kernel/model and the ECS integration caller.
+3. Add the smallest geometry/property test that would fail on the bug.
+4. Verify body/controller parity and at least one headless assembled path.
+5. Emit visual/audio feedback through messages/read models after simulation.
 
 ```bash
-cargo test -p ambition_engine_core movement::
-cargo test -p ambition_actors combat::
-cargo test -p ambition_actors projectile::
-cargo test -p ambition_actors --test wall_cling_fuzz
-cargo test -p ambition_actors --test body_shape_fits_at
+python scripts/agent_query.py "<mechanic> collision sweep"
+python scripts/agent_query.py tests "<geometry case>"
+./run_tests.sh -p ambition_engine_core
+./run_tests.sh -k <test-substring>
+cargo run -p ambition_app --bin headless -- 120
 ```

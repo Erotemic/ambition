@@ -1,83 +1,72 @@
+---
+status: current
+last_verified: 2026-07-18
+related_docs:
+  - docs/mechanics/abilities.md
+  - docs/systems/input-control-and-ui.md
+---
+
 # Projectiles and motion inputs
 
-Projectiles and command-input abilities are reusable combat/movement primitives. The backend should express the verb without baking in one content example.
+Projectile simulation and motion-command recognition are separate reusable
+primitives. A provider may combine them into a named move, but projectile physics
+must not parse raw device history and input recognition must not own combat.
 
-## Current status
-
-- `crates/ambition_actors/src/projectile/` owns Ambition's projectile vocabulary and player command-input handling.
-- `ambition_platformer_primitives::projectile` owns reusable projectile body/gameplay pieces.
-- In-flight projectiles are ECS entities, not Vec entries in player/enemy resources.
-- Player Fireball / Hadouken / HadoukenSuper examples are wired through the sandbox projectile systems.
-- Projectile trace events report fire, resource block, hit, and expiry events.
-
-## Implemented projectile tiers
-
-| Variant | Input shape | Cost | Damage | Cooldown | Speed | Lifetime | Behavior |
-|---|---|---:|---:|---:|---:|---:|---|
-| Fireball | Press/hold/release Projectile without a recent motion gesture | 1.0 | 1 base, scaled by charge tier | 0.30 s | 360 px/s | 1.20 s | Mild downward arc; can bounce; charge affects size and damage. |
-| Hadouken | Grace quarter-circle plus Projectile, currently `Down -> Right` or mirrored | 3.0 | 3 | 0.55 s | 520 px/s | 1.60 s | Straight shot; expires on solid contact. |
-| HadoukenSuper | Full quarter-circle or half-circle plus Projectile | 5.0 | 5 | 0.85 s | 640 px/s | 1.80 s | Larger, stronger, more expensive straight shot. |
-
-The default projectile meter caps at 8 resource units and regenerates at 1.5 units/second. Outgoing projectile damage also respects `user_settings.gameplay.player_damage_multiplier`.
-
-## Fireball charge contract
-
-`FireballChargeTuning::DEFAULT` defines three tiers:
-
-- tier 0: release before 0.35 s,
-- tier 1: hold for at least 0.35 s,
-- tier 2: hold for at least 0.85 s.
-
-Only Fireball uses charge tiers. Motion gestures consume the press immediately and do not start a Fireball charge.
-
-## Motion-input recognizer
-
-`MotionInputBuffer` stores recent quantized directions in a short sliding window. The sandbox samples the current control axis, pushes directions into the buffer, and checks motion recognizers on the Projectile press edge.
-
-Ordering rule: check the most-specific motion first. The grace quarter-circle is a subsequence of the full quarter-circle, so Super must be checked before weak Hadouken.
-
-## Collision and surface behavior
-
-Projectile collision follows the authored surface vocabulary but is intentionally simpler than player movement:
-
-- `Solid` and `BlinkWall` block projectiles.
-- Fireball bounces when it lands on the top of a one-way platform.
-- Side, ceiling, or out-of-budget contacts on one-way platforms pass through.
-- Solids are checked before one-way platforms when both overlap.
-- Hadouken variants spawn with no bounce budget, so a solid hit expires them on first contact.
-- Portal transit is entity-based; tests should use live authored portal pairs rather than hard-coded channel colors.
-
-## Update shape
-
-Projectile systems:
-
-1. tick spawner cooldown/resource regeneration;
-2. consume the player's projectile action request and motion axis;
-3. tick existing projectile entities and resolve lifetime/surface hits;
-4. on Projectile press, try motion-input upgrades before starting Fireball charge;
-5. accumulate Fireball charge while held;
-6. release a charged Fireball if a charge was active;
-7. emit trace/events for diagnostics and tests.
-
-## Rules
-
-- Separate command recognition from the effect that fires.
-- Keep projectile simulation deterministic enough for tests.
-- Presentation owns sprites, SFX, particles, and camera feedback.
-- Authored unlocks and content restrictions belong in sandbox content/progression code.
-- Do not parse raw device input in projectile logic; consume semantic action/control state.
-
-## Validation anchors
-
-```bash
-cargo test -p ambition_actors --lib projectile
-cargo test -p ambition_actors projectile
-cargo test -p ambition_app --test projectile_portal_transit --features "rl_sim portal"
-```
-
-Useful anchors:
+## Flow
 
 ```text
-crates/ambition_actors/src/projectile/
-crates/ambition_platformer_primitives/src/projectile/
+semantic directional/action history
+    -> deterministic command recognizer
+    -> action identity/request
+    -> action scheme and capability gates
+    -> projectile spawn request
+    -> projectile domain owns body, lifetime, contacts, and hit facts
+    -> presentation consumes read models/effects
+```
+
+## Motion-command contract
+
+A recognizer consumes normalized semantic directions in actor/control space,
+not keyboard keys or screen coordinates. It should define:
+
+- sampling and quantization;
+- bounded history/time window;
+- neutral and direction-change treatment;
+- mirrored/facing-relative commands;
+- precedence when one command is a subsequence of another;
+- deterministic tie-breaking and consumption.
+
+The recognizer returns an action identity or evidence. It does not directly
+spawn a fireball, spend meter, or choose animation.
+
+## Projectile contract
+
+A projectile is an ECS simulation entity or equivalent authoritative body with:
+
+- stable source/owner/faction identity;
+- movement and lifetime policy;
+- collision/query shape;
+- hit payload and rejection/filter policy;
+- surface/portal/field interactions;
+- deterministic despawn reason;
+- provider-resolved presentation identity.
+
+Damage, knockback, status, and hit acceptance flow through the canonical combat
+seam. Visual sprites and trails are not projectile truth.
+
+## Invariants
+
+- Humans, brains, scripts, and replay can request the same projectile action.
+- Command recognition is testable as a pure bounded transformation.
+- Spawn/resource/cooldown decisions occur once.
+- Projectile contact uses shared world semantics rather than a private tile map.
+- Entity identity used for persistence/replay is not a raw Bevy allocator handle.
+- Headless simulation reaches the same authoritative outcome without assets.
+
+## Validation
+
+```bash
+python scripts/agent_query.py "motion input projectile spawn hit"
+python scripts/agent_query.py tests "projectile portal collision"
+./run_tests.sh -k projectile
 ```

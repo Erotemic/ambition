@@ -1,51 +1,66 @@
 ---
 id: bevy-native-data-driven-ecs
+aliases: []
 status: current
-aliases:
-  - Bevy-native
-  - data-driven ECS
-  - code-driven versus data-driven
-  - RON room migration
-  - LDtk runtime projection
+authority: durable-concept
+last_verified: 2026-07-18
 related_adrs:
   - docs/adr/0002-engine-must-be-bevy-native.md
   - docs/adr/0003-data-specs-and-asset-loading.md
   - docs/adr/0009-world-composition-and-ldtk-authoring.md
 implemented_by:
-  - game/ambition_app/src/app/mod.rs
-  - crates/ambition_actors/src/world/mod.rs
-  - crates/ambition_actors/src/world/ldtk_world/mod.rs
-related_docs:
-  - docs/systems/architecture.md
-  - docs/systems/ldtk-world-composition.md
-last_verified: 2026-05-17
+  - crates/ambition_engine_core
+  - crates/ambition_platformer_primitives
+  - crates/ambition_world
+  - crates/ambition_ldtk_map
+  - crates/ambition_runtime
 ---
 
 # Bevy-native data-driven ECS
 
-## Definition
+Ambition uses Bevy and ECS directly. “Data-driven” means authored/generated data
+feeds typed ECS vocabulary and canonical systems; it does not mean duplicating
+live state into parallel object graphs or inventing a backend-neutral runtime
+that hides Bevy.
 
-Ambition should lean into Bevy. Authored/generated data should feed Bevy components/entities/systems instead of being mirrored in parallel code-owned structures unless a focused test seam requires it.
+## Durable rule
 
-## Current rule
+```text
+authored/generated data
+    -> typed parse/import
+    -> validation and provider registration
+    -> ECS components/resources/entities
+    -> owner systems and messages
+    -> read models
+    -> presentation
+```
 
-- Bevy-native is the default, not an exception.
-- LDtk owns world/level authoring.
-- RON room manifests are historical.
-- RON remains fine for tuning, save/settings, generated-audio specs, and compact non-world data.
-- Reusable mechanics live in `crates/ambition_engine_core/src/`; runtime integration lives in Bevy ECS. (The standalone `ambition_engine` crate was collapsed into `engine_core/` on 2026-05-28.)
+- Pure math and deterministic kernels stay usable without a Bevy world.
+- Runtime integration is Bevy-native when ECS identity, scheduling, lifecycle,
+  queries, or resources are the natural model.
+- LDtk owns Ambition's world authoring today. `ambition_ldtk_map` adapts LDtk;
+  `ambition_world` owns reusable world records/lowering vocabulary.
+- RON remains appropriate for compact provider catalogs, tuning, settings,
+  saves, and generated-asset specifications.
+- One domain owns each noncommutative state machine. Multiple append-only
+  registrations are fine; multiple mutable authorities are not.
 
-## Common failure modes
+## Smells
 
-- Reintroducing backend-neutral abstractions that make Bevy integration harder.
-- Treating old RON room docs as current.
-- Duplicating authored data into a second runtime structure without tests proving parity.
-- Putting presentation details into engine types.
+- a second “runtime model” that must be synchronized with ECS;
+- a reusable crate that names Ambition content;
+- a presentation system mutating authoritative simulation;
+- a resource mirroring session entities without exact invalidation;
+- a generic abstraction whose only purpose is to avoid using Bevy types;
+- hand-written app assembly for a subsystem that should own a plugin.
 
 ## Validation
 
-For world/data changes, run the relevant LDtk tool/tests and at least one headless or minimal sandbox test. For docs-only changes, run:
+Use the narrowest owning test plus a headless composition when the change affects
+outcomes:
 
 ```bash
-python scripts/generate_agent_index.py
+python scripts/agent_query.py tests "<invariant>"
+./run_tests.sh -p <owning-crate>
+cargo run -p ambition_app --bin headless -- 30
 ```

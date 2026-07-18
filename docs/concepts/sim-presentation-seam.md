@@ -1,48 +1,63 @@
 ---
 id: sim-presentation-seam
-aliases:
-  - event seam
-  - message seam
-  - presentation adapter
-  - gameplay effects
+aliases: []
+status: current
+authority: durable-concept
+last_verified: 2026-07-18
 implemented_by:
-  - crates/ambition_engine_core/src
-  - crates/ambition_render/src
-  - game/ambition_app/tests/scripted_gameplay.rs
+  - crates/ambition_runtime
+  - crates/ambition_sim_view
+  - crates/ambition_render
+  - crates/ambition_vfx
+  - crates/ambition_audio
+  - crates/ambition_host
 related_adrs:
   - docs/adr/0012-sim-presentation-split-and-events-refactor.md
-related_docs:
-  - docs/archive/historical-roadmaps/events-refactor-plan.md
-  - docs/systems/gameplay-effects.md
-related_memory:
-  - dev/benchmark-candidates/overlay-stale-feature-events-api-question-2026-05-12.md
-last_verified: 2026-05-17
 ---
 
-# Sim / presentation seam
+# Simulation / presentation seam
 
-## Definition
+Simulation owns authoritative facts and outcome-changing transitions.
+Presentation consumes stable read models and typed effect intent, then performs
+renderer/audio/UI side effects.
 
-The sim/presentation seam separates reusable gameplay state and messages from sandbox-only rendering, audio playback, HUD layout, particles, debug windows, and temporary visual experiments.
+## Stable flow
 
-## Core invariants
+```text
+simulation owner system
+    -> authoritative components/resources
+    -> typed facts/messages
+    -> ambition_sim_view or domain read model
+    -> render/audio/UI adapter
+```
 
-- Engine-side gameplay primitives should not depend on sandbox presentation resources.
-- Presentation-only systems may consume sim messages, but sim systems should not need visual/audio adapters.
-- Typed messages/events are part of the API surface; stale overlays must not revert them to older event shapes.
-- Debug and HUD features are adapters, not gameplay authority.
+Immutable authored world data may be read directly when doing so does not hide
+observer-dependent or mutable truth.
 
-## Edit protocol
+## Invariants
 
-1. Decide whether the change is simulation authority or presentation response.
-2. If adding a gameplay event/message, update both producer and presentation consumers.
-3. Preserve headless compatibility for sim-side changes.
-4. Add tests at the seam when behavior crosses from sim into presentation messages.
+- Headless composition can run every outcome-changing system without cameras,
+  sprites, audio devices, windows, or menus.
+- Presentation never mutates simulation to make an effect convenient.
+- Effect messages identify semantic events, not renderer implementation details.
+- Read models are derived/rebuildable and are not competing persistence truth.
+- Provider-owned presentation plugs into public engine observation/effect seams.
+- Audio/VFX may be absent or degraded without changing authoritative outcomes.
+- Simulation ordering lives in runtime/domain schedule sets; presentation timing
+  must not become an implicit gameplay dependency.
+
+## Placement test
+
+A field belongs in simulation when changing it could alter collision, actions,
+damage, inventory, progression, AI decisions, timing, or replay. A field belongs
+in presentation when it only changes how already-resolved facts are displayed or
+heard.
 
 ## Validation
 
 ```bash
-cargo test -p ambition_app --test scripted_gameplay --features "rl_sim portal"
-cargo run -p ambition_app --bin headless
-cargo test -p ambition_actors --lib
+./run_tests.sh -p ambition_sim_view
+./run_tests.sh -p ambition_render
+./run_tests.sh -k plugin_minimal_app
+cargo run -p ambition_app --bin headless -- 120
 ```

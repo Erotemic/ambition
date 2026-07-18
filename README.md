@@ -43,7 +43,7 @@ Start here, then route to the smallest relevant doc packet:
 * [`docs/tools/index.md`](docs/tools/index.md) — author-time tools.
 * [`dev/README.md`](dev/README.md) and [`dev/SEARCH.md`](dev/SEARCH.md) —
   engineering memory from real mistakes.
-* [`.agent/manifest.yaml`](.agent/manifest.yaml) — generated navigation index.
+* [`.agent/README.md`](.agent/README.md) — generated, commit-matched navigation and query protocol.
 
 `docs/planning/` is the source of truth for direction and tasking. ADRs,
 concept docs, system docs, recipes, and source code describe current facts and
@@ -86,73 +86,52 @@ The design oracle is:
 
 The demo suite exists to make that oracle executable.
 
-## Current project shape
+## Durable engine shape
 
-The workspace is mid-decomposition. Some target crates already exist; some
-older machinery still lives in `ambition_actors` while the planning
-tracks carve it apart.
-
-Current high-level layers:
+The package list will keep changing. The responsibilities and dependency
+direction should not. Read
+[`docs/concepts/engine-mental-model.md`](docs/concepts/engine-mental-model.md)
+for the full model.
 
 ```text
-foundations / vocabulary
-  ambition_engine_core
-  ambition_platformer_primitives
-  ambition_entity_catalog
-  ambition_characters
-  ambition_combat
-  ambition_input
-  ambition_interaction
-  ambition_menu
-  ambition_time
-  ambition_audio
-  ambition_sfx
-  ambition_sfx_bank
-  ambition_asset_manager
-  ambition_gameplay_trace
-  ambition_cutscene
-  ambition_sprite_sheet
-  ambition_ui_nav
-  ambition_vfx
-  ambition_portal
+foundations and stable data contracts
+    -> shared platformer vocabulary
+    -> focused domain services
+    -> unified simulation heart
+    -> observation/read models
+    -> presentation
 
-simulation machinery
-  ambition_actors
-  ambition_runtime
-
-observation and presentation
-  ambition_sim_view
-  ambition_render
-  ambition_portal_presentation
-
-content
-  ambition_content
-
-app / host / binaries
-  ambition_host
-  ambition_app
-
-platform and support
-  ambition_touch_input
+runtime/provider/host compose those layers
+providers own named game content
+thin apps choose a provider and platform persona
 ```
 
-Important current boundary notes:
+The most important consequences are:
 
-* `ambition_actors` is the unified simulation heart. It is not awaiting a
-  size-driven crate carve; remaining work removes content/lifecycle residue and
-  converges action paths.
-* `ambition_sim_view` is the observation boundary. Presentation and headless
-  consumers read stable facts rather than mutating simulation internals.
-* `ambition_runtime` owns headless-safe composition and global ordering;
-  `ambition_host` owns window/device/presentation composition. Provider lifecycle
-  and the programmatic simulation harness are accepted extraction seams.
-* Game providers own named content through catalogs, registrations, and
-  presentation plugins. Reusable engine crates do not own a flagship roster.
-* `ambition_portal` and `ambition_portal_presentation` remain the exemplar split
-  between simulation semantics and presentation.
+* **One body, one path.** Player, enemy, boss, NPC, possessed body, and RL body
+  differ by data, capabilities, and controller—not by parallel movement/combat
+  engines.
+* **Providers own names.** Worlds, characters, dialogue, art, audio, encounters,
+  quests, and game rules live above reusable engine crates.
+* **Simulation owns outcomes.** Presentation consumes read models and semantic
+  effects and can disappear in a headless composition.
+* **Construction is transactional.** Provider/world content is prepared and
+  validated before one lifecycle-scoped session or room commit.
+* **Stable identity is authored.** Bevy `Entity` values are allocator handles,
+  not persisted/provider identity.
+* **The engine is executable without Ambition.** Demo providers are acceptance
+  tests for reusable capability and clean dependency direction.
 
-The target crate stack, including crates that may not be fully carved out yet,
-is documented in [`docs/planning/engine/architecture.md`](docs/planning/engine/architecture.md).
+Use the generated index for the current package map instead of this README:
+
+```bash
+python scripts/agent_query.py overview
+python scripts/agent_query.py crate <likely-owner>
+python scripts/agent_query.py "<task words>"
+```
+
+Active architecture direction lives in
+[`docs/planning/engine/architecture.md`](docs/planning/engine/architecture.md).
 
 
 ## Developer setup
@@ -225,28 +204,33 @@ for current details.
 
 ## Common validation
 
-Prefer the narrowest validation that covers the touched subsystem. Common
-anchors:
+Use the repository test runner as the canonical headless front door:
 
 ```bash
-cargo fmt --check
-cargo test -p ambition_engine_core
-cargo test -p ambition_actors --lib
-cargo test -p ambition_content --all-features
-cargo test -p ambition_app
-cargo run -p ambition_app --bin headless -- 30
-python scripts/check_doc_links.py
+./run_tests.sh --list
+./run_tests.sh -p <owning-package> -k <test-substring>
+./run_tests.sh
 ```
 
-The standing gate changes as the plan advances. Check
-[`docs/planning/tracks.md`](docs/planning/tracks.md) before broad work.
-
-When moving docs, tests, or code symbols, regenerate navigation indexes:
+Localize the narrowest tests before running broad suites:
 
 ```bash
+python scripts/agent_query.py tests "<invariant>"
+python scripts/agent_query.py ecs "<resource, message, or system>"
+```
+
+Useful non-Rust checks and runtime probes:
+
+```bash
+python scripts/check_doc_links.py
 python scripts/generate_agent_index.py
-python scripts/check_doc_links.py
+cargo run -p ambition_app --bin headless -- 30
 ```
+
+Formatting is advisory rather than an acceptance gate. Test authoritative
+invariants and the real headless composition; reserve visible smoke tests for
+presentation feel.
+
 
 ## Documentation discipline
 

@@ -953,7 +953,7 @@ fn main() {
 }
 ```
 
-Read [`../systems/two-clock-simulation.md`](../systems/two-clock-simulation.md) before changing Ambition's simulation scheduling.
+Read [`../concepts/input-and-game-modes.md`](../concepts/input-and-game-modes.md) before changing Ambition's simulation scheduling.
 
 ## 23. Separate input sampling from deterministic control
 
@@ -1924,13 +1924,13 @@ Then run the smallest provider or shared-host integration test that observes the
 
 Concepts and systems:
 
-- [`../systems/architecture.md`](../systems/architecture.md)
+- [`../concepts/engine-mental-model.md`](../concepts/engine-mental-model.md)
 - [`../concepts/bevy-native-data-driven-ecs.md`](../concepts/bevy-native-data-driven-ecs.md)
 - [`../concepts/sim-presentation-seam.md`](../concepts/sim-presentation-seam.md)
 - [`../concepts/input-and-game-modes.md`](../concepts/input-and-game-modes.md)
 - [`../concepts/asset-management.md`](../concepts/asset-management.md)
 - [`../concepts/testing-and-validation.md`](../concepts/testing-and-validation.md)
-- [`../systems/two-clock-simulation.md`](../systems/two-clock-simulation.md)
+- [`../concepts/input-and-game-modes.md`](../concepts/input-and-game-modes.md)
 - [`../adr/0002-engine-must-be-bevy-native.md`](../adr/0002-engine-must-be-bevy-native.md)
 - [`../adr/0012-sim-presentation-split-and-events-refactor.md`](../adr/0012-sim-presentation-split-and-events-refactor.md)
 - [`../adr/0019-pluginized-platformer-runtime.md`](../adr/0019-pluginized-platformer-runtime.md)

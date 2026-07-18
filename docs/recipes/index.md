@@ -1,31 +1,47 @@
-# Recipe docs index
+---
+status: current
+last_verified: 2026-07-18
+---
 
-Recipes are current procedures: commands, workflows, or repeatable edit protocols an agent can use today. Landed migrations, one-off roadmaps, and design labs belong in `docs/archive/`, `docs/brainstorms/`, `docs/planning/`, `dev/journals/`, or git history.
+# Recipes
 
-## Build and platform workflows
+Recipes are copy-pasteable procedures for the current repository. They should
+name a supported front door, state what is mutated, and finish with validation.
+When a command changes, update or delete the recipe in the same patch.
 
-| Workflow | Doc |
-|---|---|
-| Web / wasm build | `web-build.md` |
-| Manual browser audio testing | `web-audio-manual-test.md` |
-| Android build / sideload | `android-build.md` |
-| Profiling | `profiling.md` |
+## Start here
 
-## Content and tools workflows
+- [`fresh-agent-navigation.md`](fresh-agent-navigation.md) — localize a task with
+  `.agent` without loading the repository into context.
+- [`headless-room-verification.md`](headless-room-verification.md) — prove a
+  gameplay/world change through the real headless composition.
+- [`ldtk-authoring.md`](ldtk-authoring.md) — safe world edits and tool-assisted
+  spatial authoring.
 
-| Workflow | Doc |
-|---|---|
-| LDtk authoring | `ldtk-authoring.md` |
-| Add a showcase room | `add-showcase-room.md` |
-| Mob lab encounter | `goblin-encounter.md` |
-| Generated music | `generated-music-workflow.md` |
-| Extending brains and ActionSets | `extending-brains-and-action-sets.md` |
-| Adding a character (catalog-driven) | `adding-a-character.md` |
-| Dialogue authoring (Yarn commands & functions) | `dialogue-authoring.md` |
-| Headless room verification (render + anomaly report) | `headless-room-verification.md` |
-| Fresh-agent repository navigation | `fresh-agent-navigation.md` |
+## Content authoring
 
-## Planning moved out of recipes
+- [`adding-a-character.md`](adding-a-character.md)
+- [`dialogue-authoring.md`](dialogue-authoring.md)
+- [`extending-brains-and-action-sets.md`](extending-brains-and-action-sets.md)
+- [`add-showcase-room.md`](add-showcase-room.md)
+- [`goblin-encounter.md`](goblin-encounter.md)
+- [`generated-music-workflow.md`](generated-music-workflow.md)
 
-- Android power/thermal planning: `../planning/android-power.md`
-- Refactor candidates: `../planning/refactor-candidates.md`
+## Platform and diagnostics
+
+- [`android-build.md`](android-build.md)
+- [`web-build.md`](web-build.md)
+- [`web-audio-manual-test.md`](web-audio-manual-test.md)
+- [`profiling.md`](profiling.md)
+
+## Recipe quality rule
+
+Before following an old exact path, localize the current owner:
+
+```bash
+python scripts/agent_query.py "<task words>"
+python scripts/agent_query.py tests "<expected behavior>"
+```
+
+Use `./run_tests.sh` as the test front door. Use source/CLI `--help` as the
+command authority when prose and code disagree.

@@ -1,33 +1,62 @@
+---
+status: current
+last_verified: 2026-07-18
+related_docs:
+  - docs/systems/ldtk-world-composition.md
+  - docs/systems/portals.md
+---
+
 # Transition spawn validation
 
-Room transitions now treat authored arrival positions as intent, not as trusted
-coordinates. When a loading zone switches rooms, the sandbox calls
-`rooms::validated_spawn()` before constructing the new player state.
+Room/session transitions must prove a safe arrival before replacing the current
+world. Arrival validation is a world/construction contract, not a late player
+repair system.
 
-The validator:
+## Flow
 
-1. clamps the target center inside the destination room bounds;
-2. checks the player body against solids, blink walls, one-way platforms,
-   hazards, and rebound pads;
-3. searches upward first, then sideways, for the nearest clear position;
-4. emits room-layout warnings at startup when an authored transition would need
-   repair.
+```text
+loading-zone or transition request
+    -> resolve stable destination room/zone/anchor
+    -> build/validate candidate construction plan
+    -> lower destination geometry and spawn records
+    -> compute body-specific safe arrival
+    -> commit new scope atomically
+    -> publish transition/read-model effects
+```
 
-This is meant to prevent the common iteration bugs we saw while moving doors:
-spawning partly inside the floor, spawning outside a vertical room, immediately
-falling or snapping to geometry, and feeling briefly frozen after a transition.
+The old session/room remains authoritative until the replacement can commit.
+Failure reports a deterministic diagnostic and leaves the current world intact.
 
-## Authoring convention
+## Validation inputs
 
-- Edge exits should spawn just inside the corresponding edge opening in the
-  target room.
-- Door exits should spawn at the corresponding door footprint, with the
-  validator ensuring the player stands just outside collision.
-- If a warning says a transition repairs its arrival by a large amount, the room
-  data should be cleaned up. The validator is a safety net, not a substitute for
-  clear room layout.
+Safe arrival may depend on:
 
-Longer-term, loading zones should use symbolic links such as
-`target_zone_name = "hub_to_shaft"` rather than storing raw target coordinates.
-Then the destination spawn can be derived entirely from the paired zone and its
-entry direction.
+- destination zone/anchor and authored facing/orientation;
+- actor body shape/mode and gravity frame;
+- static and dynamic collision planned for the new scope;
+- one-way/hazard/portal semantics;
+- provider policy for fallback candidate generation.
+
+Do not validate against renderer bounds, a partially spawned destination, or a
+hard-coded player capsule.
+
+## Invariants
+
+- Every transition target resolves by stable ID.
+- Missing/ambiguous destinations fail during provider/world validation where
+  possible.
+- Candidate ordering and final placement are deterministic.
+- Arrival is valid for the actual transitioning body.
+- Commit/cleanup is atomic and lifecycle-scoped.
+- Symbolic target-zone arrivals and direct anchors use one validation mechanism.
+- Headless tests cover failure as well as success.
+
+## Validation
+
+```bash
+python scripts/agent_query.py "transition spawn validation arrival"
+python scripts/agent_query.py tests "loading zone safe arrival"
+./run_tests.sh -k transition
+./run_tests.sh -k spawn_validation
+./run_tests.sh -k room_spatial_integrity
+```

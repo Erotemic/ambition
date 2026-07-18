@@ -3,7 +3,7 @@
 //! beyond a per-file allowlist — use `SpawnScopedExt` lifecycle helpers instead.
 //! The allowlist (path=count) is `docs/architecture/architecture-boundary-allowlist.txt`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::model::{CustomMeta, Diagnostic, Report, Scope, Severity};
 use crate::workspace::{self, Workspace};
@@ -33,7 +33,12 @@ fn read_allowlist(ws: &Workspace) -> BTreeMap<String, usize> {
             .trim()
             .parse::<usize>()
             .unwrap_or_else(|_| panic!("{}:{} expected integer count", ALLOWLIST, idx + 1));
-        out.insert(rel.trim().to_string(), count);
+        let rel = rel.trim().to_string();
+        assert!(
+            out.insert(rel.clone(), count).is_none(),
+            "{ALLOWLIST}:{} duplicate path {rel}",
+            idx + 1
+        );
     }
     out
 }
@@ -59,6 +64,7 @@ pub fn run(ws: &Workspace, report: &mut Report) {
     let allowlist = read_allowlist(ws);
     let src_root = ws.abs(CRATE_SRC);
     let mut scanned = 0usize;
+    let mut seen = BTreeSet::new();
 
     for file in workspace::rust_sources_under(&spawn_dir) {
         let name = file
@@ -75,20 +81,39 @@ pub fn run(ws: &Workspace, report: &mut Report) {
             .expect("spawn file under crate src")
             .to_string_lossy()
             .replace('\\', "/");
+        seen.insert(rel.clone());
         let actual = raw_spawn_count(&text);
-        let allowed = *allowlist.get(&rel).unwrap_or(&0);
-        if actual > allowed {
-            report.push(Diagnostic {
+        match allowlist.get(&rel) {
+            None => report.push(Diagnostic {
                 policy_id: POLICY_ID.to_string(),
                 owners: vec!["ambition_actors".to_string()],
                 source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
-                rationale: "room-authored spawn modules must not add raw commands.spawn sites; use SpawnScopedExt lifecycle helpers or update the allowlist with justification".to_string(),
+                rationale: "the room-feature raw-spawn allowlist is an exact inventory; every scanned spawn module must be reviewed explicitly".to_string(),
+                location: format!("{CRATE_SRC}/{rel}"),
+                detail: format!("missing exact inventory row in {ALLOWLIST}; current raw commands.spawn count is {actual}"),
+            }),
+            Some(allowed) if actual != *allowed => report.push(Diagnostic {
+                policy_id: POLICY_ID.to_string(),
+                owners: vec!["ambition_actors".to_string()],
+                source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
+                rationale: "room-authored spawn modules must use scoped construction helpers, and the reviewed raw-spawn inventory must not retain excess allowance".to_string(),
                 location: format!("{CRATE_SRC}/{rel}"),
                 detail: format!(
-                    "{actual} raw commands.spawn calls; allowed {allowed} (update {ALLOWLIST} with justification)"
+                    "{actual} raw commands.spawn calls; exact reviewed count is {allowed} (update code or {ALLOWLIST} with justification)"
                 ),
-            });
+            }),
+            Some(_) => {}
         }
+    }
+    for stale in allowlist.keys().filter(|rel| !seen.contains(*rel)) {
+        report.push(Diagnostic {
+            policy_id: POLICY_ID.to_string(),
+            owners: vec!["ambition_actors".to_string()],
+            source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
+            rationale: "the room-feature raw-spawn allowlist is an exact inventory and may not retain rows for removed or renamed files".to_string(),
+            location: ALLOWLIST.to_string(),
+            detail: format!("stale inventory row for missing or unscanned file: {stale}"),
+        });
     }
     assert!(
         scanned > 0,

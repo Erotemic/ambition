@@ -1,36 +1,46 @@
+---
+status: current
+last_verified: 2026-07-18
+---
+
 # Add a showcase room
 
-Use this when adding a small LDtk room that demonstrates one mechanic or content slice. Do not hand-edit LDtk JSON.
+A showcase room is a small provider-owned LDtk level that demonstrates one
+mechanic through real runtime composition. Keep it intentionally narrow so it
+can become a durable acceptance fixture rather than an unmaintained demo.
 
 ## Workflow
 
-1. Pick an existing spec under `tools/ambition_ldtk_tools/specs/` as a starting point.
-2. Copy it to a new descriptive spec name under the same directory.
-3. Run a dry run.
-4. Apply the spec.
-5. Repair/roundtrip/validate the LDtk file.
-6. Run a focused gameplay test or visible smoke pass.
+1. State the mechanic invariant the room demonstrates.
+2. Find a nearby spec and the current entity/world contracts.
+3. Create a new spec under `tools/ambition_ldtk_tools/specs/`.
+4. Dry-run, inspect, then apply with a backup.
+5. Validate the map and render geometry headlessly.
+6. Add or update a focused integration test that enters the room through normal
+   provider/session loading.
 
 ```bash
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
-  tools/ambition_ldtk_tools/specs/<new_area>.yaml \
-  --dry-run
+python scripts/agent_query.py "<mechanic> LDtk room"
+SPEC=tools/ambition_ldtk_tools/specs/<showcase>.yaml
 
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
-  tools/ambition_ldtk_tools/specs/<new_area>.yaml \
-  --apply
+PYTHONPATH=tools/ambition_ldtk_tools \
+  python -m ambition_ldtk_tools.area_authoring "$SPEC" --dry-run
+PYTHONPATH=tools/ambition_ldtk_tools \
+  python -m ambition_ldtk_tools.area_authoring "$SPEC" --backup
 
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
-  game/ambition_content/assets/worlds/sandbox.ldtk
+WORLD=game/ambition_content/assets/worlds/sandbox.ldtk
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor "$WORLD"
+cargo run -p ambition_actors --example render_room_geometry -- <ROOM_ID>
+python scripts/agent_query.py tests "<mechanic> <ROOM_ID>"
+./run_tests.sh -k <focused_test_substring>
 ```
 
 ## Review checklist
 
-- The room has a clear mechanic purpose.
-- Loading zones have safe arrivals.
-- Collision uses IntGrid cells for static solids/hazards.
-- Dynamic hazards use entities only when they need entity-only data.
-- Rewards or progression flags use stable IDs.
-- The map diff is inspectable after repair/roundtrip.
-
-Related docs: `docs/recipes/ldtk-authoring.md`, `docs/tools/ldtk-tools.md`.
+- The level has one clear purpose and a stable ID.
+- Entry/exit zones have reciprocal links and safe arrivals.
+- Static geometry uses IntGrid; dynamic authored behavior uses entities.
+- The test observes simulation/read-model state, not pixel color or incidental
+  tuning.
+- The room contains no engine-default named content; it belongs to the provider.
+- The mechanic is exercised through the same body/action path used elsewhere.

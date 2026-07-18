@@ -1,11 +1,8 @@
-# Architecture guardrail allowlist.
+# Exact raw commands.spawn inventory for room-feature spawn modules.
 #
-# Format: source-relative-path=max_raw_commands_spawn_count
+# Format: source-relative-path=exact_raw_commands_spawn_count
 #
-# These are known legacy raw spawn sites in room-feature spawn modules. New
-# room-authored spawns should use platformer_runtime lifecycle helpers instead
-# of increasing these counts.
-features/ecs/spawn.rs=0
-features/ecs/spawn_actors.rs=3
-features/ecs/spawn_mounts.rs=0
+# Every scanned features/ecs/spawn*.rs file must appear exactly once. Dead,
+# missing, duplicate, or over-allowing rows fail the workspace policy suite.
+features/ecs/spawn_actors.rs=0
 features/ecs/spawn_static.rs=0

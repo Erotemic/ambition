@@ -1,6 +1,6 @@
 //! Universal brain interface.
 //!
-//! See `brain/README.md`, `docs/systems/brain-driver.md`, and
+//! See `brain/README.md`, `docs/systems/actors-brains-and-character-content.md`, and
 //! `docs/recipes/extending-brains-and-action-sets.md` for the full navigation map
 //! and extension recipe.
 //!

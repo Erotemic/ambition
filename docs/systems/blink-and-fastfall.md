@@ -1,84 +1,59 @@
-# Blink and Fast-Fall Notes
+---
+status: current
+last_verified: 2026-07-18
+related_docs:
+  - docs/mechanics/blink.md
+  - docs/systems/blink-motion-policy.md
+---
 
-This is a draft mechanics note for the endgame sandbox.
+# Blink and fast-fall
 
-## Blink
+Blink and fast-fall are actor capabilities composed with the shared body/action
+pipeline. They are useful reference mechanics because they exercise semantic
+input, gravity-relative movement, time/control affordances, collision queries,
+body state, and presentation without requiring a player-only implementation.
 
-Blink is now treated as a first-class special movement verb.
+## Blink flow
 
-There are two modes:
+```text
+semantic action
+    -> ActorActionScheme/shared resolver
+    -> blink capability gate and resource/cooldown policy
+    -> gravity-relative direction and path policy
+    -> deterministic safe-placement search
+    -> atomic body relocation
+    -> semantic outcome for read models/VFX/SFX
+```
 
-- **Quick blink**: tap/release the blink button to blink a short distance along the current input direction, or facing direction if neutral.
-- **Precision blink**: hold the blink button past the short ~0.1s threshold to enter bullet-time, steer a fine-grained blink cursor, and release to blink to that target.
+Precision aim may use `InputState::control_dt` so a human can steer while the
+simulation is slowed. This is an input affordance, not a second body tick or a
+presentation-owned time scale.
 
-The precision blink target is controlled by accumulating the current input direction while the button is held. This is deliberately different from the first pass, where the destination was just a fixed-length ray. The new version should support much finer placement with keyboard controls.
+## Fast-fall flow
 
-## Bullet-time ramp
+Fast-fall is a body/movement request expressed along local gravity. The shared
+movement kernel decides whether the body is airborne, whether the capability is
+available, and how the request modifies velocity/limits. It must not be a direct
+world-Y velocity edit in device-input code.
 
-Precision blink should feel like the world is bending around the player, not like the simulation instantly flips into slow motion. The sandbox therefore ramps a time-scale value toward the blink-aim scale instead of jumping there immediately.
+## Invariants
 
-Current conceptual scales:
+- Both mechanics work for any capable actor/controller.
+- Gravity rotation transforms direction and collision consistently.
+- Blink success cannot leave a body penetrating geometry; rejection is atomic.
+- Fast-fall never bypasses body mode, contact, or velocity policy.
+- Cooldowns/resources/locks are authoritative simulation data.
+- Presentation consumes committed outcomes and can be absent headlessly.
+- Reset/snapshot/replay reconstructs active state without stale effects.
 
-- normal: `1.0`
-- early blink hold: about `0.08`
-- precision aim bullet-time: about `0.10` (slow enough to aim, fast enough to remain readable after the two-clock fix)
-- debug slow motion: about `0.25`
+## Validation
 
-These are presentation-layer values in the Bevy sandbox. The engine still receives a timestep and remains testable without Bevy.
+```bash
+python scripts/agent_query.py "blink fast fall control_dt"
+python scripts/agent_query.py tests "blink gravity penetration"
+./run_tests.sh -k blink
+./run_tests.sh -k fast_fall
+```
 
-## Blink-through walls
-
-The engine now has blink wall tiers:
-
-- `BlinkWallTier::Soft`
-- `BlinkWallTier::Hard`
-
-Blink walls are solid to normal movement. A blink path may cross them only if the player has the matching blink-through ability. In the current sandbox, the player has both soft and hard blink-through upgrades, so every interior blink-wall can be crossed. The outer room boundaries and the central needle pillar remain normal Solid blocks, so blink cannot cross them. The destination must still be open space; the engine should never place the player inside a wall.
-
-Normal `Solid` blocks remain absolute blink blockers.
-
-## Fast-fall
-
-Fast-fall is no longer triggered merely by holding down. That made down+attack/pogo feel bad. Instead, the Bevy input layer recognizes a **double-tap down** gesture and sends an explicit `fast_fall_pressed` event to the engine.
-
-Once triggered, fast-fall persists until the player lands.
-
-This keeps these inputs distinct:
-
-- `Down + Attack` = pogo / downward attack intent
-- `Down, Down` = fast-fall intent
-
-## Bullet-time timestep bug fix
-
-Precision blink bullet-time must use the same scaled timestep for the player as for visible time-reference objects.
-
-A bug in the first moving-platform pass made the platform freeze while the player continued to fall quickly. The root cause was in the engine's combined player tick (now the kernel's `ae::step_motion` simulation phase): tiny positive timesteps were clamped upward to `1/240s`. That was safe for normal framerate spikes, but wrong for intentional near-zero bullet-time. The engine now only caps large timesteps and preserves tiny timesteps, so gravity and movement slow with the platform.
-
-Regression coverage: `tiny_dt_preserves_bullet_time_scale` checks that a very small timestep produces proportionally small gravity instead of being rounded up to normal simulation speed.
-
-Current tuning: quick-to-precision transition threshold is about `0.1s`.
-
-## Real-time precision cursor
-
-Precision blink aim now uses unscaled control time. The player, enemies,
-particles, and moving platform can run in near-frozen game time while the blink
-cursor still moves as a responsive input/UI control. This keeps bullet time
-slow enough to read while avoiding a cursor that crawls across the screen.
-
-When a hard blocker prevents the requested blink, the debug overlay now shows
-both the raw desired cursor and the safe resolved destination. The resolved
-magenta box is where the player will actually land; the red box/line indicates
-where the requested target was blocked.
-
-
-## Moving platforms and blink pathing
-
-The sandbox moving platform is intentionally solid for normal movement, so the
-player can collide with it and ride it. For blink pathing it is represented as a
-soft blink wall rather than a hard solid. This means an upgraded blink can pass
-through the moving platform, while the platform remains a real collision surface
-for walking, jumping, and wall-style contact tests.
-
-The debug blink preview must use the same temporary collision world as the actual
-player update. Otherwise the preview and the release-time blink resolution can
-disagree about sandbox-only geometry.
+Prefer covariance, non-penetration, rejection-idempotence, and controller
+symmetry tests over exact current tuning values.

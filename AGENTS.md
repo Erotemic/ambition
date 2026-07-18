@@ -15,12 +15,13 @@ This is the repository operating guide for coding agents. Keep it short, session
 
 For non-trivial work, read and localize in this order:
 
-1. `README.md`, `AGENTS.md`, and `.agent/README.md` when present.
+1. `README.md`, `AGENTS.md`, `.agent/README.md`, and `docs/README.md`.
 2. Run `python scripts/agent_query.py "<task words>"` before broad source search.
-3. `docs/planning/README.md` → `docs/planning/vision.md` + `docs/planning/tracks.md` (the master plan + live queue).
-4. The likely crate's generated packet and `MODULES.md`.
-5. One focused concept, system doc, recipe, tool doc, or planning doc.
-6. Search `dev/journals` and `dev/benchmark-candidates` for the symptom or invariant.
+3. Read `docs/concepts/engine-mental-model.md` for the durable ownership/data-flow picture.
+4. Read `docs/planning/vision.md` plus the relevant entry in `docs/planning/tracks.md`.
+5. Inspect the likely crate's generated packet and `MODULES.md`.
+6. Read one focused concept, system doc, recipe, tool doc, or ADR.
+7. Search `dev/journals` and `dev/benchmark-candidates` for the symptom or invariant.
 
 Do not read all of `docs/`, `dev/`, or a multi-megabyte flat index by default.
 See `docs/recipes/fresh-agent-navigation.md` for the drill-down protocol.

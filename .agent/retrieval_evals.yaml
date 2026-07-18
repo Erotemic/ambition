@@ -26,7 +26,7 @@ evals:
     expected_docs:
       - docs/recipes/web-build.md
       - docs/recipes/android-build.md
-      - docs/systems/mobile-touch-controls.md
+      - docs/systems/input-control-and-ui.md
       - docs/systems/asset-manager.md
       - docs/tools/index.md
     expected_answer_contains:

@@ -1,60 +1,58 @@
-# Dialogue authoring — Yarn commands & functions
+---
+status: current
+last_verified: 2026-07-18
+related_docs:
+  - docs/concepts/content-and-provider-boundaries.md
+  - docs/systems/actors-brains-and-character-content.md
+---
 
-What authored `.yarn` content can invoke at runtime. This is the
-author-facing companion to [ADR 0008](../adr/0008-dialogue-and-commerce-architecture.md);
-the implementation (and the single source of truth) is
-[`crates/ambition_actors/src/dialog/yarn_bindings.rs`](../../crates/ambition_actors/src/dialog/yarn_bindings.rs).
-Keep this table in sync when you add or change a binding.
+# Dialogue authoring
 
-`.yarn` files live under `crates/ambition_actors/assets/dialogue/`.
-The `kernel.yarn` "test menu" exercises most of these verbs live, so
-it doubles as a worked example.
+Dialogue text, node names, speaker identities, voice mappings, and game-specific
+commands are provider content. The reusable dialogue domain owns runtime state,
+command interfaces, input/navigation, and presentation-neutral events.
 
-## Commands — `<<verb args>>`
+## Find the current provider surface
 
-Commands *drive* gameplay. Each maps to a Bevy system that writes a
-typed message channel (or mutates a resource).
+```bash
+python scripts/agent_query.py "dialogue Yarn provider command"
+python scripts/agent_query.py tests "dialogue lint yarn compile"
+```
 
-| Command | Args | Effect | Status |
-|---|---|---|---|
-| `set_flag` | `"id"` | Set a save flag to `true` (via `SetFlagRequested`; quest-advance + save-mirror consumers see it). | Live |
-| `clear_flag` | `"id"` | Set a save flag to `false`. | Live |
-| `give_item` | `"kind" count` | Add `count` of the item to the live `PlayerInventory`. `kind` is loose (`HealthPotion` / `health_potion` / `health potion`); unknown kind or non-positive count is logged + ignored. | Live |
-| `play_sfx` | `"id"` | Play a sound effect by id (`SfxMessage`). | Live |
-| `spawn_fireworks` | — | Celebratory VFX burst at the player. | Live |
-| `reset_cut_rope_room` | — | Replay the Smirking Behemoth "cut the rope" room (latched until the dialogue closes). | Live |
-| `watch_cut_rope_video` | — | Sets a flag now; the optional desktop browser-launch is a TODO. | Partial |
-| `camera_zoom` | `factor` | Cinematic zoom. **Logged stub** — needs a camera-composition seam (see TODO "kernel dialog tree"). | Stub |
-| `spawn_chest` | `"id"` | Spawn a reward chest. **Logged stub** — chest spawns are room/encounter-spec driven today; needs a position/contents decision. | Stub |
+Ambition's Yarn sources currently live under:
 
-## Functions — `<<if fn(args)>>`
+```text
+game/ambition_content/assets/dialogue/
+```
 
-Functions *read* gameplay. They are synchronous pure functions (they
-cannot be Bevy systems), so they read a per-frame `YarnStateMirror`
-snapshot refreshed by `refresh_yarn_state_mirror`. All are live.
+Use stable node/dialogue IDs that match the provider's character/interactable
+references. Do not add a second RON dialogue graph or put named dialogue in a
+reusable crate.
 
-| Function | Returns | Reads |
-|---|---|---|
-| `flag("id")` | bool | Save flag on/off. |
-| `boss_cleared("id")` | bool | Whether the boss encounter `id` is in `Cleared` state. |
-| `quest_active("id")` | bool | Whether quest `id` is `InProgress`. |
-| `visit_count("id")` | number (f32) | How many times the named dialogue node has been entered. |
-| `inventory_has("item")` | bool | Whether the player holds ≥1 of `item` (live `PlayerInventory`; loose item-id spelling). |
-| `cut_rope_heavy_object_is("id")` | bool | Whether the runtime-selected cut-rope heavy object matches `id` (`anvil` / `piano` / …). |
+## Edit loop
 
-## Markup cues — inline
+1. Edit the smallest `.yarn` file in the owning provider.
+2. Keep command names/arity aligned with the registered bridge.
+3. Keep actor-targeting explicit; a command acting on “the current NPC” must use
+   the runtime's established dialogue subject/context.
+4. Register/update provider voiceprint/SFX mappings when needed.
+5. Run static lint and Yarn compile tests before a visible smoke test.
 
-| Markup | Effect |
-|---|---|
-| `[shout]LINE[/shout]` | Flags the line for camera-shake / louder-voice presentation consumers. |
-| `[whisper]LINE[/whisper]` | Flags the line for pitch/volume-drop presentation consumers. |
+```bash
+./run_tests.sh -p ambition_content -k dialogue
+./run_tests.sh -p ambition_content -k yarn
+./run_tests.sh -p ambition_dialog
+```
 
-## Adding a binding
+## Durable authoring rules
 
-1. Add a `cmd_*` system (command) or an `add_function` closure
-   (function) in `yarn_bindings.rs`, register it in
-   `register_commands` / `register_functions`.
-2. A function that reads game state needs a slice on
-   `YarnStateMirrorData` + a line in `refresh_yarn_state_mirror`
-   (see how `inventory_has` mirrors `PlayerInventory`).
-3. Update this table.
+- Dialogue progression authority lives in the dialogue runner, not the UI text
+  widget.
+- Commands emit typed domain requests/facts; they do not reach into renderer
+  internals.
+- Character IDs, quest flags, item IDs, and room IDs are stable provider IDs.
+- UI navigation consumes the shared menu-control frame.
+- Closing/interruption/reset leaves no stale actor focus, menu mode, audio cue,
+  or pending command.
+- A headless test can start, advance, choose, and complete dialogue without a
+  window or audio device.

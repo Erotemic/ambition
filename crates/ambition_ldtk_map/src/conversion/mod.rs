@@ -50,7 +50,7 @@ impl LdtkProject {
 
     /// Convert a SELF-CONTAINED project — a game crate's own embedded world
     /// file (a demo's standalone level). No global-manifest read: play starts
-    /// in the caller's `entry_room` and no manifest-registered RON rooms are
+    /// in the caller's `entry_room` and no manifest-registered auxiliary rooms are
     /// appended, so the conversion works in processes that never install the
     /// engine's world manifest.
     pub fn to_room_set_with_entry(&self, entry_room: &str) -> Result<RoomSet, Vec<String>> {

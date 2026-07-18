@@ -32,7 +32,7 @@
 //!
 //! Hosts register providers EXPLICITLY — a manifest dependency plus the
 //! provider's plugin in the host's plugin tuple (the documented two-line
-//! exception in `docs/planning/architecture.md`). There is no provider
+//! exception in `docs/planning/engine/architecture.md`). There is no provider
 //! discovery mechanism, and none should be added.
 //!
 //! [`PlatformerSessionWorld`]: ambition_runtime::PlatformerSessionWorld

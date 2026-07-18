@@ -4,7 +4,7 @@
 **Duration:** ~3.5 h wall-clock for plan (1.10 h) + bonus follow-ups (2.4 h)
 **Plan doc:** [`TODO-character-catalog-and-hall.md`](../../docs/archive/TODO-character-catalog-and-hall.md)
 **ADR:** [`docs/adr/0017-rust-behavior-ron-content-ldtk-space.md`](../../docs/adr/0017-rust-behavior-ron-content-ldtk-space.md)
-**System doc:** [`docs/systems/character-catalog.md`](../../docs/systems/character-catalog.md)
+**System doc:** [`docs/systems/character-catalog.md`](../../docs/systems/actors-brains-and-character-content.md)
 **Final state:** 100% Hall sprite coverage (97/97), 0 sandbox.ldtk validator warnings (down from 185), 3 intentional intro.ldtk warnings.
 
 ## What landed
@@ -112,7 +112,7 @@ the first artifact to surface the divergence. Of 97 catalog entries,
     bare name but the renderer expects via `draw-factions`.
   - 1 is `weird_hermit` (filename + schema both diverge).
 
-Documented in [`docs/systems/sprite-rendering-surface.md`](../../docs/systems/sprite-rendering-surface.md)
+Documented in [`docs/systems/sprite-rendering-surface.md`](../../docs/tools/generated-visual-tools.md)
 with four ranked follow-ups.
 
 ### 5. Estimates pad for risks that don't materialize
@@ -196,6 +196,6 @@ State at 2026-05-24, second half checkpoint:
 
 - [`TODO-character-catalog-and-hall.md`](../../docs/archive/TODO-character-catalog-and-hall.md) — the run's plan + progress table.
 - [`docs/adr/0017-rust-behavior-ron-content-ldtk-space.md`](../../docs/adr/0017-rust-behavior-ron-content-ldtk-space.md) — codified architectural posture.
-- [`docs/systems/character-catalog.md`](../../docs/systems/character-catalog.md) — live system overview.
-- [`docs/systems/sprite-rendering-surface.md`](../../docs/systems/sprite-rendering-surface.md) — renderer-side divergence + cleanup plan.
+- [`docs/systems/character-catalog.md`](../../docs/systems/actors-brains-and-character-content.md) — live system overview.
+- [`docs/systems/sprite-rendering-surface.md`](../../docs/tools/generated-visual-tools.md) — renderer-side divergence + cleanup plan.
 - [`docs/recipes/adding-a-character.md`](../../docs/recipes/adding-a-character.md) — author-facing how-to.

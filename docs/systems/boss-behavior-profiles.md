@@ -1,75 +1,59 @@
+---
+status: current
+last_verified: 2026-07-18
+related_docs:
+  - docs/systems/boss-encounter-architecture.md
+  - docs/systems/actors-brains-and-character-content.md
+---
+
 # Boss behavior profiles
 
-Bosses should scale by adding authored profiles, not by growing named branches in
-runtime systems.
+A boss is an ordinary actor body plus provider-authored identity, capabilities,
+brain/action policy, phase data, and presentation. “Boss” must not create a
+second combat or movement engine.
 
-A boss profile owns the full content-facing bundle for a fight:
+## Ownership
 
-- encounter progression (`BossEncounterSpec`)
-- sandbox movement/contact behavior (`BossBehaviorProfile`)
-- attack hitbox vocabulary and timing
-- music ids
-- death reward behavior
+- Provider content owns named boss profiles, phase/seed data, encounter bindings,
+  sprites, dialogue, audio, and rewards.
+- Character/brain domains own reusable decision/state-machine vocabulary.
+- Action schemes and move playback translate decisions into shared actor actions.
+- Movement/combat/projectile/world domains execute authoritative effects.
+- Presentation maps semantic state/effects to animation, VFX, SFX, and camera.
 
-The engine encounter state machine remains responsible for deterministic phase
-progression and HP thresholds. The sandbox profile layer decides how a live
-`BossRuntime` actually moves, damages the player, and pays out rewards.
+Current Ambition profile data lives under
+`game/ambition_content/assets/data/`. Use `agent_query.py` to locate the current
+schema and registration path rather than copying a field list from prose.
 
-## Current profiles
+## Profile quality
 
-- `clockwork_warden` uses the old gradient-sentinel encounter tuning with a
-  grounded/hovering `AnchorSway` movement profile.
-- `mockingbird` uses a wider `AirSwoop` behavior profile and a data-declared
-  `DropChest` reward.
+A profile should describe reusable dimensions such as:
 
-## Direction
+- phase conditions and deterministic transitions;
+- move/sequence selection and cooldown/resource policy;
+- perception/memory requirements;
+- capability/action-set changes;
+- body/armor/hurtbox policy;
+- provider IDs for presentation and rewards.
 
-Future bosses should add or extend profiles instead of adding more `if boss_id ==
-...` branches. Useful next profile fields include:
+It should not name Rust functions, mutate ECS directly, or duplicate a move's
+hitbox/projectile implementation.
 
-- per-phase movement overrides
-- vulnerability windows
-- attack projectiles / summons
-- arena anchors and hazards
-- cutscene hooks
-- reward chains
+## Invariants
 
-The short-term implementation still uses `BossRuntime` as the live physics-ish
-actor, but the profile now gives us a place to move toward per-boss behavior
-without changing the generic encounter machine.
+- The same boss profile can run headlessly.
+- Move execution uses the same body/combat/action seams as non-boss actors.
+- Phase transitions are deterministic, observable, and snapshot-safe.
+- Encounter reset reconstructs the initial profile/brain/body state.
+- Provider validation rejects unknown IDs and inconsistent phase references
+  before activation.
 
-## Brain→sim seam
+## Validation
 
-As of 2026-05-21 (commit `66c8b0b`), `BossRuntime::update` runs through
-the same `ActorControlFrame` seam every other actor uses:
-
-1. **BRAIN** — `build_control_frame` consults
-   `BossMovementProfile::target` plus the apple-rain dodge layer and a
-   world-bounds clamp to produce a `desired_vel`.
-2. **INTEGRATION** — a uniform `step_kinematic` call with `gravity=0`
-   integrates the velocity against world solids. The bespoke
-   `move_toward_target` + `boss_space_is_free` collision path is
-   deleted. Multi-part bosses still collide against `combat_size`.
-3. **EFFECTS** — `Cycle` / `Scripted` attack-pattern timers and the
-   apple-rain spawn tick run unchanged.
-
-Practical consequence for new profiles: the brain owns "where do I want
-to be this tick" (sway, dodge, chase math, world-bounds clamp); the
-simulation half guarantees collision. Profiles should keep their
-`movement` math velocity-space-friendly (a target the brain converts to
-`desired_vel`) rather than asking for position-space teleports.
-
-See `docs/systems/character-ai-refactor.md` for the parallel enemy
-migration and `crates/ambition_characters/src/actor/control.rs` for the
-shared frame definition.
-
-## Universal-brain integration
-
-Bosses carry `Brain::StateMachine(BossPattern { encounter_id })` plus an `ActionSet`. The brain fills the actor's `ActorControl` frame, `emit_brain_action_messages` resolves concrete requests, and focused sandbox consumers translate boss specials into apple rain, spotlight, hitboxes, VFX/SFX, or other world effects. Use `docs/systems/brain-driver.md` and `docs/recipes/extending-brains-and-action-sets.md` when adding a new boss behavior path.
-
-## Charged fireball test tuning
-
-For rapid boss-battle iteration, charged fireball damage now ramps
-exponentially: tier 0 is 1x, tier 1 is 4x, and tier 2 is 16x. This is intended
-as a playtest accelerator so fully charged shots can quickly push bosses through
-phase transitions while the richer boss system is being built.
+```bash
+python scripts/agent_query.py "boss profile phase MovePlayback"
+python scripts/agent_query.py tests "boss profile validator"
+./run_tests.sh -p ambition_content -k boss
+./run_tests.sh -p ambition_characters -k boss
+./run_tests.sh -k boss
+```

@@ -1,197 +1,95 @@
-# Adding a character
+---
+status: current
+last_verified: 2026-07-18
+related_docs:
+  - docs/systems/actors-brains-and-character-content.md
+  - docs/concepts/content-and-provider-boundaries.md
+---
 
-> Goal: spawnable in the sandbox via LDtk, with a sprite, a brain,
-> and an action set. No Rust changes for the common case.
+# Add a character
 
-## The 60-second path (reuses existing brain + sprite)
+The common case is provider data plus generated/published presentation. Adding a
+character must not require editing core movement/combat code or adding a new
+actor species.
 
-If the new character behaves like an existing one — a Pirate Cove
-goblin variant, a hub NPC with a fresh sprite — the recipe is two
-files:
+## 1. Localize the current contracts
 
-### 1. Add the catalog entry
-
-Edit `crates/ambition_actors/assets/data/character_catalog.ron`.
-Pick a stable `character_id` (snake_case, `npc_` prefix for NPCs).
-Reference an existing brain preset and action-set preset.
-
-```ron
-"npc_dock_inspector": (
-    display_name: "Dock Inspector",
-    spritesheet: "sprites/dock_inspector_spritesheet.png",
-    manifest: "sprites/dock_inspector_spritesheet.ron",
-    tier: MainHall,
-    body_kind: Standard,
-    composition: None,
-    default_brain: "patrol_peaceful",
-    default_action_set: "peaceful",
-    tags: ["hub", "dock"],
-),
+```bash
+python scripts/agent_query.py "character catalog provider sprite brain action set"
+python scripts/agent_query.py tests "character catalog sprite"
 ```
 
-### 2. Place a spawner in LDtk
+The Ambition provider's catalog currently lives at:
 
-In `sandbox.ldtk` (or whichever level), add an `NpcSpawn` entity
-and set its `character_id` field to your new id. That's it — the
-runtime queries the catalog for the brain / action set / display
-name, and the sprite loader finds the spritesheet via the
-catalog's path.
+```text
+game/ambition_content/assets/data/character_catalog.ron
+```
 
-By default the placement uses the character's catalog `default_brain`.
-To give *this instance* a different initial brain, set the optional
-`brain_override` field to a `brain_presets` key (e.g. `stand_still` to
-freeze a wanderer on a Hall pedestal, or `patrol_peaceful` to make a
-fighter-defaulted character pace peacefully). The brain is chosen ONLY
-by this explicit override or the catalog default — never inferred from
-`patrol_radius`, path presence, or hostility. `patrol_radius` only tunes a
-*selected* patrol preset's lane; `patrol_path_id` is a separate movement
-attachment (`ActorMotionPath`), not a brain-build input. Runtime
-gameplay (dialogue) can later switch the brain via `<<use_brain
-"preset">>` / `<<restore_brain>>`; see
-[`docs/systems/character-catalog.md`](../systems/character-catalog.md#npc-brain-authority-explicit-authorable-runtime-switchable).
+The reusable schema, validation, binding, brain, and action-scheme machinery
+lives in focused engine/domain crates. Named characters and defaults remain in
+the provider.
 
-### 3. Generate the sprite (if it's new art)
+## 2. Add provider data
 
-The sprite generator lives in
-`tools/ambition_sprite2d_renderer/`. The shortest path:
+Create a stable provider-owned character ID and select existing data where
+possible:
+
+- display/presentation identity;
+- body/archetype/capability composition;
+- default brain preset;
+- default action-set/action-scheme inputs;
+- sprite target/manifest;
+- dialogue/roster/tags as applicable.
+
+Copy a nearby current entry rather than a snippet from an old document. Run the
+catalog tests immediately; the schema changes faster than this recipe should.
+
+## 3. Create and publish presentation
+
+List registered sprite targets and use the renderer's explicit publish step:
 
 ```bash
 cd tools/ambition_sprite2d_renderer
-python -m ambition_sprite2d_renderer install dock_inspector
+python -m ambition_sprite2d_renderer list
+python -m ambition_sprite2d_renderer canonical <target>
+python -m ambition_sprite2d_renderer sheet <target>
+python -m ambition_sprite2d_renderer publish <target>
 ```
 
-(`install` renders the sheet + writes it under
-`crates/ambition_actors/assets/sprites/`. `regen_sprites.sh` does
-the same in bulk for every registered target.)
+Generator source is authoritative. Review the canonical pose, sheet, idle row,
+anchors, and debug hitbox views before publishing. Runtime files belong in the
+provider asset flow selected by the current target contract.
 
-### 4. Verify
+## 4. Place or register the character
 
-```bash
-~/.cargo/bin/cargo test -p ambition_actors --lib content::character_catalog
-~/.cargo/bin/cargo run -p ambition_app --bin headless -- 100
-```
+Use LDtk tooling/editor to add the relevant spawn entity and set the stable
+character ID. Do not hand-edit LDtk JSON. Per-instance brain overrides should be
+explicit authored fields; geometry or hostility must not silently infer a brain.
 
-The Startup validator flags any catalog inconsistency immediately;
-the headless smoke confirms the new character spawns without panic.
-
-## The longer path (new brain template)
-
-A character that needs a brain none of `StandStill` / `Patrol` /
-`Wanderer` / `MeleeBrute` / `Skirmisher` / `Sniper` / `BossPattern`
-covers needs a Rust patch — but only the brain side. The catalog
-flow above still applies.
-
-See [`docs/recipes/extending-brains-and-action-sets.md`](extending-brains-and-action-sets.md)
-for the full brain-extension recipe. The short version:
-
-1. Add a variant to `StateMachineCfg` in `crates/ambition_characters/src/brain/state_machine/mod.rs` only when the existing templates are not enough.
-2. Add a `tick_<your_brain>` function and dispatch on the enum.
-3. Add a `BrainPreset::<YourBrain>` mirror to
-   `crates/ambition_characters/src/actor/character_catalog/entry.rs`; keep authored catalog data in `crates/ambition_actors/assets/data/character_catalog.ron`.
-4. Extend `brain_from_preset` in `resolver.rs` to construct your
-   variant from the preset.
-5. Register a preset in `character_catalog.ron` (`brain_presets:
-   { "your_brain_tuning": YourBrain(...), ... }`).
-6. Point your character entry at it via `default_brain:
-   "your_brain_tuning"`.
-
-The same shape applies for ActionSet additions (new melee / ranged
-variant).
-
-## The Hall of Characters
-
-The Hall of Characters room (`hall_of_characters` in `sandbox.ldtk`)
-is auto-generated from the catalog by
-`tools/ambition_ldtk_tools/.../generate_hall_of_characters.py`. Re-
-running the generator after your edit places a pedestal + label for
-the new character automatically:
+Regenerate provider-owned derived rooms such as the Hall only through their
+current generator:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools \
-    python -m ambition_ldtk_tools.generate_hall_of_characters
-PYTHONPATH=tools/ambition_ldtk_tools \
-    python -m ambition_ldtk_tools.area_authoring \
-      tools/ambition_ldtk_tools/specs/hall_of_characters_area.ron \
-      --replace-existing
+  python -m ambition_ldtk_tools generate hall-of-characters --help
 ```
 
-Walk into the hall from the hub door (in `central_hub_main` at
-x=1357, y=880) to confirm visually that the sprite is wired in.
+## 5. Validate
 
-## Common authoring pitfalls
+```bash
+./run_tests.sh -p ambition_content -k character
+./run_tests.sh -p ambition_content -k sprite
+./run_tests.sh -p ambition_characters -k catalog
+./run_tests.sh -k hall
+```
 
-**character_id naming.** Use `snake_case` with `npc_` prefix for NPCs,
-no prefix for base characters (`player`, `goblin`, `robot`,
-`sandbag`). Boss ids end in `_boss` for readability
-(`npc_gnu_ton_boss`).
+Then load the authored room through the real headless/provider path. Confirm:
 
-**Sprite path.** The catalog stores `spritesheet: "sprites/<name>_spritesheet.png"`
-— the `sprites/` prefix is part of the path. The loader strips it
-when registering with the asset manifest.
+- the stable ID resolves exactly once;
+- brain and action scheme are derived from the selected live authorities;
+- sprite/prompt/dialogue are derived consumers, not alternate identity stores;
+- cleanup/reset/restore reconstruct the actor;
+- no reusable crate learned the character's name.
 
-**Tier choice.** `Basement` is for visually-big sprites that get a
-512 px-wide pedestal in the Hall of Characters. Use it for bosses
-(`gnu_ton_boss`, `mockingbird_boss`, `flying_spaghetti_monster_boss`)
-and large enemies (`trex_enemy`, `bear_mauler`). Everything else is
-`MainHall`.
-
-**Brain preset choice.** Default is `patrol_peaceful` for hub NPCs,
-`melee_brute_striker` for melee enemies, `skirmisher_ranger` for
-ranged enemies. See `character_catalog.ron` for the full list of
-named presets.
-
-**Sheet wiring — usually zero Rust.** As of 2026-05-24 the sprite
-loader has a manifest-driven fallback: if your character's
-`<target>_spritesheet.ron` exists at the path the catalog declares
-AND has an `idle`-equivalent row (`idle` / `opening` / `rest` /
-`front_idle` / `side_idle`), the runtime resolves a
-`CharacterSheetSpec` with a default tuning (`collision_scale = 1.5`,
-`frame_sample_inset = 1`) and renders the sprite. No Rust change
-needed for the common case.
-
-Touch Rust ONLY if you want bespoke tuning (different scale, a
-specific `feet_anchor_y_override`, a custom `frame_sample_inset` to
-fight bilinear bleed). Add a `*_SHEET` const + a `SheetTuning` in
-`character_sprites/sheets/mod.rs`, then add a row to
-`sheet_for_character_id` in `character_sprites/assets.rs`
-pointing at the const. The hardcoded path takes precedence over the
-manifest-driven fallback.
-
-**Idle row is mandatory.** The actor renderer's atlas indexer falls
-back to `Idle` for any animation that doesn't have its own row, then
-panics if no Idle row exists. The aliases above cover the common
-generator outputs; if your generator emits something else (e.g.
-`hover`, `run`, `walk`, `death`), rename the first row to one of the
-aliases — or better, give the character a stationary idle pose row.
-Three layered checks catch this:
-- *Publish-time:* `tackon_sheet.build_sheet` calls
-  `diagnose_idle_coverage` and prints a stderr warning during the
-  renderer run if your sheet has CharacterAnim rows but no Idle alias.
-  The warning fires during `regen_sprites.sh` so you see it before
-  shipping the sheet.
-- *Load-time:* `try_load_spec_for_character_id` returns `None` for
-  manifests that lack an Idle row; the catalog logs the skipped id
-  in the one-line startup census so the placeholder fallback is
-  diagnosable.
-- *Test-time:* `every_catalog_sprite_spec_has_idle_row_if_loaded`
-  trips at `cargo test` time on any catalog entry whose manifest
-  loads but doesn't define an Idle alias.
-
-**Validator failure?** The Startup panic message lists every error.
-Common ones:
-- `character 'X' default_brain 'Y' not found in brain_presets`
-  → either typo `Y` or add it to `brain_presets:`.
-- LDtk validate error about character_id → the LDtk file refers to
-  a `character_id` that isn't in the catalog. Add the catalog entry
-  or fix the LDtk field value.
-
-## Where to read next
-
-- [`docs/systems/character-catalog.md`](../systems/character-catalog.md)
-  — the system overview.
-- [`docs/adr/0017-rust-behavior-ron-content-ldtk-space.md`](../adr/0017-rust-behavior-ron-content-ldtk-space.md)
-  — why this architecture.
-- [`docs/recipes/extending-brains-and-action-sets.md`](extending-brains-and-action-sets.md)
-  — the brain-variant extension recipe.
-- [`docs/systems/brain-driver.md`](../systems/brain-driver.md) — the
-  universal brain seam that the catalog feeds into.
+For a genuinely new behavior primitive, follow
+[`extending-brains-and-action-sets.md`](extending-brains-and-action-sets.md).

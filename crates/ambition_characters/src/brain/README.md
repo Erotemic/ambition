@@ -6,7 +6,7 @@
 > and *what* the key types are. The per-file `//!` docs are authoritative for
 > details; this file is the index that points you at the right one.
 
-Companion docs: `docs/systems/brain-driver.md` (overview),
+Companion docs: `docs/systems/actors-brains-and-character-content.md` (overview),
 `docs/recipes/extending-brains-and-action-sets.md` (extension recipe).
 
 ---

@@ -1,76 +1,104 @@
+---
+status: current
+last_verified: 2026-07-18
+related_docs:
+  - docs/concepts/engine-mental-model.md
+  - docs/concepts/content-and-provider-boundaries.md
+  - docs/planning/engine/architecture.md
+---
+
 # Architecture boundary guardrails
 
-Source-scanning tests keep the crate boundaries honest. The live boundaries are
-real crates — foundations ← machinery lib (`ambition_actors`) ←
-content (`ambition_content`) ← app (`ambition_app`). They are enforced by
-declarative policies + custom scanners, not by rustc; fast directional feedback.
+Architecture policy turns durable dependency/ownership rules into fast source
+and manifest checks. It is not a hand-maintained mirror of the current crate
+tree.
 
-## Where the guards live
+## Policy home
 
-The authoritative guards live in the sequestered workspace-policy package
-`tests/ambition_workspace_policy` (the completed move is recorded in
-`docs/archive/reviews/planning-history-2026-07-11/test-refactor-execution-ledger-2026-07-10.md`).
-That package inspects the workspace as DATA (parsed manifests + source walking)
-and links no production crate, so running the policy suite never compiles
-`ambition_app`.
+The authoritative suite is the sequestered workspace member:
 
-The legacy `game/ambition_app/tests/architecture_boundaries.rs` binary is **gone**
-(deleted 2026-07-10). All 67 of its tests were migrated: 65 to declarative
-`policies/*.toml` rules and 2 to custom scanners (raw-spawn allowlist,
-archetype-free enemy config). Each ported rule keeps a stable policy ID derived
-from its old test name, so `git log -S <old-name>` still finds the history.
-
-## Ownership model
-
-Policies are grouped by scope, and each scope is an independently filterable test:
-
-- **repository** — workspace membership, top-level layout, umbrella/demo homes.
-- **engine** — `crates/*` layering, foundation purity, determinism, control-frame
-  ownership, module-size.
-- **game** — `game/*` content ownership, app composition, named-content
-  registration.
-
-Every policy carries `id`, `scope`, `owners`, `watch_paths`, `kind`, `rationale`,
-`source_doc`, and `severity`. Declarative rule kinds (required/forbidden path,
-workspace-member, dependency allow/deny-list, forbidden-source-reference,
-module-size) are DATA in `policies/*.toml`. Unusual semantic scanners (the
-determinism lints, the ControlFrame allowlist, umbrella/plugin composition
-shapes) stay as readable custom Rust modules under `src/custom/`, configured by
-their own data files. A failure names the policy ID, the owners, the offending
-file/dependency, and the relevant policy/waiver file.
-
-## Current guardrails (representative)
-
-- **Machinery imports no content**: every `ambition_actors` dir is scanned for
-`crate::content::` / `ambition_content::` — none may appear.
-- Foundation crates (`ambition_platformer_primitives`, `ambition_portal`,
-`ambition_time`, `ambition_input`, `ambition_menu`, `ambition_audio`) must not
-depend on `ambition_actors`/content/app or name game content.
-- The combat kit (`combat`) must name no archetype/boss content.
-- The enemy roster is content-owned DATA: the persisted `EnemyConfig` +
-per-frame `EnemyMut` stay archetype-free, and there is no `EnemyArchetype` enum.
-- Room-authored spawn modules under `features/ecs/spawn*.rs` should not add raw
-`commands.spawn(...)`; use `SpawnScopedExt::spawn_room_scoped`.
-- Presentation (`ambition_render`) reads the `ambition_sim_view` read-model, never
-live sim STATE; the windowed host names no content.
-- New gameplay subsystems are self-owning `Plugin`s, not app-assembly hand-wiring.
-
-## Updating the raw-spawn allowlist
-
-The allowlist lives in
-`docs/architecture/architecture-boundary-allowlist.txt`. It records legacy raw
-spawn counts by source-relative path. Prefer reducing counts by migrating call
-sites to lifecycle helpers. Increase a count only when the raw spawn is
-intentional, non-room-authored, and documented in the review/commit.
-
-## Running the guards
-
-```bash
-cargo test -p ambition_workspace_policy repository_policies
-cargo test -p ambition_workspace_policy engine_policies
-cargo test -p ambition_workspace_policy game_policies
-cargo test -p ambition_workspace_policy            # all scopes + self-tests
+```text
+tests/ambition_workspace_policy/
 ```
 
-When a boundary intentionally changes, update this document and the relevant
-policy file (or custom module) in the same patch, so the new rule is visible.
+It treats the repository as data and links no production crate. Declarative
+rules live under its `policies/`; semantic scanners live under `src/custom/`.
+Each diagnostic carries a stable policy ID, owner, rationale, source document,
+and offending location.
+
+Use the generated repository map before changing a policy:
+
+```bash
+python scripts/agent_query.py "architecture policy <boundary>"
+python scripts/agent_query.py crate ambition_workspace_policy
+```
+
+## Durable direction
+
+The exact packages will evolve, but these arrows should remain one-way:
+
+```text
+foundations and stable data contracts
+    -> shared platformer vocabulary and focused domains
+    -> unified simulation composition
+    -> observation/read models
+    -> presentation
+
+reusable engine/runtime/provider interfaces
+    <- provider-owned named content
+    <- thin host/app composition
+```
+
+Representative rules:
+
+- Reusable engine crates do not depend on Ambition's named content or app.
+- Foundations do not depend on orchestration, presentation, or host policy.
+- Provider/game crates may register content through typed public seams; engine
+  crates may not reach upward to discover it.
+- Presentation reads stable observation/effect interfaces rather than mutating
+  live simulation for convenience.
+- Human, brain, RL, and replay controllers converge on one actor-local
+  action/body path.
+- Room/session entity creation uses lifecycle-scoped construction helpers.
+- Tests do not widen production APIs or force app compilation into repository
+  policy checks.
+- Process-global registries do not become hidden App/session authority.
+
+[`../concepts/engine-mental-model.md`](../concepts/engine-mental-model.md) is the
+human explanation; policy IDs should point to a durable source doc rather than a
+completed migration ledger.
+
+## Exact allowlists
+
+Allowlist files are exact reviewed inventories, not ceilings that can accumulate
+dead entries. For the room-feature raw-spawn gate:
+
+```text
+docs/architecture/architecture-boundary-allowlist.txt
+```
+
+Every scanned `spawn*.rs` file must appear exactly once and its recorded count
+must equal the current raw `commands.spawn(` count. A removed file, missing row,
+or excess allowance is a failure. Reduce counts by moving creation through the
+canonical scoped construction seam. Increase a count only when a raw spawn is
+intentional, cannot use that seam, and the same patch explains why.
+
+## Changing a boundary
+
+1. Identify the durable ownership rule, not just the current cycle.
+2. Check active planning and ADRs for intended direction.
+3. Prefer a declarative manifest/source rule; use custom Rust only when semantic
+   analysis is genuinely clearer.
+4. Add a harmful fixture/poison case for reusable scanner behavior.
+5. Update the source doc and policy data in the same patch.
+6. Delete obsolete waivers/allowlist rows immediately.
+
+## Run
+
+```bash
+./run_tests.sh -p ambition_workspace_policy
+# During policy development, direct focused cargo filters are also useful:
+cargo test -p ambition_workspace_policy engine_policies
+cargo test -p ambition_workspace_policy repository_policies
+cargo test -p ambition_workspace_policy game_policies
+```

@@ -1,30 +1,55 @@
-# Blink Motion Policy
+---
+status: current
+last_verified: 2026-07-18
+related_docs:
+  - docs/mechanics/blink.md
+  - docs/concepts/movement-collision.md
+---
 
-Blink is a topological reposition, not a gravity-preserving dash. The engine now treats a successful blink as a single movement transition with three explicit pieces:
+# Blink motion policy
 
-1. destination resolution (`blink_destination*`),
-2. post-blink motion policy (`apply_post_blink_motion`),
-3. event emission (`BlinkEvent`).
+The blink mechanism should not bake in one character's post-blink feel. A policy
+selects the reusable choices around path resolution and retained motion while the
+body/collision domain owns the actual move.
 
-This keeps repeated blinks from inheriting runaway downward velocity. Earlier prototypes directly assigned `player.pos` and damped `player.vel` in the blink handler. That made it easy for quick blink, precision blink, and future blink variants to drift apart. The new helper `complete_blink(...)` is the single success path for all blink variants.
+## Policy dimensions
 
-## Current policy
+A blink policy may define:
 
-After a blink:
+- requested range and shortening behavior;
+- surfaces/volumes that block, permit, or terminate transit;
+- candidate safe-placement search order;
+- whether pre-blink tangential/gravity velocity is preserved, clamped, replaced,
+  or projected;
+- post-blink lock/recovery/cancel behavior;
+- resource, cooldown, and rejection semantics.
 
-- horizontal velocity is damped, preserving some movement intent;
-- downward velocity is clamped to a small tuning-controlled maximum;
-- fast-fall and wall states are cleared;
-- dash state is cancelled;
-- a short `blink_grace_timer` suspends gravity while the blink reads visually.
+Provider capabilities select and tune a policy. The implementation remains
+content-free and shared by every body.
 
-This gives blink a controlled, intentional feel and prevents the specific class of bugs where a second blink appears to work but the player continues falling at pre-blink speed.
+## Commit contract
 
-## Testing
+Resolution produces either:
 
-The engine has regression coverage for this behavior:
+- a complete result containing destination, resulting body motion/state, and
+  semantic outcome; or
+- a rejection reason with no authoritative mutation.
 
-- `repeated_blinks_clamp_downward_velocity_each_time`
-- `post_blink_grace_suspends_gravity_for_tiny_window`
+Apply position, motion, costs, and state together. Do not relocate first and then
+attempt to repair collision or resources in later systems.
 
-Future blink upgrades should route through `complete_blink(...)` unless they deliberately need different post-motion semantics. If they do, add an explicit `PostBlinkMotionPolicy` variant rather than bypassing the helper.
+## Determinism
+
+- Candidate generation and tie-breaking are stable.
+- Queries use the same world/collision semantics as ordinary movement.
+- Gravity/orientation transforms are explicit.
+- Results do not depend on render frame rate, wall clock, query iteration order,
+  particles, or camera state.
+
+## Validation
+
+```bash
+python scripts/agent_query.py "blink motion policy destination"
+python scripts/agent_query.py tests "post blink velocity"
+./run_tests.sh -k blink
+```

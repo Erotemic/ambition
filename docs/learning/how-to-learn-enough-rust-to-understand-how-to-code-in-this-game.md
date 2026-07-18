@@ -1210,7 +1210,7 @@ Ambition is a Cargo workspace. The root [`Cargo.toml`](../../Cargo.toml) lists m
 
 Read these first:
 
-1. [`../systems/architecture.md`](../systems/architecture.md)
+1. [`../concepts/engine-mental-model.md`](../concepts/engine-mental-model.md)
 2. [`../concepts/bevy-native-data-driven-ecs.md`](../concepts/bevy-native-data-driven-ecs.md)
 3. [`../concepts/sim-presentation-seam.md`](../concepts/sim-presentation-seam.md)
 4. [`../concepts/rust-module-boundaries.md`](../concepts/rust-module-boundaries.md)
@@ -1787,7 +1787,7 @@ Presentation, routing, input sampling, and asynchronous readiness usually belong
 
 Deterministic gameplay simulation belongs to the configured fixed simulation schedule. Read:
 
-- [`../systems/two-clock-simulation.md`](../systems/two-clock-simulation.md)
+- [`../concepts/input-and-game-modes.md`](../concepts/input-and-game-modes.md)
 - [`../concepts/input-and-game-modes.md`](../concepts/input-and-game-modes.md)
 - [`../adr/0010-time-domains-and-regime-policies.md`](../adr/0010-time-domains-and-regime-policies.md)
 
@@ -2432,7 +2432,7 @@ Then run the relevant integration application or suite. Use the repository's roo
 
 Project documents:
 
-- [`../systems/architecture.md`](../systems/architecture.md)
+- [`../concepts/engine-mental-model.md`](../concepts/engine-mental-model.md)
 - [`../concepts/bevy-native-data-driven-ecs.md`](../concepts/bevy-native-data-driven-ecs.md)
 - [`../concepts/sim-presentation-seam.md`](../concepts/sim-presentation-seam.md)
 - [`../concepts/input-and-game-modes.md`](../concepts/input-and-game-modes.md)
@@ -2440,7 +2440,7 @@ Project documents:
 - [`../concepts/asset-management.md`](../concepts/asset-management.md)
 - [`../concepts/testing-and-validation.md`](../concepts/testing-and-validation.md)
 - [`../concepts/rust-module-boundaries.md`](../concepts/rust-module-boundaries.md)
-- [`../systems/two-clock-simulation.md`](../systems/two-clock-simulation.md)
+- [`../concepts/input-and-game-modes.md`](../concepts/input-and-game-modes.md)
 - [`../recipes/profiling.md`](../recipes/profiling.md)
 - [`../recipes/ldtk-authoring.md`](../recipes/ldtk-authoring.md)
 - [`../recipes/adding-a-character.md`](../recipes/adding-a-character.md)

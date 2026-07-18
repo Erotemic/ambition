@@ -1,114 +1,99 @@
-# Fresh-agent repository navigation
+---
+status: current
+last_verified: 2026-07-18
+related_docs:
+  - docs/concepts/engine-mental-model.md
+  - .agent/README.md
+---
 
-Use this procedure before broad source exploration. The repository ships a
-commit-matched generated navigation bundle under `.agent/` whenever
-`./archive_agent_source.sh` creates an agent archive.
+# Fresh-agent navigation
 
-The generated bundle is a localization aid, not architectural authority. It
-helps answer where to look; current source and current planning/ADR documents
-still decide what is true.
+The generated `.agent/` tree is a commit-matched localization index. It is not a
+second source tree and should normally be queried, not read wholesale.
 
-## Progressive drill-down
+## Ten-minute protocol
 
-### Level 0: orient
-
-Read:
-
-1. `AGENTS.md`
-2. `.agent/README.md`
-3. `docs/planning/README.md`
-
-`.agent/README.md` records the archived commit, available indexes, generated
-inventory counts, and the shortest query commands.
-
-### Level 1: ask for a task packet
-
-Start with the user's own wording:
+From the repository root:
 
 ```bash
-python scripts/agent_query.py "room transition loading"
-python scripts/agent_query.py "ground contact landing SFX"
+sed -n '1,220p' README.md
+sed -n '1,260p' AGENTS.md
+sed -n '1,220p' .agent/README.md
+python scripts/agent_query.py overview
+python scripts/agent_query.py "<the user's exact task words>"
 ```
 
-The default task query returns a compact ranked packet of likely documents,
-source files, symbols, ECS registrations, and tests. It is intended to replace
-repository-wide exploratory reading, not targeted source inspection.
+Then read:
 
-### Level 2: narrow by evidence type
+1. [`../concepts/engine-mental-model.md`](../concepts/engine-mental-model.md);
+2. [`../planning/vision.md`](../planning/vision.md) and the relevant track;
+3. one likely crate packet and its `MODULES.md`;
+4. one focused concept/system/recipe;
+5. the current source owner and narrowest tests.
+
+Do not begin by recursively reading `docs/`, `.agent/`, or a large crate.
+
+## Query progression
 
 ```bash
-python scripts/agent_query.py symbol GroundContactTransition
-python scripts/agent_query.py docs "transactional construction"
-python scripts/agent_query.py ecs "room transition" --crate ambition_app
-python scripts/agent_query.py tests "ground contact"
-python scripts/agent_query.py crate ambition_runtime
-python scripts/agent_query.py path game/ambition_app/src/app/world_flow/room_transition_loading.rs
+# Broad task packet: docs, files, symbols, ECS, tests.
+python scripts/agent_query.py "portal transition arrival"
+
+# Current package role and generated module packet.
+python scripts/agent_query.py crate ambition_portal
+
+# Durable or current prose mentioning an invariant.
+python scripts/agent_query.py docs "transactional room load"
+
+# Bevy ownership: resources, messages, systems, registrations, spawn evidence.
+python scripts/agent_query.py ecs "RoomScope"
+
+# Tests before implementation search.
+python scripts/agent_query.py tests "portal gravity"
 ```
 
-Use `crate` when a task clearly belongs to one package. The generated crate
-packet combines its files, symbols, tests, module map, and ECS inventory paths.
+If a query is noisy, use the most distinctive domain noun plus the observable
+behavior. Prefer `"action scheme prompt"` over `"input"`, and
+`"loading transaction commit"` over `"room"`.
 
-### Level 3: inspect the generated shards
+## Evidence order
 
-The main generated drill-down surfaces are:
+- Current user request: task intent.
+- Active planning/ADRs: intended direction.
+- Concepts: durable vocabulary and invariants.
+- Source/manifests/tests: implementation fact.
+- `.agent`: localization evidence generated from that source.
+- `dev/journals` and benchmark candidates: failure history and traps.
+- Git history/archive: why something changed, not present authority.
 
-- `.agent/index/catalog.json` — small repository overview and index directory.
-- `.agent/index/crates/index.json` — package list and per-package counts.
-- `.agent/index/crates/<crate>.json` — one package's files, symbols, tests,
-  module map, and ECS inventory references.
-- `.agent/ecs_inventory/project.md` — project-wide Bevy/ECS summary.
-- `.agent/ecs_inventory/crates/<crate>.md` — readable per-package ECS inventory.
-- `.agent/index/symbol_index.json` and `.agent/index/test_map.json` — complete
-  flat indexes when a machine consumer needs the full corpus.
+Confirm generated hits in source before editing. A symbol in an index may still
+be an adapter, compatibility export, test-only item, or presentation consumer.
 
-Prefer a crate shard over loading a whole flat index into context.
-
-### Level 4: read source and focused authority
-
-After localization:
-
-1. inspect the defining source and its callers;
-2. read the crate's `MODULES.md`;
-3. read one focused active plan, ADR, concept, system doc, or recipe;
-4. search `dev/journals` and `dev/benchmark-candidates` for prior failure modes.
-
-Do not infer ownership from a facade import alone. Confirm where a type is
-defined and which layer is allowed to mutate it.
-
-## When generated data and source disagree
-
-Generated navigation describes the commit recorded in `.agent/manifest.yaml`.
-Treat disagreement as one of these cases:
-
-- the archive was generated from another commit;
-- the live working tree has uncommitted changes;
-- the generator missed a Rust or Bevy pattern;
-- a hand-maintained document is stale.
-
-In every case, source wins for current implementation fact. Active planning and
-ADRs win for intended direction. Generated indexes never justify preserving a
-legacy path that current architecture is replacing.
-
-## Query strategy
-
-Use three passes rather than one enormous query:
-
-1. **Symptom or requested outcome** — the user's words.
-2. **Likely subsystem** — loading, collision, snapshot, input, animation, etc.
-3. **Failure class or invariant** — duplicate authority, stale derived state,
-   scheduling, transactionality, identity, reconstruction, or presentation.
-
-Then inspect only the highest-ranked packet and direct neighbors.
-
-## Refreshing the bundle
-
-For a live checkout:
+## Before changing code
 
 ```bash
+rg -n "<subsystem>|<symptom>" dev/journals dev/benchmark-candidates
+python scripts/agent_query.py tests "<invariant>"
+git log --oneline --all -- <likely paths>
+```
+
+Ask:
+
+- Which layer owns authority?
+- Is this named provider content or reusable capability?
+- Is there already a player/enemy, human/brain, runtime/headless, or
+  simulation/presentation fork to remove?
+- What lifecycle scope owns the state?
+- What is the narrowest property that proves the change?
+
+## After changing structure or docs
+
+```bash
+python scripts/check_doc_links.py
 python scripts/generate_agent_index.py
-python scripts/ecs_inventory.py --workspace --out-dir .agent/ecs_inventory
-python scripts/agent_query.py build-catalog
+./run_tests.sh --list
 ```
 
-`./archive_agent_source.sh` runs these steps in the staged committed checkout and
-packages the results automatically.
+Run the focused tests returned by `agent_query.py`, then the broadest affordable
+headless suite. Generated `.agent` data should match the commit packaged for the
+next agent archive.

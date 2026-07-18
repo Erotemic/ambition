@@ -158,7 +158,7 @@ Estimated 1-2h. Mostly mechanical.
 
 - [`brain-pipeline-bypass-audit-2026-05-24.md`](brain-pipeline-bypass-audit-2026-05-24.md)
   — pre-migration audit + migration map.
-- [`docs/systems/brain-driver.md`](../../docs/systems/brain-driver.md)
+- [`docs/systems/brain-driver.md`](../../docs/systems/actors-brains-and-character-content.md)
   — universal-brain overview.
 - [`docs/recipes/extending-brains-and-action-sets.md`](../../docs/recipes/extending-brains-and-action-sets.md)
   — extension recipe + EFFECTS-flip procedure (now applied to the

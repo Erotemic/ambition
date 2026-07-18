@@ -11,7 +11,7 @@ content, presentation adapters, authoring adapters, and app assembly. That made
 feature work fast early on, but the central app plugin file and room lifecycle
 conventions are now carrying too much architectural meaning implicitly.
 
-The old plugin-refactor plan has been superseded by the Stage 20 crate split documented in `docs/current/state.md` and `docs/systems/architecture.md`. The original decision still matters as historical context: use same-crate proto-boundaries before extracting real crates, and make dependency direction visible before broad moves.
+The old plugin-refactor plan has been superseded by the Stage 20 crate split documented in `docs/planning/engine/architecture.md` and `docs/concepts/engine-mental-model.md`. The original decision still matters as historical context: use same-crate proto-boundaries before extracting real crates, and make dependency direction visible before broad moves.
 
 ## Decision
 
@@ -52,10 +52,10 @@ can be mapped cleanly onto reusable runtime phases.
 ## Validation
 
 ```bash
-cargo test -p ambition_workspace_policy
-cargo test -p ambition_actors --lib room_scoped
-cargo test -p ambition_app --test portal_lab_usable
-cargo test -p ambition_app --test gravity_room_reachability
+./run_tests.sh -p ambition_workspace_policy
+./run_tests.sh -p ambition_actors -k room_scoped
+./run_tests.sh -p ambition_app -k portal
+./run_tests.sh -p ambition_app -k gravity
 ```
 
 ## Current implications for agents
@@ -65,7 +65,7 @@ cargo test -p ambition_app --test gravity_room_reachability
   `ambition_portal` / `ambition_time` / `ambition_input` / `ambition_menu` /
   `ambition_audio` (foundations) ← `ambition_actors` (machinery lib) ←
   `ambition_content` (named game content) ← `ambition_app` (assembly + bins +
-  tests). See `docs/current/state.md` and `docs/systems/architecture.md`.
+  tests). See `docs/planning/engine/architecture.md` and `docs/concepts/engine-mental-model.md`.
 - The `crate::{engine_core, kinematic, input, ui_nav, interaction, actor, brain}`
   compat re-exports inside `ambition_actors` were REMOVED (2026-06-25). Import
   each by its canonical path — `ambition_engine_core`,

@@ -1,66 +1,79 @@
+---
+status: current
+last_verified: 2026-07-18
+---
+
 # ECS inventory tool
 
-`scripts/ecs_inventory.py` builds a static inventory of the `ambition_actors` Bevy ECS surface.
-It is meant for refactor planning and code-review diffs, not as a replacement for `cargo check`.
+`scripts/ecs_inventory.py` uses tree-sitter to generate static, reviewable Bevy
+ownership evidence: ECS items, plugins, registrations, systems, resource/message
+access, and spawn sites. The generated `.agent/ecs_inventory/` packets are a
+localization aid, not runtime truth or a replacement for Rust compilation.
 
-## Usage
-
-From the repository root:
-
-```bash
-python3 scripts/ecs_inventory.py
-```
-
-By default this writes:
-
-```text
-target/ambition_ecs_inventory.json
-target/ambition_ecs_inventory.md
-```
-
-Useful variants:
+The script declares its Python dependencies through inline script metadata. Run
+it with an inline-metadata-aware launcher:
 
 ```bash
-# Include test modules and test-only spawn/system evidence.
-python3 scripts/ecs_inventory.py --include-tests
-
-# Write inventory somewhere explicit.
-python3 scripts/ecs_inventory.py \
-  --json docs/generated/ambition_ecs_inventory.json \
-  --markdown docs/generated/ambition_ecs_inventory.md
-
-# CI / review guard: compare a generated inventory with a checked-in snapshot.
-python3 scripts/ecs_inventory.py \
-  --json target/ambition_ecs_inventory.json \
-  --markdown target/ambition_ecs_inventory.md \
-  --check-json docs/generated/ambition_ecs_inventory.json
+uv run --script scripts/ecs_inventory.py --help
 ```
 
-## What it collects
+Direct `python scripts/ecs_inventory.py` is not the supported clean-environment
+invocation unless its tree-sitter dependencies are already installed.
 
-The JSON and Markdown include:
+## Workspace index
 
-- ECS item declarations that derive `Component`, `Bundle`, `Resource`, `Message`, or `Event`.
-- `impl Plugin for ...` plugin declarations.
-- Bevy registration calls such as `add_systems`, `configure_sets`, `add_message`, `add_event`, `init_resource`, `insert_resource`, and `add_plugins`.
-- System-like function definitions, detected by Bevy system parameters such as `Commands`, `Query`, `Res`, `ResMut`, `MessageReader`, and `MessageWriter`.
-- Entity archetype evidence from `spawn(...)` / `spawn_empty(...)` call sites, including identifiers and `Name::new(...)` labels found in the spawn expression.
+```bash
+uv run --script scripts/ecs_inventory.py \
+  --workspace \
+  --out-dir .agent/ecs_inventory
+```
 
-## Interpretation guidelines
+This scans workspace members under `crates/`, `game/`, and `tests/`, writing a
+compact project summary plus one Markdown/JSON shard per crate.
 
-Static analysis cannot prove the exact runtime entity set. Treat the entity section as source evidence:
-spawn sites, bundles, component identifiers, and labels. This is usually the right granularity for refactor planning because entity instances are data- and state-dependent.
+Use the normal query interface rather than loading those shards wholesale:
 
-The registration section intentionally keeps raw identifiers from registration expressions. Some identifiers are schedule sets, run conditions, plugins, or helper functions rather than systems. The raw evidence makes diffs reviewable when schedules are reorganized.
+```bash
+python scripts/agent_query.py ecs "ControlPrompt"
+python scripts/agent_query.py ecs "RoomScope"
+python scripts/agent_query.py crate ambition_input
+```
 
-## Robustness strategy
+## Focused crate inventory
 
-The script avoids plain grep where it matters:
+```bash
+uv run --script scripts/ecs_inventory.py \
+  --crate crates/ambition_actors \
+  --json target/ambition_actors_ecs.json \
+  --markdown target/ambition_actors_ecs.md
+```
 
-- masks Rust comments and string literals while preserving source offsets;
-- tracks balanced parentheses for registration and spawn calls;
-- supports multi-line attributes and common Rust visibility forms;
-- writes deterministic JSON with sorted keys for code-review diffs;
-- excludes `src/bin` and test modules by default, with `--include-tests` available.
+Add `--include-tests` only when test-only registrations/spawns are relevant.
+`--check-json <path>` compares the generated inventory with an existing JSON
+artifact and exits nonzero on a difference.
 
-For a future stricter version, consider replacing item extraction with a small Rust `xtask` built on `syn` or rust-analyzer crates. The current Python script is dependency-free so it can run in lightweight chat/overlay workflows and CI without building extra tooling.
+## Interpretation
+
+Static inventory is evidence, not proof:
+
+- A registration identifier may be a system, set, run condition, plugin, or
+  helper expression.
+- Spawn evidence describes source sites, not the complete runtime entity set.
+- Resource/query access cannot prove schedule order or semantic authority.
+- Re-exports and compatibility adapters may look like owners.
+
+Confirm a hit in source, module docs, plugin composition, and tests before
+editing. Use active planning/ADRs for intended direction.
+
+## Regeneration contract
+
+Agent archives should package an index generated from the same source commit.
+Regenerate after structural/documentation changes:
+
+```bash
+python scripts/generate_agent_index.py
+python scripts/agent_query.py overview
+```
+
+The generator invokes the appropriate inventory path as part of building the
+commit-matched `.agent` knowledge base.

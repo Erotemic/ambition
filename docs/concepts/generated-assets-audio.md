@@ -1,85 +1,60 @@
 ---
 id: generated-assets-audio
-aliases:
-  - procedural audio
-  - generated music
-  - generated sprites
-  - asset generation
-  - reproducible assets
+aliases: []
+status: current
+authority: durable-concept
+last_verified: 2026-07-18
 implemented_by:
-  - tools/ambition_music_renderer
+  - tools/ambition_sprite2d_renderer
   - tools/ambition_sfx_renderer
-  - tools/ambition_sfx_pack
-  - crates/ambition_actors/src/audio/mod.rs
-  - crates/ambition_actors/src/music/mod.rs
-  - crates/ambition_asset_manager/src
-  - assets/
+  - tools/ambition_music_renderer
+  - crates/ambition_audio
+  - game/ambition_content/src/audio_registries.rs
 related_docs:
-  - docs/recipes/generated-music-workflow.md
   - docs/tools/generated-audio-tools.md
   - docs/tools/generated-visual-tools.md
-  - docs/systems/ai-generation-contract.md
-  - docs/systems/asset-manager.md
-related_memory:
-  - dev/benchmark-candidates/procedural-audio-questions.md
-  - dev/journals/music-director-refactor-lessons-2026-05-11.md
-last_verified: 2026-05-17
+  - docs/recipes/generated-music-workflow.md
 ---
 
 # Generated assets and audio
 
-## Definition
+Generated art/audio follows the same contract as hand-authored assets: source
+specification, deterministic build, explicit publish/install step, provider-owned
+logical identity, and reusable runtime loading/playback.
 
-Ambition uses code-owned and data-owned generation for music, SFX, sprites, backgrounds, and asset catalogs. Generated outputs should remain inspectable and reproducible rather than becoming opaque binary state.
+## Ownership
 
-## Core invariants
+- Generator code and source specifications live under `tools/`.
+- Root `regen_*.sh` scripts are the supported orchestration front doors.
+- Generated files remain local/build output until explicitly published into a
+  provider's runtime assets.
+- Provider content owns named sprite/music/SFX registrations and IDs.
+- `ambition_audio` owns content-free catalogs, selection, loading, mixing,
+  web-unlock handling, and final playback.
+- Render/sprite crates own reusable runtime presentation machinery, not a game's
+  named roster.
 
-- Source specs and generator code are the authority; generated `assets/` output may be ignored or reproducible.
-- Audio generator default behavior should skip unchanged YAML/spec inputs, with an explicit force path when generator code changes.
-- Adaptive music state must not allow simple base tracks and adaptive cue layers to play as mutually-exclusive authorities at the same time.
-- Asset behavior must be platform-aware: Android APK assets are not host filesystem paths.
+## Invariants
 
+- The same source/spec and tool version produce reproducible output.
+- Generators do not silently overwrite runtime assets without an explicit
+  install/publish command.
+- Runtime code references logical/provider IDs rather than generator filenames
+  where a catalog exists.
+- A generated file is not authoritative if the source spec cannot reproduce it.
+- Web/Android packaging is validated after publication.
+- Audio/VFX absence cannot change simulation outcomes.
 
-## Runtime wiring convention
-
-When adding generated audio, wire runtime catalogs to the **generator cue id**
-and the path that cue publishes to. Do not invent a temporary runtime-only id
-unless you also add a generator spec with the same id.
-
-For single-track music cues, the convention is:
+## Workflow shape
 
 ```text
-source: tools/ambition_music_renderer/scores/active/<cue>.music.yaml
-runtime id: <cue>
-runtime path: crates/ambition_actors/assets/audio/music/generated/<cue>/full.ogg
+source spec / generator target
+    -> local render
+    -> inspect/validate
+    -> explicit publish/install
+    -> provider catalog/registry
+    -> reusable runtime loader/playback
 ```
 
-For SFX cues, the convention is:
-
-```text
-source: tools/ambition_sfx_renderer/sounds/active/<cue>.sfx.yaml
-runtime id: <cue>
-staged output: tools/ambition_sfx_renderer/output/<cue>/<cue>.ogg
-runtime bank: crates/ambition_actors/assets/audio/sfx.bank
-```
-
-Generated OGG/WAV outputs are ignored by default. Check in the source YAML,
-renderer code, runtime catalog ids, and SFX constants; then regenerate locally.
-
-## Edit protocol
-
-1. Identify the source spec, generator, runtime manifest, and playback adapter involved.
-2. Preserve generator reproducibility and clear terminal diagnostics.
-3. Search dev memory for audio/director/asset/platform symptoms.
-4. Update docs or recipes when a generator invocation or asset authority changes.
-
-## Validation
-
-```bash
-cargo test -p ambition_actors --lib music
-./regen_music.sh
-./regen_sfx.sh
-cargo run -p ambition_app --bin headless
-```
-
-Use generator-specific commands when working on sprites/backgrounds instead of audio.
+Use the focused tool docs for exact commands; do not copy command inventories
+into this concept page.

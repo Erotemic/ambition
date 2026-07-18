@@ -1,25 +1,46 @@
 # System docs index
 
-System docs describe current subsystem behavior. If a file reads like a landed migration, old patch skeleton, or roadmap fragment, archive or delete it instead of listing it here.
+System docs describe current cross-crate behavior. They are deliberately concise:
+exact file/symbol inventories belong in source, `MODULES.md`, and `.agent/`.
+Migration ledgers, dated audits, and future designs belong in `archive/` or
+`planning/`, not here.
 
-## Core architecture
+## Core flows
 
-| Area | Doc |
+| Area | Current doc |
 |---|---|
-| Workspace/crate/module structure | `architecture.md` |
-| Sim/presentation and messages | `gameplay-effects.md`, `gameplay-trace-recorder.md`, `headless-simulation.md` |
-| Testing | `testing-strategy.md` |
-| Dev tools | `developer-tools.md` |
+| Input, control authority, action schemes, prompts, menus, touch | [`input-control-and-ui.md`](input-control-and-ui.md) |
+| Actors, brains, catalog assembly, action execution | [`actors-brains-and-character-content.md`](actors-brains-and-character-content.md) |
+| LDtk import, world lowering, room loading/commit | [`ldtk-world-composition.md`](ldtk-world-composition.md) |
+| Persistence, settings, quests, progression | [`persistence-settings-and-progression.md`](persistence-settings-and-progression.md) |
+| Headless runtime and harness | [`headless-simulation.md`](headless-simulation.md) |
+| Testing | [`testing-strategy.md`](testing-strategy.md) |
+| Audio and VFX | [`audio-and-vfx.md`](audio-and-vfx.md) |
+| Gameplay effect/message seam | [`gameplay-effects.md`](gameplay-effects.md) |
+| Trace recording/replay | [`gameplay-trace-recorder.md`](gameplay-trace-recorder.md) |
 
-## Gameplay and world
+## Focused current systems
 
-| Area | Doc |
+| Area | Current doc |
 |---|---|
-| LDtk/world composition | `ldtk-world-composition.md`, `ldtk-hot-reload.md`, `transition-spawn-validation.md` |
-| Collision / geometry / secondary physics | `collision-geometry-and-secondary-physics.md` |
-| Movement verbs | `blink-and-fastfall.md`, `blink-motion-policy.md` |
-| Abilities/combat/actors | `factions.md`, `boss-behavior-profiles.md`, `boss-encounter-architecture.md` |
-| Controllable-entity unification (brain) | `brain-driver.md`, `character-ai-refactor.md`, `character-catalog.md` |
-| UI/input/settings | `input-and-control-frame.md`, `ui-navigation-and-pause.md`, `settings-and-persistence.md`, `mobile-touch-controls.md`, `control-affordances.md` |
-| Presentation/assets/audio | `asset-manager.md`, `parallax-backgrounds.md`, `camera-and-visual-profiles.md`, `audio-particles.md`, `audio-underwater.md`, `display-modes.md`, `sprite-rendering-surface.md` |
-| Time/progression/AI | `time-reference-platform.md`, `two-clock-simulation.md`, `progression-systems.md`, `ai-generation-contract.md` |
+| Asset manager | [`asset-manager.md`](asset-manager.md) |
+| Camera and room visual profiles | [`camera-and-visual-profiles.md`](camera-and-visual-profiles.md) |
+| Display modes | [`display-modes.md`](display-modes.md) |
+| LDtk hot reload | [`ldtk-hot-reload.md`](ldtk-hot-reload.md) |
+| Collision and secondary physics | [`collision-geometry-and-secondary-physics.md`](collision-geometry-and-secondary-physics.md) |
+| Blink / fast-fall | [`blink-and-fastfall.md`](blink-and-fastfall.md), [`blink-motion-policy.md`](blink-motion-policy.md) |
+| Portals | [`portals.md`](portals.md) |
+| Transition spawn validation | [`transition-spawn-validation.md`](transition-spawn-validation.md) |
+| Parallax | [`parallax-backgrounds.md`](parallax-backgrounds.md) |
+| Boss profiles/encounters | [`boss-behavior-profiles.md`](boss-behavior-profiles.md), [`boss-encounter-architecture.md`](boss-encounter-architecture.md) |
+| Factions | [`factions.md`](factions.md) |
+| Developer tools | [`developer-tools.md`](developer-tools.md) |
+| Underwater audio | [`audio-underwater.md`](audio-underwater.md) |
+| AI generation contract | [`ai-generation-contract.md`](ai-generation-contract.md) |
+
+Before trusting an exact path in a system doc, confirm it with:
+
+```bash
+python scripts/agent_query.py "<system>"
+python scripts/agent_query.py crate <owner>
+```

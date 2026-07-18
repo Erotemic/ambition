@@ -1,196 +1,91 @@
-# LDtk authoring workflow
+---
+status: current
+last_verified: 2026-07-18
+related_docs:
+  - docs/concepts/ldtk-world-composition.md
+  - docs/systems/ldtk-world-composition.md
+  - docs/tools/ldtk-tools.md
+---
 
-Ambition treats `game/ambition_content/assets/worlds/sandbox.ldtk` as the sandbox world source. LDtk owns authored spatial data; Ambition owns runtime gameplay semantics, validation, persistence, and hot-reload policy.
+# LDtk authoring
 
-Agents should not hand-edit LDtk JSON. Use the `ambition_ldtk_tools` package so edits are repaired, normalized, and validated before write.
+LDtk is Ambition's spatial source of truth. Use the editor or
+`ambition_ldtk_tools`; do not hand-edit `.ldtk` JSON.
 
-## Standard commands
-
-Run from the repo root:
-
-```bash
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
-  game/ambition_content/assets/worlds/sandbox.ldtk
-
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools repair \
-  game/ambition_content/assets/worlds/sandbox.ldtk \
-  --in-place
-
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip \
-  game/ambition_content/assets/worlds/sandbox.ldtk
-
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate \
-  game/ambition_content/assets/worlds/sandbox.ldtk
-```
-
-### Multi-file worlds: validate with `--secondary-world`
-
-`intro.ldtk`, `you_have_to_cut_the_rope.ldtk`, and
-`hall_of_characters.ldtk` (plus any future zone file) are merged on top of
-`sandbox.ldtk` by the runtime loader
-(`ldtk_world/loading.rs::secondary_world_ids`), so their `LoadingZone`s
-legitimately target rooms that live in `sandbox.ldtk` (e.g.
-`central_hub_complex`). Validating a secondary file **in isolation**
-reports those cross-file targets as `error: ... targets unknown room`
-false positives. Always pass the other world(s) so the validator resolves
-cross-file links:
+The main provider worlds currently live under
+`game/ambition_content/assets/worlds/`. Localize a room/entity contract before
+editing:
 
 ```bash
-PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools validate \
-  game/ambition_content/assets/worlds/intro.ldtk \
-  --secondary-world game/ambition_content/assets/worlds/sandbox.ldtk
+python scripts/agent_query.py "LDtk <room or entity type>"
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools --help
 ```
 
-(Use `python3` if `python` is unavailable. `--secondary-world` may be
-repeated.) A clean run prints `... passes Ambition LDtk validation (N
-warnings)`. Note that `intgrid paint`/`erase` re-serialize the whole file
-to the tool's canonical JSON formatting; a first edit on a drifted file
-produces a large whitespace diff (one-time normalization), after which
-edits diff cleanly.
-
-### Regenerating the Hall of Characters
-
-The Hall is generated wholesale from `character_catalog.ron` into its own
-secondary world, `hall_of_characters.ldtk` — it is never spliced into
-`sandbox.ldtk`. One command rebuilds it (scaffolding the file on first run):
+## Safe manual edit loop
 
 ```bash
-PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools \
-  generate hall-of-characters
+WORLD=game/ambition_content/assets/worlds/sandbox.ldtk
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor "$WORLD"
+# Edit and save in LDtk.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools repair "$WORLD" --in-place --backup
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip "$WORLD"
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate "$WORLD"
+git diff -- "$WORLD"
 ```
 
-The hub-side door (`hall_of_characters_door` in `central_hub_main`) is
-permanent hand-authored content in `sandbox.ldtk`; the generated file only
-carries the hall level + its `hall_of_characters_entry` zone, which
-cross-targets the hub. Validate the pair with:
+Use the exact subcommand help before mutation. Most mutators require an explicit
+`--in-place` or `--output`; area creation is the notable current command that
+edits its target in place by default unless `--dry-run` or `--output` is used.
+
+## Spec-driven area creation
+
+Specs live under `tools/ambition_ldtk_tools/specs/`.
 
 ```bash
-PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools validate \
-  game/ambition_content/assets/worlds/hall_of_characters.ldtk \
-  --secondary-world game/ambition_content/assets/worlds/sandbox.ldtk
+SPEC=tools/ambition_ldtk_tools/specs/<area>.yaml
+
+PYTHONPATH=tools/ambition_ldtk_tools \
+  python -m ambition_ldtk_tools.area_authoring "$SPEC" --dry-run
+
+# Apply to the spec/default target; make a backup when editing in place.
+PYTHONPATH=tools/ambition_ldtk_tools \
+  python -m ambition_ldtk_tools.area_authoring "$SPEC" --backup
 ```
 
-## Visual verification (collision + entity geometry)
+Use `--output /tmp/review.ldtk` for a non-destructive review file and
+`--replace-existing` only for a spec-owned generated level.
 
-To *see* a room's layout without launching the game (no GPU needed), render
-its collision world + every authored entity (enemy/boss spawns, NPCs,
-pickups, chests, breakables, hazards, doors, spawn) to a PNG you can open
-or inspect:
+## Placement discipline
+
+Read [`../concepts/llm-spatial-authoring-discipline.md`](../concepts/llm-spatial-authoring-discipline.md).
+Place an object according to its purpose and the live geometry, not a guessed
+coordinate. Useful read-only tools include entity query/check, IntGrid query,
+door free-spots, and geometry rendering.
 
 ```bash
-cargo run -p ambition_actors --example render_room_geometry            # list rooms
-cargo run -p ambition_actors --example render_room_geometry -- <ROOM_ID>  # -> /tmp/room_<id>.png
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity query --help
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity check --help
+cargo run -p ambition_actors --example render_room_geometry -- <ROOM_ID>
 ```
 
-Filled boxes are collision (gray=Solid, blue=OneWay, red=Hazard,
-gold=PogoOrb); outlines are authored entities. Useful for confirming a
-room is enclosed, a door rests on a surface, or a boss/encounter is placed
-where you expect — the same checks the validator lints, but rendered.
+## Representation rules
 
-## Standard edit loop
+- Static collision/hazards use the canonical IntGrid vocabulary.
+- Use entities for authored objects that carry identity, fields, behavior, paths,
+  or dynamic lifecycle.
+- Loading zones need a valid reciprocal destination and safe arrival geometry.
+- Provider-stable IDs, not Bevy `Entity` values, connect authored content.
+- A tool-generated diff must remain understandable in LDtk and in semantic diff
+  output.
 
-1. Run `doctor` on the current LDtk file.
-2. Open the file in LDtk.
-3. Edit levels, IntGrid collision, entities, loading zones, and metadata.
-4. Save in LDtk.
-5. Run `repair --in-place`, `roundtrip`, and `validate`.
-6. Inspect the diff before committing.
-
-## Runtime testing
-
-Test an alternate map without recompiling:
+## Validation
 
 ```bash
-cargo run -p ambition_app --bin ambition_game_bin -- --ldtk mods/my_world.ldtk
-AMBITION_LDTK=mods/my_world.ldtk cargo run -p ambition_app --bin ambition_game_bin
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor "$WORLD"
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff semantic HEAD:"$WORLD" "$WORLD"
+./run_tests.sh -p ambition_content -k ldtk
+./run_tests.sh -k room_spatial_integrity
 ```
 
-For a self-contained executable, build with `--features static_map`; the checked-in `sandbox.ldtk` is embedded and used as fallback if the external map is missing or invalid.
-
-For dev hot reload:
-
-```bash
-cargo run -p ambition_app --bin ambition_game_bin --features dev_hot_reload --release
-```
-
-Hotkeys:
-
-- `F11`: validate/apply the on-disk LDtk file.
-- `F12`: toggle auto-apply after file changes.
-- `F5`: overview camera.
-
-## Programmatic authoring
-
-Area and entity specs live under `tools/ambition_ldtk_tools/specs/`.
-
-```bash
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
-  tools/ambition_ldtk_tools/specs/goblin_encounter_area.yaml \
-  --dry-run
-
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
-  tools/ambition_ldtk_tools/specs/goblin_encounter_area.yaml \
-  --apply
-
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \
-  tools/ambition_ldtk_tools/specs/hub_lab_door.yaml \
-  --in-place
-```
-
-Prefer existing specs as examples. If a spec path in an old doc mentions the retired tools/examples/ldtk_specs/ directory or a top-level the retired author_ldtk_area.py script, that doc is stale.
-
-## Collision representation
-
-The canonical static-collision representation is the `Collision` IntGrid layer. Entity names such as `Solid`, `OneWayPlatform`, `BlinkWall`, and `HazardBlock` remain part of the editor/tool vocabulary, but current tooling lowers static rectangles into IntGrid cells where appropriate.
-
-Common meanings:
-
-```text
-1 = Solid
-2 = OneWayUp
-3 = BlinkSoft
-4 = BlinkHard
-5 = Hazard
-```
-
-`DamageVolume` remains an entity because it may carry motion paths and per-volume damage that IntGrid cells cannot represent.
-
-## Supported entity identifiers
-
-```text
-PlayerStart
-Solid
-OneWayPlatform
-BlinkWall
-HazardBlock
-PogoOrb
-ReboundPad
-LoadingZone
-DamageVolume
-KinematicPath
-NpcSpawn
-PickupSpawn
-ChestSpawn
-Breakable
-EnemySpawn
-BossSpawn
-DebugLabel
-CameraZone
-StitchedBoundary
-WaterVolume
-```
-
-## Optional official schema validation
-
-```bash
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools schema fetch
-uv pip install jsonschema
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate \
-  --schema tools/ambition_ldtk_tools/schemas/ldtk/JSON_SCHEMA.json \
-  --require-schema \
-  game/ambition_content/assets/worlds/sandbox.ldtk
-```
-
-The official schema catches editor-format problems. Ambition validation catches game-specific problems such as invalid loading-zone graph links, unsafe transition arrivals, missing active areas, stale definition IDs, and unknown music tracks.
-
-Related docs: `docs/tools/ldtk-tools.md`, `docs/systems/ldtk-world-composition.md`, `docs/systems/transition-spawn-validation.md`, `docs/systems/ldtk-hot-reload.md`.
+Use [`headless-room-verification.md`](headless-room-verification.md) for runtime
+proof. CLI help and source override old recipe flags.

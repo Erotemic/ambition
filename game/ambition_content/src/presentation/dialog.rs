@@ -436,9 +436,8 @@ fn resolve_portrait_image_path(
         return override_spec.image_path.clone();
     }
     character_catalog
-        .and_then(|catalog| catalog.get(character_id))
-        .and_then(|entry| entry.portrait.as_ref())
-        .map(|portrait| portrait.image.clone())
+        .and_then(|catalog| catalog.portrait_image_path(character_id))
+        .map(str::to_owned)
 }
 
 fn placeholder_monogram(label: &str) -> String {

@@ -44,11 +44,14 @@ Usage:
 
 Common commands:
   ./run_game.sh
-      Run the desktop sandbox in dev mode.
+      Run the multi-game host and open the title screen.
 
-  ./run_game.sh release
-  ./run_game.sh --release
-      Run the desktop sandbox with cargo --release.
+  ./run_game.sh sandbox
+      Skip the title screen and run directly in the Ambition sandbox.
+
+  ./run_game.sh sandbox release
+  ./run_game.sh sandbox --release
+      Run directly in the Ambition sandbox with cargo --release.
 
   ./run_game.sh hot
   ./run_game.sh --hot-reload
@@ -84,6 +87,7 @@ Common commands:
 
 Launch targets (mode aliases):
   (default)               The multi-game host — the Ambition title screen.
+  sandbox                 Direct Ambition sandbox entry; passes --direct.
   sanic, sanic-demo       Sanic's standalone shell (ambition_demo_sanic_app).
   mary-o, mary_o, maryo   Mary-O's standalone shell (ambition_demo_mary_o_app).
                           Demos default to windowed (--features visible + the
@@ -206,6 +210,9 @@ while [[ $# -gt 0 ]]; do
         validate|ldtk|ldtk-validate|validate-only|--validate-only)
             validate_before_run=1
             validate_only=1
+            ;;
+        sandbox|ambition-sandbox)
+            game_args+=(--direct)
             ;;
         cut-rope|cut-rope-boss|smirking-behemoth|you-have-to-cut-the-rope)
             game_args+=(--start-room you_have_to_cut_the_rope)

@@ -89,6 +89,18 @@ impl CharacterCatalog {
         self.0.characters.get(id)
     }
 
+    /// Resolve the default close-up portrait image for a stable character id.
+    ///
+    /// Presentation consumers should use this accessor instead of reaching into
+    /// [`CharacterCatalogEntry`] so portrait schema evolution remains owned by
+    /// the character catalog.
+    pub fn portrait_image_path(&self, id: &str) -> Option<&str> {
+        self.get(id)?
+            .portrait
+            .as_ref()
+            .map(|portrait| portrait.image.as_str())
+    }
+
     /// Iterate every (id, entry) pair. Stable order — `BTreeMap`.
     pub fn iter(&self) -> impl Iterator<Item = (&String, &CharacterCatalogEntry)> {
         self.0.characters.iter()

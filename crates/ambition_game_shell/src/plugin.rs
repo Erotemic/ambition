@@ -8,10 +8,10 @@ use bevy::prelude::{
 use ambition_load::{AmbitionLoadSet, LoadCoordinator};
 
 use crate::{
-    ActiveShellSequence, AmbitionGameShellSet, PreparedSessionRegistry, ShellCommand, ShellEvent,
-    ShellExperienceRegistry, ShellHostConfiguration, ShellInputFocus, ShellLaunchCatalog,
-    ShellLauncherCommand, ShellLauncherPresentation, ShellLauncherState, ShellRouteCatalog,
-    ShellRouteHolds, ShellRouter, ShellScopedEntity, ShellSegmentScopedEntity,
+    ActiveGameplaySession, ActiveShellSequence, AmbitionGameShellSet, PreparedSessionRegistry,
+    ShellCommand, ShellEvent, ShellExperienceRegistry, ShellHostConfiguration, ShellInputFocus,
+    ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherPresentation, ShellLauncherState,
+    ShellRouteCatalog, ShellRouteHolds, ShellRouter, ShellScopedEntity, ShellSegmentScopedEntity,
     ShellSequenceCatalog, ShellSequenceCommand, ShellSequenceRuntime, ShellSequenceSet,
     BASIC_LAUNCHER_EXPERIENCE,
 };
@@ -36,6 +36,7 @@ impl Plugin for AmbitionGameShellPlugin {
             .init_resource::<ShellRouteHolds>()
             .add_message::<ShellCommand>()
             .add_message::<ShellEvent>()
+            .add_message::<ambition_platformer_primitives::developer_hotkeys::DeveloperAction>()
             .configure_sets(
                 Update,
                 (
@@ -48,7 +49,11 @@ impl Plugin for AmbitionGameShellPlugin {
             )
             .add_systems(
                 Update,
-                (initialize_shell, process_shell_commands)
+                (
+                    initialize_shell,
+                    quit_active_session_from_developer_action,
+                    process_shell_commands,
+                )
                     .chain()
                     .in_set(AmbitionGameShellSet::Commands),
             )
@@ -127,6 +132,24 @@ fn initialize_shell(
 ) {
     if !router.is_initialized() && host.spec.is_some() {
         commands.write(ShellCommand::Initialize);
+    }
+}
+
+fn quit_active_session_from_developer_action(
+    mut actions: MessageReader<ambition_platformer_primitives::developer_hotkeys::DeveloperAction>,
+    active: Option<Res<ActiveGameplaySession>>,
+    mut shell: MessageWriter<ShellCommand>,
+) {
+    let requested = actions.read().any(|action| {
+        *action == ambition_platformer_primitives::developer_hotkeys::DeveloperAction::QuitToHome
+    });
+    if requested
+        && active
+            .as_deref()
+            .and_then(|active| active.0.as_ref())
+            .is_some()
+    {
+        shell.write(ShellCommand::QuitToHome);
     }
 }
 

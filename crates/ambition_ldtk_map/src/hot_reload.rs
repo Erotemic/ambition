@@ -67,7 +67,7 @@ impl LdtkHotReloadState {
             Ok(modified) => {
                 state.last_modified = Some(modified);
                 state.last_status = if cfg!(feature = "dev_hot_reload") {
-                    "LDtk hot reload watching; press F11 to apply, F12 toggles auto-apply"
+                    "LDtk hot reload watching; use Apply Reload or toggle Auto-Apply from the developer controls"
                         .to_string()
                 } else {
                     "LDtk hot reload polling; run with --features dev_hot_reload for Bevy file watching too".to_string()
@@ -85,7 +85,8 @@ impl LdtkHotReloadState {
         self.last_modified = Some(modified);
         self.pending = true;
         self.last_errors.clear();
-        self.last_status = "LDtk change detected; press F11 to apply".to_string();
+        self.last_status =
+            "LDtk change detected; use Apply Reload from the developer controls".to_string();
     }
 
     pub fn mark_applied(&mut self, room: &str) {

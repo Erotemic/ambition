@@ -284,7 +284,7 @@ fn sync_ambition_dialog_ui(
     windows: Query<&Window, With<PrimaryWindow>>,
     mut layout_cache: ResMut<AmbitionDialogLayoutCache>,
     ui_fonts: Option<Res<UiFonts>>,
-    character_catalog: Option<Res<CharacterCatalog>>,
+    character_catalog: Res<CharacterCatalog>,
     portrait_catalog: Res<AmbitionDialogPortraitCatalog>,
     asset_server: Option<Res<AssetServer>>,
 ) {
@@ -301,9 +301,7 @@ fn sync_ambition_dialog_ui(
     let presentation_inputs_changed = dialogue.is_changed()
         || layout_changed
         || ui_fonts.as_ref().is_some_and(|fonts| fonts.is_changed())
-        || character_catalog
-            .as_ref()
-            .is_some_and(|catalog| catalog.is_changed())
+        || character_catalog.is_changed()
         || portrait_catalog.is_changed();
     if !presentation_inputs_changed {
         return;
@@ -327,9 +325,7 @@ fn sync_ambition_dialog_ui(
     } else {
         dialogue.speaker_label.trim()
     };
-    let character_id = character_catalog
-        .as_deref()
-        .and_then(|catalog| catalog.id_for_display_name(speaker_label));
+    let character_id = character_catalog.id_for_display_name(speaker_label);
     let portrait_override = character_id.and_then(|id| portrait_catalog.get(id));
     let portrait_key = character_id.unwrap_or(speaker_label);
     let accent = portrait_override
@@ -339,11 +335,8 @@ fn sync_ambition_dialog_ui(
         .and_then(|portrait| portrait.placeholder_text.as_deref())
         .map(str::to_owned)
         .unwrap_or_else(|| placeholder_monogram(speaker_label));
-    let portrait_image_path = resolve_portrait_image_path(
-        character_id,
-        character_catalog.as_deref(),
-        &portrait_catalog,
-    );
+    let portrait_image_path =
+        resolve_portrait_image_path(character_id, &character_catalog, &portrait_catalog);
     // Portrait products currently publish a one-frame default sheet, so the
     // image page can be shown directly. Named clip playback can consume the
     // sibling manifest later without changing this UI ownership seam.
@@ -761,16 +754,14 @@ fn spawn_choice_row(
 
 fn resolve_portrait_image_path(
     character_id: Option<&str>,
-    character_catalog: Option<&CharacterCatalog>,
+    character_catalog: &CharacterCatalog,
     portrait_catalog: &AmbitionDialogPortraitCatalog,
 ) -> Option<String> {
     let character_id = character_id?;
     if let Some(override_spec) = portrait_catalog.get(character_id) {
         return override_spec.image_path.clone();
     }
-    character_catalog
-        .and_then(|catalog| catalog.portrait_image_path(character_id))
-        .map(|path| path.into())
+    character_catalog.portrait_image_path(character_id)
 }
 
 fn placeholder_monogram(label: &str) -> String {
@@ -861,7 +852,7 @@ mod tests {
         let catalog = portrait_catalog_fixture();
         let overrides = AmbitionDialogPortraitCatalog::default();
         assert_eq!(
-            resolve_portrait_image_path(Some("npc_alice"), Some(&catalog), &overrides),
+            resolve_portrait_image_path(Some("npc_alice"), &catalog, &overrides),
             Some("sprites/alice_portraits.png".to_string())
         );
     }
@@ -875,7 +866,7 @@ mod tests {
             AmbitionDialogPortraitSpec::placeholder(Color::srgb(0.0, 0.0, 0.0)),
         );
         assert_eq!(
-            resolve_portrait_image_path(Some("npc_alice"), Some(&catalog), &overrides),
+            resolve_portrait_image_path(Some("npc_alice"), &catalog, &overrides),
             None
         );
     }
@@ -909,6 +900,7 @@ mod tests {
     fn ambition_dialog_is_horizontally_centered_in_the_upper_safe_band() {
         let mut app = App::new();
         app.insert_resource(active_view());
+        app.insert_resource(portrait_catalog_fixture());
         app.add_plugins(AmbitionDialogUiPlugin);
         app.update();
 
@@ -965,6 +957,7 @@ mod tests {
     fn ambition_dialog_uses_placeholder_portraits_until_art_is_registered() {
         let mut app = App::new();
         app.insert_resource(active_view());
+        app.insert_resource(portrait_catalog_fixture());
         app.add_plugins(AmbitionDialogUiPlugin);
         app.update();
 
@@ -982,6 +975,7 @@ mod tests {
         view.option_labels = (0..9).map(|index| format!("Option {index}")).collect();
         view.selected_option = 7;
         app.insert_resource(view);
+        app.insert_resource(portrait_catalog_fixture());
         app.add_plugins(AmbitionDialogUiPlugin);
         app.update();
 
@@ -1028,6 +1022,7 @@ mod tests {
         view.option_labels = vec!["Continue".to_string(), "Leave".to_string()];
         view.selected_option = 1;
         app.insert_resource(view);
+        app.insert_resource(portrait_catalog_fixture());
         app.add_plugins(AmbitionDialogUiPlugin);
         app.update();
 

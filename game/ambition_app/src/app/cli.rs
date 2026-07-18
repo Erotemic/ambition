@@ -657,8 +657,8 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
         // therefore use GGRS from construction onward. Ordinary play uses a
         // zero-distance baseline; F9 installs one bounded proof pulse and then
         // returns to that baseline.
-        use ambition::platformer::schedule::SimScheduleExt as _;
-        app.set_sim_schedule(ambition::runtime::rollback::GgrsSchedule);
+        use ambition::runtime::SimulationHostAppExt as _;
+        app.set_simulation_host(ambition::runtime::SimulationHost::Ggrs);
     }
     let direct_windowed = matches!(render, VisibleRenderMode::Windowed) && !shell_hosted;
     if direct_windowed {

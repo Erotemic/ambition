@@ -52,6 +52,14 @@ impl CharacterSpriteAssets {
         self.props.get(kind)
     }
 
+    /// Resolve an authored character token that may be either a stable catalog
+    /// id or a legacy display name. Asset preparation uses this shared resolver
+    /// without duplicating the selected-character presentation binder.
+    pub fn asset_for_authored_character(&self, authored: &str) -> Option<&CharacterSpriteAsset> {
+        self.asset_for_character_id(authored)
+            .or_else(|| self.npc_asset_for_name(authored))
+    }
+
     /// Resolve the loaded sprite asset for a catalog `character_id`.
     pub fn asset_for_character_id(&self, character_id: &str) -> Option<&CharacterSpriteAsset> {
         match character_id {

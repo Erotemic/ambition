@@ -10,6 +10,7 @@
 | [`camera_ease`](src/camera_ease.rs) | Smoothed camera scale + world-target state with tunable ease rates. |
 | [`camera_layers`](src/camera_layers.rs) | Presentation camera markers shared by host, render, and app wiring. |
 | [`class_b`](src/class_b.rs) | **Class-B transit authority** — the per-frame remap ledger. |
+| [`developer_hotkeys`](src/developer_hotkeys.rs) | Canonical keyboard deck for developer-only host actions. |
 | [`feature_kind`](src/feature_kind.rs) | The feature-visual TAXONOMY shared by the sim (which stamps it at spawn) and every read-model/presentation consumer. |
 | [`feature_overlay`](src/feature_overlay.rs) | Shared read resource for transient ECS-derived world collision overlays. |
 | [`frame_env`](src/frame_env.rs) | The authoritative per-body movement frame: resolved once, consumed everywhere. |
@@ -30,7 +31,7 @@
 | [`transit`](src/transit.rs) | Generic body-transit velocity math for platformer mechanics. |
 | [`world_item_art`](src/world_item_art.rs) | Provider-contributed art declarations for walk-into world items. |
 
-_23 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_24 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

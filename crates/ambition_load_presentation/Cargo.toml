@@ -17,4 +17,5 @@ basic_presentation = ["bevy/ui_api", "ambition_game_shell/basic_presentation"]
 [dependencies]
 ambition_load = { path = "../ambition_load" }
 ambition_game_shell = { path = "../ambition_game_shell" }
+ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 bevy = { version = "0.18.1", default-features = false }

@@ -3,6 +3,7 @@
 use ambition_game_shell::{
     shell_action_edges, FrontendOwnedEntity, FrontendPresentationKind, ShellAnalogLatch,
 };
+use ambition_platformer_primitives::developer_hotkeys::{DeveloperAction, DeveloperHotkeyBindings};
 use bevy::prelude::*;
 
 use crate::{
@@ -18,14 +19,15 @@ pub struct BasicLoadPresentationPlugin;
 
 impl Plugin for BasicLoadPresentationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            basic_load_keyboard.in_set(LoadPresentationSet::Input),
-        )
-        .add_systems(
-            Update,
-            render_basic_load.in_set(LoadPresentationSet::Render),
-        );
+        app.add_message::<DeveloperAction>()
+            .add_systems(
+                Update,
+                basic_load_keyboard.in_set(LoadPresentationSet::Input),
+            )
+            .add_systems(
+                Update,
+                render_basic_load.in_set(LoadPresentationSet::Render),
+            );
     }
 }
 
@@ -34,6 +36,7 @@ fn basic_load_keyboard(
     pads: Query<&bevy::input::gamepad::Gamepad>,
     foreground: Res<LoadForegroundState>,
     model: Res<LoadPresentationModel>,
+    mut developer_actions: MessageReader<DeveloperAction>,
     mut actions: MessageWriter<LoadPresentationAction>,
     mut analog: Local<ShellAnalogLatch>,
 ) {
@@ -54,7 +57,10 @@ fn basic_load_keyboard(
             owner: active.owner.clone(),
         });
     }
-    if shell_actions.quit_to_home {
+    let quit_to_home = developer_actions
+        .read()
+        .any(|action| *action == DeveloperAction::QuitToHome);
+    if quit_to_home {
         actions.write(LoadPresentationAction::Quit {
             owner: active.owner.clone(),
         });
@@ -69,10 +75,15 @@ fn render_basic_load(
     mut commands: Commands,
     model: Res<LoadPresentationModel>,
     foreground: Res<LoadForegroundState>,
+    hotkeys: Option<Res<DeveloperHotkeyBindings>>,
     roots: Query<Entity, With<BasicLoadRoot>>,
     mut prior: Local<String>,
 ) {
-    let text = format_model(&model);
+    let quit_label = hotkeys
+        .as_deref()
+        .and_then(|bindings| bindings.label_for(DeveloperAction::QuitToHome))
+        .unwrap_or_else(|| "Quit to home".to_owned());
+    let text = format_model(&model, &quit_label);
     let key = format!(
         "{}:{text}",
         foreground
@@ -127,15 +138,15 @@ fn render_basic_load(
         });
 }
 
-fn format_model(model: &LoadPresentationModel) -> String {
+fn format_model(model: &LoadPresentationModel, quit_label: &str) -> String {
     if !model.visible {
         return String::new();
     }
     if let Some(failure) = model.failures.first() {
         let controls = if failure.retryable {
-            "R: retry · Escape: cancel · F10/Start: quit"
+            format!("R: retry · Escape: cancel · {quit_label}: quit")
         } else {
-            "Escape: cancel · F10/Start: quit"
+            format!("Escape: cancel · {quit_label}: quit")
         };
         return format!("Load failed\n\n{}\n\n{controls}", failure.player_message);
     }

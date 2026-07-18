@@ -95,6 +95,12 @@ bridge = "device-to-frame"
 why = "THE device→frame bridge: leafwing ActionState → ControlFrame. If any system may hold this resource, it is this one."
 
 [[allow]]
+file = "crates/ambition_runtime/src/rollback/session.rs"
+func = "publish_ggrs_input"
+bridge = "device-to-frame"
+why = "GGRS/network input ingress: publishes the synchronized local-player frame at the head of GgrsSchedule so the existing frame-to-slot bridge fans it into SlotControls before simulation reads any actor input."
+
+[[allow]]
 file = "crates/ambition_actors/src/control/input_systems.rs"
 func = "input_timer_system"
 bridge = "device-to-frame"

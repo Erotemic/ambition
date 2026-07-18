@@ -155,10 +155,8 @@ fn add_named_character(
     assets: &GameAssets,
     character_id: &str,
 ) {
-    if let Some(asset) = assets.characters.asset_for_character_id(character_id) {
+    if let Some(asset) = assets.characters.asset_for_authored_character(character_id) {
         add_character_asset(by_label, &format!("character:{character_id}"), asset);
-    } else if let Some(asset) = assets.characters.npc_asset_for_name(character_id) {
-        add_character_asset(by_label, &format!("character-name:{character_id}"), asset);
     }
 }
 

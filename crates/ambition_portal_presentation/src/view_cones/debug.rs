@@ -1,8 +1,8 @@
-//! **Portal view-cone diagnostics** — the F1/F3 debug overlay and the text/PNG
+//! **Portal view-cone diagnostics** — the debug overlay/inspector and text/PNG
 //! dump machinery for [`super::sync_portal_view_cones`]. None of this runs in a
 //! normal frame's render path; it is the "why does this wedge look like that"
 //! toolbox: `debug_portal_view_zones` (gizmo overlay), the
-//! `*_debug_dump*` chain (F-key-triggered text/capture-texture dumps), and the
+//! `*_debug_dump*` chain (developer-action text/capture-texture dumps), and the
 //! `fmt_*` formatting helpers they share.
 //!
 //! Split out of `view_cones.rs` for the D-B module-size gate. It reads the parent
@@ -10,11 +10,14 @@
 use super::*;
 
 pub fn handle_portal_view_cone_dump_hotkey(
-    keys: Res<ButtonInput<KeyCode>>,
+    mut actions: MessageReader<ambition_platformer_primitives::developer_hotkeys::DeveloperAction>,
     mut request: ResMut<PortalViewConeDebugDumpRequest>,
 ) {
-    if keys.just_pressed(KeyCode::F8) {
-        request.request("F8");
+    if actions.read().any(|action| {
+        *action
+            == ambition_platformer_primitives::developer_hotkeys::DeveloperAction::DumpPortalViewCones
+    }) {
+        request.request("Shift+F8");
     }
 }
 

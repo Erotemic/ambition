@@ -30,10 +30,19 @@ Ambition owns:
 
 ## Current implementation
 
-`ambition_runtime::rollback::AmbitionRollbackPlugin` installs
-`GgrsPlugin<ControlFrame>`, GGRS time at the simulation tick rate, the typed
-registration contract, relationship mapping, message-buffer cleanup on load,
-and exact session-content/schema enforcement.
+`ambition_runtime::SimulationHost` is the construction-time simulation owner:
+`RenderFrame`, `Fixed60Hz`, or `Ggrs`. Only `Ggrs` installs rollback schedules,
+snapshot storage, checksum machinery, and session/request handling. Games that
+do not require rollback choose one of the lighter hosts before content plugins
+build and pay no GGRS runtime tax.
+
+`ambition_runtime::rollback::AmbitionRollbackSchemaPlugin` records the exact
+typed component/resource contract for every host so prepared-content identity
+remains inspectable and stable. On non-GGRS hosts this is only a small descriptor
+registry. `AmbitionRollbackPlugin` is GGRS-only and installs
+`GgrsPlugin<ControlFrame>`, deterministic GGRS time, snapshot/checksum runtime
+machinery, relationship mapping, message-buffer cleanup on load, and exact
+session-content/schema enforcement.
 
 The actual `GgrsSchedule` runs with Bevy's single-threaded executor. Ordered
 simulation phase sets remain the semantic schedule contract; stable same-build
@@ -64,8 +73,10 @@ or compatibility wrapper behind the new API.
 - A session captures the exact `PreparedContentIdentity` and deterministic
   rollback-registration fingerprint. Any change removes the active session
   before another GGRS frame runs.
-- LDtk hot reload cannot commit during an active rollback session. Content epoch
-  replacement requires a coordinated session stop/restart.
+- Local developer LDtk hot reload stops the owned SyncTest session, commits or
+  rejects the prepared-content transaction, and starts a fresh zero-distance
+  baseline at frame zero. External/P2P sessions still require a coordinated
+  peer content barrier and reject unilateral reload.
 
 ## State policy
 
@@ -86,7 +97,9 @@ Rollback-sensitive message buffers are cleared during `LoadWorld`; replayed
 inputs regenerate the accepted future. The remaining production boundary is
 external/presentation effects: audio, VFX, persistence writes, analytics, and
 similar irreversible work must be buffered by frame and released only when GGRS
-confirms the frame.
+confirms the frame. Developer trace recorders skip passes marked as historical
+resimulation, and file output is flushed only outside `GgrsSchedule`, so replay
+cannot synthesize or write duplicate anomaly dumps.
 
 ## Verification
 

@@ -16,9 +16,8 @@ pub struct ShellActionEdges {
     /// Open / toggle the in-session pause menu: Escape or the controller Start
     /// button. This is the conventional pause binding; the pause menu it opens
     /// carries "Quit to Title" and "Quit to Desktop" entries, so Start no longer
-    /// blunt-retires (that is now F10 only, see [`ShellActionEdges::quit_to_home`]).
+    /// retires; quitting to home is a separate semantic developer action.
     pub pause: bool,
-    pub quit_to_home: bool,
     pub startup_acknowledge: bool,
     pub loading_continue: bool,
     pub retry: bool,
@@ -73,11 +72,6 @@ pub fn shell_action_edges(
         confirm,
         back,
         pause: key(KeyCode::Escape) || pad(GamepadButton::Start),
-        // Emergency retire-to-title, keyboard only: the controller Start button
-        // now opens the pause menu (which offers Quit to Title), so it is no
-        // longer bound here — that avoids Start both opening a menu AND tearing
-        // the session out from under it.
-        quit_to_home: key(KeyCode::F10),
         startup_acknowledge: confirm,
         loading_continue: confirm,
         retry: key(KeyCode::KeyR) || pad(GamepadButton::West),

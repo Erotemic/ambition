@@ -15,6 +15,7 @@ use bevy_ggrs::{
 };
 
 use crate::content_identity::SnapshotSchemaFingerprint;
+use crate::SimulationHost;
 
 use super::{
     cursor_checksum, resolved_checksum, state_checksum, CanonicalCodecStrategy, SnapshotCursor,
@@ -113,8 +114,14 @@ impl std::error::Error for RollbackRegistrationError {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RollbackRegistrationOutcome {
+    /// The descriptor was inserted and the active GGRS host should install its
+    /// runtime snapshot/checksum machinery.
     Inserted,
+    /// The exact descriptor was already present.
     Idempotent,
+    /// The descriptor was inserted for schema/content identity, but this host
+    /// does not run GGRS and therefore must not install rollback machinery.
+    RecordedOnly,
 }
 
 impl RollbackRegistry {
@@ -197,15 +204,30 @@ fn register_app_descriptor(
     app: &mut App,
     descriptor: RollbackRegistrationDescriptor,
 ) -> RollbackRegistrationOutcome {
+    // Every composition records the same typed vocabulary because prepared
+    // content identity includes the snapshot-schema fingerprint. Only a GGRS
+    // host turns a newly inserted descriptor into bevy_ggrs runtime machinery.
+    // Fixed/render-frame games therefore keep exact compatibility metadata
+    // without paying for schedules, snapshots, checksums, or session handling.
+    let ggrs_host =
+        app.world().get_resource::<SimulationHost>().copied() == Some(SimulationHost::Ggrs);
     app.init_resource::<RollbackRegistry>();
-    app.world_mut()
+    let outcome = app
+        .world_mut()
         .resource_mut::<RollbackRegistry>()
         .try_register(descriptor)
-        .unwrap_or_else(|error| panic!("{error}"))
+        .unwrap_or_else(|error| panic!("{error}"));
+    match (ggrs_host, outcome) {
+        (true, outcome) => outcome,
+        (false, RollbackRegistrationOutcome::Inserted) => RollbackRegistrationOutcome::RecordedOnly,
+        (false, RollbackRegistrationOutcome::Idempotent) => RollbackRegistrationOutcome::Idempotent,
+        (false, RollbackRegistrationOutcome::RecordedOnly) => unreachable!(),
+    }
 }
 
-/// App-level typed registration vocabulary. Each method installs the real
-/// `bevy_ggrs` plugin and records the exact managed schema identity once.
+/// App-level typed registration vocabulary. Every method records the exact
+/// managed schema identity once; a GGRS host additionally installs the real
+/// `bevy_ggrs` runtime plugin/system for newly inserted descriptors.
 pub trait AmbitionRollbackApp {
     fn rollback_component_canonical<T>(
         &mut self,
@@ -716,6 +738,34 @@ mod tests {
             registry.try_register(descriptor).unwrap(),
             RollbackRegistrationOutcome::Idempotent
         );
+        assert_eq!(registry.descriptors().count(), 1);
+    }
+
+    #[test]
+    fn non_ggrs_hosts_record_schema_without_installing_runtime_machinery() {
+        let mut app = App::new();
+        app.insert_resource(SimulationHost::Fixed60Hz);
+        app.add_plugins(crate::rollback::AmbitionRollbackSchemaPlugin);
+
+        let registry = app.world().resource::<RollbackRegistry>();
+        assert!(
+            registry.descriptors().count() > 1,
+            "the host-independent schema plugin records the engine contract"
+        );
+        assert!(
+            !app.world()
+                .contains_resource::<bevy_ggrs::RollbackFrameRate>(),
+            "a fixed-tick game must not install GGRS runtime resources"
+        );
+    }
+
+    #[test]
+    fn ggrs_host_records_the_same_registration_vocabulary() {
+        let mut app = App::new();
+        app.insert_resource(SimulationHost::Ggrs);
+        app.declare_rollback_derived::<u32>("test", "derived", "test-only descriptor");
+
+        let registry = app.world().resource::<RollbackRegistry>();
         assert_eq!(registry.descriptors().count(), 1);
     }
 

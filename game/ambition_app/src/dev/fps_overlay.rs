@@ -7,7 +7,7 @@
 //! **Visible by default on every platform** — desktop, browser,
 //! Android. Toggle via the **Video settings page → "FPS Overlay"** row
 //! (persisted across sessions via `ambition::persistence::settings::persistence`), or
-//! press `F3` for an in-session keyboard toggle that mutates the same
+//! press `F6` for an in-session keyboard toggle that mutates the same
 //! setting.
 //!
 //! ## Source of truth
@@ -17,13 +17,14 @@
 //! overlay systems don't have to query `UserSettings` every frame.
 //! [`sync_fps_overlay_state_from_settings`] copies the value from
 //! settings → state when the user changes it from the menu;
-//! [`toggle_fps_overlay_on_f3`] writes back to settings so the keyboard
+//! [`toggle_fps_overlay_from_hotkey`] writes back to settings so the keyboard
 //! toggle persists too.
 
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 
 use ambition::persistence::settings::UserSettings;
+use ambition::platformer::developer_hotkeys::DeveloperAction;
 use ambition::render::ui_fonts::{UiFontWeight, UiFonts};
 
 const FPS_OVERLAY_REFRESH_SECONDS: f32 = 0.25;
@@ -57,7 +58,7 @@ struct FpsOverlayText;
 ///   FRAME_TIME diagnostics if not already present),
 /// - the [`FpsOverlayState`] resource,
 /// - `spawn_fps_overlay` (Startup),
-/// - `toggle_fps_overlay_on_f3` + `update_fps_overlay_text` +
+/// - `toggle_fps_overlay_from_hotkey` + `update_fps_overlay_text` +
 ///   `update_fps_overlay_visibility` (Update).
 pub struct FpsOverlayPlugin;
 
@@ -69,13 +70,14 @@ impl Plugin for FpsOverlayPlugin {
         if !app.is_plugin_added::<FrameTimeDiagnosticsPlugin>() {
             app.add_plugins(FrameTimeDiagnosticsPlugin::default());
         }
-        app.init_resource::<FpsOverlayState>()
+        app.add_message::<DeveloperAction>()
+            .init_resource::<FpsOverlayState>()
             .add_systems(Startup, spawn_fps_overlay)
             .add_systems(
                 Update,
                 (
                     sync_fps_overlay_state_from_settings,
-                    toggle_fps_overlay_on_f3,
+                    toggle_fps_overlay_from_hotkey,
                     update_fps_overlay_text,
                     update_fps_overlay_visibility,
                 ),
@@ -120,13 +122,19 @@ fn spawn_fps_overlay(
     ));
 }
 
-/// F3 toggles the FPS overlay by writing to
+/// The canonical developer action (F6 by default) toggles the FPS overlay by writing to
 /// [`UserSettings::video::show_fps`]. The next
 /// `sync_fps_overlay_state_from_settings` tick mirrors the change into
 /// `FpsOverlayState`, and `ambition::persistence::settings::persistence` autosaves the
 /// new value so the toggle survives a restart.
-fn toggle_fps_overlay_on_f3(keys: Res<ButtonInput<KeyCode>>, mut settings: ResMut<UserSettings>) {
-    if keys.just_pressed(KeyCode::F3) {
+fn toggle_fps_overlay_from_hotkey(
+    mut actions: MessageReader<DeveloperAction>,
+    mut settings: ResMut<UserSettings>,
+) {
+    if actions
+        .read()
+        .any(|action| *action == DeveloperAction::ToggleFpsOverlay)
+    {
         settings.video.show_fps = !settings.video.show_fps;
     }
 }

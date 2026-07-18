@@ -25,8 +25,8 @@
 use bevy::prelude::*;
 
 use ambition::game_shell::{
-    GameplaySessionEvent, ShellCommand, ShellCompletionPolicy, ShellEvent, ShellHostConfiguration,
-    ShellHostSpec, ShellRouteCatalog, ShellRouteSpec,
+    GameplaySessionEvent, ShellCompletionPolicy, ShellEvent, ShellHostConfiguration, ShellHostSpec,
+    ShellRouteCatalog, ShellRouteSpec,
 };
 
 use ambition::actors::ldtk_world;
@@ -117,11 +117,7 @@ pub fn compose_ambition_shell_host(app: &mut App) {
 
     app.add_systems(
         Update,
-        (
-            exit_on_shell_request,
-            quit_to_home_on_key,
-            sync_shell_pause_suppression,
-        ),
+        (exit_on_shell_request, sync_shell_pause_suppression),
     );
 }
 
@@ -291,26 +287,5 @@ fn exit_on_shell_request(mut events: MessageReader<ShellEvent>, mut exit: Messag
         if matches!(event, ShellEvent::ExitRequested) {
             exit.write(AppExit::Success);
         }
-    }
-}
-
-/// Universal semantic Quit to Home: while any gameplay session is live, F10
-/// (keyboard) or the controller's Start button retires it and returns to the
-/// host's home route. Presentation-level binding → semantic command; no
-/// provider names a route. (The in-game pause menu can grow a "Quit to Home"
-/// entry on top of the same command.)
-fn quit_to_home_on_key(
-    keys: Option<Res<ButtonInput<KeyCode>>>,
-    pads: Query<&bevy::input::gamepad::Gamepad>,
-    session: Res<ambition::game_shell::ActiveGameplaySession>,
-    mut shell: MessageWriter<ShellCommand>,
-    mut analog: Local<ambition::game_shell::ShellAnalogLatch>,
-) {
-    if session.0.is_none() {
-        return;
-    }
-    let actions = ambition::game_shell::shell_action_edges(keys.as_deref(), &pads, &mut analog);
-    if actions.quit_to_home {
-        shell.write(ShellCommand::QuitToHome);
     }
 }

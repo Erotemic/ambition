@@ -1123,7 +1123,7 @@ watch_paths = ["crates/ambition_touch_input/Cargo.toml"]
 rationale = "ambition_touch_input is a reusable touch presentation/input adapter; render edge is intentional"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_input", "ambition_engine_core", "ambition_platformer_primitives", "ambition_actors", "ambition_render", "ambition_cutscene", "ambition_ui_nav", "ambition_persistence"]
+allow = ["ambition_input", "ambition_engine_core", "ambition_platformer_primitives", "ambition_actors", "ambition_sim_view", "ambition_render", "ambition_cutscene", "ambition_ui_nav", "ambition_persistence"]
 manifest = "crates/ambition_touch_input/Cargo.toml"
 
 [[policy]]
@@ -1655,7 +1655,7 @@ watch_paths = ["crates/ambition_runtime/Cargo.toml"]
 rationale = "runtime composes sim/mechanic/model/dev-state crates, not app/content/host/render"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_actors", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_engine_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_platformer_primitives", "ambition_dev_tools", "ambition_world"]
+allow = ["ambition_actors", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_engine_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer_primitives", "ambition_dev_tools", "ambition_world"]
 manifest = "crates/ambition_runtime/Cargo.toml"
 
 [[policy]]

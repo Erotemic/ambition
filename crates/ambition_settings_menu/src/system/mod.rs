@@ -93,8 +93,8 @@ impl DevToggleId {
     /// Every developer toggle/cycle, grouped Global Flags → Inspectors → Debug
     /// Visuals → Camera → Profiles → LDtk, in display order. The first two
     /// (DebugOverlay/SlowMotion) and the trailing LdtkAutoApply are sourced from
-    /// `SandboxDevState` / `LdtkHotReloadState` (not `DeveloperTools`); they mirror
-    /// the pause-menu Developer page's F1 / F2 / F12 rows.
+    /// `SandboxDevState` / `LdtkHotReloadState` (not `DeveloperTools`). Physical
+    /// keyboard chords are owned by the central developer-hotkey registry.
     pub const ALL: [Self; 22] = [
         // Pinned FIRST so it lands under the cursor the instant you drill into
         // Developer — the menu-frontend toggle is the one developers flip most.
@@ -124,8 +124,8 @@ impl DevToggleId {
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::DebugOverlay => "Debug Overlay (F1)",
-            Self::SlowMotion => "Slow Motion (F2)",
+            Self::DebugOverlay => "Debug Overlay",
+            Self::SlowMotion => "Slow Motion",
             Self::Inspector => "Inspector",
             Self::WorldInspector => "World Inspector",
             Self::Gizmos => "Gizmos",
@@ -141,7 +141,7 @@ impl DevToggleId {
             Self::DebugArtMode => "Art Mode",
             Self::PlayerBodyProfile => "Body Profile",
             Self::MovementProfile => "Movement Profile",
-            Self::LdtkAutoApply => "LDtk Auto-Reload (F12)",
+            Self::LdtkAutoApply => "LDtk Auto-Reload",
             Self::MenuBackend => "Menu Backend",
             Self::PortalEffect => "Portal FX",
             Self::PortalCamera => "Portal Camera",
@@ -151,8 +151,8 @@ impl DevToggleId {
 
     pub fn description(self) -> &'static str {
         match self {
-            Self::DebugOverlay => "Toggle the F1 debug overlay (state, timers, gizmos).",
-            Self::SlowMotion => "Toggle F2 slow-motion for inspecting fast motion.",
+            Self::DebugOverlay => "Toggle the debug overlay (state, timers, gizmos).",
+            Self::SlowMotion => "Toggle slow-motion for inspecting fast motion.",
             Self::Inspector => "Show the reflected resource inspector windows.",
             Self::WorldInspector => "Show the full-world entity/resource inspector.",
             Self::Gizmos => "Master switch for Bevy gizmo overlays.",
@@ -168,7 +168,7 @@ impl DevToggleId {
             Self::DebugArtMode => "Cycle the debug art preset.",
             Self::PlayerBodyProfile => "Cycle the player body-size feel preset.",
             Self::MovementProfile => "Cycle the movement tuning preset.",
-            Self::LdtkAutoApply => "Auto-apply LDtk file changes on hot reload (F12).",
+            Self::LdtkAutoApply => "Auto-apply validated LDtk file changes.",
             Self::MenuBackend => {
                 "Switch the menu frontend: Grid (flat) or Cube (3D). Same as the \\ key."
             }

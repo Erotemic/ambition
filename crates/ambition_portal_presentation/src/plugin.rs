@@ -115,6 +115,7 @@ impl Plugin for PortalPresentationPlugin {
         }
         #[cfg(feature = "effect_view_cones")]
         if self.view_cones {
+            app.add_message::<ambition_platformer_primitives::developer_hotkeys::DeveloperAction>();
             app.init_resource::<view_cones::PortalViewConeConfig>();
             app.init_resource::<view_cones::PortalCaptureQualityBudget>();
             app.init_resource::<view_cones::PortalViewConeDebugDumpRequest>();

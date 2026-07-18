@@ -31,10 +31,26 @@ fn compact(text: &str) -> String {
     text.chars().filter(|c| !c.is_whitespace()).collect()
 }
 
+fn exact_public_struct_position(compact: &str, type_name: &str) -> Option<usize> {
+    let needle = format!("pubstruct{type_name}");
+    let mut rest = compact;
+    let mut offset = 0usize;
+    while let Some(relative) = rest.find(&needle) {
+        let pos = offset + relative;
+        let after = compact[pos + needle.len()..].chars().next();
+        if after.is_none_or(|ch| !ch.is_alphanumeric() && ch != '_') {
+            return Some(pos);
+        }
+        let advance = relative + needle.len();
+        offset += advance;
+        rest = &rest[advance..];
+    }
+    None
+}
+
 fn declaration_derives(text: &str, type_name: &str, derive_name: &str) -> bool {
     let compact = compact(text);
-    let needle = format!("pubstruct{type_name}");
-    let Some(pos) = compact.find(&needle) else {
+    let Some(pos) = exact_public_struct_position(&compact, type_name) else {
         return false;
     };
     let prefix = &compact[..pos];
@@ -60,7 +76,8 @@ fn generic_authority_mentions(compact: &str, prefix: &str, type_name: &str) -> b
         let Some(end) = candidate.find('>') else {
             return false;
         };
-        if candidate[..end].ends_with(type_name) {
+        let first_generic = candidate[..end].split(',').next().unwrap_or_default();
+        if first_generic.ends_with(type_name) {
             return true;
         }
         rest = &candidate[end + 1..];
@@ -170,6 +187,10 @@ pub fn poison_self_tests() {
     assert!(!declaration_derives_resource(
         "#[derive(Component)] pub struct RoomSet;",
         "RoomSet"
+    ));
+    assert!(!declaration_derives_resource(
+        "#[derive(Resource)] pub struct StartingCharacterOverride;",
+        "StartingCharacter"
     ));
     assert!(inspect_source(
         Path::new("x.rs"),

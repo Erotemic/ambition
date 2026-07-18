@@ -395,6 +395,7 @@ impl Plugin for DebugVizPlugin {
     fn build(&self, app: &mut App) {
         // Thin-host safety: the shared sim stack normally owns these, but the
         // plugin must not panic in a host that draws without it.
+        app.add_message::<ambition_platformer_primitives::developer_hotkeys::DeveloperAction>();
         app.init_resource::<SandboxDevState>();
         app.init_resource::<DeveloperTools>();
         app.init_resource::<FeatureViewIndex>();
@@ -418,8 +419,14 @@ impl Plugin for DebugVizPlugin {
 
 /// F1 flips the shared debug flag — the same seam the sandbox's hotkeys and
 /// the portal debug overlay bridge read.
-pub fn toggle_debug_viz(keys: Res<ButtonInput<KeyCode>>, mut dev_state: ResMut<SandboxDevState>) {
-    if keys.just_pressed(KeyCode::F1) {
+pub fn toggle_debug_viz(
+    mut actions: MessageReader<ambition_platformer_primitives::developer_hotkeys::DeveloperAction>,
+    mut dev_state: ResMut<SandboxDevState>,
+) {
+    if actions.read().any(|action| {
+        *action
+            == ambition_platformer_primitives::developer_hotkeys::DeveloperAction::ToggleDebugOverlay
+    }) {
         dev_state.debug = !dev_state.debug;
     }
 }

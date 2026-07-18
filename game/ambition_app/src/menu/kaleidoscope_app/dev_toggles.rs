@@ -7,8 +7,8 @@
 use super::*;
 
 /// The set of resources the Developer screen reads/writes. The dev-toggle path
-/// spans THREE resources: most toggles live on `DeveloperTools`, but the F1/F2
-/// global flags live on [`SandboxDevState`] and the F12 LDtk hot-reload toggle
+/// spans THREE resources: most toggles live on `DeveloperTools`, but the global
+/// debug flags live on [`SandboxDevState`] and the LDtk hot-reload toggle
 /// lives on [`LdtkHotReloadState`] — mirroring the pause-menu Developer page,
 /// which aggregates the same three. Bundled so [`dev_snapshot`] /
 /// [`apply_dev_toggle`] stay single-source for every Developer row.
@@ -52,7 +52,7 @@ pub(crate) fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
     use DevToggleId as D;
     let dev = ctx.dev;
     let mut values = Vec::with_capacity(DevToggleId::ALL.len());
-    // Global dev flags (SandboxDevState) — the F1/F2 rows.
+    // Global dev flags (SandboxDevState) — resource-backed debug rows.
     values.push(DevSnapshot::toggle(
         D::DebugOverlay,
         ctx.dev_state.debug_enabled(),
@@ -94,7 +94,7 @@ pub(crate) fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
         D::MovementProfile,
         dev.movement_profile.label(),
     ));
-    // LDtk hot-reload (LdtkHotReloadState) — the F12 row.
+    // LDtk hot-reload (LdtkHotReloadState) — the resource-backed LDtk row.
     values.push(DevSnapshot::toggle(
         D::LdtkAutoApply,
         ctx.ldtk_reload.auto_apply,
@@ -137,7 +137,7 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
     use DevToggleId as D;
     let dev = ctx.dev;
     match id {
-        // Global dev flags — F1/F2, on `SandboxDevState` (mirrors the pause menu's
+        // Global dev flags on `SandboxDevState` (mirrors the pause menu's
         // `SettingsItem::DebugOverlay` / `SlowMotion` arms).
         D::DebugOverlay => ctx.dev_state.debug = !ctx.dev_state.debug,
         D::SlowMotion => ctx.dev_state.slowmo = !ctx.dev_state.slowmo,
@@ -187,7 +187,7 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
                 dev.movement_profile.next()
             };
         }
-        // LDtk auto-reload — F12, on `LdtkHotReloadState` (mirrors the pause
+        // LDtk auto-reload on `LdtkHotReloadState` (mirrors the pause
         // menu's `SettingsItem::LdtkAutoApply` arm, including the status line).
         D::LdtkAutoApply => {
             let r = &mut *ctx.ldtk_reload;

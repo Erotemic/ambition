@@ -402,8 +402,8 @@ pub(crate) struct KaleidoscopeScroll {
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuParams<'w> {
     dev_tools: ResMut<'w, ambition::dev_tools::dev_tools::DeveloperTools>,
-    // The Developer screen also reaches the F1/F2 global flags + F12 LDtk
-    // auto-reload, which live on these two resources (not `DeveloperTools`).
+    // The Developer screen also reaches global debug flags and LDtk auto-reload,
+    // which live on these two resources (not `DeveloperTools`).
     dev_state: ResMut<'w, ambition::dev_tools::SandboxDevState>,
     ldtk_reload: ResMut<'w, ambition::actors::ldtk_world::LdtkHotReloadState>,
     // The active menu frontend, mutated by the Developer "Menu Backend" row (the

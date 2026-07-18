@@ -520,7 +520,7 @@ mod enabled {
                                     "debug_dump_portal",
                                     &mut config.debug_dump_portal,
                                     "portal name",
-                                    "Optional F8/debug-dump filter. Empty prints every portal. Enter c136, c137, or another portal name to print only that portal and its partner.",
+                                    "Optional debug-dump filter. Empty prints every portal. Enter c136, c137, or another portal name to print only that portal and its partner.",
                                 );
                                 bool_row(
                                     ui,
@@ -575,7 +575,7 @@ mod enabled {
 
                 if request_dump {
                     if let Some(mut request) = world.get_resource_mut::<PortalViewConeDebugDumpRequest>() {
-                        request.request("F3 portal inspector");
+                        request.request("portal inspector");
                     }
                 }
             });

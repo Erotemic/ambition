@@ -93,7 +93,7 @@ fn spawn_kaleidoscope_test_player(app: &mut App) -> Entity {
 
 // ---- Developer-resource toggles ------------------------------------------
 
-/// Dispatching the F1/F2/F12 Developer rows flips the right resource:
+/// Dispatching the resource-backed Developer rows flips the right resource:
 /// `DebugOverlay` → `SandboxDevState::debug`, `SlowMotion` →
 /// `SandboxDevState::slowmo`, `LdtkAutoApply` → `LdtkHotReloadState::auto_apply`
 /// — none of which live on `DeveloperTools`. Driven through the real
@@ -133,15 +133,15 @@ fn extra_dev_toggles_flip_their_non_developer_resources() {
 
     assert_eq!(
         dev_state.debug, !debug_before,
-        "F1 flips SandboxDevState.debug"
+        "the debug-overlay row flips SandboxDevState.debug"
     );
     assert_eq!(
         dev_state.slowmo, !slowmo_before,
-        "F2 flips SandboxDevState.slowmo"
+        "the slow-motion row flips SandboxDevState.slowmo"
     );
     assert_eq!(
         ldtk_reload.auto_apply, !auto_before,
-        "F12 flips LdtkHotReloadState.auto_apply"
+        "the LDtk row flips LdtkHotReloadState.auto_apply"
     );
     // The snapshot mirrors the live state for all three (no field drift).
     let snap = dev_snapshot(DevToggleRead {

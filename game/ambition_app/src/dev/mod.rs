@@ -1,5 +1,5 @@
-//! App-level developer presentation: the F1 debug overlay, F3 FPS counter,
-//! and the F9 one-shot GGRS rollback proof. These are host/presentation systems with
+//! App-level developer presentation: debug overlays, inspectors, the F6 FPS
+//! counter, and the F9 one-shot GGRS rollback proof. These are host/presentation systems with
 //! no simulation-state ownership. The observatory's control resource is
 //! platform-neutral so desktop keys and future Android developer UI can share
 //! one proof-request seam.
@@ -12,7 +12,7 @@ pub mod rollback_observatory;
 use bevy::prelude::*;
 
 /// The game's developer tooling, as one plugin (components-as-plugins):
-/// the F1 debug overlay + F3 FPS counter, plus (behind the `dev_tools`
+/// the debug overlay + F6 FPS counter, plus (behind the `dev_tools`
 /// feature) the egui resource/world inspectors. The dev STATE it drives
 /// (`DeveloperTools`, the editable profiles) lives in the machinery lib
 /// (`ambition::dev_tools::dev_tools`); this plugin only wires the
@@ -21,7 +21,7 @@ pub struct DevToolsPlugin;
 
 impl Plugin for DevToolsPlugin {
     fn build(&self, app: &mut App) {
-        // FPS overlay (ON by default on wasm, OFF on desktop; F3 toggles).
+        // FPS overlay (ON by default on wasm, OFF on desktop; F6 toggles).
         app.add_plugins(fps_overlay::FpsOverlayPlugin);
         #[cfg(feature = "dev_tools")]
         app.add_plugins(rollback_observatory::RollbackObservatoryPlugin);

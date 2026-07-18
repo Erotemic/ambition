@@ -97,10 +97,13 @@ pub fn flush_pending_dump(mut buffer: ResMut<GameplayTraceBuffer>) {
 /// Lives in `trace.rs` rather than `app.rs` so the lookup is grep-able
 /// near the rest of the recorder code.
 pub fn handle_trace_hotkey(
-    keys: Res<ButtonInput<KeyCode>>,
+    mut actions: MessageReader<ambition_platformer_primitives::developer_hotkeys::DeveloperAction>,
     mut buffer: ResMut<GameplayTraceBuffer>,
 ) {
-    if keys.just_pressed(KeyCode::F8) {
+    if actions.read().any(|action| {
+        *action
+            == ambition_platformer_primitives::developer_hotkeys::DeveloperAction::DumpGameplayTrace
+    }) {
         buffer.request_dump(DumpReason::Manual);
     }
 }

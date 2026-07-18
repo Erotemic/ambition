@@ -16,16 +16,17 @@ use bevy::prelude::*;
 /// input streams and N0.4 state hashes key on its count) and the **frame/feel**
 /// clock (raw render dt, driving presentation, device sampling, and per-player
 /// feel-time effects). This resource names the schedule the *tick* clock lives
-/// in, and it has exactly two legal values:
+/// in. The construction-time `SimulationHost` selected by the runtime selects
+/// `Update`, `FixedUpdate`, or the GGRS schedule; this lower crate intentionally
+/// stores only the schedule label so it does not depend on the owner crate.
 ///
-/// - [`Update`] (**default**) — *frame-stepped*: one sim step per rendered
-///   frame, dt = the frame's dt. This is Ambition today.
-/// - [`FixedUpdate`] — *fixed-tick*: the sim advances on Bevy's `Time<Fixed>`
-///   accumulator at a pinned rate; presentation stays in `Update`. Demos, Super
-///   Smash Siblings, lockstep, and rollback need this.
+/// - [`Update`] (**default**) — frame-stepped, once per rendered frame.
+/// - [`FixedUpdate`] — fixed-tick on Bevy's `Time<Fixed>` accumulator.
+/// - a host-provided schedule such as `bevy_ggrs::GgrsSchedule` — driven by
+///   that host's request/session machinery.
 ///
 /// Bullet-time composes **inside** the tick, never with the tick rate: in
-/// fixed-tick mode `WorldTime::scaled_dt == TICK_DT × time_scale` while the
+/// fixed-tick/GGRS modes `WorldTime::scaled_dt == TICK_DT × time_scale` while
 /// cadence stays pinned. Nothing ever scales the accumulator.
 ///
 /// # Reading it
@@ -64,6 +65,24 @@ impl Default for SimSchedule {
     fn default() -> Self {
         Self::new(Update)
     }
+}
+
+/// Host-owned marker for a historical replay pass through the simulation.
+///
+/// Ordinary render-frame and fixed-tick hosts leave this resource absent. A
+/// rollback host raises it after loading historical state and clears it after
+/// the host finishes servicing that rollback request batch. Diagnostic systems
+/// use the marker to avoid treating replayed history as a new irreversible
+/// event while gameplay systems continue to run normally.
+#[derive(Resource, Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct SimulationReplayState {
+    pub replaying_history: bool,
+}
+
+/// Run condition for diagnostics that should sample each authoritative tick but
+/// not duplicate observations while a rollback host resimulates history.
+pub fn simulation_pass_is_authoritative(replay: Option<Res<SimulationReplayState>>) -> bool {
+    !replay.is_some_and(|replay| replay.replaying_history)
 }
 
 impl SimSchedule {

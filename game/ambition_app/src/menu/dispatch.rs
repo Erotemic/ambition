@@ -123,8 +123,8 @@ pub(crate) fn dispatch_menu_action(
         }
         MenuPageAction::SystemAction(SystemMenuAction::QuitToHome) => {
             // Immediate: retire the live session and return to the host's title
-            // screen via the SAME leak-free path F10 / Start fire
-            // (`quit_to_home_on_key`). The router resolves QuitToHome to the
+            // screen via the same semantic ShellCommand used by F10 and the
+            // shell pause menu. The router resolves QuitToHome to the
             // host-relative home route, so this row names no route. Fold the menu
             // shut (which also unpauses) as the session tears down.
             commands.write_message(ambition::game_shell::ShellCommand::QuitToHome);

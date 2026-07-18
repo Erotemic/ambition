@@ -63,12 +63,15 @@ impl SandboxSim {
         // Netcode N0.1: choose the sim schedule BEFORE the first sim plugin
         // builds (see the doc note above).
         {
-            use ambition::platformer::schedule::SimScheduleExt as _;
-            if options.rollback.enabled() {
-                app.set_sim_schedule(ambition::runtime::rollback::GgrsSchedule);
+            use ambition::runtime::SimulationHostAppExt as _;
+            let host = if options.rollback.enabled() {
+                ambition::runtime::SimulationHost::Ggrs
             } else if options.fixed_tick {
-                app.set_sim_schedule(bevy::app::FixedUpdate);
-            }
+                ambition::runtime::SimulationHost::Fixed60Hz
+            } else {
+                ambition::runtime::SimulationHost::RenderFrame
+            };
+            app.set_simulation_host(host);
         }
 
         // Caller-supplied composition: content install + world validation +

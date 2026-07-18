@@ -17,7 +17,7 @@
 //!   player's visual entity, and load [`PortalGunArt`] from the Ambition asset
 //!   paths. The presentation crate never names a host type; these three
 //!   systems are the entire bridge.
-//! - the `F7` dev off-switch (raw keyboard = host input concern).
+//! - the semantic developer action that toggles the portal gun.
 //!
 //! The Ambition content adapters that bridge the mechanic's seams to game
 //! concepts (input -> fire intent, carve -> collision overlay, room-reset ->
@@ -648,49 +648,30 @@ mod host_adapter {
             .max(padding.top)
             .max(padding.bottom)
     }
-    /// Dev off-switch: `F7` toggles the portal gun active/inactive so the
+    /// Dev off-switch: the portal-gun developer action toggles active/inactive so the
     /// always-on slice gun doesn't fire portals on every Attack while testing
     /// other sandbox mechanics. (Visible build only.) Final gating is via
     /// held-item equip; this is a developer convenience until then.
     ///
-    /// This reads raw keyboard input (a host input / dev concern), so it lives
-    /// host-side rather than in a portal crate — it just flips
+    /// This consumes a semantic host developer action, so it lives host-side
+    /// rather than in a portal crate — it just flips
     /// `PortalGun.active` the way the crate's message-driven toggle would.
     pub fn portal_dev_toggle_system(
-        keys: Res<ButtonInput<KeyCode>>,
+        mut actions: MessageReader<
+            ambition_platformer_primitives::developer_hotkeys::DeveloperAction,
+        >,
         mut guns: Query<&mut ambition_portal::PortalGun>,
     ) {
-        if !keys.just_pressed(KeyCode::F7) {
+        if !actions.read().any(|action| {
+            *action
+                == ambition_platformer_primitives::developer_hotkeys::DeveloperAction::TogglePortalGun
+        }) {
             return;
         }
         for mut gun in &mut guns {
             gun.active = !gun.active;
             bevy::log::info!(target: "ambition::portal", "portal gun active = {}", gun.active);
         }
-    }
-
-    /// Dev: `F10` flips the game-wide portal map CONVENTION live, to A/B the
-    /// feel — reflection (det −1, default: tangent preserved, facing/thin-wall
-    /// pairs vertically flip) vs rotation (det +1: facing/thin-wall pairs are a
-    /// clean straight-through "door", floor↔floor reverses horizontal). Affects
-    /// transit, the view cones, the body copy, and collision pieces together.
-    pub fn portal_convention_toggle_system(
-        keys: Res<ButtonInput<KeyCode>>,
-        tuning: Option<ResMut<ambition_portal::PortalTuning>>,
-    ) {
-        if !keys.just_pressed(KeyCode::F10) {
-            return;
-        }
-        let next = !ambition_portal::portal_map_rotation();
-        if let Some(mut tuning) = tuning {
-            tuning.convention = ambition_portal::PortalConvention::from_rotation(next);
-        }
-        ambition_portal::set_portal_map_rotation(next);
-        bevy::log::info!(
-            target: "ambition::portal",
-            "portal map convention = {}",
-            if next { "rotation (det +1)" } else { "reflection (det -1)" }
-        );
     }
 
     /// Registers the Ambition host-adapter glue in its OWN plugin (E4 slice
@@ -703,12 +684,13 @@ mod host_adapter {
     /// - `tag_portal_scene_bodies` too — the audit ruled its old
     ///   `.after(sync_visuals)` pin STALE: it tags SIM bodies
     ///   (`PlayerVisual` + `PortalSceneBody`), not render-spawned visuals;
-    /// - the `F7`/`F10` dev toggles (host input concerns, no set);
+    /// - the portal-gun developer toggle (semantic host action, no set);
     /// - `load_portal_gun_art` at startup (asset PATHS are Ambition content).
     pub struct PortalObservationPlugin;
 
     impl Plugin for PortalObservationPlugin {
         fn build(&self, app: &mut App) {
+            app.add_message::<ambition_platformer_primitives::developer_hotkeys::DeveloperAction>();
             // This plugin registers the publishers that WRITE the presentation
             // seam resources, so it owns their existence too. A host without
             // Ambition's composition (a demo app under workspace feature
@@ -731,7 +713,6 @@ mod host_adapter {
                         .in_set(PortalObservationSet)
                         .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
                     portal_dev_toggle_system,
-                    portal_convention_toggle_system,
                 ),
             );
         }
@@ -739,8 +720,8 @@ mod host_adapter {
 }
 
 pub use host_adapter::{
-    apply_portal_camera_continuity, load_portal_gun_art, portal_convention_toggle_system,
-    portal_dev_toggle_system, sync_portal_camera_continuity_focus, sync_portal_debug_overlay_to_f1,
-    sync_portal_viewer, sync_portal_world_frame, tag_portal_camera_continuity_camera,
-    tag_portal_scene_bodies, PortalObservationPlugin,
+    apply_portal_camera_continuity, load_portal_gun_art, portal_dev_toggle_system,
+    sync_portal_camera_continuity_focus, sync_portal_debug_overlay_to_f1, sync_portal_viewer,
+    sync_portal_world_frame, tag_portal_camera_continuity_camera, tag_portal_scene_bodies,
+    PortalObservationPlugin,
 };

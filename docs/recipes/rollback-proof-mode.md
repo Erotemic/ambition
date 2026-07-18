@@ -5,7 +5,9 @@ Developer-visible Ambition builds run authoritative gameplay through
 session: GGRS drives each simulation tick but skips snapshot saves, historical
 loads, and checksum comparisons.
 
-Press **F9** during gameplay to request one bounded proof pulse. The app rebases
+Press **F9** during gameplay to request one bounded proof pulse. F9 is mapped
+through the canonical `DeveloperAction` registry rather than read by the
+observatory directly. The app rebases
 its owned local session over the current world, runs a six-frame rollback and
 the following SyncTest checksum comparison, then immediately rebases back to
 the zero-distance baseline. The expensive determinism check is bounded to that
@@ -75,3 +77,10 @@ cargo test -p ambition_app --features rl_sim --test app_it desync_canary::
 
 The observatory never stores or restores simulation state itself. It observes
 and presents the work performed by the single `bevy_ggrs` rollback authority.
+Gameplay-trace recording skips historical replay passes, and pending trace files
+are flushed only from `PostUpdate`; rollback replay cannot synthesize or duplicate
+irreversible disk writes.
+
+A successful local LDtk hot reload cancels any active proof pulse and restarts
+the ordinary zero-distance baseline against the newly committed prepared-content
+identity.

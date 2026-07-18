@@ -13,6 +13,7 @@ use ambition::engine_core as ae;
 use ambition::engine_core::RoomGeometry;
 #[cfg(feature = "input")]
 use ambition::input::{KeyboardPreset, SandboxAction};
+use ambition::platformer::developer_hotkeys::DeveloperAction;
 use ambition::render::rendering::{spawn_room_visuals, PlayerVisual};
 
 /// Presentation-side debug hotkey reader.
@@ -25,24 +26,24 @@ use ambition::render::rendering::{spawn_room_visuals, PlayerVisual};
 /// Runs before the player tick so preset/debug-flag mutations land
 /// before the gameplay loop reads them this frame.
 pub(super) fn handle_debug_hotkeys(
-    keys: Res<ButtonInput<KeyCode>>,
+    mut actions: MessageReader<DeveloperAction>,
     mut dev_state: ResMut<SandboxDevState>,
     mut tools: ResMut<DeveloperTools>,
 ) {
-    if keys.just_pressed(KeyCode::F1) {
-        dev_state.debug = !dev_state.debug;
-    }
-    if keys.just_pressed(KeyCode::F2) {
-        dev_state.slowmo = !dev_state.slowmo;
-    }
-    if keys.just_pressed(KeyCode::F3) {
-        tools.inspector_visible = !tools.inspector_visible;
-    }
-    if keys.just_pressed(KeyCode::F4) {
-        tools.world_inspector_visible = !tools.world_inspector_visible;
-    }
-    if keys.just_pressed(KeyCode::F5) {
-        tools.overview_camera = !tools.overview_camera;
+    for action in actions.read() {
+        match action {
+            DeveloperAction::ToggleSlowMotion => dev_state.slowmo = !dev_state.slowmo,
+            DeveloperAction::ToggleInspector => {
+                tools.inspector_visible = !tools.inspector_visible;
+            }
+            DeveloperAction::ToggleWorldInspector => {
+                tools.world_inspector_visible = !tools.world_inspector_visible;
+            }
+            DeveloperAction::ToggleOverviewCamera => {
+                tools.overview_camera = !tools.overview_camera;
+            }
+            _ => {}
+        }
     }
 }
 
@@ -78,9 +79,26 @@ pub(super) fn sync_preset_input_map(
     *last_preset = Some(current);
 }
 
+fn local_ggrs_restart_policy(
+    ownership: Option<ambition::runtime::rollback::RollbackSessionOwnership>,
+) -> Result<Option<ambition::runtime::rollback::SyncTestSettings>, &'static str> {
+    match ownership {
+        Some(ambition::runtime::rollback::RollbackSessionOwnership::External) => Err(
+            "LDtk hot reload cannot replace an external/P2P GGRS session; peers need a coordinated content barrier",
+        ),
+        Some(ambition::runtime::rollback::RollbackSessionOwnership::LocalSyncTest(settings)) => {
+            Ok(Some(ambition::runtime::rollback::SyncTestSettings {
+                check_distance: 0,
+                max_prediction_window: settings.max_prediction_window,
+            }))
+        }
+        None => Ok(None),
+    }
+}
+
 pub(super) fn handle_ldtk_hot_reload(
     mut commands: ambition::platformer::lifecycle::SessionCommands<'_, '_>,
-    keys: Res<ButtonInput<KeyCode>>,
+    mut hotkey_actions: MessageReader<DeveloperAction>,
     mut world: ambition::platformer::lifecycle::SessionWorldMut<RoomGeometry>,
     mut room_set: ambition::platformer::lifecycle::SessionWorldMut<rooms::RoomSet>,
     mut dev_state: ResMut<SandboxDevState>,
@@ -125,36 +143,31 @@ pub(super) fn handle_ldtk_hot_reload(
             ambition::runtime::PreparedContentIdentity,
         >,
         ResMut<ambition::runtime::ContentEpochSequence>,
-        Res<ambition::runtime::rollback::RollbackRegistry>,
-        Option<Res<ambition::runtime::rollback::AmbitionGgrsSession>>,
+        Option<Res<ambition::runtime::rollback::RollbackRegistry>>,
+        Option<Res<ambition::runtime::rollback::RollbackSessionOwnership>>,
     ),
 ) {
-    if keys.just_pressed(KeyCode::F12) {
-        ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
-        ldtk_reload.last_status = format!(
-            "LDtk auto-apply {}",
-            if ldtk_reload.auto_apply {
-                "enabled"
-            } else {
-                "disabled"
+    let mut requested = false;
+    for action in hotkey_actions.read() {
+        match action {
+            DeveloperAction::ToggleLdtkAutoApply => {
+                ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
+                ldtk_reload.last_status = format!(
+                    "LDtk auto-apply {}",
+                    if ldtk_reload.auto_apply {
+                        "enabled"
+                    } else {
+                        "disabled"
+                    }
+                );
             }
-        );
+            DeveloperAction::ApplyLdtkReload => requested = true,
+            _ => {}
+        }
     }
 
-    let requested = keys.just_pressed(KeyCode::F11);
     let should_apply = requested || (ldtk_reload.pending && ldtk_reload.auto_apply);
     if !should_apply {
-        return;
-    }
-
-    if content_identity.4.is_some() {
-        let errors = vec![
-            "LDtk hot reload is a prepared-content epoch replacement and cannot commit while a GGRS rollback session is active; stop/restart the session at a coordinated content barrier".to_string(),
-        ];
-        for error in &errors {
-            eprintln!("LDtk hot reload rejected: {error}");
-        }
-        ldtk_reload.mark_failed(errors);
         return;
     }
 
@@ -171,13 +184,33 @@ pub(super) fn handle_ldtk_hot_reload(
         ldtk_reload.pending = false;
         return;
     };
+
+    let restart_local_ggrs = match local_ggrs_restart_policy(content_identity.4.as_deref().copied())
+    {
+        Ok(restart) => restart,
+        Err(error) => {
+            eprintln!("LDtk hot reload rejected: {error}");
+            ldtk_reload.mark_failed(vec![error.to_owned()]);
+            return;
+        }
+    };
+
+    if let Some(settings) = restart_local_ggrs {
+        ambition::runtime::rollback::stop_session_deferred(&mut commands);
+        commands.insert_resource(RestartLocalGgrsAfterLdtkReload { settings });
+    }
     if let Ok((mut cluster_item, mut motion_model, mut combat, mut safety)) = player_q.single_mut()
     {
         let Some(session_scope) = commands.spawn_scope() else {
             return;
         };
         let mut clusters = cluster_item.as_clusters_mut();
-        let snapshot_schema = content_identity.3.schema_fingerprint();
+        let snapshot_schema = content_identity
+            .3
+            .as_deref()
+            .cloned()
+            .unwrap_or_default()
+            .schema_fingerprint();
         let result = reload_ldtk_world_from_disk(
             &mut commands,
             &mut world,
@@ -225,6 +258,40 @@ pub(super) fn handle_ldtk_hot_reload(
     // When no player entity exists, hot-reload is silently skipped.
     // The game always has a player entity during normal play; this
     // branch only fires in unusual teardown states.
+}
+
+#[derive(Resource, Clone, Copy, Debug)]
+struct RestartLocalGgrsAfterLdtkReload {
+    settings: ambition::runtime::rollback::SyncTestSettings,
+}
+
+/// Rebind the cheap local baseline after the Update-stage content transaction
+/// and its deferred session removal have both committed.
+pub(super) fn restart_local_ggrs_after_hot_reload(world: &mut World) {
+    let Some(restart) = world.remove_resource::<RestartLocalGgrsAfterLdtkReload>() else {
+        return;
+    };
+
+    #[cfg(feature = "dev_tools")]
+    crate::dev::rollback_observatory::reset_for_content_reload(world);
+    if ambition::runtime::rollback::session_is_active(world) {
+        ambition::runtime::rollback::stop_session(world);
+    }
+    match ambition::runtime::rollback::start_sync_test_session(world, restart.settings) {
+        Ok(()) => {
+            #[cfg(feature = "dev_tools")]
+            crate::dev::rollback_observatory::mark_baseline_restarted(world);
+            info!("LDtk hot reload rebased the local GGRS baseline");
+        }
+        Err(error) => {
+            #[cfg(feature = "dev_tools")]
+            crate::dev::rollback_observatory::mark_baseline_restart_failed(
+                world,
+                &error.to_string(),
+            );
+            error!("failed to restart local GGRS after LDtk hot reload: {error}");
+        }
+    }
 }
 
 pub(super) struct LdtkReloadTransaction {
@@ -417,4 +484,40 @@ pub(super) fn reload_ldtk_world_from_disk(
         assets,
     );
     Ok(active_room)
+}
+
+#[cfg(test)]
+mod hot_reload_session_tests {
+    use super::*;
+    use ambition::runtime::rollback::{RollbackSessionOwnership, SyncTestSettings};
+
+    #[test]
+    fn local_sync_test_reload_returns_to_a_zero_distance_baseline() {
+        let restart = local_ggrs_restart_policy(Some(RollbackSessionOwnership::LocalSyncTest(
+            SyncTestSettings {
+                check_distance: 6,
+                max_prediction_window: 8,
+            },
+        )))
+        .expect("local developer sessions may be rebased")
+        .expect("an active local session needs a replacement");
+
+        assert_eq!(restart.check_distance, 0);
+        assert_eq!(restart.max_prediction_window, 8);
+    }
+
+    #[test]
+    fn external_ggrs_reload_requires_a_coordinated_barrier() {
+        let error = local_ggrs_restart_policy(Some(RollbackSessionOwnership::External))
+            .expect_err("one peer must not replace an external session");
+        assert!(error.contains("coordinated content barrier"));
+    }
+
+    #[test]
+    fn non_ggrs_reload_needs_no_session_restart() {
+        assert_eq!(
+            local_ggrs_restart_policy(None).expect("no session is a direct reload"),
+            None
+        );
+    }
 }

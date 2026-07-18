@@ -1125,9 +1125,8 @@ pub fn sync_portal_view_cones(
     }
 }
 
-/// F8 requests a portal view-cone dump. This intentionally shares the existing
-/// trace-dump hotkey: for portal rendering bugs, the gameplay trace and the
-/// portal presentation snapshot are most useful as a pair.
+/// `Shift+F8` requests a portal view-cone dump. Plain F8 remains the gameplay
+/// trace dump, so the two expensive diagnostics are explicit and independent.
 
 fn sync_cone_material_tint(
     cone_materials: &Query<&MeshMaterial2d<ColorMaterial>, With<PortalConeMesh>>,

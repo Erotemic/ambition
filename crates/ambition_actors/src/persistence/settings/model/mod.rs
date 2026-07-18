@@ -467,11 +467,12 @@ impl SettingsItem {
                 format_cycle("Flashes (gameplay)", settings.video.flashes.label())
             }
 
-            Self::DebugOverlay => format_toggle("Debug Overlay (F1)", dev.debug_overlay),
-            Self::SlowMotion => format_toggle("Slow Motion (F2)", dev.slowmo),
-            Self::Inspector => format_toggle("Inspector (F3)", dev.inspector),
-            Self::WorldInspector => format_toggle("World Inspector (F4)", dev.world_inspector),
-            Self::OverviewCamera => format_toggle("Overview Camera (F5)", dev.overview_camera),
+            // Physical chords live only in the developer-hotkey registry.
+            Self::DebugOverlay => format_toggle("Debug Overlay", dev.debug_overlay),
+            Self::SlowMotion => format_toggle("Slow Motion", dev.slowmo),
+            Self::Inspector => format_toggle("Inspector", dev.inspector),
+            Self::WorldInspector => format_toggle("World Inspector", dev.world_inspector),
+            Self::OverviewCamera => format_toggle("Overview Camera", dev.overview_camera),
             Self::DebugViewMode => format_cycle("Debug View", dev.debug_view_mode.label()),
             Self::DebugArtMode => format_cycle("Debug Art", dev.debug_art_mode.label()),
             Self::ShowHitboxes => format_toggle("Custom Hitboxes", dev.show_hitboxes),
@@ -480,7 +481,7 @@ impl SettingsItem {
             Self::CameraFrame => format_toggle("Camera Frame", dev.camera_frame),
             Self::PlayerBodyProfile => format_cycle("Player Body", dev.player_body_profile.label()),
             Self::MovementProfile => format_cycle("Movement Profile", dev.movement_profile.label()),
-            Self::LdtkAutoApply => format_toggle("LDtk Auto-Reload (F12)", dev.ldtk_auto_apply),
+            Self::LdtkAutoApply => format_toggle("LDtk Auto-Reload", dev.ldtk_auto_apply),
         }
     }
 }
@@ -1100,9 +1101,8 @@ impl SettingsItem {
 // and the model logic tests keep resolving.
 pub use ambition_persistence::host::windowing::{next_display_mode, prev_display_mode};
 
-/// Apply a `DisplayModeKind` to the primary window. Shared between the
-/// settings menu and `crate::host::windowing::window_mode_hotkeys` so both
-/// surfaces produce the same `WindowMode` mapping.
+/// Apply a `DisplayModeKind` to the primary window. The settings menu is the
+/// user-facing owner of display-mode changes.
 ///
 /// On wasm the underlying `winit` window-mode transitions are either
 /// no-ops or require a user gesture to satisfy the browser fullscreen

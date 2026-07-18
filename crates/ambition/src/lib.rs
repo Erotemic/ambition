@@ -66,7 +66,7 @@ pub use bevy;
 pub mod engine {
     pub use ambition_runtime::{
         add_headless_foundation, init_engine_states, PlatformerEnginePlugins, SandboxSetsPlugin,
-        SimCoreResourcesPlugin,
+        SimCoreResourcesPlugin, SimulationHost, SimulationHostAppExt,
     };
 }
 

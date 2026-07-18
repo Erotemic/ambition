@@ -38,14 +38,25 @@ pub use codecs::{ensure_sim_id, heal_projectile_owners, mint_spawned_sim_ids};
 pub use registry::*;
 pub use session::*;
 
-/// Installs GGRS's schedules/storage and the Ambition-owned typed contract.
+/// Installs the host-independent typed rollback schema used by prepared
+/// content identity. Non-GGRS games retain this lightweight registry without
+/// installing snapshot history, schedules, checksums, or session machinery.
+pub struct AmbitionRollbackSchemaPlugin;
+
+impl Plugin for AmbitionRollbackSchemaPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<RollbackRegistry>();
+        register_engine_rollback_state(app);
+    }
+}
+
+/// Installs GGRS schedules, snapshot storage, and session/request handling.
 pub struct AmbitionRollbackPlugin;
 
 impl Plugin for AmbitionRollbackPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(GgrsPlugin::<AmbitionGgrsConfig>::default())
-            .insert_resource(RollbackFrameRate(crate::SIM_TICK_HZ as usize))
-            .init_resource::<RollbackRegistry>();
+            .insert_resource(RollbackFrameRate(crate::SIM_TICK_HZ as usize));
 
         // Ambition's gameplay schedule is composed from explicit ordered phase
         // sets, but systems within a phase intentionally rely on deterministic
@@ -71,7 +82,6 @@ impl Plugin for AmbitionRollbackPlugin {
             codecs::reconcile_brain_bindings.in_set(AmbitionLoadWorldSet::Reconcile),
         );
         session::install_session_bridge(app);
-        register_engine_rollback_state(app);
     }
 }
 

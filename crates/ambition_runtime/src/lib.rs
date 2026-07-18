@@ -36,7 +36,8 @@
 //! Presentation, audio, windowing, dev tools, and CONTENT are never in this
 //! group — [the windowed host] (`ambition_host`) and the game's app own those.
 
-use bevy::app::{App, FixedUpdate, Plugin, PluginGroup, PluginGroupBuilder};
+use bevy::app::{App, FixedUpdate, Plugin, PluginGroup, PluginGroupBuilder, Update};
+use bevy::ecs::resource::Resource;
 use bevy::ecs::schedule::IntoScheduleConfigs as _;
 use bevy::time::{Fixed, Time};
 
@@ -118,6 +119,56 @@ pub mod demo_fixture {
 /// The sim tick rate under [`PlatformerEnginePlugins::fixed_tick`]. 60 Hz.
 pub const SIM_TICK_HZ: f64 = 60.0;
 
+/// Construction-time owner of the authoritative simulation schedule.
+///
+/// This is deliberately not a runtime toggle: Bevy systems register into one
+/// concrete schedule while plugins build. A game that does not need rollback
+/// chooses [`Fixed60Hz`](Self::Fixed60Hz) or [`RenderFrame`](Self::RenderFrame)
+/// and does not install GGRS snapshot/session machinery at all.
+#[derive(Resource, Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum SimulationHost {
+    #[default]
+    RenderFrame,
+    Fixed60Hz,
+    Ggrs,
+}
+
+impl SimulationHost {
+    pub fn is_ggrs(self) -> bool {
+        matches!(self, Self::Ggrs)
+    }
+}
+
+/// Choose [`SimulationHost`] before any content or simulation plugin builds.
+pub trait SimulationHostAppExt {
+    fn set_simulation_host(&mut self, host: SimulationHost) -> &mut Self;
+}
+
+impl SimulationHostAppExt for App {
+    fn set_simulation_host(&mut self, host: SimulationHost) -> &mut Self {
+        use ambition_platformer_primitives::schedule::SimScheduleExt as _;
+
+        let same_host = self
+            .world()
+            .get_resource::<SimulationHost>()
+            .is_some_and(|current| *current == host);
+        let same_schedule = match host {
+            SimulationHost::RenderFrame => self.sim_is(Update),
+            SimulationHost::Fixed60Hz => self.sim_is(FixedUpdate),
+            SimulationHost::Ggrs => self.sim_is(bevy_ggrs::GgrsSchedule),
+        };
+        if !same_host || !same_schedule {
+            match host {
+                SimulationHost::RenderFrame => self.set_sim_schedule(Update),
+                SimulationHost::Fixed60Hz => self.set_sim_schedule(FixedUpdate),
+                SimulationHost::Ggrs => self.set_sim_schedule(bevy_ggrs::GgrsSchedule),
+            };
+        }
+        self.insert_resource(host);
+        self
+    }
+}
+
 /// The canonical simulation-phase SETS + the engine resources every consumer
 /// needs before any `.in_set(SandboxSet::…)` registration or host override.
 ///
@@ -127,33 +178,22 @@ pub const SIM_TICK_HZ: f64 = 60.0;
 /// not configured this way: providers publish it as components on the exact
 /// session root, while direct apps create the same root during composition.
 ///
-/// It is also where the group's `fixed_tick` choice becomes real: this plugin
-/// commits the [`SimSchedule`] label before any other plugin can read one.
+/// It is also where the group's [`SimulationHost`] choice becomes real: this
+/// plugin commits the [`SimSchedule`] label before any other plugin can read one.
 ///
 /// [`SimSchedule`]: ambition_platformer_primitives::schedule::SimSchedule
 #[derive(Default)]
 pub struct SandboxSetsPlugin {
-    /// Host the sim in `FixedUpdate` on `Time<Fixed>` instead of `Update`.
-    pub fixed_tick: bool,
-    /// Host the authoritative sim in `bevy_ggrs::GgrsSchedule`.
-    pub rollback: bool,
+    pub host: SimulationHost,
 }
 
 impl Plugin for SandboxSetsPlugin {
     fn build(&self, app: &mut App) {
-        assert!(
-            !(self.fixed_tick && self.rollback),
-            "the simulation cannot be hosted by both FixedUpdate and GgrsSchedule"
-        );
-        if self.rollback {
-            app.set_sim_schedule(bevy_ggrs::GgrsSchedule);
-        } else if self.fixed_tick {
-            // Commit the label FIRST — `configure_sandbox_sets` reads it, and
-            // reading seals it. A sim plugin added before this group would have
-            // already sealed `Update`, and `set_sim_schedule` panics rather
-            // than let half the sim land in the wrong schedule.
-            app.set_sim_schedule(FixedUpdate);
-            // The tick cadence. Bevy's default `Time<Fixed>` is 64 Hz; the sim
+        app.set_simulation_host(self.host);
+        if self.host == SimulationHost::Fixed60Hz {
+            // `set_simulation_host` committed FixedUpdate before
+            // `configure_sandbox_sets` can seal the schedule. Bevy's default
+            // `Time<Fixed>` is 64 Hz; the sim
             // timeline is 60. `run_fixed_main_schedule` swaps the generic
             // `Time` to this clock for the duration of each tick, which is why
             // `refresh_world_time` needs no fixed-tick special case: inside the
@@ -228,58 +268,49 @@ impl Plugin for SandboxSetsPlugin {
 
 /// The engine's content-free simulation plugin group (see module docs).
 ///
-/// # The two clocks (netcode N0.1)
+/// # Simulation host (netcode N0.1)
 ///
-/// By default the group is **frame-stepped**: the sim advances once per
-/// rendered frame, in `Update`. This is Ambition today.
+/// The default [`SimulationHost::RenderFrame`] advances once per rendered frame
+/// in `Update`. [`Self::fixed_tick`] advances at [`SIM_TICK_HZ`] in
+/// `FixedUpdate`. [`Self::rollback`] advances only through GGRS requests and is
+/// the only mode that installs GGRS schedules, snapshots, checksums, and session
+/// machinery.
 ///
-/// `PlatformerEnginePlugins::fixed_tick()` switches it to **fixed-tick**: the
-/// sim advances on `Time<Fixed>` at [`SIM_TICK_HZ`], hosted in `FixedUpdate`,
-/// while presentation, device sampling, and feel-time effects stay on the
-/// render frame in `Update`. Demos, Super Smash Siblings, deterministic replay,
-/// lockstep, and rollback all want this.
-///
-/// Every member plugin registers its systems into
+/// Every member plugin registers into
 /// [`SimSchedule`](ambition_platformer_primitives::schedule::SimSchedule) rather
-/// than naming a schedule, so the choice threads through the whole group — and
-/// through any CONTENT plugin, which asks `app.sim_schedule()` the same way.
+/// than naming a schedule, so the host choice threads through the whole group
+/// and through content plugins that ask `app.sim_schedule()` the same way.
 ///
-/// Content plugins are frequently added BEFORE this group (Ambition's app does
-/// exactly that). Such an app must therefore choose the mode itself, before its
-/// first sim plugin:
+/// Content plugins are sometimes added before this group. Such an app must set
+/// the construction-time host before its first simulation/content plugin:
 ///
 /// ```ignore
-/// app.set_sim_schedule(FixedUpdate);          // ← before any sim plugin
+/// app.set_simulation_host(SimulationHost::Fixed60Hz);
 /// app.add_plugins(MyContentPlugin);
 /// app.add_plugins(PlatformerEnginePlugins::fixed_tick());
 /// ```
 ///
-/// Getting that order wrong panics at startup with both labels named, rather
-/// than silently splitting the sim across two schedules.
+/// Getting that order wrong panics at startup rather than silently splitting
+/// the simulation across schedules.
 #[derive(Default)]
 pub struct PlatformerEnginePlugins {
-    /// Host the sim in `FixedUpdate` on `Time<Fixed>` at [`SIM_TICK_HZ`].
-    pub fixed_tick: bool,
-    /// Host the sim in `bevy_ggrs::GgrsSchedule`; a Session drives each tick.
-    pub rollback: bool,
+    pub host: SimulationHost,
 }
 
 impl PlatformerEnginePlugins {
+    pub fn new(host: SimulationHost) -> Self {
+        Self { host }
+    }
+
     /// The fixed-tick engine: `Time<Fixed>` at [`SIM_TICK_HZ`], presentation
     /// interpolating in `Update`. See the type docs for the ordering rule.
     pub fn fixed_tick() -> Self {
-        Self {
-            fixed_tick: true,
-            rollback: false,
-        }
+        Self::new(SimulationHost::Fixed60Hz)
     }
 
     /// The GGRS-driven engine. The sim advances only through GGRS requests.
     pub fn rollback() -> Self {
-        Self {
-            fixed_tick: false,
-            rollback: true,
-        }
+        Self::new(SimulationHost::Ggrs)
     }
 }
 
@@ -287,13 +318,20 @@ impl PluginGroup for PlatformerEnginePlugins {
     fn build(self) -> PluginGroupBuilder {
         let builder = PluginGroupBuilder::start::<Self>()
             // Sets + engine resources FIRST (see SandboxSetsPlugin docs).
-            .add(SandboxSetsPlugin {
-                fixed_tick: self.fixed_tick,
-                rollback: self.rollback,
-            })
-            // GGRS is the sole rollback authority: schedules, frame history,
-            // entity recreation, resimulation, and checksum comparison.
-            .add(crate::rollback::AmbitionRollbackPlugin)
+            .add(SandboxSetsPlugin { host: self.host });
+        // Non-rollback games do not pay for GGRS schedules, snapshot storage,
+        // checksums, entity recreation, or session/request handling.
+        let builder = if self.host.is_ggrs() {
+            builder.add(crate::rollback::AmbitionRollbackPlugin)
+        } else {
+            builder
+        };
+        let builder = builder
+            // Prepared content always carries the exact typed rollback-schema
+            // fingerprint, even when this composition does not execute GGRS.
+            // The schema plugin is metadata-only on non-GGRS hosts because the
+            // registration vocabulary gates runtime installation on host kind.
+            .add(crate::rollback::AmbitionRollbackSchemaPlugin)
             // The engine sim messages + resource defaults (E5 step 6) —
             // hosts override by insert-before-add (init never clobbers).
             .add(SimCoreResourcesPlugin)

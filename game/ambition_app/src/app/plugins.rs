@@ -27,7 +27,10 @@ use ambition::render::ui_fonts;
 use crate::dev::debug_overlay;
 use crate::host::windowing;
 
-use super::dev_runtime::{handle_debug_hotkeys, handle_ldtk_hot_reload, sync_preset_input_map};
+use super::dev_runtime::{
+    handle_debug_hotkeys, handle_ldtk_hot_reload, restart_local_ggrs_after_hot_reload,
+    sync_preset_input_map,
+};
 use super::hud::{update_hud, update_quest_panel};
 use super::player_tick::{apply_home_reset_policy, sync_player_presentation};
 use super::resources::init_sandbox_resources;
@@ -51,6 +54,7 @@ use super::world_flow::{
 /// arity limit. New simulation systems should go into the matching
 /// `register_*_systems` helper rather than back into this orchestrator.
 pub fn add_simulation_plugins(app: &mut App) {
+    app.add_message::<ambition::platformer::developer_hotkeys::DeveloperAction>();
     // AmbitionPhysicsPlugin (Avian2D) is intentionally NOT here. Per
     // ADR 0007 Avian is secondary physics for debris/ragdoll visuals;
     // the player controller is custom via parry2d in ambition::engine_core.
@@ -77,13 +81,13 @@ pub fn add_simulation_plugins(app: &mut App) {
     // build. Live gameplay-world values are already components on the exact
     // direct/session root; no canonical world value is initialized as a resource.
 
-    // The sim-schedule mode (netcode N0.1) must be chosen before the FIRST sim
-    // plugin builds — content is added below, ahead of the engine group, and it
-    // registers into `SimSchedule` too. A caller opts into fixed tick by
-    // `app.set_sim_schedule(FixedUpdate)` before calling this; we read the
-    // choice back so the engine group installs `Time<Fixed>` to match.
-    let fixed_tick = app.sim_is_fixed_tick();
-    let rollback = app.sim_is(ambition::runtime::rollback::GgrsSchedule);
+    // The construction-time host must be chosen before the first content/sim
+    // plugin. Missing means the lightweight render-frame host.
+    let simulation_host = app
+        .world()
+        .get_resource::<ambition::runtime::SimulationHost>()
+        .copied()
+        .unwrap_or_default();
 
     app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
 
@@ -108,10 +112,9 @@ pub fn add_simulation_plugins(app: &mut App) {
     // collection/interaction/effects/view-sync, room reset, traces,
     // affordances, and the combat-phase chain. Ordering is set-based, so
     // group membership does not change the resolved schedule.
-    app.add_plugins(ambition::runtime::PlatformerEnginePlugins {
-        fixed_tick,
-        rollback,
-    });
+    app.add_plugins(ambition::runtime::PlatformerEnginePlugins::new(
+        simulation_host,
+    ));
 
     // App-LOCAL residue the E5 step-5 carve deliberately left behind. The
     // engine group above registers the shared per-frame wiring (player input
@@ -537,7 +540,8 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 .chain()
                 .after(SandboxSet::CoreSimulation)
                 .run_if(ambition::platformer::lifecycle::session_world_exists),
-        );
+        )
+        .add_systems(PostUpdate, restart_local_ggrs_after_hot_reload);
 
     // Unified menu (the one menu): install backend-agnostic menu state first,
     // then install each compiled backend independently. The backend features are
@@ -585,44 +589,42 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
 }
 
 fn install_fx_and_hud_systems(app: &mut App) {
-    app.add_systems(Update, windowing::window_mode_hotkeys)
-        .add_systems(
-            Update,
-            (
-                fx::update_particles,
-                fx::update_explosions,
-                fx::update_impacts,
-                fx::update_speech_bubbles,
-                fx::update_speech_bubble_outlines,
-            )
-                .chain()
-                .after(debug_overlay::draw_debug_overlay)
-                .run_if(ambition::platformer::lifecycle::session_world_exists),
+    app.add_systems(
+        Update,
+        (
+            fx::update_particles,
+            fx::update_explosions,
+            fx::update_impacts,
+            fx::update_speech_bubbles,
+            fx::update_speech_bubble_outlines,
         )
-        .add_systems(
-            Update,
-            (
-                update_hud,
-                ambition::render::rendering::sync_boss_health_bar_overlay,
-                ambition::dialog::dialog_reveal_tick,
-                ambition::render::cutscene::sync_cutscene_ui,
-            )
-                .chain()
-                .after(windowing::window_mode_hotkeys)
-                .run_if(ambition::platformer::lifecycle::session_world_exists),
+            .chain()
+            .after(debug_overlay::draw_debug_overlay)
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
+    )
+    .add_systems(
+        Update,
+        (
+            update_hud,
+            ambition::render::rendering::sync_boss_health_bar_overlay,
+            ambition::dialog::dialog_reveal_tick,
+            ambition::render::cutscene::sync_cutscene_ui,
         )
-        // Always-on *during gameplay* player HUD overlay (health / mana /
-        // money bars). The title route owns no gameplay HUD authority.
-        .add_systems(
-            Update,
-            (
-                ambition::actors::avatar::regen_player_mana,
-                ambition::render::hud::spawn_player_hud,
-                ambition::render::hud::update_player_hud,
-            )
-                .chain()
-                .run_if(ambition::platformer::lifecycle::session_world_exists),
-        );
+            .chain()
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
+    )
+    // Always-on *during gameplay* player HUD overlay (health / mana /
+    // money bars). The title route owns no gameplay HUD authority.
+    .add_systems(
+        Update,
+        (
+            ambition::actors::avatar::regen_player_mana,
+            ambition::render::hud::spawn_player_hud,
+            ambition::render::hud::update_player_hud,
+        )
+            .chain()
+            .run_if(ambition::platformer::lifecycle::session_world_exists),
+    );
 }
 
 /// Health overlays, portal sprite sync, parallax, dialog redirect,

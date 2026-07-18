@@ -47,7 +47,9 @@ pub struct PlatformerHostPlugins;
 
 impl PluginGroup for PlatformerHostPlugins {
     fn build(self) -> PluginGroupBuilder {
-        let builder = PluginGroupBuilder::start::<Self>().add(HostCameraPlugin);
+        let builder = PluginGroupBuilder::start::<Self>()
+            .add(ambition_platformer_primitives::developer_hotkeys::DeveloperHotkeyPlugin)
+            .add(HostCameraPlugin);
         #[cfg(feature = "input")]
         let builder = builder.add(HostInputBindingsPlugin);
         builder

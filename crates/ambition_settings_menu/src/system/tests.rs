@@ -280,8 +280,8 @@ fn system_screens_surface_every_player_facing_setting() {
 
 #[test]
 fn developer_screen_surfaces_resource_backed_extra_toggles() {
-    // The F1/F2/F12 rows (sourced from SandboxDevState / LdtkHotReloadState, not
-    // DeveloperTools) are now part of the Developer screen vocabulary.
+    // Resource-backed rows sourced from SandboxDevState / LdtkHotReloadState, not
+    // DeveloperTools, are part of the Developer screen vocabulary.
     for id in [
         DevToggleId::DebugOverlay,
         DevToggleId::SlowMotion,

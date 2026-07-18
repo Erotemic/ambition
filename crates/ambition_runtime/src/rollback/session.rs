@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 use bevy_ggrs::ggrs::{self, PlayerType, SessionBuilder};
 use bevy_ggrs::{
-    ConfirmedFrameCount, GgrsConfig, GgrsSchedule, GgrsTime, LocalInputs, LocalPlayers,
+    ConfirmedFrameCount, GgrsConfig, GgrsSchedule, GgrsTime, LoadWorld, LocalInputs, LocalPlayers,
     PlayerInputs, ReadInputs, RollbackFrameCount, RunGgrsSystems, Session, SyncTestMismatch,
 };
 
@@ -54,6 +54,17 @@ pub struct SyncTestSettings {
     pub max_prediction_window: usize,
 }
 
+/// Who owns the currently installed GGRS session.
+///
+/// Local sync-test sessions may be stopped and recreated around a developer
+/// content reload. External/P2P sessions require a coordinated peer barrier and
+/// must never be replaced unilaterally by the local host.
+#[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RollbackSessionOwnership {
+    LocalSyncTest(SyncTestSettings),
+    External,
+}
+
 impl Default for SyncTestSettings {
     fn default() -> Self {
         Self {
@@ -75,6 +86,9 @@ pub fn start_sync_test_session(
     world.insert_resource(RollbackFrameCount(0));
     world.insert_resource(ConfirmedFrameCount(-1));
     world.insert_resource(PendingLocalInput::default());
+    if world.contains_resource::<ControlFrameLatch>() {
+        world.insert_resource(ControlFrameLatch::default());
+    }
 
     // GgrsTimePlugin derives deterministic elapsed time from RollbackFrameCount
     // by calling Time::advance_to. Replacing a running session resets the frame
@@ -91,7 +105,11 @@ pub fn start_sync_test_session(
         .with_check_distance(settings.check_distance)
         .add_player(PlayerType::Local, 0)?
         .start_synctest_session()?;
-    install_session(world, AmbitionGgrsSession::SyncTest(session));
+    install_session_with_ownership(
+        world,
+        AmbitionGgrsSession::SyncTest(session),
+        RollbackSessionOwnership::LocalSyncTest(settings),
+    );
     Ok(())
 }
 
@@ -99,6 +117,14 @@ pub fn start_sync_test_session(
 /// content/schema contract. Matchbox will eventually construct a P2P session
 /// and hand it to this same seam; the harness uses [`start_sync_test_session`].
 pub fn install_session(world: &mut World, session: AmbitionGgrsSession) {
+    install_session_with_ownership(world, session, RollbackSessionOwnership::External);
+}
+
+fn install_session_with_ownership(
+    world: &mut World,
+    session: AmbitionGgrsSession,
+    ownership: RollbackSessionOwnership,
+) {
     let schema = world
         .get_resource::<RollbackRegistry>()
         .cloned()
@@ -108,12 +134,21 @@ pub fn install_session(world: &mut World, session: AmbitionGgrsSession) {
     world.insert_resource(RollbackSessionContract { content, schema });
     world.insert_resource(RollbackSessionStatus::default());
     world.insert_resource(RollbackExecutionStats::default());
+    world.insert_resource(ownership);
     world.insert_resource(session);
 }
 
 pub fn stop_session(world: &mut World) {
     world.remove_resource::<AmbitionGgrsSession>();
     world.remove_resource::<RollbackSessionContract>();
+    world.remove_resource::<RollbackSessionOwnership>();
+}
+
+/// Queue the same complete session removal from a regular Bevy system.
+pub fn stop_session_deferred(commands: &mut Commands) {
+    commands.remove_resource::<AmbitionGgrsSession>();
+    commands.remove_resource::<RollbackSessionContract>();
+    commands.remove_resource::<RollbackSessionOwnership>();
 }
 
 /// Return a diagnostic error when GGRS invalidated the session contract or a
@@ -140,6 +175,7 @@ pub fn session_is_active(world: &World) -> bool {
 
 pub(crate) fn install_session_bridge(app: &mut App) {
     app.init_resource::<PendingLocalInput>()
+        .init_resource::<ambition_platformer_primitives::schedule::SimulationReplayState>()
         .init_resource::<RollbackExecutionStats>()
         .init_resource::<RollbackSessionStatus>()
         .configure_sets(
@@ -165,10 +201,19 @@ pub(crate) fn install_session_bridge(app: &mut App) {
                 .before(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
         )
         .add_systems(
-            bevy_ggrs::LoadWorld,
-            count_load_run.in_set(super::AmbitionLoadWorldSet::Reconcile),
+            LoadWorld,
+            (
+                mark_historical_replay,
+                count_load_run.in_set(super::AmbitionLoadWorldSet::Reconcile),
+            ),
         )
-        .add_systems(PreUpdate, enforce_session_contract.before(RunGgrsSystems))
+        .add_systems(
+            PreUpdate,
+            (
+                enforce_session_contract.before(RunGgrsSystems),
+                clear_historical_replay.after(RunGgrsSystems),
+            ),
+        )
         .add_observer(record_sync_test_mismatch);
 }
 
@@ -207,6 +252,18 @@ fn publish_ggrs_input(
 fn count_advance_run(frame: Res<RollbackFrameCount>, mut stats: ResMut<RollbackExecutionStats>) {
     stats.advance_runs = stats.advance_runs.saturating_add(1);
     stats.last_simulated_frame = frame.0;
+}
+
+fn mark_historical_replay(
+    mut replay: ResMut<ambition_platformer_primitives::schedule::SimulationReplayState>,
+) {
+    replay.replaying_history = true;
+}
+
+fn clear_historical_replay(
+    mut replay: ResMut<ambition_platformer_primitives::schedule::SimulationReplayState>,
+) {
+    replay.replaying_history = false;
 }
 
 fn count_load_run(mut stats: ResMut<RollbackExecutionStats>) {
@@ -281,6 +338,8 @@ fn enforce_session_contract(world: &mut World) {
 
 fn invalidate_session(world: &mut World, reason: String) {
     world.remove_resource::<AmbitionGgrsSession>();
+    world.remove_resource::<RollbackSessionContract>();
+    world.remove_resource::<RollbackSessionOwnership>();
     world
         .get_resource_or_insert_with::<RollbackSessionStatus>(Default::default)
         .invalidation = Some(reason);
@@ -313,6 +372,13 @@ mod tests {
         .expect("a one-player baseline SyncTest session is valid");
 
         assert_eq!(world.resource::<RollbackFrameCount>().0, 0);
+        assert_eq!(
+            *world.resource::<RollbackSessionOwnership>(),
+            RollbackSessionOwnership::LocalSyncTest(SyncTestSettings {
+                check_distance: 0,
+                max_prediction_window: 8,
+            })
+        );
         assert_eq!(
             world.resource::<Time<GgrsTime>>().elapsed(),
             std::time::Duration::ZERO,

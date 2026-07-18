@@ -21,6 +21,7 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 
 use ambition::engine_core as ae;
+use ambition::platformer::developer_hotkeys::DeveloperAction;
 use ambition::render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition::runtime::rollback::{
     self, AdvanceWorld, AdvanceWorldSystems, AmbitionGgrsSession, ConfirmedFrameCount, LoadWorld,
@@ -28,7 +29,6 @@ use ambition::runtime::rollback::{
     SyncTestSettings,
 };
 
-const PROOF_HOTKEY: KeyCode = KeyCode::F9;
 const DEFAULT_CHECK_DISTANCE: usize = 6;
 const DEFAULT_MAX_PREDICTION_WINDOW: usize = 8;
 const GHOST_SECONDS: f32 = 0.85;
@@ -96,7 +96,7 @@ struct RollbackGhost {
 /// Presentation/instrumentation state owned by the observatory, never by the
 /// authoritative simulation.
 #[derive(Resource, Debug)]
-struct RollbackProofState {
+pub(crate) struct RollbackProofState {
     owns_session: bool,
     session_mode: Option<OwnedSessionMode>,
     startup_error: Option<String>,
@@ -150,6 +150,37 @@ impl Default for RollbackProofState {
     }
 }
 
+pub(crate) fn reset_for_content_reload(world: &mut World) {
+    let handled_request = world
+        .get_resource::<RollbackObservatoryControl>()
+        .map_or(0, |control| control.requested_proofs());
+    if let Some(mut state) = world.get_resource_mut::<RollbackProofState>() {
+        *state = RollbackProofState {
+            handled_request,
+            ..default()
+        };
+    }
+}
+
+pub(crate) fn mark_baseline_restarted(world: &mut World) {
+    if let Some(mut state) = world.get_resource_mut::<RollbackProofState>() {
+        state.owns_session = true;
+        state.session_mode = Some(OwnedSessionMode::Baseline);
+        state.startup_error = None;
+    }
+}
+
+pub(crate) fn mark_baseline_restart_failed(world: &mut World, error: &str) {
+    if let Some(mut state) = world.get_resource_mut::<RollbackProofState>() {
+        state.owns_session = false;
+        state.session_mode = None;
+        state.startup_error = Some(format!(
+            "LDtk reload committed, but local GGRS baseline restart failed: {error}"
+        ));
+        state.hud_seconds_left = HUD_SECONDS;
+    }
+}
+
 #[derive(Component)]
 struct RollbackProofText;
 
@@ -168,7 +199,16 @@ pub struct RollbackObservatoryPlugin;
 
 impl Plugin for RollbackObservatoryPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<RollbackProofSettings>()
+        if app
+            .world()
+            .get_resource::<ambition::runtime::SimulationHost>()
+            .copied()
+            != Some(ambition::runtime::SimulationHost::Ggrs)
+        {
+            return;
+        }
+        app.add_message::<DeveloperAction>()
+            .init_resource::<RollbackProofSettings>()
             .init_resource::<RollbackObservatoryControl>()
             .init_resource::<RollbackProofState>()
             .init_resource::<ae::ControlFrameLatch>()
@@ -442,10 +482,13 @@ fn observe_completed_host_update(
 }
 
 fn request_rollback_proof(
-    keys: Res<ButtonInput<KeyCode>>,
+    mut actions: MessageReader<DeveloperAction>,
     mut control: ResMut<RollbackObservatoryControl>,
 ) {
-    if keys.just_pressed(PROOF_HOTKEY) {
+    if actions
+        .read()
+        .any(|action| *action == DeveloperAction::RequestRollbackProof)
+    {
         control.request_proof();
         info!("GGRS rollback proof pulse requested");
     }

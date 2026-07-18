@@ -27,13 +27,22 @@ impl Plugin for TraceSchedulePlugin {
                 sim,
                 (
                     super::record_frame_system,
-                    super::flush_pending_dump.after(super::record_frame_system),
                     // Non-player-centric OOB recorder: samples every body and
-                    // dumps the offender when any character leaves the world.
+                    // requests a dump when any character leaves the world.
                     super::record_actor_oob_frame_system,
-                    super::flush_actor_dump.after(super::record_actor_oob_frame_system),
                 )
-                    .in_set(SandboxSet::Trace),
+                    .in_set(SandboxSet::Trace)
+                    .run_if(
+                        ambition_platformer_primitives::schedule::simulation_pass_is_authoritative,
+                    ),
+            )
+            // Disk writes are irreversible host effects. Keep them outside the
+            // simulation schedule, while the recorders above skip historical
+            // replay passes entirely. A GGRS resimulation can therefore neither
+            // synthesize a duplicate anomaly nor write a duplicate file.
+            .add_systems(
+                PostUpdate,
+                (super::flush_pending_dump, super::flush_actor_dump).chain(),
             );
     }
 }

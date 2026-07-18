@@ -588,6 +588,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_game_shell",
  "ambition_load",
+ "ambition_platformer_primitives",
  "bevy",
 ]
 

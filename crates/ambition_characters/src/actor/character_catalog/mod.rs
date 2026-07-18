@@ -31,8 +31,9 @@ pub use binding::{
 )]
 pub use entry::{
     ActionSetPreset, AxisTuningSpec, BarkSituation, BrainPreset, CharacterBarks, CharacterBodyKind,
-    CharacterCatalogData, CharacterCatalogEntry, CharacterTier, CompositionLayer, MeleePreset,
-    MomentumParamsSpec, MoveStylePreset, PlayableKitSource, RangedPreset, SpecialPreset,
+    CharacterCatalogData, CharacterCatalogEntry, CharacterPortraitRef, CharacterTier,
+    CompositionLayer, MeleePreset, MomentumParamsSpec, MoveStylePreset, PlayableKitSource,
+    RangedPreset, SpecialPreset,
     SpriteTuningSpec,
 };
 #[allow(

@@ -42,8 +42,10 @@ composition:
 Ambition installs `AmbitionDialogUiPlugin` from its content-owned presentation
 module. Its product policy is a classic fully opaque bottom panel with a speaker
 nameplate, portrait frame, body, choices, and a footer whose width is bounded by
-the panel. Dedicated portrait images are registered by stable character id;
-unregistered speakers use deterministic monogram placeholders.
+the panel. A character's ordinary generated portrait reference lives on its
+stable character-catalog row. A game-owned override catalog may replace that
+image or deliberately force a placeholder; speakers without portrait art use
+deterministic monograms.
 
 ## Consequences
 
@@ -51,8 +53,9 @@ unregistered speakers use deterministic monogram placeholders.
   plugin and touching no engine code.
 - Engine dialogue/runtime tests do not encode Ambition's colors, portrait shape,
   title convention, or hint copy.
-- Ambition portrait development becomes data registration rather than another
-  UI refactor.
+- Ambition portrait development becomes a generated asset plus character-catalog
+  reference rather than another UI refactor. Game-specific portrait overrides
+  remain presentation data.
 - Systems that need the dialogue tree order after `DialogPresentationSet`, not a
   concrete renderer function.
 - `DialogOverlayRoot` remains the generic ownership marker used by shell/session
@@ -64,8 +67,10 @@ unregistered speakers use deterministic monogram placeholders.
   `ambition_render::dialog_ui`.
 - Extend `DialogView` only with presentation-neutral facts that multiple
   presenters can legitimately consume.
-- Add named Ambition portrait mappings and layout changes under
-  `game/ambition_content/src/presentation/dialog.rs`.
+- Add ordinary generated portrait references to `character_catalog.ron`;
+  reserve `AmbitionDialogPortraitCatalog` in
+  `game/ambition_content/src/presentation/dialog.rs` for presentation overrides,
+  alternate art, or deliberate placeholders.
 - A demo or downstream game may install `DefaultDialogUiPlugin` or claim the
   presenter seam with its own plugin; never install both.
 - Keep choices on `ambition_ui_nav::DialogChoiceSlot` so pointer/touch and

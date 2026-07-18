@@ -110,8 +110,26 @@ boundary.
 animation and its hitbox visibly agree (the one expressiveness improvement worth
 chasing inside the tool) — is **blocked on a spec from Jon**
 (overlay-to-verify vs. hitbox-follows-authored-part). Do not treat it as done.
-Dialog portraits are a future published product and should use family-native or
-bespoke rerendering rather than crops from gameplay sheets.
+The first static dialog-portrait vertical slice has landed:
+
+- portrait-capable targets publish independent `<target>_portraits.png` and
+  `<target>_portraits.ron` products with a required named `default` clip;
+- config-driven generators rerender at portrait source resolution and compose a
+  logical face guide;
+- module targets opt in through `render_portraits`, demonstrated by bespoke
+  procedural Pipi Tau and SVG-rigged Oiler;
+- Alice demonstrates the config-generator path;
+- publish/install and `regen_sprites.sh` carry these products into runtime
+  assets; and
+- the character catalog references the default product, which Ambition's dialog
+  presenter displays with its existing monogram fallback and optional
+  game-specific override layer.
+
+**Portrait work still open:** migrate default coverage by generator family, add
+portrait gallery/review tooling, carry stable speaker identity through the
+neutral dialog view, and implement named expression/animation selection. Native
+portrait production must continue to use family-specific or bespoke rerendering,
+never crops enlarged from gameplay sheets.
 
 ## Pointers
 

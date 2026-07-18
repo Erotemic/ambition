@@ -34,6 +34,17 @@ pub fn validate(catalog: &CharacterCatalogData) -> Vec<String> {
         if entry.manifest.trim().is_empty() {
             errors.push(format!("character '{id}' has empty manifest path"));
         }
+        if let Some(portrait) = &entry.portrait {
+            if portrait.image.trim().is_empty() {
+                errors.push(format!("character '{id}' has empty portrait image path"));
+            }
+            if portrait.manifest.trim().is_empty() {
+                errors.push(format!("character '{id}' has empty portrait manifest path"));
+            }
+            if portrait.default_clip.trim().is_empty() {
+                errors.push(format!("character '{id}' has empty portrait default_clip"));
+            }
+        }
         if !catalog.brain_presets.contains_key(&entry.default_brain) {
             errors.push(format!(
                 "character '{id}' default_brain '{}' not found in brain_presets",
@@ -58,6 +69,38 @@ pub fn validate(catalog: &CharacterCatalogData) -> Vec<String> {
 mod tests {
     use super::*;
     use crate::actor::character_catalog::parse_catalog;
+
+    #[test]
+    fn incomplete_portrait_references_are_rejected() {
+        let catalog = parse_catalog(
+            r#"(
+                brain_presets: { "idle": StandStill },
+                action_set_presets: { "peaceful": (move_style: Walk) },
+                characters: {
+                    "alpha": (
+                        display_name: "Alpha",
+                        spritesheet: "alpha.png",
+                        manifest: "alpha.ron",
+                        portrait: Some((
+                            image: "",
+                            manifest: "alpha_portraits.ron",
+                            default_clip: "default",
+                        )),
+                        tier: MainHall,
+                        body_kind: Standard,
+                        composition: None,
+                        default_brain: "idle",
+                        default_action_set: "peaceful",
+                        tags: [],
+                    ),
+                },
+            )"#,
+        );
+        assert_eq!(
+            validate(&catalog),
+            vec!["character 'alpha' has empty portrait image path".to_string()]
+        );
+    }
 
     #[test]
     fn duplicate_display_names_are_rejected_deterministically() {

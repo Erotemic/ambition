@@ -3,10 +3,10 @@
 //! The engine publishes [`DialogView`] and shared input markers; this module
 //! owns the actual game's visual language: a classic opaque bottom-of-screen
 //! box, speaker nameplate, portrait frame, choices, and a bounded footer hint.
-//! Portrait assets are registered by stable character id through
-//! [`AmbitionDialogPortraitCatalog`]. Until dedicated portraits exist, every
-//! speaker gets a deterministic monogram placeholder without changing the UI
-//! architecture.
+//! Default portrait products are referenced by stable character id through the
+//! assembled [`CharacterCatalog`]. [`AmbitionDialogPortraitCatalog`] remains a
+//! game-owned presentation override layer; speakers without portrait art get a
+//! deterministic monogram placeholder.
 
 use std::collections::BTreeMap;
 
@@ -25,8 +25,9 @@ const PRESENTER_NAME: &str = "ambition_content::AmbitionDialogUiPlugin";
 
 /// Optional game-owned portrait override for one stable character id.
 ///
-/// `image_path = None` deliberately requests a placeholder. Adding dedicated
-/// portrait art later is data registration, not a renderer rewrite.
+/// The ordinary image comes from the character catalog's generated portrait
+/// product. An override replaces it; `image_path = None` deliberately forces a
+/// placeholder for this game's presentation.
 #[derive(Clone, Debug)]
 pub struct AmbitionDialogPortraitSpec {
     pub image_path: Option<String>,
@@ -110,6 +111,9 @@ pub struct AmbitionDialogPortraitFrame;
 pub struct AmbitionDialogPortraitMonogram;
 
 #[derive(Component)]
+pub struct AmbitionDialogPortraitImage;
+
+#[derive(Component)]
 pub struct AmbitionDialogContinueHint;
 
 fn sync_ambition_dialog_ui(
@@ -146,19 +150,26 @@ fn sync_ambition_dialog_ui(
     let character_id = character_catalog
         .as_deref()
         .and_then(|catalog| catalog.id_for_display_name(speaker_label));
-    let portrait = character_id.and_then(|id| portrait_catalog.get(id));
+    let portrait_override = character_id.and_then(|id| portrait_catalog.get(id));
     let portrait_key = character_id.unwrap_or(speaker_label);
-    let accent = portrait
+    let accent = portrait_override
         .map(|portrait| portrait.accent.clone())
         .unwrap_or_else(|| placeholder_accent(portrait_key));
-    let monogram = portrait
+    let monogram = portrait_override
         .and_then(|portrait| portrait.placeholder_text.as_deref())
         .map(str::to_owned)
         .unwrap_or_else(|| placeholder_monogram(speaker_label));
-    let portrait_image = portrait
-        .and_then(|portrait| portrait.image_path.as_deref())
+    let portrait_image_path = resolve_portrait_image_path(
+        character_id,
+        character_catalog.as_deref(),
+        &portrait_catalog,
+    );
+    // Overlay 1 publishes one-frame default portrait sheets, so the image
+    // page can be shown directly. Named clip/frame playback will consume the
+    // sibling manifest when animated dialogue portraits land.
+    let portrait_image = portrait_image_path
         .zip(asset_server.as_deref())
-        .map(|(path, server)| server.load::<Image>(path.to_string()));
+        .map(|(path, server)| server.load::<Image>(path));
 
     let selected_marker = ui_fonts
         .as_deref()
@@ -344,6 +355,7 @@ fn spawn_portrait(
                         height: Val::Percent(100.0),
                         ..default()
                     },
+                    AmbitionDialogPortraitImage,
                     Name::new("Dialogue Portrait Image"),
                 ));
             } else {
@@ -414,6 +426,21 @@ fn spawn_choice_row(
         });
 }
 
+fn resolve_portrait_image_path(
+    character_id: Option<&str>,
+    character_catalog: Option<&CharacterCatalog>,
+    portrait_catalog: &AmbitionDialogPortraitCatalog,
+) -> Option<String> {
+    let character_id = character_id?;
+    if let Some(override_spec) = portrait_catalog.get(character_id) {
+        return override_spec.image_path.clone();
+    }
+    character_catalog
+        .and_then(|catalog| catalog.get(character_id))
+        .and_then(|entry| entry.portrait.as_ref())
+        .map(|portrait| portrait.image.clone())
+}
+
 fn placeholder_monogram(label: &str) -> String {
     let mut words = label.split_whitespace().filter_map(|word| {
         word.chars()
@@ -467,6 +494,58 @@ mod tests {
         assert_eq!(placeholder_monogram("Ada Lovelace"), "AL");
         assert_eq!(placeholder_monogram("Oiler"), "O");
         assert_eq!(placeholder_monogram(""), "?");
+    }
+
+    fn portrait_catalog_fixture() -> CharacterCatalog {
+        let data = ambition_characters::actor::character_catalog::parse_catalog(
+            r#"(
+                brain_presets: { "idle": StandStill },
+                action_set_presets: { "peaceful": (move_style: Walk) },
+                characters: {
+                    "npc_alice": (
+                        display_name: "Alice",
+                        spritesheet: "sprites/alice_spritesheet.png",
+                        manifest: "sprites/alice_spritesheet.ron",
+                        portrait: Some((
+                            image: "sprites/alice_portraits.png",
+                            manifest: "sprites/alice_portraits.ron",
+                            default_clip: "default",
+                        )),
+                        tier: MainHall,
+                        body_kind: Standard,
+                        composition: None,
+                        default_brain: "idle",
+                        default_action_set: "peaceful",
+                        tags: [],
+                    ),
+                },
+            )"#,
+        );
+        CharacterCatalog::from_data(data)
+    }
+
+    #[test]
+    fn catalog_portrait_is_the_default_dialog_image() {
+        let catalog = portrait_catalog_fixture();
+        let overrides = AmbitionDialogPortraitCatalog::default();
+        assert_eq!(
+            resolve_portrait_image_path(Some("npc_alice"), Some(&catalog), &overrides),
+            Some("sprites/alice_portraits.png".to_string())
+        );
+    }
+
+    #[test]
+    fn game_override_can_deliberately_force_a_placeholder() {
+        let catalog = portrait_catalog_fixture();
+        let mut overrides = AmbitionDialogPortraitCatalog::default();
+        overrides.insert(
+            "npc_alice",
+            AmbitionDialogPortraitSpec::placeholder(Color::srgb(0.0, 0.0, 0.0)),
+        );
+        assert_eq!(
+            resolve_portrait_image_path(Some("npc_alice"), Some(&catalog), &overrides),
+            None
+        );
     }
 
     #[test]

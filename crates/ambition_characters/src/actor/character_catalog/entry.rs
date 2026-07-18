@@ -334,6 +334,19 @@ pub enum PlayableKitSource {
     HostCode,
 }
 
+/// Optional independently published portrait product for dialogue and other
+/// close-up presentation. The image is separate from the gameplay sheet; the
+/// manifest names the default and future expression/animation clips.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct CharacterPortraitRef {
+    /// Portrait-sheet image path, relative to the sandbox asset root.
+    pub image: String,
+    /// Portrait-sheet RON manifest path, relative to the sandbox asset root.
+    pub manifest: String,
+    /// Named clip shown when dialogue does not request another expression.
+    pub default_clip: String,
+}
+
 /// One character entry in `character_catalog.ron`.
 #[allow(
     dead_code,
@@ -349,6 +362,10 @@ pub struct CharacterCatalogEntry {
     /// root. Today the manifest carries grid/frame info; future
     /// catalog work moves animation timing here too.
     pub manifest: String,
+    /// Optional close-up portrait sheet. This presentation asset is
+    /// deliberately independent of the gameplay sprite sheet.
+    #[serde(default)]
+    pub portrait: Option<CharacterPortraitRef>,
     /// Gallery tier. Drives hall placement.
     pub tier: CharacterTier,
     /// Footprint hint. Drives slot sizing.

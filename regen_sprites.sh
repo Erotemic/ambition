@@ -2,9 +2,9 @@
 # Re-render every sprite asset and install into the sandbox crate.
 #
 # Covers:
-#   - Adapter targets (robot / goblin / boss): re-renders every registered
-#     target (run `ambition_sprite2d_renderer list`) — the adapter rigs are
-#     driven by YAML in the renderer package's config dir
+#   - Config-driven targets (robot / goblin / boss): re-renders every
+#     registered YAML job (run `ambition_sprite2d_renderer list`) from the
+#     renderer package's config dir
 #     tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/*.yaml
 #     — straight into crates/ambition_actors/assets/sprites/.
 #   - Entity sprites (chest, breakable, door zone, etc.): re-rendered into
@@ -27,10 +27,10 @@
 # Caching:
 #   The renderer's Python sources + configs are fingerprinted into
 #   `tools/ambition_sprite2d_renderer/.cache/regen-fingerprint`. On the
-#   next run, if the fingerprint matches AND every expected output sheet
+#   next run, if the fingerprint matches AND every expected published output
 #   already exists in assets/sprites/, the script exits early with no
 #   rendering work. Fingerprint mismatch (a renderer source edit) or
-#   a missing expected output (someone deleted a sheet) triggers a full
+#   a missing expected output (someone deleted an asset) triggers a full
 #   re-render. `--force` always re-renders.
 set -euo pipefail
 
@@ -148,8 +148,8 @@ fi
 # is already present in $sprites_dir, skip the whole regen.
 #
 # The expected-files list is the same one the postcondition validates at
-# the end. Keeping a single source of truth means a hand-deletion of one
-# sheet trips both the fast-path check and the postcondition.
+# the end. Keeping a single source of truth means deleting one published
+# sheet, manifest, or portrait trips both the fast-path and postcondition.
 expected_files=(
     # Adapter targets (draw-all).
     boss_spritesheet.png boss_spritesheet.yaml boss_spritesheet.ron
@@ -167,12 +167,14 @@ expected_files=(
     # Review-config NPCs (draw-review → copied).
     absurd_general_spritesheet.png absurd_general_spritesheet.yaml absurd_general_spritesheet.ron
     alice_spritesheet.png alice_spritesheet.yaml alice_spritesheet.ron
+    alice_portraits.png alice_portraits.ron
     architect_spritesheet.png architect_spritesheet.yaml architect_spritesheet.ron
     bob_spritesheet.png bob_spritesheet.yaml bob_spritesheet.ron
     erdish_spritesheet.png erdish_spritesheet.yaml erdish_spritesheet.ron
     kernel_guide_spritesheet.png kernel_guide_spritesheet.yaml kernel_guide_spritesheet.ron
     merchant_prototype_spritesheet.png merchant_prototype_spritesheet.yaml merchant_prototype_spritesheet.ron
     oiler_spritesheet.png oiler_spritesheet.yaml oiler_spritesheet.ron
+    oiler_portraits.png oiler_portraits.ron
     vault_keeper_spritesheet.png vault_keeper_spritesheet.yaml vault_keeper_spritesheet.ron
     # Faction-leader sheets (draw-factions → copied).
     goblin_cantina_chieftain_spritesheet.png goblin_cantina_chieftain_spritesheet.yaml goblin_cantina_chieftain_spritesheet.ron
@@ -181,6 +183,7 @@ expected_files=(
     # Tack-on targets that produce character sheets.
     burning_flying_shark_spritesheet.png burning_flying_shark_spritesheet.yaml burning_flying_shark_spritesheet.ron
     pipi_tau_spritesheet.png pipi_tau_spritesheet.yaml pipi_tau_spritesheet.ron
+    pipi_tau_portraits.png pipi_tau_portraits.ron
     sanic_spritesheet.png sanic_spritesheet.yaml sanic_spritesheet.ron
     super_sanic_spritesheet.png super_sanic_spritesheet.yaml super_sanic_spritesheet.ron
     sanic_ring_prop_spritesheet.png sanic_ring_prop_spritesheet.yaml sanic_ring_prop_spritesheet.ron
@@ -441,8 +444,15 @@ publish_cached() {
     key="$(unit_key "$target")"
     glob="$sprites_dir/${target}"*"_spritesheet.png"
     if sheet_cache_fresh "$target" "$key" "$glob"; then
-        echo "  [cache] $target up to date — skipped"
-        return 0
+        # A portrait-capable target's cache unit is its complete published
+        # bundle, not merely the gameplay sheet. Hand-deleting the portrait
+        # must force regeneration just like deleting the sheet.
+        if [ "$target" != "pipi_tau" ] \
+            || { [ -f "$sprites_dir/pipi_tau_portraits.png" ] \
+                && [ -f "$sprites_dir/pipi_tau_portraits.ron" ]; }; then
+            echo "  [cache] $target up to date — skipped"
+            return 0
+        fi
     fi
     if (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish "$target" --dest-root "$sprites_dir"); then
         sheet_cache_store "$target" "$key"
@@ -464,13 +474,13 @@ if [ "$force_regen" -ne 1 ] \
     && [ "$cached_fingerprint" = "$current_fingerprint" ] \
     && all_outputs_present
 then
-    echo "==> regen cache hit: renderer sources + outputs unchanged — skipping ${#expected_files[@]} sheet renders."
+    echo "==> regen cache hit: renderer sources + outputs unchanged — skipping sprite publication."
     echo "    Cache key: $fingerprint_file"
     echo "    Pass --force to re-render anyway."
     exit 0
 fi
 
-echo "==> adapter targets (robot / goblin / boss) → $sprites_dir"
+echo "==> config-driven targets (robot / goblin / boss) → $sprites_dir"
 (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-all --out-dir "$sprites_dir")
 
 echo "==> entity sprites → $entities_dir"
@@ -521,6 +531,29 @@ for cue in "${review_cues[@]}"; do
     done
 done
 
+# Overlay 1 publishes catalog-backed default portraits for one representative
+# config target. Keep bulk gameplay rendering unchanged: explicitly render and
+# promote only portrait products referenced by the runtime catalog.
+echo "==> Alice native config-generator portrait -> $sprites_dir"
+(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer portraits alice)
+for ext in png ron; do
+    src="$renderer_dir/generated/alice/alice_portraits.$ext"
+    cp "$src" "$sprites_dir/alice_portraits.$ext"
+    echo "  installed alice_portraits.$ext"
+done
+
+# Oiler is the representative direct-SVG rig target. Render only its portrait
+# product here so full regeneration does not replace the established gameplay
+# sheet selected by the review config. Focused `--target oiler` still publishes
+# the module target's full sheet + portrait bundle.
+echo "==> Oiler native rig portrait → $sprites_dir"
+(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer portraits oiler)
+for ext in png ron; do
+    src="$renderer_dir/generated/oiler/oiler_portraits.$ext"
+    cp "$src" "$sprites_dir/oiler_portraits.$ext"
+    echo "  installed oiler_portraits.$ext"
+done
+
 echo "==> faction-leader sheets (robot-target leaders) → $sprites_dir"
 # `draw-factions` renders configs/factions/*.yaml (the
 # faction-leader manifest). Same pattern as draw-review: render to a
@@ -551,6 +584,7 @@ echo "==> tack-on targets (render-publish into $sprites_dir)"
 tackon_targets=(
     sandbag
     burning_flying_shark
+    pipi_tau
     sanic
     super_sanic
     sanic_ring_prop

@@ -13,7 +13,8 @@ data, and the Hall of Characters that showcases it.
 
 `character_catalog.ron` is the durable identity record. Each row carries:
 
-- **sprite metadata** (id, display name, animations keyed by action),
+- **sprite metadata** (id, display name, gameplay sheet/manifest, and an
+  optional independent portrait-sheet reference),
 - a **brain preset + action set** (the behavioral template),
 - **bark pools** — one-liners keyed by occasion (`on_hit`, `provoked`, `idle`, `hall`),
 - a **`hall_dialogue_id`** referencing a Yarn node.
@@ -50,3 +51,9 @@ The architecture, migration, deletion, and Hall voice pass are complete:
 - ✅ GUARDED: the full-host Hall integration test walks every generated
   `NpcSpawn` and rejects missing bark pools, missing or drifted LDtk dialogue
   bindings, and references to absent Yarn titles.
+- ✅ STATIC PORTRAIT VERTICAL SLICE (2026-07-18): Alice, Oiler, and Pipi Tau
+  publish independent native portrait sheets through three representative
+  authoring families. Their catalog rows reference the generated products, and
+  Ambition's dialog presenter uses those images with the existing placeholder
+  fallback. Full-cast default coverage and named expression/animation playback
+  remain follow-up work.

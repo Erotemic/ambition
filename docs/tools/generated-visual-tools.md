@@ -34,7 +34,7 @@ when nothing changed; `--force` bypasses the cache.
 
 ## Sprite renderer — `tools/ambition_sprite2d_renderer/`
 
-Generates and publishes 2D character/entity sprite sheets and their runtime-facing metadata.
+Generates and publishes 2D character/entity sprite sheets, optional independent dialogue portrait sheets, and their runtime-facing metadata.
 
 - **Source of truth = registered targets**, not the published PNGs. A target may
   be implemented with procedural Python, a config-driven generator, shared
@@ -52,10 +52,17 @@ Generates and publishes 2D character/entity sprite sheets and their runtime-faci
   segment:
   `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/*.yaml`.
   Review NPCs live under `…/configs/review/*.yaml`. Target registration is in
-  `ambition_sprite2d_renderer/target_registry.py`.
+  `ambition_sprite2d_renderer/registry/discovery.py`.
+- **Render portraits** without touching gameplay sheets:
+  `python -m ambition_sprite2d_renderer portraits <target>`. Config-driven
+  characters receive the family default; module-authored characters opt in
+  with a native `render_portraits` hook. Portraits are freshly rendered close-up
+  products, never enlarged crops from a published gameplay sheet.
 - **Publish** one target (what `regen_sprites.sh` calls per target):
   `python -m ambition_sprite2d_renderer publish <target> --dest-root <dest>`.
-- **`./regen_sprites.sh`** renders + installs everything: adapter targets and
+  Publishing renders the gameplay bundle plus any supported portrait product,
+  then installs the complete declared output set.
+- **`./regen_sprites.sh`** renders + installs everything: config targets and
   standalone sheets into `crates/ambition_actors/assets/sprites/`, entity
   sprites (chest, breakable, door zone, …) into `…/assets/sprites/entities/`.
   `--target <name>` does just one. It fingerprints the renderer's `.py` + config
@@ -105,8 +112,9 @@ can reproduce every committed asset**. To keep that true:
   that best fits the asset, then run `regen_sprites.sh`. Use a YAML config only
   when the character genuinely belongs to a config-driven generator family.
   Do not fork a render script inline without registering the result.
-- Never hand-edit a published `*_spritesheet.png` / `.ron` / `.yaml` under
-  `assets/`; they are outputs and will be overwritten on the next regen.
+- Never hand-edit a published `*_spritesheet.png` / `.ron` / `.yaml`,
+  `*_portraits.png`, or `*_portraits.ron` under `assets/`; they are outputs and
+  will be overwritten on the next regen.
 - A refactor that breaks `regen_sprites.sh` / `regen_backgrounds.sh` /
   `regen_assets.sh` on a clean checkout is a regression, even if the committed
   assets still look fine.

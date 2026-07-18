@@ -12,7 +12,7 @@ For agent routing, start with [`../docs/tools/index.md`](../docs/tools/index.md)
 | LDtk tools | `ambition_ldtk_tools/` | Validate, repair, roundtrip, compact, initialize, and author LDtk worlds. |
 | Music renderer | `ambition_music_renderer/` | Render/audit generated music and transition material. |
 | SFX renderer / packer | `ambition_sfx_renderer/`, `ambition_sfx_pack/` | Render/audit generated SFX and pack runtime banks. |
-| Sprite renderer | `ambition_sprite2d_renderer/` | Generate/publish 2D sprite sheets and runtime-facing metadata through plural authoring families. |
+| Sprite renderer | `ambition_sprite2d_renderer/` | Generate/publish gameplay and dialogue-portrait sprite sheets plus runtime-facing metadata through plural authoring families. |
 | Background/parallax renderers | `ambition_background_renderer/`, `ambition_parallax_renderer/` | Generate static and parallax visual assets. |
 | Optimization reports | `optimization_report/` | Collect LLM-readable performance/build diagnostics. |
 

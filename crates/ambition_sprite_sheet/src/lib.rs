@@ -39,6 +39,11 @@ pub mod sprite_packs;
 pub mod pack;
 pub use pack::{PackCatalogError, PackFrame, PackTarget, ResolvedFrame, SpritePackCatalog};
 
+pub mod portrait;
+pub use portrait::{
+    parse_portrait_manifest, PortraitClipRecord, PortraitFrameRect, PortraitSheetManifest,
+};
+
 /// One sprite-sheet's metadata as serialized by the generator. Field
 /// names mirror the RON shape exactly; reorder cautiously.
 ///

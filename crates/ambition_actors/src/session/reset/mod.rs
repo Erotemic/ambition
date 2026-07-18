@@ -59,7 +59,6 @@ use crate::encounter::{EncounterMusicRequest, EncounterRegistry};
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::rooms::RoomSet;
 use crate::world::physics;
-use crate::world::platforms;
 use ambition_persistence::quest::QuestRegistry;
 use ambition_persistence::save::SandboxSave;
 use ambition_platformer_primitives::schedule::SimScheduleExt;
@@ -153,6 +152,19 @@ pub fn process_sandbox_reset_request(
         return;
     };
 
+    let start_index = room_set.start;
+    let room_plan = crate::rooms::RoomConstructionPlan::prepare_from_parts(
+        &room_set,
+        start_index,
+        &play_state.placement_lowering,
+        &play_state.content_staging,
+        &play_state.character_catalog,
+        &play_state.character_roster,
+        &play_state.boss_catalog,
+        session_scope,
+    )
+    .unwrap_or_else(|error| panic!("sandbox reset room preflight failed: {error}"));
+
     info!(
         target: "ambition::reset",
         "sandbox reset requested — wiping save, registries, and runtime"
@@ -173,24 +185,22 @@ pub fn process_sandbox_reset_request(
     *quest_registry = QuestRegistry::default();
     **music_request = EncounterMusicRequest::default();
 
-    // 3. Despawn all room visuals (and their physics colliders if
-    //    Avian2D installed any). The room-visual respawn path that
-    //    the player tick / room-load already use will rebuild them
-    //    once the active room flip below kicks in.
-    for (entity, physics_entity) in &room_visuals {
-        if physics_entity.is_some() {
-            physics::retire_physics_entity(&mut commands, entity);
-        } else {
-            commands.entity(entity).despawn();
-        }
-    }
-
-    // 5. Warp the active room back to the start room (where the
-    //    player begins on a fresh game). `RoomSet::start` was
-    //    captured at construction.
-    let start_index = room_set.start;
-    let start_spec = room_set.set_active(start_index).clone();
-    world.0 = start_spec.world.clone();
+    // 3-5. Commit the already-prepared canonical start-room construction.
+    // Invalid authored content was rejected above, before save or registry
+    // mutation. The same artifact drives transition, hot reload, and restore.
+    room_plan.retire_outgoing(
+        &mut commands,
+        room_visuals
+            .iter()
+            .map(|(entity, physics_entity)| (entity, physics_entity.is_some())),
+        None,
+    );
+    room_plan.commit_deferred(
+        &mut commands,
+        &mut room_set,
+        &mut world,
+        &mut play_state.moving_platforms.0,
+    );
 
     // 6. Reset the player to the start room's spawn point.
     play_state
@@ -214,7 +224,7 @@ pub fn process_sandbox_reset_request(
     )) = player_q.single_mut()
     {
         let mut clusters = cluster_item.as_clusters_mut();
-        ae::reset_body_clusters(&mut motion_model, &mut clusters, world.0.spawn);
+        ae::reset_body_clusters(&mut motion_model, &mut clusters, room_plan.spec().world.spawn);
         // reset_body_clusters uses DEFAULT_TUNING for the post-reset
         // dash/jump refresh; redo with the live tuning so a F3
         // editable-tuning session sees its overridden air_jumps /
@@ -233,18 +243,6 @@ pub fn process_sandbox_reset_request(
         attack.clear();
         safety.last_safe_pos = world.0.spawn;
     }
-    crate::features::spawn_room_feature_entities_with_registry(
-        &mut commands,
-        &play_state.character_catalog,
-        &play_state.character_roster,
-        &play_state.boss_catalog,
-        &start_spec,
-        &play_state.placement_lowering,
-        &play_state.content_staging,
-        session_scope,
-    );
-    play_state.moving_platforms.0 = platforms::moving_platforms_for_room(&start_spec);
-
     // 7. Respawn the static world visuals + parallax for the start room.
     //    Without this, the despawn in step 3 leaves the scene empty until
     //    something else (LDtk reload, room transition) rebuilds it. The visual
@@ -253,13 +251,6 @@ pub fn process_sandbox_reset_request(
     //    reads the active room from `RoomSet`. A headless build has no consumer
     //    and correctly skips the (purely visual) respawn.
     respawn_visuals.write(crate::session::RespawnRoomVisualsRequested);
-    platforms::spawn_moving_platforms(
-        &mut commands,
-        session_scope,
-        &world.0,
-        &play_state.moving_platforms.0,
-    );
-
     // 8. User feedback: surface a banner so the reset is visibly
     //    confirmed. The HUD's banner channel is the same one used
     //    for "ARENA CLEAR" etc.

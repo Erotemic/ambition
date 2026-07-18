@@ -37,9 +37,11 @@ use super::setup_systems::{
 };
 use super::sim_systems::{apply_player_reset_input_system, apply_room_replay_request_system};
 use super::world_flow::{
-    authorize_ready_room_transition_system, begin_room_transition_load_system,
+    advance_room_transition_content_epoch_system, authorize_ready_room_transition_system,
+    begin_room_transition_load_system,
     commit_ready_room_transition_system,
-    finalize_unpresented_room_transition_failure_system, RoomTransitionLoadState,
+    finalize_unpresented_room_transition_failure_system, RoomTransitionContentEpoch,
+    RoomTransitionLoadState,
 };
 
 /// Register core simulation plugins, message types, and the gameplay
@@ -67,7 +69,8 @@ pub fn add_simulation_plugins(app: &mut App) {
     if !app.is_plugin_added::<ambition::load::AmbitionLoadPlugin>() {
         app.add_plugins(ambition::load::AmbitionLoadPlugin);
     }
-    app.init_resource::<RoomTransitionLoadState>();
+    app.init_resource::<RoomTransitionLoadState>()
+        .init_resource::<RoomTransitionContentEpoch>();
 
     // The canonical simulation-phase sets + engine resources now live in
     // `ambition::runtime::SandboxSetsPlugin` (first in the engine group below).
@@ -231,6 +234,7 @@ fn register_app_local_sim_systems(app: &mut App) {
     app.add_systems(
         sim,
         (
+            advance_room_transition_content_epoch_system,
             begin_room_transition_load_system,
             authorize_ready_room_transition_system,
             finalize_unpresented_room_transition_failure_system,

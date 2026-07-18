@@ -552,7 +552,7 @@ pub struct SimSnapshot {
     pub tick: u64,
     /// The room active when the snapshot was taken, by its `RoomSpec` id — restored
     /// sim state (netcode.md N3.2b). When it differs from the live room, `restore`
-    /// STAGES it through the canonical room construction (`RoomStaging`) before
+    /// STAGES it through the canonical room construction (`RoomConstructionPlan`) before
     /// reconciling, so a rollback window may span a room transition. What cannot be
     /// staged refuses with the world untouched: a room the live `RoomSet` does not
     /// author (`RestoreError::RoomNotStageable`), or a presence mismatch — one side
@@ -899,7 +899,7 @@ pub enum RestoreError {
     /// the id names no room in the live session's `RoomSet` (a snapshot from a
     /// different prepared world/content identity), or a canonical construction service
     /// (the placement-lowering registry, a catalog, the session scope) is absent.
-    /// Detected by the mutation-free staging preflight (`RoomStaging::prepare`), so
+    /// Detected by the mutation-free staging preflight (`RoomConstructionPlan::prepare`), so
     /// the live room is untouched (N3.2b preflight-before-mutation).
     RoomNotStageable { room: String, reason: String },
     /// A registered codec failed to decode its blob during restore — the bytes are
@@ -1421,7 +1421,7 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     // A spawn request or room transition queued in the abandoned future must
     // not materialize in the restored past: an actor staged twice, a door
     // walked through twice. (Restore's own staging drains its fresh spawn
-    // requests SYNCHRONOUSLY before this clear runs — see `RoomStaging::apply`.)
+    // requests SYNCHRONOUSLY before this clear runs — see `RoomConstructionPlan::apply_to_world`.)
     registry.register_message_channel::<ambition_actors::features::SpawnActorRequest>(
         "spawn_actor_request",
     );

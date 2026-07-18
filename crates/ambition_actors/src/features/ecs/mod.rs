@@ -151,8 +151,9 @@ pub use save_sync::{
 };
 pub(crate) use spawn::spawn_runtime_minion;
 pub use spawn::{
-    respawn_authored_entity, spawn_encounter_mob, spawn_room_feature_entities_with_registry,
-    RoomContentStagingError, RoomContentStagingRegistry,
+    spawn_encounter_mob, spawn_room_feature_entities_from_plan,
+    RoomContentStagingError, RoomContentStagingRegistry, RoomFeatureConstructionError,
+    RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt,
 };
 pub use spawn_actors::{
     apply_spawn_actor_requests, apply_summon_effects, BossOverrides, SpawnActorKind,

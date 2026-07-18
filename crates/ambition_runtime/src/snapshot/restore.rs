@@ -5,71 +5,35 @@
 //! module core via `use super::*`.
 use super::*;
 
-/// Ask the active room to rebuild one authored entity, by the id its `SimId` already is.
+/// Ask the prepared room construction artifact to rebuild one authored entity.
 ///
 /// Returns the rebuilt entity, carrying its `SimId` so `restore` can patch the blob over
 /// it. `None` when the id names nothing the room authors — a dynamically-spawned entity —
-/// or when the world has no room at all (a headless fixture).
-///
-/// This is decision (3)'s *"room-reset already proves the world can rebuild"*, honoured
-/// rather than quoted: the rebuild goes through `respawn_authored_entity`, the same
-/// lowering the room ran at load, not through a restore-only code path.
-fn respawn_from_the_room(world: &mut World, sim_id: &str) -> Option<Entity> {
-    let iid = sim_id.strip_prefix("placement:")?;
-    let registry = world
-        .get_resource::<ambition_actors::world::placements::PlacementLoweringRegistry>()?
-        .clone();
-    let character_catalog = world
-        .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()?
-        .clone();
-    let character_roster = world
-        .get_resource::<ambition_actors::features::CharacterRoster>()?
-        .clone();
-    let boss_catalog = world
-        .get_resource::<ambition_actors::boss_encounter::BossCatalog>()?
-        .clone();
-    let room = {
-        let rooms = ambition_platformer_primitives::lifecycle::session_world_component::<
-            ambition_world::rooms::RoomSet,
-        >(world)?;
-        rooms.rooms.get(rooms.active)?.clone()
-    };
-    let session_scope =
-        ambition_platformer_primitives::lifecycle::SessionSpawnScope::for_optional_active_session(
-            world.get_resource::<ambition_platformer_primitives::lifecycle::ActiveSessionScope>(),
-        )?;
-
+/// or when the world has no room at all (a headless fixture). The exact
+/// lowering interpreter and catalogs were frozen during mutation-free preflight.
+fn respawn_from_construction_plan(
+    world: &mut World,
+    plan: &ambition_actors::world::rooms::RoomConstructionPlan,
+    sim_id: &str,
+) -> Option<Entity> {
+    let authored_id = sim_id.strip_prefix("placement:")?;
     let built = {
         let mut commands = world.commands();
-        ambition_actors::features::respawn_authored_entity(
-            &mut commands,
-            &character_catalog,
-            &character_roster,
-            &boss_catalog,
-            &room,
-            &registry,
-            session_scope,
-            iid,
-        )
+        plan.respawn_authoritative_entity(&mut commands, authored_id)
     };
     if !built {
         return None;
     }
-    // The lowering used `Commands`; nothing exists until they run.
+    // Construction used deferred Commands; nothing exists until they run.
     world.flush();
 
-    // Find what it built. An authored entity wears its `FeatureId`, which IS the iid —
-    // that identity is exactly why a snapshot can key on it.
+    // Find what it built. An authored entity wears its `FeatureId`, which IS
+    // the authored id and therefore the stable construction join key.
     let entity = {
-        let mut q = world.try_query::<(Entity, &ambition_combat::components::FeatureId)>()?;
-        let mut found = None;
-        for (entity, feature) in q.iter(world) {
-            if feature.0 == iid {
-                found = Some(entity);
-                break;
-            }
-        }
-        found?
+        let mut query = world.try_query::<(Entity, &ambition_combat::components::FeatureId)>()?;
+        query
+            .iter(world)
+            .find_map(|(entity, feature)| (feature.0 == authored_id).then_some(entity))?
     };
     world.entity_mut(entity).insert((
         SimId::from_snapshot(sim_id.to_string()),
@@ -308,13 +272,13 @@ pub fn restore(
 
     // **The active room is restored sim state (netcode.md N3.2b).** A snapshot taken
     // in another room is not refused: the snapshot's room is STAGED — through the same
-    // canonical construction a room transition runs (`RoomStaging`: the scoped-entity
+    // canonical construction a room transition runs (`RoomConstructionPlan`: the scoped-entity
     // sweep, active-spec/geometry swap, moving-platform rebuild, and the App-installed
     // placement lowering) — and only then are the registered blobs reconciled, so
-    // `respawn_from_the_room` consults the RIGHT `RoomSpec` and the room-scoped entity
+    // `respawn_from_construction_plan` consumes the RIGHT prepared plan and the room-scoped entity
     // set is the snapshot's.
     //
-    // Transactionality: `RoomStaging::prepare` is mutation-free (it resolves the room
+    // Transactionality: `RoomConstructionPlan::prepare` is mutation-free (it resolves the room
     // and clones every construction service, refusing with the world untouched), and
     // `apply` runs only after every currently available standalone preflight below
     // has passed. Cursor/resolved codecs are still applied after mutation; an
@@ -329,22 +293,19 @@ pub fn restore(
         ambition_world::rooms::RoomSet,
     >(world)
     .map(|rs| rs.active_spec().id.clone());
-    let staging = match (&snapshot.active_room, &active_room) {
-        (snapshot_room, live_room) if snapshot_room == live_room => None,
-        (Some(snapshot_room), Some(_)) => {
-            match ambition_actors::world::rooms::RoomStaging::prepare(world, snapshot_room) {
-                Ok(staging) => Some(staging),
-                // The room names nothing the live session can build (a different
-                // prepared world), or a construction service is absent: refuse,
-                // world untouched.
-                Err(err) => {
-                    return Err(RestoreError::RoomNotStageable {
-                        room: snapshot_room.clone(),
-                        reason: err.to_string(),
-                    })
-                }
-            }
+    let (room_plan, room_replacement_required) = match (&snapshot.active_room, &active_room) {
+        (Some(snapshot_room), Some(live_room)) => {
+            let plan = ambition_actors::world::rooms::RoomConstructionPlan::prepare(
+                world,
+                snapshot_room,
+            )
+            .map_err(|error| RestoreError::RoomNotStageable {
+                room: snapshot_room.clone(),
+                reason: error.to_string(),
+            })?;
+            (Some(plan), snapshot_room != live_room)
         }
+        (None, None) => (None, false),
         _ => {
             return Err(RestoreError::CrossRoomBoundary {
                 snapshot_room: snapshot.active_room.clone(),
@@ -381,7 +342,7 @@ pub fn restore(
     // the player, the session-lifetime encounter authorities, and their kin.
     // Mutation-free: reads only queries.
     let mut survivors: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
-    if staging.is_some() {
+    if room_replacement_required {
         if let Some(mut q) =
             world.try_query_filtered::<&SimId, bevy::ecs::query::Without<
                 ambition_platformer_primitives::lifecycle::RoomScopedEntity,
@@ -403,7 +364,7 @@ pub fn restore(
     // **Predicted-roster preflight (re-audit finding 5 + GPT-5.6 closeout), BEFORE any
     // mutation.** Every snapshot identity must either survive into reconciliation or be
     // buildable by the world's own construction: the target room's authored lists
-    // (what `respawn_from_the_room` reconstructs from) plus its registered content
+    // (what the prepared construction plan can rebuild) plus its registered content
     // staging — both predictable without mutating anything, because the staging seam's
     // stagers are pure functions of the `RoomSpec`. An id outside the prediction —
     // a `spawned(..)` child with no recipe (a projectile in flight at the snapshot
@@ -412,61 +373,28 @@ pub fn restore(
     // registered rows to patch. Room-less headless fixtures skip this: with no
     // construction authority there is nothing to predict against, and the
     // bare-identity respawn below remains their honest fixture path.
-    // Same-room content staging is prepared before mutation too. Its requests are pure
-    // functions of the active RoomSpec, just like cross-room `RoomStaging::prepare`.
-    // Keeping the owned requests lets reconciliation rebuild a coordinated batch when
-    // the rollback window spans one member's death.
-    let same_room_content_requests = if staging.is_none() {
-        let active_spec = ambition_platformer_primitives::lifecycle::session_world_component::<
-            ambition_world::rooms::RoomSet,
-        >(world)
-        .map(|rooms| rooms.active_spec().clone());
-        match active_spec {
-            Some(spec) => world
-                .get_resource::<ambition_actors::features::RoomContentStagingRegistry>()
-                .cloned()
-                .unwrap_or_default()
-                .try_requests_for(&spec)
-                .map_err(|err| RestoreError::RoomNotStageable {
-                    room: spec.id.clone(),
-                    reason: err.to_string(),
-                })?,
-            None => Vec::new(),
-        }
-    } else {
-        Vec::new()
-    };
+    // The canonical construction plan is prepared even for a same-room restore.
+    // Its frozen content requests let reconciliation rebuild a coordinated batch when
+    // the rollback window spans one member's death without rerunning a live stager.
+    let content_requests = room_plan
+        .as_ref()
+        .map(|plan| plan.content_staged_requests().to_vec())
+        .unwrap_or_default();
+    let authored = room_plan
+        .as_ref()
+        .map(|plan| plan.predicted_authoritative_ids().clone())
+        .unwrap_or_default();
 
-    let authored: std::collections::BTreeSet<String> = match &staging {
-        Some(staging) => staging.predicted_authored_ids(),
-        None => ambition_platformer_primitives::lifecycle::session_world_component::<
-            ambition_world::rooms::RoomSet,
-        >(world)
-        .map(|rooms| {
-            let spec = rooms.active_spec();
-            spec.placements
-                .iter()
-                .map(|p| p.id.0.clone())
-                .chain(spec.enemy_spawns.iter().map(|e| e.id.clone()))
-                .chain(spec.boss_spawns.iter().map(|b| b.id.clone()))
-                .chain(
-                    same_room_content_requests
-                        .iter()
-                        .map(|request| request.id.clone()),
-                )
-                .collect()
-        })
-        .unwrap_or_default(),
-    };
     let snapshot_ids = ids
         .iter()
         .copied()
         .collect::<std::collections::BTreeSet<_>>();
-    let same_room_batch_needs_rebuild = same_room_content_requests.iter().any(|request| {
-        let sim_id = SimId::placement(&request.id);
-        snapshot_ids.contains(sim_id.as_str()) && !survivors.contains(sim_id.as_str())
-    });
-    if same_room_batch_needs_rebuild
+    let content_batch_needs_rebuild = !room_replacement_required
+        && content_requests.iter().any(|request| {
+            let sim_id = SimId::placement(&request.id);
+            snapshot_ids.contains(sim_id.as_str()) && !survivors.contains(sim_id.as_str())
+        });
+    if content_batch_needs_rebuild
         && world
             .get_resource::<bevy::ecs::message::Messages<
                 ambition_actors::features::SpawnActorRequest,
@@ -568,9 +496,13 @@ pub fn restore(
     // infallible after `prepare`, and the only remaining failure is the named
     // residual on `RestoreError::DecodeFailed` (a project-authored cursor/resolved
     // codec disagreement, which cannot be probed without a live target).
-    report.staged_room = staging.map(|staging| {
-        let room = staging.room_id().to_string();
-        staging.apply(world);
+    report.staged_room = room_replacement_required.then(|| {
+        let plan = room_plan
+            .as_ref()
+            .expect("a room replacement always has a prepared construction plan")
+            .clone();
+        let room = plan.room_id().to_string();
+        plan.apply_to_world(world);
         // The staged lowering spawns bodies that receive identity from
         // `ensure_sim_id` at the head of the next sim tick — but reconciliation
         // needs it NOW, or every staged body reads as absent and is rebuilt as a
@@ -581,8 +513,8 @@ pub fn restore(
         room
     });
 
-    if same_room_batch_needs_rebuild {
-        rebuild_content_staged_batch(world, &same_room_content_requests);
+    if content_batch_needs_rebuild {
+        rebuild_content_staged_batch(world, &content_requests);
     }
 
     // **The identity invariant holds for every reconstructed roster too** (GPT-5.6 closeout).
@@ -592,7 +524,7 @@ pub fn restore(
     // with an authored placement, a double-registered stager — would otherwise let
     // the live-map build below silently pick one of the two. Same panic, same
     // reason: a world with duplicate identity cannot be trusted, only fixed.
-    if report.staged_room.is_some() || same_room_batch_needs_rebuild {
+    if report.staged_room.is_some() || content_batch_needs_rebuild {
         let staged_dups = duplicate_live_ids(world);
         assert!(
             staged_dups.is_empty(),
@@ -641,7 +573,10 @@ pub fn restore(
             // Gone since the snapshot. Ask the ROOM to build it again before falling
             // back to a bare `SimId` — the blob carries what the entity became, and only
             // the room carries what it was.
-            None => match respawn_from_the_room(world, id) {
+            None => match room_plan
+                .as_ref()
+                .and_then(|plan| respawn_from_construction_plan(world, plan, id))
+            {
                 Some(entity) => {
                     report.rebuilt += 1;
                     entity

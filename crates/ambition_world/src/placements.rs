@@ -71,6 +71,91 @@ pub struct LoweringCtx<'w, 's, 'a, C: ?Sized = ()> {
 
 pub type LoweringFn<C = ()> = for<'w, 's, 'a> fn(&PlacementRecord, &mut LoweringCtx<'w, 's, 'a, C>);
 
+/// A placement interpreter resolved during mutation-free room preparation.
+///
+/// Construction stores the exact function pointer beside an owned copy of the
+/// authored record, so commit does not repeat registry lookup and cannot discover
+/// a missing interpreter after the outgoing room has begun to retire.
+#[derive(Clone)]
+struct PlannedPlacement<C: Send + Sync + 'static> {
+    record: PlacementRecord,
+    lower: LoweringFn<C>,
+}
+
+/// Mutation-free, deterministic lowering plan for one room's authored placements.
+///
+/// This is deliberately narrower than a prefab graph: it freezes the existing
+/// single lowering authority into an inspectable artifact that normal activation,
+/// transitions, reset, hot reload, and restore can execute identically.
+#[derive(Clone)]
+pub struct PlacementLoweringPlan<C: Send + Sync + 'static = ()> {
+    room_id: String,
+    paths: Vec<(String, ae::KinematicPath)>,
+    placements: Vec<PlannedPlacement<C>>,
+}
+
+impl<C: Send + Sync + 'static> PlacementLoweringPlan<C> {
+    pub fn room_id(&self) -> &str {
+        &self.room_id
+    }
+
+    pub fn len(&self) -> usize {
+        self.placements.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.placements.is_empty()
+    }
+
+    /// Lower one prepared authored placement by stable authored id.
+    ///
+    /// Snapshot same-room reconstruction uses this exact frozen interpreter
+    /// decision rather than consulting the live registry a second time.
+    pub fn lower_one<'w, 's>(
+        &self,
+        commands: &mut Commands<'w, 's>,
+        session_scope: SessionSpawnScope,
+        context: &C,
+        authored_id: &str,
+    ) -> bool {
+        let Some(planned) = self
+            .placements
+            .iter()
+            .find(|planned| planned.record.id.as_str() == authored_id)
+        else {
+            return false;
+        };
+        let mut ctx = LoweringCtx {
+            commands,
+            room_id: &self.room_id,
+            paths: &self.paths,
+            session_scope,
+            context,
+        };
+        (planned.lower)(&planned.record, &mut ctx);
+        true
+    }
+
+    /// Execute only the decisions frozen by [`PlacementLoweringRegistry::plan_room`].
+    pub fn lower_all<'w, 's>(
+        &self,
+        commands: &mut Commands<'w, 's>,
+        session_scope: SessionSpawnScope,
+        context: &C,
+    ) {
+        for planned in &self.placements {
+            let mut ctx = LoweringCtx {
+                commands,
+                room_id: &self.room_id,
+                paths: &self.paths,
+                session_scope,
+                context,
+            };
+            (planned.lower)(&planned.record, &mut ctx);
+        }
+    }
+}
+
 /// Mutation-free placement-lowering preflight failure.
 ///
 /// Normal construction still treats a missing interpreter as a programmer/content
@@ -129,6 +214,31 @@ impl<C: Send + Sync + 'static> PlacementLoweringRegistry<C> {
         kinds
     }
 
+    /// Resolve every authored placement interpreter and clone the exact spatial
+    /// inputs required at commit time, without mutating the ECS world.
+    pub fn plan_room(
+        &self,
+        room_id: &str,
+        paths: &[(String, ae::KinematicPath)],
+        records: &[PlacementRecord],
+    ) -> Result<PlacementLoweringPlan<C>, PlacementLoweringError> {
+        let placements = records
+            .iter()
+            .map(|record| {
+                self.try_interpreter_for(record, room_id)
+                    .map(|lower| PlannedPlacement {
+                        record: record.clone(),
+                        lower,
+                    })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(PlacementLoweringPlan {
+            room_id: room_id.to_string(),
+            paths: paths.to_vec(),
+            placements,
+        })
+    }
+
     /// Validate that every authored placement in `room_id` has an installed
     /// lowering interpreter, without mutating the ECS world.
     pub fn validate_room(
@@ -136,10 +246,7 @@ impl<C: Send + Sync + 'static> PlacementLoweringRegistry<C> {
         room_id: &str,
         records: &[PlacementRecord],
     ) -> Result<(), PlacementLoweringError> {
-        for record in records {
-            self.try_interpreter_for(record, room_id)?;
-        }
-        Ok(())
+        self.plan_room(room_id, &[], records).map(|_| ())
     }
 
     fn try_interpreter_for(

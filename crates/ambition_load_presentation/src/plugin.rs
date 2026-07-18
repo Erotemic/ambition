@@ -12,7 +12,6 @@ use crate::{
     ActiveLoadActivity, ActiveLoadForeground, LoadActivityScopedEntity, LoadActivitySignal,
     LoadActivityState, LoadForegroundPhase, LoadForegroundState, LoadPresentationAction,
     LoadPresentationCommand, LoadPresentationEvent, LoadPresentationModel, LoadPresentationSet,
-    ReadyTransitionPolicy,
 };
 
 #[derive(Default)]

@@ -3,11 +3,10 @@ use bevy::prelude::*;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 
-use ambition::actors::features;
 use ambition::actors::ldtk_world;
 use ambition::actors::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition::actors::rooms;
-use ambition::actors::world::{physics, platforms};
+use ambition::actors::world::physics;
 use ambition::dev_tools::dev_tools::{DeveloperTools, EditableMovementTuning};
 use ambition::dev_tools::SandboxDevState;
 use ambition::engine_core as ae;
@@ -293,21 +292,31 @@ pub(super) fn reload_ldtk_world_from_disk(
         clusters.kinematics.size,
     )?;
 
-    // Everything above this line is non-mutating: invalid edits, deleted active
-    // areas, bad graph links, and unsafe player positions are rejected before
-    // touching the live world. Only commit after the complete replacement room
-    // graph and repaired player position have been built.
-    for (entity, physics_entity) in room_visuals.iter() {
-        if physics_entity.is_some() {
-            physics::retire_physics_entity(commands, entity);
-        } else {
-            commands.entity(entity).despawn();
-        }
-    }
+    let construction_plan = rooms::RoomConstructionPlan::prepare_spec(
+        transaction.next_room_set.active,
+        transaction.next_spec.clone(),
+        placement_lowering,
+        content_staging,
+        character_catalog,
+        character_roster,
+        boss_catalog,
+        session_scope,
+    )
+    .map_err(|error| vec![error.to_string()])?;
 
-    let active_room = transaction.next_spec.id.clone();
+    // Everything above this line is non-mutating: invalid edits, deleted active
+    // areas, bad graph links, unsafe player positions, missing placement
+    // interpreters, staged-content failures, and duplicate authoritative ids are
+    // rejected before touching the live world. Commit exactly the prepared
+    // construction artifact rather than rediscovering spawn decisions here.
+    let outgoing = room_visuals
+        .iter()
+        .map(|(entity, physics_entity)| (entity, physics_entity.is_some()));
+    construction_plan.retire_outgoing(commands, outgoing, None);
+
+    let active_room = construction_plan.room_id().to_string();
     *room_set = transaction.next_room_set;
-    world.0 = transaction.next_spec.world.clone();
+    construction_plan.commit_deferred(commands, room_set, world, moving_platforms);
 
     // The repaired placement is a discrete TRANSIT (ADR 0024 authority):
     // momentum kept for a same-spot reload, contacts/attachment reconciled
@@ -325,17 +334,6 @@ pub(super) fn reload_ldtk_world_from_disk(
         tuning.air_jumps,
     );
     safety.last_safe_pos = transaction.safe_player_pos;
-    *moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);
-    features::spawn_room_feature_entities_with_registry(
-        commands,
-        character_catalog,
-        character_roster,
-        boss_catalog,
-        &transaction.next_spec,
-        placement_lowering,
-        content_staging,
-        session_scope,
-    );
     dialogue.close();
     combat.hitstop_timer = 0.0;
     combat.hitstun_timer = 0.0;
@@ -360,7 +358,5 @@ pub(super) fn reload_ldtk_world_from_disk(
         physics_settings,
         assets,
     );
-    platforms::spawn_moving_platforms(commands, session_scope, &world.0, moving_platforms);
-
     Ok(active_room)
 }

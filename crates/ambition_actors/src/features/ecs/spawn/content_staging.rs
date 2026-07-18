@@ -16,14 +16,14 @@
 //!
 //! This registry closes both: providers/content register a **pure** stager —
 //! `RoomSpec` in, [`SpawnActorRequest`]s out — and room construction
-//! ([`spawn_room_feature_entities_with_registry`](super::spawn_room_feature_entities_with_registry))
+//! ([`RoomFeatureConstructionPlan`](super::RoomFeatureConstructionPlan))
 //! drains every registered stager for the room being staged, on the sim side,
 //! in both the normal load path and the restore staging path. `RoomLoaded`
 //! remains a pure downstream notification (resource re-arms, presentation
 //! beats); it no longer creates snapshot-authoritative entities.
 //!
 //! Purity is what makes the seam preflightable: a stager must be a function of
-//! the `RoomSpec` alone, so a mutation-free caller (`RoomStaging::prepare`, a
+//! the `RoomSpec` alone, so a mutation-free caller (`RoomConstructionPlan::prepare`, a
 //! roster preflight) can ask "what WOULD this room stage?" without staging it.
 
 use std::sync::Arc;

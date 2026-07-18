@@ -131,9 +131,9 @@ pub use ecs::{
     project_boss_attack_state_from_move, rebuild_feature_ecs_world_overlay,
     reconcile_autonomous_actors, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, resolve_pending_mount_links,
-    respawn_authored_entity, route_boss_strikes_to_limbs, select_actor_targets,
+    route_boss_strikes_to_limbs, select_actor_targets,
     spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
-    spawn_room_feature_entities_with_registry, steer_mount_from_rider,
+    spawn_room_feature_entities_from_plan, steer_mount_from_rider,
     sync_actor_poses_from_feature_aabbs, sync_actor_read_model, sync_boss_actor_components,
     sync_boss_encounter_phase, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
     sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
@@ -146,7 +146,8 @@ pub use ecs::{
     HitboxAnchor, HitboxHits, HitboxLifetime, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot,
     MountClass, MountDeathImpact, MountDied, MountSlot, Mountable, Mounted, MountedBrainCache,
     MountedSize, PendingChallenge, PendingMountLinks, RidingOn, RoomContentStagingError,
-    RoomContentStagingRegistry, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
+    RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{

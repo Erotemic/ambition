@@ -11,6 +11,7 @@
 //! - the cover remains for one complete target frame after commit, then the
 //!   transaction is retired and gameplay resumes.
 
+use std::collections::VecDeque;
 use std::time::Duration;
 
 use bevy::prelude::*;
@@ -24,8 +25,8 @@ use ambition::load_presentation::{
 use ambition::platformer::schedule::GameMode;
 
 use super::room_transition_assets::{
-    poll_room_transition_asset_readiness_system, prefetch_neighbor_room_assets_system,
-    RoomAssetPrefetchState,
+    poll_room_transition_asset_readiness_system, prefetch_neighbor_room_preparation_system,
+    RoomPreparationPrefetchState,
 };
 use super::room_transition_loading::{
     RoomTransitionLoadPhase, RoomTransitionLoadState, RoomTransitionPresentationAvailable,
@@ -41,6 +42,12 @@ const ROOM_TRANSITION_EXPERIENCE: &str = "ambition.room-transition";
 pub(crate) struct RoomTransitionPresentationConfig {
     pub(crate) loading_reveal_after: Duration,
     pub(crate) minimum_visible: Duration,
+    /// A commit below this budget should ordinarily be hidden by the normal
+    /// transition treatment rather than requiring explicit load foreground.
+    pub(crate) no_cover_commit_budget: Duration,
+    /// Covered commits above this provisional budget are correctness-safe but
+    /// still performance regressions that need construction/render optimization.
+    pub(crate) covered_commit_budget: Duration,
 }
 
 impl Default for RoomTransitionPresentationConfig {
@@ -48,7 +55,106 @@ impl Default for RoomTransitionPresentationConfig {
         Self {
             loading_reveal_after: Duration::from_millis(250),
             minimum_visible: Duration::from_millis(300),
+            no_cover_commit_budget: Duration::from_millis(4),
+            covered_commit_budget: Duration::from_millis(50),
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct RoomTransitionTimingSample {
+    pub(crate) sequence: u64,
+    pub(crate) source_room: String,
+    pub(crate) target_room: String,
+    pub(crate) construction_preflight: Option<Duration>,
+    pub(crate) asset_manifest_build: Option<Duration>,
+    pub(crate) asset_wait: Option<Duration>,
+    pub(crate) request_to_ready: Option<Duration>,
+    pub(crate) cover_request_to_presented: Option<Duration>,
+    /// Time spent enqueueing the covered construction commit itself.
+    pub(crate) commit_enqueue: Option<Duration>,
+    /// Wall-clock interval from commit start through the first complete target
+    /// presentation frame. This includes deferred-command application and is
+    /// the meaningful Hall hitch budget.
+    pub(crate) commit_to_first_target_frame: Option<Duration>,
+    pub(crate) covered: bool,
+    pub(crate) prefetch_hit: bool,
+    pub(crate) loading_foreground_visible: bool,
+    pub(crate) loading_foreground_visible_duration: Duration,
+}
+
+/// Bounded evidence for transition budgeting and regression probes.
+#[derive(Resource, Debug)]
+pub(crate) struct RoomTransitionTelemetry {
+    samples: VecDeque<RoomTransitionTimingSample>,
+    capacity: usize,
+}
+
+impl Default for RoomTransitionTelemetry {
+    fn default() -> Self {
+        Self {
+            samples: VecDeque::new(),
+            capacity: 64,
+        }
+    }
+}
+
+impl RoomTransitionTelemetry {
+    pub(crate) fn samples(&self) -> impl DoubleEndedIterator<Item = &RoomTransitionTimingSample> {
+        self.samples.iter()
+    }
+
+    fn record(
+        &mut self,
+        sample: RoomTransitionTimingSample,
+        config: &RoomTransitionPresentationConfig,
+    ) {
+        if self.samples.len() == self.capacity {
+            self.samples.pop_front();
+        }
+        let budget = if sample.covered {
+            config.covered_commit_budget
+        } else {
+            config.no_cover_commit_budget
+        };
+        let observed_commit = sample
+            .commit_to_first_target_frame
+            .or(sample.commit_enqueue);
+        if observed_commit.is_some_and(|duration| duration > budget) {
+            bevy::log::warn!(
+                target: "ambition::room_transition::performance",
+                "room transition {} {} -> {} commit-to-first-frame {:.3} ms exceeded {:.3} ms budget (covered={}, prefetch_hit={}, loading_visible={})",
+                sample.sequence,
+                sample.source_room,
+                sample.target_room,
+                observed_commit
+                    .map(|duration| duration.as_secs_f64() * 1000.0)
+                    .unwrap_or_default(),
+                budget.as_secs_f64() * 1000.0,
+                sample.covered,
+                sample.prefetch_hit,
+                sample.loading_foreground_visible,
+            );
+        }
+        bevy::log::info!(
+            target: "ambition::room_transition::performance",
+            "room transition {} {} -> {}: construction_preflight_ms={:?} asset_manifest_ms={:?} asset_wait_ms={:?} ready_ms={:?} cover_present_ms={:?} commit_enqueue_ms={:?} commit_to_first_frame_ms={:?} loading_visible_ms={:.3} covered={} prefetch_hit={} loading_visible={}",
+            sample.sequence,
+            sample.source_room,
+            sample.target_room,
+            sample.construction_preflight.map(|d| d.as_secs_f64() * 1000.0),
+            sample.asset_manifest_build.map(|d| d.as_secs_f64() * 1000.0),
+            sample.asset_wait.map(|d| d.as_secs_f64() * 1000.0),
+            sample.request_to_ready.map(|d| d.as_secs_f64() * 1000.0),
+            sample.cover_request_to_presented.map(|d| d.as_secs_f64() * 1000.0),
+            sample.commit_enqueue.map(|d| d.as_secs_f64() * 1000.0),
+            sample.commit_to_first_target_frame.map(|d| d.as_secs_f64() * 1000.0),
+            sample.loading_foreground_visible_duration.as_secs_f64() * 1000.0,
+            sample.covered,
+            sample.prefetch_hit,
+            sample.loading_foreground_visible,
+        );
+        self.samples.push_back(sample);
     }
 }
 
@@ -91,7 +197,8 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
     app.init_resource::<RoomTransitionPresentationAvailable>()
         .init_resource::<RoomTransitionPresentationConfig>()
         .init_resource::<RoomTransitionPresentationState>()
-        .init_resource::<RoomAssetPrefetchState>()
+        .init_resource::<RoomTransitionTelemetry>()
+        .init_resource::<RoomPreparationPrefetchState>()
         .add_systems(
             Update,
             (
@@ -103,7 +210,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
         )
         .add_systems(
             Update,
-            prefetch_neighbor_room_assets_system
+            prefetch_neighbor_room_preparation_system
                 .after(LoadPresentationSet::Finalize)
                 .run_if(ambition::platformer::lifecycle::session_world_exists),
         )
@@ -124,7 +231,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
 #[allow(clippy::too_many_arguments)]
 fn drive_room_transition_presentation(
     mut commands: Commands,
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     config: Res<RoomTransitionPresentationConfig>,
     model: Res<LoadPresentationModel>,
     mut runtime: ResMut<RoomTransitionPresentationState>,
@@ -133,6 +240,7 @@ fn drive_room_transition_presentation(
     mut presentation: MessageWriter<LoadPresentationCommand>,
     mut loads: ResMut<LoadCoordinator>,
     mut next_mode: ResMut<NextState<GameMode>>,
+    mut telemetry: ResMut<RoomTransitionTelemetry>,
 ) {
     runtime.update_serial = runtime.update_serial.saturating_add(1);
     let update_serial = runtime.update_serial;
@@ -218,6 +326,7 @@ fn drive_room_transition_presentation(
             .filter(|active| active.sequence == active_snapshot.sequence)
         {
             active.cover_presented = true;
+            active.cover_presented_at = Some(time.elapsed());
         }
     }
 
@@ -260,6 +369,37 @@ fn drive_room_transition_presentation(
             commands.entity(entity).despawn();
         }
     }
+    let now = time.elapsed();
+    telemetry.record(
+        RoomTransitionTimingSample {
+            sequence: active_snapshot.sequence,
+            source_room: active_snapshot.source_room_id.clone(),
+            target_room: active_snapshot.target_room_id.clone(),
+            construction_preflight: active_snapshot.construction_preflight_duration,
+            asset_manifest_build: active_snapshot.asset_manifest_duration,
+            asset_wait: active_snapshot
+                .requested_at
+                .zip(active_snapshot.asset_ready_at)
+                .map(|(start, ready)| ready.saturating_sub(start)),
+            request_to_ready: active_snapshot
+                .requested_at
+                .zip(active_snapshot.ready_at)
+                .map(|(start, ready)| ready.saturating_sub(start)),
+            cover_request_to_presented: active_snapshot
+                .requested_at
+                .zip(active_snapshot.cover_presented_at)
+                .map(|(requested, covered)| covered.saturating_sub(requested)),
+            commit_enqueue: active_snapshot.commit_duration,
+            commit_to_first_target_frame: active_snapshot
+                .committed_at
+                .map(|committed| now.saturating_sub(committed)),
+            covered: active_snapshot.cover_required,
+            prefetch_hit: active_snapshot.prefetch_hit,
+            loading_foreground_visible: runtime.visible_before_commit,
+            loading_foreground_visible_duration: runtime.visible_elapsed,
+        },
+        &config,
+    );
     loads.retire(&active_snapshot.barrier.load_id);
     transitions.active = None;
     next_mode.set(GameMode::Playing);
@@ -369,5 +509,40 @@ mod tests {
     fn room_transition_owner_is_exact_per_sequence() {
         assert_eq!(owner_for(7).as_str(), "room-transition:7");
         assert_ne!(owner_for(7), owner_for(8));
+    }
+
+    fn timing_sample(sequence: u64) -> RoomTransitionTimingSample {
+        RoomTransitionTimingSample {
+            sequence,
+            source_room: "source".to_string(),
+            target_room: "target".to_string(),
+            construction_preflight: None,
+            asset_manifest_build: None,
+            asset_wait: None,
+            request_to_ready: None,
+            cover_request_to_presented: None,
+            commit_enqueue: None,
+            commit_to_first_target_frame: None,
+            covered: true,
+            prefetch_hit: false,
+            loading_foreground_visible: false,
+            loading_foreground_visible_duration: Duration::ZERO,
+        }
+    }
+
+    #[test]
+    fn transition_telemetry_is_bounded_and_keeps_newest_samples() {
+        let mut telemetry = RoomTransitionTelemetry {
+            samples: VecDeque::new(),
+            capacity: 2,
+        };
+        let config = RoomTransitionPresentationConfig::default();
+        telemetry.record(timing_sample(1), &config);
+        telemetry.record(timing_sample(2), &config);
+        telemetry.record(timing_sample(3), &config);
+        assert_eq!(
+            telemetry.samples().map(|sample| sample.sequence).collect::<Vec<_>>(),
+            vec![2, 3],
+        );
     }
 }

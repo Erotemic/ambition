@@ -720,7 +720,7 @@ fn every_placement_entity_is_owned_by_the_active_room_every_tick() {
         // Which rooms author each authored id? Built once — it is the same RoomSet
         // every tick. An id maps to a room via ANY of the three authored lists
         // (`placements`, `enemy_spawns`, `boss_spawns`) — the same three arms
-        // `respawn_authored_entity` reconstructs from.
+        // `RoomConstructionPlan::respawn_authoritative_entity` reconstructs from.
         let authored_by: BTreeMap<String, BTreeSet<String>> = {
             let rs = ambition::platformer::lifecycle::session_world_component::<
                 ambition::world::rooms::RoomSet,

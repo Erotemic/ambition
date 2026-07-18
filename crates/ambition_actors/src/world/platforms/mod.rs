@@ -69,7 +69,7 @@ pub fn spawn_moving_platforms(
 /// visuals — a pure read-model sync, with NO reset authority.
 ///
 /// Platform STATE is installed by construction: session setup, room transition
-/// (`load_room_geometry`), sandbox reset, LDtk hot-reload, and the N3.2b
+/// (`RoomConstructionPlan`), sandbox reset, LDtk hot-reload, and the N3.2b
 /// restore staging each reset the resource and (re)spawn the visuals through
 /// the same canonical calls. This system once carried a `Local`-cached
 /// room-change reset of its own; that hidden second authority clobbered

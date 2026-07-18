@@ -10,6 +10,7 @@ use crate::features::CharacterRoster;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer_primitives::lifecycle::SessionSpawnScope;
 use bevy::prelude::Commands;
+use std::collections::BTreeSet;
 
 mod content_staging;
 pub use content_staging::{RoomContentStagingError, RoomContentStagingRegistry};
@@ -35,144 +36,235 @@ pub(crate) fn room_spec_paths(
     paths
 }
 
-/// **Re-run the spawner for ONE authored entity, by its authored id.**
-///
-/// `docs/planning/engine/netcode.md` N3.1 decision (3): *"restore = despawn-registered +
-/// respawn from blobs … room-reset already proves the world can rebuild."* This is the
-/// half that proves it. A rollback whose window spans a death has to bring the dead body
-/// back, and a blob is not enough: the blob carries what the entity *became*, and only
-/// the room carries what it *was*.
-///
-/// Keyed by the id the snapshot already holds — an authored placement's `SimId` IS its
-/// LDtk iid — so nothing new has to be recorded to make a respawn possible.
-///
-/// Returns `false` for an id this room does not author, which is the honest answer for a
-/// dynamically-spawned entity (`SimId::spawned(..)`): it has no authored record, and it
-/// needs a spawn recipe of its own or a rollback window that does not span its birth.
-pub fn respawn_authored_entity(
-    commands: &mut Commands,
-    catalog: &CharacterCatalog,
-    roster: &CharacterRoster,
-    boss_catalog: &BossCatalog,
-    room: &crate::rooms::RoomSpec,
-    registry: &crate::world::placements::PlacementLoweringRegistry,
-    session_scope: SessionSpawnScope,
-    authored_id: &str,
-) -> bool {
-    let paths = room_spec_paths(room);
-    let lowering_context = crate::world::placements::ActorPlacementContext::new(catalog, roster);
-    if let Some(record) = room
-        .placements
-        .iter()
-        .find(|r| r.id.as_str() == authored_id)
-    {
-        let mut ctx = crate::world::placements::LoweringCtx {
-            commands,
-            room_id: &room.id,
-            paths: &paths,
-            session_scope,
-            context: &lowering_context,
-        };
-        registry.lower(record, &mut ctx);
-        return true;
-    }
-    if let Some(enemy) = room.enemy_spawns.iter().find(|e| e.id == authored_id) {
-        super::spawn_actors::spawn_enemy(commands, catalog, roster, session_scope, enemy, &paths);
-        return true;
-    }
-    if let Some(boss) = room.boss_spawns.iter().find(|b| b.id == authored_id) {
-        super::spawn_actors::spawn_boss(commands, boss_catalog, session_scope, boss);
-        return true;
-    }
-    false
+/// A mutation-free room feature construction failure.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RoomFeatureConstructionError {
+    Placement(crate::world::placements::PlacementLoweringError),
+    ContentStaging(RoomContentStagingError),
+    DuplicateAuthoritativeId { room: String, id: String },
 }
 
-pub fn spawn_room_feature_entities_with_registry(
-    commands: &mut Commands,
-    catalog: &CharacterCatalog,
-    roster: &CharacterRoster,
-    boss_catalog: &BossCatalog,
-    room: &crate::rooms::RoomSpec,
-    registry: &crate::world::placements::PlacementLoweringRegistry,
-    content_staging: &RoomContentStagingRegistry,
-    session_scope: SessionSpawnScope,
-) {
-    let paths = room_spec_paths(room);
-    let lowering_context = crate::world::placements::ActorPlacementContext::new(catalog, roster);
-    for record in &room.placements {
-        let mut ctx = crate::world::placements::LoweringCtx {
+impl std::fmt::Display for RoomFeatureConstructionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Placement(error) => error.fmt(f),
+            Self::ContentStaging(error) => error.fmt(f),
+            Self::DuplicateAuthoritativeId { room, id } => write!(
+                f,
+                "room `{room}` constructs authoritative id `{id}` more than once",
+            ),
+        }
+    }
+}
+
+impl std::error::Error for RoomFeatureConstructionError {}
+
+/// The complete feature-side artifact prepared before a room mutation begins.
+///
+/// Interpreter lookup, path flattening, content-stager execution, roster
+/// validation, and catalog selection all happen here. Execution only applies
+/// these frozen decisions, so startup, reset, transition, hot reload, and
+/// restore cannot drift into different room-construction behavior.
+#[derive(Clone)]
+pub struct RoomFeatureConstructionPlan {
+    room: crate::rooms::RoomSpec,
+    paths: Vec<(String, ambition_engine_core::KinematicPath)>,
+    placements: crate::world::placements::PlacementLoweringPlan<
+        crate::world::placements::ActorPlacementContext,
+    >,
+    placement_context: crate::world::placements::ActorPlacementContext,
+    boss_catalog: BossCatalog,
+    content_requests: Vec<super::spawn_actors::SpawnActorRequest>,
+    expected_authoritative_ids: BTreeSet<String>,
+}
+
+/// Inspectable receipt for the authoritative roots scheduled by one feature plan.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RoomFeatureConstructionReceipt {
+    authoritative_ids: BTreeSet<String>,
+}
+
+impl RoomFeatureConstructionReceipt {
+    pub fn authoritative_ids(&self) -> &BTreeSet<String> {
+        &self.authoritative_ids
+    }
+}
+
+impl RoomFeatureConstructionPlan {
+    pub fn prepare(
+        room: &crate::rooms::RoomSpec,
+        registry: &crate::world::placements::PlacementLoweringRegistry,
+        content_staging: &RoomContentStagingRegistry,
+        catalog: &CharacterCatalog,
+        roster: &CharacterRoster,
+        boss_catalog: &BossCatalog,
+    ) -> Result<Self, RoomFeatureConstructionError> {
+        let paths = room_spec_paths(room);
+        let placements = registry
+            .plan_room(&room.id, &paths, &room.placements)
+            .map_err(RoomFeatureConstructionError::Placement)?;
+        let content_requests = content_staging
+            .try_requests_for(room)
+            .map_err(RoomFeatureConstructionError::ContentStaging)?;
+        let authoritative_ids = room
+            .placements
+            .iter()
+            .map(|placement| placement.id.0.clone())
+            .chain(room.enemy_spawns.iter().map(|enemy| enemy.id.clone()))
+            .chain(room.boss_spawns.iter().map(|boss| boss.id.clone()))
+            .chain(content_requests.iter().map(|request| request.id.clone()));
+        let mut expected_authoritative_ids = BTreeSet::new();
+        for id in authoritative_ids {
+            if !expected_authoritative_ids.insert(id.clone()) {
+                return Err(RoomFeatureConstructionError::DuplicateAuthoritativeId {
+                    room: room.id.clone(),
+                    id,
+                });
+            }
+        }
+        Ok(Self {
+            room: room.clone(),
+            paths,
+            placements,
+            placement_context: crate::world::placements::ActorPlacementContext::new(
+                catalog, roster,
+            ),
+            boss_catalog: boss_catalog.clone(),
+            content_requests,
+            expected_authoritative_ids,
+        })
+    }
+
+    pub fn room(&self) -> &crate::rooms::RoomSpec {
+        &self.room
+    }
+
+    pub fn expected_authoritative_ids(&self) -> &BTreeSet<String> {
+        &self.expected_authoritative_ids
+    }
+
+    pub fn content_staged_names(&self) -> Vec<String> {
+        self.content_requests
+            .iter()
+            .map(|request| request.name.clone())
+            .collect()
+    }
+
+    pub fn content_staged_requests(&self) -> &[super::spawn_actors::SpawnActorRequest] {
+        &self.content_requests
+    }
+
+    /// Rebuild one authored authoritative root through the exact interpreter
+    /// and catalogs frozen by this plan.
+    pub fn respawn_authoritative_entity(
+        &self,
+        commands: &mut Commands,
+        session_scope: SessionSpawnScope,
+        authored_id: &str,
+    ) -> bool {
+        if self.placements.lower_one(
             commands,
-            room_id: &room.id,
-            paths: &paths,
             session_scope,
-            context: &lowering_context,
-        };
-        registry.lower(record, &mut ctx);
-    }
-    // Fable audit F9.2 arc EXIT: EVERY authored placement family (hazards,
-    // interactables, pickups, chests, breakables, portals) now flows through the
-    // single `placements` channel above — there is no second typed-Vec spawn
-    // path and no dual-emit guard. Hazards with inline motion are lifted to a
-    // room-level `KinematicPath` at conversion and resolved by `path_id`.
-    for boss in &room.boss_spawns {
-        super::spawn_actors::spawn_boss(commands, boss_catalog, session_scope, boss);
-    }
-    // Pickups now lower through the `placements` channel above (fable audit F9.2).
-    for ground_item in &room.ground_items {
-        super::spawn_static::spawn_ground_item(commands, session_scope, ground_item);
-    }
-    #[cfg(feature = "portal")]
-    for portal_gun in &room.portal_gun_spawns {
-        super::spawn_static::spawn_portal_gun_spawn(commands, session_scope, portal_gun);
-    }
-    // Static portals now lower through the `placements` channel above (fable
-    // audit F9.2) via the cfg(portal) `lower_portal_placement` interpreter.
-    for shrine in &room.shrines {
-        super::spawn_static::spawn_shrine(commands, session_scope, shrine);
-    }
-    for gravity_zone in &room.gravity_zones {
-        super::spawn_static::spawn_gravity_zone(commands, session_scope, gravity_zone);
-    }
-    // Chests now lower through the `placements` channel above (fable audit F9.2).
-    // Breakables now lower through the `placements` channel above (fable audit F9.2).
-    for enemy in &room.enemy_spawns {
-        super::spawn_actors::spawn_enemy(commands, catalog, roster, session_scope, enemy, &paths);
-    }
-    // ADR 0020: hand the room's authored `(rider, mount)` links to the
-    // resolver resource. It links them by `FeatureId` once the actors above
-    // have spawned (deferred commands flush first). A fresh room overwrites
-    // any prior room's pending links.
-    commands.insert_resource(crate::features::PendingMountLinks(room.mount_links.clone()));
-    // Interactables now lower through the `placements` channel above
-    // (fable audit F9.2), so there is no typed `room.interactables` loop.
-    // DebugLabel and DestinationLabel are presentation-only and don't
-    // spawn ECS feature entities today. The presentation layer reads
-    // them off `RoomSpec` directly.
-
-    // Room-scoped faction targeting: reset to the combat baseline every room load
-    // so one room's relations overrides never linger into the next.
-    commands.insert_resource(crate::features::FactionRelations::default());
-
-    // Content-staged occupants (the spectator duel, a demo level's walkers):
-    // drain the registered pure stagers into the same request channel a
-    // runtime staging uses. Part of room CONSTRUCTION — not a `RoomLoaded`
-    // consumer — so a snapshot restore that stages this room rebuilds these
-    // occupants exactly as a transition does (N3.2b: the staged room carries
-    // the complete authoritative roster before blobs apply).
-    for request in content_staging.requests_for(room) {
-        commands.write_message(request);
+            &self.placement_context,
+            authored_id,
+        ) {
+            return true;
+        }
+        if let Some(enemy) = self
+            .room
+            .enemy_spawns
+            .iter()
+            .find(|enemy| enemy.id == authored_id)
+        {
+            super::spawn_actors::spawn_enemy(
+                commands,
+                &self.placement_context.characters,
+                &self.placement_context.roster,
+                session_scope,
+                enemy,
+                &self.paths,
+            );
+            return true;
+        }
+        if let Some(boss) = self
+            .room
+            .boss_spawns
+            .iter()
+            .find(|boss| boss.id == authored_id)
+        {
+            super::spawn_actors::spawn_boss(
+                commands,
+                &self.boss_catalog,
+                session_scope,
+                boss,
+            );
+            return true;
+        }
+        false
     }
 
-    // The staging fact (JD4): every path that stages a room's contents flows
-    // through this function, so this is the ONE emission site for
-    // `RoomLoaded`. Content systems consume it as a pure NOTIFICATION
-    // (resource re-arms, presentation beats) — never to create
-    // snapshot-authoritative entities; that is the content-staging registry's
-    // job above. Requires `Messages<RoomLoaded>` to be registered (the sim
-    // resources plugin does; minimal test worlds add_message it).
-    commands.write_message(crate::rooms::RoomLoaded {
-        room_id: room.id.clone(),
-    });
+    /// Apply the exact feature decisions captured by [`Self::prepare`].
+    pub fn spawn(
+        &self,
+        commands: &mut Commands,
+        session_scope: SessionSpawnScope,
+    ) -> RoomFeatureConstructionReceipt {
+        self.placements
+            .lower_all(commands, session_scope, &self.placement_context);
+        for boss in &self.room.boss_spawns {
+            super::spawn_actors::spawn_boss(
+                commands,
+                &self.boss_catalog,
+                session_scope,
+                boss,
+            );
+        }
+        for ground_item in &self.room.ground_items {
+            super::spawn_static::spawn_ground_item(commands, session_scope, ground_item);
+        }
+        #[cfg(feature = "portal")]
+        for portal_gun in &self.room.portal_gun_spawns {
+            super::spawn_static::spawn_portal_gun_spawn(commands, session_scope, portal_gun);
+        }
+        for shrine in &self.room.shrines {
+            super::spawn_static::spawn_shrine(commands, session_scope, shrine);
+        }
+        for gravity_zone in &self.room.gravity_zones {
+            super::spawn_static::spawn_gravity_zone(commands, session_scope, gravity_zone);
+        }
+        for enemy in &self.room.enemy_spawns {
+            super::spawn_actors::spawn_enemy(
+                commands,
+                &self.placement_context.characters,
+                &self.placement_context.roster,
+                session_scope,
+                enemy,
+                &self.paths,
+            );
+        }
+        commands.insert_resource(crate::features::PendingMountLinks(
+            self.room.mount_links.clone(),
+        ));
+        commands.insert_resource(crate::features::FactionRelations::default());
+        for request in &self.content_requests {
+            commands.write_message(request.clone());
+        }
+        commands.write_message(crate::rooms::RoomLoaded {
+            room_id: self.room.id.clone(),
+        });
+        RoomFeatureConstructionReceipt {
+            authoritative_ids: self.expected_authoritative_ids.clone(),
+        }
+    }
+}
+
+/// Execute a previously prepared feature plan.
+pub fn spawn_room_feature_entities_from_plan(
+    commands: &mut Commands,
+    plan: &RoomFeatureConstructionPlan,
+    session_scope: SessionSpawnScope,
+) -> RoomFeatureConstructionReceipt {
+    plan.spawn(commands, session_scope)
 }
 
 /// Spawn one hostile actor for an encounter wave.

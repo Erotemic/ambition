@@ -31,7 +31,7 @@ fn make_enemy(brain_key: &str) -> ActorConfig {
 /// the registry it is handed — not a locally reconstructed one. This is the
 /// invariant behind the setup/reset unification: setup, same-room reset, room
 /// transition, and snapshot restore all call
-/// `spawn_room_feature_entities_with_registry` with the ONE installed
+/// `RoomFeatureConstructionPlan` with the ONE installed
 /// `PlacementLoweringRegistry`. Here we hand it a registry whose Hazard
 /// interpreter is a marker (not the built-in hazard spawn); a hazard placement
 /// then yields the marker, which the deleted default-six helper never could.
@@ -78,17 +78,22 @@ fn room_features_lower_through_the_caller_supplied_registry() {
     let roster = crate::features::enemies::test_roster();
     let boss_catalog = crate::boss_encounter::test_boss_catalog();
 
+    let plan = RoomFeatureConstructionPlan::prepare(
+        &room,
+        &registry,
+        &Default::default(),
+        &catalog,
+        &roster,
+        &boss_catalog,
+    )
+    .expect("the caller-supplied registry should prepare the room");
+
     let mut app = App::new();
     app.add_message::<crate::rooms::RoomLoaded>();
     app.add_systems(Update, move |mut commands: Commands| {
-        spawn_room_feature_entities_with_registry(
+        spawn_room_feature_entities_from_plan(
             &mut commands,
-            &catalog,
-            &roster,
-            boss_catalog,
-            &room,
-            &registry,
-            &Default::default(),
+            &plan,
             SessionSpawnScope::UNSCOPED,
         );
     });

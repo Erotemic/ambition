@@ -123,27 +123,21 @@ pub fn simulation_world(
     let _ = asset_server;
     let _ = ldtk_index;
 
-    crate::features::spawn_room_feature_entities_with_registry(
-        commands,
+    let room_plan = crate::rooms::RoomConstructionPlan::prepare_from_parts(
+        room_set,
+        room_set.active,
+        placement_lowering,
+        content_staging,
         character_catalog,
         character_roster,
         boss_catalog,
-        room_set.active_spec(),
-        placement_lowering,
-        content_staging,
         session_scope,
-    );
-
-    // Moving platforms are installed by CONSTRUCTION, like every other piece of
-    // room state: session setup here, room transition in `load_room_geometry`,
-    // sandbox reset, LDtk hot-reload, and the N3.2b restore staging each set the
-    // resource and spawn the visuals. `sync_moving_platform` is a pure
-    // resource→visual mirror with no reset authority of its own — a hidden
-    // `Local` room-change reset there once clobbered freshly RESTORED platform
-    // state with authored starts.
-    let platforms = crate::world::platforms::moving_platforms_for_room(room_set.active_spec());
-    crate::world::platforms::spawn_moving_platforms(commands, session_scope, &world.0, &platforms);
-    commands.insert_resource(ambition_world::collision::MovingPlatformSet(platforms));
+    )
+    .unwrap_or_else(|error| panic!("initial room construction failed: {error}"));
+    room_plan.spawn_contents(commands);
+    commands.insert_resource(ambition_world::collision::MovingPlatformSet(
+        room_plan.platform_states().to_vec(),
+    ));
 
     // Capability set travels WITH the worn character when the row authors one
     // (the per-character analogue of the motion model below): a restricted-kit

@@ -5,7 +5,9 @@
 //! so placement interpreters can resolve authored character ids without adding
 //! an upward dependency to the world IR or consulting process-global state.
 
-pub use ambition_world::placements::{PlacementLoweringAppExt, PlacementRecord};
+pub use ambition_world::placements::{
+    PlacementLoweringAppExt, PlacementLoweringError, PlacementLoweringPlan, PlacementRecord,
+};
 
 use crate::features::CharacterRoster;
 use ambition_characters::actor::character_catalog::CharacterCatalog;

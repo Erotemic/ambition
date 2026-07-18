@@ -1,12 +1,14 @@
-//! Room-scoped presentation dependency discovery, readiness, and prefetch.
+//! Room-scoped construction/asset preparation, readiness, and prefetch.
 //!
 //! Ordinary transitions already have one correctness transaction in
 //! `room_transition_loading`. This module contributes real Bevy asset evidence
-//! to that transaction and performs bounded speculative preparation for rooms
-//! adjacent to the active room. A prefetched room is never made authoritative;
-//! promotion only reuses the exact handles Bevy is already loading.
+//! to that transaction and performs bounded speculative construction and asset
+//! preparation for rooms adjacent to the active room. A prefetched room is never
+//! made authoritative; promotion reuses both the frozen construction plan and
+//! the exact handles Bevy is already loading.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 use std::time::Duration;
 
 use bevy::asset::{LoadState, UntypedAssetId};
@@ -15,8 +17,8 @@ use bevy::time::Real;
 
 use ambition::actors::features::RoomContentStagingRegistry;
 use ambition::actors::rooms::{InteractionKindSpec, RoomSpec, RoomSet};
-use ambition::entity_catalog::placements::PlacementSchema;
 use ambition::asset_manager::sandbox_assets::SandboxAssetCatalog;
+use ambition::entity_catalog::placements::PlacementSchema;
 use ambition::load::{LoadCoordinator, LoadEvent, LoadFailure, LoadWorkState, UnitProgress};
 use ambition::platformer::lifecycle::{
     ActiveSessionScope, SessionScopeId, SessionWorldRef,
@@ -61,23 +63,27 @@ impl RoomAssetManifest {
 }
 
 #[derive(Clone, Debug)]
-struct PrefetchedRoomAssets {
+struct PrefetchedRoomPreparation {
     manifest: RoomAssetManifest,
+    construction_plan: Option<Arc<ambition::actors::rooms::RoomConstructionPlan>>,
     requested_at: Duration,
     settled_at: Option<Duration>,
 }
 
-/// Bounded speculative cache for the active room's graph neighbors.
+/// Bounded speculative construction/asset cache for the active room's graph
+/// neighbors.
 ///
-/// Entries are valid only for the exact session/source-room pair. A transition
-/// promotes a cache entry only when a freshly-derived target manifest compares
+/// Entries are valid only for the exact content-epoch/session/source-room
+/// tuple. A transition promotes a cache entry only when a freshly-derived target
+/// manifest compares
 /// equal, so quality changes, hot reload, and asset-handle replacement become
 /// safe misses rather than stale promotion.
 #[derive(Resource, Default, Debug)]
-pub(crate) struct RoomAssetPrefetchState {
+pub(crate) struct RoomPreparationPrefetchState {
+    content_epoch: u64,
     session_scope: Option<SessionScopeId>,
     source_room_id: Option<String>,
-    entries: BTreeMap<String, PrefetchedRoomAssets>,
+    entries: BTreeMap<String, PrefetchedRoomPreparation>,
     pub(crate) hits: u64,
     pub(crate) misses: u64,
     pub(crate) stale_misses: u64,
@@ -93,7 +99,7 @@ pub(crate) struct RoomTransitionAssetContext<'w> {
     pub(crate) catalog: Option<Res<'w, SandboxAssetCatalog>>,
     pub(crate) asset_server: Option<Res<'w, AssetServer>>,
     pub(crate) quality: Option<Res<'w, ResolvedVisualQuality>>,
-    pub(crate) prefetch: Option<ResMut<'w, RoomAssetPrefetchState>>,
+    pub(crate) prefetch: Option<ResMut<'w, RoomPreparationPrefetchState>>,
     pub(crate) real_time: Option<Res<'w, Time<Real>>>,
 }
 
@@ -355,30 +361,53 @@ pub(crate) fn inspect_room_asset_manifest(
     readiness
 }
 
-impl RoomAssetPrefetchState {
+impl RoomPreparationPrefetchState {
     fn reset_for(
         &mut self,
+        content_epoch: u64,
         session_scope: Option<SessionScopeId>,
         source_room_id: &str,
     ) -> bool {
-        let changed = self.session_scope != session_scope
+        let changed = self.content_epoch != content_epoch
+            || self.session_scope != session_scope
             || self.source_room_id.as_deref() != Some(source_room_id);
         if changed {
             self.entries.clear();
+            self.content_epoch = content_epoch;
             self.session_scope = session_scope;
             self.source_room_id = Some(source_room_id.to_string());
         }
         changed
     }
 
+    /// Promote the exact immutable construction artifact prepared for a graph
+    /// neighbor. A same-id hot reload, provider/catalog replacement, or session
+    /// change becomes a miss because the prepared spec/scope must still match.
+    pub(crate) fn promote_construction_plan(
+        &mut self,
+        content_epoch: u64,
+        session_scope: Option<SessionScopeId>,
+        source_room_id: &str,
+        target: &RoomSpec,
+    ) -> Option<Arc<ambition::actors::rooms::RoomConstructionPlan>> {
+        self.reset_for(content_epoch, session_scope, source_room_id);
+        let entry = self.entries.get(&target.id)?;
+        let plan = entry.construction_plan.as_ref()?;
+        if !plan.matches_room_spec(target) || plan.session_scope().id() != session_scope {
+            return None;
+        }
+        Some(Arc::clone(plan))
+    }
+
     pub(crate) fn classify_promotion(
         &mut self,
+        content_epoch: u64,
         session_scope: Option<SessionScopeId>,
         source_room_id: &str,
         manifest: &RoomAssetManifest,
         now: Option<Duration>,
     ) -> bool {
-        self.reset_for(session_scope, source_room_id);
+        self.reset_for(content_epoch, session_scope, source_room_id);
         match self.entries.get(&manifest.room_id) {
             Some(entry) if entry.manifest == *manifest => {
                 self.hits = self.hits.saturating_add(1);
@@ -438,6 +467,7 @@ impl RoomAssetPrefetchState {
 /// unit progress into its required load work.
 pub(crate) fn poll_room_transition_asset_readiness_system(
     asset_server: Res<AssetServer>,
+    time: Res<Time<Real>>,
     mut transitions: ResMut<RoomTransitionLoadState>,
     mut loads: ResMut<LoadCoordinator>,
     mut load_events: bevy::prelude::MessageWriter<LoadEvent>,
@@ -505,24 +535,30 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
 
     if readiness.is_ready() {
         active.asset_readiness_complete = true;
+        active.asset_ready_at.get_or_insert_with(|| time.elapsed());
     }
 }
 
-/// Speculatively request and poll the exact asset manifests for graph-neighbor
+/// Speculatively prepare construction plans and poll exact asset manifests for graph-neighbor
 /// rooms. The cache is bounded to the current active room's outgoing neighbors.
 /// Promotion is an equality check against a freshly-derived manifest, so stale
 /// content or quality variants are never trusted.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn prefetch_neighbor_room_assets_system(
+pub(crate) fn prefetch_neighbor_room_preparation_system(
     room_set: SessionWorldRef<RoomSet>,
+    content_epoch: Res<super::room_transition_loading::RoomTransitionContentEpoch>,
+    placement_lowering: Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
     content_staging: Res<RoomContentStagingRegistry>,
+    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
+    character_roster: Res<ambition::actors::features::CharacterRoster>,
+    boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
     mut assets: ResMut<GameAssets>,
     catalog: Res<SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
     quality: Res<ResolvedVisualQuality>,
     time: Res<Time<Real>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    mut cache: ResMut<RoomAssetPrefetchState>,
+    mut cache: ResMut<RoomPreparationPrefetchState>,
 ) {
     let Some(source_room) = room_set.rooms.get(room_set.active) else {
         cache.entries.clear();
@@ -530,10 +566,27 @@ pub(crate) fn prefetch_neighbor_room_assets_system(
         return;
     };
     let session_scope = active_session.as_deref().and_then(|scope| scope.current());
-    let identity_changed = cache.reset_for(session_scope, &source_room.id);
+    let Some(spawn_scope) =
+        ambition::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
+            active_session.as_deref(),
+        )
+    else {
+        cache.entries.clear();
+        cache.source_room_id = None;
+        return;
+    };
+    let identity_changed = cache.reset_for(
+        content_epoch.get(),
+        session_scope,
+        &source_room.id,
+    );
     let refresh_manifests = identity_changed
         || room_set.is_changed()
+        || placement_lowering.is_changed()
         || content_staging.is_changed()
+        || character_catalog.is_changed()
+        || character_roster.is_changed()
+        || boss_catalog.is_changed()
         || catalog.is_changed()
         || quality.is_changed();
 
@@ -549,18 +602,36 @@ pub(crate) fn prefetch_neighbor_room_assets_system(
         let Some(room) = room_set.rooms.get(index) else {
             continue;
         };
-        if !refresh_manifests && cache.entries.contains_key(&room.id) {
+        if !refresh_manifests
+            && cache
+                .entries
+                .get(&room.id)
+                .is_some_and(|entry| entry.construction_plan.is_some())
+        {
             continue;
         }
-        let staged_names = content_staging
-            .try_requests_for(room)
-            .map(|requests| {
-                requests
-                    .into_iter()
-                    .map(|request| request.name)
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
+        let construction_plan = match ambition::actors::rooms::RoomConstructionPlan::prepare_from_parts(
+            &room_set,
+            index,
+            &placement_lowering,
+            &content_staging,
+            &character_catalog,
+            &character_roster,
+            &boss_catalog,
+            spawn_scope,
+        ) {
+            Ok(plan) => plan,
+            Err(error) => {
+                cache.entries.remove(&room.id);
+                bevy::log::warn!(
+                    target: "ambition::room_transition",
+                    "could not prefetch construction for neighbor room '{}': {error}",
+                    room.id,
+                );
+                continue;
+            }
+        };
+        let staged_names = construction_plan.content_staged_names();
         let manifest = build_room_asset_manifest(
             room,
             &staged_names,
@@ -569,15 +640,16 @@ pub(crate) fn prefetch_neighbor_room_assets_system(
             &asset_server,
             &quality,
         );
-        let replace = match cache.entries.get(&room.id) {
-            Some(entry) => entry.manifest != manifest,
-            None => true,
-        };
+        let replace = refresh_manifests
+            || cache.entries.get(&room.id).map_or(true, |entry| {
+                entry.manifest != manifest || entry.construction_plan.is_none()
+            });
         if replace {
             cache.entries.insert(
                 room.id.clone(),
-                PrefetchedRoomAssets {
+                PrefetchedRoomPreparation {
                     manifest,
+                    construction_plan: Some(Arc::new(construction_plan)),
                     requested_at: time.elapsed(),
                     settled_at: None,
                 },
@@ -605,22 +677,27 @@ mod tests {
             room_id: "hall".to_string(),
             dependencies: Vec::new(),
         };
-        let mut cache = RoomAssetPrefetchState::default();
-        cache.reset_for(None, "hub");
+        let mut cache = RoomPreparationPrefetchState::default();
+        cache.reset_for(1, None, "hub");
         cache.entries.insert(
             "hall".to_string(),
-            PrefetchedRoomAssets {
+            PrefetchedRoomPreparation {
                 manifest: empty.clone(),
+                construction_plan: None,
                 requested_at: Duration::ZERO,
                 settled_at: Some(Duration::ZERO),
             },
         );
-        assert!(cache.classify_promotion(None, "hub", &empty, Some(Duration::ZERO)));
+        assert!(cache.classify_promotion(1, None, "hub", &empty, Some(Duration::ZERO)));
+        assert!(
+            !cache.classify_promotion(2, None, "hub", &empty, Some(Duration::ZERO)),
+            "a new content epoch must invalidate otherwise identical prefetched work",
+        );
 
         let different_room = RoomAssetManifest {
             room_id: "basement".to_string(),
             dependencies: Vec::new(),
         };
-        assert!(!cache.classify_promotion(None, "hub", &different_room, Some(Duration::ZERO)));
+        assert!(!cache.classify_promotion(1, None, "hub", &different_room, Some(Duration::ZERO)));
     }
 }

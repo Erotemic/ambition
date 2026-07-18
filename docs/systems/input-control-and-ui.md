@@ -47,6 +47,9 @@ Current responsibilities:
 - `ambition_ui_nav`: list, pointer, focus, and drag navigation helpers.
 - `ambition_game_shell`: top-level experience/route/input policy.
 - app/render crates: concrete presentation and product-specific menu content.
+- dialogue: `ambition_dialog` owns progression, `ambition_sim_view::DialogView`
+  publishes raw visible facts, and one provider-selected presenter owns the UI
+  tree through `DialogPresentationSet` (ADR 0028).
 
 ## Touch
 

@@ -19,12 +19,9 @@ fn start_activates_dialogue() {
     let mut s = DialogState::default();
     s.start("guide", "Guide", DialogueContext::scripted());
     assert!(s.active());
-    let title = s.title();
-    assert!(!title.is_empty());
-    // Title format is "{speaker} — {mode_label}" when a node
-    // exists; otherwise "{npc_name} — dialogue". Either way the
-    // separator is present.
-    assert!(title.contains('—') || title.contains("dialogue"));
+    assert_eq!(s.dialogue_id(), "guide");
+    assert_eq!(s.speaker_label(), "Guide");
+    assert_eq!(s.conversation_label(), "Guide");
 }
 
 #[test]

@@ -2,8 +2,8 @@
 //!
 //! The render layer's dialog UI used to read `ambition_dialog::DialogState`
 //! live — the renderer's only reason to depend on the dialogue runtime. This
-//! row snapshots exactly the five facts the overlay draws (visibility, title,
-//! body, option labels, selection), rebuilt sim-side in the FeatureViewSync
+//! row snapshots presentation-neutral dialogue facts (visibility, dialogue id,
+//! speaker / conversation labels, body, options, selection), rebuilt sim-side in the FeatureViewSync
 //! tail like every other read-model; presentation is a pure consumer.
 
 use ambition_dialog::DialogState;
@@ -13,10 +13,17 @@ use bevy::prelude::{DetectChanges, Res, ResMut, Resource};
 /// dialogue is running.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct DialogView {
-    /// Whether the dialogue overlay should be visible at all.
+    /// Whether a dialogue presenter should be visible at all.
     pub active: bool,
-    /// The overlay's title line (speaker — npc).
-    pub title: String,
+    /// Stable authored dialogue / Yarn node id. Presentation may use this to
+    /// select game-owned framing, portraits, or other visual policy.
+    pub dialogue_id: String,
+    /// Human-facing speaker label for the current line. This is intentionally
+    /// raw data rather than a renderer-formatted title.
+    pub speaker_label: String,
+    /// Human-facing label of the conversation endpoint that opened the
+    /// dialogue. It may differ from `speaker_label` when Yarn changes speaker.
+    pub conversation_label: String,
     /// The current (typewriter-revealed) body text.
     pub body: String,
     /// The currently REVEALED option labels, in presentation order. Empty for
@@ -36,13 +43,21 @@ pub fn rebuild_dialog_view(dialogue: Res<DialogState>, mut view: ResMut<DialogVi
     }
     view.active = dialogue.active();
     if !view.active {
-        view.title.clear();
+        view.dialogue_id.clear();
+        view.speaker_label.clear();
+        view.conversation_label.clear();
         view.body.clear();
         view.option_labels.clear();
         view.selected_option = 0;
         return;
     }
-    view.title = dialogue.title();
+    view.dialogue_id.clear();
+    view.dialogue_id.push_str(dialogue.dialogue_id());
+    view.speaker_label.clear();
+    view.speaker_label.push_str(dialogue.speaker_label());
+    view.conversation_label.clear();
+    view.conversation_label
+        .push_str(dialogue.conversation_label());
     view.body = dialogue.body();
     view.option_labels.clear();
     view.option_labels
@@ -78,13 +93,18 @@ mod tests {
         app.update();
         let view = app.world().resource::<DialogView>();
         assert!(view.active);
-        assert!(view.title.contains("Robo"), "title: {}", view.title);
+        assert_eq!(view.dialogue_id, "intro_greeting");
+        assert_eq!(view.speaker_label, "Robo");
+        assert_eq!(view.conversation_label, "Robo");
         assert_eq!(view.selected_option, 0);
 
         app.world_mut().resource_mut::<DialogState>().close();
         app.update();
         let view = app.world().resource::<DialogView>();
         assert!(!view.active);
-        assert!(view.body.is_empty() && view.title.is_empty());
+        assert!(view.body.is_empty());
+        assert!(view.dialogue_id.is_empty());
+        assert!(view.speaker_label.is_empty());
+        assert!(view.conversation_label.is_empty());
     }
 }

@@ -7,9 +7,9 @@
 //!
 //! - [`DialogChoice`] — the runtime option representation written
 //!   by the Yarn bridge into [`crate::DialogState`]`.current_options`
-//!   and rendered by `sync_dialog_ui`. `next_node` / `note` /
-//!   `close_after` are vestigial fields kept for the existing UI
-//!   layout code (the renderer reads `label` and ignores the rest);
+//!   and projected into `ambition_sim_view::DialogView`. Concrete game
+//!   presenters read `label`; `next_node` / `note` / `close_after` are
+//!   vestigial fields retained only for the runtime option shape;
 //!   they're set to `None` / `false` by the bridge.
 //!
 //! The pre-migration `DialogTree` / `DialogNode` / `DialogRedirectRule`

@@ -13,6 +13,7 @@ implemented_by:
   - crates/ambition_host
 related_adrs:
   - docs/adr/0012-sim-presentation-split-and-events-refactor.md
+  - docs/adr/0028-dialogue-presentation-is-provider-selected.md
 ---
 
 # Simulation / presentation seam
@@ -42,6 +43,8 @@ observer-dependent or mutable truth.
 - Effect messages identify semantic events, not renderer implementation details.
 - Read models are derived/rebuildable and are not competing persistence truth.
 - Provider-owned presentation plugs into public engine observation/effect seams.
+- Dialogue runtime/view facts are reusable; the concrete overlay tree is selected
+  by exactly one game/provider presenter plugin (ADR 0028), not a universal skin.
 - Audio/VFX may be absent or degraded without changing authoritative outcomes.
 - Simulation ordering lives in runtime/domain schedule sets; presentation timing
   must not become an implicit gameplay dependency.

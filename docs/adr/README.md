@@ -39,3 +39,4 @@ Use an ADR when a decision:
 - [0025: Character actions — device-shaped input slots, deterministic sim-side action resolution](0025-character-actions-input-ownership.md)
 - [0026: Immutable prepared content and exact session identity](0026-immutable-prepared-content-and-exact-session-identity.md)
 - [0027: GGRS is the sole rollback authority](0027-ggrs-is-the-sole-rollback-authority.md)
+- [0028: Dialogue presentation is provider-selected](0028-dialogue-presentation-is-provider-selected.md)

@@ -251,12 +251,25 @@ impl DialogState {
         self.speaker_entity
     }
 
-    pub fn title(&self) -> String {
+    /// Human-facing speaker label for the current line. Falls back to the
+    /// conversation partner while the first Yarn line is still in flight or
+    /// when authored dialogue omits an explicit character prefix.
+    ///
+    /// This is raw presentation input, not a preformatted title: each game is
+    /// free to place the name beside a portrait, in a nameplate, or nowhere.
+    pub fn speaker_label(&self) -> &str {
         if self.current_speaker.is_empty() {
-            format!("{} — dialogue", self.npc_name)
+            &self.npc_name
         } else {
-            format!("{} — {}", self.current_speaker, self.npc_name)
+            &self.current_speaker
         }
+    }
+
+    /// Human-facing label of the NPC / conversation endpoint that started the
+    /// dialogue. This may differ from [`Self::speaker_label`] when a Yarn node
+    /// switches speakers mid-conversation.
+    pub fn conversation_label(&self) -> &str {
+        &self.npc_name
     }
 
     pub fn body(&self) -> String {
@@ -290,11 +303,7 @@ impl DialogState {
     }
 
     pub(crate) fn speaker_label_for_sfx(&self) -> &str {
-        if self.current_speaker.is_empty() {
-            &self.npc_name
-        } else {
-            &self.current_speaker
-        }
+        self.speaker_label()
     }
 
     #[cfg_attr(not(feature = "ui"), allow(dead_code))]

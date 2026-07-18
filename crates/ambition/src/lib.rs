@@ -86,6 +86,9 @@ pub mod renderer {
 /// and the sprite/animation chain. A demo adds this beside the engine and host
 /// groups; a game layers its own HUD/menus/dev stack on top (oracle-violation OV1).
 pub mod presentation {
+    pub use ambition_render::dialog_ui::{
+        DefaultDialogUiPlugin, DialogOverlayRoot, DialogPresentationSet,
+    };
     pub use ambition_render::platformer_presentation::{
         PlatformerPresentationPlugin, PlatformerPresentationSetupSet,
     };

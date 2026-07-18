@@ -6,8 +6,40 @@ use super::*;
 
 #[test]
 fn sanic_demo_content_plugin_installs() {
+    // The direct-entry content plugin publishes an exact PreparedContent root at
+    // plugin-build time. That contract deliberately depends on the engine having
+    // installed its construction registries first, matching the standalone Sanic
+    // shell's real composition order. A bare App only tests catalog registration
+    // and cannot validate or fingerprint the speedway's authored ring placements.
     let mut app = App::new();
+    ambition::engine::add_headless_foundation(&mut app);
+    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
     add_demo_content(&mut app);
+
+    let placement_lowering = app
+        .world()
+        .resource::<ambition::runtime::demo_fixture::PlacementLoweringRegistry>();
+    assert!(
+        placement_lowering
+            .schema_descriptors()
+            .iter()
+            .any(|(kind, _, _, schema)| kind == "pickup" && schema == "placement.pickup.v1"),
+        "the engine must install the pickup lowering before Sanic content is prepared"
+    );
+
+    let mut prepared_query = app
+        .world_mut()
+        .query::<&ambition::runtime::PreparedContent>();
+    let prepared = prepared_query
+        .single(app.world())
+        .expect("Sanic direct entry publishes one prepared-content root");
+    assert!(
+        prepared
+            .sections()
+            .iter()
+            .any(|section| section.name == "construction.placement-lowering"),
+        "Sanic's exact content identity includes the installed lowering schema"
+    );
 
     let audio = app
         .world()

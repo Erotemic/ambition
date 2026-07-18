@@ -42,6 +42,7 @@ ambition_render = { path = "../../crates/ambition_render" }
 # Identity read-model for the content-owned actor overlay presentation
 # (the puppy-slug deep-dream pass reads dream participation from it).
 ambition_sim_view = { path = "../../crates/ambition_sim_view" }
+ambition_ui_nav = { path = "../../crates/ambition_ui_nav" }
 ambition_combat = { path = "../../crates/ambition_combat" }
 ambition_encounter = { path = "../../crates/ambition_encounter" }
 # N3.1: this crate's boss specials hold SIM STATE, so they register their own

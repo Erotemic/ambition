@@ -605,7 +605,6 @@ fn install_fx_and_hud_systems(app: &mut App) {
                 update_hud,
                 ambition::render::rendering::sync_boss_health_bar_overlay,
                 ambition::dialog::dialog_reveal_tick,
-                ambition::render::dialog_ui::sync_dialog_ui,
                 ambition::render::cutscene::sync_cutscene_ui,
             )
                 .chain()
@@ -721,7 +720,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         update_quest_panel
-            .after(ambition::render::dialog_ui::sync_dialog_ui)
+            .after(ambition::render::dialog_ui::DialogPresentationSet)
             .run_if(ambition::platformer::lifecycle::session_world_exists),
     );
 }
@@ -800,8 +799,8 @@ pub(super) fn add_physics_debris_plugins(app: &mut App) {
 #[cfg(not(feature = "physics_debris"))]
 pub(super) fn add_physics_debris_plugins(_app: &mut App) {}
 
-/// Install UI-shell plugins: bevy_material_ui's styling layer. The
-/// dialogue overlay (`ambition::render::dialog_ui::sync_dialog_ui`) draws with Bevy's
+/// Install UI-shell plugins: bevy_material_ui's styling layer. Ambition's
+/// dialogue presenter is mounted by `AmbitionPresentationPlugin` and draws with Bevy's
 /// core UI primitives and stays installed unconditionally; only
 /// the optional plugins live behind `ui`.
 ///

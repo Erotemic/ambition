@@ -7,7 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`cutscene`](src/cutscene/mod.rs) | Sandbox cutscene presentation overlay. |
-| [`dialog_ui`](src/dialog_ui.rs) | The dialog-box overlay UI: spawns/refreshes the on-screen dialog panel. |
+| [`dialog_ui`](src/dialog_ui.rs) | Provider-selectable dialogue presentation. |
 | [`fx`](src/fx.rs) | Procedural visual effects for the sandbox. |
 | [`hud`](src/hud.rs) | Always-on player HUD: health, mana, and money meters (visible build). |
 | [`platformer_presentation`](src/platformer_presentation.rs) | **The presentation face a demo can add** — [`PlatformerPresentationPlugin`]. |

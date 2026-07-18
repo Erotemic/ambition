@@ -120,7 +120,7 @@ impl Plugin for IntroPlugin {
             );
         // Intro dialog redirects are handled by the unified
         // `dialog::redirect_post_quest_dialog` system. Its
-        // ordering (after CoreSimulation, before sync_dialog_ui)
+        // ordering (after CoreSimulation, before DialogPresentationSet)
         // is registered alongside the sandbox dialog systems.
     }
 }

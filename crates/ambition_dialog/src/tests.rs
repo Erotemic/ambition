@@ -33,6 +33,34 @@ fn close_deactivates() {
 }
 
 #[test]
+fn stable_portrait_identity_defaults_to_listener_and_resets_cleanly() {
+    let mut s = DialogState::default();
+    s.start(
+        "guide",
+        "Guide",
+        DialogueContext::between("player", "npc_guide"),
+    );
+    assert_eq!(s.speaker_character_id(), "npc_guide");
+    assert_eq!(s.portrait_clip(), "");
+
+    s.set_portrait_clip("speaking");
+    assert_eq!(s.portrait_clip(), "speaking");
+    s.set_presented_speaker_character_id("npc_second_voice");
+    assert_eq!(s.speaker_character_id(), "npc_second_voice");
+    assert_eq!(s.portrait_clip(), "", "speaker switches reset expression");
+
+    s.set_portrait_clip("annoyed");
+    s.set_portrait_clip("default");
+    assert_eq!(s.portrait_clip(), "");
+
+    s.set_presented_speaker_character_id("");
+    assert_eq!(s.speaker_character_id(), "npc_guide");
+    s.close();
+    assert_eq!(s.speaker_character_id(), "");
+    assert_eq!(s.portrait_clip(), "");
+}
+
+#[test]
 fn body_does_not_panic_when_no_node() {
     let mut s = DialogState::default();
     s.start(

@@ -10,9 +10,10 @@
 //!   typewriter reveal + input translators (the last two `input`-gated).
 //! - [`DialogueVoiceCatalog`] — the App-local seam through which a provider
 //!   contributes its cast voiceprints without naming characters here.
-//! - [`YarnBridgePlugin`] — the `bevy_yarnspinner` ↔ `DialogState` bridge, and
-//!   the [`YarnContentBindings`] installer seam a host registers its
-//!   game-specific Yarn vocabulary through (`ui`-gated).
+//! - [`YarnBridgePlugin`] — the `bevy_yarnspinner` ↔ `DialogState` bridge,
+//!   including the presentation-neutral `present_speaker` / `portrait_clip`
+//!   commands, and the [`YarnContentBindings`] installer seam a host registers
+//!   its game-specific Yarn vocabulary through (`ui`-gated).
 //!
 //! ## What stays host-side
 //!

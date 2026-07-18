@@ -58,7 +58,21 @@ pub struct DialogState {
     /// prior conversation can't leak into the next one.
     pub(crate) speaker_entity: Option<Entity>,
 
-    /// Latest speaker from `PresentLine`. May differ from
+    /// Stable character id of the conversation endpoint that opened this
+    /// dialogue. Copied from `DialogueContext.listener_id`; empty for scripted
+    /// conversations without an identified endpoint.
+    conversation_character_id: String,
+    /// Optional stable id explicitly selected for the current speaker through
+    /// the generic `<<present_speaker "character_id">>` Yarn command. Empty
+    /// means the conversation endpoint remains the presented speaker.
+    presented_speaker_character_id: String,
+    /// Requested named portrait clip for the presented speaker. Empty means
+    /// the character catalog's default clip. The generic
+    /// `<<portrait_clip "name">>` command updates this presentation-neutral
+    /// fact; the renderer resolves it against the portrait manifest.
+    portrait_clip: String,
+
+    /// Latest human-facing speaker from `PresentLine`. May differ from
     /// `npc_name` mid-conversation (e.g. an off-screen voice or a
     /// second character).
     pub(crate) current_speaker: String,
@@ -183,6 +197,9 @@ impl DialogState {
         // sets one via `set_speaker_entity`. Clearing here prevents a stale
         // entity from a prior dialogue leaking into a system-started one.
         self.speaker_entity = None;
+        self.conversation_character_id = context.listener_id.clone();
+        self.presented_speaker_character_id.clear();
+        self.portrait_clip.clear();
         self.current_speaker.clear();
         self.current_line.clear();
         self.line_reveal = LineRevealState::default();
@@ -214,6 +231,7 @@ impl DialogState {
     pub fn close(&mut self) {
         self.active = false;
         self.pending_close = true;
+        self.reset_presentation_identity();
         self.current_speaker.clear();
         self.current_line.clear();
         self.line_reveal = LineRevealState::default();
@@ -270,6 +288,52 @@ impl DialogState {
     /// switches speakers mid-conversation.
     pub fn conversation_label(&self) -> &str {
         &self.npc_name
+    }
+
+    /// Stable character id whose portrait should represent the current line.
+    /// Defaults to the interaction's listener id and may be changed explicitly
+    /// by authored dialogue. Never derives identity from a display label.
+    pub fn speaker_character_id(&self) -> &str {
+        if self.presented_speaker_character_id.is_empty() {
+            &self.conversation_character_id
+        } else {
+            &self.presented_speaker_character_id
+        }
+    }
+
+    /// Named portrait clip requested by authored dialogue. Empty means the
+    /// selected character's catalog default.
+    pub fn portrait_clip(&self) -> &str {
+        &self.portrait_clip
+    }
+
+    /// Set the stable id for subsequent presented lines. An empty id resets to
+    /// the conversation endpoint. Switching speaker also resets expression so
+    /// one character's clip cannot leak onto another character.
+    pub fn set_presented_speaker_character_id(&mut self, character_id: impl Into<String>) {
+        self.presented_speaker_character_id = character_id.into().trim().to_string();
+        self.portrait_clip.clear();
+    }
+
+    /// Select a named portrait clip for subsequent lines. Empty or `default`
+    /// delegates to the character catalog's declared default clip.
+    pub fn set_portrait_clip(&mut self, clip: impl Into<String>) {
+        let clip = clip.into();
+        let clip = clip.trim();
+        if clip.is_empty() || clip == "default" {
+            self.portrait_clip.clear();
+        } else {
+            self.portrait_clip = clip.to_string();
+        }
+    }
+
+    /// Clear stable portrait identity and expression state. Used when a
+    /// conversation closes or fails to start so presentation state cannot leak
+    /// into the next dialogue session.
+    pub(crate) fn reset_presentation_identity(&mut self) {
+        self.conversation_character_id.clear();
+        self.presented_speaker_character_id.clear();
+        self.portrait_clip.clear();
     }
 
     pub fn body(&self) -> String {
@@ -417,6 +481,7 @@ impl DialogState {
             self.runner_done_pending_close = false;
             self.pending_close = true;
             self.active = false;
+            self.reset_presentation_identity();
         } else if self.current_options.is_empty() {
             self.pending_advance = true;
         } else {

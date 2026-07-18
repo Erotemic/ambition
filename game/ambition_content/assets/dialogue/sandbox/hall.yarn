@@ -268,10 +268,12 @@ Merchant: Everything you're looking at is, in principle, for sale. I'm still dra
 
 title: hall_npc_alice
 ---
+<<portrait_clip "speaking">>
 Alice: Oh good, a third party. I'm Alice. I send messages — that's the entire job. The catch is the someone in the middle, and there is always a someone.
 -> Who do you send messages to?
     Alice: Bob. Always Bob. Everything I say is meant for him — you just happen to be standing in the channel it travels down. Almost everyone is, somewhere. Almost no one notices.
 -> Sounds simple enough.
+    <<portrait_clip "focused">>
     Alice: It is, right up until you want to be SURE only Bob can read it. That want is where every interesting problem I know was born. Ask Eve how it's going.
 ===
 
@@ -304,8 +306,10 @@ Creator Final: I expected an ending. I got an exhibit. There's a lesson in the d
 
 title: hall_npc_oiler
 ---
+<<portrait_clip "talking">>
 Oiler: You hear that? No, you don't — that's a bearing that's about to. The whole hall hums slightly wrong and I'm the only one it bothers.
 -> What needs fixing?
+    <<portrait_clip "inspecting">>
     Oiler: The Robot's shoulder rig has a friction tick. The Sandbag's base sits a half-degree off true. Small things. Small things are the ones that take the big things down.
 -> Why not fix them?
     Oiler: From here? I can hear the problem and not reach it. That's a special kind of torment. They should put it in a placard. They won't.
@@ -1010,10 +1014,12 @@ Ramen-nujan: Last night I dreamt an infinite bowl of noodles. By morning I had a
 
 title: hall_npc_pipi_tau
 ---
+<<portrait_clip "explaining">>
 Pipi Tau: I joined the Hall halfway around a circle. They called it pi. I kept walking.
 -> Why Pipi Tau?
     Pipi Tau: One pi gets you halfway home. Tau finishes the trip. The extra pi is for momentum.
 -> What are you working on?
+    <<portrait_clip "thinking">>
     Pipi Tau: Several problems. When one refuses to move, I rotate it until it resembles a problem somebody else already knows how to annoy.
 -> Do you solve everything alone?
     Pipi Tau: That would be an inefficient theorem. I leave the stubborn lemma where many minds can reach it, then try not to pretend I did all the reaching.

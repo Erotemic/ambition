@@ -81,10 +81,9 @@ fn spawn_dialogue_runner(
     // whether a self-conversation has a branch to enter — before it opens a
     // dialogue box, not after.
     node_index.populate(runner.inner().node_names().map(str::to_owned));
-    // All Yarn vocabulary — the host's generic game commands/functions
-    // AND content-side named vocabulary — is registered through the
-    // installer seam. The bridge names no concrete command, so the
-    // runtime stays reusable across games.
+    // Register the presentation-neutral dialogue vocabulary owned by this
+    // reusable runtime before the host adds game-specific commands/functions.
+    register_presentation_commands(&mut commands, &mut runner);
     for install in &content_bindings.installers {
         install(&mut commands, &mut runner, &mirror);
     }
@@ -94,6 +93,26 @@ fn spawn_dialogue_runner(
         target: "ambition_dialog::bridge",
         "spawned DialogueRunner entity {entity:?}",
     );
+}
+
+/// `<<present_speaker "character_id">>` — select the stable character id used
+/// for portrait presentation. An empty id returns to the conversation endpoint.
+fn cmd_present_speaker(In(character_id): In<String>, mut state: ResMut<DialogState>) {
+    state.set_presented_speaker_character_id(character_id);
+}
+
+/// `<<portrait_clip "clip">>` — select a named clip from the current speaker's
+/// portrait manifest. `default` clears the override and uses the catalog default.
+fn cmd_portrait_clip(In(clip): In<String>, mut state: ResMut<DialogState>) {
+    state.set_portrait_clip(clip);
+}
+
+fn register_presentation_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
+    let present_speaker = commands.register_system(cmd_present_speaker);
+    let portrait_clip = commands.register_system(cmd_portrait_clip);
+    let yarn_commands = runner.commands_mut();
+    yarn_commands.add_command("present_speaker", present_speaker);
+    yarn_commands.add_command("portrait_clip", portrait_clip);
 }
 
 /// Drain `DialogState.pending_*` fields each frame, translate them
@@ -153,6 +172,7 @@ fn dispatch_pending_dialog_requests(
             // mode synchronously; clearing `active` lets the host map
             // back out of it.
             state.active = false;
+            state.reset_presentation_identity();
             return;
         }
         if let Err(e) = runner.try_start_node(&dialogue_id) {
@@ -161,6 +181,7 @@ fn dispatch_pending_dialog_requests(
                 "try_start_node({dialogue_id:?}) failed: {e}",
             );
             state.active = false;
+            state.reset_presentation_identity();
             return;
         }
         // Reset the accumulator for the new conversation.
@@ -212,6 +233,7 @@ fn dispatch_pending_dialog_requests(
             runner.stop();
         }
         state.active = false;
+        state.reset_presentation_identity();
         state.current_line.clear();
         state.current_speaker.clear();
         state.current_options.clear();
@@ -336,6 +358,7 @@ fn on_dialogue_completed(_event: On<DialogueCompleted>, mut state: ResMut<Dialog
     }
     // Empty body + runner done → close immediately.
     state.active = false;
+    state.reset_presentation_identity();
     state.current_speaker.clear();
     state.current_options.clear();
     state.yarn_option_ids.clear();

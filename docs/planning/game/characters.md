@@ -58,4 +58,9 @@ The architecture, migration, deletion, and Hall voice pass are complete:
   contract without sharing an artistic representation. Portrait paths derive
   from each catalog gameplay-sheet path, regeneration fails on missing or
   malformed Hall products, and a generated contact sheet supports visual review.
-  Named expression/animation playback remains follow-up work.
+- ✅ NAMED PORTRAIT CLIPS (2026-07-18): stable character identity and an optional
+  clip key now travel through the dialogue read model. Portrait manifests are
+  baked for packaged builds, Yarn can select a speaker or clip without naming
+  texture paths, and the presenter plays looping or hold-on-final-frame clips
+  with deterministic default fallback. Alice, Oiler, and Pipi Tau provide the
+  representative config, SVG-rig, and bespoke-procedural expression sets.

@@ -12,10 +12,12 @@
 //! arguments, so the whole class of crash is caught at `cargo test` time.
 
 /// Fixed-arity Yarn commands and their expected argument counts. MUST match the
-/// `In<...>` tuple arities of the `cmd_*` fns in `dialog/yarn_bindings.rs`
-/// (which is `ui`-gated, hence the table is duplicated here to stay
-/// runtime-independent): no `In` ⇒ 0, `In<T>` ⇒ 1, `In<(A, B)>` ⇒ 2.
+/// `In<...>` tuple arities of the generic commands in `ambition_dialog` and
+/// the game commands in `dialog/yarn_bindings.rs` (both are `ui`-gated, so
+/// this table is duplicated here to remain runtime-independent): no `In` ⇒ 0, `In<T>` ⇒ 1, `In<(A, B)>` ⇒ 2.
 const FIXED_ARITY_COMMANDS: &[(&str, usize)] = &[
+    ("present_speaker", 1),
+    ("portrait_clip", 1),
     ("give_item", 2),
     ("buy_item", 2),
     ("sell_item", 2),

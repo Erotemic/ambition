@@ -52,7 +52,8 @@ use ambition_dialog::{YarnStateMirror, YarnStateMirrorData};
 /// The host installer: registers Ambition's generic Yarn vocabulary
 /// (commands + functions) on the runner. Pushed into
 /// [`ambition_dialog::YarnContentBindings`] by [`crate::dialog::YarnBindingsPlugin`] so the
-/// reusable bridge names no concrete game command.
+/// reusable bridge names no game-specific command. It owns only generic
+/// presentation commands such as `present_speaker` and `portrait_clip`.
 pub fn install_game_bindings(
     commands: &mut Commands,
     runner: &mut DialogueRunner,

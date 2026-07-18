@@ -129,10 +129,26 @@ Stage 2 default dialog-portrait coverage has landed:
 - `regen_sprites.sh` validates every Hall portrait and emits
   `generated/portrait_gallery.png` for visual review.
 
-**Portrait work still open:** carry stable speaker identity through the neutral
-DialogState/DialogView path and implement named expression and animation
-selection. Native portrait production must continue to use family-specific or
-bespoke rerendering, never crops enlarged from gameplay sheets.
+Stage 3 named portrait presentation has landed:
+
+- config-driven jobs may declare named still or animated clips through
+  `visual.portraits.<name>.frame` / `frames`, `duration_ms`, and `looping`;
+- bespoke procedural and SVG/rig families may publish the same clip vocabulary
+  through their existing target-level portrait hooks;
+- portrait manifests are baked into a cross-platform runtime registry, so
+  desktop, Android, and web builds resolve clip rectangles without filesystem
+  discovery;
+- stable speaker character ids and requested clip names flow through
+  `DialogState` and `DialogView`; presentation never reverse-matches localized
+  speaker labels;
+- Yarn authors select speakers and expressions with the presentation-neutral
+  `present_speaker` and `portrait_clip` commands;
+- the Ambition presenter plays looping clips and one-shots that hold their last
+  frame, with deterministic fallback to the catalog/manifest default.
+
+Native portrait production must continue to use family-specific or bespoke
+rerendering, never crops enlarged from gameplay sheets. Remaining portrait work
+is polish and additional per-character expression art rather than architecture.
 
 ## Pointers
 

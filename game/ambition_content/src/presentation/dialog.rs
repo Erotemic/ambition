@@ -22,6 +22,9 @@ use ambition_render::dialog_ui::{
 };
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_sim_view::DialogView;
+use ambition_sprite_sheet::{
+    PortraitClipRecord, PortraitFrameRect, PortraitSheetRegistry, PortraitSheetRegistryPlugin,
+};
 use ambition_ui_nav::{visible_window_start, DialogChoiceSlot};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -67,9 +70,9 @@ impl AmbitionDialogPortraitSpec {
     }
 }
 
-/// Ambition's portrait registry, keyed by stable character id rather than a
-/// localized display label. The renderer resolves the current Yarn speaker
-/// label through the assembled [`CharacterCatalog`] before consulting it.
+/// Ambition's portrait override registry, keyed by stable character id.
+/// [`DialogView`] carries that id directly from the simulation; presentation
+/// never reverse-matches a localized display label.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct AmbitionDialogPortraitCatalog {
     entries: BTreeMap<String, AmbitionDialogPortraitSpec>,
@@ -97,11 +100,15 @@ pub struct AmbitionDialogUiPlugin;
 impl Plugin for AmbitionDialogUiPlugin {
     fn build(&self, app: &mut App) {
         claim_dialog_presentation(app, PRESENTER_NAME);
-        app.init_resource::<AmbitionDialogPortraitCatalog>()
+        app.add_plugins(PortraitSheetRegistryPlugin)
+            .init_resource::<AmbitionDialogPortraitCatalog>()
             .init_resource::<AmbitionDialogLayoutCache>()
+            .init_resource::<AmbitionDialogPortraitPlayback>()
             .add_systems(
                 Update,
-                sync_ambition_dialog_ui.in_set(DialogPresentationSet),
+                (sync_ambition_dialog_ui, advance_ambition_dialog_portrait)
+                    .chain()
+                    .in_set(DialogPresentationSet),
             );
     }
 }
@@ -149,6 +156,92 @@ pub struct AmbitionDialogScrollThumb;
 #[derive(Resource, Default)]
 struct AmbitionDialogLayoutCache {
     viewport: Option<Vec2>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PortraitPlaybackKey {
+    image_path: String,
+    manifest_path: String,
+    clip_name: String,
+}
+
+#[derive(Clone, Debug)]
+struct ResolvedPortraitVisual {
+    image_path: String,
+    playback: Option<(PortraitPlaybackKey, PortraitClipRecord)>,
+}
+
+/// Persistent animation cursor for the currently presented portrait clip.
+/// The UI tree is rebuilt while typewriter text changes; keeping playback in a
+/// resource prevents those rebuilds from restarting the portrait every frame.
+#[derive(Resource, Default)]
+struct AmbitionDialogPortraitPlayback {
+    key: Option<PortraitPlaybackKey>,
+    frames: Vec<Rect>,
+    frame_duration_s: f32,
+    looping: bool,
+    frame_index: usize,
+    elapsed_s: f32,
+}
+
+impl AmbitionDialogPortraitPlayback {
+    fn clear(&mut self) {
+        self.key = None;
+        self.frames.clear();
+        self.frame_duration_s = 0.0;
+        self.looping = false;
+        self.frame_index = 0;
+        self.elapsed_s = 0.0;
+    }
+
+    fn configure(&mut self, key: PortraitPlaybackKey, clip: &PortraitClipRecord) {
+        if self.key.as_ref() == Some(&key) {
+            return;
+        }
+        self.key = Some(key);
+        self.frames = clip.frames.iter().copied().map(frame_rect).collect();
+        self.frame_duration_s = clip.duration_ms as f32 / 1000.0;
+        self.looping = clip.looping;
+        self.frame_index = 0;
+        self.elapsed_s = 0.0;
+    }
+
+    fn current_rect(&self) -> Option<Rect> {
+        self.frames.get(self.frame_index).cloned()
+    }
+
+    /// Advance animation time. Returns true only when the visible frame changed.
+    fn tick(&mut self, delta_s: f32) -> bool {
+        if self.frames.len() <= 1 || self.frame_duration_s <= 0.0 {
+            return false;
+        }
+        if !self.looping && self.frame_index + 1 >= self.frames.len() {
+            return false;
+        }
+        self.elapsed_s += delta_s.max(0.0);
+        let mut changed = false;
+        while self.elapsed_s >= self.frame_duration_s {
+            self.elapsed_s -= self.frame_duration_s;
+            if self.frame_index + 1 < self.frames.len() {
+                self.frame_index += 1;
+                changed = true;
+            } else if self.looping {
+                self.frame_index = 0;
+                changed = true;
+            } else {
+                self.elapsed_s = 0.0;
+                break;
+            }
+        }
+        changed
+    }
+}
+
+fn frame_rect(frame: PortraitFrameRect) -> Rect {
+    Rect::from_corners(
+        Vec2::new(frame.x as f32, frame.y as f32),
+        Vec2::new((frame.x + frame.w) as f32, (frame.y + frame.h) as f32),
+    )
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -286,6 +379,8 @@ fn sync_ambition_dialog_ui(
     ui_fonts: Option<Res<UiFonts>>,
     character_catalog: Res<CharacterCatalog>,
     portrait_catalog: Res<AmbitionDialogPortraitCatalog>,
+    portrait_registry: Res<PortraitSheetRegistry>,
+    mut portrait_playback: ResMut<AmbitionDialogPortraitPlayback>,
     asset_server: Option<Res<AssetServer>>,
 ) {
     let viewport = windows
@@ -302,7 +397,8 @@ fn sync_ambition_dialog_ui(
         || layout_changed
         || ui_fonts.as_ref().is_some_and(|fonts| fonts.is_changed())
         || character_catalog.is_changed()
-        || portrait_catalog.is_changed();
+        || portrait_catalog.is_changed()
+        || portrait_registry.is_changed();
     if !presentation_inputs_changed {
         return;
     }
@@ -311,6 +407,7 @@ fn sync_ambition_dialog_ui(
         commands.entity(entity).despawn();
     }
     if !dialogue.active {
+        portrait_playback.clear();
         return;
     }
 
@@ -325,7 +422,8 @@ fn sync_ambition_dialog_ui(
     } else {
         dialogue.speaker_label.trim()
     };
-    let character_id = character_catalog.id_for_display_name(speaker_label);
+    let character_id = (!dialogue.speaker_character_id.trim().is_empty())
+        .then_some(dialogue.speaker_character_id.trim());
     let portrait_override = character_id.and_then(|id| portrait_catalog.get(id));
     let portrait_key = character_id.unwrap_or(speaker_label);
     let accent = portrait_override
@@ -335,11 +433,24 @@ fn sync_ambition_dialog_ui(
         .and_then(|portrait| portrait.placeholder_text.as_deref())
         .map(str::to_owned)
         .unwrap_or_else(|| placeholder_monogram(speaker_label));
-    let portrait_image_path =
-        resolve_portrait_image_path(character_id, &character_catalog, &portrait_catalog);
-    // Portrait products currently publish a one-frame default sheet, so the
-    // image page can be shown directly. Named clip playback can consume the
-    // sibling manifest later without changing this UI ownership seam.
+
+    let resolved_portrait = resolve_portrait_visual(
+        character_id,
+        (!dialogue.portrait_clip.trim().is_empty()).then_some(dialogue.portrait_clip.trim()),
+        &character_catalog,
+        &portrait_catalog,
+        &portrait_registry,
+    );
+    let portrait_image_path = resolved_portrait.as_ref().map(|visual| visual.image_path.clone());
+    if let Some((key, clip)) = resolved_portrait
+        .as_ref()
+        .and_then(|visual| visual.playback.as_ref())
+    {
+        portrait_playback.configure(key.clone(), clip);
+    } else {
+        portrait_playback.clear();
+    }
+    let portrait_source_rect = portrait_playback.current_rect();
     let portrait_image = portrait_image_path
         .zip(asset_server.as_deref())
         .map(|(path, server)| server.load::<Image>(path));
@@ -416,6 +527,7 @@ fn sync_ambition_dialog_ui(
                 spawn_dialog_header(
                     panel,
                     portrait_image,
+                    portrait_source_rect,
                     &monogram,
                     accent,
                     speaker_label,
@@ -488,9 +600,32 @@ fn sync_ambition_dialog_ui(
         });
 }
 
+fn advance_ambition_dialog_portrait(
+    time: Option<Res<Time>>,
+    dialogue: Res<DialogView>,
+    mut playback: ResMut<AmbitionDialogPortraitPlayback>,
+    mut images: Query<&mut ImageNode, With<AmbitionDialogPortraitImage>>,
+) {
+    if !dialogue.active {
+        playback.clear();
+        return;
+    }
+    let Some(time) = time else {
+        return;
+    };
+    if !playback.tick(time.delta_secs()) {
+        return;
+    }
+    let rect = playback.current_rect();
+    for mut image in &mut images {
+        image.rect = rect.clone();
+    }
+}
+
 fn spawn_dialog_header(
     parent: &mut ChildSpawnerCommands,
     image: Option<Handle<Image>>,
+    source_rect: Option<Rect>,
     monogram: &str,
     accent: Color,
     speaker_label: &str,
@@ -511,7 +646,15 @@ fn spawn_dialog_header(
             Name::new("Ambition Dialogue Header"),
         ))
         .with_children(|header| {
-            spawn_portrait(header, image, monogram, accent, profile, dialog_font);
+            spawn_portrait(
+                header,
+                image,
+                source_rect,
+                monogram,
+                accent,
+                profile,
+                dialog_font,
+            );
             header.spawn((
                 Text::new(speaker_label.to_string()),
                 dialog_font(profile.speaker_font_size, UiFontWeight::Semibold),
@@ -531,6 +674,7 @@ fn spawn_dialog_header(
 fn spawn_portrait(
     parent: &mut ChildSpawnerCommands,
     image: Option<Handle<Image>>,
+    source_rect: Option<Rect>,
     monogram: &str,
     accent: Color,
     profile: &DialogLayoutProfile,
@@ -556,8 +700,10 @@ fn spawn_portrait(
         ))
         .with_children(|portrait| {
             if let Some(handle) = image {
+                let mut image_node = ImageNode::new(handle);
+                image_node.rect = source_rect;
                 portrait.spawn((
-                    ImageNode::new(handle),
+                    image_node,
                     Node {
                         width: Val::Percent(100.0),
                         height: Val::Percent(100.0),
@@ -752,16 +898,41 @@ fn spawn_choice_row(
         });
 }
 
-fn resolve_portrait_image_path(
+fn resolve_portrait_visual(
     character_id: Option<&str>,
+    requested_clip: Option<&str>,
     character_catalog: &CharacterCatalog,
     portrait_catalog: &AmbitionDialogPortraitCatalog,
-) -> Option<String> {
+    portrait_registry: &PortraitSheetRegistry,
+) -> Option<ResolvedPortraitVisual> {
     let character_id = character_id?;
     if let Some(override_spec) = portrait_catalog.get(character_id) {
-        return override_spec.image_path.clone();
+        return override_spec
+            .image_path
+            .clone()
+            .map(|image_path| ResolvedPortraitVisual {
+                image_path,
+                playback: None,
+            });
     }
-    character_catalog.portrait_image_path(character_id)
+
+    let portrait = character_catalog.portrait_ref(character_id)?;
+    let (clip_name, clip) = portrait_registry.resolve_clip(
+        &portrait.manifest,
+        requested_clip,
+        &portrait.default_clip,
+    )?;
+    Some(ResolvedPortraitVisual {
+        image_path: portrait.image.clone(),
+        playback: Some((
+            PortraitPlaybackKey {
+                image_path: portrait.image,
+                manifest_path: portrait.manifest,
+                clip_name: clip_name.to_string(),
+            },
+            clip.clone(),
+        )),
+    })
 }
 
 fn placeholder_monogram(label: &str) -> String {
@@ -805,6 +976,7 @@ mod tests {
         DialogView {
             active: true,
             dialogue_id: "hall_ada".to_string(),
+            speaker_character_id: "npc_ada".to_string(),
             speaker_label: "Ada Lovelace".to_string(),
             conversation_label: "Ada Lovelace".to_string(),
             body: "The engine should expose facts, not dictate presentation.".to_string(),
@@ -817,6 +989,32 @@ mod tests {
         assert_eq!(placeholder_monogram("Ada Lovelace"), "AL");
         assert_eq!(placeholder_monogram("Oiler"), "O");
         assert_eq!(placeholder_monogram(""), "?");
+    }
+
+    fn portrait_registry_fixture() -> PortraitSheetRegistry {
+        PortraitSheetRegistry::from_baked_table(&[(
+            "sprites/alice_portraits.ron",
+            r#"(
+                target: "alice",
+                image: "alice_portraits.png",
+                frame_width: 256,
+                frame_height: 320,
+                default_clip: "default",
+                clips: {
+                    "default": (
+                        frames: [(x: 0, y: 0, w: 256, h: 320)],
+                    ),
+                    "speaking": (
+                        duration_ms: 100,
+                        looping: true,
+                        frames: [
+                            (x: 256, y: 0, w: 256, h: 320),
+                            (x: 512, y: 0, w: 256, h: 320),
+                        ],
+                    ),
+                },
+            )"#,
+        )])
     }
 
     fn portrait_catalog_fixture() -> CharacterCatalog {
@@ -848,27 +1046,98 @@ mod tests {
     }
 
     #[test]
-    fn catalog_portrait_is_the_default_dialog_image() {
+    fn stable_character_id_resolves_catalog_portrait_and_named_clip() {
         let catalog = portrait_catalog_fixture();
+        let registry = portrait_registry_fixture();
         let overrides = AmbitionDialogPortraitCatalog::default();
-        assert_eq!(
-            resolve_portrait_image_path(Some("npc_alice"), &catalog, &overrides),
-            Some("sprites/alice_portraits.png".to_string())
-        );
+        let visual = resolve_portrait_visual(
+            Some("npc_alice"),
+            Some("speaking"),
+            &catalog,
+            &overrides,
+            &registry,
+        )
+        .expect("stable id resolves portrait product");
+        assert_eq!(visual.image_path, "sprites/alice_portraits.png");
+        let (key, clip) = visual.playback.expect("generated portraits have a clip");
+        assert_eq!(key.clip_name, "speaking");
+        assert_eq!(clip.frames.len(), 2);
+    }
+
+    #[test]
+    fn missing_named_clip_falls_back_to_catalog_default() {
+        let catalog = portrait_catalog_fixture();
+        let registry = portrait_registry_fixture();
+        let overrides = AmbitionDialogPortraitCatalog::default();
+        let visual = resolve_portrait_visual(
+            Some("npc_alice"),
+            Some("not-authored"),
+            &catalog,
+            &overrides,
+            &registry,
+        )
+        .expect("missing expression falls back");
+        let (key, _) = visual.playback.expect("default clip resolves");
+        assert_eq!(key.clip_name, "default");
     }
 
     #[test]
     fn game_override_can_deliberately_force_a_placeholder() {
         let catalog = portrait_catalog_fixture();
+        let registry = portrait_registry_fixture();
         let mut overrides = AmbitionDialogPortraitCatalog::default();
         overrides.insert(
             "npc_alice",
             AmbitionDialogPortraitSpec::placeholder(Color::srgb(0.0, 0.0, 0.0)),
         );
-        assert_eq!(
-            resolve_portrait_image_path(Some("npc_alice"), &catalog, &overrides),
-            None
+        assert!(resolve_portrait_visual(
+            Some("npc_alice"),
+            None,
+            &catalog,
+            &overrides,
+            &registry,
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn portrait_playback_loops_or_holds_as_authored() {
+        let key = PortraitPlaybackKey {
+            image_path: "sprites/alice_portraits.png".to_string(),
+            manifest_path: "sprites/alice_portraits.ron".to_string(),
+            clip_name: "speaking".to_string(),
+        };
+        let frames = vec![
+            PortraitFrameRect { x: 0, y: 0, w: 8, h: 8 },
+            PortraitFrameRect { x: 8, y: 0, w: 8, h: 8 },
+        ];
+        let mut playback = AmbitionDialogPortraitPlayback::default();
+        playback.configure(
+            key.clone(),
+            &PortraitClipRecord {
+                duration_ms: 100,
+                looping: true,
+                frames: frames.clone(),
+            },
         );
+        assert_eq!(playback.current_rect(), Some(frame_rect(frames[0])));
+        assert!(playback.tick(0.1));
+        assert_eq!(playback.current_rect(), Some(frame_rect(frames[1])));
+        assert!(playback.tick(0.1));
+        assert_eq!(playback.current_rect(), Some(frame_rect(frames[0])));
+
+        playback.configure(
+            PortraitPlaybackKey { clip_name: "one-shot".to_string(), ..key },
+            &PortraitClipRecord {
+                duration_ms: 100,
+                looping: false,
+                frames: frames.clone(),
+            },
+        );
+        assert!(playback.tick(0.2));
+        assert_eq!(playback.current_rect(), Some(frame_rect(frames[1])));
+        assert!(!playback.tick(1.0));
+        assert_eq!(playback.current_rect(), Some(frame_rect(frames[1])));
     }
 
     #[test]

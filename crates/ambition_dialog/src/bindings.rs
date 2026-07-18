@@ -14,7 +14,9 @@
 //!   cue surface the bridge writes for `[shout]` / `[whisper]` lines.
 //! - [`YarnBindingInstaller`] / [`YarnContentBindings`] — the extension seam:
 //!   hosts and content plugins push installers that register their vocabulary
-//!   on the runner when it spawns. The bridge names *no* concrete command.
+//!   on the runner when it spawns. The bridge itself owns only the reusable
+//!   presentation commands (`present_speaker` and `portrait_clip`), never named
+//!   game content.
 //! - [`YarnBindingsPlugin`] — inits the resources + schedules the per-frame
 //!   cue reset. Hosts add their state-mirror refresh separately.
 

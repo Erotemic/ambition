@@ -29,6 +29,35 @@ Use stable node/dialogue IDs that match the provider's character/interactable
 references. Do not add a second RON dialogue graph or put named dialogue in a
 reusable crate.
 
+## Speaker portraits and expressions
+
+The interaction context supplies a stable listener character id automatically.
+Ordinary one-character conversations therefore need no portrait command: the
+catalog's `default` clip is selected.
+
+Use the reusable presentation commands only when the authored scene needs an
+explicit speaker or expression:
+
+```yarn
+<<present_speaker "npc_alice">>
+<<portrait_clip "speaking">>
+Alice: This line uses Alice's animated speaking clip.
+<<portrait_clip "focused">>
+Alice: This line holds the focused still.
+<<portrait_clip "default">>
+Alice: This returns to the catalog default.
+```
+
+- `present_speaker` takes a stable character-catalog id, never a display name or
+  texture path. It is primarily for scripted dialogue and multi-speaker scenes.
+  Switching speaker resets the portrait clip so expressions cannot leak between
+  characters. Passing an empty id returns to the conversation endpoint.
+- `portrait_clip` takes an opaque clip name authored by that character's
+  portrait generator. `default` clears the override. Missing clip names fall
+  back to the catalog/manifest default instead of failing dialogue.
+- Clip timing and image rectangles belong to the generated portrait manifest;
+  Yarn content does not know about frames or asset paths.
+
 ## Edit loop
 
 1. Edit the smallest `.yarn` file in the owning provider.

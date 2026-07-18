@@ -1,5 +1,7 @@
 title: alice_intro_stub
 ---
+<<present_speaker "npc_alice">>
+<<portrait_clip "speaking">>
 <<if flag("bob_field_survey_received")>>
     Alice: Bob's survey. Quiet route's holding. Don't fold it the same way twice.
     -> What now?
@@ -15,6 +17,8 @@ title: alice_intro_stub
 
 title: alice_intro_stub__1
 ---
+<<present_speaker "npc_alice">>
+<<portrait_clip "speaking">>
 Alice: Carry this to Bob. Do not unfold it where the walls can read.
 <<give_item "sealednote" 1>>
 -> ⟨pocket the note⟩
@@ -22,6 +26,8 @@ Alice: Carry this to Bob. Do not unfold it where the walls can read.
 
 title: alice_after_bob_survey__1
 ---
+<<present_speaker "npc_alice">>
+<<portrait_clip "speaking">>
 Alice: Private marks are yours now. The map is not neutral. You may notice it agreeing with you in places.
 -> ⟨step through⟩
 ===
@@ -237,6 +243,8 @@ Drain Market Bulletin: ▸ AT TIME OF PRINTING THE RESEARCHER WAS POSTHUMOUSLY A
 
 title: oiler_intro
 ---
+<<present_speaker "npc_oiler">>
+<<portrait_clip "talking">>
 <<if flag("p1_stabilizer_received")>>
     Oiler: Stabilizer's yours. Bad pipe goes quieter, knees lie less. Don't drown.
     -> What's below?
@@ -256,6 +264,8 @@ title: oiler_intro
 
 title: oiler_intro__1
 ---
+<<present_speaker "npc_oiler">>
+<<portrait_clip "talking">>
 Oiler: Oiler. I am not your mentor. I am a man with tools and poor boundaries.
 -> Ask another question.
     <<jump oiler_intro>>
@@ -264,6 +274,8 @@ Oiler: Oiler. I am not your mentor. I am a man with tools and poor boundaries.
 
 title: oiler_intro__2
 ---
+<<present_speaker "npc_oiler">>
+<<portrait_clip "talking">>
 Oiler: Drain Market. Behind the Gate Stack. Stable gates above, leaks below, me in between with a wrench.
 -> Ask another question.
     <<jump oiler_intro>>
@@ -272,6 +284,8 @@ Oiler: Drain Market. Behind the Gate Stack. Stable gates above, leaks below, me 
 
 title: oiler_intro__3
 ---
+<<present_speaker "npc_oiler">>
+<<portrait_clip "inspecting">>
 Oiler: You're not scrap until you stop moving. That knee is installed wrong. Sit still for ten seconds, walk like you mean it after.
 -> Ask another question.
     <<jump oiler_intro>>
@@ -280,6 +294,8 @@ Oiler: You're not scrap until you stop moving. That knee is installed wrong. Sit
 
 title: oiler_post_stabilizer__1
 ---
+<<present_speaker "npc_oiler">>
+<<portrait_clip "talking">>
 Oiler: Drains. Cartographers. People who'd rather draw a route than declare one. Tell them I sent you, if you must.
 -> ⟨descend⟩
 ===

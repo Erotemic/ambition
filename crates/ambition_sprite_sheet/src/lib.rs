@@ -30,6 +30,7 @@ use tracing::{info, warn};
 mod frames;
 pub use frames::{trimmed_render, AtlasPage, FrameTrim};
 
+pub mod baked_portrait_rons;
 pub mod baked_sheet_rons;
 pub mod boss;
 pub mod character;
@@ -41,7 +42,8 @@ pub use pack::{PackCatalogError, PackFrame, PackTarget, ResolvedFrame, SpritePac
 
 pub mod portrait;
 pub use portrait::{
-    parse_portrait_manifest, PortraitClipRecord, PortraitFrameRect, PortraitSheetManifest,
+    baked_portrait_registry, parse_portrait_manifest, PortraitClipRecord, PortraitFrameRect,
+    PortraitSheetManifest, PortraitSheetRegistry, PortraitSheetRegistryPlugin,
 };
 
 /// One sprite-sheet's metadata as serialized by the generator. Field

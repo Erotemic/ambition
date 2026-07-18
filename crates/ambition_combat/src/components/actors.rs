@@ -146,7 +146,7 @@ pub use ambition_characters::actor::pose::ActorFaction;
 /// candidate exists, and a rollback lets that system rebuild it. `pos` is **state** —
 /// on the one frame where no candidates exist, the selector leaves the whole
 /// component untouched on purpose, so `pos` carries the previous frame's aim into the
-/// brain's math. `ambition_runtime::snapshot` therefore registers `ActorTarget` as a
+/// brain's math. `ambition_runtime::rollback` therefore registers `ActorTarget` as a
 /// `SnapshotCursor` over `pos` alone.
 ///
 /// A rollback that spans the frame a target *died* can leave `entity` pointing at a
@@ -683,3 +683,22 @@ pub struct PostBossNpc;
 // entity is spawned. Spawn calls in features/ecs.rs use these bundles so the
 // required components are expressed in one place and tests/editors can match
 // the exact shape without rediscovering the tuple.
+
+impl bevy::ecs::entity::MapEntities for ActorTarget {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        if let Some(entity) = self.entity.as_mut() {
+            *entity = mapper.get_mapped(*entity);
+        }
+    }
+}
+
+impl bevy::ecs::entity::MapEntities for ActorAggression {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        if let Some(entity) = self.target.as_mut() {
+            *entity = mapper.get_mapped(*entity);
+        }
+        if let Some(entity) = self.grudge.as_mut() {
+            *entity = mapper.get_mapped(*entity);
+        }
+    }
+}

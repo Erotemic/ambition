@@ -22,10 +22,11 @@ content crate without editing core?
 - **P4 — richer mechanics and second consumers:** active in parallel through
   encounter lifecycle convergence; later customers include Super Smash Siblings
   and Hollow Lite. Real second consumers decide menu or other crate boundaries.
-- **P5 — rollback and broader generalization:** atomic active-room restoration is
-  the current keystone. Later work includes a rollback driver, stronger
-  frame/clock mechanics, slower-light observation, moving/angled portals,
-  additional acceptance games, and public engine naming/versioning.
+- **P5 — rollback and broader generalization:** GGRS/bevy_ggrs now drive the
+  real simulation harness and the custom rollback engine is gone. Production
+  online work starts with confirmed-frame side-effect quarantine and a
+  Matchbox-backed two-peer handshake; broader generalization continues through
+  ConstructionPlan, stronger frame mechanics, and additional acceptance games.
 
 The phase labels describe customer maturity, not a requirement to serialize all
 work. Encounter convergence and atomic room restore may proceed while P3 demos
@@ -40,7 +41,8 @@ three-origin `ConstructionPlan` vertical slice: one authored placement, one
 provider-staged actor, and one runtime-dynamic family must share a pure,
 preflightable planner and recipe-backed reconstruction path. This is the next
 foundation for prefab-like authoring, broader transactional room replacement,
-rollback, and a credible external SDK.
+persistence/reconstruction, and a credible external SDK. Rollback itself is now
+owned by GGRS (ADR 0027).
 
 Ambition-the-game remains the first customer throughout; it consumes capabilities
 rather than defining exceptions inside reusable crates.
@@ -59,13 +61,15 @@ neighbor prewarming into concrete promotable work.
 ## Current critical path
 
 ```text
-immutable PreparedContent + exact snapshot identity (done)
+immutable PreparedContent + exact GGRS session identity (done)
         ↓
-explicit provenance + three-origin ConstructionPlan vertical slice
-        ↓
-transactional room-lifecycle migration
+confirmed-frame external-effect quarantine → Matchbox two-peer handshake
 
 in parallel:
+  explicit provenance + three-origin ConstructionPlan vertical slice
+        ↓
+  transactional room-lifecycle migration
+
   Super Mary-O level-1 acceptance
   Sanic complete-act acceptance
 ```
@@ -108,6 +112,7 @@ M11 replace rather than bridge pre-release · M12 runtime owns global ordering.
 | M23 | Content eviction ends in an open provider-owned ownership shape. | [`maintainer-decisions.md`](maintainer-decisions.md) |
 | M24 | Activation, reset, transition, and restore use one App-installed placement-lowering authority. | [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md) |
 | M25 | Session content is assembled deterministically, fingerprinted, and frozen; world construction is planned and validated before mutation, with explicit entity provenance. | [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md) |
+| M27 | GGRS and bevy_ggrs are the sole ephemeral rollback authority; Ambition owns only deterministic domain registration, exact content/schema binding, and session policy. | [`../adr/0027-ggrs-is-the-sole-rollback-authority.md`](../adr/0027-ggrs-is-the-sole-rollback-authority.md) |
 | M26 | Room transitions are readiness-gated and progressively disclosed: the source room remains authoritative until one-shot target commit; fast loads avoid loading foregrounds, and slow or expensive commits occur behind a rendered cover without exposing partial rooms. | [`engine/room-transition-loading.md`](engine/room-transition-loading.md) |
 
 ## Durable uncertainties
@@ -119,7 +124,7 @@ M11 replace rather than bridge pre-release · M12 runtime owns global ordering.
 - **Placement extension:** the common Tier-0 schema remains closed; whether providers ever receive a separate authored-placement channel is open.
 - **Public naming:** the provider crate shipped as `ambition_platformer_provider`; engine/repository split timing and final `ambition_actors`/`features` names remain unsettled.
 - **Boss carve:** convergence permits reassessment, but the current source review has not identified a concrete reuse, dependency, or build boundary; the maintainer ruling remains open.
-- **Online netcode:** remains later than local multiplayer unless Jon changes scope.
+- **Online transport:** GGRS integration is landed; Matchbox signaling/WebRTC and production connection policy remain after confirmed-frame effect quarantine.
 
 ## Standing practices
 

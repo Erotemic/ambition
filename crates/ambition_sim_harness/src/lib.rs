@@ -36,6 +36,6 @@ pub mod runtime;
 
 pub use action::AgentAction;
 pub use observation::{AgentObservation, EnemyObs, PickupObs};
-pub use options::{SandboxSimOptions, TimestepMode};
+pub use options::{RollbackMode, SandboxSimOptions, TimestepMode};
 pub use random_policy::{Lcg, RandomWalkPolicy, RandomWalkTuning};
 pub use runtime::SandboxSim;

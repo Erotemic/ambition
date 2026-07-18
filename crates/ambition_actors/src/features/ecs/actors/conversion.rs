@@ -151,13 +151,13 @@ pub(crate) fn provoke_actor_in_place(
             &ambition_entity_catalog::placements::CharacterBrain::Custom(hostile_id.into()),
         );
         // The ONE definition of "what provocation produces" — shared verbatim with
-        // the post-restore reconstruction (`snapshot_reconcile`), so a provoked
+        // the post-GGRS-load reconstruction (`autonomous_reconcile`), so a provoked
         // actor is identical whether it was just challenged or rebuilt from a
         // snapshot. It builds the hostile brain from the archetype's HOSTILE tuning
         // / brain-spec (an already-hostile actor is NOT re-derived here — that would
         // zero its accumulated fire/footsies/mode cadence every stimulus; escalation
         // that needs a different brain flows through the flip's archetype swap).
-        let proj = super::super::snapshot_reconcile::project_provoked_archetype(
+        let proj = super::super::autonomous_reconcile::project_provoked_archetype(
             &spec, hostile_id, em.config, combat_kit, held_item,
         );
         em.config.tuning = proj.tuning;
@@ -171,7 +171,7 @@ pub(crate) fn provoke_actor_in_place(
         em.config.brain = proj.config_brain;
         // Take on the hostile archetype's HP pool (the peaceful seed spawned at
         // health=1; a provoked actor fights at full archetype HP).
-        *em.health = super::super::snapshot_reconcile::fresh_health_pool(proj.max_health);
+        *em.health = super::super::autonomous_reconcile::fresh_health_pool(proj.max_health);
         em.config.sprite_override_npc_name = proj.sprite_override_npc_name;
         commands.entity(entity).insert(proj.capabilities);
         *disposition = ActorDisposition::Hostile;

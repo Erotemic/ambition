@@ -1,10 +1,8 @@
-//! The engine's per-type `SnapshotState` / `SnapshotCursor` / `SnapshotResolve`
-//! codecs, the `snapshot_pod!` / `snapshot_unit_enum!` code generators, the
-//! `PasteEncode` overloads, and the `SimId` minting helpers.
+//! Engine-owned canonical GGRS strategies/checksum projections plus `SimId`
+//! minting and relationship repair.
 //!
-//! Split out of the former `snapshot.rs` for the D-B module-size gate; shares the
-//! module core via `use super::*`. `body_clusters as bc` is declared here AND in
-//! `mod.rs` (`register_engine_sim_state`, which stays in `mod.rs`, also needs it).
+//! These explicit encoders are domain adapters for `bevy_ggrs`; they do not own
+//! frame history, restore dispatch, entity reconciliation, or rollback control.
 use super::*;
 
 // ── The engine's codecs ──────────────────────────────────────────────────────
@@ -132,7 +130,7 @@ impl SnapshotState for bc::BodyAbilities {
     }
 }
 
-impl SnapshotState for BodyKinematics {
+impl SnapshotState for ambition_platformer_primitives::body::BodyKinematics {
     fn encode(&self, out: &mut Vec<u8>) {
         put_vec2(out, self.pos);
         put_vec2(out, self.vel);
@@ -140,7 +138,7 @@ impl SnapshotState for BodyKinematics {
         put_f32(out, self.facing);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(BodyKinematics {
+        Some(ambition_platformer_primitives::body::BodyKinematics {
             pos: r.vec2()?,
             vel: r.vec2()?,
             size: r.vec2()?,
@@ -151,12 +149,11 @@ impl SnapshotState for BodyKinematics {
 
 // The mutable body-state clusters. These are what a rewind is FOR: a coyote timer
 // that survives a rollback is a jump the player did not earn.
-#[macro_export]
 macro_rules! snapshot_pod {
     ($ty:path { $($field:ident : $get:ident),+ $(,)? }) => {
         impl SnapshotState for $ty {
             fn encode(&self, out: &mut Vec<u8>) {
-                $( $crate::snapshot::paste_put(out, self.$field); )+
+                $( paste_put(out, self.$field); )+
             }
             fn decode(r: &mut Reader<'_>) -> Option<Self> {
                 Some(Self { $( $field: r.$get()? ),+ })
@@ -168,7 +165,7 @@ macro_rules! snapshot_pod {
 /// One overload per encodable primitive, so `snapshot_pod!` does not have to name
 /// the writer twice. The reader cannot do this — `Option<T>` inference would need
 /// the type back — so the macro names the getter and infers the putter.
-pub trait PasteEncode: Copy {
+trait PasteEncode: Copy {
     fn put(self, out: &mut Vec<u8>);
 }
 impl PasteEncode for f32 {
@@ -201,7 +198,7 @@ impl PasteEncode for bevy::math::Vec2 {
         put_vec2(out, self);
     }
 }
-pub fn paste_put<T: PasteEncode>(out: &mut Vec<u8>, v: T) {
+fn paste_put<T: PasteEncode>(out: &mut Vec<u8>, v: T) {
     v.put(out);
 }
 
@@ -529,33 +526,6 @@ impl SnapshotResolve for ambition_combat::moveset::MovePlayback {
         put_f32(out, self.t);
         put_bool(out, self.landed_hit);
     }
-
-    fn resolve(
-        entity: &bevy::ecs::world::EntityWorldMut<'_>,
-        r: &mut Reader<'_>,
-    ) -> Result<Option<Self>, ResolveDecodeError> {
-        // Decode the WHOLE blob first (id + facing + t + landed) — a `Reader`
-        // primitive returning `None` is a malformed blob (`Err`), never confused
-        // with the move having vanished. Then resolve the id against the entity's
-        // still-authored moveset: an absent moveset or an unknown id is `Ok(None)`
-        // (a content change), not a decode failure.
-        let id = r.str().ok_or(ResolveDecodeError)?;
-        let facing = r.f32().ok_or(ResolveDecodeError)?;
-        let t = r.f32().ok_or(ResolveDecodeError)?;
-        let landed = r.bool().ok_or(ResolveDecodeError)?;
-        let Some(moveset) = entity.get::<ambition_combat::moveset::ActorMoveset>() else {
-            return Ok(None);
-        };
-        let Some(spec) = moveset.0.move_by_id(id) else {
-            return Ok(None);
-        };
-        Ok(Some(ambition_combat::moveset::MovePlayback::resumed(
-            spec.clone(),
-            facing,
-            t,
-            landed,
-        )))
-    }
 }
 
 /// **The boss's encounter phase**, and the `ActorPhaseState` it is forwarded from.
@@ -581,27 +551,6 @@ impl SnapshotCursor for ambition_actors::features::BossEncounter {
                 e.start_phase.encode(out);
             }
         }
-    }
-    fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
-        use ambition_characters::brain::boss_pattern::BossEncounterPhase;
-        self.encounter_phase = BossEncounterPhase::decode(r)?;
-        if r.bool()? {
-            let phase = BossEncounterPhase::decode(r)?;
-            let phase_elapsed = r.f32()?;
-            let transition_lock = r.f32()?;
-            let start_phase = BossEncounterPhase::decode(r)?;
-            // The authored `triggers` stay where they are: a snapshot carries what the
-            // fight has BECOME, never the rules it became it by.
-            if let Some(e) = self.encounter.as_mut() {
-                e.phase = phase;
-                e.phase_elapsed = phase_elapsed;
-                e.transition_lock = transition_lock;
-                e.start_phase = start_phase;
-            }
-        } else {
-            self.encounter = None;
-        }
-        Some(())
     }
 }
 
@@ -779,34 +728,11 @@ impl SnapshotCursor for ambition_combat::components::ActorAggression {
         }
         put_i32(out, self.strikes);
     }
-
-    fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
-        use ambition_combat::components::AggressionMode;
-        let mode = match r.u8()? {
-            0 => AggressionMode::Passive,
-            1 => AggressionMode::RetaliatesWhenHit {
-                strike_threshold: r.u8()?,
-            },
-            2 => AggressionMode::Hostile,
-            _ => return None,
-        };
-        let strikes = r.i32()?;
-        self.mode = mode;
-        self.strikes = strikes;
-        // `target` is a derived per-tick cache. `grudge` remains the stable
-        // authored/relationship value installed by room/content staging.
-        self.target = None;
-        Some(())
-    }
 }
 
 impl SnapshotCursor for ambition_combat::components::ActorTarget {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
         put_vec2(out, self.pos);
-    }
-    fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
-        self.pos = r.vec2()?;
-        Some(())
     }
 }
 
@@ -822,24 +748,6 @@ impl SnapshotCursor for ambition_actors::features::ActorMotionPath {
             // A body with no path is a state a body with a path can reach.
             None => put_bool(out, false),
         }
-    }
-
-    fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
-        let has_path = r.bool()?;
-        let (segment, dir) = if has_path {
-            (r.u32()? as usize, r.i32()?)
-        } else {
-            // The snapshot's body had no path. Ours does; drop it. The authored path
-            // is not recoverable from here, which is exactly what `stale_components`
-            // and `respawned` exist to make visible — but a body that GAINED a path
-            // after the snapshot must not keep it.
-            self.0 = None;
-            return Some(());
-        };
-        if let Some(motion) = self.0.as_mut() {
-            motion.set_cursor(segment, dir);
-        }
-        Some(())
     }
 }
 
@@ -1318,82 +1226,6 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
             _ => put_u8(out, 0),
         }
     }
-
-    fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
-        use ambition_characters::brain::{Brain, StateMachineCfg};
-        match r.u8()? {
-            0 => Some(()),
-            1 => {
-                use ambition_characters::brain::boss_pattern::{
-                    BossEncounterPhase, BossMacroState, StanceReturn,
-                };
-                let last_phase = if r.bool()? {
-                    Some(BossEncounterPhase::decode(r)?)
-                } else {
-                    None
-                };
-                let step_index = r.u32()? as usize;
-                let step_elapsed = r.f32()?;
-                let movement_timer = r.f32()?;
-                let pattern_timer = r.f32()?;
-                let cycle_rest_remaining = r.f32()?;
-                let macro_state = BossMacroState::decode(r)?;
-                let engage_timer = r.f32()?;
-                let rng_seed = r.u64()?;
-                let timeline = read_timeline(r)?;
-                let stance = r.opt_str()?.map(str::to_string);
-                let stance_stack = {
-                    let n = r.u32()?;
-                    (0..n)
-                        .map(|_| {
-                            Some(StanceReturn {
-                                timeline: read_timeline(r)?,
-                                stance: r.opt_str()?.map(str::to_string),
-                                step_index: r.u32()? as usize,
-                                step_elapsed: r.f32()?,
-                            })
-                        })
-                        .collect::<Option<Vec<_>>>()?
-                };
-                fn read_f32s(r: &mut Reader<'_>) -> Option<Vec<f32>> {
-                    let n = r.u32()?;
-                    (0..n).map(|_| r.f32()).collect()
-                }
-                let interrupt_cooldowns = read_f32s(r)?;
-                let interrupt_timers = read_f32s(r)?;
-                let last_hp = if r.bool()? { Some(r.i32()?) } else { None };
-
-                let Brain::StateMachine(StateMachineCfg::BossPattern { state, .. }) = self else {
-                    return Some(());
-                };
-                state.last_phase = last_phase;
-                state.step_index = step_index;
-                state.step_elapsed = step_elapsed;
-                state.movement_timer = movement_timer;
-                state.pattern_timer = pattern_timer;
-                state.cycle_rest_remaining = cycle_rest_remaining;
-                state.macro_state = macro_state;
-                state.engage_timer = engage_timer;
-                state.rng_seed = rng_seed;
-                state.attack_intent = Default::default();
-                state.timeline = timeline;
-                state.stance = stance;
-                state.stance_stack = stance_stack;
-                state.interrupt_cooldowns = interrupt_cooldowns;
-                state.interrupt_timers = interrupt_timers;
-                state.last_hp = last_hp;
-                Some(())
-            }
-            2 => {
-                let restored = read_smash_state(r)?;
-                if let Brain::StateMachine(StateMachineCfg::Smash { state, .. }) = self {
-                    *state = restored;
-                }
-                Some(())
-            }
-            _ => None,
-        }
-    }
 }
 
 /// **The explicit brain SELECTION** for a catalog-backed NPC: its character
@@ -1811,23 +1643,6 @@ impl SnapshotCursor for ambition_combat::slots::CombatSlotsRes {
             put_opt_str(out, slot.assigned_to.as_deref());
         }
     }
-    fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
-        let n = r.u32()? as usize;
-        // A board of a different SHAPE cannot be faithfully rewound by a cursor: the snapshot's
-        // assignments would not line up with the live authored slots, and silently zipping the
-        // shorter length leaves live slots untouched or drops snapshot assignments while
-        // reporting success (re-audit finding 4). Within a supported window the shape is stable
-        // — content does not change, and a cross-room rollback is already refused — so this
-        // never fires there; if it ever did, refusing loudly (`None` → `DecodeFailed`) beats a
-        // silent partial restore.
-        if n != self.0.slots.len() {
-            return None;
-        }
-        for slot in self.0.slots.iter_mut() {
-            slot.assigned_to = r.opt_str()?.map(str::to_string);
-        }
-        Some(())
-    }
 }
 
 /// **A body's proper-time dilation** (ADR 0011): hitstop, bullet-time, a boss's slow.
@@ -1842,12 +1657,24 @@ impl SnapshotState for ambition_time::ProperTimeScale {
     }
 }
 
-impl SnapshotState for SimIdCounter {
+impl SnapshotState for ambition_platformer_primitives::sim_id::SimId {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_str(out, self.as_str());
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(ambition_platformer_primitives::sim_id::SimId::from_snapshot(r.str()?.to_string()))
+    }
+}
+
+impl SnapshotState for ambition_platformer_primitives::sim_id::SimIdCounter {
     fn encode(&self, out: &mut Vec<u8>) {
         put_u64(out, self.0);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(SimIdCounter(r.u64()?))
+        Some(ambition_platformer_primitives::sim_id::SimIdCounter(
+            r.u64()?,
+        ))
     }
 }
 
@@ -2271,651 +2098,285 @@ impl SnapshotResolve for ambition_encounter::EncounterWaves {
         put_bool(out, self.run.exhausted_signaled);
         put_u32(out, self.spawn_counter);
     }
+}
 
-    fn resolve(
-        entity: &bevy::ecs::world::EntityWorldMut<'_>,
-        r: &mut Reader<'_>,
-    ) -> Result<Option<Self>, ResolveDecodeError> {
-        // Blob first (a truncated blob is Err regardless of content).
-        let wave_index = if r.bool().ok_or(ResolveDecodeError)? {
-            Some(r.u32().ok_or(ResolveDecodeError)? as usize)
-        } else {
-            None
+// ── State that the former inventory identified but the old restore engine left
+// stale. GGRS now owns the storage; these explicit projections make the mutable
+// values participate in sync-test/desync checks as well.
+
+impl SnapshotState for ambition_actors::avatar::PlayerSafetyState {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_vec2(out, self.last_safe_pos);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self::new(r.vec2()?))
+    }
+}
+
+impl SnapshotState for ambition_characters::actor::BodyWallet {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_i32(out, self.balance);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self { balance: r.i32()? })
+    }
+}
+
+fn put_motion_direction(out: &mut Vec<u8>, value: ambition_projectiles::MotionDirection) {
+    use ambition_projectiles::MotionDirection::*;
+    put_u8(
+        out,
+        match value {
+            Neutral => 0,
+            Up => 1,
+            Down => 2,
+            Left => 3,
+            Right => 4,
+            UpLeft => 5,
+            UpRight => 6,
+            DownLeft => 7,
+            DownRight => 8,
+        },
+    );
+}
+
+fn read_motion_direction(r: &mut Reader<'_>) -> Option<ambition_projectiles::MotionDirection> {
+    use ambition_projectiles::MotionDirection::*;
+    Some(match r.u8()? {
+        0 => Neutral,
+        1 => Up,
+        2 => Down,
+        3 => Left,
+        4 => Right,
+        5 => UpLeft,
+        6 => UpRight,
+        7 => DownLeft,
+        8 => DownRight,
+        _ => return None,
+    })
+}
+
+impl SnapshotState for ambition_projectiles::PlayerProjectileState {
+    fn encode(&self, out: &mut Vec<u8>) {
+        let meter = self.spawner.meter;
+        put_f32(out, meter.current);
+        put_f32(out, meter.max);
+        put_f32(out, meter.regen_rate);
+        put_f32(out, meter.decay_rate);
+        put_f32(out, self.spawner.cooldown_remaining);
+
+        put_u32(out, self.motion_buffer.samples.len() as u32);
+        for sample in &self.motion_buffer.samples {
+            put_motion_direction(out, sample.dir);
+            put_f32(out, sample.time);
+        }
+        put_f32(out, self.motion_buffer.window);
+        put_f32(out, self.clock);
+        put_bool(out, self.unlocked.fireball);
+        put_bool(out, self.unlocked.hadouken);
+        put_bool(out, self.unlocked.hadouken_super);
+        put_f32(out, self.charge_tuning.medium_after);
+        put_f32(out, self.charge_tuning.heavy_after);
+        put_bool(out, self.charging.is_some());
+        if let Some(charging) = self.charging {
+            put_f32(out, charging);
+        }
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use std::collections::VecDeque;
+
+        let meter = ambition_engine_core::ResourceMeter {
+            current: r.f32()?,
+            max: r.f32()?,
+            regen_rate: r.f32()?,
+            decay_rate: r.f32()?,
         };
-        let n = r.u32().ok_or(ResolveDecodeError)? as usize;
-        let mut pending = Vec::with_capacity(n);
-        for _ in 0..n {
-            let kind = r.str().ok_or(ResolveDecodeError)?.to_string();
-            let spawn = [
-                r.f32().ok_or(ResolveDecodeError)?,
-                r.f32().ok_or(ResolveDecodeError)?,
-            ];
-            let size = [
-                r.f32().ok_or(ResolveDecodeError)?,
-                r.f32().ok_or(ResolveDecodeError)?,
-            ];
-            let delay = r.f32().ok_or(ResolveDecodeError)?;
-            pending.push(ambition_encounter::EncounterMobSpec {
-                kind,
-                spawn,
-                size,
-                delay,
+        let cooldown_remaining = r.f32()?;
+        let sample_count = r.u32()? as usize;
+        let mut samples = VecDeque::with_capacity(sample_count);
+        for _ in 0..sample_count {
+            samples.push_back(ambition_projectiles::MotionSample {
+                dir: read_motion_direction(r)?,
+                time: r.f32()?,
             });
         }
-        let wave_elapsed = r.f32().ok_or(ResolveDecodeError)?;
-        let exhausted_signaled = r.bool().ok_or(ResolveDecodeError)?;
-        let spawn_counter = r.u32().ok_or(ResolveDecodeError)?;
-        // The authored spec: content the surviving entity still carries.
-        let Some(existing) = entity.get::<ambition_encounter::EncounterWaves>() else {
-            return Ok(None);
+        let window = r.f32()?;
+        let clock = r.f32()?;
+        let unlocked = ambition_projectiles::state::ProjectileUnlocks {
+            fireball: r.bool()?,
+            hadouken: r.bool()?,
+            hadouken_super: r.bool()?,
         };
-        let mut waves = ambition_encounter::EncounterWaves::new(existing.spec.clone());
-        waves.run = ambition_encounter::EncounterRun {
-            wave_index,
-            pending,
-            wave_elapsed,
-            exhausted_signaled,
+        let charge_tuning = ambition_projectiles::FireballChargeTuning {
+            medium_after: r.f32()?,
+            heavy_after: r.f32()?,
         };
-        waves.spawn_counter = spawn_counter;
-        Ok(Some(waves))
+        let charging = if r.bool()? { Some(r.f32()?) } else { None };
+
+        Some(ambition_projectiles::PlayerProjectileState {
+            spawner: ambition_projectiles::ProjectileSpawner {
+                meter,
+                cooldown_remaining,
+            },
+            motion_buffer: ambition_projectiles::MotionInputBuffer { samples, window },
+            clock,
+            unlocked,
+            charge_tuning,
+            charging,
+        })
     }
 }
 
-#[cfg(test)]
-mod brain_reconcile_tests {
-    //! `reconcile_brain_bindings` is the post-restore step that keeps a
-    //! catalog-backed NPC's live `Brain` in agreement with its restored
-    //! `BrainBinding` after a rewind crosses a runtime brain switch.
+// ── GGRS resource/state additions ───────────────────────────────────────────
 
-    use ambition_characters::actor::character_catalog::{
-        parse_catalog, AutonomousSource, BrainBinding, BrainPresetId, CharacterCatalog,
-        HostileArchetypeId,
-    };
-    use ambition_characters::actor::ActorPose;
-    use ambition_characters::brain::{Brain, PlayerSlot, StateMachineCfg};
-    use ambition_engine_core as ae;
-    use ambition_platformer_primitives::sim_id::SimId;
-    use bevy::prelude::World;
-
-    const CATALOG: &str = r#"(
-        brain_presets: {
-            "stand_still": StandStill,
-            "wanderer_puppy_slug": Wanderer(speed: 36.0, aggressiveness: 0.0),
-            "wanderer_slow": Wanderer(speed: 20.0, aggressiveness: 0.0),
-            "wanderer_fast": Wanderer(speed: 200.0, aggressiveness: 0.0),
-        },
-        action_set_presets: { "peaceful": (move_style: Walk) },
-        characters: {
-            "npc_puppy_slug": (
-                display_name: "Puppy Slug", spritesheet: "x.png", manifest: "x_spritesheet.ron",
-                tier: MainHall, body_kind: Crawler, composition: None,
-                default_brain: "wanderer_puppy_slug", default_action_set: "peaceful", tags: [],
-            ),
-        },
-    )"#;
-
-    fn wanderer_speed(brain: &Brain) -> f32 {
-        match brain {
-            Brain::StateMachine(StateMachineCfg::Wanderer { cfg }) => cfg.speed,
-            other => panic!("expected a Wanderer brain, got {other:?}"),
-        }
+impl SnapshotState for ambition_time::ClockState {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.time_scale);
     }
 
-    fn world_with_npc(brain: Brain, binding: BrainBinding) -> (World, bevy::ecs::entity::Entity) {
-        let mut world = World::new();
-        world.insert_resource(CharacterCatalog::from_data(parse_catalog(CATALOG)));
-        let e = world
-            .spawn((
-                SimId::placement("puppy"),
-                brain,
-                binding,
-                ActorPose::from_parts(ae::Vec2::new(100.0, 0.0), ae::Vec2::new(8.0, 8.0), 1.0),
-            ))
-            .id();
-        (world, e)
-    }
-
-    #[test]
-    fn reconcile_rebuilds_the_brain_when_the_kind_diverged() {
-        // A rewind PAST a switch: the binding is Default (wanderer) but the live
-        // brain is a since-rewound stand_still. Reconcile rebuilds it to agree
-        // with the restored selection — otherwise the next re-simulated tick
-        // drives the wrong brain (a desync).
-        let (mut world, e) = world_with_npc(
-            Brain::stand_still(),
-            BrainBinding::new(
-                BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousSource::CatalogDefault,
-            ),
-        );
-        super::reconcile_brain_bindings(&mut world);
-        assert_eq!(
-            world.get::<Brain>(e).unwrap().label(),
-            "wanderer",
-            "a diverged brain is rebuilt from the restored binding"
-        );
-    }
-
-    #[test]
-    fn reconcile_leaves_a_matching_brain_untouched() {
-        // Binding is Override(stand_still) and the live brain IS stand_still: no
-        // divergence, so reconcile must not rebuild (it preserves live state).
-        let (mut world, e) = world_with_npc(
-            Brain::stand_still(),
-            BrainBinding::new(
-                BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousSource::CatalogPreset(BrainPresetId::new("stand_still")),
-            ),
-        );
-        super::reconcile_brain_bindings(&mut world);
-        assert_eq!(
-            world.get::<Brain>(e).unwrap().label(),
-            "stand_still",
-            "a matching brain kind is left as-is"
-        );
-    }
-
-    #[test]
-    fn reconcile_distinguishes_same_family_presets() {
-        // Live brain is `wanderer_fast`; the restored binding selects
-        // `wanderer_slow`. Both label "wanderer", so a label check would MISS the
-        // divergence — configuration equality catches it and rebuilds to slow.
-        let cat = CharacterCatalog::from_data(parse_catalog(CATALOG));
-        let fast = cat
-            .build_brain_from_preset(
-                "wanderer_fast",
-                &ambition_characters::actor::character_catalog::BrainBuildContext::at(100.0),
-            )
-            .unwrap();
-        let (mut world, e) = world_with_npc(
-            fast,
-            BrainBinding::new(
-                BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousSource::CatalogPreset(BrainPresetId::new("wanderer_slow")),
-            ),
-        );
-        super::reconcile_brain_bindings(&mut world);
-        assert_eq!(
-            wanderer_speed(world.get::<Brain>(e).unwrap()),
-            20.0,
-            "reconcile rebuilds to the restored preset's config, not just its family label"
-        );
-    }
-
-    #[test]
-    fn catalog_reconcile_skips_a_provoked_brain() {
-        // A provoked source names a roster archetype, not a catalog preset, so the
-        // CATALOG reconcile pass leaves it alone (it has no `active_preset`). The
-        // roster reconstruction is the autonomous-actor pass's job (ambition_actors),
-        // exercised by the full-host integration tests where a roster exists.
-        let (mut world, e) = world_with_npc(
-            Brain::stand_still(),
-            BrainBinding::new(
-                BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousSource::Provoked {
-                    archetype: HostileArchetypeId::new("combatant"),
-                },
-            ),
-        );
-        super::reconcile_brain_bindings(&mut world);
-        assert_eq!(
-            world.get::<Brain>(e).unwrap().label(),
-            "stand_still",
-            "the catalog pass never rebuilds a provoked brain to the catalog default"
-        );
-    }
-
-    #[test]
-    fn reconcile_skips_a_player_controlled_body() {
-        // A possessed body carries `Brain::Player`; reconcile must not overwrite
-        // player control with the autonomous selection.
-        let (mut world, e) = world_with_npc(
-            Brain::Player(PlayerSlot::PRIMARY),
-            BrainBinding::new(
-                BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousSource::CatalogDefault,
-            ),
-        );
-        super::reconcile_brain_bindings(&mut world);
-        assert!(
-            world.get::<Brain>(e).unwrap().is_player(),
-            "player control survives reconcile"
-        );
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self {
+            time_scale: r.f32()?,
+        })
     }
 }
 
-/// True snapshot take/restore ("rewind") tests for NPC brain switching — these
-/// drive the real [`take`](super::take)/[`restore`](super::restore) machinery
-/// (not just `reconcile_brain_bindings` in isolation), proving a rewind across a
-/// runtime brain switch / challenge restores the exact authored state.
-#[cfg(test)]
-mod brain_switch_rewind_tests {
-    use ambition_characters::actor::character_catalog::{
-        parse_catalog, AuthoredBrainContext, AutonomousSource, BrainBinding, BrainBuildContext,
-        BrainPresetId, CharacterCatalog, HostileArchetypeId,
-    };
-    use ambition_characters::actor::ActorPose;
-    use ambition_characters::brain::{Brain, PlayerSlot, StateMachineCfg};
-    use ambition_combat::components::ActorDisposition;
-    use ambition_engine_core as ae;
-    use ambition_platformer_primitives::sim_id::SimId;
-    use bevy::prelude::World;
-
-    const CATALOG: &str = r#"(
-        brain_presets: {
-            "stand_still": StandStill,
-            "wanderer_puppy_slug": Wanderer(speed: 36.0, aggressiveness: 0.0),
-            "wanderer_slow": Wanderer(speed: 20.0, aggressiveness: 0.0),
-            "wanderer_fast": Wanderer(speed: 200.0, aggressiveness: 0.0),
-            "melee_brute_striker": MeleeBrute(
-                aggressiveness: 1.0, aggro_radius: 220.0, attack_range: 36.0, chase_speed: 110.0,
-            ),
-            "patrol_peaceful": Patrol(
-                spawn_local_x: 0.0, radius: 64.0, speed: 28.0,
-                aggressiveness: 0.0, aggro_radius: 80.0, attack_range: 0.0,
-            ),
-            // Two Smash presets of the SAME variant, differing only in authored
-            // tuning (aggro radius / chase speed): a label check would confuse them.
-            "smash_grunt": Smash(
-                aggro_radius: 460.0, engage_distance: 70.0, attack_range: 56.0,
-                too_close_distance: 30.0, chase_speed: 170.0, retreat_speed: 130.0,
-                crowding_threshold: 0.65, dash_to_close: false,
-                reaction_delay_s: 0.15, commit_probability: 0.85, accuracy: 0.85, mash_speed_hz: 6.0,
-            ),
-            "smash_duelist": Smash(
-                aggro_radius: 900.0, engage_distance: 90.0, attack_range: 56.0,
-                too_close_distance: 30.0, chase_speed: 240.0, retreat_speed: 130.0,
-                crowding_threshold: 0.65, dash_to_close: true,
-                reaction_delay_s: 0.05, commit_probability: 0.95, accuracy: 0.95, mash_speed_hz: 8.0,
-            ),
-            // Two BossPattern presets differing only in encounter id (the authored
-            // input; the rest of the cfg is derived from it).
-            "boss_alpha": BossPattern(aggressiveness: 1.0, encounter_id: "alpha"),
-            "boss_beta": BossPattern(aggressiveness: 1.0, encounter_id: "beta"),
-        },
-        action_set_presets: { "peaceful": (move_style: Walk) },
-        characters: {
-            "npc_puppy_slug": (
-                display_name: "Puppy Slug", spritesheet: "x.png", manifest: "x_spritesheet.ron",
-                tier: MainHall, body_kind: Crawler, composition: None,
-                default_brain: "wanderer_puppy_slug", default_action_set: "peaceful", tags: [],
-            ),
-            "npc_patroller": (
-                display_name: "Patroller", spritesheet: "x.png", manifest: "x_spritesheet.ron",
-                tier: MainHall, body_kind: Standard, composition: None,
-                default_brain: "patrol_peaceful", default_action_set: "peaceful", tags: [],
-            ),
-        },
-    )"#;
-
-    fn registry() -> super::super::SnapshotRegistry {
-        let mut reg = super::super::SnapshotRegistry::default();
-        reg.register_cursor::<Brain>("brain");
-        reg.register_component::<BrainBinding>("brain_binding");
-        reg.register_component::<AuthoredBrainContext>("authored_brain_context");
-        reg.register_component::<ActorDisposition>("actor_disposition");
-        reg
+impl SnapshotState for ambition_actors::time::time_control::RequestedClockScale {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.sim_clock);
     }
 
-    fn world() -> World {
-        let mut w = World::new();
-        w.insert_resource(CharacterCatalog::from_data(parse_catalog(CATALOG)));
-        w
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self {
+            sim_clock: r.f32()?,
+        })
+    }
+}
+
+snapshot_unit_enum!(ambition_actors::time::time_control::Regime {
+    Solo = 0,
+    RLDeterministic = 1,
+    Cinematic = 2,
+});
+
+impl SnapshotState for ambition_actors::time::time_control::RegimePolicy {
+    fn encode(&self, out: &mut Vec<u8>) {
+        self.regime.encode(out);
     }
 
-    fn build(world: &World, preset: &str, anchor_x: f32) -> Brain {
-        world
-            .resource::<CharacterCatalog>()
-            .build_brain_from_preset(preset, &BrainBuildContext::at(anchor_x))
-            .expect("preset builds")
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self {
+            regime: ambition_actors::time::time_control::Regime::decode(r)?,
+        })
+    }
+}
+
+impl SnapshotState for ambition_platformer_primitives::time::SimDt {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.dt);
     }
 
-    fn spawn(
-        world: &mut World,
-        sim: &str,
-        brain: Brain,
-        binding: BrainBinding,
-        anchor_x: f32,
-    ) -> bevy::ecs::entity::Entity {
-        world
-            .spawn((
-                SimId::placement(sim),
-                brain,
-                binding,
-                AuthoredBrainContext::from_placement(anchor_x, 0.0),
-                ActorPose::from_parts(ae::Vec2::new(anchor_x, 0.0), ae::Vec2::new(8.0, 8.0), 1.0),
-                ActorDisposition::Peaceful,
-            ))
-            .id()
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self { dt: r.f32()? })
+    }
+}
+
+impl SnapshotState for ambition_platformer_primitives::gravity::BaseGravity {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_vec2(out, self.dir);
     }
 
-    fn wanderer_speed(brain: &Brain) -> f32 {
-        match brain {
-            Brain::StateMachine(StateMachineCfg::Wanderer { cfg }) => cfg.speed,
-            other => panic!("expected Wanderer, got {other:?}"),
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self { dir: r.vec2()? })
+    }
+}
+
+impl SnapshotState for ambition_platformer_primitives::gravity::GravityField {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_vec2(out, self.dir);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self { dir: r.vec2()? })
+    }
+}
+
+impl SnapshotState for ambition_actors::control::SlotInteractionState {
+    fn encode(&self, out: &mut Vec<u8>) {
+        for index in 0..ambition_characters::brain::SlotControls::MAX_SLOTS {
+            let gestures = self.get(ambition_characters::brain::PlayerSlot(index as u8));
+            put_f32(out, gestures.down_tap_timer);
+            put_f32(out, gestures.up_tap_timer);
+            put_f32(out, gestures.interact_buffer_timer);
+            put_bool(out, gestures.double_tap_down_pending);
+            put_bool(out, gestures.double_tap_up_pending);
         }
     }
 
-    /// Override rewind: default selected, snapshot, switch to an override, restore
-    /// → the DEFAULT is back (selection + exact config), because the rewound
-    /// binding says Default and reconcile rebuilds it.
-    #[test]
-    fn override_rewind_restores_the_default() {
-        let reg = registry();
-        let mut w = world();
-        let brain = build(&w, "wanderer_puppy_slug", 100.0);
-        let e = spawn(
-            &mut w,
-            "npc",
-            brain,
-            BrainBinding::new(
-                BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousSource::CatalogDefault,
-            ),
-            100.0,
-        );
-
-        let snap = super::super::take(&w, &reg);
-
-        // Switch to stand_still (as `UsePreset` would).
-        *w.get_mut::<Brain>(e).unwrap() = Brain::stand_still();
-        w.get_mut::<BrainBinding>(e)
-            .unwrap()
-            .use_preset(BrainPresetId::new("stand_still"));
-
-        super::super::restore(&mut w, &snap, &reg).expect("restore");
-
-        assert_eq!(
-            w.get::<BrainBinding>(e).unwrap().source,
-            AutonomousSource::CatalogDefault
-        );
-        assert_eq!(
-            wanderer_speed(w.get::<Brain>(e).unwrap()),
-            36.0,
-            "the exact default wanderer config is restored"
-        );
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let mut state = Self::default();
+        for index in 0..ambition_characters::brain::SlotControls::MAX_SLOTS {
+            *state.get_mut(ambition_characters::brain::PlayerSlot(index as u8)) =
+                ambition_actors::control::SlotGestures {
+                    down_tap_timer: r.f32()?,
+                    up_tap_timer: r.f32()?,
+                    interact_buffer_timer: r.f32()?,
+                    double_tap_down_pending: r.bool()?,
+                    double_tap_up_pending: r.bool()?,
+                };
+        }
+        Some(state)
     }
+}
 
-    /// Same-family rewind: `wanderer_slow` selected, snapshot, switch to
-    /// `wanderer_fast`, restore → the exact SLOW config is back — a label check
-    /// would have missed it (both "wanderer").
-    #[test]
-    fn same_family_rewind_restores_the_exact_preset() {
-        let reg = registry();
-        let mut w = world();
-        let slow = build(&w, "wanderer_slow", 100.0);
-        let e = spawn(
-            &mut w,
-            "npc",
-            slow,
-            BrainBinding::new(
-                BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousSource::CatalogPreset(BrainPresetId::new("wanderer_slow")),
-            ),
-            100.0,
-        );
-
-        let snap = super::super::take(&w, &reg);
-
-        let fast = build(&w, "wanderer_fast", 100.0);
-        *w.get_mut::<Brain>(e).unwrap() = fast;
-        w.get_mut::<BrainBinding>(e)
-            .unwrap()
-            .use_preset(BrainPresetId::new("wanderer_fast"));
-
-        super::super::restore(&mut w, &snap, &reg).expect("restore");
-
-        assert_eq!(
-            wanderer_speed(w.get::<Brain>(e).unwrap()),
-            20.0,
-            "restore brings back the slow preset's config, not the fast one"
-        );
-    }
-
-    fn smash_aggro(brain: &Brain) -> f32 {
-        match brain {
-            Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => cfg.aggro_radius,
-            other => panic!("expected Smash, got {other:?}"),
+impl SnapshotState for ambition_actors::features::PendingMountLinks {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u32(out, self.0.len() as u32);
+        for (rider, mount) in &self.0 {
+            put_str(out, rider);
+            put_str(out, mount);
         }
     }
 
-    /// Same-family SMASH rewind: `smash_grunt` selected, snapshot, switch to
-    /// `smash_duelist` (same variant, different authored tuning), restore → the
-    /// exact grunt config is back. The old variant-only comparison would have kept
-    /// the duelist's tuning; the full-`SmashCfg` comparison catches it.
-    #[test]
-    fn same_family_smash_rewind_restores_the_exact_tuning() {
-        let reg = registry();
-        let mut w = world();
-        let grunt = build(&w, "smash_grunt", 100.0);
-        let e = spawn(
-            &mut w,
-            "npc",
-            grunt,
-            BrainBinding::new(
-                BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousSource::CatalogPreset(BrainPresetId::new("smash_grunt")),
-            ),
-            100.0,
-        );
-
-        let snap = super::super::take(&w, &reg);
-
-        let duelist = build(&w, "smash_duelist", 100.0);
-        *w.get_mut::<Brain>(e).unwrap() = duelist;
-        w.get_mut::<BrainBinding>(e)
-            .unwrap()
-            .use_preset(BrainPresetId::new("smash_duelist"));
-
-        super::super::restore(&mut w, &snap, &reg).expect("restore");
-
-        assert_eq!(
-            smash_aggro(w.get::<Brain>(e).unwrap()),
-            460.0,
-            "the grunt's authored aggro radius is restored, not the duelist's 900"
-        );
-    }
-
-    fn boss_encounter(brain: &Brain) -> String {
-        match brain {
-            Brain::StateMachine(StateMachineCfg::BossPattern { cfg, .. }) => {
-                cfg.encounter_id.clone()
-            }
-            other => panic!("expected BossPattern, got {other:?}"),
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let len = r.u32()? as usize;
+        let mut links = Vec::with_capacity(len);
+        for _ in 0..len {
+            links.push((r.str()?.to_owned(), r.str()?.to_owned()));
         }
+        Some(Self(links))
+    }
+}
+
+impl SnapshotState for ambition_actors::session::reset::SandboxResetRequested {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_bool(out, self.request);
     }
 
-    /// Same-family BOSSPATTERN rewind: `boss_alpha` selected, snapshot, switch to
-    /// `boss_beta` (same variant, different encounter id), restore → the alpha
-    /// encounter is back. Variant-only comparison would have kept beta.
-    #[test]
-    fn same_family_boss_rewind_restores_the_exact_encounter() {
-        let reg = registry();
-        let mut w = world();
-        let alpha = build(&w, "boss_alpha", 100.0);
-        let e = spawn(
-            &mut w,
-            "npc",
-            alpha,
-            BrainBinding::new(
-                BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousSource::CatalogPreset(BrainPresetId::new("boss_alpha")),
-            ),
-            100.0,
-        );
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self { request: r.bool()? })
+    }
+}
 
-        let snap = super::super::take(&w, &reg);
+impl SnapshotState for ambition_projectiles::enemy::EnemyProjectileState {
+    fn encode(&self, _out: &mut Vec<u8>) {}
 
-        let beta = build(&w, "boss_beta", 100.0);
-        *w.get_mut::<Brain>(e).unwrap() = beta;
-        w.get_mut::<BrainBinding>(e)
-            .unwrap()
-            .use_preset(BrainPresetId::new("boss_beta"));
+    fn decode(_r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self)
+    }
+}
 
-        super::super::restore(&mut w, &snap, &reg).expect("restore");
-
-        assert_eq!(
-            boss_encounter(w.get::<Brain>(e).unwrap()),
-            "alpha",
-            "the alpha encounter is restored, not beta"
-        );
+impl SnapshotState for ambition_actors::SandboxSimState {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.room_transition_cooldown);
     }
 
-    /// Challenge rewind (inverse boundary): snapshot BEFORE the challenge, provoke
-    /// (a hostile roster brain + `Provoked` source + Hostile disposition), restore →
-    /// the CATALOG pass rebuilds the pre-challenge stand_still from the restored
-    /// `CatalogPreset` binding, and the peaceful disposition comes back from its
-    /// blob. (The full config reconstruction — tuning / caps / action set — is the
-    /// autonomous-actor pass, covered by the integration tests where a roster exists.)
-    #[test]
-    fn rewind_to_before_a_challenge_restores_peaceful_stand_still() {
-        let reg = registry();
-        let mut w = world();
-        let brain = build(&w, "stand_still", 100.0);
-        let e = spawn(
-            &mut w,
-            "npc",
-            brain,
-            BrainBinding::new(
-                BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousSource::CatalogPreset(BrainPresetId::new("stand_still")),
-            ),
-            100.0,
-        );
-
-        let snap = super::super::take(&w, &reg);
-
-        // Provoke: a hostile roster brain, Hostile disposition, Provoked source.
-        let attack = build(&w, "melee_brute_striker", 100.0);
-        *w.get_mut::<Brain>(e).unwrap() = attack;
-        *w.get_mut::<ActorDisposition>(e).unwrap() = ActorDisposition::Hostile;
-        w.get_mut::<BrainBinding>(e)
-            .unwrap()
-            .provoke(HostileArchetypeId::new("combatant"));
-
-        super::super::restore(&mut w, &snap, &reg).expect("restore");
-
-        assert_eq!(
-            w.get::<Brain>(e).unwrap().label(),
-            "stand_still",
-            "the pre-challenge stand_still brain is rebuilt from the restored binding"
-        );
-        assert_eq!(
-            *w.get::<ActorDisposition>(e).unwrap(),
-            ActorDisposition::Peaceful,
-            "the pre-challenge peaceful disposition is restored"
-        );
-    }
-
-    /// Challenge rewind (forward): snapshot AFTER the challenge (Provoked, hostile),
-    /// then wrongly calm the actor while its attack brain stays live, restore → the
-    /// Hostile disposition and the roster attack brain are BOTH retained (the catalog
-    /// pass never rebuilds a `Provoked` brain to the catalog default). With no roster
-    /// present here the brain is simply left untouched; the roster reconstruction of a
-    /// present that ALSO changed the brain is covered by the integration tests.
-    #[test]
-    fn rewind_to_after_a_challenge_keeps_hostile_and_the_attack_brain() {
-        let reg = registry();
-        let mut w = world();
-        let attack = build(&w, "melee_brute_striker", 100.0);
-        let mut binding = BrainBinding::new(
-            BrainPresetId::new("wanderer_puppy_slug"),
-            AutonomousSource::CatalogPreset(BrainPresetId::new("stand_still")),
-        );
-        binding.provoke(HostileArchetypeId::new("combatant"));
-        let e = spawn(&mut w, "npc", attack, binding, 100.0);
-        *w.get_mut::<ActorDisposition>(e).unwrap() = ActorDisposition::Hostile;
-
-        let snap = super::super::take(&w, &reg);
-
-        // The "present" we rewind FROM keeps the attack brain live (as real
-        // rollback does) but drifts other state.
-        *w.get_mut::<ActorDisposition>(e).unwrap() = ActorDisposition::Peaceful;
-
-        super::super::restore(&mut w, &snap, &reg).expect("restore");
-
-        assert_eq!(
-            *w.get::<ActorDisposition>(e).unwrap(),
-            ActorDisposition::Hostile,
-            "hostile disposition is restored"
-        );
-        assert_eq!(
-            w.get::<Brain>(e).unwrap().label(),
-            "melee_brute",
-            "the roster attack brain is retained, not rebuilt to the catalog default"
-        );
-        assert!(
-            w.get::<BrainBinding>(e).unwrap().is_provoked(),
-            "the binding agrees: still Provoked"
-        );
-    }
-
-    /// Authored-home rewind: a patroller that wandered far, its default reselected
-    /// on rewind, rebuilds its patrol lane around the AUTHORED anchor (carried by
-    /// the snapshot-restored `AuthoredBrainContext`), not its drifted pose.
-    #[test]
-    fn rewind_rebuilds_patrol_around_the_authored_home() {
-        let reg = registry();
-        let mut w = world();
-        let patrol = build(&w, "patrol_peaceful", 100.0);
-        let e = spawn(
-            &mut w,
-            "npc",
-            patrol,
-            BrainBinding::new(
-                BrainPresetId::new("patrol_peaceful"),
-                AutonomousSource::CatalogDefault,
-            ),
-            100.0,
-        );
-
-        let snap = super::super::take(&w, &reg);
-
-        // Wander far and switch brains (as a runtime override would).
-        w.get_mut::<ActorPose>(e).unwrap().center.x = 900.0;
-        *w.get_mut::<Brain>(e).unwrap() = Brain::stand_still();
-        w.get_mut::<BrainBinding>(e)
-            .unwrap()
-            .use_preset(BrainPresetId::new("stand_still"));
-
-        super::super::restore(&mut w, &snap, &reg).expect("restore");
-
-        match w.get::<Brain>(e).unwrap() {
-            Brain::StateMachine(StateMachineCfg::Patrol { cfg, .. }) => {
-                assert_eq!(
-                    cfg.lane.center_x, 100.0,
-                    "the rebuilt lane centers on the authored home, not the drifted pose (900)"
-                );
-            }
-            other => panic!("expected Patrol, got {other:?}"),
-        }
-    }
-
-    /// Temporary control survives a rewind: a possessed body (`Brain::Player`) is
-    /// NOT rebuilt to its autonomous selection by the post-restore reconcile.
-    #[test]
-    fn a_possessed_body_survives_restore_as_player() {
-        let reg = registry();
-        let mut w = world();
-        let e = spawn(
-            &mut w,
-            "npc",
-            Brain::Player(PlayerSlot::PRIMARY),
-            BrainBinding::new(
-                BrainPresetId::new("wanderer_puppy_slug"),
-                AutonomousSource::CatalogDefault,
-            ),
-            100.0,
-        );
-
-        let snap = super::super::take(&w, &reg);
-        // Drift some state, then restore.
-        w.get_mut::<ActorPose>(e).unwrap().center.x = 500.0;
-        super::super::restore(&mut w, &snap, &reg).expect("restore");
-
-        assert!(
-            w.get::<Brain>(e).unwrap().is_player(),
-            "player control is not clobbered by the autonomous reconcile across a rewind"
-        );
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self {
+            room_transition_cooldown: r.f32()?,
+        })
     }
 }

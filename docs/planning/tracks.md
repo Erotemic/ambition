@@ -4,7 +4,22 @@ This file is the live queue, not a completion ledger. The completed July 15–16
 architecture campaign is summarized in [`status.md`](status.md) and preserved in
 git history.
 
-## 1. Build the provenance + three-origin `ConstructionPlan` vertical slice
+## 1. Quarantine external effects to confirmed GGRS frames
+
+The headless simulation harness now performs complete GGRS save/load/resimulation.
+Before online play, presentation and irreversible host effects must not observe
+speculative or replayed frames.
+
+- classify audio, VFX, analytics, save writes, achievements, and host I/O;
+- buffer effect intents by GGRS frame;
+- release only frames at or below the confirmed-frame boundary;
+- discard abandoned predicted intents on rollback;
+- prove a forced sync-test rewind emits each accepted effect exactly once.
+
+**Exit:** repeated rollback cannot duplicate an external effect, and a Matchbox
+transport can be attached without changing simulation systems.
+
+## 2. Build the provenance + three-origin `ConstructionPlan` vertical slice
 
 Immutable prepared content and exact snapshot identity are complete. The next
 engine architecture task is Phase 3 of
@@ -22,7 +37,7 @@ engine architecture task is Phase 3 of
 share one inspectable planner/executor, and the runtime-dynamic family can be
 reconstructed without inferring its recipe from an id string.
 
-## 2. Close Super Mary-O level 1
+## 3. Close Super Mary-O level 1
 
 The engine-facing seams are already proven: world pickups equip through the shared
 item path; the grow cap changes worn identity and collider size; the spark blossom
@@ -40,7 +55,7 @@ Remaining customer work:
 **Exit:** visible and headless customers use the same provider, body, item, and
 level state with no Mary-O-only engine path.
 
-## 3. Close one complete Sanic act
+## 4. Close one complete Sanic act
 
 The provider persona, standard host input chain, transformation, ball dash,
 surface-momentum route, lifecycle, and geometry/orbit/stranding oracles are
@@ -57,7 +72,7 @@ Remaining customer work:
 
 Do not absorb movement/contact work owned by another active campaign.
 
-## 4. Correct the fighter-rollout design before FB6
+## 5. Correct the fighter-rollout design before FB6
 
 Do not implement the current FB6 text literally.
 
@@ -72,7 +87,7 @@ Do not implement the current FB6 text literally.
 **Exit:** the determinism and no-cheat contracts are explicit enough that an L3
 implementation cannot accidentally violate either one.
 
-## 5. Finish the bounded boss animator fold
+## 6. Finish the bounded boss animator fold
 
 Verify and remove only genuine animation residue:
 

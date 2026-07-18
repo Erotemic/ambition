@@ -1,3 +1,5 @@
+//! Small deterministic policies used by harness examples and stress tests.
+
 use crate::AgentAction;
 
 /// Tiny deterministic LCG used by the RL demo binaries and fuzz tests.

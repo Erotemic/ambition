@@ -177,7 +177,7 @@ pub(crate) struct PlatformerPreparation<'w> {
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
     character_catalog_registry:
         Option<Res<'w, ambition_characters::actor::character_catalog::CharacterCatalogRegistry>>,
-    snapshot_registry: Option<Res<'w, ambition_runtime::snapshot::SnapshotRegistry>>,
+    snapshot_registry: Option<Res<'w, ambition_runtime::rollback::RollbackRegistry>>,
     placement_lowering:
         Option<Res<'w, ambition_actors::world::placements::PlacementLoweringRegistry>>,
     content_staging: Option<Res<'w, ambition_actors::features::RoomContentStagingRegistry>>,
@@ -438,9 +438,9 @@ impl PlatformerPreparation<'_> {
         let snapshot_schema = self
             .snapshot_registry
             .as_deref()
-            .map(ambition_runtime::snapshot::SnapshotRegistry::schema_fingerprint)
+            .map(ambition_runtime::rollback::RollbackRegistry::schema_fingerprint)
             .unwrap_or_else(|| {
-                ambition_runtime::snapshot::SnapshotRegistry::default().schema_fingerprint()
+                ambition_runtime::rollback::RollbackRegistry::default().schema_fingerprint()
             });
         let content = match prepare_platformer_content(
             source,
@@ -677,10 +677,10 @@ pub fn prepare_platformer_content_for_app(
         .cloned();
     let snapshot_schema = app
         .world()
-        .get_resource::<ambition_runtime::snapshot::SnapshotRegistry>()
-        .map(ambition_runtime::snapshot::SnapshotRegistry::schema_fingerprint)
+        .get_resource::<ambition_runtime::rollback::RollbackRegistry>()
+        .map(ambition_runtime::rollback::RollbackRegistry::schema_fingerprint)
         .unwrap_or_else(|| {
-            ambition_runtime::snapshot::SnapshotRegistry::default().schema_fingerprint()
+            ambition_runtime::rollback::RollbackRegistry::default().schema_fingerprint()
         });
     app.init_resource::<ContentEpochSequence>();
     let mut epochs = app.world_mut().resource_mut::<ContentEpochSequence>();
@@ -1249,7 +1249,7 @@ mod tests {
     ) -> PreparedContent {
         let authored = AuthoredCatalogFragments::new("alpha", "same-provider");
         let snapshot_schema =
-            ambition_runtime::snapshot::SnapshotRegistry::default().schema_fingerprint();
+            ambition_runtime::rollback::RollbackRegistry::default().schema_fingerprint();
         let mut epochs = ContentEpochSequence::default();
         prepare_platformer_content(
             source,
@@ -1296,7 +1296,7 @@ mod tests {
         let staging = staging_registry(false);
         let authored = AuthoredCatalogFragments::new("alpha", "same-provider");
         let snapshot_schema =
-            ambition_runtime::snapshot::SnapshotRegistry::default().schema_fingerprint();
+            ambition_runtime::rollback::RollbackRegistry::default().schema_fingerprint();
         let mut epochs = ContentEpochSequence::default();
         let first = prepare_platformer_content(
             fixture_source(128.0),

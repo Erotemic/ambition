@@ -109,3 +109,10 @@ for a no-op. Ordinary room transitions never change content identity.
   universal cross-version save compatibility.
 - Construction provenance, general `ConstructionPlan`, public prefab APIs, and
   broad room-construction conversion remain deliberately outside this milestone.
+
+## Current implications for agents
+
+- Build session behavior from `PreparedContent`; do not reintroduce mutable prepared definitions or process-global mirrors.
+- Treat `ContentFingerprint` as definition identity and `ContentEpoch` as the App-local activation generation.
+- Bind rollback/network sessions to the exact prepared-content and rollback-registration fingerprints before simulation begins.
+- A content replacement while GGRS is active requires coordinated session restart; it cannot silently reuse prior frame history.

@@ -88,8 +88,11 @@ pub(super) fn handle_ldtk_hot_reload(
     mut dialogue: ResMut<ambition::dialog::DialogState>,
     mut ldtk_index: ambition::platformer::lifecycle::SessionWorldMut<ldtk_world::LdtkRuntimeIndex>,
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
-    editable_tuning: Res<EditableMovementTuning>,
-    physics_settings: Res<physics::PhysicsSandboxSettings>,
+    // Bundled to keep this system within Bevy's 16 top-level SystemParam limit.
+    tuning: (
+        Res<EditableMovementTuning>,
+        Res<physics::PhysicsSandboxSettings>,
+    ),
     mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     // Bundled into one tuple param to stay within Bevy's 16-param system limit.
@@ -122,7 +125,8 @@ pub(super) fn handle_ldtk_hot_reload(
             ambition::runtime::PreparedContentIdentity,
         >,
         ResMut<ambition::runtime::ContentEpochSequence>,
-        Res<ambition::runtime::snapshot::SnapshotRegistry>,
+        Res<ambition::runtime::rollback::RollbackRegistry>,
+        Option<Res<ambition::runtime::rollback::AmbitionGgrsSession>>,
     ),
 ) {
     if keys.just_pressed(KeyCode::F12) {
@@ -140,6 +144,17 @@ pub(super) fn handle_ldtk_hot_reload(
     let requested = keys.just_pressed(KeyCode::F11);
     let should_apply = requested || (ldtk_reload.pending && ldtk_reload.auto_apply);
     if !should_apply {
+        return;
+    }
+
+    if content_identity.4.is_some() {
+        let errors = vec![
+            "LDtk hot reload is a prepared-content epoch replacement and cannot commit while a GGRS rollback session is active; stop/restart the session at a coordinated content barrier".to_string(),
+        ];
+        for error in &errors {
+            eprintln!("LDtk hot reload rejected: {error}");
+        }
+        ldtk_reload.mark_failed(errors);
         return;
     }
 
@@ -175,8 +190,8 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut dialogue,
             &mut combat,
             &mut ldtk_index,
-            editable_tuning.as_engine(),
-            *physics_settings,
+            tuning.0.as_engine(),
+            *tuning.1,
             &mut platform_set.0,
             &room_visuals,
             visual_assets.0.as_deref(),

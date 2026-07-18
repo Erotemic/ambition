@@ -6,11 +6,13 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`bricks`](src/bricks.rs) | Mary-O's breakable bricks — the SECOND consumer of the reactive-block primitive. |
+| [`crony`](src/crony.rs) | Mary-O's crony — a stompable walker, authored as pure content. |
 | [`flag`](src/flag.rs) | **M3 — the flagpole sequence.** |
 | [`powerups`](src/powerups.rs) | Super Mary-O's powerups — the M1 equipment chain, authored as A3 data. |
 | [`provider`](src/provider.rs) | The Mary-O experience provider. |
 
-_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

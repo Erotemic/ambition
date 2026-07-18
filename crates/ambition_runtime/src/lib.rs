@@ -51,11 +51,11 @@ mod player_schedule;
 mod portal_schedule;
 mod progression_schedule;
 pub mod projectile_schedule;
+/// GGRS rollback integration: typed state registration, input/session bridge, and exact schema identity.
+pub mod rollback;
 mod room_schedule;
 pub mod session_world;
 mod sim_core_resources;
-/// N3.1's opt-in sim-state registration seam, and N0.4's desync-canary hash.
-pub mod snapshot;
 
 pub use combat_schedule::CombatSchedulePlugin;
 pub use content_identity::{
@@ -135,11 +135,19 @@ pub const SIM_TICK_HZ: f64 = 60.0;
 pub struct SandboxSetsPlugin {
     /// Host the sim in `FixedUpdate` on `Time<Fixed>` instead of `Update`.
     pub fixed_tick: bool,
+    /// Host the authoritative sim in `bevy_ggrs::GgrsSchedule`.
+    pub rollback: bool,
 }
 
 impl Plugin for SandboxSetsPlugin {
     fn build(&self, app: &mut App) {
-        if self.fixed_tick {
+        assert!(
+            !(self.fixed_tick && self.rollback),
+            "the simulation cannot be hosted by both FixedUpdate and GgrsSchedule"
+        );
+        if self.rollback {
+            app.set_sim_schedule(bevy_ggrs::GgrsSchedule);
+        } else if self.fixed_tick {
             // Commit the label FIRST — `configure_sandbox_sets` reads it, and
             // reading seals it. A sim plugin added before this group would have
             // already sealed `Update`, and `set_sim_schedule` panics rather
@@ -178,13 +186,13 @@ impl Plugin for SandboxSetsPlugin {
         );
         // N3.1's identity vocabulary. Every body the sim can identify from an
         // authored fact gets its `SimId` at the head of the frame, before anything
-        // reads identity — snapshot, replay, and the N0.4 canary all key on it.
+        // reads identity — rollback, replay, and the sync-test canary all key on it.
         app.add_systems(
             sim,
             (
-                snapshot::ensure_sim_id,
-                snapshot::mint_spawned_sim_ids,
-                snapshot::heal_projectile_owners,
+                rollback::ensure_sim_id,
+                rollback::mint_spawned_sim_ids,
+                rollback::heal_projectile_owners,
             )
                 .chain()
                 .in_set(ambition_platformer_primitives::schedule::GameplaySimulationRoot)
@@ -193,16 +201,16 @@ impl Plugin for SandboxSetsPlugin {
         // ...and again at the TAIL, after the last in-tick spawner (room
         // transition lowering, wave spawns, summons, sandbox reset), so identity
         // is synchronous with the tick that spawned the body. Without this, a
-        // snapshot taken at the boundary of a transition tick captures the
+        // GGRS save at the boundary of a transition tick captures the
         // freshly-lowered bodies WITHOUT identity — invisible to the roster and
-        // unreproducible by the N3.2b staged restore. Same canonical systems,
+        // unreproducible after rollback entity recreation. Same canonical systems,
         // second scheduling; the `Without<SimId>` guard makes the pair idempotent.
         app.add_systems(
             sim,
             (
-                snapshot::ensure_sim_id,
-                snapshot::mint_spawned_sim_ids,
-                snapshot::heal_projectile_owners,
+                rollback::ensure_sim_id,
+                rollback::mint_spawned_sim_ids,
+                rollback::heal_projectile_owners,
             )
                 .chain()
                 .in_set(ambition_platformer_primitives::schedule::GameplaySimulationRoot)
@@ -252,13 +260,26 @@ impl Plugin for SandboxSetsPlugin {
 pub struct PlatformerEnginePlugins {
     /// Host the sim in `FixedUpdate` on `Time<Fixed>` at [`SIM_TICK_HZ`].
     pub fixed_tick: bool,
+    /// Host the sim in `bevy_ggrs::GgrsSchedule`; a Session drives each tick.
+    pub rollback: bool,
 }
 
 impl PlatformerEnginePlugins {
     /// The fixed-tick engine: `Time<Fixed>` at [`SIM_TICK_HZ`], presentation
     /// interpolating in `Update`. See the type docs for the ordering rule.
     pub fn fixed_tick() -> Self {
-        Self { fixed_tick: true }
+        Self {
+            fixed_tick: true,
+            rollback: false,
+        }
+    }
+
+    /// The GGRS-driven engine. The sim advances only through GGRS requests.
+    pub fn rollback() -> Self {
+        Self {
+            fixed_tick: false,
+            rollback: true,
+        }
     }
 }
 
@@ -268,7 +289,11 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Sets + engine resources FIRST (see SandboxSetsPlugin docs).
             .add(SandboxSetsPlugin {
                 fixed_tick: self.fixed_tick,
+                rollback: self.rollback,
             })
+            // GGRS is the sole rollback authority: schedules, frame history,
+            // entity recreation, resimulation, and checksum comparison.
+            .add(crate::rollback::AmbitionRollbackPlugin)
             // The engine sim messages + resource defaults (E5 step 6) —
             // hosts override by insert-before-add (init never clobbers).
             .add(SimCoreResourcesPlugin)
@@ -279,12 +304,6 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_dialog::DialogSimStatePlugin)
             .add(ambition_encounter::EncounterRegistryPlugin)
             .add(ambition_menu::map::MapStatePlugin)
-            // N3.1's snapshot registry, with the engine's own state registered.
-            // EARLY, so every plugin after it — including a downstream game's
-            // content plugins — can `resource_mut::<SnapshotRegistry>()` and add
-            // the sim state it owns. Registration order is a function of plugin
-            // build order, hence of the binary, hence identical across two sims.
-            .add(crate::snapshot::SnapshotRegistryPlugin)
             // The world-prep phase (body integration, gravity collection, etc.).
             .add(ambition_actors::features::WorldPrepSchedulePlugin)
             // Universal-brain messages/resources (player/NPC/enemy/boss).

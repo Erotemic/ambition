@@ -147,6 +147,59 @@ def derived_dims(main_count: int, basement_count: int) -> tuple[int, int]:
     return width, height
 
 
+def _named_map_body(catalog_text: str, field_name: str) -> str:
+    """Return the balanced RON map body for a top-level named field.
+
+    The catalog contains several sibling maps whose rows intentionally share
+    the same indentation. Hall generation must inspect only ``characters``;
+    scanning the whole file would mistake brain/action preset ids for spawnable
+    character ids. This small balanced-brace scanner keeps the generator
+    dependency-light while making that ownership boundary explicit.
+    """
+    field = re.search(
+        rf"(?m)^ {{4}}{re.escape(field_name)}\s*:\s*\{{",
+        catalog_text,
+    )
+    if field is None:
+        raise ValueError(f"catalog is missing top-level {field_name!r} map")
+
+    open_brace = catalog_text.find("{", field.start(), field.end())
+    depth = 0
+    in_string = False
+    escaped = False
+    in_line_comment = False
+    for index in range(open_brace, len(catalog_text)):
+        char = catalog_text[index]
+        next_char = catalog_text[index + 1] if index + 1 < len(catalog_text) else ""
+
+        if in_line_comment:
+            if char == "\n":
+                in_line_comment = False
+            continue
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+            continue
+        if char == "/" and next_char == "/":
+            in_line_comment = True
+            continue
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return catalog_text[open_brace + 1 : index]
+
+    raise ValueError(f"catalog has unterminated top-level {field_name!r} map")
+
+
 def parse_catalog(
     catalog_text: str,
 ) -> tuple[list[str], list[str], dict[str, str]]:
@@ -158,7 +211,7 @@ def parse_catalog(
     actor nameplate system (which reads the character's own identity), so the
     hall no longer authors redundant `DebugLabel` overlays.
 
-    This intentionally scans only the catalog's top-level character entries
+    This intentionally scans only the catalog's top-level ``characters`` map
     rather than importing the optional ``python-ron`` extension. The Hall
     generator needs just three stable fields (id, tier, Hall dialogue id), and
     all three are authored in a rigid top-level shape. Keeping this path
@@ -166,17 +219,22 @@ def parse_catalog(
     Python environment while the Rust runtime remains the authority for full
     catalog deserialization.
     """
+    characters_text = _named_map_body(catalog_text, "characters")
     entry_pat = re.compile(
         r'^ {8}"(?P<id>[a-z0-9_]+)"\s*:\s*\(', re.MULTILINE
     )
-    matches = list(entry_pat.finditer(catalog_text))
+    matches = list(entry_pat.finditer(characters_text))
     ids = [match.group("id") for match in matches]
     tiers: dict[str, str] = {}
     hall_dialogue_ids: dict[str, str] = {}
     for idx, match in enumerate(matches):
         cid = match.group("id")
-        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(catalog_text)
-        window = catalog_text[match.end() : end]
+        end = (
+            matches[idx + 1].start()
+            if idx + 1 < len(matches)
+            else len(characters_text)
+        )
+        window = characters_text[match.end() : end]
         tm = re.search(r"tier:\s*([A-Za-z_]+)", window)
         tiers[cid] = tm.group(1) if tm else "MainHall"
         hm = re.search(r'hall_dialogue_id:\s*Some\(\s*"([^"]+)"\s*\)', window)

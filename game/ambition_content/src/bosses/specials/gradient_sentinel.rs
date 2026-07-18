@@ -932,3 +932,14 @@ mod tests {
         );
     }
 }
+
+impl bevy::ecs::entity::MapEntities for SaddlePointState {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        if let Some(entity) = self.horizontal_hitbox.as_mut() {
+            *entity = mapper.get_mapped(*entity);
+        }
+        if let Some(entity) = self.vertical_hitbox.as_mut() {
+            *entity = mapper.get_mapped(*entity);
+        }
+    }
+}

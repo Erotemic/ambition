@@ -1,3 +1,5 @@
+//! Construction, timestep, and GGRS rollback options for `SandboxSim`.
+
 /// Construction options for `SandboxSim`. Builder-style so future
 /// knobs (RNG seed, ability set override, debug overlays) drop in
 /// without breaking callers that take `SandboxSimOptions::default()`.
@@ -21,6 +23,10 @@ pub struct SandboxSimOptions {
     /// frame dt handed to Bevy is pinned to the `Time<Fixed>` timestep, so the
     /// accumulator expends once and only once.
     pub fixed_tick: bool,
+    /// Drive the authoritative simulation through GGRS. `SyncTest` is the
+    /// deterministic harness mode: GGRS repeatedly saves, rewinds, and
+    /// resimulates the real game schedule while comparing checksums.
+    pub rollback: RollbackMode,
 }
 
 impl SandboxSimOptions {
@@ -40,6 +46,48 @@ impl SandboxSimOptions {
     pub fn with_fixed_tick(mut self, fixed_tick: bool) -> Self {
         self.fixed_tick = fixed_tick;
         self
+    }
+
+    /// Builder: drive the sim through a GGRS sync-test session.
+    pub fn with_sync_test_rollback(mut self) -> Self {
+        self.rollback = RollbackMode::SyncTest {
+            check_distance: 7,
+            max_prediction_window: 12,
+        };
+        self.fixed_tick = false;
+        self.timestep = TimestepMode::fixed_60hz();
+        self
+    }
+
+    /// Builder: configure the GGRS sync-test rollback window explicitly.
+    pub fn with_sync_test_rollback_settings(
+        mut self,
+        check_distance: usize,
+        max_prediction_window: usize,
+    ) -> Self {
+        self.rollback = RollbackMode::SyncTest {
+            check_distance,
+            max_prediction_window,
+        };
+        self.fixed_tick = false;
+        self.timestep = TimestepMode::fixed_60hz();
+        self
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RollbackMode {
+    #[default]
+    Disabled,
+    SyncTest {
+        check_distance: usize,
+        max_prediction_window: usize,
+    },
+}
+
+impl RollbackMode {
+    pub fn enabled(self) -> bool {
+        !matches!(self, Self::Disabled)
     }
 }
 

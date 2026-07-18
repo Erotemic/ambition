@@ -84,7 +84,7 @@ pub struct ResetPlayState<'w> {
 /// Cross-system trigger for "wipe the save and rebuild the runtime."
 /// Set `request = true` from anywhere; the next
 /// `process_sandbox_reset_request` tick consumes it.
-#[derive(Resource, Default, Debug)]
+#[derive(Resource, Clone, Default, Debug)]
 pub struct SandboxResetRequested {
     pub request: bool,
 }

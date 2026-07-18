@@ -14,7 +14,7 @@ use bevy::prelude::*;
 /// [`EncounterState`](crate::EncounterState). Reduced from the old
 /// state-holding map to a pure index at E1: the entity is the sole live-state
 /// authority, so nothing is duplicated here.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone)]
 pub struct EncounterRegistry {
     /// Encounter id → live encounter entity.
     pub ids: BTreeMap<String, Entity>,
@@ -22,6 +22,14 @@ pub struct EncounterRegistry {
     /// encounter triggers yet. Reset by hot reload so an edited LDtk
     /// re-populates the specs.
     pub specs_loaded: bool,
+}
+
+impl bevy::ecs::entity::MapEntities for EncounterRegistry {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        for entity in self.ids.values_mut() {
+            *entity = mapper.get_mapped(*entity);
+        }
+    }
 }
 
 impl EncounterRegistry {

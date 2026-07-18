@@ -284,7 +284,7 @@ pub fn apply_brain_commands(
 /// may have installed hostile tuning / capabilities / action set / sprite override;
 /// "you are free" (and any catalog switch) must revert ALL of it so the peaceful
 /// actor is coherent LIVE, matching what a snapshot reconcile reconstructs from the
-/// source. Uses the SHARED [`peaceful_config`](crate::features::ecs::snapshot_reconcile::peaceful_config)
+/// source. Uses the SHARED [`peaceful_config`](crate::features::ecs::autonomous_reconcile::peaceful_config)
 /// projection, so live and reconcile can never drift. `config.brain` is derived
 /// from the live brain inside that projection.
 ///
@@ -305,7 +305,7 @@ fn apply_catalog_mode(
         }
         return;
     };
-    let peaceful = crate::features::ecs::snapshot_reconcile::peaceful_config(
+    let peaceful = crate::features::ecs::autonomous_reconcile::peaceful_config(
         catalog,
         character_id.as_deref(),
         kit,

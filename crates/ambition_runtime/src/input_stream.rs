@@ -23,7 +23,7 @@ use ambition_time::SimTick;
 /// Disarmed by default and cheap to leave installed: the recording system is
 /// gated on [`Self::is_recording`], so an unarmed recorder costs one resource
 /// read per tick and nothing else.
-#[derive(Resource, Debug, Default)]
+#[derive(Resource, Clone, Debug, Default)]
 pub struct InputStreamRecorder {
     stream: Option<InputStream>,
     slot_count: u8,

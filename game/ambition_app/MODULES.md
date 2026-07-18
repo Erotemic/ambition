@@ -11,7 +11,7 @@
 | [`headless`](src/headless.rs) | Headless simulation entry point. |
 | [`host`](src/host/mod.rs) | Host-platform integration: per-OS plugin selection (desktop, android, …) and window/display-mode controls. |
 | [`menu`](src/menu/mod.rs) | Game-side menu host stack: backend-agnostic page model, dispatcher, item effects, and the flat-grid / 3D-cube presentation hosts. |
-| [`rl_sim`](src/rl_sim/mod.rs) | Programmatic-input / rl_sim adapter for the sandbox simulation. |
+| [`rl_sim`](src/rl_sim/mod.rs) | Ambition's binding of the reusable [`ambition_sim_harness`] to its own content. |
 
 _6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

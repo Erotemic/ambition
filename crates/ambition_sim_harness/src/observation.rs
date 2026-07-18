@@ -1,3 +1,5 @@
+//! Owned simulation observations exposed to RL agents and scripted drivers.
+
 /// Per-tick observation surfaced to an RL agent or scripted driver.
 ///
 /// All fields are simple owned types so this struct can be cheaply moved

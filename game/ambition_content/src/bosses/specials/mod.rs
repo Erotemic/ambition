@@ -25,7 +25,7 @@ mod seismic_stomp;
 // Curated re-export of each Technique's public surface: the per-boss state
 // component (attached via required components + snapshot-registered) and the
 // `spawn_*_from_special_messages` system. Nothing outside this module consumes
-// them today — the hub feeds this file's plugin (below) and `snapshot::register`
+// them today — the hub feeds this file's plugin (below) and `rollback::register`
 // — but they are the Techniques' genuine public API, so an explicit `pub use`
 // (not a glob) states it without re-globbing each submodule's private imports.
 pub use echo_fan::{spawn_echo_fan_from_special_messages, EchoFanState};
@@ -63,7 +63,7 @@ use ambition_platformer_primitives::schedule::SimScheduleExt;
 ///    by the app's `CombatSchedulePlugin`.
 ///
 /// Installed by [`super::AmbitionBossContentPlugin`].
-mod snapshot;
+mod rollback;
 
 pub struct BossSpecialContentPlugin;
 
@@ -85,16 +85,10 @@ impl Plugin for BossSpecialContentPlugin {
         app.register_required_components::<BossConfig, SeismicStompState>();
         app.register_required_components::<BossConfig, EchoFanState>();
 
-        // N3.1: this crate owns eleven pieces of sim state, and no crate below it can
-        // name them. `init_resource` rather than a plugin-order assumption — either
-        // this plugin or `SnapshotRegistryPlugin` may build first, and both are
-        // additive. (A silent `if let Some(..)` here registered NOTHING for one
-        // commit, because this plugin builds first. Silence is not a fallback.)
-        app.init_resource::<ambition_runtime::snapshot::SnapshotRegistry>();
-        let mut registry = app
-            .world_mut()
-            .resource_mut::<ambition_runtime::snapshot::SnapshotRegistry>();
-        snapshot::register(&mut registry);
+        // This content crate owns eleven rollback state types. The App-level
+        // adapter installs the actual bevy_ggrs plugins and records exact schema
+        // ownership; no second snapshot registry exists.
+        rollback::register(app);
 
         // The 11 Technique systems, hung on the engine's combat extension
         // slot. They read `ActorActionMessage::Special` and emit

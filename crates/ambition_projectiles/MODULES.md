@@ -16,7 +16,7 @@
 | [`spawn_message`](src/spawn_message.rs) | `SpawnProjectile` decouples fire sites from projectile storage. |
 | [`spawn_systems`](src/spawn_systems.rs) | Pool-spawn system: turn a queued player-pool [`SpawnProjectile`] message into a live projectile entity. |
 | [`state`](src/state.rs) | Per-player projectile controller state: charge machine, motion-input buffer, and tracked unlocks. |
-| [`visual_kind`](src/visual_kind.rs) | The **visual identity** of a projectile — a content-owned named kind plus its authored art descriptor. |
+| [`visual`](src/visual.rs) | Projectile visual identity — an **open, content-owned** art registry. |
 
 _11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

@@ -136,12 +136,24 @@ def test_every_pedestal_gets_the_explicit_stand_still_override():
 def test_parse_catalog_is_dependency_light_and_preserves_order():
     catalog = r'''
 (
+    brain_presets: {
+        "stand_still": StandStill,
+    },
+    action_set_presets: {
+        "peaceful": (
+            move_style: Walk,
+            melee: None,
+            ranged: None,
+            special: None,
+        ),
+    },
     characters: {
         "alpha": (
             tier: MainHall,
-            barks: (hall: ["hello"]),
+            barks: (hall: ["hello {world}"]),
             hall_dialogue_id: Some("hall_alpha"),
         ),
+        // A comment containing a brace must not terminate the map: }
         "beta": (
             tier: Basement,
             hall_dialogue_id: Some("hall_beta"),
@@ -154,6 +166,8 @@ def test_parse_catalog_is_dependency_light_and_preserves_order():
 '''
     main, basement, dialogue = parse_catalog(catalog)
     assert main == ["alpha", "gamma"]
+    assert "peaceful" not in main
+    assert "stand_still" not in main
     assert basement == ["beta"]
     assert dialogue == {"alpha": "hall_alpha", "beta": "hall_beta"}
 

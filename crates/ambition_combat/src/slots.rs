@@ -394,7 +394,7 @@ mod tests {
 // ---- Sandbox-side Bevy resource wrapper ----
 
 /// Bevy-side resource wrapping `CombatSlotBoard`. Per-target; today one player target.
-#[derive(bevy::prelude::Resource)]
+#[derive(bevy::prelude::Resource, Clone)]
 pub struct CombatSlotsRes(pub CombatSlotBoard);
 
 impl Default for CombatSlotsRes {

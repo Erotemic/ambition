@@ -83,6 +83,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // `app.set_sim_schedule(FixedUpdate)` before calling this; we read the
     // choice back so the engine group installs `Time<Fixed>` to match.
     let fixed_tick = app.sim_is_fixed_tick();
+    let rollback = app.sim_is(ambition::runtime::rollback::GgrsSchedule);
 
     app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
 
@@ -107,7 +108,10 @@ pub fn add_simulation_plugins(app: &mut App) {
     // collection/interaction/effects/view-sync, room reset, traces,
     // affordances, and the combat-phase chain. Ordering is set-based, so
     // group membership does not change the resolved schedule.
-    app.add_plugins(ambition::runtime::PlatformerEnginePlugins { fixed_tick });
+    app.add_plugins(ambition::runtime::PlatformerEnginePlugins {
+        fixed_tick,
+        rollback,
+    });
 
     // App-LOCAL residue the E5 step-5 carve deliberately left behind. The
     // engine group above registers the shared per-frame wiring (player input

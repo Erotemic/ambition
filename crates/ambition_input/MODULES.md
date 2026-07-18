@@ -10,7 +10,7 @@
 | [`active_input`](src/active_input.rs) | Which input source is CURRENTLY active — the last one to produce GENUINE input. |
 | [`control`](src/control.rs) | Device adapters that build the engine-owned `ControlFrame` resource. |
 | [`menu`](src/menu.rs) | Menu-side input vocabulary: the device-agnostic `MenuInputFrame` / `MenuControlFrame` / `MenuInputState` resources and the `MenuDir` / `analog_to_dir` helpers. |
-| [`motion_input`](src/motion_input.rs) | Quarter-circle / half-circle motion-input recognition. |
+| [`motion_input`](src/motion_input.rs) | Motion-input gesture recognition: a rolling directional buffer, a generic ordered-subsequence matcher ([`MotionInputBuffer::detect_sequence`]), and an **open, content-owned** [`MotionTechniqueCatalog`] of named techniques. |
 | [`presets`](src/presets.rs) | Default binding presets: the selectable keyboard layouts (`PresetId` / `KeyboardPreset` / `MovementKeys` / `ActionKeys`) and the shared gamepad map (`GAMEPAD_MAP`) that seed leafwing's input map for `SandboxAction`. |
 | [`settings`](src/settings.rs) | Controls / input settings. |
 

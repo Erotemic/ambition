@@ -1,3 +1,5 @@
+//! Agent-facing action vocabulary and conversion into the engine-owned `ControlFrame`.
+
 use ambition::input::ControlFrame;
 
 /// Action emitted by an RL agent / scripted driver every tick.

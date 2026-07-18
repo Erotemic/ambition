@@ -119,7 +119,7 @@ pub struct MovePlayback {
     /// A CACHE, not the authority. Its authority is `(t, window)`: the box exists
     /// exactly while the owner's clock is inside the window, and
     /// [`retire_orphaned_strike_volumes`] enforces that against the world every
-    /// frame. That matters because a rollback (`ambition_runtime::snapshot`) rebuilds
+    /// frame. That matters because GGRS rollback remaps
     /// this component from a blob, and a blob cannot carry an `Entity`.
     live_boxes: Vec<(usize, Entity)>,
     /// Which timed events already fired (parallel to `spec.events`).
@@ -149,7 +149,7 @@ impl MovePlayback {
     /// window`, so its Active window is live immediately and the projected
     /// `active_elapsed` still folds in the telegraph offset (E53). Events with
     /// `at_s <= t0` are pre-marked fired so seeking past them doesn't retro-fire.
-    /// **Resume a move mid-flight**, for `ambition_runtime::snapshot`'s
+    /// **Resume a move mid-flight**, for the GGRS rollback adapter's
     /// `SnapshotResolve`.
     ///
     /// The blob carries the CHOICE — which move, how far in, did it land — and the
@@ -222,7 +222,7 @@ pub struct StrikeVolume {
 /// `live_boxes`. It earns its keep when the two disagree, which happens when
 /// `MovePlayback` is REPLACED rather than advanced:
 ///
-/// - `ambition_runtime::snapshot::restore` rebuilds it from a blob (`MovePlayback::resumed`)
+/// - GGRS restores the cloned component and remaps its live entity handles
 ///   with an empty `live_boxes`. Without this system the boxes alive at the rewound-from
 ///   tick would leak, and `advance_move_playback` would spawn a second one beside each.
 /// - Any future code that swaps a playback mid-move.
@@ -935,3 +935,11 @@ fn synth_swing_from_move(pb: &MovePlayback) -> MeleeSwing {
 
 #[cfg(test)]
 mod tests;
+
+impl bevy::ecs::entity::MapEntities for MovePlayback {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        for (_, entity) in &mut self.live_boxes {
+            *entity = mapper.get_mapped(*entity);
+        }
+    }
+}

@@ -69,7 +69,7 @@ pub use ambition_platformer_primitives::projectile::{
 // beyond projectiles). Re-exported so `ambition_projectiles::MotionInputBuffer`
 // paths resolve.
 pub use ambition_input::{
-    MotionDirection, MotionInputBuffer, MotionTechnique, MotionTechniqueAppExt,
+    MotionDirection, MotionInputBuffer, MotionSample, MotionTechnique, MotionTechniqueAppExt,
     MotionTechniqueCatalog,
 };
 pub use portal_transit::try_projectile_portal_transit;

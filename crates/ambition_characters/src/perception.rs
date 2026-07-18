@@ -571,7 +571,7 @@ impl WorldMemory {
             })
     }
 
-    /// Every remembered actor, in id order. For `ambition_runtime::snapshot`, and
+    /// Every remembered actor, in id order. For deterministic GGRS checksums, and
     /// deterministic by construction now that the map is a `BTreeMap`.
     pub fn entries(&self) -> impl Iterator<Item = (&str, &RememberedActor)> {
         self.actors.iter().map(|(id, m)| (id.as_str(), m))

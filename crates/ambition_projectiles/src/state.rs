@@ -11,7 +11,7 @@ use ambition_gameplay_trace::GameplayTraceEvent;
 /// entity by `PlayerSimulationBundle`; `update_projectiles` iterates
 /// every player and ticks their own state independently. In-flight
 /// projectiles are separate ECS entities owned by this player.
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct PlayerProjectileState {
     pub spawner: crate::ProjectileSpawner,
     pub motion_buffer: crate::MotionInputBuffer,

@@ -31,7 +31,7 @@ mod tests;
 /// headless; a game registers its own named gestures and the special-move gate
 /// consumes them.
 pub use motion_input::{
-    MotionDirection, MotionInputBuffer, MotionTechnique, MotionTechniqueAppExt,
+    MotionDirection, MotionInputBuffer, MotionSample, MotionTechnique, MotionTechniqueAppExt,
     MotionTechniqueCatalog,
 };
 

@@ -8,6 +8,7 @@
 |---|---|
 | [`abilities`](src/abilities/mod.rs) | Ambition's player ability / weapon kit. |
 | [`ability_cooldown`](src/ability_cooldown.rs) | Shared cooldown for the movement abilities (Blink, Grapple) so they read as deliberate verbs instead of spammable teleports. |
+| [`action_scheme`](src/action_scheme.rs) | Materializing each body's [`ActorActionScheme`] — the OBSERVATION CACHE of its derived slot→action scheme. |
 | [`actor`](src/actor.rs) | The neutral **actor vocabulary** home for shared sim-state — the components every actor carries, the player included. |
 | [`affordances`](src/affordances/mod.rs) | Player affordances: "what would each button do right now?" |
 | [`assets`](src/assets/mod.rs) | Asset registries and load-time wiring. |
@@ -37,12 +38,12 @@
 | [`projectile`](src/projectile/mod.rs) | Sandbox PLAYER-faction projectile glue. |
 | [`quest`](src/quest/mod.rs) | Gameplay-core adapter for the generic quest runtime. |
 | [`schedule`](src/schedule/mod.rs) | Schedule + input-frame vocabulary shared by the machinery lib, the content crate, and the app crate. |
-| [`session`](src/session/mod.rs) | Sandbox SESSION lifecycle: startup setup ([`setup`]), full reset/respawn ([`reset`]), teardown of session-scoped resource mirrors on scope retirement ([`teardown`]), RON data manifests ([`data`]), and setup glue. |
+| [`session`](src/session/mod.rs) | Sandbox SESSION lifecycle: startup setup ([`setup`]), full reset/respawn ([`reset`]), RON data manifests ([`data`]), and setup glue. |
 | [`shrine`](src/shrine.rs) | Healing / save-point shrine. |
 | [`time`](src/time/mod.rs) | Time domain plumbing: clocks (ADR 0010/0011), time-control authority, per-entity proper-time scale, and game-feel tuning. |
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the LDtk hot-reloadable project loader, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 
-_35 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

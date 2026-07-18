@@ -65,9 +65,9 @@ pub mod perception;
 pub mod pickups;
 pub mod spawn_static;
 pub use mount::{rider_hand_world_pos, rider_hand_world_pos_in_frame};
+pub(crate) mod autonomous_reconcile;
 mod reset;
 mod save_sync;
-pub(crate) mod snapshot_reconcile;
 mod spawn;
 mod spawn_actors;
 mod target_volumes;
@@ -101,12 +101,12 @@ pub use anim_helpers::{
     ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_breakable_state,
     ecs_chest_opened,
 };
+pub use autonomous_reconcile::reconcile_autonomous_actors;
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use boss_clusters::{
     boss_is_cleared, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig,
     BossEncounter, BossMut, BossRef,
 };
-pub use snapshot_reconcile::reconcile_autonomous_actors;
 // `boss_component_snapshot` is pub: the observation-boundary contract tests
 // (ambition_sim_view) build boss read-model components from a scratch boss.
 pub use crate::world::overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};

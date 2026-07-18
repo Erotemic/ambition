@@ -44,7 +44,7 @@ use crate::features::{CenteredAabb, FeatureSimEntity};
 /// remaining fields remember what to restore on release. This resource is
 /// possession-INTERNAL: no gameplay/presentation system branches on it. Ask
 /// [`ControlledSubject`] instead.
-#[derive(Resource, Default)]
+#[derive(Resource, Clone, Default)]
 pub struct PossessionState {
     /// The actor currently possessed (its `Brain::Player(PRIMARY)` was
     /// transferred here), or `None` while driving the home avatar.
@@ -356,3 +356,14 @@ pub fn release_possession_if_target_lost(
 
 #[cfg(test)]
 mod tests;
+
+impl bevy::ecs::entity::MapEntities for PossessionState {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        if let Some(entity) = self.possessed.as_mut() {
+            *entity = mapper.get_mapped(*entity);
+        }
+        if let Some(entity) = self.home.as_mut() {
+            *entity = mapper.get_mapped(*entity);
+        }
+    }
+}

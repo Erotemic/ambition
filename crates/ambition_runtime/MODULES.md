@@ -14,10 +14,10 @@
 | [`portal_schedule`](src/portal_schedule.rs) | Portal simulation assembly (E5 step 5, behind the `portal` feature): [`ambition_portal::PortalPlugin`] plus the schedule placement for portal's internal sets — each mapped to its sandbox phase, cross-set ordering edge, and gameplay run condition. |
 | [`progression_schedule`](src/progression_schedule.rs) | Progression-phase schedule plugin. |
 | [`projectile_schedule`](src/projectile_schedule.rs) | Projectile schedule seams owned by the runtime composition tier. |
+| [`rollback`](src/rollback/mod.rs) | Ambition's integration boundary for `ggrs` + `bevy_ggrs`. |
 | [`room_schedule`](src/room_schedule.rs) | The engine half of the room-transition phase (E5 step 5): detection emits `RoomTransitionRequested`; the feature-side `reset_ecs_room_features` system tears down per-room ECS state. |
 | [`session_world`](src/session_world.rs) | Prepared platformer definitions and canonical live session components. |
 | [`sim_core_resources`](src/sim_core_resources.rs) | The engine-generic simulation messages + resource defaults (E5 step 6). |
-| [`snapshot`](src/snapshot/mod.rs) | **N3.1's registration seam, and N0.4's desync canary.** |
 
 _12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

@@ -656,3 +656,17 @@ pub fn rider_hand_world_pos_in_frame(
     );
     rider_pos + ambition_engine_core::AccelerationFrame::new(gravity_dir).to_world(hand_local)
 }
+
+impl bevy::ecs::entity::MapEntities for MountSlot {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        if let Some(entity) = self.rider.as_mut() {
+            *entity = mapper.get_mapped(*entity);
+        }
+    }
+}
+
+impl bevy::ecs::entity::MapEntities for RidingOn {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        self.mount = mapper.get_mapped(self.mount);
+    }
+}

@@ -144,7 +144,7 @@ pub use ecs::{
     BossClusterRef, BossClusterScratch, BossConfig, BossEncounter, BossMut, BossOverrides, BossRef,
     CanPilot, ControlGrant, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
     FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, Limb,
-    LimbIntents, LimbRig, LimbRouteState, LimbSlot, MountClass, MountDeathImpact, MountDied,
+    LimbIntents, LimbRig, LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact, MountDied,
     MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge,
     PendingMountLinks, RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,
     RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,

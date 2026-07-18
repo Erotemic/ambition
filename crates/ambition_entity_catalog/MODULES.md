@@ -6,9 +6,10 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`action_scheme`](src/action_scheme.rs) | Character action scheme — the per-subject vocabulary of "what does each control slot do, and what is it called." |
 | [`placements`](src/placements.rs) | The authored-placement schema vocabulary — architecture.md §4b. |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

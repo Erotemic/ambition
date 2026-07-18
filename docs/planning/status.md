@@ -30,28 +30,23 @@ These are foundations to preserve, not active decomposition tracks.
 | Workstream | Current state | What closes it |
 |---|---|---|
 | Encounter lifecycle convergence | **DONE (2026-07-16).** One command/lifecycle/objective authority (`EncounterLifecycle` + reducer + `EncounterCommand` ingress); ownership/policy-driven cleanup; `SimId::encounter` + snapshot-registered relations; consumers derive from lifecycle + staging policy; the Noether attunement is the shipped non-boss customer. E8–E13 all closed with exit tests in [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md). | — closed; residual boss-owned pieces (outro-gated persistence, reward anchors, adaptive music) recorded there as actor-local/authored policy. |
-| Atomic active-room restoration | **DONE + CLOSED OUT (2026-07-16).** `restore` stages a differing snapshot room through canonical `RoomStaging`, and every currently preflightable refusal occurs before mutation. The closeout now includes complete room-content staging, no hollow room-backed respawns, exact session routing identity, post-staging stable-id validation, blob-rebuildable projectiles with restored room/session lifetime scope, coordinated same-room reconstruction of content-staged actor batches, and registered fight-aged Smash/aggression/disposition/melee state. Exit oracles: `portal_lab` CLEAN, cross-room duel suffix equality, same-room missing-duelist batch reconstruction, and dynamic lifetime-shell reconstruction. See [`engine/netcode.md`](engine/netcode.md) N3.2b. | Closed for supported same-build rollback. Remaining boundaries: unanchored dead dynamic families need domain spawn recipes; room-presence mismatch refuses; `PlayerProjectileState` and broader disposable-world codec transactionality remain later work. |
-| Immutable prepared content and exact session identity | **DONE (2026-07-18).** Provider preparation now validates and deterministically assembles one immutable `PreparedContent`; canonical session roots own the exact object, fingerprint/schema identity, and App-local epoch. Character, room-staging, and placement-lowering registries prove transactional owned registration. Snapshots bind to exact content and snapshot-schema fingerprints before mutation. LDtk reload prepares a detached candidate and commits changed world/content together; equivalent reloads preserve epoch. ADR 0026 records the contract. | Closed at Milestone A. Next executable architecture milestone: explicit spawn provenance plus one authored/staged/runtime-dynamic `ConstructionPlan` vertical slice. |
+| GGRS rollback integration | **DONE for the simulation harness (2026-07-18).** `ggrs`/`bevy_ggrs` now own frame history, save/load requests, rollback entity recreation, entity remapping, resimulation, and sync-test checksum comparison. The custom `ambition_runtime::snapshot` engine, restore transaction, coverage debt ledgers, and compatibility facade are deleted. The real `SandboxSim` can run under `SyncTestSession`, exact prepared-content/schema identity invalidates active sessions, and representative actor/projectile/encounter churn is exercised through real GGRS loads. ADR 0027 records the replacement. | Production online boundary: confirmed-frame quarantine for presentation/external effects, then a Matchbox-backed two-peer handshake through the same session seam. |
+| Immutable prepared content and exact session identity | **DONE (2026-07-18).** Provider preparation validates and deterministically assembles one immutable `PreparedContent`; canonical roots own the exact object, fingerprint/schema identity, and App-local epoch. The identity now binds GGRS session startup rather than an Ambition-owned snapshot format. LDtk replacement is rejected while a rollback session is active and requires a coordinated restart. ADRs 0026–0027 record the contract. | Closed. Next world-construction milestone: explicit provenance plus one authored/staged/runtime-dynamic `ConstructionPlan` vertical slice. |
 | Super Mary-O acceptance | **PARTIAL, engine seams proven.** Pickups/equip, grown form, ranged powerup, bricks, crony stomp behavior, flag sequence, clock, tally, and cyclic restart exist. | Secret pipe/underground room, shell prop, HUD/title/results, and one deterministic scripted level-1 completion that collects and uses a real powerup. |
 | Sanic acceptance | **PARTIAL, movement and host seams proven.** Provider-owned persona, standard keyboard→slot→brain→body control, ball dash, transformation, lifecycle, and route/momentum oracles exist. | Bits/drop-on-hit, at least one complete enemy/contact loop, goal/HUD/results, a complete act, and a headless high-route-versus-low-route completion oracle. |
 | Fighter-brain L3 rollouts | **DESIGN CORRECTION REQUIRED.** The current proposal combines a wall-clock budget with deterministic authoritative simulation and proposes rollouts from a live snapshot despite the delayed `Perceived` contract. | Choose a deterministic work budget or recorded-input model, and define a rollout state built only from allowed perceived facts before implementation. |
 | Boss animator residue | **BOUNDED.** The execution/body path is converged; remaining residue is animation vocabulary/projection (`BossAnim`→`CharacterAnim`, obsolete target mirrors where still live). | Complete the bounded animator fold. Do not reopen the already-shared body integration path. |
 
-## Restore terminology
+## Rollback terminology
 
-Two different accomplishments, both landed (2026-07-16):
+`ggrs` is the rollback driver; `bevy_ggrs` is the Bevy world snapshot adapter.
+Ambition has no independent ephemeral snapshot/restore engine. `SimId` remains
+semantic identity, while `RollbackId` is GGRS frame-history identity.
 
-- leak-free sequential sessions and exact same-active-room
-  restore/resimulation for supported registered state;
-- atomic replacement of the live room when a snapshot names a different
-  active room (the N3.2b staged transaction).
-
-`MovingPlatformSet` is a lifecycle-scoped active-session resource: it is
-installed exclusively by construction (session setup, transition, sandbox
-reset, hot-reload, restore staging — the visual sync owns no reset),
-snapshot-registered, and explicitly cleared on teardown. The type does not
-independently carry a session identifier; safety currently rests on the
-one-live-session host contract plus teardown.
+The old atomic room-staging restore campaign remains useful history because it
+discovered the authoritative state and construction boundaries, but its runtime
+implementation has been removed. Ordinary activation, transition, reset, and
+hot reload still use canonical construction. GGRS rewinds the ECS world directly.
 
 ## Deferred
 

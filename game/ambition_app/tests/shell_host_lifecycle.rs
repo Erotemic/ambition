@@ -309,9 +309,9 @@ fn assert_in_game(
     assert_eq!(
         prepared.snapshot_schema(),
         app.world()
-            .resource::<ambition::runtime::snapshot::SnapshotRegistry>()
+            .resource::<ambition::runtime::rollback::RollbackRegistry>()
             .schema_fingerprint(),
-        "{context}: prepared content is bound to the active snapshot schema",
+        "{context}: prepared content is bound to the active GGRS rollback schema",
     );
     assert_eq!(
         session_room,
@@ -664,61 +664,61 @@ fn encounter_authorities(app: &mut App) -> Vec<(String, Option<SessionScopeId>)>
     rows
 }
 
-/// **A snapshot never restores across sessions** (GPT-5.6 closeout,
-/// 2026-07-16).
+/// **A GGRS session contract never survives session retirement.**
 ///
-/// A snapshot is bound at capture to the live `SessionScopeId`. A stale
-/// snapshot from retired session A, presented to successor session B — same
-/// provider, same prepared world, same active room — must refuse BEFORE any
-/// preflight touches B's world: reconciling it would resurrect A's entities
-/// and relations wearing B's identity. This is what scopes a future rollback
-/// ring to one live session by construction, not convention.
+/// The shell does not start networking by default, but the exact content/schema
+/// contract is session-scoped. Retiring the canonical root removes the only
+/// prepared identity a future GGRS session may bind to; successor activation
+/// receives a fresh session scope and prepared epoch.
 #[test]
-fn a_snapshot_never_restores_across_sessions() {
-    use ambition::runtime::snapshot::{restore, take, RestoreError, SnapshotRegistry};
-
+fn rollback_contract_inputs_never_leak_across_sessions() {
     let mut app = shell_host_app();
     settle(&mut app);
 
-    // ── Session A: Ambition. Take a snapshot bound to A. ───────────────
     launch_entry(&mut app, 0);
     settle(&mut app);
     let scope_a = live_scope(&app).expect("Ambition session A is live");
-    let reg = app
-        .world_mut()
-        .remove_resource::<SnapshotRegistry>()
-        .expect("SnapshotRegistryPlugin installs it");
-    let snap = take(app.world(), &reg);
-    assert_eq!(
-        snap.session,
-        Some(scope_a),
-        "take() binds the snapshot to its owning session scope"
-    );
+    let identity_a = {
+        let world = app.world_mut();
+        let mut query = world.query::<&ambition::runtime::PreparedContentIdentity>();
+        query
+            .single(world)
+            .copied()
+            .expect("session A exposes prepared identity")
+    };
 
-    // ── Retire A; activate B — same provider, same entry, same room. ───
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
+    let prepared_identity_is_gone = {
+        let world = app.world_mut();
+        let mut query = world.query::<&ambition::runtime::PreparedContentIdentity>();
+        query.iter(world).next().is_none()
+    };
+    assert!(
+        prepared_identity_is_gone,
+        "retirement removes the prepared identity a rollback session would bind to"
+    );
+
     launch_entry(&mut app, 0);
     settle(&mut app);
     let scope_b = live_scope(&app).expect("Ambition session B is live");
-    assert_ne!(scope_a, scope_b, "session scopes are never reused");
+    let identity_b = {
+        let world = app.world_mut();
+        let mut query = world.query::<&ambition::runtime::PreparedContentIdentity>();
+        query
+            .single(world)
+            .copied()
+            .expect("session B exposes prepared identity")
+    };
 
-    // ── A's snapshot into B refuses, with B untouched. ──────────────────
-    let before = reg.hash_world(app.world());
-    match restore(app.world_mut(), &snap, &reg) {
-        Err(RestoreError::SessionMismatch { snapshot, live }) => {
-            assert_eq!(snapshot, Some(scope_a.0));
-            assert_eq!(live, Some(scope_b.0));
-        }
-        other => panic!(
-            "session A's snapshot restored into session B (same provider, same \
-             room) instead of refusing: {other:?}"
-        ),
-    }
+    assert_ne!(scope_a, scope_b, "session scopes are never reused");
+    assert_ne!(
+        identity_a.epoch, identity_b.epoch,
+        "successor activation gets a fresh content epoch"
+    );
     assert_eq!(
-        reg.hash_world(app.world()),
-        before,
-        "the session-mismatch refusal ran before any mutation — B is untouched"
+        identity_a.fingerprint, identity_b.fingerprint,
+        "equivalent authored content keeps its fingerprint"
     );
 }
 

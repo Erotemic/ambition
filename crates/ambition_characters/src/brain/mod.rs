@@ -231,7 +231,7 @@ impl Brain {
     }
 
     /// Mutable access to the actor's `BossPatternState`. For
-    /// `ambition_runtime::snapshot`, which rewinds the boss's clocks, its step
+    /// `ambition_runtime::rollback`, which rewinds the boss's clocks, its step
     /// cursor, and its `rng_seed` — see `SnapshotCursor for Brain`.
     pub fn boss_pattern_state_mut(&mut self) -> Option<&mut boss_pattern::BossPatternState> {
         match self {

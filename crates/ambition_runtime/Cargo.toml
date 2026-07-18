@@ -36,6 +36,7 @@ ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_menu = { path = "../ambition_menu" }
+ambition_items = { path = "../ambition_items" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_dev_tools = { path = "../ambition_dev_tools" }
 # The authored world IR — `ActiveRoomMetadata` is what the mode-scope seam
@@ -43,6 +44,7 @@ ambition_dev_tools = { path = "../ambition_dev_tools" }
 ambition_world = { path = "../ambition_world" }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
 blake3 = "1"
+bevy_ggrs = "0.21"
 bevy = { version = "0.18.1", default-features = false, features = [
     # add_headless_foundation: asset/image registries + states for a
     # windowless engine app (bevy_ecs_ldtk touches Image handles).

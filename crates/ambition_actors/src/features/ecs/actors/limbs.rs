@@ -61,13 +61,13 @@ impl LimbSlot {
 
 /// On the HOST body: its driven limbs, in spawn order (the stable fan-out
 /// order). The rig owns no behavior — it is a relationship, like `MountSlot`.
-#[derive(Component, Default, Debug)]
+#[derive(Component, Clone, Default, Debug)]
 pub struct LimbRig {
     pub limbs: Vec<Entity>,
 }
 
 /// On each LIMB body: which host it belongs to and which slot it fills.
-#[derive(Component, Debug)]
+#[derive(Component, Clone, Debug)]
 pub struct Limb {
     pub of: Entity,
     pub slot: LimbSlot,
@@ -84,7 +84,7 @@ pub struct Limb {
 /// `melee_pressed` edge fires exactly once — at the Active-window onset — instead
 /// of every tick the strike is live (Q18: "a `melee_pressed` edge at Active
 /// onset"). `None` when no routed strike is active.
-#[derive(Component, Default, Debug)]
+#[derive(Component, Clone, Default, Debug)]
 pub struct LimbRouteState {
     active_move: Option<String>,
 }
@@ -92,7 +92,7 @@ pub struct LimbRouteState {
 /// On the HOST body: the per-limb intent table its driving brain writes each
 /// tick (the boss pattern maps attack steps onto per-limb velocity targets +
 /// attack edges here; a possessing player's verb map writes here via M5).
-#[derive(Component, Default, Debug)]
+#[derive(Component, Clone, Default, Debug)]
 pub struct LimbIntents(pub BTreeMap<LimbSlot, ActorControlFrame>);
 
 /// Copy each rigged limb's intent onto its `ActorControl` — the 1→N sibling
@@ -396,5 +396,19 @@ mod tests {
         assert!(!l.0.melee_pressed);
         let r = app.world().get::<ActorControl>(hand_r).unwrap();
         assert_eq!(r.0.velocity_target, ae::Vec2::new(150.0, 0.0));
+    }
+}
+
+impl bevy::ecs::entity::MapEntities for LimbRig {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        for entity in &mut self.limbs {
+            *entity = mapper.get_mapped(*entity);
+        }
+    }
+}
+
+impl bevy::ecs::entity::MapEntities for Limb {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        self.of = mapper.get_mapped(self.of);
     }
 }

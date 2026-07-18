@@ -40,7 +40,7 @@ use crate::types::PlacedPortal;
 /// [`evict_straddlers_on_portal_change`] can detect a portal that MOVED or
 /// VANISHED under a straddling body. Crate-owned; the [`PortalPlugin`](crate::PortalPlugin)
 /// initialises it.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone)]
 pub struct PortalFrameHistory(HashMap<PortalChannel, PortalAperture>);
 
 /// Small clearance past the closing plane so the evicted body is unambiguously

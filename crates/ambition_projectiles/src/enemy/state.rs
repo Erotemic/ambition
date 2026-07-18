@@ -21,7 +21,7 @@ pub use ambition_platformer_primitives::projectile::EnemyProjectileSpawn;
 /// Bevy resource for the enemy-projectile pool. The in-flight bodies are ECS
 /// entities; this type owns no `Vec` — it is a stable resource handle + the home
 /// of the [`Self::build`] request→body mapping.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone, Copy, Debug)]
 pub struct EnemyProjectileState;
 
 impl EnemyProjectileState {

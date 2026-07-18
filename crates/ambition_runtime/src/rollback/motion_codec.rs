@@ -1,4 +1,4 @@
-//! The movement-policy (`MotionModel`) snapshot codec — ADR 0024 §9.
+//! The movement-policy (`MotionModel`) rollback checksum codec — ADR 0024 §9.
 //!
 //! Split from `codecs.rs` for the D-B module-size gate; shares the module core
 //! via `use super::*`. Explicit field order, fixed-width LE, every field

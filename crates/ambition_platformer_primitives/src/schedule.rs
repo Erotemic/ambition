@@ -87,7 +87,14 @@ impl SimSchedule {
 
     /// True when the sim advances on `Time<Fixed>` rather than the render frame.
     pub fn is_fixed_tick(&self) -> bool {
-        self.label == FixedUpdate.intern()
+        self.is(FixedUpdate)
+    }
+
+    /// Compare the configured host schedule without sealing it. This keeps the
+    /// platformer vocabulary independent of optional schedule-owner crates such
+    /// as `bevy_ggrs`; callers name the label they understand.
+    pub fn is(&self, label: impl ScheduleLabel) -> bool {
+        self.label == label.intern()
     }
 }
 
@@ -102,6 +109,9 @@ pub trait SimScheduleExt {
 
     /// True when the sim advances on `Time<Fixed>`. Does not seal.
     fn sim_is_fixed_tick(&self) -> bool;
+
+    /// Compare the configured host schedule without sealing it.
+    fn sim_is(&self, label: impl ScheduleLabel) -> bool;
 }
 
 impl SimScheduleExt for App {
@@ -133,6 +143,12 @@ impl SimScheduleExt for App {
         self.world()
             .get_resource::<SimSchedule>()
             .is_some_and(SimSchedule::is_fixed_tick)
+    }
+
+    fn sim_is(&self, label: impl ScheduleLabel) -> bool {
+        self.world()
+            .get_resource::<SimSchedule>()
+            .is_some_and(|schedule| schedule.is(label))
     }
 }
 

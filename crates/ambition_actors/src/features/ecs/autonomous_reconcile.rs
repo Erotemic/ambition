@@ -1,11 +1,11 @@
-//! Post-restore reconciliation of an actor's **autonomous configuration** from
+//! Post-GGRS-load reconciliation of an actor's **autonomous configuration** from
 //! its restored [`BrainBinding`] source.
 //!
-//! The snapshot registers the small, stable facts (the [`BrainBinding`] source,
+//! The rollback contract registers the small, stable facts (the [`BrainBinding`] source,
 //! disposition, health, gravity) but NOT the whole archetype config an actor
 //! carries — its `ActorConfig` tuning / brain-spec, `CombatCapabilities`, and
 //! `ActionSet`. That config is a deterministic function of the autonomous source
-//! plus the actor's durable combat kit, so rather than serialize it, a rewind
+//! plus the actor's durable combat kit, so rather than duplicate it, a rewind
 //! RECONSTRUCTS it here, the same way spawn / provocation build it live. This is
 //! what makes provocation rollback-correct in BOTH directions:
 //!
@@ -17,10 +17,10 @@
 //!   restore the peaceful catalog config the character spawned with.
 //!
 //! The live `Brain` for a CATALOG source is rebuilt by the catalog pass
-//! (`snapshot::codecs::reconcile_brain_bindings`, which runs first); this pass
+//! (`ambition_runtime::rollback::reconcile_brain_bindings`, which runs first); this pass
 //! owns the coupled CONFIG for catalog sources and the whole autonomous state for
-//! provoked sources. Registered facts (disposition, health, gravity) are left to
-//! their own blobs — this pass never overwrites them.
+//! provoked sources. Registered facts (disposition, health, gravity) are restored by
+//! their own GGRS strategies — this pass never overwrites them.
 //!
 //! Bodies under temporary control (player possession / mount) are skipped; their
 //! control is reconciled separately (see the temporary-control reconcile pass).
@@ -52,7 +52,7 @@ use ambition_platformer_primitives::sim_id::SimId;
 ///
 /// Both the live provoke flip (`provoke_actor_in_place`) and the post-restore
 /// reconstruction apply this exact projection, so a provoked actor is identical
-/// whether it was just challenged or rebuilt from a snapshot.
+/// whether it was just challenged or rebuilt after a GGRS load.
 pub(crate) struct ProvokedArchetype {
     pub tuning: ActorTuning,
     pub brain_spec: CharacterBrainSpec,
@@ -412,7 +412,7 @@ fn reconcile_temporary_control(world: &mut World) {
         .collect();
     if player_bodies.len() > 1 {
         error!(
-            target: "ambition_actors::snapshot_reconcile",
+            target: "ambition_actors::rollback_reconcile",
             "restore: {} bodies are player-controlled (expected <= 1); using the first",
             player_bodies.len(),
         );
@@ -435,7 +435,7 @@ fn reconcile_temporary_control(world: &mut World) {
                 if let Some(pp) = primary_player_home {
                     if pp != resolved {
                         warn!(
-                            target: "ambition_actors::snapshot_reconcile",
+                            target: "ambition_actors::rollback_reconcile",
                             "restore: possession controller id {:?} resolves to a different body \
                              than PrimaryPlayer; trusting the stored controller id",
                             controller_id,
@@ -446,7 +446,7 @@ fn reconcile_temporary_control(world: &mut World) {
             }
             None => {
                 warn!(
-                    target: "ambition_actors::snapshot_reconcile",
+                    target: "ambition_actors::rollback_reconcile",
                     "restore: possession controller id {:?} did not resolve to any body; \
                      falling back to PrimaryPlayer",
                     controller_id,

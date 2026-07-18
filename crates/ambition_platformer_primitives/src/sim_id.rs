@@ -36,7 +36,7 @@ use bevy::prelude::Component;
 ///
 /// Ordered, so a snapshot's entity rows sort into a canonical sequence regardless
 /// of the archetype layout Bevy's `Query` happened to walk (see
-/// `ambition_runtime::snapshot::hash_entities_by_key`).
+/// `ambition_runtime::rollback` checksum projections).
 #[derive(Component, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SimId(String);
 
@@ -80,7 +80,7 @@ impl SimId {
     /// Rebuild an id from a snapshot blob's key.
     ///
     /// The ONLY way to make a `SimId` from a raw string, and it is named for its
-    /// one caller (`ambition_runtime::snapshot::restore`). Everything else must
+    /// GGRS entity recreation and deterministic construction. Everything else must
     /// go through [`SimId::placement`] / [`SimId::player_slot`] /
     /// [`SimId::spawned`] / [`SimId::encounter`], because those ARE the
     /// vocabulary — another way to mint one is another namespace to collide in.

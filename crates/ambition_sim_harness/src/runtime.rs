@@ -1,3 +1,5 @@
+//! Programmatic Ambition simulation runtime, including direct and GGRS-driven stepping.
+
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
@@ -8,7 +10,7 @@ use ambition::input::ControlFrame;
 
 use crate::action::AgentAction;
 use crate::observation::{AgentObservation, EnemyObs, PickupObs};
-use crate::options::{SandboxSimOptions, TimestepMode};
+use crate::options::{RollbackMode, SandboxSimOptions, TimestepMode};
 
 /// A self-contained sandbox simulation, ready to be stepped programmatically.
 ///
@@ -24,6 +26,7 @@ pub struct SandboxSim {
     app: App,
     tick: u64,
     timestep: TimestepMode,
+    rollback: RollbackMode,
 }
 
 impl SandboxSim {
@@ -59,9 +62,13 @@ impl SandboxSim {
 
         // Netcode N0.1: choose the sim schedule BEFORE the first sim plugin
         // builds (see the doc note above).
-        if options.fixed_tick {
+        {
             use ambition::platformer::schedule::SimScheduleExt as _;
-            app.set_sim_schedule(bevy::app::FixedUpdate);
+            if options.rollback.enabled() {
+                app.set_sim_schedule(ambition::runtime::rollback::GgrsSchedule);
+            } else if options.fixed_tick {
+                app.set_sim_schedule(bevy::app::FixedUpdate);
+            }
         }
 
         // Caller-supplied composition: content install + world validation +
@@ -69,8 +76,15 @@ impl SandboxSim {
         // propagates out as the constructor's `Err`.
         compose(&mut app, &options)?;
 
-        // Bind the local in same name the rest of the function uses.
-        let timestep = options.timestep;
+        // GGRS owns the simulation cadence. The exact integer-nanosecond period
+        // matches bevy_ggrs's accumulator, so one harness update requests one
+        // new GGRS frame before any forced resimulation work.
+        let rollback = options.rollback;
+        let timestep = if rollback.enabled() {
+            TimestepMode::fixed_60hz()
+        } else {
+            options.timestep
+        };
 
         // In Fixed mode, install Bevy's `TimeUpdateStrategy::ManualDuration`
         // BEFORE the first Startup tick. This is what tells Bevy's
@@ -86,7 +100,13 @@ impl SandboxSim {
         // EXACTLY (same `Duration`, so integer nanos, so no drift): the
         // accumulator then expends precisely once per `app.update()` and one
         // `step()` is one tick — forever, not just for the first few thousand.
-        if let TimestepMode::Fixed { dt } = timestep {
+        if rollback.enabled() {
+            app.insert_resource(TimeUpdateStrategy::ManualDuration(
+                std::time::Duration::from_nanos(
+                    1_000_000_000u64 / ambition::runtime::SIM_TICK_HZ as u64,
+                ),
+            ));
+        } else if let TimestepMode::Fixed { dt } = timestep {
             let frame_dt = if options.fixed_tick {
                 app.world()
                     .resource::<bevy::time::Time<bevy::time::Fixed>>()
@@ -96,16 +116,28 @@ impl SandboxSim {
             };
             app.insert_resource(TimeUpdateStrategy::ManualDuration(frame_dt));
         }
-        // First tick runs Startup so the player entity exists before
-        // the caller's first `observation()` reads it.
+        // First update runs Startup. In rollback mode there is deliberately no
+        // Session yet, so no simulation frame can advance before the canonical
+        // session root and exact content identity exist.
         app.update();
-        // Bevy's first frame has `dt == 0`, so under `fixed_tick` the fixed
-        // accumulator expends nothing and that Startup frame ran no sim step.
-        // One more frame puts a fixed-tick sim in the same state a
-        // frame-stepped one reaches at construction: exactly one step executed.
-        // Without this, every parameterized suite would be off by one step in
-        // one of the two modes.
-        if options.fixed_tick {
+
+        if let RollbackMode::SyncTest {
+            check_distance,
+            max_prediction_window,
+        } = rollback
+        {
+            ambition::runtime::rollback::start_sync_test_session(
+                app.world_mut(),
+                ambition::runtime::rollback::SyncTestSettings {
+                    check_distance,
+                    max_prediction_window,
+                },
+            )
+            .map_err(|error| format!("failed to start GGRS sync-test session: {error}"))?;
+            app.update();
+        } else if options.fixed_tick {
+            // Bevy's first frame has `dt == 0`, so the fixed accumulator needs
+            // one additional update to execute the same initial simulation tick.
             app.update();
         }
 
@@ -113,6 +145,7 @@ impl SandboxSim {
             app,
             tick: 0,
             timestep,
+            rollback,
         })
     }
 
@@ -122,6 +155,15 @@ impl SandboxSim {
     /// Installs / removes the `TimeUpdateStrategy::ManualDuration`
     /// resource accordingly.
     pub fn set_timestep(&mut self, timestep: TimestepMode) {
+        if self.rollback.enabled() {
+            self.timestep = TimestepMode::fixed_60hz();
+            self.app.insert_resource(TimeUpdateStrategy::ManualDuration(
+                std::time::Duration::from_nanos(
+                    1_000_000_000u64 / ambition::runtime::SIM_TICK_HZ as u64,
+                ),
+            ));
+            return;
+        }
         self.timestep = timestep;
         match timestep {
             TimestepMode::Fixed { dt } => {
@@ -161,7 +203,14 @@ impl SandboxSim {
     /// routing them back through `AgentAction` would silently drop every field
     /// that type does not carry.
     pub fn step_frame(&mut self, frame: ControlFrame) -> AgentObservation {
-        *self.app.world_mut().resource_mut::<ControlFrame>() = frame;
+        if self.rollback.enabled() {
+            self.app
+                .world_mut()
+                .resource_mut::<ambition::runtime::rollback::PendingLocalInput>()
+                .0 = frame;
+        } else {
+            *self.app.world_mut().resource_mut::<ControlFrame>() = frame;
+        }
         self.app.update();
         self.tick = self.tick.saturating_add(1);
         self.observation()
@@ -348,6 +397,94 @@ impl SandboxSim {
         self.step(AgentAction::default())
     }
 
+    fn sync_test_settings(&self) -> Option<ambition::runtime::rollback::SyncTestSettings> {
+        match self.rollback {
+            RollbackMode::Disabled => None,
+            RollbackMode::SyncTest {
+                check_distance,
+                max_prediction_window,
+            } => Some(ambition::runtime::rollback::SyncTestSettings {
+                check_distance,
+                max_prediction_window,
+            }),
+        }
+    }
+
+    /// Discard rollback history and make the current live world the frame-zero
+    /// baseline for the next GGRS step.
+    ///
+    /// Harness callers must use this after mutating authoritative state through
+    /// [`Self::world_mut`]. The typed setup helpers call it automatically. A
+    /// mutation that is not represented in GGRS input cannot remain behind the
+    /// rollback cursor: resimulating an older frame would correctly omit it.
+    pub fn rebase_rollback_history(&mut self) -> Result<(), String> {
+        let Some(settings) = self.sync_test_settings() else {
+            return Ok(());
+        };
+        ambition::runtime::rollback::stop_session(self.app.world_mut());
+        ambition::runtime::rollback::start_sync_test_session(self.app.world_mut(), settings)
+            .map_err(|error| format!("failed to rebase GGRS sync-test history: {error}"))
+    }
+
+    /// Execute one setup-only simulation frame without retaining rollback
+    /// history, then install a fresh full SyncTest session over the resulting
+    /// world. This is for message-driven setup seams such as SpawnActorRequest:
+    /// the request is external harness input, while the spawned entity becomes
+    /// part of the new frame-zero baseline.
+    fn run_rollback_setup_frame(&mut self) -> Result<(), String> {
+        let Some(settings) = self.sync_test_settings() else {
+            self.app.update();
+            return Ok(());
+        };
+
+        ambition::runtime::rollback::stop_session(self.app.world_mut());
+        ambition::runtime::rollback::start_sync_test_session(
+            self.app.world_mut(),
+            ambition::runtime::rollback::SyncTestSettings {
+                check_distance: 0,
+                max_prediction_window: settings.max_prediction_window,
+            },
+        )
+        .map_err(|error| format!("failed to start GGRS setup frame: {error}"))?;
+        self.app.update();
+        ambition::runtime::rollback::session_health(self.app.world())
+            .map_err(|error| format!("GGRS setup frame failed: {error}"))?;
+        self.rebase_rollback_history()
+    }
+
+    fn rebase_after_direct_setup_mutation(&mut self) {
+        self.rebase_rollback_history()
+            .expect("valid GGRS settings rebase after harness setup mutation");
+    }
+
+    /// True when this harness is driven by an active GGRS session.
+    pub fn rollback_enabled(&self) -> bool {
+        self.rollback.enabled()
+    }
+
+    /// Non-rollback diagnostic counters proving that GGRS performed actual
+    /// save/load/resimulation work beneath a harness step.
+    pub fn rollback_execution_stats(
+        &self,
+    ) -> Option<ambition::runtime::rollback::RollbackExecutionStats> {
+        self.app
+            .world()
+            .get_resource::<ambition::runtime::rollback::RollbackExecutionStats>()
+            .copied()
+    }
+
+    pub fn rollback_status(&self) -> Option<&ambition::runtime::rollback::RollbackSessionStatus> {
+        self.app
+            .world()
+            .get_resource::<ambition::runtime::rollback::RollbackSessionStatus>()
+    }
+
+    /// Return an actionable error if the active GGRS session invalidated its
+    /// content/schema contract or the sync-test detected divergent resimulation.
+    pub fn rollback_health(&self) -> Result<(), String> {
+        ambition::runtime::rollback::session_health(self.app.world())
+    }
+
     /// Tick count: number of `step` calls executed.
     pub fn tick_count(&self) -> u64 {
         self.tick
@@ -365,7 +502,9 @@ impl SandboxSim {
     /// Mutable world access. Useful for test setup ("teleport the
     /// player to position X then step"). Use with care — writing to
     /// gameplay-critical resources mid-episode can violate the
-    /// invariants the simulation relies on.
+    /// invariants the simulation relies on. When rollback is enabled, call
+    /// [`Self::rebase_rollback_history`] after any authoritative mutation and
+    /// before the next [`Self::step`].
     pub fn world_mut(&mut self) -> &mut World {
         self.app.world_mut()
     }
@@ -382,6 +521,8 @@ impl SandboxSim {
             .world_mut()
             .resource_mut::<ambition::actors::physics::BaseGravity>();
         base.dir = ae::Vec2::new(dir.0, dir.1);
+        drop(base);
+        self.rebase_after_direct_setup_mutation();
     }
 
     /// Set the active input-frame mapping mode for scripted control.
@@ -397,6 +538,8 @@ impl SandboxSim {
             .world_mut()
             .resource_mut::<ambition::persistence::settings::UserSettings>();
         settings.gameplay.movement_frame_mode = mode;
+        drop(settings);
+        self.rebase_after_direct_setup_mutation();
     }
 
     /// Teleport the player to `pos` and zero its velocity. Test setup — still a
@@ -416,6 +559,7 @@ impl SandboxSim {
                 ae::movement::TransitVelocity::Zero,
             );
         }
+        self.rebase_after_direct_setup_mutation();
     }
 
     /// Grant the player the pogo (down-attack bounce) ability. Test setup.
@@ -427,6 +571,7 @@ impl SandboxSim {
         if let Ok(mut abilities) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.pogo = true;
         }
+        self.rebase_after_direct_setup_mutation();
     }
 
     /// Grant the player flight and turn it on. Test / RL setup — the sibling of
@@ -443,6 +588,7 @@ impl SandboxSim {
             abilities.abilities.fly = true;
             flight.fly_enabled = true;
         }
+        self.rebase_after_direct_setup_mutation();
     }
 
     /// Spawn a boss into the live sim at `pos` via [`SpawnActorRequest`], then
@@ -453,7 +599,9 @@ impl SandboxSim {
     /// `half_size` seeds the kinematic body; a boss whose profile defines
     /// `combat_size` (e.g. the mockingbird) overrides it for the contact box.
     /// `brain` resolves the behavior profile (`BossBrain::PhaseScript { script_id }`
-    /// pins it; `Dormant` / `Custom` fall back to `name`).
+    /// pins it; `Dormant` / `Custom` fall back to `name`). When rollback is
+    /// enabled, the setup frame is excluded from history and the spawned world
+    /// becomes the next session's frame-zero baseline.
     pub fn spawn_boss_at(
         &mut self,
         id: impl Into<String>,
@@ -497,7 +645,8 @@ impl SandboxSim {
                 grudge_against: None,
                 kind: ambition::actors::features::SpawnActorKind::Boss { brain, overrides },
             });
-        self.app.update();
+        self.run_rollback_setup_frame()
+            .expect("boss setup frame establishes a fresh GGRS rollback baseline");
     }
 
     /// Spawn a normal hostile ENEMY into the live sim at `pos` via the same
@@ -506,7 +655,8 @@ impl SandboxSim {
     /// + its brain/ActionSet resolve from `brain` (e.g.
     /// `CharacterBrain::Custom("cellular_automaton_fighter")`). Steps one frame so the
     /// spawn command flushes and the entity exists. Counterpart to
-    /// [`Self::spawn_boss_at`] for the actor (non-boss) path.
+    /// [`Self::spawn_boss_at`] for the actor (non-boss) path. Rollback mode
+    /// rebases history after this external setup request is materialized.
     pub fn spawn_enemy_at(
         &mut self,
         id: impl Into<String>,
@@ -526,7 +676,8 @@ impl SandboxSim {
                 grudge_against: None,
                 kind: ambition::actors::features::SpawnActorKind::Enemy { brain },
             });
-        self.app.update();
+        self.run_rollback_setup_frame()
+            .expect("enemy setup frame establishes a fresh GGRS rollback baseline");
     }
 
     /// Inject a block into the live sim world (a pogo orb, one-way
@@ -541,6 +692,7 @@ impl SandboxSim {
         .0
         .blocks
         .push(block);
+        self.rebase_after_direct_setup_mutation();
     }
 
     /// Returns the list of room ids the LDtk project compiled to.

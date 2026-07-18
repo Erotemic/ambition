@@ -199,3 +199,13 @@ mod tests {
         assert!(!parts.all_with_role_defeated(EncounterRole::Minion));
     }
 }
+
+impl bevy::ecs::entity::MapEntities for EncounterParticipants {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        for member in &mut self.members {
+            if let Some(entity) = member.entity.as_mut() {
+                *entity = mapper.get_mapped(*entity);
+            }
+        }
+    }
+}

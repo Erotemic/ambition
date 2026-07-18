@@ -13,6 +13,7 @@
 | [`content_validation`](src/content_validation.rs) | Cross-content validation for authored sandbox data. |
 | [`dialogue`](src/dialogue/mod.rs) | Named Ambition dialogue / cutscene content registration. |
 | [`duel_arena`](src/duel_arena.rs) | Spectator-duel CONTENT — the PCA-vs-robot exhibition fight (R3.3: room mechanics split by kind; this one is a `RoomLoaded` consumer). |
+| [`encounters`](src/encounters.rs) | Content encounter customers on the GENERIC lifecycle (E13). |
 | [`enemy_roster`](src/enemy_roster.rs) | THE Ambition hostile-archetype roster — named, authored game data. |
 | [`falling_sand`](src/falling_sand.rs) | Falling-sand prototype room integration — CONTENT (a self-gating room plugin: feature-gated, active only while its authored room is; R3.3 room-mechanics-by-kind). |
 | [`input_techniques`](src/input_techniques.rs) | Ambition-owned motion-input technique registrations. |
@@ -28,7 +29,7 @@
 | [`quests`](src/quests/mod.rs) | Named Ambition quest content registration. |
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 
-_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

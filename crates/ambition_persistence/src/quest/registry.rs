@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 
 /// Sandbox quest registry. Keyed by quest id matching `QuestSpec::id`.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone)]
 pub struct QuestRegistry {
     pub quests: BTreeMap<String, crate::quest::QuestState>,
     /// Pending advance events queued by the simulation half. Drained

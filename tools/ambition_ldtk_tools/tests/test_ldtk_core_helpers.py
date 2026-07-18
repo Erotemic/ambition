@@ -4,6 +4,10 @@ from pathlib import Path
 
 from ambition_ldtk_tools.ldtk import (
     alloc_uid,
+    default_character_catalog,
+    default_hall_ldtk,
+    default_sandbox_ldtk,
+    default_sprite_assets_dir,
     entity_field_value,
     ensure_entities_layer_def,
     ensure_entities_layer_instance,
@@ -84,3 +88,22 @@ def test_rel_to_ldtk_uses_forward_slashes(tmp_path: Path) -> None:
     ldtk.write_text("{}")
     asset.write_bytes(b"")
     assert rel_to_ldtk(ldtk, asset) == "../sprites/editor_icons.png"
+
+
+def test_canonical_repo_asset_paths_follow_content_split() -> None:
+    repo = Path(__file__).resolve().parents[3]
+    assert default_character_catalog(repo) == (
+        repo / "game" / "ambition_content" / "assets" / "data" / "character_catalog.ron"
+    )
+    assert default_sandbox_ldtk(repo) == (
+        repo / "game" / "ambition_content" / "assets" / "worlds" / "sandbox.ldtk"
+    )
+    assert default_hall_ldtk(repo) == (
+        repo / "game" / "ambition_content" / "assets" / "worlds" / "hall_of_characters.ldtk"
+    )
+    assert default_sprite_assets_dir(repo) == (
+        repo / "crates" / "ambition_actors" / "assets" / "sprites"
+    )
+    assert default_character_catalog(repo).is_file()
+    assert default_sandbox_ldtk(repo).is_file()
+    assert default_hall_ldtk(repo).is_file()

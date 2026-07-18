@@ -7,7 +7,7 @@ The Hall lives in its own secondary-world `.ldtk` file (regenerated
 wholesale from the catalog), not in sandbox.ldtk.
 
 Reads:
-  - `crates/ambition_actors/assets/data/character_catalog.ron`
+  - `game/ambition_content/assets/data/character_catalog.ron`
   - `game/ambition_content/assets/worlds/hall_of_characters.ldtk`
   - `crates/ambition_actors/assets/sprites/`
 
@@ -39,25 +39,15 @@ import json
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-CATALOG_PATH = (
-    REPO_ROOT
-    / "crates"
-    / "ambition_actors"
-    / "assets"
-    / "data"
-    / "character_catalog.ron"
+from .ldtk import (
+    default_character_catalog,
+    default_hall_ldtk,
+    default_sprite_assets_dir,
 )
-LDTK_PATH = (
-    REPO_ROOT
-    / "crates"
-    / "ambition_actors"
-    / "assets"
-    / "ambition"
-    / "worlds"
-    / "hall_of_characters.ldtk"
-)
-SPRITES_DIR = REPO_ROOT / "crates" / "ambition_actors" / "assets" / "sprites"
+
+CATALOG_PATH = default_character_catalog()
+LDTK_PATH = default_hall_ldtk()
+SPRITES_DIR = default_sprite_assets_dir()
 
 # Mirror of the Rust `CharacterAnim::from_name` Idle-equivalent
 # aliases. Keep in sync with

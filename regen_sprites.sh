@@ -39,6 +39,11 @@ cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"
 ldtk_tools_dir="$repo_root/tools/ambition_ldtk_tools"
+content_assets_dir="$repo_root/game/ambition_content/assets"
+worlds_dir="$content_assets_dir/worlds"
+character_catalog="$content_assets_dir/data/character_catalog.ron"
+sandbox_ldtk="$worlds_dir/sandbox.ldtk"
+hall_ldtk="$worlds_dir/hall_of_characters.ldtk"
 sprites_dir="$repo_root/crates/ambition_actors/assets/sprites"
 entities_dir="$sprites_dir/entities"
 
@@ -913,7 +918,11 @@ if ambition_python_exists "$ldtk_python" && \
         -c "import ambition_ldtk_tools" 2>/dev/null
 then
     "$ldtk_python" \
-        -m ambition_ldtk_tools.inspect_hall_sprites --only-issues \
+        -m ambition_ldtk_tools.inspect_hall_sprites \
+        --catalog "$character_catalog" \
+        --ldtk "$hall_ldtk" \
+        --sprites-dir "$sprites_dir" \
+        --only-issues \
         2>&1 | sed 's/^/  /' || true
 else
     echo "  (skipped — ambition_ldtk_tools not importable from $ldtk_python)"
@@ -931,7 +940,7 @@ if ambition_python_exists "$ldtk_python" && \
         -c "import ambition_ldtk_tools" 2>/dev/null
 then
     "$ldtk_python" \
-        -m ambition_ldtk_tools asset generate-editor-icons \
+        -m ambition_ldtk_tools asset generate-editor-icons "$sandbox_ldtk" \
         --icons "$sprites_dir/editor_icons.png" --tile-size 32 \
         2>&1 | sed 's/^/  /' || true
 else
@@ -957,7 +966,7 @@ then
     (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer \
         ldtk-manifest --out "$sprite_manifest") 2>&1 | sed 's/^/  /' || true
     for world in sandbox intro you_have_to_cut_the_rope; do
-        ldtk_path="$repo_root/crates/ambition_actors/assets/ambition/worlds/$world.ldtk"
+        ldtk_path="$worlds_dir/$world.ldtk"
         [ -f "$ldtk_path" ] || continue
         "$ldtk_python" \
             -m ambition_ldtk_tools.edit.visual_manifest apply-manifest \

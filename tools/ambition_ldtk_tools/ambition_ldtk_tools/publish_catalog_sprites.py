@@ -3,7 +3,7 @@
 sandbox's `assets/sprites/` directory.
 
 Reads the character catalog
-(`crates/ambition_actors/assets/data/character_catalog.ron`) and,
+(`game/ambition_content/assets/data/character_catalog.ron`) and,
 for each entry, asks the renderer to publish the matching target.
 This replaces the hand-maintained `tackon_targets` + `review_cues`
 + standalone publisher loops in `regen_sprites.sh` with a single
@@ -57,17 +57,12 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
+from .ldtk import default_character_catalog, default_sprite_assets_dir
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CATALOG_PATH = (
-    REPO_ROOT
-    / "crates"
-    / "ambition_actors"
-    / "assets"
-    / "data"
-    / "character_catalog.ron"
-)
+CATALOG_PATH = default_character_catalog()
 RENDERER_DIR = REPO_ROOT / "tools" / "ambition_sprite2d_renderer"
-SPRITES_DIR = REPO_ROOT / "crates" / "ambition_actors" / "assets" / "sprites"
+SPRITES_DIR = default_sprite_assets_dir()
 
 
 def renderer_target_for_catalog_entry(spritesheet_path: str) -> str | None:

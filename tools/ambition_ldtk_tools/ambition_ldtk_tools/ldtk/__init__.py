@@ -12,7 +12,12 @@ from .issues import Issue, format_issue_lines, has_errors
 from .io import load_project, write_project, write_project_json
 from .layers import ensure_entities_layer_def, ensure_entities_layer_instance
 from .paths import (
+    default_character_catalog,
+    default_content_assets_dir,
+    default_hall_ldtk,
     default_sandbox_ldtk,
+    default_sprite_assets_dir,
+    default_worlds_dir,
     path_from_ldtk,
     png_dimensions,
     rel_to_ldtk,
@@ -48,8 +53,13 @@ __all__ = [
     "PatchResult",
     "alloc_uid",
     "format_issue_lines",
+    "default_character_catalog",
+    "default_content_assets_dir",
     "default_field_value",
+    "default_hall_ldtk",
     "default_sandbox_ldtk",
+    "default_sprite_assets_dir",
+    "default_worlds_dir",
     "entity_defs",
     "entity_field_value",
     "ensure_entities_layer_def",

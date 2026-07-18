@@ -16,6 +16,7 @@ from typing import Any
 
 from ambition_ldtk_tools.edit.entity_layer_rules import DEFAULT_LDTK
 from ambition_ldtk_tools.ldtk import (
+    default_sprite_assets_dir,
     find_entity_def as _find_entity_def_or_none,
     find_tileset as _find_tileset_or_none,
     load_project,
@@ -193,8 +194,7 @@ def main(argv=None) -> int:
         # The atlas PNG is a regenerated asset (gitignored, like the other
         # tileset PNGs); only the .ldtk wiring is tracked.
         icon_path = args.icons or (
-            repo_root_from_ldtk(args.ldtk)
-            / "crates" / "ambition_actors" / "assets" / "sprites" / "editor_icons.png"
+            default_sprite_assets_dir(args.ldtk) / "editor_icons.png"
         )
         present = [e.get("identifier") for e in (project.get("defs", {}).get("entities") or [])]
         uncovered = [e for e in present if e not in DEFAULT_ENTITY_ICON_ORDER]
@@ -223,7 +223,7 @@ def main(argv=None) -> int:
         return 0
 
     if args.action == "suggest-manifest":
-        icon_path = args.icons or (repo_root_from_ldtk(args.ldtk) / "crates" / "ambition_actors" / "assets" / "sprites" / "editor_icons.png")
+        icon_path = args.icons or (default_sprite_assets_dir(args.ldtk) / "editor_icons.png")
         data = default_icon_manifest(args.ldtk, icon_path, args.tile_size, args.include_entity or None)
         if args.out:
             save_manifest(args.out, data)

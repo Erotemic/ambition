@@ -9,15 +9,11 @@ from typing import Iterable, Iterator
 
 from ambition_ldtk_tools.edit.intgrid import LAYER_VALUE_NAMES
 from ambition_ldtk_tools.edit.set_field import find_level
+from ambition_ldtk_tools.ldtk import default_sandbox_ldtk
 from ambition_ldtk_tools.ldtk.issues import Issue
 from ambition_ldtk_tools.room_support.issues import room_issues
-
-
 from ambition_ldtk_tools.area_authoring import load_project
-from ambition_ldtk_tools.edit.intgrid import LAYER_VALUE_NAMES, find_intgrid_layer
-from ambition_ldtk_tools.edit.set_field import find_level
-from ambition_ldtk_tools.ldtk.issues import Issue
-from ambition_ldtk_tools.room_support.issues import room_issues
+from ambition_ldtk_tools.edit.intgrid import find_intgrid_layer
 
 def _find_repo_root() -> Path:
     cwd = Path.cwd().resolve()
@@ -33,15 +29,7 @@ def _find_repo_root() -> Path:
 
 
 REPO_ROOT = _find_repo_root()
-DEFAULT_LDTK = (
-    REPO_ROOT
-    / "crates"
-    / "ambition_actors"
-    / "assets"
-    / "ambition"
-    / "worlds"
-    / "sandbox.ldtk"
-)
+DEFAULT_LDTK = default_sandbox_ldtk(REPO_ROOT)
 
 INTGRID_COLORS: dict[str, dict[int, str]] = {
     "Collision": {

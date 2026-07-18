@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """One-shot codegen: synthesize missing entries in
-`crates/ambition_actors/assets/data/character_catalog.ron` from the
+`game/ambition_content/assets/data/character_catalog.ron` from the
 renderer's `list-targets` output.
 
 Phase 3 of the character-catalog refactor (see
@@ -46,16 +46,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .ldtk import default_character_catalog
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RENDERER_DIR = REPO_ROOT / "tools" / "ambition_sprite2d_renderer"
-CATALOG_PATH = (
-    REPO_ROOT
-    / "crates"
-    / "ambition_actors"
-    / "assets"
-    / "data"
-    / "character_catalog.ron"
-)
+CATALOG_PATH = default_character_catalog()
 
 
 # Heuristics — character_id prefix → (default_brain, default_action_set,

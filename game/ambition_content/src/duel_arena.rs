@@ -92,10 +92,18 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
 /// function of the `RoomSpec`, which is what lets a restore preflight predict
 /// the fighters' identities without touching the world.
 pub fn register_duel_content_staging(registry: &mut RoomContentStagingRegistry) {
-    registry.register(DUEL_ARENA_ROOM_ID, |spec| {
-        let center = spec.world.spawn + ae::Vec2::new(DUEL_ARENA_OFFSET_X, 0.0);
-        duel_spawn_requests(center).to_vec()
-    });
+    registry
+        .register(
+            DUEL_ARENA_ROOM_ID,
+            "ambition_content",
+            "duel_arena",
+            "duel-staging.v1",
+            |spec| {
+                let center = spec.world.spawn + ae::Vec2::new(DUEL_ARENA_OFFSET_X, 0.0);
+                duel_spawn_requests(center).to_vec()
+            },
+        )
+        .expect("duel staging registration is unique");
 }
 
 /// `<<duel>>` — stage the spectator duel beside the player, anywhere. The

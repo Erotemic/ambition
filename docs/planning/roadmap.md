@@ -33,16 +33,14 @@ close.
 
 ## Next major engine-architecture push
 
-After the active character action/control migration, the next broad architecture
-campaign is
-[`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md).
-It establishes immutable fingerprinted session content, explicit construction
-provenance, pure preflightable construction plans, and transactional world
-replacement. Those are shared prerequisites for prefab-like authoring, robust hot
-reload, saves, exact reconstruction, rollback, and a credible external SDK. The
-plan is explicitly subordinate to the Unity/Unreal/Godot competitive objective:
-future agents should improve its mechanisms when a better route preserves the
-binding outcomes.
+The immutable prepared-content and exact session-identity milestone of
+[`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md)
+is complete. The next broad architecture push is its explicit-provenance plus
+three-origin `ConstructionPlan` vertical slice: one authored placement, one
+provider-staged actor, and one runtime-dynamic family must share a pure,
+preflightable planner and recipe-backed reconstruction path. This is the next
+foundation for prefab-like authoring, broader transactional room replacement,
+rollback, and a credible external SDK.
 
 Ambition-the-game remains the first customer throughout; it consumes capabilities
 rather than defining exceptions inside reusable crates.
@@ -61,11 +59,11 @@ neighbor prewarming into concrete promotable work.
 ## Current critical path
 
 ```text
-encounter E8–E11
+immutable PreparedContent + exact snapshot identity (done)
         ↓
-atomic active-room restore
+explicit provenance + three-origin ConstructionPlan vertical slice
         ↓
-encounter E12–E13
+transactional room-lifecycle migration
 
 in parallel:
   Super Mary-O level-1 acceptance

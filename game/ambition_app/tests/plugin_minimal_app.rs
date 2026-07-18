@@ -83,6 +83,14 @@ fn sandbox_simulation_plugin_inserts_core_resources() {
         world.get::<RoomSet>(root).is_some(),
         "RoomSet component missing from the canonical session root"
     );
+    let prepared = world
+        .get::<ambition::runtime::PreparedContent>(root)
+        .expect("immutable PreparedContent missing from the canonical session root");
+    assert_eq!(
+        world.get::<ambition::runtime::PreparedContentIdentity>(root),
+        Some(&prepared.identity()),
+        "the root identity must describe the exact attached prepared object"
+    );
     assert!(
         world.get_resource::<MovingPlatformSet>().is_some(),
         "MovingPlatformSet resource missing — moving-platform sim disabled"

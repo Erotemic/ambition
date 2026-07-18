@@ -7,7 +7,7 @@ use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
-use ambition::runtime::PlatformerSessionWorld;
+use ambition::runtime::PreparedPlatformerSource;
 
 use crate::{level_1_1, MaryORulesPlugin, LEVEL_1_1_ROOM_ID};
 
@@ -37,6 +37,10 @@ pub fn mary_o_session_world() -> MaryOSessionWorld {
         metadata,
         starting_character: StartingCharacter::new(MARY_O_CHARACTER_ID),
     }
+}
+
+pub fn mary_o_authored_catalogs() -> AuthoredCatalogFragments {
+    AuthoredCatalogFragments::new(MARY_O_CHARACTER_ID, MARY_O_EXPERIENCE)
 }
 
 pub struct MaryOExperiencePlugin;
@@ -107,7 +111,7 @@ impl Plugin for MaryOExperiencePlugin {
             "Mary-O",
             "Level 1-1: run, jump, grab the flag",
             "Prepare Mary-O",
-            AuthoredCatalogFragments::new(MARY_O_CHARACTER_ID, MARY_O_EXPERIENCE),
+            mary_o_authored_catalogs(),
         )
         .install(app, mary_o_prepared_session_world);
         app.add_plugins(MaryORulesPlugin::hosted());
@@ -115,9 +119,9 @@ impl Plugin for MaryOExperiencePlugin {
 }
 
 /// The provider's authored level 1-1 source for the shared preparation lifecycle.
-fn mary_o_prepared_session_world() -> PlatformerSessionWorld {
+fn mary_o_prepared_session_world() -> PreparedPlatformerSource {
     let source = mary_o_session_world();
-    PlatformerSessionWorld::new(
+    PreparedPlatformerSource::new(
         MARY_O_EXPERIENCE,
         source.room_set,
         source.geometry,

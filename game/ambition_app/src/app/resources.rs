@@ -2,14 +2,12 @@ use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::{IntGridRendering, LdtkSettings, LevelBackground};
 
 use ambition::actors::ldtk_world;
-use ambition::actors::rooms;
 use ambition::actors::session::data;
 use ambition::actors::time::feel::SandboxFeelTuning;
 use ambition::actors::world::physics;
 use ambition::dev_tools::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
 };
-use ambition::engine_core::RoomGeometry;
 use ambition::input::ControlFrame;
 use ambition_content::content_validation;
 
@@ -192,8 +190,6 @@ pub fn init_sandbox_resources(app: &mut App) {
         &ldtk_project,
         room_set.active_spec().id.clone(),
     );
-    let active_world = room_set.active_world().clone();
-    let active_metadata = room_set.active_spec().metadata.clone();
     // `StartingCharacterOverride` is composition input, not live gameplay
     // authority. Consume it before publishing the session-root
     // `StartingCharacter` component so the title route cannot observe a
@@ -211,28 +207,6 @@ pub fn init_sandbox_resources(app: &mut App) {
         ldtk_index: ldtk_index.clone(),
         starting_character: starting_character.clone(),
     });
-
-    // Direct development uses the same componentized world model as shell
-    // sessions. The only difference is lifetime: the direct root is unscoped
-    // and lives until process exit.
-    if !app
-        .world()
-        .contains_resource::<super::shell_host::AmbitionShellHosted>()
-    {
-        app.world_mut().spawn((
-            ambition::platformer::lifecycle::SessionRoot(
-                ambition::platformer::lifecycle::SessionScopeId(0),
-            ),
-            ambition::runtime::PlatformerSessionWorld::new(
-                ambition_content::AMBITION_CONTENT_PROVIDER,
-                room_set,
-                RoomGeometry(active_world),
-                rooms::ActiveRoomMetadata(active_metadata),
-                starting_character,
-                ldtk_index,
-            ),
-        ));
-    }
 
     app.insert_resource(ldtk_world::SandboxLdtkProject(ldtk_project.clone()))
         .insert_resource(ldtk_world::LdtkHotReloadState::from_catalog(
@@ -297,4 +271,38 @@ pub fn init_sandbox_resources(app: &mut App) {
     if let Some(path) = sfx_bank_asset_path {
         app.insert_resource(path);
     }
+}
+
+/// Publish direct-entry gameplay only after all engine/content plugins have
+/// installed their snapshot and construction registries. This gives direct
+/// development the same immutable prepared-content authority as shell
+/// activation instead of constructing an un-fingerprinted live world early.
+pub(super) fn publish_direct_prepared_session_root(app: &mut App) {
+    if app
+        .world()
+        .contains_resource::<super::shell_host::AmbitionShellHosted>()
+    {
+        return;
+    }
+
+    let source = app
+        .world()
+        .resource::<ambition_content::provider::AmbitionPreparedWorld>()
+        .prepared_source();
+    let content = ambition::provider::prepare_platformer_content_for_app(
+        app,
+        source,
+        &ambition_content::provider::ambition_authored_catalogs(),
+    )
+    .expect("direct Ambition prepared-content assembly must succeed");
+    let identity = content.identity();
+    let live_world = content.source().instantiate_live();
+    app.world_mut().spawn((
+        ambition::platformer::lifecycle::SessionRoot(
+            ambition::platformer::lifecycle::SessionScopeId(0),
+        ),
+        live_world,
+        content,
+        identity,
+    ));
 }

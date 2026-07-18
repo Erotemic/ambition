@@ -285,6 +285,34 @@ fn assert_in_game(
         .active_spec()
         .id
         .clone();
+    let prepared = app
+        .world()
+        .get::<ambition::runtime::PreparedContent>(world_entity)
+        .unwrap_or_else(|| {
+            panic!("{context}: the live root owns exact immutable prepared content")
+        });
+    let prepared_identity = app
+        .world()
+        .get::<ambition::runtime::PreparedContentIdentity>(world_entity)
+        .copied()
+        .unwrap_or_else(|| panic!("{context}: the live root exposes exact content identity"));
+    assert_eq!(
+        prepared.identity(),
+        prepared_identity,
+        "{context}: inspectable identity describes the exact prepared object",
+    );
+    assert_eq!(
+        prepared.source().catalogs().world_provider.as_str(),
+        experience,
+        "{context}: prepared world ownership matches the activated provider",
+    );
+    assert_eq!(
+        prepared.snapshot_schema(),
+        app.world()
+            .resource::<ambition::runtime::snapshot::SnapshotRegistry>()
+            .schema_fingerprint(),
+        "{context}: prepared content is bound to the active snapshot schema",
+    );
     assert_eq!(
         session_room,
         live_room_set(app).active_spec().id,
@@ -406,6 +434,10 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .resource::<ActiveGameplaySession>()
         .active_world_entity()
         .expect("sanic #1 owns a canonical world entity");
+    let sanic_content_1 = *app
+        .world()
+        .get::<ambition::runtime::PreparedContentIdentity>(sanic_world_1)
+        .expect("sanic #1 owns exact content identity");
     assert_eq!(
         live_room_set(&app).active_spec().metadata.mode.as_deref(),
         Some("sanic"),
@@ -478,6 +510,15 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         "central_hub_complex",
         "ambition: the real LDtk entry room is the active world authority"
     );
+    let ambition_world_entity = app
+        .world()
+        .resource::<ActiveGameplaySession>()
+        .active_world_entity()
+        .expect("Ambition owns a canonical world entity");
+    let ambition_identity_before_room_change = *app
+        .world()
+        .get::<ambition::runtime::PreparedContentIdentity>(ambition_world_entity)
+        .expect("Ambition root owns exact prepared identity");
     let alternate_room = live_room_set(&app)
         .rooms
         .iter()
@@ -520,6 +561,13 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         alternate_room.as_str(),
         "all world readers observe the same exact root component",
     );
+    assert_eq!(
+        app.world()
+            .get::<ambition::runtime::PreparedContentIdentity>(live_entity)
+            .copied(),
+        Some(ambition_identity_before_room_change),
+        "ordinary room movement must retain the exact prepared fingerprint and epoch",
+    );
 
     let ambition_default_track = app
         .world()
@@ -549,6 +597,18 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .resource::<ActiveGameplaySession>()
         .active_world_entity()
         .expect("sanic #2 owns a canonical world entity");
+    let sanic_content_2 = *app
+        .world()
+        .get::<ambition::runtime::PreparedContentIdentity>(sanic_world_2)
+        .expect("sanic #2 owns exact content identity");
+    assert_eq!(
+        sanic_content_1.fingerprint, sanic_content_2.fingerprint,
+        "same authored definitions have the same content fingerprint",
+    );
+    assert_ne!(
+        sanic_content_1.epoch, sanic_content_2.epoch,
+        "a sequential activation receives a fresh App-local content epoch",
+    );
     assert_ne!(
         sanic_world_1, sanic_world_2,
         "same-provider relaunch constructs a fresh mutable world entity",

@@ -117,6 +117,81 @@ fn a_registry_hashes_its_entry_names_so_two_registries_never_agree_by_luck() {
 }
 
 #[test]
+fn snapshot_schema_fingerprint_and_dump_ignore_registration_order() {
+    let mut first = SnapshotRegistry::default();
+    first.register_component::<DynamicAnchor>("dynamic_anchor");
+    first.register_component::<BodyHealth>("body_health");
+
+    let mut second = SnapshotRegistry::default();
+    second.register_component::<BodyHealth>("body_health");
+    second.register_component::<DynamicAnchor>("dynamic_anchor");
+
+    assert_eq!(first.schema_fingerprint(), second.schema_fingerprint());
+    assert_eq!(
+        first.deterministic_schema_dump(),
+        second.deterministic_schema_dump()
+    );
+}
+
+#[test]
+fn equivalent_registration_order_produces_one_snapshot_and_hash_contract() {
+    let mut first = SnapshotRegistry::default();
+    first.register_component::<DynamicAnchor>("dynamic_anchor");
+    first.register_component::<BodyHealth>("body_health");
+
+    let mut second = SnapshotRegistry::default();
+    second.register_component::<BodyHealth>("body_health");
+    second.register_component::<DynamicAnchor>("dynamic_anchor");
+
+    let mut world = World::new();
+    let entity = world
+        .spawn((
+            SimId::placement("survivor"),
+            DynamicAnchor,
+            BodyHealth::new(Health {
+                current: 10,
+                max: 10,
+            }),
+        ))
+        .id();
+    let snapshot = take(&world, &first);
+    assert_eq!(first.hash_world(&world), second.hash_world(&world));
+
+    world.entity_mut(entity).remove::<DynamicAnchor>();
+    restore(&mut world, &snapshot, &second)
+        .expect("equivalent canonical schemas restore across registration order");
+    assert!(world.entity(entity).contains::<DynamicAnchor>());
+}
+
+#[test]
+fn meaningful_snapshot_schema_changes_change_fingerprint() {
+    let mut component = SnapshotRegistry::default();
+    component.register_component::<DynamicAnchor>("state");
+
+    let mut cursor = SnapshotRegistry::default();
+    cursor.register_cursor::<Patrol>("state");
+
+    assert_ne!(component.schema_fingerprint(), cursor.schema_fingerprint());
+}
+
+#[test]
+fn duplicate_snapshot_schema_name_is_structured_and_transactional() {
+    let mut registry = SnapshotRegistry::default();
+    registry.register_component::<DynamicAnchor>("state");
+    let before = registry.deterministic_schema_dump();
+    let error = registry
+        .try_register_diagnostic("state", |_, h| h.write_u64(7))
+        .expect_err("duplicate schema names must be rejected");
+    assert_eq!(
+        error,
+        SnapshotSchemaRegistrationError::DuplicateName {
+            name: "state".to_owned(),
+        }
+    );
+    assert_eq!(registry.deterministic_schema_dump(), before);
+}
+
+#[test]
 fn per_entry_hashes_localize_a_divergence() {
     let world = World::new();
     let mut reg = SnapshotRegistry::default();
@@ -2304,4 +2379,157 @@ fn prepared_world_identity_counts_toward_snapshot_size_and_refuses_mismatch() {
         before,
         "refusal mutated the world"
     );
+}
+
+fn exact_content_fixture(
+    section_value: &str,
+    epoch: u64,
+    snapshot_schema: crate::SnapshotSchemaFingerprint,
+) -> crate::PreparedContent {
+    let room = ambition_world::rooms::RoomSpec::new(
+        "same-room",
+        ambition_engine_core::World::new(
+            "same-room",
+            ambition_engine_core::Vec2::new(128.0, 128.0),
+            ambition_engine_core::Vec2::new(16.0, 16.0),
+            Vec::new(),
+        ),
+    );
+    let room_set = ambition_world::rooms::RoomSet::from_parts("same-room", vec![room], Vec::new());
+    let source = crate::PreparedPlatformerSource::new(
+        "same-provider",
+        room_set.clone(),
+        ambition_engine_core::RoomGeometry(room_set.active_world().clone()),
+        ambition_world::rooms::ActiveRoomMetadata(room_set.active_spec().metadata.clone()),
+        ambition_actors::avatar::StartingCharacter::new("same-character"),
+        ambition_actors::ldtk_world::LdtkRuntimeIndex::default(),
+    );
+    let mut builder = crate::PreparedContentBuilder::default();
+    builder
+        .add_section("fixture.definition", section_value.as_bytes().to_vec())
+        .unwrap();
+    builder.finish(crate::ContentEpoch(epoch), snapshot_schema, source)
+}
+
+fn world_with_exact_content(content: crate::PreparedContent) -> (World, Entity) {
+    use ambition_platformer_primitives::lifecycle::{SessionRoot, SessionScopeId};
+
+    let mut world = World::new();
+    let root = world
+        .spawn((
+            SessionRoot(SessionScopeId(11)),
+            content.source().instantiate_live(),
+            content.identity(),
+            content,
+        ))
+        .id();
+    (world, root)
+}
+
+#[test]
+fn exact_content_mismatch_with_same_provider_and_room_refuses_before_mutation() {
+    let registry = SnapshotRegistry::default();
+    let schema = registry.schema_fingerprint();
+    let captured_content = exact_content_fixture("geometry-a", 1, schema);
+    let (captured_world, _) = world_with_exact_content(captured_content);
+    let snapshot = take(&captured_world, &registry);
+
+    let live_content = exact_content_fixture("geometry-b", 2, schema);
+    let live_identity = live_content.identity();
+    let (mut live, root) = world_with_exact_content(live_content);
+    let before_hash = registry.hash_world(&live);
+    let before_room = live
+        .entity(root)
+        .get::<ambition_world::rooms::RoomSet>()
+        .unwrap()
+        .active_spec()
+        .id
+        .clone();
+
+    let error = restore(&mut live, &snapshot, &registry)
+        .expect_err("same names with different definitions must refuse");
+    assert!(matches!(
+        error,
+        RestoreError::ContentFingerprintMismatch { .. }
+    ));
+    assert_eq!(registry.hash_world(&live), before_hash);
+    assert_eq!(
+        live.entity(root)
+            .get::<crate::PreparedContentIdentity>()
+            .copied(),
+        Some(live_identity)
+    );
+    assert_eq!(
+        live.entity(root)
+            .get::<ambition_world::rooms::RoomSet>()
+            .unwrap()
+            .active_spec()
+            .id,
+        before_room
+    );
+}
+
+#[test]
+fn snapshot_schema_mismatch_refuses_before_mutation() {
+    let mut capture_registry = SnapshotRegistry::default();
+    capture_registry.register_component::<DynamicAnchor>("anchor");
+    let content =
+        exact_content_fixture("same-definition", 1, capture_registry.schema_fingerprint());
+    let (captured_world, _) = world_with_exact_content(content.clone());
+    let snapshot = take(&captured_world, &capture_registry);
+
+    let mut live_registry = SnapshotRegistry::default();
+    live_registry.register_component::<DynamicAnchor>("renamed-anchor");
+    let (mut live, root) = world_with_exact_content(content);
+    let before = live
+        .entity(root)
+        .get::<crate::PreparedContentIdentity>()
+        .copied();
+    let error =
+        restore(&mut live, &snapshot, &live_registry).expect_err("schema mismatch must refuse");
+    assert!(matches!(error, RestoreError::SnapshotSchemaMismatch { .. }));
+    assert_eq!(
+        live.entity(root)
+            .get::<crate::PreparedContentIdentity>()
+            .copied(),
+        before
+    );
+}
+
+#[test]
+fn same_content_and_schema_restore_succeeds() {
+    use ambition_platformer_primitives::lifecycle::{SessionRoot, SessionScopeId};
+
+    let mut registry = SnapshotRegistry::default();
+    registry.register_component::<DynamicAnchor>("dynamic_anchor");
+    let content = exact_content_fixture("same-definition", 1, registry.schema_fingerprint());
+    let mut world = World::new();
+    world.spawn((SessionRoot(SessionScopeId(11)), content.identity(), content));
+    let entity = world
+        .spawn((SimId::placement("survivor"), DynamicAnchor))
+        .id();
+    let snapshot = take(&world, &registry);
+    world.entity_mut(entity).remove::<DynamicAnchor>();
+
+    restore(&mut world, &snapshot, &registry)
+        .expect("same exact prepared content and schema must restore");
+    assert!(world.entity(entity).contains::<DynamicAnchor>());
+}
+
+#[test]
+fn fingerprint_schema_mismatch_names_the_compatibility_dimension() {
+    let registry = SnapshotRegistry::default();
+    let content = exact_content_fixture("same-definition", 1, registry.schema_fingerprint());
+    let (mut world, _) = world_with_exact_content(content);
+    let mut snapshot = take(&world, &registry);
+    snapshot.content_fingerprint_schema = Some(crate::ContentFingerprintSchemaVersion(999));
+    let error = restore(&mut world, &snapshot, &registry)
+        .expect_err("fingerprint schema mismatch must refuse");
+    assert!(matches!(
+        error,
+        RestoreError::ContentFingerprintSchemaMismatch { .. }
+    ));
+    assert!(error
+        .to_string()
+        .contains("content-fingerprint schema mismatch"));
 }

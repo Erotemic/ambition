@@ -435,6 +435,21 @@ pub enum PlacementKind {
     Portal,
 }
 
+impl PlacementKind {
+    /// Stable construction-schema identity; unlike `Debug`, this is an explicit
+    /// compatibility contract and may only change with a fingerprint-schema bump.
+    pub const fn stable_id(self) -> &'static str {
+        match self {
+            Self::Hazard => "hazard",
+            Self::Interactable => "interactable",
+            Self::Pickup => "pickup",
+            Self::Chest => "chest",
+            Self::Breakable => "breakable",
+            Self::Portal => "portal",
+        }
+    }
+}
+
 impl PlacementSchema {
     pub const fn kind(&self) -> PlacementKind {
         match self {

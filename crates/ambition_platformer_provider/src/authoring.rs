@@ -12,7 +12,7 @@ use ambition_game_shell::{
     ShellCompletionPolicy, ShellRouteId, ShellRouteSpec, PREPARE_AUDIO_WORK_ID,
     PREPARE_CATALOGS_WORK_ID,
 };
-use ambition_runtime::PlatformerSessionWorld;
+use ambition_runtime::PreparedPlatformerSource;
 
 use crate::lifecycle::{self, PlatformerProviderRuntimePlugin, PlatformerStreamingReadiness};
 
@@ -102,21 +102,72 @@ pub struct PlatformerAuthoredCatalogRegistry {
     by_experience: BTreeMap<String, AuthoredCatalogFragments>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PlatformerAuthoringRegistrationError {
+    EmptyExperienceId,
+    Conflict {
+        experience_id: String,
+        existing: AuthoredCatalogFragments,
+        candidate: AuthoredCatalogFragments,
+    },
+}
+
+impl std::fmt::Display for PlatformerAuthoringRegistrationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EmptyExperienceId => write!(f, "platformer experience id must not be empty"),
+            Self::Conflict { experience_id, .. } => write!(
+                f,
+                "platformer experience '{experience_id}' registered conflicting authored catalogs"
+            ),
+        }
+    }
+}
+impl std::error::Error for PlatformerAuthoringRegistrationError {}
+
 impl PlatformerAuthoredCatalogRegistry {
     pub fn get(&self, experience_id: &str) -> Option<&AuthoredCatalogFragments> {
         self.by_experience.get(experience_id)
     }
 
-    fn register(&mut self, experience_id: &str, fragments: AuthoredCatalogFragments) {
+    pub fn try_register(
+        &mut self,
+        experience_id: &str,
+        fragments: AuthoredCatalogFragments,
+    ) -> Result<(), PlatformerAuthoringRegistrationError> {
+        if experience_id.trim().is_empty() {
+            return Err(PlatformerAuthoringRegistrationError::EmptyExperienceId);
+        }
         if let Some(existing) = self.by_experience.get(experience_id) {
-            assert_eq!(
-                existing, &fragments,
-                "platformer experience '{experience_id}' registered conflicting authored catalogs",
-            );
-            return;
+            if existing == &fragments {
+                return Ok(());
+            }
+            return Err(PlatformerAuthoringRegistrationError::Conflict {
+                experience_id: experience_id.to_owned(),
+                existing: existing.clone(),
+                candidate: fragments,
+            });
         }
         self.by_experience
             .insert(experience_id.to_owned(), fragments);
+        Ok(())
+    }
+
+    pub fn deterministic_dump(&self) -> String {
+        let mut out = String::new();
+        for (experience, fragment) in &self.by_experience {
+            out.push_str(&format!(
+                "{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+                experience,
+                fragment.starting_character,
+                fragment.audio_provider,
+                fragment.expects_music,
+                fragment.expects_procedural_sfx,
+                fragment.expects_adaptive_cues,
+                fragment.expects_packed_sfx,
+            ));
+        }
+        out
     }
 }
 
@@ -178,7 +229,7 @@ impl PlatformerExperienceAuthoring {
     /// Register the experience AND its session lifecycle in one call.
     ///
     /// `source` is the provider's whole remaining obligation: a system that
-    /// builds the authored [`PlatformerSessionWorld`] this experience plays in
+    /// builds the authored [`PreparedPlatformerSource`] this experience plays in
     /// (it may read the provider's own resources). The shared lifecycle runs it
     /// once on an update containing matching preparation requests, gives each
     /// transaction an owned copy, validates the authored catalogs, publishes
@@ -186,11 +237,11 @@ impl PlatformerExperienceAuthoring {
     /// activation.
     pub fn install<S, Marker>(self, app: &mut App, source: S)
     where
-        S: IntoSystem<(), PlatformerSessionWorld, Marker>,
+        S: IntoSystem<(), PreparedPlatformerSource, Marker>,
     {
         self.register(app);
         let experience_id = self.experience_id.clone();
-        let tag = move |In(world): In<PlatformerSessionWorld>| (experience_id.clone(), world);
+        let tag = move |In(world): In<PreparedPlatformerSource>| (experience_id.clone(), world);
         app.add_systems(
             Update,
             source
@@ -218,7 +269,8 @@ impl PlatformerExperienceAuthoring {
         }
         app.world_mut()
             .resource_mut::<PlatformerAuthoredCatalogRegistry>()
-            .register(self.experience_id.as_str(), self.catalogs.clone());
+            .try_register(self.experience_id.as_str(), self.catalogs.clone())
+            .unwrap_or_else(|error| panic!("{error}"));
         app.register_gameplay_experience(
             ExperienceRegistration::new(
                 self.experience_id.clone(),

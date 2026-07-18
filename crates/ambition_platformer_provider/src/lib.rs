@@ -3,13 +3,13 @@
 //! A provider is a content crate that registers one playable experience with a
 //! shell host. This crate owns everything BETWEEN the host's shell/session/load
 //! protocol (`ambition_game_shell`) and provider-independent runtime state
-//! (`ambition_runtime`'s [`PlatformerSessionWorld`]):
+//! (`ambition_runtime`'s [`PreparedPlatformerSource`]):
 //!
 //! - [`PlatformerExperienceAuthoring`] + [`AuthoredCatalogFragments`] — the
 //!   authored identity a provider declares: experience/route ids, starting
 //!   character, audio expectations, loading presentation.
 //! - The ONE preparation/activation lifecycle. A provider supplies a single
-//!   source system producing its authored [`PlatformerSessionWorld`] value; this
+//!   source system producing its authored [`PreparedPlatformerSource`] value; this
 //!   crate gives each matching load transaction an owned copy, validates the authored catalogs, publishes the typed
 //!   `PreparedSessionIdentity`, and on activation moves the prepared world onto
 //!   the live session root.
@@ -19,7 +19,7 @@
 //! ```text
 //! host selects an experience (shell route + provider load transaction)
 //!         ↓
-//! the provider's source system builds the authored PlatformerSessionWorld
+//! the provider's source system builds the authored PreparedPlatformerSource
 //! for the current matching request batch
 //!         ↓
 //! shared preparation gives each transaction an owned copy and validates it
@@ -35,15 +35,18 @@
 //! exception in `docs/planning/engine/architecture.md`). There is no provider
 //! discovery mechanism, and none should be added.
 //!
-//! [`PlatformerSessionWorld`]: ambition_runtime::PlatformerSessionWorld
+//! [`PreparedPlatformerSource`]: ambition_runtime::PreparedPlatformerSource
 
 pub mod authoring;
 pub mod lifecycle;
 
 pub use authoring::{
-    AuthoredCatalogFragments, PlatformerAuthoredCatalogRegistry, PlatformerExperienceAuthoring,
+    AuthoredCatalogFragments, PlatformerAuthoredCatalogRegistry,
+    PlatformerAuthoringRegistrationError, PlatformerExperienceAuthoring,
 };
 pub use lifecycle::{
-    PlatformerPreparationReport, PlatformerPreparationSet, PlatformerSessionBuilder,
-    PreparedPlatformerSessions, SessionBuildResult,
+    prepare_platformer_content, prepare_platformer_content_for_app,
+    prepare_world_replacement_candidate, PlatformerPreparationReport, PlatformerPreparationSet,
+    PlatformerSessionBuilder, PreparedPlatformerSession, PreparedPlatformerSessions,
+    SessionBuildResult,
 };

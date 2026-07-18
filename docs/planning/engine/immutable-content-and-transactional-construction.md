@@ -642,7 +642,7 @@ Make the binding decisions and record current mechanisms before adding APIs.
 - The ADR names the first three vertical-slice entity families.
 - Mechanisms known to be provisional are marked as such.
 
-### Phase 1 — normalize registration ownership and diagnostics
+### Phase 1 — normalize registration ownership and diagnostics — **COMPLETE 2026-07-18**
 
 #### Objective
 
@@ -673,7 +673,7 @@ Create a consistent internal lifecycle before adding another major registry.
 - Registry fingerprints remain stable under equivalent insertion orders.
 - No migrated registry uses panic for an expected authored-content error.
 
-### Phase 2 — introduce `PreparedContent`
+### Phase 2 — introduce `PreparedContent` — **COMPLETE 2026-07-18**
 
 #### Objective
 
@@ -702,7 +702,13 @@ Pin one immutable, fingerprinted content definition to every active session.
 - Incompatible snapshots are rejected before mutation.
 - Hot-reload preparation leaves the active epoch untouched.
 
-### Phase 3 — explicit provenance and construction-plan vertical slice
+### Phase 3 — explicit provenance and construction-plan vertical slice — **NEXT**
+
+Milestone A landed through ADR 0026. `PreparedContent`, versioned BLAKE3
+fingerprints, App-local epochs, canonical registry/schema dumps, exact snapshot
+compatibility, and transactional LDtk content replacement are now runtime
+authority. Do not reopen those as parallel abstractions; build provenance and
+planning on them.
 
 #### Objective
 
@@ -982,7 +988,7 @@ customer, diagnostic output, and measurable competitive outcome.
 
 ## 12. Milestones
 
-### Milestone A — deterministic content assembly
+### Milestone A — deterministic content assembly — **COMPLETE 2026-07-18**
 
 - The foundation ADR is accepted.
 - Representative registries use provider/source ownership and structured
@@ -1025,14 +1031,14 @@ customer, diagnostic output, and measurable competitive outcome.
 ## 13. Recommended execution sequence
 
 ```text
-1. Architecture inventory and foundation ADR
-2. Shared source/provenance diagnostics
-3. Registration ownership and deterministic assembly
-4. PreparedContent, ContentEpoch, and fingerprints
-5. Early snapshot content/schema compatibility checks
-6. SpawnOrigin and internal RecipeId
-7. Pure ConstructionPlan
-8. Three-origin vertical slice
+1. ~~Architecture inventory and foundation ADR~~ — ADR 0026 landed
+2. ~~Shared source/ownership diagnostics~~ — landed for prepared content
+3. ~~Registration ownership and deterministic assembly~~ — representative proof landed
+4. ~~PreparedContent, ContentEpoch, and fingerprints~~ — landed
+5. ~~Early snapshot content/schema compatibility checks~~ — landed
+6. **SpawnOrigin and internal RecipeId**
+7. **Pure ConstructionPlan**
+8. **Three-origin vertical slice**
 9. Normal room activation
 10. Room reset and transition
 11. Transactional hot reload

@@ -66,18 +66,27 @@ impl Plugin for FixtureContentPlugin {
             Vec::new(),
         );
         let room = RoomSpec::new("fixture_room", world.clone());
+        let source = ambition_runtime::PreparedPlatformerSource::new(
+            "fixture",
+            RoomSet::from_parts("fixture_room", vec![room], Vec::new()),
+            RoomGeometry(world),
+            ambition_runtime::demo_fixture::ActiveRoomMetadata::default(),
+            ambition_runtime::demo_fixture::StartingCharacter::default(),
+            ambition_runtime::demo_fixture::LdtkRuntimeIndex::default(),
+        );
+        let content = ambition_platformer_provider::prepare_platformer_content_for_app(
+            app,
+            source,
+            &ambition_platformer_provider::AuthoredCatalogFragments::new("player", "fixture"),
+        )
+        .expect("fixture direct prepared-content assembly must succeed");
         app.world_mut().spawn((
             ambition_platformer_primitives::lifecycle::SessionRoot(
                 ambition_platformer_primitives::lifecycle::SessionScopeId(0),
             ),
-            ambition_runtime::PlatformerSessionWorld::new(
-                "fixture",
-                RoomSet::from_parts("fixture_room", vec![room], Vec::new()),
-                RoomGeometry(world),
-                ambition_runtime::demo_fixture::ActiveRoomMetadata::default(),
-                ambition_runtime::demo_fixture::StartingCharacter::default(),
-                ambition_runtime::demo_fixture::LdtkRuntimeIndex::default(),
-            ),
+            content.source().instantiate_live(),
+            content.identity(),
+            content,
         ));
         app.add_systems(
             Startup,

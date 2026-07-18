@@ -7,7 +7,7 @@ use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
-use ambition::runtime::PlatformerSessionWorld;
+use ambition::runtime::PreparedPlatformerSource;
 
 use crate::{sanic_speedway, SanicRulesPlugin, SANIC_CHARACTER_ID, SPEEDWAY_ROOM_ID};
 
@@ -36,6 +36,13 @@ pub fn sanic_session_world() -> SanicSessionWorld {
     }
 }
 
+pub fn sanic_authored_catalogs() -> AuthoredCatalogFragments {
+    AuthoredCatalogFragments::new(SANIC_CHARACTER_ID, SANIC_EXPERIENCE)
+        .with_music()
+        .with_procedural_sfx()
+        .with_packed_sfx()
+}
+
 pub struct SanicExperiencePlugin;
 
 impl Plugin for SanicExperiencePlugin {
@@ -47,10 +54,7 @@ impl Plugin for SanicExperiencePlugin {
             "Sanic",
             "Momentum speedway with a rideable loop",
             "Prepare Sanic",
-            AuthoredCatalogFragments::new(SANIC_CHARACTER_ID, SANIC_EXPERIENCE)
-                .with_music()
-                .with_procedural_sfx()
-                .with_packed_sfx(),
+            sanic_authored_catalogs(),
         )
         .install(app, sanic_prepared_session_world);
         app.add_plugins(SanicRulesPlugin::hosted());
@@ -58,9 +62,9 @@ impl Plugin for SanicExperiencePlugin {
 }
 
 /// The provider's authored speedway source for the shared preparation lifecycle.
-fn sanic_prepared_session_world() -> PlatformerSessionWorld {
+fn sanic_prepared_session_world() -> PreparedPlatformerSource {
     let source = sanic_session_world();
-    PlatformerSessionWorld::new(
+    PreparedPlatformerSource::new(
         SANIC_EXPERIENCE,
         source.room_set,
         source.geometry,

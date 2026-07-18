@@ -1,21 +1,21 @@
-//! Catalog entry + preset shapes. Deserialize-only mirrors of the
+//! Catalog entry + preset shapes. Serde-authored mirrors of the
 //! `Brain` / `ActionSet` configs in `crate::brain`. Kept separate from
 //! the runtime types so:
 //!
-//! 1. Brain cfgs can keep non-Deserialize fields (per-actor `state`,
+//! 1. Brain cfgs can keep non-serde fields (per-actor `state`,
 //!    `Vec<f32>` history buffers) without leaking serde into the
 //!    tick path.
 //! 2. RON authoring follows a stable, documented shape that doesn't
 //!    move when an unrelated runtime detail changes.
 
 use ambition_engine_core as ae;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// What tier a character occupies in the Hall of Characters and other
 /// gallery rooms. Drives layout: `MainHall` characters get standard
 /// 128 px slots; `Basement` characters get the wide 256 px slots.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub enum CharacterTier {
     MainHall,
     Basement,
@@ -23,7 +23,7 @@ pub enum CharacterTier {
 
 /// Footprint hint. Today it only influences gallery layout; the
 /// runtime physics footprint still comes from the sheet spec.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub enum CharacterBodyKind {
     Standard,
     Wide,
@@ -39,7 +39,7 @@ pub enum CharacterBodyKind {
     dead_code,
     reason = "Reserved for future layered-rendering of multi-part sprites; ships as schema-stable scaffolding so adding composition to a catalog entry is forwards-compatible."
 )]
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct CompositionLayer {
     pub id: String,
     pub layer: i32,
@@ -53,7 +53,7 @@ pub struct CompositionLayer {
 /// the gameplay-side knobs it can't infer. Rows without this field
 /// use middle-of-the-road defaults (`collision_scale: 1.5`,
 /// `frame_sample_inset: 1`).
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 pub struct SpriteTuningSpec {
     /// render_size = aabb_size * collision_scale (the sprite is drawn
     /// larger than the collision box so silhouettes read correctly).
@@ -78,7 +78,7 @@ pub struct SpriteTuningSpec {
 /// `momentum: Some(())` alone yields the kernel defaults. A character row that
 /// carries this field opts its body into `MotionModel::SurfaceMomentum` (the
 /// surface-follower solver); a row without it stays on the axis-swept path.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 pub struct MomentumParamsSpec {
     #[serde(default = "md_ground_accel")]
     pub ground_accel: f32,
@@ -183,7 +183,7 @@ impl MomentumParamsSpec {
 /// consumer lands — the same discipline the grant vocabulary follows — and an
 /// omitted knob stays at the shared default, so `axis_tuning: Some(())` is the
 /// default feel with an authored *marker* (the body still escapes the F3 slider).
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 pub struct AxisTuningSpec {
     /// Mid-air jump count. Needs the `AirJump` grant to have any effect (the
     /// grant lights the *capability*; this is the *count*). The shared default
@@ -242,7 +242,7 @@ pub use ambition_engine_core::AbilityGrant;
 /// matching pool. Heterogeneous by design — some are events (struck,
 /// provoked), some are ambient states (idling, on display) — but the data
 /// model is uniform so all of a character's voice lives in one place.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 pub enum BarkSituation {
     /// Struck in combat — a peaceful NPC's retaliation warning, or an
     /// enemy/boss yelping under a hit. Event-driven; rotates with strikes.
@@ -266,7 +266,7 @@ pub enum BarkSituation {
 /// Authored in the catalog row so a character's voice lives with its
 /// identity: every system that spawns the character — a room placement, the
 /// peaceful→hostile flip, the Hall gallery — draws from the same lines.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct CharacterBarks {
     /// Lines when struck in combat. Rotates with strike count.
     #[serde(default)]
@@ -324,7 +324,7 @@ impl CharacterBarks {
 /// selector does not replace the body's movement/progression `AbilitySet`; it
 /// owns the ActionSet, derived moveset, and direct combat adjuncts such as the
 /// host charge-projectile capability.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub enum PlayableKitSource {
     /// The worn action/combat kit is the row's `default_action_set`.
     #[default]
@@ -339,7 +339,7 @@ pub enum PlayableKitSource {
     dead_code,
     reason = "Public catalog schema; future consumers (Hall layout generator, dialogue UI, faction-aware spawn rules) read tier / body_kind / composition / tags. Today the validator + sprite loader use a subset."
 )]
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct CharacterCatalogEntry {
     /// Human-facing label (UI, dialogue, debug overlays).
     pub display_name: String,
@@ -444,7 +444,7 @@ impl CharacterCatalogEntry {
 /// explicit that the value is an offset from the NPC's spawn
 /// position, not a world-space coordinate. The resolver adds the
 /// NPC's actual spawn-X at runtime.
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum BrainPreset {
     StandStill,
     Patrol {
@@ -515,7 +515,7 @@ pub enum BrainPreset {
 }
 
 /// Locomotion style. Mirrors `brain::action_set::MoveStyleSpec`.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub enum MoveStylePreset {
     #[default]
     Walk,
@@ -528,7 +528,7 @@ pub enum MoveStylePreset {
 
 /// Mirrors `brain::action_set::MeleeActionSpec` — each variant
 /// carries its own windup/active/recover timing.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 pub enum MeleePreset {
     Swipe {
         windup_s: f32,
@@ -570,7 +570,7 @@ pub enum MeleePreset {
 }
 
 /// Mirrors `brain::action_set::RangedActionSpec`.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 pub enum RangedPreset {
     Rock { speed: f32, damage: i32 },
     Arrow { speed: f32, damage: i32 },
@@ -583,14 +583,14 @@ pub enum RangedPreset {
 /// Keep the open `Special(String)` hatch here too: the catalog is an
 /// authoring surface, so it must be able to reach every content-defined
 /// technique the runtime action set can emit.
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum SpecialPreset {
     Special(String),
 }
 
 /// Action-set preset (capability bundle). Each character points at
 /// one of these by name in its `default_action_set` field.
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct ActionSetPreset {
     #[serde(default)]
     pub move_style: MoveStylePreset,
@@ -604,7 +604,7 @@ pub struct ActionSetPreset {
 
 /// Top-level RON shape: brain presets + action-set presets + the
 /// character map keyed by `character_id`.
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct CharacterCatalogData {
     pub brain_presets: BTreeMap<String, BrainPreset>,
     pub action_set_presets: BTreeMap<String, ActionSetPreset>,

@@ -116,6 +116,14 @@ pub(super) fn handle_ldtk_hot_reload(
         Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
         Res<ambition::actors::features::RoomContentStagingRegistry>,
     ),
+    mut content_identity: (
+        ambition::platformer::lifecycle::SessionWorldMut<ambition::runtime::PreparedContent>,
+        ambition::platformer::lifecycle::SessionWorldMut<
+            ambition::runtime::PreparedContentIdentity,
+        >,
+        ResMut<ambition::runtime::ContentEpochSequence>,
+        Res<ambition::runtime::snapshot::SnapshotRegistry>,
+    ),
 ) {
     if keys.just_pressed(KeyCode::F12) {
         ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
@@ -154,6 +162,7 @@ pub(super) fn handle_ldtk_hot_reload(
             return;
         };
         let mut clusters = cluster_item.as_clusters_mut();
+        let snapshot_schema = content_identity.3.schema_fingerprint();
         let result = reload_ldtk_world_from_disk(
             &mut commands,
             &mut world,
@@ -179,6 +188,10 @@ pub(super) fn handle_ldtk_hot_reload(
             &catalogs.3,
             &catalogs.4,
             &catalogs.5,
+            &mut content_identity.0,
+            &mut content_identity.1,
+            &mut content_identity.2,
+            snapshot_schema,
             session_scope,
         );
         match result {
@@ -280,6 +293,10 @@ pub(super) fn reload_ldtk_world_from_disk(
     boss_catalog: &ambition::actors::boss_encounter::BossCatalog,
     placement_lowering: &ambition::actors::world::placements::PlacementLoweringRegistry,
     content_staging: &ambition::actors::features::RoomContentStagingRegistry,
+    prepared_content: &mut ambition::runtime::PreparedContent,
+    prepared_identity: &mut ambition::runtime::PreparedContentIdentity,
+    epochs: &mut ambition::runtime::ContentEpochSequence,
+    snapshot_schema: ambition::runtime::SnapshotSchemaFingerprint,
     session_scope: ambition::platformer::lifecycle::SessionSpawnScope,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
@@ -291,6 +308,21 @@ pub(super) fn reload_ldtk_world_from_disk(
         preserved_pos,
         clusters.kinematics.size,
     )?;
+
+    let mut candidate_index = ldtk_index.clone();
+    candidate_index.replace_from_project(&transaction.project, transaction.next_spec.id.clone());
+    let candidate_source = prepared_content.source().with_world(
+        transaction.next_room_set.clone(),
+        RoomGeometry(transaction.next_spec.world.clone()),
+        rooms::ActiveRoomMetadata(transaction.next_spec.metadata.clone()),
+        candidate_index.clone(),
+    );
+    let candidate_content = ambition::provider::prepare_world_replacement_candidate(
+        prepared_content,
+        candidate_source,
+        snapshot_schema,
+    )
+    .map_err(|error| vec![error.to_string()])?;
 
     let construction_plan = rooms::RoomConstructionPlan::prepare_spec(
         transaction.next_room_set.active,
@@ -304,11 +336,20 @@ pub(super) fn reload_ldtk_world_from_disk(
     )
     .map_err(|error| vec![error.to_string()])?;
 
-    // Everything above this line is non-mutating: invalid edits, deleted active
-    // areas, bad graph links, unsafe player positions, missing placement
-    // interpreters, staged-content failures, and duplicate authoritative ids are
-    // rejected before touching the live world. Commit exactly the prepared
-    // construction artifact rather than rediscovering spawn decisions here.
+    // Everything above this line is non-mutating, including preparation of the
+    // exact candidate content identity. Equivalent reloads preserve both the
+    // fingerprint and epoch; materially changed definitions allocate a new
+    // epoch only now, when every preflight has succeeded.
+    let committed_content = if candidate_content.fingerprint() == prepared_content.fingerprint()
+        && candidate_content.snapshot_schema() == prepared_content.snapshot_schema()
+    {
+        prepared_content.clone()
+    } else {
+        candidate_content.with_epoch(epochs.allocate())
+    };
+
+    // Commit exactly the prepared construction artifact rather than
+    // rediscovering spawn decisions here.
     let outgoing = room_visuals
         .iter()
         .map(|(entity, physics_entity)| (entity, physics_entity.is_some()));
@@ -341,7 +382,9 @@ pub(super) fn reload_ldtk_world_from_disk(
     sim_state.room_transition_cooldown = 0.10;
     dev_state.preset_flash = 1.0;
 
-    ldtk_index.replace_from_project(&transaction.project, active_room.clone());
+    *ldtk_index = candidate_index;
+    *prepared_identity = committed_content.identity();
+    *prepared_content = committed_content;
 
     ambition::render::rendering::spawn_parallax_layers(
         commands,

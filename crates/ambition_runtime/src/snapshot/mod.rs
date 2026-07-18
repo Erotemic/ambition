@@ -46,7 +46,7 @@
 //!
 //! ## The hash
 //!
-//! FNV-1a over `(entry name, sorted (key, bytes) pairs)`, in registration order.
+//! FNV-1a over `(entry name, sorted (key, bytes) pairs)`, in canonical entry-name order.
 //! Deliberately not `std::hash::DefaultHasher`: `RandomState` is seeded per
 //! process, so two runs of the same binary would disagree — which is exactly the
 //! bug class ADR 0023 exists to prevent, and the last thing a desync canary should
@@ -441,8 +441,20 @@ enum EntryKind {
 }
 
 /// One registered piece of sim state.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum SnapshotEntryKind {
+    Component,
+    Cursor,
+    Resolved,
+    Resource,
+    ResourceCursor,
+    Diagnostic,
+}
+
 struct StateEntry {
     name: &'static str,
+    schema_kind: SnapshotEntryKind,
+    type_name: &'static str,
     kind: EntryKind,
 }
 
@@ -454,6 +466,7 @@ struct StateEntry {
 /// and `EntryKind` are.
 struct MessageChannel {
     name: &'static str,
+    type_name: &'static str,
     /// The `TypeId` of `Messages<M>`, so the resource census counts this registered
     /// (restore-cleared) channel as CLAIMED, not as unregistered debt (finding 6).
     type_id: std::any::TypeId,
@@ -484,21 +497,19 @@ impl std::fmt::Display for UnclaimedComponent {
     }
 }
 
-/// Prepared-world routing identity captured with an in-memory snapshot.
+/// Diagnostic prepared-world summary captured with an in-memory snapshot.
 ///
-/// Session scope ids are local to one App and may repeat in another process. The
-/// provider ids and sorted room roster therefore form an independent guard against
-/// accidentally applying a snapshot to a different prepared platformer world. A
-/// future persisted/wire snapshot may strengthen this with an explicit content
-/// fingerprint; this is the current same-build rollback identity.
+/// Provider ids and sorted room ids improve mismatch reports and preserve exact
+/// routing checks, but they are not content compatibility authority. Exact
+/// compatibility is the versioned prepared-content and snapshot-schema identity
+/// captured beside this summary.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SnapshotWorldIdentity {
     pub world_provider: String,
     pub character_provider: String,
     pub audio_provider: String,
-    /// Sorted room ids from the prepared world. This binds an in-memory rollback
-    /// snapshot to the world shape that authored it without serializing the room
-    /// contents themselves.
+    /// Sorted room ids from the prepared world, retained for diagnostics and
+    /// routing checks rather than used as a substitute for exact content identity.
     pub room_ids: Vec<String>,
 }
 
@@ -568,12 +579,18 @@ pub struct SimSnapshot {
     /// this field, not by convention. `None` = no session machinery (headless
     /// fixtures), which only matches `None`.
     pub session: Option<ambition_platformer_primitives::lifecycle::SessionScopeId>,
-    /// The prepared platformer-world identity this snapshot belongs to. Session
-    /// counters are deterministic per App and may repeat in another process; the
-    /// provider ids plus sorted room roster prevent a snapshot from being accepted
-    /// by a different prepared world that happens to use the same local scope id.
+    /// A diagnostic summary of the prepared platformer world. Exact content
+    /// compatibility is authorized by `content_fingerprint_schema` plus
+    /// `content_fingerprint`; provider and room names remain useful diagnostics
+    /// and routing checks but are not sufficient authority.
     /// `None` for room-less/headless fixtures.
     pub world: Option<SnapshotWorldIdentity>,
+    /// Exact immutable prepared-content contract. `None` only for room-less
+    /// headless fixtures with no canonical prepared session root.
+    pub content_fingerprint_schema: Option<crate::ContentFingerprintSchemaVersion>,
+    pub content_fingerprint: Option<crate::ContentFingerprint>,
+    /// Exact codec/registry schema used to interpret every entry below.
+    pub snapshot_schema: crate::SnapshotSchemaFingerprint,
     /// **Every `SimId` carried by a live entity when the snapshot was taken** — sorted,
     /// with duplicates PRESERVED. The full identity roster, a superset of the
     /// component-row ids [`sim_ids`](Self::sim_ids) derives.
@@ -663,6 +680,9 @@ impl SimSnapshot {
             + self.active_room.as_ref().map_or(0, |s| s.len())
             + self.session.map_or(0, |_| std::mem::size_of::<u64>())
             + self.world.as_ref().map_or(0, SnapshotWorldIdentity::size_bytes)
+            + self.content_fingerprint.map_or(0, |_| 32)
+            + self.content_fingerprint_schema.map_or(0, |_| std::mem::size_of::<u32>())
+            + 32
             + self.roster.iter().map(String::len).sum::<usize>()
     }
 }
@@ -689,6 +709,21 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
         .get_resource::<ambition_platformer_primitives::lifecycle::ActiveSessionScope>()
         .and_then(|scope| scope.current());
     let world_identity = SnapshotWorldIdentity::from_world(world);
+    let prepared = ambition_platformer_primitives::lifecycle::session_world_component::<
+        crate::PreparedContent,
+    >(world);
+    let content_fingerprint_schema = prepared.map(crate::PreparedContent::fingerprint_schema);
+    let content_fingerprint = prepared.map(crate::PreparedContent::fingerprint);
+    let snapshot_schema = registry.schema_fingerprint();
+    if let Some(prepared) = prepared {
+        assert_eq!(
+            prepared.snapshot_schema(),
+            snapshot_schema,
+            "take: the canonical session root was prepared for snapshot schema {} but the active registry is {}; snapshot registry composition changed after preparation",
+            prepared.snapshot_schema(),
+            snapshot_schema,
+        );
+    }
     // The full identity roster: every live `SimId`, sorted, dups preserved. Captured
     // independently of which components an entity carries, so identity is validated even
     // for an entity with no registered state — the collision a per-component scan misses
@@ -723,11 +758,15 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
             EntryKind::Diagnostic { .. } => {}
         }
     }
+    entries.sort_by_key(|(name, _)| *name);
     SimSnapshot {
         tick,
         active_room,
         session,
         world: world_identity,
+        content_fingerprint_schema,
+        content_fingerprint,
+        snapshot_schema,
         roster,
         entries,
     }
@@ -951,6 +990,22 @@ pub enum RestoreError {
         snapshot: Option<u64>,
         live: Option<u64>,
     },
+    /// Fingerprint encodings changed, so the bytes cannot be compared under
+    /// one meaning even if their printable digests happen to match.
+    ContentFingerprintSchemaMismatch {
+        snapshot: Option<crate::ContentFingerprintSchemaVersion>,
+        live: Option<crate::ContentFingerprintSchemaVersion>,
+    },
+    /// The exact immutable prepared definitions differ.
+    ContentFingerprintMismatch {
+        snapshot: Option<crate::ContentFingerprint>,
+        live: Option<crate::ContentFingerprint>,
+    },
+    /// Registered snapshot codecs/anchors/messages differ.
+    SnapshotSchemaMismatch {
+        snapshot: crate::SnapshotSchemaFingerprint,
+        live: crate::SnapshotSchemaFingerprint,
+    },
     /// The snapshot was captured from a different prepared platformer world.
     /// Checked before room staging or entity mutation. A local `SessionScopeId`
     /// is not globally unique across Apps, so provider/world identity is an
@@ -1021,6 +1076,18 @@ impl std::fmt::Display for RestoreError {
                     scope(live),
                 )
             }
+            RestoreError::ContentFingerprintSchemaMismatch { snapshot, live } => write!(
+                f,
+                "content-fingerprint schema mismatch: snapshot {snapshot:?}, live {live:?} — refused before world mutation"
+            ),
+            RestoreError::ContentFingerprintMismatch { snapshot, live } => write!(
+                f,
+                "prepared-content fingerprint mismatch: snapshot {snapshot:?}, live {live:?} — provider and room names are diagnostic only; exact definitions differ"
+            ),
+            RestoreError::SnapshotSchemaMismatch { snapshot, live } => write!(
+                f,
+                "snapshot-schema mismatch: snapshot {snapshot}, live {live} — registered codecs or structural declarations differ"
+            ),
             RestoreError::WorldMismatch { snapshot, live } => write!(
                 f,
                 "prepared-world mismatch: snapshot identity {snapshot:?}, live identity \

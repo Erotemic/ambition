@@ -720,18 +720,27 @@ impl Plugin for SanicDemoContentPlugin {
 
         install_sanic_content(app);
         let room = sanic_speedway();
+        let source = ambition::runtime::PreparedPlatformerSource::new(
+            SANIC_EXPERIENCE,
+            RoomSet::from_parts(SPEEDWAY_ROOM_ID, vec![room.clone()], Vec::new()),
+            ae::RoomGeometry(room.world.clone()),
+            ActiveRoomMetadata(room.metadata.clone()),
+            ambition::runtime::demo_fixture::StartingCharacter::new(SANIC_CHARACTER_ID),
+            ambition::runtime::demo_fixture::LdtkRuntimeIndex::default(),
+        );
+        let content = ambition::provider::prepare_platformer_content_for_app(
+            app,
+            source,
+            &provider::sanic_authored_catalogs(),
+        )
+        .expect("Sanic direct prepared-content assembly must succeed");
         app.world_mut().spawn((
             ambition::platformer::lifecycle::SessionRoot(
                 ambition::platformer::lifecycle::SessionScopeId(0),
             ),
-            ambition::runtime::PlatformerSessionWorld::new(
-                SANIC_EXPERIENCE,
-                RoomSet::from_parts(SPEEDWAY_ROOM_ID, vec![room.clone()], Vec::new()),
-                ae::RoomGeometry(room.world.clone()),
-                ActiveRoomMetadata(room.metadata.clone()),
-                ambition::runtime::demo_fixture::StartingCharacter::new(SANIC_CHARACTER_ID),
-                ambition::runtime::demo_fixture::LdtkRuntimeIndex::default(),
-            ),
+            content.source().instantiate_live(),
+            content.identity(),
+            content,
         ));
         app.add_systems(
             bevy::app::Startup,

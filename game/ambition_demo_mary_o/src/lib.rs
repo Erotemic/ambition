@@ -398,9 +398,15 @@ pub fn install_mary_o_content(app: &mut App) {
         )
         .expect("Mary-O character catalog should be valid"),
     );
-    // The crony's hostile archetype (body/walk/contact) lives in a roster
-    // fragment beside the catalog identity above.
+    // The crony's hostile archetype and room stager are authored content, so
+    // install both before direct or shell preparation fingerprints the App.
     crony::register_crony_roster(app);
+    app.init_resource::<ambition::actors::features::RoomContentStagingRegistry>();
+    crony::register_crony_content_staging(
+        &mut app
+            .world_mut()
+            .resource_mut::<ambition::actors::features::RoomContentStagingRegistry>(),
+    );
 }
 
 impl Plugin for MaryODemoContentPlugin {
@@ -410,20 +416,27 @@ impl Plugin for MaryODemoContentPlugin {
 
         install_mary_o_content(app);
         let room = level_1_1();
+        let source = ambition::runtime::PreparedPlatformerSource::new(
+            provider::MARY_O_EXPERIENCE,
+            RoomSet::from_parts(LEVEL_1_1_ROOM_ID, vec![room.clone()], Vec::new()),
+            ae::RoomGeometry(room.world.clone()),
+            ActiveRoomMetadata(room.metadata.clone()),
+            ambition::runtime::demo_fixture::StartingCharacter::new(provider::MARY_O_CHARACTER_ID),
+            ambition::runtime::demo_fixture::LdtkRuntimeIndex::default(),
+        );
+        let content = ambition::provider::prepare_platformer_content_for_app(
+            app,
+            source,
+            &provider::mary_o_authored_catalogs(),
+        )
+        .expect("Mary-O direct prepared-content assembly must succeed");
         app.world_mut().spawn((
             ambition::platformer::lifecycle::SessionRoot(
                 ambition::platformer::lifecycle::SessionScopeId(0),
             ),
-            ambition::runtime::PlatformerSessionWorld::new(
-                provider::MARY_O_EXPERIENCE,
-                RoomSet::from_parts(LEVEL_1_1_ROOM_ID, vec![room.clone()], Vec::new()),
-                ae::RoomGeometry(room.world.clone()),
-                ActiveRoomMetadata(room.metadata.clone()),
-                ambition::runtime::demo_fixture::StartingCharacter::new(
-                    provider::MARY_O_CHARACTER_ID,
-                ),
-                ambition::runtime::demo_fixture::LdtkRuntimeIndex::default(),
-            ),
+            content.source().instantiate_live(),
+            content.identity(),
+            content,
         ));
         app.add_systems(
             bevy::app::Startup,
@@ -561,14 +574,10 @@ impl Plugin for MaryORulesPlugin {
             cycle_level_on_flag_tally,
         )
             .chain();
-        // The walkers are level 1-1's registered content staging (part of room
-        // construction — every path, including restore staging, rebuilds them).
-        app.init_resource::<ambition::actors::features::RoomContentStagingRegistry>();
-        crony::register_crony_content_staging(
-            &mut app
-                .world_mut()
-                .resource_mut::<ambition::actors::features::RoomContentStagingRegistry>(),
-        );
+        // The walkers are registered by `install_mary_o_content`, the single
+        // authored-content composition seam shared by direct and shell hosts.
+        // Rules consume the staged actors; they do not mutate construction
+        // registries after prepared-content fingerprinting.
         // The head-stomp runs BEFORE the engine's shared body-contact-damage
         // pass so a squash never also hurts the stomper (the rule zeroes the
         // crony's health that frame, which the contact pass then skips).

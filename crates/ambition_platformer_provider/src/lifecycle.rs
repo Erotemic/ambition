@@ -6,7 +6,7 @@
 //! shares these systems; the provider contributes only its session-world
 //! source. The answers to the lifecycle questions live here:
 //!
-//! - **What does a provider prepare?** A [`PlatformerSessionWorld`], validated
+//! - **What does a provider prepare?** A [`PreparedPlatformerSource`], validated
 //!   against its [`AuthoredCatalogFragments`](crate::authoring::AuthoredCatalogFragments)
 //!   into a [`PlatformerPreparationReport`].
 //! - **What identity proves activation matches preparation?** The
@@ -32,7 +32,10 @@ use ambition_game_shell::{
 };
 use ambition_load::AmbitionLoadSet;
 use ambition_platformer_primitives::lifecycle::{SessionScopeId, SessionSpawnScope};
-use ambition_runtime::PlatformerSessionWorld;
+use ambition_runtime::{
+    ContentDiagnostic, ContentEpochSequence, ContentOwner, PlatformerSessionWorld, PreparedContent,
+    PreparedContentBuilder, PreparedContentIdentity, PreparedPlatformerSource,
+};
 
 use crate::authoring::PlatformerAuthoredCatalogRegistry;
 
@@ -84,6 +87,7 @@ impl Plugin for PlatformerProviderRuntimePlugin {
         app.add_plugins(ambition_actors::session::SessionTeardownPlugin);
         app.init_resource::<PlatformerStreamingReadiness>()
             .init_resource::<PreparedPlatformerSessions>()
+            .init_resource::<ContentEpochSequence>()
             .configure_sets(
                 Update,
                 PlatformerPreparationSet.in_set(AmbitionLoadSet::Contributors),
@@ -151,7 +155,7 @@ pub(crate) fn preparation_requested(
 /// source (tagged with its experience id), it gives every matching transaction
 /// an owned copy of that authored world value.
 pub(crate) fn prepare_requested_sessions(
-    In((experience_id, world)): In<(String, PlatformerSessionWorld)>,
+    In((experience_id, source)): In<(String, PreparedPlatformerSource)>,
     mut events: MessageReader<ShellEvent>,
     mut preparation: PlatformerPreparation,
 ) {
@@ -162,7 +166,7 @@ pub(crate) fn prepare_requested_sessions(
         if transaction.experience_id.as_str() != experience_id {
             continue;
         }
-        preparation.prepare(transaction, world.clone());
+        preparation.prepare(transaction, source.clone());
     }
 }
 
@@ -171,6 +175,13 @@ pub(crate) fn prepare_requested_sessions(
 pub(crate) struct PlatformerPreparation<'w> {
     authored_catalogs: Res<'w, PlatformerAuthoredCatalogRegistry>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
+    character_catalog_registry:
+        Option<Res<'w, ambition_characters::actor::character_catalog::CharacterCatalogRegistry>>,
+    snapshot_registry: Option<Res<'w, ambition_runtime::snapshot::SnapshotRegistry>>,
+    placement_lowering:
+        Option<Res<'w, ambition_actors::world::placements::PlacementLoweringRegistry>>,
+    content_staging: Option<Res<'w, ambition_actors::features::RoomContentStagingRegistry>>,
+    epochs: ResMut<'w, ContentEpochSequence>,
     audio_catalogs: Res<'w, ambition_audio::catalog::AudioCatalogRegistry>,
     #[cfg(feature = "audio")]
     adaptive_catalogs: Option<Res<'w, ambition_audio::music::AdaptiveMusicCatalogRegistry>>,
@@ -186,7 +197,7 @@ impl PlatformerPreparation<'_> {
     pub(crate) fn prepare(
         &mut self,
         transaction: &ProviderLoadTransaction,
-        world: PlatformerSessionWorld,
+        source: PreparedPlatformerSource,
     ) -> Option<PreparedSessionIdentity> {
         let Some(authored) = self
             .authored_catalogs
@@ -232,10 +243,10 @@ impl PlatformerPreparation<'_> {
         }
         self.complete(transaction, PREPARE_CATALOGS_WORK_ID);
 
-        if world.active_room_id().trim().is_empty()
-            || world.catalogs.world_provider.trim().is_empty()
-            || world.catalogs.character_provider.trim().is_empty()
-            || world.catalogs.audio_provider.trim().is_empty()
+        if source.active_room_id().trim().is_empty()
+            || source.catalogs().world_provider.trim().is_empty()
+            || source.catalogs().character_provider.trim().is_empty()
+            || source.catalogs().audio_provider.trim().is_empty()
         {
             self.fail(
                 transaction,
@@ -358,11 +369,11 @@ impl PlatformerPreparation<'_> {
         }
         self.complete(transaction, PREPARE_ADAPTIVE_WORK_ID);
 
-        let effective_character = world
-            .starting_character
+        let effective_character = source
+            .starting_character()
             .effective_id(authored.starting_character.as_str());
         if effective_character != authored.starting_character.as_str()
-            || world.catalogs.audio_provider.as_str() != authored.audio_provider.as_str()
+            || source.catalogs().audio_provider.as_str() != authored.audio_provider.as_str()
         {
             self.fail(
                 transaction,
@@ -374,7 +385,7 @@ impl PlatformerPreparation<'_> {
                         authored.starting_character,
                         authored.audio_provider,
                         effective_character,
-                        world.catalogs.audio_provider,
+                        source.catalogs().audio_provider,
                     ),
                 )
                 .retryable(false),
@@ -424,9 +435,41 @@ impl PlatformerPreparation<'_> {
             packed_sfx_streamable,
             deliberate_silence,
         };
-        let identity =
-            self.sessions
-                .publish_with_report(transaction, world, report, &mut self.registry)?;
+        let snapshot_schema = self
+            .snapshot_registry
+            .as_deref()
+            .map(ambition_runtime::snapshot::SnapshotRegistry::schema_fingerprint)
+            .unwrap_or_else(|| {
+                ambition_runtime::snapshot::SnapshotRegistry::default().schema_fingerprint()
+            });
+        let content = match prepare_platformer_content(
+            source,
+            &authored,
+            self.character_catalog_registry.as_deref(),
+            self.placement_lowering.as_deref(),
+            self.content_staging.as_deref(),
+            snapshot_schema,
+            &mut self.epochs,
+        ) {
+            Ok(content) => content,
+            Err(diagnostic) => {
+                self.fail(
+                    transaction,
+                    PREPARE_SESSION_WORK_ID,
+                    ambition_load::LoadFailure::new(
+                        "Prepared content assembly failed",
+                        diagnostic.to_string(),
+                    )
+                    .retryable(false),
+                );
+                return None;
+            }
+        };
+        let identity = self.sessions.publish(
+            transaction,
+            PreparedPlatformerSession { content, report },
+            &mut self.registry,
+        )?;
         self.complete(transaction, PREPARE_SESSION_WORK_ID);
         self.commands
             .write(ambition_load::LoadCommand::SetDiscovery {
@@ -477,29 +520,372 @@ impl PlatformerPreparation<'_> {
     }
 }
 
+fn add_world_fingerprint_sections(
+    builder: &mut PreparedContentBuilder,
+    source: &PreparedPlatformerSource,
+) -> Result<(), ContentDiagnostic> {
+    let mut rooms = source.room_set().rooms.clone();
+    rooms.sort_by(|a, b| a.id.cmp(&b.id));
+    let rooms = ron::ser::to_string(&rooms).map_err(|error| {
+        ContentDiagnostic::new(
+            "world.rooms",
+            format!("canonical room serialization failed: {error}"),
+        )
+    })?;
+    builder
+        .add_section("world.rooms", rooms.into_bytes())
+        .map_err(|error| ContentDiagnostic::new("world.rooms", error.to_string()))?;
+    let links = ron::ser::to_string(&source.room_set().canonical_links()).map_err(|error| {
+        ContentDiagnostic::new(
+            "world.graph",
+            format!("canonical room-link serialization failed: {error}"),
+        )
+    })?;
+    builder
+        .add_section("world.graph", links.into_bytes())
+        .map_err(|error| ContentDiagnostic::new("world.graph", error.to_string()))?;
+    let active_geometry = ron::ser::to_string(&source.geometry().0).map_err(|error| {
+        ContentDiagnostic::new(
+            "world.active-geometry",
+            format!("canonical active geometry serialization failed: {error}"),
+        )
+    })?;
+    builder
+        .add_section("world.active-geometry", active_geometry.into_bytes())
+        .map_err(|error| ContentDiagnostic::new("world.active-geometry", error.to_string()))?;
+    let active_metadata = ron::ser::to_string(&source.active_room().0).map_err(|error| {
+        ContentDiagnostic::new(
+            "world.active-metadata",
+            format!("canonical active metadata serialization failed: {error}"),
+        )
+    })?;
+    builder
+        .add_section("world.active-metadata", active_metadata.into_bytes())
+        .map_err(|error| ContentDiagnostic::new("world.active-metadata", error.to_string()))?;
+    let start_room = source
+        .room_set()
+        .rooms
+        .get(source.room_set().start)
+        .map(|room| room.id.as_str())
+        .unwrap_or("<missing>");
+    builder
+        .add_section(
+            "world.initial-state",
+            format!(
+                "active_room={}\nstart_room={}\nstarting_character={}\n",
+                source.active_room_id(),
+                start_room,
+                source.starting_character().character_id,
+            )
+            .into_bytes(),
+        )
+        .map_err(|error| ContentDiagnostic::new("world.initial-state", error.to_string()))?;
+
+    // The LDtk index carries deterministic area-to-level membership and area
+    // bounds used by streaming/level selection. Its mutable revision/sync
+    // cursors are deliberately excluded.
+    let mut runtime_index = String::new();
+    let mut area_ids = source
+        .room_set()
+        .rooms
+        .iter()
+        .map(|room| room.id.as_str())
+        .collect::<Vec<_>>();
+    area_ids.sort_unstable();
+    area_ids.dedup();
+    for area_id in area_ids {
+        let mut level_iids = source.runtime_rooms().level_iids_for(area_id);
+        level_iids.sort();
+        runtime_index.push_str("area\t");
+        runtime_index.push_str(area_id);
+        runtime_index.push('\t');
+        runtime_index.push_str(&level_iids.join(","));
+        if let Some(bounds) = source.runtime_rooms().area_bounds(area_id) {
+            runtime_index.push_str(&format!(
+                "\t{},{},{},{}",
+                bounds.min_x, bounds.min_y, bounds.max_x, bounds.max_y,
+            ));
+        } else {
+            runtime_index.push_str("\t-");
+        }
+        runtime_index.push('\n');
+    }
+    builder
+        .add_section("world.runtime-index", runtime_index.into_bytes())
+        .map_err(|error| ContentDiagnostic::new("world.runtime-index", error.to_string()))?;
+    Ok(())
+}
+
+/// Build an LDtk replacement candidate from the active immutable definition.
+/// Non-world sections are copied byte-for-byte; world sections are regenerated
+/// by the same canonical function used during initial provider preparation.
+pub fn prepare_world_replacement_candidate(
+    active: &PreparedContent,
+    source: PreparedPlatformerSource,
+    snapshot_schema: ambition_runtime::SnapshotSchemaFingerprint,
+) -> Result<PreparedContent, ContentDiagnostic> {
+    // The incoming replacement may have been assembled while the live session
+    // was in a room other than the definition's original activation room.
+    // Normalize that mutable cursor before hashing so ordinary room movement
+    // cannot manufacture a new content identity.
+    let definition_room = active.source().active_room_id();
+    let source = source
+        .with_definition_active_room(definition_room)
+        .ok_or_else(|| {
+            ContentDiagnostic::new(
+                "world.definition-active-room",
+                format!(
+                    "replacement world does not contain the active definition room '{}'",
+                    definition_room,
+                ),
+            )
+        })?;
+    let mut builder = PreparedContentBuilder::default();
+    for owner in active.owners() {
+        builder.add_owner(owner.clone());
+    }
+    for section in active.sections() {
+        if !section.name.starts_with("world.") {
+            builder
+                .add_section(section.name.clone(), section.canonical_bytes().to_vec())
+                .map_err(|error| ContentDiagnostic::new(section.name.clone(), error.to_string()))?;
+        }
+    }
+    add_world_fingerprint_sections(&mut builder, &source)?;
+    Ok(builder.finish(active.epoch(), snapshot_schema, source))
+}
+
+/// Assemble exact immutable content for a direct-entry app after its plugins
+/// have installed construction and snapshot registries. Direct demos use this
+/// instead of hand-building an un-fingerprinted live session root.
+pub fn prepare_platformer_content_for_app(
+    app: &mut App,
+    source: PreparedPlatformerSource,
+    authored: &crate::authoring::AuthoredCatalogFragments,
+) -> Result<PreparedContent, ContentDiagnostic> {
+    let character_registry = app
+        .world()
+        .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalogRegistry>()
+        .cloned();
+    let placement_lowering = app
+        .world()
+        .get_resource::<ambition_actors::world::placements::PlacementLoweringRegistry>()
+        .cloned();
+    let content_staging = app
+        .world()
+        .get_resource::<ambition_actors::features::RoomContentStagingRegistry>()
+        .cloned();
+    let snapshot_schema = app
+        .world()
+        .get_resource::<ambition_runtime::snapshot::SnapshotRegistry>()
+        .map(ambition_runtime::snapshot::SnapshotRegistry::schema_fingerprint)
+        .unwrap_or_else(|| {
+            ambition_runtime::snapshot::SnapshotRegistry::default().schema_fingerprint()
+        });
+    app.init_resource::<ContentEpochSequence>();
+    let mut epochs = app.world_mut().resource_mut::<ContentEpochSequence>();
+    prepare_platformer_content(
+        source,
+        authored,
+        character_registry.as_ref(),
+        placement_lowering.as_ref(),
+        content_staging.as_ref(),
+        snapshot_schema,
+        &mut epochs,
+    )
+}
+
+pub fn prepare_platformer_content(
+    source: PreparedPlatformerSource,
+    authored: &crate::authoring::AuthoredCatalogFragments,
+    character_registry: Option<
+        &ambition_characters::actor::character_catalog::CharacterCatalogRegistry,
+    >,
+    placement_lowering: Option<&ambition_actors::world::placements::PlacementLoweringRegistry>,
+    content_staging: Option<&ambition_actors::features::RoomContentStagingRegistry>,
+    snapshot_schema: ambition_runtime::SnapshotSchemaFingerprint,
+    epochs: &mut ContentEpochSequence,
+) -> Result<PreparedContent, ContentDiagnostic> {
+    if source.active_room_id().trim().is_empty()
+        || source.catalogs().world_provider.trim().is_empty()
+        || source.catalogs().character_provider.trim().is_empty()
+        || source.catalogs().audio_provider.trim().is_empty()
+    {
+        return Err(ContentDiagnostic::new(
+            "provider.source",
+            "active room and provider identities must not be empty",
+        ));
+    }
+    let effective_character = source
+        .starting_character()
+        .effective_id(authored.starting_character.as_str());
+    if effective_character != authored.starting_character.as_str()
+        || source.catalogs().audio_provider.as_str() != authored.audio_provider.as_str()
+    {
+        return Err(ContentDiagnostic::new(
+            "provider.defaults",
+            format!(
+                "expected character '{}' and audio provider '{}', got '{}' and '{}'",
+                authored.starting_character,
+                authored.audio_provider,
+                effective_character,
+                source.catalogs().audio_provider,
+            ),
+        ));
+    }
+    for room in &source.room_set().rooms {
+        if !room.placements.is_empty() && placement_lowering.is_none() {
+            return Err(ContentDiagnostic::new(
+                format!("world.room.{}.placements", room.id),
+                "authored placements require an installed placement-lowering registry",
+            ));
+        }
+        if let Some(registry) = placement_lowering {
+            registry
+                .validate_room(room.id.as_str(), &room.placements)
+                .map_err(|error| {
+                    ContentDiagnostic::new(
+                        format!("world.room.{}.placements", room.id),
+                        error.to_string(),
+                    )
+                })?;
+        }
+        if let Some(registry) = content_staging {
+            registry.try_requests_for(room).map_err(|error| {
+                ContentDiagnostic::new(
+                    format!("world.room.{}.content-staging", room.id),
+                    error.to_string(),
+                )
+            })?;
+        }
+    }
+
+    let mut builder = PreparedContentBuilder::default();
+    builder.add_owner(ContentOwner::new(
+        source.catalogs().world_provider.clone(),
+        "provider-session-source",
+        "world",
+    ));
+    builder.add_owner(ContentOwner::new(
+        source.catalogs().character_provider.clone(),
+        "character-catalog",
+        "characters",
+    ));
+    builder.add_owner(ContentOwner::new(
+        source.catalogs().audio_provider.clone(),
+        "audio-catalog",
+        "audio",
+    ));
+
+    builder
+        .add_section(
+            "provider.catalogs",
+            format!(
+                "world={}\ncharacters={}\naudio={}\n",
+                source.catalogs().world_provider,
+                source.catalogs().character_provider,
+                source.catalogs().audio_provider,
+            )
+            .into_bytes(),
+        )
+        .map_err(|error| ContentDiagnostic::new("provider.catalogs", error.to_string()))?;
+    builder.add_section(
+        "provider.authored-defaults",
+        format!(
+            "starting_character={}\naudio_provider={}\nexpects_music={}\nexpects_procedural_sfx={}\nexpects_adaptive_cues={}\nexpects_packed_sfx={}\n",
+            authored.starting_character,
+            authored.audio_provider,
+            authored.expects_music,
+            authored.expects_procedural_sfx,
+            authored.expects_adaptive_cues,
+            authored.expects_packed_sfx,
+        ).into_bytes(),
+).map_err(|error| ContentDiagnostic::new("provider.authored-defaults", error.to_string()))?;
+
+    add_world_fingerprint_sections(&mut builder, &source)?;
+
+    // Conservative Phase-1 contract: all linked character fragments contribute,
+    // because rooms and content stagers may select characters dynamically. This
+    // is broader than the eventual dependency closure but never under-binds.
+    if let Some(registry) = character_registry {
+        for (provider, default, source_ron) in registry.canonical_fragments() {
+            builder.add_owner(ContentOwner::new(
+                &provider,
+                "registered-character-fragment",
+                "characters",
+            ));
+            let mut bytes = format!(
+                "provider={provider}\ndefault={}\n",
+                default.as_deref().unwrap_or("-")
+            )
+            .into_bytes();
+            bytes.extend_from_slice(source_ron.as_bytes());
+            let section = format!("characters.fragment.{provider}");
+            builder
+                .add_section(section.clone(), bytes)
+                .map_err(|error| ContentDiagnostic::new(section, error.to_string()))?;
+        }
+    }
+    if let Some(registry) = placement_lowering {
+        for (_, owner, source_id, _) in registry.schema_descriptors() {
+            builder.add_owner(ContentOwner::new(owner, source_id, "placement-lowering"));
+        }
+    }
+    builder
+        .add_section(
+            "construction.placement-lowering",
+            placement_lowering.map_or_else(Vec::new, |registry| {
+                registry.deterministic_dump().into_bytes()
+            }),
+        )
+        .map_err(|error| {
+            ContentDiagnostic::new("construction.placement-lowering", error.to_string())
+        })?;
+    if let Some(registry) = content_staging {
+        for (_, owner, source_id, _) in registry.schema_descriptors() {
+            builder.add_owner(ContentOwner::new(owner, source_id, "content-staging"));
+        }
+    }
+    builder
+        .add_section(
+            "construction.content-staging",
+            content_staging.map_or_else(Vec::new, |registry| {
+                registry.deterministic_dump().into_bytes()
+            }),
+        )
+        .map_err(|error| {
+            ContentDiagnostic::new("construction.content-staging", error.to_string())
+        })?;
+
+    // Epoch allocation is the final non-fallible step: a rejected candidate
+    // never consumes or publishes an activation generation.
+    Ok(builder.finish(epochs.allocate(), snapshot_schema, source))
+}
+
 #[derive(Clone)]
 struct PreparedPlatformerRecord {
     transaction: ProviderLoadTransaction,
-    world: PlatformerSessionWorld,
-    report: PlatformerPreparationReport,
+    prepared: PreparedPlatformerSession,
 }
 
-/// The owner of every prepared-but-not-yet-activated session world, keyed by
-/// its load transaction. One resource serves all installed experiences: load
-/// ids are globally unique, and activation retires records by exact
-/// [`PreparedSessionIdentity`], so providers cannot observe each other's
-/// prepared worlds.
+/// One coherent publication: immutable content and the report produced by the
+/// same successful validation/assembly transaction.
+#[derive(Clone)]
+pub struct PreparedPlatformerSession {
+    pub content: PreparedContent,
+    pub report: PlatformerPreparationReport,
+}
+
 #[derive(Resource, Default)]
 pub struct PreparedPlatformerSessions {
     records: BTreeMap<ambition_load::LoadId, PreparedPlatformerRecord>,
 }
 
 impl PreparedPlatformerSessions {
-    pub(crate) fn publish_with_report(
+    pub(crate) fn publish(
         &mut self,
         transaction: &ProviderLoadTransaction,
-        world: PlatformerSessionWorld,
-        report: PlatformerPreparationReport,
+        prepared: PreparedPlatformerSession,
         registry: &mut PreparedSessionRegistry,
     ) -> Option<PreparedSessionIdentity> {
         let identity = registry.publish(transaction)?;
@@ -507,34 +893,25 @@ impl PreparedPlatformerSessions {
             transaction.barrier.load_id.clone(),
             PreparedPlatformerRecord {
                 transaction: transaction.clone(),
-                world,
-                report,
+                prepared,
             },
         );
         assert!(old.is_none(), "fresh prepared transaction was reused");
         Some(identity)
     }
 
-    pub fn report(
-        &self,
-        identity: &PreparedSessionIdentity,
-    ) -> Option<&PlatformerPreparationReport> {
-        let record = self.records.get(&identity.transaction.barrier.load_id)?;
-        (record.transaction == identity.transaction).then_some(&record.report)
-    }
-
     pub(crate) fn take(
         &mut self,
         identity: &PreparedSessionIdentity,
         registry: &mut PreparedSessionRegistry,
-    ) -> Option<PlatformerSessionWorld> {
+    ) -> Option<PreparedPlatformerSession> {
         let load_id = &identity.transaction.barrier.load_id;
         let record = self.records.remove(load_id)?;
         if record.transaction != identity.transaction || !registry.retire_prepared(identity) {
             self.records.insert(load_id.clone(), record);
             return None;
         }
-        Some(record.world)
+        Some(record.prepared)
     }
 
     pub(crate) fn retain_requested(&mut self, registry: &PreparedSessionRegistry) {
@@ -576,21 +953,18 @@ fn activate_prepared_platformer_sessions(
         let prepared = activation.prepared_session.as_ref().unwrap_or_else(|| {
             panic!("experience '{experience_id}' requires an exact prepared-session publication")
         });
-        let default_character = sessions
-            .report(prepared)
-            .unwrap_or_else(|| {
-                panic!(
-                    "experience '{experience_id}' prepared data must match the authorized transaction"
-                )
-            })
-            .starting_character
-            .clone();
-        let live_world = sessions.take(prepared, &mut registry).unwrap_or_else(|| {
+        let prepared = sessions.take(prepared, &mut registry).unwrap_or_else(|| {
             panic!(
                 "experience '{experience_id}' prepared data must match the authorized transaction"
             )
         });
-        builder.build(activation, *scope, live_world, default_character.as_str());
+        let default_character = prepared.report.starting_character.clone();
+        builder.build(
+            activation,
+            *scope,
+            prepared.content,
+            default_character.as_str(),
+        );
     }
 }
 
@@ -626,9 +1000,11 @@ impl PlatformerSessionBuilder<'_, '_> {
         &mut self,
         activation: &ActiveShellExperience,
         scope: SessionScopeId,
-        live_world: PlatformerSessionWorld,
+        prepared_content: PreparedContent,
         default_character_id: &str,
     ) -> SessionBuildResult {
+        let live_world: PlatformerSessionWorld = prepared_content.source().instantiate_live();
+        let prepared_identity: PreparedContentIdentity = prepared_content.identity();
         // Live moving-platform state derives from the activating room. Rooms
         // without authored platforms (every current demo) reset it to empty.
         self.moving_platforms.0 = ambition_actors::world::platforms::moving_platforms_for_room(
@@ -664,7 +1040,12 @@ impl PlatformerSessionBuilder<'_, '_> {
 
         let world = self
             .active_session
-            .spawn_world_for(&mut self.commands, activation, scope, live_world)
+            .spawn_world_for(
+                &mut self.commands,
+                activation,
+                scope,
+                (live_world, prepared_content, prepared_identity),
+            )
             .expect("provider activation still owns the session it is constructing");
 
         SessionBuildResult { player, world }
@@ -687,7 +1068,7 @@ mod tests {
             "Prepare fixture",
             AuthoredCatalogFragments::new("fixture_character", "fixture"),
         )
-        .install(&mut app, || -> PlatformerSessionWorld {
+        .install(&mut app, || -> PreparedPlatformerSource {
             unreachable!("the fixture never receives a preparation request")
         });
 
@@ -700,6 +1081,338 @@ mod tests {
         assert!(app
             .world()
             .contains_resource::<PreparedPlatformerSessions>());
+    }
+
+    const CHARACTER_A: &str = r#"(
+        brain_presets: { "idle": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "alpha": (
+                display_name: "Alpha", spritesheet: "alpha.png", manifest: "alpha.ron",
+                tier: MainHall, body_kind: Standard, composition: None,
+                default_brain: "idle", default_action_set: "peaceful", tags: [],
+            ),
+        },
+    )"#;
+
+    const CHARACTER_B: &str = r#"(
+        brain_presets: { "idle": StandStill },
+        action_set_presets: { "peaceful": (move_style: Float) },
+        characters: {
+            "beta": (
+                display_name: "Beta", spritesheet: "beta.png", manifest: "beta.ron",
+                tier: MainHall, body_kind: Standard, composition: None,
+                default_brain: "idle", default_action_set: "peaceful", tags: [],
+            ),
+        },
+    )"#;
+
+    fn fixture_source(width: f32) -> PreparedPlatformerSource {
+        let room = ambition_world::rooms::RoomSpec::new(
+            "same-room",
+            ambition_engine_core::World::new(
+                "same-room",
+                ambition_engine_core::Vec2::new(width, 128.0),
+                ambition_engine_core::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            ),
+        );
+        let room_set =
+            ambition_world::rooms::RoomSet::from_parts("same-room", vec![room], Vec::new());
+        PreparedPlatformerSource::new(
+            "same-provider",
+            room_set.clone(),
+            ambition_engine_core::RoomGeometry(room_set.active_world().clone()),
+            ambition_world::rooms::ActiveRoomMetadata(room_set.active_spec().metadata.clone()),
+            ambition_actors::avatar::StartingCharacter::new("alpha"),
+            ambition_actors::ldtk_world::LdtkRuntimeIndex::default(),
+        )
+    }
+
+    fn isolated_room_fixture_source(room_id: &str) -> PreparedPlatformerSource {
+        let room = ambition_world::rooms::RoomSpec::new(
+            room_id,
+            ambition_engine_core::World::new(
+                room_id,
+                ambition_engine_core::Vec2::new(128.0, 128.0),
+                ambition_engine_core::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            ),
+        );
+        let room_set = ambition_world::rooms::RoomSet::from_parts(room_id, vec![room], Vec::new());
+        PreparedPlatformerSource::new(
+            "same-provider",
+            room_set.clone(),
+            ambition_engine_core::RoomGeometry(room_set.active_world().clone()),
+            ambition_world::rooms::ActiveRoomMetadata(room_set.active_spec().metadata.clone()),
+            ambition_actors::avatar::StartingCharacter::new("alpha"),
+            ambition_actors::ldtk_world::LdtkRuntimeIndex::default(),
+        )
+    }
+
+    fn two_room_fixture_source(active_room: &str) -> PreparedPlatformerSource {
+        let first = ambition_world::rooms::RoomSpec::new(
+            "same-room",
+            ambition_engine_core::World::new(
+                "same-room",
+                ambition_engine_core::Vec2::new(128.0, 128.0),
+                ambition_engine_core::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            ),
+        );
+        let second = ambition_world::rooms::RoomSpec::new(
+            "second-room",
+            ambition_engine_core::World::new(
+                "second-room",
+                ambition_engine_core::Vec2::new(160.0, 128.0),
+                ambition_engine_core::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            ),
+        );
+        let mut room_set = ambition_world::rooms::RoomSet::from_parts(
+            "same-room",
+            vec![first, second],
+            Vec::new(),
+        );
+        room_set.active = room_set.room_index_by_id(active_room).unwrap();
+        PreparedPlatformerSource::new(
+            "same-provider",
+            room_set.clone(),
+            ambition_engine_core::RoomGeometry(room_set.active_world().clone()),
+            ambition_world::rooms::ActiveRoomMetadata(room_set.active_spec().metadata.clone()),
+            ambition_actors::avatar::StartingCharacter::new("alpha"),
+            ambition_actors::ldtk_world::LdtkRuntimeIndex::default(),
+        )
+    }
+
+    fn character_registry(
+        reverse: bool,
+        beta_ron: &str,
+    ) -> ambition_characters::actor::character_catalog::CharacterCatalogRegistry {
+        use ambition_characters::actor::character_catalog::{
+            CharacterCatalogFragment, CharacterCatalogRegistry,
+        };
+        let a =
+            CharacterCatalogFragment::from_ron("provider-a", Some("alpha"), CHARACTER_A).unwrap();
+        let b = CharacterCatalogFragment::from_ron("provider-b", Some("beta"), beta_ron).unwrap();
+        let mut registry = CharacterCatalogRegistry::default();
+        if reverse {
+            registry.register(b).unwrap();
+            registry.register(a).unwrap();
+        } else {
+            registry.register(a).unwrap();
+            registry.register(b).unwrap();
+        }
+        registry
+    }
+
+    fn staging_registry(reverse: bool) -> ambition_actors::features::RoomContentStagingRegistry {
+        let mut registry = ambition_actors::features::RoomContentStagingRegistry::default();
+        let mut register_a =
+            |registry: &mut ambition_actors::features::RoomContentStagingRegistry| {
+                registry
+                    .register(
+                        "same-room",
+                        "provider-a",
+                        "fixture-a",
+                        "fixture-a.v1",
+                        |_| Vec::new(),
+                    )
+                    .unwrap();
+            };
+        let mut register_b =
+            |registry: &mut ambition_actors::features::RoomContentStagingRegistry| {
+                registry
+                    .register(
+                        "same-room",
+                        "provider-b",
+                        "fixture-b",
+                        "fixture-b.v1",
+                        |_| Vec::new(),
+                    )
+                    .unwrap();
+            };
+        if reverse {
+            register_b(&mut registry);
+            register_a(&mut registry);
+        } else {
+            register_a(&mut registry);
+            register_b(&mut registry);
+        }
+        registry
+    }
+
+    fn fixture_content(
+        source: PreparedPlatformerSource,
+        characters: &ambition_characters::actor::character_catalog::CharacterCatalogRegistry,
+        staging: &ambition_actors::features::RoomContentStagingRegistry,
+    ) -> PreparedContent {
+        let authored = AuthoredCatalogFragments::new("alpha", "same-provider");
+        let snapshot_schema =
+            ambition_runtime::snapshot::SnapshotRegistry::default().schema_fingerprint();
+        let mut epochs = ContentEpochSequence::default();
+        prepare_platformer_content(
+            source,
+            &authored,
+            Some(characters),
+            None,
+            Some(staging),
+            snapshot_schema,
+            &mut epochs,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn prepared_content_is_order_independent_and_dump_stable() {
+        let first_characters = character_registry(false, CHARACTER_B);
+        let second_characters = character_registry(true, CHARACTER_B);
+        let first_staging = staging_registry(false);
+        let second_staging = staging_registry(true);
+        let first = fixture_content(fixture_source(128.0), &first_characters, &first_staging);
+        let second = fixture_content(fixture_source(128.0), &second_characters, &second_staging);
+        assert_eq!(first.fingerprint(), second.fingerprint());
+        assert_eq!(first.deterministic_dump(), second.deterministic_dump());
+    }
+
+    #[test]
+    fn prepared_content_detects_geometry_and_character_action_changes() {
+        let characters = character_registry(false, CHARACTER_B);
+        let staging = staging_registry(false);
+        let baseline = fixture_content(fixture_source(128.0), &characters, &staging);
+        let changed_geometry = fixture_content(fixture_source(192.0), &characters, &staging);
+        assert_ne!(baseline.fingerprint(), changed_geometry.fingerprint());
+
+        let changed_character_ron = CHARACTER_B.replace("move_style: Float", "move_style: Slither");
+        let changed_characters = character_registry(false, &changed_character_ron);
+        let changed_character =
+            fixture_content(fixture_source(128.0), &changed_characters, &staging);
+        assert_ne!(baseline.fingerprint(), changed_character.fingerprint());
+    }
+
+    #[test]
+    fn sequential_preparations_share_definition_identity_but_not_epoch() {
+        let characters = character_registry(false, CHARACTER_B);
+        let staging = staging_registry(false);
+        let authored = AuthoredCatalogFragments::new("alpha", "same-provider");
+        let snapshot_schema =
+            ambition_runtime::snapshot::SnapshotRegistry::default().schema_fingerprint();
+        let mut epochs = ContentEpochSequence::default();
+        let first = prepare_platformer_content(
+            fixture_source(128.0),
+            &authored,
+            Some(&characters),
+            None,
+            Some(&staging),
+            snapshot_schema,
+            &mut epochs,
+        )
+        .unwrap();
+        let second = prepare_platformer_content(
+            fixture_source(128.0),
+            &authored,
+            Some(&characters),
+            None,
+            Some(&staging),
+            snapshot_schema,
+            &mut epochs,
+        )
+        .unwrap();
+
+        assert_eq!(first.fingerprint(), second.fingerprint());
+        assert_ne!(first.epoch(), second.epoch());
+        assert_eq!(first.epoch(), ambition_runtime::ContentEpoch(1));
+        assert_eq!(second.epoch(), ambition_runtime::ContentEpoch(2));
+    }
+
+    #[test]
+    fn reload_candidate_is_detached_and_equivalent_reload_preserves_epoch() {
+        let characters = character_registry(false, CHARACTER_B);
+        let staging = staging_registry(false);
+        let active = fixture_content(fixture_source(128.0), &characters, &staging);
+        let schema = active.snapshot_schema();
+
+        let equivalent =
+            prepare_world_replacement_candidate(&active, fixture_source(128.0), schema).unwrap();
+        assert_eq!(equivalent.fingerprint(), active.fingerprint());
+        assert_eq!(equivalent.epoch(), active.epoch());
+
+        let changed =
+            prepare_world_replacement_candidate(&active, fixture_source(192.0), schema).unwrap();
+        assert_ne!(changed.fingerprint(), active.fingerprint());
+        assert_eq!(
+            changed.epoch(),
+            active.epoch(),
+            "candidate is not committed yet"
+        );
+        assert_eq!(active.source().geometry().0.size.x, 128.0);
+
+        let committed = changed.with_epoch(ambition_runtime::ContentEpoch(9));
+        assert_eq!(committed.epoch(), ambition_runtime::ContentEpoch(9));
+        assert_eq!(active.epoch(), ambition_runtime::ContentEpoch(1));
+    }
+
+    #[test]
+    fn replacement_ignores_the_live_active_room_cursor() {
+        let characters = character_registry(false, CHARACTER_B);
+        let staging = staging_registry(false);
+        let active = fixture_content(two_room_fixture_source("same-room"), &characters, &staging);
+        let live_room_candidate = two_room_fixture_source("second-room");
+        let candidate = prepare_world_replacement_candidate(
+            &active,
+            live_room_candidate,
+            active.snapshot_schema(),
+        )
+        .unwrap();
+
+        assert_eq!(candidate.fingerprint(), active.fingerprint());
+        assert_eq!(candidate.epoch(), active.epoch());
+        assert_eq!(candidate.source().active_room_id(), "same-room");
+    }
+
+    #[test]
+    fn failed_reload_candidate_leaves_active_content_unchanged() {
+        let characters = character_registry(false, CHARACTER_B);
+        let staging = staging_registry(false);
+        let active = fixture_content(two_room_fixture_source("same-room"), &characters, &staging);
+        let before = active.identity();
+
+        let error = prepare_world_replacement_candidate(
+            &active,
+            isolated_room_fixture_source("second-room"),
+            active.snapshot_schema(),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.section, "world.definition-active-room");
+        assert_eq!(active.identity(), before);
+        assert_eq!(active.source().active_room_id(), "same-room");
+    }
+
+    #[test]
+    fn ordinary_room_movement_does_not_change_prepared_identity() {
+        let characters = character_registry(false, CHARACTER_B);
+        let staging = staging_registry(false);
+        let content = fixture_content(two_room_fixture_source("same-room"), &characters, &staging);
+        let before = content.identity();
+        let mut live = content.source().instantiate_live();
+        live.room_set.active = live.room_set.room_index_by_id("second-room").unwrap();
+
+        assert_eq!(live.active_room_id(), "second-room");
+        assert_eq!(content.identity(), before);
+        assert_eq!(content.source().active_room_id(), "same-room");
+    }
+
+    #[test]
+    fn mutable_live_requests_do_not_change_prepared_identity() {
+        let characters = character_registry(false, CHARACTER_B);
+        let staging = staging_registry(false);
+        let content = fixture_content(fixture_source(128.0), &characters, &staging);
+        let before = content.identity();
+        let mut live = content.source().instantiate_live();
+        live.requests.room_music.desired_track = Some("runtime-track".to_owned());
+        live.requests.encounter_music.priority_track = Some("runtime-boss".to_owned());
+        assert_eq!(content.identity(), before);
     }
 
     #[test]

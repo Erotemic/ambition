@@ -10,5 +10,7 @@ pub use ambition_platformer_primitives::lifecycle::{
     session_world_exists, SessionRoot, SessionWorldMut, SessionWorldRef,
 };
 pub use ambition_runtime::{
-    PlatformerSessionCatalogs, PlatformerSessionRequests, PlatformerSessionWorld,
+    ContentDiagnostic, ContentEpoch, ContentFingerprint, ContentFingerprintSchemaVersion,
+    PlatformerSessionCatalogs, PlatformerSessionRequests, PlatformerSessionWorld, PreparedContent,
+    PreparedContentIdentity, PreparedPlatformerSource, SnapshotSchemaFingerprint,
 };

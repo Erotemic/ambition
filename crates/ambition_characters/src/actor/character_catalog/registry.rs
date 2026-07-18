@@ -128,6 +128,37 @@ impl CharacterCatalogRegistry {
         self.fragments.keys().map(String::as_str)
     }
 
+    /// Canonical provider-owned authored fragments for prepared-content
+    /// fingerprinting. Provider order is the `BTreeMap` order; raw source is
+    /// included because it is the exact validated definition assembled by this
+    /// same-build contract.
+    pub fn canonical_fragments(&self) -> Vec<(String, Option<String>, String)> {
+        self.fragments
+            .iter()
+            .map(|(provider, fragment)| {
+                let canonical_catalog = ron::ser::to_string(&fragment.catalog)
+                    .expect("validated character catalog must serialize canonically");
+                (
+                    provider.clone(),
+                    fragment.default_character_id.clone(),
+                    canonical_catalog,
+                )
+            })
+            .collect()
+    }
+
+    pub fn deterministic_dump(&self) -> String {
+        let mut out = String::new();
+        for (provider, default, source) in self.canonical_fragments() {
+            out.push_str(&format!(
+                "provider\t{provider}\t{}\t{}\n",
+                default.as_deref().unwrap_or("-"),
+                source.len()
+            ));
+        }
+        out
+    }
+
     pub fn assemble(&self) -> Result<AssembledCharacterCatalog, CharacterCatalogAssemblyError> {
         let mut brain_presets = BTreeMap::new();
         let mut action_set_presets = BTreeMap::new();

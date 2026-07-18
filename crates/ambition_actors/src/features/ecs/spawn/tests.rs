@@ -54,7 +54,15 @@ fn room_features_lower_through_the_caller_supplied_registry() {
     }
 
     let mut registry = PlacementLoweringRegistry::default();
-    registry.register(PlacementKind::Hazard, marker_hazard_lowering);
+    registry
+        .try_register(
+            PlacementKind::Hazard,
+            "test",
+            "spawn_test",
+            "hazard.v1",
+            marker_hazard_lowering,
+        )
+        .unwrap();
 
     let mut room = crate::rooms::RoomSpec::new(
         "test_room",

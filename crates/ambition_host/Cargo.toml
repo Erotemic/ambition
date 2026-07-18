@@ -45,3 +45,4 @@ portal_render = [
 # The demo-shell smoke test (E5 step 6) assembles foundation + engine group +
 # this host group + a fixture content plugin (which builds a one-room world).
 ambition_characters = { path = "../ambition_characters" }
+ambition_platformer_provider = { path = "../ambition_platformer_provider" }

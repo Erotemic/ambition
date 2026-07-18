@@ -13,7 +13,9 @@ use bevy::prelude::Commands;
 use std::collections::BTreeSet;
 
 mod content_staging;
-pub use content_staging::{RoomContentStagingError, RoomContentStagingRegistry};
+pub use content_staging::{
+    RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
+};
 
 pub(crate) use super::spawn_actors::spawn_runtime_minion;
 

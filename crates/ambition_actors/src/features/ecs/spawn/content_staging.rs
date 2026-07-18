@@ -72,13 +72,44 @@ impl std::error::Error for RoomContentStagingError {}
 /// App-installed registry of per-room content stagers. Clone-cheap (the
 /// stagers are `Arc`s), like the placement-lowering registry it mirrors.
 ///
-/// Registration order is preserved and is the drain order — a function of
-/// plugin build order, hence of the binary, hence identical across two sims of
-/// the same build (the same rule `SnapshotRegistry` follows).
+/// Registration is normalized by room/provider/source/schema identity, so
+/// equivalent plugin insertion orders produce the same staging and fingerprint
+/// contribution. Conflicting duplicate ownership is rejected transactionally.
 #[derive(Resource, Clone, Default)]
 pub struct RoomContentStagingRegistry {
-    stagers: Vec<(String, Stager)>,
+    stagers: Vec<RoomContentStager>,
 }
+
+#[derive(Clone)]
+struct RoomContentStager {
+    room_id: String,
+    owner: String,
+    source: String,
+    schema_id: String,
+    stager: Stager,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RoomContentStagingRegistrationError {
+    EmptyIdentity {
+        field: &'static str,
+    },
+    DuplicateSource {
+        room_id: String,
+        owner: String,
+        source: String,
+    },
+}
+
+impl std::fmt::Display for RoomContentStagingRegistrationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EmptyIdentity { field } => write!(f, "room content staging {field} must not be empty"),
+            Self::DuplicateSource { room_id, owner, source } => write!(f, "room content staging source '{owner}/{source}' registered twice for room '{room_id}'"),
+        }
+    }
+}
+impl std::error::Error for RoomContentStagingRegistrationError {}
 
 impl RoomContentStagingRegistry {
     /// Register a pure content stager for `room_id`. The stager runs every
@@ -87,9 +118,73 @@ impl RoomContentStagingRegistry {
     pub fn register(
         &mut self,
         room_id: impl Into<String>,
+        owner: impl Into<String>,
+        source: impl Into<String>,
+        schema_id: impl Into<String>,
         stager: impl Fn(&RoomSpec) -> Vec<SpawnActorRequest> + Send + Sync + 'static,
-    ) {
-        self.stagers.push((room_id.into(), Arc::new(stager)));
+    ) -> Result<(), RoomContentStagingRegistrationError> {
+        let room_id = room_id.into();
+        let owner = owner.into();
+        let source = source.into();
+        let schema_id = schema_id.into();
+        for (field, value) in [
+            ("room id", room_id.as_str()),
+            ("owner", owner.as_str()),
+            ("source", source.as_str()),
+            ("schema id", schema_id.as_str()),
+        ] {
+            if value.trim().is_empty() {
+                return Err(RoomContentStagingRegistrationError::EmptyIdentity { field });
+            }
+        }
+        if self
+            .stagers
+            .iter()
+            .any(|entry| entry.room_id == room_id && entry.owner == owner && entry.source == source)
+        {
+            return Err(RoomContentStagingRegistrationError::DuplicateSource {
+                room_id,
+                owner,
+                source,
+            });
+        }
+        self.stagers.push(RoomContentStager {
+            room_id,
+            owner,
+            source,
+            schema_id,
+            stager: Arc::new(stager),
+        });
+        self.stagers.sort_by(|a, b| {
+            (&a.room_id, &a.owner, &a.source, &a.schema_id).cmp(&(
+                &b.room_id,
+                &b.owner,
+                &b.source,
+                &b.schema_id,
+            ))
+        });
+        Ok(())
+    }
+
+    pub fn schema_descriptors(&self) -> Vec<(String, String, String, String)> {
+        self.stagers
+            .iter()
+            .map(|entry| {
+                (
+                    entry.room_id.clone(),
+                    entry.owner.clone(),
+                    entry.source.clone(),
+                    entry.schema_id.clone(),
+                )
+            })
+            .collect()
+    }
+
+    pub fn deterministic_dump(&self) -> String {
+        self.schema_descriptors()
+            .into_iter()
+            .map(|(room, owner, source, schema)| format!("{room}\t{owner}\t{source}\t{schema}\n"))
+            .collect()
     }
 
     /// Every request content stages into `room`, in registration order, after
@@ -106,8 +201,8 @@ impl RoomContentStagingRegistry {
         let requests = self
             .stagers
             .iter()
-            .filter(|(room_id, _)| *room_id == room.id)
-            .flat_map(|(_, stager)| stager(room))
+            .filter(|entry| entry.room_id == room.id)
+            .flat_map(|entry| (entry.stager)(room))
             .collect::<Vec<_>>();
 
         let authored = room
@@ -183,8 +278,16 @@ mod tests {
     #[test]
     fn duplicate_staged_ids_are_rejected_before_spawning() {
         let mut registry = RoomContentStagingRegistry::default();
-        registry.register("room", |_| vec![request("duplicate")]);
-        registry.register("room", |_| vec![request("duplicate")]);
+        registry
+            .register("room", "test", "one", "fixture.v1", |_| {
+                vec![request("duplicate")]
+            })
+            .unwrap();
+        registry
+            .register("room", "test", "two", "fixture.v1", |_| {
+                vec![request("duplicate")]
+            })
+            .unwrap();
         let room = RoomSpec::new(
             "room",
             ae::World::new("room", ae::Vec2::new(128.0, 128.0), ae::Vec2::ZERO, vec![]),
@@ -197,5 +300,72 @@ mod tests {
             Err(other) => panic!("expected DuplicateId, got {other:?}"),
             Ok(_) => panic!("expected duplicate staged ids to be rejected"),
         }
+    }
+
+    #[test]
+    fn registration_order_does_not_change_dump_or_request_order() {
+        let mut first = RoomContentStagingRegistry::default();
+        first
+            .register("room", "provider-b", "second", "fixture.v1", |_| {
+                vec![request("b")]
+            })
+            .unwrap();
+        first
+            .register("room", "provider-a", "first", "fixture.v1", |_| {
+                vec![request("a")]
+            })
+            .unwrap();
+
+        let mut second = RoomContentStagingRegistry::default();
+        second
+            .register("room", "provider-a", "first", "fixture.v1", |_| {
+                vec![request("a")]
+            })
+            .unwrap();
+        second
+            .register("room", "provider-b", "second", "fixture.v1", |_| {
+                vec![request("b")]
+            })
+            .unwrap();
+
+        let room = RoomSpec::new(
+            "room",
+            ae::World::new("room", ae::Vec2::new(128.0, 128.0), ae::Vec2::ZERO, vec![]),
+        );
+        assert_eq!(first.deterministic_dump(), second.deterministic_dump());
+        let first_ids = first
+            .try_requests_for(&room)
+            .unwrap()
+            .into_iter()
+            .map(|request| request.id)
+            .collect::<Vec<_>>();
+        let second_ids = second
+            .try_requests_for(&room)
+            .unwrap()
+            .into_iter()
+            .map(|request| request.id)
+            .collect::<Vec<_>>();
+        assert_eq!(first_ids, second_ids);
+    }
+
+    #[test]
+    fn duplicate_owner_source_is_structured_and_transactional() {
+        let mut registry = RoomContentStagingRegistry::default();
+        registry
+            .register("room", "provider", "source", "fixture.v1", |_| {
+                vec![request("a")]
+            })
+            .unwrap();
+        let before = registry.deterministic_dump();
+        let error = registry
+            .register("room", "provider", "source", "fixture.v2", |_| {
+                vec![request("b")]
+            })
+            .expect_err("duplicate ownership must be rejected");
+        assert!(matches!(
+            error,
+            RoomContentStagingRegistrationError::DuplicateSource { .. }
+        ));
+        assert_eq!(registry.deterministic_dump(), before);
     }
 }

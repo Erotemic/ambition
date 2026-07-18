@@ -116,9 +116,15 @@ fn crony_spawn_requests(player_spawn: ae::Vec2) -> Vec<SpawnActorRequest> {
 pub fn register_crony_content_staging(
     registry: &mut ambition::actors::features::RoomContentStagingRegistry,
 ) {
-    registry.register(LEVEL_1_1_ROOM_ID, |spec| {
-        crony_spawn_requests(spec.world.spawn)
-    });
+    registry
+        .register(
+            LEVEL_1_1_ROOM_ID,
+            "ambition_demo_mary_o",
+            "crony",
+            "crony-staging.v1",
+            |spec| crony_spawn_requests(spec.world.spawn),
+        )
+        .expect("crony staging registration is unique");
 }
 
 /// **The head-stomp.** A player descending onto a crony's head bounces up and

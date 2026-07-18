@@ -4,7 +4,25 @@ This file is the live queue, not a completion ledger. The completed July 15–16
 architecture campaign is summarized in [`status.md`](status.md) and preserved in
 git history.
 
-## 1. Close Super Mary-O level 1
+## 1. Build the provenance + three-origin `ConstructionPlan` vertical slice
+
+Immutable prepared content and exact snapshot identity are complete. The next
+engine architecture task is Phase 3 of
+[`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md):
+
+- add explicit `SpawnOrigin` and internal stable `RecipeId`;
+- plan one authored placement, one provider-staged actor, and one runtime-dynamic
+  family through a common pure `ConstructionPlan`;
+- validate identities and relationships before mutation;
+- use the same recipes for ordinary spawn and reconstruction;
+- remove `SimId` parsing as provenance authority for the selected dynamic family;
+- prove deterministic plan dumps and planned-versus-committed roster parity.
+
+**Exit:** failed planning leaves the active world untouched, all three origins
+share one inspectable planner/executor, and the runtime-dynamic family can be
+reconstructed without inferring its recipe from an id string.
+
+## 2. Close Super Mary-O level 1
 
 The engine-facing seams are already proven: world pickups equip through the shared
 item path; the grow cap changes worn identity and collider size; the spark blossom
@@ -22,7 +40,7 @@ Remaining customer work:
 **Exit:** visible and headless customers use the same provider, body, item, and
 level state with no Mary-O-only engine path.
 
-## 2. Close one complete Sanic act
+## 3. Close one complete Sanic act
 
 The provider persona, standard host input chain, transformation, ball dash,
 surface-momentum route, lifecycle, and geometry/orbit/stranding oracles are
@@ -39,7 +57,7 @@ Remaining customer work:
 
 Do not absorb movement/contact work owned by another active campaign.
 
-## 3. Correct the fighter-rollout design before FB6
+## 4. Correct the fighter-rollout design before FB6
 
 Do not implement the current FB6 text literally.
 
@@ -54,7 +72,7 @@ Do not implement the current FB6 text literally.
 **Exit:** the determinism and no-cheat contracts are explicit enough that an L3
 implementation cannot accidentally violate either one.
 
-## 4. Finish the bounded boss animator fold
+## 5. Finish the bounded boss animator fold
 
 Verify and remove only genuine animation residue:
 

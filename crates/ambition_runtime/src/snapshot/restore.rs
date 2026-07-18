@@ -130,18 +130,16 @@ fn validate_snapshot(
     let roster: std::collections::BTreeSet<&str> =
         snapshot.roster.iter().map(String::as_str).collect();
 
-    // **Entry order must match the registry's non-diagnostic order EXACTLY** (third-pass
-    // re-audit). `take` emits registry order; `restore` iterates `snapshot.entries` directly,
-    // so a permuted deserialized snapshot is operationally significant — a resolved codec
-    // inspects OTHER components on the entity, and a reorder could resolve one before a
-    // registered dependency is restored, even though the same entries in registry order would
-    // apply. Requiring the exact order (which also subsumes unknown / missing / duplicate
-    // entries in one comparison) removes the untrusted snapshot's ability to choose it.
-    let expected: Vec<&StateEntry> = registry
+    // **Entry order is canonical by stable name.** Registration order is not schema
+    // authority: equivalent plugin insertion orders have one schema fingerprint and one
+    // wire order. Resolved codecs therefore execute in this same canonical order rather
+    // than inheriting whichever plugin happened to register first.
+    let mut expected: Vec<&StateEntry> = registry
         .entries
         .iter()
         .filter(|e| !matches!(e.kind, EntryKind::Diagnostic { .. }))
         .collect();
+    expected.sort_by_key(|entry| entry.name);
     if snapshot.entries.len() != expected.len() {
         return Err(malformed(format!(
             "snapshot has {} entries; the registry has {} non-diagnostic entries",
@@ -153,7 +151,7 @@ fn validate_snapshot(
         if *name != entry.name {
             return Err(malformed(format!(
                 "entry {i} is `{name}`, but the registry expects `{}` there \
-                 (snapshot entry order must match registry order)",
+                 (snapshot entries must use canonical name order)",
                 entry.name
             )));
         }
@@ -262,6 +260,33 @@ pub fn restore(
         });
     }
 
+    let live_prepared = ambition_platformer_primitives::lifecycle::session_world_component::<
+        crate::PreparedContent,
+    >(world);
+    let live_fingerprint_schema = live_prepared.map(crate::PreparedContent::fingerprint_schema);
+    if snapshot.content_fingerprint_schema != live_fingerprint_schema {
+        return Err(RestoreError::ContentFingerprintSchemaMismatch {
+            snapshot: snapshot.content_fingerprint_schema,
+            live: live_fingerprint_schema,
+        });
+    }
+    let live_fingerprint = live_prepared.map(crate::PreparedContent::fingerprint);
+    if snapshot.content_fingerprint != live_fingerprint {
+        return Err(RestoreError::ContentFingerprintMismatch {
+            snapshot: snapshot.content_fingerprint,
+            live: live_fingerprint,
+        });
+    }
+    let live_snapshot_schema = registry.schema_fingerprint();
+    if snapshot.snapshot_schema != live_snapshot_schema {
+        return Err(RestoreError::SnapshotSchemaMismatch {
+            snapshot: snapshot.snapshot_schema,
+            live: live_snapshot_schema,
+        });
+    }
+
+    // Provider ids and room ids remain useful diagnostics/routing checks, but
+    // exact content and schema above are the compatibility authority.
     let live_world_identity = SnapshotWorldIdentity::from_world(world);
     if snapshot.world != live_world_identity {
         return Err(RestoreError::WorldMismatch {

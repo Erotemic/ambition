@@ -7,6 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`combat_schedule`](src/combat_schedule.rs) | Combat-phase schedule plugin. |
+| [`content_identity`](src/content_identity.rs) | Immutable prepared-content identity shared by preparation, activation, snapshots, and transactional hot reload. |
 | [`input_stream`](src/input_stream.rs) | **Input-stream capture** (netcode N0.2) — the one place a session's input is recorded. |
 | [`mode_scope`](src/mode_scope.rs) | The demo-hosting seam (decomposition D-C, vision §5): **scoped game modes**. |
 | [`player_schedule`](src/player_schedule.rs) | The per-frame PLAYER schedule wiring (E5 step 5) — the engine-generic player-frame lifecycle every platformer built on this engine runs, headless or windowed: time control → input → controlled-subject resolution → brains → body mode → possession → hit events → presentation write-back. |
@@ -14,11 +15,11 @@
 | [`progression_schedule`](src/progression_schedule.rs) | Progression-phase schedule plugin. |
 | [`projectile_schedule`](src/projectile_schedule.rs) | Projectile schedule seams owned by the runtime composition tier. |
 | [`room_schedule`](src/room_schedule.rs) | The engine half of the room-transition phase (E5 step 5): detection emits `RoomTransitionRequested`; the feature-side `reset_ecs_room_features` system tears down per-room ECS state. |
-| [`session_world`](src/session_world.rs) | Canonical live platformer-session world data. |
+| [`session_world`](src/session_world.rs) | Prepared platformer definitions and canonical live session components. |
 | [`sim_core_resources`](src/sim_core_resources.rs) | The engine-generic simulation messages + resource defaults (E5 step 6). |
 | [`snapshot`](src/snapshot/mod.rs) | **N3.1's registration seam, and N0.4's desync canary.** |
 
-_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

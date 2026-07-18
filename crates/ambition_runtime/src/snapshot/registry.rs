@@ -6,6 +6,107 @@
 //! `super` and is shared via the glob import.
 use super::*;
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SnapshotSchemaEntry {
+    pub name: String,
+    pub kind: SnapshotEntryKind,
+    pub type_name: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SnapshotMessageSchema {
+    pub name: String,
+    pub type_name: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum SnapshotSchemaRegistrationError {
+    EmptyName,
+    DuplicateName { name: String },
+}
+
+impl std::fmt::Display for SnapshotSchemaRegistrationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EmptyName => write!(f, "snapshot schema entry name must not be empty"),
+            Self::DuplicateName { name } => {
+                write!(f, "snapshot schema name '{name}' registered twice")
+            }
+        }
+    }
+}
+impl std::error::Error for SnapshotSchemaRegistrationError {}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SnapshotSchemaDescriptor {
+    pub version: u32,
+    pub entries: Vec<SnapshotSchemaEntry>,
+    pub messages: Vec<SnapshotMessageSchema>,
+    pub dynamic_anchors: Vec<String>,
+    pub derived: Vec<String>,
+}
+
+impl SnapshotSchemaDescriptor {
+    pub fn fingerprint(&self) -> crate::SnapshotSchemaFingerprint {
+        let mut h = crate::content_identity::CanonicalDigest::new(b"ambition.snapshot-schema");
+        h.u32(self.version);
+        for entry in &self.entries {
+            h.str("entry");
+            h.str(&entry.name);
+            h.str(match entry.kind {
+                SnapshotEntryKind::Component => "component",
+                SnapshotEntryKind::Cursor => "cursor",
+                SnapshotEntryKind::Resolved => "resolved",
+                SnapshotEntryKind::Resource => "resource",
+                SnapshotEntryKind::ResourceCursor => "resource-cursor",
+                SnapshotEntryKind::Diagnostic => "diagnostic",
+            });
+            h.str(&entry.type_name);
+        }
+        for message in &self.messages {
+            h.str("message");
+            h.str(&message.name);
+            h.str(&message.type_name);
+        }
+        for anchor in &self.dynamic_anchors {
+            h.str("anchor");
+            h.str(anchor);
+        }
+        for derived in &self.derived {
+            h.str("derived");
+            h.str(derived);
+        }
+        crate::SnapshotSchemaFingerprint::from_bytes(h.finish())
+    }
+
+    pub fn deterministic_dump(&self) -> String {
+        let mut out = format!(
+            "snapshot-schema-v{}\n{}\n",
+            self.version,
+            self.fingerprint()
+        );
+        for entry in &self.entries {
+            out.push_str(&format!(
+                "entry\t{}\t{:?}\t{}\n",
+                entry.name, entry.kind, entry.type_name
+            ));
+        }
+        for message in &self.messages {
+            out.push_str(&format!(
+                "message\t{}\t{}\n",
+                message.name, message.type_name
+            ));
+        }
+        for anchor in &self.dynamic_anchors {
+            out.push_str(&format!("anchor\t{anchor}\n"));
+        }
+        for derived in &self.derived {
+            out.push_str(&format!("derived\t{derived}\n"));
+        }
+        out
+    }
+}
+
 /// The opt-in registry of sim state (N3.1 decision 1). Each sim crate's plugin
 /// registers what it owns; nothing else is snapshot state, by definition.
 ///
@@ -17,8 +118,8 @@ use super::*;
 /// a resource rather than a trait relocation.
 #[derive(Default, Resource)]
 pub struct SnapshotRegistry {
-    /// `pub(super)` so `take` (in `mod.rs`) and `restore` (in `restore.rs`) can walk
-    /// the registered entries in registration order.
+    /// `pub(super)` so `take` and `restore` can access codecs. Public identity,
+    /// snapshot emission, and hashing normalize these entries by stable name.
     pub(super) entries: Vec<StateEntry>,
     /// Sim message channels. See [`SnapshotRegistry::register_message_channel`].
     /// `pub(super)` so `restore` can clear them on rewind.
@@ -46,6 +147,8 @@ impl SnapshotRegistry {
     {
         self.push(
             name,
+            SnapshotEntryKind::Component,
+            std::any::type_name::<C>(),
             EntryKind::Component {
                 type_id: std::any::TypeId::of::<C>(),
                 rows: Box::new(|world: &World| {
@@ -89,6 +192,8 @@ impl SnapshotRegistry {
     {
         self.push(
             name,
+            SnapshotEntryKind::Cursor,
+            std::any::type_name::<C>(),
             EntryKind::Component {
                 type_id: std::any::TypeId::of::<C>(),
                 rows: Box::new(|world: &World| {
@@ -138,6 +243,8 @@ impl SnapshotRegistry {
     {
         self.push(
             name,
+            SnapshotEntryKind::Resolved,
+            std::any::type_name::<C>(),
             EntryKind::Component {
                 type_id: std::any::TypeId::of::<C>(),
                 rows: Box::new(|world: &World| {
@@ -204,6 +311,8 @@ impl SnapshotRegistry {
     {
         self.push(
             name,
+            SnapshotEntryKind::Resource,
+            std::any::type_name::<R>(),
             EntryKind::Resource {
                 type_id: std::any::TypeId::of::<R>(),
                 bytes: Box::new(|world: &World| {
@@ -248,16 +357,17 @@ impl SnapshotRegistry {
     /// It is deliberately NOT hashed. The two sims of N0.4's canary run the same ticks
     /// and hold the same pending messages; a rewound sim holds none, and hashing that
     /// difference would make the exit oracle fail for the one thing it is trying to fix.
-    pub fn register_message_channel<M>(&mut self, name: &'static str)
+    pub fn try_register_message_channel<M>(
+        &mut self,
+        name: &'static str,
+    ) -> Result<(), SnapshotSchemaRegistrationError>
     where
         M: bevy::ecs::message::Message,
     {
+        self.ensure_name_available(name)?;
         self.messages.push(MessageChannel {
             name,
-            // A `Messages<M>` is a `Resource`, so the resource census would count it as
-            // unregistered debt — yet `restore` deliberately clears every registered
-            // channel, so it is handled, not debt. Record its TypeId so `unclaimed_resources`
-            // treats it as CLAIMED (re-audit finding 6).
+            type_name: std::any::type_name::<M>(),
             type_id: std::any::TypeId::of::<bevy::ecs::message::Messages<M>>(),
             len: |world: &World| {
                 world
@@ -270,6 +380,15 @@ impl SnapshotRegistry {
                 }
             },
         });
+        Ok(())
+    }
+
+    pub fn register_message_channel<M>(&mut self, name: &'static str)
+    where
+        M: bevy::ecs::message::Message,
+    {
+        self.try_register_message_channel::<M>(name)
+            .unwrap_or_else(|error| panic!("{error}"));
     }
 
     /// Pending messages per registered channel, for a report. Zero everywhere means the
@@ -290,6 +409,8 @@ impl SnapshotRegistry {
     {
         self.push(
             name,
+            SnapshotEntryKind::ResourceCursor,
+            std::any::type_name::<R>(),
             EntryKind::ResourceCursor {
                 type_id: std::any::TypeId::of::<R>(),
                 bytes: Box::new(|world: &World| {
@@ -344,8 +465,22 @@ impl SnapshotRegistry {
 
     /// Register a hash-only measurement. It is hashed and never restored — see
     /// [`EntryKind::Diagnostic`].
+    pub fn try_register_diagnostic(
+        &mut self,
+        name: &'static str,
+        hash: fn(&World, &mut StateHasher),
+    ) -> Result<(), SnapshotSchemaRegistrationError> {
+        self.try_push(
+            name,
+            SnapshotEntryKind::Diagnostic,
+            "diagnostic",
+            EntryKind::Diagnostic { hash },
+        )
+    }
+
     pub fn register_diagnostic(&mut self, name: &'static str, hash: fn(&World, &mut StateHasher)) {
-        self.push(name, EntryKind::Diagnostic { hash });
+        self.try_register_diagnostic(name, hash)
+            .unwrap_or_else(|error| panic!("{error}"));
     }
 
     /// Declare a component **structurally derived**: rebuilt every tick by the
@@ -386,18 +521,102 @@ impl SnapshotRegistry {
         self.dynamic_anchors.push(name);
     }
 
-    fn push(&mut self, name: &'static str, kind: EntryKind) {
-        // Identity invariant (audit H2/M3), enforced in EVERY build, not just debug:
-        // a duplicate registry name makes every by-name lookup in `take`/`restore`
-        // (`entries.iter().find(|e| e.name == ..)`) silently pick the FIRST match, so
-        // one of the two codecs never runs. Registration happens once at startup, so
-        // an unconditional check is free.
-        assert!(
-            !self.entries.iter().any(|e| e.name == name),
-            "sim-state entry `{name}` registered twice — a duplicate registry name \
-             makes restore silently use only the first codec (audit H2)"
-        );
-        self.entries.push(StateEntry { name, kind });
+    fn ensure_name_available(
+        &self,
+        name: &'static str,
+    ) -> Result<(), SnapshotSchemaRegistrationError> {
+        if name.trim().is_empty() {
+            return Err(SnapshotSchemaRegistrationError::EmptyName);
+        }
+        if self.entries.iter().any(|entry| entry.name == name)
+            || self.messages.iter().any(|channel| channel.name == name)
+        {
+            return Err(SnapshotSchemaRegistrationError::DuplicateName {
+                name: name.to_owned(),
+            });
+        }
+        Ok(())
+    }
+
+    fn try_push(
+        &mut self,
+        name: &'static str,
+        schema_kind: SnapshotEntryKind,
+        type_name: &'static str,
+        kind: EntryKind,
+    ) -> Result<(), SnapshotSchemaRegistrationError> {
+        self.ensure_name_available(name)?;
+        self.entries.push(StateEntry {
+            name,
+            schema_kind,
+            type_name,
+            kind,
+        });
+        Ok(())
+    }
+
+    fn push(
+        &mut self,
+        name: &'static str,
+        schema_kind: SnapshotEntryKind,
+        type_name: &'static str,
+        kind: EntryKind,
+    ) {
+        self.try_push(name, schema_kind, type_name, kind)
+            .unwrap_or_else(|error| panic!("{error}"));
+    }
+
+    /// Canonical snapshot schema, independent of plugin registration order.
+    pub fn schema_descriptor(&self) -> SnapshotSchemaDescriptor {
+        let mut entries = self
+            .entries
+            .iter()
+            .map(|entry| SnapshotSchemaEntry {
+                name: entry.name.to_owned(),
+                kind: entry.schema_kind,
+                type_name: entry.type_name.to_owned(),
+            })
+            .collect::<Vec<_>>();
+        entries
+            .sort_by(|a, b| (&a.name, a.kind, &a.type_name).cmp(&(&b.name, b.kind, &b.type_name)));
+        let mut messages = self
+            .messages
+            .iter()
+            .map(|channel| SnapshotMessageSchema {
+                name: channel.name.to_owned(),
+                type_name: channel.type_name.to_owned(),
+            })
+            .collect::<Vec<_>>();
+        messages.sort_by(|a, b| (&a.name, &a.type_name).cmp(&(&b.name, &b.type_name)));
+        let mut dynamic_anchors = self
+            .dynamic_anchors
+            .iter()
+            .map(|s| (*s).to_owned())
+            .collect::<Vec<_>>();
+        dynamic_anchors.sort();
+        dynamic_anchors.dedup();
+        let mut derived = self
+            .derived
+            .iter()
+            .map(|(_, name)| (*name).to_owned())
+            .collect::<Vec<_>>();
+        derived.sort();
+        derived.dedup();
+        SnapshotSchemaDescriptor {
+            version: crate::content_identity::SNAPSHOT_SCHEMA_VERSION,
+            entries,
+            messages,
+            dynamic_anchors,
+            derived,
+        }
+    }
+
+    pub fn schema_fingerprint(&self) -> crate::SnapshotSchemaFingerprint {
+        self.schema_descriptor().fingerprint()
+    }
+
+    pub fn deterministic_schema_dump(&self) -> String {
+        self.schema_descriptor().deterministic_dump()
     }
 
     /// Registration order, for a report.
@@ -483,7 +702,9 @@ impl SnapshotRegistry {
     /// **N0.4's per-tick hash of the whole registered sim state.**
     pub fn hash_world(&self, world: &World) -> u64 {
         let mut h = StateHasher::default();
-        for entry in &self.entries {
+        let mut entries = self.entries.iter().collect::<Vec<_>>();
+        entries.sort_by_key(|entry| entry.name);
+        for entry in entries {
             h.write_str(entry.name);
             self.hash_entry(entry, world, &mut h);
         }
@@ -494,7 +715,7 @@ impl SnapshotRegistry {
         h.finish()
     }
 
-    /// The per-entry hashes, in registration order. A desync report wants this:
+    /// The per-entry hashes, in canonical entry-name order. A desync report wants this:
     /// "the worlds diverged, and it was `body_kinematics`" is a diagnosis; "the
     /// worlds diverged" is a fact.
     pub fn hash_by_entry(&self, world: &World) -> Vec<(&'static str, u64)> {
@@ -507,6 +728,7 @@ impl SnapshotRegistry {
                 (entry.name, h.finish())
             })
             .collect();
+        out.sort_by_key(|(name, _)| *name);
         // The active-room cursor is part of `hash_world` (finding 2); surface it here too,
         // so a room-transition desync is a NAMED culprit rather than an aggregate hash
         // that moved with no entry to point at.

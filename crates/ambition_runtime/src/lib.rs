@@ -43,6 +43,7 @@ use bevy::time::{Fixed, Time};
 use ambition_platformer_primitives::schedule::SimScheduleExt as _;
 
 mod combat_schedule;
+pub mod content_identity;
 pub mod input_stream;
 mod mode_scope;
 mod player_schedule;
@@ -57,6 +58,12 @@ mod sim_core_resources;
 pub mod snapshot;
 
 pub use combat_schedule::CombatSchedulePlugin;
+pub use content_identity::{
+    ContentDiagnostic, ContentEpoch, ContentEpochSequence, ContentFingerprint,
+    ContentFingerprintSchemaVersion, ContentOwner, PreparedContent, PreparedContentBuildError,
+    PreparedContentBuilder, PreparedContentIdentity, PreparedContentSection,
+    SnapshotSchemaFingerprint,
+};
 /// The demo-hosting seam (D-C): gate a hosted ruleset on the active room's mode.
 pub use mode_scope::{despawn_departed_mode_entities, in_base_mode, in_mode, ModeScopePlugin};
 pub use player_schedule::PlayerSchedulePlugin;
@@ -374,4 +381,5 @@ pub fn add_headless_foundation(app: &mut App) {
 
 pub use session_world::{
     PlatformerSessionCatalogs, PlatformerSessionRequests, PlatformerSessionWorld,
+    PreparedPlatformerSource,
 };

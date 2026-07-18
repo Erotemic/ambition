@@ -83,6 +83,36 @@ impl RoomSet {
         }
     }
 
+    /// Canonical directed room links for fingerprinting and inspection.
+    /// Bidirectional authored links are represented by their two effective
+    /// directed edges, so behavior rather than source insertion order is hashed.
+    pub fn canonical_links(&self) -> Vec<RoomLink> {
+        let mut links = self
+            .graph
+            .edge_references()
+            .filter_map(|edge| {
+                let from_room = self.graph.node_weight(edge.source())?.clone();
+                let to_room = self.graph.node_weight(edge.target())?.clone();
+                Some(RoomLink {
+                    from_room,
+                    from_zone: edge.weight().from_zone.clone(),
+                    to_room,
+                    to_zone: edge.weight().to_zone.clone(),
+                    bidirectional: false,
+                })
+            })
+            .collect::<Vec<_>>();
+        links.sort_by(|a, b| {
+            (&a.from_room, &a.from_zone, &a.to_room, &a.to_zone).cmp(&(
+                &b.from_room,
+                &b.from_zone,
+                &b.to_room,
+                &b.to_zone,
+            ))
+        });
+        links
+    }
+
     pub fn room_index_by_id(&self, id: &str) -> Option<usize> {
         self.rooms
             .iter()

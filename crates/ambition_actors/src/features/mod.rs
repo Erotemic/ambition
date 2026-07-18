@@ -146,9 +146,9 @@ pub use ecs::{
     FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, Limb,
     LimbIntents, LimbRig, LimbRouteState, LimbSlot, MountClass, MountDeathImpact, MountDied,
     MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge,
-    PendingMountLinks, RidingOn, RoomContentStagingError, RoomContentStagingRegistry,
-    RoomFeatureConstructionError, RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt,
-    SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    PendingMountLinks, RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,
+    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
+    RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{
@@ -229,27 +229,45 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         crate::combat::targeting::init_targeting_resources(app);
         app.register_placement_interpreter(
             ambition_entity_catalog::placements::PlacementKind::Hazard,
+            "ambition_actors",
+            "WorldPrepSchedulePlugin",
+            "placement.hazard.v1",
             crate::features::ecs::spawn_static::lower_hazard_placement,
         );
         app.register_placement_interpreter(
             ambition_entity_catalog::placements::PlacementKind::Interactable,
+            "ambition_actors",
+            "WorldPrepSchedulePlugin",
+            "placement.interactable.v1",
             crate::features::ecs::spawn_static::lower_interactable_placement,
         );
         app.register_placement_interpreter(
             ambition_entity_catalog::placements::PlacementKind::Pickup,
+            "ambition_actors",
+            "WorldPrepSchedulePlugin",
+            "placement.pickup.v1",
             crate::features::ecs::spawn_static::lower_pickup_placement,
         );
         app.register_placement_interpreter(
             ambition_entity_catalog::placements::PlacementKind::Chest,
+            "ambition_actors",
+            "WorldPrepSchedulePlugin",
+            "placement.chest.v1",
             crate::features::ecs::spawn_static::lower_chest_placement,
         );
         app.register_placement_interpreter(
             ambition_entity_catalog::placements::PlacementKind::Breakable,
+            "ambition_actors",
+            "WorldPrepSchedulePlugin",
+            "placement.breakable.v1",
             crate::features::ecs::spawn_static::lower_breakable_placement,
         );
         #[cfg(feature = "portal")]
         app.register_placement_interpreter(
             ambition_entity_catalog::placements::PlacementKind::Portal,
+            "ambition_actors",
+            "WorldPrepSchedulePlugin",
+            "placement.portal.v1",
             crate::features::ecs::spawn_static::lower_portal_placement,
         );
         // Accumulating sim-time for brain perception (reaction latency).

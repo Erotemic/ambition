@@ -10,6 +10,9 @@
 #   ./regen_sfx.sh              # render (incremental) + repack (default)
 #   ./regen_sfx.sh --force      # force re-render every cue, then repack
 #   ./regen_sfx.sh --skip-render  # only repack from existing renders
+#
+# Environment:
+#   AMBITION_SFX_PYTHON=/path/to/python  Override the tool-local .venv.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,43 +21,8 @@ cd "$repo_root"
 renderer_dir="$repo_root/tools/ambition_sfx_renderer"
 pack_script="$repo_root/tools/ambition_sfx_pack/pack.py"
 
-has_renderer() {
-    [ -x "$1" ] && "$1" -c 'import ambition_sfx_renderer' >/dev/null 2>&1
-}
-
-select_python() {
-    # Explicit override always wins.
-    if [ -n "${PYTHON:-}" ]; then
-        printf '%s\n' "$PYTHON"
-        return
-    fi
-    # Otherwise prefer the first candidate that actually has the renderer
-    # installed. The dedicated venv at $renderer_dir/.venv is created by
-    # run_developer_setup.sh when the active interpreter's Python version is
-    # outside the renderer's requires-python window (>=3.11,<3.13), so we must
-    # be willing to pick it over an incompatible $VIRTUAL_ENV.
-    local candidate
-    for candidate in \
-        "${VIRTUAL_ENV:+$VIRTUAL_ENV/bin/python}" \
-        "$repo_root/.venv/bin/python" \
-        "$renderer_dir/.venv/bin/python"; do
-        [ -n "$candidate" ] || continue
-        if has_renderer "$candidate"; then
-            printf '%s\n' "$candidate"
-            return
-        fi
-    done
-    # Fall back to the original preference order for the error message below.
-    if [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
-        printf '%s\n' "$VIRTUAL_ENV/bin/python"
-    elif [ -x "$repo_root/.venv/bin/python" ]; then
-        printf '%s\n' "$repo_root/.venv/bin/python"
-    elif [ -x "$renderer_dir/.venv/bin/python" ]; then
-        printf '%s\n' "$renderer_dir/.venv/bin/python"
-    else
-        printf '%s\n' python
-    fi
-}
+# shellcheck disable=SC1091
+source "$repo_root/scripts/lib/tool_python.sh"
 
 print_help() {
     awk '
@@ -76,18 +44,10 @@ for arg in "$@"; do
     esac
 done
 
-renderer_py="$(select_python)"
-if ! command -v "$renderer_py" >/dev/null 2>&1; then
-    echo "python executable not found: $renderer_py" >&2
-    echo "run ./run_developer_setup.sh, activate a venv, or set PYTHON=/path/to/python" >&2
-    exit 1
-fi
-
-if ! "$renderer_py" -c 'import ambition_sfx_renderer' >/dev/null 2>&1; then
-    echo "ambition_sfx_renderer is not installed in: $renderer_py" >&2
-    echo "run ./run_developer_setup.sh to initialize the submodule and install it" >&2
-    exit 1
-fi
+renderer_py="$(ambition_select_tool_python "$renderer_dir" AMBITION_SFX_PYTHON)"
+ambition_require_python_module \
+    "$renderer_py" ambition_sfx_renderer \
+    "run ./run_developer_setup.sh or set AMBITION_SFX_PYTHON=/path/to/python"
 
 if [ "$skip_render" -eq 0 ]; then
     echo "==> render-all sfx cues (jobs=auto$([ "$force" -eq 1 ] && echo ', force'))"
@@ -99,6 +59,6 @@ if [ "$skip_render" -eq 0 ]; then
 fi
 
 echo "==> pack → crates/ambition_actors/assets/audio/sfx.bank"
-python3 "$pack_script" --dump
+"$renderer_py" "$pack_script" --dump
 
 echo "==> done"

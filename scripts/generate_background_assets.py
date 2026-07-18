@@ -5,7 +5,7 @@ Run from any directory:
 
     python scripts/generate_background_assets.py
 
-The script writes PNG layers into the repository's `assets/backgrounds` tree.
+The script writes PNG layers into the runtime package's `assets/backgrounds` tree.
 """
 
 from __future__ import annotations
@@ -26,7 +26,12 @@ def main() -> int:
     from ambition_background_renderer.cli import main as renderer_main
 
     return renderer_main(
-        ["--out", str(root / "assets" / "backgrounds"), "--profile", "all"]
+        [
+            "--out",
+            str(root / "crates" / "ambition_actors" / "assets" / "backgrounds"),
+            "--profile",
+            "all",
+        ]
     )
 
 

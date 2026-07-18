@@ -155,6 +155,20 @@ The target crate stack, including crates that may not be fully carved out yet,
 is documented in [`docs/planning/engine/architecture.md`](docs/planning/engine/architecture.md).
 
 
+## Developer setup
+
+From a fresh clone, the supported zero-to-runnable path is:
+
+```bash
+./run_developer_setup.sh
+./run_game.sh
+```
+
+The setup script installs host and Rust dependencies, initializes submodules,
+creates an isolated `.venv` inside each active Python authoring tool, regenerates
+all runtime assets, and checks the desktop game target. Use
+`./run_developer_setup.sh --help` for phase-specific skip flags.
+
 ## Run the game
 
 The normal desktop entry point is:

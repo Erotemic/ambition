@@ -20,6 +20,10 @@
 #   ./regen_sprites.sh --list           # show registered targets for focused regen
 #   ./regen_sprites.sh --target <name>  # render + install one registered target
 #
+# Environment:
+#   AMBITION_SPRITE_PYTHON=/path/to/python  Override the sprite tool .venv.
+#   AMBITION_LDTK_PYTHON=/path/to/python    Override the LDtk tool .venv.
+#
 # Caching:
 #   The renderer's Python sources + configs are fingerprinted into
 #   `tools/ambition_sprite2d_renderer/.cache/regen-fingerprint`. On the
@@ -34,20 +38,12 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"
+ldtk_tools_dir="$repo_root/tools/ambition_ldtk_tools"
 sprites_dir="$repo_root/crates/ambition_actors/assets/sprites"
 entities_dir="$sprites_dir/entities"
 
-select_python() {
-    if [ -n "${PYTHON:-}" ]; then
-        printf '%s\n' "$PYTHON"
-    elif [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
-        printf '%s\n' "$VIRTUAL_ENV/bin/python"
-    elif [ -x "$repo_root/.venv/bin/python" ]; then
-        printf '%s\n' "$repo_root/.venv/bin/python"
-    else
-        printf '%s\n' python
-    fi
-}
+# shellcheck disable=SC1091
+source "$repo_root/scripts/lib/tool_python.sh"
 
 print_help() {
     awk '
@@ -98,18 +94,14 @@ if [ "$make_gifs" -eq 1 ] && [ -z "$target_name" ]; then
     exit 2
 fi
 
-python_bin="$(select_python)"
-if ! command -v "$python_bin" >/dev/null 2>&1; then
-    echo "python executable not found: $python_bin" >&2
-    echo "run ./run_developer_setup.sh, activate a venv, or set PYTHON=/path/to/python" >&2
-    exit 1
-fi
-
-if ! "$python_bin" -c 'import ambition_sprite2d_renderer' >/dev/null 2>&1; then
-    echo "ambition_sprite2d_renderer is not installed in: $python_bin" >&2
-    echo "run ./run_developer_setup.sh, activate the configured venv, or set PYTHON=/path/to/python" >&2
-    exit 1
-fi
+python_bin="$(ambition_select_tool_python "$renderer_dir" AMBITION_SPRITE_PYTHON)"
+ldtk_python="$(ambition_select_tool_python "$ldtk_tools_dir" AMBITION_LDTK_PYTHON 0)"
+ambition_require_python_module \
+    "$python_bin" ambition_sprite2d_renderer \
+    "run ./run_developer_setup.sh or set AMBITION_SPRITE_PYTHON=/path/to/python"
+ambition_require_python_module \
+    "$ldtk_python" ambition_ldtk_tools \
+    "run ./run_developer_setup.sh or set AMBITION_LDTK_PYTHON=/path/to/python"
 
 list_sprite_targets() {
     echo "==> registered sprite targets"
@@ -882,15 +874,15 @@ fi
 # back to the colored-rectangle placeholder. Helpful as a final
 # "did the regen actually fix the Hall?" signal.
 echo "==> Hall-of-Characters sprite census:"
-if command -v "$python_bin" >/dev/null 2>&1 && \
-    PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "$python_bin" \
+if ambition_python_exists "$ldtk_python" && \
+    "$ldtk_python" \
         -c "import ambition_ldtk_tools" 2>/dev/null
 then
-    PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "$python_bin" \
+    "$ldtk_python" \
         -m ambition_ldtk_tools.inspect_hall_sprites --only-issues \
         2>&1 | sed 's/^/  /' || true
 else
-    echo "  (skipped — ambition_ldtk_tools not importable from $python_bin)"
+    echo "  (skipped — ambition_ldtk_tools not importable from $ldtk_python)"
 fi
 
 # --- LDtk editor-icon atlas ----------------------------------------------
@@ -900,16 +892,16 @@ fi
 # committed in the .ldtk; only re-run `asset register-entity-icons` when the
 # entity set changes (it rewrites the .ldtk).
 echo "==> LDtk editor-icon atlas:"
-if command -v "$python_bin" >/dev/null 2>&1 && \
-    PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "$python_bin" \
+if ambition_python_exists "$ldtk_python" && \
+    "$ldtk_python" \
         -c "import ambition_ldtk_tools" 2>/dev/null
 then
-    PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "$python_bin" \
+    "$ldtk_python" \
         -m ambition_ldtk_tools asset generate-editor-icons \
         --icons "$sprites_dir/editor_icons.png" --tile-size 32 \
         2>&1 | sed 's/^/  /' || true
 else
-    echo "  (skipped — ambition_ldtk_tools not importable from $python_bin)"
+    echo "  (skipped — ambition_ldtk_tools not importable from $ldtk_python)"
 fi
 
 # --- LDtk sprite tilesets (real sprites as editor visuals) ----------------
@@ -923,9 +915,9 @@ fi
 # browsing in the editor.
 echo "==> LDtk sprite tilesets:"
 sprite_manifest="$sprites_dir/ldtk_sprite_manifest.json"
-if command -v "$python_bin" >/dev/null 2>&1 && \
+if ambition_python_exists "$python_bin" && \
     "$python_bin" -c 'import ambition_sprite2d_renderer' >/dev/null 2>&1 && \
-    PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "$python_bin" \
+    "$ldtk_python" \
         -c "import ambition_ldtk_tools" 2>/dev/null
 then
     (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer \
@@ -933,7 +925,7 @@ then
     for world in sandbox intro you_have_to_cut_the_rope; do
         ldtk_path="$repo_root/crates/ambition_actors/assets/ambition/worlds/$world.ldtk"
         [ -f "$ldtk_path" ] || continue
-        PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "$python_bin" \
+        "$ldtk_python" \
             -m ambition_ldtk_tools.edit.visual_manifest apply-manifest \
             "$ldtk_path" "$sprite_manifest" --in-place 2>&1 | sed 's/^/  /' || true
     done

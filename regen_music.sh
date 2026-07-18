@@ -17,6 +17,8 @@
 # Useful environment overrides:
 #   AMBITION_MUSIC_BACKEND=pretty-midi|fluidsynth-cli|fallback|auto
 #                                   # forwarded to the cue renderer
+#   AMBITION_MUSIC_PYTHON=/path/to/python
+#                                   # overrides the tool-local .venv
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,19 +26,8 @@ cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_music_renderer"
 
-select_python() {
-    if [ -n "${PYTHON:-}" ]; then
-        printf '%s\n' "$PYTHON"
-    elif [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
-        printf '%s\n' "$VIRTUAL_ENV/bin/python"
-    elif [ -x "$repo_root/.venv/bin/python" ]; then
-        printf '%s\n' "$repo_root/.venv/bin/python"
-    elif [ -x "$renderer_dir/.venv/bin/python" ]; then
-        printf '%s\n' "$renderer_dir/.venv/bin/python"
-    else
-        printf '%s\n' python
-    fi
-}
+# shellcheck disable=SC1091
+source "$repo_root/scripts/lib/tool_python.sh"
 
 print_help() {
     awk '
@@ -69,18 +60,10 @@ if [ "$skip_render" -eq 1 ] && [ "$force_render" -eq 1 ]; then
     exit 2
 fi
 
-renderer_py="$(select_python)"
-if ! command -v "$renderer_py" >/dev/null 2>&1; then
-    echo "python executable not found: $renderer_py" >&2
-    echo "run ./run_developer_setup.sh, activate a venv, or set PYTHON=/path/to/python" >&2
-    exit 1
-fi
-
-if ! "$renderer_py" -c 'import ambition_music_renderer' >/dev/null 2>&1; then
-    echo "ambition_music_renderer is not installed in: $renderer_py" >&2
-    echo "run ./run_developer_setup.sh, activate the configured venv, or set PYTHON=/path/to/python" >&2
-    exit 1
-fi
+renderer_py="$(ambition_select_tool_python "$renderer_dir" AMBITION_MUSIC_PYTHON)"
+ambition_require_python_module \
+    "$renderer_py" ambition_music_renderer \
+    "run ./run_developer_setup.sh or set AMBITION_MUSIC_PYTHON=/path/to/python"
 
 echo "==> radio cues (scores/active/* + EXTRA_RADIO_CUES; adaptive cues per-section)"
 if [ "$skip_render" -eq 1 ]; then

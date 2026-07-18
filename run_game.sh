@@ -9,7 +9,10 @@
 set -euo pipefail
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-python_bin="${PYTHON:-python}"
+ldtk_tools_dir="$repo_root/tools/ambition_ldtk_tools"
+# shellcheck disable=SC1091
+source "$repo_root/scripts/lib/tool_python.sh"
+python_bin="$(ambition_select_tool_python "$ldtk_tools_dir" AMBITION_LDTK_PYTHON)"
 
 release=0
 clean_coverage=0
@@ -109,7 +112,9 @@ Options and mode aliases:
   --                      Everything after this is passed to the game binary.
 
 Environment:
-  PYTHON=/path/to/python   Python executable for ambition_ldtk_tools.
+  AMBITION_LDTK_PYTHON=/path/to/python
+                            Override the LDtk tool-local .venv.
+  PYTHON=/path/to/python   Legacy override for ambition_ldtk_tools.
   RUST_BACKTRACE=full      Backtrace mode for cargo run; defaults to full.
 USAGE
 }
@@ -349,7 +354,7 @@ if [[ "$coverage" -eq 1 ]]; then
 
     # Programatic way to get the target dir if we need to
     target_dir="$(cargo metadata --format-version=1 --no-deps |
-            python -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])'
+            "$python_bin" -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])'
         )"
     echo "$target_dir"
 

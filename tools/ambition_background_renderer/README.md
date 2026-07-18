@@ -17,18 +17,18 @@ python scripts/generate_background_assets.py
 Generated files are written to:
 
 ```text
-assets/backgrounds/default/sky.png
-assets/backgrounds/default/far.png
-assets/backgrounds/default/mid.png
-assets/backgrounds/default/near.png
-assets/backgrounds/default/manifest.txt
+crates/ambition_actors/assets/backgrounds/default/sky.png
+crates/ambition_actors/assets/backgrounds/default/far.png
+crates/ambition_actors/assets/backgrounds/default/mid.png
+crates/ambition_actors/assets/backgrounds/default/near.png
+crates/ambition_actors/assets/backgrounds/default/manifest.txt
 ```
 
 ## Direct CLI
 
 ```bash
-python -m ambition_background_renderer --out assets/backgrounds --profile default
+python -m ambition_background_renderer \
+  --out crates/ambition_actors/assets/backgrounds --profile default
 ```
 
-The published sandbox parallax profile currently loads the `default` profile.
 Later LDtk room metadata can select a profile per area/room.

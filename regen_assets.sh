@@ -2,12 +2,13 @@
 # Regenerate all generated runtime assets for the sandbox crate.
 #
 # Usage:
-#   ./regen_assets.sh                    # backgrounds, sprites, music, sfx
+#   ./regen_assets.sh                    # backgrounds, sprites, quality variants, music, sfx
 #   ./regen_assets.sh sprites music      # selected categories, in the given order
 #
 # Category-specific options live on the category scripts:
 #   ./regen_backgrounds.sh --help
 #   ./regen_sprites.sh --help
+#   ./regen_visual_quality_variants.sh --help
 #   ./regen_music.sh --help
 #   ./regen_sfx.sh --help
 set -euo pipefail
@@ -30,7 +31,7 @@ if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
 fi
 
 if [ "$#" -eq 0 ]; then
-    categories=(backgrounds sprites music sfx)
+    categories=(backgrounds sprites variants music sfx)
 else
     categories=("$@")
 fi
@@ -44,6 +45,9 @@ run_category() {
         sprites|sprite)
             bash "$repo_root/regen_sprites.sh"
             ;;
+        variants|quality-variants|visual-quality)
+            bash "$repo_root/regen_visual_quality_variants.sh"
+            ;;
         music)
             bash "$repo_root/regen_music.sh"
             ;;
@@ -52,7 +56,7 @@ run_category() {
             ;;
         *)
             echo "unknown asset category: $category" >&2
-            echo "valid categories: backgrounds sprites music sfx" >&2
+            echo "valid categories: backgrounds sprites variants music sfx" >&2
             exit 2
             ;;
     esac

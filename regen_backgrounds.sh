@@ -1,31 +1,25 @@
 #!/usr/bin/env bash
-# Regenerate procedural background / parallax layer assets for the sandbox.
+# Regenerate every procedural background family used by the desktop game.
 #
 # Usage:
 #   ./regen_backgrounds.sh
-#   PYTHON=/path/to/python ./regen_backgrounds.sh
+#   AMBITION_BACKGROUND_PYTHON=/path/to/python ./regen_backgrounds.sh
+#   AMBITION_PARALLAX_PYTHON=/path/to/python ./regen_backgrounds.sh
 #
-# Generated backgrounds intentionally live under assets/backgrounds/, not
-# assets/sprites/. Sprite regeneration does not create or publish them.
+# The default interpreters are the two tool-local virtualenvs created by
+# run_developer_setup.sh. PYTHON remains a legacy override for both tools.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
-renderer_dir="$repo_root/tools/ambition_parallax_renderer"
-background_dir="$repo_root/crates/ambition_actors/assets/backgrounds/parallax_layers"
+# shellcheck disable=SC1091
+source "$repo_root/scripts/lib/tool_python.sh"
 
-select_python() {
-    if [ -n "${PYTHON:-}" ]; then
-        printf '%s\n' "$PYTHON"
-    elif [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
-        printf '%s\n' "$VIRTUAL_ENV/bin/python"
-    elif [ -x "$repo_root/.venv/bin/python" ]; then
-        printf '%s\n' "$repo_root/.venv/bin/python"
-    else
-        printf '%s\n' python
-    fi
-}
+background_renderer_dir="$repo_root/tools/ambition_background_renderer"
+parallax_renderer_dir="$repo_root/tools/ambition_parallax_renderer"
+background_root="$repo_root/crates/ambition_actors/assets/backgrounds"
+parallax_dir="$background_root/parallax_layers"
 
 print_help() {
     awk '
@@ -43,22 +37,39 @@ for arg in "$@"; do
     esac
 done
 
-python_bin="$(select_python)"
-if ! command -v "$python_bin" >/dev/null 2>&1; then
-    echo "python executable not found: $python_bin" >&2
-    echo "run ./run_developer_setup.sh, activate a venv, or set PYTHON=/path/to/python" >&2
-    exit 1
-fi
+setup_hint="run ./run_developer_setup.sh or set the corresponding AMBITION_*_PYTHON override"
+background_python="$(ambition_select_tool_python "$background_renderer_dir" AMBITION_BACKGROUND_PYTHON)"
+parallax_python="$(ambition_select_tool_python "$parallax_renderer_dir" AMBITION_PARALLAX_PYTHON)"
+ambition_require_python_module "$background_python" ambition_background_renderer "$setup_hint"
+ambition_require_python_module "$parallax_python" ambition_parallax_renderer "$setup_hint"
 
-if ! "$python_bin" -c 'import ambition_parallax_renderer' >/dev/null 2>&1; then
-    echo "ambition_parallax_renderer is not installed in: $python_bin" >&2
-    echo "run ./run_developer_setup.sh, activate the configured venv, or set PYTHON=/path/to/python" >&2
-    exit 1
-fi
+mkdir -p "$background_root" "$parallax_dir"
 
-mkdir -p "$background_dir"
+echo "==> placeholder background profiles -> $background_root"
+(
+    cd "$background_renderer_dir"
+    "$background_python" -m ambition_background_renderer \
+        --out "$background_root" --profile all
+)
 
-echo "==> background sky/parallax layers -> $background_dir"
-(cd "$renderer_dir" && "$python_bin" -m ambition_parallax_renderer draw-backgrounds --out-dir "$background_dir")
+echo "==> background sky/parallax layers -> $parallax_dir"
+(
+    cd "$parallax_renderer_dir"
+    "$parallax_python" -m ambition_parallax_renderer draw-backgrounds \
+        --out-dir "$parallax_dir"
+)
+
+required_outputs=(
+    "$background_root/default/sky.png"
+    "$background_root/default/manifest.txt"
+    "$parallax_dir/hub_sky.png"
+    "$parallax_dir/parallax_manifest.json"
+)
+for output in "${required_outputs[@]}"; do
+    if [ ! -s "$output" ]; then
+        echo "background generation did not produce: $output" >&2
+        exit 1
+    fi
+done
 
 echo "==> done"

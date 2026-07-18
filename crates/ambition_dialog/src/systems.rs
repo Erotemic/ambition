@@ -3,7 +3,7 @@
 //! These read [`crate::runtime::DialogState`] and write its `pending_*`
 //! request fields (which [`crate::bridge`] later drains into the runner):
 //! - [`dialog_reveal_tick`] — advances the visible substring of the line/options.
-//! - [`dialog_input`] — keyboard/gamepad nav (up/down/select/back), `input`-gated.
+//! - [`dialog_input`] — semantic menu nav from keyboard, gamepad, touch controls, wheel, and drag.
 //! - [`dialog_pointer_input`] — mouse/touch choice-row selection, `input`-gated.
 //!
 //! Presentation only; the Yarn runner owns the line/option state machine.
@@ -13,11 +13,13 @@ use bevy::prelude::*;
 use crate::runtime::DialogState;
 use crate::speech_sfx::{should_play_talk_blip, talk_blip_id_for_speaker, DialogueVoiceCatalog};
 #[cfg(feature = "input")]
-use ambition_input::MenuControlFrame;
+use ambition_input::{ActiveInputKind, MenuControlFrame};
+#[cfg(feature = "input")]
+use ambition_persistence::settings::{MenuTapMode, UserSettings};
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_ui_nav::DialogChoiceSlot;
 #[cfg(feature = "input")]
-use ambition_ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction};
+use ambition_ui_nav::{resolve_selectable_row_interaction, RowPointerOutcome};
 #[cfg(feature = "input")]
 use bevy::window::PrimaryWindow;
 
@@ -75,11 +77,30 @@ pub fn dialog_pointer_input(
     mut dialogue: ResMut<DialogState>,
     windows: Query<&Window, With<PrimaryWindow>>,
     choices: Query<(&Interaction, &DialogChoiceSlot), Changed<Interaction>>,
+    settings: Option<Res<UserSettings>>,
+    active_input: Option<Res<ActiveInputKind>>,
+    touches: Option<Res<bevy::input::touch::Touches>>,
 ) {
     if !dialogue.active() {
         return;
     }
     let cursor_position = windows.single().ok().and_then(Window::cursor_position);
+    let configured_tap_mode = settings
+        .as_deref()
+        .map(|settings| settings.controls.menu_tap_mode)
+        .unwrap_or_default();
+    // `ActiveInputKind` is the shared last-genuine-input policy, while the
+    // live touch resource closes the same-frame ordering gap for a finger that
+    // presses a row before the touch fold has published `Touch`.
+    let direct_touch_active = touches
+        .as_deref()
+        .is_some_and(|touches| touches.iter().next().is_some());
+    let pointer_input = if direct_touch_active {
+        Some(ActiveInputKind::Touch)
+    } else {
+        active_input.as_deref().copied()
+    };
+    let tap_mode = effective_dialog_tap_mode(configured_tap_mode, pointer_input);
 
     let option_count = dialogue.options().len();
     for (interaction, slot) in &choices {
@@ -91,10 +112,20 @@ pub fn dialog_pointer_input(
         if !valid_slot {
             continue;
         }
+        let index = slot.index.min(option_count.saturating_sub(1));
 
         match interaction {
             Interaction::Hovered => {
-                let index = slot.index.min(option_count.saturating_sub(1));
+                // A freshly rebuilt windowed list can spawn under a stationary
+                // cursor. Only genuine mouse motion owns hover selection; touch,
+                // keyboard, physical gamepad, and the touch gamepad keep their
+                // newer semantic selection until the mouse actually moves.
+                if active_input
+                    .as_deref()
+                    .is_some_and(|kind| *kind != ActiveInputKind::Mouse)
+                {
+                    continue;
+                }
                 let update = handle_dialog_choice_hover(
                     index,
                     dialogue.selected_option,
@@ -107,35 +138,22 @@ pub fn dialog_pointer_input(
                 dialogue.pointer_armed = update.pointer_armed;
                 dialogue.focus = update.focus;
                 dialogue.last_pointer_position = update.last_pointer_position;
-                continue;
             }
             Interaction::Pressed => {
-                let index = slot.index.min(option_count.saturating_sub(1));
-
-                #[cfg(target_os = "android")]
-                {
-                    let confirm =
-                        dialogue.selected_option == index && dialogue.pointer_armed == Some(index);
-                    dialogue.selected_option = index;
-                    dialogue.focus.mark_pointer(index);
-                    dialogue.last_pointer_position = cursor_position;
-                    if confirm {
-                        dialogue.pointer_armed = None;
-                        // Confirm advances via the Yarn dispatch
-                        // (sets pending_select/advance); when the
-                        // dialogue closes, `DialogState.active` flips
-                        // and the host maps that onto its session mode.
-                        dialogue.confirm_or_advance();
-                    } else {
-                        dialogue.pointer_armed = Some(index);
-                    }
-                }
-
-                #[cfg(not(target_os = "android"))]
-                {
-                    dialogue.selected_option = index;
-                    dialogue.focus.mark_pointer(index);
-                    dialogue.last_pointer_position = cursor_position;
+                let update = resolve_selectable_row_interaction(
+                    interaction,
+                    index,
+                    dialogue.selected_option,
+                    tap_mode,
+                    false,
+                    dialogue.pointer_armed,
+                    dialogue.focus,
+                );
+                dialogue.selected_option = update.selected;
+                dialogue.pointer_armed = update.pointer_armed;
+                dialogue.focus = update.focus;
+                dialogue.last_pointer_position = cursor_position;
+                if update.outcome == RowPointerOutcome::Confirmed {
                     dialogue.confirm_or_advance();
                 }
                 return;
@@ -148,40 +166,67 @@ pub fn dialog_pointer_input(
 #[cfg(not(feature = "input"))]
 pub fn dialog_pointer_input() {}
 
+/// Resolve the configured pointer policy for the device that actually issued
+/// the interaction.
+///
+/// The desktop default (`SingleTapWithDestructiveGuard`) intentionally confirms
+/// ordinary mouse rows immediately. A direct touch press, however, may still
+/// become a drag-scroll gesture, so that default is promoted to
+/// `TapToSelectThenConfirm`. Users who explicitly choose unconditional
+/// `SingleTap` retain that behavior on every device.
+#[cfg(feature = "input")]
+fn effective_dialog_tap_mode(
+    configured: MenuTapMode,
+    active_input: Option<ActiveInputKind>,
+) -> MenuTapMode {
+    if active_input == Some(ActiveInputKind::Touch)
+        && configured == MenuTapMode::SingleTapWithDestructiveGuard
+    {
+        MenuTapMode::TapToSelectThenConfirm
+    } else {
+        configured
+    }
+}
+
 #[cfg(feature = "input")]
 pub fn dialog_input(menu: Res<MenuControlFrame>, mut dialogue: ResMut<DialogState>) {
+    apply_dialog_menu_input(&menu, &mut dialogue);
+}
+
+#[cfg(feature = "input")]
+fn apply_dialog_menu_input(menu: &MenuControlFrame, dialogue: &mut DialogState) {
     if !dialogue.active() {
         return;
     }
     if menu.back || menu.start {
-        // Back-button close: the dispatch system tells the runner to
-        // stop. `close()` flips `DialogState.active` this same frame
-        // (so the UI hides immediately); the host maps the inactive
-        // state onto its session mode.
+        // Back-button close: the dispatch system tells the runner to stop.
+        // `close()` flips `DialogState.active` this same frame so every
+        // presentation/input backend observes the same immediate closure.
         dialogue.close();
         return;
     }
-    let mut frame = ambition_input::MenuInputFrame {
-        up: menu.up,
-        down: menu.down,
-        left: menu.left,
-        right: menu.right,
-        select: menu.select,
-        back: menu.back,
-        start: menu.start,
-    };
-    apply_vertical_scroll(&mut frame, menu.vertical_scroll_steps());
-    if frame.up {
+
+    // Directional semantic navigation is shared by keyboard arrows, D-pad,
+    // physical analog stick, and the on-screen touch joystick. It retains the
+    // familiar wrapping cursor behavior.
+    if menu.up {
         dialogue.select_delta(-1);
     }
-    if frame.down {
+    if menu.down {
         dialogue.select_delta(1);
     }
-    if frame.select {
-        // The Yarn runner closes the dialogue asynchronously via
-        // the `DialogueCompleted` observer (which flips
-        // `DialogState.active`). `confirm_or_advance` now always
-        // returns `false`; the legacy `if closed { ... }` branch is gone.
+
+    // Mouse wheel, touchpad, and touch drag are scroll gestures. Preserve their
+    // discrete magnitude and clamp at list edges rather than wrapping from the
+    // bottom to the top of a long dialogue choice list.
+    let scroll_steps = menu.vertical_scroll_steps();
+    if scroll_steps != 0 {
+        dialogue.select_delta_clamped(-(scroll_steps as isize));
+    }
+
+    if menu.select {
+        // The same semantic Confirm edge comes from keyboard, physical gamepad,
+        // touch gamepad, or the on-screen Interact/Jump buttons.
         dialogue.confirm_or_advance();
     }
 }
@@ -240,6 +285,98 @@ struct DialogHoverUpdate {
 mod tests {
     use super::*;
     use ambition_ui_nav::MenuFocusOwner;
+
+    fn dialogue_with_options(count: usize) -> DialogState {
+        let mut dialogue = DialogState::default();
+        dialogue.active = true;
+        dialogue.current_options = (0..count)
+            .map(|index| crate::DialogChoice {
+                label: format!("Option {index}"),
+                ..default()
+            })
+            .collect();
+        dialogue.reveal_full_options();
+        dialogue
+    }
+
+    #[test]
+    fn direct_touch_uses_drag_safe_tap_policy_without_changing_mouse_or_explicit_single_tap() {
+        assert_eq!(
+            effective_dialog_tap_mode(
+                MenuTapMode::SingleTapWithDestructiveGuard,
+                Some(ActiveInputKind::Touch),
+            ),
+            MenuTapMode::TapToSelectThenConfirm,
+        );
+        assert_eq!(
+            effective_dialog_tap_mode(
+                MenuTapMode::SingleTapWithDestructiveGuard,
+                Some(ActiveInputKind::Mouse),
+            ),
+            MenuTapMode::SingleTapWithDestructiveGuard,
+        );
+        assert_eq!(
+            effective_dialog_tap_mode(MenuTapMode::SingleTap, Some(ActiveInputKind::Touch)),
+            MenuTapMode::SingleTap,
+        );
+    }
+
+    #[test]
+    fn wheel_and_touch_drag_scroll_preserve_magnitude_and_clamp() {
+        let mut dialogue = dialogue_with_options(8);
+        apply_dialog_menu_input(
+            &MenuControlFrame {
+                scroll_y: -3.0,
+                ..default()
+            },
+            &mut dialogue,
+        );
+        assert_eq!(dialogue.selected_option(), 3);
+
+        apply_dialog_menu_input(
+            &MenuControlFrame {
+                scroll_y: -6.0,
+                ..default()
+            },
+            &mut dialogue,
+        );
+        assert_eq!(dialogue.selected_option(), 7);
+
+        apply_dialog_menu_input(
+            &MenuControlFrame {
+                scroll_y: -1.0,
+                ..default()
+            },
+            &mut dialogue,
+        );
+        assert_eq!(
+            dialogue.selected_option(),
+            7,
+            "scroll gestures stop at the list edge rather than wrapping"
+        );
+    }
+
+    #[test]
+    fn directional_and_confirm_share_the_same_authoritative_selection() {
+        let mut dialogue = dialogue_with_options(4);
+        apply_dialog_menu_input(
+            &MenuControlFrame {
+                up: true,
+                ..default()
+            },
+            &mut dialogue,
+        );
+        assert_eq!(dialogue.selected_option(), 3, "directional nav wraps");
+
+        apply_dialog_menu_input(
+            &MenuControlFrame {
+                select: true,
+                ..default()
+            },
+            &mut dialogue,
+        );
+        assert_eq!(dialogue.pending_select, Some(3));
+    }
 
     #[test]
     fn keyboard_focus_blocks_stale_hover_on_same_row() {

@@ -40,11 +40,28 @@ composition:
   use the shared `DialogChoiceSlot` input marker.
 
 Ambition installs `AmbitionDialogUiPlugin` from its content-owned presentation
-module. Its product policy is a classic fully opaque bottom panel with a speaker
-nameplate, portrait frame, body, choices, and a footer whose width is bounded by
-the panel. A character's ordinary generated portrait reference lives on its
-stable character-catalog row. A game-owned override catalog may replace that
-image or deliberately force a placeholder; speakers without portrait art use
+module. Its product policy is a classic fully opaque panel horizontally
+centered in an upper-screen safe band, never vertically centered. The panel is
+height-capped so the normal player focus region and lower touch controls remain
+visible, with a speaker nameplate, portrait frame, readable body,
+bounded choice viewport, and a footer whose width is contained by the panel.
+The layout selects a mobile/short-window profile from the actual viewport and
+never shrinks body or choice text below the product's readability floor.
+
+Long option lists do not create a second presentation-only cursor. The renderer
+windows rows around `DialogView.selected_option`; every visible row keeps its
+absolute `DialogChoiceSlot` index. Keyboard, physical gamepad, touch joystick,
+touch buttons, mouse wheel, touch drag, mouse click, and direct touch press all
+therefore manipulate the same dialogue selection. Directional controls wrap;
+scroll gestures preserve their step magnitude and clamp at list edges. Pointer
+presses use the shared user `MenuTapMode` rather than an operating-system branch.
+Direct touch promotes the desktop guard default to select-then-confirm so a
+finger-down may safely become a drag; an explicit `SingleTap` preference remains
+unconditional.
+
+A character's ordinary generated portrait reference lives on its stable
+character-catalog row. A game-owned override catalog may replace that image or
+deliberately force a placeholder; speakers without portrait art use
 deterministic monograms.
 
 ## Consequences
@@ -73,5 +90,11 @@ deterministic monograms.
   alternate art, or deliberate placeholders.
 - A demo or downstream game may install `DefaultDialogUiPlugin` or claim the
   presenter seam with its own plugin; never install both.
-- Keep choices on `ambition_ui_nav::DialogChoiceSlot` so pointer/touch and
-  keyboard/gamepad navigation remain one input path.
+- Keep choices on `ambition_ui_nav::DialogChoiceSlot` with absolute option
+  indices, even when a presenter windows a long list.
+- Do not add a renderer-local selection or scroll cursor. Semantic menu input
+  mutates `DialogState.selected_option`; presentation derives the visible
+  option window from `DialogView.selected_option`.
+- Pointer activation must use the shared `UserSettings.controls.menu_tap_mode`;
+  do not branch on Android, desktop, or another operating system. Derive the
+  drag-safe direct-touch effective policy from the active device, not the OS.

@@ -85,10 +85,10 @@ pub struct DialogState {
     pub(crate) yarn_option_ids: Vec<OptionId>,
 
     pub(crate) selected_option: usize,
-    /// Android/touch row activation is deliberately two-step:
-    /// first tap selects, second tap or a Confirm button
-    /// activates. This prevents a finger press that turns into a
-    /// small drag from accidentally advancing dialogue.
+    /// Pointer activation arm used by the shared menu tap policy. Depending
+    /// on `MenuTapMode`, a first press may select and arm a row while a second
+    /// press (or semantic Confirm from any device) activates it. This is input
+    /// policy, not an Android-specific branch.
     pub(crate) pointer_armed: Option<usize>,
     /// Which input source currently owns selection focus, plus the
     /// last row the pointer actually hovered.
@@ -369,6 +369,25 @@ impl DialogState {
             return;
         }
         let next = (self.selected_option as isize + delta).rem_euclid(len as isize) as usize;
+        if self.selected_option != next {
+            self.pointer_armed = None;
+        }
+        self.selected_option = next;
+    }
+
+    /// Move selection without wrapping. Wheel and drag scrolling use this so
+    /// reaching the end of a long list does not unexpectedly jump to the other
+    /// edge; directional keyboard/gamepad/touch-stick navigation keeps the
+    /// existing wrapping behavior through [`Self::select_delta`].
+    pub(crate) fn select_delta_clamped(&mut self, delta: isize) {
+        self.focus.mark_keyboard();
+        let len = self.options().len();
+        if len == 0 {
+            self.selected_option = 0;
+            return;
+        }
+        let next = (self.selected_option as isize + delta).clamp(0, len.saturating_sub(1) as isize)
+            as usize;
         if self.selected_option != next {
             self.pointer_armed = None;
         }

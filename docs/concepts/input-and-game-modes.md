@@ -53,6 +53,14 @@ resolver both gates gameplay and produces the meaning shown through
   actor-local action/body paths.
 - Menu/dialogue/shell input is semantically separate from gameplay input even
   when the same physical button is used.
+- Dialogue choice selection is one semantic cursor: keyboard arrows, D-pad,
+  physical/touch sticks, mouse wheel, touch drag, pointer presses, and semantic
+  Confirm all converge on `MenuControlFrame` / `DialogState`. A long-list
+  presenter windows that cursor; it does not own a second scroll selection.
+- Pointer press behavior comes from `MenuTapMode`, while genuine active-input
+  tracking prevents a stationary mouse from stealing focus after a windowed UI
+  rebuild. Direct touch upgrades the desktop guard default to select-then-confirm
+  so a finger press can safely turn into a drag without activating a choice.
 - App-wide modes use explicit state/scope vocabulary; per-entity authority stays
   on the controlled entity or its relationships.
 - Touch controls are action-shaped and prompt-driven, not a fixed picture of a

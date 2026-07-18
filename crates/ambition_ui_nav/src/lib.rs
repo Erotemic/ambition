@@ -16,4 +16,5 @@ pub use list::apply_vertical_scroll;
 pub use list::visible_window_start;
 pub use pointer::{
     resolve_selectable_row_interaction, DialogChoiceSlot, MenuFocusOwner, MenuFocusState,
+    RowPointerOutcome,
 };

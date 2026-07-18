@@ -88,16 +88,26 @@ impl CharacterCatalog {
         self.0.characters.get(id)
     }
 
-    /// Resolve the default close-up portrait image for a stable character id.
-    ///
-    /// Presentation consumers should use this accessor instead of reaching into
-    /// [`CharacterCatalogEntry`] so portrait schema evolution remains owned by
-    /// the character catalog.
-    pub fn portrait_image_path(&self, id: &str) -> Option<&str> {
-        self.get(id)?
-            .portrait
-            .as_ref()
-            .map(|portrait| portrait.image.as_str())
+    /// Resolve the independently published portrait product for a stable
+    /// character id. Explicit catalog metadata may override the conventional
+    /// sibling paths, but ordinary characters derive them from
+    /// `<stem>_spritesheet.png` without a second hand-maintained registry.
+    pub fn portrait_ref(&self, id: &str) -> Option<CharacterPortraitRef> {
+        let entry = self.get(id)?;
+        if let Some(portrait) = &entry.portrait {
+            return Some(portrait.clone());
+        }
+        let stem = entry.spritesheet.strip_suffix("_spritesheet.png")?;
+        Some(CharacterPortraitRef {
+            image: format!("{stem}_portraits.png"),
+            manifest: format!("{stem}_portraits.ron"),
+            default_clip: "default".to_string(),
+        })
+    }
+
+    /// Resolve the default close-up portrait image for presentation code.
+    pub fn portrait_image_path(&self, id: &str) -> Option<String> {
+        self.portrait_ref(id).map(|portrait| portrait.image)
     }
 
     /// Iterate every (id, entry) pair. Stable order — `BTreeMap`.
@@ -308,6 +318,62 @@ pub fn validate_catalog_on_startup(catalog: Res<CharacterCatalog>) {
 mod tests {
     use super::*;
     use crate::brain::{Brain, StateMachineCfg};
+
+    fn portrait_catalog_fixture(portrait: &str) -> CharacterCatalog {
+        let data = parse_catalog(&format!(
+            r#"(
+                brain_presets: {{ "idle": StandStill }},
+                action_set_presets: {{ "peaceful": (move_style: Walk) }},
+                characters: {{
+                    "npc_sample": (
+                        display_name: "Sample",
+                        spritesheet: "sprites/sample_spritesheet.png",
+                        manifest: "sprites/sample_spritesheet.ron",
+                        portrait: {portrait},
+                        tier: MainHall,
+                        body_kind: Standard,
+                        composition: None,
+                        default_brain: "idle",
+                        default_action_set: "peaceful",
+                        tags: [],
+                    ),
+                }},
+            )"#
+        ));
+        CharacterCatalog::from_data(data)
+    }
+
+    #[test]
+    fn portrait_paths_derive_from_the_gameplay_sheet() {
+        let catalog = portrait_catalog_fixture("None");
+        assert_eq!(
+            catalog.portrait_ref("npc_sample"),
+            Some(CharacterPortraitRef {
+                image: "sprites/sample_portraits.png".to_string(),
+                manifest: "sprites/sample_portraits.ron".to_string(),
+                default_clip: "default".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn explicit_portrait_metadata_overrides_the_convention() {
+        let catalog = portrait_catalog_fixture(
+            r#"Some((
+                image: "sprites/custom.png",
+                manifest: "sprites/custom.ron",
+                default_clip: "calm",
+            ))"#,
+        );
+        assert_eq!(
+            catalog.portrait_ref("npc_sample"),
+            Some(CharacterPortraitRef {
+                image: "sprites/custom.png".to_string(),
+                manifest: "sprites/custom.ron".to_string(),
+                default_clip: "calm".to_string(),
+            })
+        );
+    }
 
     #[test]
     fn character_barks_pick_rotates_and_empty_is_none() {

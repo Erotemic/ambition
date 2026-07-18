@@ -110,26 +110,29 @@ boundary.
 animation and its hitbox visibly agree (the one expressiveness improvement worth
 chasing inside the tool) — is **blocked on a spec from Jon**
 (overlay-to-verify vs. hitbox-follows-authored-part). Do not treat it as done.
-The first static dialog-portrait vertical slice has landed:
+Stage 2 default dialog-portrait coverage has landed:
 
-- portrait-capable targets publish independent `<target>_portraits.png` and
-  `<target>_portraits.ron` products with a required named `default` clip;
+- every registered character target publishes an independent
+  `<target>_portraits.png` / `<target>_portraits.ron` product with a required
+  named `default` clip;
 - config-driven generators rerender at portrait source resolution and compose a
   logical face guide;
-- module targets opt in through `render_portraits`, demonstrated by bespoke
-  procedural Pipi Tau and SVG-rigged Oiler;
-- Alice demonstrates the config-generator path;
-- publish/install and `regen_sprites.sh` carry these products into runtime
-  assets; and
-- the character catalog references the default product, which Ambition's dialog
-  presenter displays with its existing monogram fallback and optional
-  game-specific override layer.
+- module-authored families may provide custom high-detail hooks, while the
+  common fallback freshly invokes the target's canonical authoring path and
+  never samples an installed gameplay sheet;
+- `sheet_build` families use a canonical-only authoring mode so fallback
+  portraits do not rerender and repack every animation;
+- multipart and fan-out publishers declare all portrait products and their
+  install subdirectories explicitly;
+- catalog portrait paths conventionally derive from gameplay-sheet paths, with
+  explicit metadata retained only for true exceptions;
+- `regen_sprites.sh` validates every Hall portrait and emits
+  `generated/portrait_gallery.png` for visual review.
 
-**Portrait work still open:** migrate default coverage by generator family, add
-portrait gallery/review tooling, carry stable speaker identity through the
-neutral dialog view, and implement named expression/animation selection. Native
-portrait production must continue to use family-specific or bespoke rerendering,
-never crops enlarged from gameplay sheets.
+**Portrait work still open:** carry stable speaker identity through the neutral
+DialogState/DialogView path and implement named expression and animation
+selection. Native portrait production must continue to use family-specific or
+bespoke rerendering, never crops enlarged from gameplay sheets.
 
 ## Pointers
 

@@ -171,6 +171,7 @@ expected_files=(
     dividing_mite_spritesheet.png dividing_mite_spritesheet.yaml dividing_mite_spritesheet.ron
     # Review-config NPCs (draw-review → copied).
     absurd_general_spritesheet.png absurd_general_spritesheet.yaml absurd_general_spritesheet.ron
+    fascist_enforcer_spritesheet.png fascist_enforcer_spritesheet.yaml fascist_enforcer_spritesheet.ron
     alice_spritesheet.png alice_spritesheet.yaml alice_spritesheet.ron
     alice_portraits.png alice_portraits.ron
     architect_spritesheet.png architect_spritesheet.yaml architect_spritesheet.ron
@@ -250,6 +251,13 @@ expected_files=(
     viking_shieldmaiden_spritesheet.png viking_shieldmaiden_spritesheet.ron
     viking_warrior_spritesheet.png viking_warrior_spritesheet.ron
     weird_hermit_spritesheet.png weird_hermit_spritesheet.ron
+    willson_spritesheet.png willson_spritesheet.ron
+    ramen_nujan_spritesheet.png ramen_nujan_spritesheet.ron
+    jeff_hinter_spritesheet.png jeff_hinter_spritesheet.ron
+    jeff_hinter_armored_spritesheet.png jeff_hinter_armored_spritesheet.ron
+    m_leblanc_spritesheet.png m_leblanc_spritesheet.ron
+    puppy_slug_velvet_spritesheet.png puppy_slug_velvet_spritesheet.ron
+    player_robot_fable_spritesheet.png player_robot_fable_spritesheet.ron
     # Intro / cut-the-rope content + catalog characters (see the
     # matching tackon_targets block).
     cut_rope_anvil_spritesheet.png cut_rope_anvil_spritesheet.ron
@@ -325,7 +333,9 @@ all_outputs_present() {
             return 1
         fi
     done
-    return 0
+    "$ldtk_python" -m ambition_ldtk_tools.inspect_hall_portraits \
+        --catalog "$character_catalog" --sprites-dir "$sprites_dir" \
+        --only-issues >/dev/null 2>&1
 }
 
 # --- Per-sheet cache ------------------------------------------------------
@@ -441,24 +451,37 @@ sheet_cache_store() {
     printf '%s\n' "$2" > "$sheets_cache_dir/$1"
 }
 
-# Publish one registered target with per-sheet caching. Skips when the
-# sheet is already current; stores the key only on a successful publish
-# so a failure retries next run.
+# Publish one registered target with per-sheet caching. Skips only when the
+# complete declared gameplay + portrait bundle is current.
+portrait_outputs_present() {
+    local target="$1" rel files
+    if ! files="$(cd "$renderer_dir" && "$python_bin" \
+        -m ambition_sprite2d_renderer portrait-files "$target")"; then
+        return 1
+    fi
+    while IFS= read -r rel; do
+        [ -n "$rel" ] || continue
+        [ -f "$sprites_dir/$rel" ] || return 1
+    done <<< "$files"
+    return 0
+}
+
 publish_cached() {
     local target="$1"
     local key glob
     key="$(unit_key "$target")"
-    glob="$sprites_dir/${target}"*"_spritesheet.png"
-    if sheet_cache_fresh "$target" "$key" "$glob"; then
-        # A portrait-capable target's cache unit is its complete published
-        # bundle, not merely the gameplay sheet. Hand-deleting the portrait
-        # must force regeneration just like deleting the sheet.
-        if [ "$target" != "pipi_tau" ] \
-            || { [ -f "$sprites_dir/pipi_tau_portraits.png" ] \
-                && [ -f "$sprites_dir/pipi_tau_portraits.ron" ]; }; then
-            echo "  [cache] $target up to date — skipped"
-            return 0
-        fi
+    case "$target" in
+        gnu_ton_boss|mockingbird_boss)
+            glob="$sprites_dir/$target/${target}"*"_spritesheet.png"
+            ;;
+        *)
+            glob="$sprites_dir/${target}"*"_spritesheet.png"
+            ;;
+    esac
+    if sheet_cache_fresh "$target" "$key" "$glob" \
+        && portrait_outputs_present "$target"; then
+        echo "  [cache] $target up to date — skipped"
+        return 0
     fi
     if (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish "$target" --dest-root "$sprites_dir"); then
         sheet_cache_store "$target" "$key"
@@ -507,7 +530,7 @@ mkdir -p "$review_scratch"
 review_cues=(
     # Toon-target NPC variants already promoted.
     absurd_general architect kernel_guide vault_keeper
-    merchant_prototype oiler erdish raid_enforcer
+    merchant_prototype oiler erdish raid_enforcer fascist_enforcer
     # Named characters whose YAML manifests already live in $sprites_dir.
     alice bob craig eve general_hero judy mallory olivia
     peggy sybil trent trudy victor walter
@@ -535,17 +558,15 @@ for cue in "${review_cues[@]}"; do
             echo "  WARN: $src missing — skipped"
         fi
     done
-done
-
-# Overlay 1 publishes catalog-backed default portraits for one representative
-# config target. Keep bulk gameplay rendering unchanged: explicitly render and
-# promote only portrait products referenced by the runtime catalog.
-echo "==> Alice native config-generator portrait -> $sprites_dir"
-(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer portraits alice)
-for ext in png ron; do
-    src="$renderer_dir/generated/alice/alice_portraits.$ext"
-    cp "$src" "$sprites_dir/alice_portraits.$ext"
-    echo "  installed alice_portraits.$ext"
+    for ext in png ron; do
+        src="$review_scratch/${cue}_portraits.$ext"
+        if [ -f "$src" ]; then
+            cp "$src" "$sprites_dir/${cue}_portraits.$ext"
+            echo "  installed ${cue}_portraits.$ext"
+        else
+            echo "  WARN: $src missing — skipped"
+        fi
+    done
 done
 
 # Oiler is the representative direct-SVG rig target. Render only its portrait
@@ -578,6 +599,11 @@ for cue in goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor; do
         else
             echo "  WARN: $src missing — skipped"
         fi
+    done
+    for ext in png ron; do
+        src="$factions_scratch/${cue}_portraits.$ext"
+        cp "$src" "$sprites_dir/${cue}_portraits.$ext"
+        echo "  installed ${cue}_portraits.$ext"
     done
 done
 
@@ -675,6 +701,15 @@ tackon_targets=(
     # canonical `<target>_spritesheet.{png,ron,yaml}` filenames + the
     # runtime's standard SheetRow schema. Catalog entry now resolves.
     weird_hermit
+    # Catalog-backed Hall characters that previously depended on manually
+    # generated local assets and therefore disappeared on a fresh clone.
+    willson
+    ramen_nujan
+    jeff_hinter
+    jeff_hinter_armored
+    m_leblanc
+    puppy_slug_velvet
+    player_robot_fable
 )
 for target in "${tackon_targets[@]}"; do
     # Per-target failure is non-fatal — some targets (e.g.
@@ -768,19 +803,9 @@ echo "==> small enemy sprites (puppy_slug → $sprites_dir)"
 publish_cached puppy_slug
 
 echo "==> tack-on: mockingbird boss (render-publish into $sprites_dir/mockingbird_boss)"
-# Custom generator CLI + subdir output, so it gets a bespoke per-sheet
-# check rather than `publish_cached`. Its source is the mockingbird_boss
-# package dir, which leaf_hash covers.
-mockingbird_key="$(unit_key mockingbird_boss)"
-if sheet_cache_fresh mockingbird_boss "$mockingbird_key" \
-    "$sprites_dir/mockingbird_boss/mockingbird_boss"*"_spritesheet.png"; then
-    echo "  [cache] mockingbird_boss up to date — skipped"
-else
-    (cd "$renderer_dir" && "$python_bin" \
-        -m ambition_sprite2d_renderer.targets.characters.mockingbird_boss \
-        render-publish --install-dir "$sprites_dir/mockingbird_boss")
-    sheet_cache_store mockingbird_boss "$mockingbird_key"
-fi
+# The unified Target install contract owns the boss subdirectory for both its
+# multipart gameplay product and its independent portrait product.
+publish_cached mockingbird_boss
 
 echo "==> postcondition: every runtime-required sprite file present"
 # Walk the list of files the sandbox crate actually loads at runtime
@@ -804,6 +829,16 @@ if [ "${#missing[@]}" -gt 0 ]; then
     exit 1
 fi
 echo "  ok: ${#expected_files[@]} expected files present"
+
+echo "==> Hall-of-Characters portrait coverage:"
+"$ldtk_python" -m ambition_ldtk_tools.inspect_hall_portraits \
+    --catalog "$character_catalog" --sprites-dir "$sprites_dir" \
+    --only-issues 2>&1 | sed 's/^/  /'
+
+echo "==> portrait review gallery:"
+(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer portrait-gallery \
+    --source-dir "$sprites_dir" \
+    --out "$renderer_dir/generated/portrait_gallery.png") 2>&1 | sed 's/^/  /'
 
 # --- Publish boundary: sweep diagnostics out of the runtime roots ---------
 # The sprite generators emit human-only diagnostics (canonical poses, labeled

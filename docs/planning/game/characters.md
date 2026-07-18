@@ -51,9 +51,11 @@ The architecture, migration, deletion, and Hall voice pass are complete:
 - ✅ GUARDED: the full-host Hall integration test walks every generated
   `NpcSpawn` and rejects missing bark pools, missing or drifted LDtk dialogue
   bindings, and references to absent Yarn titles.
-- ✅ STATIC PORTRAIT VERTICAL SLICE (2026-07-18): Alice, Oiler, and Pipi Tau
-  publish independent native portrait sheets through three representative
-  authoring families. Their catalog rows reference the generated products, and
-  Ambition's dialog presenter uses those images with the existing placeholder
-  fallback. Full-cast default coverage and named expression/animation playback
-  remain follow-up work.
+- ✅ FULL DEFAULT PORTRAIT COVERAGE (2026-07-18): every Hall character now
+  publishes an independent default portrait sheet. Config-driven generators,
+  procedural-Python families, SVG/rig families, multipart bosses, faction
+  lineups, and exceptional prop-like speakers all meet the same PNG/RON product
+  contract without sharing an artistic representation. Portrait paths derive
+  from each catalog gameplay-sheet path, regeneration fails on missing or
+  malformed Hall products, and a generated contact sheet supports visual review.
+  Named expression/animation playback remains follow-up work.

@@ -77,7 +77,15 @@ pub fn rebuild_encounter_switch_index(
 
 /// FIFO queue of switch activations produced by the feature systems each frame.
 /// The encounter system drains it and applies the matching reset.
-#[derive(Resource, Default)]
+///
+/// NOT actually drained within the producing frame: the producer runs in
+/// `SandboxSet::GameplayEffects` and the consumer in `EncounterSimulation`,
+/// which is ordered EARLIER — so an activation pushed on frame N is applied on
+/// frame N+1 and the queue is live state at a rollback save boundary. `Clone`
+/// (and its rollback registration) exist for exactly that reason: without them
+/// a rewind keeps predicted activations and resimulation pushes them again,
+/// double-applying an encounter reset.
+#[derive(Resource, Default, Clone)]
 pub struct SwitchActivationQueue(pub Vec<SwitchActivation>);
 
 #[cfg(test)]

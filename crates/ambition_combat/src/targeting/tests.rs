@@ -109,28 +109,56 @@ fn target_picks_nearest_when_two_players_present() {
 }
 
 #[test]
-fn nearest_foe_tie_breaks_to_lower_entity_deterministically() {
-    // Two foes EXACTLY equidistant from the actor (x=100 and x=500 vs an
-    // enemy at x=300 → both distance² 40000). The chosen target must be the
-    // lower `Entity`, independent of the (unstable) Query iteration order —
-    // a symmetric two-foe setup must not diverge across runs (§B12).
+fn nearest_foe_tie_breaks_on_stable_identity_not_entity_id() {
+    // Two foes EXACTLY equidistant from the actor (x=100 and x=500 vs an enemy
+    // at x=300 → both distance² 40000). The winner must be a function of STABLE
+    // SEMANTIC IDENTITY, never of `Entity`.
+    //
+    // Why not `Entity`: bevy_ggrs destroys and recreates rollback entities, so
+    // an actor's raw id is not preserved across a rewind. A tie-break that
+    // compares ids can therefore pick a DIFFERENT target mid-resimulation than
+    // the confirmed timeline did — a desync that only shows up on a symmetric
+    // setup, which is precisely the case this test builds.
     let mut app = App::new();
     let p1 = spawn_player(&mut app, 0, true, ae::Vec2::new(100.0, 100.0));
     let p2 = spawn_player(&mut app, 1, false, ae::Vec2::new(500.0, 100.0));
-    // The deterministic tie winner is the lesser `Entity` by Ord — a fixed
-    // function of the candidate set, NOT of spawn or Query-visit order (Bevy's
-    // Entity Ord is not spawn-monotonic, which is exactly why the winner must
-    // be pinned to `min`, not "first seen").
-    let expected = p1.min(p2);
+    // Give the two candidates stable identities in the OPPOSITE order to their
+    // entity ids, so "sorted by SimId" and "min Entity" disagree and the
+    // assertion can only pass for the identity rule.
+    let (low_entity, high_entity) = (p1.min(p2), p1.max(p2));
+    app.world_mut()
+        .entity_mut(low_entity)
+        .insert(SimId::player_slot(9));
+    app.world_mut()
+        .entity_mut(high_entity)
+        .insert(SimId::player_slot(1));
     let enemy = enemy_at(&mut app, ae::Vec2::new(300.0, 100.0));
     app.add_systems(Update, select_actor_targets);
     app.update();
     let target = app.world().entity(enemy).get::<ActorTarget>().unwrap();
     assert_eq!(
         target.entity,
-        Some(expected),
-        "an exact distance tie must resolve to the min Entity, not Query order",
+        Some(high_entity),
+        "an exact distance tie must resolve by stable SimId (slot:1 sorts before \
+         slot:9), NOT by comparing raw Entity ids — those are not stable across \
+         a GGRS rollback's entity recreation",
     );
+}
+
+#[test]
+fn nearest_foe_tie_is_still_deterministic_without_stable_ids() {
+    // Bodies with no `SimId` are not snapshot-relevant, but the tie must still
+    // land somewhere reproducible rather than following Query order. They fall
+    // back to entity order among themselves.
+    let mut app = App::new();
+    let p1 = spawn_player(&mut app, 0, true, ae::Vec2::new(100.0, 100.0));
+    let p2 = spawn_player(&mut app, 1, false, ae::Vec2::new(500.0, 100.0));
+    let expected = p1.min(p2);
+    let enemy = enemy_at(&mut app, ae::Vec2::new(300.0, 100.0));
+    app.add_systems(Update, select_actor_targets);
+    app.update();
+    let target = app.world().entity(enemy).get::<ActorTarget>().unwrap();
+    assert_eq!(target.entity, Some(expected));
 }
 
 #[test]

@@ -122,16 +122,13 @@ pub struct MovePlayback {
     /// [`retire_orphaned_strike_volumes`] enforces that against the world every
     /// frame.
     ///
-    /// FIXME(ggrs-live-boxes): under GGRS (ADR 0027) this component is CLONED and
-    /// entity-remapped across a rollback, not rebuilt empty — the pre-GGRS
-    /// "restore leaves `live_boxes` empty" contract no longer holds. After a
-    /// LoadWorld, a slot here can hold a dead/unmappable `Entity` for a window
-    /// the restored clock says is active; the `(inside, Some(live_slot))` arm
-    /// below then skips the respawn and the strike silently whiffs during
-    /// resimulation. `retire_orphaned_strike_volumes` handles only the inverse
-    /// case (stale boxes with live owners). Needs either a rollback-side clear
-    /// of `live_boxes` or a liveness check in the `(inside, live)` arm. Strike
-    /// volumes themselves are also outside the rollback registry.
+    /// Under GGRS (ADR 0027) this component is CLONED and entity-remapped across
+    /// a rollback rather than rebuilt empty, so a restored cache can name a dead
+    /// entity. That is fine BECAUSE the cache is not the authority: every slot is
+    /// validated against the live world in `advance_move_playback` before it is
+    /// believed, and an unbacked slot is dropped and respawned from `(t, window)`.
+    /// Do not "optimize" that liveness check away — without it a strike silently
+    /// whiffs for the rest of its window during resimulation.
     live_boxes: Vec<(usize, Entity)>,
     /// Which timed events already fired (parallel to `spec.events`).
     fired: Vec<bool>,
@@ -249,9 +246,10 @@ pub struct StrikeVolume {
 /// - (historical) the deleted `ambition_runtime::snapshot::restore` rebuilt it from a
 ///   blob (`MovePlayback::resumed`) with an empty `live_boxes`; this system despawned
 ///   the boxes the rewound-from tick left standing. Under GGRS (ADR 0027) the playback
-///   is instead CLONED + entity-remapped, so the failure mode inverts — see
-///   FIXME(ggrs-live-boxes) on the field: a cloned slot can name a dead `Entity` for a
-///   window that should be live, which this system does NOT repair.
+///   is instead CLONED + entity-remapped, so the failure mode INVERTS: a cloned slot
+///   can name a dead `Entity` for a window that should be live. This system does not
+///   repair that direction — `advance_move_playback` does, by validating each cached
+///   slot against the live world before believing it.
 /// - Any future code that swaps a playback mid-move.
 ///
 /// N3.1's rule, honoured: *"if restoring something requires a rebuild pass, the rebuild
@@ -315,6 +313,10 @@ pub fn advance_move_playback(
         &ae::BodyKinematics,
         Option<&ProperTimeScale>,
     )>,
+    // Liveness oracle for the `live_boxes` cache. The cache is NOT the
+    // authority — `(t, window)` is — so every cached slot is validated against
+    // the world before it is believed. See the `(inside, Some(slot))` arm.
+    live_strike_volumes: Query<(), With<StrikeVolume>>,
 ) {
     for (owner, mut playback, faction, brain, config, worn, kin, scale) in &mut players {
         let strike_faction = crate::targeting::effective_faction(*faction, brain);
@@ -366,7 +368,31 @@ pub fn advance_move_playback(
                 continue;
             }
             let inside = window.start_s <= t && t < window.end_s;
-            let live_slot = pb.live_boxes.iter().position(|(idx, _)| *idx == w_idx);
+            // Validate the cache against the WORLD before trusting it. A cached
+            // slot naming an entity that no longer exists is treated as absent,
+            // so the window re-spawns its volume.
+            //
+            // This is what makes the "existence is DERIVED from `(t, window)`"
+            // contract actually hold under GGRS (ADR 0027): bevy_ggrs restores
+            // `MovePlayback` by CLONING it and remapping entities, so after a
+            // LoadWorld a slot can name a despawned/unmappable entity for a
+            // window the restored clock says is active. Believing the stale slot
+            // meant the strike silently whiffed for the rest of the window
+            // during resimulation. `retire_orphaned_strike_volumes` only covers
+            // the mirror case (a live box whose owner forgot it), so this arm
+            // owns the other direction — and, being mechanism-agnostic, it also
+            // covers any future path that despawns a volume out from under a
+            // playback.
+            let live_slot = pb
+                .live_boxes
+                .iter()
+                .position(|(idx, entity)| *idx == w_idx && live_strike_volumes.contains(*entity));
+            if !inside || live_slot.is_none() {
+                // Drop stale slots for this window so the cache cannot grow a
+                // dead entry that blocks the despawn arm later.
+                pb.live_boxes
+                    .retain(|(idx, entity)| *idx != w_idx || live_strike_volumes.contains(*entity));
+            }
             match (inside, live_slot) {
                 (true, None) => {
                     // Authored volume offsets are BODY-LOCAL (side, down); rotate

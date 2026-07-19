@@ -53,6 +53,17 @@ pub struct PossessionState {
     pub home: Option<Entity>,
     /// The possessed actor's brain before transfer, restored on release.
     pub restore_brain: Option<Brain>,
+    /// How long Down+Interact has been held toward the possess threshold.
+    ///
+    /// Lives HERE rather than in a `Local<f32>` on the trigger system because
+    /// this resource is registered rollback state and a `Local` is not: GGRS
+    /// cannot save or restore per-system state, so a rewind would rewind the
+    /// possession decision while leaving the charge that produced it at its
+    /// predicted value (deep review 2026-07-19 §2.4).
+    pub hold_timer: f32,
+    /// Previous frame's Down+Interact, for rising-edge release detection. Same
+    /// reasoning as `hold_timer`: edge state must rewind with the decision.
+    pub prev_down_interact: bool,
 }
 
 /// Derive [`ControlledSubject`] from the ECS: the entity carrying
@@ -154,8 +165,6 @@ pub fn possession_trigger_system(
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     world_time: Res<ambition_time::WorldTime>,
-    mut hold_timer: Local<f32>,
-    mut prev_down_interact: Local<bool>,
     mut state: ResMut<PossessionState>,
     mut commands: Commands,
     // Home avatar kinematics: its position seeds the candidate search, and on
@@ -210,12 +219,12 @@ pub fn possession_trigger_system(
     // heal-shrine also consume, resetting the hold every frame). The release is
     // the rising edge of (down + held), tracked via `prev_down_interact`.
     let down_interact = down && control.interact_held;
-    let release_edge = down_interact && !*prev_down_interact;
-    *prev_down_interact = down_interact;
+    let release_edge = down_interact && !state.prev_down_interact;
+    state.prev_down_interact = down_interact;
 
     // Already possessing → a fresh Down+Interact press releases (no hold).
     if let Some(target) = state.possessed {
-        *hold_timer = 0.0;
+        state.hold_timer = 0.0;
         if release_edge {
             release_possession(&mut commands, &mut state, target, &actor_aabbs, &mut home_q);
         }
@@ -224,14 +233,14 @@ pub fn possession_trigger_system(
 
     // Not possessing → accumulate the hold; commit at the threshold.
     if !down_interact {
-        *hold_timer = 0.0;
+        state.hold_timer = 0.0;
         return;
     }
-    *hold_timer += world_time.raw_dt;
-    if *hold_timer < POSSESS_HOLD_S {
+    state.hold_timer += world_time.raw_dt;
+    if state.hold_timer < POSSESS_HOLD_S {
         return;
     }
-    *hold_timer = 0.0;
+    state.hold_timer = 0.0;
 
     let Ok((home_entity, home_clusters, _)) = home_q.single() else {
         return;

@@ -255,6 +255,15 @@ pub fn register_engine_rollback_state(app: &mut App) {
         .rollback_resource_clone::<ambition_portal::PortalFrameHistory>(
             ENGINE,
             "resource.portal_frame_history",
+        )
+        // Cross-frame FIFO: produced in `GameplayEffects`, drained in
+        // `EncounterSimulation` — which is ordered EARLIER, so the queue is
+        // non-empty across a save boundary and a rewind would otherwise replay
+        // switch activations the confirmed timeline already applied
+        // (deep review 2026-07-19 §2.2).
+        .rollback_resource_clone::<ambition_actors::encounter::SwitchActivationQueue>(
+            ENGINE,
+            "resource.switch_activation_queue",
         );
 
     // Core body state.
@@ -308,6 +317,15 @@ pub fn register_engine_rollback_state(app: &mut App) {
         .rollback_component_canonical::<ambition_characters::actor::WornCharacter>(
             ENGINE,
             "actor.worn_character",
+        )
+        // Armor rows are SPENT by `resolve_body_hit`, so this is mutable combat
+        // truth, not authored loadout: without it a rewind re-spends armor that
+        // an abandoned future consumed (or keeps armor the confirmed timeline
+        // already used up). `WornCharacter` was registered and this was not —
+        // an oversight, not a policy split (deep review 2026-07-19 §2.2).
+        .rollback_component_clone::<ambition_characters::equipment::WornEquipment>(
+            ENGINE,
+            "actor.worn_equipment",
         )
         .rollback_component_canonical::<ambition_platformer_primitives::orientation::ActorRoll>(
             ENGINE,
@@ -503,6 +521,45 @@ pub fn register_engine_rollback_state(app: &mut App) {
     )
     .rollback_component_clone::<ambition_combat::components::FeatureId>(ENGINE, "feature.id")
     .rollback_component_clone::<ambition_combat::components::FeatureName>(ENGINE, "feature.name")
+    // World features that MUTATE during play (deep review 2026-07-19 §2.2).
+    // Without these a brick broken in an abandoned future stays broken through
+    // the rewind, and the crumble/respawn countdowns resume from predicted
+    // values instead of confirmed ones.
+    .rollback_component_clone::<ambition_combat::components::BreakableFeature>(
+        ENGINE,
+        "feature.breakable",
+    )
+    .rollback_component_clone::<ambition_combat::components::RespawnTimer>(
+        ENGINE,
+        "feature.respawn_timer",
+    )
+    .rollback_component_clone::<ambition_combat::components::StandTimer>(
+        ENGINE,
+        "feature.stand_timer",
+    )
+    .rollback_component_clone::<ambition_combat::hazard_runtime::HazardFeature>(
+        ENGINE,
+        "feature.hazard",
+    )
+    // Switch liveness. The `SwitchActivated` MESSAGE is cleared on rollback, but
+    // the state that message produced was not rewound — so a switch flipped in an
+    // abandoned future stayed on.
+    .rollback_component_clone::<ambition_actors::encounter::SwitchOn>(ENGINE, "feature.switch_on")
+    // The switch's authored payload. Immutable at runtime, but bevy_ggrs
+    // DESTROYS AND RECREATES rollback entities — anything not registered is
+    // simply absent on the recreated entity, so an unregistered authored
+    // component silently strips the switch of its identity after a rewind.
+    .rollback_component_clone::<ambition_actors::encounter::SwitchFeature>(
+        ENGINE,
+        "feature.switch",
+    )
+    // Same reasoning for the room-visual lifecycle tag: its siblings
+    // (`RoomScopedEntity`, `SessionScopedEntity`) are registered, and losing the
+    // tag on recreation would leak the entity past its room's teardown.
+    .rollback_component_clone::<ambition_platformer_primitives::lifecycle::RoomVisual>(
+        ENGINE,
+        "lifecycle.room_visual",
+    )
     .rollback_component_clone::<ambition_combat::components::PogoPolicy>(
         ENGINE,
         "feature.pogo_policy",
@@ -555,6 +612,18 @@ pub fn register_engine_rollback_state(app: &mut App) {
     .rollback_component_clone::<ambition_portal::PortalPolicy>(ENGINE, "portal.policy")
     .rollback_component_clone::<ambition_portal::PortalTransit>(ENGINE, "portal.transit")
     .rollback_component_clone::<ambition_portal::PlacedPortal>(ENGINE, "portal.placed")
+    // Portal-gun runtime (deep review 2026-07-19 §2.2). `PortalBody`/`Policy`/
+    // `Transit`/`PlacedPortal` were registered but the gun-side state was not,
+    // so a rewind could carry a cooldown latch or an in-flight shot in from an
+    // abandoned future — permitting or blocking a transit the confirmed
+    // timeline never saw.
+    .rollback_component_clone::<ambition_portal::PortalTransitCooldown>(
+        ENGINE,
+        "portal.transit_cooldown",
+    )
+    .rollback_component_clone::<ambition_portal::PortalEmission>(ENGINE, "portal.emission")
+    .rollback_component_clone::<ambition_portal::PortalShot>(ENGINE, "portal.shot")
+    .rollback_component_clone::<ambition_portal::PortalGun>(ENGINE, "portal.gun")
     .rollback_component_clone::<ambition_actors::items::pickup::GroundItem>(
         ENGINE,
         "item.ground_item",

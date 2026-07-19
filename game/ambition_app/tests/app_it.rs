@@ -54,6 +54,7 @@ mod possession_end_to_end;
 mod projectile_portal_transit;
 mod replay_fixture_regression;
 mod repro_walls;
+mod rollback_coverage;
 mod room_spatial_integrity;
 mod scripted_gameplay;
 mod shell_host_headless_entrypoint;

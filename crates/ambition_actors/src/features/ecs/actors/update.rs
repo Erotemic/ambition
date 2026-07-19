@@ -309,6 +309,14 @@ pub fn tick_actor_brains(
         .iter()
         .filter_map(|(id, foe)| entity_to_id.get(foe).map(|fid| (id.clone(), fid.clone())))
         .collect();
+    // Canonical request order before slot assignment. `assign_slots` sorts by
+    // DISTANCE with a stable sort, so any exact-distance pair is decided by this
+    // slice's order — which, built by iterating a Bevy Query above, is not
+    // stable (and is outright reshuffled by GGRS entity recreation on rollback).
+    // `CombatSlotsRes` is registered rollback state, so an unstable pairing is a
+    // desync, not just a cosmetic wobble. The actor id IS the stable semantic
+    // key here (it is what the slot board itself is keyed on).
+    requests.sort_by(|a, b| a.0.cmp(&b.0));
     let slot_requests: Vec<crate::combat::slots::SlotRequest> = requests
         .iter()
         .map(|(id, pos, kind)| crate::combat::slots::SlotRequest {

@@ -21,7 +21,7 @@ pub struct RoomScopedEntity;
 /// vocabulary, so sim systems can tag the visual entities they spawn WITHOUT
 /// importing a presentation module (the whole point of the runtime-owned
 /// lifecycle markers above).
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 #[require(RoomScopedEntity)]
 pub struct RoomVisual;
 

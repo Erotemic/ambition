@@ -408,6 +408,15 @@ fn process_launcher_commands(
                     shell.write(ShellCommand::GoTo(entry.route_id.clone()));
                 }
             }
+            ShellLauncherCommand::Activate(index) => {
+                let selected = (*index).min(selectable - 1);
+                state.selected = selected;
+                if exit_index == Some(selected) {
+                    shell.write(ShellCommand::ExitProcess);
+                } else if let Some(entry) = available.get(selected) {
+                    shell.write(ShellCommand::GoTo(entry.route_id.clone()));
+                }
+            }
         }
     }
 }

@@ -75,7 +75,6 @@ fn grid_app() -> App {
     app.init_resource::<ambition::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<GridMenuTabState>();
-    app.init_resource::<GridPointerPress>();
     app.init_resource::<ambition::input::ActiveInputKind>();
     app.add_message::<PlayerHealRequested>();
     app.add_message::<ambition::sfx::OwnedSfxMessage>();
@@ -553,17 +552,14 @@ fn up_from_non_top_row_stays_in_body() {
 
 // ----- Pointer bug-fix coverage -----------------------------------------
 
-use crate::menu::test_support::{spawn_control, trigger_over, trigger_press, trigger_release};
+use crate::menu::test_support::{spawn_control, trigger_over};
 use ambition::menu::render::bevy_ui::BevyUiMenuTab;
 use ambition::menu::AmbitionMenuControl;
 
-fn fire_press(app: &mut App, entity: Entity) {
-    trigger_press(app, entity);
-    app.update();
-}
-
-fn fire_release(app: &mut App, entity: Entity) {
-    trigger_release(app, entity);
+fn press_interaction(app: &mut App, entity: Entity) {
+    app.world_mut()
+        .entity_mut(entity)
+        .insert(Interaction::Pressed);
     app.update();
 }
 
@@ -572,9 +568,15 @@ fn fire_release(app: &mut App, entity: Entity) {
 /// control/tab entities (the body the user sees).
 fn render_app() -> App {
     let mut app = grid_app();
+    install_bevy_ui_menu_actions::<MenuPageAction>(&mut app);
+    install_bevy_ui_menu_tabs(&mut app);
     app.add_systems(Update, grid_menu_republish_view);
-    app.add_observer(grid_menu_pointer_press);
-    app.add_observer(grid_menu_pointer_release);
+    app.add_systems(
+        Update,
+        (grid_menu_action_activated, grid_menu_tab_activated)
+            .after(BevyUiMenuInteractionSet)
+            .before(grid_menu_republish_view),
+    );
     app
 }
 
@@ -715,10 +717,10 @@ fn flat_renderer_skips_page_turn_edge_controls() {
     }
 }
 
-/// BUG 4 (pointer): a `Pointer<Press>`+`Release` on a tab entity switches the
-/// active tab; on an item control it dispatches the control's action (equip).
+/// BUG 4 (pointer/touch): Bevy UI `Interaction::Pressed` on a tab switches the
+/// active tab; on an item row it dispatches the row's semantic action (equip).
 #[test]
-fn pointer_press_release_switches_tab_and_dispatches_item() {
+fn interaction_press_switches_tab_and_dispatches_item() {
     let mut app = render_app();
     let axe = Item::from_index(1).unwrap();
     app.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
@@ -736,8 +738,7 @@ fn pointer_press_release_switches_tab_and_dispatches_item() {
             .map(|(e, _)| e)
             .expect("System tab entity spawned")
     };
-    fire_press(&mut app, sys_tab);
-    fire_release(&mut app, sys_tab);
+    press_interaction(&mut app, sys_tab);
     app.update();
     assert_eq!(
         active_tab(&app),
@@ -756,8 +757,7 @@ fn pointer_press_release_switches_tab_and_dispatches_item() {
             .map(|(e, _)| e)
             .expect("Axe equip control spawned")
     };
-    fire_press(&mut app, axe_ctrl);
-    fire_release(&mut app, axe_ctrl);
+    press_interaction(&mut app, axe_ctrl);
     app.update();
     assert_eq!(
         app.world().resource::<OwnedItems>().equipped(),

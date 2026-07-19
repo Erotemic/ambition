@@ -9,14 +9,19 @@
 //! - tab switching and remembered active tab;
 //! - keyboard/gamepad focus navigation and action dispatch;
 //! - dirty republish of the active page model through the Bevy-UI renderer;
-//! - pointer press/release/hover handling resilient to entity rebuilds.
+//! - shared Bevy-UI `Interaction` activation for touch/mouse rows and tabs;
+//! - pointer hover handling for mouse focus ownership.
 
 use bevy::prelude::*;
 
 use ambition::menu::render::bevy_ui::{
-    BevyUiMenuRoot, BevyUiMenuTab, BevyUiMenuTabSpec, BevyUiMenuView,
+    install_bevy_ui_menu_actions, install_bevy_ui_menu_tabs, BevyUiMenuInteractionSet,
+    BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
 };
-use ambition::menu::{ActiveMenuPages, AmbitionMenuControl, MenuFocusKey, MenuNode, MenuRect};
+use ambition::menu::{
+    ActiveMenuPages, AmbitionMenuControl, MenuActionActivated, MenuFocusKey, MenuNode, MenuRect,
+    MenuTabActivated,
+};
 
 use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
 use crate::menu::kaleidoscope_app::{
@@ -38,7 +43,7 @@ use ambition::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
 use ambition::sfx::SfxWriter;
 
 /// The effect/dispatch resources shared by [`grid_menu_nav`] and
-/// [`grid_menu_pointer_release`], bundled into one [`SystemParam`] so each stays
+/// [`grid_menu_action_activated`], bundled into one [`SystemParam`] so each stays
 /// under Bevy's 16-param ceiling (the same reason the cube bundles `SystemMenuParams`).
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct MenuDispatchParams<'w, 's> {
@@ -965,56 +970,13 @@ pub(crate) fn grid_menu_apply_scroll_drag(
     }
 }
 
-/// Pointer/touch: a press on a tagged control or tab captures the intent;
-/// [`grid_menu_pointer_release`] dispatches on release using the CAPTURED action
-/// (entity-independent), so a republish that despawns + respawns the control between
-/// press and release cannot drop the click (the cube's Bug-2 fix, flat). Hover moves
-/// the cursor.
-#[derive(Resource, Default)]
-pub(crate) struct GridPointerPress {
-    /// A captured control action (Items/System select) to fire on release.
-    action: Option<MenuPageAction>,
-    /// A captured tab index to switch to on release.
-    tab: Option<usize>,
-}
-
-/// Capture a press on a control (its action) or a tab (its index).
-pub(crate) fn grid_menu_pointer_press(
-    press: On<Pointer<Press>>,
-    backend: Res<InventoryUiBackend>,
-    overlay: Res<ambition::inventory_ui::InventoryUiState>,
-    controls: Query<&AmbitionMenuControl<MenuPageAction>>,
-    tabs: Query<&BevyUiMenuTab>,
-    mut state: ResMut<GridPointerPress>,
-) {
-    let e = press.entity;
-    if backend.effective() != InventoryUiBackend::Grid || !overlay.visible {
-        return;
-    }
-    // A single click emits a `Pointer<Press>` for EVERY entity under the cursor —
-    // the interactive tab/control PLUS its panel/scrim/window ancestors. Only an
-    // interactive hit may SET the capture; a non-interactive hit must NOT clobber
-    // it (the bug: a later scrim/window press reset the captured tab to None, so the
-    // release saw nothing). The capture is cleared by the release that consumes it,
-    // so each click starts fresh.
-    if let Ok(tab) = tabs.get(e) {
-        state.tab = Some(tab.index);
-        state.action = None;
-    } else if let Ok(ctrl) = controls.get(e) {
-        if let Some(action) = ctrl.action {
-            state.action = Some(action);
-            state.tab = None;
-        }
-    }
-}
-
-/// Dispatch the captured press on release: switch tabs, or route the control's
-/// action through the SHARED [`crate::menu::dispatch::dispatch_menu_action`].
+/// Activate a flat-menu control selected by mouse or touch. The renderer's one
+/// `Interaction` bridge publishes the semantic [`MenuPageAction`]; this host
+/// adapter routes it through the SAME dispatcher as keyboard/controller select.
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn grid_menu_pointer_release(
-    _release: On<Pointer<Release>>,
-    mut state: ResMut<GridPointerPress>,
+pub(crate) fn grid_menu_action_activated(
+    mut activated: MessageReader<MenuActionActivated<MenuPageAction>>,
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
@@ -1027,50 +989,68 @@ pub(crate) fn grid_menu_pointer_release(
     // Backend read from `fx.system` (it owns the resource); a separate `Res` would
     // B0002-conflict with that `ResMut`.
     if fx.system.backend() != InventoryUiBackend::Grid || !overlay.visible {
-        state.action = None;
-        state.tab = None;
+        activated.clear();
         return;
     }
-    if let Some(tab) = state.tab.take() {
-        tab_state.active_tab = tab.min(MenuPage::ALL.len() - 1);
-        fx.quality_confirm.cancel();
+    for activation in activated.read() {
+        let mut close_menu = false;
+        crate::menu::dispatch::dispatch_menu_action(
+            activation.action,
+            &mut pages,
+            &mut system_nav,
+            &mut cursor,
+            &mut fx.owned,
+            &mut fx.settings,
+            &mut fx.quality_confirm,
+            &mut close_menu,
+            &mut fx.commands,
+            &mut fx.players,
+            &mut fx.mana_q,
+            &mut fx.heals,
+            &mut fx.sfx,
+            &mut fx.system,
+        );
+        pages.active = Some(tab_page(tab_state.active_tab));
+        // Force the next republish so a pointer/touch-dispatched state change
+        // (equip, setting toggle, radio song) refreshes immediately.
+        tab_state.last_key = None;
+        if close_menu {
+            fx.quality_confirm.cancel();
+            close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
+            break;
+        }
+    }
+}
+
+/// Switch flat-menu tabs from the renderer-neutral tab activation message.
+#[cfg(feature = "input")]
+pub(crate) fn grid_menu_tab_activated(
+    mut activated: MessageReader<MenuTabActivated>,
+    backend: Res<InventoryUiBackend>,
+    overlay: Res<ambition::inventory_ui::InventoryUiState>,
+    mut tab_state: ResMut<GridMenuTabState>,
+    mut cursor: ResMut<KaleidoscopeCursor>,
+    mut system_nav: ResMut<KaleidoscopeSystemNav>,
+    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    mut quality_confirm: ResMut<VisualQualityConfirmState>,
+    mut sfx: SfxWriter,
+) {
+    if backend.effective() != InventoryUiBackend::Grid || !overlay.visible {
+        activated.clear();
+        return;
+    }
+    for activation in activated.read() {
+        tab_state.active_tab = activation.index.min(MenuPage::ALL.len() - 1);
+        quality_confirm.cancel();
         system_nav.open_entry = None;
         tab_state.system_window_start = None;
         seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
-        // Clicking a tab lands focus in that tab's body (Fix 4: pointer doesn't park
-        // on the tab bar — only arrow-key nav holds the Tabs zone).
+        // Pointer/touch tab activation lands focus in the body. Only explicit
+        // keyboard navigation parks focus on the tab bar.
         tab_state.focus_zone = GridFocusZone::Body;
         pages.active = Some(tab_page(tab_state.active_tab));
-        play_ui(&mut fx.sfx, grid_sfx::TAB_CHANGE);
-        return;
-    }
-    let Some(action) = state.action.take() else {
-        return;
-    };
-    let mut close_menu = false;
-    crate::menu::dispatch::dispatch_menu_action(
-        action,
-        &mut pages,
-        &mut system_nav,
-        &mut cursor,
-        &mut fx.owned,
-        &mut fx.settings,
-        &mut fx.quality_confirm,
-        &mut close_menu,
-        &mut fx.commands,
-        &mut fx.players,
-        &mut fx.mana_q,
-        &mut fx.heals,
-        &mut fx.sfx,
-        &mut fx.system,
-    );
-    pages.active = Some(tab_page(tab_state.active_tab));
-    // Fix 3: force the next republish so a click-dispatched state change (equip,
-    // setting toggle, radio song) refreshes the view immediately.
-    tab_state.last_key = None;
-    if close_menu {
-        fx.quality_confirm.cancel();
-        close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
+        tab_state.last_key = None;
+        play_ui(&mut sfx, grid_sfx::TAB_CHANGE);
     }
 }
 
@@ -1084,8 +1064,8 @@ pub(crate) fn grid_menu_pointer_release(
 /// directional move (the recurring "can't move away from the hovered option"
 /// bug). A GENUINE mouse move sets `ActiveInputKind = Mouse` first (see
 /// `update_active_input_kind`), so real hovering still works; only the
-/// rebuild-induced `Over` is ignored. Mouse CLICKS are NOT gated (they go
-/// through the press/release observers), so click-to-select keeps working.
+/// rebuild-induced `Over` is ignored. Activation itself comes from Bevy UI's
+/// shared `Interaction` bridge and is independent of this hover ownership gate.
 pub(crate) fn grid_menu_pointer_hover(
     over: On<Pointer<Over>>,
     overlay: Res<ambition::inventory_ui::InventoryUiState>,
@@ -1131,7 +1111,6 @@ pub(crate) fn grid_menu_pointer_hover(
 /// Bevy-UI tree, picking observers, or scroll systems.
 pub fn install_grid_unified_menu(app: &mut App) {
     app.init_resource::<GridMenuTabState>()
-        .init_resource::<GridPointerPress>()
         // The pointer-hover observer reads `ActiveInputKind`; the input plugin
         // also inits it, but init here too so the Grid backend is self-sufficient
         // (`init_resource` is idempotent).
@@ -1183,18 +1162,24 @@ pub fn install_grid_unified_menu(app: &mut App) {
     // message the applier reads.
     #[cfg(feature = "input")]
     {
+        install_bevy_ui_menu_actions::<MenuPageAction>(app);
+        install_bevy_ui_menu_tabs(app);
         ambition::menu::render::bevy_ui::install_bevy_ui_menu_scroll(app);
         app.add_systems(
             Update,
-            (grid_menu_scroll_wheel, grid_menu_apply_scroll_drag)
+            (
+                grid_menu_action_activated,
+                grid_menu_tab_activated,
+                grid_menu_scroll_wheel,
+                grid_menu_apply_scroll_drag,
+            )
                 .run_if(grid_backend_active)
+                .after(BevyUiMenuInteractionSet)
                 .before(grid_menu_republish_view),
         );
     }
     #[cfg(feature = "input")]
-    app.add_observer(grid_menu_pointer_press)
-        .add_observer(grid_menu_pointer_release)
-        .add_observer(grid_menu_pointer_hover);
+    app.add_observer(grid_menu_pointer_hover);
 }
 
 #[cfg(all(test, feature = "input"))]

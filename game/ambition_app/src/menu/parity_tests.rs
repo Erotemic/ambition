@@ -421,16 +421,19 @@ mod dispatch_parity {
     use bevy::prelude::*;
 
     use ambition::menu::ActiveMenuPages;
+    use ambition::menu::render::bevy_ui::{
+        install_bevy_ui_menu_actions, BevyUiMenuInteractionSet,
+    };
 
     use crate::menu::grid_backend::{
-        grid_menu_pointer_press, grid_menu_pointer_release, GridMenuTabState, GridPointerPress,
+        grid_menu_action_activated, GridMenuTabState,
     };
     use crate::menu::kaleidoscope_app::{
         kaleidoscope_pointer_press, kaleidoscope_pointer_release, KaleidoscopeCursor,
         KaleidoscopePointerPress, KaleidoscopeSystemNav,
     };
     use crate::menu::model::{MenuPage, MenuPageAction};
-    use crate::menu::test_support::click_control as click;
+    use crate::menu::test_support::{spawn_control, trigger_press, trigger_release};
     use ambition::actors::actor::BodyMana;
     use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
     use ambition::actors::avatar::PlayerHealRequested;
@@ -456,7 +459,6 @@ mod dispatch_parity {
         app.init_resource::<KaleidoscopeCursor>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopePointerPress>();
-        app.init_resource::<GridPointerPress>();
         app.init_resource::<GridMenuTabState>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<ambition::dev_tools::dev_tools::DeveloperTools>();
@@ -472,12 +474,15 @@ mod dispatch_parity {
         app.add_message::<PlayerHealRequested>();
         app.add_message::<ambition::sfx::OwnedSfxMessage>();
         app.add_message::<bevy::app::AppExit>();
-        // BOTH backends' pointer observers are installed; each gates on the active
-        // backend, so only the matching one dispatches.
+        // The cube keeps its 3D pointer press/release path. The flat Grid consumes
+        // the shared Bevy-UI Interaction activation message.
         app.add_observer(kaleidoscope_pointer_press);
         app.add_observer(kaleidoscope_pointer_release);
-        app.add_observer(grid_menu_pointer_press);
-        app.add_observer(grid_menu_pointer_release);
+        install_bevy_ui_menu_actions::<MenuPageAction>(&mut app);
+        app.add_systems(
+            Update,
+            grid_menu_action_activated.after(BevyUiMenuInteractionSet),
+        );
         *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;
         app.world_mut().resource_mut::<InventoryUiState>().visible = true;
         // The cube release routes a close through GameMode; start Paused like an
@@ -492,6 +497,22 @@ mod dispatch_parity {
         app
     }
 
+    fn activate(app: &mut App, backend: InventoryUiBackend, action: MenuPageAction) {
+        let entity = spawn_control(app, action);
+        match backend {
+            InventoryUiBackend::Grid => {
+                app.world_mut()
+                    .entity_mut(entity)
+                    .insert(Interaction::Pressed);
+            }
+            InventoryUiBackend::LunexKaleidoscope => {
+                trigger_press(app, entity);
+                trigger_release(app, entity);
+            }
+        }
+        app.update();
+    }
+
     /// Dispatch parity: an EQUIP action equips the same item through either
     /// backend's real release path (both call the one dispatcher).
     #[test]
@@ -504,12 +525,20 @@ mod dispatch_parity {
 
         let mut grid = menu_app(InventoryUiBackend::Grid);
         grid.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
-        click(&mut grid, MenuPageAction::Equip(axe));
+        activate(
+            &mut grid,
+            InventoryUiBackend::Grid,
+            MenuPageAction::Equip(axe),
+        );
         let grid_equipped = grid.world().resource::<OwnedItems>().equipped();
 
         let mut cube = menu_app(InventoryUiBackend::LunexKaleidoscope);
         cube.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
-        click(&mut cube, MenuPageAction::Equip(axe));
+        activate(
+            &mut cube,
+            InventoryUiBackend::LunexKaleidoscope,
+            MenuPageAction::Equip(axe),
+        );
         let cube_equipped = cube.world().resource::<OwnedItems>().equipped();
 
         assert_eq!(grid_equipped, Some(axe), "grid release equipped the item");
@@ -542,7 +571,11 @@ mod dispatch_parity {
     fn change_page_is_a_deliberate_per_backend_asymmetry() {
         // Cube: ChangePage moves the active page (the cube's real page-turn path).
         let mut cube = menu_app(InventoryUiBackend::LunexKaleidoscope);
-        click(&mut cube, MenuPageAction::ChangePage(MenuPage::System));
+        activate(
+            &mut cube,
+            InventoryUiBackend::LunexKaleidoscope,
+            MenuPageAction::ChangePage(MenuPage::System),
+        );
         let cube_page = cube
             .world()
             .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
@@ -557,7 +590,11 @@ mod dispatch_parity {
         // truth, so the active page stays on the grid's tab (Items by default). The
         // grid never emits ChangePage controls in practice (it strips them).
         let mut grid = menu_app(InventoryUiBackend::Grid);
-        click(&mut grid, MenuPageAction::ChangePage(MenuPage::System));
+        activate(
+            &mut grid,
+            InventoryUiBackend::Grid,
+            MenuPageAction::ChangePage(MenuPage::System),
+        );
         let grid_page = grid
             .world()
             .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
@@ -582,7 +619,7 @@ mod dispatch_parity {
             .resource::<UserSettings>()
             .gameplay
             .quest_hud_visible;
-        click(&mut grid, action);
+        activate(&mut grid, InventoryUiBackend::Grid, action);
         let grid_after = grid
             .world()
             .resource::<UserSettings>()
@@ -595,7 +632,7 @@ mod dispatch_parity {
             .resource::<UserSettings>()
             .gameplay
             .quest_hud_visible;
-        click(&mut cube, action);
+        activate(&mut cube, InventoryUiBackend::LunexKaleidoscope, action);
         let cube_after = cube
             .world()
             .resource::<UserSettings>()
@@ -617,11 +654,11 @@ mod dispatch_parity {
         let action = MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Audio);
 
         let mut grid = menu_app(InventoryUiBackend::Grid);
-        click(&mut grid, action);
+        activate(&mut grid, InventoryUiBackend::Grid, action);
         let grid_open = grid.world().resource::<KaleidoscopeSystemNav>().open_entry;
 
         let mut cube = menu_app(InventoryUiBackend::LunexKaleidoscope);
-        click(&mut cube, action);
+        activate(&mut cube, InventoryUiBackend::LunexKaleidoscope, action);
         let cube_open = cube.world().resource::<KaleidoscopeSystemNav>().open_entry;
 
         assert_eq!(grid_open, Some(SystemMenuEntryId::Audio));

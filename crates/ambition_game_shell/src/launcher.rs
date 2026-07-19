@@ -73,4 +73,8 @@ pub enum ShellLauncherCommand {
     Previous,
     Next,
     LaunchSelected,
+    /// Select and launch one row from the launcher's semantic selectable space.
+    /// Pointer/touch rows carry this index directly, so they do not have to
+    /// synthesize a sequence of Previous/Next commands before confirmation.
+    Activate(usize),
 }

@@ -295,6 +295,28 @@ mod composed {
     }
 
     #[test]
+    fn launcher_activate_targets_the_pressed_selectable_row() {
+        use crate::ShellExperienceAppExt;
+        let mut app = shell_app();
+        register_home(&mut app, "launcher");
+        register_alpha_provider(&mut app);
+        app.register_experience(
+            ExperienceRegistration::new("game.beta", "Beta", "beta-route"),
+            ShellRouteSpec::new("beta-route", "beta-exp"),
+        );
+        app.world_mut()
+            .resource_mut::<ShellHostConfiguration>()
+            .spec = Some(ShellHostSpec::new("launcher", "launcher"));
+        app.update();
+
+        app.world_mut()
+            .write_message(ShellLauncherCommand::Activate(1));
+        app.update();
+        app.update();
+        assert_eq!(active_route(&app), Some("beta-route".to_owned()));
+    }
+
+    #[test]
     fn same_provider_returns_to_each_hosts_home() {
         // Host A enters gameplay directly and returns to home-a.
         let mut host_a = shell_app();

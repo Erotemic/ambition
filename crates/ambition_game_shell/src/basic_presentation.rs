@@ -6,9 +6,12 @@
 //! menu content or rendering model.
 
 use ambition_menu::render::bevy_ui::{
-    spawn_bevy_ui_menu_with_assets, BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
+    install_bevy_ui_menu_actions, spawn_bevy_ui_menu_with_assets, BevyUiMenuInteractionSet,
+    BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
 };
-use ambition_menu::{MenuColor, MenuControlKind, MenuPageModel, MenuRect, MenuTextAlign};
+use ambition_menu::{
+    MenuActionActivated, MenuColor, MenuControlKind, MenuPageModel, MenuRect, MenuTextAlign,
+};
 use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
 use bevy::input::gamepad::Gamepad;
 use bevy::prelude::*;
@@ -16,8 +19,8 @@ use bevy::prelude::*;
 use crate::{
     image_sequence_frame_at, shell_action_edges, ActiveShellSequence, FrontendOwnedEntity,
     FrontendPresentationKind, ShellAnalogLatch, ShellLaunchCatalog, ShellLauncherCommand,
-    ShellLauncherPresentation, ShellLauncherState, ShellRouteId, ShellRouter,
-    ShellSegmentPresentation, ShellSequenceCommand,
+    ShellLauncherPresentation, ShellLauncherState, ShellRouter, ShellSegmentPresentation,
+    ShellSequenceCommand,
 };
 
 #[derive(Component)]
@@ -76,22 +79,51 @@ enum BasicLauncherPage {
     Home,
 }
 
+/// Stable selectable index in the launcher's semantic selection space
+/// (available routes first, then the optional Exit row).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct BasicLauncherAction(usize);
+
 #[derive(Default)]
 pub struct BasicShellPresentationPlugin;
 
 impl Plugin for BasicShellPresentationPlugin {
     fn build(&self, app: &mut App) {
+        install_bevy_ui_menu_actions::<BasicLauncherAction>(app);
         app.add_message::<OwnedSfxMessage>()
             .init_resource::<ambition_sfx::SfxEmissionContext>()
             .add_systems(
                 Update,
                 (
                     basic_shell_keyboard,
+                    basic_shell_pointer.after(BevyUiMenuInteractionSet),
                     render_basic_shell,
                     drive_basic_sequence_card,
                 )
                     .chain(),
             );
+    }
+}
+
+/// Pointer/touch activation for launcher rows. The shared menu renderer turns
+/// `Interaction::Pressed` into [`MenuActionActivated`]; this adapter routes the
+/// selected row through the same [`ShellLauncherCommand`] processor used by
+/// keyboard/controller confirmation.
+fn basic_shell_pointer(
+    launcher: Res<ShellLauncherState>,
+    mut activated: MessageReader<MenuActionActivated<BasicLauncherAction>>,
+    mut launcher_commands: MessageWriter<ShellLauncherCommand>,
+    mut sfx: SfxWriter,
+) {
+    for activation in activated.read() {
+        if !launcher.active {
+            continue;
+        }
+        launcher_commands.write(ShellLauncherCommand::Activate(activation.action.0));
+        sfx.write(SfxMessage::Play {
+            id: ids::UI_MENU_ACCEPT,
+            pos: Vec2::ZERO,
+        });
     }
 }
 
@@ -338,10 +370,13 @@ fn spawn_launcher_menu(
         for (index, entry) in catalog.entries.iter().enumerate() {
             let (kind, action, detail, selected) = if entry.available {
                 let selected = available_index == launcher.selected;
+                // The row carries its SELECTION index, not its route: pointer
+                // activation then lands in the same command the cursor produces.
+                let action = BasicLauncherAction(available_index);
                 available_index += 1;
                 (
                     MenuControlKind::Action,
-                    Some(entry.route_id.clone()),
+                    Some(action),
                     (!entry.description.is_empty()).then_some(entry.description.clone()),
                     selected,
                 )
@@ -389,7 +424,9 @@ fn spawn_launcher_menu(
                 Some("Leave the game".to_owned()),
                 available_index == launcher.selected,
                 false,
-                None,
+                // Exit sits after the experiences in the same selection space,
+                // so it is pointer-activatable like any other row.
+                Some(BasicLauncherAction(available_index)),
             );
         }
         if !presentation.footer.is_empty() {
@@ -405,7 +442,7 @@ fn spawn_launcher_menu(
     }
 
     let tabs = [BevyUiMenuTabSpec::new(BasicLauncherPage::Home, "Play")];
-    let view = BevyUiMenuView::<BasicLauncherPage, ShellRouteId> {
+    let view = BevyUiMenuView::<BasicLauncherPage, BasicLauncherAction> {
         tabs: &tabs,
         active_tab: 0,
         page: &page,

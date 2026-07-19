@@ -673,6 +673,16 @@ pub struct MenuActionActivated<Action> {
     pub action: Action,
 }
 
+/// A tab in the flat Bevy-UI renderer was activated by pointer or touch.
+///
+/// Tabs are renderer structure rather than host-defined actions, so their
+/// activation message is intentionally non-generic. The host remains the owner
+/// of what switching to `index` means for its active page/cursor state.
+#[derive(Message, Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MenuTabActivated {
+    pub index: usize,
+}
+
 /// A host-defined action is currently hovered or focused.
 #[derive(Message, Clone, Debug, PartialEq)]
 pub struct MenuActionPreviewed<Action> {

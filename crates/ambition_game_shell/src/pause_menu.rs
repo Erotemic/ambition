@@ -20,9 +20,12 @@
 //! flag stays `false` and the shell menu is the pause menu.
 
 use ambition_menu::render::bevy_ui::{
-    spawn_bevy_ui_menu_with_assets, BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
+    install_bevy_ui_menu_actions, spawn_bevy_ui_menu_with_assets, BevyUiMenuInteractionSet,
+    BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
 };
-use ambition_menu::{MenuColor, MenuControlKind, MenuPageModel, MenuRect, MenuTextAlign};
+use ambition_menu::{
+    MenuActionActivated, MenuColor, MenuControlKind, MenuPageModel, MenuRect, MenuTextAlign,
+};
 use ambition_platformer_primitives::schedule::GameMode;
 use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
 use bevy::input::gamepad::Gamepad;
@@ -93,13 +96,19 @@ pub struct ShellPauseMenuPlugin;
 
 impl Plugin for ShellPauseMenuPlugin {
     fn build(&self, app: &mut App) {
+        install_bevy_ui_menu_actions::<PauseEntry>(app);
         app.init_resource::<ShellPauseMenu>()
             .init_resource::<ShellPauseMenuSuppressed>()
             .add_message::<OwnedSfxMessage>()
             .init_resource::<ambition_sfx::SfxEmissionContext>()
             .add_systems(
                 Update,
-                (drive_shell_pause_menu, render_shell_pause_menu).chain(),
+                (
+                    drive_shell_pause_menu,
+                    shell_pause_menu_pointer.after(BevyUiMenuInteractionSet),
+                    render_shell_pause_menu,
+                )
+                    .chain(),
             );
     }
 }
@@ -163,30 +172,81 @@ fn drive_shell_pause_menu(
         play(&mut sfx, ids::UI_MENU_MOVE);
     }
     if edges.confirm {
-        match PauseEntry::ALL[menu.cursor] {
-            PauseEntry::Resume => {
-                menu.open = false;
-                menu.cursor = 0;
-                resume_sim(&game_mode, &mut next_mode);
-                play(&mut sfx, ids::UI_MENU_BACK);
-            }
-            PauseEntry::QuitToTitle => {
-                // Retire the session and return to the host's title screen — the
-                // same leak-free path F10 fires. The menu folds; the sim is handed
-                // back so the next session starts unpaused.
-                shell.write(ShellCommand::QuitToHome);
-                menu.open = false;
-                menu.cursor = 0;
-                resume_sim(&game_mode, &mut next_mode);
-                play(&mut sfx, ids::UI_MENU_ACCEPT);
-            }
-            PauseEntry::QuitToDesktop => {
-                // Semantic process-exit request: the HOST actuates the actual
-                // `AppExit` (`exit_on_shell_request`), keeping process policy
-                // host-owned.
-                shell.write(ShellCommand::ExitProcess);
-                play(&mut sfx, ids::UI_MENU_ACCEPT);
-            }
+        activate_pause_entry(
+            PauseEntry::ALL[menu.cursor],
+            &mut menu,
+            &mut shell,
+            &game_mode,
+            &mut next_mode,
+            &mut sfx,
+        );
+    }
+}
+
+/// Pointer/touch activation for the universal pause rows. The shared Bevy-UI
+/// interaction bridge publishes the row's semantic [`PauseEntry`], then this
+/// adapter calls the same activation function as keyboard/controller confirm.
+#[allow(clippy::too_many_arguments)]
+fn shell_pause_menu_pointer(
+    session: Res<ActiveGameplaySession>,
+    suppressed: Res<ShellPauseMenuSuppressed>,
+    mut activated: MessageReader<MenuActionActivated<PauseEntry>>,
+    mut menu: ResMut<ShellPauseMenu>,
+    mut shell: MessageWriter<ShellCommand>,
+    game_mode: Option<Res<State<GameMode>>>,
+    mut next_mode: Option<ResMut<NextState<GameMode>>>,
+    mut sfx: SfxWriter,
+) {
+    for activation in activated.read() {
+        if session.0.is_none() || suppressed.0 || !menu.open {
+            continue;
+        }
+        menu.cursor = PauseEntry::ALL
+            .iter()
+            .position(|entry| *entry == activation.action)
+            .unwrap_or(menu.cursor);
+        activate_pause_entry(
+            activation.action,
+            &mut menu,
+            &mut shell,
+            &game_mode,
+            &mut next_mode,
+            &mut sfx,
+        );
+    }
+}
+
+fn activate_pause_entry(
+    entry: PauseEntry,
+    menu: &mut ShellPauseMenu,
+    shell: &mut MessageWriter<ShellCommand>,
+    game_mode: &Option<Res<State<GameMode>>>,
+    next_mode: &mut Option<ResMut<NextState<GameMode>>>,
+    sfx: &mut SfxWriter,
+) {
+    match entry {
+        PauseEntry::Resume => {
+            menu.open = false;
+            menu.cursor = 0;
+            resume_sim(game_mode, next_mode);
+            play(sfx, ids::UI_MENU_BACK);
+        }
+        PauseEntry::QuitToTitle => {
+            // Retire the session and return to the host's title screen — the
+            // same leak-free path F10 fires. The menu folds; the sim is handed
+            // back so the next session starts unpaused.
+            shell.write(ShellCommand::QuitToHome);
+            menu.open = false;
+            menu.cursor = 0;
+            resume_sim(game_mode, next_mode);
+            play(sfx, ids::UI_MENU_ACCEPT);
+        }
+        PauseEntry::QuitToDesktop => {
+            // Semantic process-exit request: the HOST actuates the actual
+            // `AppExit` (`exit_on_shell_request`), keeping process policy
+            // host-owned.
+            shell.write(ShellCommand::ExitProcess);
+            play(sfx, ids::UI_MENU_ACCEPT);
         }
     }
 }
@@ -398,6 +458,41 @@ mod tests {
             "Quit to Title fires QuitToHome"
         );
         assert!(!app.world().resource::<ShellPauseMenu>().open);
+    }
+
+    #[test]
+    fn touch_press_on_pause_row_dispatches_that_rows_action() {
+        let mut app = app();
+        with_live_session(&mut app);
+        press(&mut app, KeyCode::Escape);
+        app.update();
+        clear_keys(&mut app);
+
+        let quit_to_title = {
+            let mut q = app
+                .world_mut()
+                .query::<(Entity, &ambition_menu::AmbitionMenuControl<PauseEntry>)>();
+            q.iter(app.world())
+                .find_map(|(entity, control)| {
+                    (control.action == Some(PauseEntry::QuitToTitle)).then_some(entity)
+                })
+                .expect("open pause menu renders a Quit to Title row")
+        };
+        app.world_mut()
+            .entity_mut(quit_to_title)
+            .insert(Interaction::Pressed);
+        app.update();
+
+        let sent: Vec<ShellCommand> = app
+            .world_mut()
+            .resource_mut::<Messages<ShellCommand>>()
+            .drain()
+            .collect();
+        assert!(sent.iter().any(|c| matches!(c, ShellCommand::QuitToHome)));
+        assert!(
+            !app.world().resource::<ShellPauseMenu>().open,
+            "the touch-selected row follows the same close policy as keyboard confirm",
+        );
     }
 
     #[test]

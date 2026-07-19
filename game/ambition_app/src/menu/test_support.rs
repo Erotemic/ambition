@@ -26,11 +26,14 @@ pub(crate) fn pointer_location() -> Location {
 
 pub(crate) fn spawn_control(app: &mut App, action: MenuPageAction) -> Entity {
     app.world_mut()
-        .spawn(AmbitionMenuControl::<MenuPageAction> {
-            kind: MenuControlKind::OptionToggle,
-            action: Some(action),
-            focus: MenuFocusKey::default(),
-        })
+        .spawn((
+            Button,
+            AmbitionMenuControl::<MenuPageAction> {
+                kind: MenuControlKind::OptionToggle,
+                action: Some(action),
+                focus: MenuFocusKey::default(),
+            },
+        ))
         .id()
 }
 

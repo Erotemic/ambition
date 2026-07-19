@@ -95,6 +95,14 @@ pub struct BevyUiMenuScrollbar {
 #[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct BevyUiMenuScrollbarThumb;
 
+/// Scheduling seam for flat Bevy-UI pointer/touch activation.
+///
+/// Hosts consume [`crate::MenuActionActivated`] / [`crate::MenuTabActivated`]
+/// after this set, then route them through the same semantic command/dispatch
+/// paths used by keyboard and controller input.
+#[derive(SystemSet, Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct BevyUiMenuInteractionSet;
+
 /// A single tab descriptor: its stable page id + the label drawn on the button.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BevyUiMenuTabSpec<PageId> {
@@ -524,6 +532,87 @@ fn bevy_ui_scrollbar_press_drag(
     {
         out.write(crate::MenuScrollDragged { fraction });
     }
+}
+
+/// Translate Bevy's renderer-owned [`Interaction`] state into the neutral menu
+/// action message already exposed by this crate.
+///
+/// `Button` rows are pickable on mouse and touch, but pickability alone does not
+/// perform a semantic action. This single generic bridge is the ownership seam:
+/// render rows carry [`AmbitionMenuControl<Action>`], Bevy updates
+/// [`Interaction`], and the host consumes [`crate::MenuActionActivated<Action>`].
+fn publish_bevy_ui_menu_actions<Action>(
+    rows: Query<(&Interaction, &AmbitionMenuControl<Action>), With<Button>>,
+    mut activated: MessageWriter<crate::MenuActionActivated<Action>>,
+    mut press_held: Local<bool>,
+) where
+    Action: Clone + Send + Sync + 'static,
+{
+    let mut first_pressed = None;
+    for (interaction, control) in &rows {
+        if *interaction == Interaction::Pressed {
+            first_pressed = first_pressed.or_else(|| control.action.clone());
+        }
+    }
+    match (first_pressed, *press_held) {
+        (Some(action), false) => {
+            *press_held = true;
+            activated.write(crate::MenuActionActivated { action });
+        }
+        (None, _) => *press_held = false,
+        (Some(_), true) => {}
+    }
+}
+
+/// Translate flat-menu tab button presses into a renderer-neutral tab message.
+fn publish_bevy_ui_menu_tabs(
+    tabs: Query<(&Interaction, &BevyUiMenuTab), With<Button>>,
+    mut activated: MessageWriter<crate::MenuTabActivated>,
+    mut press_held: Local<bool>,
+) {
+    let mut first_pressed = None;
+    for (interaction, tab) in &tabs {
+        if *interaction == Interaction::Pressed {
+            first_pressed = first_pressed.or(Some(tab.index));
+        }
+    }
+    match (first_pressed, *press_held) {
+        (Some(index), false) => {
+            *press_held = true;
+            activated.write(crate::MenuTabActivated { index });
+        }
+        (None, _) => *press_held = false,
+        (Some(_), true) => {}
+    }
+}
+
+/// Install pointer/touch activation for one host action type.
+///
+/// Call once for every concrete `Action` rendered through
+/// [`spawn_bevy_ui_menu_with_assets`]. Different menu producers may coexist in
+/// one App because each monomorphized [`AmbitionMenuControl<Action>`] is a
+/// distinct ECS component type.
+pub fn install_bevy_ui_menu_actions<Action>(app: &mut App)
+where
+    Action: Clone + Send + Sync + 'static,
+{
+    app.add_message::<crate::MenuActionActivated<Action>>()
+        .add_systems(
+            Update,
+            publish_bevy_ui_menu_actions::<Action>.in_set(BevyUiMenuInteractionSet),
+        );
+}
+
+/// Install pointer/touch activation for the flat renderer's tab buttons.
+///
+/// This is separate from [`install_bevy_ui_menu_actions`] because an App may
+/// render several action types, while the shared tab component/message must be
+/// installed exactly once.
+pub fn install_bevy_ui_menu_tabs(app: &mut App) {
+    app.add_message::<crate::MenuTabActivated>().add_systems(
+        Update,
+        publish_bevy_ui_menu_tabs.in_set(BevyUiMenuInteractionSet),
+    );
 }
 
 /// Install the flat `bevy_ui` scrollbar drag handling (Feature C): registers the

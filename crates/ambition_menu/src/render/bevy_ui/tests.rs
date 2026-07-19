@@ -180,6 +180,120 @@ fn controls_present_tagged_with_action_and_focus_key() {
 }
 
 #[test]
+fn interaction_pressed_publishes_the_control_action() {
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    spawn_view(&mut app, 0, None);
+
+    let entity = {
+        let mut q = app
+            .world_mut()
+            .query::<(Entity, &AmbitionMenuControl<Action>)>();
+        q.iter(app.world())
+            .find_map(|(entity, control)| (control.action == Some(Action::Equip)).then_some(entity))
+            .expect("sample page has an Equip row")
+    };
+    app.world_mut()
+        .entity_mut(entity)
+        .insert(Interaction::Pressed);
+    app.update();
+
+    let actions: Vec<_> = app
+        .world_mut()
+        .resource_mut::<Messages<crate::MenuActionActivated<Action>>>()
+        .drain()
+        .collect();
+    assert_eq!(
+        actions,
+        vec![crate::MenuActionActivated {
+            action: Action::Equip,
+        }],
+        "one Interaction reader turns a touch/mouse press into the row's semantic action",
+    );
+
+    // A held touch must not fire again if the menu republishes or another frame
+    // runs before release.
+    app.update();
+    assert!(
+        app.world_mut()
+            .resource_mut::<Messages<crate::MenuActionActivated<Action>>>()
+            .drain()
+            .next()
+            .is_none(),
+        "one continuous press emits exactly one semantic activation",
+    );
+
+    app.world_mut().entity_mut(entity).insert(Interaction::None);
+    app.update();
+    app.world_mut()
+        .entity_mut(entity)
+        .insert(Interaction::Pressed);
+    app.update();
+    assert_eq!(
+        app.world_mut()
+            .resource_mut::<Messages<crate::MenuActionActivated<Action>>>()
+            .drain()
+            .count(),
+        1,
+        "release re-arms the next press",
+    );
+}
+
+#[test]
+fn interaction_pressed_ignores_disabled_rows() {
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    spawn_view(&mut app, 0, None);
+
+    let entity = {
+        let mut q = app
+            .world_mut()
+            .query::<(Entity, &AmbitionMenuControl<Action>)>();
+        q.iter(app.world())
+            .find_map(|(entity, control)| control.action.is_none().then_some(entity))
+            .expect("sample page has a disabled decoration row")
+    };
+    app.world_mut()
+        .entity_mut(entity)
+        .insert(Interaction::Pressed);
+    app.update();
+
+    assert!(
+        app.world_mut()
+            .resource_mut::<Messages<crate::MenuActionActivated<Action>>>()
+            .drain()
+            .next()
+            .is_none(),
+        "a pickable row with no action remains non-activating",
+    );
+}
+
+#[test]
+fn interaction_pressed_publishes_the_tab_index() {
+    let mut app = build_app();
+    install_bevy_ui_menu_tabs(&mut app);
+    spawn_view(&mut app, 0, None);
+
+    let entity = {
+        let mut q = app.world_mut().query::<(Entity, &BevyUiMenuTab)>();
+        q.iter(app.world())
+            .find_map(|(entity, tab)| (tab.index == 2).then_some(entity))
+            .expect("sample view has tab 2")
+    };
+    app.world_mut()
+        .entity_mut(entity)
+        .insert(Interaction::Pressed);
+    app.update();
+
+    let tabs: Vec<_> = app
+        .world_mut()
+        .resource_mut::<Messages<crate::MenuTabActivated>>()
+        .drain()
+        .collect();
+    assert_eq!(tabs, vec![crate::MenuTabActivated { index: 2 }]);
+}
+
+#[test]
 fn focused_control_is_flagged_and_only_one() {
     let mut app = build_app();
     let (_, focus0) = sample_page();

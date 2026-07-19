@@ -16,7 +16,6 @@ use leafwing_input_manager::prelude::ActionState;
 
 #[cfg(feature = "input")]
 use crate::platformer_runtime::lifecycle::PlayerVisual;
-use ambition_dev_tools::SandboxDevState;
 use ambition_input::{
     analog_to_dir, ControlFrame, KeyboardPreset, MenuControlFrame, MenuInputState,
     PlayerDashTriggerState,
@@ -73,10 +72,12 @@ pub struct MenuNavConsume;
 #[cfg(feature = "input")]
 pub fn attach_player_input_components(
     mut commands: Commands,
-    dev_state: Res<SandboxDevState>,
+    // The persisted setting is the ONE preset authority (`Option` so headless
+    // fixtures without a settings resource fall back to preset 0).
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     players: Query<Entity, (With<PlayerVisual>, Without<ActionState<SandboxAction>>)>,
 ) {
-    let preset = KeyboardPreset::by_index(dev_state.preset_index);
+    let preset = KeyboardPreset::by_index(settings.map_or(0, |s| s.controls.keyboard_preset_index));
     for player in &players {
         commands
             .entity(player)

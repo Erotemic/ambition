@@ -107,7 +107,8 @@ pub(super) fn update_hud(
         **text = "F1 debug | F3 inspector".to_string();
         return;
     }
-    let preset = KeyboardPreset::by_index(dev_state.preset_index);
+    let preset =
+        KeyboardPreset::by_index(camera_params.user_settings.controls.keyboard_preset_index);
     let enemy_health = camera_params
         .ecs_actors
         .iter()

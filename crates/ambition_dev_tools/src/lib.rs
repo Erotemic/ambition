@@ -100,18 +100,18 @@ pub fn sync_live_player_dev_edits_system(
     );
 }
 
-/// Developer/debug state: keyboard preset selection and debug flags.
+/// Developer/debug state: debug flags and the HUD flash timer.
 ///
-/// This crate stores only the preset index, not the input crate's
-/// `KeyboardPreset` table. Input-owning callers map the index through
-/// `ambition_input::KeyboardPreset::by_index` when they need an input map or
-/// HUD glyphs. Keeping this state as an index preserves `ambition_dev_tools` as
-/// foundational dev-tool state instead of pulling the input layer underneath it.
+/// The keyboard preset index deliberately does NOT live here. It once did, as
+/// a second authority beside `UserSettings.controls.keyboard_preset_index` —
+/// with no writer, so the settings-menu selector was a silent no-op for
+/// keyboard input and HUD glyphs while touch read the real setting. The
+/// persisted setting is the ONE authority; input-owning callers map it through
+/// `ambition_input::KeyboardPreset::by_index`.
 #[derive(Resource)]
 pub struct SandboxDevState {
     pub debug: bool,
     pub slowmo: bool,
-    pub preset_index: usize,
     pub preset_flash: f32,
 }
 
@@ -120,7 +120,6 @@ impl Default for SandboxDevState {
         Self {
             debug: false,
             slowmo: false,
-            preset_index: 0,
             preset_flash: 1.2,
         }
     }

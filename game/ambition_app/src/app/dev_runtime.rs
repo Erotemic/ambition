@@ -48,13 +48,14 @@ pub(super) fn handle_debug_hotkeys(
     }
 }
 
-/// When the runtime keyboard preset changes, sync leafwing's `InputMap`
-/// on the player entity so the next-frame inputs reflect the new preset.
-/// Detected by polling `runtime.preset_index`. Gated behind `input`
-/// because it owns leafwing components.
+/// When the persisted keyboard preset changes (the settings menu writes
+/// `UserSettings.controls.keyboard_preset_index` — the ONE preset authority),
+/// sync leafwing's `InputMap` on the player entity so the next-frame inputs
+/// reflect the new preset. Gated behind `input` because it owns leafwing
+/// components.
 #[cfg(feature = "input")]
 pub(super) fn sync_preset_input_map(
-    dev_state: Res<SandboxDevState>,
+    settings: Res<ambition::persistence::settings::UserSettings>,
     mut last_preset: Local<Option<usize>>,
     // The home avatar's leafwing components, by marker. `PrimaryPlayer` scopes to
     // the one home body; no process-global player handle is consulted.
@@ -69,12 +70,12 @@ pub(super) fn sync_preset_input_map(
         ),
     >,
 ) {
-    let current = dev_state.preset_index;
+    let current = settings.controls.keyboard_preset_index;
     if *last_preset == Some(current) {
         return;
     }
     if let Ok((mut action_state, mut input_map)) = player_input.single_mut() {
-        *input_map = KeyboardPreset::by_index(dev_state.preset_index).input_map();
+        *input_map = KeyboardPreset::by_index(current).input_map();
         action_state.reset_all();
     }
     *last_preset = Some(current);
@@ -497,9 +498,7 @@ mod hot_reload_session_tests {
         let bindings = ambition::platformer::developer_hotkeys::DeveloperHotkeyBindings::default();
         assert_eq!(
             bindings.chord_for(DeveloperAction::ToggleDebugOverlay),
-            Some(ambition::platformer::developer_hotkeys::DeveloperKeyChord::key(
-                KeyCode::F1,
-            ))
+            Some(ambition::platformer::developer_hotkeys::DeveloperKeyChord::key(KeyCode::F1,))
         );
 
         let mut app = App::new();

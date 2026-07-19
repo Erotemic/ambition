@@ -668,7 +668,7 @@ character-actions gates and touching the real-audio test harness is not zero-ris
   the cursor and `.action` to activate, emitting the SAME neutral commands keyboard
   nav emits — explicitly not a parallel mouse-driven selection path. Fixes the
   launcher, the shell pause menu, AND the kaleidoscope menu at once, since all three
-  render through `spawn_bevy_ui_menu_with_assets`. Task card VC7 in
+  render through `spawn_bevy_ui_menu_with_assets`. Task card VC6 in
   `docs/planning/engine/shell-vanity-sequence.md`.
 
 ## 2026-07-19 Shell sequence card rebuilds its whole UI tree every animation frame
@@ -683,7 +683,7 @@ character-actions gates and touching the real-audio test harness is not zero-ris
   mutate `ImageNode.image` per frame in `fade_basic_sequence_card`, which already runs
   over exactly those entities. The resulting stable-root + per-frame-alpha machinery is
   also what the deferred title-menu fade-in (§3a, 2026-07-15) was blocked on. Task
-  cards VC2/VC6 in `docs/planning/engine/shell-vanity-sequence.md`.
+  cards VC2/VC5 in `docs/planning/engine/shell-vanity-sequence.md`.
 
 ## 2026-07-19 IPFS sidecars are disconnected from the asset manager, with no fetch tool
 - **Where:** `assets/{backgrounds,icons,concept_art,vanity_card}.ipfs`,
@@ -697,7 +697,8 @@ character-actions gates and touching the real-audio test harness is not zero-ris
   `AssetManifest`/`AssetEntry` wants a CID per entry, so the two formats do not line
   up. `icons.ipfs` also uses an older `schema_version: 1` key layout the others omit.
 - **Noticed while:** planning the animated vanity-card startup sequence
-- **Suggested fix / size:** S for the script (`scripts/fetch_ipfs_assets.py`, reads any
-  sidecar, parses defensively across both key layouts — closes all six at once; task
-  card VC5). L and deferred for bridging the directory-CID format to the per-entry Rust
-  manifest.
+- **Suggested fix / size:** S for a hydration script (`scripts/fetch_ipfs_assets.py`,
+  reads any sidecar, parses defensively across both key layouts — closes all six at
+  once). L and deferred for bridging the directory-CID format to the per-entry Rust
+  manifest. **Backlog only — Jon owns asset distribution and has said agents should
+  not need to care about IPFS; do not fold this into feature work.**

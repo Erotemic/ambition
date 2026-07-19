@@ -2,7 +2,7 @@
 
 Status: **planned, not started** (2026-07-19). Author: Opus 4.8.
 Owner surface: `ambition_game_shell` (presentation), `ambition_menu` (pointer
-input), `tools/vanity_card_prep` (asset export), `scripts/` (IPFS hydration).
+input), `tools/vanity_card_prep` (asset export).
 
 Motivation: Jon has an authored vanity-card animation (robot hands the game to a
 human; "I MADE THIS") sitting in `assets/vanity_card/`, currently reachable only
@@ -54,18 +54,22 @@ lets the animation drift against the card's own lifetime. Sum the holds.
 segment identity; mutate `ImageNode.image` per frame in the system that already
 runs over that query.
 
-**D5. Frames are plain local files. IPFS is hydration, not runtime resolution.**
-Load via `asset_server.load()` like every other image. Explicitly do NOT route
-through `AssetLocation::IpfsGateway`: `bevy_asset_path()` returns `None` for that
-variant (`crates/ambition_asset_manager/src/location.rs:109`), so it is
-unloadable in practice, and `AssetProfile::IpfsGatewayPlaceholder` is never
-selected by any build or CLI flag. Routing the card through it would guarantee
-the card never renders.
+**D5. Frames are plain local files under the asset root.** Load via
+`asset_server.load()` like every other image in the game. Asset *distribution* is
+out of scope for this work — the files are on disk, and keeping them there is
+Jon's call, not the shell's problem.
+
+Explicitly do NOT reach for `AssetLocation::IpfsGateway` because the payload dir
+happens to be IPFS-tracked: `bevy_asset_path()` returns `None` for that variant
+(`crates/ambition_asset_manager/src/location.rs:109`), so it is unloadable in
+practice, and `AssetProfile::IpfsGatewayPlaceholder` is never selected by any
+build or CLI flag. Routing the card through it would guarantee it never renders.
 
 **D6. Commit the manifest, gitignore the pixels.** The manifest is text and tiny;
-it is the contract. The pixels are payload (`assets/.gitignore:6`). A committed
-manifest is what lets a bare clone render "missing frame 3 of 8" with *correct
-timing* rather than showing nothing.
+it is the contract, and the host needs it to know what frames to expect. The
+pixels are payload and stay ignored (`assets/.gitignore:6`). A committed manifest
+is what lets a checkout without the payload render "missing frame 3 of 8" with
+*correct timing* rather than showing nothing.
 
 **D7. Per-frame degradation, not whole-card fallback.** Jon's call: each frame
 independently resolves to either its image or a "missing frame N" placeholder.
@@ -74,32 +78,16 @@ via `LoadState::Failed(_)` — the established pattern
 (`game/ambition_app/src/app/startup_loading.rs:435`,
 `game/ambition_app/src/app/world_flow/room_transition_assets.rs:328`).
 
-This is the **primary** runtime path, not a defensive corner: see "IPFS reality".
+Just check whether the files are there and degrade cleanly if not. The payload
+dir is gitignored, so a checkout on another machine legitimately may not have it;
+that is the case D7 covers, and it is the whole of what the shell needs to know.
 
-## IPFS reality (why D5/D6/D7 matter)
+## Asset availability
 
-`assets/vanity_card.ipfs` is tracked — a whole-directory sidecar, CID
-`bafybei…x4vsi`, 12.67 MiB / 51 items, pinned as
-`pkg:github/Erotemic/ambition#assets/vanity_card`.
-
-But **the sidecars and the Rust `IpfsGateway` machinery are disconnected
-systems.** Nothing in the Rust code reads a `.ipfs` file. There is no fetch tool
-in `scripts/` or `tools/`; re-hydration is a manual `ipfs get <cid>` into the
-sidecar's `rel_path`. The sidecar records one *directory* CID with no path→CID
-table, while the Rust manifest wants a CID per entry — the two formats do not
-line up, and bridging them is unimplemented.
-
-Consequences taken as given by this plan:
-
-- Frames are absent on a fresh clone by default. Placeholders are the norm.
-- That CID snapshots the **working** directory, including `parts/` (5.4 MB of kit
-  sheets) and `poses/`. Fetching 13 MB to show a 4 s card is the wrong shape —
-  hence a second, lean sidecar covering only runtime frames (VC3).
-- The missing hydration command affects six sidecars, not just this one
-  (`assets/{backgrounds,icons,concept_art,vanity_card}.ipfs`,
-  `crates/ambition_actors/assets/fonts/bundled.ipfs`,
-  `tools/LDtk-1.5.3-installer.AppImage.ipfs`). One script closes all of them
-  (VC5) — high leverage, and it serves the regen-on-fresh-clone invariant.
+The payload lives at `assets/vanity_card/` and is gitignored
+(`assets/.gitignore:6`); Jon owns keeping it populated. The shell's entire
+responsibility is D7: check whether each frame is there, and degrade cleanly per
+frame if not. Do not build asset-distribution machinery as part of this work.
 
 ## Task cards
 
@@ -147,11 +135,9 @@ via `render_frame_pil` (`frame_demo.py:210`). Add an export that:
   `(image, hold)` pairs (this is the D1 collapse, computed automatically),
 - writes numbered PNGs into the gitignored payload dir,
 - writes a **committed** RON manifest — `[(path, hold_ms), …]` — outside the
-  ignored tree, e.g. `assets/vanity_card.sequence.ron`, sitting next to
-  `assets/vanity_card.ipfs` for symmetry (D6). Confirm the path against the app
-  asset root (`AssetPlugin { file_path: asset_root }`,
+  ignored tree, e.g. `assets/vanity_card.sequence.ron` (D6). Confirm the path
+  against the app asset root (`AssetPlugin { file_path: asset_root }`,
   `game/ambition_app/src/app/cli.rs:680`).
-- Add a lean second sidecar for just the exported frames.
 
 Per the RON-parser-drift rule, if a Python writer and a Rust reader both touch
 this format, add a Rust parse test over the committed manifest.
@@ -164,16 +150,7 @@ the `TextCard`. Named content stays out of core: the shell crate knows about
 sequences, the host knows about *this* card. `--direct` continues to skip the
 whole startup route (`shell_host.rs:146-153`).
 
-### VC5 — IPFS hydration script (unblocks everything; do first)
-File: `scripts/fetch_ipfs_assets.py` (new)
-
-Read any `.ipfs` sidecar, `ipfs get <cid>` into its `rel_path`, skip if already
-populated. Note `icons.ipfs` uses an older `schema_version: 1` key layout while
-the others omit it — the format is not consistently versioned, so parse
-defensively. Document in `AGENTS.md` / `docs/`. Fixes the reproducibility hole
-for all six sidecars.
-
-### VC6 — title menu fade-in (opportunistic; Jon selected)
+### VC5 — title menu fade-in (opportunistic; Jon selected)
 Logged open at `dev/journals/code_smells.md` §3 as needing an alpha ramp on the
 rebuild-on-change `ambition_menu` launcher tree. **VC2 builds exactly that
 machinery** (stable root + per-frame alpha), so generalize it: a
@@ -183,7 +160,7 @@ alpha — serving both the vanity card and the launcher on one path.
 
 Care: do not ramp the launcher's own opaque backdrop along with its content.
 
-### VC7 — pointer / touch selection (independent; Jon flagged)
+### VC6 — pointer / touch selection (independent; Jon flagged)
 File: `crates/ambition_menu/src/render/bevy_ui/mod.rs`
 
 Menu rows already spawn with `Button` (`spawn.rs:156`) and carry
@@ -224,9 +201,9 @@ Only the actual pixels and the fade tuning ship blind.
 
 ## Deferred / not in scope
 
-- Bridging the directory-CID sidecar format to the per-entry Rust
-  `AssetManifest` (`crates/ambition_asset_manager/src/manifest.rs:38`). Real gap,
-  larger than this work.
+- Anything to do with asset distribution or hydration. The payload is on disk;
+  Jon owns keeping it that way. Observations about the IPFS sidecars are logged
+  in `dev/journals/code_smells.md` and are explicitly not this work's concern.
 - Menu soundtrack starting on the vanity card rather than the title screen
   (`code_smells.md` §3b) — cross-crate audio plumbing; Jon deselected.
 - Sprite-atlas packing of the frames. `ImageNode` supports `texture_atlas` and

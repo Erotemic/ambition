@@ -8,7 +8,7 @@ use bevy::prelude::*;
 
 use super::primitives::{LoadingZoneVisual, PortalSprite, PropVisual};
 use ambition_sprite_sheet::character::{CharacterAnim, CharacterAnimator};
-use ambition_time::WorldTime;
+use ambition_time::PresentationTime;
 use ambition_world::rooms::{GatePortalPhase, GatePortalRegistry};
 
 /// Hide the debug door-zone visual that `spawn_loading_zone`
@@ -75,11 +75,11 @@ const RING_OPENING_SPIN_RAD_PER_SEC: f32 = 8.0;
 /// of the portal entity's animator state — it also ticks the animator and
 /// writes the resulting frame into the sprite atlas.
 pub fn sync_portal_sprite_animation(
-    world_time: Res<WorldTime>,
+    presentation_time: PresentationTime,
     portals: Res<GatePortalRegistry>,
     mut sprites: Query<(&PropVisual, &mut Sprite, &mut CharacterAnimator)>,
 ) {
-    let dt = world_time.scaled_dt;
+    let dt = presentation_time.scaled_dt();
     for config in portals.portals.values() {
         let target_anim = match config.phase {
             GatePortalPhase::Off => continue,
@@ -106,7 +106,7 @@ pub fn sync_portal_sprite_animation(
 /// sprite plays the idle animation.
 pub fn sync_portal_ring_rotation_system(
     mut commands: Commands,
-    world_time: Res<WorldTime>,
+    presentation_time: PresentationTime,
     portals: Res<GatePortalRegistry>,
     mut rings: Query<(
         Entity,
@@ -119,7 +119,7 @@ pub fn sync_portal_ring_rotation_system(
 ) {
     // Use scaled dt so the boot-spin slows during bullet time and
     // freezes during pause — same world-clock the phase timer reads.
-    let dt = world_time.scaled_dt;
+    let dt = presentation_time.scaled_dt();
     for config in portals.portals.values() {
         let spinning = matches!(config.phase, GatePortalPhase::Opening { .. });
         // Sheet mapping (see GATE_RING_SHEET):

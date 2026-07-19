@@ -118,7 +118,7 @@ pub struct SandboxDevState {
 impl Default for SandboxDevState {
     fn default() -> Self {
         Self {
-            debug: !cfg!(target_os = "android"),
+            debug: false,
             slowmo: false,
             preset_index: 0,
             preset_flash: 1.2,
@@ -129,5 +129,15 @@ impl Default for SandboxDevState {
 impl SandboxDevState {
     pub fn debug_enabled(&self) -> bool {
         self.debug
+    }
+}
+
+#[cfg(test)]
+mod sandbox_dev_state_tests {
+    use super::*;
+
+    #[test]
+    fn debug_overlay_defaults_off_for_every_game() {
+        assert!(!SandboxDevState::default().debug);
     }
 }

@@ -1,15 +1,20 @@
 //! Reusable time vocabulary + Bevy producer for the named-clock dt model
 //! (ADR 0010 / 0011).
 //!
-//! Host games write [`ClockState::time_scale`]; [`TimePlugin`] converts
-//! Bevy `Time` into [`WorldTime`] once per frame. Read dt through typed
-//! accessors instead of `Res<Time>::delta_secs()`:
+//! Host games write [`ClockState::time_scale`]. Simulation systems snapshot
+//! schedule-local [`Time`] into [`WorldTime`], while presentation systems read
+//! the render-frame clock through [`PresentationTime`]. Use typed accessors
+//! instead of reading `Time::delta_secs` ad hoc:
 //!
-//! - [`WorldTime::sim_dt`] for gameplay state and world-anchored animation.
-//! - [`WorldTime::wall_dt`] for UI, audio, hot reload, and debug overlays.
+//! - [`WorldTime::sim_dt`] for authoritative gameplay state inside the sim
+//!   schedule.
+//! - [`PresentationTime::scaled_dt`] for render-frame animation that follows
+//!   pause / slow motion.
+//! - [`PresentationTime::wall_dt`] for UI, audio, hot reload, and debug overlays.
 //! - [`WorldTime::player_dt`] for observer cognitive time.
-//! - [`WorldTime::entity_dt`] for per-entity proper time.
+//! - [`WorldTime::entity_dt`] for per-entity proper time inside the sim schedule.
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 /// A clock observer — the seam for per-player (or per-agent) cognitive
@@ -43,7 +48,7 @@ pub enum ClockDomain {
 }
 
 /// The current sim-clock scale — the single mutable `f32` the time
-/// system owns and the [`WorldTime`] producer reads each frame.
+/// system owns. Simulation and presentation clocks both read it.
 ///
 /// `1.0` is real-time; `0.0` is fully paused; values in between are
 /// hitstop / bullet-time / dev-slowmo. The host game's time-control
@@ -136,19 +141,61 @@ impl ProperTimeScale {
     }
 }
 
-/// Per-frame dt snapshot. Prefer [`WorldTime::sim_dt`] for gameplay;
-/// use wall/player/entity accessors only when the domain matters.
+/// Render-frame access to the wall clock and the current world-clock scale.
+///
+/// Presentation systems run in [`Update`] even when the authoritative
+/// simulation runs in `FixedUpdate` or a rollback schedule. Reading
+/// [`WorldTime`] there is incorrect: it contains the most recent simulation
+/// step duration (normally 1/60 s), which would be consumed once per rendered
+/// frame and make animation speed depend on display refresh rate. This
+/// SystemParam reads Bevy's current render-frame [`Time`] directly and applies
+/// the same [`ClockState`] scale as the simulation.
+///
+/// Use this only from presentation / feel-clock systems. Authoritative gameplay
+/// continues to use [`WorldTime`].
+#[derive(SystemParam)]
+pub struct PresentationTime<'w> {
+    time: Res<'w, Time>,
+    clock: Res<'w, ClockState>,
+}
+
+impl PresentationTime<'_> {
+    /// Unscaled render-frame delta.
+    #[inline]
+    pub fn wall_dt(&self) -> f32 {
+        self.time.delta_secs()
+    }
+
+    /// Render-frame delta under the current global world-clock scale.
+    /// Pause, hitstop, and slow motion therefore affect animation without
+    /// coupling its cadence to the simulation host's tick duration.
+    #[inline]
+    pub fn scaled_dt(&self) -> f32 {
+        self.wall_dt() * self.clock.time_scale
+    }
+
+    /// Render-frame proper-time delta for one entity.
+    #[inline]
+    pub fn entity_dt(&self, scale: ProperTimeScale) -> f32 {
+        self.scaled_dt() * scale.value()
+    }
+}
+
+/// Per-simulation-step dt snapshot. Prefer [`WorldTime::sim_dt`] for
+/// authoritative gameplay. Presentation systems running in [`Update`] use
+/// [`PresentationTime`] instead, because this resource deliberately retains
+/// the duration of the most recent fixed / rollback simulation step.
 ///
 /// Legacy fields remain aliases: `raw_dt == wall_dt`,
-/// `scaled_dt == sim_dt`. [`TimePlugin`] refreshes this resource each
-/// `Update` before downstream systems read it.
+/// `scaled_dt == sim_dt`. The active simulation host refreshes this resource
+/// inside its authoritative schedule.
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct WorldTime {
-    /// Wall-clock dt from Bevy's `Time` resource. Unscaled — for
-    /// UI / debug only. Legacy alias for [`WorldTime::wall_dt`].
+    /// Unscaled duration of the current simulation step. Legacy alias for
+    /// [`WorldTime::wall_dt`]; presentation uses [`PresentationTime::wall_dt`].
     pub raw_dt: f32,
-    /// `raw_dt * ClockState::time_scale`. The canonical
-    /// dt for gameplay + world-anchored animation timers. Zero
+    /// `raw_dt * ClockState::time_scale`. The canonical dt for gameplay
+    /// timers and simulation-owned animation state. Zero
     /// while paused (`time_scale == 0`). Legacy alias for
     /// [`WorldTime::sim_dt`].
     pub scaled_dt: f32,
@@ -163,9 +210,9 @@ impl WorldTime {
         self.scaled_dt
     }
 
-    /// Dt for the host's wall clock — never scaled. Use for UI
-    /// fades, hot-reload polling, debug overlays, audio buses;
-    /// anything that must keep ticking when the world freezes.
+    /// Unscaled duration of this simulation step. This legacy accessor remains
+    /// useful for sim-side control windows that ignore slow motion. Update-stage
+    /// UI, audio, and debug systems use [`PresentationTime::wall_dt`] instead.
     #[inline]
     pub fn wall_dt(&self) -> f32 {
         self.raw_dt
@@ -199,9 +246,9 @@ impl WorldTime {
     }
 }
 
-/// Refresh [`WorldTime`] from `Time × ClockState::time_scale`.
-/// Registered early in the Update schedule (by [`TimePlugin`]) so every
-/// downstream system sees a current value.
+/// Refresh [`WorldTime`] from the schedule-local `Time × ClockState::time_scale`.
+/// The simulation schedule invokes this once per authoritative step. In a fixed
+/// or rollback host, Bevy exposes that schedule's tick duration through [`Time`].
 pub fn refresh_world_time(
     time: Res<Time>,
     clock: Res<ClockState>,
@@ -212,8 +259,9 @@ pub fn refresh_world_time(
     world_time.scaled_dt = raw * clock.time_scale;
 }
 
-/// Drop-in time producer: installs [`ClockState`] + [`WorldTime`] and
-/// refreshes the named-clock dt snapshot every `Update`.
+/// Drop-in producer for a frame-stepped host: installs [`ClockState`] and
+/// [`WorldTime`], then refreshes the sim snapshot every [`Update`]. Fixed and
+/// rollback hosts schedule [`refresh_world_time`] in their own sim schedule.
 ///
 /// `init_resource` preserves a host-provided [`ClockState`] inserted
 /// before adding the plugin.
@@ -322,5 +370,44 @@ mod tests {
         let wt = app.world().resource::<WorldTime>();
         assert!(wt.raw_dt > 0.0);
         assert!((wt.sim_dt() - wt.wall_dt() * 0.5).abs() < 1e-7);
+    }
+
+    #[derive(Resource, Default)]
+    struct ObservedPresentationTime {
+        wall_dt: f32,
+        scaled_dt: f32,
+        entity_dt: f32,
+    }
+
+    fn capture_presentation_time(
+        time: PresentationTime,
+        mut observed: ResMut<ObservedPresentationTime>,
+    ) {
+        observed.wall_dt = time.wall_dt();
+        observed.scaled_dt = time.scaled_dt();
+        observed.entity_dt = time.entity_dt(ProperTimeScale(2.0));
+    }
+
+    #[test]
+    fn presentation_time_uses_render_delta_not_the_last_sim_tick() {
+        let mut app = App::new();
+        app.insert_resource(ClockState { time_scale: 0.25 });
+        app.insert_resource(WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.insert_resource(Time::<()>::default());
+        app.init_resource::<ObservedPresentationTime>();
+        app.add_systems(Update, capture_presentation_time);
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_millis(8));
+
+        app.update();
+
+        let observed = app.world().resource::<ObservedPresentationTime>();
+        assert!((observed.wall_dt - 0.008).abs() < 1e-7);
+        assert!((observed.scaled_dt - 0.002).abs() < 1e-7);
+        assert!((observed.entity_dt - 0.004).abs() < 1e-7);
     }
 }

@@ -217,10 +217,10 @@ fn spawn_one(
 /// matching `animate_shrine_visuals`.
 pub(crate) fn animate_slash(
     mut commands: Commands,
-    world_time: Res<ambition_time::WorldTime>,
+    presentation_time: ambition_time::PresentationTime,
     mut query: Query<(Entity, &mut SlashVisual, &mut Sprite)>,
 ) {
-    let dt = world_time.scaled_dt;
+    let dt = presentation_time.scaled_dt();
     for (entity, mut slash, mut sprite) in &mut query {
         slash.age += dt;
         let frame = (slash.age / slash.frame_duration) as usize;

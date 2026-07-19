@@ -5,6 +5,7 @@
 use bevy::prelude::*;
 
 use crate::rendering::primitives::{FeatureVisual, PlayerVisual, PropVisual};
+use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
 use ambition_sprite_sheet::character::CharacterAnimator;
 
 /// The shared animation TAIL every animated actor (player, enemy, NPC) runs:
@@ -99,7 +100,7 @@ pub(crate) fn apply_character_frame(
 /// system is a pure consumer of [`BodyPoseView`] — it only ticks the
 /// animator by presentation dt and pushes the frame onto the sprite.
 pub fn animate_player(
-    world_time: Res<ambition_time::WorldTime>,
+    presentation_time: ambition_time::PresentationTime,
     mut query: Query<
         (
             &mut Sprite,
@@ -116,10 +117,11 @@ pub fn animate_player(
     // (sim-side, in the pose rebuild). The player body is not special to
     // rendering, only the camera/HUD are.
     for (mut sprite, mut animator, pose, scale, anchor) in &mut query {
-        // ADR 0011 — `entity_dt` collapses to `sim_dt` when no ProperTimeScale is
-        // set (SP default), so bullet-time / hitstop / pause still slow the
-        // animation in lockstep.
-        let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
+        // Presentation time uses this rendered frame's delta while applying the
+        // authoritative world-clock and proper-time scales. This keeps the
+        // authored cadence independent of fixed / rollback tick duration.
+        let dt = presentation_time
+            .entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash` — a sibling mesh that samples this
         // atlas frame and outputs pure white modulated by the pose's flash fact.
@@ -150,7 +152,7 @@ pub fn animate_player(
 /// One system instead of two avoids the borrow conflict on the
 /// shared `(&mut Sprite, &mut CharacterAnimator)` query.
 pub fn animate_characters(
-    world_time: Res<ambition_time::WorldTime>,
+    presentation_time: ambition_time::PresentationTime,
     mut query: Query<
         (
             &FeatureVisual,
@@ -173,13 +175,14 @@ pub fn animate_characters(
     // ceiling flips the right way (the same gravity-aware facing the player got).
     gravity: ambition_platformer_primitives::gravity::GravityCtx,
 ) {
-    // ADR 0011 — per-entity proper time. SP today: no entity carries
-    // ProperTimeScale, so `entity_dt` collapses to `sim_dt` and
-    // every actor ticks at the world rate. The seam matters once a
+    // ADR 0011 — per-entity proper time on the presentation frame clock.
+    // SP today: no entity carries ProperTimeScale, so every actor ticks at
+    // the current world rate. The seam matters once a
     // boss freezes the world but leaves the player un-frozen, or
     // future MP boosts one player's proper time.
     for (visual, mut sprite, mut animator, scale, anchor) in &mut query {
-        let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
+        let dt = presentation_time
+            .entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         // ONE actor path — enemy and NPC alike resolve through the SAME picker the
         // player uses, built from the actor's real `Body*` clusters. An actor
         // attacks when its `BodyMelee` is active, whatever its disposition.
@@ -210,7 +213,11 @@ pub fn animate_characters(
     }
 }
 
-/// Idle-tick the animation of every [`FeatureVisual`] that carries a
+fn generic_feature_anim_owns(kind: FeatureVisualKind) -> bool {
+    !matches!(kind, FeatureVisualKind::Actor)
+}
+
+/// Idle-tick the animation of every non-actor [`FeatureVisual`] that carries a
 /// [`CharacterAnimator`] — an animated pickup (a spinning ring), and any future
 /// animated feature (a pulsing hazard, a glowing switch). It is the feature
 /// counterpart to [`animate_props`]: `sync_visuals` positions these entities by
@@ -218,24 +225,36 @@ pub fn animate_characters(
 /// index-driven actors ([`animate_characters`]), props ([`animate_props`]), and
 /// portal sprites are excluded, so each animator is ticked by exactly one system.
 pub fn animate_feature_sprites(
-    world_time: Res<ambition_time::WorldTime>,
+    presentation_time: ambition_time::PresentationTime,
+    feature_views: Res<ambition_sim_view::FeatureViewIndex>,
     mut query: Query<
         (
+            &FeatureVisual,
             &mut Sprite,
             &mut CharacterAnimator,
             Option<&ambition_time::ProperTimeScale>,
             Option<&mut bevy::sprite::Anchor>,
         ),
         (
-            With<FeatureVisual>,
             Without<PropVisual>,
             Without<PlayerVisual>,
             Without<super::super::primitives::PortalSprite>,
         ),
     >,
 ) {
-    for (mut sprite, mut animator, scale, anchor) in &mut query {
-        let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
+    for (visual, mut sprite, mut animator, scale, anchor) in &mut query {
+        let Some(view) = feature_views.get(&visual.id) else {
+            continue;
+        };
+        // Actors are owned by `animate_characters`, which selects their live pose
+        // from `ActorAnimIndex`. Letting this generic idle-loop pass touch them as
+        // well advances an Idle actor twice per frame, and continually switches a
+        // moving flyer Fly -> Idle -> Fly so neither clip can leave frame zero.
+        if !generic_feature_anim_owns(view.kind) {
+            continue;
+        }
+        let dt = presentation_time
+            .entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         apply_character_frame(
             &mut sprite,
             &mut animator,
@@ -274,7 +293,7 @@ pub const PROP_KINDS_STATIC_UNTIL_MOVING: &[&str] = &["intro_cart"];
 /// cart look like it's drifting in place. Until a `PropMotionState`
 /// component lands, hold these kinds at rest.
 pub fn animate_props(
-    world_time: Res<ambition_time::WorldTime>,
+    presentation_time: ambition_time::PresentationTime,
     mut query: Query<
         (
             &mut Sprite,
@@ -286,16 +305,17 @@ pub fn animate_props(
         Without<super::super::primitives::PortalSprite>,
     >,
 ) {
-    // ADR 0011 — per-entity proper time. Props that need to keep
-    // ticking when the world freezes (a clock prop in a frozen
-    // boss arena, say) get a non-1.0 ProperTimeScale.
+    // ADR 0011 — per-entity proper time on the presentation frame clock.
+    // Props that need to keep ticking when the world freezes (a clock prop in
+    // a frozen boss arena, say) get a non-1.0 ProperTimeScale.
     for (mut sprite, mut animator, prop, scale, anchor) in &mut query {
         // Static-until-moving props hold frame 0 (dt = 0, so `tick` doesn't
         // advance); everything else ticks at its proper time.
         let dt = if PROP_KINDS_STATIC_UNTIL_MOVING.contains(&prop.kind.as_str()) {
             0.0
         } else {
-            world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale))
+            presentation_time
+                .entity_dt(ambition_time::ProperTimeScale::or_default(scale))
         };
         // Route through the SAME frame-apply chokepoint as actors so a trimmed
         // prop sheet gets the self-captured trim basis too (props used to skip
@@ -314,5 +334,17 @@ pub fn animate_props(
             // Props don't crouch — full standing height.
             1.0,
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{generic_feature_anim_owns, FeatureVisualKind};
+
+    #[test]
+    fn actor_animators_are_not_owned_by_the_generic_feature_idle_loop() {
+        assert!(!generic_feature_anim_owns(FeatureVisualKind::Actor));
+        assert!(generic_feature_anim_owns(FeatureVisualKind::Pickup));
+        assert!(generic_feature_anim_owns(FeatureVisualKind::Hazard));
     }
 }

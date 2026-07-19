@@ -85,10 +85,9 @@ impl Default for DeveloperTools {
         let mut tools = Self {
             inspector_visible: false,
             world_inspector_visible: false,
-            // Desktop keeps the traditional debug-first sandbox posture.
-            // Android starts clean so the touch HUD and gameplay viewport
-            // are usable on a small screen; debug/gizmo state can still be
-            // toggled from settings/dev paths later.
+            // Desktop keeps the detailed layers ready behind the shared
+            // debug-overlay gate. Android also disables the heavier layers so
+            // the touch HUD and gameplay viewport remain usable on a small screen.
             gizmos_enabled: !phone_demo,
             show_hud: !phone_demo,
             compact_hud: true,

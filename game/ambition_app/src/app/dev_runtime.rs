@@ -32,6 +32,7 @@ pub(super) fn handle_debug_hotkeys(
 ) {
     for action in actions.read() {
         match action {
+            DeveloperAction::ToggleDebugOverlay => dev_state.debug = !dev_state.debug,
             DeveloperAction::ToggleSlowMotion => dev_state.slowmo = !dev_state.slowmo,
             DeveloperAction::ToggleInspector => {
                 tools.inspector_visible = !tools.inspector_visible;
@@ -490,6 +491,34 @@ pub(super) fn reload_ldtk_world_from_disk(
 mod hot_reload_session_tests {
     use super::*;
     use ambition::runtime::rollback::{RollbackSessionOwnership, SyncTestSettings};
+
+    #[test]
+    fn f1_action_toggles_the_app_debug_overlay_both_directions() {
+        let bindings = ambition::platformer::developer_hotkeys::DeveloperHotkeyBindings::default();
+        assert_eq!(
+            bindings.chord_for(DeveloperAction::ToggleDebugOverlay),
+            Some(ambition::platformer::developer_hotkeys::DeveloperKeyChord::key(
+                KeyCode::F1,
+            ))
+        );
+
+        let mut app = App::new();
+        app.add_message::<DeveloperAction>();
+        app.init_resource::<SandboxDevState>();
+        app.init_resource::<DeveloperTools>();
+        app.add_systems(Update, handle_debug_hotkeys);
+
+        assert!(!app.world().resource::<SandboxDevState>().debug);
+        app.world_mut()
+            .write_message(DeveloperAction::ToggleDebugOverlay);
+        app.update();
+        assert!(app.world().resource::<SandboxDevState>().debug);
+
+        app.world_mut()
+            .write_message(DeveloperAction::ToggleDebugOverlay);
+        app.update();
+        assert!(!app.world().resource::<SandboxDevState>().debug);
+    }
 
     #[test]
     fn local_sync_test_reload_returns_to_a_zero_distance_baseline() {

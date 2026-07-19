@@ -229,7 +229,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
 /// position), so it sees the same atlas index and facing flip that the normal
 /// sprite draws.
 pub fn sync_puppy_slug_deep_dream_overlays(
-    world_time: Res<ambition_time::WorldTime>,
+    presentation_time: ambition_time::PresentationTime,
     mut elapsed: Local<f32>,
     settings: Res<PuppySlugDreamSettings>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
@@ -254,7 +254,7 @@ pub fn sync_puppy_slug_deep_dream_overlays(
     )>,
     mut materials: ResMut<Assets<PuppySlugDeepDreamMaterial>>,
 ) {
-    let dt = world_time.wall_dt();
+    let dt = presentation_time.wall_dt();
     *elapsed += dt;
     let disabled = settings.disabled;
 

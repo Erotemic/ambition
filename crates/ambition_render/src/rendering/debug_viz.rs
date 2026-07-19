@@ -402,8 +402,8 @@ impl Plugin for DebugVizPlugin {
         app.init_resource::<MovingPlatformSet>();
         let start_enabled = self.start_enabled;
         app.add_systems(Startup, move |mut dev_state: ResMut<SandboxDevState>| {
-            // The shared dev state defaults to the sandbox's debug-first
-            // desktop posture; a game host starts clean instead.
+            // Shared state defaults clean for every game; an embedding host
+            // may still opt in explicitly for a dedicated diagnostic build.
             dev_state.debug = start_enabled;
         });
         app.add_systems(

@@ -178,7 +178,7 @@ pub fn sync_shrine_visual(
 }
 
 pub fn animate_shrine_visuals(
-    world_time: Res<ambition_time::WorldTime>,
+    presentation_time: ambition_time::PresentationTime,
     // Read-only: the pulse timer ticks SIM-side now
     // (`sim_view::tick_shrine_activation_pulse`) — E4 killed the render
     // write.
@@ -188,7 +188,7 @@ pub fn animate_shrine_visuals(
         With<ShrineVisual>,
     >,
 ) {
-    let dt = world_time.scaled_dt;
+    let dt = presentation_time.scaled_dt();
     let active = activation.remaining > 0.0;
 
     for (mut sprite, mut anim, atlas) in &mut visuals {

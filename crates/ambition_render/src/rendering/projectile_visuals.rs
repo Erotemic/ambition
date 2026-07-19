@@ -48,7 +48,7 @@ pub struct ProjectileVisualLink(#[allow(dead_code)] pub Entity);
 
 /// Per-projectile frame cycler for an animated spritesheet kind. Holds the row's
 /// source rects (read once from the manifest at spawn) and steps them on the
-/// row's authored cadence, scaled by `WorldTime` so bullet-time slows the
+/// row's authored cadence, scaled by `PresentationTime` so bullet-time slows the
 /// animation with the sim.
 #[derive(Component)]
 pub struct ProjectileFrameAnim {
@@ -257,7 +257,7 @@ pub fn sync_projectile_visuals(
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
         ambition_engine_core::RoomGeometry,
     >,
-    world_time: Res<ambition_time::WorldTime>,
+    presentation_time: ambition_time::PresentationTime,
     gravity: GravityCtx,
     asset_server: Res<AssetServer>,
     sheets: Res<SheetRegistry>,
@@ -319,7 +319,7 @@ pub fn sync_projectile_visuals(
     }
 
     // Refresh existing visuals from their live view; despawn orphans.
-    let dt = world_time.scaled_dt;
+    let dt = presentation_time.scaled_dt();
     for (visual_entity, link, visual_id, anim, mut transform, mut sprite) in &mut visuals {
         let Ok(view) = bodies.get(link.0) else {
             commands.entity(visual_entity).despawn();

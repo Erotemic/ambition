@@ -224,11 +224,11 @@ pub fn process_fireworks_requests(
 
 pub fn tick_firework_sequences(
     mut commands: Commands,
-    world_time: Res<ambition_time::WorldTime>,
+    presentation_time: ambition_time::PresentationTime,
     mut sequences: Query<(Entity, &mut FireworkSequence)>,
     mut explosions: MessageWriter<ExplosionRequest>,
 ) {
-    let dt = world_time.wall_dt().max(0.0);
+    let dt = presentation_time.wall_dt().max(0.0);
     for (entity, mut sequence) in &mut sequences {
         sequence.age += dt;
         while sequence.next_index < sequence.schedule.len()

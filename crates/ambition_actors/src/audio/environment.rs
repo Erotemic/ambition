@@ -70,7 +70,7 @@ pub enum AudioEnvironmentMode {
 /// [`smooth_audio_environment`] using wall-clock dt, so the transition
 /// keeps progressing while the world is paused or in bullet-time
 /// (audio buses always run on the wall clock — see
-/// `WorldTime::wall_dt` docs).
+/// `PresentationTime::wall_dt` docs).
 #[derive(Resource, Clone, Copy, Debug, PartialEq)]
 pub struct AudioEnvironment {
     pub target: AudioEnvironmentMode,
@@ -172,11 +172,11 @@ pub fn detect_audio_environment(
 
 /// Smooth `AudioEnvironment::wetness` toward its target using
 /// wall-clock dt. Audio buses are intentionally on the wall clock
-/// (see `WorldTime::wall_dt`) so the underwater transition keeps
+/// (see `PresentationTime::wall_dt`) so the underwater transition keeps
 /// moving when the sim is paused or slowed by bullet-time.
 #[cfg(feature = "audio")]
 pub fn smooth_audio_environment(
-    time: Res<ambition_time::WorldTime>,
+    time: ambition_time::PresentationTime,
     mut env: ResMut<AudioEnvironment>,
 ) {
     env.advance(time.wall_dt());

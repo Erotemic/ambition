@@ -12,7 +12,7 @@ use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, WorldHitOutcome};
 use crate::actor::BodyKinematics;
 use crate::features::{
-    can_damage, damage_lands, ActorAggression, ActorDisposition, ActorFaction, BossClusterRef,
+    damage_lands, ActorAggression, ActorDisposition, ActorFaction, BossClusterRef,
     BossConfig, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity, HitEvent,
     HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
 };
@@ -388,18 +388,33 @@ pub fn step_projectiles(
     // Read-only player bodies for enemy-faction damage + parry. Disjoint from the
     // mutable projectile query above (both touch `BodyKinematics`; B0001) via the
     // `LiveProjectile` / `PlayerEntity` marker split.
-    player_body_q: Query<
+    // ONE victim set for hostile shots — every body, player included. The player
+    // is selected by `Has<PlayerEntity>` for PAYLOAD POLICY only (routing stamp,
+    // parry heal), never by a separate query or a separate loop. Mirrors
+    // `ambition_combat::hitbox`'s unified melee victims query. Bosses are
+    // excluded here because the boss-facing hit path is `ecs_bosses` below;
+    // including them would double-damage.
+    victims: Query<
         (
             Entity,
-            &BodyKinematics,
-            &crate::physics::ResolvedMotionFrame,
             &crate::features::CenteredAabb,
-            &crate::actor::BodyOffense,
-            &ambition_engine_core::BodyMotionFacts,
-            &crate::actor::BodyShieldState,
-            &ambition_characters::actor::BodyCombat,
+            &ActorFaction,
+            Option<&ambition_characters::brain::Brain>,
+            // The vulnerability cluster is OPTIONAL, deliberately. A shot must be
+            // able to hit any body that has a hurtbox and a faction — including a
+            // simple feature body that carries no shield/dodge state at all.
+            // Requiring the cluster would silently drop those bodies from the
+            // query (the required-components-skip trap), which is exactly how a
+            // "my projectile does nothing" bug is born. Absent ⇒ no defenses.
+            Option<(
+                &crate::actor::BodyOffense,
+                &ambition_engine_core::BodyMotionFacts,
+                &crate::actor::BodyShieldState,
+                &ambition_characters::actor::BodyCombat,
+            )>,
+            Has<crate::actor::PlayerEntity>,
         ),
-        (With<crate::actor::PlayerEntity>, Without<LiveProjectile>),
+        (Without<LiveProjectile>, Without<BossConfig>),
     >,
     mut feature_damage: MessageWriter<HitEvent>,
     ecs_breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
@@ -430,29 +445,23 @@ pub fn step_projectiles(
     // is on — so a pirate's shot can't hit another pirate. (Targeting is separate.)
     friendly_fire: Option<Res<crate::features::FriendlyFire>>,
     // Bundled into ONE tuple slot to stay under Bevy's 16-param ceiling:
-    // - `actor_victims` — non-boss actors a hostile shot can damage (actor-vs-actor).
     // - `owner_combat` — the firer's REAL faction + optional grudge, looked up from
     //   the projectile's owner entity (player / enemy / boss / player-robot). The
     //   faction RETIRES the binary `ProjectileGameplay.faction` (damage routes off the
     //   owner, not a side label); the grudge is the per-entity DAMAGE override that
     //   lets a shot hit a same-faction body its firer feuds with (an `Npc` duelist's
-    //   bolt). Read-only, so it may overlap `actor_victims`.
+    //   bolt). Read-only, so it may overlap `victims`.
     // - `boss_catalog` — App-local authored boss geometry used by the hit predicate.
     // - `visual_catalog` — the open, content-owned projectile art registry; the
     //   detonation-FX pick resolves a shot's visual id through it.
-    (actor_victims, owner_combat, boss_catalog, visual_catalog): (
-        Query<
-            (
-                Entity,
-                &CenteredAabb,
-                &ActorFaction,
-                Option<&crate::actor::BodyShieldState>,
-            ),
-            (With<FeatureSimEntity>, Without<BossConfig>),
-        >,
+    // - `victim_frames` — per-victim resolved frame for the knockback side,
+    //   looked up rather than required so a body without one falls back to
+    //   engine-default down (the shape `ambition_combat::hitbox` uses).
+    (owner_combat, boss_catalog, visual_catalog, victim_frames): (
         Query<(&ActorFaction, Option<&ActorAggression>)>,
         Res<crate::boss_encounter::BossCatalog>,
         Res<ambition_projectiles::ProjectileVisualCatalog>,
+        Query<&crate::physics::ResolvedMotionFrame>,
     ),
 ) {
     let dt = world_time.sim_dt();
@@ -562,93 +571,106 @@ pub fn step_projectiles(
             }
         } else {
             // A hostile shot (any non-Player firer) OR an OWNERLESS indiscriminate
-            // shot. It damages the player it overlaps + actors. With a firer, the
-            // `can_damage` (different-faction) rule decides who; an indiscriminate
-            // shot bypasses that — it hurts everyone, there is no ally to spare.
-            let mut hit_any_player = false;
+            // shot. ONE victim loop over every body — the player is not a special
+            // case, it is a body that happens to carry `PlayerEntity`. This
+            // mirrors the unified melee victim loop (`ambition_combat::hitbox`,
+            // §A2): the SAME relational rule (`damage_lands`), the SAME published
+            // hurtbox, i-frames resolved at CONSUME time, and victim KIND picking
+            // only payload policy (the routing stamp and the player's parry-heal
+            // reward). Two forked loops used to live here and had already drifted
+            // apart — the actor side silently lost knockback, the player side lost
+            // the grudge term, and only the player side re-checked vulnerability.
+            let mut struck = false;
             let mut reflected = false;
-            // Damage is physical: a shot hits the player if it's a different
-            // faction from the firer (so a duel's stray catches the observer);
-            // only a same-faction firer (co-op) passes them by, unless friendly
-            // fire is on. An ownerless shot always can (indiscriminate).
-            let can_hit_player = indiscriminate
-                || firer_faction
-                    .is_some_and(|f| can_damage(f, ActorFaction::Player, friendly_fire));
-            for (
-                player_entity,
-                player_kin,
-                player_frame,
-                hurtbox,
-                offense,
-                facts,
-                shield,
-                combat,
-            ) in &player_body_q
+            for (victim_entity, victim_aabb, victim_faction, victim_brain, vuln, is_player) in
+                &victims
             {
-                if !can_hit_player {
-                    break;
-                }
-                // The PUBLISHED gravity-oriented hurtbox (§A6), not a raw
-                // kinematics box.
-                if !kin.aabb().strict_intersects(hurtbox.aabb()) {
+                if Some(victim_entity) == owner_entity {
                     continue;
                 }
-                // Parry: a timed shield RE-OWNS the shot to the player (so its
-                // firer faction becomes Player next tick → it routes as the
-                // player's own shot, back at the enemies) and reverses (+boosts)
-                // its velocity. Re-owning, not flipping a faction label, is how a
-                // reflected shot becomes the player's attack now that damage is
-                // owner-driven.
-                if shield.parrying() {
+                // An owned shot lands on a faction-foe OR a same-faction body its
+                // firer holds a grudge against; an indiscriminate (ownerless) shot
+                // lands on everyone — there is no ally to spare.
+                let victim_faction =
+                    crate::combat::targeting::effective_faction(*victim_faction, victim_brain);
+                let can_hit = indiscriminate
+                    || firer_faction.is_some_and(|f| {
+                        damage_lands(f, victim_faction, friendly_fire, firer_grudge, victim_entity)
+                    });
+                if !can_hit {
+                    continue;
+                }
+                let victim_body = victim_aabb.aabb();
+                if !kin.aabb().strict_intersects(victim_body) {
+                    continue;
+                }
+                // Parry: a timed shield RE-OWNS the shot to the parrier (its firer
+                // faction becomes the parrier's next tick → it routes as that
+                // body's own shot, back at its foes) and reverses + boosts its
+                // velocity. Shared by every body; only the HEAL is player reward
+                // policy. A body with no shield state simply cannot parry.
+                if vuln.is_some_and(|(_, _, shield, _)| shield.parrying()) {
                     reflect_parried_shot(
                         &mut commands,
                         proj_entity,
                         &mut kin,
-                        player_entity,
+                        victim_entity,
                         &mut sfx,
                         &mut vfx,
                     );
-                    // Player-facing reward policy — the reflect mechanic above is
-                    // shared with actors; only the player heals on parry.
-                    heals.write(crate::avatar::PlayerHealRequested::new(PARRY_HEAL));
+                    if is_player {
+                        heals.write(crate::avatar::PlayerHealRequested::new(PARRY_HEAL));
+                    }
                     reflected = true;
                     break;
                 }
-                // The ONE vulnerability rule (§A5). This site had drifted (it
-                // dropped the parry term); behavior is unchanged because a
-                // parrying shield reflects + breaks above before reaching here.
-                if !crate::combat::util::body_vulnerable(
-                    offense,
-                    facts.dodge_rolling,
-                    shield,
-                    combat,
-                ) {
-                    continue;
-                }
+                // §A2: the EVENT always flows — i-frames / dodge / shield resolve
+                // at CONSUME time in `resolve_body_hit`, identically for every
+                // body. Vulnerability is read here for FEEDBACK ONLY: don't play
+                // the hit sfx/vfx for a hit the consumer will ignore.
+                let feedback = vuln.is_none_or(|(offense, facts, shield, combat)| {
+                    crate::combat::util::body_vulnerable(
+                        offense,
+                        facts.dodge_rolling,
+                        shield,
+                        combat,
+                    )
+                });
                 // Knockback side in the victim's LOCAL frame (fable review
-                // 2026-07-02 §B11): a screen-X difference degenerates exactly
-                // when sideways gravity separates the pair along world-Y.
-                // The victim's per-tick resolved frame (ADR 0024 frame law).
-                let side = player_frame.basis().side;
-                let knock_dir = (player_kin.pos - kin.pos).dot(side).signum();
+                // 2026-07-02 §B11): a screen-X difference degenerates exactly when
+                // sideways gravity separates the pair along world-Y.
+                let side = victim_frames
+                    .get(victim_entity)
+                    .map(|frame| frame.basis())
+                    .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR))
+                    .side;
+                let knock_dir = (victim_body.center() - kin.pos).dot(side).signum();
                 let knock_dir = if knock_dir.abs() < 0.001 {
                     1.0
                 } else {
                     knock_dir
                 };
                 let impact_pos = ae::Vec2::new(
-                    (player_kin.pos.x + kin.pos.x) * 0.5,
-                    (player_kin.pos.y + kin.pos.y) * 0.5,
+                    (victim_body.center().x + kin.pos.x) * 0.5,
+                    (victim_body.center().y + kin.pos.y) * 0.5,
                 );
                 feature_damage.write(HitEvent {
                     volume: kin.aabb().into(),
                     damage: game.damage.max(1),
                     source: HitSource::EnemyProjectile,
-                    // The firing actor (enemy / boss), when the shot was
-                    // spawned with a real owner — `None` for ownerless shots.
+                    // The firing actor (enemy / boss), when the shot was spawned
+                    // with a real owner — `None` for ownerless shots.
                     attacker: owner_entity,
-                    target: HitTarget::Player(player_entity),
+                    // Victim kind picks the consumer, nothing else.
+                    target: if is_player {
+                        HitTarget::Player(victim_entity)
+                    } else {
+                        HitTarget::Actor(victim_entity)
+                    },
                     mode: HitMode::Knockback,
+                    // EVERY victim rides the same resolved knockback (§A2 step 6).
+                    // The actor branch used to pass `None`, so an actor struck by
+                    // the very bolt that launched the player simply absorbed it.
                     knockback: Some(HitKnockback {
                         dir: knock_dir,
                         magnitude: HitKnockbackMagnitude::FeelScale(0.85),
@@ -658,84 +680,18 @@ pub fn step_projectiles(
                     }),
                     ignored_targets: Vec::new(),
                 });
-                sfx.write(SfxMessage::Hit { pos: kin.pos });
-                vfx.write(VfxMessage::Impact { pos: kin.pos });
-                hit_any_player = true;
+                if feedback {
+                    sfx.write(SfxMessage::Hit { pos: kin.pos });
+                    vfx.write(VfxMessage::Impact { pos: kin.pos });
+                }
+                struck = true;
                 break;
             }
-            // A parried shot survives as a player-faction bolt (keep in flight).
+            // A parried shot survives as the parrier's bolt (keep it in flight).
             if reflected {
                 continue;
             }
-            if hit_any_player {
-                commands.entity(proj_entity).despawn();
-                continue;
-            }
-            // Relational actor-vs-actor (S3e): the shot damages the first
-            // overlapping actor its firer is hostile to (e.g. a Boss-faction
-            // body in a spectator arena), pre-resolved to that exact entity.
-            let mut hit_any_actor = false;
-            let mut reflected_by_actor = false;
-            for (victim_entity, victim_aabb, victim_faction, victim_shield) in &actor_victims {
-                if Some(victim_entity) == owner_entity {
-                    continue;
-                }
-                // An owned shot damages a faction-foe (any different faction) OR a
-                // same-faction body its firer holds a grudge against (an `Npc`
-                // duelist's bolt); an indiscriminate (ownerless) shot damages every
-                // actor it overlaps.
-                let can_hit = indiscriminate
-                    || firer_faction.is_some_and(|f| {
-                        damage_lands(
-                            f,
-                            *victim_faction,
-                            friendly_fire,
-                            firer_grudge,
-                            victim_entity,
-                        )
-                    });
-                if !can_hit {
-                    continue;
-                }
-                if !kin.aabb().strict_intersects(victim_aabb.aabb()) {
-                    continue;
-                }
-                // Parry: a shielding actor (a possessed body, a mixed-faction
-                // duelist) reflects the shot through the SAME re-own mechanic the
-                // player uses — the shot survives as the parrier's bolt, back at its
-                // foes (§A10). No heal: the parry-heal is player reward policy.
-                if victim_shield.is_some_and(|s| s.parrying()) {
-                    reflect_parried_shot(
-                        &mut commands,
-                        proj_entity,
-                        &mut kin,
-                        victim_entity,
-                        &mut sfx,
-                        &mut vfx,
-                    );
-                    reflected_by_actor = true;
-                    break;
-                }
-                feature_damage.write(HitEvent {
-                    volume: kin.aabb().into(),
-                    damage: game.damage.max(1),
-                    source: HitSource::EnemyProjectile,
-                    attacker: owner_entity,
-                    target: HitTarget::Actor(victim_entity),
-                    mode: HitMode::Knockback,
-                    knockback: None,
-                    ignored_targets: Vec::new(),
-                });
-                sfx.write(SfxMessage::Hit { pos: kin.pos });
-                vfx.write(VfxMessage::Impact { pos: kin.pos });
-                hit_any_actor = true;
-                break;
-            }
-            // A shot an actor parried survives as that actor's bolt (keep flying).
-            if reflected_by_actor {
-                continue;
-            }
-            if hit_any_actor {
+            if struck {
                 commands.entity(proj_entity).despawn();
                 continue;
             }

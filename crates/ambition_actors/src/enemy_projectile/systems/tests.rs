@@ -475,6 +475,12 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
         },
         // The published combat footprint every body carries (§A6).
         ae::CenteredAabb::from_center_size(player_pos, ae::Vec2::new(24.0, 40.0)),
+        // The player is a body with a FACTION like any other — the real bundle
+        // (`avatar::bundles`) carries `ActorFaction::Player`, and every unified
+        // victim path (melee's `hitbox` loop and now projectiles') resolves
+        // damage relationally through it. The fixture omitted it, which made the
+        // player invisible to a faction-relational query.
+        ActorFaction::Player,
         BodyBaseSize {
             base_size: ae::Vec2::new(24.0, 40.0),
         },

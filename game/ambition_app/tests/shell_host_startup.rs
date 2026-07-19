@@ -234,3 +234,111 @@ fn controller_acknowledgement_uses_the_neutral_shell_action() {
         Some(shell_host::AMBITION_LAUNCHER_ROUTE.to_owned()),
     );
 }
+
+/// The startup card is the AUTHORED comic sequence, not a placeholder text card,
+/// and the host composes it straight from the committed content manifest.
+#[test]
+fn the_startup_card_is_the_authored_image_sequence() {
+    use ambition::game_shell::{image_sequence_total, ShellSegmentPresentation};
+
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    shell_host::compose_ambition_startup_sequence(&mut app);
+    settle(&mut app);
+
+    let sequence = app.world().resource::<ActiveShellSequence>();
+    let segment = sequence
+        .runtime
+        .as_ref()
+        .and_then(|runtime| runtime.current())
+        .expect("the startup sequence has a current segment");
+
+    let ShellSegmentPresentation::ImageSequence { frames, .. } = &segment.presentation else {
+        panic!("expected the startup card to be an image sequence");
+    };
+    assert!(
+        frames.len() >= 2,
+        "an animated card needs more than one frame"
+    );
+    assert!(
+        frames
+            .iter()
+            .all(|frame| frame.asset_path.starts_with("game://")),
+        "frames must address the content crate's own asset source",
+    );
+
+    // The card's lifetime is DERIVED from the frame holds, so retiming the
+    // animation retimes the card — there is no second number to keep in sync.
+    assert_eq!(
+        segment.policy.auto_advance_after,
+        Some(image_sequence_total(frames)),
+        "the segment's duration must be the sum of its frame holds",
+    );
+}
+
+/// The real authored frame data plays through and terminates.
+///
+/// Timing lives in the shell's pure sequence logic (unit-tested there); this
+/// drives that logic with the ACTUAL content manifest, which is what would catch
+/// a manifest that exports zero-length or wrongly-ordered holds.
+#[test]
+fn the_authored_card_advances_through_its_frames_and_finishes() {
+    use ambition::game_shell::{
+        ShellSegmentSpec, ShellSequenceFrame, ShellSequenceRuntime, ShellSequenceSpec,
+    };
+    use std::time::Duration;
+
+    let frames = ambition_content::vanity_card::vanity_card_frames();
+    let total: Duration = frames.iter().map(|(_, hold)| *hold).sum();
+    let segment = ShellSegmentSpec::image_sequence_timed(
+        "startup",
+        frames
+            .into_iter()
+            .map(|(path, hold)| ShellSequenceFrame::new(path, hold)),
+        "",
+    );
+    let mut runtime = ShellSequenceRuntime::new(ShellSequenceSpec {
+        segments: vec![segment],
+    });
+
+    // Step in small slices and record which frame is showing at each moment.
+    let step = Duration::from_millis(25);
+    let mut seen = Vec::new();
+    let mut elapsed = Duration::ZERO;
+    while !runtime.finished {
+        if let Some(index) = current_frame_index(&runtime) {
+            if seen.last() != Some(&index) {
+                seen.push(index);
+            }
+        }
+        runtime.tick(step);
+        elapsed += step;
+        assert!(
+            elapsed < total + Duration::from_secs(2),
+            "the card must terminate on its own, near its authored length",
+        );
+    }
+
+    assert!(
+        seen.len() >= 2,
+        "the card must actually advance through frames, saw {seen:?}",
+    );
+    assert!(
+        seen.windows(2).all(|pair| pair[0] < pair[1]),
+        "frames must advance forward and never wrap, saw {seen:?}",
+    );
+    // Auto-advance fires once the holds are spent, so the card ends near its
+    // authored length rather than running long or cutting the punchline short.
+    assert!(
+        elapsed >= total && elapsed <= total + Duration::from_millis(200),
+        "card ran {elapsed:?}, authored length {total:?}",
+    );
+}
+
+fn current_frame_index(runtime: &ambition::game_shell::ShellSequenceRuntime) -> Option<usize> {
+    use ambition::game_shell::{image_sequence_frame_at, ShellSegmentPresentation};
+    let segment = runtime.current()?;
+    let ShellSegmentPresentation::ImageSequence { frames, .. } = &segment.presentation else {
+        return None;
+    };
+    Some(image_sequence_frame_at(frames, runtime.elapsed))
+}

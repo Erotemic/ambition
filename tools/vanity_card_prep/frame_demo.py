@@ -217,7 +217,15 @@ def render_frame_pil(
     W: int,
     H: int,
     pil_font: ImageFont.FreeTypeFont,
+    transparent: bool = False,
 ) -> Image.Image:
+    """Render one composited frame.
+
+    `transparent` leaves the canvas fully alpha-0 instead of filling it with the
+    configured backdrop colour, so the engine can composite the panel over its
+    own backdrop (the shell vanity card fades against opaque black). The panel,
+    border, shadow and bubble are drawn identically either way.
+    """
     ac = cfg["animation"]
     bg_col = tuple(ac["background_color"])
     panel_bg = tuple(ac["panel_bg_color"])
@@ -226,7 +234,10 @@ def render_frame_pil(
     shad = ac["shadow_offset"]
     shad_col = tuple(ac["shadow_color"][:3])
 
-    out = Image.new("RGB", (W, H), bg_col)
+    if transparent:
+        out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    else:
+        out = Image.new("RGB", (W, H), bg_col)
     draw = ImageDraw.Draw(out)
     px, py, pw, ph = panel_rect
 

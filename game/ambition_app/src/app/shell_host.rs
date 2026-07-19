@@ -157,7 +157,7 @@ pub const AMBITION_STARTUP_ROUTE: &str = "ambition_startup";
 /// `on_complete` is `GoTo(launcher)`, and the startup route as the initial one.
 pub fn compose_ambition_startup_sequence(app: &mut App) {
     use ambition::game_shell::{
-        ShellExperienceId, ShellSegmentPolicy, ShellSegmentSpec, ShellSequenceCatalog,
+        ShellExperienceId, ShellSegmentSpec, ShellSequenceCatalog, ShellSequenceFrame,
         ShellSequenceSpec,
     };
 
@@ -172,17 +172,18 @@ pub fn compose_ambition_startup_sequence(app: &mut App) {
         .register(
             ShellExperienceId::new(AMBITION_STARTUP_EXPERIENCE),
             ShellSequenceSpec {
-                // Hold the vanity card longer than the 2s default so its ease-in
-                // / hold / ease-out (see `fade_basic_sequence_card`) has room to
-                // breathe. Still Immediately skippable (default skip policy).
-                segments: vec![ShellSegmentSpec::text(
+                // The authored comic card. Its length is DERIVED from the frame
+                // holds in the content manifest, so retiming the animation
+                // retimes the card with it — nothing to keep in sync here. Still
+                // immediately skippable (default skip policy), and its ease-in /
+                // hold / ease-out comes from `drive_basic_sequence_card`.
+                segments: vec![ShellSegmentSpec::image_sequence_timed(
                     "powered_by_ambition",
-                    "Powered by Ambition",
-                )
-                .with_policy(ShellSegmentPolicy {
-                    auto_advance_after: Some(std::time::Duration::from_millis(3600)),
-                    ..Default::default()
-                })],
+                    ambition_content::vanity_card::vanity_card_frames()
+                        .into_iter()
+                        .map(|(path, hold)| ShellSequenceFrame::new(path, hold)),
+                    "",
+                )],
             },
         );
     // Boot into the startup card; home stays the launcher, so the startup's

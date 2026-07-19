@@ -55,6 +55,7 @@ pub mod presentation;
 pub mod projectiles;
 pub mod quest;
 pub mod quests;
+pub mod vanity_card;
 /// The LDtk world payload + Ambition's `WorldManifest` (install seam:
 /// `ambition_actors::ldtk_world`).
 pub mod worlds;

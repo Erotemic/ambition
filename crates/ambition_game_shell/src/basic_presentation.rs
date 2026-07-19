@@ -14,20 +14,42 @@ use bevy::input::gamepad::Gamepad;
 use bevy::prelude::*;
 
 use crate::{
-    shell_action_edges, ActiveShellSequence, FrontendOwnedEntity, FrontendPresentationKind,
-    ShellAnalogLatch, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherPresentation,
-    ShellLauncherState, ShellRouteId, ShellRouter, ShellSegmentPresentation, ShellSequenceCommand,
+    image_sequence_frame_at, shell_action_edges, ActiveShellSequence, FrontendOwnedEntity,
+    FrontendPresentationKind, ShellAnalogLatch, ShellLaunchCatalog, ShellLauncherCommand,
+    ShellLauncherPresentation, ShellLauncherState, ShellRouteId, ShellRouter,
+    ShellSegmentPresentation, ShellSequenceCommand,
 };
 
 #[derive(Component)]
 pub struct BasicSequenceRoot;
 
 /// Marks the fade-able CONTENT of a vanity card (its text / image), distinct from
-/// the opaque black backdrop. [`fade_basic_sequence_card`] ramps its alpha from
-/// the sequence runtime's elapsed time so the "Powered by Ambition" card eases in
-/// from black and out again, instead of snapping.
+/// the opaque black backdrop. [`drive_basic_sequence_card`] ramps its alpha from
+/// the sequence runtime's elapsed time so the card eases in from black and out
+/// again, instead of snapping.
 #[derive(Component)]
 pub struct BasicSequenceCardContent;
+
+/// Every frame handle of an animated sequence, resolved ONCE when the card
+/// spawns and held on its image node.
+///
+/// Preloading matters here: the card is short, so resolving handles lazily per
+/// frame would let a late-arriving image miss its own slot entirely. It also
+/// keeps the node tree stable — the animation advances by swapping this node's
+/// texture, never by rebuilding the card (see [`shell_frame_key`]).
+#[derive(Component)]
+pub struct BasicSequenceImages {
+    handles: Vec<Handle<Image>>,
+}
+
+/// The per-frame "this picture is missing" notice.
+///
+/// Sequence payloads can be absent from a checkout (they are generated, and
+/// git-ignored), so a frame that fails to load degrades to a visible label for
+/// exactly its own slot rather than taking down the card. Timing is untouched:
+/// the sequence still runs its full length and still hands off on schedule.
+#[derive(Component)]
+pub struct BasicSequenceMissingNotice;
 
 /// Seconds the vanity card spends fading in, and (separately) fading out. The
 /// card holds at full opacity in between; a card whose `auto_advance_after` is
@@ -39,6 +61,9 @@ struct BasicSequenceFrame {
     key: String,
     text: String,
     image_path: Option<String>,
+    /// Every frame path, when this segment is an animated sequence. Empty for
+    /// still cards. Drives preloading and the per-frame texture swap.
+    sequence_paths: Vec<String>,
 }
 
 /// Marker on the basic shell presentation's own launcher menu root, so its
@@ -63,7 +88,7 @@ impl Plugin for BasicShellPresentationPlugin {
                 (
                     basic_shell_keyboard,
                     render_basic_shell,
-                    fade_basic_sequence_card,
+                    drive_basic_sequence_card,
                 )
                     .chain(),
             );
@@ -213,15 +238,48 @@ fn render_basic_shell(
                 // text below, so neither content kind flashes for a frame).
                 let mut image = ImageNode::new(handle);
                 image.color.set_alpha(0.0);
-                root.spawn((
+                let mut node = root.spawn((
                     image,
+                    // Width-driven with an automatic height so the picture keeps
+                    // its own aspect ratio. Pinning both axes stretches whatever
+                    // is loaded to the box — a 16:9 card would render squashed.
                     Node {
                         width: Val::Percent(70.0),
-                        height: Val::Percent(60.0),
+                        height: Val::Auto,
+                        max_height: Val::Percent(80.0),
                         ..default()
                     },
                     BasicSequenceCardContent,
                     Name::new("basic shell sequence image"),
+                ));
+                // Resolve every frame up front so a short card never waits on a
+                // texture mid-animation.
+                if let Some(server) = asset_server.as_deref() {
+                    if !frame.sequence_paths.is_empty() {
+                        node.insert(BasicSequenceImages {
+                            handles: frame
+                                .sequence_paths
+                                .iter()
+                                .map(|path| server.load::<Image>(path.clone()))
+                                .collect(),
+                        });
+                    }
+                }
+            }
+            if !frame.sequence_paths.is_empty() {
+                // Always present for a sequence, empty until a frame actually
+                // fails to load — see `BasicSequenceMissingNotice`.
+                root.spawn((
+                    Text::default(),
+                    TextFont {
+                        font_size: 24.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(1.0, 0.55, 0.55).with_alpha(0.0)),
+                    TextLayout::new_with_justify(Justify::Center),
+                    BasicSequenceCardContent,
+                    BasicSequenceMissingNotice,
+                    Name::new("basic shell sequence missing-frame notice"),
                 ));
             }
             if !frame.text.is_empty() {
@@ -379,10 +437,15 @@ fn card_alpha(elapsed: f32, duration: Option<f32>) -> f32 {
 /// sequence runtime's elapsed time, so the "Powered by Ambition" card no longer
 /// snaps on and off. The opaque black backdrop is untouched — only the content
 /// alpha ramps, so the card fades up from and back down to black.
-fn fade_basic_sequence_card(
+fn drive_basic_sequence_card(
     sequence: Res<ActiveShellSequence>,
+    asset_server: Option<Res<AssetServer>>,
     mut texts: Query<&mut TextColor, With<BasicSequenceCardContent>>,
-    mut images: Query<&mut ImageNode, With<BasicSequenceCardContent>>,
+    mut images: Query<
+        (&mut ImageNode, Option<&BasicSequenceImages>),
+        With<BasicSequenceCardContent>,
+    >,
+    mut notices: Query<&mut Text, With<BasicSequenceMissingNotice>>,
 ) {
     let Some(runtime) = sequence.runtime.as_ref() else {
         return;
@@ -396,8 +459,38 @@ fn fade_basic_sequence_card(
     for mut color in &mut texts {
         color.0.set_alpha(alpha);
     }
-    for mut image in &mut images {
+
+    let active = active_sequence_frame(&sequence);
+    let mut missing = None;
+    for (mut image, frames) in &mut images {
         image.color.set_alpha(alpha);
+        let (Some((index, count)), Some(frames)) = (active, frames) else {
+            continue;
+        };
+        let Some(handle) = frames.handles.get(index) else {
+            continue;
+        };
+        // A frame whose file is absent hides its own slot and names itself; the
+        // rest of the sequence is unaffected.
+        let failed = asset_server
+            .as_deref()
+            .is_some_and(|server| server.get_load_state(handle).is_some_and(|s| s.is_failed()));
+        if failed {
+            image.color.set_alpha(0.0);
+            missing = Some((index, count));
+        } else {
+            image.image = handle.clone();
+        }
+    }
+
+    for mut text in &mut notices {
+        let wanted = match missing {
+            Some((index, count)) => format!("missing frame {} of {count}", index + 1),
+            None => String::new(),
+        };
+        if text.0 != wanted {
+            text.0 = wanted;
+        }
     }
 }
 
@@ -437,6 +530,7 @@ fn sequence_frame(sequence: &ActiveShellSequence) -> BasicSequenceFrame {
                 key: format!("text:{}:{text}", segment.id),
                 text,
                 image_path: None,
+                sequence_paths: Vec::new(),
             }
         }
         ShellSegmentPresentation::StaticImage {
@@ -446,26 +540,38 @@ fn sequence_frame(sequence: &ActiveShellSequence) -> BasicSequenceFrame {
             key: format!("image:{}:{asset_path}", segment.id),
             text: alt_text.clone(),
             image_path: Some(asset_path.clone()),
+            sequence_paths: Vec::new(),
         },
-        ShellSegmentPresentation::ImageSequence {
-            frames,
-            frames_per_second,
-            alt_text,
-        } => {
-            let frame_index = if frames.is_empty() || *frames_per_second <= 0.0 {
-                0
-            } else {
-                ((runtime.elapsed.as_secs_f32() * *frames_per_second) as usize) % frames.len()
-            };
-            let image_path = frames.get(frame_index).cloned();
-            BasicSequenceFrame {
-                key: format!("sequence:{}:{frame_index}:{image_path:?}", segment.id),
-                text: alt_text.clone(),
-                image_path,
-            }
-        }
+        // Keyed on segment IDENTITY, deliberately not on the current frame: the
+        // card spawns once and animates by swapping its texture. Folding the
+        // frame index in here would rebuild the entire node tree every frame.
+        ShellSegmentPresentation::ImageSequence { frames, alt_text } => BasicSequenceFrame {
+            key: format!("sequence:{}:{}", segment.id, frames.len()),
+            text: alt_text.clone(),
+            image_path: frames.first().map(|frame| frame.asset_path.clone()),
+            sequence_paths: frames
+                .iter()
+                .map(|frame| frame.asset_path.clone())
+                .collect(),
+        },
         ShellSegmentPresentation::Registered(_) => BasicSequenceFrame::default(),
     }
+}
+
+/// The frame index showing right now, and how many frames the sequence has.
+fn active_sequence_frame(sequence: &ActiveShellSequence) -> Option<(usize, usize)> {
+    let runtime = sequence.runtime.as_ref()?;
+    let segment = runtime.current()?;
+    let ShellSegmentPresentation::ImageSequence { frames, .. } = &segment.presentation else {
+        return None;
+    };
+    if frames.is_empty() {
+        return None;
+    }
+    Some((
+        image_sequence_frame_at(frames, runtime.elapsed),
+        frames.len(),
+    ))
 }
 
 #[cfg(test)]

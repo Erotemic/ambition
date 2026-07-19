@@ -284,8 +284,18 @@ Small non-blocking work when it does not collide with the campaigns:
   `engine/immutable-content-…md` §7.5–7.6 + Phase 5 under ADR 0027 [opus];
   fold `engine/boss-system.md`'s surviving rules into `boss-design.md` and
   archive it; compress `engine/encounter-orchestration.md` to the durable
-  model; archive `engine/shell-vanity-sequence.md` once VC5 lands; repoint
-  `headless-verification.md` at `ambition_sim_harness`;
+  model; archive `engine/shell-vanity-sequence.md` once VC5 lands;
+- ~~repoint `headless-verification.md` at `ambition_sim_harness`~~ **DONE
+  2026-07-19**, and it needed more than a repoint — every path in it was
+  re-verified against HEAD. Four corrections: the harness surface is
+  `crates/ambition_sim_harness/` (but `ambition_app/src/rl_sim/` is NOT gone —
+  it survives as the thin Ambition binding; only its `runtime.rs` went, and the
+  first draft of this repair got that wrong until the path was checked); the
+  app's integration tests are ONE `app_it` target with `autotests = false` and
+  50 module files, not `tests/*` targets; the binaries live under `game/`; and
+  **"The horizon" had already landed** — `capture_scene` renders state→PNG
+  through the real presentation plugins, so headless visual spot-checks are
+  available now and blind visual work should ship an image;
 - ~~single-source the demo remaining-lists in `demos/*.md`~~ **DONE 2026-07-19**:
   tracks #3/#4 and the two `status.md` rows now POINT at
   `demos/super-mary-o.md` / `demos/sanic.md` instead of restating them. The

@@ -15,16 +15,18 @@ windowing stripped, the actual systems intact:
   step it one frame with an input, read an `AgentObservation` back. Set state
   (teleport, grant ability, spawn, inject geometry), step N frames, assert on the
   result. This is the substrate.
-- **Binaries** — `headless` (fixed-tick run + trace dump), `trace_replay` (replay a
-  recorded trace, detect determinism divergence), `rl_*` (policy-driven fuzzing).
-- **Integration tests** — `ambition_app/tests/*` (`dash_stability`,
-  `blink_run_reachability`, `scripted_gameplay`, `collision_invariant_oracle`) drive
-  `SandboxSim` and assert on resulting state. ~1 min to build, sub-second to run.
+- **Binaries** (`game/ambition_app/src/bin/`) — `headless` (fixed-tick run + trace
+  dump), `trace_replay` (replay a recorded trace, detect determinism divergence),
+  `rl_random_walker` / `rl_smoke` (policy-driven fuzzing), `capture_scene`
+  (state → PNG; see "Render-to-disk" below).
+- **Integration tests** — ONE aggregated target, `app_it`
+  (`game/ambition_app/tests/app_it.rs`, with `autotests = false`); the ~50 sibling
+  `.rs` files are its MODULES, not separate targets. Run a single module with
+  `cargo test -p ambition_app --test app_it -- <module_name>`. They drive
+  `SandboxSim` and assert on resulting state.
 
-> "Can't test it" is almost never true. The only thing you may be unsure of is
-> subjective **visual feel** — and even that is headed for headless render-to-disk
-> (state → image, for spot-checks). If the real sim can't be exercised headless from
-> some state, **fixing that is the priority**, never building a proxy. (The
+> "Can't test it" is almost never true. If the real sim can't be exercised headless
+> from some state, **fixing that is the priority**, never building a proxy. (The
 > brain-arena with its own kinematics is exactly the proxy to retire.)
 
 ## Test invariants, not tuned values
@@ -60,15 +62,34 @@ compiles* + the feel diff gate it. Commit each slice as a checkpoint, keep movin
 Jon verifies subjective feel in-game; ship a feel-sensitive change blind in its own
 marked commit and ask — round-trips are expensive, reverts are cheap.
 
-## The horizon
+## Render-to-disk — LANDED (corrected 2026-07-19)
 
-Headless **render-to-disk**: given a game state, render what it looks like to an
-image file, so an agent can spot-check visuals the same way it spot-checks
-simulation. When that lands, the last "I can't verify" — visuals — closes too.
+This was written as a horizon; it exists. `game/ambition_app/src/bin/capture_scene.rs`
+runs the **real presentation plugins**, forces the main camera through the same
+`CameraSnapshot2d` policy for an arbitrary focus point, renders into an offscreen
+target, and writes that target to a PNG:
+
+```
+cargo run -p ambition_app --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] \
+    [WIDTHxHEIGHT] [--warmup N] [--character ID] [--include-ui] [--show-window]
+```
+
+So an agent CAN spot-check visuals the same way it spot-checks simulation, and
+"always draw blind" work should produce an image rather than assert it cannot.
+The sibling capture is `ambition_actors/examples/render_room_geometry.rs capture`
+(geometry only, no render stack).
 
 ## Pointers
 
-- `ambition_app/src/rl_sim/runtime.rs` (`SandboxSim`, `AgentAction`,
-  `AgentObservation`), `src/bin/{headless,trace_replay,rl_*}.rs`.
-- `ambition_app/tests/*` for the build → step → assert pattern.
+- **`crates/ambition_sim_harness/`** owns the reusable headless surface:
+  `runtime.rs` (`SandboxSim`), `action.rs`, `observation.rs`, `options.rs`,
+  `reward.rs`, `random_policy.rs`. The old `ambition_app/src/rl_sim/runtime.rs`
+  is gone; `game/ambition_app/src/rl_sim/mod.rs` survives as the thin Ambition
+  BINDING — it re-exports the harness and supplies the one product-specific
+  piece, the composition that installs Ambition content +
+  `SandboxSimulationPlugin` onto the harness App. A demo or test with different
+  content calls `ambition_sim_harness::SandboxSim::build` with its own
+  composition and never links the app crate.
+- `game/ambition_app/src/bin/` for the driver binaries.
+- `game/ambition_app/tests/app_it.rs` for the build → step → assert pattern.
 - `ambition_gameplay_trace/` (trace buffer + dump), the `actor_trace` OOB recorder.

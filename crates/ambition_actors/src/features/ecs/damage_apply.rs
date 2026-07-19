@@ -637,6 +637,24 @@ pub(crate) fn apply_player_knockback(
 /// player wasn't damaged this frame, isn't blinking, isn't in hitstun, and isn't
 /// mid-room-transition.
 #[allow(clippy::too_many_arguments)]
+/// The controlled body's INCOMING damage policy: exactly what
+/// [`resolve_body_hit`]'s contract states — difficulty × assist.
+///
+/// Deliberately NOT `player_damage_multiplier`: that setting is the OUTGOING
+/// scale ("the firer's outgoing-damage scaling",
+/// `ambition_projectiles::kind::ProjectileKind::spec`), and folding it in here
+/// turned the power slider into a self-punishment knob — raising your damage
+/// also raised the damage you took.
+pub fn incoming_player_damage_multiplier(
+    gameplay: &ambition_persistence::settings::GameplaySettings,
+) -> f32 {
+    let assist_factor = match gameplay.assist {
+        ambition_persistence::settings::AssistMode::Off => 1.0,
+        ambition_persistence::settings::AssistMode::On => 0.5,
+    };
+    gameplay.difficulty.damage_taken_multiplier() * assist_factor
+}
+
 pub fn apply_player_hit_events(
     // Bundled into one tuple param to stay under Bevy's 16-system-param ceiling
     // (S3e's relational `relations` + `attacker_factions` pushed this to 17).
@@ -726,13 +744,7 @@ pub fn apply_player_hit_events(
         .cloned()
         .collect();
 
-    let assist_factor = match user_settings.gameplay.assist {
-        ambition_persistence::settings::AssistMode::Off => 1.0,
-        ambition_persistence::settings::AssistMode::On => 0.5,
-    };
-    let difficulty_multiplier = user_settings.gameplay.difficulty.damage_taken_multiplier()
-        * user_settings.gameplay.player_damage_multiplier
-        * assist_factor;
+    let difficulty_multiplier = incoming_player_damage_multiplier(&user_settings.gameplay);
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
     let safe_world = ambition_world::collision::world_with_sandbox_solids(

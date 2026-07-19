@@ -339,7 +339,10 @@ fn goblin_melee_knockback_is_an_absolute_launch_speed() {
         (vel.length() - 120.0).abs() < 1e-3,
         "an authored 120 px/s goblin melee launch must remain 120 px/s, not become a 120x feel multiplier: {vel:?}"
     );
-    assert!(vel.x > 0.0 && vel.y < 0.0, "launch stays up-and-away: {vel:?}");
+    assert!(
+        vel.x > 0.0 && vel.y < 0.0,
+        "launch stays up-and-away: {vel:?}"
+    );
 }
 
 #[test]
@@ -430,8 +433,7 @@ fn scaled_launch_speed_conjugates_under_rotated_gravity() {
     // the local launch direction rotates with gravity.
     let feel = SandboxFeelTuning::default();
     let launch_speed = scaled_knockback(100.0, 2.0, 30, 2.0); // == 130 px/s
-    let default_dir =
-        ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y).normalize();
+    let default_dir = ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y).normalize();
     let local_expected = default_dir * launch_speed;
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     for gravity_dir in [
@@ -798,4 +800,47 @@ fn a3_worn_armor_absorbs_a_hit_downgrades_then_the_next_hit_damages_hp() {
         6,
         "with the armor spent, the hit reaches HP"
     );
+}
+
+/// `player_damage_multiplier` is the OUTGOING scale. It must not appear in the
+/// incoming product — the exact bug this pins: the slider used to inflate
+/// damage TAKEN too (GPT-dialog verification, 2026-07-19).
+#[test]
+fn incoming_multiplier_ignores_the_outgoing_damage_slider() {
+    use ambition_persistence::settings::GameplaySettings;
+    let mut weak = GameplaySettings::default();
+    weak.player_damage_multiplier = 0.25;
+    let mut strong = GameplaySettings::default();
+    strong.player_damage_multiplier = 4.0;
+    assert_eq!(
+        incoming_player_damage_multiplier(&weak),
+        incoming_player_damage_multiplier(&strong),
+        "damage TAKEN must not move with the outgoing power slider"
+    );
+}
+
+/// The incoming product is exactly difficulty × assist, per
+/// `resolve_body_hit`'s documented contract.
+#[test]
+fn incoming_multiplier_is_difficulty_times_assist() {
+    use ambition_persistence::settings::gameplay::AssistMode;
+    use ambition_persistence::settings::GameplaySettings;
+    let mut g = GameplaySettings::default();
+    g.difficulty = ambition_persistence::settings::gameplay::Difficulty::Hard;
+    g.assist = AssistMode::Off;
+    assert_eq!(incoming_player_damage_multiplier(&g), 2.0);
+    g.assist = AssistMode::On;
+    assert_eq!(incoming_player_damage_multiplier(&g), 1.0, "assist halves");
+}
+
+/// The OUTGOING half of the invariant: the slider does scale what the
+/// controlled body fires, at the projectile spec seam.
+#[test]
+fn outgoing_projectile_damage_scales_with_the_slider() {
+    use ambition_projectiles::ProjectileKind;
+    let origin = ambition_engine_core::Vec2::new(0.0, 0.0);
+    let dir = ambition_engine_core::Vec2::new(1.0, 0.0);
+    let base = ProjectileKind::Fireball.spec(origin, dir, 1.0).damage;
+    let scaled = ProjectileKind::Fireball.spec(origin, dir, 4.0).damage;
+    assert_eq!(scaled, base * 4, "outgoing damage follows the slider");
 }

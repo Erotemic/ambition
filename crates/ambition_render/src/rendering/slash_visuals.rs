@@ -220,14 +220,16 @@ fn spawn_one(
 }
 
 /// Advance every live slash effect one frame at a time and despawn it once the
-/// row finishes. Uses scaled time so the swing reads in bullet-time/pause,
-/// matching `animate_shrine_visuals`.
+/// row finishes. Uses the render-frame presentation clock (scaled, so the swing
+/// reads in bullet-time/pause) — NOT `WorldTime`, whose `scaled_dt` is the fixed
+/// sim tick under the GGRS host and would tie animation speed to display refresh
+/// rate (see 0693e5e88). Matches `animate_shrine_visuals`.
 pub(crate) fn animate_slash(
     mut commands: Commands,
-    world_time: Res<ambition_time::WorldTime>,
+    presentation_time: ambition_time::PresentationTime,
     mut query: Query<(Entity, &mut SlashVisual, &mut Sprite)>,
 ) {
-    let dt = world_time.scaled_dt;
+    let dt = presentation_time.scaled_dt();
     for (entity, mut slash, mut sprite) in &mut query {
         slash.age += dt;
         let frame = (slash.age / slash.frame_duration) as usize;

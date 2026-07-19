@@ -120,8 +120,18 @@ pub struct MovePlayback {
     /// A CACHE, not the authority. Its authority is `(t, window)`: the box exists
     /// exactly while the owner's clock is inside the window, and
     /// [`retire_orphaned_strike_volumes`] enforces that against the world every
-    /// frame. That matters because a rollback (`ambition_runtime::snapshot`) rebuilds
-    /// this component from a blob, and a blob cannot carry an `Entity`.
+    /// frame.
+    ///
+    /// FIXME(ggrs-live-boxes): under GGRS (ADR 0027) this component is CLONED and
+    /// entity-remapped across a rollback, not rebuilt empty — the pre-GGRS
+    /// "restore leaves `live_boxes` empty" contract no longer holds. After a
+    /// LoadWorld, a slot here can hold a dead/unmappable `Entity` for a window
+    /// the restored clock says is active; the `(inside, Some(live_slot))` arm
+    /// below then skips the respawn and the strike silently whiffs during
+    /// resimulation. `retire_orphaned_strike_volumes` handles only the inverse
+    /// case (stale boxes with live owners). Needs either a rollback-side clear
+    /// of `live_boxes` or a liveness check in the `(inside, live)` arm. Strike
+    /// volumes themselves are also outside the rollback registry.
     live_boxes: Vec<(usize, Entity)>,
     /// Which timed events already fired (parallel to `spec.events`).
     fired: Vec<bool>,
@@ -162,7 +172,8 @@ impl MovePlayback {
     /// window`, so its Active window is live immediately and the projected
     /// `active_elapsed` still folds in the telegraph offset (E53). Events with
     /// `at_s <= t0` are pre-marked fired so seeking past them doesn't retro-fire.
-    /// **Resume a move mid-flight**, for `ambition_runtime::snapshot`'s
+    /// **Resume a move mid-flight.** Historical: built for the deleted
+    /// `ambition_runtime::snapshot` engine's
     /// `SnapshotResolve`.
     ///
     /// The blob carries the CHOICE — which move, how far in, did it land — and the
@@ -235,9 +246,12 @@ pub struct StrikeVolume {
 /// `live_boxes`. It earns its keep when the two disagree, which happens when
 /// `MovePlayback` is REPLACED rather than advanced:
 ///
-/// - `ambition_runtime::snapshot::restore` rebuilds it from a blob (`MovePlayback::resumed`)
-///   with an empty `live_boxes`. Without this system the boxes alive at the rewound-from
-///   tick would leak, and `advance_move_playback` would spawn a second one beside each.
+/// - (historical) the deleted `ambition_runtime::snapshot::restore` rebuilt it from a
+///   blob (`MovePlayback::resumed`) with an empty `live_boxes`; this system despawned
+///   the boxes the rewound-from tick left standing. Under GGRS (ADR 0027) the playback
+///   is instead CLONED + entity-remapped, so the failure mode inverts — see
+///   FIXME(ggrs-live-boxes) on the field: a cloned slot can name a dead `Entity` for a
+///   window that should be live, which this system does NOT repair.
 /// - Any future code that swaps a playback mid-move.
 ///
 /// N3.1's rule, honoured: *"if restoring something requires a rebuild pass, the rebuild
@@ -451,9 +465,16 @@ pub fn advance_move_playback(
                             // damage rounds, knockback scales linearly. Both are
                             // identity at `charge_scale == 1.0` (parity).
                             damage: ((volume.damage as f32) * charge_scale).round() as i32,
-                            knockback: ambition_vfx::HitboxKnockback::FeelScale(
-                                volume.knockback * charge_scale,
-                            ),
+                            // Authored moveset knockback is an ABSOLUTE launch
+                            // speed in engine units (px/s), never a feel
+                            // multiplier — see 2c465cc77 (a FeelScale here
+                            // launched victims at ~100x intended speed).
+                            knockback: ambition_vfx::HitboxKnockback::LaunchSpeed {
+                                base: volume.knockback * charge_scale,
+                                // CM1: the smash-percent growth term rides the
+                                // volume through to victim-side scaling at overlap.
+                                growth: volume.kb_growth,
+                            },
                             // CM1: the authored launch direction rides the
                             // volume through to the victim-side resolver.
                             launch_dir: volume.launch_dir.map(|(x, y)| ae::Vec2::new(x, y)),

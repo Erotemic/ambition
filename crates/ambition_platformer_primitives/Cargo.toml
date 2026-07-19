@@ -12,10 +12,16 @@ description = "Reusable, content-free platformer runtime primitives (lifecycle v
 crate-type = ["rlib"]
 
 [dependencies]
-# Only the ECS/state surface is needed: Component / Bundle / Commands /
+# Only the ECS/state/input surface is needed: Component / Bundle / Commands /
 # EntityCommands / Entity / SystemSet / States / Reflect (via bevy::prelude). No render,
-# audio, windowing, or asset features — this crate stays reusable and headless.
-bevy = { version = "0.18.1", default-features = false, features = ["bevy_state"] }
+# audio, or asset features — this crate stays reusable and headless.
+# `bevy_input_focus` is what puts `KeyCode`/`ButtonInput` in the facade for
+# `developer_hotkeys`; without it this crate only compiled when a co-built
+# sibling happened to unify the feature in (same trap game_shell documents).
+bevy = { version = "0.18.1", default-features = false, features = [
+    "bevy_state",
+    "bevy_input_focus",
+] }
 
 # The content-free pure-logic foundation (geometry / world / movement / the
 # shared BodyKinematics body component). The runtime layer sits directly above

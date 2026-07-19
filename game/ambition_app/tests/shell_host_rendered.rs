@@ -14,7 +14,10 @@
 //!   `SessionRoomVisualsPlugin` — no per-game visual wiring in the host;
 //! - Quit to Home retires every session-owned visual exactly.
 
+use std::time::Duration;
+
 use bevy::prelude::*;
+use bevy::time::TimeUpdateStrategy;
 
 use ambition::game_shell::{
     ActiveFrontendAuthority, ActiveGameplaySession, BasicSequenceRoot, BasicShellUiRoot,
@@ -27,6 +30,26 @@ use ambition::load_presentation::{BasicLoadRoot, LoadActivityState, LoadForegrou
 use ambition::platformer::lifecycle::{ActiveSessionScope, RoomVisual, SessionScopedEntity};
 use ambition::render::rendering::HudText;
 use ambition_app::app::{shell_host, VisibleRenderMode};
+
+/// The real visible composition, stepped on a PINNED timestep.
+///
+/// `app.update()` under Bevy's default `TimeUpdateStrategy::Automatic` advances
+/// the clock by REAL elapsed wall-clock, so the number of `FixedUpdate` steps a
+/// single `update()` runs depends on how busy the machine is. These tests count
+/// audio-playback events, and a session emits its own legitimate cues as its
+/// gameplay advances — so under `Automatic` a loaded machine silently runs more
+/// sim per frame and the counts move. That is the whole reason this family used
+/// to fail only inside the full suite (see `dev/journals/code_smells.md`).
+///
+/// Pinning the timestep makes `settle()` mean an exact number of sim frames on
+/// any machine, exactly as the sibling `shell_host_startup` module already does.
+fn rendered_app() -> App {
+    let mut app = ambition_app::app::build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
+        1.0 / 60.0,
+    )));
+    app
+}
 
 fn settle(app: &mut App) {
     for _ in 0..6 {
@@ -253,7 +276,7 @@ fn assert_title_ownership(app: &mut App, context: &str) {
 
 #[test]
 fn rendered_ownership_across_the_title_and_two_games() {
-    let mut app = ambition_app::app::build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = rendered_app();
     assert_recording_audio_output(&app);
     settle(&mut app);
     assert_title_ownership(&mut app, "boot title");
@@ -356,7 +379,7 @@ fn rendered_ownership_across_the_title_and_two_games() {
 ///   playback rather than retaining the previous track).
 #[test]
 fn provider_relative_music_drives_the_base_channel() {
-    let mut app = ambition_app::app::build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = rendered_app();
     assert_recording_audio_output(&app);
     settle(&mut app);
     assert_eq!(
@@ -438,7 +461,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     use ambition::audio::render::SfxSourceKind;
     use ambition::sfx::{ids, AudioContextOwner, OwnedSfxMessage, SfxMessage};
 
-    let mut app = ambition_app::app::build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = rendered_app();
     assert_recording_audio_output(&app);
     settle(&mut app);
 
@@ -532,11 +555,10 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
         .owner()
         .expect("fresh Sanic session owns audio");
     assert_ne!(first_sanic_owner, current_owner);
-    let playback_before = app
+    let rejected_before = app
         .world()
-        .resource::<ambition::audio::render::SfxPlaybackState>();
-    let accepted_before = playback_before.accepted_playbacks;
-    let rejected_before = playback_before.rejected_wrong_owner;
+        .resource::<ambition::audio::render::SfxPlaybackState>()
+        .rejected_wrong_owner;
     app.world_mut().write_message(OwnedSfxMessage {
         owner: Some(first_sanic_owner),
         request: SfxMessage::Dash { pos: Vec2::ZERO },
@@ -546,9 +568,19 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     let playback = app
         .world()
         .resource::<ambition::audio::render::SfxPlaybackState>();
+    // `audio_play_sfx_messages` routes each message down EXACTLY ONE branch:
+    // wrong-owner rejection and acceptance are mutually exclusive `continue`
+    // arms. So "the stale request was rejected exactly once" is both necessary
+    // and sufficient to prove it never reached the real playback path.
+    //
+    // Deliberately NOT `accepted_playbacks == before`: the fresh Sanic session
+    // legitimately emits its OWN cues while it runs, so that assertion fails
+    // whenever real sim time elapses in this window — it only ever passed
+    // because an unpinned clock let these frames run almost no simulation.
     assert_eq!(
-        playback.accepted_playbacks, accepted_before,
-        "the stale Sanic-A request must not reach the real playback path",
+        playback.rejected_wrong_owner,
+        rejected_before + 1,
+        "the stale Sanic-A request must take the wrong-owner rejection path, \
+         which is the same thing as never reaching playback",
     );
-    assert!(playback.rejected_wrong_owner > rejected_before);
 }

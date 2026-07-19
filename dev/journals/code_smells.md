@@ -679,7 +679,55 @@ render-side answer is a pickup-art manifest, à la `WorldItemArtManifest`.)
 
 ---
 
-## 2026-07-17 — `shell_host_rendered` real-audio tests are order-fragile (test isolation)
+## 2026-07-17 — `shell_host_rendered` audio tests fail under load — ✅ RESOLVED 2026-07-19
+
+**RESOLUTION (2026-07-19). The diagnosis recorded below was WRONG in both of its
+forms — read the correction before trusting anything in the original entry.**
+
+It is not a parallelism race, not a test-ordering leak, and no audio device is
+involved at all: these tests run `AudioOutputMode::Recording` and assert
+`!device_backend_installed`, so there is no process-global device to race for.
+There are no statics anywhere in `ambition_audio` / `ambition_game_shell`.
+
+Real cause — **wall-clock sensitivity**. The tests stepped the App with plain
+`app.update()` under Bevy's default `TimeUpdateStrategy::Automatic`, which
+advances the clock by REAL elapsed time. So the number of `FixedUpdate` steps per
+`update()` depends on how busy the machine is: on an idle machine these frames run
+almost NO simulation, while under load a single frame runs many sim steps. The
+launched Sanic session emits its own legitimate SFX as its gameplay advances, so
+the "count did not move" assertion broke exactly when real sim time elapsed.
+
+Proven, not theorised: injecting a 40ms sleep per frame reproduced the historical
+failure **deterministically with `--test-threads=1`** and with the exact reported
++1 signature (13 vs 12). A parallelism race cannot reproduce single-threaded.
+(Whichever member of the family lost that race varied run to run, which is what
+made it *look* like a parallelism bug.)
+
+Fix, in two parts:
+1. `game/ambition_app/tests/shell_host_rendered.rs` builds its App through
+   `rendered_app()`, which pins `TimeUpdateStrategy::ManualDuration(1/60)` — the
+   idiom the sibling `shell_host_startup` module already used. `settle()` now
+   means an exact number of sim frames on any machine.
+2. The fragile assertion is gone. `assert_eq!(accepted_playbacks, before)` was
+   both REDUNDANT and wrong-headed: `audio_play_sfx_messages` sends every message
+   down exactly one branch, so asserting the exact increment of
+   `rejected_wrong_owner` is already necessary *and* sufficient to prove the stale
+   request never reached playback — without coupling the test to unrelated
+   session-ambient audio. The misleading doc comment on
+   `SfxPlaybackState::accepted_playbacks` that invited the original mistake is
+   corrected in `crates/ambition_audio/src/render.rs`.
+
+Verified: green 3/3 with all cores saturated by CPU hogs, the condition under
+which it previously failed every time.
+
+**Lesson (generalisable):** a test that steps a real Bevy App and asserts anything
+count-like or state-like MUST pin the timestep. Under `Automatic`, `app.update()`
+is not a unit of simulation — it is a unit of wall-clock, and on a fast machine it
+can be very nearly zero simulation. See `dev/journals/lessons_learned.md`.
+
+<details><summary>Original (incorrect) entry, kept for the record</summary>
+
+### 2026-07-17 — `shell_host_rendered` real-audio tests are order-fragile (test isolation)
 
 `provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work`
 (`game/ambition_app/tests/shell_host_rendered.rs:549`) asserts the per-App
@@ -716,6 +764,8 @@ process-global device state (a per-test audio sink, or `#[serial]` + explicit
 device reset) so opening the device in one test can't leak into another's
 playback-accept path. Logged rather than fixed: it is orthogonal to the
 character-actions gates and touching the real-audio test harness is not zero-risk.
+
+</details>
 
 ## 2026-07-19 Title-screen menu has no mouse/touch selection — ✅ RESOLVED 2026-07-19 (VC6 landed)
 - **RESOLUTION (deep-review triage, same day):** `publish_bevy_ui_menu_actions` (`crates/ambition_menu/src/render/bevy_ui/mod.rs:544`) now reads `Query<(&Interaction, &AmbitionMenuControl<Action>), With<Button>>` and emits the neutral `MenuActionActivated<Action>` on `Interaction::Pressed` (+ `publish_bevy_ui_menu_tabs`) — exactly the single generic pointer bridge proposed; fixes launcher/pause/kaleidoscope at once.

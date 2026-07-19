@@ -203,9 +203,15 @@ pub struct SfxPlaybackState {
     /// Number of requests accepted by the real playback decision path.
     ///
     /// Unlike `last_played`, this monotonic counter is not cleared on an
-    /// audio-context transition, so tests and diagnostics can prove that a
-    /// rejected delayed request did not reach playback even when the fresh
-    /// session legitimately emitted another cue during activation.
+    /// audio-context transition, so it is a stable diagnostic of total accepted
+    /// playback.
+    ///
+    /// It is NOT a per-request oracle: a live session emits its own legitimate
+    /// cues, so "this counter did not move" cannot show that one specific
+    /// request was refused. To prove a request was refused, assert the exact
+    /// increment of the matching rejection counter below — `audio_play_sfx_messages`
+    /// sends every message down exactly one branch, so a rejection counted is a
+    /// playback not reached.
     pub accepted_playbacks: u64,
     pub rejected_wrong_owner: u64,
     pub rejected_unauthorized: u64,

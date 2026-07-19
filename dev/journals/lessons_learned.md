@@ -1452,3 +1452,49 @@ Three transferable things:
    relocations the sanic app does not reference — the failure was third-party input
    plumbing under a dep upgrade. A pure relocation that compiles and keeps its public API
    cannot change a downstream crate's runtime behavior.
+
+---
+
+## 2026-07-19 — `app.update()` is a unit of wall-clock, not a unit of simulation
+
+The `shell_host_rendered` audio tests failed only inside the full suite, and the
+journal recorded two confident diagnoses — "process-global real-audio device
+opened by an earlier test", then "confirmed a PARALLELISM race". **Both were
+wrong.** Those tests run `AudioOutputMode::Recording` and explicitly assert
+`!device_backend_installed`, so there is no device to race for, and there are no
+statics in `ambition_audio` or `ambition_game_shell` at all.
+
+The actual cause: the tests stepped the App with bare `app.update()` under Bevy's
+default `TimeUpdateStrategy::Automatic`, which advances the clock by REAL elapsed
+wall-clock. So the number of `FixedUpdate` steps a single `update()` runs is a
+function of machine load. On an idle machine `settle()` ran almost no simulation;
+under load it ran a lot. The launched session emits its own legitimate SFX as its
+gameplay advances, so an assertion that a playback counter "did not move" broke
+precisely when real sim time elapsed.
+
+**What made the wrong diagnosis stick:** the evidence genuinely looked like a race
+— a different family member failed each run, each passed alone, and
+`--test-threads=1` was green. But every one of those is equally explained by "the
+machine is busier when the whole suite runs". Parallelism was *correlated* with
+the trigger (load), not the mechanism. The disambiguating experiment is cheap and
+nobody ran it: inject a per-frame `sleep` and run single-threaded. That reproduces
+the exact historical failure signature deterministically on ONE thread — which no
+parallelism bug can do.
+
+Transferable rules:
+
+1. **Pin the timestep in any test that steps a real Bevy App and asserts something
+   count-like or state-like.** `TimeUpdateStrategy::ManualDuration(1/60)` makes
+   `settle(n)` mean *n sim frames* on every machine. This is the existing repo
+   idiom (`ambition_sim_harness`, `cli.rs`, `demo_shell_smoke`) — the flaky tests
+   were the ones that had not adopted it.
+2. **"Fails only in the full suite" is not evidence of a parallelism bug.** The
+   full suite also means: a busier machine, more elapsed wall-clock, colder
+   caches. Separate the *trigger* from the *mechanism* before naming a cause.
+3. **Prefer an oracle that the mechanism makes necessary and sufficient.** The
+   fragile assertion (`accepted_playbacks` unchanged) was also REDUNDANT: since
+   `audio_play_sfx_messages` sends each message down exactly one branch, asserting
+   the exact increment of `rejected_wrong_owner` already proves the request never
+   reached playback — and does so without coupling the test to unrelated ambient
+   audio. When a test needs the rest of the world to stay still, that is usually a
+   sign the oracle is measuring the wrong thing.

@@ -8,7 +8,10 @@
 //! the startup composition boots straight to the launcher (the direct/test
 //! bypass).
 
+use std::time::Duration;
+
 use bevy::prelude::*;
+use bevy::time::TimeUpdateStrategy;
 
 use ambition::game_shell::{
     ActiveFrontendAuthority, ActiveGameplaySession, ActiveShellSequence, ShellLauncherState,
@@ -16,6 +19,23 @@ use ambition::game_shell::{
 };
 use ambition_app::app::shell_host;
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
+
+/// The real startup composition, stepped on a PINNED timestep.
+///
+/// Startup cards advance on a TIMELINE, so these tests are time-sensitive by
+/// nature. Under Bevy's default `TimeUpdateStrategy::Automatic`, `app.update()`
+/// advances the clock by real elapsed wall-clock — meaning how much of that
+/// timeline a `settle()` covers depends on how busy the machine is. Pinning the
+/// step makes every test here mean the same thing on any machine. (This is the
+/// same defect that made `shell_host_rendered` fail only under load; see
+/// `dev/journals/code_smells.md`.)
+fn startup_app() -> App {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
+        1.0 / 60.0,
+    )));
+    app
+}
 
 fn settle(app: &mut App) {
     for _ in 0..6 {
@@ -116,7 +136,7 @@ fn install_synthetic_startup_input(app: &mut App) {
 
 #[test]
 fn startup_card_plays_then_hands_off_to_the_launcher() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = startup_app();
     shell_host::compose_ambition_startup_sequence(&mut app);
     settle(&mut app);
 
@@ -194,7 +214,7 @@ fn startup_card_plays_then_hands_off_to_the_launcher() {
 fn without_the_startup_composition_boot_bypasses_straight_to_the_launcher() {
     // Direct-entry / test bypass: the host without the opt-in startup opens on
     // the launcher immediately — startup is a host presentation CHOICE.
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = startup_app();
     settle(&mut app);
     assert_eq!(
         active_route(&app),
@@ -206,14 +226,8 @@ fn without_the_startup_composition_boot_bypasses_straight_to_the_launcher() {
 
 #[test]
 fn startup_naturally_auto_advances_on_the_shipping_timeline() {
-    use bevy::time::TimeUpdateStrategy;
-    use std::time::Duration;
-
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = startup_app();
     shell_host::compose_ambition_startup_sequence(&mut app);
-    app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
-        1.0 / 60.0,
-    )));
     // Step until the run-in hands off on its own. Deliberately NOT a tick count
     // derived from the current card timings: cards get retimed and added, and
     // the invariant under test is "startup reaches the launcher with no input",
@@ -234,7 +248,7 @@ fn startup_naturally_auto_advances_on_the_shipping_timeline() {
 
 #[test]
 fn keyboard_acknowledgement_uses_the_neutral_shell_action() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = startup_app();
     install_synthetic_startup_input(&mut app);
     shell_host::compose_ambition_startup_sequence(&mut app);
     settle(&mut app);
@@ -251,7 +265,7 @@ fn keyboard_acknowledgement_uses_the_neutral_shell_action() {
 fn controller_acknowledgement_uses_the_neutral_shell_action() {
     use bevy::input::gamepad::Gamepad;
 
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = startup_app();
     install_synthetic_startup_input(&mut app);
     shell_host::compose_ambition_startup_sequence(&mut app);
     settle(&mut app);
@@ -269,7 +283,7 @@ fn controller_acknowledgement_uses_the_neutral_shell_action() {
 fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
     use ambition::game_shell::{image_sequence_total, ShellSegmentPresentation};
 
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = startup_app();
     shell_host::compose_ambition_startup_sequence(&mut app);
     settle(&mut app);
 

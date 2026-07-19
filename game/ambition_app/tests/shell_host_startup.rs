@@ -39,6 +39,20 @@ fn launcher_active(app: &App) -> bool {
     app.world().resource::<ShellLauncherState>().active
 }
 
+/// Confirm through every remaining vanity card. Confirm skips ONE card, so the
+/// number of presses tracks the number of segments the host composed.
+fn skip_remaining_cards(app: &mut App) -> usize {
+    let mut skipped = 0;
+    while let Some(activation_id) = app.world().resource::<ActiveShellSequence>().activation_id {
+        app.world_mut()
+            .write_message(ShellSequenceCommand::Skip { activation_id });
+        settle(app);
+        skipped += 1;
+        assert!(skipped < 16, "startup sequence did not terminate");
+    }
+    skipped
+}
+
 #[derive(Resource, Default)]
 struct SyntheticStartupInput {
     keyboard_confirm: bool,
@@ -68,6 +82,28 @@ fn drive_synthetic_startup_input(
                 .release(bevy::input::gamepad::GamepadButton::South);
         }
     }
+}
+
+/// Hold confirm through the whole run-in, one press per card, and report how
+/// many presses it took. Each press advances exactly one card, so this also
+/// proves the neutral action is what drives the sequence forward.
+fn confirm_until_launcher(app: &mut App, controller: bool) -> usize {
+    let mut presses = 0;
+    while !launcher_active(app) {
+        {
+            let mut input = app.world_mut().resource_mut::<SyntheticStartupInput>();
+            if controller {
+                input.controller_confirm = true;
+            } else {
+                input.keyboard_confirm = true;
+            }
+        }
+        app.update();
+        settle(app);
+        presses += 1;
+        assert!(presses < 16, "confirm never reached the launcher");
+    }
+    presses
 }
 
 fn install_synthetic_startup_input(app: &mut App) {
@@ -127,15 +163,9 @@ fn startup_card_plays_then_hands_off_to_the_launcher() {
         "no-window startup acceptance never opens the audio device",
     );
 
-    // Confirm/skip the card (the same command the Enter/South mapping emits).
-    let activation_id = app
-        .world()
-        .resource::<ActiveShellSequence>()
-        .activation_id
-        .expect("startup sequence has an activation");
-    app.world_mut()
-        .write_message(ShellSequenceCommand::Skip { activation_id });
-    settle(&mut app);
+    // Confirm/skip each card (the same command the Enter/South mapping emits).
+    // Confirm advances ONE card, so a multi-card run-in needs one per card.
+    skip_remaining_cards(&mut app);
 
     // Handoff: exactly one launcher authority, still no gameplay session.
     assert_eq!(
@@ -184,10 +214,14 @@ fn startup_naturally_auto_advances_on_the_shipping_timeline() {
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
         1.0 / 60.0,
     )));
-    // The vanity card holds 3600ms (see `compose_ambition_startup_sequence`),
-    // i.e. ~216 ticks at 60fps, before auto-advancing; step past that with
-    // margin so the natural handoff to the launcher is observed.
-    for _ in 0..240 {
+    // Step until the run-in hands off on its own. Deliberately NOT a tick count
+    // derived from the current card timings: cards get retimed and added, and
+    // the invariant under test is "startup reaches the launcher with no input",
+    // not "startup takes N frames". The cap is a hang guard (60s of ticks).
+    for _ in 0..3600 {
+        if launcher_active(&app) {
+            break;
+        }
         app.update();
     }
     assert_eq!(
@@ -204,15 +238,13 @@ fn keyboard_acknowledgement_uses_the_neutral_shell_action() {
     install_synthetic_startup_input(&mut app);
     shell_host::compose_ambition_startup_sequence(&mut app);
     settle(&mut app);
-    app.world_mut()
-        .resource_mut::<SyntheticStartupInput>()
-        .keyboard_confirm = true;
-    app.update();
-    settle(&mut app);
+    let presses = confirm_until_launcher(&mut app, false);
     assert_eq!(
         active_route(&app),
         Some(shell_host::AMBITION_LAUNCHER_ROUTE.to_owned()),
     );
+    // One press per composed card — confirm skips a card, not the whole run-in.
+    assert_eq!(presses, 2, "engine card then authorship card");
 }
 
 #[test]
@@ -224,21 +256,17 @@ fn controller_acknowledgement_uses_the_neutral_shell_action() {
     shell_host::compose_ambition_startup_sequence(&mut app);
     settle(&mut app);
     app.world_mut().spawn(Gamepad::default());
-    app.world_mut()
-        .resource_mut::<SyntheticStartupInput>()
-        .controller_confirm = true;
-    app.update();
-    settle(&mut app);
+    confirm_until_launcher(&mut app, true);
     assert_eq!(
         active_route(&app),
         Some(shell_host::AMBITION_LAUNCHER_ROUTE.to_owned()),
     );
 }
 
-/// The startup card is the AUTHORED comic sequence, not a placeholder text card,
-/// and the host composes it straight from the committed content manifest.
+/// The run-in is TWO vanity cards: the engine card, then the authored comic
+/// sequence composed straight from the committed content manifest.
 #[test]
-fn the_startup_card_is_the_authored_image_sequence() {
+fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
     use ambition::game_shell::{image_sequence_total, ShellSegmentPresentation};
 
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
@@ -246,14 +274,27 @@ fn the_startup_card_is_the_authored_image_sequence() {
     settle(&mut app);
 
     let sequence = app.world().resource::<ActiveShellSequence>();
-    let segment = sequence
+    let segments = &sequence
         .runtime
         .as_ref()
-        .and_then(|runtime| runtime.current())
-        .expect("the startup sequence has a current segment");
+        .expect("the startup sequence is running")
+        .spec
+        .segments;
+    assert_eq!(segments.len(), 2, "engine card then authorship card");
 
+    // The engine card comes FIRST — built-with before built-by.
+    assert!(
+        matches!(
+            &segments[0].presentation,
+            ShellSegmentPresentation::TextCard { title, .. } if title.contains("Ambition")
+        ),
+        "the first card credits the engine, got {:?}",
+        segments[0].presentation,
+    );
+
+    let segment = &segments[1];
     let ShellSegmentPresentation::ImageSequence { frames, .. } = &segment.presentation else {
-        panic!("expected the startup card to be an image sequence");
+        panic!("expected the second card to be an image sequence");
     };
     assert!(
         frames.len() >= 2,

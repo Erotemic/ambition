@@ -138,27 +138,29 @@ fn sync_shell_pause_suppression(
     suppressed.0 = ambition::runtime::in_base_mode(active);
 }
 
-/// The optional "Powered by Ambition" startup vanity sequence.
+/// The optional startup vanity sequence (engine card, then authorship card).
 pub const AMBITION_STARTUP_EXPERIENCE: &str = "ambition_startup";
 pub const AMBITION_STARTUP_ROUTE: &str = "ambition_startup";
 
-/// Compose the optional startup vanity screen in front of the launcher.
+/// Compose the optional startup vanity screens in front of the launcher.
 ///
 /// The HOST chooses this frontend presentation policy — `--direct` and the
 /// rendered-ownership tests simply don't compose it and boot straight to the
-/// launcher. It is one text card, auto-advancing after a couple seconds and
-/// skippable with confirm (Enter / South); on completion it routes to the
+/// launcher. It is a list of cards, each auto-advancing on its own timing and
+/// each skippable with confirm (Enter / South); on completion it routes to the
 /// launcher. No gameplay session exists during startup: it is a plain shell
 /// experience, not a gameplay route, so the simulation stays asleep and the
-/// launcher owns exactly one frontend authority once the card hands off.
+/// launcher owns exactly one frontend authority once the last card hands off.
+///
+/// Adding another card is one more entry in `segments` — no new state.
 ///
 /// Uses the existing shell SEQUENCE mechanism (no new state machine): a
 /// `ShellSequenceCatalog` entry keyed by the startup experience, a route whose
 /// `on_complete` is `GoTo(launcher)`, and the startup route as the initial one.
 pub fn compose_ambition_startup_sequence(app: &mut App) {
     use ambition::game_shell::{
-        ShellExperienceId, ShellSegmentSpec, ShellSequenceCatalog, ShellSequenceFrame,
-        ShellSequenceSpec,
+        ShellExperienceId, ShellSegmentPolicy, ShellSegmentSpec, ShellSequenceCatalog,
+        ShellSequenceFrame, ShellSequenceSpec,
     };
 
     app.world_mut()
@@ -172,18 +174,33 @@ pub fn compose_ambition_startup_sequence(app: &mut App) {
         .register(
             ShellExperienceId::new(AMBITION_STARTUP_EXPERIENCE),
             ShellSequenceSpec {
-                // The authored comic card. Its length is DERIVED from the frame
-                // holds in the content manifest, so retiming the animation
-                // retimes the card with it — nothing to keep in sync here. Still
-                // immediately skippable (default skip policy), and its ease-in /
-                // hold / ease-out comes from `drive_basic_sequence_card`.
-                segments: vec![ShellSegmentSpec::image_sequence_timed(
-                    "powered_by_ambition",
-                    ambition_content::vanity_card::vanity_card_frames()
-                        .into_iter()
-                        .map(|(path, hold)| ShellSequenceFrame::new(path, hold)),
-                    "",
-                )],
+                // Two vanity cards, in the conventional order: what the game was
+                // built WITH, then who built it. Each is a separate segment, so
+                // each fades in/out on its own and confirm skips ONE card rather
+                // than the whole run-in.
+                segments: vec![
+                    // The ENGINE card. Held longer than the 2s default so its
+                    // ease-in / hold / ease-out has room to breathe.
+                    ShellSegmentSpec::text("powered_by_ambition", "Powered by Ambition")
+                        .with_policy(ShellSegmentPolicy {
+                            auto_advance_after: Some(std::time::Duration::from_millis(3600)),
+                            ..Default::default()
+                        }),
+                    // The AUTHORSHIP card — the authored comic beat. Its length
+                    // is DERIVED from the frame holds in the content manifest, so
+                    // retiming the animation retimes the card with it; there is
+                    // nothing to keep in sync here.
+                    //
+                    // The id is the punchline because the studio is unnamed. When
+                    // there IS a studio name, rename this segment to it.
+                    ShellSegmentSpec::image_sequence_timed(
+                        "i_made_this",
+                        ambition_content::vanity_card::vanity_card_frames()
+                            .into_iter()
+                            .map(|(path, hold)| ShellSequenceFrame::new(path, hold)),
+                        "",
+                    ),
+                ],
             },
         );
     // Boot into the startup card; home stays the launcher, so the startup's

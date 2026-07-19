@@ -77,7 +77,58 @@ def simple_manifest_value(key: str) -> str | None:
     return match.group(1).strip() if match else None
 
 
+def generation_stamp() -> dict:
+    """Machine-local provenance written by generate_agent_index.py."""
+    path = ROOT / ".agent" / "index" / "generation_stamp.json"
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def warn_if_index_stale() -> None:
+    """Loudly flag a stale local index — silent staleness has produced
+    confidently-wrong owners (deleted files ranked above live ones)."""
+    stamp_commit = generation_stamp().get("generated_from_commit")
+    if not stamp_commit or stamp_commit == "unknown":
+        print(
+            "⚠ index has no generation stamp — run: python scripts/generate_agent_index.py",
+            file=sys.stderr,
+        )
+        return
+    try:
+        head = subprocess.run(
+            ["git", "rev-parse", "--short=12", "HEAD"],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        ).stdout.strip()
+        if not head or head == stamp_commit:
+            return
+        count = subprocess.run(
+            ["git", "rev-list", "--count", f"{stamp_commit}..HEAD"],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        ).stdout.strip()
+        behind = f"{count} commits " if count else ""
+        print(
+            f"⚠ index generated at {stamp_commit}, {behind}behind HEAD {head}"
+            " — run: python scripts/generate_agent_index.py",
+            file=sys.stderr,
+        )
+    except OSError:
+        return
+
+
 def source_commit() -> str:
+    stamp_commit = generation_stamp().get("generated_from_commit")
+    if stamp_commit and stamp_commit != "unknown":
+        return stamp_commit
     manifest_commit = simple_manifest_value("generated_from_commit")
     if manifest_commit:
         return manifest_commit
@@ -276,7 +327,8 @@ def build_catalog(*, quiet: bool = False) -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "generator": "scripts/agent_query.py build-catalog",
         "generated_from_commit": source_commit(),
-        "generated_at": simple_manifest_value("generated_at"),
+        "generated_at": generation_stamp().get("generated_at")
+        or simple_manifest_value("generated_at"),
         "counts": {
             "files": record_count(files_data, "files"),
             "symbols": record_count(symbols_data, "symbols"),
@@ -699,6 +751,7 @@ def normalize_argv(argv: Sequence[str]) -> list[str]:
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(normalize_argv(list(argv if argv is not None else sys.argv[1:])))
     limit = max(1, args.limit)
+    warn_if_index_stale()
     if args.command == "overview":
         command_overview()
     elif args.command == "task":

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,12 +23,40 @@ TEXT_EXTS = {".md", ".rs", ".toml", ".ron", ".yaml", ".yml", ".py", ".sh", ".jso
 def generated_meta() -> dict[str, str]:
     """Stable metadata for committed navigation indexes.
 
-    The tracked indexes intentionally omit HEAD and wall-clock time. Embedding
-    either makes generation self-invalidating: committing the generated file
-    changes HEAD, and rerunning at a later second changes the timestamp. Source
-    content is already represented by the generated index bodies themselves.
+    Timestamps are the SOURCE COMMIT's committer time, not wall-clock time, so
+    regenerating at the same commit is byte-stable. The commit stamp is what
+    `agent_query.py` compares against HEAD to warn about a stale index.
     """
-    return {"generator": "scripts/generate_agent_index.py"}
+    meta = {"generator": "scripts/generate_agent_index.py"}
+    commit = _git(["rev-parse", "--short=12", "HEAD"])
+    if commit:
+        meta["generated_from_commit"] = commit
+    commit_time = _git(["show", "-s", "--format=%cI", "HEAD"])
+    if commit_time:
+        meta["generated_at"] = commit_time
+    return meta
+
+
+def _git(args: list[str]) -> str | None:
+    try:
+        out = subprocess.run(
+            ["git", *args], cwd=ROOT, capture_output=True, text=True, check=True
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return out.stdout.strip() or None
+
+
+def _git_file_universe() -> set[Path] | None:
+    """The set of files the index should describe: tracked plus
+    untracked-but-not-ignored. Respecting .gitignore is what keeps stale
+    working-tree snapshots (`.tmp-*-stage/`), archive tarballs, and generated
+    output out of the index — indexing those has produced confidently-wrong
+    owners (phantom crates scored above live ones)."""
+    listing = _git(["ls-files", "--cached", "--others", "--exclude-standard"])
+    if listing is None:
+        return None
+    return {ROOT / line for line in listing.splitlines() if line}
 
 
 def iter_files() -> list[Path]:
@@ -36,12 +65,15 @@ def iter_files() -> list[Path]:
     # which meant the script still recursed into `target/` (millions of
     # files on Android/desktop builds) and exhausted file descriptors on
     # virtiofs hosts (EMFILE: Too many open files).
+    universe = _git_file_universe()
     out: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(ROOT):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
         for name in filenames:
             path = Path(dirpath) / name
             if path.suffix in TEXT_EXTS:
+                if universe is not None and path not in universe:
+                    continue
                 out.append(path)
     return sorted(out)
 
@@ -434,6 +466,27 @@ def update_agent_manifest(meta: dict[str, str]) -> None:
         encoding="utf-8",
     )
 
+def write_generation_stamp() -> None:
+    """Machine-local generation stamp, next to the gitignored indexes.
+
+    The tracked manifest must stay byte-stable across regens, so volatile
+    provenance lives here instead: `agent_query.py` reads it to render
+    "Generated at" and to warn when the local index is behind HEAD.
+    """
+    import datetime
+
+    stamp = {
+        "generated_from_commit": _git(["rev-parse", "--short=12", "HEAD"]) or "unknown",
+        "source_commit_time": _git(["show", "-s", "--format=%cI", "HEAD"]) or "unknown",
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(
+            timespec="seconds"
+        ),
+    }
+    (INDEX_DIR / "generation_stamp.json").write_text(
+        json.dumps(stamp, indent=2) + "\n", encoding="utf-8"
+    )
+
+
 def main() -> int:
     files = iter_files()
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
@@ -448,6 +501,7 @@ def main() -> int:
     write_json(INDEX_DIR / "archive_index.json", build_archive_index())
     write_json(INDEX_DIR / "doc_health.json", build_doc_health(files))
     update_agent_manifest(generated_meta())
+    write_generation_stamp()
 
     # Build the progressive-disclosure catalog from the fresh flat indexes.
     # The archive builder reruns this after ECS inventory so archive packets

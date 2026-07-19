@@ -135,3 +135,6 @@ crates/ambition_actors/assets/backgrounds/parallax_layers_potato/
 
 coverage-reports/
 untracked
+
+# Repo-root scripts venv (tree-sitter for ecs_inventory etc.)
+.venv/

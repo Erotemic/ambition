@@ -132,6 +132,27 @@ impl ActorTuning {
             crate::combat::slots::SlotKind::Melee
         }
     }
+
+    /// Take on `archetype`'s combat tuning while keeping the fields this
+    /// actor's PLACEMENT owns.
+    ///
+    /// Respawn policy is placement-scoped, not archetype-scoped (ADR 0022): a
+    /// named NPC is a person and its death is permanent, even while it fights
+    /// with the combat numbers of a borrowed mob archetype whose own policy is
+    /// `OnRoomReenter`. Assigning a projected archetype tuning WHOLESALE drags
+    /// that mob policy onto the person — the kill hook then writes no death
+    /// flag, `sync_ecs_actors_with_save` has nothing to read, and the NPC is
+    /// rebuilt alive by the next room construction. That was a live bug.
+    ///
+    /// Every archetype projection goes through here, so the invariant holds by
+    /// construction rather than by each caller remembering it.
+    #[must_use]
+    pub fn adopting_archetype(&self, archetype: ActorTuning) -> ActorTuning {
+        ActorTuning {
+            respawn: self.respawn,
+            ..archetype
+        }
+    }
 }
 
 /// Generic kit vocabulary: the brain module is the universal-actor

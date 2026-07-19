@@ -70,9 +70,11 @@ pub(crate) struct ProvokedArchetype {
 /// mutation — the single definition of "what provocation produces", so the live
 /// flip and a snapshot rebuild can never drift.
 ///
-/// `current_config` is the actor's config at call time; the projection clones it
-/// only to hand the archetype's HOSTILE tuning / brain-spec / id to the brain
-/// builder (which reads them), never to keep any of the caller's live values.
+/// `current_config` is the actor's config at call time. The projection clones it
+/// to hand the archetype's HOSTILE tuning / brain-spec / id to the brain builder
+/// (which reads them). It keeps NO live combat values from the caller — with one
+/// deliberate exception: the PLACEMENT-owned respawn policy, which the archetype
+/// does not get to overwrite (ADR 0022, see `ActorTuning::adopting_archetype`).
 pub(crate) fn project_provoked_archetype(
     spec: &CharacterArchetypeSpec,
     archetype: &str,
@@ -80,7 +82,9 @@ pub(crate) fn project_provoked_archetype(
     combat_kit: &CombatKit,
     held_item: Option<&HeldItem>,
 ) -> ProvokedArchetype {
-    let tuning = spec.tuning();
+    // The archetype supplies COMBAT tuning; the placement keeps the fields it
+    // owns (respawn policy — ADR 0022). See `ActorTuning::adopting_archetype`.
+    let tuning = current_config.tuning.adopting_archetype(spec.tuning());
     let brain_spec = spec.brain_spec();
     let config_brain = CharacterBrain::Custom(archetype.to_string());
 
@@ -148,6 +152,11 @@ pub(crate) fn peaceful_config(
         chase_speed: NPC_PATROL_SPEED,
         max_run_speed: ambition_engine_core::MAX_RUN_SPEED,
         is_aerial,
+        // STATED, matching the spawn seed this mirrors: an NPC placement is a
+        // person, so its death is permanent (ADR 0022). Rewinding a provoked
+        // actor back to peaceful must restore that policy, not a default that
+        // happens to agree.
+        respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
         ..Default::default()
     };
     // `config.brain` (the integrator read-model) is DERIVED from the resolved
@@ -598,6 +607,48 @@ mod tests {
             .resource::<CharacterCatalog>()
             .build_brain_from_preset("wanderer_x", &BrainBuildContext::at(0.0))
             .expect("wanderer builds")
+    }
+
+    /// Provocation borrows a mob archetype's COMBAT numbers but must not borrow
+    /// its liveness policy (ADR 0022). A named NPC is a person: killing it is
+    /// permanent, even though it fights as a `combatant`, which is authored
+    /// `OnRoomReenter` like every other trash mob.
+    ///
+    /// The regression this pins: `project_provoked_archetype` assigned
+    /// `spec.tuning()` wholesale, so a provoked NPC silently became
+    /// `OnRoomReenter`. The kill hook then wrote no death flag, save-sync had
+    /// nothing to read, and the NPC was rebuilt alive by the next room
+    /// construction — "kill an NPC, it respawns immediately".
+    #[test]
+    fn provocation_borrows_combat_numbers_but_never_the_placement_respawn_policy() {
+        use ambition_entity_catalog::placements::RespawnPolicy;
+
+        let roster = test_roster();
+        let spec = roster.spec_for_brain(&CharacterBrain::Custom("combatant".into()));
+        // Pre-poison: if the borrowed archetype were ALSO DeadStaysDead this
+        // test could not distinguish "preserved" from "coincidence".
+        assert_eq!(
+            spec.tuning().respawn,
+            RespawnPolicy::OnRoomReenter,
+            "fixture assumption: the borrowed combat archetype respawns per room"
+        );
+
+        let mut config = config_fixture();
+        config.tuning.respawn = RespawnPolicy::DeadStaysDead;
+
+        let proj =
+            project_provoked_archetype(&spec, "combatant", &config, &CombatKit::default(), None);
+
+        assert_eq!(
+            proj.tuning.respawn,
+            RespawnPolicy::DeadStaysDead,
+            "the PLACEMENT owns respawn policy; the borrowed archetype must not overwrite it"
+        );
+        assert_eq!(
+            proj.tuning.max_health,
+            spec.tuning().max_health,
+            "everything else still comes from the archetype"
+        );
     }
 
     /// A rewind INTO a provoked snapshot reruns the roster construction: the

@@ -702,3 +702,40 @@ character-actions gates and touching the real-audio test harness is not zero-ris
   once). L and deferred for bridging the directory-CID format to the per-entry Rust
   manifest. **Backlog only — Jon owns asset distribution and has said agents should
   not need to care about IPFS; do not fold this into feature work.**
+
+## 2026-07-19 Room reset revives every actor without consulting its respawn policy
+- **Where:** `crates/ambition_actors/src/features/ecs/reset.rs:119` →
+  `reset_to_spawn` (`crates/ambition_actors/src/features/enemies/integration.rs:432`)
+- **Smell:** `reset_to_spawn` full-heals EVERY actor in the query with no
+  `RespawnPolicy` consultation. For a `DeadStaysDead` / `OnRest` actor that is
+  currently dead, this revives it; `sync_ecs_actors_with_save` (Progression, every
+  tick) re-zeroes its HP, so the net state is correct but the actor is alive for
+  the remainder of that frame — it can be drawn and can act. Reset is the one
+  liveness writer that does not go through the policy the kill hook and save-sync
+  both read, so "who decides a dead actor comes back" has two answers instead of
+  one. Triggers: `game/ambition_app/src/app/player_tick.rs:99`
+  (`RoomResetReason::PlayerDeath`), `game/ambition_app/src/app/sim_systems.rs:116,171,195`.
+- **Noticed while:** fixing "killed NPCs respawn immediately" (the ADR 0022
+  placement pin lost across archetype projection). That defect is fixed; this one
+  is adjacent and was found by the same trace, but is a separate rule.
+- **Suggested fix / size:** S. Make the revive conditional — reset a currently
+  DEAD actor only when its policy permits room-scoped return (`OnRoomReenter`),
+  leaving `DeadStaysDead` / `OnRest` corpses alone; alive actors keep resetting to
+  full as today. Wants a test that a killed `DeadStaysDead` NPC is never briefly
+  alive across a `ResetRoomFeaturesEvent`, since the current wobble is invisible to
+  end-of-frame assertions.
+
+## 2026-07-19 No test drives a kill through the damage path to the death flag
+- **Where:** `crates/ambition_actors/src/features/ecs/save_sync/actor_liveness_tests.rs:60`
+- **Smell:** `a_killed_unprovoked_npc_stays_dead_on_load` hand-sets
+  `enemy_<id>_dead` and asserts only that `sync_ecs_actors_with_save` zeroes HP. The
+  entire WRITE side — kill hook → `RespawnPolicy` match → `SetFlagRequested` →
+  `apply_flag_effects` → save — is unguarded, so the test stayed green through a
+  regression where provocation replaced the policy and no flag was ever written.
+  A test that presets the state it is meant to prove gets earned proves nothing.
+- **Noticed while:** the same fix. A unit guard now pins the projection
+  (`provocation_borrows_combat_numbers_but_never_the_placement_respawn_policy`), but
+  the end-to-end kill→flag→re-stage path still has no coverage.
+- **Suggested fix / size:** M. One integration test: spawn an NPC through the real
+  lowering path, provoke + kill it via the damage systems, assert the save flag
+  exists, then re-run room construction and assert it comes back dead.

@@ -574,6 +574,11 @@ impl ActorClusterSeed {
             chase_speed: ambition_characters::brain::NPC_PATROL_SPEED,
             max_run_speed: ambition_engine_core::MAX_RUN_SPEED,
             is_aerial,
+            // STATED, not inherited from `Default`: an NPC is a unique named
+            // placement, so its death is permanent (ADR 0022) even after it
+            // provokes into a mob archetype authored `OnRoomReenter`. This is
+            // the pin `ActorTuning::adopting_archetype` protects.
+            respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
             ..Default::default()
         };
         // `config.brain` (the integrator-facing `CharacterBrain` read-model, which

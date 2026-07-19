@@ -427,13 +427,18 @@ impl NpcActorSpawnPlan {
         // The hostile archetype this actor becomes when provoked: feeds its
         // stored CombatKit (so a provoked NPC fights with the right weapon) and
         // the seed's inert reconstruction spec.
-        let mut hostile_spec =
-            super::actors::hostile_spec_for_actor(roster, &id, &name, dialogue_id);
         // An NPC is by construction a UNIQUE named placement: its death is
         // permanent (ADR 0022 "Morrowind rules") regardless of the mob-tier
-        // respawn policy the borrowed combat archetype authors. The policy is
-        // a property of the PLACEMENT, and this placement is a person.
-        hostile_spec.respawn = ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead;
+        // respawn policy the borrowed combat archetype authors. The policy is a
+        // property of the PLACEMENT, and this placement is a person.
+        //
+        // That pin lives on the SEED's tuning (`ActorClusterSeed::new_peaceful_npc_in`)
+        // and survives provocation via `ActorTuning::adopting_archetype`. It used
+        // to be written onto this local `hostile_spec` instead, whose only
+        // consumer is the combat-kit builder below — which never reads `respawn`.
+        // So the pin was a no-op, provocation replaced the policy with the
+        // borrowed archetype's `OnRoomReenter`, and killed NPCs came back.
+        let hostile_spec = super::actors::hostile_spec_for_actor(roster, &id, &name, dialogue_id);
         let combat_kit = super::brain_builders::enemy_combat_kit_for_spec(&hostile_spec);
         let (mut seed, render_size) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc_in(
             catalog,

@@ -7,6 +7,27 @@ fn dummy_entity() -> Entity {
     Entity::from_raw_u32(42).expect("nonzero raw entity index")
 }
 
+#[test]
+fn hitbox_knockback_units_remain_distinct() {
+    assert_eq!(
+        resolved_hitbox_knockback_magnitude(HitboxKnockback::FeelScale(1.6), 80, 2.0),
+        HitKnockbackMagnitude::FeelScale(1.6),
+        "world damage-box feel scales do not become engine-unit speeds"
+    );
+    assert_eq!(
+        resolved_hitbox_knockback_magnitude(
+            HitboxKnockback::LaunchSpeed {
+                base: 120.0,
+                growth: 2.0,
+            },
+            30,
+            2.0,
+        ),
+        HitKnockbackMagnitude::LaunchSpeed(150.0),
+        "melee launch speed growth resolves in engine units"
+    );
+}
+
 /// FollowOwner anchor re-resolves position each tick: moving
 /// the owner moves the hitbox without per-frame component update.
 #[test]
@@ -21,8 +42,7 @@ fn follow_owner_hitbox_aabb_tracks_owner_position() {
         shape: None,
         facing: 1.0,
         damage: 1,
-        knockback_strength: 0.0,
-        knockback_growth: 0.0,
+        knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
     };
@@ -48,8 +68,7 @@ fn world_anchor_hitbox_ignores_owner_position() {
         shape: None,
         facing: 1.0,
         damage: 1,
-        knockback_strength: 0.0,
-        knockback_growth: 0.0,
+        knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
     };
@@ -93,8 +112,7 @@ fn tick_and_despawn_drops_expired_hitboxes() {
                 shape: None,
                 facing: 1.0,
                 damage: 1,
-                knockback_strength: 0.0,
-                knockback_growth: 0.0,
+                knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
             },
@@ -129,8 +147,7 @@ fn tick_and_despawn_keeps_live_hitboxes() {
                 shape: None,
                 facing: 1.0,
                 damage: 1,
-                knockback_strength: 0.0,
-                knockback_growth: 0.0,
+                knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
             },
@@ -185,8 +202,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
             shape: None,
             facing: 1.0,
             damage: 5,
-            knockback_strength: 1.0,
-            knockback_growth: 0.0,
+            knockback: ambition_vfx::HitboxKnockback::FeelScale(1.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },
@@ -245,8 +261,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
             shape: None,
             facing: 1.0,
             damage: 4,
-            knockback_strength: 0.0,
-            knockback_growth: 0.0,
+            knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },
@@ -351,8 +366,10 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
             shape: None,
             facing: 1.0,
             damage: 3,
-            knockback_strength: 0.0,
-            knockback_growth: 0.0,
+            knockback: ambition_vfx::HitboxKnockback::LaunchSpeed {
+                base: 120.0,
+                growth: 0.0,
+            },
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },
@@ -394,6 +411,11 @@ fn enemy_hitbox_hits_the_player_by_default() {
     assert_eq!(cap.len(), 1, "the player takes the hit by default");
     assert_eq!(cap[0].target, HitTarget::Player(player));
     assert!(matches!(cap[0].source, HitSource::EnemyAttack));
+    assert_eq!(
+        cap[0].knockback.as_ref().map(|k| k.magnitude),
+        Some(crate::events::HitKnockbackMagnitude::LaunchSpeed(120.0)),
+        "authored melee knockback crosses the hitbox seam as an absolute launch speed"
+    );
 }
 
 /// Damage is physical, so an Enemy swing that OVERLAPS the player hits them even
@@ -443,8 +465,7 @@ fn player_faction_hitbox_only_fires_once() {
             shape: None,
             facing: 1.0,
             damage: 3,
-            knockback_strength: 0.0,
-            knockback_growth: 0.0,
+            knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },
@@ -512,8 +533,7 @@ fn player_followowner_melee_strike_emits_a_swing_gated_player_slash() {
             shape: None,
             facing: 1.0,
             damage: 4,
-            knockback_strength: 0.0,
-            knockback_growth: 0.0,
+            knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },
@@ -562,8 +582,7 @@ fn player_followowner_strike_without_a_swing_is_inert() {
             shape: None,
             facing: 1.0,
             damage: 4,
-            knockback_strength: 0.0,
-            knockback_growth: 0.0,
+            knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },

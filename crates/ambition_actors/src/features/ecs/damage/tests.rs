@@ -859,7 +859,7 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
         mode: HitMode::Knockback,
         knockback: Some(crate::features::HitKnockback {
             dir: 1.0,
-            strength: 1.0,
+            magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
             source_pos: ae::Vec2::new(-40.0, 0.0),
             impact_pos: ae::Vec2::ZERO,
             launch_dir: None,
@@ -1076,8 +1076,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
             shape: None,
             facing: 1.0,
             damage: 2,
-            knockback_strength: 0.0,
-            knockback_growth: 0.0,
+            knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },

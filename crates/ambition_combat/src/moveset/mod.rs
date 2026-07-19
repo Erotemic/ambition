@@ -438,10 +438,12 @@ pub fn advance_move_playback(
                             // damage rounds, knockback scales linearly. Both are
                             // identity at `charge_scale == 1.0` (parity).
                             damage: ((volume.damage as f32) * charge_scale).round() as i32,
-                            knockback_strength: volume.knockback * charge_scale,
-                            // CM1: the smash-percent growth term rides the volume
-                            // through to the victim-side scaling at overlap.
-                            knockback_growth: volume.kb_growth,
+                            knockback: ambition_vfx::HitboxKnockback::LaunchSpeed {
+                                base: volume.knockback * charge_scale,
+                                // CM1: the smash-percent growth term rides the volume
+                                // through to victim-side scaling at overlap.
+                                growth: volume.kb_growth,
+                            },
                             // CM1: the authored launch direction rides the
                             // volume through to the victim-side resolver.
                             launch_dir: volume.launch_dir.map(|(x, y)| ae::Vec2::new(x, y)),

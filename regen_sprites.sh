@@ -168,6 +168,7 @@ run_renderer_python() {
         elapsed=$((finished_at - started_at))
         if [ "$rc" -eq 0 ]; then
             echo "    [profile] finish $label (${elapsed}s) -> ${report_prefix}.lprof"
+            "$python_bin" "$repo_root/scripts/render_line_profiles.py" "${report_prefix}" || true
         else
             echo "    [profile] failed $label after ${elapsed}s (exit $rc)" >&2
         fi
@@ -176,6 +177,39 @@ run_renderer_python() {
         (cd "$renderer_dir" && "$python_bin" "$@")
     fi
 }
+
+
+# --- Readable line-profile reports -----------------------------------------
+# Per-phase profiling uses ``kernprof -o``, which intentionally writes only a
+# binary .lprof database. Convert databases created by this invocation to text
+# on normal exit and after Ctrl-C. The binary database remains the source of
+# truth and can still be reopened interactively.
+sprite_profile_marker=""
+finish_sprite_profile_reports() {
+    local status="$?"
+    trap - EXIT
+    if [ -n "$sprite_profile_marker" ]; then
+        "$python_bin" "$repo_root/scripts/render_line_profiles.py" \
+            --newer-than "$sprite_profile_marker" \
+            "$renderer_dir/.profiles" || true
+        rm -f "$sprite_profile_marker"
+    fi
+    exit "$status"
+}
+
+case "${LINE_PROFILE:-0}" in
+    ""|0|false|False|no|No|off|Off) ;;
+    *)
+        mkdir -p "$renderer_dir/.profiles"
+        sprite_profile_marker="$(mktemp "$renderer_dir/.profiles/.regen-start.XXXXXX")"
+        trap finish_sprite_profile_reports EXIT
+        ;;
+esac
+
+# A full regeneration emits hundreds of file paths. Preserve warnings and
+# target/animation progress while collapsing path-only output by default.
+export AMBITION_SPRITE_PROGRESS="${AMBITION_SPRITE_PROGRESS:-1}"
+export AMBITION_SPRITE_PATH_OUTPUT="${AMBITION_SPRITE_PATH_OUTPUT:-summary}"
 
 list_sprite_targets() {
     echo "==> registered sprite targets"

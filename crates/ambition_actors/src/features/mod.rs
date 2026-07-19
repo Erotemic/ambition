@@ -143,7 +143,8 @@ pub use ecs::{
     update_ecs_falling_chests, update_ecs_hazards, ActorSteering, BossClusterQueryData,
     BossClusterRef, BossClusterScratch, BossConfig, BossEncounter, BossMut, BossOverrides, BossRef,
     CanPilot, ControlGrant, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
-    FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, Limb,
+    FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback,
+    HitboxLifetime, Limb,
     LimbIntents, LimbRig, LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact, MountDied,
     MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge,
     PendingMountLinks, RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,
@@ -158,7 +159,8 @@ pub use enemies::{
 };
 pub use events::{
     ActorStimulus, FeatureCombatTuning, GameplayBanner, GameplayBannerRequested,
-    GameplaySfxRequested, HitEvent, HitKnockback, HitMode, HitSource, HitTarget,
+    GameplaySfxRequested, HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource,
+    HitTarget,
     NpcDialogueRequest, ResetRoomFeaturesEvent, RoomResetReason, SetFlagRequested,
 };
 pub use hazards::HazardRuntime;

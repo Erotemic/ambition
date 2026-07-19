@@ -118,3 +118,17 @@ can reproduce every committed asset**. To keep that true:
 - A refactor that breaks `regen_sprites.sh` / `regen_backgrounds.sh` /
   `regen_assets.sh` on a clean checkout is a regression, even if the committed
   assets still look fine.
+
+### Sprite regeneration progress and profiling
+
+Full sprite regeneration reports phase, target, and per-animation progress with
+elapsed time and a rolling ETA. Generated file paths are summarized by default;
+set `AMBITION_SPRITE_PATH_OUTPUT=full` to restore one-path-per-line output or
+`AMBITION_SPRITE_PROGRESS=0` to suppress animation progress.
+
+`LINE_PROFILE=1 ./regen_sprites.sh --force` stores one binary `.lprof` database
+per profiled phase under the renderer's `.profiles/regen-*` directory. The
+orchestrator also materializes a plain `.txt` report beside every database and a
+`profile-index.txt` summary. The EXIT sweep runs after an interruption as well,
+so a Ctrl-C profile remains immediately readable.
+

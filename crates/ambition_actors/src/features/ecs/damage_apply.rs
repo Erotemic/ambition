@@ -446,10 +446,15 @@ pub(crate) fn safe_respawn_player(
     vfx.write(VfxMessage::ResetEffects { from, to });
 }
 
-/// THE feel-tuned, frame-agnostic knockback velocity for ANY struck body
-/// (§A2 step 6): side away from the hit's source (falling back to the stored
-/// event dir, then away from facing), scaled by the per-source feel values and
-/// the hit's strength, launched with a rise against the body's gravity.
+/// THE frame-agnostic knockback velocity for ANY struck body (§A2 step 6):
+/// side away from the hit's source (falling back to the stored event dir, then
+/// away from facing), launched with a rise against the body's gravity.
+///
+/// `FeelScale` magnitudes preserve the standard per-source feel vector used by
+/// contact damage, hazards, and projectiles. `LaunchSpeed` magnitudes preserve
+/// the absolute engine-unit speed authored by melee move volumes. The latter is
+/// deliberately NOT multiplied by the feel vector: doing so was the goblin-hit
+/// teleport regression (`120 px/s` was interpreted as a `120x` multiplier).
 pub(crate) fn resolved_body_knockback_velocity(
     victim_pos: ae::Vec2,
     victim_facing: f32,
@@ -473,7 +478,6 @@ pub(crate) fn resolved_body_knockback_velocity(
     } else {
         knockback_dir.signum()
     };
-    let strength = knockback.map(|k| k.strength.max(0.0)).unwrap_or(0.0);
     let knock_x = if boss_hit {
         feel.boss_knockback_x
     } else {
@@ -484,23 +488,35 @@ pub(crate) fn resolved_body_knockback_velocity(
     } else {
         feel.enemy_knockback_y
     };
+    let magnitude = knockback
+        .map(|k| k.magnitude)
+        .unwrap_or(crate::combat::HitKnockbackMagnitude::FeelScale(0.0));
     // CM1: a volume-authored launch DIRECTION (smash-style fixed angles)
-    // replaces the default feel diagonal while preserving its SPEED — the
-    // authored vector is normalized (direction only), `x` mirrored by the
-    // away-from-source side sign, `y` positive = up against gravity. The
-    // magnitude invariant: an authored direction matching the default
-    // diagonal reproduces today's launch bit-for-bit in spirit — same
-    // frame, same `|v|` (`hypot(knock_x, knock_y) * strength`).
+    // replaces the default feel diagonal. Its magnitude is resolved according
+    // to the event's explicit unit: feel-scaled contacts preserve the standard
+    // feel speed, while authored melee preserves its absolute launch speed.
     let authored = knockback
         .and_then(|k| k.launch_dir)
         .filter(|ld| ld.length_squared() > 1e-6);
-    let local = match authored {
-        Some(ld) => {
+    let local = match (authored, magnitude) {
+        (Some(ld), crate::combat::HitKnockbackMagnitude::FeelScale(scale)) => {
             let n = ld.normalize();
-            let speed = ae::Vec2::new(knock_x, knock_y).length() * strength;
+            let speed = ae::Vec2::new(knock_x, knock_y).length() * scale.max(0.0);
             ae::Vec2::new(dir * n.x * speed, -n.y * speed)
         }
-        None => ae::Vec2::new(dir * knock_x * strength, -knock_y * strength),
+        (None, crate::combat::HitKnockbackMagnitude::FeelScale(scale)) => {
+            let scale = scale.max(0.0);
+            ae::Vec2::new(dir * knock_x * scale, -knock_y * scale)
+        }
+        (Some(ld), crate::combat::HitKnockbackMagnitude::LaunchSpeed(speed)) => {
+            let n = ld.normalize();
+            let speed = speed.max(0.0);
+            ae::Vec2::new(dir * n.x * speed, -n.y * speed)
+        }
+        (None, crate::combat::HitKnockbackMagnitude::LaunchSpeed(speed)) => {
+            let default_dir = ae::Vec2::new(dir * knock_x, -knock_y).normalize_or_zero();
+            default_dir * speed.max(0.0)
+        }
     };
     let launch = frame.to_world(local);
     // CM2: the victim's held input rotates its own launch, bounded by the
@@ -508,10 +524,25 @@ pub(crate) fn resolved_body_knockback_velocity(
     di_adjust(launch, di_input_local, gravity_dir, feel.di_max_angle)
 }
 
+/// Dimensionless hitstun scale for a unit-bearing knockback event.
+///
+/// A `FeelScale` explicitly scales the whole standard reaction, including
+/// hitstun. An absolute launch speed has no duration unit and therefore uses the
+/// standard hitstun duration rather than silently becoming another multiplier.
+fn knockback_reaction_scale(knockback: Option<&crate::combat::HitKnockback>) -> f32 {
+    let Some(knockback) = knockback else {
+        return 0.0;
+    };
+    match knockback.magnitude {
+        crate::combat::HitKnockbackMagnitude::FeelScale(scale) => scale.max(0.0),
+        crate::combat::HitKnockbackMagnitude::LaunchSpeed(_) => 1.0,
+    }
+}
+
 /// The ONE post-hit launch + stagger arming for ANY struck body (§A2 steps
 /// 6–7), called by the player's knockback path and the actor damage consumer:
-/// SET the resolved knockback velocity, then arm hitstun (strength- and
-/// source-scaled), the fixed recoil throw, and the hitstop beat. hit_flash +
+/// SET the resolved knockback velocity, then arm hitstun (feel-scaled and
+/// source-selected), the fixed recoil throw, and the hitstop beat. hit_flash +
 /// damage_invuln_timer are armed by `resolve_body_hit` before this runs —
 /// this owns only the launch + control-lock timers.
 pub(crate) fn apply_body_hit_reaction(
@@ -526,7 +557,7 @@ pub(crate) fn apply_body_hit_reaction(
     di_input_local: ae::Vec2,
     feel: SandboxFeelTuning,
 ) {
-    let strength = knockback.map(|k| k.strength.max(0.0)).unwrap_or(0.0);
+    let reaction_scale = knockback_reaction_scale(knockback);
     *vel = resolved_body_knockback_velocity(
         body_pos,
         body_facing,
@@ -540,7 +571,7 @@ pub(crate) fn apply_body_hit_reaction(
         feel.boss_hitstun_time
     } else {
         feel.enemy_hitstun_time
-    } * strength.max(0.35);
+    } * reaction_scale.max(0.35);
     // Brief hard control-lock at the front of the hitstun window: the body is
     // thrown with no authority, then regains the attack verb the instant it
     // clears (while still in hitstun + i-frames). Fixed-length — the recoil is a

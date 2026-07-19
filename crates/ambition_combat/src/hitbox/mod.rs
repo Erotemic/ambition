@@ -33,7 +33,9 @@ use ambition_engine_core::AabbExt;
 
 use super::components::ActorAggression;
 use super::components::ActorFaction;
-use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
+use super::events::{
+    HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
+};
 use super::targeting::{damage_lands, effective_faction};
 use super::util::midpoint;
 use crate::actor_faction_from_hit_side;
@@ -46,7 +48,34 @@ use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 // damage-box primitive). Re-exported here so `combat::hitbox::Hitbox`
 // (and `features::Hitbox`) paths are unchanged; the SYSTEMS below (damage
 // resolution, melee spawn, lifecycle) stay in the lib.
-pub use ambition_vfx::{HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
+pub use ambition_vfx::{
+    HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
+};
+
+/// Resolve a live hitbox's unit-bearing payload for one victim.
+///
+/// Feel multipliers pass through unchanged. Authored melee speed growth is
+/// evaluated here because it depends on the struck body's accumulated damage
+/// and weight; the resulting event no longer carries unresolved growth.
+fn resolved_hitbox_knockback_magnitude(
+    knockback: HitboxKnockback,
+    victim_damage_taken: i32,
+    victim_weight: f32,
+) -> HitKnockbackMagnitude {
+    match knockback {
+        HitboxKnockback::FeelScale(scale) => HitKnockbackMagnitude::FeelScale(scale.max(0.0)),
+        HitboxKnockback::LaunchSpeed { base, growth } => {
+            let launch_speed = crate::util::scaled_knockback(
+                base,
+                growth,
+                victim_damage_taken,
+                victim_weight,
+            )
+            .max(0.0);
+            HitKnockbackMagnitude::LaunchSpeed(launch_speed)
+        }
+    }
+}
 
 /// Apply each live hitbox's damage to the right faction's targets.
 ///
@@ -254,22 +283,17 @@ pub fn apply_hitbox_damage(
                     } else {
                         -1.0
                     };
-                    // CM1: fold the smash-percent growth term onto the flat
-                    // knockback using THIS victim's accumulated damage + weight.
-                    // `growth == 0` (every un-authored volume) returns the flat
-                    // strength unchanged — parity by construction.
-                    let victim_damage_taken = victim_health.map(|h| h.damage_taken()).unwrap_or(0);
+                    let victim_damage_taken =
+                        victim_health.map(|h| h.damage_taken()).unwrap_or(0);
                     let victim_weight = victim_tuning.map(|ct| ct.weight).unwrap_or(1.0);
-                    let strength = crate::util::scaled_knockback(
-                        hitbox.knockback_strength,
-                        hitbox.knockback_growth,
+                    let magnitude = resolved_hitbox_knockback_magnitude(
+                        hitbox.knockback,
                         victim_damage_taken,
                         victim_weight,
-                    )
-                    .max(0.0);
+                    );
                     let knockback = Some(HitKnockback {
                         dir,
-                        strength,
+                        magnitude,
                         source_pos: owner_pos,
                         impact_pos: impact,
                         // CM1: the authored launch angle rides through to the
@@ -314,7 +338,7 @@ pub fn apply_hitbox_damage(
                 // whatever frame it reaches the target), deduped per-swing via the
                 // owner's accumulating `MeleeSwing.hit_targets` (the universal
                 // resolver folds landed keys back in). Melee knockback rides the
-                // moveset volume's `knockback_strength`/`launch_dir`, so the slash
+                // moveset volume's authored launch speed / `launch_dir`, so the slash
                 // event carries no signed impulse. No swing armed ⇒ no strike.
                 HitboxAnchor::FollowOwner { .. } => {
                     let Some(swing) = melee_owners

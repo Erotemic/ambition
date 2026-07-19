@@ -313,6 +313,54 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
 }
 
 #[test]
+fn goblin_melee_knockback_is_an_absolute_launch_speed() {
+    let feel = SandboxFeelTuning::default();
+    let victim_pos = ae::Vec2::new(100.0, 200.0);
+    let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0);
+    let knockback = crate::combat::HitKnockback {
+        dir: 1.0,
+        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
+        source_pos,
+        impact_pos: victim_pos,
+        launch_dir: None,
+    };
+
+    let vel = resolved_body_knockback_velocity(
+        victim_pos,
+        1.0,
+        DOWN,
+        false,
+        Some(&knockback),
+        ae::Vec2::ZERO,
+        feel,
+    );
+
+    assert!(
+        (vel.length() - 120.0).abs() < 1e-3,
+        "an authored 120 px/s goblin melee launch must remain 120 px/s, not become a 120x feel multiplier: {vel:?}"
+    );
+    assert!(vel.x > 0.0 && vel.y < 0.0, "launch stays up-and-away: {vel:?}");
+}
+
+#[test]
+fn absolute_launch_speed_does_not_scale_hitstun_as_a_bare_number() {
+    let knockback = crate::combat::HitKnockback {
+        dir: 1.0,
+        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
+        source_pos: ae::Vec2::ZERO,
+        impact_pos: ae::Vec2::ZERO,
+        launch_dir: None,
+    };
+    assert_eq!(knockback_reaction_scale(Some(&knockback)), 1.0);
+
+    let scaled = crate::combat::HitKnockback {
+        magnitude: crate::combat::HitKnockbackMagnitude::FeelScale(0.6),
+        ..knockback
+    };
+    assert_eq!(knockback_reaction_scale(Some(&scaled)), 0.6);
+}
+
+#[test]
 fn knockback_impulse_is_frame_equivalent() {
     let feel = SandboxFeelTuning::default();
     let local_expected = ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y);
@@ -327,7 +375,7 @@ fn knockback_impulse_is_frame_equivalent() {
         let source_pos = victim_pos - frame.side * 40.0;
         let knockback = crate::combat::HitKnockback {
             dir: 0.0,
-            strength: 1.0,
+            magnitude: crate::combat::HitKnockbackMagnitude::FeelScale(1.0),
             source_pos,
             impact_pos: victim_pos,
             launch_dir: None,
@@ -376,17 +424,15 @@ fn scaled_knockback_grows_with_damage_and_divides_by_weight() {
 }
 
 #[test]
-fn scaled_knockback_conjugates_under_rotated_gravity() {
-    // C4: a growth-scaled hit under rotated gravity produces the conjugated
-    // trajectory — the scalar scaling is frame-agnostic, so the resolved
-    // velocity stays identical in the victim's local frame under every
-    // gravity, exactly like the flat case.
+fn scaled_launch_speed_conjugates_under_rotated_gravity() {
+    // C4: a growth-scaled authored speed under rotated gravity produces the
+    // conjugated trajectory. The speed remains an engine-unit magnitude; only
+    // the local launch direction rotates with gravity.
     let feel = SandboxFeelTuning::default();
-    let strength = scaled_knockback(1.0, 0.05, 80, 1.25); // == 4.2
-    let local_expected = ae::Vec2::new(
-        feel.enemy_knockback_x * strength,
-        -feel.enemy_knockback_y * strength,
-    );
+    let launch_speed = scaled_knockback(100.0, 2.0, 30, 2.0); // == 130 px/s
+    let default_dir =
+        ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y).normalize();
+    let local_expected = default_dir * launch_speed;
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     for gravity_dir in [
         ae::Vec2::new(0.0, 1.0),
@@ -398,7 +444,7 @@ fn scaled_knockback_conjugates_under_rotated_gravity() {
         let source_pos = victim_pos - frame.side * 40.0;
         let knockback = crate::combat::HitKnockback {
             dir: 0.0,
-            strength,
+            magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(launch_speed),
             source_pos,
             impact_pos: victim_pos,
             launch_dir: None,
@@ -415,7 +461,7 @@ fn scaled_knockback_conjugates_under_rotated_gravity() {
         let local_vel = ae::Vec2::new(vel.dot(frame.side), vel.dot(frame.down));
         assert!(
             (local_vel - local_expected).length() < 1e-3,
-            "growth-scaled knockback must conjugate for {gravity_dir:?}: {local_vel:?}"
+            "growth-scaled launch speed must conjugate for {gravity_dir:?}: {local_vel:?}"
         );
     }
 }
@@ -423,17 +469,17 @@ fn scaled_knockback_conjugates_under_rotated_gravity() {
 // --- CM1: the authored launch DIRECTION (smash-style fixed angles) ---
 
 #[test]
-fn authored_launch_dir_sets_the_angle_and_keeps_the_default_speed() {
+fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
     let feel = SandboxFeelTuning::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let down = ae::Vec2::new(0.0, 1.0);
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0); // hit from local left
-    let default_speed = ae::Vec2::new(feel.enemy_knockback_x, feel.enemy_knockback_y).length();
+    let authored_speed = 120.0;
 
     // A pure up-launcher: (0, 1) launches straight against gravity.
     let up = crate::combat::HitKnockback {
         dir: 0.0,
-        strength: 1.0,
+        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
         source_pos,
         impact_pos: victim_pos,
         launch_dir: Some(ae::Vec2::new(0.0, 1.0)),
@@ -452,15 +498,15 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_default_speed() {
         "a (0,1) launcher throws straight up (world -y): {vel:?}"
     );
     assert!(
-        (vel.length() - default_speed).abs() < 1e-3,
-        "the authored angle keeps the feel-tuned SPEED: |{vel:?}| vs {default_speed}"
+        (vel.length() - authored_speed).abs() < 1e-3,
+        "the authored angle keeps the authored SPEED: |{vel:?}| vs {authored_speed}"
     );
 
     // The lateral component mirrors to point AWAY from the source: hit
     // from the left ⇒ positive local x ⇒ world +x.
     let diag = crate::combat::HitKnockback {
         dir: 0.0,
-        strength: 1.0,
+        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
         source_pos,
         impact_pos: victim_pos,
         launch_dir: Some(ae::Vec2::new(1.0, 1.0)),
@@ -505,7 +551,7 @@ fn authored_launch_dir_conjugates_under_rotated_gravity() {
     // gravity — the same conjugation invariant the flat + growth paths pin.
     let feel = SandboxFeelTuning::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
-    let speed = ae::Vec2::new(feel.enemy_knockback_x, feel.enemy_knockback_y).length();
+    let speed = 120.0;
     let n = ae::Vec2::new(0.6, 0.8); // already unit-length
     let local_expected = ae::Vec2::new(n.x * speed, -n.y * speed);
     for gravity_dir in [
@@ -518,7 +564,7 @@ fn authored_launch_dir_conjugates_under_rotated_gravity() {
         let source_pos = victim_pos - frame.side * 40.0;
         let knockback = crate::combat::HitKnockback {
             dir: 0.0,
-            strength: 1.0,
+            magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(speed),
             source_pos,
             impact_pos: victim_pos,
             launch_dir: Some(n),
@@ -550,7 +596,7 @@ fn zero_length_launch_dir_falls_back_to_the_default_diagonal() {
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0);
     let base = crate::combat::HitKnockback {
         dir: 0.0,
-        strength: 1.0,
+        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
         source_pos,
         impact_pos: victim_pos,
         launch_dir: None,

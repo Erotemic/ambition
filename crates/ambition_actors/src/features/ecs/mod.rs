@@ -136,7 +136,7 @@ pub use hazards::update_ecs_hazards;
 pub use held_items::HeldItem;
 pub use hitbox::{
     apply_hitbox_damage, tick_and_despawn_hitboxes, Hitbox, HitboxAnchor, HitboxHits,
-    HitboxLifetime,
+    HitboxKnockback, HitboxLifetime,
 };
 pub use interact::interact_ecs_actors_and_switches;
 pub use mount::{

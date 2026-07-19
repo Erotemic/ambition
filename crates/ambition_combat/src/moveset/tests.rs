@@ -729,7 +729,14 @@ fn a_charged_release_scales_the_spawned_hitbox() {
             .iter(app.world())
             .next()
             .expect("the active window spawns the volume");
-        (hb.damage, hb.knockback_strength)
+        let knockback = match hb.knockback {
+            ambition_vfx::HitboxKnockback::LaunchSpeed { base, growth } => {
+                assert_eq!(growth, 0.0, "charge fixture authors no growth");
+                base
+            }
+            other => panic!("moveset melee must author a launch speed, got {other:?}"),
+        };
+        (hb.damage, knockback)
     };
     // Parity: unit mult leaves the authored values exactly.
     assert_eq!(read(1.0), (5, 100.0));

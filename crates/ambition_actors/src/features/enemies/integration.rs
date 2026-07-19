@@ -507,7 +507,7 @@ impl ContactAttack {
             mode: HitMode::Knockback,
             knockback: Some(HitKnockback {
                 dir,
-                strength: self.strength,
+                magnitude: HitKnockbackMagnitude::FeelScale(self.strength),
                 source_pos: self.source_pos,
                 impact_pos: impact,
                 launch_dir: None,

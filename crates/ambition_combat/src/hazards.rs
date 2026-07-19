@@ -144,7 +144,7 @@ pub fn update_ecs_hazards(
                 mode: hazard.mode,
                 knockback: Some(HitKnockback {
                     dir: knockback_dir,
-                    strength: 1.0,
+                    magnitude: HitKnockbackMagnitude::FeelScale(1.0),
                     source_pos: hazard.pos,
                     impact_pos: pos,
                     launch_dir: None,

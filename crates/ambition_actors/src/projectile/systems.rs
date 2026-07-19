@@ -14,7 +14,7 @@ use crate::actor::BodyKinematics;
 use crate::features::{
     can_damage, damage_lands, ActorAggression, ActorDisposition, ActorFaction, BossClusterRef,
     BossConfig, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity, HitEvent,
-    HitKnockback, HitMode, HitSource, HitTarget,
+    HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
 };
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
@@ -651,7 +651,7 @@ pub fn step_projectiles(
                     mode: HitMode::Knockback,
                     knockback: Some(HitKnockback {
                         dir: knock_dir,
-                        strength: 0.85,
+                        magnitude: HitKnockbackMagnitude::FeelScale(0.85),
                         source_pos: kin.pos,
                         impact_pos,
                         launch_dir: None,

@@ -54,6 +54,23 @@ pub enum HitMode {
     SafeRespawn,
 }
 
+/// Unit-bearing magnitude for a [`HitKnockback`].
+///
+/// Contact damage, world damage boxes, hazards, and projectiles tune a
+/// multiplier over the struck body's standard feel vector. Authored melee
+/// volumes instead store an absolute launch speed in engine units (pixels
+/// per second). Keeping these meanings in separate variants prevents an
+/// authored value such as `120.0 px/s` from being
+/// misread as a `120x` feel multiplier.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum HitKnockbackMagnitude {
+    /// Dimensionless multiplier over the victim's standard feel-tuned launch.
+    /// `1.0` is the standard enemy or boss reaction.
+    FeelScale(f32),
+    /// Absolute launch speed in engine units (pixels per second).
+    LaunchSpeed(f32),
+}
+
 /// Knockback impulse carried by a `HitEvent`. Producers fill this on
 /// hits that should push the victim around (enemy melee, enemy
 /// projectile, boss swing); leave `None` for impulse-free hits
@@ -62,8 +79,8 @@ pub enum HitMode {
 pub struct HitKnockback {
     /// Horizontal impulse direction (±1).
     pub dir: f32,
-    /// Strength multiplier. 1.0 is "standard".
-    pub strength: f32,
+    /// Unit-bearing launch magnitude. Never pass an untyped authored scalar.
+    pub magnitude: HitKnockbackMagnitude,
     /// World-space attacker position — used for VFX direction.
     pub source_pos: ae::Vec2,
     /// World-space impact position — used for VFX position.

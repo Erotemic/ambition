@@ -232,14 +232,14 @@ pub(crate) fn apply_actor_hit(
         // `local.y - 90 max -280` pop. The data comes from the event's
         // `HitKnockback` (attached by hitboxes / body-contact / hazards); a
         // slash carries its impulse as `knock_x`, folded into the same
-        // resolution as a dir + standard strength. A hit with neither leaves
+        // resolution as a dir + standard feel scale. A hit with neither leaves
         // the velocity alone (as before).
         let knockback = match (&event.source, event.knockback.as_ref()) {
             (_, Some(k)) => Some(k.clone()),
             (HitSource::PlayerSlash { knock_x }, None) if *knock_x != 0.0 => {
                 Some(crate::features::HitKnockback {
                     dir: knock_x.signum(),
-                    strength: 1.0,
+                    magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
                     source_pos: event.volume.center(),
                     impact_pos: event.volume.center(),
                     launch_dir: None,

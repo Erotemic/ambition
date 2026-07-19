@@ -63,13 +63,19 @@ DENY_EXACT = {
 DENY_PREFIX = ("android", "web", "visible_web", "static_")
 
 # Big composition crates whose only non-default headless-safe features gate NO
-# test code (verified: app's portal_ldtk/profile, actors' profile, host, menu,
+# test code (verified: app's portal_ldtk/profile, actors' profile, menu,
 # runtime). A feature job for them recompiles the entire Bevy/ambition graph in
 # a fresh feature-variant -- tens of GB of target artifacts -- for zero added
 # coverage (their real tests already run in the `--workspace` backbone). Skip
 # them. Every other crate's feature job unlocks tests, so it stays.
+#
+# RULE: adding a `#[cfg(feature = ...)]` test to a skipped crate must remove
+# the skip in the same commit -- a stale entry here silently un-runs tests.
+# ambition_host left this set 2026-07-19: its portal_render seam tests are
+# feature-gated, and the portal feature now forwards ambition_runtime/portal
+# so the composition is complete.
 SKIP_FEATURE_JOB = {
-    "ambition_app", "ambition_actors", "ambition_host",
+    "ambition_app", "ambition_actors",
     "ambition_menu", "ambition_runtime",
 }
 

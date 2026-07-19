@@ -33,8 +33,15 @@ input = [
     "ambition_sim_view/input",
     "dep:leafwing-input-manager",
 ]
-# Portal camera-continuity wiring inside HostCameraPlugin.
-portal = ["dep:ambition_portal"]
+# Portal camera-continuity wiring inside HostCameraPlugin. Forwards the
+# runtime's portal feature: host portal wiring is meaningless without the
+# portal sim, and `PlatformerEnginePlugins` (which every host composition
+# installs) only registers `PortalPlugin` + its messages under
+# `ambition_runtime/portal`. The facade already co-forwards the pair at the
+# composition root; this states the same truth for host-standalone graphs, so
+# `cargo test -p ambition_host --features portal_render` composes a complete
+# sim instead of panicking on unregistered portal messages.
+portal = ["dep:ambition_portal", "ambition_runtime/portal"]
 portal_render = [
     "portal",
     "dep:ambition_portal_presentation",

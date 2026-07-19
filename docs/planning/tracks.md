@@ -18,6 +18,74 @@ falling-sand solver correctness pass (pooling/termination — Jon: "getting
 falling sand to work right is part of the engine"); boss-fight *quality*
 grammar beyond validation (boss-design.md's open iteration loop).
 
+## ★ EXECUTION WAVE 1 (GPT-dialog keystones, 2026-07-19) — runs FIRST
+
+The GPT 5.6 dialog converged on six keystone initiatives; framing and full
+cards live in [`../reviews/fable-reply-2026-07-19-c.md`](../reviews/fable-reply-2026-07-19-c.md) §2
+with mechanism corrections in [`-d`](../reviews/fable-reply-2026-07-19-d.md) —
+this section is the bounded first wave, not a restatement. Vocabulary note
+(Jon): feature bundles are "app configurations", never "personas".
+
+**Immediate correctness** — [opus, fable-specced]
+- ✅ Damage-multiplier semantics (`5148b4820`): incoming = difficulty ×
+  assist only; slider scales outgoing. OPEN follow-up: apply the outgoing
+  scale to melee through ONE attacker seam (investigate the misnamed
+  `offense.damage_multiplier: i32` cluster field first — it holds melee
+  base damage, not a multiplier).
+- ✅ Keyboard-preset authority (`b10e45fbb`): `UserSettings.controls
+  .keyboard_preset_index` is the one source; `SandboxDevState.preset_index`
+  DELETED (it had no writer — the picker was a no-op).
+- ✅ Portal composition + gate (`e4edd4acb`): host `portal` forwards
+  `ambition_runtime/portal`; `demo_shell_smoke` 6/6 under `portal_render`;
+  host un-skipped in the runner.
+- ⏸ **Assist semantics — PENDING Jon.** UI says aim/traversal; code halves
+  incoming damage. Pick: honest rename / honest behavior (remove the
+  halving, build real assists later) / split into two settings. Do NOT
+  guess.
+- ▢ One external-effect quarantine slice (Track 1's map; copy the
+  `gameplay_trace` authoritative-pass pattern; a vertical slice, not the
+  whole exposure map).
+
+**Keystone slices**
+- ▢ **K1a movement tuning** [fable-specced, opus-executable]: sim systems
+  consume neutral `ambition_engine_core::MovementTuning` (exists) via a
+  runtime-owned resource; `EditableMovementTuning` becomes an editor
+  adapter writing through an explicit seam; live-edit propagation test.
+  Static exit: NO simulation system imports or accepts
+  `EditableMovementTuning`. (Deleting the `ambition_dev_tools` dep from
+  actors/runtime is the LATER K1 completion criterion — dev state, ability
+  editing, schedule sets, profiling hooks all still bind it.)
+- ▢ **K2a world-manifest parameterization** [opus]: preparation owns a
+  `WorldManifest`; the ~13 reader sites (incl. plugin-build + pre-App
+  paths — a singleton `Res` canNOT serve them) take `&WorldManifest`;
+  DELETE the `OnceLock`, installer, and baked-in test fixture. Oracle: two
+  providers prepare different manifests in one process.
+- ▢ **K2b direct-entry activation** [opus]: route direct entry through the
+  EXISTING `activate_prepared_platformer_sessions` /
+  `PlatformerSessionBuilder` (no neighboring API). Oracle: the hand-built
+  `SessionRoot` at `app/resources.rs:301` is deleted.
+
+**Bounded hygiene** — [sonnet unless noted]
+- ▢ Sequester the rollback inventory smoke → `tests/ambition_agent_guardrails/`
+  (shape: fable-reply-2026-07-19-b.md §4; widen population by the static
+  `BodyKinematics` filter, rename `rollback_inventory_smoke`, honest
+  docstring). Runs only in the full gate by construction.
+- ▢ Kill the vacuous projectile-anchor `.all()` (`desync_canary.rs:142`)
+  + ONE strong mutable-state rewind canary. No scenario matrix — the old
+  Track-0 exit list is opportunity, not contract.
+- ▢ Base-SHA/overlap landing rule into existing agent instructions (doc
+  only; a script waits for a second incident).
+- ▢ The ONE deletion-heavy docs pass (tracks→open cards; smells refiled
+  both directions; AGENTS ONE-BODY map extracted; archive provenance
+  writer+validator; `run_source_analysis.sh`; reviews README) — then STOP.
+
+**Design-before-code**
+- ▢ Cutscene authority (model 1): write the semantic-playback state shape
+  (beat index, deterministic elapsed, advance/skip edges through
+  participant input) vs derived presentation FIRST; hold-to-skip stays a
+  local accumulator, only the completed edge crosses. Frame-mode transport:
+  Option A (modes ride `ControlFrame`). Then implement.
+
 ## 0. Pay down the GGRS correctness debt — **LARGELY LANDED 2026-07-19**
 
 Spec: deep-review §2. Landed:

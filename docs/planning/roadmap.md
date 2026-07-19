@@ -19,8 +19,8 @@ content crate without editing core?
 - **P3 — complete external-game proofs:** current product priority. Finish one
   complete headless/visible Super Mary-O level and one complete Sanic act without
   engine exceptions.
-- **P4 — richer mechanics and second consumers:** active in parallel through
-  encounter lifecycle convergence; later customers include Super Smash Siblings
+- **P4 — richer mechanics and second consumers:** encounter lifecycle
+  convergence closed 2026-07-16; later customers include Super Smash Siblings
   and Hollow Lite. Real second consumers decide menu or other crate boundaries.
 - **P5 — rollback and broader generalization:** GGRS/bevy_ggrs now drive the
   real simulation harness and the custom rollback engine is gone. Production
@@ -47,16 +47,15 @@ owned by GGRS (ADR 0027).
 Ambition-the-game remains the first customer throughout; it consumes capabilities
 rather than defining exceptions inside reusable crates.
 
-### Immediate room-loading integration
+### Immediate room-loading integration — LANDED 2026-07-17
 
-[`engine/room-transition-loading.md`](engine/room-transition-loading.md) is the
-first major room-lifecycle customer of that campaign. Ordinary transitions must
-use the existing load coordinator instead of mutating directly: the source room
-remains authoritative until target readiness, fast loads stay inside hidden
-grace, expensive commits occur behind an already-rendered transition cover, and
-only perceptibly slow loads reveal a loading foreground. The plan also removes
-the accidental shell-route coupling from generic loading presentation and turns
-neighbor prewarming into concrete promotable work.
+[`engine/room-transition-loading.md`](engine/room-transition-loading.md)'s
+Phases 1–4 executed: ordinary transitions mint a real readiness barrier through
+the load coordinator, the source room stays authoritative until one-shot
+commit, presentation is contributor-neutral (`LoadPresentationCommand` + shell
+adapter), and neighbor prefetch with promotion is concrete. Remaining: Phase 6
+performance closure; full canonical-plan convergence rides the provenance
+track.
 
 ## Current critical path
 

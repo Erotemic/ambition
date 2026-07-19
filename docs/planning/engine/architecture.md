@@ -189,10 +189,11 @@ teardown; the resource type does not independently encode a session ID.
 A provider-installed session-teardown pass resets the remaining active-session
 resource mirrors when the scope retires, so no stale mirror or dangling handle
 survives into the next activation. No compatibility handle bag was retained.
-Atomic replacement of the live room is also landed: restore stages the snapshot's
-room through canonical construction, rebuilds provider/content-authored occupants,
-and then reconciles registered state. See [`netcode.md`](netcode.md) for the exact
-supported boundary and remaining dynamic-family recipes.
+(Updated 2026-07-19 for ADR 0027: the former snapshot-restore room-staging
+runtime is deleted — GGRS rewinds the ECS world directly. What survives is the
+canonical-construction discipline itself: startup, reset, ordinary transition,
+LDtk hot reload, and reconstruction all execute one `RoomConstructionPlan`
+artifact. See [`netcode.md`](netcode.md) for the exact supported boundary.)
 
 ## 6. World and geometry rules
 

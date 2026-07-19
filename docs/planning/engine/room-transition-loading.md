@@ -1,6 +1,15 @@
 # Adaptive room-transition loading
 
-**Status:** OPEN planning document
+**Status:** LARGELY EXECUTED — needs rewrite (2026-07-19 deep review). Phases
+1–4 and part of 5 landed 2026-07-17 (`1749bd5c5`…`109f0240d`): transitions mint
+a real `LoadBarrierRef` (`room_transition_loading.rs:320`), `LoadBarrierRef`
+moved into `ambition_load`, `LoadPresentationCommand` + shell adapter exist,
+and concrete neighbor prefetch with promotion landed. The "Current
+source-backed gap" section below describes the PRE-07-17 state and is inverted
+at HEAD (`RoomStaging` no longer exists). Open work: Phase 6 performance
+closure and full Phase 5 canonical-plan convergence (now tied to the
+provenance track). Rewriting this doc to current-architecture shape is queued
+in `tracks.md` Parallel maintenance.
 
 **Assumption:** the action/control P3 migration is owned by another active
 campaign. This plan does not reopen that work.

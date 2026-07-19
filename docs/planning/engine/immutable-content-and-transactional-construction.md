@@ -379,6 +379,12 @@ identity, not merely a routing identity.
 
 ### 7.5 Supported restore is not yet a general rollback contract
 
+> **Superseded framing (2026-07-19):** this subsection and §7.6/Phase 5 predate
+> ADR 0027 — the custom snapshot substrate and its debt ledgers are DELETED;
+> GGRS owns rollback. The surviving obligations moved to `tracks.md` #0
+> (registration-coverage forcing function) and #5 (provenance/recipes). Read
+> Phase 5 as historical; a rewrite is queued in Parallel maintenance.
+
 The snapshot substrate is strong, but known component/resource debt still needs
 classification, dynamic families vary in rebuildability, and some decode failures
 can occur after mutation begins. This campaign prepares the construction and

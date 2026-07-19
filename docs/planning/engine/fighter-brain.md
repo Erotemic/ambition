@@ -1,5 +1,13 @@
 # The Advanced Fighter Brain — a level-9 CPU that doesn't cheat
 
+> **FB6 is UNIMPLEMENTABLE as written (2026-07-19).** Every FB6 reference to
+> "the snapshot seam", "netcode N3.1", and `snapshot.take/restore` names the
+> custom rollback engine that ADR 0027 DELETED — GGRS/bevy_ggrs is the sole
+> rollback authority now, and it snapshots the live world, not a scratch one.
+> `tracks.md` #6 [fable] owns the redesign (fixed work budget, and a rollout
+> state built solely from allowed `Perceived` facts). FB1–FB5 below remain
+> accurate and verified against source. Do not implement FB6 from this text.
+
 **Authored by fable, 2026-07-05.** The plan for an opponent that plays like
 a top-level Smash CPU while obeying the same constraints as a human: it
 reads only what a player could know, acts only through the controller seam,

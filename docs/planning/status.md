@@ -1,8 +1,9 @@
 # HEAD status
 
-Audited 2026-07-18 against the current source tree. This page records the live
-state and current work; completed execution narratives belong in git history or
-`docs/archive/`.
+Audited 2026-07-18 against the current source tree; amended 2026-07-19 by the
+deep review ([`../archive/reviews/deep-review-2026-07-19.md`](../archive/reviews/deep-review-2026-07-19.md)).
+This page records the live state and current work; completed execution
+narratives belong in git history or `docs/archive/`.
 
 ## Closed architecture campaign
 
@@ -29,11 +30,12 @@ These are foundations to preserve, not active decomposition tracks.
 
 | Workstream | Current state | What closes it |
 |---|---|---|
+| GGRS correctness debt + effect quarantine | **OPEN (2026-07-19 deep review).** The registration set is comprehensive but has enumerated exceptions (unregistered sim-mutated state, cloned `live_boxes`, sim-scheduled `Local` state, two order-determinism holes), the deleted debt census left no coverage forcing function, and audio/VFX/persistence effects re-fire on resimulation (only `gameplay_trace` is quarantined correctly). A stale-base "Sprite work" commit also reverted two same-day FIX commits — re-fixed same day. | tracks #0 (debt) and #1 (quarantine); evidence in the deep-review doc §§1–3. |
 | Encounter lifecycle convergence | **DONE (2026-07-16).** One command/lifecycle/objective authority (`EncounterLifecycle` + reducer + `EncounterCommand` ingress); ownership/policy-driven cleanup; `SimId::encounter` + snapshot-registered relations; consumers derive from lifecycle + staging policy; the Noether attunement is the shipped non-boss customer. E8–E13 all closed with exit tests in [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md). | — closed; residual boss-owned pieces (outro-gated persistence, reward anchors, adaptive music) recorded there as actor-local/authored policy. |
 | GGRS rollback integration | **DONE for the simulation harness (2026-07-18).** `ggrs`/`bevy_ggrs` now own frame history, save/load requests, rollback entity recreation, entity remapping, resimulation, and sync-test checksum comparison. The custom `ambition_runtime::snapshot` engine, restore transaction, coverage debt ledgers, and compatibility facade are deleted. The real `SandboxSim` can run under `SyncTestSession`, exact prepared-content/schema identity invalidates active sessions, and representative actor/projectile/encounter churn is exercised through real GGRS loads. ADR 0027 records the replacement. | Production online boundary: confirmed-frame quarantine for presentation/external effects, then a Matchbox-backed two-peer handshake through the same session seam. |
 | Immutable prepared content and exact session identity | **DONE (2026-07-18).** Provider preparation validates and deterministically assembles one immutable `PreparedContent`; canonical roots own the exact object, fingerprint/schema identity, and App-local epoch. The identity now binds GGRS session startup rather than an Ambition-owned snapshot format. LDtk replacement is rejected while a rollback session is active and requires a coordinated restart. ADRs 0026–0027 record the contract. | Closed. Next world-construction milestone: explicit provenance plus one authored/staged/runtime-dynamic `ConstructionPlan` vertical slice. |
 | Super Mary-O acceptance | **PARTIAL, engine seams proven.** Pickups/equip, grown form, ranged powerup, bricks, crony stomp behavior, flag sequence, clock, tally, and cyclic restart exist. | Secret pipe/underground room, shell prop, HUD/title/results, and one deterministic scripted level-1 completion that collects and uses a real powerup. |
-| Sanic acceptance | **PARTIAL, movement and host seams proven.** Provider-owned persona, standard keyboard→slot→brain→body control, ball dash, transformation, lifecycle, and route/momentum oracles exist. | Bits/drop-on-hit, at least one complete enemy/contact loop, goal/HUD/results, a complete act, and a headless high-route-versus-low-route completion oracle. |
+| Sanic acceptance | **PARTIAL, movement/host seams proven; corrected 2026-07-19.** Persona, control chain, ball dash, transformation, lifecycle, route/momentum oracles, the ring economy, AND the badnik enemy loop exist. | See the single-source remaining list in [`demos/sanic.md`](demos/sanic.md): drop-on-hit scatter, goal/HUD/results, a complete act, the high-route oracle. |
 | Fighter-brain L3 rollouts | **DESIGN CORRECTION REQUIRED.** The current proposal combines a wall-clock budget with deterministic authoritative simulation and proposes rollouts from a live snapshot despite the delayed `Perceived` contract. | Choose a deterministic work budget or recorded-input model, and define a rollout state built only from allowed perceived facts before implementation. |
 | Boss animator residue | **BOUNDED.** The execution/body path is converged; remaining residue is animation vocabulary/projection (`BossAnim`→`CharacterAnim`, obsolete target mirrors where still live). | Complete the bounded animator fold. Do not reopen the already-shared body integration path. |
 

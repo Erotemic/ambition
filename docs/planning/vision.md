@@ -70,11 +70,16 @@ becomes engine work.
 
 ## 3. What "1.0" looks like (the goal state)
 
-- The crate map of `engine/architecture.md` is REAL: `ambition_actors`
-  no longer exists as a monolith; every crate is a well-scoped domain a small
-  agent can navigate and modify safely. **This is the absolute highest
-  priority** — extensibility, pluggability, and agent navigation come from
-  the decomposition ([`engine/decomposition.md`](engine/decomposition.md)).
+- The crate map of `engine/architecture.md` is REAL: every crate is a
+  well-scoped domain a small agent can navigate and modify safely.
+  **Extensibility, pluggability, and agent navigation remain the highest
+  priority** — but the mechanism changed as the decomposition landed: the
+  2026-07-16 recon settled that there is **no further size-driven
+  `ambition_actors` carve** ([`engine/decomposition.md`](engine/decomposition.md)
+  "Settled ruling"); what remains is **role-driven eviction** — misplaced
+  product/presentation/observation code leaves the sim heart through the
+  open seams (the `ControlPrompt` inversion pattern), and navigability below
+  crate level comes from module ownership + the generated `.agent` maps.
 - All four named demos exist and pass the oracle; the ambition sandbox can
   host each demo in-world (§5).
 - The collision doctrine of

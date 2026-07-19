@@ -1,6 +1,10 @@
 # Shell vanity sequence — animated startup card, and the frontend polish it unlocks
 
-Status: **planned, not started** (2026-07-19). Author: Opus 4.8.
+Status: **EXECUTED same day** (corrected by the 2026-07-19 deep review): VC1–VC4
+and VC6 landed hours after this doc was written (`4969e3e76`, `bba19fb58` —
+`ShellSequenceFrame`, `image_sequence_timed`, committed `vanity_card.ron`,
+pointer/touch menu activation). Only **VC5 (`ShellFadeIn`) remains open**;
+archive this doc when it lands. Author: Opus 4.8.
 Owner surface: `ambition_game_shell` (presentation), `ambition_menu` (pointer
 input), `tools/vanity_card_prep` (asset export).
 

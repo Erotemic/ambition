@@ -122,8 +122,9 @@ adapters re-resolve — including healing a restore-nulled cache by id
 (`update_encounter_progress` / the wave liveness refresh), and the boss wrap's
 coverage check matches by id as well as entity so a restore never double-wraps.
 `EncounterProgress` is declared derived; `Encounter` / `EncounterObjective` /
-`EncounterDef` are reviewed authored-config debt
-(`known_component_debt.txt`). The command/event channels are registered (a
+`EncounterDef` were reviewed authored-config debt in the pre-GGRS census (the
+`known_component_debt.txt` ledger was deleted with the snapshot engine,
+ADR 0027). The command/event channels are registered (a
 pending Start replayed after a restore would double-apply).
 
 ### 5. Consumer convergence — ✅ LANDED (E12)
@@ -224,10 +225,15 @@ policy is consulted, not just the enum.
 
 ### E11 — stable identity and snapshot registration — ✅ DONE
 
-**Exit met:** `ambition_runtime::snapshot::tests::restore_preserves_an_active_encounter`
-takes a mid-fight authority (Active phase, elapsed time, two signals, a
-dead-but-retained spawned relation + an adopted one, a mid-wave run), wrecks
-it, restores it, and asserts every field — with `entity: None` proving handles
+**Exit met** (evidence updated 2026-07-19: the cited test was deleted with the
+custom snapshot engine, ADR 0027 — the invariant now lives in the GGRS
+registration, see "Encounter authority (E11)" in
+`crates/ambition_runtime/src/rollback/codecs.rs`, exercised by the desync-canary
+suite). The original proof, preserved here as history:
+`ambition_runtime::snapshot::tests::restore_preserves_an_active_encounter`
+took a mid-fight authority (Active phase, elapsed time, two signals, a
+dead-but-retained spawned relation + an adopted one, a mid-wave run), wrecked
+it, restored it, and asserted every field — with `entity: None` proving handles
 are re-resolved, never serialized. The desync canary's restore-replay oracle
 caught (and now pins) the real bug this surfaced: a restored wrap whose
 participant caches were nulled read its boss as dead and replayed into a

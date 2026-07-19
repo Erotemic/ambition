@@ -61,20 +61,21 @@ Stated precisely, because prose elsewhere has claimed more than the tests check:
 
 - **Enforced:** `ambition_host` may not depend on or name `ambition_content`
   (policies `engine.host-names-no-content`, `engine.host-source-names-no-content`).
-- **NOT enforced:** any rule about `ambition_actors`. No such guard has ever
-  existed for the host. F1.10 (2026-07-07) removed the *direct*
-  `ambition_host -> ambition_actors` dependency and its commit message claimed to
-  add a boundary test for it, but the test it added only ever checked
-  `ambition_content`. Contrast `ambition_render`, which does carry explicit
-  actor guards (`engine.render-no-actor-crate-dependency`,
-  `engine.render-source-names-no-actors`) — when that boundary was meant, it was
-  written.
+- **Now enforced (since the July-18 policy update; this paragraph previously
+  said otherwise):** the host may not *directly* depend on or name
+  `ambition_actors` — `engine.host-manifest-no-actors` and
+  `engine.host-source-no-actors` (`tests/ambition_workspace_policy/policies/engine.toml`).
+  Historical context: F1.10 (2026-07-07) removed the direct dependency but its
+  claimed boundary test only ever checked `ambition_content`; the actors guard
+  arrived later. `ambition_render` carries the analogous guards
+  (`engine.render-no-actor-crate-dependency`,
+  `engine.render-source-names-no-actors`).
 - **Already true in practice:** the host reaches `ambition_actors` transitively
   through `ambition_runtime`, and has since E5 step 5 (2026-07-06).
 
-So "the host must not depend on `ambition_actors`" is an *aspiration*, not a
-ratchet. Do not cite it as a settled constraint, and do not quietly widen it
-either — see below.
+So the DIRECT edge is now a ratchet; the *transitive* reach (host →
+`ambition_runtime` → actors) remains real and intentional. Do not quietly
+widen the guard to transitive naming — see below.
 
 ### Unsettled: where device input lives when it needs sim vocabulary
 

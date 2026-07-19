@@ -7,8 +7,9 @@
 > space. This is again a stretch goal but I want the core system to make it
 > easy when the time comes. (and it will)"*
 >
-> Adjudicated as **AJ14** in
-> [`../tracks.md`](../tracks.md) (live queue; the 07-05 plan is archived).
+> Adjudicated as **AJ14** in the archived 07-05 plan
+> ([`../../archive/reviews/fable-demo-plan-2026-07-05.md`](../../archive/reviews/fable-demo-plan-2026-07-05.md));
+> the live queue is [`../tracks.md`](../tracks.md).
 > Nothing here builds the mechanic today; it fixes the SEAMS so building it
 > later is a content-plus-shader arc, not an engine rewrite. Direct kin of
 > [`frame-awareness.md`](frame-awareness.md) ("future relativity-inspired

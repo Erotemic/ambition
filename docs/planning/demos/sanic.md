@@ -23,11 +23,19 @@ Landed:
   lifecycle; and
 - basic act state, clock, and standard SFX publication.
 
-Remaining acceptance work is product/content work:
+Also landed (list corrected 2026-07-19 — the §Proposed notes below recorded
+these but this list had drifted):
 
-- bits and drop-on-hit behavior;
-- at least one complete enemy/contact loop using shared rolling/stomp/combat
-  vocabulary;
+- the ring/bits economy: 35 authored `currency:1` rings on the shared economy,
+  animated `sanic_ring_prop` sheet, collect SFX (`a8ab166ee`/`7dc7c1711`);
+- one complete enemy/contact loop: the badnik with stomp-with-bounce AND
+  roll-through defeat through the shared contact/combat pass (`05ebcef2e`,
+  `game/ambition_demo_sanic/src/badnik.rs`).
+
+Remaining acceptance work is product/content work
+(**this list is the single source; status.md and tracks.md refer here**):
+
+- ring drop-on-hit scatter;
 - a provider-owned goal, HUD, results, and end-of-act sequence;
 - additional authored act content beyond the single speedway room; and
 - a deterministic headless completion proof in which the rewarded high route

@@ -20,10 +20,11 @@ bosses are content.
 > (`BossEncounter` is encounter-state only); boss strikes run on the moveset
 > runtime (`BossAttackState` is a projection of the live `MovePlayback`);
 > gnuton is the ADR 0020 mounted pair with drivable limb actors and
-> possession verbs. The remaining residue is ONE bounded slice —
-> [`decomposition.md`](decomposition.md) **E6** (animator frame-state split,
-> `BossAnim`→`CharacterAnim`, `target_pos` retirement, the two deep-fold
-> decisions). Fight QUALITY work is
+> possession verbs. The remaining residue is ONE bounded slice — the boss
+> animator fold in [`../tracks.md`](../tracks.md) Parallel maintenance
+> (`BossAnim`→`CharacterAnim`, `target_pos` retirement; the old
+> decomposition-ledger "E6" id was retired when that doc became doctrine).
+> Fight QUALITY work is
 > [`boss-design.md`](boss-design.md). Multi-limb history:
 > `docs/archive/planning-superseded/multi-limb-bosses.md`.
 

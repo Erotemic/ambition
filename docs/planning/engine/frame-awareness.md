@@ -3,9 +3,10 @@
 > **Status: Jon's design position (2026-07-05), captured verbatim.** The third
 > binding manifesto, beside [`spatial-model.md`](spatial-model.md) (space) and
 > the relativity principle it generalizes. Adjudicated into working discipline
-> by [`../tracks.md`](../tracks.md) (live queue; the 07-05 plan is archived)
-> (AJ13). Like ADR 0020: do not deviate without raising an explicit challenge
-> Jon accepts.
+> as **AJ13** in the archived 07-05 plan
+> ([`../../archive/reviews/fable-demo-plan-2026-07-05.md`](../../archive/reviews/fable-demo-plan-2026-07-05.md));
+> the live queue is [`../tracks.md`](../tracks.md). Like ADR 0020: do not
+> deviate without raising an explicit challenge Jon accepts.
 
 Frame awareness is an architectural bias before it is a runtime subsystem.
 

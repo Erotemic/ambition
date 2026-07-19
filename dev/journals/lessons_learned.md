@@ -2,6 +2,17 @@
 
 This journal records unexpected errors encountered while iterating on the Ambition sandbox, especially places where an overlay or generated build script looked reasonable but failed in a real local/device test. The goal is to make future LLM-generated patches less likely to repeat the same mistakes.
 
+## 2026-07-19: A vaguely-messaged commit from a stale checkout silently reverted two same-day FIX commits
+
+Symptom: melee knockback launched bodies at ~100x intended speed and `cargo test --workspace` went red — hours after both had been fixed (`2c465cc77` knockback units, `0693e5e88` presentation timing).
+
+Root cause: `9754a79d9` ("Sprite work") was authored from a checkout that predated those fixes and committed the OLD versions of `moveset/mod.rs`, `moveset/tests.rs`, and `slash_visuals.rs` alongside its legitimate payload (directional slash poses). Its sibling commit `61eb57825` had noticed and hand-reconciled the same hazard for `basic_presentation.rs`; these files got no reconciliation. The commit message ("Sprite work") gave review nothing to anchor on.
+
+Takeaways:
+- **Rebase (or at minimum `git diff HEAD -- <files you touch>`) before landing work authored hours earlier** — a stale-base land reads as an innocent edit but is a mass revert of everything that landed in between.
+- **A vague commit message disables the only cheap safety net.** "Sprite work" hid combat/render/timing changes; the repo rule (detailed message + prompt summary) exists exactly for this.
+- **The workspace test job is the tripwire for cross-crate reverts** — it went red immediately; nobody looked. A red `cargo test --workspace` right after a land is a revert-suspect signal, not background noise.
+
 ## 2026-06-21: Mockingbird boss "flew out of bounds and hovered above the arena" — an unbounded collision pushout-teleport
 
 Symptom: intermittently (no player interaction needed) the flying mockingbird boss vanished; zooming the camera out revealed it hovering above the arena. "Never happened before, easy-ish to reproduce."

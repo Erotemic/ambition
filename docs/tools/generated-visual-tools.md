@@ -132,3 +132,28 @@ orchestrator also materializes a plain `.txt` report beside every database and a
 `profile-index.txt` summary. The EXIT sweep runs after an interruption as well,
 so a Ctrl-C profile remains immediately readable.
 
+### Fast sprite profiling and readable reports
+
+A forced full regeneration is intentionally not the optimization inner loop.
+Profile one target's sheet instead:
+
+```bash
+./profile_sprites.sh --target oiler
+./profile_sprites.sh --target ninja_heavy
+./profile_sprites.sh --suite representative
+```
+
+The targeted script writes `.lprof`, `.txt`, `.log`, and `profile-index.txt`
+files under `tools/ambition_sprite2d_renderer/.profiles/`. It renders sheets by
+default, avoiding portraits, runtime installation, review galleries, factions,
+LDtk work, and unrelated postconditions. Use `--product portraits` or
+`--product publish` when those paths are the subject of the profile.
+
+For an existing profile directory:
+
+```bash
+tools/ambition_sprite2d_renderer/.venv/bin/python \
+    scripts/render_line_profiles.py \
+    tools/ambition_sprite2d_renderer/.profiles/<profile-directory>
+```
+

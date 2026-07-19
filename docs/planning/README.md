@@ -17,6 +17,10 @@ plans, and review evidence belong under [`docs/archive/`](../archive/).
 ## What belongs here
 
 - `engine/` — normative architecture and active engine designs.
+  The longer-term character-authoring direction is
+  [`engine/svg-component-character-migration.md`](engine/svg-component-character-migration.md):
+  editable SVG component scenes, freeform Python animation, and a gradual
+  legacy-to-shadow-to-SVG migration with raster-equivalence checks.
   The next major architecture campaign is
   [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md).
   Its immediate room-lifecycle customer is

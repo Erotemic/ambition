@@ -7,10 +7,9 @@
 //! have). [`fx::vfx_spawn_messages`](crate::fx) dispatches `VfxMessage::Slash`
 //! to [`spawn_slash`]; [`animate_slash`] steps the row once and despawns.
 //!
-//! Directional rows map from the attacker's `AttackIntent` via [`SlashDir`]:
-//! `Side`/`Up` are energy-arc crescents (the default + anti-air swings),
-//! `Down` is a tapered lance/poke (down-tilt / pogo). One sheet, three rows —
-//! a starting point before each attack gets a bespoke effect.
+//! The combat layer now tags each slash cue with the authored attack pose, so
+//! presentation can pick the matching `side` / `up` / `down` row instead of
+//! rotating one generic arc for every attack. One sheet, three rows.
 
 use ambition_sprite_sheet::SheetRegistry;
 use bevy::image::{TextureAtlas, TextureAtlasLayout};
@@ -22,7 +21,7 @@ use ambition_engine_core::config::{world_to_bevy, WORLD_Z_FX};
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use ambition_vfx::vfx::{SlashKind, VfxMessage};
+use ambition_vfx::vfx::{SlashKind, SlashPose, VfxMessage};
 
 use super::sheet_atlas::{
     atlas_layout_from_record, row_duration, row_frame_count, row_start_index,
@@ -39,23 +38,26 @@ struct SlashRow {
     frame_duration: f32,
 }
 
-/// Loaded-once handles + per-art-kind indexing for the slash sheet. The `arc`
-/// art is the sheet's `side` row (a forward crescent); the `poke` art is the
-/// `down` row (a tapered lance). Both are oriented at runtime by rotation, so
-/// the sheet's separate `up` row is unused.
+/// Loaded-once handles + per-pose indexing for the slash sheet. `side` is the
+/// forward crescent, `up` the overhead anti-air row, and `down` the downward
+/// cleave / poke. The runtime still rotates the chosen row to track the real
+/// resolved strike under arbitrary gravity.
 #[derive(Clone)]
 pub(crate) struct SlashSource {
     image: Handle<Image>,
     layout: Handle<TextureAtlasLayout>,
-    arc: SlashRow,
-    poke: SlashRow,
+    side_arc: SlashRow,
+    up_arc: SlashRow,
+    down_slash: SlashRow,
 }
 
 impl SlashSource {
-    fn row(&self, kind: SlashKind) -> SlashRow {
-        match kind {
-            SlashKind::Arc => self.arc,
-            SlashKind::Poke => self.poke,
+    fn row(&self, kind: SlashKind, pose: SlashPose) -> SlashRow {
+        match pose {
+            SlashPose::Up if kind == SlashKind::Arc => self.up_arc,
+            SlashPose::Down => self.down_slash,
+            _ if kind == SlashKind::Poke => self.down_slash,
+            _ => self.side_arc,
         }
     }
 }
@@ -64,18 +66,19 @@ impl SlashSource {
 /// `dir` (the attacker→hitbox vector, already gravity-relative). World y is
 /// down and Bevy y is up (`world_to_bevy` inverts y), so the target Bevy angle
 /// is `atan2(-dir.y, dir.x)`. The `arc` art opens toward +x at rest; the
-/// `poke` art points toward image-down (Bevy -y), so it needs a +90° offset.
-/// Pure + frame-agnostic: feeding the four C4 gravity directions yields the
-/// four correctly-rotated effects.
-pub(crate) fn slash_rotation(dir: ae::Vec2, kind: SlashKind) -> f32 {
+/// `up` art points toward world up at rest; `down` / poke art points toward
+/// world down at rest. Pure + frame-agnostic: feeding the four C4 gravity
+/// directions yields the four correctly-rotated effects.
+pub(crate) fn slash_rotation(dir: ae::Vec2, pose: SlashPose) -> f32 {
     let base = if dir.length_squared() > 1e-6 {
         (-dir.y).atan2(dir.x)
     } else {
         0.0
     };
-    match kind {
-        SlashKind::Arc => base,
-        SlashKind::Poke => base + std::f32::consts::FRAC_PI_2,
+    match pose {
+        SlashPose::Side => base,
+        SlashPose::Up => base - std::f32::consts::FRAC_PI_2,
+        SlashPose::Down => base + std::f32::consts::FRAC_PI_2,
     }
 }
 
@@ -108,8 +111,9 @@ fn slash_source(
     let source = SlashSource {
         image: asset_server.load(format!("sprites/{SLASH_SHEET}_spritesheet.png")),
         layout,
-        arc: row("side"),
-        poke: row("down"),
+        side_arc: row("side"),
+        up_arc: row("up"),
+        down_slash: row("down"),
     };
     *cache = Some(source.clone());
     Some(source)
@@ -144,6 +148,7 @@ pub(crate) fn spawn_slash_effects(
             center,
             size,
             kind,
+            pose,
             dir,
         } = message
         else {
@@ -168,6 +173,7 @@ pub(crate) fn spawn_slash_effects(
             *center,
             *size,
             *kind,
+            *pose,
             *dir,
         );
     }
@@ -183,9 +189,10 @@ fn spawn_one(
     center: ae::Vec2,
     size: f32,
     kind: SlashKind,
+    pose: SlashPose,
     dir: ae::Vec2,
 ) {
-    let row = source.row(kind);
+    let row = source.row(kind, pose);
     let mut sprite = Sprite::from_atlas_image(
         source.image.clone(),
         TextureAtlas {
@@ -195,7 +202,7 @@ fn spawn_one(
     );
     sprite.custom_size = Some(BVec2::splat(size.max(1.0)));
     let mut transform = Transform::from_translation(world_to_bevy(world, center, WORLD_Z_FX + 2.0));
-    transform.rotation = Quat::from_rotation_z(slash_rotation(dir, kind));
+    transform.rotation = Quat::from_rotation_z(slash_rotation(dir, pose));
     commands.spawn_session_scoped(
         session_scope,
         (
@@ -217,10 +224,10 @@ fn spawn_one(
 /// matching `animate_shrine_visuals`.
 pub(crate) fn animate_slash(
     mut commands: Commands,
-    presentation_time: ambition_time::PresentationTime,
+    world_time: Res<ambition_time::WorldTime>,
     mut query: Query<(Entity, &mut SlashVisual, &mut Sprite)>,
 ) {
-    let dt = presentation_time.scaled_dt();
+    let dt = world_time.scaled_dt;
     for (entity, mut slash, mut sprite) in &mut query {
         slash.age += dt;
         let frame = (slash.age / slash.frame_duration) as usize;
@@ -247,12 +254,12 @@ mod tests {
         let record = registry
             .get(SLASH_SHEET)
             .expect("robot_slash sheet must be baked into the registry");
-        // 2 frames/row (matched to the 2-frame melee swing): side=0,1 up=2,3
-        // down=4,5. The Arc art is `side`, the Poke art is `down`.
-        assert_eq!(row_start_index(record, "side"), Some(0)); // Arc
-        assert_eq!(row_start_index(record, "down"), Some(4)); // Poke
-        for row in ["side", "down"] {
-            assert_eq!(row_frame_count(record, row), Some(2), "{row} frames");
+        // 5 frames/row: side=0..4, up=5..9, down=10..14.
+        assert_eq!(row_start_index(record, "side"), Some(0));
+        assert_eq!(row_start_index(record, "up"), Some(5));
+        assert_eq!(row_start_index(record, "down"), Some(10));
+        for row in ["side", "up", "down"] {
+            assert_eq!(row_frame_count(record, row), Some(5), "{row} frames");
         }
     }
 
@@ -269,28 +276,34 @@ mod tests {
             let d = (a - b).rem_euclid(2.0 * PI);
             d < 1e-3 || (2.0 * PI - d) < 1e-3
         };
-        // Arc art opens +x at rest; rotation = atan2(-dir.y, dir.x).
-        // World y is DOWN, so "down" gravity = +y, "up" = -y.
+        // Side art opens +x at rest.
         assert!(approx(
-            slash_rotation(Vec2::new(1.0, 0.0), SlashKind::Arc),
+            slash_rotation(Vec2::new(1.0, 0.0), SlashPose::Side),
             0.0
-        )); // forward
+        ));
         assert!(approx(
-            slash_rotation(Vec2::new(0.0, 1.0), SlashKind::Arc),
+            slash_rotation(Vec2::new(0.0, 1.0), SlashPose::Side),
             -FRAC_PI_2
-        )); // toward feet (down-air)
+        ));
         assert!(approx(
-            slash_rotation(Vec2::new(0.0, -1.0), SlashKind::Arc),
+            slash_rotation(Vec2::new(0.0, -1.0), SlashPose::Side),
             FRAC_PI_2
-        )); // toward head (up)
+        ));
         assert!(approx(
-            slash_rotation(Vec2::new(-1.0, 0.0), SlashKind::Arc),
+            slash_rotation(Vec2::new(-1.0, 0.0), SlashPose::Side),
             PI
-        )); // backward
-            // Poke art points image-down at rest (+90° offset): a forward strike
-            // (down-tilt) becomes a horizontal forward poke, not a vertical lance.
+        ));
+        // Up art points world-up at rest; down art points world-down at rest.
         assert!(approx(
-            slash_rotation(Vec2::new(1.0, 0.0), SlashKind::Poke),
+            slash_rotation(Vec2::new(0.0, -1.0), SlashPose::Up),
+            0.0
+        ));
+        assert!(approx(
+            slash_rotation(Vec2::new(0.0, 1.0), SlashPose::Down),
+            0.0
+        ));
+        assert!(approx(
+            slash_rotation(Vec2::new(1.0, 0.0), SlashPose::Down),
             FRAC_PI_2
         ));
     }

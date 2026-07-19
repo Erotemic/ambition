@@ -469,8 +469,12 @@ fn bladed_swing_resolves_the_authored_blade_and_draws_its_slash() {
         .filter(|m| matches!(m, VfxMessage::Slash { .. }))
         .collect();
     assert_eq!(slashes.len(), 1, "one slash VFX at the Active edge");
-    if let VfxMessage::Slash { kind, dir, .. } = slashes[0] {
+    if let VfxMessage::Slash {
+        kind, pose, dir, ..
+    } = slashes[0]
+    {
         assert_eq!(*kind, ambition_vfx::vfx::SlashKind::Arc);
+        assert_eq!(*pose, ambition_vfx::vfx::SlashPose::Side);
         assert!(
             dir.x > 0.0,
             "the slash points along the strike (facing +x), got {dir:?}",
@@ -519,6 +523,31 @@ fn unauthored_clip_falls_back_to_the_synthetic_rect_and_still_slashes() {
         "the fallback swing still draws its slash",
     );
     assert_eq!(cap.hits.len(), 1, "the fallback rect still lands its hit");
+}
+
+
+#[test]
+fn upward_attack_selects_the_upward_slash_pose() {
+    let (mut app, _victim) = app_with_victim();
+    let mut spec = simple_melee(&SimpleMeleeParams::default());
+    spec.clip.clip = "attack_up".to_string();
+    spec.clip.fallbacks.clear();
+    spawn_attacker(
+        &mut app,
+        ae::Vec2::new(100.0, 100.0),
+        ae::Vec2::new(30.0, 48.0),
+        spec,
+    );
+    run_seconds(&mut app, 0.14);
+    let cap = app.world().resource::<Captured>();
+    let slash = cap
+        .slashes
+        .iter()
+        .find(|m| matches!(m, VfxMessage::Slash { .. }))
+        .expect("the upward attack should emit a slash VFX");
+    if let VfxMessage::Slash { pose, .. } = slash {
+        assert_eq!(*pose, ambition_vfx::vfx::SlashPose::Up);
+    }
 }
 
 /// W9 core: the authored timeline drives the REAL damage path. No hit
@@ -729,14 +758,7 @@ fn a_charged_release_scales_the_spawned_hitbox() {
             .iter(app.world())
             .next()
             .expect("the active window spawns the volume");
-        let knockback = match hb.knockback {
-            ambition_vfx::HitboxKnockback::LaunchSpeed { base, growth } => {
-                assert_eq!(growth, 0.0, "charge fixture authors no growth");
-                base
-            }
-            other => panic!("moveset melee must author a launch speed, got {other:?}"),
-        };
-        (hb.damage, knockback)
+        (hb.damage, hb.knockback)
     };
     // Parity: unit mult leaves the authored values exactly.
     assert_eq!(read(1.0), (5, 100.0));

@@ -104,6 +104,7 @@ pub struct MoveEventMessage {
 /// the timeline completes. Facing locks at move start (the Smash convention —
 /// a swing doesn't re-aim mid-animation).
 #[derive(bevy::prelude::Component, Debug, Clone)]
+#[component(map_entities)]
 pub struct MovePlayback {
     pub spec: MoveSpec,
     /// `+1.0` faces right, `-1.0` left; mirrors every volume's x offset.
@@ -119,7 +120,7 @@ pub struct MovePlayback {
     /// A CACHE, not the authority. Its authority is `(t, window)`: the box exists
     /// exactly while the owner's clock is inside the window, and
     /// [`retire_orphaned_strike_volumes`] enforces that against the world every
-    /// frame. That matters because GGRS rollback remaps
+    /// frame. That matters because a rollback (`ambition_runtime::snapshot`) rebuilds
     /// this component from a blob, and a blob cannot carry an `Entity`.
     live_boxes: Vec<(usize, Entity)>,
     /// Which timed events already fired (parallel to `spec.events`).
@@ -138,6 +139,18 @@ pub struct MovePlayback {
     pub hit_targets: Vec<String>,
 }
 
+impl bevy::ecs::entity::MapEntities for MovePlayback {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(
+        &mut self,
+        entity_mapper: &mut M,
+    ) {
+        for (_, entity) in &mut self.live_boxes {
+            *entity = entity_mapper.get_mapped(*entity);
+        }
+    }
+}
+
+
 impl MovePlayback {
     pub fn new(spec: MoveSpec, facing: f32) -> Self {
         Self::new_at(spec, facing, 0.0)
@@ -149,7 +162,7 @@ impl MovePlayback {
     /// window`, so its Active window is live immediately and the projected
     /// `active_elapsed` still folds in the telegraph offset (E53). Events with
     /// `at_s <= t0` are pre-marked fired so seeking past them doesn't retro-fire.
-    /// **Resume a move mid-flight**, for the GGRS rollback adapter's
+    /// **Resume a move mid-flight**, for `ambition_runtime::snapshot`'s
     /// `SnapshotResolve`.
     ///
     /// The blob carries the CHOICE — which move, how far in, did it land — and the
@@ -222,7 +235,7 @@ pub struct StrikeVolume {
 /// `live_boxes`. It earns its keep when the two disagree, which happens when
 /// `MovePlayback` is REPLACED rather than advanced:
 ///
-/// - GGRS restores the cloned component and remaps its live entity handles
+/// - `ambition_runtime::snapshot::restore` rebuilds it from a blob (`MovePlayback::resumed`)
 ///   with an empty `live_boxes`. Without this system the boxes alive at the rewound-from
 ///   tick would leak, and `advance_move_playback` would spawn a second one beside each.
 /// - Any future code that swaps a playback mid-move.
@@ -438,12 +451,9 @@ pub fn advance_move_playback(
                             // damage rounds, knockback scales linearly. Both are
                             // identity at `charge_scale == 1.0` (parity).
                             damage: ((volume.damage as f32) * charge_scale).round() as i32,
-                            knockback: ambition_vfx::HitboxKnockback::LaunchSpeed {
-                                base: volume.knockback * charge_scale,
-                                // CM1: the smash-percent growth term rides the volume
-                                // through to victim-side scaling at overlap.
-                                growth: volume.kb_growth,
-                            },
+                            knockback: ambition_vfx::HitboxKnockback::FeelScale(
+                                volume.knockback * charge_scale,
+                            ),
                             // CM1: the authored launch direction rides the
                             // volume through to the victim-side resolver.
                             launch_dir: volume.launch_dir.map(|(x, y)| ae::Vec2::new(x, y)),
@@ -458,12 +468,18 @@ pub fn advance_move_playback(
                             } else {
                                 ambition_vfx::vfx::SlashKind::Arc
                             };
+                            let pose = match pb.spec.clip.clip.as_str() {
+                                "attack_up" => ambition_vfx::vfx::SlashPose::Up,
+                                "attack_down" => ambition_vfx::vfx::SlashPose::Down,
+                                _ => ambition_vfx::vfx::SlashPose::Side,
+                            };
                             let b = hb.world_volume(kin.pos).bounds();
                             crate::util::emit_melee_slash(
                                 &mut vfx,
                                 b.center(),
                                 b.half_size(),
                                 kind,
+                                pose,
                                 b.center() - kin.pos,
                             );
                         }
@@ -937,11 +953,3 @@ fn synth_swing_from_move(pb: &MovePlayback) -> MeleeSwing {
 
 #[cfg(test)]
 mod tests;
-
-impl bevy::ecs::entity::MapEntities for MovePlayback {
-    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
-        for (_, entity) in &mut self.live_boxes {
-            *entity = mapper.get_mapped(*entity);
-        }
-    }
-}

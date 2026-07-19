@@ -158,3 +158,17 @@ is polish and additional per-character expression art rather than architecture.
 `registry/discovery.py` + `registry/character_generators.py` (target discovery
 and config-driven generators); `docs/actor_contract.md` (runtime-facing rich
 metadata).
+
+## Direction: editable SVG component scenes
+
+For most articulated characters, the desired long-term source is an editable
+SVG component scene driven by freeform Python animation. This is broader than a
+bone rig: direct transforms, substitutions, z-order, opacity, authored views,
+procedural overlays, FK, and IK remain peer tools.
+
+The migration is gradual. Existing Python/Pillow definitions remain the
+shipping authority until an SVG shadow render reaches accepted visual and
+raster equivalence. The legacy path is deleted only after the target switches
+and the migration is accepted. See
+[`svg-component-character-migration.md`](svg-component-character-migration.md).
+

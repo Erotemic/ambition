@@ -149,7 +149,7 @@ mod util_tests {
 
 use ambition_characters::actor::BodyCombat;
 use ambition_engine_core::{BodyOffense, BodyShieldState};
-use ambition_vfx::vfx::{SlashKind, VfxMessage};
+use ambition_vfx::vfx::{SlashKind, SlashPose, VfxMessage};
 use bevy::prelude::MessageWriter;
 
 /// THE one "can this body take a hit right now?" rule, shared by every damage
@@ -217,12 +217,14 @@ pub fn emit_melee_slash(
     center: ae::Vec2,
     half_size: ae::Vec2,
     kind: SlashKind,
+    pose: SlashPose,
     dir: ae::Vec2,
 ) {
     vfx.write(VfxMessage::Slash {
         center,
         size: slash_effect_size(half_size),
         kind,
+        pose,
         dir,
     });
 }

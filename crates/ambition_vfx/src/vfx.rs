@@ -68,6 +68,16 @@ pub enum SlashKind {
     Poke,
 }
 
+/// Which directional ROW / pose to play for a slash effect.
+/// `Side` is the broad forward sweep, `Up` the anti-air overhead arc, and
+/// `Down` the downward cleave / poke.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SlashPose {
+    Side,
+    Up,
+    Down,
+}
+
 /// Typed visual-effects message (Bevy 0.18 buffered Message API). Emitted by
 /// simulation systems; the presentation-side subscriber spawns the actual
 /// particle / impact / slash entities. See the module docs.
@@ -98,14 +108,17 @@ pub enum VfxMessage {
         precision: bool,
     },
     /// A melee slash effect (the `robot_slash` sheet) at `center`, drawn
-    /// `size` square, playing `kind` once. `dir` is the WORLD direction from
-    /// the attacker to the strike (player→hitbox) — already gravity-relative —
-    /// so the renderer orients the art toward it, keeping the effect in the
-    /// attacker's reference frame under any gravity.
+    /// `size` square, playing `kind` once. `pose` chooses which authored row to
+    /// use (`side` / `up` / `down`) so the presentation can match the move's
+    /// real strike silhouette instead of rotating one generic arc for every
+    /// attack. `dir` is the WORLD direction from the attacker to the strike
+    /// (player→hitbox) — already gravity-relative — so the renderer orients the
+    /// chosen row toward the resolved hitbox under any gravity.
     Slash {
         center: ae::Vec2,
         size: f32,
         kind: SlashKind,
+        pose: SlashPose,
         dir: ae::Vec2,
     },
     ResetEffects {

@@ -441,7 +441,9 @@ fn sync_ambition_dialog_ui(
         &portrait_catalog,
         &portrait_registry,
     );
-    let portrait_image_path = resolved_portrait.as_ref().map(|visual| visual.image_path.clone());
+    let portrait_image_path = resolved_portrait
+        .as_ref()
+        .map(|visual| visual.image_path.clone());
     if let Some((key, clip)) = resolved_portrait
         .as_ref()
         .and_then(|visual| visual.playback.as_ref())
@@ -1090,14 +1092,10 @@ mod tests {
             "npc_alice",
             AmbitionDialogPortraitSpec::placeholder(Color::srgb(0.0, 0.0, 0.0)),
         );
-        assert!(resolve_portrait_visual(
-            Some("npc_alice"),
-            None,
-            &catalog,
-            &overrides,
-            &registry,
-        )
-        .is_none());
+        assert!(
+            resolve_portrait_visual(Some("npc_alice"), None, &catalog, &overrides, &registry,)
+                .is_none()
+        );
     }
 
     #[test]
@@ -1108,8 +1106,18 @@ mod tests {
             clip_name: "speaking".to_string(),
         };
         let frames = vec![
-            PortraitFrameRect { x: 0, y: 0, w: 8, h: 8 },
-            PortraitFrameRect { x: 8, y: 0, w: 8, h: 8 },
+            PortraitFrameRect {
+                x: 0,
+                y: 0,
+                w: 8,
+                h: 8,
+            },
+            PortraitFrameRect {
+                x: 8,
+                y: 0,
+                w: 8,
+                h: 8,
+            },
         ];
         let mut playback = AmbitionDialogPortraitPlayback::default();
         playback.configure(
@@ -1127,7 +1135,10 @@ mod tests {
         assert_eq!(playback.current_rect(), Some(frame_rect(frames[0])));
 
         playback.configure(
-            PortraitPlaybackKey { clip_name: "one-shot".to_string(), ..key },
+            PortraitPlaybackKey {
+                clip_name: "one-shot".to_string(),
+                ..key
+            },
             &PortraitClipRecord {
                 duration_ms: 100,
                 looping: false,

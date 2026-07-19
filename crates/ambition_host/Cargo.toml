@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "The windowed-HOST face (decomposition E5 step 5): a `PlatformerHostPlugins` plugin group that assembles the wiring only a VISIBLE platformer host needs on top of `PlatformerEnginePlugins` — the leafwing input bindings/bridge and the camera follow/shake cluster. MAY dep render/input/runtime/sim_view/leafwing; must NOT dep ambition_actors or ambition_content (boundary-tested). The shared per-frame SIM wiring lives in `ambition_runtime` (headless/RL runs it too)."
+description = "The windowed-HOST face (decomposition E5 step 5): a `PlatformerHostPlugins` plugin group that assembles the wiring only a VISIBLE platformer host needs on top of `PlatformerEnginePlugins` — the leafwing input bindings/bridge and the camera follow/shake cluster. MAY dep render/input/runtime/sim_view/leafwing. Must NOT dep ambition_content — that one IS boundary-tested (engine.host-names-no-content). Avoiding a DIRECT ambition_actors dep is a goal, not a ratchet: no guard has ever enforced it, and actors already arrives transitively via ambition_runtime, so do not cite it as settled — see docs/planning/engine/decomposition.md#E5. The shared per-frame SIM wiring lives in `ambition_runtime` (headless/RL runs it too)."
 
 [dependencies]
 ambition_engine_core = { path = "../ambition_engine_core" }

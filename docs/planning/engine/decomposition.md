@@ -55,6 +55,60 @@ The accepted additional engine faces are:
 - a dedicated platformer-provider lifecycle crate, extracted from the umbrella facade;
 - `ambition_sim_harness`, the programmatic reset/step/action/observation surface.
 
+### What the host boundary actually enforces
+
+Stated precisely, because prose elsewhere has claimed more than the tests check:
+
+- **Enforced:** `ambition_host` may not depend on or name `ambition_content`
+  (policies `engine.host-names-no-content`, `engine.host-source-names-no-content`).
+- **NOT enforced:** any rule about `ambition_actors`. No such guard has ever
+  existed for the host. F1.10 (2026-07-07) removed the *direct*
+  `ambition_host -> ambition_actors` dependency and its commit message claimed to
+  add a boundary test for it, but the test it added only ever checked
+  `ambition_content`. Contrast `ambition_render`, which does carry explicit
+  actor guards (`engine.render-no-actor-crate-dependency`,
+  `engine.render-source-names-no-actors`) — when that boundary was meant, it was
+  written.
+- **Already true in practice:** the host reaches `ambition_actors` transitively
+  through `ambition_runtime`, and has since E5 step 5 (2026-07-06).
+
+So "the host must not depend on `ambition_actors`" is an *aspiration*, not a
+ratchet. Do not cite it as a settled constraint, and do not quietly widen it
+either — see below.
+
+### Unsettled: where device input lives when it needs sim vocabulary
+
+**Uncertain — do not treat either answer as doctrine yet.**
+
+The concrete case is touch/pointer input. `ambition_touch_input`'s overlay is
+window/device wiring by nature, which argues for `PlatformerHostPlugins` (that is
+literally what the group is: the windowed host's camera + input). Composing it
+there is what makes every game — Ambition, the demos, anything added later — get
+touch by construction instead of each app remembering. Today only
+`ambition_app` composes it, so the standalone demo apps have no touch at all.
+
+What blocks a clean answer is that the overlay names `ambition_actors` for
+`affordances::{ActiveInputMethod, glyph_for, AffordancesSystemSet}`, the input
+schedule labels in `schedule::input_systems`, and `control::populate_slot_controls`.
+Some of its other actors imports are *already* compat re-exports of foundation
+types (`PrimaryPlayer`, `GravityField`, `gravity_dir_or_default` all live in
+`ambition_platformer_primitives`), so the real coupling is narrower than the
+import list suggests — but it is not zero.
+
+**Preferred direction: invert rather than ban or shrug.** Layers should be able
+to communicate at RUNTIME — shared read-models, published seams, schedule sets
+owned by the layer that defines the ordering contract — without a compile-time
+dependency pointing the wrong way. `ControlPrompt` is the model to copy: the
+touch overlay reads the controlled subject's live scheme from
+`ambition_sim_view` and never reaches into the sim heart, so possessing a
+different body relabels the buttons with no per-game code. The remaining actors
+imports are the ones that have not had that treatment yet.
+
+Neither "put it in the host and accept the dependency" nor "forbid it until the
+inversion is finished" is ruled correct here. Whoever resolves this should first
+repoint the compat re-exports at their canonical homes and re-measure what is
+actually left, then decide against that list rather than against this paragraph.
+
 ## F1.5 — simulation and presentation stay separated
 
 `ambition_render` is downstream of simulation and read models.

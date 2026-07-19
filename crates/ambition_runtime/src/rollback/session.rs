@@ -33,7 +33,13 @@ pub struct PendingLocalInput(pub ControlFrame);
 pub struct RollbackExecutionStats {
     pub advance_runs: u64,
     pub load_runs: u64,
+    /// The frame of the most recent advance, replay or not.
     pub last_simulated_frame: i32,
+    /// High-water mark across every advance. A frame at or below it is being
+    /// re-simulated, which is how [`count_advance_run`] tells a replay pass from
+    /// a first-time one. `None` until the first advance, so frame 0 is not
+    /// mistaken for a replay of itself.
+    pub highest_simulated_frame: Option<i32>,
 }
 
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
@@ -176,6 +182,10 @@ pub fn session_is_active(world: &World) -> bool {
 pub(crate) fn install_session_bridge(app: &mut App) {
     app.init_resource::<PendingLocalInput>()
         .init_resource::<ambition_platformer_primitives::schedule::SimulationReplayState>()
+        // The audio-side half of the same fact. Installed HERE, by the rollback
+        // bridge, so a fixed-tick or render-frame host never carries the gate at
+        // all and `SfxWriter` keeps its zero-cost `None` path.
+        .init_resource::<ambition_sfx::SfxEmissionGate>()
         .init_resource::<RollbackExecutionStats>()
         .init_resource::<RollbackSessionStatus>()
         .configure_sets(
@@ -249,21 +259,64 @@ fn publish_ggrs_input(
     *control = inputs.first().map(|(input, _)| *input).unwrap_or_default();
 }
 
-fn count_advance_run(frame: Res<RollbackFrameCount>, mut stats: ResMut<RollbackExecutionStats>) {
+/// Publish "this pass is re-simulating history" to every consumer that must not
+/// repeat an irreversible effect.
+///
+/// Two resources, ONE decision, written together so they cannot drift: the
+/// sim-side [`SimulationReplayState`] (diagnostics, trace) and the audio seam's
+/// [`ambition_sfx::SfxEmissionGate`]. `ambition_sfx` deliberately cannot see a
+/// schedule or a frame counter, so the host publishes the fact into the crate's
+/// own seam rather than the crate reaching back into the simulation.
+fn publish_replay_pass(
+    replay: &mut ambition_platformer_primitives::schedule::SimulationReplayState,
+    gate: Option<&mut ambition_sfx::SfxEmissionGate>,
+    replaying_history: bool,
+) {
+    replay.replaying_history = replaying_history;
+    if let Some(gate) = gate {
+        gate.replaying_history = replaying_history;
+    }
+}
+
+/// Decide, per advance, whether GGRS is re-simulating a frame it already ran.
+///
+/// The frame number is the exact test: at or below the high-water mark means
+/// this frame was simulated before, so its sounds already played and its trace
+/// row was already recorded. Bracketing on "a rollback happened this render
+/// frame" is NOT equivalent — `clear_historical_replay` runs after the whole
+/// GGRS batch, so the coarse window also covers the brand-new frame at the end
+/// of a rollback, which would silence the very frame the player just caused.
+fn count_advance_run(
+    frame: Res<RollbackFrameCount>,
+    mut stats: ResMut<RollbackExecutionStats>,
+    mut replay: ResMut<ambition_platformer_primitives::schedule::SimulationReplayState>,
+    gate: Option<ResMut<ambition_sfx::SfxEmissionGate>>,
+) {
     stats.advance_runs = stats.advance_runs.saturating_add(1);
     stats.last_simulated_frame = frame.0;
+    let replaying = stats
+        .highest_simulated_frame
+        .is_some_and(|highest| frame.0 <= highest);
+    stats.highest_simulated_frame = Some(
+        stats
+            .highest_simulated_frame
+            .map_or(frame.0, |highest| highest.max(frame.0)),
+    );
+    publish_replay_pass(&mut replay, gate.map(ResMut::into_inner), replaying);
 }
 
 fn mark_historical_replay(
     mut replay: ResMut<ambition_platformer_primitives::schedule::SimulationReplayState>,
+    gate: Option<ResMut<ambition_sfx::SfxEmissionGate>>,
 ) {
-    replay.replaying_history = true;
+    publish_replay_pass(&mut replay, gate.map(ResMut::into_inner), true);
 }
 
 fn clear_historical_replay(
     mut replay: ResMut<ambition_platformer_primitives::schedule::SimulationReplayState>,
+    gate: Option<ResMut<ambition_sfx::SfxEmissionGate>>,
 ) {
-    replay.replaying_history = false;
+    publish_replay_pass(&mut replay, gate.map(ResMut::into_inner), false);
 }
 
 fn count_load_run(mut stats: ResMut<RollbackExecutionStats>) {
@@ -426,5 +479,92 @@ mod tests {
             !app.world().resource::<PendingLocalInput>().0.jump_pressed,
             "the edge must be consumed exactly once"
         );
+    }
+}
+
+#[cfg(test)]
+mod replay_pass_tests {
+    use super::*;
+    use ambition_platformer_primitives::schedule::SimulationReplayState;
+
+    /// Runs the REAL `count_advance_run` for a frame, returning what the audio
+    /// seam sees. Driving the actual system (not a reimplementation of its rule)
+    /// is what makes this test able to fail when the rule regresses.
+    fn advance_to(world: &mut World, frame: i32) -> bool {
+        world.insert_resource(RollbackFrameCount(frame));
+        world
+            .run_system_cached(count_advance_run)
+            .expect("count_advance_run runs");
+        world
+            .resource::<ambition_sfx::SfxEmissionGate>()
+            .replaying_history
+    }
+
+    fn rollback_world() -> World {
+        let mut world = World::new();
+        world.init_resource::<RollbackExecutionStats>();
+        world.init_resource::<SimulationReplayState>();
+        world.init_resource::<ambition_sfx::SfxEmissionGate>();
+        world
+    }
+
+    /// The whole point: a rollback re-runs frames 3 and 4, whose sounds already
+    /// played, and then simulates 5 for the first time. Only the re-runs are
+    /// silenced — silencing frame 5 would mute the input the player just gave.
+    #[test]
+    fn only_the_re_simulated_frames_are_silenced() {
+        let mut world = rollback_world();
+        for frame in 0..=4 {
+            assert!(
+                !advance_to(&mut world, frame),
+                "frame {frame} is being simulated for the first time"
+            );
+        }
+
+        // Rollback: GGRS reloads frame 2 and re-advances through 4.
+        for frame in 3..=4 {
+            assert!(
+                advance_to(&mut world, frame),
+                "frame {frame} already played its audio on the first pass"
+            );
+        }
+
+        assert!(
+            !advance_to(&mut world, 5),
+            "frame 5 is new — the frame the player just caused must be audible"
+        );
+    }
+
+    /// Both consumers of the one decision stay in lockstep.
+    #[test]
+    fn the_sim_and_audio_views_of_a_replay_agree() {
+        let mut world = rollback_world();
+        advance_to(&mut world, 0);
+        advance_to(&mut world, 1);
+        advance_to(&mut world, 1);
+
+        assert!(world.resource::<SimulationReplayState>().replaying_history);
+        assert!(
+            world
+                .resource::<ambition_sfx::SfxEmissionGate>()
+                .replaying_history
+        );
+    }
+
+    /// A host that installs no audio gate (fixed-tick, headless) must still work.
+    #[test]
+    fn a_host_without_the_audio_gate_still_tracks_replay() {
+        let mut world = World::new();
+        world.init_resource::<RollbackExecutionStats>();
+        world.init_resource::<SimulationReplayState>();
+
+        for frame in [0, 1, 1] {
+            world.insert_resource(RollbackFrameCount(frame));
+            world
+                .run_system_cached(count_advance_run)
+                .expect("count_advance_run runs without the audio gate");
+        }
+
+        assert!(world.resource::<SimulationReplayState>().replaying_history);
     }
 }

@@ -109,21 +109,119 @@ pub struct OwnedSfxMessage {
     pub request: SfxMessage,
 }
 
+/// Host gate on external audio effects.
+///
+/// A rollback host re-simulates frames it has already simulated once. Gameplay
+/// is *supposed* to run again — that is what makes rollback correct — but the
+/// sound already reached the speakers on the pass that first simulated the
+/// frame. Emitting again is an audible duplicate, once per rollback.
+///
+/// So the host raises this gate while it replays history and lowers it for the
+/// frame it is simulating for the first time. This crate stays independent of
+/// the simulation (it cannot see a schedule, a frame counter, or a GGRS
+/// session): the host publishes the fact, the same way it publishes audio
+/// ownership through [`SfxEmissionContext`].
+///
+/// Absent resource = no rollback host = nothing is ever suppressed, which is
+/// what every fixed-tick game, headless fixture, and unit test wants.
+#[derive(Resource, Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct SfxEmissionGate {
+    /// The host is re-simulating a frame whose audio already played.
+    pub replaying_history: bool,
+}
+
+impl SfxEmissionGate {
+    pub const fn suppresses_emission(self) -> bool {
+        self.replaying_history
+    }
+}
+
 /// Mechanics-facing writer that captures exact audio ownership without adding
 /// another system parameter at every call site.
 ///
 /// A missing context is retained as `None` for narrow unit fixtures. Real shell
 /// and direct compositions install an explicit context; playback rejects an
 /// unowned request whenever an owned context is active.
+///
+/// This is also the ONE place external audio effects are quarantined against
+/// rollback replay ([`SfxEmissionGate`]). Every sim-side emitter already writes
+/// through here, so the guard covers the ones written tomorrow too — there is
+/// deliberately no second gate at the ~20 individual emit sites.
 #[derive(SystemParam)]
 pub struct SfxWriter<'w> {
     messages: MessageWriter<'w, OwnedSfxMessage>,
     context: Option<Res<'w, SfxEmissionContext>>,
+    gate: Option<Res<'w, SfxEmissionGate>>,
 }
 
 impl SfxWriter<'_> {
     pub fn write(&mut self, request: SfxMessage) {
+        if self
+            .gate
+            .as_deref()
+            .copied()
+            .is_some_and(SfxEmissionGate::suppresses_emission)
+        {
+            return;
+        }
         let owner = self.context.as_deref().and_then(SfxEmissionContext::owner);
         self.messages.write(OwnedSfxMessage { owner, request });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::message::Messages;
+    use bevy_ecs::schedule::Schedule;
+    use bevy_ecs::world::World;
+
+    fn emit(mut sfx: SfxWriter) {
+        sfx.write(SfxMessage::Jump { pos: Vec2::ZERO });
+    }
+
+    /// Drives the REAL `SfxWriter` through a real schedule, so the guard is
+    /// exercised in the shape every gameplay emitter uses.
+    fn emitted_with_gate(gate: Option<SfxEmissionGate>) -> usize {
+        let mut world = World::new();
+        world.init_resource::<Messages<OwnedSfxMessage>>();
+        if let Some(gate) = gate {
+            world.insert_resource(gate);
+        }
+        let mut schedule = Schedule::default();
+        schedule.add_systems(emit);
+        schedule.run(&mut world);
+
+        let messages = world.resource::<Messages<OwnedSfxMessage>>();
+        let mut cursor = messages.get_cursor();
+        cursor.read(messages).count()
+    }
+
+    #[test]
+    fn a_replayed_frame_emits_no_sound() {
+        assert_eq!(
+            emitted_with_gate(Some(SfxEmissionGate {
+                replaying_history: true
+            })),
+            0,
+            "audio for this frame already played on the pass that first simulated it"
+        );
+    }
+
+    #[test]
+    fn a_first_time_frame_emits_normally() {
+        assert_eq!(
+            emitted_with_gate(Some(SfxEmissionGate {
+                replaying_history: false
+            })),
+            1
+        );
+    }
+
+    /// No rollback host installed the gate: a fixed-tick game, a headless
+    /// fixture, and every existing unit test must be unaffected.
+    #[test]
+    fn an_absent_gate_never_suppresses() {
+        assert_eq!(emitted_with_gate(None), 1);
     }
 }

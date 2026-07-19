@@ -210,19 +210,14 @@ Deep-review §5; BIFURCATION entries in code_smells.md 2026-07-19:
   spec + the victim's feel profile; delete the two `is_player` attacker-side
   emit blocks — this is also where Jon's "each attack binds its own VFX/SFX"
   lands (authored effect identity on the volume/move spec). **Surveyed
-  2026-07-19, still OPEN.** The gap is sharper than "two emit blocks": no
-  effect identity crosses `Hitbox`→`HitEvent` at all, so ALL move audio/visual
-  is fire-at-a-TIMESTAMP (`MoveEventKind::Sfx`/`Vfx` on the move timeline),
-  never fire-on-CONTACT. `HitVolume.vfx` is the only per-volume presentation
-  field and it is spawn-edge only, has a 2-value vocabulary
-  (`slash_arc`/`slash_poke`), and doubles as a gameplay switch (it gates the
-  sprite-manifest hit-polygon override). There are also THREE payload forks,
-  not two — and one is a plain bug: `features/ecs/actors/update.rs` binds
-  `is_player` but ignores it in the feedback block, so an enemy body-checking
-  another enemy emits `PLAYER_DAMAGE` + the red "player got hurt" burst. Also
-  note `SandboxFeelTuning::attack_hitstop_time` has NO reader (the attacker
-  hitstop uses a hardcoded `0.06`), and there is no per-character feel profile
-  — `CombatTuning` is the natural home;
+  2026-07-19, still OPEN; the design is now PRE-SOLVED — execute
+  [`engine/combat-model.md`](engine/combat-model.md) §8 CM8, do not re-derive
+  it.** Headlines: the gap is wider than "two emit blocks" (no effect identity
+  crosses `Hitbox`→`HitEvent` at all, so ALL move audio/visual fires at a
+  TIMESTAMP, never on CONTACT); there are THREE payload forks, not two, one of
+  which is a live bug (enemy-vs-enemy contact plays `PLAYER_DAMAGE` + the red
+  "player got hurt" burst); and a plain delete of the attacker-side blocks
+  would REGRESS player feel, because the rich payload exists only there;
 - ~~fix the portal gun-visuals `BodyKinematics` read-model leak~~ **DONE
   2026-07-19**, and it was hiding a real bug. `ambition_portal_presentation`
   now reads a host-published `PortalBodyView` (pos/size/facing) on two host

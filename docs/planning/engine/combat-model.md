@@ -95,6 +95,20 @@ prefab params include the cue/effect ids, so every authored row can sound and
 look distinct with zero code. The sim emits the event facts; presentation
 consumes them.
 
+**Scope correction (surveyed 2026-07-19):** everything above is TIMELINE
+presentation — `MoveEventKind::{Sfx,Vfx}` fire when the owner's proper-time
+clock crosses `MoveEvent.at_s`, at the OWNER's position, with no knowledge of
+whether anything was hit (`dispatch_move_events`,
+`ambition_combat/src/moveset/mod.rs:789`). **There is no contact-time authored
+presentation at all.** No effect identity survives the
+`HitVolume`→`Hitbox`→`HitEvent` chain: `apply_hitbox_damage`
+(`hitbox/mod.rs:87`) constructs `HitEvent` from `volume/damage/source/attacker/
+target/mode/knockback/ignored_targets` only. The single per-volume presentation
+field, `HitVolume.vfx` (`ambition_entity_catalog/src/lib.rs:231`), is consumed
+at SPAWN, has a two-value vocabulary (`slash_arc`/`slash_poke`), and doubles as
+a gameplay switch (it gates the sprite-manifest hit-polygon override,
+`moveset/mod.rs:427`) — so it is NOT the hook to extend. Closing this is CM8.
+
 ## 6. Grabs, throws, shield-stun (staged vocabulary, SSB-gated)
 
 Not speculative — Super Smash Siblings needs them; they land WITH that demo
@@ -213,6 +227,49 @@ body-scale read-fold.
   ranged move; unequip removes it), a `Mul` modifier visibly scales one
   authored param at trigger-resolve.
 
+**CM8 — ONE victim-side hit/death feedback seam (surveyed opus 2026-07-19; not
+yet executed). Jon's ask: "each attack binds its own VFX/SFX", i.e. the goblin
+swipe must not sound like the sword.**
+
+The four facts that decide the design — each verified at HEAD, so do not
+re-derive them:
+
+1. **A plain delete of the attacker-side emit blocks REGRESSES player feel.**
+   The rich player-victim payload (`PLAYER_DAMAGE` sfx + 14-shard red `Burst` +
+   `DebrisBurst{Impact}`) exists ONLY attacker-side, at two byte-identical
+   sites: `ambition_combat/src/hitbox/mod.rs:250-268` and
+   `ambition_actors/src/features/ecs/actors/update.rs:1134-1149`. The victim
+   side emits only `SfxMessage::Hit` + `Impact` (`damage/mod.rs:378`,
+   `damage_apply.rs:623-624`). So the seam MOVES the payload; it does not drop
+   it. This is why the smell is M-sized, not S.
+2. **There are THREE payload forks, not two, and one is a live bug.**
+   `actors/update.rs:1121` binds `is_player` and then IGNORES it in the emit
+   block — so an enemy body-checking another enemy plays `PLAYER_DAMAGE` and
+   the red "player got hurt" burst. `hazards.rs` is the third fork (two
+   hand-split loops, `:114-134` player vs `:180-185` actor). The bug disappears
+   as a SIDE EFFECT of the seam; do not patch it in place first.
+3. **`hitbox/mod.rs:241`'s vulnerability suppression is player-only**
+   (`!is_player || body_vulnerable(..)`), so an actor in i-frames still gets an
+   `Impact`. Victim-side resolution makes this uniform for free.
+4. **There is no per-character feel profile.** `SandboxFeelTuning`
+   (`actors/src/time/feel.rs:13`) is one GLOBAL resource; `BodyHitFeel`
+   (`damage_apply.rs:94`) is a plain argument with hardcoded call-site literals.
+   `CombatTuning` (`combat/src/components/mod.rs:212`) is the per-body component
+   already projected actors→combat, so it is the natural home.
+
+Shape: authored effect identity rides `HitVolume` → `Hitbox` → `HitEvent` (a
+NEW field — see fact 4 about not overloading `HitVolume.vfx`), and ONE
+victim-side reaction system resolves the payload as *authored attack identity,
+falling back to the victim's feel profile*. Both attacker-side emit blocks are
+then deleted, not bridged. Watch determinism: effect ids are `String` today
+(`SfxId::new(cue)`), and a `String` on a sim component is GGRS-snapshot weight —
+prefer an interned/small id if the profile shows it.
+
+Free cleanup while in here: `SandboxFeelTuning::attack_hitstop_time` (declared,
+default `0.055`) has **no reader** — the attacker hitstop at `damage/mod.rs:364`
+hardcodes `0.06`, and that write is itself gated on the attacker being a
+`PlayerEntity`, so an actor landing a hit gets no hitstop.
+
 ## 9. Slices
 
 | # | Slice | Grade |
@@ -223,6 +280,7 @@ body-scale read-fold.
 | CM4 | ✅ LANDED. See §4 "As landed". Empty timeline = byte-parity reject (tested). `frame_data().cancel_windows` carries conditions (FB2-ready). | done |
 | CM5 | ✅ LANDED. See §5. `MoveSpec::presentation_problems(vfx_known)` (oracle injected — `entity_catalog` stays vfx-free) runs inside `MovePrefabRegistry::expand`. **NOTE: the slash-VFX black square is a SEPARATE render-side sprite-source quirk (needs a visual run), NOT closed here.** | done |
 | CM6 | Grab/throw/shield-stun — **design PINNED §8** | [opus, lands with SSB demo] |
+| CM8 | ONE victim-side hit/death feedback seam + authored per-attack contact effects — **survey + design PINNED §8; NOT started.** Retires three `is_player` payload forks and delivers "the goblin swipe sounds different from the sword". | [opus] |
 | CM7 | ✅ LANDED. `MoveSpec::frame_data() -> MoveFrameData { total_s, startup_s, active_spans, recovery_s, cancel_windows, reach }` — a PURE derivation, no storage, in `ambition_entity_catalog` so brain + boss validators reach it with no upward dep. Consumers (FB2 option scorer, boss validator) wire it when they land. | done |
 
 Exit: a headless test drives two archetypes through hit → DI → knockback →

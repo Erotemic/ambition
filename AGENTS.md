@@ -59,6 +59,17 @@ but do not override source files.
 - Prefer data-driven ECS flow: authored/generated data -> Bevy components/entities -> systems -> messages/effects.
 - LDtk owns world/level authoring. RON room manifests are historical; RON may still be used for tuning, save/settings, and other data where appropriate.
 - Preserve desktop, web, Android/mobile/touch, controller, and Steam Deck paths. iOS is deferred for hardware, not excluded.
+- **Binary asset payloads are git-ignored but PRESENT on disk.** Images, audio,
+  fonts and generated sheets are excluded by pattern (`*.png`, `*.ogg`, …) and by
+  directory; Jon hydrates them out of band (some are IPFS-pinned, with `.ipfs`
+  sidecars tracked beside them). *Git-ignored is not missing.* `ls` the directory
+  before concluding an asset is unavailable, assume payloads are there, and do
+  NOT build fetch/hydration machinery as part of a feature — asset distribution
+  is Jon's, not a task's. What a feature DOES owe: degrade visibly when a file is
+  absent, since another checkout may legitimately lack it. Text that describes a
+  payload (manifests, catalogs) is committed even when the payload is not — that
+  split is deliberate, so absence can be reported precisely.
+  See `docs/recipes/adding-an-asset.md`.
 - **Crate layering:** foundations and domain services feed the unified
   simulation heart; observation/presentation consume it; runtime/provider/host
   compose it; game providers own named content. `ambition_actors` is not awaiting
@@ -86,6 +97,13 @@ invariants hold.
 * **Replay/bit-identical tests are canaries, not cages** — a failure is info;
   re-baseline when the diff isn't egregious. Full doctrine:
   `docs/planning/engine/headless-verification.md`.
+* **`cargo check -p <one_crate>` is not the gate — `cargo check -p ambition_app`
+  is.** A per-crate check (and even `cargo test -p <crate> --lib`) has been
+  observed reporting success on a crate that fails to compile as part of the app
+  build. Treat a green per-crate check as encouragement, never as evidence; the
+  claim "it compiles" means the app compiled. Same for tests: app-level tests
+  build into ONE `app_it` target, so `--test <file_name>` will not resolve —
+  use `cargo test -p ambition_app --test app_it -- <module>`.
 
 ## Test placement
 

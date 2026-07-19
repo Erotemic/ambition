@@ -20,6 +20,8 @@ When a command changes, update or delete the recipe in the same patch.
 
 ## Content authoring
 
+- [`adding-an-asset.md`](adding-an-asset.md) — which asset root, what path
+  string loads it, and why git-ignored does not mean missing.
 - [`adding-a-character.md`](adding-a-character.md)
 - [`dialogue-authoring.md`](dialogue-authoring.md)
 - [`extending-brains-and-action-sets.md`](extending-brains-and-action-sets.md)

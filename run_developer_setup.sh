@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Idempotently take a fresh Ambition checkout to a runnable desktop setup.
 #
+# This is a bootstrap and environment-repair command. Normal development does
+# not require running it before every asset regeneration; existing tool-local
+# virtualenvs are reused directly by regen_sprites.sh and the renderer CLIs.
+#
 # The default path is intentionally complete:
 #   - install Ubuntu/Debian host libraries and offline audio tools;
 #   - install Rust plus the developer Cargo utilities used by repo scripts;

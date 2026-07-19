@@ -23,6 +23,9 @@
 # Environment:
 #   AMBITION_SPRITE_PYTHON=/path/to/python  Override the sprite tool .venv.
 #   AMBITION_LDTK_PYTHON=/path/to/python    Override the LDtk tool .venv.
+#   LINE_PROFILE=1                         Profile expensive renderer subprocesses.
+#   AMBITION_LINE_PROFILE_DIR=/path         Override the profile report root.
+#   AMBITION_LINE_PROFILE_TEXT=1            Also write one detailed .txt sidecar.
 #
 # Caching:
 #   The renderer's Python sources + configs are fingerprinted into
@@ -99,6 +102,13 @@ if [ "$make_gifs" -eq 1 ] && [ -z "$target_name" ]; then
     exit 2
 fi
 
+# Capture the opt-in flag before clearing it from the orchestration process.
+# Only selected expensive renderer subprocesses receive LINE_PROFILE. Leaving it
+# set globally would make helper/import probes emit profiler summaries into
+# command substitutions and corrupt their machine-readable stdout.
+line_profile_requested="${LINE_PROFILE:-}"
+unset LINE_PROFILE AMBITION_LINE_PROFILE_OUTPUT LINE_PROFILER_OWNER_PID
+
 python_bin="$(ambition_select_tool_python "$renderer_dir" AMBITION_SPRITE_PYTHON)"
 ldtk_python="$(ambition_select_tool_python "$ldtk_tools_dir" AMBITION_LDTK_PYTHON 0)"
 ambition_require_python_module \
@@ -107,6 +117,65 @@ ambition_require_python_module \
 ambition_require_python_module \
     "$ldtk_python" ambition_ldtk_tools \
     "run ./run_developer_setup.sh or set AMBITION_LDTK_PYTHON=/path/to/python"
+
+shell_value_is_true() {
+    case "${1,,}" in
+        ""|0|false|no|off) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+line_profile_enabled=0
+line_profile_run_dir=""
+if shell_value_is_true "$line_profile_requested"; then
+    if "$python_bin" -c 'import line_profiler' >/dev/null 2>&1; then
+        line_profile_enabled=1
+        profile_root="${AMBITION_LINE_PROFILE_DIR:-$renderer_dir/.profiles}"
+        profile_run_dir_name="regen-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+        line_profile_run_dir="$profile_root/$profile_run_dir_name"
+        mkdir -p "$line_profile_run_dir"
+        echo "==> line profiling enabled: $line_profile_run_dir"
+    else
+        echo "warning: LINE_PROFILE requested, but line_profiler is not installed in $python_bin" >&2
+        echo "         install it once in the sprite renderer .venv; regeneration will continue unprofiled" >&2
+    fi
+fi
+
+run_renderer_python() {
+    local label="$1"
+    shift
+    if [ "$line_profile_enabled" -eq 1 ]; then
+        local safe_label marker report_prefix started_at finished_at elapsed rc
+        safe_label="$(printf '%s' "$label" | tr -c 'A-Za-z0-9._-' '_')"
+        marker="$(mktemp "$line_profile_run_dir/${safe_label}.XXXXXX")"
+        rm -f "$marker"
+        report_prefix="$marker"
+        started_at="$(date +%s)"
+        echo "    [profile] start $label"
+        if (
+            cd "$renderer_dir"
+            PYTHONUNBUFFERED=1 \
+            AMBITION_RENDER_PROGRESS=1 \
+            LINE_PROFILE="$line_profile_requested" \
+            AMBITION_LINE_PROFILE_OUTPUT="$report_prefix" \
+                "$python_bin" "$@"
+        ); then
+            rc=0
+        else
+            rc=$?
+        fi
+        finished_at="$(date +%s)"
+        elapsed=$((finished_at - started_at))
+        if [ "$rc" -eq 0 ]; then
+            echo "    [profile] finish $label (${elapsed}s) -> ${report_prefix}.lprof"
+        else
+            echo "    [profile] failed $label after ${elapsed}s (exit $rc)" >&2
+        fi
+        return "$rc"
+    else
+        (cd "$renderer_dir" && "$python_bin" "$@")
+    fi
+}
 
 list_sprite_targets() {
     echo "==> registered sprite targets"
@@ -130,10 +199,10 @@ regen_one_target() {
     fi
 
     echo "==> sprite target: $target → $dest_root"
-    (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish "$target" --dest-root "$dest_root")
+    run_renderer_python "publish-$target" -m ambition_sprite2d_renderer publish "$target" --dest-root "$dest_root"
     if [ "$make_gifs" -eq 1 ]; then
         echo "==> animation GIFs: $target → $renderer_dir/generated/gifs/$target"
-        (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer gifs "$target")
+        run_renderer_python "gifs-$target" -m ambition_sprite2d_renderer gifs "$target"
     fi
 }
 
@@ -451,42 +520,82 @@ sheet_cache_store() {
     printf '%s\n' "$2" > "$sheets_cache_dir/$1"
 }
 
-# Publish one registered target with per-sheet caching. Skips only when the
-# complete declared gameplay + portrait bundle is current.
-portrait_outputs_present() {
-    local target="$1" rel files
-    if ! files="$(cd "$renderer_dir" && "$python_bin" \
-        -m ambition_sprite2d_renderer portrait-files "$target")"; then
-        return 1
-    fi
-    while IFS= read -r rel; do
-        [ -n "$rel" ] || continue
-        [ -f "$sprites_dir/$rel" ] || return 1
-    done <<< "$files"
-    return 0
-}
-
-publish_cached() {
+# Publish registered targets in explicit batches. Registry discovery and YAML
+# config loading are expensive, so cache inspection resolves every target's
+# declared portrait products in one Python process and stale targets are then
+# rendered by one `publish-many` process. This preserves per-target cache keys
+# while avoiding one interpreter + discovery pass per character.
+_target_sheet_glob() {
     local target="$1"
-    local key glob
-    key="$(unit_key "$target")"
     case "$target" in
         gnu_ton_boss|mockingbird_boss)
-            glob="$sprites_dir/$target/${target}"*"_spritesheet.png"
+            printf '%s\n' "$sprites_dir/$target/${target}*_spritesheet.png"
             ;;
         *)
-            glob="$sprites_dir/${target}"*"_spritesheet.png"
+            printf '%s\n' "$sprites_dir/${target}*_spritesheet.png"
             ;;
     esac
-    if sheet_cache_fresh "$target" "$key" "$glob" \
-        && portrait_outputs_present "$target"; then
-        echo "  [cache] $target up to date — skipped"
-        return 0
+}
+
+publish_cached_batch() {
+    local label="$1"
+    shift
+    local -a candidates=("$@")
+    local -a stale=()
+    local target key glob rel records portraits_ok records_ok=1
+    local -A portrait_records=()
+
+    [ "${#candidates[@]}" -gt 0 ] || return 0
+
+    if [ "$force_regen" -ne 1 ]; then
+        if ! records="$(
+            cd "$renderer_dir" && "$python_bin" \
+                -m ambition_sprite2d_renderer portrait-files \
+                --with-target "${candidates[@]}"
+        )"; then
+            echo "  warning: could not resolve portrait products for batch '$label'; republishing it" >&2
+            records=""
+            records_ok=0
+        fi
+        while IFS=$'\t' read -r target rel; do
+            [ -n "$target" ] || continue
+            portrait_records["$target"]="${portrait_records[$target]-}$rel"$'\n'
+        done <<< "$records"
     fi
-    if (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish "$target" --dest-root "$sprites_dir"); then
-        sheet_cache_store "$target" "$key"
+
+    for target in "${candidates[@]}"; do
+        key="$(unit_key "$target")"
+        glob="$(_target_sheet_glob "$target")"
+        if [ "$records_ok" -eq 1 ] \
+            && [ -n "${portrait_records[$target]-}" ] \
+            && sheet_cache_fresh "$target" "$key" "$glob"; then
+            portraits_ok=1
+            while IFS= read -r rel; do
+                [ -n "$rel" ] || continue
+                if [ ! -f "$sprites_dir/$rel" ]; then
+                    portraits_ok=0
+                    break
+                fi
+            done <<< "${portrait_records[$target]-}"
+            if [ "$portraits_ok" -eq 1 ]; then
+                echo "  [cache] $target up to date — skipped"
+                continue
+            fi
+        fi
+        stale+=("$target")
+    done
+
+    [ "${#stale[@]}" -gt 0 ] || return 0
+
+    echo "  publishing ${#stale[@]} target(s) in one process"
+    if run_renderer_python "publish-batch-$label" \
+        -m ambition_sprite2d_renderer publish-many \
+        --quiet --dest-root "$sprites_dir" "${stale[@]}"; then
+        for target in "${stale[@]}"; do
+            sheet_cache_store "$target" "$(unit_key "$target")"
+        done
     else
-        echo "  [skip] tack-on target '$target' publish failed (publisher not implemented?)"
+        echo "  [warn] batch '$label' had one or more publish failures; cache keys were not advanced" >&2
     fi
 }
 
@@ -510,10 +619,10 @@ then
 fi
 
 echo "==> config-driven targets (robot / goblin / boss) → $sprites_dir"
-(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-all --out-dir "$sprites_dir")
+run_renderer_python draw-all -m ambition_sprite2d_renderer draw-all --out-dir "$sprites_dir"
 
 echo "==> entity sprites → $entities_dir"
-(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish entities --dest-root "$entities_dir")
+run_renderer_python publish-entities -m ambition_sprite2d_renderer publish entities --dest-root "$entities_dir"
 
 echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
 # `draw-review` renders configs/review/*.yaml (toon-target NPC
@@ -526,7 +635,7 @@ echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
 # character_sprites are gone).
 review_scratch="$renderer_dir/generated/review"
 mkdir -p "$review_scratch"
-(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-review --out-dir "$review_scratch")
+run_renderer_python draw-review -m ambition_sprite2d_renderer draw-review --out-dir "$review_scratch"
 review_cues=(
     # Toon-target NPC variants already promoted.
     absurd_general architect kernel_guide vault_keeper
@@ -574,7 +683,7 @@ done
 # sheet selected by the review config. Focused `--target oiler` still publishes
 # the module target's full sheet + portrait bundle.
 echo "==> Oiler native rig portrait → $sprites_dir"
-(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer portraits oiler)
+run_renderer_python portraits-oiler -m ambition_sprite2d_renderer portraits oiler
 for ext in png ron; do
     src="$renderer_dir/generated/oiler/oiler_portraits.$ext"
     cp "$src" "$sprites_dir/oiler_portraits.$ext"
@@ -589,7 +698,7 @@ echo "==> faction-leader sheets (robot-target leaders) → $sprites_dir"
 # the lineup manifest + canonicals don't pollute review/.
 factions_scratch="$renderer_dir/generated/factions"
 mkdir -p "$factions_scratch"
-(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-factions --out-dir "$factions_scratch")
+run_renderer_python draw-factions -m ambition_sprite2d_renderer draw-factions --out-dir "$factions_scratch"
 for cue in goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor; do
     for ext in png yaml ron; do
         src="$factions_scratch/${cue}_spritesheet.$ext"
@@ -711,27 +820,15 @@ tackon_targets=(
     puppy_slug_velvet
     player_robot_fable
 )
-for target in "${tackon_targets[@]}"; do
-    # Per-target failure is non-fatal — some targets (e.g.
-    # robot_heavy / viking_warrior variants) don't have a publish
-    # path implemented yet and exit non-zero. The postcondition
-    # check below catches anything that actually needs to ship.
-    # `publish_cached` skips targets already current (per-sheet cache)
-    # and only stores the cache key on a successful publish.
-    publish_cached "$target"
-done
-
-# Rigged characters authored as GUI `.rig.json` documents
-# (targets/characters/rigged/*.rig.json) auto-register as targets named after
-# the file stem. They were previously checked for existence (expected_files)
-# but NEVER re-published here, so rig edits silently never reached the crate.
-# Discover + publish them so the rig editor's output ships like everything else.
-echo "==> rigged characters (GUI .rig.json docs) → $sprites_dir"
+# Rigged characters authored as GUI `.rig.json` documents auto-register as
+# targets named after the file stem. Include them in the same explicit batch as
+# the ordinary tack-ons so registry discovery is paid once for the whole group.
+rig_targets=()
 for rig in "$renderer_dir"/ambition_sprite2d_renderer/targets/characters/rigged/*.rig.json; do
     [ -f "$rig" ] || continue
-    rig_name="$(basename "$rig" .rig.json)"
-    publish_cached "$rig_name"
+    rig_targets+=("$(basename "$rig" .rig.json)")
 done
+publish_cached_batch tackons "${tackon_targets[@]}" "${rig_targets[@]}"
 
 echo "==> held-item prop canonicals (single-pose → $sprites_dir/props)"
 # A few props are shown in-game as STATIC held / ground items, which load
@@ -795,17 +892,14 @@ pirate_targets=(
     # $sprites_dir as `pirate_heavy_<slug>_spritesheet.{png,yaml,ron}`.
     pirate_heavy
 )
-for target in "${pirate_targets[@]}"; do
-    publish_cached "$target"
-done
-
-echo "==> small enemy sprites (puppy_slug → $sprites_dir)"
-publish_cached puppy_slug
-
-echo "==> tack-on: mockingbird boss (render-publish into $sprites_dir/mockingbird_boss)"
-# The unified Target install contract owns the boss subdirectory for both its
-# multipart gameplay product and its independent portrait product.
-publish_cached mockingbird_boss
+echo "==> pirate, small-enemy, and multipart-boss target batch → $sprites_dir"
+# These late targets share the same publishing contract. Keep their explicit
+# roster but render them together so the registry and YAML configs are loaded
+# once rather than once per target.
+publish_cached_batch late-targets \
+    "${pirate_targets[@]}" \
+    puppy_slug \
+    mockingbird_boss
 
 echo "==> postcondition: every runtime-required sprite file present"
 # Walk the list of files the sandbox crate actually loads at runtime
@@ -836,9 +930,9 @@ echo "==> Hall-of-Characters portrait coverage:"
     --only-issues 2>&1 | sed 's/^/  /'
 
 echo "==> portrait review gallery:"
-(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer portrait-gallery \
+run_renderer_python portrait-gallery -m ambition_sprite2d_renderer portrait-gallery \
     --source-dir "$sprites_dir" \
-    --out "$renderer_dir/generated/portrait_gallery.png") 2>&1 | sed 's/^/  /'
+    --out "$renderer_dir/generated/portrait_gallery.png" 2>&1 | sed 's/^/  /'
 
 # --- Publish boundary: sweep diagnostics out of the runtime roots ---------
 # The sprite generators emit human-only diagnostics (canonical poses, labeled
@@ -908,11 +1002,11 @@ then
         if [ "${AMBITION_ULTRAPACK_DEBUG:-0}" = "1" ]; then
             ultrapack_debug=(--debug-views --debug-dir "$pack_debug_root/$tname")
         fi
-        (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer ultrapack \
+        run_renderer_python "ultrapack-$tname" -m ambition_sprite2d_renderer ultrapack \
             --from-rendered "$sprites_dir" \
             --out "$pack_root/$tname" \
             --scale "$tscale" --min-frame-px "$tmin" --page-size "$tpage" \
-            --name ultrapack "${ultrapack_plan[@]}" "${ultrapack_debug[@]}") 2>&1 | sed 's/^/  /' || \
+            --name ultrapack "${ultrapack_plan[@]}" "${ultrapack_debug[@]}" 2>&1 | sed 's/^/  /' || \
             echo "  WARN: ultrapack tier '$tname' failed (non-fatal)"
     done
     echo "  packs installed under $pack_root/{full,half,quarter,potato}/"
@@ -1004,8 +1098,8 @@ if ambition_python_exists "$python_bin" && \
     "$ldtk_python" \
         -c "import ambition_ldtk_tools" 2>/dev/null
 then
-    (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer \
-        ldtk-manifest --out "$sprite_manifest") 2>&1 | sed 's/^/  /' || true
+    run_renderer_python ldtk-manifest -m ambition_sprite2d_renderer \
+        ldtk-manifest --out "$sprite_manifest" 2>&1 | sed 's/^/  /' || true
     for world in sandbox intro you_have_to_cut_the_rope; do
         ldtk_path="$worlds_dir/$world.ldtk"
         [ -f "$ldtk_path" ] || continue
@@ -1021,5 +1115,10 @@ fi
 mkdir -p "$cache_dir"
 echo "$current_fingerprint" > "$fingerprint_file"
 echo "  cached regen fingerprint at $fingerprint_file"
+
+if [ "$line_profile_enabled" -eq 1 ]; then
+    echo "==> line profile reports: $line_profile_run_dir"
+    echo "    Inspect one with: $python_bin -m line_profiler -rtmz <report>.lprof"
+fi
 
 echo "==> done"

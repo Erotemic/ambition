@@ -22,7 +22,10 @@ For agent routing, start with [`../docs/tools/index.md`](../docs/tools/index.md)
 
 ## Conventions
 
-- Every active Python tool owns `tools/<tool>/.venv`; create/update them through `../run_developer_setup.sh`.
+- Every active Python tool owns `tools/<tool>/.venv`; bootstrap them with
+  `../run_developer_setup.sh`. Normal renderer runs reuse those environments;
+  rerun setup only when dependencies, the requested Python version, or
+  submodules change.
 - Prefer `python -m <package>` for package CLIs, using that tool-local interpreter.
 - Generated outputs stay local until an explicit install/publish step.
 - Do not hand-edit `game/ambition_content/assets/worlds/sandbox.ldtk`; use `ambition_ldtk_tools`.

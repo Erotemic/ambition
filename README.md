@@ -145,8 +145,12 @@ From a fresh clone, the supported zero-to-runnable path is:
 
 The setup script installs host and Rust dependencies, initializes submodules,
 creates an isolated `.venv` inside each active Python authoring tool, regenerates
-all runtime assets, and checks the desktop game target. Use
-`./run_developer_setup.sh --help` for phase-specific skip flags.
+all runtime assets, and checks the desktop game target. It is a fresh-clone or
+environment-repair command, not a prerequisite for ordinary asset regeneration.
+Once the tool-local environments exist, run the relevant renderer or regeneration
+script directly. Re-run setup only after dependency, Python-version, submodule,
+or host-tooling changes. Use `./run_developer_setup.sh --help` for phase-specific
+skip flags.
 
 ## Run the game
 

@@ -15,8 +15,6 @@ use bevy::sprite::Anchor;
 use bevy::sprite_render::MeshMaterial2d;
 
 use ambition_engine_core as ae;
-use ambition_platformer_primitives::body::BodyKinematics;
-use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer_primitives::orientation::ActorRoll;
 
 use ambition_portal::pieces as pp;
@@ -51,22 +49,21 @@ pub struct PortalDisorientIndicator;
 /// redirect). Placeholder dot+glyph for now; a nicer effect (incl. on the
 /// joystick visual) can replace it later.
 ///
-/// FIXME(host-seam): this still queries Ambition's primary-player marker pair.
-/// Isolate that dependency behind a host-supplied focus marker before publishing
-/// this as a less-opinionated portal presentation crate.
+/// Drawn for the host-tagged [`crate::PortalAffordanceBody`], so this crate
+/// never names a "player".
 pub fn sync_portal_disorientation_indicator(
     mut commands: Commands,
     frame: Res<PortalWorldFrame>,
     existing: Query<Entity, With<PortalDisorientIndicator>>,
-    player: Query<
-        (&BodyKinematics, Has<PortalInputWarp>),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
+    carrier: Query<
+        (&crate::PortalBodyView, Has<PortalInputWarp>),
+        With<crate::PortalAffordanceBody>,
     >,
 ) {
     for entity in &existing {
         commands.entity(entity).despawn();
     }
-    let Ok((kin, warped)) = player.single() else {
+    let Ok((kin, warped)) = carrier.single() else {
         return;
     };
     if !warped {
@@ -131,7 +128,7 @@ pub fn sync_portal_body_pieces(
     mut unit_mesh: Local<Option<Handle<Mesh>>>,
     mut body_visual: Query<
         (
-            &BodyKinematics,
+            &crate::PortalBodyView,
             Option<&PortalTransit>,
             Option<&ActorRoll>,
             &Sprite,

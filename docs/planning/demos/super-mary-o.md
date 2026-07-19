@@ -24,7 +24,8 @@ Landed:
 - flag contact-height scoring, slide, walk-off, tally, dwell, and cyclic level
   restart.
 
-Remaining acceptance work:
+Remaining acceptance work
+(**this list is the single source; status.md and tracks.md refer here**):
 
 - the secret pipe and underground room;
 - a brainless sliding shell prop;

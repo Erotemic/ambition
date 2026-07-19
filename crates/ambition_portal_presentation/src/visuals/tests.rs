@@ -52,11 +52,10 @@ fn loaded_sprite(app: &mut App) -> Sprite {
 
 fn spawn_body(app: &mut App, sprite: Sprite, transiting: bool) -> Entity {
     let (left, _) = thin_wall_pair();
-    let kin = BodyKinematics {
+    let kin = crate::PortalBodyView {
         // Center 2px in FRONT of the left portal plane, feet-to-head
         // inside the aperture: the trailing 10px of the box has crossed.
         pos: Vec2::new(498.0, 300.0),
-        vel: Vec2::ZERO,
         size: Vec2::new(24.0, 40.0),
         facing: 1.0,
     };

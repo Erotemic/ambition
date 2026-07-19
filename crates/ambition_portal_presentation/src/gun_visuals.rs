@@ -10,8 +10,6 @@ use bevy::prelude::*;
 use bevy::sprite_render::MeshMaterial2d;
 
 use ambition_engine_core as ae;
-use ambition_platformer_primitives::body::BodyKinematics;
-use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal::pieces as pp;
 use ambition_portal::{
     find_portal, PlacedPortal, PortalGun, PortalGunPickup, PortalShot, PortalTransit,
@@ -20,13 +18,12 @@ use ambition_portal::{
 use crate::clip_material::{
     clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial, CLIP_PLANE_OFF,
 };
-use crate::{PortalAimHint, PortalGunArt, PortalVisual, PortalWorldFrame};
+use crate::{
+    PortalAffordanceBody, PortalAimHint, PortalBodyView, PortalGunArt, PortalVisual,
+    PortalWorldFrame,
+};
 
 /// Marks the held portal-gun sprite carried by the current controlled actor.
-///
-/// FIXME(portal-gun-seam): this still queries Ambition's primary-player marker
-/// pair. Keep the dependency isolated here until the host supplies a generic
-/// `PortalGunCarrier` / controlled-viewpoint marker seam.
 #[derive(Component)]
 pub struct PortalModeIndicator;
 
@@ -60,8 +57,8 @@ pub fn sync_portal_mode_indicator(
     clip_materials: Option<ResMut<Assets<PortalClipMaterial>>>,
     mut unit_mesh: Local<Option<Handle<Mesh>>>,
     carriers: Query<
-        (&BodyKinematics, &PortalGun, Option<&PortalTransit>),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
+        (&PortalBodyView, &PortalGun, Option<&PortalTransit>),
+        With<PortalAffordanceBody>,
     >,
 ) {
     for entity in &visuals {
@@ -307,11 +304,9 @@ mod tests {
         app.world_mut().spawn(left.clone());
         app.world_mut().spawn(right);
         app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            BodyKinematics {
+            PortalAffordanceBody,
+            PortalBodyView {
                 pos: Vec2::new(498.0, 300.0),
-                vel: Vec2::ZERO,
                 size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
@@ -336,8 +331,6 @@ mod tests {
         );
 
         // Without a transit, exactly one plain-sprite gun.
-        let transits = app.world_mut().query::<&mut BodyKinematics>();
-        drop(transits);
         let player = app
             .world_mut()
             .query_filtered::<Entity, With<PortalGun>>()

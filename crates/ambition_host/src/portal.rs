@@ -14,9 +14,11 @@
 //!
 //! - the **presentation host adapter** (render-gated): sync the crate-owned
 //!   [`PortalWorldFrame`] from [`RoomGeometry`], tag [`PortalSceneBody`] on the
-//!   player's visual entity, and load [`PortalGunArt`] from the Ambition asset
-//!   paths. The presentation crate never names a host type; these three
-//!   systems are the entire bridge.
+//!   player's visual entity, tag [`PortalAffordanceBody`] on the CONTROLLED
+//!   body, publish [`PortalBodyView`] pose facts for both, and load
+//!   [`PortalGunArt`] from the Ambition asset paths. The presentation crate
+//!   never names a host type — not even "player"; these systems are the
+//!   entire bridge.
 //! - the semantic developer action that toggles the portal gun.
 //!
 //! The Ambition content adapters that bridge the mechanic's seams to game
@@ -31,10 +33,11 @@ mod host_adapter {
     use ambition_engine_core::cast::SolidWorldQuery;
     use ambition_engine_core::BodyKinematics;
     use ambition_portal_presentation::{
-        PortalCameraContinuityCamera, PortalCameraContinuityConfig, PortalCameraContinuityFocus,
-        PortalCameraContinuityHostView, PortalCameraContinuitySelection,
-        PortalCameraContinuityState, PortalCameraTransitMode, PortalDebugOverlay, PortalGunArt,
-        PortalObservationSet, PortalSceneBody, PortalViewer, PortalWorldFrame,
+        PortalAffordanceBody, PortalBodyView, PortalCameraContinuityCamera,
+        PortalCameraContinuityConfig, PortalCameraContinuityFocus, PortalCameraContinuityHostView,
+        PortalCameraContinuitySelection, PortalCameraContinuityState, PortalCameraTransitMode,
+        PortalDebugOverlay, PortalGunArt, PortalObservationSet, PortalSceneBody, PortalViewer,
+        PortalWorldFrame,
     };
 
     use ambition_engine_core::RoomGeometry;
@@ -101,6 +104,60 @@ mod host_adapter {
     ) {
         for entity in &untagged {
             commands.entity(entity).insert(PortalSceneBody);
+        }
+    }
+
+    /// Bridge the CONTROLLED body → the crate-owned [`PortalAffordanceBody`]
+    /// seam: whose hand the portal gun draws in, and who the disorientation
+    /// indicator floats above.
+    ///
+    /// The authority is [`ControlledSubject`], not `PrimaryPlayer` — the same
+    /// authority [`sync_portal_viewer`] already uses for the eye, and the one
+    /// `markers.rs` names outright ("Input, abilities, camera, portal viewer
+    /// ... derive from the `ControlledSubject` resource"). While possessing,
+    /// the controlled body is the possessed actor, so the gun and the warp
+    /// indicator now follow the body you are actually driving instead of
+    /// staying on the home avatar.
+    pub fn tag_portal_affordance_body(
+        mut commands: Commands,
+        controlled: Res<ControlledSubject>,
+        tagged: Query<Entity, With<PortalAffordanceBody>>,
+    ) {
+        let subject = controlled.0;
+        for entity in &tagged {
+            if Some(entity) != subject {
+                commands.entity(entity).remove::<PortalAffordanceBody>();
+            }
+        }
+        // `try_insert`: a subject that despawned this frame must not resurrect
+        // as a command-spawned shell.
+        if let Some(entity) = subject {
+            if tagged.get(entity).is_err() {
+                commands.entity(entity).try_insert(PortalAffordanceBody);
+            }
+        }
+    }
+
+    /// Publish [`PortalBodyView`] — the pose facts portal presentation draws
+    /// from — onto every entity the presentation crate must place a visual
+    /// against.
+    ///
+    /// This is the read-model seam: presentation gets plain `Copy` pose data
+    /// and never reads `BodyKinematics`, so the two sides never have to agree
+    /// on which host type owns a pose.
+    pub fn publish_portal_body_views(
+        mut commands: Commands,
+        bodies: Query<
+            (Entity, &BodyKinematics),
+            Or<(With<PortalSceneBody>, With<PortalAffordanceBody>)>,
+        >,
+    ) {
+        for (entity, kin) in &bodies {
+            commands.entity(entity).try_insert(PortalBodyView {
+                pos: kin.pos,
+                size: kin.size,
+                facing: kin.facing,
+            });
         }
     }
 
@@ -708,7 +765,17 @@ mod host_adapter {
                         // duplicate pin here.
                         sync_portal_camera_continuity_focus,
                         sync_portal_debug_overlay_to_f1,
-                        tag_portal_scene_bodies,
+                        // Chained: the publisher selects by the two marker
+                        // seams, so the taggers' inserts must be applied
+                        // first (Bevy inserts the sync point for an explicit
+                        // ordering dependency). Without the pin the view
+                        // would trail the tag by a frame on every retag.
+                        (
+                            tag_portal_scene_bodies,
+                            tag_portal_affordance_body,
+                            publish_portal_body_views,
+                        )
+                            .chain(),
                     )
                         .in_set(PortalObservationSet)
                         .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
@@ -719,9 +786,99 @@ mod host_adapter {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::host_adapter::{publish_portal_body_views, tag_portal_affordance_body};
+    use ambition_engine_core::BodyKinematics;
+    use ambition_platformer_primitives::markers::ControlledSubject;
+    use ambition_portal_presentation::{PortalAffordanceBody, PortalBodyView};
+    use bevy::prelude::*;
+
+    fn body(pos: Vec2) -> BodyKinematics {
+        BodyKinematics {
+            pos,
+            vel: Vec2::ZERO,
+            size: Vec2::new(24.0, 40.0),
+            facing: 1.0,
+        }
+    }
+
+    /// The portal affordances (held gun, disorientation indicator) follow the
+    /// CONTROLLED body, so possessing an actor moves the gun into the possessed
+    /// actor's hand — and takes it out of the home avatar's.
+    ///
+    /// The untag half is the one that regresses silently: a tagger that only
+    /// ever inserts leaves two tagged bodies, and the presentation crate's
+    /// `single()` query then silently draws NOTHING.
+    #[test]
+    fn portal_affordances_follow_the_controlled_body_through_possession() {
+        let mut app = App::new();
+        app.init_resource::<ControlledSubject>();
+        app.add_systems(
+            Update,
+            (tag_portal_affordance_body, publish_portal_body_views).chain(),
+        );
+
+        let home = app.world_mut().spawn(body(Vec2::new(10.0, 20.0))).id();
+        let possessed = app.world_mut().spawn(body(Vec2::new(300.0, 40.0))).id();
+
+        // Driving the home avatar.
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(home);
+        app.update();
+        assert!(app.world().get::<PortalAffordanceBody>(home).is_some());
+        assert!(app.world().get::<PortalAffordanceBody>(possessed).is_none());
+        assert_eq!(
+            app.world().get::<PortalBodyView>(home).unwrap().pos,
+            Vec2::new(10.0, 20.0),
+            "the published view carries the tagged body's pose",
+        );
+
+        // Possess the actor: the tag MOVES, it does not accumulate.
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(possessed);
+        app.update();
+        assert!(
+            app.world().get::<PortalAffordanceBody>(home).is_none(),
+            "the home avatar must lose the affordance tag, or `single()` finds two \
+             carriers and the gun stops drawing entirely",
+        );
+        assert!(app.world().get::<PortalAffordanceBody>(possessed).is_some());
+        assert_eq!(
+            app.world().get::<PortalBodyView>(possessed).unwrap().pos,
+            Vec2::new(300.0, 40.0),
+        );
+
+        // Exactly one carrier at all times.
+        let carriers = app
+            .world_mut()
+            .query_filtered::<Entity, With<PortalAffordanceBody>>()
+            .iter(app.world())
+            .count();
+        assert_eq!(carriers, 1, "exactly one portal carrier");
+    }
+
+    /// A despawned subject must not resurrect as a command-spawned shell.
+    #[test]
+    fn a_despawned_controlled_subject_does_not_resurrect() {
+        let mut app = App::new();
+        app.init_resource::<ControlledSubject>();
+        app.add_systems(Update, tag_portal_affordance_body);
+
+        let ghost = app.world_mut().spawn(body(Vec2::ZERO)).id();
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(ghost);
+        app.world_mut().entity_mut(ghost).despawn();
+        app.update();
+
+        assert!(
+            app.world().get_entity(ghost).is_err(),
+            "no resurrected shell"
+        );
+    }
+}
+
 pub use host_adapter::{
     apply_portal_camera_continuity, load_portal_gun_art, portal_dev_toggle_system,
-    sync_portal_camera_continuity_focus, sync_portal_debug_overlay_to_f1, sync_portal_viewer,
-    sync_portal_world_frame, tag_portal_camera_continuity_camera, tag_portal_scene_bodies,
+    publish_portal_body_views, sync_portal_camera_continuity_focus,
+    sync_portal_debug_overlay_to_f1, sync_portal_viewer, sync_portal_world_frame,
+    tag_portal_affordance_body, tag_portal_camera_continuity_camera, tag_portal_scene_bodies,
     PortalObservationPlugin,
 };

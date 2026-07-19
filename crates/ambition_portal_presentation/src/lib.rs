@@ -4,8 +4,9 @@
 //! indicators, through-portal view windows, and a sequestered compatibility
 //! module for Ambition's portal-gun sprites. Hosts sync the
 //! crate-owned seams ([`PortalWorldFrame`], [`PortalSceneBody`],
-//! [`PortalGunArt`], [`PortalAimHint`]) and may replace any visual by disabling
-//! that [`PortalPresentationPlugin`] flag and registering an alternative system.
+//! [`PortalAffordanceBody`], [`PortalBodyView`], [`PortalGunArt`],
+//! [`PortalAimHint`]) and may replace any visual by disabling that
+//! [`PortalPresentationPlugin`] flag and registering an alternative system.
 //!
 //! Depends only on `bevy`, `ambition_engine_core`,
 //! `ambition_platformer_primitives`, and `ambition_portal`; it never names a host
@@ -125,10 +126,42 @@ impl PortalWorldFrame {
 
 /// Host seam: marks the visual entity whose sprite the mid-transit body-piece
 /// decomposition draws (in Ambition, the player's sprite entity). The entity
-/// must also carry the runtime `BodyKinematics` plus `Sprite` + `Visibility`;
+/// must also carry a [`PortalBodyView`] plus `Sprite` + `Visibility`;
 /// `PortalTransit` / `ActorRoll` are read when present.
 #[derive(Component)]
 pub struct PortalSceneBody;
+
+/// Host seam: marks the body whose portal AFFORDANCES draw — the held gun and
+/// the disorientation indicator.
+///
+/// Separate from [`PortalSceneBody`] because the two answer different
+/// questions: the scene body is *whose sprite gets decomposed at the seam*,
+/// the affordance body is *who is operating the portals*. In Ambition they are
+/// the same entity; a spectator viewpoint watching another body is exactly the
+/// case where they diverge, and nothing here assumes they don't.
+///
+/// The host decides who that is (and re-tags when control moves). This crate
+/// deliberately does not know what a "player" is — a portal carrier can be any
+/// body, script, or emitter the host chooses.
+#[derive(Component)]
+pub struct PortalAffordanceBody;
+
+/// Host seam: the body-pose facts portal presentation places visuals against.
+///
+/// Published by the host onto every entity this crate must draw for — the
+/// [`PortalSceneBody`] and the [`PortalAffordanceBody`]. Plain `Copy` data, so
+/// presentation never reads a live host body component and the two sides never
+/// have to agree on which type owns a pose. This is the same host-publishes-
+/// facts shape as [`PortalCameraContinuityHostView`], applied to bodies.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct PortalBodyView {
+    /// Body centre in engine world coordinates (top-left origin, y-down).
+    pub pos: Vec2,
+    /// Current collision-box size (crouch / morph compaction included).
+    pub size: Vec2,
+    /// Facing sign: `>= 0.0` faces +x. Only the sign is read.
+    pub facing: f32,
+}
 
 /// Host seam: the loaded portal-gun art (blue / orange mode sprites). The
 /// crate defines the resource; the HOST loads it — asset paths are content.

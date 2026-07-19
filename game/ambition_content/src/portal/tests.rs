@@ -904,8 +904,23 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
 #[cfg(feature = "portal_render")]
 mod host_bridges {
     use super::*;
-    use ambition_portal_presentation::{PortalSceneBody, PortalWorldFrame};
+    use ambition_portal_presentation::{PortalBodyView, PortalSceneBody, PortalWorldFrame};
     use ambition_render::rendering::PlayerVisual;
+
+    /// Mirror of the host's read-model publisher: presentation reads
+    /// `PortalBodyView`, never the sandbox's `BodyKinematics`.
+    pub fn publish_portal_body_views(
+        mut commands: Commands,
+        bodies: Query<(Entity, &BodyKinematics), With<PortalSceneBody>>,
+    ) {
+        for (entity, kin) in &bodies {
+            commands.entity(entity).try_insert(PortalBodyView {
+                pos: kin.pos,
+                size: kin.size,
+                facing: kin.facing,
+            });
+        }
+    }
 
     pub fn sync_portal_world_frame(
         world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
@@ -933,7 +948,9 @@ fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
         sync_portal_body_pieces, PortalBodyPiece, PortalWorldFrame,
     };
     use ambition_render::rendering::PlayerVisual;
-    use host_bridges::{sync_portal_world_frame, tag_portal_scene_bodies};
+    use host_bridges::{
+        publish_portal_body_views, sync_portal_world_frame, tag_portal_scene_bodies,
+    };
     let mut app = App::new();
     ambition::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
@@ -952,6 +969,7 @@ fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
         (
             sync_portal_world_frame,
             tag_portal_scene_bodies,
+            publish_portal_body_views,
             sync_portal_body_pieces,
         )
             .chain(),

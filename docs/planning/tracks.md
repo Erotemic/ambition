@@ -117,13 +117,11 @@ the per-crate feature sets legitimately differ.
 ## 3. Close Super Mary-O level 1 — [opus]
 
 Engine seams proven (pickups/equip, grown form, ranged powerup, bricks, crony
-stomp, flag, clock, tally, cyclic restart). Remaining customer work:
-
-- secret pipe and underground room;
-- sliding shell prop;
-- HUD, title, and results presentation;
-- a deterministic scripted run that completes level 1 through real controls,
-  collects a powerup, and exercises its effect.
+stomp, flag, clock, tally, cyclic restart). The remaining customer work is the
+list in [`demos/super-mary-o.md`](demos/super-mary-o.md) — **that doc is the
+single source; do not copy the list back here** (it had already drifted: this
+queue had dropped "enters the secret" from the scripted-run gate and omitted the
+post-acceptance levels bullet).
 
 **Exit:** visible and headless customers use the same provider, body, item, and
 level state with no Mary-O-only engine path.
@@ -133,13 +131,9 @@ level state with no Mary-O-only engine path.
 Corrected 2026-07-19: the ring economy (35 authored rings, collect SFX) and the
 badnik enemy loop (stomp-with-bounce AND roll-through defeat through shared
 contact/combat) are **landed** — the old "bits" and "one enemy loop" bullets
-are done. Remaining:
-
-- ring drop-on-hit scatter;
-- goal, HUD, results, and end-of-act sequence;
-- one complete authored act;
-- deterministic headless completion proving the rewarded high route is faster
-  than the lower safe route under the same control contract.
+are done. The remaining work is the list in [`demos/sanic.md`](demos/sanic.md),
+which already declares itself the single source — **refer, never copy** (these
+are the copies that "drifted independently — again").
 
 Do not absorb movement/contact work owned by another active campaign.
 
@@ -215,8 +209,39 @@ Deep-review §5; BIFURCATION entries in code_smells.md 2026-07-19:
 - build ONE victim-side hit/death feedback seam keyed on the attack/volume
   spec + the victim's feel profile; delete the two `is_player` attacker-side
   emit blocks — this is also where Jon's "each attack binds its own VFX/SFX"
-  lands (authored effect identity on the volume/move spec);
-- while there: fix the portal gun-visuals `BodyKinematics` read-model leak.
+  lands (authored effect identity on the volume/move spec). **Surveyed
+  2026-07-19, still OPEN.** The gap is sharper than "two emit blocks": no
+  effect identity crosses `Hitbox`→`HitEvent` at all, so ALL move audio/visual
+  is fire-at-a-TIMESTAMP (`MoveEventKind::Sfx`/`Vfx` on the move timeline),
+  never fire-on-CONTACT. `HitVolume.vfx` is the only per-volume presentation
+  field and it is spawn-edge only, has a 2-value vocabulary
+  (`slash_arc`/`slash_poke`), and doubles as a gameplay switch (it gates the
+  sprite-manifest hit-polygon override). There are also THREE payload forks,
+  not two — and one is a plain bug: `features/ecs/actors/update.rs` binds
+  `is_player` but ignores it in the feedback block, so an enemy body-checking
+  another enemy emits `PLAYER_DAMAGE` + the red "player got hurt" burst. Also
+  note `SandboxFeelTuning::attack_hitstop_time` has NO reader (the attacker
+  hitstop uses a hardcoded `0.06`), and there is no per-character feel profile
+  — `CombatTuning` is the natural home;
+- ~~fix the portal gun-visuals `BodyKinematics` read-model leak~~ **DONE
+  2026-07-19**, and it was hiding a real bug. `ambition_portal_presentation`
+  now reads a host-published `PortalBodyView` (pos/size/facing) on two host
+  seams — `PortalSceneBody` (whose sprite decomposes) and the new
+  `PortalAffordanceBody` (who operates the portals). The crate no longer names
+  `BodyKinematics`, `PlayerEntity`, or `PrimaryPlayer` **at all**.
+  **The bug:** the affordance body is tagged from `ControlledSubject`, not
+  `PrimaryPlayer` — so while possessing, the held gun and the disorientation
+  indicator followed the HOME AVATAR while the fire adapter already resolved
+  the shot from the controlled body holding the gun (its own test:
+  `portal_fire_origin_comes_from_the_holding_controlled_body`, explicitly "no
+  fallback" to the primary). The visual and the mechanic disagreed; they now
+  agree. Pinned by two host tests, the untag half poison-verified.
+  **Deviation surfaced** (per the executor rule): the deep review said "pose
+  views exist" — use them. They do, but `BodyPoseView` lives in
+  `ambition_sim_view`, which depends on `ambition_actors`; consuming it would
+  add an upward edge the presentation crate's manifest explicitly forbids
+  ("never a host crate"). Fixed with the crate's OWN host-seam idiom instead
+  (the same shape as `PortalCameraContinuityHostView`).
 
 **Exit:** no `is_player` branch selects an effect payload anywhere in combat;
 a moveset volume can author its own strike/hit effects and the goblin swipe
@@ -266,8 +291,12 @@ Small non-blocking work when it does not collide with the campaigns:
   archive it; compress `engine/encounter-orchestration.md` to the durable
   model; archive `engine/shell-vanity-sequence.md` once VC5 lands; repoint
   `headless-verification.md` at `ambition_sim_harness`;
-- single-source the demo remaining-lists in `demos/*.md`; status/tracks refer,
-  never copy (the Sanic copies drifted independently — again);
+- ~~single-source the demo remaining-lists in `demos/*.md`~~ **DONE 2026-07-19**:
+  tracks #3/#4 and the two `status.md` rows now POINT at
+  `demos/super-mary-o.md` / `demos/sanic.md` instead of restating them. The
+  copies had already drifted (this queue's Mary-O copy had lost "enters the
+  secret" from the scripted-run gate and omitted the post-acceptance levels
+  bullet);
 - **KB linter: 6 of 7 failures fixed 2026-07-19** (the four mechanically
   recomputed evidence markers the 07-18 rewrite dropped are restored with real
   values, `docs/concepts/invariants.md` gained frontmatter, AGENTS.md is back
@@ -288,7 +317,12 @@ Small non-blocking work when it does not collide with the campaigns:
   `ambition_demo_mary_o/src/{flag.rs, lib.rs, powerups.rs}`.
   Watch the `use super::*` depth when moving — an adjacent child module keeps it,
   a nested one does not (see `integration/dash_tests.rs`'s header);
-- backfill the 8 unindexed `dev/journals/` entries into `dev/journals/index.md`;
+- ~~backfill the 8 unindexed `dev/journals/` entries into
+  `dev/journals/index.md`~~ **ALREADY DONE — the bullet was stale on arrival**:
+  the same 2026-07-19 deep-review commit that queued this also backfilled the
+  index (+15 link rows; its own message says "journals index backfilled").
+  Recomputed at HEAD: all 31 journal files are linked from `index.md`, 0
+  unindexed;
 - ui_nav adoption in `ambition_menu`/`ambition_settings_menu`; the shared
   input-suspended gate for cutscene/encounter [opus];
 - one structurally complete content eviction at a time when a real named

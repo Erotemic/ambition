@@ -651,3 +651,53 @@ process-global device state (a per-test audio sink, or `#[serial]` + explicit
 device reset) so opening the device in one test can't leak into another's
 playback-accept path. Logged rather than fixed: it is orthogonal to the
 character-actions gates and touching the real-audio test harness is not zero-risk.
+
+## 2026-07-19 Title-screen menu has no mouse/touch selection
+- **Where:** `crates/ambition_menu/src/render/bevy_ui/mod.rs:537-539` (observers),
+  `spawn.rs:156` (rows), `crates/ambition_game_shell/src/basic_presentation.rs:517`
+- **Smell:** Menu rows spawn with `Button` and carry `AmbitionMenuControl { kind,
+  action, focus }`, so they are pickable and self-identifying — but NOTHING reads
+  `Interaction`. The only pointer observers in the whole menu stack are the three
+  scrollbar ones. So scrollbar drag works with mouse/touch; *choosing a row does
+  not*, and the shell launcher's own input is keyboard/gamepad-only. AGENTS.md
+  commits to preserving the Android/mobile/touch path and the title screen is the
+  first thing a touch user hits — so on mobile the game cannot be started at all.
+  Low urgency on desktop, load-bearing for a supported platform.
+- **Noticed while:** planning the animated vanity-card startup sequence (Jon flagged it)
+- **Suggested fix / size:** S. One `Pointer<Click>` observer reading `.focus` to move
+  the cursor and `.action` to activate, emitting the SAME neutral commands keyboard
+  nav emits — explicitly not a parallel mouse-driven selection path. Fixes the
+  launcher, the shell pause menu, AND the kaleidoscope menu at once, since all three
+  render through `spawn_bevy_ui_menu_with_assets`. Task card VC7 in
+  `docs/planning/engine/shell-vanity-sequence.md`.
+
+## 2026-07-19 Shell sequence card rebuilds its whole UI tree every animation frame
+- **Where:** `crates/ambition_game_shell/src/basic_presentation.rs:404` (`shell_frame_key`),
+  `:155-165` (`render_basic_shell`)
+- **Smell:** `shell_frame_key` folds the ImageSequence `frame_index` into the key, and
+  `render_basic_shell` despawns + respawns the entire node tree on key change. An
+  animated card would tear down and rebuild the full UI ~50 times over 4 seconds.
+  Latent today only because nothing constructs an `ImageSequence` yet.
+- **Noticed while:** planning the animated vanity-card startup sequence
+- **Suggested fix / size:** S/M. Key on segment identity so the root spawns once, and
+  mutate `ImageNode.image` per frame in `fade_basic_sequence_card`, which already runs
+  over exactly those entities. The resulting stable-root + per-frame-alpha machinery is
+  also what the deferred title-menu fade-in (§3a, 2026-07-15) was blocked on. Task
+  cards VC2/VC6 in `docs/planning/engine/shell-vanity-sequence.md`.
+
+## 2026-07-19 IPFS sidecars are disconnected from the asset manager, with no fetch tool
+- **Where:** `assets/{backgrounds,icons,concept_art,vanity_card}.ipfs`,
+  `crates/ambition_actors/assets/fonts/bundled.ipfs`,
+  `tools/LDtk-1.5.3-installer.AppImage.ipfs`; `crates/ambition_asset_manager/`
+- **Smell:** Nothing in the Rust code ever reads a `.ipfs` file, and no script in
+  `scripts/` or `tools/` hydrates one — re-hydration is a manual `ipfs get <cid>` into
+  the sidecar's `rel_path`. So six git-ignored payload directories have no in-repo
+  command to restore them, which collides with the regen-on-fresh-clone invariant.
+  Separately, the sidecar records ONE directory CID with no path→CID table while
+  `AssetManifest`/`AssetEntry` wants a CID per entry, so the two formats do not line
+  up. `icons.ipfs` also uses an older `schema_version: 1` key layout the others omit.
+- **Noticed while:** planning the animated vanity-card startup sequence
+- **Suggested fix / size:** S for the script (`scripts/fetch_ipfs_assets.py`, reads any
+  sidecar, parses defensively across both key layouts — closes all six at once; task
+  card VC5). L and deferred for bridging the directory-CID format to the per-entry Rust
+  manifest.

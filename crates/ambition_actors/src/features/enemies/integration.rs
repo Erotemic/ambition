@@ -429,11 +429,34 @@ impl<'a> ActorMut<'a> {
         })
     }
 
+    /// Restore this actor to its authored spawn state.
+    ///
+    /// **Liveness is decided by the actor's own [`RespawnPolicy`], not by the
+    /// reset.** A room reset is a room-scoped return, so it revives a dead actor
+    /// only when its policy says a room-scoped return is what it does
+    /// (`OnRoomReenter`, or `InPlace` which revives on its own timer anyway).
+    /// A `DeadStaysDead` / `OnRest` corpse stays dead and only has its spatial
+    /// baseline restored.
+    ///
+    /// Before this gate existed, reset full-healed EVERY actor unconditionally.
+    /// `sync_ecs_actors_with_save` (Progression) re-zeroed the HP a moment later,
+    /// so the end-of-frame state looked right — but the actor was ALIVE for the
+    /// remainder of that frame: drawable, targetable, and able to act. Worse, it
+    /// meant "who decides a dead actor comes back" had two answers, and the reset
+    /// path was the one that never consulted the policy the kill hook and
+    /// save-sync both read.
     pub fn reset_to_spawn(&mut self, motion_model: &mut crate::features::MotionModel) {
         // Restore the authored spatial baseline. `tuning` / `brain_spec`
         // are projected once at spawn and never mutate at runtime (no
         // entity morphs its archetype in place), so they already hold the
         // baseline — there is nothing to re-project here.
+        let was_dead = !self.health.alive();
+        let revives_on_room_reset = matches!(
+            self.config.tuning.respawn,
+            ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter
+                | ambition_entity_catalog::placements::RespawnPolicy::InPlace(_)
+        );
+        let stays_dead = was_dead && !revives_on_room_reset;
         self.kin.size = self.config.spawn.size;
         // Respawn is a discrete transit (ADR 0024 authority): arrive at rest,
         // departure contacts and any attachment reconciled.
@@ -445,9 +468,13 @@ impl<'a> ActorMut<'a> {
             ae::movement::TransitVelocity::Zero,
         );
         // Fresh full-HP body → `alive()` is true; no separate liveness flag.
-        *self.health = ambition_characters::actor::BodyHealth::new(
-            ambition_characters::actor::Health::new(self.config.tuning.max_health),
-        );
+        // Skipped entirely for a corpse whose policy forbids a room-scoped
+        // return, so it is never briefly alive (see the doc comment).
+        if !stays_dead {
+            *self.health = ambition_characters::actor::BodyHealth::new(
+                ambition_characters::actor::Health::new(self.config.tuning.max_health),
+            );
+        }
         *self.attack = BodyMelee::default();
         self.status.respawn_timer = 0.0;
         self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Idle;
@@ -519,3 +546,5 @@ impl ContactAttack {
 
 #[cfg(test)]
 mod dash_tests;
+#[cfg(test)]
+mod respawn_policy_tests;

@@ -77,7 +77,11 @@ web_served_assets = ["visible_web_served", "web_platform"]
 web_served = ["ambition/web_served"]
 web_audio = ["audio", "ambition/web_audio"]
 
-rl_sim = ["ambition/rl_sim", "dep:ambition_sim_harness"]
+# The ONE real rl_sim switch: pulls the programmatic harness and gates the
+# rl_sim-only integration tests + `rl_*`/`trace_replay` binaries. (It used to
+# forward `ambition/rl_sim` → `ambition_actors/rl_sim`; both gated nothing once
+# the RL surface moved to `ambition_sim_harness`, so the chain was deleted.)
+rl_sim = ["dep:ambition_sim_harness"]
 headless = ["ambition/headless"]
 dev_tools = ["ambition/dev_tools", "dep:bevy-inspector-egui"]
 dev_hot_reload = ["ambition/dev_hot_reload"]
@@ -105,7 +109,7 @@ input = ["ambition/input", "dep:leafwing-input-manager"]
 mobile_touch = ["input", "ambition/mobile_touch"]
 falling_sand = ["ambition_content/falling_sand"]
 bevy_ui_menu = ["ambition/bevy_ui_menu"]
-kaleidoscope_menu = ["ambition/kaleidoscope_menu"]
+kaleidoscope_menu = ["ambition/kaleidoscope_menu", "dep:ambition_menu_kaleidoscope"]
 frame_pacing = ["ambition/frame_pacing", "dep:bevy_framepace"]
 profile = ["ambition/profile"]
 
@@ -121,7 +125,9 @@ ambition_content = { path = "../ambition_content" }
 # The reusable programmatic sim harness (reset/step/action/observation/reward).
 # ambition_app supplies the Ambition-specific composition (see rl_sim::AmbitionSim).
 ambition_sim_harness = { path = "../../crates/ambition_sim_harness", optional = true }
-ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope" }
+# Optional with the feature that reaches it: the cube renderer pulls bevy_lunex
+# + bevy_rich_text3d (cosmic-text), which a headless/CI build never touches.
+ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope", optional = true }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
 bevy_yarnspinner = { version = "0.8", optional = true }
@@ -134,9 +140,9 @@ bevy_framepace = { version = "0.21", default-features = false, optional = true }
 leafwing-input-manager = { version = "0.20", optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
-serde = { version = "1", features = ["derive"] }
+serde = { workspace = true }
 serde_json = "1"
-ron = "0.11"
+ron = { workspace = true }
 image = { version = "0.25", default-features = false, features = ["png"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

@@ -21,5 +21,5 @@ ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_persistence = { path = "../ambition_persistence" }
 # Reflect + Resource + ECS + logging. No windowing/UI — the overlays are app-side.
 bevy = { version = "0.18.1", default-features = false, features = ["bevy_log"] }
-serde = { version = "1", features = ["derive"] }
-ron = "0.11"
+serde = { workspace = true }
+ron = { workspace = true }

@@ -14,5 +14,5 @@ ambition_engine_core = { path = "../ambition_engine_core" }
 # its own params (fable review A1 / R2.2).
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 bevy = { version = "0.18.1", default-features = false, features = ["bevy_log"] }
-ron = "0.11"
-serde = { version = "1", features = ["derive"] }
+ron = { workspace = true }
+serde = { workspace = true }

@@ -7,4 +7,4 @@ authors.workspace = true
 description = "Reader + format spec for Ambition's binary SFX bank file (.sfxbank). Pure data; no audio or Bevy deps."
 
 [dependencies]
-thiserror = "1"
+thiserror = { workspace = true }

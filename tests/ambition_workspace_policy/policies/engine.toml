@@ -120,7 +120,6 @@ allow = [
     "ambition_engine_core",
     "ambition_entity_catalog",
     "ambition_platformer_primitives",
-    "ambition_time",
 ]
 
 # ── architecture_boundaries.rs decomposition, batch 1 (Task 6) ─────────────────

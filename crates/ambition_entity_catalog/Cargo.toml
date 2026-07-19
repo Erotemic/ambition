@@ -13,5 +13,5 @@ crate-type = ["rlib"]
 # RON schema + parsing of authored entity/move documents. No Bevy: this
 # crate is pure data vocabulary, consumable from a build script, a test,
 # or a headless sim alike.
-serde = { version = "1", features = ["derive"] }
-ron = "0.11"
+serde = { workspace = true }
+ron = { workspace = true }

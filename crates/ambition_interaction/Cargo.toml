@@ -13,4 +13,4 @@ crate-type = ["rlib"]
 ambition_characters = { path = "../ambition_characters" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
-serde = { version = "1", features = ["derive"] }
+serde = { workspace = true }

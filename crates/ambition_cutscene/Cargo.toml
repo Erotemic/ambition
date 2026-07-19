@@ -10,7 +10,7 @@ description = "Reusable, content-free cutscene SCRIPT format + runtime stepper: 
 crate-type = ["rlib"]
 
 [dependencies]
-serde = { version = "1", features = ["derive"] }
+serde = { workspace = true }
 # The live playback-state Resources (ActiveCutscene / CutsceneAdvanceRequest) +
 # Vec2. The format/stepper is bevy-free; only the running state needs the ECS.
 bevy = { version = "0.18.1", default-features = false }

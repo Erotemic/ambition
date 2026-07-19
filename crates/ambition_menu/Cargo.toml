@@ -12,7 +12,25 @@ bevy_ui_menu = ["bevy/ui_picking"]
 kaleidoscope_menu = []
 
 [dependencies]
-bevy = "0.18.1"
+# `default-features = false` is load-bearing for the WHOLE workspace: this crate
+# is a normal dep of ambition_actors and ambition_runtime, so Cargo feature
+# unification pushes whatever it asks for into every build of every app —
+# headless, web, Android, CI included. Plain `bevy = "0.18.1"` means
+# `default = [2d, 3d, ui]`, i.e. pbr/gltf/animation/audio/gilrs/hdr/ktx2/
+# reflect_auto_register/winit compiled into all of them, silently nullifying the
+# trimmed feature sets every other manifest carefully declares.
+# `bevy_ui` (NOT `ui_api`) is the right level: it turns on the UI vocabulary this
+# crate's flat grid renderer needs (Node/Button/Interaction/Text/ImageNode)
+# WITHOUT `default_app`, which would drag in bevy_winit and force every consumer
+# to pick a windowing backend. Same choice `ambition_ui_nav` made.
+bevy = { version = "0.18.1", default-features = false, features = [
+    "bevy_ui",
+    # `bevy_picking` (the pointer vocabulary) is needed by the ALWAYS-compiled
+    # part of this crate — `ScrollbarDragState.pressed_by` is a `PointerId` in
+    # the shared model, and the bevy_ui renderer module is not feature-gated.
+    # Only the UI *backend* (`ui_picking`) rides the `bevy_ui_menu` feature.
+    "bevy_picking",
+] }
 # The bevy_lunex cube renderer moved to the `ambition_menu_kaleidoscope`
 # extension crate (E1e); this crate is now bevy_lunex-free (the flat bevy_ui
 # grid renderer + the renderer-agnostic page model).

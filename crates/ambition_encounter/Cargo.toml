@@ -15,5 +15,5 @@ ambition_interaction = { path = "../ambition_interaction" }
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 bevy = { version = "0.18.1", default-features = false }
-ron = "0.11"
-serde = { version = "1", features = ["derive"] }
+ron = { workspace = true }
+serde = { workspace = true }

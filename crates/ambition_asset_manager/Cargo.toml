@@ -32,9 +32,9 @@ static_core_assets = ["bevy"]
 # layer rather than through an asset-manager feature.
 
 [dependencies]
-serde = { version = "1", features = ["derive"] }
-ron = "0.11"
-thiserror = "1"
+serde = { workspace = true }
+ron = { workspace = true }
+thiserror = { workspace = true }
 # Only the asset subset is needed — the catalog/plugin uses
 # `AssetServer`, `Handle`, `App`, `Plugin`, `Resource`. Consumers
 # already pull the larger Bevy feature set; we don't double-include

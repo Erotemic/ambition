@@ -24,7 +24,7 @@ ambition_runtime = { path = "../ambition_runtime" }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_world = { path = "../ambition_world" }
 bevy = { version = "0.18.1", default-features = false, features = ["bevy_asset"] }
-ron = "0.11"
+ron = { workspace = true }
 
 [dev-dependencies]
 ambition_engine_core = { path = "../ambition_engine_core" }

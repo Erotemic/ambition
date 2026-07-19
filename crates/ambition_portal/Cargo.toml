@@ -17,7 +17,7 @@ crate-type = ["rlib"]
 # the portal mechanic stays reusable and headless; rendering / audio / input are
 # the host's adapters.
 # Channel-color serde (authored PortalSpec rides the serializable room IR).
-serde = { version = "1", features = ["derive"] }
+serde = { workspace = true }
 # `bevy_color` for the channel display tints (`PortalChannelColor::display`) and
 # `bevy_log` for the portal trace logs. No render / audio / window / asset
 # features — the mechanic stays headless; those are the host's adapters.

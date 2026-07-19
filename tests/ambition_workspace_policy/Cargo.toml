@@ -22,7 +22,7 @@ description = "Sequestered workspace-policy tests: dependency boundaries, source
 # Parsed TOML for workspace + manifest structure (the task's first-class option,
 # lighter than cargo_metadata: no subprocess, no camino/semver graph). serde is
 # already in the workspace lock via Bevy.
-serde = { version = "1", features = ["derive"] }
+serde = { workspace = true }
 toml = "0.9"
 walkdir = "2"
 

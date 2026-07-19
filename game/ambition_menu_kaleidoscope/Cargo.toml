@@ -13,6 +13,14 @@ crate-type = ["rlib"]
 # The backend-agnostic page model this renderer draws (MenuPageModel + the
 # AmbitionMenu* control/page/root vocabulary + scrollbar layout helpers).
 ambition_menu = { path = "../../crates/ambition_menu" }
-bevy = "0.18.1"
+# Trimmed like every other manifest: plain `bevy = "0.18.1"` would enable bevy's
+# full default set (2d+3d+ui), and Cargo feature unification would push that
+# superset into every workspace build. This renderer needs the 3D mesh/material
+# pipeline (Camera3d/Mesh3d/MeshMaterial3d/StandardMaterial) plus the UI
+# vocabulary it shares with ambition_menu.
+bevy = { version = "0.18.1", default-features = false, features = [
+    "bevy_pbr",
+    "bevy_ui",
+] }
 # The 3D cube UI toolkit (pulls bevy_rich_text3d / Text3d transitively).
 bevy_lunex = "0.6"

@@ -12,7 +12,15 @@ crate-type = ["rlib"]
 
 [features]
 default = []
-basic_presentation = ["bevy/ui_api", "ambition_game_shell/basic_presentation"]
+# `bevy/x11`: `ui_api` pulls winit, which needs a display backend to compile in
+# an isolated `cargo test -p ambition_load_presentation`. See the longer note in
+# ambition_game_shell's manifest — both crates previously compiled only because
+# ambition_menu's untrimmed bevy dep leaked x11 workspace-wide.
+basic_presentation = [
+    "bevy/ui_api",
+    "bevy/x11",
+    "ambition_game_shell/basic_presentation",
+]
 
 [dependencies]
 ambition_load = { path = "../ambition_load" }

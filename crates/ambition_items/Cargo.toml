@@ -13,5 +13,5 @@ crate-type = ["rlib"]
 ambition_characters = { path = "../ambition_characters" }
 ambition_persistence = { path = "../ambition_persistence" }
 bevy = { version = "0.18.1", default-features = false, features = ["bevy_state"] }
-ron = "0.12"
-serde = { version = "1", features = ["derive"] }
+ron = { workspace = true }
+serde = { workspace = true }

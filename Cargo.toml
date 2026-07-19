@@ -54,6 +54,21 @@ members = [
 ]
 resolver = "2"
 
+# One version per shared external dependency. Before this table existed, `ron`
+# was pinned 0.11 in thirteen manifests and 0.12 in one, and `thiserror` 1 in
+# three — so the workspace compiled two copies of each. Add a crate here when a
+# second manifest wants it; keep per-crate FEATURE sets in the member manifests
+# (they legitimately differ).
+#
+# NOTE: `bevy` is deliberately NOT here yet. It is pinned in ~46 manifests, each
+# with a carefully trimmed and genuinely different feature set (see
+# `ambition_menu` for why that matters), so the conversion is its own reviewable
+# pass — tracked in docs/planning/tracks.md.
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+ron = "0.11"
+thiserror = "2"
+
 [workspace.package]
 edition = "2021"
 license = "Apache-2.0"

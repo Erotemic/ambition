@@ -24,6 +24,6 @@ ambition_sfx = { path = "../ambition_sfx" }
 ambition_time = { path = "../ambition_time" }
 ambition_vfx = { path = "../ambition_vfx" }
 # Authored-hazard serde (the room-IR ron-room bake carries DamageVolume).
-serde = { version = "1", features = ["derive"] }
+serde = { workspace = true }
 # One Resource derive (the slot registry); ECS surface only.
 bevy = { version = "0.18.1", default-features = false }

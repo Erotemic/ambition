@@ -10,8 +10,8 @@ description = "Ambition saved-shape and settings persistence model."
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_input = { path = "../ambition_input" }
 bevy = { version = "0.18.1", default-features = false, features = ["bevy_log", "bevy_window"] }
-ron = "0.11"
-serde = { version = "1", features = ["derive"] }
+ron = { workspace = true }
+serde = { workspace = true }
 
 [dev-dependencies]
 serde_json = "1"

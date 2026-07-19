@@ -25,6 +25,6 @@ ambition_world = { path = "../ambition_world", default-features = false }
 bevy = { version = "0.18.1", default-features = false }
 bevy_asset_loader = { version = "0.26", optional = true }
 bevy_ecs_ldtk = { version = "0.14", optional = true }
-ron = "0.11"
-serde = { version = "1", features = ["derive"] }
+ron = { workspace = true }
+serde = { workspace = true }
 serde_json = "1"

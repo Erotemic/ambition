@@ -18,7 +18,7 @@ default = ["desktop_dev"]
 
 # Full desktop sandbox. This is the regular `cargo run` experience: visible
 # gameplay plus inspector/devtools, mobile touch, and RL/test adapters.
-desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch", "rl_sim"]
+desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch"]
 
 # Portal gun mechanic (the flagship player ability). Optional so non-portal
 # builds can compile out portal mechanics, portal rendering, and portal LDtk
@@ -166,20 +166,17 @@ web_served_assets = ["visible_web_served", "web_platform"]
 # of its own — composing it pulls in the right sandbox behavior.
 web_served = ["ambition_sprite_sheet/web_served"]
 
-# RL / programmatic-input adapter. The `rl_sim` module + `SandboxSim`
-# stepping API + `AgentAction` / `AgentObservation` shapes. Enabled
-# by default so research code and the in-tree binaries (`rl_random_walker`,
-# `rl_smoke`, `trace_replay`) build out of the box; can be disabled
-# for tightly-stripped builds (e.g. console ports, distribution
-# binaries that don't need the RL surface).
-rl_sim = []
+# (`rl_sim` was removed here 2026-07-19: the RL surface — `SandboxSim`,
+# `AgentAction`, `AgentObservation` — moved to `ambition_sim_harness` and the
+# app in the July-16 extraction, so this crate's copy of the feature gated
+# nothing at all. The real switch is `ambition_app/rl_sim`, which pulls
+# `dep:ambition_sim_harness` and gates the rl_sim-only integration tests.)
 
-# Composite for the headless simulation binary. Intentionally enables
-# nothing: this is the lever that strips heavy deps from the dep graph
-# once subsystem code-side gates land. See docs/planning/path-forward.md step A.
-# As of this commit only `dev_tools` has a code gate; building headless
-# fully (without dragging Kira/Avian/inspector/bevy_ecs_ldtk) needs the
-# remaining subsystem gates.
+# Composite marker for a headless build. Intentionally enables NOTHING: the
+# lever is `--no-default-features --features headless`, i.e. "the base without
+# `visible`", so the value is in what it leaves OFF. Keep it empty; adding
+# subsystem gates here is how heavy deps (Kira / Avian / inspector /
+# bevy_ecs_ldtk) get stripped further.
 headless = []
 
 # Devtools: egui inspector plugins. NOT the file watcher — its host
@@ -231,7 +228,7 @@ static_sfx_bank = []
 # sandbox LDtk world is synchronously parsed before Bevy's Android AssetServer
 # path can hand it to the runtime; the APK still packages the loose asset tree
 # for sprites/audio/fonts and future map-loading work.
-android = ["visible", "android_platform", "mobile_touch", "rl_sim", "static_map"]
+android = ["visible", "android_platform", "mobile_touch", "static_map"]
 
 # Explicit alias for Android builds that still include sandbox/dev gameplay
 # behavior. Kept separate so future phone-only diagnostics can be added without
@@ -383,9 +380,12 @@ ambition_ldtk_map = { path = "../ambition_ldtk_map", default-features = false }
 # docs/current/state.md.
 ambition_input = { path = "../ambition_input" }
 # Reusable UI/menu nav primitives (windowed list math, pointer activation, drag
-# scroll). Extracted leaf; the sandbox `input` feature forwards to its `input`
-# feature (the MenuInputFrame scroll helper). Re-exported as `crate::ui_nav`.
-ambition_ui_nav = { path = "../ambition_ui_nav" }
+# scroll). This crate names NO ui_nav path: the dependency exists only as a
+# conduit so the `input` feature can forward `ambition_ui_nav/input` (the
+# MenuInputFrame scroll helper). Consumers reach the crate as `ambition::ui_nav`
+# through the facade, not through here — so it is optional and compiles only
+# when that forward actually fires.
+ambition_ui_nav = { path = "../ambition_ui_nav", optional = true }
 ambition_world = { path = "../ambition_world" }
 # 3D-cube OoT inventory/pause UI (bevy_lunex). The unified menu (cube + grid) is
 # the one menu, compiled unconditionally (Phase D2); runtime-toggleable cube vs
@@ -452,8 +452,8 @@ virtual_joystick = { version = "2.7.2", default-features = false, optional = tru
 console_error_panic_hook = { version = "0.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 petgraph = "0.8"
-ron = "0.11"
-serde = { version = "1", features = ["derive"] }
+ron = { workspace = true }
+serde = { workspace = true }
 serde_json = "1"
 
 # The binaries moved to the `ambition_app` crate (Stage 20 / A3).

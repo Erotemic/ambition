@@ -2,6 +2,17 @@
 
 This journal records unexpected errors encountered while iterating on the Ambition sandbox, especially places where an overlay or generated build script looked reasonable but failed in a real local/device test. The goal is to make future LLM-generated patches less likely to repeat the same mistakes.
 
+## 2026-07-19: Trimming one crate's bevy features broke three others — feature unification had been hiding missing declarations
+
+Symptom: giving `ambition_menu` `default-features = false` (it had been requesting bevy's full defaults, which fed pbr/gltf/audio/winit into *every* workspace build) made three previously-green isolated builds fail — `ambition_platformer_primitives` with 26 `cannot find type KeyCode`, and `ambition_game_shell` / `ambition_load_presentation` with `winit: The platform you're compiling for is not supported`.
+
+Root cause: none of the three declared the bevy feature it actually used (`bevy_input_focus`; a display backend for the winit that `ui_api` transitively pulls). They compiled only because Cargo unifies features across the graph, and one untrimmed dependency was silently donating the superset to everyone. `ambition_dialog` and `ambition_audio` already carried the `x11` declaration with a comment explaining exactly this, so the trap was known — just not swept for.
+
+Takeaways:
+- **A crate that compiles only in a workspace build has an undeclared dependency.** `cargo test -p <crate>` (an isolated build) is what surfaces it, which is why the per-crate jobs in `run_tests.sh` matter even though `cargo check -p ambition_app` is the acceptance gate.
+- **Expect a feature trim to expose latent breakage, and read the failures as pre-existing rather than caused.** The fix is always "declare what you use" in the crate that uses it — never to restore the accidental superset.
+- Concretely: if `ui_api` is in a crate's feature list, it needs a windowing backend for isolated builds (`bevy/x11` here); if it names `KeyCode`/`ButtonInput`, it needs `bevy_input_focus`.
+
 ## 2026-07-19: A vaguely-messaged commit from a stale checkout silently reverted two same-day FIX commits
 
 Symptom: melee knockback launched bodies at ~100x intended speed and `cargo test --workspace` went red — hours after both had been fixed (`2c465cc77` knockback units, `0693e5e88` presentation timing).

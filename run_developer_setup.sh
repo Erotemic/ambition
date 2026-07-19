@@ -358,7 +358,31 @@ ensure_python_tools() {
     install_tool_project tools/ambition_parallax_renderer ambition_parallax_renderer
     install_tool_project tools/ambition_ldtk_tools ambition_ldtk_tools
 
+    install_scripts_env
+
     log "Python authoring environments are ready"
+}
+
+# The repo-root `.venv` used by `scripts/*.py` (as opposed to the per-tool
+# authoring environments above).
+#
+# `scripts/ecs_inventory.py` — which regenerates the `.agent/ecs_inventory`
+# packets an agent navigates by — parses Rust with tree-sitter. Nothing
+# installed it, so on a fresh clone that regeneration simply failed with
+# ModuleNotFoundError and the committed navigation data silently went stale.
+# That is the regen-on-a-fresh-clone invariant, so it belongs in setup.
+install_scripts_env() {
+    local venv_dir="$repo_root/.venv"
+    local requested_python
+    requested_python="$(tool_python_version)"
+    if [ ! -x "$venv_dir/bin/python" ]; then
+        log "creating .venv for scripts/ with Python $requested_python"
+        uv venv --python "$requested_python" "$venv_dir"
+    fi
+    log "installing scripts/ dependencies"
+    uv pip install --python "$venv_dir/bin/python" tree_sitter tree_sitter_rust
+    "$venv_dir/bin/python" -c "import tree_sitter_rust" \
+        || fatal "scripts/.venv installed but 'tree_sitter_rust' is not importable"
 }
 
 regenerate_assets() {

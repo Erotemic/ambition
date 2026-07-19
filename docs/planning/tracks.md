@@ -18,29 +18,39 @@ falling-sand solver correctness pass (pooling/termination — Jon: "getting
 falling sand to work right is part of the engine"); boss-fight *quality*
 grammar beyond validation (boss-design.md's open iteration loop).
 
-## 0. Pay down the GGRS correctness debt — [opus, fable-specced]
+## 0. Pay down the GGRS correctness debt — **LARGELY LANDED 2026-07-19**
 
-Spec: deep-review §2 (each item carries file:line). The registration set is
-comprehensive; these are the exceptions, found by cross-referencing every
-sim-mutated component/resource against the registry:
+Spec: deep-review §2. Landed:
 
-- register (or clear-on-rollback) the unregistered sim state: `WornEquipment`,
-  `SwitchActivationQueue`, breakable/hazard timers, portal-gun runtime, fuses
-  and held projectiles, and the demo-content state composed into the app shell
-  (`BallDash`, `SanicActState`, `MaryOLevelState`, `FlagSequence`);
-- fix `MovePlayback.live_boxes` across rollback (see `FIXME(ggrs-live-boxes)`
-  in `crates/ambition_combat/src/moveset/mod.rs`): clear on LoadWorld or
-  liveness-check the `(inside, live)` arm; bring strike volumes into the
-  rollback contract or prove them derived;
-- move `possession_trigger_system`'s `Local` hold/edge state into rollback
-  state;
-- tie-break targets by `SimId` not raw `Entity`
-  (`combat/targeting.rs:285`); sort slot requests by `actor_id` before
-  `assign_slots` (`features/ecs/actors/update.rs:255-320`);
-- restore a coverage forcing function: a test that walks sim-schedule write
-  access and asserts every mutated component/resource is registered, declared
-  derived, or explicitly waived (the deleted census had 93+236 rows; the
-  replacement should be a live computation, not a checked-in ledger).
+- registered the unregistered sim state: `WornEquipment`, `SwitchOn`,
+  `SwitchFeature`, `SwitchActivationQueue`, breakable/hazard/respawn/stand
+  timers, portal-gun runtime (`PortalTransitCooldown`/`PortalEmission`/
+  `PortalShot`/`PortalGun`), and `RoomVisual`;
+- `MovePlayback.live_boxes` is now VALIDATED against the world every tick, so a
+  cloned cache slot naming a dead entity is dropped and the window respawns its
+  volume. Mechanism-agnostic: it fixes the GGRS clone case and any future path
+  that despawns a volume out from under a playback;
+- `possession_trigger_system`'s `Local` hold/edge state moved onto the
+  registered `PossessionState`;
+- target selection no longer compares raw `Entity` (candidates are sorted by
+  `SimId`, ties go to canonical order); slot requests are sorted by `actor_id`
+  before `assign_slots`;
+- **the coverage forcing function exists**:
+  `game/ambition_app/tests/rollback_coverage.rs` boots the real sim and asserts
+  every component ON a simulated entity is registered, derived, or waived with a
+  reason. It is computed, not a checked-in ledger, and it found the last two
+  gaps (`SwitchFeature`, `RoomVisual`) on its first run. NOTE it checks entity
+  COMPOSITION, not system access — Bevy 0.18 does not expose per-system
+  `FilteredAccessSet` publicly — so **resources still need review by hand**.
+
+Remaining:
+
+- the demo-content state composed into the app shell (`BallDash`,
+  `BallDashInput`, `SanicActState`, `MaryOLevelState`, `FlagSequence`) — these
+  live in `game/` crates and need the content-side registration seam;
+- `FactionRelations`/`FriendlyFire` are unregistered and latent-safe (only
+  `Default` writes today); register them when anything mutates them in-session;
+- the exit oracle below.
 
 **Exit:** a sync-test run that lands a melee hit, spends armor, flips a switch,
 and breaks a brick across a forced rollback window stays checksum-identical.
@@ -64,28 +74,45 @@ pattern; do not invent a new mechanism.
 **Exit:** repeated rollback cannot duplicate an external effect, and a Matchbox
 transport can be attached without changing simulation systems.
 
-## 2. Build-graph hygiene (compile-time wins) — [sonnet]
+## 2. Build-graph hygiene (compile-time wins) — **LANDED 2026-07-19**
 
-Deep-review §6. Exact edits:
+Deep-review §6. Landed:
 
-- `crates/ambition_menu/Cargo.toml` + `game/ambition_menu_kaleidoscope/Cargo.toml`:
-  replace plain `bevy = "0.18.1"` with `default-features = false` + the minimal
-  feature set (iterate until green) — this alone stops pbr/gltf/animation/audio/
-  gilrs/reflect_auto_register leaking into every build of every app;
-- `game/ambition_app/Cargo.toml`: make `ambition_menu_kaleidoscope`
-  `optional = true` wired to the existing `kaleidoscope_menu` feature;
-- adopt `[workspace.dependencies]` for bevy/serde/ron/thiserror; fix the
-  ron 0.11/0.12 and thiserror 1/2 drift;
-- delete the free dead edges: `ambition_world → ambition_time`,
-  `ambition_sprite_sheet → ambition_interaction`; make actors→ui_nav a proper
-  optional forward;
-- delete feature machinery that gates nothing (`headless`, actors'
-  `rl_sim`/`static_sfx_bank`/`kaleidoscope_menu` stubs, ldtk_map's unreachable
-  `dev_hot_reload`) or make it real; make `asset_manager/bevy` default.
+- `ambition_menu` and `ambition_menu_kaleidoscope` now declare
+  `default-features = false` with minimal feature sets (`bevy_ui` +
+  `bevy_picking`; `bevy_pbr` + `bevy_ui`). **Measured result:** the
+  `ambition_actors` build graph dropped `bevy_pbr`, `bevy_gltf`,
+  `gltf_animation`, `bevy_audio`+`vorbis`, `mesh_picking`, `smaa_luts`,
+  `tonemapping_luts`, `ktx2`, `sysinfo_plugin`, and `bevy_light` — the whole 3D
+  stack that plain `bevy = "0.18.1"` was pushing into every build via feature
+  unification, headless and CI included;
+- `ambition_menu_kaleidoscope` is optional on the app, wired to the existing
+  `kaleidoscope_menu` feature (its module is now cfg-gated to match), so
+  bevy_lunex + bevy_rich_text3d leave non-cube builds entirely;
+- `[workspace.dependencies]` adopted for serde/ron/thiserror across 30
+  manifests, ending the ron 0.11-vs-0.12 split in our own tree. **Honest
+  result:** the duplicate COMPILES remain, because ron 0.12 comes from
+  `bevy_animation` and thiserror 1 from `bevy_ecs_ldtk` — transitive, not ours;
+- deleted the dead `ambition_world → ambition_time` edge and made actors→ui_nav
+  an optional feature-conduit. **Correction:** `sprite_sheet → interaction` is
+  NOT dead (8 real path references) — the deep review was wrong there;
+- deleted the vestigial `rl_sim` feature chain (actors' and the facade's copies
+  gated nothing once the RL surface moved to `ambition_sim_harness`; the app's
+  switch is the real one). `headless` stays: it is an intentional empty
+  composite whose value is what it leaves off;
+- **the trim exposed three crates that only ever compiled by accident**, because
+  the untrimmed dep was donating features workspace-wide:
+  `ambition_platformer_primitives` (needs `bevy_input_focus` for `KeyCode`),
+  `ambition_game_shell` and `ambition_load_presentation` (need a windowing
+  backend for the winit that `ui_api` pulls). All three now declare what they
+  use — see `dev/journals/lessons_learned.md` (2026-07-19) for the pattern to
+  expect on the next trim.
 
-**Exit:** `cargo tree -e features -p ambition_app` shows no bevy default-only
-features pulled by menu crates; headless build drops bevy_lunex; workspace
-builds green.
+Remaining (own pass): `ui_api` is a bundle that pulls `bevy_animation` (unused
+here) into ~6 crates; replacing it with explicit feature lists would drop that
+plus ron 0.12. And `bevy` itself is still pinned in ~46 manifests — a
+workspace-dependency conversion is mechanical but wants its own review, since
+the per-crate feature sets legitimately differ.
 
 ## 3. Close Super Mary-O level 1 — [opus]
 
@@ -162,8 +189,11 @@ ruling stands — these are ROLE moves, each with a named destination):
   touch_input's largest reason to name actors;
 - migrate the `character_sprites/` anim pick-ladder toward
   sim_view/sprite_sheet (its own doc says lower authorities live there);
-- delete the compat facades: `effects/mod.rs`, `debug_label.rs`, `host/`, and
-  repoint the ~73 `pub use ambition_*` lines at canonical homes [sonnet-able];
+- ~~delete the compat facades~~ **PARTIALLY DONE 2026-07-19**: `effects/mod.rs`
+  (never even declared in `lib.rs`) and `debug_label.rs` (zero consumers) are
+  gone. `host/` is NOT dead — actors' own settings model consumes
+  `crate::host::windowing`; the deep review was wrong there. The ~73
+  `pub use ambition_*` lines remain [sonnet-able, needs consumer repointing];
 - execute the already-ruled content evictions still outstanding (M23 / recon
   accepted #1): `ambition_items::Item` closed enum → provider-registered
   catalog; `deep_dream_strength` → content-owned presentation knob;
@@ -172,13 +202,16 @@ ruling stands — these are ROLE moves, each with a named destination):
 **Exit:** actors' out-degree drops (no menu/settings_menu/ui_nav edges); the
 oracle "add a character/item without editing core" holds for items.
 
-## 8. Combat unification batch — [opus]
+## 8. Combat unification batch — [opus] (first item LANDED 2026-07-19)
 
 Deep-review §5; BIFURCATION entries in code_smells.md 2026-07-19:
 
-- collapse the projectile player/actor victim loops onto the
-  `hitbox/mod.rs:203` single-loop pattern (fixes the knockback asymmetry and
-  the dropped parry term);
+- ~~collapse the projectile player/actor victim loops~~ **DONE**: one victim
+  loop over every body, `Has<PlayerEntity>` picking only payload policy. Killed
+  three drifts with the fork — actors now receive knockback, the player side
+  gained the grudge term, and vulnerability became feedback-only for both (§A2).
+  The vulnerability cluster is deliberately `Option` so simple feature bodies
+  are not silently dropped from the query;
 - build ONE victim-side hit/death feedback seam keyed on the attack/volume
   spec + the victim's feel profile; delete the two `is_player` attacker-side
   emit blocks — this is also where Jon's "each attack binds its own VFX/SFX"
@@ -193,8 +226,12 @@ sounds different from the sword.
 
 From `untracked/jonnotes-FIXES.md`, verified state in deep-review §8:
 
-- room reset must consult `RespawnPolicy` before reviving dead actors
-  (code_smells 2026-07-19; the "NPCs respawn" placement half is fixed);
+- ~~room reset must consult `RespawnPolicy`~~ **DONE 2026-07-19**: a room reset
+  revives a corpse only under `OnRoomReenter`/`InPlace`; `DeadStaysDead`/`OnRest`
+  corpses stay dead instead of being briefly alive for the rest of the frame.
+  Pinned by `integration/respawn_policy_tests.rs`, poison-verified. Together with
+  the earlier placement-pin fix this closes Jon's "NPCs seem to infinitely
+  respawn";
 - morph-ball (and transform-mode generally): worn presentation follows the
   body's active mode — design it as the general transform/worn-identity rule,
   not a morph-ball special case;
@@ -231,16 +268,36 @@ Small non-blocking work when it does not collide with the campaigns:
   `headless-verification.md` at `ambition_sim_harness`;
 - single-source the demo remaining-lists in `demos/*.md`; status/tracks refer,
   never copy (the Sanic copies drifted independently — again);
-- reconcile `check_agent_kb.py`'s evidence-marker expectations with the
-  rewritten status.md (linter is red; prune stale markers or restore them
-  deliberately);
+- **KB linter: 6 of 7 failures fixed 2026-07-19** (the four mechanically
+  recomputed evidence markers the 07-18 rewrite dropped are restored with real
+  values, `docs/concepts/invariants.md` gained frontmatter, AGENTS.md is back
+  under the line cap). ONE remains, deliberately left red rather than papered
+  over: 17 files carry inline `#[cfg(test)]` modules ≥200 lines, which
+  `docs/concepts/test-placement.md` says belong in an adjacent `src/foo/tests.rs`.
+  Fixing it means either performing those moves or reviewing each and recording
+  an accepted-inline marker — both are per-file judgement, not bookkeeping.
+  Files: `ambition_actors/src/{action_scheme.rs, features/ecs/autonomous_reconcile.rs}`,
+  `ambition_audio/src/catalog.rs`, `ambition_characters/src/{action_scheme.rs,
+  actor/character_catalog/{binding.rs, mod.rs}, equipment.rs}`,
+  `ambition_encounter/src/{lifecycle.rs, waves.rs}`,
+  `ambition_ldtk_map/src/conversion/mod.rs`,
+  `ambition_platformer_provider/src/lifecycle.rs`,
+  `ambition_sim_view/src/control_prompt.rs`,
+  `ambition_touch_input/src/bevy_plugin.rs`,
+  `ambition_content/src/presentation/dialog.rs`,
+  `ambition_demo_mary_o/src/{flag.rs, lib.rs, powerups.rs}`.
+  Watch the `use super::*` depth when moving — an adjacent child module keeps it,
+  a nested one does not (see `integration/dash_tests.rs`'s header);
 - backfill the 8 unindexed `dev/journals/` entries into `dev/journals/index.md`;
 - ui_nav adoption in `ambition_menu`/`ambition_settings_menu`; the shared
   input-suspended gate for cutscene/encounter [opus];
 - one structurally complete content eviction at a time when a real named
   family remains in a reusable crate;
-- add `tree_sitter` + `tree_sitter_rust` to `run_developer_setup.sh` so
-  `scripts/ecs_inventory.py` regenerates on a fresh clone.
+- ~~add `tree_sitter` + `tree_sitter_rust` to `run_developer_setup.sh`~~ **DONE
+  2026-07-19**: setup now provisions the repo-root `.venv` that `scripts/*.py`
+  use, so `scripts/ecs_inventory.py` regenerates on a fresh clone instead of
+  dying on `ModuleNotFoundError` and silently leaving the committed navigation
+  packets stale.
 
 ## Standing execution rule
 

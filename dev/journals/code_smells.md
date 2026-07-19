@@ -22,7 +22,9 @@ Entry format:
 
 ## Open
 
-## 2026-07-19 BIFURCATION: projectile hit-detection runs TWO victim loops (player vs actor)
+## 2026-07-19 BIFURCATION: projectile hit-detection runs TWO victim loops — ✅ RESOLVED 2026-07-19
+- **RESOLUTION (same day, tracks #8):** collapsed to ONE victim loop over every body, mirroring `hitbox/mod.rs:203`. `Has<PlayerEntity>` now picks only payload policy (routing stamp + the player's parry heal). Three real drifts died with the fork: the actor side got knockback (it passed `None`, so an actor hit by the very bolt that launched the player just absorbed it), the player side got the grudge term (`damage_lands` instead of `can_damage`), and vulnerability became FEEDBACK-only for both (§A2: the event always flows, i-frames resolve at consume time). The vulnerability cluster is `Option` in the unified query on purpose — requiring it would silently drop simple feature bodies from the query (the required-components-skip trap, which is exactly how the 4 test failures during this change presented). `can_damage` is now unused by projectiles.
+- **(historical)**
 - **Where:** `crates/ambition_actors/src/projectile/systems.rs:577-665` (player loop) and `:679-729` (actor loop); the unified pattern to copy is `crates/ambition_combat/src/hitbox/mod.rs:203-322`.
 - **Smell:** the melee hitbox path collapsed to ONE victim loop over every body with `Has<PlayerEntity>` picking only payload policy; projectiles still run the pre-unification shape — separate `strict_intersects`, separate vulnerability checks, `HitTarget::Player` vs `HitTarget::Actor`, and a knockback asymmetry (player gets `FeelScale(0.85)`, actor gets `None`). The code self-documents the drift (`:617-619` "This site had drifted (it dropped the parry term)"). This is the single clearest unmerged combat fork left.
 - **Noticed while:** 2026-07-19 deep review (bifurcation sweep).
@@ -696,6 +698,16 @@ gameplay regression. It surfaced now only because the full `app_it` suite was ru
 end-to-end (the prior "all landed" claim apparently never did — 8 app_it tests
 were red on that baseline; the character-actions work reduced that to this 1).
 
+**2026-07-19 update — confirmed a PARALLELISM race, not a stale expectation.**
+Across four full-suite runs a *different* member of the family failed each time
+(`provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work`, then
+`provider_relative_music_drives_the_base_channel`), each passes in isolation,
+and `--test-threads=1` runs all three green. So the leak is between tests racing
+for the process-global audio device, exactly as theorised below. Cheapest real
+fix is therefore (b): make the family independent of global device state, or
+mark it `#[serial]`. It is the ONLY red in the suite and is unrelated to
+whatever change is in flight — do not chase it as a regression.
+
 Elegant fix (deferred — audio-test-infra, not the character-actions feature):
 either (a) capture `accepted_before` AFTER fully settling the launched session so
 its own SFX are already counted, and assert the DELTA excludes session-ambient
@@ -758,7 +770,9 @@ character-actions gates and touching the real-audio test harness is not zero-ris
   manifest. **Backlog only — Jon owns asset distribution and has said agents should
   not need to care about IPFS; do not fold this into feature work.**
 
-## 2026-07-19 Room reset revives every actor without consulting its respawn policy
+## 2026-07-19 Room reset revives every actor without consulting its respawn policy — ✅ RESOLVED 2026-07-19
+- **RESOLUTION (same day, track #9):** `reset_to_spawn` now consults `RespawnPolicy` before restoring health. A room reset is a room-scoped return, so it revives a corpse only under `OnRoomReenter` (or `InPlace`, which revives on its own timer anyway); `DeadStaysDead`/`OnRest` corpses keep only their spatial baseline. Living actors still reset to full under every policy. Pinned by `integration/respawn_policy_tests.rs` (4 tests), which assert the value IMMEDIATELY after the reset — the only place the old behavior was observable, since save-sync re-zeroed the HP later in the same frame. Poison-verified: forcing `stays_dead = false` fails 2 of them.
+- **(historical)**
 - **Where:** `crates/ambition_actors/src/features/ecs/reset.rs:119` →
   `reset_to_spawn` (`crates/ambition_actors/src/features/enemies/integration.rs:432`)
 - **Smell:** `reset_to_spawn` full-heals EVERY actor in the query with no
@@ -779,6 +793,9 @@ character-actions gates and touching the real-audio test harness is not zero-ris
   full as today. Wants a test that a killed `DeadStaysDead` NPC is never briefly
   alive across a `ResetRoomFeaturesEvent`, since the current wobble is invisible to
   end-of-frame assertions.
+
+## 2026-07-19 `ambition_actors` compat-facade debris — ✅ PARTIALLY RESOLVED 2026-07-19
+- **RESOLUTION (track #7):** deleted the two genuinely dead ones — `src/effects/mod.rs` (a `pub use ambition_vfx::*` facade that was not even declared in `lib.rs`, so it never compiled) and `src/debug_label.rs` (declared, zero consumers workspace-wide). Also fixed the doubled `#[cfg(test)]` on `character_roster`. **Correction to the original entry:** `src/host/` is NOT dead — `crate::host::windowing` is consumed by actors' own settings model; leave it. The ~73 `pub use ambition_*` re-export lines remain (each needs its consumers repointed at canonical homes first).
 
 ## 2026-07-19 No test drives a kill through the damage path to the death flag
 - **Where:** `crates/ambition_actors/src/features/ecs/save_sync/actor_liveness_tests.rs:60`

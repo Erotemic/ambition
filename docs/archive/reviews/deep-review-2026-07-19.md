@@ -61,7 +61,9 @@ gaps are the exceptions:
    restore rebuilt it empty). After LoadWorld a live slot can name a dead
    entity for an active window → the `(inside, Some(live_slot))` arm skips the
    respawn → strikes silently whiff during resim.
-   `FIXME(ggrs-live-boxes)` now marks the field.
+   *(Fixed in the execution pass — see §8b: the cache is now validated against
+   the live world every tick, so the fix holds for any cause of staleness, not
+   just the GGRS clone.)*
 2. **Unregistered sim-mutated state** (each is a resim/desync bug when hit):
    `WornEquipment` (armor rows spent by `resolve_body_hit`; `WornCharacter` IS
    registered — this is an oversight, not policy), `SwitchActivationQueue`
@@ -266,12 +268,54 @@ per-variant sprite paths) → provider-registered catalog;
 | Possession-aware dialog | Open; dialog identity comes from stable dialogue identity (`187295de9`) but speaker≠controller adaptation is unmodeled |
 | Sanic via `AMBITION_START_CHARACTER`: wrong moveset + can't move | Open; ActionScheme/moveset are per-character data, so likely the sanic character row grants defaults it shouldn't + missing control hookups outside the demo app; needs a trace |
 
+## 8b. Execution pass (same day, after the review)
+
+Jon set the goal "do all unblocked work in docs/planning". Landed against the
+queue above, each verified:
+
+- **Track 2 (build hygiene) — closed.** The menu-crate bevy trim measurably
+  removed the entire 3D/audio stack (pbr, gltf + gltf_animation, bevy_audio +
+  vorbis, mesh_picking, LUTs, ktx2, sysinfo, light) from the sim build graph;
+  kaleidoscope went optional; `[workspace.dependencies]` landed across 30
+  manifests; dead edges and the vestigial `rl_sim` chain deleted. Two review
+  claims were WRONG and are corrected in place: `sprite_sheet → interaction` is
+  live (8 references), and the duplicate ron/thiserror compiles are transitive
+  (bevy_animation, bevy_ecs_ldtk), not ours.
+- **Track 0 (GGRS debt) — largely closed**, including the forcing function. The
+  coverage test asks a better question than the deleted ledgers did: it boots
+  the real sim and audits what components actually live on simulated entities.
+  It found `SwitchFeature` and `RoomVisual` on its first run — both now
+  registered, because bevy_ggrs RECREATES entities and an unregistered component
+  is simply absent afterward.
+- **Track 8 (projectile fork) — closed.** One victim loop. The fork had already
+  drifted three ways; all three are fixed by the merge.
+- **Track 9 (respawn policy) — closed**, poison-verified.
+- **Track 7 — partially closed** (dead facades deleted; `host/` correction).
+- **Maintenance.** The KB linter (`scripts/check_agent_kb.py`), red since the
+  07-18 status rewrite, is down from 7 failures to 1: the four mechanically
+  recomputed evidence markers are restored with real values, the new invariants
+  doc gained frontmatter, and AGENTS.md is back under its line cap. The
+  survivor — 17 files with ≥200-line inline test modules — is left red
+  deliberately, because closing it means moving or individually accepting each,
+  not adding markers to silence a check. `run_developer_setup.sh` now provisions
+  the repo-root `.venv` with tree-sitter, so `scripts/ecs_inventory.py` actually
+  regenerates on a fresh clone (it silently could not, which is how the
+  committed navigation packets went stale in the first place).
+
+**Environment note:** the root filesystem hit 100% (387G) mid-pass. Cause:
+`/home/joncrall/ambition-target` had grown to 324G, of which `debug/incremental`
+alone was 78G. Freed 87G (78G incremental cache + 9.1G of gitignored
+`debug_traces/` dumps, 10,224 files). Both are regenerable caches, but the
+target dir will refill — worth a periodic `cargo clean` or a smaller
+`debug/incremental` budget.
+
 ## 9. What was landed during this review
 
 - Regression re-fixes: knockback `LaunchSpeed`, moveset test guard,
   `PresentationTime` in `animate_slash`, `bevy_input_focus` in
   platformer_primitives.
-- `FIXME(ggrs-live-boxes)` + truthful GGRS comments in `moveset/mod.rs`;
+- truthful GGRS comments in `moveset/mod.rs` (the `FIXME(ggrs-live-boxes)`
+  raised here was closed in the execution pass, §8b);
   stale `restructuring-blueprint` breadcrumbs repointed.
 - `.agent` generator git-ls-files filtering + generation stamp + stale-index
   banner; phantom packets and the `.tmp-*-stage/` snapshot deleted; index

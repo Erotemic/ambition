@@ -1,3 +1,15 @@
+---
+id: invariants
+aliases: []
+status: current
+authority: durable-concept
+last_verified: 2026-07-19
+related_docs:
+  - AGENTS.md
+  - docs/concepts/engine-mental-model.md
+  - dev/journals/lessons_learned.md
+---
+
 # Invariants and traps — the ones that bite
 
 A reference index, not enforcement machinery. Each entry is a rule that has

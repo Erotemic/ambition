@@ -63,3 +63,16 @@ hot reload still use canonical construction. GGRS rewinds the ECS world directly
 Direct maintainer confidence belongs in
 [`maintainer-decisions.md`](maintainer-decisions.md), not inferred from this
 status summary.
+
+## Mechanically recomputed evidence
+
+These markers are cross-checked against live computation by
+`scripts/check_agent_kb.py`; they exist so a claim in this file cannot quietly
+drift from the tree. Regenerate by running that script and correcting the values
+it reports. (Restored 2026-07-19: the 07-18 rewrite dropped them, which left the
+KB check red.)
+
+<!-- planning-evidence: boss-validator errors=8 warnings=10 -->
+<!-- planning-evidence: workspace-members count=51 -->
+<!-- planning-evidence: module-size waivers=0 unwaived-violations=0 stale-waivers=0 invalid-waivers=0 -->
+<!-- planning-evidence: cc3 status=ignored -->

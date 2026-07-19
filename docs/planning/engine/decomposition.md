@@ -109,6 +109,20 @@ inversion is finished" is ruled correct here. Whoever resolves this should first
 repoint the compat re-exports at their canonical homes and re-measure what is
 actually left, then decide against that list rather than against this paragraph.
 
+**Worked precedent (2026-07-19).** The shell pause menu and launcher read
+devices directly (`ButtonInput<KeyCode>` + `Query<&Gamepad>`), so the touch HUD's
+"Menu" button reached no shell surface and an Android session had no way back to
+the title screen. The fix was the inversion, not a new dependency on the input
+stack: `shell_action_edges` now also folds `MenuControlFrame` — the neutral
+menu-intent resource every OTHER menu already consumes, which touch, mouse wheel,
+and on-screen buttons write into. `ambition_input` is a leaf (bevy only, no
+`ambition_*` deps), so the shell gained one downward compile edge to a vocabulary
+crate and zero knowledge of any device. The resource is read as `Option<Res<_>>`
+and both sources carry one-frame edges, so the shell needs no schedule set owned
+by a crate above it. That combination — vocabulary crate below, runtime seam,
+order-independent by construction — is what "invert rather than ban" looks like
+in practice, and is the shape to try first on the touch-overlay question above.
+
 ## F1.5 — simulation and presentation stay separated
 
 `ambition_render` is downstream of simulation and read models.

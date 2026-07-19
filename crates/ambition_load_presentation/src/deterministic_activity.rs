@@ -79,6 +79,7 @@ fn spawn_activity(
 fn drive_activity(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<&Gamepad>,
+    menu_frame: Option<Res<ambition_input::MenuControlFrame>>,
     activity: Res<LoadActivityState>,
     mut views: Query<(&mut DeterministicActivityView, &mut Text)>,
     mut signals: MessageWriter<LoadActivitySignal>,
@@ -90,7 +91,7 @@ fn drive_activity(
     if active.activity_id.as_str() != DETERMINISTIC_LOADING_ACTIVITY_ID {
         return;
     }
-    let actions = shell_action_edges(keys.as_deref(), &pads, &mut analog);
+    let actions = shell_action_edges(keys.as_deref(), &pads, menu_frame.as_deref(), &mut analog);
     if !actions.previous && !actions.next {
         return;
     }

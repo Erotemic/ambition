@@ -121,6 +121,10 @@ impl Plugin for ShellPauseMenuPlugin {
 fn drive_shell_pause_menu(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<&Gamepad>,
+    // The device-agnostic menu seam. Absent in an app with no host input stack;
+    // present (and touch-fed) in every windowed host, which is what lets the
+    // on-screen "Menu" button open this menu on a phone.
+    menu_frame: Option<Res<ambition_input::MenuControlFrame>>,
     session: Res<ActiveGameplaySession>,
     suppressed: Res<ShellPauseMenuSuppressed>,
     mut menu: ResMut<ShellPauseMenu>,
@@ -142,7 +146,7 @@ fn drive_shell_pause_menu(
         return;
     }
 
-    let edges = shell_action_edges(keys.as_deref(), &pads, &mut analog);
+    let edges = shell_action_edges(keys.as_deref(), &pads, menu_frame.as_deref(), &mut analog);
     // Escape / Start toggle; the controller B (`back`) also closes an open menu.
     let toggle = edges.pause || (menu.open && edges.back);
 

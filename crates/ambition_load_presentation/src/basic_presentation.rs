@@ -34,6 +34,7 @@ impl Plugin for BasicLoadPresentationPlugin {
 fn basic_load_keyboard(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<&bevy::input::gamepad::Gamepad>,
+    menu_frame: Option<Res<ambition_input::MenuControlFrame>>,
     foreground: Res<LoadForegroundState>,
     model: Res<LoadPresentationModel>,
     mut developer_actions: MessageReader<DeveloperAction>,
@@ -43,7 +44,8 @@ fn basic_load_keyboard(
     let Some(active) = foreground.active.as_ref() else {
         return;
     };
-    let shell_actions = shell_action_edges(keys.as_deref(), &pads, &mut analog);
+    let shell_actions =
+        shell_action_edges(keys.as_deref(), &pads, menu_frame.as_deref(), &mut analog);
     if active.phase == LoadForegroundPhase::ReadyHold && shell_actions.loading_continue {
         actions.write(LoadPresentationAction::Continue {
             owner: active.owner.clone(),

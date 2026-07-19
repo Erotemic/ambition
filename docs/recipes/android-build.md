@@ -41,6 +41,33 @@ Use `./build_for_android.sh --help` for current ABI, SDK, feature, profile,
 static-asset, logging, and output options. Do not manually maintain a parallel
 Gradle recipe in documentation.
 
+## Assets: two roots in, one tree out
+
+A dev checkout composes **two** asset roots. A package has **one** assets dir,
+and both roots merge into it, content last:
+
+| Source | Checkout root | In the APK |
+| --- | --- | --- |
+| default | `crates/ambition_actors/assets` | `app/src/main/assets/` |
+| `game://` | `game/ambition_content/assets` | the same dir, overlaid |
+
+Merging in that order reproduces the precedence `ProviderGameAssetReader`
+applies in a checkout (authored content wins, the shared generated tree backs
+it), and it is the same merge `deploy_to_steamdeck.sh` performs. Because the two
+roots collapse to one, the packaged build resolves `game://` through the
+platform's own reader — the APK AssetManager — instead of the checkout-only
+two-directory fallback; see `game_asset_source_builder` in
+[`game/ambition_app/src/app/cli.rs`](../../game/ambition_app/src/app/cli.rs).
+
+`ambition_content/assets/sprites` is a symlink into the actors tree for LDtk's
+relative tileset paths. Packaging skips it: those images already arrive from the
+first root, and AssetManager cannot follow a symlink.
+
+Payload PNGs/audio are git-ignored but expected on disk (see `AGENTS.md`). The
+build warns per missing file rather than failing, and the startup vanity card
+renders a visible "missing frame" notice for anything absent — so a packaging
+gap is legible on device instead of silent.
+
 ## Architecture rules
 
 - Platform/device policy belongs in host/platform composition.

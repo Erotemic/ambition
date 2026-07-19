@@ -128,6 +128,47 @@ warn_missing_registered_character_sprites() {
     fi
 }
 
+# Verify the `game://` content root actually landed in the APK.
+#
+# The manifests that DESCRIBE this content are committed and compiled into the
+# binary (`include_str!`), while the payloads they name are git-ignored. That
+# split is deliberate — it means absence is reportable rather than mysterious —
+# but it also means a packaging gap looks identical to a healthy build until the
+# game runs. Check the vanity card manifest's own frame list, since it is the
+# committed source of truth for a set of ignored PNGs.
+warn_missing_game_content_assets() {
+    local card_manifest="$ROOT/game/ambition_content/assets/data/vanity_card.ron"
+    local -a expected=()
+    local -a missing=()
+    local rel
+
+    for rel in worlds dialogue data; do
+        if [[ ! -d "$ASSETS_OUT/$rel" ]]; then
+            missing+=("$rel/")
+        fi
+    done
+    if [[ "${#missing[@]}" -gt 0 ]]; then
+        warn "game:// content directories missing from generated APK assets: ${missing[*]}"
+    fi
+
+    if [[ ! -f "$card_manifest" ]]; then
+        return 0
+    fi
+    mapfile -t expected < <(grep -Eo 'path:[[:space:]]*"[^"]+"' "$card_manifest" \
+        | sed -E 's/.*"(.*)"/\1/' \
+        | sort -u)
+    missing=()
+    for rel in "${expected[@]}"; do
+        [[ -f "$ASSETS_OUT/$rel" ]] || missing+=("$rel")
+    done
+    if [[ "${#missing[@]}" -gt 0 ]]; then
+        warn "vanity card frames missing from generated APK assets (${#missing[@]}/${#expected[@]}): ${missing[*]}"
+        warn "the startup card will render each absent frame as a visible 'missing frame' notice"
+    elif [[ "${#expected[@]}" -gt 0 ]]; then
+        log "verified ${#expected[@]} vanity card frames in generated APK assets"
+    fi
+}
+
 repo_root() {
     local root
     root=$(git rev-parse --show-toplevel 2>/dev/null || true)
@@ -230,6 +271,38 @@ copy_tree_contents() {
         rm -rf "$dst"
         mkdir -p "$dst"
         (cd "$src" && tar cf - .) | (cd "$dst" && tar xf -)
+    fi
+}
+
+# Merge a second asset root ON TOP of an already-populated tree.
+#
+# Deliberately NOT --delete: this runs after copy_tree_contents has seeded the
+# destination, and the whole point is that the later root wins per-file while
+# leaving the earlier root's files intact.
+#
+# `--no-links` skips symlinks rather than copying them. A dev checkout has
+# `ambition_content/assets/sprites -> ../../../ambition_actors/assets/sprites`
+# for LDtk's relative tileset paths; inside the APK those images already landed
+# at `sprites/` from the first root, and Android's AssetManager cannot follow a
+# symlink anyway. Skipping it avoids duplicating ~186M into the package.
+overlay_tree_contents() {
+    local src=$1
+    local dst=$2
+    if [[ ! -d "$src" ]]; then
+        warn "overlay asset source not found: $src"
+        return 0
+    fi
+    mkdir -p "$dst"
+    if command -v rsync >/dev/null 2>&1; then
+        rsync -a --no-links \
+            --exclude '.git/' \
+            --exclude '.DS_Store' \
+            "$src"/ "$dst"/
+    else
+        # `-type l -prune -o -print0` emits every entry EXCEPT symlinks, which
+        # is the tar-only equivalent of rsync's --no-links above.
+        (cd "$src" && find . -type l -prune -o -print0 | tar cf - --null -T -) \
+            | (cd "$dst" && tar xf -)
     fi
 }
 
@@ -891,9 +964,19 @@ cat > "$APP_DIR/src/main/res/values/styles.xml" <<'EOF'
 </resources>
 EOF
 
+# A dev checkout composes TWO asset roots: the engine/generated tree
+# (ambition_actors, the default source) and the game's own content tree
+# (ambition_content, addressed through the `game://` source — worlds, dialogue,
+# data manifests, the vanity card). A PACKAGE has exactly one assets dir, so
+# both roots merge into it with content last, which reproduces the same
+# precedence `ProviderGameAssetReader` applies in a checkout: authored content
+# wins, the shared generated tree backs it. `deploy_to_steamdeck.sh` already
+# merges the same two roots the same way; Android predates the content split and
+# copied only the first, so every `game://` asset was silently absent on device.
 log "copying runtime assets into generated Android project"
 rm -rf "$ASSETS_OUT"
 copy_tree_contents "$ROOT/crates/ambition_actors/assets" "$ASSETS_OUT"
+overlay_tree_contents "$ROOT/game/ambition_content/assets" "$ASSETS_OUT"
 if [[ -d "$ASSETS_OUT/sprites" ]]; then
     sprite_png_count=$(find "$ASSETS_OUT/sprites" -type f -name '*.png' | wc -l | tr -d ' ')
     if [[ "$sprite_png_count" == "0" ]]; then
@@ -905,6 +988,7 @@ else
     warn "no sprites/ asset directory copied into APK; sprite art will fall back to colored rectangles"
 fi
 warn_missing_registered_character_sprites
+warn_missing_game_content_assets
 if [[ -f "$ASSETS_OUT/audio/sfx.bank" ]]; then
     log "copied sfx.bank into APK assets: $(human_size "$ASSETS_OUT/audio/sfx.bank")"
 else

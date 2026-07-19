@@ -130,12 +130,13 @@ fn basic_shell_pointer(
 /// Unified menu input: keyboard AND controller drive the same neutral
 /// navigation edges (up / down / confirm), so no downstream logic is duplicated
 /// per device. The D-pad mirrors the arrow keys; South (A / cross) mirrors
-/// Enter/Space. This is the "small neutral menu-action adapter" — the shell
-/// reads the raw input resources directly (it already depended on
-/// `ButtonInput<KeyCode>`) rather than pulling in the gameplay input stack.
+/// Enter/Space. Touch and the on-screen HUD arrive through the optional
+/// `MenuControlFrame` seam rather than a second device reader, so a phone can
+/// dismiss a startup card and pick a launcher row with no keyboard attached.
 fn basic_shell_keyboard(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<&Gamepad>,
+    menu_frame: Option<Res<ambition_input::MenuControlFrame>>,
     launcher: Res<ShellLauncherState>,
     sequence: Res<ActiveShellSequence>,
     mut launcher_commands: MessageWriter<ShellLauncherCommand>,
@@ -143,7 +144,7 @@ fn basic_shell_keyboard(
     mut sfx: SfxWriter,
     mut analog: Local<ShellAnalogLatch>,
 ) {
-    let actions = shell_action_edges(keys.as_deref(), &pads, &mut analog);
+    let actions = shell_action_edges(keys.as_deref(), &pads, menu_frame.as_deref(), &mut analog);
     let (up, down, confirm) = (actions.previous, actions.next, actions.confirm);
     if launcher.active {
         if up {

@@ -17,5 +17,8 @@ basic_presentation = ["bevy/ui_api", "ambition_game_shell/basic_presentation"]
 [dependencies]
 ambition_load = { path = "../ambition_load" }
 ambition_game_shell = { path = "../ambition_game_shell" }
+# The `MenuControlFrame` seam these loading screens hand to `shell_action_edges`
+# so a phone can dismiss a ready-hold without a keyboard. See that function.
+ambition_input = { path = "../ambition_input", default-features = false }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 bevy = { version = "0.18.1", default-features = false }

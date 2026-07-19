@@ -4,14 +4,16 @@
 //! binary, not the legacy direct sandbox. Deterministic frame time lets the
 //! real startup card auto-advance to the provider-derived launcher.
 
-use ambition_app::app::run_shared_host_headless;
+use ambition_app::app::{run_shared_host_headless, shared_host_startup_ticks};
 
 #[test]
 fn shipping_shared_host_reaches_the_launcher_without_a_window() {
-    // The startup vanity card holds ~216 ticks (3600ms at 60fps) before
-    // auto-advancing; run past that with margin so the launcher is reached.
-    let report = run_shared_host_headless(240);
-    assert_eq!(report.ticks_run, 240);
+    // Budget derived from the composed run-in, not hardcoded: the sequence has
+    // already grown from one card to two, and a stale constant turns this into
+    // "asserts the host is still showing card one" instead of failing.
+    let ticks = shared_host_startup_ticks();
+    let report = run_shared_host_headless(ticks);
+    assert_eq!(report.ticks_run, ticks);
     assert_eq!(report.active_route.as_deref(), Some("ambition_launcher"));
     assert!(report.launcher_active);
     assert!(!report.gameplay_session_active);

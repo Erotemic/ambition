@@ -138,16 +138,32 @@ impl bevy::asset::io::AssetReader for ProviderGameAssetReader {
 fn game_asset_source_builder() -> bevy::asset::io::AssetSourceBuilder {
     let authored_root = game_asset_root();
     let shared_root = desktop_asset_root();
-    // Preserve the authored root's normal filesystem watcher/writer behavior;
-    // only replace the reader with the two-root fallback.
-    bevy::asset::io::AssetSourceBuilder::platform_default(&authored_root, None).with_reader(
-        move || {
-            Box::new(ProviderGameAssetReader::new(
-                authored_root.clone(),
-                shared_root.clone(),
-            ))
-        },
-    )
+    let builder = bevy::asset::io::AssetSourceBuilder::platform_default(&authored_root, None);
+    if authored_root == shared_root {
+        // ONE root: a PACKAGED build. Both resolvers collapse to the same
+        // relative `"assets"` whenever the dev-checkout paths do not exist
+        // (Android APK, Steam Deck, anything under BEVY_ASSET_ROOT), because the
+        // packager has already merged the two trees into a single assets dir.
+        //
+        // The fallback reader below is a pure dev-checkout affordance — it
+        // exists only to span two SEPARATE directories — and it is built from
+        // `FileAssetReader`. Installing it here would be actively harmful: on
+        // Android it would shadow the platform's AssetManager reader with a
+        // filesystem reader that resolves against the process CWD and can never
+        // see inside the APK, so every `game://` load would fail. With one root
+        // there is nothing to fall back to, so the platform default IS the
+        // correct reader.
+        return builder;
+    }
+    // Two roots: a dev checkout. Preserve the authored root's normal filesystem
+    // watcher/writer behavior; only replace the reader with the two-root
+    // fallback.
+    builder.with_reader(move || {
+        Box::new(ProviderGameAssetReader::new(
+            authored_root.clone(),
+            shared_root.clone(),
+        ))
+    })
 }
 
 /// True when no display server is reachable for `bevy_winit` to attach to.
@@ -376,6 +392,22 @@ impl std::fmt::Display for SharedHostHeadlessReport {
     }
 }
 
+/// Fixed timestep [`run_shared_host_headless`] advances per tick.
+#[cfg(not(target_arch = "wasm32"))]
+pub const SHARED_HOST_HEADLESS_TICK_HZ: f64 = 60.0;
+
+/// Ticks needed for [`run_shared_host_headless`] to play the WHOLE startup
+/// run-in and reach the launcher, plus a one-second margin.
+///
+/// Derived from the composed sequence rather than restated as a constant: the
+/// run-in has already grown from one card to two, and a hardcoded budget silently
+/// becomes "asserts the host is still on the first card" the moment it does.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn shared_host_startup_ticks() -> u32 {
+    let seconds = super::shell_host::ambition_startup_duration().as_secs_f64();
+    (seconds * SHARED_HOST_HEADLESS_TICK_HZ).ceil() as u32 + SHARED_HOST_HEADLESS_TICK_HZ as u32
+}
+
 /// Step the same multi-game host that the windowed binary ships, using Bevy's
 /// no-window/no-backend presentation mode and deterministic frame time.
 ///
@@ -390,7 +422,7 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     super::shell_host::compose_ambition_startup_sequence(&mut app);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
-        1.0 / 60.0,
+        1.0 / SHARED_HOST_HEADLESS_TICK_HZ,
     )));
     for _ in 0..max_ticks {
         app.update();
@@ -571,9 +603,11 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
     let mut routes = Vec::new();
     let mut title_zero_state_stops = 0_u32;
     let launcher = super::shell_host::AMBITION_LAUNCHER_ROUTE;
-    // First hop passes through the startup vanity card, which holds ~216 ticks
-    // (3600ms at 60fps) before auto-advancing to the launcher; budget past it.
-    let mut completed = step_until_title_zero_state(&mut app, launcher, 260);
+    // The first hop plays the whole startup run-in before the launcher exists,
+    // so budget it from the composed sequence rather than a constant that goes
+    // stale the next time a card is added or retimed.
+    let mut completed =
+        step_until_title_zero_state(&mut app, launcher, shared_host_startup_ticks() as usize);
     if completed {
         routes.push(launcher.to_owned());
         title_zero_state_stops += 1;

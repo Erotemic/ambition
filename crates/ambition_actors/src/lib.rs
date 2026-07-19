@@ -49,12 +49,10 @@ pub mod audio;
 /// S5/S6 fold (refactor-chain R6). What is named here is named correctly.
 pub mod avatar;
 #[cfg(test)]
-#[cfg(test)]
 mod character_roster;
 /// The local control seam: device frame -> slot -> the body carrying that slot's
 /// player brain. See `control/mod.rs`.
 pub mod control;
-pub mod debug_label;
 pub mod host;
 pub mod platformer_runtime;
 pub mod quest;

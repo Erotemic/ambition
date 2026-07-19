@@ -103,6 +103,11 @@ impl AssistMode {
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GameplaySettings {
     pub difficulty: Difficulty,
+    /// Damage assist (accessibility): `On` halves damage the controlled body
+    /// TAKES (`incoming_player_damage_multiplier`). That is its whole effect —
+    /// owner decision 2026-07-19 ("honest rename"): the UI says "Damage
+    /// assist — take half damage"; aim/traversal assists, if ever built, get
+    /// their own settings.
     pub assist: AssistMode,
     /// Multiplier for outgoing player damage (projectiles, melee).
     pub player_damage_multiplier: f32,

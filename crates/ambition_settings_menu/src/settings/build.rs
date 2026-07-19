@@ -471,12 +471,12 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
             },
             toggle(
                 SettingsOptionId::Assist,
-                "Assist",
+                "Damage assist",
                 matches!(
                     g.assist,
                     ambition_persistence::settings::gameplay::AssistMode::On
                 ),
-                "Aim/traversal assists for accessibility.",
+                "Take half damage (accessibility).",
             ),
             slider(
                 SettingsOptionId::PlayerDamage,

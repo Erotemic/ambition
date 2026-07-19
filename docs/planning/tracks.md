@@ -38,10 +38,9 @@ this section is the bounded first wave, not a restatement. Vocabulary note
 - ✅ Portal composition + gate (`e4edd4acb`): host `portal` forwards
   `ambition_runtime/portal`; `demo_shell_smoke` 6/6 under `portal_render`;
   host un-skipped in the runner.
-- ⏸ **Assist semantics — PENDING Jon.** UI says aim/traversal; code halves
-  incoming damage. Pick: honest rename / honest behavior (remove the
-  halving, build real assists later) / split into two settings. Do NOT
-  guess.
+- ✅ Assist semantics — Jon decided 2026-07-19: **honest rename**. The
+  halving stays; the UI now says "Damage assist — take half damage".
+  Aim/traversal assists, if ever built, get their own settings.
 - ▢ One external-effect quarantine slice (Track 1's map; copy the
   `gameplay_trace` authoritative-pass pattern; a vertical slice, not the
   whole exposure map).

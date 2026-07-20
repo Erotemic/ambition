@@ -10,7 +10,8 @@
 
 use bevy::prelude::*;
 
-use super::exclusion::{TouchExclusionAnchor, TouchExclusionZone};
+use ambition_platformer_primitives::gameplay_presentation::ScreenRect;
+
 
 /// Marker + identity for touch action buttons. Each `TouchActionButton`
 /// entity is a Bevy `Button` whose `Interaction` state is collected into
@@ -53,26 +54,26 @@ pub(super) const TOUCH_SCALE: f32 = 0.7;
 /// Font shrinks more conservatively than geometry so the labels stay
 /// legible at phone DPI even when the buttons themselves drop by 30%.
 pub(super) const TOUCH_FONT_SCALE: f32 = 0.85;
-pub(super) const ACTION_CLUSTER_MARGIN: f32 = 10.0;
-pub(super) const ACTION_BEZEL_PAD: f32 = 8.0;
-pub(super) const ACTION_CLUSTER_W: f32 = 310.0 * TOUCH_SCALE;
-pub(super) const ACTION_CLUSTER_H: f32 = 312.0 * TOUCH_SCALE;
-pub(super) const ACTION_BEZEL_W: f32 = ACTION_CLUSTER_W + ACTION_BEZEL_PAD * 2.0;
-pub(super) const ACTION_BEZEL_H: f32 = ACTION_CLUSTER_H + ACTION_BEZEL_PAD * 2.0;
+pub(crate) const ACTION_CLUSTER_MARGIN: f32 = 10.0;
+pub(crate) const ACTION_BEZEL_PAD: f32 = 8.0;
+pub(crate) const ACTION_CLUSTER_W: f32 = 310.0 * TOUCH_SCALE;
+pub(crate) const ACTION_CLUSTER_H: f32 = 312.0 * TOUCH_SCALE;
+pub(crate) const ACTION_BEZEL_W: f32 = ACTION_CLUSTER_W + ACTION_BEZEL_PAD * 2.0;
+pub(crate) const ACTION_BEZEL_H: f32 = ACTION_CLUSTER_H + ACTION_BEZEL_PAD * 2.0;
 /// Inset for the movement stick from the lower-left corner.
 /// A slightly larger gap keeps the thumb control away from the
 /// screen edge and leaves a cleaner buffer for gesture navigation.
-pub(super) const JOYSTICK_MARGIN: f32 = 64.0 * TOUCH_SCALE;
+pub(crate) const JOYSTICK_MARGIN: f32 = 64.0 * TOUCH_SCALE;
 /// Generous movement-stick footprint reserved from menu drag-scroll gestures.
-pub(super) const JOYSTICK_EXCLUSION_SIZE: f32 = 300.0 * TOUCH_SCALE;
-pub(super) const MENU_ROW_MARGIN: f32 = 12.0;
-pub(super) const MENU_ROW_W: f32 = 198.0 * TOUCH_SCALE;
-pub(super) const MENU_W: f32 = 88.0 * TOUCH_SCALE;
-pub(super) const MENU_H: f32 = 44.0 * TOUCH_SCALE;
+pub(crate) const JOYSTICK_EXCLUSION_SIZE: f32 = 300.0 * TOUCH_SCALE;
+pub(crate) const MENU_ROW_MARGIN: f32 = 12.0;
+pub(crate) const MENU_ROW_W: f32 = 198.0 * TOUCH_SCALE;
+pub(crate) const MENU_W: f32 = 88.0 * TOUCH_SCALE;
+pub(crate) const MENU_H: f32 = 44.0 * TOUCH_SCALE;
 /// 88px button + 4px margin each side, scaled to match the shrunken
 /// menu buttons so multitouch hit testing stays aligned with the
 /// rendered overlay.
-pub(super) const MENU_CELL: f32 = 96.0 * TOUCH_SCALE;
+pub(crate) const MENU_CELL: f32 = 96.0 * TOUCH_SCALE;
 
 #[derive(Clone, Copy, Debug)]
 pub struct TouchActionSpec {
@@ -99,15 +100,6 @@ pub fn movement_joystick_layout() -> TouchJoystickLayout {
         knob_size: 100.0 * TOUCH_SCALE,
         exclusion_size: JOYSTICK_EXCLUSION_SIZE,
     }
-}
-
-pub fn movement_joystick_exclusion_zone() -> TouchExclusionZone {
-    let layout = movement_joystick_layout();
-    TouchExclusionZone::rect(
-        TouchExclusionAnchor::BottomLeft,
-        Vec2::ZERO,
-        Vec2::splat(layout.exclusion_size),
-    )
 }
 
 /// Canonical lower-right action layout used by both the rendered UI and
@@ -164,67 +156,81 @@ pub fn touch_action_layout() -> [TouchActionSpec; 9] {
     ]
 }
 
-pub fn touch_action_cluster_origin(window_size: Vec2) -> Vec2 {
-    Vec2::new(
-        window_size.x - ACTION_CLUSTER_MARGIN - ACTION_CLUSTER_W,
-        window_size.y - ACTION_CLUSTER_MARGIN - ACTION_CLUSTER_H,
-    )
+/// The drawn centre and radius of one action button, in screen pixels, for a
+/// cluster resolved at `cluster`.
+///
+/// The ONE projection from authored layout space into screen space. The
+/// rendered `Node` and the raw multitouch hit test both go through it, so the
+/// visible circle and its touch target cannot drift apart — including when the
+/// cluster is compacted into a reserved surround.
+pub fn touch_action_circle(spec: TouchActionSpec, cluster: ScreenRect) -> (Vec2, f32) {
+    let scale = action_cluster_scale(cluster);
+    let center = cluster.min
+        + Vec2::new(
+            (spec.left + spec.size * 0.5) * scale,
+            (spec.top + spec.size * 0.5) * scale,
+        );
+    (center, spec.size * 0.5 * scale)
 }
 
-/// Hit-test a `pos` against the visible action button circles and the
-/// menu row at the top right. Touch positions use the same top-left-
-/// origin logical coordinate space as Bevy window cursor positions.
+/// How much the authored action layout was scaled to reach `cluster`.
+pub fn action_cluster_scale(cluster: ScreenRect) -> f32 {
+    if ACTION_CLUSTER_W <= 0.0 {
+        return 1.0;
+    }
+    (cluster.width() / ACTION_CLUSTER_W).max(0.0)
+}
+
+/// Hit-test a `pos` against the visible action button circles and the menu row.
+/// Touch positions use the same top-left-origin logical coordinate space as
+/// Bevy window cursor positions.
 ///
-/// Gameplay action buttons are visible *circles*, so this hit-tests
-/// them as circles too — diagonal square bounds are allowed to
-/// overlap when the circles themselves do not.
-pub fn touch_action_at_position(pos: Vec2, window_size: Vec2) -> Option<TouchActionButton> {
-    let cluster_origin = touch_action_cluster_origin(window_size);
-    for spec in touch_action_layout() {
-        let center = Vec2::new(
-            cluster_origin.x + spec.left + spec.size * 0.5,
-            cluster_origin.y + spec.top + spec.size * 0.5,
-        );
-        if pos.distance(center) <= spec.size * 0.5 {
-            return Some(spec.action);
+/// Gameplay action buttons are visible *circles*, so this hit-tests them as
+/// circles too — diagonal square bounds are allowed to overlap when the circles
+/// themselves do not.
+///
+/// Both rectangles come from the resolved [`TouchControlPlacement`], never from
+/// the window: a cluster reserved into a surround column is tappable where it
+/// is DRAWN, not where a window-relative formula would have put it.
+///
+/// [`TouchControlPlacement`]: crate::placement::TouchControlPlacement
+pub fn touch_action_at_position(
+    pos: Vec2,
+    cluster: Option<ScreenRect>,
+    menu_row: Option<ScreenRect>,
+) -> Option<TouchActionButton> {
+    if let Some(cluster) = cluster {
+        for spec in touch_action_layout() {
+            let (center, radius) = touch_action_circle(spec, cluster);
+            if pos.distance(center) <= radius {
+                return Some(spec.action);
+            }
         }
     }
 
-    // Menu row: right=MENU_ROW_MARGIN, top=MENU_ROW_MARGIN, Menu / Back.
-    let menu_left = window_size.x - MENU_ROW_MARGIN - MENU_ROW_W;
-    let menu_top = MENU_ROW_MARGIN;
-    for (action, col) in [
-        (TouchActionButton::Start, 0usize),
-        (TouchActionButton::Reset, 1),
-    ] {
-        let left = menu_left + col as f32 * MENU_CELL + 4.0;
-        let top = menu_top + 4.0;
-        if pos.x >= left && pos.x <= left + MENU_W && pos.y >= top && pos.y <= top + MENU_H {
-            return Some(action);
+    if let Some(menu_row) = menu_row {
+        let scale = if MENU_ROW_W > 0.0 {
+            (menu_row.width() / MENU_ROW_W).max(0.0)
+        } else {
+            1.0
+        };
+        for (action, col) in [
+            (TouchActionButton::Start, 0usize),
+            (TouchActionButton::Reset, 1),
+        ] {
+            let min = menu_row.min + Vec2::new((col as f32 * MENU_CELL + 4.0) * scale, 4.0 * scale);
+            let size = Vec2::new(MENU_W, MENU_H) * scale;
+            if pos.x >= min.x
+                && pos.x <= min.x + size.x
+                && pos.y >= min.y
+                && pos.y <= min.y + size.y
+            {
+                return Some(action);
+            }
         }
     }
 
     None
-}
-
-pub fn touch_action_exclusion_zone(spec: TouchActionSpec) -> TouchExclusionZone {
-    let offset = Vec2::new(
-        ACTION_CLUSTER_MARGIN + ACTION_CLUSTER_W - spec.left - spec.size * 0.5,
-        ACTION_CLUSTER_MARGIN + ACTION_CLUSTER_H - spec.top - spec.size * 0.5,
-    );
-    TouchExclusionZone::circle(TouchExclusionAnchor::BottomRight, offset, spec.size * 0.5)
-}
-
-pub fn touch_menu_button_exclusion_zone(col: usize) -> TouchExclusionZone {
-    let offset = Vec2::new(
-        MENU_ROW_MARGIN + MENU_ROW_W - (col as f32 * MENU_CELL + 4.0 + MENU_W * 0.5),
-        MENU_ROW_MARGIN + 4.0 + MENU_H * 0.5,
-    );
-    TouchExclusionZone::rect(
-        TouchExclusionAnchor::TopRight,
-        offset - Vec2::new(MENU_W * 0.5, MENU_H * 0.5),
-        Vec2::new(MENU_W, MENU_H),
-    )
 }
 
 #[cfg(test)]
@@ -235,7 +241,6 @@ mod layout_tests {
     //! itself (no drift between visible circle and touch target).
     use super::*;
 
-    const WINDOW: Vec2 = Vec2::new(1280.0, 720.0);
 
     #[test]
     fn layout_has_nine_distinct_buttons_with_positive_size() {
@@ -252,82 +257,96 @@ mod layout_tests {
         }
     }
 
+    /// A cluster resolved at an arbitrary rectangle, for tests that must not
+    /// re-derive the old window-anchored formula.
+    fn cluster_at(min: Vec2, scale: f32) -> ScreenRect {
+        ScreenRect::from_min_size(min, Vec2::new(ACTION_CLUSTER_W, ACTION_CLUSTER_H) * scale)
+    }
+
+    fn menu_at(min: Vec2) -> ScreenRect {
+        ScreenRect::from_min_size(min, Vec2::new(MENU_ROW_W, crate::placement::MENU_ROW_H))
+    }
+
+    /// Every button's DRAWN centre hit-tests back to itself, wherever the
+    /// cluster was placed and at whatever scale — including compacted into a
+    /// reserved surround column, which is the case the old window-anchored hit
+    /// test got wrong.
     #[test]
     fn each_button_center_hit_tests_back_to_itself() {
-        let origin = touch_action_cluster_origin(WINDOW);
-        for spec in touch_action_layout() {
-            let center = Vec2::new(
-                origin.x + spec.left + spec.size * 0.5,
-                origin.y + spec.top + spec.size * 0.5,
-            );
-            assert_eq!(
-                touch_action_at_position(center, WINDOW),
-                Some(spec.action),
-                "center of {:?} should hit itself (overlay/touch drift)",
-                spec.action,
-            );
+        for (name, cluster) in [
+            ("bottom-right overlay", cluster_at(Vec2::new(1050.0, 500.0), 1.0)),
+            ("reserved left column", cluster_at(Vec2::new(8.0, 800.0), 1.0)),
+            ("compacted column", cluster_at(Vec2::new(12.0, 820.0), 0.9)),
+        ] {
+            for spec in touch_action_layout() {
+                let (center, _) = touch_action_circle(spec, cluster);
+                assert_eq!(
+                    touch_action_at_position(center, Some(cluster), None),
+                    Some(spec.action),
+                    "{name}: centre of {:?} should hit itself (overlay/touch drift)",
+                    spec.action,
+                );
+            }
         }
     }
 
     #[test]
-    fn empty_screen_center_hits_nothing() {
-        assert_eq!(touch_action_at_position(WINDOW * 0.5, WINDOW), None);
+    fn a_point_away_from_every_control_hits_nothing() {
+        let cluster = cluster_at(Vec2::new(1050.0, 500.0), 1.0);
+        assert_eq!(
+            touch_action_at_position(Vec2::new(200.0, 200.0), Some(cluster), None),
+            None,
+        );
+    }
+
+    /// With no resolved rectangles there is nothing to hit — a hidden HUD must
+    /// not stay tappable at its last position.
+    #[test]
+    fn an_unplaced_cluster_is_not_tappable() {
+        assert_eq!(
+            touch_action_at_position(Vec2::new(1100.0, 560.0), None, None),
+            None,
+        );
     }
 
     #[test]
-    fn menu_row_start_button_is_hittable_top_right() {
-        let menu_left = WINDOW.x - MENU_ROW_MARGIN - MENU_ROW_W;
-        let start_center = Vec2::new(
-            menu_left + 4.0 + MENU_W * 0.5,
-            MENU_ROW_MARGIN + 4.0 + MENU_H * 0.5,
-        );
+    fn menu_row_buttons_are_hittable_at_their_resolved_rect() {
+        let menu = menu_at(Vec2::new(900.0, 12.0));
+        let start_center = menu.min + Vec2::new(4.0 + MENU_W * 0.5, 4.0 + MENU_H * 0.5);
         assert_eq!(
-            touch_action_at_position(start_center, WINDOW),
+            touch_action_at_position(start_center, None, Some(menu)),
             Some(TouchActionButton::Start),
         );
     }
 
+    /// Visible circles, not square bounds: diagonal neighbours may overlap as
+    /// squares while their circles do not.
     #[test]
-    fn action_exclusion_matches_visible_button_center() {
-        let origin = touch_action_cluster_origin(WINDOW);
-        for spec in touch_action_layout() {
-            let center = Vec2::new(
-                origin.x + spec.left + spec.size * 0.5,
-                origin.y + spec.top + spec.size * 0.5,
-            );
-            assert!(
-                touch_action_exclusion_zone(spec).contains(center, WINDOW),
-                "exclusion for {:?} should contain its visible center",
-                spec.action,
-            );
-        }
-    }
+    fn touch_action_hit_test_uses_visible_circle_not_square_bounds() {
+        let cluster = cluster_at(Vec2::new(1050.0, 500.0), 1.0);
+        let layout = touch_action_layout();
+        let attack = layout
+            .iter()
+            .find(|spec| matches!(spec.action, TouchActionButton::Attack))
+            .expect("Attack remains in the touch action layout");
+        let jump = layout
+            .iter()
+            .find(|spec| matches!(spec.action, TouchActionButton::Jump))
+            .expect("Jump remains in the touch action layout");
+        assert!(
+            attack.top + attack.size > jump.top,
+            "diagonal square bounds should be allowed to overlap vertically"
+        );
 
-    #[test]
-    fn joystick_exclusion_preserves_legacy_envelope() {
-        let zone = movement_joystick_exclusion_zone();
-        assert!(zone.contains(Vec2::new(4.0, WINDOW.y - 4.0), WINDOW));
-        assert!(!zone.contains(
-            Vec2::new(JOYSTICK_EXCLUSION_SIZE + 1.0, WINDOW.y - 4.0),
-            WINDOW
-        ));
+        let square_only = cluster.min
+            + Vec2::new(attack.left + attack.size - 2.0, jump.top + 2.0);
+        assert_eq!(touch_action_at_position(square_only, Some(cluster), None), None);
     }
 }
 
 // ---------------------------------------------------------------------------
 // Screen occupancy
 // ---------------------------------------------------------------------------
-//
-// The touch HUD publishes GENERIC screen occupancy (the engine's
-// `ScreenOccluder` vocabulary) so the gameplay-presentation resolver can keep
-// the controlled subject out from under a thumb. This crate does not compute
-// camera margins and does not know which framing profile is active — it only
-// says what it covers. See
-// `docs/planning/triage/gameplay-presentation-profiles.md`.
-//
-// Occupancy is published PER CLUSTER, not per button: nine individual circles
-// would each carve the safe region separately for no gain, and the thumb rests
-// over the whole cluster anyway.
 
 use ambition_platformer_primitives::gameplay_presentation::{
     ScreenAnchor, ScreenOccluder, ScreenOcclusionPurpose,
@@ -370,65 +389,4 @@ pub fn menu_row_occluder() -> ScreenOccluder {
         Vec2::splat(MENU_ROW_MARGIN),
         Vec2::new(MENU_ROW_W, 54.0),
     )
-}
-
-#[cfg(test)]
-mod occupancy_tests {
-    use super::*;
-    use ambition_platformer_primitives::gameplay_presentation::ScreenRect;
-
-    /// The published stick occupancy must actually cover the stick's menu-drag
-    /// exclusion zone. These are two views of one control, and a camera that
-    /// framed the subject where the drag exclusion still swallows the touch
-    /// would be worse than no framing at all.
-    #[test]
-    fn published_stick_occupancy_covers_its_drag_exclusion() {
-        let window = Vec2::new(1280.0, 720.0);
-        let display = ScreenRect::from_min_size(Vec2::ZERO, window);
-        let occupied = movement_joystick_occluder().resolve(display).rect;
-
-        let size = movement_joystick_layout().exclusion_size;
-        for probe in [
-            Vec2::new(1.0, window.y - 1.0),
-            Vec2::new(size - 1.0, window.y - 1.0),
-            Vec2::new(1.0, window.y - size + 1.0),
-        ] {
-            assert!(
-                movement_joystick_exclusion_zone().contains(probe, window),
-                "fixture probe {probe:?} should be inside the drag exclusion",
-            );
-            assert!(
-                occupied.contains(probe),
-                "{probe:?} is excluded from menu drags but not published as occupied",
-            );
-        }
-    }
-
-    /// The action cluster's occupancy must contain every hit-testable button,
-    /// or framing would happily place the actor under a live control.
-    #[test]
-    fn published_cluster_occupancy_covers_every_action_button() {
-        let window = Vec2::new(1280.0, 720.0);
-        let display = ScreenRect::from_min_size(Vec2::ZERO, window);
-        let occupied = action_cluster_occluder().resolve(display).rect;
-        let origin = touch_action_cluster_origin(window);
-
-        for spec in touch_action_layout() {
-            let center = Vec2::new(
-                origin.x + spec.left + spec.size * 0.5,
-                origin.y + spec.top + spec.size * 0.5,
-            );
-            assert_eq!(
-                touch_action_at_position(center, window),
-                Some(spec.action),
-                "fixture centre for {:?} should hit-test to itself",
-                spec.action,
-            );
-            assert!(
-                occupied.contains(center),
-                "{:?} is tappable at {center:?} but outside the published occupancy",
-                spec.action,
-            );
-        }
-    }
 }

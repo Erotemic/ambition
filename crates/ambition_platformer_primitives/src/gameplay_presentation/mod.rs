@@ -22,12 +22,17 @@
 use ambition_engine_core as ae;
 use bevy::prelude::{Component, Resource};
 
+mod control_regions;
 mod presets;
 mod resolve;
 
 #[cfg(test)]
 mod tests;
 
+pub use control_regions::{
+    ControlAnchor, ControlFootprint, ControlFootprints, ControlPlacement, ControlPlacementPolicy,
+    PlacedControl, ResolvedControlRegions,
+};
 pub use presets::profiles;
 pub use resolve::{resolve_gameplay_presentation, GameplayPresentationInput};
 
@@ -601,6 +606,10 @@ pub struct GameplayPresentationProfile {
     pub framing: SubjectFramingPolicy,
     pub surround: SurroundPolicy,
     pub hud: HudLayoutPolicy,
+    /// Whether on-screen controls should be kept out of the gameplay
+    /// rectangle. Separate from [`Self::hud`] because a game may well want its
+    /// score in the surround while its controls still overlay, or the reverse.
+    pub controls: ControlPlacementPolicy,
 }
 
 impl GameplayPresentationProfile {
@@ -641,9 +650,19 @@ impl GameplayPresentationProfile {
     }
 
     /// Reserve the surround for HUD and controls.
+    ///
+    /// "Reserve" is a PREFERENCE, not a promise: whether the controls actually
+    /// fit is a property of the display, resolved into
+    /// [`ResolvedControlRegions::placement`] every frame.
     pub fn with_reserved_surround(mut self) -> Self {
         self.surround = SurroundPolicy::Solid;
         self.hud = HudLayoutPolicy::PreferSurround;
+        self.controls = ControlPlacementPolicy::PreferSurround;
+        self
+    }
+
+    pub fn with_control_placement(mut self, controls: ControlPlacementPolicy) -> Self {
+        self.controls = controls;
         self
     }
 }
@@ -786,6 +805,9 @@ pub struct ResolvedGameplayPresentation {
     pub hud: HudLayoutPolicy,
     /// Display regions outside the gameplay rectangle, if any.
     pub surround_rects: Vec<NamedScreenRect>,
+    /// Where the on-screen controls and HUD actually go, and which rung of the
+    /// fallback ladder that placement took.
+    pub controls: ResolvedControlRegions,
     /// The occupancy this layout was composed against, resolved to pixels.
     pub occlusions: Vec<ScreenOcclusion>,
 }
@@ -806,6 +828,7 @@ impl Default for ResolvedGameplayPresentation {
             surround: SurroundPolicy::None,
             hud: HudLayoutPolicy::OverGameplay,
             surround_rects: Vec::new(),
+            controls: ResolvedControlRegions::default(),
             occlusions: Vec::new(),
         }
     }

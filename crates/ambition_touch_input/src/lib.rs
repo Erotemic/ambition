@@ -56,10 +56,10 @@
 mod state;
 
 #[cfg(feature = "mobile_touch")]
-pub mod exclusion;
+pub mod layout;
 
 #[cfg(feature = "mobile_touch")]
-pub mod layout;
+pub mod placement;
 
 #[cfg(feature = "mobile_touch")]
 pub mod menu_bridge;

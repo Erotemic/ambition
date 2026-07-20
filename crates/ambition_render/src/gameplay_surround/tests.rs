@@ -4,8 +4,8 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use ambition_platformer_primitives::gameplay_presentation::{
-    profiles, resolve_gameplay_presentation, GameplayPresentationInput, GameplayPresentationProfile,
-    PresentationEnvironment, ScreenInsets,
+    profiles, resolve_gameplay_presentation, ControlFootprints, GameplayPresentationInput,
+    GameplayPresentationProfile, PresentationEnvironment, ScreenInsets,
 };
 
 use super::*;
@@ -19,6 +19,7 @@ fn app_with(display: ae::Vec2, profile: &GameplayPresentationProfile) -> App {
         safe_area_insets: ScreenInsets::ZERO,
         profile,
         occlusions: &[],
+        control_footprints: ControlFootprints::default(),
     }));
     // ONE update. The bars must be laid out at spawn, not on a following
     // frame: the frame a fixed-aspect game starts is the frame its pillarboxes
@@ -109,6 +110,7 @@ fn leaving_a_fixed_aspect_profile_tears_the_surround_down() {
         safe_area_insets: ScreenInsets::ZERO,
         profile: &GameplayPresentationProfile::full_bleed(),
         occlusions: &[],
+        control_footprints: ControlFootprints::default(),
     }));
     app.update();
 

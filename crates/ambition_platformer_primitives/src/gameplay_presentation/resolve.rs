@@ -7,9 +7,10 @@
 
 use ambition_engine_core as ae;
 
+use super::control_regions::resolve_control_regions;
 use super::{
-    AspectRatio, FixedAspectFit, GameplayPresentationProfile, GameplayViewportPolicy,
-    NamedScreenRect, ResolvedGameplayPresentation, ScreenInsets,
+    AspectRatio, ControlFootprints, FixedAspectFit, GameplayPresentationProfile,
+    GameplayViewportPolicy, NamedScreenRect, ResolvedGameplayPresentation, ScreenInsets,
     ScreenOcclusion, ScreenRect, SurroundRegion,
 };
 
@@ -24,6 +25,9 @@ pub struct GameplayPresentationInput<'a> {
     /// Order does not matter — the resolver sorts internally so the same set
     /// always composes the same region.
     pub occlusions: &'a [ScreenOcclusion],
+    /// What the on-screen controls need. Default (all `None`) places nothing,
+    /// which is correct for a session with no virtual controls.
+    pub control_footprints: ControlFootprints,
 }
 
 /// Resolve the gameplay presentation layout.
@@ -76,6 +80,15 @@ pub fn resolve_gameplay_presentation(
         }
     };
 
+    let surround = surround_rects(display_safe_rect, gameplay_rect);
+    let controls = resolve_control_regions(
+        display_safe_rect,
+        gameplay_rect,
+        &surround,
+        input.control_footprints,
+        input.profile.controls,
+    );
+
     ResolvedGameplayPresentation {
         display_rect,
         display_safe_rect,
@@ -85,7 +98,8 @@ pub fn resolve_gameplay_presentation(
         soft_framing,
         surround: input.profile.surround,
         hud: input.profile.hud,
-        surround_rects: surround_rects(display_safe_rect, gameplay_rect),
+        surround_rects: surround,
+        controls,
         occlusions: input.occlusions.to_vec(),
     }
 }

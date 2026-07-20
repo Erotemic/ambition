@@ -18,7 +18,6 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
-use super::exclusion::{touch_exclusion_contains, TouchExclusionZone};
 use ambition_input::{ActiveInputKind, MenuControlFrame};
 
 /// Fold non-control touch drags into menu scroll, and mark touch as the
@@ -35,7 +34,7 @@ pub fn fold_touch_gestures(
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
-    exclusion_zones: Query<&TouchExclusionZone>,
+    placement: Res<crate::placement::TouchControlPlacement>,
     mut gesture: ResMut<MenuTouchGestureState>,
     mut frame: ResMut<MenuControlFrame>,
     mut active_input: ResMut<ActiveInputKind>,
@@ -71,16 +70,19 @@ pub fn fold_touch_gestures(
         gesture.drag_scroll.reset();
         return;
     };
-    let window_size = Vec2::new(window.width(), window.height());
 
+    // "Is this point on a touch control" is answered from the SAME resolved
+    // rectangles the controls are drawn and hit-tested at. It used to be a
+    // second, window-anchored description of the same geometry, which silently
+    // pointed at the old corners once controls could be placed into a reserved
+    // surround.
+    let occupied = |pos: &Vec2| touch_control_area_contains(*pos, &placement);
     let touch_pos = touches
         .iter()
         .map(|touch| touch.position())
-        .find(|pos| !touch_control_area_contains(*pos, window_size, &exclusion_zones));
+        .find(|pos| !occupied(pos));
     let mouse_pos = if mouse_buttons.pressed(MouseButton::Left) {
-        window
-            .cursor_position()
-            .filter(|pos| !touch_control_area_contains(*pos, window_size, &exclusion_zones))
+        window.cursor_position().filter(|pos| !occupied(pos))
     } else {
         None
     };
@@ -90,12 +92,16 @@ pub fn fold_touch_gestures(
 }
 
 /// Should `pos` count as occupied by an on-screen touch control?
-/// Used by the menu drag-scroll path so dragging the move stick or
-/// tapping an action button doesn't accidentally trigger menu scroll.
+///
+/// Used by the menu drag-scroll path so dragging the move stick or tapping an
+/// action button doesn't accidentally trigger menu scroll. Reads the resolved
+/// placement, so it follows the controls wherever they were actually put.
 pub(super) fn touch_control_area_contains(
     pos: Vec2,
-    window_size: Vec2,
-    exclusion_zones: &Query<&TouchExclusionZone>,
+    placement: &crate::placement::TouchControlPlacement,
 ) -> bool {
-    touch_exclusion_contains(exclusion_zones.iter(), pos, window_size)
+    [placement.movement, placement.action_bezel, placement.menu_row]
+        .into_iter()
+        .flatten()
+        .any(|rect| rect.contains(pos))
 }

@@ -18,8 +18,7 @@ use bevy::window::PrimaryWindow;
 use virtual_joystick::*;
 
 use super::layout::{
-    movement_joystick_exclusion_zone, movement_joystick_layout, touch_action_at_position,
-    touch_action_exclusion_zone, touch_action_layout, touch_menu_button_exclusion_zone,
+    movement_joystick_layout, touch_action_at_position, touch_action_layout,
     TouchActionButton, ACTION_BEZEL_H, ACTION_BEZEL_W, ACTION_CLUSTER_H, ACTION_CLUSTER_MARGIN,
     ACTION_CLUSTER_W, MENU_ROW_MARGIN, MENU_ROW_W,
 };
@@ -117,6 +116,84 @@ impl Default for TouchControlsVisible {
 #[derive(Component)]
 pub struct MobileTouchUiRoot;
 
+/// Which resolved control rectangle a root `Node` follows.
+///
+/// The overlay no longer positions itself from window corners: every root
+/// carries this and is placed from [`TouchControlPlacement`], so the drawn
+/// control, its touch region, and the layout that reserved space for it are
+/// one thing rather than three formulas that agree by luck.
+///
+/// [`TouchControlPlacement`]: crate::placement::TouchControlPlacement
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TouchSurface {
+    Movement,
+    ActionBezel,
+    ActionCluster,
+    MenuRow,
+}
+
+/// Place every touch root at its resolved rectangle, and scale the action
+/// diamond's buttons with it.
+///
+/// Absolute pixels rather than anchors: the resolver has already accounted for
+/// the device-safe area and the reserved surround, so re-deriving an inset here
+/// would just be a second opinion that can disagree.
+pub fn apply_touch_control_placement(
+    placement: Res<crate::placement::TouchControlPlacement>,
+    mut surfaces: Query<(&TouchSurface, &mut Node)>,
+    mut buttons: Query<(&TouchActionButton, &mut Node), Without<TouchSurface>>,
+    mut labels: Query<(&mut TextFont, &TouchActionLabel)>,
+) {
+    for (surface, mut node) in &mut surfaces {
+        let rect = match surface {
+            TouchSurface::Movement => placement.movement,
+            TouchSurface::ActionBezel => placement.action_bezel,
+            TouchSurface::ActionCluster => placement.action_cluster,
+            TouchSurface::MenuRow => placement.menu_row,
+        };
+        let Some(rect) = rect else {
+            // Nothing published a footprint for this surface (controls hidden).
+            // Collapse rather than leaving it at a stale rectangle.
+            set_node_rect(&mut node, Vec2::ZERO, Vec2::ZERO);
+            continue;
+        };
+        set_node_rect(&mut node, rect.min, rect.size());
+    }
+
+    let scale = placement.action_scale;
+    let layout = touch_action_layout();
+    for (action, mut node) in &mut buttons {
+        let Some(spec) = layout.iter().find(|spec| spec.action == *action) else {
+            // Menu-row buttons are laid out by flex inside a fixed-size row.
+            continue;
+        };
+        node.left = Val::Px(spec.left * scale);
+        node.top = Val::Px(spec.top * scale);
+        node.width = Val::Px(spec.size * scale);
+        node.height = Val::Px(spec.size * scale);
+        node.border_radius = BorderRadius::all(Val::Px(spec.size * 0.5 * scale));
+    }
+    for (mut font, label) in &mut labels {
+        let Some(spec) = layout.iter().find(|spec| spec.action == label.0) else {
+            continue;
+        };
+        let scaled = spec.font_size * scale;
+        if (font.font_size - scaled).abs() > f32::EPSILON {
+            font.font_size = scaled;
+        }
+    }
+}
+
+fn set_node_rect(node: &mut Node, min: Vec2, size: Vec2) {
+    node.position_type = PositionType::Absolute;
+    node.left = Val::Px(min.x);
+    node.top = Val::Px(min.y);
+    node.right = Val::Auto;
+    node.bottom = Val::Auto;
+    node.width = Val::Px(size.x);
+    node.height = Val::Px(size.y);
+}
+
 /// Installs the on-screen touch joystick + action-button overlay and the
 /// systems that feed touch input into the shared `ControlFrame` /
 /// `MenuControlFrame` seams.
@@ -164,6 +241,8 @@ impl Plugin for TouchControlsPlugin {
         app.register_dual_axislike_input::<crate::virtual_device::TouchVirtualStick>();
 
         app.add_plugins(VirtualJoystickPlugin::<MobileStick>::default())
+            // The resolved rectangles this crate draws and hit-tests against.
+            .init_resource::<crate::placement::TouchControlPlacement>()
             .insert_resource(MobileTouchState::default())
             .insert_resource(MenuTouchGestureState::default())
             .insert_resource(TouchButtonEdges::default())
@@ -203,6 +282,15 @@ impl Plugin for TouchControlsPlugin {
                     tag_virtual_joystick_root,
                     sync_touch_visibility_from_settings,
                     sync_touch_ui_visibility,
+                    // Publish what the clusters need, then place them at what
+                    // the resolver decided. Placement must land BEFORE the raw
+                    // hit test below reads it, or a resize would be tappable
+                    // in last frame's rectangles for one frame.
+                    crate::placement::publish_touch_control_footprints,
+                    crate::placement::sync_touch_control_placement
+                        .after(ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet),
+                    apply_touch_control_placement
+                        .after(crate::placement::sync_touch_control_placement),
                     // The pointer-gesture lane: drag-scroll joins the menu
                     // frame after the participant populate rebuilt it, before
                     // the menu consumers read it.
@@ -280,8 +368,9 @@ fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
     // a tap (a future polish could add a directional gesture).
     // Joystick footprint is scaled by `TOUCH_SCALE` from the original
     // 120x120 / 56x56 layout to match the shrunken action cluster.
-    // The menu drag-scroll exclusion is attached to the joystick root
-    // as a `TouchExclusionZone` when `tag_virtual_joystick_root` runs.
+    // Placement (and therefore the menu drag-scroll exclusion) comes from the
+    // resolved control regions once `tag_virtual_joystick_root` marks this
+    // root; the constants here are only the authored full-size shape.
     let layout = movement_joystick_layout();
     create_joystick(
         &mut cmd,
@@ -441,7 +530,7 @@ fn tag_virtual_joystick_root(
         cmd.entity(entity).insert((
             MobileTouchUiRoot,
             GlobalZIndex(TOUCH_HUD_Z),
-            movement_joystick_exclusion_zone(),
+            TouchSurface::Movement,
             // Generic screen occupancy for gameplay framing. Rides the root
             // that `sync_touch_ui_visibility` hides, so a hidden stick stops
             // reserving space without a second visibility rule.
@@ -622,6 +711,7 @@ fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
         GlobalZIndex(TOUCH_HUD_Z),
         Name::new("MobileTouchActionBezel"),
         MobileTouchUiRoot,
+        TouchSurface::ActionBezel,
         super::layout::action_cluster_occluder(),
     ));
     cmd.spawn((
@@ -638,6 +728,7 @@ fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
         GlobalZIndex(TOUCH_HUD_Z),
         Name::new("MobileTouchActionCluster"),
         MobileTouchUiRoot,
+        TouchSurface::ActionCluster,
     ))
     .with_children(|parent| {
         for spec in touch_action_layout() {
@@ -677,19 +768,17 @@ fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
         GlobalZIndex(TOUCH_HUD_Z),
         Name::new("MobileTouchMenuRow"),
         MobileTouchUiRoot,
+        TouchSurface::MenuRow,
         super::layout::menu_row_occluder(),
     ))
     .with_children(|parent| {
-        for (col, action) in [TouchActionButton::Start, TouchActionButton::Reset]
-            .into_iter()
-            .enumerate()
-        {
+        for action in [TouchActionButton::Start, TouchActionButton::Reset] {
             let label = match action {
                 TouchActionButton::Start => "Menu",
                 TouchActionButton::Reset => "Back",
                 _ => "?",
             };
-            spawn_menu_button(parent, action, label, col, ui_fonts);
+            spawn_menu_button(parent, action, label, ui_fonts);
         }
     });
 }
@@ -733,14 +822,6 @@ fn spawn_action_button_at(
             BackgroundColor(Color::srgba(0.16, 0.19, 0.27, 0.38)),
             BorderColor::all(Color::srgba(0.68, 0.76, 0.92, 0.28)),
             action,
-            touch_action_exclusion_zone(super::layout::TouchActionSpec {
-                action,
-                label,
-                left,
-                top,
-                size,
-                font_size,
-            }),
             // Pressed-state flag (Phase 3) lives on the Button entity
             // so `sync_button_pressed_visual` can mutate
             // `BackgroundColor` on the same entity that carries the
@@ -1085,7 +1166,6 @@ fn spawn_menu_button(
     parent: &mut ChildSpawnerCommands,
     action: TouchActionButton,
     label: &str,
-    col: usize,
     ui_fonts: Option<&UiFonts>,
 ) {
     parent
@@ -1101,7 +1181,6 @@ fn spawn_menu_button(
             },
             BackgroundColor(Color::srgba(0.20, 0.16, 0.22, 0.60)),
             action,
-            touch_menu_button_exclusion_zone(col),
             Name::new(format!("Touch{label}")),
         ))
         .with_children(|button| {
@@ -1122,6 +1201,7 @@ fn update_buttons_from_interactions(
     touches: Res<Touches>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
+    placement: Res<crate::placement::TouchControlPlacement>,
     prompt: Res<ControlPrompt>,
     mut state: ResMut<MobileTouchState>,
     mut edges: ResMut<TouchButtonEdges>,
@@ -1141,27 +1221,27 @@ fn update_buttons_from_interactions(
     // against the same fixed button layout instead. This lets the
     // player keep the left thumb on the move stick while tapping
     // Jump / Attack / Dash with the right thumb.
-    let window_size = windows
-        .single()
-        .ok()
-        .map(|w| Vec2::new(w.width(), w.height()));
-    if let Some(window_size) = window_size {
-        for touch in touches.iter() {
-            if let Some(action) = touch_action_at_position(touch.position(), window_size) {
-                set_button_held(&mut now, action, true);
-            }
+    // The rectangles come from the RESOLVED placement, not from the window:
+    // a cluster reserved into a surround column must be tappable where it is
+    // drawn. Deriving them here from window size again is what let the drawn
+    // overlay and its touch targets drift apart.
+    let cluster = placement.action_cluster;
+    let menu_row = placement.menu_row;
+    for touch in touches.iter() {
+        if let Some(action) = touch_action_at_position(touch.position(), cluster, menu_row) {
+            set_button_held(&mut now, action, true);
         }
+    }
 
-        // Desktop touch-HUD testing path: raw mouse hit testing mirrors the
-        // Android raw-touch path, so the visible controller-like overlay can
-        // be exercised even when another UI panel would otherwise consume
-        // normal Bevy `Button` interaction.
-        if mouse_buttons.pressed(MouseButton::Left) {
-            if let Ok(window) = windows.single() {
-                if let Some(cursor) = window.cursor_position() {
-                    if let Some(action) = touch_action_at_position(cursor, window_size) {
-                        set_button_held(&mut now, action, true);
-                    }
+    // Desktop touch-HUD testing path: raw mouse hit testing mirrors the
+    // Android raw-touch path, so the visible controller-like overlay can
+    // be exercised even when another UI panel would otherwise consume
+    // normal Bevy `Button` interaction.
+    if mouse_buttons.pressed(MouseButton::Left) {
+        if let Ok(window) = windows.single() {
+            if let Some(cursor) = window.cursor_position() {
+                if let Some(action) = touch_action_at_position(cursor, cluster, menu_row) {
+                    set_button_held(&mut now, action, true);
                 }
             }
         }
@@ -1597,6 +1677,7 @@ mod prompt_tests {
         app.init_resource::<ButtonInput<MouseButton>>();
         app.init_resource::<MobileTouchState>();
         app.init_resource::<TouchButtonEdges>();
+        app.init_resource::<crate::placement::TouchControlPlacement>();
         app.add_systems(Update, update_buttons_from_interactions);
         app.world_mut()
             .spawn((Button, Interaction::Pressed, TouchActionButton::Attack));

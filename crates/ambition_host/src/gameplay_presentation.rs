@@ -21,8 +21,8 @@ use ambition_engine_core as ae;
 use ambition_platformer_primitives::camera_layers::MainCamera;
 use ambition_platformer_primitives::gameplay_presentation::{
     resolve_gameplay_presentation, ActiveGameplayPresentationProfiles, DisplaySafeAreaInsets,
-    GameplayPresentationInput, GameplayPresentationSet, PresentationEnvironment,
-    ResolvedGameplayPresentation, ScreenRect,
+    ControlFootprints, GameplayPresentationInput, GameplayPresentationSet,
+    PresentationEnvironment, ResolvedGameplayPresentation, ScreenRect,
 };
 use ambition_sim_view::camera_snapshot::{
     CameraObservationSet, CameraScreenFraming, CameraViewport,
@@ -50,6 +50,10 @@ impl Plugin for HostGameplayPresentationPlugin {
             .init_resource::<DisplaySafeAreaInsets>()
             .init_resource::<ResolvedGameplayPresentation>()
             .init_resource::<ScreenOccupancy>()
+            // What the on-screen controls need. The touch presenter (or any
+            // other control surface) writes it; the host only forwards it into
+            // the pure resolver, so no host->touch dependency appears.
+            .init_resource::<ControlFootprints>()
             .insert_resource(resolve_presentation_environment());
         // Owned by `CameraObservationPlugin`, but this cluster WRITES them, so
         // it must not depend on plugin ordering to have somewhere to write.
@@ -167,6 +171,7 @@ pub fn resolve_host_gameplay_presentation(
     environment: Res<PresentationEnvironment>,
     insets: Res<DisplaySafeAreaInsets>,
     occupancy: Res<ScreenOccupancy>,
+    footprints: Res<ControlFootprints>,
     mut resolved: ResMut<ResolvedGameplayPresentation>,
 ) {
     let Ok(window) = windows.single() else {
@@ -177,6 +182,7 @@ pub fn resolve_host_gameplay_presentation(
         safe_area_insets: insets.0,
         profile: profiles.0.for_environment(*environment),
         occlusions: &occupancy.0,
+        control_footprints: *footprints,
     });
     if *resolved != next {
         *resolved = next;

@@ -17,8 +17,8 @@ use bevy::prelude::*;
 use ambition::game_shell::MinimalShellPlugins;
 use ambition::presentation::gameplay_presentation::{
     resolve_gameplay_presentation, AspectRatio, GameplayPresentationInput,
-    GameplayPresentationProfileCatalog, GameplayPresentationProfiles, GameplayViewportPolicy,
-    PresentationEnvironment, ScreenInsets, SubjectFramingPolicy,
+    ControlFootprints, GameplayPresentationProfileCatalog, GameplayPresentationProfiles,
+    GameplayViewportPolicy, PresentationEnvironment, ScreenInsets, SubjectFramingPolicy,
 };
 use ambition::engine_core as ae;
 
@@ -174,6 +174,7 @@ fn the_three_declarations_resolve_to_different_layouts() {
             safe_area_insets: ScreenInsets::ZERO,
             profile: profiles.for_environment(environment),
             occlusions: &[],
+            control_footprints: ControlFootprints::default(),
         })
     };
 

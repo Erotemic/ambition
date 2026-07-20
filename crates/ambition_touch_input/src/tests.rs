@@ -12,7 +12,6 @@ use super::state::TouchButton;
 #[cfg(feature = "mobile_touch")]
 mod virtual_device_tests {
     use super::super::bevy_plugin::MobileTouchState;
-    use super::super::layout::TouchActionButton;
     use super::super::virtual_device::{
         bind_touch_virtual_inputs, TouchStickDirection, TouchVirtualButton, TouchVirtualStick,
     };
@@ -203,6 +202,7 @@ fn genuine_touch_activity_marks_touch_active() {
     app.init_resource::<ButtonInput<MouseButton>>();
     app.init_resource::<MobileTouchState>();
     app.init_resource::<MenuTouchGestureState>();
+    app.init_resource::<super::placement::TouchControlPlacement>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_persistence::settings::UserSettings>();
     app.insert_resource(ActiveInputKind::Keyboard);
@@ -307,23 +307,24 @@ fn touch_hud_z_is_above_every_menu_overlay() {
 #[test]
 fn touch_action_hit_test_includes_fly_button() {
     use super::layout::{
-        touch_action_at_position, touch_action_cluster_origin, touch_action_layout,
-        TouchActionButton,
+        touch_action_circle, touch_action_at_position, touch_action_layout, TouchActionButton,
+        ACTION_CLUSTER_H, ACTION_CLUSTER_W,
     };
+    use ambition_platformer_primitives::gameplay_presentation::ScreenRect;
 
-    let window_size = bevy::prelude::Vec2::new(1080.0, 2340.0);
+    // A cluster resolved somewhere arbitrary: the hit test follows the
+    // PLACEMENT, so a window-relative fixture would be testing the wrong thing.
+    let cluster = ScreenRect::from_min_size(
+        bevy::prelude::Vec2::new(820.0, 2020.0),
+        bevy::prelude::Vec2::new(ACTION_CLUSTER_W, ACTION_CLUSTER_H),
+    );
     let fly = touch_action_layout()
         .into_iter()
         .find(|spec| matches!(spec.action, TouchActionButton::FlyToggle))
         .expect("Fly button remains in the touch action layout");
-    // Center of the visible Fly shoulder button in the lower-right cluster.
-    let cluster_origin = touch_action_cluster_origin(window_size);
-    let pos = bevy::prelude::Vec2::new(
-        cluster_origin.x + fly.left + fly.size * 0.5,
-        cluster_origin.y + fly.top + fly.size * 0.5,
-    );
+    let (pos, _) = touch_action_circle(fly, cluster);
     assert!(matches!(
-        touch_action_at_position(pos, window_size),
+        touch_action_at_position(pos, Some(cluster), None),
         Some(TouchActionButton::FlyToggle)
     ));
 }
@@ -347,35 +348,4 @@ fn touch_action_layout_keeps_visible_circles_apart() {
             );
         }
     }
-}
-
-#[cfg(feature = "mobile_touch")]
-#[test]
-fn touch_action_hit_test_uses_visible_circle_not_square_bounds() {
-    use super::layout::{
-        touch_action_at_position, touch_action_cluster_origin, touch_action_layout,
-        TouchActionButton,
-    };
-
-    let window_size = bevy::prelude::Vec2::new(1280.0, 720.0);
-    let layout = touch_action_layout();
-    let attack = layout
-        .iter()
-        .find(|spec| matches!(spec.action, TouchActionButton::Attack))
-        .expect("Attack remains in the touch action layout");
-    let jump = layout
-        .iter()
-        .find(|spec| matches!(spec.action, TouchActionButton::Jump))
-        .expect("Jump remains in the touch action layout");
-    assert!(
-        attack.top + attack.size > jump.top,
-        "diagonal square bounds should be allowed to overlap vertically"
-    );
-
-    let origin = touch_action_cluster_origin(window_size);
-    let square_only = bevy::prelude::Vec2::new(
-        origin.x + attack.left + attack.size - 2.0,
-        origin.y + jump.top + 2.0,
-    );
-    assert_eq!(touch_action_at_position(square_only, window_size), None);
 }

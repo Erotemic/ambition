@@ -4,6 +4,8 @@
 //! `docs/planning/triage/gameplay-presentation-profiles.md` against the real
 //! systems, with a synthetic primary window instead of a winit surface.
 
+use bevy::camera::RenderTarget;
+use bevy::image::Image;
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
 
@@ -49,13 +51,20 @@ fn resolved(app: &App) -> &ResolvedGameplayPresentation {
     app.world().resource::<ResolvedGameplayPresentation>()
 }
 
+/// The viewport of the ONE main camera that renders to the window. Cameras are
+/// always born window-targeted, so a test that adds an offscreen camera is
+/// filtered out here rather than making `.single()` ambiguous.
 fn main_camera_viewport(app: &mut App) -> Option<Viewport> {
-    app.world_mut()
-        .query_filtered::<&Camera, With<MainCamera>>()
-        .single(app.world())
-        .expect("one main camera")
-        .viewport
-        .clone()
+    let mut query = app
+        .world_mut()
+        .query_filtered::<(&Camera, &RenderTarget), With<MainCamera>>();
+    let mut window_targeted = query
+        .iter(app.world())
+        .filter(|(_, target)| matches!(target, RenderTarget::Window(_)))
+        .map(|(camera, _)| camera.viewport.clone());
+    let viewport = window_targeted.next().expect("a window-targeted main camera");
+    assert!(window_targeted.next().is_none(), "expected exactly one");
+    viewport
 }
 
 /// Oracle 3 — the camera observer reports the GAMEPLAY viewport dimensions,
@@ -351,4 +360,40 @@ fn a_control_appearing_eases_the_region_instead_of_stepping_it() {
         after_one_frame.min.x > settled.min.x && after_one_frame.min.x < target.min.x,
         "the published region should be easing between {settled:?} and {target:?}, got {after_one_frame:?}",
     );
+}
+
+/// A camera retargeted at an offscreen image sizes and frames itself against
+/// that image (`capture_scene` does exactly this to the main camera). Applying
+/// a window-derived viewport to it would clip the capture to a rectangle
+/// computed for a display it is not drawing to.
+#[test]
+fn an_image_targeted_main_camera_keeps_its_own_framing() {
+    let mut app = host_app(
+        ae::Vec2::new(2400.0, 1080.0),
+        1.0,
+        profiles::fixed_four_by_three(),
+        PresentationEnvironment::Desktop,
+    );
+
+    let offscreen = app
+        .world_mut()
+        .spawn((
+            Camera::default(),
+            RenderTarget::Image(Handle::<Image>::default().into()),
+            MainCamera,
+        ))
+        .id();
+    app.update();
+
+    assert!(
+        app.world()
+            .entity(offscreen)
+            .get::<Camera>()
+            .expect("offscreen camera")
+            .viewport
+            .is_none(),
+        "an image-targeted camera must not inherit the display's gameplay rect",
+    );
+    // ...while the window-targeted main camera still gets one.
+    assert!(main_camera_viewport(&mut app).is_some());
 }

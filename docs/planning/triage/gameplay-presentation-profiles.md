@@ -407,6 +407,58 @@ Each full-screen effect should declare whether it covers:
 - gameplay plus surround but not controls;
 - controls as well.
 
+## Implementation status (2026-07-20)
+
+**GP1–GP5 LANDED** (`077d3108a`, `5ac381d72`, and the follow-ups). Owners:
+
+- `ambition_platformer_primitives::gameplay_presentation` — vocabulary,
+  the pure resolver, the presets, the profile catalog, `GameplayPresentationSet`;
+- `ambition_host::gameplay_presentation` — window, safe area, environment,
+  occupancy collection, publication, `Camera::viewport` application;
+- `ambition_render::gameplay_surround` — the painted surround;
+- `ambition_platformer_provider::authoring` — the declaration + selection;
+- `ambition_touch_input::layout` — published occupancy.
+
+Three things the implementation learned that this design did not anticipate:
+
+1. **The surround is mandatory, not decorative.** A Bevy camera with a
+   `viewport` never clears outside it, so a fixed-aspect profile leaves the
+   surround as undefined framebuffer contents until something paints it.
+   `letterbox_rects()` (display − gameplay) is a distinct product from
+   `surround_rects` (safe-area-relative, "where HUD may live") for that reason.
+2. **A fixed-aspect host needs a separate full-screen UI camera.** `bevy_ui`
+   lays nodes out against their target camera's rect, so one camera doing both
+   jobs letterboxes the HUD, menus, load screen, and the surround bars
+   themselves. `platformer_presentation` now spawns the front camera the full
+   host always had.
+3. **`ViewVisibility` is not a visibility answer for UI.** It is computed for
+   entities the visibility system culls, which `bevy_ui` nodes are not; judging
+   occupancy on it published nothing at all while every test still passed.
+   `InheritedVisibility` alone is the correct signal.
+
+Deliberately NOT implemented, and not hidden behind a TODO:
+
+- **Platform safe-area insets.** `DisplaySafeAreaInsets` exists, is a pure
+  resolver input, and is tested asymmetrically — but nothing writes a non-zero
+  value, because no supported platform exposes cutout information to this
+  codebase. The Android/iOS bridge is its own piece of work.
+- **Overlap fallback steps 2–4** (reposition contextual controls, fade controls
+  near the subject, strengthen the subject silhouette). Step 1 (preserve
+  camera/room bounds) falls out of running the deadzone before the clamp, and
+  step 5 (permit overlap) is the region floor. The middle three need a real
+  device to tune against and would be guesses today.
+- **A participant-facing layout preference.** The design already gated this on
+  product testing; `PresentationEnvironment` is the seam it would write to.
+- **Authored surround art.** `SurroundPolicy::GameAuthored` and
+  `DecorativeWorldExtension` are accepted and get the base fill; no game draws
+  over it yet.
+
+Oracle 4 (screen-to-world at the gameplay-viewport corners) has no gameplay
+subject in this codebase: there is no pointer→world conversion for gameplay at
+all — gameplay input is entirely action-based. The one real converter, the cube
+pause menu, already subtracts `logical_viewport_rect().min` and is correct
+under a viewport by construction.
+
 ## Implementation slices
 
 ### GP1 — pure policies and layout resolver

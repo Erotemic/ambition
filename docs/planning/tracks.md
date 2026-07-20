@@ -419,38 +419,45 @@ From `untracked/jonnotes-FIXES.md`, verified state in deep-review §8:
 **Exit:** each item demonstrated in the real app (feel ships blind where
 visual; behavior verified headless where steppable).
 
-## 10. Gameplay presentation profiles — [opus, fable-specced]
+## 10. Gameplay presentation profiles — **LANDED 2026-07-20**
 
 Design of record:
 [`triage/gameplay-presentation-profiles.md`](triage/gameplay-presentation-profiles.md)
-(promoted 2026-07-20; all nine promotion questions resolved against source in
-its "Resolved questions" section — read those answers before deviating).
+(promoted and implemented 2026-07-20 — `077d3108a`, `5ac381d72`. All nine
+promotion questions are resolved against source in its "Resolved questions"
+section, and its "Implementation status" section records what landed, the three
+things the implementation learned, and the four items deliberately left out).
+GP1–GP5 are all ✅; what remains is listed there as scoped follow-ups, not as
+unfinished cards: the platform safe-area bridge (nothing exposes insets yet),
+overlap fallback steps 2–4 (need a device to tune against), a participant-facing
+layout preference (gated on product testing), and authored surround art.
 
 Landscape phones are much wider than the gameplay composition, so virtual
 controls cover the controlled actor. One subsystem, four independent policy
 axes (viewport / framing / screen occupancy / activation), configured per
 provider. **No engine branch may select behavior by game name.**
 
-- **GP1** — pure policies + layout resolver in
+- ✅ **GP1** — pure policies + layout resolver in
   `ambition_platformer_primitives::gameplay_presentation`: fixed-aspect
   fitting, safe-region ∩ occlusion composition, three presets, no runtime
   camera change. Tested over 4:3 / 16:9 / 16:10 / 19.5:9 / 20:9 plus
   asymmetric safe-area insets;
-- **GP2** — fixed-aspect runtime slice: host resolves one
+- ✅ **GP2** — fixed-aspect runtime slice: host resolves one
   `ResolvedGameplayPresentation`, applies `Camera.viewport` to `MainCamera`,
   keeps `FrontHudCamera` full-screen, and feeds `CameraViewport` from the
   gameplay rect instead of the window. Proves `fixed_four_by_three()` for
   Super Mary O;
-- **GP3** — soft subject framing: one new pure input (`CameraScreenFraming`)
+- ✅ **GP3** — soft subject framing: one new pure input (`CameraScreenFraming`)
   turns the normalized safe region into a per-axis deadzone on the camera
   target, *before* the existing room/zone clamp. Proves
   `high_speed_full_bleed()` for Sanic;
-- **GP4** — occupancy-aware framing: `ScreenOccluder` (content-free, anchored
+- ✅ **GP4** — occupancy-aware framing: `ScreenOccluder` (content-free, anchored
   like the existing `TouchExclusionZone`), published by the touch controls,
   composed into the safe region. Proves `adaptive_platformer()` — normal
   desktop framing, occlusion-aware only when touch-primary;
-- **GP5** — named surround/HUD/control regions + Mary O surround
-  presentation.
+- ✅ **GP5** — named surround/HUD/control regions + Mary O surround
+  presentation. Turned out to be REQUIRED rather than polish: a
+  viewport-clipped camera never clears outside itself.
 
 **Guardrails:** presentation only — profile selection must never change
 simulation results, and camera composition must not flip on the last input
@@ -458,9 +465,11 @@ device (glyphs may, framing may not). The provider declaration is a field on
 `PlatformerExperienceAuthoring`, *not* a neighboring registration API;
 `ambition_demo_pocket` stays undeclared on purpose.
 
-**Exit:** the twelve acceptance oracles in the design doc, with the aspect
-matrix pinned in pure tests and the viewport/room-transition oracles in
-`app_it`.
+**Exit (met):** 16 pure resolver tests over the required aspect matrix, 11 host
+runtime tests, 6 camera-deadzone tests, 6 real-provider pins in `app_it`, 3
+surround tests, 2 touch-occupancy tests; `cargo test --workspace` fully green.
+Oracle 4 has no subject in this codebase (there is no gameplay pointer→world
+conversion) — see the design doc.
 
 ## Parallel maintenance — [sonnet unless noted]
 

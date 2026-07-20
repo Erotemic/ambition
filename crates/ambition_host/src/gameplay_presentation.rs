@@ -13,7 +13,7 @@
 //! [`ActiveGameplayPresentationProfiles`]; this module only asks that resource
 //! what policy is in force.
 
-use bevy::camera::Viewport;
+use bevy::camera::{RenderTarget, Viewport};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
@@ -234,10 +234,18 @@ pub fn publish_camera_screen_framing(
 /// `Camera::viewport` is in PHYSICAL pixels while the whole layout is resolved
 /// in logical pixels (the space window cursors, touches, and `bevy_ui` share),
 /// so the scale factor is applied here and nowhere else.
+///
+/// Only cameras rendering to the WINDOW are touched. The resolved layout is a
+/// fact about the physical display, so applying it to a camera retargeted at
+/// an offscreen image — which `capture_scene` does to the main camera, sizing
+/// the image itself and resolving its own snapshot against that size — would
+/// clip the capture to a rectangle computed for a window it is not drawing to.
 pub fn apply_gameplay_camera_viewport(
     presentation: Res<ResolvedGameplayPresentation>,
     windows: Query<&Window, With<PrimaryWindow>>,
-    mut cameras: Query<&mut Camera, With<MainCamera>>,
+    // `RenderTarget` is a required COMPONENT of `Camera` rather than a field,
+    // so every camera carries one; it defaults to the primary window.
+    mut cameras: Query<(&mut Camera, &RenderTarget), With<MainCamera>>,
 ) {
     let Ok(window) = windows.single() else {
         return;
@@ -256,7 +264,10 @@ pub fn apply_gameplay_camera_viewport(
         }
     });
 
-    for mut camera in &mut cameras {
+    for (mut camera, target) in &mut cameras {
+        if !matches!(target, RenderTarget::Window(_)) {
+            continue;
+        }
         // Compare before writing: touching `Camera` marks it changed, and a
         // camera that "changes" every frame is a needless render-world sync.
         if !viewport_matches(camera.viewport.as_ref(), desired.as_ref()) {

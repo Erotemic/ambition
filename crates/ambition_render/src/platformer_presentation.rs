@@ -111,10 +111,22 @@ impl Plugin for PlatformerPresentationPlugin {
     }
 }
 
-/// The gameplay camera. Renders layer 0 (sprites) plus the parallax background
-/// layer. A game that wants extra layers — Ambition adds the portal-window layer
-/// and a separate front UI camera — spawns its own and skips this plugin's
-/// `Startup` set, or adds the layer to this entity afterwards.
+/// The gameplay camera plus a full-screen front UI camera. The main camera
+/// renders layer 0 (sprites) plus the parallax background layer. A game that
+/// wants extra layers — Ambition adds the portal-window layer — spawns its own
+/// and skips this plugin's `Startup` set, or adds the layer to this entity
+/// afterwards.
+///
+/// The FRONT camera exists so this minimal presentation can support a
+/// fixed-aspect gameplay presentation profile at all. Under such a profile the
+/// main camera gets a `Camera::viewport`, and `bevy_ui` lays every node out
+/// against its TARGET camera's rect — so a single camera doing both jobs would
+/// letterbox the HUD, the menus, the load screen, and the surround bars
+/// themselves into the gameplay rectangle. Node→camera resolution is by
+/// `IsDefaultUiCamera` / `UiTargetCamera` and is independent of sprite render
+/// layers, so UI renders here regardless of the dedicated layer. This mirrors
+/// the full host's scaffold deliberately: a demo host should not have to
+/// hand-build a camera rig to get correct framing.
 fn spawn_main_camera(mut commands: Commands) {
     let layers = bevy::camera::visibility::RenderLayers::layer(0)
         .with(ambition_platformer_primitives::camera_layers::PARALLAX_BACKGROUND_LAYER);
@@ -122,6 +134,21 @@ fn spawn_main_camera(mut commands: Commands) {
         .spawn((Camera2d, MainCamera, layers, Name::new("Main Camera")))
         .id();
     commands.insert_resource(MainCameraEntity(camera));
+
+    commands.spawn((
+        Camera2d,
+        Camera {
+            order: 9,
+            clear_color: bevy::camera::ClearColorConfig::None,
+            ..default()
+        },
+        ambition_platformer_primitives::camera_layers::FrontHudCamera,
+        bevy::ui::IsDefaultUiCamera,
+        bevy::camera::visibility::RenderLayers::layer(
+            ambition_platformer_primitives::camera_layers::FRONT_HUD_LAYER,
+        ),
+        Name::new("Front HUD Camera"),
+    ));
 }
 
 /// Spawn the active room once for legacy hosts that do not install the

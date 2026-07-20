@@ -1517,3 +1517,34 @@ Transferable rules:
    each other — a topology seed decides whether freshly computed device
    values survive to the action update. `HostInputBindingsPlugin` now pins
    `Tick.before(Unify)` explicitly.
+
+## 2026-07-20 — a blank sprite is silent all the way through the pipeline
+
+`neil_ongras_turfson` shipped a spritesheet and a portrait sheet containing
+nothing but row labels, and nothing anywhere complained.
+
+1. **An absolute `svg_source.path` in a rig doc is a landmine.** The rig was
+   authored on another machine and carried
+   `/mnt/data/neil_work/.../neil_ongras_turfson_multiview.svg`.
+   `RigDocument._svg_path` rebases only RELATIVE paths onto the rig's own
+   directory, so an absolute path is used verbatim and simply misses. Every
+   other rigged target uses a relative path; grep for `"path": "/` after
+   importing any externally-authored rig.
+2. **Two `return None`s hid it.** `rigdoc.sprite_image()` returns None when the
+   SVG is missing, and `paint_part()` returns early when a `kind: "sprite"`
+   part has no image. Neil's 20 parts were all `sprite` with no polygon/capsule
+   fallback, so every part skipped painting and produced a fully transparent
+   frame instead of an error.
+3. **The degenerate metric is the tell.** `alpha_bbox_metrics` falls back to
+   `body_pixel_bbox (0,0,0,0)` + `feet_anchor_norm (0.0, -0.5)` when
+   `measure_body_metrics` returns None. Those exact values in a
+   `*_spritesheet.ron` mean "this sheet has zero opaque pixels", not "this
+   character is small". `auto_crop` leaving `frame_width` at its authored value
+   is a second tell — it proves the crop union was empty across ALL frames.
+   Checking `body_pixel_bbox` for `w: 0` across every `*_spritesheet.ron` is a
+   cheap sweep for this class of bug.
+4. **Worth a loud failure.** A sheet with zero opaque pixels is never intended.
+   `build_sheet` could raise when `auto_crop` computes an empty union, or
+   `rigdoc.sprite_image` could raise when `svg_source.path` is set but absent —
+   either would have turned a shipped-blank character into a generation-time
+   error. Logged as a smell.

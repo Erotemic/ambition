@@ -881,3 +881,23 @@ character-actions gates and touching the real-audio test harness is not zero-ris
 - **Suggested fix / size:** M. One integration test: spawn an NPC through the real
   lowering path, provoke + kill it via the damage systems, assert the save flag
   exists, then re-run room construction and assert it comes back dead.
+
+## 2026-07-20 Sprite pipeline cannot tell "blank sheet" from "small character"
+- **Where:** `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/authoring/sheet_build.py`
+  (`alpha_bbox_metrics` ~288, `auto_crop` union at the `build_sheet` call site ~746)
+  and `authoring/rigdoc.py` (`sprite_image` ~456, `paint_part` ~591).
+- **Smell:** A rig whose SVG cannot be found paints nothing, and every stage
+  downstream treats a fully transparent sheet as valid data: parts skip
+  silently, the crop union stays empty, and `alpha_bbox_metrics` emits the
+  degenerate `body_pixel_bbox (0,0,0,0)`. `neil_ongras_turfson` shipped a
+  completely blank spritesheet AND portrait sheet this way, with a zero-size
+  collision and hurtbox, and no test or tool flagged it.
+- **Noticed while:** wiring the 2026-07-20 sprite generators into the Hall of
+  Characters — Neil was about to be placed on a pedestal as an invisible NPC.
+  Root cause (a hardcoded absolute `svg_source.path`) is fixed in the renderer
+  submodule; the silent-failure chain is not.
+- **Suggested fix / size:** S. Raise in `build_sheet` when `auto_crop` computes
+  an empty union (zero opaque pixels is never intentional), and/or raise in
+  `rigdoc.sprite_image` when `svg_source.path` is set but the file is missing.
+  Optionally a conformance test asserting no published `*_spritesheet.ron` has
+  `body_pixel_bbox.w == 0` for a character target.

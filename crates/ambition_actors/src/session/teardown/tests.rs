@@ -7,7 +7,8 @@ use ambition_platformer_primitives::lifecycle::{SessionScopeId, SessionScopeReti
 use super::*;
 use crate::abilities::traversal::possession::PossessionState;
 use crate::boss_encounter::BossEncounterRegistry;
-use crate::encounter::EncounterRegistry;
+use crate::control::SlotInteractionState;
+use crate::encounter::{EncounterRegistry, SwitchActivation, SwitchActivationQueue};
 use crate::SandboxSimState;
 use ambition_world::collision::MovingPlatformSet;
 
@@ -22,6 +23,8 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<BossEncounterRegistry>();
     app.init_resource::<ambition_persistence::quest::QuestRegistry>();
     app.init_resource::<SandboxSimState>();
+    app.init_resource::<SlotInteractionState>();
+    app.init_resource::<SwitchActivationQueue>();
     app.add_systems(Update, reset_session_scoped_resources_on_retire);
 
     // Populate the mirrors with distinctive session-A state.
@@ -42,6 +45,18 @@ fn app_with_populated_mirrors() -> App {
     app.world_mut()
         .resource_mut::<SandboxSimState>()
         .room_transition_cooldown = 5.0;
+    app.world_mut()
+        .resource_mut::<SlotInteractionState>()
+        .primary_mut()
+        .interact_buffer_timer = 0.75;
+    app.world_mut()
+        .resource_mut::<SwitchActivationQueue>()
+        .0
+        .push(SwitchActivation {
+            id: "session_a_switch".to_owned(),
+            action: "reset".to_owned(),
+            target_encounter: "session_a_encounter".to_owned(),
+        });
     app
 }
 
@@ -58,6 +73,16 @@ fn retirement_clears_every_session_scoped_mirror() {
         .possessed
         .is_some());
     assert!(!app.world().resource::<EncounterRegistry>().ids.is_empty());
+    assert!(
+        app.world()
+            .resource::<SlotInteractionState>()
+            .primary()
+            .buffered()
+    );
+    assert_eq!(
+        app.world().resource::<SwitchActivationQueue>().0.len(),
+        1
+    );
 
     // Retire the scope; the mirrors reset the same frame.
     app.world_mut()
@@ -83,6 +108,17 @@ fn retirement_clears_every_session_scoped_mirror() {
             .room_transition_cooldown,
         SandboxSimState::default().room_transition_cooldown,
         "transient room state carried across teardown"
+    );
+    assert!(
+        !app.world()
+            .resource::<SlotInteractionState>()
+            .primary()
+            .buffered(),
+        "slot-level interaction buffer carried across teardown"
+    );
+    assert!(
+        app.world().resource::<SwitchActivationQueue>().0.is_empty(),
+        "pending switch activation carried across teardown"
     );
 }
 

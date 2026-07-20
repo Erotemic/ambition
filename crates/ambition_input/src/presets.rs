@@ -345,10 +345,11 @@ impl KeyboardPreset {
         map.insert(SandboxAction::MenuSelect, KeyCode::NumpadEnter);
         map.insert(SandboxAction::MenuSelect, KeyCode::Space);
         map.insert(SandboxAction::MenuSelect, GamepadButton::South);
-        // Also accept the player's configured Jump key as confirm so
-        // existing muscle memory still works, but Enter is the
-        // canonical menu confirmation.
+        // Also accept the player's configured Jump and Interact keys as
+        // confirm so existing dialogue/cutscene muscle memory survives the
+        // participant migration. Enter remains the canonical menu confirmation.
         map.insert(SandboxAction::MenuSelect, self.actions.jump);
+        map.insert(SandboxAction::MenuSelect, self.actions.interact);
 
         map.insert(SandboxAction::MenuBack, KeyCode::Escape);
         map.insert(SandboxAction::MenuBack, KeyCode::Backspace);

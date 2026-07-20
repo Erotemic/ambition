@@ -4,16 +4,16 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Mobile / touch input for ambition, split along the semantics/presentation seam (track 7): an always-built PURE fold (raw touch state -> the semantic ControlFrame; no Bevy, no render deps) and a mobile_touch-gated presentation overlay (virtual_joystick UI + touch buttons drawn as a HUD) that folds into the SAME ControlFrame the desktop leafwing pipeline produces. Extracted from ambition_app for app-thinness (ADR 0019)."
+description = "Mobile / touch input for ambition: an always-built pure touch-state vocabulary plus a mobile_touch-gated HUD and Leafwing virtual-device adapter. Touch resolves through the persistent participant's bindings and contexts alongside keyboard/gamepad instead of writing semantic frames directly. Extracted from ambition_app for app-thinness (ADR 0019)."
 
 [lib]
 # rlib only: consumed by the ambition_app host. Packaging is the binary's job.
 crate-type = ["rlib"]
 
 [features]
-# Track 7 (touch semantics vs presentation): the pure `state` fold — raw touch
-# state → semantic `ControlFrame` — is ALWAYS built and depends only on the
-# input/foundation seams. EVERYTHING presentation-facing (the virtual-joystick
+# Track 7 (touch semantics vs presentation): the pure `state` vocabulary is
+# ALWAYS built and depends only on the input/foundation seams. EVERYTHING
+# presentation / virtual-device-facing (the virtual-joystick
 # overlay, fonts, menu bridge, sim/actors reach) is `mobile_touch`-gated AND
 # its crates are optional, so a desktop / headless / RL consumer of the fold
 # compiles no render stack at all.
@@ -35,13 +35,13 @@ mobile_touch = [
 ]
 
 [dependencies]
-# The device-side `ControlFrame` seam the pure fold writes (always needed).
+# The shared action/control vocabulary used by the virtual-device adapter.
 ambition_input = { path = "../ambition_input" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 # The gated plugin/menu-bridge reach the sim + render + nav + cutscene layers.
-# All OPTIONAL (track 7): only the `mobile_touch` overlay half needs them; the
-# semantic fold half must stand on the input seam alone.
+# All OPTIONAL (track 7): only the `mobile_touch` overlay/adapter half needs
+# them; the pure state vocabulary stands on the input seam alone.
 ambition_actors = { path = "../ambition_actors", default-features = false, optional = true }
 # The control-prompt read-model the overlay renders (label source; the actors
 # reach for glyph/pressed stays until P5).

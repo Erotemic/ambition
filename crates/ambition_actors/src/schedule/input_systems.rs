@@ -58,11 +58,10 @@ fn input_suppressed_by_unfocus(
 /// Both inventory backends' directional nav — the bevy_ui Grid
 /// (`grid_menu_nav`) and the 3D cube (`kaleidoscope_focus_nav`) — join
 /// this set so any writer that must land in the frame BEFORE it is
-/// consumed (notably the touch-joystick fold in the mobile_input plugin)
-/// can pin `.before(MenuNavConsume)` without naming each backend's
-/// private system. Without that ordering the touch stick reached the
-/// frame only after the consumers had already read (and reset) it, so
-/// the on-screen joystick never moved either menu's cursor (Bug 2).
+/// consumed (notably the remaining pointer-gesture scroll adapter) can pin
+/// `.before(MenuNavConsume)` without naming each backend's private system.
+/// Touch stick navigation itself now arrives through the participant's
+/// virtual-device binding before `MenuControlFrame` is populated.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuNavConsume;
 
@@ -72,16 +71,22 @@ pub struct MenuNavConsume;
 /// leafwing `ActionState`/`InputMap` and the declared input contexts, exists
 /// before any gameplay session (startup cards, launcher), and survives every
 /// session teardown/relaunch — device state is never attached to actors or
-/// presentation entities. Idempotent by the `With<InputParticipant>` guard.
+/// presentation entities. Idempotent by the primary-participant id guard.
 #[cfg(feature = "input")]
 pub fn spawn_primary_input_participant(
     mut commands: Commands,
     // The persisted setting is the ONE preset authority (`Option` so headless
     // fixtures without a settings resource fall back to preset 0).
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    existing: Query<(), With<InputParticipant>>,
+    existing: Query<&InputParticipant>,
 ) {
-    if !existing.is_empty() {
+    // A future secondary/local participant must not suppress the engine-owned
+    // primary seat. Only an existing PRIMARY participant satisfies this boot
+    // invariant; multi-participant work will add the other seats explicitly.
+    if existing
+        .iter()
+        .any(|participant| participant.id == ambition_input::ParticipantId::PRIMARY)
+    {
         return;
     }
     let preset = KeyboardPreset::by_index(settings.map_or(0, |s| s.controls.keyboard_preset_index));
@@ -172,11 +177,8 @@ pub fn populate_control_frame_from_actions(
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     mut dash_state: ResMut<PlayerDashTriggerState>,
     cutscene: Res<ambition_cutscene::ActiveCutscene>,
-    mut cutscene_request: ResMut<ambition_cutscene::CutsceneAdvanceRequest>,
-    world_time: Option<Res<ambition_time::WorldTime>>,
     windows: Query<&Window>,
 ) {
-    let wall_dt = world_time.as_deref().map_or(0.0, |time| time.wall_dt());
 
     // The participant persists across the whole app lifetime, so "no player
     // spawned yet" no longer implies "no ActionState". The resolved input
@@ -206,39 +208,17 @@ pub fn populate_control_frame_from_actions(
         *frame = ControlFrame::default();
         return;
     }
-    // Cutscene takes precedence over gameplay input. We snapshot
-    // interact_pressed into the dismiss request and zero out the
-    // gameplay frame so movement / attack can't fire while a beat
-    // plays. Holding `Reset` (Delete/pad-Select) for
-    // `SKIP_HOLD_THRESHOLD_SECS` requests a full cutscene skip so a
-    // mistap can't burn through scripted content. Reset is chosen
-    // (not Start) so the pause toggle still works during cutscenes
-    // and a held button doesn't fight the existing
-    // press-to-advance-dialogue mapping on Interact / Jump.
+    // Cutscene takes precedence over gameplay input. The semantic MENU frame
+    // is the sole producer of advance/skip requests (see
+    // `apply_menu_frame_to_cutscene_request`), so keyboard/gamepad/touch all
+    // share one edge/hold policy and this gameplay bridge only neutralizes the
+    // simulation packet. Processing the same ActionState here as well would
+    // double-count the skip hold and could advance multiple beats from one
+    // held confirm.
     if cutscene.is_playing() {
-        if let Ok(action_state) = player_input.single() {
-            let interact = action_state.pressed(&SandboxAction::Interact)
-                || action_state.pressed(&SandboxAction::Jump);
-            if interact {
-                cutscene_request.dismiss_dialogue = true;
-            }
-            if action_state.pressed(&SandboxAction::Reset) {
-                cutscene_request.skip_hold_seconds += wall_dt;
-                if cutscene_request.skip_hold_seconds >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS
-                {
-                    cutscene_request.skip_cutscene = true;
-                    cutscene_request.skip_hold_seconds = 0.0;
-                }
-            } else {
-                cutscene_request.skip_hold_seconds = 0.0;
-            }
-        }
         *frame = ControlFrame::default();
         return;
     }
-    // Outside cutscenes, decay the skip-hold counter so a stale
-    // mid-cutscene press can't carry over.
-    cutscene_request.skip_hold_seconds = 0.0;
     let mut player_inputs = player_input.iter();
     let action_state = player_inputs.next();
     if player_inputs.next().is_some() {
@@ -280,9 +260,9 @@ pub fn populate_control_frame_from_actions(
 /// Bridge keyboard/gamepad/menu-wheel input into the device-agnostic menu frame.
 ///
 /// Menu systems should read this resource instead of reading raw
-/// `ActionState<SandboxAction>`. Touch folds into the same resource from
-/// `mobile_input`, so phone menus, desktop keyboard/gamepad, and mouse wheel
-/// scrolling share one semantic seam.
+/// `ActionState<SandboxAction>`. Keyboard, gamepad, and virtual touch controls
+/// are already unified in the participant's action state; mouse-wheel and
+/// pointer-drag gestures add their scroll contribution before consumers run.
 #[cfg(feature = "input")]
 pub fn populate_menu_control_frame_from_actions(
     world_time: Option<Res<ambition_time::WorldTime>>,
@@ -365,18 +345,39 @@ pub fn apply_menu_frame_to_cutscene_request(
     mut cutscene_request: ResMut<ambition_cutscene::CutsceneAdvanceRequest>,
 ) {
     let wall_dt = world_time.as_deref().map_or(0.0, |time| time.wall_dt());
-    if !cutscene.is_playing() {
+    update_cutscene_request_from_menu(
+        &menu_frame,
+        wall_dt,
+        cutscene.is_playing(),
+        &mut cutscene_request,
+    );
+}
+
+fn update_cutscene_request_from_menu(
+    menu_frame: &MenuControlFrame,
+    wall_dt: f32,
+    is_playing: bool,
+    request: &mut ambition_cutscene::CutsceneAdvanceRequest,
+) {
+    if !is_playing {
+        // A partial hold belongs to the cutscene that accumulated it; never
+        // let it leak into the next script.
+        request.skip_hold_seconds = 0.0;
         return;
     }
-    if menu_frame.select || menu_frame.select_held {
-        cutscene_request.dismiss_dialogue = true;
+    // Advance is an EDGE. A held confirm must not burn through several beats
+    // while the request is consumed on consecutive simulation ticks.
+    if menu_frame.select {
+        request.dismiss_dialogue = true;
     }
     if menu_frame.back_held {
-        cutscene_request.skip_hold_seconds += wall_dt;
-        if cutscene_request.skip_hold_seconds >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS {
-            cutscene_request.skip_cutscene = true;
-            cutscene_request.skip_hold_seconds = 0.0;
+        request.skip_hold_seconds += wall_dt;
+        if request.skip_hold_seconds >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS {
+            request.skip_cutscene = true;
+            request.skip_hold_seconds = 0.0;
         }
+    } else {
+        request.skip_hold_seconds = 0.0;
     }
 }
 
@@ -384,10 +385,11 @@ pub fn apply_menu_frame_to_cutscene_request(
 mod focus_gate_tests {
     use super::{
         declare_gameplay_input_context, input_suppressed_by_unfocus,
-        spawn_primary_input_participant,
+        spawn_primary_input_participant, update_cutscene_request_from_menu,
     };
     use ambition_input::{
-        resolve_active_input_context, ActiveInputContext, InputParticipant, SandboxAction,
+        resolve_active_input_context, ActiveInputContext, InputParticipant, MenuControlFrame,
+        ParticipantContexts, ParticipantId, SandboxAction,
     };
     use ambition_persistence::settings::UserSettings;
     use ambition_platformer_primitives::lifecycle::{SessionRoot, SessionScopeId};
@@ -419,6 +421,67 @@ mod focus_gate_tests {
                 .entity(participant)
                 .contains::<InputMap<SandboxAction>>(),
             "the participant owns the active input map"
+        );
+    }
+
+    #[test]
+    fn a_secondary_participant_does_not_suppress_the_primary_boot_seat() {
+        let mut app = App::new();
+        app.world_mut().spawn((
+            InputParticipant {
+                id: ParticipantId(1),
+            },
+            ParticipantContexts::default(),
+        ));
+        app.add_systems(Update, spawn_primary_input_participant);
+        app.update();
+
+        let mut participants = app.world_mut().query::<&InputParticipant>();
+        let mut ids: Vec<u8> = participants.iter(app.world()).map(|p| p.id.0).collect();
+        ids.sort_unstable();
+        assert_eq!(ids, vec![0, 1]);
+    }
+
+    #[test]
+    fn cutscene_confirm_is_edge_driven_and_skip_hold_resets_on_release() {
+        let mut request = ambition_cutscene::CutsceneAdvanceRequest::default();
+
+        update_cutscene_request_from_menu(
+            &MenuControlFrame {
+                select_held: true,
+                ..Default::default()
+            },
+            0.25,
+            true,
+            &mut request,
+        );
+        assert!(
+            !request.dismiss_dialogue,
+            "holding confirm without a new edge must not burn through beats"
+        );
+
+        update_cutscene_request_from_menu(
+            &MenuControlFrame {
+                select: true,
+                back_held: true,
+                ..Default::default()
+            },
+            0.25,
+            true,
+            &mut request,
+        );
+        assert!(request.dismiss_dialogue);
+        assert_eq!(request.skip_hold_seconds, 0.25);
+
+        update_cutscene_request_from_menu(
+            &MenuControlFrame::default(),
+            0.25,
+            true,
+            &mut request,
+        );
+        assert_eq!(
+            request.skip_hold_seconds, 0.0,
+            "releasing back resets the hold instead of banking it"
         );
     }
 

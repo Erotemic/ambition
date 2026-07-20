@@ -2,17 +2,17 @@
 //!
 //! Goal: a sideloadable Pixel-class APK where the sandbox is playable
 //! with on-screen joysticks + controller-like touch buttons. This crate owns
-//! both the rendered touch HUD and the fold from touch joystick / virtual button
-//! state into the same `ControlFrame` resource consumed by the simulator. The
-//! Leafwing keyboard/gamepad pipeline remains the canonical desktop input
-//! surface.
+//! both the rendered touch HUD and the virtual-device adapter that publishes
+//! joystick/button state into the persistent participant's Leafwing action
+//! state. Touch, keyboard, and gamepad therefore share the same bindings,
+//! contexts, and semantic routing.
 //!
 //! Extracted from `ambition_app::host::mobile_input` (app-thinness, ADR 0019):
 //! reusable touch presentation/input infrastructure any platformer host would
 //! want, so it lives beside the input/render seams rather than inside the app
-//! binary. Track 7 split: the SEMANTIC half (raw touch state → `ControlFrame`,
-//! [`mod@state`]) is pure data on the `ambition_input` seam alone — no Bevy,
-//! no render stack; every PRESENTATION dependency (`bevy`, `ambition_render`,
+//! binary. Track 7 split: the raw touch-state vocabulary ([`mod@state`]) is
+//! pure data on the `ambition_input` seam alone — no Bevy, no render stack;
+//! every PRESENTATION / virtual-device dependency (`bevy`, `ambition_render`,
 //! `ambition_actors`, `ambition_ui_nav`, `ambition_cutscene`,
 //! `ambition_persistence`, `virtual_joystick`) is optional and enabled only by
 //! the `mobile_touch` overlay feature, whose direct `ambition_render` edge is
@@ -49,9 +49,9 @@
 //!
 //! Tests live in `tests.rs`.
 
-// The pure touch STATE + fold. Its consumers (`bevy_plugin`, `menu_bridge`) are
-// `mobile_touch`-gated, but the module compiles unconditionally so its unit tests
-// run in every build. Without the feature, most of it is legitimately unreachable.
+// The pure touch STATE vocabulary. Its consumers (`bevy_plugin`,
+// `virtual_device`, `menu_bridge`) are `mobile_touch`-gated, but the module
+// compiles unconditionally so its unit tests run in every build.
 #[cfg_attr(not(feature = "mobile_touch"), allow(dead_code))]
 mod state;
 
@@ -75,7 +75,7 @@ mod tests;
 // import path.
 pub use state::{apply_deadzone, TouchButton, TouchInputState};
 
-/// Bevy plugin wiring `virtual_joystick` to the `ControlFrame` seam.
+/// Bevy plugin wiring `virtual_joystick` into the participant action seam.
 /// Gated behind the `mobile_touch` feature so desktop / gamepad /
 /// headless / RL builds don't pull in `virtual_joystick` and don't
 /// register the touch systems.

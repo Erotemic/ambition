@@ -66,7 +66,7 @@ pub use control::{
 ///    resolves at the end of the set.
 /// 4. [`InputSet::Route`] — actions + the active context route into the
 ///    semantic seams. Every system that WRITES the `ControlFrame` resource
-///    (device populate, touch fold, portal movement-intent brackets,
+///    (participant action routing, portal movement-intent brackets,
 ///    edge-derived flags) and the `MenuControlFrame` lives here; every system
 ///    that READS them to drive gameplay runs after it. The sandbox pins
 ///    `Route` before its gameplay consumer (`populate_slot_controls`), so a

@@ -172,8 +172,8 @@ impl Plugin for HostInputBindingsPlugin {
             // keyboard / gamepad / touch. Runs in the input populate set so
             // the value is fresh before this frame's menu consumers + before
             // the hover observers fire on rebuilt controls. The detector
-            // covers keyboard / mouse / gamepad; the touch fold in the
-            // mobile_input plugin flips it to `Touch` itself.
+            // covers keyboard / mouse / gamepad; the touch virtual-device /
+            // gesture adapter marks `Touch` itself.
             .add_systems(
                 Update,
                 ambition_input::update_active_input_kind.in_set(ambition_input::InputSet::Route),
@@ -204,9 +204,10 @@ impl Plugin for HostInputBindingsPlugin {
             // become `just_pressed` again on every dialog frame.
             //
             // Therefore the order is:
-            // 1. read keyboard/gamepad menu actions into `MenuControlFrame`,
+            // 1. read the participant's unified keyboard/gamepad/touch actions
+            //    into `MenuControlFrame`,
             // 2. read/suppress gameplay into `ControlFrame`,
-            // 3. let touch folds merge into both seams before the consumers.
+            // 3. let pointer gestures add scroll before consumers.
             .add_systems(
                 Update,
                 (

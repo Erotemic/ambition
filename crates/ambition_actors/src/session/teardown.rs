@@ -30,7 +30,8 @@ use ambition_platformer_primitives::markers::ControlledSubject;
 
 use crate::abilities::traversal::possession::PossessionState;
 use crate::boss_encounter::BossEncounterRegistry;
-use crate::encounter::{EncounterRegistry, EncounterView};
+use crate::encounter::{EncounterRegistry, EncounterView, SwitchActivationQueue};
+use crate::control::SlotInteractionState;
 use crate::SandboxSimState;
 use ambition_persistence::quest::QuestRegistry;
 use ambition_world::collision::MovingPlatformSet;
@@ -63,6 +64,14 @@ pub struct SessionScopedResources<'w> {
     quest_registry: ResMut<'w, QuestRegistry>,
     /// Transient per-room bookkeeping (room-transition cooldown, etc.).
     sim_state: ResMut<'w, SandboxSimState>,
+    /// Slot-level buffered gestures belong to the retired control session. The
+    /// simulation sleeps at the launcher, so they cannot rely on a later tick
+    /// to decay before the next activation.
+    slot_interactions: ResMut<'w, SlotInteractionState>,
+    /// Switch activations intentionally cross one simulation-frame boundary.
+    /// Retirement between production and consumption must not deliver a
+    /// session-A activation into session B.
+    switch_activations: ResMut<'w, SwitchActivationQueue>,
 }
 
 /// Reset the session-scoped resource mirrors when any session scope retires.
@@ -87,6 +96,8 @@ pub fn reset_session_scoped_resources_on_retire(
     *resources.boss_registry = BossEncounterRegistry::default();
     *resources.quest_registry = QuestRegistry::default();
     *resources.sim_state = SandboxSimState::default();
+    *resources.slot_interactions = SlotInteractionState::default();
+    *resources.switch_activations = SwitchActivationQueue::default();
 }
 
 /// Installs [`reset_session_scoped_resources_on_retire`] into the exact-scope

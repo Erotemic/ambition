@@ -59,9 +59,9 @@ pub enum MobileStick {
     Aim,
 }
 
-/// Live touch-input state. Updated each frame from the stick
-/// messages + button state. The folder system reads this and
-/// writes the canonical `ControlFrame`.
+/// Live touch-input state. Updated each frame from the stick messages +
+/// button state, then published as leafwing virtual-device controls into the
+/// persistent participant's action state.
 #[derive(Resource, Default, Clone, Copy, Debug)]
 pub struct MobileTouchState(pub TouchInputState);
 
@@ -81,12 +81,12 @@ pub struct MenuTouchGestureState {
 /// Runtime VISIBILITY toggle for the on-screen touch UI. `true`
 /// shows the stick + button HUD; `false` hides the overlay.
 ///
-/// This now controls ONLY the on-screen overlay's visibility — it no
-/// longer gates the touch INPUT fold. Touch enablement is owned by the
-/// plugin itself (`TouchControlsPlugin`): the touch systems exist iff
-/// the plugin is installed, so "rip touch out" = stop adding the plugin,
-/// not flip a boolean. The input fold stays activity-gated, so an
-/// untouched (even hidden) overlay never stomps keyboard input.
+/// This controls ONLY the on-screen overlay's visibility; it does not
+/// disable the virtual touch device. Touch enablement is owned by the plugin
+/// itself (`TouchControlsPlugin`): the touch systems exist iff the plugin is
+/// installed, so "rip touch out" = stop adding the plugin, not flip a boolean.
+/// An untouched (even hidden) overlay publishes neutral virtual controls and
+/// cannot stomp keyboard/gamepad input.
 ///
 /// Flip it from the settings menu (the controls page "Touch Overlay"
 /// row) or programmatically. No hotkey binding by design.
@@ -987,9 +987,9 @@ pub struct ButtonGlyph(pub Cow<'static, str>);
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ButtonPressed(pub bool);
 
-/// Map a touch button to its canonical [`SandboxAction`]. Keeps the
-/// glyph + pressed-state systems honest — both compute against the
-/// same action mapping the touch fold uses for input contribution.
+/// Map a touch button to its canonical gameplay [`SandboxAction`]. Keeps
+/// the glyph + pressed-state systems honest against the same logical action
+/// that the virtual-device binding contributes.
 fn touch_action_to_sandbox_action(action: TouchActionButton) -> SandboxAction {
     match action {
         TouchActionButton::Jump => SandboxAction::Jump,

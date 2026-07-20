@@ -26,11 +26,15 @@
 //! when the simulation does — never on render frames while the game is paused,
 //! never zero-or-twice under fixed-tick catch-up. (This is the property
 //! `bevy_falling_sand` structurally cannot provide; `falling-sand.md` §4
-//! records the adapt-vs-replace ruling.) Under a rollback host, emission and
-//! stepping are additionally gated on `simulation_pass_is_authoritative`: the
-//! grid is not rollback-registered state, so a re-simulated frame must not
-//! double-advance it — while [`project_settled_sand`] runs on EVERY pass, so
-//! replayed player physics still sees the same settled ground.
+//! records the adapt-vs-replace ruling.)
+//!
+//! This is deterministic for ordinary fixed-tick/headless execution, but it is
+//! NOT a rollback snapshot. `SandGrid` and `SettledSandLedger` are not in the
+//! GGRS registry; the authoritative-pass gate below prevents a replay from
+//! double-advancing them, but a historical replay still observes the grid's
+//! present/future state. The falling-sand room therefore remains outside the
+//! netcode acceptance surface until the explicitly blocked fork/rewrite work
+//! in `docs/planning/engine/falling-sand.md` is authorized.
 
 pub mod sand_grid;
 
@@ -243,13 +247,15 @@ impl Plugin for FallingSandSimPlugin {
                     sync_falling_sand_room_state,
                     prepare_sand_world,
                     // A re-simulated rollback frame must not re-emit or
-                    // double-step: the grid is not rollback-registered, so
-                    // "advance once per authoritative tick" is the contract.
+                    // double-step. This is only a duplicate-advance guard, NOT
+                    // rollback correctness: the unsnapshotted grid/ledger keep
+                    // their present state while historical frames replay (see
+                    // the module-level warning and falling-sand.md).
                     emit_sand_into_grid.run_if(simulation_pass_is_authoritative),
                     step_sand_grid.run_if(simulation_pass_is_authoritative),
-                    // …but the projection runs EVERY pass: the overlay is
-                    // rebuilt each pass, and replayed player physics must
-                    // stand on the same settled ground as the original.
+                    // The overlay itself is rebuilt on every pass from the
+                    // current ledger. That keeps ordinary composition intact;
+                    // it does not reconstruct historical sand state.
                     project_settled_sand,
                     grant_room_swim_controls,
                 )

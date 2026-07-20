@@ -21,8 +21,8 @@ use bevy::window::PrimaryWindow;
 use ambition_engine_core as ae;
 use ambition_platformer_primitives::camera_layers::MainCamera;
 use ambition_platformer_primitives::gameplay_presentation::{
-    resolve_gameplay_presentation, ActiveGameplayPresentationProfiles, DisplaySafeAreaInsets,
-    ControlFootprints, GameplayPresentationInput, GameplayPresentationSet,
+    resolve_gameplay_presentation, ActiveGameplayPresentationProfiles, ControlFootprints,
+    DisplaySafeAreaInsets, GameplayPresentationInput, GameplayPresentationSet,
     PresentationEnvironment, ResolvedGameplayPresentation, ScreenRect,
 };
 use ambition_sim_view::camera_snapshot::{
@@ -64,7 +64,6 @@ impl Plugin for HostGameplayPresentationPlugin {
         app.add_systems(
             Update,
             (
-                collect_screen_occupancy,
                 resolve_host_gameplay_presentation,
                 (publish_camera_viewport, publish_camera_screen_framing),
             )
@@ -72,15 +71,21 @@ impl Plugin for HostGameplayPresentationPlugin {
                 .in_set(GameplayPresentationSet),
         );
 
+        // Generic UI occupancy is collected AFTER `bevy_ui` has laid out, and
+        // is therefore consumed by the NEXT frame's resolve. See
+        // `collect_screen_occupancy` for why that is the honest schedule rather
+        // than a lag to be hidden.
+        app.add_systems(
+            PostUpdate,
+            collect_screen_occupancy.after(bevy::ui::UiSystems::Layout),
+        );
+
         // The observer facts must be THIS frame's, so the whole cluster runs
         // before the camera observation consumes them. Ordering against the
         // observation SET rather than the system is what makes this edge real
         // in every host: the set is declared in `Update` regardless of which
         // schedule the simulation advances in.
-        app.configure_sets(
-            Update,
-            GameplayPresentationSet.before(CameraObservationSet),
-        );
+        app.configure_sets(Update, GameplayPresentationSet.before(CameraObservationSet));
 
         // Applying the physical viewport is presentation-only and needs no
         // ordering against the sim, just this frame's resolved layout.
@@ -130,10 +135,33 @@ fn resolve_presentation_environment() -> PresentationEnvironment {
 /// Occupancy for an ordinary `bevy_ui` producer is READ OFF ITS LAYOUT rather
 /// than restated: `ComputedNode` plus `UiGlobalTransform` already account for
 /// percentage sizing, parent constraints, flex reflow, safe-area shifts and
-/// compact fallback layouts, so a control that moves or resizes changes its
+/// compact fallback layouts, so a HUD panel that moves or resizes changes its
 /// occupancy with no second descriptor to keep in sync. `ComputedNode` is in
 /// PHYSICAL pixels; `inverse_scale_factor` converts to the logical space the
 /// rest of the layout uses, so this is DPI-correct without a window read.
+///
+/// # Lifecycle: collected after layout, consumed next frame
+///
+/// `bevy_ui` computes `ComputedNode` and `UiGlobalTransform` in `PostUpdate`
+/// (`UiSystems::Layout`), so this runs there too — reading them from `Update`
+/// would silently return the PREVIOUS frame's geometry while looking like a
+/// same-frame read. The resolve in `Update` therefore composes against
+/// occupancy collected at the end of the previous frame, and that is stated
+/// rather than papered over.
+///
+/// One frame is the right trade for a GENERIC occluder: a HUD panel or dialogue
+/// box is authored `bevy_ui`, its geometry is only knowable after taffy has
+/// run, and the framing region eases toward its target at
+/// `SoftFramingProfile::region_ease_hz` (~4 Hz) anyway, so a single frame is
+/// well inside the hysteresis that already exists.
+///
+/// It is NOT the right trade for on-screen controls, which is why they are not
+/// here: the resolver places them, so it can publish their occupancy in the
+/// same pass with no round trip at all. See
+/// [`ResolvedControlRegions::occlusions`].
+///
+/// [`ResolvedControlRegions::occlusions`]:
+///     ambition_platformer_primitives::gameplay_presentation::ResolvedControlRegions::occlusions
 ///
 /// An entity that is not actually displayed contributes nothing:
 ///

@@ -18,14 +18,13 @@ use bevy::window::PrimaryWindow;
 use virtual_joystick::*;
 
 use super::layout::{
-    movement_joystick_layout, touch_action_at_position, touch_action_layout,
-    TouchActionButton, ACTION_BEZEL_H, ACTION_BEZEL_W, ACTION_CLUSTER_H, ACTION_CLUSTER_MARGIN,
-    ACTION_CLUSTER_W, MENU_ROW_MARGIN, MENU_ROW_W,
+    movement_joystick_layout, touch_action_at_position, touch_action_layout, TouchActionButton,
+    ACTION_BEZEL_H, ACTION_BEZEL_W, ACTION_CLUSTER_H, ACTION_CLUSTER_MARGIN, ACTION_CLUSTER_W,
+    MENU_ROW_MARGIN, MENU_ROW_W,
 };
 use super::menu_bridge::fold_touch_gestures;
 use super::state::TouchInputState;
 use ambition_input::{ControlFrame, KeyboardPreset, SandboxAction};
-use ambition_platformer_primitives::gameplay_presentation::ScreenOccluder;
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_sim_view::{ControlContextKind, ControlPrompt, ControlSlot};
 use ambition_ui_nav::DragScrollState;
@@ -116,10 +115,6 @@ impl Default for TouchControlsVisible {
 /// on all of them in one query.
 #[derive(Component)]
 pub struct MobileTouchUiRoot;
-
-/// Breathing room so the controlled subject is never framed flush against a
-/// control.
-pub(crate) const OCCUPANCY_PAD: f32 = 12.0;
 
 /// Which resolved control rectangle a root `Node` follows.
 ///
@@ -245,6 +240,13 @@ impl Plugin for TouchControlsPlugin {
         app.register_buttonlike_input::<crate::virtual_device::TouchStickDirection>();
         app.register_dual_axislike_input::<crate::virtual_device::TouchVirtualStick>();
 
+        // Requirements in, placement out, with the host's resolve between them.
+        // These edges used to be a single `.chain()` whose only relationship to
+        // the resolve was that `sync_touch_control_placement` came `.after` it,
+        // which left `publish_touch_control_footprints` AMBIGUOUS with the
+        // resolve that consumes its `ControlFootprints`.
+        crate::placement::TouchPresentationSet::configure(app);
+
         app.add_plugins(VirtualJoystickPlugin::<MobileStick>::default())
             // The resolved rectangles this crate draws and hit-tests against.
             .init_resource::<crate::placement::TouchControlPlacement>()
@@ -283,19 +285,27 @@ impl Plugin for TouchControlsPlugin {
             .add_systems(
                 Update,
                 (
-                    position_frame_axis_glyphs,
-                    tag_virtual_joystick_root,
                     sync_touch_visibility_from_settings,
                     sync_touch_ui_visibility,
-                    // Publish what the clusters need, then place them at what
-                    // the resolver decided. Placement must land BEFORE the raw
-                    // hit test below reads it, or a resize would be tappable
-                    // in last frame's rectangles for one frame.
                     crate::placement::publish_touch_control_footprints,
-                    crate::placement::sync_touch_control_placement
-                        .after(ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet),
-                    apply_touch_control_placement
-                        .after(crate::placement::sync_touch_control_placement),
+                )
+                    .chain()
+                    .in_set(crate::placement::TouchPresentationSet::PublishRequirements),
+            )
+            .add_systems(
+                Update,
+                (
+                    crate::placement::sync_touch_control_placement,
+                    apply_touch_control_placement,
+                )
+                    .chain()
+                    .in_set(crate::placement::TouchPresentationSet::ApplyPlacement),
+            )
+            .add_systems(
+                Update,
+                (
+                    position_frame_axis_glyphs,
+                    tag_virtual_joystick_root,
                     // The pointer-gesture lane: drag-scroll joins the menu
                     // frame after the participant populate rebuilt it, before
                     // the menu consumers read it.
@@ -536,12 +546,6 @@ fn tag_virtual_joystick_root(
             MobileTouchUiRoot,
             GlobalZIndex(TOUCH_HUD_Z),
             TouchSurface::Movement,
-            // Generic screen occupancy for gameplay framing, read straight off
-            // this node's computed layout — so wherever the resolver places
-            // the stick, that is what it reserves. Rides the root that
-            // `sync_touch_ui_visibility` hides, so a hidden stick stops
-            // reserving space without a second visibility rule.
-            ScreenOccluder::movement_stick().with_padding(Vec2::splat(OCCUPANCY_PAD)),
         ));
     }
 }
@@ -719,7 +723,6 @@ fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
         Name::new("MobileTouchActionBezel"),
         MobileTouchUiRoot,
         TouchSurface::ActionBezel,
-        ScreenOccluder::action_controls().with_padding(Vec2::splat(OCCUPANCY_PAD)),
     ));
     cmd.spawn((
         Node {
@@ -776,7 +779,6 @@ fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
         Name::new("MobileTouchMenuRow"),
         MobileTouchUiRoot,
         TouchSurface::MenuRow,
-        ScreenOccluder::system_controls(),
     ))
     .with_children(|parent| {
         for action in [TouchActionButton::Start, TouchActionButton::Reset] {

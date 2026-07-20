@@ -54,6 +54,7 @@ mod portal_floor_bounce_no_fallthrough;
 mod portal_lab_usable;
 mod portal_reset_preserves_authored;
 mod portal_translation_camera_continuity;
+mod presentation_ui_lifecycle;
 mod possession_end_to_end;
 mod projectile_portal_transit;
 mod replay_fixture_regression;

@@ -5,9 +5,9 @@
 //! systems, with a synthetic primary window instead of a winit surface.
 
 use bevy::camera::RenderTarget;
-use bevy::ui::{ComputedNode, Display, Node, UiGlobalTransform};
 use bevy::image::Image;
 use bevy::prelude::*;
+use bevy::ui::{ComputedNode, Display, Node, UiGlobalTransform};
 use bevy::window::{PrimaryWindow, WindowResolution};
 
 use ambition_engine_core as ae;
@@ -63,7 +63,9 @@ fn main_camera_viewport(app: &mut App) -> Option<Viewport> {
         .iter(app.world())
         .filter(|(_, target)| matches!(target, RenderTarget::Window(_)))
         .map(|(camera, _)| camera.viewport.clone());
-    let viewport = window_targeted.next().expect("a window-targeted main camera");
+    let viewport = window_targeted
+        .next()
+        .expect("a window-targeted main camera");
     assert!(window_targeted.next().is_none(), "expected exactly one");
     viewport
 }
@@ -242,6 +244,22 @@ fn stick_bundle() -> (
     )
 }
 
+/// Run enough frames for a GENERIC occluder to reach the resolve.
+///
+/// Generic occupancy is collected in `PostUpdate` (after `bevy_ui` has laid
+/// out) and consumed by the NEXT frame's resolve — the declared lifecycle, not
+/// an accident. One update is therefore not enough to see a newly spawned
+/// occluder's effect, and a test that used one would be asserting a same-frame
+/// contract this path deliberately does not offer.
+///
+/// On-screen CONTROLS are different: the resolver places them, so it publishes
+/// their occupancy in the same pass. That is pinned end-to-end against the real
+/// `bevy_ui` layout in `presentation_ui_lifecycle`.
+fn settle(app: &mut App) {
+    app.update();
+    app.update();
+}
+
 fn occlusion_aware() -> GameplayPresentationProfiles {
     GameplayPresentationProfiles::uniform(
         GameplayPresentationProfile::full_bleed()
@@ -260,7 +278,7 @@ fn hidden_occluders_do_not_reserve_space() {
         PresentationEnvironment::TouchPrimary,
     );
     visible.world_mut().spawn(stick_bundle());
-    visible.update();
+    settle(&mut visible);
 
     let mut hidden = host_app(
         display,
@@ -272,7 +290,7 @@ fn hidden_occluders_do_not_reserve_space() {
         .world_mut()
         .spawn(stick_bundle())
         .insert(InheritedVisibility::HIDDEN);
-    hidden.update();
+    settle(&mut hidden);
 
     let mut none = host_app(
         display,
@@ -280,7 +298,7 @@ fn hidden_occluders_do_not_reserve_space() {
         occlusion_aware(),
         PresentationEnvironment::TouchPrimary,
     );
-    none.update();
+    settle(&mut none);
 
     assert_eq!(
         resolved(&hidden).subject_safe_rect,
@@ -314,7 +332,7 @@ fn a_ui_shaped_occluder_is_collected_despite_false_view_visibility() {
         // Exactly what a UI node carries: `ViewVisibility` default, i.e. NOT
         // visible to any view.
         .insert((Visibility::Visible, ViewVisibility::default()));
-    app.update();
+    settle(&mut app);
 
     let mut baseline = host_app(
         display,
@@ -322,7 +340,7 @@ fn a_ui_shaped_occluder_is_collected_despite_false_view_visibility() {
         occlusion_aware(),
         PresentationEnvironment::TouchPrimary,
     );
-    baseline.update();
+    settle(&mut baseline);
 
     assert_eq!(
         app.world().resource::<ScreenOccupancy>().0.len(),
@@ -383,15 +401,28 @@ fn a_control_appearing_eases_the_region_instead_of_stepping_it() {
         occlusion_aware(),
         PresentationEnvironment::TouchPrimary,
     );
-    app.update();
-    let settled = app.world().resource::<CameraScreenFraming>().subject_safe_region;
+    settle(&mut app);
+    let settled = app
+        .world()
+        .resource::<CameraScreenFraming>()
+        .subject_safe_region;
 
     app.world_mut().spawn(stick_bundle());
+    // The occluder is collected at the end of this update and reaches the
+    // resolve on the next one, which is the first frame the region has a new
+    // target to ease toward.
     app.update();
-    let after_one_frame = app.world().resource::<CameraScreenFraming>().subject_safe_region;
+    app.update();
+    let after_one_frame = app
+        .world()
+        .resource::<CameraScreenFraming>()
+        .subject_safe_region;
     let target = resolved(&app).subject_safe_region;
 
-    assert_ne!(target, settled, "the fixture must actually change the region");
+    assert_ne!(
+        target, settled,
+        "the fixture must actually change the region"
+    );
     assert_ne!(
         after_one_frame, target,
         "the published region must not jump to the new target in one frame",
@@ -438,7 +469,6 @@ fn an_image_targeted_main_camera_keeps_its_own_framing() {
     assert!(main_camera_viewport(&mut app).is_some());
 }
 
-
 // ---------------------------------------------------------------------------
 // Occupancy derived from real UI layout
 // ---------------------------------------------------------------------------
@@ -468,7 +498,10 @@ fn occupancy_follows_the_node_with_no_second_descriptor() {
     app.update();
     let before = occupied_rects(&app);
     assert_eq!(before.len(), 1);
-    assert_eq!(before[0], ScreenRect::from_min_size(ae::Vec2::new(24.0, 456.0), ae::Vec2::splat(600.0)));
+    assert_eq!(
+        before[0],
+        ScreenRect::from_min_size(ae::Vec2::new(24.0, 456.0), ae::Vec2::splat(600.0))
+    );
 
     // Move it, touching ONLY the layout — the `ScreenOccluder` component is
     // never rewritten.

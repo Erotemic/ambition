@@ -37,6 +37,15 @@ pub(super) const MENU_ROW_H: f32 = 54.0;
 /// further — a control you cannot hit is worse than one that covers scenery.
 const ACTION_MIN_SCALE: f32 = 0.893;
 
+/// Breathing room so the controlled subject is never framed flush against a
+/// control.
+///
+/// Declared on the FOOTPRINT rather than on the drawn node: the resolver both
+/// places the cluster and publishes what it occupies, so the padding travels
+/// with the requirement instead of being restated on whatever entity happens to
+/// carry the art.
+pub const OCCUPANCY_PAD: f32 = 12.0;
+
 /// What the touch clusters need, in logical pixels.
 ///
 /// Sizes are the RESERVED footprints (the joystick's generous exclusion box and
@@ -44,6 +53,7 @@ const ACTION_MIN_SCALE: f32 = 0.893;
 /// rectangles has its breathing room inside the rectangle rather than spilling
 /// out of it.
 pub fn touch_control_footprints() -> ControlFootprints {
+    let pad = Vec2::splat(OCCUPANCY_PAD);
     ControlFootprints {
         // The movement stick is deliberately NOT compactible. Its knob and
         // base art are sized by the `virtual_joystick` crate, so scaling this
@@ -51,16 +61,73 @@ pub fn touch_control_footprints() -> ControlFootprints {
         // the drawn stick out of agreement — the exact class of drift this
         // module exists to remove. It either fits a reserved column or it
         // overlays at full size.
-        movement: Some(ControlFootprint::fixed(Vec2::splat(JOYSTICK_EXCLUSION_SIZE))),
-        primary_actions: Some(ControlFootprint::new(
-            Vec2::new(ACTION_BEZEL_W, ACTION_BEZEL_H),
-            Vec2::new(ACTION_BEZEL_W, ACTION_BEZEL_H) * ACTION_MIN_SCALE,
-        )),
+        movement: Some(
+            ControlFootprint::fixed(Vec2::splat(JOYSTICK_EXCLUSION_SIZE))
+                .with_occlusion_padding(pad),
+        ),
+        primary_actions: Some(
+            ControlFootprint::new(
+                Vec2::new(ACTION_BEZEL_W, ACTION_BEZEL_H),
+                Vec2::new(ACTION_BEZEL_W, ACTION_BEZEL_H) * ACTION_MIN_SCALE,
+            )
+            .with_occlusion_padding(pad),
+        ),
         // The menu row is small, cornered chrome; shrinking it buys nothing.
+        // No padding either: `SystemMenuControl` does not reserve subject space,
+        // so a halo around it would only be published for diagnostics.
         system_controls: Some(ControlFootprint::fixed(Vec2::new(
             MENU_ROW_W + MENU_ROW_MARGIN * 2.0,
             MENU_ROW_H + MENU_ROW_MARGIN * 2.0,
         ))),
+    }
+}
+
+/// The touch overlay's half of the presentation lifecycle, declared rather
+/// than implied.
+///
+/// The intended order is:
+///
+/// ```text
+/// touch requirements and visible-action selection   (PublishRequirements)
+///     -> resolve gameplay presentation and fallback (GameplayPresentationSet)
+///         -> apply resolved control placement       (ApplyPlacement)
+/// ```
+///
+/// Both edges must be REAL. `publish_touch_control_footprints` writes
+/// `ControlFootprints` and the host's resolve reads it; before this set
+/// existed the only thing separating them was that undeclared resource
+/// conflict, which makes them ambiguous — the executor may serialize them
+/// either way, so a footprint change could be consumed this update or next
+/// depending on nothing the code states. Hiding the touch HUD is exactly that
+/// case: the participant flips a setting and the reserved surround either
+/// collapses now or a frame later.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub enum TouchPresentationSet {
+    /// What the clusters need this frame, given contextual availability and
+    /// the overlay visibility setting.
+    PublishRequirements,
+    /// Project the resolver's answer onto the nodes this crate draws and
+    /// hit-tests against.
+    ApplyPlacement,
+}
+
+impl TouchPresentationSet {
+    /// Declare the lifecycle: requirements before the resolve, placement after.
+    ///
+    /// A free function rather than something each composer restates, because a
+    /// restated edge is an edge that can be forgotten — and a forgotten one
+    /// here does not fail loudly, it just draws the controls at last frame's
+    /// rectangles.
+    pub fn configure(app: &mut bevy::prelude::App) {
+        use ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet;
+        use bevy::prelude::{IntoScheduleConfigs as _, Update};
+        app.configure_sets(
+            Update,
+            (
+                Self::PublishRequirements.before(GameplayPresentationSet),
+                Self::ApplyPlacement.after(GameplayPresentationSet),
+            ),
+        );
     }
 }
 
@@ -164,10 +231,10 @@ pub fn publish_touch_control_footprints(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bevy_plugin::{apply_touch_control_placement, TouchSurface, OCCUPANCY_PAD};
+    use crate::bevy_plugin::{apply_touch_control_placement, TouchSurface};
     use crate::layout::{touch_action_at_position, touch_action_circle, touch_action_layout};
     use ambition_platformer_primitives::gameplay_presentation::{
-        ControlAnchor, ControlPlacement, PlacedControl, ResolvedControlRegions, ScreenOccluder,
+        ControlAnchor, ControlPlacement, PlacedControl, ResolvedControlRegions,
     };
 
     fn px(value: Val) -> f32 {
@@ -209,6 +276,7 @@ mod tests {
             }),
             system_controls: None,
             hud: Vec::new(),
+            occlusions: Vec::new(),
         };
         presentation
     }
@@ -310,7 +378,10 @@ mod tests {
         let node = app.world().entity(root).get::<Node>().unwrap();
         assert_eq!(px(node.width), 0.0);
         assert_eq!(px(node.height), 0.0);
-        assert_eq!(app.world().resource::<TouchControlPlacement>().menu_row, None);
+        assert_eq!(
+            app.world().resource::<TouchControlPlacement>().menu_row,
+            None
+        );
     }
 
     /// Hiding the touch HUD withdraws its footprints, so the layout stops
@@ -329,43 +400,57 @@ mod tests {
         assert!(!app.world().resource::<ControlFootprints>().is_empty());
     }
 
-    /// A COMPACTED, reserved cluster publishes its ACTUAL final occupancy.
+    /// A COMPACTED cluster reserves what it ACTUALLY covers.
     ///
-    /// This is the composition the review asked for: the occluder carries only
-    /// a purpose, the node is placed by the resolver, and the occupancy is
-    /// derived from that node through the same projection the host uses. A
-    /// fallback layout therefore reserves what it really covers — there is no
-    /// second descriptor left holding the full-size, corner-anchored rectangle.
+    /// The occupancy comes from the same resolve that placed the cluster, so a
+    /// fallback layout cannot leave a second descriptor holding the full-size,
+    /// corner-anchored rectangle. Driven through the real resolver with this
+    /// crate's real footprints, because the padding is declared on the
+    /// footprint and applied during placement — asserting it any closer to the
+    /// arithmetic would just restate the implementation.
     #[test]
-    fn a_compacted_cluster_publishes_its_actual_occupancy() {
-        let mut app = app_with(reserved_and_compacted());
-        let bezel = app
-            .world_mut()
-            .spawn((TouchSurface::ActionBezel, Node::default()))
-            .id();
-        app.update();
+    fn a_compacted_cluster_reserves_what_it_covers() {
+        use ambition_platformer_primitives::gameplay_presentation::{
+            resolve_gameplay_presentation, ControlPlacementPolicy, GameplayPresentationInput,
+            GameplayPresentationProfile, ScreenInsets, ScreenOcclusionPurpose, SoftFramingProfile,
+        };
 
-        let node = node_rect(app.world().entity(bezel).get::<Node>().unwrap());
-        let placement = *app.world().resource::<TouchControlPlacement>();
-        assert_eq!(Some(node), placement.action_bezel);
-        assert!(node.width() < ACTION_BEZEL_W, "the fixture must be compacted");
+        // A 4:3 viewport on a 16:10 display leaves side columns too narrow for
+        // the action bezel at full size, which is the compacting case.
+        let profile = GameplayPresentationProfile::fixed_aspect(4.0, 3.0)
+            .with_control_placement(ControlPlacementPolicy::PreferSurround)
+            .with_occlusion_aware_framing(SoftFramingProfile::platformer());
+        let resolved = resolve_gameplay_presentation(GameplayPresentationInput {
+            display_px: Vec2::new(2400.0, 1080.0),
+            safe_area_insets: ScreenInsets::ZERO,
+            profile: &profile,
+            occlusions: &[],
+            control_footprints: touch_control_footprints(),
+        });
 
-        // What `bevy_ui` would compute for that node on a 2x display, and what
-        // the host would then derive from it.
-        let scale = 2.0;
-        let occlusion = ScreenOccluder::action_controls()
-            .with_padding(Vec2::splat(OCCUPANCY_PAD))
-            .from_computed_ui(node.size() * scale, node.center() * scale, 1.0 / scale)
-            .expect("a sized node yields occupancy");
+        let actions = resolved
+            .controls
+            .primary_actions
+            .expect("the action cluster is placed");
+        let occlusion = resolved
+            .controls
+            .occlusions
+            .iter()
+            .find(|o| o.purpose == ScreenOcclusionPurpose::VirtualActionCluster)
+            .expect("the action cluster publishes occupancy");
 
+        let pad = Vec2::splat(OCCUPANCY_PAD) * actions.scale;
         assert_eq!(
             occlusion.rect,
             ScreenRect {
-                min: node.min - Vec2::splat(OCCUPANCY_PAD),
-                max: node.max + Vec2::splat(OCCUPANCY_PAD),
+                min: actions.rect.min - pad,
+                max: actions.rect.max + pad,
             },
-            "occupancy must be the compacted node's own rectangle, plus padding",
+            "occupancy must be the placed rectangle plus its declared padding",
+        );
+        assert!(
+            !resolved.subject_safe_rect.overlaps(occlusion.rect),
+            "and the framed region must clear it",
         );
     }
-
 }

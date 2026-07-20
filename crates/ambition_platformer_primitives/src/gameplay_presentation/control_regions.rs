@@ -33,7 +33,7 @@
 use ambition_engine_core as ae;
 use bevy::prelude::Resource;
 
-use super::{NamedScreenRect, ScreenRect, SurroundRegion};
+use super::{NamedScreenRect, ScreenOcclusion, ScreenOcclusionPurpose, ScreenRect, SurroundRegion};
 
 /// What one control cluster needs, in logical pixels.
 ///
@@ -44,19 +44,32 @@ use super::{NamedScreenRect, ScreenRect, SurroundRegion};
 pub struct ControlFootprint {
     pub preferred: ae::Vec2,
     pub minimum: ae::Vec2,
+    /// Breathing room added around the placed rectangle when this cluster is
+    /// published as occupancy, so the framed subject is never flush against a
+    /// control. Producer-owned: only the producer knows how close to its art a
+    /// thumb actually lands.
+    pub occlusion_padding: ae::Vec2,
 }
 
 impl ControlFootprint {
     pub fn new(preferred: ae::Vec2, minimum: ae::Vec2) -> Self {
         Self {
             preferred: preferred.max(ae::Vec2::ZERO),
-            minimum: minimum.max(ae::Vec2::ZERO).min(preferred.max(ae::Vec2::ZERO)),
+            minimum: minimum
+                .max(ae::Vec2::ZERO)
+                .min(preferred.max(ae::Vec2::ZERO)),
+            occlusion_padding: ae::Vec2::ZERO,
         }
     }
 
     /// A cluster that must not be scaled at all.
     pub fn fixed(size: ae::Vec2) -> Self {
         Self::new(size, size)
+    }
+
+    pub fn with_occlusion_padding(mut self, padding: ae::Vec2) -> Self {
+        self.occlusion_padding = padding.max(ae::Vec2::ZERO);
+        self
     }
 
     /// The largest uniform scale that fits this footprint inside `available`,
@@ -164,6 +177,22 @@ pub struct ResolvedControlRegions {
     pub system_controls: Option<PlacedControl>,
     /// Surround area left over for HUD once controls have taken theirs.
     pub hud: Vec<NamedScreenRect>,
+    /// What these clusters occupy, ready for the subject-safe carve.
+    ///
+    /// Derived HERE rather than read back off the controls' computed UI layout.
+    /// The clusters are placed BY this resolver, so a round trip through
+    /// `bevy_ui` would answer with rectangles this function already knows — and
+    /// answer a frame late, because `bevy_ui` computes layout in `PostUpdate`
+    /// and the resolve runs in `Update`. That lag was observable: resizing the
+    /// window moved the controls immediately while the camera kept framing
+    /// around where they used to be, and hiding the HUD withdrew its footprints
+    /// while its occupancy lingered for a frame.
+    ///
+    /// It was also a feedback loop — placement depended on occupancy which
+    /// depended on placement — which is exactly the shape that has no
+    /// same-frame answer. Deriving occupancy from the placement breaks the
+    /// cycle instead of delaying it.
+    pub occlusions: Vec<ScreenOcclusion>,
 }
 
 /// Place controls and HUD against a resolved layout.
@@ -236,12 +265,47 @@ pub(super) fn resolve_control_regions(
         .collect();
     let taken: Vec<ScreenRect> = placed.iter().map(|control| control.rect).collect();
 
+    let occlusions = [
+        (
+            movement,
+            footprints.movement,
+            ScreenOcclusionPurpose::VirtualMovementStick,
+        ),
+        (
+            primary_actions,
+            footprints.primary_actions,
+            ScreenOcclusionPurpose::VirtualActionCluster,
+        ),
+        (
+            system_controls,
+            footprints.system_controls,
+            ScreenOcclusionPurpose::SystemMenuControl,
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(placed, footprint, purpose)| {
+        let (placed, footprint) = (placed?, footprint?);
+        // Padding scales with the cluster: a compacted control gets compacted
+        // breathing room, so the reserved halo stays proportional to the art
+        // rather than swelling relative to it.
+        let padding = footprint.occlusion_padding * placed.scale.max(0.0);
+        Some(ScreenOcclusion {
+            purpose,
+            rect: ScreenRect {
+                min: placed.rect.min - padding,
+                max: placed.rect.max + padding,
+            },
+        })
+    })
+    .collect();
+
     ResolvedControlRegions {
         placement: classify(&placed),
         movement,
         primary_actions,
         system_controls,
         hud: hud_regions(surround, &taken),
+        occlusions,
     }
     .with_reserved_recomputed(gameplay)
 }
@@ -263,10 +327,11 @@ impl ResolvedControlRegions {
         {
             control.reserved = !control.rect.overlaps(gameplay);
         }
-        let placed: Vec<PlacedControl> = [self.movement, self.primary_actions, self.system_controls]
-            .into_iter()
-            .flatten()
-            .collect();
+        let placed: Vec<PlacedControl> =
+            [self.movement, self.primary_actions, self.system_controls]
+                .into_iter()
+                .flatten()
+                .collect();
         self.placement = classify(&placed);
         self
     }
@@ -302,7 +367,10 @@ fn classify(placed: &[PlacedControl]) -> ControlPlacement {
 }
 
 /// Fit a cluster into the bottom of a surround column.
-fn place_in_column(footprint: ControlFootprint, column: Option<ScreenRect>) -> Option<PlacedControl> {
+fn place_in_column(
+    footprint: ControlFootprint,
+    column: Option<ScreenRect>,
+) -> Option<PlacedControl> {
     let column = column?;
     let scale = footprint.scale_within(column.size())?;
     let size = footprint.preferred * scale;

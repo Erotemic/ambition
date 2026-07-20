@@ -21,9 +21,18 @@ pub struct GameplayPresentationInput<'a> {
     /// Platform safe-area insets. Zero when the host cannot supply them.
     pub safe_area_insets: ScreenInsets,
     pub profile: &'a GameplayPresentationProfile,
-    /// Currently published occupancy, already resolved to display pixels.
+    /// Occupancy from GENERIC producers — anything that draws over the display
+    /// without being placed by this resolver (HUD, dialogue, a contextual
+    /// prompt), already resolved to display pixels.
+    ///
+    /// On-screen CONTROLS are deliberately not passed here: this resolver
+    /// places them, so it derives their occupancy itself rather than being told
+    /// about it. See [`ResolvedControlRegions::occlusions`].
+    ///
     /// Order does not matter — the resolver sorts internally so the same set
     /// always composes the same region.
+    ///
+    /// [`ResolvedControlRegions::occlusions`]: super::ResolvedControlRegions::occlusions
     pub occlusions: &'a [ScreenOcclusion],
     /// What the on-screen controls need. Default (all `None`) places nothing,
     /// which is correct for a session with no virtual controls.
@@ -62,6 +71,25 @@ pub fn resolve_gameplay_presentation(
         }
     };
 
+    // Controls are placed BEFORE the subject-safe carve, because their
+    // occupancy is one of the things being carved against. The order is what
+    // makes the answer same-frame: footprints in, placement out, occupancy
+    // derived from that placement. Nothing here consults where the controls
+    // were drawn LAST frame, so there is no cycle to break with a delay.
+    let surround = surround_rects(display_safe_rect, gameplay_rect);
+    let controls = resolve_control_regions(
+        display_safe_rect,
+        gameplay_rect,
+        &surround,
+        input.control_footprints,
+        input.profile.controls,
+    );
+
+    // Everything this layout was composed against: whatever the host collected
+    // from generic UI occluders, plus the controls this resolve just placed.
+    let mut occlusions = input.occlusions.to_vec();
+    occlusions.extend(controls.occlusions.iter().copied());
+
     let soft_framing = input.profile.framing.profile();
     let subject_safe_rect = match soft_framing {
         None => gameplay_rect,
@@ -71,23 +99,15 @@ pub fn resolve_gameplay_presentation(
                 .resolve(gameplay_rect)
                 .intersect(display_safe_rect);
             if input.profile.framing.consumes_occlusions() {
-                let floor = (gameplay_rect.size() * profile.min_region_fraction.max(ae::Vec2::ZERO))
-                    .min(authored.size());
-                carve_occlusions(authored, input.occlusions, floor)
+                let floor = (gameplay_rect.size()
+                    * profile.min_region_fraction.max(ae::Vec2::ZERO))
+                .min(authored.size());
+                carve_occlusions(authored, &occlusions, floor)
             } else {
                 authored
             }
         }
     };
-
-    let surround = surround_rects(display_safe_rect, gameplay_rect);
-    let controls = resolve_control_regions(
-        display_safe_rect,
-        gameplay_rect,
-        &surround,
-        input.control_footprints,
-        input.profile.controls,
-    );
 
     ResolvedGameplayPresentation {
         display_rect,
@@ -100,7 +120,7 @@ pub fn resolve_gameplay_presentation(
         hud: input.profile.hud,
         surround_rects: surround,
         controls,
-        occlusions: input.occlusions.to_vec(),
+        occlusions,
     }
 }
 

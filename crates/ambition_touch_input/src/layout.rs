@@ -13,9 +13,23 @@ use bevy::prelude::*;
 use super::exclusion::{TouchExclusionAnchor, TouchExclusionZone};
 
 /// Marker + identity for touch action buttons. Each `TouchActionButton`
-/// entity is a Bevy `Button` whose `Interaction` state is folded into
-/// the matching `TouchInputState` field each frame.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+/// entity is a Bevy `Button` whose `Interaction` state is collected into
+/// the matching `TouchInputState` field each frame; the virtual-device
+/// input kinds (`crate::virtual_device`) then resolve that state through
+/// the participant's bindings like any physical button — hence the extra
+/// reflect/serde derives (leafwing user inputs must carry them).
+#[derive(
+    Component,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    bevy::prelude::Reflect,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub enum TouchActionButton {
     Jump,
     Attack,

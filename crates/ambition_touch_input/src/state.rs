@@ -1,11 +1,10 @@
-//! Pure touch input state types and the `TouchInputState ->
-//! ControlFrame` fold helper.
+//! Pure touch input state types — the raw virtual-device state the Bevy
+//! collect systems fill and the leafwing input kinds
+//! (`crate::virtual_device`) publish through the participant's bindings.
 //!
 //! No Bevy resources, no plugin wiring. This module is always built
 //! (regardless of the `mobile_touch` feature) so RL agents, tests,
 //! and the active-build code path share the same types.
-
-use ambition_input::ControlFrame;
 
 /// Edge-vs-held button state. Two flags per button so the sim's
 /// "pressed this frame" semantics survive the touch path. The Bevy
@@ -52,21 +51,15 @@ impl TouchButton {
 
 /// One frame of mobile-touch input: two analog sticks (Move + Aim) plus
 /// the gameplay-relevant action buttons. Mirrors the
-/// `SandboxAction` set on the desktop side.
+/// `SandboxAction` set on the desktop side. Cardinal direction EDGES are
+/// not stored here: the `TouchStickDirection` virtual buttons hold the
+/// threshold state and leafwing derives press edges from the held
+/// transition, exactly as it does for a gamepad stick direction.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct TouchInputState {
-    /// Left stick raw value `[-1, 1]` (pre-deadzone).
+    /// Left stick raw value `[-1, 1]` (pre-deadzone), +Y down (screen space).
     pub move_x: f32,
     pub move_y: f32,
-    /// Edge flags: true on the frame the move stick crossed a cardinal
-    /// threshold. The Bevy plugin computes these by diffing against the
-    /// previous frame's `move_x`/`move_y`; tests / RL agents can set them
-    /// directly. Auto-deriving from a held axis every frame is incorrect
-    /// because double-tap detectors would count every held frame as a fresh tap.
-    pub move_x_just_crossed_left: bool,
-    pub move_x_just_crossed_right: bool,
-    pub move_y_just_crossed_up: bool,
-    pub move_y_just_crossed_down: bool,
     /// Right stick raw value `[-1, 1]` (pre-deadzone).
     pub aim_x: f32,
     pub aim_y: f32,
@@ -100,137 +93,10 @@ pub fn apply_deadzone(x: f32, y: f32, deadzone: f32) -> (f32, f32) {
     (x * inv_mag * scaled, y * inv_mag * scaled)
 }
 
-/// Fold a `TouchInputState` into the engine's `ControlFrame` shape.
-///
-/// `move_deadzone` and `aim_deadzone` are the per-stick deadzone
-/// magnitudes; the desktop pipeline's `ControlSettings` holds the
-/// canonical values, but the touch path can pick its own (touch
-/// sticks usually have no drift, so a smaller deadzone like 0.05 is
-/// enough). Pass 0.0 to disable.
-///
-/// Pure function — no Bevy / world / globals — so tests can pin every
-/// edge case (sign convention, deadzone, button semantics) without
-/// touching the rest of the engine.
-pub fn fold_touch_into_control_frame(
-    state: TouchInputState,
-    move_deadzone: f32,
-    aim_deadzone: f32,
-) -> ControlFrame {
-    let (move_x, move_y_raw) = apply_deadzone(state.move_x, state.move_y, move_deadzone);
-    let (aim_x, aim_y_raw) = apply_deadzone(state.aim_x, state.aim_y, aim_deadzone);
-    // The simulation's +Y is downward (screen-space). Touch joysticks
-    // typically follow the same convention if mapped to "drag down =
-    // axis_y > 0". Caller is responsible for matching that
-    // convention before this function; we don't flip here.
-    let move_y = move_y_raw;
-    let aim_y = aim_y_raw;
-
-    // Up / Down edge flags come from the caller explicitly (set on
-    // the frame the move-Y axis crosses the threshold, cleared
-    // next frame). Auto-deriving from "move_y > 0.5" every frame
-    // breaks register_down_tap which counts each consecutive
-    // true as a fresh tap and double-taps into MorphBall after one
-    // held frame -- the same bug class as the AgentAction
-    // converter; same fix.
-    let left_pressed = state.move_x_just_crossed_left;
-    let right_pressed = state.move_x_just_crossed_right;
-    let up_pressed = state.move_y_just_crossed_up;
-    let down_pressed = state.move_y_just_crossed_down;
-
-    ControlFrame {
-        axis_x: move_x,
-        axis_y: move_y,
-        jump_pressed: state.jump.pressed_this_frame,
-        jump_held: state.jump.held,
-        jump_released: state.jump.released_this_frame,
-        dash_pressed: state.dash.pressed_this_frame,
-        left_pressed,
-        right_pressed,
-        up_pressed,
-        down_pressed,
-        fast_fall_pressed: false,
-        blink_pressed: state.blink.pressed_this_frame,
-        blink_held: state.blink.held,
-        blink_released: state.blink.released_this_frame,
-        special_pressed: state.special.pressed_this_frame,
-        attack_pressed: state.attack.pressed_this_frame,
-        pogo_pressed: false,
-        fly_toggle_pressed: state.fly_toggle.pressed_this_frame,
-        interact_pressed: state.interact.pressed_this_frame,
-        interact_held: state.interact.held,
-        reset_pressed: state.reset.pressed_this_frame,
-        start_pressed: state.start.pressed_this_frame,
-        projectile_pressed: state.projectile.pressed_this_frame,
-        projectile_held: state.projectile.held,
-        projectile_released: state.projectile.released_this_frame,
-        shield_held: state.shield.held,
-        aim_x,
-        aim_y,
-    }
-}
-
-/// True if any touch input field has a non-default value. Used to
-/// gate the merge so an empty touch state doesn't stomp the
-/// keyboard-derived ControlFrame every frame.
-///
-/// Includes `released_this_frame` flags: without them, the frame
-/// after a button release would skip the merge and the release edge
-/// would never reach the simulator. Concrete repro: tapping
-/// Projectile with a mouse charged the fireball (frame N: pressed)
-/// but never released it (frame N+1: held=false, pressed=false,
-/// released=true → activity gate skipped the merge without this
-/// clause).
-pub(crate) fn touch_state_is_active(state: &TouchInputState) -> bool {
-    let stick_active = state.move_x.abs() > 1e-3
-        || state.move_y.abs() > 1e-3
-        || state.aim_x.abs() > 1e-3
-        || state.aim_y.abs() > 1e-3;
-    let any_button = state.jump.held
-        || state.attack.held
-        || state.special.held
-        || state.dash.held
-        || state.blink.held
-        || state.interact.held
-        || state.projectile.held
-        || state.fly_toggle.held
-        || state.shield.held
-        || state.start.held
-        || state.reset.held;
-    let any_edge = state.jump.pressed_this_frame
-        || state.attack.pressed_this_frame
-        || state.special.pressed_this_frame
-        || state.dash.pressed_this_frame
-        || state.blink.pressed_this_frame
-        || state.interact.pressed_this_frame
-        || state.projectile.pressed_this_frame
-        || state.fly_toggle.pressed_this_frame
-        || state.shield.pressed_this_frame
-        || state.start.pressed_this_frame
-        || state.reset.pressed_this_frame
-        || state.move_x_just_crossed_left
-        || state.move_x_just_crossed_right
-        || state.move_y_just_crossed_up
-        || state.move_y_just_crossed_down;
-    let any_release = state.jump.released_this_frame
-        || state.attack.released_this_frame
-        || state.special.released_this_frame
-        || state.dash.released_this_frame
-        || state.blink.released_this_frame
-        || state.interact.released_this_frame
-        || state.projectile.released_this_frame
-        || state.fly_toggle.released_this_frame
-        || state.shield.released_this_frame
-        || state.start.released_this_frame
-        || state.reset.released_this_frame;
-    stick_active || any_button || any_edge || any_release
-}
-
 #[cfg(test)]
 mod touch_state_tests {
-    //! The touch input seam into the engine: radial deadzone, the
-    //! TouchInputState -> ControlFrame fold (same edge-vs-held gotcha as
-    //! the RL AgentAction converter), and the activity gate that must
-    //! include release edges so a button-up still reaches the simulator.
+    //! The touch input seam's pure half: the radial deadzone matches the
+    //! desktop helper's shape so touch and stick feel identical.
     use super::*;
 
     #[test]
@@ -245,71 +111,5 @@ mod touch_state_tests {
         // Zero deadzone is a pass-through.
         let (x, _) = apply_deadzone(0.5, 0.0, 0.0);
         assert!((x - 0.5).abs() < 1e-5);
-    }
-
-    #[test]
-    fn empty_touch_folds_to_a_neutral_frame() {
-        let cf = fold_touch_into_control_frame(TouchInputState::default(), 0.1, 0.1);
-        assert_eq!(cf.axis_x, 0.0);
-        assert_eq!(cf.axis_y, 0.0);
-        assert!(!cf.jump_pressed && !cf.down_pressed && !cf.shield_held);
-    }
-
-    #[test]
-    fn buttons_and_sticks_fold_through_with_unsourced_fields_neutral() {
-        let state = TouchInputState {
-            move_x: 1.0,
-            jump: TouchButton::pressed_now(),
-            shield: TouchButton::held_continued(),
-            ..Default::default()
-        };
-        let cf = fold_touch_into_control_frame(state, 0.0, 0.0);
-        assert_eq!(cf.axis_x, 1.0);
-        assert!(cf.jump_pressed && cf.jump_held);
-        assert!(cf.shield_held);
-        assert!(!cf.fast_fall_pressed && !cf.pogo_pressed);
-    }
-
-    #[test]
-    fn held_move_y_does_not_synthesize_a_down_edge() {
-        let held = TouchInputState {
-            move_y: 1.0,
-            ..Default::default()
-        };
-        let cf = fold_touch_into_control_frame(held, 0.0, 0.0);
-        assert_eq!(cf.axis_y, 1.0);
-        assert!(!cf.down_pressed, "held move_y must not fake a down edge");
-        let edge = TouchInputState {
-            move_y: 1.0,
-            move_y_just_crossed_down: true,
-            ..Default::default()
-        };
-        assert!(fold_touch_into_control_frame(edge, 0.0, 0.0).down_pressed);
-    }
-
-    #[test]
-    fn activity_gate_includes_release_edges() {
-        assert!(
-            !touch_state_is_active(&TouchInputState::default()),
-            "empty is inactive"
-        );
-        let stick = TouchInputState {
-            move_x: 0.5,
-            ..Default::default()
-        };
-        assert!(touch_state_is_active(&stick));
-        // Release-only frame must still count (the charged-fireball repro).
-        let released = TouchInputState {
-            projectile: TouchButton {
-                held: false,
-                pressed_this_frame: false,
-                released_this_frame: true,
-            },
-            ..Default::default()
-        };
-        assert!(
-            touch_state_is_active(&released),
-            "a release edge keeps the merge alive"
-        );
     }
 }

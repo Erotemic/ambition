@@ -240,9 +240,9 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
             (
                 // Route pause/Esc, inventory, and map into the cube backend on the
                 // matching page before navigation consumes the frame. In
-                // MenuNavConsume so `fold_to_menu_control_frame`'s
-                // `.before(MenuNavConsume)` guarantees this sees the touch Menu-button
-                // press AFTER the fold writes the pressed_this_frame bit.
+                // MenuNavConsume so every menu-frame WRITER (the participant
+                // populate and the touch drag-scroll gesture fold, both pinned
+                // `.before(MenuNavConsume)`) lands its bits before this reads.
                 kaleidoscope_menu_open_routing
                     .run_if(kaleidoscope_backend_active)
                     // Gate the pause/inventory toggle on a LIVE Ambition session

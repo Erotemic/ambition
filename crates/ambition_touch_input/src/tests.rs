@@ -1,60 +1,257 @@
-use super::state::{apply_deadzone, fold_touch_into_control_frame, TouchButton, TouchInputState};
+use super::state::apply_deadzone;
+#[cfg(feature = "mobile_touch")]
+use super::state::TouchButton;
 
-/// Run the REAL `fold_to_menu_control_frame` system in a minimal App: a
-/// touch-joystick-down while a menu is open (Paused) must yield
-/// `MenuControlFrame.down` AND flip `ActiveInputKind` to `Touch`, so the
-/// on-screen joystick is a first-class menu nav source whose use does not
-/// get suppressed by the mouse hover-gate (Bug 2). Exercises the actual
-/// system wiring, not just the pure `touch_move_to_menu_dir` helper.
+// ─── The virtual-device path: touch resolves through participant bindings ───
+//
+// These exercise the REAL leafwing pipeline: `MobileTouchState` (the collected
+// device state) → the registered input kinds → the participant's `InputMap`
+// bindings → `ActionState<SandboxAction>`. No fold, no special cases — the
+// same resolution a keyboard or gamepad gets.
+
+#[cfg(feature = "mobile_touch")]
+mod virtual_device_tests {
+    use super::super::bevy_plugin::MobileTouchState;
+    use super::super::layout::TouchActionButton;
+    use super::super::virtual_device::{
+        bind_touch_virtual_inputs, TouchStickDirection, TouchVirtualButton, TouchVirtualStick,
+    };
+    use super::TouchButton;
+    use ambition_input::{InputParticipant, ParticipantContexts, SandboxAction};
+    use bevy::prelude::*;
+    use leafwing_input_manager::plugin::{CentralInputStorePlugin, InputManagerPlugin};
+    use leafwing_input_manager::prelude::updating::InputRegistration;
+    use leafwing_input_manager::prelude::{ActionState, InputMap};
+    use leafwing_input_manager::InputControlKind;
+
+    /// A minimal app with the REAL leafwing pipeline + the participant and
+    /// the touch virtual device bound in its `InputMap`.
+    fn app() -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins(bevy::time::TimePlugin);
+        app.add_plugins(bevy::input::InputPlugin);
+        app.add_plugins(InputManagerPlugin::<SandboxAction>::default());
+        if !app.is_plugin_added::<CentralInputStorePlugin>() {
+            app.add_plugins(CentralInputStorePlugin);
+        }
+        app.register_input_kind::<TouchVirtualButton>(InputControlKind::Button);
+        app.register_input_kind::<TouchStickDirection>(InputControlKind::Button);
+        app.register_input_kind::<TouchVirtualStick>(InputControlKind::DualAxis);
+        app.init_resource::<MobileTouchState>();
+        app.add_systems(Update, bind_touch_virtual_inputs);
+        let participant = app
+            .world_mut()
+            .spawn((
+                InputParticipant::primary(),
+                ParticipantContexts::default(),
+                ActionState::<SandboxAction>::default(),
+                InputMap::<SandboxAction>::default(),
+            ))
+            .id();
+        // First frame binds the virtual device into the fresh InputMap.
+        app.update();
+        (app, participant)
+    }
+
+    fn actions<'a>(app: &'a App, participant: Entity) -> &'a ActionState<SandboxAction> {
+        app.world()
+            .get::<ActionState<SandboxAction>>(participant)
+            .unwrap()
+    }
+
+    fn hold(app: &mut App, set: impl Fn(&mut MobileTouchState)) {
+        let mut state = app.world_mut().resource_mut::<MobileTouchState>();
+        set(&mut state);
+    }
+
+    #[test]
+    fn a_touch_button_press_resolves_to_its_bound_actions() {
+        let (mut app, participant) = app();
+        // The Jump button feeds BOTH the gameplay verb and the menu confirm —
+        // a DECLARED double-binding, not a hidden branch.
+        hold(&mut app, |s| s.0.jump = TouchButton::pressed_now());
+        app.update();
+        let a = actions(&app, participant);
+        assert!(a.pressed(&SandboxAction::Jump), "touch Jump -> Jump");
+        assert!(
+            a.pressed(&SandboxAction::MenuSelect),
+            "touch Jump also -> MenuSelect (declared menu-confirm binding)"
+        );
+        assert!(
+            a.just_pressed(&SandboxAction::Jump),
+            "first frame is an edge"
+        );
+
+        // Held on the next frame: still pressed, no new edge.
+        hold(&mut app, |s| s.0.jump = TouchButton::held_continued());
+        app.update();
+        let a = actions(&app, participant);
+        assert!(a.pressed(&SandboxAction::Jump));
+        assert!(
+            !a.just_pressed(&SandboxAction::Jump),
+            "a held touch button is held, not a fresh press every frame"
+        );
+
+        // Release: the edge reaches the action.
+        hold(&mut app, |s| s.0.jump = TouchButton::off());
+        app.update();
+        let a = actions(&app, participant);
+        assert!(a.just_released(&SandboxAction::Jump));
+    }
+
+    #[test]
+    fn back_and_shoulder_buttons_resolve_to_their_declared_actions() {
+        let (mut app, participant) = app();
+        hold(&mut app, |s| {
+            s.0.reset = TouchButton::pressed_now();
+            s.0.fly_toggle = TouchButton::pressed_now();
+            s.0.shield = TouchButton::pressed_now();
+            s.0.special = TouchButton::pressed_now();
+        });
+        app.update();
+        let a = actions(&app, participant);
+        assert!(a.pressed(&SandboxAction::Reset), "Reset -> Reset");
+        assert!(
+            a.pressed(&SandboxAction::MenuBack),
+            "Reset doubles as menu Back (declared binding)"
+        );
+        assert!(a.pressed(&SandboxAction::Utility), "Fly -> Utility");
+        assert!(
+            a.pressed(&SandboxAction::QuickAction),
+            "Shield -> QuickAction"
+        );
+        assert!(
+            a.pressed(&SandboxAction::Special),
+            "the dedicated Special button reaches the Special slot (gate 5)"
+        );
+    }
+
+    #[test]
+    fn the_stick_feeds_move_and_menustick_in_leafwing_convention() {
+        let (mut app, participant) = app();
+        // Drag the on-screen stick fully DOWN (touch state is +Y-down).
+        hold(&mut app, |s| s.0.move_y = 1.0);
+        app.update();
+        let a = actions(&app, participant);
+        let move_pair = a.clamped_axis_pair(&SandboxAction::Move);
+        let menu_pair = a.clamped_axis_pair(&SandboxAction::MenuStick);
+        assert!(
+            move_pair.y < -0.9,
+            "down-drag publishes -Y in leafwing's +Y-up convention (got {move_pair:?}); \
+             the gameplay reader flips it to the sim's +Y-down exactly as for a gamepad"
+        );
+        assert!(
+            menu_pair.y < -0.9,
+            "the SAME stick feeds MenuStick, so menus navigate from it (got {menu_pair:?})"
+        );
+    }
+
+    #[test]
+    fn stick_directions_fire_discrete_edges_not_repeats() {
+        let (mut app, participant) = app();
+        hold(&mut app, |s| s.0.move_y = 1.0);
+        app.update();
+        assert!(
+            actions(&app, participant).just_pressed(&SandboxAction::MoveDown),
+            "crossing the direction threshold is a MoveDown press edge"
+        );
+        // Held past the threshold: no fresh edge — the double-tap-down
+        // detectors must not see a held stick as repeated taps.
+        app.update();
+        let a = actions(&app, participant);
+        assert!(a.pressed(&SandboxAction::MoveDown));
+        assert!(
+            !a.just_pressed(&SandboxAction::MoveDown),
+            "a held direction is held, not a fresh tap every frame"
+        );
+    }
+
+    #[test]
+    fn a_preset_swap_keeps_the_virtual_device_bound() {
+        let (mut app, participant) = app();
+        // A preset swap REPLACES the whole InputMap (sync_preset_input_map).
+        *app.world_mut()
+            .get_mut::<InputMap<SandboxAction>>(participant)
+            .unwrap() = ambition_input::KeyboardPreset::by_index(1).input_map();
+        app.update(); // re-bind runs on Changed<InputMap>
+        hold(&mut app, |s| s.0.jump = TouchButton::pressed_now());
+        app.update();
+        assert!(
+            actions(&app, participant).pressed(&SandboxAction::Jump),
+            "touch stays bound after the preset swap replaced the map"
+        );
+    }
+}
+
+// ─── The gesture lane + presenter policy ────────────────────────────────────
+
+/// The gesture system marks Touch as the active input source on genuine
+/// activity — the symmetric counterpart of the keyboard/mouse/gamepad
+/// detector — without stomping the marker while the overlay is idle.
 #[cfg(feature = "mobile_touch")]
 #[test]
-fn fold_system_touch_down_sets_menu_down_and_active_touch() {
+fn genuine_touch_activity_marks_touch_active() {
     use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
-    use super::menu_bridge::fold_to_menu_control_frame;
+    use super::menu_bridge::fold_touch_gestures;
     use ambition_input::{ActiveInputKind, MenuControlFrame};
-    use ambition_platformer_primitives::schedule::GameMode;
     use bevy::input::touch::Touches;
     use bevy::input::ButtonInput;
     use bevy::prelude::*;
-    use bevy::state::app::StatesPlugin;
-    use bevy::time::Time;
 
     let mut app = App::new();
-    app.add_plugins(StatesPlugin);
-    app.insert_state(GameMode::Paused);
-    app.init_resource::<Time>();
     app.init_resource::<Touches>();
     app.init_resource::<ButtonInput<MouseButton>>();
     app.init_resource::<MobileTouchState>();
     app.init_resource::<MenuTouchGestureState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_persistence::settings::UserSettings>();
-    // Start the active-input marker on Keyboard so the flip to Touch is
-    // unambiguous (not a no-op from a default that already equals Touch).
     app.insert_resource(ActiveInputKind::Keyboard);
-    app.add_systems(Update, fold_to_menu_control_frame);
+    app.add_systems(Update, fold_touch_gestures);
 
-    // Drag the on-screen Move stick fully DOWN (gameplay +Y is down).
-    app.world_mut().resource_mut::<MobileTouchState>().0.move_y = 1.0;
-
+    // Idle overlay: the marker is untouched.
     app.update();
-
-    let frame = *app.world().resource::<MenuControlFrame>();
-    assert!(
-        frame.down,
-        "a touch-joystick-down while Paused steps the menu cursor DOWN"
-    );
-    assert!(
-        !frame.up && !frame.left && !frame.right,
-        "only the DOWN intent is produced"
-    );
-    let active = *app.world().resource::<ActiveInputKind>();
     assert_eq!(
-        active,
+        *app.world().resource::<ActiveInputKind>(),
+        ActiveInputKind::Keyboard
+    );
+
+    // A genuine stick drag flips it to Touch.
+    app.world_mut().resource_mut::<MobileTouchState>().0.move_y = 1.0;
+    app.update();
+    assert_eq!(
+        *app.world().resource::<ActiveInputKind>(),
         ActiveInputKind::Touch,
         "using the touch joystick marks Touch as the active input source"
     );
 }
+
+#[cfg(feature = "mobile_touch")]
+#[test]
+fn axis_override_drives_knob_only_while_gameplay_owns_the_controls() {
+    // While a menu/launcher owns the controls the gameplay axis is ~0, so
+    // the knob-drive override must NOT run — otherwise it snaps the knob to
+    // center even as the player drags it to navigate. Keyed on the resolved
+    // prompt context (the action/cue contract), never on GameMode.
+    use super::bevy_plugin::axis_override_drives_knob;
+    use ambition_sim_view::ControlContextKind;
+
+    assert!(
+        axis_override_drives_knob(ControlContextKind::Gameplay),
+        "gameplay: knob should mirror the move axis"
+    );
+    for context in [
+        ControlContextKind::Menu,
+        ControlContextKind::Dialogue,
+        ControlContextKind::Empty,
+    ] {
+        assert!(
+            !axis_override_drives_knob(context),
+            "{context:?}: knob follows the live drag, not the zeroed axis"
+        );
+    }
+}
+
+// ─── Pure state helpers ─────────────────────────────────────────────────────
 
 #[test]
 fn deadzone_kills_sub_threshold_input() {
@@ -78,342 +275,16 @@ fn deadzone_zero_passes_through() {
     assert_eq!(y, -0.3);
 }
 
-#[test]
-fn fold_zero_state_produces_neutral_control_frame() {
-    let frame = fold_touch_into_control_frame(TouchInputState::default(), 0.05, 0.05);
-    assert_eq!(frame.axis_x, 0.0);
-    assert_eq!(frame.axis_y, 0.0);
-    assert!(!frame.jump_pressed);
-    assert!(!frame.jump_held);
-    assert!(!frame.left_pressed);
-    assert!(!frame.right_pressed);
-    assert!(!frame.up_pressed);
-    assert!(!frame.down_pressed);
-}
-
-#[test]
-fn fold_sets_jump_flags_from_button_state() {
-    let mut state = TouchInputState::default();
-    state.jump = TouchButton::pressed_now();
-    let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
-    assert!(frame.jump_pressed);
-    assert!(frame.jump_held);
-    assert!(!frame.jump_released);
-}
-
-/// Gate 5 (GPT-5.6 review): a special-bearing body can invoke Special THROUGH
-/// TOUCH. The dedicated Special button now folds into `ControlFrame.special_pressed`
-/// (it was hardcoded `false`), which is the exact bit the player brain reads and
-/// `trigger_moveset_moves` fires the folded bubble_shield special on — so the
-/// touch route reaches the same seam the keyboard Special key does.
-#[test]
-fn fold_sets_special_pressed_from_the_special_touch_button() {
-    let mut state = TouchInputState::default();
-    state.special = TouchButton::pressed_now();
-    let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
-    assert!(
-        frame.special_pressed,
-        "the touch Special button reaches ControlFrame.special_pressed"
-    );
-    // And an untouched Special button contributes nothing.
-    let idle = fold_touch_into_control_frame(TouchInputState::default(), 0.05, 0.05);
-    assert!(!idle.special_pressed);
-}
-
-#[test]
-fn fold_translates_aim_stick() {
-    let mut state = TouchInputState::default();
-    state.aim_x = 0.8;
-    state.aim_y = -0.5;
-    let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
-    // After deadzone (0.05) + scaling: still strongly positive x,
-    // negative y. Don't pin exact values; pin sign + magnitude.
-    assert!(frame.aim_x > 0.5);
-    assert!(frame.aim_y < -0.3);
-}
-
-#[test]
-fn fold_propagates_explicit_left_right_pressed_edges() {
-    let mut state = TouchInputState::default();
-    state.move_x = -1.0;
-    state.move_x_just_crossed_left = true;
-    let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
-    assert!(frame.left_pressed);
-    assert!(!frame.right_pressed);
-
-    state.move_x = 1.0;
-    state.move_x_just_crossed_left = false;
-    state.move_x_just_crossed_right = true;
-    let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
-    assert!(!frame.left_pressed);
-    assert!(frame.right_pressed);
-}
-
-#[test]
-fn fold_propagates_explicit_up_pressed_edge() {
-    // The Bevy plugin computes edge crossings from previous-
-    // frame `move_y`; the pure folder consumes the explicit
-    // edge flags rather than auto-deriving from `move_y > 0.5`
-    // (which would re-trigger every frame and fire MorphBall
-    // through the double-tap-down detector).
-    let mut state = TouchInputState::default();
-    state.move_y = -1.0;
-    state.move_y_just_crossed_up = true;
-    let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
-    assert!(frame.up_pressed);
-    assert!(!frame.down_pressed);
-}
-
-#[test]
-fn fold_propagates_explicit_down_pressed_edge() {
-    let mut state = TouchInputState::default();
-    state.move_y = 1.0;
-    state.move_y_just_crossed_down = true;
-    let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
-    assert!(frame.down_pressed);
-    assert!(!frame.up_pressed);
-}
-
-#[test]
-fn fold_held_down_without_edge_flag_does_not_fire_down_pressed() {
-    // Pin the bug fix: holding move_y=1.0 every frame WITHOUT
-    // setting the edge flag should NOT fire down_pressed. This
-    // is the "held Down" case that previously oscillated body_mode
-    // through the double-tap-down detector.
-    let mut state = TouchInputState::default();
-    state.move_y = 1.0;
-    state.move_y_just_crossed_down = false;
-    let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
-    assert!(!frame.down_pressed);
-    assert!(!frame.up_pressed);
-}
-
-#[test]
-fn fold_propagates_all_action_buttons() {
-    // Every action button: pressed-this-frame should map through.
-    let mut state = TouchInputState::default();
-    state.attack = TouchButton::pressed_now();
-    state.dash = TouchButton::pressed_now();
-    state.blink = TouchButton::pressed_now();
-    state.interact = TouchButton::pressed_now();
-    state.projectile = TouchButton::pressed_now();
-    state.fly_toggle = TouchButton::pressed_now();
-    state.start = TouchButton::pressed_now();
-    state.reset = TouchButton::pressed_now();
-    let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
-    assert!(frame.attack_pressed);
-    assert!(frame.dash_pressed);
-    assert!(frame.blink_pressed);
-    assert!(frame.interact_pressed);
-    assert!(frame.projectile_pressed);
-    assert!(frame.fly_toggle_pressed);
-    assert!(frame.start_pressed);
-    assert!(frame.reset_pressed);
-}
-
-#[cfg(feature = "mobile_touch")]
-#[test]
-fn touch_move_to_menu_dir_flips_touch_y_for_menu_navigation() {
-    use super::menu_bridge::touch_move_to_menu_dir;
-    use ambition_input::MenuDir;
-
-    let mut state = TouchInputState::default();
-    state.move_y = 1.0;
-    assert_eq!(touch_move_to_menu_dir(state, 0.05), Some(MenuDir::Down));
-
-    state.move_y = -1.0;
-    assert_eq!(touch_move_to_menu_dir(state, 0.05), Some(MenuDir::Up));
-}
-
-#[cfg(feature = "mobile_touch")]
-#[test]
-fn touch_move_to_menu_dir_applies_deadzone() {
-    use super::menu_bridge::touch_move_to_menu_dir;
-
-    let mut state = TouchInputState::default();
-    state.move_y = 0.10;
-    assert_eq!(touch_move_to_menu_dir(state, 0.25), None);
-}
-
-#[cfg(feature = "mobile_touch")]
-#[test]
-fn axis_override_drives_knob_only_during_gameplay() {
-    // Problem 1: while a menu is open the gameplay axis is ~0 (touch is
-    // routed to the menu frame), so the knob-drive override must NOT
-    // run — otherwise it snaps the knob to center even as the player
-    // drags it to navigate the menu. During gameplay the override DOES
-    // run so the knob mirrors the move axis.
-    use super::bevy_plugin::axis_override_drives_knob;
-    use ambition_platformer_primitives::schedule::GameMode;
-
-    assert!(
-        axis_override_drives_knob(GameMode::Playing),
-        "gameplay: knob should mirror the move axis"
-    );
-    assert!(
-        !axis_override_drives_knob(GameMode::Paused),
-        "pause / inventory grid / kaleidoscope cube: knob follows the live drag, not the zeroed axis"
-    );
-    assert!(
-        !axis_override_drives_knob(GameMode::Dialogue),
-        "dialogue menu: knob follows the live drag, not the zeroed axis"
-    );
-}
-
-#[cfg(feature = "mobile_touch")]
-#[test]
-fn touch_drag_folds_into_menu_frame_while_kaleidoscope_paused() {
-    // Problem 2: the 3D kaleidoscope cube opens in `GameMode::Paused`,
-    // exactly like the bevy_ui grid menu. The touch->MenuControlFrame
-    // fold keys off `Paused` (via `menu_move_active`), so a joystick
-    // drag in `Paused` produces an Up/Down menu direction the same way
-    // it does for the grid. This pins that the kaleidoscope's `Paused`
-    // mode is covered by the menu-active gate (no separate state to
-    // miss).
-    use super::menu_bridge::{menu_move_active, touch_move_to_menu_dir};
-    use ambition_input::MenuDir;
-    use ambition_platformer_primitives::schedule::GameMode;
-
-    // Kaleidoscope (and grid) open in Paused -> menu fold is active.
-    assert!(menu_move_active(GameMode::Paused));
-    assert!(menu_move_active(GameMode::Dialogue));
-    assert!(!menu_move_active(GameMode::Playing));
-
-    // A downward stick drag while Paused maps to MenuDir::Down (the
-    // cube cursor moves), identical to the grid menu.
-    let mut state = TouchInputState::default();
-    state.move_y = 1.0;
-    assert_eq!(touch_move_to_menu_dir(state, 0.05), Some(MenuDir::Down));
-}
-
-#[cfg(feature = "mobile_touch")]
-#[test]
-fn touch_joystick_drag_down_drives_debounced_menu_down() {
-    // Problem 2: while a menu is open (Paused), a touch-joystick drag
-    // DOWN must produce `MenuControlFrame.down` and step the cursor,
-    // debounced to discrete d-pad-like steps — the SAME result the
-    // gamepad stick produces. This mirrors the exact path
-    // `fold_to_menu_control_frame` runs: touch stick -> MenuDir ->
-    // `MenuInputState::step` -> `MenuControlFrame::from_menu_input`.
-    use super::menu_bridge::{menu_move_active, touch_move_to_menu_dir};
-    use ambition_input::{MenuControlFrame, MenuInputState};
-    use ambition_platformer_primitives::schedule::GameMode;
-
-    assert!(menu_move_active(GameMode::Paused));
-
-    let mut state = TouchInputState::default();
-    state.move_y = 1.0; // drag the on-screen stick fully DOWN
-
-    let dir = touch_move_to_menu_dir(state, 0.05);
-    assert_eq!(dir, Some(ambition_input::MenuDir::Down));
-
-    let mut menu_state = MenuInputState::default();
-    let dt = 1.0 / 60.0;
-    let initial_delay = 0.3;
-    let repeat_interval = 0.1;
-
-    // Frame 1: a NEW direction emits at once -> the menu cursor steps.
-    let f1 = menu_state.step(
-        false,
-        false,
-        false,
-        false,
-        dir,
-        false,
-        false,
-        false,
-        dt,
-        initial_delay,
-        repeat_interval,
-    );
-    let cf1 = MenuControlFrame::from_menu_input(f1);
-    assert!(cf1.down, "first drag-down frame steps the cursor down");
-
-    // Frame 2: still holding, still under the initial delay -> NO repeat.
-    // This is the debounce: the stick does NOT fire every frame.
-    let f2 = menu_state.step(
-        false,
-        false,
-        false,
-        false,
-        dir,
-        false,
-        false,
-        false,
-        dt,
-        initial_delay,
-        repeat_interval,
-    );
-    let cf2 = MenuControlFrame::from_menu_input(f2);
-    assert!(
-        !cf2.down,
-        "held drag-down debounces: no repeat until the initial delay elapses"
-    );
-
-    // After enough held frames the analog repeat eventually re-fires,
-    // giving a controlled second step (like a held d-pad), not 60/sec.
-    let mut later_steps = 0;
-    for _ in 0..120 {
-        let f = menu_state.step(
-            false,
-            false,
-            false,
-            false,
-            dir,
-            false,
-            false,
-            false,
-            dt,
-            initial_delay,
-            repeat_interval,
-        );
-        if MenuControlFrame::from_menu_input(f).down {
-            later_steps += 1;
-        }
-    }
-    assert!(
-        later_steps > 0,
-        "a held drag eventually repeats at the menu repeat interval"
-    );
-    assert!(
-        later_steps < 120,
-        "repeat is debounced, not firing on every single frame"
-    );
-}
-
-#[cfg(feature = "mobile_touch")]
-#[test]
-fn touch_back_button_sets_menu_back_frame() {
-    // Problem 3: the touch Back button (TouchActionButton::Reset) must
-    // reach `MenuControlFrame.back` so menu nav (close / drill-out)
-    // fires in BOTH backends. `fold_to_menu_control_frame` does
-    // `frame.back |= touch.reset.pressed_this_frame`; pin that mapping
-    // on the pure state so the wiring can't silently regress.
-    use ambition_input::MenuControlFrame;
-
-    let mut touch = TouchInputState::default();
-    touch.reset = TouchButton::pressed_now();
-
-    // Reproduce the fold's OR-merge onto a fresh (gamepad-populated)
-    // frame: a zeroed frame plus a touch Back press yields `back`.
-    let mut frame = MenuControlFrame::default();
-    frame.back |= touch.reset.pressed_this_frame;
-    frame.back_held |= touch.reset.held;
-
-    assert!(frame.back, "touch Back press sets MenuControlFrame.back");
-    assert!(frame.back_held, "a held touch Back also reports back_held");
-    // Both backends close on `menu.back`: grid_menu_input's
-    // `if menu.back || menu.start` and the cube's `if menu.back`.
-}
+// ─── HUD layout invariants ──────────────────────────────────────────────────
 
 #[cfg(feature = "mobile_touch")]
 #[test]
 fn touch_hud_z_is_above_every_menu_overlay() {
-    // Problem 1: the HUD's `GlobalZIndex` band must sit ABOVE every menu
-    // overlay so it renders on top AND wins bevy_ui picking (so the
-    // joystick keeps receiving drags and the Back button stays tappable
-    // while a menu's full-screen scrim is up). Assert the ordering
-    // against the concrete overlay z values used in the menu modules.
+    // The HUD's `GlobalZIndex` band must sit ABOVE every menu overlay so it
+    // renders on top AND wins bevy_ui picking (so the joystick keeps
+    // receiving drags and the Back button stays tappable while a menu's
+    // full-screen scrim is up). Assert the ordering against the concrete
+    // overlay z values used in the menu modules.
     use super::bevy_plugin::TOUCH_HUD_Z;
 
     // Local `ZIndex` values authored on the menu roots:

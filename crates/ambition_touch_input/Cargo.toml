@@ -54,3 +54,6 @@ ambition_persistence = { path = "../ambition_persistence", optional = true }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api", "bevy_state"], optional = true }
 leafwing-input-manager = { version = "0.20", optional = true }
 virtual_joystick = { version = "2.7.2", default-features = false, optional = true }
+# The virtual-device input kinds (leafwing Buttonlike/DualAxislike over the
+# touch state) must serialize like every other leafwing user input.
+serde = { workspace = true }

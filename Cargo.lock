@@ -839,6 +839,7 @@ dependencies = [
  "ambition_ui_nav",
  "bevy",
  "leafwing-input-manager",
+ "serde",
  "virtual_joystick",
 ]
 

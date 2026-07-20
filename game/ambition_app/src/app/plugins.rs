@@ -818,30 +818,22 @@ pub(super) fn add_ui_plugins(app: &mut App) {
 #[cfg(not(feature = "ui"))]
 pub(super) fn add_ui_plugins(_app: &mut App) {}
 
-// The leafwing input bindings + the device→ControlFrame bridge moved to
-// `ambition::host::HostInputBindingsPlugin` (E5 step 5). The touch fold below
-// still runs ALONGSIDE it (both write the same `ControlFrame` seam), and the
-// dev preset-input-map sync stays registered app-side (dev_runtime).
+// The leafwing input bindings + the device→ControlFrame bridge live in
+// `ambition::host::HostInputBindingsPlugin` (E5 step 5); the dev
+// preset-input-map sync stays registered app-side (dev_runtime).
 
 /// Register the [`TouchControlsPlugin`](ambition::touch_input::TouchControlsPlugin)
-/// (`virtual_joystick` sticks + on-screen action buttons that fold into
-/// ControlFrame). The touch adapter lives in the sibling `ambition::touch_input`
-/// crate now (app-thinness); the app's `mobile_touch` feature forwards to
-/// `ambition::touch_input/mobile_touch`, which pulls the optional
-/// `virtual_joystick` dep. Added UNCONDITIONALLY whenever `mobile_touch` is
-/// compiled — no runtime boolean gates it. To rip the touch controls out, remove
-/// the single `add_plugins(TouchControlsPlugin)` line below. On builds compiled
-/// without `mobile_touch` this is a no-op.
-///
-/// The touch plugin runs ALONGSIDE the desktop input pipeline --
-/// both write into the same `ControlFrame` resource, with the
-/// mobile-side write happening after the desktop one in this
-/// session's chain. On a phone, the desktop pipeline produces
-/// neutral output (no keyboard / gamepad); on desktop, the mobile
-/// stick UI is invisible without touch input, so neither path
-/// stomps the other in practice. A future polish pass can detect
-/// the active input source (touch vs keyboard) and skip the
-/// inactive folder.
+/// (`virtual_joystick` stick + on-screen action buttons). The touch overlay is
+/// a VIRTUAL DEVICE: its state is exposed to leafwing as registered input
+/// kinds and bound in the persistent participant's `InputMap`, so touch
+/// resolves through the same bindings/context pipeline as the keyboard and
+/// gamepad — there is no second `ControlFrame` writer. The adapter lives in
+/// the sibling `ambition::touch_input` crate (app-thinness); the app's
+/// `mobile_touch` feature forwards to `ambition::touch_input/mobile_touch`,
+/// which pulls the optional `virtual_joystick` dep. Added UNCONDITIONALLY
+/// whenever `mobile_touch` is compiled — no runtime boolean gates it. To rip
+/// the touch controls out, remove the single `add_plugins(TouchControlsPlugin)`
+/// line below. On builds compiled without `mobile_touch` this is a no-op.
 #[cfg(feature = "mobile_touch")]
 pub(super) fn add_mobile_touch_plugin(app: &mut App) {
     app.add_plugins(ambition::touch_input::TouchControlsPlugin);

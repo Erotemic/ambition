@@ -20,28 +20,30 @@
 //!
 //! Two layers:
 //!
-//! 1. **Pure helper (always built)** — [`fold_touch_into_control_frame`]
-//!    takes a [`TouchInputState`] plus a deadzone and returns a
-//!    `ControlFrame`. Pure data, unit-tested, no Bevy /
-//!    `virtual_joystick` dep. RL agents, tests, and the Bevy systems
-//!    all share this. See [`mod@state`].
-//! 2. **Bevy plugin (gated behind `mobile_touch`)** — wires
-//!    `virtual_joystick` Move + Aim sticks plus a small button UI to
-//!    the helper, then writes `ControlFrame`. Lives in
+//! 1. **Pure state (always built)** — [`TouchInputState`]/[`TouchButton`]
+//!    plus [`apply_deadzone`]: the raw virtual-device state. Pure data,
+//!    unit-tested, no Bevy / `virtual_joystick` dep. See [`mod@state`].
+//! 2. **Bevy plugin (gated behind `mobile_touch`)** — collects
+//!    `virtual_joystick` stick + button UI state into [`mod@state`], then
+//!    exposes it to leafwing as VIRTUAL-DEVICE input kinds
+//!    ([`mod@virtual_device`]) bound in the persistent participant's
+//!    `InputMap` — touch resolves through bindings and the active input
+//!    context exactly like a keyboard or gamepad. Lives in
 //!    [`mod@bevy_plugin`].
 //!
-//! ## Submodule layout (post-2026-05-09 split)
+//! ## Submodule layout
 //!
 //! - [`state`] — pure types ([`TouchInputState`], [`TouchButton`],
-//!   [`apply_deadzone`], [`fold_touch_into_control_frame`]); always
-//!   built.
+//!   [`apply_deadzone`]); always built.
 //! - [`exclusion`] — ECS marker + pure hit-test helpers for touch UI
 //!   regions that should not become menu drag-scroll gestures;
 //!   `mobile_touch`-gated.
 //! - [`layout`] — touch HUD positions + visible-circle hit testing;
 //!   `mobile_touch`-gated.
-//! - [`menu_bridge`] — touch/mouse/joystick → `ControlFrame` /
-//!   `MenuControlFrame` merge; `mobile_touch`-gated.
+//! - [`virtual_device`] — the leafwing input kinds over the touch state +
+//!   the participant binding table; `mobile_touch`-gated.
+//! - [`menu_bridge`] — the pointer-GESTURE lane (drag-scroll) and the
+//!   touch active-input marker; `mobile_touch`-gated.
 //! - [`bevy_plugin`] — system registration, spawning, visuals,
 //!   resource/component definitions; `mobile_touch`-gated.
 //!
@@ -62,15 +64,16 @@ pub mod layout;
 #[cfg(feature = "mobile_touch")]
 pub mod menu_bridge;
 
+#[cfg(feature = "mobile_touch")]
+pub mod virtual_device;
+
 #[cfg(test)]
 mod tests;
 
 // `TouchButton` is referenced by `bevy_plugin::super::TouchButton`; keep
 // it re-exported so the plugin can construct buttons without a deeper
-// import path. `apply_deadzone`/`fold_touch_into_control_frame`/
-// `TouchInputState` are exercised only by the tests submodule, which
-// reaches them via `super::state::*` and does not need a re-export.
-pub use state::TouchButton;
+// import path.
+pub use state::{apply_deadzone, TouchButton, TouchInputState};
 
 /// Bevy plugin wiring `virtual_joystick` to the `ControlFrame` seam.
 /// Gated behind the `mobile_touch` feature so desktop / gamepad /

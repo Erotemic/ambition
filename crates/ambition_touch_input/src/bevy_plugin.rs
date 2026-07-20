@@ -1,17 +1,16 @@
-//! The Bevy wiring: the touch HUD's spawn/despawn lifecycle and the fold from
-//! joystick + virtual-button state into `ControlFrame`.
+//! The Bevy wiring: the touch HUD's spawn/despawn lifecycle and the collect
+//! step that turns joystick + virtual-button UI state into the virtual
+//! device's `MobileTouchState`.
 //!
 //! This is the crate's only ECS surface. `layout` computes where the controls
-//! sit, `state` holds what they are doing, and this module is what makes them
-//! exist in a running `App` and what publishes their effect into the one frame
-//! the simulator reads. A touch device is a DEVICE, so everything here belongs
-//! to the input layer — it is allowlisted as a `ControlFrame` device bridge for
-//! exactly that reason (`ambition_runtime/tests/control_frame_lint.rs` scans the
-//! sim crates; this crate is not one).
+//! sit, `state` holds what they are doing, `virtual_device` exposes that
+//! state to leafwing as bindable input kinds on the persistent participant,
+//! and this module is what makes the controls exist in a running `App` and
+//! collects them each frame. A touch device is a DEVICE, so everything here
+//! belongs to the input layer.
 
 use std::borrow::Cow;
 
-use ambition_platformer_primitives::schedule::GameMode;
 use bevy::input::mouse::MouseButton;
 use bevy::input::touch::Touches;
 use bevy::prelude::*;
@@ -24,9 +23,9 @@ use super::layout::{
     TouchActionButton, ACTION_BEZEL_H, ACTION_BEZEL_W, ACTION_CLUSTER_H, ACTION_CLUSTER_MARGIN,
     ACTION_CLUSTER_W, MENU_ROW_MARGIN, MENU_ROW_W,
 };
-use super::menu_bridge::{fold_to_control_frame, fold_to_menu_control_frame};
+use super::menu_bridge::fold_touch_gestures;
 use super::state::TouchInputState;
-use ambition_input::{ControlFrame, KeyboardPreset, MenuInputState, SandboxAction};
+use ambition_input::{ControlFrame, KeyboardPreset, SandboxAction};
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_sim_view::{ControlContextKind, ControlPrompt, ControlSlot};
 use ambition_ui_nav::DragScrollState;
@@ -36,8 +35,8 @@ use ambition_ui_nav::DragScrollState;
 ///
 /// The touch HUD must render ABOVE every menu overlay AND win bevy_ui
 /// picking against them, so the on-screen joystick keeps receiving
-/// drags (which feed `MenuControlFrame` via `fold_to_menu_control_frame`)
-/// and the action / Back buttons stay tappable while a menu is open.
+/// drags (which feed the participant's `MenuStick` binding) and the
+/// action / Back buttons stay tappable while a menu is open.
 ///
 /// Menu overlays sit at much lower stacking values: the OoT item grid
 /// root uses local `ZIndex(62)`, the pause menu `ZIndex(50)`, the map
@@ -72,11 +71,11 @@ pub struct MobileTouchState(pub TouchInputState);
 /// Bevy UI button `Interaction` covers taps on concrete rows.
 /// This state is only for whole-panel gestures such as dragging
 /// up/down to navigate a menu while another finger is still on
-/// the movement stick.
+/// the movement stick. (Stick-driven menu navigation resolves through
+/// the participant's `MenuStick` binding, not here.)
 #[derive(Resource, Default, Clone, Copy, Debug)]
 pub struct MenuTouchGestureState {
     pub(super) drag_scroll: DragScrollState,
-    pub(super) stick_input: MenuInputState,
 }
 
 /// Runtime VISIBILITY toggle for the on-screen touch UI. `true`
@@ -132,6 +131,38 @@ pub struct TouchControlsPlugin;
 
 impl Plugin for TouchControlsPlugin {
     fn build(&self, app: &mut App) {
+        use leafwing_input_manager::plugin::{CentralInputStorePlugin, InputManagerSystem};
+        use leafwing_input_manager::prelude::updating::InputRegistration;
+        use leafwing_input_manager::prelude::RegisterUserInput;
+        use leafwing_input_manager::InputControlKind;
+
+        // ── Touch as a VIRTUAL DEVICE ─────────────────────────────────────
+        //
+        // The touch overlay is a leafwing input SOURCE, not a second input
+        // system: `MobileTouchState` is collected in PreUpdate (below), the
+        // registered input kinds publish it into leafwing's central store,
+        // and `bind_touch_virtual_inputs` binds them in the persistent
+        // participant's `InputMap` — from there, touch resolves through
+        // bindings and the active input context exactly like a keyboard or
+        // gamepad. No system in this crate writes `ControlFrame` or the
+        // `MenuControlFrame` buttons/stick directly (drag-scroll, a pointer
+        // gesture, is the one deliberate exception in `menu_bridge`).
+        if !app.is_plugin_added::<CentralInputStorePlugin>() {
+            app.add_plugins(CentralInputStorePlugin);
+        }
+        app.register_input_kind::<crate::virtual_device::TouchVirtualButton>(
+            InputControlKind::Button,
+        );
+        app.register_input_kind::<crate::virtual_device::TouchStickDirection>(
+            InputControlKind::Button,
+        );
+        app.register_input_kind::<crate::virtual_device::TouchVirtualStick>(
+            InputControlKind::DualAxis,
+        );
+        app.register_buttonlike_input::<crate::virtual_device::TouchVirtualButton>();
+        app.register_buttonlike_input::<crate::virtual_device::TouchStickDirection>();
+        app.register_dual_axislike_input::<crate::virtual_device::TouchVirtualStick>();
+
         app.add_plugins(VirtualJoystickPlugin::<MobileStick>::default())
             .insert_resource(MobileTouchState::default())
             .insert_resource(MenuTouchGestureState::default())
@@ -146,6 +177,25 @@ impl Plugin for TouchControlsPlugin {
                 )
                     .after(ambition_render::ui_fonts::load_ui_fonts),
             )
+            // Collect the virtual-device state BEFORE leafwing unifies input
+            // kinds this frame: button interactions (bevy_ui focus ran just
+            // before) and the joystick messages land in `MobileTouchState`,
+            // then the registered kinds publish it into the central store —
+            // a touch press this frame is an ActionState press this frame.
+            .add_systems(
+                PreUpdate,
+                (read_joystick_messages, update_buttons_from_interactions)
+                    .chain()
+                    .after(bevy::ui::UiSystems::Focus)
+                    .before(InputManagerSystem::Unify),
+            )
+            // Bind (and after a preset swap, re-bind) the virtual device in
+            // the participant's InputMap.
+            .add_systems(
+                Update,
+                crate::virtual_device::bind_touch_virtual_inputs
+                    .in_set(ambition_input::InputSet::ResolveActions),
+            )
             .add_systems(
                 Update,
                 (
@@ -153,67 +203,13 @@ impl Plugin for TouchControlsPlugin {
                     tag_virtual_joystick_root,
                     sync_touch_visibility_from_settings,
                     sync_touch_ui_visibility,
-                    read_joystick_messages,
-                    update_buttons_from_interactions,
-                    fold_to_menu_control_frame
-                        .after(ambition_actors::schedule::populate_menu_control_frame_from_actions)
-                        // Must run AFTER update_buttons_from_interactions so it
-                        // reads this frame's MobileTouchState, not last frame's.
-                        // Without this pin Bevy is free (based on conflict graph)
-                        // to run the fold first, reading the stale value and
-                        // missing every button press. The e90e3e58 commit changed
-                        // fold_to_menu_control_frame's ResMut footprint
-                        // (added ActiveInputKind), which silently changed Bevy's
-                        // implicit ordering and broke the menu Start button.
-                        .after(update_buttons_from_interactions)
-                        .before(ambition_actors::schedule::apply_menu_frame_to_cutscene_request)
-                        // Bug 2: the touch joystick must reach
-                        // `MenuControlFrame.up/down/left/right` BEFORE the
-                        // menu nav consumers read it, or the frame is consumed
-                        // (and reset next frame) before the stick fold lands —
-                        // so the on-screen joystick never moved either menu's
-                        // cursor. Pin the fold ahead of BOTH backends' nav
-                        // (Grid + cube) via the shared `MenuNavConsume` set.
-                        .before(ambition_actors::schedule::MenuNavConsume),
-                    fold_to_control_frame
-                        // ControlFrame writer: join the input populate set so
-                        // the schedule pins it before the consume boundary.
+                    // The pointer-gesture lane: drag-scroll joins the menu
+                    // frame after the participant populate rebuilt it, before
+                    // the menu consumers read it.
+                    fold_touch_gestures
                         .in_set(ambition_input::InputSet::Route)
-                        // Touch fold MUST run AFTER the keyboard
-                        // fold (`populate_control_frame_from_actions`)
-                        // so the OR-merge sees the keyboard's
-                        // contribution to ControlFrame instead of
-                        // racing with it. Without this ordering,
-                        // populate_control_frame_from_actions can
-                        // run AFTER fold_to_control_frame, which
-                        // resets ControlFrame to defaults / leafwing's
-                        // values and stomps the touch button merge.
-                        .after(ambition_actors::schedule::populate_control_frame_from_actions)
-                        // Same issue as fold_to_menu_control_frame above:
-                        // must see this frame's button state.
-                        .after(update_buttons_from_interactions)
-                        // ALSO run before the player tick so the
-                        // merged ControlFrame is visible to the sim
-                        // on the same frame. Without this, Bevy is
-                        // free to schedule fold after the player tick,
-                        // and one-frame `pressed` edges (Jump /
-                        // Attack / Dash / Blink / Interact / Reset /
-                        // Start) never reach the engine -- they vanish
-                        // when populate resets ControlFrame the next
-                        // frame. Held axes have the same issue:
-                        // the sim sees axis_x = 0 because the
-                        // touch fold hasn't written yet. Projectile
-                        // happened to work only because `held` and
-                        // `released` persist across frames in the
-                        // touch state, masking the ordering bug.
-                        // The consume boundary is `populate_slot_controls` (the
-                        // first reader of the finalized `ControlFrame`).
-                        .before(ambition_actors::control::populate_slot_controls)
-                        // ALSO run before the unified menu's nav consumers so
-                        // the touch Start press is in ControlFrame before the
-                        // menu open-routing / nav reads it. The fold runs after
-                        // populate; pinning `.before(MenuNavConsume)` wins the
-                        // tie so the fold also runs before the menu consumes it.
+                        .after(ambition_actors::schedule::populate_menu_control_frame_from_actions)
+                        .before(ambition_actors::schedule::apply_menu_frame_to_cutscene_request)
                         .before(ambition_actors::schedule::MenuNavConsume),
                 )
                     .chain(),
@@ -439,8 +435,8 @@ fn tag_virtual_joystick_root(
         // z (0) and a full-screen menu overlay/scrim renders on top of it
         // AND eats its pointer events, so dragging the on-screen stick
         // produces no `VirtualJoystickMessage` while a menu is open and
-        // `fold_to_menu_control_frame` never sees a stick direction. The
-        // high `GlobalZIndex` is the fix that makes the joystick a real
+        // the virtual device never sees a stick deflection. The high
+        // `GlobalZIndex` is the fix that makes the joystick a real
         // menu-nav source over the grid AND the cube.
         cmd.entity(entity).insert((
             MobileTouchUiRoot,
@@ -1034,55 +1030,28 @@ pub fn update_button_glyph_from_active_input(
     }
 }
 
-/// Per-frame: write each button's pressed flag from
-/// `ActionState<SandboxAction>` on the persistent input participant OR the
-/// live [`MobileTouchState`]. The OR with touch state is what makes the
-/// on-screen buttons light up when poked with the mouse / a finger:
-/// touch input never round-trips through leafwing's `ActionState`
-/// (it folds straight into the gameplay `ControlFrame`), so without
-/// this merge a mouse click would drive the sim without ever
-/// tinting the button the player clicked on. Skips writing when the
-/// value is unchanged so the visual-sync system can filter on
-/// `Changed<ButtonPressed>`. Operates on the Button entity (which
-/// carries both `TouchActionButton` and `ButtonPressed`), so no
-/// parent walk is needed.
+/// Per-frame: write each button's pressed flag from the persistent
+/// participant's `ActionState<SandboxAction>`. Touch is a bound virtual
+/// device now, so the same `ActionState` covers a finger on the overlay, a
+/// mouse click on it, AND the keyboard/gamepad — one source lights the
+/// button for every device. Skips writing when the value is unchanged so
+/// the visual-sync system can filter on `Changed<ButtonPressed>`. Operates
+/// on the Button entity (which carries both `TouchActionButton` and
+/// `ButtonPressed`), so no parent walk is needed.
 pub fn update_button_pressed_from_actions(
     actions_q: Query<
         &leafwing_input_manager::prelude::ActionState<SandboxAction>,
         With<ambition_input::InputParticipant>,
     >,
-    touch_state: Res<MobileTouchState>,
     mut buttons: Query<(&TouchActionButton, &mut ButtonPressed)>,
 ) {
     let actions = actions_q.single().ok();
     for (touch_action, mut pressed) in &mut buttons {
         let sa = touch_action_to_sandbox_action(*touch_action);
-        let action_held = actions.map(|a| a.pressed(&sa)).unwrap_or(false);
-        let touch_held = touch_button_held(&touch_state.0, *touch_action);
-        let held = action_held || touch_held;
+        let held = actions.map(|a| a.pressed(&sa)).unwrap_or(false);
         if pressed.0 != held {
             pressed.0 = held;
         }
-    }
-}
-
-/// Read the held flag for one [`TouchActionButton`] off the live
-/// [`TouchInputState`]. Mirror of [`touch_action_to_sandbox_action`]
-/// for the touch-side state struct so the on-screen highlight stays
-/// in lockstep with the input contribution.
-fn touch_button_held(state: &TouchInputState, action: TouchActionButton) -> bool {
-    match action {
-        TouchActionButton::Jump => state.jump.held,
-        TouchActionButton::Attack => state.attack.held,
-        TouchActionButton::Special => state.special.held,
-        TouchActionButton::Dash => state.dash.held,
-        TouchActionButton::Blink => state.blink.held,
-        TouchActionButton::Interact => state.interact.held,
-        TouchActionButton::Projectile => state.projectile.held,
-        TouchActionButton::FlyToggle => state.fly_toggle.held,
-        TouchActionButton::Shield => state.shield.held,
-        TouchActionButton::Start => state.start.held,
-        TouchActionButton::Reset => state.reset.held,
     }
 }
 
@@ -1238,25 +1207,21 @@ fn set_button_held(edges: &mut TouchButtonEdges, action: TouchActionButton, held
 /// knob position with the gameplay MOVE axis this frame.
 ///
 /// The override mirrors the gameplay axis onto the knob so the stick
-/// doubles as an input display for keyboard / gamepad. But while a
-/// menu is open (pause / inventory grid / 3D kaleidoscope cube /
-/// dialogue) the touch input is routed to the semantic
-/// `MenuControlFrame`, NOT the gameplay `ControlFrame` (see
-/// `fold_to_control_frame`, which early-returns unless
-/// `allows_gameplay()`). The gameplay axis is therefore ~0 during a
-/// menu, so applying the override would snap the knob back to center
-/// even as the player drags it to navigate the menu.
+/// doubles as an input display for keyboard / gamepad. But while a menu
+/// or the launcher owns input, the gameplay `ControlFrame` is neutral (the
+/// context/mode routing suppresses it), so applying the override would
+/// snap the knob back to center even as the player drags it to navigate
+/// the menu.
 ///
-/// When a menu is open we return `false` and let `virtual_joystick`'s
-/// own `update_ui` keep the knob on the live touch / mouse drag, so
-/// the knob visibly follows the finger during menu navigation.
-pub fn axis_override_drives_knob(mode: GameMode) -> bool {
+/// Keyed on the [`ControlPrompt`]'s resolved context — the same
+/// action/cue contract that drives the button labels — never on
+/// `GameMode` or actor presence: the presenter asks "does gameplay own
+/// the controls right now", not "which mode is the game in".
+pub fn axis_override_drives_knob(context: ControlContextKind) -> bool {
     // Only mirror the gameplay axis onto the knob while gameplay owns
-    // input. `allows_gameplay()` is true only in `GameMode::Playing`;
-    // `Paused` (pause menu, inventory grid, kaleidoscope cube) and
-    // `Dialogue` all open menus that consume the stick via the menu
-    // frame instead.
-    mode.allows_gameplay()
+    // the controls. Menu / Dialogue / Empty (launcher, startup) all
+    // consume the stick through the menu seam instead.
+    matches!(context, ControlContextKind::Gameplay)
 }
 
 /// Mirror keyboard / gamepad axis input onto the on-screen joystick
@@ -1282,17 +1247,16 @@ pub fn axis_override_drives_knob(mode: GameMode) -> bool {
 /// +Y-down convention, which matches Bevy UI's +Y-down `Node.top`
 /// axis, so no Y inversion is needed here.
 fn drive_joystick_knob_from_axis(
-    mode: Res<State<GameMode>>,
+    prompt: Res<ControlPrompt>,
     control_frame: Res<ControlFrame>,
     joystick_q: Query<(&VirtualJoystickState, &Children), With<VirtualJoystickNode<MobileStick>>>,
     base_q: Query<&ComputedNode, With<VirtualJoystickUIBackground>>,
     mut knob_q: Query<(&mut Node, &ComputedNode), With<VirtualJoystickUIKnob>>,
 ) {
-    // While a menu is open the gameplay axis is ~0 (touch is routed to
-    // the menu frame). Skip the override entirely so `virtual_joystick`'s
-    // `update_ui` keeps the knob on the live drag and it follows the
-    // finger during menu navigation.
-    if !axis_override_drives_knob(*mode.get()) {
+    // While a menu owns the controls the gameplay axis is ~0. Skip the
+    // override entirely so `virtual_joystick`'s `update_ui` keeps the knob
+    // on the live drag and it follows the finger during menu navigation.
+    if !axis_override_drives_knob(prompt.context) {
         return;
     }
     // Treat axes inside ±1e-3 as "no input." Below this the knob must
@@ -1397,8 +1361,6 @@ fn drive_joystick_knob_from_axis(
 fn read_joystick_messages(
     mut reader: MessageReader<VirtualJoystickMessage<MobileStick>>,
     mut state: ResMut<MobileTouchState>,
-    mut prev_move_x: Local<f32>,
-    mut prev_move_y: Local<f32>,
 ) {
     for msg in reader.read() {
         // `axis()` returns the joystick delta in -1..=1 per axis
@@ -1411,6 +1373,13 @@ fn read_joystick_messages(
         // `snap_axis()` is also available but emits discrete
         // -1/0/+1 past a 0.5 deadzone, killing analog feel; we
         // prefer raw axis + the engine's own deadzone.
+        //
+        // Cardinal press EDGES are not derived here: the
+        // `TouchStickDirection` virtual buttons publish the held
+        // threshold state and leafwing derives the edge from the
+        // transition, exactly as for a gamepad stick direction —
+        // so double-tap detectors see honest taps, never a held
+        // direction repeated every frame.
         let axis = msg.axis();
         match msg.id() {
             MobileStick::Move => {
@@ -1426,20 +1395,6 @@ fn read_joystick_messages(
             }
         }
     }
-    // Compute cardinal edge crossings from move-axis diffs. The pure folder
-    // reads these; setting them only on the threshold-crossing frame keeps the
-    // double-tap detectors honest (a held direction is not repeated presses).
-    const THRESHOLD: f32 = 0.5;
-    let crossed_left = *prev_move_x >= -THRESHOLD && state.0.move_x < -THRESHOLD;
-    let crossed_right = *prev_move_x <= THRESHOLD && state.0.move_x > THRESHOLD;
-    let crossed_up = *prev_move_y >= -THRESHOLD && state.0.move_y < -THRESHOLD;
-    let crossed_down = *prev_move_y <= THRESHOLD && state.0.move_y > THRESHOLD;
-    state.0.move_x_just_crossed_left = crossed_left;
-    state.0.move_x_just_crossed_right = crossed_right;
-    state.0.move_y_just_crossed_up = crossed_up;
-    state.0.move_y_just_crossed_down = crossed_down;
-    *prev_move_x = state.0.move_x;
-    *prev_move_y = state.0.move_y;
 }
 
 #[cfg(test)]

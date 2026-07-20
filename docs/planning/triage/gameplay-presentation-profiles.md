@@ -1,9 +1,9 @@
 # Gameplay presentation profiles — full-bleed framing, fixed-aspect viewports, and control-safe layout
 
-> **State:** TRIAGE. This design has not been admitted to `docs/planning/tracks.md`.
-> It records a candidate engine subsystem and concrete product profiles so the
-> idea can be reviewed without colliding with the live queue. Promotion should
-> produce bounded track cards rather than copying this document into the queue.
+> **State:** PROMOTED 2026-07-20. Source inspection resolved every promotion
+> question (see [Resolved questions](#resolved-questions-source-inspection-2026-07-20));
+> the bounded GP cards are in [`../tracks.md`](../tracks.md). This document
+> remains the design of record and is NOT duplicated into the queue.
 >
 > **Scope:** presentation only. Nothing here changes simulation, collision,
 > actor motion, rollback state, or room geometry.
@@ -488,31 +488,85 @@ Required structural and behavioral evidence:
 - no coupling to one touch-control implementation;
 - no dynamic camera-mode flicker based on the most recent device event.
 
-## Questions before promotion to `tracks.md`
+## Resolved questions (source inspection, 2026-07-20)
 
-1. Which provider/prepared-content seam should own the profile without
-   creating a neighboring registration authority?
-2. Does the current camera resolver already expose a stable normalized anchor
-   that soft framing can extend, or is one additional screen-framing input
-   required?
-3. Which existing screen effects are gameplay-only versus full-display?
-4. What safe-area information is available on each supported platform, and
-   what is the fallback when the host cannot provide it?
-5. Should fixed 4:3 preserve authored horizontal extent by default, or should
-   Mary O declare an explicit world-space 4:3 framing preset immediately?
-6. Which subject bounds should the first soft-framing slice protect: body
-   bounds, presentation bounds, or a small actor-authored visibility envelope?
-7. Is `ScreenOccluder` sufficient, or should occupancy be published as a
-   host-owned message/read model to avoid presentation-entity coupling?
-8. What exact tests can boot Ambition, Sanic, and Mary O cheaply enough to pin
-   their profiles in the normal local gate?
-9. After all three profiles work, does extraction into a dedicated
-   `ambition_gameplay_presentation` crate remove a real dependency edge? If
-   not, keep the subsystem in existing owners.
+**1 — Provider seam: a field on `PlatformerExperienceAuthoring`.**
+There is no `GameProvider` trait; the seam is
+`PlatformerExperienceAuthoring` + `install()`
+(`crates/ambition_platformer_provider/src/authoring.rs`). It already carries one
+optional presentation concern, `loading: Option<LoadExperienceSpec>`, which
+`register()` forwards into a route-keyed catalog resource. Presentation profiles
+join by exactly that shape: `presentation: Option<GameplayPresentationProfiles>`
++ `with_presentation_profiles()` + one more forward into
+`PlatformerPresentationProfileCatalog`. Zero new registration authority, and
+providers that declare nothing keep compiling — `ambition_demo_pocket` (the
+fourth-provider architecture proof) is left untouched deliberately.
 
-## Promotion rule
+**2 — One additional screen-framing input is required.**
+`resolve_follow_camera_snapshot` already takes `viewport_px` and already owns a
+target/deadzone-shaped stage (`CameraFramingPreset::target_offset` bias, then
+`CameraEaseState::live_target_world` easing, then clamping). But its only
+subject anchor is "centered plus a bias" — there is no normalized region. Soft
+framing adds one pure input, `Option<CameraScreenFraming>`, holding the
+normalized subject-safe region; the resolver turns it into a per-axis allowed
+interval for the camera center and clamps the *previous* target into it. The
+existing room/zone clamp then runs unchanged, which is what makes "preserve
+required camera/room bounds" the automatic first fallback.
 
-This document remains in triage until source inspection resolves the questions
-above and an execution owner selects bounded GP cards. Promotion should add
-only those open cards to `tracks.md`; this document remains the design of
-record and should not be duplicated there.
+**3 — Screen effects: exactly one is gameplay-only, and it already is.**
+`ScreenEffectsPlugin` is a render-graph `ViewNode` attached only to the main
+camera, so it follows `Camera.viewport` for free. Everything else is `bevy_ui`
+resolved against the window through the full-screen `FrontHudCamera`:
+room-transition cover, loading/startup cards, pause scrim, cutscene overlay,
+HUD, map, menus, dialogue. All of those are correctly **entire physical
+display** and stay that way — a menu or a load screen letterboxed into the
+gameplay rect would be a regression, and oracle 11 says so. Damage flash is
+per-sprite, not full-screen; there is no letterbox/cinematic-bar implementation
+to audit.
+
+**4 — No safe-area information exists on any platform today.**
+Nothing reads notch/cutout/`WindowInsets`; the Android bridge does not exist.
+The fallback is the contract: the host owns a `DisplaySafeAreaInsets` resource
+defaulting to zero, the resolver consumes insets as a pure input and is tested
+against asymmetric values, and a future platform layer writes the resource
+without touching policy. Building the JNI bridge is explicitly out of scope.
+
+**5 — Fixed 4:3 preserves the authored horizontal extent, and falls out for
+free.** Shrinking `viewport_px` to the 4:3 rect while leaving
+`CameraAspectPolicy::FitDesign` alone (`max(scale_by_height, scale_by_width)`)
+guarantees the visible view is at least the design view on both axes, so the
+authored horizontal composition is never cropped — a taller-than-authored
+sliver of world is revealed instead. Mary O therefore does **not** need a
+world-space framing preset now, and no authored encounter is re-composed.
+
+**6 — Protect the body AABB plus an explicit padding, not a new envelope.**
+`CameraFocus2d` already carries `size`/`base_size`, and `stable_center()`
+already absorbs stance-driven height changes. The first slice protects
+`base_size * 0.5 + SoftFramingProfile::subject_padding_px` (converted through
+`orthographic_scale`). No actor-authored visibility envelope is introduced —
+that would be a content vocabulary for a problem no content has yet.
+
+**7 — `ScreenOccluder` as a component, anchored like the existing exclusion
+zones.** `ambition_touch_input` already publishes screen occupancy as a
+component (`TouchExclusionZone`) with an anchor + shape model, resolved against
+window size on demand — a host-owned message would duplicate that and orphan
+the data from the entity whose visibility gates it. `ScreenOccluder` copies the
+anchor model into content-free vocabulary; the host collects, sorts by a stable
+key, and hands plain rectangles to the pure resolver, so the resolver keeps zero
+entity coupling.
+
+**8 — Provider profile pinning needs no app boot.**
+Because the declaration lives on the authoring struct, pinning each game's
+profile is a unit test over the built `App`'s
+`PlatformerPresentationProfileCatalog` — the provider plugins are already added
+in isolation by existing tests. Layout behavior is pinned by pure resolver tests
+over the required aspect matrix. Only the viewport-application and
+room-transition oracles need the assembled app, and those ride the existing
+`cargo test -p ambition_app --test app_it` target.
+
+**9 — No new crate.** The split is
+`ambition_platformer_primitives` (pure vocabulary + resolver, already the home
+of `camera_ease` and `camera_layers`) and `ambition_host` (window, occlusion
+collection, publication, `Camera.viewport` application). Both edges already
+exist; a third crate would add a node without removing one. Revisit only if a
+non-platformer host ever needs the resolver without the primitives crate.

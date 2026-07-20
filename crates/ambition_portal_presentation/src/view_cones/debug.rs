@@ -40,7 +40,7 @@ pub fn flush_portal_view_cone_debug_dump(
         Option<&GlobalTransform>,
     )>,
     cone_visibility: Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
-    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    screen_density: GameplayScreenDensity,
 ) {
     if !request.pending {
         return;
@@ -64,7 +64,7 @@ pub fn flush_portal_view_cone_debug_dump(
         &portals,
         &rigs,
         &cone_visibility,
-        screen_texels_per_world(windows.single().ok(), host_view.as_deref()),
+        screen_density.texels_per_world(host_view.as_deref()),
     );
 
     #[cfg(not(target_arch = "wasm32"))]

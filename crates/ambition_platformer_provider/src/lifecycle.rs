@@ -88,6 +88,9 @@ impl Plugin for PlatformerProviderRuntimePlugin {
         app.init_resource::<PlatformerStreamingReadiness>()
             .init_resource::<PreparedPlatformerSessions>()
             .init_resource::<ContentEpochSequence>()
+            .init_resource::<
+                ambition_platformer_primitives::gameplay_presentation::ActiveGameplayPresentationProfiles,
+            >()
             .configure_sets(
                 Update,
                 PlatformerPreparationSet.in_set(AmbitionLoadSet::Contributors),
@@ -100,6 +103,11 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                         .after(PlatformerPreparationSet)
                         .in_set(AmbitionLoadSet::Contributors),
                     activate_prepared_platformer_sessions.in_set(GameplaySessionSet::Providers),
+                    // Presentation follows the route, so it must settle after
+                    // activation and before the host resolves this frame's
+                    // layout.
+                    crate::authoring::select_active_presentation_profiles
+                        .after(activate_prepared_platformer_sessions),
                 ),
             );
     }

@@ -10,6 +10,7 @@ pub mod camera_layers;
 pub mod class_b;
 pub mod developer_hotkeys;
 pub mod frame_env;
+pub mod gameplay_presentation;
 pub mod gravity;
 pub mod kinematic;
 pub mod lifecycle;

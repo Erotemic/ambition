@@ -442,6 +442,10 @@ fn tag_virtual_joystick_root(
             MobileTouchUiRoot,
             GlobalZIndex(TOUCH_HUD_Z),
             movement_joystick_exclusion_zone(),
+            // Generic screen occupancy for gameplay framing. Rides the root
+            // that `sync_touch_ui_visibility` hides, so a hidden stick stops
+            // reserving space without a second visibility rule.
+            super::layout::movement_joystick_occluder(),
         ));
     }
 }
@@ -618,6 +622,7 @@ fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
         GlobalZIndex(TOUCH_HUD_Z),
         Name::new("MobileTouchActionBezel"),
         MobileTouchUiRoot,
+        super::layout::action_cluster_occluder(),
     ));
     cmd.spawn((
         Node {
@@ -672,6 +677,7 @@ fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
         GlobalZIndex(TOUCH_HUD_Z),
         Name::new("MobileTouchMenuRow"),
         MobileTouchUiRoot,
+        super::layout::menu_row_occluder(),
     ))
     .with_children(|parent| {
         for (col, action) in [TouchActionButton::Start, TouchActionButton::Reset]

@@ -12,6 +12,10 @@ use ambition_game_shell::{
     ShellCompletionPolicy, ShellRouteId, ShellRouteSpec, PREPARE_AUDIO_WORK_ID,
     PREPARE_CATALOGS_WORK_ID,
 };
+use ambition_platformer_primitives::gameplay_presentation::{
+    ActiveGameplayPresentationProfiles, GameplayPresentationProfileCatalog,
+    GameplayPresentationProfiles,
+};
 use ambition_runtime::PreparedPlatformerSource;
 
 use crate::lifecycle::{self, PlatformerProviderRuntimePlugin, PlatformerStreamingReadiness};
@@ -171,6 +175,35 @@ impl PlatformerAuthoredCatalogRegistry {
     }
 }
 
+/// Copy the active route's declared profiles into the resource the host
+/// consumes.
+///
+/// This is the ONLY place routes and presentation meet. It lives in the
+/// provider crate because that is the layer that already knows about the shell
+/// router; `ambition_host` deliberately cannot see routes at all, and so cannot
+/// grow a game-name branch even by accident.
+///
+/// A route with no declaration — the launcher, a menu, a provider that opted
+/// out — resolves to the engine default, which is today's full-bleed normal
+/// framing. That is what keeps full-screen menus and startup presentation
+/// usable across the whole display.
+pub fn select_active_presentation_profiles(
+    router: Res<ambition_game_shell::ShellRouter>,
+    catalog: Option<Res<GameplayPresentationProfileCatalog>>,
+    mut active: ResMut<ActiveGameplayPresentationProfiles>,
+) {
+    let declared = router
+        .active
+        .as_ref()
+        .zip(catalog.as_deref())
+        .and_then(|(active, catalog)| catalog.get(active.route_id.as_str()))
+        .copied()
+        .unwrap_or_default();
+    if active.0 != declared {
+        active.0 = declared;
+    }
+}
+
 /// Everything a provider authors about its experience, plus [`install`] — the
 /// single registration seam that wires the experience into the shared
 /// preparation/activation lifecycle.
@@ -185,6 +218,9 @@ pub struct PlatformerExperienceAuthoring {
     pub preparation_label: String,
     pub catalogs: AuthoredCatalogFragments,
     pub loading: Option<ambition_load_presentation::LoadExperienceSpec>,
+    /// How this experience wants gameplay framed on the physical display.
+    /// `None` keeps the engine default (full-bleed, normal framing).
+    pub presentation: Option<GameplayPresentationProfiles>,
 }
 
 impl PlatformerExperienceAuthoring {
@@ -204,7 +240,18 @@ impl PlatformerExperienceAuthoring {
             preparation_label: preparation_label.into(),
             catalogs,
             loading: None,
+            presentation: None,
         }
+    }
+
+    /// Declare gameplay presentation with one tested preset, e.g.
+    /// `profiles::fixed_four_by_three()`.
+    ///
+    /// Optional on purpose: a provider that says nothing gets full-bleed
+    /// normal framing, which is what every game got before this existed.
+    pub fn with_presentation_profiles(mut self, profiles: GameplayPresentationProfiles) -> Self {
+        self.presentation = Some(profiles);
+        self
     }
 
     pub fn with_loading_activity(mut self, activity_id: impl Into<String>) -> Self {
@@ -284,6 +331,12 @@ impl PlatformerExperienceAuthoring {
                 ))
                 .on_complete(ShellCompletionPolicy::ReturnHome),
         );
+        if let Some(presentation) = self.presentation {
+            app.init_resource::<GameplayPresentationProfileCatalog>();
+            app.world_mut()
+                .resource_mut::<GameplayPresentationProfileCatalog>()
+                .insert(self.route_id.clone(), presentation);
+        }
         if let Some(loading) = self.loading.clone() {
             app.init_resource::<ambition_load_presentation::ShellLoadPresentationCatalog>();
             app.world_mut()

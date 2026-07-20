@@ -7,7 +7,11 @@
 //!   the device → `ControlFrame`/`MenuControlFrame` bridge;
 //! - [`HostCameraPlugin`] — the camera follow/shake cluster consuming the
 //!   sim's resolved camera observation, plus (feature `portal_render`) the
-//!   portal camera-continuity wiring.
+//!   portal camera-continuity wiring;
+//! - [`gameplay_presentation::HostGameplayPresentationPlugin`] — where the
+//!   gameplay camera renders on the physical display and where subjects should
+//!   stay inside it, resolved once per frame from the active provider's
+//!   declared profile.
 //!
 //! ## Why this crate
 //!
@@ -35,6 +39,7 @@
 use bevy::app::{App, Plugin, PluginGroup, PluginGroupBuilder};
 use bevy::prelude::*;
 
+pub mod gameplay_presentation;
 #[cfg(feature = "portal_render")]
 pub mod portal;
 
@@ -241,15 +246,15 @@ impl Plugin for HostCameraPlugin {
         // half that reads it (nameplates, HUD, overlays) — the sim never
         // touches it.
         app.init_resource::<ambition_render::rendering::CameraViewState>();
-        // The observer fact: publish THIS frame's physical viewport before
-        // the sim's observation resolve consumes it (E4-17 — the resolve
-        // lives in CameraObservationPlugin; camera_follow only APPLIES the
-        // snapshot).
-        app.add_systems(
-            Update,
-            ambition_render::rendering::publish_camera_viewport
-                .before(ambition_sim_view::camera_snapshot::resolve_camera_observation),
-        );
+        // The observer facts (gameplay viewport + subject-safe region) are
+        // published by HostGameplayPresentationPlugin, which orders its whole
+        // cluster before the sim's observation resolve. `camera_follow` only
+        // APPLIES the resulting snapshot (E4-17).
+        app.add_plugins(crate::gameplay_presentation::HostGameplayPresentationPlugin);
+        // A viewport-clipped camera never clears outside itself, so a
+        // fixed-aspect profile OWES the display a surround. Render owns the
+        // painting; the host owns the fact that it is owed.
+        app.add_plugins(ambition_render::gameplay_surround::GameplaySurroundPlugin);
         app.add_systems(
             Update,
             (

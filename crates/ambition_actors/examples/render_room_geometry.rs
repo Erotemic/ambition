@@ -415,6 +415,7 @@ fn resolve_headless_snapshot(
                 size: body,
                 base_size: body,
                 facing: 1.0,
+                velocity_world: ae::Vec2::ZERO,
             },
             base_view: ae::Vec2::new(800.0, 450.0),
             viewport_px: ae::Vec2::new(image_size.0 as f32, image_size.1 as f32),
@@ -429,6 +430,7 @@ fn resolve_headless_snapshot(
             mode: CameraSnapshotResolveMode::Instant,
             extra_clamp_center_world: None,
             ease_tuning: ambition_platformer_primitives::camera_ease::CameraEaseTuning::default(),
+            screen_framing: None,
         },
         None,
     )

@@ -1,0 +1,284 @@
+//! Visible-host integration for gameplay presentation profiles.
+//!
+//! Design of record: `docs/planning/triage/gameplay-presentation-profiles.md`.
+//!
+//! This module owns everything the pure resolver deliberately cannot know: the
+//! primary window, the platform safe area, which stable presentation
+//! environment the session is running in, and the physical Bevy camera
+//! viewport. It resolves ONE layout per frame and publishes it; the camera
+//! observation seam and every presentation consumer read that one product.
+//!
+//! **The host must not know the names Ambition, Sanic, or Mary O** — it cannot
+//! even see a route. The provider layer selects
+//! [`ActiveGameplayPresentationProfiles`]; this module only asks that resource
+//! what policy is in force.
+
+use bevy::camera::Viewport;
+use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
+
+use ambition_engine_core as ae;
+use ambition_platformer_primitives::camera_layers::MainCamera;
+use ambition_platformer_primitives::gameplay_presentation::{
+    resolve_gameplay_presentation, ActiveGameplayPresentationProfiles, DisplaySafeAreaInsets,
+    GameplayPresentationInput, PresentationEnvironment, ResolvedGameplayPresentation, ScreenRect,
+};
+use ambition_sim_view::camera_snapshot::{
+    resolve_camera_observation, CameraScreenFraming, CameraViewport,
+};
+
+/// The occupancy collected from [`ScreenOccluder`] entities this frame,
+/// resolved to logical display pixels.
+///
+/// Kept as its own resource so a debug overlay can show exactly what the
+/// framing was composed against, and so collection stays independent of
+/// resolution.
+///
+/// [`ScreenOccluder`]: ambition_platformer_primitives::gameplay_presentation::ScreenOccluder
+#[derive(Resource, Clone, Debug, Default)]
+pub struct ScreenOccupancy(
+    pub Vec<ambition_platformer_primitives::gameplay_presentation::ScreenOcclusion>,
+);
+
+/// Ordering handle for everything that must observe this frame's resolved
+/// layout: the camera observation resolve, the viewport application, and any
+/// host that draws against the gameplay rectangle.
+#[derive(SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct GameplayPresentationSet;
+
+/// Resolve, publish, and apply the gameplay presentation layout.
+pub struct HostGameplayPresentationPlugin;
+
+impl Plugin for HostGameplayPresentationPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ActiveGameplayPresentationProfiles>()
+            .init_resource::<DisplaySafeAreaInsets>()
+            .init_resource::<ResolvedGameplayPresentation>()
+            .init_resource::<ScreenOccupancy>()
+            .insert_resource(resolve_presentation_environment());
+        // Owned by `CameraObservationPlugin`, but this cluster WRITES them, so
+        // it must not depend on plugin ordering to have somewhere to write.
+        app.init_resource::<CameraViewport>()
+            .init_resource::<CameraScreenFraming>();
+
+        app.add_systems(
+            Update,
+            (
+                collect_screen_occupancy,
+                resolve_host_gameplay_presentation,
+                (publish_camera_viewport, publish_camera_screen_framing),
+            )
+                .chain()
+                .in_set(GameplayPresentationSet),
+        );
+
+        // The observer facts must be this frame's, so the whole cluster runs
+        // before the sim's camera observation consumes them.
+        app.configure_sets(
+            Update,
+            GameplayPresentationSet.before(resolve_camera_observation),
+        );
+
+        // Applying the physical viewport is presentation-only and needs no
+        // ordering against the sim, just this frame's resolved layout.
+        app.add_systems(
+            Update,
+            apply_gameplay_camera_viewport.after(GameplayPresentationSet),
+        );
+    }
+}
+
+/// Decide the stable presentation environment ONCE, at app construction.
+///
+/// Deliberately not a system: the environment must not follow the most recent
+/// input device. Glyphs may change the instant a gamepad is touched; the
+/// gameplay viewport and camera framing must not, or the composition flickers
+/// every time a thumb leaves the glass.
+///
+/// `AMBITION_PRESENTATION_ENV=desktop|touch|handheld` overrides the platform
+/// guess, which is the only way to SEE the touch-primary framing on a desktop
+/// dev machine.
+fn resolve_presentation_environment() -> PresentationEnvironment {
+    match std::env::var("AMBITION_PRESENTATION_ENV")
+        .ok()
+        .as_deref()
+        .map(str::trim)
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("desktop") => return PresentationEnvironment::Desktop,
+        Some("touch" | "touch_primary" | "mobile") => return PresentationEnvironment::TouchPrimary,
+        Some("handheld") => return PresentationEnvironment::Handheld,
+        Some(other) if !other.is_empty() => {
+            warn!("AMBITION_PRESENTATION_ENV='{other}' is not a known environment; using the platform default");
+        }
+        _ => {}
+    }
+
+    if cfg!(any(target_os = "android", target_os = "ios")) {
+        PresentationEnvironment::TouchPrimary
+    } else {
+        PresentationEnvironment::Desktop
+    }
+}
+
+/// Gather every published [`ScreenOccluder`] into one ordered list.
+///
+/// Producers tag their own UI entities and publish nothing else. Hidden
+/// entities are skipped, so a control that is not on screen does not reserve
+/// space for itself.
+///
+/// [`ScreenOccluder`]: ambition_platformer_primitives::gameplay_presentation::ScreenOccluder
+pub fn collect_screen_occupancy(
+    windows: Query<&Window, With<PrimaryWindow>>,
+    occluders: Query<(
+        &ambition_platformer_primitives::gameplay_presentation::ScreenOccluder,
+        Option<&InheritedVisibility>,
+        Option<&ViewVisibility>,
+    )>,
+    mut occupancy: ResMut<ScreenOccupancy>,
+) {
+    occupancy.0.clear();
+    let Ok(window) = windows.single() else {
+        return;
+    };
+    let display = ScreenRect::from_min_size(
+        ae::Vec2::ZERO,
+        ae::Vec2::new(window.width().max(1.0), window.height().max(1.0)),
+    );
+
+    for (occluder, inherited, view) in &occluders {
+        let visible = inherited.map(|v| v.get()).unwrap_or(true)
+            && view.map(|v| v.get()).unwrap_or(true);
+        if !visible {
+            continue;
+        }
+        occupancy.0.push(occluder.resolve(display));
+    }
+}
+
+/// Resolve this frame's layout from the window, the safe area, the active
+/// profile, and the collected occupancy.
+pub fn resolve_host_gameplay_presentation(
+    windows: Query<&Window, With<PrimaryWindow>>,
+    profiles: Res<ActiveGameplayPresentationProfiles>,
+    environment: Res<PresentationEnvironment>,
+    insets: Res<DisplaySafeAreaInsets>,
+    occupancy: Res<ScreenOccupancy>,
+    mut resolved: ResMut<ResolvedGameplayPresentation>,
+) {
+    let Ok(window) = windows.single() else {
+        return;
+    };
+    let next = resolve_gameplay_presentation(GameplayPresentationInput {
+        display_px: ae::Vec2::new(window.width().max(1.0), window.height().max(1.0)),
+        safe_area_insets: insets.0,
+        profile: profiles.0.for_environment(*environment),
+        occlusions: &occupancy.0,
+    });
+    if *resolved != next {
+        *resolved = next;
+    }
+}
+
+/// Publish the GAMEPLAY viewport — not the window — into the sim's camera
+/// observation input.
+///
+/// This is the single line the whole fixed-aspect slice turns on: every
+/// consumer of [`CameraViewport`] (orthographic scale, visible-world extent,
+/// clamp half-extents) inherits the gameplay rectangle from here, so nothing
+/// downstream needs to learn that a viewport exists.
+pub fn publish_camera_viewport(
+    presentation: Res<ResolvedGameplayPresentation>,
+    mut viewport: ResMut<CameraViewport>,
+) {
+    let size = presentation.gameplay_rect.size().max(ae::Vec2::ONE);
+    if viewport.px != size {
+        viewport.px = size;
+    }
+}
+
+/// Publish the subject-safe region for the camera resolver, easing the region
+/// itself so occupancy appearing or disappearing cannot step the camera.
+pub fn publish_camera_screen_framing(
+    time: Res<Time>,
+    presentation: Res<ResolvedGameplayPresentation>,
+    mut framing: ResMut<CameraScreenFraming>,
+) {
+    let Some(profile) = presentation.soft_framing else {
+        *framing = CameraScreenFraming::default();
+        return;
+    };
+
+    let target = presentation.subject_safe_region;
+    // Hysteresis: a control fading in shrinks the region over ~a quarter
+    // second instead of on one frame. A first activation snaps, since there is
+    // no previous region to interpolate from.
+    let region = if framing.active {
+        let alpha = 1.0 - (-profile.region_ease_hz.max(0.0) * time.delta_secs()).exp();
+        framing.subject_safe_region.lerp(target, alpha)
+    } else {
+        target
+    };
+
+    *framing = CameraScreenFraming {
+        active: true,
+        subject_safe_region: region,
+        subject_padding_px: profile.subject_padding_px,
+        look_ahead_seconds: profile.look_ahead_seconds,
+    };
+}
+
+/// Apply the resolved gameplay rectangle to the main camera's physical
+/// viewport, leaving the front HUD camera full-screen.
+///
+/// `Camera::viewport` is in PHYSICAL pixels while the whole layout is resolved
+/// in logical pixels (the space window cursors, touches, and `bevy_ui` share),
+/// so the scale factor is applied here and nowhere else.
+pub fn apply_gameplay_camera_viewport(
+    presentation: Res<ResolvedGameplayPresentation>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    mut cameras: Query<&mut Camera, With<MainCamera>>,
+) {
+    let Ok(window) = windows.single() else {
+        return;
+    };
+    let scale = window.scale_factor().max(f32::EPSILON);
+
+    // Full-bleed with no safe-area inset needs no viewport at all. Leaving it
+    // cleared keeps the ordinary path byte-identical to the pre-viewport
+    // engine instead of round-tripping through physical pixels every frame.
+    let desired = (presentation.gameplay_rect != presentation.display_rect).then(|| {
+        let rect = presentation.gameplay_rect;
+        Viewport {
+            physical_position: (rect.min * scale).round().max(ae::Vec2::ZERO).as_uvec2(),
+            physical_size: (rect.size() * scale).round().max(ae::Vec2::ONE).as_uvec2(),
+            ..default()
+        }
+    });
+
+    for mut camera in &mut cameras {
+        // Compare before writing: touching `Camera` marks it changed, and a
+        // camera that "changes" every frame is a needless render-world sync.
+        if !viewport_matches(camera.viewport.as_ref(), desired.as_ref()) {
+            camera.viewport = desired.clone();
+        }
+    }
+}
+
+/// `bevy::camera::Viewport` is not `PartialEq`, and the fields that matter to
+/// us are the physical rect and depth range.
+fn viewport_matches(current: Option<&Viewport>, desired: Option<&Viewport>) -> bool {
+    match (current, desired) {
+        (None, None) => true,
+        (Some(current), Some(desired)) => {
+            current.physical_position == desired.physical_position
+                && current.physical_size == desired.physical_size
+                && current.depth == desired.depth
+        }
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests;

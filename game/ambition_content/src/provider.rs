@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 
+use ambition::presentation::profiles;
 use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition_actors::ldtk_world::LdtkRuntimeIndex;
 use ambition_actors::rooms::{ActiveRoomMetadata, RoomSet};
@@ -86,6 +87,10 @@ impl Plugin for AmbitionExperiencePlugin {
             "Prepare Ambition",
             ambition_authored_catalogs(),
         )
+        // Desktop keeps ordinary framing; touch-primary sessions get
+        // occlusion-aware soft framing so the controlled body does not live
+        // under a thumb.
+        .with_presentation_profiles(profiles::adaptive_platformer())
         .install(app, ambition_session_world);
     }
 }

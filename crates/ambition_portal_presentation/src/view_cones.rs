@@ -57,6 +57,8 @@ use ambition_portal::pieces::PortalAperture;
 use ambition_portal::view::{aperture_wedge_multi, blend_cones, view_cone, window_eye, ViewCone};
 use ambition_portal::{find_portal, PlacedPortal, PortalChannel};
 
+use ambition_platformer_primitives::gameplay_presentation::ResolvedGameplayPresentation;
+
 use crate::{PortalCameraContinuityHostView, PortalWorldFrame};
 
 /// Clear color of an offscreen capture: a dark tone shows through wherever the
@@ -653,19 +655,36 @@ impl PortalViewRig {
 /// a "pixel-perfect" capture must match, or the window reads blurrier than the
 /// world around it. Falls back to 1.0 when the window or host view is
 /// unavailable (headless, first frame).
-fn screen_texels_per_world(
-    window: Option<&Window>,
-    host_view: Option<&PortalCameraContinuityHostView>,
-) -> f32 {
-    let (Some(window), Some(view)) = (
-        window,
-        host_view.filter(|v| v.initialized && v.visible_view.x >= 1.0 && v.visible_view.y >= 1.0),
-    ) else {
-        return 1.0;
-    };
-    let sx = window.physical_width() as f32 / view.visible_view.x;
-    let sy = window.physical_height() as f32 / view.visible_view.y;
-    sx.max(sy).clamp(1.0, 4.0)
+///
+/// The numerator is the GAMEPLAY viewport, not the window: under a fixed-aspect
+/// presentation profile the main camera spends `visible_view` across the
+/// gameplay rectangle only, and dividing by the whole window would overstate
+/// the density by the pillarbox ratio and oversample every capture.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct GameplayScreenDensity<'w, 's> {
+    windows: Query<'w, 's, &'static Window, With<bevy::window::PrimaryWindow>>,
+    presentation: Option<Res<'w, ResolvedGameplayPresentation>>,
+}
+
+impl GameplayScreenDensity<'_, '_> {
+    fn texels_per_world(&self, host_view: Option<&PortalCameraContinuityHostView>) -> f32 {
+        let (Ok(window), Some(view)) = (
+            self.windows.single(),
+            host_view
+                .filter(|v| v.initialized && v.visible_view.x >= 1.0 && v.visible_view.y >= 1.0),
+        ) else {
+            return 1.0;
+        };
+        let logical = self
+            .presentation
+            .as_deref()
+            .map(|presentation| presentation.gameplay_rect.size())
+            .unwrap_or_else(|| Vec2::new(window.width(), window.height()));
+        let physical = logical * window.scale_factor().max(f32::EPSILON);
+        let sx = physical.x / view.visible_view.x;
+        let sy = physical.y / view.visible_view.y;
+        sx.max(sy).clamp(1.0, 4.0)
+    }
 }
 
 /// How far past the viewer's own extent a portal still counts as "at the seam"
@@ -790,7 +809,7 @@ pub fn sync_portal_view_cones(
         (&mut Transform, &mut Visibility),
         (With<PortalConeMesh>, Without<PortalViewRig>),
     >,
-    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    screen_density: GameplayScreenDensity,
 ) {
     if selection.active != crate::PortalVisualEffect::ViewCones {
         for (entity, rig, ..) in &rigs {
@@ -813,7 +832,7 @@ pub fn sync_portal_view_cones(
     let viewer = viewer.as_deref();
     let (clip_min, clip_max) = portal_window_clip_rect(&frame, host_view.as_deref());
     let effective = effective_portal_capture_budget(&config, &quality);
-    let screen_scale = screen_texels_per_world(windows.single().ok(), host_view.as_deref());
+    let screen_scale = screen_density.texels_per_world(host_view.as_deref());
     let now_s = time.elapsed_secs();
     let mut active_captures = 0u32;
     let mut updates_this_frame = 0u32;

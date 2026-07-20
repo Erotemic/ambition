@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 
 use ambition::engine_core as ae;
+use ambition::presentation::profiles;
 use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
@@ -113,6 +114,9 @@ impl Plugin for MaryOExperiencePlugin {
             "Prepare Mary-O",
             mary_o_authored_catalogs(),
         )
+        // A fixed 4:3 gameplay rectangle everywhere; the surround belongs to
+        // HUD and controls rather than to the level.
+        .with_presentation_profiles(profiles::fixed_four_by_three())
         .install(app, mary_o_prepared_session_world);
         app.add_plugins(MaryORulesPlugin::hosted());
     }

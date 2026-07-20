@@ -313,3 +313,122 @@ mod layout_tests {
         ));
     }
 }
+
+// ---------------------------------------------------------------------------
+// Screen occupancy
+// ---------------------------------------------------------------------------
+//
+// The touch HUD publishes GENERIC screen occupancy (the engine's
+// `ScreenOccluder` vocabulary) so the gameplay-presentation resolver can keep
+// the controlled subject out from under a thumb. This crate does not compute
+// camera margins and does not know which framing profile is active — it only
+// says what it covers. See
+// `docs/planning/triage/gameplay-presentation-profiles.md`.
+//
+// Occupancy is published PER CLUSTER, not per button: nine individual circles
+// would each carve the safe region separately for no gain, and the thumb rests
+// over the whole cluster anyway.
+
+use ambition_platformer_primitives::gameplay_presentation::{
+    ScreenAnchor, ScreenOccluder, ScreenOcclusionPurpose,
+};
+
+/// Breathing room so the subject is not framed flush against a control.
+const OCCUPANCY_PAD: f32 = 12.0;
+
+/// The movement stick's reserved footprint — the same generous region the
+/// menu-drag exclusion uses, so the two cannot disagree about where the stick
+/// is.
+pub fn movement_joystick_occluder() -> ScreenOccluder {
+    ScreenOccluder::new(
+        ScreenOcclusionPurpose::VirtualMovementStick,
+        ScreenAnchor::BottomLeft,
+        Vec2::ZERO,
+        Vec2::splat(movement_joystick_layout().exclusion_size),
+    )
+    .with_padding(Vec2::splat(OCCUPANCY_PAD))
+}
+
+/// The right-thumb action cluster, measured from its bezel.
+pub fn action_cluster_occluder() -> ScreenOccluder {
+    ScreenOccluder::new(
+        ScreenOcclusionPurpose::VirtualActionCluster,
+        ScreenAnchor::BottomRight,
+        Vec2::ZERO,
+        Vec2::new(ACTION_BEZEL_W, ACTION_BEZEL_H),
+    )
+    .with_padding(Vec2::splat(OCCUPANCY_PAD))
+}
+
+/// The Menu/Back row. Published for completeness — its purpose does not
+/// reserve subject space, because cornered chrome that is glanced at should
+/// not shrink gameplay framing.
+pub fn menu_row_occluder() -> ScreenOccluder {
+    ScreenOccluder::new(
+        ScreenOcclusionPurpose::SystemMenuControl,
+        ScreenAnchor::TopRight,
+        Vec2::splat(MENU_ROW_MARGIN),
+        Vec2::new(MENU_ROW_W, 54.0),
+    )
+}
+
+#[cfg(test)]
+mod occupancy_tests {
+    use super::*;
+    use ambition_platformer_primitives::gameplay_presentation::ScreenRect;
+
+    /// The published stick occupancy must actually cover the stick's menu-drag
+    /// exclusion zone. These are two views of one control, and a camera that
+    /// framed the subject where the drag exclusion still swallows the touch
+    /// would be worse than no framing at all.
+    #[test]
+    fn published_stick_occupancy_covers_its_drag_exclusion() {
+        let window = Vec2::new(1280.0, 720.0);
+        let display = ScreenRect::from_min_size(Vec2::ZERO, window);
+        let occupied = movement_joystick_occluder().resolve(display).rect;
+
+        let size = movement_joystick_layout().exclusion_size;
+        for probe in [
+            Vec2::new(1.0, window.y - 1.0),
+            Vec2::new(size - 1.0, window.y - 1.0),
+            Vec2::new(1.0, window.y - size + 1.0),
+        ] {
+            assert!(
+                movement_joystick_exclusion_zone().contains(probe, window),
+                "fixture probe {probe:?} should be inside the drag exclusion",
+            );
+            assert!(
+                occupied.contains(probe),
+                "{probe:?} is excluded from menu drags but not published as occupied",
+            );
+        }
+    }
+
+    /// The action cluster's occupancy must contain every hit-testable button,
+    /// or framing would happily place the actor under a live control.
+    #[test]
+    fn published_cluster_occupancy_covers_every_action_button() {
+        let window = Vec2::new(1280.0, 720.0);
+        let display = ScreenRect::from_min_size(Vec2::ZERO, window);
+        let occupied = action_cluster_occluder().resolve(display).rect;
+        let origin = touch_action_cluster_origin(window);
+
+        for spec in touch_action_layout() {
+            let center = Vec2::new(
+                origin.x + spec.left + spec.size * 0.5,
+                origin.y + spec.top + spec.size * 0.5,
+            );
+            assert_eq!(
+                touch_action_at_position(center, window),
+                Some(spec.action),
+                "fixture centre for {:?} should hit-test to itself",
+                spec.action,
+            );
+            assert!(
+                occupied.contains(center),
+                "{:?} is tappable at {center:?} but outside the published occupancy",
+                spec.action,
+            );
+        }
+    }
+}

@@ -92,4 +92,11 @@ pub mod presentation {
     pub use ambition_render::platformer_presentation::{
         PlatformerPresentationPlugin, PlatformerPresentationSetupSet,
     };
+
+    /// How gameplay is framed on the physical display: the four presentation
+    /// policy axes, the pure layout resolver, and the tested author presets a
+    /// provider declares with
+    /// [`with_presentation_profiles`](ambition_platformer_provider::PlatformerExperienceAuthoring::with_presentation_profiles).
+    pub use ambition_platformer_primitives::gameplay_presentation;
+    pub use ambition_platformer_primitives::gameplay_presentation::profiles;
 }

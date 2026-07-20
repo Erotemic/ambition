@@ -16,6 +16,7 @@ use ambition_actors::rooms::{
 use ambition_persistence::settings::video::CameraFramingPreset;
 use ambition_persistence::settings::CameraAspectPolicy;
 use ambition_platformer_primitives::camera_ease::{CameraEaseState, CameraEaseTuning};
+use ambition_platformer_primitives::gameplay_presentation::NormalizedScreenRegion;
 use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// Upper bound on `dt` for camera scale + target easing.
@@ -120,6 +121,10 @@ pub struct CameraFocus2d {
     pub base_size: ae::Vec2,
     /// Horizontal facing sign used by camera-framing presets.
     pub facing: f32,
+    /// Current body velocity in world units per second. Soft framing folds
+    /// this into the protected bounds as look-ahead; every other policy stage
+    /// ignores it.
+    pub velocity_world: ae::Vec2,
 }
 
 impl CameraFocus2d {
@@ -139,6 +144,41 @@ pub struct CameraBlinkInput {
     pub blink_in_timer: f32,
     pub blink_in_duration: f32,
     pub blink_camera_from: ae::Vec2,
+}
+
+/// Where the controlled subject should preferably appear on screen.
+///
+/// The presentation layer resolves this from the active gameplay-presentation
+/// profile (gameplay viewport ∩ device safe area − control occupancy) and
+/// publishes it as an OBSERVER FACT, exactly like [`CameraViewport`]. The
+/// resolver consumes it and nothing else in the sim reads it: mobile
+/// conditions never enter actor simulation or collision.
+///
+/// Inactive by default, which is ordinary centering.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq)]
+pub struct CameraScreenFraming {
+    /// Whether soft framing applies at all.
+    pub active: bool,
+    /// The subject-safe region, normalized within the gameplay viewport with a
+    /// top-left origin. Ambition world space is also +Y down, so this needs no
+    /// axis flip.
+    pub subject_safe_region: NormalizedScreenRegion,
+    /// Extra padding around the subject's protected bounds, in gameplay
+    /// viewport pixels.
+    pub subject_padding_px: ae::Vec2,
+    /// Seconds of subject velocity folded into the protected bounds.
+    pub look_ahead_seconds: f32,
+}
+
+impl Default for CameraScreenFraming {
+    fn default() -> Self {
+        Self {
+            active: false,
+            subject_safe_region: NormalizedScreenRegion::FULL,
+            subject_padding_px: ae::Vec2::ZERO,
+            look_ahead_seconds: 0.0,
+        }
+    }
 }
 
 /// Whether policy resolution should mutate/reuse live presentation easing state.
@@ -172,6 +212,10 @@ pub struct CameraSnapshotResolveInput<'a> {
     /// ordinary captures pass `None`.
     pub extra_clamp_center_world: Option<ae::Vec2>,
     pub ease_tuning: CameraEaseTuning,
+    /// Optional screen-framing fact from the presentation layer. `None` (and
+    /// an inactive value) means ordinary centering — captures, headless runs,
+    /// and games that declare no framing policy all pass nothing.
+    pub screen_framing: Option<CameraScreenFraming>,
 }
 
 /// Resolve a camera snapshot for an arbitrary focus.
@@ -281,6 +325,45 @@ pub fn resolve_follow_camera_snapshot(
         desired
     };
 
+    // **Soft subject framing.** A deadzone, not a second follow policy: while
+    // the subject's protected bounds stay inside the safe region the camera
+    // target does not move at all, and when they cross an edge only the
+    // correction needed to return them is applied. Runs BEFORE easing (so the
+    // ordinary smoothing carries the correction) and before clamping (so room
+    // bounds remain the authoritative fallback).
+    //
+    // Bypassed while a camera zone has taken authorship (cinematic lock),
+    // during blink arrival, and on any snap — a deadzone must never fight a
+    // deliberate composition.
+    let soft_framing = input
+        .screen_framing
+        .filter(|framing| framing.active)
+        .filter(|_| !input.overview_camera && !input.snap_camera)
+        .filter(|_| !active_zone.is_some_and(|zone| zone.cinematic_lock))
+        .filter(|_| {
+            !input
+                .blink
+                .is_some_and(|blink| blink.blink_in_timer > 0.0 && blink.blink_in_duration > 0.0)
+        });
+    let desired_target_world = match soft_framing {
+        None => desired_target_world,
+        Some(framing) => {
+            let previous = ease_state
+                .as_deref()
+                .filter(|state| state.target_initialized)
+                .map(|state| state.live_target_world)
+                .unwrap_or(desired_target_world);
+            apply_soft_subject_framing(
+                desired_target_world,
+                previous,
+                input.focus,
+                visible_view,
+                orthographic_scale,
+                framing,
+            )
+        }
+    };
+
     let target_world = match input.mode {
         CameraSnapshotResolveMode::Instant => desired_target_world,
         CameraSnapshotResolveMode::Eased => {
@@ -372,6 +455,62 @@ pub fn resolve_follow_camera_snapshot(
         active_camera_zones,
         active_camera_zone: active_zone.map(|zone| zone.id.clone()),
     }
+}
+
+/// Return the camera target that keeps the subject's protected bounds inside
+/// the safe region, moving `previous` as little as possible.
+///
+/// With camera center `C`, a world point `P` projects to the normalized screen
+/// position `n = 0.5 + (P - C) / visible_view`. Requiring the whole protected
+/// box to satisfy `region.min <= n <= region.max` yields a closed interval of
+/// admissible camera centers per axis; the correction is then a plain clamp.
+///
+/// `desired` contributes only its BIAS — everything the ordinary policy wanted
+/// beyond centering (framing preset look-ahead, camera-zone offsets) — which
+/// translates the admissible interval instead of overriding the deadzone.
+fn apply_soft_subject_framing(
+    desired: ae::Vec2,
+    previous: ae::Vec2,
+    focus: CameraFocus2d,
+    visible_view: ae::Vec2,
+    orthographic_scale: f32,
+    framing: CameraScreenFraming,
+) -> ae::Vec2 {
+    let visible = visible_view.max(ae::Vec2::splat(f32::EPSILON));
+    let anchor = focus.stable_center();
+    let bias = desired - anchor;
+
+    // Protected bounds: the standing body box (so a crouch does not shrink the
+    // protection), padding in viewport pixels converted to world units, and the
+    // look-ahead sweep.
+    let half = focus.size.max(focus.base_size) * 0.5
+        + framing.subject_padding_px.abs() * orthographic_scale.max(0.0);
+    let lead = focus.velocity_world * framing.look_ahead_seconds.max(0.0);
+    let swept_min = anchor.min(anchor + lead) - half;
+    let swept_max = anchor.max(anchor + lead) + half;
+
+    let region = framing.subject_safe_region;
+    let low = swept_max + bias - visible * (region.max - ae::Vec2::splat(0.5));
+    let high = swept_min + bias - visible * (region.min - ae::Vec2::splat(0.5));
+
+    // Protected bounds wider than the region on an axis: no camera center can
+    // satisfy it, so center the bounds in the region rather than snapping to an
+    // arbitrary edge.
+    let centered =
+        (swept_min + swept_max) * 0.5 + bias - visible * (region.center() - ae::Vec2::splat(0.5));
+
+    ae::Vec2::new(
+        if low.x <= high.x {
+            previous.x.clamp(low.x, high.x)
+        } else {
+            centered.x
+        },
+        if low.y <= high.y {
+            previous.y.clamp(low.y, high.y)
+        } else {
+            centered.y
+        },
+    )
 }
 
 fn zone_area(zone: &CameraZoneSpec) -> f32 {
@@ -550,6 +689,7 @@ pub fn resolve_camera_observation(
     encounter_view: bevy::prelude::Res<ambition_encounter::EncounterView>,
     user_settings: bevy::prelude::Res<ambition_persistence::settings::UserSettings>,
     viewport: bevy::prelude::Res<CameraViewport>,
+    screen_framing: bevy::prelude::Res<CameraScreenFraming>,
     extra_clamp: bevy::prelude::Res<CameraExtraClamp>,
     ease_tuning: bevy::prelude::Res<ambition_platformer_primitives::camera_ease::CameraEaseTuning>,
     mut camera_state: bevy::prelude::ResMut<
@@ -592,6 +732,10 @@ pub fn resolve_camera_observation(
     if let Some(subject) = controlled.0 {
         if let Ok(kin) = body_kinematics.get(subject) {
             player_body.pos = kin.pos;
+            // Soft framing leads the DRIVEN body; leading the home avatar's
+            // velocity while possessing something else would aim the camera at
+            // where a body the participant is not controlling is going.
+            player_body.vel = kin.vel;
         }
     }
 
@@ -610,6 +754,7 @@ pub fn resolve_camera_observation(
         size: player_body.size,
         base_size: player_base_size.base_size,
         facing: player_body.facing,
+        velocity_world: player_body.vel,
     };
     let blink = CameraBlinkInput {
         blink_in_timer: blink_cam.blink_in_timer,
@@ -634,6 +779,7 @@ pub fn resolve_camera_observation(
             mode: CameraSnapshotResolveMode::Eased,
             extra_clamp_center_world: extra_clamp.0,
             ease_tuning: *ease_tuning,
+            screen_framing: Some(*screen_framing),
         },
         Some(&mut *camera_state),
     );
@@ -653,6 +799,7 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
         let sim = app.sim_schedule();
         use bevy::prelude::IntoScheduleConfigs as _;
         app.init_resource::<CameraViewport>();
+        app.init_resource::<CameraScreenFraming>();
         app.init_resource::<CameraExtraClamp>();
         app.init_resource::<ResolvedCameraSnapshot>();
         app.add_systems(
@@ -707,6 +854,7 @@ mod m2_forward_scroll_tests {
                     size: ae::Vec2::new(24.0, 40.0),
                     base_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
+                    velocity_world: ae::Vec2::ZERO,
                 },
                 base_view: ae::Vec2::new(480.0, 270.0),
                 viewport_px: ae::Vec2::new(480.0, 270.0),
@@ -721,6 +869,7 @@ mod m2_forward_scroll_tests {
                 mode: CameraSnapshotResolveMode::Eased,
                 extra_clamp_center_world: None,
                 ease_tuning: CameraEaseTuning::default(),
+                screen_framing: None,
             },
             Some(ease),
         );
@@ -765,5 +914,280 @@ mod m2_forward_scroll_tests {
             back < far - 100.0,
             "a free camera comes back: {far} -> {back}"
         );
+    }
+}
+
+#[cfg(test)]
+mod soft_framing_tests {
+    use super::*;
+    use ambition_platformer_primitives::camera_ease::CameraEaseState;
+
+    const VIEW: ae::Vec2 = ae::Vec2::new(800.0, 450.0);
+    const BODY: ae::Vec2 = ae::Vec2::new(24.0, 40.0);
+
+    fn world() -> ae::World {
+        ae::World::new(
+            "framing",
+            ae::Vec2::new(40_000.0, 40_000.0),
+            ae::Vec2::ZERO,
+            Vec::new(),
+        )
+    }
+
+    /// A generous centered region with no padding and no look-ahead, so the
+    /// admissible interval is easy to state by hand.
+    fn framing(region: NormalizedScreenRegion) -> CameraScreenFraming {
+        CameraScreenFraming {
+            active: true,
+            subject_safe_region: region,
+            subject_padding_px: ae::Vec2::ZERO,
+            look_ahead_seconds: 0.0,
+        }
+    }
+
+    fn zone(cinematic_lock: bool) -> CameraZoneSpec {
+        CameraZoneSpec {
+            id: "lock".into(),
+            name: "lock".into(),
+            aabb: ae::Aabb::new(ae::Vec2::splat(20_000.0), ae::Vec2::splat(10_000.0)),
+            priority: 0,
+            zoom: Some(1.0),
+            target_offset: ae::Vec2::ZERO,
+            easing_hz: None,
+            cinematic_lock,
+            clamp_mode: CameraClampMode::None,
+            scroll_policy: CameraScrollPolicy::Free,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn resolve(
+        world: &ae::World,
+        zones: &[CameraZoneSpec],
+        pos: ae::Vec2,
+        vel: ae::Vec2,
+        screen_framing: Option<CameraScreenFraming>,
+        ease: &mut CameraEaseState,
+    ) -> CameraSnapshot2d {
+        resolve_follow_camera_snapshot(
+            CameraSnapshotResolveInput {
+                world,
+                camera_zones: zones,
+                focus: CameraFocus2d {
+                    center_world: pos,
+                    size: BODY,
+                    base_size: BODY,
+                    facing: if vel.x < 0.0 { -1.0 } else { 1.0 },
+                    velocity_world: vel,
+                },
+                base_view: VIEW,
+                viewport_px: VIEW,
+                aspect_policy: CameraAspectPolicy::FixedHeight,
+                framing: CameraFramingPreset::default(),
+                overview_scale: 1.0,
+                encounter_scale: 1.0,
+                overview_camera: false,
+                snap_camera: false,
+                blink: None,
+                dt: 1.0 / 60.0,
+                mode: CameraSnapshotResolveMode::Eased,
+                extra_clamp_center_world: None,
+                ease_tuning: CameraEaseTuning::default(),
+                screen_framing,
+            },
+            Some(ease),
+        )
+    }
+
+    /// Seed the ease state so `target_initialized` is true and the camera has a
+    /// definite "where it is now" for the deadzone to hold.
+    fn seeded(at: ae::Vec2) -> CameraEaseState {
+        CameraEaseState {
+            target_initialized: true,
+            live_target_world: at,
+            ..Default::default()
+        }
+    }
+
+    /// The deadzone: while the subject stays inside the region the camera
+    /// target does not move at all. This is the whole point — a camera that
+    /// still crept toward center would not be "soft", just slow.
+    #[test]
+    fn the_camera_holds_still_while_the_subject_stays_inside_the_region() {
+        let w = world();
+        let start = ae::Vec2::new(20_000.0, 20_000.0);
+        let mut ease = seeded(start);
+        let region = NormalizedScreenRegion::centered_inset(0.25, 0.25);
+
+        // Half the region is 200px wide in world units here, so ±100 is well
+        // inside it.
+        for dx in [0.0, 40.0, -60.0, 90.0] {
+            let snap = resolve(
+                &w,
+                &[],
+                start + ae::Vec2::new(dx, 0.0),
+                ae::Vec2::ZERO,
+                Some(framing(region)),
+                &mut ease,
+            );
+            assert!(
+                (snap.target_world - start).length() < 0.001,
+                "camera drifted to {:?} for dx={dx}",
+                snap.target_world,
+            );
+        }
+    }
+
+    /// Crossing an edge moves the camera by exactly the correction needed to
+    /// put the protected bounds back on that edge — no more.
+    #[test]
+    fn crossing_an_edge_applies_only_the_needed_correction() {
+        let w = world();
+        let start = ae::Vec2::new(20_000.0, 20_000.0);
+        let region = NormalizedScreenRegion::centered_inset(0.25, 0.25);
+        let mut ease = seeded(start);
+
+        // Region right edge sits at 0.75 of an 800-wide view => 200 world units
+        // right of centre. The body half-width is 12, so the camera must start
+        // moving once the subject centre passes +188.
+        let overshoot = 60.0;
+        let subject = start + ae::Vec2::new(200.0 - BODY.x * 0.5 + overshoot, 0.0);
+
+        // The deadzone sets the TARGET; the existing 8 Hz ease carries the
+        // camera there, so settle before measuring the correction.
+        let mut snap = resolve(&w, &[], subject, ae::Vec2::ZERO, Some(framing(region)), &mut ease);
+        for _ in 0..400 {
+            snap = resolve(&w, &[], subject, ae::Vec2::ZERO, Some(framing(region)), &mut ease);
+        }
+
+        assert!(
+            (snap.target_world.x - (start.x + overshoot)).abs() < 0.5,
+            "expected a {overshoot} correction, camera settled at {:?}",
+            snap.target_world,
+        );
+        assert!(
+            (snap.target_world.y - start.y).abs() < 0.5,
+            "an x-axis crossing must not move y",
+        );
+    }
+
+    /// Look-ahead extends the protected bounds along the velocity, so a fast
+    /// runner pushes the camera earlier than a stationary one at the same spot.
+    #[test]
+    fn look_ahead_pushes_the_camera_earlier_when_moving_fast() {
+        let w = world();
+        let start = ae::Vec2::new(20_000.0, 20_000.0);
+        let region = NormalizedScreenRegion::centered_inset(0.25, 0.25);
+        let subject = start + ae::Vec2::new(100.0, 0.0);
+
+        let settle = |velocity, screen_framing, ease: &mut CameraEaseState| {
+            let mut snap = resolve(&w, &[], subject, velocity, Some(screen_framing), ease);
+            for _ in 0..400 {
+                snap = resolve(&w, &[], subject, velocity, Some(screen_framing), ease);
+            }
+            snap
+        };
+
+        let mut still_ease = seeded(start);
+        let still = settle(ae::Vec2::ZERO, framing(region), &mut still_ease);
+
+        let mut fast_ease = seeded(start);
+        let fast = settle(
+            ae::Vec2::new(1200.0, 0.0),
+            CameraScreenFraming {
+                look_ahead_seconds: 0.25,
+                ..framing(region)
+            },
+            &mut fast_ease,
+        );
+
+        assert!(
+            (still.target_world.x - start.x).abs() < 0.5,
+            "a standing subject at +100 is still inside the region",
+        );
+        assert!(
+            fast.target_world.x > still.target_world.x + 50.0,
+            "look-ahead should lead the runner: {} vs {}",
+            fast.target_world.x,
+            still.target_world.x,
+        );
+    }
+
+    /// A cinematic camera zone has taken authorship of the composition; a
+    /// deadzone must not fight it.
+    #[test]
+    fn a_cinematic_lock_bypasses_soft_framing() {
+        let w = world();
+        let start = ae::Vec2::new(20_000.0, 20_000.0);
+        let region = NormalizedScreenRegion::centered_inset(0.25, 0.25);
+        let zones = [zone(true)];
+        let mut ease = seeded(start);
+
+        let snap = resolve(
+            &w,
+            &zones,
+            start + ae::Vec2::new(3000.0, 0.0),
+            ae::Vec2::ZERO,
+            Some(framing(region)),
+            &mut ease,
+        );
+        // The locked zone's centre wins outright.
+        assert!(
+            (snap.target_world - zones[0].aabb.center()).length() < 1.0,
+            "cinematic lock lost to the deadzone: {:?}",
+            snap.target_world,
+        );
+    }
+
+    /// Protected bounds wider than the region on an axis cannot be satisfied;
+    /// centering them beats snapping to an arbitrary edge.
+    #[test]
+    fn bounds_larger_than_the_region_center_instead_of_snapping() {
+        let w = world();
+        let start = ae::Vec2::new(20_000.0, 20_000.0);
+        let subject = start + ae::Vec2::new(500.0, 0.0);
+        // A one-percent-wide region no body can fit inside.
+        let region = NormalizedScreenRegion::centered_inset(0.495, 0.495);
+        let mut ease = seeded(start);
+
+        let mut snap = resolve(&w, &[], subject, ae::Vec2::ZERO, Some(framing(region)), &mut ease);
+        for _ in 0..400 {
+            snap = resolve(&w, &[], subject, ae::Vec2::ZERO, Some(framing(region)), &mut ease);
+        }
+        assert!(
+            (snap.target_world.x - subject.x).abs() < 1.0,
+            "an unsatisfiable axis should centre on the subject, got {:?}",
+            snap.target_world,
+        );
+    }
+
+    /// Oracle 9's sim-side half: an inactive framing fact resolves BIT-IDENTICALLY
+    /// to passing nothing, so a game that declares no profile — and every
+    /// headless run and capture — is untouched by this feature existing.
+    #[test]
+    fn inactive_framing_is_identical_to_no_framing() {
+        let w = world();
+        let start = ae::Vec2::new(20_000.0, 20_000.0);
+
+        for offset in [0.0, 250.0, -900.0] {
+            let subject = start + ae::Vec2::new(offset, 30.0);
+            let velocity = ae::Vec2::new(offset, 0.0);
+
+            let mut none_ease = seeded(start);
+            let none = resolve(&w, &[], subject, velocity, None, &mut none_ease);
+
+            let mut off_ease = seeded(start);
+            let off = resolve(
+                &w,
+                &[],
+                subject,
+                velocity,
+                Some(CameraScreenFraming::default()),
+                &mut off_ease,
+            );
+
+            assert_eq!(none, off, "inactive framing changed the snapshot");
+            assert_eq!(none_ease.live_target_world, off_ease.live_target_world);
+        }
     }
 }

@@ -80,12 +80,16 @@ pub fn spawn_room_foreground_parallax(
 /// 1000px camera pan moves the foreground edge art about 100px across the
 /// screen: enough to imply depth without creating a readable gameplay layer.
 pub fn sync_foreground_parallax(
-    windows: Query<&Window, With<PrimaryWindow>>,
+    // The camera's OWN visible world extent, not the window: under a
+    // fixed-aspect presentation profile the main camera covers the gameplay
+    // rectangle only, and sizing this art from the window would overscan it by
+    // the pillarbox ratio.
+    view_state: Res<super::camera::CameraViewState>,
     // `With<MainCamera>`: ignore the #31 cube overlay Camera3d AND the portal
     // view-cone capture `Camera2d`s, so `.single()` still resolves the one main
     // game camera (a broad `With<Camera2d>` now matches the captures too).
     camera: Query<
-        (&Transform, &Projection),
+        &Transform,
         (
             With<ambition_platformer_primitives::camera_layers::MainCamera>,
             Without<ForegroundParallax>,
@@ -93,18 +97,10 @@ pub fn sync_foreground_parallax(
     >,
     mut layers: Query<(&ForegroundParallax, &mut Transform, &mut Sprite)>,
 ) {
-    let Ok((camera_transform, projection)) = camera.single() else {
+    let Ok(camera_transform) = camera.single() else {
         return;
     };
-    let (view_w, view_h) = windows
-        .single()
-        .map(|w| (w.width(), w.height()))
-        .unwrap_or((WINDOW_W as f32, WINDOW_H as f32));
-    let camera_scale = match projection {
-        Projection::Orthographic(orthographic) => orthographic.scale.max(1.0),
-        _ => 1.0,
-    };
-    let visible_size = Vec2::new(view_w, view_h) * camera_scale * FOREGROUND_OVERSCAN;
+    let visible_size = view_state.visible_view * FOREGROUND_OVERSCAN;
     let camera_xy = camera_transform.translation.truncate();
 
     for (parallax, mut transform, mut sprite) in &mut layers {

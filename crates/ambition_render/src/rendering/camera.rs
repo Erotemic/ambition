@@ -5,20 +5,24 @@
 //! observation seam now
 //! ([`ambition_sim_view::camera_snapshot::CameraObservationPlugin`],
 //! E4-17): the sim publishes one [`ResolvedCameraSnapshot`] per tick. This
-//! module only (a) publishes the physical viewport (an observer fact the
-//! resolver consumes), (b) applies presentation-only deltas — portal camera
-//! continuity, shake — to a COPY of the snapshot, and (c) writes the Bevy
+//! module only (a) applies presentation-only deltas — portal camera
+//! continuity, shake — to a COPY of the snapshot, and (b) writes the Bevy
 //! camera transform/projection. Render never mutates sim camera state.
+//!
+//! The observer facts the resolver consumes (`CameraViewport`,
+//! `CameraScreenFraming`) are published by
+//! `ambition_host::gameplay_presentation`: they are answers about the physical
+//! display and the active presentation profile, and render does not select
+//! policy.
 
 use ambition_engine_core as ae;
 #[cfg(feature = "portal_render")]
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
 
 use super::primitives::PlayerVisual;
 use ambition_sim_view::camera_snapshot::{
-    CameraExtraClamp, CameraSnapshot2d, CameraViewport, ResolvedCameraSnapshot,
+    CameraExtraClamp, CameraSnapshot2d, ResolvedCameraSnapshot,
 };
 
 /// Live camera diagnostics and feel-lab data.
@@ -60,19 +64,6 @@ impl From<&CameraSnapshot2d> for CameraViewState {
             active_camera_zones: snapshot.active_camera_zones,
             active_camera_zone: snapshot.active_camera_zone.clone(),
         }
-    }
-}
-
-/// Publish the physical window size into the sim's [`CameraViewport`]
-/// observer fact. Runs before the sim's `PresentationSync` resolve so the
-/// snapshot uses THIS frame's viewport. Headless apps never run this — the
-/// resolver keeps the design-window default.
-pub fn publish_camera_viewport(
-    windows: Query<&Window, With<PrimaryWindow>>,
-    mut viewport: ResMut<CameraViewport>,
-) {
-    if let Ok(w) = windows.single() {
-        viewport.px = ae::Vec2::new(w.width().max(1.0), w.height().max(1.0));
     }
 }
 

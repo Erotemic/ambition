@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 
 use ambition::engine_core as ae;
+use ambition::presentation::profiles;
 use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
@@ -56,6 +57,9 @@ impl Plugin for SanicExperiencePlugin {
             "Prepare Sanic",
             sanic_authored_catalogs(),
         )
+        // Speed is the whole game: soft velocity-aware framing on every
+        // platform, so the camera leads the runner instead of trailing it.
+        .with_presentation_profiles(profiles::high_speed_full_bleed())
         .install(app, sanic_prepared_session_world);
         app.add_plugins(SanicRulesPlugin::hosted());
     }

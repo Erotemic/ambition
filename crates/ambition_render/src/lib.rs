@@ -17,6 +17,7 @@ pub mod cutscene;
 /// seam plus a plain opt-in default renderer over `ambition_sim_view::DialogView`.
 pub mod dialog_ui;
 pub mod fx;
+pub mod gameplay_surround;
 /// The in-world HUD overlay: health/mana bars, ability pips, banner text.
 pub mod hud;
 /// The presentation face a demo can add (oracle-violation OV1). See its module docs.

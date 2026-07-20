@@ -427,10 +427,16 @@ Design of record:
 promotion questions are resolved against source in its "Resolved questions"
 section, and its "Implementation status" section records what landed, the three
 things the implementation learned, and the four items deliberately left out).
-GP1–GP5 are all ✅; what remains is listed there as scoped follow-ups, not as
-unfinished cards: the platform safe-area bridge (nothing exposes insets yet),
-overlap fallback steps 2–4 (need a device to tune against), a participant-facing
-layout preference (gated on product testing), and authored surround art.
+GP1–GP5 are all ✅, plus a review-driven correction pass (`8a545077b`,
+`77c788c2a`, `ce283d6bf`, `54892bb26`) that repaired the schedule handoff for
+fixed-tick and GGRS hosts, made reserved surrounds real control placement
+regions with an explicit fallback ladder, derived screen occlusion from
+computed UI layout, and completed the canonical occlusion ordering key. What
+remains is listed in the design doc as scoped follow-ups, not as unfinished
+cards: the platform safe-area bridge (nothing exposes insets yet), overlap
+fallback steps 2–4 (need a device to tune against), a participant-facing layout
+preference (gated on product testing), authored surround art, and a
+non-compactible movement stick (its art is owned by `virtual_joystick`).
 
 Landscape phones are much wider than the gameplay composition, so virtual
 controls cover the controlled actor. One subsystem, four independent policy

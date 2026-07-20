@@ -436,6 +436,41 @@ Three things the implementation learned that this design did not anticipate:
    occupancy on it published nothing at all while every test still passed.
    `InheritedVisibility` alone is the correct signal.
 
+### Correction pass (2026-07-20, review of `3d0057ba6`)
+
+Four defects found by review, all landed:
+
+1. **The presentation → camera handoff was inert outside render-frame mode.**
+   `resolve_camera_observation` was registered into `app.sim_schedule()` while
+   the presentation cluster ran in `Update`; Bevy ordering is schedule-local,
+   so the edges between them constrained nothing under fixed-tick or GGRS. The
+   resolve is a visible-host observer (physical viewport in, render-clock
+   easing, only `camera_follow` consumes it — verified, no sim reader), so it
+   now lives in `Update` behind `CameraObservationSet` for every host. That
+   also stopped the camera easing 0-or-2× per frame on `FixedUpdate` and
+   re-integrating on every GGRS rollback step.
+2. **Reserved surrounds were decorative.** Touch controls still anchored to the
+   window, so at 1920×1200 both clusters covered the gameplay viewport while
+   the profile claimed to have reserved space. `ControlFootprints` (published)
+   → `ResolvedControlRegions` (resolved) → the touch presenter (consuming) is
+   now one chain, with an explicit five-rung ladder — `ReservedSurround`,
+   `CompactSurround`, `HybridSurround`, `Overlay`, `NoControls` — published for
+   diagnostics. The movement stick is deliberately non-compactible because its
+   art belongs to `virtual_joystick`.
+3. **`ScreenOccluder` duplicated UI geometry.** It carried its own anchor,
+   offset and size, so occupancy drifted the moment a control moved or
+   compacted. It now derives from `ComputedNode` + `UiGlobalTransform` by
+   default; `Explicit`/`Anchored` remain for non-UI producers.
+4. **Occlusion ordering was not actually canonical.** The sort keyed on
+   purpose + `min` only, so rectangles sharing a corner tied and stable-sorted
+   back into ECS order. The key now includes `max`. The pre-existing
+   order-independence test passed with the bug present; an exhaustive 120-permutation
+   test with coincident-minima rectangles does not.
+
+`exclusion.rs` was deleted in the process — its anchored `TouchExclusionZone`
+was a second, window-relative description of control geometry with no reader
+left once the drag-scroll path asked the resolved placement directly.
+
 Deliberately NOT implemented, and not hidden behind a TODO:
 
 - **Platform safe-area insets.** `DisplaySafeAreaInsets` exists, is a pure

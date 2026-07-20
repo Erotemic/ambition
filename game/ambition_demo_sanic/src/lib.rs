@@ -763,7 +763,7 @@ fn sanic_setup(
         ambition::runtime::demo_fixture::LdtkRuntimeIndex,
     >,
     editable_abilities: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableAbilitySet>,
-    editable_tuning: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableMovementTuning>,
+    tuning: bevy::prelude::Res<ambition::runtime::demo_fixture::ActiveMovementTuning>,
     starting_character: ambition::platformer::lifecycle::SessionWorldRef<
         ambition::runtime::demo_fixture::StartingCharacter,
     >,
@@ -788,7 +788,7 @@ fn sanic_setup(
             room_set: &room_set,
             ldtk_index: &ldtk_index,
             editable_abilities: &editable_abilities,
-            editable_tuning: &editable_tuning,
+            tuning: &tuning,
             starting_character: &starting_character,
             character_catalog: &character_catalog,
             character_roster: &character_roster,

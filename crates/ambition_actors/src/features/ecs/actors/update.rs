@@ -820,7 +820,7 @@ pub fn integrate_sim_bodies(
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
     steering: Res<ActorSteering>,
-    editable_tuning: Res<ambition_dev_tools::dev_tools::EditableMovementTuning>,
+    active_tuning: Res<ambition_engine_core::ActiveMovementTuning>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut sfx: ambition_sfx::SfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
@@ -945,7 +945,7 @@ pub fn integrate_sim_bodies(
     // PRESENTATION phases, which read the `PlayerBodyFrameOutput` this writes.
     // The shared F3 dev tuning is the fallback; a body that authors its own feel
     // (below) overrides it per-body. Built once, cheaply copied.
-    let editable_player_tuning = editable_tuning.as_engine();
+    let editable_player_tuning = active_tuning.0;
     let _ = &user_settings;
     let player_feel = *feel_tuning;
     let frame_dt = world_time.raw_dt;

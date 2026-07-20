@@ -203,6 +203,7 @@ fn min_app() -> App {
         crate::rooms::RoomSet::from_parts("test", vec![room_spec], Vec::new()),
     );
     app.insert_resource(EditableMovementTuning::default());
+    app.init_resource::<ambition_engine_core::ActiveMovementTuning>();
     // The processor now emits `RespawnRoomVisualsRequested` instead of spawning
     // visuals inline (the render layer consumes it); register the message so the
     // headless test app can run the system. Restaging the start room also

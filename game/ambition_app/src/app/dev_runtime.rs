@@ -7,7 +7,7 @@ use ambition::actors::ldtk_world;
 use ambition::actors::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition::actors::rooms;
 use ambition::actors::world::physics;
-use ambition::dev_tools::dev_tools::{DeveloperTools, EditableMovementTuning};
+use ambition::dev_tools::dev_tools::DeveloperTools;
 use ambition::dev_tools::SandboxDevState;
 use ambition::engine_core as ae;
 use ambition::engine_core::RoomGeometry;
@@ -110,7 +110,7 @@ pub(super) fn handle_ldtk_hot_reload(
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
     // Bundled to keep this system within Bevy's 16 top-level SystemParam limit.
     tuning: (
-        Res<EditableMovementTuning>,
+        Res<ambition::engine_core::ActiveMovementTuning>,
         Res<physics::PhysicsSandboxSettings>,
     ),
     mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
@@ -225,7 +225,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut dialogue,
             &mut combat,
             &mut ldtk_index,
-            tuning.0.as_engine(),
+            tuning.0 .0,
             *tuning.1,
             &mut platform_set.0,
             &room_visuals,

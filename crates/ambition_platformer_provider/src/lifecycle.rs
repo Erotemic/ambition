@@ -975,7 +975,7 @@ fn activate_prepared_platformer_sessions(
 pub struct PlatformerSessionBuilder<'w, 's> {
     commands: Commands<'w, 's>,
     editable_abilities: Res<'w, ambition_dev_tools::dev_tools::EditableAbilitySet>,
-    editable_tuning: Res<'w, ambition_dev_tools::dev_tools::EditableMovementTuning>,
+    tuning: Res<'w, ambition_engine_core::ActiveMovementTuning>,
     asset_server: Res<'w, AssetServer>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<'w, ambition_actors::features::CharacterRoster>,
@@ -1019,7 +1019,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 room_set: &live_world.room_set,
                 ldtk_index: &live_world.runtime_rooms,
                 editable_abilities: &self.editable_abilities,
-                editable_tuning: &self.editable_tuning,
+                tuning: &self.tuning,
                 starting_character: &live_world.starting_character,
                 character_catalog: &self.character_catalog,
                 character_roster: &self.character_roster,

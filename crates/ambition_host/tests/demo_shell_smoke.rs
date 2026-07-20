@@ -106,7 +106,7 @@ fn fixture_setup(
         ambition_runtime::demo_fixture::LdtkRuntimeIndex,
     >,
     editable_abilities: Res<ambition_runtime::demo_fixture::EditableAbilitySet>,
-    editable_tuning: Res<ambition_runtime::demo_fixture::EditableMovementTuning>,
+    tuning: Res<ambition_runtime::demo_fixture::ActiveMovementTuning>,
     starting_character: ambition_platformer_primitives::lifecycle::SessionWorldRef<
         ambition_runtime::demo_fixture::StartingCharacter,
     >,
@@ -125,7 +125,7 @@ fn fixture_setup(
             room_set: &room_set,
             ldtk_index: &ldtk_index,
             editable_abilities: &editable_abilities,
-            editable_tuning: &editable_tuning,
+            tuning: &tuning,
             starting_character: &starting_character,
             character_catalog: &character_catalog,
             character_roster: &character_roster,

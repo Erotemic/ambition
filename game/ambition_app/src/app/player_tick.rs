@@ -21,7 +21,6 @@ use bevy::prelude::*;
 use ambition::actors::avatar::PlayerBodyFrameOutput;
 use ambition::actors::time::feel::SandboxFeelTuning;
 use ambition::combat::{ResetRoomFeaturesEvent, RoomResetReason};
-use ambition::dev_tools::dev_tools::EditableMovementTuning;
 use ambition::engine_core as ae;
 use ambition::engine_core::RoomGeometry;
 
@@ -38,7 +37,7 @@ use super::world_flow::{reset_sandbox, RoomClock};
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_home_reset_policy(
     world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    editable_tuning: Res<EditableMovementTuning>,
+    active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut event_writers: SandboxEventWriters,
     mut room_clock: RoomClock,
@@ -78,7 +77,7 @@ pub(crate) fn apply_home_reset_policy(
         return;
     }
     let mut clusters = cluster_item.as_clusters_mut();
-    let tuning = editable_tuning.as_engine();
+    let tuning = active_tuning.0;
     reset_sandbox(
         &world.0,
         &mut event_writers.sfx,

@@ -524,3 +524,91 @@ pub fn sync_player_stats_with_inspector(
         offense.invincible = stats.invincible;
     }
 }
+
+/// The editor adapter: push the inspector's live movement edits into the
+/// simulation's neutral authority.
+///
+/// This is the ONLY direction tuning flows in a developer build.
+/// [`EditableMovementTuning`] is a reflected mirror that exists so
+/// bevy-inspector-egui can edit tuning without `MovementTuning` deriving
+/// `Reflect` on a hot path; it is not, and must not become, what the simulation
+/// reads. Sim systems read `ae::ActiveMovementTuning`, so a build without
+/// developer tools simply never installs this system and keeps whatever content
+/// authored.
+///
+/// Change-guarded, so an untouched inspector never trips Bevy change detection
+/// on a resource the whole simulation reads.
+///
+/// `is_added` is excluded deliberately: Bevy counts INSERTION as a change, and
+/// the mirror is installed with its own defaults before content finishes
+/// seeding. Propagating that first "change" would let the inspector's defaults
+/// overwrite authored tuning on frame one — which is the exact ownership
+/// inversion this slice exists to remove.
+pub fn apply_editable_movement_tuning(
+    editable: Res<EditableMovementTuning>,
+    mut active: ResMut<ae::ActiveMovementTuning>,
+) {
+    if !editable.is_changed() || editable.is_added() {
+        return;
+    }
+    active.0 = editable.as_engine();
+}
+
+#[cfg(test)]
+mod adapter_tests {
+    use super::*;
+
+    fn app_with_adapter() -> App {
+        let mut app = App::new();
+        app.init_resource::<EditableMovementTuning>();
+        app.init_resource::<ae::ActiveMovementTuning>();
+        app.add_systems(Update, apply_editable_movement_tuning);
+        app
+    }
+
+    /// Live editing still works: the F3 panel's edit reaches the value the
+    /// simulation actually reads. Without this the K1a decoupling would be a
+    /// silent regression of the dev workflow rather than an ownership fix.
+    #[test]
+    fn an_inspector_edit_reaches_the_simulation_authority() {
+        let mut app = app_with_adapter();
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<EditableMovementTuning>()
+            .jump_speed = -777.0;
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<ae::ActiveMovementTuning>()
+                .jump_speed,
+            -777.0,
+            "the editor writes through to the authority the sim reads"
+        );
+    }
+
+    /// The authority is content's until an edit happens: an untouched inspector
+    /// must not stamp its own defaults over what the game authored.
+    #[test]
+    fn an_untouched_inspector_does_not_overwrite_authored_tuning() {
+        let mut app = app_with_adapter();
+        let authored = ae::MovementTuning {
+            jump_speed: -123.0,
+            ..Default::default()
+        };
+        app.insert_resource(ae::ActiveMovementTuning(authored));
+        // Several frames: change detection must stay quiet the whole time.
+        for _ in 0..3 {
+            app.update();
+        }
+
+        assert_eq!(
+            app.world()
+                .resource::<ae::ActiveMovementTuning>()
+                .jump_speed,
+            -123.0,
+            "authored content survives an inspector nobody touched"
+        );
+    }
+}

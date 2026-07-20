@@ -32,7 +32,6 @@ use crate::{
 use ambition_characters::actor::BodyCombat;
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::equipment::WornEquipment;
-use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use ambition_engine_core::RoomGeometry;
 use ambition_sfx::{SfxMessage, SfxWriter};
 
@@ -665,7 +664,7 @@ pub fn apply_player_hit_events(
         Res<MovingPlatformSet>,
         Option<ResMut<ambition_platformer_primitives::class_b::ClassBRemapLog>>,
     ),
-    editable_tuning: Res<EditableMovementTuning>,
+    active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     feature_ecs_overlay: Res<crate::world::overlay::FeatureEcsWorldOverlay>,
@@ -745,7 +744,7 @@ pub fn apply_player_hit_events(
         .collect();
 
     let difficulty_multiplier = incoming_player_damage_multiplier(&user_settings.gameplay);
-    let tuning = editable_tuning.as_engine();
+    let tuning = active_tuning.0;
     let feel = *feel_tuning;
     let safe_world = ambition_world::collision::world_with_sandbox_solids(
         &world.0,

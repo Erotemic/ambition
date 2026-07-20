@@ -39,7 +39,14 @@ impl Plugin for DevToolsSimPlugin {
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
-            crate::sync_live_player_dev_edits_system.in_set(DevEditApplySet),
+            (
+                // Editor → neutral authority, before the body-side edit apply
+                // reads it. Sim systems never see the inspector mirror.
+                crate::dev_tools::apply_editable_movement_tuning,
+                crate::sync_live_player_dev_edits_system,
+            )
+                .chain()
+                .in_set(DevEditApplySet),
         );
         app.add_systems(
             sim,

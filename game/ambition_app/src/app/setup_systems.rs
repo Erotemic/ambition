@@ -10,7 +10,7 @@ use ambition::actors::ldtk_world;
 use ambition::actors::rooms;
 use ambition::actors::session::{data, setup};
 use ambition::actors::world::physics;
-use ambition::dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
+use ambition::dev_tools::dev_tools::EditableAbilitySet;
 use ambition::engine_core::RoomGeometry;
 use ambition::persistence::settings::TextureResolutionScale;
 use ambition::render::ui_fonts;
@@ -41,7 +41,7 @@ pub(super) fn setup_simulation_system(
     sandbox_asset_collection: Option<Res<loading::SandboxAssetCollection>>,
     asset_server: Res<AssetServer>,
     ldtk_index: ambition::platformer::lifecycle::SessionWorldRef<ldtk_world::LdtkRuntimeIndex>,
-    editable_tuning: Res<EditableMovementTuning>,
+    active_tuning: Res<ambition::engine_core::ActiveMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
     starting_character: ambition::platformer::lifecycle::SessionWorldRef<
         ambition::actors::avatar::StartingCharacter,
@@ -61,7 +61,7 @@ pub(super) fn setup_simulation_system(
             room_set: &room_set,
             ldtk_index: &ldtk_index,
             editable_abilities: &editable_abilities,
-            editable_tuning: &editable_tuning,
+            tuning: &active_tuning,
             starting_character: &starting_character,
             character_catalog: &character_catalog,
             character_roster: &character_roster,

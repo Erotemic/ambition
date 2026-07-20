@@ -27,7 +27,6 @@ use ambition::actors::time::feel::SandboxFeelTuning;
 use ambition::actors::time::time_control::ClockResetRequest;
 use ambition::actors::SandboxSimState;
 use ambition::combat::{ResetRoomFeaturesEvent, RoomResetReason};
-use ambition::dev_tools::dev_tools::EditableMovementTuning;
 use ambition::engine_core::RoomGeometry;
 use ambition::input::ControlFrame;
 use ambition::sfx::SfxWriter;
@@ -52,7 +51,7 @@ use ambition::vfx::VfxMessage;
 pub fn apply_player_reset_input_system(
     mut control_frame: ResMut<ControlFrame>,
     world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    editable_tuning: Res<EditableMovementTuning>,
+    active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
@@ -110,7 +109,7 @@ pub fn apply_player_reset_input_system(
         &mut combat,
         slot_gestures.primary_mut(),
         &mut blink_cam,
-        editable_tuning.as_engine(),
+        active_tuning.0,
         *feel_tuning,
     );
     reset_room_features.write(ResetRoomFeaturesEvent {
@@ -133,7 +132,7 @@ pub fn apply_player_reset_input_system(
 pub fn apply_room_replay_request_system(
     mut replay_requests: MessageReader<ambition::actors::session::reset::RoomReplayRequested>,
     world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    editable_tuning: Res<EditableMovementTuning>,
+    active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
@@ -189,7 +188,7 @@ pub fn apply_room_replay_request_system(
         &mut combat,
         slot_gestures.primary_mut(),
         &mut blink_cam,
-        editable_tuning.as_engine(),
+        active_tuning.0,
         *feel_tuning,
     );
     reset_room_features.write(ResetRoomFeaturesEvent {

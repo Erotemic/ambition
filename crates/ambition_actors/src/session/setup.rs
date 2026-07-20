@@ -22,7 +22,7 @@ use crate::ldtk_world::LdtkRuntimeIndex;
 use crate::platformer_runtime::lifecycle::PlayerVisual;
 use crate::rooms::RoomSet;
 use crate::session::data::SandboxDataAsset;
-use ambition_dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
+use ambition_dev_tools::dev_tools::EditableAbilitySet;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_engine_core::RoomGeometry;
 use ambition_platformer_primitives::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
@@ -38,7 +38,7 @@ pub struct SimulationSetup<'a> {
     pub room_set: &'a RoomSet,
     pub ldtk_index: &'a LdtkRuntimeIndex,
     pub editable_abilities: &'a EditableAbilitySet,
-    pub editable_tuning: &'a EditableMovementTuning,
+    pub tuning: &'a ae::ActiveMovementTuning,
     /// Which catalog character the local player spawns as. `is_default()` (the
     /// `player` protagonist) takes the untouched `from_scratch` path.
     pub starting_character: &'a crate::avatar::StartingCharacter,
@@ -90,7 +90,7 @@ pub fn simulation_world(
         room_set,
         ldtk_index,
         editable_abilities,
-        editable_tuning,
+        tuning,
         starting_character,
         character_catalog,
         character_roster,
@@ -153,7 +153,7 @@ pub fn simulation_world(
         &initial_scratch.abilities,
         &mut initial_scratch.dash,
         &mut initial_scratch.jump,
-        editable_tuning.as_engine().air_jumps,
+        tuning.air_jumps,
     );
 
     // The player is a control box that WEARS a character. The protagonist takes

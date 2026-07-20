@@ -64,6 +64,12 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_actors::trace::GameplayTraceBuffer>()
             .init_resource::<ambition_world::collision::MovingPlatformSet>()
             .init_resource::<ambition_actors::SandboxSimState>()
+            // The session's movement-tuning authority. Engine-owned with a
+            // neutral default so EVERY sim composition has one; content seeds
+            // the authored values over it, and a developer build's inspector
+            // edits reach it through `apply_editable_movement_tuning`. The
+            // simulation never reads the dev-tools mirror.
+            .init_resource::<ambition_engine_core::ActiveMovementTuning>()
             // Content-free default. Provider plugins replace/assemble this at
             // App build time; `init_resource` never clobbers their resource.
             .init_resource::<ambition_actors::features::CharacterRoster>()

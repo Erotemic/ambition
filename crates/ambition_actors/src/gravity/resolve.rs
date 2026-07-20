@@ -30,7 +30,7 @@ use crate::features::ActorSurfaceState;
 ///   case.
 pub fn resolve_body_motion_frames(
     env: FrameEnv,
-    editable_tuning: Res<ambition_dev_tools::dev_tools::EditableMovementTuning>,
+    tuning: Res<ambition_engine_core::ActiveMovementTuning>,
     mut players: Query<
         (&crate::actor::BodyKinematics, &mut ResolvedMotionFrame),
         With<crate::actor::PlayerEntity>,
@@ -45,7 +45,7 @@ pub fn resolve_body_motion_frames(
         Without<crate::actor::PlayerEntity>,
     >,
 ) {
-    let player_response = editable_tuning.as_engine().gravity;
+    let player_response = tuning.gravity;
     for (kin, mut resolved) in &mut players {
         resolved.publish(env.resolve(kin.aabb(), player_response));
     }
@@ -76,7 +76,7 @@ mod tests {
         app.init_resource::<BaseGravity>();
         app.init_resource::<GravityZones>();
         app.init_resource::<ForceZones>();
-        app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition_engine_core::ActiveMovementTuning>();
         app.add_systems(
             Update,
             (
@@ -221,7 +221,7 @@ mod tests {
         app.insert_resource(ambition_platformer_primitives::time::SimDt { dt: 0.016 });
         app.add_message::<crate::features::ResetRoomFeaturesEvent>();
         app.add_plugins(crate::gravity::GravityPlugin);
-        app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition_engine_core::ActiveMovementTuning>();
         app.init_resource::<ProbeSawZoneFrame>();
         app.add_systems(Update, player_input_probe.in_set(SandboxSet::PlayerInput));
 

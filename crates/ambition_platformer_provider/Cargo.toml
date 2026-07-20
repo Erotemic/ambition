@@ -13,6 +13,10 @@ audio = ["ambition_audio/kira"]
 
 [dependencies]
 ambition_actors = { path = "../ambition_actors", default-features = false }
+# Promoted from dev-dependencies 2026-07-19 (K1a): the session builder reads the
+# neutral `ActiveMovementTuning` authority instead of the dev-tools inspector
+# mirror. No new edge in the graph -- actors already pulls engine_core in.
+ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_audio = { path = "../ambition_audio", default-features = false }
 ambition_characters = { path = "../ambition_characters" }
 ambition_dev_tools = { path = "../ambition_dev_tools" }
@@ -27,5 +31,4 @@ bevy = { version = "0.18.1", default-features = false, features = ["bevy_asset"]
 ron = { workspace = true }
 
 [dev-dependencies]
-ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_sfx = { path = "../ambition_sfx" }

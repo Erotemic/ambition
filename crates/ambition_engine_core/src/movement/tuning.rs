@@ -213,6 +213,36 @@ impl LedgeMomentumTuning {
 /// magnitude below feeds the environment's per-body frame resolver, never a
 /// policy. Current gravity direction, reference orientation, and input-frame
 /// preference deliberately have no fields here.
+/// The session's ACTIVE movement tuning: the one authority every simulation
+/// system reads.
+///
+/// Neutral by construction. Content hydrates it from authored data; a developer
+/// build lets the F3 inspector edit it through
+/// `ambition_dev_tools`'s adapter. The simulation does not know which of those
+/// happened, which is the point — before this existed, sim systems read the
+/// inspector's mirror directly, so a shipping build still depended on the
+/// editor.
+///
+/// A body may still override the session default by carrying its own
+/// [`super::super::AuthoredMovementTuning`]; this is the fallback every body
+/// shares.
+#[derive(bevy_ecs::resource::Resource, Clone, Copy, Debug, Default)]
+pub struct ActiveMovementTuning(pub MovementTuning);
+
+impl core::ops::Deref for ActiveMovementTuning {
+    type Target = MovementTuning;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<MovementTuning> for ActiveMovementTuning {
+    fn from(tuning: MovementTuning) -> Self {
+        Self(tuning)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct MovementTuning {
     /// Authored gravity RESPONSE magnitude (px/s²) — an input the environment's

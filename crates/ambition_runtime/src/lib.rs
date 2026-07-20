@@ -112,7 +112,11 @@ pub mod demo_fixture {
     pub use ambition_actors::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};
     pub use ambition_actors::session::setup::{simulation_world, SimulationSetup};
     pub use ambition_actors::world::placements::PlacementLoweringRegistry;
-    pub use ambition_dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
+    pub use ambition_dev_tools::dev_tools::EditableAbilitySet;
+    // The neutral movement-tuning authority a demo's simulation reads. The
+    // dev-tools mirror is deliberately NOT re-exported here any more: a demo is
+    // a shipping-shaped consumer and must not read the inspector's state.
+    pub use ambition_engine_core::ActiveMovementTuning;
     pub use ambition_platformer_primitives::schedule::SimulationSetupSet;
 }
 

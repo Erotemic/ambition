@@ -116,7 +116,7 @@ pub fn process_sandbox_reset_request(
     mut world: ambition_platformer_primitives::lifecycle::SessionWorldMut<
         ambition_engine_core::RoomGeometry,
     >,
-    tuning: Res<ambition_dev_tools::dev_tools::EditableMovementTuning>,
+    tuning: Res<ambition_engine_core::ActiveMovementTuning>,
     mut respawn_visuals: MessageWriter<crate::session::RespawnRoomVisualsRequested>,
     mut commands: SessionCommands<'_, '_>,
     mut banner: ResMut<crate::features::GameplayBanner>,
@@ -231,13 +231,13 @@ pub fn process_sandbox_reset_request(
         );
         // reset_body_clusters uses DEFAULT_TUNING for the post-reset
         // dash/jump refresh; redo with the live tuning so a F3
-        // editable-tuning session sees its overridden air_jumps /
+        // live-tuning session sees its overridden air_jumps /
         // dash_charge_count immediately after a reset.
         ae::refresh_movement_resources_clusters(
             clusters.abilities,
             clusters.dash,
             clusters.jump,
-            tuning.as_engine().air_jumps,
+            tuning.air_jumps,
         );
         clusters.mana.meter.refill_full();
         anim.reset();

@@ -79,9 +79,9 @@ pub use ledge_grab::{
 pub use movement::{
     blink_destination_clusters, blink_destination_to_point_clusters, default_player_body_size,
     integrate_normal_spine, knock_off_ledge, resolve_shield, step_motion, switch_motion_model,
-    ActionEdges, ActionKey, AdhesiveCrawlerMotion, AxisLocomotion, AxisManeuverState,
-    AxisSweptMotion, AxisSweptParams, BlinkEvent, BodyMotionFacts, ComboMark, CrawlAttachment,
-    CrawlerParams, CrawlerState, DepthOcclusions, Edge, FlightTuning, FrameEvents,
+    ActionEdges, ActionKey, ActiveMovementTuning, AdhesiveCrawlerMotion, AxisLocomotion,
+    AxisManeuverState, AxisSweptMotion, AxisSweptParams, BlinkEvent, BodyMotionFacts, ComboMark,
+    CrawlAttachment, CrawlerParams, CrawlerState, DepthOcclusions, Edge, FlightTuning, FrameEvents,
     GroundContactTransition, InputState, LedgeFacts, LedgeMomentumTuning, MomentumParams,
     MotionModel, MotionModelKind, MotionModelSpec, MotionStepContext, MotionStepResult,
     MovementAction, MovementOp, MovementTuning, NormalSpineCtx, OcclusionSpan, RouteDeparture,

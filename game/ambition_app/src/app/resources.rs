@@ -157,6 +157,8 @@ pub fn init_sandbox_resources(app: &mut App) {
     }
     let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
+    // The simulation's authority, seeded from the same authored value.
+    let active_tuning = ambition::engine_core::ActiveMovementTuning(sandbox_data.tuning);
     let mut room_set = match ldtk_project.to_room_set() {
         Ok(room_set) => room_set,
         Err(errors) => {
@@ -257,6 +259,11 @@ pub fn init_sandbox_resources(app: &mut App) {
         // must exist before the first Update tick.
         .insert_resource(ambition::items::OwnedItems::starter())
         .insert_resource(editable_abilities)
+        // The neutral authority the SIMULATION reads, seeded from authored
+        // content. `editable_tuning` beside it is the inspector's reflected
+        // mirror; in a developer build `apply_editable_movement_tuning` pushes
+        // its edits into this one. Nothing in the sim reads the mirror.
+        .insert_resource(active_tuning)
         .insert_resource(editable_tuning)
         // Sim/presentation seam for input (ADR 0012): the sim reads
         // `Res<ControlFrame>`. Visible builds populate it from leafwing in

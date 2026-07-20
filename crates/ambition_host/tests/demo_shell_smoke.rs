@@ -318,3 +318,134 @@ fn changing_the_sim_schedule_after_a_sim_plugin_panics() {
     app.add_plugins(ambition_runtime::PlatformerEnginePlugins::default());
     app.set_sim_schedule(FixedUpdate);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Gameplay presentation profiles — the chain, through the REAL composition.
+//
+// The per-crate tests each prove one link with the neighbouring links faked.
+// This proves the links are actually CONNECTED in the assembled host: the
+// declared profile reaches the sim's camera observation input, the physical
+// camera viewport, and the painted surround, in one frame, under the real
+// system ordering. A missing `.before()` is invisible to every unit test and
+// shows up here.
+// ─────────────────────────────────────────────────────────────────────────────
+
+use ambition_platformer_primitives::camera_layers::{FrontHudCamera, MainCamera};
+use ambition_platformer_primitives::gameplay_presentation::{
+    profiles, ActiveGameplayPresentationProfiles, PresentationEnvironment,
+    ResolvedGameplayPresentation,
+};
+use ambition_sim_view::camera_snapshot::CameraViewport;
+use bevy::window::{PrimaryWindow, WindowResolution};
+
+/// A 20:9 phone-shaped display, which pillarboxes a 4:3 gameplay rectangle.
+const DISPLAY: ae::Vec2 = ae::Vec2::new(2400.0, 1080.0);
+
+fn presentation_shell(profiles: ActiveGameplayPresentationProfiles) -> App {
+    let mut app = App::new();
+    ambition_runtime::add_headless_foundation(&mut app);
+    app.add_plugins(ambition_runtime::PlatformerEnginePlugins::default());
+    app.add_plugins(ambition_host::PlatformerHostPlugins);
+    app.add_plugins(FixtureContentPlugin);
+    app.insert_resource(profiles);
+    app.insert_resource(PresentationEnvironment::Desktop);
+
+    let mut resolution = WindowResolution::new(DISPLAY.x as u32, DISPLAY.y as u32);
+    resolution.set_scale_factor(1.0);
+    resolution.set(DISPLAY.x, DISPLAY.y);
+    app.world_mut().spawn((
+        Window {
+            resolution,
+            ..default()
+        },
+        PrimaryWindow,
+    ));
+    // The camera rig a visible host installs.
+    app.world_mut().spawn((Camera::default(), MainCamera));
+    app.world_mut().spawn((Camera::default(), FrontHudCamera));
+
+    app.update();
+    app.update();
+    app
+}
+
+/// A fixed-aspect declaration reaches all three consumers in the assembled
+/// host: the camera observation input, the physical viewport, and the surround.
+#[test]
+fn a_fixed_aspect_profile_reaches_the_camera_and_the_surround() {
+    let mut app = presentation_shell(ActiveGameplayPresentationProfiles(
+        profiles::fixed_four_by_three(),
+    ));
+
+    let gameplay = app
+        .world()
+        .resource::<ResolvedGameplayPresentation>()
+        .gameplay_rect;
+    assert_eq!(
+        gameplay.size(),
+        ae::Vec2::new(1440.0, 1080.0),
+        "4:3 inside a 20:9 display",
+    );
+
+    // 1. The sim's observation input is the gameplay rect, not the window.
+    assert_eq!(app.world().resource::<CameraViewport>().px, gameplay.size());
+
+    // 2. The main camera carries the physical viewport; the HUD camera does not.
+    let main = app
+        .world_mut()
+        .query_filtered::<&Camera, With<MainCamera>>()
+        .single(app.world())
+        .expect("one main camera")
+        .viewport
+        .clone()
+        .expect("the main camera is viewport-clipped");
+    assert_eq!(main.physical_size, gameplay.size().as_uvec2());
+    assert!(
+        app.world_mut()
+            .query_filtered::<&Camera, With<FrontHudCamera>>()
+            .single(app.world())
+            .expect("one hud camera")
+            .viewport
+            .is_none(),
+        "the HUD camera must stay full-screen, or menus letterbox too",
+    );
+
+    // 3. Something paints the pillarboxes. Nothing else clears them.
+    let painted: f32 = app
+        .world_mut()
+        .query::<&Node>()
+        .iter(app.world())
+        .filter_map(|node| match (node.width, node.height) {
+            (Val::Px(w), Val::Px(h)) if w > 0.5 && h > 0.5 => Some(w * h),
+            _ => None,
+        })
+        .sum();
+    let unpainted = DISPLAY.x * DISPLAY.y - gameplay.width() * gameplay.height();
+    assert!(
+        (painted - unpainted).abs() < 1.0,
+        "surround painted {painted}px² of {unpainted}px² of uncleared display",
+    );
+}
+
+/// The default declaration — what a provider that says nothing gets — leaves
+/// the assembled host exactly as it was before this subsystem existed.
+#[test]
+fn an_undeclared_profile_leaves_the_host_full_bleed() {
+    let mut app = presentation_shell(ActiveGameplayPresentationProfiles::default());
+
+    assert_eq!(app.world().resource::<CameraViewport>().px, DISPLAY);
+    assert!(
+        app.world_mut()
+            .query_filtered::<&Camera, With<MainCamera>>()
+            .single(app.world())
+            .expect("one main camera")
+            .viewport
+            .is_none(),
+        "full bleed must not set a viewport at all",
+    );
+    assert_eq!(
+        app.world_mut().query::<&Node>().iter(app.world()).count(),
+        0,
+        "full bleed owes the display no surround",
+    );
+}

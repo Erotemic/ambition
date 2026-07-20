@@ -20,8 +20,9 @@ fn app_with(display: ae::Vec2, profile: &GameplayPresentationProfile) -> App {
         profile,
         occlusions: &[],
     }));
-    // First update spawns the bars, second lays them out.
-    app.update();
+    // ONE update. The bars must be laid out at spawn, not on a following
+    // frame: the frame a fixed-aspect game starts is the frame its pillarboxes
+    // appear, and a one-frame gap is a flash of uncleared framebuffer.
     app.update();
     app
 }

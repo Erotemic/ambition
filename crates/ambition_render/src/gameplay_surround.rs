@@ -14,8 +14,9 @@
 
 use bevy::prelude::*;
 
+use ambition_engine_core as ae;
 use ambition_platformer_primitives::gameplay_presentation::{
-    ResolvedGameplayPresentation, SurroundPolicy, SurroundRegion,
+    NamedScreenRect, ResolvedGameplayPresentation, SurroundPolicy, SurroundRegion,
 };
 
 /// Behind every other UI layer: HUD, menus, dialogue and the touch overlay all
@@ -34,7 +35,16 @@ pub struct GameplaySurroundPlugin;
 
 impl Plugin for GameplaySurroundPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, sync_gameplay_surround);
+        // After the layout this paints against is resolved. Unordered, the
+        // surround trails the resolve by a frame on every profile change —
+        // including the very first one, which is the frame a fixed-aspect game
+        // starts and the pillarboxes are at their most visible.
+        app.add_systems(
+            Update,
+            sync_gameplay_surround.after(
+                ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet,
+            ),
+        );
     }
 }
 
@@ -92,45 +102,53 @@ fn sync_gameplay_surround(
                     SurroundRegion::Top,
                     SurroundRegion::Bottom,
                 ] {
+                    // Laid out AT SPAWN, not on the next update: the frame a
+                    // fixed-aspect game starts is the frame the pillarboxes
+                    // appear, and a one-frame flash of uncleared framebuffer
+                    // is exactly the artifact this system exists to prevent.
                     root.spawn((
-                        Node {
-                            position_type: PositionType::Absolute,
-                            ..default()
-                        },
+                        bar_node(&letterbox, region),
                         BackgroundColor(color),
                         Pickable::IGNORE,
                         GameplaySurroundBar(region),
                     ));
                 }
             });
-        // The bars this frame carry default zero-size nodes; the next update
-        // lays them out. One frame of unpainted surround at profile activation
-        // is invisible behind the room transition that caused it.
         return;
     }
 
     for (bar, mut node, mut background) in &mut bars {
-        let rect = letterbox
-            .iter()
-            .find(|named| named.region == bar.0)
-            .map(|named| named.rect);
-        match rect {
-            Some(rect) => {
-                node.left = Val::Px(rect.min.x);
-                node.top = Val::Px(rect.min.y);
-                node.width = Val::Px(rect.width());
-                node.height = Val::Px(rect.height());
-            }
-            None => {
-                // This side has no slack on the current display; collapse it
-                // rather than despawning, so an aspect change re-uses the node.
-                node.width = Val::Px(0.0);
-                node.height = Val::Px(0.0);
-            }
+        let next = bar_node(&letterbox, bar.0);
+        if *node != next {
+            *node = next;
         }
         if background.0 != color {
             background.0 = color;
         }
+    }
+}
+
+/// The absolute node for one surround side.
+///
+/// A side with no slack on the current display collapses to zero rather than
+/// despawning, so an aspect or display change re-uses the node instead of
+/// churning the hierarchy.
+fn bar_node(letterbox: &[NamedScreenRect], region: SurroundRegion) -> Node {
+    let rect = letterbox
+        .iter()
+        .find(|named| named.region == region)
+        .map(|named| named.rect);
+    let (min, size) = match rect {
+        Some(rect) => (rect.min, rect.size()),
+        None => (ae::Vec2::ZERO, ae::Vec2::ZERO),
+    };
+    Node {
+        position_type: PositionType::Absolute,
+        left: Val::Px(min.x),
+        top: Val::Px(min.y),
+        width: Val::Px(size.x),
+        height: Val::Px(size.y),
+        ..default()
     }
 }
 

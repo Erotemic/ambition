@@ -11,6 +11,14 @@
 > Supersedes the touch overlay's affordance relabel path as the design of record.
 >
 > **Executing-model sign-off:** Opus 4.8 (GPT-5.6 follow-up review completion).
+>
+> **2026-07-20 ownership update:** the persistent participant, explicit host
+> contexts, virtual-touch device, and startup/launcher routing supersede this
+> document's older P2 mechanism that derived `ControlContext` from `GameMode`.
+> Use [`participant-input.md`](participant-input.md) for the landed slice and
+> [`participant-action-system.md`](participant-action-system.md) for open host/
+> device/UI migration. This document remains authoritative for sim-side
+> slot→action resolution and P1/P5 binding/remap requirements.
 
 ## The law (target)
 

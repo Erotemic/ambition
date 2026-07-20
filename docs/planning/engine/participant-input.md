@@ -10,6 +10,8 @@
 > [character-actions.md](character-actions.md)): `ControlFrame` stays the POD
 > device-shaped wire format, sim-side action resolution stays deterministic,
 > and `MenuControlFrame` consumers keep their nav-axis semantics.
+> **Open continuation:** [`participant-action-system.md`](participant-action-system.md)
+> owns the competitive external-game endpoint and remaining migration.
 
 ## The universal structure
 

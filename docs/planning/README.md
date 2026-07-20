@@ -26,7 +26,13 @@ plans, and review evidence belong under [`docs/archive/`](../archive/).
   Its immediate room-lifecycle customer is
   [`engine/room-transition-loading.md`](engine/room-transition-loading.md), which
   completes adaptive readiness-gated room transitions without flashing loading
-  UI for fast loads or exposing partial rooms for slow loads.
+  UI for fast loads or exposing partial rooms for slow loads. The external-game
+  input endpoint and its participant/action/context migration live in
+  [`engine/participant-action-system.md`](engine/participant-action-system.md);
+  [`engine/participant-input.md`](engine/participant-input.md) records the landed
+  startup/launcher slice. Cross-cutting ownership, shipping/bootstrap, measured
+  scale, and deferred provider-boundary follow-ups from the July 19–20 review live
+  in [`engine/closeout-review-followups-2026-07-20.md`](engine/closeout-review-followups-2026-07-20.md).
 - `demos/` — acceptance-game specifications.
 - `game/` — Ambition-the-game direction.
 - `maintainer-decisions.md` — direct maintainer rulings; agent consensus is not a substitute.

@@ -70,16 +70,18 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   step signal that fires twice, DirtyAdvance starvation, parallel+RNG core).
   Sand now runs on a bespoke deterministic grid in
   `ambition_content::falling_sand_sim` (UNGATED; proofs run in every content
-  test): one solver step per sim tick, conservation
+  test): one solver step per ordinary sim tick, conservation
   `loose + settled == emitted` asserted every tick, fixed-point settling
   proved, FS3 atomic transfer into a persistent `SettledSandLedger` that owns
   collision (kills the transient flicker), authored-room regression green in
-  2.9s. ⛔ Water/oil are SHELVED (Jon 2026-07-20, hard blocker in
-  falling-sand.md): adapting `bevy_falling_sand` to netcode-level determinism
-  is structurally impossible; the unblock is a rewrite decision (grow the
-  sand grid into fluids, or fork the crate) — no further correctness work on
-  the bfs path until Jon calls it. The vestigial bfs-side sand plumbing dies
-  with that rewrite.
+  2.9s. ⛔ The falling-sand room is **not a netcode acceptance surface**:
+  water/oil are SHELVED on the frame-driven external crate, and the bespoke
+  sand grid/ledger are not rollback snapshots (the authoritative-pass gate
+  stops duplicate stepping; it does not reconstruct historical material
+  state). Per Jon's 2026-07-20 hard blocker in `falling-sand.md`, the unblock
+  is an explicit rewrite/fork decision — no further correctness work on the
+  bfs path until Jon calls it. The vestigial bfs-side sand plumbing dies with
+  that rewrite.
 - ✅ **PARTICIPANT-CENTERED INPUT, startup/launcher vertical slice**
   (GPT 5.6-directed 2026-07-20, fable; live doc =
   `docs/planning/engine/participant-input.md`). Four commits on main:
@@ -104,7 +106,9 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   Reference-frame seam untouched by construction (axes stay raw ScreenAxes
   until `AccelerationFrame::resolve_control`). NOT in slice: rebinding UX
   (P1/P5 stand), dialogue/pause/vehicle contexts, multi-participant frames,
-  loading-context migration (its retry keeps a local raw read).
+  loading-context migration (its retry keeps a local raw read). The complete
+  forward architecture and executable PA1–PA7 migration now live in
+  [`engine/participant-action-system.md`](engine/participant-action-system.md).
 
 **Keystone slices**
 - ✅ **K1a movement tuning** — exit criterion MET. `ae::ActiveMovementTuning`
@@ -194,19 +198,29 @@ and breaks a brick across a forced rollback window stays checksum-identical.
 
 ## 1. Quarantine external effects to confirmed GGRS frames — [opus, fable-specced]
 
-Unchanged goal; the exposure map is now precise (deep-review §3): ~20 sim-side
-SFX emit sites replay-unguarded, all five VFX message families likewise, and
-`autosave_sandbox_save` writes speculative state because GGRS restore trips
-`is_changed()`. **`gameplay_trace` is already quarantined correctly**
-(`.run_if(simulation_pass_is_authoritative)` + `PostUpdate` flush) — copy that
-pattern; do not invent a new mechanism.
+The exposure map is precise (deep-review §3): ~20 sim-side SFX emit sites,
+all five VFX request families, and `autosave_sandbox_save` can observe predicted
+or replayed state. The landed `SfxEmissionGate` and
+`simulation_pass_is_authoritative` answer only **whether this frame number ran
+before**. They suppress duplicate append/playback during historical replay, but
+they are not a confirmed-frame boundary: a predicted effect may escape and the
+corrected effect may then be suppressed.
 
-- classify audio, VFX, save writes, and host I/O per the exposure map;
-- buffer effect intents by GGRS frame; release at the confirmed boundary;
-- discard abandoned predicted intents on rollback (the message-clear list
-  already does this half);
-- gate the autosave/settings writers on confirmed frames, not change detection;
-- prove a forced sync-test rewind emits each accepted effect exactly once.
+Do not copy the trace/audio high-water pattern as the final mechanism.
+`gameplay_trace` needs its own explicit policy: either record only confirmed
+frames, or key rows by GGRS frame and replace predicted rows with corrected
+state. Audio/VFX/persistence need a frame-stamped pending-intent journal that
+releases only through the host-confirmed boundary.
+
+- classify audio, VFX, save writes, trace rows, and host I/O by required policy;
+- buffer external-effect intents by GGRS frame and session/context identity;
+- release accepted intents exactly once through the confirmed boundary;
+- discard abandoned predictions and invalidate pending intents on session
+  replacement;
+- gate autosave/settings persistence on confirmed state, not raw change
+  detection;
+- prove a real predicted-A/corrected-B rewind never emits A and emits B once;
+- separately prove the chosen forensic-trace replacement/confirmation policy.
 
 **Exit:** repeated rollback cannot duplicate an external effect, and a Matchbox
 transport can be attached without changing simulation systems.

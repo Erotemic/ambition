@@ -56,8 +56,16 @@ sand."*
   movement systems, a step signal that fires twice, `DirtyAdvance`
   starvation, parallel+RNG+query-ordered core) are structural, and no amount
   of configuration reaches around them.
-- **What is NOT blocked:** sand. It already left the crate and meets the full
-  contract on the bespoke grid (`falling_sand_sim`, §4).
+- **What is NOT blocked for ordinary fixed-tick/headless play:** sand. It
+  already left the crate and meets the conservation/settling/geometry contract
+  on the bespoke grid (`falling_sand_sim`, §4).
+- **What remains blocked for netcode:** the room as a whole. Water/oil still
+  live on the external frame-driven crate, and the bespoke sand grid/ledger are
+  not rollback snapshots. Gating their advancement to an authoritative pass
+  prevents duplicate stepping but does not reconstruct historical sand state
+  during a rewind. Do not claim falling-sand rollback correctness until the
+  explicitly authorized fork/rewrite supplies one rollback-owned material
+  model.
 - **Standing until unblocked:** water/oil stay on `bevy_falling_sand` in the
   feature-gated presentation module exactly as they are — known defects and
   all — and take **no further correctness work** on that path. Fixing them
@@ -221,11 +229,12 @@ What landed, against §1's contract:
   within budget → ten further ticks move and transfer nothing → ledger total
   == emitted). The transfer condition — all three lower neighbors static —
   can only ever fossilize a grain the CA rules could never move again.
-- **One solver step per sim tick:** `step_sand_grid` runs in the sim schedule,
-  emission/stepping gated `simulation_pass_is_authoritative` (a replayed
-  rollback frame must not double-advance un-registered state), while the
-  ledger→overlay projection runs on EVERY pass so replayed player physics
-  stands on the same ground.
+- **One solver step per ordinary sim tick:** `step_sand_grid` runs in the sim
+  schedule. Emission/stepping are gated by
+  `simulation_pass_is_authoritative`, which prevents duplicate advancement on
+  a replay pass. This is explicitly **not** a rollback snapshot: historical
+  frames still see the present unsnapshotted grid/ledger, so the room remains
+  outside netcode acceptance under the hard blocker above.
 - **Sand→geometry compilation:** the ledger contributes bottom-aligned,
   fill-proportional one-way blocks (`falling_sand:settled:<tx>:<ty>`) through
   the overlay each frame — the LEDGER is the persistence, the overlay stays a

@@ -25,6 +25,7 @@ use super::layout::{
 use super::menu_bridge::fold_touch_gestures;
 use super::state::TouchInputState;
 use ambition_input::{ControlFrame, KeyboardPreset, SandboxAction};
+use ambition_platformer_primitives::gameplay_presentation::ScreenOccluder;
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_sim_view::{ControlContextKind, ControlPrompt, ControlSlot};
 use ambition_ui_nav::DragScrollState;
@@ -115,6 +116,10 @@ impl Default for TouchControlsVisible {
 /// on all of them in one query.
 #[derive(Component)]
 pub struct MobileTouchUiRoot;
+
+/// Breathing room so the controlled subject is never framed flush against a
+/// control.
+pub(crate) const OCCUPANCY_PAD: f32 = 12.0;
 
 /// Which resolved control rectangle a root `Node` follows.
 ///
@@ -531,10 +536,12 @@ fn tag_virtual_joystick_root(
             MobileTouchUiRoot,
             GlobalZIndex(TOUCH_HUD_Z),
             TouchSurface::Movement,
-            // Generic screen occupancy for gameplay framing. Rides the root
-            // that `sync_touch_ui_visibility` hides, so a hidden stick stops
+            // Generic screen occupancy for gameplay framing, read straight off
+            // this node's computed layout — so wherever the resolver places
+            // the stick, that is what it reserves. Rides the root that
+            // `sync_touch_ui_visibility` hides, so a hidden stick stops
             // reserving space without a second visibility rule.
-            super::layout::movement_joystick_occluder(),
+            ScreenOccluder::movement_stick().with_padding(Vec2::splat(OCCUPANCY_PAD)),
         ));
     }
 }
@@ -712,7 +719,7 @@ fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
         Name::new("MobileTouchActionBezel"),
         MobileTouchUiRoot,
         TouchSurface::ActionBezel,
-        super::layout::action_cluster_occluder(),
+        ScreenOccluder::action_controls().with_padding(Vec2::splat(OCCUPANCY_PAD)),
     ));
     cmd.spawn((
         Node {
@@ -769,7 +776,7 @@ fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
         Name::new("MobileTouchMenuRow"),
         MobileTouchUiRoot,
         TouchSurface::MenuRow,
-        super::layout::menu_row_occluder(),
+        ScreenOccluder::system_controls(),
     ))
     .with_children(|parent| {
         for action in [TouchActionButton::Start, TouchActionButton::Reset] {

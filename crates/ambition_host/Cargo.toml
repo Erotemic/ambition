@@ -20,6 +20,11 @@ bevy = { version = "0.18.1", default-features = false, features = [
     "bevy_image",
     "bevy_input_focus",
     "bevy_state",
+    # Screen occupancy is derived from real `bevy_ui` layout (ComputedNode +
+    # UiGlobalTransform) rather than from a second hand-maintained rectangle.
+    # Declared explicitly: relying on a co-built sibling to unify the feature in
+    # is the trap this workspace has already been bitten by.
+    "bevy_ui",
 ] }
 leafwing-input-manager = { version = "0.20", optional = true }
 

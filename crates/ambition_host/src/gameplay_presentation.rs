@@ -15,6 +15,7 @@
 
 use bevy::camera::{RenderTarget, Viewport};
 use bevy::prelude::*;
+use bevy::ui::{ComputedNode, Display, Node, UiGlobalTransform};
 use bevy::window::PrimaryWindow;
 
 use ambition_engine_core as ae;
@@ -126,23 +127,33 @@ fn resolve_presentation_environment() -> PresentationEnvironment {
 
 /// Gather every published [`ScreenOccluder`] into one ordered list.
 ///
-/// Producers tag their own UI entities and publish nothing else. Hidden
-/// entities are skipped, so a control that is not on screen does not reserve
-/// space for itself.
+/// Occupancy for an ordinary `bevy_ui` producer is READ OFF ITS LAYOUT rather
+/// than restated: `ComputedNode` plus `UiGlobalTransform` already account for
+/// percentage sizing, parent constraints, flex reflow, safe-area shifts and
+/// compact fallback layouts, so a control that moves or resizes changes its
+/// occupancy with no second descriptor to keep in sync. `ComputedNode` is in
+/// PHYSICAL pixels; `inverse_scale_factor` converts to the logical space the
+/// rest of the layout uses, so this is DPI-correct without a window read.
 ///
-/// Visibility is judged by `InheritedVisibility` ALONE. `ViewVisibility` is
-/// computed per render view for entities the visibility system actually
-/// culls — `bevy_ui` nodes are not among them, so it stays `false` on every
-/// touch control forever. Consulting it would silently publish no occupancy at
-/// all, and occlusion-aware framing would quietly degrade to plain soft
-/// framing with nothing failing.
+/// An entity that is not actually displayed contributes nothing:
 ///
-/// [`ScreenOccluder`]: ambition_platformer_primitives::gameplay_presentation::ScreenOccluder
+/// - `InheritedVisibility` false (this is the propagated hierarchy answer, so
+///   an invisible PARENT suppresses its children too);
+/// - `Display::None`, which taffy also collapses to a zero-sized node;
+/// - a zero-sized layout, which cannot occlude anything by definition.
+///
+/// `ViewVisibility` is deliberately NOT consulted: it is computed per render
+/// view for entities the visibility system culls, and `bevy_ui` nodes are not
+/// among them, so it stays false on every control forever. Reading it would
+/// publish no occupancy at all while every test still passed.
 pub fn collect_screen_occupancy(
     windows: Query<&Window, With<PrimaryWindow>>,
     occluders: Query<(
         &ambition_platformer_primitives::gameplay_presentation::ScreenOccluder,
         Option<&InheritedVisibility>,
+        Option<&ComputedNode>,
+        Option<&UiGlobalTransform>,
+        Option<&Node>,
     )>,
     mut occupancy: ResMut<ScreenOccupancy>,
 ) {
@@ -155,11 +166,37 @@ pub fn collect_screen_occupancy(
         ae::Vec2::new(window.width().max(1.0), window.height().max(1.0)),
     );
 
-    for (occluder, inherited) in &occluders {
+    for (occluder, inherited, computed, transform, node) in &occluders {
         if !inherited.map(|visible| visible.get()).unwrap_or(true) {
             continue;
         }
-        occupancy.0.push(occluder.resolve(display));
+        if node.is_some_and(|node| node.display == Display::None) {
+            continue;
+        }
+
+        // Geometry the occluder owns itself (non-UI producers) resolves
+        // directly; everything else comes from the computed layout.
+        let occlusion = match occluder.self_resolved(display) {
+            Some(occlusion) => occlusion,
+            None => {
+                let (Some(computed), Some(transform)) = (computed, transform) else {
+                    continue;
+                };
+                let derived = occluder.from_computed_ui(
+                    computed.size(),
+                    transform.translation,
+                    computed.inverse_scale_factor(),
+                );
+                let Some(derived) = derived else {
+                    continue;
+                };
+                derived
+            }
+        };
+        if occlusion.rect.is_empty() {
+            continue;
+        }
+        occupancy.0.push(occlusion);
     }
 }
 

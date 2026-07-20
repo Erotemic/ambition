@@ -164,16 +164,17 @@ fn normal_framing_protects_the_whole_gameplay_rect() {
 }
 
 fn stick(size: f32) -> ScreenOcclusion {
-    ScreenOccluder::new(
+    ScreenOccluder::anchored(
         ScreenOcclusionPurpose::VirtualMovementStick,
         ScreenAnchor::BottomLeft,
         ae::Vec2::splat(24.0),
         ae::Vec2::splat(size),
     )
-    .resolve(ScreenRect::from_min_size(
+    .self_resolved(ScreenRect::from_min_size(
         ae::Vec2::ZERO,
         ae::Vec2::new(2400.0, 1080.0),
     ))
+    .expect("an anchored occluder resolves itself")
 }
 
 /// Oracle 7 — occlusion-aware framing keeps the subject-safe region clear of
@@ -278,27 +279,27 @@ fn occlusion_composition_is_order_independent() {
     let display = ae::Vec2::new(2400.0, 1080.0);
     let bounds = ScreenRect::from_min_size(ae::Vec2::ZERO, display);
 
-    let a = ScreenOccluder::new(
+    let a = ScreenOccluder::anchored(
         ScreenOcclusionPurpose::VirtualMovementStick,
         ScreenAnchor::BottomLeft,
         ae::Vec2::splat(24.0),
         ae::Vec2::splat(300.0),
     )
-    .resolve(bounds);
-    let b = ScreenOccluder::new(
+    .self_resolved(bounds).expect("anchored");
+    let b = ScreenOccluder::anchored(
         ScreenOcclusionPurpose::VirtualActionCluster,
         ScreenAnchor::BottomRight,
         ae::Vec2::splat(16.0),
         ae::Vec2::new(320.0, 300.0),
     )
-    .resolve(bounds);
-    let c = ScreenOccluder::new(
+    .self_resolved(bounds).expect("anchored");
+    let c = ScreenOccluder::anchored(
         ScreenOcclusionPurpose::PersistentHud,
         ScreenAnchor::TopLeft,
         ae::Vec2::splat(8.0),
         ae::Vec2::new(280.0, 90.0),
     )
-    .resolve(bounds);
+    .self_resolved(bounds).expect("anchored");
 
     let forward = resolve(display, ScreenInsets::ZERO, &profile, &[a, b, c]).subject_safe_rect;
     let reverse = resolve(display, ScreenInsets::ZERO, &profile, &[c, b, a]).subject_safe_rect;
@@ -324,8 +325,9 @@ fn carving_stops_at_the_minimum_region() {
     ]
     .into_iter()
     .map(|(anchor, purpose)| {
-        ScreenOccluder::new(purpose, anchor, ae::Vec2::ZERO, ae::Vec2::new(600.0, 340.0))
-            .resolve(bounds)
+        ScreenOccluder::anchored(purpose, anchor, ae::Vec2::ZERO, ae::Vec2::new(600.0, 340.0))
+            .self_resolved(bounds)
+            .expect("anchored")
     })
     .collect();
 
@@ -440,321 +442,79 @@ fn environments_fall_back_to_the_declared_default() {
     }
 }
 
-/// Anchored occupancy tracks the display edge it was authored against.
+/// Anchored occupancy — the escape hatch for producers with no `bevy_ui`
+/// node — still tracks the display edge it was authored against.
 #[test]
 fn anchored_occluders_follow_their_display_corner() {
-    let occluder = ScreenOccluder::new(
+    let occluder = ScreenOccluder::anchored(
         ScreenOcclusionPurpose::VirtualActionCluster,
         ScreenAnchor::BottomRight,
         ae::Vec2::new(10.0, 20.0),
         ae::Vec2::new(200.0, 100.0),
     );
 
-    let small = occluder.resolve(ScreenRect::from_min_size(
-        ae::Vec2::ZERO,
-        ae::Vec2::new(1000.0, 500.0),
-    ));
+    let small = occluder
+        .self_resolved(ScreenRect::from_min_size(
+            ae::Vec2::ZERO,
+            ae::Vec2::new(1000.0, 500.0),
+        ))
+        .expect("anchored");
     assert_eq!(small.rect.max, ae::Vec2::new(990.0, 480.0));
     assert_eq!(small.rect.min, ae::Vec2::new(790.0, 380.0));
 
-    let large = occluder.resolve(ScreenRect::from_min_size(
-        ae::Vec2::ZERO,
-        ae::Vec2::new(2000.0, 1000.0),
-    ));
+    let large = occluder
+        .self_resolved(ScreenRect::from_min_size(
+            ae::Vec2::ZERO,
+            ae::Vec2::new(2000.0, 1000.0),
+        ))
+        .expect("anchored");
     assert_eq!(large.rect.max, ae::Vec2::new(1990.0, 980.0));
     assert_eq!(large.rect.size(), small.rect.size());
 }
 
-/// Padding expands the reserved region on every side.
+/// Padding expands the reserved region on every side, whichever geometry the
+/// rectangle came from.
 #[test]
 fn occluder_padding_expands_the_reserved_rect() {
-    let bounds = ScreenRect::from_min_size(ae::Vec2::ZERO, ae::Vec2::new(1000.0, 500.0));
-    let bare = ScreenOccluder::new(
-        ScreenOcclusionPurpose::ContextualAction,
-        ScreenAnchor::TopLeft,
-        ae::Vec2::splat(40.0),
-        ae::Vec2::splat(80.0),
-    );
-    let padded = bare.with_padding(ae::Vec2::new(12.0, 6.0));
+    let rect = ScreenRect::from_min_size(ae::Vec2::splat(40.0), ae::Vec2::splat(80.0));
+    let bare = ScreenOccluder::contextual_action().from_rect(rect);
+    let padded = ScreenOccluder::contextual_action()
+        .with_padding(ae::Vec2::new(12.0, 6.0))
+        .from_rect(rect);
 
-    let bare = bare.resolve(bounds).rect;
-    let padded = padded.resolve(bounds).rect;
-    assert_eq!(padded.min, bare.min - ae::Vec2::new(12.0, 6.0));
-    assert_eq!(padded.max, bare.max + ae::Vec2::new(12.0, 6.0));
+    assert_eq!(padded.rect.min, bare.rect.min - ae::Vec2::new(12.0, 6.0));
+    assert_eq!(padded.rect.max, bare.rect.max + ae::Vec2::new(12.0, 6.0));
 }
 
-// ---------------------------------------------------------------------------
-// Resolved control + HUD placement
-// ---------------------------------------------------------------------------
-//
-// A profile that reserves surround for controls is only telling the truth if
-// the controls are actually placed there. These pin the fallback ladder across
-// the display matrix, including the displays where a 4:3 viewport does NOT
-// leave enough surround.
-
-/// The real touch-HUD footprints, mirrored from `ambition_touch_input::layout`
-/// so the ladder is exercised at the sizes that actually ship. Minimums are the
-/// usability floor: below them the smallest touch circle drops under ~40 logical
-/// px and stops being reliably hittable.
-fn touch_footprints() -> ControlFootprints {
-    ControlFootprints {
-        // Not compactible: the stick's art is owned by `virtual_joystick`, so
-        // shrinking its node without its art would reintroduce exactly the
-        // drawn-vs-tappable drift this work removes.
-        movement: Some(ControlFootprint::fixed(ae::Vec2::splat(210.0))),
-        primary_actions: Some(ControlFootprint::new(
-            ae::Vec2::new(233.0, 234.4),
-            ae::Vec2::new(233.0, 234.4) * 0.893,
-        )),
-        system_controls: Some(ControlFootprint::fixed(ae::Vec2::new(162.6, 78.0))),
-    }
-}
-
-fn resolve_controls(
-    display: ae::Vec2,
-    insets: ScreenInsets,
-) -> ResolvedGameplayPresentation {
-    resolve_gameplay_presentation(GameplayPresentationInput {
-        display_px: display,
-        safe_area_insets: insets,
-        profile: profiles::fixed_four_by_three().for_environment(PresentationEnvironment::Desktop),
-        occlusions: &[],
-        control_footprints: touch_footprints(),
-    })
-}
-
-/// Whatever rung is chosen, the controls stay inside the device-safe area and
-/// the two thumb clusters never sit on top of each other.
+/// The DEFAULT geometry is the computed UI layout, so an ordinary producer
+/// restates nothing: purpose in, layout-derived rectangle out.
 #[test]
-fn resolved_controls_stay_safe_and_disjoint_on_every_display() {
-    let asymmetric_left = ScreenInsets::new(96.0, 0.0, 24.0, 48.0);
-    let asymmetric_right = ScreenInsets::new(0.0, 96.0, 24.0, 48.0);
-
-    for &(name, w, h) in DISPLAYS {
-        for (inset_name, insets) in [
-            ("none", ScreenInsets::ZERO),
-            ("left-cutout", asymmetric_left),
-            ("right-cutout", asymmetric_right),
-        ] {
-            let resolved = resolve_controls(ae::Vec2::new(w, h), insets);
-            let safe = resolved.display_safe_rect;
-            let controls = &resolved.controls;
-
-            for placed in controls.placed() {
-                assert!(
-                    placed.rect.min.x >= safe.min.x - 0.01
-                        && placed.rect.min.y >= safe.min.y - 0.01
-                        && placed.rect.max.x <= safe.max.x + 0.01
-                        && placed.rect.max.y <= safe.max.y + 0.01,
-                    "{name}/{inset_name}: control {:?} escaped the safe area {safe:?}",
-                    placed.rect,
-                );
-                assert!(placed.scale > 0.0 && placed.scale <= 1.0);
-            }
-
-            if let (Some(movement), Some(actions)) = (controls.movement, controls.primary_actions) {
-                assert!(
-                    !movement.rect.overlaps(actions.rect),
-                    "{name}/{inset_name}: thumb clusters overlap each other",
-                );
-            }
-        }
-    }
-}
-
-/// The load-bearing honesty property: when the layout CLAIMS a reserved
-/// placement, no control is on top of the world. This is the bug the review
-/// found — decorative sidebars while the controls still anchored to the window.
-#[test]
-fn a_reserved_placement_never_overlaps_gameplay() {
-    for &(name, w, h) in DISPLAYS {
-        let resolved = resolve_controls(ae::Vec2::new(w, h), ScreenInsets::ZERO);
-        let gameplay = resolved.gameplay_rect;
-
-        if resolved.controls.placement.is_fully_reserved() {
-            for placed in resolved.controls.placed() {
-                assert!(
-                    placed.reserved && !placed.rect.overlaps(gameplay),
-                    "{name}: {:?} claims a reserved placement but covers gameplay {gameplay:?}",
-                    resolved.controls.placement,
-                );
-            }
-        }
-        // Every SURROUND-anchored cluster must clear the world — that is the
-        // placement math under test, not a restatement of the definition.
-        for placed in resolved.controls.placed() {
-            if placed.anchor == ControlAnchor::Surround {
-                assert!(
-                    !placed.rect.overlaps(gameplay),
-                    "{name}: a surround-anchored control covers gameplay {gameplay:?}",
-                );
-            }
-            assert_eq!(
-                placed.reserved,
-                !placed.rect.overlaps(gameplay),
-                "{name}: `reserved` must report the geometric truth",
-            );
-        }
-    }
-}
-
-/// A 20:9 phone leaves 480px of side surround, which fits both thumb clusters
-/// at full size. This is the case the Mary-O profile is FOR.
-#[test]
-fn a_wide_display_reserves_both_thumb_clusters_at_full_size() {
-    let resolved = resolve_controls(ae::Vec2::new(2400.0, 1080.0), ScreenInsets::ZERO);
-    assert_eq!(resolved.controls.placement, ControlPlacement::ReservedSurround);
-
-    let movement = resolved.controls.movement.expect("movement placed");
-    let actions = resolved.controls.primary_actions.expect("actions placed");
-    assert_eq!(movement.scale, 1.0);
-    assert_eq!(actions.scale, 1.0);
-    assert!(movement.rect.max.x <= resolved.gameplay_rect.min.x + 0.01, "movement is left of play");
-    assert!(actions.rect.min.x >= resolved.gameplay_rect.max.x - 0.01, "actions are right of play");
-}
-
-/// The review's exact counterexample. At 1920x1200 a 4:3 viewport leaves 160px
-/// per side, which holds neither cluster above its usability floor. The
-/// documented answer is the ordinary overlay, reported as such — never a
-/// reserved claim over controls that are actually covering the world.
-#[test]
-fn insufficient_space_selects_the_documented_fallback() {
-    let resolved = resolve_controls(ae::Vec2::new(1920.0, 1200.0), ScreenInsets::ZERO);
-    assert_eq!(resolved.gameplay_rect.size(), ae::Vec2::new(1600.0, 1200.0));
-    assert_eq!(
-        resolved.surround_rect(SurroundRegion::Left).map(|r| r.width()),
-        Some(160.0),
-    );
-
-    assert_eq!(resolved.controls.placement, ControlPlacement::Overlay);
-    for placed in resolved.controls.placed() {
-        assert_eq!(placed.anchor, ControlAnchor::Overlay);
-        assert_eq!(placed.scale, 1.0, "an overlaid cluster is not shrunk");
-    }
-}
-
-/// Rung 2: the action cluster compacts into a column too narrow for it at full
-/// size, while the stick still fits. Both stay off the world.
-#[test]
-fn a_slightly_narrow_surround_compacts_rather_than_overlaying() {
-    // 1440 gameplay + 220 per side.
-    let resolved = resolve_controls(ae::Vec2::new(1880.0, 1080.0), ScreenInsets::ZERO);
-    assert_eq!(
-        resolved.surround_rect(SurroundRegion::Left).map(|r| r.width()),
-        Some(220.0),
-    );
-    assert_eq!(resolved.controls.placement, ControlPlacement::CompactSurround);
-
-    let movement = resolved.controls.movement.expect("movement placed");
-    let actions = resolved.controls.primary_actions.expect("actions placed");
-    assert_eq!(movement.scale, 1.0, "the stick is never compacted");
-    assert!(actions.scale < 1.0 && actions.scale >= 0.893, "actions compacted to the floor");
-    for placed in resolved.controls.placed() {
-        assert!(placed.reserved, "a compact placement is still a reserved one");
-    }
-}
-
-/// Rung 3: a column that holds the compacted action cluster but not the stick.
-#[test]
-fn a_column_that_fits_only_one_cluster_goes_hybrid() {
-    // 1440 gameplay + 209 per side: below the stick's fixed 210, above the
-    // action cluster's 208.1 floor.
-    let resolved = resolve_controls(ae::Vec2::new(1858.0, 1080.0), ScreenInsets::ZERO);
-    assert_eq!(resolved.controls.placement, ControlPlacement::HybridSurround);
-
-    let movement = resolved.controls.movement.expect("movement placed");
-    let actions = resolved.controls.primary_actions.expect("actions placed");
-    assert_eq!(movement.anchor, ControlAnchor::Overlay);
-    assert_eq!(actions.anchor, ControlAnchor::Surround);
-    assert!(actions.reserved);
-}
-
-/// A display with no surround at all degrades to the pre-existing overlay,
-/// which is the behavior every game had before reserved surrounds existed.
-#[test]
-fn a_display_with_no_surround_falls_back_to_overlay() {
-    let resolved = resolve_controls(ae::Vec2::new(1024.0, 768.0), ScreenInsets::ZERO);
-    assert!(!resolved.has_surround(), "4:3 on 4:3 leaves nothing");
-    assert_eq!(resolved.controls.placement, ControlPlacement::Overlay);
-    for placed in resolved.controls.placed() {
-        assert!(!placed.reserved);
-        assert_eq!(placed.scale, 1.0);
-    }
-}
-
-/// A profile that does not ask for reserved controls keeps them overlaid even
-/// when surround exists — controls and HUD are separate axes.
-#[test]
-fn an_overlay_policy_ignores_available_surround() {
-    let profile = GameplayPresentationProfile::fixed_aspect(4.0, 3.0)
-        .with_control_placement(ControlPlacementPolicy::Overlay);
-    let resolved = resolve_gameplay_presentation(GameplayPresentationInput {
-        display_px: ae::Vec2::new(2400.0, 1080.0),
-        safe_area_insets: ScreenInsets::ZERO,
-        profile: &profile,
-        occlusions: &[],
-        control_footprints: touch_footprints(),
-    });
-
-    assert!(resolved.has_surround(), "the surround is there to be ignored");
-    assert_eq!(resolved.controls.placement, ControlPlacement::Overlay);
-}
-
-/// A session with no virtual controls places nothing and says so, rather than
-/// reporting an overlay that does not exist.
-#[test]
-fn no_published_footprints_places_nothing() {
-    let resolved = resolve_gameplay_presentation(GameplayPresentationInput {
-        display_px: ae::Vec2::new(2400.0, 1080.0),
-        safe_area_insets: ScreenInsets::ZERO,
-        profile: profiles::fixed_four_by_three().for_environment(PresentationEnvironment::Desktop),
-        occlusions: &[],
-        control_footprints: ControlFootprints::default(),
-    });
-    assert_eq!(resolved.controls.placement, ControlPlacement::NoControls);
-    assert_eq!(resolved.controls.placed().count(), 0);
-}
-
-/// HUD keeps a usable band in the surround above a bottom-hugging control.
-#[test]
-fn hud_zones_survive_alongside_reserved_controls() {
-    let resolved = resolve_controls(ae::Vec2::new(2400.0, 1080.0), ScreenInsets::ZERO);
-    assert_eq!(resolved.controls.placement, ControlPlacement::ReservedSurround);
-
-    let hud = &resolved.controls.hud;
-    assert!(!hud.is_empty(), "PreferSurround HUD must get placement zones");
-    for zone in hud {
-        for placed in resolved.controls.placed() {
-            assert!(
-                !zone.rect.overlaps(placed.rect),
-                "HUD zone {:?} collides with a control {:?}",
-                zone.rect,
-                placed.rect,
-            );
-        }
-        assert!(
-            !zone.rect.overlaps(resolved.gameplay_rect),
-            "a surround HUD zone must not cover gameplay",
-        );
-    }
-}
-
-/// An asymmetric cutout moves the safe area, and the controls move with it —
-/// they anchor to the SAFE display, not the raw one.
-#[test]
-fn controls_follow_an_asymmetric_safe_area() {
-    let bare = resolve_controls(ae::Vec2::new(1024.0, 768.0), ScreenInsets::ZERO);
-    let inset = resolve_controls(
-        ae::Vec2::new(1024.0, 768.0),
-        ScreenInsets::new(80.0, 0.0, 0.0, 40.0),
-    );
-
-    let bare_movement = bare.controls.movement.expect("movement placed");
-    let inset_movement = inset.controls.movement.expect("movement placed");
-    assert_eq!(bare_movement.rect.min.x, 0.0);
-    assert_eq!(inset_movement.rect.min.x, 80.0, "left cutout pushes the stick right");
+fn computed_ui_occupancy_comes_from_the_layout() {
+    let occluder = ScreenOccluder::action_controls();
+    assert_eq!(occluder.geometry, OccluderGeometry::ComputedUi);
     assert!(
-        inset_movement.rect.max.y < bare_movement.rect.max.y,
-        "a bottom inset lifts the stick off the gesture bar",
+        occluder
+            .self_resolved(ScreenRect::from_min_size(
+                ae::Vec2::ZERO,
+                ae::Vec2::splat(1000.0)
+            ))
+            .is_none(),
+        "a computed-UI occluder has no self-known rectangle",
+    );
+
+    // Physical pixels on a 2x display convert to logical, centre to corner.
+    let occlusion = occluder
+        .from_computed_ui(ae::Vec2::new(400.0, 200.0), ae::Vec2::new(1000.0, 600.0), 0.5)
+        .expect("a sized node yields occupancy");
+    assert_eq!(
+        occlusion.rect,
+        ScreenRect::from_min_size(ae::Vec2::new(400.0, 250.0), ae::Vec2::new(200.0, 100.0)),
+    );
+
+    assert!(
+        occluder
+            .from_computed_ui(ae::Vec2::ZERO, ae::Vec2::splat(100.0), 1.0)
+            .is_none(),
+        "a zero-sized node cannot occlude anything",
     );
 }

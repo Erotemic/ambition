@@ -164,10 +164,10 @@ pub fn publish_touch_control_footprints(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bevy_plugin::{apply_touch_control_placement, TouchSurface};
+    use crate::bevy_plugin::{apply_touch_control_placement, TouchSurface, OCCUPANCY_PAD};
     use crate::layout::{touch_action_at_position, touch_action_circle, touch_action_layout};
     use ambition_platformer_primitives::gameplay_presentation::{
-        ControlAnchor, ControlPlacement, PlacedControl, ResolvedControlRegions,
+        ControlAnchor, ControlPlacement, PlacedControl, ResolvedControlRegions, ScreenOccluder,
     };
 
     fn px(value: Val) -> f32 {
@@ -328,4 +328,44 @@ mod tests {
         app.update();
         assert!(!app.world().resource::<ControlFootprints>().is_empty());
     }
+
+    /// A COMPACTED, reserved cluster publishes its ACTUAL final occupancy.
+    ///
+    /// This is the composition the review asked for: the occluder carries only
+    /// a purpose, the node is placed by the resolver, and the occupancy is
+    /// derived from that node through the same projection the host uses. A
+    /// fallback layout therefore reserves what it really covers — there is no
+    /// second descriptor left holding the full-size, corner-anchored rectangle.
+    #[test]
+    fn a_compacted_cluster_publishes_its_actual_occupancy() {
+        let mut app = app_with(reserved_and_compacted());
+        let bezel = app
+            .world_mut()
+            .spawn((TouchSurface::ActionBezel, Node::default()))
+            .id();
+        app.update();
+
+        let node = node_rect(app.world().entity(bezel).get::<Node>().unwrap());
+        let placement = *app.world().resource::<TouchControlPlacement>();
+        assert_eq!(Some(node), placement.action_bezel);
+        assert!(node.width() < ACTION_BEZEL_W, "the fixture must be compacted");
+
+        // What `bevy_ui` would compute for that node on a 2x display, and what
+        // the host would then derive from it.
+        let scale = 2.0;
+        let occlusion = ScreenOccluder::action_controls()
+            .with_padding(Vec2::splat(OCCUPANCY_PAD))
+            .from_computed_ui(node.size() * scale, node.center() * scale, 1.0 / scale)
+            .expect("a sized node yields occupancy");
+
+        assert_eq!(
+            occlusion.rect,
+            ScreenRect {
+                min: node.min - Vec2::splat(OCCUPANCY_PAD),
+                max: node.max + Vec2::splat(OCCUPANCY_PAD),
+            },
+            "occupancy must be the compacted node's own rectangle, plus padding",
+        );
+    }
+
 }

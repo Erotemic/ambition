@@ -441,8 +441,9 @@ impl ScreenAnchor {
 /// Purpose exists so policy can distinguish "this hides the actor and matters"
 /// from "this is chrome the participant can look past" WITHOUT the presentation
 /// subsystem knowing which crate produced it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ScreenOcclusionPurpose {
+    #[default]
     VirtualMovementStick,
     VirtualActionCluster,
     ContextualAction,
@@ -469,24 +470,92 @@ impl ScreenOcclusionPurpose {
     }
 }
 
+/// Where an occluder's rectangle comes from.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum OccluderGeometry {
+    /// Derive it from this entity's own computed `bevy_ui` layout.
+    ///
+    /// The common case, and the reason this is the default: a producer tags the
+    /// `Node` it already has and restates nothing. Moving, resizing,
+    /// percentage sizing, parent constraints, safe-area reflow and compact
+    /// fallback layouts are all picked up automatically, because the occupancy
+    /// IS the layout rather than a second description of it.
+    #[default]
+    ComputedUi,
+    /// An explicit rectangle in logical display pixels, for sources that
+    /// genuinely have no `bevy_ui` node.
+    Explicit(ScreenRect),
+    /// A display-corner-anchored box, for non-UI sources that must track an
+    /// edge.
+    Anchored {
+        anchor: ScreenAnchor,
+        offset_px: ae::Vec2,
+        size_px: ae::Vec2,
+    },
+}
+
 /// Generic screen occupancy published by whatever draws over the display.
 ///
 /// Producers tag their existing UI entities and publish nothing else — they do
 /// not own camera policy, do not compute margins, and do not know which
-/// framing profile is active.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
+/// framing profile is active:
+///
+/// ```ignore
+/// commands.spawn((node, ScreenOccluder::action_controls()));
+/// ```
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct ScreenOccluder {
     pub purpose: ScreenOcclusionPurpose,
-    pub anchor: ScreenAnchor,
-    /// Offset from `anchor` toward the display interior, pixels.
-    pub offset_px: ae::Vec2,
-    pub size_px: ae::Vec2,
     /// Breathing room added on every side when composing the safe region.
     pub padding_px: ae::Vec2,
+    pub geometry: OccluderGeometry,
 }
 
 impl ScreenOccluder {
-    pub fn new(
+    /// Occupancy derived from this entity's computed UI layout.
+    pub fn new(purpose: ScreenOcclusionPurpose) -> Self {
+        Self {
+            purpose,
+            padding_px: ae::Vec2::ZERO,
+            geometry: OccluderGeometry::ComputedUi,
+        }
+    }
+
+    pub fn movement_stick() -> Self {
+        Self::new(ScreenOcclusionPurpose::VirtualMovementStick)
+    }
+
+    pub fn action_controls() -> Self {
+        Self::new(ScreenOcclusionPurpose::VirtualActionCluster)
+    }
+
+    pub fn contextual_action() -> Self {
+        Self::new(ScreenOcclusionPurpose::ContextualAction)
+    }
+
+    pub fn hud() -> Self {
+        Self::new(ScreenOcclusionPurpose::PersistentHud)
+    }
+
+    pub fn system_controls() -> Self {
+        Self::new(ScreenOcclusionPurpose::SystemMenuControl)
+    }
+
+    pub fn dialogue() -> Self {
+        Self::new(ScreenOcclusionPurpose::Dialogue)
+    }
+
+    /// An explicit rectangle, for a producer with no `bevy_ui` node.
+    pub fn explicit(purpose: ScreenOcclusionPurpose, rect: ScreenRect) -> Self {
+        Self {
+            purpose,
+            padding_px: ae::Vec2::ZERO,
+            geometry: OccluderGeometry::Explicit(rect),
+        }
+    }
+
+    /// A display-corner-anchored box, for a producer with no `bevy_ui` node.
+    pub fn anchored(
         purpose: ScreenOcclusionPurpose,
         anchor: ScreenAnchor,
         offset_px: ae::Vec2,
@@ -494,10 +563,12 @@ impl ScreenOccluder {
     ) -> Self {
         Self {
             purpose,
-            anchor,
-            offset_px,
-            size_px,
             padding_px: ae::Vec2::ZERO,
+            geometry: OccluderGeometry::Anchored {
+                anchor,
+                offset_px,
+                size_px,
+            },
         }
     }
 
@@ -506,11 +577,51 @@ impl ScreenOccluder {
         self
     }
 
-    /// Resolve against a concrete display rectangle, padding included.
-    pub fn resolve(self, display: ScreenRect) -> ScreenOcclusion {
-        let rect = self
-            .anchor
-            .resolve_rect(display, self.offset_px, self.size_px);
+    /// Resolve the geometry this occluder owns itself. Returns `None` for
+    /// [`OccluderGeometry::ComputedUi`], whose rectangle only the UI layout
+    /// knows — the host supplies it via [`Self::from_rect`].
+    pub fn self_resolved(self, display: ScreenRect) -> Option<ScreenOcclusion> {
+        let rect = match self.geometry {
+            OccluderGeometry::ComputedUi => return None,
+            OccluderGeometry::Explicit(rect) => rect,
+            OccluderGeometry::Anchored {
+                anchor,
+                offset_px,
+                size_px,
+            } => anchor.resolve_rect(display, offset_px, size_px),
+        };
+        Some(self.from_rect(rect))
+    }
+
+    /// Occupancy from a `bevy_ui` computed layout.
+    ///
+    /// `size_physical` and `center_physical` are what `ComputedNode` and
+    /// `UiGlobalTransform` hold (physical pixels, centre origin);
+    /// `inverse_scale` is `ComputedNode::inverse_scale_factor`. Returns `None`
+    /// for a node with no area, which cannot occlude anything.
+    ///
+    /// The ONE projection from computed UI layout into occupancy — the host
+    /// collector and any producer testing its own occupancy call this same
+    /// function rather than each doing the DPI arithmetic.
+    pub fn from_computed_ui(
+        self,
+        size_physical: ae::Vec2,
+        center_physical: ae::Vec2,
+        inverse_scale: f32,
+    ) -> Option<ScreenOcclusion> {
+        if !inverse_scale.is_finite() || inverse_scale <= 0.0 {
+            return None;
+        }
+        let size = size_physical * inverse_scale;
+        if size.x <= 0.0 || size.y <= 0.0 {
+            return None;
+        }
+        let center = center_physical * inverse_scale;
+        Some(self.from_rect(ScreenRect::from_min_size(center - size * 0.5, size)))
+    }
+
+    /// Apply this occluder's purpose and padding to an already-known rect.
+    pub fn from_rect(self, rect: ScreenRect) -> ScreenOcclusion {
         ScreenOcclusion {
             purpose: self.purpose,
             rect: ScreenRect {

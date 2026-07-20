@@ -5,6 +5,7 @@
 //! systems, with a synthetic primary window instead of a winit surface.
 
 use bevy::camera::RenderTarget;
+use bevy::ui::{ComputedNode, Display, Node, UiGlobalTransform};
 use bevy::image::Image;
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
@@ -14,7 +15,7 @@ use ambition_platformer_primitives::camera_layers::MainCamera;
 use ambition_platformer_primitives::gameplay_presentation::{
     profiles, ActiveGameplayPresentationProfiles, GameplayPresentationProfile,
     GameplayPresentationProfiles, PresentationEnvironment, ResolvedGameplayPresentation,
-    ScreenAnchor, ScreenOccluder, ScreenOcclusionPurpose, SoftFramingProfile,
+    ScreenOccluder, ScreenOcclusionPurpose, ScreenRect, SoftFramingProfile,
 };
 use ambition_sim_view::camera_snapshot::{CameraScreenFraming, CameraViewport};
 
@@ -192,12 +193,52 @@ fn the_environment_selects_the_declared_profile() {
     );
 }
 
-fn stick_occluder() -> ScreenOccluder {
-    ScreenOccluder::new(
+/// A UI-shaped occluder bundle: the component carries only PURPOSE and
+/// padding, and the rectangle comes from the computed layout — which is the
+/// whole point of item 3. `ComputedNode` is in physical pixels and
+/// `UiGlobalTransform` places the node's centre, exactly as `bevy_ui` writes
+/// them.
+fn ui_occluder(
+    purpose: ScreenOcclusionPurpose,
+    center_logical: ae::Vec2,
+    size_logical: ae::Vec2,
+    scale_factor: f32,
+) -> (
+    ScreenOccluder,
+    ComputedNode,
+    UiGlobalTransform,
+    Node,
+    InheritedVisibility,
+) {
+    let mut computed = ComputedNode::default();
+    computed.size = size_logical * scale_factor;
+    computed.inverse_scale_factor = 1.0 / scale_factor;
+    (
+        ScreenOccluder::new(purpose),
+        computed,
+        UiGlobalTransform::from_translation(center_logical * scale_factor),
+        Node::default(),
+        // `Node` requires `Visibility`, whose `InheritedVisibility` DEFAULTS TO
+        // FALSE and is only turned true by the visibility propagation system.
+        // A real app runs that; `MinimalPlugins` does not, so a fixture that
+        // omitted this would report an unoccluded screen and quietly pass.
+        InheritedVisibility::VISIBLE,
+    )
+}
+
+/// The bottom-left stick, as a laid-out UI node.
+fn stick_bundle() -> (
+    ScreenOccluder,
+    ComputedNode,
+    UiGlobalTransform,
+    Node,
+    InheritedVisibility,
+) {
+    ui_occluder(
         ScreenOcclusionPurpose::VirtualMovementStick,
-        ScreenAnchor::BottomLeft,
-        ae::Vec2::splat(24.0),
+        ae::Vec2::new(324.0, 756.0),
         ae::Vec2::splat(600.0),
+        1.0,
     )
 }
 
@@ -218,7 +259,7 @@ fn hidden_occluders_do_not_reserve_space() {
         occlusion_aware(),
         PresentationEnvironment::TouchPrimary,
     );
-    visible.world_mut().spawn(stick_occluder());
+    visible.world_mut().spawn(stick_bundle());
     visible.update();
 
     let mut hidden = host_app(
@@ -229,7 +270,8 @@ fn hidden_occluders_do_not_reserve_space() {
     );
     hidden
         .world_mut()
-        .spawn((stick_occluder(), InheritedVisibility::HIDDEN));
+        .spawn(stick_bundle())
+        .insert(InheritedVisibility::HIDDEN);
     hidden.update();
 
     let mut none = host_app(
@@ -267,13 +309,11 @@ fn a_ui_shaped_occluder_is_collected_despite_false_view_visibility() {
         occlusion_aware(),
         PresentationEnvironment::TouchPrimary,
     );
-    app.world_mut().spawn((
-        stick_occluder(),
-        Visibility::Visible,
-        InheritedVisibility::VISIBLE,
-        // Exactly what a UI node carries: default, i.e. NOT visible to any view.
-        ViewVisibility::default(),
-    ));
+    app.world_mut()
+        .spawn(stick_bundle())
+        // Exactly what a UI node carries: `ViewVisibility` default, i.e. NOT
+        // visible to any view.
+        .insert((Visibility::Visible, ViewVisibility::default()));
     app.update();
 
     let mut baseline = host_app(
@@ -346,7 +386,7 @@ fn a_control_appearing_eases_the_region_instead_of_stepping_it() {
     app.update();
     let settled = app.world().resource::<CameraScreenFraming>().subject_safe_region;
 
-    app.world_mut().spawn(stick_occluder());
+    app.world_mut().spawn(stick_bundle());
     app.update();
     let after_one_frame = app.world().resource::<CameraScreenFraming>().subject_safe_region;
     let target = resolved(&app).subject_safe_region;
@@ -396,4 +436,180 @@ fn an_image_targeted_main_camera_keeps_its_own_framing() {
     );
     // ...while the window-targeted main camera still gets one.
     assert!(main_camera_viewport(&mut app).is_some());
+}
+
+
+// ---------------------------------------------------------------------------
+// Occupancy derived from real UI layout
+// ---------------------------------------------------------------------------
+
+fn occupied_rects(app: &App) -> Vec<ScreenRect> {
+    app.world()
+        .resource::<ScreenOccupancy>()
+        .0
+        .iter()
+        .map(|occlusion| occlusion.rect)
+        .collect()
+}
+
+/// Moving or resizing the node changes the collected occupancy, with NO second
+/// geometry descriptor to update. This is the property the anchored form could
+/// not have: it stored its own offset and size, so a control that moved kept
+/// reserving the place it used to be.
+#[test]
+fn occupancy_follows_the_node_with_no_second_descriptor() {
+    let mut app = host_app(
+        ae::Vec2::new(2400.0, 1080.0),
+        1.0,
+        occlusion_aware(),
+        PresentationEnvironment::TouchPrimary,
+    );
+    let entity = app.world_mut().spawn(stick_bundle()).id();
+    app.update();
+    let before = occupied_rects(&app);
+    assert_eq!(before.len(), 1);
+    assert_eq!(before[0], ScreenRect::from_min_size(ae::Vec2::new(24.0, 456.0), ae::Vec2::splat(600.0)));
+
+    // Move it, touching ONLY the layout — the `ScreenOccluder` component is
+    // never rewritten.
+    let occluder_before = *app.world().entity(entity).get::<ScreenOccluder>().unwrap();
+    {
+        let mut entity_mut = app.world_mut().entity_mut(entity);
+        *entity_mut.get_mut::<UiGlobalTransform>().unwrap() =
+            UiGlobalTransform::from_translation(ae::Vec2::new(2000.0, 300.0));
+        entity_mut.get_mut::<ComputedNode>().unwrap().size = ae::Vec2::splat(200.0);
+    }
+    app.update();
+
+    let after = occupied_rects(&app);
+    assert_eq!(
+        after[0],
+        ScreenRect::from_min_size(ae::Vec2::new(1900.0, 200.0), ae::Vec2::splat(200.0)),
+        "occupancy must follow the laid-out node",
+    );
+    assert_eq!(
+        *app.world().entity(entity).get::<ScreenOccluder>().unwrap(),
+        occluder_before,
+        "and the occluder component itself must not have needed an edit",
+    );
+}
+
+/// `Display::None` removes a node from layout, so it occludes nothing.
+#[test]
+fn a_display_none_node_contributes_no_occlusion() {
+    let mut app = host_app(
+        ae::Vec2::new(2400.0, 1080.0),
+        1.0,
+        occlusion_aware(),
+        PresentationEnvironment::TouchPrimary,
+    );
+    let (occluder, computed, transform, mut node, visibility) = stick_bundle();
+    node.display = Display::None;
+    app.world_mut()
+        .spawn((occluder, computed, transform, node, visibility));
+    app.update();
+
+    assert!(occupied_rects(&app).is_empty());
+}
+
+/// A zero-sized layout cannot occlude anything.
+#[test]
+fn a_zero_sized_node_contributes_no_occlusion() {
+    let mut app = host_app(
+        ae::Vec2::new(2400.0, 1080.0),
+        1.0,
+        occlusion_aware(),
+        PresentationEnvironment::TouchPrimary,
+    );
+    let (occluder, mut computed, transform, node, visibility) = stick_bundle();
+    computed.size = ae::Vec2::ZERO;
+    app.world_mut()
+        .spawn((occluder, computed, transform, node, visibility));
+    app.update();
+
+    assert!(occupied_rects(&app).is_empty());
+}
+
+/// An invisible PARENT suppresses its children's occupancy, because
+/// `InheritedVisibility` is the propagated hierarchy answer rather than the
+/// entity's own `Visibility`.
+#[test]
+fn an_invisible_parent_suppresses_child_occlusion() {
+    let mut app = host_app(
+        ae::Vec2::new(2400.0, 1080.0),
+        1.0,
+        occlusion_aware(),
+        PresentationEnvironment::TouchPrimary,
+    );
+    // The propagation system is what writes HIDDEN onto the child; this fixture
+    // asserts the collector honours that result.
+    app.world_mut()
+        .spawn(stick_bundle())
+        .insert(InheritedVisibility::HIDDEN);
+    app.update();
+
+    assert!(occupied_rects(&app).is_empty());
+}
+
+/// `ComputedNode` is physical; the layout is logical. A 2x display must not
+/// report occupancy at twice the size.
+#[test]
+fn physical_layout_converts_to_logical_occupancy() {
+    let mut app = host_app(
+        ae::Vec2::new(1200.0, 540.0),
+        2.0,
+        occlusion_aware(),
+        PresentationEnvironment::TouchPrimary,
+    );
+    app.world_mut().spawn(ui_occluder(
+        ScreenOcclusionPurpose::VirtualActionCluster,
+        ae::Vec2::new(1000.0, 400.0),
+        ae::Vec2::new(200.0, 100.0),
+        2.0,
+    ));
+    app.update();
+
+    assert_eq!(
+        occupied_rects(&app),
+        vec![ScreenRect::from_min_size(
+            ae::Vec2::new(900.0, 350.0),
+            ae::Vec2::new(200.0, 100.0),
+        )],
+        "occupancy is reported in the same logical space as the layout",
+    );
+}
+
+/// A producer with no `bevy_ui` node keeps an explicit rectangle.
+#[test]
+fn a_non_ui_producer_may_supply_its_own_rectangle() {
+    let mut app = host_app(
+        ae::Vec2::new(2400.0, 1080.0),
+        1.0,
+        occlusion_aware(),
+        PresentationEnvironment::TouchPrimary,
+    );
+    let rect = ScreenRect::from_min_size(ae::Vec2::new(10.0, 20.0), ae::Vec2::new(300.0, 400.0));
+    app.world_mut().spawn(ScreenOccluder::explicit(
+        ScreenOcclusionPurpose::PersistentHud,
+        rect,
+    ));
+    app.update();
+
+    assert_eq!(occupied_rects(&app), vec![rect]);
+}
+
+/// A `ComputedUi` occluder with no layout yet contributes nothing rather than
+/// falling back to some invented rectangle.
+#[test]
+fn a_ui_occluder_without_layout_contributes_nothing() {
+    let mut app = host_app(
+        ae::Vec2::new(2400.0, 1080.0),
+        1.0,
+        occlusion_aware(),
+        PresentationEnvironment::TouchPrimary,
+    );
+    app.world_mut().spawn(ScreenOccluder::action_controls());
+    app.update();
+
+    assert!(occupied_rects(&app).is_empty());
 }

@@ -1498,3 +1498,22 @@ Transferable rules:
    reached playback — and does so without coupling the test to unrelated ambient
    audio. When a test needs the rest of the world to stay still, that is usually a
    sign the oracle is measuring the wrong thing.
+
+## 2026-07-20 — leafwing 0.20: two silent gamepad/test traps
+
+1. `ActionState::update` applies `press(action)` and then
+   `set_button_value(action, value)` — and `set_button_value` RELEASES the
+   button when `value <= 0.02`. A gamepad button's value comes from the
+   ANALOG half of the `Gamepad` component (`gamepad.get(button)`), so a test
+   that drives `gamepad.digital_mut().press(button)` alone produces a
+   press-then-release in the SAME update call: the action is silently dead,
+   and no `ActionState::release()` ever runs (the release happens on the raw
+   state machine), so instrumentation on `release()` sees nothing. Drive
+   pads through `RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
+   pad, button, 1.0))` — the real event path fills digital AND analog.
+   Keyboard is immune (its value is derived from pressed).
+2. Leafwing orders its Tick set (which CLEARS the central input store) and
+   its Unify set (device-kind computes) each before Update but NOT against
+   each other — a topology seed decides whether freshly computed device
+   values survive to the action update. `HostInputBindingsPlugin` now pins
+   `Tick.before(Unify)` explicitly.

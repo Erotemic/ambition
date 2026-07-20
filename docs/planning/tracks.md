@@ -80,6 +80,31 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   sand grid into fluids, or fork the crate) — no further correctness work on
   the bfs path until Jon calls it. The vestigial bfs-side sand plumbing dies
   with that rewrite.
+- ✅ **PARTICIPANT-CENTERED INPUT, startup/launcher vertical slice**
+  (GPT 5.6-directed 2026-07-20, fable; live doc =
+  `docs/planning/engine/participant-input.md`). Four commits on main:
+  `e7cc2be14` the persistent `InputParticipant` owns ActionState/InputMap
+  (never on actors; `attach_player_input_components` deleted) + explicit
+  `ContextClaim`/`ActiveInputContext` contexts declared by their owning
+  surfaces + the `InputSet` pipeline
+  Collect→ResolveActions→ResolveContext→Route→PublishCues→Consume;
+  `2296ce6f6` the shell reads NO raw devices (semantic `MenuControlFrame`
+  only, always live from the participant), vanity cards are tap-anywhere
+  through the same semantic command as confirm, and the open
+  `UiCue`/`ActiveUiCues` vocabulary replaces `MenuConfirmPrompt` (launcher
+  cues "Play"/exit label, cards cue "Continue", inventory cues Equip/Use —
+  one `ControlPrompt` writer per frame, decided by the resolved context);
+  `fc37545b2` touch is a VIRTUAL DEVICE (leafwing input kinds over
+  `MobileTouchState`, bound in the participant's InputMap; both folds and
+  every GameMode routing branch in touch deleted; declared double-bindings
+  replace the secret Jump-as-confirm); plus the assembled
+  `app_it::participant_input` acceptance (no-actor startup/launcher, source
+  ownership across sessions, held-edge transition safety, three-device raw
+  screen-axis parity — it caught a real Update-schedule cycle before launch).
+  Reference-frame seam untouched by construction (axes stay raw ScreenAxes
+  until `AccelerationFrame::resolve_control`). NOT in slice: rebinding UX
+  (P1/P5 stand), dialogue/pause/vehicle contexts, multi-participant frames,
+  loading-context migration (its retry keeps a local raw read).
 
 **Keystone slices**
 - ✅ **K1a movement tuning** — exit criterion MET. `ae::ActiveMovementTuning`

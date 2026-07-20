@@ -20,11 +20,15 @@ impl Plugin for BasicLoadPresentationPlugin {
         app.add_message::<DeveloperAction>()
             .add_systems(
                 Update,
-                basic_load_keyboard
-                    .in_set(LoadPresentationSet::Input)
-                    // A consumer of the routed input semantics: after every
-                    // producer (participant populate, touch folds), same frame.
-                    .in_set(ambition_input::InputSet::Consume),
+                // Deliberately NOT in `InputSet::Consume`: the loading
+                // context is unmigrated, and its slot in the load pipeline
+                // (`LoadPresentationSet::Input`, which the shell-adapter
+                // orders BEFORE the shell's route machinery) would cycle
+                // against the context declarations that run after it. The
+                // frame edges it reads are one-frame-tolerant here exactly
+                // as they were before the participant migration; same-frame
+                // delivery arrives when the loading context itself migrates.
+                basic_load_keyboard.in_set(LoadPresentationSet::Input),
             )
             .add_systems(
                 Update,

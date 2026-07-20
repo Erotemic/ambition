@@ -153,6 +153,18 @@ impl Plugin for HostInputBindingsPlugin {
             .init_resource::<PlayerDashTriggerState>()
             .init_resource::<ambition_input::ActiveInputKind>()
             .add_plugins(InputManagerPlugin::<SandboxAction>::default())
+            // Leafwing orders both its Tick set (which CLEARS the central
+            // input store) and its Unify set (which recomputes it from
+            // devices) before Update, but leaves Tick vs Unify UNORDERED — a
+            // topology seed decides whether a device kind's freshly computed
+            // values survive to the action update or are wiped first. Pin
+            // the only correct order explicitly: clear first, then every
+            // device kind publishes, then actions resolve.
+            .configure_sets(
+                bevy::app::PreUpdate,
+                leafwing_input_manager::plugin::InputManagerSystem::Tick
+                    .before(leafwing_input_manager::plugin::InputManagerSystem::Unify),
+            )
             // Track which input source is CURRENTLY active (last to produce
             // GENUINE input). This gates the menu mouse-hover handlers so a
             // rebuild-induced `Pointer<Over>` under a stationary mouse can't

@@ -86,34 +86,50 @@ state.
   in-session menu contexts. The touch overlay needed zero changes to show
   a labeled confirm button at the launcher.
 
-### 3. Touch as a virtual device (next)
+### 3. Touch as a virtual device (`fc37545b2`)
 
-- `MobileTouchState` becomes a leafwing input SOURCE: custom
-  `UpdatableInput`/`Buttonlike`/`DualAxislike` kinds over the touch stick
-  and buttons, registered with `register_input_kind` and BOUND in the
+- `MobileTouchState` is a leafwing input SOURCE: custom
+  `UpdatableInput`/`Buttonlike`/`DualAxislike` kinds
+  (`ambition_touch_input::virtual_device`) over the touch stick and
+  buttons, registered with `register_input_kind` and BOUND in the
   participant's `InputMap` (stick → `Move` + `MenuStick` + the
-  `MoveLeft/Right/Up/Down` direction-threshold buttons; Jump/Interact →
-  gameplay verb + `MenuSelect`; Reset → `Reset` + `MenuBack`; Start →
-  `Start`; FlyToggle → `Utility`; Shield → `QuickAction`).
-  The Jump-button-as-menu-confirm behavior becomes a DECLARED binding, not
-  a secret branch.
+  `MoveLeft/Right/Up/Down` direction-threshold buttons at the gamepad's
+  0.5 threshold; Jump/Interact → gameplay verb + `MenuSelect`; Reset →
+  `Reset` + `MenuBack`; Start → `Start`; FlyToggle → `Utility`; Shield →
+  `QuickAction`). The Jump-button-as-menu-confirm behavior is a DECLARED
+  binding, not a secret branch; a preset swap re-binds automatically.
 - `fold_to_control_frame` / `fold_to_menu_control_frame` and their
   `GameMode` gates (`allows_gameplay`, `menu_move_active`) are DELETED —
   context routing happens downstream in the one populate path, which also
-  unifies deadzones and cutscene suppression across devices. Drag-scroll
-  stays as a small pointer-gesture lane (`scroll_y`), like the mouse wheel.
+  unifies deadzones and cutscene suppression across devices. Touch state
+  collection moved to PreUpdate (before leafwing's unify): a touch press
+  this frame is an ActionState press this frame. Drag-scroll stays as a
+  small pointer-gesture lane (`scroll_y`), like the mouse wheel; the knob
+  input-display override keys on `ControlPrompt`'s context, not GameMode.
 - Deliberate feel change (flagged for Jon): touch-vs-keyboard axis
   exclusivity becomes leafwing's standard multi-device aggregation
   (sum-then-clamp) — touch now coexists with the keyboard exactly the way
   the gamepad already does. The old "touch wins" rule existed only because
-  touch bypassed the bindings layer.
+  touch bypassed the bindings layer. Veto point if the feel regresses:
+  the `TouchVirtualStick` binding.
 
-### 4. Assembled behavioral tests (next)
+### 4. Assembled behavioral tests (`app_it::participant_input`)
 
-Startup/launcher integration on the real composition (no gameplay actor;
-real `ButtonInput` → leafwing → participant → consumer), source-ownership
-proofs, context transitions without false edges, four-source input parity,
-and the reference-frame non-regression suite.
+The REAL shell-host composition + the REAL host input stack + the touch
+virtual device, headless, no gameplay actor at boot: startup card owns the
+context and cues "Continue"; tap-anywhere on the card advances it through
+the same semantic command as confirm; a confirm held across the
+card→launcher transition does not launch; keyboard/gamepad/touch-stick all
+move the launcher selection; the launcher captures gameplay actions and
+cues "Play"; the touch confirm button activates the selected route.
+Source-ownership: session activation/teardown never recreates the
+participant, no `ActionState` on actor/visual entities, the same
+participant drives the replacement actor. Frame rawness: keyboard right,
+pad right, and touch-stick right reach the gameplay `ControlFrame` as the
+IDENTICAL raw screen axis; a confirmation held into gameplay never
+surfaces as a jump press edge. (Pointer row activation and the cue fold
+are covered at crate level: `ambition_game_shell::semantic_input_tests`,
+`ambition_sim_view::control_prompt`, `ambition_touch_input::tests`.)
 
 ## Reference-frame invariants (Jon, binding)
 

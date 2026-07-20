@@ -30,8 +30,13 @@ Landed:
   consumes the `spin_dash` edge and the before-gate interception is deleted.
 - The **canonical player's Special is a real move** (bubble_shield folded into
   the moveset), and the **touch overlay has a dedicated Special button**.
-- The **menu Equip/Use provider** publishes the focused item's verb into
-  `MenuConfirmPrompt`, which `ControlPrompt.menu_confirm` folds in.
+- The **menu Equip/Use provider** publishes the focused item's verb, which
+  `ControlPrompt.menu_confirm` folds in. (2026-07-20: the original
+  `MenuConfirmPrompt` bridge was replaced by the open, context-keyed
+  `ambition_input::cues::UiCue` vocabulary of the participant-centered input
+  architecture — see `docs/planning/engine/participant-input.md`. Same
+  one-writer/one-reader property, now shared with the shell's startup and
+  launcher cues.)
 
 Remaining (tracked in the plan doc): **P1** (`ActiveBindings` source-of-truth +
 the live preset-split bug), **P5** (remap UX + gamepad glyphs + gamepad Special),
@@ -128,9 +133,10 @@ could disagree with what actually fired.
 ## Guardrails (landed)
 
 - The derived types (`ActorActionScheme`, `ResolvedTechniqueEdges`,
-  `ControlPrompt`, `MenuConfirmPrompt`) are recorded in the snapshot-coverage
-  ledger as reviewed derived debt — a NEW unregistered type is a review event,
-  not a silent stream of resolved actions (the `ControlFrame`-is-POD invariant).
+  `ControlPrompt`, and the `ActiveUiCues` that superseded `MenuConfirmPrompt`)
+  are recorded in the snapshot-coverage ledger as reviewed derived debt — a NEW
+  unregistered type is a review event, not a silent stream of resolved actions
+  (the `ControlFrame`-is-POD invariant).
 - The scheme⇔behavior derivation guard (a slot is in the scheme iff the authority
   that gates its behavior provides it) — `ambition_actors::action_scheme`.
 - The shared-resolver same-tick no-drift test: the real gate and the real prompt,

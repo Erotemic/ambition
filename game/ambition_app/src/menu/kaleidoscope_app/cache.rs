@@ -4,7 +4,6 @@
 //! Split out of the kaleidoscope menu host (2026-06-15).
 
 use super::*;
-
 /// Per-frame cache of the System face's built model + windowed rows + the radio/dev
 /// snapshots. `SystemMenuModel::build` (the full settings IR plus many per-row string
 /// allocations) and the radio/dev snapshots were each rebuilt THREE times per frame
@@ -87,7 +86,13 @@ pub(crate) fn republish_kaleidoscope_pages(
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut was_open: Local<bool>,
     mut last: Local<Option<RebuildKey>>,
+    mut republish_count: Local<u64>,
+    mut cache_timing: Local<KaleidoscopeSystemTiming>,
 ) {
+    let mut perf = KaleidoscopeSystemTimingSpan::begin(
+        "host_republish_pages",
+        &mut cache_timing,
+    );
     let Some(owned) = owned else {
         return;
     };
@@ -117,33 +122,56 @@ pub(crate) fn republish_kaleidoscope_pages(
         window_start,
         active: pages.active,
         open_entry: system_nav.open_entry,
+        owned_counts: Item::ALL.map(|item| owned.count(item)),
+        equipped: owned.equipped(),
+        settings: settings.clone(),
         radio: cache.radio.clone(),
         dev: cache.dev.clone(),
         quality: cache.quality,
     };
-    // Republish on: catalog change, settings change (so a toggled setting's label
-    // updates immediately), first publish, menu-open (textures that loaded after
-    // the initial build get picked up), page change, a System scroll-window shift,
-    // a System drill in/out, or a change to the rendered System CONTENT (auditioned
-    // station / toggled dev flag).
+    // Republish on first publish, menu-open (textures that loaded after the initial
+    // build get picked up), or an actual VALUE change in anything rendered by the
+    // cube: inventory counts/equipment, user settings, page/drill/scroll state, radio
+    // and developer snapshots, or pending quality confirmation.
     //
-    // PERF (2026-06-10): the System content is compared by VALUE (via `key`), not by
-    // Bevy change-ticks. The old `snapshot.is_changed()` ORed `AudioLibrary`'s
-    // change tick, which the music director bumps EVERY FRAME while music plays (it
-    // rewrites per-layer crossfade gains) — so the whole cube despawned + respawned
-    // every frame with the menu open, the dominant Android FPS cliff. A gain update
-    // does not change the station list / active station, so the value comparison
-    // ignores it.
-    let dirty = owned.is_changed()
-        || settings.is_changed()
-        || pages.pages.is_empty()
-        || just_opened
-        || last.as_ref() != Some(&key);
+    // PERF: never use Bevy change ticks as the rebuild oracle here. Systems that take
+    // `ResMut<OwnedItems>` / `ResMut<UserSettings>` can dirty those ticks while
+    // handling navigation even when their values remain identical. OR-ing
+    // `is_changed()` into this gate recreated the historical rebuild-every-frame
+    // cliff: every cube face was despawned and respawned on every visible frame. The
+    // complete value key below makes those false-positive ticks harmless while still
+    // rebuilding immediately for real inventory or settings changes.
+    let owned_changed = owned.is_changed();
+    let settings_changed = settings.is_changed();
+    let pages_empty = pages.pages.is_empty();
+    let changed_fields = last
+        .as_ref()
+        .map(|previous| previous.changed_fields(&key))
+        .unwrap_or_else(|| vec!["initial"]);
+    let key_changed = !changed_fields.is_empty();
+    let dirty = pages_empty || just_opened || key_changed;
     if !dirty {
         return;
     }
+    if std::env::var_os("AMBITION_KALEIDOSCOPE_PERF_DIAGNOSTICS").is_some() {
+        *republish_count = republish_count.saturating_add(1);
+        if *republish_count <= 5 || *republish_count % 60 == 0 {
+            info!(
+                target: "ambition::kaleidoscope_perf",
+                "republish count={} owned_changed={} settings_changed={} pages_empty={} just_opened={} key_changed={} changed_fields={:?}",
+                *republish_count,
+                owned_changed,
+                settings_changed,
+                pages_empty,
+                just_opened,
+                key_changed,
+                changed_fields,
+            );
+        }
+    }
 
     let active = pages.active.unwrap_or(MenuPage::Items);
+    perf.add_work(pages.pages.len());
     pages.pages = build_inventory_pages_with_quality_prompt(
         &owned,
         owned.equipped(),
@@ -156,6 +184,7 @@ pub(crate) fn republish_kaleidoscope_pages(
         key.quality,
     );
     pages.active = Some(active);
+    perf.add_writes(pages.pages.len());
     *last = Some(key);
 }
 
@@ -169,7 +198,58 @@ pub(crate) struct RebuildKey {
     window_start: usize,
     active: Option<MenuPage>,
     open_entry: Option<SystemMenuEntryId>,
+    /// Complete inventory value snapshot. `OwnedItems` intentionally does not expose
+    /// its storage, so derive the stable catalog-order counts through its public API.
+    owned_counts: [u32; ambition::items::ITEM_COUNT],
+    equipped: Option<Item>,
+    /// Complete persisted settings value. This keeps the rebuild contract correct as
+    /// new rendered settings rows are added without extending a second hand-written
+    /// partial key.
+    settings: UserSettings,
     radio: RadioSnapshot,
     dev: DevSnapshot,
     quality: Option<VisualQualityProfile>,
+}
+
+impl RebuildKey {
+    fn changed_fields(&self, next: &Self) -> Vec<&'static str> {
+        let mut changed = Vec::new();
+        if self.window_start != next.window_start {
+            changed.push("window_start");
+        }
+        if self.active != next.active {
+            changed.push("active_page");
+        }
+        if self.open_entry != next.open_entry {
+            changed.push("system_open_entry");
+        }
+        if self.owned_counts != next.owned_counts {
+            changed.push("owned_counts");
+        }
+        if self.equipped != next.equipped {
+            changed.push("equipped");
+        }
+        if self.settings.video != next.settings.video {
+            changed.push("settings.video");
+        }
+        if self.settings.audio != next.settings.audio {
+            changed.push("settings.audio");
+        }
+        if self.settings.controls != next.settings.controls {
+            changed.push("settings.controls");
+        }
+        if self.settings.gameplay != next.settings.gameplay {
+            changed.push("settings.gameplay");
+        }
+        if self.radio != next.radio {
+            changed.push("radio");
+        }
+        if self.dev != next.dev {
+            changed.push("developer_snapshot");
+        }
+        if self.quality != next.quality {
+            changed.push("quality_confirmation");
+        }
+        changed
+    }
 }

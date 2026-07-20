@@ -223,6 +223,7 @@ fn spawn_text(
     });
     let mut entity = ui.spawn((
         Name::new("text"),
+        KaleidoscopeTextMesh,
         KaleidoscopeFade { base_alpha },
         UiLayout::window()
             .x(Rl(x))

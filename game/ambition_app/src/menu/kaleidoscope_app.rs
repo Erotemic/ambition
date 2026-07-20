@@ -4,8 +4,9 @@
 //! existing Bevy-UI grid through [`InventoryUiBackend`].
 //!
 //! The cube is pause-gated ([`gate_kaleidoscope_menu`]): its order-8 `Camera3d` + ring are
-//! only active while the inventory is open, so it never clears the screen to black
-//! during play. Routing nav/selection input to it is the next step — see
+//! only active while the inventory is open. While visible it clears its own
+//! background and suspends the main gameplay camera, avoiding a second full scene
+//! render. Routing nav/selection input to it is the next step — see
 //! `dev/journals/oot-cube-integration-plan.md`.
 
 use ambition::menu::backend::{InventoryUiBackend, KALEIDOSCOPE_MENU_BACKEND_ENABLED};
@@ -13,6 +14,8 @@ use ambition::menu::{
     ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
     MenuDynamicTextContent, MenuVisualState,
 };
+use std::time::{Duration, Instant};
+
 use ambition_menu_kaleidoscope::{
     rebuild_cube_faces, KaleidoscopeActiveFaceControl, KaleidoscopeFocusVisuals,
     KaleidoscopeMenuConfig, KaleidoscopeMenuPlugin, KaleidoscopeRender, KaleidoscopeRenderPre,
@@ -173,17 +176,151 @@ fn cube_render_needed(
     target > 0.0 || amount > 0.08
 }
 
-/// Peak opacity of the readability dim-scrim (black) when the cube is fully open.
-/// The game runs the cube as an Option-1 overlay (cube camera clears `None`, so the
-/// live world shows through); that busy world wrecks the cube text contrast. A
-/// full-screen translucent-black `bevy_ui` Node on the order-0 `Camera2d` renders
-/// UNDER the order-8 cube but OVER the world, dimming the world so the cube text
-/// reads. The demo doesn't need this (it has a dark `ClearColor`).
+/// Peak opacity retained by the legacy readability scrim. The game now suspends
+/// the main gameplay camera while the cube is visible, so this scrim never renders
+/// during the open menu; it remains wired only to keep the close-threshold
+/// handoff from briefly restoring a dimmed gameplay frame.
 const SCRIM_PEAK_ALPHA: f32 = 0.7;
 
-/// Marks the full-screen readability dim-scrim node (game overlay only).
+/// Marks the full-screen readability dim-scrim node (game host only).
 #[derive(Component)]
 pub(crate) struct KaleidoscopeScrim;
+
+/// Records the exact active state of a main gameplay camera while the cube owns
+/// the substantive render. Storing this on the camera avoids assuming every main
+/// camera was active before the menu opened and lets a replacement camera spawned
+/// during the menu be suspended on its first observed frame.
+#[derive(Component, Clone, Copy, Debug)]
+struct KaleidoscopeSuspendedMainCamera {
+    was_active: bool,
+}
+
+/// Records the front-HUD camera active state when an opt-in diagnostic temporarily
+/// suspends it while the cube owns the window render.
+#[derive(Component, Clone, Copy, Debug)]
+struct KaleidoscopeAdjustedFrontHudCamera {
+    was_active: bool,
+}
+
+/// Opt-in runtime evidence for kaleidoscope frame-cost investigations.
+///
+/// Enable with `AMBITION_KALEIDOSCOPE_PERF_DIAGNOSTICS=1`. The system is still
+/// installed in normal builds, but returns before querying cameras or windows when
+/// the variable is absent. Reports use the `ambition::kaleidoscope_perf` log target.
+#[derive(Resource, Debug)]
+struct KaleidoscopePerfDiagnostics {
+    enabled: bool,
+    /// A/B: keep the cube camera/clear pass active but hide its complete ring.
+    hide_geometry: bool,
+    /// A/B: temporarily suspend the front-HUD camera while the cube is visible.
+    disable_front_hud: bool,
+}
+
+impl Default for KaleidoscopePerfDiagnostics {
+    fn default() -> Self {
+        Self {
+            enabled: std::env::var_os("AMBITION_KALEIDOSCOPE_PERF_DIAGNOSTICS").is_some(),
+            hide_geometry: std::env::var_os("AMBITION_KALEIDOSCOPE_PERF_HIDE_GEOMETRY").is_some(),
+            disable_front_hud: std::env::var_os(
+                "AMBITION_KALEIDOSCOPE_PERF_DISABLE_FRONT_HUD",
+            )
+            .is_some(),
+        }
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct KaleidoscopeSystemTiming {
+    enabled: Option<bool>,
+    calls: u64,
+    total_ns: u128,
+    max_ns: u128,
+    work: u64,
+    writes: u64,
+    last_report: Option<Instant>,
+}
+
+pub(crate) struct KaleidoscopeSystemTimingSpan<'a> {
+    name: &'static str,
+    started: Option<Instant>,
+    timing: &'a mut KaleidoscopeSystemTiming,
+    work: u64,
+    writes: u64,
+}
+
+impl<'a> KaleidoscopeSystemTimingSpan<'a> {
+    pub(crate) fn begin(
+        name: &'static str,
+        timing: &'a mut KaleidoscopeSystemTiming,
+    ) -> Self {
+        let enabled = *timing.enabled.get_or_insert_with(|| {
+            std::env::var_os("AMBITION_KALEIDOSCOPE_PERF_DIAGNOSTICS").is_some()
+        });
+        Self {
+            name,
+            started: enabled.then(Instant::now),
+            timing,
+            work: 0,
+            writes: 0,
+        }
+    }
+
+    pub(crate) fn add_work(&mut self, count: usize) {
+        self.work = self.work.saturating_add(count as u64);
+    }
+
+    pub(crate) fn add_writes(&mut self, count: usize) {
+        self.writes = self.writes.saturating_add(count as u64);
+    }
+}
+
+impl Drop for KaleidoscopeSystemTimingSpan<'_> {
+    fn drop(&mut self) {
+        let Some(started) = self.started else {
+            return;
+        };
+        let elapsed_ns = started.elapsed().as_nanos();
+        self.timing.calls = self.timing.calls.saturating_add(1);
+        self.timing.total_ns = self.timing.total_ns.saturating_add(elapsed_ns);
+        self.timing.max_ns = self.timing.max_ns.max(elapsed_ns);
+        self.timing.work = self.timing.work.saturating_add(self.work);
+        self.timing.writes = self.timing.writes.saturating_add(self.writes);
+
+        let now = Instant::now();
+        let Some(last_report) = self.timing.last_report else {
+            self.timing.last_report = Some(now);
+            return;
+        };
+        if now.duration_since(last_report) < Duration::from_secs(2) {
+            return;
+        }
+
+        let calls = self.timing.calls.max(1);
+        info!(
+            target: "ambition::kaleidoscope_perf",
+            "system-timing name={} calls={} avg_us={:.3} max_us={:.3} avg_work={:.1} writes={}",
+            self.name,
+            self.timing.calls,
+            self.timing.total_ns as f64 / calls as f64 / 1_000.0,
+            self.timing.max_ns as f64 / 1_000.0,
+            self.timing.work as f64 / calls as f64,
+            self.timing.writes,
+        );
+        self.timing.calls = 0;
+        self.timing.total_ns = 0;
+        self.timing.max_ns = 0;
+        self.timing.work = 0;
+        self.timing.writes = 0;
+        self.timing.last_report = Some(now);
+    }
+}
+
+#[derive(Default)]
+struct KaleidoscopePerfSample {
+    shown: Option<bool>,
+    elapsed_seconds: f32,
+    frames: u32,
+}
 
 /// Wire the 3D-cube menu into the app: the lib plugins + our page-feed system.
 ///
@@ -192,6 +329,19 @@ pub(crate) struct KaleidoscopeScrim;
 pub fn install_kaleidoscope_menu(app: &mut App) {
     install_unified_menu_shared(app);
     install_kaleidoscope_menu_backend(app);
+}
+
+/// Game-host configuration for the cube. Unlike the standalone renderer default,
+/// the game uses the cube as the sole substantive camera while it is visible, so
+/// the cube must clear its own background instead of depending on a live world
+/// camera underneath it.
+fn game_kaleidoscope_config() -> KaleidoscopeMenuConfig {
+    KaleidoscopeMenuConfig {
+        draw_nav_arrows: false,
+        pickable_controls: true,
+        camera_clears: true,
+        ..Default::default()
+    }
 }
 
 /// Install only the optional 3D cube backend. The caller must install
@@ -204,14 +354,11 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
     // `Pointer<*>` events fire) BEFORE the plugin (which only inserts a default
     // if the host hasn't).
     if !app.world().contains_resource::<KaleidoscopeMenuConfig>() {
-        app.insert_resource(KaleidoscopeMenuConfig {
-            draw_nav_arrows: false,
-            pickable_controls: true,
-            ..Default::default()
-        });
+        app.insert_resource(game_kaleidoscope_config());
     }
     app.init_resource::<KaleidoscopeScroll>()
         .init_resource::<KaleidoscopePointerPress>()
+        .init_resource::<KaleidoscopePerfDiagnostics>()
         .add_plugins(KaleidoscopeMenuPlugin::<MenuPage, MenuPageAction>::default());
     // Gate only the cube's render sets: closed menus can still open and manage
     // camera routing, while face rendering stops when it is not visible/animating.
@@ -281,6 +428,9 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 kaleidoscope_sync_focus_visuals.run_if(kaleidoscope_menu_visible),
                 kaleidoscope_sync_detail_text.run_if(kaleidoscope_menu_visible),
                 gate_kaleidoscope_menu,
+                // Opt-in evidence pass. It runs immediately after the gate so its
+                // camera inventory reflects this frame's final active-state routing.
+                report_kaleidoscope_perf_diagnostics,
                 cycle_dev_gravity,
                 // The readability dim-scrim is cube-only; the Startup node stays
                 // transparent when the cube backend is inactive.
@@ -1758,17 +1908,43 @@ fn cycle_dev_gravity(
     info!(target: "ambition::gravity", "dev gravity cycle: dir = {:?}", base.dir);
 }
 
-/// Pause-gate the cube: its order-8 `Camera3d` clears the whole screen every frame,
-/// so it must be active only while the inventory is open (and the Cube backend is
-/// selected). Off otherwise → the lower-order game cameras render normally.
+/// Pause-gate the cube and hand the substantive render from the gameplay camera
+/// to the cube camera while the fold is visible. The order-9 front-HUD camera and
+/// offscreen/portal cameras are intentionally outside both queries and retain their
+/// own active state.
 fn gate_kaleidoscope_menu(
+    mut commands: Commands,
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<ambition::inventory_ui::InventoryUiState>>,
+    diagnostics: Option<Res<KaleidoscopePerfDiagnostics>>,
     mut open_state: ResMut<ambition_menu_kaleidoscope::KaleidoscopeOpenState>,
-    mut cameras: Query<(
+    mut cube_cameras: Query<
         &mut Camera,
-        Has<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>,
-    )>,
+        With<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>,
+    >,
+    mut main_cameras: Query<
+        (
+            Entity,
+            &mut Camera,
+            Option<&KaleidoscopeSuspendedMainCamera>,
+        ),
+        (
+            With<ambition::platformer::camera_layers::MainCamera>,
+            Without<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>,
+        ),
+    >,
+    mut front_hud_cameras: Query<
+        (
+            Entity,
+            &mut Camera,
+            Option<&KaleidoscopeAdjustedFrontHudCamera>,
+        ),
+        (
+            With<ambition::platformer::camera_layers::FrontHudCamera>,
+            Without<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>,
+            Without<ambition::platformer::camera_layers::MainCamera>,
+        ),
+    >,
     mut rings: Query<&mut Visibility, With<ambition_menu_kaleidoscope::MenuRing>>,
     mut last_show: Local<Option<bool>>,
 ) {
@@ -1794,17 +1970,54 @@ fn gate_kaleidoscope_menu(
     // (`close_speed_scale`), the scrim (which follows `amount`) reads as a quick
     // fade-out. The cutoff only matters while CLOSING; opening crosses it instantly.
     let shown = open_state.amount > 0.08;
-    // Option 1 overlay experiment: toggle ONLY the cube camera and LEAVE the game's
-    // 2D camera active, so the live world renders behind the cube (which now clears
-    // None). This is the configuration we previously avoided (sole-camera) to dodge
-    // the 2D/3D share bug — but that bug's real cause was the camera-drag (now fixed
-    // via With<Camera2d>) plus an MSAA mismatch (now matched), so it's worth a try.
-    for (mut cam, is_kaleidoscope) in &mut cameras {
-        if is_kaleidoscope && cam.is_active != shown {
-            cam.is_active = shown;
+    // The cube is a full-screen pause presentation, not a transparent overlay.
+    // Rendering the complete gameplay world underneath it adds a second substantive
+    // scene pass and caused the measured 140 -> 100 FPS regression. Suspend only
+    // `MainCamera`; the front HUD and portal/offscreen cameras keep their independent
+    // routing. Restore each main camera to the state it actually had before opening.
+    let diagnostics = diagnostics.as_deref();
+    let hide_geometry = diagnostics.is_some_and(|config| config.hide_geometry);
+    let disable_front_hud = diagnostics.is_some_and(|config| config.disable_front_hud);
+
+    for mut camera in &mut cube_cameras {
+        if camera.is_active != shown {
+            camera.is_active = shown;
         }
     }
-    let want = if shown {
+    for (entity, mut camera, suspended) in &mut main_cameras {
+        if shown {
+            if suspended.is_none() {
+                commands.entity(entity).insert(KaleidoscopeSuspendedMainCamera {
+                    was_active: camera.is_active,
+                });
+            }
+            if camera.is_active {
+                camera.is_active = false;
+            }
+        } else if let Some(suspended) = suspended {
+            camera.is_active = suspended.was_active;
+            commands
+                .entity(entity)
+                .remove::<KaleidoscopeSuspendedMainCamera>();
+        }
+    }
+    for (entity, mut camera, adjusted) in &mut front_hud_cameras {
+        if shown && disable_front_hud {
+            if adjusted.is_none() {
+                commands.entity(entity).insert(KaleidoscopeAdjustedFrontHudCamera {
+                    was_active: camera.is_active,
+                });
+            }
+            camera.is_active = false;
+        } else if let Some(adjusted) = adjusted {
+            camera.is_active = adjusted.was_active;
+            commands
+                .entity(entity)
+                .remove::<KaleidoscopeAdjustedFrontHudCamera>();
+        }
+    }
+
+    let want = if shown && !hide_geometry {
         Visibility::Visible
     } else {
         Visibility::Hidden
@@ -1814,6 +2027,280 @@ fn gate_kaleidoscope_menu(
             *vis = want;
         }
     }
+}
+
+/// Report the real camera/window state and average frame time around one
+/// closed -> open -> closed menu cycle. This deliberately does no work unless the
+/// environment opt-in is present; the diagnostic itself must not become a permanent
+/// per-frame cost while measuring a rendering regression.
+#[allow(clippy::type_complexity)]
+fn report_kaleidoscope_perf_diagnostics(
+    config: Res<KaleidoscopePerfDiagnostics>,
+    time: Res<Time>,
+    ui_state: Option<Res<ambition::inventory_ui::InventoryUiState>>,
+    open_state: Res<ambition_menu_kaleidoscope::KaleidoscopeOpenState>,
+    cameras: Query<(
+        Entity,
+        Option<&Name>,
+        &Camera,
+        &bevy::camera::RenderTarget,
+        Has<ambition::platformer::camera_layers::MainCamera>,
+        Has<ambition::platformer::camera_layers::FrontHudCamera>,
+        Has<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>,
+        Has<Camera2d>,
+        Has<Camera3d>,
+        Option<&bevy::core_pipeline::tonemapping::Tonemapping>,
+        Option<&Msaa>,
+        Option<&bevy::camera::visibility::RenderLayers>,
+    )>,
+    windows: Query<(Entity, &Window)>,
+    mesh3d_entities: Query<
+        (
+            Entity,
+            Option<&bevy::camera::visibility::RenderLayers>,
+            Option<&InheritedVisibility>,
+            Option<&ViewVisibility>,
+        ),
+        With<Mesh3d>,
+    >,
+    rings: Query<Entity, With<ambition_menu_kaleidoscope::MenuRing>>,
+    children: Query<&Children>,
+    materials: Res<Assets<StandardMaterial>>,
+    meshes: Res<Assets<Mesh>>,
+    mut sample: Local<KaleidoscopePerfSample>,
+) {
+    if !config.enabled {
+        return;
+    }
+
+    const REPORT_SECONDS: f32 = 2.0;
+    let requested_open = ui_state.as_ref().is_some_and(|state| state.visible);
+    let shown = open_state.amount > 0.08;
+    let transitioned = sample.shown != Some(shown);
+
+    if transitioned {
+        if let Some(previous_shown) = sample.shown {
+            log_kaleidoscope_perf_sample(
+                previous_shown,
+                sample.frames,
+                sample.elapsed_seconds,
+                "phase-end",
+            );
+        }
+        sample.shown = Some(shown);
+        sample.frames = 0;
+        sample.elapsed_seconds = 0.0;
+        info!(
+            target: "ambition::kaleidoscope_perf",
+            "transition requested_open={} shown={} fold_amount={:.4} fold_target={:.4} hide_geometry={} disable_front_hud={}",
+            requested_open,
+            shown,
+            open_state.amount,
+            open_state.target,
+            config.hide_geometry,
+            config.disable_front_hud,
+        );
+        log_kaleidoscope_camera_inventory(&cameras, &windows);
+        log_kaleidoscope_render_inventory(
+            &mesh3d_entities,
+            &rings,
+            &children,
+            &materials,
+            &meshes,
+        );
+    }
+
+    sample.frames = sample.frames.saturating_add(1);
+    sample.elapsed_seconds += time.delta_secs();
+    if sample.elapsed_seconds >= REPORT_SECONDS {
+        log_kaleidoscope_perf_sample(
+            shown,
+            sample.frames,
+            sample.elapsed_seconds,
+            "periodic",
+        );
+        info!(
+            target: "ambition::kaleidoscope_perf",
+            "periodic-state requested_open={} shown={} fold_amount={:.4} fold_target={:.4} hide_geometry={} disable_front_hud={}",
+            requested_open,
+            shown,
+            open_state.amount,
+            open_state.target,
+            config.hide_geometry,
+            config.disable_front_hud,
+        );
+        log_kaleidoscope_camera_inventory(&cameras, &windows);
+        log_kaleidoscope_render_inventory(
+            &mesh3d_entities,
+            &rings,
+            &children,
+            &materials,
+            &meshes,
+        );
+        sample.frames = 0;
+        sample.elapsed_seconds = 0.0;
+    }
+}
+
+fn log_kaleidoscope_perf_sample(shown: bool, frames: u32, seconds: f32, reason: &str) {
+    if frames == 0 || seconds <= f32::EPSILON {
+        return;
+    }
+    let average_fps = frames as f32 / seconds;
+    let average_frame_ms = 1_000.0 * seconds / frames as f32;
+    info!(
+        target: "ambition::kaleidoscope_perf",
+        "sample reason={} shown={} frames={} seconds={:.3} average_fps={:.1} average_frame_ms={:.3}",
+        reason,
+        shown,
+        frames,
+        seconds,
+        average_fps,
+        average_frame_ms,
+    );
+}
+
+#[allow(clippy::type_complexity)]
+fn log_kaleidoscope_camera_inventory(
+    cameras: &Query<(
+        Entity,
+        Option<&Name>,
+        &Camera,
+        &bevy::camera::RenderTarget,
+        Has<ambition::platformer::camera_layers::MainCamera>,
+        Has<ambition::platformer::camera_layers::FrontHudCamera>,
+        Has<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>,
+        Has<Camera2d>,
+        Has<Camera3d>,
+        Option<&bevy::core_pipeline::tonemapping::Tonemapping>,
+        Option<&Msaa>,
+        Option<&bevy::camera::visibility::RenderLayers>,
+    )>,
+    windows: &Query<(Entity, &Window)>,
+) {
+    let mut active_count = 0usize;
+    let mut active_window_count = 0usize;
+    for (
+        entity,
+        name,
+        camera,
+        target,
+        main,
+        front_hud,
+        cube,
+        camera_2d,
+        camera_3d,
+        tonemapping,
+        msaa,
+        layers,
+    ) in cameras.iter()
+    {
+        if camera.is_active {
+            active_count += 1;
+            if matches!(target, bevy::camera::RenderTarget::Window(_)) {
+                active_window_count += 1;
+            }
+        }
+        info!(
+            target: "ambition::kaleidoscope_perf",
+            "camera entity={:?} name={:?} active={} order={} main={} front_hud={} cube={} camera2d={} camera3d={} target={:?} viewport={:?} clear={:?} tonemapping={:?} msaa={:?} layers={:?}",
+            entity,
+            name.map(Name::as_str),
+            camera.is_active,
+            camera.order,
+            main,
+            front_hud,
+            cube,
+            camera_2d,
+            camera_3d,
+            target,
+            camera.viewport,
+            camera.clear_color,
+            tonemapping,
+            msaa,
+            layers,
+        );
+    }
+    info!(
+        target: "ambition::kaleidoscope_perf",
+        "camera-summary total={} active={} active_window_target_approx={}",
+        cameras.iter().count(),
+        active_count,
+        active_window_count,
+    );
+    for (entity, window) in windows.iter() {
+        info!(
+            target: "ambition::kaleidoscope_perf",
+            "window entity={:?} title={:?} focused={} present_mode={:?} mode={:?} logical_size={:.0}x{:.0} scale_factor={:.3}",
+            entity,
+            window.title,
+            window.focused,
+            window.present_mode,
+            window.mode,
+            window.resolution.width(),
+            window.resolution.height(),
+            window.resolution.scale_factor(),
+        );
+    }
+}
+
+fn log_kaleidoscope_render_inventory(
+    mesh3d_entities: &Query<(
+        Entity,
+        Option<&bevy::camera::visibility::RenderLayers>,
+        Option<&InheritedVisibility>,
+        Option<&ViewVisibility>,
+    ), With<Mesh3d>>,
+    rings: &Query<Entity, With<ambition_menu_kaleidoscope::MenuRing>>,
+    children: &Query<&Children>,
+    materials: &Assets<StandardMaterial>,
+    meshes: &Assets<Mesh>,
+) {
+    let layer_zero = bevy::camera::visibility::RenderLayers::layer(0);
+    let mut total_mesh3d = 0usize;
+    let mut inherited_visible_mesh3d = 0usize;
+    let mut view_visible_mesh3d = 0usize;
+    let mut layer_zero_mesh3d = 0usize;
+    for (_entity, layers, inherited, view) in mesh3d_entities.iter() {
+        total_mesh3d += 1;
+        if inherited.is_none_or(|visibility| visibility.get()) {
+            inherited_visible_mesh3d += 1;
+        }
+        if view.is_some_and(|visibility| visibility.get()) {
+            view_visible_mesh3d += 1;
+        }
+        if layers.is_none_or(|layers| layers.intersects(&layer_zero)) {
+            layer_zero_mesh3d += 1;
+        }
+    }
+
+    let mut ring_descendants = 0usize;
+    let mut ring_mesh3d = 0usize;
+    let mut stack: Vec<Entity> = rings.iter().collect();
+    while let Some(entity) = stack.pop() {
+        if rings.get(entity).is_err() {
+            ring_descendants += 1;
+        }
+        if mesh3d_entities.get(entity).is_ok() {
+            ring_mesh3d += 1;
+        }
+        if let Ok(entity_children) = children.get(entity) {
+            stack.extend(entity_children.iter());
+        }
+    }
+
+    info!(
+        target: "ambition::kaleidoscope_perf",
+        "render-inventory mesh3d_total={} mesh3d_inherited_visible={} mesh3d_view_visible={} mesh3d_layer0_candidates={} ring_descendants={} ring_mesh3d={} standard_material_assets={} mesh_assets={}",
+        total_mesh3d,
+        inherited_visible_mesh3d,
+        view_visible_mesh3d,
+        layer_zero_mesh3d,
+        ring_descendants,
+        ring_mesh3d,
+        materials.len(),
+        meshes.len(),
+    );
 }
 
 /// Apply the focus HIGHLIGHT in place: set each live control's [`MenuVisualState`]
@@ -1841,7 +2328,12 @@ fn kaleidoscope_sync_focus_visuals(
         Has<KaleidoscopeActiveFaceControl>,
         &mut MenuVisualState,
     )>,
+    mut timing: Local<KaleidoscopeSystemTiming>,
 ) {
+    let mut perf = KaleidoscopeSystemTimingSpan::begin(
+        "host_sync_focus_visuals",
+        &mut timing,
+    );
     let Some(active_page) = pages.active else {
         return;
     };
@@ -1850,6 +2342,7 @@ fn kaleidoscope_sync_focus_visuals(
     let fallback = SystemMenuModel::default();
     let model = cache.model.as_ref().unwrap_or(&fallback);
     for (control, on_active_face, mut vis) in &mut controls {
+        perf.add_work(1);
         let Some(action) = control.action else {
             continue;
         };
@@ -1868,6 +2361,7 @@ fn kaleidoscope_sync_focus_visuals(
         if vis.focused != focused || vis.selected != focused {
             vis.focused = focused;
             vis.selected = focused;
+            perf.add_writes(1);
         }
     }
 }
@@ -1883,7 +2377,12 @@ fn kaleidoscope_sync_detail_text(
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     cache: Res<CachedSystemMenu>,
     mut texts: Query<(&MenuDynamicText, &mut MenuDynamicTextContent)>,
+    mut timing: Local<KaleidoscopeSystemTiming>,
 ) {
+    let mut perf = KaleidoscopeSystemTimingSpan::begin(
+        "host_sync_detail_text",
+        &mut timing,
+    );
     let Some(owned) = owned else {
         return;
     };
@@ -1908,10 +2407,12 @@ fn kaleidoscope_sync_detail_text(
         _ => Vec::new(),
     };
     for (dynamic, mut content) in &mut texts {
+        perf.add_work(1);
         if let Some((_, text)) = slot_text.iter().find(|(slot, _)| *slot == dynamic.slot) {
             // Change-detection friendly: only rewrite when the string differs.
             if content.0 != *text {
                 content.0 = text.clone();
+                perf.add_writes(1);
             }
         }
     }

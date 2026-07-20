@@ -1023,6 +1023,106 @@ fn opening_the_kaleidoscope_clears_stale_pointer_hover_state() {
     );
 }
 
+
+// ---- Republish value gate --------------------------------------------------
+
+#[derive(Resource, Default)]
+struct PageRepublishCount(u32);
+
+fn count_page_republishes(
+    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    mut count: ResMut<PageRepublishCount>,
+) {
+    if pages.is_changed() {
+        count.0 = count.0.saturating_add(1);
+    }
+}
+
+/// Regression for the 2026-07 FPS cliff: navigation systems held mutable access to
+/// `OwnedItems` and `UserSettings`, so both Bevy change ticks could remain dirty even
+/// when their values were unchanged. The old dirty gate treated those ticks as page
+/// changes and rebuilt every cube face every visible frame.
+#[test]
+fn dirty_resource_ticks_without_value_changes_do_not_republish_cube_pages() {
+    let mut app = base_kaleidoscope_test_app();
+    app.init_resource::<PageRepublishCount>();
+    app.add_systems(
+        Update,
+        (
+            cache_system_menu,
+            republish_kaleidoscope_pages,
+            count_page_republishes,
+        )
+            .chain(),
+    );
+    set_kaleidoscope_visible(&mut app, true);
+    app.world_mut()
+        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        .active = Some(MenuPage::Items);
+
+    app.update();
+    let initial = app.world().resource::<PageRepublishCount>().0;
+    assert_eq!(initial, 1, "first visible frame publishes the cube pages once");
+
+    // Reproduce the runtime false positive exactly: dirty both resource ticks while
+    // preserving every value used by the page renderer.
+    app.world_mut().resource_mut::<OwnedItems>().set_changed();
+    app.world_mut().resource_mut::<UserSettings>().set_changed();
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<PageRepublishCount>().0,
+        initial,
+        "change ticks alone must not republish identical cube pages",
+    );
+}
+
+/// The value key must still invalidate immediately for genuine inventory and settings
+/// edits; removing change-tick gating must not make the cube stale.
+#[test]
+fn real_inventory_and_settings_value_changes_republish_cube_pages() {
+    let mut app = base_kaleidoscope_test_app();
+    app.init_resource::<PageRepublishCount>();
+    app.add_systems(
+        Update,
+        (
+            cache_system_menu,
+            republish_kaleidoscope_pages,
+            count_page_republishes,
+        )
+            .chain(),
+    );
+    set_kaleidoscope_visible(&mut app, true);
+    app.world_mut()
+        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        .active = Some(MenuPage::Items);
+
+    app.update();
+    assert_eq!(app.world().resource::<PageRepublishCount>().0, 1);
+
+    app.world_mut()
+        .resource_mut::<OwnedItems>()
+        .grant(Item::HealthCell, 1);
+    app.update();
+    assert_eq!(
+        app.world().resource::<PageRepublishCount>().0,
+        2,
+        "a real inventory value change republishes",
+    );
+
+    let current = app.world().resource::<UserSettings>().video.show_fps;
+    app.world_mut()
+        .resource_mut::<UserSettings>()
+        .video
+        .show_fps = !current;
+    app.update();
+    assert_eq!(
+        app.world().resource::<PageRepublishCount>().0,
+        3,
+        "a real settings value change republishes",
+    );
+}
+
 // ---- Bug 2: click/tap activation survives a hover-driven republish ---------
 //
 // Root cause (now fixed): a `Pointer<Move>` changed `cursor.focus`, which the
@@ -2129,5 +2229,210 @@ fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
         Some("Equip"),
         "the focused Axe's real verb flows app-provider -> UiCue -> ControlPrompt \
          in ONE sim tick, because install_menu_confirm_provider orders the writer .before the reader"
+    );
+}
+
+// ---- Sole-camera performance regression ---------------------------------
+
+#[derive(Component)]
+struct UnrelatedCaptureCamera;
+
+fn camera_active(app: &App, entity: Entity) -> bool {
+    app.world()
+        .get::<Camera>(entity)
+        .expect("test camera should still exist")
+        .is_active
+}
+
+fn camera_msaa(app: &App, entity: Entity) -> Msaa {
+    *app
+        .world()
+        .get::<Msaa>(entity)
+        .expect("test camera should carry an explicit sample count")
+}
+
+/// Regression for the sustained 140 -> 100 FPS drop: the Option-1 overlay
+/// experiment left the complete gameplay scene rendering underneath the full-screen
+/// 3D menu. The cube must own the substantive render while its fold is visible,
+/// without disturbing unrelated capture-camera routes or rewriting camera sample
+/// counts as part of the routing transition.
+#[test]
+fn visible_cube_suspends_only_the_main_gameplay_camera() {
+    use ambition::platformer::camera_layers::{FrontHudCamera, MainCamera};
+
+    let mut app = App::new();
+    app.init_resource::<InventoryUiBackend>();
+    *app.world_mut().resource_mut::<InventoryUiBackend>() =
+        InventoryUiBackend::LunexKaleidoscope;
+    app.insert_resource(ambition::inventory_ui::InventoryUiState {
+        visible: true,
+        ..Default::default()
+    });
+    app.insert_resource(ambition_menu_kaleidoscope::KaleidoscopeOpenState {
+        amount: 1.0,
+        target: 1.0,
+    });
+    app.add_systems(Update, gate_kaleidoscope_menu);
+
+    let main = app.world_mut().spawn((Camera::default(), MainCamera)).id();
+    let front = app
+        .world_mut()
+        .spawn((Camera::default(), Msaa::Sample4, FrontHudCamera))
+        .id();
+    let capture = app
+        .world_mut()
+        .spawn((Camera::default(), Msaa::Sample4, UnrelatedCaptureCamera))
+        .id();
+    let cube = app
+        .world_mut()
+        .spawn((
+            Camera {
+                is_active: false,
+                ..Default::default()
+            },
+            Msaa::Sample4,
+            ambition_menu_kaleidoscope::KaleidoscopePauseCamera,
+        ))
+        .id();
+
+    app.update();
+
+    assert!(!camera_active(&app, main), "main world render is suspended");
+    assert!(camera_active(&app, cube), "cube camera owns the pause render");
+    assert_eq!(
+        camera_msaa(&app, cube),
+        Msaa::Sample4,
+        "camera routing must not rewrite the cube sample count",
+    );
+    assert!(camera_active(&app, front), "front HUD remains available");
+    assert_eq!(
+        camera_msaa(&app, front),
+        Msaa::Sample4,
+        "camera routing must preserve the front-HUD sample count",
+    );
+    assert!(
+        camera_active(&app, capture),
+        "portal/offscreen-style cameras are outside the routing gate"
+    );
+    assert_eq!(
+        camera_msaa(&app, capture),
+        Msaa::Sample4,
+        "unrelated capture cameras retain their own sample count",
+    );
+    assert!(
+        app.world()
+            .get::<KaleidoscopeSuspendedMainCamera>(main)
+            .is_some(),
+        "the main camera's prior state is recorded for exact restoration"
+    );
+}
+
+/// Closing after the fold crosses the visibility cutoff restores the exact prior
+/// state, including preserving a main camera that was already inactive before the
+/// menu opened and preserving the front-HUD camera's active/sample state.
+#[test]
+fn closing_cube_restores_each_main_camera_prior_state() {
+    use ambition::platformer::camera_layers::{FrontHudCamera, MainCamera};
+
+    let mut app = App::new();
+    app.init_resource::<InventoryUiBackend>();
+    *app.world_mut().resource_mut::<InventoryUiBackend>() =
+        InventoryUiBackend::LunexKaleidoscope;
+    app.insert_resource(ambition::inventory_ui::InventoryUiState {
+        visible: true,
+        ..Default::default()
+    });
+    app.insert_resource(ambition_menu_kaleidoscope::KaleidoscopeOpenState {
+        amount: 1.0,
+        target: 1.0,
+    });
+    app.add_systems(Update, gate_kaleidoscope_menu);
+
+    let active_main = app.world_mut().spawn((Camera::default(), MainCamera)).id();
+    let inactive_main = app
+        .world_mut()
+        .spawn((
+            Camera {
+                is_active: false,
+                ..Default::default()
+            },
+            MainCamera,
+        ))
+        .id();
+    let front = app
+        .world_mut()
+        .spawn((Camera::default(), Msaa::Sample4, FrontHudCamera))
+        .id();
+    let cube = app
+        .world_mut()
+        .spawn((
+            Camera {
+                is_active: false,
+                ..Default::default()
+            },
+            Msaa::Sample4,
+            ambition_menu_kaleidoscope::KaleidoscopePauseCamera,
+        ))
+        .id();
+
+    app.update();
+    assert!(!camera_active(&app, active_main));
+    assert!(!camera_active(&app, inactive_main));
+    assert!(camera_active(&app, cube));
+    assert_eq!(camera_msaa(&app, cube), Msaa::Sample4);
+    assert_eq!(camera_msaa(&app, front), Msaa::Sample4);
+
+    app.world_mut()
+        .resource_mut::<ambition::inventory_ui::InventoryUiState>()
+        .visible = false;
+    {
+        let mut open = app
+            .world_mut()
+            .resource_mut::<ambition_menu_kaleidoscope::KaleidoscopeOpenState>();
+        open.amount = 0.0;
+        open.target = 0.0;
+    }
+    app.update();
+
+    assert!(camera_active(&app, active_main), "active main is restored");
+    assert!(
+        !camera_active(&app, inactive_main),
+        "previously inactive main remains inactive"
+    );
+    assert!(!camera_active(&app, cube), "cube camera turns back off");
+    assert!(camera_active(&app, front), "front HUD active state is restored");
+    assert_eq!(
+        camera_msaa(&app, front),
+        Msaa::Sample4,
+        "front HUD sample count is restored with the gameplay cameras",
+    );
+    assert!(
+        app.world()
+            .get::<KaleidoscopeSuspendedMainCamera>(active_main)
+            .is_none()
+            && app
+                .world()
+                .get::<KaleidoscopeSuspendedMainCamera>(inactive_main)
+                .is_none(),
+        "temporary routing state is removed after restoration"
+    );
+    assert!(
+        app.world()
+            .get::<KaleidoscopeAdjustedFrontHudCamera>(front)
+            .is_none(),
+        "temporary front-HUD diagnostic state is removed after restoration",
+    );
+}
+
+#[test]
+fn game_cube_configuration_clears_without_a_live_world_camera() {
+    let config = game_kaleidoscope_config();
+    assert!(
+        config.camera_clears,
+        "sole-camera presentation must clear its own render target"
+    );
+    assert!(
+        !config.camera_starts_active,
+        "the host gate still owns when the cube camera becomes active"
     );
 }

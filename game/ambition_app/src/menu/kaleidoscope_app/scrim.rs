@@ -70,7 +70,14 @@ pub(crate) fn fade_kaleidoscope_scrim(
     open_state: Res<ambition_menu_kaleidoscope::KaleidoscopeOpenState>,
     mut scrim: Query<&mut BackgroundColor, With<KaleidoscopeScrim>>,
 ) {
-    let alpha = open_state.amount.clamp(0.0, 1.0) * SCRIM_PEAK_ALPHA;
+    // The main camera is suspended while `amount > 0.08`. At the handoff
+    // threshold it becomes visible again, so force the legacy scrim transparent
+    // on that exact frame rather than briefly restoring a dimmed world.
+    let alpha = if open_state.amount > 0.08 {
+        open_state.amount.clamp(0.0, 1.0) * SCRIM_PEAK_ALPHA
+    } else {
+        0.0
+    };
     for mut bg in &mut scrim {
         bg.0 = Color::srgba(0.0, 0.0, 0.0, alpha);
     }

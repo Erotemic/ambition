@@ -1843,7 +1843,7 @@ watch_paths = ["crates/ambition_touch_input"]
 rationale = "ambition_touch_input extracted-crate files exist"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_touch_input/Cargo.toml", "crates/ambition_touch_input/src/lib.rs", "crates/ambition_touch_input/src/state.rs", "crates/ambition_touch_input/src/bevy_plugin.rs", "crates/ambition_touch_input/src/menu_bridge.rs", "crates/ambition_touch_input/src/layout.rs", "crates/ambition_touch_input/src/exclusion.rs"]
+paths = ["crates/ambition_touch_input/Cargo.toml", "crates/ambition_touch_input/src/lib.rs", "crates/ambition_touch_input/src/state.rs", "crates/ambition_touch_input/src/bevy_plugin.rs", "crates/ambition_touch_input/src/menu_bridge.rs", "crates/ambition_touch_input/src/layout.rs", "crates/ambition_touch_input/src/placement.rs"]
 
 [[policy]]
 id = "engine.touch-input-not-in-app"

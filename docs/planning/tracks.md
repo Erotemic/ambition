@@ -41,19 +41,36 @@ this section is the bounded first wave, not a restatement. Vocabulary note
 - ✅ Assist semantics — Jon decided 2026-07-19: **honest rename**. The
   halving stays; the UI now says "Damage assist — take half damage".
   Aim/traversal assists, if ever built, get their own settings.
-- ▢ One external-effect quarantine slice (Track 1's map; copy the
-  `gameplay_trace` authoritative-pass pattern; a vertical slice, not the
-  whole exposure map).
+- ✅ External-effect quarantine, AUDIO slice (`010c84369`): the guard sits
+  at `SfxWriter` — the sole `OwnedSfxMessage` producer — so it covers every
+  current and future emitter; `ambition_sfx` stays sim-blind and the host
+  publishes `SfxEmissionGate` into it. Doing this required making
+  `SimulationReplayState` frame-precise (high-water mark per advance): the
+  old flag stayed raised through the new frame at the end of a rollback, so
+  gating audio on it would have silenced the frame the player just caused —
+  which also fixes a latent `gameplay_trace` hole. Both halves poison-tested.
+  **Track 1 stays OPEN**: VFX (27 direct writers, needs a writer seam
+  first), the autosave writer, and the end-to-end "sync-test rewind emits
+  each effect exactly once" oracle are NOT done.
 
 **Keystone slices**
-- ▢ **K1a movement tuning** [fable-specced, opus-executable]: sim systems
-  consume neutral `ambition_engine_core::MovementTuning` (exists) via a
-  runtime-owned resource; `EditableMovementTuning` becomes an editor
-  adapter writing through an explicit seam; live-edit propagation test.
-  Static exit: NO simulation system imports or accepts
-  `EditableMovementTuning`. (Deleting the `ambition_dev_tools` dep from
-  actors/runtime is the LATER K1 completion criterion — dev state, ability
-  editing, schedule sets, profiling hooks all still bind it.)
+- ✅ **K1a movement tuning** — exit criterion MET. `ae::ActiveMovementTuning`
+  is the neutral authority every sim system reads (damage, actor update,
+  gravity resolve, player tick, room flow, session setup/reset, the provider
+  session builder, both demos, the host smoke fixture);
+  `EditableMovementTuning` is now only an inspector mirror pushed through
+  `apply_editable_movement_tuning` in `DevEditApplySet`. `ambition_engine_core`
+  promoted dev-dep → dep in `ambition_platformer_provider` (no new graph edge;
+  actors already pulled it in). Remaining `EditableMovementTuning` references
+  are editor paths only (inspector registration, settings/kaleidoscope
+  writers, seeding, test fixtures) — verify with
+  `rg EditableMovementTuning -g '*.rs' | grep -v ambition_dev_tools`.
+  A live-edit test pins that F3 still reaches the sim; an adapter bug it
+  caught (Bevy counts insertion as a change, so the mirror's defaults
+  stomped authored tuning on frame one) is fixed and poison-tested.
+  **LATER K1 completion** (unchanged, NOT done): deleting the
+  `ambition_dev_tools` dep from actors/runtime still needs `SandboxDevState`,
+  `EditableAbilitySet`, the schedule sets, and profiling hooks evicted.
 - ▢ **K2a world-manifest parameterization** [opus]: preparation owns a
   `WorldManifest`; the ~13 reader sites (incl. plugin-build + pre-App
   paths — a singleton `Res` canNOT serve them) take `&WorldManifest`;

@@ -22,6 +22,11 @@ Entry format:
 
 ## Open
 
+## 2026-07-19 VFX has no writer seam, so it cannot be rollback-quarantined the way SFX now is
+- **Where:** 27 direct `MessageWriter<VfxMessage>` system params across `ambition_actors`, `ambition_content`, `ambition_render`, and `ambition_app` (`rg "MessageWriter<VfxMessage>" -g '*.rs'`). Audio has exactly one producer — `ambition_sfx::SfxWriter` — which is why the rollback quarantine (`010c84369`) landed as a single guard covering every present and future emitter.
+- **Smell:** the same external-effect duplication bug audio just had is still live for VFX: a GGRS rollback re-simulates frames it already ran, and every re-run re-emits the hit sparks / death burst / dust. Nothing suppresses it, and there is no one place to put the suppression.
+- **Suggested fix / size:** M — give VFX the SfxWriter treatment first (a `VfxWriter` SystemParam in `ambition_vfx` that becomes the sole `VfxMessage` producer), then the quarantine is one `is_some_and(...)` line exactly like the audio one. Do NOT gate 27 call sites individually; that is the shape this repo deletes, not adds. The gate resource can be `SfxEmissionGate`'s sibling or, better, one shared `ExternalEffectGate` both crates read once a second consumer exists.
+
 ## 2026-07-19 BIFURCATION: projectile hit-detection runs TWO victim loops — ✅ RESOLVED 2026-07-19
 - **RESOLUTION (same day, tracks #8):** collapsed to ONE victim loop over every body, mirroring `hitbox/mod.rs:203`. `Has<PlayerEntity>` now picks only payload policy (routing stamp + the player's parry heal). Three real drifts died with the fork: the actor side got knockback (it passed `None`, so an actor hit by the very bolt that launched the player just absorbed it), the player side got the grudge term (`damage_lands` instead of `can_damage`), and vulnerability became FEEDBACK-only for both (§A2: the event always flows, i-frames resolve at consume time). The vulnerability cluster is `Option` in the unified query on purpose — requiring it would silently drop simple feature bodies from the query (the required-components-skip trap, which is exactly how the 4 test failures during this change presented). `can_damage` is now unused by projectiles.
 - **(historical)**

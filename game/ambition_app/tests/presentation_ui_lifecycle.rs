@@ -375,3 +375,90 @@ fn a_transformed_parent_reaches_its_childs_occupancy() {
         "a 0.5-scaled parent must halve its child's occupancy: {halved:?} vs {plain:?}",
     );
 }
+
+/// A parent hidden with ordinary `Visibility` stops its child occluding, in
+/// the frame Bevy propagates that decision.
+///
+/// The host-side hidden-parent test inserts `InheritedVisibility::HIDDEN`
+/// directly, which proves the collector reads the component but assumes the
+/// component is current. It is not current for free: `InheritedVisibility` is
+/// written by `VisibilitySystems::VisibilityPropagate`, which Bevy schedules
+/// after `TransformSystems::Propagate`, while `ui_layout_system` runs before
+/// it. Ordering occupancy collection against layout alone therefore allowed
+/// current geometry with stale visibility.
+///
+/// This test never touches `InheritedVisibility`. It flips ordinary
+/// `Visibility` on a parent and lets the real propagation system decide, in
+/// both directions.
+#[test]
+fn hiding_a_parent_withdraws_its_childs_occupancy() {
+    let mut app = app(ae::Vec2::new(1600.0, 900.0));
+    // The real propagation pass, which `MinimalPlugins` does not include.
+    // `VisibilityPlugin` also runs mesh-bounds systems that hard-require
+    // `Assets<Mesh>`; this app draws no meshes but must still satisfy them.
+    app.init_asset::<bevy::mesh::Mesh>();
+    app.add_plugins(bevy::camera::visibility::VisibilityPlugin);
+
+    let child = app
+        .world_mut()
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(40.0),
+                top: Val::Px(30.0),
+                width: Val::Px(200.0),
+                height: Val::Px(100.0),
+                ..default()
+            },
+            ambition::presentation::gameplay_presentation::ScreenOccluder::hud(),
+        ))
+        .id();
+    let parent = app
+        .world_mut()
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(400.0),
+                top: Val::Px(200.0),
+                width: Val::Px(400.0),
+                height: Val::Px(300.0),
+                ..default()
+            },
+            Visibility::Visible,
+        ))
+        .add_child(child)
+        .id();
+
+    let occluding = |app: &App| !app.world().resource::<ScreenOccupancy>().0.is_empty();
+
+    for _ in 0..3 {
+        app.update();
+    }
+    assert!(
+        occluding(&app),
+        "a visible child under a visible parent must occlude",
+    );
+
+    // Hide the PARENT with ordinary visibility, and let Bevy propagate.
+    *app.world_mut()
+        .entity_mut(parent)
+        .get_mut::<Visibility>()
+        .unwrap() = Visibility::Hidden;
+    app.update();
+    assert!(
+        !occluding(&app),
+        "a hidden parent must withdraw its child's occupancy in the frame the \
+         propagation runs, not the frame after",
+    );
+
+    // And back again, so the test pins a transition rather than a one-way door.
+    *app.world_mut()
+        .entity_mut(parent)
+        .get_mut::<Visibility>()
+        .unwrap() = Visibility::Visible;
+    app.update();
+    assert!(
+        occluding(&app),
+        "showing the parent again must restore its child's occupancy",
+    );
+}

@@ -42,6 +42,16 @@ pub struct ScreenOccupancy(
     pub Vec<ambition_platformer_primitives::gameplay_presentation::ScreenOcclusion>,
 );
 
+/// Ordering handle for generic UI occupancy collection.
+///
+/// Collection sits in `PostUpdate` behind two Bevy edges that are easy to get
+/// wrong (see [`collect_screen_occupancy`]), so it gets a named set: anything
+/// that needs to run around it can say so, and a test can ask the schedule
+/// whether the edges are really there rather than observing that today's
+/// executor happens to pick the right order.
+#[derive(SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct ScreenOccupancySet;
+
 /// Resolve, publish, and apply the gameplay presentation layout.
 pub struct HostGameplayPresentationPlugin;
 
@@ -71,13 +81,17 @@ impl Plugin for HostGameplayPresentationPlugin {
                 .in_set(GameplayPresentationSet),
         );
 
-        // Generic UI occupancy is collected AFTER `bevy_ui` has laid out, and
-        // is therefore consumed by the NEXT frame's resolve. See
-        // `collect_screen_occupancy` for why that is the honest schedule rather
-        // than a lag to be hidden.
+        // Generic UI occupancy is collected AFTER `bevy_ui` has laid out AND
+        // after hierarchy visibility has propagated, and is therefore consumed
+        // by the NEXT frame's resolve. See `collect_screen_occupancy` for why
+        // that is the honest schedule rather than a lag to be hidden, and why
+        // BOTH edges are needed.
         app.add_systems(
             PostUpdate,
-            collect_screen_occupancy.after(bevy::ui::UiSystems::Layout),
+            collect_screen_occupancy
+                .in_set(ScreenOccupancySet)
+                .after(bevy::ui::UiSystems::Layout)
+                .after(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate),
         );
 
         // The observer facts must be THIS frame's, so the whole cluster runs
@@ -140,7 +154,7 @@ fn resolve_presentation_environment() -> PresentationEnvironment {
 /// PHYSICAL pixels; `inverse_scale_factor` converts to the logical space the
 /// rest of the layout uses, so this is DPI-correct without a window read.
 ///
-/// # Lifecycle: collected after layout, consumed next frame
+/// # Lifecycle: collected after layout AND visibility, consumed next frame
 ///
 /// `bevy_ui` computes `ComputedNode` and `UiGlobalTransform` in `PostUpdate`
 /// (`UiSystems::Layout`), so this runs there too — reading them from `Update`
@@ -148,6 +162,15 @@ fn resolve_presentation_environment() -> PresentationEnvironment {
 /// same-frame read. The resolve in `Update` therefore composes against
 /// occupancy collected at the end of the previous frame, and that is stated
 /// rather than papered over.
+///
+/// Ordering against layout ALONE was not enough. `InheritedVisibility` is
+/// propagated by a different `PostUpdate` system
+/// (`VisibilitySystems::VisibilityPropagate`), which Bevy schedules *after*
+/// `TransformSystems::Propagate` while `ui_layout_system` runs *before* it — so
+/// `.after(Layout)` permitted this to run with current geometry and STALE
+/// visibility. Hiding a parent during `Update` could then still collect its
+/// child's occupancy, and the framing would reserve space for a panel nobody
+/// could see. Both edges are declared; neither implies the other.
 ///
 /// One frame is the right trade for a GENERIC occluder: a HUD panel or dialogue
 /// box is authored `bevy_ui`, its geometry is only knowable after taffy has

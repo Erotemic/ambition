@@ -527,6 +527,66 @@ fn occupancy_follows_the_node_with_no_second_descriptor() {
     );
 }
 
+/// Occupancy collection is ORDERED against visibility propagation, not merely
+/// observed to run after it.
+///
+/// The behavioural half of this lives in the app suite, where a real parent is
+/// hidden with ordinary `Visibility` and the real propagation system decides.
+/// That test passes with the ordering edge removed, because an unordered pair
+/// still gets *some* order from the executor and today it happens to be the
+/// right one — a green guardrail proving nothing. The invariant is the EDGE, so
+/// this checks the edge.
+///
+/// `collect_screen_occupancy` reads `&InheritedVisibility` and
+/// `visibility_propagate_system` writes it, so with nothing ordering them Bevy
+/// records a genuine data conflict between the two. Declaring the dependency is
+/// the only thing that removes it.
+#[test]
+fn occupancy_collection_is_ordered_against_visibility_propagation() {
+    use bevy::camera::visibility::VisibilitySystems;
+    use bevy::ecs::schedule::Schedules;
+    use bevy::ecs::schedule::SystemSet as _;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    // `VisibilityPlugin` runs mesh-bounds systems that hard-require these.
+    app.add_plugins(bevy::asset::AssetPlugin::default());
+    app.init_asset::<bevy::mesh::Mesh>();
+    app.add_plugins(bevy::camera::visibility::VisibilityPlugin);
+    app.add_plugins(HostGameplayPresentationPlugin);
+    app.update();
+
+    let schedules = app.world().resource::<Schedules>();
+    let graph = schedules
+        .get(PostUpdate)
+        .expect("PostUpdate exists")
+        .graph();
+
+    let collectors = graph
+        .systems_in_set(ScreenOccupancySet.intern())
+        .expect("the occupancy collector is registered");
+    let propagators = graph
+        .systems_in_set(VisibilitySystems::VisibilityPropagate.intern())
+        .expect("Bevy propagates visibility in PostUpdate");
+    assert!(!collectors.is_empty() && !propagators.is_empty());
+
+    let ambiguous = graph
+        .conflicting_systems()
+        .iter()
+        .filter(|(a, b, _)| {
+            (collectors.contains(a) && propagators.contains(b))
+                || (collectors.contains(b) && propagators.contains(a))
+        })
+        .count();
+
+    assert_eq!(
+        ambiguous, 0,
+        "occupancy collection must be ordered against visibility propagation, \
+         but the schedule reports {ambiguous} unordered conflict(s) on \
+         InheritedVisibility between them",
+    );
+}
+
 /// A SCALED node occupies its scaled bounds.
 ///
 /// `UiTransform::scale` does not change `ComputedNode::size` — it lands in

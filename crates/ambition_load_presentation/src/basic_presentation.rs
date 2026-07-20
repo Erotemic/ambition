@@ -1,8 +1,6 @@
 //! Plain Bevy UI reference presentation for load evidence and ready-hold.
 
-use ambition_game_shell::{
-    shell_action_edges, FrontendOwnedEntity, FrontendPresentationKind, ShellAnalogLatch,
-};
+use ambition_game_shell::{shell_action_edges, FrontendOwnedEntity, FrontendPresentationKind};
 use ambition_platformer_primitives::developer_hotkeys::{DeveloperAction, DeveloperHotkeyBindings};
 use bevy::prelude::*;
 
@@ -22,7 +20,11 @@ impl Plugin for BasicLoadPresentationPlugin {
         app.add_message::<DeveloperAction>()
             .add_systems(
                 Update,
-                basic_load_keyboard.in_set(LoadPresentationSet::Input),
+                basic_load_keyboard
+                    .in_set(LoadPresentationSet::Input)
+                    // A consumer of the routed input semantics: after every
+                    // producer (participant populate, touch folds), same frame.
+                    .in_set(ambition_input::InputSet::Consume),
             )
             .add_systems(
                 Update,
@@ -32,6 +34,10 @@ impl Plugin for BasicLoadPresentationPlugin {
 }
 
 fn basic_load_keyboard(
+    // Retry is the loading context's one remaining raw-device read (R / pad
+    // West): the loading surface is not part of the migrated startup/launcher
+    // contexts yet and no semantic retry intent exists. Everything else below
+    // consumes the participant-populated `MenuControlFrame`.
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<&bevy::input::gamepad::Gamepad>,
     menu_frame: Option<Res<ambition_input::MenuControlFrame>>,
@@ -39,21 +45,25 @@ fn basic_load_keyboard(
     model: Res<LoadPresentationModel>,
     mut developer_actions: MessageReader<DeveloperAction>,
     mut actions: MessageWriter<LoadPresentationAction>,
-    mut analog: Local<ShellAnalogLatch>,
 ) {
     let Some(active) = foreground.active.as_ref() else {
         return;
     };
-    let shell_actions =
-        shell_action_edges(keys.as_deref(), &pads, menu_frame.as_deref(), &mut analog);
+    let shell_actions = shell_action_edges(menu_frame.as_deref());
     if active.phase == LoadForegroundPhase::ReadyHold && shell_actions.loading_continue {
         actions.write(LoadPresentationAction::Continue {
             owner: active.owner.clone(),
         });
     }
+    let retry_pressed = keys
+        .as_deref()
+        .is_some_and(|input| input.just_pressed(KeyCode::KeyR))
+        || pads
+            .iter()
+            .any(|gamepad| gamepad.just_pressed(bevy::input::gamepad::GamepadButton::West));
     if active.phase == LoadForegroundPhase::Failed
         && model.failures.iter().any(|failure| failure.retryable)
-        && shell_actions.retry
+        && retry_pressed
     {
         actions.write(LoadPresentationAction::Retry {
             owner: active.owner.clone(),

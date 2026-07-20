@@ -28,10 +28,9 @@ use ambition_menu::{
 };
 use ambition_platformer_primitives::schedule::GameMode;
 use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
-use bevy::input::gamepad::Gamepad;
 use bevy::prelude::*;
 
-use crate::{shell_action_edges, ActiveGameplaySession, ShellAnalogLatch, ShellCommand};
+use crate::{shell_action_edges, ActiveGameplaySession, ShellCommand};
 
 /// The three universal entries, in display order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -101,6 +100,8 @@ impl Plugin for ShellPauseMenuPlugin {
             .init_resource::<ShellPauseMenuSuppressed>()
             .add_message::<OwnedSfxMessage>()
             .init_resource::<ambition_sfx::SfxEmissionContext>()
+            // Consumers of the routed input semantics: after every producer
+            // (participant populate, touch folds, pointer bridge), same frame.
             .add_systems(
                 Update,
                 (
@@ -108,22 +109,23 @@ impl Plugin for ShellPauseMenuPlugin {
                     shell_pause_menu_pointer.after(BevyUiMenuInteractionSet),
                     render_shell_pause_menu,
                 )
-                    .chain(),
+                    .chain()
+                    .in_set(ambition_input::InputSet::Consume),
             );
     }
 }
 
-/// Input + state for the pause menu: open/close on Escape/Start, navigate, and
-/// dispatch the selected entry. Pausing the sim ([`GameMode::Paused`]) is
-/// best-effort — a demo that does not register the `GameMode` state simply keeps
-/// running behind the menu, which stays fully functional either way.
+/// Input + state for the pause menu: open/close on the Start intent,
+/// navigate, and dispatch the selected entry. Pausing the sim
+/// ([`GameMode::Paused`]) is best-effort — a demo that does not register the
+/// `GameMode` state simply keeps running behind the menu, which stays fully
+/// functional either way.
 #[allow(clippy::too_many_arguments)]
 fn drive_shell_pause_menu(
-    keys: Option<Res<ButtonInput<KeyCode>>>,
-    pads: Query<&Gamepad>,
-    // The device-agnostic menu seam. Absent in an app with no host input stack;
-    // present (and touch-fed) in every windowed host, which is what lets the
-    // on-screen "Menu" button open this menu on a phone.
+    // The device-agnostic menu seam, populated from the persistent input
+    // participant. Absent in an app with no host input stack; present (and
+    // touch-fed) in every windowed host, which is what lets the on-screen
+    // "Menu" button open this menu on a phone.
     menu_frame: Option<Res<ambition_input::MenuControlFrame>>,
     session: Res<ActiveGameplaySession>,
     suppressed: Res<ShellPauseMenuSuppressed>,
@@ -132,7 +134,6 @@ fn drive_shell_pause_menu(
     game_mode: Option<Res<State<GameMode>>>,
     mut next_mode: Option<ResMut<NextState<GameMode>>>,
     mut sfx: SfxWriter,
-    mut analog: Local<ShellAnalogLatch>,
 ) {
     // No live session, or the active experience owns its own pause chrome: the
     // shell menu is inert. If it was open (e.g. the session just retired), fold
@@ -146,7 +147,7 @@ fn drive_shell_pause_menu(
         return;
     }
 
-    let edges = shell_action_edges(keys.as_deref(), &pads, menu_frame.as_deref(), &mut analog);
+    let edges = shell_action_edges(menu_frame.as_deref());
     // Escape / Start toggle; the controller B (`back`) also closes an open menu.
     let toggle = edges.pause || (menu.open && edges.back);
 
@@ -357,30 +358,38 @@ fn play(sfx: &mut SfxWriter, id: ambition_sfx::SfxId) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_input::MenuControlFrame;
 
     fn app() -> App {
         let mut app = App::new();
-        app.init_resource::<ButtonInput<KeyCode>>()
+        app.init_resource::<MenuControlFrame>()
             .insert_resource(ActiveGameplaySession(None))
             .add_plugins(ShellPauseMenuPlugin)
             .add_message::<ShellCommand>();
         app
     }
 
-    fn press(app: &mut App, key: KeyCode) {
-        app.world_mut()
-            .resource_mut::<ButtonInput<KeyCode>>()
-            .press(key);
+    /// Inject one semantic intent for exactly one frame — the shape every
+    /// device (keyboard, gamepad, touch) reduces to before the shell reads
+    /// input. The frame resets afterwards so edges never linger.
+    fn intent(app: &mut App, set: impl Fn(&mut MenuControlFrame)) {
+        {
+            let mut frame = app.world_mut().resource_mut::<MenuControlFrame>();
+            *frame = MenuControlFrame::default();
+            set(&mut frame);
+        }
+        app.update();
+        *app.world_mut().resource_mut::<MenuControlFrame>() = MenuControlFrame::default();
     }
 
-    /// Fully reset the key state between simulated presses. `ButtonInput::clear`
-    /// alone keeps the `pressed` set, so a second `press` of an already-held key
-    /// would NOT re-raise `just_pressed`; release everything first so the next
-    /// `press` is a fresh edge (there is no input plugin advancing state here).
-    fn clear_keys(app: &mut App) {
-        let mut input = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
-        input.release_all();
-        input.clear();
+    /// The Start intent — what keyboard Escape, controller Start, and the
+    /// touch "Menu" button all become. Escape additionally maps to MenuBack
+    /// in the bindings, so the pair arrives together like the real device.
+    fn press_start(app: &mut App) {
+        intent(app, |f| {
+            f.start = true;
+            f.back = true;
+        });
     }
 
     fn with_live_session(app: &mut App) {
@@ -392,28 +401,23 @@ mod tests {
     }
 
     #[test]
-    fn escape_opens_and_closes_only_during_a_live_session() {
+    fn the_start_intent_opens_and_closes_only_during_a_live_session() {
         let mut app = app();
-        // No session: Escape does nothing.
-        press(&mut app, KeyCode::Escape);
-        app.update();
+        // No session: the Start intent does nothing.
+        press_start(&mut app);
         assert!(!app.world().resource::<ShellPauseMenu>().open);
-        clear_keys(&mut app);
 
         with_live_session(&mut app);
-        press(&mut app, KeyCode::Escape);
-        app.update();
+        press_start(&mut app);
         assert!(
             app.world().resource::<ShellPauseMenu>().open,
-            "Escape opens the menu during a live session"
+            "the Start intent opens the menu during a live session"
         );
-        clear_keys(&mut app);
 
-        press(&mut app, KeyCode::Escape);
-        app.update();
+        press_start(&mut app);
         assert!(
             !app.world().resource::<ShellPauseMenu>().open,
-            "Escape again closes it"
+            "the Start intent again closes it"
         );
     }
 
@@ -421,18 +425,15 @@ mod tests {
     fn suppressed_menu_never_opens_and_folds_if_open() {
         let mut app = app();
         with_live_session(&mut app);
-        press(&mut app, KeyCode::Escape);
-        app.update();
+        press_start(&mut app);
         assert!(app.world().resource::<ShellPauseMenu>().open);
-        clear_keys(&mut app);
 
         // The host raises suppression (Ambition's own mode took over): the menu
         // folds and stays inert.
         app.insert_resource(ShellPauseMenuSuppressed(true));
         app.update();
         assert!(!app.world().resource::<ShellPauseMenu>().open);
-        press(&mut app, KeyCode::Escape);
-        app.update();
+        press_start(&mut app);
         assert!(
             !app.world().resource::<ShellPauseMenu>().open,
             "a suppressed menu ignores the open input"
@@ -443,14 +444,9 @@ mod tests {
     fn quit_to_title_fires_quit_to_home_and_closes() {
         let mut app = app();
         with_live_session(&mut app);
-        press(&mut app, KeyCode::Escape); // open
-        app.update();
-        clear_keys(&mut app);
-        press(&mut app, KeyCode::ArrowDown); // cursor -> Quit to Title
-        app.update();
-        clear_keys(&mut app);
-        press(&mut app, KeyCode::Enter); // confirm
-        app.update();
+        press_start(&mut app); // open
+        intent(&mut app, |f| f.down = true); // cursor -> Quit to Title
+        intent(&mut app, |f| f.select = true); // confirm
 
         let sent: Vec<ShellCommand> = app
             .world_mut()
@@ -468,9 +464,7 @@ mod tests {
     fn touch_press_on_pause_row_dispatches_that_rows_action() {
         let mut app = app();
         with_live_session(&mut app);
-        press(&mut app, KeyCode::Escape);
-        app.update();
-        clear_keys(&mut app);
+        press_start(&mut app);
 
         let quit_to_title = {
             let mut q = app
@@ -503,17 +497,10 @@ mod tests {
     fn quit_to_desktop_requests_process_exit() {
         let mut app = app();
         with_live_session(&mut app);
-        press(&mut app, KeyCode::Escape);
-        app.update();
-        clear_keys(&mut app);
-        press(&mut app, KeyCode::ArrowDown);
-        app.update();
-        clear_keys(&mut app);
-        press(&mut app, KeyCode::ArrowDown); // cursor -> Quit to Desktop
-        app.update();
-        clear_keys(&mut app);
-        press(&mut app, KeyCode::Enter);
-        app.update();
+        press_start(&mut app);
+        intent(&mut app, |f| f.down = true);
+        intent(&mut app, |f| f.down = true); // cursor -> Quit to Desktop
+        intent(&mut app, |f| f.select = true);
 
         let sent: Vec<ShellCommand> = app
             .world_mut()

@@ -1,32 +1,23 @@
 //! Narrow neutral shell action adapter shared by startup, launcher, loading,
 //! and gameplay-to-home presentation.
 //!
-//! Devices reach the shell through TWO sources, folded here into one edge set:
+//! The shell reads NO raw devices. Every device — keyboard, gamepad, touch
+//! stick and buttons, mouse wheel — reaches it through [`MenuControlFrame`],
+//! the semantic menu intent populated from the persistent input participant's
+//! `ActionState` (see `populate_menu_control_frame_from_actions`) and the
+//! virtual-device folds. The participant exists from boot, so the frame is
+//! live at the startup cards and the launcher with no gameplay actor and no
+//! session; keyboard Enter, gamepad South, a virtual touch confirm, and a
+//! touch stick flick all arrive as the same one-frame edges.
 //!
-//! 1. Raw keyboard + gamepad, read directly. The shell must work before any
-//!    session exists (startup cards, launcher, loading), where no player entity
-//!    carries a leafwing `ActionState` and the semantic seam below is therefore
-//!    empty.
-//! 2. [`MenuControlFrame`], the engine's device-agnostic menu intent. Touch,
-//!    on-screen buttons, mouse wheel, and (eventually) Android system-back all
-//!    fold into it — see `ambition_touch_input::fold_to_menu_control_frame`.
-//!
-//! Source 2 is what makes the shell reachable from a phone. It is OPTIONAL: an
-//! app composing `MinimalShellPlugins` without a host input stack simply has no
-//! such resource, and the shell stays keyboard/gamepad-driven.
-//!
-//! Both sources carry one-frame edges and this adapter samples once per frame,
-//! so it does not matter whether the fold runs before or after a shell system —
-//! a press produces exactly one edge either way, at worst a frame late. That
-//! order-independence is deliberate: it keeps the shell from having to name a
-//! schedule set owned by a crate above it.
+//! The frame resource is OPTIONAL: an app composing `MinimalShellPlugins`
+//! without a host input stack has no participant and no frame, and its shell
+//! surfaces are inert to devices (pointer/touch row activation still works
+//! through the `MenuActionActivated` bridge). Shell consumers run in
+//! `InputSet::Consume`, after every producer — an edge produced this frame
+//! is consumed this frame.
 
 use ambition_input::MenuControlFrame;
-use bevy::input::gamepad::{Gamepad, GamepadButton};
-use bevy::prelude::{ButtonInput, KeyCode, Query};
-
-const ANALOG_PRESS_THRESHOLD: f32 = 0.65;
-const ANALOG_RELEASE_THRESHOLD: f32 = 0.35;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct ShellActionEdges {
@@ -34,138 +25,75 @@ pub struct ShellActionEdges {
     pub next: bool,
     pub confirm: bool,
     pub back: bool,
-    /// Open / toggle the in-session pause menu: Escape or the controller Start
-    /// button. This is the conventional pause binding; the pause menu it opens
-    /// carries "Quit to Title" and "Quit to Desktop" entries, so Start no longer
-    /// retires; quitting to home is a separate semantic developer action.
+    /// Open / toggle the in-session pause menu: the semantic Start intent
+    /// (keyboard Escape, controller Start, the touch HUD's "Menu" button).
+    /// The pause menu it opens carries "Quit to Title" and "Quit to Desktop"
+    /// entries, so Start no longer retires; quitting to home is a separate
+    /// semantic developer action.
     pub pause: bool,
     pub startup_acknowledge: bool,
     pub loading_continue: bool,
-    pub retry: bool,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct ShellAnalogLatch {
-    up_held: bool,
-    down_held: bool,
-}
-
-impl ShellAnalogLatch {
-    fn vertical_edges(&mut self, vertical: f32) -> (bool, bool) {
-        if vertical.abs() <= ANALOG_RELEASE_THRESHOLD {
-            self.up_held = false;
-            self.down_held = false;
-        }
-        let up = vertical >= ANALOG_PRESS_THRESHOLD && !self.up_held;
-        let down = vertical <= -ANALOG_PRESS_THRESHOLD && !self.down_held;
-        if up {
-            self.up_held = true;
-            self.down_held = false;
-        }
-        if down {
-            self.down_held = true;
-            self.up_held = false;
-        }
-        (up, down)
-    }
-}
-
-pub fn shell_action_edges(
-    keys: Option<&ButtonInput<KeyCode>>,
-    pads: &Query<&Gamepad>,
-    menu: Option<&MenuControlFrame>,
-    analog: &mut ShellAnalogLatch,
-) -> ShellActionEdges {
-    let key = |code| keys.is_some_and(|input| input.just_pressed(code));
-    let pad = |button| pads.iter().any(|gamepad| gamepad.just_pressed(button));
-    // An absent menu frame is the neutral element, so every OR below is a no-op
-    // for apps that do not compose a host input stack.
+/// Fold the semantic menu frame into the shell's edge vocabulary. An absent
+/// frame (no host input stack) is the neutral element.
+pub fn shell_action_edges(menu: Option<&MenuControlFrame>) -> ShellActionEdges {
     let menu = menu.copied().unwrap_or_default();
-    let vertical = pads
-        .iter()
-        .map(|gamepad| gamepad.left_stick().y)
-        .max_by(|lhs, rhs| lhs.abs().total_cmp(&rhs.abs()))
-        .unwrap_or(0.0);
-    let (analog_up, analog_down) = analog.vertical_edges(vertical);
-    let previous = key(KeyCode::ArrowUp) || pad(GamepadButton::DPadUp) || analog_up || menu.up;
-    let next = key(KeyCode::ArrowDown) || pad(GamepadButton::DPadDown) || analog_down || menu.down;
-    let confirm =
-        key(KeyCode::Enter) || key(KeyCode::Space) || pad(GamepadButton::South) || menu.select;
-    let back = key(KeyCode::Escape) || pad(GamepadButton::East) || menu.back;
     ShellActionEdges {
-        previous,
-        next,
-        confirm,
-        back,
-        // The touch HUD's "Menu" button folds to `MenuControlFrame::start`, so
-        // this is the binding that lets a phone open the pause menu at all.
-        pause: key(KeyCode::Escape) || pad(GamepadButton::Start) || menu.start,
-        startup_acknowledge: confirm,
-        loading_continue: confirm,
-        retry: key(KeyCode::KeyR) || pad(GamepadButton::West),
+        previous: menu.up,
+        next: menu.down,
+        confirm: menu.select,
+        back: menu.back,
+        pause: menu.start,
+        startup_acknowledge: menu.select,
+        loading_continue: menu.select,
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{shell_action_edges, ShellAnalogLatch};
+    use super::shell_action_edges;
     use ambition_input::MenuControlFrame;
-    use bevy::ecs::system::SystemState;
-    use bevy::input::gamepad::Gamepad;
-    use bevy::prelude::{Query, World};
 
-    /// Every shell surface below is reachable with NO keyboard and NO gamepad —
-    /// the state a phone is actually in. Each assertion names the device-neutral
-    /// menu intent that has to carry it.
-    ///
-    /// The pause case is the regression this guards: the shell menu used to read
-    /// only `ButtonInput<KeyCode>` + `Query<&Gamepad>`, so the touch HUD's "Menu"
-    /// button folded into `MenuControlFrame::start` and was then dropped on the
-    /// floor. On Android that meant a live session with no way back to the title
-    /// screen.
+    /// Every shell surface is reachable through the ONE semantic frame — the
+    /// state a phone, a keyboard, and a controller all reduce to. Each
+    /// assertion names the device-neutral intent that carries it.
     #[test]
     fn the_menu_frame_alone_drives_every_shell_action() {
-        let mut world = World::new();
-        let mut state: SystemState<Query<&Gamepad>> = SystemState::new(&mut world);
-        let pads = state.get(&world);
-        let mut latch = ShellAnalogLatch::default();
-
-        // Pre-poison: with no device and no menu frame, nothing may fire. A
-        // permissive adapter would make every assertion below vacuous.
-        let idle = shell_action_edges(None, &pads, None, &mut latch);
+        // Pre-poison: with no frame, nothing may fire. A permissive adapter
+        // would make every assertion below vacuous.
+        let idle = shell_action_edges(None);
+        assert_eq!(idle, Default::default(), "no menu frame -> no edges");
         assert_eq!(
-            idle,
+            shell_action_edges(Some(&MenuControlFrame::default())),
             Default::default(),
-            "no keyboard, no pad, no menu frame -> no edges"
+            "a neutral frame -> no edges"
         );
 
-        let from = |frame: MenuControlFrame, latch: &mut ShellAnalogLatch| {
-            shell_action_edges(None, &pads, Some(&frame), latch)
-        };
         let start = MenuControlFrame {
             start: true,
             ..Default::default()
         };
         assert!(
-            from(start, &mut latch).pause,
-            "the touch HUD's Menu button (-> start) must open the pause menu"
+            shell_action_edges(Some(&start)).pause,
+            "the Start intent (Escape / pad Start / touch Menu) opens the pause menu"
         );
         let back = MenuControlFrame {
             back: true,
             ..Default::default()
         };
         assert!(
-            from(back, &mut latch).back,
-            "the touch HUD's Back button must close an open menu"
+            shell_action_edges(Some(&back)).back,
+            "the Back intent closes an open menu"
         );
         let select = MenuControlFrame {
             select: true,
             ..Default::default()
         };
-        let confirmed = from(select, &mut latch);
+        let confirmed = shell_action_edges(Some(&select));
         assert!(
             confirmed.confirm && confirmed.startup_acknowledge && confirmed.loading_continue,
-            "one touch confirm must dismiss startup cards, pick launcher rows, \
+            "one Select intent must dismiss startup cards, pick launcher rows, \
              and release a loading ready-hold"
         );
         let down = MenuControlFrame {
@@ -173,25 +101,13 @@ mod tests {
             ..Default::default()
         };
         assert!(
-            from(down, &mut latch).next,
-            "the touch stick's menu-nav fold must move the cursor"
+            shell_action_edges(Some(&down)).next,
+            "directional menu intent moves the cursor"
         );
         let up = MenuControlFrame {
             up: true,
             ..Default::default()
         };
-        assert!(from(up, &mut latch).previous);
-    }
-
-    #[test]
-    fn analog_navigation_is_edge_triggered_with_hysteresis() {
-        let mut latch = ShellAnalogLatch::default();
-        assert_eq!(latch.vertical_edges(0.64), (false, false));
-        assert_eq!(latch.vertical_edges(0.70), (true, false));
-        assert_eq!(latch.vertical_edges(0.90), (false, false));
-        assert_eq!(latch.vertical_edges(0.20), (false, false));
-        assert_eq!(latch.vertical_edges(0.80), (true, false));
-        assert_eq!(latch.vertical_edges(-0.80), (false, true));
-        assert_eq!(latch.vertical_edges(-0.90), (false, false));
+        assert!(shell_action_edges(Some(&up)).previous);
     }
 }

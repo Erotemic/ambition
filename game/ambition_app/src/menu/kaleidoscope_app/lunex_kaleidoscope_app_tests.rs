@@ -2072,7 +2072,7 @@ fn menu_confirm_label_resolves_the_focused_item_verb() {
 
 /// Gate 6 end-to-end through the REAL provider path AND its production schedule
 /// registration: the app provider (`publish_menu_confirm_prompt`) reads the live
-/// cursor + owned items + open overlay and publishes into `MenuConfirmPrompt`; the
+/// cursor + owned items + open overlay and publishes the inventory's `UiCue`; the
 /// sim-side `rebuild_control_prompt` folds that into `ControlPrompt.menu_confirm`.
 ///
 /// Crucially, the two systems are wired by the REAL `install_menu_confirm_provider`
@@ -2086,7 +2086,7 @@ fn menu_confirm_label_resolves_the_focused_item_verb() {
 #[test]
 fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     use ambition::platformer::schedule::{SandboxSet, SimScheduleExt};
-    use ambition::sim_view::{ControlContextKind, ControlPrompt, MenuConfirmPrompt};
+    use ambition::sim_view::{ControlContextKind, ControlPrompt};
     use bevy::prelude::IntoScheduleConfigs;
 
     let axe_idx = Item::ALL.iter().position(|&i| i == Item::Axe).unwrap();
@@ -2096,7 +2096,6 @@ fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     app.init_state::<GameMode>();
     app.init_resource::<KaleidoscopeCursor>();
     app.init_resource::<ControlPrompt>();
-    app.init_resource::<MenuConfirmPrompt>();
     let mut owned = OwnedItems::default();
     owned.grant(Item::Axe, 1);
     app.insert_resource(owned);
@@ -2128,7 +2127,7 @@ fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     assert_eq!(
         prompt.menu_confirm.as_deref(),
         Some("Equip"),
-        "the focused Axe's real verb flows app-provider -> MenuConfirmPrompt -> ControlPrompt \
+        "the focused Axe's real verb flows app-provider -> UiCue -> ControlPrompt \
          in ONE sim tick, because install_menu_confirm_provider orders the writer .before the reader"
     );
 }

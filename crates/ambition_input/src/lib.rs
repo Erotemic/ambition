@@ -18,6 +18,7 @@ use leafwing_input_manager::prelude::*;
 mod actions;
 mod active_input;
 mod control;
+pub mod cues;
 mod menu;
 mod motion_input;
 pub mod participant;
@@ -91,6 +92,7 @@ pub enum InputSet {
     /// Shell/menu consumers of the routed semantics.
     Consume,
 }
+pub use cues::{ActiveUiCues, UiCue};
 pub use menu::{analog_to_dir, MenuControlFrame, MenuDir, MenuInputFrame, MenuInputState};
 pub use participant::{
     resolve_active_input_context, ActiveInputContext, ContextClaim, InputContextId,

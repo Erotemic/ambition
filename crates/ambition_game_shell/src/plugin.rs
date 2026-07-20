@@ -13,9 +13,9 @@ use ambition_load::{AmbitionLoadSet, LoadCoordinator};
 
 use crate::{
     ActiveGameplaySession, ActiveShellSequence, AmbitionGameShellSet, PreparedSessionRegistry,
-    ShellCommand, ShellEvent, ShellExperienceRegistry, ShellHostConfiguration, ShellInputFocus,
-    ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherPresentation, ShellLauncherState,
-    ShellRouteCatalog, ShellRouteHolds, ShellRouter, ShellScopedEntity, ShellSegmentScopedEntity,
+    ShellCommand, ShellEvent, ShellExperienceRegistry, ShellHostConfiguration, ShellLaunchCatalog,
+    ShellLauncherCommand, ShellLauncherPresentation, ShellLauncherState, ShellRouteCatalog,
+    ShellRouteHolds, ShellRouter, ShellScopedEntity, ShellSegmentScopedEntity,
     ShellSequenceCatalog, ShellSequenceCommand, ShellSequenceRuntime, ShellSequenceSet,
     BASIC_LAUNCHER_EXPERIENCE,
 };
@@ -36,7 +36,6 @@ impl Plugin for AmbitionGameShellPlugin {
             .init_resource::<ShellHostConfiguration>()
             .init_resource::<ShellRouter>()
             .init_resource::<PreparedSessionRegistry>()
-            .init_resource::<ShellInputFocus>()
             .init_resource::<ShellRouteHolds>()
             .add_message::<ShellCommand>()
             .add_message::<ShellEvent>()
@@ -93,6 +92,10 @@ impl Plugin for ShellSequencePlugin {
                     .after(AmbitionGameShellSet::Pending)
                     .before(AmbitionGameShellSet::Cleanup),
             )
+            // A confirm edge or card tap consumed THIS frame is applied to
+            // the sequence THIS frame — command processing never trails the
+            // input consumers by a frame.
+            .configure_sets(Update, ShellSequenceSet::Commands.after(InputSet::Consume))
             .add_systems(
                 Update,
                 start_or_stop_sequence.in_set(ShellSequenceSet::Sync),
@@ -131,7 +134,9 @@ impl Plugin for ShellLauncherPlugin {
                 (
                     crate::experience::sync_registry_into_launch_catalog,
                     sync_launcher_activation,
-                    process_launcher_commands,
+                    // A nav/confirm edge consumed this frame moves the cursor
+                    // or launches THIS frame — never a frame later.
+                    process_launcher_commands.after(InputSet::Consume),
                 )
                     .chain()
                     .after(AmbitionGameShellSet::Pending),
@@ -219,17 +224,10 @@ fn process_shell_commands(
     mut loads: ResMut<LoadCoordinator>,
     mut prepared: ResMut<PreparedSessionRegistry>,
     mut router: ResMut<ShellRouter>,
-    mut focus: ResMut<ShellInputFocus>,
     mut events: MessageWriter<ShellEvent>,
 ) {
     for command in commands.read() {
         for event in router.apply(command.clone(), &catalog, &host, &mut loads, &mut prepared) {
-            if let ShellEvent::RouteActivated(active) = &event {
-                focus.activation_id = Some(active.activation_id);
-            }
-            if matches!(event, ShellEvent::ExitRequested) {
-                focus.activation_id = None;
-            }
             events.write(event);
         }
     }
@@ -241,13 +239,9 @@ fn advance_pending_route(
     mut prepared: ResMut<PreparedSessionRegistry>,
     mut router: ResMut<ShellRouter>,
     holds: Res<ShellRouteHolds>,
-    mut focus: ResMut<ShellInputFocus>,
     mut events: MessageWriter<ShellEvent>,
 ) {
     for event in router.advance_pending(&catalog, &mut loads, &mut prepared, &holds) {
-        if let ShellEvent::RouteActivated(active) = &event {
-            focus.activation_id = Some(active.activation_id);
-        }
         events.write(event);
     }
 }

@@ -5,22 +5,25 @@
 //! host-relative route catalog and cursor; it does not introduce a competing
 //! menu content or rendering model.
 
+use ambition_input::participant::context_priority;
+use ambition_input::{
+    ActiveUiCues, InputSet, UiCue, LAUNCHER_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
+};
 use ambition_menu::render::bevy_ui::{
     install_bevy_ui_menu_actions, spawn_bevy_ui_menu_with_assets, BevyUiMenuInteractionSet,
     BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
 };
 use ambition_menu::{
-    MenuActionActivated, MenuColor, MenuControlKind, MenuPageModel, MenuRect, MenuTextAlign,
+    AmbitionMenuControl, MenuActionActivated, MenuColor, MenuControlKind, MenuFocusKey,
+    MenuPageModel, MenuRect, MenuTextAlign,
 };
 use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
-use bevy::input::gamepad::Gamepad;
 use bevy::prelude::*;
 
 use crate::{
     image_sequence_frame_at, shell_action_edges, ActiveShellSequence, FrontendOwnedEntity,
-    FrontendPresentationKind, ShellAnalogLatch, ShellLaunchCatalog, ShellLauncherCommand,
-    ShellLauncherPresentation, ShellLauncherState, ShellRouter, ShellSegmentPresentation,
-    ShellSequenceCommand,
+    FrontendPresentationKind, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherPresentation,
+    ShellLauncherState, ShellRouter, ShellSegmentPresentation, ShellSequenceCommand,
 };
 
 #[derive(Component)]
@@ -84,25 +87,81 @@ enum BasicLauncherPage {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct BasicLauncherAction(usize);
 
+/// The full-screen tap-anywhere surface of a startup/vanity card. One
+/// semantic activation: acknowledge (or skip) the card — the same command
+/// keyboard/controller confirm fires.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct ShellCardAction;
+
 #[derive(Default)]
 pub struct BasicShellPresentationPlugin;
 
 impl Plugin for BasicShellPresentationPlugin {
     fn build(&self, app: &mut App) {
         install_bevy_ui_menu_actions::<BasicLauncherAction>(app);
+        install_bevy_ui_menu_actions::<ShellCardAction>(app);
         app.add_message::<OwnedSfxMessage>()
             .init_resource::<ambition_sfx::SfxEmissionContext>()
+            .init_resource::<ActiveUiCues>()
+            // This presentation owns the words on its surfaces, so it also
+            // publishes their submit cues ("Continue", "Play", the exit
+            // label) for the prompt fold and the touch confirm button.
+            .add_systems(Update, publish_shell_ui_cues.in_set(InputSet::PublishCues))
+            // Consumers of the routed input semantics: after every producer,
+            // same frame.
             .add_systems(
                 Update,
                 (
-                    basic_shell_keyboard,
+                    basic_shell_menu_intent,
                     basic_shell_pointer.after(BevyUiMenuInteractionSet),
+                    basic_shell_card_tap.after(BevyUiMenuInteractionSet),
                     render_basic_shell,
                     drive_basic_sequence_card,
                 )
-                    .chain(),
+                    .chain()
+                    .in_set(InputSet::Consume),
             );
     }
+}
+
+/// Publish the shell surfaces' submit cues, keyed by their input contexts.
+/// The startup cards say "Continue"; the launcher says the focused row's
+/// verb ("Play" for an experience, the exit label for the Exit row).
+fn publish_shell_ui_cues(
+    launcher: Res<ShellLauncherState>,
+    catalog: Res<ShellLaunchCatalog>,
+    presentation: Res<ShellLauncherPresentation>,
+    sequence: Res<ActiveShellSequence>,
+    mut cues: ResMut<ActiveUiCues>,
+) {
+    let sequence_active = sequence.activation_id.is_some() && sequence.runtime.is_some();
+    cues.sync(
+        UiCue {
+            context: STARTUP_ACKNOWLEDGE_CONTEXT,
+            priority: context_priority::STARTUP_ACKNOWLEDGE,
+            submit_label: "Continue".to_owned(),
+        },
+        sequence_active,
+    );
+
+    let available = catalog.entries.iter().filter(|e| e.available).count();
+    let on_exit_row = presentation.exit_label.is_some() && launcher.selected >= available;
+    let label = if on_exit_row {
+        presentation
+            .exit_label
+            .clone()
+            .unwrap_or_else(|| "Exit".to_owned())
+    } else {
+        "Play".to_owned()
+    };
+    cues.sync(
+        UiCue {
+            context: LAUNCHER_CONTEXT,
+            priority: context_priority::LAUNCHER,
+            submit_label: label,
+        },
+        launcher.active,
+    );
 }
 
 /// Pointer/touch activation for launcher rows. The shared menu renderer turns
@@ -127,24 +186,21 @@ fn basic_shell_pointer(
     }
 }
 
-/// Unified menu input: keyboard AND controller drive the same neutral
-/// navigation edges (up / down / confirm), so no downstream logic is duplicated
-/// per device. The D-pad mirrors the arrow keys; South (A / cross) mirrors
-/// Enter/Space. Touch and the on-screen HUD arrive through the optional
-/// `MenuControlFrame` seam rather than a second device reader, so a phone can
-/// dismiss a startup card and pick a launcher row with no keyboard attached.
-fn basic_shell_keyboard(
-    keys: Option<Res<ButtonInput<KeyCode>>>,
-    pads: Query<&Gamepad>,
+/// Unified semantic menu input: keyboard, controller, and touch all arrive as
+/// the same [`MenuControlFrame`] edges (populated from the persistent input
+/// participant), so no downstream logic is duplicated per device and no raw
+/// device is read here. A phone dismisses a startup card and picks a launcher
+/// row with no keyboard attached; the launcher works before any gameplay
+/// actor exists.
+fn basic_shell_menu_intent(
     menu_frame: Option<Res<ambition_input::MenuControlFrame>>,
     launcher: Res<ShellLauncherState>,
     sequence: Res<ActiveShellSequence>,
     mut launcher_commands: MessageWriter<ShellLauncherCommand>,
     mut sequence_commands: MessageWriter<ShellSequenceCommand>,
     mut sfx: SfxWriter,
-    mut analog: Local<ShellAnalogLatch>,
 ) {
-    let actions = shell_action_edges(keys.as_deref(), &pads, menu_frame.as_deref(), &mut analog);
+    let actions = shell_action_edges(menu_frame.as_deref());
     let (up, down, confirm) = (actions.previous, actions.next, actions.confirm);
     if launcher.active {
         if up {
@@ -168,23 +224,51 @@ fn basic_shell_keyboard(
                 pos: Vec2::ZERO,
             });
         }
-    } else if let (Some(activation_id), Some(runtime)) =
-        (sequence.activation_id, sequence.runtime.as_ref())
+    } else if confirm {
+        advance_active_sequence(&sequence, &mut sequence_commands, &mut sfx);
+    }
+}
+
+/// Acknowledge (or skip) the active card — the ONE semantic advance both the
+/// confirm intent and a direct tap on the card converge on.
+fn advance_active_sequence(
+    sequence: &ActiveShellSequence,
+    sequence_commands: &mut MessageWriter<ShellSequenceCommand>,
+    sfx: &mut SfxWriter,
+) {
+    let (Some(activation_id), Some(runtime)) = (sequence.activation_id, sequence.runtime.as_ref())
+    else {
+        return;
+    };
+    sfx.write(SfxMessage::Play {
+        id: ids::UI_MENU_ACCEPT,
+        pos: Vec2::ZERO,
+    });
+    if runtime
+        .current()
+        .is_some_and(|segment| segment.policy.requires_acknowledgement)
     {
-        if confirm {
-            sfx.write(SfxMessage::Play {
-                id: ids::UI_MENU_ACCEPT,
-                pos: Vec2::ZERO,
-            });
-            if runtime
-                .current()
-                .is_some_and(|segment| segment.policy.requires_acknowledgement)
-            {
-                sequence_commands.write(ShellSequenceCommand::Acknowledge { activation_id });
-            } else {
-                sequence_commands.write(ShellSequenceCommand::Skip { activation_id });
-            }
+        sequence_commands.write(ShellSequenceCommand::Acknowledge { activation_id });
+    } else {
+        sequence_commands.write(ShellSequenceCommand::Skip { activation_id });
+    }
+}
+
+/// Tap-anywhere on a startup/vanity card: the card's full-screen surface is a
+/// pressable control, and its activation advances the sequence through the
+/// SAME semantic command as keyboard/controller confirm — not a special case.
+fn basic_shell_card_tap(
+    launcher: Res<ShellLauncherState>,
+    sequence: Res<ActiveShellSequence>,
+    mut activated: MessageReader<MenuActionActivated<ShellCardAction>>,
+    mut sequence_commands: MessageWriter<ShellSequenceCommand>,
+    mut sfx: SfxWriter,
+) {
+    for _tap in activated.read() {
+        if launcher.active {
+            continue;
         }
+        advance_active_sequence(&sequence, &mut sequence_commands, &mut sfx);
     }
 }
 
@@ -258,6 +342,22 @@ fn render_basic_shell(
             },
             BackgroundColor(Color::srgb(0.025, 0.03, 0.05)),
             GlobalZIndex(900),
+            // The whole card is one tap-anywhere control: bevy's
+            // `ui_focus_system` presses it from mouse OR touch, the shared
+            // interaction bridge publishes the semantic activation, and
+            // `basic_shell_card_tap` advances the sequence — the same command
+            // path as keyboard/controller confirm.
+            Button,
+            Interaction::default(),
+            AmbitionMenuControl::<ShellCardAction> {
+                kind: MenuControlKind::Action,
+                action: Some(ShellCardAction),
+                focus: MenuFocusKey {
+                    row: 0,
+                    col: 0,
+                    order: 0,
+                },
+            },
             Name::new("basic shell sequence presentation"),
         ))
         .with_children(|root| {
@@ -640,11 +740,14 @@ mod fade_tests {
 }
 
 #[cfg(test)]
-mod raw_input_tests {
+mod semantic_input_tests {
     use super::*;
-    use crate::{ActiveShellSequence, ShellLauncherState, ShellSequenceCommand};
-    use bevy::input::ButtonInput;
-    use bevy::prelude::{App, KeyCode, Messages, Update};
+    use crate::{
+        ActiveShellSequence, ShellActivationId, ShellLauncherState, ShellSequenceCommand,
+        ShellSequenceRuntime, ShellSequenceSpec,
+    };
+    use ambition_input::MenuControlFrame;
+    use bevy::prelude::{App, Messages, Update};
 
     fn app_with_launcher(active: bool) -> App {
         let mut app = App::new();
@@ -657,22 +760,22 @@ mod raw_input_tests {
             .set(ambition_sfx::AudioContextOwner::Frontend(9));
         app.init_resource::<ShellLauncherState>();
         app.init_resource::<ActiveShellSequence>();
-        app.init_resource::<ButtonInput<KeyCode>>();
-        app.add_systems(Update, basic_shell_keyboard);
+        app.init_resource::<MenuControlFrame>();
+        app.add_systems(Update, basic_shell_menu_intent);
         app.world_mut().resource_mut::<ShellLauncherState>().active = active;
         app
     }
 
-    /// Simulate one discrete key tap: press, run a frame, then clear the
-    /// per-frame `just_pressed` edge (no bevy InputPlugin does it here).
-    fn tap(app: &mut App, key: KeyCode) {
-        app.world_mut()
-            .resource_mut::<ButtonInput<KeyCode>>()
-            .press(key);
+    /// Inject one semantic intent for exactly one frame — what keyboard,
+    /// gamepad, and touch all reduce to before the shell reads input.
+    fn intent(app: &mut App, set: impl Fn(&mut MenuControlFrame)) {
+        {
+            let mut frame = app.world_mut().resource_mut::<MenuControlFrame>();
+            *frame = MenuControlFrame::default();
+            set(&mut frame);
+        }
         app.update();
-        app.world_mut()
-            .resource_mut::<ButtonInput<KeyCode>>()
-            .clear();
+        *app.world_mut().resource_mut::<MenuControlFrame>() = MenuControlFrame::default();
     }
 
     fn drained(app: &mut App) -> Vec<ShellLauncherCommand> {
@@ -689,10 +792,19 @@ mod raw_input_tests {
             .collect()
     }
 
+    fn with_active_card(app: &mut App) {
+        *app.world_mut().resource_mut::<ActiveShellSequence>() = ActiveShellSequence {
+            activation_id: Some(ShellActivationId(1)),
+            runtime: Some(ShellSequenceRuntime::new(ShellSequenceSpec {
+                segments: vec![crate::ShellSegmentSpec::text("card", "Card")],
+            })),
+        };
+    }
+
     #[test]
-    fn arrow_keys_move_the_launcher_cursor() {
+    fn nav_intent_moves_the_launcher_cursor() {
         let mut app = app_with_launcher(true);
-        tap(&mut app, KeyCode::ArrowDown);
+        intent(&mut app, |f| f.down = true);
         assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Next]);
         let sfx = drained_sfx(&mut app);
         assert!(matches!(
@@ -702,15 +814,15 @@ mod raw_input_tests {
                 request: SfxMessage::Play { id, .. },
             }] if *id == ids::UI_MENU_MOVE
         ));
-        tap(&mut app, KeyCode::ArrowUp);
+        intent(&mut app, |f| f.up = true);
         assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Previous]);
         let _ = drained_sfx(&mut app);
     }
 
     #[test]
-    fn enter_and_space_confirm_the_selection() {
+    fn the_select_intent_confirms_the_selection() {
         let mut app = app_with_launcher(true);
-        tap(&mut app, KeyCode::Enter);
+        intent(&mut app, |f| f.select = true);
         assert_eq!(
             drained(&mut app),
             vec![ShellLauncherCommand::LaunchSelected]
@@ -722,69 +834,111 @@ mod raw_input_tests {
                 ..
             }] if *id == ids::UI_MENU_ACCEPT
         ));
-        tap(&mut app, KeyCode::Space);
-        assert_eq!(
-            drained(&mut app),
-            vec![ShellLauncherCommand::LaunchSelected]
-        );
-        let _ = drained_sfx(&mut app);
     }
 
     #[test]
-    fn keyboard_is_inert_when_launcher_is_not_active() {
+    fn intent_is_inert_when_launcher_is_not_active() {
         let mut app = app_with_launcher(false);
-        tap(&mut app, KeyCode::ArrowDown);
+        intent(&mut app, |f| f.down = true);
         assert!(
             drained(&mut app).is_empty(),
-            "keyboard drives no launcher command when the launcher is not focused"
+            "no launcher command when the launcher is not focused"
         );
     }
 
-    /// Simulate one discrete controller button tap against a spawned `Gamepad`
-    /// component (`digital_mut` is Bevy's documented input-mocking seam).
-    fn pad_tap(app: &mut App, pad: Entity, button: bevy::input::gamepad::GamepadButton) {
-        {
-            let mut entity = app.world_mut().entity_mut(pad);
-            let mut gamepad = entity.get_mut::<bevy::input::gamepad::Gamepad>().unwrap();
-            gamepad.digital_mut().press(button);
-        }
+    fn drained_sequence(app: &mut App) -> Vec<ShellSequenceCommand> {
+        app.world_mut()
+            .resource_mut::<Messages<ShellSequenceCommand>>()
+            .drain()
+            .collect()
+    }
+
+    /// Input parity on the startup card: the semantic confirm intent and a
+    /// direct tap on the card surface produce the SAME sequence command.
+    #[test]
+    fn confirm_and_direct_card_tap_advance_the_card_identically() {
+        let mut app = app_with_launcher(false);
+        with_active_card(&mut app);
+        intent(&mut app, |f| f.select = true);
+        let confirmed = drained_sequence(&mut app);
+        assert!(
+            matches!(confirmed.as_slice(), [ShellSequenceCommand::Skip { .. }]),
+            "confirm on a card with no acknowledgement requirement skips it"
+        );
+
+        // The tap path: the card surface's Interaction::Pressed flows through
+        // the shared bridge into the SAME consumer command.
+        with_active_card(&mut app);
+        install_bevy_ui_menu_actions::<ShellCardAction>(&mut app);
+        app.add_systems(Update, basic_shell_card_tap.after(BevyUiMenuInteractionSet));
+        app.world_mut().spawn((
+            Button,
+            Interaction::Pressed,
+            AmbitionMenuControl::<ShellCardAction> {
+                kind: MenuControlKind::Action,
+                action: Some(ShellCardAction),
+                focus: MenuFocusKey {
+                    row: 0,
+                    col: 0,
+                    order: 0,
+                },
+            },
+        ));
         app.update();
-        let mut entity = app.world_mut().entity_mut(pad);
-        let mut gamepad = entity.get_mut::<bevy::input::gamepad::Gamepad>().unwrap();
-        gamepad.digital_mut().clear();
-    }
-
-    #[test]
-    fn controller_dpad_and_south_drive_the_same_launcher_commands_as_the_keyboard() {
-        use bevy::input::gamepad::Gamepad;
-        let mut app = app_with_launcher(true);
-        let pad = app.world_mut().spawn(Gamepad::default()).id();
-
-        pad_tap(&mut app, pad, GamepadButton::DPadDown);
+        let tapped = drained_sequence(&mut app);
         assert_eq!(
-            drained(&mut app),
-            vec![ShellLauncherCommand::Next],
-            "D-pad down navigates like ArrowDown"
-        );
-        pad_tap(&mut app, pad, GamepadButton::DPadUp);
-        assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Previous]);
-        pad_tap(&mut app, pad, GamepadButton::South);
-        assert_eq!(
-            drained(&mut app),
-            vec![ShellLauncherCommand::LaunchSelected],
-            "South (A / cross) confirms like Enter"
+            tapped, confirmed,
+            "a direct tap emits the same semantic command as confirm"
         );
     }
 
     #[test]
-    fn controller_is_inert_when_launcher_is_not_active() {
-        use bevy::input::gamepad::Gamepad;
-        let mut app = app_with_launcher(false);
-        let pad = app.world_mut().spawn(Gamepad::default()).id();
-        pad_tap(&mut app, pad, GamepadButton::DPadDown);
+    fn cues_name_the_focused_verb_per_surface() {
+        let mut app = App::new();
+        app.init_resource::<ShellLauncherState>();
+        app.init_resource::<ShellLaunchCatalog>();
+        app.init_resource::<ShellLauncherPresentation>();
+        app.init_resource::<ActiveShellSequence>();
+        app.init_resource::<ActiveUiCues>();
+        app.add_systems(Update, publish_shell_ui_cues);
+
+        // Nothing active: no cues.
+        app.update();
+        assert!(app.world().resource::<ActiveUiCues>().top().is_none());
+
+        // An active card publishes "Continue" for the startup context.
+        with_active_card(&mut app);
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<ActiveUiCues>()
+                .for_context(STARTUP_ACKNOWLEDGE_CONTEXT)
+                .map(|c| c.submit_label.as_str()),
+            Some("Continue")
+        );
+
+        // The launcher publishes "Play" on an experience row and the exit
+        // label on the Exit row.
+        *app.world_mut().resource_mut::<ActiveShellSequence>() = ActiveShellSequence::default();
+        app.world_mut().resource_mut::<ShellLauncherState>().active = true;
+        app.world_mut()
+            .resource_mut::<ShellLauncherPresentation>()
+            .exit_label = Some("Exit Ambition".to_owned());
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<ActiveUiCues>()
+                .for_context(LAUNCHER_CONTEXT)
+                .map(|c| c.submit_label.as_str()),
+            Some("Exit Ambition"),
+            "an empty catalog leaves only the Exit row selected"
+        );
         assert!(
-            drained(&mut app).is_empty(),
-            "controller drives no launcher command when the launcher is not focused"
+            app.world()
+                .resource::<ActiveUiCues>()
+                .for_context(STARTUP_ACKNOWLEDGE_CONTEXT)
+                .is_none(),
+            "the retired card retracted its cue"
         );
     }
 }

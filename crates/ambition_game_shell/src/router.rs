@@ -164,11 +164,6 @@ impl ShellRouteHolds {
     }
 }
 
-#[derive(Resource, Default, Clone, Copy, Debug, Eq, PartialEq)]
-pub struct ShellInputFocus {
-    pub activation_id: Option<ShellActivationId>,
-}
-
 #[derive(Component, Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ShellScopedEntity {
     pub activation_id: ShellActivationId,

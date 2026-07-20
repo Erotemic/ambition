@@ -98,6 +98,7 @@ impl Plugin for HostInputBindingsPlugin {
                 .chain(),
         );
         app.init_resource::<ambition_input::ActiveInputContext>();
+        app.init_resource::<ambition_input::ActiveUiCues>();
 
         // ── The frame→tick input latch (netcode N0.1) ─────────────────────
         //

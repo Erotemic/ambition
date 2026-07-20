@@ -1,9 +1,6 @@
 //! Optional deterministic loading activity acceptance fixture.
 
-use ambition_game_shell::{
-    shell_action_edges, FrontendOwnedEntity, FrontendPresentationKind, ShellAnalogLatch,
-};
-use bevy::input::gamepad::Gamepad;
+use ambition_game_shell::{shell_action_edges, FrontendOwnedEntity, FrontendPresentationKind};
 use bevy::prelude::*;
 
 use crate::{
@@ -77,13 +74,10 @@ fn spawn_activity(
 }
 
 fn drive_activity(
-    keys: Option<Res<ButtonInput<KeyCode>>>,
-    pads: Query<&Gamepad>,
     menu_frame: Option<Res<ambition_input::MenuControlFrame>>,
     activity: Res<LoadActivityState>,
     mut views: Query<(&mut DeterministicActivityView, &mut Text)>,
     mut signals: MessageWriter<LoadActivitySignal>,
-    mut analog: Local<ShellAnalogLatch>,
 ) {
     let Some(active) = activity.active.as_ref() else {
         return;
@@ -91,7 +85,7 @@ fn drive_activity(
     if active.activity_id.as_str() != DETERMINISTIC_LOADING_ACTIVITY_ID {
         return;
     }
-    let actions = shell_action_edges(keys.as_deref(), &pads, menu_frame.as_deref(), &mut analog);
+    let actions = shell_action_edges(menu_frame.as_deref());
     if !actions.previous && !actions.next {
         return;
     }
@@ -137,8 +131,8 @@ mod tests {
     use crate::LoadPresentationOwnerId;
     use crate::{ActiveLoadActivity, LoadActivityId};
     use ambition_game_shell::{FrontendEntityOwner, FrontendPresentationKind};
+    use ambition_input::MenuControlFrame;
     use ambition_load::{LoadBarrierId, LoadBarrierRef, LoadId};
-    use bevy::input::gamepad::{Gamepad, GamepadButton};
 
     #[derive(Resource, Default, Debug, Eq, PartialEq)]
     struct DestinationFixture(u64);
@@ -147,7 +141,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<LoadActivitySignal>();
         app.init_resource::<LoadActivityState>();
-        app.init_resource::<ButtonInput<KeyCode>>();
+        app.init_resource::<MenuControlFrame>();
         app.init_resource::<DestinationFixture>();
         app.add_plugins(DeterministicLoadingActivityPlugin);
         app.world_mut().resource_mut::<LoadActivityState>().active = Some(ActiveLoadActivity {
@@ -162,17 +156,19 @@ mod tests {
         app
     }
 
-    fn tap_key(app: &mut App, key: KeyCode) {
-        app.world_mut()
-            .resource_mut::<ButtonInput<KeyCode>>()
-            .press(key);
+    /// One semantic nav edge for one frame — the shape keyboard arrows, the
+    /// D-pad, and the touch stick all reduce to upstream of the shell.
+    fn nav(app: &mut App, up: bool) {
+        {
+            let mut frame = app.world_mut().resource_mut::<MenuControlFrame>();
+            *frame = MenuControlFrame {
+                up,
+                down: !up,
+                ..Default::default()
+            };
+        }
         app.update();
-        // `clear` only clears the transient edge sets; it deliberately leaves
-        // the key in `pressed`. Reset the key so a later tap of the same key
-        // creates a fresh `just_pressed` edge.
-        app.world_mut()
-            .resource_mut::<ButtonInput<KeyCode>>()
-            .reset(key);
+        *app.world_mut().resource_mut::<MenuControlFrame>() = MenuControlFrame::default();
     }
 
     fn drain(app: &mut App) -> Vec<LoadActivitySignal> {
@@ -183,7 +179,7 @@ mod tests {
     }
 
     #[test]
-    fn keyboard_activity_is_scoped_records_an_optional_result_and_never_mutates_destination() {
+    fn semantic_nav_is_scoped_records_an_optional_result_and_never_mutates_destination() {
         let mut app = app();
         app.update();
         let mut scoped = app.world_mut().query::<&LoadActivityScopedEntity>();
@@ -199,13 +195,8 @@ mod tests {
         );
 
         let mut signals = Vec::new();
-        for key in [
-            KeyCode::ArrowUp,
-            KeyCode::ArrowDown,
-            KeyCode::ArrowUp,
-            KeyCode::ArrowDown,
-        ] {
-            tap_key(&mut app, key);
+        for up in [true, false, true, false] {
+            nav(&mut app, up);
             signals.extend(drain(&mut app));
         }
         assert!(matches!(
@@ -217,49 +208,6 @@ mod tests {
             Some(LoadActivitySignal::Finished { activation_id: 7, outcome })
                 if outcome.completed && outcome.score == Some(4)
         ));
-        assert_eq!(
-            *app.world().resource::<DestinationFixture>(),
-            DestinationFixture(0)
-        );
-    }
-
-    #[test]
-    fn controller_dpad_drives_the_same_activity_actions() {
-        let mut app = app();
-        let pad = app.world_mut().spawn(Gamepad::default()).id();
-        app.update();
-        let mut signals = Vec::new();
-        for button in [
-            GamepadButton::DPadUp,
-            GamepadButton::DPadDown,
-            GamepadButton::DPadUp,
-            GamepadButton::DPadDown,
-        ] {
-            {
-                let mut entity = app.world_mut().entity_mut(pad);
-                entity
-                    .get_mut::<Gamepad>()
-                    .expect("fixture gamepad")
-                    .digital_mut()
-                    .press(button);
-            }
-            app.update();
-            signals.extend(drain(&mut app));
-            // As with keyboard `ButtonInput`, `clear` would leave the
-            // D-pad button held. Reset this button so the repeated direction
-            // below produces another edge.
-            app.world_mut()
-                .entity_mut(pad)
-                .get_mut::<Gamepad>()
-                .expect("fixture gamepad")
-                .digital_mut()
-                .reset(button);
-        }
-        assert!(signals.iter().any(|signal| matches!(
-            signal,
-            LoadActivitySignal::Finished { activation_id: 7, outcome }
-                if outcome.completed && outcome.score == Some(4)
-        )));
         assert_eq!(
             *app.world().resource::<DestinationFixture>(),
             DestinationFixture(0)

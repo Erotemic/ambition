@@ -12,17 +12,22 @@
 //! for one frame across a kit swap (no lagged cache sits on this path).
 //!
 //! Menu / dialogue contexts publish an explicit context with no gameplay
-//! entries; the specific command label (Equip / Use) is supplied by the
-//! app-side menu provider into [`ControlPrompt::menu_confirm`]. Per-slot glyphs
-//! (the physical binding) land with the `ActiveBindings` source in P1/P5; the
-//! touch overlay keeps its own glyph subtitle in the meantime, so this model is
-//! label-first.
+//! entries; the specific command label (Equip / Use / Play / Continue) comes
+//! from the owning surface's published [`UiCue`] (`ambition_input::cues`).
+//! Ownership of THIS resource follows the resolved input context: while a
+//! frontend context (startup cards, launcher) owns the participant's actions,
+//! [`publish_frontend_context_prompt`] writes the prompt and the sim-side
+//! rebuild yields; while gameplay owns them, [`rebuild_control_prompt`] is
+//! the sole writer. Per-slot glyphs (the physical binding) land with the
+//! `ActiveBindings` source in P1/P5; the touch overlay keeps its own glyph
+//! subtitle in the meantime, so this model is label-first.
 
 use ambition_actors::actor::BodyAbilities;
 use ambition_characters::action_scheme::{derive_action_scheme, ActorTechniques};
 use ambition_characters::brain::action_set::ActionSet;
 use ambition_combat::moveset::ActorMoveset;
 use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
+use ambition_input::{ActiveInputContext, ActiveUiCues, GAMEPLAY_CONTEXT};
 use ambition_platformer_primitives::markers::{ControlledSubject, PlayerEntity, PrimaryPlayer};
 use ambition_platformer_primitives::schedule::GameMode;
 use bevy::prelude::*;
@@ -74,20 +79,42 @@ impl ControlPrompt {
     }
 }
 
-/// The app-published menu confirm label — the CURRENTLY FOCUSED menu item's verb
-/// ("Equip" / "Use"), resolved by the app-tier menu model.
+/// The frontend half of the prompt: while a non-gameplay input context owns
+/// the participant's actions (startup cards, the launcher), publish the
+/// owning surface's cue as a Menu-context prompt so the touch overlay (and
+/// any prompt surface) shows a labeled confirm control with no session and
+/// no gameplay actor.
 ///
-/// This is the tier-safe seam for menu presentation: `ControlPrompt` lives in
-/// `ambition_sim_view` (a lower tier), so it cannot see the app-tier menu model
-/// (`KaleidoscopeCursor`, `MenuPageAction`). Instead the app's menu provider
-/// resolves the focused item's verb each tick and PUSHES it down into this
-/// resource; [`rebuild_control_prompt`] reads it in the menu branch, falling back
-/// to the generic "Select" / "Advance" when the app publishes nothing (no menu
-/// open, or a non-item focus). One writer (the app provider), one reader (the
-/// prompt) — no producer race.
-#[derive(Resource, Clone, Debug, Default)]
-pub struct MenuConfirmPrompt {
-    pub label: Option<String>,
+/// Runs on the frame clock between cue publication (`InputSet::PublishCues`)
+/// and the consumers; [`rebuild_control_prompt`] yields on exactly the frames
+/// this system writes, so the resource has one writer per frame by
+/// construction. Absent resources (headless sims without a host input stack)
+/// make it a no-op.
+pub fn publish_frontend_context_prompt(
+    active_context: Option<Res<ActiveInputContext>>,
+    cues: Option<Res<ActiveUiCues>>,
+    mut prompt: ResMut<ControlPrompt>,
+) {
+    let Some(owner) = active_context
+        .as_deref()
+        .and_then(ActiveInputContext::owner)
+    else {
+        return;
+    };
+    if owner == GAMEPLAY_CONTEXT {
+        return;
+    }
+    let confirm = cues
+        .as_deref()
+        .and_then(|cues| cues.for_context(owner))
+        .map(|cue| cue.submit_label.clone())
+        .unwrap_or_else(|| "Select".to_owned());
+    set_prompt(
+        &mut prompt,
+        ControlContextKind::Menu,
+        Vec::new(),
+        Some(confirm),
+    );
 }
 
 /// Rebuild [`ControlPrompt`] from the controlled subject's action scheme.
@@ -106,6 +133,7 @@ pub struct MenuConfirmPrompt {
 /// camera and input already obey. Menu / dialogue publish an explicit context.
 pub fn rebuild_control_prompt(
     mode: Res<State<GameMode>>,
+    active_context: Option<Res<ActiveInputContext>>,
     controlled: Option<Res<ControlledSubject>>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     authorities: Query<(
@@ -114,22 +142,37 @@ pub fn rebuild_control_prompt(
         Option<&ActionSet>,
         Option<&ActorTechniques>,
     )>,
-    menu_confirm: Option<Res<MenuConfirmPrompt>>,
+    cues: Option<Res<ActiveUiCues>>,
     mut prompt: ResMut<ControlPrompt>,
 ) {
+    // A frontend context (startup cards, launcher) owns the participant's
+    // actions: its provider (`publish_frontend_context_prompt`) writes the
+    // prompt, and the sim-side rebuild yields — one writer per frame, decided
+    // by the SAME resolved context that routes the input itself. (Absent
+    // resource = headless sim without a host input stack; proceed as the
+    // sole writer.)
+    if active_context
+        .as_deref()
+        .and_then(ActiveInputContext::owner)
+        .is_some_and(|owner| owner != GAMEPLAY_CONTEXT)
+    {
+        return;
+    }
+
     // Menu / dialogue own input: no gameplay scheme. Publish an explicit context
     // + a confirm verb so the overlay relabels the select-functional buttons and
-    // hides the rest. The SPECIFIC verb ("Equip" / "Use") comes from the app-side
-    // menu provider via `MenuConfirmPrompt`; absent that (no menu open, or a
-    // non-item focus), fall back to the generic context verb.
+    // hides the rest. The SPECIFIC verb ("Equip" / "Use") comes from the owning
+    // surface's published cue; absent that (no menu open, or a non-item focus),
+    // fall back to the generic context verb.
     if !mode.get().allows_gameplay() {
         let (context, fallback) = match mode.get() {
             GameMode::Dialogue => (ControlContextKind::Dialogue, "Advance"),
             _ => (ControlContextKind::Menu, "Select"),
         };
-        let confirm = menu_confirm
-            .as_ref()
-            .and_then(|p| p.label.clone())
+        let confirm = cues
+            .as_deref()
+            .and_then(ActiveUiCues::top)
+            .map(|cue| cue.submit_label.clone())
             .unwrap_or_else(|| fallback.to_owned());
         set_prompt(&mut prompt, context, Vec::new(), Some(confirm));
         return;
@@ -184,6 +227,7 @@ mod tests {
     use super::*;
     use ambition_engine_core::AbilitySet;
     use ambition_entity_catalog::{ClipBinding, MoveSpec, MovesetContract};
+    use ambition_input::UiCue;
     use std::collections::BTreeMap;
 
     /// A body's LIVE authorities: `jump` + optionally an attack MOVE (id
@@ -259,7 +303,7 @@ mod tests {
 
         let prompt = app.world().resource::<ControlPrompt>();
         assert_eq!(prompt.context, ControlContextKind::Menu);
-        // No `MenuConfirmPrompt` published -> the generic fallback verb.
+        // No cue published -> the generic fallback verb.
         assert_eq!(prompt.menu_confirm.as_deref(), Some("Select"));
         // The gameplay scheme is NOT published while a menu owns input.
         assert!(prompt.entries.is_empty());
@@ -267,16 +311,23 @@ mod tests {
     }
 
     /// Gate 6 (GPT-5.6 review): the SPECIFIC menu verb comes from a published
-    /// provider, not a hardcoded string. When the app menu provider publishes the
-    /// focused item's verb into `MenuConfirmPrompt`, the prompt shows it ("Equip")
-    /// instead of the generic "Select". (The full app-menu-model -> provider path
-    /// is exercised end-to-end in the ambition_app menu tests; this pins the
+    /// cue, not a hardcoded string. When the app menu provider publishes the
+    /// focused item's verb as a `UiCue`, the prompt shows it ("Equip") instead
+    /// of the generic "Select". (The full app-menu-model -> provider path is
+    /// exercised end-to-end in the ambition_app menu tests; this pins the
     /// sim_view read half.)
     #[test]
-    fn a_published_menu_confirm_label_overrides_the_generic_verb() {
+    fn a_published_menu_cue_overrides_the_generic_verb() {
+        use ambition_input::InputContextId;
         let mut app = app();
-        app.init_resource::<MenuConfirmPrompt>();
-        app.world_mut().resource_mut::<MenuConfirmPrompt>().label = Some("Equip".to_owned());
+        app.init_resource::<ActiveUiCues>();
+        app.world_mut()
+            .resource_mut::<ActiveUiCues>()
+            .declare(UiCue {
+                context: InputContextId("app.inventory"),
+                priority: 150,
+                submit_label: "Equip".to_owned(),
+            });
         app.world_mut()
             .resource_mut::<NextState<GameMode>>()
             .set(GameMode::Paused);
@@ -289,6 +340,61 @@ mod tests {
             Some("Equip"),
             "the focused item's real verb overrides the generic Select"
         );
+    }
+
+    /// While a frontend context owns input (the launcher, with no session and
+    /// no gameplay actor), the frontend provider writes the prompt from the
+    /// owning surface's cue and the sim-side rebuild yields — the touch
+    /// overlay gets a labeled confirm control at the title screen.
+    #[test]
+    fn a_frontend_context_owns_the_prompt_with_its_own_cue() {
+        use ambition_input::participant::{context_priority, ContextClaim};
+        use ambition_input::{
+            resolve_active_input_context, InputParticipant, ParticipantContexts, LAUNCHER_CONTEXT,
+        };
+
+        let mut app = app();
+        app.init_resource::<ActiveInputContext>();
+        app.init_resource::<ActiveUiCues>();
+        // Run the REAL pair the host schedules: resolver, frontend provider,
+        // then the sim rebuild — proving the yield, not just the write.
+        app.add_systems(
+            Update,
+            (
+                resolve_active_input_context,
+                publish_frontend_context_prompt,
+            )
+                .chain()
+                .before(rebuild_control_prompt),
+        );
+        let mut contexts = ParticipantContexts::default();
+        contexts.declare(ContextClaim::capturing(
+            LAUNCHER_CONTEXT,
+            context_priority::LAUNCHER,
+        ));
+        app.world_mut()
+            .spawn((InputParticipant::primary(), contexts));
+        app.world_mut()
+            .resource_mut::<ActiveUiCues>()
+            .declare(UiCue {
+                context: LAUNCHER_CONTEXT,
+                priority: context_priority::LAUNCHER,
+                submit_label: "Play".to_owned(),
+            });
+        app.update();
+
+        let prompt = app.world().resource::<ControlPrompt>();
+        assert_eq!(
+            prompt.context,
+            ControlContextKind::Menu,
+            "the launcher presents as a menu context to prompt surfaces"
+        );
+        assert_eq!(
+            prompt.menu_confirm.as_deref(),
+            Some("Play"),
+            "the confirm control wears the launcher's verb"
+        );
+        assert!(prompt.entries.is_empty());
     }
 
     #[test]

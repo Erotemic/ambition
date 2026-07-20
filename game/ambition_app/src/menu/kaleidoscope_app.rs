@@ -69,20 +69,20 @@ pub fn install_unified_menu_shared(app: &mut App) {
         .init_resource::<CachedSystemMenu>()
         .init_resource::<VisualQualityConfirmState>()
         .add_plugins(AmbitionInventoryUiPlugin);
-    // Publish the focused item's verb (Equip/Use) into the sim_view
-    // MenuConfirmPrompt so the on-screen menu-confirm control reads the real
-    // action. Backend-agnostic (reads the shared KaleidoscopeCursor), and
-    // self-gates on the overlay being open, so it lives with the shared
-    // resources rather than either backend. Registered in the SIM schedule,
-    // strictly before its reader — see `install_menu_confirm_provider`.
+    // Publish the focused item's verb (Equip/Use) as the inventory's UiCue so
+    // the on-screen menu-confirm control reads the real action. Backend-
+    // agnostic (reads the shared KaleidoscopeCursor), and self-gates on the
+    // overlay being open, so it lives with the shared resources rather than
+    // either backend. Registered in the SIM schedule, strictly before its
+    // reader — see `install_menu_confirm_provider`.
     install_menu_confirm_provider(app);
 }
 
-/// Register the menu-confirm provider in the SIM schedule, ordered strictly
-/// before its reader.
+/// Register the menu-confirm cue provider in the SIM schedule, ordered
+/// strictly before its reader.
 ///
-/// `publish_menu_confirm_prompt` WRITES `ambition::sim_view::MenuConfirmPrompt`
-/// and `rebuild_control_prompt` READS it — and the reader lives in the sim
+/// `publish_menu_confirm_prompt` WRITES the inventory's `UiCue` and
+/// `rebuild_control_prompt` READS the cues — and the reader lives in the sim
 /// schedule's [`SandboxSet::FeatureViewSync`]. Registering the writer in `Update`
 /// (a different schedule) made the read one frame stale under a `FixedUpdate`
 /// sim, and non-deterministic about WHICH frame's label it saw (Update and
@@ -94,6 +94,9 @@ pub(crate) fn install_menu_confirm_provider(app: &mut App) {
     use ambition::platformer::schedule::{SandboxSet, SimScheduleExt};
     use bevy::prelude::IntoScheduleConfigs;
     let sim = app.sim_schedule();
+    // Idempotent: the shell presentation and host input plugin init it too;
+    // a direct-entry app without either still needs the cue store to exist.
+    app.init_resource::<ambition::input::ActiveUiCues>();
     app.add_systems(
         sim,
         publish_menu_confirm_prompt
@@ -1305,27 +1308,41 @@ pub(crate) fn menu_confirm_label(
     }
 }
 
-/// P4b (GPT-5.6 review gate 6): publish the focused inventory item's verb into
-/// the sim_view `MenuConfirmPrompt`, so runtime inventory controls read "Equip" /
-/// "Use" instead of a generic "Select".
+/// The inventory's input-context identity — cue-only today (its input
+/// consumption still rides the in-session menu path); minted here so the
+/// published verb joins the shared cue vocabulary instead of a bespoke
+/// menu bridge.
+pub(crate) const INVENTORY_CUE_CONTEXT: ambition::input::InputContextId =
+    ambition::input::InputContextId("ambition.inventory");
+
+/// P4b (GPT-5.6 review gate 6): publish the focused inventory item's verb as
+/// this surface's [`ambition::input::UiCue`], so runtime inventory controls
+/// read "Equip" / "Use" instead of a generic "Select".
 ///
 /// The tier-safe seam: `ControlPrompt` (sim_view, lower tier) can't see the app
 /// menu model, so the app resolves the verb here from the ONE focus source
 /// (`KaleidoscopeCursor`, shared by both inventory backends) + `OwnedItems`, and
-/// pushes it down. `rebuild_control_prompt` reads it and falls back to "Select"
-/// when we publish `None`. Change-gated so `Changed<MenuConfirmPrompt>` stays
-/// honest. Self-gates on the inventory overlay being open (backend-agnostic
-/// `InventoryUiState.visible`), so a closed menu clears the label.
+/// publishes it into the shared cue vocabulary; `rebuild_control_prompt` folds
+/// the top cue and falls back to "Select" when nothing is published.
+/// Self-gates on the inventory overlay being open (backend-agnostic
+/// `InventoryUiState.visible`), so a closed menu retracts the cue.
 fn publish_menu_confirm_prompt(
     ui_state: Option<Res<ambition::inventory_ui::InventoryUiState>>,
     cursor: Res<KaleidoscopeCursor>,
     owned: Option<Res<OwnedItems>>,
-    mut out: ResMut<ambition::sim_view::MenuConfirmPrompt>,
+    mut cues: ResMut<ambition::input::ActiveUiCues>,
 ) {
     let menu_open = ui_state.map(|s| s.visible).unwrap_or(false);
     let label = menu_confirm_label(menu_open, cursor.focus(), owned.as_deref());
-    if out.label != label {
-        out.label = label;
+    let cue = ambition::input::UiCue {
+        context: INVENTORY_CUE_CONTEXT,
+        priority: 150,
+        submit_label: label.clone().unwrap_or_default(),
+    };
+    // Touch the resource only when the cue actually moves.
+    let current = cues.for_context(INVENTORY_CUE_CONTEXT);
+    if current.map(|c| c.submit_label.as_str()) != label.as_deref() {
+        cues.sync(cue, label.is_some());
     }
 }
 

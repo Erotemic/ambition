@@ -90,16 +90,20 @@ fn drive_synthetic_startup_input(
         keys.release(KeyCode::Enter);
     }
 
+    // Set BOTH halves of the gamepad state, exactly as bevy's event
+    // processing does for a physical pad. Leafwing computes a button's value
+    // from the ANALOG side and releases any button whose value is ~0, so a
+    // digital-only press is silently dead at the ActionState (see
+    // dev/journals/lessons_learned.md, 2026-07-20).
     let controller_confirm = std::mem::take(&mut input.controller_confirm);
     for mut gamepad in &mut gamepads {
+        let south = bevy::input::gamepad::GamepadButton::South;
         if controller_confirm {
-            gamepad
-                .digital_mut()
-                .press(bevy::input::gamepad::GamepadButton::South);
+            gamepad.digital_mut().press(south);
+            gamepad.analog_mut().set(south, 1.0);
         } else {
-            gamepad
-                .digital_mut()
-                .release(bevy::input::gamepad::GamepadButton::South);
+            gamepad.digital_mut().release(south);
+            gamepad.analog_mut().set(south, 0.0);
         }
     }
 }

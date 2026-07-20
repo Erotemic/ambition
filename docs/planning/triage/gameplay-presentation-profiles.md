@@ -471,6 +471,67 @@ Four defects found by review, all landed:
 was a second, window-relative description of control geometry with no reader
 left once the drag-scroll path asked the resolved placement directly.
 
+### Follow-up pass (2026-07-20, review of `871d02d5b`)
+
+Two more defects, both reproduced before being fixed, and one concern
+disproven:
+
+1. **UI-derived occupancy lagged a frame, and for controls that was a
+   feedback loop.** `bevy_ui` computes `ComputedNode` and `UiGlobalTransform`
+   in `PostUpdate` (`UiSystems::Layout`); `collect_screen_occupancy` read them
+   from `Update`. Reproduced end-to-end in
+   `game/ambition_app/tests/presentation_ui_lifecycle.rs`: resizing 1600×900 →
+   1100×720 resolved the action cluster at `(867, 485.6)..(1100, 720)` while
+   the published occupancy still read the pre-resize `(1367, 665.6)..(1600,
+   900)` — off the new display entirely. Hiding the touch HUD withdrew the
+   footprints but left all three clusters occupying the screen. Every existing
+   test passed throughout, because they all wrote `ComputedNode` by hand.
+
+   Controls are placed BY the resolver, so reading their occupancy back off
+   their computed layout closed a cycle across a frame boundary. The resolver
+   now derives control occupancy from the placement it just made
+   (`ResolvedControlRegions::occlusions`), with placement moved ahead of the
+   subject-safe carve. Breathing room moved onto `ControlFootprint` as
+   `occlusion_padding`, so it travels with the requirement.
+
+   Generic `bevy_ui` occluders keep the computed-layout path with the lifecycle
+   **stated**: collected in `PostUpdate` after `UiSystems::Layout`, consumed by
+   the next frame's resolve. One frame is the right trade there — a HUD panel's
+   geometry is only knowable after taffy runs, and the region already eases at
+   ~4 Hz.
+
+2. **`from_computed_ui` ignored the affine.** `UiGlobalTransform` is an
+   `Affine2` carrying `UiTransform`'s scale and rotation, and `ui_layout_system`
+   multiplies each node's local affine into its parent's. Reading only the
+   translation reported a transformed node's untransformed box. It now takes
+   the bounding box of the four transformed corners. Tested with a scaled node,
+   a rotated node (45° square → circumscribing box), a degenerate transform,
+   and a transformed parent through real `bevy_ui` layout.
+
+**Footprint publication is now an ordering contract, not an accident.**
+`publish_touch_control_footprints` was related to the resolve that reads
+`ControlFootprints` only by an undeclared resource conflict — ambiguous, so the
+executor could serialize it either way. `TouchPresentationSet` names
+`PublishRequirements → GameplayPresentationSet → ApplyPlacement`, declared once
+in `TouchPresentationSet::configure` that both the plugin and the tests call.
+
+**HUD regions now have a real consumer.** Until this pass
+`ResolvedControlRegions::hud` was published and read by nobody: a 4:3 profile
+reserved a surround column for HUD and nothing ever moved into it. The player
+HUD (`ambition_render::hud`) is the proving vertical slice —
+`place_player_hud` asks for `SurroundRegion::Left`, takes it when the bars fit,
+and keeps overlaying when they do not. That is the whole author API; it is not
+a responsive-HUD framework, and a HUD still knows its own size. The HUD root
+also carries `ScreenOccluder::hud()`, which makes it the first production
+consumer of the generic computed-layout path.
+
+Status of the HUD axis, stated precisely:
+
+- HUD placement regions and author primitive: **landed**;
+- one HUD surface migrated (player status bars): **landed**;
+- remaining HUD/menu surfaces (quest panel, debug text, map, dialogue):
+  **open** — they are full-screen or menu-owned and were never claimed.
+
 Deliberately NOT implemented, and not hidden behind a TODO:
 
 - **Platform safe-area insets.** `DisplaySafeAreaInsets` exists, is a pure

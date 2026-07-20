@@ -621,6 +621,10 @@ fn install_fx_and_hud_systems(app: &mut App) {
             ambition::actors::avatar::regen_player_mana,
             ambition::render::hud::spawn_player_hud,
             ambition::render::hud::update_player_hud,
+            // Consumes THIS frame's resolved HUD regions, so a profile that
+            // reserves surround for HUD actually gets the HUD put there.
+            ambition::render::hud::place_player_hud
+                .after(ambition::presentation::gameplay_presentation::GameplayPresentationSet),
         )
             .chain()
             .run_if(ambition::platformer::lifecycle::session_world_exists),

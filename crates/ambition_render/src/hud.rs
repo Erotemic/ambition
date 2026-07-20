@@ -17,6 +17,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer_primitives::{
+    gameplay_presentation::{ResolvedGameplayPresentation, ScreenOccluder, SurroundRegion},
     lifecycle::{ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt},
     markers::{PlayerEntity, PrimaryPlayer},
 };
@@ -25,6 +26,18 @@ use ambition_sim_view::PlayerHudFacts;
 /// Bar width / height in logical px.
 const BAR_W: f32 = 168.0;
 const BAR_H: f32 = 13.0;
+
+/// Where the HUD sits when it overlays gameplay: top-left, clear of the
+/// bottom-left movement stick.
+const OVERLAY_ANCHOR: Vec2 = Vec2::new(16.0, 34.0);
+
+/// Breathing room between the HUD and the edges of whatever region holds it.
+const HUD_MARGIN: f32 = 12.0;
+
+/// What the HUD needs to be legible. Below this a surround region is refused
+/// rather than squeezed — a clipped health bar is worse than one over the
+/// world.
+const HUD_MIN: Vec2 = Vec2::new(BAR_W + HUD_MARGIN * 2.0, 96.0);
 
 /// Root container for the player HUD overlay.
 #[derive(Component)]
@@ -88,15 +101,21 @@ pub fn spawn_player_hud(
                 PlayerHudRoot,
                 Node {
                     position_type: PositionType::Absolute,
-                    // Top-left: the on-screen joystick lives bottom-left, so the
-                    // status bars sit up top out of its way.
-                    left: Val::Px(16.0),
-                    top: Val::Px(34.0),
+                    // Overlay anchor to start; `place_player_hud` moves it into
+                    // the reserved surround on the first frame if the active
+                    // profile offers one.
+                    left: Val::Px(OVERLAY_ANCHOR.x),
+                    top: Val::Px(OVERLAY_ANCHOR.y),
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(5.0),
                     ..default()
                 },
                 Name::new("Player HUD"),
+                // Generic screen occupancy, read off this node's own computed
+                // layout. The HUD is not placed by the resolver, so unlike the
+                // touch clusters it really is a producer: it says what it is,
+                // and the host derives where it is.
+                ScreenOccluder::hud(),
             ),
         )
         .with_children(|root| {
@@ -149,6 +168,45 @@ pub fn spawn_player_hud(
                 TextColor(Color::srgb(1.0, 0.86, 0.42)),
             ));
         });
+}
+
+/// Put the HUD in the reserved surround when the active profile offers one.
+///
+/// The proving consumer for [`ResolvedControlRegions::hud`]: a fixed-aspect
+/// profile that reserves surround for HUD was, until this existed, reserving it
+/// for nobody — the bars stayed pinned over the gameplay rectangle while a
+/// whole column sat empty beside them.
+///
+/// The whole author API is the three lines below: ask the resolved layout for a
+/// named region, take it if the HUD fits, otherwise keep overlaying. No
+/// responsive framework, no layout negotiation — a HUD knows its own size.
+///
+/// [`ResolvedControlRegions::hud`]:
+///     ambition_platformer_primitives::gameplay_presentation::ResolvedControlRegions::hud
+pub fn place_player_hud(
+    presentation: Res<ResolvedGameplayPresentation>,
+    mut roots: Query<&mut Node, With<PlayerHudRoot>>,
+) {
+    // Left surround: these are status bars, and they read left-to-right from
+    // the same edge they occupy when overlaying.
+    let region = presentation
+        .prefers_surround_hud()
+        .then(|| presentation.hud_region(SurroundRegion::Left))
+        .flatten()
+        .filter(|rect| rect.width() >= HUD_MIN.x && rect.height() >= HUD_MIN.y);
+
+    let anchor = match region {
+        Some(rect) => rect.min + Vec2::splat(HUD_MARGIN),
+        None => OVERLAY_ANCHOR,
+    };
+    for mut node in &mut roots {
+        if node.left != Val::Px(anchor.x) {
+            node.left = Val::Px(anchor.x);
+        }
+        if node.top != Val::Px(anchor.y) {
+            node.top = Val::Px(anchor.y);
+        }
+    }
 }
 
 /// Mirror the controlled body's health / mana / money into the HUD widgets each
@@ -212,6 +270,122 @@ mod tests {
     use ambition_platformer_primitives::lifecycle::{
         SessionScopePlugin, SessionScopeRetired, SessionScopedEntity,
     };
+
+    use ambition_platformer_primitives::gameplay_presentation::{
+        profiles, resolve_gameplay_presentation, ControlFootprints, GameplayPresentationInput,
+        PresentationEnvironment, ScreenInsets, ScreenRect,
+    };
+
+    /// Resolve a real declared profile at a real display size.
+    fn layout(
+        display: Vec2,
+        profiles: ambition_platformer_primitives::gameplay_presentation::GameplayPresentationProfiles,
+        environment: PresentationEnvironment,
+    ) -> ResolvedGameplayPresentation {
+        resolve_gameplay_presentation(GameplayPresentationInput {
+            display_px: display,
+            safe_area_insets: ScreenInsets::ZERO,
+            profile: profiles.for_environment(environment),
+            occlusions: &[],
+            control_footprints: ControlFootprints::default(),
+        })
+    }
+
+    fn placed_at(presentation: ResolvedGameplayPresentation) -> Vec2 {
+        let mut app = App::new();
+        app.insert_resource(presentation);
+        app.world_mut().spawn((
+            PlayerHudRoot,
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(OVERLAY_ANCHOR.x),
+                top: Val::Px(OVERLAY_ANCHOR.y),
+                ..default()
+            },
+        ));
+        app.add_systems(Update, place_player_hud);
+        app.update();
+
+        let mut roots = app
+            .world_mut()
+            .query_filtered::<&Node, With<PlayerHudRoot>>();
+        let node = roots.single(app.world()).expect("the HUD root");
+        let px = |value| match value {
+            Val::Px(px) => px,
+            other => panic!("expected Px, got {other:?}"),
+        };
+        Vec2::new(px(node.left), px(node.top))
+    }
+
+    /// The proving vertical slice: a profile that reserves surround for HUD
+    /// actually gets the HUD put there.
+    ///
+    /// Driven through Mary O's REAL declared profile rather than a hand-built
+    /// one, because the claim being made is about a shipping game: its 4:3
+    /// viewport was reserving a surround column that nothing ever moved into.
+    #[test]
+    fn a_reserved_surround_profile_puts_the_hud_in_the_surround() {
+        // 16:9 leaves 4:3 gameplay 1440 wide, so each side surround is 240px —
+        // room for the 168px bars plus margins.
+        let display = Vec2::new(1920.0, 1080.0);
+        let presentation = layout(
+            display,
+            profiles::fixed_four_by_three(),
+            PresentationEnvironment::Desktop,
+        );
+
+        let region = presentation
+            .hud_region(SurroundRegion::Left)
+            .expect("a 4:3 viewport on 16:9 leaves a left HUD region");
+        let anchor = placed_at(presentation.clone());
+
+        assert_eq!(
+            anchor,
+            region.min + Vec2::splat(HUD_MARGIN),
+            "the HUD must occupy the region it asked for",
+        );
+        let occupied = ScreenRect::from_min_size(anchor, Vec2::new(BAR_W, HUD_MIN.y));
+        assert!(
+            !occupied.overlaps(presentation.gameplay_rect),
+            "and therefore stop covering the world: {occupied:?} vs {:?}",
+            presentation.gameplay_rect,
+        );
+    }
+
+    /// A full-bleed profile has no surround, so the HUD keeps overlaying —
+    /// unchanged behavior for every game that did not ask for reserved HUD.
+    #[test]
+    fn a_full_bleed_profile_leaves_the_hud_overlaying() {
+        let presentation = layout(
+            Vec2::new(1920.0, 1080.0),
+            profiles::adaptive_platformer(),
+            PresentationEnvironment::Desktop,
+        );
+        assert!(presentation.hud_region(SurroundRegion::Left).is_none());
+        assert_eq!(placed_at(presentation), OVERLAY_ANCHOR);
+    }
+
+    /// A surround too narrow to hold the bars is REFUSED, not squeezed. A
+    /// clipped health bar is worse than one over the world.
+    #[test]
+    fn a_surround_too_narrow_for_the_hud_falls_back_to_overlay() {
+        // Barely wider than 4:3: the gameplay rect takes 1365 of 1400, so
+        // each side column is ~17px.
+        let presentation = layout(
+            Vec2::new(1400.0, 1024.0),
+            profiles::fixed_four_by_three(),
+            PresentationEnvironment::Desktop,
+        );
+        let region = presentation
+            .hud_region(SurroundRegion::Left)
+            .expect("there IS a region, just a narrow one");
+        assert!(
+            region.width() < HUD_MIN.x,
+            "the fixture must actually be too narrow, got {}",
+            region.width(),
+        );
+        assert_eq!(placed_at(presentation), OVERLAY_ANCHOR);
+    }
 
     #[test]
     fn hud_mirrors_the_sim_built_facts() {

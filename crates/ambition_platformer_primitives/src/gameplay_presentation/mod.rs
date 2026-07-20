@@ -1046,6 +1046,27 @@ impl ResolvedGameplayPresentation {
         out
     }
 
+    /// The surround area left for HUD in a named region, once controls have
+    /// taken theirs.
+    ///
+    /// The author API for a HUD surface that wants to live in the surround:
+    /// ask for the region you want, get `None` when this profile and display
+    /// leave none, and fall back to overlaying gameplay yourself. Deliberately
+    /// not a layout engine — a HUD knows its own size and anchor, and only
+    /// needs to be told what rectangle is available.
+    pub fn hud_region(&self, region: SurroundRegion) -> Option<ScreenRect> {
+        self.controls
+            .hud
+            .iter()
+            .find(|named| named.region == region)
+            .map(|named| named.rect)
+    }
+
+    /// Whether the active profile asked for HUD in the surround at all.
+    pub fn prefers_surround_hud(&self) -> bool {
+        self.hud == HudLayoutPolicy::PreferSurround
+    }
+
     pub fn largest_surround_rect(&self) -> Option<ScreenRect> {
         self.surround_rects
             .iter()

@@ -151,11 +151,22 @@ fn carve_occlusions(
         .collect();
     // Stable composition: the same set of regions must always produce the same
     // result regardless of the order entities happened to be iterated in.
+    //
+    // The key must be COMPLETE, because carving is sequential and therefore
+    // order-sensitive. Sorting on purpose plus `min` alone left two rectangles
+    // that share a corner — two bottom-left controls of different sizes, say —
+    // comparing equal; a stable sort then preserved ECS iteration order, and
+    // the "order-independent" claim was false for exactly the case a corner
+    // control cluster produces. `max` completes the rectangle, so two entries
+    // can only tie now if they are geometrically identical, in which case
+    // carving them in either order gives the same region.
     ordered.sort_by(|a, b| {
         a.purpose
             .cmp(&b.purpose)
             .then_with(|| a.rect.min.x.total_cmp(&b.rect.min.x))
             .then_with(|| a.rect.min.y.total_cmp(&b.rect.min.y))
+            .then_with(|| a.rect.max.x.total_cmp(&b.rect.max.x))
+            .then_with(|| a.rect.max.y.total_cmp(&b.rect.max.y))
     });
 
     let mut region = region;

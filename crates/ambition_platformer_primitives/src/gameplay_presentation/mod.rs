@@ -943,6 +943,15 @@ pub struct ActiveGameplayPresentationProfiles(pub GameplayPresentationProfiles);
 /// recalculate margins — they read this.
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct ResolvedGameplayPresentation {
+    /// The viewport policy this layout was resolved from.
+    ///
+    /// Retained because the resolved product should be able to describe
+    /// itself: a device diagnostic that has to say WHICH policy produced a
+    /// rectangle would otherwise have to reach back into
+    /// [`ActiveGameplayPresentationProfiles`] and re-select by environment, and
+    /// a diagnostic that re-derives its own subject is one that can disagree
+    /// with it.
+    pub viewport: GameplayViewportPolicy,
     /// The full physical display.
     pub display_rect: ScreenRect,
     /// The display minus platform safe-area insets.
@@ -974,6 +983,7 @@ impl Default for ResolvedGameplayPresentation {
             ae::Vec2::new(ae::config::WINDOW_W as f32, ae::config::WINDOW_H as f32),
         );
         Self {
+            viewport: GameplayViewportPolicy::FullBleed,
             display_rect: rect,
             display_safe_rect: rect,
             gameplay_rect: rect,

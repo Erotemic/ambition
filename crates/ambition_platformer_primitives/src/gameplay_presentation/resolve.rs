@@ -110,6 +110,7 @@ pub fn resolve_gameplay_presentation(
     };
 
     ResolvedGameplayPresentation {
+        viewport: input.profile.viewport,
         display_rect,
         display_safe_rect,
         gameplay_rect,

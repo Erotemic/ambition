@@ -22,8 +22,9 @@ use ambition_engine_core as ae;
 use ambition_platformer_primitives::camera_layers::MainCamera;
 use ambition_platformer_primitives::gameplay_presentation::{
     resolve_gameplay_presentation, ActiveGameplayPresentationProfiles, ControlFootprints,
-    DisplaySafeAreaInsets, GameplayPresentationInput, GameplayPresentationSet, PlacedControl,
-    PresentationEnvironment, ResolvedGameplayPresentation, ScreenRect,
+    DisplaySafeAreaInsets, GameplayPresentationInput, GameplayPresentationSet,
+    GameplayViewportPolicy, NormalizedScreenRegion, PlacedControl, PresentationEnvironment,
+    ResolvedGameplayPresentation, ScreenRect,
 };
 use ambition_sim_view::camera_snapshot::{
     CameraObservationSet, CameraScreenFraming, CameraViewport,
@@ -296,6 +297,19 @@ fn log_resolved_layout(
     environment: PresentationEnvironment,
     layout: &ResolvedGameplayPresentation,
 ) {
+    info!("{}", describe_resolved_layout(environment, layout));
+}
+
+/// The diagnostic line itself, as a pure function.
+///
+/// Separated from the `info!` so a test can read it. The defect this replaces
+/// was a LABEL bug — a field printed as `viewport` that actually held the
+/// surround policy — and a label bug is invisible to every test that only
+/// checks the layout resolved correctly.
+pub fn describe_resolved_layout(
+    environment: PresentationEnvironment,
+    layout: &ResolvedGameplayPresentation,
+) -> String {
     let rect = |r: ScreenRect| {
         format!(
             "{}x{}@({},{})",
@@ -304,6 +318,20 @@ fn log_resolved_layout(
             r.min.x.round(),
             r.min.y.round()
         )
+    };
+    let region = |r: NormalizedScreenRegion| {
+        format!(
+            "({:.2},{:.2})..({:.2},{:.2})",
+            r.min.x, r.min.y, r.max.x, r.max.y
+        )
+    };
+    let viewport = |policy: GameplayViewportPolicy| match policy {
+        GameplayViewportPolicy::FullBleed => "full-bleed".to_string(),
+        GameplayViewportPolicy::FixedAspect { aspect, fit } => format!(
+            "fixed-{}:{}-{fit:?}",
+            aspect.width.round(),
+            aspect.height.round()
+        ),
     };
     let control = |name: &str, placed: Option<PlacedControl>| match placed {
         Some(placed) => format!(
@@ -319,27 +347,33 @@ fn log_resolved_layout(
         None => String::new(),
     };
 
-    info!(
-        "presentation: env={:?} viewport={:?} framing={} display={} gameplay={} \
-         subject-safe={} controls={:?}{}{}{} hud-regions={} generic-occlusions={}",
+    // Every field says what it actually is. The first version of this line
+    // labelled `layout.surround` as "viewport", which is the sort of thing a
+    // device check reads once, believes, and then spends an hour confused by.
+    format!(
+        "presentation: env={:?} viewport={} surround={:?} hud={:?} \
+         display={} safe={} gameplay={} subject-safe={} safe-region={} \
+         framing={} controls={:?}{}{}{} hud-regions={} generic-occlusions={}",
         environment,
+        viewport(layout.viewport),
         layout.surround,
-        layout
-            .soft_framing
-            .map_or("normal".to_string(), |profile| format!(
-                "soft({:?})",
-                profile.safe_region.min
-            )),
+        layout.hud,
         rect(layout.display_rect),
+        rect(layout.display_safe_rect),
         rect(layout.gameplay_rect),
         rect(layout.subject_safe_rect),
+        region(layout.subject_safe_region),
+        match layout.soft_framing {
+            Some(_) => "soft",
+            None => "normal",
+        },
         layout.controls.placement,
         control("movement", layout.controls.movement),
         control("actions", layout.controls.primary_actions),
         control("system", layout.controls.system_controls),
         layout.controls.hud.len(),
         layout.occlusions.len() - layout.controls.occlusions.len(),
-    );
+    )
 }
 
 /// Publish the GAMEPLAY viewport — not the window — into the sim's camera

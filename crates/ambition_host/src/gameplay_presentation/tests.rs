@@ -13,7 +13,7 @@ use bevy::window::{PrimaryWindow, WindowResolution};
 use ambition_engine_core as ae;
 use ambition_platformer_primitives::camera_layers::MainCamera;
 use ambition_platformer_primitives::gameplay_presentation::{
-    profiles, ActiveGameplayPresentationProfiles, GameplayPresentationProfile,
+    profiles, ActiveGameplayPresentationProfiles, ControlFootprint, GameplayPresentationProfile,
     GameplayPresentationProfiles, PresentationEnvironment, ResolvedGameplayPresentation,
     ScreenOccluder, ScreenOcclusionPurpose, ScreenRect, SoftFramingProfile,
 };
@@ -802,4 +802,84 @@ fn a_ui_occluder_without_layout_contributes_nothing() {
     app.update();
 
     assert!(occupied_rects(&app).is_empty());
+}
+
+/// Every field in the device diagnostic says what it actually holds.
+///
+/// The line this replaces printed `layout.surround` under the label
+/// `viewport`. Nothing caught it, because the layout was resolving perfectly —
+/// only the report was lying, and no test read the report. This one does.
+#[test]
+fn the_device_diagnostic_labels_are_truthful() {
+    let display = ae::Vec2::new(2400.0, 1080.0);
+    let mut app = host_app(
+        display,
+        1.0,
+        profiles::fixed_four_by_three(),
+        PresentationEnvironment::TouchPrimary,
+    );
+    app.world_mut()
+        .resource_mut::<ControlFootprints>()
+        .primary_actions = Some(ControlFootprint::new(
+        ae::Vec2::new(233.0, 234.0),
+        ae::Vec2::new(208.0, 209.0),
+    ));
+    app.update();
+
+    let layout = resolved(&app);
+    let line = describe_resolved_layout(PresentationEnvironment::TouchPrimary, layout);
+
+    // A 4:3 profile pinned to the top for touch: the viewport field must name
+    // the VIEWPORT policy, not the surround policy that used to sit there.
+    assert!(
+        line.contains("viewport=fixed-4:3-Top"),
+        "the viewport field must describe the viewport policy: {line}",
+    );
+    assert!(
+        line.contains(&format!("surround={:?}", layout.surround)),
+        "and the surround policy must have its own field: {line}",
+    );
+    assert!(
+        !line.contains(&format!("viewport={:?}", layout.surround)),
+        "the surround policy must never be printed as the viewport: {line}",
+    );
+
+    // Every rectangle field carries the rectangle it names.
+    for (label, rect) in [
+        ("display", layout.display_rect),
+        ("safe", layout.display_safe_rect),
+        ("gameplay", layout.gameplay_rect),
+        ("subject-safe", layout.subject_safe_rect),
+    ] {
+        let expected = format!(
+            "{label}={}x{}@({},{})",
+            rect.width().round(),
+            rect.height().round(),
+            rect.min.x.round(),
+            rect.min.y.round(),
+        );
+        assert!(line.contains(&expected), "expected `{expected}` in: {line}",);
+    }
+
+    // And the facts a device check needs to see are all present.
+    assert!(line.contains("env=TouchPrimary"), "{line}");
+    assert!(
+        line.contains(&format!("controls={:?}", layout.controls.placement)),
+        "the control-placement fallback rung must be reported: {line}",
+    );
+    assert!(line.contains("actions="), "the action region: {line}");
+    assert!(
+        line.contains("safe-region="),
+        "the subject-safe region: {line}"
+    );
+    assert!(
+        line.contains("generic-occlusions="),
+        "the generic occlusion count: {line}",
+    );
+    // Compact enough to read in a device log.
+    assert!(
+        line.len() < 400,
+        "diagnostic is {} chars: {line}",
+        line.len()
+    );
 }

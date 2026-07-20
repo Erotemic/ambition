@@ -532,6 +532,66 @@ Status of the HUD axis, stated precisely:
 - remaining HUD/menu surfaces (quest panel, debug text, map, dialogue):
   **open** — they are full-screen or menu-owned and were never claimed.
 
+### Lifecycle pass (2026-07-20, review of `871d02d5b` follow-up)
+
+**Occupancy timing, in one place.** The two sources have deliberately different
+contracts and must not be merged into one ambiguous model:
+
+| source | collected | consumed |
+| --- | --- | --- |
+| on-screen controls | inside the resolve that places them | same frame |
+| generic `bevy_ui` occluders | `PostUpdate`, after `UiSystems::Layout` **and** `VisibilitySystems::VisibilityPropagate` | next frame's resolve |
+
+Ordering against layout alone was not enough: Bevy schedules visibility
+propagation *after* `TransformSystems::Propagate` while `ui_layout_system` runs
+*before* it, so the collector could pair this frame's geometry with last
+frame's visibility and keep reserving space for a panel that had just been
+hidden. `ScreenOccupancySet` names the collector so the edges can be asserted
+rather than observed.
+
+`OccluderGeometry::Explicit` and `Anchored` self-resolve during `Update` and so
+*could* be same-frame, but **no production code constructs either** — the only
+shipping occluder is the player HUD's `ComputedUi`. Building a second collection
+path for a hypothetical consumer would be duplicate machinery with nothing
+behind it, so both currently ride the next-frame contract above. Follow-up card:
+if an explicit/anchored producer ever lands and needs same-frame occupancy,
+split collection into a self-resolved pass before `GameplayPresentationSet` and
+leave the computed-UI pass where it is — do not widen one pass to cover both.
+
+**The touch presentation lifecycle now starts with discovery.** The movement
+stick's root belongs to `virtual_joystick`, so this codebase can only find it
+after the fact; `tag_virtual_joystick_root` did that from a bystander system
+using `Commands`, unordered against the pipeline that queries for the markers it
+attaches. The frame a joystick appeared it was therefore neither placed nor
+hidden — one visible frame at the joystick crate's own corner, over gameplay,
+whatever the touch-controls setting said. The declared order is now:
+
+```text
+Discover -> PublishRequirements -> GameplayPresentationSet -> ApplyPlacement
+```
+
+`TouchPresentationPlugin` owns that registration so there is exactly one
+declaration, shared by the app and the assembled tests. The
+`Discover → PublishRequirements` edge is also the deferred-command boundary:
+Bevy's `auto_insert_apply_deferred` pass inserts the sync point wherever a
+`Commands` system has an ordering dependency, so declaring the order is
+sufficient and a hand-written `ApplyDeferred` there is dead weight (verified by
+removing one).
+
+**The Mary O HUD consumer is assembled and tested**, not just unit-tested:
+route selected → provider session → 4:3 resolved by the real host → controlled
+actor → real `spawn_player_hud` → `place_player_hud` → the rectangle taffy lays
+out. Note for future tests: on a widely pillarboxed display the top-left
+*overlay* anchor also misses the gameplay rect, so "is the HUD clear of
+gameplay" cannot distinguish placed-in-region from never-moved. The anchor
+compared against the resolved region origin is the discriminating assertion.
+
+**The device diagnostic is truthful.** It printed `layout.surround` under the
+label `viewport`. `ResolvedGameplayPresentation` now retains its
+`GameplayViewportPolicy` so the resolved product describes itself, and
+`describe_resolved_layout` is a pure function with a test on the labels — a
+mislabelled report is invisible to every test that only checks the layout.
+
 Deliberately NOT implemented, and not hidden behind a TODO:
 
 - **Platform safe-area insets.** `DisplaySafeAreaInsets` exists, is a pure

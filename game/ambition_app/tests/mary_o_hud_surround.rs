@@ -171,15 +171,9 @@ fn the_mary_o_route_puts_the_real_hud_in_the_reserved_surround() {
     // The route really did resolve a fixed 4:3 viewport — nothing inserted it.
     let layout = resolved(&app);
     assert!(
-        matches!(
-            app.world()
-                .resource::<ambition::platformer::gameplay_presentation::ActiveGameplayPresentationProfiles>()
-                .0
-                .default
-                .viewport,
-            GameplayViewportPolicy::FixedAspect { .. }
-        ),
-        "the Mary O route must declare a fixed-aspect viewport",
+        matches!(layout.viewport, GameplayViewportPolicy::FixedAspect { .. }),
+        "the Mary O route must resolve a fixed-aspect viewport, got {:?}",
+        layout.viewport,
     );
     let gameplay = layout.gameplay_rect;
     assert!(

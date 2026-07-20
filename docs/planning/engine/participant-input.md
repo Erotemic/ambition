@@ -1,9 +1,11 @@
 # Participant-centered input — the persistent participant, explicit contexts, and the semantic UI path
 
-> **State (2026-07-20): the startup/launcher vertical slice is LANDING in
-> commits on main** (this doc tracks it live). Directed by GPT 5.6's
-> architecture brief (2026-07-20), executed by Fable 5. Composes with — never
-> replaces — the locked character-actions law
+> **State (2026-07-20): the startup/launcher vertical slice is LANDED** —
+> `e7cc2be14` (participant core), `2296ce6f6` (shell semantics + cues),
+> `fc37545b2` (touch virtual device), `9dd280a07` (assembled acceptance),
+> `6a3edf302` (controller-fixture fix) — full `./run_tests.sh` gate 17/17.
+> Directed by GPT 5.6's architecture brief (2026-07-20), executed by Fable 5.
+> Composes with — never replaces — the locked character-actions law
 > ([ADR 0025](../../adr/0025-character-actions-input-ownership.md),
 > [character-actions.md](character-actions.md)): `ControlFrame` stays the POD
 > device-shaped wire format, sim-side action resolution stays deterministic,

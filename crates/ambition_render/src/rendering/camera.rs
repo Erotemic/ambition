@@ -1,13 +1,18 @@
 //! Presentation half of the follow camera.
 //!
 //! The RESOLVE — zoom policy, camera zones, target easing, blink
-//! interpolation, clamping (the `CameraEaseState` write) — is the SIM's
-//! observation seam now
-//! ([`ambition_sim_view::camera_snapshot::CameraObservationPlugin`],
-//! E4-17): the sim publishes one [`ResolvedCameraSnapshot`] per tick. This
+//! interpolation, clamping (the `CameraEaseState` write) — belongs to the
+//! observation seam
+//! ([`ambition_sim_view::camera_snapshot::CameraObservationPlugin`], E4-17),
+//! which publishes one [`ResolvedCameraSnapshot`] per rendered FRAME. This
 //! module only (a) applies presentation-only deltas — portal camera
 //! continuity, shake — to a COPY of the snapshot, and (b) writes the Bevy
 //! camera transform/projection. Render never mutates sim camera state.
+//!
+//! Frame, not tick: the simulation produces authoritative world facts, and
+//! where the camera looks at them is presentation. Fixed-tick and GGRS hosts
+//! advance the sim off the render clock — GGRS resimulates the same ticks
+//! during rollback — and none of that independently advances camera easing.
 //!
 //! The observer facts the resolver consumes (`CameraViewport`,
 //! `CameraScreenFraming`) are published by

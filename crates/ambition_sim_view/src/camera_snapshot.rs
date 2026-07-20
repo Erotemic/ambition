@@ -623,12 +623,18 @@ fn clamp_or_center(value: f32, min: f32, max: f32) -> f32 {
 //
 // The follow-camera resolve (which integrates `CameraEaseState`) used to run
 // INSIDE the render crate's `camera_follow`, making presentation the writer
-// of sim-side ease state. It is now a sim-scheduled system here — the
-// AJ13 "camera is an observer" boundary made structural: the sim publishes
-// ONE resolved snapshot per tick; presentation consumes it (portal
-// continuity applies its deltas to a COPY, never to this state). This whole
-// block relocates into [the observation boundary] (`ambition_sim_view`)
-// with the E4 carve.
+// of sim-side ease state. Owning it here makes the AJ13 "camera is an
+// observer" boundary structural: ONE resolved snapshot, ONE writer, and
+// presentation only consumes it (portal continuity applies its deltas to a
+// COPY, never to this state).
+//
+// The invariant E4-17 was really about is the single writer — NOT which
+// schedule advances it. The resolve is a visible-host observer: it takes the
+// physical viewport and video settings, eases on the render clock, and no sim
+// system reads what it publishes. So it runs once per rendered frame in
+// `Update`, which is truthful for render-frame, fixed-tick and GGRS hosts
+// alike; see `CameraObservationPlugin` for why the sim schedule was wrong on
+// its own terms.
 // ---------------------------------------------------------------------------
 
 /// The observer's physical viewport in pixels — an OBSERVER FACT the
@@ -659,9 +665,15 @@ impl Default for CameraViewport {
 pub struct CameraExtraClamp(pub Option<ae::Vec2>);
 
 /// THE published observation: the follow-camera snapshot resolved once per
-/// sim tick, plus the raw follow point it framed. Presentation reads this
-/// (applying shake/portal deltas to a copy); RL/headless readers may read it
-/// too — it is plain data.
+/// rendered FRAME, plus the raw follow point it framed. Presentation reads
+/// this (applying shake/portal deltas to a copy); RL/headless readers may read
+/// it too — it is plain data.
+///
+/// Per frame, not per tick: this is presentation state. Under fixed-tick the
+/// sim may advance zero or several times between frames, and under GGRS it
+/// resimulates arbitrarily many times per frame during rollback; the camera
+/// must ease once per thing the participant actually sees, and camera state is
+/// not rollback-registered. See [`CameraObservationPlugin`].
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct ResolvedCameraSnapshot {
     pub snapshot: CameraSnapshot2d,
@@ -671,12 +683,17 @@ pub struct ResolvedCameraSnapshot {
     pub follow_world: ae::Vec2,
 }
 
-/// Resolve the follow camera for this tick (the ONE writer of
-/// [`CameraEaseState`]). A TAIL OBSERVER: runs after the whole
-/// `CoreSimulation` chain (like `Trace`) so it sees final body positions AND
-/// any post-sim presentation adapters (portal camera continuity) have had
-/// their same-frame say through the observer-input resources. Presentation
-/// consumers order `.after(resolve_camera_observation)`.
+/// Resolve the follow camera for this frame (the ONE writer of
+/// [`CameraEaseState`]).
+///
+/// An OBSERVER: it runs once the sim has finished advancing for this frame, so
+/// it sees final body positions, and after any post-sim presentation adapter
+/// (portal camera continuity) has had its same-frame say through the
+/// observer-input resources. Presentation consumers order
+/// `.after(`[`CameraObservationSet`]`)`.
+///
+/// It reads sim state and writes only presentation state; nothing in the
+/// simulation reads what it publishes.
 #[allow(clippy::too_many_arguments)]
 pub fn resolve_camera_observation(
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ae::RoomGeometry>,

@@ -2,11 +2,19 @@
 //!
 //! Everything here is a plain-data snapshot of sim state, rebuilt once per
 //! sim tick by extraction systems that run LAST in the sim tail
-//! (`SandboxSet::FeatureViewSync`) or as tail observers after
-//! `CoreSimulation` (the camera resolve). Builders are pure functions of sim
-//! state — no caching across ticks, no `Entity`/`Handle` borrows in the
-//! rows — so every observer (render, RL observation, netcode confirmation,
-//! the fighter brain, slower-light shaders) consumes the SAME facts.
+//! (`SandboxSet::FeatureViewSync`). Builders are pure functions of sim state —
+//! no caching across ticks, no `Entity`/`Handle` borrows in the rows — so every
+//! observer (render, RL observation, netcode confirmation, the fighter brain,
+//! slower-light shaders) consumes the SAME facts.
+//!
+//! **[`camera_snapshot`] is the one exception, deliberately.** The simulation
+//! produces authoritative world facts; where the camera *looks* at them is
+//! presentation state, not a sim fact — it depends on the physical viewport,
+//! the active presentation profile and video settings, and it integrates on the
+//! render clock. It therefore resolves once per rendered FRAME in `Update`,
+//! not once per sim tick, and no sim system reads it. It lives in this crate
+//! because it is still an observation of sim state that must not reach back
+//! into the sim.
 //!
 //! Render depends on THIS crate for sim facts; it never queries the sim
 //! heart's live components (the boundary test in `ambition_render` pins

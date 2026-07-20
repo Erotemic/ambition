@@ -385,9 +385,16 @@ impl PluginGroup for PlatformerEnginePlugins {
             // control-prompt read-model (P2) and the input→action seam (P3)
             // read. Reconciled from live AbilitySet + moveset.
             .add(ambition_actors::action_scheme::ActionSchemePlugin)
-            // The camera OBSERVATION seam (E4-17): the sim resolves ONE
-            // follow-camera snapshot per tick (the only CameraEaseState
+            // The camera OBSERVATION seam (E4-17): ONE follow-camera
+            // snapshot per rendered frame (the only CameraEaseState
             // writer); presentation consumes it. Headless/RL readers too.
+            //
+            // Per frame rather than per tick because where the camera
+            // looks is presentation state, not a sim fact: it depends on
+            // the physical viewport and video settings and eases on the
+            // render clock. A headless composition that wants camera
+            // observation gets it by running Update; it is not implied by
+            // advancing the sim.
             .add(ambition_sim_view::camera_snapshot::CameraObservationPlugin)
             // The combat-phase chain + the content extension slots
             // (CombatSet::ContentSpecials / ContentFlavor).

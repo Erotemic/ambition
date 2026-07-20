@@ -74,9 +74,12 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   `loose + settled == emitted` asserted every tick, fixed-point settling
   proved, FS3 atomic transfer into a persistent `SettledSandLedger` that owns
   collision (kills the transient flicker), authored-room regression green in
-  2.9s. OPEN: water/oil still on the external crate (level-finding,
-  tick-lock); the bfs-side sand plumbing is vestigial and dies with that
-  slice.
+  2.9s. ⛔ Water/oil are SHELVED (Jon 2026-07-20, hard blocker in
+  falling-sand.md): adapting `bevy_falling_sand` to netcode-level determinism
+  is structurally impossible; the unblock is a rewrite decision (grow the
+  sand grid into fluids, or fork the crate) — no further correctness work on
+  the bfs path until Jon calls it. The vestigial bfs-side sand plumbing dies
+  with that rewrite.
 
 **Keystone slices**
 - ✅ **K1a movement tuning** — exit criterion MET. `ae::ActiveMovementTuning`

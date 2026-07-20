@@ -39,9 +39,35 @@ automaton** with an explicit conservation law:
 Slices ~~FS1 (single-owner refactor + conservation test)~~ ✅ **DONE
 2026-07-10 — see §3**, ~~FS2 (settle/level rules + fixed-point test)~~ /
 ~~FS3 (overlay compilation + atomic ownership transfer)~~ ✅ **DONE for SAND
-2026-07-20 — see §4; water/oil level-finding remains open**. The spec above
-is the contract; the current code is small and may be boldly restructured to
-meet it.
+2026-07-20 — see §4; water/oil are SHELVED behind the hard blocker below**.
+The spec above is the contract; the current code is small and may be boldly
+restructured to meet it.
+
+## ⛔ HARD BLOCKER — water/oil SHELVED on `bevy_falling_sand` (Jon, 2026-07-20)
+
+Jon's ruling, on reading §4's evidence: *"If this is impossible with
+bevy_falling_sand we can shelve it for the time being... We will have to
+rewrite bevy_falling_sand if we want netcode level determinism AND falling
+sand."*
+
+- **What is blocked:** the fluid half of §1's contract — water/oil
+  level-finding, tick-locked stepping, determinism — on the external crate.
+  Adaptation is ruled out, not deferred: the §4 findings (private `PostUpdate`
+  movement systems, a step signal that fires twice, `DirtyAdvance`
+  starvation, parallel+RNG+query-ordered core) are structural, and no amount
+  of configuration reaches around them.
+- **What is NOT blocked:** sand. It already left the crate and meets the full
+  contract on the bespoke grid (`falling_sand_sim`, §4).
+- **Standing until unblocked:** water/oil stay on `bevy_falling_sand` in the
+  feature-gated presentation module exactly as they are — known defects and
+  all — and take **no further correctness work** on that path. Fixing them
+  there would be sunk cost against a dead end.
+- **The unblock is a rewrite decision, not a task:** if/when Jon wants
+  netcode-level fluids, the work is a deterministic fluid CA under Ambition's
+  contract — either grown from the sand grid (which is the proof-of-shape:
+  lateral-flow rules over the same cell substrate, double-buffered per §1) or
+  a ground-up fork of the crate. Do not start it without an explicit
+  go-ahead; do not "improve" the bfs path in the meantime.
 
 **The SPOUT is the canonical authored-placement example (Jon, 2026-07-06).**
 A falling-sand spout (a source that emits matter) is an **authored PLACEMENT
@@ -222,9 +248,11 @@ What landed, against §1's contract:
 ### What §4 deliberately did NOT do
 
 - Water/oil correctness (level-finding, tick-locking) — still on the external
-  crate, still FS2's open half. When that slice lands, the bfs-side sand
-  plumbing left in the presentation module (`MaterialKind::Sand` arms,
-  `project_sand`) dies with it; it currently sees zero sand particles.
+  crate, and now **SHELVED behind the hard blocker above** (Jon, 2026-07-20):
+  no further work on the bfs path; the unblock is a rewrite decision. When a
+  rewrite ever lands, the bfs-side sand plumbing left in the presentation
+  module (`MaterialKind::Sand` arms, `project_sand`) dies with it; it
+  currently sees zero sand particles.
 - The spout-placement schema ([W-a]/[W-b]) — the mouth table moved crates but
   kept its shape.
 - Re-fluidizing settled sand, drains, C4 gravity frames, Oiler.

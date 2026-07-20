@@ -245,7 +245,7 @@ impl Plugin for RollbackObservatoryPlugin {
             .add_systems(
                 Update,
                 ae::accumulate_control_frame_latch
-                    .after(ambition::input::InputSet::Populate)
+                    .after(ambition::input::InputSet::Route)
                     .in_set(RollbackProofUpdateSet::InputLatch),
             )
             .add_systems(

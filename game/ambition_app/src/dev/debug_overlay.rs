@@ -23,7 +23,6 @@ use ambition::input::{read_gameplay_control_frame, ControlFrame};
 use ambition::platformer::schedule::GameMode;
 use ambition::render::rendering::CameraViewState;
 #[cfg(feature = "input")]
-use ambition::render::rendering::PlayerVisual;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
@@ -98,13 +97,7 @@ pub(crate) fn draw_debug_overlay(
     // `render_debug_overlay_labels`. (In-flight projectile queries moved into
     // `FeatureDebugQueries` to keep this system under Bevy's 16-param ceiling.)
     mut overlay_labels: ResMut<DebugOverlayLabels>,
-    action_query: Query<
-        &ActionState<SandboxAction>,
-        (
-            With<PlayerVisual>,
-            With<ambition::actors::actor::PrimaryPlayer>,
-        ),
-    >,
+    action_query: Query<&ActionState<SandboxAction>, With<ambition::input::InputParticipant>>,
     mut player_q: Query<
         (
             Entity,

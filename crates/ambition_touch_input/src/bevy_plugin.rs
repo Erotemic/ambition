@@ -178,7 +178,7 @@ impl Plugin for TouchControlsPlugin {
                     fold_to_control_frame
                         // ControlFrame writer: join the input populate set so
                         // the schedule pins it before the consume boundary.
-                        .in_set(ambition_input::InputSet::Populate)
+                        .in_set(ambition_input::InputSet::Route)
                         // Touch fold MUST run AFTER the keyboard
                         // fold (`populate_control_frame_from_actions`)
                         // so the OR-merge sees the keyboard's
@@ -1035,8 +1035,8 @@ pub fn update_button_glyph_from_active_input(
 }
 
 /// Per-frame: write each button's pressed flag from
-/// `ActionState<SandboxAction>` on the primary player OR the live
-/// [`MobileTouchState`]. The OR with touch state is what makes the
+/// `ActionState<SandboxAction>` on the persistent input participant OR the
+/// live [`MobileTouchState`]. The OR with touch state is what makes the
 /// on-screen buttons light up when poked with the mouse / a finger:
 /// touch input never round-trips through leafwing's `ActionState`
 /// (it folds straight into the gameplay `ControlFrame`), so without
@@ -1049,7 +1049,7 @@ pub fn update_button_glyph_from_active_input(
 pub fn update_button_pressed_from_actions(
     actions_q: Query<
         &leafwing_input_manager::prelude::ActionState<SandboxAction>,
-        With<ambition_actors::actor::PrimaryPlayer>,
+        With<ambition_input::InputParticipant>,
     >,
     touch_state: Res<MobileTouchState>,
     mut buttons: Query<(&TouchActionButton, &mut ButtonPressed)>,

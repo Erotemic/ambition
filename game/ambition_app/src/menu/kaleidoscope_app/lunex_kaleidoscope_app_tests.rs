@@ -926,17 +926,23 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
 
     // Esc → both Start (pause) and MenuBack, exactly like the keyboard preset.
+    // Device state lives on the persistent participant, never on the player
+    // entity — the same split the real host boots with.
     let mut map = InputMap::<SandboxAction>::default();
     map.insert(SandboxAction::Start, KeyCode::Escape);
     map.insert(SandboxAction::MenuBack, KeyCode::Escape);
+    app.world_mut().spawn((
+        ambition::input::InputParticipant::primary(),
+        ambition::input::ParticipantContexts::default(),
+        ActionState::<SandboxAction>::default(),
+        map,
+    ));
     app.world_mut().spawn((
         PlayerVisual,
         PlayerEntity,
         PrimaryPlayer,
         ActionSet::default(),
         BodyMana::default(),
-        ActionState::<SandboxAction>::default(),
-        map,
     ));
     app.update();
 

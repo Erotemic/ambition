@@ -72,12 +72,32 @@ impl Plugin for HostInputBindingsPlugin {
             MenuControlFrame, MenuInputState, PlayerDashTriggerState, SandboxAction,
         };
         use ambition_runtime::host_input::{
-            apply_menu_frame_to_cutscene_request, attach_player_input_components,
+            apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
             dialog_pointer_input, populate_control_frame_from_actions,
-            populate_menu_control_frame_from_actions, toggle_player_trail_emission_from_actions,
-            SimulationSetupSet,
+            populate_menu_control_frame_from_actions, spawn_primary_input_participant,
+            toggle_player_trail_emission_from_actions,
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
+
+        // ── The participant input pipeline (ordered, same-frame) ──────────
+        //
+        // Device adapters complete before routing; routed semantics complete
+        // before shell/menu consumers. An edge produced this frame is
+        // consumed this frame — the pipeline never tolerates "the edge may
+        // arrive one frame later".
+        app.configure_sets(
+            Update,
+            (
+                ambition_input::InputSet::Collect,
+                ambition_input::InputSet::ResolveActions,
+                ambition_input::InputSet::ResolveContext,
+                ambition_input::InputSet::Route,
+                ambition_input::InputSet::PublishCues,
+                ambition_input::InputSet::Consume,
+            )
+                .chain(),
+        );
+        app.init_resource::<ambition_input::ActiveInputContext>();
 
         // ── The frame→tick input latch (netcode N0.1) ─────────────────────
         //
@@ -97,13 +117,13 @@ impl Plugin for HostInputBindingsPlugin {
             app.add_systems(
                 Update,
                 ambition_engine_core::accumulate_control_frame_latch
-                    .after(ambition_input::InputSet::Populate),
+                    .after(ambition_input::InputSet::Route),
             );
             app.add_systems(
                 sim,
                 ambition_engine_core::publish_latched_control_frame
                     .in_set(SandboxSet::PlayerInput)
-                    .before(ambition_input::InputSet::Populate),
+                    .before(ambition_input::InputSet::Route),
             );
         }
 
@@ -143,22 +163,26 @@ impl Plugin for HostInputBindingsPlugin {
             // mobile_input plugin flips it to `Touch` itself.
             .add_systems(
                 Update,
-                ambition_input::update_active_input_kind.in_set(ambition_input::InputSet::Populate),
+                ambition_input::update_active_input_kind.in_set(ambition_input::InputSet::Route),
             )
-            // Preserve the zero-lag path for historical Startup-built worlds.
-            // The attachment system no longer requires `SceneEntities`, so it is
-            // also safe when a shell provider has not activated a route yet.
-            .add_systems(
-                Startup,
-                attach_player_input_components.after(SimulationSetupSet),
-            )
-            // Shell providers spawn a fresh player during Update, including on
-            // relaunch after Startup is permanently over. Re-run the idempotent
-            // `Without<ActionState<_>>` attachment before the frame's consumers;
-            // deferred insertion becomes visible on the following input frame.
+            // The persistent participant spawns ONCE at boot — before any
+            // route, session, or gameplay actor exists — and is never
+            // session-scoped. Startup cards and the launcher read the same
+            // participant a later gameplay session does; possession, session
+            // relaunch, and actor death never touch its device state.
+            .add_systems(Startup, spawn_primary_input_participant)
+            // Context ownership: surfaces declare claims during
+            // `ResolveContext` (the session lifecycle here; the shell's
+            // startup/launcher surfaces in `ambition_game_shell`), then the
+            // one resolver reduces them before anything routes on the answer.
             .add_systems(
                 Update,
-                attach_player_input_components.before(populate_menu_control_frame_from_actions),
+                (
+                    declare_gameplay_input_context.in_set(ambition_input::InputSet::ResolveContext),
+                    ambition_input::resolve_active_input_context
+                        .after(ambition_input::InputSet::ResolveContext)
+                        .before(ambition_input::InputSet::Route),
+                ),
             )
             // Collect semantic menu intent before gameplay input is
             // suppressed. `populate_control_frame_from_actions` may zero the
@@ -173,8 +197,9 @@ impl Plugin for HostInputBindingsPlugin {
             .add_systems(
                 Update,
                 (
-                    populate_menu_control_frame_from_actions,
-                    populate_control_frame_from_actions.in_set(ambition_input::InputSet::Populate),
+                    populate_menu_control_frame_from_actions
+                        .in_set(ambition_input::InputSet::Route),
+                    populate_control_frame_from_actions.in_set(ambition_input::InputSet::Route),
                     toggle_player_trail_emission_from_actions,
                     apply_menu_frame_to_cutscene_request,
                     dialog_pointer_input,

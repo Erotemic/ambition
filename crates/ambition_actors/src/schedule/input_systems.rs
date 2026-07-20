@@ -1,28 +1,33 @@
-//! Device → frame populate systems: the schedule-anchored input vocabulary.
+//! Participant → frame populate systems: the schedule-anchored input vocabulary.
 //!
-//! Bridges leafwing `ActionState<SandboxAction>` into the sim-side
-//! `ControlFrame` ([`populate_control_frame_from_actions`]) and the
-//! menu-side [`MenuControlFrame`] ([`populate_menu_control_frame_from_actions`]),
-//! the device-agnostic seam the sim/menu read instead of raw devices
-//! (ADR 0012). Also: [`MenuNavConsume`] (the set menu-nav consumers join so
-//! touch/joystick writers can pin `.before` it), cutscene advance/skip
-//! routing, and [`attach_player_input_components`] (presentation-side
-//! component attach). All gated behind the `input` feature.
+//! Bridges the persistent participant's leafwing `ActionState<SandboxAction>`
+//! into the sim-side `ControlFrame` ([`populate_control_frame_from_actions`])
+//! and the menu-side [`MenuControlFrame`]
+//! ([`populate_menu_control_frame_from_actions`]), the device-agnostic seam
+//! the sim/menu read instead of raw devices (ADR 0012). Also:
+//! [`MenuNavConsume`] (the set menu-nav consumers join so touch/joystick
+//! writers can pin `.before` it), cutscene advance/skip routing,
+//! [`spawn_primary_input_participant`] (the boot-time participant spawn), and
+//! [`declare_gameplay_input_context`] (the session lifecycle's context
+//! claim). All gated behind the `input` feature except the context claim.
 
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
-#[cfg(feature = "input")]
-use crate::platformer_runtime::lifecycle::PlayerVisual;
+use ambition_input::participant::{context_priority, ContextClaim};
 use ambition_input::{
-    analog_to_dir, ControlFrame, KeyboardPreset, MenuControlFrame, MenuInputState,
-    PlayerDashTriggerState,
+    analog_to_dir, ActiveInputContext, ControlFrame, InputParticipant, KeyboardPreset,
+    MenuControlFrame, MenuInputState, ParticipantContexts, PlayerDashTriggerState,
+    GAMEPLAY_CONTEXT,
 };
 #[cfg(feature = "input")]
 use ambition_input::{
     read_gameplay_control_frame_with_settings, read_menu_control_frame, SandboxAction,
+};
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionGatedSimulation, SessionRoot,
 };
 use ambition_platformer_primitives::schedule::GameMode;
 
@@ -61,27 +66,61 @@ fn input_suppressed_by_unfocus(
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuNavConsume;
 
-/// Attach leafwing input state to every newly spawned player visual.
+/// Spawn the persistent primary input participant at boot.
 ///
-/// This deliberately queries the lifecycle marker instead of a process-global
-/// player-handle resource. Startup-built worlds and shell-activated/relaunched
-/// worlds spawn their player at different schedule seams; discovering it by
-/// `With<PlayerVisual>, Without<ActionState<_>>` makes this safe to run every
-/// frame and naturally handles relaunches without resetting held input on an
-/// already-wired player.
+/// The participant is the person in front of the controller: it owns the
+/// leafwing `ActionState`/`InputMap` and the declared input contexts, exists
+/// before any gameplay session (startup cards, launcher), and survives every
+/// session teardown/relaunch — device state is never attached to actors or
+/// presentation entities. Idempotent by the `With<InputParticipant>` guard.
 #[cfg(feature = "input")]
-pub fn attach_player_input_components(
+pub fn spawn_primary_input_participant(
     mut commands: Commands,
     // The persisted setting is the ONE preset authority (`Option` so headless
     // fixtures without a settings resource fall back to preset 0).
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    players: Query<Entity, (With<PlayerVisual>, Without<ActionState<SandboxAction>>)>,
+    existing: Query<(), With<InputParticipant>>,
 ) {
+    if !existing.is_empty() {
+        return;
+    }
     let preset = KeyboardPreset::by_index(settings.map_or(0, |s| s.controls.keyboard_preset_index));
-    for player in &players {
-        commands
-            .entity(player)
-            .insert((ActionState::<SandboxAction>::default(), preset.input_map()));
+    commands.spawn((
+        InputParticipant::primary(),
+        ParticipantContexts::default(),
+        ActionState::<SandboxAction>::default(),
+        preset.input_map(),
+    ));
+}
+
+/// The session lifecycle's context claim: a live gameplay session owns the
+/// participant's actions.
+///
+/// Mirrors `session_world_exists` (the canonical [`SessionRoot`] must exist
+/// and, on shell-gated hosts, match the active scope). The SESSION is the
+/// surface that owns gameplay input, so the claim follows the session —
+/// never `GameMode`, never controlled-body presence.
+pub fn declare_gameplay_input_context(
+    gate: Option<Res<SessionGatedSimulation>>,
+    active_scope: Option<Res<ActiveSessionScope>>,
+    roots: Query<&SessionRoot>,
+    mut participants: Query<&mut ParticipantContexts, With<InputParticipant>>,
+) {
+    let session_live = roots.single().is_ok_and(|root| {
+        gate.is_none()
+            || active_scope
+                .as_deref()
+                .and_then(ActiveSessionScope::current)
+                == Some(root.0)
+    });
+    for mut contexts in &mut participants {
+        // Touch the component only when the claim actually moves.
+        if contexts.is_declared(GAMEPLAY_CONTEXT) != session_live {
+            contexts.sync(
+                ContextClaim::capturing(GAMEPLAY_CONTEXT, context_priority::GAMEPLAY),
+                session_live,
+            );
+        }
     }
 }
 
@@ -93,10 +132,13 @@ pub fn attach_player_input_components(
 #[cfg(feature = "input")]
 pub fn toggle_player_trail_emission_from_actions(
     mode: Res<State<GameMode>>,
-    player_input: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
+    active_context: Res<ActiveInputContext>,
+    player_input: Query<&ActionState<SandboxAction>, With<InputParticipant>>,
     enabled: Option<ResMut<crate::avatar::trail::PlayerTrailEnabled>>,
 ) {
-    if !mode.get().allows_gameplay() {
+    // The participant exists at the launcher too; only a session that owns
+    // input (and is actually in a gameplay mode) may consume the toggle.
+    if !active_context.gameplay_owned() || !mode.get().allows_gameplay() {
         return;
     }
     let Some(mut enabled) = enabled else {
@@ -124,7 +166,8 @@ pub fn toggle_player_trail_emission_from_actions(
 #[cfg(feature = "input")]
 pub fn populate_control_frame_from_actions(
     mode: Res<State<GameMode>>,
-    player_input: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
+    active_context: Res<ActiveInputContext>,
+    player_input: Query<&ActionState<SandboxAction>, With<InputParticipant>>,
     mut frame: ResMut<ControlFrame>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     mut dash_state: ResMut<PlayerDashTriggerState>,
@@ -134,6 +177,18 @@ pub fn populate_control_frame_from_actions(
     windows: Query<&Window>,
 ) {
     let wall_dt = world_time.as_deref().map_or(0.0, |time| time.wall_dt());
+
+    // The participant persists across the whole app lifetime, so "no player
+    // spawned yet" no longer implies "no ActionState". The resolved input
+    // context is the gate: while the launcher/startup (or nothing) owns the
+    // participant's actions, gameplay input stays neutral. In-session UI
+    // states (pause/dialogue/cutscene) keep their own suppressions below —
+    // the session still owns input there.
+    if !active_context.gameplay_owned() {
+        dash_state.edge = crate::persistence::settings::TriggerEdgeState::default();
+        *frame = ControlFrame::default();
+        return;
+    }
 
     // Optional unfocus guard: clear gameplay input while the window is unfocused
     // (and the setting is on). Reset the dash edge too so the post-refocus re-press
@@ -187,11 +242,12 @@ pub fn populate_control_frame_from_actions(
     let mut player_inputs = player_input.iter();
     let action_state = player_inputs.next();
     if player_inputs.next().is_some() {
-        // Two input-bearing player visuals are never a benign transition: they
-        // would compete to author the single simulation ControlFrame.
+        // Two input-bearing participants are never a benign transition: they
+        // would compete to author the single simulation ControlFrame. (Real
+        // multi-participant support keys frames by ParticipantId → slot.)
         bevy::log::warn_once!(
-            "populate_control_frame_from_actions: multiple player ActionState \
-             components are active; gameplay input is NEUTRAL until exact player \
+            "populate_control_frame_from_actions: multiple participant ActionState \
+             components are active; gameplay input is NEUTRAL until exact participant \
              ownership is restored."
         );
         *frame = ControlFrame::default();
@@ -215,8 +271,8 @@ pub fn populate_control_frame_from_actions(
                 read_menu_control_frame(action_state)
             }
         }
-        // No gameplay player exists during startup, launcher, loading, and exact
-        // teardown. Neutral input is the contract in those states, not a warning.
+        // No participant exists only in minimal fixtures that never ran the
+        // boot spawn. Neutral input is the contract there, not a warning.
         None => ControlFrame::default(),
     };
 }
@@ -230,7 +286,7 @@ pub fn populate_control_frame_from_actions(
 #[cfg(feature = "input")]
 pub fn populate_menu_control_frame_from_actions(
     world_time: Option<Res<ambition_time::WorldTime>>,
-    player_input: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
+    player_input: Query<&ActionState<SandboxAction>, With<InputParticipant>>,
     mut menu_frame: ResMut<MenuControlFrame>,
     mut menu_input_state: ResMut<MenuInputState>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
@@ -326,53 +382,101 @@ pub fn apply_menu_frame_to_cutscene_request(
 
 #[cfg(all(test, feature = "input"))]
 mod focus_gate_tests {
-    use super::{attach_player_input_components, input_suppressed_by_unfocus};
-    use ambition_input::SandboxAction;
+    use super::{
+        declare_gameplay_input_context, input_suppressed_by_unfocus,
+        spawn_primary_input_participant,
+    };
+    use ambition_input::{
+        resolve_active_input_context, ActiveInputContext, InputParticipant, SandboxAction,
+    };
     use ambition_persistence::settings::UserSettings;
+    use ambition_platformer_primitives::lifecycle::{SessionRoot, SessionScopeId};
     use bevy::prelude::*;
     use leafwing_input_manager::prelude::{ActionState, InputMap};
 
     #[test]
-    fn input_attachment_tolerates_no_scene_and_wires_late_players() {
+    fn the_participant_spawns_once_and_owns_device_state() {
         let mut app = App::new();
-        app.init_resource::<ambition_dev_tools::SandboxDevState>();
-        app.add_systems(Update, attach_player_input_components);
+        app.add_systems(Update, spawn_primary_input_participant);
 
-        // A shell host starts before its first route activation. There is no
-        // player yet; the host must simply idle.
+        app.update();
         app.update();
 
-        let first = app
+        let mut participants = app
             .world_mut()
-            .spawn(crate::platformer_runtime::lifecycle::PlayerVisual)
-            .id();
-        app.update();
+            .query_filtered::<Entity, With<InputParticipant>>();
+        let all: Vec<Entity> = participants.iter(app.world()).collect();
+        assert_eq!(all.len(), 1, "the spawn is idempotent across frames");
+        let participant = all[0];
         assert!(
             app.world()
-                .entity(first)
+                .entity(participant)
                 .contains::<ActionState<SandboxAction>>(),
-            "a player spawned after startup receives leafwing state"
+            "the participant owns the leafwing action state"
         );
         assert!(
             app.world()
-                .entity(first)
+                .entity(participant)
                 .contains::<InputMap<SandboxAction>>(),
-            "a player spawned after startup receives the active input map"
+            "the participant owns the active input map"
+        );
+    }
+
+    #[test]
+    fn the_session_lifecycle_claims_and_releases_the_gameplay_context() {
+        let mut app = App::new();
+        app.init_resource::<ActiveInputContext>();
+        app.add_systems(
+            Update,
+            (
+                spawn_primary_input_participant,
+                declare_gameplay_input_context,
+                resolve_active_input_context,
+            )
+                .chain(),
         );
 
-        // Session relaunches create a fresh player after the original startup
-        // schedule is long gone. The same idempotent system must wire it too.
-        app.world_mut().despawn(first);
-        let relaunched = app
-            .world_mut()
-            .spawn(crate::platformer_runtime::lifecycle::PlayerVisual)
-            .id();
+        // Before any session (startup cards, launcher): nothing claims
+        // gameplay, so the participant's actions do not route to the sim.
         app.update();
         assert!(
+            !app.world()
+                .resource::<ActiveInputContext>()
+                .gameplay_owned(),
+            "no session -> gameplay context is not owned"
+        );
+
+        // A live session claims the context; teardown releases it. The
+        // participant entity itself is untouched either way.
+        let root = app.world_mut().spawn(SessionRoot(SessionScopeId(7))).id();
+        app.update();
+        assert!(app
+            .world()
+            .resource::<ActiveInputContext>()
+            .gameplay_owned());
+        let participant = {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<Entity, With<InputParticipant>>();
+            q.single(app.world()).expect("participant exists")
+        };
+        app.world_mut().despawn(root);
+        app.update();
+        assert!(
+            !app.world()
+                .resource::<ActiveInputContext>()
+                .gameplay_owned(),
+            "session teardown retracts the gameplay claim"
+        );
+        assert!(
+            app.world().get_entity(participant).is_ok(),
+            "destroying the session does not destroy the participant"
+        );
+        assert!(
             app.world()
-                .entity(relaunched)
+                .entity(participant)
                 .contains::<ActionState<SandboxAction>>(),
-            "a relaunched player is wired without rerunning Startup"
+            "participant device state survives session teardown"
         );
     }
 

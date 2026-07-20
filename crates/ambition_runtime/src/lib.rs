@@ -86,9 +86,10 @@ pub use input_stream::{input_stream_recording, record_input_stream, InputStreamR
 /// `ambition_actors`.
 pub mod host_input {
     pub use ambition_actors::schedule::{
-        apply_menu_frame_to_cutscene_request, attach_player_input_components,
+        apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
         populate_control_frame_from_actions, populate_menu_control_frame_from_actions,
-        toggle_player_trail_emission_from_actions, SimulationSetupSet,
+        spawn_primary_input_participant, toggle_player_trail_emission_from_actions,
+        SimulationSetupSet,
     };
     pub use ambition_dialog::dialog_pointer_input;
 }

@@ -213,7 +213,7 @@ impl ControlFrameLatch {
 }
 
 /// FEEL clock: fold this frame's device sample into the latch. Runs in `Update`
-/// after every `ControlFrame` writer (`InputSet::Populate`).
+/// after every `ControlFrame` writer (`InputSet::Route`).
 pub fn accumulate_control_frame_latch(
     frame: Res<ControlFrame>,
     mut latch: ResMut<ControlFrameLatch>,

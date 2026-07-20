@@ -139,7 +139,7 @@ pub fn configure_sandbox_sets(app: &mut App) {
     );
 
     // Input populate contract (ambition_input::InputSet): every system that
-    // WRITES the `ControlFrame` resource lives in `InputSet::Populate`, and the
+    // WRITES the `ControlFrame` resource lives in `InputSet::Route`, and the
     // whole set is pinned BEFORE the gameplay consume boundary. That boundary is
     // now `populate_slot_controls` — the FIRST reader of the finalized
     // `ControlFrame`, publishing it into the slot-based controller model
@@ -154,6 +154,6 @@ pub fn configure_sandbox_sets(app: &mut App) {
     // Move-axis regression this contract exists to prevent.
     app.configure_sets(
         sim,
-        ambition_input::InputSet::Populate.before(crate::control::populate_slot_controls),
+        ambition_input::InputSet::Route.before(crate::control::populate_slot_controls),
     );
 }

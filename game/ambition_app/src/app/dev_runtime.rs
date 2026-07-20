@@ -14,7 +14,7 @@ use ambition::engine_core::RoomGeometry;
 #[cfg(feature = "input")]
 use ambition::input::{KeyboardPreset, SandboxAction};
 use ambition::platformer::developer_hotkeys::DeveloperAction;
-use ambition::render::rendering::{spawn_room_visuals, PlayerVisual};
+use ambition::render::rendering::spawn_room_visuals;
 
 /// Presentation-side debug hotkey reader.
 ///
@@ -50,24 +50,19 @@ pub(super) fn handle_debug_hotkeys(
 
 /// When the persisted keyboard preset changes (the settings menu writes
 /// `UserSettings.controls.keyboard_preset_index` — the ONE preset authority),
-/// sync leafwing's `InputMap` on the player entity so the next-frame inputs
-/// reflect the new preset. Gated behind `input` because it owns leafwing
-/// components.
+/// sync leafwing's `InputMap` on the persistent input participant so the
+/// next-frame inputs reflect the new preset. Gated behind `input` because it
+/// owns leafwing components.
 #[cfg(feature = "input")]
 pub(super) fn sync_preset_input_map(
     settings: Res<ambition::persistence::settings::UserSettings>,
     mut last_preset: Local<Option<usize>>,
-    // The home avatar's leafwing components, by marker. `PrimaryPlayer` scopes to
-    // the one home body; no process-global player handle is consulted.
     mut player_input: Query<
         (
             &mut ActionState<SandboxAction>,
             &mut InputMap<SandboxAction>,
         ),
-        (
-            With<PlayerVisual>,
-            With<ambition::actors::actor::PrimaryPlayer>,
-        ),
+        With<ambition::input::InputParticipant>,
     >,
 ) {
     let current = settings.controls.keyboard_preset_index;

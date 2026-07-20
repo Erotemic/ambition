@@ -77,9 +77,10 @@ pub struct SimulationSetup<'a> {
 /// * spawning the player entity with gameplay-essential ECS components
 ///   (`PlayerSimulationBundle` for sim clusters plus `Transform`,
 ///   `PlayerVisual`, etc.).
-///   Leafwing's `ActionState` and `InputMap` get attached by the
-///   presentation-side `attach_player_input_components` startup system;
-///   sim-only builds stay leafwing-free per the ADR 0012 input seam.
+///   Leafwing's `ActionState` and `InputMap` live on the persistent
+///   `InputParticipant` entity (spawned once at boot by the host input
+///   plugin), NEVER on the player/actor entities; sim-only builds stay
+///   leafwing-free per the ADR 0012 input seam.
 pub fn simulation_world(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,

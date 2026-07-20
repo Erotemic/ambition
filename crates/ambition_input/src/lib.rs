@@ -20,6 +20,7 @@ mod active_input;
 mod control;
 mod menu;
 mod motion_input;
+pub mod participant;
 mod presets;
 pub mod settings;
 
@@ -45,19 +46,55 @@ pub use control::{
     read_gameplay_control_frame, read_gameplay_control_frame_with_settings, read_menu_control_frame,
 };
 
-/// Schedule contract for the per-frame [`ControlFrame`] input window.
+/// Schedule contract for the participant input pipeline (one frame, in
+/// order): device adapters complete before routing, and every routed output
+/// completes before the shell/menu consumers read it — an edge produced this
+/// frame is consumed this frame, never "at worst a frame late".
 ///
-/// Every system that WRITES the `ControlFrame` resource (device populate,
-/// touch fold, portal movement-intent brackets, edge-derived flags) runs in
-/// [`InputSet::Populate`]; every system that READS `ControlFrame` to drive
-/// gameplay runs after it. The sandbox pins `Populate` before its gameplay
-/// consumer (`sync_local_player_input_frame`), so a writer can never "float"
-/// past the consume boundary and stamp stale input over the fresh frame — the
-/// regression that recently killed the Move axis.
+/// The stages, chained by the host input plugin:
+///
+/// 1. [`InputSet::Collect`] — device and virtual-device adapters produce this
+///    frame's raw device state (touch state, joystick messages). Physical
+///    devices are read upstream by bevy/leafwing in `PreUpdate`; this is the
+///    `Update`-side adapter stage.
+/// 2. [`InputSet::ResolveActions`] — bindings resolve device state into the
+///    participant's `ActionState` (virtual-device merges into leafwing's
+///    already-ticked state land here).
+/// 3. [`InputSet::ResolveContext`] — surfaces declare/retract their
+///    [`participant::ContextClaim`]s; [`participant::ActiveInputContext`]
+///    resolves at the end of the set.
+/// 4. [`InputSet::Route`] — actions + the active context route into the
+///    semantic seams. Every system that WRITES the `ControlFrame` resource
+///    (device populate, touch fold, portal movement-intent brackets,
+///    edge-derived flags) and the `MenuControlFrame` lives here; every system
+///    that READS them to drive gameplay runs after it. The sandbox pins
+///    `Route` before its gameplay consumer (`populate_slot_controls`), so a
+///    writer can never "float" past the consume boundary and stamp stale
+///    input over the fresh frame — the regression that once killed the Move
+///    axis.
+/// 5. [`InputSet::PublishCues`] — resolved cue read-models publish for
+///    presenters (labels, glyphs, touch-button contracts).
+/// 6. [`InputSet::Consume`] — shell/menu consumers of the routed semantics.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum InputSet {
-    /// All `ControlFrame`-writing systems live here.
-    Populate,
+    /// Device and virtual-device adapters produce raw device state.
+    Collect,
+    /// Bindings resolve device state into participant `ActionState`.
+    ResolveActions,
+    /// Context claims are declared; the active context resolves.
+    ResolveContext,
+    /// Actions + context route into `ControlFrame` / `MenuControlFrame` /
+    /// semantic UI commands. All `ControlFrame`-writing systems live here.
+    Route,
+    /// Resolved cue read-models publish for presenters.
+    PublishCues,
+    /// Shell/menu consumers of the routed semantics.
+    Consume,
 }
 pub use menu::{analog_to_dir, MenuControlFrame, MenuDir, MenuInputFrame, MenuInputState};
+pub use participant::{
+    resolve_active_input_context, ActiveInputContext, ContextClaim, InputContextId,
+    InputParticipant, ParticipantContexts, ParticipantId, GAMEPLAY_CONTEXT, LAUNCHER_CONTEXT,
+    STARTUP_ACKNOWLEDGE_CONTEXT,
+};
 pub use presets::{ActionKeys, KeyboardPreset, MovementKeys, PresetId, GAMEPAD_MAP};

@@ -2,9 +2,13 @@
 
 use bevy::prelude::{
     App, Commands, IntoScheduleConfigs, MessageReader, MessageWriter, Plugin, Query, Res, ResMut,
-    Time, Update,
+    Time, Update, With,
 };
 
+use ambition_input::participant::{context_priority, ContextClaim};
+use ambition_input::{
+    InputParticipant, InputSet, ParticipantContexts, LAUNCHER_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
+};
 use ambition_load::{AmbitionLoadSet, LoadCoordinator};
 
 use crate::{
@@ -93,6 +97,16 @@ impl Plugin for ShellSequencePlugin {
                 Update,
                 start_or_stop_sequence.in_set(ShellSequenceSet::Sync),
             )
+            // The sequence surface OWNS the startup-acknowledge input
+            // context: it declares the claim while a card sequence is
+            // active and retracts it when the sequence ends. Ownership is
+            // declared, never inferred from GameMode or actor presence.
+            .add_systems(
+                Update,
+                declare_startup_acknowledge_context
+                    .in_set(InputSet::ResolveContext)
+                    .after(ShellSequenceSet::Sync),
+            )
             .add_systems(Update, drive_sequence.in_set(ShellSequenceSet::Tick))
             .add_systems(
                 Update,
@@ -121,7 +135,52 @@ impl Plugin for ShellLauncherPlugin {
                 )
                     .chain()
                     .after(AmbitionGameShellSet::Pending),
+            )
+            // The launcher surface OWNS the launcher input context: claimed
+            // while the launcher route is active, retracted when it is not.
+            .add_systems(
+                Update,
+                declare_launcher_context
+                    .in_set(InputSet::ResolveContext)
+                    .after(sync_launcher_activation),
             );
+    }
+}
+
+/// While a shell card sequence is active, the startup-acknowledge context
+/// owns the participant's actions (one semantic "continue"; tap-anywhere).
+fn declare_startup_acknowledge_context(
+    sequence: Res<ActiveShellSequence>,
+    mut participants: Query<&mut ParticipantContexts, With<InputParticipant>>,
+) {
+    let active = sequence.activation_id.is_some() && sequence.runtime.is_some();
+    for mut contexts in &mut participants {
+        if contexts.is_declared(STARTUP_ACKNOWLEDGE_CONTEXT) != active {
+            contexts.sync(
+                ContextClaim::capturing(
+                    STARTUP_ACKNOWLEDGE_CONTEXT,
+                    context_priority::STARTUP_ACKNOWLEDGE,
+                ),
+                active,
+            );
+        }
+    }
+}
+
+/// While the launcher route is active, the launcher context owns the
+/// participant's actions — capturing, so gameplay actions cannot route
+/// underneath the title menu.
+fn declare_launcher_context(
+    state: Res<ShellLauncherState>,
+    mut participants: Query<&mut ParticipantContexts, With<InputParticipant>>,
+) {
+    for mut contexts in &mut participants {
+        if contexts.is_declared(LAUNCHER_CONTEXT) != state.active {
+            contexts.sync(
+                ContextClaim::capturing(LAUNCHER_CONTEXT, context_priority::LAUNCHER),
+                state.active,
+            );
+        }
     }
 }
 

@@ -117,7 +117,7 @@ impl Plugin for PlayerSchedulePlugin {
             (
                 ambition_actors::control::input_timer_system
                     .run_if(gameplay_allowed)
-                    .in_set(ambition_input::InputSet::Populate),
+                    .in_set(ambition_input::InputSet::Route),
                 ambition_actors::control::interaction_input_system.run_if(gameplay_allowed),
                 // Portal-warped held movement input is registered by
                 // `ambition_portal::PortalPlugin` so the portal

@@ -236,11 +236,11 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 // `PortalSet::InputWarp` already places this in `PlayerInput`
                 // (see `wire_portal_schedule`), so a direct
                 // `.in_set(PlayerInput)` would be a redundant hierarchy edge.
-                // `InputSet::Populate` is a SEPARATE set (NOT nested under
+                // `InputSet::Route` is a SEPARATE set (NOT nested under
                 // `PlayerInput`), so it stays — it pins this write-back inside the
                 // `Populate.before(sync_local_player_input_frame)` consume window.
                 .in_set(PortalSet::InputWarp)
-                .in_set(ambition_input::InputSet::Populate)
+                .in_set(ambition_input::InputSet::Route)
                 .after(warp_portal_input)
                 .before(ambition_actors::control::sync_local_player_input_frame),
         );
@@ -460,14 +460,14 @@ mod schedule_tests {
     }
 
     // A `ControlFrame` writer whose ONLY scheduling constraint is set
-    // membership: `InputSet::Populate`. It carries no manual ordering against
+    // membership: `InputSet::Route`. It carries no manual ordering against
     // the consumer, so it can only land before the consume if the structural
     // `Populate.before(sync_local_player_input_frame)` contract holds.
     fn populate_only_via_set(mut frame: ResMut<ControlFrame>) {
         frame.axis_x = 0.75;
     }
 
-    /// The general input contract: any system tagged `InputSet::Populate` is
+    /// The general input contract: any system tagged `InputSet::Route` is
     /// pinned BEFORE the real gameplay consumers in `SandboxSet::PlayerInput`.
     /// The slot-input path is `populate_slot_controls` (ControlFrame →
     /// `SlotControls[PRIMARY]`) then `sync_local_player_input_frame`
@@ -505,7 +505,7 @@ mod schedule_tests {
 
         app.add_systems(
             Update,
-            populate_only_via_set.in_set(ambition_input::InputSet::Populate),
+            populate_only_via_set.in_set(ambition_input::InputSet::Route),
         );
         app.add_systems(
             Update,
@@ -527,7 +527,7 @@ mod schedule_tests {
             observed, 0.75,
             "a Populate-tagged ControlFrame writer must run before the PlayerInput \
              consumers; the mirror snapshotted axis_x = {observed} instead of the \
-             populated 0.75 — InputSet::Populate is not pinned before the consume \
+             populated 0.75 — InputSet::Route is not pinned before the consume \
              boundary."
         );
     }

@@ -471,3 +471,77 @@ fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
         "provoked PirateHeavy should commit a melee swing when in range",
     );
 }
+
+/// The Hall pedestal label must be the catalog `display_name`, not the
+/// `character_id`.
+///
+/// Every LDtk `NpcSpawn` shares the identifier "NpcSpawn", so `Authored.name`
+/// is never the character's label — `ambition_ldtk_map` has no catalog
+/// dependency and cannot resolve one. `spawn_interactable` is the first seam
+/// that can, and everything downstream reads the result: nameplates
+/// (`ActorIdentity.name` -> `NameplateFact.label`), the interaction banner,
+/// the dialogue speaker fallback, speech-SFX keying, and the
+/// `id_for_display_name` sprite-size lookup — which silently returns `None`
+/// for every catalog character when the label is an id.
+///
+/// Poisoned deliberately: the authored name here is the literal LDtk
+/// identifier and the character_id is a real catalog row, so BOTH degenerate
+/// answers ("NpcSpawn" from passing the authored name straight through, and
+/// "npc_architect" from substituting the id) fail this assertion.
+#[test]
+fn authored_npc_takes_its_label_from_the_catalog_display_name() {
+    use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
+
+    let mut app = App::new();
+    app.insert_resource(crate::character_roster::catalog());
+    app.insert_resource(crate::features::enemies::CharacterRoster::default());
+
+    let authored = crate::rooms::Authored::new(
+        "NpcSpawn-107741",
+        // What the LDtk converter actually produces for every NpcSpawn.
+        "NpcSpawn",
+        ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(32.0, 48.0)),
+        InteractableSpec::new(
+            "Inspect",
+            InteractionKindSpec::Npc {
+                character_id: Some("npc_architect".to_string()),
+                dialogue_id: Some("hall_architect".to_string()),
+                patrol_radius: 0.0,
+                patrol_path_id: None,
+                brain_override: Some("stand_still".to_string()),
+            },
+        ),
+    );
+
+    let spawn =
+        move |mut commands: Commands,
+              catalog: bevy::prelude::Res<
+            ambition_characters::actor::character_catalog::CharacterCatalog,
+        >,
+              roster: bevy::prelude::Res<crate::features::enemies::CharacterRoster>| {
+            super::super::spawn_actors::spawn_interactable(
+                &mut commands,
+                &catalog,
+                &roster,
+                SessionSpawnScope::UNSCOPED,
+                &authored,
+                &[],
+            );
+        };
+    app.add_systems(Update, spawn);
+    app.update();
+
+    let mut q = app.world_mut().query::<&ActorIdentity>();
+    let identity = q
+        .iter(app.world())
+        .next()
+        .expect("spawn_interactable should spawn an NPC actor");
+
+    assert_eq!(
+        identity.name(),
+        "Architect NPC",
+        "NPC label should resolve through the catalog; got {:?} (an id or the \
+         raw LDtk identifier here means the catalog join was dropped)",
+        identity.name(),
+    );
+}

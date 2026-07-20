@@ -1322,6 +1322,38 @@ pub(super) fn spawn_solo_enemy(
     }
     entity
 }
+/// Human label for an authored NPC: the catalog `display_name` for the
+/// spawn's `character_id`, falling back to the authored world-IR name.
+///
+/// The fallback is the honest answer for an NPC with no catalog row
+/// (synthetic/legacy spawns, where `character_id` is `None`) — but a spawn
+/// that DOES name a character and fails to resolve is a content bug, not a
+/// naming preference, so that case is worth seeing rather than papering over.
+fn npc_display_label(
+    catalog: &CharacterCatalog,
+    interactable: &ambition_interaction::Interactable,
+    authored_name: &str,
+) -> String {
+    let ambition_interaction::InteractionKind::Npc { character_id, .. } = &interactable.kind else {
+        return authored_name.to_string();
+    };
+    let Some(character_id) = character_id.as_deref() else {
+        return authored_name.to_string();
+    };
+    match catalog.display_name(character_id) {
+        Some(display_name) => display_name.to_string(),
+        None => {
+            warn!(
+                character_id,
+                authored_name,
+                "NPC spawn names a character with no catalog row; \
+                 falling back to the authored name for its label"
+            );
+            authored_name.to_string()
+        }
+    }
+}
+
 pub(super) fn spawn_interactable(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
@@ -1337,13 +1369,22 @@ pub(super) fn spawn_interactable(
         interactable.kind,
         ambition_interaction::InteractionKind::Npc { .. }
     ) {
+        // Every LDtk `NpcSpawn` shares the identifier "NpcSpawn", so the world
+        // IR's `Authored.name` is never the character's label — the human label
+        // lives in the catalog, keyed by the spawn's `character_id`. The LDtk
+        // crate deliberately has no catalog dependency, so this is the first
+        // seam that can resolve it. Everything reading `ActorIdentity.name`
+        // (nameplates, interaction banner, dialogue speaker fallback, speech
+        // SFX keying, and the `id_for_display_name` sprite-size lookup) depends
+        // on this being the display name.
+        let label = npc_display_label(catalog, interactable, &authored.name);
         NpcActorSpawnPlan::peaceful(
             catalog,
             roster,
-            format!("Feature actor npc: {}", authored.name),
+            format!("Feature actor npc: {label}"),
             feature_aabb,
             authored.id.clone(),
-            authored.name.clone(),
+            label,
             authored.aabb,
             interactable.clone(),
             paths,

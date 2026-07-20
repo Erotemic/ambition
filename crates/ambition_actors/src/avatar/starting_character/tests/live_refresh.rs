@@ -31,6 +31,8 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
     app.insert_resource(super::test_catalog());
     app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
+    // The neutral authority `sync_live_player_dev_edits_system` reads (K1a).
+    app.init_resource::<ambition_engine_core::ActiveMovementTuning>();
     app.init_resource::<AbilityChangeObservations>();
     app.add_systems(
         Update,
@@ -117,6 +119,8 @@ fn restricted_ability_base_survives_the_sandbox_default_mask() {
     // Default = sandbox_all: the permissive mask, the value that used to clobber.
     app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
+    // The neutral authority `sync_live_player_dev_edits_system` reads (K1a).
+    app.init_resource::<ambition_engine_core::ActiveMovementTuning>();
     app.add_systems(
         Update,
         ambition_dev_tools::sync_live_player_dev_edits_system,
@@ -187,6 +191,8 @@ fn authored_movement_tuning_drives_the_air_jump_count_not_the_dev_editable() {
     // Default editable = air_jumps 1: the value that would cap a double jump.
     app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
+    // The neutral authority `sync_live_player_dev_edits_system` reads (K1a).
+    app.init_resource::<ambition_engine_core::ActiveMovementTuning>();
     app.add_systems(
         Update,
         ambition_dev_tools::sync_live_player_dev_edits_system,

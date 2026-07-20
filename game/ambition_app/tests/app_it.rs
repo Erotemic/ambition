@@ -41,6 +41,7 @@ mod gravity_symmetry;
 mod gravity_symmetry_room;
 mod held_projectile_portal_transit;
 mod input_stream_replay;
+mod mary_o_hud_surround;
 mod movement_axis;
 mod participant_input;
 mod player_bubble_shield;

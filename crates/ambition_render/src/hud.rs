@@ -29,10 +29,15 @@ const BAR_H: f32 = 13.0;
 
 /// Where the HUD sits when it overlays gameplay: top-left, clear of the
 /// bottom-left movement stick.
-const OVERLAY_ANCHOR: Vec2 = Vec2::new(16.0, 34.0);
+///
+/// Public so an assembled test can tell the two placements apart by NAME. On a
+/// widely pillarboxed display the overlay anchor happens to land in the
+/// surround anyway, so "is it clear of the gameplay rect" cannot distinguish
+/// "placed in the region it asked for" from "never moved" — the anchor can.
+pub const OVERLAY_ANCHOR: Vec2 = Vec2::new(16.0, 34.0);
 
 /// Breathing room between the HUD and the edges of whatever region holds it.
-const HUD_MARGIN: f32 = 12.0;
+pub const HUD_MARGIN: f32 = 12.0;
 
 /// What the HUD needs to be legible. Below this a surround region is refused
 /// rather than squeezed — a clipped health bar is worse than one over the

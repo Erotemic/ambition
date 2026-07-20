@@ -198,7 +198,6 @@ fn spawn_panel_at_depth<Action>(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 fn spawn_text(
     ui: &mut ChildSpawnerCommands,
     materials: &mut Assets<StandardMaterial>,
@@ -223,7 +222,6 @@ fn spawn_text(
     });
     let mut entity = ui.spawn((
         Name::new("text"),
-        KaleidoscopeTextMesh,
         KaleidoscopeFade { base_alpha },
         UiLayout::window()
             .x(Rl(x))

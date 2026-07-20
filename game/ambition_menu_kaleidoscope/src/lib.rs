@@ -18,7 +18,6 @@
 
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use bevy::camera::visibility::RenderLayers;
 use bevy::core_pipeline::tonemapping::Tonemapping;
@@ -28,91 +27,6 @@ use bevy::picking::{Pickable, PickingSystems};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_lunex::prelude::*;
-
-// Keep this state as a tuple in public system parameters. A named private
-// helper type in a public Bevy system signature becomes part of the function
-// item's cross-crate type and prevents hosts from scheduling the system.
-type KaleidoscopeTimingState = (
-    Option<bool>,    // diagnostics enabled
-    u64,             // calls
-    u128,            // total nanoseconds
-    u128,            // maximum nanoseconds
-    u64,             // work items
-    u64,             // writes
-    Option<Instant>, // last report
-);
-
-struct KaleidoscopeSystemTimingSpan<'a> {
-    name: &'static str,
-    started: Option<Instant>,
-    timing: &'a mut KaleidoscopeTimingState,
-    work: u64,
-    writes: u64,
-}
-
-impl<'a> KaleidoscopeSystemTimingSpan<'a> {
-    fn begin(name: &'static str, timing: &'a mut KaleidoscopeTimingState) -> Self {
-        let enabled = *timing.0.get_or_insert_with(|| {
-            std::env::var_os("AMBITION_KALEIDOSCOPE_PERF_DIAGNOSTICS").is_some()
-        });
-        Self {
-            name,
-            started: enabled.then(Instant::now),
-            timing,
-            work: 0,
-            writes: 0,
-        }
-    }
-
-    fn add_work(&mut self, count: usize) {
-        self.work = self.work.saturating_add(count as u64);
-    }
-
-    fn add_writes(&mut self, count: usize) {
-        self.writes = self.writes.saturating_add(count as u64);
-    }
-}
-
-impl Drop for KaleidoscopeSystemTimingSpan<'_> {
-    fn drop(&mut self) {
-        let Some(started) = self.started else {
-            return;
-        };
-        let elapsed_ns = started.elapsed().as_nanos();
-        self.timing.1 = self.timing.1.saturating_add(1);
-        self.timing.2 = self.timing.2.saturating_add(elapsed_ns);
-        self.timing.3 = self.timing.3.max(elapsed_ns);
-        self.timing.4 = self.timing.4.saturating_add(self.work);
-        self.timing.5 = self.timing.5.saturating_add(self.writes);
-
-        let now = Instant::now();
-        let Some(last_report) = self.timing.6 else {
-            self.timing.6 = Some(now);
-            return;
-        };
-        if now.duration_since(last_report) < Duration::from_secs(2) {
-            return;
-        }
-
-        let calls = self.timing.1.max(1);
-        info!(
-            target: "ambition::kaleidoscope_perf",
-            "system-timing name={} calls={} avg_us={:.3} max_us={:.3} avg_work={:.1} writes={}",
-            self.name,
-            self.timing.1,
-            self.timing.2 as f64 / calls as f64 / 1_000.0,
-            self.timing.3 as f64 / 1_000.0,
-            self.timing.4 as f64 / calls as f64,
-            self.timing.5,
-        );
-        self.timing.1 = 0;
-        self.timing.2 = 0;
-        self.timing.3 = 0;
-        self.timing.4 = 0;
-        self.timing.5 = 0;
-        self.timing.6 = Some(now);
-    }
-}
 
 use ambition_menu::{
     scrollbar_thumb_layout, ActiveMenuPages, AmbitionMenuControl, AmbitionMenuPage,
@@ -229,15 +143,6 @@ pub struct KaleidoscopeActiveFaceControl;
 /// Marks the dedicated pause camera that frames the cube.
 #[derive(Component)]
 pub struct KaleidoscopePauseCamera;
-
-/// Marks a text entity whose generated mesh belongs to the kaleidoscope.
-///
-/// The opt-in performance diagnostic `AMBITION_KALEIDOSCOPE_PERF_FREEZE_TEXT_MESHES=1`
-/// uses this marker to detach the [`Text3d`] source after the rich-text plugin has
-/// produced a real [`Mesh3d`]. The generated mesh and material remain attached, so
-/// the label stays visible while repeated text shaping and mesh regeneration stop.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct KaleidoscopeTextMesh;
 
 /// Per-entity record of a control/panel/text/icon material's INTENDED (design)
 /// base-color alpha, so [`fade_kaleidoscope_materials`] can drive the live material
@@ -515,14 +420,6 @@ where
             PostUpdate,
             fade_kaleidoscope_materials.in_set(KaleidoscopeRender),
         );
-        // Targeted A/B for the perf profile's rich-text hotspot. This system is
-        // inert unless the environment variable is present. It runs in `Last`, after
-        // the rich-text renderer has had a chance to populate each `Mesh3d`, then
-        // removes only the source `Text3d` component. Required layout/style
-        // components and the generated mesh/material remain, so the visual result
-        // should stay intact while subsequent frames skip cosmic-text shaping.
-        app.add_systems(Last, freeze_kaleidoscope_text_meshes);
-
         app.add_systems(Startup, setup_cube)
             .add_systems(
                 Update,
@@ -543,46 +440,6 @@ where
                     .after(rebuild_cube_faces::<PageId, Action>)
                     .in_set(KaleidoscopeRender),
             );
-    }
-}
-
-fn freeze_kaleidoscope_text_meshes(
-    mut commands: Commands,
-    meshes: Res<Assets<Mesh>>,
-    texts: Query<
-        (Entity, &Mesh3d),
-        (With<KaleidoscopeTextMesh>, With<Text3d>),
-    >,
-    mut enabled: Local<Option<bool>>,
-    mut total_frozen: Local<u64>,
-) {
-    let enabled = *enabled.get_or_insert_with(|| {
-        std::env::var_os("AMBITION_KALEIDOSCOPE_PERF_FREEZE_TEXT_MESHES").is_some()
-    });
-    if !enabled {
-        return;
-    }
-
-    let mut frozen_this_frame = 0_u64;
-    for (entity, mesh) in &texts {
-        // `Mesh3d::default()` is installed at spawn. Wait until the rich-text
-        // renderer has replaced it with an actual generated mesh before detaching
-        // the source component; otherwise the label would disappear.
-        if meshes.get(&mesh.0).is_none() {
-            continue;
-        }
-        commands.entity(entity).remove::<Text3d>();
-        frozen_this_frame += 1;
-    }
-
-    if frozen_this_frame != 0 {
-        *total_frozen = total_frozen.saturating_add(frozen_this_frame);
-        info!(
-            target: "ambition::kaleidoscope_perf",
-            "text-mesh-freeze frozen_this_frame={} total_frozen={}",
-            frozen_this_frame,
-            *total_frozen,
-        );
     }
 }
 
@@ -694,17 +551,7 @@ fn cube_3d_picking(
         ),
     >,
     mut output: MessageWriter<PointerHits>,
-    mut timing: Local<(
-        Option<bool>,
-        u64,
-        u128,
-        u128,
-        u64,
-        u64,
-        Option<Instant>,
-    )>,
 ) {
-    let mut perf = KaleidoscopeSystemTimingSpan::begin("cube_3d_picking", &mut timing);
     // The gated cube camera is only active while the menu is open; bail otherwise.
     let Some((cam_entity, camera, render_target, cam_transform)) =
         camera_query.iter().find(|(_, c, _, _)| c.is_active)
@@ -725,7 +572,6 @@ fn cube_3d_picking(
         })
         .map(|(entity, dimension, transform, pickable, _)| (entity, dimension, transform, pickable))
         .collect();
-    perf.add_work(candidates.len());
 
     for (pointer, location) in pointers
         .iter()
@@ -783,7 +629,6 @@ fn cube_3d_picking(
         // front-most control.
         picks.sort_by(|a, b| a.1.depth.total_cmp(&b.1.depth));
         let order = camera.order as f32;
-        perf.add_writes(picks.len());
         output.write(PointerHits::new(*pointer, picks, order));
     }
 }
@@ -809,22 +654,8 @@ pub fn sync_control_focus_visuals(
         ),
         Changed<MenuVisualState>,
     >,
-    mut timing: Local<(
-        Option<bool>,
-        u64,
-        u128,
-        u128,
-        u64,
-        u64,
-        Option<Instant>,
-    )>,
 ) {
-    let mut perf = KaleidoscopeSystemTimingSpan::begin(
-        "sync_control_focus_visuals",
-        &mut timing,
-    );
     for (style, vis, mut material, fade) in &mut controls {
-        perf.add_work(1);
         let highlight = vis.focused || vis.selected || vis.hovered;
         let color = if style.disabled {
             disabled_control_color()
@@ -844,7 +675,6 @@ pub fn sync_control_focus_visuals(
             unlit: true,
             ..default()
         }));
-        perf.add_writes(1);
     }
 }
 
@@ -857,22 +687,8 @@ pub fn sync_control_focus_visuals(
 pub fn sync_selection_corner_visuals(
     controls: Query<(&MenuVisualState, &Children), Changed<MenuVisualState>>,
     mut corners: Query<&mut Visibility, With<SelectionCorner>>,
-    mut timing: Local<(
-        Option<bool>,
-        u64,
-        u128,
-        u128,
-        u64,
-        u64,
-        Option<Instant>,
-    )>,
 ) {
-    let mut perf = KaleidoscopeSystemTimingSpan::begin(
-        "sync_selection_corner_visuals",
-        &mut timing,
-    );
     for (vis, children) in &controls {
-        perf.add_work(1);
         let target = if vis.focused || vis.selected || vis.hovered {
             Visibility::Visible
         } else {
@@ -882,7 +698,6 @@ pub fn sync_selection_corner_visuals(
             if let Ok(mut visibility) = corners.get_mut(child) {
                 if *visibility != target {
                     *visibility = target;
-                    perf.add_writes(1);
                 }
             }
         }
@@ -912,20 +727,10 @@ pub fn rebuild_cube_faces<PageId, Action>(
     mut last_version: Local<Option<u64>>,
     mut last_active: Local<Option<PageId>>,
     mut dirty: Local<bool>,
-    mut timing: Local<(
-        Option<bool>,
-        u64,
-        u128,
-        u128,
-        u64,
-        u64,
-        Option<Instant>,
-    )>,
 ) where
     PageId: Clone + PartialEq + Send + Sync + 'static,
     Action: Clone + Send + Sync + 'static,
 {
-    let mut perf = KaleidoscopeSystemTimingSpan::begin("rebuild_cube_faces", &mut timing);
     let Some(pages) = pages else {
         return;
     };
@@ -946,13 +751,21 @@ pub fn rebuild_cube_faces<PageId, Action>(
     {
         return;
     }
+    let version_changed = *last_version != Some(pages.version);
+    let active_changed = last_active.as_ref() != pages.active.as_ref();
+    debug!(
+        target: "ambition::kaleidoscope_rebuild",
+        "rebuilding cube faces version={} version_changed={} active_changed={} page_count={}",
+        pages.version,
+        version_changed,
+        active_changed,
+        pages.pages.len(),
+    );
     *dirty = false;
     *last_version = Some(pages.version);
     *last_active = pages.active.clone();
 
     for face in &faces {
-        perf.add_work(1);
-        perf.add_writes(1);
         commands.entity(face).despawn();
     }
     let Ok(ring) = ring_query.single() else {
@@ -960,16 +773,9 @@ pub fn rebuild_cube_faces<PageId, Action>(
         *dirty = true;
         return;
     };
-    debug!(
-        "cube: rebuilding {} face(s) (active page present: {})",
-        pages.pages.len(),
-        pages.active.is_some()
-    );
     let geo = config.geometry;
     let n = pages.pages.len().max(1) as f32;
     let flip = config.inside_x_flip;
-    perf.add_work(pages.pages.len());
-    perf.add_writes(pages.pages.len());
     commands.entity(ring).with_children(|ring| {
         for (i, model) in pages.pages.iter().enumerate() {
             let active = pages.active.as_ref() == Some(&model.id);
@@ -1026,20 +832,10 @@ fn animate_cube_ring<PageId, Action>(
     pages: Option<Res<ActiveMenuPages<PageId, Action>>>,
     mut ring: Query<&mut Transform, (With<MenuRing>, Without<CubeFace>)>,
     mut faces: Query<(&CubeFace, &mut Transform), Without<MenuRing>>,
-    mut timing: Local<(
-        Option<bool>,
-        u64,
-        u128,
-        u128,
-        u64,
-        u64,
-        Option<Instant>,
-    )>,
 ) where
     PageId: PartialEq + Send + Sync + 'static,
     Action: Send + Sync + 'static,
 {
-    let mut perf = KaleidoscopeSystemTimingSpan::begin("animate_cube_ring", &mut timing);
     let Ok(mut ring_t) = ring.single_mut() else {
         return;
     };
@@ -1108,8 +904,6 @@ fn animate_cube_ring<PageId, Action>(
             ring_t.scale = Vec3::splat(scale);
             ring_t.translation = Vec3::new(0.0, -0.05 * (1.0 - open), -0.42 * (1.0 - open));
             for (face, mut t) in &mut faces {
-                perf.add_work(1);
-                perf.add_writes(1);
                 reset_face_transform(face, &mut t);
             }
         }
@@ -1119,8 +913,6 @@ fn animate_cube_ring<PageId, Action>(
             ring_t.translation = Vec3::new(0.0, -0.10 * (1.0 - open), 0.0);
             let fold = config.fold_radians * (1.0 - open);
             for (face, mut t) in &mut faces {
-                perf.add_work(1);
-                perf.add_writes(1);
                 apply_face_fold(face, fold, &mut t);
             }
         }
@@ -1217,20 +1009,7 @@ fn fade_kaleidoscope_materials(
         ),
     >,
     mut last_amount: Local<f32>,
-    mut timing: Local<(
-        Option<bool>,
-        u64,
-        u128,
-        u128,
-        u64,
-        u64,
-        Option<Instant>,
-    )>,
 ) {
-    let mut perf = KaleidoscopeSystemTimingSpan::begin(
-        "fade_kaleidoscope_materials",
-        &mut timing,
-    );
     let amount = state.amount.clamp(0.0, 1.0);
     // PERF (2026-06-10): SETTLE EARLY-OUT. Each plane's target (mode + alpha)
     // depends only on `amount` and its static `base_alpha`/textured-ness, so when
@@ -1265,7 +1044,6 @@ fn fade_kaleidoscope_materials(
     // therefore do NOT fade — they pop in/out with the fold geometry + the scrim,
     // which already carry the transition. Only TEXTURED planes cross-fade by `amount`.
     for (fade, material) in &faded {
-        perf.add_work(1);
         // Copy the few fields out so the immutable read ends before any get_mut.
         let Some((textured, cur_mode, cur_alpha)) = materials.get(&material.0).map(|m| {
             (
@@ -1291,7 +1069,6 @@ fn fade_kaleidoscope_materials(
             if let Some(mat) = materials.get_mut(&material.0) {
                 mat.alpha_mode = target_mode;
                 mat.base_color.set_alpha(target_alpha);
-                perf.add_writes(1);
             }
         }
     }
@@ -1306,25 +1083,11 @@ fn project_scrollbar_tracks(
     camera_query: Query<(&Camera, &GlobalTransform), With<KaleidoscopePauseCamera>>,
     mut scrollbars: Query<(&mut MenuScrollbar, &Dimension, &GlobalTransform)>,
     mut drag: ResMut<ScrollbarDragState>,
-    mut timing: Local<(
-        Option<bool>,
-        u64,
-        u128,
-        u128,
-        u64,
-        u64,
-        Option<Instant>,
-    )>,
 ) {
-    let mut perf = KaleidoscopeSystemTimingSpan::begin(
-        "project_scrollbar_tracks",
-        &mut timing,
-    );
     let Some((camera, cam_transform)) = camera_query.iter().find(|(c, _)| c.is_active) else {
         return;
     };
     for (mut bar, dimension, node_transform) in &mut scrollbars {
-        perf.add_work(1);
         let half_h = dimension.y * 0.5;
         // Top + bottom edge of the track in node-local space → world → screen.
         let top_world = node_transform.transform_point(Vec3::new(0.0, half_h, 0.0));
@@ -1346,7 +1109,6 @@ fn project_scrollbar_tracks(
             // entity with a not-yet-projected (zero) transform.
             drag.track_top_y = top_y;
             drag.track_height = height;
-            perf.add_writes(1);
         }
     }
 }

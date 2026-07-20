@@ -2244,18 +2244,10 @@ fn camera_active(app: &App, entity: Entity) -> bool {
         .is_active
 }
 
-fn camera_msaa(app: &App, entity: Entity) -> Msaa {
-    *app
-        .world()
-        .get::<Msaa>(entity)
-        .expect("test camera should carry an explicit sample count")
-}
-
 /// Regression for the sustained 140 -> 100 FPS drop: the Option-1 overlay
 /// experiment left the complete gameplay scene rendering underneath the full-screen
-/// 3D menu. The cube must own the substantive render while its fold is visible,
-/// without disturbing unrelated capture-camera routes or rewriting camera sample
-/// counts as part of the routing transition.
+/// 3D menu. The cube must own the substantive render while its fold is visible
+/// without disturbing unrelated capture-camera routes.
 #[test]
 fn visible_cube_suspends_only_the_main_gameplay_camera() {
     use ambition::platformer::camera_layers::{FrontHudCamera, MainCamera};
@@ -2277,11 +2269,11 @@ fn visible_cube_suspends_only_the_main_gameplay_camera() {
     let main = app.world_mut().spawn((Camera::default(), MainCamera)).id();
     let front = app
         .world_mut()
-        .spawn((Camera::default(), Msaa::Sample4, FrontHudCamera))
+        .spawn((Camera::default(), FrontHudCamera))
         .id();
     let capture = app
         .world_mut()
-        .spawn((Camera::default(), Msaa::Sample4, UnrelatedCaptureCamera))
+        .spawn((Camera::default(), UnrelatedCaptureCamera))
         .id();
     let cube = app
         .world_mut()
@@ -2290,7 +2282,6 @@ fn visible_cube_suspends_only_the_main_gameplay_camera() {
                 is_active: false,
                 ..Default::default()
             },
-            Msaa::Sample4,
             ambition_menu_kaleidoscope::KaleidoscopePauseCamera,
         ))
         .id();
@@ -2299,25 +2290,10 @@ fn visible_cube_suspends_only_the_main_gameplay_camera() {
 
     assert!(!camera_active(&app, main), "main world render is suspended");
     assert!(camera_active(&app, cube), "cube camera owns the pause render");
-    assert_eq!(
-        camera_msaa(&app, cube),
-        Msaa::Sample4,
-        "camera routing must not rewrite the cube sample count",
-    );
     assert!(camera_active(&app, front), "front HUD remains available");
-    assert_eq!(
-        camera_msaa(&app, front),
-        Msaa::Sample4,
-        "camera routing must preserve the front-HUD sample count",
-    );
     assert!(
         camera_active(&app, capture),
         "portal/offscreen-style cameras are outside the routing gate"
-    );
-    assert_eq!(
-        camera_msaa(&app, capture),
-        Msaa::Sample4,
-        "unrelated capture cameras retain their own sample count",
     );
     assert!(
         app.world()
@@ -2329,7 +2305,7 @@ fn visible_cube_suspends_only_the_main_gameplay_camera() {
 
 /// Closing after the fold crosses the visibility cutoff restores the exact prior
 /// state, including preserving a main camera that was already inactive before the
-/// menu opened and preserving the front-HUD camera's active/sample state.
+/// menu opened and preserving the front-HUD camera's active state.
 #[test]
 fn closing_cube_restores_each_main_camera_prior_state() {
     use ambition::platformer::camera_layers::{FrontHudCamera, MainCamera};
@@ -2361,7 +2337,7 @@ fn closing_cube_restores_each_main_camera_prior_state() {
         .id();
     let front = app
         .world_mut()
-        .spawn((Camera::default(), Msaa::Sample4, FrontHudCamera))
+        .spawn((Camera::default(), FrontHudCamera))
         .id();
     let cube = app
         .world_mut()
@@ -2370,7 +2346,6 @@ fn closing_cube_restores_each_main_camera_prior_state() {
                 is_active: false,
                 ..Default::default()
             },
-            Msaa::Sample4,
             ambition_menu_kaleidoscope::KaleidoscopePauseCamera,
         ))
         .id();
@@ -2379,8 +2354,6 @@ fn closing_cube_restores_each_main_camera_prior_state() {
     assert!(!camera_active(&app, active_main));
     assert!(!camera_active(&app, inactive_main));
     assert!(camera_active(&app, cube));
-    assert_eq!(camera_msaa(&app, cube), Msaa::Sample4);
-    assert_eq!(camera_msaa(&app, front), Msaa::Sample4);
 
     app.world_mut()
         .resource_mut::<ambition::inventory_ui::InventoryUiState>()
@@ -2401,11 +2374,6 @@ fn closing_cube_restores_each_main_camera_prior_state() {
     );
     assert!(!camera_active(&app, cube), "cube camera turns back off");
     assert!(camera_active(&app, front), "front HUD active state is restored");
-    assert_eq!(
-        camera_msaa(&app, front),
-        Msaa::Sample4,
-        "front HUD sample count is restored with the gameplay cameras",
-    );
     assert!(
         app.world()
             .get::<KaleidoscopeSuspendedMainCamera>(active_main)
@@ -2415,12 +2383,6 @@ fn closing_cube_restores_each_main_camera_prior_state() {
                 .get::<KaleidoscopeSuspendedMainCamera>(inactive_main)
                 .is_none(),
         "temporary routing state is removed after restoration"
-    );
-    assert!(
-        app.world()
-            .get::<KaleidoscopeAdjustedFrontHudCamera>(front)
-            .is_none(),
-        "temporary front-HUD diagnostic state is removed after restoration",
     );
 }
 

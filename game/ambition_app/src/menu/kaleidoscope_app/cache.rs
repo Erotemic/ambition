@@ -86,13 +86,7 @@ pub(crate) fn republish_kaleidoscope_pages(
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut was_open: Local<bool>,
     mut last: Local<Option<RebuildKey>>,
-    mut republish_count: Local<u64>,
-    mut cache_timing: Local<KaleidoscopeSystemTiming>,
 ) {
-    let mut perf = KaleidoscopeSystemTimingSpan::begin(
-        "host_republish_pages",
-        &mut cache_timing,
-    );
     let Some(owned) = owned else {
         return;
     };
@@ -141,37 +135,25 @@ pub(crate) fn republish_kaleidoscope_pages(
     // cliff: every cube face was despawned and respawned on every visible frame. The
     // complete value key below makes those false-positive ticks harmless while still
     // rebuilding immediately for real inventory or settings changes.
-    let owned_changed = owned.is_changed();
-    let settings_changed = settings.is_changed();
     let pages_empty = pages.pages.is_empty();
-    let changed_fields = last
-        .as_ref()
-        .map(|previous| previous.changed_fields(&key))
-        .unwrap_or_else(|| vec!["initial"]);
-    let key_changed = !changed_fields.is_empty();
+    let key_changed = last.as_ref() != Some(&key);
     let dirty = pages_empty || just_opened || key_changed;
     if !dirty {
         return;
     }
-    if std::env::var_os("AMBITION_KALEIDOSCOPE_PERF_DIAGNOSTICS").is_some() {
-        *republish_count = republish_count.saturating_add(1);
-        if *republish_count <= 5 || *republish_count % 60 == 0 {
-            info!(
-                target: "ambition::kaleidoscope_perf",
-                "republish count={} owned_changed={} settings_changed={} pages_empty={} just_opened={} key_changed={} changed_fields={:?}",
-                *republish_count,
-                owned_changed,
-                settings_changed,
-                pages_empty,
-                just_opened,
-                key_changed,
-                changed_fields,
-            );
-        }
-    }
+    let changed_fields = last
+        .as_ref()
+        .map(|previous| previous.changed_fields(&key))
+        .unwrap_or_else(|| vec!["initial"]);
+    debug!(
+        target: "ambition::kaleidoscope_rebuild",
+        "republishing cube pages pages_empty={} just_opened={} changed_fields={:?}",
+        pages_empty,
+        just_opened,
+        changed_fields,
+    );
 
     let active = pages.active.unwrap_or(MenuPage::Items);
-    perf.add_work(pages.pages.len());
     pages.pages = build_inventory_pages_with_quality_prompt(
         &owned,
         owned.equipped(),
@@ -184,7 +166,6 @@ pub(crate) fn republish_kaleidoscope_pages(
         key.quality,
     );
     pages.active = Some(active);
-    perf.add_writes(pages.pages.len());
     *last = Some(key);
 }
 

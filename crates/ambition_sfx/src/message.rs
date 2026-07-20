@@ -116,23 +116,41 @@ pub struct OwnedSfxMessage {
 /// sound already reached the speakers on the pass that first simulated the
 /// frame. Emitting again is an audible duplicate, once per rollback.
 ///
-/// So the host raises this gate while it replays history and lowers it for the
-/// frame it is simulating for the first time. This crate stays independent of
-/// the simulation (it cannot see a schedule, a frame counter, or a GGRS
-/// session): the host publishes the fact, the same way it publishes audio
-/// ownership through [`SfxEmissionContext`].
+/// So the host raises this gate while it re-simulates and lowers it for a frame
+/// it is simulating for the first time. This crate stays independent of the
+/// simulation (it cannot see a schedule, a frame counter, or a GGRS session):
+/// the host publishes the fact, the same way it publishes audio ownership
+/// through [`SfxEmissionContext`].
 ///
 /// Absent resource = no rollback host = nothing is ever suppressed, which is
 /// what every fixed-tick game, headless fixture, and unit test wants.
+///
+/// # This is duplicate suppression, NOT confirmed-frame release
+///
+/// The flag says *this frame ran before*, which is not the same as *this frame
+/// is confirmed*. With predicted remote input the two diverge and this gate is
+/// wrong in a second way:
+///
+/// 1. the predicted pass emits sound A, which reaches the speakers;
+/// 2. the real input arrives and forces a rollback;
+/// 3. the corrected re-simulation should emit sound B — and this gate
+///    suppresses it, because the frame ran before.
+///
+/// The duplicate is gone, but the phantom is kept and the correction is lost.
+/// Fixing that needs frame-stamped effect intents held until the host's
+/// confirmed boundary, with abandoned predictions discarded — a different
+/// mechanism, not a stricter boolean. Until then this is an honest interim fix
+/// for the echo that local rollback produces today, and it must not be copied
+/// as the final shape for VFX or any other external effect.
 #[derive(Resource, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct SfxEmissionGate {
-    /// The host is re-simulating a frame whose audio already played.
-    pub replaying_history: bool,
+    /// The host is re-simulating a frame it has already simulated once.
+    pub frame_simulated_before: bool,
 }
 
 impl SfxEmissionGate {
     pub const fn suppresses_emission(self) -> bool {
-        self.replaying_history
+        self.frame_simulated_before
     }
 }
 
@@ -143,10 +161,11 @@ impl SfxEmissionGate {
 /// and direct compositions install an explicit context; playback rejects an
 /// unowned request whenever an owned context is active.
 ///
-/// This is also the ONE place external audio effects are quarantined against
-/// rollback replay ([`SfxEmissionGate`]). Every sim-side emitter already writes
-/// through here, so the guard covers the ones written tomorrow too — there is
-/// deliberately no second gate at the ~20 individual emit sites.
+/// This is also the ONE place external audio effects are suppressed on a
+/// rollback re-simulation ([`SfxEmissionGate`] — read its caveat: duplicate
+/// suppression, not confirmed-frame release). Every sim-side emitter already
+/// writes through here, so the guard covers the ones written tomorrow too —
+/// there is deliberately no second gate at the ~20 individual emit sites.
 #[derive(SystemParam)]
 pub struct SfxWriter<'w> {
     messages: MessageWriter<'w, OwnedSfxMessage>,
@@ -201,7 +220,7 @@ mod tests {
     fn a_replayed_frame_emits_no_sound() {
         assert_eq!(
             emitted_with_gate(Some(SfxEmissionGate {
-                replaying_history: true
+                frame_simulated_before: true
             })),
             0,
             "audio for this frame already played on the pass that first simulated it"
@@ -212,7 +231,7 @@ mod tests {
     fn a_first_time_frame_emits_normally() {
         assert_eq!(
             emitted_with_gate(Some(SfxEmissionGate {
-                replaying_history: false
+                frame_simulated_before: false
             })),
             1
         );

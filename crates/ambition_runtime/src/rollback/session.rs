@@ -259,22 +259,35 @@ fn publish_ggrs_input(
     *control = inputs.first().map(|(input, _)| *input).unwrap_or_default();
 }
 
-/// Publish "this pass is re-simulating history" to every consumer that must not
-/// repeat an irreversible effect.
+/// Publish the FACT "this frame number has been simulated before" to the two
+/// crates that currently act on it.
 ///
-/// Two resources, ONE decision, written together so they cannot drift: the
-/// sim-side [`SimulationReplayState`] (diagnostics, trace) and the audio seam's
-/// [`ambition_sfx::SfxEmissionGate`]. `ambition_sfx` deliberately cannot see a
-/// schedule or a frame counter, so the host publishes the fact into the crate's
-/// own seam rather than the crate reaching back into the simulation.
+/// Deliberately a fact, not a policy. The consumers want different things and
+/// should be free to diverge:
+///
+/// - **Audio** suppresses a re-emission, because the sound already played.
+///   Correct for local rollback echo; NOT confirmed-frame release — see
+///   [`ambition_sfx::SfxEmissionGate`]'s caveat about predicted input.
+/// - **The trace** skips a duplicate append, but a forensic recorder might
+///   legitimately prefer the opposite (keep predicted history, or key rows by
+///   GGRS frame and let corrected state replace them). It has no frame key
+///   today, so it cannot do that yet.
+///
+/// They share a publisher because they read the same fact this tick, not
+/// because they must share a policy. When either needs different semantics,
+/// give it its own decision here rather than widening this boolean.
+///
+/// `ambition_sfx` cannot see a schedule or a frame counter, so the host
+/// publishes into the crate's own seam rather than the crate reaching back
+/// into the simulation.
 fn publish_replay_pass(
     replay: &mut ambition_platformer_primitives::schedule::SimulationReplayState,
     gate: Option<&mut ambition_sfx::SfxEmissionGate>,
-    replaying_history: bool,
+    simulated_before: bool,
 ) {
-    replay.replaying_history = replaying_history;
+    replay.replaying_history = simulated_before;
     if let Some(gate) = gate {
-        gate.replaying_history = replaying_history;
+        gate.frame_simulated_before = simulated_before;
     }
 }
 
@@ -294,7 +307,7 @@ fn count_advance_run(
 ) {
     stats.advance_runs = stats.advance_runs.saturating_add(1);
     stats.last_simulated_frame = frame.0;
-    let replaying = stats
+    let simulated_before = stats
         .highest_simulated_frame
         .is_some_and(|highest| frame.0 <= highest);
     stats.highest_simulated_frame = Some(
@@ -302,7 +315,7 @@ fn count_advance_run(
             .highest_simulated_frame
             .map_or(frame.0, |highest| highest.max(frame.0)),
     );
-    publish_replay_pass(&mut replay, gate.map(ResMut::into_inner), replaying);
+    publish_replay_pass(&mut replay, gate.map(ResMut::into_inner), simulated_before);
 }
 
 fn mark_historical_replay(
@@ -497,7 +510,7 @@ mod replay_pass_tests {
             .expect("count_advance_run runs");
         world
             .resource::<ambition_sfx::SfxEmissionGate>()
-            .replaying_history
+            .frame_simulated_before
     }
 
     fn rollback_world() -> World {
@@ -547,7 +560,7 @@ mod replay_pass_tests {
         assert!(
             world
                 .resource::<ambition_sfx::SfxEmissionGate>()
-                .replaying_history
+                .frame_simulated_before
         );
     }
 

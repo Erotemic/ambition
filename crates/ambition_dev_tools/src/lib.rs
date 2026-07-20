@@ -33,11 +33,11 @@ pub use sim_plugin::{DevEditApplySet, DevInspectorMirrorSet, DevToolsSimPlugin};
 use bevy::prelude::*;
 
 use ambition_engine_core::{
-    AbilityBase, AuthoredMovementTuning, BodyAbilities, BodyDashState, BodyFlightState,
-    BodyJumpState, MotionModel,
+    AbilityBase, ActiveMovementTuning, AuthoredMovementTuning, BodyAbilities, BodyDashState,
+    BodyFlightState, BodyJumpState, MotionModel,
 };
 use ambition_platformer_primitives::markers::PrimaryPlayerOnly;
-use dev_tools::{EditableAbilitySet, EditableMovementTuning};
+use dev_tools::EditableAbilitySet;
 
 /// Push live dev-tools ability/tuning edits onto the authoritative player.
 ///
@@ -54,7 +54,11 @@ use dev_tools::{EditableAbilitySet, EditableMovementTuning};
 /// the sandbox protagonist (base `sandbox_all`) the intersection equals the
 /// editable set, so the F3 experiment workflow is unchanged.
 pub fn sync_live_player_dev_edits_system(
-    editable_tuning: Res<EditableMovementTuning>,
+    // The neutral authority, NOT the inspector mirror: `apply_editable_movement_tuning`
+    // is chained immediately before this in `DevEditApplySet`, so an F3 edit is
+    // already here — and a body whose tuning came from content rather than the
+    // inspector now resolves correctly too.
+    active_tuning: Res<ActiveMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
     mut player_q: Query<
         (
@@ -79,9 +83,7 @@ pub fn sync_live_player_dev_edits_system(
         return;
     };
     let desired_abilities = base.abilities.intersect(editable_abilities.as_engine());
-    let effective_tuning = authored_tuning
-        .map(|t| t.0)
-        .unwrap_or_else(|| editable_tuning.as_engine());
+    let effective_tuning = authored_tuning.map(|t| t.0).unwrap_or(active_tuning.0);
     // Reading through `Mut<T>` is change-neutral; coercing it to `&mut T` is
     // not. Keep the equality guard here, before the helper call, so an
     // unchanged inspector resource does not mark `BodyAbilities` changed every

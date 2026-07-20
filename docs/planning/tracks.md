@@ -41,17 +41,29 @@ this section is the bounded first wave, not a restatement. Vocabulary note
 - ✅ Assist semantics — Jon decided 2026-07-19: **honest rename**. The
   halving stays; the UI now says "Damage assist — take half damage".
   Aim/traversal assists, if ever built, get their own settings.
-- ✅ External-effect quarantine, AUDIO slice (`010c84369`): the guard sits
-  at `SfxWriter` — the sole `OwnedSfxMessage` producer — so it covers every
-  current and future emitter; `ambition_sfx` stays sim-blind and the host
-  publishes `SfxEmissionGate` into it. Doing this required making
-  `SimulationReplayState` frame-precise (high-water mark per advance): the
-  old flag stayed raised through the new frame at the end of a rollback, so
-  gating audio on it would have silenced the frame the player just caused —
-  which also fixes a latent `gameplay_trace` hole. Both halves poison-tested.
-  **Track 1 stays OPEN**: VFX (27 direct writers, needs a writer seam
-  first), the autosave writer, and the end-to-end "sync-test rewind emits
-  each effect exactly once" oracle are NOT done.
+- ◐ Audio replay-echo suppression + writer seam (`010c84369`) — **NOT
+  confirmed-frame quarantine; corrected after review.** What landed: a guard
+  at `SfxWriter` (the sole `OwnedSfxMessage` producer, so it covers every
+  present and future emitter), `ambition_sfx` staying sim-blind with the host
+  publishing `SfxEmissionGate` into it, and `SimulationReplayState` made
+  frame-precise via a per-advance high-water mark — the old flag stayed
+  raised through the new frame at the end of a rollback, so gating audio on
+  it would have silenced the frame the player just caused (that also fixed a
+  latent `gameplay_trace` hole). Both halves poison-tested.
+  **The gate answers "this frame ran before", which is NOT "this frame is
+  confirmed."** Under predicted remote input they diverge: the predicted pass
+  emits sound A and it reaches the speakers, the correction rolls back, and
+  the gate then suppresses the corrected sound B — phantom kept, correction
+  lost. So it fixes today's local rollback echo and must NOT be copied as the
+  final shape for VFX or anything else.
+  **Track 1 stays OPEN and needs a different mechanism**: frame-stamped
+  effect intents buffered to the host's confirmed boundary with abandoned
+  predictions discarded; plus VFX, the autosave writer, and the end-to-end
+  "sync-test rewind emits each effect exactly once" oracle.
+  Related open question: audio and the forensic trace should NOT be forced to
+  share one policy. A trace may legitimately want to keep predicted history,
+  or key rows by GGRS frame so corrected state replaces them — it has no
+  frame key today, so it cannot.
 
 **Keystone slices**
 - ✅ **K1a movement tuning** — exit criterion MET. `ae::ActiveMovementTuning`

@@ -243,6 +243,50 @@ fn hidden_occluders_do_not_reserve_space() {
     );
 }
 
+/// A real touch control is a `bevy_ui` node: `Visibility` propagates into
+/// `InheritedVisibility`, but `ViewVisibility` is never set true for UI, since
+/// UI is not what the visibility system culls. Judging occupancy on
+/// `ViewVisibility` would publish NOTHING in the real app while every test that
+/// spawns a bare occluder still passed — occlusion-aware framing would
+/// silently become plain soft framing.
+#[test]
+fn a_ui_shaped_occluder_is_collected_despite_false_view_visibility() {
+    let display = ae::Vec2::new(2400.0, 1080.0);
+    let mut app = host_app(
+        display,
+        1.0,
+        occlusion_aware(),
+        PresentationEnvironment::TouchPrimary,
+    );
+    app.world_mut().spawn((
+        stick_occluder(),
+        Visibility::Visible,
+        InheritedVisibility::VISIBLE,
+        // Exactly what a UI node carries: default, i.e. NOT visible to any view.
+        ViewVisibility::default(),
+    ));
+    app.update();
+
+    let mut baseline = host_app(
+        display,
+        1.0,
+        occlusion_aware(),
+        PresentationEnvironment::TouchPrimary,
+    );
+    baseline.update();
+
+    assert_eq!(
+        app.world().resource::<ScreenOccupancy>().0.len(),
+        1,
+        "a visible UI-shaped occluder must be collected",
+    );
+    assert_ne!(
+        resolved(&app).subject_safe_rect,
+        resolved(&baseline).subject_safe_rect,
+        "and must actually shrink the safe region",
+    );
+}
+
 /// Normal framing publishes an INACTIVE screen-framing fact, so the camera
 /// resolver takes its ordinary centering path untouched (oracle 9's mechanism
 /// on the desktop side).

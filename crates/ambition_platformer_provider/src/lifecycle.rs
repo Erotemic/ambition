@@ -104,10 +104,14 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                         .in_set(AmbitionLoadSet::Contributors),
                     activate_prepared_platformer_sessions.in_set(GameplaySessionSet::Providers),
                     // Presentation follows the route, so it must settle after
-                    // activation and before the host resolves this frame's
-                    // layout.
+                    // activation and BEFORE the host resolves this frame's
+                    // layout — otherwise every experience switch shows one
+                    // frame of the previous game's viewport.
                     crate::authoring::select_active_presentation_profiles
-                        .after(activate_prepared_platformer_sessions),
+                        .after(activate_prepared_platformer_sessions)
+                        .before(
+                            ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet,
+                        ),
                 ),
             );
     }

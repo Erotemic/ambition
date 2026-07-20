@@ -21,7 +21,8 @@ use ambition_engine_core as ae;
 use ambition_platformer_primitives::camera_layers::MainCamera;
 use ambition_platformer_primitives::gameplay_presentation::{
     resolve_gameplay_presentation, ActiveGameplayPresentationProfiles, DisplaySafeAreaInsets,
-    GameplayPresentationInput, PresentationEnvironment, ResolvedGameplayPresentation, ScreenRect,
+    GameplayPresentationInput, GameplayPresentationSet, PresentationEnvironment,
+    ResolvedGameplayPresentation, ScreenRect,
 };
 use ambition_sim_view::camera_snapshot::{
     resolve_camera_observation, CameraScreenFraming, CameraViewport,
@@ -39,12 +40,6 @@ use ambition_sim_view::camera_snapshot::{
 pub struct ScreenOccupancy(
     pub Vec<ambition_platformer_primitives::gameplay_presentation::ScreenOcclusion>,
 );
-
-/// Ordering handle for everything that must observe this frame's resolved
-/// layout: the camera observation resolve, the viewport application, and any
-/// host that draws against the gameplay rectangle.
-#[derive(SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct GameplayPresentationSet;
 
 /// Resolve, publish, and apply the gameplay presentation layout.
 pub struct HostGameplayPresentationPlugin;
@@ -128,13 +123,19 @@ fn resolve_presentation_environment() -> PresentationEnvironment {
 /// entities are skipped, so a control that is not on screen does not reserve
 /// space for itself.
 ///
+/// Visibility is judged by `InheritedVisibility` ALONE. `ViewVisibility` is
+/// computed per render view for entities the visibility system actually
+/// culls — `bevy_ui` nodes are not among them, so it stays `false` on every
+/// touch control forever. Consulting it would silently publish no occupancy at
+/// all, and occlusion-aware framing would quietly degrade to plain soft
+/// framing with nothing failing.
+///
 /// [`ScreenOccluder`]: ambition_platformer_primitives::gameplay_presentation::ScreenOccluder
 pub fn collect_screen_occupancy(
     windows: Query<&Window, With<PrimaryWindow>>,
     occluders: Query<(
         &ambition_platformer_primitives::gameplay_presentation::ScreenOccluder,
         Option<&InheritedVisibility>,
-        Option<&ViewVisibility>,
     )>,
     mut occupancy: ResMut<ScreenOccupancy>,
 ) {
@@ -147,10 +148,8 @@ pub fn collect_screen_occupancy(
         ae::Vec2::new(window.width().max(1.0), window.height().max(1.0)),
     );
 
-    for (occluder, inherited, view) in &occluders {
-        let visible = inherited.map(|v| v.get()).unwrap_or(true)
-            && view.map(|v| v.get()).unwrap_or(true);
-        if !visible {
+    for (occluder, inherited) in &occluders {
+        if !inherited.map(|visible| visible.get()).unwrap_or(true) {
             continue;
         }
         occupancy.0.push(occluder.resolve(display));

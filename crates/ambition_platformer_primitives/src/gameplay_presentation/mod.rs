@@ -742,6 +742,15 @@ impl GameplayPresentationProfileCatalog {
     }
 }
 
+/// Ordering handle for the host's resolve-and-publish cluster.
+///
+/// Lives here rather than in the host because the PROVIDER layer must order
+/// its profile selection before it — a selection that landed after the resolve
+/// would show one frame of the previous experience's viewport on every switch
+/// — and the provider crate cannot see `ambition_host`.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct GameplayPresentationSet;
+
 /// The profiles in force right now.
 ///
 /// Defaults to full-bleed normal framing — which is exactly today's behavior,

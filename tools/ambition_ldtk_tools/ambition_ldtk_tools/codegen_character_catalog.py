@@ -114,7 +114,21 @@ CATEGORY: dict[str, str] = {
     "weird_hermit": "peaceful",  # dialogue-flavored
     "galwah": "peaceful",
     "girdle": "peaceful",
-    "mary_marzakhani": "peaceful",
+    "mami_marzakhani": "peaceful",
+    # ===== Mathematician parodies (2026-07-20 sprite generators).
+    # Peaceful exhibits: they argue rather than swing. The two
+    # kernel-raiders below are the exception — they are written as
+    # would-be thieves of Oiler's Kernel, so they get a striker kit.
+    "carl_runga": "enemy_swipe",
+    "martin_cutta": "enemy_swipe",
+    "carl_stargan": "peaceful",
+    "data_lovelace": "peaceful",
+    "neil_ongras_turfson": "peaceful",
+    "paradox_barber": "peaceful",
+    "genghis_can": "peaceful",
+    "genghis_cant": "peaceful",
+    "yuclid": "boss",  # anti-portal lecture duelist; basement
+    "hunny_horror_boss": "boss",  # large parody-horror bear; basement
     # ===== Hub / story stand-ins.
     "colonial_statesman": "peaceful",
     "president_portrait": "stand_still",  # mounted portrait

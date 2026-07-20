@@ -1152,3 +1152,166 @@ Mary-O (Tall): One power-up and suddenly every ceiling has an opinion.
 -> Can you change back?
     Mary-O (Tall): Usually after one professional-grade mistake.
 ===
+
+title: hall_npc_carl_runga
+---
+<<portrait_clip "talking">>
+Carl Runga: You are looking at the man who made Oiler's one honest guess into four. Say thank you or say nothing.
+-> What's wrong with Oiler's method?
+    <<portrait_clip "scheming">>
+    Carl Runga: Nothing, if you enjoy drifting. He takes one slope at the start of the step and trusts it the whole way across. I sample four times and average. His error grows like the step. Mine dies like the fourth power of it.
+-> Why do you want the Kernel?
+    <<portrait_clip "seizing">>
+    Carl Runga: Because it integrates the world, and it is currently doing it badly. That is not larceny. That is maintenance.
+-> Who's the thin one with you?
+    Carl Runga: Cutta. He does the coefficients. I do the conviction. Do not let him tell you the ratio is uneven.
+-> Any advice?
+    Carl Runga: Do not commit to a jump using only the slope you had when you left the ledge. Check the middle. Check it twice.
+===
+
+title: hall_npc_martin_cutta
+---
+<<portrait_clip "talking">>
+Martin Cutta: Runga has already introduced us, loudly, and probably left out the part where the method does not work without me.
+-> Is he exaggerating?
+    <<portrait_clip "scheming">>
+    Martin Cutta: He rounds. Generously, and always in his own direction. The step is four evaluations. He contributes the first and the volume.
+-> Why is your name second?
+    Martin Cutta: Alphabetical accident and a slower pen. I have made peace with it in the way one makes peace with a stone in a boot.
+-> Are you really stealing the Kernel?
+    <<portrait_clip "seizing">>
+    Martin Cutta: We are proposing a transfer of custody. If Oiler wishes to contest it, he may show his error term. That is usually the end of the conversation.
+===
+
+title: hall_npc_carl_stargan
+---
+<<portrait_clip "explaining">>
+Carl Stargan: Billions and billions of pedestals in this hall, and the atoms that make you walked here from a dead star to stand in front of mine. Take a moment. I will wait.
+-> That's a lot of buildup for a hallway.
+    <<portrait_clip "wonder">>
+    Carl Stargan: It is a hallway made of collapsed suns and stubbornness. So is your femur. Scale is not decoration, it is the point.
+-> What's the pale blue dot?
+    <<portrait_clip "pale_blue_dot">>
+    Carl Stargan: Look at the far window. That mote in the sunbeam is every room you have died in, every save you have reloaded, every enemy who thought the level belonged to them. On it, everyone. Be gentle with it.
+-> Do you believe any of this?
+    <<portrait_clip "skeptical">>
+    Carl Stargan: I believe what survives being checked. Wonder gets me to the question. Evidence decides who leaves with it. Bring me a claim and I will love it and then test it, in that order.
+-> Got a hint?
+    Carl Stargan: When a room seems impossible, you are probably wrong about the scale, not the room. Step back until the whole shape is visible.
+===
+
+title: hall_npc_data_lovelace
+---
+<<portrait_clip "talk">>
+Data Lovelace: They gave me an engine of brass and cogs and asked what it could add. I asked what it could compose. That question is why I am on a pedestal and the adding machine is not.
+-> Weren't you just taking notes?
+    <<portrait_clip "compute">>
+    Data Lovelace: My notes were longer than the paper they annotated, and the last one described how the machine would compute a sequence it was never built to know. Call that a note if it comforts you.
+-> Can the engine think?
+    Data Lovelace: It can do whatever we know how to order it to perform. It originates nothing. I have found that the same is true of most people, and I say so at parties.
+-> Why the punch cards?
+    Data Lovelace: The loom weaves flowers from cards. The engine weaves algebra from the same. The idea was already in the room. Someone had to carry it across.
+===
+
+title: hall_npc_neil_ongras_turfson
+---
+<<portrait_clip "talking">>
+Neil onGras Turfson: Now, before you inspect anything else, I want to talk about that jump you did coming in. Actually, several things about it.
+-> Please don't.
+    <<portrait_clip "lecture">>
+    Neil onGras Turfson: You changed direction in midair. Twice. There was nothing to push against. I am not saying it was not fun. I am saying the universe did not consent.
+-> Isn't the physics supposed to feel good?
+    Neil onGras Turfson: The universe is under no obligation to make your platforming feel good. The people who tuned your jump arc, however, were. Thank them, not it.
+-> What's with the name?
+    <<portrait_clip "inspecting">>
+    Neil onGras Turfson: A pointed suggestion, delivered often, that I go outside. So I did. Turns out grass is also made of stars, which I explained to everyone present until they left.
+-> Any actual advice?
+    Neil onGras Turfson: Yes. Look up more. The interesting part of a room is almost never at eye level, and neither is the interesting part of anything else.
+===
+
+title: hall_npc_paradox_barber
+---
+<<portrait_clip "talk">>
+The Paradox Barber: Welcome. I shave every man in this hall who does not shave himself, and only those men. Please do not look directly at my face.
+-> So who shaves you?
+    <<portrait_clip "paradox">>
+    The Paradox Barber: There it is. If I shave myself, then I am a man who shaves himself, and I am forbidden to shave me. If I do not, then I am a man who does not shave himself, and I am obliged to. I have been mid-stroke for eleven years.
+-> Can't you just quit?
+    The Paradox Barber: The rule does not describe my employment. It describes my customers. Quitting removes the barber and leaves the sentence, which is the part that was never well-formed.
+-> Is there a fix?
+    <<portrait_clip "paradox">>
+    The Paradox Barber: Stop letting a collection contain itself. Put the barbers on one shelf and the shaved on another and never let a shelf hold its own label. It is a tidy solution. It also puts me out of business, so I do not bring it up.
+===
+
+title: hall_npc_mami_marzakhani
+---
+<<portrait_clip "explaining">>
+Mami Marzakhani: Careful where you say "straight line" in here. On a flat floor it means one thing. Bend the floor and it means something far more interesting.
+-> What do you actually study?
+    <<portrait_clip "thinking">>
+    Mami Marzakhani: Surfaces, and the shortest paths that live on them. Take a shape with a handle or two, ask which loops come back to where they started, and count them as the surface grows. The counting is the hard part. The counting is the whole part.
+-> Why does that matter here?
+    Mami Marzakhani: Every room you cross is a surface with rules about what a shortest path is allowed to be. You already solve this. You call it finding the route.
+-> How do you work?
+    <<portrait_clip "delighted">>
+    Mami Marzakhani: On the floor, on paper large enough to lie down beside. My daughter says I am painting. She is not entirely wrong, and I have stopped correcting her.
+-> Got a hint?
+    Mami Marzakhani: The surface is not the obstacle. Stop fighting the geometry and ask what it makes cheap.
+===
+
+title: hall_npc_genghis_can
+---
+<<portrait_clip "talking">>
+Genghis Can: Can I take this hall? I can. Next.
+-> That's it? No plan?
+    <<portrait_clip "emote">>
+    Genghis Can: The plan is the horizon and everything between here and it. My brother would like a plan with more clauses in it. That is why the map has my name on it and not his.
+-> Where is your brother?
+    Genghis Can: Two pedestals over, deciding. He has been deciding since the spring. The grass has opinions about it now.
+-> Any advice?
+    Genghis Can: Move first. Correct at speed. A wrong direction taken quickly is a fact you can work with. A right direction never taken is a story.
+===
+
+title: hall_npc_genghis_cant
+---
+<<portrait_clip "talking">>
+Genghis Can't: Could I conquer this hall? Almost certainly. Should I? That is the question that has kept me on this pedestal, and it is a better question.
+-> Your brother didn't stop to ask.
+    <<portrait_clip "emote">>
+    Genghis Can't: He never does. He is also usually right, which I find harder to live with than if he were not. We end up in the same place. I arrive later and I know why I came.
+-> Doesn't the hesitation cost you?
+    Genghis Can't: Constantly. I have a horde and a list of reservations, and the reservations are winning. But nobody has yet built a monument to a thing I regretted.
+-> What should I do then?
+    Genghis Can't: Ask what it costs before you take it. If the answer bores you, take it. If the answer is a person, put it down.
+===
+
+title: hall_npc_yuclid
+---
+<<portrait_clip "lecturing">>
+Yuclid: You did not walk here. You were placed here. There is a difference, and you owe me the proof of it.
+-> What have you got against portals?
+    <<portrait_clip "disdain">>
+    Yuclid: A portal is a confession. It says the path was too long, so you removed it, and called the removal a solution. Between any two points there is one straight line. Not two doors and an apology.
+-> Isn't a shortcut just efficient?
+    <<portrait_clip "condemning">>
+    Yuclid: Efficiency is what you praise when you cannot reconstruct your reasoning. Show me the segments. Show me the order. If you cannot, you did not travel, you were merely relocated.
+-> There's no easier way to learn this?
+    Yuclid: There is no royal road to geometry. Kings have asked. Kings were told. There is certainly no orange one.
+-> What would satisfy you?
+    <<portrait_clip "lecturing">>
+    Yuclid: Cross the room on foot, name every straight segment you used, and I will call it a path. Do that and I will step off this pedestal and shake your hand, which no one has yet earned.
+===
+
+title: hall_npc_hunny_horror_boss
+---
+<<portrait_clip "snarl">>
+Hunny Horror: Oh. A visitor. Have you brought any? No? Then stand a little closer, so I can be sure.
+-> Brought any what?
+    <<portrait_clip "roar">>
+    Hunny Horror: Honey. There was a pot. There was always a pot, and a little more in it than I needed, and then one day there was the same pot and nothing in it, and I have not been the same shape since.
+-> You seem friendly enough.
+    Hunny Horror: I was. That is the frightening part, and everyone finds it out in the same order. First the voice. Then the paw. Then the pot.
+-> Why the basement?
+    <<portrait_clip "snarl">>
+    Hunny Horror: Because up there they keep the small ones on little stands, and down here they keep the things that ate their own story. Bother.
+===

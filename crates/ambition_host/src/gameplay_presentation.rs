@@ -22,7 +22,7 @@ use ambition_engine_core as ae;
 use ambition_platformer_primitives::camera_layers::MainCamera;
 use ambition_platformer_primitives::gameplay_presentation::{
     resolve_gameplay_presentation, ActiveGameplayPresentationProfiles, ControlFootprints,
-    DisplaySafeAreaInsets, GameplayPresentationInput, GameplayPresentationSet,
+    DisplaySafeAreaInsets, GameplayPresentationInput, GameplayPresentationSet, PlacedControl,
     PresentationEnvironment, ResolvedGameplayPresentation, ScreenRect,
 };
 use ambition_sim_view::camera_snapshot::{
@@ -253,8 +253,70 @@ pub fn resolve_host_gameplay_presentation(
         control_footprints: *footprints,
     });
     if *resolved != next {
+        log_resolved_layout(*environment, &next);
         *resolved = next;
     }
+}
+
+/// Log the whole resolved layout whenever it materially changes.
+///
+/// There is no display or GPU in the environment this code is written in, so
+/// nothing about the composition has ever been verified against pixels. This
+/// line is what makes a device check cheap when someone has a phone in hand:
+/// run the game, resize or rotate, and read off which profile is active, which
+/// rung of the control ladder the display took, and every rectangle the layout
+/// resolved — instead of inferring them from what the picture looks like.
+///
+/// Fires on CHANGE, not per frame: a steady session logs once, and a drag-resize
+/// logs the sequence it actually walked through.
+fn log_resolved_layout(
+    environment: PresentationEnvironment,
+    layout: &ResolvedGameplayPresentation,
+) {
+    let rect = |r: ScreenRect| {
+        format!(
+            "{}x{}@({},{})",
+            r.width().round(),
+            r.height().round(),
+            r.min.x.round(),
+            r.min.y.round()
+        )
+    };
+    let control = |name: &str, placed: Option<PlacedControl>| match placed {
+        Some(placed) => format!(
+            " {name}={} {}x{:.2}",
+            rect(placed.rect),
+            if placed.reserved {
+                "reserved"
+            } else {
+                "over-gameplay"
+            },
+            placed.scale
+        ),
+        None => String::new(),
+    };
+
+    info!(
+        "presentation: env={:?} viewport={:?} framing={} display={} gameplay={} \
+         subject-safe={} controls={:?}{}{}{} hud-regions={} generic-occlusions={}",
+        environment,
+        layout.surround,
+        layout
+            .soft_framing
+            .map_or("normal".to_string(), |profile| format!(
+                "soft({:?})",
+                profile.safe_region.min
+            )),
+        rect(layout.display_rect),
+        rect(layout.gameplay_rect),
+        rect(layout.subject_safe_rect),
+        layout.controls.placement,
+        control("movement", layout.controls.movement),
+        control("actions", layout.controls.primary_actions),
+        control("system", layout.controls.system_controls),
+        layout.controls.hud.len(),
+        layout.occlusions.len() - layout.controls.occlusions.len(),
+    );
 }
 
 /// Publish the GAMEPLAY viewport — not the window — into the sim's camera

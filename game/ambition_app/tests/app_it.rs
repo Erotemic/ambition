@@ -34,6 +34,7 @@ mod duel_arena;
 mod enemy_attacks_player;
 mod falling_sand_room;
 mod fuzz_random_walker;
+mod gameplay_presentation_ggrs;
 mod gameplay_presentation_profiles;
 mod gravity_room_reachability;
 mod gravity_symmetry;

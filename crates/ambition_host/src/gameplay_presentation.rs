@@ -25,7 +25,7 @@ use ambition_platformer_primitives::gameplay_presentation::{
     ResolvedGameplayPresentation, ScreenRect,
 };
 use ambition_sim_view::camera_snapshot::{
-    resolve_camera_observation, CameraScreenFraming, CameraViewport,
+    CameraObservationSet, CameraScreenFraming, CameraViewport,
 };
 
 /// The occupancy collected from [`ScreenOccluder`] entities this frame,
@@ -67,11 +67,14 @@ impl Plugin for HostGameplayPresentationPlugin {
                 .in_set(GameplayPresentationSet),
         );
 
-        // The observer facts must be this frame's, so the whole cluster runs
-        // before the sim's camera observation consumes them.
+        // The observer facts must be THIS frame's, so the whole cluster runs
+        // before the camera observation consumes them. Ordering against the
+        // observation SET rather than the system is what makes this edge real
+        // in every host: the set is declared in `Update` regardless of which
+        // schedule the simulation advances in.
         app.configure_sets(
             Update,
-            GameplayPresentationSet.before(resolve_camera_observation),
+            GameplayPresentationSet.before(CameraObservationSet),
         );
 
         // Applying the physical viewport is presentation-only and needs no

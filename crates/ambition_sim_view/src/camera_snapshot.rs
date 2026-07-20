@@ -17,7 +17,6 @@ use ambition_persistence::settings::video::CameraFramingPreset;
 use ambition_persistence::settings::CameraAspectPolicy;
 use ambition_platformer_primitives::camera_ease::{CameraEaseState, CameraEaseTuning};
 use ambition_platformer_primitives::gameplay_presentation::NormalizedScreenRegion;
-use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// Upper bound on `dt` for camera scale + target easing.
 ///
@@ -789,23 +788,68 @@ pub fn resolve_camera_observation(
     };
 }
 
+/// Ordering handle for the camera observation resolve.
+///
+/// Everything that FEEDS the resolve (the host's presentation layout) orders
+/// `.before` this; everything that CONSUMES it (`camera_follow`, the physical
+/// viewport application, the surround) orders `.after`. One handle, one
+/// schedule, so the relationship is expressible rather than assumed.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct CameraObservationSet;
+
 /// The observation seam's plugin: owns the observer-input resources + the
-/// published snapshot, and schedules the ONE resolve per tick. Part of
+/// published snapshot, and schedules the ONE resolve per FRAME. Part of
 /// [`PlatformerEnginePlugins`] — headless apps get a live snapshot too.
+///
+/// # Why `Update` and not the sim schedule
+///
+/// The resolve is an OBSERVER, and specifically a *visible-host* observer: its
+/// inputs include the physical viewport and video settings, it integrates
+/// [`CameraEaseState`] on the render clock, and its sole consumer is
+/// `camera_follow` in `Update`. Nothing in the simulation reads
+/// [`ResolvedCameraSnapshot`].
+///
+/// Registering it into `app.sim_schedule()` made that relationship
+/// inexpressible, because Bevy ordering is SCHEDULE-LOCAL. `.before`/`.after`
+/// edges between this system and the `Update`-side presentation cluster were
+/// silently inert whenever the sim was not itself in `Update` — so fixed-tick
+/// and GGRS hosts could apply a physical `Camera.viewport` from this frame's
+/// layout while the snapshot still described last frame's. It was also wrong on
+/// its own terms: on `FixedUpdate` the camera eased zero or two times per
+/// rendered frame, and under GGRS it re-integrated the ease state on every
+/// rollback resimulation step (no camera state is rollback-registered).
+///
+/// `Update` is truthful for all three hosts. `FixedUpdate` runs inside
+/// `RunFixedMainLoop` and GGRS drives `GgrsSchedule` from `PreUpdate`; both
+/// complete before `Update` in the same frame, so the sim is always finished
+/// advancing before the camera observes it. This preserves the E4-17 invariant
+/// that mattered — ONE writer of [`CameraEaseState`], render only consumes —
+/// and changes only which clock it observes on.
 pub struct CameraObservationPlugin;
 
 impl bevy::prelude::Plugin for CameraObservationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        let sim = app.sim_schedule();
+        use ambition_platformer_primitives::schedule::SimScheduleExt as _;
         use bevy::prelude::IntoScheduleConfigs as _;
         app.init_resource::<CameraViewport>();
         app.init_resource::<CameraScreenFraming>();
         app.init_resource::<CameraExtraClamp>();
         app.init_resource::<ResolvedCameraSnapshot>();
+
+        // Declared ONLY when the sim shares this schedule. In fixed-tick and
+        // GGRS hosts the sim is in another schedule, where this edge would be
+        // an inert no-op that reads as a guarantee; the schedule boundary
+        // already provides the ordering there.
+        if app.sim_is(bevy::prelude::Update) {
+            app.configure_sets(
+                bevy::prelude::Update,
+                CameraObservationSet
+                    .after(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
+            );
+        }
         app.add_systems(
-            sim,
-            resolve_camera_observation
-                .after(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
+            bevy::prelude::Update,
+            resolve_camera_observation.in_set(CameraObservationSet),
         );
     }
 }

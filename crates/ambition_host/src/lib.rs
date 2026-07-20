@@ -263,8 +263,12 @@ impl Plugin for HostCameraPlugin {
             )
                 .chain()
                 .after(ambition_render::rendering::animate_bosses)
-                // Read THIS tick's resolved snapshot, not last frame's.
-                .after(ambition_sim_view::camera_snapshot::resolve_camera_observation)
+                // Read THIS frame's resolved snapshot, not last frame's. Keyed
+                // on the observation SET: the resolve lives in `Update` for
+                // every host, so this edge is real under fixed-tick and GGRS
+                // too (naming the system worked only while the sim happened to
+                // share `Update`).
+                .after(ambition_sim_view::camera_snapshot::CameraObservationSet)
                 .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
         );
 
@@ -285,7 +289,7 @@ impl Plugin for HostCameraPlugin {
                     // continuity update, before the observation resolves.
                     ambition_render::rendering::publish_portal_camera_clamp
                         .after(crate::portal::apply_portal_camera_continuity)
-                        .before(ambition_sim_view::camera_snapshot::resolve_camera_observation),
+                        .before(ambition_sim_view::camera_snapshot::CameraObservationSet),
                 )
                     .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
             );

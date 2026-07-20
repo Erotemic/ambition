@@ -101,19 +101,17 @@ fn validator_reports_missing_brain_preset() {
 
 #[test]
 fn display_name_resolves_for_every_catalog_entry() {
-    // Phase 2 pin: the LDtk parser reads `character_id` from
-    // NpcSpawn instances and looks up the display name via
-    // `display_name_for_character_id`. Every catalog entry must
-    // therefore round-trip — otherwise the Authored.name field
-    // ends up populated with the id (e.g. "npc_alice") instead
-    // of the human label ("Alice").
+    // Every catalog entry must resolve id -> display_name, since that lookup
+    // is how a spawned NPC gets its label (see
+    // `spawn_actors::npc_display_label`, pinned by
+    // `authored_npc_takes_its_label_from_the_catalog_display_name`).
     let cat = catalog();
     for (id, entry) in &cat.data().characters {
         let label = cat.display_name(id);
         assert_eq!(
             label,
             Some(entry.display_name.as_str()),
-            "display_name_for_character_id('{id}') should return '{}'",
+            "display_name('{id}') should return '{}'",
             entry.display_name,
         );
     }

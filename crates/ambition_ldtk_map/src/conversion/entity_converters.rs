@@ -358,14 +358,14 @@ pub(super) fn convert_prop(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Stri
 
 pub(super) fn convert_npc_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    // Post-Phase 2: LDtk NpcSpawns carry a stable `character_id`
-    // field that keys into `assets/data/character_catalog.ron`. The
-    // resolved display name (`catalog.display_name`) becomes the
-    // `Authored.name` so downstream sprite / banter / dialog lookups
-    // — which still match on display name today — work unchanged.
-    // Phase 6 lifts those consumers off display-name lookups in
-    // favor of character_id keys; until then this translation is the
-    // bridge.
+    // LDtk NpcSpawns carry a stable `character_id` keying into
+    // `assets/data/character_catalog.ron`. This crate is the world-IR backend
+    // and deliberately has no catalog dependency, so it cannot resolve a human
+    // label here — `Authored.name` carries the character_id (every NpcSpawn
+    // shares the LDtk identifier "NpcSpawn", so the entity name is useless as a
+    // label). `spawn_actors::spawn_interactable` resolves the real display name
+    // from the catalog at spawn, keyed off the character_id that travels in
+    // `InteractionKindSpec::Npc` below.
     let character_id = field_string(entity, "character_id").unwrap_or_default();
     let display_name = if character_id.is_empty() {
         name

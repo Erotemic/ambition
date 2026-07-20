@@ -114,6 +114,7 @@ CATEGORY: dict[str, str] = {
     "weird_hermit": "peaceful",  # dialogue-flavored
     "galwah": "peaceful",
     "girdle": "peaceful",
+    "mary_marzakhani": "peaceful",
     # ===== Hub / story stand-ins.
     "colonial_statesman": "peaceful",
     "president_portrait": "stand_still",  # mounted portrait

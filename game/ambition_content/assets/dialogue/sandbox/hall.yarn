@@ -1053,6 +1053,21 @@ Armored Jeff Hinter: THREE! The armor has depth, but I still cannot step around 
     Armored Jeff Hinter: Then we have discovered a dimension I omitted. Try not to be standing in it.
 ===
 
+title: hall_npc_davy_hylbert
+---
+<<portrait_clip "lecturing">>
+Davy Hylbert: Welcome to my hotel. Every room is occupied, and yet we continue admitting guests. Good numbering is more spacious than furniture.
+-> Is that really possible?
+    Davy Hylbert: Naturally. Move each guest from room n to room n+1 and room one politely reappears. Infinity rewards orderly management.
+-> Why the hat?
+    Davy Hylbert: A theorem should arrive properly dressed. Without the hat I am just a man explaining infinity in a hallway.
+-> What are you working on?
+    <<portrait_clip "axiomatic">>
+    Davy Hylbert: Rooms, bases, and the pleasure of replacing fog with structure. When a puzzle misbehaves, ask which assumptions invited the scandal.
+-> Can you give me a hint?
+    Davy Hylbert: When a level feels full, try a shift. Reindex the problem. Space often appears the moment you stop insisting every obstacle keep its old room.
+===
+
 title: hall_npc_leblanc
 ---
 Madam LeBlanc: The academy said it would not read a woman's work. I sent the proof anyway, signed Madam LeBlanc, and let the theorem argue.

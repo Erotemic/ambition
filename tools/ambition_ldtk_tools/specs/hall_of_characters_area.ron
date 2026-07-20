@@ -2201,6 +2201,24 @@
         (
             type: "NpcSpawn",
             px: [
+                624,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_davy_hylbert",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_davy_hylbert",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
                 688,
                 160,
             ],

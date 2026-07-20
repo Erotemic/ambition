@@ -166,6 +166,7 @@ const RENDERER_COVERAGE_TARGETS: &[&str] = &[
     "npc_hand_saint",
     "npc_helpful_liar",
     "npc_mantis_lancer",
+    "npc_mary_marzakhani",
     "npc_mockingbird_boss",
     "npc_ninja_heavy",
     "npc_ninja_shadow_duelist",

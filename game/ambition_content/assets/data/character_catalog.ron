@@ -2179,6 +2179,22 @@
         ),
         hall_dialogue_id: Some("hall_npc_jeff_hinter_armored"),
         ),
+        "npc_davy_hylbert": (
+            display_name: "Davy Hylbert",
+            spritesheet: "sprites/davy_hylbert_spritesheet.png",
+            manifest: "sprites/davy_hylbert_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["mathematician", "peaceful", "axiomatic", "infinite_hotel"],
+        barks: (
+            idle: ["An occupied hotel is a numbering problem waiting to behave.", "A tidy axiom should survive inspection and keep its hat on."],
+            hall: ["Fully booked is only a temporary opinion about numbering.", "A clean axiom should fit under a clean hat.", "Move each obstacle one room to the right and call it strategy.", "The corridor is finite. The indexing is where the luxury lives."],
+        ),
+        hall_dialogue_id: Some("hall_npc_davy_hylbert"),
+        ),
         "npc_leblanc": (
             display_name: "Madam LeBlanc",
             spritesheet: "sprites/m_leblanc_spritesheet.png",

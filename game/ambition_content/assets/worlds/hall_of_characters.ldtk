@@ -10592,6 +10592,40 @@
 						},
 						{
 							"__identifier": "NpcSpawn",
+							"__grid": [39,10],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF9EEA",
+							"__worldX": 40624,
+							"__worldY": 160,
+							"iid": "NpcSpawn-davy-hylbert-001",
+							"width": 32,
+							"height": 48,
+							"defUid": 2006,
+							"px": [624,160],
+							"fieldInstances": [
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_davy_hylbert", "__tile": null, "defUid": 3012, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["npc_davy_hylbert"]
+								}] },
+								{ "__identifier": "prompt", "__type": "String", "__value": "Inspect", "__tile": null, "defUid": 3013, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Inspect"]
+								}] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hall_npc_davy_hylbert", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_npc_davy_hylbert"]
+								}] },
+								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
+								{ "__identifier": "brain_override", "__type": "String", "__value": "stand_still", "__tile": null, "defUid": 6842, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["stand_still"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "NpcSpawn",
 							"__grid": [43,10],
 							"__pivot": [0,0],
 							"__tags": [],

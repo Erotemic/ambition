@@ -120,5 +120,11 @@ impl Plugin for AmbitionContentPlugin {
         // separately in `add_simulation_plugins`.
         #[cfg(feature = "portal")]
         app.add_plugins(super::portal::AmbitionPortalAdaptersPlugin);
+
+        // The falling-sand room's SIM half (deterministic sand grid + settled
+        // ledger). Headless-safe — the module is ungated — but registered
+        // under the feature so bundle semantics match the presentation half.
+        #[cfg(feature = "falling_sand")]
+        app.add_plugins(crate::falling_sand_sim::FallingSandSimPlugin);
     }
 }

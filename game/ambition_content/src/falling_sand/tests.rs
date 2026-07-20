@@ -4,6 +4,7 @@
 //! `use super::*;`.
 
 use super::*;
+use crate::falling_sand_sim::{MIXED_SPOUT_WIDTH, SOLO_SPOUT_WIDTH};
 
 fn room(w: f32, h: f32) -> ae::World {
     ae::World::new("fs-test", ae::Vec2::new(w, h), ae::Vec2::ZERO, Vec::new())

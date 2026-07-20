@@ -28,9 +28,16 @@ pub mod dialogue;
 /// The spectator-duel exhibition fight (RoomLoaded consumer + `<<duel>>`).
 pub mod duel_arena;
 pub mod encounters;
-/// The falling-sand prototype room (self-gating content plugin).
+/// The falling-sand room's `bevy_falling_sand` bridge (water/oil) +
+/// presentation (self-gating content plugin, visible binary only).
 #[cfg(feature = "falling_sand")]
 pub mod falling_sand;
+/// The falling-sand room's SIMULATION: the deterministic sand grid, the FS3
+/// settled-sand ledger, and the room/switch/spout state. Ungated so its
+/// conservation/settling proofs run in every `cargo test -p ambition_content`
+/// and the headless harness can drive the room (the F13 lesson: a
+/// feature-gated test silently stops running).
+pub mod falling_sand_sim;
 /// The authored audio registries (music/SFX RON), registered as an App-local
 /// provider fragment.
 pub mod provider;

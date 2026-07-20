@@ -1,29 +1,28 @@
-//! Falling-sand prototype room integration — CONTENT (a self-gating room
-//! plugin: feature-gated, active only while its authored room is; R3.3
-//! room-mechanics-by-kind).
+//! Falling-sand room PRESENTATION + `bevy_falling_sand` bridge for water/oil —
+//! CONTENT (a self-gating room plugin: feature-gated, visible-binary only,
+//! active only while its authored room is; R3.3 room-mechanics-by-kind).
 //!
-//! Bridges the external `bevy_falling_sand` particle crate into Ambition's
-//! movement world. The whole module is behind the `falling_sand` cargo feature
-//! (off by default). The LDtk-authored `falling_sand_room` contains four
-//! switches whose save flags gate particle spouts; this module projects dense
-//! sand/liquid tiles back into the movement world as one-way platforms and
-//! temporary water regions before the player simulation runs.
+//! The room's SIMULATION half — spout/switch state, the deterministic sand
+//! grid, the FS3 settled-sand ledger, and the persistent collision projection
+//! — lives ungated in [`crate::falling_sand_sim`], driven one solver step per
+//! sim tick and testable headless. THIS module is what remains on the external
+//! `bevy_falling_sand` crate and the render side:
 //!
-//! # Status: SEMI-LANDED PROTOTYPE, in-progress (2026-05-22)
+//! - the particle CA bridge for **water and oil** (their FS slice has not
+//!   landed; sand no longer touches the external crate),
+//! - the liquid projection into temporary water regions (excluding tiles the
+//!   settled-sand ledger owns — single owner per tile),
+//! - presentation: `bevy_falling_sand`'s particle rendering, the sand-grid
+//!   texture, nozzle sprites, switch visuals, and diagnostics.
 //!
-//! Movement, accumulation, and player-collision projection all work end-to-end
-//! after the v0.7.0 `ChunkLoader` requirement was tracked down (see
-//! [`setup_particle_types`]). What's still rough — none blocking the prototype,
-//! all enumerated under "Simple falling-sand sim room" in `TODO.md`:
+//! # Status after the FS2/FS3 sand slice (2026-07-20)
 //!
-//! - Pile-up reads "a bit weird" — some material piles near overhead walls,
-//!   not just the floor. Likely the ceiling LDtk block also gets walls seeded
-//!   on top of it; consider gating the seed loop to only LDtk blocks the
-//!   player can walk on.
-//! - The projection cap can flicker when dense streams pass through a tile
-//!   (sort-by-count helped but didn't eliminate it).
-//! - Fire-from-fireballs and traceable-stream interactions aren't wired yet
-//!   — that was the original scope but is decoupled work.
+//! Sand is CORRECT (deterministic, conserving, settling — see
+//! `falling_sand_sim::sand_grid`); water and oil remain on the old path with
+//! its known defects (frame-locked stepping, no level-finding). The bfs-side
+//! sand plumbing below (`MaterialKind::Sand` arms, `project_sand`) is
+//! vestigial — it sees zero sand particles — and dies with the water/oil
+//! slice rather than churning that path now.
 
 use std::collections::{HashMap, HashSet};
 
@@ -32,24 +31,13 @@ use ambition_platformer_primitives::schedule::SimScheduleExt;
 use bevy::prelude::*;
 use bevy_falling_sand::prelude::*;
 
-const ROOM_ID: &str = "falling_sand_room";
+use crate::falling_sand_sim::{
+    open_spouts, FallingSandRoomState, FallingSandSimSet, FallingSandSpoutState, FallingSandWorld,
+    MIXED_SWITCH, OIL_SWITCH, ROOM_ID, SAND_SWITCH, SIDE_WALL_THICKNESS, TILE_SIZE, TYPE_OIL,
+    TYPE_SAND, TYPE_WALL, TYPE_WATER, WATER_SWITCH,
+};
+use crate::falling_sand_sim::{SandCell, FLOOR_WALL_THICKNESS};
 
-const TYPE_SAND: &str = "AmbitionSand";
-const TYPE_WATER: &str = "AmbitionWater";
-const TYPE_OIL: &str = "AmbitionOil";
-const TYPE_WALL: &str = "AmbitionWall";
-
-const SAND_SWITCH: &str = "falling_sand_sand_switch";
-const WATER_SWITCH: &str = "falling_sand_water_switch";
-const OIL_SWITCH: &str = "falling_sand_oil_switch";
-const MIXED_SWITCH: &str = "falling_sand_mixed_switch";
-
-const TILE_SIZE: i32 = 16;
-/// Floor / side-wall thickness in particle cells. Needs to be deep
-/// enough that high-density material can't tunnel through during a
-/// single sim step; 16 has held up in practice where 2 did not.
-const FLOOR_WALL_THICKNESS: i32 = 16;
-const SIDE_WALL_THICKNESS: i32 = 8;
 /// Per-tile minimum particle counts before we promote the tile into
 /// Ambition's collision/visual world. Tuned for "flood the room"
 /// — the room is 64×40 = 2560 tiles, so the previous 14/10
@@ -73,78 +61,19 @@ const MATERIAL_VISUAL_THRESHOLD: usize = 3;
 const MAX_DYNAMIC_SAND_TILES: usize = 2500;
 const MAX_DYNAMIC_LIQUID_TILES: usize = 2500;
 
-#[derive(Resource, Default)]
-struct FallingSandRoomState {
-    active_room: bool,
-    last_room_id: Option<String>,
-    /// Snapshot of the active player's swim ability at the moment the
-    /// room was entered. Restored on exit so the room's forced-swim
-    /// effect doesn't leak into other rooms.
-    ///
-    /// Stored as a single value (not keyed by `Entity`) because the
-    /// sandbox is single-player; an Entity-keyed map would leak
-    /// entries every time the player respawned with a new Entity id
-    /// while still inside the room.
-    swim_snapshot: Option<SwimSnapshot>,
-    seeded_boundaries: bool,
-    spouts: FallingSandSpoutState,
-}
-
-/// Stored player swim state plus a marker so we can tell whether the
-/// snapshot belongs to the currently spawned player entity. If the
-/// player respawns inside the room, the previous snapshot becomes
-/// stale and we re-capture from the new entity's current swim state.
-#[derive(Clone, Copy, Debug)]
-struct SwimSnapshot {
-    player_entity: Entity,
-    previous_swim: bool,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-struct FallingSandSpoutState {
-    sand: bool,
-    water: bool,
-    oil: bool,
-    mixed: bool,
-}
-
-impl FallingSandSpoutState {
-    fn from_save(save: &ambition_persistence::save_data::SandboxSaveData) -> Self {
-        Self {
-            sand: save.switch(SAND_SWITCH),
-            water: save.switch(WATER_SWITCH),
-            oil: save.switch(OIL_SWITCH),
-            mixed: save.switch(MIXED_SWITCH),
-        }
-    }
-
-    fn toggle(&mut self, id: &str) -> bool {
-        match id {
-            SAND_SWITCH => {
-                self.sand = !self.sand;
-                true
-            }
-            WATER_SWITCH => {
-                self.water = !self.water;
-                true
-            }
-            OIL_SWITCH => {
-                self.oil = !self.oil;
-                true
-            }
-            MIXED_SWITCH => {
-                self.mixed = !self.mixed;
-                true
-            }
-            _ => false,
-        }
-    }
-}
-
 #[derive(Component)]
 struct FallingSandMaterialVisual {
     tile: (i32, i32),
     kind: MaterialKind,
+}
+
+/// The room-sized texture that draws the sand grid: loose grains and settled
+/// ground, at cell (world-pixel) resolution. One sprite, one image, rewritten
+/// only on sim ticks that actually advanced the grid.
+#[derive(Component)]
+struct FallingSandGridVisual {
+    image: Handle<Image>,
+    drawn_tick: Option<u64>,
 }
 
 #[derive(Component)]
@@ -157,8 +86,11 @@ pub struct FallingSandRoomPlugin;
 impl Plugin for FallingSandRoomPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        // Room/spout state, the sand grid, and the switch capture are owned by
+        // the ungated `FallingSandSimPlugin` (registered by
+        // `AmbitionContentPlugin` in every composition). This plugin is the
+        // water/oil bridge + presentation, ordered after the sim half.
         app.init_resource::<FallingSandProjectionReport>()
-            .init_resource::<FallingSandRoomState>()
             .add_plugins(
                 FallingSandPlugin::default()
                     .with_chunk_size(64)
@@ -168,34 +100,36 @@ impl Plugin for FallingSandRoomPlugin {
             .add_systems(
                 sim,
                 (
-                    sync_falling_sand_room_state,
+                    despawn_bfs_particles_when_the_room_changes,
                     seed_falling_sand_room_boundaries,
                     sync_falling_sand_spout_nozzles,
                     emit_falling_sand_spouts,
                     project_particles_to_movement_world,
-                    grant_room_swim_controls,
                 )
                     .chain()
-                    // The projection now contributes settled sand / liquid to the
-                    // collision overlay, which the rebuild clears each frame —
-                    // so run after it (the same WorldPrep contract the gates use).
+                    // The projection contributes liquid to the collision
+                    // overlay, which the rebuild clears each frame — run after
+                    // it, and after the sim half so spout state is synced and
+                    // the settled ledger is current for the tile exclusion.
                     .after(ambition_actors::features::rebuild_feature_ecs_world_overlay)
+                    .after(FallingSandSimSet)
                     .in_set(ambition_platformer_primitives::schedule::SandboxSet::WorldPrep),
             )
             .add_systems(
                 sim,
-                (
-                    capture_falling_sand_switch_interactions,
-                    // Visual sync must run *after* the toggle handler so
-                    // SwitchOn reflects the spout state we just set —
-                    // otherwise the engine's "switch is latching" semantics
-                    // leave the sprite stuck green while the spout flips
-                    // back off, which inverts the player's mental model.
-                    sync_falling_sand_switch_visuals,
-                )
-                    .chain()
+                // Visual sync must run *after* the toggle handler so
+                // SwitchOn reflects the spout state we just set —
+                // otherwise the engine's "switch is latching" semantics
+                // leave the sprite stuck green while the spout flips
+                // back off, which inverts the player's mental model.
+                sync_falling_sand_switch_visuals
+                    .after(crate::falling_sand_sim::capture_falling_sand_switch_interactions)
                     .in_set(ambition_platformer_primitives::schedule::SandboxSet::GameplayEffects),
             )
+            // The sand grid's presentation: a room-sized texture redrawn on
+            // grid ticks ("always draw blind" — the sim half ships with its
+            // visual, even though the author can't see it).
+            .add_systems(Update, sync_sand_grid_texture)
             // Diagnostic: once per second while in the falling-sand room,
             // dump per-type particle counts and Y-distribution. Lets us
             // see at a glance whether particles are being spawned,
@@ -224,26 +158,8 @@ fn setup_particle_types(mut commands: Commands) {
         GlobalTransform::default(),
     ));
 
-    commands.spawn((
-        Name::new("particle type: ambition sand"),
-        ParticleType::new(TYPE_SAND),
-        ColorProfile::palette(vec![
-            Color::Srgba(Srgba::hex("#E2C16A").expect("valid sand color")),
-            Color::Srgba(Srgba::hex("#B99045").expect("valid sand color")),
-            Color::Srgba(Srgba::hex("#F1D98A").expect("valid sand color")),
-        ]),
-        Movement::from(vec![
-            vec![IVec2::new(0, -1)],
-            vec![IVec2::new(-1, -1), IVec2::new(1, -1)],
-        ]),
-        Density(1250),
-        // Speed range chosen for visual continuity. Wide ranges
-        // (e.g. 4..8 like the original) make consecutive frames'
-        // emissions land 4–8 cells apart vertically, so the stream
-        // reads as discrete clumps. Keeping the range tight gives a
-        // continuous-looking column.
-        Speed::new(3, 4),
-    ));
+    // No sand ParticleType: sand runs on the deterministic grid in
+    // `falling_sand_sim` and never enters the external crate.
 
     commands.spawn((
         Name::new("particle type: ambition water"),
@@ -298,34 +214,22 @@ fn setup_particle_types(mut commands: Commands) {
     ));
 }
 
-fn sync_falling_sand_room_state(
+/// Room-change cleanup for the EXTERNAL crate's particles (water/oil/walls).
+/// The sim half owns the room-state sync; this only mirrors its "matter does
+/// not survive a room change" rule onto the bfs world.
+fn despawn_bfs_particles_when_the_room_changes(
     mut commands: Commands,
     room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
-    save: Res<ambition_persistence::save::SandboxSave>,
-    mut state: ResMut<FallingSandRoomState>,
     particles: Query<Entity, With<Particle>>,
+    mut last_room_id: Local<Option<String>>,
 ) {
     let active_id = room_set.active_spec().id.as_str();
-    let active_room = active_id == ROOM_ID;
-
-    if state.last_room_id.as_deref() == Some(active_id) {
-        state.active_room = active_room;
+    if last_room_id.as_deref() == Some(active_id) {
         return;
     }
-
-    state.last_room_id = Some(active_id.to_owned());
-    state.active_room = active_room;
-
+    *last_room_id = Some(active_id.to_owned());
     for particle in &particles {
         commands.entity(particle).despawn();
-    }
-
-    if active_room {
-        state.seeded_boundaries = false;
-        state.spouts = FallingSandSpoutState::from_save(save.data());
-    } else {
-        state.seeded_boundaries = false;
-        state.spouts = FallingSandSpoutState::default();
     }
 }
 
@@ -461,48 +365,6 @@ fn emit_particle_rect(
     }
 }
 
-fn capture_falling_sand_switch_interactions(
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
-    mut state: ResMut<FallingSandRoomState>,
-    mut save: ResMut<ambition_persistence::save::SandboxSave>,
-    mut effects: MessageReader<ambition_actors::features::SwitchActivated>,
-) {
-    if room_set.active_spec().id != ROOM_ID {
-        return;
-    }
-
-    for effect in effects.read() {
-        let ambition_actors::features::SwitchActivated { activation, .. } = effect;
-        if state.spouts.toggle(activation.id.as_str()) {
-            // Mirror the in-memory toggle into the save so the spout
-            // state survives a reset / room re-entry. Without this
-            // write the save's switch flag stays whatever the
-            // encounter pipeline set it to (which is "true on first
-            // activation" only when the switch's `action` is
-            // `ResetEncounter`).
-            let on = match activation.id.as_str() {
-                SAND_SWITCH => state.spouts.sand,
-                WATER_SWITCH => state.spouts.water,
-                OIL_SWITCH => state.spouts.oil,
-                MIXED_SWITCH => state.spouts.mixed,
-                _ => continue,
-            };
-            save.data_mut().set_switch(&activation.id, on);
-            bevy::log::info!(
-                "falling_sand_room: spout {} -> {} (state {:?})",
-                activation.id,
-                on,
-                state.spouts
-            );
-        } else {
-            bevy::log::debug!(
-                "falling_sand_room: ignoring switch activation id={:?} (not a spout switch)",
-                activation.id
-            );
-        }
-    }
-}
-
 /// Force the falling-sand switch sprites' `SwitchOn` flag to track the
 /// spout state. The engine's default switch behaviour is one-way
 /// latching (`on.0 = true` on activation, never reset), which inverts
@@ -603,63 +465,6 @@ fn sync_falling_sand_spout_nozzles(
     }
 }
 
-/// One spout mouth: what it emits, where, and how wide. A **table**, because
-/// `falling-sand.md` §1 rules that a spout is an authored PLACEMENT
-/// (`PlacementSchema::Spout { material, rate, direction }`) lowered by this
-/// content plugin — not a hardcoded runtime spawn. Until [W-a]/[W-b] land, this
-/// is the same data in the same shape, one `const` away from being read off the
-/// map instead of typed here.
-struct SpoutMouth {
-    particle_type: &'static str,
-    x: f32,
-    y: f32,
-    /// Mouth width in particle cells.
-    width: i32,
-}
-
-const SOLO_SPOUT_WIDTH: i32 = 8;
-/// Mixed splits the same per-frame budget across three streams.
-const MIXED_SPOUT_WIDTH: i32 = 3;
-
-const SAND_SPOUT: SpoutMouth = SpoutMouth {
-    particle_type: TYPE_SAND,
-    x: 176.0,
-    y: 90.0,
-    width: SOLO_SPOUT_WIDTH,
-};
-const WATER_SPOUT: SpoutMouth = SpoutMouth {
-    particle_type: TYPE_WATER,
-    x: 384.0,
-    y: 90.0,
-    width: SOLO_SPOUT_WIDTH,
-};
-const OIL_SPOUT: SpoutMouth = SpoutMouth {
-    particle_type: TYPE_OIL,
-    x: 592.0,
-    y: 90.0,
-    width: SOLO_SPOUT_WIDTH,
-};
-const MIXED_SPOUTS: [SpoutMouth; 3] = [
-    SpoutMouth {
-        particle_type: TYPE_SAND,
-        x: 760.0,
-        y: 90.0,
-        width: MIXED_SPOUT_WIDTH,
-    },
-    SpoutMouth {
-        particle_type: TYPE_WATER,
-        x: 792.0,
-        y: 90.0,
-        width: MIXED_SPOUT_WIDTH,
-    },
-    SpoutMouth {
-        particle_type: TYPE_OIL,
-        x: 824.0,
-        y: 90.0,
-        width: MIXED_SPOUT_WIDTH,
-    },
-];
-
 /// Emit into **the grid, and only the grid** (FS1's single-owner rule).
 ///
 /// This function used to do two things at once: write `SpawnParticleSignal`s
@@ -702,6 +507,11 @@ fn emit_falling_sand_spouts(
 
     let world = &room.world;
     for mouth in open_spouts(&state.spouts) {
+        // Sand mouths pour into the deterministic grid (sim half), never
+        // into the external crate.
+        if mouth.particle_type == TYPE_SAND {
+            continue;
+        }
         emit_spout(
             &mut writer,
             mouth.particle_type,
@@ -712,25 +522,6 @@ fn emit_falling_sand_spouts(
             1,
         );
     }
-}
-
-/// The mouths a switch state opens, in a fixed order. Pure, so the wiring from
-/// four switches to five streams is testable without a room.
-fn open_spouts(spouts: &FallingSandSpoutState) -> Vec<&'static SpoutMouth> {
-    let mut open: Vec<&'static SpoutMouth> = Vec::new();
-    if spouts.sand {
-        open.push(&SAND_SPOUT);
-    }
-    if spouts.water {
-        open.push(&WATER_SPOUT);
-    }
-    if spouts.oil {
-        open.push(&OIL_SPOUT);
-    }
-    if spouts.mixed {
-        open.extend(MIXED_SPOUTS.iter());
-    }
-    open
 }
 
 fn emit_spout(
@@ -897,6 +688,7 @@ fn project_particles_to_movement_world(
     mut overlay: ResMut<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,
     particles: Query<(&GridPosition, &Particle)>,
     visuals: Query<(Entity, &FallingSandMaterialVisual)>,
+    sand: Res<FallingSandWorld>,
     mut scratch: Local<ProjectionScratch>,
     mut cap_warned: Local<bool>,
     mut report: ResMut<FallingSandProjectionReport>,
@@ -925,6 +717,11 @@ fn project_particles_to_movement_world(
     warn_on_projection_cap(&ledger, &scratch, &mut cap_warned);
 
     let sand_added = project_sand(&mut overlay.gate_solids, &mut scratch);
+    // Single owner per TILE, across BOTH sand representations: tiles the
+    // settled-sand ledger owns as collision must not also become water
+    // regions (you cannot swim inside ground). The ledger's blocks were
+    // pushed by the sim half; here they only veto liquid.
+    scratch.dense_sand.extend(sand.ledger.solid_tiles());
     let mut liquid_added: usize = 0;
     project_liquid(
         &mut overlay.water_regions,
@@ -1083,38 +880,6 @@ fn project_liquid(
     }
 }
 
-fn grant_room_swim_controls(
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
-    mut state: ResMut<FallingSandRoomState>,
-    mut players: Query<(Entity, &mut ambition_actors::actor::BodyAbilities)>,
-) {
-    if room_set.active_spec().id == ROOM_ID {
-        for (entity, mut abilities) in &mut players {
-            let needs_capture = state
-                .swim_snapshot
-                .map(|snap| snap.player_entity != entity)
-                .unwrap_or(true);
-            if needs_capture {
-                state.swim_snapshot = Some(SwimSnapshot {
-                    player_entity: entity,
-                    previous_swim: abilities.abilities.swim,
-                });
-            }
-            abilities.abilities.swim = true;
-        }
-        return;
-    }
-
-    let Some(snapshot) = state.swim_snapshot.take() else {
-        return;
-    };
-    for (entity, mut abilities) in &mut players {
-        if entity == snapshot.player_entity {
-            abilities.abilities.swim = snapshot.previous_swim;
-        }
-    }
-}
-
 /// Once per second while in the falling-sand room, log a diagnostic
 /// snapshot:
 ///   - total particle count, broken down by particle type name
@@ -1153,6 +918,7 @@ fn log_falling_sand_diagnostics(
     no_air: Query<Entity, (With<Particle>, Without<AirResistance>)>,
     no_rng: Query<Entity, (With<Particle>, Without<MovementRng>)>,
     projection: Res<FallingSandProjectionReport>,
+    sand: Res<FallingSandWorld>,
     mut next_log_at: Local<f32>,
 ) {
     if !state.active_room || room_set.active_spec().id != ROOM_ID {
@@ -1231,6 +997,20 @@ fn log_falling_sand_diagnostics(
         band_grid_y_low,
         band_grid_y_high,
     );
+    // The sand grid's conservation ledger: loose + settled must equal emitted,
+    // every tick, or the CA itself is losing matter.
+    if let Some(grid) = sand.grid.as_ref() {
+        bevy::log::info!(
+            "fs-diag sand-grid: tick={}  emitted={}  loose={}  settled={}  \
+             solid_tiles={}  conserved={}",
+            grid.tick(),
+            grid.emitted(),
+            grid.loose(),
+            sand.ledger.total(),
+            sand.ledger.solid_tiles().count(),
+            grid.conserved_with(&sand.ledger),
+        );
+    }
     // The particle→environment funnel. Read left to right: the first stage that
     // collapses to zero is where the matter is being lost.
     let p = &*projection;
@@ -1383,6 +1163,105 @@ fn sync_material_visuals(
             FallingSandMaterialVisual { tile, kind },
             ambition_actors::platformer_runtime::lifecycle::RoomVisual,
         ));
+    }
+}
+
+/// Draw the sand grid ("always draw blind" — the sim half never ships without
+/// its visual): one room-sized RGBA texture at cell resolution, loose grains
+/// in the classic three-tone palette, settled ground in a deeper tone. The
+/// texture is rewritten only on sim ticks that actually advanced the grid, so
+/// a paused game costs nothing.
+fn sync_sand_grid_texture(
+    mut commands: Commands,
+    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
+    state: Res<FallingSandRoomState>,
+    sand: Res<FallingSandWorld>,
+    mut images: ResMut<Assets<Image>>,
+    mut visuals: Query<(Entity, &mut FallingSandGridVisual)>,
+) {
+    use bevy::asset::RenderAssetUsages;
+    use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+
+    let room = room_set.active_spec();
+    let active = state.active_room && room.id == ROOM_ID;
+    let grid = match sand.grid.as_ref() {
+        Some(grid) if active => grid,
+        _ => {
+            for (entity, _) in &visuals {
+                commands.entity(entity).despawn();
+            }
+            return;
+        }
+    };
+
+    let Some((_, mut visual)) = visuals.iter_mut().next() else {
+        let image = Image::new_fill(
+            Extent3d {
+                width: grid.width() as u32,
+                height: grid.height() as u32,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0, 0, 0, 0],
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::default(),
+        );
+        let handle = images.add(image);
+        let center = ae::Vec2::new(room.world.size.x * 0.5, room.world.size.y * 0.5);
+        commands.spawn((
+            Name::new("falling sand grid texture"),
+            Sprite {
+                image: handle.clone(),
+                custom_size: Some(Vec2::new(room.world.size.x, room.world.size.y)),
+                ..default()
+            },
+            Transform::from_translation(ambition_engine_core::config::world_to_bevy(
+                &room.world,
+                center,
+                // Just under the per-tile water/oil settle sprites so the two
+                // presentations never z-fight.
+                ambition_engine_core::config::WORLD_Z_PLAYER + 3.5,
+            )),
+            FallingSandGridVisual {
+                image: handle,
+                drawn_tick: None,
+            },
+            ambition_actors::platformer_runtime::lifecycle::RoomVisual,
+        ));
+        return;
+    };
+
+    if visual.drawn_tick == Some(grid.tick()) {
+        return;
+    }
+    let Some(image) = images.get_mut(&visual.image) else {
+        return;
+    };
+    let Some(data) = image.data.as_mut() else {
+        return;
+    };
+    paint_sand_grid(grid, data);
+    visual.drawn_tick = Some(grid.tick());
+}
+
+/// Cell → pixel. Grid coords ARE world pixels (y down), and texture row 0 is
+/// the sprite's top, so the mapping is the identity.
+fn paint_sand_grid(grid: &crate::falling_sand_sim::SandGrid, data: &mut [u8]) {
+    // The old sand ParticleType's palette (#E2C16A / #B99045 / #F1D98A),
+    // chosen per cell by a position hash; settled ground one deeper tone.
+    const LOOSE: [[u8; 3]; 3] = [[226, 193, 106], [185, 144, 69], [241, 217, 138]];
+    const SETTLED: [u8; 3] = [150, 116, 56];
+    for y in 0..grid.height() {
+        for x in 0..grid.width() {
+            let i = ((y * grid.width() + x) * 4) as usize;
+            let (rgb, alpha) = match grid.get(x, y) {
+                SandCell::Sand => (LOOSE[((x * 31 + y * 17) % 3) as usize], 255),
+                SandCell::Settled => (SETTLED, 255),
+                _ => ([0, 0, 0], 0),
+            };
+            data[i..i + 3].copy_from_slice(&rgb);
+            data[i + 3] = alpha;
+        }
     }
 }
 

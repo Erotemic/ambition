@@ -37,8 +37,9 @@ automaton** with an explicit conservation law:
   CA substrate, the room ships as content.
 
 Slices ~~FS1 (single-owner refactor + conservation test)~~ ✅ **DONE
-2026-07-10 — see §3**, FS2 (settle/level rules + fixed-point test), FS3
-(overlay compilation + atomic ownership transfer). All [opus] — the spec above
+2026-07-10 — see §3**, ~~FS2 (settle/level rules + fixed-point test)~~ /
+~~FS3 (overlay compilation + atomic ownership transfer)~~ ✅ **DONE for SAND
+2026-07-20 — see §4; water/oil level-finding remains open**. The spec above
 is the contract; the current code is small and may be boldly restructured to
 meet it.
 
@@ -138,3 +139,92 @@ the module as it stands.
 - **The remaining pile-up weirdness is FS2's.** With the second representation
   gone, whatever is left is the CA's rules — settle, lateral flow, level-finding —
   which is exactly the slice named for them.
+
+---
+
+## 4. FS2+FS3 sand slice — adapt-vs-replace ruled: REPLACE, sand only (fable, 2026-07-20)
+
+Jon's directive: *"Repair falling sand by landing one deterministic sand-only
+FS2/FS3 vertical slice. Drive exactly one solver step per simulation tick;
+prove finite settling and conservation; transfer settled sand into persistent
+collision ownership atomically; and add a regression in the authored
+falling-sand room."* The one-CA-step-per-sim-tick experiment from the GPT
+round-6 queue resolved during design, from source, before any code:
+
+**`bevy_falling_sand` 0.7.0 cannot be driven one step per sim tick without a
+fork.** The evidence, all [root-caused] at the crate's source:
+
+- The movement systems (`par_handle_movement_by_chunks` etc.) are **private**
+  (`movement/processing/mod.rs` — `mod systems`, no re-export) and pinned to
+  `PostUpdate`, so they cannot be re-homed into the sim schedule. One
+  `PostUpdate` pass per render frame can never equal N sim ticks under
+  fixed-tick catch-up or a GGRS replay — and it happily steps while the game
+  is paused, because a render frame is not a sim tick.
+- The single-step hook fires twice. `SimulationStepSignal` is consumed by
+  nothing; the run condition `condition_msg_simulation_step_received` only
+  peeks (`!is_empty()`), so with message double-buffering one signal keeps the
+  gate open for TWO `PostUpdate` passes.
+- `ChunkSystems::DirtyAdvance` gates on the free-run resource
+  (`resource_exists::<ParticleSimulationRun>`), not the step signal, and an
+  unpaired advance DROPS dirty state (`advance_frame` overwrites `current`) —
+  so signal-driving starves the chunk movement path entirely.
+- Determinism: parallel checkerboard chunk iteration by default, per-particle
+  `MovementRng`, and Bevy `Query` iteration order underneath — three strikes
+  against ADR 0023 in the crate's core loop.
+
+So SAND — the material whose settled state becomes world geometry, i.e. the
+one that must be correct — moved onto a bespoke deterministic grid CA:
+`ambition_content::falling_sand_sim` (UNGATED, so its proofs run in every
+`cargo test -p ambition_content`) with `sand_grid.rs` as the pure core.
+**Water and oil stay on `bevy_falling_sand`** in the feature-gated
+presentation module until their own slice; their known defects
+(frame-locked stepping, no level-finding) are unchanged and explicitly out of
+scope per the directive.
+
+What landed, against §1's contract:
+
+- **One representation, two owners, one door.** Loose sand = `SandCell::Sand`
+  in `SandGrid`; settled sand = mass in `SettledSandLedger` (its cell becomes
+  `Settled` geometry). `settle_into` is the only transfer and is atomic per
+  cell — §1's *"compiled cells leave the grid (conservation moves them between
+  owners atomically)"*, now literally a function.
+- **Conservation:** `loose + settled == emitted`, checked by
+  `conserved_with`, `debug_assert`ed every sim tick, asserted every tick in
+  the unit tests and every observed tick in the room regression.
+- **Settle guarantee:** proved as a fixed-point test (finite pour → quiescent
+  within budget → ten further ticks move and transfer nothing → ledger total
+  == emitted). The transfer condition — all three lower neighbors static —
+  can only ever fossilize a grain the CA rules could never move again.
+- **One solver step per sim tick:** `step_sand_grid` runs in the sim schedule,
+  emission/stepping gated `simulation_pass_is_authoritative` (a replayed
+  rollback frame must not double-advance un-registered state), while the
+  ledger→overlay projection runs on EVERY pass so replayed player physics
+  stands on the same ground.
+- **Sand→geometry compilation:** the ledger contributes bottom-aligned,
+  fill-proportional one-way blocks (`falling_sand:settled:<tx>:<ty>`) through
+  the overlay each frame — the LEDGER is the persistence, the overlay stays a
+  per-frame composition, which kills the transient-projection flicker (a
+  truncated/thin frame can no longer un-ground a pile). Ledger-owned tiles
+  veto water regions (single owner per tile, across representations).
+- **Determinism:** no RNG, no entity iteration, no hash maps; scan order and
+  diagonal preference are pure functions of (state, tick); pinned by an
+  identical-runs test.
+- **Authored-room regression** (`app_it::falling_sand_room`): enters
+  `falling_sand_room` by semantic id, activates the authored sand switch by
+  its authored id (no coordinates), then asserts emission → conservation →
+  bounded-time settling → overlay ground → persistence across 30 rebuilds.
+- **The visual ships with the slice** (draw-blind rule): a room-sized texture
+  redrawn on grid ticks — loose grains in the old three-tone palette, settled
+  ground a deeper tone. Blind feel constants, said so at their definitions:
+  `SETTLED_BLOCK_MIN_CELLS = 64`, `FALL_CELLS_PER_TICK = 3`, emission budget
+  120k grains (warned once when it closes the spout, never silent).
+
+### What §4 deliberately did NOT do
+
+- Water/oil correctness (level-finding, tick-locking) — still on the external
+  crate, still FS2's open half. When that slice lands, the bfs-side sand
+  plumbing left in the presentation module (`MaterialKind::Sand` arms,
+  `project_sand`) dies with it; it currently sees zero sand particles.
+- The spout-placement schema ([W-a]/[W-b]) — the mouth table moved crates but
+  kept its shape.
+- Re-fluidizing settled sand, drains, C4 gravity frames, Oiler.

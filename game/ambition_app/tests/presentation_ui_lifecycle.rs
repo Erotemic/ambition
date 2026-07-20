@@ -26,24 +26,20 @@ use ambition::engine_core as ae;
 use ambition::host::gameplay_presentation::{HostGameplayPresentationPlugin, ScreenOccupancy};
 use ambition::platformer::camera_layers::MainCamera;
 use ambition::presentation::gameplay_presentation::{
-    profiles, ActiveGameplayPresentationProfiles, PresentationEnvironment,
-    ResolvedGameplayPresentation, ScreenOcclusionPurpose, ScreenRect,
+    profiles, ActiveGameplayPresentationProfiles, GameplayPresentationProfiles,
+    PresentationEnvironment, ResolvedGameplayPresentation, ScreenOcclusionPurpose, ScreenRect,
 };
-use ambition::touch_input::bevy_plugin::{
-    apply_touch_control_placement, TouchControlsVisible, TouchSurface,
-};
-use ambition::touch_input::placement::{
-    publish_touch_control_footprints, sync_touch_control_placement, TouchControlPlacement,
-    TouchPresentationSet,
-};
+use ambition::touch_input::bevy_plugin::{MobileStick, VirtualJoystickNode, VirtualJoystickPlugin};
+use ambition::touch_input::bevy_plugin::{MobileTouchUiRoot, TouchControlsVisible, TouchSurface};
+use ambition::touch_input::placement::{TouchControlPlacement, TouchPresentationPlugin};
 
 /// An app running the REAL `bevy_ui` layout pass, the real host presentation
 /// cluster, and the real touch placement systems against a synthetic window.
 ///
-/// Deliberately not `TouchControlsPlugin`: that would drag in leafwing, the
-/// joystick crate, fonts and settings, none of which this lifecycle question
-/// depends on. The three placement systems are the ones the plugin registers,
-/// with the ordering contract the plugin declares.
+/// Deliberately not the whole `TouchControlsPlugin`: that would drag in
+/// leafwing and the input stack, which no lifecycle question here depends on.
+/// `TouchPresentationPlugin` is the exact unit the real plugin installs, so
+/// this cannot pass against an ordering the shipping app lacks.
 fn app(display: ae::Vec2) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -68,20 +64,9 @@ fn app(display: ae::Vec2) -> App {
     ));
     app.insert_resource(PresentationEnvironment::TouchPrimary);
     app.insert_resource(TouchControlsVisible(true));
-    app.init_resource::<TouchControlPlacement>();
-    // The SAME declaration `TouchControlsPlugin` uses — not a restatement of
-    // it, so this test cannot pass against an ordering the real app lacks.
-    TouchPresentationSet::configure(&mut app);
-    app.add_systems(
-        Update,
-        publish_touch_control_footprints.in_set(TouchPresentationSet::PublishRequirements),
-    );
-    app.add_systems(
-        Update,
-        (sync_touch_control_placement, apply_touch_control_placement)
-            .chain()
-            .in_set(TouchPresentationSet::ApplyPlacement),
-    );
+    // The SAME unit `TouchControlsPlugin` installs.
+    app.insert_resource(ambition::persistence::settings::UserSettings::default());
+    app.add_plugins(TouchPresentationPlugin);
 
     let mut resolution = WindowResolution::new(display.x as u32, display.y as u32);
     resolution.set_scale_factor(1.0);
@@ -115,6 +100,15 @@ fn app(display: ae::Vec2) -> App {
             .insert(InheritedVisibility::VISIBLE);
     }
     app
+}
+
+/// The participant-facing touch-overlay setting, which
+/// `sync_touch_visibility_from_settings` mirrors into `TouchControlsVisible`.
+fn set_touch_controls_visible(app: &mut App, visible: bool) {
+    app.world_mut()
+        .resource_mut::<ambition::persistence::settings::UserSettings>()
+        .controls
+        .touch_controls_visible = visible;
 }
 
 fn resize(app: &mut App, display: ae::Vec2) {
@@ -289,7 +283,9 @@ fn hiding_the_controls_changes_the_layout_in_the_same_update() {
     let framed = resolved(&app).subject_safe_rect;
     assert!(resolved(&app).controls.primary_actions.is_some());
 
-    app.insert_resource(TouchControlsVisible(false));
+    // Flip the SETTING, which is the source of truth; `TouchControlsVisible`
+    // is a mirror of it and gets overwritten every frame.
+    set_touch_controls_visible(&mut app, false);
     app.update();
 
     let now = resolved(&app);
@@ -461,4 +457,174 @@ fn hiding_a_parent_withdraws_its_childs_occupancy() {
         occluding(&app),
         "showing the parent again must restore its child's occupancy",
     );
+}
+
+// ---------------------------------------------------------------------------
+// The REAL virtual joystick
+// ---------------------------------------------------------------------------
+//
+// Every test above spawns its own already-tagged `TouchSurface` nodes, which
+// assumes away the one root this crate does not spawn: the movement stick's,
+// which belongs to `virtual_joystick` and can only be DISCOVERED. Discovery
+// tags it through `Commands`, so until it was part of the declared lifecycle
+// the frame a joystick appeared it carried neither marker — unplaced by
+// `apply_touch_control_placement`, unhidden by `sync_touch_ui_visibility` — and
+// showed for one frame at the joystick crate's own bottom-left corner
+// position, over gameplay, whatever the touch-controls setting said.
+
+/// An app that spawns the REAL joystick through the real plugin.
+fn joystick_app(display: ae::Vec2, profiles: GameplayPresentationProfiles) -> App {
+    let mut app = app(display);
+    app.world_mut()
+        .resource_mut::<ActiveGameplayPresentationProfiles>()
+        .0 = profiles;
+    app.add_plugins(VirtualJoystickPlugin::<MobileStick>::default());
+    // The real spawner, in the schedule the real plugin uses.
+    app.add_systems(
+        Startup,
+        ambition::touch_input::bevy_plugin::spawn_touch_joysticks,
+    );
+    app
+}
+
+/// The joystick root, once it exists.
+fn joystick_root(app: &mut App) -> Entity {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<Entity, With<VirtualJoystickNode<MobileStick>>>();
+    query
+        .iter(app.world())
+        .next()
+        .expect("the real joystick root exists")
+}
+
+/// On the FIRST frame the real joystick exists it is already part of the
+/// pipeline: tagged, placed, and obeying the touch-controls setting.
+#[test]
+fn the_real_joystick_is_placed_on_its_first_frame() {
+    let mut app = joystick_app(
+        ae::Vec2::new(1600.0, 900.0),
+        profiles::adaptive_platformer(),
+    );
+    // Exactly one frame. Startup spawns the joystick; Update must discover,
+    // publish, resolve and place it before this returns.
+    app.update();
+
+    let root = joystick_root(&mut app);
+    let entity = app.world().entity(root);
+    assert_eq!(
+        entity.get::<TouchSurface>().copied(),
+        Some(TouchSurface::Movement),
+        "the joystick root must be tagged in the same frame it appears",
+    );
+    assert!(
+        entity.contains::<MobileTouchUiRoot>(),
+        "and carry the touch UI root marker, or nothing can hide it",
+    );
+
+    let placement = *app.world().resource::<TouchControlPlacement>();
+    let movement = placement.movement.expect("the stick is placed");
+    let node = entity.get::<Node>().expect("the root has a Node");
+    assert_eq!(
+        (node.left, node.top),
+        (Val::Px(movement.min.x), Val::Px(movement.min.y)),
+        "the drawn root must sit at the resolved rectangle, not at the \
+         joystick crate's authored corner",
+    );
+
+    // Rendered placement and the drag-exclusion geometry are the same
+    // rectangle, read from the same resource — not two formulas that agree.
+    assert!(
+        movement.contains(movement.center()),
+        "the resolved movement region must be a real rectangle",
+    );
+    assert_eq!(
+        resolved(&app).controls.movement.map(|placed| placed.rect),
+        Some(movement),
+        "hit testing and rendering must read ONE resolved region",
+    );
+}
+
+/// Mary O reserves a 4:3 viewport. The joystick must never be seen over it,
+/// including on the frame it is created.
+#[test]
+fn the_real_joystick_never_flashes_over_mary_o_gameplay() {
+    // 2400x1080 leaves 720px side surrounds — room for the stick's reserved
+    // column, so the correct answer here is genuinely "outside gameplay".
+    let mut app = joystick_app(
+        ae::Vec2::new(2400.0, 1080.0),
+        profiles::fixed_four_by_three(),
+    );
+    app.update();
+
+    let layout = resolved(&app);
+    let movement = layout
+        .controls
+        .movement
+        .expect("the stick is placed in the reserved surround");
+    assert!(
+        movement.reserved,
+        "the fixture must actually reserve, got {:?}",
+        layout.controls.placement,
+    );
+
+    let root = joystick_root(&mut app);
+    let node = app.world().entity(root).get::<Node>().unwrap();
+    let drawn = ScreenRect::from_min_size(
+        ae::Vec2::new(px(node.left), px(node.top)),
+        ae::Vec2::new(px(node.width), px(node.height)),
+    );
+    assert!(
+        !drawn.overlaps(resolved(&app).gameplay_rect),
+        "the joystick must not be drawn over the 4:3 gameplay rect even on \
+         its first frame: {drawn:?} vs {:?}",
+        resolved(&app).gameplay_rect,
+    );
+}
+
+/// With the touch overlay switched off, the joystick must not be visible for
+/// even one frame.
+#[test]
+fn the_real_joystick_does_not_flash_when_touch_controls_are_off() {
+    let mut app = joystick_app(
+        ae::Vec2::new(1600.0, 900.0),
+        profiles::adaptive_platformer(),
+    );
+    set_touch_controls_visible(&mut app, false);
+    app.update();
+
+    let root = joystick_root(&mut app);
+    assert_eq!(
+        app.world().entity(root).get::<Visibility>().copied(),
+        Some(Visibility::Hidden),
+        "a joystick created while the touch overlay is off must be hidden on \
+         the frame it appears, not the frame after",
+    );
+    assert!(
+        app.world()
+            .resource::<TouchControlPlacement>()
+            .movement
+            .is_none(),
+        "and reserve no space, since hidden controls withdraw their footprints",
+    );
+
+    // Turning it back on restores both, without waiting a frame for a marker.
+    set_touch_controls_visible(&mut app, true);
+    app.update();
+    assert_eq!(
+        app.world().entity(root).get::<Visibility>().copied(),
+        Some(Visibility::Inherited),
+    );
+    assert!(app
+        .world()
+        .resource::<TouchControlPlacement>()
+        .movement
+        .is_some());
+}
+
+fn px(value: Val) -> f32 {
+    match value {
+        Val::Px(px) => px,
+        other => panic!("expected Px, got {other:?}"),
+    }
 }

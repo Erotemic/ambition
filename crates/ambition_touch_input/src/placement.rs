@@ -103,6 +103,13 @@ pub fn touch_control_footprints() -> ControlFootprints {
 /// collapses now or a frame later.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum TouchPresentationSet {
+    /// Find the control roots this crate does not spawn itself and tag them.
+    ///
+    /// The movement stick's root belongs to the `virtual_joystick` crate, so
+    /// this crate can only discover it after the fact. Discovery is part of the
+    /// lifecycle rather than a bystander system, because everything downstream
+    /// queries for the markers it attaches.
+    Discover,
     /// What the clusters need this frame, given contextual availability and
     /// the overlay visibility setting.
     PublishRequirements,
@@ -112,21 +119,80 @@ pub enum TouchPresentationSet {
 }
 
 impl TouchPresentationSet {
-    /// Declare the lifecycle: requirements before the resolve, placement after.
+    /// Declare the lifecycle: discover, then requirements before the resolve,
+    /// then placement after it.
     ///
     /// A free function rather than something each composer restates, because a
     /// restated edge is an edge that can be forgotten — and a forgotten one
     /// here does not fail loudly, it just draws the controls at last frame's
     /// rectangles.
+    ///
+    /// The `Discover → PublishRequirements` edge is also the deferred-command
+    /// boundary. Discovery tags roots through `Commands` and every system after
+    /// it queries for exactly those markers, so the markers must be applied in
+    /// between; Bevy's `auto_insert_apply_deferred` build pass (on by default)
+    /// inserts the sync point wherever a `Commands` system has an ordering
+    /// dependency, which this edge is. Declaring the order is therefore
+    /// sufficient AND necessary — a hand-written `ApplyDeferred` here changes
+    /// nothing, but dropping the edge means the frame a joystick is created it
+    /// is neither placed nor hidden: one visible frame at the joystick crate's
+    /// own corner position, over gameplay, whatever the touch-controls setting
+    /// says.
     pub fn configure(app: &mut bevy::prelude::App) {
         use ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet;
         use bevy::prelude::{IntoScheduleConfigs as _, Update};
         app.configure_sets(
             Update,
             (
+                Self::Discover,
                 Self::PublishRequirements.before(GameplayPresentationSet),
                 Self::ApplyPlacement.after(GameplayPresentationSet),
-            ),
+            )
+                .chain(),
+        );
+    }
+}
+
+/// The touch overlay's presentation lifecycle, as one installable unit.
+///
+/// Exists so the ordering contract has exactly ONE declaration. A composer that
+/// wired these systems up by hand — including a test — could declare the sets
+/// and forget an edge, and a forgotten edge here does not fail loudly: it draws
+/// the controls at last frame's rectangles, or leaves a freshly created
+/// joystick unplaced and visible for a frame. Installing the plugin is the only
+/// supported way to get the pipeline, so a test cannot pass against an ordering
+/// the real app lacks.
+pub struct TouchPresentationPlugin;
+
+impl bevy::prelude::Plugin for TouchPresentationPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use bevy::prelude::{IntoScheduleConfigs as _, Update};
+
+        TouchPresentationSet::configure(app);
+        app.init_resource::<TouchControlPlacement>();
+
+        app.add_systems(
+            Update,
+            crate::bevy_plugin::tag_virtual_joystick_root.in_set(TouchPresentationSet::Discover),
+        );
+        app.add_systems(
+            Update,
+            (
+                crate::bevy_plugin::sync_touch_visibility_from_settings,
+                crate::bevy_plugin::sync_touch_ui_visibility,
+                publish_touch_control_footprints,
+            )
+                .chain()
+                .in_set(TouchPresentationSet::PublishRequirements),
+        );
+        app.add_systems(
+            Update,
+            (
+                sync_touch_control_placement,
+                crate::bevy_plugin::apply_touch_control_placement,
+            )
+                .chain()
+                .in_set(TouchPresentationSet::ApplyPlacement),
         );
     }
 }

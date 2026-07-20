@@ -48,6 +48,13 @@ use ambition_ui_nav::DragScrollState;
 /// full-screen menu scrim — the scrim no longer swallows HUD input.
 pub const TOUCH_HUD_Z: i32 = 5000;
 
+/// The joystick crate's own plugin and root marker, re-exported.
+///
+/// A composer that installs [`crate::placement::TouchPresentationPlugin`]
+/// without the whole `TouchControlsPlugin` still needs the joystick itself for
+/// the discovery step to have anything to find.
+pub use virtual_joystick::{VirtualJoystickNode, VirtualJoystickPlugin};
+
 /// Joystick id. The `virtual_joystick` plugin is generic over a
 /// user-supplied id type; this enum picks Move (left stick) and
 /// Aim (right stick).
@@ -240,16 +247,12 @@ impl Plugin for TouchControlsPlugin {
         app.register_buttonlike_input::<crate::virtual_device::TouchStickDirection>();
         app.register_dual_axislike_input::<crate::virtual_device::TouchVirtualStick>();
 
-        // Requirements in, placement out, with the host's resolve between them.
-        // These edges used to be a single `.chain()` whose only relationship to
-        // the resolve was that `sync_touch_control_placement` came `.after` it,
-        // which left `publish_touch_control_footprints` AMBIGUOUS with the
-        // resolve that consumes its `ControlFootprints`.
-        crate::placement::TouchPresentationSet::configure(app);
+        // Discover, requirements in, placement out, with the host's resolve
+        // between them. One declaration, shared with every composer including
+        // the assembled tests.
+        app.add_plugins(crate::placement::TouchPresentationPlugin);
 
         app.add_plugins(VirtualJoystickPlugin::<MobileStick>::default())
-            // The resolved rectangles this crate draws and hit-tests against.
-            .init_resource::<crate::placement::TouchControlPlacement>()
             .insert_resource(MobileTouchState::default())
             .insert_resource(MenuTouchGestureState::default())
             .insert_resource(TouchButtonEdges::default())
@@ -285,27 +288,7 @@ impl Plugin for TouchControlsPlugin {
             .add_systems(
                 Update,
                 (
-                    sync_touch_visibility_from_settings,
-                    sync_touch_ui_visibility,
-                    crate::placement::publish_touch_control_footprints,
-                )
-                    .chain()
-                    .in_set(crate::placement::TouchPresentationSet::PublishRequirements),
-            )
-            .add_systems(
-                Update,
-                (
-                    crate::placement::sync_touch_control_placement,
-                    apply_touch_control_placement,
-                )
-                    .chain()
-                    .in_set(crate::placement::TouchPresentationSet::ApplyPlacement),
-            )
-            .add_systems(
-                Update,
-                (
                     position_frame_axis_glyphs,
-                    tag_virtual_joystick_root,
                     // The pointer-gesture lane: drag-scroll joins the menu
                     // frame after the participant populate rebuilt it, before
                     // the menu consumers read it.
@@ -371,7 +354,7 @@ impl Plugin for TouchControlsPlugin {
 /// Per Jon's "make mobile_touch overlay intentionally testable
 /// with a mouse on desktop builds. ... mouse is a single-pointer
 /// debug path, not a replacement for real multitouch testing."
-fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
+pub fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
     let knob = images.add(build_joystick_knob_image());
     let outline = images.add(build_joystick_outline_image());
 
@@ -523,7 +506,7 @@ fn position_frame_axis_glyphs(
 /// Find any `VirtualJoystickNode` entity that doesn't yet have
 /// our `MobileTouchUiRoot` marker and add it. Runs each Update;
 /// idempotent thanks to the `Without<MobileTouchUiRoot>` filter.
-fn tag_virtual_joystick_root(
+pub fn tag_virtual_joystick_root(
     mut cmd: Commands,
     query: Query<
         Entity,
@@ -634,13 +617,16 @@ fn build_joystick_outline_image() -> Image {
 /// node. Bevy `Visibility` propagates to children, so flipping
 /// the root nodes hides every button + bezel + stick UI in one
 /// pass.
-fn sync_touch_ui_visibility(
+pub fn sync_touch_ui_visibility(
     visible: Res<TouchControlsVisible>,
     mut query: Query<&mut Visibility, With<MobileTouchUiRoot>>,
 ) {
-    if !visible.is_changed() {
-        return;
-    }
+    // Deliberately NOT gated on `visible.is_changed()`. Roots appear at
+    // runtime — the joystick root is discovered and tagged in `Discover` just
+    // above — and a root that first exists on a frame the setting did not
+    // change would otherwise never be synced at all, staying visible under a
+    // `TouchControlsVisible(false)` session forever. The per-entity `!=` below
+    // keeps change detection honest, and there are a handful of roots.
     let target = if visible.0 {
         Visibility::Inherited
     } else {
@@ -656,7 +642,7 @@ fn sync_touch_ui_visibility(
 /// settings-menu toggle takes effect on the same frame it changes.
 /// Both values default to `true` so the HUD is on by default and
 /// the user can flip it off via the controls page.
-fn sync_touch_visibility_from_settings(
+pub fn sync_touch_visibility_from_settings(
     settings: Res<ambition_persistence::settings::UserSettings>,
     mut visible: ResMut<TouchControlsVisible>,
 ) {

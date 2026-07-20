@@ -23,7 +23,7 @@ use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
 
 use ambition::engine_core as ae;
-use ambition::host::gameplay_presentation::HostGameplayPresentationPlugin;
+use ambition::host::gameplay_presentation::{HostGameplayPresentationPlugin, ScreenOccupancy};
 use ambition::platformer::camera_layers::MainCamera;
 use ambition::presentation::gameplay_presentation::{
     profiles, ActiveGameplayPresentationProfiles, PresentationEnvironment,
@@ -308,5 +308,70 @@ fn hiding_the_controls_changes_the_layout_in_the_same_update() {
          ({:?} vs {:?})",
         now.subject_safe_rect,
         framed,
+    );
+}
+
+/// A transformed PARENT reaches its child's occupancy, through real layout.
+///
+/// `ui_layout_system` multiplies each node's local affine into its parent's, so
+/// a child under a scaled parent has a scaled `UiGlobalTransform` while its own
+/// `ComputedNode::size` is untouched. The host must therefore project the FULL
+/// affine; a translation-only read would report the child's unscaled layout box
+/// and reserve roughly four times the screen it actually covers.
+///
+/// Asserted as a ratio against the identical hierarchy at scale 1, so the test
+/// pins the propagation rather than restating Bevy's transform arithmetic.
+#[test]
+fn a_transformed_parent_reaches_its_childs_occupancy() {
+    fn occupancy_under_parent_scale(scale: f32) -> ScreenRect {
+        let mut app = app(ae::Vec2::new(1600.0, 900.0));
+        let child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(40.0),
+                    top: Val::Px(30.0),
+                    width: Val::Px(200.0),
+                    height: Val::Px(100.0),
+                    ..default()
+                },
+                ambition::presentation::gameplay_presentation::ScreenOccluder::hud(),
+            ))
+            .insert(InheritedVisibility::VISIBLE)
+            .id();
+        app.world_mut()
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(400.0),
+                    top: Val::Px(200.0),
+                    width: Val::Px(400.0),
+                    height: Val::Px(300.0),
+                    ..default()
+                },
+                UiTransform::from_scale(Vec2::splat(scale)),
+            ))
+            .insert(InheritedVisibility::VISIBLE)
+            .add_child(child);
+
+        // Occupancy is collected in PostUpdate, so one update suffices to
+        // observe it in `ScreenOccupancy` (the resolve consumes it next frame).
+        app.update();
+        let occupancy = &app.world().resource::<ScreenOccupancy>().0;
+        assert_eq!(occupancy.len(), 1, "exactly the HUD child occludes");
+        occupancy[0].rect
+    }
+
+    let plain = occupancy_under_parent_scale(1.0);
+    let halved = occupancy_under_parent_scale(0.5);
+
+    assert!(
+        (plain.size() - ae::Vec2::new(200.0, 100.0)).length() < 0.5,
+        "the untransformed child occupies its own layout box, got {plain:?}",
+    );
+    assert!(
+        (halved.size() - plain.size() * 0.5).length() < 0.5,
+        "a 0.5-scaled parent must halve its child's occupancy: {halved:?} vs {plain:?}",
     );
 }

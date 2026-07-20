@@ -212,7 +212,10 @@ pub fn collect_screen_occupancy(
                 };
                 let derived = occluder.from_computed_ui(
                     computed.size(),
-                    transform.translation,
+                    // The FULL affine, not its translation: a scaled or rotated
+                    // node — or one under a transformed parent — occupies its
+                    // transformed bounds, not its layout box.
+                    transform.affine(),
                     computed.inverse_scale_factor(),
                 );
                 let Some(derived) = derived else {

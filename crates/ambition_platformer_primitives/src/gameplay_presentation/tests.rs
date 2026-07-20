@@ -71,8 +71,16 @@ fn fixed_aspect_preserves_ratio_inside_the_safe_rect() {
 fn fixed_aspect_pillarboxes_when_wide_and_letterboxes_when_narrow() {
     let profile = four_three();
 
-    let wide = resolve(ae::Vec2::new(2400.0, 1080.0), ScreenInsets::ZERO, &profile, &[]);
-    assert!(wide.gameplay_rect.height() == 1080.0, "wide display should be height-bound");
+    let wide = resolve(
+        ae::Vec2::new(2400.0, 1080.0),
+        ScreenInsets::ZERO,
+        &profile,
+        &[],
+    );
+    assert!(
+        wide.gameplay_rect.height() == 1080.0,
+        "wide display should be height-bound"
+    );
     assert!(
         wide.surround_rect(SurroundRegion::Left).is_some()
             && wide.surround_rect(SurroundRegion::Right).is_some(),
@@ -84,15 +92,28 @@ fn fixed_aspect_pillarboxes_when_wide_and_letterboxes_when_narrow() {
     );
 
     // Narrower than 4:3 (a portrait-ish window) letterboxes instead.
-    let narrow = resolve(ae::Vec2::new(600.0, 800.0), ScreenInsets::ZERO, &profile, &[]);
-    assert!(narrow.gameplay_rect.width() == 600.0, "narrow display should be width-bound");
+    let narrow = resolve(
+        ae::Vec2::new(600.0, 800.0),
+        ScreenInsets::ZERO,
+        &profile,
+        &[],
+    );
+    assert!(
+        narrow.gameplay_rect.width() == 600.0,
+        "narrow display should be width-bound"
+    );
     assert!(
         narrow.surround_rect(SurroundRegion::Top).is_some()
             && narrow.surround_rect(SurroundRegion::Bottom).is_some(),
         "a narrow display must letterbox",
     );
 
-    let exact = resolve(ae::Vec2::new(1024.0, 768.0), ScreenInsets::ZERO, &profile, &[]);
+    let exact = resolve(
+        ae::Vec2::new(1024.0, 768.0),
+        ScreenInsets::ZERO,
+        &profile,
+        &[],
+    );
     assert_eq!(exact.gameplay_rect, exact.display_safe_rect);
     assert!(!exact.has_surround(), "a 4:3 display leaves no surround");
 }
@@ -110,7 +131,10 @@ fn full_bleed_uses_the_whole_safe_display() {
             resolved.gameplay_rect, resolved.display_safe_rect,
             "{name}: full bleed must equal the safe display",
         );
-        assert!(!resolved.has_surround(), "{name}: full bleed has no surround");
+        assert!(
+            !resolved.has_surround(),
+            "{name}: full bleed has no surround"
+        );
         assert_eq!(resolved.gameplay_rect.min, ae::Vec2::new(30.0, 0.0));
         assert_eq!(resolved.gameplay_rect.max, ae::Vec2::new(w, h - 18.0));
     }
@@ -134,7 +158,12 @@ fn degenerate_safe_area_insets_fall_back_to_the_display() {
 #[test]
 fn surround_regions_do_not_overlap_gameplay() {
     let profile = four_three();
-    let resolved = resolve(ae::Vec2::new(2400.0, 1080.0), ScreenInsets::ZERO, &profile, &[]);
+    let resolved = resolve(
+        ae::Vec2::new(2400.0, 1080.0),
+        ScreenInsets::ZERO,
+        &profile,
+        &[],
+    );
 
     let gameplay = resolved.gameplay_rect;
     for named in &resolved.surround_rects {
@@ -158,7 +187,12 @@ fn surround_regions_do_not_overlap_gameplay() {
 #[test]
 fn normal_framing_protects_the_whole_gameplay_rect() {
     let profile = GameplayPresentationProfile::full_bleed();
-    let resolved = resolve(ae::Vec2::new(1920.0, 1080.0), ScreenInsets::ZERO, &profile, &[]);
+    let resolved = resolve(
+        ae::Vec2::new(1920.0, 1080.0),
+        ScreenInsets::ZERO,
+        &profile,
+        &[],
+    );
     assert_eq!(resolved.subject_safe_region, NormalizedScreenRegion::FULL);
     assert!(resolved.soft_framing.is_none());
 }
@@ -200,7 +234,10 @@ fn occlusion_aware_framing_carves_the_cheapest_side() {
     // the vertical band the actor actually jumps through.
     let baseline = resolve(display, ScreenInsets::ZERO, &profile, &[]).subject_safe_rect;
     let carved = resolved.subject_safe_rect;
-    assert!(carved.min.x > baseline.min.x, "the left edge should move in");
+    assert!(
+        carved.min.x > baseline.min.x,
+        "the left edge should move in"
+    );
     assert_eq!(carved.max.x, baseline.max.x);
     assert_eq!(carved.min.y, baseline.min.y);
     assert_eq!(
@@ -211,9 +248,18 @@ fn occlusion_aware_framing_carves_the_cheapest_side() {
     // ...and "cheapest" is literal: no other single-side carve that clears the
     // stick would have cost less area.
     let alternatives = [
-        ScreenRect { min: baseline.min, max: ae::Vec2::new(occlusion.rect.min.x, baseline.max.y) },
-        ScreenRect { min: ae::Vec2::new(baseline.min.x, occlusion.rect.max.y), max: baseline.max },
-        ScreenRect { min: baseline.min, max: ae::Vec2::new(baseline.max.x, occlusion.rect.min.y) },
+        ScreenRect {
+            min: baseline.min,
+            max: ae::Vec2::new(occlusion.rect.min.x, baseline.max.y),
+        },
+        ScreenRect {
+            min: ae::Vec2::new(baseline.min.x, occlusion.rect.max.y),
+            max: baseline.max,
+        },
+        ScreenRect {
+            min: baseline.min,
+            max: ae::Vec2::new(baseline.max.x, occlusion.rect.min.y),
+        },
     ];
     for alternative in alternatives {
         assert!(
@@ -285,21 +331,24 @@ fn occlusion_composition_is_order_independent() {
         ae::Vec2::splat(24.0),
         ae::Vec2::splat(300.0),
     )
-    .self_resolved(bounds).expect("anchored");
+    .self_resolved(bounds)
+    .expect("anchored");
     let b = ScreenOccluder::anchored(
         ScreenOcclusionPurpose::VirtualActionCluster,
         ScreenAnchor::BottomRight,
         ae::Vec2::splat(16.0),
         ae::Vec2::new(320.0, 300.0),
     )
-    .self_resolved(bounds).expect("anchored");
+    .self_resolved(bounds)
+    .expect("anchored");
     let c = ScreenOccluder::anchored(
         ScreenOcclusionPurpose::PersistentHud,
         ScreenAnchor::TopLeft,
         ae::Vec2::splat(8.0),
         ae::Vec2::new(280.0, 90.0),
     )
-    .self_resolved(bounds).expect("anchored");
+    .self_resolved(bounds)
+    .expect("anchored");
 
     let forward = resolve(display, ScreenInsets::ZERO, &profile, &[a, b, c]).subject_safe_rect;
     let reverse = resolve(display, ScreenInsets::ZERO, &profile, &[c, b, a]).subject_safe_rect;
@@ -318,10 +367,19 @@ fn carving_stops_at_the_minimum_region() {
 
     // Four huge controls, one per corner: clearing them all is impossible.
     let hogs: Vec<ScreenOcclusion> = [
-        (ScreenAnchor::BottomLeft, ScreenOcclusionPurpose::VirtualMovementStick),
-        (ScreenAnchor::BottomRight, ScreenOcclusionPurpose::VirtualActionCluster),
+        (
+            ScreenAnchor::BottomLeft,
+            ScreenOcclusionPurpose::VirtualMovementStick,
+        ),
+        (
+            ScreenAnchor::BottomRight,
+            ScreenOcclusionPurpose::VirtualActionCluster,
+        ),
         (ScreenAnchor::TopLeft, ScreenOcclusionPurpose::PersistentHud),
-        (ScreenAnchor::TopRight, ScreenOcclusionPurpose::ContextualAction),
+        (
+            ScreenAnchor::TopRight,
+            ScreenOcclusionPurpose::ContextualAction,
+        ),
     ]
     .into_iter()
     .map(|(anchor, purpose)| {
@@ -332,7 +390,8 @@ fn carving_stops_at_the_minimum_region() {
     .collect();
 
     let resolved = resolve(display, ScreenInsets::ZERO, &profile, &hogs);
-    let floor = resolved.gameplay_rect.size() * SoftFramingProfile::platformer().min_region_fraction;
+    let floor =
+        resolved.gameplay_rect.size() * SoftFramingProfile::platformer().min_region_fraction;
     let size = resolved.subject_safe_rect.size();
     assert!(
         size.x >= floor.x && size.y >= floor.y,
@@ -346,7 +405,9 @@ fn carving_stops_at_the_minimum_region() {
 fn presets_declare_the_three_motivating_profiles() {
     let ambition = profiles::adaptive_platformer();
     assert_eq!(
-        ambition.for_environment(PresentationEnvironment::Desktop).framing,
+        ambition
+            .for_environment(PresentationEnvironment::Desktop)
+            .framing,
         SubjectFramingPolicy::Normal,
         "oracle 6: Ambition desktop retains normal framing",
     );
@@ -355,7 +416,9 @@ fn presets_declare_the_three_motivating_profiles() {
         .framing
         .consumes_occlusions());
     assert_eq!(
-        ambition.for_environment(PresentationEnvironment::Desktop).viewport,
+        ambition
+            .for_environment(PresentationEnvironment::Desktop)
+            .viewport,
         GameplayViewportPolicy::FullBleed,
     );
 
@@ -421,8 +484,14 @@ fn touch_primary_fixed_aspect_pins_to_the_top() {
     assert!(desktop.gameplay_rect.min.y > 0.0);
     assert_eq!(touch.gameplay_rect.size(), desktop.gameplay_rect.size());
     assert!(
-        touch.surround_rect(SurroundRegion::Bottom).unwrap().height()
-            > desktop.surround_rect(SurroundRegion::Bottom).unwrap().height(),
+        touch
+            .surround_rect(SurroundRegion::Bottom)
+            .unwrap()
+            .height()
+            > desktop
+                .surround_rect(SurroundRegion::Bottom)
+                .unwrap()
+                .height(),
     );
 }
 
@@ -430,9 +499,8 @@ fn touch_primary_fixed_aspect_pins_to_the_top() {
 /// defaults — a game that declares only `default` gets it everywhere.
 #[test]
 fn environments_fall_back_to_the_declared_default() {
-    let profiles = GameplayPresentationProfiles::uniform(
-        GameplayPresentationProfile::fixed_aspect(16.0, 9.0),
-    );
+    let profiles =
+        GameplayPresentationProfiles::uniform(GameplayPresentationProfile::fixed_aspect(16.0, 9.0));
     for environment in [
         PresentationEnvironment::Desktop,
         PresentationEnvironment::TouchPrimary,
@@ -504,7 +572,11 @@ fn computed_ui_occupancy_comes_from_the_layout() {
 
     // Physical pixels on a 2x display convert to logical, centre to corner.
     let occlusion = occluder
-        .from_computed_ui(ae::Vec2::new(400.0, 200.0), ae::Vec2::new(1000.0, 600.0), 0.5)
+        .from_computed_ui(
+            ae::Vec2::new(400.0, 200.0),
+            bevy::math::Affine2::from_translation(ae::Vec2::new(1000.0, 600.0)),
+            0.5,
+        )
         .expect("a sized node yields occupancy");
     assert_eq!(
         occlusion.rect,
@@ -513,7 +585,11 @@ fn computed_ui_occupancy_comes_from_the_layout() {
 
     assert!(
         occluder
-            .from_computed_ui(ae::Vec2::ZERO, ae::Vec2::splat(100.0), 1.0)
+            .from_computed_ui(
+                ae::Vec2::ZERO,
+                bevy::math::Affine2::from_translation(ae::Vec2::splat(100.0)),
+                1.0,
+            )
             .is_none(),
         "a zero-sized node cannot occlude anything",
     );
@@ -546,10 +622,7 @@ fn touch_footprints() -> ControlFootprints {
     }
 }
 
-fn resolve_controls(
-    display: ae::Vec2,
-    insets: ScreenInsets,
-) -> ResolvedGameplayPresentation {
+fn resolve_controls(display: ae::Vec2, insets: ScreenInsets) -> ResolvedGameplayPresentation {
     resolve_gameplay_presentation(GameplayPresentationInput {
         display_px: display,
         safe_area_insets: insets,
@@ -639,14 +712,23 @@ fn a_reserved_placement_never_overlaps_gameplay() {
 #[test]
 fn a_wide_display_reserves_both_thumb_clusters_at_full_size() {
     let resolved = resolve_controls(ae::Vec2::new(2400.0, 1080.0), ScreenInsets::ZERO);
-    assert_eq!(resolved.controls.placement, ControlPlacement::ReservedSurround);
+    assert_eq!(
+        resolved.controls.placement,
+        ControlPlacement::ReservedSurround
+    );
 
     let movement = resolved.controls.movement.expect("movement placed");
     let actions = resolved.controls.primary_actions.expect("actions placed");
     assert_eq!(movement.scale, 1.0);
     assert_eq!(actions.scale, 1.0);
-    assert!(movement.rect.max.x <= resolved.gameplay_rect.min.x + 0.01, "movement is left of play");
-    assert!(actions.rect.min.x >= resolved.gameplay_rect.max.x - 0.01, "actions are right of play");
+    assert!(
+        movement.rect.max.x <= resolved.gameplay_rect.min.x + 0.01,
+        "movement is left of play"
+    );
+    assert!(
+        actions.rect.min.x >= resolved.gameplay_rect.max.x - 0.01,
+        "actions are right of play"
+    );
 }
 
 /// The review's exact counterexample. At 1920x1200 a 4:3 viewport leaves 160px
@@ -658,7 +740,9 @@ fn insufficient_space_selects_the_documented_fallback() {
     let resolved = resolve_controls(ae::Vec2::new(1920.0, 1200.0), ScreenInsets::ZERO);
     assert_eq!(resolved.gameplay_rect.size(), ae::Vec2::new(1600.0, 1200.0));
     assert_eq!(
-        resolved.surround_rect(SurroundRegion::Left).map(|r| r.width()),
+        resolved
+            .surround_rect(SurroundRegion::Left)
+            .map(|r| r.width()),
         Some(160.0),
     );
 
@@ -676,17 +760,28 @@ fn a_slightly_narrow_surround_compacts_rather_than_overlaying() {
     // 1440 gameplay + 220 per side.
     let resolved = resolve_controls(ae::Vec2::new(1880.0, 1080.0), ScreenInsets::ZERO);
     assert_eq!(
-        resolved.surround_rect(SurroundRegion::Left).map(|r| r.width()),
+        resolved
+            .surround_rect(SurroundRegion::Left)
+            .map(|r| r.width()),
         Some(220.0),
     );
-    assert_eq!(resolved.controls.placement, ControlPlacement::CompactSurround);
+    assert_eq!(
+        resolved.controls.placement,
+        ControlPlacement::CompactSurround
+    );
 
     let movement = resolved.controls.movement.expect("movement placed");
     let actions = resolved.controls.primary_actions.expect("actions placed");
     assert_eq!(movement.scale, 1.0, "the stick is never compacted");
-    assert!(actions.scale < 1.0 && actions.scale >= 0.893, "actions compacted to the floor");
+    assert!(
+        actions.scale < 1.0 && actions.scale >= 0.893,
+        "actions compacted to the floor"
+    );
     for placed in resolved.controls.placed() {
-        assert!(placed.reserved, "a compact placement is still a reserved one");
+        assert!(
+            placed.reserved,
+            "a compact placement is still a reserved one"
+        );
     }
 }
 
@@ -696,7 +791,10 @@ fn a_column_that_fits_only_one_cluster_goes_hybrid() {
     // 1440 gameplay + 209 per side: below the stick's fixed 210, above the
     // action cluster's 208.1 floor.
     let resolved = resolve_controls(ae::Vec2::new(1858.0, 1080.0), ScreenInsets::ZERO);
-    assert_eq!(resolved.controls.placement, ControlPlacement::HybridSurround);
+    assert_eq!(
+        resolved.controls.placement,
+        ControlPlacement::HybridSurround
+    );
 
     let movement = resolved.controls.movement.expect("movement placed");
     let actions = resolved.controls.primary_actions.expect("actions placed");
@@ -732,7 +830,10 @@ fn an_overlay_policy_ignores_available_surround() {
         control_footprints: touch_footprints(),
     });
 
-    assert!(resolved.has_surround(), "the surround is there to be ignored");
+    assert!(
+        resolved.has_surround(),
+        "the surround is there to be ignored"
+    );
     assert_eq!(resolved.controls.placement, ControlPlacement::Overlay);
 }
 
@@ -755,10 +856,16 @@ fn no_published_footprints_places_nothing() {
 #[test]
 fn hud_zones_survive_alongside_reserved_controls() {
     let resolved = resolve_controls(ae::Vec2::new(2400.0, 1080.0), ScreenInsets::ZERO);
-    assert_eq!(resolved.controls.placement, ControlPlacement::ReservedSurround);
+    assert_eq!(
+        resolved.controls.placement,
+        ControlPlacement::ReservedSurround
+    );
 
     let hud = &resolved.controls.hud;
-    assert!(!hud.is_empty(), "PreferSurround HUD must get placement zones");
+    assert!(
+        !hud.is_empty(),
+        "PreferSurround HUD must get placement zones"
+    );
     for zone in hud {
         for placed in resolved.controls.placed() {
             assert!(
@@ -788,7 +895,10 @@ fn controls_follow_an_asymmetric_safe_area() {
     let bare_movement = bare.controls.movement.expect("movement placed");
     let inset_movement = inset.controls.movement.expect("movement placed");
     assert_eq!(bare_movement.rect.min.x, 0.0);
-    assert_eq!(inset_movement.rect.min.x, 80.0, "left cutout pushes the stick right");
+    assert_eq!(
+        inset_movement.rect.min.x, 80.0,
+        "left cutout pushes the stick right"
+    );
     assert!(
         inset_movement.rect.max.y < bare_movement.rect.max.y,
         "a bottom inset lifts the stick off the gesture bar",
@@ -867,7 +977,10 @@ fn occlusion_composition_is_invariant_under_every_permutation() {
         control_footprints: ControlFootprints::default(),
     })
     .subject_safe_rect;
-    assert_ne!(baseline, unoccluded, "the fixture must actually shrink the region");
+    assert_ne!(
+        baseline, unoccluded,
+        "the fixture must actually shrink the region"
+    );
 
     // All 120 orderings of five occluders.
     let mut indices = [0usize, 1, 2, 3, 4];

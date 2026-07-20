@@ -527,6 +527,103 @@ fn occupancy_follows_the_node_with_no_second_descriptor() {
     );
 }
 
+/// A SCALED node occupies its scaled bounds.
+///
+/// `UiTransform::scale` does not change `ComputedNode::size` — it lands in
+/// `UiGlobalTransform`'s matrix. Reading only the translation reported the
+/// unscaled box, so a HUD panel animating in with a scale tween reserved its
+/// final footprint on frame one and its actual footprint never.
+#[test]
+fn a_scaled_node_occupies_its_scaled_bounds() {
+    let mut app = host_app(
+        ae::Vec2::new(2400.0, 1080.0),
+        1.0,
+        occlusion_aware(),
+        PresentationEnvironment::TouchPrimary,
+    );
+    app.world_mut()
+        .spawn(stick_bundle())
+        .insert(UiGlobalTransform::from(
+            bevy::math::Affine2::from_scale_angle_translation(
+                ae::Vec2::new(0.5, 2.0),
+                0.0,
+                ae::Vec2::new(1000.0, 500.0),
+            ),
+        ));
+    settle(&mut app);
+
+    // A 600x600 node at half width and double height around (1000, 500).
+    assert_eq!(
+        occupied_rects(&app),
+        vec![ScreenRect::from_min_size(
+            ae::Vec2::new(850.0, -100.0),
+            ae::Vec2::new(300.0, 1200.0),
+        )],
+    );
+}
+
+/// A ROTATED node occupies the bounding box of its rotated corners.
+///
+/// Occupancy is axis-aligned by contract, so a 45-degree square must reserve
+/// the circumscribing box — `size * sqrt(2)` — not the box it would have had
+/// unrotated.
+#[test]
+fn a_rotated_node_occupies_its_bounding_box() {
+    let mut app = host_app(
+        ae::Vec2::new(2400.0, 1080.0),
+        1.0,
+        occlusion_aware(),
+        PresentationEnvironment::TouchPrimary,
+    );
+    app.world_mut()
+        .spawn(stick_bundle())
+        .insert(UiGlobalTransform::from(
+            bevy::math::Affine2::from_scale_angle_translation(
+                ae::Vec2::ONE,
+                std::f32::consts::FRAC_PI_4,
+                ae::Vec2::new(1200.0, 540.0),
+            ),
+        ));
+    settle(&mut app);
+
+    let rects = occupied_rects(&app);
+    assert_eq!(rects.len(), 1);
+    let expected = 600.0 * std::f32::consts::SQRT_2;
+    assert!(
+        (rects[0].width() - expected).abs() < 0.01 && (rects[0].height() - expected).abs() < 0.01,
+        "a 45-degree 600x600 node must reserve its {expected}px bounding box, got {:?}",
+        rects[0],
+    );
+    assert!(
+        (rects[0].center() - ae::Vec2::new(1200.0, 540.0)).length() < 0.01,
+        "and stay centred on the node, got {:?}",
+        rects[0].center(),
+    );
+}
+
+/// A transform that collapses the node to zero area occludes nothing, the same
+/// as a zero-sized layout.
+#[test]
+fn a_degenerate_transform_contributes_no_occlusion() {
+    let mut app = host_app(
+        ae::Vec2::new(2400.0, 1080.0),
+        1.0,
+        occlusion_aware(),
+        PresentationEnvironment::TouchPrimary,
+    );
+    app.world_mut()
+        .spawn(stick_bundle())
+        .insert(UiGlobalTransform::from(
+            bevy::math::Affine2::from_scale_angle_translation(
+                ae::Vec2::new(0.0, 1.0),
+                0.0,
+                ae::Vec2::new(1000.0, 500.0),
+            ),
+        ));
+    settle(&mut app);
+    assert!(occupied_rects(&app).is_empty());
+}
+
 /// `Display::None` removes a node from layout, so it occludes nothing.
 #[test]
 fn a_display_none_node_contributes_no_occlusion() {

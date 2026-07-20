@@ -414,7 +414,12 @@ pub enum ScreenAnchor {
 impl ScreenAnchor {
     /// Resolve a rectangle whose `offset_px` runs from the anchor toward the
     /// display interior.
-    pub fn resolve_rect(self, display: ScreenRect, offset_px: ae::Vec2, size: ae::Vec2) -> ScreenRect {
+    pub fn resolve_rect(
+        self,
+        display: ScreenRect,
+        offset_px: ae::Vec2,
+        size: ae::Vec2,
+    ) -> ScreenRect {
         let size = size.max(ae::Vec2::ZERO);
         let min = match self {
             Self::TopLeft => display.min + offset_px,
@@ -595,29 +600,68 @@ impl ScreenOccluder {
 
     /// Occupancy from a `bevy_ui` computed layout.
     ///
-    /// `size_physical` and `center_physical` are what `ComputedNode` and
-    /// `UiGlobalTransform` hold (physical pixels, centre origin);
-    /// `inverse_scale` is `ComputedNode::inverse_scale_factor`. Returns `None`
-    /// for a node with no area, which cannot occlude anything.
+    /// `size_physical` is `ComputedNode::size` and `transform` is the node's
+    /// `UiGlobalTransform`, both in physical pixels; `inverse_scale` is
+    /// `ComputedNode::inverse_scale_factor`. Returns `None` for a node with no
+    /// area, which cannot occlude anything.
     ///
     /// The ONE projection from computed UI layout into occupancy — the host
     /// collector and any producer testing its own occupancy call this same
     /// function rather than each doing the DPI arithmetic.
+    ///
+    /// # Why all four corners
+    ///
+    /// `UiGlobalTransform` is an [`Affine2`], not a translation: `UiTransform`
+    /// carries `scale` and `rotation`, and `ui_layout_system` multiplies each
+    /// node's local affine into its parent's, so a transformed ancestor reaches
+    /// here too. Reading only the translation reported a rotated or scaled
+    /// node's occupancy as its UNTRANSFORMED box centred at the right place —
+    /// correct for the identity transform every current producer happens to
+    /// use, and wrong the moment one animates a HUD panel in with a scale
+    /// tween.
+    ///
+    /// Occupancy is axis-aligned by contract (the carve consumes rectangles),
+    /// so the honest answer for a rotated node is the bounding box of its four
+    /// transformed corners. The node's local frame is centred on the origin,
+    /// spanning `-size/2 ..= size/2` — the same convention
+    /// `ComputedNode::contains_point` inverts against.
     pub fn from_computed_ui(
         self,
         size_physical: ae::Vec2,
-        center_physical: ae::Vec2,
+        transform: bevy::math::Affine2,
         inverse_scale: f32,
     ) -> Option<ScreenOcclusion> {
         if !inverse_scale.is_finite() || inverse_scale <= 0.0 {
             return None;
         }
-        let size = size_physical * inverse_scale;
-        if size.x <= 0.0 || size.y <= 0.0 {
+        let half = size_physical * 0.5;
+        if half.x <= 0.0 || half.y <= 0.0 {
             return None;
         }
-        let center = center_physical * inverse_scale;
-        Some(self.from_rect(ScreenRect::from_min_size(center - size * 0.5, size)))
+
+        let mut min = ae::Vec2::splat(f32::INFINITY);
+        let mut max = ae::Vec2::splat(f32::NEG_INFINITY);
+        for corner in [
+            ae::Vec2::new(-half.x, -half.y),
+            ae::Vec2::new(half.x, -half.y),
+            ae::Vec2::new(-half.x, half.y),
+            ae::Vec2::new(half.x, half.y),
+        ] {
+            let point = transform.transform_point2(corner) * inverse_scale;
+            min = min.min(point);
+            max = max.max(point);
+        }
+        if !min.is_finite() || !max.is_finite() {
+            return None;
+        }
+
+        let rect = ScreenRect { min, max };
+        // A degenerate transform (zero scale, say) collapses the box; nothing
+        // with no area occludes anything.
+        if rect.is_empty() {
+            return None;
+        }
+        Some(self.from_rect(rect))
     }
 
     /// Apply this occluder's purpose and padding to an already-known rect.

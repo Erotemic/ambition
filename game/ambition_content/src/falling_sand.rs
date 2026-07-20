@@ -157,7 +157,8 @@ pub struct FallingSandRoomPlugin;
 impl Plugin for FallingSandRoomPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        app.init_resource::<FallingSandRoomState>()
+        app.init_resource::<FallingSandProjectionReport>()
+            .init_resource::<FallingSandRoomState>()
             .add_plugins(
                 FallingSandPlugin::default()
                     .with_chunk_size(64)
@@ -898,9 +899,11 @@ fn project_particles_to_movement_world(
     visuals: Query<(Entity, &FallingSandMaterialVisual)>,
     mut scratch: Local<ProjectionScratch>,
     mut cap_warned: Local<bool>,
+    mut report: ResMut<FallingSandProjectionReport>,
 ) {
     if !state.active_room || room_set.active_spec().id != ROOM_ID {
         clear_material_visuals(&mut commands, &visuals);
+        *report = FallingSandProjectionReport::default();
         return;
     }
 
@@ -921,7 +924,7 @@ fn project_particles_to_movement_world(
     // truncated frame looks exactly like a settled one from the outside.
     warn_on_projection_cap(&ledger, &scratch, &mut cap_warned);
 
-    project_sand(&mut overlay.gate_solids, &mut scratch);
+    let sand_added = project_sand(&mut overlay.gate_solids, &mut scratch);
     let mut liquid_added: usize = 0;
     project_liquid(
         &mut overlay.water_regions,
@@ -942,6 +945,33 @@ fn project_particles_to_movement_world(
         ae::WaterKind::Murky,
         viscous_oil_spec(),
     );
+
+    // Record the funnel BEFORE returning: particles → tiles → over-threshold
+    // tiles → appended contributions → overlay totals. A stage that drops to
+    // zero while the previous one is non-zero names the regression outright.
+    let over = |tiles: &HashMap<(i32, i32), usize>, threshold: usize| {
+        tiles.values().filter(|count| **count >= threshold).count()
+    };
+    *report = FallingSandProjectionReport {
+        sand_particles: ledger.sand,
+        water_particles: ledger.water,
+        oil_particles: ledger.oil,
+        outside_world: ledger.outside_world,
+        sand_tiles: scratch.sand_tiles.len(),
+        water_tiles: scratch.water_tiles.len(),
+        oil_tiles: scratch.oil_tiles.len(),
+        visual_tiles: over(&scratch.sand_tiles, MATERIAL_VISUAL_THRESHOLD)
+            + over(&scratch.water_tiles, MATERIAL_VISUAL_THRESHOLD)
+            + over(&scratch.oil_tiles, MATERIAL_VISUAL_THRESHOLD),
+        sand_tiles_over_threshold: over(&scratch.sand_tiles, SAND_THRESHOLD),
+        liquid_tiles_over_threshold: over(&scratch.water_tiles, LIQUID_THRESHOLD)
+            + over(&scratch.oil_tiles, LIQUID_THRESHOLD),
+        sand_blocks_appended: sand_added,
+        liquid_regions_appended: liquid_added,
+        overlay_gate_solids: overlay.gate_solids.len(),
+        overlay_water_regions: overlay.water_regions.len(),
+        capped: sand_added >= MAX_DYNAMIC_SAND_TILES || liquid_added >= MAX_DYNAMIC_LIQUID_TILES,
+    };
 
     sync_material_visuals(&mut commands, &world.0, &scratch.desired_visuals, &visuals);
 }
@@ -981,7 +1011,7 @@ fn sorted_tiles_by_count_desc(tiles: &HashMap<(i32, i32), usize>) -> Vec<(i32, i
     keys
 }
 
-fn project_sand(out_blocks: &mut Vec<ae::Block>, scratch: &mut ProjectionScratch) {
+fn project_sand(out_blocks: &mut Vec<ae::Block>, scratch: &mut ProjectionScratch) -> usize {
     let keys = sorted_tiles_by_count_desc(&scratch.sand_tiles);
     let mut added = 0;
     for (tile_x, tile_y) in keys {
@@ -1006,6 +1036,7 @@ fn project_sand(out_blocks: &mut Vec<ae::Block>, scratch: &mut ProjectionScratch
         ));
         added += 1;
     }
+    added
 }
 
 fn project_liquid(
@@ -1121,6 +1152,7 @@ fn log_falling_sand_diagnostics(
     no_movement: Query<Entity, (With<Particle>, Without<Movement>)>,
     no_air: Query<Entity, (With<Particle>, Without<AirResistance>)>,
     no_rng: Query<Entity, (With<Particle>, Without<MovementRng>)>,
+    projection: Res<FallingSandProjectionReport>,
     mut next_log_at: Local<f32>,
 ) {
     if !state.active_room || room_set.active_spec().id != ROOM_ID {
@@ -1199,6 +1231,33 @@ fn log_falling_sand_diagnostics(
         band_grid_y_low,
         band_grid_y_high,
     );
+    // The particle→environment funnel. Read left to right: the first stage that
+    // collapses to zero is where the matter is being lost.
+    let p = &*projection;
+    bevy::log::info!(
+        "fs-diag projection: particles(sand={} water={} oil={} outside_room={}) \
+         -> tiles(sand={} water={} oil={}) \
+         -> over_env_threshold(sand>={} :{}  liquid>={} :{}) \
+         -> appended(sand_blocks={} liquid_regions={}) \
+         -> overlay(gate_solids={} water_regions={})  visual_tiles={}  capped={}",
+        p.sand_particles,
+        p.water_particles,
+        p.oil_particles,
+        p.outside_world,
+        p.sand_tiles,
+        p.water_tiles,
+        p.oil_tiles,
+        SAND_THRESHOLD,
+        p.sand_tiles_over_threshold,
+        LIQUID_THRESHOLD,
+        p.liquid_tiles_over_threshold,
+        p.sand_blocks_appended,
+        p.liquid_regions_appended,
+        p.overlay_gate_solids,
+        p.overlay_water_regions,
+        p.visual_tiles,
+        p.capped,
+    );
     bevy::log::info!(
         "fs-diag components: movement_ready={}  no_density={}  no_speed={}  no_movement={}  no_air_resistance={}  no_movement_rng={}  (total {:?})",
         movement_ready.iter().count(),
@@ -1209,6 +1268,41 @@ fn log_falling_sand_diagnostics(
         no_rng.iter().count(),
         total_particles,
     );
+}
+
+/// What the particle→environment projection actually did last frame.
+///
+/// The seam this room's regressions hide in: particles can pile up visibly
+/// while contributing nothing to collision or liquid, because tiles sit under
+/// the density thresholds, or the cap truncated them, or the contribution was
+/// emitted and then dropped by the overlay rebuild. The particle-side
+/// diagnostics cannot tell those apart — they only see particles. This records
+/// each step of the funnel so one log line says WHICH stage lost the matter.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+struct FallingSandProjectionReport {
+    /// Particles tallied into a tile bucket, by material.
+    sand_particles: usize,
+    water_particles: usize,
+    oil_particles: usize,
+    /// Particles whose grid cell mapped to no tile of this room.
+    outside_world: usize,
+    /// Distinct tiles holding any of that material.
+    sand_tiles: usize,
+    water_tiles: usize,
+    oil_tiles: usize,
+    /// Tiles at or above the VISUAL threshold (what the player sees).
+    visual_tiles: usize,
+    /// Tiles at or above the ENVIRONMENT threshold (what collision/liquid uses).
+    sand_tiles_over_threshold: usize,
+    liquid_tiles_over_threshold: usize,
+    /// What the projection actually appended to the overlay.
+    sand_blocks_appended: usize,
+    liquid_regions_appended: usize,
+    /// Overlay totals after this projection, including other contributors.
+    overlay_gate_solids: usize,
+    overlay_water_regions: usize,
+    /// The per-material cap truncated this frame.
+    capped: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]

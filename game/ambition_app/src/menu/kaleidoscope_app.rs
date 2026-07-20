@@ -4,10 +4,10 @@
 //! existing Bevy-UI grid through [`InventoryUiBackend`].
 //!
 //! The cube is pause-gated ([`gate_kaleidoscope_menu`]): its order-8 `Camera3d` + ring are
-//! only active while the inventory is open. While visible it clears its own
-//! background and suspends the main gameplay camera, avoiding a second full scene
-//! render. Routing nav/selection input to it is the next step — see
-//! `dev/journals/oot-cube-integration-plan.md`.
+//! only active while the inventory is open. It renders as a transparent overlay
+//! ABOVE the live gameplay camera (which stays active), with a dim-scrim on the
+//! world camera for text readability. Routing nav/selection input to it is the
+//! next step — see `dev/journals/oot-cube-integration-plan.md`.
 
 use ambition::menu::backend::{InventoryUiBackend, KALEIDOSCOPE_MENU_BACKEND_ENABLED};
 use ambition::menu::{
@@ -174,24 +174,17 @@ fn cube_render_needed(
     target > 0.0 || amount > 0.08
 }
 
-/// Peak opacity retained by the legacy readability scrim. The game now suspends
-/// the main gameplay camera while the cube is visible, so this scrim never renders
-/// during the open menu; it remains wired only to keep the close-threshold
-/// handoff from briefly restoring a dimmed gameplay frame.
+/// Peak opacity of the readability dim-scrim (black) when the cube is fully open.
+/// The game runs the cube as an Option-1 overlay (cube camera clears `None`, so the
+/// live world shows through); that busy world wrecks the cube text contrast. A
+/// full-screen translucent-black `bevy_ui` Node retargeted onto the order-0 main
+/// camera renders UNDER the order-8 cube but OVER the world, dimming the world so
+/// the cube text reads. The demo doesn't need this (it has a dark `ClearColor`).
 const SCRIM_PEAK_ALPHA: f32 = 0.7;
 
 /// Marks the full-screen readability dim-scrim node (game host only).
 #[derive(Component)]
 pub(crate) struct KaleidoscopeScrim;
-
-/// Records the exact active state of a main gameplay camera while the cube owns
-/// the substantive render. Storing this on the camera avoids assuming every main
-/// camera was active before the menu opened and lets a replacement camera spawned
-/// during the menu be suspended on its first observed frame.
-#[derive(Component, Clone, Copy, Debug)]
-struct KaleidoscopeSuspendedMainCamera {
-    was_active: bool,
-}
 
 /// Wire the 3D-cube menu into the app: the lib plugins + our page-feed system.
 ///
@@ -202,15 +195,16 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
     install_kaleidoscope_menu_backend(app);
 }
 
-/// Game-host configuration for the cube. Unlike the standalone renderer default,
-/// the game uses the cube as the sole substantive camera while it is visible, so
-/// the cube must clear its own background instead of depending on a live world
-/// camera underneath it.
+/// Game-host configuration for the cube: the Option-1 transparent overlay. The
+/// cube camera clears `None` so the live gameplay world stays visible underneath;
+/// the scrim (not a camera clear) supplies text contrast. Suspending the world
+/// camera instead and self-clearing was tried (2026-07-20) and rejected — it reads
+/// as "the 2d camera turned off" and breaks the pause-overlay identity.
 fn game_kaleidoscope_config() -> KaleidoscopeMenuConfig {
     KaleidoscopeMenuConfig {
         draw_nav_arrows: false,
         pickable_controls: true,
-        camera_clears: true,
+        camera_clears: false,
         ..Default::default()
     }
 }
@@ -1775,30 +1769,16 @@ fn cycle_dev_gravity(
     info!(target: "ambition::gravity", "dev gravity cycle: dir = {:?}", base.dir);
 }
 
-/// Pause-gate the cube and hand the substantive render from the gameplay camera
-/// to the cube camera while the fold is visible. The order-9 front-HUD camera and
-/// offscreen/portal cameras are intentionally outside both queries and retain their
-/// own active state.
+/// Pause-gate the cube: toggle ONLY the cube's order-8 `Camera3d` (and ring
+/// visibility) with the fold. Every other camera — the order-0 main gameplay
+/// camera, the order-9 front HUD, portal/offscreen captures — keeps its own
+/// routing untouched, so the live world stays visible under the transparent cube
+/// overlay and comes back the instant the fold clears.
 fn gate_kaleidoscope_menu(
-    mut commands: Commands,
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<ambition::inventory_ui::InventoryUiState>>,
     mut open_state: ResMut<ambition_menu_kaleidoscope::KaleidoscopeOpenState>,
-    mut cube_cameras: Query<
-        &mut Camera,
-        With<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>,
-    >,
-    mut main_cameras: Query<
-        (
-            Entity,
-            &mut Camera,
-            Option<&KaleidoscopeSuspendedMainCamera>,
-        ),
-        (
-            With<ambition::platformer::camera_layers::MainCamera>,
-            Without<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>,
-        ),
-    >,
+    mut cube_cameras: Query<&mut Camera, With<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>>,
     mut rings: Query<&mut Visibility, With<ambition_menu_kaleidoscope::MenuRing>>,
     mut last_show: Local<Option<bool>>,
 ) {
@@ -1824,31 +1804,15 @@ fn gate_kaleidoscope_menu(
     // (`close_speed_scale`), the scrim (which follows `amount`) reads as a quick
     // fade-out. The cutoff only matters while CLOSING; opening crosses it instantly.
     let shown = open_state.amount > 0.08;
-    // The cube is a full-screen pause presentation, not a transparent overlay.
-    // Rendering the complete gameplay world underneath it adds a second substantive
-    // scene pass and caused the measured 140 -> 100 FPS regression. Suspend only
-    // `MainCamera`; the front HUD and portal/offscreen cameras keep their independent
-    // routing. Restore each main camera to the state it actually had before opening.
+    // Overlay contract: the cube camera clears `None` and renders OVER the live
+    // world, so only the cube's own camera toggles here. Suspending the main
+    // gameplay camera while open was tried for perf (2026-07-20) and reverted:
+    // the actual open-menu frame cost was the per-frame face-rebuild churn, which
+    // the version-keyed rebuild gate now prevents, and killing the world render
+    // broke the pause-overlay design.
     for mut camera in &mut cube_cameras {
         if camera.is_active != shown {
             camera.is_active = shown;
-        }
-    }
-    for (entity, mut camera, suspended) in &mut main_cameras {
-        if shown {
-            if suspended.is_none() {
-                commands.entity(entity).insert(KaleidoscopeSuspendedMainCamera {
-                    was_active: camera.is_active,
-                });
-            }
-            if camera.is_active {
-                camera.is_active = false;
-            }
-        } else if let Some(suspended) = suspended {
-            camera.is_active = suspended.was_active;
-            commands
-                .entity(entity)
-                .remove::<KaleidoscopeSuspendedMainCamera>();
         }
     }
     let want = if shown {

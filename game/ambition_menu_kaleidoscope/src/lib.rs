@@ -254,8 +254,9 @@ pub struct KaleidoscopeMenuConfig {
     pub draw_nav_arrows: bool,
     /// Camera `order` for the cube's `Camera3d`.
     pub camera_order: isize,
-    /// Whether the cube camera clears the screen. Full-screen hosts that suspend
-    /// their world camera set this; transparent-overlay hosts may leave it off.
+    /// Whether the cube camera clears the screen. Transparent-overlay hosts (the
+    /// game) leave it off so the live world camera shows through; a standalone
+    /// demo with no world camera underneath turns it on.
     pub camera_clears: bool,
     /// Whether the cube camera starts active. The game gates this off and toggles
     /// it itself; a standalone demo can start it on.
@@ -454,10 +455,11 @@ fn setup_cube(mut commands: Commands, config: Res<KaleidoscopeMenuConfig>) {
         // when its optional LUT payload is trimmed, Bevy substitutes a magenta
         // diagnostic texture. `None` is both the intended look and the cheap path.
         Tonemapping::None,
-        // Keep the established four-sample camera contract. Runtime A/B evidence
-        // showed that forcing the menu cameras to `Msaa::Off` did not recover frame
-        // time and could make the open-menu result worse, so sample-count mutation is
-        // not part of the production camera gate.
+        // A Camera3d composited over a Camera2d on the same window MUST share its
+        // sample count or it renders its clear but drops all geometry. The game's
+        // Camera2d uses Bevy's default (Sample4); pin the same value explicitly.
+        // (A/B evidence also showed `Msaa::Off` recovers no frame time, so there
+        // is no perf reason to diverge.)
         Msaa::Sample4,
         Camera {
             order: config.camera_order,
@@ -465,8 +467,8 @@ fn setup_cube(mut commands: Commands, config: Res<KaleidoscopeMenuConfig>) {
             // active higher-order camera otherwise clears the whole screen every
             // frame, hiding the lower-order game cameras.
             is_active: config.camera_starts_active,
-            // The host chooses between a self-clearing full-screen presentation
-            // and transparent composition over another camera.
+            // Transparent clear (Option 1 overlay) keeps the live game world
+            // visible behind the cube. A standalone demo flips `camera_clears` on.
             clear_color: if config.camera_clears {
                 ClearColorConfig::default()
             } else {
@@ -742,13 +744,7 @@ pub fn rebuild_cube_faces<PageId, Action>(
     // value changed. Treating that tick as content invalidation despawns and rebuilds
     // every face every frame, repeatedly retriggering rich-text shaping, mesh uploads,
     // material extraction, and allocator churn.
-    if !*dirty
-        && !renderer_page_identity_changed(
-            *last_version,
-            last_active.as_ref(),
-            &pages,
-        )
-    {
+    if !*dirty && !renderer_page_identity_changed(*last_version, last_active.as_ref(), &pages) {
         return;
     }
     let version_changed = *last_version != Some(pages.version);
@@ -1297,13 +1293,13 @@ mod fade_tests;
 #[cfg(test)]
 mod fold_ease_tests;
 #[cfg(test)]
+mod rebuild_gate_tests;
+#[cfg(test)]
 mod scrollbar_tests;
 #[cfg(test)]
 mod scrollbar_thumb_tests;
 #[cfg(test)]
 mod tonemapping_tests;
-#[cfg(test)]
-mod rebuild_gate_tests;
 
 mod page;
 use page::{apply_dynamic_text, fade_color, render_page_model};

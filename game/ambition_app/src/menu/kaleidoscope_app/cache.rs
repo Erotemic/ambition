@@ -154,7 +154,13 @@ pub(crate) fn republish_kaleidoscope_pages(
     );
 
     let active = pages.active.unwrap_or(MenuPage::Items);
-    pages.pages = build_inventory_pages_with_quality_prompt(
+    // `replace_pages` bumps `version` — the renderer's ONLY content-invalidation
+    // signal. `rebuild_cube_faces` deliberately ignores Bevy change ticks (see its
+    // gate) and rebuilds solely on a `version` or `active` change, so a republish
+    // that assigns `pages.pages` directly without the bump renders NOTHING: the
+    // drill-down/scroll/inventory change this republish just baked never reaches
+    // the cube faces.
+    let built = build_inventory_pages_with_quality_prompt(
         &owned,
         owned.equipped(),
         cursor.focus,
@@ -165,7 +171,7 @@ pub(crate) fn republish_kaleidoscope_pages(
         system_nav.open_entry,
         key.quality,
     );
-    pages.active = Some(active);
+    pages.replace_pages(built, active);
     *last = Some(key);
 }
 

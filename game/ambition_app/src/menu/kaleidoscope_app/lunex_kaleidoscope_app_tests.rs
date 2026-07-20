@@ -1023,7 +1023,6 @@ fn opening_the_kaleidoscope_clears_stale_pointer_hover_state() {
     );
 }
 
-
 // ---- Republish value gate --------------------------------------------------
 
 #[derive(Resource, Default)]
@@ -1062,7 +1061,10 @@ fn dirty_resource_ticks_without_value_changes_do_not_republish_cube_pages() {
 
     app.update();
     let initial = app.world().resource::<PageRepublishCount>().0;
-    assert_eq!(initial, 1, "first visible frame publishes the cube pages once");
+    assert_eq!(
+        initial, 1,
+        "first visible frame publishes the cube pages once"
+    );
 
     // Reproduce the runtime false positive exactly: dirty both resource ticks while
     // preserving every value used by the page renderer.
@@ -1134,21 +1136,27 @@ fn real_inventory_and_settings_value_changes_republish_cube_pages() {
 // (no rebuild on a cursor-only move). These tests reproduce the drop and assert
 // the click now dispatches.
 
-/// A faithful stand-in for the lib's `rebuild_cube_faces`: whenever
-/// `ActiveMenuPages` is `Changed` (which the OLD republish did on every cursor
-/// move), despawn every `AmbitionMenuControl` and respawn the actionable controls
-/// from `pages.pages`. This reproduces the exact entity-id churn that dropped the
-/// click — the real renderer is too heavy to run headless.
+/// A faithful stand-in for the lib's `rebuild_cube_faces`: despawn every
+/// `AmbitionMenuControl` and respawn the actionable controls from `pages.pages`,
+/// under the SAME gate the real renderer uses — a change in the published
+/// `version` or `active` page, NEVER `pages.is_changed()`. The real renderer
+/// deliberately ignores Bevy's broad resource change tick; mirroring that gate
+/// here is what lets these tests catch a host republish that forgets the
+/// `version` bump (the 2026-07-20 "menu never updates on drill-down" break).
+/// The despawn/respawn reproduces the entity-id churn that dropped clicks
+/// (Bug 2) — the real renderer is too heavy to run headless.
 fn fake_rebuild_cube_faces(
     mut commands: Commands,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     existing: Query<Entity, With<AmbitionMenuControl<MenuPageAction>>>,
-    mut built: Local<bool>,
+    mut last_version: Local<Option<u64>>,
+    mut last_active: Local<Option<MenuPage>>,
 ) {
-    if !pages.is_changed() && *built {
+    if *last_version == Some(pages.version) && *last_active == pages.active {
         return;
     }
-    *built = true;
+    *last_version = Some(pages.version);
+    *last_active = pages.active;
     for entity in &existing {
         commands.entity(entity).despawn();
     }
@@ -1334,6 +1342,40 @@ fn bug2_system_row_click_survives_a_hover_republish() {
         Some(SystemMenuEntryId::Audio),
         "clicking a System row after a hover-move must still drill in (Bug 2)"
     );
+}
+
+/// REGRESSION (2026-07-20, "the menu doesn't update when you drill down"): the
+/// renderer rebuilds ONLY on a published `version` or `active`-page change, and
+/// the host's republish assigned `pages.pages` directly WITHOUT bumping
+/// `version` — nav state and page data updated, but the cube kept rendering the
+/// stale entry list forever. Prove the whole seam end to end: a drill-in click
+/// republishes, bumps the version, and the (gate-faithful) renderer swaps the
+/// face's controls to the drilled-in screen.
+#[test]
+fn drilling_into_a_system_entry_republishes_and_rebuilds_the_face() {
+    let mut app = bug2_app(MenuPage::System);
+    app.update();
+    let version_before = app
+        .world()
+        .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        .version;
+
+    click_control(
+        &mut app,
+        MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Audio),
+    );
+
+    let pages = app
+        .world()
+        .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
+    assert_ne!(
+        pages.version, version_before,
+        "a drill-in republish must bump the published version — it is the \
+         renderer's ONLY content-invalidation signal"
+    );
+    // The rendered face now carries the drilled-in Audio screen (its Back row),
+    // not the stale entry list. `control_entity` panics if the rebuild never ran.
+    control_entity(&mut app, MenuPageAction::CloseSystemEntry);
 }
 
 // ---- Features C/D/E: scroll position + tap/drag cancel --------------------
@@ -2232,7 +2274,7 @@ fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     );
 }
 
-// ---- Sole-camera performance regression ---------------------------------
+// ---- Overlay camera contract ---------------------------------------------
 
 #[derive(Component)]
 struct UnrelatedCaptureCamera;
@@ -2244,25 +2286,22 @@ fn camera_active(app: &App, entity: Entity) -> bool {
         .is_active
 }
 
-/// Regression for the sustained 140 -> 100 FPS drop: the Option-1 overlay
-/// experiment left the complete gameplay scene rendering underneath the full-screen
-/// 3D menu. The cube must own the substantive render while its fold is visible
-/// without disturbing unrelated capture-camera routes.
-#[test]
-fn visible_cube_suspends_only_the_main_gameplay_camera() {
+/// Every camera the overlay contract touches: a live main gameplay camera, the
+/// front HUD, an unrelated capture-style camera, and the (initially off) cube
+/// camera, with the menu open and the fold at `amount`.
+fn overlay_camera_app(amount: f32) -> (App, Entity, Entity, Entity, Entity) {
     use ambition::platformer::camera_layers::{FrontHudCamera, MainCamera};
 
     let mut app = App::new();
     app.init_resource::<InventoryUiBackend>();
-    *app.world_mut().resource_mut::<InventoryUiBackend>() =
-        InventoryUiBackend::LunexKaleidoscope;
+    *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
     app.insert_resource(ambition::inventory_ui::InventoryUiState {
         visible: true,
         ..Default::default()
     });
     app.insert_resource(ambition_menu_kaleidoscope::KaleidoscopeOpenState {
-        amount: 1.0,
-        target: 1.0,
+        amount,
+        target: amount,
     });
     app.add_systems(Update, gate_kaleidoscope_menu);
 
@@ -2285,74 +2324,47 @@ fn visible_cube_suspends_only_the_main_gameplay_camera() {
             ambition_menu_kaleidoscope::KaleidoscopePauseCamera,
         ))
         .id();
+    (app, main, front, capture, cube)
+}
 
+/// The cube is an Option-1 TRANSPARENT OVERLAY: opening it activates the cube's
+/// own camera and touches nothing else. The main gameplay camera keeps rendering
+/// underneath (the scrim, not a camera handoff, supplies text contrast).
+///
+/// REGRESSION (2026-07-20): a perf pass rerouted the gate to suspend `MainCamera`
+/// while the fold was visible — the live world vanished ("the 2d camera turned
+/// off") the moment the menu opened. The actual open-menu frame cost was the
+/// per-frame face-rebuild churn, which the version-keyed rebuild gate prevents;
+/// the world render underneath is the intended design and must stay.
+#[test]
+fn open_cube_leaves_the_main_gameplay_camera_active() {
+    let (mut app, main, front, capture, cube) = overlay_camera_app(1.0);
     app.update();
 
-    assert!(!camera_active(&app, main), "main world render is suspended");
-    assert!(camera_active(&app, cube), "cube camera owns the pause render");
-    assert!(camera_active(&app, front), "front HUD remains available");
     assert!(
-        camera_active(&app, capture),
-        "portal/offscreen-style cameras are outside the routing gate"
+        camera_active(&app, main),
+        "the live world keeps rendering under the transparent cube overlay"
     );
     assert!(
-        app.world()
-            .get::<KaleidoscopeSuspendedMainCamera>(main)
-            .is_some(),
-        "the main camera's prior state is recorded for exact restoration"
+        camera_active(&app, cube),
+        "cube camera turns on with the fold"
+    );
+    assert!(
+        camera_active(&app, front),
+        "front HUD keeps its own routing"
+    );
+    assert!(
+        camera_active(&app, capture),
+        "portal/offscreen-style cameras are outside the gate entirely"
     );
 }
 
-/// Closing after the fold crosses the visibility cutoff restores the exact prior
-/// state, including preserving a main camera that was already inactive before the
-/// menu opened and preserving the front-HUD camera's active state.
+/// Closing past the fold cutoff turns the cube camera back off — and still
+/// touches no other camera's routing, so the world never flickers on a close.
 #[test]
-fn closing_cube_restores_each_main_camera_prior_state() {
-    use ambition::platformer::camera_layers::{FrontHudCamera, MainCamera};
-
-    let mut app = App::new();
-    app.init_resource::<InventoryUiBackend>();
-    *app.world_mut().resource_mut::<InventoryUiBackend>() =
-        InventoryUiBackend::LunexKaleidoscope;
-    app.insert_resource(ambition::inventory_ui::InventoryUiState {
-        visible: true,
-        ..Default::default()
-    });
-    app.insert_resource(ambition_menu_kaleidoscope::KaleidoscopeOpenState {
-        amount: 1.0,
-        target: 1.0,
-    });
-    app.add_systems(Update, gate_kaleidoscope_menu);
-
-    let active_main = app.world_mut().spawn((Camera::default(), MainCamera)).id();
-    let inactive_main = app
-        .world_mut()
-        .spawn((
-            Camera {
-                is_active: false,
-                ..Default::default()
-            },
-            MainCamera,
-        ))
-        .id();
-    let front = app
-        .world_mut()
-        .spawn((Camera::default(), FrontHudCamera))
-        .id();
-    let cube = app
-        .world_mut()
-        .spawn((
-            Camera {
-                is_active: false,
-                ..Default::default()
-            },
-            ambition_menu_kaleidoscope::KaleidoscopePauseCamera,
-        ))
-        .id();
-
+fn closing_cube_toggles_only_the_cube_camera() {
+    let (mut app, main, front, capture, cube) = overlay_camera_app(1.0);
     app.update();
-    assert!(!camera_active(&app, active_main));
-    assert!(!camera_active(&app, inactive_main));
     assert!(camera_active(&app, cube));
 
     app.world_mut()
@@ -2367,31 +2379,27 @@ fn closing_cube_restores_each_main_camera_prior_state() {
     }
     app.update();
 
-    assert!(camera_active(&app, active_main), "active main is restored");
-    assert!(
-        !camera_active(&app, inactive_main),
-        "previously inactive main remains inactive"
-    );
     assert!(!camera_active(&app, cube), "cube camera turns back off");
-    assert!(camera_active(&app, front), "front HUD active state is restored");
     assert!(
-        app.world()
-            .get::<KaleidoscopeSuspendedMainCamera>(active_main)
-            .is_none()
-            && app
-                .world()
-                .get::<KaleidoscopeSuspendedMainCamera>(inactive_main)
-                .is_none(),
-        "temporary routing state is removed after restoration"
+        camera_active(&app, main),
+        "main camera routing was never touched"
+    );
+    assert!(
+        camera_active(&app, front),
+        "front HUD routing was never touched"
+    );
+    assert!(
+        camera_active(&app, capture),
+        "capture routing was never touched"
     );
 }
 
 #[test]
-fn game_cube_configuration_clears_without_a_live_world_camera() {
+fn game_cube_configuration_overlays_the_live_world_camera() {
     let config = game_kaleidoscope_config();
     assert!(
-        config.camera_clears,
-        "sole-camera presentation must clear its own render target"
+        !config.camera_clears,
+        "overlay contract: the cube camera must NOT clear — the live world renders underneath"
     );
     assert!(
         !config.camera_starts_active,

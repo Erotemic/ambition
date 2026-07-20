@@ -64,6 +64,19 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   share one policy. A trace may legitimately want to keep predicted history,
   or key rows by GGRS frame so corrected state replaces them — it has no
   frame key today, so it cannot.
+- ✅ **FS2/FS3 sand slice** (`574550a6d`, Jon-directed 2026-07-20; ruling +
+  full card in `falling-sand.md` §4). The one-CA-step experiment resolved
+  REPLACE from `bevy_falling_sand`'s source (private PostUpdate systems, a
+  step signal that fires twice, DirtyAdvance starvation, parallel+RNG core).
+  Sand now runs on a bespoke deterministic grid in
+  `ambition_content::falling_sand_sim` (UNGATED; proofs run in every content
+  test): one solver step per sim tick, conservation
+  `loose + settled == emitted` asserted every tick, fixed-point settling
+  proved, FS3 atomic transfer into a persistent `SettledSandLedger` that owns
+  collision (kills the transient flicker), authored-room regression green in
+  2.9s. OPEN: water/oil still on the external crate (level-finding,
+  tick-lock); the bfs-side sand plumbing is vestigial and dies with that
+  slice.
 
 **Keystone slices**
 - ✅ **K1a movement tuning** — exit criterion MET. `ae::ActiveMovementTuning`

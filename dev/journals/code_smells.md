@@ -22,6 +22,18 @@ Entry format:
 
 ## Open
 
+## 2026-07-20 bfs-side sand plumbing is vestigial after the FS2/FS3 sand slice
+- **Where:** `game/ambition_content/src/falling_sand.rs` — the `MaterialKind::Sand` arms, `project_sand`, `dense_sand`, `SAND_THRESHOLD`, and the `TallyLedger.sand` column.
+- **Smell:** sand no longer enters `bevy_falling_sand` (it runs on `falling_sand_sim`'s deterministic grid, `574550a6d`), so this code sees zero sand particles forever. It stays only because deleting it churns the water/oil path the sand directive explicitly fenced off.
+- **Noticed while:** landing the FS2/FS3 sand slice.
+- **Suggested fix / size:** M — delete WITH the water/oil correctness slice (which replaces the whole bfs bridge); doing it standalone would rewrite `tally_particles`/`project_liquid` twice.
+
+## 2026-07-20 Falling-sand step scans the full grid width per occupied row
+- **Where:** `falling_sand_sim/sand_grid.rs` — `step`/`settle_into` iterate every x in rows whose `row_loose > 0`.
+- **Smell:** fine at current scale (rows skip in O(1) when empty; 1024-wide room), but a fully flooded room walks ~650k cells/tick. Per-row min/max x spans would bound it.
+- **Noticed while:** landing the slice; deliberately NOT optimized (no evidence it matters yet).
+- **Suggested fix / size:** S if profiling ever names it.
+
 ## 2026-07-19 Simulation-originated presentation effects have no seam and no confirmed-frame release
 - **Where:** 27 direct `MessageWriter<VfxMessage>` sites, plus FOUR more request families with their own direct writers — `EffectRequest` (6), `DebrisBurstMessage` (6), `ExplosionRequest` (3), `FireworksRequest` (1). Audio has exactly one producer (`ambition_sfx::SfxWriter`), which is why `010c84369` could add its guard in one place.
 - **Smell:** every one of these re-fires when a rollback re-simulates a frame, and there is no single place to intervene. Counting only `VfxMessage` UNDER-scopes the problem by four families.

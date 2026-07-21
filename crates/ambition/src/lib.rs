@@ -99,4 +99,15 @@ pub mod presentation {
     /// [`with_presentation_profiles`](ambition_platformer_provider::PlatformerExperienceAuthoring::with_presentation_profiles).
     pub use ambition_platformer_primitives::gameplay_presentation;
     pub use ambition_platformer_primitives::gameplay_presentation::profiles;
+
+    /// The DECLARED-HUD seam: a game declares its readout slots with
+    /// [`with_hud`](ambition_platformer_provider::PlatformerExperienceAuthoring::with_hud)
+    /// and publishes their live values into [`HudReadouts`] each frame. The
+    /// engine holds no readout vocabulary — every label is a string the game
+    /// writes.
+    pub use ambition_platformer_primitives::gameplay_presentation::{
+        ActiveHudDeclaration, HudDeclaration, HudReadout, HudReadouts, HudSlotId, HudSlotSpec,
+        SurroundRegion,
+    };
+    pub use ambition_render::hud::declared::{DeclaredHudPlugin, DeclaredHudRoot, DeclaredHudSlot};
 }

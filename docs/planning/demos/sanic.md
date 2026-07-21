@@ -105,12 +105,18 @@ render as the shared coin sprite.
 
 Deferred, in priority order:
 
-- **Persistent ring HUD counter.** The count lives in `BodyWallet` and is
-  proven by tests, but the standalone Sanic app renders no HUD/banner (that is
-  Ambition-app only; OV1 asserts the presentation face adds zero UI nodes). On
-  collect the player gets the spark + ding but no on-screen tally. Building a
-  demo-owned app-side HUD (`RINGS: N`) means relaxing the OV1 node-count assertion
-  to distinguish presentation-plugin nodes from demo-owned HUD nodes.
+- ~~**Persistent ring HUD counter.**~~ **LANDED 2026-07-21.** `RINGS n` draws
+  from a single declared slot. It needed no new simulation at all: rings are
+  authored `currency:1` pickups, the shared economy credits `BodyWallet`, and
+  `PlayerHudFacts` already republished that balance every tick — so the whole
+  feature is `readouts.set_labelled(RINGS_HUD_SLOT, "RINGS", facts.balance)`.
+  The predicted OV1 relaxation happened as described, and both directions are
+  now pinned: engine-owned UI must be exactly 0 (filtering by the demo marker
+  alone would let an engine node hide by wearing it), and the demo's own HUD
+  must draw exactly as many nodes as it declared. A separate test reads the
+  text back, because a HUD that spawns the right number of EMPTY nodes is
+  indistinguishable from a working one in a node count — poison-tested by
+  removing the publisher, which leaves every count green and fails only that.
 - ~~**Dedicated ring sprite.**~~ LANDED (commit `7dc7c1711`): rings draw the
   animated `sanic_ring_prop` sheet via the new engine capability *animated feature
   sprites* (`animate_feature_sprites` + `PickupSpec.sprite`) — a pickup carries an

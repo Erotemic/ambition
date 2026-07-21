@@ -204,6 +204,39 @@ pub fn select_active_presentation_profiles(
     }
 }
 
+/// Copy the active route's declared HUD into the resource the renderer
+/// consumes.
+///
+/// Exactly parallel to [`select_active_presentation_profiles`], and here for
+/// the same reason: this is the only place routes and HUD declarations meet,
+/// and `ambition_render` cannot see routes at all, so it cannot grow a
+/// game-name branch even by accident.
+///
+/// A route with no declaration — the launcher, a menu, a game that wants no
+/// HUD — resolves to `None`, and the renderer draws no HUD surface.
+pub fn select_active_hud_declaration(
+    router: Res<ambition_game_shell::ShellRouter>,
+    catalog: Option<
+        Res<ambition_platformer_primitives::gameplay_presentation::HudDeclarationCatalog>,
+    >,
+    mut active: ResMut<ambition_platformer_primitives::gameplay_presentation::ActiveHudDeclaration>,
+) {
+    let declared = router
+        .active
+        .as_ref()
+        .zip(catalog.as_deref())
+        .and_then(|(active, catalog)| catalog.get(active.route_id.as_str()))
+        .cloned();
+    let changed = match (&active.0, &declared) {
+        (None, None) => false,
+        (Some(current), Some(next)) => current.slots.len() != next.slots.len(),
+        _ => true,
+    };
+    if changed {
+        active.0 = declared;
+    }
+}
+
 /// Everything a provider authors about its experience, plus [`install`] — the
 /// single registration seam that wires the experience into the shared
 /// preparation/activation lifecycle.
@@ -221,6 +254,10 @@ pub struct PlatformerExperienceAuthoring {
     /// How this experience wants gameplay framed on the physical display.
     /// `None` keeps the engine default (full-bleed, normal framing).
     pub presentation: Option<GameplayPresentationProfiles>,
+    /// What this experience's HUD reads out. `None` means it has no declared
+    /// HUD — the default, and what every experience did before this seam
+    /// existed.
+    pub hud: Option<ambition_platformer_primitives::gameplay_presentation::HudDeclaration>,
 }
 
 impl PlatformerExperienceAuthoring {
@@ -241,6 +278,7 @@ impl PlatformerExperienceAuthoring {
             catalogs,
             loading: None,
             presentation: None,
+            hud: None,
         }
     }
 
@@ -251,6 +289,22 @@ impl PlatformerExperienceAuthoring {
     /// normal framing, which is what every game got before this existed.
     pub fn with_presentation_profiles(mut self, profiles: GameplayPresentationProfiles) -> Self {
         self.presentation = Some(profiles);
+        self
+    }
+
+    /// Declare this experience's HUD readouts.
+    ///
+    /// The declaration says which slots exist, in what order, preferring which
+    /// surround region — never what they mean. The live values arrive each
+    /// frame through
+    /// [`HudReadouts`](ambition_platformer_primitives::gameplay_presentation::HudReadouts),
+    /// written by a system the GAME owns, so the engine holds no content
+    /// vocabulary and a second game needs no core edit to get a HUD.
+    pub fn with_hud(
+        mut self,
+        hud: ambition_platformer_primitives::gameplay_presentation::HudDeclaration,
+    ) -> Self {
+        self.hud = Some(hud);
         self
     }
 
@@ -336,6 +390,16 @@ impl PlatformerExperienceAuthoring {
             app.world_mut()
                 .resource_mut::<GameplayPresentationProfileCatalog>()
                 .insert(self.route_id.clone(), presentation);
+        }
+        if let Some(hud) = self.hud.clone() {
+            app.init_resource::<
+                ambition_platformer_primitives::gameplay_presentation::HudDeclarationCatalog,
+            >();
+            app.world_mut()
+                .resource_mut::<
+                    ambition_platformer_primitives::gameplay_presentation::HudDeclarationCatalog,
+                >()
+                .insert(self.route_id.clone(), hud);
         }
         if let Some(loading) = self.loading.clone() {
             app.init_resource::<ambition_load_presentation::ShellLoadPresentationCatalog>();

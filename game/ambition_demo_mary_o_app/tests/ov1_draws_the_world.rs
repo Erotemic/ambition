@@ -63,6 +63,30 @@ fn ui_node_count(app: &mut App) -> usize {
     query.iter(app.world()).count()
 }
 
+/// UI nodes the ENGINE'S presentation face brought in — every `bevy_ui` node
+/// that is NOT part of a HUD this demo itself declared.
+///
+/// The distinction is the whole point of the guard after the declared-HUD seam
+/// landed. "Zero UI nodes" used to be a fine proxy for "the engine dragged in no
+/// game UI", because a demo could not have a HUD at all. Now it can, by
+/// DECLARING one on its provider — so the guard has to name what it forbids
+/// (engine-owned UI) instead of forbidding all UI and thereby forbidding the
+/// demo's own feature.
+fn engine_owned_ui_node_count(app: &mut App) -> usize {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&bevy::ui::Node, bevy::prelude::Without<ambition::presentation::DeclaredHudRoot>>();
+    query.iter(app.world()).count()
+}
+
+/// Nodes belonging to the HUD this demo declared.
+fn declared_hud_node_count(app: &mut App) -> usize {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&bevy::ui::Node, bevy::prelude::With<ambition::presentation::DeclaredHudRoot>>();
+    query.iter(app.world()).count()
+}
+
 fn active_route(app: &App) -> Option<&str> {
     app.world()
         .resource::<ShellRouter>()
@@ -130,16 +154,24 @@ fn the_presentation_plugin_adds_no_hud_and_no_menu() {
     let mut app = drawn_demo();
     settle(&mut app);
 
-    let ui_nodes = {
-        let mut q = app.world_mut().query::<&bevy::ui::Node>();
-        q.iter(app.world()).count()
-    };
     assert_eq!(
-        ui_nodes, 0,
+        engine_owned_ui_node_count(&mut app),
+        0,
         "the engine's presentation face draws the WORLD. Ambition's HUD, its \
          pause menu, and its dev overlays are the game's, assembled app-side. A \
-         demo that wants a HUD builds its own — that is what `owns` means in the \
+         demo that wants a HUD declares one — that is what `owns` means in the \
          demos doctrine."
+    );
+
+    // The other direction, and it is not optional: filtering the count above by
+    // a demo-owned marker would let an engine node hide simply by acquiring
+    // that marker. Pinning the demo's own HUD to EXACTLY what it declared means
+    // neither side can drift without a failure — too few and the demo's feature
+    // regressed, too many and something else is wearing its marker.
+    assert_eq!(
+        declared_hud_node_count(&mut app),
+        4,
+        "this demo declares 4 HUD readout(s); it must draw exactly that many"
     );
 
     // ...and the engine's own visual-quality budget IS part of the face, because
@@ -229,8 +261,17 @@ fn visible_mary_o_presentation_retires_and_relaunches_with_the_session() {
         "relaunched room visuals remain activation-owned"
     );
     assert_eq!(
-        ui_node_count(&mut app),
+        engine_owned_ui_node_count(&mut app),
         0,
         "the launcher presentation retires when gameplay resumes"
+    );
+    // ...and the demo's own HUD comes back WITH the session. It is
+    // session-scoped, so a relaunch that rebuilt the world but not the readouts
+    // would leave a game running with no HUD — silently, since nothing else
+    // counts these nodes.
+    assert_eq!(
+        declared_hud_node_count(&mut app),
+        4,
+        "the declared HUD is session-scoped and must rebuild on relaunch"
     );
 }

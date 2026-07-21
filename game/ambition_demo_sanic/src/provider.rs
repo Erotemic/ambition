@@ -60,7 +60,18 @@ impl Plugin for SanicExperiencePlugin {
         // Speed is the whole game: soft velocity-aware framing on every
         // platform, so the camera leads the runner instead of trailing it.
         .with_presentation_profiles(profiles::high_speed_full_bleed())
+        // The ring tally. One declared readout; the engine never learns what a
+        // ring is — `publish_sanic_ring_readout` writes the word "RINGS".
+        .with_hud(
+            ambition::presentation::HudDeclaration::new().slot(
+                ambition::presentation::HudSlotSpec::new(RINGS_HUD_SLOT)
+                    .with_region(ambition::presentation::SurroundRegion::Top)
+                    .with_font_size(22.0)
+                    .with_color([1.0, 0.85, 0.25, 1.0]),
+            ),
+        )
         .install(app, sanic_prepared_session_world);
+        app.add_systems(bevy::prelude::Update, publish_sanic_ring_readout);
         app.add_plugins(SanicRulesPlugin::hosted());
     }
 }
@@ -76,4 +87,24 @@ fn sanic_prepared_session_world() -> PreparedPlatformerSource {
         source.starting_character,
         LdtkRuntimeIndex::default(),
     )
+}
+
+/// The slot id Sanic's ring tally publishes into. Opaque to the engine.
+pub const RINGS_HUD_SLOT: &str = "sanic_rings";
+
+/// Publish the ring count into the declared HUD.
+///
+/// The count needs no new simulation: rings are authored as ordinary
+/// `currency:1` pickups, the shared economy credits the collector's
+/// `BodyWallet`, and `PlayerHudFacts` already republishes that balance for the
+/// controlled subject every tick. So this is the whole feature — read the fact,
+/// name it "RINGS", hand it to the slot.
+fn publish_sanic_ring_readout(
+    facts: bevy::prelude::Res<ambition::sim_view::PlayerHudFacts>,
+    mut readouts: bevy::prelude::ResMut<ambition::presentation::HudReadouts>,
+) {
+    if !facts.present {
+        return;
+    }
+    readouts.set_labelled(RINGS_HUD_SLOT, "RINGS", facts.balance);
 }

@@ -23,6 +23,7 @@ use ambition_engine_core as ae;
 use bevy::prelude::{Component, Resource};
 
 mod control_regions;
+mod hud;
 mod presets;
 mod resolve;
 
@@ -32,6 +33,13 @@ mod tests;
 pub use control_regions::{
     ControlAnchor, ControlFootprint, ControlFootprints, ControlPlacement, ControlPlacementPolicy,
     PlacedControl, ResolvedControlRegions,
+};
+// The DECLARED-HUD seam: a game says what its HUD reads, the engine never
+// learns what any of it means. Pairs with `hud_region` below, which already
+// owned WHERE a HUD may live.
+pub use hud::{
+    ActiveHudDeclaration, HudDeclaration, HudDeclarationCatalog, HudReadout, HudReadouts,
+    HudSlotId, HudSlotSpec,
 };
 pub use presets::profiles;
 pub use resolve::{resolve_gameplay_presentation, GameplayPresentationInput};

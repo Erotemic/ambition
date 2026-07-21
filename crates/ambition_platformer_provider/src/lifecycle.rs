@@ -112,6 +112,14 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                         .before(
                             ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet,
                         ),
+                    // The HUD declaration follows the route on the same
+                    // schedule and for the same reason: a switch must not show
+                    // one frame of the previous game's readouts.
+                    crate::authoring::select_active_hud_declaration
+                        .after(activate_prepared_platformer_sessions)
+                        .before(
+                            ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet,
+                        ),
                 ),
             );
     }

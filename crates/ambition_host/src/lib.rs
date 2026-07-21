@@ -255,6 +255,10 @@ impl Plugin for HostCameraPlugin {
         // fixed-aspect profile OWES the display a surround. Render owns the
         // painting; the host owns the fact that it is owed.
         app.add_plugins(ambition_render::gameplay_surround::GameplaySurroundPlugin);
+        // The declared-HUD surface. A game gets a HUD by declaring slots on
+        // its provider and publishing readouts; a route that declared none
+        // spawns nothing, so this is inert for every game that has no HUD.
+        app.add_plugins(ambition_render::hud::declared::DeclaredHudPlugin);
         app.add_systems(
             Update,
             (

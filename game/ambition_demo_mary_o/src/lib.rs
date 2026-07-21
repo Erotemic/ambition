@@ -45,6 +45,9 @@ pub const MARY_O_MODE: &str = "mary_o";
 /// The level clock starts here and counts DOWN. It is the demo's one rule.
 pub const STARTING_TIME: f32 = 400.0;
 
+/// Lives Mary-O starts a run with.
+const STARTING_LIVES: u8 = 3;
+
 /// How long the flag tally sits on screen before the level loops. "The next
 /// level is the same level": completing the flagpole restarts 1-1, cyclically.
 pub const LEVEL_CYCLE_DWELL: f32 = 2.0;
@@ -587,12 +590,20 @@ fn mary_o_setup(
 pub struct MaryOLevelState {
     /// Counts DOWN from [`STARTING_TIME`]; clamps at zero.
     pub time_remaining: f32,
+    /// Running total across flag grabs. `flag_score` scores ONE grab by
+    /// contact height; this accumulates them, so the HUD can show a career
+    /// total rather than the last banner.
+    pub score: u32,
+    /// Lives left. Purely a readout until a death path spends one.
+    pub lives: u8,
 }
 
 impl Default for MaryOLevelState {
     fn default() -> Self {
         Self {
             time_remaining: STARTING_TIME,
+            score: 0,
+            lives: STARTING_LIVES,
         }
     }
 }
@@ -803,6 +814,11 @@ fn cycle_level_on_flag_tally(
         return;
     }
     *dwell = 0.0;
+    // Bank this grab before the sequence resets — `score()` reads the phase
+    // that is about to be cleared.
+    if let Some(grabbed) = sequence.score() {
+        level.score = level.score.saturating_add(grabbed);
+    }
     *sequence = flag::FlagSequence::default();
     level.time_remaining = STARTING_TIME;
     replay.write(ambition::actors::session::reset::RoomReplayRequested);

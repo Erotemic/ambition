@@ -195,7 +195,18 @@ impl Plugin for MaryOExperiencePlugin {
         // A fixed 4:3 gameplay rectangle everywhere; the surround belongs to
         // HUD and controls rather than to the level.
         .with_presentation_profiles(profiles::fixed_four_by_three())
+        // Four readouts across the reserved top surround — this profile keeps
+        // a 4:3 gameplay rectangle precisely so the HUD has somewhere to live
+        // that is not over the level.
+        .with_hud(
+            ambition::presentation::HudDeclaration::new()
+                .slot(hud_slot(SCORE_HUD_SLOT))
+                .slot(hud_slot(COINS_HUD_SLOT))
+                .slot(hud_slot(TIME_HUD_SLOT))
+                .slot(hud_slot(LIVES_HUD_SLOT)),
+        )
         .install(app, mary_o_prepared_session_world);
+        app.add_systems(bevy::prelude::Update, publish_mary_o_readouts);
         app.add_plugins(MaryORulesPlugin::hosted());
     }
 }
@@ -211,4 +222,48 @@ fn mary_o_prepared_session_world() -> PreparedPlatformerSource {
         source.starting_character,
         LdtkRuntimeIndex::default(),
     )
+}
+
+/// Slot ids Mary-O publishes into. Opaque to the engine.
+pub const SCORE_HUD_SLOT: &str = "mary_o_score";
+pub const COINS_HUD_SLOT: &str = "mary_o_coins";
+pub const TIME_HUD_SLOT: &str = "mary_o_time";
+pub const LIVES_HUD_SLOT: &str = "mary_o_lives";
+
+/// One readout in Mary-O's house style: top surround, chunky, white.
+fn hud_slot(id: &str) -> ambition::presentation::HudSlotSpec {
+    ambition::presentation::HudSlotSpec::new(id)
+        .with_region(ambition::presentation::SurroundRegion::Top)
+        .with_font_size(20.0)
+        .with_color([0.97, 0.97, 0.99, 1.0])
+}
+
+/// Publish Mary-O's readouts from the state that already owns them.
+///
+/// Score and lives ride `MaryOLevelState` (the mode-scoped entity that already
+/// carried the level clock); coins come from the shared economy's `BodyWallet`
+/// through `PlayerHudFacts`, the same fact Sanic's ring tally reads — a coin and
+/// a ring are the same `currency` pickup wearing different art.
+fn publish_mary_o_readouts(
+    level: bevy::prelude::Query<&crate::MaryOLevelState>,
+    facts: bevy::prelude::Res<ambition::sim_view::PlayerHudFacts>,
+    mut readouts: bevy::prelude::ResMut<ambition::presentation::HudReadouts>,
+) {
+    let Ok(level) = level.single() else {
+        return;
+    };
+    // Zero-padded like the arcade original: the game owns its formatting, the
+    // engine just draws the string.
+    readouts.set_labelled(SCORE_HUD_SLOT, "SCORE", format!("{:06}", level.score));
+    readouts.set_labelled(
+        COINS_HUD_SLOT,
+        "COINS",
+        format!("{:02}", facts.present.then_some(facts.balance).unwrap_or(0)),
+    );
+    readouts.set_labelled(
+        TIME_HUD_SLOT,
+        "TIME",
+        format!("{:03}", level.time_remaining.max(0.0).ceil() as u32),
+    );
+    readouts.set_labelled(LIVES_HUD_SLOT, "LIVES", level.lives);
 }

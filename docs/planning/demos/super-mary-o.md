@@ -29,7 +29,14 @@ Remaining acceptance work
 
 - the secret pipe and underground room;
 - a brainless sliding shell prop;
-- HUD for score/coins/time/lives plus title/results presentation;
+- ✅ **HUD for score/coins/time/lives — LANDED 2026-07-21** through the new
+  provider-declared HUD seam (`with_hud`), four readouts in the reserved top
+  surround the 4:3 profile already owed. `MaryOLevelState` grew `score` (banked
+  from `FlagPhase::Tallied` when the level cycles, so it is a running total
+  rather than the last banner) and `lives`; coins read the shared economy's
+  wallet through `PlayerHudFacts`, the same fact Sanic's rings use. STILL OPEN
+  from this line item: **title/results presentation**, and nothing yet SPENDS a
+  life — `lives` is an honest readout of a counter no death path decrements.
 - one deterministic scripted headless run that completes level 1 through real
   controls, enters the secret, collects a powerup, and exercises its effect; and
 - additional planned levels after the level-1 acceptance gate closes.

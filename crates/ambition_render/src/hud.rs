@@ -14,6 +14,11 @@
 //! [`ambition_sim_view::PlayerHudFacts`] snapshot (E4 slices
 //! 5+6+16) — it never queries live body clusters.
 
+/// The DECLARED-HUD renderer: whatever the active route's game said its HUD
+/// reads. This module's widget is Ambition's own fixed HP/MP/$ row, which is
+/// precisely why a second game needed a seam.
+pub mod declared;
+
 use bevy::prelude::*;
 
 use ambition_platformer_primitives::{

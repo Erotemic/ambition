@@ -56,6 +56,33 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
         app.update();
     }
 
+    // The crate-level `cfg(not(feature = "input"))` guard is NOT sufficient: it
+    // reads THIS crate's `input` feature, while the thing that erases a scripted
+    // write is `ambition/input` — the participant pipeline in the dependency.
+    // Under `cargo test --workspace` cargo unifies features across the graph, so
+    // `ambition` is built WITH `input` while this crate's own flag stays off;
+    // the guard passes and every scripted frame is then overwritten from device
+    // state. That is how this failed in the gate: "furthest x reached was 160 of
+    // a goal at 6000", which reads like unreachable level geometry rather than
+    // like discarded input. Reproduce with
+    // `--features ambition/input`. Ask the composition, not the feature flag.
+    app.world_mut().resource_mut::<ScriptedStick>().0 = {
+        let mut frame = ControlFrame::default();
+        frame.axis_x = 1.0;
+        frame.right_pressed = true;
+        frame
+    };
+    app.update();
+    if app.world().resource::<ControlFrame>().axis_x < 0.5 {
+        eprintln!(
+            "SKIP: a participant pipeline owns `ControlFrame` in this build \
+             (`ambition/input` is on, likely via workspace feature unification), \
+             so scripted input never reaches the sim. A completion run is only \
+             meaningful in the headless sim composition."
+        );
+        return;
+    }
+
     let start = player_x(&mut app);
     assert!(
         start < GOAL_X,

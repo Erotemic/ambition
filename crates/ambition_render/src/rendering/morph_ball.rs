@@ -151,7 +151,10 @@ pub fn sync_morph_ball_visual(
     // Sim-built pose read-model (E4): body-mode + geometry facts, no live
     // cluster reads.
     player_q: Query<
-        &ambition_sim_view::BodyPoseView,
+        (
+            &ambition_sim_view::BodyPoseView,
+            Option<&ambition_sim_view::PresentedPose>,
+        ),
         ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
     // The primary player's visual is discovered by marker, not a process-global
@@ -169,14 +172,16 @@ pub fn sync_morph_ball_visual(
     let Ok((mut transform, mut sprite, mut ball_visibility)) = ball_query.single_mut() else {
         return;
     };
-    let Ok(pose) = player_q.single() else {
+    let Ok((pose, presented)) = player_q.single() else {
         return;
     };
     let in_morph = pose.morph_ball;
     if in_morph {
         transform.translation = ambition_engine_core::config::world_to_bevy(
             &world.0,
-            pose.pos,
+            // The sphere IS the body while morphed, so it draws where the body
+            // is presented — not where its last tick left it.
+            ambition_sim_view::presented_pose::draw_pos(pose, presented),
             ambition_engine_core::config::WORLD_Z_PLAYER + 0.05,
         );
         // Slightly larger than the AABB so the soft anti-aliased rim

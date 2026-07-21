@@ -167,7 +167,10 @@ pub fn sync_health_overlays(
     // `BodyPoseView`; actors/bosses/breakables ride their `FeatureView`
     // rows (hp/alive/fighting facts) + the identity indexes for labels.
     player: Query<
-        &ambition_sim_view::BodyPoseView,
+        (
+            &ambition_sim_view::BodyPoseView,
+            Option<&ambition_sim_view::PresentedPose>,
+        ),
         ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
     feature_views: Res<FeatureViewIndex>,
@@ -189,13 +192,16 @@ pub fn sync_health_overlays(
         return;
     }
 
-    if let Ok(pose) = player.single() {
+    if let Ok((pose, presented)) = player.single() {
         spawn_health_overlay(
             &mut commands,
             session_scope,
             &world.0,
             "player",
-            ae::Aabb::new(pose.pos, pose.size * 0.5),
+            ae::Aabb::new(
+                ambition_sim_view::presented_pose::draw_pos(pose, presented),
+                pose.size * 0.5,
+            ),
             Health {
                 current: pose.hp_current,
                 max: pose.hp_max,

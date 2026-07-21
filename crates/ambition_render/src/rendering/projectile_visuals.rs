@@ -367,7 +367,10 @@ pub fn sync_projectile_charge_visuals(
     // Sim-built pose read-model (E4): charge tier + body geometry facts, no
     // live cluster / projectile-state reads.
     player_q: Query<
-        &ambition_sim_view::BodyPoseView,
+        (
+            &ambition_sim_view::BodyPoseView,
+            Option<&ambition_sim_view::PresentedPose>,
+        ),
         With<ambition_platformer_primitives::markers::PlayerEntity>,
     >,
     existing_charge: Query<Entity, With<PlayerChargeVisual>>,
@@ -380,10 +383,12 @@ pub fn sync_projectile_charge_visuals(
     else {
         return;
     };
-    for pose in &player_q {
+    for (pose, presented) in &player_q {
         let Some(tier) = pose.charge_tier else {
             continue;
         };
+        // The charge orb hangs off the hand, so it tracks the presented body.
+        let body_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
         let base = ProjectileKind::Fireball.half_extent();
         let (size_mult, alpha) = match tier {
             0 => (0.7, 0.55),
@@ -397,8 +402,8 @@ pub fn sync_projectile_charge_visuals(
             pose.facing.signum()
         };
         let charge_pos = ambition_engine_core::Vec2::new(
-            pose.pos.x + facing * (pose.size.x * 0.5 + 6.0),
-            pose.pos.y - pose.size.y * 0.20,
+            body_pos.x + facing * (pose.size.x * 0.5 + 6.0),
+            body_pos.y - pose.size.y * 0.20,
         );
         commands.spawn_session_scoped(
             session_scope,

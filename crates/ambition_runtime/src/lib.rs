@@ -395,6 +395,12 @@ impl PluginGroup for PlatformerEnginePlugins {
             // render clock. A headless composition that wants camera
             // observation gets it by running Update; it is not implied by
             // advancing the sim.
+            // Resamples the per-tick pose read-models onto the RENDER clock,
+            // ahead of both consumers below. The camera and the sprite must
+            // frame the same presented position; when they sampled different
+            // clocks, a moving subject shuddered horizontally against a world
+            // that looked perfectly stable.
+            .add(ambition_sim_view::presented_pose::PresentedPosePlugin)
             .add(ambition_sim_view::camera_snapshot::CameraObservationPlugin)
             // The combat-phase chain + the content extension slots
             // (CombatSet::ContentSpecials / ContentFlavor).

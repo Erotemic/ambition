@@ -715,6 +715,7 @@ pub fn resolve_camera_observation(
     mut last_camera_room: bevy::prelude::Local<Option<String>>,
     player: bevy::prelude::Query<
         (
+            bevy::prelude::Entity,
             &ambition_platformer_primitives::body::BodyKinematics,
             &ae::BodyBaseSize,
             &ambition_actors::avatar::PlayerBlinkCameraState,
@@ -722,8 +723,18 @@ pub fn resolve_camera_observation(
         ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
     controlled: bevy::prelude::Res<ambition_platformer_primitives::markers::ControlledSubject>,
-    body_kinematics: bevy::prelude::Query<&ambition_platformer_primitives::body::BodyKinematics>,
+    // Both lookups for whichever body is being followed, grouped into ONE
+    // system param because this resolve sits at Bevy's 16-param ceiling.
+    //
+    // The camera frames the PRESENTED subject, not the raw tick pose: this and
+    // the sprite must sample the same frame-clock position, or they disagree by
+    // up to a tick of travel and the subject shudders — see `presented_pose`.
+    followed_body: (
+        bevy::prelude::Query<&ambition_platformer_primitives::body::BodyKinematics>,
+        bevy::prelude::Query<&crate::presented_pose::PresentedPose>,
+    ),
 ) {
+    let (body_kinematics, presented) = followed_body;
     // Dev tools can temporarily replace the authored/default camera view.
     let (base_view_w, base_view_h) = if developer_tools.camera_view_override_enabled {
         (
@@ -737,14 +748,15 @@ pub fn resolve_camera_observation(
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
     let encounter_scale = encounter_view.camera_zoom.max(1.0);
 
-    let Ok((mut player_body, player_base_size, blink_cam)) =
-        player.single().map(|(b, bs, bc)| (*b, *bs, *bc))
+    let Ok((player_entity, mut player_body, player_base_size, blink_cam)) =
+        player.single().map(|(e, b, bs, bc)| (e, *b, *bs, *bc))
     else {
         return;
     };
     // Follow the CONTROLLED SUBJECT's body. Zoom + blink easing stay on the
     // home avatar's presentation state; only the follow point tracks the
     // driven body.
+    let mut followed = player_entity;
     if let Some(subject) = controlled.0 {
         if let Ok(kin) = body_kinematics.get(subject) {
             player_body.pos = kin.pos;
@@ -752,7 +764,15 @@ pub fn resolve_camera_observation(
             // velocity while possessing something else would aim the camera at
             // where a body the participant is not controlling is going.
             player_body.vel = kin.vel;
+            followed = subject;
         }
+    }
+    // Frame where the subject is DRAWN, not where its last tick left it. The
+    // sprite is sampled on the same frame clock; if the camera framed the tick
+    // pose instead, the two would disagree by up to a tick of travel and the
+    // subject would shudder against the world at speed.
+    if let Ok(presented) = presented.get(followed) {
+        player_body.pos = presented.presented();
     }
 
     let active_spec = room_set.active_spec();
@@ -864,6 +884,12 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
                     .after(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
             );
         }
+        // The resolve frames the PRESENTED subject, so the frame-clock resample
+        // must already have happened this frame.
+        app.configure_sets(
+            bevy::prelude::Update,
+            CameraObservationSet.after(crate::presented_pose::PresentedPoseSet),
+        );
         app.add_systems(
             bevy::prelude::Update,
             resolve_camera_observation.in_set(CameraObservationSet),
@@ -1116,9 +1142,23 @@ mod soft_framing_tests {
 
         // The deadzone sets the TARGET; the existing 8 Hz ease carries the
         // camera there, so settle before measuring the correction.
-        let mut snap = resolve(&w, &[], subject, ae::Vec2::ZERO, Some(framing(region)), &mut ease);
+        let mut snap = resolve(
+            &w,
+            &[],
+            subject,
+            ae::Vec2::ZERO,
+            Some(framing(region)),
+            &mut ease,
+        );
         for _ in 0..400 {
-            snap = resolve(&w, &[], subject, ae::Vec2::ZERO, Some(framing(region)), &mut ease);
+            snap = resolve(
+                &w,
+                &[],
+                subject,
+                ae::Vec2::ZERO,
+                Some(framing(region)),
+                &mut ease,
+            );
         }
 
         assert!(
@@ -1211,9 +1251,23 @@ mod soft_framing_tests {
         let region = NormalizedScreenRegion::centered_inset(0.495, 0.495);
         let mut ease = seeded(start);
 
-        let mut snap = resolve(&w, &[], subject, ae::Vec2::ZERO, Some(framing(region)), &mut ease);
+        let mut snap = resolve(
+            &w,
+            &[],
+            subject,
+            ae::Vec2::ZERO,
+            Some(framing(region)),
+            &mut ease,
+        );
         for _ in 0..400 {
-            snap = resolve(&w, &[], subject, ae::Vec2::ZERO, Some(framing(region)), &mut ease);
+            snap = resolve(
+                &w,
+                &[],
+                subject,
+                ae::Vec2::ZERO,
+                Some(framing(region)),
+                &mut ease,
+            );
         }
         assert!(
             (snap.target_world.x - subject.x).abs() < 1.0,

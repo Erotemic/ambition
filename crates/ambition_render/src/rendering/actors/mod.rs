@@ -170,6 +170,10 @@ pub fn sync_visuals(
     // The sim-built pose read-model (E4): position / roll / stance / flash
     // facts resolved in `FeatureViewSync`; render never touches the live
     // `Body*` clusters.
+    // Frame-clock positions for everything the sim publishes per tick. The
+    // camera frames these same values; sampling a different clock here is what
+    // made a moving body shudder against a stable world.
+    presented_features: Res<ambition_sim_view::PresentedFeaturePoses>,
     mut player_query: Query<
         (
             &mut Transform,
@@ -177,6 +181,7 @@ pub fn sync_visuals(
             Option<&PlayerSpriteBaseline>,
             Option<&CharacterAnimator>,
             &ambition_sim_view::BodyPoseView,
+            Option<&ambition_sim_view::PresentedPose>,
         ),
         With<PlayerVisual>,
     >,
@@ -189,10 +194,11 @@ pub fn sync_visuals(
         .then(|| primary_player.iter().next())
         .flatten();
     if let Some(player) = player {
-        if let Ok((mut transform, mut sprite, baseline, animator, pose)) =
+        if let Ok((mut transform, mut sprite, baseline, animator, pose, presented)) =
             player_query.get_mut(player)
         {
-            transform.translation = world_to_bevy(&world.0, pose.pos, WORLD_Z_PLAYER);
+            let draw_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
+            transform.translation = world_to_bevy(&world.0, draw_pos, WORLD_Z_PLAYER);
             // Aerial roll (portal somersault / future gravity-room orientation).
             transform.rotation = Quat::from_rotation_z(pose.roll_angle);
             if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
@@ -225,7 +231,7 @@ pub fn sync_visuals(
                         // Feet sit on the +gravity face (world +y is down under
                         // normal gravity); the standing center is `dy` opposite
                         // gravity from the compact center.
-                        let render_pos = native_compact_render_pos(pose.pos, pose.gravity_dir, dy);
+                        let render_pos = native_compact_render_pos(draw_pos, pose.gravity_dir, dy);
                         transform.translation = world_to_bevy(&world.0, render_pos, WORLD_Z_PLAYER);
                     }
                 } else {
@@ -254,7 +260,10 @@ pub fn sync_visuals(
             *visibility = Visibility::Hidden;
             continue;
         };
-        transform.translation = world_to_bevy(&world.0, view.pos, feature_z(view.kind));
+        // Patrolling enemies and moving props step on the tick clock exactly as
+        // the player body does, so they get the same frame-clock treatment.
+        let draw_pos = presented_features.presented(&visual.id, view.pos);
+        transform.translation = world_to_bevy(&world.0, draw_pos, feature_z(view.kind));
         // Surface-walking enemies (PuppySlug) rotate the sprite so
         // its authored "up" axis aligns with the surface normal —
         // the slug crawls along walls / ceilings with its body

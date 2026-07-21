@@ -27,6 +27,7 @@ mod control_prompt;
 mod dialog_view;
 mod facts;
 mod pose_view;
+pub mod presented_pose;
 mod view_index;
 
 pub use anim_index::{
@@ -45,6 +46,9 @@ pub use facts::*;
 pub use pose_view::{
     rebuild_body_pose_views, rebuild_shield_rings_view, BodyPoseView, ShieldRingFact,
     ShieldRingsView,
+};
+pub use presented_pose::{
+    PresentationPhase, PresentedFeaturePoses, PresentedPose, PresentedPosePlugin, PresentedPoseSet,
 };
 pub use view_index::{
     rebuild_actor_render_index, rebuild_boss_render_index, rebuild_feature_view_index,

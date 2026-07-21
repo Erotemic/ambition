@@ -901,3 +901,29 @@ character-actions gates and touching the real-audio test harness is not zero-ris
   `rigdoc.sprite_image` when `svg_source.path` is set but the file is missing.
   Optionally a conformance test asserting no published `*_spritesheet.ron` has
   `body_pixel_bbox.w == 0` for a character target.
+
+## 2026-07-21 `morph_ball` owns a whole render module for one procedural circle
+- **Where:** `crates/ambition_render/src/rendering/morph_ball.rs` (~240 lines),
+  declared `pub mod morph_ball` in `rendering/mod.rs` alongside genuine layers
+  like `actors`, `world`, `parallax`, and `camera`.
+- **Smell:** A named body-mode's bespoke visual sits at the same structural
+  altitude as the renderer's real subsystems. The module is a startup texture
+  generator, a lazy spawner, and a per-frame position/visibility mirror for ONE
+  sibling sprite — and its own header admits it exists only because the shipped
+  spritesheet has no `MorphBall` row. That makes it a content workaround wearing
+  an engine module's clothes. It also names a specific mechanic inside the
+  reusable presentation crate, which is the same altitude violation
+  `bubble_shield` and `mark_beacon` repeat: another game adding a content crate
+  inherits Ambition's morph ball whether it has one or not.
+- **Noticed while:** routing every body-anchored visual through the new
+  presented-pose seam (`ambition_sim_view::presented_pose`). Finding the
+  consumers meant grepping `pose.pos` across four unrelated top-level render
+  modules that all do the same thing — mirror one sprite onto the player body.
+  Each is a separate place to forget the frame clock.
+- **Suggested fix / size:** M. Either (a) retire it outright by emitting a real
+  `MorphBall` row from the sprite generator, deleting the procedural circle and
+  letting the ordinary animation path draw it, or (b) fold morph-ball,
+  bubble-shield, and mark-beacon into ONE body-attachment seam that content
+  registers a spec against (sprite source + offset + visibility predicate), so
+  the reusable renderer names no game's mechanics and there is a single place
+  attachments read the presented pose.

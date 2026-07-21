@@ -262,6 +262,14 @@ pub struct PresentationVisualAnimationPlugin;
 impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
+        // Every visual below draws from the frame-clock presented poses, so the
+        // resample must already have run this frame. Schedule-local edge: both
+        // sides live in `Update` for all three sim hosts.
+        app.configure_sets(
+            Update,
+            ambition_platformer_primitives::schedule::SandboxSet::PresentationVisualSync
+                .after(ambition_sim_view::PresentedPoseSet),
+        );
         app.init_resource::<wielded_item_visuals::WieldedItemVisualCatalog>();
         // Open, content-owned projectile art registry (empty until a game's
         // content crate registers looks). The renderer resolves each in-flight

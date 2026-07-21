@@ -135,6 +135,35 @@ fn settle(app: &mut App) {
     }
 }
 
+/// Does a scripted `ControlFrame` write actually survive into the sim?
+///
+/// The crate-level `cfg(not(feature = "input"))` guard is NOT sufficient, and
+/// this is the subtle part. That gate reads THIS crate's `input` feature, but
+/// the thing that erases a scripted write is `ambition/input` — the participant
+/// pipeline in the dependency. Under `cargo test --workspace` cargo unifies
+/// features across the graph, so `ambition` is built WITH `input` (something
+/// else in the workspace asks for it) while this crate's own `input` stays off.
+/// The guard then passes, the test runs, and the participant pipeline
+/// repopulates `ControlFrame` from device state every frame — so every scripted
+/// input is discarded and the body just stands there.
+///
+/// That produced a genuinely baffling failure: the walk assertion reported the
+/// body at spawn `x` with a falling `y`, which reads like broken movement rather
+/// than like discarded input, ~40 lines from the actual cause. Reproduce it
+/// directly with:
+///
+/// ```text
+/// cargo test -p ambition_demo_mary_o_app --features ambition/input --test scripted_level_run
+/// ```
+///
+/// So: ask the composition, instead of asking the feature flag. Write a
+/// sentinel, step, and see whether it survived.
+fn scripted_input_reaches_the_sim(app: &mut App) -> bool {
+    app.world_mut().resource_mut::<ScriptedStick>().0 = hold_right();
+    app.update();
+    app.world().resource::<ControlFrame>().axis_x > 0.5
+}
+
 /// Step until the demo is actually PLAYABLE, rather than a fixed frame count.
 ///
 /// `ManualDuration` pins the sim clock, which makes the sim deterministic — but
@@ -180,6 +209,21 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     app.init_resource::<ScriptedStick>();
     app.add_systems(PreUpdate, apply_scripted_stick);
     settle_until_playable(&mut app);
+
+    // Scripting the sim's input seam is only meaningful when the sim's input
+    // seam is what feeds the sim. When a participant pipeline is composed it
+    // legitimately owns `ControlFrame`, and driving the DEVICE layer is a
+    // different claim that `app_it::participant_input` already owns. Skip
+    // loudly rather than assert something this composition cannot answer.
+    if !scripted_input_reaches_the_sim(&mut app) {
+        eprintln!(
+            "SKIP: a participant pipeline owns `ControlFrame` in this build \
+             (`ambition/input` is on, likely via workspace feature unification), \
+             so scripted input never reaches the sim. This run is only \
+             meaningful in the headless sim composition."
+        );
+        return;
+    }
 
     // ── Boot lands in gameplay with a live level ────────────────────────────
     let (lives, score, time) = level(&mut app);

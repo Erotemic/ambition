@@ -163,6 +163,21 @@ impl Plugin for MaryOExperiencePlugin {
                                 release: 0.075,
                                 noise: 0.65,
                             },
+                            // PLACEHOLDER: the stomp. A short descending square
+                            // thud on the shared `Pogo` cue — the "you bounced off
+                            // something" verb a head-stomp already is.
+                            ambition::audio::spec::SfxSpec {
+                                cue: Some(ambition::audio::spec::SoundCueKey::Pogo),
+                                id: None,
+                                waveform: ambition::audio::spec::WaveformSpec::Square,
+                                frequency: 320.0,
+                                frequency_end: 120.0,
+                                duration: 0.09,
+                                volume: 0.24,
+                                attack: 0.001,
+                                release: 0.055,
+                                noise: 0.25,
+                            },
                         ],
                     }),
                 )

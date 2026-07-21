@@ -152,6 +152,7 @@ pub fn register_crony_content_staging(
 pub fn bounce_squash_cronies(
     mut commands: Commands,
     mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
+    mut sfx: ambition::sfx::SfxWriter,
     mut players: Query<&mut ae::BodyKinematics, With<PrimaryPlayer>>,
     mut cronies: Query<
         (Entity, &ae::BodyKinematics, &mut BodyHealth),
@@ -183,6 +184,11 @@ pub fn bounce_squash_cronies(
                 color: [0.80, 0.68, 0.48, 1.0],
                 kind: ambition::vfx::ParticleKind::Dust,
             });
+            // ...and the stomp thuds. PLACEHOLDER TIMBRE, same arrangement as the
+            // brick: the engine's existing `Pogo` cue (the shared "you bounced off
+            // something" verb, which is exactly what a stomp is) voiced by the
+            // provider's own spec, so the demo names a cue and never a sound.
+            sfx.write(ambition::sfx::SfxMessage::Pogo { pos: crony_kin.pos });
             // Neutralize before the contact pass runs, then remove the body.
             health.health.current = 0;
             commands.entity(entity).despawn();
@@ -241,6 +247,7 @@ mod tests {
     fn a_descending_player_bounces_off_and_squashes_a_crony() {
         let mut app = App::new();
         app.add_message::<ambition::vfx::VfxMessage>();
+        app.add_message::<ambition::sfx::OwnedSfxMessage>();
         app.add_systems(Update, bounce_squash_cronies);
         // Falling onto the head (screen gravity: +y is down, so vel.y > 0 falls).
         let (crony, player) = spawn_pair(&mut app, ae::Vec2::new(0.0, 240.0));
@@ -269,6 +276,7 @@ mod tests {
     fn a_rising_player_does_not_squash_a_crony() {
         let mut app = App::new();
         app.add_message::<ambition::vfx::VfxMessage>();
+        app.add_message::<ambition::sfx::OwnedSfxMessage>();
         app.add_systems(Update, bounce_squash_cronies);
         // Overlapping the crony's head band but moving UP — a side/undercut hit,
         // which the engine's contact-damage pass owns, not a stomp.

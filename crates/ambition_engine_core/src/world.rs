@@ -63,9 +63,31 @@ pub struct Block {
     /// (player, clone, enemy, slug), with no per-actor wiring. A static solid is
     /// just the `velocity == ZERO` degenerate case.
     pub velocity: Vec2,
+    /// **Placeholder art override.** `None` (the default) draws the block through
+    /// the shared per-`BlockKind` art.
+    ///
+    /// That shared art assumes a block's footprint roughly matches its texture's
+    /// aspect ratio, which is true for platforms and walls and false for anything
+    /// a game authors as a long thin shape — a pole, a beam, a rope. Stretching a
+    /// 128px platform texture down a 16x288 column smears it into something that
+    /// reads as a rendering bug, and until now content had no way to say "this
+    /// shape has no art yet". Setting a colour says exactly that, and the render
+    /// draws a flat quad instead: an honest placeholder rather than a smear.
+    ///
+    /// Presentation only — collision never reads it.
+    #[serde(default)]
+    pub art_color: Option<[f32; 4]>,
 }
 
 impl Block {
+    /// Draw this block as a flat `[r, g, b, a]` quad instead of the shared art for
+    /// its kind — the placeholder for a shape whose sprite has not been made yet.
+    #[must_use]
+    pub fn with_art_color(mut self, rgba: [f32; 4]) -> Self {
+        self.art_color = Some(rgba);
+        self
+    }
+
     /// The block's exterior boundary as a closed, exterior-rideable
     /// [`SurfaceChain`] (positive shoelace: outward normals under the shared
     /// `n = (t.y, -t.x)` winding rule). This is what makes a solid block a
@@ -95,6 +117,7 @@ impl Block {
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::Solid,
             velocity: Vec2::ZERO,
+            art_color: None,
         }
     }
 
@@ -105,6 +128,7 @@ impl Block {
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::BlinkWall { tier },
             velocity: Vec2::ZERO,
+            art_color: None,
         }
     }
 
@@ -115,6 +139,7 @@ impl Block {
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::OneWay,
             velocity: Vec2::ZERO,
+            art_color: None,
         }
     }
 
@@ -125,6 +150,7 @@ impl Block {
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::Hazard,
             velocity: Vec2::ZERO,
+            art_color: None,
         }
     }
 
@@ -135,6 +161,7 @@ impl Block {
             aabb: Aabb::new(center, Vec2::new(radius, radius)),
             kind: BlockKind::PogoOrb,
             velocity: Vec2::ZERO,
+            art_color: None,
         }
     }
 
@@ -145,6 +172,7 @@ impl Block {
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::Rebound { impulse },
             velocity: Vec2::ZERO,
+            art_color: None,
         }
     }
 
@@ -174,6 +202,7 @@ impl Block {
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::Solid,
             velocity: Vec2::ZERO,
+            art_color: None,
         }
     }
 
@@ -193,6 +222,7 @@ impl Block {
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::OneWay,
             velocity: Vec2::ZERO,
+            art_color: None,
         }
     }
 }

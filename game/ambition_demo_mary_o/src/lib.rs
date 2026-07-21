@@ -61,7 +61,14 @@ const GROUND_TILES: f32 = 2.0;
 /// the solid blocks) and [`power_block_id`]/[`power_block_min`] (which derive
 /// their durable [`GeoId`](ae::GeoId) and position) so the level and the powerup
 /// runtime can never disagree on which block is a ?-block or where it is.
-const POWER_BLOCK_COLUMNS: [f32; 2] = [6.0, 30.0];
+/// Three of them, and the third is the one that matters: the ladder is
+/// state-driven (milk while small, blossom once grown), so with only two blocks a
+/// player who took a hit between them could never reach the spark form at all —
+/// the first block re-grows her and the second is already spent. The third sits
+/// after the brick run, past the point where a crony is likely to have cost her
+/// the cap, so the fire form is reachable on a normal messy playthrough rather
+/// than only on a clean one.
+const POWER_BLOCK_COLUMNS: [f32; 3] = [6.0, 30.0, 52.0];
 const POWER_BLOCK_ROW: f32 = 4.0;
 /// The IntGrid tile layer the ?-blocks are filed under, and the merge ordinal the
 /// first ?-block's [`GeoId`](ae::GeoId) starts at. `solid_tiled` stamps
@@ -92,6 +99,12 @@ const BRICK_BASE_INDEX: u16 = 20;
 /// [`level_1_1`] draws the block with; a band narrower than the pole is a level
 /// that cannot be finished.
 const POLE_WIDTH: f32 = T * 0.5;
+/// Flagpole placeholder colours. Flat quads until the pole has real art — the
+/// silhouette (pale shaft, bright knob, dark banner) is what makes it read as a
+/// goal rather than a bar, and it survives the sprite landing later.
+const POLE_COLOR: [f32; 4] = [0.78, 0.82, 0.80, 1.0];
+const POLE_KNOB_COLOR: [f32; 4] = [0.96, 0.88, 0.32, 1.0];
+const POLE_BANNER_COLOR: [f32; 4] = [0.24, 0.62, 0.34, 1.0];
 
 /// The level's world width and height. Named, rather than inlined into
 /// [`level_1_1`], because [`goal_pole`] must derive the flag's geometry from the
@@ -210,19 +223,49 @@ pub fn level_1_1() -> RoomSpec {
         ));
     }
 
-    // 5. The goal pole. ONE-WAY, not solid: touching it must END the level, and a
+    // 5. The goal. ONE-WAY, not solid: touching it must END the level, and a
     // solid pole stops the body a half-body-width short of its own center, so the
     // grab could only ever fire from above the top. One-way lets her run straight
     // into it at any height while still holding her up if she drops onto the top
-    // from the stairs. Left on the untiled art path deliberately — it is a 16px
-    // pole and the tiled path draws 32px tiles, so tiling it would render half a
-    // tile of ground art; a flat colored quad is the honest placeholder until the
-    // pole has real art. See [`flag`].
-    blocks.push(ae::Block::one_way(
-        "goal_pole",
-        ae::Vec2::new(90.0 * T, ground_top - 9.0 * T),
-        ae::Vec2::new(POLE_WIDTH, 9.0 * T),
-    ));
+    // from the stairs.
+    //
+    // ART: flat colours, authored on the blocks. It used to claim to be "a flat
+    // colored quad" while actually taking the shared one-way PLATFORM texture,
+    // stretched down a 16x288 column into a smear — the shared block art assumes a
+    // footprint roughly matching its texture's aspect, which a pole violates
+    // badly. Declaring a placeholder colour is content saying "this shape has no
+    // sprite yet", and it stays a flat quad until one exists.
+    //
+    // Three pieces so the goal READS as a flagpole instead of a bar: a pale shaft,
+    // a bright knob capping it, and a banner hanging off the top. All three are the
+    // SAME width and column as the pole, so none of them changes what is reachable
+    // or where the grab band is — the silhouette is new, the level is not.
+    let pole_x = 90.0 * T;
+    let pole_top = ground_top - 9.0 * T;
+    blocks.push(
+        ae::Block::one_way(
+            "goal_pole",
+            ae::Vec2::new(pole_x, pole_top),
+            ae::Vec2::new(POLE_WIDTH, 9.0 * T),
+        )
+        .with_art_color(POLE_COLOR),
+    );
+    blocks.push(
+        ae::Block::one_way(
+            "goal_pole_knob",
+            ae::Vec2::new(pole_x, pole_top - POLE_WIDTH),
+            ae::Vec2::splat(POLE_WIDTH),
+        )
+        .with_art_color(POLE_KNOB_COLOR),
+    );
+    blocks.push(
+        ae::Block::one_way(
+            "goal_pole_banner",
+            ae::Vec2::new(pole_x, pole_top + POLE_WIDTH),
+            ae::Vec2::new(POLE_WIDTH, POLE_WIDTH * 2.0),
+        )
+        .with_art_color(POLE_BANNER_COLOR),
+    );
 
     let spawn = ae::Vec2::new(2.0 * T, ground_top - 2.0 * T);
     let world = ae::World::new("Mary-O 1-1", ae::Vec2::new(width, height), spawn, blocks);

@@ -592,7 +592,17 @@ pub fn spawn_block(
     } else {
         game_assets::block_sprite(block.kind)
     };
-    let sprite = if is_intgrid_block {
+    // An authored placeholder colour wins over every art path: content has said
+    // this shape has no sprite yet, and a flat quad is the honest way to draw it.
+    // Taken BEFORE the art lookup so no texture is bound at all — the block keeps
+    // its placeholder look even once the shared art for its kind exists.
+    let placeholder = block
+        .art_color
+        .map(|c| Sprite::from_color(Color::srgba(c[0], c[1], c[2], c[3]), render));
+    let sprite_key = if placeholder.is_some() { None } else { sprite_key };
+    let sprite = if let Some(flat) = placeholder {
+        flat
+    } else if is_intgrid_block {
         let tile_handle = assets
             .and_then(|a| sprite_key.and_then(|key| a.entities.get(key)))
             .cloned();

@@ -244,6 +244,7 @@ impl MovingPlatformState {
             kind: ae::BlockKind::BlinkWall {
                 tier: ae::BlinkWallTier::Soft,
             },
+            art_color: None,
         }
     }
 

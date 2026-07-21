@@ -284,6 +284,7 @@ fn carve_portal_apertures(blocks: &mut Vec<ae::Block>, holes: &[ae::Aabb]) {
                 kind: block.kind,
                 // A carved piece of a moving host keeps its motion.
                 velocity: block.velocity,
+                art_color: None,
             });
         }
     }
@@ -365,6 +366,7 @@ mod collision_world_tests {
                 aabb: ae::Aabb::new(ae::Vec2::new(200.0, 380.0), ae::Vec2::new(200.0, 20.0)),
                 kind: ae::BlockKind::Solid,
                 velocity: ae::Vec2::ZERO,
+                art_color: None,
             }],
         ))
     }
@@ -428,6 +430,7 @@ mod collision_world_tests {
                 aabb: ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(10.0, 10.0)),
                 kind: ae::BlockKind::Solid,
                 velocity: ae::Vec2::ZERO,
+                art_color: None,
             }],
             ..Default::default()
         });

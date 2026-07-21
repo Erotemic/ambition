@@ -434,11 +434,23 @@ pub fn reset_body_clusters(
     clusters: &mut BodyClustersMut<'_>,
     spawn: Vec2,
 ) {
-    use crate::movement::{default_player_body_size, ComboMark, MovementOp, DEFAULT_TUNING};
+    use crate::movement::{ComboMark, MovementOp, DEFAULT_TUNING};
 
     let new_resets = clusters.lifetime.resets + 1;
     let abilities = clusters.abilities.abilities;
-    let body = default_player_body_size();
+    // A reset restores the body to its BASE size; it does not redefine what the
+    // base IS. `base_size` is IDENTITY-derived — a worn form, a mount, a boss
+    // phase — and only the authority owning that identity may write it. Hardcoding
+    // the default here silently unmade any identity-driven size on every reset:
+    // a grown Super Mary-O who fell in a pit came back with a SMALL collider while
+    // still wearing the cap and still presenting the tall sprite, and her own
+    // `sync_grown_form` could not repair it because it compares equipment against
+    // `WornCharacter` (which the reset left tall) rather than against the collider.
+    // Hitbox and identity disagreed, invisibly, until the next hit.
+    //
+    // A default-constructed body's `base_size` is already the default player size,
+    // so nothing that never sets an identity size changes behavior.
+    let body = clusters.base_size.base_size;
     let dash_charges = abilities.dash_charge_count();
     let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);
 
@@ -453,7 +465,7 @@ pub fn reset_body_clusters(
     if let crate::movement::MotionModel::AxisSwept(axis) = model {
         axis.state = crate::movement::AxisManeuverState::default();
     }
-    *clusters.base_size = BodyBaseSize { base_size: body };
+    // `base_size` is deliberately NOT written: see the note above.
     *clusters.ground = BodyGroundState::uninitialized();
     *clusters.wall = BodyWallState::default();
     *clusters.jump = BodyJumpState {
@@ -752,5 +764,72 @@ impl BodyClusterScratch {
             lifetime: &mut self.lifetime,
             combo_trace: &mut self.combo_trace,
         }
+    }
+}
+
+#[cfg(test)]
+mod reset_tests {
+    use super::*;
+
+    /// A reset RESTORES the body to its base size; it does not REDEFINE what
+    /// the base is.
+    ///
+    /// `base_size` is identity-derived — a worn form, a mount, a boss phase —
+    /// and only the authority owning that identity may write it. This used to
+    /// hardcode `default_player_body_size()` into both fields, which silently
+    /// unmade any identity-driven size on every reset.
+    ///
+    /// The bug that found this: a grown Super Mary-O who fell in a pit came
+    /// back with a SMALL collider while still wearing the cap and still
+    /// presenting the tall sprite. Her own `sync_grown_form` could not repair
+    /// it, because it decides "am I in sync" by comparing worn equipment
+    /// against `WornCharacter` — both of which the reset left tall — and never
+    /// looks at the collider. Hitbox and identity disagreed, invisibly, until
+    /// the next hit landed on a body half the size of the one on screen.
+    #[test]
+    fn a_reset_restores_the_bodys_own_base_size_not_the_global_default() {
+        let grown = Vec2::new(30.0, 72.0);
+        let mut scratch = BodyClusterScratch::new_with_abilities(
+            Vec2::new(400.0, 400.0),
+            crate::abilities::AbilitySet::default(),
+        );
+        // An identity authority (Mary-O's `sync_grown_form`) grew her.
+        scratch.kinematics.size = grown;
+        scratch.base_size.base_size = grown;
+        // ...and something transient shrank the live collider, as a crouch would.
+        scratch.kinematics.size = Vec2::new(30.0, 40.0);
+
+        let spawn = Vec2::new(64.0, 352.0);
+        let (model, mut clusters) = scratch.parts();
+        reset_body_clusters(model, &mut clusters, spawn);
+
+        assert_eq!(
+            scratch.base_size.base_size, grown,
+            "a reset must not redefine the body's identity size"
+        );
+        assert_eq!(
+            scratch.kinematics.size, grown,
+            "and it restores the collider TO that identity size, undoing the \
+             transient crouch — not to the global player default"
+        );
+    }
+
+    /// The other half: a body that never took an identity size still resets to
+    /// the ordinary player default, so nothing that does not grow changes.
+    #[test]
+    fn a_body_with_no_identity_size_still_resets_to_the_player_default() {
+        let default = crate::movement::default_player_body_size();
+        let mut scratch = BodyClusterScratch::new_with_abilities(
+            Vec2::new(400.0, 400.0),
+            crate::abilities::AbilitySet::default(),
+        );
+        scratch.kinematics.size = Vec2::new(30.0, 40.0);
+
+        let spawn = Vec2::new(64.0, 352.0);
+        let (model, mut clusters) = scratch.parts();
+        reset_body_clusters(model, &mut clusters, spawn);
+
+        assert_eq!(scratch.kinematics.size, default);
+        assert_eq!(scratch.base_size.base_size, default);
     }
 }

@@ -10,4 +10,4 @@ pub mod persist;
 pub mod pickup;
 pub mod world_item;
 
-pub use world_item::{spawn_world_item, WorldItem, WorldItemPayload};
+pub use world_item::{collect_world_items, spawn_world_item, WorldItem, WorldItemPayload};

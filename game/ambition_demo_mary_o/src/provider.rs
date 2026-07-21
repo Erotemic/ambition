@@ -58,11 +58,49 @@ impl Plugin for MaryOExperiencePlugin {
         // to the quad.
         {
             use ambition::platformer::world_item_art::{WorldItemArtAppExt, WorldItemArtEntry};
-            app.register_world_item_art([WorldItemArtEntry::new(
-                crate::powerups::MILK_SPRITE,
-                format!("sprites/props/{}.png", crate::powerups::MILK_SPRITE),
-                ae::Vec2::new(24.0, 28.0),
-            )]);
+            app.register_world_item_art([
+                WorldItemArtEntry::new(
+                    crate::powerups::MILK_SPRITE,
+                    format!("sprites/props/{}.png", crate::powerups::MILK_SPRITE),
+                    ae::Vec2::new(24.0, 28.0),
+                ),
+                // The second rung of the chain. Same seam, same fallback: until
+                // the prop image is published the render draws the row-tinted
+                // quad, so the pickup is always visible.
+                WorldItemArtEntry::new(
+                    crate::powerups::BLOSSOM_SPRITE,
+                    format!("sprites/props/{}.png", crate::powerups::BLOSSOM_SPRITE),
+                    ae::Vec2::new(24.0, 24.0),
+                ),
+            ]);
+        }
+        {
+            // The spark's LOOK, registered as content under the id her ranged
+            // action authors. One registration, zero render edits — and because
+            // the id lives on the action, the projectile domain never learns what
+            // a spark is.
+            use ambition::projectiles::visual::{
+                ProjectileArt, ProjectileArtSource, ProjectileRenderSize, ProjectileRotation,
+                ProjectileVisualAppExt,
+            };
+            app.register_projectile_visual(
+                crate::powerups::SPARK_VISUAL,
+                ProjectileArt {
+                    source: ProjectileArtSource::EnergyTinted {
+                        rgba: [1.0, 0.62, 0.16, 0.96],
+                    },
+                    size: ProjectileRenderSize::Body {
+                        min: 7.0,
+                        scale: 1.0,
+                    },
+                    // It tumbles as it skips rather than pointing along travel —
+                    // a spinning ember, not an arrow.
+                    rotation: ProjectileRotation::GravityUpright,
+                    debug_tint: [1.0, 0.62, 0.16, 1.0],
+                    label: "spark".to_string(),
+                    expiry_vfx: None,
+                },
+            );
         }
         {
             use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};

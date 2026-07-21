@@ -56,17 +56,27 @@ const RANGED_REFIRE_S: f32 = 1.1;
 /// Shoot↔locomotion rather than locking the read (§A9 follow-up).
 const SHOOT_ANIM_HOLD_SECS: f32 = 0.18;
 
-/// Read every `ActorActionMessage::Ranged` and spawn the matching
-/// enemy projectile. Applies recoil to the firing actor's velocity.
+/// Read every `ActorActionMessage::Ranged` and spawn the matching projectile.
+/// Applies recoil to the firing body's velocity.
 ///
-/// Only handles **hostile** actors today — player projectiles still
-/// flow through the legacy `update_player` path. Player migration is
-/// the next slice in the mandate.
+/// BODY-GENERIC. This used to demand the full actor cluster, so a body without an
+/// `ActorConfig` — every home/player body — silently fell through and its ranged
+/// move spawned nothing, which is why player shots needed their own path. The
+/// query now names only what firing actually needs: kinematics, the body's melee
+/// state (which owns the shared refire floor), its surface frame, and an OPTIONAL
+/// archetype config for the per-archetype default look. Any body that emits
+/// `ActionRequest::Ranged` now fires through this one consumer.
 pub fn spawn_enemy_projectiles_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut sfx: SfxWriter,
-    mut actors: Query<Option<super::actor_clusters::ActorClusterQueryData>>,
+    mut actors: Query<(
+        &mut ae::BodyKinematics,
+        &mut crate::actor::BodyMelee,
+        Option<&super::ActorSurfaceState>,
+        Option<&super::ActorConfig>,
+        Option<&ambition_characters::actor::BodyHealth>,
+    )>,
     // Disjoint from `actors` — `ActorClusterQueryData` carries no `BodyAnimFacts`,
     // so this second view borrows the firing body's overlay-pose facts without
     // aliasing. Arms the Shoot pose on the frame the body accepts a shot.
@@ -83,22 +93,20 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         else {
             continue;
         };
-        let Ok(clusters) = actors.get_mut(msg.actor) else {
-            // Message references an actor that no longer exists
+        let Ok((mut kin, mut melee, surface, config, health)) = actors.get_mut(msg.actor) else {
+            // Message references a body that no longer exists
             // (despawned this frame). Skip silently.
             continue;
         };
-        // Capability, not AI policy: the actor fires because it OWNS a ranged
+        // Capability, not AI policy: the body fires because it OWNS a ranged
         // `ActionSet` slot (the upstream resolver only emits `Ranged` for a body
         // whose `ActionSet.ranged.is_some()`). A player possessing a peaceful NPC
         // fires its authored weapon; an autonomous peaceful NPC has no ranged
         // slot, so it emits nothing. Disposition (attack-or-not while autonomous)
         // is the BRAIN's business, not this effect consumer's.
-        let Some(mut cq) = clusters else {
-            continue;
-        };
-        let enemy = cq.as_actor_mut();
-        if !enemy.health.alive() {
+        // A dead body fires nothing. `None` (a headless test body with no health
+        // pool) is treated as alive, matching the shared hit resolver.
+        if health.is_some_and(|h| !h.alive()) {
             continue;
         }
         // Body-side fire-rate enforcement (invariant I3): the controller attempts
@@ -107,7 +115,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         // blocked attempt simply spawns nothing this tick. This is the single
         // place the weapon rate is enforced, identical for an AI spam controller,
         // a tactical brain, and a possessing human.
-        if !enemy.attack.try_fire_ranged(RANGED_REFIRE_S).accepted() {
+        if !melee.try_fire_ranged(RANGED_REFIRE_S).accepted() {
             continue;
         }
         // The shot is committed — arm the firing body's Shoot overlay pose (the
@@ -138,7 +146,9 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         } else if let Some(authored) = spec.visual.clone() {
             authored
         } else {
-            enemy.config.tuning.ranged_visual.clone()
+            config
+                .map(|c| c.tuning.ranged_visual.clone())
+                .unwrap_or_default()
         };
         // Flight is the ACTION's to author; the shared envelope is the fallback
         // for every ranged verb that doesn't care.
@@ -149,9 +159,9 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             max_lifetime: PROJECTILE_MAX_LIFETIME,
             half_extent: PROJECTILE_HALF_EXTENT,
         });
-        let gravity_dir = -enemy
-            .surface
-            .surface_normal
+        let gravity_dir = -surface
+            .map(|s| s.surface_normal)
+            .unwrap_or(ae::Vec2::new(0.0, -1.0))
             .normalize_or(ae::Vec2::new(0.0, -1.0));
         let frame = ae::AccelerationFrame::new(gravity_dir);
         let request = ambition_characters::actor::control::ActorFireRequest {
@@ -164,12 +174,15 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         // filtering and traces. It no longer encodes the projectile's look
         // (that's `visual_kind`), so a gun-sword shot carries the plain actor id
         // while still originating at the hand muzzle.
-        let owner_id = enemy.config.id.clone();
+        // Used for self / friendly-fire ignore lists and traces only; the
+        // authoritative owner is the `ProjectileOwner` entity stamped at spawn, so
+        // a body with no archetype row still owns its shot correctly.
+        let owner_id = config.map(|c| c.id.clone()).unwrap_or_default();
         let spawn_origin = if uses_gun_sword {
             let hand = crate::features::rider_hand_world_pos_in_frame(
-                enemy.kin.pos,
-                enemy.kin.facing,
-                enemy.kin.size.y,
+                kin.pos,
+                kin.facing,
+                kin.size.y,
                 gravity_dir,
             );
             hand + world_dir * 18.0
@@ -207,7 +220,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             RANGED_RECOIL_DEFAULT
         };
         let kick = world_dir * -recoil_strength;
-        enemy.kin.vel += kick;
+        kin.vel += kick;
     }
 }
 

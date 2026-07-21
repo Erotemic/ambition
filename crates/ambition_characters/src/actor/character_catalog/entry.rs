@@ -199,6 +199,25 @@ pub struct AxisTuningSpec {
     /// which every other body — and the F3 dev slider — rides.
     #[serde(default = "at_jump_speed")]
     pub jump_speed: f32,
+    /// Top ground speed (px/s) — the character's GAIT, the horizontal sibling of
+    /// [`Self::jump_speed`]'s arc. A body whose identity is how fast it moves (a
+    /// deliberate plodder, a sprinter) authors it here rather than moving the
+    /// shared default every other body and the F3 dev slider ride.
+    #[serde(default = "at_max_run_speed")]
+    pub max_run_speed: f32,
+    /// Ground acceleration (px/s²) toward the target speed. This is the knob that
+    /// decides whether a character SNAPS to speed or has to build it — and, on the
+    /// same approach, how far it slides when reversing. Low values read as weight.
+    #[serde(default = "at_run_accel")]
+    pub run_accel: f32,
+}
+
+fn at_max_run_speed() -> f32 {
+    ae::DEFAULT_TUNING.max_run_speed
+}
+
+fn at_run_accel() -> f32 {
+    ae::DEFAULT_TUNING.run_accel
 }
 
 fn at_air_jumps() -> u8 {
@@ -214,6 +233,8 @@ impl Default for AxisTuningSpec {
         Self {
             air_jumps: at_air_jumps(),
             jump_speed: at_jump_speed(),
+            max_run_speed: at_max_run_speed(),
+            run_accel: at_run_accel(),
         }
     }
 }
@@ -227,6 +248,8 @@ impl AxisTuningSpec {
         ae::MovementTuning {
             air_jumps: self.air_jumps,
             jump_speed: self.jump_speed,
+            max_run_speed: self.max_run_speed,
+            run_accel: self.run_accel,
             ..ae::DEFAULT_TUNING
         }
     }

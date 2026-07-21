@@ -19,6 +19,7 @@
 pub mod bricks;
 pub mod crony;
 pub mod flag;
+pub mod movement;
 pub mod powerups;
 pub mod provider;
 
@@ -343,7 +344,16 @@ const MARY_O_CATALOG_RON: &str = r#"(
             // AuthoredMovementTuning marker so it comes from HER row, never the
             // shared F3 dev tuning (which every other body still follows) — the
             // axis-path analogue of Sanic's authored `momentum`.
-            axis_tuning: Some((jump_speed: 913.0)),
+            // Her GAIT, alongside her arc. `max_run_speed` 320 is her hold-to-run
+            // top speed; the walk is half of it (the demo's WALK_THROTTLE), which
+            // is the classic two-gear feel. `run_accel` 900 is the important one:
+            // the shared default (5200) reaches top speed in ~0.06s, which reads
+            // as a velocity snap. At 900 she takes ~0.35s to wind up to a run, and
+            // a reversal at speed spends ~0.7s sliding through zero — the skid
+            // that says she has weight. Both ride the same AuthoredMovementTuning
+            // marker her jump does, so they come from HER row and leave every
+            // other body on the shared F3 dev tuning.
+            axis_tuning: Some((jump_speed: 913.0, max_run_speed: 320.0, run_accel: 900.0)),
             playable_kit: Authored,
             tags: ["player"],
             barks: (
@@ -369,7 +379,16 @@ const MARY_O_CATALOG_RON: &str = r#"(
             default_brain: "stand_still",
             default_action_set: "peaceful",
             abilities: Some([RunJump, WallMobility, FastFall]),
-            axis_tuning: Some((jump_speed: 913.0)),
+            // Her GAIT, alongside her arc. `max_run_speed` 320 is her hold-to-run
+            // top speed; the walk is half of it (the demo's WALK_THROTTLE), which
+            // is the classic two-gear feel. `run_accel` 900 is the important one:
+            // the shared default (5200) reaches top speed in ~0.06s, which reads
+            // as a velocity snap. At 900 she takes ~0.35s to wind up to a run, and
+            // a reversal at speed spends ~0.7s sliding through zero — the skid
+            // that says she has weight. Both ride the same AuthoredMovementTuning
+            // marker her jump does, so they come from HER row and leave every
+            // other body on the shared F3 dev tuning.
+            axis_tuning: Some((jump_speed: 913.0, max_run_speed: 320.0, run_accel: 900.0)),
             playable_kit: Authored,
             tags: ["player"],
             barks: (
@@ -609,7 +628,21 @@ impl Plugin for MaryORulesPlugin {
             powerups::refill_power_blocks_on_room_loaded,
             powerups::bonk_power_blocks,
             powerups::sync_grown_form,
+            powerups::tag_mary_o_sparks,
         );
+        // Mary-O's locomotion POLICY and her spark's press edge. Both read the
+        // sustained control slot off the body's freshly-produced `ActorControl`,
+        // so they sit after the brain tick and before the shared movement phase
+        // consumes the frame — the throttle they set then flows through the
+        // ordinary body path, replay and rollback included.
+        let gait = (
+            movement::ensure_gait,
+            movement::walk_by_default_run_while_held,
+            movement::fire_spark_on_run_press,
+            movement::sync_run_action_scheme,
+        )
+            .chain()
+            .after(ambition::actors::avatar::tick_player_brains);
         // The bricks — the reactive-block primitive's SECOND consumer: re-arm on
         // (re)load, break the bonked one, and contribute broken bricks to the
         // collision overlay's `removed_block_names` so they stop colliding (and, via
@@ -627,6 +660,7 @@ impl Plugin for MaryORulesPlugin {
                 powerups.run_if(ambition::runtime::in_mode(MARY_O_MODE)),
             );
             app.add_systems(sim, bricks.run_if(ambition::runtime::in_mode(MARY_O_MODE)));
+            app.add_systems(sim, gait.run_if(ambition::runtime::in_mode(MARY_O_MODE)));
             app.add_systems(
                 sim,
                 brick_overlay.run_if(ambition::runtime::in_mode(MARY_O_MODE)),
@@ -636,6 +670,7 @@ impl Plugin for MaryORulesPlugin {
             app.add_systems(sim, cronies);
             app.add_systems(sim, powerups);
             app.add_systems(sim, bricks);
+            app.add_systems(sim, gait);
             app.add_systems(sim, brick_overlay);
         }
     }

@@ -141,7 +141,7 @@
         // its authored visual id below (the render layer resolves `ranged_visual`
         // through the content-owned projectile visual catalog, not the owner-id
         // string).
-        ranged: Some(Rock(speed: 300.0, damage: 1)),
+        ranged: Some((style: Rock, speed: 300.0, damage: 1)),
         ranged_visual: "glider",
         smash_dash_to_close: true,
         // Platform-fighter neutral game: footsies + neutral hops + spacing, so the
@@ -233,7 +233,7 @@
         ))),
         // The player's signature projectile (the render layer resolves the visual
         // id through the content catalog, so the same Hadouken art the human fires).
-        ranged: Some(Rock(speed: 360.0, damage: 1)),
+        ranged: Some((style: Rock, speed: 360.0, damage: 1)),
         ranged_visual: "hadouken",
         smash_dash_to_close: true,
         // Platform-fighter neutral game (the player kit moves and spaces).
@@ -361,7 +361,7 @@
         contact_strength: 0.40,
         damage_amount: 1,
         brain_template: Skirmisher,
-        ranged: Some(Bolt(speed: 460.0, damage: 1)),
+        ranged: Some((style: Bolt, speed: 460.0, damage: 1)),
         move_style: Walk,
     ),
     // Aggressive sky parrot — the hostile faction of the Stochastic Parrot,
@@ -441,7 +441,7 @@
         // readable/dodgeable; damage matches the swing. The 1.1s ranged
         // cadence keeps it from plinking. NOTE: no dedicated throw animation
         // yet — the rock just spawns from the goblin; sprite/feel is a handoff.
-        ranged: Some(Rock(speed: 360.0, damage: 1)),
+        ranged: Some((style: Rock, speed: 360.0, damage: 1)),
         smash_hit_band: Some(32.0),
         // Goblins dash to close a large gap (richer action set).
         smash_dash_to_close: true,
@@ -745,7 +745,7 @@
         // A cove raider can pilot a "shark"-class mount.
         pilotable_mount_classes: ["shark"],
         brain_template: Skirmisher,
-        ranged: Some(Bolt(speed: 500.0, damage: 2)),
+        ranged: Some((style: Bolt, speed: 500.0, damage: 2)),
         held_item: Some("gun_sword"),
         move_style: Walk,
     ),
@@ -762,7 +762,7 @@
         default_size: Some((72.0, 110.0)),
         pilotable_mount_classes: ["shark"],
         brain_template: Skirmisher,
-        ranged: Some(Bolt(speed: 500.0, damage: 3)),
+        ranged: Some((style: Bolt, speed: 500.0, damage: 3)),
         held_item: Some("gun_sword_heavy"),
         move_style: WalkHeavy,
     ),

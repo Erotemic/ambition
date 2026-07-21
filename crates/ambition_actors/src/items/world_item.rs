@@ -152,6 +152,7 @@ mod tests {
             modifiers: Vec::new(),
             grants: Vec::new(),
             on_hit: Some(OnHit::ConsumeAsArmor { downgrade_to: None }),
+            exclusive_slot: None,
         }
     }
 
@@ -241,6 +242,7 @@ mod tests {
             modifiers: Vec::new(),
             grants: vec![EquipmentGrant::Ranged(RangedActionSpec::bolt(400.0, 5))],
             on_hit: None,
+            exclusive_slot: None,
         };
         app.world_mut().spawn(WorldItem::equipping(
             row,

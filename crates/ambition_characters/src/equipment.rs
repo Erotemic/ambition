@@ -45,6 +45,17 @@ pub mod body_param {
 /// (`HeldItemSpec`): rows are read from content, never written back.
 #[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
 pub struct EquipmentRow {
+    /// Optional EXCLUSIVE slot. Two rows naming the same slot cannot be worn at
+    /// once: equipping one replaces the other.
+    ///
+    /// Without it, a progression of rows that each supersede the last has to be
+    /// STACKED, and stacking silently reorders what a hit spends — the older row
+    /// is found first, so an upgrade would be protected by the thing it replaced
+    /// and lost in the wrong order. Naming a slot says "this is a STATE, of which
+    /// a body has one", which is what makes a superseding row's `downgrade_to`
+    /// the authority on what losing it means.
+    #[serde(default)]
+    pub exclusive_slot: Option<String>,
     /// Stable authoring id (`"mushroom"`, `"fire_flower"`). Also what
     /// [`WornEquipment::consume_armor`] reports when this row absorbs a hit.
     pub id: String,
@@ -178,10 +189,23 @@ impl WornEquipment {
         self.rows.iter().any(|r| r.id == id)
     }
 
-    /// Equip a row (append). Grant application is the caller's job (it needs the
-    /// `ActionSet` + a moveset rebuild); this only records the worn state its
-    /// modifiers and armor are read from.
+    /// Equip a row. A row naming an [`EquipmentRow::exclusive_slot`] REPLACES
+    /// whatever else occupies that slot, in place; everything else appends.
+    ///
+    /// Replacing in place rather than removing-then-pushing keeps the worn order
+    /// stable, which matters because [`Self::consume_armor`] spends the FIRST
+    /// armor row it finds.
     pub fn equip(&mut self, row: EquipmentRow) {
+        if let Some(slot) = row.exclusive_slot.as_deref() {
+            if let Some(existing) = self
+                .rows
+                .iter_mut()
+                .find(|r| r.exclusive_slot.as_deref() == Some(slot))
+            {
+                *existing = row;
+                return;
+            }
+        }
         self.rows.push(row);
     }
 
@@ -323,6 +347,7 @@ mod tests {
             modifiers,
             grants: Vec::new(),
             on_hit: None,
+            exclusive_slot: None,
         }
     }
 

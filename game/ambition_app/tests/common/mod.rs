@@ -38,6 +38,8 @@ pub fn base() -> AgentAction {
         fly_toggle: false,
         reset: false,
         start: false,
+        modifier: false,
+        modifier_held: false,
         aim_x: 0.0,
         aim_y: 0.0,
     }

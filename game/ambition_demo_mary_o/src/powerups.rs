@@ -13,7 +13,7 @@
 
 use bevy::prelude::*;
 
-use ambition::characters::brain::action_set::RangedActionSpec;
+use ambition::characters::brain::action_set::{ProjectileFlight, RangedActionSpec};
 use ambition::characters::equipment::{
     EquipmentGrant, EquipmentRow, ModifierOp, ModifierScope, OnHit, ParamModifier, WornEquipment,
 };
@@ -37,11 +37,22 @@ const TALL_CHARACTER_ID: &str = "mary_o_tall";
 /// bonked ?-block and grows Mary-O when she touches it.
 const MILK_HALF: ae::Vec2 = ae::Vec2::new(12.0, 14.0);
 
+/// The blossom's half-extent — the second collectible in the chain.
+const BLOSSOM_HALF: ae::Vec2 = ae::Vec2::new(12.0, 12.0);
+
 /// The presentation art id the milk `WorldItem` carries. The app binds it to the
 /// generated `super_mary_o_milk_carton` sprite in `WorldItemArt`; the render draws
 /// that image, or the cream quad until it is regenerated. Shared here so the spawn
 /// and the art binding name the exact same key.
 pub const MILK_SPRITE: &str = "super_mary_o_milk_carton";
+
+/// The exclusive slot BOTH power rows occupy. Mary-O has exactly one power state
+/// at a time, so collecting the blossom REPLACES the cap rather than stacking on
+/// top of it. Stacking would silently invert the loss order — the older cap would
+/// be found first by the armor spend, so a hit would shrink her while leaving the
+/// spark, which is backwards. With one slot, the worn row IS her power state and
+/// its `downgrade_to` is the authority on what losing it means.
+pub const FORM_SLOT: &str = "mary_o_form";
 
 /// Row id of the grow-cap (mushroom-analog).
 pub const GROW_CAP_ID: &str = "grow_cap";
@@ -65,21 +76,29 @@ pub fn grow_cap() -> EquipmentRow {
         modifiers: Vec::new(),
         grants: Vec::new(),
         on_hit: Some(OnHit::ConsumeAsArmor { downgrade_to: None }),
+        exclusive_slot: Some(FORM_SLOT.to_string()),
     }
 }
 
-/// The spark-blossom: **a ranged verb + a damage buff**, the fireball powerup.
+/// The spark-blossom: **a ranged verb AND the outer layer of armor**.
 ///
-/// It grants a ranged bolt ([`EquipmentGrant::Ranged`]) — from which the moveset
-/// derives a real fireable move on equip — and scales that shot's damage 1.5× at
-/// fire (a `Verb("ranged")`-scoped [`ranged_param::DAMAGE`] modifier, folded in
-/// [`ambition::characters::equipment::resolved_ranged`] at trigger-resolve).
+/// It grants a bouncing spark ([`EquipmentGrant::Ranged`]) and scales that shot's
+/// damage 1.5x at fire (a `Verb("ranged")`-scoped [`ranged_param::DAMAGE`]
+/// modifier, folded in [`ambition::characters::equipment::resolved_ranged`] at
+/// trigger-resolve).
 ///
-/// It deliberately carries NO armor: an on-hit downgrade cannot re-run grant
-/// application (A3 v1 — see [`OnHit`]), so a grant-bearing armor row would leave a
-/// dangling verb. Layering the blossom over the [`grow_cap`] gives the two-hit feel
-/// (lose fire, then lose size) without that gap: the cap is the armor, the blossom
-/// the capability.
+/// Crucially it is ALSO armor, and its `downgrade_to` is the [`grow_cap`]. That
+/// single field is the whole power-state progression: worn over nothing it is the
+/// spark-powered grown form; a hit spends it and splices the cap into its place,
+/// so she loses the spark and stays tall; the next hit spends the cap and she
+/// shrinks. Two hits, two distinct losses, expressed as data.
+///
+/// This used to be impossible. A grant-bearing armor row would leave a dangling
+/// verb, because equip applied grants one-shot and the victim-side resolver could
+/// not re-run them — so the blossom had to carry NO armor and be layered beside
+/// the cap instead. Now that granted actions are RECONCILED from the worn set,
+/// spending this row revokes its verb on the same path that granted it, and the
+/// honest representation is available.
 ///
 /// [`ranged_param::DAMAGE`]: ambition::characters::equipment::ranged_param::DAMAGE
 pub fn spark_blossom() -> EquipmentRow {
@@ -91,11 +110,73 @@ pub fn spark_blossom() -> EquipmentRow {
             op: ModifierOp::Mul(1.5),
             scope: ModifierScope::Verb("ranged".to_string()),
         }],
-        grants: vec![EquipmentGrant::Ranged(RangedActionSpec::Bolt {
-            speed: 420.0,
-            damage: 6,
-        })],
-        on_hit: None,
+        grants: vec![EquipmentGrant::Ranged(spark_shot())],
+        on_hit: Some(OnHit::ConsumeAsArmor {
+            downgrade_to: Some(Box::new(grow_cap())),
+        }),
+        exclusive_slot: Some(FORM_SLOT.to_string()),
+    }
+}
+
+/// The spark itself: a low, fast shot that falls and skips off floors, dying
+/// after two bounces or a second and a half — whichever comes first.
+///
+/// Authored entirely as data on the ranged action. The shared projectile stepper
+/// has no idea this shot exists: it reads gravity, a bounce budget, a lifetime and
+/// a visual id off the spec, exactly as it does for every other projectile. That
+/// is the point — a bouncing spark is a set of numbers, not a code path.
+fn spark_shot() -> RangedActionSpec {
+    RangedActionSpec::bolt(SPARK_SPEED, SPARK_DAMAGE)
+        .with_flight(
+            ProjectileFlight::arcing(SPARK_GRAVITY, SPARK_BOUNCES)
+                .with_lifetime(SPARK_LIFETIME_S)
+                .with_half_extent(ae::Vec2::new(7.0, 7.0)),
+        )
+        .with_visual(SPARK_VISUAL)
+}
+
+/// Launch speed of a spark (px/s).
+const SPARK_SPEED: f32 = 300.0;
+/// Base damage before the blossom's x1.5 fold — enough to end a crony.
+const SPARK_DAMAGE: i32 = 4;
+/// Downward pull, which is what turns a flat shot into a skipping arc.
+const SPARK_GRAVITY: f32 = 900.0;
+/// Floor skips before it burns out.
+const SPARK_BOUNCES: u8 = 2;
+/// Hard lifetime cap, so a spark that finds no floor still expires.
+const SPARK_LIFETIME_S: f32 = 1.5;
+/// The projectile-visual id Mary-O registers her spark look under.
+pub const SPARK_VISUAL: &str = "mary_o_spark";
+
+/// The presentation art id the blossom `WorldItem` carries, bound to a real
+/// sprite by the provider through the shared `WorldItemArt` seam.
+pub const BLOSSOM_SPRITE: &str = "super_mary_o_spark_blossom";
+
+/// Marker on a live Mary-O spark, so her two-at-a-time limit counts HER shots and
+/// constrains nobody else's projectiles.
+#[derive(Component, Debug)]
+pub struct MaryOSpark;
+
+/// Tag freshly spawned sparks by the visual identity her ranged action authored.
+///
+/// The shot itself is an ordinary shared projectile — it moves, collides, damages,
+/// and despawns on the one shared path, and nothing here touches any of that. This
+/// only stamps a content marker so her active-shot limit can count HER sparks
+/// without the projectile domain learning what a spark is.
+pub fn tag_mary_o_sparks(
+    mut commands: Commands,
+    fresh: Query<
+        (Entity, &ambition::projectiles::ProjectileVisualId),
+        (
+            Added<ambition::projectiles::ProjectileVisualId>,
+            Without<MaryOSpark>,
+        ),
+    >,
+) {
+    for (entity, visual) in &fresh {
+        if visual.0 == SPARK_VISUAL {
+            commands.entity(entity).try_insert(MaryOSpark);
+        }
     }
 }
 
@@ -129,14 +210,20 @@ fn tall_body_size() -> ae::Vec2 {
 
 /// **The ?-block bonk.** A head contact (`ContactKind::Head`) against a ?-block —
 /// identified by the durable `GeoId` the engine now carries on
-/// `ContactSource::Block`, NOT by point-matching — pops a milk `WorldItem` out on
-/// top of that block, once per block per level.
+/// `ContactSource::Block`, NOT by point-matching — pops a `WorldItem` out on top
+/// of that block, once per block per level.
+///
+/// WHICH item is a function of her current power state, read from the one
+/// authority that state lives in (her worn equipment): small gets the milk that
+/// grows her, grown gets the blossom, and a Mary-O who already has the blossom
+/// gets nothing rather than a duplicate form row. There is no separate progress
+/// flag to keep in sync — the equipment IS the progress.
 pub fn bonk_power_blocks(
     mut commands: Commands,
     mut spent: ResMut<SpentPowerBlocks>,
-    players: Query<&PlayerBodyFrameOutput, With<PrimaryPlayer>>,
+    players: Query<(&PlayerBodyFrameOutput, Option<&WornEquipment>), With<PrimaryPlayer>>,
 ) {
-    let Ok(frame) = players.single() else {
+    let Ok((frame, worn)) = players.single() else {
         return;
     };
     for contact in &frame.events.contacts {
@@ -152,17 +239,50 @@ pub fn bonk_power_blocks(
         if spent.0.contains(id) {
             continue;
         }
+        let Some(reward) = next_power_reward(worn) else {
+            // Fully powered: the block has nothing to offer, and is NOT spent, so
+            // it still has its reward waiting after she takes a hit.
+            continue;
+        };
         spent.0.insert(id.clone());
-        // The milk pops out resting on the block's top face (screen up = -y).
+        // The reward pops out resting on the block's top face (screen up = -y).
         let min = crate::power_block_min(i);
-        let pos = ae::Vec2::new(min.x + crate::T * 0.5, min.y - MILK_HALF.y);
-        // Tag it with the milk-carton art id: the render binds it to the real sheet
-        // through the app's `WorldItemArt` (the milk sprite), falling back to the
-        // cream quad until the sprite is regenerated. See [`MILK_SPRITE`].
+        let pos = ae::Vec2::new(min.x + crate::T * 0.5, min.y - reward.half.y);
         spawn_world_item(
             &mut commands,
-            WorldItem::equipping(grow_cap(), pos, MILK_HALF).with_sprite(MILK_SPRITE),
+            WorldItem::equipping(reward.row, pos, reward.half).with_sprite(reward.sprite),
         );
+    }
+}
+
+/// One rung up the ladder, chosen from what she is already wearing.
+struct PowerReward {
+    row: EquipmentRow,
+    half: ae::Vec2,
+    sprite: &'static str,
+}
+
+/// `small -> milk`, `grown -> blossom`, `spark-powered -> nothing`.
+///
+/// Reading the worn set rather than a demo flag is what makes duplicates
+/// unrepresentable: there is no state to drift out of sync with, because the
+/// question "what does she have" has exactly one answer.
+fn next_power_reward(worn: Option<&WornEquipment>) -> Option<PowerReward> {
+    let wears = |id: &str| worn.is_some_and(|w| w.wears(id));
+    if wears(SPARK_BLOSSOM_ID) {
+        None
+    } else if wears(GROW_CAP_ID) {
+        Some(PowerReward {
+            row: spark_blossom(),
+            half: BLOSSOM_HALF,
+            sprite: BLOSSOM_SPRITE,
+        })
+    } else {
+        Some(PowerReward {
+            row: grow_cap(),
+            half: MILK_HALF,
+            sprite: MILK_SPRITE,
+        })
     }
 }
 
@@ -190,7 +310,10 @@ pub fn sync_grown_form(
     let Ok((mut worn_char, mut base, mut kin, worn)) = players.single_mut() else {
         return;
     };
-    let wants_tall = worn.is_some_and(|w| w.wears(GROW_CAP_ID));
+    // BOTH power states are tall. The blossom downgrades INTO the cap, so during
+    // that transition she is continuously tall and only the spark is lost — the
+    // size never flickers between the two hits.
+    let wants_tall = worn.is_some_and(|w| w.wears(GROW_CAP_ID) || w.wears(SPARK_BLOSSOM_ID));
     let is_tall = worn_char.0 == TALL_CHARACTER_ID;
     if wants_tall == is_tall {
         return;
@@ -246,7 +369,7 @@ mod tests {
 
     /// The spark-blossom grants a ranged verb and scales its shot's damage at fire.
     #[test]
-    fn spark_blossom_grants_a_scaled_fireball() {
+    fn spark_blossom_grants_a_scaled_bouncing_spark() {
         use ambition::characters::brain::action_set::ActionSet;
         use ambition::combat::moveset::{build_actor_moveset, RANGED_VERB};
 
@@ -268,11 +391,84 @@ mod tests {
             "the spark-blossom grants a fireable ranged move"
         );
 
-        // The fireball leaves the barrel with folded (×1.5) damage.
-        let base = actions.ranged.expect("blossom set a ranged spec");
+        // The spark leaves the barrel with folded (x1.5) damage.
+        let base = actions.ranged.clone().expect("blossom set a ranged spec");
         let shot = resolved_ranged(base, &worn, "ranged", RANGED_VERB);
-        assert_eq!(shot.damage(), 9, "×1.5 on the blossom's 6-damage bolt");
-        assert_eq!(shot.speed(), 420.0, "speed is unmodified");
+        assert_eq!(shot.damage(), 6, "x1.5 on the blossom's 4-damage spark");
+        assert_eq!(shot.speed(), SPARK_SPEED, "speed is unmodified");
+        // The equipment fold must not drop the authored flight/visual — that was a
+        // real bug in the variant-by-variant rebuild this replaced.
+        let flight = shot.flight.expect("the fold preserves authored flight");
+        assert!(flight.gravity > 0.0, "the spark arcs");
+        assert!(flight.bounce_on_world_contact, "and skips off floors");
+        assert_eq!(flight.bounces, SPARK_BOUNCES);
+        assert_eq!(shot.visual.as_deref(), Some(SPARK_VISUAL));
+    }
+
+    /// The spark expires by an authored policy — a bounce budget AND a lifetime,
+    /// so a shot that never finds a floor still burns out.
+    #[test]
+    fn the_spark_expires_by_bounces_or_lifetime() {
+        let shot = spark_shot();
+        let flight = shot.flight.expect("the spark authors its flight");
+        assert_eq!(flight.bounces, 2, "two floor skips, then it is spent");
+        assert!(
+            flight.max_lifetime > 0.0 && flight.max_lifetime < 3.0,
+            "and a hard lifetime cap regardless of bounces"
+        );
+    }
+
+    /// **The progression, as equipment.** small -> milk -> grown -> blossom ->
+    /// spark-powered, with no rung repeatable and no parallel flag.
+    #[test]
+    fn the_power_block_reward_climbs_the_ladder_and_never_duplicates() {
+        // Small: the milk.
+        let bare = WornEquipment::default();
+        assert_eq!(
+            next_power_reward(None).map(|r| r.row.id),
+            Some(GROW_CAP_ID.to_string()),
+            "small Mary-O is offered the milk"
+        );
+        assert_eq!(
+            next_power_reward(Some(&bare)).map(|r| r.row.id),
+            Some(GROW_CAP_ID.to_string()),
+            "an empty worn set reads as small too"
+        );
+
+        // Grown: the blossom.
+        let grown = WornEquipment::new(vec![grow_cap()]);
+        assert_eq!(
+            next_power_reward(Some(&grown)).map(|r| r.row.id),
+            Some(SPARK_BLOSSOM_ID.to_string()),
+            "grown Mary-O is offered the blossom"
+        );
+
+        // Spark-powered: nothing — no duplicate form rows.
+        let sparked = WornEquipment::new(vec![spark_blossom()]);
+        assert!(
+            next_power_reward(Some(&sparked)).is_none(),
+            "an already spark-powered Mary-O accumulates no duplicate row"
+        );
+    }
+
+    /// **Damage walks the ladder back down**, one rung per hit, through the
+    /// ordinary armor spend. Spark-powered -> grown (loses the spark, stays tall)
+    /// -> small.
+    #[test]
+    fn damage_downgrades_spark_to_grown_then_grown_to_small() {
+        let mut worn = WornEquipment::new(vec![spark_blossom()]);
+
+        // Hit one: the blossom is spent and leaves the cap in its place.
+        assert_eq!(worn.consume_armor().as_deref(), Some(SPARK_BLOSSOM_ID));
+        assert!(!worn.wears(SPARK_BLOSSOM_ID), "the spark is gone");
+        assert!(worn.wears(GROW_CAP_ID), "but she is still grown");
+
+        // Hit two: the cap is spent and she is small.
+        assert_eq!(worn.consume_armor().as_deref(), Some(GROW_CAP_ID));
+        assert!(!worn.wears(GROW_CAP_ID), "now she is small");
+
+        // Hit three: no armor left — the hit reaches HP, ordinary damage policy.
+        assert_eq!(worn.consume_armor(), None);
     }
 
     /// Distinct ids so a body can wear both (the cap as armor, the blossom as
@@ -350,6 +546,67 @@ mod tests {
         assert!(
             (feet(&app) - feet0).abs() < 1e-3,
             "feet stay planted on shrink"
+        );
+    }
+
+    /// **Both power states are tall, and the downgrade between them does not
+    /// flicker her size.** Losing the spark must change what she can DO, not how
+    /// big she is; only the second hit shrinks her, feet planted throughout.
+    #[test]
+    fn spark_powered_is_tall_and_only_the_second_hit_shrinks_her() {
+        let mut app = App::new();
+        let small = small_body_size();
+        let body = app
+            .world_mut()
+            .spawn((
+                PrimaryPlayer,
+                WornCharacter(MARY_O_CHARACTER_ID.to_string()),
+                BodyBaseSize { base_size: small },
+                ae::BodyKinematics {
+                    pos: ae::Vec2::new(0.0, 100.0),
+                    vel: ae::Vec2::ZERO,
+                    size: small,
+                    facing: 1.0,
+                },
+                WornEquipment::new(vec![spark_blossom()]),
+            ))
+            .id();
+        app.add_systems(Update, sync_grown_form);
+
+        let feet = |app: &App| {
+            let k = app.world().get::<ae::BodyKinematics>(body).unwrap();
+            k.pos.y + k.size.y * 0.5
+        };
+        let is_tall = |app: &App| {
+            app.world().get::<WornCharacter>(body).unwrap().0 == TALL_CHARACTER_ID
+        };
+
+        app.update();
+        let feet_tall = feet(&app);
+        assert!(is_tall(&app), "wearing the blossom alone reads as tall");
+
+        // Hit one: spark -> grown. Still tall, and she does not bob.
+        app.world_mut()
+            .get_mut::<WornEquipment>(body)
+            .unwrap()
+            .consume_armor();
+        app.update();
+        assert!(is_tall(&app), "losing the spark leaves her GROWN, not small");
+        assert!(
+            (feet(&app) - feet_tall).abs() < 1e-3,
+            "and her size never flickered, so her feet never moved"
+        );
+
+        // Hit two: grown -> small, feet still planted.
+        app.world_mut()
+            .get_mut::<WornEquipment>(body)
+            .unwrap()
+            .consume_armor();
+        app.update();
+        assert!(!is_tall(&app), "the second hit finally shrinks her");
+        assert!(
+            (feet(&app) - feet_tall).abs() < 1e-3,
+            "feet stay planted through the shrink"
         );
     }
 

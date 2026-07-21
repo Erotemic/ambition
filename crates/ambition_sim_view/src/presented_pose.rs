@@ -144,8 +144,15 @@ impl PresentedPose {
         self.presented
     }
 
-    /// The newest authoritative tick position — what an overlay that must stay
-    /// truthful about simulation state (a collision-box gizmo) draws from.
+    /// The newest tick position, unsmoothed.
+    ///
+    /// No shipped overlay draws from this. The debug collision box deliberately
+    /// does NOT: gizmos are drawn through a camera that advances on the render
+    /// clock, so a box placed here is a step function sampled by a smoothly
+    /// moving observer and visibly shakes — while the simulation behind it is
+    /// perfectly regular. Kept for a deliberate second overlay that wants to
+    /// SHOW the extrapolation lead, which is the only thing this reveals that
+    /// [`Self::presented`] does not.
     #[inline]
     pub fn authoritative(self) -> Vec2 {
         self.current

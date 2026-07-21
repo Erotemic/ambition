@@ -441,7 +441,16 @@ pub fn draw_debug_viz(
     developer_tools: Res<DeveloperTools>,
     platform_set: Res<MovingPlatformSet>,
     features: Res<FeatureViewIndex>,
-    bodies: Query<&BodyPoseView>,
+    // Gizmos are drawn THROUGH the camera, and the camera advances on the
+    // render clock. A box placed at the raw tick pose is therefore a step
+    // function sampled by a smoothly-moving observer, which reads as a
+    // horizontal sawtooth at the tick rate — the box shakes even though the
+    // simulation is perfectly regular. Sampling the same frame clock as the
+    // camera and the sprite is what makes the overlay STILL, and it costs no
+    // truthfulness: the size, the shape, and the box's relationship to the art
+    // are all unchanged. Only the sub-tick sampling phase matches its viewer.
+    presented_features: Res<ambition_sim_view::PresentedFeaturePoses>,
+    bodies: Query<(&BodyPoseView, Option<&ambition_sim_view::PresentedPose>)>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
@@ -469,13 +478,14 @@ pub fn draw_debug_viz(
         draw_moving_platform_debug(&mut gizmos, world, &platform_set.0);
     }
     if developer_tools.show_player_hitbox || developer_tools.show_player_vectors {
-        for pose in &bodies {
-            let body = ae::Aabb::new(pose.pos, pose.size * 0.5);
+        for (pose, presented) in &bodies {
+            let draw_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
+            let body = ae::Aabb::new(draw_pos, pose.size * 0.5);
             if developer_tools.show_player_hitbox {
                 draw_aabb_styled(&mut gizmos, world, body, cyan(), &developer_tools);
             }
             if developer_tools.show_player_vectors {
-                let start = w2(world, pose.pos);
+                let start = w2(world, draw_pos);
                 // Velocity at ~0.15s of travel; facing as a short baseline tick.
                 draw_arrow(
                     &mut gizmos,
@@ -494,7 +504,7 @@ pub fn draw_debug_viz(
         }
     }
     if developer_tools.show_feature_hitboxes {
-        for (_, view) in features.iter() {
+        for (id, view) in features.iter() {
             let color = match view.kind {
                 FeatureVisualKind::Actor if !view.alive => gray(),
                 FeatureVisualKind::Actor if view.fighting => red(),
@@ -506,7 +516,9 @@ pub fn draw_debug_viz(
                 FeatureVisualKind::Switch if view.switch_on => green(),
                 FeatureVisualKind::Switch => red(),
             };
-            let aabb = ae::Aabb::new(view.pos, view.size * 0.5);
+            // Same frame clock as the body box above: an enemy's gizmo would
+            // otherwise shake against the camera exactly as the player's did.
+            let aabb = ae::Aabb::new(presented_features.presented(id, view.pos), view.size * 0.5);
             draw_aabb_styled(&mut gizmos, world, aabb, color, &developer_tools);
         }
     }

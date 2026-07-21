@@ -129,23 +129,71 @@ app.add_plugins(bevy::log::LogPlugin::default());   // then set config.debug_log
    says it is "under active portal-lab debugging" is worse than a red test that
    states the truth.
 
+## Root cause, narrowed by instrumenting the pose chain
+
+Instrumenting `advance_presented_body_poses` to log every discontinuous push
+(`travelled_under_own_power == false`) and every >100px gap between
+`presented.current` and `BodyPoseView::pos` produces **exactly one** hit for the
+whole run — the initial `place_player` teleport at tick 1:
+
+```
+XDBG BIG GAP    tick=1 presented.tick=0 view_pos=(2760.0, 248.625) pres_current=(92.0, 876.0)
+XDBG push DISCONT tick=1 view_pos=(2760.0, 248.625) old_current=(92.0, 876.0)
+```
+
+**The 240px portal jump never reaches `advance_presented_body_poses` at all.**
+So the guard is not failing to fire — it is never presented with the jump. The
+presented pose is faithfully tracking `BodyPoseView`, and `BodyPoseView` is
+itself one frame behind the authoritative body at the transit.
+
+That matches the numbers: the observed `follow_world` was 2790.9 while the
+pre-transit tick pose was 2795.4 — the presented pose sits ~4.5px BEHIND the
+last tick pose, where extrapolation should put it AHEAD. It is a frame late, and
+4.5px is precisely the residual in the failing delta (240 − 235.5).
+
+The phase skew is structural, not a bug in either module:
+
+- `rebuild_body_pose_views` runs in `SandboxSet::FeatureViewSync`, in the SIM
+  schedule (`ambition_sim_view/src/lib.rs:110`).
+- `apply_portal_camera_continuity` reads `BodyKinematics` **directly** and runs
+  in `Update`, after `SandboxSet::CoreSimulation`.
+- `advance_presented_body_poses` → `CameraObservationSet` → `camera_follow` also
+  run in `Update`, but consume the read-model republished by the sim schedule.
+
+So on the transit frame the continuity pass sees the post-transit body while the
+camera chain still sees the pre-transit read-model. Two consumers, two clocks,
+one frame apart — and one frame apart at a teleport is the entire teleport.
+
 ## The likely root fix
 
-Both failures are the same defect seen at two moments: **the presented pose is
-stale across a discontinuity**, so anything that mixes it with authoritative
-positions disagrees by the size of the jump.
+Both failures are the same defect at two moments: **the continuity anchor and
+the camera's follow point are sampled one frame apart at a discontinuity.**
 
-`presented_pose.rs` already has the right idea — `travelled_under_own_power()`
-judges a move a teleport and `push(.., continuous: false)` collapses the history
-so the jump is drawn as a jump. Verify why that guard does not produce a current
-pose on the transit frame here. Prime suspect: `advance_presented_body_poses`
-only pushes when `presented.tick != tick.0`, so if the sim tick that performed
-the transit is not the tick observed on that render frame, the pose stays one
-frame behind — and one frame behind a teleport is the entire teleport.
+There is a real design question here, and it is Jon's call, not a mechanical fix:
 
-Fixing that would fix the anchor frame and the release frame together, and is
-strictly better than patching either consumer. Patch #2 above is the fallback if
-the root fix proves too invasive, but it needs the release phase solved too.
+**Option A — make the continuity pass read the presented pose.** This obeys the
+rule `presented_pose.rs` states outright: *"Everything anchored to a body reads
+the SAME presented pose"* — sprite, camera focus, and every attached visual.
+`apply_portal_camera_continuity` currently violates it by reading
+`BodyKinematics`. Under A the anchor is established a frame later, against the
+same pose the sprite is drawn at, so the camera and the body agree ON SCREEN,
+which is what continuity actually means. Note this would make the CURRENT test
+wrong: it asserts against `BodyKinematics`, which after `294d7c85c` is no longer
+what anything is drawn at.
+
+**Option B — give the camera the authoritative pose on discontinuity frames.**
+Keeps the existing assertions, but re-introduces exactly the tick/frame
+disagreement `294d7c85c` was written to remove, at the one moment the body is
+moving fastest relative to the camera.
+
+A is the coherent one and is what the module doc already argues for; B preserves
+the test. Deciding that is the first step, not the last — do not patch a
+consumer before it is settled, or the failure just moves again (which is what
+attempt #2 above demonstrated).
+
+Whichever is chosen, the test needs revisiting: it was written before the camera
+followed the presented pose, so it asserts screen-space continuity using a
+position no longer drawn on screen.
 
 ## Wider consequence
 

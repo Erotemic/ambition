@@ -41,7 +41,12 @@ fn intend(app: &mut App, body: Entity, x: f32, run_held: bool) {
 }
 
 fn throttle(app: &App, body: Entity) -> f32 {
-    app.world().get::<ActorControl>(body).unwrap().0.locomotion.x
+    app.world()
+        .get::<ActorControl>(body)
+        .unwrap()
+        .0
+        .locomotion
+        .x
 }
 
 /// Direction ALONE is a walk: the throttle reaching the movement kernel is
@@ -127,6 +132,12 @@ fn the_held_run_survives_the_frame_to_tick_latch() {
 #[test]
 fn her_authored_gait_makes_speed_something_she_builds_and_keeps() {
     let mut app = App::new();
+    // The demo now authors `placements` (the vault's coins), and preparation
+    // refuses a room carrying placements no interpreter claims — so this
+    // harness needs the engine foundation that registers the standard lowering
+    // families, not a bare `App`.
+    ambition::engine::add_headless_foundation(&mut app);
+    app.add_plugins(ambition::actors::features::WorldPrepSchedulePlugin);
     crate::add_demo_content(&mut app);
     let catalog = app
         .world()
@@ -155,7 +166,10 @@ fn her_authored_gait_makes_speed_something_she_builds_and_keeps() {
 
     // Reversal: crossing from full run to a standstill is a visible slide.
     let skid = tuning.max_run_speed / tuning.run_accel;
-    assert!(skid > 0.2, "a reversal at speed is a readable skid ({skid}s)");
+    assert!(
+        skid > 0.2,
+        "a reversal at speed is a readable skid ({skid}s)"
+    );
 
     // And she is meaningfully faster than the walk she defaults to.
     assert!(
@@ -169,7 +183,11 @@ fn her_authored_gait_makes_speed_something_she_builds_and_keeps() {
 #[test]
 fn reversing_at_speed_reads_as_a_skid() {
     let (mut app, body) = app_with_policy();
-    app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap().vel.x = 300.0;
+    app.world_mut()
+        .get_mut::<ae::BodyKinematics>(body)
+        .unwrap()
+        .vel
+        .x = 300.0;
     intend(&mut app, body, -1.0, true);
     app.update();
 
@@ -179,7 +197,11 @@ fn reversing_at_speed_reads_as_a_skid() {
     );
 
     // The same reversal at a crawl is just a turn.
-    app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap().vel.x = 10.0;
+    app.world_mut()
+        .get_mut::<ae::BodyKinematics>(body)
+        .unwrap()
+        .vel
+        .x = 10.0;
     intend(&mut app, body, -1.0, true);
     app.update();
     assert!(
@@ -228,7 +250,12 @@ fn press_run(app: &mut App, body: Entity) {
 }
 
 fn fired(app: &App, body: Entity) -> bool {
-    app.world().get::<ActorControl>(body).unwrap().0.fire.is_some()
+    app.world()
+        .get::<ActorControl>(body)
+        .unwrap()
+        .0
+        .fire
+        .is_some()
 }
 
 /// **Firing uses the press edge** — no charge, no release to wait for. The shot
@@ -251,7 +278,10 @@ fn without_the_blossom_the_run_button_does_not_fire() {
     let (mut app, body) = app_with_fire(WornEquipment::new(vec![grow_cap()]));
     press_run(&mut app, body);
     app.update();
-    assert!(!fired(&app, body), "grown but sparkless: the button only runs");
+    assert!(
+        !fired(&app, body),
+        "grown but sparkless: the button only runs"
+    );
 }
 
 /// The authored cooldown gates the cadence; a second press inside it is refused.
@@ -263,7 +293,11 @@ fn the_authored_cooldown_gates_the_next_spark() {
     assert!(fired(&app, body));
 
     // Clear the intent and press again immediately.
-    app.world_mut().get_mut::<ActorControl>(body).unwrap().0.fire = None;
+    app.world_mut()
+        .get_mut::<ActorControl>(body)
+        .unwrap()
+        .0
+        .fire = None;
     press_run(&mut app, body);
     app.update();
     assert!(

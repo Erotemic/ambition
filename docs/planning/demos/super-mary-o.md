@@ -27,7 +27,21 @@ Landed:
 Remaining acceptance work
 (**this list is the single source; status.md and tracks.md refer here**):
 
-- the secret pipe and underground room;
+- ✅ **The secret pipe and underground room — LANDED 2026-07-21.** A warp pipe on
+  the safe run between pits A and B; stand on its mouth, press Interact, drop
+  into a sealed coin vault dug under the ground slab, and Interact at its far
+  end to surface. The vault is part of the SAME `RoomSpec` rather than a second
+  room on purpose: cross-room transition lives in `ambition_app`'s `world_flow`,
+  so a room-graph secret would have worked only when Ambition hosted the demo
+  and been dead in the demo's own app. The world grew downward
+  (`SURFACE_HEIGHT` + `VAULT_DEPTH_TILES`) so the authored surface layout is
+  byte-identical. The warp is a real `transit_body` (ADR 0024), not a position
+  poke, so entering while wall-clinging reconciles instead of arriving still
+  clung to a wall that is not there. Its 8 coins are ordinary `currency`
+  placements the shared economy collects — they land in the HUD's COINS readout
+  with no demo collection code. NOTE: authoring placements made this demo
+  require the pickup lowering interpreter, so its two bare-`App` unit harnesses
+  now add `WorldPrepSchedulePlugin`; the real app already had it.
 - a brainless sliding shell prop;
 - ✅ **HUD for score/coins/time/lives — LANDED 2026-07-21** through the new
   provider-declared HUD seam (`with_hud`), four readouts in the reserved top

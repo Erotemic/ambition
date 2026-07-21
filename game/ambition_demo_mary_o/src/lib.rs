@@ -113,7 +113,77 @@ const POLE_BANNER_COLOR: [f32; 4] = [0.24, 0.62, 0.34, 1.0];
 /// [`level_1_1`], because [`goal_pole`] must derive the flag's geometry from the
 /// same numbers the flag's BLOCK is built from — see `flag_geometry_oracle`.
 const LEVEL_WIDTH: f32 = 96.0 * T;
-const LEVEL_HEIGHT: f32 = 15.0 * T;
+
+/// The SURFACE half's height — every above-ground feature is placed against
+/// this, so growing the world downward for the vault below leaves the authored
+/// 1-1 layout byte-identical.
+const SURFACE_HEIGHT: f32 = 15.0 * T;
+
+/// How far below the ground slab the secret vault's floor sits.
+const VAULT_DEPTH_TILES: f32 = 9.0;
+
+const LEVEL_HEIGHT: f32 = SURFACE_HEIGHT + VAULT_DEPTH_TILES * T;
+
+/// The warp pipe: which tile column it stands in, and how big it is.
+///
+/// Column 26 puts it on the safe run between pit A and pit B — far enough past
+/// the open teach that a player has learned the jump, close enough that the
+/// first pipe they ever see is not at the end of the level.
+const PIPE_COLUMN: f32 = 26.0;
+const PIPE_WIDTH_TILES: f32 = 2.0;
+const PIPE_HEIGHT_TILES: f32 = 2.0;
+const PIPE_NAME: &str = "secret_pipe";
+const PIPE_COLOR: [f32; 4] = [0.18, 0.62, 0.28, 1.0];
+const VAULT_STONE_COLOR: [f32; 4] = [0.24, 0.20, 0.30, 1.0];
+
+/// Coins waiting in the vault. The whole reward for finding the pipe.
+const VAULT_COINS: usize = 8;
+
+/// The vault's interior, in world coordinates: a sealed chamber dug under the
+/// ground slab, directly below the pipe that leads into it.
+///
+/// One function so the level geometry, the warp destination, and the coin row
+/// can never disagree about where the room actually is.
+pub fn vault_bounds() -> ae::Aabb {
+    let ceiling = SURFACE_HEIGHT;
+    let floor = SURFACE_HEIGHT + (VAULT_DEPTH_TILES - 2.0) * T;
+    let left = (PIPE_COLUMN - 1.0) * T;
+    let size = ae::Vec2::new(14.0 * T, floor - ceiling);
+    let min = ae::Vec2::new(left, ceiling);
+    ae::Aabb::new(min + size * 0.5, size * 0.5)
+}
+
+/// The mouth of the pipe — the rectangle you must be standing in to warp down.
+pub fn pipe_mouth() -> ae::Aabb {
+    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
+    let top = ground_top - PIPE_HEIGHT_TILES * T;
+    let size = ae::Vec2::new(PIPE_WIDTH_TILES * T, T);
+    let min = ae::Vec2::new(PIPE_COLUMN * T, top - 0.5 * T);
+    ae::Aabb::new(min + size * 0.5, size * 0.5)
+}
+
+/// Where the pipe drops you: just inside the vault, under its entrance.
+pub fn vault_arrival() -> ae::Vec2 {
+    let vault = vault_bounds();
+    ae::Vec2::new(vault.min.x + 1.5 * T, vault.min.y + 1.5 * T)
+}
+
+/// Where leaving the vault puts you: back on top of the pipe you came down.
+pub fn pipe_arrival() -> ae::Vec2 {
+    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
+    ae::Vec2::new(
+        (PIPE_COLUMN + PIPE_WIDTH_TILES * 0.5) * T,
+        ground_top - PIPE_HEIGHT_TILES * T - T,
+    )
+}
+
+/// The vault's exit: stand at its far end and press Interact to surface.
+pub fn vault_exit() -> ae::Aabb {
+    let vault = vault_bounds();
+    let size = ae::Vec2::splat(2.0 * T);
+    let min = vault.max - size;
+    ae::Aabb::new(min + size * 0.5, size * 0.5)
+}
 
 /// Build Mary-O's level 1-1 through the `ambition` umbrella surface ONLY.
 ///
@@ -133,7 +203,7 @@ const LEVEL_HEIGHT: f32 = 15.0 * T;
 pub fn level_1_1() -> RoomSpec {
     let width = LEVEL_WIDTH; // 96 tiles — a real 1-1 is ~210; this is its grammar.
     let height = LEVEL_HEIGHT;
-    let ground_top = height - GROUND_TILES * T;
+    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
 
     let mut blocks = Vec::new();
 
@@ -270,11 +340,84 @@ pub fn level_1_1() -> RoomSpec {
         .with_art_color(POLE_BANNER_COLOR),
     );
 
+    // ── 6. The secret pipe, and the vault under the level ───────────────────
+    //
+    // A warp pipe standing on safe ground between pit A and pit B. Stand on its
+    // mouth and press Interact and you drop into a sealed coin vault built into
+    // the SAME room, below the ground slab — which is why the world grew
+    // downward rather than a second room being authored: cross-room transition
+    // lives in `ambition_app`'s `world_flow`, so a demo that ships its own app
+    // could not use it and would have worked only when Ambition hosted it.
+    //
+    // The vault is reachable ONLY through the pipe: it is walled on all four
+    // sides, and the ground slab above is its ceiling.
+    blocks.push(
+        ae::Block::solid_tiled(
+            PIPE_NAME,
+            ae::Vec2::new(PIPE_COLUMN * T, ground_top - PIPE_HEIGHT_TILES * T),
+            ae::Vec2::new(PIPE_WIDTH_TILES * T, PIPE_HEIGHT_TILES * T),
+            "mary_o_pipe",
+            0,
+        )
+        .with_art_color(PIPE_COLOR),
+    );
+
+    let vault = vault_bounds();
+    let wall = T;
+    // Floor, then the two side walls. The ceiling is the level's own ground
+    // slab, so a vault dug directly under solid ground needs no lid.
+    blocks.push(
+        ae::Block::solid_tiled(
+            "vault_floor",
+            ae::Vec2::new(vault.min.x - wall, vault.max.y),
+            ae::Vec2::new(vault.max.x - vault.min.x + wall * 2.0, wall),
+            "mary_o_ground",
+            10,
+        )
+        .with_art_color(VAULT_STONE_COLOR),
+    );
+    for (idx, x) in [(11u16, vault.min.x - wall), (12, vault.max.x)] {
+        blocks.push(
+            ae::Block::solid_tiled(
+                "vault_wall",
+                ae::Vec2::new(x, vault.min.y),
+                ae::Vec2::new(wall, vault.max.y - vault.min.y),
+                "mary_o_ground",
+                idx,
+            )
+            .with_art_color(VAULT_STONE_COLOR),
+        );
+    }
+
     let spawn = ae::Vec2::new(2.0 * T, ground_top - 2.0 * T);
     let world = ae::World::new("Mary-O 1-1", ae::Vec2::new(width, height), spawn, blocks);
 
     let mut room = RoomSpec::new(LEVEL_1_1_ROOM_ID, world);
     room.metadata.mode = Some(MARY_O_MODE.to_string());
+    // The vault's reward, on the ordinary placements channel: `currency`
+    // pickups the SHARED economy collects and credits to the body wallet. No
+    // demo collection code, and they land in the HUD's COINS readout for free —
+    // the same path Sanic's rings already take.
+    let vault = vault_bounds();
+    let coin_y = vault.max.y - 1.5 * T;
+    for i in 0..VAULT_COINS {
+        let x = vault.min.x + (1.0 + i as f32 * 1.5) * T;
+        room.placements
+            .push(ambition::world::placements::PlacementRecord::new(
+                format!("vault_coin_{i}"),
+                ambition::entity_catalog::placements::PlacementSchema::Pickup(
+                    ambition::entity_catalog::placements::PickupSpec::new(
+                        ambition::entity_catalog::placements::PickupKindSpec::Currency {
+                            amount: 1,
+                        },
+                    ),
+                ),
+                {
+                    let size = ae::Vec2::splat(0.75 * T);
+                    ae::Aabb::new(ae::Vec2::new(x, coin_y) + size * 0.5, size * 0.5)
+                },
+            ));
+    }
     room
 }
 
@@ -282,7 +425,7 @@ pub fn level_1_1() -> RoomSpec {
 /// `power_block_*` blocks out of — so the powerup runtime pops the milk out at the
 /// exact block it was authored at.
 pub fn power_block_min(i: usize) -> ae::Vec2 {
-    let ground_top = LEVEL_HEIGHT - GROUND_TILES * T;
+    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
     ae::Vec2::new(POWER_BLOCK_COLUMNS[i] * T, ground_top - POWER_BLOCK_ROW * T)
 }
 
@@ -303,7 +446,7 @@ pub fn power_block_index_for(id: &ae::GeoId) -> Option<usize> {
 /// The min corner of brick `i`, from the SAME constants [`level_1_1`] builds the
 /// `brick_*` blocks out of — so the break runtime removes the exact authored brick.
 pub fn brick_min(i: usize) -> ae::Vec2 {
-    let ground_top = LEVEL_HEIGHT - GROUND_TILES * T;
+    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
     ae::Vec2::new(BRICK_COLUMNS[i] * T, ground_top - BRICK_ROW * T)
 }
 
@@ -337,7 +480,7 @@ pub const BRICK_COUNT: usize = BRICK_COLUMNS.len();
 /// `goal_pole` block out of. A second source of truth for where the flag is would
 /// be a bug that only surfaces after someone moves the level.
 pub fn goal_pole() -> flag::FlagPole {
-    let ground_top = LEVEL_HEIGHT - GROUND_TILES * T;
+    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
     flag::FlagPole {
         // `Block::one_way` takes a MIN corner; the pole is `POLE_WIDTH` wide.
         x: 90.0 * T + POLE_WIDTH * 0.5,
@@ -682,6 +825,7 @@ impl Plugin for MaryORulesPlugin {
             // Reads the clock the tick above just settled, so a timeout is spent
             // on the frame it happens rather than one late.
             spend_lives_on_death,
+            warp_through_secret_pipe,
             cycle_level_on_flag_tally,
         )
             .chain();
@@ -851,6 +995,62 @@ fn spend_lives_on_death(
     replay.write(ambition::actors::session::reset::RoomReplayRequested);
 }
 
+/// **The secret pipe.** Stand on its mouth, press Interact, drop into the vault;
+/// stand at the vault's far end, press Interact, surface again.
+///
+/// The warp is a real TRANSIT, not a position poke: `transit_body` is the engine
+/// authority for discretely relocating a body (ADR 0024), and it reconciles the
+/// motion model's private attachment and maneuver state on the way. Without that
+/// a player who entered the pipe while wall-clinging would arrive in the vault
+/// still clinging to a wall that is no longer there.
+///
+/// Both ends read Interact rather than a bare direction press, because a single
+/// Up/Down press must never trigger a door — the demo obeys the same interaction
+/// binding rule the rest of the game does.
+fn warp_through_secret_pipe(
+    mut bodies: bevy::prelude::Query<
+        (
+            ae::BodyClusterQueryData,
+            &mut ambition::actors::features::MotionModel,
+            &ambition::characters::brain::ActorControl,
+        ),
+        ambition::platformer::markers::PrimaryPlayerOnly,
+    >,
+) {
+    for (clusters, mut model, control) in &mut bodies {
+        if !control.0.interact_pressed {
+            continue;
+        }
+        let mut item = clusters;
+        let mut clusters = item.as_clusters_mut();
+        let body = ae::Aabb::new(clusters.kinematics.pos, clusters.kinematics.size * 0.5);
+
+        let destination = if overlaps(body, pipe_mouth()) {
+            Some(vault_arrival())
+        } else if overlaps(body, vault_exit()) {
+            Some(pipe_arrival())
+        } else {
+            None
+        };
+        let Some(destination) = destination else {
+            continue;
+        };
+
+        ambition::engine_core::movement::transit_body(
+            &mut model,
+            &mut clusters,
+            destination,
+            ambition::engine_core::movement::TransitVelocity::Zero,
+        );
+    }
+}
+
+/// Plain AABB overlap. `IntersectsVolume` would do, but this keeps the warp rule
+/// readable at the call site and free of a trait import for one comparison.
+fn overlaps(a: ae::Aabb, b: ae::Aabb) -> bool {
+    a.min.x < b.max.x && a.max.x > b.min.x && a.min.y < b.max.y && a.max.y > b.min.y
+}
+
 /// **Cyclic level completion.** Once the flag tally has settled, restart the
 /// level — "the next level is the same level," the classic arcade loop.
 ///
@@ -906,6 +1106,10 @@ mod tests {
     #[test]
     fn mary_o_demo_content_plugin_installs() {
         let mut app = App::new();
+        // See the note in `movement::tests`: authored placements require the
+        // engine foundation's lowering registry.
+        ambition::engine::add_headless_foundation(&mut app);
+        app.add_plugins(ambition::actors::features::WorldPrepSchedulePlugin);
         add_demo_content(&mut app);
         let catalog = app
             .world()
@@ -1135,6 +1339,77 @@ mod tests {
         let mut app = shell(MaryORulesPlugin::global(), None, STARTING_TIME * 2.0);
         app.update();
         assert_eq!(remaining(&mut app), Some(0.0));
+    }
+
+    /// **The vault is a SECRET: reachable only through the pipe, and sealed.**
+    ///
+    /// This is geometry, and geometry is exactly the thing that is invisible in a
+    /// headless build and expensive to eyeball in a running one. A vault whose
+    /// wall is one tile short, or whose arrival lands inside the stone, is a
+    /// silently broken secret — the pipe still "works", you just fall through the
+    /// world or get stuck. So: assert the arrival is inside the chamber, that the
+    /// chamber is under the ground slab, and that both warp ends actually
+    /// overlap a body standing where the player would be.
+    #[test]
+    fn the_pipe_leads_into_a_sealed_vault_and_back_out() {
+        use ambition::engine_core::AabbExt;
+
+        let vault = vault_bounds();
+        let arrival = vault_arrival();
+        let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
+
+        // The vault hangs BELOW the ground slab — that is what makes it secret
+        // rather than a visible annex of the level.
+        assert!(
+            vault.min.y >= ground_top + GROUND_TILES * T,
+            "the vault ceiling must be at or under the ground slab; vault top \
+             {} vs slab bottom {}",
+            vault.min.y,
+            ground_top + GROUND_TILES * T
+        );
+
+        // Arrival is strictly inside, with room for a body.
+        assert!(
+            arrival.x > vault.min.x
+                && arrival.x < vault.max.x
+                && arrival.y > vault.min.y
+                && arrival.y < vault.max.y,
+            "the pipe drops the player inside the vault, not into its stone: \
+             arrival {arrival:?} vs {vault:?}"
+        );
+
+        // The world is tall enough to contain the vault it was grown for.
+        assert!(
+            vault.max.y < LEVEL_HEIGHT,
+            "the vault floor must be inside the world bounds"
+        );
+
+        // Both warp ends catch a player-sized body standing at them. A mouth
+        // that does not overlap is a pipe that cannot be entered.
+        let body_at = |p: ae::Vec2| ae::Aabb::new(p, ae::Vec2::new(0.5 * T, 0.9 * T));
+        assert!(
+            overlaps(body_at(pipe_arrival()), pipe_mouth()),
+            "standing on the pipe overlaps its mouth, or Interact can never fire"
+        );
+        assert!(
+            overlaps(body_at(vault_exit().center()), vault_exit()),
+            "the vault exit catches a body standing in it"
+        );
+
+        // The level really does carry the pipe and the coins that reward it.
+        let room = level_1_1();
+        assert!(
+            room.world.blocks.iter().any(|b| b.name == PIPE_NAME),
+            "the pipe is authored into the level"
+        );
+        assert_eq!(
+            room.placements
+                .iter()
+                .filter(|p| p.id.as_str().starts_with("vault_coin_"))
+                .count(),
+            VAULT_COINS,
+            "the vault is stocked"
+        );
     }
 
     /// **A death spends a life, and running out of time is a death.**

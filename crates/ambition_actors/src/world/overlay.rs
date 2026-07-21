@@ -62,6 +62,7 @@ pub fn rebuild_feature_ecs_world_overlay(
             aabb: aabb.aabb(),
             kind,
             velocity: ae::Vec2::ZERO,
+            art_color: None,
         });
         if feature.breakable.collision.blocks_movement() && feature.breakable.trigger.allows_stand()
         {
@@ -71,6 +72,7 @@ pub fn rebuild_feature_ecs_world_overlay(
                 aabb: aabb.aabb(),
                 kind: ae::BlockKind::PogoOrb,
                 velocity: ae::Vec2::ZERO,
+                art_color: None,
             });
         }
     }
@@ -85,6 +87,7 @@ pub fn rebuild_feature_ecs_world_overlay(
             aabb: aabb.aabb(),
             kind: ae::BlockKind::PogoOrb,
             velocity: ae::Vec2::ZERO,
+            art_color: None,
         });
     }
 
@@ -99,6 +102,7 @@ pub fn rebuild_feature_ecs_world_overlay(
                 aabb,
                 kind: ae::BlockKind::PogoOrb,
                 velocity: ae::Vec2::ZERO,
+                art_color: None,
             });
         }
     }

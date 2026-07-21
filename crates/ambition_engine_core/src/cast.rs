@@ -317,6 +317,7 @@ mod tests {
             aabb: Aabb::new(Vec2::new(210.0, 0.0), Vec2::new(10.0, 200.0)),
             kind: BlockKind::Solid,
             velocity: Vec2::ZERO,
+            art_color: None,
         });
         let enter = PortalAperture {
             frame: PortalFrame::fixed(Vec2::new(200.0, 0.0), Vec2::new(-1.0, 0.0)),

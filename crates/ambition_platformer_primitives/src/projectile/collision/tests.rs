@@ -13,6 +13,7 @@ fn world_with_block(kind: ae::BlockKind, center: ae::Vec2, half: ae::Vec2) -> ae
         aabb: ae::Aabb::new(center, half),
         kind,
         velocity: ae::Vec2::ZERO,
+        art_color: None,
     });
     w
 }

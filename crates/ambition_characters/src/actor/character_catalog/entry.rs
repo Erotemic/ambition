@@ -177,9 +177,10 @@ impl MomentumParamsSpec {
 /// (the default) leaves the body on the shared editable tuning, so every
 /// existing character — and the F3 dev workflow — is untouched.
 ///
-/// The vocabulary starts at exactly the knobs a character varies today (the
-/// air-jump count, which turns the `AirJump` grant from a double into a triple
-/// jump). Finer axis knobs (a bespoke gravity/jump arc) are added HERE as a real
+/// The vocabulary is exactly the knobs a character varies today (the air-jump
+/// count, which turns the `AirJump` grant from a double into a triple jump; and
+/// the ground jump's launch speed, which sets how HIGH one press carries a
+/// body). Finer axis knobs (a bespoke gravity curve) are added HERE as a real
 /// consumer lands — the same discipline the grant vocabulary follows — and an
 /// omitted knob stays at the shared default, so `axis_tuning: Some(())` is the
 /// default feel with an authored *marker* (the body still escapes the F3 slider).
@@ -190,16 +191,29 @@ pub struct AxisTuningSpec {
     /// is 1 (a double jump); `2` makes `AirJump` a triple jump.
     #[serde(default = "at_air_jumps")]
     pub air_jumps: u8,
+    /// Ground-jump launch speed (px/s). Apex height is `v²/(2·gravity)`, so this
+    /// is the *height* knob: scaling it by `√k` makes the jump `k` times as high
+    /// against the shared gravity, and the airtime grows by `√k` with it. A
+    /// character whose jump ARC is its identity (a floaty, ceiling-scraping
+    /// platformer hop) authors it here rather than moving the shared default,
+    /// which every other body — and the F3 dev slider — rides.
+    #[serde(default = "at_jump_speed")]
+    pub jump_speed: f32,
 }
 
 fn at_air_jumps() -> u8 {
     ae::DEFAULT_TUNING.air_jumps
 }
 
+fn at_jump_speed() -> f32 {
+    ae::DEFAULT_TUNING.jump_speed
+}
+
 impl Default for AxisTuningSpec {
     fn default() -> Self {
         Self {
             air_jumps: at_air_jumps(),
+            jump_speed: at_jump_speed(),
         }
     }
 }
@@ -212,6 +226,7 @@ impl AxisTuningSpec {
     pub fn to_kernel(&self) -> ae::MovementTuning {
         ae::MovementTuning {
             air_jumps: self.air_jumps,
+            jump_speed: self.jump_speed,
             ..ae::DEFAULT_TUNING
         }
     }

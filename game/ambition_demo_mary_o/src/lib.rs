@@ -309,27 +309,31 @@ const MARY_O_CATALOG_RON: &str = r#"(
             default_brain: "stand_still",
             default_action_set: "peaceful",
             // A PROPER Mary-O moveset, composed grant-by-grant: the run+jump
-            // floor, an air jump (double jump — a triple jump once her authored
-            // `air_jumps` count below raises it), wall mobility (cling + kick), and
-            // a fast fall (the ground-pound dive). Each is a single-verb grant
-            // appended to the list — NOT a preset the roster forks — and the union
-            // of them is her AbilityBase. It still keeps her OFF the full Ambition
-            // kit (blink, dash, fly, fireball) without touching the shared session
+            // floor, wall mobility (cling + kick), and a fast fall (the
+            // ground-pound dive). Each is a single-verb grant appended to the list
+            // — NOT a preset the roster forks — and the union of them is her
+            // AbilityBase. Deliberately WITHOUT `AirJump`: hers is the classic
+            // one-press arc, so the only way to clear a gap is to commit to the
+            // jump from the ground. It also keeps her OFF the full Ambition kit
+            // (blink, dash, fly, fireball) without touching the shared session
             // ability set, so the multi-game host's own protagonist is unaffected;
             // the session mask can gate these verbs off but can never clobber the
             // base back up to sandbox_all. Paired with the `peaceful` authored kit
             // (Authored, not HostCode) so she carries no combat verbs either.
-            abilities: Some([RunJump, AirJump, WallMobility, FastFall]),
-            // Her AirJump grant is a TRIPLE jump: the grant lights the air-jump
-            // capability, this authored count (2 air jumps) is the feel. It rides
-            // an AuthoredMovementTuning marker so it comes from HER row, never the
-            // shared F3 dev tuning (which defaults air_jumps to 1) — the axis-path
-            // analogue of Sanic's authored `momentum`.
-            axis_tuning: Some((air_jumps: 2)),
+            abilities: Some([RunJump, WallMobility, FastFall]),
+            // That one jump is a BIG one: 2.1x the default apex, which is what a
+            // ?-block at bonk height and a three-tile pit are drawn around. Apex is
+            // v²/(2·gravity), so 2.1x the height is √2.1 ≈ 1.449x the launch speed
+            // — 630 * √2.1 = 913. Gravity is untouched, so she falls on the shared
+            // curve and simply hangs √2.1x longer on the way up. It rides an
+            // AuthoredMovementTuning marker so it comes from HER row, never the
+            // shared F3 dev tuning (which every other body still follows) — the
+            // axis-path analogue of Sanic's authored `momentum`.
+            axis_tuning: Some((jump_speed: 913.0)),
             playable_kit: Authored,
             tags: ["player"],
             barks: (
-                hall: ["I solve masonry disputes from below.", "First jump: business. Second: insurance. Third: spite.", "Every pipe is hiding something."],
+                hall: ["I solve masonry disputes from below.", "One jump. No second opinions, no insurance.", "Every pipe is hiding something."],
             ),
             hall_dialogue_id: Some("hall_mary_o"),
         ),
@@ -337,9 +341,9 @@ const MARY_O_CATALOG_RON: &str = r#"(
         // this row (a distinct SHEET — `super_mary_o_tall` — not a scaled copy of
         // the small sheet, per Jon), and the powerup runtime bumps her body size so
         // the taller art draws bigger. Kit is byte-identical to `mary_o` — same
-        // grant list, same triple-jump `axis_tuning` (re-wearing re-reads
-        // `axis_tuning`, so a mismatch here would silently drop a jump on grow) and
-        // the same peaceful Authored kit — so growing changes only her LOOK and
+        // grant list, same tall-jump `axis_tuning` (re-wearing re-reads
+        // `axis_tuning`, so a mismatch here would silently shrink her jump on grow)
+        // and the same peaceful Authored kit — so growing changes only her LOOK and
         // size, never her moveset.
         "mary_o_tall": (
             display_name: "Mary-O (Tall)",
@@ -350,8 +354,8 @@ const MARY_O_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            abilities: Some([RunJump, AirJump, WallMobility, FastFall]),
-            axis_tuning: Some((air_jumps: 2)),
+            abilities: Some([RunJump, WallMobility, FastFall]),
+            axis_tuning: Some((jump_speed: 913.0)),
             playable_kit: Authored,
             tags: ["player"],
             barks: (
@@ -726,9 +730,9 @@ mod tests {
             .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>();
         assert!(catalog.get(provider::MARY_O_CHARACTER_ID).is_some());
         // Mary-O's authored grant list composes to her platformer moveset —
-        // run+jump, air jump, wall mobility, fast fall — and NOTHING from the
-        // full Ambition kit (blink/dash/fly/attack). This is her AbilityBase; the
-        // session mask can only narrow it, never restore the sandbox kit.
+        // run+jump, wall mobility, fast fall — and NOTHING from the full Ambition
+        // kit (blink/dash/fly/attack). This is her AbilityBase; the session mask
+        // can only narrow it, never restore the sandbox kit.
         let mary_o_kit = catalog
             .ability_set(provider::MARY_O_CHARACTER_ID)
             .expect("Mary-O authors a grant list");
@@ -736,7 +740,6 @@ mod tests {
             mary_o_kit,
             ambition::engine_core::AbilitySet::compose(&[
                 ambition::engine_core::AbilityGrant::RunJump,
-                ambition::engine_core::AbilityGrant::AirJump,
                 ambition::engine_core::AbilityGrant::WallMobility,
                 ambition::engine_core::AbilityGrant::FastFall,
             ]),
@@ -745,11 +748,15 @@ mod tests {
         assert!(
             mary_o_kit.jump
                 && mary_o_kit.move_horizontal
-                && mary_o_kit.double_jump
                 && mary_o_kit.wall_jump
                 && mary_o_kit.wall_cling
                 && mary_o_kit.fast_fall,
             "the platformer verbs are all lit"
+        );
+        assert!(
+            !mary_o_kit.double_jump,
+            "but NOT the air jump: hers is a single committed arc, so no AirJump \
+             grant means air_jump_count is 0 no matter what any tuning says"
         );
         assert!(
             !mary_o_kit.blink
@@ -759,22 +766,27 @@ mod tests {
                 && !mary_o_kit.wall_climb,
             "but none of the full Ambition kit"
         );
-        // Her AirJump grant is a TRIPLE jump: she authors a per-character axis
-        // tuning (air_jumps = 2) that rides an AuthoredMovementTuning marker, so
-        // the count comes from HER row rather than the shared F3 dev tuning
-        // (which defaults to 1). This is the axis-path analogue of `momentum`.
+        // That single jump is 2.1x the default apex. She authors it as a
+        // per-character axis tuning riding an AuthoredMovementTuning marker, so the
+        // launch speed comes from HER row rather than the shared F3 dev tuning.
+        // This is the axis-path analogue of `momentum`.
         let mary_o_tuning = catalog
             .axis_tuning(provider::MARY_O_CHARACTER_ID)
             .expect("Mary-O authors an axis tuning");
-        assert_eq!(
-            mary_o_tuning.air_jumps, 2,
-            "two air jumps: a ground jump plus two = a triple jump"
+        let default_tuning = ambition::engine_core::DEFAULT_TUNING;
+        // Apex = v²/(2·gravity), and she shares the default gravity, so the height
+        // ratio is exactly the SPEED ratio squared. Assert the ratio, not the
+        // magic number: retuning the shared jump keeps her 2.1x relationship.
+        let height_ratio = (mary_o_tuning.jump_speed / default_tuning.jump_speed).powi(2);
+        assert!(
+            (height_ratio - 2.1).abs() < 0.005,
+            "Mary-O jumps ~2.1x the default height, got {height_ratio}x"
         );
         // Everything else in her feel stays at the shared default — she overrides
-        // only what she authors (the gravity/jump arc Jon blessed is untouched).
+        // only what she authors (the gravity Jon blessed is untouched, so she falls
+        // on the same curve every other body does).
         assert_eq!(
-            mary_o_tuning.gravity,
-            ambition::engine_core::DEFAULT_TUNING.gravity,
+            mary_o_tuning.gravity, default_tuning.gravity,
             "an un-authored knob stays at the default feel"
         );
         let defaults = app

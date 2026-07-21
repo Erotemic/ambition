@@ -714,6 +714,7 @@ struct TouchButtonEdges {
     projectile: bool,
     fly_toggle: bool,
     shield: bool,
+    modifier: bool,
     start: bool,
     reset: bool,
 }
@@ -954,6 +955,7 @@ fn touch_button_slot(action: TouchActionButton) -> Option<ControlSlot> {
         TouchActionButton::Projectile => ControlSlot::Projectile,
         TouchActionButton::FlyToggle => ControlSlot::Utility,
         TouchActionButton::Shield => ControlSlot::QuickAction,
+        TouchActionButton::Modifier => ControlSlot::Modifier,
         TouchActionButton::Start | TouchActionButton::Reset => return None,
     })
 }
@@ -1049,6 +1051,7 @@ fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt) {
     now.projectile &= avail(TouchActionButton::Projectile);
     now.fly_toggle &= avail(TouchActionButton::FlyToggle);
     now.shield &= avail(TouchActionButton::Shield);
+    now.modifier &= avail(TouchActionButton::Modifier);
     // Start / Reset are always available — no mask.
 }
 
@@ -1131,6 +1134,7 @@ fn touch_action_to_sandbox_action(action: TouchActionButton) -> SandboxAction {
         TouchActionButton::Projectile => SandboxAction::Projectile,
         TouchActionButton::FlyToggle => SandboxAction::Utility,
         TouchActionButton::Shield => SandboxAction::QuickAction,
+        TouchActionButton::Modifier => SandboxAction::Modifier,
         TouchActionButton::Start => SandboxAction::Start,
         TouchActionButton::Reset => SandboxAction::Reset,
     }
@@ -1308,6 +1312,7 @@ fn update_buttons_from_interactions(
     state.0.projectile = make_btn(now.projectile, edges.projectile);
     state.0.fly_toggle = make_btn(now.fly_toggle, edges.fly_toggle);
     state.0.shield = make_btn(now.shield, edges.shield);
+    state.0.modifier = make_btn(now.modifier, edges.modifier);
     state.0.start = make_btn(now.start, edges.start);
     state.0.reset = make_btn(now.reset, edges.reset);
     *edges = now;
@@ -1327,6 +1332,7 @@ fn set_button_held(edges: &mut TouchButtonEdges, action: TouchActionButton, held
         TouchActionButton::Projectile => edges.projectile = true,
         TouchActionButton::FlyToggle => edges.fly_toggle = true,
         TouchActionButton::Shield => edges.shield = true,
+        TouchActionButton::Modifier => edges.modifier = true,
         TouchActionButton::Start => edges.start = true,
         TouchActionButton::Reset => edges.reset = true,
     }

@@ -218,7 +218,7 @@ impl Buttonlike for TouchStickDirection {
     }
 }
 
-const ALL_TOUCH_BUTTONS: [TouchActionButton; 11] = [
+const ALL_TOUCH_BUTTONS: [TouchActionButton; 12] = [
     TouchActionButton::Jump,
     TouchActionButton::Attack,
     TouchActionButton::Special,
@@ -228,6 +228,7 @@ const ALL_TOUCH_BUTTONS: [TouchActionButton; 11] = [
     TouchActionButton::Projectile,
     TouchActionButton::FlyToggle,
     TouchActionButton::Shield,
+    TouchActionButton::Modifier,
     TouchActionButton::Start,
     TouchActionButton::Reset,
 ];
@@ -243,6 +244,7 @@ fn touch_button_state(state: &MobileTouchState, action: TouchActionButton) -> To
         TouchActionButton::Projectile => state.0.projectile,
         TouchActionButton::FlyToggle => state.0.fly_toggle,
         TouchActionButton::Shield => state.0.shield,
+        TouchActionButton::Modifier => state.0.modifier,
         TouchActionButton::Start => state.0.start,
         TouchActionButton::Reset => state.0.reset,
     }
@@ -260,6 +262,7 @@ fn set_touch_button(world: &mut World, action: TouchActionButton, held: bool) {
         TouchActionButton::Projectile => &mut state.0.projectile,
         TouchActionButton::FlyToggle => &mut state.0.fly_toggle,
         TouchActionButton::Shield => &mut state.0.shield,
+        TouchActionButton::Modifier => &mut state.0.modifier,
         TouchActionButton::Start => &mut state.0.start,
         TouchActionButton::Reset => &mut state.0.reset,
     };

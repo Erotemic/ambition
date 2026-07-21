@@ -73,6 +73,7 @@ impl BrokenBricks {
 pub fn break_bricks(
     mut broken: ResMut<BrokenBricks>,
     mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
+    mut sfx: ambition::sfx::SfxWriter,
     players: Query<&PlayerBodyFrameOutput, With<PrimaryPlayer>>,
 ) {
     let Ok(frame) = players.single() else {
@@ -100,6 +101,13 @@ pub fn break_bricks(
                 color: [0.72, 0.35, 0.22, 1.0],
                 kind: ambition::vfx::ParticleKind::Shard,
             });
+            // ...and cracks, through the engine's shared cue seam. PLACEHOLDER
+            // TIMBRE: this reuses the existing `Hit` cue rather than inventing a
+            // brick-specific one, and the provider synthesizes it as a short noisy
+            // thunk. It reads as a smash and needs no asset; a bespoke crumble can
+            // replace the authored spec later without touching this call site,
+            // because what is emitted here is the SEMANTIC cue, not a sound.
+            sfx.write(ambition::sfx::SfxMessage::Hit { pos: center });
         }
     }
 }
@@ -162,6 +170,7 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<BrokenBricks>();
         app.add_message::<ambition::vfx::VfxMessage>();
+        app.add_message::<ambition::sfx::OwnedSfxMessage>();
         app.add_systems(Update, break_bricks);
         app
     }

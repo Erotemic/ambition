@@ -40,6 +40,9 @@ pub enum TouchActionButton {
     Projectile,
     FlyToggle,
     Shield,
+    /// Sustained-technique slot. Held, not tapped — content decides what
+    /// sustaining it does (a locomotion mode, a stance).
+    Modifier,
     Start,
     Reset,
 }
@@ -128,7 +131,7 @@ pub fn movement_joystick_layout() -> TouchJoystickLayout {
 /// Canonical lower-right action layout used by both the rendered UI and
 /// raw multitouch hit testing. Keep all positions here so spacing fixes
 /// cannot drift between the visible overlay and the Android touch path.
-pub fn touch_action_layout() -> [TouchActionSpec; 9] {
+pub fn touch_action_layout() -> [TouchActionSpec; 10] {
     // Authored at the original 1.0-scale layout; `scaled` multiplies
     // through TOUCH_SCALE / TOUCH_FONT_SCALE so a single knob shrinks
     // the entire HUD without disturbing the diamond shape.
@@ -140,42 +143,44 @@ pub fn touch_action_layout() -> [TouchActionSpec; 9] {
         size: size * TOUCH_SCALE,
         font_size: font_size * TOUCH_FONT_SCALE,
     };
+    // FOUR BANDS, read as a controller face. Every band is a full row, so no
+    // button sits in a leftover pocket and the arrangement survives a character
+    // that shows only part of it (unavailable slots are hidden, not repacked).
+    //
+    //   shoulder   Blink    Fly      Shot
+    //   utility    Shield   Interact Special
+    //   face       Attack            Dash
+    //   primary        Run      Jump
+    //
+    // The primary band is the thumb's home: the two controls a platformer holds
+    // and taps constantly, side by side and closer to each other than to anything
+    // else, so a thumb can roll between them without leaving the pair. That is why
+    // Run lives here and not in whatever gap was free — sustaining Run WHILE
+    // tapping Jump is the whole point of a hold-to-run button, and a layout that
+    // scatters them makes the technique unusable however correct the plumbing is.
+    // Shield and Special moved up into the utility band to make room; they are
+    // momentary verbs that do not need the thumb's best real estate.
+    //
+    // The `no_touch_button_overlaps_another` test pins the separation this
+    // arrangement buys (min gap 14px authored, vs ~4px before).
     [
-        scaled(TouchActionButton::Blink, "Blink", 18.0, 10.0, 64.0, 13.0),
-        scaled(TouchActionButton::FlyToggle, "Fly", 123.0, 2.0, 68.0, 14.0),
-        scaled(
-            TouchActionButton::Projectile,
-            "Shot",
-            228.0,
-            10.0,
-            64.0,
-            13.0,
-        ),
-        scaled(
-            TouchActionButton::Interact,
-            "Interact",
-            116.0,
-            76.0,
-            76.0,
-            14.0,
-        ),
-        scaled(TouchActionButton::Attack, "Attack", 48.0, 148.0, 78.0, 14.0),
-        scaled(TouchActionButton::Dash, "Dash", 184.0, 148.0, 78.0, 14.0),
-        scaled(TouchActionButton::Shield, "Shield", 5.0, 222.0, 72.0, 13.0),
-        scaled(TouchActionButton::Jump, "Jump", 115.0, 218.0, 80.0, 15.0),
-        // Signature slot — lower-right corner (below Dash, sharing Shot's right
-        // column) so the diamond keeps a >=4px visible-circle gap from every
-        // neighbor. Hidden when the controlled scheme has no Special (the
+        // Shoulder band.
+        scaled(TouchActionButton::Blink, "Blink", 14.0, 4.0, 62.0, 13.0),
+        scaled(TouchActionButton::FlyToggle, "Fly", 124.0, 0.0, 62.0, 14.0),
+        scaled(TouchActionButton::Projectile, "Shot", 234.0, 4.0, 62.0, 13.0),
+        // Utility band.
+        scaled(TouchActionButton::Shield, "Shield", 8.0, 84.0, 60.0, 12.0),
+        scaled(TouchActionButton::Interact, "Interact", 125.0, 76.0, 60.0, 12.0),
+        // Signature slot. Hidden when the controlled scheme has no Special (the
         // availability predicate gates both visibility and the hit test), so a
         // movement-only character shows no phantom Special.
-        scaled(
-            TouchActionButton::Special,
-            "Special",
-            230.0,
-            228.0,
-            72.0,
-            13.0,
-        ),
+        scaled(TouchActionButton::Special, "Special", 242.0, 84.0, 60.0, 12.0),
+        // Face band.
+        scaled(TouchActionButton::Attack, "Attack", 30.0, 158.0, 70.0, 14.0),
+        scaled(TouchActionButton::Dash, "Dash", 210.0, 158.0, 70.0, 14.0),
+        // Primary band — the pair.
+        scaled(TouchActionButton::Modifier, "Run", 82.0, 240.0, 66.0, 14.0),
+        scaled(TouchActionButton::Jump, "Jump", 162.0, 240.0, 66.0, 14.0),
     ]
 }
 
@@ -265,9 +270,8 @@ mod layout_tests {
     use super::*;
 
     #[test]
-    fn layout_has_nine_distinct_buttons_with_positive_size() {
+    fn every_touch_button_is_distinct_and_drawable() {
         let layout = touch_action_layout();
-        assert_eq!(layout.len(), 9);
         for spec in layout {
             assert!(spec.size > 0.0, "{:?} has non-positive size", spec.action);
             assert!(!spec.label.is_empty());
@@ -276,6 +280,77 @@ mod layout_tests {
             for b in &layout[i + 1..] {
                 assert_ne!(a.action, b.action, "duplicate touch action {:?}", a.action);
             }
+        }
+    }
+
+    /// **No two buttons crowd each other.** This used to be a comment claiming a
+    /// ">=4px visible-circle gap", which nothing checked — so the only thing
+    /// standing between the layout and an unhittable button was
+    /// `each_button_center_hit_tests_back_to_itself`, and that only catches an
+    /// outright overlap, never a gap too small for a finger.
+    ///
+    /// The bound is stated in AUTHORED space (pre-`TOUCH_SCALE`), because that is
+    /// where the layout is edited. Adding a button to a full cluster is exactly
+    /// when this fires, which is the point: it forces the arrangement to be
+    /// redesigned rather than the newcomer wedged into whatever hole was left.
+    #[test]
+    fn no_touch_button_overlaps_another() {
+        /// Authored-space minimum gap between two buttons' visible circles.
+        const MIN_GAP: f32 = 10.0;
+
+        let layout = touch_action_layout();
+        for (i, a) in layout.iter().enumerate() {
+            for b in &layout[i + 1..] {
+                // Undo the uniform scale so the assertion reads in the same units
+                // the table above is written in.
+                let center = |s: &TouchActionSpec| {
+                    Vec2::new(s.left + s.size * 0.5, s.top + s.size * 0.5) / TOUCH_SCALE
+                };
+                let radius = |s: &TouchActionSpec| s.size * 0.5 / TOUCH_SCALE;
+                let gap = center(a).distance(center(b)) - radius(a) - radius(b);
+                assert!(
+                    gap >= MIN_GAP,
+                    "{:?} and {:?} are {gap:.1}px apart in authored space \
+                     (minimum {MIN_GAP}); re-lay the cluster out rather than \
+                     shrinking the gap",
+                    a.action,
+                    b.action,
+                );
+            }
+        }
+    }
+
+    /// **Run and Jump are the pair.** A hold-to-run button is only usable if the
+    /// thumb can sustain it WHILE tapping jump, so the two must be nearer each
+    /// other than either is to any other button. Pinning the relationship rather
+    /// than the coordinates leaves the cluster free to move.
+    #[test]
+    fn the_sustain_and_jump_buttons_are_each_others_nearest_neighbour() {
+        let layout = touch_action_layout();
+        let spec = |a: TouchActionButton| {
+            *layout
+                .iter()
+                .find(|s| s.action == a)
+                .expect("every button is laid out")
+        };
+        let center = |s: TouchActionSpec| Vec2::new(s.left + s.size * 0.5, s.top + s.size * 0.5);
+        let run = spec(TouchActionButton::Modifier);
+        let jump = spec(TouchActionButton::Jump);
+        let pair_distance = center(run).distance(center(jump));
+
+        for other in layout {
+            if other.action == TouchActionButton::Modifier
+                || other.action == TouchActionButton::Jump
+            {
+                continue;
+            }
+            let d = center(other).distance(center(run));
+            assert!(
+                d > pair_distance,
+                "{:?} is nearer Run than Jump is; the hold-and-tap pair must stay \
+                 adjacent or hold-to-run is unusable",
+                other.action,
+            );
         }
     }
 
@@ -347,29 +422,35 @@ mod layout_tests {
         );
     }
 
-    /// Visible circles, not square bounds: diagonal neighbours may overlap as
-    /// squares while their circles do not.
+    /// **Visible circles, not square bounds.** A point inside a button's square
+    /// but outside its drawn circle must hit nothing.
+    ///
+    /// This used to be shown via two diagonal neighbours whose squares overlapped
+    /// — which quietly made the assertion depend on the cluster staying crowded,
+    /// and the re-layout that opened the bands up broke it. The property never
+    /// needed two buttons: a single button's own corner is inside its square and
+    /// outside its circle, so every button can assert it, and no future spacing
+    /// change can make the test vacuous.
     #[test]
     fn touch_action_hit_test_uses_visible_circle_not_square_bounds() {
         let cluster = cluster_at(Vec2::new(1050.0, 500.0), 1.0);
-        let layout = touch_action_layout();
-        let attack = layout
-            .iter()
-            .find(|spec| matches!(spec.action, TouchActionButton::Attack))
-            .expect("Attack remains in the touch action layout");
-        let jump = layout
-            .iter()
-            .find(|spec| matches!(spec.action, TouchActionButton::Jump))
-            .expect("Jump remains in the touch action layout");
-        assert!(
-            attack.top + attack.size > jump.top,
-            "diagonal square bounds should be allowed to overlap vertically"
-        );
-
-        let square_only = cluster.min + Vec2::new(attack.left + attack.size - 2.0, jump.top + 2.0);
-        assert_eq!(
-            touch_action_at_position(square_only, Some(cluster), None),
-            None
-        );
+        for spec in touch_action_layout() {
+            let (center, radius) = touch_action_circle(spec, cluster);
+            // Just inside the square's corner, comfortably outside the circle
+            // (the corner sits `r*sqrt(2)` from the centre).
+            let corner = center + Vec2::splat(radius * 0.78);
+            assert!(
+                corner.distance(center) > radius,
+                "{:?}: the probe must be outside the circle for this to mean anything",
+                spec.action,
+            );
+            assert_eq!(
+                touch_action_at_position(corner, Some(cluster), None),
+                None,
+                "{:?}: a point in the square corner but outside the visible circle \
+                 must not register a press",
+                spec.action,
+            );
+        }
     }
 }

@@ -600,6 +600,10 @@ impl Plugin for MaryORulesPlugin {
         // app registers this via the presentation plugins, but a thin rules-only
         // harness may not, and `add_message` is idempotent.
         app.add_message::<ambition::vfx::VfxMessage>();
+        // Same story for the cue queue: the brick-break voices through the shared
+        // sfx seam, a full app registers this via the audio plugins, and a thin
+        // rules-only harness may not. `add_message` is idempotent.
+        app.add_message::<ambition::sfx::OwnedSfxMessage>();
         // The flag runs BEFORE the clock: a level whose flag has been grabbed is
         // over, and `tick_level_clock` reads the sequence to know it. The cycle
         // emitter runs LAST so it sees the settled tally and its clock reset is not

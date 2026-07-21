@@ -72,6 +72,8 @@ pub struct TouchInputState {
     pub projectile: TouchButton,
     pub fly_toggle: TouchButton,
     pub shield: TouchButton,
+    /// Sustained-technique slot — held, not tapped.
+    pub modifier: TouchButton,
     pub start: TouchButton,
     pub reset: TouchButton,
 }

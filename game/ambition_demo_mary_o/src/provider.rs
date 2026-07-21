@@ -127,18 +127,43 @@ impl Plugin for MaryOExperiencePlugin {
                     // spec; no asset file needed.
                     Some(ambition::audio::spec::SfxRegistry {
                         sample_rate: 44_100,
-                        sfx: vec![ambition::audio::spec::SfxSpec {
-                            cue: Some(ambition::audio::spec::SoundCueKey::Jump),
-                            id: None,
-                            waveform: ambition::audio::spec::WaveformSpec::Sine,
-                            frequency: 460.0,
-                            frequency_end: 720.0,
-                            duration: 0.085,
-                            volume: 0.22,
-                            attack: 0.003,
-                            release: 0.045,
-                            noise: 0.0,
-                        }],
+                        sfx: vec![
+                            ambition::audio::spec::SfxSpec {
+                                cue: Some(ambition::audio::spec::SoundCueKey::Jump),
+                                id: None,
+                                waveform: ambition::audio::spec::WaveformSpec::Sine,
+                                frequency: 460.0,
+                                frequency_end: 720.0,
+                                duration: 0.085,
+                                volume: 0.22,
+                                attack: 0.003,
+                                release: 0.045,
+                                noise: 0.0,
+                            },
+                            // PLACEHOLDER: the brick smash. `break_bricks` emits the
+                            // engine's existing `Hit` cue rather than a bespoke
+                            // brick verb, and this is the timbre that cue resolves
+                            // to for Mary-O — a short, noisy, falling thunk that
+                            // reads as masonry giving way. Declaring it is what
+                            // makes it audible at all: under provider-relative
+                            // audio a session only voices cues its own fragment
+                            // declares, so an undeclared `player.hit` is silence.
+                            // Swap this spec (or point the cue at a real sample)
+                            // when the sound gets authored properly; the emit site
+                            // does not change, because it names a cue, not a sound.
+                            ambition::audio::spec::SfxSpec {
+                                cue: Some(ambition::audio::spec::SoundCueKey::Hit),
+                                id: None,
+                                waveform: ambition::audio::spec::WaveformSpec::Square,
+                                frequency: 190.0,
+                                frequency_end: 70.0,
+                                duration: 0.11,
+                                volume: 0.26,
+                                attack: 0.001,
+                                release: 0.075,
+                                noise: 0.65,
+                            },
+                        ],
                     }),
                 )
                 .expect("Mary-O audio catalog is valid"),

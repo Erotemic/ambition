@@ -388,7 +388,7 @@ fn resolve_fire_pressed_emits_ranged_request() {
     ));
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
     assert_eq!(reqs.len(), 1);
-    match reqs[0] {
+    match &reqs[0] {
         ActionRequest::Ranged {
             spec,
             dir,
@@ -396,8 +396,8 @@ fn resolve_fire_pressed_emits_ranged_request() {
             ..
         } => {
             assert_eq!(spec.speed(), 400.0);
-            assert_eq!(dir, ae::Vec2::new(1.0, 0.0));
-            assert_eq!(dir_policy, ae::GameplayFramePolicy::WorldSpace);
+            assert_eq!(*dir, ae::Vec2::new(1.0, 0.0));
+            assert_eq!(*dir_policy, ae::GameplayFramePolicy::WorldSpace);
         }
         _ => panic!("expected Ranged"),
     }
@@ -417,12 +417,12 @@ fn resolve_preserves_controlled_body_local_fire_policy() {
         ),
     );
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
-    match reqs[0] {
+    match &reqs[0] {
         ActionRequest::Ranged {
             dir, dir_policy, ..
         } => {
-            assert_eq!(dir, ae::Vec2::new(0.0, -1.0));
-            assert_eq!(dir_policy, ae::GameplayFramePolicy::ControlledBodyLocal);
+            assert_eq!(*dir, ae::Vec2::new(0.0, -1.0));
+            assert_eq!(*dir_policy, ae::GameplayFramePolicy::ControlledBodyLocal);
         }
         _ => panic!("expected Ranged"),
     }
@@ -581,26 +581,10 @@ fn melee_spec_uniform_accessors_return_per_variant_fields() {
 
 #[test]
 fn ranged_spec_speed_accessor_returns_per_variant_speed() {
-    assert_eq!(
-        RangedActionSpec::rock(410.0, 1)
-        .speed(),
-        410.0
-    );
-    assert_eq!(
-        RangedActionSpec::arrow(520.0, 2)
-        .speed(),
-        520.0
-    );
-    assert_eq!(
-        RangedActionSpec::pistol(600.0, 1)
-        .speed(),
-        600.0
-    );
-    assert_eq!(
-        RangedActionSpec::bolt(380.0, 1)
-        .speed(),
-        380.0
-    );
+    assert_eq!(RangedActionSpec::rock(410.0, 1).speed(), 410.0);
+    assert_eq!(RangedActionSpec::arrow(520.0, 2).speed(), 520.0);
+    assert_eq!(RangedActionSpec::pistol(600.0, 1).speed(), 600.0);
+    assert_eq!(RangedActionSpec::bolt(380.0, 1).speed(), 380.0);
 }
 
 #[test]
@@ -609,26 +593,10 @@ fn ranged_spec_damage_accessor_returns_per_variant_damage() {
     // from each variant's `damage` field independently. Pins
     // the per-variant routing so a future field rename can't
     // silently return the wrong variant's damage.
-    assert_eq!(
-        RangedActionSpec::rock(0.0, 1)
-        .damage(),
-        1,
-    );
-    assert_eq!(
-        RangedActionSpec::arrow(0.0, 3)
-        .damage(),
-        3,
-    );
-    assert_eq!(
-        RangedActionSpec::pistol(0.0, 2)
-        .damage(),
-        2,
-    );
-    assert_eq!(
-        RangedActionSpec::bolt(0.0, 4)
-        .damage(),
-        4,
-    );
+    assert_eq!(RangedActionSpec::rock(0.0, 1).damage(), 1,);
+    assert_eq!(RangedActionSpec::arrow(0.0, 3).damage(), 3,);
+    assert_eq!(RangedActionSpec::pistol(0.0, 2).damage(), 2,);
+    assert_eq!(RangedActionSpec::bolt(0.0, 4).damage(), 4,);
 }
 
 #[test]

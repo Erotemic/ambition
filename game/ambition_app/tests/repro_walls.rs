@@ -222,7 +222,9 @@ fn locate_teleport_target_block() {
     if !report.is_ok() {
         panic!("validation failed");
     }
-    let room_set = project.to_room_set().expect("room_set");
+    let room_set = project
+        .to_room_set(&ambition_content::worlds::world_manifest())
+        .expect("room_set");
     let arena = room_set
         .rooms
         .iter()
@@ -282,7 +284,9 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
     if !report.is_ok() {
         panic!("validation failed");
     }
-    let room_set = project.to_room_set().expect("room_set");
+    let room_set = project
+        .to_room_set(&ambition_content::worlds::world_manifest())
+        .expect("room_set");
     let arena = room_set
         .rooms
         .iter()
@@ -350,7 +354,9 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
     if !report.is_ok() {
         panic!("validation failed");
     }
-    let room_set = project.to_room_set().expect("room_set");
+    let room_set = project
+        .to_room_set(&ambition_content::worlds::world_manifest())
+        .expect("room_set");
     let arena = room_set
         .rooms
         .iter()
@@ -614,7 +620,9 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
 #[test]
 fn goblin_encounter_full_world_lock_wall_cling_repro() {
     let project = load_project_for_test().expect("sandbox LDtk should load");
-    let room_set = project.to_room_set().expect("room_set");
+    let room_set = project
+        .to_room_set(&ambition_content::worlds::world_manifest())
+        .expect("room_set");
     let Some(room) = room_set.rooms.iter().find(|s| s.id == "goblin_encounter") else {
         eprintln!("no goblin_encounter room; known rooms:");
         for r in &room_set.rooms {
@@ -718,7 +726,9 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
 #[test]
 fn goblin_encounter_real_walljump_repro() {
     let project = load_project_for_test().expect("sandbox LDtk should load");
-    let room_set = project.to_room_set().expect("room_set");
+    let room_set = project
+        .to_room_set(&ambition_content::worlds::world_manifest())
+        .expect("room_set");
     let Some(room) = room_set.rooms.iter().find(|s| s.id == "goblin_encounter") else {
         return;
     };
@@ -787,6 +797,7 @@ fn goblin_encounter_real_walljump_repro() {
 /// install the world manifest first — post-R3.2 the engine ships no worlds
 /// and panics without a provider-owned manifest.
 fn load_project_for_test() -> Result<ambition::actors::ldtk_world::LdtkProject, String> {
-    ambition_content::worlds::install();
-    ambition::actors::ldtk_world::LdtkProject::load_default_for_dev()
+    ambition::actors::ldtk_world::LdtkProject::load_default_for_dev(
+        &ambition_content::worlds::world_manifest(),
+    )
 }

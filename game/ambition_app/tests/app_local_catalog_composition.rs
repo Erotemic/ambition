@@ -186,7 +186,6 @@ fn the_full_hall_validates_with_all_three_provider_catalogs() {
 
     // The world manifest (which names the Hall's secondary world) must be
     // installed before any world load, exactly as the content plugin does.
-    ambition_content::worlds::install();
 
     let mut app = App::new();
     register_ambition(&mut app);
@@ -202,7 +201,8 @@ fn the_full_hall_validates_with_all_three_provider_catalogs() {
         .filter(|title| !title.is_empty())
         .collect();
 
-    let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
+    let project = LdtkProject::load_default_for_dev(&ambition_content::worlds::world_manifest())
+        .expect("embedded LDtk loads");
     let mut checked = 0;
     for level in &project.levels {
         if level.identifier != "hall_of_characters" {

@@ -49,9 +49,14 @@ impl Plugin for AmbitionContentPlugin {
         // attack geometry all read the assembled resource explicitly.
         super::character_catalog::register(app);
 
-        // Install the world manifest (which .ldtk files exist + the entry
-        // room) before any catalog build or world load reads it.
-        super::worlds::install();
+        // Publish this provider's world manifest (which .ldtk files exist +
+        // the entry room) as an App-local resource, so in-schedule readers —
+        // the tile-render spine's handle load, the hot-reload transaction,
+        // per-session visual spine spawn — take it as a `Res`. Pre-App and
+        // plugin-build readers get the same value as a `&WorldManifest`
+        // argument from whoever prepares them. No process global: a second
+        // provider in this process publishes its own into its own App.
+        app.insert_resource(super::worlds::world_manifest());
 
         // Install the authored item catalog (C1 — content out of core) into the
         // machinery lib before any item flavor/wiring is read. Byte-identical to

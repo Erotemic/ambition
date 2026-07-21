@@ -1,22 +1,25 @@
-//! The `WorldManifest` install seam (JD4 / AJ2): a GAME declares its LDtk
+//! The `WorldManifest` VALUE (JD4 / AJ2, K2a): a GAME declares its LDtk
 //! worlds and entry room; the engine keeps the room kit (`RoomSpec`/`RoomSet`,
 //! projection, validators) and ships ZERO worlds — the R3.2 asset move
-//! relocated the payload to `ambition_content::worlds`, which installs here.
+//! relocated the payload to `ambition_content::worlds`, which builds one.
 //!
-//! Content installs the manifest at every sim-entry choke point via
-//! [`install_world_manifest`] (first install wins — the legacy manifest
-//! seam contract). Every world-loading site derives from the installed rows:
-//! the asset-catalog entries, the serde loader's disk/embedded fallback
+//! **There is no install seam and no process global.** A manifest is an
+//! ordinary owned value that boot preparation constructs and hands to every
+//! reader: the asset-catalog rows, the serde loader's disk/embedded fallback
 //! chain, the Bevy `EmbeddedAssetRegistry` registration, the hot-reload
 //! watcher, the bevy_ecs_ldtk tile-render spine, and `to_room_set`'s entry
-//! room. Production PANICS loudly without an install; core tests read the
-//! game's real worlds via the cross-crate `cfg(test)` fixture.
+//! room. Readers that run inside a Bevy schedule take it as a `Res`
+//! ([`WorldManifest`] is a `Resource`, inserted by the same preparation that
+//! threaded it everywhere else); readers that run pre-`App`, at plugin-build
+//! time, or as pure functions take `&WorldManifest` directly. Both routes
+//! carry the SAME value, so two providers can prepare two different manifests
+//! in one process — which the `OnceLock` this replaced made impossible.
 
 use std::path::PathBuf;
-use std::sync::OnceLock;
 
 use ambition_asset_manager::AssetId;
 pub use ambition_world::ron_room::RonRoomSource;
+use bevy::prelude::Resource;
 
 /// One LDtk world a game ships. The FIRST row of a manifest is the primary
 /// (boot-critical, hot-reload-watched) world; later rows are secondaries the
@@ -48,7 +51,11 @@ pub struct WorldSource {
 }
 
 /// A game's world declaration: which LDtk files exist and where play starts.
-#[derive(Clone, Debug)]
+///
+/// A `Resource` so in-schedule readers (the tile-render spine's handle load)
+/// can take it as a `Res`; every pre-`App` and pure reader takes `&WorldManifest`
+/// instead. Preparation owns the one value and feeds both routes.
+#[derive(Clone, Debug, Default, Resource)]
 pub struct WorldManifest {
     /// The room (active-area id) a fresh session starts in. Falls back to
     /// the first composed area when the id is absent from the loaded
@@ -61,6 +68,10 @@ pub struct WorldManifest {
 
 impl WorldManifest {
     /// The boot-critical primary world (first row).
+    ///
+    /// Panics on a world-less manifest (the [`Default`] value). Only the LDtk
+    /// LOAD path calls this; compositions that own procedural rooms declare a
+    /// world-less manifest and never reach here.
     pub fn primary(&self) -> &WorldSource {
         self.worlds
             .first()
@@ -71,49 +82,24 @@ impl WorldManifest {
     pub fn secondaries(&self) -> impl Iterator<Item = &WorldSource> {
         self.worlds.iter().skip(1)
     }
-}
 
-/// Game-installed world manifest. Set once at plugin-build time; first
-/// install wins. Deliberately a process-global `OnceLock`, not a Bevy
-/// `Resource`: the readers (catalog builders, the serde loader, pure
-/// `to_room_set`) run from non-system code with no `World` in hand.
-static WORLD_MANIFEST: OnceLock<WorldManifest> = OnceLock::new();
-
-/// Install the game's [`WorldManifest`] — the content layer calls this at
-/// every sim-entry choke point (before any catalog build or world load).
-/// First install wins; later calls are ignored.
-pub fn install_world_manifest(manifest: WorldManifest) {
-    let _ = WORLD_MANIFEST.set(manifest);
-}
-
-/// The active manifest. Public READ view — the app assembly iterates the rows
-/// to spawn one tile-render world root per world.
-pub fn world_manifest() -> &'static WorldManifest {
-    #[cfg(test)]
-    {
-        // Test fixture = the game's REAL worlds, read cross-crate (the
-        // explicit cross-crate fixture pattern) so this crate's conversion /
-        // ron-room contract tests exercise real data without shipping any.
-        // Restored by the fable final audit (F7): the W3 carve dropped it,
-        // which is what orphaned the ruled contract tests.
-        WORLD_MANIFEST.get_or_init(test_fixture_manifest)
-    }
-    #[cfg(not(test))]
-    {
-        WORLD_MANIFEST.get().unwrap_or_else(|| {
-            panic!(
-                "world manifest not installed — the game's content must call \
-                 install_world_manifest() before any world load \
-                 (AmbitionContentPlugin / the app's sim-entry choke points do)"
-            )
-        })
+    /// A world-less declaration — a composition that owns procedural rooms
+    /// and loads no `.ldtk` file. Distinguishes "this game ships no worlds"
+    /// from "somebody forgot to prepare one", which the old install seam
+    /// could only express as a panic.
+    pub fn is_world_less(&self) -> bool {
+        self.worlds.is_empty()
     }
 }
 
 /// The cross-crate test fixture: the game's real worlds under
-/// `game/ambition_content/assets/worlds`, entry room = the hub.
+/// `game/ambition_content/assets/worlds`, entry room = the hub. Read
+/// cross-crate (the explicit cross-crate fixture pattern) so this crate's
+/// conversion / ron-room contract tests exercise real data without shipping
+/// any. Tests now name it EXPLICITLY — it used to be handed to them behind
+/// their back by a `cfg(test)` branch inside the global accessor.
 #[cfg(test)]
-fn test_fixture_manifest() -> WorldManifest {
+pub(crate) fn test_fixture_manifest() -> WorldManifest {
     let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../game/ambition_content/assets/worlds");
     let source = |id: &str, file: &str, required: bool| WorldSource {

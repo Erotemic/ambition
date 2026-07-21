@@ -195,6 +195,7 @@ pub(crate) fn setup_host_presentation_system(
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
+    world_manifest: Res<ambition::actors::ldtk_world::WorldManifest>,
 ) {
     // The host-resident music library must resolve EVERY linked provider's
     // authored tracks — not just Ambition's — so a Sanic or Mary-O session's
@@ -221,6 +222,7 @@ pub(crate) fn setup_host_presentation_system(
             &catalogs.characters,
             &catalogs.bosses,
             &music_registry,
+            &world_manifest,
             |manifest| {
                 ambition_content::intro::sprites::extend_with_intro_sprite_entries(
                     manifest,
@@ -313,6 +315,7 @@ pub(crate) fn setup_host_presentation_system(
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
+    world_manifest: Res<ambition::actors::ldtk_world::WorldManifest>,
 ) {
     // Same provider-sprite composition as the audio variant: rebuild the sandbox
     // asset catalog from the merged character catalog so host-launched Sanic and
@@ -327,6 +330,7 @@ pub(crate) fn setup_host_presentation_system(
             &catalogs.characters,
             &catalogs.bosses,
             &music_registry,
+            &world_manifest,
             |manifest| {
                 ambition_content::intro::sprites::extend_with_intro_sprite_entries(
                     manifest,

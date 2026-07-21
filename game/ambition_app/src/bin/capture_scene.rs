@@ -147,6 +147,7 @@ fn main() {
     app.add_plugins(
         ambition::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
+            &ambition_content::worlds::world_manifest(),
         ),
     );
     app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));

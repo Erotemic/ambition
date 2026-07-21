@@ -52,9 +52,12 @@ impl LdtkHotReloadState {
     /// watcher if and only if the profile + resolved LDtk location
     /// both report `supports_hot_reload`. Otherwise the state stays
     /// idle and `poll_ldtk_file_changes` short-circuits.
-    pub fn from_catalog(catalog: &SandboxAssetCatalog) -> Self {
+    pub fn from_catalog(
+        catalog: &SandboxAssetCatalog,
+        manifest: &super::manifest::WorldManifest,
+    ) -> Self {
         let mut state = Self::default();
-        let primary = &super::manifest::world_manifest().primary().id;
+        let primary = &manifest.primary().id;
         let watch_path = catalog.hot_reload_local_path(primary);
         let Some(path) = watch_path else {
             state.last_status = format!(

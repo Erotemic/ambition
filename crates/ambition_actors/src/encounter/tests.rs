@@ -13,12 +13,14 @@ use ambition_persistence::save_data::PersistedEncounterState;
 use ambition_world::rooms::InteractionKindSpec;
 use bevy::math::bounding::IntersectsVolume;
 
-fn install_test_world_manifest() {
-    use crate::ldtk_world::{install_world_manifest, WorldManifest, WorldSource};
+/// The sandbox world these tests read, as a plain value. No install, no
+/// process global: each test names the manifest it loads through.
+fn test_world_manifest() -> crate::ldtk_world::WorldManifest {
+    use crate::ldtk_world::{WorldManifest, WorldSource};
     use ambition_asset_manager::AssetId;
     let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../game/ambition_content/assets/worlds");
-    install_world_manifest(WorldManifest {
+    WorldManifest {
         entry_room: "central_hub_complex".to_string(),
         ron_rooms: Vec::new(),
         worlds: vec![WorldSource {
@@ -29,7 +31,7 @@ fn install_test_world_manifest() {
             embedded_bevy_path: Some("ambition_content/worlds/sandbox.ldtk"),
             required: true,
         }],
-    });
+    }
 }
 
 /// A wave encounter's live authority set, as `populate_encounter_registry`
@@ -335,8 +337,8 @@ fn to_persisted_collapses_active_to_untouched() {
 
 #[test]
 fn load_encounter_specs_picks_up_goblin_encounter() {
-    install_test_world_manifest();
-    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let manifest = test_world_manifest();
+    let project = LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
     let save = ambition_persistence::save_data::SandboxSaveData::default();
     let entries = load_encounter_specs_from_ldtk(&project, &save);
     let goblin_encounter = entries
@@ -350,8 +352,8 @@ fn load_encounter_specs_picks_up_goblin_encounter() {
 
 #[test]
 fn load_encounter_specs_respects_persisted_cleared() {
-    install_test_world_manifest();
-    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let manifest = test_world_manifest();
+    let project = LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
     let mut save = ambition_persistence::save_data::SandboxSaveData::default();
     save.set_encounter("goblin_encounter", PersistedEncounterState::Cleared);
     let entries = load_encounter_specs_from_ldtk(&project, &save);
@@ -369,10 +371,10 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
     // SwitchActivation payload's id was the LDtk `id` field
     // ("goblin_encounter_reset_switch"). That mismatch made switch state
     // updates a no-op and the switch sprite stayed stuck red.
-    install_test_world_manifest();
-    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let manifest = test_world_manifest();
+    let project = LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
     let room_set = project
-        .to_room_set()
+        .to_room_set(&manifest)
         .expect("goblin_encounter world composes");
     let goblin_encounter = room_set
         .rooms
@@ -407,8 +409,8 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
 
 #[test]
 fn goblin_encounter_loaded_spec_has_three_waves_lockwall_and_intro() {
-    install_test_world_manifest();
-    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let manifest = test_world_manifest();
+    let project = LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
     let save = ambition_persistence::save_data::SandboxSaveData::default();
     let entries = load_encounter_specs_from_ldtk(&project, &save);
     let (_, spec, _) = entries

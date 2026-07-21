@@ -41,18 +41,19 @@ impl LdtkProject {
     /// playable data. `RoomSet` remains the runtime graph, but LDtk
     /// materializes `RoomSpec`, `ae::World`, loading zones, and graph links
     /// directly here.
-    pub fn to_room_set(&self) -> Result<RoomSet, Vec<String>> {
-        // The game's installed WorldManifest names where play starts and
-        // which baked `ron-room` docs join the graph.
-        let manifest = super::manifest::world_manifest();
+    pub fn to_room_set(
+        &self,
+        manifest: &super::manifest::WorldManifest,
+    ) -> Result<RoomSet, Vec<String>> {
+        // The caller's WorldManifest names where play starts and which baked
+        // `ron-room` docs join the graph.
         self.build_room_set(&manifest.entry_room, &manifest.ron_rooms)
     }
 
     /// Convert a SELF-CONTAINED project — a game crate's own embedded world
-    /// file (a demo's standalone level). No global-manifest read: play starts
-    /// in the caller's `entry_room` and no manifest-registered auxiliary rooms are
-    /// appended, so the conversion works in processes that never install the
-    /// engine's world manifest.
+    /// file (a demo's standalone level). Play starts in the caller's
+    /// `entry_room` and no manifest-registered auxiliary rooms are appended,
+    /// so the conversion needs no `WorldManifest` at all.
     pub fn to_room_set_with_entry(&self, entry_room: &str) -> Result<RoomSet, Vec<String>> {
         self.build_room_set(entry_room, &[])
     }
@@ -810,7 +811,9 @@ mod tests {
                 ("path_id", Value::String("spike_run".into())),
             ],
         )]);
-        let room_set = project.to_room_set().expect("hazard project composes");
+        let room_set = project
+            .to_room_set_with_entry("central_hub_complex")
+            .expect("hazard project composes");
         let room = &room_set.rooms[0];
         assert_eq!(
             room.placements.len(),
@@ -859,7 +862,9 @@ mod tests {
                 ],
             ),
         ]);
-        let room_set = project.to_room_set().expect("pickup project composes");
+        let room_set = project
+            .to_room_set_with_entry("central_hub_complex")
+            .expect("pickup project composes");
         let room = &room_set.rooms[0];
         let sprite_of = |name: &str| {
             room.placements
@@ -902,7 +907,9 @@ mod tests {
                 ("path_points", Value::String("0,0; 100,0".into())),
             ],
         )]);
-        let room_set = project.to_room_set().expect("composes");
+        let room_set = project
+            .to_room_set_with_entry("central_hub_complex")
+            .expect("composes");
         let room = &room_set.rooms[0];
         // Exactly one hazard placement, no typed hazard Vec (deleted).
         assert_eq!(
@@ -930,8 +937,10 @@ mod tests {
     /// and re-enters a RoomSet with no LDtk in the second path.
     #[test]
     fn the_sanic_area_round_trips_as_a_ron_room() {
-        let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
-        let room_set = project.to_room_set().expect("sandbox composes");
+        let manifest = crate::manifest::test_fixture_manifest();
+        let project =
+            LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
+        let room_set = project.to_room_set(&manifest).expect("sandbox composes");
         let sanic = room_set
             .rooms
             .iter()

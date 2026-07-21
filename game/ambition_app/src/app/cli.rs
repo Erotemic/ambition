@@ -821,6 +821,7 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     app.add_plugins(
         ambition::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
+            &ambition_content::worlds::world_manifest(),
         ),
     );
     app
@@ -950,6 +951,7 @@ pub fn run_web() {
     app.add_plugins(
         ambition::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
+            &ambition_content::worlds::world_manifest(),
         ),
     );
     app.run();

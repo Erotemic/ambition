@@ -133,6 +133,7 @@ pub(super) fn handle_ldtk_hot_reload(
         Res<ambition::actors::boss_encounter::BossCatalog>,
         Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
         Res<ambition::actors::features::RoomContentStagingRegistry>,
+        Res<ldtk_world::WorldManifest>,
     ),
     mut content_identity: (
         ambition::platformer::lifecycle::SessionWorldMut<ambition::runtime::PreparedContent>,
@@ -233,6 +234,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &catalogs.3,
             &catalogs.4,
             &catalogs.5,
+            &catalogs.6,
             &mut content_identity.0,
             &mut content_identity.1,
             &mut content_identity.2,
@@ -301,11 +303,12 @@ pub(super) struct LdtkReloadTransaction {
 pub(super) fn prepare_ldtk_reload_transaction(
     watch_path: &std::path::Path,
     catalog: &ambition::asset_manager::sandbox_assets::SandboxAssetCatalog,
+    manifest: &ldtk_world::WorldManifest,
     current_room_id: &str,
     preserved_pos: ae::Vec2,
     player_size: ae::Vec2,
 ) -> Result<LdtkReloadTransaction, Vec<String>> {
-    let project = ldtk_world::LdtkProject::load_from_disk_at(watch_path, catalog)
+    let project = ldtk_world::LdtkProject::load_from_disk_at(watch_path, catalog, manifest)
         .map_err(|error| vec![error])?;
     let report = project.validate();
     report.print_to_stderr();
@@ -313,7 +316,7 @@ pub(super) fn prepare_ldtk_reload_transaction(
         return Err(report.errors);
     }
 
-    let mut next_room_set = project.to_room_set()?;
+    let mut next_room_set = project.to_room_set(manifest)?;
     let Some(next_active) = next_room_set
         .rooms
         .iter()
@@ -372,6 +375,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     boss_catalog: &ambition::actors::boss_encounter::BossCatalog,
     placement_lowering: &ambition::actors::world::placements::PlacementLoweringRegistry,
     content_staging: &ambition::actors::features::RoomContentStagingRegistry,
+    world_manifest: &ldtk_world::WorldManifest,
     prepared_content: &mut ambition::runtime::PreparedContent,
     prepared_identity: &mut ambition::runtime::PreparedContentIdentity,
     epochs: &mut ambition::runtime::ContentEpochSequence,
@@ -383,6 +387,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     let transaction = prepare_ldtk_reload_transaction(
         watch_path,
         catalog,
+        world_manifest,
         &current_room_id,
         preserved_pos,
         clusters.kinematics.size,

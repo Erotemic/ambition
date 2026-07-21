@@ -42,9 +42,9 @@ mod tests;
 pub fn ambition_sim_composition(app: &mut App, options: &SandboxSimOptions) -> Result<(), String> {
     use ambition::actors::ldtk_world;
     // Provider-owned catalogs are composed as App-local resources by the
-    // simulation plugin; the world manifest must be installed before validation.
-    ambition_content::worlds::install();
-    let project = ldtk_world::LdtkProject::load_default_for_dev()?;
+    // simulation plugin; validation reads the provider's manifest directly.
+    let world_manifest = ambition_content::worlds::world_manifest();
+    let project = ldtk_world::LdtkProject::load_default_for_dev(&world_manifest)?;
     let report = project.validate();
     if !report.is_ok() {
         report.print_to_stderr();
@@ -53,7 +53,7 @@ pub fn ambition_sim_composition(app: &mut App, options: &SandboxSimOptions) -> R
             report.errors.len()
         ));
     }
-    if let Err(errors) = project.to_room_set() {
+    if let Err(errors) = project.to_room_set(&world_manifest) {
         return Err(errors.join("; "));
     }
     // Programmatic start-room override: insert before SandboxSimulationPlugin

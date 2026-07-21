@@ -270,6 +270,7 @@ fn ambition_activate_session_visuals(
     // Present iff the LDtk plugin stack is composed (absent in the no-window
     // render recipe, where bevy_ecs_tilemap cannot run without a RenderApp).
     ldtk_projects: Option<Res<Assets<bevy_ecs_ldtk::assets::LdtkProject>>>,
+    world_manifest: Res<ldtk_world::WorldManifest>,
 ) {
     for event in sessions.read() {
         let GameplaySessionEvent::Activated { activation, scope } = event else {
@@ -311,6 +312,7 @@ fn ambition_activate_session_visuals(
                 room_set,
                 world_assets.as_deref(),
                 sandbox_asset_collection.as_deref(),
+                &world_manifest,
             );
         }
     }

@@ -24,7 +24,7 @@
 //! call, so a CPU/RL policy wearing a mushroom is scaled through the same seam a
 //! human is (the relativity principle).
 
-use crate::brain::action_set::{ActionSet, MeleeActionSpec, RangedActionSpec, RangedStyle};
+use crate::brain::action_set::{ActionSet, MeleeActionSpec, RangedActionSpec};
 use bevy::ecs::component::Component;
 
 /// Body-param keys A3 folds worn modifiers against (scope [`ModifierScope::Body`]).
@@ -332,6 +332,9 @@ pub fn resolved_ranged(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Test-only: the equip fixtures below author ranged styles, but nothing in
+    // this module's production code names one.
+    use crate::brain::action_set::RangedStyle;
 
     fn modifier(param: &str, op: ModifierOp, scope: ModifierScope) -> ParamModifier {
         ParamModifier {
@@ -574,7 +577,13 @@ mod tests {
         let grant = EquipmentGrant::Ranged(RangedActionSpec::bolt(400.0, 8));
         grant.apply_to_action_set(&mut actions);
         assert!(
-            matches!(actions.ranged, Some(RangedActionSpec { style: RangedStyle::Bolt, .. })),
+            matches!(
+                actions.ranged,
+                Some(RangedActionSpec {
+                    style: RangedStyle::Bolt,
+                    ..
+                })
+            ),
             "the flower's ranged verb lands in the action set"
         );
     }
@@ -601,7 +610,7 @@ mod tests {
         let flower: EquipmentRow = ron::from_str(
             r#"(
                 id: "fire_flower",
-                grants: [ Ranged(Bolt(speed: 420.0, damage: 6)) ],
+                grants: [ Ranged((style: Bolt, speed: 420.0, damage: 6)) ],
                 modifiers: [ (param: "damage", op: Mul(1.5), scope: Move("fireball")) ],
             )"#,
         )
@@ -657,7 +666,7 @@ mod tests {
             ..Default::default()
         }]);
         let base = RangedActionSpec::bolt(400.0, 6);
-        let shot = resolved_ranged(base, &worn, "fireball", "ranged");
+        let shot = resolved_ranged(base.clone(), &worn, "fireball", "ranged");
         assert_eq!(shot.damage(), 9, "×1.5 on 6 damage");
         assert_eq!(shot.speed(), 460.0, "+60 on 400 speed via the ranged verb");
 

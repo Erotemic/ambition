@@ -45,7 +45,9 @@ fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
 #[test]
 fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
     let project = load_project_for_test().expect("sandbox LDtk should load");
-    let room_set = project.to_room_set().expect("room_set should build");
+    let room_set = project
+        .to_room_set(&ambition_content::worlds::world_manifest())
+        .expect("room_set should build");
     assert!(
         !room_set.rooms.is_empty(),
         "no rooms loaded — the integrity scan would pass vacuously"
@@ -126,6 +128,7 @@ fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
 /// install the world manifest first — post-R3.2 the engine ships no worlds
 /// and panics without a provider-owned manifest.
 fn load_project_for_test() -> Result<ambition::actors::ldtk_world::LdtkProject, String> {
-    ambition_content::worlds::install();
-    ambition::actors::ldtk_world::LdtkProject::load_default_for_dev()
+    ambition::actors::ldtk_world::LdtkProject::load_default_for_dev(
+        &ambition_content::worlds::world_manifest(),
+    )
 }

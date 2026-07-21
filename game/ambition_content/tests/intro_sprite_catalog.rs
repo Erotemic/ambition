@@ -13,7 +13,6 @@ fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
 
     // Catalog building resolves character sprite rows through the explicit
     // App-local catalog supplied by the composition root.
-    ambition_content::worlds::install();
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::DesktopDevLoose;
     let music = load_music_registry();
@@ -31,6 +30,7 @@ fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
         &character_catalog,
         &boss_catalog,
         &music,
+        &ambition_content::worlds::world_manifest(),
         |manifest| {
             ambition_content::intro::sprites::extend_with_intro_sprite_entries(
                 manifest,

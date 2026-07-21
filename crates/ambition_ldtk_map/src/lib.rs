@@ -16,7 +16,8 @@
 //! - `loading` — file-loading policy
 //!   ([`LdtkProject::load_default`] (catalog-aware),
 //!   [`LdtkProject::load_default_for_dev`] (no-catalog test/headless
-//!   helper), `load_static_map`, `load_from_disk_at`, `load_from_path`).
+//!   helper), `load_from_disk_at`, `load_from_path`). Each takes the
+//!   caller's [`WorldManifest`] — there is no ambient one.
 //! - `conversion` — LDtk → Ambition runtime conversion
 //!   ([`LdtkProject::to_room_set`], `entity_to_runtime`).
 //! - `bevy_runtime` — bevy_ecs_ldtk plugin glue + runtime-spine
@@ -50,15 +51,14 @@ pub use conversion::{
     install_ldtk_entity_converters, LdtkEntityConverter, LdtkEntityCtx, RoomEmission,
 };
 pub use hot_reload::{poll_ldtk_file_changes, LdtkHotReloadState};
-// The WorldManifest install seam (JD4): a game declares its LDtk worlds +
+// The WorldManifest VALUE (JD4 / K2a): a game declares its LDtk worlds +
 // entry room; the engine ships zero worlds and hardcodes no start room.
+// There is no installer and no process global — preparation owns one value
+// and hands it to every reader.
 pub use ambition_world::ron_room::{
     load_ron_rooms, room_doc_from_ron, room_doc_to_ron, RonRoomDoc,
 };
-pub use manifest::{
-    install_world_manifest, world_bevy_asset_path, world_manifest, RonRoomSource, WorldManifest,
-    WorldSource,
-};
+pub use manifest::{world_bevy_asset_path, RonRoomSource, WorldManifest, WorldSource};
 pub use project::{
     LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject,
     SandboxLdtkProject,

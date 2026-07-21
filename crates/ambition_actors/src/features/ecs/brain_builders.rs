@@ -16,7 +16,6 @@ use ambition_characters::brain::{
     SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,
     WandererCfg,
 };
-use ambition_characters::brain::action_set::RangedStyle;
 
 /// Build the enemy's durable combat capability kit from archetype data.
 ///
@@ -380,6 +379,9 @@ fn smash_cfg_from_spec(spec: &CharacterBrainSpec, tuning: &ActorTuning) -> Smash
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Test-only: the brain fixtures below author ranged styles; nothing in this
+    // module's production code names one.
+    use ambition_characters::brain::action_set::RangedStyle;
     use ambition_engine_core as ae;
 
     fn enemy(brain_key: &str) -> super::super::actor_clusters::ActorClusterSeed {

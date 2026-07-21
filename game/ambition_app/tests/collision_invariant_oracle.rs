@@ -344,7 +344,7 @@ fn load_loading_zones() -> std::collections::HashMap<String, Vec<ae::Aabb>> {
     let Ok(project) = load_project_for_test() else {
         return map;
     };
-    let Ok(room_set) = project.to_room_set() else {
+    let Ok(room_set) = project.to_room_set(&ambition_content::worlds::world_manifest()) else {
         return map;
     };
     for room in &room_set.rooms {
@@ -947,8 +947,9 @@ fn collision_oracle_full_sweep() {
 /// install the world manifest first — post-R3.2 the engine ships no worlds
 /// and panics without a provider-owned manifest.
 fn load_project_for_test() -> Result<ambition::actors::ldtk_world::LdtkProject, String> {
-    ambition_content::worlds::install();
-    ambition::actors::ldtk_world::LdtkProject::load_default_for_dev()
+    ambition::actors::ldtk_world::LdtkProject::load_default_for_dev(
+        &ambition_content::worlds::world_manifest(),
+    )
 }
 
 /// §6.1 invariant 4 — a non-finite body is CATALOGED, and short-circuits the rest

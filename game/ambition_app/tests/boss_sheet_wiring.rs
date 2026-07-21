@@ -28,7 +28,6 @@ use std::collections::BTreeSet;
 /// Load the provider-owned world manifest and assemble the same immutable
 /// App-local boss contribution production uses.
 fn content_boss_catalog() -> ambition::actors::boss_encounter::BossCatalog {
-    ambition_content::worlds::install();
     ambition_content::bosses::authored_boss_catalog()
 }
 
@@ -44,10 +43,12 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
                 ambition_content::character_catalog::CHARACTER_CATALOG_RON,
             ),
         );
+    let world_manifest = ambition_content::worlds::world_manifest();
     let catalog = ambition::actors::assets::sandbox_assets::desktop_dev_default_catalog(
         &character_catalog,
         &boss_catalog,
         &ambition_content::audio_registries::load_music_registry(),
+        &world_manifest,
     );
 
     let mut missing = Vec::new();
@@ -142,11 +143,13 @@ fn a_boss_with_no_authored_sheet_is_absent_from_the_registry_on_purpose() {
 #[test]
 fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
     let boss_catalog = content_boss_catalog();
-    ambition_content::worlds::install();
 
-    let project = ambition::actors::ldtk_world::LdtkProject::load_default_for_dev()
+    let world_manifest = ambition_content::worlds::world_manifest();
+    let project = ambition::actors::ldtk_world::LdtkProject::load_default_for_dev(&world_manifest)
         .expect("the shipped LDtk project loads");
-    let room_set = project.to_room_set().expect("it lowers to rooms");
+    let room_set = project
+        .to_room_set(&world_manifest)
+        .expect("it lowers to rooms");
 
     let sheet_keys: BTreeSet<&str> = boss_catalog.authored_sheet_keys().collect();
 

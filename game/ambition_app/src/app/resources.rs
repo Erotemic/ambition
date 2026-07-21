@@ -47,7 +47,12 @@ pub fn init_sandbox_resources(app: &mut App) {
     ambition_content::character_catalog::register(app);
     ambition_content::enemy_roster::register(app);
     ambition_content::bosses::register(app);
-    ambition_content::worlds::install();
+    // This provider's world declaration. Threaded by reference into every
+    // preparation-time reader below (catalog rows, the LDtk load, the room-set
+    // conversion, the hot-reload watcher) and published as a resource for the
+    // in-schedule readers. ONE value, no process global (K2a).
+    let world_manifest = ambition_content::worlds::world_manifest();
+    app.insert_resource(world_manifest.clone());
 
     let sandbox_data = data::SandboxDataSpec::load_embedded();
     // Audio lives in its own registries, separate from sandbox tuning and
@@ -115,6 +120,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         &character_catalog,
         &boss_catalog,
         &music_registry,
+        &world_manifest,
         |manifest| {
             ambition_content::intro::sprites::extend_with_intro_sprite_entries(
                 manifest,
@@ -133,13 +139,14 @@ pub fn init_sandbox_resources(app: &mut App) {
             )
         });
 
-    let ldtk_project = match ldtk_world::LdtkProject::load_default(&sandbox_catalog) {
-        Ok(project) => project,
-        Err(error) => {
-            eprintln!("failed to load sandbox LDtk map: {error}");
-            sandbox_init_failed();
-        }
-    };
+    let ldtk_project =
+        match ldtk_world::LdtkProject::load_default(&sandbox_catalog, &world_manifest) {
+            Ok(project) => project,
+            Err(error) => {
+                eprintln!("failed to load sandbox LDtk map: {error}");
+                sandbox_init_failed();
+            }
+        };
     let content_report = content_validation::validate_content_graph(
         &music_registry,
         &ldtk_project,
@@ -159,7 +166,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
     // The simulation's authority, seeded from the same authored value.
     let active_tuning = ambition::engine_core::ActiveMovementTuning(sandbox_data.tuning);
-    let mut room_set = match ldtk_project.to_room_set() {
+    let mut room_set = match ldtk_project.to_room_set(&world_manifest) {
         Ok(room_set) => room_set,
         Err(errors) => {
             eprintln!(
@@ -213,6 +220,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     app.insert_resource(ldtk_world::SandboxLdtkProject(ldtk_project.clone()))
         .insert_resource(ldtk_world::LdtkHotReloadState::from_catalog(
             &sandbox_catalog,
+            &world_manifest,
         ))
         .insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
         .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default())

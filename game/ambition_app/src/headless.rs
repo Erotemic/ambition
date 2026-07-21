@@ -96,8 +96,8 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     // Validate the embedded world before constructing the App. Provider-owned
     // character, hostile-archetype, boss, and audio catalogs are composed as
     // App-local resources by `SandboxSimulationPlugin`.
-    ambition_content::worlds::install();
-    let project = ldtk_world::LdtkProject::load_default_for_dev()?;
+    let world_manifest = ambition_content::worlds::world_manifest();
+    let project = ldtk_world::LdtkProject::load_default_for_dev(&world_manifest)?;
     let report = project.validate();
     if !report.is_ok() {
         report.print_to_stderr();
@@ -106,11 +106,11 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
             report.errors.len()
         ));
     }
-    if let Err(errors) = project.to_room_set() {
+    if let Err(errors) = project.to_room_set(&world_manifest) {
         return Err(errors.join("; "));
     }
     let room_count = project
-        .to_room_set()
+        .to_room_set(&world_manifest)
         .expect("just validated above")
         .rooms
         .len();

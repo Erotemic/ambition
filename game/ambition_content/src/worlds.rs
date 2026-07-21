@@ -2,6 +2,12 @@
 //! from the engine core (R3.2, the #1 violation: the engine shipped the
 //! game's worlds).
 //!
+//! [`world_manifest`] BUILDS the declaration; nothing installs it anywhere.
+//! `AmbitionContentPlugin::build` publishes one into its App as a resource
+//! for in-schedule readers, and boot preparation passes the same value by
+//! reference to the loader, catalog, hot-reload, and conversion seams that
+//! run before any App exists (K2a).
+//!
 //! The engine keeps the room kit (`RoomSpec`/`RoomSet`, projection,
 //! validators) and the manifest-driven loader; THIS module declares which
 //! `.ldtk` files exist, where play starts, and how each file is reachable:
@@ -37,13 +43,6 @@ static_world_text!(
     "../assets/worlds/you_have_to_cut_the_rope.ldtk"
 );
 static_world_text!(HALL_LDTK_STATIC, "../assets/worlds/hall_of_characters.ldtk");
-
-/// Install Ambition's world manifest into the engine's seam. Called from
-/// the app's sim-entry choke points and `AmbitionContentPlugin::build`;
-/// first install wins.
-pub fn install() {
-    ambition_actors::ldtk_world::install_world_manifest(world_manifest());
-}
 
 /// The game's world declaration. The first row (sandbox) is boot-critical
 /// and hot-reload-watched; the story side-worlds are tolerated missing so

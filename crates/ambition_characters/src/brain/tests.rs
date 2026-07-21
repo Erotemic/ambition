@@ -1,10 +1,10 @@
 //! Unit tests for the parent module, extracted from an inline
 //! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
 //! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;
-use crate::brain::action_set::RangedStyle;`.
+//! `use super::*;`.
 
 use super::*;
+use crate::brain::action_set::RangedStyle;
 
 #[test]
 fn brain_player_is_always_hostile() {
@@ -528,7 +528,13 @@ fn skirmisher_brain_resolves_through_action_set_to_ranged_request() {
             ..
         } => {
             assert!(
-                matches!(spec, RangedActionSpec { style: RangedStyle::Bolt, .. }),
+                matches!(
+                    spec,
+                    RangedActionSpec {
+                        style: RangedStyle::Bolt,
+                        ..
+                    }
+                ),
                 "spec should come from the Bolt kit",
             );
             assert!(dir.x > 0.0, "fire direction should point at target");

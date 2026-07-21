@@ -312,6 +312,7 @@ pub(super) fn spawn_ldtk_world_root(
     room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     world_assets: Option<Res<ldtk_world::LdtkWorldAssets>>,
     sandbox_asset_collection: Option<Res<loading::SandboxAssetCollection>>,
+    world_manifest: Res<ldtk_world::WorldManifest>,
 ) {
     spawn_ldtk_world_roots_scoped(
         &mut commands,
@@ -321,6 +322,7 @@ pub(super) fn spawn_ldtk_world_root(
         &room_set,
         world_assets.as_deref(),
         sandbox_asset_collection.as_deref(),
+        &world_manifest,
     );
 }
 
@@ -335,8 +337,9 @@ pub(crate) fn spawn_ldtk_world_roots_scoped(
     room_set: &rooms::RoomSet,
     world_assets: Option<&ldtk_world::LdtkWorldAssets>,
     sandbox_asset_collection: Option<&loading::SandboxAssetCollection>,
+    manifest: &ldtk_world::WorldManifest,
 ) {
-    // One LdtkWorldBundle per installed WorldManifest row. bevy_ecs_ldtk's
+    // One LdtkWorldBundle per prepared WorldManifest row. bevy_ecs_ldtk's
     // asset loader is per-file; Ambition's merged JSON loader doesn't
     // propagate into the Bevy asset system, so each .ldtk file needs its
     // own bundle to get its painted tile layers rendered. The shared sync
@@ -344,7 +347,6 @@ pub(crate) fn spawn_ldtk_world_roots_scoped(
     // whose loaded asset contains the active level iids spawns any levels
     // (iids are unique per file).
     let initial_level_set = ldtk_index.level_set_for(&room_set.active_spec().id);
-    let manifest = ldtk_world::world_manifest();
     for (index, source) in manifest.worlds.iter().enumerate() {
         let handle = world_assets
             .and_then(|assets| assets.0.get(index).cloned())

@@ -58,7 +58,7 @@ impl ContentValidationReport {
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn validate_embedded_content_graph() -> ContentValidationReport {
     let music = crate::audio_registries::load_music_registry();
-    let project = match LdtkProject::load_default_for_dev() {
+    let project = match LdtkProject::load_default_for_dev(&crate::worlds::world_manifest()) {
         Ok(project) => project,
         Err(error) => {
             let mut report = ContentValidationReport::default();
@@ -652,16 +652,15 @@ mod tests {
 
     #[test]
     fn embedded_content_graph_validates() {
-        crate::worlds::install();
         let report = validate_embedded_content_graph();
         report.panic_if_errors();
     }
 
     #[test]
     fn validates_ldtk_loading_zone_targets() {
-        crate::worlds::install();
         let music = crate::audio_registries::load_music_registry();
-        let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
+        let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
+            .expect("embedded LDtk loads");
         let character_catalog = crate::character_catalog::load_catalog();
         let report = validate_content_graph(&music, &project, &character_catalog);
         assert!(
@@ -676,8 +675,8 @@ mod tests {
 
     #[test]
     fn quest_boss_conditions_point_at_authored_bosses() {
-        crate::worlds::install();
-        let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
+        let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
+            .expect("embedded LDtk loads");
         let boss_ids = authored_boss_encounter_ids(&project);
         assert!(boss_ids.contains("clockwork_warden"));
         for spec in crate::quest::default_quest_specs() {

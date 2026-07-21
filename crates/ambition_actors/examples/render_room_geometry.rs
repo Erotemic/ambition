@@ -572,16 +572,54 @@ fn run_anomaly_report(room_set: &sb::rooms::RoomSet) {
     }
 }
 
+/// The sandbox world this tool renders, read cross-crate from the content
+/// crate's checked-in assets.
+///
+/// Before K2a this example loaded through a process-global manifest it never
+/// installed, so `world_manifest()` panicked the moment it ran — a runtime
+/// failure nothing could catch at build time. With the manifest an explicit
+/// argument the omission became a compile error, which is how it was found.
+fn sandbox_world_manifest() -> sb::ldtk_world::WorldManifest {
+    use sb::ldtk_world::{WorldManifest, WorldSource};
+    let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../game/ambition_content/assets/worlds");
+    let source = |id: &str, file: &str, required: bool| WorldSource {
+        id: ambition_asset_manager::AssetId::new(id),
+        asset_path: format!("game://worlds/{file}"),
+        loose_path: Some(worlds_dir.join(file)),
+        embedded_text: None,
+        embedded_bevy_path: None,
+        required,
+    };
+    WorldManifest {
+        entry_room: "central_hub_complex".to_string(),
+        ron_rooms: Vec::new(),
+        worlds: vec![
+            source("world.sandbox_ldtk", "sandbox.ldtk", true),
+            source("world.intro_ldtk", "intro.ldtk", false),
+            source(
+                "world.cut_rope_ldtk",
+                "you_have_to_cut_the_rope.ldtk",
+                false,
+            ),
+            source("world.hall_ldtk", "hall_of_characters.ldtk", false),
+        ],
+    }
+}
+
 fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
 
-    let project =
-        sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let manifest = sandbox_world_manifest();
+    let project = sb::ldtk_world::LdtkProject::load_default_for_dev(&manifest)
+        .expect("sandbox LDtk should load");
     let report = project.validate();
     if !report.is_ok() {
         eprintln!("warning: LDtk validation reported issues; rendering anyway");
     }
-    let room_set = project.to_room_set().expect("room_set should build");
+    let room_set = project
+        .to_room_set(&manifest)
+        .expect("room_set should build");
     let boss_catalog = ambition_boss_catalog();
 
     // `report` mode: scan every room's RUNTIME projection for spatial

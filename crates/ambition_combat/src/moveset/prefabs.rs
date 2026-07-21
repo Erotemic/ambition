@@ -745,3 +745,43 @@ pub fn build_actor_moveset(
     }
 }
 
+/// Equip one [`EquipmentRow`] onto a body, returning the rebuilt
+/// [`MovesetContract`] when — and only when — the row actually changed what the
+/// body can do.
+///
+/// This is the A3 equip contract, and the split it encodes is the point: an
+/// equipment row is either
+///
+/// - **read-time only** (no [`EquipmentGrant`]s — a grow-cap, an armor plate, a
+///   damage-scaling flower): it lands in [`WornEquipment`] and nothing else moves.
+///   Its effect is folded at the moment it matters, by
+///   [`resolved_ranged`](ambition_characters::equipment::resolved_ranged) and
+///   friends. Rebuilding a moveset for it would be pure churn, so this returns
+///   `None` and the caller keeps the contract it already has; or
+/// - **grant-bearing** (a spark blossom that confers a ranged verb): the whole
+///   worn set's grants are re-applied to `actions` and the moveset is rebuilt
+///   from the result over `signature`, so the body gains the granted verb while
+///   keeping every verb its own authored signature declared.
+///
+/// Re-applying the FULL worn set rather than just this row's grants is what makes
+/// unequip work as the plain inverse: drop the row from `worn` and call this
+/// again with the remaining set.
+pub fn equip_equipment_row(
+    actions: &mut ambition_characters::brain::action_set::ActionSet,
+    worn: &mut ambition_characters::equipment::WornEquipment,
+    signature: Option<&MovesetContract>,
+    row: ambition_characters::equipment::EquipmentRow,
+) -> Option<MovesetContract> {
+    let confers_capability = !row.grants.is_empty();
+    worn.equip(row);
+    if !confers_capability {
+        return None;
+    }
+    ambition_characters::equipment::apply_equipment_grants(actions, worn);
+    build_actor_moveset(
+        signature,
+        actions.melee.as_ref(),
+        actions.ranged.as_ref(),
+        actions.special.as_ref(),
+    )
+}

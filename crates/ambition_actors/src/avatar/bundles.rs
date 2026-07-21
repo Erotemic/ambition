@@ -12,7 +12,7 @@ use crate::body_mode::BodyModeCapabilities;
 use crate::control::{LocalPlayer, PlayerInputFrame, PlayerSlot};
 use crate::features::{ActorFaction, ActorPose};
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet};
-use ambition_characters::brain::{ActionSet, ActorControl, Brain, action_set::RangedStyle};
+use ambition_characters::brain::{ActionSet, ActorControl, Brain};
 
 /// All simulation components required on the player entity.
 ///
@@ -301,6 +301,9 @@ pub(crate) fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet 
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Test-only: the brain fixtures below author ranged styles; nothing in this
+    // module's production code names one.
+    use ambition_characters::brain::action_set::RangedStyle;
     use ambition_characters::actor::Health;
     use ambition_characters::brain::{MeleeActionSpec, RangedActionSpec};
 
@@ -337,7 +340,10 @@ mod tests {
         ));
         assert!(matches!(
             bundle.action_set.ranged,
-            Some(RangedActionSpec { style: RangedStyle::Bolt, .. })
+            Some(RangedActionSpec {
+                style: RangedStyle::Bolt,
+                ..
+            })
         ));
     }
 
@@ -360,7 +366,10 @@ mod tests {
         assert!(
             matches!(
                 bundle.action_set.ranged,
-                Some(RangedActionSpec { style: RangedStyle::Pistol, .. })
+                Some(RangedActionSpec {
+                    style: RangedStyle::Pistol,
+                    ..
+                })
             ),
             "the pirate's pistol should override the player's default bolt",
         );

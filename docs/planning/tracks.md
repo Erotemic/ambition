@@ -128,11 +128,50 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   **LATER K1 completion** (unchanged, NOT done): deleting the
   `ambition_dev_tools` dep from actors/runtime still needs `SandboxDevState`,
   `EditableAbilitySet`, the schedule sets, and profiling hooks evicted.
-- ▢ **K2a world-manifest parameterization** [opus]: preparation owns a
-  `WorldManifest`; the ~13 reader sites (incl. plugin-build + pre-App
-  paths — a singleton `Res` canNOT serve them) take `&WorldManifest`;
-  DELETE the `OnceLock`, installer, and baked-in test fixture. Oracle: two
-  providers prepare different manifests in one process.
+- ✅ **K2a world-manifest parameterization** (opus, 2026-07-21). The
+  `OnceLock`, `install_world_manifest`, the free `world_manifest()` accessor,
+  and the implicit `cfg(test)` fixture branch inside it are all DELETED.
+  `WorldManifest` is now an ordinary owned value with two delivery routes,
+  both carrying the same value from one owner:
+  - **`&WorldManifest` argument** for readers that run pre-`App`, at
+    plugin-build time, or as pure functions — `load_default`,
+    `load_default_for_dev`, `merge_secondary_worlds`, `load_from_disk_at`,
+    `to_room_set`, `LdtkHotReloadState::from_catalog`, the whole
+    `build_sandbox_catalog*` family, and `AmbitionAssetSourcePlugin::for_profile`
+    (a plugin VALUE built before `add_plugins`, so a `Res` genuinely cannot
+    reach it).
+  - **`Res<WorldManifest>`** (it derives `Resource`) for the in-schedule
+    readers: `load_ldtk_asset_handle`, `spawn_ldtk_world_root(s_scoped)` on
+    both the direct-entry and shell-host paths, `handle_ldtk_hot_reload`, and
+    `setup_host_presentation_system`. `AmbitionContentPlugin::build` publishes
+    it where `worlds::install()` used to sit; `init_sandbox_resources` threads
+    the same value by reference through every preparation-time reader.
+
+  **Oracle** (`app_it::world_manifest_parameterization`, 3 tests, poison-tested
+  — stubbing the readers back to a first-wins global fails both discriminating
+  tests with the right diagnostics): two providers with disjoint world files
+  AND disjoint entry rooms compose in one process, in both orders, each
+  keeping its own rooms and its own start room.
+
+  Two things fell out that the card did not predict:
+  - `LdtkProject::load_static_map` had ZERO callers. Deleted.
+  - `build_sandbox_catalog_without_worlds` +
+    `sandbox_catalog_inputs_without_worlds` existed only because the global
+    could not express "this game ships no worlds" except as a panic. With the
+    manifest an argument that is just `&WorldManifest::default()`
+    (`is_world_less()`), so the twin is deleted and the two procedural demos
+    call the ordinary builder.
+  - ⚠ Found by the change, not fixed by it:
+    `ambition_actors/examples/render_room_geometry.rs` loaded through the
+    global while never installing one, so it panicked the moment it ran. The
+    explicit parameter turned that into a compile error; the example now
+    builds its own manifest and works.
+
+  **NOT done (K1-style remainder):** `PlatformerExperienceAuthoring` still has
+  no `with_world_manifest` builder — the engine-level provider seam next to
+  `with_presentation_profiles` is the natural owner, but Ambition's content
+  plugin is today's publisher and adding a second writer for one user would be
+  speculative. Fold it in with K2b, which touches that builder anyway.
 - ▢ **K2b direct-entry activation** [opus]: route direct entry through the
   EXISTING `activate_prepared_platformer_sessions` /
   `PlatformerSessionBuilder` (no neighboring API). Oracle: the hand-built

@@ -25,8 +25,11 @@ pub use core::{
 pub struct AmbitionAssetSourcePlugin(core::AmbitionAssetSourcePlugin);
 
 impl AmbitionAssetSourcePlugin {
-    pub fn for_profile(profile: AssetProfile) -> Self {
-        let embedded_worlds = crate::ldtk_world::world_manifest()
+    /// Built BEFORE the `App` exists (it is a plugin value passed to
+    /// `add_plugins`), so the manifest arrives as a parameter — a `Res`
+    /// cannot reach here.
+    pub fn for_profile(profile: AssetProfile, manifest: &crate::ldtk_world::WorldManifest) -> Self {
+        let embedded_worlds = manifest
             .worlds
             .iter()
             .filter_map(|source| {
@@ -57,43 +60,39 @@ pub fn desktop_dev_default_catalog(
     character_catalog: &CharacterCatalog,
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
+    worlds: &crate::ldtk_world::WorldManifest,
 ) -> SandboxAssetCatalog {
     let config = GameAssetConfig {
         asset_profile: AssetProfile::DesktopDevLoose,
         ..Default::default()
     };
-    build_sandbox_catalog(&config, character_catalog, boss_catalog, music)
+    build_sandbox_catalog(&config, character_catalog, boss_catalog, music, worlds)
 }
 
+/// Build the shared sprite/parallax/audio/world catalog.
+///
+/// A composition that owns procedural rooms and ships no `.ldtk` file passes
+/// a world-less [`WorldManifest`](crate::ldtk_world::WorldManifest)
+/// (`&WorldManifest::default()`): it then contributes no world rows, and every
+/// ordinary image, character, boss, data, SFX, font, sprite-pack, and music
+/// entry still lands. That replaces the old `_without_worlds` twin — with the
+/// manifest an explicit argument, "no worlds" is just a value, not a second
+/// function.
 pub fn build_sandbox_catalog(
     config: &GameAssetConfig,
     character_catalog: &CharacterCatalog,
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
+    worlds: &crate::ldtk_world::WorldManifest,
 ) -> SandboxAssetCatalog {
-    build_sandbox_catalog_with(config, character_catalog, boss_catalog, music, |_| {})
-}
-
-/// Build the shared sprite/parallax/audio catalog for a composition that owns
-/// procedural rooms and therefore has no LDtk [`WorldManifest`](crate::ldtk_world::WorldManifest).
-///
-/// This deliberately omits only world-file rows. All ordinary image, character,
-/// boss, data, SFX, font, sprite-pack, and music entries remain available. A
-/// standalone procedural demo must use this seam instead of installing a fake
-/// process-global world manifest merely to load presentation assets.
-pub fn build_sandbox_catalog_without_worlds(
-    config: &GameAssetConfig,
-    character_catalog: &CharacterCatalog,
-    boss_catalog: &crate::boss_encounter::BossCatalog,
-    music: &crate::session::data::MusicRegistry,
-) -> SandboxAssetCatalog {
-    let core_config = SandboxAssetConfig {
-        sprite_folder: config.sprite_folder.clone(),
-        asset_profile: config.asset_profile,
-    };
-    let image_manifest = sandbox_image_manifest(&config.sprite_folder);
-    let inputs = sandbox_catalog_inputs_without_worlds(character_catalog, boss_catalog, music);
-    core::build_sandbox_catalog(&core_config, image_manifest, &inputs)
+    build_sandbox_catalog_with(
+        config,
+        character_catalog,
+        boss_catalog,
+        music,
+        worlds,
+        |_| {},
+    )
 }
 
 pub fn scaled_asset_id(
@@ -108,6 +107,7 @@ pub fn build_sandbox_catalog_with(
     character_catalog: &CharacterCatalog,
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
+    worlds: &crate::ldtk_world::WorldManifest,
     extend: impl FnOnce(&mut AssetManifest),
 ) -> SandboxAssetCatalog {
     let core_config = SandboxAssetConfig {
@@ -115,7 +115,7 @@ pub fn build_sandbox_catalog_with(
         asset_profile: config.asset_profile,
     };
     let image_manifest = sandbox_image_manifest(&config.sprite_folder);
-    let inputs = sandbox_catalog_inputs(character_catalog, boss_catalog, music);
+    let inputs = sandbox_catalog_inputs(character_catalog, boss_catalog, music, worlds);
     core::build_sandbox_catalog_with(&core_config, image_manifest, &inputs, extend)
 }
 
@@ -123,9 +123,10 @@ pub fn sandbox_catalog_inputs(
     character_catalog: &CharacterCatalog,
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
+    worlds: &crate::ldtk_world::WorldManifest,
 ) -> SandboxCatalogInputs {
     let mut inputs = sandbox_catalog_inputs_without_worlds(character_catalog, boss_catalog, music);
-    inputs.worlds = crate::ldtk_world::world_manifest()
+    inputs.worlds = worlds
         .worlds
         .iter()
         .map(|source| WorldCatalogRow {

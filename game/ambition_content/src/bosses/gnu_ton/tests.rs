@@ -251,10 +251,11 @@ fn arena_spawns_the_adr0020_linked_pair() {
     use ambition_entity_catalog::placements::{BossBrain, CharacterBrain};
 
     // `to_room_set` reads the world manifest + resolves spawn display names
-    // through stable authored ids; install the provider-owned world manifest
-    // before composing the partial project.
-    crate::worlds::install();
-    let mut project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    // through stable authored ids; this test names the provider-owned manifest
+    // it composes the partial project against.
+    let manifest = crate::worlds::world_manifest();
+    let mut project =
+        LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
     // Compose ONLY the arena area. The full sandbox composes portal rooms
     // whose entities need the `portal_ldtk` feature (off in this test build);
     // the arena itself has no portal entities, so scoping to it keeps the
@@ -262,7 +263,9 @@ fn arena_spawns_the_adr0020_linked_pair() {
     project
         .levels
         .retain(|level| level.identifier == ARENA_ROOM_NAME);
-    let room_set = project.to_room_set().expect("gnu_ton_arena composes");
+    let room_set = project
+        .to_room_set(&manifest)
+        .expect("gnu_ton_arena composes");
     let arena = room_set
         .rooms
         .iter()

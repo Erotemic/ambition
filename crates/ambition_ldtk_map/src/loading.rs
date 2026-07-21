@@ -2,7 +2,7 @@
 //!
 //! Decides whether the live build reads a world's checked-in file from
 //! disk, an env-override path, or the statically embedded copy — for
-//! every world the installed [`super::manifest::WorldManifest`] declares.
+//! every world the caller's [`super::manifest::WorldManifest`] declares.
 //! Pure I/O policy — no validation or runtime conversion lives here, and
 //! no world is named here (the manifest rows carry identity, paths, and
 //! embedded fallbacks).
@@ -38,7 +38,7 @@ use ambition_asset_manager::sandbox_assets::{
 };
 use ambition_asset_manager::{AssetManifest, AssetProfile};
 
-use super::manifest::{world_manifest, WorldSource};
+use super::manifest::{WorldManifest, WorldSource};
 use super::project::LdtkProject;
 
 impl LdtkProject {
@@ -53,8 +53,10 @@ impl LdtkProject {
     ///   parses the row's `embedded_text`.
     /// - `NoAssets` / `Headless`: returns the required-asset error
     ///   (matches [`ambition_asset_manager::MissingAssetPolicy::Error`]).
-    pub fn load_default(catalog: &SandboxAssetCatalog) -> Result<Self, String> {
-        let manifest = world_manifest();
+    pub fn load_default(
+        catalog: &SandboxAssetCatalog,
+        manifest: &WorldManifest,
+    ) -> Result<Self, String> {
         let primary = manifest.primary();
         let resolved = catalog
             .resolve(&primary.id)
@@ -78,7 +80,7 @@ impl LdtkProject {
         if let Some(local) = resolved.location.as_local_path() {
             match Self::load_from_path(local) {
                 Ok(mut project) => {
-                    merge_secondary_worlds(&mut project, catalog);
+                    merge_secondary_worlds(&mut project, catalog, manifest);
                     return Ok(project);
                 }
                 Err(error) => {
@@ -97,7 +99,7 @@ impl LdtkProject {
                         parse_world_text(text, primary).map_err(|fallback_error| {
                             format!("{error}; the embedded copy also failed: {fallback_error}")
                         })?;
-                    merge_secondary_worlds(&mut project, catalog);
+                    merge_secondary_worlds(&mut project, catalog, manifest);
                     return Ok(project);
                 }
             }
@@ -115,7 +117,7 @@ impl LdtkProject {
             ));
         };
         let mut project = parse_world_text(text, primary)?;
-        merge_secondary_worlds(&mut project, catalog);
+        merge_secondary_worlds(&mut project, catalog, manifest);
         Ok(project)
     }
 
@@ -124,13 +126,13 @@ impl LdtkProject {
     /// catalog from the live `GameAssetConfig` resource and threads it
     /// in via [`Self::load_default`]; this helper is the equivalent
     /// for entry points that don't have a Bevy `World` yet.
-    pub fn load_default_for_dev() -> Result<Self, String> {
+    pub fn load_default_for_dev(manifest: &WorldManifest) -> Result<Self, String> {
         let config = SandboxAssetConfig {
             sprite_folder: "sprites".to_string(),
             asset_profile: AssetProfile::DesktopDevLoose,
         };
         let inputs = SandboxCatalogInputs {
-            worlds: world_manifest()
+            worlds: manifest
                 .worlds
                 .iter()
                 .map(|source| WorldCatalogRow {
@@ -144,29 +146,20 @@ impl LdtkProject {
             ..Default::default()
         };
         let catalog = build_sandbox_catalog(&config, AssetManifest::new(), &inputs);
-        Self::load_default(&catalog)
-    }
-
-    /// Parse the manifest primary's statically embedded copy (embedded-only
-    /// build profiles; also the disk-failure fallback).
-    pub fn load_static_map() -> Result<Self, String> {
-        let primary = world_manifest().primary();
-        let Some(text) = primary.embedded_text else {
-            return Err(format!(
-                "primary LDtk world '{}' has no statically embedded copy in this build",
-                primary.id
-            ));
-        };
-        parse_world_text(text, primary)
+        Self::load_default(&catalog, manifest)
     }
 
     /// Hot-reload re-parse helper: read the LDtk file the watcher
     /// discovered at startup, then re-merge secondary worlds via the
-    /// shared catalog. Catalog is passed by the caller because the
-    /// hot-reload system has both resources in hand.
-    pub fn load_from_disk_at(path: &Path, catalog: &SandboxAssetCatalog) -> Result<Self, String> {
+    /// shared catalog. Catalog and manifest are passed by the caller because
+    /// the hot-reload system has both in hand.
+    pub fn load_from_disk_at(
+        path: &Path,
+        catalog: &SandboxAssetCatalog,
+        manifest: &WorldManifest,
+    ) -> Result<Self, String> {
         let mut project = Self::load_from_path(path)?;
-        merge_secondary_worlds(&mut project, catalog);
+        merge_secondary_worlds(&mut project, catalog, manifest);
         Ok(project)
     }
 
@@ -203,8 +196,12 @@ fn parse_world_text(text: &str, source: &WorldSource) -> Result<LdtkProject, Str
 /// fall back to the row's embedded text; skip (secondaries are optional)
 /// when neither is available. Malformed files log a warning and the
 /// primary keeps booting.
-fn merge_secondary_worlds(project: &mut LdtkProject, catalog: &SandboxAssetCatalog) {
-    for source in world_manifest().secondaries() {
+fn merge_secondary_worlds(
+    project: &mut LdtkProject,
+    catalog: &SandboxAssetCatalog,
+    manifest: &WorldManifest,
+) {
+    for source in manifest.secondaries() {
         if let Ok(resolved) = catalog.resolve(&source.id) {
             if let Some(local) = resolved.location.as_local_path() {
                 if local.exists() {

@@ -14,26 +14,26 @@ use ambition_sfx::SfxProvider;
 use bevy::asset::{Assets, Handle};
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
-fn install_test_world_manifest() {
-    static ONCE: std::sync::Once = std::sync::Once::new();
-    ONCE.call_once(|| {
-        use crate::ldtk_world::{install_world_manifest, WorldManifest, WorldSource};
-        use ambition_asset_manager::AssetId;
-        let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../game/ambition_content/assets/worlds");
-        install_world_manifest(WorldManifest {
-            entry_room: "central_hub_complex".to_string(),
-            ron_rooms: Vec::new(),
-            worlds: vec![WorldSource {
-                id: AssetId::new("world.sandbox_ldtk"),
-                asset_path: "game://worlds/sandbox.ldtk".to_string(),
-                loose_path: Some(worlds_dir.join("sandbox.ldtk")),
-                embedded_text: None,
-                embedded_bevy_path: Some("ambition_content/worlds/sandbox.ldtk"),
-                required: true,
-            }],
-        });
-    });
+/// The sandbox world this test's catalog carries, as a plain value. The
+/// `Once` guard died with the install seam — a manifest is now just an
+/// argument, so repeated construction is free of cross-test coupling.
+fn test_world_manifest() -> crate::ldtk_world::WorldManifest {
+    use crate::ldtk_world::{WorldManifest, WorldSource};
+    use ambition_asset_manager::AssetId;
+    let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../game/ambition_content/assets/worlds");
+    WorldManifest {
+        entry_room: "central_hub_complex".to_string(),
+        ron_rooms: Vec::new(),
+        worlds: vec![WorldSource {
+            id: AssetId::new("world.sandbox_ldtk"),
+            asset_path: "game://worlds/sandbox.ldtk".to_string(),
+            loose_path: Some(worlds_dir.join("sandbox.ldtk")),
+            embedded_text: None,
+            embedded_bevy_path: Some("ambition_content/worlds/sandbox.ldtk"),
+            required: true,
+        }],
+    }
 }
 
 #[test]
@@ -433,7 +433,7 @@ fn every_live_music_track_resolves_under_web_served_assets() {
     use crate::assets::game_assets::GameAssetConfig;
     use ambition_asset_manager::AssetProfile;
 
-    install_test_world_manifest();
+    let manifest = test_world_manifest();
     let music = fixture_music_registry().clone();
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::WebServedAssets;
@@ -449,6 +449,7 @@ fn every_live_music_track_resolves_under_web_served_assets() {
         &character_catalog,
         &boss_catalog,
         &music,
+        &manifest,
     );
 
     let mut missing: Vec<String> = Vec::new();

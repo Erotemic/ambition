@@ -197,11 +197,15 @@ fn install_mary_o_asset_resources(app: &mut App) -> Option<String> {
         .world()
         .resource::<ambition::actors::boss_encounter::BossCatalog>()
         .clone();
-    let catalog = ambition::actors::assets::sandbox_assets::build_sandbox_catalog_without_worlds(
+    let catalog = ambition::actors::assets::sandbox_assets::build_sandbox_catalog(
         &config,
         &character_catalog,
         &boss_catalog,
         &music,
+        // This demo owns procedural/self-contained rooms and ships no `.ldtk`
+        // file: a world-less manifest contributes no world rows and every
+        // other catalog entry still lands.
+        &ambition::actors::ldtk_world::WorldManifest::default(),
     );
     let sfx_bank_path = catalog.path_for(&ambition::asset_manager::sandbox_assets::ids::sfx_bank());
 

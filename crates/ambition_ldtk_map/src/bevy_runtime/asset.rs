@@ -14,18 +14,22 @@ use bevy_ecs_ldtk::prelude::LevelSet;
 
 use ambition_engine_core::config::WORLD_Z_BLOCK;
 
-use super::super::{world_bevy_asset_path, world_manifest, LdtkLevel, LdtkProject};
+use super::super::{world_bevy_asset_path, LdtkLevel, LdtkProject, WorldManifest};
 
-/// Loaded bevy_ecs_ldtk project handles, one per installed
-/// [`super::super::WorldManifest`] row (index-aligned; 0 = primary).
+/// Loaded bevy_ecs_ldtk project handles, one per prepared
+/// [`WorldManifest`] row (index-aligned; 0 = primary).
 /// `bevy_ecs_ldtk`'s asset loader is per-file and independent of
 /// Ambition's merged JSON loader, so every world file gets its own
 /// handle + `LdtkWorldBundle` to render its painted tile layers.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct LdtkWorldAssets(pub Vec<Handle<bevy_ecs_ldtk::assets::LdtkProject>>);
 
-pub fn load_ldtk_asset_handle(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let handles = world_manifest()
+pub fn load_ldtk_asset_handle(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    manifest: Res<WorldManifest>,
+) {
+    let handles = manifest
         .worlds
         .iter()
         .map(|source| asset_server.load(world_bevy_asset_path(source)))

@@ -149,8 +149,8 @@ fn authoritative_entity_families_are_ggrs_anchors() {
 
 #[test]
 fn registration_dump_and_fingerprint_are_stable() {
-    let mut first = rollback_sim();
-    let mut second = rollback_sim();
+    let first = rollback_sim();
+    let second = rollback_sim();
     let a = first.world().resource::<RollbackRegistry>();
     let b = second.world().resource::<RollbackRegistry>();
     assert_eq!(a.deterministic_dump(), b.deterministic_dump());

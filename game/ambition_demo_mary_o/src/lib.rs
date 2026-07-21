@@ -86,6 +86,12 @@ const BRICK_ROW: f32 = POWER_BLOCK_ROW;
 const BRICK_LAYER: &str = "mary_o_ground";
 const BRICK_BASE_INDEX: u16 = 20;
 
+/// How thick the goal pole is drawn. Half a tile — a pole, not a pillar. Named
+/// because [`goal_pole`] must derive the grab band from the SAME number
+/// [`level_1_1`] draws the block with; a band narrower than the pole is a level
+/// that cannot be finished.
+const POLE_WIDTH: f32 = T * 0.5;
+
 /// The level's world width and height. Named, rather than inlined into
 /// [`level_1_1`], because [`goal_pole`] must derive the flag's geometry from the
 /// same numbers the flag's BLOCK is built from — see `flag_geometry_oracle`.
@@ -203,11 +209,18 @@ pub fn level_1_1() -> RoomSpec {
         ));
     }
 
-    // 5. The goal pole.
-    blocks.push(ae::Block::solid(
+    // 5. The goal pole. ONE-WAY, not solid: touching it must END the level, and a
+    // solid pole stops the body a half-body-width short of its own center, so the
+    // grab could only ever fire from above the top. One-way lets her run straight
+    // into it at any height while still holding her up if she drops onto the top
+    // from the stairs. Left on the untiled art path deliberately — it is a 16px
+    // pole and the tiled path draws 32px tiles, so tiling it would render half a
+    // tile of ground art; a flat colored quad is the honest placeholder until the
+    // pole has real art. See [`flag`].
+    blocks.push(ae::Block::one_way(
         "goal_pole",
         ae::Vec2::new(90.0 * T, ground_top - 9.0 * T),
-        ae::Vec2::new(T * 0.5, 9.0 * T),
+        ae::Vec2::new(POLE_WIDTH, 9.0 * T),
     ));
 
     let spawn = ae::Vec2::new(2.0 * T, ground_top - 2.0 * T);
@@ -279,10 +292,11 @@ pub const BRICK_COUNT: usize = BRICK_COLUMNS.len();
 pub fn goal_pole() -> flag::FlagPole {
     let ground_top = LEVEL_HEIGHT - GROUND_TILES * T;
     flag::FlagPole {
-        // `Block::solid` takes a MIN corner; the pole is `T * 0.5` wide.
-        x: 90.0 * T + T * 0.25,
+        // `Block::one_way` takes a MIN corner; the pole is `POLE_WIDTH` wide.
+        x: 90.0 * T + POLE_WIDTH * 0.5,
         top_y: ground_top - 9.0 * T,
         base_y: ground_top,
+        half_width: POLE_WIDTH * 0.5,
     }
 }
 

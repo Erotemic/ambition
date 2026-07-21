@@ -16,6 +16,17 @@
 //! player who grabbed high and slid fast score differently from one who grabbed
 //! high and slid slow, which is a bug that reads as physics.
 //!
+//! ## Why the pole is not solid
+//!
+//! The pole is authored as a ONE-WAY block, not a solid one. A flagpole you can
+//! walk into is a wall, and a wall holds the body a half-body-width away from the
+//! pole's center — which is to say it holds it permanently outside any grab band
+//! measured from that center. Solid geometry and "touch me to win" are mutually
+//! exclusive by construction, and the failure is silent: the level just refuses to
+//! end. One-way keeps the pole in the LEVEL (it is authored geometry, not a
+//! bespoke entity) while letting a body pass through it horizontally, and it still
+//! catches a body that lands on the top from the stairs.
+//!
 //! ## Why the player is not "frozen"
 //!
 //! A frozen body is still a body: gravity keeps pulling, the movement kernel keeps
@@ -26,8 +37,8 @@
 use ambition::engine_core as ae;
 use bevy::prelude::*;
 
-/// Where the pole is, and how tall. Mirrors the authored `goal_pole` block so the
-/// sequence never has to search the world for it — the level knows.
+/// Where the pole is, how tall, and how thick. Mirrors the authored `goal_pole`
+/// block so the sequence never has to search the world for it — the level knows.
 #[derive(Resource, Clone, Copy, Debug, PartialEq)]
 pub struct FlagPole {
     /// World x of the pole's center.
@@ -36,6 +47,11 @@ pub struct FlagPole {
     pub top_y: f32,
     /// World y of the pole's base, where the slide ends.
     pub base_y: f32,
+    /// Half the pole's authored thickness. Carried (rather than assumed) because
+    /// it is what [`grab_half_width`](Self::grab_half_width) is measured from — a
+    /// pole that is redrawn thicker must catch a body sooner, and deriving that
+    /// from one authored number is what keeps the two from drifting.
+    pub half_width: f32,
 }
 
 impl FlagPole {
@@ -48,11 +64,30 @@ impl FlagPole {
         ((self.base_y - y) / span).clamp(0.0, 1.0)
     }
 
-    /// How wide a band around the pole counts as touching it. A pole is half a tile
-    /// wide; a body is one tile. Half a tile of slop makes the grab feel like the
-    /// game it is imitating rather than like a hitbox test.
-    pub const GRAB_HALF_WIDTH: f32 = 12.0;
+    /// How far a body's CENTER may be from the pole's center and still count as
+    /// touching it: the pole's half-thickness plus a body's half-width. That is
+    /// exactly "the body's box overlaps the pole's box", expressed against the one
+    /// number the sequence has (a center), so a grab fires the instant she makes
+    /// contact — from either side, at any height, running or falling.
+    ///
+    /// **This must be derived, not guessed.** It used to be a flat 12px, which was
+    /// narrower than a body's own half-width (15px): a body that walked into the
+    /// pole and STOPPED against it parked its center 23px away and never grabbed,
+    /// so the sequence only fired from above the pole's top, where nothing blocked
+    /// the approach. A grab band smaller than the body it is meant to catch is
+    /// unreachable by construction.
+    pub fn grab_half_width(&self) -> f32 {
+        self.half_width + GRAB_BODY_HALF_WIDTH
+    }
 }
+
+/// The body half-width the grab band budgets for.
+///
+/// Mary-O's small form; her grown form is wider, so this errs NARROW — the tall
+/// body simply overlaps the pole before the band says so, which costs a frame at
+/// most. Sized off the engine default rather than a literal so a change to the
+/// standard body carries here.
+const GRAB_BODY_HALF_WIDTH: f32 = ae::DEFAULT_PLAYER_BODY_WIDTH * 0.5;
 
 /// Score for a grab at `height` (`0..=1`). The classic ladder: five bands, top
 /// band worth an order of magnitude more than the bottom.
@@ -147,7 +182,7 @@ fn step_phase(
 ) -> Option<ae::Vec2> {
     match seq.phase {
         FlagPhase::Idle => {
-            if (body.x - pole.x).abs() > FlagPole::GRAB_HALF_WIDTH || body.y > pole.base_y {
+            if (body.x - pole.x).abs() > pole.grab_half_width() || body.y > pole.base_y {
                 return None;
             }
             // The score is a fact about the moment of contact. Everything after
@@ -197,6 +232,7 @@ mod tests {
             x: 1000.0,
             top_y: 100.0,
             base_y: 400.0,
+            half_width: 8.0,
         }
     }
 

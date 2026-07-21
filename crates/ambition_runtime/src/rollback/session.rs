@@ -7,7 +7,7 @@ use bevy_ggrs::{
     PlayerInputs, ReadInputs, RollbackFrameCount, RunGgrsSystems, Session, SyncTestMismatch,
 };
 
-use ambition_engine_core::{ControlFrame, ControlFrameLatch};
+use ambition_engine_core::{ConfirmedFrameBoundary, ControlFrame, ControlFrameLatch};
 
 use super::RollbackRegistry;
 use crate::{PreparedContentIdentity, SnapshotSchemaFingerprint};
@@ -142,12 +142,28 @@ fn install_session_with_ownership(
     world.insert_resource(RollbackExecutionStats::default());
     world.insert_resource(ownership);
     world.insert_resource(session);
+
+    // A new session is a new timeline. Bumping the generation is what tells the
+    // external-effect journals that anything still pending belongs to a world
+    // that no longer exists — see `ambition_runtime::external_effects`.
+    let generation = world
+        .get_resource::<ConfirmedFrameBoundary>()
+        .map_or(0, |boundary| boundary.session.wrapping_add(1));
+    world.insert_resource(ConfirmedFrameBoundary {
+        current: 0,
+        confirmed: -1,
+        session: generation,
+    });
 }
 
 pub fn stop_session(world: &mut World) {
     world.remove_resource::<AmbitionGgrsSession>();
     world.remove_resource::<RollbackSessionContract>();
     world.remove_resource::<RollbackSessionOwnership>();
+    // Nothing speculates any more, so external effects go back to firing the
+    // instant they are written. Leaving the boundary installed would strand
+    // whatever is still pending behind a frame counter that never advances.
+    world.remove_resource::<ConfirmedFrameBoundary>();
 }
 
 /// Queue the same complete session removal from a regular Bevy system.
@@ -180,12 +196,13 @@ pub fn session_is_active(world: &World) -> bool {
 }
 
 pub(crate) fn install_session_bridge(app: &mut App) {
+    // Only a speculating host quarantines external effects, so the whole
+    // mechanism is installed HERE rather than in the engine group: a fixed-tick
+    // or render-frame game carries none of these systems at all.
+    crate::external_effects::quarantine_presentation_effects(app, LoadWorld);
+
     app.init_resource::<PendingLocalInput>()
         .init_resource::<ambition_platformer_primitives::schedule::SimulationReplayState>()
-        // The audio-side half of the same fact. Installed HERE, by the rollback
-        // bridge, so a fixed-tick or render-frame host never carries the gate at
-        // all and `SfxWriter` keeps its zero-cost `None` path.
-        .init_resource::<ambition_sfx::SfxEmissionGate>()
         .init_resource::<RollbackExecutionStats>()
         .init_resource::<RollbackSessionStatus>()
         .configure_sets(
@@ -213,7 +230,10 @@ pub(crate) fn install_session_bridge(app: &mut App) {
         .add_systems(
             LoadWorld,
             (
-                mark_historical_replay,
+                // Publishes the restored frame, which the abandoned-branch
+                // discard reads. The edge is required, not incidental.
+                mark_historical_replay
+                    .before(crate::external_effects::ExternalEffectSet::DiscardAbandoned),
                 count_load_run.in_set(super::AmbitionLoadWorldSet::Reconcile),
             ),
         )
@@ -259,51 +279,43 @@ fn publish_ggrs_input(
     *control = inputs.first().map(|(input, _)| *input).unwrap_or_default();
 }
 
-/// Publish the FACT "this frame number has been simulated before" to the two
-/// crates that currently act on it.
+/// Publish the FACT "this frame number has been simulated before".
 ///
-/// Deliberately a fact, not a policy. The consumers want different things and
-/// should be free to diverge:
+/// Deliberately a fact, not a policy — but note how few consumers it has left.
+/// External effects (audio, VFX) no longer read it at all: "ran before" is not
+/// "is settled", and answering the wrong question is what made the old
+/// `SfxEmissionGate` keep phantoms and drop corrections. They now go through
+/// [`crate::external_effects`], which defers rather than suppresses.
 ///
-/// - **Audio** suppresses a re-emission, because the sound already played.
-///   Correct for local rollback echo; NOT confirmed-frame release — see
-///   [`ambition_sfx::SfxEmissionGate`]'s caveat about predicted input.
-/// - **The trace** skips a duplicate append, but a forensic recorder might
-///   legitimately prefer the opposite (keep predicted history, or key rows by
-///   GGRS frame and let corrected state replace them). It has no frame key
-///   today, so it cannot do that yet.
-///
-/// They share a publisher because they read the same fact this tick, not
-/// because they must share a policy. When either needs different semantics,
-/// give it its own decision here rather than widening this boolean.
-///
-/// `ambition_sfx` cannot see a schedule or a frame counter, so the host
-/// publishes into the crate's own seam rather than the crate reaching back
-/// into the simulation.
+/// What remains are consumers that genuinely want "don't do this twice" and
+/// accept keeping the first pass's answer: the forensic trace's duplicate-append
+/// skip, and the falling-sand grid's step guard.
 fn publish_replay_pass(
     replay: &mut ambition_platformer_primitives::schedule::SimulationReplayState,
-    gate: Option<&mut ambition_sfx::SfxEmissionGate>,
     simulated_before: bool,
 ) {
     replay.replaying_history = simulated_before;
-    if let Some(gate) = gate {
-        gate.frame_simulated_before = simulated_before;
-    }
 }
 
-/// Decide, per advance, whether GGRS is re-simulating a frame it already ran.
+/// Decide, per advance, whether GGRS is re-simulating a frame it already ran,
+/// and publish where the confirmed boundary sits.
 ///
-/// The frame number is the exact test: at or below the high-water mark means
-/// this frame was simulated before, so its sounds already played and its trace
-/// row was already recorded. Bracketing on "a rollback happened this render
-/// frame" is NOT equivalent — `clear_historical_replay` runs after the whole
-/// GGRS batch, so the coarse window also covers the brand-new frame at the end
-/// of a rollback, which would silence the very frame the player just caused.
+/// The frame number is the exact test for the first: at or below the high-water
+/// mark means this frame was simulated before. Bracketing on "a rollback
+/// happened this render frame" is NOT equivalent — `clear_historical_replay`
+/// runs after the whole GGRS batch, so the coarse window also covers the
+/// brand-new frame at the end of a rollback.
+///
+/// [`ConfirmedFrameBoundary`] is the separate, stronger fact: which frames can
+/// never be simulated again. `ConfirmedFrameCount` is maintained by `bevy_ggrs`
+/// for both session kinds (a P2P session's confirmed frame; `current -
+/// check_distance` under sync test), so this works in the harness and online.
 fn count_advance_run(
     frame: Res<RollbackFrameCount>,
+    confirmed: Option<Res<ConfirmedFrameCount>>,
     mut stats: ResMut<RollbackExecutionStats>,
     mut replay: ResMut<ambition_platformer_primitives::schedule::SimulationReplayState>,
-    gate: Option<ResMut<ambition_sfx::SfxEmissionGate>>,
+    boundary: Option<ResMut<ConfirmedFrameBoundary>>,
 ) {
     stats.advance_runs = stats.advance_runs.saturating_add(1);
     stats.last_simulated_frame = frame.0;
@@ -315,21 +327,31 @@ fn count_advance_run(
             .highest_simulated_frame
             .map_or(frame.0, |highest| highest.max(frame.0)),
     );
-    publish_replay_pass(&mut replay, gate.map(ResMut::into_inner), simulated_before);
+    publish_replay_pass(&mut replay, simulated_before);
+    if let Some(mut boundary) = boundary {
+        boundary.current = frame.0;
+        boundary.confirmed = confirmed.map_or(-1, |confirmed| confirmed.0);
+    }
 }
 
+/// `LoadWorld`: the host has restored `frame`, so the simulation now sits
+/// there. Republishing it is what lets `discard_abandoned_predictions` drop the
+/// branch that was just walked away from without naming a GGRS type.
 fn mark_historical_replay(
+    frame: Res<RollbackFrameCount>,
     mut replay: ResMut<ambition_platformer_primitives::schedule::SimulationReplayState>,
-    gate: Option<ResMut<ambition_sfx::SfxEmissionGate>>,
+    boundary: Option<ResMut<ConfirmedFrameBoundary>>,
 ) {
-    publish_replay_pass(&mut replay, gate.map(ResMut::into_inner), true);
+    publish_replay_pass(&mut replay, true);
+    if let Some(mut boundary) = boundary {
+        boundary.current = frame.0;
+    }
 }
 
 fn clear_historical_replay(
     mut replay: ResMut<ambition_platformer_primitives::schedule::SimulationReplayState>,
-    gate: Option<ResMut<ambition_sfx::SfxEmissionGate>>,
 ) {
-    publish_replay_pass(&mut replay, gate.map(ResMut::into_inner), false);
+    publish_replay_pass(&mut replay, false);
 }
 
 fn count_load_run(mut stats: ResMut<RollbackExecutionStats>) {
@@ -500,32 +522,31 @@ mod replay_pass_tests {
     use super::*;
     use ambition_platformer_primitives::schedule::SimulationReplayState;
 
-    /// Runs the REAL `count_advance_run` for a frame, returning what the audio
-    /// seam sees. Driving the actual system (not a reimplementation of its rule)
-    /// is what makes this test able to fail when the rule regresses.
+    /// Runs the REAL `count_advance_run` for a frame, returning whether it
+    /// judged the frame a re-simulation. Driving the actual system (not a
+    /// reimplementation of its rule) is what makes this able to fail when the
+    /// rule regresses.
     fn advance_to(world: &mut World, frame: i32) -> bool {
         world.insert_resource(RollbackFrameCount(frame));
         world
             .run_system_cached(count_advance_run)
             .expect("count_advance_run runs");
-        world
-            .resource::<ambition_sfx::SfxEmissionGate>()
-            .frame_simulated_before
+        world.resource::<SimulationReplayState>().replaying_history
     }
 
     fn rollback_world() -> World {
         let mut world = World::new();
         world.init_resource::<RollbackExecutionStats>();
         world.init_resource::<SimulationReplayState>();
-        world.init_resource::<ambition_sfx::SfxEmissionGate>();
         world
     }
 
-    /// The whole point: a rollback re-runs frames 3 and 4, whose sounds already
-    /// played, and then simulates 5 for the first time. Only the re-runs are
-    /// silenced — silencing frame 5 would mute the input the player just gave.
+    /// A rollback re-runs frames 3 and 4 and then simulates 5 for the first
+    /// time. The distinction still matters for the consumers that legitimately
+    /// want "don't do this twice" — the trace's duplicate append and the
+    /// falling-sand step guard. External effects no longer read it at all.
     #[test]
-    fn only_the_re_simulated_frames_are_silenced() {
+    fn only_the_re_simulated_frames_are_marked_as_replay() {
         let mut world = rollback_world();
         for frame in 0..=4 {
             assert!(
@@ -536,46 +557,67 @@ mod replay_pass_tests {
 
         // Rollback: GGRS reloads frame 2 and re-advances through 4.
         for frame in 3..=4 {
-            assert!(
-                advance_to(&mut world, frame),
-                "frame {frame} already played its audio on the first pass"
-            );
+            assert!(advance_to(&mut world, frame), "frame {frame} ran before");
         }
 
         assert!(
             !advance_to(&mut world, 5),
-            "frame 5 is new — the frame the player just caused must be audible"
+            "frame 5 is new — the frame the player just caused"
         );
     }
 
-    /// Both consumers of the one decision stay in lockstep.
+    /// The confirmed boundary is the fact external effects key on, and it is
+    /// republished every advance from GGRS's own counters.
     #[test]
-    fn the_sim_and_audio_views_of_a_replay_agree() {
+    fn each_advance_publishes_where_the_confirmed_line_sits() {
         let mut world = rollback_world();
-        advance_to(&mut world, 0);
-        advance_to(&mut world, 1);
-        advance_to(&mut world, 1);
+        world.insert_resource(ConfirmedFrameBoundary::default());
+        world.insert_resource(ConfirmedFrameCount(2));
 
-        assert!(world.resource::<SimulationReplayState>().replaying_history);
+        advance_to(&mut world, 6);
+
+        let boundary = *world.resource::<ConfirmedFrameBoundary>();
+        assert_eq!(boundary.current, 6);
+        assert_eq!(boundary.confirmed, 2);
         assert!(
-            world
-                .resource::<ambition_sfx::SfxEmissionGate>()
-                .frame_simulated_before
+            !boundary.fully_confirmed(),
+            "frames 3..=6 are still predicted"
         );
     }
 
-    /// A host that installs no audio gate (fixed-tick, headless) must still work.
+    /// `LoadWorld` moves the simulation back to the restored frame. The
+    /// abandoned-branch discard reads exactly this, so it must be republished
+    /// rather than left pointing at the frame the host walked away from.
     #[test]
-    fn a_host_without_the_audio_gate_still_tracks_replay() {
-        let mut world = World::new();
-        world.init_resource::<RollbackExecutionStats>();
-        world.init_resource::<SimulationReplayState>();
+    fn restoring_a_frame_moves_the_published_boundary_back_to_it() {
+        let mut world = rollback_world();
+        world.insert_resource(ConfirmedFrameBoundary::default());
+        world.insert_resource(ConfirmedFrameCount(1));
+        advance_to(&mut world, 9);
+
+        world.insert_resource(RollbackFrameCount(4));
+        world
+            .run_system_cached(mark_historical_replay)
+            .expect("mark_historical_replay runs");
+
+        assert_eq!(
+            world.resource::<ConfirmedFrameBoundary>().current,
+            4,
+            "the simulation now sits at the restored frame, not at 9"
+        );
+    }
+
+    /// A host with no confirmed boundary installed (fixed-tick, headless, or a
+    /// rollback host before its first session) must still work.
+    #[test]
+    fn a_host_without_a_boundary_still_tracks_replay() {
+        let mut world = rollback_world();
 
         for frame in [0, 1, 1] {
             world.insert_resource(RollbackFrameCount(frame));
             world
                 .run_system_cached(count_advance_run)
-                .expect("count_advance_run runs without the audio gate");
+                .expect("count_advance_run runs without a boundary");
         }
 
         assert!(world.resource::<SimulationReplayState>().replaying_history);

@@ -109,51 +109,6 @@ pub struct OwnedSfxMessage {
     pub request: SfxMessage,
 }
 
-/// Host gate on external audio effects.
-///
-/// A rollback host re-simulates frames it has already simulated once. Gameplay
-/// is *supposed* to run again — that is what makes rollback correct — but the
-/// sound already reached the speakers on the pass that first simulated the
-/// frame. Emitting again is an audible duplicate, once per rollback.
-///
-/// So the host raises this gate while it re-simulates and lowers it for a frame
-/// it is simulating for the first time. This crate stays independent of the
-/// simulation (it cannot see a schedule, a frame counter, or a GGRS session):
-/// the host publishes the fact, the same way it publishes audio ownership
-/// through [`SfxEmissionContext`].
-///
-/// Absent resource = no rollback host = nothing is ever suppressed, which is
-/// what every fixed-tick game, headless fixture, and unit test wants.
-///
-/// # This is duplicate suppression, NOT confirmed-frame release
-///
-/// The flag says *this frame ran before*, which is not the same as *this frame
-/// is confirmed*. With predicted remote input the two diverge and this gate is
-/// wrong in a second way:
-///
-/// 1. the predicted pass emits sound A, which reaches the speakers;
-/// 2. the real input arrives and forces a rollback;
-/// 3. the corrected re-simulation should emit sound B — and this gate
-///    suppresses it, because the frame ran before.
-///
-/// The duplicate is gone, but the phantom is kept and the correction is lost.
-/// Fixing that needs frame-stamped effect intents held until the host's
-/// confirmed boundary, with abandoned predictions discarded — a different
-/// mechanism, not a stricter boolean. Until then this is an honest interim fix
-/// for the echo that local rollback produces today, and it must not be copied
-/// as the final shape for VFX or any other external effect.
-#[derive(Resource, Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct SfxEmissionGate {
-    /// The host is re-simulating a frame it has already simulated once.
-    pub frame_simulated_before: bool,
-}
-
-impl SfxEmissionGate {
-    pub const fn suppresses_emission(self) -> bool {
-        self.frame_simulated_before
-    }
-}
-
 /// Mechanics-facing writer that captures exact audio ownership without adding
 /// another system parameter at every call site.
 ///
@@ -161,28 +116,27 @@ impl SfxEmissionGate {
 /// and direct compositions install an explicit context; playback rejects an
 /// unowned request whenever an owned context is active.
 ///
-/// This is also the ONE place external audio effects are suppressed on a
-/// rollback re-simulation ([`SfxEmissionGate`] — read its caveat: duplicate
-/// suppression, not confirmed-frame release). Every sim-side emitter already
-/// writes through here, so the guard covers the ones written tomorrow too —
-/// there is deliberately no second gate at the ~20 individual emit sites.
+/// # Rollback is not this crate's problem
+///
+/// This writer once carried an `SfxEmissionGate` that dropped the request
+/// outright while a rollback host re-simulated a frame. That was removed with
+/// the confirmed-frame quarantine (`ambition_runtime::external_effects`), and
+/// the removal is load-bearing rather than tidying: suppressing at emit time
+/// destroys the corrected sound before anything can decide whether the
+/// prediction it replaces was ever heard. A speculating host now defers this
+/// message instead, which it can only do if the message is actually written.
+///
+/// So: always write. Deciding when a sound is allowed to reach the speakers
+/// belongs to the host that knows which frames are settled, not to the mechanic
+/// that knows a sword swung.
 #[derive(SystemParam)]
 pub struct SfxWriter<'w> {
     messages: MessageWriter<'w, OwnedSfxMessage>,
     context: Option<Res<'w, SfxEmissionContext>>,
-    gate: Option<Res<'w, SfxEmissionGate>>,
 }
 
 impl SfxWriter<'_> {
     pub fn write(&mut self, request: SfxMessage) {
-        if self
-            .gate
-            .as_deref()
-            .copied()
-            .is_some_and(SfxEmissionGate::suppresses_emission)
-        {
-            return;
-        }
         let owner = self.context.as_deref().and_then(SfxEmissionContext::owner);
         self.messages.write(OwnedSfxMessage { owner, request });
     }
@@ -199,14 +153,11 @@ mod tests {
         sfx.write(SfxMessage::Jump { pos: Vec2::ZERO });
     }
 
-    /// Drives the REAL `SfxWriter` through a real schedule, so the guard is
-    /// exercised in the shape every gameplay emitter uses.
-    fn emitted_with_gate(gate: Option<SfxEmissionGate>) -> usize {
+    /// Drives the REAL `SfxWriter` through a real schedule, in the shape every
+    /// gameplay emitter uses.
+    fn emitted() -> usize {
         let mut world = World::new();
         world.init_resource::<Messages<OwnedSfxMessage>>();
-        if let Some(gate) = gate {
-            world.insert_resource(gate);
-        }
         let mut schedule = Schedule::default();
         schedule.add_systems(emit);
         schedule.run(&mut world);
@@ -216,31 +167,12 @@ mod tests {
         cursor.read(messages).count()
     }
 
+    /// The writer is unconditional. If a future change reintroduces an
+    /// emit-time suppression here, the confirmed-frame quarantine downstream
+    /// silently loses the ability to correct a mispredicted sound — it can only
+    /// replace intents it was given.
     #[test]
-    fn a_replayed_frame_emits_no_sound() {
-        assert_eq!(
-            emitted_with_gate(Some(SfxEmissionGate {
-                frame_simulated_before: true
-            })),
-            0,
-            "audio for this frame already played on the pass that first simulated it"
-        );
-    }
-
-    #[test]
-    fn a_first_time_frame_emits_normally() {
-        assert_eq!(
-            emitted_with_gate(Some(SfxEmissionGate {
-                frame_simulated_before: false
-            })),
-            1
-        );
-    }
-
-    /// No rollback host installed the gate: a fixed-tick game, a headless
-    /// fixture, and every existing unit test must be unaffected.
-    #[test]
-    fn an_absent_gate_never_suppresses() {
-        assert_eq!(emitted_with_gate(None), 1);
+    fn the_writer_never_swallows_a_request() {
+        assert_eq!(emitted(), 1);
     }
 }

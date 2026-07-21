@@ -50,6 +50,9 @@ use ambition_platformer_primitives::schedule::SimScheduleExt as _;
 
 mod combat_schedule;
 pub mod content_identity;
+/// Holding external effects (audio, VFX) at the host's confirmed-frame boundary
+/// so a rollback cannot duplicate one or leave a mispredicted one standing.
+pub mod external_effects;
 pub mod input_stream;
 mod mode_scope;
 mod player_schedule;

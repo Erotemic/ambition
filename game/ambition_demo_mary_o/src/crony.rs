@@ -21,6 +21,7 @@ use bevy::prelude::*;
 
 use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
 use ambition::actors::combat::components::ActorFaction;
+use ambition::actors::features::FeatureName;
 use ambition::actors::features::{SpawnActorKind, SpawnActorRequest};
 use ambition::characters::actor::BodyHealth;
 use ambition::engine_core as ae;
@@ -317,7 +318,12 @@ mod tests {
             .spawn((
                 kin(ae::Vec2::new(24.0, 0.0), ae::Vec2::ZERO),
                 BodyHealth::new(Health::new(1)),
-                Name::new(CRONY_DISPLAY_NAME),
+                // `FeatureName`, because that is what the PRODUCTION spawner
+                // puts on an actor. The first version of this fixture used
+                // `Name`, which the spawner decorates — so the test passed
+                // against components no real crony has, while the shipped
+                // mechanic matched nothing and did nothing.
+                FeatureName::new(CRONY_DISPLAY_NAME),
             ))
             .id();
 
@@ -451,14 +457,19 @@ pub enum MaryOShell {
     Sliding(f32),
 }
 
-/// Tag freshly spawned shells, the same way sparks get tagged: the engine spawns
-/// the body from the request, and the demo recognises its own by display name.
+/// Tag freshly spawned shells: the engine spawns the body from the request, and
+/// the demo recognises its own.
+///
+/// Matches `FeatureName`, which carries the AUTHORED name verbatim — not `Name`,
+/// which the spawner decorates into `"Feature actor enemy: {name}"`. Matching
+/// `Name` is what silently broke this the first time: the tag never fired, so
+/// shells spawned inert and the whole mechanic did nothing.
 pub fn tag_mary_o_shells(
     mut commands: Commands,
-    fresh: Query<(Entity, &Name), (Added<Name>, Without<MaryOShell>)>,
+    fresh: Query<(Entity, &FeatureName), Without<MaryOShell>>,
 ) {
     for (entity, name) in &fresh {
-        if name.as_str() == SHELL_DISPLAY_NAME {
+        if name.0 == SHELL_DISPLAY_NAME {
             commands.entity(entity).try_insert(MaryOShell::Resting);
         }
     }
@@ -522,7 +533,7 @@ pub fn drive_mary_o_shells(
     mut sfx: ambition::sfx::SfxWriter,
     mut shells: Query<(&mut ae::BodyKinematics, &mut MaryOShell), Without<PrimaryPlayer>>,
     mut cronies: Query<
-        (Entity, &ae::BodyKinematics, &mut BodyHealth, &Name),
+        (Entity, &ae::BodyKinematics, &mut BodyHealth, &FeatureName),
         (
             Without<PrimaryPlayer>,
             Without<PlayerEntity>,
@@ -548,7 +559,10 @@ pub fn drive_mary_o_shells(
 
         let s = shell_kin.aabb();
         for (entity, crony_kin, mut health, name) in &mut cronies {
-            if name.as_str() != CRONY_DISPLAY_NAME {
+            // Same story as the tag above: `FeatureName` is the authored name;
+            // `Name` is decorated. Filtering on `Name` here meant a sliding
+            // shell matched NOTHING and ran straight through every crony.
+            if name.0 != CRONY_DISPLAY_NAME {
                 continue;
             }
             let g = crony_kin.aabb();

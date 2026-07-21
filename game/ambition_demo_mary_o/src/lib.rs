@@ -136,6 +136,7 @@ const PIPE_COLUMN: f32 = 26.0;
 const PIPE_WIDTH_TILES: f32 = 2.0;
 const PIPE_HEIGHT_TILES: f32 = 2.0;
 const PIPE_NAME: &str = "secret_pipe";
+const EXIT_PIPE_NAME: &str = "vault_return_pipe";
 const PIPE_COLOR: [f32; 4] = [0.18, 0.62, 0.28, 1.0];
 const VAULT_STONE_COLOR: [f32; 4] = [0.24, 0.20, 0.30, 1.0];
 
@@ -180,11 +181,18 @@ pub fn pipe_arrival() -> ae::Vec2 {
     )
 }
 
-/// The vault's exit: stand at its far end and press Interact to surface.
+/// The return pipe's mouth: stand on it at the vault's far end and press
+/// Interact to surface.
+///
+/// Sized and positioned like [`pipe_mouth`] — a band across the top of the pipe
+/// you are standing on — rather than a loose 2x2 block of air, so entering and
+/// leaving read the same way to the player.
 pub fn vault_exit() -> ae::Aabb {
     let vault = vault_bounds();
-    let size = ae::Vec2::splat(2.0 * T);
-    let min = vault.max - size;
+    let pipe_top = vault.max.y - PIPE_HEIGHT_TILES * T;
+    let left = vault.max.x - PIPE_WIDTH_TILES * T;
+    let size = ae::Vec2::new(PIPE_WIDTH_TILES * T, T);
+    let min = ae::Vec2::new(left, pipe_top - 0.5 * T);
     ae::Aabb::new(min + size * 0.5, size * 0.5)
 }
 
@@ -391,6 +399,21 @@ pub fn level_1_1() -> RoomSpec {
             .with_art_color(VAULT_STONE_COLOR),
         );
     }
+
+    // The RETURN pipe. The vault's exit was a logical zone with no geometry —
+    // nothing to see and nothing to aim at, so the only way out was knowing it
+    // was there. A pipe you can see is the whole affordance.
+    let exit = vault_exit();
+    blocks.push(
+        ae::Block::solid_tiled(
+            EXIT_PIPE_NAME,
+            ae::Vec2::new(exit.min.x, exit.max.y - PIPE_HEIGHT_TILES * T),
+            ae::Vec2::new(PIPE_WIDTH_TILES * T, PIPE_HEIGHT_TILES * T),
+            "mary_o_pipe",
+            1,
+        )
+        .with_art_color(PIPE_COLOR),
+    );
 
     let spawn = ae::Vec2::new(2.0 * T, ground_top - 2.0 * T);
     let world = ae::World::new("Mary-O 1-1", ae::Vec2::new(width, height), spawn, blocks);
@@ -1426,11 +1449,27 @@ mod tests {
             "the vault exit catches a body standing in it"
         );
 
-        // The level really does carry the pipe and the coins that reward it.
+        // The level really does carry BOTH pipes and the coins that reward
+        // them. The return pipe is asserted because its absence is exactly the
+        // bug that shipped: the exit was a logical zone with no geometry, so
+        // the vault looked like a dead end and the only way out was knowing
+        // where to press Interact. A warp whose mouth you cannot see is not a
+        // warp, and no assertion about the ZONE would have caught it.
         let room = level_1_1();
         assert!(
             room.world.blocks.iter().any(|b| b.name == PIPE_NAME),
-            "the pipe is authored into the level"
+            "the entrance pipe is authored into the level"
+        );
+        let return_pipe = room
+            .world
+            .blocks
+            .iter()
+            .find(|b| b.name == EXIT_PIPE_NAME)
+            .expect("the vault has a VISIBLE return pipe, not just an exit zone");
+        assert!(
+            overlaps(return_pipe.aabb, vault_exit()),
+            "and the exit zone sits on that pipe's mouth, so what you press \
+             Interact on is the thing you can see"
         );
         assert_eq!(
             room.placements

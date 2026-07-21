@@ -213,3 +213,49 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     }
     panic!("the flag sequence never settled into a level cycle within 10 seconds");
 }
+
+/// **A stomped crony really does leave a workable shell.**
+///
+/// The shell shipped broken and every focused test was green, because the
+/// fixtures hand-built a `Name` while the production spawner writes
+/// `"Feature actor enemy: {name}"` onto `Name` and the bare name onto
+/// `FeatureName`. The tag never fired, so shells spawned inert. This drives the
+/// REAL spawn path — request in, engine spawns, demo tags — which is the only
+/// thing that would have caught it.
+#[test]
+fn a_stomped_crony_leaves_a_shell_the_demo_actually_recognises() {
+    use ambition_demo_mary_o::crony::{MaryOShell, SHELL_DISPLAY_NAME};
+
+    let mut app = build_demo_app();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f32(1.0 / 60.0),
+    ));
+    settle(&mut app);
+
+    // Ask the engine for a shell exactly as the stomp does.
+    app.world_mut()
+        .write_message(ambition::actors::features::SpawnActorRequest {
+            id: "scripted_shell".to_string(),
+            name: SHELL_DISPLAY_NAME.to_string(),
+            pos: Vec2::new(600.0, 300.0),
+            half_size: Vec2::new(14.0, 12.0),
+            faction: ambition::actors::combat::components::ActorFaction::Enemy,
+            grudge_against: None,
+            kind: ambition::actors::features::SpawnActorKind::Enemy {
+                brain: ambition::entity_catalog::placements::CharacterBrain::Custom(
+                    ambition_demo_mary_o::crony::SHELL_BRAIN_KEY.to_string(),
+                ),
+            },
+        });
+    settle(&mut app);
+
+    let tagged = {
+        let mut query = app.world_mut().query::<&MaryOShell>();
+        query.iter(app.world()).count()
+    };
+    assert_eq!(
+        tagged, 1,
+        "the engine spawned the shell and the demo TAGGED it — an untagged \
+         shell is an inert prop, which is exactly how this shipped broken"
+    );
+}

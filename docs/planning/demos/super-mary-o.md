@@ -50,7 +50,13 @@ Remaining acceptance work
   into the demo's one emergent combo. BRAINLESS is literal: the archetype's
   brain is `StandStill`, so nothing ever decides anything for a shell — its
   whole behaviour is three demo rules, and gravity, ground contact, and walls
-  are the ordinary body physics every actor already gets.
+  are the ordinary body physics every actor already gets. FIXED 2026-07-21 after
+  playtest: it shipped inert. The demo matched actors on `Name`, but the spawner
+  writes `"Feature actor enemy: {name}"` there and the bare name onto
+  `FeatureName` — so shells were never tagged AND sliding shells matched no
+  crony. Both now match `FeatureName`. The unit test was green throughout
+  because its fixture hand-built `Name`; the regression test drives the real
+  spawn path instead.
 - ✅ **Title / results presentation — LANDED 2026-07-21.** A centred transient
   card: `WORLD 1-1  MARY-O x3` on entry and after every death, `COURSE CLEAR
   {score}` on the flag. Expressed as ONE declared HUD slot rather than a new

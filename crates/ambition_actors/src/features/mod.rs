@@ -144,12 +144,12 @@ pub use ecs::{
     BossClusterRef, BossClusterScratch, BossConfig, BossEncounter, BossMut, BossOverrides, BossRef,
     CanPilot, ControlGrant, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
     FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback,
-    HitboxLifetime, Limb,
-    LimbIntents, LimbRig, LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact, MountDied,
-    MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge,
-    PendingMountLinks, RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,
-    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
-    RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    HitboxLifetime, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, Mass, MountClass,
+    MountDeathImpact, MountDied, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize,
+    PendingChallenge, PendingMountLinks, RidingOn, RoomContentStagingError,
+    RoomContentStagingRegistrationError, RoomContentStagingRegistry, RoomFeatureConstructionError,
+    RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest,
+    CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{
@@ -160,8 +160,7 @@ pub use enemies::{
 pub use events::{
     ActorStimulus, FeatureCombatTuning, GameplayBanner, GameplayBannerRequested,
     GameplaySfxRequested, HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource,
-    HitTarget,
-    NpcDialogueRequest, ResetRoomFeaturesEvent, RoomResetReason, SetFlagRequested,
+    HitTarget, NpcDialogueRequest, ResetRoomFeaturesEvent, RoomResetReason, SetFlagRequested,
 };
 pub use hazards::HazardRuntime;
 pub use npcs::{NPC_PATROL_SPEED, NPC_TALK_RADIUS};

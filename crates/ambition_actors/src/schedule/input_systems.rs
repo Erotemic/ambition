@@ -179,7 +179,6 @@ pub fn populate_control_frame_from_actions(
     cutscene: Res<ambition_cutscene::ActiveCutscene>,
     windows: Query<&Window>,
 ) {
-
     // The participant persists across the whole app lifetime, so "no player
     // spawned yet" no longer implies "no ActionState". The resolved input
     // context is the gate: while the launcher/startup (or nothing) owns the
@@ -473,12 +472,7 @@ mod focus_gate_tests {
         assert!(request.dismiss_dialogue);
         assert_eq!(request.skip_hold_seconds, 0.25);
 
-        update_cutscene_request_from_menu(
-            &MenuControlFrame::default(),
-            0.25,
-            true,
-            &mut request,
-        );
+        update_cutscene_request_from_menu(&MenuControlFrame::default(), 0.25, true, &mut request);
         assert_eq!(
             request.skip_hold_seconds, 0.0,
             "releasing back resets the hold instead of banking it"

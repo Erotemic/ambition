@@ -138,7 +138,11 @@ impl Loop {
             .events
             .contacts
             .clear();
-        self.app.world_mut().resource_mut::<SpentPowerBlocks>().0.clear();
+        self.app
+            .world_mut()
+            .resource_mut::<SpentPowerBlocks>()
+            .0
+            .clear();
     }
 
     /// Walk onto whatever the block popped, so the shared touch-to-collect equips
@@ -228,7 +232,10 @@ fn the_whole_power_loop_runs_on_the_real_systems() {
     // --- collect milk -> grown ----------------------------------------------
     game.bonk();
     game.collect_pending_item();
-    assert!(game.wears(GROW_CAP_ID), "the block gave a small Mary-O milk");
+    assert!(
+        game.wears(GROW_CAP_ID),
+        "the block gave a small Mary-O milk"
+    );
     assert!(game.is_tall(), "collecting it grew her");
     assert!(
         !game.has_ranged_move(),
@@ -294,10 +301,7 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 
     // Take the shot exactly as the blossom grants it.
     let mut actions = ActionSet::peaceful();
-    apply_equipment_grants(
-        &mut actions,
-        &WornEquipment::new(vec![spark_blossom()]),
-    );
+    apply_equipment_grants(&mut actions, &WornEquipment::new(vec![spark_blossom()]));
     let shot = actions.ranged.expect("the blossom grants a shot");
     let flight = shot.flight.expect("and authors its flight");
 

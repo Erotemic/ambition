@@ -120,8 +120,7 @@ pub fn animate_player(
         // Presentation time uses this rendered frame's delta while applying the
         // authoritative world-clock and proper-time scales. This keeps the
         // authored cadence independent of fixed / rollback tick duration.
-        let dt = presentation_time
-            .entity_dt(ambition_time::ProperTimeScale::or_default(scale));
+        let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash` — a sibling mesh that samples this
         // atlas frame and outputs pure white modulated by the pose's flash fact.
@@ -181,8 +180,7 @@ pub fn animate_characters(
     // boss freezes the world but leaves the player un-frozen, or
     // future MP boosts one player's proper time.
     for (visual, mut sprite, mut animator, scale, anchor) in &mut query {
-        let dt = presentation_time
-            .entity_dt(ambition_time::ProperTimeScale::or_default(scale));
+        let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         // ONE actor path — enemy and NPC alike resolve through the SAME picker the
         // player uses, built from the actor's real `Body*` clusters. An actor
         // attacks when its `BodyMelee` is active, whatever its disposition.
@@ -253,8 +251,7 @@ pub fn animate_feature_sprites(
         if !generic_feature_anim_owns(view.kind) {
             continue;
         }
-        let dt = presentation_time
-            .entity_dt(ambition_time::ProperTimeScale::or_default(scale));
+        let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         apply_character_frame(
             &mut sprite,
             &mut animator,
@@ -314,8 +311,7 @@ pub fn animate_props(
         let dt = if PROP_KINDS_STATIC_UNTIL_MOVING.contains(&prop.kind.as_str()) {
             0.0
         } else {
-            presentation_time
-                .entity_dt(ambition_time::ProperTimeScale::or_default(scale))
+            presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale))
         };
         // Route through the SAME frame-apply chokepoint as actors so a trimmed
         // prop sheet gets the self-captured trim basis too (props used to skip

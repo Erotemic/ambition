@@ -102,8 +102,7 @@ fn bake_portrait_manifests(asset_owner_dir: &Path, out_dir: &Path) {
     }
     body.push_str("];\n");
 
-    fs::write(out_dir.join("baked_portrait_rons.rs"), body)
-        .expect("write baked_portrait_rons.rs");
+    fs::write(out_dir.join("baked_portrait_rons.rs"), body).expect("write baked_portrait_rons.rs");
 }
 
 fn collect_portrait_rons(dir: &Path, assets_dir: &Path, out: &mut Vec<(String, PathBuf)>) {

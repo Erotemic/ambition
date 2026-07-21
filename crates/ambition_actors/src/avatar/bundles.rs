@@ -303,8 +303,8 @@ mod tests {
     use super::*;
     // Test-only: the brain fixtures below author ranged styles; nothing in this
     // module's production code names one.
-    use ambition_characters::brain::action_set::RangedStyle;
     use ambition_characters::actor::Health;
+    use ambition_characters::brain::action_set::RangedStyle;
     use ambition_characters::brain::{MeleeActionSpec, RangedActionSpec};
 
     fn player_scratch() -> ae::BodyClusterScratch {

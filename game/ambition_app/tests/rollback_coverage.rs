@@ -54,8 +54,14 @@ use bevy::prelude::*;
 /// keep it short and justified.
 const WAIVED: &[(&str, &str)] = &[
     // Presentation / observation: derived from sim facts, never authoritative.
-    ("ambition_sim_view::", "read model, rebuilt from sim facts each frame"),
-    ("ambition_render::", "presentation: draws the sim, never authors it"),
+    (
+        "ambition_sim_view::",
+        "read model, rebuilt from sim facts each frame",
+    ),
+    (
+        "ambition_render::",
+        "presentation: draws the sim, never authors it",
+    ),
     ("ambition_vfx::", "presentation effects"),
     ("ambition_sfx::", "presentation audio"),
     ("ambition_audio::", "presentation audio"),
@@ -66,18 +72,30 @@ const WAIVED: &[(&str, &str)] = &[
     ("ambition_inventory_ui::", "UI"),
     ("ambition_ui_nav::", "UI"),
     ("ambition_dialog::", "narrative view state"),
-    ("ambition_cutscene::", "scripted presentation sequence state"),
+    (
+        "ambition_cutscene::",
+        "scripted presentation sequence state",
+    ),
     ("ambition_game_shell::", "host shell/session chrome"),
     ("ambition_load::", "load coordination, not gameplay truth"),
     // Dev / host / infrastructure.
     ("ambition_dev_tools::", "developer tooling, not gameplay"),
-    ("ambition_gameplay_trace::", "flight recorder; already replay-gated"),
+    (
+        "ambition_gameplay_trace::",
+        "flight recorder; already replay-gated",
+    ),
     ("ambition_asset_manager::", "asset plumbing"),
-    ("ambition_input::", "device input; the GGRS input stream is the seam"),
+    (
+        "ambition_input::",
+        "device input; the GGRS input stream is the seam",
+    ),
     ("ambition_touch_input::", "device input"),
     ("ambition_sprite_sheet::", "sprite metadata / asset binding"),
     // Authored, immutable-by-contract content bound by PreparedContentIdentity.
-    ("ambition_entity_catalog::", "authored contract, immutable during a session"),
+    (
+        "ambition_entity_catalog::",
+        "authored contract, immutable during a session",
+    ),
 ];
 
 fn waiver(type_name: &str) -> Option<&'static str> {
@@ -110,9 +128,8 @@ fn every_component_on_a_simulated_entity_is_registered_derived_or_waived() {
     // reproduce exactly.
     let sim_entities: Vec<Entity> = {
         let world = sim.world_mut();
-        let mut q = world.query_filtered::<Entity, With<
-            ambition::platformer::lifecycle::FeatureSimEntity,
-        >>();
+        let mut q = world
+            .query_filtered::<Entity, With<ambition::platformer::lifecycle::FeatureSimEntity>>();
         q.iter(world).collect()
     };
     assert!(

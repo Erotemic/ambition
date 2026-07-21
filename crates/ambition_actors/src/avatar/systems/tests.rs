@@ -144,7 +144,10 @@ fn player_action_set_has_full_moveset_with_sandbox_all_abilities() {
     assert!(matches!(action_set.melee, Some(MeleeActionSpec::Swipe(_))));
     assert!(matches!(
         action_set.ranged,
-        Some(RangedActionSpec { style: RangedStyle::Bolt, .. })
+        Some(RangedActionSpec {
+            style: RangedStyle::Bolt,
+            ..
+        })
     ));
     assert!(matches!(
         action_set.special,

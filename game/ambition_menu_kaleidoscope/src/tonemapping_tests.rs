@@ -16,10 +16,8 @@ fn kaleidoscope_camera_uses_the_cheap_unlit_render_contract() {
     app.update();
 
     let world = app.world_mut();
-    let mut cameras = world.query_filtered::<
-        (&Tonemapping, &Msaa),
-        With<KaleidoscopePauseCamera>,
-    >();
+    let mut cameras =
+        world.query_filtered::<(&Tonemapping, &Msaa), With<KaleidoscopePauseCamera>>();
     let (tonemapping, msaa) = cameras
         .single(world)
         .expect("setup_cube should spawn exactly one kaleidoscope pause camera");

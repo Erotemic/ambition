@@ -420,14 +420,10 @@ mod dispatch_parity {
     use super::*;
     use bevy::prelude::*;
 
+    use ambition::menu::render::bevy_ui::{install_bevy_ui_menu_actions, BevyUiMenuInteractionSet};
     use ambition::menu::ActiveMenuPages;
-    use ambition::menu::render::bevy_ui::{
-        install_bevy_ui_menu_actions, BevyUiMenuInteractionSet,
-    };
 
-    use crate::menu::grid_backend::{
-        grid_menu_action_activated, GridMenuTabState,
-    };
+    use crate::menu::grid_backend::{grid_menu_action_activated, GridMenuTabState};
     use crate::menu::kaleidoscope_app::{
         kaleidoscope_pointer_press, kaleidoscope_pointer_release, KaleidoscopeCursor,
         KaleidoscopePointerPress, KaleidoscopeSystemNav,

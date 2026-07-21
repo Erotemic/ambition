@@ -73,16 +73,12 @@ fn retirement_clears_every_session_scoped_mirror() {
         .possessed
         .is_some());
     assert!(!app.world().resource::<EncounterRegistry>().ids.is_empty());
-    assert!(
-        app.world()
-            .resource::<SlotInteractionState>()
-            .primary()
-            .buffered()
-    );
-    assert_eq!(
-        app.world().resource::<SwitchActivationQueue>().0.len(),
-        1
-    );
+    assert!(app
+        .world()
+        .resource::<SlotInteractionState>()
+        .primary()
+        .buffered());
+    assert_eq!(app.world().resource::<SwitchActivationQueue>().0.len(), 1);
 
     // Retire the scope; the mirrors reset the same frame.
     app.world_mut()

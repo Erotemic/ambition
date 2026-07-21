@@ -126,9 +126,7 @@ impl PortraitSheetRegistry {
                     loaded += 1;
                 }
                 Err(error) => {
-                    warn!(
-                        "PortraitSheetRegistry: failed to parse baked {asset_path}: {error}"
-                    );
+                    warn!("PortraitSheetRegistry: failed to parse baked {asset_path}: {error}");
                 }
             }
         }
@@ -178,9 +176,7 @@ fn normalize_manifest_path(path: &str) -> String {
 }
 
 pub fn baked_portrait_registry() -> PortraitSheetRegistry {
-    PortraitSheetRegistry::from_baked_table(
-        crate::baked_portrait_rons::BAKED_PORTRAIT_RONS,
-    )
+    PortraitSheetRegistry::from_baked_table(crate::baked_portrait_rons::BAKED_PORTRAIT_RONS)
 }
 
 /// Install the compile-time portrait manifest index. Presentation code consumes
@@ -257,21 +253,13 @@ mod tests {
             )"#,
         )]);
         let (name, clip) = registry
-            .resolve_clip(
-                "sprites\\alice_portraits.ron",
-                Some("speaking"),
-                "calm",
-            )
+            .resolve_clip("sprites\\alice_portraits.ron", Some("speaking"), "calm")
             .expect("named clip resolves");
         assert_eq!(name, "speaking");
         assert!(clip.looping);
 
         let (name, _) = registry
-            .resolve_clip(
-                "sprites/alice_portraits.ron",
-                Some("missing"),
-                "calm",
-            )
+            .resolve_clip("sprites/alice_portraits.ron", Some("missing"), "calm")
             .expect("missing expression falls back");
         assert_eq!(name, "calm");
     }

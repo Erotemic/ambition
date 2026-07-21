@@ -33,9 +33,7 @@ use ambition_engine_core::AabbExt;
 
 use super::components::ActorAggression;
 use super::components::ActorFaction;
-use super::events::{
-    HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
-};
+use super::events::{HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
 use super::targeting::{damage_lands, effective_faction};
 use super::util::midpoint;
 use crate::actor_faction_from_hit_side;
@@ -65,13 +63,9 @@ fn resolved_hitbox_knockback_magnitude(
     match knockback {
         HitboxKnockback::FeelScale(scale) => HitKnockbackMagnitude::FeelScale(scale.max(0.0)),
         HitboxKnockback::LaunchSpeed { base, growth } => {
-            let launch_speed = crate::util::scaled_knockback(
-                base,
-                growth,
-                victim_damage_taken,
-                victim_weight,
-            )
-            .max(0.0);
+            let launch_speed =
+                crate::util::scaled_knockback(base, growth, victim_damage_taken, victim_weight)
+                    .max(0.0);
             HitKnockbackMagnitude::LaunchSpeed(launch_speed)
         }
     }
@@ -283,8 +277,7 @@ pub fn apply_hitbox_damage(
                     } else {
                         -1.0
                     };
-                    let victim_damage_taken =
-                        victim_health.map(|h| h.damage_taken()).unwrap_or(0);
+                    let victim_damage_taken = victim_health.map(|h| h.damage_taken()).unwrap_or(0);
                     let victim_weight = victim_tuning.map(|ct| ct.weight).unwrap_or(1.0);
                     let magnitude = resolved_hitbox_knockback_magnitude(
                         hitbox.knockback,

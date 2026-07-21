@@ -158,10 +158,7 @@ mod tests {
 
     fn app_with_subject(pos: ae::Vec2) -> (App, Entity) {
         let mut app = App::new();
-        let body = app
-            .world_mut()
-            .spawn(kin(pos))
-            .id();
+        let body = app.world_mut().spawn(kin(pos)).id();
         app.insert_resource(ControlledSubject(Some(body)));
         app.add_systems(Update, collect_world_items);
         (app, body)

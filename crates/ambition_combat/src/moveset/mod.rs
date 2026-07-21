@@ -147,16 +147,12 @@ pub struct MovePlayback {
 }
 
 impl bevy::ecs::entity::MapEntities for MovePlayback {
-    fn map_entities<M: bevy::ecs::entity::EntityMapper>(
-        &mut self,
-        entity_mapper: &mut M,
-    ) {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, entity_mapper: &mut M) {
         for (_, entity) in &mut self.live_boxes {
             *entity = entity_mapper.get_mapped(*entity);
         }
     }
 }
-
 
 impl MovePlayback {
     pub fn new(spec: MoveSpec, facing: f32) -> Self {

@@ -525,7 +525,6 @@ fn unauthored_clip_falls_back_to_the_synthetic_rect_and_still_slashes() {
     assert_eq!(cap.hits.len(), 1, "the fallback rect still lands its hit");
 }
 
-
 #[test]
 fn upward_attack_selects_the_upward_slash_pose() {
     let (mut app, _victim) = app_with_victim();
@@ -1276,7 +1275,14 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
         ActionRequest::Ranged {
             spec, origin, dir, ..
         } => {
-            assert!(matches!(spec, RangedActionSpec { style: RangedStyle::Bolt, damage: 3, .. }));
+            assert!(matches!(
+                spec,
+                RangedActionSpec {
+                    style: RangedStyle::Bolt,
+                    damage: 3,
+                    ..
+                }
+            ));
             assert_eq!(*origin, ae::Vec2::new(100.0, 50.0), "origin = owner pos");
             assert_eq!(*dir, ae::Vec2::new(0.6, -0.8), "dir SAMPLED from live aim");
         }
@@ -1294,13 +1300,8 @@ fn a_fire_intent_triggers_the_ranged_move() {
     use ambition_characters::brain::action_set::RangedActionSpec;
     use ambition_characters::brain::ActorControl;
 
-    let contract = build_actor_moveset(
-        None,
-        None,
-        Some(&RangedActionSpec::bolt(240.0, 3)),
-        None,
-    )
-    .expect("a ranged weapon → a moveset with a fire move");
+    let contract = build_actor_moveset(None, None, Some(&RangedActionSpec::bolt(240.0, 3)), None)
+        .expect("a ranged weapon → a moveset with a fire move");
     let fire = contract
         .move_for_verb(RANGED_VERB)
         .expect("the ranged verb maps to the fire move");

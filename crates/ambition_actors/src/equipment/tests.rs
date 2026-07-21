@@ -70,7 +70,10 @@ fn a_worn_grant_becomes_a_live_verb_and_a_fireable_move() {
     let (mut app, body) = app_with_body(WornEquipment::new(vec![granting_row("spark", None)]));
     app.update();
 
-    assert!(has_ranged(&app, body), "the worn grant set the ranged action");
+    assert!(
+        has_ranged(&app, body),
+        "the worn grant set the ranged action"
+    );
     assert!(
         has_ranged_move(&app, body),
         "and the moveset gained a fireable ranged move"

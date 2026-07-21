@@ -52,7 +52,8 @@ fn bar_rects(app: &mut App) -> Vec<(SurroundRegion, Rect)> {
 #[test]
 fn the_surround_tiles_exactly_what_the_camera_does_not_draw() {
     let display = ae::Vec2::new(2400.0, 1080.0);
-    let profile = *profiles::fixed_four_by_three().for_environment(PresentationEnvironment::Desktop);
+    let profile =
+        *profiles::fixed_four_by_three().for_environment(PresentationEnvironment::Desktop);
     let mut app = app_with(display, &profile);
 
     let gameplay = app
@@ -64,7 +65,10 @@ fn the_surround_tiles_exactly_what_the_camera_does_not_draw() {
     let bars = bar_rects(&mut app);
     assert_eq!(bars.len(), 2, "a 20:9 display pillarboxes: {bars:?}");
 
-    let painted: f32 = bars.iter().map(|(_, rect)| rect.width() * rect.height()).sum();
+    let painted: f32 = bars
+        .iter()
+        .map(|(_, rect)| rect.width() * rect.height())
+        .sum();
     let unpainted = display.x * display.y - gameplay_rect.width() * gameplay_rect.height();
     assert!(
         (painted - unpainted).abs() < 1.0,
@@ -101,7 +105,8 @@ fn full_bleed_draws_no_surround() {
 #[test]
 fn leaving_a_fixed_aspect_profile_tears_the_surround_down() {
     let display = ae::Vec2::new(2400.0, 1080.0);
-    let profile = *profiles::fixed_four_by_three().for_environment(PresentationEnvironment::Desktop);
+    let profile =
+        *profiles::fixed_four_by_three().for_environment(PresentationEnvironment::Desktop);
     let mut app = app_with(display, &profile);
     assert!(!bar_rects(&mut app).is_empty());
 

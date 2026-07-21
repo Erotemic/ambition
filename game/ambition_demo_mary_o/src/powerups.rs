@@ -577,9 +577,8 @@ mod tests {
             let k = app.world().get::<ae::BodyKinematics>(body).unwrap();
             k.pos.y + k.size.y * 0.5
         };
-        let is_tall = |app: &App| {
-            app.world().get::<WornCharacter>(body).unwrap().0 == TALL_CHARACTER_ID
-        };
+        let is_tall =
+            |app: &App| app.world().get::<WornCharacter>(body).unwrap().0 == TALL_CHARACTER_ID;
 
         app.update();
         let feet_tall = feet(&app);
@@ -591,7 +590,10 @@ mod tests {
             .unwrap()
             .consume_armor();
         app.update();
-        assert!(is_tall(&app), "losing the spark leaves her GROWN, not small");
+        assert!(
+            is_tall(&app),
+            "losing the spark leaves her GROWN, not small"
+        );
         assert!(
             (feet(&app) - feet_tall).abs() < 1e-3,
             "and her size never flickered, so her feet never moved"

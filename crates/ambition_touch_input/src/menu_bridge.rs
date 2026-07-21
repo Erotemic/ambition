@@ -100,8 +100,12 @@ pub(super) fn touch_control_area_contains(
     pos: Vec2,
     placement: &crate::placement::TouchControlPlacement,
 ) -> bool {
-    [placement.movement, placement.action_bezel, placement.menu_row]
-        .into_iter()
-        .flatten()
-        .any(|rect| rect.contains(pos))
+    [
+        placement.movement,
+        placement.action_bezel,
+        placement.menu_row,
+    ]
+    .into_iter()
+    .flatten()
+    .any(|rect| rect.contains(pos))
 }

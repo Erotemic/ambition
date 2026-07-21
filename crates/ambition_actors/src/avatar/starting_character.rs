@@ -264,8 +264,7 @@ fn apply_worn_character_kit(
         Some(ambition_characters::actor::character_catalog::PlayableKitSource::Authored) => None,
         _ => set.special.as_ref(),
     };
-    let derived =
-        build_actor_moveset(None, set.melee.as_ref(), None, special).unwrap_or_default();
+    let derived = build_actor_moveset(None, set.melee.as_ref(), None, special).unwrap_or_default();
     // Publish what IDENTITY alone derived, before any equipment overlay. This is
     // the baseline `reconcile_equipment_grants` re-derives the live kit from, which
     // is what makes a granted verb revocable: without it, a consumed or downgraded

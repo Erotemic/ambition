@@ -12,9 +12,9 @@ use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, WorldHitOutcome};
 use crate::actor::BodyKinematics;
 use crate::features::{
-    damage_lands, ActorAggression, ActorDisposition, ActorFaction, BossClusterRef,
-    BossConfig, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity, HitEvent,
-    HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
+    damage_lands, ActorAggression, ActorDisposition, ActorFaction, BossClusterRef, BossConfig,
+    BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity, HitEvent, HitKnockback,
+    HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
 };
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
@@ -595,7 +595,13 @@ pub fn step_projectiles(
                     crate::combat::targeting::effective_faction(*victim_faction, victim_brain);
                 let can_hit = indiscriminate
                     || firer_faction.is_some_and(|f| {
-                        damage_lands(f, victim_faction, friendly_fire, firer_grudge, victim_entity)
+                        damage_lands(
+                            f,
+                            victim_faction,
+                            friendly_fire,
+                            firer_grudge,
+                            victim_entity,
+                        )
                     });
                 if !can_hit {
                     continue;

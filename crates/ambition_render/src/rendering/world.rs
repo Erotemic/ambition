@@ -599,7 +599,11 @@ pub fn spawn_block(
     let placeholder = block
         .art_color
         .map(|c| Sprite::from_color(Color::srgba(c[0], c[1], c[2], c[3]), render));
-    let sprite_key = if placeholder.is_some() { None } else { sprite_key };
+    let sprite_key = if placeholder.is_some() {
+        None
+    } else {
+        sprite_key
+    };
     let sprite = if let Some(flat) = placeholder {
         flat
     } else if is_intgrid_block {

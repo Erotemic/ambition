@@ -30,8 +30,8 @@ use ambition_platformer_primitives::markers::ControlledSubject;
 
 use crate::abilities::traversal::possession::PossessionState;
 use crate::boss_encounter::BossEncounterRegistry;
-use crate::encounter::{EncounterRegistry, EncounterView, SwitchActivationQueue};
 use crate::control::SlotInteractionState;
+use crate::encounter::{EncounterRegistry, EncounterView, SwitchActivationQueue};
 use crate::SandboxSimState;
 use ambition_persistence::quest::QuestRegistry;
 use ambition_world::collision::MovingPlatformSet;

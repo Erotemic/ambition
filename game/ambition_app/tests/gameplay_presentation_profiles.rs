@@ -14,13 +14,13 @@
 
 use bevy::prelude::*;
 
+use ambition::engine_core as ae;
 use ambition::game_shell::MinimalShellPlugins;
 use ambition::presentation::gameplay_presentation::{
-    resolve_gameplay_presentation, AspectRatio, GameplayPresentationInput,
-    ControlFootprints, GameplayPresentationProfileCatalog, GameplayPresentationProfiles,
-    GameplayViewportPolicy, PresentationEnvironment, ScreenInsets, SubjectFramingPolicy,
+    resolve_gameplay_presentation, AspectRatio, ControlFootprints, GameplayPresentationInput,
+    GameplayPresentationProfileCatalog, GameplayPresentationProfiles, GameplayViewportPolicy,
+    PresentationEnvironment, ScreenInsets, SubjectFramingPolicy,
 };
-use ambition::engine_core as ae;
 
 fn provider_app(install: impl FnOnce(&mut App)) -> App {
     let mut app = App::new();
@@ -156,11 +156,7 @@ fn declarations_do_not_leak_between_apps() {
         ambition_demo_sanic::provider::SANIC_GAMEPLAY_ROUTE
     )
     .is_none());
-    assert!(declared(
-        &sanic,
-        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE
-    )
-    .is_none());
+    assert!(declared(&sanic, ambition_content::provider::AMBITION_GAMEPLAY_ROUTE).is_none());
 }
 
 /// The declarations must produce genuinely DIFFERENT layouts on one display —
@@ -178,12 +174,21 @@ fn the_three_declarations_resolve_to_different_layouts() {
         })
     };
 
-    let ambition = declared(&ambition_app(), ambition_content::provider::AMBITION_GAMEPLAY_ROUTE)
-        .expect("flagship profiles");
-    let sanic = declared(&sanic_app(), ambition_demo_sanic::provider::SANIC_GAMEPLAY_ROUTE)
-        .expect("Sanic profiles");
-    let mary_o = declared(&mary_o_app(), ambition_demo_mary_o::provider::MARY_O_GAMEPLAY_ROUTE)
-        .expect("Mary-O profiles");
+    let ambition = declared(
+        &ambition_app(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE,
+    )
+    .expect("flagship profiles");
+    let sanic = declared(
+        &sanic_app(),
+        ambition_demo_sanic::provider::SANIC_GAMEPLAY_ROUTE,
+    )
+    .expect("Sanic profiles");
+    let mary_o = declared(
+        &mary_o_app(),
+        ambition_demo_mary_o::provider::MARY_O_GAMEPLAY_ROUTE,
+    )
+    .expect("Mary-O profiles");
 
     let ambition = resolve(ambition, PresentationEnvironment::Desktop);
     let sanic = resolve(sanic, PresentationEnvironment::Desktop);

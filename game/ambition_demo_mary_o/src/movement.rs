@@ -85,7 +85,10 @@ pub fn ensure_gait(
 /// stick.
 pub fn walk_by_default_run_while_held(
     time: Res<ambition::time::WorldTime>,
-    mut bodies: Query<(&mut ActorControl, &mut MaryOGait, &ae::BodyKinematics), With<PrimaryPlayer>>,
+    mut bodies: Query<
+        (&mut ActorControl, &mut MaryOGait, &ae::BodyKinematics),
+        With<PrimaryPlayer>,
+    >,
 ) {
     for (mut control, mut gait, kin) in &mut bodies {
         let frame = &mut control.0;
@@ -188,11 +191,11 @@ pub fn sync_run_action_scheme(
                 techniques.0.push(run_technique(label));
             }
             None => {
-                commands
-                    .entity(entity)
-                    .try_insert(ambition::characters::action_scheme::ActorTechniques(vec![
-                        run_technique(label),
-                    ]));
+                commands.entity(entity).try_insert(
+                    ambition::characters::action_scheme::ActorTechniques(vec![run_technique(
+                        label,
+                    )]),
+                );
             }
         }
     }

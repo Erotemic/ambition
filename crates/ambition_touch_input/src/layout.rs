@@ -167,14 +167,35 @@ pub fn touch_action_layout() -> [TouchActionSpec; 10] {
         // Shoulder band.
         scaled(TouchActionButton::Blink, "Blink", 14.0, 4.0, 62.0, 13.0),
         scaled(TouchActionButton::FlyToggle, "Fly", 124.0, 0.0, 62.0, 14.0),
-        scaled(TouchActionButton::Projectile, "Shot", 234.0, 4.0, 62.0, 13.0),
+        scaled(
+            TouchActionButton::Projectile,
+            "Shot",
+            234.0,
+            4.0,
+            62.0,
+            13.0,
+        ),
         // Utility band.
         scaled(TouchActionButton::Shield, "Shield", 8.0, 84.0, 60.0, 12.0),
-        scaled(TouchActionButton::Interact, "Interact", 125.0, 76.0, 60.0, 12.0),
+        scaled(
+            TouchActionButton::Interact,
+            "Interact",
+            125.0,
+            76.0,
+            60.0,
+            12.0,
+        ),
         // Signature slot. Hidden when the controlled scheme has no Special (the
         // availability predicate gates both visibility and the hit test), so a
         // movement-only character shows no phantom Special.
-        scaled(TouchActionButton::Special, "Special", 242.0, 84.0, 60.0, 12.0),
+        scaled(
+            TouchActionButton::Special,
+            "Special",
+            242.0,
+            84.0,
+            60.0,
+            12.0,
+        ),
         // Face band.
         scaled(TouchActionButton::Attack, "Attack", 30.0, 158.0, 70.0, 14.0),
         scaled(TouchActionButton::Dash, "Dash", 210.0, 158.0, 70.0, 14.0),

@@ -66,8 +66,12 @@ fn settle(app: &mut App) {
 }
 
 fn resize(app: &mut App, display: ae::Vec2) {
-    let mut windows = app.world_mut().query_filtered::<&mut Window, With<PrimaryWindow>>();
-    let mut window = windows.single_mut(app.world_mut()).expect("a primary window");
+    let mut windows = app
+        .world_mut()
+        .query_filtered::<&mut Window, With<PrimaryWindow>>();
+    let mut window = windows
+        .single_mut(app.world_mut())
+        .expect("a primary window");
     window.resolution.set(display.x, display.y);
 }
 

@@ -42,7 +42,15 @@ Remaining acceptance work
   with no demo collection code. NOTE: authoring placements made this demo
   require the pickup lowering interpreter, so its two bare-`App` unit harnesses
   now add `WorldPrepSchedulePlugin`; the real app already had it.
-- a brainless sliding shell prop;
+- ✅ **The brainless sliding shell — LANDED 2026-07-21.** A stomped crony now
+  leaves a shell instead of nothing. Walk into a resting shell and it launches
+  away from the side you touched, so you aim it; walk into a sliding one and it
+  stops dead, so it stays a tool rather than something you set loose and lose. A
+  sliding shell runs cronies down and reverses at walls, which turns one stomp
+  into the demo's one emergent combo. BRAINLESS is literal: the archetype's
+  brain is `StandStill`, so nothing ever decides anything for a shell — its
+  whole behaviour is three demo rules, and gravity, ground contact, and walls
+  are the ordinary body physics every actor already gets.
 - ✅ **HUD for score/coins/time/lives — LANDED 2026-07-21** through the new
   provider-declared HUD seam (`with_hud`), four readouts in the reserved top
   surround the 4:3 profile already owed. `MaryOLevelState` grew `score` (banked

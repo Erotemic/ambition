@@ -162,7 +162,7 @@ fn player_action_set_has_full_moveset_with_sandbox_all_abilities() {
 #[test]
 fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
     use ambition_characters::brain::{
-        emit_brain_action_messages, ActionRequest, ActorActionMessage, RangedActionSpec,
+        emit_brain_action_messages, ActionRequest, ActorActionMessage,
     };
     use bevy::transform::components::Transform;
     let mut app = App::new();

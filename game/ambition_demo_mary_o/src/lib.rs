@@ -836,8 +836,16 @@ impl Plugin for MaryORulesPlugin {
         // The head-stomp runs BEFORE the engine's shared body-contact-damage
         // pass so a squash never also hurts the stomper (the rule zeroes the
         // crony's health that frame, which the contact pass then skips).
-        let cronies = crony::bounce_squash_cronies
-            .before(ambition::actors::features::apply_actor_contact_damage);
+        let cronies = (
+            crony::bounce_squash_cronies
+                .before(ambition::actors::features::apply_actor_contact_damage),
+            // The shell trio, after the stomp that creates one: tag what the
+            // engine spawned, let the player kick it, then drive it.
+            crony::tag_mary_o_shells,
+            crony::kick_mary_o_shells,
+            crony::drive_mary_o_shells,
+        )
+            .chain();
         // The powerup rules on the two engine primitives: re-arm the ?-blocks on
         // (re)load, pop milk on a head-bonk, and keep the tall form in sync with
         // wearing the cap. The engine's `collect_world_items` (touch → equip) sits

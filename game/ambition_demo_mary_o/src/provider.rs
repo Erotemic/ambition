@@ -203,7 +203,17 @@ impl Plugin for MaryOExperiencePlugin {
                 .slot(hud_slot(SCORE_HUD_SLOT))
                 .slot(hud_slot(COINS_HUD_SLOT))
                 .slot(hud_slot(TIME_HUD_SLOT))
-                .slot(hud_slot(LIVES_HUD_SLOT)),
+                .slot(hud_slot(LIVES_HUD_SLOT))
+                // The transient card: level title on entry, course-clear tally
+                // on the flag. One slot for both, because they never overlap —
+                // you are either starting the level or finishing it.
+                .slot(
+                    ambition::presentation::HudSlotSpec::new(CARD_HUD_SLOT)
+                        .with_order(99)
+                        .with_font_size(34.0)
+                        .with_color([1.0, 0.96, 0.72, 1.0])
+                        .centered(),
+                ),
         )
         .install(app, mary_o_prepared_session_world);
         app.add_systems(bevy::prelude::Update, publish_mary_o_readouts);
@@ -229,6 +239,7 @@ pub const SCORE_HUD_SLOT: &str = "mary_o_score";
 pub const COINS_HUD_SLOT: &str = "mary_o_coins";
 pub const TIME_HUD_SLOT: &str = "mary_o_time";
 pub const LIVES_HUD_SLOT: &str = "mary_o_lives";
+pub const CARD_HUD_SLOT: &str = "mary_o_card";
 
 /// One readout in Mary-O's house style: top surround, chunky, white.
 fn hud_slot(id: &str) -> ambition::presentation::HudSlotSpec {
@@ -245,11 +256,11 @@ fn hud_slot(id: &str) -> ambition::presentation::HudSlotSpec {
 /// through `PlayerHudFacts`, the same fact Sanic's ring tally reads — a coin and
 /// a ring are the same `currency` pickup wearing different art.
 fn publish_mary_o_readouts(
-    level: bevy::prelude::Query<&crate::MaryOLevelState>,
+    level: bevy::prelude::Query<(&crate::MaryOLevelState, Option<&crate::flag::FlagSequence>)>,
     facts: bevy::prelude::Res<ambition::sim_view::PlayerHudFacts>,
     mut readouts: bevy::prelude::ResMut<ambition::presentation::HudReadouts>,
 ) {
-    let Ok(level) = level.single() else {
+    let Ok((level, flag)) = level.single() else {
         return;
     };
     // Zero-padded like the arcade original: the game owns its formatting, the
@@ -266,4 +277,33 @@ fn publish_mary_o_readouts(
         format!("{:03}", level.time_remaining.max(0.0).ceil() as u32),
     );
     readouts.set_labelled(LIVES_HUD_SLOT, "LIVES", level.lives);
+
+    // The card is published ONLY while it should be on screen. An unpublished
+    // slot draws nothing, so "stop showing it" needs no hide path and no
+    // despawn — the card retires itself when the game stops talking about it.
+    match card_text(level, flag) {
+        Some(text) => readouts.set(
+            CARD_HUD_SLOT,
+            ambition::presentation::HudReadout::bare(text),
+        ),
+        None => readouts.clear_slot(CARD_HUD_SLOT),
+    }
+}
+
+/// What the card says right now, or `None` when no card is up.
+///
+/// Course-clear WINS over the intro: grabbing the flag inside the intro window
+/// is a legitimate (if unlikely) speedrun, and it should read as a clear rather
+/// than as the title still hanging around.
+fn card_text(
+    level: &crate::MaryOLevelState,
+    flag: Option<&crate::flag::FlagSequence>,
+) -> Option<String> {
+    if let Some(score) = flag.and_then(|f| f.score()) {
+        return Some(format!(
+            "COURSE CLEAR    {:06}",
+            level.score.saturating_add(score)
+        ));
+    }
+    (level.intro_card > 0.0).then(|| format!("WORLD 1-1    MARY-O x{}", level.lives))
 }

@@ -170,8 +170,8 @@ fn the_presentation_plugin_adds_no_hud_and_no_menu() {
     // regressed, too many and something else is wearing its marker.
     assert_eq!(
         declared_hud_node_count(&mut app),
-        4,
-        "this demo declares 4 HUD readout(s); it must draw exactly that many"
+        5,
+        "this demo declares 5 HUD readout(s) — score, coins, time, lives, and the\n         transient card — and must draw exactly that many"
     );
 
     // ...and the engine's own visual-quality budget IS part of the face, because
@@ -271,7 +271,7 @@ fn visible_mary_o_presentation_retires_and_relaunches_with_the_session() {
     // counts these nodes.
     assert_eq!(
         declared_hud_node_count(&mut app),
-        4,
+        5,
         "the declared HUD is session-scoped and must rebuild on relaunch"
     );
 }

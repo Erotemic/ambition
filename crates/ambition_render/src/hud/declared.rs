@@ -151,6 +151,28 @@ pub fn place_declared_hud(
         .unwrap_or_default();
 
     for spec in ordered {
+        // A centred card ignores the region ladder entirely: it belongs over
+        // the gameplay rectangle, which is the thing the player is looking at.
+        if spec.centered {
+            let gameplay = presentation.gameplay_rect;
+            for (slot, mut node) in &mut slots {
+                if slot.0 != spec.id {
+                    continue;
+                }
+                // Centre by percentage rather than measuring the text: taffy
+                // knows the node's width and this crate does not, and a card
+                // that must not jitter as its digits change is exactly the case
+                // where guessing a width would show.
+                if node.left != Val::Percent(50.0) {
+                    node.left = Val::Percent(50.0);
+                }
+                let y = gameplay.min.y + gameplay.height() * 0.38;
+                if node.top != Val::Px(y) {
+                    node.top = Val::Px(y);
+                }
+            }
+            continue;
+        }
         let region = prefers_surround
             .then(|| presentation.hud_region(spec.region))
             .flatten()

@@ -48,6 +48,9 @@ pub const STARTING_TIME: f32 = 400.0;
 /// Lives Mary-O starts a run with.
 const STARTING_LIVES: u8 = 3;
 
+/// How long the "WORLD 1-1 / MARY-O x3" card sits before play reads as normal.
+const INTRO_CARD_SECONDS: f32 = 2.0;
+
 /// How long the flag tally sits on screen before the level loops. "The next
 /// level is the same level": completing the flagpole restarts 1-1, cyclically.
 pub const LEVEL_CYCLE_DWELL: f32 = 2.0;
@@ -751,6 +754,10 @@ pub struct MaryOLevelState {
     /// starting value (whatever a session hands us) is adopted rather than
     /// mistaken for a death.
     pub seen_resets: Option<u32>,
+    /// Seconds left on the level-intro card. Counts down on the sim clock, and
+    /// the card is published only while it is positive — an unpublished HUD
+    /// slot draws nothing, so the card retires itself.
+    pub intro_card: f32,
 }
 
 impl Default for MaryOLevelState {
@@ -760,6 +767,7 @@ impl Default for MaryOLevelState {
             score: 0,
             lives: STARTING_LIVES,
             seen_resets: None,
+            intro_card: INTRO_CARD_SECONDS,
         }
     }
 }
@@ -940,6 +948,7 @@ fn tick_level_clock(
     mut level: bevy::prelude::Query<(&mut MaryOLevelState, &flag::FlagSequence)>,
 ) {
     for (mut state, sequence) in &mut level {
+        state.intro_card = (state.intro_card - time.scaled_dt).max(0.0);
         // A level whose flag has been grabbed is over. The clock stopping is what
         // turns the remaining time from a threat into a score.
         if sequence.active() {
@@ -991,6 +1000,9 @@ fn spend_lives_on_death(
 
     level.lives = level.lives.saturating_sub(1);
     level.time_remaining = STARTING_TIME;
+    // A fresh attempt gets a fresh card — it is how the player reads how many
+    // lives that death cost them.
+    level.intro_card = INTRO_CARD_SECONDS;
 
     if level.lives == 0 {
         // Game over: the whole run resets, score included.
@@ -1016,6 +1028,11 @@ fn spend_lives_on_death(
 /// Up/Down press must never trigger a door — the demo obeys the same interaction
 /// binding rule the rest of the game does.
 fn warp_through_secret_pipe(
+    // Rising-edge latch. Without it a HELD Interact re-fires at the far end the
+    // moment the warp lands, ping-ponging the player between the two mouths for
+    // as long as the button is down — the pipe would read as "it doesn't work"
+    // to anyone who does not tap it exactly once.
+    mut was_pressed: bevy::prelude::Local<bool>,
     mut bodies: bevy::prelude::Query<
         (
             ae::BodyClusterQueryData,
@@ -1025,8 +1042,11 @@ fn warp_through_secret_pipe(
         ambition::platformer::markers::PrimaryPlayerOnly,
     >,
 ) {
+    let mut any_pressed = false;
     for (clusters, mut model, control) in &mut bodies {
-        if !control.0.interact_pressed {
+        let pressed = control.0.interact_pressed;
+        any_pressed |= pressed;
+        if !pressed || *was_pressed {
             continue;
         }
         let mut item = clusters;
@@ -1051,6 +1071,7 @@ fn warp_through_secret_pipe(
             ambition::engine_core::movement::TransitVelocity::Zero,
         );
     }
+    *was_pressed = any_pressed;
 }
 
 /// Plain AABB overlap. `IntersectsVolume` would do, but this keeps the warp rule
@@ -1099,6 +1120,7 @@ fn cycle_level_on_flag_tally(
     }
     *sequence = flag::FlagSequence::default();
     level.time_remaining = STARTING_TIME;
+    level.intro_card = INTRO_CARD_SECONDS;
     replay.write(ambition::actors::session::reset::RoomReplayRequested);
 }
 

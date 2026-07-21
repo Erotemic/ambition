@@ -90,6 +90,15 @@ pub struct HudSlotSpec {
     /// `sRGBA`. Kept as plain components so this crate stays free of the render
     /// stack's colour types.
     pub color: [f32; 4],
+    /// Centre this readout across the gameplay rectangle instead of stacking it
+    /// at the start of its region.
+    ///
+    /// This is what makes a transient CARD — a level title, a course-clear
+    /// tally — expressible as a slot rather than needing its own surface. A
+    /// game publishes text into the slot only while the card should be up, and
+    /// the readout vanishes on its own when the game stops publishing, because
+    /// an unpublished slot draws nothing.
+    pub centered: bool,
 }
 
 impl HudSlotSpec {
@@ -103,7 +112,14 @@ impl HudSlotSpec {
             min_px: ae::Vec2::new(96.0, 24.0),
             font_size: 18.0,
             color: [0.94, 0.96, 1.0, 0.98],
+            centered: false,
         }
+    }
+
+    /// Centre this readout — the transient-card shape. See [`Self::centered`].
+    pub fn centered(mut self) -> Self {
+        self.centered = true;
+        self
     }
 
     pub fn with_order(mut self, order: u32) -> Self {
@@ -238,6 +254,12 @@ impl HudReadouts {
 
     pub fn get(&self, id: &HudSlotId) -> Option<&HudReadout> {
         self.by_slot.get(id)
+    }
+
+    /// Stop publishing one slot. It then draws nothing — which is how a
+    /// transient card retires without a hide path or a despawn.
+    pub fn clear_slot(&mut self, id: impl Into<HudSlotId>) {
+        self.by_slot.remove(&id.into());
     }
 
     pub fn clear(&mut self) {

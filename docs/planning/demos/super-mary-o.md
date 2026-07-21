@@ -51,6 +51,14 @@ Remaining acceptance work
   brain is `StandStill`, so nothing ever decides anything for a shell — its
   whole behaviour is three demo rules, and gravity, ground contact, and walls
   are the ordinary body physics every actor already gets.
+- ✅ **Title / results presentation — LANDED 2026-07-21.** A centred transient
+  card: `WORLD 1-1  MARY-O x3` on entry and after every death, `COURSE CLEAR
+  {score}` on the flag. Expressed as ONE declared HUD slot rather than a new
+  surface — the engine's `GameplayBanner` renders only in `ambition_app`, so a
+  demo could not use it. `HudSlotSpec::centered()` was the whole engine-side
+  addition, and the card retires itself: a game publishes text into the slot only
+  while it should be up, and an unpublished slot draws nothing, so there is no
+  hide path and no despawn.
 - ✅ **HUD for score/coins/time/lives — LANDED 2026-07-21** through the new
   provider-declared HUD seam (`with_hud`), four readouts in the reserved top
   surround the 4:3 profile already owed. `MaryOLevelState` grew `score` (banked
@@ -67,9 +75,23 @@ Remaining acceptance work
   counter's VALUE instead of its EDGE drains a life per frame, and failing to
   refill the clock lets one timeout spend every remaining life on consecutive
   frames. STILL OPEN from this line item: **title/results presentation**.
-- one deterministic scripted headless run that completes level 1 through real
-  controls, enters the secret, collects a powerup, and exercises its effect; and
-- additional planned levels after the level-1 acceptance gate closes.
+- ✅ **The deterministic scripted run — LANDED 2026-07-21**
+  (`ambition_demo_mary_o_app/tests/scripted_level_run.rs`). Boots the real demo
+  app, walks her through the real `ControlFrame` seam, takes the secret pipe,
+  banks the vault's coins through the shared economy, surfaces, and finishes on
+  the flag into a settled tally and a level cycle. Two things it had to learn:
+  the clock is pinned with `TimeUpdateStrategy::ManualDuration`, because a
+  fixed-tick host without one runs a machine-speed-dependent number of ticks per
+  update and the same script then walks a different distance every run; and it
+  is gated `#![cfg(not(feature = "input"))]`, because under `input` the
+  participant pipeline legitimately OWNS `ControlFrame` and repopulates it from
+  device state each frame — scripting the device layer is a different claim that
+  `app_it::participant_input` already owns. Traversal between beats is set up
+  rather than played: crossing the pits under scripted input would make this a
+  platforming-precision test fragile to any jump tuning change, when what it
+  exists to prove is that the SEAMS connect.
+- additional planned levels — the level-1 acceptance gate is now CLOSED, so this
+  is the next thing this demo wants.
 
 ## Consumes
 

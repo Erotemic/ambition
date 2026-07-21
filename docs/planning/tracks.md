@@ -175,7 +175,85 @@ this section is the bounded first wave, not a restatement. Vocabulary note
 - ▢ **K2b direct-entry activation** [opus]: route direct entry through the
   EXISTING `activate_prepared_platformer_sessions` /
   `PlatformerSessionBuilder` (no neighboring API). Oracle: the hand-built
-  `SessionRoot` at `app/resources.rs:301` is deleted.
+  `SessionRoot` at `app/resources.rs:295-322` is deleted.
+
+  **⚠ SCOPED 2026-07-21 (opus, structural trace done — the card badly
+  understated this).** The blocker is not the `SessionRoot` spawn; it is that
+  the spawn happens **at plugin-build time, before tick 0**, and activation
+  happens **asynchronously over several `Update` frames**. Everything below is
+  anchored and pre-solved; the migration is real but it is a staged one, not a
+  single edit.
+
+  *Today (direct entry):* `publish_direct_prepared_session_root`
+  (`app/resources.rs:295`, called from `app/plugins.rs:132` at the END of
+  `add_simulation_plugins`) spawns `SessionRoot(SessionScopeId(0))` + live
+  world + content + identity. The player comes later from
+  `setup_simulation_system` (`app/setup_systems.rs:35`, `run_if(direct_entry)`),
+  which calls the SAME `session::setup::simulation_world` the shell builder
+  calls — but `UNSCOPED`, with a hardcoded
+  `PLAYABLE_ROSTER[0]` default character, and it never inserts
+  `GameplayInputOwner`.
+
+  *Target:* direct entry is just **a shell host whose initial route is the
+  gameplay route** — the recipe `ambition_demo_sanic_app/src/lib.rs:79-84`
+  already proves (`ShellHostSpec::new(<gameplay_route>, <home_route>)`).
+  No new API; `PlatformerExperienceAuthoring::install` already registers the
+  preparation plan.
+
+  **The edits** (in order):
+  1. `app/cli.rs:790-818` — stop using `AmbitionShellHosted` as the
+     discriminator; always compose the shell host + visuals, and in direct mode
+     set the initial route to `AMBITION_GAMEPLAY_ROUTE` and skip the startup
+     vanity sequence.
+  2. Delete `publish_direct_prepared_session_root` + its call at
+     `app/plugins.rs:132`.
+  3. Drop four `run_if(direct_entry)` registrations and un-gate the host one:
+     `sim_resources.rs:44` (`setup_simulation_system` — the system itself
+     likely dies), `plugins.rs:288` (`spawn_ldtk_world_root`), `plugins.rs:515`
+     (`setup_presentation_system`), `plugins.rs:525` (`spawn_map_menu`);
+     `plugins.rs:517-523` becomes unconditional.
+  4. Delete the direct audio branch `app/resources.rs:80-98` —
+     `select_shell_audio_context` (`game_shell/src/session.rs:399`) owns
+     selection + `SfxEmissionContext` on activation.
+  5. **This is where the actual work is:** `headless.rs:124`,
+     `rl_sim/mod.rs:64`, `bin/capture_scene.rs:143` add only
+     `SandboxSimulationPlugin` and get their root for free at build time. They
+     must compose the shell and **settle N frames until the world exists**.
+
+  **Two risks, both structural:**
+  - **sync→async.** ~35 integration files behind `tests/common/mod.rs` +
+    `SandboxSim` (`rl_sim/mod.rs:64`), plus `run_headless`
+    (`headless.rs:137-142` `.expect("active session RoomSet")`), do
+    `App::new(); …; update(); read_the_world()`. After the migration the root
+    exists only after the load barrier reaches `Ready` and all 8 preparation
+    work items complete (`game_shell/src/preparation.rs:27-40`). **Do the
+    settle helper FIRST, as its own commit, before deleting anything.**
+  - **`SessionGatedSimulation` semantics flip.** Composing the shell installs
+    `GameplaySessionBridgePlugin` → `SessionGatedSimulation`
+    (`game_shell/src/session.rs:306`), flipping `simulation_authorized`,
+    `session_world_exists`, `session_world_entity`, and
+    `declare_gameplay_input_context` from "one root is enough" to "root scope
+    must equal `ActiveSessionScope::current()`" — for the headless/RL harnesses
+    too. The root also becomes `SessionScopedEntity`-tagged and therefore
+    despawnable by `despawn_retired_session_entities`, a teardown-bug class
+    that structurally cannot occur today.
+
+  Note `SessionScopeId(0)` at `resources.rs:316` is an arbitrary placeholder,
+  not special — the first shell activation also mints 0
+  (`ActiveSessionScope::begin`), and they do not collide today only because
+  direct entry never installs `SessionScopePlugin`. It disappears entirely.
+
+  No test asserts on `publish_direct_prepared_session_root` or
+  `SessionScopeId(0)` directly — the coverage is all implicit, which is exactly
+  what makes risk 1 dangerous.
+
+  **Suggested staging:** (K2b.1) land the settle helper + migrate
+  `headless`/`rl_sim`/`capture_scene` to compose the shell and settle, keeping
+  the build-time root as a fallback and proving both paths agree; (K2b.2)
+  delete the build-time root and the four `direct_entry` gates; (K2b.3) delete
+  `AmbitionShellHosted` / `shell_host::direct_entry` once nothing reads them,
+  and fold `PlatformerExperienceAuthoring::with_world_manifest` in (the K2a
+  remainder above) while that builder is already open.
 
 **Bounded hygiene** — [sonnet unless noted]
 - ▢ Sequester the rollback inventory smoke → `tests/ambition_agent_guardrails/`

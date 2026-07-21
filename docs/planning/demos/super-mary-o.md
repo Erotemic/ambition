@@ -34,9 +34,17 @@ Remaining acceptance work
   surround the 4:3 profile already owed. `MaryOLevelState` grew `score` (banked
   from `FlagPhase::Tallied` when the level cycles, so it is a running total
   rather than the last banner) and `lives`; coins read the shared economy's
-  wallet through `PlayerHudFacts`, the same fact Sanic's rings use. STILL OPEN
-  from this line item: **title/results presentation**, and nothing yet SPENDS a
-  life — `lives` is an honest readout of a counter no death path decrements.
+  wallet through `PlayerHudFacts`, the same fact Sanic's rings use.
+- ✅ **Lives are spent — LANDED 2026-07-21.** A death costs one and zero lives
+  restarts the run (lives, score, and clock all return to start). Mary-O authors
+  no death test: she watches `BodyLifetime.resets`, the counter the ENGINE bumps
+  in `reset_body_clusters` on every respawn, so any future hazard that respawns
+  her already costs a life with no new demo wiring. Running out of time is the
+  demo's own rule and converges on the same path by asking the engine for a
+  respawn instead of teleporting her. Poison-tested both ways: spending on the
+  counter's VALUE instead of its EDGE drains a life per frame, and failing to
+  refill the clock lets one timeout spend every remaining life on consecutive
+  frames. STILL OPEN from this line item: **title/results presentation**.
 - one deterministic scripted headless run that completes level 1 through real
   controls, enters the secret, collects a powerup, and exercises its effect; and
 - additional planned levels after the level-1 acceptance gate closes.

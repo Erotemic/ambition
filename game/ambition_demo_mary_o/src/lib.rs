@@ -594,8 +594,20 @@ pub struct MaryOLevelState {
     /// contact height; this accumulates them, so the HUD can show a career
     /// total rather than the last banner.
     pub score: u32,
-    /// Lives left. Purely a readout until a death path spends one.
+    /// Lives left. A death spends one; the run restarts at zero.
     pub lives: u8,
+    /// The engine respawn counter this level last accounted for.
+    ///
+    /// Mary-O detects death by watching `BodyLifetime.resets` — the counter the
+    /// ENGINE already bumps in `reset_body_clusters` on every respawn, pit or
+    /// otherwise — rather than inventing a demo-local death test. Anything that
+    /// respawns the body therefore costs a life for free, including hazards this
+    /// demo has not authored yet.
+    ///
+    /// `None` until the first frame a body is observed, so the counter's
+    /// starting value (whatever a session hands us) is adopted rather than
+    /// mistaken for a death.
+    pub seen_resets: Option<u32>,
 }
 
 impl Default for MaryOLevelState {
@@ -604,6 +616,7 @@ impl Default for MaryOLevelState {
             time_remaining: STARTING_TIME,
             score: 0,
             lives: STARTING_LIVES,
+            seen_resets: None,
         }
     }
 }
@@ -666,6 +679,9 @@ impl Plugin for MaryORulesPlugin {
             spawn_mary_o_mode_owner,
             flag::run_flag_sequence,
             tick_level_clock,
+            // Reads the clock the tick above just settled, so a timeout is spent
+            // on the frame it happens rather than one late.
+            spend_lives_on_death,
             cycle_level_on_flag_tally,
         )
             .chain();
@@ -779,6 +795,60 @@ fn tick_level_clock(
         }
         state.time_remaining = (state.time_remaining - time.scaled_dt).max(0.0);
     }
+}
+
+/// **Death costs a life, and running out of time is a death.**
+///
+/// Two ways to die, one accounting. Falling in a pit is the engine's business:
+/// it respawns the body and bumps `BodyLifetime.resets`, so this watches that
+/// counter's edge instead of re-deriving "did she fall" from geometry. Every
+/// future hazard that respawns her is then already wired. Running out of time is
+/// the demo's own rule, and it converges on the same path by asking the engine
+/// for a respawn rather than teleporting her itself.
+///
+/// At zero lives the RUN is over: lives, score, and clock return to their
+/// starting values and the room replays. That is the arcade loop — a game over
+/// is a fresh run, not a stuck screen.
+fn spend_lives_on_death(
+    mut level: bevy::prelude::Query<&mut MaryOLevelState>,
+    bodies: bevy::prelude::Query<
+        &ambition::engine_core::BodyLifetime,
+        ambition::platformer::markers::PrimaryPlayerOnly,
+    >,
+    mut replay: bevy::prelude::MessageWriter<ambition::actors::session::reset::RoomReplayRequested>,
+) {
+    let Ok(mut level) = level.single_mut() else {
+        return;
+    };
+    let Ok(lifetime) = bodies.single() else {
+        return;
+    };
+
+    // Adopt whatever the session started at; only an INCREASE is a death.
+    let previous = *level.seen_resets.get_or_insert(lifetime.resets);
+    let died = lifetime.resets > previous;
+    level.seen_resets = Some(lifetime.resets);
+
+    // The clock reaching zero is its own death, and it must not fire twice
+    // while the replay is in flight — restoring the clock below is what
+    // disarms it.
+    let timed_out = level.time_remaining <= 0.0;
+    if !died && !timed_out {
+        return;
+    }
+
+    level.lives = level.lives.saturating_sub(1);
+    level.time_remaining = STARTING_TIME;
+
+    if level.lives == 0 {
+        // Game over: the whole run resets, score included.
+        level.lives = STARTING_LIVES;
+        level.score = 0;
+    }
+    // A timeout has no engine respawn behind it, so ask for one. A pit death
+    // already replayed the body; replaying the room too is what puts the
+    // rebuilt level under her.
+    replay.write(ambition::actors::session::reset::RoomReplayRequested);
 }
 
 /// **Cyclic level completion.** Once the flag tally has settled, restart the
@@ -1065,6 +1135,102 @@ mod tests {
         let mut app = shell(MaryORulesPlugin::global(), None, STARTING_TIME * 2.0);
         app.update();
         assert_eq!(remaining(&mut app), Some(0.0));
+    }
+
+    /// **A death spends a life, and running out of time is a death.**
+    ///
+    /// Mary-O authors no death test of her own: she watches
+    /// `BodyLifetime.resets`, the counter the ENGINE bumps on every respawn. So
+    /// this drives the engine's signal (bump the counter) rather than simulating
+    /// a fall, which is the point — any future hazard that respawns her already
+    /// costs a life, with no new demo wiring.
+    #[test]
+    fn a_respawn_or_a_timeout_spends_a_life_and_zero_lives_restarts_the_run() {
+        use ambition::world::rooms::{ActiveRoomMetadata, RoomMetadata};
+
+        fn shell(dt: f32) -> (App, bevy::prelude::Entity) {
+            let mut app = App::new();
+            ambition::engine::add_headless_foundation(&mut app);
+            ambition::platformer::lifecycle::insert_session_world_component(
+                app.world_mut(),
+                ActiveRoomMetadata(RoomMetadata::default()),
+            );
+            app.insert_resource(ambition::time::WorldTime {
+                scaled_dt: dt,
+                ..Default::default()
+            });
+            app.add_plugins(MaryORulesPlugin::global());
+            let body = app
+                .world_mut()
+                .spawn((
+                    ambition::engine_core::BodyLifetime::default(),
+                    ambition::platformer::markers::PlayerEntity,
+                    ambition::platformer::markers::PrimaryPlayer,
+                ))
+                .id();
+            (app, body)
+        }
+        fn level(app: &mut App) -> (u8, u32, f32) {
+            let mut q = app.world_mut().query::<&MaryOLevelState>();
+            let s = q.iter(app.world()).next().expect("the mode owner exists");
+            (s.lives, s.score, s.time_remaining)
+        }
+
+        // ── A respawn spends exactly one life ────────────────────────────────
+        let (mut app, body) = shell(0.0);
+        app.update();
+        assert_eq!(level(&mut app).0, STARTING_LIVES, "no death, no cost");
+
+        app.world_mut()
+            .get_mut::<ambition::engine_core::BodyLifetime>(body)
+            .unwrap()
+            .resets += 1;
+        app.update();
+        assert_eq!(
+            level(&mut app).0,
+            STARTING_LIVES - 1,
+            "the engine respawned her, so a life is spent"
+        );
+
+        // Standing still at the same counter costs nothing more — it is the
+        // EDGE that is a death, not the value.
+        app.update();
+        app.update();
+        assert_eq!(
+            level(&mut app).0,
+            STARTING_LIVES - 1,
+            "a life is spent per respawn, not per frame after one"
+        );
+
+        // ── Running out of time is a death, and refills the clock ────────────
+        let (mut app, _body) = shell(STARTING_TIME * 2.0);
+        app.update();
+        let (lives, _, remaining) = level(&mut app);
+        assert_eq!(lives, STARTING_LIVES - 1, "the clock hitting zero kills");
+        assert_eq!(
+            remaining, STARTING_TIME,
+            "and the clock refills, which is also what disarms the timeout so it \
+             cannot spend every remaining life on consecutive frames"
+        );
+
+        // ── Zero lives restarts the RUN, score included ──────────────────────
+        let (mut app, body) = shell(0.0);
+        app.update();
+        {
+            let mut q = app.world_mut().query::<&mut MaryOLevelState>();
+            let mut state = q.iter_mut(app.world_mut()).next().unwrap();
+            state.lives = 1;
+            state.score = 4200;
+        }
+        app.world_mut()
+            .get_mut::<ambition::engine_core::BodyLifetime>(body)
+            .unwrap()
+            .resets += 1;
+        app.update();
+        let (lives, score, remaining) = level(&mut app);
+        assert_eq!(lives, STARTING_LIVES, "a game over starts a fresh run");
+        assert_eq!(score, 0, "and a fresh run scores from zero");
+        assert_eq!(remaining, STARTING_TIME, "on a full clock");
     }
 
     /// **The level loops: a settled tally rearms the level after a dwell.** The

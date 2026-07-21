@@ -37,11 +37,40 @@ Remaining acceptance work is product/content work
 
 - ✅ **Ring drop-on-hit scatter — LANDED 2026-07-21.** Rings are a life, not a
   score: a hit taken holding rings is survived and costs the rings, which
-  scatter in a fan above the body as REAL `currency` pickups you can run back
-  down; a hit taken holding none lands normally. The hit is detected as a DROP in
-  the body's health rather than by listening for a damage message, so every
-  present and future damage source is accounted for with no per-source wiring —
-  the same reasoning Mary-O's lives use against the engine's respawn counter.
+  are placed in a static fan above the body as REAL `currency` pickups you can
+  run back up to (they do not "scatter": they have no velocity and never fall —
+  `spawn_pickup` makes a static feature. The engine's `GroundItem` +
+  `ground_item_physics` seam is the one that throws a dropped item with real
+  outward/upward motion, and it is what a true scatter would use); a hit taken holding none lands normally. The hit is detected as a DROP in
+  the body's health rather than by listening for a damage message.
+
+  ⚠ **CORRECTED 2026-07-21 — the protection is NARROWER than this claimed, and
+  it does not cover the case it exists for.** The old wording said "every present
+  and future damage source is accounted for with no per-source wiring". That is
+  false three ways, and the reasoning it borrowed from Mary-O's respawn counter
+  was itself the bug that broke Mary-O's lives.
+  1. **A lethal hit is not survived.** `death_respawn_player` calls
+     `health.reset()` before `scatter_rings_on_hit` ever observes a drop, so at
+     1 HP the observer sees health go UP and does nothing. Rings fail at exactly
+     the moment "rings are a life" is supposed to mean something.
+  2. **The demo's own hazards bypass it entirely.** All three authored hazards
+     (`pit_hazard`, `mid_spikes`, `finish_warning_spikes`) are `HazardBlock` —
+     the tile-grid path, which resets the body to spawn and never touches
+     `BodyHealth`. The old text named spikes as covered; they never were. Badnik
+     body contact is the only damage source ring loss actually sees.
+  3. **It has no ordering against the system that commits damage.**
+     `scatter_rings_on_hit` is `.after(apply_actor_contact_damage)`, but that
+     system writes no health — it only emits `HitEvent`. The system that does,
+     `apply_player_hit_events`, is in a later set with NO edge to ring loss.
+     Both take `&mut BodyHealth`, so Bevy sequences them arbitrarily. A real
+     schedule ambiguity, invisible because `ambiguity_detection` is `Ignore`.
+
+  **The fix this wants** is not another observer. `resolve_body_hit` already
+  runs a precedence ladder — i-frames, then shield, then armor
+  (`BodyHitResolution::Armored`, a consumed `WornEquipment` row), then HP — and
+  rings are an armor row in everything but name. Absorbing there pre-empts death
+  instead of racing it, and covers the boss/actor callers for free. It would
+  still miss the kernel hazard path, which no health-based scheme can reach.
   Capped at 12 scattered so a big purse does not turn one hit into a shower.
   Engine change: `ambition_actors::features::ecs::spawn_static::spawn_pickup` is
   now PUBLIC. The engine could lower authored pickups but gave a game no way to
@@ -55,9 +84,24 @@ Remaining acceptance work is product/content work
   the outro cannot rewrite a result already on screen. A centred results card
   (`ACT CLEAR  TIME  RINGS  SCORE`) holds for a dwell through the declared-HUD
   seam, then the act restarts on the engine's ordinary `RoomReplayRequested` —
-  the same cycle Mary-O's level uses, no demo-specific restart. `act_score` is
-  where the demo's premise finally becomes a number: a time bonus against par
-  plus a per-ring bonus, so the fast line and the safe line actually compete.
+  the same cycle Mary-O's level uses, no demo-specific restart.
+
+  ⚠ **The restart is INERT in the standalone app (found 2026-07-21).**
+  `RoomReplayRequested` has exactly one real consumer,
+  `ambition_app::app::sim_systems::apply_room_replay_request_system`, registered
+  only by `ambition_app`. `ambition_demo_sanic_app` depends on `ambition`, never
+  on `ambition_app` — that is the demo gate — so in the shipped standalone binary
+  the message is written into a registered channel that nothing drains. The
+  "restart" resets `SanicActState` and nothing else: the player is not returned
+  to spawn, the room is not re-lowered, rings are not restored, badniks do not
+  respawn. The same is true of Mary-O standalone. Making the consumer a reusable
+  engine/runtime seam is OPEN — see `tracks.md`.
+
+  `act_score` is where the demo's premise becomes a number: a time bonus against
+  par plus a per-ring bonus. **INTENT, not a proven property:** the two-term
+  formula gives arithmetic monotonicity, which `the_act_score_pays_for_speed_and_for_rings_kept`
+  tests as a pure function. Whether the fast line and the safe line actually
+  COMPETE is a claim about the authored level, and no test drives both routes.
   REBALANCED 2026-07-21 once the completion proof measured a clean run at ~6s:
   par dropped 60s→30s so the bonus spreads across realistic finishing times, and
   the ring bonus rose 10→100 so a full purse is worth roughly what the time

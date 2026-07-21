@@ -80,9 +80,23 @@ Remaining acceptance work
   respawn instead of teleporting her. Poison-tested both ways: spending on the
   counter's VALUE instead of its EDGE drains a life per frame, and failing to
   refill the clock lets one timeout spend every remaining life on consecutive
-  frames. STILL OPEN from this line item: **title/results presentation**.
-- ✅ **The deterministic scripted run — LANDED 2026-07-21**
-  (`ambition_demo_mary_o_app/tests/scripted_level_run.rs`). Boots the real demo
+  frames.
+
+  ⚠ **CORRECTED 2026-07-21.** Both of those poison tests probed the EDGE
+  DETECTION and neither probed the SIGNAL, which is where the bug was. Watching
+  `BodyLifetime.resets` was itself wrong: six unrelated callers bump that
+  counter, including a room replay's own body reset. So a death spent a life,
+  requested a replay, and the replay's reset was read as a second death —
+  unbounded, at frame rate. Grabbing the flag entered the same loop, because the
+  level cycle also requests a replay: in the hosted app, WINNING drained the run.
+  Lives now come from `ActorDiedMessage`, the engine's authoritative attempt-lost
+  fact, which a replay does not publish — so the loop cannot form by construction
+  rather than by guard. The engine gained `publish_kernel_reset_death` so that
+  message finally covers the pit/drown/hazard death that never reaches the hit
+  resolver. Regression: `a_replay_reset_is_not_a_death_so_lives_cannot_drain`.
+- ◐ **The deterministic scripted SEAM run — LANDED 2026-07-21, but it is not the
+  acceptance run** (`ambition_demo_mary_o_app/tests/scripted_level_run.rs`).
+  Boots the real demo
   app, walks her through the real `ControlFrame` seam, takes the secret pipe,
   banks the vault's coins through the shared economy, surfaces, and finishes on
   the flag into a settled tally and a level cycle. Two things it had to learn:
@@ -96,8 +110,22 @@ Remaining acceptance work
   rather than played: crossing the pits under scripted input would make this a
   platforming-precision test fragile to any jump tuning change, when what it
   exists to prove is that the SEAMS connect.
-- additional planned levels — the level-1 acceptance gate is now CLOSED, so this
-  is the next thing this demo wants.
+
+  ⚠ **The acceptance clause it does NOT meet.** The Acceptance section below
+  requires the scripted run to use "a powerup through the real pickup/equipment
+  path". This run never collects one; the only pickups it takes are coins, which
+  go through the shared ECONOMY, not the equipment path. Its three set-up beats
+  also mean nothing proves the level is traversable spawn-to-pole. The relocation
+  at least no longer pokes `BodyKinematics` — it goes through `transit_body`
+  (ADR 0024), so a beat cannot begin with stale attachment state.
+- ▢ **The real level-1 acceptance run — OPEN.** Traverses spawn → secret → back
+  → flag under its own input with no positional set-up, takes an authored powerup
+  through the shared pickup/equipment path, verifies the equipment is worn or the
+  granted action present, exercises its effect, completes the flag sequence, and
+  waits through an actual replay into a fresh level. A state-aware controller
+  (read position, choose this frame's input) is the right shape — Sanic's
+  `act_completion.rs` already does exactly that and takes no shortcuts.
+- additional planned levels — gated behind closing level-1 acceptance above.
 
 ## Consumes
 

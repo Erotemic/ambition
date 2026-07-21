@@ -819,6 +819,11 @@ impl Plugin for MaryORulesPlugin {
         // engine registers it too (`SandboxResetSchedulePlugin`), but a thin host
         // may not, and `add_message` is idempotent — a no-op when already present.
         app.add_message::<ambition::actors::session::reset::RoomReplayRequested>();
+        // The authoritative attempt-lost fact `spend_lives_on_death` reads. The
+        // engine registers it in `SimCoreResourcesPlugin`; a rules-only harness
+        // does not, and a missing message is a hard system-param panic rather
+        // than a skip. Idempotent, same as the rest of this block.
+        app.add_message::<ambition::actors::ActorDiedMessage>();
         // The crony stager reads room-load facts and writes spawn requests; the
         // engine registers both in a full app, but a thin rules-only test harness
         // may not, and `add_message` is idempotent.
@@ -1001,6 +1006,10 @@ fn tick_level_clock(
 /// is a fresh run, not a stuck screen.
 fn spend_lives_on_death(
     mut level: bevy::prelude::Query<&mut MaryOLevelState>,
+    bodies: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        ambition::platformer::markers::PrimaryPlayerOnly,
+    >,
     mut deaths: bevy::prelude::MessageReader<ambition::actors::ActorDiedMessage>,
     mut replay: bevy::prelude::MessageWriter<ambition::actors::session::reset::RoomReplayRequested>,
 ) {
@@ -1012,6 +1021,16 @@ fn spend_lives_on_death(
     let Ok(mut level) = level.single_mut() else {
         return;
     };
+    // No body, no attempt in progress — so nothing to lose. This matters for
+    // the TIMEOUT branch specifically: the level owner can exist for frames
+    // before a body does, and a clock that reaches zero in that window is a
+    // level that never started, not a life the player spent. (The old counter
+    // version got this for free by querying the body's `BodyLifetime`; the
+    // authoritative signal does not need the body, so the guard is now
+    // explicit.)
+    if bodies.iter().next().is_none() {
+        return;
+    }
 
     // The clock reaching zero is its own death, and it must not fire twice
     // while the replay is in flight — restoring the clock below is what

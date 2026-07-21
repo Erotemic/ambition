@@ -147,11 +147,30 @@ this section is the bounded first wave, not a restatement. Vocabulary note
     it where `worlds::install()` used to sit; `init_sandbox_resources` threads
     the same value by reference through every preparation-time reader.
 
-  **Oracle** (`app_it::world_manifest_parameterization`, 3 tests, poison-tested
-  — stubbing the readers back to a first-wins global fails both discriminating
-  tests with the right diagnostics): two providers with disjoint world files
-  AND disjoint entry rooms compose in one process, in both orders, each
-  keeping its own rooms and its own start room.
+  **Oracle** (`app_it::world_manifest_parameterization`, 5 tests): two
+  declarations with disjoint world files AND disjoint entry rooms compose in one
+  process, in both orders, each keeping its own rooms and its own start room.
+
+  ⚠ **STRENGTHENED 2026-07-21.** The original three tests said "two providers
+  prepare" but built two bare `WorldManifest` VALUES and called pure functions
+  over them — no `App`, no provider, no plugin. That is near-tautological as an
+  isolation proof (a function taking the manifest by reference and reading
+  nothing else cannot leak between callers) and it was blind to the route K2a
+  actually changed: `insert_resource` at provider-build time, read as
+  `Res<WorldManifest>` in schedule. Its poison test only bit because it stubbed
+  those two pure readers directly. Two App-level oracles now cover the real
+  boundary: `two_apps_keep_their_own_manifest_through_in_schedule_readers`
+  builds two `App`s in one order, steps them INTERLEAVED in the other, and
+  asserts each App's own scheduled reader saw its own entry room every frame;
+  `the_real_content_provider_publishes_into_its_own_app_only` builds the actual
+  `AmbitionContentPlugin` beside a second App and checks neither learned the
+  other's declaration.
+
+  Still uncovered, found while doing this: a live first-wins `OnceLock`
+  (`EXTRA_ENTITY_CONVERTERS`, `ldtk_map/src/conversion/mod.rs:633`) sits one
+  call away from `to_room_set`, with the same silently-dropped `Err` this track
+  condemns. It is dormant — `install_ldtk_entity_converters` has zero callers —
+  so it is a latent hazard, not a live bug.
 
   Two things fell out that the card did not predict:
   - `LdtkProject::load_static_map` had ZERO callers. Deleted.
@@ -181,8 +200,10 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   understated this).** The blocker is not the `SessionRoot` spawn; it is that
   the spawn happens **at plugin-build time, before tick 0**, and activation
   happens **asynchronously over several `Update` frames**. Everything below is
-  anchored and pre-solved; the migration is real but it is a staged one, not a
-  single edit.
+  anchored and SCOPED — file:line trace, five numbered edits, two named
+  structural risks, a three-stage plan. None of it is compiled or tested, so
+  "pre-solved" (the earlier wording) overstated it: the settlement behavior is
+  designed, not demonstrated.
 
   *Today (direct entry):* `publish_direct_prepared_session_root`
   (`app/resources.rs:295`, called from `app/plugins.rs:132` at the END of

@@ -58,9 +58,24 @@ Remaining acceptance work is product/content work
   the same cycle Mary-O's level uses, no demo-specific restart. `act_score` is
   where the demo's premise finally becomes a number: a time bonus against par
   plus a per-ring bonus, so the fast line and the safe line actually compete.
+  REBALANCED 2026-07-21 once the completion proof measured a clean run at ~6s:
+  par dropped 60s→30s so the bonus spreads across realistic finishing times, and
+  the ring bonus rose 10→100 so a full purse is worth roughly what the time
+  bonus is. At the original numbers time swamped rings by an order of magnitude
+  and the tension the demo is built on did not exist in the arithmetic.
 - additional authored act content beyond the single speedway room; and
-- a deterministic headless completion proof in which the rewarded high route
-  beats the lower safe route under the same control contract.
+- ✅ **A deterministic headless completion proof — LANDED 2026-07-21**
+  (`ambition_demo_sanic_app/tests/act_completion.rs`). Plays the real app to the
+  goal and asserts the act clears, the run time is captured, and the clock stops.
+  It immediately paid for itself twice: **the goal I had just shipped was
+  UNREACHABLE** (`LEVEL_WIDTH - 130`, while the runnable extent tops out near
+  `LEVEL_WIDTH - 270`), so the act could never be completed by playing; and
+  holding right alone runs into the authored pit forever, so the script has to
+  jump it. Note you CANNOT teleport Sanic to the goal to check this — he rides
+  the momentum kernel, so position is derived from his surface parameter and a
+  poked `pos` is overwritten on the next tick. Running there is the only proof.
+  ⚠ STILL OPEN from this line: the high-route-beats-safe-route COMPARISON. The
+  completion half is proven; the two-route contest is not.
 
 The detailed 2026-07-11 recovery investigation is archived at
 [`docs/archive/reviews/sanic-visible-playable-recovery-2026-07-11.md`](../../archive/reviews/sanic-visible-playable-recovery-2026-07-11.md).

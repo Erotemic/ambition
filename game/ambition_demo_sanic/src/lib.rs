@@ -300,7 +300,11 @@ pub fn sanic_speedway() -> RoomSpec {
         (
             "finish".to_string(),
             "FINISH".to_string(),
-            ae::Vec2::new(LEVEL_WIDTH - 130.0, FLOOR_TOP - 300.0),
+            // Derived from `GOAL_X`, not a second copy of the same arithmetic.
+            // Claiming the sign and the trigger "cannot drift" while writing
+            // the expression twice is how the sign ended up marking a line the
+            // trigger was 270px past.
+            ae::Vec2::new(GOAL_X, FLOOR_TOP - 300.0),
         ),
     ];
     labels.extend(SPEED_MARKER_XS.into_iter().enumerate().map(|(index, x)| {
@@ -1400,9 +1404,14 @@ pub fn scatter_rings_on_hit(
 // The goal — what an act is FOR.
 // ---------------------------------------------------------------------------
 
-/// World x of the goal line, matched to the authored `FINISH` label so the sign
-/// and the trigger can never drift.
-pub const GOAL_X: f32 = LEVEL_WIDTH - 130.0;
+/// World x of the goal line.
+///
+/// Set back from the level's right edge because the body cannot reach the edge
+/// itself: the runnable extent tops out around `LEVEL_WIDTH - 270`, so a goal
+/// any closer to the wall is one a player can never cross. The first version of
+/// this sat at `LEVEL_WIDTH - 130` and made the act literally uncompletable —
+/// you could run the speedway forever and nothing would ever happen.
+pub const GOAL_X: f32 = LEVEL_WIDTH - 400.0;
 
 /// How long the results card holds before the act restarts.
 pub const ACT_CLEAR_DWELL: f32 = 4.0;
@@ -1410,12 +1419,20 @@ pub const ACT_CLEAR_DWELL: f32 = 4.0;
 /// Points per second of time left on a nominal par run, and the par itself.
 /// A time bonus is what makes going FAST pay, which is the entire premise of
 /// this demo — without it, a route that is safer but slower always wins.
-pub const ACT_PAR_SECONDS: f32 = 60.0;
+///
+/// Par is 30s against a measured ~6s clean run (see the act-completion proof),
+/// so the bonus spreads meaningfully across real finishing times instead of
+/// bunching every plausible run near the maximum.
+pub const ACT_PAR_SECONDS: f32 = 30.0;
 pub const TIME_BONUS_PER_SECOND: i32 = 100;
-/// Each ring you finish holding is worth this. Rings you lost are gone, which
-/// is what puts the two currencies in tension: the fast line is usually the one
-/// that costs you rings.
-pub const RING_BONUS: i32 = 10;
+/// Each ring you finish holding is worth this.
+///
+/// Sized against the time bonus deliberately: a clean run banks roughly 2400
+/// from time, and a full ring purse is worth roughly as much again. Two
+/// currencies only pull against each other if they are of comparable size — at
+/// the original 10/ring the time bonus swamped rings by an order of magnitude
+/// and the "tension" this demo is built on did not exist in the arithmetic.
+pub const RING_BONUS: i32 = 100;
 
 /// The act's score, from the numbers captured at the clear.
 pub fn act_score(time: f32, rings: i32) -> i32 {

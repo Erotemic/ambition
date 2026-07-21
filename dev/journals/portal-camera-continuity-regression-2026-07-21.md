@@ -1,6 +1,22 @@
 # Portal camera continuity: a live RED, bisected and diagnosed (2026-07-21)
 
-**Status: OPEN.** Two tests fail on `main`. This document is the diagnosis, not
+**Resolution from the 2026-07-21 Opus review: PATCHED, execution verification pending.**
+The instrumentation below correctly found that `BodyPoseView` was one frame
+behind the authoritative portal transit, but the final "two clocks" conclusion
+missed a same-schedule ordering hole. In the frame-stepped host the simulation
+also runs in `Update`; `rebuild_body_pose_views` publishes in
+`SandboxSet::FeatureViewSync`, while `advance_presented_body_poses` belonged to
+an otherwise-unordered `PresentedPoseSet`. The latter could run first and sample
+the pre-transit view. `PresentedPosePlugin` now configures
+`PresentedPoseSet.after(SandboxSet::FeatureViewSync)` when and only when the sim
+schedule is `Update`. Fixed-tick and GGRS hosts already get that order from the
+schedule boundary. A schedule-graph test pins the edge. The existing portal
+continuity test and full suite still need to be run in a Rust-equipped checkout;
+the review sandbox had no `cargo`.
+
+The remainder is preserved as the failure record and investigation trail.
+
+**Historical status: OPEN.** Two tests fail on `main`. This document is the diagnosis, not
 a fix — the fix was attempted, got the primary assertion green, exposed a second
 failure from the same root cause, and was reverted rather than landed half-done.
 

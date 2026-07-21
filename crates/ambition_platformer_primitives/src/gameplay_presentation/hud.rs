@@ -73,7 +73,7 @@ impl From<&str> for HudSlotId {
 /// Authored by the game, read by the renderer. Carries no value — the value
 /// arrives every frame through [`HudReadouts`], so a declaration stays an
 /// immutable build-time fact.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct HudSlotSpec {
     pub id: HudSlotId,
     /// Stacking order within the slot's region. Ties break on `id`, so a
@@ -107,7 +107,9 @@ impl HudSlotSpec {
     pub fn new(id: impl Into<HudSlotId>) -> Self {
         Self {
             id: id.into(),
-            order: 0,
+            // Sentinel means "use declaration sequence". Zero is a valid,
+            // explicit order and must not be mistaken for the default.
+            order: u32::MAX,
             region: SurroundRegion::Top,
             min_px: ae::Vec2::new(96.0, 24.0),
             font_size: 18.0,
@@ -153,7 +155,7 @@ impl HudSlotSpec {
 /// Empty by default, and an empty declaration means "this game has no declared
 /// HUD" — not an error. A provider that never calls the builder simply gets no
 /// HUD surface, which is what every demo does today.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct HudDeclaration {
     pub slots: Vec<HudSlotSpec>,
 }
@@ -167,7 +169,12 @@ impl HudDeclaration {
     /// case needs no explicit `order`.
     pub fn slot(mut self, spec: HudSlotSpec) -> Self {
         let mut spec = spec;
-        if spec.order == 0 {
+        assert!(
+            self.slots.iter().all(|slot| slot.id != spec.id),
+            "duplicate declared HUD slot id: {}",
+            spec.id.as_str(),
+        );
+        if spec.order == u32::MAX {
             spec.order = self.slots.len() as u32;
         }
         self.slots.push(spec);
@@ -336,6 +343,27 @@ mod tests {
     /// Layout must not depend on `Vec` order once a game states an order — two
     /// declarations with the same slots in different sequences must render the
     /// same.
+    #[test]
+    #[should_panic(expected = "duplicate declared HUD slot id")]
+    fn duplicate_slot_ids_are_rejected_at_authoring_time() {
+        let _ = HudDeclaration::new()
+            .slot(HudSlotSpec::new("score"))
+            .slot(HudSlotSpec::new("score"));
+    }
+
+    #[test]
+    fn explicit_zero_order_is_not_rewritten_to_declaration_sequence() {
+        let declaration = HudDeclaration::new()
+            .slot(HudSlotSpec::new("later"))
+            .slot(HudSlotSpec::new("first").with_order(0));
+        let ids: Vec<&str> = declaration
+            .laid_out()
+            .iter()
+            .map(|slot| slot.id.as_str())
+            .collect();
+        assert_eq!(ids, vec!["first", "later"]);
+    }
+
     #[test]
     fn explicit_order_beats_declaration_sequence_and_is_stable() {
         let forwards = HudDeclaration::new()

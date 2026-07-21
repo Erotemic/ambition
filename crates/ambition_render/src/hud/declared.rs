@@ -23,8 +23,8 @@ use bevy::prelude::*;
 
 use ambition_platformer_primitives::{
     gameplay_presentation::{
-        ActiveHudDeclaration, HudReadouts, HudSlotId, ResolvedGameplayPresentation, ScreenOccluder,
-        ScreenRect, SurroundRegion,
+        ActiveHudDeclaration, HudReadouts, HudSlotId, HudSlotSpec, ResolvedGameplayPresentation,
+        ScreenOccluder, ScreenRect, SurroundRegion,
     },
     lifecycle::{ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt},
 };
@@ -43,8 +43,64 @@ pub struct DeclaredHudRoot;
 #[derive(Component)]
 pub struct DeclaredHudSlot(pub HudSlotId);
 
+/// The exact declaration used to build a node.
+///
+/// Slot ids are stable identities, not cache keys for appearance. Retaining the
+/// full spec lets a route update font, colour, centering, order, or region while
+/// keeping the same id and still receive a rebuilt node.
+#[derive(Component, Clone, Debug)]
+pub struct DeclaredHudSpec(HudSlotSpec);
+
 /// Gap between stacked readouts in the same region.
 const SLOT_GAP: f32 = 6.0;
+
+fn declaration_matches_live_specs<'a>(
+    declared: &[HudSlotSpec],
+    existing: impl Iterator<Item = Option<&'a DeclaredHudSpec>>,
+) -> bool {
+    let collected: Option<Vec<&HudSlotSpec>> =
+        existing.map(|spec| spec.map(|spec| &spec.0)).collect();
+    let Some(mut live) = collected else {
+        // A node from an older declaration renderer has no cached spec and
+        // must be rebuilt rather than silently treated as current.
+        return false;
+    };
+    if live.len() != declared.len() {
+        return false;
+    }
+    let mut wanted: Vec<&HudSlotSpec> = declared.iter().collect();
+    live.sort_by(|a, b| a.id.cmp(&b.id));
+    wanted.sort_by(|a, b| a.id.cmp(&b.id));
+    live == wanted
+}
+
+fn select_hud_region(
+    presentation: &ResolvedGameplayPresentation,
+    spec: &HudSlotSpec,
+) -> Option<(SurroundRegion, ScreenRect)> {
+    if !presentation.prefers_surround_hud() {
+        return None;
+    }
+    let fits =
+        |rect: &ScreenRect| rect.width() >= spec.min_px.x && rect.height() >= spec.min_px.y;
+    std::iter::once(spec.region)
+        .chain(
+            [
+                SurroundRegion::Left,
+                SurroundRegion::Right,
+                SurroundRegion::Top,
+                SurroundRegion::Bottom,
+            ]
+            .into_iter()
+            .filter(|region| *region != spec.region),
+        )
+        .find_map(|region| {
+            presentation
+                .hud_region(region)
+                .filter(fits)
+                .map(|rect| (region, rect))
+        })
+}
 
 /// Spawn one text node per declared slot, once, while a session owns them.
 ///
@@ -56,27 +112,26 @@ pub fn spawn_declared_hud(
     active: Res<ActiveHudDeclaration>,
     active_session: Option<Res<ActiveSessionScope>>,
     fonts: Option<Res<crate::ui_fonts::UiFonts>>,
-    existing: Query<(Entity, &DeclaredHudSlot)>,
+    existing: Query<(Entity, &DeclaredHudSlot, Option<&DeclaredHudSpec>)>,
 ) {
     let declared = active.slots();
 
     // Nothing declared: retire anything a previous route left behind.
     if declared.is_empty() {
-        for (entity, _) in &existing {
+        for (entity, _, _) in &existing {
             commands.entity(entity).despawn();
         }
         return;
     }
 
-    // Already showing exactly this declaration's slots.
-    let live: std::collections::BTreeSet<&str> =
-        existing.iter().map(|(_, slot)| slot.0.as_str()).collect();
-    let wanted: std::collections::BTreeSet<&str> =
-        declared.iter().map(|slot| slot.id.as_str()).collect();
-    if live == wanted && !wanted.is_empty() {
+    // Already showing this declaration exactly — identity AND appearance.
+    // Comparing ids alone left stale font/colour/centering/placement whenever a
+    // route revised a slot without renaming it.
+    let exact = declaration_matches_live_specs(declared, existing.iter().map(|(_, _, spec)| spec));
+    if exact {
         return;
     }
-    for (entity, _) in &existing {
+    for (entity, _, _) in &existing {
         commands.entity(entity).despawn();
     }
 
@@ -111,6 +166,7 @@ pub fn spawn_declared_hud(
             (
                 DeclaredHudRoot,
                 DeclaredHudSlot(spec.id.clone()),
+                DeclaredHudSpec(spec.clone()),
                 Text::new(String::new()),
                 bevy::text::TextLayout::new_with_justify(if spec.centered {
                     bevy::text::Justify::Center
@@ -146,7 +202,6 @@ pub fn place_declared_hud(
     active: Res<ActiveHudDeclaration>,
     mut slots: Query<(&DeclaredHudSlot, &mut Node)>,
 ) {
-    let prefers_surround = presentation.prefers_surround_hud();
     let mut offset_in_region: std::collections::BTreeMap<u8, f32> = Default::default();
     let mut overlay_offset = 0.0_f32;
 
@@ -196,30 +251,14 @@ pub fn place_declared_hud(
         // `Top` readouts found nothing on every ordinary monitor and fell
         // through to the overlay corner — landing somewhere reasonable purely
         // by luck rather than by placement.
-        let fits =
-            |rect: &ScreenRect| rect.width() >= spec.min_px.x && rect.height() >= spec.min_px.y;
-        let region = prefers_surround
-            .then(|| {
-                presentation
-                    .hud_region(spec.region)
-                    .filter(fits)
-                    .or_else(|| {
-                        [
-                            SurroundRegion::Left,
-                            SurroundRegion::Right,
-                            SurroundRegion::Top,
-                            SurroundRegion::Bottom,
-                        ]
-                        .into_iter()
-                        .filter(|region| *region != spec.region)
-                        .find_map(|region| presentation.hud_region(region).filter(fits))
-                    })
-            })
-            .flatten();
+        let region = select_hud_region(&presentation, spec);
 
         let anchor = match region {
-            Some(rect) => {
-                let stacked = offset_in_region.entry(spec.region as u8).or_insert(0.0);
+            Some((actual_region, rect)) => {
+                // Two differently authored preferences may fall back to the
+                // same physical region. Stack by the region actually chosen,
+                // or both start at its origin and overlap.
+                let stacked = offset_in_region.entry(actual_region as u8).or_insert(0.0);
                 let anchor = rect.min + Vec2::splat(HUD_MARGIN) + Vec2::new(0.0, *stacked);
                 *stacked += spec.font_size + SLOT_GAP;
                 anchor
@@ -261,6 +300,94 @@ pub fn update_declared_hud(
         if text.0 != next {
             text.0 = next;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer_primitives::gameplay_presentation::{
+        HudDeclaration, HudLayoutPolicy, NamedScreenRect,
+    };
+
+    #[test]
+    fn same_slot_id_with_changed_style_forces_a_rebuild() {
+        let old = DeclaredHudSpec(HudSlotSpec::new("score").with_font_size(18.0));
+        let new = HudSlotSpec::new("score").with_font_size(30.0);
+        assert!(!declaration_matches_live_specs(&[new], [Some(&old)].into_iter()));
+    }
+
+    #[test]
+    fn a_live_node_without_a_cached_spec_forces_a_rebuild() {
+        let spec = HudSlotSpec::new("score");
+        assert!(!declaration_matches_live_specs(
+            &[spec],
+            [None].into_iter(),
+        ));
+    }
+
+    #[test]
+    fn an_identical_slot_spec_keeps_the_existing_node() {
+        let spec = HudSlotSpec::new("score").with_font_size(18.0);
+        let live = DeclaredHudSpec(spec.clone());
+        assert!(declaration_matches_live_specs(
+            &[spec],
+            [Some(&live)].into_iter(),
+        ));
+    }
+
+    #[test]
+    fn slots_falling_back_to_the_same_region_stack_instead_of_overlapping() {
+        let mut presentation = ResolvedGameplayPresentation::default();
+        presentation.hud = HudLayoutPolicy::PreferSurround;
+        presentation.controls.hud = vec![NamedScreenRect {
+            region: SurroundRegion::Left,
+            rect: ScreenRect::from_min_size(Vec2::ZERO, Vec2::new(200.0, 200.0)),
+        }];
+        let declaration = HudDeclaration::new()
+            .slot(
+                HudSlotSpec::new("top_preference")
+                    .with_region(SurroundRegion::Top)
+                    .with_min_px(Vec2::new(20.0, 20.0)),
+            )
+            .slot(
+                HudSlotSpec::new("bottom_preference")
+                    .with_region(SurroundRegion::Bottom)
+                    .with_min_px(Vec2::new(20.0, 20.0)),
+            );
+
+        let mut app = App::new();
+        app.insert_resource(presentation);
+        app.insert_resource(ActiveHudDeclaration(Some(declaration)));
+        app.add_systems(Update, place_declared_hud);
+        let top = app
+            .world_mut()
+            .spawn((
+                DeclaredHudSlot(HudSlotId::new("top_preference")),
+                Node::default(),
+            ))
+            .id();
+        let bottom = app
+            .world_mut()
+            .spawn((
+                DeclaredHudSlot(HudSlotId::new("bottom_preference")),
+                Node::default(),
+            ))
+            .id();
+
+        app.update();
+        let top_y = match app.world().get::<Node>(top).expect("top node").top {
+            Val::Px(y) => y,
+            ref other => panic!("top slot must use a pixel anchor, got {other:?}"),
+        };
+        let bottom_y = match app.world().get::<Node>(bottom).expect("bottom node").top {
+            Val::Px(y) => y,
+            ref other => panic!("bottom slot must use a pixel anchor, got {other:?}"),
+        };
+        assert!(
+            bottom_y > top_y,
+            "two preferences that fall back to Left must share its stack: {top_y} vs {bottom_y}",
+        );
     }
 }
 

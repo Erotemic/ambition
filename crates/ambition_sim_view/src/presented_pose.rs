@@ -318,6 +318,21 @@ impl bevy::prelude::Plugin for PresentedPosePlugin {
                     .before(advance_presented_body_poses),
             );
         }
+        // When the frame-stepped host runs simulation in `Update`, Bevy needs
+        // an explicit same-schedule edge from the sim's read-model tail. Without
+        // it this set may sample yesterday's BodyPoseView/FeatureViewIndex while
+        // the portal continuity pass has already observed today's authoritative
+        // body — exactly one frame of whole-portal camera lag. Fixed-tick and
+        // GGRS hosts finish their separate sim schedules before `Update`, so the
+        // schedule boundary already supplies this ordering there.
+        if app.sim_is(bevy::prelude::Update) {
+            app.configure_sets(
+                Update,
+                PresentedPoseSet.after(
+                    ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync,
+                ),
+            );
+        }
         // The rollback host's phase lives in the GGRS driver's own accumulator,
         // so its sampler belongs to the crate that owns GGRS — this one must
         // not learn about netcode. It publishes through
@@ -340,6 +355,41 @@ mod tests {
 
     fn pose_at(pos: Vec2) -> PresentedPose {
         PresentedPose::new(pos, 0)
+    }
+
+    #[test]
+    fn frame_stepped_presented_pose_runs_after_feature_view_sync() {
+        use ambition_platformer_primitives::schedule::{SandboxSet, SimScheduleExt as _};
+        use bevy::ecs::schedule::{NodeId, Schedules};
+        use bevy::prelude::{App, IntoScheduleConfigs as _, Update};
+
+        let mut app = App::new();
+        app.set_sim_schedule(Update);
+        app.add_plugins(PresentedPosePlugin);
+        // Touch the producer set explicitly; the presented-pose systems already
+        // register their consumer set through the plugin.
+        app.add_systems(Update, (|| {}).in_set(SandboxSet::FeatureViewSync));
+
+        let schedules = app.world().resource::<Schedules>();
+        let schedule = schedules
+            .get(Update)
+            .expect("Update schedule must exist after PresentedPosePlugin");
+        let graph = schedule.graph();
+        let producer = graph
+            .system_sets
+            .get_key(SandboxSet::FeatureViewSync.intern())
+            .expect("FeatureViewSync must be registered");
+        let consumer = graph
+            .system_sets
+            .get_key(PresentedPoseSet.intern())
+            .expect("PresentedPoseSet must be registered");
+        assert!(
+            graph
+                .dependency()
+                .graph()
+                .contains_edge(NodeId::Set(producer), NodeId::Set(consumer)),
+            "frame-stepped hosts require FeatureViewSync -> PresentedPoseSet; otherwise the camera can sample a stale pre-portal pose"
+        );
     }
 
     #[test]

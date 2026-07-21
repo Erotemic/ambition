@@ -13,8 +13,8 @@ use ambition_game_shell::{
     PREPARE_CATALOGS_WORK_ID,
 };
 use ambition_platformer_primitives::gameplay_presentation::{
-    ActiveGameplayPresentationProfiles, GameplayPresentationProfileCatalog,
-    GameplayPresentationProfiles,
+    ActiveGameplayPresentationProfiles, ActiveHudDeclaration, GameplayPresentationProfileCatalog,
+    GameplayPresentationProfiles, HudDeclaration, HudDeclarationCatalog,
 };
 use ambition_runtime::PreparedPlatformerSource;
 
@@ -199,9 +199,11 @@ pub fn select_active_presentation_profiles(
         .and_then(|(active, catalog)| catalog.get(active.route_id.as_str()))
         .copied()
         .unwrap_or_default();
-    if active.0 != declared {
-        active.0 = declared;
+    if active.0 == declared {
+        return false;
     }
+    active.0 = declared;
+    true
 }
 
 /// Copy the active route's declared HUD into the resource the renderer
@@ -216,10 +218,8 @@ pub fn select_active_presentation_profiles(
 /// HUD — resolves to `None`, and the renderer draws no HUD surface.
 pub fn select_active_hud_declaration(
     router: Res<ambition_game_shell::ShellRouter>,
-    catalog: Option<
-        Res<ambition_platformer_primitives::gameplay_presentation::HudDeclarationCatalog>,
-    >,
-    mut active: ResMut<ambition_platformer_primitives::gameplay_presentation::ActiveHudDeclaration>,
+    catalog: Option<Res<HudDeclarationCatalog>>,
+    mut active: ResMut<ActiveHudDeclaration>,
 ) {
     let declared = router
         .active
@@ -227,13 +227,54 @@ pub fn select_active_hud_declaration(
         .zip(catalog.as_deref())
         .and_then(|(active, catalog)| catalog.get(active.route_id.as_str()))
         .cloned();
-    let changed = match (&active.0, &declared) {
-        (None, None) => false,
-        (Some(current), Some(next)) => current.slots.len() != next.slots.len(),
-        _ => true,
-    };
-    if changed {
-        active.0 = declared;
+    update_active_hud_declaration(&mut active, declared);
+}
+
+fn update_active_hud_declaration(
+    active: &mut ActiveHudDeclaration,
+    declared: Option<HudDeclaration>,
+) -> bool {
+    // Equal slot COUNTS do not imply equal declarations. Two routes can each
+    // have one slot while disagreeing on id, style, region, or centering; the
+    // old length-only check left the previous route's HUD active indefinitely.
+    if active.0 == declared {
+        return false;
+    }
+    active.0 = declared;
+    true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer_primitives::gameplay_presentation::HudSlotSpec;
+
+    #[test]
+    fn equal_sized_route_huds_still_replace_each_other() {
+        let old = HudDeclaration::new().slot(HudSlotSpec::new("rings"));
+        let next = HudDeclaration::new().slot(
+            HudSlotSpec::new("score")
+                .centered()
+                .with_font_size(30.0),
+        );
+        let mut active = ActiveHudDeclaration(Some(old));
+
+        assert!(update_active_hud_declaration(
+            &mut active,
+            Some(next.clone()),
+        ));
+        assert_eq!(active.0, Some(next));
+    }
+
+    #[test]
+    fn identical_route_hud_is_left_unchanged() {
+        let declaration = HudDeclaration::new().slot(HudSlotSpec::new("rings"));
+        let mut active = ActiveHudDeclaration(Some(declaration.clone()));
+        assert!(!update_active_hud_declaration(
+            &mut active,
+            Some(declaration.clone()),
+        ));
+        assert_eq!(active.0, Some(declaration));
     }
 }
 
@@ -392,13 +433,9 @@ impl PlatformerExperienceAuthoring {
                 .insert(self.route_id.clone(), presentation);
         }
         if let Some(hud) = self.hud.clone() {
-            app.init_resource::<
-                ambition_platformer_primitives::gameplay_presentation::HudDeclarationCatalog,
-            >();
+            app.init_resource::<HudDeclarationCatalog>();
             app.world_mut()
-                .resource_mut::<
-                    ambition_platformer_primitives::gameplay_presentation::HudDeclarationCatalog,
-                >()
+                .resource_mut::<HudDeclarationCatalog>()
                 .insert(self.route_id.clone(), hud);
         }
         if let Some(loading) = self.loading.clone() {

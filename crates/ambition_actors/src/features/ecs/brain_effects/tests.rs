@@ -90,10 +90,7 @@ fn ranged_message_for_non_pirate_uses_body_origin_not_hand() {
         .write(ActorActionMessage {
             actor,
             request: ActionRequest::Ranged {
-                spec: RangedActionSpec::Rock {
-                    speed: 300.0,
-                    damage: 1,
-                },
+                spec: RangedActionSpec::rock(300.0, 1),
                 origin: actor_pos,
                 dir: ae::Vec2::new(1.0, 0.0),
                 dir_policy: ae::GameplayFramePolicy::WorldSpace,
@@ -136,10 +133,7 @@ fn ranged_shot_carries_archetype_authored_visual_id() {
         .write(ActorActionMessage {
             actor,
             request: ActionRequest::Ranged {
-                spec: RangedActionSpec::Rock {
-                    speed: 300.0,
-                    damage: 1,
-                },
+                spec: RangedActionSpec::rock(300.0, 1),
                 origin: actor_pos,
                 dir: ae::Vec2::new(1.0, 0.0),
                 dir_policy: ae::GameplayFramePolicy::WorldSpace,
@@ -180,10 +174,7 @@ fn ranged_message_converts_local_direction_at_consumer_frame() {
         .write(ActorActionMessage {
             actor,
             request: ActionRequest::Ranged {
-                spec: RangedActionSpec::Rock {
-                    speed: 300.0,
-                    damage: 1,
-                },
+                spec: RangedActionSpec::rock(300.0, 1),
                 origin: actor_pos,
                 dir: ae::Vec2::new(1.0, 0.0),
                 dir_policy: ae::GameplayFramePolicy::ControlledBodyLocal,
@@ -212,10 +203,7 @@ fn ranged_message_for_dead_actor_is_dropped() {
         .write(ActorActionMessage {
             actor,
             request: ActionRequest::Ranged {
-                spec: RangedActionSpec::Bolt {
-                    speed: 500.0,
-                    damage: 1,
-                },
+                spec: RangedActionSpec::bolt(500.0, 1),
                 origin: actor_pos,
                 dir: ae::Vec2::new(1.0, 0.0),
                 dir_policy: ae::GameplayFramePolicy::WorldSpace,

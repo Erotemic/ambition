@@ -197,6 +197,7 @@ pub fn apply_worn_character_overlay(
     name: &mut Name,
     action_set: &mut ActionSet,
     moveset: &mut ActorMoveset,
+    identity: &mut ambition_characters::brain::action_set::IdentityKit,
     character_id: &str,
     base_abilities: ambition_engine_core::AbilitySet,
 ) -> bool {
@@ -208,7 +209,14 @@ pub fn apply_worn_character_overlay(
         None => *name = Name::new(character_id.to_string()),
     }
 
-    apply_worn_character_kit(catalog, action_set, moveset, character_id, base_abilities)
+    apply_worn_character_kit(
+        catalog,
+        action_set,
+        moveset,
+        identity,
+        character_id,
+        base_abilities,
+    )
 }
 
 /// Refresh only the action/moveset portion of a playable persona.
@@ -222,6 +230,7 @@ fn apply_worn_character_kit(
     catalog: &CharacterCatalog,
     action_set: &mut ActionSet,
     moveset: &mut ActorMoveset,
+    identity: &mut ambition_characters::brain::action_set::IdentityKit,
     character_id: &str,
     base_abilities: ambition_engine_core::AbilitySet,
 ) -> bool {
@@ -255,9 +264,18 @@ fn apply_worn_character_kit(
         Some(ambition_characters::actor::character_catalog::PlayableKitSource::Authored) => None,
         _ => set.special.as_ref(),
     };
-    *moveset = ActorMoveset(
-        build_actor_moveset(None, set.melee.as_ref(), None, special).unwrap_or_default(),
-    );
+    let derived =
+        build_actor_moveset(None, set.melee.as_ref(), None, special).unwrap_or_default();
+    // Publish what IDENTITY alone derived, before any equipment overlay. This is
+    // the baseline `reconcile_equipment_grants` re-derives the live kit from, which
+    // is what makes a granted verb revocable: without it, a consumed or downgraded
+    // row could not take its verb back, because the live set no longer remembers
+    // which half of it came from the body and which from a row.
+    *identity = ambition_characters::brain::action_set::IdentityKit {
+        action_set: set.clone(),
+        moveset: derived.clone(),
+    };
+    *moveset = ActorMoveset(derived);
     *action_set = set;
     charges_projectiles
 }
@@ -302,6 +320,7 @@ pub fn apply_worn_character_gameplay(
             &mut Name,
             &mut ActionSet,
             &mut ActorMoveset,
+            &mut ambition_characters::brain::action_set::IdentityKit,
             Ref<crate::actor::BodyAbilities>,
             // The one transition seam (`switch_motion_model`): a cross-model
             // re-wear initializes destination-private state inside the new
@@ -320,6 +339,7 @@ pub fn apply_worn_character_gameplay(
         mut name,
         mut action_set,
         mut moveset,
+        mut identity,
         abilities,
         mut motion_model,
         has_projectile_state,
@@ -332,6 +352,7 @@ pub fn apply_worn_character_gameplay(
                 &mut name,
                 &mut action_set,
                 &mut moveset,
+                &mut identity,
                 id,
                 abilities.abilities,
             );
@@ -375,6 +396,7 @@ pub fn apply_worn_character_gameplay(
                     &catalog,
                     &mut action_set,
                     &mut moveset,
+                    &mut identity,
                     id,
                     abilities.abilities,
                 );

@@ -22,7 +22,10 @@ use bevy::prelude::*;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 #[cfg(test)]
 use crate::time::feel::SandboxFeelTuning;
-use ambition_characters::brain::{action_set::ActionRequest, ActorActionMessage};
+use ambition_characters::brain::{
+    action_set::{ActionRequest, ProjectileFlight},
+    ActorActionMessage,
+};
 use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// Recoil applied to the firing enemy along the negative fire
@@ -76,7 +79,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             origin,
             dir,
             dir_policy,
-        } = msg.request
+        } = msg.request.clone()
         else {
             continue;
         };
@@ -127,11 +130,25 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         // string. The held-item id → projectile-visual id mapping is game policy;
         // when a second item needs its own discharge look this table can move to
         // a content-owned held-item→projectile registration.
+        // Precedence: a held item's discharge, else the ACTION's own authored
+        // visual (an equipment-granted verb brings its look with it), else the
+        // archetype's default ranged look.
         let visual_id = if uses_gun_sword {
             "lasersword".to_string()
+        } else if let Some(authored) = spec.visual.clone() {
+            authored
         } else {
             enemy.config.tuning.ranged_visual.clone()
         };
+        // Flight is the ACTION's to author; the shared envelope is the fallback
+        // for every ranged verb that doesn't care.
+        let flight = spec.flight.unwrap_or(ProjectileFlight {
+            gravity: 0.0,
+            bounces: 0,
+            bounce_on_world_contact: false,
+            max_lifetime: PROJECTILE_MAX_LIFETIME,
+            half_extent: PROJECTILE_HALF_EXTENT,
+        });
         let gravity_dir = -enemy
             .surface
             .surface_normal
@@ -164,11 +181,13 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             dir: world_dir,
             speed: spec.speed(),
             damage: spec.damage(),
-            max_lifetime: PROJECTILE_MAX_LIFETIME,
-            half_extent: PROJECTILE_HALF_EXTENT,
+            max_lifetime: flight.max_lifetime,
+            half_extent: flight.half_extent,
             owner_id: owner_id.clone(),
-            gravity: 0.0,
+            gravity: flight.gravity,
             visual_id,
+            bounces: flight.bounces,
+            bounce_on_world_contact: flight.bounce_on_world_contact,
         };
         if uses_gun_sword {
             sfx.write(SfxMessage::Play {

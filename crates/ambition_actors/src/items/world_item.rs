@@ -5,9 +5,10 @@
 //! already anticipated: a `GroundItem` is a *held weapon* grabbed with a
 //! deliberate `Attack` press; a `WorldItem` is *touched* — bare AABB overlap
 //! auto-collects it, the way a mushroom / ring / heart is picked up by running
-//! into it. Its payload is an A3 [`EquipmentRow`], so collecting it routes
-//! through the ONE runtime equip contract
-//! ([`equip_equipment_row`]) a menu equip and a powerup pickup share.
+//! into it. Its payload is an A3 [`EquipmentRow`], so collecting it just RECORDS
+//! the row in [`WornEquipment`]; any verb the row grants is derived from the worn
+//! set by `reconcile_equipment_grants`, the one place a body's granted actions
+//! come from.
 //!
 //! This is deliberately generic: "a thing in the world you collect to gain a
 //! capability or effect" is universal (Super Mary-O's grow-cap / spark-blossom,
@@ -18,9 +19,7 @@ use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
-use ambition_characters::brain::ActionSet;
 use ambition_characters::equipment::{EquipmentRow, WornEquipment};
-use ambition_combat::moveset::{equip_equipment_row, ActorMoveset};
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_platformer_primitives::markers::ControlledSubject;
 
@@ -83,9 +82,8 @@ pub fn spawn_world_item(commands: &mut Commands, item: WorldItem) {
 
 /// **Touch-to-collect.** The [`ControlledSubject`] (the driven body — player or
 /// possessed) collects a `WorldItem` it overlaps: the item's row is equipped
-/// through [`equip_equipment_row`], [`WornEquipment`] is inserted if the body
-/// wore none, a granting row's rebuilt moveset is inserted, and the item is
-/// despawned.
+/// into [`WornEquipment`] (inserted if the body wore none), and the item is
+/// despawned. Granted verbs are reconciled from the worn set, not applied here.
 ///
 /// At most one item is collected per frame (`break` after the first, matching
 /// [`pickup_held_item_system`](super::pickup::pickup_held_item_system)); the
@@ -94,46 +92,36 @@ pub fn spawn_world_item(commands: &mut Commands, item: WorldItem) {
 pub fn collect_world_items(
     mut commands: Commands,
     controlled: Res<ControlledSubject>,
-    mut bodies: Query<(
-        &BodyKinematics,
-        &mut ActionSet,
-        Option<&mut WornEquipment>,
-        Option<&ActorMoveset>,
-    )>,
+    mut bodies: Query<(&BodyKinematics, Option<&mut WornEquipment>)>,
     items: Query<(Entity, &WorldItem)>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((kin, mut action_set, worn, moveset)) = bodies.get_mut(subject) else {
+    let Ok((kin, worn)) = bodies.get_mut(subject) else {
         return;
     };
     let body_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
-    let current = moveset.map(|m| &m.0);
 
     for (item_entity, item) in &items {
         if !body_aabb.strict_intersects(item.aabb()) {
             continue;
         }
         match &item.payload {
+            // Collecting RECORDS the row and nothing else. Any verb the row grants
+            // is applied by `reconcile_equipment_grants`, which derives the live
+            // action set + moveset from identity + worn equipment. Pickup used to
+            // apply grants itself, which made it one of two places that could
+            // change a body's action set — and the only one that could add a verb
+            // but never remove one. Now there is exactly one derivation, and a hit
+            // that spends a granting row revokes its verb on the same path this
+            // pickup granted it.
             WorldItemPayload::Equip(row) => match worn {
-                // Already wearing a set: equip in place.
-                Some(mut worn) => {
-                    if let Some(rebuilt) =
-                        equip_equipment_row(&mut action_set, &mut worn, current, row.clone())
-                    {
-                        commands.entity(subject).insert(ActorMoveset(rebuilt));
-                    }
-                }
-                // No worn set yet: build one, equip into it, attach it.
+                Some(mut worn) => worn.equip(row.clone()),
                 None => {
-                    let mut fresh = WornEquipment::default();
-                    let rebuilt =
-                        equip_equipment_row(&mut action_set, &mut fresh, current, row.clone());
-                    commands.entity(subject).insert(fresh);
-                    if let Some(rebuilt) = rebuilt {
-                        commands.entity(subject).insert(ActorMoveset(rebuilt));
-                    }
+                    commands
+                        .entity(subject)
+                        .insert(WornEquipment::new(vec![row.clone()]));
                 }
             },
         }
@@ -171,7 +159,7 @@ mod tests {
         let mut app = App::new();
         let body = app
             .world_mut()
-            .spawn((kin(pos), ActionSet::peaceful()))
+            .spawn(kin(pos))
             .id();
         app.insert_resource(ControlledSubject(Some(body)));
         app.add_systems(Update, collect_world_items);
@@ -242,20 +230,16 @@ mod tests {
         );
     }
 
-    /// A granting row rebuilds the moveset on collect — the WorldItem primitive
-    /// is the first LIVE caller of the equip contract, so this proves the
-    /// grant path, not just the read-time-only armor path.
+    /// A granting row is RECORDED by collect; applying its verb belongs to the
+    /// equipment reconcile, so the pickup itself stays a pure "touch → worn".
     #[test]
-    fn collecting_a_granting_row_rebuilds_the_moveset() {
+    fn collecting_a_granting_row_records_it_in_the_worn_set() {
         use ambition_characters::brain::action_set::RangedActionSpec;
         let (mut app, body) = app_with_subject(ae::Vec2::ZERO);
         let row = EquipmentRow {
             id: "spark".into(),
             modifiers: Vec::new(),
-            grants: vec![EquipmentGrant::Ranged(RangedActionSpec::Bolt {
-                speed: 400.0,
-                damage: 5,
-            })],
+            grants: vec![EquipmentGrant::Ranged(RangedActionSpec::bolt(400.0, 5))],
             on_hit: None,
         };
         app.world_mut().spawn(WorldItem::equipping(
@@ -266,9 +250,10 @@ mod tests {
 
         app.update();
 
-        assert!(
-            app.world().get::<ActorMoveset>(body).is_some(),
-            "a granting row's collect installs a rebuilt moveset"
-        );
+        let worn = app
+            .world()
+            .get::<WornEquipment>(body)
+            .expect("collecting a granting row still records it");
+        assert!(worn.wears("spark"), "the granting row is worn");
     }
 }

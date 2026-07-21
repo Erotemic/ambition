@@ -830,10 +830,7 @@ pub(super) fn spawn_boss_with_overrides(
     // one-slot ActionSet special route stays empty and cannot double-trigger it.
     let _ = encounter_id; // resolved upstream via `boss.behavior`
     let boss_action_set = ambition_characters::brain::ActionSet {
-        ranged: Some(ambition_characters::brain::RangedActionSpec::Bolt {
-            speed: 380.0,
-            damage: 1,
-        }),
+        ranged: Some(ambition_characters::brain::RangedActionSpec::bolt(380.0, 1)),
         special: None,
         move_style: ambition_characters::brain::MoveStyleSpec::Walk,
         ..Default::default()

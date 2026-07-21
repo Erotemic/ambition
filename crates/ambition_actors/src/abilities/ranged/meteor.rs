@@ -133,6 +133,9 @@ pub fn fire_meteor_system(
                     owner_id: "player_meteor".into(),
                     gravity: METEOR_GRAVITY,
                     visual_id: String::new(),
+                    // Straight volley: this ability authors no bounce.
+                    bounces: 0,
+                    bounce_on_world_contact: false,
                 }],
             },
         });

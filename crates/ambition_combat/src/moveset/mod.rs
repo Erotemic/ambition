@@ -851,7 +851,7 @@ pub fn dispatch_move_events(
                 let Ok((actions_set, control, worn)) = ranged_owners.get(ev.owner) else {
                     continue;
                 };
-                let Some(spec) = actions_set.ranged else {
+                let Some(spec) = actions_set.ranged.clone() else {
                     continue; // owner has no ranged weapon — the move fires nothing
                 };
                 // A3 trigger-resolve: fold worn equipment modifiers into THIS shot's

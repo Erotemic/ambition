@@ -324,10 +324,10 @@ fn melee_from_preset(p: MeleePreset) -> MeleeActionSpec {
 
 fn ranged_from_preset(p: RangedPreset) -> RangedActionSpec {
     match p {
-        RangedPreset::Rock { speed, damage } => RangedActionSpec::Rock { speed, damage },
-        RangedPreset::Arrow { speed, damage } => RangedActionSpec::Arrow { speed, damage },
-        RangedPreset::Pistol { speed, damage } => RangedActionSpec::Pistol { speed, damage },
-        RangedPreset::Bolt { speed, damage } => RangedActionSpec::Bolt { speed, damage },
+        RangedPreset::Rock { speed, damage } => RangedActionSpec::rock(speed, damage),
+        RangedPreset::Arrow { speed, damage } => RangedActionSpec::arrow(speed, damage),
+        RangedPreset::Pistol { speed, damage } => RangedActionSpec::pistol(speed, damage),
+        RangedPreset::Bolt { speed, damage } => RangedActionSpec::bolt(speed, damage),
     }
 }
 

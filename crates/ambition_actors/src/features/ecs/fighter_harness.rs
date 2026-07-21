@@ -108,10 +108,7 @@ impl FighterHarness {
             &[],
         );
         let action_set = ActionSet {
-            ranged: Some(RangedActionSpec::Rock {
-                speed: 300.0,
-                damage: 1,
-            }),
+            ranged: Some(RangedActionSpec::rock(300.0, 1)),
             ..ActionSet::peaceful()
         };
         let body = app
@@ -235,10 +232,7 @@ mod tests {
     #[test]
     fn fire_frame_resolves_to_one_ranged_request() {
         let action_set = ActionSet {
-            ranged: Some(RangedActionSpec::Rock {
-                speed: 300.0,
-                damage: 1,
-            }),
+            ranged: Some(RangedActionSpec::rock(300.0, 1)),
             ..ActionSet::peaceful()
         };
         let requests = ambition_characters::brain::action_set::resolve(

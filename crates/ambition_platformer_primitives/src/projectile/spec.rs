@@ -72,6 +72,12 @@ pub struct EnemyProjectileSpawn {
     /// via `ambition_projectiles::ProjectileVisualCatalog`) and the render layer
     /// resolves it. The empty string is the unspecified / generic default.
     pub visual_id: String,
+    /// How many valid support-face landings this shot may bounce off before it
+    /// expires. Pairs with [`Self::bounce_on_world_contact`]; both default to the
+    /// straight-and-dies-on-contact volley when a firer authors nothing.
+    pub bounces: u8,
+    /// Whether world contact bounces this shot (vs. expiring it).
+    pub bounce_on_world_contact: bool,
 }
 
 #[cfg(test)]

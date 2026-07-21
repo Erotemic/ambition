@@ -38,21 +38,17 @@ pub fn read_gameplay_control_frame_with_settings(
         raw_move.y,
         controls.left_stick_deadzone,
     );
-    let mut axis = bevy::math::Vec2::new(deadzoned_x, deadzoned_y);
+    let axis = bevy::math::Vec2::new(deadzoned_x, deadzoned_y);
 
-    // Walk modifier: Shift on keyboard, LT2 on gamepad. Cardinal / D-pad input
-    // arrives at unit magnitude (run); the modifier caps the move vector so
-    // digital input becomes walk speed. Analog sticks already pace via
-    // magnitude — capping at WALK_FACTOR only kicks in when the stick is pushed
-    // past walk speed, so LT2 acts as a "max-speed governor" for stick users
-    // while letting them still creep slowly without the modifier.
-    if actions.pressed(&SandboxAction::Modifier) {
-        const WALK_FACTOR: f32 = 0.45;
-        let magnitude = axis.length();
-        if magnitude > WALK_FACTOR {
-            axis *= WALK_FACTOR / magnitude;
-        }
-    }
+    // The modifier slot is reported RAW — held level and press edge — and the
+    // adapter assigns it no meaning. It used to cap the move vector to a
+    // hardcoded 0.45 "walk" governor right here, which destroyed the
+    // information: nothing downstream could tell "0.45 because the modifier is
+    // down" from "0.45 because the stick is half-deflected", and no content
+    // could give the slot a different meaning. Now the state travels intact to
+    // the simulation and a body's own rules decide what sustaining it does.
+    let modifier_held = actions.pressed(&SandboxAction::Modifier);
+    let modifier_pressed = actions.just_pressed(&SandboxAction::Modifier);
     let left_pressed = actions.just_pressed(&SandboxAction::MoveLeft);
     let right_pressed = actions.just_pressed(&SandboxAction::MoveRight);
     let up_pressed = actions.just_pressed(&SandboxAction::MoveUp);
@@ -127,6 +123,8 @@ pub fn read_gameplay_control_frame_with_settings(
         projectile_held: actions.pressed(&SandboxAction::Projectile),
         projectile_released: actions.just_released(&SandboxAction::Projectile),
         shield_held: actions.pressed(&SandboxAction::QuickAction),
+        modifier_held,
+        modifier_pressed,
         aim_x: aim_x_raw,
         // Match the sim's +Y-down convention.
         aim_y: -aim_y,

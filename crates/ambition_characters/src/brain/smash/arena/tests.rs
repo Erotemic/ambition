@@ -18,10 +18,7 @@ fn striker_actions() -> ActionSet {
 fn winged_actions() -> ActionSet {
     ActionSet {
         melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
-        ranged: Some(RangedActionSpec::Rock {
-            speed: 320.0,
-            damage: 2,
-        }),
+        ranged: Some(RangedActionSpec::rock(320.0, 2)),
         ..ActionSet::peaceful()
     }
 }

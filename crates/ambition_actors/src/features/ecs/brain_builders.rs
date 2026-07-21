@@ -16,6 +16,7 @@ use ambition_characters::brain::{
     SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,
     WandererCfg,
 };
+use ambition_characters::brain::action_set::RangedStyle;
 
 /// Build the enemy's durable combat capability kit from archetype data.
 ///
@@ -426,7 +427,10 @@ mod tests {
         assert!(
             matches!(
                 set.ranged,
-                Some(ambition_characters::brain::RangedActionSpec::Rock { .. })
+                Some(ambition_characters::brain::RangedActionSpec {
+                    style: RangedStyle::Rock,
+                    ..
+                })
             ),
             "medium_striker should carry a ranged Rock verb; got {:?}",
             set.ranged

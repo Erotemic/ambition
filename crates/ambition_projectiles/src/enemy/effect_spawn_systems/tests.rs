@@ -22,6 +22,9 @@ fn spawn_request(owner_id: &str, visual_id: &str) -> ambition_vfx::EffectRequest
                 owner_id: owner_id.into(),
                 gravity: 0.0,
                 visual_id: visual_id.into(),
+                // Straight shot: this ability authors no bounce.
+                bounces: 0,
+                bounce_on_world_contact: false,
             }],
         },
     }

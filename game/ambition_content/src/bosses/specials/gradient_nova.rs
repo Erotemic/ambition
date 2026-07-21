@@ -101,6 +101,9 @@ pub fn spawn_gradient_nova_from_special_messages(
                         owner_id: format!("{}:{}", NOVA_OWNER_PREFIX, boss.config.id),
                         gravity: 0.0,
                         visual_id: String::new(),
+                        // Straight shot: this ability authors no bounce.
+                        bounces: 0,
+                        bounce_on_world_contact: false,
                     }],
                 },
             });

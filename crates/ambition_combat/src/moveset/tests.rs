@@ -1222,7 +1222,7 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
 #[test]
 fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     use ambition_characters::actor::control::ActorFireRequest;
-    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
+    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec, RangedStyle};
     use ambition_characters::brain::{ActorActionMessage, ActorControl};
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
@@ -1247,10 +1247,7 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
                 facing: 1.0,
             },
             ActionSet {
-                ranged: Some(RangedActionSpec::Bolt {
-                    speed: 240.0,
-                    damage: 3,
-                }),
+                ranged: Some(RangedActionSpec::bolt(240.0, 3)),
                 ..Default::default()
             },
             control,
@@ -1279,7 +1276,7 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
         ActionRequest::Ranged {
             spec, origin, dir, ..
         } => {
-            assert!(matches!(spec, RangedActionSpec::Bolt { damage: 3, .. }));
+            assert!(matches!(spec, RangedActionSpec { style: RangedStyle::Bolt, damage: 3, .. }));
             assert_eq!(*origin, ae::Vec2::new(100.0, 50.0), "origin = owner pos");
             assert_eq!(*dir, ae::Vec2::new(0.6, -0.8), "dir SAMPLED from live aim");
         }
@@ -1300,10 +1297,7 @@ fn a_fire_intent_triggers_the_ranged_move() {
     let contract = build_actor_moveset(
         None,
         None,
-        Some(&RangedActionSpec::Bolt {
-            speed: 240.0,
-            damage: 3,
-        }),
+        Some(&RangedActionSpec::bolt(240.0, 3)),
         None,
     )
     .expect("a ranged weapon → a moveset with a fire move");
@@ -1364,10 +1358,7 @@ fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
     let contract = build_actor_moveset(
         None,
         Some(&MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
-        Some(&RangedActionSpec::Rock {
-            speed: 300.0,
-            damage: 1,
-        }),
+        Some(&RangedActionSpec::rock(300.0, 1)),
         None,
     )
     .expect("melee + ranged → a moveset");
@@ -1642,10 +1633,7 @@ fn a3_flower_grant_adds_and_removes_a_ranged_verb_in_the_derived_moveset() {
 
     let flower = EquipmentRow {
         id: "fire_flower".to_string(),
-        grants: vec![EquipmentGrant::Ranged(RangedActionSpec::Bolt {
-            speed: 420.0,
-            damage: 6,
-        })],
+        grants: vec![EquipmentGrant::Ranged(RangedActionSpec::bolt(420.0, 6))],
         ..Default::default()
     };
     let mut worn = WornEquipment::default();
@@ -1719,10 +1707,7 @@ fn a3_equip_equipment_row_is_read_time_for_plain_rows_and_rebuilds_for_grants() 
         .insert("special".to_string(), "chain".to_string());
     let blossom = EquipmentRow {
         id: "spark_blossom".to_string(),
-        grants: vec![EquipmentGrant::Ranged(RangedActionSpec::Bolt {
-            speed: 420.0,
-            damage: 6,
-        })],
+        grants: vec![EquipmentGrant::Ranged(RangedActionSpec::bolt(420.0, 6))],
         ..Default::default()
     };
     let rebuilt = equip_equipment_row(&mut actions, &mut worn, Some(&current), blossom)

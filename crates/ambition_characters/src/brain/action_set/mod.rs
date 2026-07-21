@@ -48,6 +48,30 @@ pub struct ActionSet {
     pub special: Option<SpecialActionSpec>,
 }
 
+/// **A body's kit before equipment** — what its IDENTITY alone grants.
+///
+/// Worn equipment may grant action verbs, and a grant has to be revocable: a row
+/// that is consumed, downgraded, or unequipped must take its verb with it. That is
+/// only possible against a known un-granted baseline, because "the live
+/// `ActionSet` minus this row's grants" is not recoverable once two rows have
+/// overlaid the same slot.
+///
+/// So the identity derivation writes what it produced HERE, and the live
+/// [`ActionSet`] / `ActorMoveset` become a pure function of
+/// `identity + worn equipment`, recomputed whenever either side changes. Any
+/// equipment mutation — from a pickup, a menu, or a hit that spends armor and
+/// splices in a downgrade — reconciles through that one derivation, for any body
+/// and any controller.
+#[derive(Component, Clone, Debug, Default)]
+pub struct IdentityKit {
+    /// The action set the body's identity derived, before any grant overlay.
+    pub action_set: ActionSet,
+    /// The moveset the body's identity derived, before any granted verb overlay.
+    /// Held as the derivation base so a REVOKED verb's move disappears with it
+    /// rather than lingering in an overlay-only rebuild.
+    pub moveset: ambition_entity_catalog::MovesetContract,
+}
+
 impl ActionSet {
     /// "I don't attack" baseline. Used for peaceful NPCs, puppy
     /// slugs, and other passive actors.
@@ -131,8 +155,8 @@ impl HeldItemSpec {
         if let Some(melee) = self.melee {
             actions.melee = Some(melee);
         }
-        if let Some(ranged) = self.ranged {
-            actions.ranged = Some(ranged);
+        if let Some(ranged) = &self.ranged {
+            actions.ranged = Some(ranged.clone());
         }
     }
 
@@ -158,10 +182,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
             HeldItemSpec {
                 id: "gun_sword".into(),
                 melee: None,
-                ranged: Some(RangedActionSpec::Bolt {
-                    speed: 500.0,
-                    damage: 2,
-                }),
+                ranged: Some(RangedActionSpec::bolt(500.0, 2)),
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
@@ -170,10 +191,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
             HeldItemSpec {
                 id: "gun_sword_heavy".into(),
                 melee: None,
-                ranged: Some(RangedActionSpec::Bolt {
-                    speed: 500.0,
-                    damage: 3,
-                }),
+                ranged: Some(RangedActionSpec::bolt(500.0, 3)),
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
@@ -307,10 +325,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
             HeldItemSpec {
                 id: "fireball".into(),
                 melee: None,
-                ranged: Some(RangedActionSpec::Bolt {
-                    speed: 440.0,
-                    damage: 3,
-                }),
+                ranged: Some(RangedActionSpec::bolt(440.0, 3)),
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
@@ -382,41 +397,147 @@ pub enum MeleeActionSpec {
     PunchWeak(PunchSpec),
 }
 
-/// Concrete ranged actions an actor can perform.
+/// How a shot FLIES once it leaves the barrel — the authored physics of a
+/// projectile, independent of who fired it.
+///
+/// Ranged actions used to describe only how fast a shot travels and how much it
+/// hurts; every other property of the flight was a constant at the spawn site, so
+/// two different abilities firing through the same pool were forced to fly
+/// identically. This is the authoring seam for the rest: content states the arc,
+/// the bounce policy, and the lifetime it wants, and the shared projectile body
+/// steps exactly that. Nothing here names an ability or a firer.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
-pub enum RangedActionSpec {
-    /// Throws a rock-shaped projectile (used by skirmishers /
-    /// peaceful-turned-hostile NPCs).
-    Rock { speed: f32, damage: i32 },
-    /// Fires an arrow. Slower windup than Rock, more damage.
-    Arrow { speed: f32, damage: i32 },
-    /// Fires a pistol shot (used by pirate skirmishers).
-    Pistol { speed: f32, damage: i32 },
-    /// Fires a magical bolt (used by bosses).
-    Bolt { speed: f32, damage: i32 },
+pub struct ProjectileFlight {
+    /// Downward acceleration along gravity, px/s². `0` flies straight.
+    pub gravity: f32,
+    /// How many times the shot may bounce off a valid support face before it
+    /// expires. `0` with [`Self::bounce_on_world_contact`] false is a shot that
+    /// dies on first contact.
+    pub bounces: u8,
+    /// Whether world contact bounces the shot (vs. expiring it).
+    pub bounce_on_world_contact: bool,
+    /// Seconds before the shot expires on its own.
+    pub max_lifetime: f32,
+    /// Half-extent of the shot's body.
+    pub half_extent: ae::Vec2,
 }
 
-impl RangedActionSpec {
-    /// Effective launch speed. The brain emits `frame.fire =
-    /// Some(dir)`; the EFFECTS stage reads this to set the
-    /// projectile speed.
-    pub fn speed(self) -> f32 {
-        match self {
-            Self::Rock { speed, .. }
-            | Self::Arrow { speed, .. }
-            | Self::Pistol { speed, .. }
-            | Self::Bolt { speed, .. } => speed,
+impl ProjectileFlight {
+    /// A straight, non-bouncing shot — the historical default every ranged pool
+    /// hardcoded before flight was authorable.
+    pub const STRAIGHT: Self = Self {
+        gravity: 0.0,
+        bounces: 0,
+        bounce_on_world_contact: false,
+        max_lifetime: 2.4,
+        half_extent: ae::Vec2::new(10.0, 8.0),
+    };
+
+    /// An arcing shot that skips off floors — gravity plus a bounce budget.
+    pub const fn arcing(gravity: f32, bounces: u8) -> Self {
+        Self {
+            gravity,
+            bounces,
+            bounce_on_world_contact: true,
+            ..Self::STRAIGHT
         }
     }
 
+    pub const fn with_lifetime(mut self, seconds: f32) -> Self {
+        self.max_lifetime = seconds;
+        self
+    }
+
+    pub const fn with_half_extent(mut self, half_extent: ae::Vec2) -> Self {
+        self.half_extent = half_extent;
+        self
+    }
+}
+
+/// The CADENCE archetype of a ranged action — how long the body takes to draw and
+/// recover. Distinct from the shot's flight: a slow-drawn bow and a snap pistol
+/// can fire projectiles that behave identically, and one archetype's cadence can
+/// launch wildly different shots.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Deserialize)]
+pub enum RangedStyle {
+    /// Thrown rock (skirmishers / peaceful-turned-hostile NPCs).
+    Rock,
+    /// Drawn arrow. Slower windup than Rock, more damage.
+    Arrow,
+    /// Pistol snap-shot (pirate skirmishers).
+    Pistol,
+    /// Magical bolt (bosses).
+    #[default]
+    Bolt,
+}
+
+/// A concrete ranged action: a cadence, a shot, and optionally how that shot flies
+/// and what it looks like.
+///
+/// `flight` / `visual` are `None` for "whatever the firing pool's default is",
+/// which is what every ranged action did before they existed. Authoring either one
+/// is how content gives a granted ranged verb its own identity without the
+/// projectile stepper learning a single ability name.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct RangedActionSpec {
+    pub style: RangedStyle,
+    /// Launch speed. The brain emits `frame.fire = Some(dir)`; the EFFECTS stage
+    /// reads this to set the projectile speed.
+    pub speed: f32,
     /// Damage on hit.
-    pub fn damage(self) -> i32 {
-        match self {
-            Self::Rock { damage, .. }
-            | Self::Arrow { damage, .. }
-            | Self::Pistol { damage, .. }
-            | Self::Bolt { damage, .. } => damage,
+    pub damage: i32,
+    /// Authored flight physics. `None` = the pool's straight default.
+    #[serde(default)]
+    pub flight: Option<ProjectileFlight>,
+    /// Authored `ProjectileVisualId`. `None` = the firer's default look.
+    #[serde(default)]
+    pub visual: Option<String>,
+}
+
+impl RangedActionSpec {
+    pub fn new(style: RangedStyle, speed: f32, damage: i32) -> Self {
+        Self {
+            style,
+            speed,
+            damage,
+            flight: None,
+            visual: None,
         }
+    }
+
+    pub fn rock(speed: f32, damage: i32) -> Self {
+        Self::new(RangedStyle::Rock, speed, damage)
+    }
+    pub fn arrow(speed: f32, damage: i32) -> Self {
+        Self::new(RangedStyle::Arrow, speed, damage)
+    }
+    pub fn pistol(speed: f32, damage: i32) -> Self {
+        Self::new(RangedStyle::Pistol, speed, damage)
+    }
+    pub fn bolt(speed: f32, damage: i32) -> Self {
+        Self::new(RangedStyle::Bolt, speed, damage)
+    }
+
+    /// Author how this action's shot flies.
+    pub fn with_flight(mut self, flight: ProjectileFlight) -> Self {
+        self.flight = Some(flight);
+        self
+    }
+
+    /// Author the `ProjectileVisualId` this action's shot carries.
+    pub fn with_visual(mut self, visual: impl Into<String>) -> Self {
+        self.visual = Some(visual.into());
+        self
+    }
+
+    /// Effective launch speed.
+    pub fn speed(&self) -> f32 {
+        self.speed
+    }
+
+    /// Damage on hit.
+    pub fn damage(&self) -> i32 {
+        self.damage
     }
 }
 
@@ -749,11 +870,11 @@ impl ActionRequest {
                 MeleeActionSpec::Bite(_) => "melee_bite",
                 MeleeActionSpec::PunchWeak(_) => "melee_punch_weak",
             },
-            Self::Ranged { spec, .. } => match spec {
-                RangedActionSpec::Rock { .. } => "ranged_rock",
-                RangedActionSpec::Arrow { .. } => "ranged_arrow",
-                RangedActionSpec::Pistol { .. } => "ranged_pistol",
-                RangedActionSpec::Bolt { .. } => "ranged_bolt",
+            Self::Ranged { spec, .. } => match spec.style {
+                RangedStyle::Rock => "ranged_rock",
+                RangedStyle::Arrow => "ranged_arrow",
+                RangedStyle::Pistol => "ranged_pistol",
+                RangedStyle::Bolt => "ranged_bolt",
             },
             Self::Special { spec, .. } => match spec {
                 // Open content special — the key carries the specific
@@ -795,7 +916,7 @@ pub fn resolve(
         }
     }
     if let Some(req) = frame.fire {
-        if let Some(spec) = actions.ranged {
+        if let Some(spec) = actions.ranged.clone() {
             // Today extracts `dir` off the engine's
             // `ActorFireRequest` for compat with the existing
             // enemy/boss callers. When `frame.fire` is narrowed to

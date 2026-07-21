@@ -170,6 +170,10 @@ pub fn tick_player_brain_from_control(
     out.blink_pressed = c.blink_pressed;
     out.blink_held = c.blink_held;
     out.blink_released = c.blink_released;
+    // The modifier slot crosses the seam UNINTERPRETED — level and edge both. The
+    // brain does not decide what sustaining it means; a body's own rules do.
+    out.modifier_held = c.modifier_held;
+    out.modifier_pressed = c.modifier_pressed;
     // Blink steers with the LOCOMOTION stick, but the two forms use different
     // frame policies, resolved here (the seam) into WORLD space so the movement
     // engine stays frame-agnostic. Quick blink follows the movement mode (already

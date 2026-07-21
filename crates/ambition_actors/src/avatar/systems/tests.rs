@@ -130,7 +130,7 @@ fn player_action_set_special_disabled_when_shield_ability_off() {
 #[test]
 fn player_action_set_has_full_moveset_with_sandbox_all_abilities() {
     use ambition_characters::brain::{
-        ActionSet, MeleeActionSpec, RangedActionSpec, SpecialActionSpec,
+        action_set::RangedStyle, ActionSet, MeleeActionSpec, RangedActionSpec, SpecialActionSpec,
     };
     let player = crate::avatar::primary_player_scratch(
         ae::Vec2::new(0.0, 0.0),
@@ -144,7 +144,7 @@ fn player_action_set_has_full_moveset_with_sandbox_all_abilities() {
     assert!(matches!(action_set.melee, Some(MeleeActionSpec::Swipe(_))));
     assert!(matches!(
         action_set.ranged,
-        Some(RangedActionSpec::Bolt { .. })
+        Some(RangedActionSpec { style: RangedStyle::Bolt, .. })
     ));
     assert!(matches!(
         action_set.special,
@@ -211,7 +211,12 @@ fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
     assert_eq!(ranged.len(), 1, "expected exactly one Ranged message");
     match ranged[0].request.clone() {
         ActionRequest::Ranged {
-            spec: RangedActionSpec::Bolt { speed, .. },
+            spec:
+                ambition_characters::brain::RangedActionSpec {
+                    style: ambition_characters::brain::action_set::RangedStyle::Bolt,
+                    speed,
+                    ..
+                },
             dir,
             dir_policy,
             ..

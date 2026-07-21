@@ -24,7 +24,7 @@
 //! call, so a CPU/RL policy wearing a mushroom is scaled through the same seam a
 //! human is (the relativity principle).
 
-use crate::brain::action_set::{ActionSet, MeleeActionSpec, RangedActionSpec};
+use crate::brain::action_set::{ActionSet, MeleeActionSpec, RangedActionSpec, RangedStyle};
 use bevy::ecs::component::Component;
 
 /// Body-param keys A3 folds worn modifiers against (scope [`ModifierScope::Body`]).
@@ -124,7 +124,7 @@ impl ModifierScope {
 /// A capability a row confers on equip and revokes on unequip. Grants are ordinary
 /// `ActionSet` verbs — the flower grants a ranged verb, from which the moveset
 /// derives its `simple_ranged` move — never a bespoke mechanism.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub enum EquipmentGrant {
     /// Grant a ranged verb (overlaid onto `ActionSet.ranged`).
     Ranged(RangedActionSpec),
@@ -137,7 +137,7 @@ impl EquipmentGrant {
     /// wielded weapon. Applied on equip; the caller re-derives the moveset after.
     pub fn apply_to_action_set(&self, actions: &mut ActionSet) {
         match self {
-            EquipmentGrant::Ranged(r) => actions.ranged = Some(*r),
+            EquipmentGrant::Ranged(r) => actions.ranged = Some(r.clone()),
             EquipmentGrant::Melee(m) => actions.melee = Some(*m),
         }
     }
@@ -294,11 +294,14 @@ pub fn resolved_ranged(
     let damage = resolved_param(base.damage() as f32, worn, ranged_param::DAMAGE, scope)
         .round()
         .max(0.0) as i32;
-    match base {
-        RangedActionSpec::Rock { .. } => RangedActionSpec::Rock { speed, damage },
-        RangedActionSpec::Arrow { .. } => RangedActionSpec::Arrow { speed, damage },
-        RangedActionSpec::Pistol { .. } => RangedActionSpec::Pistol { speed, damage },
-        RangedActionSpec::Bolt { .. } => RangedActionSpec::Bolt { speed, damage },
+    // Only the folded params change; the action's cadence, authored flight, and
+    // visual identity ride along untouched. Rebuilding variant-by-variant used to
+    // preserve just speed/damage, which silently dropped everything else a spec
+    // carried the moment a worn row scaled it.
+    RangedActionSpec {
+        speed,
+        damage,
+        ..base
     }
 }
 
@@ -543,13 +546,10 @@ mod tests {
     fn a_grant_overlays_the_action_set_slot_it_names() {
         let mut actions = ActionSet::peaceful();
         assert!(actions.ranged.is_none());
-        let grant = EquipmentGrant::Ranged(RangedActionSpec::Bolt {
-            speed: 400.0,
-            damage: 8,
-        });
+        let grant = EquipmentGrant::Ranged(RangedActionSpec::bolt(400.0, 8));
         grant.apply_to_action_set(&mut actions);
         assert!(
-            matches!(actions.ranged, Some(RangedActionSpec::Bolt { .. })),
+            matches!(actions.ranged, Some(RangedActionSpec { style: RangedStyle::Bolt, .. })),
             "the flower's ranged verb lands in the action set"
         );
     }
@@ -592,10 +592,7 @@ mod tests {
     fn apply_grants_overlays_every_worn_grant_and_unequip_is_its_inverse() {
         let flower = EquipmentRow {
             id: "fire_flower".to_string(),
-            grants: vec![EquipmentGrant::Ranged(RangedActionSpec::Bolt {
-                speed: 420.0,
-                damage: 6,
-            })],
+            grants: vec![EquipmentGrant::Ranged(RangedActionSpec::bolt(420.0, 6))],
             ..Default::default()
         };
         // Equip: the base set had no ranged verb; the grant confers one.
@@ -634,10 +631,7 @@ mod tests {
             ],
             ..Default::default()
         }]);
-        let base = RangedActionSpec::Bolt {
-            speed: 400.0,
-            damage: 6,
-        };
+        let base = RangedActionSpec::bolt(400.0, 6);
         let shot = resolved_ranged(base, &worn, "fireball", "ranged");
         assert_eq!(shot.damage(), 9, "×1.5 on 6 damage");
         assert_eq!(shot.speed(), 460.0, "+60 on 400 speed via the ranged verb");

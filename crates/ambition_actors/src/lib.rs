@@ -81,6 +81,7 @@ pub mod dev;
 pub mod dialog;
 pub mod encounter;
 pub mod enemy_projectile;
+pub mod equipment;
 pub mod items;
 // Stable facade for dialogue shop bindings.
 pub use items::shop;

@@ -157,6 +157,9 @@ pub fn update_sentries(
                     owner_id: "player_sentry".into(),
                     gravity: 0.0,
                     visual_id: String::new(),
+                    // Straight volley: this ability authors no bounce.
+                    bounces: 0,
+                    bounce_on_world_contact: false,
                 }],
             },
         });

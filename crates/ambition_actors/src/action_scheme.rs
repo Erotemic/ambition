@@ -95,11 +95,18 @@ impl Plugin for ActionSchemePlugin {
         // from the immediate authorities directly), but keeping the cache
         // same-tick-honest means any observer reading `ActorActionScheme` sees the
         // same thing gameplay and the HUD do.
+        // The equipment reconcile sits BETWEEN the two: identity derives the
+        // baseline, equipment overlays its grants onto it, and only then is the
+        // scheme cached — so a verb gained (or lost) with a row shows up in the
+        // same tick's scheme rather than lagging a frame behind the kit.
         app.add_systems(
             sim,
-            reconcile_action_schemes
-                .in_set(SandboxSet::PlayerInput)
-                .after(crate::avatar::apply_worn_character_gameplay),
+            (
+                crate::equipment::reconcile_equipment_grants
+                    .after(crate::avatar::apply_worn_character_gameplay),
+                reconcile_action_schemes.after(crate::equipment::reconcile_equipment_grants),
+            )
+                .in_set(SandboxSet::PlayerInput),
         );
     }
 }

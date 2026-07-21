@@ -122,6 +122,9 @@ pub fn spawn_echo_fan_from_special_messages(
                         owner_id: format!("{}:{}", ECHO_FAN_OWNER_PREFIX, boss.config.id),
                         gravity: 0.0,
                         visual_id: String::new(),
+                        // Straight shot: this ability authors no bounce.
+                        bounces: 0,
+                        bounce_on_world_contact: false,
                     }],
                 },
             });

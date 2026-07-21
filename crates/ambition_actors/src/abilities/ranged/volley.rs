@@ -124,6 +124,9 @@ pub fn fire_volley_system(
                     owner_id: "player_volley".into(),
                     gravity: 0.0,
                     visual_id: String::new(),
+                    // Straight volley: this ability authors no bounce.
+                    bounces: 0,
+                    bounce_on_world_contact: false,
                 }],
             },
         });

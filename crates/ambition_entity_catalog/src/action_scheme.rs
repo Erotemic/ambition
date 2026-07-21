@@ -53,13 +53,21 @@ pub enum ControlSlot {
     Utility,
     /// Quick-action slot — shield / guard.
     QuickAction,
+    /// Modifier slot — a slot whose SUSTAIN is the point. Content binds a
+    /// technique to holding it (a locomotion mode, a stance) and may bind a
+    /// momentary action to its press edge. The engine reserves the position and
+    /// carries the state; naming what it does is the character's job, which is why
+    /// a scheme may label it `"Run"` on one body and `"Run / Spark"` on the same
+    /// body once its kit grows.
+    Modifier,
 }
 
 /// The canonical presentation order of the gameplay slots. Iterating this
 /// gives a deterministic scheme ordering independent of insertion order or
 /// any map hashing (query-order discipline).
-pub const CANONICAL_SLOT_ORDER: [ControlSlot; 9] = [
+pub const CANONICAL_SLOT_ORDER: [ControlSlot; 10] = [
     ControlSlot::Jump,
+    ControlSlot::Modifier,
     ControlSlot::Attack,
     ControlSlot::Special,
     ControlSlot::Projectile,

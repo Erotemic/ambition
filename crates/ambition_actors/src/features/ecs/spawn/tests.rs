@@ -202,7 +202,10 @@ fn boss_spawn_attaches_brain_components() {
     assert!(
         matches!(
             action_set.ranged,
-            Some(ambition_characters::brain::RangedActionSpec::Bolt { .. })
+            Some(ambition_characters::brain::RangedActionSpec {
+                style: ambition_characters::brain::action_set::RangedStyle::Bolt,
+                ..
+            })
         ),
         "boss ActionSet should default to Bolt ranged",
     );

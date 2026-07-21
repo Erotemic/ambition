@@ -155,10 +155,7 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
         state: SkirmisherState::default(),
     });
     let mounted_action_set = ActionSet {
-        ranged: Some(RangedActionSpec::Bolt {
-            speed: 500.0,
-            damage: 2,
-        }),
+        ranged: Some(RangedActionSpec::bolt(500.0, 2)),
         ..Default::default()
     };
     let mount_pos = ae::Vec2::new(0.0, 0.0);

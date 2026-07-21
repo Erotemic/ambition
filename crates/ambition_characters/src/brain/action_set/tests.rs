@@ -106,10 +106,7 @@ fn resolve_returns_predictable_request_count_per_intent_subset() {
     // independent. Pins that the flat special arm is gone.
     let actions = ActionSet {
         melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
-        ranged: Some(RangedActionSpec::Bolt {
-            speed: 500.0,
-            damage: 1,
-        }),
+        ranged: Some(RangedActionSpec::bolt(500.0, 1)),
         special: Some(special_key("bubble_shield")),
         ..Default::default()
     };
@@ -191,10 +188,7 @@ fn resolve_empty_when_frame_has_no_action_intent() {
     // calls behind wants_any_action() can rely on it.
     let actions = ActionSet {
         melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
-        ranged: Some(RangedActionSpec::Bolt {
-            speed: 500.0,
-            damage: 1,
-        }),
+        ranged: Some(RangedActionSpec::bolt(500.0, 1)),
         special: Some(special_key("bubble_shield")),
         move_style: MoveStyleSpec::Walk,
     };
@@ -211,10 +205,7 @@ fn resolve_with_only_ranged_capability_ignores_melee_intent() {
     // capability gate so a brain that emits melee intent on
     // a ranged-only actor doesn't accidentally spawn a hitbox.
     let actions = ActionSet {
-        ranged: Some(RangedActionSpec::Bolt {
-            speed: 500.0,
-            damage: 1,
-        }),
+        ranged: Some(RangedActionSpec::bolt(500.0, 1)),
         ..Default::default()
     };
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
@@ -298,10 +289,7 @@ fn action_set_can_attack_detects_melee_or_ranged() {
     s.melee = Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT));
     assert!(s.can_attack());
     s.melee = None;
-    s.ranged = Some(RangedActionSpec::Bolt {
-        speed: 380.0,
-        damage: 1,
-    });
+    s.ranged = Some(RangedActionSpec::bolt(380.0, 1));
     assert!(s.can_attack());
     // Special alone doesn't count as "attacks".
     s.ranged = None;
@@ -390,10 +378,7 @@ fn resolve_two_actionsets_differ_by_capability() {
 #[test]
 fn resolve_fire_pressed_emits_ranged_request() {
     let actions = ActionSet {
-        ranged: Some(RangedActionSpec::Rock {
-            speed: 400.0,
-            damage: 1,
-        }),
+        ranged: Some(RangedActionSpec::rock(400.0, 1)),
         ..Default::default()
     };
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
@@ -421,10 +406,7 @@ fn resolve_fire_pressed_emits_ranged_request() {
 #[test]
 fn resolve_preserves_controlled_body_local_fire_policy() {
     let actions = ActionSet {
-        ranged: Some(RangedActionSpec::Bolt {
-            speed: 500.0,
-            damage: 1,
-        }),
+        ranged: Some(RangedActionSpec::bolt(500.0, 1)),
         ..Default::default()
     };
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
@@ -548,10 +530,7 @@ fn action_request_label_returns_per_variant_string() {
     assert_eq!(lunge.label(), "melee_lunge");
 
     let ranged = ActionRequest::Ranged {
-        spec: RangedActionSpec::Bolt {
-            speed: 380.0,
-            damage: 1,
-        },
+        spec: RangedActionSpec::bolt(380.0, 1),
         origin: ae::Vec2::ZERO,
         dir: ae::Vec2::new(1.0, 0.0),
         dir_policy: ae::GameplayFramePolicy::WorldSpace,
@@ -603,34 +582,22 @@ fn melee_spec_uniform_accessors_return_per_variant_fields() {
 #[test]
 fn ranged_spec_speed_accessor_returns_per_variant_speed() {
     assert_eq!(
-        RangedActionSpec::Rock {
-            speed: 410.0,
-            damage: 1
-        }
+        RangedActionSpec::rock(410.0, 1)
         .speed(),
         410.0
     );
     assert_eq!(
-        RangedActionSpec::Arrow {
-            speed: 520.0,
-            damage: 2
-        }
+        RangedActionSpec::arrow(520.0, 2)
         .speed(),
         520.0
     );
     assert_eq!(
-        RangedActionSpec::Pistol {
-            speed: 600.0,
-            damage: 1
-        }
+        RangedActionSpec::pistol(600.0, 1)
         .speed(),
         600.0
     );
     assert_eq!(
-        RangedActionSpec::Bolt {
-            speed: 380.0,
-            damage: 1
-        }
+        RangedActionSpec::bolt(380.0, 1)
         .speed(),
         380.0
     );
@@ -643,34 +610,22 @@ fn ranged_spec_damage_accessor_returns_per_variant_damage() {
     // the per-variant routing so a future field rename can't
     // silently return the wrong variant's damage.
     assert_eq!(
-        RangedActionSpec::Rock {
-            speed: 0.0,
-            damage: 1,
-        }
+        RangedActionSpec::rock(0.0, 1)
         .damage(),
         1,
     );
     assert_eq!(
-        RangedActionSpec::Arrow {
-            speed: 0.0,
-            damage: 3,
-        }
+        RangedActionSpec::arrow(0.0, 3)
         .damage(),
         3,
     );
     assert_eq!(
-        RangedActionSpec::Pistol {
-            speed: 0.0,
-            damage: 2,
-        }
+        RangedActionSpec::pistol(0.0, 2)
         .damage(),
         2,
     );
     assert_eq!(
-        RangedActionSpec::Bolt {
-            speed: 0.0,
-            damage: 4,
-        }
+        RangedActionSpec::bolt(0.0, 4)
         .damage(),
         4,
     );
@@ -686,10 +641,7 @@ fn resolve_multi_intent_emits_multi_request() {
             damage: 1,
             reach_px: 22.0,
         })),
-        ranged: Some(RangedActionSpec::Bolt {
-            speed: 380.0,
-            damage: 1,
-        }),
+        ranged: Some(RangedActionSpec::bolt(380.0, 1)),
         special: Some(special_key("boss_spotlight")),
         move_style: MoveStyleSpec::Float,
     };

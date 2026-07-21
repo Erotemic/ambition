@@ -1,13 +1,14 @@
 //! **Move authoring** — the build-time half of the Smash model: the functions that
 //! turn authored specs (`MeleeActionSpec`/`RangedActionSpec`), tunable params
 //! (`Simple{Melee,Ranged,Charge}Params`), and the `MovePrefabRegistry` into
-//! `MoveSpec`s, plus `build_actor_moveset` / `equip_equipment_row` which assemble an
+//! `MoveSpec`s, plus `build_actor_moveset` which assembles an
 //! actor's full `MovesetContract` from its catalog + worn equipment.
 //!
 //! Split out of the former `moveset.rs` for the D-B module-size gate. The runtime
 //! (`MovePlayback`, `advance_move_playback`, the systems) stays in `mod.rs`; this
 //! module shares its constants, imports, and component types via `use super::*`.
 use super::*;
+use ambition_characters::brain::action_set::RangedStyle;
 
 /// Convert an authored [`MeleeActionSpec`] into a data-driven `"attack"`
 /// [`MoveSpec`] — the melee subsumption (fable review §A1 / §3a). The swing's
@@ -217,11 +218,11 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
 pub fn fire_move_from_ranged(spec: &RangedActionSpec) -> MoveSpec {
     // Draw/settle timing per weapon kind — Arrow winds up slowest (per its doc),
     // Pistol snappiest. New authored defaults (ranged had none); tune later.
-    let (windup, recover) = match spec {
-        RangedActionSpec::Pistol { .. } => (0.08, 0.15),
-        RangedActionSpec::Rock { .. } => (0.12, 0.18),
-        RangedActionSpec::Bolt { .. } => (0.18, 0.20),
-        RangedActionSpec::Arrow { .. } => (0.28, 0.22),
+    let (windup, recover) = match spec.style {
+        RangedStyle::Pistol => (0.08, 0.15),
+        RangedStyle::Rock => (0.12, 0.18),
+        RangedStyle::Bolt => (0.18, 0.20),
+        RangedStyle::Arrow => (0.28, 0.22),
     };
     // Thin adapter over the `simple_ranged` engine prefab (A2). The projectile
     // still comes from the owner's live ActionSet.ranged at the fire event.
@@ -744,38 +745,3 @@ pub fn build_actor_moveset(
     }
 }
 
-/// Equip an A3 equipment row onto a body — the ONE equip contract a powerup pickup
-/// or a menu equip shares. Applies the row's grants to `action_set`, records the
-/// row in `worn`, and returns the re-derived moveset **only if the row granted a
-/// verb** (the caller inserts it as `ActorMoveset`). `current` is the body's
-/// moveset before this equip and is passed as the derivation base so existing
-/// signature/melee/ranged moves survive — `build_actor_moveset` is idempotent, so
-/// re-deriving them is safe, and the granted verb overlays.
-///
-/// A grant-free row (a pure modifier/armor powerup like the grow-cap) returns
-/// `None` and touches neither the action set nor the moveset: its whole effect is
-/// read-time (`resolved_param` / `consume_armor`), so there is nothing to wire on
-/// equip. Pure by design (no `Commands`), so it unit-tests without an ECS world;
-/// the pickup system owns inserting `worn`/the returned moveset.
-pub fn equip_equipment_row(
-    action_set: &mut ambition_characters::brain::action_set::ActionSet,
-    worn: &mut ambition_characters::equipment::WornEquipment,
-    current: Option<&MovesetContract>,
-    row: ambition_characters::equipment::EquipmentRow,
-) -> Option<MovesetContract> {
-    let grants_a_verb = !row.grants.is_empty();
-    for grant in &row.grants {
-        grant.apply_to_action_set(action_set);
-    }
-    worn.equip(row);
-    if grants_a_verb {
-        build_actor_moveset(
-            current,
-            action_set.melee.as_ref(),
-            action_set.ranged.as_ref(),
-            action_set.special.as_ref(),
-        )
-    } else {
-        None
-    }
-}

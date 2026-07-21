@@ -29,7 +29,16 @@ use bevy::ecs::component::Component;
 /// (a re-wear / transformation) is the supported runtime path, and downstream
 /// gameplay + presentation systems observe the change through Bevy's
 /// `Changed<WornCharacter>` filter.
+///
+/// Requires [`IdentityKit`]: the identity derivation writes what this worn id
+/// alone produced into it, and the equipment reconcile re-derives the live kit
+/// from it. Requiring it means a body that can change identity can never be
+/// missing the baseline — a missing one would silently skip both systems rather
+/// than fail loudly.
+///
+/// [`IdentityKit`]: crate::brain::action_set::IdentityKit
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
+#[require(crate::brain::action_set::IdentityKit)]
 pub struct WornCharacter(pub String);
 
 impl WornCharacter {

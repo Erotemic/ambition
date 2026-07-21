@@ -88,6 +88,16 @@ pub struct ControlFrame {
     /// verb. While held with the `shield` ability active, the engine deploys the
     /// bubble and tracks the parry window.
     pub shield_held: bool,
+    /// Modifier slot currently HELD (sustain). The device layer reports the raw
+    /// button state and assigns it NO meaning: content decides what sustaining
+    /// this slot does to a body (a locomotion technique, a stance, a guard).
+    /// Carried as a level so a sustained technique survives the frame→tick latch
+    /// and reads identically under replay and rollback.
+    pub modifier_held: bool,
+    /// Modifier slot newly pressed this frame — the rising edge of the same
+    /// button whose sustain is [`ControlFrame::modifier_held`]. Content may bind a
+    /// momentary action to the edge while the hold drives a technique.
+    pub modifier_pressed: bool,
     /// Right stick / aim vector after deadzone is applied. Blink aim and any
     /// future twin-stick aiming should consume this instead of reading raw axes.
     pub aim_x: f32,
@@ -124,6 +134,7 @@ impl ControlFrame {
             interact_held: sample.interact_held,
             projectile_held: sample.projectile_held,
             shield_held: sample.shield_held,
+            modifier_held: sample.modifier_held,
             // Edges — sticky until a tick consumes them.
             jump_pressed: self.jump_pressed | sample.jump_pressed,
             jump_released: self.jump_released | sample.jump_released,
@@ -144,6 +155,7 @@ impl ControlFrame {
             start_pressed: self.start_pressed | sample.start_pressed,
             projectile_pressed: self.projectile_pressed | sample.projectile_pressed,
             projectile_released: self.projectile_released | sample.projectile_released,
+            modifier_pressed: self.modifier_pressed | sample.modifier_pressed,
         }
     }
 
@@ -164,6 +176,7 @@ impl ControlFrame {
             interact_held: self.interact_held,
             projectile_held: self.projectile_held,
             shield_held: self.shield_held,
+            modifier_held: self.modifier_held,
             ..ControlFrame::default()
         }
     }

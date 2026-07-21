@@ -135,14 +135,14 @@ fn legacy_baseline_pins() {
 /// scaling.
 #[test]
 fn gun_sword_archetypes_resolve_held_item_by_id() {
-    use ambition_characters::brain::RangedActionSpec;
+    use ambition_characters::brain::{action_set::RangedStyle, RangedActionSpec};
     let on_shark = test_spec("pirate_shark_rider")
         .held_item_spec()
         .expect("pirate_shark_rider should resolve a held item");
     assert_eq!(on_shark.id, "gun_sword");
     assert!(matches!(
         on_shark.ranged,
-        Some(RangedActionSpec::Bolt { damage: 2, .. })
+        Some(RangedActionSpec { style: RangedStyle::Bolt, damage: 2, .. })
     ));
     let heavy = test_spec("pirate_heavy_shark_rider")
         .held_item_spec()
@@ -150,7 +150,7 @@ fn gun_sword_archetypes_resolve_held_item_by_id() {
     assert_eq!(heavy.id, "gun_sword_heavy");
     assert!(matches!(
         heavy.ranged,
-        Some(RangedActionSpec::Bolt { damage: 3, .. })
+        Some(RangedActionSpec { style: RangedStyle::Bolt, damage: 3, .. })
     ));
 }
 

@@ -432,7 +432,7 @@ pub fn pickup_held_item_system(
             // sets ranged so `Attack` fires the laser instead of swinging. Move
             // style / special are kept from the player's own set.
             action_set.melee = ground.spec.melee;
-            action_set.ranged = ground.spec.ranged;
+            action_set.ranged = ground.spec.ranged.clone();
             commands
                 .entity(player)
                 .insert(HeldItem::new(ground.spec.clone()));
@@ -732,7 +732,7 @@ pub fn fire_held_ranged_system(
     if !c.melee_pressed || c.shield_held {
         return;
     }
-    let Some(ranged) = held.spec.ranged else {
+    let Some(ranged) = held.spec.ranged.clone() else {
         return;
     };
     // The body's per-tick resolved frame (ADR 0024 frame law).

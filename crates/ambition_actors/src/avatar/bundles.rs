@@ -12,7 +12,7 @@ use crate::body_mode::BodyModeCapabilities;
 use crate::control::{LocalPlayer, PlayerInputFrame, PlayerSlot};
 use crate::features::{ActorFaction, ActorPose};
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet};
-use ambition_characters::brain::{ActionSet, ActorControl, Brain};
+use ambition_characters::brain::{ActionSet, ActorControl, Brain, action_set::RangedStyle};
 
 /// All simulation components required on the player entity.
 ///
@@ -80,6 +80,10 @@ pub struct PlayerSimulationBundle {
     /// charge system (`None` here), specials on the `Special` channel —
     /// `MovesetMelee` marks the melee-swing move.
     pub moveset: crate::combat::moveset::ActorMoveset,
+    /// The kit this body's IDENTITY derived, before equipment. Written at spawn by
+    /// the same overlay the runtime re-wear uses, so the equipment reconcile has a
+    /// correct baseline from the body's very first tick.
+    pub identity_kit: ambition_characters::brain::action_set::IdentityKit,
     pub moveset_melee: crate::combat::moveset::MovesetMelee,
     pub actor_control: ActorControl,
     /// Capability marker: this body uses the chargeable-projectile (Fireball)
@@ -147,6 +151,14 @@ impl PlayerSimulationBundle {
         let kinematics = scratch.kinematics;
         let hurtbox = CenteredAabb::from_center_size(kinematics.pos, kinematics.size);
         Self {
+            // Seeded from the same derivation, so a body spawned WITHOUT a catalog
+            // overlay still has an honest un-granted baseline rather than an empty
+            // one (an empty baseline would silently revoke the body's own kit the
+            // first time it picked anything up).
+            identity_kit: ambition_characters::brain::action_set::IdentityKit {
+                action_set: action_set.clone(),
+                moveset: moveset.0.clone(),
+            },
             identity: PlayerIdentityBundle::new(PlayerSlot::PRIMARY),
             primary: PrimaryPlayer,
             primary_body: ambition_platformer_primitives::body::PrimaryBody,
@@ -226,6 +238,7 @@ impl PlayerSimulationBundle {
             &mut bundle.name,
             &mut bundle.action_set,
             &mut bundle.moveset,
+            &mut bundle.identity_kit,
             character_id,
             base_abilities,
         );
@@ -274,10 +287,7 @@ pub(crate) fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet 
         // AbilitySet — ranged is always available on the player.
         // If a future ability flag gates fireball, narrow this
         // slot the same way melee + special are.
-        ranged: Some(RangedActionSpec::Bolt {
-            speed: 600.0,
-            damage: 1,
-        }),
+        ranged: Some(RangedActionSpec::bolt(600.0, 1)),
         move_style: MoveStyleSpec::Walk,
         // Special slot: bubble_shield, gated by the shield ability.
         // A possessed non-player body keeps that body's ActionSet so
@@ -327,7 +337,7 @@ mod tests {
         ));
         assert!(matches!(
             bundle.action_set.ranged,
-            Some(RangedActionSpec::Bolt { .. })
+            Some(RangedActionSpec { style: RangedStyle::Bolt, .. })
         ));
     }
 
@@ -350,7 +360,7 @@ mod tests {
         assert!(
             matches!(
                 bundle.action_set.ranged,
-                Some(RangedActionSpec::Pistol { .. })
+                Some(RangedActionSpec { style: RangedStyle::Pistol, .. })
             ),
             "the pirate's pistol should override the player's default bolt",
         );

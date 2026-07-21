@@ -96,6 +96,9 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
             owner_id: "player_volley".into(),
             gravity: 0.0,
             visual_id: String::new(),
+            // Straight shot: this ability authors no bounce.
+            bounces: 0,
+            bounce_on_world_contact: false,
         },
         ActorFaction::Player,
     );
@@ -180,6 +183,9 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
             owner_id: String::new(),
             gravity: 0.0,
             visual_id: String::new(),
+            // Straight shot: this ability authors no bounce.
+            bounces: 0,
+            bounce_on_world_contact: false,
         },
     );
 
@@ -253,6 +259,9 @@ fn spawn_overlapping_enemy_glider(app: &mut App, pos: ae::Vec2) {
             owner_id: "pca_glider".into(),
             gravity: 0.0,
             visual_id: String::new(),
+            // Straight shot: this ability authors no bounce.
+            bounces: 0,
+            bounce_on_world_contact: false,
         },
         ActorFaction::Enemy,
     );
@@ -384,6 +393,9 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
             owner_id: "boss_bolt".into(),
             gravity: 0.0,
             visual_id: String::new(),
+            // Straight shot: this ability authors no bounce.
+            bounces: 0,
+            bounce_on_world_contact: false,
         },
         ActorFaction::Enemy,
     );
@@ -509,6 +521,9 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
                 owner_id: "boss_bolt".into(),
                 gravity: 0.0,
                 visual_id: String::new(),
+                // Straight shot: this ability authors no bounce.
+                bounces: 0,
+                bounce_on_world_contact: false,
             }],
         },
     });
@@ -552,6 +567,9 @@ fn spawn_executor_attaches_visual_id() {
                 owner_id: "pca".into(),
                 gravity: 0.0,
                 visual_id: "glider".into(),
+                // Straight shot: this ability authors no bounce.
+                bounces: 0,
+                bounce_on_world_contact: false,
             }],
         },
     });

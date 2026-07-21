@@ -61,6 +61,12 @@ pub struct AgentAction {
     pub fly_toggle: bool,
     pub reset: bool,
     pub start: bool,
+    /// Rising edge of the modifier slot — the sustained-technique control slot.
+    pub modifier: bool,
+    /// Modifier slot held this frame. A body's own rules decide what sustaining
+    /// it does, so a headless driver can exercise a hold-driven technique
+    /// (a locomotion mode, a stance) exactly as a device would.
+    pub modifier_held: bool,
     pub aim_x: f32,
     pub aim_y: f32,
 }
@@ -142,6 +148,8 @@ impl From<AgentAction> for ControlFrame {
             projectile_held: a.projectile_held,
             projectile_released: a.projectile_released,
             shield_held: false,
+            modifier_held: a.modifier_held,
+            modifier_pressed: a.modifier,
             aim_x: a.aim_x,
             aim_y: a.aim_y,
         }

@@ -217,10 +217,7 @@ fn crisp_striker_cfg() -> SmashCfg {
 
 fn ranged_actions() -> ActionSet {
     ActionSet {
-        ranged: Some(crate::brain::RangedActionSpec::Rock {
-            speed: 300.0,
-            damage: 2,
-        }),
+        ranged: Some(crate::brain::RangedActionSpec::rock(300.0, 2)),
         ..ActionSet::peaceful()
     }
 }

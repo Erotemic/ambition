@@ -1455,6 +1455,11 @@ impl SnapshotState for ambition_characters::brain::ActorControl {
             f.blink_pressed,
             f.blink_held,
             f.blink_released,
+            // The sustained modifier is rollback state like any other control
+            // level: a body's rules read it every tick, so a resimulated tick that
+            // lost it would diverge from the one it is replacing.
+            f.modifier_held,
+            f.modifier_pressed,
         ] {
             put_bool(out, b);
         }
@@ -1481,7 +1486,7 @@ impl SnapshotState for ambition_characters::brain::ActorControl {
             None
         };
         let attack_axis = r.vec2()?;
-        let mut flags = [false; 17];
+        let mut flags = [false; 19];
         for f in flags.iter_mut() {
             *f = r.bool()?;
         }
@@ -1511,6 +1516,8 @@ impl SnapshotState for ambition_characters::brain::ActorControl {
                 blink_pressed: flags[14],
                 blink_held: flags[15],
                 blink_released: flags[16],
+                modifier_held: flags[17],
+                modifier_pressed: flags[18],
                 blink_quick_dir: r.vec2()?,
                 blink_aim_step: r.vec2()?,
                 aim: r.vec2()?,

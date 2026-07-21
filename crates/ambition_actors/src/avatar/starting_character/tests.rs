@@ -1,4 +1,5 @@
 use super::*;
+use ambition_characters::brain::action_set::RangedStyle;
 
 /// A self-contained momentum speedster. Ambition's shipped roster no longer
 /// authors one — Sanic's identity belongs to the standalone Sanic experience
@@ -307,7 +308,7 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
 #[test]
 fn worn_kit_fully_follows_a_known_character_rewear() {
     use crate::combat::moveset::ActorMoveset;
-    use ambition_characters::brain::{ActionSet, RangedActionSpec};
+    use ambition_characters::brain::{ActionSet, RangedActionSpec, action_set::RangedStyle};
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -338,7 +339,7 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
     assert!(
         matches!(
             app.world().get::<ActionSet>(e).unwrap().ranged,
-            Some(RangedActionSpec::Pistol { .. })
+            Some(RangedActionSpec { style: RangedStyle::Pistol, .. })
         ),
         "wearing the pirate derives its authored pistol into the ActionSet"
     );
@@ -349,7 +350,7 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
     assert!(
         !matches!(
             app.world().get::<ActionSet>(e).unwrap().ranged,
-            Some(RangedActionSpec::Pistol { .. })
+            Some(RangedActionSpec { style: RangedStyle::Pistol, .. })
         ),
         "re-wearing the goblin replaces the pirate's kit — no stale ActionSet"
     );
@@ -410,7 +411,7 @@ fn runtime_rewear_to_a_host_code_protagonist_rebuilds_the_code_kit() {
     assert!(
         matches!(
             app.world().get::<ActionSet>(e).unwrap().ranged,
-            Some(RangedActionSpec::Pistol { .. })
+            Some(RangedActionSpec { style: RangedStyle::Pistol, .. })
         ),
         "wearing the pirate first installs its pistol"
     );
@@ -426,7 +427,7 @@ fn runtime_rewear_to_a_host_code_protagonist_rebuilds_the_code_kit() {
         "the rebuilt protagonist kit has its Swipe melee"
     );
     assert!(
-        matches!(set.ranged, Some(RangedActionSpec::Bolt { .. })),
+        matches!(set.ranged, Some(RangedActionSpec { style: RangedStyle::Bolt, .. })),
         "the pirate's pistol is gone — the code kit's Bolt is rebuilt"
     );
     assert!(
@@ -491,7 +492,7 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
     let set = app.world().get::<ActionSet>(e).unwrap();
     assert!(
         matches!(set.melee, Some(MeleeActionSpec::Swipe(_)))
-            && matches!(set.ranged, Some(RangedActionSpec::Bolt { .. })),
+            && matches!(set.ranged, Some(RangedActionSpec { style: RangedStyle::Bolt, .. })),
         "an unknown id falls back to the defined code kit, not the stale pistol"
     );
 }
@@ -533,7 +534,7 @@ fn host_code_kit_refreshes_when_body_abilities_change() {
     assert!(matches!(initial.melee, Some(MeleeActionSpec::Swipe(_))));
     assert!(matches!(
         initial.ranged,
-        Some(RangedActionSpec::Bolt { .. })
+        Some(RangedActionSpec { style: RangedStyle::Bolt, .. })
     ));
     assert!(initial.special.is_some());
 
@@ -554,7 +555,7 @@ fn host_code_kit_refreshes_when_body_abilities_change() {
         "Changed<BodyAbilities> removes the now-disabled melee"
     );
     assert!(
-        matches!(refreshed.ranged, Some(RangedActionSpec::Bolt { .. })),
+        matches!(refreshed.ranged, Some(RangedActionSpec { style: RangedStyle::Bolt, .. })),
         "an unrelated enabled ability remains in the rebuilt host kit"
     );
     assert!(

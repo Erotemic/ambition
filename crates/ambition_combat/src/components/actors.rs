@@ -188,7 +188,7 @@ impl CombatKit {
     pub fn from_action_set(actions: &ambition_characters::brain::ActionSet) -> Self {
         Self {
             innate_melee: actions.melee,
-            innate_ranged: actions.ranged,
+            innate_ranged: actions.ranged.clone(),
             move_style: actions.move_style,
         }
     }
@@ -199,7 +199,7 @@ impl CombatKit {
     ) -> ambition_characters::brain::ActionSet {
         let mut actions = ambition_characters::brain::ActionSet {
             melee: self.innate_melee,
-            ranged: self.innate_ranged,
+            ranged: self.innate_ranged.clone(),
             move_style: self.move_style,
             ..Default::default()
         };

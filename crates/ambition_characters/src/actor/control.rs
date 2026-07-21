@@ -271,6 +271,20 @@ pub struct ActorControlFrame {
     /// frame. `(0,0)` = use actor facing; non-zero = explicit twin-stick / mouse
     /// aim after crossing the input seam.
     pub aim: Vec2,
+    /// Sustain: the modifier slot is held this tick.
+    ///
+    /// The engine attaches NO meaning to it. It is carried here — in the
+    /// body-local intent vocabulary — so a body's OWN rules can read a sustained
+    /// control slot and interpret it as a technique (a locomotion mode, a stance,
+    /// a guard) without reaching back to a device or to the global control frame.
+    /// Because it rides `ActorControlFrame`, any controller can express it: a
+    /// human holding the button, an AI brain deciding to sustain, a replay, a
+    /// learned policy. A rule that reads this runs identically for every body.
+    pub modifier_held: bool,
+    /// Rising edge of the same slot whose sustain is [`Self::modifier_held`], so a
+    /// body's rules can bind a momentary action to the press while the hold drives
+    /// a sustained technique.
+    pub modifier_pressed: bool,
 }
 
 impl ActorControlFrame {

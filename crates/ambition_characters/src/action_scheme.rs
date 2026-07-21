@@ -226,6 +226,25 @@ pub fn resolve_control_slots(
                 // Non-technique QuickAction (the shield ability) is governed by the
                 // caller's special-key / held-item shield policy.
             }
+            // The SUSTAIN slot. A technique bound here is a MODE, not a moment, so
+            // the routing differs from every arm above in two ways: the edge
+            // carries `held` as well as `pressed`, and neither is cleared off the
+            // frame afterwards. Clearing is how a one-shot press is prevented from
+            // being consumed twice; a sustained technique has the opposite need —
+            // the body's own rules read the level every tick for as long as it is
+            // down, so consuming it would end the technique on the frame it began.
+            ControlSlot::Modifier => {
+                if let Some(ActionGate::Technique(id)) = gate.as_ref() {
+                    edges.set(
+                        id,
+                        Edge {
+                            pressed: control.modifier_pressed,
+                            held: control.modifier_held,
+                            released: false,
+                        },
+                    );
+                }
+            }
             // Movement + Interact slots have NO device verb in this frame. A
             // technique placed there has no wired path yet → reject, never drop.
             ControlSlot::Jump

@@ -206,6 +206,9 @@ pub fn spawn_apple_rain_from_special_messages(
                         // sprite (kept upright vs gravity) — keyed by kind, not
                         // by the owner-id substring the visuals layer once read.
                         visual_id: "apple".to_string(),
+                        // Straight shot: this ability authors no bounce.
+                        bounces: 0,
+                        bounce_on_world_contact: false,
                     }],
                 },
             });
@@ -438,6 +441,9 @@ pub fn spawn_overfit_volley_from_special_messages(
                                 ),
                                 gravity: 0.0,
                                 visual_id: String::new(),
+                                // Straight shot: this ability authors no bounce.
+                                bounces: 0,
+                                bounce_on_world_contact: false,
                             }],
                         },
                     });

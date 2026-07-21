@@ -48,12 +48,16 @@ impl EnemyProjectileState {
             max_lifetime: request.max_lifetime.max(0.2),
             half_extent: request.half_extent,
             gravity: request.gravity.max(0.0),
-            // Pool projectiles travel in a straight line and die on contact (a
-            // bouncing volley reads as a pinball and confuses the reader about
-            // the path). Authored on the spec, firer-agnostic — a per-ability
-            // bouncing pool shot is now expressible by setting these differently.
-            bounces: 0,
-            world_hit: crate::WorldHitPolicy::ExpireOnContact,
+            // Flight is AUTHORED by the firing ability and carried on the request,
+            // firer-agnostic: an ability that wants an arcing, skipping shot says
+            // so, and one that says nothing still gets the straight volley that
+            // used to be hardcoded here.
+            bounces: request.bounces,
+            world_hit: if request.bounce_on_world_contact {
+                crate::WorldHitPolicy::Bouncing
+            } else {
+                crate::WorldHitPolicy::ExpireOnContact
+            },
             charge_tier: 0,
         };
         let body = crate::ProjectileBody::from_spec(spec);
@@ -79,6 +83,8 @@ mod tests {
             owner_id: "pirate_1".into(),
             gravity: 0.0,
             visual_id: String::new(),
+            bounces: 0,
+            bounce_on_world_contact: false,
         }
     }
 
@@ -111,6 +117,9 @@ mod tests {
             owner_id: "test".into(),
             gravity: 0.0,
             visual_id: String::new(),
+            // Straight shot: this ability authors no bounce.
+            bounces: 0,
+            bounce_on_world_contact: false,
         });
         // A zero-length direction would NaN the initial_velocity; build
         // defaults to (1, 0) so the projectile has a sensible direction.

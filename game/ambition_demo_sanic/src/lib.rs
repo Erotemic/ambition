@@ -814,10 +814,29 @@ fn sanic_setup(
 pub struct SanicActState {
     /// Seconds the act has been running (sim clock, so bullet-time slows it).
     pub elapsed: f32,
+    /// Running vs cleared. The clock stops on a clear, which is what turns the
+    /// elapsed time from a stopwatch into a RESULT.
+    pub phase: SanicActPhase,
     /// Next index in [`SPEED_MARKER_XS`] that should emit its one-shot progress
     /// cue. Mode-scoped with the act, so leaving and re-entering the demo resets
     /// the audible ruler without a global resource leak.
     pub next_milestone: usize,
+}
+
+/// Where the act is. `Cleared` carries the numbers the results card reads,
+/// captured at the instant of the clear rather than re-derived afterwards —
+/// otherwise the rings you pick up during the outro would keep changing your
+/// result while you look at it.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum SanicActPhase {
+    #[default]
+    Running,
+    Cleared {
+        time: f32,
+        rings: i32,
+        /// Seconds the results card has left before the act restarts.
+        dwell: f32,
+    },
 }
 
 /// Sanic's level rules. **ONE system list; a constructor flag decides its gating**
@@ -851,6 +870,10 @@ impl Plugin for SanicRulesPlugin {
         app.add_message::<ambition::sfx::OwnedSfxMessage>();
         app.add_message::<ambition::vfx::VfxMessage>();
         app.add_message::<ambition::actors::rooms::RoomLoaded>();
+        // The act cycle restarts the room on a clear, exactly as Mary-O's level
+        // cycle does. The engine registers this in a full app; a thin
+        // rules-only harness may not, and `add_message` is idempotent.
+        app.add_message::<ambition::actors::session::reset::RoomReplayRequested>();
         app.init_resource::<ambition::actors::features::FeatureEcsWorldOverlay>();
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
@@ -906,6 +929,10 @@ impl Plugin for SanicRulesPlugin {
             sync_super_form_traits,
             // Braking scrape on the skid onset (reads the published skid fact).
             emit_sanic_skid_sfx,
+            // The goal, then the cycle: a clear captured this frame must be
+            // read by the card before the dwell can retire it.
+            clear_act_at_goal,
+            cycle_act_after_clear,
         )
             .chain()
             .in_set(ambition::platformer::schedule::SandboxSet::GameplayEffects);
@@ -1188,7 +1215,9 @@ fn tick_sanic_act(
     mut act: bevy::prelude::Query<&mut SanicActState>,
 ) {
     for mut state in &mut act {
-        state.elapsed += time.scaled_dt;
+        if matches!(state.phase, SanicActPhase::Running) {
+            state.elapsed += time.scaled_dt;
+        }
     }
 }
 
@@ -1364,5 +1393,104 @@ pub fn scatter_rings_on_hit(
             id: ambition::sfx::SfxId::from_static(SFX_BADNIK),
             pos: kin.pos,
         });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The goal — what an act is FOR.
+// ---------------------------------------------------------------------------
+
+/// World x of the goal line, matched to the authored `FINISH` label so the sign
+/// and the trigger can never drift.
+pub const GOAL_X: f32 = LEVEL_WIDTH - 130.0;
+
+/// How long the results card holds before the act restarts.
+pub const ACT_CLEAR_DWELL: f32 = 4.0;
+
+/// Points per second of time left on a nominal par run, and the par itself.
+/// A time bonus is what makes going FAST pay, which is the entire premise of
+/// this demo — without it, a route that is safer but slower always wins.
+pub const ACT_PAR_SECONDS: f32 = 60.0;
+pub const TIME_BONUS_PER_SECOND: i32 = 100;
+/// Each ring you finish holding is worth this. Rings you lost are gone, which
+/// is what puts the two currencies in tension: the fast line is usually the one
+/// that costs you rings.
+pub const RING_BONUS: i32 = 10;
+
+/// The act's score, from the numbers captured at the clear.
+pub fn act_score(time: f32, rings: i32) -> i32 {
+    let remaining = (ACT_PAR_SECONDS - time).max(0.0);
+    (remaining * TIME_BONUS_PER_SECOND as f32) as i32 + rings.max(0) * RING_BONUS
+}
+
+/// Format a duration the way a results screen does.
+pub fn act_time_text(seconds: f32) -> String {
+    let whole = seconds.max(0.0) as i32;
+    format!("{}:{:02}", whole / 60, whole % 60)
+}
+
+/// **Crossing the goal clears the act.**
+///
+/// Captures the time and the rings AT THE CLEAR — the results card reads those,
+/// not the live values, so picking a ring up during the outro cannot rewrite a
+/// result the player is already looking at.
+pub fn clear_act_at_goal(
+    player: bevy::prelude::Query<
+        (
+            &ae::BodyKinematics,
+            &ambition::characters::actor::BodyWallet,
+        ),
+        ambition::platformer::markers::PrimaryPlayerOnly,
+    >,
+    mut act: bevy::prelude::Query<&mut SanicActState>,
+    mut sfx: ambition::sfx::SfxWriter,
+    mut vfx: bevy::prelude::MessageWriter<ambition::vfx::VfxMessage>,
+) {
+    let Ok((kin, wallet)) = player.single() else {
+        return;
+    };
+    for mut state in &mut act {
+        if !matches!(state.phase, SanicActPhase::Running) || kin.pos.x < GOAL_X {
+            continue;
+        }
+        state.phase = SanicActPhase::Cleared {
+            time: state.elapsed,
+            rings: wallet.balance,
+            dwell: ACT_CLEAR_DWELL,
+        };
+        vfx.write(ambition::vfx::VfxMessage::Burst {
+            pos: kin.pos,
+            count: 40,
+            speed: 320.0,
+            color: [1.0, 0.92, 0.35, 1.0],
+            kind: ambition::vfx::ParticleKind::Dust,
+        });
+        sfx.write(ambition::sfx::SfxMessage::Play {
+            id: ambition::sfx::SfxId::from_static(SFX_TRANSFORM),
+            pos: kin.pos,
+        });
+    }
+}
+
+/// **The act restarts once the results have been read.**
+///
+/// Same shape as Mary-O's cyclic level: the dwell is what makes the tally
+/// legible before the world rebuilds under it, and the restart itself is the
+/// engine's ordinary `RoomReplayRequested` rather than anything demo-specific.
+pub fn cycle_act_after_clear(
+    time: bevy::prelude::Res<ambition::time::WorldTime>,
+    mut act: bevy::prelude::Query<&mut SanicActState>,
+    mut replay: bevy::prelude::MessageWriter<ambition::actors::session::reset::RoomReplayRequested>,
+) {
+    for mut state in &mut act {
+        let SanicActPhase::Cleared { dwell, .. } = &mut state.phase else {
+            continue;
+        };
+        *dwell -= time.scaled_dt;
+        if *dwell > 0.0 {
+            continue;
+        }
+        *state = SanicActState::default();
+        replay.write(ambition::actors::session::reset::RoomReplayRequested);
     }
 }

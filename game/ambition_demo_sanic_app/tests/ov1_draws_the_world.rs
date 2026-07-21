@@ -289,8 +289,8 @@ fn the_presentation_plugin_adds_no_hud_and_no_menu() {
     // regressed, too many and something else is wearing its marker.
     assert_eq!(
         declared_hud_node_count(&mut app),
-        1,
-        "this demo declares 1 HUD readout(s); it must draw exactly that many"
+        2,
+        "this demo declares 2 HUD readout(s) — the ring counter and the\n         end-of-act results card — and must draw exactly that many"
     );
 
     // ...and the engine's own visual-quality budget IS part of the face, because
@@ -364,7 +364,7 @@ fn visible_sanic_presentation_retires_and_relaunches_with_the_session() {
     // counts these nodes.
     assert_eq!(
         declared_hud_node_count(&mut app),
-        1,
+        2,
         "the declared HUD is session-scoped and must rebuild on relaunch"
     );
 }
@@ -420,9 +420,19 @@ fn the_declared_hud_shows_the_games_own_words_and_a_live_value() {
             .query_filtered::<&bevy::prelude::Text, bevy::prelude::With<ambition::presentation::DeclaredHudRoot>>();
         query.iter(app.world()).map(|text| text.0.clone()).collect()
     };
-    assert_eq!(texts.len(), 1, "one declared slot draws one text node");
+    assert_eq!(texts.len(), 2, "both declared slots draw a text node");
+    // The results card is deliberately BLANK while the act is running — it is
+    // published only on a clear — so the ring counter is the one with text.
+    let rings = texts
+        .iter()
+        .find(|t| t.starts_with("RINGS "))
+        .unwrap_or_else(|| panic!("the ring readout is on screen; got {texts:?}"));
     assert!(
-        texts[0].starts_with("RINGS "),
+        texts.iter().any(|t| t.is_empty()),
+        "the results card stays empty until the act is cleared: {texts:?}"
+    );
+    assert!(
+        rings.starts_with("RINGS "),
         "the demo's own label reaches the screen; the engine supplies no \
          vocabulary. got {:?}",
         texts[0]

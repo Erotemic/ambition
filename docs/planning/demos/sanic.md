@@ -48,8 +48,16 @@ Remaining acceptance work is product/content work
   DROP one at runtime, so scatters, enemy loot, and chest rewards would each have
   rebuilt the bundle and drifted from the collection path; a dropped ring and an
   authored ring are now indistinguishable once they exist.
-- a provider-owned goal, results, and end-of-act sequence (the HUD half of this
-  line landed 2026-07-21 — see the ring counter above);
+- ✅ **Provider-owned goal, results, and end-of-act — LANDED 2026-07-21.**
+  Crossing `GOAL_X` (matched to the authored `FINISH` label so sign and trigger
+  cannot drift) clears the act: the clock stops, and the time and rings are
+  CAPTURED at that instant rather than re-derived, so a ring picked up during
+  the outro cannot rewrite a result already on screen. A centred results card
+  (`ACT CLEAR  TIME  RINGS  SCORE`) holds for a dwell through the declared-HUD
+  seam, then the act restarts on the engine's ordinary `RoomReplayRequested` —
+  the same cycle Mary-O's level uses, no demo-specific restart. `act_score` is
+  where the demo's premise finally becomes a number: a time bonus against par
+  plus a per-ring bonus, so the fast line and the safe line actually compete.
 - additional authored act content beyond the single speedway room; and
 - a deterministic headless completion proof in which the rewarded high route
   beats the lower safe route under the same control contract.

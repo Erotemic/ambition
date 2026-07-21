@@ -1274,3 +1274,45 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
     );
     assert_eq!(dropped(&mut app), 0, "and nothing scatters");
 }
+
+/// **Going fast has to PAY, and rings have to cost something to keep.**
+///
+/// The act score is the only place the demo's premise is expressed as a number,
+/// and it is pure arithmetic that reads correctly while being backwards: swap
+/// the time term's sign and a slow run wins; drop the ring term and the scatter
+/// mechanic stops mattering. Neither shows on screen — you would just have a
+/// game where the safe line is always right, which is the exact thing this demo
+/// exists to disprove.
+#[test]
+fn the_act_score_pays_for_speed_and_for_rings_kept() {
+    use crate::{act_score, act_time_text, ACT_PAR_SECONDS};
+
+    // Faster is worth more, all else equal.
+    let quick = act_score(20.0, 0);
+    let slow = act_score(50.0, 0);
+    assert!(
+        quick > slow,
+        "a faster run must score higher ({quick} vs {slow}) — this is the whole \
+         premise of a momentum demo"
+    );
+
+    // Rings kept are worth something, all else equal. Together with the scatter
+    // rule this is the tension: the fast line is usually the one that costs you
+    // rings, so the two terms have to pull against each other.
+    assert!(
+        act_score(20.0, 30) > act_score(20.0, 0),
+        "rings you finish holding must be worth keeping"
+    );
+
+    // Past par the time bonus floors instead of going negative — a slow run
+    // scores poorly, it does not owe the player's ring bonus back.
+    let past_par = act_score(ACT_PAR_SECONDS + 30.0, 10);
+    assert_eq!(
+        past_par,
+        act_score(ACT_PAR_SECONDS, 10),
+        "the time bonus clamps at par rather than turning negative"
+    );
+    assert!(past_par > 0, "and a slow run still keeps its ring bonus");
+
+    assert_eq!(act_time_text(83.0), "1:23");
+}

@@ -63,12 +63,22 @@ impl Plugin for SanicExperiencePlugin {
         // The ring tally. One declared readout; the engine never learns what a
         // ring is — `publish_sanic_ring_readout` writes the word "RINGS".
         .with_hud(
-            ambition::presentation::HudDeclaration::new().slot(
-                ambition::presentation::HudSlotSpec::new(RINGS_HUD_SLOT)
-                    .with_region(ambition::presentation::SurroundRegion::Top)
-                    .with_font_size(22.0)
-                    .with_color([1.0, 0.85, 0.25, 1.0]),
-            ),
+            ambition::presentation::HudDeclaration::new()
+                .slot(
+                    ambition::presentation::HudSlotSpec::new(RINGS_HUD_SLOT)
+                        .with_region(ambition::presentation::SurroundRegion::Top)
+                        .with_font_size(22.0)
+                        .with_color([1.0, 0.85, 0.25, 1.0]),
+                )
+                // The results card. Published only while the act is cleared, so it
+                // needs no hide path — an unpublished slot draws nothing.
+                .slot(
+                    ambition::presentation::HudSlotSpec::new(RESULTS_HUD_SLOT)
+                        .with_order(99)
+                        .with_font_size(30.0)
+                        .with_color([1.0, 0.94, 0.60, 1.0])
+                        .centered(),
+                ),
         )
         .install(app, sanic_prepared_session_world);
         app.add_systems(bevy::prelude::Update, publish_sanic_ring_readout);
@@ -92,6 +102,9 @@ fn sanic_prepared_session_world() -> PreparedPlatformerSource {
 /// The slot id Sanic's ring tally publishes into. Opaque to the engine.
 pub const RINGS_HUD_SLOT: &str = "sanic_rings";
 
+/// The end-of-act results card.
+pub const RESULTS_HUD_SLOT: &str = "sanic_results";
+
 /// Publish the ring count into the declared HUD.
 ///
 /// The count needs no new simulation: rings are authored as ordinary
@@ -101,10 +114,28 @@ pub const RINGS_HUD_SLOT: &str = "sanic_rings";
 /// name it "RINGS", hand it to the slot.
 fn publish_sanic_ring_readout(
     facts: bevy::prelude::Res<ambition::sim_view::PlayerHudFacts>,
+    act: bevy::prelude::Query<&crate::SanicActState>,
     mut readouts: bevy::prelude::ResMut<ambition::presentation::HudReadouts>,
 ) {
     if !facts.present {
         return;
     }
     readouts.set_labelled(RINGS_HUD_SLOT, "RINGS", facts.balance);
+
+    // The results card, published only while the act is cleared.
+    match act.iter().find_map(|state| match state.phase {
+        crate::SanicActPhase::Cleared { time, rings, .. } => Some((time, rings)),
+        crate::SanicActPhase::Running => None,
+    }) {
+        Some((time, rings)) => readouts.set(
+            RESULTS_HUD_SLOT,
+            ambition::presentation::HudReadout::bare(format!(
+                "ACT CLEAR    TIME {}    RINGS {}    SCORE {}",
+                crate::act_time_text(time),
+                rings,
+                crate::act_score(time, rings),
+            )),
+        ),
+        None => readouts.clear_slot(RESULTS_HUD_SLOT),
+    }
 }

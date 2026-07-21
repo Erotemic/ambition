@@ -927,3 +927,33 @@ character-actions gates and touching the real-audio test harness is not zero-ris
   registers a spec against (sprite source + offset + visibility predicate), so
   the reusable renderer names no game's mechanics and there is a single place
   attachments read the presented pose.
+
+## 2026-07-21 KNOWN-STINKY: presentation reads `bevy_ggrs`'s private accumulator
+- **Where:** `crates/ambition_runtime/src/rollback/mod.rs`
+  (`sample_ggrs_accumulator_phase`, tagged `HACK(ggrs-accumulator)`), enabled by
+  the `[patch.crates-io]` entry at the workspace root pointing `bevy_ggrs` at a
+  fork branched from `v0.21.0`.
+- **Smell:** we reach into a dependency's internals. `FixedTimestepData` and its
+  `accumulator` are private upstream; we vendor the crate solely to make two
+  words `pub`, then read the field to recover the intra-tick phase. Carrying a
+  carrying a fork is its own tax: the pinned rev must be rebased whenever we
+  move off bevy 0.18, since upstream main has already gone to 0.22/bevy 0.19.
+- **Why it was accepted anyway:** presentation draws on the render clock while
+  the sim advances on a fixed tick, so a published pose is a step function and
+  anything moving shudders against a smoothly-easing camera. Removing that needs
+  the phase, and under GGRS the accumulator that decides when to advance is the
+  only truthful source. A parallel accumulator was considered and rejected: it
+  agrees only while nothing interesting happens and diverges during run-slow
+  catch-up, stalls, multi-advance frames, and rollback resimulation — exactly
+  when a wrong phase is most visible. `Time<Fixed>::overstep_fraction()` covers
+  the plain fixed host and needs no patch; GGRS banks its own time instead,
+  which is the whole reason this exists.
+- **Noticed while:** closing the horizontal-shake investigation (68f028733). The
+  fixed-tick demos were fixed by `presented_pose`; the GGRS flagship was left
+  with phase 0 — no regression, but no smoothing either.
+- **Suggested fix / size:** S, and it is not ours to make. An upstream PR
+  exposing this has been submitted. When it lands in a release: drop the
+  `[patch.crates-io]` entry, bump the `bevy_ggrs` requirement, and point the
+  reader at the released API. If upstream declines,
+  the fallback is to accept phase 0 under GGRS (today's behaviour) rather than
+  carry the fork indefinitely.

@@ -50,6 +50,47 @@ impl Plugin for AmbitionRollbackSchemaPlugin {
     }
 }
 
+/// HACK(ggrs-accumulator): recover the intra-tick phase by reading the GGRS
+/// driver's own fixed-timestep accumulator.
+///
+/// **This reaches into a dependency's internals.** It compiles only because the
+/// `[patch.crates-io]` entry in the workspace manifest points `bevy_ggrs` at a
+/// fork branched from `v0.21.0` that widens `FixedTimestepData` and its
+/// `accumulator` to `pub` — two words, no behaviour change. A deliberate,
+/// documented bridge, not an accident; that manifest entry carries the diff's
+/// rationale and the condition that retires it.
+///
+/// Presentation draws on the render clock while the sim advances on a fixed
+/// tick, so a published pose is a step function; drawing it directly makes
+/// anything that moves shudder against a smoothly-easing camera. Removing that
+/// needs to know how far through the current tick this frame sits, and under
+/// GGRS the only truthful source is the accumulator that decides when to
+/// advance. `Time<Fixed>::overstep_fraction()` answers it for the plain fixed
+/// host and is unavailable here precisely because GGRS banks its own time.
+///
+/// A parallel accumulator was considered and rejected: it would agree only
+/// while nothing interesting happened, and diverge during run-slow catch-up,
+/// stalls, several advances in one frame, and rollback resimulation — exactly
+/// when a wrong phase shows most. A presentation clock that lies during a
+/// rollback is worse than no smoothing at all.
+///
+/// Retire by switching to the released upstream accessor, then deleting the
+/// `[patch.crates-io]` entry and bumping the requirement.
+fn sample_ggrs_accumulator_phase(
+    timestep: Res<bevy_ggrs::FixedTimestepData>,
+    frame_rate: Res<RollbackFrameRate>,
+    mut phase: ResMut<ambition_sim_view::PresentationPhase>,
+) {
+    let hz = frame_rate.0 as f32;
+    if hz <= 0.0 {
+        phase.set(0.0);
+        return;
+    }
+    // The accumulator banks real time toward the NEXT advance, so its ratio to
+    // one timestep is the same quantity `overstep_fraction` reports.
+    phase.set(timestep.accumulator.as_secs_f32() * hz);
+}
+
 /// Installs GGRS schedules, snapshot storage, and session/request handling.
 pub struct AmbitionRollbackPlugin;
 
@@ -57,6 +98,17 @@ impl Plugin for AmbitionRollbackPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(GgrsPlugin::<AmbitionGgrsConfig>::default())
             .insert_resource(RollbackFrameRate(crate::SIM_TICK_HZ as usize));
+
+        // Publish the rollback host's intra-tick phase for the presented-pose
+        // layer. Same set, same consumer, same ordering as the fixed-tick
+        // sampler `ambition_sim_view` installs for itself — only the clock's
+        // hiding place differs.
+        app.add_systems(
+            Update,
+            sample_ggrs_accumulator_phase
+                .in_set(ambition_sim_view::PresentedPoseSet)
+                .before(ambition_sim_view::presented_pose::advance_presented_body_poses),
+        );
 
         // Ambition's gameplay schedule is composed from explicit ordered phase
         // sets, but systems within a phase intentionally rely on deterministic
@@ -549,10 +601,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // DESTROYS AND RECREATES rollback entities — anything not registered is
     // simply absent on the recreated entity, so an unregistered authored
     // component silently strips the switch of its identity after a rewind.
-    .rollback_component_clone::<ambition_actors::encounter::SwitchFeature>(
-        ENGINE,
-        "feature.switch",
-    )
+    .rollback_component_clone::<ambition_actors::encounter::SwitchFeature>(ENGINE, "feature.switch")
     // Same reasoning for the room-visual lifecycle tag: its siblings
     // (`RoomScopedEntity`, `SessionScopedEntity`) are registered, and losing the
     // tag on recreation would leak the entity past its room's teardown.

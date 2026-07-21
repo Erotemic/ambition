@@ -86,11 +86,9 @@ const TRAVEL_FLOOR_PX: f32 = 32.0;
 ///
 /// * **frame-stepped host** — the sim advances once per rendered frame, so the
 ///   published pose is already current and there is nothing to extrapolate.
-/// * **rollback (GGRS) host** — `bevy_ggrs` owns the accumulator that decides
-///   when to advance and does not expose it. Reconstructing a parallel
-///   accumulator would disagree with the real one during stalls, multi-advance
-///   frames, and rollback, so this reports no phase until the driver can be
-///   asked truthfully.
+/// * **rollback (GGRS) host** — answered by reading the driver's own
+///   accumulator, which requires a patched build widening its visibility. See
+///   [`sample_ggrs_accumulator_phase`].
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct PresentationPhase {
     phase: f32,
@@ -101,6 +99,18 @@ impl PresentationPhase {
     #[inline]
     pub fn get(self) -> f32 {
         self.phase
+    }
+
+    /// Publish this frame's phase. For a host whose clock this crate cannot see
+    /// — the rollback driver banks its own accumulator — the owning crate
+    /// samples it and sets it here, in [`PresentedPoseSet`], before
+    /// [`advance_presented_body_poses`].
+    ///
+    /// Clamped: extrapolating past a whole tick is never wanted, and a
+    /// catch-up frame can legitimately bank more than one step.
+    #[inline]
+    pub fn set(&mut self, phase: f32) {
+        self.phase = phase.clamp(0.0, 1.0);
     }
 }
 
@@ -297,7 +307,9 @@ impl bevy::prelude::Plugin for PresentedPosePlugin {
         app.init_resource::<PresentedFeaturePoses>();
 
         // Only a host that banks unspent real time between sim steps HAS an
-        // intra-tick phase. See `PresentationPhase` for the other two.
+        // intra-tick phase — and the two that do bank it in different places.
+        // A frame-stepped host has none: it publishes a pose every rendered
+        // frame, so there is nothing to sample between.
         if app.sim_is(bevy::prelude::FixedUpdate) {
             app.add_systems(
                 Update,
@@ -306,6 +318,11 @@ impl bevy::prelude::Plugin for PresentedPosePlugin {
                     .before(advance_presented_body_poses),
             );
         }
+        // The rollback host's phase lives in the GGRS driver's own accumulator,
+        // so its sampler belongs to the crate that owns GGRS — this one must
+        // not learn about netcode. It publishes through
+        // [`PresentationPhase::set`] into the same set, before the same
+        // consumer.
         app.add_systems(
             Update,
             (

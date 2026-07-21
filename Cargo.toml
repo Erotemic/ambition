@@ -123,3 +123,21 @@ overflow-checks = false
 opt-level = 0
 debug = false
 codegen-units = 256
+
+# ────────────────────────── patched dependencies ──────────────────────────
+# Crates we consume with a local change that upstream has not released yet.
+# Each entry is a TEMPORARY bridge and must name the condition that deletes it.
+# Pinned by `rev`, never by branch: a branch would drift silently under
+# `cargo update` and make builds unreproducible.
+[patch.crates-io]
+# Widens `FixedTimestepData` + its `accumulator` to `pub` (two words, no
+# behaviour change) so presentation can read the intra-tick phase and draw
+# bodies on the render clock. `Time<Fixed>::overstep_fraction()` answers this
+# for the plain fixed-tick host; bevy_ggrs banks its own time instead, which is
+# why the accumulator is the only truthful source under rollback.
+# Branched from the v0.21.0 tag so it stays semver-compatible with the
+# `bevy_ggrs = "0.21"` requirement AND on bevy 0.18 — upstream main is 0.22 on
+# bevy 0.19, which we are not on.
+# Consumer is tagged HACK(ggrs-accumulator). RETIRE when the upstream PR
+# releases: drop this entry, bump the requirement, use the released API.
+bevy_ggrs = { git = "https://github.com/Erotemic/bevy_ggrs", rev = "da0fafdd5e715a6e0246dc3e0cc88fba0551d0d0" }

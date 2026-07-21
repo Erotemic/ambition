@@ -244,6 +244,14 @@ pub(crate) fn install_session_bridge(app: &mut App) {
                 clear_historical_replay.after(RunGgrsSystems),
             ),
         )
+        // Effects may only be released once this render frame's advances are
+        // done. Without this edge Bevy is free to release first, and the next
+        // advance's outbox clear then wipes what was just handed to
+        // presentation — silently, since the journal has already counted it.
+        .configure_sets(
+            PreUpdate,
+            crate::external_effects::ExternalEffectSet::Release.after(RunGgrsSystems),
+        )
         .add_observer(record_sync_test_mismatch);
 }
 

@@ -31,6 +31,7 @@ mod dash_stability;
 mod desync_canary;
 mod dive_drill_reachability;
 mod duel_arena;
+mod effect_quarantine;
 mod enemy_attacks_player;
 mod falling_sand_room;
 mod fuzz_random_walker;

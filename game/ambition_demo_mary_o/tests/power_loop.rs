@@ -352,3 +352,157 @@ fn the_authored_spark_arcs_bounces_and_expires() {
         "and it expires on ITS authored lifetime ({lifetime}s), not a shared default"
     );
 }
+
+/// **The spark kills a crony through the canonical hit path.**
+///
+/// The composition is the claim worth testing: the engine already proves its
+/// stepper damages actors, and the loop above already proves the blossom grants an
+/// ordinary ranged verb. What is left to show is that HER shot — authored flight,
+/// authored visual, content-marked — is not special to any of it. So this builds
+/// the projectile from the blossom's own grant, hands it to the shared stepper as
+/// a player-faction shot, and watches a crony lose HP through
+/// `apply_feature_hit_events`. Nothing in the damage path knows what a spark is.
+#[test]
+fn her_spark_damages_a_crony_through_the_shared_hit_pipeline() {
+    use ambition::actors::features::{
+        apply_feature_hit_events, spawn_encounter_mob, ActorIdentity, CharacterRoster,
+        FeatureEcsWorldOverlay, GameplayBanner, HitEvent, SetFlagRequested,
+    };
+    use ambition::actors::projectile::{step_projectiles, ProjectileBody};
+    use ambition::characters::actor::{character_catalog::CharacterCatalog, BodyHealth};
+    use ambition::characters::equipment::apply_equipment_grants;
+    use ambition::entity_catalog::placements::CharacterBrain;
+    use ambition::platformer::lifecycle::SessionSpawnScope;
+    use ambition::platformer::projectile::{ProjectileSpec, WorldHitPolicy};
+    use ambition::projectiles::{
+        LiveProjectile, PlayerProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeqCounter,
+        ProjectileVisualCatalog, ProjectileVisualId,
+    };
+
+    const CRONY_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
+
+    let mut app = App::new();
+    app.insert_resource(ambition::time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    ambition::platformer::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ae::RoomGeometry(ae::World::new(
+            "spark_range",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            Vec::new(),
+        )),
+    );
+    app.insert_resource(CharacterCatalog::empty());
+    app.insert_resource(GameplayBanner::default());
+    app.init_resource::<ambition::actors::boss_encounter::BossCatalog>();
+    app.init_resource::<ProjectileSeqCounter>();
+    app.init_resource::<ProjectileVisualCatalog>();
+    app.init_resource::<FeatureEcsWorldOverlay>();
+    app.init_resource::<ambition::actors::trace::GameplayTraceBuffer>();
+    app.add_message::<HitEvent>();
+    app.add_message::<SetFlagRequested>();
+    app.add_message::<ambition::actors::features::ActorStimulus>();
+    app.add_message::<ambition::vfx::VfxMessage>();
+    app.add_message::<ambition::vfx::vfx::DebrisBurstMessage>();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition::actors::avatar::PlayerHealRequested>();
+
+    // Mary-O's OWN crony archetype, registered exactly as the demo registers it.
+    ambition_demo_mary_o::crony::register_crony_roster(&mut app);
+    app.add_systems(Update, (step_projectiles, apply_feature_hit_events).chain());
+
+    // A player-faction firer to own the shot.
+    let firer = app
+        .world_mut()
+        .spawn((
+            PrimaryPlayer,
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(360.0, 300.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(30.0, 48.0),
+                facing: 1.0,
+            },
+        ))
+        .id();
+
+    // One crony, spawned through the ordinary encounter-mob path.
+    {
+        let world = app.world_mut();
+        let catalog = world.resource::<CharacterCatalog>().clone();
+        let roster = world.resource::<CharacterRoster>().clone();
+        let mut commands = world.commands();
+        spawn_encounter_mob(
+            &mut commands,
+            &catalog,
+            &roster,
+            SessionSpawnScope::UNSCOPED,
+            "mary_o_spark_range",
+            "crony_under_fire".into(),
+            CharacterBrain::Custom("mary_o_crony".into()),
+            CRONY_POS,
+            ae::Vec2::new(28.0, 32.0),
+        );
+    }
+    app.update();
+
+    // Her shot, straight from the blossom's grant.
+    let mut actions = ActionSet::peaceful();
+    apply_equipment_grants(&mut actions, &WornEquipment::new(vec![spark_blossom()]));
+    let shot = actions.ranged.expect("the blossom grants a shot");
+    let flight = shot.flight.expect("and authors its flight");
+
+    let mut body = ProjectileBody::from_spec(ProjectileSpec {
+        origin: ae::Vec2::new(370.0, 300.0),
+        direction: ae::Vec2::new(1.0, 0.0),
+        damage: shot.damage(),
+        speed: shot.speed(),
+        max_lifetime: flight.max_lifetime,
+        half_extent: flight.half_extent,
+        gravity: flight.gravity,
+        bounces: flight.bounces,
+        world_hit: WorldHitPolicy::Bouncing,
+        charge_tier: 0,
+    });
+    // Aim it flat at the crony so the hit does not depend on arc tuning.
+    body.kin.pos = ae::Vec2::new(370.0, CRONY_POS.y);
+    body.kin.vel = ae::Vec2::new(600.0, 0.0);
+
+    let seq = app
+        .world_mut()
+        .resource_mut::<ProjectileSeqCounter>()
+        .next();
+    app.world_mut().spawn((
+        body.kin,
+        body.game,
+        ProjectileOwner(firer),
+        seq,
+        ProjectileOwnerId(String::new()),
+        LiveProjectile,
+        PlayerProjectile,
+        ProjectileVisualId(ambition_demo_mary_o::powerups::SPARK_VISUAL.to_string()),
+    ));
+
+    let crony_health = |app: &mut App| {
+        let world = app.world_mut();
+        let mut q = world.query::<(&ActorIdentity, &BodyHealth)>();
+        q.iter(world)
+            .find(|(id, _)| id.id() == "crony_under_fire")
+            .map(|(_, h)| (h.health.current, h.health.max))
+    };
+    let (before, max) = crony_health(&mut app).expect("the crony spawned as an ECS actor");
+    assert_eq!(before, max, "unharmed before the shot");
+
+    for _ in 0..4 {
+        app.update();
+    }
+
+    let (after, _) = crony_health(&mut app).expect("the crony is still an entity");
+    assert!(
+        after < before,
+        "the spark damaged the crony through the shared hit pipeline \
+         (was {before}, now {after})"
+    );
+}

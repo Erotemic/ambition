@@ -12,7 +12,6 @@ use bevy::prelude::*;
 
 use ambition_platformer_primitives::gameplay_presentation::ScreenRect;
 
-
 /// Marker + identity for touch action buttons. Each `TouchActionButton`
 /// entity is a Bevy `Button` whose `Interaction` state is collected into
 /// the matching `TouchInputState` field each frame; the virtual-device
@@ -91,6 +90,30 @@ pub struct TouchJoystickLayout {
     pub base_size: f32,
     pub knob_size: f32,
     pub exclusion_size: f32,
+}
+
+impl TouchJoystickLayout {
+    /// Top-left of the DRAWN stick (base ring + knob + the U/R/L/D glyphs)
+    /// within the reserved `exclusion_size` footprint, in root-local y-down px.
+    ///
+    /// The reserved footprint is anchored flush to the screen corner — it is a
+    /// gesture-exclusion region, not the art. The art is inset by `margin` from
+    /// the footprint's left and BOTTOM edges, which is what keeps the thumb
+    /// control clear of the screen edge and its side-swipe gestures. Both the
+    /// stick and the glyphs derive their position from here, so they cannot
+    /// drift apart.
+    pub fn art_origin(&self) -> Vec2 {
+        Vec2::new(
+            self.margin,
+            self.exclusion_size - self.base_size - self.margin,
+        )
+    }
+
+    /// Root-local center of the drawn stick — the point the knob rests on and
+    /// the point the U/R/L/D glyphs orbit.
+    pub fn art_center(&self) -> Vec2 {
+        self.art_origin() + Vec2::splat(self.base_size * 0.5)
+    }
 }
 
 pub fn movement_joystick_layout() -> TouchJoystickLayout {
@@ -241,7 +264,6 @@ mod layout_tests {
     //! itself (no drift between visible circle and touch target).
     use super::*;
 
-
     #[test]
     fn layout_has_nine_distinct_buttons_with_positive_size() {
         let layout = touch_action_layout();
@@ -274,8 +296,14 @@ mod layout_tests {
     #[test]
     fn each_button_center_hit_tests_back_to_itself() {
         for (name, cluster) in [
-            ("bottom-right overlay", cluster_at(Vec2::new(1050.0, 500.0), 1.0)),
-            ("reserved left column", cluster_at(Vec2::new(8.0, 800.0), 1.0)),
+            (
+                "bottom-right overlay",
+                cluster_at(Vec2::new(1050.0, 500.0), 1.0),
+            ),
+            (
+                "reserved left column",
+                cluster_at(Vec2::new(8.0, 800.0), 1.0),
+            ),
             ("compacted column", cluster_at(Vec2::new(12.0, 820.0), 0.9)),
         ] {
             for spec in touch_action_layout() {
@@ -338,8 +366,10 @@ mod layout_tests {
             "diagonal square bounds should be allowed to overlap vertically"
         );
 
-        let square_only = cluster.min
-            + Vec2::new(attack.left + attack.size - 2.0, jump.top + 2.0);
-        assert_eq!(touch_action_at_position(square_only, Some(cluster), None), None);
+        let square_only = cluster.min + Vec2::new(attack.left + attack.size - 2.0, jump.top + 2.0);
+        assert_eq!(
+            touch_action_at_position(square_only, Some(cluster), None),
+            None
+        );
     }
 }

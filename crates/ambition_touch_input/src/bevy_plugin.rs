@@ -340,8 +340,48 @@ impl Plugin for TouchControlsPlugin {
             // wins because we early-out when `touch_state.is_some()`.
             .add_systems(
                 PostUpdate,
+                // Between the behavior stage (which hard-resets `base_offset`
+                // to ZERO every frame for `JoystickFixed`) and `update_ui`
+                // (which derives BOTH the base ring and the knob from it).
+                offset_joystick_art_within_footprint
+                    .after(JoystickSystems::SendMessages)
+                    .before(JoystickSystems::UpdateUI),
+            )
+            .add_systems(
+                PostUpdate,
                 drive_joystick_knob_from_axis.after(JoystickSystems::UpdateUI),
             );
+    }
+}
+
+/// Inset the drawn stick within its reserved footprint.
+///
+/// The root node is the gesture-exclusion region and is placed flush to the
+/// screen corner by `apply_touch_control_placement`. The art must sit
+/// `JOYSTICK_MARGIN` in from the corner instead, clear of the edge and its
+/// side-swipe gestures — the same inset the U/R/L/D glyphs use.
+///
+/// `base_offset` is the one value to write: `virtual_joystick`'s `update_ui`
+/// positions the base ring at it AND derives the knob from it
+/// (`base_offset + base_half + knob_half + base_half * (delta - 1)`), so a
+/// single assignment moves the whole drawn stick together, at rest and
+/// mid-drag. Setting the child nodes directly would fight that system every
+/// frame, and root `padding` cannot work here: Bevy honours padding only for
+/// absolutely-positioned children with AUTO offsets, and both the base and the
+/// knob are given explicit `left`/`top` by the crate.
+///
+/// `JoystickFixed` also derives its input center from the base rect
+/// (`touch_state.current - joystick_base_rect.center()`), so moving the art
+/// moves the stick's input center with it rather than leaving the touch
+/// response offset from what is drawn.
+fn offset_joystick_art_within_footprint(
+    mut joysticks: Query<&mut virtual_joystick::VirtualJoystickState>,
+) {
+    let origin = movement_joystick_layout().art_origin();
+    for mut state in &mut joysticks {
+        if state.base_offset != origin {
+            state.base_offset = origin;
+        }
     }
 }
 
@@ -436,13 +476,19 @@ fn spawn_frame_axis_glyphs(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
     let font = touch_text_font(ui_fonts.as_deref(), 22.0);
     cmd.spawn((
         Node {
-            width: Val::Px(layout.base_size),
-            height: Val::Px(layout.base_size),
+            width: Val::Px(layout.exclusion_size),
+            height: Val::Px(layout.exclusion_size),
             position_type: PositionType::Absolute,
-            left: Val::Px(layout.margin),
-            bottom: Val::Px(layout.margin),
+            left: Val::Px(0.0),
+            top: Val::Px(0.0),
             ..default()
         },
+        // Share the movement stick's resolved rect rather than re-deriving a
+        // corner inset here. `TouchSurface` is a PLACEMENT marker only (nothing
+        // hit-tests on it), so this stays non-interactive; the glyphs then sit
+        // in the same coordinate space as the stick art and both orbit
+        // `art_center`, which is what keeps them concentric.
+        TouchSurface::Movement,
         // The joystick underneath owns the touches.
         bevy::picking::Pickable::IGNORE,
         GlobalZIndex(TOUCH_HUD_Z + 1),
@@ -489,7 +535,9 @@ fn position_frame_axis_glyphs(
         });
     let frame = AccelerationFrame::new(gdir);
     let layout = movement_joystick_layout();
-    let center = layout.base_size * 0.5;
+    // Root-local center of the DRAWN stick, not of the reserved footprint the
+    // root node spans — the same anchor the base ring and knob are inset to.
+    let center = layout.art_center();
     let radius = layout.base_size * 0.36;
     for (glyph, mut node) in &mut glyphs {
         let on_input = frame
@@ -498,8 +546,8 @@ fn position_frame_axis_glyphs(
                 ambition_engine_core::LocalAxes::from_vec(glyph.local_axis),
             )
             .vec();
-        node.left = Val::Px(center + on_input.x * radius - 7.0);
-        node.top = Val::Px(center + on_input.y * radius - 13.0);
+        node.left = Val::Px(center.x + on_input.x * radius - 7.0);
+        node.top = Val::Px(center.y + on_input.y * radius - 13.0);
     }
 }
 
@@ -1414,9 +1462,14 @@ fn drive_joystick_knob_from_axis(
         // base_size / 2` and left the knob ~4 px off on desktop
         // (cosmetically fine there) and visibly down-right on Android
         // where DPI scaling magnified the error.
+        // Same `art_origin` the base ring is inset by (see
+        // `offset_joystick_art_within_footprint`) — this system overrides the
+        // crate's rest placement, so it has to agree with it or the knob
+        // snaps back to the footprint corner the moment the axis goes neutral.
+        let art_origin = movement_joystick_layout().art_origin();
         let travel = base_half - knob_half;
-        let center_left = base_half.x - knob_half.x;
-        let center_top = base_half.y - knob_half.y;
+        let center_left = art_origin.x + base_half.x - knob_half.x;
+        let center_top = art_origin.y + base_half.y - knob_half.y;
         let target_left = center_left + travel.x * axis.x;
         let target_top = center_top + travel.y * axis.y;
         let new_left = Val::Px(target_left);

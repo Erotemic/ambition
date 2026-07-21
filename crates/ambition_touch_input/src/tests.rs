@@ -307,7 +307,7 @@ fn touch_hud_z_is_above_every_menu_overlay() {
 #[test]
 fn touch_action_hit_test_includes_fly_button() {
     use super::layout::{
-        touch_action_circle, touch_action_at_position, touch_action_layout, TouchActionButton,
+        touch_action_at_position, touch_action_circle, touch_action_layout, TouchActionButton,
         ACTION_CLUSTER_H, ACTION_CLUSTER_W,
     };
     use ambition_platformer_primitives::gameplay_presentation::ScreenRect;
@@ -348,4 +348,54 @@ fn touch_action_layout_keeps_visible_circles_apart() {
             );
         }
     }
+}
+
+#[cfg(feature = "mobile_touch")]
+#[test]
+fn the_drawn_stick_and_the_urld_glyphs_share_one_center() {
+    // The stick art and the U/R/L/D glyphs are drawn by two different systems
+    // into the same root rect. They used to derive their positions
+    // independently — the glyph root re-derived a corner inset from
+    // JOYSTICK_MARGIN while the joystick root took the resolver's rect, flush
+    // to the screen corner — so the stick sat up-and-LEFT of the glyphs it is
+    // supposed to sit inside. Both now key off `art_center`.
+    use super::layout::movement_joystick_layout;
+    use bevy::math::Vec2;
+
+    let layout = movement_joystick_layout();
+
+    // Where the base ring lands: `offset_joystick_art_within_footprint` writes
+    // `art_origin` to `base_offset`, and the crate draws the ring there.
+    let ring_center = layout.art_origin() + Vec2::splat(layout.base_size * 0.5);
+    // Where the knob rests: `drive_joystick_knob_from_axis` at a neutral axis.
+    let knob_half = layout.knob_size * 0.5;
+    let base_half = layout.base_size * 0.5;
+    let knob_top_left = layout.art_origin() + Vec2::splat(base_half) - Vec2::splat(knob_half);
+    let knob_center = knob_top_left + Vec2::splat(knob_half);
+    // Where the glyphs orbit: `position_frame_axis_glyphs`.
+    let glyph_center = layout.art_center();
+
+    assert_eq!(
+        ring_center, glyph_center,
+        "base ring center must coincide with the glyph cluster center",
+    );
+    assert_eq!(
+        knob_center, glyph_center,
+        "resting knob center must coincide with the glyph cluster center",
+    );
+
+    // And the art must stay clear of the screen edge: the reserved footprint is
+    // flush to the corner, so the drawn ring's own inset IS the edge buffer
+    // that keeps the thumb off the side-swipe gesture zone.
+    assert_eq!(
+        layout.art_origin().x,
+        layout.margin,
+        "art must sit JOYSTICK_MARGIN in from the footprint's left edge",
+    );
+    let bottom_gap = layout.exclusion_size - (layout.art_origin().y + layout.base_size);
+    assert!(
+        (bottom_gap - layout.margin).abs() < 1e-3,
+        "art must sit JOYSTICK_MARGIN ({}) up from the footprint's bottom edge; got {bottom_gap}",
+        layout.margin,
+    );
 }

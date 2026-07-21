@@ -654,6 +654,54 @@ pub fn incoming_player_damage_multiplier(
     gameplay.difficulty.damage_taken_multiplier() * assist_factor
 }
 
+/// Publish the authoritative death fact for a body the MOVEMENT KERNEL reset.
+///
+/// A pit fall, a drown, or a tile-grid `HazardBlock` never reaches
+/// [`resolve_body_hit`]: the kernel flags `FrameEvents::reset`,
+/// `integrate_home_body` teleports the body to spawn, and **no health is ever
+/// touched** — `hazard_runtime` says so outright ("tile-grid hazards run through
+/// the engine's reset-to-spawn path and never reach `HazardRuntime`"). So the
+/// most common death in a platformer emitted no death signal at all, and the one
+/// consumer that wanted it — Mary-O's lives — had to infer death from
+/// `BodyLifetime.resets` instead.
+///
+/// That inference is the bug this exists to remove. Six unrelated callers bump
+/// `resets`: two real deaths, a room load, an avatar rebuild, a sandbox reset,
+/// and **a room replay's own reset**. Mary-O read the replay's bump as a fresh
+/// death, spent another life, and requested another replay — an unbounded loop
+/// that drained the whole lives counter many times a second in the hosted app.
+/// A counter cannot carry a reason; a message can.
+///
+/// Scoped to the primary player because "died" here means "the local player's
+/// attempt ended". An actor's own hazard reaction is its business — it never
+/// teleports to the player spawn, so it never sets this flag.
+pub fn publish_kernel_reset_death(
+    mut died: MessageWriter<ActorDiedMessage>,
+    bodies: Query<
+        (
+            &ambition_engine_core::BodyKinematics,
+            &crate::avatar::PlayerBodyFrameOutput,
+        ),
+        PrimaryPlayerOnly,
+    >,
+) {
+    for (kin, frame_out) in &bodies {
+        if !frame_out.reset {
+            continue;
+        }
+        died.write(ActorDiedMessage {
+            pos: kin.pos,
+            // The kernel gate does not distinguish spikes from the void, and
+            // neither does any consumer today. `Hazard` is the honest category:
+            // the world killed her, and no entity claims the kill.
+            cause: crate::DeathCause {
+                source: crate::combat::HitSource::Hazard,
+                attacker: None,
+            },
+        });
+    }
+}
+
 pub fn apply_player_hit_events(
     // Bundled into one tuple param to stay under Bevy's 16-system-param ceiling
     // (S3e's relational `relations` + `attacker_factions` pushed this to 17).

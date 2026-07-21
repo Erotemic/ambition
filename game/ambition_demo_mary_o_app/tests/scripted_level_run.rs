@@ -1,18 +1,34 @@
-//! **The level-1 acceptance run.** One deterministic scripted play-through of
-//! the real demo app, through the real control seam.
+//! **The level-1 SEAM run** — not the level-1 acceptance run. See the caveat
+//! below before citing this as the gate.
 //!
-//! This is the demo's acceptance gate, and it is deliberately not a unit test of
-//! anything: every piece it touches already has its own focused coverage. What
-//! it proves is that the pieces are CONNECTED — that a player holding right
-//! actually reaches the pipe, that the pipe actually drops her into the vault,
-//! that the vault's coins are actually collectable by the shared economy, and
-//! that the tally actually reaches the HUD. Each of those is a seam between two
-//! systems owned by different crates, and a seam is exactly what a focused test
-//! cannot see.
+//! One deterministic scripted play-through of the real demo app, through the
+//! real control seam. It is deliberately not a unit test of anything: every
+//! piece it touches already has its own focused coverage. What it proves is that
+//! the pieces are CONNECTED — that a player holding right actually moves, that
+//! the pipe actually drops her into the vault, that the vault's coins are
+//! actually collectable by the shared economy, and that the tally actually
+//! reaches the HUD. Each of those is a seam between two systems owned by
+//! different crates, and a seam is exactly what a focused test cannot see.
 //!
-//! It drives `ControlFrame` — the sim's input seam — rather than poking
-//! positions, because "she can get there" is the claim. Where it does place her
-//! directly, it says so and explains why.
+//! It drives `ControlFrame` — the sim's input seam — for the great majority of
+//! its frames. Where it places her directly it says so and explains why, and it
+//! does so through `transit_body` (the ADR 0024 authority) rather than by poking
+//! `BodyKinematics`, so a beat never starts with stale departure state.
+//!
+//! # What this run does NOT prove
+//!
+//! `docs/planning/demos/super-mary-o.md` states the acceptance contract as a
+//! scripted headless run that "completes the first level, reaches the pipe
+//! secret, **uses a powerup through the real pickup/equipment path**". This run
+//! never collects or uses a powerup — the only pickups it takes are coins, which
+//! are currency, not equipment. It also sets her position at three beats (pipe,
+//! vault exit, flag) rather than traversing to them, so it does not prove the
+//! level is playable end to end.
+//!
+//! Those two clauses are the open remainder of the level-1 gate. Do not read a
+//! green run here as the gate being closed; the gate is PARTIAL until a run
+//! exists that traverses under its own input and takes a powerup through the
+//! shared pickup/equipment path.
 //!
 //! # Why this is gated off the `input` feature
 //!
@@ -71,14 +87,31 @@ fn player_pos(app: &mut App) -> Vec2 {
         .pos
 }
 
+/// Move the player for SETUP, as a discrete transit rather than a position poke.
+///
+/// Writing `kin.pos` directly is the exact anti-pattern this demo's own warp
+/// calls out (`ambition_demo_mary_o::lib.rs`, ADR 0024): the motion model keeps
+/// private attachment and ledge state that belongs to the DEPARTURE point, so a
+/// raw poke can start a beat still clinging to a wall that is no longer there.
+/// `transit_body` is the engine authority and reconciles that state — the same
+/// thing `SimHarness::teleport_player` does for harness-based tests.
 fn place_player(app: &mut App, pos: Vec2) {
-    let mut query = app
-        .world_mut()
-        .query_filtered::<&mut ambition::engine_core::BodyKinematics, With<PrimaryPlayer>>();
+    let mut query = app.world_mut().query_filtered::<(
+        ambition::engine_core::BodyClusterQueryData,
+        &mut ambition::actors::features::MotionModel,
+    ), With<PrimaryPlayer>>();
     let world = app.world_mut();
-    let mut kin = query.iter_mut(world).next().expect("a primary player");
-    kin.pos = pos;
-    kin.vel = Vec2::ZERO;
+    let (mut cluster_item, mut motion_model) = query
+        .iter_mut(world)
+        .next()
+        .expect("gameplay has a primary player");
+    let mut clusters = cluster_item.as_clusters_mut();
+    ambition::engine_core::movement::transit_body(
+        &mut motion_model,
+        &mut clusters,
+        pos,
+        ambition::engine_core::movement::TransitVelocity::Zero,
+    );
 }
 
 fn level(app: &mut App) -> (u8, u32, f32) {

@@ -1,18 +1,49 @@
 # Portal camera continuity: a live RED, bisected and diagnosed (2026-07-21)
 
-**Resolution from the 2026-07-21 Opus review: PATCHED, execution verification pending.**
+**Resolution: FIXED and PROVEN (2026-07-21, verified under `cargo`).**
+
 The instrumentation below correctly found that `BodyPoseView` was one frame
-behind the authoritative portal transit, but the final "two clocks" conclusion
-missed a same-schedule ordering hole. In the frame-stepped host the simulation
-also runs in `Update`; `rebuild_body_pose_views` publishes in
-`SandboxSet::FeatureViewSync`, while `advance_presented_body_poses` belonged to
-an otherwise-unordered `PresentedPoseSet`. The latter could run first and sample
-the pre-transit view. `PresentedPosePlugin` now configures
+behind the authoritative portal transit, but its final "two clocks, structural,
+not a bug in either module" conclusion was **wrong**, and that error is the
+reason this sat open. It is not structural. It was a missing ordering edge
+inside ONE schedule. In the frame-stepped host the simulation also runs in
+`Update`; `rebuild_body_pose_views` publishes in `SandboxSet::FeatureViewSync`,
+while `advance_presented_body_poses` belonged to an otherwise-unordered
+`PresentedPoseSet`. Bevy was free to run the consumer first, against the
+pre-transit view. `PresentedPosePlugin` now configures
 `PresentedPoseSet.after(SandboxSet::FeatureViewSync)` when and only when the sim
-schedule is `Update`. Fixed-tick and GGRS hosts already get that order from the
-schedule boundary. A schedule-graph test pins the edge. The existing portal
-continuity test and full suite still need to be run in a Rust-equipped checkout;
-the review sandbox had no `cargo`.
+schedule is `Update`; fixed-tick and GGRS hosts already get that order from the
+schedule boundary. The chain `FeatureViewSync → PresentedPoseSet →
+CameraObservationSet` is acyclic — nothing orders `FeatureViewSync` after the
+presented set — so the edge adds no cycle and no ambiguity.
+
+Neither Option A nor Option B below was needed. The "real design question" the
+investigation stopped at was an artifact of the misdiagnosis: once the two
+consumers are in the same frame, the anchor and the follow point agree, and the
+question of WHICH pose to anchor against never has to be answered. The Options
+section is preserved as investigation history, not as a live decision.
+
+Evidence, executed:
+
+```
+cargo test -p ambition_app --test app_it -- portal_translation_camera_continuity
+    3 passed; 0 failed          (was 2 FAILED)
+cargo test -p ambition_sim_view frame_stepped_presented_pose_runs_after_feature_view_sync
+    1 passed
+```
+
+Poison-tested rather than trusted — gating the new `configure_sets` call off
+behind an env var and re-running reproduces the original failure exactly:
+
+```
+c135_to_c134_preserves_screen_position_and_keeps_falling   FAILED
+c141_to_c140_preserves_screen_position_and_continues_right FAILED
+body screen-space continuity: got (593.916, -158.439), expected (829.416, -158.439),
+  delta (-235.500, 0.000), |delta| 235.500 > 1.5
+```
+
+Same two tests, same 235.5px delta recorded below. The edge is load-bearing and
+the schedule-graph test observes the thing that actually fixes it.
 
 The remainder is preserved as the failure record and investigation trail.
 
@@ -180,7 +211,12 @@ So on the transit frame the continuity pass sees the post-transit body while the
 camera chain still sees the pre-transit read-model. Two consumers, two clocks,
 one frame apart — and one frame apart at a teleport is the entire teleport.
 
-## The likely root fix
+## The likely root fix (SUPERSEDED — see the resolution at the top)
+
+> Kept as investigation history. The premise of this section — that the skew is
+> structural and forces a choice between two consumers' frames of reference —
+> was incorrect. The two consumers were in the same schedule the whole time,
+> merely unordered relative to each other.
 
 Both failures are the same defect at two moments: **the continuity anchor and
 the camera's follow point are sampled one frame apart at a discontinuity.**

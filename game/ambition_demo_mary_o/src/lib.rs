@@ -765,18 +765,6 @@ pub struct MaryOLevelState {
     pub score: u32,
     /// Lives left. A death spends one; the run restarts at zero.
     pub lives: u8,
-    /// The engine respawn counter this level last accounted for.
-    ///
-    /// Mary-O detects death by watching `BodyLifetime.resets` — the counter the
-    /// ENGINE already bumps in `reset_body_clusters` on every respawn, pit or
-    /// otherwise — rather than inventing a demo-local death test. Anything that
-    /// respawns the body therefore costs a life for free, including hazards this
-    /// demo has not authored yet.
-    ///
-    /// `None` until the first frame a body is observed, so the counter's
-    /// starting value (whatever a session hands us) is adopted rather than
-    /// mistaken for a death.
-    pub seen_resets: Option<u32>,
     /// Seconds left on the level-intro card. Counts down on the sim clock, and
     /// the card is published only while it is positive — an unpublished HUD
     /// slot draws nothing, so the card retires itself.
@@ -789,7 +777,6 @@ impl Default for MaryOLevelState {
             time_remaining: STARTING_TIME,
             score: 0,
             lives: STARTING_LIVES,
-            seen_resets: None,
             intro_card: INTRO_CARD_SECONDS,
         }
     }
@@ -983,35 +970,48 @@ fn tick_level_clock(
 
 /// **Death costs a life, and running out of time is a death.**
 ///
-/// Two ways to die, one accounting. Falling in a pit is the engine's business:
-/// it respawns the body and bumps `BodyLifetime.resets`, so this watches that
-/// counter's edge instead of re-deriving "did she fall" from geometry. Every
-/// future hazard that respawns her is then already wired. Running out of time is
-/// the demo's own rule, and it converges on the same path by asking the engine
-/// for a respawn rather than teleporting her itself.
+/// Two ways to die, one accounting, and exactly one life per attempt lost.
+///
+/// # Why this reads a message and not the respawn counter
+///
+/// This used to watch `BodyLifetime.resets` for an increase. That counter is
+/// bumped by SIX unrelated callers — a combat death, a kernel hazard/pit reset,
+/// a room load, an avatar rebuild, a sandbox reset, and **a room replay's own
+/// body reset**. The last one closed a loop: a death spent a life and requested
+/// a replay, the replay reset the body, the reset bumped the counter, this
+/// system read that as a second death, spent another life, and requested another
+/// replay. Unbounded, at frame rate. Grabbing the FLAG entered the same loop,
+/// because the level-cycle also requests a replay. The counter cannot say why it
+/// moved, so no amount of edge-detection here could have fixed it.
+///
+/// [`ActorDiedMessage`] is the engine's authoritative "the local player's
+/// attempt ended" fact, published from both real death paths — the hit resolver
+/// for combat deaths, and `publish_kernel_reset_death` for the pit/drown/hazard
+/// reset that never reaches the resolver. A replay's reset publishes nothing, so
+/// the loop cannot form by construction rather than by guard.
+///
+/// # What is deliberately NOT a death
+///
+/// A `SafeRespawn` hazard bump-back does not publish it, so it costs no life —
+/// that is the engine saying "returned to safety", not "died", and Mary-O now
+/// agrees with it. A room replay and a room load cost no life either.
 ///
 /// At zero lives the RUN is over: lives, score, and clock return to their
 /// starting values and the room replays. That is the arcade loop — a game over
 /// is a fresh run, not a stuck screen.
 fn spend_lives_on_death(
     mut level: bevy::prelude::Query<&mut MaryOLevelState>,
-    bodies: bevy::prelude::Query<
-        &ambition::engine_core::BodyLifetime,
-        ambition::platformer::markers::PrimaryPlayerOnly,
-    >,
+    mut deaths: bevy::prelude::MessageReader<ambition::actors::ActorDiedMessage>,
     mut replay: bevy::prelude::MessageWriter<ambition::actors::session::reset::RoomReplayRequested>,
 ) {
+    // Drain unconditionally: the cursor must advance even on a frame with no
+    // level, or a death that landed during a load would be re-read later and
+    // charged to the next attempt.
+    let died = deaths.read().count() > 0;
+
     let Ok(mut level) = level.single_mut() else {
         return;
     };
-    let Ok(lifetime) = bodies.single() else {
-        return;
-    };
-
-    // Adopt whatever the session started at; only an INCREASE is a death.
-    let previous = *level.seen_resets.get_or_insert(lifetime.resets);
-    let died = lifetime.resets > previous;
-    level.seen_resets = Some(lifetime.resets);
 
     // The clock reaching zero is its own death, and it must not fire twice
     // while the replay is in flight — restoring the clock below is what
@@ -1020,6 +1020,8 @@ fn spend_lives_on_death(
     if !died && !timed_out {
         return;
     }
+    // ONE attempt lost costs ONE life, however many ways it was reported. A
+    // frame can carry both a lethal hit and a hazard reset for the same fall.
 
     level.lives = level.lives.saturating_sub(1);
     level.time_remaining = STARTING_TIME;
@@ -1483,16 +1485,22 @@ mod tests {
 
     /// **A death spends a life, and running out of time is a death.**
     ///
-    /// Mary-O authors no death test of her own: she watches
-    /// `BodyLifetime.resets`, the counter the ENGINE bumps on every respawn. So
-    /// this drives the engine's signal (bump the counter) rather than simulating
-    /// a fall, which is the point — any future hazard that respawns her already
-    /// costs a life, with no new demo wiring.
+    /// Drives [`ActorDiedMessage`] — the engine's authoritative attempt-lost
+    /// fact, published by the hit resolver for combat deaths and by
+    /// `publish_kernel_reset_death` for the pit/drown/hazard reset that never
+    /// reaches the resolver.
+    ///
+    /// This deliberately no longer bumps `BodyLifetime.resets`. That counter is
+    /// bumped by six unrelated callers including a room replay's own body reset,
+    /// and driving it here made the old test structurally incapable of catching
+    /// the replay feedback loop — see
+    /// [`a_replay_reset_is_not_a_death_so_lives_cannot_drain`], which is the
+    /// regression the old oracle could not express.
     #[test]
-    fn a_respawn_or_a_timeout_spends_a_life_and_zero_lives_restarts_the_run() {
+    fn a_death_or_a_timeout_spends_a_life_and_zero_lives_restarts_the_run() {
         use ambition::world::rooms::{ActiveRoomMetadata, RoomMetadata};
 
-        fn shell(dt: f32) -> (App, bevy::prelude::Entity) {
+        fn shell(dt: f32) -> App {
             let mut app = App::new();
             ambition::engine::add_headless_foundation(&mut app);
             ambition::platformer::lifecycle::insert_session_world_component(
@@ -1503,16 +1511,24 @@ mod tests {
                 scaled_dt: dt,
                 ..Default::default()
             });
+            app.add_message::<ambition::actors::ActorDiedMessage>();
             app.add_plugins(MaryORulesPlugin::global());
-            let body = app
-                .world_mut()
-                .spawn((
-                    ambition::engine_core::BodyLifetime::default(),
-                    ambition::platformer::markers::PlayerEntity,
-                    ambition::platformer::markers::PrimaryPlayer,
-                ))
-                .id();
-            (app, body)
+            app.world_mut().spawn((
+                ambition::engine_core::BodyLifetime::default(),
+                ambition::platformer::markers::PlayerEntity,
+                ambition::platformer::markers::PrimaryPlayer,
+            ));
+            app
+        }
+        fn kill(app: &mut App) {
+            app.world_mut()
+                .write_message(ambition::actors::ActorDiedMessage {
+                    pos: ambition::engine_core::Vec2::ZERO,
+                    cause: ambition::actors::DeathCause {
+                        source: ambition::combat::HitSource::Hazard,
+                        attacker: None,
+                    },
+                });
         }
         fn level(app: &mut App) -> (u8, u32, f32) {
             let mut q = app.world_mut().query::<&MaryOLevelState>();
@@ -1520,34 +1536,30 @@ mod tests {
             (s.lives, s.score, s.time_remaining)
         }
 
-        // ── A respawn spends exactly one life ────────────────────────────────
-        let (mut app, body) = shell(0.0);
+        // ── A death spends exactly one life ──────────────────────────────────
+        let mut app = shell(0.0);
         app.update();
         assert_eq!(level(&mut app).0, STARTING_LIVES, "no death, no cost");
 
-        app.world_mut()
-            .get_mut::<ambition::engine_core::BodyLifetime>(body)
-            .unwrap()
-            .resets += 1;
+        kill(&mut app);
         app.update();
         assert_eq!(
             level(&mut app).0,
             STARTING_LIVES - 1,
-            "the engine respawned her, so a life is spent"
+            "she died, so a life is spent"
         );
 
-        // Standing still at the same counter costs nothing more — it is the
-        // EDGE that is a death, not the value.
+        // No further deaths reported: the cost does not repeat per frame.
         app.update();
         app.update();
         assert_eq!(
             level(&mut app).0,
             STARTING_LIVES - 1,
-            "a life is spent per respawn, not per frame after one"
+            "a life is spent per death, not per frame after one"
         );
 
         // ── Running out of time is a death, and refills the clock ────────────
-        let (mut app, _body) = shell(STARTING_TIME * 2.0);
+        let mut app = shell(STARTING_TIME * 2.0);
         app.update();
         let (lives, _, remaining) = level(&mut app);
         assert_eq!(lives, STARTING_LIVES - 1, "the clock hitting zero kills");
@@ -1558,7 +1570,7 @@ mod tests {
         );
 
         // ── Zero lives restarts the RUN, score included ──────────────────────
-        let (mut app, body) = shell(0.0);
+        let mut app = shell(0.0);
         app.update();
         {
             let mut q = app.world_mut().query::<&mut MaryOLevelState>();
@@ -1566,15 +1578,89 @@ mod tests {
             state.lives = 1;
             state.score = 4200;
         }
-        app.world_mut()
-            .get_mut::<ambition::engine_core::BodyLifetime>(body)
-            .unwrap()
-            .resets += 1;
+        kill(&mut app);
         app.update();
         let (lives, score, remaining) = level(&mut app);
         assert_eq!(lives, STARTING_LIVES, "a game over starts a fresh run");
         assert_eq!(score, 0, "and a fresh run scores from zero");
         assert_eq!(remaining, STARTING_TIME, "on a full clock");
+    }
+
+    /// **A replay's own body reset must not read as a death.**
+    ///
+    /// The regression for the feedback loop. Before the fix, lives were inferred
+    /// from `BodyLifetime.resets`, so this sequence was recursive: a death spent
+    /// a life and requested a replay; the replay consumer called
+    /// `reset_body_clusters`; that bumped `resets`; the bump was read as a second
+    /// death; another life, another replay — unbounded, at frame rate, wrapping
+    /// the counter forever. Grabbing the FLAG entered the same loop, because the
+    /// level cycle also requests a replay.
+    ///
+    /// This stands in for the replay consumer by doing the one thing it does to
+    /// the body — bumping the respawn counter — and then asserting that nothing
+    /// happens. That is the whole claim: the counter is no longer an input to
+    /// life accounting, so no caller of `reset_body_clusters` can spend a life.
+    ///
+    /// NOTE ON SCOPE: this composes Mary-O's rules, not the real host consumer,
+    /// which lives in `ambition_app` and is unreachable from this crate. The
+    /// hosted end-to-end proof is still open — see the demo's planning doc.
+    #[test]
+    fn a_replay_reset_is_not_a_death_so_lives_cannot_drain() {
+        use ambition::world::rooms::{ActiveRoomMetadata, RoomMetadata};
+
+        let mut app = App::new();
+        ambition::engine::add_headless_foundation(&mut app);
+        ambition::platformer::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ActiveRoomMetadata(RoomMetadata::default()),
+        );
+        app.insert_resource(ambition::time::WorldTime {
+            scaled_dt: 0.0,
+            ..Default::default()
+        });
+        app.add_message::<ambition::actors::ActorDiedMessage>();
+        app.add_plugins(MaryORulesPlugin::global());
+        let body = app
+            .world_mut()
+            .spawn((
+                ambition::engine_core::BodyLifetime::default(),
+                ambition::platformer::markers::PlayerEntity,
+                ambition::platformer::markers::PrimaryPlayer,
+            ))
+            .id();
+        app.update();
+        assert_eq!(
+            level_lives(&mut app),
+            STARTING_LIVES,
+            "a fresh level starts on three lives"
+        );
+
+        // Every caller of `reset_body_clusters` looks like this from the
+        // outside: a room replay, a room load, a sandbox reset, an avatar
+        // rebuild. None of them is a death.
+        for _ in 0..8 {
+            app.world_mut()
+                .get_mut::<ambition::engine_core::BodyLifetime>(body)
+                .unwrap()
+                .resets += 1;
+            app.update();
+        }
+
+        assert_eq!(
+            level_lives(&mut app),
+            STARTING_LIVES,
+            "eight body resets with no death reported must cost NOTHING — under \
+             the old counter inference this had already drained and wrapped the \
+             lives counter"
+        );
+    }
+
+    fn level_lives(app: &mut App) -> u8 {
+        let mut q = app.world_mut().query::<&MaryOLevelState>();
+        q.iter(app.world())
+            .next()
+            .expect("the mode owner exists")
+            .lives
     }
 
     /// **The level loops: a settled tally rearms the level after a dwell.** The

@@ -130,6 +130,107 @@ fn each_manifest_starts_play_in_its_own_entry_room() {
     );
 }
 
+/// THE APP-LEVEL ORACLE: two real `App`s in one process, each with its own
+/// manifest, and the in-schedule `Res<WorldManifest>` readers each see their own.
+///
+/// The tests above run PURE functions over a `&WorldManifest` argument. That is
+/// worth having — it pins the signature refactor — but it is nearly tautological
+/// as an isolation proof: a function that takes the manifest by reference and
+/// reads nothing else cannot leak between callers, so those assertions would
+/// keep passing if a first-wins global were reintroduced anywhere except inside
+/// `load_default_for_dev`/`to_room_set` themselves. The route K2a actually
+/// changed — `insert_resource` at provider-build time, read as a `Res` in
+/// schedule — had no coverage at all.
+///
+/// This closes that. The two Apps are stepped INTERLEAVED, so a global that
+/// answered "whoever installed first" would have to make one App's own probe
+/// report the other App's entry room.
+#[test]
+fn two_apps_keep_their_own_manifest_through_in_schedule_readers() {
+    use bevy::prelude::*;
+
+    /// What this App's in-schedule reader actually saw.
+    #[derive(Resource, Default)]
+    struct Observed(Vec<String>);
+
+    fn observe(manifest: Res<WorldManifest>, mut seen: ResMut<Observed>) {
+        seen.0.push(manifest.entry_room.clone());
+    }
+
+    fn app_with(manifest: WorldManifest) -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.insert_resource(manifest);
+        app.init_resource::<Observed>();
+        app.add_systems(Update, observe);
+        app
+    }
+
+    // Built in one order...
+    let mut sandbox = app_with(provider_a());
+    let mut intro = app_with(provider_b());
+    // ...and stepped in the other, interleaved.
+    for _ in 0..3 {
+        intro.update();
+        sandbox.update();
+    }
+
+    let sandbox_seen = &sandbox.world().resource::<Observed>().0;
+    let intro_seen = &intro.world().resource::<Observed>().0;
+
+    assert_eq!(
+        sandbox_seen,
+        &vec!["central_hub_complex".to_string(); 3],
+        "the sandbox App's scheduled reader must see the sandbox manifest on \
+         every frame, even though the intro App stepped between its frames; \
+         got {sandbox_seen:?}"
+    );
+    assert_eq!(
+        intro_seen,
+        &vec!["intro_wake_room".to_string(); 3],
+        "the intro App's scheduled reader must see ITS OWN manifest — under a \
+         first-wins global it would report the sandbox entry room instead; \
+         got {intro_seen:?}"
+    );
+}
+
+/// The real content provider publishes into ITS App and no other.
+///
+/// The pair above uses hand-built manifests, which proves the mechanism but not
+/// that the shipped provider uses it. This builds the actual
+/// `AmbitionContentPlugin` next to a second App carrying a disjoint manifest,
+/// and checks neither App learned the other's declaration.
+#[test]
+fn the_real_content_provider_publishes_into_its_own_app_only() {
+    use bevy::prelude::*;
+
+    let mut content = App::new();
+    content.add_plugins(MinimalPlugins);
+    content.add_plugins(ambition_content::AmbitionContentPlugin);
+
+    let mut other = App::new();
+    other.add_plugins(MinimalPlugins);
+    other.insert_resource(provider_b());
+
+    let content_entry = content
+        .world()
+        .get_resource::<WorldManifest>()
+        .expect("the content provider publishes its manifest as an App resource")
+        .entry_room
+        .clone();
+    let other_entry = other.world().resource::<WorldManifest>().entry_room.clone();
+
+    assert_eq!(
+        content_entry, "central_hub_complex",
+        "the real provider's App holds the real provider's entry room"
+    );
+    assert_eq!(
+        other_entry, "intro_wake_room",
+        "building the real provider must not overwrite a second App's \
+         declaration — that is exactly what the deleted OnceLock did"
+    );
+}
+
 /// A world-less manifest is a legal declaration, not a missing install.
 ///
 /// The `OnceLock` could only express "no manifest" as a panic on first read,

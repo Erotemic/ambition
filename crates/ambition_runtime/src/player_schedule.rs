@@ -215,6 +215,14 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_actors::abilities::traversal::possession::release_possession_if_target_lost,
                 ambition_actors::features::ecs::damage_apply::apply_player_hit_events
                     .run_if(gameplay_allowed),
+                // The kernel's own death path (pit / drown / tile hazard) never
+                // reaches the hit resolver, so it publishes its death fact here
+                // — the movement phase in `WorldPrep` has already flagged the
+                // reset this reads. Deliberately NOT gated on
+                // `gameplay_allowed`: falling out of the world while a dialogue
+                // is open is still a death, and dropping it would leave the
+                // body respawned with no consumer ever told why.
+                ambition_actors::features::ecs::damage_apply::publish_kernel_reset_death,
             )
                 .chain()
                 .in_set(SandboxSet::PlayerSimulation),

@@ -91,6 +91,21 @@ impl Plugin for PlatformerProviderRuntimePlugin {
             .init_resource::<
                 ambition_platformer_primitives::gameplay_presentation::ActiveGameplayPresentationProfiles,
             >()
+            // The HUD's two route-following channels, owned here for the same
+            // reason as the profile above: this layer REGISTERS the systems
+            // that write them, so this layer must guarantee they exist.
+            // `DeclaredHudPlugin` also inits both, which hid the gap until a
+            // composition ran a HUD-declaring route WITHOUT the renderer —
+            // `shell_host_lifecycle` then panicked with "Resource does not
+            // exist", first on `HudReadouts` (the game's publisher) and then on
+            // `ActiveHudDeclaration` (`select_active_hud_declaration`, right
+            // below). A headless host must be able to run a game that has a HUD.
+            .init_resource::<
+                ambition_platformer_primitives::gameplay_presentation::ActiveHudDeclaration,
+            >()
+            .init_resource::<
+                ambition_platformer_primitives::gameplay_presentation::HudReadouts,
+            >()
             .configure_sets(
                 Update,
                 PlatformerPreparationSet.in_set(AmbitionLoadSet::Contributors),

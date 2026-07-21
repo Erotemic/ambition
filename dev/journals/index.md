@@ -2,6 +2,12 @@
 
 Use this index when debugging a symptom. Search `dev/journals/` when in doubt; this file is a routing aid, not a complete replacement for grep.
 
+## Presentation / camera
+
+| Symptom | Read |
+|---|---|
+| A body's screen position jumps at a portal transit / the camera lags a teleport by the portal separation; any visual that mixes the PRESENTED (frame-clock) pose with an authoritative sim position disagrees by the size of the jump | [`portal-camera-continuity-regression-2026-07-21.md`](portal-camera-continuity-regression-2026-07-21.md) |
+
 ## Movement / collision
 
 | Symptom | Read |

@@ -403,11 +403,19 @@ pub fn level_1_1() -> RoomSpec {
     // The RETURN pipe. The vault's exit was a logical zone with no geometry —
     // nothing to see and nothing to aim at, so the only way out was knowing it
     // was there. A pipe you can see is the whole affordance.
+    //
+    // It STANDS ON THE VAULT FLOOR, and `vault_exit` is the band straddling its
+    // top face — exactly the relationship the entry pipe has with `pipe_mouth`.
+    // This used to derive the block's top from the BAND (`exit.max.y - height`),
+    // which floated it 48px clear of the floor and left its top face ABOVE its
+    // own band: a body standing on the pipe spanned 544..592 against a band at
+    // 624..656, so Interact could never fire and the vault had no working exit.
+    // The only way out was the hole pit B punches in its ceiling.
     let exit = vault_exit();
     blocks.push(
         ae::Block::solid_tiled(
             EXIT_PIPE_NAME,
-            ae::Vec2::new(exit.min.x, exit.max.y - PIPE_HEIGHT_TILES * T),
+            ae::Vec2::new(exit.min.x, vault.max.y - PIPE_HEIGHT_TILES * T),
             ae::Vec2::new(PIPE_WIDTH_TILES * T, PIPE_HEIGHT_TILES * T),
             "mary_o_pipe",
             1,
@@ -1465,9 +1473,31 @@ mod tests {
             overlaps(body_at(pipe_arrival()), pipe_mouth()),
             "standing on the pipe overlaps its mouth, or Interact can never fire"
         );
+        // Deliberately NOT `body_at(vault_exit().center())`. That point is
+        // inside the return pipe's own SOLID geometry, so it asserted a
+        // position no player can occupy — which is why it stayed green while
+        // the vault had no working exit at all. Stand her on the pipe's top
+        // face, where a player actually ends up, and check from there.
+        // Read the top face off the AUTHORED block, never recompute it from the
+        // formula it was supposed to use — recomputing tests the intent and
+        // passes no matter where the block actually ended up.
+        let return_pipe_top = level_1_1()
+            .world
+            .blocks
+            .iter()
+            .find(|b| b.name == EXIT_PIPE_NAME)
+            .expect("the vault has a visible return pipe")
+            .aabb
+            .min
+            .y;
+        let standing_on_return_pipe =
+            ae::Vec2::new(vault_exit().center().x, return_pipe_top - 0.9 * T);
         assert!(
-            overlaps(body_at(vault_exit().center()), vault_exit()),
-            "the vault exit catches a body standing in it"
+            overlaps(body_at(standing_on_return_pipe), vault_exit()),
+            "a body STANDING ON the return pipe must overlap the exit band, or \
+             Interact can never fire and the vault is a one-way trip: body at \
+             {standing_on_return_pipe:?} vs band {:?}",
+            vault_exit()
         );
 
         // The level really does carry BOTH pipes and the coins that reward

@@ -35,8 +35,21 @@ these but this list had drifted):
 Remaining acceptance work is product/content work
 (**this list is the single source; status.md and tracks.md refer here**):
 
-- ring drop-on-hit scatter;
-- a provider-owned goal, HUD, results, and end-of-act sequence;
+- ✅ **Ring drop-on-hit scatter — LANDED 2026-07-21.** Rings are a life, not a
+  score: a hit taken holding rings is survived and costs the rings, which
+  scatter in a fan above the body as REAL `currency` pickups you can run back
+  down; a hit taken holding none lands normally. The hit is detected as a DROP in
+  the body's health rather than by listening for a damage message, so every
+  present and future damage source is accounted for with no per-source wiring —
+  the same reasoning Mary-O's lives use against the engine's respawn counter.
+  Capped at 12 scattered so a big purse does not turn one hit into a shower.
+  Engine change: `ambition_actors::features::ecs::spawn_static::spawn_pickup` is
+  now PUBLIC. The engine could lower authored pickups but gave a game no way to
+  DROP one at runtime, so scatters, enemy loot, and chest rewards would each have
+  rebuilt the bundle and drifted from the collection path; a dropped ring and an
+  authored ring are now indistinguishable once they exist.
+- a provider-owned goal, results, and end-of-act sequence (the HUD half of this
+  line landed 2026-07-21 — see the ring counter above);
 - additional authored act content beyond the single speedway room; and
 - a deterministic headless completion proof in which the rewarded high route
   beats the lower safe route under the same control contract.

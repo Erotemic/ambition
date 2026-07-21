@@ -308,7 +308,19 @@ pub(crate) fn lower_pickup_placement(
     spawn_pickup(ctx.commands, ctx.session_scope, &authored);
 }
 
-pub(crate) fn spawn_pickup(
+/// Spawn ONE live pickup.
+///
+/// Public because authored placement is not the only way a pickup comes to
+/// exist: a game may need to DROP one at runtime — rings scattering out of a
+/// body that just took a hit, an enemy's loot, a chest's reward. The engine
+/// could lower authored pickups but had no way to hand a game that same
+/// capability, so any game wanting a drop had to rebuild the bundle itself and
+/// would have drifted from the collection path the moment either side changed.
+///
+/// The spawned pickup is an ordinary one in every respect: the shared
+/// `collect_ecs_pickups` credits it, so a dropped ring and an authored ring are
+/// indistinguishable once they exist.
+pub fn spawn_pickup(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<crate::rooms::PickupSpec>,

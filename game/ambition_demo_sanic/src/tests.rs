@@ -1181,3 +1181,96 @@ fn the_speedway_tags_every_ring_with_the_animated_sprite() {
         );
     }
 }
+
+/// **Rings are a life, not a score.** A hit taken holding rings is survived and
+/// costs the rings; a hit taken holding none lands normally.
+///
+/// Worth pinning because both halves are invisible from the outside and each
+/// fails silently in the opposite direction: a scatter that forgets to refund
+/// the health kills a player who should have survived, and one that refunds it
+/// unconditionally makes the body immortal the moment it owns a single ring.
+/// Nothing on screen distinguishes either from "working".
+#[test]
+fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
+    use ambition::characters::actor::{BodyHealth, BodyWallet, Health};
+    use ambition::platformer::lifecycle::{ActiveSessionScope, SessionScopeId};
+
+    fn app_with_session() -> App {
+        let mut app = App::new();
+        app.add_message::<ambition::vfx::VfxMessage>();
+        app.add_message::<ambition::sfx::OwnedSfxMessage>();
+        let mut scope = ActiveSessionScope::default();
+        scope.begin();
+        app.insert_resource(scope);
+        app.add_systems(bevy::prelude::Update, crate::scatter_rings_on_hit);
+        app
+    }
+    fn spawn_sanic(app: &mut App, rings: i32) -> bevy::prelude::Entity {
+        let mut kin = ae::BodyKinematics::default();
+        kin.size = ae::Vec2::new(28.0, 32.0);
+        app.world_mut()
+            .spawn((
+                ambition::platformer::markers::PlayerEntity,
+                ambition::platformer::markers::PrimaryPlayer,
+                kin,
+                BodyHealth::new(Health::new(3)),
+                BodyWallet { balance: rings },
+            ))
+            .id()
+    }
+    fn health(app: &mut App, e: bevy::prelude::Entity) -> i32 {
+        app.world().get::<BodyHealth>(e).unwrap().health.current
+    }
+    fn rings(app: &mut App, e: bevy::prelude::Entity) -> i32 {
+        app.world().get::<BodyWallet>(e).unwrap().balance
+    }
+    fn dropped(app: &mut App) -> usize {
+        let mut q = app
+            .world_mut()
+            .query::<&ambition::actors::features::PickupFeature>();
+        q.iter(app.world()).count()
+    }
+
+    // ── Holding rings: the hit is spent on them ─────────────────────────────
+    let mut app = app_with_session();
+    let sanic = spawn_sanic(&mut app, 7);
+    app.update(); // adopt the starting health
+
+    app.world_mut()
+        .get_mut::<BodyHealth>(sanic)
+        .unwrap()
+        .health
+        .current -= 1;
+    app.update();
+
+    assert_eq!(
+        health(&mut app, sanic),
+        3,
+        "a hit taken with rings is REFUNDED — that is what carrying rings buys"
+    );
+    assert_eq!(rings(&mut app, sanic), 0, "and it costs every ring");
+    assert_eq!(
+        dropped(&mut app),
+        7,
+        "which scatter as real pickups, so they can be run back down"
+    );
+
+    // ── Holding none: the hit lands ─────────────────────────────────────────
+    let mut app = app_with_session();
+    let broke = spawn_sanic(&mut app, 0);
+    app.update();
+    app.world_mut()
+        .get_mut::<BodyHealth>(broke)
+        .unwrap()
+        .health
+        .current -= 1;
+    app.update();
+
+    assert_eq!(
+        health(&mut app, broke),
+        2,
+        "with no rings the hit lands normally — ring loss is a privilege of \
+         carrying rings, not a blanket shield"
+    );
+    assert_eq!(dropped(&mut app), 0, "and nothing scatters");
+}

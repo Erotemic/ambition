@@ -916,6 +916,10 @@ impl Plugin for SanicRulesPlugin {
         // badnik's health that frame; the contact pass skips a dead attacker).
         let badniks =
             badnik::defeat_badniks.before(ambition::actors::features::apply_actor_contact_damage);
+        // Ring loss reads the health the contact pass just wrote, so it runs
+        // AFTER it — the hit has to have landed before rings can absorb it.
+        let ring_loss =
+            scatter_rings_on_hit.after(ambition::actors::features::apply_actor_contact_damage);
         // Monitor boxes: re-arm on (re)load, break on stomp/roll, tick the
         // speed-shoes grant. Broken monitors contribute to the overlay's
         // `removed_block_names` AFTER the engine's per-frame rebuild clears it
@@ -937,6 +941,10 @@ impl Plugin for SanicRulesPlugin {
             app.add_systems(sim, badniks.run_if(ambition::runtime::in_mode(SANIC_MODE)));
             app.add_systems(
                 sim,
+                ring_loss.run_if(ambition::runtime::in_mode(SANIC_MODE)),
+            );
+            app.add_systems(
+                sim,
                 monitor_rules.run_if(ambition::runtime::in_mode(SANIC_MODE)),
             );
             app.add_systems(
@@ -947,6 +955,7 @@ impl Plugin for SanicRulesPlugin {
             app.add_systems(sim, rules);
             app.add_systems(sim, milestone_sfx);
             app.add_systems(sim, badniks);
+            app.add_systems(sim, ring_loss);
             app.add_systems(sim, monitor_rules);
             app.add_systems(sim, monitor_overlay);
         }
@@ -1221,3 +1230,139 @@ pub fn add_demo_content(app: &mut App) {
 
 #[cfg(test)]
 mod tests;
+
+// ---------------------------------------------------------------------------
+// Ring loss — what makes a ring worth anything.
+// ---------------------------------------------------------------------------
+
+/// How many of the rings you were carrying actually scatter. The rest are gone.
+///
+/// Losing everything and being able to recover everything are both boring; the
+/// classic answer is "you can get SOME of it back if you are quick", and the cap
+/// is what keeps a big purse from turning a hit into a shower.
+const SCATTERED_RINGS_MAX: usize = 12;
+
+/// How far a scattered ring lands from the body it came out of.
+const SCATTER_RADIUS: f32 = 46.0;
+
+/// Marks the body's "I just lost my rings" window, so a single hit cannot be
+/// billed twice while the damage frame is still resolving.
+#[derive(bevy::prelude::Component, Debug, Default)]
+pub struct SanicRingLoss {
+    /// Health the body had last time this ran. A DROP is the hit edge.
+    seen_health: Option<i32>,
+}
+
+/// **Rings absorb the hit.**
+///
+/// This is the rule the whole ring economy exists to serve: carrying rings is
+/// not a score, it is a life. Take a hit holding rings and you survive it and
+/// they scatter; take one holding none and it lands normally.
+///
+/// The hit is detected as a DROP in the body's health rather than by listening
+/// for a damage message, for the same reason Mary-O counts deaths off the
+/// engine's respawn counter: every current and future source of damage — badnik
+/// contact, spikes, a hazard nobody has authored yet — is already accounted for,
+/// with no per-source wiring.
+///
+/// The scattered rings are ordinary `currency` pickups spawned through the
+/// engine's own `spawn_pickup`, so the shared economy collects them on the exact
+/// path an authored ring takes. A dropped ring and an authored ring are the same
+/// thing once they exist, which is what makes "run back and grab them" work
+/// without a single line of demo collection code.
+pub fn scatter_rings_on_hit(
+    mut commands: bevy::prelude::Commands,
+    active_session: Option<bevy::prelude::Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
+    mut vfx: bevy::prelude::MessageWriter<ambition::vfx::VfxMessage>,
+    mut sfx: ambition::sfx::SfxWriter,
+    mut bodies: bevy::prelude::Query<
+        (
+            bevy::prelude::Entity,
+            &ae::BodyKinematics,
+            &mut ambition::characters::actor::BodyHealth,
+            &mut ambition::characters::actor::BodyWallet,
+            Option<&mut SanicRingLoss>,
+        ),
+        ambition::platformer::markers::PrimaryPlayerOnly,
+    >,
+) {
+    let Some(scope) =
+        ambition::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
+            active_session.as_deref(),
+        )
+    else {
+        return;
+    };
+
+    for (entity, kin, mut health, mut wallet, loss) in &mut bodies {
+        let current = health.health.current;
+        let Some(mut loss) = loss else {
+            // First sight: adopt the health we find rather than reading the
+            // session's starting value as a hit.
+            commands.entity(entity).try_insert(SanicRingLoss {
+                seen_health: Some(current),
+            });
+            continue;
+        };
+        let previous = *loss.seen_health.get_or_insert(current);
+        let took_a_hit = current < previous;
+        loss.seen_health = Some(current);
+
+        if !took_a_hit || wallet.balance <= 0 {
+            // No rings: the hit lands exactly as it would have. Ring loss is a
+            // privilege of carrying rings, not a blanket shield.
+            continue;
+        }
+
+        // Carrying rings: the hit is SPENT on them instead of on health.
+        health.health.current = previous;
+        let carried = wallet.balance;
+        wallet.balance = 0;
+
+        let scattered = (carried as usize).min(SCATTERED_RINGS_MAX);
+        for i in 0..scattered {
+            // A fan above the body — reachable on the way back down, which is
+            // what gives the player the scramble rather than a lottery.
+            let t = (i as f32 + 0.5) / scattered as f32;
+            let angle = std::f32::consts::PI * (0.15 + 0.7 * t);
+            let offset = ae::Vec2::new(
+                angle.cos() * SCATTER_RADIUS,
+                // Screen +y is down, so subtracting lifts them.
+                -angle.sin() * SCATTER_RADIUS * 0.8,
+            );
+            let size = ae::Vec2::splat(18.0);
+            let centre = kin.pos + offset;
+            let authored = ambition::actors::rooms::Authored {
+                id: format!("sanic_dropped_ring_{}_{i}", entity.index()),
+                name: "ring".to_string(),
+                aabb: ae::Aabb::new(centre, size * 0.5),
+                payload: {
+                    let mut spec = ambition::entity_catalog::placements::PickupSpec::new(
+                        ambition::entity_catalog::placements::PickupKindSpec::Currency {
+                            amount: 1,
+                        },
+                    );
+                    spec.sprite = Some(RING_SPRITE_KIND.to_string());
+                    spec
+                },
+            };
+            ambition::actors::features::ecs::spawn_static::spawn_pickup(
+                &mut commands,
+                scope,
+                &authored,
+            );
+        }
+
+        vfx.write(ambition::vfx::VfxMessage::Burst {
+            pos: kin.pos,
+            count: 18,
+            speed: 210.0,
+            color: [1.0, 0.86, 0.28, 1.0],
+            kind: ambition::vfx::ParticleKind::Dust,
+        });
+        sfx.write(ambition::sfx::SfxMessage::Play {
+            id: ambition::sfx::SfxId::from_static(SFX_BADNIK),
+            pos: kin.pos,
+        });
+    }
+}

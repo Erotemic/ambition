@@ -24,6 +24,7 @@ use bevy::prelude::*;
 use ambition_platformer_primitives::{
     gameplay_presentation::{
         ActiveHudDeclaration, HudReadouts, HudSlotId, ResolvedGameplayPresentation, ScreenOccluder,
+        ScreenRect, SurroundRegion,
     },
     lifecycle::{ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt},
 };
@@ -111,6 +112,11 @@ pub fn spawn_declared_hud(
                 DeclaredHudRoot,
                 DeclaredHudSlot(spec.id.clone()),
                 Text::new(String::new()),
+                bevy::text::TextLayout::new_with_justify(if spec.centered {
+                    bevy::text::Justify::Center
+                } else {
+                    bevy::text::Justify::Left
+                }),
                 font,
                 TextColor(Color::srgba(r, g, b, a)),
                 Node {
@@ -159,12 +165,19 @@ pub fn place_declared_hud(
                 if slot.0 != spec.id {
                     continue;
                 }
-                // Centre by percentage rather than measuring the text: taffy
-                // knows the node's width and this crate does not, and a card
-                // that must not jitter as its digits change is exactly the case
-                // where guessing a width would show.
-                if node.left != Val::Percent(50.0) {
-                    node.left = Val::Percent(50.0);
+                // Span the gameplay rect and let the text centre ITSELF inside
+                // that span (the node carries `JustifyText::Center`). Setting
+                // `left: 50%` instead puts the node's LEFT EDGE at the middle,
+                // so the card starts at centre and runs off to the right — it
+                // reads as "the HUD is in the middle of the screen" rather than
+                // as a centred card, which is exactly how this shipped.
+                let left = Val::Px(gameplay.min.x);
+                let width = Val::Px(gameplay.width());
+                if node.left != left {
+                    node.left = left;
+                }
+                if node.width != width {
+                    node.width = width;
                 }
                 let y = gameplay.min.y + gameplay.height() * 0.38;
                 if node.top != Val::Px(y) {
@@ -173,10 +186,36 @@ pub fn place_declared_hud(
             }
             continue;
         }
+        // Prefer the declared region; fall back to any OTHER reserved region
+        // before giving up and overlaying.
+        //
+        // A game declares where it would LIKE its readouts, but which surround
+        // a profile actually reserves depends on the display: Mary-O's fixed
+        // 4:3 pillarboxes on a widescreen (Left/Right) and letterboxes on a
+        // tall one (Top/Bottom). Honouring only the declared region meant its
+        // `Top` readouts found nothing on every ordinary monitor and fell
+        // through to the overlay corner — landing somewhere reasonable purely
+        // by luck rather than by placement.
+        let fits =
+            |rect: &ScreenRect| rect.width() >= spec.min_px.x && rect.height() >= spec.min_px.y;
         let region = prefers_surround
-            .then(|| presentation.hud_region(spec.region))
-            .flatten()
-            .filter(|rect| rect.width() >= spec.min_px.x && rect.height() >= spec.min_px.y);
+            .then(|| {
+                presentation
+                    .hud_region(spec.region)
+                    .filter(fits)
+                    .or_else(|| {
+                        [
+                            SurroundRegion::Left,
+                            SurroundRegion::Right,
+                            SurroundRegion::Top,
+                            SurroundRegion::Bottom,
+                        ]
+                        .into_iter()
+                        .filter(|region| *region != spec.region)
+                        .find_map(|region| presentation.hud_region(region).filter(fits))
+                    })
+            })
+            .flatten();
 
         let anchor = match region {
             Some(rect) => {

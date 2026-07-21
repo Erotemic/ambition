@@ -162,6 +162,38 @@ find_game_pid() {
     fail "could not find ambition_game_bin or ambition_actors; pass --pid or use a *-run mode"
 }
 
+# The kernel gate for unprivileged perf. Debian/Ubuntu ship
+# kernel.perf_event_paranoid=3 or 4, which blocks ALL unprivileged perf_event_open;
+# upstream 2 allows user-space-only samples; 1 additionally allows kernel-side
+# samples, so cycles/context-switch attribution and mixed user/kernel stacks
+# resolve (the level docs/recipes/profiling.md prescribes). Request exactly 1,
+# for this boot only (`sysctl -w` does not persist across reboots).
+ensure_perf_kernel_level() {
+    local target=1 current
+    current="$(cat /proc/sys/kernel/perf_event_paranoid 2>/dev/null || true)"
+    if [[ ! "$current" =~ ^-?[0-9]+$ ]]; then
+        # No knob visible (non-Linux, locked-down container): let perf itself
+        # produce the authoritative error.
+        return 0
+    fi
+    if (( current <= target )); then return 0; fi
+    if [[ "$(id -u)" == "0" ]]; then return 0; fi
+    local sudo_cmd=(sudo)
+    # Without a terminal there is nobody to answer a password prompt; -n makes
+    # sudo fail fast instead of hanging the capture.
+    if [[ ! -t 0 ]]; then sudo_cmd=(sudo -n); fi
+    local blocked="kernel-side samples"
+    if (( current > 2 )); then blocked="all unprivileged perf profiling"; fi
+    log "kernel.perf_event_paranoid=$current blocks $blocked; requesting level $target for this boot"
+    if "${sudo_cmd[@]}" sysctl -w kernel.perf_event_paranoid="$target"; then
+        log "kernel.perf_event_paranoid=$target until reboot (persist via: echo kernel.perf_event_paranoid=$target | sudo tee /etc/sysctl.d/local-perf.conf)"
+    elif (( current > 2 )); then
+        fail "perf is fully blocked at kernel.perf_event_paranoid=$current; run: sudo sysctl -w kernel.perf_event_paranoid=$target"
+    else
+        log "sudo declined/unavailable; continuing with user-space-only samples (kernel.perf_event_paranoid=$current)"
+    fi
+}
+
 mode_uses_launch() { case "$1" in perf-run|stat-run|asset-run) return 0 ;; *) return 1 ;; esac; }
 warm_build_is_enabled_for() {
     case "$warm_build" in
@@ -249,6 +281,7 @@ write_metadata() {
         (cd "$repo_root" && git status --short 2>/dev/null || true)
         echo "git_status_porcelain_end"
         echo "perf_version=$(perf --version 2>/dev/null || true)"
+        echo "perf_event_paranoid=$(cat /proc/sys/kernel/perf_event_paranoid 2>/dev/null || true)"
         echo "strace_version=$(strace --version 2>/dev/null | head -1 || true)"
         echo "python3_version=$(python3 --version 2>/dev/null || true)"
     } > "$out_dir/metadata.txt"
@@ -421,6 +454,7 @@ package_dir() {
 run_perf_record() {
     local local_mode="$1" out_dir="$2"
     require_tool perf
+    ensure_perf_kernel_level
     write_metadata "$out_dir" "$local_mode"
     run_warm_build_if_needed "$out_dir" "$local_mode"
     if [[ "$local_mode" == "perf-attach" ]]; then
@@ -440,6 +474,7 @@ run_perf_record() {
 run_perf_stat() {
     local local_mode="$1" out_dir="$2"
     require_tool perf
+    ensure_perf_kernel_level
     write_metadata "$out_dir" "$local_mode"
     run_warm_build_if_needed "$out_dir" "$local_mode"
     if [[ "$local_mode" == "stat-attach" ]]; then

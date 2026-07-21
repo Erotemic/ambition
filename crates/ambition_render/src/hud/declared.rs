@@ -81,8 +81,7 @@ fn select_hud_region(
     if !presentation.prefers_surround_hud() {
         return None;
     }
-    let fits =
-        |rect: &ScreenRect| rect.width() >= spec.min_px.x && rect.height() >= spec.min_px.y;
+    let fits = |rect: &ScreenRect| rect.width() >= spec.min_px.x && rect.height() >= spec.min_px.y;
     std::iter::once(spec.region)
         .chain(
             [
@@ -303,6 +302,35 @@ pub fn update_declared_hud(
     }
 }
 
+/// Installs the declared-HUD surface.
+///
+/// Belongs to the presentation face rather than any one app, because the whole
+/// point of the seam is that a game gets a HUD by DECLARING one — no app-side
+/// wiring per game. A route that declared nothing spawns nothing, so hosts
+/// whose games have no HUD are unaffected.
+pub struct DeclaredHudPlugin;
+
+impl Plugin for DeclaredHudPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ActiveHudDeclaration>()
+            .init_resource::<HudReadouts>();
+        app.add_systems(
+            Update,
+            (
+                spawn_declared_hud,
+                update_declared_hud,
+                // Consumes THIS frame's resolved HUD regions, so a profile
+                // that reserves surround actually gets the readouts put there.
+                place_declared_hud.after(
+                    ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet,
+                ),
+            )
+                .chain()
+                .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -314,16 +342,16 @@ mod tests {
     fn same_slot_id_with_changed_style_forces_a_rebuild() {
         let old = DeclaredHudSpec(HudSlotSpec::new("score").with_font_size(18.0));
         let new = HudSlotSpec::new("score").with_font_size(30.0);
-        assert!(!declaration_matches_live_specs(&[new], [Some(&old)].into_iter()));
+        assert!(!declaration_matches_live_specs(
+            &[new],
+            [Some(&old)].into_iter()
+        ));
     }
 
     #[test]
     fn a_live_node_without_a_cached_spec_forces_a_rebuild() {
         let spec = HudSlotSpec::new("score");
-        assert!(!declaration_matches_live_specs(
-            &[spec],
-            [None].into_iter(),
-        ));
+        assert!(!declaration_matches_live_specs(&[spec], [None].into_iter(),));
     }
 
     #[test]
@@ -338,8 +366,10 @@ mod tests {
 
     #[test]
     fn slots_falling_back_to_the_same_region_stack_instead_of_overlapping() {
-        let mut presentation = ResolvedGameplayPresentation::default();
-        presentation.hud = HudLayoutPolicy::PreferSurround;
+        let mut presentation = ResolvedGameplayPresentation {
+            hud: HudLayoutPolicy::PreferSurround,
+            ..Default::default()
+        };
         presentation.controls.hud = vec![NamedScreenRect {
             region: SurroundRegion::Left,
             rect: ScreenRect::from_min_size(Vec2::ZERO, Vec2::new(200.0, 200.0)),
@@ -387,35 +417,6 @@ mod tests {
         assert!(
             bottom_y > top_y,
             "two preferences that fall back to Left must share its stack: {top_y} vs {bottom_y}",
-        );
-    }
-}
-
-/// Installs the declared-HUD surface.
-///
-/// Belongs to the presentation face rather than any one app, because the whole
-/// point of the seam is that a game gets a HUD by DECLARING one — no app-side
-/// wiring per game. A route that declared nothing spawns nothing, so hosts
-/// whose games have no HUD are unaffected.
-pub struct DeclaredHudPlugin;
-
-impl Plugin for DeclaredHudPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<ActiveHudDeclaration>()
-            .init_resource::<HudReadouts>();
-        app.add_systems(
-            Update,
-            (
-                spawn_declared_hud,
-                update_declared_hud,
-                // Consumes THIS frame's resolved HUD regions, so a profile
-                // that reserves surround actually gets the readouts put there.
-                place_declared_hud.after(
-                    ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet,
-                ),
-            )
-                .chain()
-                .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
         );
     }
 }

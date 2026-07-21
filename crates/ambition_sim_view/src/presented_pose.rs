@@ -328,9 +328,8 @@ impl bevy::prelude::Plugin for PresentedPosePlugin {
         if app.sim_is(bevy::prelude::Update) {
             app.configure_sets(
                 Update,
-                PresentedPoseSet.after(
-                    ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync,
-                ),
+                PresentedPoseSet
+                    .after(ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync),
             );
         }
         // The rollback host's phase lives in the GGRS driver's own accumulator,

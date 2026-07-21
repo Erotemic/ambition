@@ -199,11 +199,9 @@ pub fn select_active_presentation_profiles(
         .and_then(|(active, catalog)| catalog.get(active.route_id.as_str()))
         .copied()
         .unwrap_or_default();
-    if active.0 == declared {
-        return false;
+    if active.0 != declared {
+        active.0 = declared;
     }
-    active.0 = declared;
-    true
 }
 
 /// Copy the active route's declared HUD into the resource the renderer
@@ -252,11 +250,8 @@ mod tests {
     #[test]
     fn equal_sized_route_huds_still_replace_each_other() {
         let old = HudDeclaration::new().slot(HudSlotSpec::new("rings"));
-        let next = HudDeclaration::new().slot(
-            HudSlotSpec::new("score")
-                .centered()
-                .with_font_size(30.0),
-        );
+        let next =
+            HudDeclaration::new().slot(HudSlotSpec::new("score").centered().with_font_size(30.0));
         let mut active = ActiveHudDeclaration(Some(old));
 
         assert!(update_active_hud_declaration(

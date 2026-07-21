@@ -78,6 +78,10 @@ pub struct HudSlotSpec {
     pub id: HudSlotId,
     /// Stacking order within the slot's region. Ties break on `id`, so a
     /// declaration always lays out deterministically.
+    ///
+    /// `u32::MAX` is the "unstated" sentinel: [`HudDeclaration::slot`] replaces
+    /// it with the slot's declaration index. Zero is therefore an ORDINARY
+    /// explicit order that survives, which is why the default is not zero.
     pub order: u32,
     /// Where this readout would PREFER to live. The renderer honours it when
     /// the active profile reserves a surround and the region is big enough;

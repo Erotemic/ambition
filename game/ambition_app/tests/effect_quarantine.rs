@@ -197,3 +197,60 @@ fn the_journal_drains_once_every_frame_confirms() {
         journal.depth()
     );
 }
+
+/// **The classification, as an executable claim.**
+///
+/// The quarantine work-list named `EffectRequest` as VFX exposure. It is not:
+/// all three of its readers are simulation-side (`apply_effects` spawns
+/// hitboxes, `apply_summon_effects` spawns minions,
+/// `apply_enemy_projectile_effects` spawns projectiles), as is
+/// `SpawnProjectile`'s. Deferring one of those to the confirmed boundary would
+/// not quarantine an external effect — it would change what the simulation
+/// computes, because the consumer would miss the message on the pass that
+/// produced it and see it again on a frame it does not belong to.
+///
+/// So the split is not "effect-shaped name" but "who reads it", and getting it
+/// wrong in the permissive direction is a desync rather than a duplicate sound.
+#[test]
+fn only_presentation_facing_effects_are_quarantined() {
+    use ambition::vfx::vfx::DebrisBurstMessage;
+    use ambition::vfx::{EffectRequest, ExplosionRequest, FireworksRequest, VfxMessage};
+
+    let sim = sim_with_rewind_distance(4);
+    let world = sim.world();
+
+    macro_rules! assert_quarantined {
+        ($($ty:ty),+ $(,)?) => {$(
+            assert!(
+                world.contains_resource::<ExternalEffectJournal<$ty>>(),
+                concat!(
+                    stringify!($ty),
+                    " is read by presentation and must be held to the confirmed \
+                     boundary, but no journal was installed for it"
+                )
+            );
+        )+};
+    }
+    macro_rules! assert_not_quarantined {
+        ($($ty:ty),+ $(,)?) => {$(
+            assert!(
+                !world.contains_resource::<ExternalEffectJournal<$ty>>(),
+                concat!(
+                    stringify!($ty),
+                    " is read by the SIMULATION. Deferring it past the frame that \
+                     produced it changes what the simulation computes — that is a \
+                     desync, not a quarantine"
+                )
+            );
+        )+};
+    }
+
+    assert_quarantined!(
+        OwnedSfxMessage,
+        VfxMessage,
+        ExplosionRequest,
+        FireworksRequest,
+        DebrisBurstMessage,
+    );
+    assert_not_quarantined!(EffectRequest, ambition::projectiles::SpawnProjectile);
+}

@@ -41,7 +41,13 @@ this section is the bounded first wave, not a restatement. Vocabulary note
 - ✅ Assist semantics — Jon decided 2026-07-19: **honest rename**. The
   halving stays; the UI now says "Damage assist — take half damage".
   Aim/traversal assists, if ever built, get their own settings.
-- ◐ Audio replay-echo suppression + writer seam (`010c84369`) — **NOT
+- ✅ **Audio/VFX/persistence/trace confirmed-frame quarantine — LANDED
+  2026-07-21** (`ab8a5a564`, `14fbc6ec4`, `385a165ee`, `2eb14ef9e`). Track 1
+  below is the account; the interim state described in the rest of this bullet
+  is history. `SfxEmissionGate` is deleted, and its deletion was required
+  rather than tidy-up.
+- ◐ Audio replay-echo suppression + writer seam (`010c84369`) — the interim
+  step, superseded above. **NOT
   confirmed-frame quarantine; corrected after review.** What landed: a guard
   at `SfxWriter` (the sole `OwnedSfxMessage` producer, so it covers every
   present and future emitter), `ambition_sfx` staying sim-blind with the host
@@ -334,34 +340,78 @@ Remaining:
 **Exit:** a sync-test run that lands a melee hit, spends armor, flips a switch,
 and breaks a brick across a forced rollback window stays checksum-identical.
 
-## 1. Quarantine external effects to confirmed GGRS frames — [opus, fable-specced]
+## 1. Quarantine external effects to confirmed GGRS frames — **LANDED 2026-07-21**
 
-The exposure map is precise (deep-review §3): ~20 sim-side SFX emit sites,
-all five VFX request families, and `autosave_sandbox_save` can observe predicted
-or replayed state. The landed `SfxEmissionGate` and
-`simulation_pass_is_authoritative` answer only **whether this frame number ran
-before**. They suppress duplicate append/playback during historical replay, but
-they are not a confirmed-frame boundary: a predicted effect may escape and the
-corrected effect may then be suppressed.
+`ambition_engine_core::ConfirmedFrameBoundary` is the host's published answer to
+"which frames can never be simulated again", and
+`ambition_runtime::external_effects` is the mechanism that keys irreversible
+work to it. **Deferral, not suppression** — the distinction is the whole track.
 
-Do not copy the trace/audio high-water pattern as the final mechanism.
-`gameplay_trace` needs its own explicit policy: either record only confirmed
-frames, or key rows by GGRS frame and replace predicted rows with corrected
-state. Audio/VFX/persistence need a frame-stamped pending-intent journal that
-releases only through the host-confirmed boundary.
+The sim's effect channel became an **outbox**: cleared at the start of each
+advance, journaled at the end under the frame that produced it, released back
+into the same channel once that frame confirms. Presentation consumers are
+unchanged and unaware. Re-simulating a frame REPLACES its intents *including
+with nothing at all*, which is the half a boolean gate structurally cannot
+express and is what erases a phantom.
 
-- classify audio, VFX, save writes, trace rows, and host I/O by required policy;
-- buffer external-effect intents by GGRS frame and session/context identity;
-- release accepted intents exactly once through the confirmed boundary;
-- discard abandoned predictions and invalidate pending intents on session
-  replacement;
-- gate autosave/settings persistence on confirmed state, not raw change
-  detection;
-- prove a real predicted-A/corrected-B rewind never emits A and emits B once;
-- separately prove the chosen forensic-trace replacement/confirmation policy.
+- ✅ **Classification** (`quarantine_presentation_effects` — the list IS the
+  classification, pinned by `only_presentation_facing_effects_are_quarantined`):
+  `OwnedSfxMessage`, `VfxMessage`, `ExplosionRequest`, `FireworksRequest`,
+  `DebrisBurstMessage`. ⚠ **The work-list was wrong about `EffectRequest`** —
+  all three of its readers are sim-side (`apply_effects` spawns hitboxes,
+  `apply_summon_effects` spawns minions, `apply_enemy_projectile_effects`), as
+  is `SpawnProjectile`'s. Deferring one would not quarantine an external effect;
+  it would change what the simulation computes. The split is "who reads it", not
+  "effect-shaped name", and erring permissive is a desync, not a duplicate sound.
+- ✅ **Buffer by frame + session identity**; ✅ **release exactly once, in
+  simulation order**; ✅ **discard the abandoned branch at `LoadWorld`** and
+  invalidate on session replacement (a generation counter on the boundary).
+- ✅ **`SfxEmissionGate` DELETED**, and the deletion is load-bearing rather than
+  tidying: suppressing at emit time destroys the corrected sound before anything
+  downstream can decide whether the prediction it replaces was ever heard.
+- ✅ **Persistence** (`385a165ee`): the autosave is gated on the world holding no
+  predicted state, and change detection is replaced by a comparison against what
+  was last committed. The second is what makes the first safe — `is_changed()` is
+  consumed by a system that ran and declined to write, so any run condition in
+  front of it silently swallows real changes. Settings deliberately get the value
+  comparison but NOT the gate (not rollback state, all writers menu-side); the
+  reasoning and its expiry condition are recorded at the call site.
+- ✅ **Forensic trace** (`2eb14ef9e`): rows keyed by `sim_frame`, corrections
+  replace predictions in place. The old `simulation_pass_is_authoritative` gate
+  was *neither* option the review offered — "authoritative" meant FIRST PASS, so
+  a mispredicted frame kept its guess permanently. Anomaly detection and dump
+  arming stay first-pass (a file write must happen once) while the rows inside
+  the dump still get corrected, since the flush runs in `PostUpdate`.
 
-**Exit:** repeated rollback cannot duplicate an external effect, and a Matchbox
-transport can be attached without changing simulation systems.
+**Two traps worth keeping.** `Messages::drain` takes both of Bevy's
+double-buffers, so without the start-of-advance clear the previous render
+frame's already-released effects get journaled again and replayed — poison-tested
+by `without_the_clear_the_effect_would_be_replayed`. And registering the release
+in `PreUpdate` is not enough: with no edge against `RunGgrsSystems` Bevy may
+release *before* the advances, and the next clear then wipes what was just
+handed to presentation, silently, because the journal already counted it. The
+integration oracle found that one; the unit tests structurally could not.
+
+**Exit (met, with one clause narrowed).** `app_it::effect_quarantine`: the same
+input script on the same GGRS host, once never rewinding and once rewinding
+every step, must deliver the same effects in the same order. Poison-tested —
+disabling the quarantine yields 46 effects against 10, each sound roughly five
+times over, the original bug in its observable form.
+
+⚠ **Not claimed: a live mispredicted remote input.** A sync test resimulates
+with the *same* inputs, so its correction always equals its prediction and
+A-versus-B cannot arise there. The A≠B rule is proven against the real systems
+in `external_effects/tests.rs`
+(`a_corrected_frame_replaces_what_the_prediction_produced` plus the
+produces-nothing variant). Proving it end to end needs two peers, and ggrs's
+handshake is wall-clock gated (200ms sync-retry interval), so a live two-peer
+test would be timing-flaky in a repo whose determinism doctrine forbids exactly
+that. **Owed when the Matchbox transport lands** — the transport and the proof
+are the same piece of work, and that is the honest place for it.
+
+**Still open from this track:** attach a Matchbox transport through the existing
+`install_session` seam (unchanged by this work — no simulation system was
+touched) and land the two-peer predicted-A/corrected-B oracle with it.
 
 ## 2. Build-graph hygiene (compile-time wins) — **LANDED 2026-07-19**
 

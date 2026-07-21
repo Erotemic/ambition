@@ -95,10 +95,14 @@ pub enum ExternalEffectSet {
 /// Effect intents produced by the simulation, held by the frame that produced
 /// them until that frame can never be simulated again.
 ///
-/// Deliberately **not** rollback state. This is host bookkeeping *about* the
-/// simulation, like `RollbackExecutionStats`: rewinding it would destroy the
-/// very record used to decide what has already been released. Pinned by
-/// `the_journal_is_not_rollback_state`.
+/// Deliberately **not** rollback state, and it must never be registered as
+/// such. This is host bookkeeping *about* the simulation, like
+/// `RollbackExecutionStats`: rewinding it would restore a `released` count and
+/// a pending set from before the effects were handed over, and every one of
+/// them would be delivered a second time. The observable consequence is what
+/// `app_it::effect_quarantine::rewinding_does_not_change_what_presentation_observes`
+/// measures, so registering this for rollback fails that test rather than
+/// passing quietly.
 pub struct ExternalEffectJournal<M: Message> {
     pending: BTreeMap<i32, Vec<M>>,
     /// Which session's timeline `pending` describes. A different generation

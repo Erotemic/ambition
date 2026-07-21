@@ -72,3 +72,57 @@ Harmless today (Bevy's `add_message` is idempotent), but it reads as though the
 demo owns the channel — which is precisely the misreading that let the missing
 consumer look fine for so long. Delete both, or keep them only if a demo can
 genuinely build without the engine group.
+
+---
+
+# Level-1 acceptance follow-ups — found writing the Mary-O run (2026-07-21)
+
+Same shape as the above: surfaced by one piece of work, none blocking, none
+fixed here. Three bugs fell out of the acceptance run; two are fixed in their
+own commits (`4e4bd0fd8` the body reset, `cbc6902d2` the vault exit pipe). These
+two are not.
+
+## 5. Pit B is not a pit — it opens into the secret vault — [fable/Jon: authoring call]
+
+`vault_bounds()` spans x `800..1248` at y `480..704`. The vault's ceiling is the
+level's own ground slab — but pit B is the gap `1088..1184` in exactly that
+slab. So the middle pit drops straight into the secret vault.
+
+Consequences, all live:
+
+- falling into pit B is a soft landing in the secret rather than a death, so the
+  level's middle hazard is not a hazard;
+- jumping while under the shaft launches the player OUT of the vault, which is a
+  second undocumented exit;
+- `level_1_1`'s own comment says the vault "is reachable ONLY through the pipe:
+  it is walled on all four sides, and the ground slab above is its ceiling" —
+  that is false as authored;
+- a crony that walks into pit B lands in the vault and patrols there. The
+  acceptance run currently RELIES on this to exercise the cap's armor, so fixing
+  this will need that beat re-pointed at another hit source.
+
+`the_pipe_leads_into_a_sealed_vault_and_back_out` does not catch it: it asserts
+the vault is BELOW the slab (a y-ordering) and never that the slab above it is
+continuous. Same failure mode as #3 above — the name claims sealed, the
+assertions establish something weaker.
+
+**Fix is an authoring call, not a mechanical one:** move the vault out from under
+pit B, narrow it, or give it its own lid. Whichever it is, add the assertion the
+existing test is missing — no gap in the ceiling slab over the vault's x-span.
+
+## 6. Enemies that fall into a bottomless pit fall forever — [opus]
+
+Cronies patrol without ledge awareness, so they walk into pits A and C and are
+never culled. Observed during the acceptance run: three of five cronies at
+y = 1966, 2637 and climbing past 8000 while the world is 768 tall, still ticking,
+still integrating, never despawned.
+
+Two separate things worth splitting:
+
+- **The leak.** A body below the world bounds should be retired. Nothing does
+  that today, so every pit-walker is a permanent entity accumulating velocity.
+  This is engine-generic (`ambition_actors`), not Mary-O's.
+- **The behavior.** Whether a crony SHOULD walk off a ledge is a design question
+  — SMB1 goombas do. But the practical effect here is that level 1-1 empties
+  itself of enemies within about eight seconds of load, well before a player
+  walking the level reaches them, which is almost certainly not intended.

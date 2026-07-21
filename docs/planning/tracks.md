@@ -444,17 +444,35 @@ Two findings recorded rather than fixed:
 Mary-O's open acceptance run can now assert the replay clause it was written
 against ("waits through an actual replay into a fresh level").
 
-## 3. Close Super Mary-O level 1 — [opus]
+## 3. Close Super Mary-O level 1 — **LEVEL-1 GATE CLOSED 2026-07-21** (`d92791435`)
 
-Engine seams proven (pickups/equip, grown form, ranged powerup, bricks, crony
-stomp, flag, clock, tally, cyclic restart). The remaining customer work is the
-list in [`demos/super-mary-o.md`](demos/super-mary-o.md) — **that doc is the
-single source; do not copy the list back here** (it had already drifted: this
-queue had dropped "enters the secret" from the scripted-run gate and omitted the
-post-acceptance levels bullet).
+The acceptance run landed: one state-aware controller plays spawn → ?-block →
+milk → pit A → secret pipe → vault → 8 coins → return pipe → surface →
+re-power → pits B and C → stair pyramid → pole → tally → a real replay back to
+spawn, with no positional set-up and all three lives intact. **Nothing in the
+codebase previously proved any pit was crossable.** Full clause-by-clause
+account in [`demos/super-mary-o.md`](demos/super-mary-o.md) — single source,
+do not copy back here.
 
-**Exit:** visible and headless customers use the same provider, body, item, and
-level state with no Mary-O-only engine path.
+Three bugs fell out of writing it, all invisible to the existing tests because
+every prior proof either set her position past the terrain or asserted a value
+the emitter wrote:
+- the secret vault had **no working exit** (return pipe block derived from its
+  interact band, floating it 48px clear of the floor). FIXED `cbc6902d2`. Its
+  own "sealed vault" test stayed green by checking a body at the band's centre —
+  inside solid rock — and the scripted seam run stayed green by teleporting her
+  to exactly that unreachable point;
+- **a body reset redefined the body** — `reset_body_clusters` hardcoded the
+  default size into `base_size`, so any identity-driven size (a worn form, a
+  mount, a boss phase) was silently unmade on every reset. FIXED `4e4bd0fd8` in
+  `ambition_engine_core`; engine-wide, not Mary-O's;
+- **pit B opens into the secret vault**. REPORTED, authoring call:
+  [`triage/room-replay-followups-2026-07-21.md`](triage/room-replay-followups-2026-07-21.md) §5.
+
+**Exit (met):** visible and headless customers use the same provider, body,
+item, and level state with no Mary-O-only engine path.
+
+**Now unblocked:** additional authored levels, which were gated behind this.
 
 ## 4. Close one complete Sanic act — [opus]
 

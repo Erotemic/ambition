@@ -118,20 +118,41 @@ Remaining acceptance work
   also mean nothing proves the level is traversable spawn-to-pole. The relocation
   at least no longer pokes `BodyKinematics` — it goes through `transit_body`
   (ADR 0024), so a beat cannot begin with stale attachment state.
-- ▢ **The real level-1 acceptance run — OPEN.** Traverses spawn → secret → back
-  → flag under its own input with no positional set-up, takes an authored powerup
-  through the shared pickup/equipment path, verifies the equipment is worn or the
-  granted action present, exercises its effect, completes the flag sequence, and
-  waits through an actual replay into a fresh level. A state-aware controller
-  (read position, choose this frame's input) is the right shape — Sanic's
-  `act_completion.rs` already does exactly that and takes no shortcuts.
+- ✅ **The real level-1 acceptance run — LANDED 2026-07-21** (`d92791435`,
+  `ambition_demo_mary_o_app/tests/level_1_acceptance.rs`). One state-aware
+  controller, no positional set-up anywhere: spawn → bonk ?-block 0 → mount it
+  and take the milk → cross pit A → climb the secret pipe → vault → bank all 8
+  coins → climb the return pipe → surface → re-power at ?-block 1 → cross pits B
+  and C → up the stair pyramid → the pole → tally → a real replay back to spawn.
+  It finishes with all three lives, which is the point: a run that spends lives
+  has shown the level is survivable, not traversable. **Nothing in the codebase
+  previously proved any pit was crossable.**
 
-  The replay clause is now assertable: until 2026-07-21 this binary drained
-  `RoomReplayRequested` with nothing, so "waits through an actual replay" could
-  not have passed however the run was written. The consumer moved into
-  `ambition_runtime` (tracks §2.5) and `tests/room_replay.rs` proves the flag
-  cycle and the timeout both replay for real in this host.
-- additional planned levels — gated behind closing level-1 acceptance above.
+  Every clause asserts against the BODY rather than the emitter's bookkeeping:
+  the milk goes through the real ?-block → `WorldItem` → `collect_world_items`
+  equipment path (30x48 → 30x72); the cap's effect is exercised by absorbing a
+  hit that costs no health and no life; the ladder re-arms; the pole runs the
+  flag sequence to a settled tally; the level replays her to spawn with a banked
+  score and a fresh clock. That last clause could not have passed however it was
+  written before 2026-07-21 — this binary drained `RoomReplayRequested` with
+  nothing (tracks §2.5).
+
+  **Three bugs fell out of writing it**, none of which any existing test could
+  see, because every existing proof either set her position past the terrain or
+  asserted a value the emitter wrote:
+  - the vault had **no working exit** — the return pipe's block was derived from
+    its interact band rather than the vault floor, floating it 48px clear so its
+    top face sat above its own band. `the_pipe_leads_into_a_sealed_vault_and_back_out`
+    stayed green by checking a body at the band's CENTRE, a point inside solid
+    rock; `scripted_level_run` stayed green by teleporting her to exactly that
+    unreachable point. FIXED (`cbc6902d2`);
+  - a **body reset redefined the body**: `reset_body_clusters` hardcoded the
+    default size into `base_size`, so a grown Mary-O who fell in a pit came back
+    with a small collider while still wearing the cap. FIXED (`4e4bd0fd8`);
+  - **pit B is not a pit** — it opens directly into the secret vault. REPORTED,
+    not fixed (authoring call): [`../triage/room-replay-followups-2026-07-21.md`](../triage/room-replay-followups-2026-07-21.md) §5.
+- ▢ additional planned levels — **now unblocked**: the level-1 acceptance gate
+  closed 2026-07-21.
 
 ## Consumes
 

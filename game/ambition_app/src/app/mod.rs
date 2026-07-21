@@ -67,4 +67,4 @@ pub use plugins::{
     SandboxPresentationPlugin, SandboxSimulationPlugin,
 };
 pub use resources::{init_sandbox_resources, StartRoomOverride, StartingCharacterOverride};
-pub use sim_systems::{apply_player_reset_input_system, apply_room_replay_request_system};
+pub use sim_systems::apply_player_reset_input_system;

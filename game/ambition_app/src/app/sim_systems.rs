@@ -8,14 +8,19 @@
 //! The host schedule (`super::plugins::register_player_input_systems`) still owns
 //! their ordering + `run_if` gates and references those moved `pub fn`s.
 //!
-//! The two systems below stay in the app because they call the app-only
-//! `super::world_flow::reset_sandbox` (a host/reset concern). They are
-//! otherwise engine-shaped (the replay consumer drains the ENGINE's generic
-//! `session::reset::RoomReplayRequested`; content emits it from the
-//! `ContentDialogueFollowupSet` slot — the E5-finish de-weave), so they move
-//! into [the windowed host] when the reset/world-flow concern moves with them.
+//! What remains is the RESET-INPUT system: Ambition's own "the player pressed
+//! Reset" path, which reads `ControlFrame::reset_pressed`. It stays app-side
+//! because the button binding is Ambition's, not the engine's.
 //!
-//! Each is a narrow query/resource system registered in the
+//! Its former neighbour, the `RoomReplayRequested` consumer, moved to
+//! [`ambition::runtime::sandbox_reset`] (2026-07-21, tracks §2.5). Both called
+//! `reset_sandbox`, which was the stated reason they were stuck here — but
+//! `reset_sandbox` was only app-local by accident of the module it sat in, and
+//! the replay consumer is engine-generic (it names no content and no Ambition
+//! input). Leaving it here meant the standalone demo binaries, which depend on
+//! `ambition` but never on `ambition_app`, had no consumer at all.
+//!
+//! This system is a narrow query/resource system registered in the
 //! [`SandboxSet::CoreSimulation`] chain configured by
 //! [`super::schedule::configure_sandbox_sets`]. Cross-set ordering lives in the
 //! schedule; intra-set ordering is expressed by `.chain()` where registered.
@@ -95,86 +100,7 @@ pub fn apply_player_reset_input_system(
     control_frame.reset_pressed = false;
 
     let mut clusters = cluster_item.as_clusters_mut();
-    super::world_flow::reset_sandbox(
-        &world.0,
-        &mut sfx_writer,
-        &mut vfx_writer,
-        &mut motion_model,
-        &mut clusters,
-        &mut sim_state,
-        &mut clock_resets,
-        &mut safety,
-        &mut attack.swing,
-        &mut anim,
-        &mut combat,
-        slot_gestures.primary_mut(),
-        &mut blink_cam,
-        active_tuning.0,
-        *feel_tuning,
-    );
-    reset_room_features.write(ResetRoomFeaturesEvent {
-        reason: RoomResetReason::Manual,
-    });
-}
-
-/// Replay the ACTIVE room from a content-emitted request (the engine's
-/// generic `RoomReplayRequested` — e.g. a "try again" dialogue beat).
-///
-/// Host-generic: this resets the player + world only. Any CONTENT-named
-/// per-attempt state (a boss's persisted "cleared" record, its music) is reset
-/// by content systems in `ContentRoomReplayResetSet`, which the app anchors
-/// before this consumer — so this system names no content.
-///
-/// This intentionally mirrors `apply_player_reset_input_system` instead of
-/// driving `ControlFrame::reset_pressed`: the command can run while gameplay
-/// input is suspended by dialogue, so relying on the input frame would make the
-/// reset timing depend on UI/game-mode scheduling.
-pub fn apply_room_replay_request_system(
-    mut replay_requests: MessageReader<ambition::actors::session::reset::RoomReplayRequested>,
-    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    active_tuning: Res<ae::ActiveMovementTuning>,
-    feel_tuning: Res<SandboxFeelTuning>,
-    mut sim_state: ResMut<SandboxSimState>,
-    mut clock_resets: MessageWriter<ClockResetRequest>,
-    mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
-    mut sfx_writer: SfxWriter,
-    mut vfx_writer: MessageWriter<VfxMessage>,
-    mut player_q: Query<
-        (
-            ae::BodyClusterQueryData,
-            &mut ambition::actors::features::MotionModel,
-            &mut ambition::actors::actor::BodyAnimFacts,
-            &mut ambition::characters::actor::BodyCombat,
-            &mut ambition::actors::avatar::PlayerBlinkCameraState,
-            &mut ambition::actors::actor::BodyMelee,
-            &mut ambition::actors::avatar::PlayerSafetyState,
-        ),
-        ambition::actors::actor::PrimaryPlayerOnly,
-    >,
-    mut slot_gestures: ResMut<ambition::actors::control::SlotInteractionState>,
-) {
-    if replay_requests.read().count() == 0 {
-        return;
-    }
-
-    let Ok((
-        mut cluster_item,
-        mut motion_model,
-        mut anim,
-        mut combat,
-        mut blink_cam,
-        mut attack,
-        mut safety,
-    )) = player_q.single_mut()
-    else {
-        reset_room_features.write(ResetRoomFeaturesEvent {
-            reason: RoomResetReason::Manual,
-        });
-        return;
-    };
-
-    let mut clusters = cluster_item.as_clusters_mut();
-    super::world_flow::reset_sandbox(
+    ambition::runtime::reset_sandbox(
         &world.0,
         &mut sfx_writer,
         &mut vfx_writer,

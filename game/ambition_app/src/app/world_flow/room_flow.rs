@@ -1,14 +1,20 @@
-//! Room lifecycle flow: sandbox reset, room load, parallax seeding, and the
-//! authorized room-transition commit + landing log.
+//! Room lifecycle flow: room load, parallax seeding, and the authorized
+//! room-transition commit + landing log.
 //!
 //! Split out of the former 1211-line `world_flow.rs` (2026-06-15).
+//!
+//! `reset_sandbox` used to live here too. It moved to
+//! [`ambition::runtime::sandbox_reset`] (2026-07-21, tracks §2.5) — this module
+//! composes `load_room` with `ambition::render` spawns, so an engine crate can
+//! never take it whole, and the reset half needed to be somewhere every host
+//! could reach.
 
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With};
 
 use ambition::actors::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition::actors::rooms;
 use ambition::actors::time::feel::SandboxFeelTuning;
-use ambition::actors::time::time_control::{ClockRequester, ClockResetRequest};
+use ambition::actors::time::time_control::ClockResetRequest;
 use ambition::actors::world::physics;
 use ambition::engine_core::RoomGeometry;
 use ambition::engine_core::{self as ae, AabbExt};
@@ -18,52 +24,6 @@ use ambition::vfx::{ParticleKind, VfxMessage};
 
 use super::super::feedback::SandboxEventWriters;
 use super::{ground_gap_below_feet, RoomClock};
-
-pub(crate) fn reset_sandbox(
-    world: &ae::World,
-    sfx: &mut SfxWriter,
-    vfx: &mut MessageWriter<VfxMessage>,
-    motion_model: &mut ae::MotionModel,
-    clusters: &mut ae::BodyClustersMut<'_>,
-    sim_state: &mut ambition::actors::SandboxSimState,
-    clock_resets: &mut MessageWriter<ClockResetRequest>,
-    safety: &mut ambition::actors::avatar::PlayerSafetyState,
-    attack: &mut Option<ambition::actors::MeleeSwing>,
-    anim: &mut ambition::actors::actor::BodyAnimFacts,
-    combat: &mut ambition::characters::actor::BodyCombat,
-    interaction: &mut ambition::actors::control::SlotGestures,
-    blink_cam: &mut ambition::actors::avatar::PlayerBlinkCameraState,
-    tuning: ae::MovementTuning,
-    feel: SandboxFeelTuning,
-) {
-    let reset_from = clusters.kinematics.pos;
-    ae::reset_body_clusters(motion_model, clusters, world.spawn);
-    ae::refresh_movement_resources_clusters(
-        clusters.abilities,
-        &mut *clusters.dash,
-        &mut *clusters.jump,
-        tuning.air_jumps,
-    );
-    clusters.mana.meter.refill_full();
-    safety.last_safe_pos = world.spawn;
-    clock_resets.write(ClockResetRequest::sim_clock(
-        ClockRequester::Engine,
-        "sandbox_reset",
-    ));
-    sim_state.room_transition_cooldown = 0.0;
-    *attack = None;
-    anim.reset();
-    combat.reset();
-    combat.hit_flash = feel.reset_flash_time;
-    interaction.reset();
-    blink_cam.reset();
-    let reset_to = clusters.kinematics.pos;
-    sfx.write(SfxMessage::Reset { pos: reset_to });
-    vfx.write(VfxMessage::ResetEffects {
-        from: reset_from,
-        to: reset_to,
-    });
-}
 
 /// Apply the cross-domain per-transition STATE resets that the space IR
 /// (`rooms::commit_room_transition_geometry`) deliberately does not touch: blink-camera snap,

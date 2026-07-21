@@ -38,7 +38,7 @@ use super::setup_systems::{
     reload_visual_quality_assets_on_scale_change, setup_host_presentation_system,
     setup_presentation_system, setup_simulation_system,
 };
-use super::sim_systems::{apply_player_reset_input_system, apply_room_replay_request_system};
+use super::sim_systems::apply_player_reset_input_system;
 use super::world_flow::{
     advance_room_transition_content_epoch_system, authorize_ready_room_transition_system,
     begin_room_transition_load_system, commit_ready_room_transition_system,
@@ -139,37 +139,27 @@ pub fn add_simulation_plugins(app: &mut App) {
 /// ProgressionSchedulePlugin}`.
 fn register_app_local_sim_systems(app: &mut App) {
     let sim = app.sim_schedule();
-    // ── The PlayerInput gap: the Ambition reset/replay consumers ──────────
+    // ── The PlayerInput gap: Ambition's reset-INPUT consumer ──────────────
     //
-    // Both call the app-only `world_flow::reset_sandbox` — so they stay
-    // app-side, slotted after the dev-edit sync and before the input timer
-    // (the exact position they held in the old inline chain). The replay
-    // consumer is now host-generic (it no longer names content): the cut-rope
-    // per-attempt reset moved to content's `ContentRoomReplayResetSet`.
+    // Ambition's own "the player pressed Reset" path, slotted after the
+    // dev-edit sync and before the input timer (the exact position it held in
+    // the old inline chain). It stays app-side because the button binding is
+    // Ambition's; the reset it performs is the engine's `reset_sandbox`.
+    //
+    // Its former chain partner, the `RoomReplayRequested` consumer, is now
+    // engine-side in `RoomReplaySchedulePlugin` (tracks §2.5), along with the
+    // two content slot edges the app used to anchor. Keep the explicit
+    // ordering edge to it: both systems reset the same body, so without one
+    // they are ambiguous, and this preserves the exact order they ran in when
+    // they were chained here.
     app.add_systems(
         sim,
-        (
-            apply_player_reset_input_system.run_if(gameplay_allowed),
-            apply_room_replay_request_system,
-        )
-            .chain()
+        apply_player_reset_input_system
+            .run_if(gameplay_allowed)
             .in_set(SandboxSet::PlayerInput)
             .after(ambition::dev_tools::DevEditApplySet)
-            .before(ambition::actors::control::input_timer_system),
-    );
-    // Content dialogue-followup emitters (e.g. cut-rope "try again") run
-    // before the replay consumer that drains their requests the same frame;
-    // content's replay-reset systems run before it too, so a named boss's
-    // per-attempt state is cleared the same frame the room replays. The engine
-    // anchors each slot's PHASE (PlayerInput); the consumer edge is ours
-    // because the consumer is ours.
-    app.configure_sets(
-        sim,
-        (
-            ambition::actors::session::reset::ContentDialogueFollowupSet,
-            ambition::actors::session::reset::ContentRoomReplayResetSet,
-        )
-            .before(apply_room_replay_request_system),
+            .before(ambition::actors::control::input_timer_system)
+            .before(ambition::runtime::apply_room_replay_request_system),
     );
 
     // ── Brain-driven player clone (press K) ────────────────────────────────

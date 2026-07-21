@@ -27,11 +27,16 @@
 //! ## What is deliberately NOT here
 //!
 //! The app-LOCAL residue the E5 carve deliberately left behind: the Ambition
-//! reset/replay consumers, the home-reset policy + player presentation sync,
-//! the room-transition APPLY composer (`load_room` + render spawns), and the
-//! catalog/roster content installs. Each pins itself into a documented
-//! ordering SLOT between engine systems (see `player_schedule` /
-//! `room_schedule` module docs).
+//! reset-INPUT consumer (its button binding is Ambition's), the home-reset
+//! policy + player presentation sync, the room-transition APPLY composer
+//! (`load_room` + render spawns), and the catalog/roster content installs. Each
+//! pins itself into a documented ordering SLOT between engine systems (see
+//! `player_schedule` / `room_schedule` module docs).
+//!
+//! The room-REPLAY consumer used to be on that list and no longer is (see
+//! [`sandbox_reset`]): content in every host emits `RoomReplayRequested`, so
+//! leaving the only consumer in `ambition_app` meant the standalone demo
+//! binaries drained nothing.
 //!
 //! Presentation, audio, windowing, dev tools, and CONTENT are never in this
 //! group — [the windowed host] (`ambition_host`) and the game's app own those.
@@ -55,6 +60,9 @@ pub mod projectile_schedule;
 /// GGRS rollback integration: typed state registration, input/session bridge, and exact schema identity.
 pub mod rollback;
 mod room_schedule;
+/// The shared sandbox-reset authority (`reset_sandbox`) and the one
+/// `RoomReplayRequested` consumer every host drains.
+pub mod sandbox_reset;
 pub mod session_world;
 mod sim_core_resources;
 
@@ -72,6 +80,9 @@ pub use player_schedule::PlayerSchedulePlugin;
 pub use portal_schedule::PortalSchedulePlugin;
 pub use progression_schedule::ProgressionSchedulePlugin;
 pub use room_schedule::RoomTransitionSchedulePlugin;
+pub use sandbox_reset::{
+    apply_room_replay_request_system, reset_sandbox, RoomReplaySchedulePlugin,
+};
 pub use sim_core_resources::SimCoreResourcesPlugin;
 
 /// The canonical timeline (netcode N0.1). Re-exported here because the sim
@@ -412,6 +423,11 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Room-transition detection + per-room feature reset; the host's
             // transition APPLY (the composition tier) slots in between.
             .add(RoomTransitionSchedulePlugin)
+            // The one `RoomReplayRequested` consumer + the two content slots
+            // that must precede it. In the group because content in EVERY host
+            // emits the request: without a consumer here, a standalone demo
+            // binary writes the message into a channel nothing drains.
+            .add(RoomReplaySchedulePlugin)
             // The engine progression chain (boss encounters, save mirrors,
             // quest pump, room metadata/music, portal phases) + its content
             // slots.

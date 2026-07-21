@@ -32,7 +32,7 @@ mod room_flow;
 mod room_transition_assets;
 mod room_transition_loading;
 mod room_transition_presentation;
-pub(crate) use room_flow::{commit_ready_room_transition_system, reset_sandbox};
+pub(crate) use room_flow::commit_ready_room_transition_system;
 pub(crate) use room_transition_assets::{
     build_loaded_room_asset_manifest, inspect_room_asset_manifest, RoomAssetManifest,
 };

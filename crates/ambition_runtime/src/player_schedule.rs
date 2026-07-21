@@ -9,10 +9,12 @@
 //! naming these engine systems (the ordering contract below documents the
 //! gaps):
 //!
-//! - the reset pair (`apply_player_reset_input_system`,
-//!   `apply_room_replay_request_system`) pins
+//! - the host's own reset-INPUT system (Ambition's
+//!   `apply_player_reset_input_system`) pins
 //!   `.after(DevEditApplySet).before(input_timer_system)`
-//!   in `SandboxSet::PlayerInput`;
+//!   in `SandboxSet::PlayerInput`. Its former chain partner, the
+//!   `RoomReplayRequested` consumer, is engine-side as of 2026-07-21 —
+//!   see [`crate::sandbox_reset`];
 //! - the home-reset/presentation pair (`apply_home_reset_policy`,
 //!   `sync_player_presentation`) pins
 //!   `.after(release_possession_if_target_lost).before(apply_player_hit_events)`

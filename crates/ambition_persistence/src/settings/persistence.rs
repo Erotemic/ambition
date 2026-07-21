@@ -100,21 +100,47 @@ pub fn load_settings_at_startup(mut settings: ResMut<UserSettings>) {
     );
 }
 
-/// Bevy update system: when `UserSettings` changes (via the pause
-/// menu), write the new state to disk. Throttled by checking
-/// `Res::is_changed` so we don't write every frame.
+/// What was last committed to disk, so the writer can ask whether the file is
+/// still correct rather than whether Bevy saw a mutation.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct LastPersistedSettings(Option<UserSettings>);
+
+/// Bevy update system: write `UserSettings` to disk when it no longer matches
+/// what is there.
+///
+/// # Why this is NOT gated on confirmed simulation state
+///
+/// Its sibling `autosave_sandbox_save` is, because `SandboxSave` is registered
+/// rollback state that a speculating host will rewind — writing it mid-
+/// prediction records a guess as history. `UserSettings` is not simulation
+/// state at all: it is not rollback-registered, and every writer is menu or
+/// pause-UI side. Delaying a settings write until nothing is predicted would
+/// buy no correctness and could drop a preference the player just set while a
+/// session happens to be running.
+///
+/// The half that IS shared is dropping change detection. `Res::is_changed` is
+/// consumed by a system that ran and declined to write, so any guard placed in
+/// front of it can silently swallow a real change; a value comparison cannot.
+///
+/// If a simulation system ever writes `UserSettings`, this reasoning expires
+/// and the confirmation gate becomes required — the settings would then be
+/// speculative like anything else the sim touches.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn save_settings_on_change(settings: Res<UserSettings>) {
-    if !settings.is_changed() {
+pub fn save_settings_on_change(
+    settings: Res<UserSettings>,
+    mut last: ResMut<LastPersistedSettings>,
+) {
+    if last.0.as_ref() == Some(&*settings) {
         return;
     }
     let path = settings_path();
-    if let Err(error) = save_settings(&path, &settings) {
-        warn!(
+    match save_settings(&path, &settings) {
+        Ok(()) => last.0 = Some(settings.clone()),
+        Err(error) => warn!(
             target: "ambition::settings",
             "failed to write settings file {}: {error}",
             path.display()
-        );
+        ),
     }
 }
 
@@ -126,7 +152,8 @@ pub fn load_settings_at_startup(_settings: ResMut<UserSettings>) {}
 
 /// Wasm (browser) no-op for settings writing. See [`load_settings_at_startup`].
 #[cfg(target_arch = "wasm32")]
-pub fn save_settings_on_change(_settings: Res<UserSettings>) {}
+pub fn save_settings_on_change(_settings: Res<UserSettings>, _last: ResMut<LastPersistedSettings>) {
+}
 
 #[cfg(test)]
 mod tests;

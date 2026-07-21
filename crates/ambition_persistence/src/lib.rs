@@ -16,20 +16,28 @@ pub struct PersistenceSchedulePlugin;
 
 impl bevy::prelude::Plugin for PersistenceSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        use bevy::prelude::{Startup, Update};
-        app.add_systems(
-            Startup,
-            (
-                settings::persistence::load_settings_at_startup,
-                save::load_save_at_startup,
-            ),
-        )
-        .add_systems(
-            Update,
-            (
-                settings::persistence::save_settings_on_change,
-                save::autosave_sandbox_save,
-            ),
-        );
+        use bevy::prelude::{IntoScheduleConfigs as _, Startup, Update};
+
+        app.init_resource::<save::LastPersistedSave>()
+            .init_resource::<settings::persistence::LastPersistedSettings>()
+            .add_systems(
+                Startup,
+                (
+                    settings::persistence::load_settings_at_startup,
+                    save::load_save_at_startup,
+                ),
+            )
+            .add_systems(
+                Update,
+                (
+                    settings::persistence::save_settings_on_change,
+                    // The sandbox save IS rollback state, so a speculating host
+                    // must not commit it to disk while anything is predicted.
+                    // On every non-rollback host this condition is always true
+                    // and the behaviour is unchanged. See `autosave_sandbox_save`.
+                    save::autosave_sandbox_save
+                        .run_if(ambition_engine_core::world_state_is_confirmed),
+                ),
+            );
     }
 }

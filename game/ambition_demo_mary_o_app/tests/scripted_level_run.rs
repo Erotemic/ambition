@@ -135,6 +135,35 @@ fn settle(app: &mut App) {
     }
 }
 
+/// Step until the demo is actually PLAYABLE, rather than a fixed frame count.
+///
+/// `ManualDuration` pins the sim clock, which makes the sim deterministic — but
+/// it does NOT pin boot. Session activation and asset loading advance on real
+/// I/O over a variable number of frames, so "8 frames is enough to be playing"
+/// is a bet on machine load, and it loses: under a parallel `./run_tests.sh`
+/// this run flaked with the body at spawn `x` and a falling `y` — gravity
+/// integrating while input was still gated, i.e. boot had not finished and the
+/// walk was scripted into a suspended game.
+///
+/// A live, DECREASING clock is the honest readiness signal: it means the level
+/// owner exists and the rules are ticking, which is exactly the precondition
+/// "holding right moves her" depends on.
+fn settle_until_playable(app: &mut App) {
+    let mut previous = None;
+    for _ in 0..600 {
+        app.update();
+        let mut query = app.world_mut().query::<&MaryOLevelState>();
+        let Some(now) = query.iter(app.world()).next().map(|s| s.time_remaining) else {
+            continue;
+        };
+        if previous.is_some_and(|before| now < before) {
+            return;
+        }
+        previous = Some(now);
+    }
+    panic!("the demo never reached a playable level with a running clock");
+}
+
 /// The run: boot into gameplay, walk, take the secret pipe, bank its coins,
 /// surface, and finish on the flag.
 #[test]
@@ -150,7 +179,7 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     ));
     app.init_resource::<ScriptedStick>();
     app.add_systems(PreUpdate, apply_scripted_stick);
-    settle(&mut app);
+    settle_until_playable(&mut app);
 
     // ── Boot lands in gameplay with a live level ────────────────────────────
     let (lives, score, time) = level(&mut app);

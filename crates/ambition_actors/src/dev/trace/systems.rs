@@ -8,6 +8,10 @@ use super::*;
 
 /// SystemParam-friendly bundle: gives the player tick everything it
 /// needs to record one frame and (if requested) write a dump.
+///
+/// `timeline` is `(the host's simulation frame, is this a re-simulation of a
+/// frame already recorded)`. `(None, false)` for every host that does not
+/// speculate, which is what the headless driver passes.
 #[allow(clippy::too_many_arguments)]
 pub fn record_simulation_frame(
     buffer: &mut GameplayTraceBuffer,
@@ -25,7 +29,9 @@ pub fn record_simulation_frame(
     moving_platforms: &[crate::world::platforms::MovingPlatformState],
     locomotion: &str,
     body_mode: &str,
+    timeline: (Option<i32>, bool),
 ) {
+    let (sim_frame, replaying) = timeline;
     let oob = detect_oob_from_kinematics(
         clusters.kinematics.pos,
         clusters.kinematics.vel,
@@ -33,7 +39,7 @@ pub fn record_simulation_frame(
         world,
         OOB_MARGIN,
     );
-    let frame = build_frame(
+    let mut frame = build_frame(
         clusters,
         facts,
         combat,
@@ -51,7 +57,8 @@ pub fn record_simulation_frame(
         locomotion,
         body_mode,
     );
-    record_frame(buffer, frame, oob.as_ref());
+    frame.sim_frame = sim_frame;
+    record_frame(buffer, frame, oob.as_ref(), replaying);
 }
 
 /// Bevy system: drains pending dump requests, writes JSON+MD if any.
@@ -125,6 +132,8 @@ pub fn handle_trace_hotkey(
 /// was clinging to a wall.
 pub fn record_frame_system(
     mut buffer: ResMut<GameplayTraceBuffer>,
+    boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
+    replay: Option<Res<ambition_platformer_primitives::schedule::SimulationReplayState>>,
     clock: Res<ambition_time::ClockState>,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
@@ -221,6 +230,10 @@ pub fn record_frame_system(
         &platform_set.0,
         &locomotion,
         &body_mode,
+        (
+            boundary.map(|boundary| boundary.current),
+            replay.is_some_and(|replay| replay.replaying_history),
+        ),
     );
 
     update_previous_snapshot(

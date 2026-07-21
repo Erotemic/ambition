@@ -42,6 +42,7 @@ fn ring_buffer_caps_at_capacity() {
     let mut buf = GameplayTraceBuffer::with_capacity(4, 4);
     for i in 0..10 {
         buf.push_frame(GameplayTraceFrame {
+            sim_frame: None,
             seq: i,
             tick: i,
             real_dt: 0.016,
@@ -200,7 +201,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
         "Standing",
     );
     let oob = detect_oob_scratch(&player, &world, OOB_MARGIN);
-    record_frame(&mut buf, frame, oob.as_ref());
+    record_frame(&mut buf, frame, oob.as_ref(), false);
     assert_eq!(buf.frame_count(), 1);
     assert_eq!(buf.event_count(), 1, "OOB event should be pushed");
     assert!(matches!(buf.dump_request, Some(DumpReason::OobAuto { .. })));
@@ -231,7 +232,7 @@ fn write_dump_writes_two_files() {
         "Airborne",
         "Standing",
     );
-    record_frame(&mut buf, frame, None);
+    record_frame(&mut buf, frame, None, false);
     let dir = std::env::temp_dir().join("ambition_gameplay_trace_test_dump");
     let _ = std::fs::remove_dir_all(&dir);
     let json_path = write_dump(&buf, &DumpReason::Manual, &dir).expect("write dump");
@@ -540,5 +541,162 @@ fn body_mode_reads_authoritative_field() {
     assert_eq!(
         ae::BodyMode::from_clusters(&player.body_mode),
         ae::BodyMode::MorphBall
+    );
+}
+
+// ---------------------------------------------------------------------------
+// The forensic-trace rollback policy.
+//
+// Two options were open (deep review §3): record only confirmed frames, or key
+// rows by simulation frame and let a correction replace a prediction. The
+// second is what shipped, because a ring buffer that waits for confirmation
+// loses exactly the tail — the last few frames before the anomaly — that a
+// dump exists to show.
+//
+// What the old gate did was neither. `simulation_pass_is_authoritative` means
+// FIRST PASS, not confirmed; a first pass can be a prediction, and skipping the
+// corrected re-simulation left the guess in the record permanently.
+// ---------------------------------------------------------------------------
+
+/// Build one row at `pos`, stamped as describing simulation frame `sim_frame`.
+fn frame_at(sim_frame: Option<i32>, pos: ae::Vec2) -> GameplayTraceFrame {
+    let world = dummy_world();
+    let mut player = dummy_player(pos);
+    player.kinematics.pos = pos;
+    let mut scratch = scratch_from(&player);
+    let clusters = scratch.as_mut();
+    let mut frame = build_frame(
+        &clusters,
+        &ae::BodyMotionFacts::default(),
+        &ambition_characters::actor::BodyCombat::default(),
+        &ambition_time::ClockState::default(),
+        &crate::avatar::PlayerSafetyState::default(),
+        &world,
+        ControlFrame::default(),
+        0.016,
+        0.016,
+        "Playing",
+        "test",
+        0,
+        0,
+        &[],
+        "Airborne",
+        "Standing",
+    );
+    frame.sim_frame = sim_frame;
+    frame
+}
+
+#[test]
+fn a_corrected_pass_replaces_the_row_its_prediction_wrote() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    record_frame(
+        &mut buf,
+        frame_at(Some(4), ae::Vec2::new(10.0, 0.0)),
+        None,
+        false,
+    );
+    // The host rewinds and re-simulates frame 4; the body ends up elsewhere.
+    record_frame(
+        &mut buf,
+        frame_at(Some(4), ae::Vec2::new(99.0, 0.0)),
+        None,
+        true,
+    );
+
+    assert_eq!(
+        buf.frame_count(),
+        1,
+        "one instant must be described by one row, not by two contradictory ones"
+    );
+    assert_eq!(
+        buf.frames().next().unwrap().player.pos.x,
+        99.0,
+        "the record must hold the corrected state, not the guess it replaced"
+    );
+}
+
+#[test]
+fn a_replaced_row_keeps_its_place_in_the_recording() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    record_frame(&mut buf, frame_at(Some(1), ae::Vec2::ZERO), None, false);
+    record_frame(&mut buf, frame_at(Some(2), ae::Vec2::ZERO), None, false);
+    let seq_before = buf.frames().next().unwrap().seq;
+
+    record_frame(
+        &mut buf,
+        frame_at(Some(1), ae::Vec2::new(7.0, 0.0)),
+        None,
+        true,
+    );
+
+    let rows: Vec<_> = buf.frames().collect();
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0].player.pos.x, 7.0, "frame 1 was corrected in place");
+    assert_eq!(
+        rows[0].seq, seq_before,
+        "seq describes where a row sits in the recording; correcting its \
+         contents does not move it"
+    );
+    assert_eq!(rows[1].sim_frame, Some(2), "later frames are undisturbed");
+}
+
+#[test]
+fn distinct_frames_still_append() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    for frame in 0..4 {
+        record_frame(&mut buf, frame_at(Some(frame), ae::Vec2::ZERO), None, false);
+    }
+    assert_eq!(buf.frame_count(), 4);
+}
+
+/// A host that does not speculate has no frame identity to key on, and must
+/// keep appending — otherwise every fixed-tick trace collapses to one row.
+#[test]
+fn without_frame_identity_every_row_appends() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    for _ in 0..4 {
+        record_frame(&mut buf, frame_at(None, ae::Vec2::ZERO), None, false);
+    }
+    assert_eq!(buf.frame_count(), 4);
+}
+
+/// A dump is an irreversible file write, so it is armed once — on the pass
+/// that discovers the anomaly — even though the rows keep being corrected
+/// underneath it. Re-detecting the same OOB on every resimulation would append
+/// a duplicate event and could arm a second dump.
+#[test]
+fn a_resimulated_anomaly_is_not_reported_twice() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    buf.min_context_frames = 0;
+    let world = dummy_world();
+    let mut player = dummy_player(ae::Vec2::new(50.0, 50.0));
+    player.kinematics.pos = ae::Vec2::new(2000.0, 50.0);
+    let oob = detect_oob_scratch(&player, &world, OOB_MARGIN);
+
+    let out_of_bounds = ae::Vec2::new(2000.0, 50.0);
+    record_frame(
+        &mut buf,
+        frame_at(Some(3), out_of_bounds),
+        oob.as_ref(),
+        false,
+    );
+    assert_eq!(buf.event_count(), 1);
+
+    record_frame(
+        &mut buf,
+        frame_at(Some(3), out_of_bounds),
+        oob.as_ref(),
+        true,
+    );
+    assert_eq!(
+        buf.event_count(),
+        1,
+        "the same anomaly, re-simulated, must not be reported a second time"
+    );
+    assert_eq!(
+        buf.frame_count(),
+        1,
+        "and its row was replaced, not appended"
     );
 }

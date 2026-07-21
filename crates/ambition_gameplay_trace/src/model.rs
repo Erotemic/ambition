@@ -181,6 +181,18 @@ pub struct MovingPlatformTraceState {
 pub struct GameplayTraceFrame {
     pub seq: u64,
     pub tick: u64,
+    /// The host's simulation frame this row describes, when there is one.
+    ///
+    /// `seq`/`tick` are the buffer's own append counters: they only ever go
+    /// up, so they cannot identify a frame that gets simulated twice. This is
+    /// the rewindable identity, and it is what lets a corrected pass REPLACE
+    /// the row a mispredicted pass wrote rather than appending a second,
+    /// contradictory row for the same instant.
+    ///
+    /// `None` on every host that does not speculate, where a row is written
+    /// once and the distinction cannot arise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sim_frame: Option<i32>,
     pub real_dt: f32,
     pub sim_dt: f32,
     pub time_scale: f32,

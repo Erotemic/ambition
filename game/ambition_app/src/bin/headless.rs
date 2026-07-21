@@ -178,6 +178,8 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             &moving_platforms,
             locomotion_state.label(),
             body_mode_state.label(),
+            // The headless driver runs the sim once per step and never rewinds.
+            (None, false),
         );
     }
 

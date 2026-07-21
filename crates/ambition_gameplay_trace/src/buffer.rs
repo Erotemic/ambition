@@ -104,7 +104,32 @@ impl GameplayTraceBuffer {
         }
     }
 
+    /// Append a frame, or REPLACE the row already describing the same
+    /// simulation frame.
+    ///
+    /// A rollback host re-simulates a frame it guessed wrong about. A forensic
+    /// record that appended both passes would contain two contradictory rows
+    /// for one instant; one that ignored the second pass would keep the guess
+    /// and discard the truth. Neither is what someone reading a dump wants, so
+    /// the corrected pass overwrites its predecessor in place.
+    ///
+    /// The row keeps its original `seq`/`tick`, because those describe *where
+    /// in the recording it sits*, which correcting its contents does not
+    /// change. Scanning from the back finds the slot in a handful of steps: a
+    /// rollback reaches back at most the host's prediction window.
     pub fn push_frame(&mut self, frame: GameplayTraceFrame) {
+        if let Some(sim_frame) = frame.sim_frame {
+            if let Some(slot) = self
+                .frames
+                .iter()
+                .rposition(|row| row.sim_frame == Some(sim_frame))
+            {
+                let (seq, tick) = (self.frames[slot].seq, self.frames[slot].tick);
+                self.frames[slot] = GameplayTraceFrame { seq, tick, ..frame };
+                return;
+            }
+        }
+
         if self.frames.len() == self.capacity_frames {
             self.frames.pop_front();
         }

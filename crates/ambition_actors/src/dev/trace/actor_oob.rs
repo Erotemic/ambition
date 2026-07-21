@@ -66,6 +66,7 @@ pub fn body_snapshot(
 #[allow(clippy::too_many_arguments)]
 pub fn record_actor_oob_frame_system(
     mut buffer: ResMut<ActorTraceBuffer>,
+    boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     world_time: Res<ambition_time::WorldTime>,
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
@@ -135,6 +136,7 @@ pub fn record_actor_oob_frame_system(
     let frame = ActorTraceFrame {
         seq: buffer.sequence,
         tick: buffer.tick,
+        sim_frame: boundary.map(|boundary| boundary.current),
         real_dt,
         sim_dt,
         time_scale,

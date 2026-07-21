@@ -55,6 +55,11 @@ impl BodyTraceSnapshot {
 pub struct ActorTraceFrame {
     pub seq: u64,
     pub tick: u64,
+    /// The host's simulation frame this row describes, when there is one. See
+    /// [`crate::GameplayTraceFrame::sim_frame`] — same rewindable identity, same
+    /// replace-on-correction rule.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sim_frame: Option<i32>,
     pub real_dt: f32,
     pub sim_dt: f32,
     pub time_scale: f32,
@@ -179,7 +184,26 @@ impl ActorTraceBuffer {
 
     /// Push a frame: update per-body OOB arming, request a dump for the
     /// first newly-OOB body, and evict the oldest frame if at capacity.
+    ///
+    /// A re-simulation of an already-recorded frame REPLACES its row and
+    /// touches nothing else — see [`crate::GameplayTraceBuffer::push_frame`].
+    /// Anomaly detection and dump arming stay on the first pass deliberately:
+    /// a dump is an irreversible file write and must happen once, while the
+    /// rows that end up *inside* that file still get corrected, because the
+    /// flush runs in `PostUpdate` after the rewind has already replaced them.
     pub fn record(&mut self, frame: ActorTraceFrame) {
+        if let Some(sim_frame) = frame.sim_frame {
+            if let Some(slot) = self
+                .frames
+                .iter()
+                .rposition(|row| row.sim_frame == Some(sim_frame))
+            {
+                let (seq, tick) = (self.frames[slot].seq, self.frames[slot].tick);
+                self.frames[slot] = ActorTraceFrame { seq, tick, ..frame };
+                return;
+            }
+        }
+
         // Re-arm any previously-dumped body that is no longer OOB this
         // frame (absent bodies count as "no longer OOB").
         let oob_now: HashSet<&str> = frame.oob_bodies().map(|b| b.actor_id.as_str()).collect();
@@ -368,6 +392,7 @@ mod tests {
         ActorTraceFrame {
             seq: 0,
             tick: 0,
+            sim_frame: None,
             real_dt: 0.016,
             sim_dt: 0.016,
             time_scale: 1.0,

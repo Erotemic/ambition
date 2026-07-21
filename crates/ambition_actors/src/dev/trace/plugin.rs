@@ -31,15 +31,26 @@ impl Plugin for TraceSchedulePlugin {
                     // requests a dump when any character leaves the world.
                     super::record_actor_oob_frame_system,
                 )
-                    .in_set(SandboxSet::Trace)
-                    .run_if(
-                        ambition_platformer_primitives::schedule::simulation_pass_is_authoritative,
-                    ),
+                    .in_set(SandboxSet::Trace),
             )
-            // Disk writes are irreversible host effects. Keep them outside the
-            // simulation schedule, while the recorders above skip historical
-            // replay passes entirely. A GGRS resimulation can therefore neither
-            // synthesize a duplicate anomaly nor write a duplicate file.
+            // Disk writes are irreversible host effects, so they stay outside
+            // the simulation schedule.
+            //
+            // The recorders above used to be gated on
+            // `simulation_pass_is_authoritative`, and that was the wrong policy
+            // rather than a conservative one. "Authoritative" there meant
+            // FIRST-PASS, which is not the same as confirmed: a first pass may
+            // be a prediction that a rewind later corrects, and skipping the
+            // corrected pass meant the trace kept the guess forever. A forensic
+            // record that quietly preserves the wrong version of history is
+            // worse than one that lags.
+            //
+            // Rows are now keyed by simulation frame and a re-simulation
+            // REPLACES the row it wrote before. Anomaly detection and dump
+            // arming remain first-pass-only inside `record_frame`, because a
+            // dump is a file write and must happen once — but the rows that end
+            // up in the file are still corrected, since the flush below runs
+            // after the rewind has replaced them.
             .add_systems(
                 PostUpdate,
                 (super::flush_pending_dump, super::flush_actor_dump).chain(),

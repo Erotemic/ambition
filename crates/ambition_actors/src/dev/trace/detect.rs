@@ -202,6 +202,9 @@ pub fn build_frame(
     GameplayTraceFrame {
         seq,
         tick,
+        // Stamped by the caller, which is the only layer that can see the
+        // host's frame counters.
+        sim_frame: None,
         real_dt,
         sim_dt,
         time_scale: clock.time_scale,
@@ -485,11 +488,28 @@ pub(crate) fn synthesize_events_from_diff(
 
 /// Push the constructed frame into the buffer and (if not already armed)
 /// auto-request an OOB dump.
+/// Record one frame, and detect anomalies on the pass that discovers them.
+///
+/// `replaying` splits two things that used to be one. The frame ROW wants the
+/// corrected state — that is why the recorder no longer skips replay passes,
+/// and why `push_frame` overwrites the row a mispredicted pass wrote. The
+/// anomaly EVENT and the dump request want to happen exactly once, because a
+/// dump is an irreversible file write; re-detecting the same OOB on every
+/// resimulation would append duplicate events and could re-arm a second dump.
+///
+/// The dump still contains corrected rows: it is requested here during the
+/// first pass, but written by `flush_pending_dump` in `PostUpdate`, long after
+/// the rewind has replaced the rows it will serialize.
 pub fn record_frame(
     buffer: &mut GameplayTraceBuffer,
     frame: GameplayTraceFrame,
     oob: Option<&OobReason>,
+    replaying: bool,
 ) {
+    if replaying {
+        buffer.push_frame(frame);
+        return;
+    }
     if let Some(reason) = oob {
         let label = reason.short_label();
         buffer.push_event(GameplayTraceEvent::OobDetected {

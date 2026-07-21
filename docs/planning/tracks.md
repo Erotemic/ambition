@@ -403,40 +403,46 @@ plus ron 0.12. And `bevy` itself is still pinned in ~46 manifests — a
 workspace-dependency conversion is mechanical but wants its own review, since
 the per-crate feature sets legitimately differ.
 
-## 2.5 Make `RoomReplayRequested` a real seam — [opus] — **OPEN, blocks 3 and 4**
+## 2.5 Make `RoomReplayRequested` a real seam — **LANDED 2026-07-21** (`cf5095576`, `7743d224f`)
 
-Found 2026-07-21 while fixing Mary-O's lives. The message has exactly ONE real
-consumer, `apply_room_replay_request_system`
-(`ambition_app/src/app/sim_systems.rs:132`), registered in exactly one place
-(`app/plugins.rs:153`). Both demo apps depend on `ambition`, never on
-`ambition_app` — that IS the demo gate — so **in the shipped standalone Mary-O
-and Sanic binaries the message is written into a registered channel that nothing
-drains.** Mary-O's flag completion and death, and Sanic's act clear, all request
-a replay that never happens: the player is not returned to spawn, the room is
-not rebuilt, pickups and enemies do not come back. (`ambition_content`'s
-`cut_rope` reader is a content-side partial — it clears one boss's record and
-resets nothing — and neither demo depends on it either.)
+`ambition_runtime::sandbox_reset` now owns `reset_sandbox` and the ONE
+`apply_room_replay_request_system`, carried to every host by
+`RoomReplaySchedulePlugin` in `PlatformerEnginePlugins`. The two content anchors
+(`ContentDialogueFollowupSet`, `ContentRoomReplayResetSet`) moved with it, since
+the engine now owns the consumer they order against. Ambition keeps only its
+reset-INPUT system (the button binding is Ambition's) with an explicit `.before`
+edge to the consumer — the old `.chain()` was the only thing making those two
+unambiguous.
 
-Nothing about the consumer is Ambition-specific: `reset_sandbox`
-(`app/world_flow/room_flow.rs:22`) touches only `ae::*`, `ambition_actors`, and
-`ambition_characters` types, all of which `ambition_runtime` already depends on.
-Move it there so `PlatformerEnginePlugins` carries it, and have `ambition_app`
-stop registering its own — the existing `ContentRoomReplayResetSet` ordering
-anchor must move with it, and `apply_home_reset_policy` still needs
-`reset_sandbox` as a callable.
+**The blocker was a MODULE, not a dependency.** The card said the consumer was
+stuck app-side because it called `reset_sandbox`, "a host/reset concern". In
+fact `reset_sandbox` names only `engine_core`/`actors`/`characters`/`sfx`/`vfx`,
+every one of which `ambition_runtime` already depended on; it was unmovable
+only because it sat in `app::world_flow::room_flow`, which also composes
+`load_room` with `ambition::render` spawns. Splitting the reset out of that
+module is the entire unlock.
 
-⚠ **Order matters: this could not have landed before the lives fix.** Installing
-the consumer in the standalone hosts would have INTRODUCED the death/replay
-feedback loop there, which until 2026-07-21 was masked in those builds precisely
-because nothing consumed the message. That fix is in; this is now safe.
+**Exit met.** Nine tests across the three hosts
+(`ambition_demo_{mary_o,sanic}_app/tests/room_replay.rs`,
+`ambition_app/tests/app_it -- room_replay_seam`): the seam itself, Mary-O's
+TIMEOUT beat end to end, Sanic's act clear past the FULL `ACT_CLEAR_DWELL`, and
+a one-request-one-reset count per host. Poison-tested both directions — dropping
+the plugin fails all nine (Mary-O stays at her full 600px displacement, Sanic at
+1060 vs a spawn of 160); re-adding a duplicate app-side registration fails the
+hosted pair.
 
-**Exit:** one consumer, in a reusable crate, in all three hosts. Integration
-proof per host that a replay actually returns the player to spawn, resets body
-attempt state, and rebuilds room features — Mary-O flag completion, Mary-O
-timeout, Sanic act clear past the FULL `ACT_CLEAR_DWELL`, and the hosted variants
-of both with no double processing. Today's proofs observe the EMIT, not the
-replay: Mary-O's watches a clock refill written one line before the message, and
-Sanic's stops 0.5s into a 4.0s dwell.
+Two findings recorded rather than fixed:
+- Sanic can clear the act and then coast off the end of the speedway into a pit
+  death, inside his own 4s results dwell. That is why the act-clear proof stamps
+  the cleared phase under controlled conditions instead of extending
+  `act_completion.rs`: the death respawn rebuilds the room by itself, so that
+  run cannot isolate a replay. Logged in `code_smells.md` (2026-07-21).
+- A duplicate consumer is a hard Bevy panic in `ambition_app` (the reset-input
+  `.before` edge cannot resolve against a twice-registered system) but SILENT in
+  the demo apps, which have no such edge. Hence the count assertion.
+
+Mary-O's open acceptance run can now assert the replay clause it was written
+against ("waits through an actual replay into a fresh level").
 
 ## 3. Close Super Mary-O level 1 — [opus]
 

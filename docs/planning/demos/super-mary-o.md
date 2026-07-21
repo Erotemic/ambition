@@ -125,6 +125,12 @@ Remaining acceptance work
   waits through an actual replay into a fresh level. A state-aware controller
   (read position, choose this frame's input) is the right shape — Sanic's
   `act_completion.rs` already does exactly that and takes no shortcuts.
+
+  The replay clause is now assertable: until 2026-07-21 this binary drained
+  `RoomReplayRequested` with nothing, so "waits through an actual replay" could
+  not have passed however the run was written. The consumer moved into
+  `ambition_runtime` (tracks §2.5) and `tests/room_replay.rs` proves the flag
+  cycle and the timeout both replay for real in this host.
 - additional planned levels — gated behind closing level-1 acceptance above.
 
 ## Consumes

@@ -86,16 +86,25 @@ Remaining acceptance work is product/content work
   seam, then the act restarts on the engine's ordinary `RoomReplayRequested` —
   the same cycle Mary-O's level uses, no demo-specific restart.
 
-  ⚠ **The restart is INERT in the standalone app (found 2026-07-21).**
-  `RoomReplayRequested` has exactly one real consumer,
-  `ambition_app::app::sim_systems::apply_room_replay_request_system`, registered
-  only by `ambition_app`. `ambition_demo_sanic_app` depends on `ambition`, never
-  on `ambition_app` — that is the demo gate — so in the shipped standalone binary
-  the message is written into a registered channel that nothing drains. The
-  "restart" resets `SanicActState` and nothing else: the player is not returned
-  to spawn, the room is not re-lowered, rings are not restored, badniks do not
-  respawn. The same is true of Mary-O standalone. Making the consumer a reusable
-  engine/runtime seam is OPEN — see `tracks.md`.
+  ✅ **The restart was INERT in the standalone app (found 2026-07-21, FIXED the
+  same day — `cf5095576`).** `RoomReplayRequested` had exactly one real consumer,
+  registered only by `ambition_app`. `ambition_demo_sanic_app` depends on
+  `ambition`, never on `ambition_app` — that is the demo gate — so in the shipped
+  standalone binary the message went into a registered channel that nothing
+  drained. The "restart" reset `SanicActState` and nothing else: the player was
+  not returned to spawn, the room was not re-lowered, rings were not restored,
+  badniks did not respawn. The same was true of Mary-O standalone. The consumer
+  now lives in `ambition_runtime::sandbox_reset` and rides
+  `PlatformerEnginePlugins` into all three hosts (tracks §2.5), proved per host
+  in `tests/room_replay.rs`.
+
+  ⚠ **Found while proving that: the act is clearable and then immediately
+  fatal.** `GOAL_X` is 400px from the right edge, and clearing neither brakes the
+  body nor closes the course, so Sanic coasts off the end and dies well inside
+  his own 4s results dwell. Logged in `code_smells.md` (2026-07-21). It is why
+  the act-clear replay proof stamps the cleared phase under controlled conditions
+  rather than extending `act_completion.rs` — the death respawn rebuilds the room
+  by itself, so that run cannot isolate a replay.
 
   `act_score` is where the demo's premise becomes a number: a time bonus against
   par plus a per-ring bonus. **INTENT, not a proven property:** the two-term

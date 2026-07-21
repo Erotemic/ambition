@@ -957,3 +957,27 @@ character-actions gates and touching the real-audio test harness is not zero-ris
   reader at the released API. If upstream declines,
   the fallback is to accept phase 0 under GGRS (today's behaviour) rather than
   carry the fork indefinitely.
+
+## 2026-07-21 CONTENT: Sanic clears the act and then dies off the end of it
+- **Where:** `game/ambition_demo_sanic/src/lib.rs` — `GOAL_X = LEVEL_WIDTH - 400.0`
+  (6000 of 6400), against `ACT_CLEAR_DWELL = 4.0`.
+- **Smell:** the goal sits 400px from the right edge of the speedway, and
+  clearing the act neither stops the body nor closes the course. Sanic crosses
+  the line at speed, coasts past it during the results card, runs out of level,
+  and dies — well inside the 4-second dwell his own results card is still
+  counting down. The restart then happens on a body that already respawned for
+  an unrelated reason.
+- **Noticed while:** writing the room-replay proofs for tracks §2.5. The first
+  attempt extended `act_completion.rs` past the full dwell to observe the
+  restart, and could not: the death respawn returns him to spawn and rebuilds
+  the room by itself, so both the position and the ring count are identical
+  with and without a replay consumer installed. The proof had to stamp the
+  cleared phase under controlled conditions instead
+  (`ambition_demo_sanic_app/tests/room_replay.rs`).
+- **Why it went unseen:** the completion run stops 30 frames after the clear,
+  which is before he reaches the edge.
+- **Suggested fix / size:** S. Either move the goal well inside the runnable
+  extent, or have the clear brake the body / close the course behind it — the
+  results card should be a beat you read, not one you die during. Fixing it
+  would also let `act_completion.rs` carry the act-clear replay assertion
+  directly, retiring the controlled-setup stand-in.

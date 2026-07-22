@@ -34,8 +34,8 @@
 
 use ambition_platformer_primitives::construction::{
     ConstructionDomain, ConstructionExecCtx, ConstructionPlan, ConstructionRegistrationError,
-    ConstructionRegistry, ConstructionRequest, ConstructionRoot, RecipeId, RelationKind,
-    SpawnOrigin,
+    ConstructionRegistry, ConstructionRequest, ConstructionRoot, RecipeDispatch, RecipeId,
+    RelationKind, SpawnOrigin,
 };
 use ambition_platformer_primitives::sim_id::SimId;
 use bevy::prelude::Entity;
@@ -124,65 +124,23 @@ impl ConstructionDomain for ActorConstruction {
     type Parameters = ActorConstructionParams;
     type Services = ActorConstructionServices;
 
-    /// The recipe is a function of the payload, so the two cannot disagree.
-    fn recipe_of(parameters: &Self::Parameters) -> RecipeId {
+    /// ONE match: each arm names both the recipe identity and the function that
+    /// builds it, so the label and the behaviour cannot drift apart. Adding a
+    /// variant without an arm is a compile error.
+    fn dispatch(parameters: &Self::Parameters) -> RecipeDispatch<Self> {
         match parameters {
-            ActorConstructionParams::GroundItem { .. } => recipe_authored_ground_item(),
-            ActorConstructionParams::StagedActor(_) => recipe_staged_actor(),
-            ActorConstructionParams::SummonedMinion(_) => recipe_summoned_minion(),
-        }
-    }
-
-    /// One exhaustive match. Adding a parameter variant without a construction
-    /// arm is a compile error, which is what the old `AcceptsFn` pair only
-    /// pretended to guarantee — it could return `true` for a variant its
-    /// constructor did not handle, and the mismatch surfaced mid-commit.
-    ///
-    /// Every arm populates the root the executor allocated. None of them spawn
-    /// the row's body, and none can fail.
-    fn construct(
-        parameters: &Self::Parameters,
-        root: ConstructionRoot,
-        ctx: &mut ConstructionExecCtx<'_, '_, '_, Self>,
-    ) {
-        match parameters {
-            ActorConstructionParams::GroundItem { spec, held } => {
-                crate::features::ecs::spawn_static::spawn_ground_item_resolved_into(
-                    ctx.commands,
-                    ctx.session,
-                    root.entity(),
-                    spec,
-                    held.clone(),
-                );
-            }
-            ActorConstructionParams::StagedActor(request) => {
-                crate::features::spawn_staged_actor_into(
-                    ctx.commands,
-                    &ctx.services.context.characters,
-                    &ctx.services.context.roster,
-                    &ctx.services.boss_catalog,
-                    ctx.session,
-                    root.entity(),
-                    request,
-                );
-            }
-            ActorConstructionParams::SummonedMinion(minion) => {
-                crate::features::spawn_runtime_minion_into(
-                    ctx.commands,
-                    &ctx.services.context.characters,
-                    &ctx.services.context.roster,
-                    ctx.session,
-                    root.entity(),
-                    minion.feature_id.clone(),
-                    minion.name.clone(),
-                    minion.pos,
-                    minion.half_size,
-                    &minion.archetype_id,
-                    minion.encounter_id.clone(),
-                    minion.faction,
-                    crate::features::ActorAggression::hostile(),
-                );
-            }
+            ActorConstructionParams::GroundItem { .. } => RecipeDispatch {
+                recipe: recipe_authored_ground_item(),
+                construct: construct_authored_ground_item,
+            },
+            ActorConstructionParams::StagedActor(_) => RecipeDispatch {
+                recipe: recipe_staged_actor(),
+                construct: construct_staged_actor,
+            },
+            ActorConstructionParams::SummonedMinion(_) => RecipeDispatch {
+                recipe: recipe_summoned_minion(),
+                construct: construct_summoned_minion,
+            },
         }
     }
 
@@ -233,6 +191,74 @@ impl std::fmt::Display for ActorConstructionError {
 
 impl std::error::Error for ActorConstructionError {}
 
+// ── Recipes ──────────────────────────────────────────────────────────────────
+//
+// Each is paired with its identity in `dispatch` above and reached only through
+// it, so the `unreachable!` arms are unreachable by the same decision that
+// selected the function. `every_parameter_variant_matches_its_descriptor`
+// asserts that pairing per variant behaviourally.
+
+fn construct_authored_ground_item(
+    parameters: &ActorConstructionParams,
+    root: ConstructionRoot,
+    ctx: &mut Ctx<'_, '_, '_>,
+) {
+    let ActorConstructionParams::GroundItem { spec, held } = parameters else {
+        unreachable!("dispatch pairs this fn with GroundItem parameters")
+    };
+    crate::features::ecs::spawn_static::spawn_ground_item_resolved_into(
+        ctx.commands,
+        ctx.session,
+        root.entity(),
+        spec,
+        held.clone(),
+    );
+}
+
+fn construct_staged_actor(
+    parameters: &ActorConstructionParams,
+    root: ConstructionRoot,
+    ctx: &mut Ctx<'_, '_, '_>,
+) {
+    let ActorConstructionParams::StagedActor(request) = parameters else {
+        unreachable!("dispatch pairs this fn with StagedActor parameters")
+    };
+    crate::features::spawn_staged_actor_into(
+        ctx.commands,
+        &ctx.services.context.characters,
+        &ctx.services.context.roster,
+        &ctx.services.boss_catalog,
+        ctx.session,
+        root.entity(),
+        request,
+    );
+}
+
+fn construct_summoned_minion(
+    parameters: &ActorConstructionParams,
+    root: ConstructionRoot,
+    ctx: &mut Ctx<'_, '_, '_>,
+) {
+    let ActorConstructionParams::SummonedMinion(minion) = parameters else {
+        unreachable!("dispatch pairs this fn with SummonedMinion parameters")
+    };
+    crate::features::spawn_runtime_minion_into(
+        ctx.commands,
+        &ctx.services.context.characters,
+        &ctx.services.context.roster,
+        ctx.session,
+        root.entity(),
+        minion.feature_id.clone(),
+        minion.name.clone(),
+        minion.pos,
+        minion.half_size,
+        &minion.archetype_id,
+        minion.encounter_id.clone(),
+        minion.faction,
+        crate::features::ActorAggression::hostile(),
+    );
+}
+
 // ── Relations ────────────────────────────────────────────────────────────────
 
 /// Wire a personal grudge. Re-inserting `ActorAggression` is safe: staged
@@ -248,10 +274,13 @@ fn wire_grudge(from: Entity, to: Entity, ctx: &mut Ctx<'_, '_, '_>) {
 
 /// A standalone registry holding the engine's own recipes.
 ///
-/// The App installs these into its `init_resource` registry so a provider can
-/// add to it; callers that need a registry of their own — fixtures, tools, a
-/// preflight run outside a live App — build one here rather than re-listing the
-/// recipes and drifting from the real table.
+/// ⚠ **This domain is CLOSED.** `ActorConstructionParams` is a closed enum and
+/// [`ActorConstruction::dispatch`] a closed match, so a provider registering
+/// into this table contributes recipe METADATA — identity, ownership, schema
+/// version, and therefore a prepared-content fingerprint contribution — and
+/// cannot contribute executable construction behaviour. Callers that need a
+/// registry of their own (fixtures, tools, a preflight outside a live App) build
+/// one here rather than re-listing the recipes and drifting from the real table.
 pub fn engine_construction_registry() -> ActorConstructionRegistry {
     let mut registry = ActorConstructionRegistry::default();
     install_actor_construction_recipes(&mut registry)

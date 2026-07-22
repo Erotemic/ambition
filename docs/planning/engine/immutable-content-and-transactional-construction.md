@@ -780,6 +780,17 @@ families and one parallel path remain outside the planner:
 | 9 | portal gun pickup (`cfg`) | `spawn/mod.rs` | anonymous |
 | — | `apply_spawn_actor_requests` | registered in `stage.rs` | **parallel unplanned path to `spawn_staged_actor`**, still carries the silent-drop `wire_staged_grudges` |
 
+⚠ **There is NO enforced plan-to-world roster parity, and the docs no longer
+claim one.** A recipe receives raw `Commands` and the root `Entity`, so it can
+despawn the root, remove or overwrite its `SimId`, mutate unrelated entities, or
+spawn additional entities that acquire authoritative identities.
+`ConstructionRoot` stops a recipe NOMINATING a pre-existing entity as a row's
+root — that and no more. Two staged answers, **neither implemented**:
+near-term, verification at the transaction boundary that counts identities and
+checks root ownership after deferred construction applies (a `BTreeSet<SimId>`
+comparison is insufficient — it hides duplicates); structurally, migrating every
+authoritative entity a recipe creates internally into an explicit plan row.
+
 ⚠ **Two facts that make the roster-parity claim narrower than it reads.**
 
 - `spawn_enemy_with_faction_into` spawns **two extra authoritative roots** (giant
@@ -835,6 +846,34 @@ atomic without anything enforcing it.
 
 Deviation 1 below generalises as a result: *no fact about a planned entity is
 stored in two places*, whether that is the recipe or the parent.
+
+**Third review round (2026-07-22, checkpoint 1).** Four narrow repairs, one of
+them correcting a process failure of mine rather than a design flaw:
+
+1. **Four relation tests were silently DELETED by my own previous commit** — an
+   edit that replaced from a marker to end-of-file took the appended block with
+   it, including the poison test that had been verified against `896bfb1`. The
+   commit then reported "25 -> 23 (two deleted, three added)", arithmetic that
+   does not work and that nobody re-derived. Restored and extended to six cases:
+   source-only refusal, target-only refusal, closure in both directions, closure
+   transitivity across `A -> B -> C`, and closure rebuild proving relations point
+   at the NEW generations. The target-only test was **re-verified** against the
+   asymmetric rule and fails there with `Grudge(1v0)` vs `Grudge(1v1)`.
+2. **`recipe_of` and `construct` were two matches that could drift** — a variant
+   could be labelled with one recipe's identity and built by another's code and
+   still compile. Collapsed into one `ConstructionDomain::dispatch` returning a
+   `RecipeDispatch { recipe, construct }`, so both are chosen in the same arm.
+3. **The construction registry was documented as contributing to the
+   prepared-content fingerprint and did not** — `prepare_platformer_content` did
+   not take it at all. It now hashes the canonical dump as the
+   `construction.recipes` section. Verified load-bearing: removing the section
+   makes a recipe-schema change stop moving the fingerprint.
+4. **Summon counter advancement was ordered but unguarded.** Reservations now
+   carry the value planning read; a summoner whose counter is missing or has
+   moved is refused BEFORE anything is built, and a violation discovered after
+   construction is logged loudly and resolved by taking the furthest value
+   rather than silently skipped. ⚠ Ordered commands are not rollback atomicity
+   and the comments now say so.
 
 **Second review round: four of the five repairs above were incomplete, and one
 encoded a new wrong invariant.** Recorded because the pattern repeated — each

@@ -216,6 +216,9 @@ pub(crate) struct PlatformerPreparation<'w> {
     placement_lowering:
         Option<Res<'w, ambition_actors::world::placements::PlacementLoweringRegistry>>,
     content_staging: Option<Res<'w, ambition_actors::features::RoomContentStagingRegistry>>,
+    // ⚠ This brings the struct to Bevy's 16-parameter `SystemParam` ceiling.
+    // The next field added here must bundle something first.
+    construction_recipes: Option<Res<'w, ambition_actors::construction::ActorConstructionRegistry>>,
     epochs: ResMut<'w, ContentEpochSequence>,
     audio_catalogs: Res<'w, ambition_audio::catalog::AudioCatalogRegistry>,
     #[cfg(feature = "audio")]
@@ -483,6 +486,9 @@ impl PlatformerPreparation<'_> {
             self.character_catalog_registry.as_deref(),
             self.placement_lowering.as_deref(),
             self.content_staging.as_deref(),
+            self.construction_recipes
+                .as_deref()
+                .map(ambition_actors::construction::ActorConstructionRegistry::deterministic_dump),
             snapshot_schema,
             &mut self.epochs,
         ) {
@@ -710,6 +716,10 @@ pub fn prepare_platformer_content_for_app(
         .world()
         .get_resource::<ambition_actors::features::RoomContentStagingRegistry>()
         .cloned();
+    let construction_recipes = app
+        .world()
+        .get_resource::<ambition_actors::construction::ActorConstructionRegistry>()
+        .map(|registry| registry.deterministic_dump());
     let snapshot_schema = app
         .world()
         .get_resource::<ambition_runtime::rollback::RollbackRegistry>()
@@ -725,6 +735,7 @@ pub fn prepare_platformer_content_for_app(
         character_registry.as_ref(),
         placement_lowering.as_ref(),
         content_staging.as_ref(),
+        construction_recipes,
         snapshot_schema,
         &mut epochs,
     )
@@ -738,6 +749,11 @@ pub fn prepare_platformer_content(
     >,
     placement_lowering: Option<&ambition_actors::world::placements::PlacementLoweringRegistry>,
     content_staging: Option<&ambition_actors::features::RoomContentStagingRegistry>,
+    // Canonical dump of the construction registry, when the app has one. A dump
+    // rather than the registry itself: `ConstructionRegistry` is not `Clone` (it
+    // holds relation `fn` pointers), and the fingerprint wants only its stable
+    // semantic metadata anyway. Nothing process-local is hashed.
+    construction_recipes: Option<String>,
     snapshot_schema: ambition_runtime::SnapshotSchemaFingerprint,
     epochs: &mut ContentEpochSequence,
 ) -> Result<PreparedContent, ContentDiagnostic> {
@@ -891,6 +907,23 @@ pub fn prepare_platformer_content(
         .map_err(|error| {
             ContentDiagnostic::new("construction.content-staging", error.to_string())
         })?;
+
+    // The construction recipe table decides how authoritative entities are
+    // built, so a change to it is a change to the content — two sessions whose
+    // recipe schemas differ are not interchangeable, and a snapshot taken under
+    // one is not safe to restore under the other. It was documented as
+    // contributing to the fingerprint well before it actually did.
+    //
+    // ⚠ Only what the dump carries is hashed: recipe id, owner, source, schema
+    // id, and relation kind + owner. A relation whose WIRING FUNCTION changes
+    // while its owner stays the same does not move the fingerprint. Bumping the
+    // schema id is what expresses such a change.
+    builder
+        .add_section(
+            "construction.recipes",
+            construction_recipes.map_or_else(Vec::new, |dump| dump.into_bytes()),
+        )
+        .map_err(|error| ContentDiagnostic::new("construction.recipes", error.to_string()))?;
 
     // Epoch allocation is the final non-fallible step: a rejected candidate
     // never consumes or publishes an activation generation.
@@ -1271,18 +1304,17 @@ mod tests {
                 )
                 .unwrap();
         };
-        let register_b =
-            |registry: &mut ambition_actors::features::RoomContentStagingRegistry| {
-                registry
-                    .register(
-                        "same-room",
-                        "provider-b",
-                        "fixture-b",
-                        "fixture-b.v1",
-                        |_| Vec::new(),
-                    )
-                    .unwrap();
-            };
+        let register_b = |registry: &mut ambition_actors::features::RoomContentStagingRegistry| {
+            registry
+                .register(
+                    "same-room",
+                    "provider-b",
+                    "fixture-b",
+                    "fixture-b.v1",
+                    |_| Vec::new(),
+                )
+                .unwrap();
+        };
         if reverse {
             register_b(&mut registry);
             register_a(&mut registry);
@@ -1298,6 +1330,15 @@ mod tests {
         characters: &ambition_characters::actor::character_catalog::CharacterCatalogRegistry,
         staging: &ambition_actors::features::RoomContentStagingRegistry,
     ) -> PreparedContent {
+        fixture_content_with_recipes(source, characters, staging, None)
+    }
+
+    fn fixture_content_with_recipes(
+        source: PreparedPlatformerSource,
+        characters: &ambition_characters::actor::character_catalog::CharacterCatalogRegistry,
+        staging: &ambition_actors::features::RoomContentStagingRegistry,
+        construction_recipes: Option<String>,
+    ) -> PreparedContent {
         let authored = AuthoredCatalogFragments::new("alpha", "same-provider");
         let snapshot_schema =
             ambition_runtime::rollback::RollbackRegistry::default().schema_fingerprint();
@@ -1308,6 +1349,7 @@ mod tests {
             Some(characters),
             None,
             Some(staging),
+            construction_recipes,
             snapshot_schema,
             &mut epochs,
         )
@@ -1341,6 +1383,98 @@ mod tests {
         assert_ne!(baseline.fingerprint(), changed_character.fingerprint());
     }
 
+    /// The construction recipe table decides how authoritative entities are
+    /// built, so a change to it is a change to the content. This was DOCUMENTED
+    /// as contributing to the fingerprint long before it did — `prepare_platformer_content`
+    /// did not take the registry at all.
+    #[test]
+    fn a_construction_recipe_schema_change_moves_the_fingerprint() {
+        let characters = character_registry(false, CHARACTER_B);
+        let staging = staging_registry(false);
+
+        let baseline = fixture_content_with_recipes(
+            fixture_source(128.0),
+            &characters,
+            &staging,
+            Some(construction_dump("actor-construction-v1")),
+        );
+        let bumped_schema = fixture_content_with_recipes(
+            fixture_source(128.0),
+            &characters,
+            &staging,
+            Some(construction_dump("actor-construction-v2")),
+        );
+        assert_ne!(
+            baseline.fingerprint(),
+            bumped_schema.fingerprint(),
+            "a recipe schema bump is a content change"
+        );
+
+        let absent =
+            fixture_content_with_recipes(fixture_source(128.0), &characters, &staging, None);
+        assert_ne!(
+            baseline.fingerprint(),
+            absent.fingerprint(),
+            "having a recipe table at all differs from having none"
+        );
+    }
+
+    /// ...but registration ORDER does not, because the registry is ordered
+    /// storage. Both halves matter: a fingerprint that ignores real changes is
+    /// useless, and one that reacts to plugin insertion order is unusable.
+    #[test]
+    fn construction_registration_order_does_not_move_the_fingerprint() {
+        let characters = character_registry(false, CHARACTER_B);
+        let staging = staging_registry(false);
+
+        let forward = fixture_content_with_recipes(
+            fixture_source(128.0),
+            &characters,
+            &staging,
+            Some(construction_dump_ordered(false)),
+        );
+        let reversed = fixture_content_with_recipes(
+            fixture_source(128.0),
+            &characters,
+            &staging,
+            Some(construction_dump_ordered(true)),
+        );
+        assert_eq!(forward.fingerprint(), reversed.fingerprint());
+    }
+
+    /// A real registry, dumped — the same value the app path contributes.
+    fn construction_dump(schema: &str) -> String {
+        let mut registry = ambition_actors::construction::ActorConstructionRegistry::default();
+        registry
+            .try_register_recipe(
+                ambition_actors::construction::recipe_staged_actor(),
+                "ambition_actors",
+                "content-staging",
+                schema,
+            )
+            .unwrap();
+        registry.deterministic_dump()
+    }
+
+    fn construction_dump_ordered(reverse: bool) -> String {
+        let mut registry = ambition_actors::construction::ActorConstructionRegistry::default();
+        let ids = [
+            ambition_actors::construction::recipe_staged_actor(),
+            ambition_actors::construction::recipe_summoned_minion(),
+        ];
+        let ids: Vec<_> = if reverse {
+            ids.into_iter().rev().collect()
+        } else {
+            ids.into_iter().collect()
+        };
+        for id in ids {
+            registry
+                .try_register_recipe(id, "ambition_actors", "src", "v1")
+                .unwrap();
+        }
+        registry.deterministic_dump()
+    }
+
     #[test]
     fn sequential_preparations_share_definition_identity_but_not_epoch() {
         let characters = character_registry(false, CHARACTER_B);
@@ -1355,6 +1489,7 @@ mod tests {
             Some(&characters),
             None,
             Some(&staging),
+            None,
             snapshot_schema,
             &mut epochs,
         )
@@ -1365,6 +1500,7 @@ mod tests {
             Some(&characters),
             None,
             Some(&staging),
+            None,
             snapshot_schema,
             &mut epochs,
         )

@@ -576,6 +576,18 @@ a recipe cannot commandeer or nominate one; `AcceptsFn` and the request's
 `construct`; counter advance queued as part of the commit; `ContentBinding`
 replaces the thrice-overloaded epoch-zero sentinel.
 
+⚠ **Checkpoint 1 of the third review round landed:** restored four relation
+tests my own previous commit silently deleted (an edit truncated the file and the
+reported count was never re-derived) and extended them to six cases; collapsed
+`recipe_of`+`construct` into one `dispatch` so identity and behaviour cannot
+drift; the construction registry now genuinely reaches the prepared-content
+fingerprint as `construction.recipes` (it was documented as doing so for two
+commits before it did); summon counter reservations carry the value planning read
+and refuse a stale or missing counter BEFORE spawning. Actor recipes are now
+documented as a CLOSED domain — providers register metadata, not executable
+behaviour. **There is no enforced plan-to-world roster parity and the docs no
+longer claim one.**
+
 ⚠ **PHASE 4 IS NOT STARTED.** Nine authoritative families and one parallel
 `apply_spawn_actor_requests` path remain outside the planner — the exact table is
 in the campaign doc. Two known holes in the current parity claim: giant hand

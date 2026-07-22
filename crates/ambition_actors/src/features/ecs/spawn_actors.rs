@@ -1653,6 +1653,60 @@ pub(super) fn spawn_encounter_mob(
 /// mid-migration to `SimId` (an unidentified body cannot lend an identity), and
 /// minting a parentless dynamic id would reintroduce exactly the ambiguity this
 /// replaces.
+/// One summoner's reserved stretch of its own identity sequence.
+///
+/// Carries the value planning READ as well as the value it wants to write, so
+/// applying the reservation can tell "nothing moved" from "someone else spent
+/// these ids while this batch was in flight".
+struct SummonerSequenceReservation {
+    summoner: ambition_platformer_primitives::sim_id::SimId,
+    /// What the counter held when this batch planned against it.
+    expected: u64,
+    /// What it must hold afterwards — `expected` plus one per summon reserved.
+    next: u64,
+}
+
+impl SummonerSequenceReservation {
+    /// Whether this summoner's counter still holds what planning assumed.
+    fn still_valid(
+        &self,
+        counter: Option<&ambition_platformer_primitives::sim_id::SimIdCounter>,
+    ) -> bool {
+        counter.is_some_and(|counter| counter.0 == self.expected)
+    }
+
+    fn apply(self, world: &mut bevy::prelude::World, owner: bevy::prelude::Entity) {
+        let Some(mut counter) =
+            world.get_mut::<ambition_platformer_primitives::sim_id::SimIdCounter>(owner)
+        else {
+            bevy::log::error!(
+                target: "ambition::construction",
+                "summoner `{}` lost its identity counter between planning and commit; \
+                 {} summoned identities were built but the counter could not be advanced — \
+                 the next summon from this body may collide",
+                self.summoner,
+                self.next - self.expected,
+            );
+            return;
+        };
+        if counter.0 != self.expected {
+            bevy::log::error!(
+                target: "ambition::construction",
+                "summoner `{}` counter moved from {} to {} between planning and commit; \
+                 advancing to {} anyway would either re-spend or skip identities",
+                self.summoner,
+                self.expected,
+                counter.0,
+                self.next,
+            );
+            // Take the furthest of the two so no identity is handed out twice.
+            counter.0 = counter.0.max(self.next);
+            return;
+        }
+        counter.0 = self.next;
+    }
+}
+
 pub fn apply_summon_effects(
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<ambition_vfx::EffectRequest>,
@@ -1674,14 +1728,22 @@ pub fn apply_summon_effects(
         return;
     };
 
-    // Sequence numbers are TAKEN here and WRITTEN BACK only if the plan commits.
+    // Sequence numbers are RESERVED here and applied only as part of the commit.
     // `SimIdCounter` is snapshot-registered authoritative state, so advancing it
     // while assembling requests would mean a rejected batch had already consumed
-    // dynamic identities that no entity was ever built for — a mutation, and one
-    // that survives into the next snapshot. Staging it keeps "preparation is
-    // pure" true of the whole system rather than only of `prepare`.
-    let mut next_sequence: std::collections::BTreeMap<bevy::prelude::Entity, u64> =
-        std::collections::BTreeMap::new();
+    // dynamic identities that no entity was ever built for — a mutation that
+    // survives into the next snapshot.
+    //
+    // Each reservation records the value it read, so applying it can verify the
+    // counter is still what planning assumed rather than blindly overwriting.
+    // ⚠ This is an ordered command, NOT rollback atomicity: the commands are
+    // applied in sequence at the next flush, and nothing un-applies the earlier
+    // ones if a later one finds its precondition violated. What it buys is that
+    // a REFUSAL costs nothing and a violation is loud instead of silent.
+    let mut reservations: std::collections::BTreeMap<
+        bevy::prelude::Entity,
+        SummonerSequenceReservation,
+    > = std::collections::BTreeMap::new();
     let mut planned = Vec::new();
     for req in requests.read() {
         let ambition_vfx::Effect::Summon(s) = &req.effect else {
@@ -1701,10 +1763,17 @@ pub fn apply_summon_effects(
             continue;
         };
         // Successive summons from one summoner in a single batch each advance
-        // the staged value, so two adds never claim one identity.
-        let sequence = next_sequence.entry(req.owner).or_insert(counter.0);
-        let taken = *sequence;
-        *sequence += 1;
+        // the reserved value, so two adds never claim one identity.
+        let reservation =
+            reservations
+                .entry(req.owner)
+                .or_insert_with(|| SummonerSequenceReservation {
+                    summoner: summoner.clone(),
+                    expected: counter.0,
+                    next: counter.0,
+                });
+        let taken = reservation.next;
+        reservation.next += 1;
         planned.push(crate::construction::summoned_minion_request(
             summoner,
             taken,
@@ -1738,6 +1807,24 @@ pub fn apply_summon_effects(
         ),
         boss_catalog: boss_catalog.clone(),
     };
+    // Preconditions BEFORE anything is built: every summoner must still exist
+    // and still hold the counter value its reservation was read from. Checking
+    // here makes a stale reservation a refusal that costs nothing, instead of a
+    // complaint logged after the minions already exist.
+    if let Some((_, stale)) = reservations
+        .iter()
+        .find(|(owner, reservation)| !reservation.still_valid(counters.get(**owner).ok()))
+    {
+        bevy::log::error!(
+            target: "ambition::construction",
+            "summon batch refused before mutation: summoner `{}` no longer holds the identity \
+             counter value {} this batch reserved against",
+            stale.summoner,
+            stale.expected,
+        );
+        return;
+    }
+
     match ConstructionPlan::prepare(scope.clone(), planned, &live, &recipes) {
         Ok(plan) => {
             let mut ctx = ambition_platformer_primitives::construction::ConstructionExecCtx {
@@ -1747,20 +1834,15 @@ pub fn apply_summon_effects(
                 services: &services,
             };
             plan.commit(&mut ctx);
-            // The identities are spent when the construction that used them is
-            // APPLIED, not when it is queued. `commit` only enqueues commands —
-            // the roots, their components, the identity stamps — so writing the
-            // counters here would advance them ahead of the work they pay for,
-            // and a command that failed to apply would leave the counters
-            // advanced with nothing built. Queued last, they land after every
-            // command this commit produced, in order.
+            // Applied after every command this commit produced, and CHECKED
+            // rather than assumed. A missing owner or a counter that moved since
+            // planning means something else spent this summoner's identities
+            // while this batch was in flight; the minions are already built by
+            // then, so the one thing that must not happen is passing over it in
+            // silence.
             commands.queue(move |world: &mut bevy::prelude::World| {
-                for (owner, advanced) in next_sequence {
-                    if let Some(mut counter) =
-                        world.get_mut::<ambition_platformer_primitives::sim_id::SimIdCounter>(owner)
-                    {
-                        counter.0 = advanced;
-                    }
+                for (owner, reservation) in reservations {
+                    reservation.apply(world, owner);
                 }
             });
         }

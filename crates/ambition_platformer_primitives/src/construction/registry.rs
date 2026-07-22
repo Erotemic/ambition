@@ -121,9 +121,17 @@ struct RelationEntry<D: ConstructionDomain> {
     wire: RelationFn<D>,
 }
 
-/// App-installed registry of construction recipes and relation wirings.
+/// App-installed registry of construction recipe identities and relation
+/// wirings.
 ///
-/// Ordered storage (`BTreeMap`), so the dump does not depend on insertion order.
+/// Ordered storage (`BTreeMap`), so the dump does not depend on insertion order
+/// — which matters because that dump is hashed into the prepared-content
+/// fingerprint, and a fingerprint sensitive to plugin insertion order would be
+/// unusable.
+///
+/// ⚠ Recipes here are METADATA ONLY. Whether a domain is extensible by an
+/// outside provider is the domain's business: the actor domain is closed, so
+/// registering a recipe id there does not make it executable.
 #[derive(Resource)]
 pub struct ConstructionRegistry<D: ConstructionDomain> {
     recipes: BTreeMap<RecipeId, RecipeEntry>,

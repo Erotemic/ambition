@@ -291,9 +291,10 @@ impl RoomFeatureConstructionPlan {
                     // This row IS planned, so falling through to the other
                     // families would be wrong — and returning a bare `false`
                     // would report "no such entity" for what is really a
-                    // refusal. A relation-bearing row cannot be rebuilt alone
-                    // (see `ConstructionError::RelationOutsideSubset`); saying
-                    // so is the whole value of the refusal.
+                    // refusal. A row at either end of a planned relation cannot
+                    // be rebuilt alone (see
+                    // `ConstructionError::RelationCutBySubset`); saying so is
+                    // the whole value of the refusal.
                     bevy::log::error!(
                         target: "ambition::construction",
                         "`{authored_id}` is planned but could not be rebuilt on its own: {error}"

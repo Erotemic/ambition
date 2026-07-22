@@ -31,10 +31,10 @@
 //! ([`ConstructionDomain::Parameters`]) and what its recipes need in hand to
 //! execute ([`ConstructionDomain::Services`] — frozen catalogs, a frozen
 //! interpreter table). It also supplies the two functions that make a row
-//! buildable: [`ConstructionDomain::recipe_of`], which derives a row's recipe
-//! from what it carries, and [`ConstructionDomain::construct`], one exhaustive
-//! match that populates a root the executor allocated. Neither the caller nor
-//! the recipe chooses the pairing or the entity, so neither can get it wrong.
+//! buildable: [`ConstructionDomain::dispatch`], ONE exhaustive match yielding
+//! both a row's recipe identity and the function that populates the root the
+//! executor allocated. Neither the caller nor the recipe chooses the pairing or
+//! the entity, so neither can get it wrong.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -161,38 +161,46 @@ pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     /// lookup left.
     type Services;
 
-    /// Which recipe builds this row — **a pure function of what the row
-    /// carries**, never an independent choice a caller makes.
+    /// Resolve what builds this row: **its recipe identity and its executor,
+    /// from one exhaustive match**.
     ///
-    /// This is why [`ConstructionRequest`] has no `recipe` field. When the
-    /// recipe was supplied separately, a perfectly valid public request could
-    /// name one recipe and carry another's parameters; that pairing passed
-    /// preparation and surfaced inside the constructor, mid-commit, as a panic.
-    /// Deriving it removes the second value that could disagree.
-    fn recipe_of(parameters: &Self::Parameters) -> RecipeId;
-
-    /// Populate the root the executor allocated for this row.
+    /// Returning both together is the point. This started as two methods — one
+    /// deriving a `RecipeId`, one performing construction — and two matches over
+    /// the same enum can drift while still compiling: a variant could be
+    /// labelled with one recipe's identity and built by another's code, and
+    /// nothing would object. One arm now names both, so the label and the
+    /// behaviour are chosen in the same place or not at all.
     ///
-    /// **Exhaustive over `Parameters`, and that is the point.** A domain writes
-    /// one match with an arm per variant, so "this recipe cannot build from
-    /// these parameters" is a compile error (a non-exhaustive match) rather
-    /// than a runtime `unreachable!` reached after earlier rows have already
-    /// mutated the world. Nothing here can fail: every lookup that could miss
-    /// resolved in the request builder.
-    ///
-    /// The root already exists and already carries its `SimId` and
-    /// `SpawnOrigin`. A recipe inserts onto it; it cannot choose it, return a
-    /// different one, or hand back something that was already alive.
-    fn construct(
-        parameters: &Self::Parameters,
-        root: ConstructionRoot,
-        ctx: &mut ConstructionExecCtx<'_, '_, '_, Self>,
-    );
+    /// Exhaustive over `Parameters`, so a new variant with no arm is a compile
+    /// error rather than a runtime surprise. And nothing here can fail: every
+    /// lookup that could miss resolved in the request builder.
+    fn dispatch(parameters: &Self::Parameters) -> RecipeDispatch<Self>;
 
     /// Byte-stable one-line rendering of a row's parameters for the plan dump.
     /// Must not include tabs or newlines.
     fn canonical_summary(parameters: &Self::Parameters) -> String;
 }
+
+/// What one exhaustive dispatch decision yields: the row's recipe identity and
+/// the function that populates its root.
+pub struct RecipeDispatch<D: ConstructionDomain> {
+    /// Stable identity for the dump, the registry check, and the fingerprint.
+    pub recipe: RecipeId,
+    /// Populates the root the executor allocated. The root already exists and
+    /// already carries its `SimId` and `SpawnOrigin`; this inserts onto it.
+    pub construct: ConstructFn<D>,
+}
+
+/// Populates one planned row's already-allocated root.
+///
+/// A recipe cannot choose the entity, return a different one, or hand back
+/// something that was already alive — it receives a [`ConstructionRoot`] the
+/// executor minted. It also cannot fail: it returns nothing.
+pub type ConstructFn<D> = for<'w, 's, 'a> fn(
+    &<D as ConstructionDomain>::Parameters,
+    ConstructionRoot,
+    &mut ConstructionExecCtx<'w, 's, 'a, D>,
+);
 
 /// The authoritative entity the executor allocated for one planned row.
 ///
@@ -272,7 +280,7 @@ impl ContentBinding {
 /// One requested entity, before validation.
 ///
 /// **There is no `recipe` field either.** Which recipe builds a row is derived
-/// from its parameters by [`ConstructionDomain::recipe_of`], so a request that
+/// from its parameters by [`ConstructionDomain::dispatch`], so a request that
 /// names one recipe while carrying another's payload is not a thing that can be
 /// written down.
 ///
@@ -306,9 +314,9 @@ pub struct RelationRequest {
 /// world has begun to retire.
 pub struct PlannedEntity<D: ConstructionDomain> {
     sim_id: SimId,
-    /// Derived once at preparation via [`ConstructionDomain::recipe_of`] and
-    /// kept for the dump. Not a dispatch key: construction goes through the
-    /// domain's exhaustive match.
+    /// Derived once at preparation via [`ConstructionDomain::dispatch`] and
+    /// kept for the dump. Not a dispatch key: construction re-resolves the same
+    /// pure decision, which cannot disagree with this one.
     recipe: RecipeId,
     origin: SpawnOrigin,
     parameters: D::Parameters,
@@ -581,12 +589,13 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         let mut entities = Vec::with_capacity(requests.len());
         let mut relations: Vec<PlannedRelation<D>> = Vec::new();
         for request in requests {
-            // Derived, not supplied — so it always matches the payload.
-            let recipe = D::recipe_of(&request.parameters);
-            if !registry.has_recipe(&recipe) {
+            // Derived, not supplied — so it always matches the payload — and
+            // resolved together with the executor that will build it.
+            let dispatch = D::dispatch(&request.parameters);
+            if !registry.has_recipe(&dispatch.recipe) {
                 return Err(ConstructionError::UnknownRecipe {
                     sim_id: request.sim_id,
-                    recipe,
+                    recipe: dispatch.recipe,
                 });
             }
             // The parent comes from the provenance, not from a second field
@@ -622,7 +631,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
             }
             entities.push(PlannedEntity {
                 sim_id: request.sim_id,
-                recipe,
+                recipe: dispatch.recipe,
                 origin: request.origin,
                 parameters: request.parameters,
             });
@@ -698,9 +707,11 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 
     /// Construct one planned entity through its frozen recipe.
     ///
-    /// Reconstruction of a single entity. Refuses — before mutating — if that
-    /// entity declares a relation, because the far end is not being rebuilt
-    /// alongside it; see [`ConstructionError::RelationOutsideSubset`].
+    /// Reconstruction of a single entity. Refuses — before mutating — if this
+    /// row sits at EITHER end of a planned relation, because rebuilding one end
+    /// alone strands the other on a dead `Entity` handle; see
+    /// [`ConstructionError::RelationCutBySubset`] and
+    /// [`ConstructionPlan::relation_closure`].
     pub fn construct_one(
         &self,
         sim_id: &SimId,
@@ -839,7 +850,14 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         ctx.commands
             .entity(root)
             .insert((planned.sim_id.clone(), planned.origin.clone()));
-        D::construct(&planned.parameters, ConstructionRoot(root), ctx);
+        // Re-dispatched rather than stored: the decision is a pure function of
+        // the parameters, so resolving it again cannot yield a different answer
+        // than preparation got, and storing a `fn` pointer per row buys nothing.
+        (D::dispatch(&planned.parameters).construct)(
+            &planned.parameters,
+            ConstructionRoot(root),
+            ctx,
+        );
         root
     }
 

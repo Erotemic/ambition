@@ -702,54 +702,6 @@ fn a_summon_from_an_unidentified_emitter_is_refused() {
     );
 }
 
-/// A summon batch that cannot plan must not have SPENT anything. The sequence
-/// numbers it would have used are authoritative snapshot state, so advancing
-/// them while assembling requests would let a rejected batch consume dynamic
-/// identities no entity was ever built for — a mutation that outlives the
-/// refusal and rides into the next snapshot.
-#[test]
-fn a_rejected_summon_batch_does_not_spend_the_summoners_sequence_numbers() {
-    use ambition_platformer_primitives::sim_id::SimIdCounter;
-
-    let mut world = summon_world();
-    let boss = world
-        .spawn((SimId::placement("boss_1"), SimIdCounter::default()))
-        .id();
-    // Squat the identity this summon would take, so preparation refuses it.
-    world.spawn(SimId::from_snapshot("placement:boss_1/0".to_string()));
-
-    run_summon(&mut world, boss, summon_spec("slop_add"));
-
-    assert_eq!(
-        world.get::<SimIdCounter>(boss).map(|counter| counter.0),
-        Some(0),
-        "a refused batch leaves the counter exactly where it found it"
-    );
-    let minted = world
-        .query::<&SimId>()
-        .iter(&world)
-        .filter(|id| id.as_str().starts_with("placement:boss_1/"))
-        .count();
-    assert_eq!(minted, 1, "only the squatter is there — nothing was built");
-
-    // And the identity really is still available: once the squatter is gone the
-    // very next summon takes sequence 0, which it could not do had the refused
-    // batch consumed it.
-    let squatter = world
-        .query::<(Entity, &SimId)>()
-        .iter(&world)
-        .find(|(_, id)| id.as_str() == "placement:boss_1/0")
-        .map(|(entity, _)| entity)
-        .expect("the squatter exists");
-    world.despawn(squatter);
-    run_summon(&mut world, boss, summon_spec("slop_add"));
-    assert_eq!(
-        world.get::<SimIdCounter>(boss).map(|counter| counter.0),
-        Some(1),
-        "the retried summon took the sequence the refused batch had not spent"
-    );
-}
-
 // ── Partial reconstruction of a real family ──────────────────────────────────
 
 /// The duellists' grudge is a planned relation, so rebuilding one of them alone
@@ -906,4 +858,159 @@ fn every_parameter_variant_constructs_its_root() {
         in_world, planned,
         "all three variants built exactly their planned roots"
     );
+}
+
+// ── Summon counter preconditions ─────────────────────────────────────────────
+
+/// Reserving is not spending. A batch that cannot plan leaves the counter where
+/// it found it, and the very next summon takes the identity the refused batch
+/// had reserved.
+///
+/// **Demonstrated against the pre-repair implementation** (which called
+/// `counter.next()` while assembling requests): it failed there with `Some(1)`
+/// where the contract requires `Some(0)`.
+#[test]
+fn a_rejected_summon_batch_spends_no_identity() {
+    use ambition_platformer_primitives::sim_id::SimIdCounter;
+
+    let mut world = summon_world();
+    let boss = world
+        .spawn((SimId::placement("boss_1"), SimIdCounter::default()))
+        .id();
+    // Squat the identity this summon would take, so preparation refuses it.
+    let squatter = world
+        .spawn(SimId::from_snapshot("placement:boss_1/0".to_string()))
+        .id();
+
+    run_summon(&mut world, boss, summon_spec("slop_add"));
+
+    assert_eq!(
+        world.get::<SimIdCounter>(boss).map(|counter| counter.0),
+        Some(0),
+        "a refused batch leaves the counter exactly where it found it"
+    );
+
+    world.despawn(squatter);
+    run_summon(&mut world, boss, summon_spec("slop_add"));
+    assert_eq!(
+        world.get::<SimIdCounter>(boss).map(|counter| counter.0),
+        Some(1),
+        "the retried summon took the sequence the refused batch had reserved"
+    );
+}
+
+/// A summoner with no `SimIdCounter` at all is refused before anything is built
+/// — not discovered afterwards, when the minions already exist.
+#[test]
+fn a_summoner_without_a_counter_is_refused_before_spawning() {
+    let mut world = summon_world();
+    // Identified, but carrying no counter to reserve from.
+    let boss = world.spawn(SimId::placement("boss_1")).id();
+
+    run_summon(&mut world, boss, summon_spec("slop_add"));
+
+    let built = world
+        .query::<&SimId>()
+        .iter(&world)
+        .filter(|id| id.as_str().starts_with("placement:boss_1/"))
+        .count();
+    assert_eq!(built, 0, "nothing was built for an unreservable summoner");
+    let _ = boss;
+}
+
+/// One successful batch advances the counter exactly once per summon, and the
+/// identities it hands out do not overlap.
+#[test]
+fn successive_summons_allocate_non_overlapping_identities() {
+    use ambition_platformer_primitives::sim_id::SimIdCounter;
+
+    let mut world = summon_world();
+    let boss = world
+        .spawn((SimId::placement("boss_1"), SimIdCounter::default()))
+        .id();
+
+    // Two summons in ONE batch: the reservation advances within the batch.
+    world.write_message(ambition_vfx::EffectRequest {
+        owner: boss,
+        effect: ambition_vfx::Effect::Summon(summon_spec("a")),
+    });
+    world.write_message(ambition_vfx::EffectRequest {
+        owner: boss,
+        effect: ambition_vfx::Effect::Summon(summon_spec("b")),
+    });
+    world
+        .run_system_cached(crate::features::apply_summon_effects)
+        .expect("the summon executor runs");
+    world.flush();
+
+    let mut minted: Vec<String> = world
+        .query::<&SimId>()
+        .iter(&world)
+        .map(|id| id.as_str().to_string())
+        .filter(|id| id.starts_with("placement:boss_1/"))
+        .collect();
+    minted.sort();
+    assert_eq!(
+        minted,
+        vec![
+            "placement:boss_1/0".to_string(),
+            "placement:boss_1/1".to_string()
+        ],
+        "two summons in one batch take distinct successive identities"
+    );
+    assert_eq!(
+        world.get::<SimIdCounter>(boss).map(|counter| counter.0),
+        Some(2),
+        "the counter advanced exactly once per summon, not once per batch"
+    );
+}
+
+// ── Recipe descriptor and execution cannot drift ─────────────────────────────
+
+/// Every parameter variant reports the recipe descriptor it is supposed to, AND
+/// constructs successfully through that same descriptor.
+///
+/// One exhaustive `dispatch` yields both the identity and the executor, so they
+/// are chosen in the same arm. This asserts the pairing per variant so a future
+/// arm that names one recipe and calls another's code is caught behaviourally
+/// rather than only by reading.
+#[test]
+fn every_parameter_variant_matches_its_descriptor() {
+    use ambition_platformer_primitives::construction::ConstructionDomain;
+
+    let mut room = empty_room("hall");
+    room.ground_items
+        .push(ground_item("pickup", REAL_HELD_ITEM));
+    let ground = authored_ground_item_requests(&room)
+        .expect("resolves")
+        .pop()
+        .expect("one request");
+    let staged = staged_actor_requests("hall", "prov", &[staged_enemy("staged", None)])
+        .pop()
+        .expect("one request");
+    let summoned = summoned_minion_request(
+        &SimId::placement("boss_1"),
+        0,
+        SummonedMinionParams {
+            feature_id: "slop".into(),
+            name: "slop".into(),
+            pos: ae::Vec2::ZERO,
+            half_size: ae::Vec2::splat(8.0),
+            archetype_id: "puppy_slug".into(),
+            encounter_id: "enc".into(),
+            faction: crate::features::ActorFaction::Enemy,
+        },
+    );
+
+    for (params, expected) in [
+        (&ground.parameters, recipe_authored_ground_item()),
+        (&staged.parameters, recipe_staged_actor()),
+        (&summoned.parameters, recipe_summoned_minion()),
+    ] {
+        assert_eq!(
+            ActorConstruction::dispatch(params).recipe,
+            expected,
+            "each variant reports its own recipe identity"
+        );
+    }
 }

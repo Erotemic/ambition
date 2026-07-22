@@ -120,6 +120,17 @@ construction arm is a compile error. The registry keeps its ADR-0026 identity
 role — ownership, idempotent re-registration, conflict rejection, fingerprint
 contribution — and no longer dispatches.
 
+**The construction registry contributes to the prepared-content fingerprint.**
+A recipe table decides how authoritative entities are built, so two sessions
+whose recipe schemas differ are not interchangeable and a snapshot taken under
+one is not safe to restore under the other. `prepare_platformer_content` hashes
+the registry's canonical dump as the `construction.recipes` section. Only stable
+semantic metadata is hashed — recipe id, owner, source, schema id, relation kind
+and owner — never a pointer or anything process-local. One consequence worth
+stating: a relation whose WIRING FUNCTION changes while its owner does not will
+not move the fingerprint, so a behavioural change to a relation must come with a
+schema-id bump.
+
 **The executor allocates every authoritative root; a recipe never chooses one.**
 A recipe used to return an `Entity` the executor then stamped, guarded by a check
 that it did not already hold a `SimId`. That guard was weak three ways: a
@@ -130,10 +141,22 @@ executor now calls `spawn_empty`, stamps identity and provenance onto the result
 and hands the recipe a [`ConstructionRoot`] it cannot forge. Freshness is
 structural, so there is no check left to get wrong.
 
-Recipes may still create deliberate *child* entities. Where such a child is
-itself authoritative — a giant's hand limbs mint their own `SimId` — the plan
-does not yet name it, and that is recorded as Phase-4 work rather than claimed
-as parity.
+⚠ **This does NOT amount to enforced plan-to-world roster parity, and must not
+be described as if it did.** A recipe still receives raw `Commands` and the root
+`Entity`, so it can despawn that root, overwrite or remove its `SimId`, mutate
+unrelated entities, or spawn additional entities that acquire authoritative
+identities of their own. The giant staged-actor path already does the last of
+these: `spawn_enemy_with_faction_into` creates two hand limbs that mint their own
+`SimId::spawned` and have no plan rows. `ConstructionRoot` prevents a recipe
+NOMINATING a pre-existing entity as a row's root; it is not a capability that
+confines what a recipe may otherwise do, and pretending otherwise while raw
+`Commands` remain in scope would be a worse lie than the one it replaced.
+
+Two staged answers, neither yet implemented: near-term, verification at the
+transaction boundary that counts identities and checks root ownership after
+deferred construction has applied; structurally, migrating every authoritative
+entity a recipe creates internally into an explicit plan row, with giant limbs
+first. Both are Phase-4 work and are listed as such.
 
 **A domain supplies what core cannot know** — `ConstructionDomain::Parameters`
 (what a row carries) and `Services` (the frozen catalogs its recipes read).
@@ -232,6 +255,12 @@ a state where the two disagree with nothing to say which wins.
 - When migrating a family in Phase 4, delete its family-specific spawn loop in
   the same commit that adds its recipe. A family that is planned *and* looped is
   a duplicate spawn, not a transition state.
-- The recipe registry is open: a provider may register its own recipes into
-  `ActorConstructionRegistry` before the first room is planned. Registration is
-  idempotent for a byte-identical entry and rejects a conflicting one.
+- **The actor construction domain is CLOSED.** `ActorConstructionParams` is a
+  closed enum and `ConstructionDomain::dispatch` is a closed exhaustive match, so
+  a provider cannot add an executable recipe — only *metadata*. The registry
+  accepts a recipe identity (owner, source, schema id) and that identity reaches
+  the prepared-content fingerprint, but nothing outside this crate can supply a
+  parameter variant or construction behaviour. Do not tell a provider author
+  otherwise. Opening it needs an erased prepared-payload design that couples
+  validation, metadata, and execution in one registration; that is Phase 6's
+  problem and is deliberately not attempted here.

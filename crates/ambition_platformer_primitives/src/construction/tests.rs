@@ -38,26 +38,29 @@ impl ConstructionDomain for Toy {
     type Parameters = Params;
     type Services = Services;
 
-    fn recipe_of(_: &Self::Parameters) -> RecipeId {
-        recipe()
-    }
-
-    fn construct(
-        parameters: &Self::Parameters,
-        root: ConstructionRoot,
-        ctx: &mut ConstructionExecCtx<'_, '_, '_, Self>,
-    ) {
-        ctx.services
-            .ordinary_runs
-            .set(ctx.services.ordinary_runs.get() + 1);
-        ctx.commands
-            .entity(root.entity())
-            .insert(Built(parameters.label.clone()));
+    fn dispatch(_: &Self::Parameters) -> RecipeDispatch<Self> {
+        RecipeDispatch {
+            recipe: recipe(),
+            construct: build,
+        }
     }
 
     fn canonical_summary(parameters: &Self::Parameters) -> String {
         parameters.label.clone()
     }
+}
+
+fn build(
+    parameters: &Params,
+    root: ConstructionRoot,
+    ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>,
+) {
+    ctx.services
+        .ordinary_runs
+        .set(ctx.services.ordinary_runs.get() + 1);
+    ctx.commands
+        .entity(root.entity())
+        .insert(Built(parameters.label.clone()));
 }
 
 fn wire_grudge(from: Entity, to: Entity, ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {
@@ -760,4 +763,241 @@ fn each_planned_row_gets_its_own_fresh_root() {
         3,
         "and each identity is on exactly one entity — two rows cannot collapse"
     );
+}
+
+// ── Relation cuts, both directions ───────────────────────────────────────────
+//
+// These were written once, verified against the pre-fix implementation, and then
+// silently lost: an edit that replaced from a marker to end-of-file took the
+// whole block with it, and the commit reported a test count nobody re-derived.
+// They are restored and extended here, and the load-bearing one is called out
+// below.
+
+/// **The poison test.** A relation is an `Entity` handle, so rebuilding the
+/// TARGET of one is not a private matter for the target's row: `a` grudges `b`,
+/// and if `b` is despawned and rebuilt alone then `a` still holds the dead
+/// handle. The roster looks right — both identities present — and only the
+/// wiring is silently wrong.
+///
+/// **Demonstrated against `896bfb1`**, which permitted this case on the
+/// reasoning that the relation belonged to the untouched source. It failed
+/// there with `left: Some(Grudge(1v0))` (the corpse) against
+/// `right: Some(Grudge(1v1))` (the rebuilt target). It is not regression-only.
+#[test]
+fn reconstructing_a_relation_target_alone_must_not_strand_its_source() {
+    let registry = registry();
+    let plan = feuding_pair(&registry);
+    let services = Services::default();
+    let mut world = World::new();
+
+    let receipt = commit_into(&mut world, &plan, &services);
+    let ea = receipt.entity(&SimId::placement("a")).expect("a committed");
+    let old_b = receipt.entity(&SimId::placement("b")).expect("b committed");
+    assert_eq!(
+        world.get::<Grudge>(ea),
+        Some(&Grudge(old_b)),
+        "the pair starts correctly wired"
+    );
+
+    world.despawn(old_b);
+    let result = construct_one_into(&mut world, &plan, &services, &SimId::placement("b"));
+
+    match result {
+        Err(error) => assert_eq!(
+            error,
+            ConstructionError::RelationCutBySubset {
+                from: SimId::placement("a"),
+                kind: grudge(),
+                to: SimId::placement("b"),
+            },
+            "a refusal must name the relation it would have stranded"
+        ),
+        Ok(new_b) => assert_eq!(
+            world.get::<Grudge>(ea),
+            Some(&Grudge(new_b)),
+            "a rebuild that SUCCEEDS must leave `a` on the new `b`, not the corpse"
+        ),
+    }
+}
+
+/// The source direction, stated separately so a future one-sided rule cannot
+/// pass by covering only the obvious half.
+#[test]
+fn reconstructing_a_relation_source_alone_is_refused() {
+    let registry = registry();
+    let plan = feuding_pair(&registry);
+    let services = Services::default();
+    let mut world = World::new();
+
+    let error = construct_one_into(&mut world, &plan, &services, &SimId::placement("a"))
+        .expect_err("rebuilding the source alone must be refused");
+    assert_eq!(
+        error,
+        ConstructionError::RelationCutBySubset {
+            from: SimId::placement("a"),
+            kind: grudge(),
+            to: SimId::placement("b"),
+        }
+    );
+    assert_eq!(
+        services.ordinary_runs.get(),
+        0,
+        "refused before any recipe ran"
+    );
+}
+
+/// Closure pulls in the target when seeded with the source.
+#[test]
+fn relation_closure_of_a_source_includes_its_target() {
+    let registry = registry();
+    let plan = feuding_pair(&registry);
+    assert_eq!(
+        plan.relation_closure(&BTreeSet::from([SimId::placement("a")])),
+        BTreeSet::from([SimId::placement("a"), SimId::placement("b")])
+    );
+}
+
+/// And the source when seeded with the target — the direction the disproved
+/// rule assumed was safe to ignore.
+#[test]
+fn relation_closure_of_a_target_includes_its_source() {
+    let registry = registry();
+    let plan = feuding_pair(&registry);
+    assert_eq!(
+        plan.relation_closure(&BTreeSet::from([SimId::placement("b")])),
+        BTreeSet::from([SimId::placement("a"), SimId::placement("b")])
+    );
+}
+
+/// Closure is transitive: seeding `c` in `a -> b -> c` must pull in `b` and then
+/// `a`, or a chain would be rebuilt in stranded fragments.
+#[test]
+fn relation_closure_is_transitive_across_a_chain() {
+    let registry = registry();
+    let mut a = request("a");
+    a.relations.push(RelationRequest {
+        kind: grudge(),
+        to: SimId::placement("b"),
+    });
+    let mut b = request("b");
+    b.relations.push(RelationRequest {
+        kind: grudge(),
+        to: SimId::placement("c"),
+    });
+    let plan = ConstructionPlan::prepare(
+        scope(),
+        vec![a, b, request("c"), request("d")],
+        &nothing_live(),
+        &registry,
+    )
+    .unwrap();
+
+    assert_eq!(
+        plan.relation_closure(&BTreeSet::from([SimId::placement("c")])),
+        BTreeSet::from([
+            SimId::placement("a"),
+            SimId::placement("b"),
+            SimId::placement("c"),
+        ]),
+        "seeding the far end of a chain pulls the whole chain"
+    );
+    // `d` is in no relation, so it neither pulls nor is pulled.
+    assert_eq!(
+        plan.relation_closure(&BTreeSet::from([SimId::placement("d")])),
+        BTreeSet::from([SimId::placement("d")])
+    );
+}
+
+/// Rebuilding the closure produces FRESH entity generations and rewires every
+/// relation onto them. This is the property the whole rule exists to protect:
+/// not merely "nothing is stranded" but "the new wiring names the new bodies".
+#[test]
+fn rebuilding_a_closure_rewires_relations_onto_the_new_generations() {
+    let registry = registry();
+    let mut a = request("a");
+    a.relations.push(RelationRequest {
+        kind: grudge(),
+        to: SimId::placement("b"),
+    });
+    let mut b = request("b");
+    b.relations.push(RelationRequest {
+        kind: grudge(),
+        to: SimId::placement("c"),
+    });
+    let plan = ConstructionPlan::prepare(
+        scope(),
+        vec![a, b, request("c")],
+        &nothing_live(),
+        &registry,
+    )
+    .unwrap();
+    let services = Services::default();
+    let mut world = World::new();
+
+    let first = commit_into(&mut world, &plan, &services);
+    let old: Vec<Entity> = ["a", "b", "c"]
+        .iter()
+        .map(|id| first.entity(&SimId::placement(id)).expect("committed"))
+        .collect();
+
+    let closure = plan.relation_closure(&BTreeSet::from([SimId::placement("c")]));
+    for entity in &old {
+        world.despawn(*entity);
+    }
+    let second = {
+        let mut commands = world.commands();
+        let plan_scope = scope();
+        let mut ctx = ConstructionExecCtx {
+            commands: &mut commands,
+            scope: &plan_scope,
+            session: crate::lifecycle::SessionSpawnScope::UNSCOPED,
+            services: &services,
+        };
+        plan.commit_subset(&closure, &mut ctx)
+            .expect("a closed subset is never cut")
+    };
+    world.flush();
+
+    let new: Vec<Entity> = ["a", "b", "c"]
+        .iter()
+        .map(|id| second.entity(&SimId::placement(id)).expect("rebuilt"))
+        .collect();
+    for (before, after) in old.iter().zip(&new) {
+        assert_ne!(before, after, "every row really was rebuilt");
+    }
+    assert_eq!(
+        world.get::<Grudge>(new[0]),
+        Some(&Grudge(new[1])),
+        "a -> b points at the NEW b"
+    );
+    assert_eq!(
+        world.get::<Grudge>(new[1]),
+        Some(&Grudge(new[2])),
+        "b -> c points at the NEW c"
+    );
+}
+
+/// A row in no relation at all still rebuilds alone: the rule is about cuts, not
+/// a blanket ban on partial commits.
+#[test]
+fn a_row_in_no_relation_rebuilds_alone() {
+    let registry = registry();
+    let mut a = request("a");
+    a.relations.push(RelationRequest {
+        kind: grudge(),
+        to: SimId::placement("b"),
+    });
+    let plan = ConstructionPlan::prepare(
+        scope(),
+        vec![a, request("b"), request("c")],
+        &nothing_live(),
+        &registry,
+    )
+    .unwrap();
+    let services = Services::default();
+    let mut world = World::new();
+
+    construct_one_into(&mut world, &plan, &services, &SimId::placement("c"))
+        .expect("a row outside every relation rebuilds on its own");
+    assert_eq!(services.ordinary_runs.get(), 1);
 }

@@ -16,11 +16,13 @@ mod actor_trace;
 mod buffer;
 mod dump;
 mod model;
+mod policy;
 
 pub use actor_trace::*;
 pub use buffer::*;
 pub use dump::*;
 pub use model::*;
+pub use policy::*;
 
 /// Default rolling capacity (frames) for a fresh [`GameplayTraceBuffer`].
 pub const DEFAULT_FRAME_CAPACITY: usize = 240;

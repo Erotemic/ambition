@@ -155,10 +155,21 @@ pub fn record_actor_oob_frame_system(
 /// Flush a pending actor-trace dump to disk. Disk writes are unavailable on
 /// wasm, so there we just clear the request.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn flush_actor_dump(mut buffer: ResMut<ActorTraceBuffer>) {
+pub fn flush_actor_dump(
+    mut buffer: ResMut<ActorTraceBuffer>,
+    policy: Res<ambition_gameplay_trace::TraceDumpPolicy>,
+) {
     let Some(reason) = buffer.dump_request.take() else {
         return;
     };
+    // See `flush_pending_dump`: consume the request even when suppressed.
+    if !policy.allows(reason.is_automatic()) {
+        buffer.last_dump_status = Some(format!(
+            "skipped: automatic dumps are off (set {}=1 to enable)",
+            ambition_gameplay_trace::AUTO_DUMP_ENV
+        ));
+        return;
+    }
     let dir = default_dump_dir();
     match write_actor_dump(&buffer, &reason, &dir) {
         Ok(path) => {

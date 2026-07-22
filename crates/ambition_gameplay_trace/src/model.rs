@@ -383,6 +383,22 @@ pub enum DumpReason {
 }
 
 impl DumpReason {
+    /// Whether the recorder decided this on its own, rather than being asked.
+    ///
+    /// Automatic dumps are the ones [`crate::TraceDumpPolicy`] gates. Matching
+    /// exhaustively rather than testing for `Manual` means a new trigger has to
+    /// state which side it is on instead of defaulting into the ungated one.
+    pub const fn is_automatic(&self) -> bool {
+        match self {
+            Self::OobAuto { .. } | Self::TeleportAuto { .. } => true,
+            // `Programmatic` is a caller asking in so many words — a test
+            // harness or tool naming its own label — so it is not gated.
+            Self::Manual | Self::Programmatic { .. } => false,
+        }
+    }
+}
+
+impl DumpReason {
     pub fn label(&self) -> String {
         match self {
             DumpReason::Manual => "Manual (F8)".into(),

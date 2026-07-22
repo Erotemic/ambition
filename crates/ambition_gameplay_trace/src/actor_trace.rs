@@ -108,6 +108,15 @@ pub enum ActorDumpReason {
 }
 
 impl ActorDumpReason {
+    /// Whether the recorder decided this on its own, rather than being asked.
+    /// See [`crate::DumpReason::is_automatic`].
+    pub const fn is_automatic(&self) -> bool {
+        match self {
+            Self::OobAuto { .. } => true,
+            Self::Manual => false,
+        }
+    }
+
     pub fn label(&self) -> String {
         match self {
             ActorDumpReason::Manual => "Manual".into(),

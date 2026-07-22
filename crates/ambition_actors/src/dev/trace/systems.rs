@@ -79,10 +79,23 @@ pub fn record_simulation_frame(
 /// `SystemTime::now()` panics with "time not implemented on this
 /// platform" exactly like `Instant::now()`. Reports a single warning
 /// per drop so the user knows F8 was received but ignored.
-pub fn flush_pending_dump(mut buffer: ResMut<GameplayTraceBuffer>) {
+pub fn flush_pending_dump(
+    mut buffer: ResMut<GameplayTraceBuffer>,
+    policy: Res<ambition_gameplay_trace::TraceDumpPolicy>,
+) {
     let Some(_reason) = buffer.dump_request.take() else {
         return;
     };
+    // Taken before the gate on purpose: a suppressed request must still be
+    // consumed, or it would sit in the buffer and fire the instant someone
+    // enabled automatic dumps, reporting an anomaly from minutes earlier.
+    if !policy.allows(_reason.is_automatic()) {
+        buffer.last_dump_status = Some(format!(
+            "skipped: automatic dumps are off (set {}=1 to enable)",
+            ambition_gameplay_trace::AUTO_DUMP_ENV
+        ));
+        return;
+    }
     #[cfg(target_arch = "wasm32")]
     {
         let msg = "trace dump skipped: file IO + SystemTime::now() not supported on wasm32";

@@ -22,7 +22,13 @@ impl Plugin for TraceSchedulePlugin {
         // adding `PortalPlugin` (e.g. the demo shell).
         #[cfg(feature = "portal")]
         app.add_message::<ambition_portal::BodyTeleported>();
-        app.init_resource::<ambition_gameplay_trace::ActorTraceBuffer>()
+        // Automatic dumps are OFF unless the environment opts in. The recorder
+        // still records — ring buffer, events, OOB detection, on-screen status
+        // are all unaffected — it just stops writing files into `debug_traces/`
+        // that nobody asked for and nothing prunes. Manual F8 dumps are never
+        // gated. See `TraceDumpPolicy`.
+        app.insert_resource(ambition_gameplay_trace::TraceDumpPolicy::from_env())
+            .init_resource::<ambition_gameplay_trace::ActorTraceBuffer>()
             .add_systems(
                 sim,
                 (

@@ -233,7 +233,7 @@ policies = ["game.app-plugins-no-reown"]
 [[entry]]
 old_test = "architecture_boundaries_input_timer_systems_moved_to_actors"
 disposition = "declarative"
-policies = ["game.app-sim-systems-no-redefine", "game.engine-schedule-references-moved", "game.app-keeps-host-reset-systems"]
+policies = ["game.app-sim-systems-no-redefine", "game.engine-schedule-references-moved", "game.app-keeps-host-reset-input", "engine.runtime-owns-the-room-replay-consumer"]
 
 [[entry]]
 old_test = "architecture_boundaries_non_portal_mechanics_use_runtime_raycast_seam"

@@ -323,16 +323,36 @@ contains = ["ambition_dev_tools::DevEditApplySet", "ambition_actors::time::time_
 file = "crates/ambition_runtime/src/player_schedule.rs"
 
 [[policy]]
-id = "game.app-keeps-host-reset-systems"
+id = "game.app-keeps-host-reset-input"
 scope = "game"
 kind = "file-contains"
 owners = ["ambition_app"]
 watch_paths = ["game/ambition_app/src/app/sim_systems.rs"]
-rationale = "host/reset-bound systems remain defined in the app"
+# NARROWED 2026-07-21 (tracks 2.5). This used to also require
+# `apply_room_replay_request_system` here. That system is the ONE consumer of
+# `RoomReplayRequested`, and keeping it app-side is exactly what made a demo
+# app's restart inert: `ambition_demo_*_app` depends on `ambition`, never on
+# `ambition_app`, so the message went into a channel nothing drained. It now
+# lives in `ambition_runtime::sandbox_reset` and rides `PlatformerEnginePlugins`
+# into every host. What genuinely stays app-side is the reset INPUT system,
+# because the button binding is Ambition's own.
+rationale = "the reset-input binding is the app's; the replay consumer is the engine's"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["fn apply_player_reset_input_system", "fn apply_room_replay_request_system"]
+contains = ["fn apply_player_reset_input_system"]
 file = "game/ambition_app/src/app/sim_systems.rs"
+
+[[policy]]
+id = "engine.runtime-owns-the-room-replay-consumer"
+scope = "game"
+kind = "file-contains"
+owners = ["ambition_runtime"]
+watch_paths = ["crates/ambition_runtime/src/sandbox_reset.rs"]
+rationale = "every host must drain RoomReplayRequested, so its one consumer is engine-side"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["fn apply_room_replay_request_system", "fn reset_sandbox"]
+file = "crates/ambition_runtime/src/sandbox_reset.rs"
 
 
 # was: architecture_boundaries_abilities_live_under_abilities_layer

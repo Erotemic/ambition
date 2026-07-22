@@ -36,13 +36,18 @@ close.
 
 The immutable prepared-content and exact session-identity milestone of
 [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md)
-is complete. The next broad architecture push is its explicit-provenance plus
-three-origin `ConstructionPlan` vertical slice: one authored placement, one
-provider-staged actor, and one runtime-dynamic family must share a pure,
-preflightable planner and recipe-backed reconstruction path. This is the next
-foundation for prefab-like authoring, broader transactional room replacement,
-persistence/reconstruction, and a credible external SDK. Rollback itself is now
-owned by GGRS (ADR 0027).
+is complete, and so is its explicit-provenance plus three-origin
+`ConstructionPlan` vertical slice (Milestone B, 2026-07-22): one authored
+placement, one provider-staged actor, and one runtime-dynamic family now share a
+pure, preflightable planner and a recipe-backed reconstruction path, and
+`SpawnOrigin` replaced the id-string parsing that stood in for provenance.
+
+The next broad architecture push is that doc's Phase 4 — making room activation,
+reset, transition, hot reload, and snapshot reconstruction variations of ONE
+construction transaction, which turns the remaining family-specific spawn loops
+into plan rows. That is the foundation for prefab-like authoring, broader
+transactional room replacement, persistence/reconstruction, and a credible
+external SDK. Rollback itself is owned by GGRS (ADR 0027).
 
 Ambition-the-game remains the first customer throughout; it consumes capabilities
 rather than defining exceptions inside reusable crates.
@@ -65,7 +70,7 @@ immutable PreparedContent + exact GGRS session identity (done)
 confirmed-frame external-effect quarantine → Matchbox two-peer handshake
 
 in parallel:
-  explicit provenance + three-origin ConstructionPlan vertical slice
+  explicit provenance + three-origin ConstructionPlan vertical slice (done)
         ↓
   transactional room-lifecycle migration
 

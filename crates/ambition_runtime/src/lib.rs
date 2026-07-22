@@ -121,6 +121,8 @@ pub mod host_seams {
 pub mod demo_fixture {
     pub use ambition_actors::avatar::StartingCharacter;
     pub use ambition_actors::boss_encounter::BossCatalog;
+    pub use ambition_actors::construction::ActorConstructionRegistry;
+    pub use ambition_actors::features::ActorConstructionContext;
     pub use ambition_actors::features::CharacterRoster;
     pub use ambition_actors::features::RoomContentStagingRegistry;
     pub use ambition_actors::ldtk_world::LdtkRuntimeIndex;

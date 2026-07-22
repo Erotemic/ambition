@@ -133,6 +133,7 @@ pub(super) fn handle_ldtk_hot_reload(
         Res<ambition::actors::boss_encounter::BossCatalog>,
         Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
         Res<ambition::actors::features::RoomContentStagingRegistry>,
+        Res<ambition::actors::construction::ActorConstructionRegistry>,
         Res<ldtk_world::WorldManifest>,
     ),
     mut content_identity: (
@@ -235,6 +236,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &catalogs.4,
             &catalogs.5,
             &catalogs.6,
+            &catalogs.7,
             &mut content_identity.0,
             &mut content_identity.1,
             &mut content_identity.2,
@@ -375,6 +377,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     boss_catalog: &ambition::actors::boss_encounter::BossCatalog,
     placement_lowering: &ambition::actors::world::placements::PlacementLoweringRegistry,
     content_staging: &ambition::actors::features::RoomContentStagingRegistry,
+    construction_recipes: &ambition::actors::construction::ActorConstructionRegistry,
     world_manifest: &ldtk_world::WorldManifest,
     prepared_content: &mut ambition::runtime::PreparedContent,
     prepared_identity: &mut ambition::runtime::PreparedContentIdentity,
@@ -417,6 +420,14 @@ pub(super) fn reload_ldtk_world_from_disk(
         character_roster,
         boss_catalog,
         session_scope,
+        ambition::actors::features::ActorConstructionContext::new(
+            construction_recipes,
+            // The generation currently live. A materially changed definition
+            // allocates a new one below, AFTER every preflight has succeeded —
+            // so a plan prepared here always states the epoch it was validated
+            // against, never one that does not exist yet.
+            prepared_content.epoch(),
+        ),
     )
     .map_err(|error| vec![error.to_string()])?;
 

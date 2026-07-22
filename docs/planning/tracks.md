@@ -535,25 +535,40 @@ are the copies that "drifted independently — again").
 
 Do not absorb movement/contact work owned by another active campaign.
 
-## 5. Build the provenance + three-origin `ConstructionPlan` vertical slice — [opus, fable-specced]
+## 5. Provenance + three-origin `ConstructionPlan` vertical slice — **LANDED 2026-07-22**
 
-Unchanged (verified genuinely open: no `SpawnOrigin`/`RecipeId` at HEAD). Note
-the room-lifecycle planner half already landed (`RoomConstructionPlan` is one
-artifact for startup/reset/transition/reload/reconstruction) — build on it, do
-not re-plan it. Spec: `engine/immutable-content-and-transactional-construction.md`
-Phase 3:
+Full account in
+[`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md)
+Phase 3 — single source, do not copy back here. Headlines:
 
-- add explicit `SpawnOrigin` and internal stable `RecipeId`;
-- plan one authored placement, one provider-staged actor, and one
-  runtime-dynamic family through a common pure `ConstructionPlan`;
-- validate identities and relationships before mutation;
-- use the same recipes for ordinary spawn and reconstruction;
-- remove `SimId` parsing as provenance authority for the selected family;
-- prove deterministic plan dumps and planned-versus-committed roster parity.
+`ambition_platformer_primitives::construction` is the content-free planner;
+`ambition_actors::construction` puts the three real origin families through it
+(authored `GroundItemSpec`, provider-staged `SpawnActorRequest`, `Effect::Summon`
+minion). Every exit clause met, each with a named test.
 
-**Exit:** failed planning leaves the active world untouched; all three origins
-share one inspectable planner/executor; the runtime-dynamic family reconstructs
-without inferring its recipe from an id string.
+**The result worth remembering is that provenance stopped being a spelling.**
+`SpawnOrigin` is a snapshot-registered component; the one place in the tree that
+parsed a `SimId` (`heal_projectile_owners`, `rsplit_once('/')`) is deleted. Two
+stale claims fell out of doing it and are corrected: `ProjectileOwner`'s
+registered derived-state justification named a field that is EMPTY for every
+player projectile, and `SimId::as_str` documented itself as "never parsed" while
+being parsed one crate away.
+
+Three failures that were silent skips are now preflight failures — an authored
+ground item naming an unregistered held item, a staged duellist grudging an
+actor outside its batch, and two summons colliding on one authored id. Each had
+been invisible because the spawner swallowed it.
+
+⚠ **Deliberately partial, and that is the card, not a shortfall.** Only ONE
+family per origin kind is migrated; authored placements, enemies, bosses,
+shrines, gravity zones and portal guns still take the family-specific loops in
+`RoomFeatureConstructionPlan::spawn`. Those are Phase 4's migration order.
+`apply_spawn_actor_requests` also survives on purpose — programmatic scene setup
+(RL reset, demo crony spawns) legitimately wants a message.
+
+**Next in this campaign:** Phase 4 (migrate room lifecycle operations onto the
+planner, in the order activation → reset → transition → hot reload → snapshot
+reconstruction), which is what turns the remaining loops into plan rows.
 
 ## 6. Correct the fighter-rollout design before FB6 — [fable]
 

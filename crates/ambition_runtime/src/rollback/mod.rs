@@ -30,6 +30,8 @@ pub enum AmbitionLoadWorldSet {
 mod codec;
 mod codecs;
 mod motion_codec;
+#[cfg(test)]
+mod provenance_tests;
 mod registry;
 mod session;
 
@@ -331,6 +333,12 @@ pub fn register_engine_rollback_state(app: &mut App) {
     .rollback_component_canonical::<ambition_platformer_primitives::sim_id::SimIdCounter>(
         ENGINE,
         "body.sim_id_counter",
+    )
+    // Provenance travels with the entity, so a blob-rebuilt body can still say
+    // where it came from when nothing around it can.
+    .rollback_component_canonical::<ambition_platformer_primitives::construction::SpawnOrigin>(
+        ENGINE,
+        "entity.spawn_origin",
     )
     .rollback_component_canonical::<bc::BodyAbilities>(ENGINE, "body.abilities")
     .rollback_component_canonical::<bc::BodyGroundState>(ENGINE, "body.ground")
@@ -825,10 +833,16 @@ pub fn register_engine_rollback_state(app: &mut App) {
     );
 
     // Derived state: one maintenance path, never restore-only repair code.
+    // NOTE this justification was wrong until 2026-07-22: it named
+    // `ProjectileOwnerId`, which is the firer's raw config id and is EMPTY for
+    // every player projectile, so it could not have carried the owner identity
+    // for the largest pool in the game. The handle was actually recovered by
+    // splitting the projectile's own `SimId` on `/`. It is now recovered from
+    // declared provenance, which is what this line always claimed in spirit.
     app.declare_rollback_derived::<ambition_projectiles::ProjectileOwner>(
         ENGINE,
         "derived.projectile_owner",
-        "re-resolved from ProjectileOwnerId by the ordinary identity maintenance system",
+        "re-resolved from SpawnOrigin::Dynamic { parent } by the ordinary identity maintenance system",
     )
     .declare_rollback_derived::<ambition_engine_core::body_clusters::BodyEnvironmentContact>(
         ENGINE,

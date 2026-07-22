@@ -708,7 +708,78 @@ Pin one immutable, fingerprinted content definition to every active session.
 - Incompatible snapshots are rejected before mutation.
 - Hot-reload preparation leaves the active epoch untouched.
 
-### Phase 3 — explicit provenance and construction-plan vertical slice — **NEXT**
+### Phase 3 — explicit provenance and construction-plan vertical slice — **LANDED 2026-07-22**
+
+`ambition_platformer_primitives::construction` is the content-free planner:
+`RecipeId`, `SpawnOrigin`, `ConstructionRequest`/`Plan`/`PlannedEntity`/
+`PlannedRelation`, a registry on the Phase-1 lifecycle, and a canonical dump.
+`ambition_actors::construction` is the domain that puts three real families
+through it — an authored `GroundItemSpec`, a provider-staged `SpawnActorRequest`,
+and a minion summoned by `Effect::Summon`.
+
+**The load-bearing result is that provenance stopped being a spelling.**
+`heal_projectile_owners` recovered a projectile's firer with
+`id.as_str().rsplit_once('/')`; that was the only parse of a `SimId` in the
+tree, and it is gone. `mint_spawned_sim_ids` now states the parent in
+`SpawnOrigin::Dynamic` at the moment it already has it in hand, and the healer
+reads it. Two consequences that were not obvious before doing it: the derived-
+state justification registered for `ProjectileOwner` was factually wrong (it
+named `ProjectileOwnerId`, which is EMPTY for every player projectile, so it
+could not have carried the owner for the largest pool in the game), and
+`SimId::as_str`'s "never parsed" doc comment was false while it was written.
+Both are corrected.
+
+**Three deviations from §8's sketch, each with a reason:**
+
+1. **`SpawnOrigin` does not carry a `RecipeId`.** The sketch put one in two of
+   the three variants, but the planned row already names the recipe. Storing it
+   twice creates a state where they disagree and nothing says which wins.
+2. **`ConstructionScope` carries no session scope.** Session ownership is a
+   COMMIT-time fact — one prepared room plan is committed by whichever
+   activation requested it — which is why `PlacementLoweringPlan` also takes its
+   `SessionSpawnScope` at `lower_all` rather than at `plan_room`. It lives in the
+   domain's `Services` instead. Putting it in the scope meant writing
+   `UNSCOPED` into a field that was then ignored.
+3. **`ContentEpoch` moved down to `ambition_engine_core`.** The plan states the
+   generation it was prepared against, and construction planning sits far below
+   `ambition_runtime`, which owns content identity. Allocation stayed put; only
+   the stamp moved. Provider activation is the one site holding the exact
+   prepared definition, so it is the one site that states a real epoch rather
+   than defaulting.
+
+**What the slice bought beyond the plumbing** — each family was losing something
+real to the absence of a plan, and each is now a preflight failure:
+
+- an authored ground item naming an unregistered held item used to `return`
+  silently out of `spawn_ground_item`, producing no entity and no diagnostic;
+- a staged duellist's `grudge_against` naming an actor outside its batch was
+  dropped by `wire_staged_grudges`, leaving two fighters who ignored each other;
+- a summoned minion carried a `FeatureId`, so `ensure_sim_id` filed it under the
+  AUTHORED `placement:` namespace — the one namespace it categorically is not
+  in — and two summons reusing an authored id collided outright. It now takes
+  `SimId::spawned` under its summoner.
+
+Provider-staged actors also stopped being deferred: they were written as
+`SpawnActorRequest` MESSAGES and applied a system later, and are now plan rows
+committed with the rest of the room.
+
+**Not migrated, deliberately:** authored placements, enemies, bosses, shrines,
+gravity zones, portal guns, and ground-item siblings still take the
+family-specific loops in `RoomFeatureConstructionPlan::spawn`. That is Phase 4's
+migration order, not an oversight — the doc asks for ONE family of each origin
+kind, and a partial sweep would have forked families rather than moved them.
+`apply_spawn_actor_requests` also survives, because programmatic scene setup
+(RL episode reset, demo crony spawns) legitimately wants a message.
+
+**Verification.** 18 domain tests (`ambition_actors::construction`), 18 planner
+tests (`ambition_platformer_primitives::construction`), 6 provenance tests
+(`ambition_runtime::rollback::provenance_tests`). The provenance file records
+which of its tests actually DISCRIMINATE between the old and new mechanisms —
+two do, four are behavioural regression protection that passes either way — and
+that was established by running the file against the pre-change implementation
+rather than asserted.
+
+#### Original card (retained for the record)
 
 Milestone A landed through ADR 0026. `PreparedContent`, versioned BLAKE3
 fingerprints, App-local epochs, canonical registry/schema dumps, exact snapshot
@@ -1003,13 +1074,18 @@ customer, diagnostic output, and measurable competitive outcome.
 - content fingerprints are deterministic.
 - sessions pin one immutable epoch.
 
-### Milestone B — planned construction vertical slice
+### Milestone B — planned construction vertical slice — **COMPLETE 2026-07-22**
 
-- explicit provenance exists;
-- authored, staged, and dynamic families produce plans;
-- planned and committed rosters match;
-- normal spawning and reconstruction use the same recipes;
-- the selected dynamic family no longer depends on `SimId` parsing.
+- ✅ explicit provenance exists — `SpawnOrigin` is a snapshot-registered
+  component, not a fact recovered from an id's spelling;
+- ✅ authored, staged, and dynamic families produce plans;
+- ✅ planned and committed rosters match;
+- ✅ normal spawning and reconstruction use the same recipes;
+- ✅ the selected dynamic family no longer depends on `SimId` parsing — the one
+  parse site in the tree is deleted.
+
+See Phase 3 below for the account, including the three deviations from this
+document's sketch and what each one bought.
 
 ### Milestone C — transactional room lifecycle
 

@@ -43,7 +43,16 @@ pub(crate) fn room_spec_paths(
 pub enum RoomFeatureConstructionError {
     Placement(crate::world::placements::PlacementLoweringError),
     ContentStaging(RoomContentStagingError),
-    DuplicateAuthoritativeId { room: String, id: String },
+    DuplicateAuthoritativeId {
+        room: String,
+        id: String,
+    },
+    /// The planned families (authored ground items, provider-staged actors)
+    /// could not be resolved into a valid construction plan.
+    Construction(ambition_platformer_primitives::construction::ConstructionError),
+    /// A planned family's parameters could not be resolved from content — an
+    /// authored ground item naming a held item no registry provides.
+    ActorConstruction(crate::construction::ActorConstructionError),
 }
 
 impl std::fmt::Display for RoomFeatureConstructionError {
@@ -55,6 +64,8 @@ impl std::fmt::Display for RoomFeatureConstructionError {
                 f,
                 "room `{room}` constructs authoritative id `{id}` more than once",
             ),
+            Self::Construction(error) => error.fmt(f),
+            Self::ActorConstruction(error) => error.fmt(f),
         }
     }
 }
@@ -74,25 +85,80 @@ pub struct RoomFeatureConstructionPlan {
     placements: crate::world::placements::PlacementLoweringPlan<
         crate::world::placements::ActorPlacementContext,
     >,
-    placement_context: crate::world::placements::ActorPlacementContext,
-    boss_catalog: BossCatalog,
     content_requests: Vec<super::spawn_actors::SpawnActorRequest>,
+    /// The three planned origin families (Phase 3): authored ground items and
+    /// provider-staged actors, planned here; summoned minions plan the same way
+    /// at the moment they are summoned. Everything else in this room is still
+    /// constructed by the family-specific loops in [`Self::spawn`], which
+    /// Phase 4 migrates.
+    construction: crate::construction::ActorConstructionPlan,
+    /// The frozen catalogs this plan reads — character catalog, hostile roster,
+    /// boss profiles. THE copy: the recipes read it through
+    /// `ConstructionExecCtx`, and the family-specific loops in [`Self::spawn`]
+    /// read it directly, so a cached plan holds one of each rather than a pair.
+    construction_services: crate::construction::ActorConstructionServices,
     expected_authoritative_ids: BTreeSet<String>,
+}
+
+/// What construction planning needs beyond the room's authored content: the
+/// recipe table, and the content generation the plan is being prepared against.
+#[derive(Clone, Copy)]
+pub struct ActorConstructionContext<'a> {
+    pub recipes: &'a crate::construction::ActorConstructionRegistry,
+    pub content_epoch: ambition_engine_core::ContentEpoch,
+}
+
+impl<'a> ActorConstructionContext<'a> {
+    pub fn new(
+        recipes: &'a crate::construction::ActorConstructionRegistry,
+        content_epoch: ambition_engine_core::ContentEpoch,
+    ) -> Self {
+        Self {
+            recipes,
+            content_epoch,
+        }
+    }
 }
 
 /// Inspectable receipt for the authoritative roots scheduled by one feature plan.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RoomFeatureConstructionReceipt {
     authoritative_ids: BTreeSet<String>,
+    construction: ambition_platformer_primitives::construction::ConstructionReceipt,
 }
 
 impl RoomFeatureConstructionReceipt {
     pub fn authoritative_ids(&self) -> &BTreeSet<String> {
         &self.authoritative_ids
     }
+
+    /// What the Phase-3 planned families actually committed, keyed by identity.
+    /// Compared against the plan's roster to prove plan-to-world parity.
+    pub fn construction(
+        &self,
+    ) -> &ambition_platformer_primitives::construction::ConstructionReceipt {
+        &self.construction
+    }
+}
+
+/// A room plan's `Debug` leads with the construction plan's canonical dump —
+/// the roster it would commit — because that is what is worth reading when a
+/// room appears in a failure message.
+impl std::fmt::Debug for RoomFeatureConstructionPlan {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RoomFeatureConstructionPlan")
+            .field("room", &self.room.id)
+            .field(
+                "expected_authoritative_ids",
+                &self.expected_authoritative_ids,
+            )
+            .field("construction", &self.construction)
+            .finish()
+    }
 }
 
 impl RoomFeatureConstructionPlan {
+    #[allow(clippy::too_many_arguments)]
     pub fn prepare(
         room: &crate::rooms::RoomSpec,
         registry: &crate::world::placements::PlacementLoweringRegistry,
@@ -100,20 +166,26 @@ impl RoomFeatureConstructionPlan {
         catalog: &CharacterCatalog,
         roster: &CharacterRoster,
         boss_catalog: &BossCatalog,
+        construction: ActorConstructionContext<'_>,
     ) -> Result<Self, RoomFeatureConstructionError> {
         let paths = room_spec_paths(room);
         let placements = registry
             .plan_room(&room.id, &paths, &room.placements)
             .map_err(RoomFeatureConstructionError::Placement)?;
-        let content_requests = content_staging
-            .try_requests_for(room)
+        let owned_content_requests = content_staging
+            .try_owned_requests_for(room)
             .map_err(RoomFeatureConstructionError::ContentStaging)?;
+        let content_requests: Vec<_> = owned_content_requests
+            .iter()
+            .map(|(_, request)| request.clone())
+            .collect();
         let authoritative_ids = room
             .placements
             .iter()
             .map(|placement| placement.id.0.clone())
             .chain(room.enemy_spawns.iter().map(|enemy| enemy.id.clone()))
             .chain(room.boss_spawns.iter().map(|boss| boss.id.clone()))
+            .chain(room.ground_items.iter().map(|item| item.id.clone()))
             .chain(content_requests.iter().map(|request| request.id.clone()));
         let mut expected_authoritative_ids = BTreeSet::new();
         for id in authoritative_ids {
@@ -124,17 +196,51 @@ impl RoomFeatureConstructionPlan {
                 });
             }
         }
+
+        // The planned families. Resolution failures (an authored ground item
+        // naming a held item nothing provides) and identity/relation failures
+        // surface HERE, while the outgoing room is still whole.
+        let mut requests = crate::construction::authored_ground_item_requests(room)
+            .map_err(RoomFeatureConstructionError::ActorConstruction)?;
+        for (provider, request) in &owned_content_requests {
+            requests.extend(crate::construction::staged_actor_requests(
+                &room.id,
+                provider,
+                std::slice::from_ref(request),
+            ));
+        }
+        let construction_plan = crate::construction::ActorConstructionPlan::prepare(
+            ambition_platformer_primitives::construction::ConstructionScope {
+                content_epoch: construction.content_epoch,
+                room: Some(room.id.clone()),
+            },
+            requests,
+            // A room plan is prepared against the room it replaces, so nothing
+            // it constructs is live yet by definition.
+            &Default::default(),
+            construction.recipes,
+        )
+        .map_err(RoomFeatureConstructionError::Construction)?;
+
+        let placement_context =
+            crate::world::placements::ActorPlacementContext::new(catalog, roster);
         Ok(Self {
             room: room.clone(),
             paths,
             placements,
-            placement_context: crate::world::placements::ActorPlacementContext::new(
-                catalog, roster,
-            ),
-            boss_catalog: boss_catalog.clone(),
+            construction_services: crate::construction::ActorConstructionServices {
+                context: placement_context,
+                boss_catalog: boss_catalog.clone(),
+            },
             content_requests,
+            construction: construction_plan,
             expected_authoritative_ids,
         })
+    }
+
+    /// The Phase-3 construction plan for this room's planned families.
+    pub fn construction(&self) -> &crate::construction::ActorConstructionPlan {
+        &self.construction
     }
 
     pub fn room(&self) -> &crate::rooms::RoomSpec {
@@ -152,22 +258,36 @@ impl RoomFeatureConstructionPlan {
             .collect()
     }
 
-    pub fn content_staged_requests(&self) -> &[super::spawn_actors::SpawnActorRequest] {
-        &self.content_requests
-    }
-
     /// Rebuild one authored authoritative root through the exact interpreter
     /// and catalogs frozen by this plan.
+    ///
+    /// For the planned families this is [`ConstructionPlan::construct_one`] —
+    /// the SAME recipe ordinary construction runs, which is the property Phase 3
+    /// exists to buy. The remaining families still take the family-specific
+    /// branches below; Phase 4 migrates them.
     pub fn respawn_authoritative_entity(
         &self,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
         authored_id: &str,
     ) -> bool {
+        let planned_id = ambition_platformer_primitives::sim_id::SimId::placement(authored_id);
+        if self.construction.get(&planned_id).is_some() {
+            let mut ctx = ambition_platformer_primitives::construction::ConstructionExecCtx {
+                commands,
+                scope: self.construction.scope(),
+                session: session_scope,
+                services: &self.construction_services,
+            };
+            return self
+                .construction
+                .construct_one(&planned_id, &mut ctx)
+                .is_ok();
+        }
         if self.placements.lower_one(
             commands,
             session_scope,
-            &self.placement_context,
+            &self.construction_services.context,
             authored_id,
         ) {
             return true;
@@ -180,8 +300,8 @@ impl RoomFeatureConstructionPlan {
         {
             super::spawn_actors::spawn_enemy(
                 commands,
-                &self.placement_context.characters,
-                &self.placement_context.roster,
+                &self.construction_services.context.characters,
+                &self.construction_services.context.roster,
                 session_scope,
                 enemy,
                 &self.paths,
@@ -194,7 +314,12 @@ impl RoomFeatureConstructionPlan {
             .iter()
             .find(|boss| boss.id == authored_id)
         {
-            super::spawn_actors::spawn_boss(commands, &self.boss_catalog, session_scope, boss);
+            super::spawn_actors::spawn_boss(
+                commands,
+                &self.construction_services.boss_catalog,
+                session_scope,
+                boss,
+            );
             return true;
         }
         false
@@ -207,12 +332,14 @@ impl RoomFeatureConstructionPlan {
         session_scope: SessionSpawnScope,
     ) -> RoomFeatureConstructionReceipt {
         self.placements
-            .lower_all(commands, session_scope, &self.placement_context);
+            .lower_all(commands, session_scope, &self.construction_services.context);
         for boss in &self.room.boss_spawns {
-            super::spawn_actors::spawn_boss(commands, &self.boss_catalog, session_scope, boss);
-        }
-        for ground_item in &self.room.ground_items {
-            super::spawn_static::spawn_ground_item(commands, session_scope, ground_item);
+            super::spawn_actors::spawn_boss(
+                commands,
+                &self.construction_services.boss_catalog,
+                session_scope,
+                boss,
+            );
         }
         #[cfg(feature = "portal")]
         for portal_gun in &self.room.portal_gun_spawns {
@@ -227,8 +354,8 @@ impl RoomFeatureConstructionPlan {
         for enemy in &self.room.enemy_spawns {
             super::spawn_actors::spawn_enemy(
                 commands,
-                &self.placement_context.characters,
-                &self.placement_context.roster,
+                &self.construction_services.context.characters,
+                &self.construction_services.context.roster,
                 session_scope,
                 enemy,
                 &self.paths,
@@ -238,14 +365,33 @@ impl RoomFeatureConstructionPlan {
             self.room.mount_links.clone(),
         ));
         commands.insert_resource(crate::features::FactionRelations::default());
-        for request in &self.content_requests {
-            commands.write_message(request.clone());
-        }
+
+        // The planned families commit through the one planner. Provider-staged
+        // actors used to be written as `SpawnActorRequest` MESSAGES and applied
+        // a system later; they are constructed here instead, so a room's
+        // occupants all exist at the same instant and a staged actor is a plan
+        // row rather than a deferred side effect.
+        let construction = {
+            let mut ctx = ambition_platformer_primitives::construction::ConstructionExecCtx {
+                commands,
+                scope: self.construction.scope(),
+                session: session_scope,
+                services: &self.construction_services,
+            };
+            self.construction.commit(&mut ctx)
+        };
+        debug_assert_eq!(
+            construction.committed_ids(),
+            self.construction.planned_ids(),
+            "construction execution diverged from its prepared roster",
+        );
+
         commands.write_message(crate::rooms::RoomLoaded {
             room_id: self.room.id.clone(),
         });
         RoomFeatureConstructionReceipt {
             authoritative_ids: self.expected_authoritative_ids.clone(),
+            construction,
         }
     }
 }

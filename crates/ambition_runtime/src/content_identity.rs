@@ -64,14 +64,11 @@ macro_rules! digest_type {
 digest_type!(ContentFingerprint, "cfp1:");
 digest_type!(SnapshotSchemaFingerprint, "ssp1:");
 
-#[derive(Component, Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct ContentEpoch(pub u64);
-
-impl fmt::Display for ContentEpoch {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "epoch:{}", self.0)
-    }
-}
+/// The activation-generation stamp, owned by the neutral foundation because
+/// construction planning sits far below this crate and must be able to state
+/// which epoch a plan was prepared against. Allocation stays here
+/// ([`ContentEpochSequence`]); only the stamp is shared.
+pub use ambition_engine_core::ContentEpoch;
 
 /// App-local generation allocator. Allocation happens only after a candidate
 /// prepared definition has fully validated and is about to be published or

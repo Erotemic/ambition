@@ -1604,6 +1604,68 @@ impl SnapshotState for ambition_platformer_primitives::sim_id::SimId {
     }
 }
 
+/// Provenance is snapshot state, not derived state.
+///
+/// A blob-rebuilt entity has to be able to say where it came from, because that
+/// is precisely when nothing else can: its spawner may itself have been rebuilt,
+/// and the room that authored it is long past. This is the durable fact that
+/// replaced splitting a `/`-delimited parent out of the entity's own `SimId`.
+impl SnapshotState for ambition_platformer_primitives::construction::SpawnOrigin {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use ambition_platformer_primitives::construction::SpawnOrigin as O;
+        match self {
+            O::Authored { source, instance } => {
+                put_u8(out, 0);
+                put_str(out, source);
+                put_str(out, instance);
+            }
+            O::ProviderStaged {
+                provider,
+                room,
+                instance,
+            } => {
+                put_u8(out, 1);
+                put_str(out, provider);
+                put_str(out, room);
+                put_str(out, instance);
+            }
+            O::Dynamic { parent, sequence } => {
+                put_u8(out, 2);
+                put_u8(out, u8::from(parent.is_some()));
+                if let Some(parent) = parent {
+                    put_str(out, parent.as_str());
+                }
+                put_u64(out, *sequence);
+            }
+        }
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_platformer_primitives::construction::SpawnOrigin as O;
+        use ambition_platformer_primitives::sim_id::SimId;
+        Some(match r.u8()? {
+            0 => O::Authored {
+                source: r.str()?.to_string(),
+                instance: r.str()?.to_string(),
+            },
+            1 => O::ProviderStaged {
+                provider: r.str()?.to_string(),
+                room: r.str()?.to_string(),
+                instance: r.str()?.to_string(),
+            },
+            2 => O::Dynamic {
+                parent: match r.u8()? {
+                    0 => None,
+                    1 => Some(SimId::from_snapshot(r.str()?.to_string())),
+                    _ => return None,
+                },
+                sequence: r.u64()?,
+            },
+            _ => return None,
+        })
+    }
+}
+
 impl SnapshotState for ambition_platformer_primitives::sim_id::SimIdCounter {
     fn encode(&self, out: &mut Vec<u8>) {
         put_u64(out, self.0);
@@ -1713,11 +1775,21 @@ pub fn mint_spawned_sim_ids(
         let Ok((owner_id, mut counter)) = owners.get_mut(owner_entity) else {
             continue;
         };
-        let id = SimId::spawned(owner_id, counter.next());
+        let sequence = counter.next();
+        let id = SimId::spawned(owner_id, sequence);
         // A projectile can itself spawn (a splitting shot), so it gets a counter.
+        //
+        // It also gets its PROVENANCE, stated rather than spelled: the owner it
+        // descends from is right here, so recording it costs nothing and saves
+        // `heal_projectile_owners` from having to recover it by splitting the id
+        // string back apart.
         commands.entity(entity).insert((
             id,
             ambition_platformer_primitives::sim_id::SimIdCounter::default(),
+            ambition_platformer_primitives::construction::SpawnOrigin::Dynamic {
+                parent: Some(owner_id.clone()),
+                sequence,
+            },
         ));
     }
 }
@@ -1823,21 +1895,30 @@ impl SnapshotState for ambition_projectiles::ProjectileSeqCounter {
 }
 
 /// Re-resolve [`ProjectileOwner`](ambition_projectiles::ProjectileOwner) — the
-/// projectile family's one `Entity` handle — from the spawned id's parent.
+/// projectile family's one `Entity` handle — from the projectile's declared
+/// provenance.
 ///
 /// N3.1 decision (2) forbids `Entity` in blobs, so the owner handle is DERIVED
-/// state: the durable fact is the parent prefix of the projectile's own
-/// `SimId` (`placement:duel_pca/0` names its firer in the id), and this system
-/// re-resolves it wherever the handle is missing or stale — a blob-rebuilt
+/// state. The durable fact behind it is
+/// [`SpawnOrigin::Dynamic`](ambition_platformer_primitives::construction::SpawnOrigin)'s
+/// `parent`, stamped at minting and carried through snapshots, and this system
+/// re-resolves the handle wherever it is missing or stale — a blob-rebuilt
 /// projectile after a restore, or a shot whose firer was itself rebuilt.
 /// Scheduled with the identity pair (head and tail of the sim tick), so an
 /// owner is healed before anything reads it.
+///
+/// **This used to read the parent out of the id string** (`rsplit_once('/')` on
+/// `placement:duel_pca/0`). That worked only for as long as every dynamic
+/// entity's id was spelled by `SimId::spawned` — it silently produced no parent
+/// for any dynamic body whose id came from somewhere else, and it welded
+/// reconstruction to an id grammar that is supposed to be a human-readable
+/// convenience. Provenance is data now; the spelling is free to change.
 pub fn heal_projectile_owners(
     mut commands: bevy::ecs::system::Commands,
     projectiles: bevy::ecs::system::Query<
         (
             bevy::ecs::entity::Entity,
-            &ambition_platformer_primitives::sim_id::SimId,
+            &ambition_platformer_primitives::construction::SpawnOrigin,
             Option<&ambition_projectiles::ProjectileOwner>,
         ),
         bevy::ecs::query::With<ambition_projectiles::LiveProjectile>,
@@ -1847,25 +1928,26 @@ pub fn heal_projectile_owners(
         &ambition_platformer_primitives::sim_id::SimId,
     )>,
 ) {
-    let mut orphans: Vec<(bevy::ecs::entity::Entity, &str)> = Vec::new();
-    for (entity, id, owner) in &projectiles {
+    let mut orphans: Vec<(
+        bevy::ecs::entity::Entity,
+        &ambition_platformer_primitives::sim_id::SimId,
+    )> = Vec::new();
+    for (entity, origin, owner) in &projectiles {
         // A live, resolvable handle needs no healing.
         if owner.is_some_and(|owner| identities.get(owner.0).is_ok()) {
             continue;
         }
-        // The parent is everything before the id's last `/<seq>` segment. An id
-        // with no `/` is not a spawned child and has no parent to resolve.
-        if let Some((parent, _seq)) = id.as_str().rsplit_once('/') {
+        if let Some(parent) = origin.parent() {
             orphans.push((entity, parent));
         }
     }
     if orphans.is_empty() {
         return;
     }
-    let by_id: std::collections::BTreeMap<&str, bevy::ecs::entity::Entity> = identities
-        .iter()
-        .map(|(entity, id)| (id.as_str(), entity))
-        .collect();
+    let by_id: std::collections::BTreeMap<
+        &ambition_platformer_primitives::sim_id::SimId,
+        bevy::ecs::entity::Entity,
+    > = identities.iter().map(|(entity, id)| (id, entity)).collect();
     for (entity, parent) in orphans {
         if let Some(owner) = by_id.get(parent) {
             commands

@@ -343,29 +343,34 @@ pub fn spawn_pickup(
     );
 }
 
-pub(crate) fn spawn_ground_item(
+/// Spawn one authored ground item from an ALREADY-RESOLVED held-item spec.
+///
+/// Resolution moved to construction planning
+/// ([`authored_ground_item_requests`](crate::construction::authored_ground_item_requests)):
+/// an unregistered or feature-gated held-item id used to be swallowed here with
+/// a bare `return`, so an authored pickup naming a bad item produced no entity
+/// and no diagnostic. It is now a planning failure, which is detected while the
+/// live room is still intact.
+pub(crate) fn spawn_ground_item_resolved(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     spec: &crate::rooms::GroundItemSpec,
-) {
-    // Resolve the held-item registry id -> HeldItemSpec. An unregistered or
-    // feature-gated id is skipped (the item simply doesn't appear) -- the same
-    // tolerance the retired `spawn_debug_ground_items_once` table had.
-    let Some(held) = ambition_characters::brain::held_item_by_id(&spec.held_item) else {
-        return;
-    };
-    commands.spawn_room_in_session(
-        session_scope,
-        (
-            Name::new(format!("Ground item: {}", spec.name)),
-            crate::items::pickup::GroundItem {
-                spec: held,
-                pos: spec.pos,
-                vel: ambition_engine_core::Vec2::ZERO,
-                half_extent: spec.half_extent,
-            },
-        ),
-    );
+    held: ambition_characters::brain::HeldItemSpec,
+) -> bevy::ecs::entity::Entity {
+    commands
+        .spawn_room_in_session(
+            session_scope,
+            (
+                Name::new(format!("Ground item: {}", spec.name)),
+                crate::items::pickup::GroundItem {
+                    spec: held,
+                    pos: spec.pos,
+                    vel: ambition_engine_core::Vec2::ZERO,
+                    half_extent: spec.half_extent,
+                },
+            ),
+        )
+        .id()
 }
 
 #[cfg(feature = "portal")]

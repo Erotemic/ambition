@@ -33,6 +33,7 @@ pub mod collision_semantics;
 pub mod combat_volume;
 pub mod config;
 pub mod confirmed_frame;
+pub mod content_epoch;
 pub mod control_frame;
 pub mod frame;
 pub mod geo_id;
@@ -64,6 +65,7 @@ pub use combat_volume::CombatVolume;
 /// Which sim frames are settled (netcode: the confirmed boundary). Absent on
 /// every non-rollback host, where it means "confirm everything".
 pub use confirmed_frame::{world_state_is_confirmed, ConfirmedFrameBoundary};
+pub use content_epoch::ContentEpoch;
 pub use control_frame::ControlFrame;
 /// The frame→tick input latch (netcode N0.1) and its two systems. Separate from
 /// the `ControlFrame` vocabulary above because only the DEVICE layer installs it.

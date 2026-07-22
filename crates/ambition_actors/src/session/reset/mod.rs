@@ -79,6 +79,9 @@ pub struct ResetPlayState<'w> {
     /// The installed room-content staging seam — same rule as the placement
     /// registry: reset re-stages content-staged occupants, one authority.
     content_staging: Res<'w, crate::features::RoomContentStagingRegistry>,
+    /// The construction recipe table — reset re-plans the start room's planned
+    /// families through the SAME recipes setup/transition/restore use.
+    recipes: Res<'w, crate::construction::ActorConstructionRegistry>,
 }
 
 /// Cross-system trigger for "wipe the save and rebuild the runtime."
@@ -162,6 +165,12 @@ pub fn process_sandbox_reset_request(
         &play_state.character_roster,
         &play_state.boss_catalog,
         session_scope,
+        crate::features::ActorConstructionContext::new(
+            &play_state.recipes,
+            // A reset rebuilds the room the ACTIVE content already defines, so
+            // it states no new generation.
+            ambition_engine_core::ContentEpoch::default(),
+        ),
     )
     .unwrap_or_else(|error| panic!("sandbox reset room preflight failed: {error}"));
 

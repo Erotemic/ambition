@@ -137,49 +137,61 @@ pub fn apply_spawn_actor_requests(
         return;
     };
     for req in requests.read() {
-        let aabb = ae::Aabb::new(req.pos, req.half_size);
-        match &req.kind {
-            SpawnActorKind::Boss { brain, overrides } => {
-                let authored = crate::rooms::Authored::new(
-                    req.id.clone(),
-                    req.name.clone(),
-                    aabb,
-                    brain.clone(),
-                );
-                spawn_boss_with_overrides(
-                    &mut commands,
-                    &boss_catalog,
-                    session_scope,
-                    &authored,
-                    overrides,
-                );
-            }
-            SpawnActorKind::Enemy { brain } => {
-                let authored = crate::rooms::Authored::new(
-                    req.id.clone(),
-                    req.name.clone(),
-                    aabb,
-                    brain.clone(),
-                );
-                // Runtime spawn (outside the authored RoomSpec lists): mark it so
-                // the renderer's runtime-visual discovery gives it a sprite, the
-                // same as any authored enemy.
-                if let Some(entity) = spawn_enemy_with_faction(
-                    &mut commands,
-                    &character_catalog,
-                    &character_roster,
-                    session_scope,
-                    &authored,
-                    &[],
-                    req.faction,
-                ) {
-                    commands.entity(entity).insert(super::RuntimeStagedActor);
-                    staged.push((req.id.clone(), entity, req.grudge_against.clone()));
-                }
-            }
+        let entity = spawn_staged_actor(
+            &mut commands,
+            &character_catalog,
+            &character_roster,
+            &boss_catalog,
+            session_scope,
+            req,
+        );
+        if matches!(req.kind, SpawnActorKind::Enemy { .. }) {
+            staged.push((req.id.clone(), entity, req.grudge_against.clone()));
         }
     }
     wire_staged_grudges(&mut commands, &staged);
+}
+
+/// Materialize one staged actor.
+///
+/// **The one staged-actor constructor.** Both the message-driven applier above
+/// and the `ambition.staged-actor` construction recipe
+/// ([`crate::construction`]) call it, so a room built through the planner and a
+/// programmatic scene-setup request cannot drift into different entity shapes.
+pub(crate) fn spawn_staged_actor(
+    commands: &mut Commands,
+    character_catalog: &CharacterCatalog,
+    character_roster: &CharacterRoster,
+    boss_catalog: &BossCatalog,
+    session_scope: SessionSpawnScope,
+    req: &SpawnActorRequest,
+) -> bevy::ecs::entity::Entity {
+    let aabb = ae::Aabb::new(req.pos, req.half_size);
+    match &req.kind {
+        SpawnActorKind::Boss { brain, overrides } => {
+            let authored =
+                crate::rooms::Authored::new(req.id.clone(), req.name.clone(), aabb, brain.clone());
+            spawn_boss_with_overrides(commands, boss_catalog, session_scope, &authored, overrides)
+        }
+        SpawnActorKind::Enemy { brain } => {
+            let authored =
+                crate::rooms::Authored::new(req.id.clone(), req.name.clone(), aabb, brain.clone());
+            // Staged outside the authored RoomSpec lists: mark it so the
+            // renderer's runtime-visual discovery gives it a sprite, the same as
+            // any authored enemy.
+            let entity = spawn_enemy_with_faction(
+                commands,
+                character_catalog,
+                character_roster,
+                session_scope,
+                &authored,
+                &[],
+                req.faction,
+            );
+            commands.entity(entity).insert(super::RuntimeStagedActor);
+            entity
+        }
+    }
 }
 
 /// Cross-wire mutual grudges for a freshly-staged feuding set. `staged` pairs each
@@ -732,7 +744,7 @@ pub(super) fn spawn_boss_with_overrides(
     session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
     overrides: &BossOverrides,
-) {
+) -> bevy::ecs::entity::Entity {
     let mut boss = BossClusterScratch::new(
         boss_catalog,
         authored.id.clone(),
@@ -962,6 +974,7 @@ pub(super) fn spawn_boss_with_overrides(
     // (`ambition_content::bosses::specials`), attached to every boss via
     // `register_required_components::<BossConfig, _>()` in the content plugin —
     // the engine spawn names no boss special.
+    entity.id()
 }
 /// Runtime minion spawner — used by boss EFFECTS consumers (e.g.
 /// PitTrap puppy_slug spawn, MinionCascade slop adds). Mirrors
@@ -1077,7 +1090,7 @@ pub(super) fn spawn_enemy_with_faction(
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
     paths: &[(String, ambition_engine_core::KinematicPath)],
     faction: super::ActorFaction,
-) -> Option<bevy::ecs::entity::Entity> {
+) -> bevy::ecs::entity::Entity {
     let spec = roster.spec_for_brain(&authored.payload);
     let enemy = super::actor_clusters::ActorClusterSeed::new_in(
         catalog,
@@ -1107,7 +1120,7 @@ pub(super) fn spawn_enemy_with_faction(
             &spec,
         );
     }
-    Some(entity)
+    entity
 }
 
 /// v1 predicate (Q18): which mount archetypes carry driven hand limbs. Scoped to
@@ -1456,38 +1469,115 @@ pub(super) fn spawn_encounter_mob(
     }
 }
 
-/// Lib-side executor for `Effect::Summon`: materializes each summon via
-/// `spawn_runtime_minion`. Lives next to the spawner (not in
-/// `effects::apply_effects`) so the `ambition_vfx` crate stays free of the
-/// enemy-roster substrate. Summons authored so far are all hostile-to-player.
+/// Lib-side executor for `Effect::Summon`: the runtime-dynamic origin of the
+/// three the construction planner covers.
+///
+/// Lives next to the spawner (not in `effects::apply_effects`) so the
+/// `ambition_vfx` crate stays free of the enemy-roster substrate.
+///
+/// ## Why a summon is planned at all
+///
+/// One minion is a small plan, and running it through the same planner as a
+/// room's contents is the point rather than an overhead: it is what gives a
+/// summoned body a real dynamic identity (`SimId::spawned` under its summoner,
+/// taken from the summoner's own `SimIdCounter`) and an explicit
+/// [`SpawnOrigin::Dynamic`] naming its parent. Before this, a minion carried a
+/// `FeatureId` and nothing else, so `ensure_sim_id` filed it under the AUTHORED
+/// `placement:` namespace — the one namespace a summoned add categorically is
+/// not in — and two summons sharing an authored id collided outright.
+///
+/// A summon that cannot name its summoner's identity is skipped: the spawner is
+/// mid-migration to `SimId` (an unidentified body cannot lend an identity), and
+/// minting a parentless dynamic id would reintroduce exactly the ambiguity this
+/// replaces.
 pub fn apply_summon_effects(
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<ambition_vfx::EffectRequest>,
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
     character_roster: bevy::prelude::Res<CharacterRoster>,
+    boss_catalog: bevy::prelude::Res<BossCatalog>,
+    recipes: bevy::prelude::Res<crate::construction::ActorConstructionRegistry>,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
+    identities: bevy::prelude::Query<&ambition_platformer_primitives::sim_id::SimId>,
+    mut counters: bevy::prelude::Query<&mut ambition_platformer_primitives::sim_id::SimIdCounter>,
 ) {
+    use ambition_platformer_primitives::construction::{ConstructionPlan, ConstructionScope};
+
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
         requests.clear();
         return;
     };
+
+    let mut planned = Vec::new();
     for req in requests.read() {
-        if let ambition_vfx::Effect::Summon(s) = &req.effect {
-            spawn_runtime_minion(
-                &mut commands,
-                &character_catalog,
-                &character_roster,
-                session_scope,
-                s.id.clone(),
-                s.name.clone(),
-                s.pos,
-                s.half_size,
-                &s.archetype_id,
-                s.encounter_id.clone(),
-                crate::combat::actor_faction_from_hit_side(s.faction),
-                super::ActorAggression::hostile(),
+        let ambition_vfx::Effect::Summon(s) = &req.effect else {
+            continue;
+        };
+        let (Ok(summoner), Ok(mut counter)) =
+            (identities.get(req.owner), counters.get_mut(req.owner))
+        else {
+            // Loud, not silent: every body carrying a `FeatureId` is identified
+            // at the head of the tick, so reaching this means the emitter is
+            // outside the identity migration and its summons would have no
+            // reconstructable provenance.
+            bevy::log::warn!(
+                target: "ambition::construction",
+                "summon `{}` skipped: its emitter has no simulation identity to descend from",
+                s.id,
+            );
+            continue;
+        };
+        planned.push(crate::construction::summoned_minion_request(
+            summoner,
+            counter.next(),
+            crate::construction::SummonedMinionParams {
+                feature_id: s.id.clone(),
+                name: s.name.clone(),
+                pos: s.pos,
+                half_size: s.half_size,
+                archetype_id: s.archetype_id.clone(),
+                encounter_id: s.encounter_id.clone(),
+                faction: crate::combat::actor_faction_from_hit_side(s.faction),
+            },
+        ));
+    }
+    if planned.is_empty() {
+        return;
+    }
+
+    let live: std::collections::BTreeSet<_> = identities.iter().cloned().collect();
+    let scope = ConstructionScope {
+        // A summon is not a content artifact, so it states no epoch: the field
+        // exists to reject a plan carried across a content reload, and a plan
+        // built and committed inside one tick cannot be.
+        content_epoch: ambition_engine_core::ContentEpoch::default(),
+        room: None,
+    };
+    let services = crate::construction::ActorConstructionServices {
+        context: crate::world::placements::ActorPlacementContext::new(
+            &character_catalog,
+            &character_roster,
+        ),
+        boss_catalog: boss_catalog.clone(),
+    };
+    match ConstructionPlan::prepare(scope.clone(), planned, &live, &recipes) {
+        Ok(plan) => {
+            let mut ctx = ambition_platformer_primitives::construction::ConstructionExecCtx {
+                commands: &mut commands,
+                scope: &scope,
+                session: session_scope,
+                services: &services,
+            };
+            plan.commit(&mut ctx);
+        }
+        Err(error) => {
+            // Nothing has been mutated: preparation is pure. A summon batch that
+            // cannot plan is dropped loudly rather than half-applied.
+            bevy::log::error!(
+                target: "ambition::construction",
+                "summon batch rejected before mutation: {error}"
             );
         }
     }

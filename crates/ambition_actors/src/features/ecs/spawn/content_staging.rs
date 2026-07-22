@@ -198,11 +198,34 @@ impl RoomContentStagingRegistry {
         &self,
         room: &RoomSpec,
     ) -> Result<Vec<SpawnActorRequest>, RoomContentStagingError> {
+        Ok(self
+            .try_owned_requests_for(room)?
+            .into_iter()
+            .map(|(_, request)| request)
+            .collect())
+    }
+
+    /// As [`Self::try_requests_for`], but each request is paired with the id of
+    /// the provider that staged it.
+    ///
+    /// Construction planning needs the owner because a staged occupant's
+    /// provenance is *which provider put it here* — the fact
+    /// [`SpawnOrigin::ProviderStaged`](ambition_platformer_primitives::construction::SpawnOrigin::ProviderStaged)
+    /// records. It is not recoverable from the request, which carries only
+    /// content fields.
+    pub fn try_owned_requests_for(
+        &self,
+        room: &RoomSpec,
+    ) -> Result<Vec<(String, SpawnActorRequest)>, RoomContentStagingError> {
         let requests = self
             .stagers
             .iter()
             .filter(|entry| entry.room_id == room.id)
-            .flat_map(|entry| (entry.stager)(room))
+            .flat_map(|entry| {
+                (entry.stager)(room)
+                    .into_iter()
+                    .map(|request| (entry.owner.clone(), request))
+            })
             .collect::<Vec<_>>();
 
         let authored = room
@@ -211,9 +234,10 @@ impl RoomContentStagingRegistry {
             .map(|placement| placement.id.0.as_str())
             .chain(room.enemy_spawns.iter().map(|enemy| enemy.id.as_str()))
             .chain(room.boss_spawns.iter().map(|boss| boss.id.as_str()))
+            .chain(room.ground_items.iter().map(|item| item.id.as_str()))
             .collect::<std::collections::BTreeSet<_>>();
         let mut staged = std::collections::BTreeSet::new();
-        for request in &requests {
+        for (_, request) in &requests {
             if request.id.trim().is_empty() {
                 return Err(RoomContentStagingError::EmptyId {
                     room: room.id.clone(),

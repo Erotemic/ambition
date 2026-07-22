@@ -93,6 +93,10 @@ fn room_features_lower_through_the_caller_supplied_registry() {
         &catalog,
         &roster,
         &boss_catalog,
+        crate::features::ActorConstructionContext::new(
+            &crate::construction::engine_construction_registry(),
+            Default::default(),
+        ),
     )
     .expect("the caller-supplied registry should prepare the room");
 

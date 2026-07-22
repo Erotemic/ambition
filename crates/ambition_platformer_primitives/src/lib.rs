@@ -8,6 +8,7 @@ pub mod body;
 pub mod camera_ease;
 pub mod camera_layers;
 pub mod class_b;
+pub mod construction;
 pub mod developer_hotkeys;
 pub mod frame_env;
 pub mod gameplay_presentation;

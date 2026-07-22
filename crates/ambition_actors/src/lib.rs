@@ -50,6 +50,7 @@ pub mod audio;
 pub mod avatar;
 #[cfg(test)]
 mod character_roster;
+pub mod construction;
 /// The local control seam: device frame -> slot -> the body carrying that slot's
 /// player brain. See `control/mod.rs`.
 pub mod control;

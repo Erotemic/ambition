@@ -531,6 +531,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<ambition::actors::features::CharacterRoster>,
     boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
+    construction_recipes: Res<ambition::actors::construction::ActorConstructionRegistry>,
     mut assets: ResMut<GameAssets>,
     catalog: Res<SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
@@ -597,6 +598,10 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 &character_roster,
                 &boss_catalog,
                 spawn_scope,
+                ambition::actors::features::ActorConstructionContext::new(
+                    &construction_recipes,
+                    ambition::engine_core::ContentEpoch(content_epoch.get()),
+                ),
             ) {
                 Ok(plan) => plan,
                 Err(error) => {

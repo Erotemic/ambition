@@ -168,6 +168,7 @@ fn min_app() -> App {
     // The reset processor re-stages the start room through the App-installed
     // placement-lowering authority (7d972b6); the minimal app must provide it.
     app.insert_resource(crate::world::placements::PlacementLoweringRegistry::default());
+    app.insert_resource(crate::construction::engine_construction_registry());
     app.insert_resource(crate::features::RoomContentStagingRegistry::default());
     app.insert_resource(ambition_world::collision::MovingPlatformSet::default());
     app.insert_resource(crate::SandboxSimState::default());

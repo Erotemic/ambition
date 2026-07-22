@@ -41,3 +41,4 @@ Use an ADR when a decision:
 - [0027: GGRS is the sole rollback authority](0027-ggrs-is-the-sole-rollback-authority.md)
 - [0028: Dialogue presentation is provider-selected](0028-dialogue-presentation-is-provider-selected.md)
 - [0029: Direct gameplay reveal is readiness-gated](0029-direct-gameplay-reveal-is-readiness-gated.md)
+- [0030: Spawn provenance is data, and construction is planned before mutation](0030-spawn-provenance-is-data.md)

@@ -732,6 +732,9 @@ fn mary_o_setup(
     content_staging: bevy::prelude::Res<
         ambition::runtime::demo_fixture::RoomContentStagingRegistry,
     >,
+    construction_recipes: bevy::prelude::Res<
+        ambition::runtime::demo_fixture::ActorConstructionRegistry,
+    >,
 ) {
     ambition::runtime::demo_fixture::simulation_world(
         &mut commands,
@@ -747,6 +750,12 @@ fn mary_o_setup(
             character_roster: &character_roster,
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,
+            // A demo enters directly rather than through provider activation,
+            // so it has no prepared-content generation to state.
+            construction: ambition::runtime::demo_fixture::ActorConstructionContext::new(
+                &construction_recipes,
+                Default::default(),
+            ),
             boss_catalog: &boss_catalog,
             default_character_id: provider::MARY_O_CHARACTER_ID,
             sandbox_data_asset: None,

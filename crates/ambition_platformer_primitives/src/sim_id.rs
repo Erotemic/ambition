@@ -76,7 +76,6 @@ impl SimId {
         Self(format!("{}/{sequence}", spawner.0))
     }
 
-    /// The raw string. Sorted and compared; never parsed.
     /// Rebuild an id from a snapshot blob's key.
     ///
     /// The ONLY way to make a `SimId` from a raw string, and it is named for its
@@ -88,6 +87,15 @@ impl SimId {
         Self(raw)
     }
 
+    /// The raw string: sorted, compared, and printed.
+    ///
+    /// **Not parsed.** The spelling is a legibility convenience — it exists so a
+    /// desync report reads as a sentence — and nothing may recover a fact from
+    /// it. Provenance in particular is
+    /// [`SpawnOrigin`](crate::construction::SpawnOrigin), a component the entity
+    /// carries, precisely so that changing this format cannot silently change
+    /// what reconstruction believes. (This doc used to make that claim while
+    /// `heal_projectile_owners` split the string on `/`; the claim is true now.)
     pub fn as_str(&self) -> &str {
         &self.0
     }

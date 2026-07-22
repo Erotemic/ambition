@@ -76,6 +76,10 @@ impl Plugin for SimCoreResourcesPlugin {
             // The room-content staging seam: providers/content register pure
             // stagers into it; an app with none stages rooms as authored.
             .init_resource::<ambition_actors::features::RoomContentStagingRegistry>()
+            // The construction recipe table (Phase 3). Installed with the
+            // engine's own recipes below, and open for a provider to add its
+            // own before the first room is planned.
+            .init_resource::<ambition_actors::construction::ActorConstructionRegistry>()
             // App-local boss authority. Boss-free providers keep the explicit
             // empty resource; content plugins assemble provider fragments.
             .init_resource::<ambition_actors::boss_encounter::BossCatalog>()
@@ -139,5 +143,14 @@ impl Plugin for SimCoreResourcesPlugin {
             // them (never owns the init).
             .init_resource::<ambition_persistence::quest::QuestRegistry>()
             .init_resource::<ambition_actors::boss_encounter::BossEncounterRegistry>();
+
+        // The engine's own construction recipes. `init_resource` above never
+        // clobbers a provider's pre-inserted registry, and registration is
+        // idempotent, so composing this plugin twice is not an error.
+        let mut recipes = app
+            .world_mut()
+            .resource_mut::<ambition_actors::construction::ActorConstructionRegistry>();
+        ambition_actors::construction::install_actor_construction_recipes(&mut recipes)
+            .expect("the engine's own construction recipes cannot conflict with each other");
     }
 }

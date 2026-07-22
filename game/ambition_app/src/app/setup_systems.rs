@@ -28,6 +28,17 @@ pub(crate) struct PresentationCatalogs<'w> {
     assets: Res<'w, ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
 }
 
+/// The three App-installed authorities room construction reads: how authored
+/// placements lower, what content stages into a room, and which construction
+/// recipes exist. Grouped for the same reason [`PresentationCatalogs`] is —
+/// Bevy's system-parameter limit — and they belong together anyway.
+#[derive(SystemParam)]
+pub(crate) struct RoomConstructionAuthorities<'w> {
+    placement_lowering: Res<'w, ambition::actors::world::placements::PlacementLoweringRegistry>,
+    content_staging: Res<'w, ambition::actors::features::RoomContentStagingRegistry>,
+    recipes: Res<'w, ambition::actors::construction::ActorConstructionRegistry>,
+}
+
 /// Sim-only startup. Calls `ambition::actors::session::setup::simulation_world` to spawn the
 /// LdtkWorldBundle and the player entity (with gameplay-essential components
 /// but no Sprite). The presentation startup system discovers the home avatar by
@@ -49,8 +60,7 @@ pub(super) fn setup_simulation_system(
     character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<ambition::actors::features::CharacterRoster>,
     boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
-    placement_lowering: Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
-    content_staging: Res<ambition::actors::features::RoomContentStagingRegistry>,
+    construction: RoomConstructionAuthorities,
     mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
 ) {
     let _player = setup::simulation_world(
@@ -65,8 +75,15 @@ pub(super) fn setup_simulation_system(
             starting_character: &starting_character,
             character_catalog: &character_catalog,
             character_roster: &character_roster,
-            placement_lowering: &placement_lowering,
-            content_staging: &content_staging,
+            placement_lowering: &construction.placement_lowering,
+            content_staging: &construction.content_staging,
+            // Direct entry builds its session root at plugin-build time rather
+            // than through provider activation, so no prepared-content
+            // generation is available to state here.
+            construction: ambition::actors::features::ActorConstructionContext::new(
+                &construction.recipes,
+                Default::default(),
+            ),
             boss_catalog: &boss_catalog,
             default_character_id: ambition_content::character_catalog::PLAYABLE_ROSTER[0],
             sandbox_data_asset: sandbox_data_asset.as_deref(),

@@ -157,8 +157,8 @@ fn install_session_with_ownership(
     // boundary because teardown removes the boundary; deriving from that optional
     // resource would make every stop/restart cycle reuse generation zero.
     let generation = {
-        let mut generation = world
-            .get_resource_or_insert_with::<RollbackSessionGeneration>(Default::default);
+        let mut generation =
+            world.get_resource_or_insert_with::<RollbackSessionGeneration>(Default::default);
         generation.0 = generation.0.wrapping_add(1);
         generation.0
     };
@@ -553,7 +553,10 @@ mod tests {
 
         assert!(!world.contains_resource::<ConfirmedFrameBoundary>());
         assert_eq!(
-            world.resource::<RollbackSessionStatus>().invalidation.as_deref(),
+            world
+                .resource::<RollbackSessionStatus>()
+                .invalidation
+                .as_deref(),
             Some("contract changed")
         );
     }

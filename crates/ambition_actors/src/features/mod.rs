@@ -91,6 +91,7 @@ pub use ecs::{actor_component_snapshot, boss_component_snapshot};
 // Runtime minion/summon spawner, re-exported so non-feature modules (e.g. the
 // puppy-slug gun) can summon actors without reaching into the private `ecs` tree.
 pub(crate) use ecs::spawn_runtime_minion;
+pub(crate) use ecs::spawn_staged_actor;
 
 pub use components::{
     ActorAggression, ActorCooldowns, ActorDisposition, ActorFaction, ActorIdentity, ActorIntent,
@@ -140,13 +141,13 @@ pub use ecs::{
     sync_encounter_reward_chests_ecs, sync_riders_to_mounts, tick_actor_brains,
     tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
     tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables,
-    update_ecs_falling_chests, update_ecs_hazards, ActorSteering, BossClusterQueryData,
-    BossClusterRef, BossClusterScratch, BossConfig, BossEncounter, BossMut, BossOverrides, BossRef,
-    CanPilot, ControlGrant, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
-    FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback,
-    HitboxLifetime, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, Mass, MountClass,
-    MountDeathImpact, MountDied, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize,
-    PendingChallenge, PendingMountLinks, RidingOn, RoomContentStagingError,
+    update_ecs_falling_chests, update_ecs_hazards, ActorConstructionContext, ActorSteering,
+    BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig, BossEncounter, BossMut,
+    BossOverrides, BossRef, CanPilot, ControlGrant, FactionRelations, FeatureEcsWorldOverlay,
+    FeatureSimEntity, FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits,
+    HitboxKnockback, HitboxLifetime, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, Mass,
+    MountClass, MountDeathImpact, MountDied, MountSlot, Mountable, Mounted, MountedBrainCache,
+    MountedSize, PendingChallenge, PendingMountLinks, RidingOn, RoomContentStagingError,
     RoomContentStagingRegistrationError, RoomContentStagingRegistry, RoomFeatureConstructionError,
     RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest,
     CHALLENGE_GRACE_S,

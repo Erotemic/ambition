@@ -115,6 +115,7 @@ fn fixture_setup(
     boss_catalog: Res<ambition_runtime::demo_fixture::BossCatalog>,
     placement_lowering: Res<ambition_runtime::demo_fixture::PlacementLoweringRegistry>,
     content_staging: Res<ambition_runtime::demo_fixture::RoomContentStagingRegistry>,
+    construction_recipes: Res<ambition_runtime::demo_fixture::ActorConstructionRegistry>,
     asset_server: Res<AssetServer>,
 ) {
     ambition_runtime::demo_fixture::simulation_world(
@@ -131,6 +132,10 @@ fn fixture_setup(
             character_roster: &character_roster,
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,
+            construction: ambition_runtime::demo_fixture::ActorConstructionContext::new(
+                &construction_recipes,
+                Default::default(),
+            ),
             boss_catalog: &boss_catalog,
             default_character_id: "player",
             sandbox_data_asset: None,

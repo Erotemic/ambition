@@ -55,6 +55,9 @@ pub struct SimulationSetup<'a> {
     /// room's registered content stagers exactly as transition, reset,
     /// hot-reload, and restore staging do — one construction authority.
     pub content_staging: &'a crate::features::RoomContentStagingRegistry,
+    /// The App-installed construction recipe table plus the content generation
+    /// this session was prepared under (Phase 3 planned families).
+    pub construction: crate::features::ActorConstructionContext<'a>,
     /// App-local boss profiles, encounter specs, sheets, and special rows.
     pub boss_catalog: &'a crate::boss_encounter::BossCatalog,
     /// Provider-selected default used only when `StartingCharacter` is empty.
@@ -97,6 +100,7 @@ pub fn simulation_world(
         character_roster,
         placement_lowering,
         content_staging,
+        construction,
         boss_catalog,
         default_character_id,
         sandbox_data_asset,
@@ -133,6 +137,7 @@ pub fn simulation_world(
         character_roster,
         boss_catalog,
         session_scope,
+        construction,
     )
     .unwrap_or_else(|error| panic!("initial room construction failed: {error}"));
     room_plan.spawn_contents(commands);

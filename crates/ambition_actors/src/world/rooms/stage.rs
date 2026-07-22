@@ -156,6 +156,17 @@ impl RoomConstructionPlan {
                 .get_resource::<crate::boss_encounter::BossCatalog>()
                 .ok_or(missing("BossCatalog"))?,
             session_scope,
+            features::ActorConstructionContext::new(
+                world
+                    .get_resource::<crate::construction::ActorConstructionRegistry>()
+                    .ok_or(missing("ActorConstructionRegistry"))?,
+                // The activation generation this world is running, published on
+                // the session root beside the prepared content it identifies.
+                // A world with no prepared session states none.
+                session_world_component::<ambition_engine_core::ContentEpoch>(world)
+                    .copied()
+                    .unwrap_or_default(),
+            ),
         )
     }
 
@@ -171,6 +182,7 @@ impl RoomConstructionPlan {
         character_roster: &features::CharacterRoster,
         boss_catalog: &crate::boss_encounter::BossCatalog,
         session_scope: SessionSpawnScope,
+        construction: features::ActorConstructionContext<'_>,
     ) -> Result<Self, RoomConstructionError> {
         let spec = rooms.rooms.get(target_index).cloned().ok_or_else(|| {
             RoomConstructionError::UnknownRoom {
@@ -186,6 +198,7 @@ impl RoomConstructionPlan {
             character_roster,
             boss_catalog,
             session_scope,
+            construction,
         )
     }
 
@@ -201,6 +214,7 @@ impl RoomConstructionPlan {
         character_roster: &features::CharacterRoster,
         boss_catalog: &crate::boss_encounter::BossCatalog,
         session_scope: SessionSpawnScope,
+        construction: features::ActorConstructionContext<'_>,
     ) -> Result<Self, RoomConstructionError> {
         let feature_plan = RoomFeatureConstructionPlan::prepare(
             &spec,
@@ -209,6 +223,7 @@ impl RoomConstructionPlan {
             character_catalog,
             character_roster,
             boss_catalog,
+            construction,
         )
         .map_err(|reason| RoomConstructionError::InvalidFeatures {
             room: spec.id.clone(),
@@ -262,10 +277,6 @@ impl RoomConstructionPlan {
 
     pub fn content_staged_names(&self) -> Vec<String> {
         self.features.content_staged_names()
-    }
-
-    pub fn content_staged_requests(&self) -> &[features::SpawnActorRequest] {
-        self.features.content_staged_requests()
     }
 
     /// Rebuild one authored authoritative root through this plan's frozen
@@ -429,6 +440,7 @@ mod tests {
     }
 
     fn prepare(spec: RoomSpec) -> Result<RoomConstructionPlan, RoomConstructionError> {
+        let recipes = crate::construction::engine_construction_registry();
         RoomConstructionPlan::prepare_spec(
             0,
             spec,
@@ -438,6 +450,7 @@ mod tests {
             &features::CharacterRoster::default(),
             &crate::boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
+            features::ActorConstructionContext::new(&recipes, Default::default()),
         )
     }
 

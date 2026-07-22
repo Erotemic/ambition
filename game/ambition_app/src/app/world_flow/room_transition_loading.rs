@@ -281,6 +281,7 @@ pub(crate) fn begin_room_transition_load_system(
         Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
         Res<ambition::actors::features::CharacterRoster>,
         Res<ambition::actors::boss_encounter::BossCatalog>,
+        Res<ambition::actors::construction::ActorConstructionRegistry>,
     ),
     mut asset_context: super::room_transition_assets::RoomTransitionAssetContext,
     active_session: Option<Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
@@ -548,6 +549,10 @@ pub(crate) fn begin_room_transition_load_system(
                 &construction_services.3,
                 &construction_services.4,
                 session_scope,
+                ambition::actors::features::ActorConstructionContext::new(
+                    &construction_services.5,
+                    ambition::engine_core::ContentEpoch(content_epoch.get()),
+                ),
             )
             .map(Arc::new),
         };

@@ -1017,6 +1017,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     boss_catalog: Res<'w, ambition_actors::boss_encounter::BossCatalog>,
     placement_lowering: Res<'w, ambition_actors::world::placements::PlacementLoweringRegistry>,
     content_staging: Res<'w, ambition_actors::features::RoomContentStagingRegistry>,
+    construction_recipes: Res<'w, ambition_actors::construction::ActorConstructionRegistry>,
     sandbox_data_asset: Option<Res<'w, ambition_actors::session::data::SandboxDataAsset>>,
     sandbox_asset_collection:
         Option<Res<'w, ambition_actors::assets::loading::SandboxAssetCollection>>,
@@ -1060,6 +1061,13 @@ impl PlatformerSessionBuilder<'_, '_> {
                 character_roster: &self.character_roster,
                 placement_lowering: &self.placement_lowering,
                 content_staging: &self.content_staging,
+                // Activation is the one place that holds the exact prepared
+                // definition, so it is the one place a construction plan can
+                // state a REAL activation generation rather than defaulting.
+                construction: ambition_actors::features::ActorConstructionContext::new(
+                    &self.construction_recipes,
+                    prepared_identity.epoch,
+                ),
                 boss_catalog: &self.boss_catalog,
                 default_character_id,
                 sandbox_data_asset: self.sandbox_data_asset.as_deref(),
@@ -1079,7 +1087,16 @@ impl PlatformerSessionBuilder<'_, '_> {
                 &mut self.commands,
                 activation,
                 scope,
-                (live_world, prepared_content, prepared_identity),
+                // The bare epoch rides alongside the identity that defines it,
+                // from this single value, so layers below `ambition_runtime`
+                // (construction planning) can read the activation generation
+                // without naming prepared-content identity.
+                (
+                    live_world,
+                    prepared_content,
+                    prepared_identity,
+                    prepared_identity.epoch,
+                ),
             )
             .expect("provider activation still owns the session it is constructing");
 

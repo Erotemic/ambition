@@ -61,6 +61,9 @@ fn build(
     ctx.commands
         .entity(root.entity())
         .insert(Built(parameters.label.clone()));
+    // Adversarial behaviour for the roster-verification tests. `Sabotage::None`
+    // is the ordinary path every other test runs on.
+    apply_sabotage(root, ctx);
 }
 
 fn wire_grudge(from: Entity, to: Entity, ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {
@@ -81,7 +84,7 @@ fn registry() -> ConstructionRegistry<Toy> {
         .try_register_recipe(recipe(), "toy", "tests", "v1")
         .expect("first registration succeeds");
     registry
-        .try_register_relation(grudge(), "toy", wire_grudge)
+        .try_register_relation(grudge(), "toy", "tests", "v1", wire_grudge)
         .expect("first registration succeeds");
     registry
 }
@@ -591,9 +594,9 @@ fn the_registry_dump_does_not_depend_on_registration_order() {
 // a thing a test could write and a caller could ship; an `AcceptsFn` checked the
 // pairing at preparation and a wrong `true` still reached the constructor's
 // `unreachable!` mid-commit. The recipe is now derived from the payload by
-// `ConstructionDomain::recipe_of` and construction is one exhaustive match, so
-// the mispairing is a state that cannot be written down and a missing arm is a
-// compile error. `every_parameter_variant_constructs` in `ambition_actors`
+// `ConstructionDomain::dispatch`, one exhaustive match that yields the recipe
+// identity and its constructor together, so the mispairing is a state that
+// cannot be written down and a missing arm is a compile error. `every_parameter_variant_constructs` in `ambition_actors`
 // covers the real domain's arms behaviourally.
 
 // ── Partial commits ──────────────────────────────────────────────────────────
@@ -1000,4 +1003,475 @@ fn a_row_in_no_relation_rebuilds_alone() {
     construct_one_into(&mut world, &plan, &services, &SimId::placement("c"))
         .expect("a row outside every relation rebuilds on its own");
     assert_eq!(services.ordinary_runs.get(), 1);
+}
+
+// ── The prepared plan is frozen ──────────────────────────────────────────────
+
+/// A domain whose `dispatch` answers differently over time.
+///
+/// `dispatch` is *expected* to be a pure function of the parameters, but nothing
+/// makes it one — an implementation may read an atomic, a config resource, a
+/// feature flag flipped by a hot reload. This domain makes that concrete so the
+/// freeze can be proven rather than assumed.
+mod drifting {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    pub(super) static USE_B: AtomicBool = AtomicBool::new(false);
+
+    #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+    pub(super) struct BuiltByA;
+    #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+    pub(super) struct BuiltByB;
+
+    /// Counts how many times `dispatch` was consulted, so the test can prove
+    /// commit did not consult it again.
+    pub(super) static DISPATCHES: std::sync::atomic::AtomicUsize =
+        std::sync::atomic::AtomicUsize::new(0);
+
+    pub(super) struct Drifting;
+
+    pub(super) fn recipe_a() -> RecipeId {
+        RecipeId::new("drift.a")
+    }
+    pub(super) fn recipe_b() -> RecipeId {
+        RecipeId::new("drift.b")
+    }
+
+    fn construct_a(
+        _: &(),
+        root: ConstructionRoot,
+        ctx: &mut ConstructionExecCtx<'_, '_, '_, Self_>,
+    ) {
+        ctx.commands.entity(root.entity()).insert(BuiltByA);
+    }
+    fn construct_b(
+        _: &(),
+        root: ConstructionRoot,
+        ctx: &mut ConstructionExecCtx<'_, '_, '_, Self_>,
+    ) {
+        ctx.commands.entity(root.entity()).insert(BuiltByB);
+    }
+    type Self_ = Drifting;
+
+    impl ConstructionDomain for Drifting {
+        type Parameters = ();
+        type Services = ();
+
+        fn dispatch(_: &Self::Parameters) -> RecipeDispatch<Self> {
+            DISPATCHES.fetch_add(1, Ordering::SeqCst);
+            if USE_B.load(Ordering::SeqCst) {
+                RecipeDispatch {
+                    recipe: recipe_b(),
+                    construct: construct_b,
+                }
+            } else {
+                RecipeDispatch {
+                    recipe: recipe_a(),
+                    construct: construct_a,
+                }
+            }
+        }
+
+        fn canonical_summary(_: &Self::Parameters) -> String {
+            "drift".to_string()
+        }
+    }
+}
+
+/// **Preparation freezes the executable decision, not just its label.**
+///
+/// Before the constructor was stored on the row, commit called `dispatch` again
+/// — so a plan could validate recipe A, dump recipe A, contribute recipe A to
+/// the content fingerprint, and then execute constructor B. This fails against
+/// that implementation: it builds `BuiltByB` while every canonical surface says
+/// `drift.a`.
+#[test]
+fn commit_runs_the_constructor_preparation_resolved_not_a_fresh_one() {
+    use drifting::{BuiltByA, BuiltByB, Drifting, DISPATCHES, USE_B};
+    use std::sync::atomic::Ordering;
+
+    USE_B.store(false, Ordering::SeqCst);
+    DISPATCHES.store(0, Ordering::SeqCst);
+
+    let mut registry = ConstructionRegistry::<Drifting>::default();
+    registry
+        .try_register_recipe(drifting::recipe_a(), "drift", "tests", "v1")
+        .unwrap();
+    registry
+        .try_register_recipe(drifting::recipe_b(), "drift", "tests", "v1")
+        .unwrap();
+
+    let plan = ConstructionPlan::<Drifting>::prepare(
+        scope(),
+        vec![ConstructionRequest {
+            sim_id: SimId::placement("x"),
+            origin: SpawnOrigin::Authored {
+                source: "room_a".into(),
+                instance: "x".into(),
+            },
+            parameters: (),
+            relations: Vec::new(),
+        }],
+        &nothing_live(),
+        &registry,
+    )
+    .expect("plans against constructor A");
+
+    let dispatches_after_prepare = DISPATCHES.load(Ordering::SeqCst);
+    assert!(
+        plan.deterministic_dump().contains("drift.a"),
+        "the plan named recipe A"
+    );
+
+    // The world changes its mind between preparing and committing.
+    USE_B.store(true, Ordering::SeqCst);
+
+    let mut world = World::new();
+    let receipt = {
+        let mut commands = world.commands();
+        let plan_scope = scope();
+        let services = ();
+        let mut ctx = ConstructionExecCtx::<Drifting> {
+            commands: &mut commands,
+            scope: &plan_scope,
+            session: crate::lifecycle::SessionSpawnScope::UNSCOPED,
+            services: &services,
+        };
+        plan.commit(&mut ctx)
+    };
+    world.flush();
+
+    let root = receipt
+        .entity(&SimId::placement("x"))
+        .expect("the row committed");
+    assert!(
+        world.get::<BuiltByA>(root).is_some(),
+        "commit ran the constructor preparation froze"
+    );
+    assert!(
+        world.get::<BuiltByB>(root).is_none(),
+        "commit did NOT run the constructor the domain would answer with now"
+    );
+    assert!(
+        plan.deterministic_dump().contains("drift.a"),
+        "and every canonical surface still names recipe A"
+    );
+    assert_eq!(
+        DISPATCHES.load(Ordering::SeqCst),
+        dispatches_after_prepare,
+        "commit consulted the domain zero further times"
+    );
+}
+
+// ── Relation registrations carry canonical schema metadata ───────────────────
+
+fn other_wire(_: Entity, _: Entity, _: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {}
+
+/// A relation's WIRING can change while its kind and owner stay put, so the
+/// schema id is what makes such a change visible. It must reach the dump.
+#[test]
+fn a_relation_schema_change_changes_the_registry_dump() {
+    let dump_for = |schema: &str| {
+        let mut registry = ConstructionRegistry::<Toy>::default();
+        registry
+            .try_register_relation(grudge(), "toy", "aggression", schema, wire_grudge)
+            .unwrap();
+        registry.deterministic_dump()
+    };
+    assert_ne!(dump_for("v1"), dump_for("v2"));
+}
+
+/// Registration order must not move it, because that dump is hashed into the
+/// prepared-content fingerprint.
+#[test]
+fn relation_registration_order_does_not_change_the_dump() {
+    let dump_for = |reverse: bool| {
+        let mut registry = ConstructionRegistry::<Toy>::default();
+        let kinds = [RelationKind::new("toy.a"), RelationKind::new("toy.b")];
+        let kinds: Vec<_> = if reverse {
+            kinds.into_iter().rev().collect()
+        } else {
+            kinds.into_iter().collect()
+        };
+        for kind in kinds {
+            registry
+                .try_register_relation(kind, "toy", "tests", "v1", wire_grudge)
+                .unwrap();
+        }
+        registry.deterministic_dump()
+    };
+    assert_eq!(dump_for(false), dump_for(true));
+}
+
+/// Identical metadata AND identical wiring is idempotent; anything else is a
+/// conflict, and a rejected registration leaves the registry untouched.
+#[test]
+fn relation_metadata_conflicts_are_rejected_and_identical_ones_are_idempotent() {
+    let mut registry = ConstructionRegistry::<Toy>::default();
+    registry
+        .try_register_relation(grudge(), "toy", "aggression", "v1", wire_grudge)
+        .unwrap();
+    registry
+        .try_register_relation(grudge(), "toy", "aggression", "v1", wire_grudge)
+        .expect("byte-identical re-registration is idempotent");
+
+    let before = registry.deterministic_dump();
+    for (owner, source, schema, wire) in [
+        ("other", "aggression", "v1", wire_grudge as RelationFn<Toy>),
+        ("toy", "other-source", "v1", wire_grudge),
+        ("toy", "aggression", "v2", wire_grudge),
+        // Same metadata, DIFFERENT behaviour: still a conflict, because the
+        // dump could not otherwise tell the two apart.
+        ("toy", "aggression", "v1", other_wire),
+    ] {
+        let error = registry
+            .try_register_relation(grudge(), owner, source, schema, wire)
+            .expect_err("a differing relation registration must be rejected");
+        assert!(matches!(
+            error,
+            ConstructionRegistrationError::ConflictingRelation { .. }
+        ));
+    }
+    assert_eq!(
+        registry.deterministic_dump(),
+        before,
+        "rejected registrations leave the registry untouched"
+    );
+}
+
+#[test]
+fn empty_relation_metadata_fields_are_rejected() {
+    let mut registry = ConstructionRegistry::<Toy>::default();
+    for (kind, owner, source, schema, field) in [
+        (" ", "toy", "tests", "v1", "id"),
+        ("toy.k", "", "tests", "v1", "owner"),
+        ("toy.k", "toy", "", "v1", "source"),
+        ("toy.k", "toy", "tests", "", "schema id"),
+    ] {
+        assert_eq!(
+            registry.try_register_relation(
+                RelationKind::new(kind),
+                owner,
+                source,
+                schema,
+                wire_grudge
+            ),
+            Err(ConstructionRegistrationError::EmptyIdentity { field })
+        );
+    }
+}
+
+// ── Boundary roster verification ─────────────────────────────────────────────
+//
+// A recipe holds raw `Commands` and the root `Entity`, so every violation below
+// is expressible TODAY. These are not hypotheticals guarded by
+// `ConstructionRoot` — that type only stops a recipe NOMINATING a pre-existing
+// entity as a row's root.
+
+/// What each adversarial toy recipe should do to its root.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Sabotage {
+    None,
+    StripIdentity,
+    OverwriteProvenance,
+    DespawnRoot,
+    DuplicateIdentity,
+    SpawnExtraAuthoritativeRoot,
+    PresentationChild,
+}
+
+thread_local! {
+    static SABOTAGE: std::cell::Cell<Sabotage> = const { std::cell::Cell::new(Sabotage::None) };
+}
+
+#[derive(Component)]
+struct PresentationOnly;
+
+fn apply_sabotage(root: ConstructionRoot, ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {
+    match SABOTAGE.with(|s| s.get()) {
+        Sabotage::None => {}
+        Sabotage::StripIdentity => {
+            ctx.commands.entity(root.entity()).remove::<SimId>();
+        }
+        Sabotage::OverwriteProvenance => {
+            ctx.commands
+                .entity(root.entity())
+                .insert(SpawnOrigin::Dynamic {
+                    parent: SimId::placement("nobody"),
+                    sequence: 99,
+                });
+        }
+        Sabotage::DespawnRoot => {
+            ctx.commands.entity(root.entity()).despawn();
+        }
+        Sabotage::DuplicateIdentity => {
+            // A second body answering to the SAME planned identity. A
+            // `BTreeSet<SimId>` comparison cannot see this at all.
+            ctx.commands.spawn(SimId::placement("a"));
+        }
+        Sabotage::SpawnExtraAuthoritativeRoot => {
+            // The shape the giant hand limbs already have.
+            ctx.commands.spawn(SimId::placement("uninvited"));
+        }
+        Sabotage::PresentationChild => {
+            // Legal: a helper with no authoritative identity.
+            ctx.commands.spawn(PresentationOnly);
+        }
+    }
+}
+
+/// Runs a plan under one sabotage and verifies the resulting world.
+///
+/// The sabotage flag is thread-local, and Rust runs tests on separate threads,
+/// so these do not interfere with each other or with the ordinary toy tests.
+fn verify_under(
+    sabotage: Sabotage,
+    plan: &ConstructionPlan<Toy>,
+) -> Result<(), Vec<RosterViolation>> {
+    SABOTAGE.with(|s| s.set(sabotage));
+    let services = Services::default();
+    let mut world = World::new();
+    let receipt = commit_into(&mut world, plan, &services);
+    SABOTAGE.with(|s| s.set(Sabotage::None));
+
+    // The transaction's authoritative scope: every live identity. Nothing here
+    // parses an id or infers authority from a name.
+    let authoritative: Vec<(SimId, Entity)> = world
+        .query::<(Entity, &SimId)>()
+        .iter(&world)
+        .map(|(entity, id)| (id.clone(), entity))
+        .collect();
+    let live: std::collections::BTreeSet<Entity> = world.query::<Entity>().iter(&world).collect();
+    let origins: BTreeMap<Entity, SpawnOrigin> = world
+        .query::<(Entity, &SpawnOrigin)>()
+        .iter(&world)
+        .map(|(entity, origin)| (entity, origin.clone()))
+        .collect();
+
+    verify_committed_roster(
+        plan,
+        &receipt,
+        &TransactionBaseline::default(),
+        &authoritative,
+        &|entity| live.contains(&entity),
+        &|entity| origins.get(&entity).cloned(),
+    )
+}
+
+fn sabotage_plan() -> ConstructionPlan<Toy> {
+    let registry = registry();
+    ConstructionPlan::prepare(
+        scope(),
+        vec![request("a"), request("b")],
+        &nothing_live(),
+        &registry,
+    )
+    .unwrap()
+}
+
+#[test]
+fn a_clean_commit_verifies() {
+    assert_eq!(verify_under(Sabotage::None, &sabotage_plan()), Ok(()));
+}
+
+#[test]
+fn a_recipe_that_strips_its_roots_identity_is_detected() {
+    let violations = verify_under(Sabotage::StripIdentity, &sabotage_plan())
+        .expect_err("stripping a planned identity must be detected");
+    assert!(
+        violations
+            .iter()
+            .any(|v| matches!(v, RosterViolation::Missing { .. })),
+        "got {violations:?}"
+    );
+}
+
+#[test]
+fn a_recipe_that_overwrites_its_roots_provenance_is_detected() {
+    let violations = verify_under(Sabotage::OverwriteProvenance, &sabotage_plan())
+        .expect_err("rewriting provenance must be detected");
+    assert!(
+        violations
+            .iter()
+            .any(|v| matches!(v, RosterViolation::ProvenanceChanged { .. })),
+        "got {violations:?}"
+    );
+}
+
+#[test]
+fn a_recipe_that_despawns_its_root_is_detected() {
+    let violations = verify_under(Sabotage::DespawnRoot, &sabotage_plan())
+        .expect_err("despawning a planned root must be detected");
+    assert!(
+        violations
+            .iter()
+            .any(|v| matches!(v, RosterViolation::Missing { .. })),
+        "got {violations:?}"
+    );
+}
+
+/// The case set comparison is blind to: the identity SET is exactly right and
+/// two bodies answer to one of them.
+#[test]
+fn a_duplicated_planned_identity_is_detected() {
+    let plan = sabotage_plan();
+    let violations = verify_under(Sabotage::DuplicateIdentity, &plan)
+        .expect_err("a duplicated identity must be detected");
+    assert!(
+        violations
+            .iter()
+            .any(|v| matches!(v, RosterViolation::Duplicated { count, .. } if *count > 1)),
+        "got {violations:?}"
+    );
+}
+
+/// The shape the giant hand limbs already have today.
+#[test]
+fn an_unplanned_authoritative_root_is_detected() {
+    let violations = verify_under(Sabotage::SpawnExtraAuthoritativeRoot, &sabotage_plan())
+        .expect_err("an authoritative root no row named must be detected");
+    assert!(
+        violations
+            .iter()
+            .any(|v| matches!(v, RosterViolation::Unplanned { .. })),
+        "got {violations:?}"
+    );
+}
+
+/// Presentation-only helpers stay legal — they carry no authoritative identity,
+/// so they are simply not in the transaction's authoritative scope.
+#[test]
+fn a_presentation_only_child_is_permitted() {
+    assert_eq!(
+        verify_under(Sabotage::PresentationChild, &sabotage_plan()),
+        Ok(())
+    );
+}
+
+/// Identities that were already live when the transaction began are not
+/// "unplanned" — that is what the baseline is for.
+#[test]
+fn a_baseline_identity_is_not_reported_as_unplanned() {
+    let plan = sabotage_plan();
+    let receipt = ConstructionReceipt::default();
+    let baseline = TransactionBaseline::new(BTreeSet::from([SimId::placement("survivor")]));
+    let violations = verify_committed_roster(
+        &plan,
+        &receipt,
+        &baseline,
+        &[(
+            SimId::placement("survivor"),
+            Entity::from_raw_u32(7).unwrap(),
+        )],
+        &|_| true,
+        &|_| None,
+    )
+    .expect_err("the plan's own rows are still missing");
+    assert!(
+        !violations
+            .iter()
+            .any(|v| matches!(v, RosterViolation::Unplanned { .. })),
+        "a pre-existing identity is not an unplanned root: {violations:?}"
+    );
 }

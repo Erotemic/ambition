@@ -113,12 +113,20 @@ disagree — and one that wrongly returns `true` still reaches the constructor's
 rejects elsewhere, for the same reason.
 
 So the pairing is not checked, it is unrepresentable.
-`ConstructionDomain::recipe_of` derives a row's recipe from its parameters, so
-`ConstructionRequest` has no `recipe` field to set wrongly, and
-`ConstructionDomain::construct` is one exhaustive match, so a variant with no
-construction arm is a compile error. The registry keeps its ADR-0026 identity
-role — ownership, idempotent re-registration, conflict rejection, fingerprint
-contribution — and no longer dispatches.
+`ConstructionDomain::dispatch` is ONE exhaustive match returning both a row's
+recipe identity and the constructor that builds it, so `ConstructionRequest` has
+no `recipe` field to set wrongly and a variant with no arm is a compile error.
+Two matches — one for the label, one for the behaviour — would have been able to
+drift while still compiling; one arm names both.
+
+**Preparation freezes the resolved constructor onto the row.** `dispatch` is
+expected to be pure, but nothing makes it so: an implementation may read an
+atomic or any other mutable process state. Re-resolving at commit therefore let
+a plan validate recipe A, dump recipe A, fingerprint recipe A, and execute
+constructor B. `PlannedEntity` stores the resolved `ConstructFn` and commit runs
+that. The pointer is never canonicalised — a `fn` address is runtime execution
+state, not content identity; the stable `RecipeId` is what the dump and the
+fingerprint carry.
 
 **The construction registry contributes to the prepared-content fingerprint.**
 A recipe table decides how authoritative entities are built, so two sessions
@@ -239,9 +247,18 @@ a state where the two disagree with nothing to say which wins.
   with `ConstructionPlan::construct_one` (a `commit_subset` of one), and when it
   is refused for cutting a relation, rebuild `relation_closure` of what you
   wanted rather than reaching past the refusal.
-- **A new parameter variant needs an arm in `recipe_of` AND in `construct`.**
-  The compiler enforces the second; the first is what keeps the dump and the
-  registry honest.
+- **A new parameter variant needs one arm in `dispatch`**, naming both its
+  recipe identity and its constructor. The compiler enforces that the arm
+  exists; `every_parameter_variant_matches_its_descriptor` enforces that it
+  names the right pair.
+- **A relation whose wiring behaviour changes needs a schema-id bump.** Kind and
+  owner alone do not distinguish two behaviours, and the fingerprint hashes
+  metadata rather than pointers, so without the bump the change is invisible to
+  content identity.
+- **After a room transaction commits, run `verify_committed_roster`.** It is a
+  detector, not a preventer: recipes hold raw `Commands` and Bevy commands do
+  not roll back, so a violation stops the transaction being published rather
+  than undoing it.
 - **Never store a relationship between two authoritative entities as a bare
   `Entity` outside the plan.** `Limb`/`LimbRig` and `RidingOn`/`MountSlot` still
   do, which is why partial reconstruction cannot see them. Declare it as a

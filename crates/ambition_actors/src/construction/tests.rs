@@ -772,7 +772,7 @@ fn a_relation_free_row_in_the_same_plan_still_rebuilds_alone() {
 
 /// Every parameter variant reaches a construction arm and produces its root.
 ///
-/// This is what replaced the `AcceptsFn` tests. The recipe is derived from the
+/// This is what replaced the removed `AcceptsFn` tests. The recipe is derived from the
 /// payload and construction is one exhaustive match, so a variant with no arm is
 /// a compile error rather than a mid-commit panic — but "every arm actually
 /// builds something" is still a behavioural claim, and this is it. A new
@@ -1013,4 +1013,62 @@ fn every_parameter_variant_matches_its_descriptor() {
             "each variant reports its own recipe identity"
         );
     }
+}
+
+/// The counter check happens INSIDE the same exclusive-world command that
+/// builds the minions, so a mutation landing between the system running and its
+/// command applying is caught with nothing built — rather than discovered after
+/// the identities have already been handed out.
+///
+/// The window is real here, not simulated: `apply_summon_effects` queues its
+/// commit, a second system writes the counter DIRECTLY (no commands, so no sync
+/// point), and only then does the schedule reach the barrier where the commit
+/// applies.
+#[test]
+fn a_counter_mutation_before_the_commit_applies_refuses_with_nothing_built() {
+    use ambition_platformer_primitives::sim_id::SimIdCounter;
+    use bevy::prelude::{IntoScheduleConfigs, Query, Schedule};
+
+    fn interlope(mut counters: Query<&mut SimIdCounter>) {
+        for mut counter in &mut counters {
+            counter.0 = 5;
+        }
+    }
+
+    let mut world = summon_world();
+    let boss = world
+        .spawn((SimId::placement("boss_1"), SimIdCounter::default()))
+        .id();
+    world.write_message(ambition_vfx::EffectRequest {
+        owner: boss,
+        effect: ambition_vfx::Effect::Summon(summon_spec("slop_add")),
+    });
+
+    let mut schedule = Schedule::default();
+    // Bevy auto-inserts a sync point between a command-queueing system and a
+    // later one, which would apply the summon's commit before the interloper
+    // runs and close the very window under test. Turned off here deliberately:
+    // the point is to reproduce the interleaving, not to rely on the scheduler
+    // preventing it.
+    schedule.set_build_settings(bevy::ecs::schedule::ScheduleBuildSettings {
+        auto_insert_apply_deferred: false,
+        ..Default::default()
+    });
+    schedule.add_systems((
+        crate::features::apply_summon_effects,
+        interlope.after(crate::features::apply_summon_effects),
+    ));
+    schedule.run(&mut world);
+
+    let built = world
+        .query::<&SimId>()
+        .iter(&world)
+        .filter(|id| id.as_str().starts_with("placement:boss_1/"))
+        .count();
+    assert_eq!(built, 0, "the refusal happened before anything was built");
+    assert_eq!(
+        world.get::<SimIdCounter>(boss).map(|counter| counter.0),
+        Some(5),
+        "the interloper's value stands — there is no max() recovery path"
+    );
 }

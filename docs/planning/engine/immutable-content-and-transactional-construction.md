@@ -780,6 +780,38 @@ families and one parallel path remain outside the planner:
 | 9 | portal gun pickup (`cfg`) | `spawn/mod.rs` | anonymous |
 | — | `apply_spawn_actor_requests` | registered in `stage.rs` | **parallel unplanned path to `spawn_staged_actor`**, still carries the silent-drop `wire_staged_grudges` |
 
+**Fourth review round (checkpoint 2).** Five substrate repairs, before any
+Phase-4 family migration:
+
+1. **The prepared plan was not actually frozen.** `PlannedEntity` stored only the
+   `RecipeId`; commit called `dispatch` again. `dispatch` is expected to be pure
+   but nothing makes it so, so a plan could validate/dump/fingerprint recipe A
+   and execute constructor B. The resolved `ConstructFn` is now stored on the
+   row and commit runs it. Proven by a toy domain whose `dispatch` flips on an
+   atomic: it fails against the re-dispatch implementation.
+2. **Summon reservation is now one authoritative boundary.** The counter check,
+   the construction, and the advance happen inside a single exclusive-world
+   command. The `max()` recovery path is deleted — there is no longer a window
+   for the value to move. Proven with a real interleaving (auto sync points
+   disabled so a direct-write system lands between queueing and applying); the
+   old shape builds the minion, the new one refuses with nothing built.
+3. **Relations carry canonical schema metadata** (kind, owner, source, schema
+   id), in conflict validation, the dump, and the fingerprint. A relation whose
+   WIRING changes while kind and owner stay put now requires a schema bump to be
+   visible — stated in the ADR.
+4. **`verify_committed_roster` exists**: counts identities rather than
+   set-comparing them, checks root ownership and provenance, flags unplanned
+   authoritative roots and dangling relations, and returns structured
+   `RosterViolation`s. Six adversarial toy recipes prove each case, plus a
+   positive test that presentation-only children are permitted.
+5. Stale claims swept from code, ADR, and this document.
+
+⚠ **Roster verification DETECTS; it does not PREVENT, and Bevy commands do not
+roll back.** By the time the verifier can run, construction has applied. A
+violation can stop a transaction being published as successful; it cannot undo
+it. The structural fix — every authoritative root an explicit plan row — is
+Phase-4 work.
+
 ⚠ **There is NO enforced plan-to-world roster parity, and the docs no longer
 claim one.** A recipe receives raw `Commands` and the root `Entity`, so it can
 despawn the root, remove or overwrite its `SimId`, mutate unrelated entities, or

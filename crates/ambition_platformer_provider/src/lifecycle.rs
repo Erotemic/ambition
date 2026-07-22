@@ -1442,6 +1442,43 @@ mod tests {
         assert_eq!(forward.fingerprint(), reversed.fingerprint());
     }
 
+    /// A relation's wiring behaviour can change while its kind and owner stay
+    /// the same. The schema id is what makes that visible to content identity,
+    /// so it must reach the fingerprint just as a recipe's does.
+    #[test]
+    fn a_relation_schema_change_moves_the_fingerprint() {
+        let characters = character_registry(false, CHARACTER_B);
+        let staging = staging_registry(false);
+
+        let baseline = fixture_content_with_recipes(
+            fixture_source(128.0),
+            &characters,
+            &staging,
+            Some(relation_dump("v1")),
+        );
+        let bumped = fixture_content_with_recipes(
+            fixture_source(128.0),
+            &characters,
+            &staging,
+            Some(relation_dump("v2")),
+        );
+        assert_ne!(baseline.fingerprint(), bumped.fingerprint());
+    }
+
+    fn relation_dump(schema: &str) -> String {
+        let mut registry = ambition_actors::construction::ActorConstructionRegistry::default();
+        registry
+            .try_register_relation(
+                ambition_actors::construction::relation_grudge(),
+                "ambition_actors",
+                "aggression",
+                schema,
+                ambition_actors::construction::wire_grudge_for_tests,
+            )
+            .unwrap();
+        registry.deterministic_dump()
+    }
+
     /// A real registry, dumped — the same value the app path contributes.
     fn construction_dump(schema: &str) -> String {
         let mut registry = ambition_actors::construction::ActorConstructionRegistry::default();

@@ -588,6 +588,14 @@ documented as a CLOSED domain — providers register metadata, not executable
 behaviour. **There is no enforced plan-to-world roster parity and the docs no
 longer claim one.**
 
+⚠ **Checkpoint 2 (substrate) landed:** the prepared plan now freezes its
+resolved constructor (commit no longer re-dispatches — proven against a domain
+whose `dispatch` flips on an atomic); summon reservation check+build+advance are
+one exclusive-world boundary with the `max()` recovery deleted; relations carry
+schema metadata that reaches the fingerprint; `verify_committed_roster` counts
+identities and flags unplanned roots, with six adversarial recipes proving it.
+⚠ It DETECTS, it does not prevent — Bevy commands do not roll back.
+
 ⚠ **PHASE 4 IS NOT STARTED.** Nine authoritative families and one parallel
 `apply_spawn_actor_requests` path remain outside the planner — the exact table is
 in the campaign doc. Two known holes in the current parity claim: giant hand

@@ -1674,37 +1674,6 @@ impl SummonerSequenceReservation {
     ) -> bool {
         counter.is_some_and(|counter| counter.0 == self.expected)
     }
-
-    fn apply(self, world: &mut bevy::prelude::World, owner: bevy::prelude::Entity) {
-        let Some(mut counter) =
-            world.get_mut::<ambition_platformer_primitives::sim_id::SimIdCounter>(owner)
-        else {
-            bevy::log::error!(
-                target: "ambition::construction",
-                "summoner `{}` lost its identity counter between planning and commit; \
-                 {} summoned identities were built but the counter could not be advanced — \
-                 the next summon from this body may collide",
-                self.summoner,
-                self.next - self.expected,
-            );
-            return;
-        };
-        if counter.0 != self.expected {
-            bevy::log::error!(
-                target: "ambition::construction",
-                "summoner `{}` counter moved from {} to {} between planning and commit; \
-                 advancing to {} anyway would either re-spend or skip identities",
-                self.summoner,
-                self.expected,
-                counter.0,
-                self.next,
-            );
-            // Take the furthest of the two so no identity is handed out twice.
-            counter.0 = counter.0.max(self.next);
-            return;
-        }
-        counter.0 = self.next;
-    }
 }
 
 pub fn apply_summon_effects(
@@ -1792,7 +1761,6 @@ pub fn apply_summon_effects(
         return;
     }
 
-    let live: std::collections::BTreeSet<_> = identities.iter().cloned().collect();
     let scope = ConstructionScope {
         // A summon is not a content artifact. It says so explicitly rather than
         // by writing the same zero epoch a reset and a fixture also wrote, which
@@ -1807,26 +1775,53 @@ pub fn apply_summon_effects(
         ),
         boss_catalog: boss_catalog.clone(),
     };
-    // Preconditions BEFORE anything is built: every summoner must still exist
-    // and still hold the counter value its reservation was read from. Checking
-    // here makes a stale reservation a refusal that costs nothing, instead of a
-    // complaint logged after the minions already exist.
-    if let Some((_, stale)) = reservations
-        .iter()
-        .find(|(owner, reservation)| !reservation.still_valid(counters.get(**owner).ok()))
-    {
-        bevy::log::error!(
-            target: "ambition::construction",
-            "summon batch refused before mutation: summoner `{}` no longer holds the identity \
-             counter value {} this batch reserved against",
-            stale.summoner,
-            stale.expected,
-        );
-        return;
-    }
 
-    match ConstructionPlan::prepare(scope.clone(), planned, &live, &recipes) {
-        Ok(plan) => {
+    // Planning stays out here, against the App's own registry, and stays pure:
+    // a rejected batch has spent nothing and built nothing.
+    let live: std::collections::BTreeSet<_> = identities.iter().cloned().collect();
+    let plan = match ConstructionPlan::prepare(scope.clone(), planned, &live, &recipes) {
+        Ok(plan) => plan,
+        Err(error) => {
+            bevy::log::error!(
+                target: "ambition::construction",
+                "summon batch rejected before mutation: {error}"
+            );
+            return;
+        }
+    };
+
+    // The counter check, the construction, and the advance then happen inside
+    // ONE exclusive-world command, so nothing can spend this summoner's
+    // identities between the check and the spawn.
+    //
+    // ⚠ Atomicity of DECISION, not rollback. Bevy commands do not un-apply.
+    // What this buys is that the counters are verified while holding exclusive
+    // access, immediately before the construction that depends on them, with no
+    // window in between — so a refusal happens with nothing built, and a commit
+    // is never followed by the discovery that its reservation was already
+    // stale. There is consequently no `max()` recovery path: by the time the
+    // advance runs, the value it is replacing has just been read under the same
+    // lock.
+    commands.queue(move |world: &mut bevy::prelude::World| {
+        use ambition_platformer_primitives::sim_id::SimIdCounter;
+
+        for (owner, reservation) in &reservations {
+            let counter = world.get::<SimIdCounter>(*owner);
+            if !reservation.still_valid(counter) {
+                bevy::log::error!(
+                    target: "ambition::construction",
+                    "summon batch refused: summoner `{}` no longer holds the counter value {} \
+                     this batch reserved against (now {:?}). Nothing was built.",
+                    reservation.summoner,
+                    reservation.expected,
+                    counter.map(|counter| counter.0),
+                );
+                return;
+            }
+        }
+
+        {
+            let mut commands = world.commands();
             let mut ctx = ambition_platformer_primitives::construction::ConstructionExecCtx {
                 commands: &mut commands,
                 scope: &scope,
@@ -1834,28 +1829,15 @@ pub fn apply_summon_effects(
                 services: &services,
             };
             plan.commit(&mut ctx);
-            // Applied after every command this commit produced, and CHECKED
-            // rather than assumed. A missing owner or a counter that moved since
-            // planning means something else spent this summoner's identities
-            // while this batch was in flight; the minions are already built by
-            // then, so the one thing that must not happen is passing over it in
-            // silence.
-            commands.queue(move |world: &mut bevy::prelude::World| {
-                for (owner, reservation) in reservations {
-                    reservation.apply(world, owner);
-                }
-            });
         }
-        Err(error) => {
-            // Nothing has been mutated: preparation is pure, and the sequence
-            // numbers this batch would have consumed were never written back, so
-            // the identities it planned are still available to the next one.
-            bevy::log::error!(
-                target: "ambition::construction",
-                "summon batch rejected before mutation: {error}"
-            );
+        world.flush();
+
+        for (owner, reservation) in reservations {
+            if let Some(mut counter) = world.get_mut::<SimIdCounter>(owner) {
+                counter.0 = reservation.next;
+            }
         }
-    }
+    });
 }
 
 #[cfg(test)]

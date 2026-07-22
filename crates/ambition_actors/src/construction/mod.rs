@@ -261,6 +261,16 @@ fn construct_summoned_minion(
 
 // ── Relations ────────────────────────────────────────────────────────────────
 
+/// The grudge wiring, exposed so provider-side fingerprint tests can build a
+/// registry that matches the real one rather than a lookalike.
+pub fn wire_grudge_for_tests(
+    from: Entity,
+    to: Entity,
+    ctx: &mut ConstructionExecCtx<'_, '_, '_, ActorConstruction>,
+) {
+    wire_grudge(from, to, ctx)
+}
+
 /// Wire a personal grudge. Re-inserting `ActorAggression` is safe: staged
 /// fighters spawn `hostile()` already, so this only adds the grudge.
 fn wire_grudge(from: Entity, to: Entity, ctx: &mut Ctx<'_, '_, '_>) {
@@ -301,7 +311,7 @@ pub fn install_actor_construction_recipes(
     )?;
     registry.try_register_recipe(recipe_staged_actor(), OWNER, "content-staging", SCHEMA)?;
     registry.try_register_recipe(recipe_summoned_minion(), OWNER, "summon-effect", SCHEMA)?;
-    registry.try_register_relation(relation_grudge(), OWNER, wire_grudge)?;
+    registry.try_register_relation(relation_grudge(), OWNER, "aggression", SCHEMA, wire_grudge)?;
     Ok(())
 }
 

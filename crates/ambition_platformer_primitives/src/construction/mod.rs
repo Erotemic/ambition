@@ -314,10 +314,23 @@ pub struct RelationRequest {
 /// world has begun to retire.
 pub struct PlannedEntity<D: ConstructionDomain> {
     sim_id: SimId,
-    /// Derived once at preparation via [`ConstructionDomain::dispatch`] and
-    /// kept for the dump. Not a dispatch key: construction re-resolves the same
-    /// pure decision, which cannot disagree with this one.
+    /// Resolved once at preparation via [`ConstructionDomain::dispatch`], and
+    /// what the dump, the registry check, and the fingerprint all name.
     recipe: RecipeId,
+    /// **The resolved constructor, frozen beside its identity.**
+    ///
+    /// Commit runs THIS, and never asks the domain again. `dispatch` is
+    /// expected to be a pure function of the parameters, but nothing in the
+    /// type system makes it one: an implementation may read an atomic, an
+    /// environment variable, or any other mutable process state. Re-resolving
+    /// at commit therefore allowed a plan to validate recipe A, dump recipe A,
+    /// fingerprint recipe A — and execute constructor B. Freezing it here is
+    /// what makes "prepared" mean prepared.
+    ///
+    /// Deliberately absent from every canonical surface: a `fn` address is
+    /// runtime execution state, not content identity. The dump and the
+    /// fingerprint carry [`Self::recipe`] instead.
+    construct: ConstructFn<D>,
     origin: SpawnOrigin,
     parameters: D::Parameters,
 }
@@ -327,6 +340,7 @@ impl<D: ConstructionDomain> Clone for PlannedEntity<D> {
         Self {
             sim_id: self.sim_id.clone(),
             recipe: self.recipe.clone(),
+            construct: self.construct,
             origin: self.origin.clone(),
             parameters: self.parameters.clone(),
         }
@@ -632,6 +646,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
             entities.push(PlannedEntity {
                 sim_id: request.sim_id,
                 recipe: dispatch.recipe,
+                construct: dispatch.construct,
                 origin: request.origin,
                 parameters: request.parameters,
             });
@@ -748,12 +763,12 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     /// between.
     ///
     /// Every refusal happens before the first recipe runs, so a rejected subset
-    /// leaves the world exactly as it found it. A relation whose `from` is being
-    /// rebuilt but whose `to` is not is such a refusal: quietly rebuilding the
-    /// body without the wiring is the silent drop this module exists to delete.
-    /// A relation pointing *into* the subset from a row outside it is not — that
-    /// relation belongs to the outside row, which is not being rebuilt and still
-    /// holds it.
+    /// leaves the world exactly as it found it. A subset containing exactly ONE
+    /// end of a planned relation is such a refusal, in either direction:
+    /// rebuilding the source alone leaves it unwired, and rebuilding the target
+    /// alone leaves the untouched source holding a handle to the entity that
+    /// just died. See [`ConstructionError::RelationCutBySubset`], and
+    /// [`ConstructionPlan::relation_closure`] for the set that cannot be cut.
     pub fn commit_subset(
         &self,
         ids: &BTreeSet<SimId>,
@@ -850,14 +865,10 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         ctx.commands
             .entity(root)
             .insert((planned.sim_id.clone(), planned.origin.clone()));
-        // Re-dispatched rather than stored: the decision is a pure function of
-        // the parameters, so resolving it again cannot yield a different answer
-        // than preparation got, and storing a `fn` pointer per row buys nothing.
-        (D::dispatch(&planned.parameters).construct)(
-            &planned.parameters,
-            ConstructionRoot(root),
-            ctx,
-        );
+        // The constructor preparation resolved — NOT a fresh dispatch. A domain
+        // whose `dispatch` reads mutable state would otherwise let commit run a
+        // different constructor than the one the plan validated and dumped.
+        (planned.construct)(&planned.parameters, ConstructionRoot(root), ctx);
         root
     }
 
@@ -892,6 +903,210 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
             );
         }
         out
+    }
+}
+
+/// Check that the world a commit produced is the world the plan described.
+///
+/// **This is a detector, not a preventer, and the distinction is the whole
+/// point of having it.** The executor allocates each row's root, but a recipe
+/// receives raw `Commands` and the root `Entity`, so it can despawn that root,
+/// strip or rewrite its `SimId`/`SpawnOrigin`, stamp a second entity with a
+/// planned identity, or spawn further authoritative entities of its own — the
+/// giant hand limbs already do the last of these. None of that is structurally
+/// prevented today, so a transaction that intends to publish a room must ask.
+///
+/// ⚠ **Bevy commands do not roll back.** By the time this can run, the
+/// construction commands have applied. A violation here therefore cannot be
+/// undone — it can only stop the transaction being PUBLISHED as successful, and
+/// leaves the world in whatever state the offending recipe produced. That is
+/// strictly better than publishing a room nobody can describe, and strictly
+/// worse than the structural fix (every authoritative root an explicit plan
+/// row), which is Phase-4 work.
+///
+/// `authoritative` supplies the identities in the transaction's scope, so the
+/// caller decides what counts rather than this function guessing. Presentation
+/// children and helpers a recipe creates are simply not in it, which is how they
+/// stay legal.
+pub fn verify_committed_roster<D: ConstructionDomain>(
+    plan: &ConstructionPlan<D>,
+    receipt: &ConstructionReceipt,
+    baseline: &TransactionBaseline,
+    // Every (identity, entity) pair currently in the transaction's authoritative
+    // scope. Duplicates are meaningful and must NOT be pre-deduplicated.
+    authoritative: &[(SimId, Entity)],
+    is_live: &dyn Fn(Entity) -> bool,
+    origin_of: &dyn Fn(Entity) -> Option<SpawnOrigin>,
+) -> Result<(), Vec<RosterViolation>> {
+    let mut violations = Vec::new();
+
+    // Counted, not set-compared: a duplicate identity is invisible to a set.
+    let mut counts: BTreeMap<&SimId, Vec<Entity>> = BTreeMap::new();
+    for (sim_id, entity) in authoritative {
+        counts.entry(sim_id).or_default().push(*entity);
+    }
+
+    for planned in plan.entities() {
+        let expected_root = receipt.entity(&planned.sim_id);
+        match counts.get(&planned.sim_id) {
+            None => violations.push(RosterViolation::Missing {
+                sim_id: planned.sim_id.clone(),
+            }),
+            Some(entities) if entities.len() > 1 => violations.push(RosterViolation::Duplicated {
+                sim_id: planned.sim_id.clone(),
+                count: entities.len(),
+            }),
+            Some(entities) => {
+                let found = entities[0];
+                if expected_root != Some(found) {
+                    violations.push(RosterViolation::MovedRoot {
+                        sim_id: planned.sim_id.clone(),
+                    });
+                }
+            }
+        }
+        if let Some(root) = expected_root {
+            if !is_live(root) {
+                violations.push(RosterViolation::Missing {
+                    sim_id: planned.sim_id.clone(),
+                });
+            } else {
+                // The executor stamped this before the recipe ran; a recipe that
+                // overwrote or removed it produced a body no restore can place.
+                let found = origin_of(root);
+                if found.as_ref() != Some(&planned.origin) {
+                    violations.push(RosterViolation::ProvenanceChanged {
+                        sim_id: planned.sim_id.clone(),
+                        expected: planned.origin.clone(),
+                        found,
+                    });
+                }
+            }
+        }
+    }
+
+    let planned_ids = plan.planned_ids();
+    for (sim_id, _) in authoritative {
+        if !planned_ids.contains(sim_id) && !baseline.contains(sim_id) {
+            violations.push(RosterViolation::Unplanned {
+                sim_id: sim_id.clone(),
+            });
+        }
+    }
+
+    for (from, kind, to) in receipt.relations_wired() {
+        for end in [from, to] {
+            let live = receipt.entity(end).is_some_and(&is_live);
+            if !live {
+                violations.push(RosterViolation::DanglingRelation {
+                    from: from.clone(),
+                    kind: kind.clone(),
+                    to: to.clone(),
+                });
+                break;
+            }
+        }
+    }
+
+    violations.sort_by_key(|violation| format!("{violation:?}"));
+    violations.dedup();
+    if violations.is_empty() {
+        Ok(())
+    } else {
+        Err(violations)
+    }
+}
+
+/// How a committed plan failed to match the world it was supposed to build.
+///
+/// Structured rather than logged, because the caller's correct response is to
+/// refuse the transaction, not to carry on with a world it cannot describe.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RosterViolation {
+    /// A planned row produced no live entity carrying its identity.
+    Missing { sim_id: SimId },
+    /// More than one live entity carries a planned identity. **This is the case
+    /// a `BTreeSet<SimId>` comparison cannot see**: the set of identities looks
+    /// exactly right while two bodies answer to one of them.
+    Duplicated { sim_id: SimId, count: usize },
+    /// The identity exists, but not on the entity the executor allocated for
+    /// it — the recipe moved it, or despawned the root and rebuilt elsewhere.
+    MovedRoot { sim_id: SimId },
+    /// The root lost or had rewritten the provenance the executor stamped.
+    ProvenanceChanged {
+        sim_id: SimId,
+        expected: SpawnOrigin,
+        found: Option<SpawnOrigin>,
+    },
+    /// A transaction-scoped authoritative root exists that no plan row named.
+    /// Recipes that create authoritative entities internally land here.
+    Unplanned { sim_id: SimId },
+    /// A wired relation names an entity that is not live.
+    DanglingRelation {
+        from: SimId,
+        kind: RelationKind,
+        to: SimId,
+    },
+}
+
+impl std::fmt::Display for RosterViolation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Missing { sim_id } => {
+                write!(f, "planned identity `{sim_id}` is not in the world")
+            }
+            Self::Duplicated { sim_id, count } => write!(
+                f,
+                "planned identity `{sim_id}` is on {count} entities; exactly one was expected"
+            ),
+            Self::MovedRoot { sim_id } => write!(
+                f,
+                "planned identity `{sim_id}` is not on the root the executor allocated for it"
+            ),
+            Self::ProvenanceChanged {
+                sim_id,
+                expected,
+                found,
+            } => write!(
+                f,
+                "`{sim_id}` should carry provenance `{}` but carries `{}`",
+                expected.canonical_kind(),
+                found.as_ref().map_or("none", SpawnOrigin::canonical_kind),
+            ),
+            Self::Unplanned { sim_id } => write!(
+                f,
+                "authoritative identity `{sim_id}` exists in this transaction but no plan row \
+                 named it"
+            ),
+            Self::DanglingRelation { from, kind, to } => write!(
+                f,
+                "wired relation `{from}` -`{kind}`-> `{to}` names an entity that is not live"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for RosterViolation {}
+
+/// The authoritative identities that were already live when a transaction
+/// began, so verification can tell "a recipe created this" from "this was
+/// already here".
+///
+/// Explicit rather than inferred: nothing here parses a `SimId`, and nothing
+/// treats every entity in the world as in scope. The caller states the baseline
+/// it retired against, and the plan states what it intended to add.
+#[derive(Clone, Debug, Default)]
+pub struct TransactionBaseline {
+    live: BTreeSet<SimId>,
+}
+
+impl TransactionBaseline {
+    pub fn new(live: BTreeSet<SimId>) -> Self {
+        Self { live }
+    }
+
+    pub fn contains(&self, sim_id: &SimId) -> bool {
+        self.live.contains(sim_id)
     }
 }
 

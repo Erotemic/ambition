@@ -57,7 +57,11 @@ pub enum ConstructionRegistrationError {
     ConflictingRelation {
         kind: RelationKind,
         existing_owner: String,
+        existing_source: String,
+        existing_schema: String,
         candidate_owner: String,
+        candidate_source: String,
+        candidate_schema: String,
     },
 }
 
@@ -84,11 +88,16 @@ impl std::fmt::Display for ConstructionRegistrationError {
             Self::ConflictingRelation {
                 kind,
                 existing_owner,
+                existing_source,
+                existing_schema,
                 candidate_owner,
+                candidate_source,
+                candidate_schema,
             } => write!(
                 f,
-                "conflicting construction relation '{kind}': existing {existing_owner}, candidate \
-                 {candidate_owner}"
+                "conflicting construction relation '{kind}': existing \
+                 {existing_owner}/{existing_source} schema '{existing_schema}', candidate \
+                 {candidate_owner}/{candidate_source} schema '{candidate_schema}'"
             ),
         }
     }
@@ -99,9 +108,11 @@ impl std::error::Error for ConstructionRegistrationError {}
 /// What a registered recipe declares about itself.
 ///
 /// **There is no function here.** Construction dispatches through
-/// [`ConstructionDomain::construct`], a single exhaustive match over the
-/// domain's parameters, so a recipe cannot be paired with parameters it cannot
-/// build from — that pairing is not representable rather than checked. A recipe
+/// [`ConstructionDomain::dispatch`], one exhaustive match yielding both a row's
+/// recipe identity and its constructor, so a recipe cannot be paired with
+/// parameters it cannot build from — that pairing is not representable rather
+/// than checked. Preparation freezes the resolved constructor onto the row, so
+/// commit never re-asks. A recipe
 /// identity earns a registry entry for the ADR-0026 reasons only: stable
 /// ownership, idempotent re-registration, conflict rejection, and an ordered
 /// contribution to the prepared-content fingerprint.
@@ -116,8 +127,17 @@ struct RecipeEntry {
     schema_id: String,
 }
 
+/// What a registered relation declares about itself.
+///
+/// Carries the same canonical metadata a recipe does, and for the same reason:
+/// a relation's WIRING BEHAVIOUR can change while its kind and owner stay put,
+/// and without a schema id that change is invisible to the prepared-content
+/// fingerprint. The `wire` pointer itself is never canonicalised — it is
+/// runtime execution state, not content identity.
 struct RelationEntry<D: ConstructionDomain> {
     owner: String,
+    source: String,
+    schema_id: String,
     wire: RelationFn<D>,
 }
 
@@ -207,23 +227,49 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
         &mut self,
         kind: RelationKind,
         owner: impl Into<String>,
+        source: impl Into<String>,
+        schema_id: impl Into<String>,
         wire: RelationFn<D>,
     ) -> Result<(), ConstructionRegistrationError> {
-        let owner = owner.into();
-        non_empty(&[("id", kind.as_str()), ("owner", owner.as_str())])?;
+        let (owner, source, schema_id) = (owner.into(), source.into(), schema_id.into());
+        non_empty(&[
+            ("id", kind.as_str()),
+            ("owner", owner.as_str()),
+            ("source", source.as_str()),
+            ("schema id", schema_id.as_str()),
+        ])?;
         if let Some(existing) = self.relations.get(&kind) {
-            let identical = existing.owner == owner && std::ptr::fn_addr_eq(existing.wire, wire);
+            // Byte-identical metadata AND the same wiring is idempotent — the
+            // same policy recipes use. The pointer is compared here (a
+            // re-registration with different behaviour is a conflict) but never
+            // canonicalised into the dump.
+            let identical = existing.owner == owner
+                && existing.source == source
+                && existing.schema_id == schema_id
+                && std::ptr::fn_addr_eq(existing.wire, wire);
             return if identical {
                 Ok(())
             } else {
                 Err(ConstructionRegistrationError::ConflictingRelation {
                     kind,
                     existing_owner: existing.owner.clone(),
+                    existing_source: existing.source.clone(),
+                    existing_schema: existing.schema_id.clone(),
                     candidate_owner: owner,
+                    candidate_source: source,
+                    candidate_schema: schema_id,
                 })
             };
         }
-        self.relations.insert(kind, RelationEntry { owner, wire });
+        self.relations.insert(
+            kind,
+            RelationEntry {
+                owner,
+                source,
+                schema_id,
+                wire,
+            },
+        );
         Ok(())
     }
 
@@ -238,7 +284,8 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
         self.relations.get(kind).map(|entry| entry.wire)
     }
 
-    /// Stable owner/source/schema rows for prepared-content assembly.
+    /// Stable owner/source/schema rows for prepared-content assembly, for
+    /// recipes. Relations contribute through [`Self::deterministic_dump`].
     pub fn schema_descriptors(&self) -> Vec<(String, String, String, String)> {
         self.recipes
             .iter()
@@ -262,7 +309,10 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
             })
             .collect();
         for (kind, entry) in &self.relations {
-            out.push_str(&format!("relation\t{kind}\t{}\n", entry.owner));
+            out.push_str(&format!(
+                "relation\t{kind}\t{}\t{}\t{}\n",
+                entry.owner, entry.source, entry.schema_id
+            ));
         }
         out
     }

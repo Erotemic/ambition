@@ -433,7 +433,7 @@ fn a_summoned_minion_is_planned_as_a_dynamic_child_of_its_summoner() {
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
         ConstructionScope {
-            content_epoch: Default::default(),
+            binding: ambition_platformer_primitives::construction::ContentBinding::RuntimeDynamic,
             room: None,
         },
         vec![request],
@@ -479,7 +479,7 @@ fn two_summons_from_one_summoner_do_not_collide() {
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
         ConstructionScope {
-            content_epoch: Default::default(),
+            binding: ambition_platformer_primitives::construction::ContentBinding::RuntimeDynamic,
             room: None,
         },
         vec![
@@ -502,7 +502,7 @@ fn a_summon_under_an_unknown_summoner_is_rejected() {
     let summoner = SimId::placement("ghost_boss");
     let error = ConstructionPlan::<ActorConstruction>::prepare(
         ConstructionScope {
-            content_epoch: Default::default(),
+            binding: ambition_platformer_primitives::construction::ContentBinding::RuntimeDynamic,
             room: None,
         },
         vec![summoned_minion_request(
@@ -816,4 +816,94 @@ fn a_relation_free_row_in_the_same_plan_still_rebuilds_alone() {
         .map(|id| id.as_str().to_string())
         .collect();
     assert_eq!(ids, vec!["placement:pickup_a".to_string()]);
+}
+
+/// Every parameter variant reaches a construction arm and produces its root.
+///
+/// This is what replaced the `AcceptsFn` tests. The recipe is derived from the
+/// payload and construction is one exhaustive match, so a variant with no arm is
+/// a compile error rather than a mid-commit panic — but "every arm actually
+/// builds something" is still a behavioural claim, and this is it. A new
+/// `ActorConstructionParams` variant that is planned but forgotten here shows up
+/// as a missing identity, not as a green suite.
+#[test]
+fn every_parameter_variant_constructs_its_root() {
+    let recipes = engine_construction_registry();
+    let summoner = SimId::placement("boss_1");
+
+    let requests = vec![
+        authored_ground_item_requests(&{
+            let mut room = empty_room("hall");
+            room.ground_items
+                .push(ground_item("pickup", REAL_HELD_ITEM));
+            room
+        })
+        .expect("the ground item resolves")
+        .pop()
+        .expect("one request"),
+        staged_actor_requests("hall", "prov", &[staged_enemy("staged", None)])
+            .pop()
+            .expect("one request"),
+        summoned_minion_request(
+            &summoner,
+            0,
+            SummonedMinionParams {
+                feature_id: "slop".into(),
+                name: "slop".into(),
+                pos: ae::Vec2::ZERO,
+                half_size: ae::Vec2::splat(8.0),
+                archetype_id: "puppy_slug".into(),
+                encounter_id: "enc".into(),
+                faction: crate::features::ActorFaction::Enemy,
+            },
+        ),
+    ];
+    assert_eq!(
+        requests.len(),
+        3,
+        "one request per ActorConstructionParams variant"
+    );
+
+    let live: std::collections::BTreeSet<SimId> = [summoner].into_iter().collect();
+    let plan = ConstructionPlan::<ActorConstruction>::prepare(
+        ConstructionScope {
+            binding: ambition_platformer_primitives::construction::ContentBinding::RuntimeDynamic,
+            room: None,
+        },
+        requests,
+        &live,
+        &recipes,
+    )
+    .expect("every variant plans");
+
+    let mut world = World::new();
+    world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    world.insert_resource(crate::features::enemies::test_roster());
+    let services = ActorConstructionServices {
+        context: crate::world::placements::ActorPlacementContext::new(
+            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+            &crate::features::enemies::test_roster(),
+        ),
+        boss_catalog: crate::boss_encounter::test_boss_catalog().clone(),
+    };
+    let planned = plan.planned_ids();
+    {
+        let mut commands = world.commands();
+        let scope = plan.scope().clone();
+        let mut ctx = ambition_platformer_primitives::construction::ConstructionExecCtx {
+            commands: &mut commands,
+            scope: &scope,
+            session: SessionSpawnScope::UNSCOPED,
+            services: &services,
+        };
+        plan.commit(&mut ctx);
+    }
+    world.flush();
+
+    let in_world: std::collections::BTreeSet<SimId> =
+        world.query::<&SimId>().iter(&world).cloned().collect();
+    assert_eq!(
+        in_world, planned,
+        "all three variants built exactly their planned roots"
+    );
 }

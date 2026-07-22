@@ -38,25 +38,26 @@ impl ConstructionDomain for Toy {
     type Parameters = Params;
     type Services = Services;
 
+    fn recipe_of(_: &Self::Parameters) -> RecipeId {
+        recipe()
+    }
+
+    fn construct(
+        parameters: &Self::Parameters,
+        root: ConstructionRoot,
+        ctx: &mut ConstructionExecCtx<'_, '_, '_, Self>,
+    ) {
+        ctx.services
+            .ordinary_runs
+            .set(ctx.services.ordinary_runs.get() + 1);
+        ctx.commands
+            .entity(root.entity())
+            .insert(Built(parameters.label.clone()));
+    }
+
     fn canonical_summary(parameters: &Self::Parameters) -> String {
         parameters.label.clone()
     }
-}
-
-fn build(planned: &PlannedEntity<Toy>, ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>) -> Entity {
-    ctx.services
-        .ordinary_runs
-        .set(ctx.services.ordinary_runs.get() + 1);
-    ctx.commands
-        .spawn(Built(planned.parameters().label.clone()))
-        .id()
-}
-
-/// The toy domain has one parameter shape, so its recipes accept everything.
-/// Rejection is exercised by `a_recipe_that_rejects_the_parameters_fails_the_plan`,
-/// which registers a picky recipe of its own.
-fn accepts_any(_: &Params) -> bool {
-    true
 }
 
 fn wire_grudge(from: Entity, to: Entity, ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {
@@ -74,7 +75,7 @@ fn grudge() -> RelationKind {
 fn registry() -> ConstructionRegistry<Toy> {
     let mut registry = ConstructionRegistry::<Toy>::default();
     registry
-        .try_register_recipe(recipe(), "toy", "tests", "v1", accepts_any, build)
+        .try_register_recipe(recipe(), "toy", "tests", "v1")
         .expect("first registration succeeds");
     registry
         .try_register_relation(grudge(), "toy", wire_grudge)
@@ -84,7 +85,7 @@ fn registry() -> ConstructionRegistry<Toy> {
 
 fn scope() -> ConstructionScope {
     ConstructionScope {
-        content_epoch: ambition_engine_core::ContentEpoch(7),
+        binding: ContentBinding::Content(ambition_engine_core::ContentEpoch(7)),
         room: Some("room_a".into()),
     }
 }
@@ -92,7 +93,6 @@ fn scope() -> ConstructionScope {
 fn request(id: &str) -> ConstructionRequest<Toy> {
     ConstructionRequest {
         sim_id: SimId::placement(id),
-        recipe: recipe(),
         origin: SpawnOrigin::Authored {
             source: "room_a".into(),
             instance: id.into(),
@@ -319,16 +319,16 @@ fn an_unresolved_parent_is_rejected() {
 
 #[test]
 fn an_unregistered_recipe_is_rejected() {
-    let registry = registry();
-    let mut a = request("a");
-    a.recipe = RecipeId::new("toy.missing");
-    let error = ConstructionPlan::prepare(scope(), vec![a], &nothing_live(), &registry)
-        .expect_err("an unknown recipe must not plan");
+    // The recipe is derived from the payload, so an "unknown recipe" is now a
+    // registry that never declared the one this domain routes to.
+    let registry = ConstructionRegistry::<Toy>::default();
+    let error = ConstructionPlan::prepare(scope(), vec![request("a")], &nothing_live(), &registry)
+        .expect_err("an unregistered recipe must not plan");
     assert_eq!(
         error,
         ConstructionError::UnknownRecipe {
             sim_id: SimId::placement("a"),
-            recipe: RecipeId::new("toy.missing"),
+            recipe: recipe(),
         }
     );
 }
@@ -529,15 +529,12 @@ fn reconstructing_an_unplanned_identity_is_an_error_not_a_silent_skip() {
 fn identical_re_registration_is_idempotent_and_a_conflict_is_rejected() {
     let mut registry = registry();
     registry
-        .try_register_recipe(recipe(), "toy", "tests", "v1", accepts_any, build)
+        .try_register_recipe(recipe(), "toy", "tests", "v1")
         .expect("byte-identical re-registration is idempotent");
 
-    fn other(_: &PlannedEntity<Toy>, _: &mut ConstructionExecCtx<'_, '_, '_, Toy>) -> Entity {
-        unreachable!("never executed")
-    }
     let before = registry.deterministic_dump();
     let error = registry
-        .try_register_recipe(recipe(), "other", "tests", "v1", accepts_any, other)
+        .try_register_recipe(recipe(), "other", "tests", "v1")
         .expect_err("a second owner for one recipe must be rejected");
     assert!(matches!(
         error,
@@ -554,123 +551,47 @@ fn identical_re_registration_is_idempotent_and_a_conflict_is_rejected() {
 fn empty_identity_fields_are_rejected() {
     let mut registry = ConstructionRegistry::<Toy>::default();
     assert_eq!(
-        registry.try_register_recipe(RecipeId::new(" "), "toy", "tests", "v1", accepts_any, build),
+        registry.try_register_recipe(RecipeId::new(" "), "toy", "tests", "v1"),
         Err(ConstructionRegistrationError::EmptyIdentity { field: "id" })
     );
     assert_eq!(
-        registry.try_register_recipe(recipe(), "", "tests", "v1", accepts_any, build),
+        registry.try_register_recipe(recipe(), "", "tests", "v1"),
         Err(ConstructionRegistrationError::EmptyIdentity { field: "owner" })
     );
 }
 
 #[test]
 fn the_registry_dump_does_not_depend_on_registration_order() {
-    fn second(
-        planned: &PlannedEntity<Toy>,
-        ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>,
-    ) -> Entity {
-        build(planned, ctx)
-    }
     let mut forward = ConstructionRegistry::<Toy>::default();
     forward
-        .try_register_recipe(
-            RecipeId::new("toy.a"),
-            "toy",
-            "tests",
-            "v1",
-            accepts_any,
-            build,
-        )
+        .try_register_recipe(RecipeId::new("toy.a"), "toy", "tests", "v1")
         .unwrap();
     forward
-        .try_register_recipe(
-            RecipeId::new("toy.b"),
-            "toy",
-            "tests",
-            "v1",
-            accepts_any,
-            second,
-        )
+        .try_register_recipe(RecipeId::new("toy.b"), "toy", "tests", "v1")
         .unwrap();
 
     let mut reversed = ConstructionRegistry::<Toy>::default();
     reversed
-        .try_register_recipe(
-            RecipeId::new("toy.b"),
-            "toy",
-            "tests",
-            "v1",
-            accepts_any,
-            second,
-        )
+        .try_register_recipe(RecipeId::new("toy.b"), "toy", "tests", "v1")
         .unwrap();
     reversed
-        .try_register_recipe(
-            RecipeId::new("toy.a"),
-            "toy",
-            "tests",
-            "v1",
-            accepts_any,
-            build,
-        )
+        .try_register_recipe(RecipeId::new("toy.a"), "toy", "tests", "v1")
         .unwrap();
 
     assert_eq!(forward.deterministic_dump(), reversed.deterministic_dump());
 }
 
 // ── The recipe/parameter pairing ─────────────────────────────────────────────
-
-fn accepts_nothing(_: &Params) -> bool {
-    false
-}
-
-fn picky() -> RecipeId {
-    RecipeId::new("toy.picky")
-}
-
-fn registry_with_picky_recipe() -> ConstructionRegistry<Toy> {
-    let mut registry = registry();
-    registry
-        .try_register_recipe(picky(), "toy", "tests", "v1", accepts_nothing, build)
-        .expect("first registration succeeds");
-    registry
-}
-
-/// A request names its recipe and carries its parameters as two independent
-/// public fields, so nothing but a check stops a caller pairing them wrongly.
-/// Without the check the mismatch reaches the recipe, which can only panic —
-/// mid-commit, after earlier rows have already mutated the world.
-#[test]
-fn a_recipe_that_cannot_build_from_the_parameters_fails_the_plan() {
-    let registry = registry_with_picky_recipe();
-    let mut a = request("a");
-    a.recipe = picky();
-    let error = ConstructionPlan::prepare(scope(), vec![a], &nothing_live(), &registry)
-        .expect_err("a recipe that cannot build these parameters must not plan");
-    assert_eq!(
-        error,
-        ConstructionError::ParametersRejected {
-            sim_id: SimId::placement("a"),
-            recipe: picky(),
-        }
-    );
-}
-
-/// And the rejection happens before ANY row runs — including rows that sort
-/// ahead of the bad one and would otherwise already be in the world.
-#[test]
-fn a_mispaired_row_stops_the_rows_that_sort_before_it() {
-    let registry = registry_with_picky_recipe();
-    let good = request("a");
-    let mut bad = request("b");
-    bad.recipe = picky();
-    assert!(
-        ConstructionPlan::prepare(scope(), vec![good, bad], &nothing_live(), &registry).is_err(),
-        "one unbuildable row rejects the whole plan"
-    );
-    // Nothing to assert about the world: `prepare` never receives one. That is
-    // the property — the refusal happens where mutation is not yet possible.
-}
+//
+// There are no tests here any more, and their absence is the point. A request
+// used to carry a `RecipeId` beside its parameters, so `a.recipe = picky()` was
+// a thing a test could write and a caller could ship; an `AcceptsFn` checked the
+// pairing at preparation and a wrong `true` still reached the constructor's
+// `unreachable!` mid-commit. The recipe is now derived from the payload by
+// `ConstructionDomain::recipe_of` and construction is one exhaustive match, so
+// the mispairing is a state that cannot be written down and a missing arm is a
+// compile error. `every_parameter_variant_constructs` in `ambition_actors`
+// covers the real domain's arms behaviourally.
 
 // ── Partial commits ──────────────────────────────────────────────────────────
 
@@ -698,7 +619,7 @@ fn a_row_whose_relation_leaves_the_subset_cannot_be_rebuilt_alone() {
         .expect_err("rebuilding a grudge-bearing row alone must be refused");
     assert_eq!(
         error,
-        ConstructionError::RelationOutsideSubset {
+        ConstructionError::RelationCutBySubset {
             from: SimId::placement("a"),
             kind: grudge(),
             to: SimId::placement("b"),
@@ -715,21 +636,6 @@ fn a_row_whose_relation_leaves_the_subset_cannot_be_rebuilt_alone() {
         0,
         "a refused rebuild leaves the world untouched"
     );
-}
-
-/// The rule is directional. `b` is grudged BY `a`; that relation belongs to
-/// `a`'s row, which is not being rebuilt and still holds it. Rebuilding `b`
-/// alone is therefore ordinary, not a partial relation.
-#[test]
-fn a_relation_pointing_into_the_subset_does_not_block_it() {
-    let registry = registry();
-    let plan = feuding_pair(&registry);
-    let services = Services::default();
-    let mut world = World::new();
-
-    construct_one_into(&mut world, &plan, &services, &SimId::placement("b"))
-        .expect("a row that declares no relation of its own rebuilds alone");
-    assert_eq!(services.ordinary_runs.get(), 1);
 }
 
 /// A subset that encloses both ends wires the relation between them, so the
@@ -763,28 +669,23 @@ fn a_subset_that_encloses_a_relation_wires_it() {
     assert_eq!(receipt.relations_wired().len(), 1);
 }
 
-// ── The executor's own guard ─────────────────────────────────────────────────
+// ── The executor owns the root ───────────────────────────────────────────────
 
-/// A recipe returns an arbitrary `Entity` and the executor has no way to know it
-/// was freshly created. A defective one that hands back a body which is already
-/// identified would have its identity silently overwritten — two `SimId`s on one
-/// entity, which is a desync — while the receipt still reported clean parity.
+/// A recipe cannot commandeer a body that already exists.
+///
+/// The previous design ran the recipe and trusted whatever `Entity` it handed
+/// back, guarded only by a deferred check that the entity did not already hold a
+/// `SimId`. A pre-existing entity WITHOUT one — a presentation node, a helper,
+/// anything not yet identified — sailed through that check and had the planned
+/// identity stamped onto it. The executor allocates the root now, so there is no
+/// return value to distrust: the toy domain below cannot even express the
+/// attempt.
 #[test]
-#[should_panic(expected = "already holds identity")]
-fn a_recipe_that_returns_an_already_identified_entity_is_caught() {
-    fn steal(
-        _planned: &PlannedEntity<Toy>,
-        ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>,
-    ) -> Entity {
-        // Whatever it was asked to build, it hands back the same squatted body.
-        ctx.services.ordinary_runs.set(1);
-        Entity::from_raw_u32(0).expect("entity 0 is representable")
-    }
+fn a_recipe_cannot_commandeer_a_pre_existing_entity() {
+    #[derive(Component)]
+    struct Bystander;
 
-    let mut registry = ConstructionRegistry::<Toy>::default();
-    registry
-        .try_register_recipe(recipe(), "toy", "tests", "v1", accepts_any, steal)
-        .unwrap();
+    let registry = registry();
     let plan = ConstructionPlan::prepare(
         scope(),
         vec![request("a"), request("b")],
@@ -795,8 +696,68 @@ fn a_recipe_that_returns_an_already_identified_entity_is_caught() {
 
     let services = Services::default();
     let mut world = World::new();
-    // Give entity 0 an identity of its own, the way any live body has one.
-    let squatted = world.spawn(SimId::placement("already-here")).id();
-    assert_eq!(squatted, Entity::from_raw_u32(0).unwrap());
-    let _ = commit_into(&mut world, &plan, &services);
+    // An unidentified entity sitting in the world, exactly the kind the old
+    // guard could not protect.
+    let bystander = world.spawn(Bystander).id();
+
+    let receipt = commit_into(&mut world, &plan, &services);
+
+    assert!(
+        world.get::<SimId>(bystander).is_none(),
+        "the pre-existing entity was not given a planned identity"
+    );
+    assert!(
+        world.get::<Bystander>(bystander).is_some(),
+        "and it was not otherwise disturbed"
+    );
+    for id in plan.planned_ids() {
+        assert_ne!(
+            receipt.entity(&id),
+            Some(bystander),
+            "no planned row resolved to the pre-existing entity"
+        );
+    }
+}
+
+/// One planned row, one distinct new root — and the identities in the world are
+/// exactly the plan's, on exactly as many entities.
+#[test]
+fn each_planned_row_gets_its_own_fresh_root() {
+    let registry = registry();
+    let plan = ConstructionPlan::prepare(
+        scope(),
+        vec![request("a"), request("b"), request("c")],
+        &nothing_live(),
+        &registry,
+    )
+    .unwrap();
+    let services = Services::default();
+    let (mut world, receipt) = commit(&plan, &services);
+
+    let roots: BTreeSet<Entity> = plan
+        .planned_ids()
+        .iter()
+        .map(|id| receipt.entity(id).expect("every row committed"))
+        .collect();
+    assert_eq!(
+        roots.len(),
+        3,
+        "three rows produced three distinct entities"
+    );
+
+    let in_world: BTreeSet<SimId> = world
+        .query::<&SimId>()
+        .iter(&world)
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        in_world,
+        plan.planned_ids(),
+        "the world holds exactly the planned identities"
+    );
+    assert_eq!(
+        world.query::<&SimId>().iter(&world).count(),
+        3,
+        "and each identity is on exactly one entity — two rows cannot collapse"
+    );
 }

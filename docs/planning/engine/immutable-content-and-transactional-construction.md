@@ -763,13 +763,40 @@ Provider-staged actors also stopped being deferred: they were written as
 `SpawnActorRequest` MESSAGES and applied a system later, and are now plan rows
 committed with the rest of the room.
 
-**Not migrated, deliberately:** authored placements, enemies, bosses, shrines,
-gravity zones, portal guns, and ground-item siblings still take the
-family-specific loops in `RoomFeatureConstructionPlan::spawn`. That is Phase 4's
-migration order, not an oversight — the doc asks for ONE family of each origin
-kind, and a partial sweep would have forked families rather than moved them.
-`apply_spawn_actor_requests` also survives, because programmatic scene setup
-(RL episode reset, demo crony spawns) legitimately wants a message.
+**Not migrated — the exact remaining count, surveyed 2026-07-22.** Phase 4 is
+**NOT started** beyond the `ContentBinding` type above. Nine authoritative
+families and one parallel path remain outside the planner:
+
+| # | family | site | state |
+|---|---|---|---|
+| 1 | authored placement → NPC | `spawn/mod.rs` `lower_all` | authoritative (`SimId` via `ensure_sim_id`) |
+| 2 | enemy | `spawn/mod.rs` enemy loop | authoritative; **1 row → 3 entities** for `"giant"` class |
+| 3 | boss | `spawn/mod.rs` boss loop | authoritative |
+| 4 | hazard | placement lowering | has `FeatureId`, **no `SimId`** (no `BodyKinematics`) |
+| 5 | pickup / chest / breakable / switch | placement lowering | same — identified but not in the sim roster |
+| 6 | portal (`cfg(feature="portal")`) | placement lowering | no `FeatureId` at all |
+| 7 | shrine | `spawn/mod.rs` | anonymous, not in `expected_authoritative_ids` |
+| 8 | gravity zone | `spawn/mod.rs` | anonymous |
+| 9 | portal gun pickup (`cfg`) | `spawn/mod.rs` | anonymous |
+| — | `apply_spawn_actor_requests` | registered in `stage.rs` | **parallel unplanned path to `spawn_staged_actor`**, still carries the silent-drop `wire_staged_grudges` |
+
+⚠ **Two facts that make the roster-parity claim narrower than it reads.**
+
+- `spawn_enemy_with_faction_into` spawns **two extra authoritative roots** (giant
+  hand limbs) that mint their own `SimId::spawned`, and it is reachable from
+  *inside* the already-planned staged-actor recipe. A room containing a
+  `"giant"`-class archetype therefore has authoritative identities the plan does
+  not name. The roster-parity tests use non-giant archetypes, so they are true
+  but do not cover this. Making the hands plan rows is Phase 4 work.
+- `Limb`/`LimbRig` and `RidingOn`/`MountSlot` are raw `Entity` relationships
+  wired *inside* spawn helpers rather than declared as plan relations, so they
+  are invisible to `relation_closure` and to the cut-detection above. They are
+  the next relations to migrate, for exactly the stale-handle reason that made
+  the incoming-relation rule wrong.
+
+`apply_spawn_actor_requests` survives because programmatic scene setup (RL
+episode reset, demo crony spawns) legitimately wants a message — but it is a
+second live path to the same helper and should shrink to that use alone.
 
 **Verification.** 20 domain tests (`ambition_actors::construction`), 25 planner
 tests (`ambition_platformer_primitives::construction`), 6 provenance tests
@@ -808,6 +835,46 @@ atomic without anything enforcing it.
 
 Deviation 1 below generalises as a result: *no fact about a planned entity is
 stored in two places*, whether that is the recipe or the parent.
+
+**Second review round: four of the five repairs above were incomplete, and one
+encoded a new wrong invariant.** Recorded because the pattern repeated — each
+time, the *claim* outran the *mechanism*, and each time the tests could not see
+it.
+
+1. **The relation rule was wrong in the incoming direction.** The first repair
+   refused a subset that cut a relation's SOURCE but explicitly permitted one
+   that cut its TARGET, reasoning that the relation "belongs to" the untouched
+   source. It does — but what the source holds is an `Entity` handle, so
+   rebuilding the target alone left the source pointing at a corpse. Proven, not
+   argued: committing `a --grudge--> b`, despawning `b`, rebuilding `b` alone
+   left `a` on `Grudge(1v0)` while the new `b` was `1v1`. The rule is now
+   symmetric — a relation must be wholly in or wholly out — and
+   `ConstructionPlan::relation_closure` turns a seed set into one that cannot be
+   cut, so the refusal is solvable rather than a dead end.
+2. **The executor still did not own the root.** It ran the recipe and trusted
+   the returned `Entity`, guarded only by a deferred check that the entity held
+   no `SimId`. A pre-existing entity WITHOUT one was commandeered silently, and
+   the guard was a panic at flush rather than a refusal. The executor now
+   allocates the root with `spawn_empty` and hands the recipe a
+   `ConstructionRoot` it cannot forge, so freshness is structural and the check
+   is gone rather than strengthened.
+3. **`AcceptsFn` stored the compatibility fact twice.** It was registered
+   independently of the constructor, so the two could disagree and a wrongly
+   permissive validator still reached the constructor's `unreachable!`
+   mid-commit. Both are deleted: `ConstructionDomain::recipe_of` derives the
+   recipe from the payload (so `ConstructionRequest` has no `recipe` field to
+   mispair) and `ConstructionDomain::construct` is one exhaustive match (so a
+   missing arm is a compile error). The registry keeps its ADR-0026 identity
+   role and loses dispatch entirely.
+4. **The counter advance was not part of the commit.** `plan.commit` only
+   *queues* commands; the counters were written directly afterward, so they
+   advanced ahead of the construction they paid for. They are now queued last,
+   landing after every command the commit produced.
+5. **Epoch zero meant three different things** — "a fixture stated nothing", "a
+   reset states no new generation", and "a summon is not content at all" — so no
+   commit boundary could distinguish a stale content-bound plan from a
+   legitimately generation-free one. `ConstructionScope` now carries a
+   `ContentBinding` that is either `Content(epoch)` or `RuntimeDynamic`.
 
 ⚠ **Scope note the review prompted, worth stating plainly:**
 `respawn_authoritative_entity` — the single-entity reconstruction path — has **no

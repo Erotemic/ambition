@@ -1,5 +1,5 @@
-//! The construction registry: stable recipe identities bound to the functions
-//! that plan against them and execute them.
+//! The construction registry: stable recipe identities, and the wiring
+//! functions for the relation kinds between constructed entities.
 //!
 //! Follows the registration lifecycle every other prepared registry in the tree
 //! uses (`PlacementLoweringRegistry`, `RoomContentStagingRegistry`): registration
@@ -14,35 +14,7 @@ use std::collections::BTreeMap;
 use bevy::ecs::resource::Resource;
 use bevy::prelude::Entity;
 
-use super::{ConstructionDomain, ConstructionExecCtx, PlannedEntity, RecipeId};
-
-/// Builds one planned entity and returns the entity it created.
-///
-/// **Infallible, deliberately.** A recipe consumes decisions preparation already
-/// made, so there is nothing left for it to fail at: every lookup that could
-/// miss belongs in the request builder, where failing is free and the live world
-/// is still whole. Making that a type rather than a convention means a recipe
-/// author cannot quietly move a content error inside the mutation.
-///
-/// A plain `fn` pointer, not a boxed closure: a recipe that captured state could
-/// observe something at registration time that is no longer true at execution
-/// time, which is the same class of bug. It also makes idempotent
-/// re-registration decidable by address.
-pub type RecipeFn<D> =
-    for<'w, 's, 'a> fn(&PlannedEntity<D>, &mut ConstructionExecCtx<'w, 's, 'a, D>) -> Entity;
-
-/// Decides whether a recipe can build from the parameters a request carries.
-///
-/// **This is what makes [`RecipeFn`]'s infallibility true rather than merely
-/// asserted.** A [`ConstructionRequest`](super::ConstructionRequest) names a
-/// recipe and carries parameters as two independent public fields, so nothing in
-/// the type system stops a caller pairing the staged-actor recipe with
-/// ground-item parameters. Without this check that mismatch reaches the recipe,
-/// which can only panic — during commit, after earlier rows have already
-/// mutated the world. Preparation asks first, so the mismatch is a rejected plan
-/// instead of a half-applied one, and a recipe's `unreachable!` on the wrong
-/// variant becomes provably unreachable.
-pub type AcceptsFn<D> = fn(&<D as ConstructionDomain>::Parameters) -> bool;
+use super::{ConstructionDomain, ConstructionExecCtx, RecipeId};
 
 /// Wires one declared relation once both ends exist.
 pub type RelationFn<D> =
@@ -124,12 +96,24 @@ impl std::fmt::Display for ConstructionRegistrationError {
 
 impl std::error::Error for ConstructionRegistrationError {}
 
-struct RecipeEntry<D: ConstructionDomain> {
+/// What a registered recipe declares about itself.
+///
+/// **There is no function here.** Construction dispatches through
+/// [`ConstructionDomain::construct`], a single exhaustive match over the
+/// domain's parameters, so a recipe cannot be paired with parameters it cannot
+/// build from — that pairing is not representable rather than checked. A recipe
+/// identity earns a registry entry for the ADR-0026 reasons only: stable
+/// ownership, idempotent re-registration, conflict rejection, and an ordered
+/// contribution to the prepared-content fingerprint.
+///
+/// This used to hold a `RecipeFn` plus an `AcceptsFn`. That stored the same
+/// variant-compatibility fact twice and then called the result proved, which it
+/// was not: the two could disagree, and an acceptance function that wrongly
+/// returned `true` still reached the constructor's `unreachable!` mid-commit.
+struct RecipeEntry {
     owner: String,
     source: String,
     schema_id: String,
-    accepts: AcceptsFn<D>,
-    construct: RecipeFn<D>,
 }
 
 struct RelationEntry<D: ConstructionDomain> {
@@ -142,7 +126,7 @@ struct RelationEntry<D: ConstructionDomain> {
 /// Ordered storage (`BTreeMap`), so the dump does not depend on insertion order.
 #[derive(Resource)]
 pub struct ConstructionRegistry<D: ConstructionDomain> {
-    recipes: BTreeMap<RecipeId, RecipeEntry<D>>,
+    recipes: BTreeMap<RecipeId, RecipeEntry>,
     relations: BTreeMap<RelationKind, RelationEntry<D>>,
 }
 
@@ -165,16 +149,14 @@ fn non_empty(fields: &[(&'static str, &str)]) -> Result<(), ConstructionRegistra
 }
 
 impl<D: ConstructionDomain> ConstructionRegistry<D> {
-    /// Register a construction recipe. Re-registering byte-identical ownership
-    /// with the same function is idempotent; anything else conflicts.
+    /// Register a construction recipe identity. Re-registering byte-identical
+    /// ownership is idempotent; anything else conflicts.
     pub fn try_register_recipe(
         &mut self,
         recipe: RecipeId,
         owner: impl Into<String>,
         source: impl Into<String>,
         schema_id: impl Into<String>,
-        accepts: AcceptsFn<D>,
-        construct: RecipeFn<D>,
     ) -> Result<(), ConstructionRegistrationError> {
         let (owner, source, schema_id) = (owner.into(), source.into(), schema_id.into());
         non_empty(&[
@@ -186,9 +168,7 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
         if let Some(existing) = self.recipes.get(&recipe) {
             let identical = existing.owner == owner
                 && existing.source == source
-                && existing.schema_id == schema_id
-                && std::ptr::fn_addr_eq(existing.accepts, accepts)
-                && std::ptr::fn_addr_eq(existing.construct, construct);
+                && existing.schema_id == schema_id;
             return if identical {
                 Ok(())
             } else {
@@ -209,8 +189,6 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
                 owner,
                 source,
                 schema_id,
-                accepts,
-                construct,
             },
         );
         Ok(())
@@ -241,13 +219,11 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
         Ok(())
     }
 
-    /// The pair preparation needs: what this recipe will accept, and what it
-    /// runs. Returned together so a caller cannot resolve one without the other
-    /// and validate against a recipe it is not about to store.
-    pub(super) fn recipe(&self, recipe: &RecipeId) -> Option<(AcceptsFn<D>, RecipeFn<D>)> {
-        self.recipes
-            .get(recipe)
-            .map(|entry| (entry.accepts, entry.construct))
+    /// Whether this recipe identity is registered. Preparation refuses a row
+    /// whose derived recipe nothing declared, which is what keeps the registry
+    /// meaningful now that it no longer dispatches.
+    pub(super) fn has_recipe(&self, recipe: &RecipeId) -> bool {
+        self.recipes.contains_key(recipe)
     }
 
     pub(super) fn relation(&self, kind: &RelationKind) -> Option<RelationFn<D>> {

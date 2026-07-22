@@ -17,7 +17,7 @@ pub use content_staging::{
     RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
 };
 
-pub(crate) use super::spawn_actors::spawn_runtime_minion;
+pub(crate) use super::spawn_actors::{spawn_runtime_minion, spawn_runtime_minion_into};
 
 /// Spawn ECS-native feature entities for every authored static
 /// feature in a room. One loop per family.
@@ -105,7 +105,11 @@ pub struct RoomFeatureConstructionPlan {
 #[derive(Clone, Copy)]
 pub struct ActorConstructionContext<'a> {
     pub recipes: &'a crate::construction::ActorConstructionRegistry,
-    pub content_epoch: ambition_engine_core::ContentEpoch,
+    /// Which generation of prepared content this room plan is bound to. A room
+    /// is always content-derived, so this is always
+    /// [`ContentBinding::Content`] — the enum exists because the planner also
+    /// serves runtime-dynamic construction, which is not.
+    pub binding: ambition_platformer_primitives::construction::ContentBinding,
 }
 
 impl<'a> ActorConstructionContext<'a> {
@@ -115,7 +119,9 @@ impl<'a> ActorConstructionContext<'a> {
     ) -> Self {
         Self {
             recipes,
-            content_epoch,
+            binding: ambition_platformer_primitives::construction::ContentBinding::Content(
+                content_epoch,
+            ),
         }
     }
 }
@@ -211,7 +217,7 @@ impl RoomFeatureConstructionPlan {
         }
         let construction_plan = crate::construction::ActorConstructionPlan::prepare(
             ambition_platformer_primitives::construction::ConstructionScope {
-                content_epoch: construction.content_epoch,
+                binding: construction.binding,
                 room: Some(room.id.clone()),
             },
             requests,

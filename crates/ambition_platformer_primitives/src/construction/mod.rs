@@ -30,13 +30,15 @@
 //! things core cannot know: what one planned row carries
 //! ([`ConstructionDomain::Parameters`]) and what its recipes need in hand to
 //! execute ([`ConstructionDomain::Services`] — frozen catalogs, a frozen
-//! interpreter table). Recipes are plain `fn` pointers, so they capture nothing,
-//! compare by address for idempotent re-registration, and cannot smuggle state
-//! between planning and execution.
+//! interpreter table). It also supplies the two functions that make a row
+//! buildable: [`ConstructionDomain::recipe_of`], which derives a row's recipe
+//! from what it carries, and [`ConstructionDomain::construct`], one exhaustive
+//! match that populates a root the executor allocated. Neither the caller nor
+//! the recipe chooses the pairing or the entity, so neither can get it wrong.
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use bevy::prelude::{Commands, Component, Entity, World};
+use bevy::prelude::{Commands, Component, Entity};
 
 use crate::sim_id::SimId;
 
@@ -44,10 +46,7 @@ mod registry;
 #[cfg(test)]
 mod tests;
 
-pub use registry::{
-    AcceptsFn, ConstructionRegistrationError, ConstructionRegistry, RecipeFn, RelationFn,
-    RelationKind,
-};
+pub use registry::{ConstructionRegistrationError, ConstructionRegistry, RelationFn, RelationKind};
 
 /// A stable internal identity for a construction recipe.
 ///
@@ -154,7 +153,7 @@ impl SpawnOrigin {
 /// the frozen services its recipes read. Keeping this an associated-type pair
 /// rather than type erasure means a recipe never downcasts and a plan cannot be
 /// executed against the wrong world.
-pub trait ConstructionDomain: Send + Sync + 'static {
+pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     /// What one planned row carries into its recipe.
     type Parameters: Clone + Send + Sync + 'static;
     /// Frozen services recipes read at execution time. Whatever a domain puts
@@ -162,9 +161,55 @@ pub trait ConstructionDomain: Send + Sync + 'static {
     /// lookup left.
     type Services;
 
+    /// Which recipe builds this row — **a pure function of what the row
+    /// carries**, never an independent choice a caller makes.
+    ///
+    /// This is why [`ConstructionRequest`] has no `recipe` field. When the
+    /// recipe was supplied separately, a perfectly valid public request could
+    /// name one recipe and carry another's parameters; that pairing passed
+    /// preparation and surfaced inside the constructor, mid-commit, as a panic.
+    /// Deriving it removes the second value that could disagree.
+    fn recipe_of(parameters: &Self::Parameters) -> RecipeId;
+
+    /// Populate the root the executor allocated for this row.
+    ///
+    /// **Exhaustive over `Parameters`, and that is the point.** A domain writes
+    /// one match with an arm per variant, so "this recipe cannot build from
+    /// these parameters" is a compile error (a non-exhaustive match) rather
+    /// than a runtime `unreachable!` reached after earlier rows have already
+    /// mutated the world. Nothing here can fail: every lookup that could miss
+    /// resolved in the request builder.
+    ///
+    /// The root already exists and already carries its `SimId` and
+    /// `SpawnOrigin`. A recipe inserts onto it; it cannot choose it, return a
+    /// different one, or hand back something that was already alive.
+    fn construct(
+        parameters: &Self::Parameters,
+        root: ConstructionRoot,
+        ctx: &mut ConstructionExecCtx<'_, '_, '_, Self>,
+    );
+
     /// Byte-stable one-line rendering of a row's parameters for the plan dump.
     /// Must not include tabs or newlines.
     fn canonical_summary(parameters: &Self::Parameters) -> String;
+}
+
+/// The authoritative entity the executor allocated for one planned row.
+///
+/// A recipe receives this instead of creating its own body, which is what makes
+/// "one planned row, one authoritative root" a property of the machinery rather
+/// than of every recipe author's care. The inner `Entity` is reachable — a
+/// recipe legitimately needs it to insert components and to parent deliberate
+/// child entities — but only [`ConstructionPlan`] can mint one, so a recipe
+/// cannot nominate a pre-existing entity as a row's root.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ConstructionRoot(Entity);
+
+impl ConstructionRoot {
+    /// The allocated entity, for inserting components onto it.
+    pub fn entity(self) -> Entity {
+        self.0
+    }
 }
 
 /// What one plan describes: which content generation, and which room.
@@ -177,21 +222,59 @@ pub trait ConstructionDomain: Send + Sync + 'static {
 /// frozen facts execution reads.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ConstructionScope {
-    /// The activation generation this plan was prepared against.
-    ///
-    /// **Recorded, not yet enforced.** It appears in the dump, so a plan can be
-    /// joined to the content that produced it, and a plan carried across an
-    /// epoch bump is visibly stale. Turning that into a REFUSAL belongs to the
-    /// commit boundary, which Phase 4 owns — nothing here holds both the plan
-    /// and the live world at once. `ContentEpoch::default()` reads as "no
-    /// generation stated": a fixture, or a plan built and committed inside one
-    /// tick, which cannot outlive a reload.
-    pub content_epoch: ambition_engine_core::ContentEpoch,
+    /// What generation of content this plan is bound to, if any.
+    pub binding: ContentBinding,
     /// The room being constructed, when the plan is a room's contents.
     pub room: Option<String>,
 }
 
+/// Whether a plan is bound to a generation of prepared content, and which.
+///
+/// **This replaces a bare `ContentEpoch` whose zero value meant three different
+/// things**: "a fixture stated nothing", "a reset rebuilds the content already
+/// active so states no new generation", and "a summon is not content at all".
+/// Only the last is genuinely not content-bound; the other two were content-
+/// bound plans that had simply lost track of which generation they belonged to,
+/// and no commit boundary could tell them apart from a legitimately generation-
+/// free one. Phase 4 turns staleness into a refusal, and a refusal cannot be
+/// built on a sentinel that three unrelated callers spell the same way.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ContentBinding {
+    /// Prepared against one exact generation of prepared content. A commit must
+    /// refuse this plan if the active generation has moved on.
+    Content(ambition_engine_core::ContentEpoch),
+    /// Not derived from prepared content at all — a summon, a projectile, a
+    /// dropped item. Built and committed inside a single tick, so it cannot
+    /// outlive a reload and has no generation to be stale against.
+    RuntimeDynamic,
+}
+
+impl ContentBinding {
+    /// The generation this plan names, for a commit boundary to compare against
+    /// the live one. `None` means the plan is not content-derived and staleness
+    /// does not apply to it — NOT that its generation is unknown.
+    pub const fn content_epoch(self) -> Option<ambition_engine_core::ContentEpoch> {
+        match self {
+            Self::Content(epoch) => Some(epoch),
+            Self::RuntimeDynamic => None,
+        }
+    }
+
+    /// Byte-stable rendering for the plan dump.
+    pub fn canonical_summary(self) -> String {
+        match self {
+            Self::Content(epoch) => format!("{epoch}"),
+            Self::RuntimeDynamic => "runtime-dynamic".to_string(),
+        }
+    }
+}
+
 /// One requested entity, before validation.
+///
+/// **There is no `recipe` field either.** Which recipe builds a row is derived
+/// from its parameters by [`ConstructionDomain::recipe_of`], so a request that
+/// names one recipe while carrying another's payload is not a thing that can be
+/// written down.
 ///
 /// **There is no `parent` field.** The spawner an entity descends from is
 /// already stated by [`SpawnOrigin::Dynamic`], and a request that carried it
@@ -201,7 +284,6 @@ pub struct ConstructionScope {
 /// that is checked is the same fact that reaches the world.
 pub struct ConstructionRequest<D: ConstructionDomain> {
     pub sim_id: SimId,
-    pub recipe: RecipeId,
     pub origin: SpawnOrigin,
     pub parameters: D::Parameters,
     /// Relations this entity declares onto others. Validated against the plan's
@@ -224,10 +306,12 @@ pub struct RelationRequest {
 /// world has begun to retire.
 pub struct PlannedEntity<D: ConstructionDomain> {
     sim_id: SimId,
+    /// Derived once at preparation via [`ConstructionDomain::recipe_of`] and
+    /// kept for the dump. Not a dispatch key: construction goes through the
+    /// domain's exhaustive match.
     recipe: RecipeId,
     origin: SpawnOrigin,
     parameters: D::Parameters,
-    construct: RecipeFn<D>,
 }
 
 impl<D: ConstructionDomain> Clone for PlannedEntity<D> {
@@ -237,7 +321,6 @@ impl<D: ConstructionDomain> Clone for PlannedEntity<D> {
             recipe: self.recipe.clone(),
             origin: self.origin.clone(),
             parameters: self.parameters.clone(),
-            construct: self.construct,
         }
     }
 }
@@ -303,15 +386,6 @@ pub enum ConstructionError {
     IdentityAlreadyLive { sim_id: SimId },
     /// A row names a recipe the registry does not have.
     UnknownRecipe { sim_id: SimId, recipe: RecipeId },
-    /// A row pairs a registered recipe with parameters that recipe cannot build
-    /// from.
-    ///
-    /// A request names its recipe and carries its parameters as two independent
-    /// fields, so this pairing is the caller's to get right and nothing but a
-    /// check can prove they did. Without it the mismatch surfaces inside the
-    /// recipe, mid-commit, as a panic — which is the half-applied mutation
-    /// planning exists to prevent.
-    ParametersRejected { sim_id: SimId, recipe: RecipeId },
     /// A row's parent resolves to neither a planned nor a live identity.
     UnresolvedParent { sim_id: SimId, parent: SimId },
     /// A relation's target names nothing this plan knows about.
@@ -332,15 +406,21 @@ pub enum ConstructionError {
     UnknownRelationKind { from: SimId, kind: RelationKind },
     /// A single-row re-execution named an identity this plan does not contain.
     NotInPlan { sim_id: SimId },
-    /// A partial commit would have rebuilt an entity while leaving one of its
-    /// declared relations unwired, because the other end is not being rebuilt.
+    /// A partial commit would have cut a relation: exactly one of its two ends
+    /// is being rebuilt.
     ///
-    /// Refused rather than best-effort: a body that comes back from a restore
-    /// without its grudge is a silent behavioural regression that no amount of
-    /// staring at the roster reveals — the entity count is right and only the
-    /// wiring is missing. Rebuilding a relation whose far end is merely *live*
-    /// needs the live identity index that Phase 4's commit boundary owns.
-    RelationOutsideSubset {
+    /// **Both directions are refused, and the reason is that a relation is an
+    /// `Entity` handle.** Rebuilding the SOURCE alone leaves it unwired, which
+    /// is obvious. Rebuilding the TARGET alone is worse and was briefly allowed
+    /// here on the reasoning that the relation "belongs to" the untouched
+    /// source: it does, but what the source holds is a handle to the entity
+    /// that just died, so the source is left pointing at a corpse. In both
+    /// cases the roster is the right length and only the wiring is wrong, which
+    /// is the failure mode that survives every count-based check.
+    ///
+    /// [`ConstructionPlan::relation_closure`] turns a seed set into one that
+    /// cannot be refused for this reason.
+    RelationCutBySubset {
         from: SimId,
         kind: RelationKind,
         to: SimId,
@@ -373,18 +453,13 @@ impl std::fmt::Display for ConstructionError {
                 f,
                 "`{from}` declares relation `{kind}`, which no registered wiring handles"
             ),
-            Self::ParametersRejected { sim_id, recipe } => write!(
-                f,
-                "`{sim_id}` names construction recipe `{recipe}`, which cannot build from the \
-                 parameters this request carries"
-            ),
             Self::NotInPlan { sim_id } => {
                 write!(f, "this plan contains no entity `{sim_id}`")
             }
-            Self::RelationOutsideSubset { from, kind, to } => write!(
+            Self::RelationCutBySubset { from, kind, to } => write!(
                 f,
-                "rebuilding `{from}` alone would leave its relation `{kind}` onto `{to}` unwired, \
-                 because `{to}` is not being rebuilt with it"
+                "this subset cuts relation `{from}` -`{kind}`-> `{to}`: rebuilding one end alone \
+                 leaves the other holding a stale entity handle"
             ),
         }
     }
@@ -506,20 +581,12 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         let mut entities = Vec::with_capacity(requests.len());
         let mut relations: Vec<PlannedRelation<D>> = Vec::new();
         for request in requests {
-            let Some((accepts, construct)) = registry.recipe(&request.recipe) else {
+            // Derived, not supplied — so it always matches the payload.
+            let recipe = D::recipe_of(&request.parameters);
+            if !registry.has_recipe(&recipe) {
                 return Err(ConstructionError::UnknownRecipe {
                     sim_id: request.sim_id,
-                    recipe: request.recipe,
-                });
-            };
-            // Ask the recipe whether it can build from what this row carries.
-            // Recipe and parameters are chosen independently by the caller, so
-            // this is the only thing standing between a mispaired request and a
-            // panic inside the mutation.
-            if !accepts(&request.parameters) {
-                return Err(ConstructionError::ParametersRejected {
-                    sim_id: request.sim_id,
-                    recipe: request.recipe,
+                    recipe,
                 });
             }
             // The parent comes from the provenance, not from a second field
@@ -555,10 +622,9 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
             }
             entities.push(PlannedEntity {
                 sim_id: request.sim_id,
-                recipe: request.recipe,
+                recipe,
                 origin: request.origin,
                 parameters: request.parameters,
-                construct,
             });
         }
         relations.sort_by(|a, b| (&a.from, &a.kind, &a.to).cmp(&(&b.from, &b.kind, &b.to)));
@@ -593,6 +659,41 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 
     pub fn get(&self, sim_id: &SimId) -> Option<&PlannedEntity<D>> {
         self.entities.iter().find(|entity| &entity.sim_id == sim_id)
+    }
+
+    /// Grow a seed set until no planned relation crosses its boundary.
+    ///
+    /// This is the set a caller must despawn and rebuild together for the
+    /// result to be correctly wired, and it is what makes
+    /// [`ConstructionError::RelationCutBySubset`] a solvable refusal rather
+    /// than a dead end: ask for the closure, rebuild that.
+    ///
+    /// Relations are undirected for this purpose. Rebuilding a target strands
+    /// its sources just as surely as rebuilding a source leaves it unwired,
+    /// because both sides of the wiring are `Entity` handles minted by the
+    /// commit that built them.
+    pub fn relation_closure(&self, seeds: &BTreeSet<SimId>) -> BTreeSet<SimId> {
+        let mut closed = seeds.clone();
+        // Each pass can only add, and the plan is finite, so this terminates in
+        // at most one pass per relation.
+        loop {
+            let mut grew = false;
+            for relation in &self.relations {
+                let has_from = closed.contains(&relation.from);
+                let has_to = closed.contains(&relation.to);
+                if has_from != has_to {
+                    closed.insert(if has_from {
+                        relation.to.clone()
+                    } else {
+                        relation.from.clone()
+                    });
+                    grew = true;
+                }
+            }
+            if !grew {
+                return closed;
+            }
+        }
     }
 
     /// Construct one planned entity through its frozen recipe.
@@ -670,9 +771,11 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                     sim_id: missing.clone(),
                 });
             }
+            // A relation must be wholly in or wholly out. Cutting it either way
+            // strands an `Entity` handle — see `RelationCutBySubset`.
             for relation in &self.relations {
-                if ids.contains(&relation.from) && !ids.contains(&relation.to) {
-                    return Err(ConstructionError::RelationOutsideSubset {
+                if ids.contains(&relation.from) != ids.contains(&relation.to) {
+                    return Err(ConstructionError::RelationCutBySubset {
                         from: relation.from.clone(),
                         kind: relation.kind.clone(),
                         to: relation.to.clone(),
@@ -709,44 +812,35 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         Ok(receipt)
     }
 
+    /// Allocate this row's authoritative root, stamp it, and hand it to the
+    /// domain to populate.
+    ///
+    /// **The executor creates the entity; the recipe never does.** This
+    /// previously ran the recipe and trusted whatever `Entity` came back,
+    /// guarded only by a deferred check that the returned entity did not
+    /// already hold a `SimId`. That guard was weak in three ways a redesign
+    /// removes rather than patches: a pre-existing entity WITHOUT a `SimId`
+    /// passed it and was silently commandeered; the check ran at flush, so it
+    /// was a panic after other rows had queued their mutations rather than a
+    /// refusal; and nothing tied the returned entity to this commit at all.
+    ///
+    /// Allocating here makes freshness structural. `spawn_empty` yields an
+    /// entity that by definition nothing else holds, so one planned row is one
+    /// distinct new root, and there is no check to get wrong.
     fn commit_entity(
         planned: &PlannedEntity<D>,
         ctx: &mut ConstructionExecCtx<'_, '_, '_, D>,
     ) -> Entity {
-        let entity = (planned.construct)(planned, ctx);
-        // Identity and provenance are stamped by the executor, not by each
-        // recipe: a recipe that forgot would produce an entity nothing could
-        // reconstruct, and the omission would be invisible until a restore.
-        //
-        // Stamped through the world rather than with a plain `insert` so the
-        // stamp can also CHECK. A recipe hands back an arbitrary `Entity` and
-        // the executor has no way to know it was freshly created — a defective
-        // recipe could return a body that is already live, or the one the
-        // previous row just built, and a bare insert would silently overwrite
-        // that body's identity. Two identities landing on one entity is a
-        // desync, so it is worth a panic rather than a receipt that reports
-        // parity it does not have. This runs at flush, in queue order, so the
-        // previous row's stamp is already visible.
-        let sim_id = planned.sim_id.clone();
-        let origin = planned.origin.clone();
-        let recipe = planned.recipe.clone();
-        ctx.commands.queue(move |world: &mut World| {
-            let Ok(mut target) = world.get_entity_mut(entity) else {
-                panic!(
-                    "construction recipe `{recipe}` for `{sim_id}` returned entity {entity}, which \
-                     does not exist"
-                )
-            };
-            if let Some(existing) = target.get::<SimId>() {
-                panic!(
-                    "construction recipe `{recipe}` for `{sim_id}` returned entity {entity}, which \
-                     already holds identity `{existing}` — a recipe must create the entity it \
-                     returns"
-                )
-            }
-            target.insert((sim_id, origin));
-        });
-        entity
+        let root = ctx.commands.spawn_empty().id();
+        // Identity and provenance go on before the recipe runs, so a recipe
+        // cannot forget them and reconstruction never sees a body without
+        // provenance. A recipe that inspects its own root finds them already
+        // there.
+        ctx.commands
+            .entity(root)
+            .insert((planned.sim_id.clone(), planned.origin.clone()));
+        D::construct(&planned.parameters, ConstructionRoot(root), ctx);
+        root
     }
 
     /// Byte-stable inspection surface, in the same tab-delimited shape as
@@ -756,7 +850,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         use std::fmt::Write as _;
         let mut out = format!(
             "construction-plan-v{CONSTRUCTION_PLAN_SCHEMA_VERSION}\n{}\nroom\t{}\n",
-            self.scope.content_epoch,
+            self.scope.binding.canonical_summary(),
             self.scope.room.as_deref().unwrap_or("-"),
         );
         for entity in &self.entities {

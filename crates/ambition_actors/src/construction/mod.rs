@@ -34,7 +34,8 @@
 
 use ambition_platformer_primitives::construction::{
     ConstructionDomain, ConstructionExecCtx, ConstructionPlan, ConstructionRegistrationError,
-    ConstructionRegistry, ConstructionRequest, PlannedEntity, RecipeId, RelationKind, SpawnOrigin,
+    ConstructionRegistry, ConstructionRequest, ConstructionRoot, RecipeId, RelationKind,
+    SpawnOrigin,
 };
 use ambition_platformer_primitives::sim_id::SimId;
 use bevy::prelude::Entity;
@@ -123,6 +124,68 @@ impl ConstructionDomain for ActorConstruction {
     type Parameters = ActorConstructionParams;
     type Services = ActorConstructionServices;
 
+    /// The recipe is a function of the payload, so the two cannot disagree.
+    fn recipe_of(parameters: &Self::Parameters) -> RecipeId {
+        match parameters {
+            ActorConstructionParams::GroundItem { .. } => recipe_authored_ground_item(),
+            ActorConstructionParams::StagedActor(_) => recipe_staged_actor(),
+            ActorConstructionParams::SummonedMinion(_) => recipe_summoned_minion(),
+        }
+    }
+
+    /// One exhaustive match. Adding a parameter variant without a construction
+    /// arm is a compile error, which is what the old `AcceptsFn` pair only
+    /// pretended to guarantee — it could return `true` for a variant its
+    /// constructor did not handle, and the mismatch surfaced mid-commit.
+    ///
+    /// Every arm populates the root the executor allocated. None of them spawn
+    /// the row's body, and none can fail.
+    fn construct(
+        parameters: &Self::Parameters,
+        root: ConstructionRoot,
+        ctx: &mut ConstructionExecCtx<'_, '_, '_, Self>,
+    ) {
+        match parameters {
+            ActorConstructionParams::GroundItem { spec, held } => {
+                crate::features::ecs::spawn_static::spawn_ground_item_resolved_into(
+                    ctx.commands,
+                    ctx.session,
+                    root.entity(),
+                    spec,
+                    held.clone(),
+                );
+            }
+            ActorConstructionParams::StagedActor(request) => {
+                crate::features::spawn_staged_actor_into(
+                    ctx.commands,
+                    &ctx.services.context.characters,
+                    &ctx.services.context.roster,
+                    &ctx.services.boss_catalog,
+                    ctx.session,
+                    root.entity(),
+                    request,
+                );
+            }
+            ActorConstructionParams::SummonedMinion(minion) => {
+                crate::features::spawn_runtime_minion_into(
+                    ctx.commands,
+                    &ctx.services.context.characters,
+                    &ctx.services.context.roster,
+                    ctx.session,
+                    root.entity(),
+                    minion.feature_id.clone(),
+                    minion.name.clone(),
+                    minion.pos,
+                    minion.half_size,
+                    &minion.archetype_id,
+                    minion.encounter_id.clone(),
+                    minion.faction,
+                    crate::features::ActorAggression::hostile(),
+                );
+            }
+        }
+    }
+
     fn canonical_summary(parameters: &Self::Parameters) -> String {
         match parameters {
             ActorConstructionParams::GroundItem { spec, held } => {
@@ -170,83 +233,7 @@ impl std::fmt::Display for ActorConstructionError {
 
 impl std::error::Error for ActorConstructionError {}
 
-// ── Recipes ──────────────────────────────────────────────────────────────────
-//
-// Plain `fn`s by construction (the registry takes function pointers), so a
-// recipe cannot capture a value observed at registration time and quietly use
-// it at execution time. Each returns the one entity it created; the executor
-// stamps `SimId` and `SpawnOrigin` onto it.
-
-// Each recipe states which parameter variant it can build from. Preparation
-// asks before it plans, so the `unreachable!` in each recipe below is a claim
-// the planner has already proved rather than a hope.
-
-fn accepts_ground_item(parameters: &ActorConstructionParams) -> bool {
-    matches!(parameters, ActorConstructionParams::GroundItem { .. })
-}
-
-fn accepts_staged_actor(parameters: &ActorConstructionParams) -> bool {
-    matches!(parameters, ActorConstructionParams::StagedActor(_))
-}
-
-fn accepts_summoned_minion(parameters: &ActorConstructionParams) -> bool {
-    matches!(parameters, ActorConstructionParams::SummonedMinion(_))
-}
-
-fn construct_authored_ground_item(
-    planned: &PlannedEntity<ActorConstruction>,
-    ctx: &mut Ctx<'_, '_, '_>,
-) -> Entity {
-    let ActorConstructionParams::GroundItem { spec, held } = planned.parameters() else {
-        unreachable!("the ground-item recipe is only ever planned with ground-item parameters")
-    };
-    crate::features::ecs::spawn_static::spawn_ground_item_resolved(
-        ctx.commands,
-        ctx.session,
-        spec,
-        held.clone(),
-    )
-}
-
-fn construct_staged_actor(
-    planned: &PlannedEntity<ActorConstruction>,
-    ctx: &mut Ctx<'_, '_, '_>,
-) -> Entity {
-    let ActorConstructionParams::StagedActor(request) = planned.parameters() else {
-        unreachable!("the staged-actor recipe is only ever planned with staged-actor parameters")
-    };
-    crate::features::spawn_staged_actor(
-        ctx.commands,
-        &ctx.services.context.characters,
-        &ctx.services.context.roster,
-        &ctx.services.boss_catalog,
-        ctx.session,
-        request,
-    )
-}
-
-fn construct_summoned_minion(
-    planned: &PlannedEntity<ActorConstruction>,
-    ctx: &mut Ctx<'_, '_, '_>,
-) -> Entity {
-    let ActorConstructionParams::SummonedMinion(minion) = planned.parameters() else {
-        unreachable!("the minion recipe is only ever planned with minion parameters")
-    };
-    crate::features::spawn_runtime_minion(
-        ctx.commands,
-        &ctx.services.context.characters,
-        &ctx.services.context.roster,
-        ctx.session,
-        minion.feature_id.clone(),
-        minion.name.clone(),
-        minion.pos,
-        minion.half_size,
-        &minion.archetype_id,
-        minion.encounter_id.clone(),
-        minion.faction,
-        crate::features::ActorAggression::hostile(),
-    )
-}
+// ── Relations ────────────────────────────────────────────────────────────────
 
 /// Wire a personal grudge. Re-inserting `ActorAggression` is safe: staged
 /// fighters spawn `hostile()` already, so this only adds the grudge.
@@ -282,25 +269,9 @@ pub fn install_actor_construction_recipes(
         OWNER,
         "authored-room",
         SCHEMA,
-        accepts_ground_item,
-        construct_authored_ground_item,
     )?;
-    registry.try_register_recipe(
-        recipe_staged_actor(),
-        OWNER,
-        "content-staging",
-        SCHEMA,
-        accepts_staged_actor,
-        construct_staged_actor,
-    )?;
-    registry.try_register_recipe(
-        recipe_summoned_minion(),
-        OWNER,
-        "summon-effect",
-        SCHEMA,
-        accepts_summoned_minion,
-        construct_summoned_minion,
-    )?;
+    registry.try_register_recipe(recipe_staged_actor(), OWNER, "content-staging", SCHEMA)?;
+    registry.try_register_recipe(recipe_summoned_minion(), OWNER, "summon-effect", SCHEMA)?;
     registry.try_register_relation(relation_grudge(), OWNER, wire_grudge)?;
     Ok(())
 }
@@ -324,7 +295,6 @@ pub fn authored_ground_item_requests(
                 })?;
             Ok(ActorConstructionRequest {
                 sim_id: SimId::placement(&spec.id),
-                recipe: recipe_authored_ground_item(),
                 origin: SpawnOrigin::Authored {
                     source: room.id.clone(),
                     instance: spec.id.clone(),
@@ -351,7 +321,6 @@ pub fn staged_actor_requests(
         .iter()
         .map(|request| ActorConstructionRequest {
             sim_id: SimId::placement(&request.id),
-            recipe: recipe_staged_actor(),
             origin: SpawnOrigin::ProviderStaged {
                 provider: provider.to_string(),
                 room: room_id.to_string(),
@@ -384,7 +353,6 @@ pub fn summoned_minion_request(
 ) -> ActorConstructionRequest {
     ActorConstructionRequest {
         sim_id: SimId::spawned(summoner, sequence),
-        recipe: recipe_summoned_minion(),
         origin: SpawnOrigin::Dynamic {
             parent: summoner.clone(),
             sequence,

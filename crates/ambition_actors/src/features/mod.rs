@@ -90,8 +90,8 @@ pub use bus::{
 pub use ecs::{actor_component_snapshot, boss_component_snapshot};
 // Runtime minion/summon spawner, re-exported so non-feature modules (e.g. the
 // puppy-slug gun) can summon actors without reaching into the private `ecs` tree.
-pub(crate) use ecs::spawn_runtime_minion;
-pub(crate) use ecs::spawn_staged_actor;
+pub(crate) use ecs::spawn_staged_actor_into;
+pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
 
 pub use components::{
     ActorAggression, ActorCooldowns, ActorDisposition, ActorFaction, ActorIdentity, ActorIntent,

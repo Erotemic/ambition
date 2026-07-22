@@ -2,11 +2,11 @@
 
 ## Status
 
-**Accepted; implemented for three origin families** (2026-07-22; revised the same
-day after external review closed five transactional gaps — see the Decision
-section's rules on parameter acceptance, partial-commit refusal, the executor's
-identity stamp, single-source parenthood, and commit-time counter writeback).
-Completes
+**Accepted; implemented for three origin families** (2026-07-22; revised twice
+the same day after two rounds of external review. The second round found four of
+the first round's five repairs incomplete and one — permitting a subset to cut a
+relation's target — actively wrong. The Decision section below describes the
+mechanism as it now stands, not as either round intended it.) Completes
 Milestone B of
 [`../planning/engine/immutable-content-and-transactional-construction.md`](../planning/engine/immutable-content-and-transactional-construction.md)
 and the provenance/planning half of that campaign's Phase-0 ADR obligation.
@@ -78,52 +78,62 @@ order is not an input.
 **A parent may be an already-live identity; a relation target may not.** A
 summoner outlives the summon it plans, so a live parent is ordinary. A relation,
 by contrast, is wired at commit from the entities the plan just constructed, so
-the executor holds nothing for an outsider — and accepting such a relation only
-to skip wiring it would be a new silent drop inside the machinery built to
-delete silent drops. Both ends must be rows in the same plan. Relating to a live
-entity is a real need and belongs with the commit boundary Phase 4 gives a live
-identity index.
+the executor holds nothing for an outsider. Both ends must be rows in the same
+plan. Relating to a live entity is a real need and belongs with the commit
+boundary Phase 4 gives a live identity index.
 
-**One constructor serves ordinary construction and reconstruction.** A recipe is
-a plain `fn` pointer resolved at planning time and stored beside its row, so
-commit repeats no registry lookup and cannot discover a missing recipe after the
-outgoing world has begun to retire. There is one executor — `commit_subset` — and
-a full commit is it over every row while a single-entity rebuild is it over one.
-They cannot drift because there is nothing for them to drift between.
+**One constructor serves ordinary construction and reconstruction.** Preparation
+resolves the recipe identity and confirms it is registered, so commit cannot
+discover a missing recipe after the outgoing world has begun to retire. There is
+one executor — `commit_subset` — and a full commit is it over every row while a
+single-entity rebuild is it over one. They cannot drift because there is nothing
+for them to drift between.
 
-**A partial commit that would strand a relation is refused.** A subset that
-rebuilds a row while leaving one of its declared relations unwired is rejected
-before the first recipe runs, not wired best-effort. A duellist that comes back
-from a restore without its grudge is a silent behavioural regression of the worst
-kind: the roster is the right length, the entity is present, and only the
-behaviour is missing. A relation pointing *into* the subset is fine — it belongs
-to the row outside, which is not being rebuilt and still holds it. Rebuilding a
-relation whose far end is merely *live* needs the live identity index that Phase
-4's commit boundary owns.
+**A partial commit that would CUT a relation is refused, in either direction.**
+A subset containing exactly one end of a planned relation is rejected before the
+first recipe runs. Both directions matter and only one is obvious: rebuilding the
+SOURCE alone leaves it unwired, while rebuilding the TARGET alone leaves the
+untouched source holding a handle to the entity that just died. A relation is an
+`Entity`, so the row that "still holds it" holds a corpse. In both cases the
+roster is the right length and only the wiring is wrong — the failure mode that
+survives every count-based check. `ConstructionPlan::relation_closure` grows a
+seed set until nothing crosses its boundary, so the refusal is solvable.
 
 **A recipe is infallible by type, and preparation makes that true.** It returns
-`Entity`, not `Result<Entity, _>`. Everything that can miss — a registry lookup,
-a catalog id, a relation target — resolves in the request builder, where failing
-is free and the live world is still whole.
+nothing at all — not an `Entity` to be distrusted and not a `Result` to be
+half-applied. Everything that can miss — a registry lookup, a catalog id, a
+relation target — resolves in the request builder, where failing is free and the
+live world is still whole.
 
-That signature alone is not enough to earn the claim. A request names a recipe
-and carries its parameters as two independent fields, so a caller can pair the
-staged-actor recipe with ground-item parameters and nothing in the type system
-objects; the mismatch would then reach the recipe, which can only panic —
-mid-commit, after earlier rows have already mutated the world. So each registered
-recipe supplies an `AcceptsFn` alongside its constructor, and preparation asks
-before it plans. The `unreachable!` a recipe writes for the wrong variant is
-therefore a claim the planner has proved, not a hope.
+That signature alone was not enough to earn the claim, and neither was the
+`AcceptsFn` first used to shore it up. A validator registered independently of
+its constructor stores the same variant-compatibility fact twice, so the two can
+disagree — and one that wrongly returns `true` still reaches the constructor's
+`unreachable!` mid-commit. Storing a fact twice was the very thing this ADR
+rejects elsewhere, for the same reason.
 
-**The executor stamps identity through the world, so the stamp can also check.**
-A recipe hands back an arbitrary `Entity` and the executor cannot know it was
-freshly created. A defective recipe returning a body that is already live — or
-the one the previous row just built — would have that body's identity silently
-overwritten, two `SimId`s on one entity, while the receipt still reported clean
-parity. The stamp refuses to overwrite an existing identity and panics instead,
-because a receipt that agrees with the plan is bookkeeping and only the world is
-evidence. Recipes may still create *sub*-entities (a giant's hands); the row's
-entity is the one the plan names and the one parity is measured on.
+So the pairing is not checked, it is unrepresentable.
+`ConstructionDomain::recipe_of` derives a row's recipe from its parameters, so
+`ConstructionRequest` has no `recipe` field to set wrongly, and
+`ConstructionDomain::construct` is one exhaustive match, so a variant with no
+construction arm is a compile error. The registry keeps its ADR-0026 identity
+role — ownership, idempotent re-registration, conflict rejection, fingerprint
+contribution — and no longer dispatches.
+
+**The executor allocates every authoritative root; a recipe never chooses one.**
+A recipe used to return an `Entity` the executor then stamped, guarded by a check
+that it did not already hold a `SimId`. That guard was weak three ways: a
+pre-existing entity WITHOUT an identity passed it and was commandeered silently;
+it ran at flush, so it was a panic after other rows had queued their mutations
+rather than a refusal; and nothing tied the returned entity to this commit. The
+executor now calls `spawn_empty`, stamps identity and provenance onto the result,
+and hands the recipe a [`ConstructionRoot`] it cannot forge. Freshness is
+structural, so there is no check left to get wrong.
+
+Recipes may still create deliberate *child* entities. Where such a child is
+itself authoritative — a giant's hand limbs mint their own `SimId` — the plan
+does not yet name it, and that is recorded as Phase-4 work rather than claimed
+as parity.
 
 **A domain supplies what core cannot know** — `ConstructionDomain::Parameters`
 (what a row carries) and `Services` (the frozen catalogs its recipes read).
@@ -203,12 +213,16 @@ a state where the two disagree with nothing to say which wins.
   builder, where failing costs nothing. A recipe that can fail has moved a
   content error inside the mutation.
 - **Do not add a second constructor for reconstruction.** Rebuild one entity
-  with `ConstructionPlan::construct_one` (a `commit_subset` of one). Two
-  constructors drift, and the drift only shows up after a restore.
-- **A new recipe registers an `AcceptsFn` that names the parameter variant it
-  builds from.** Returning `true` unconditionally re-opens the mid-commit panic
-  the check exists to close; the toy planner tests do it only because that domain
-  has a single parameter shape.
+  with `ConstructionPlan::construct_one` (a `commit_subset` of one), and when it
+  is refused for cutting a relation, rebuild `relation_closure` of what you
+  wanted rather than reaching past the refusal.
+- **A new parameter variant needs an arm in `recipe_of` AND in `construct`.**
+  The compiler enforces the second; the first is what keeps the dump and the
+  registry honest.
+- **Never store a relationship between two authoritative entities as a bare
+  `Entity` outside the plan.** `Limb`/`LimbRig` and `RidingOn`/`MountSlot` still
+  do, which is why partial reconstruction cannot see them. Declare it as a
+  planned relation so cut-detection and `relation_closure` cover it.
 - **Assert plan-to-world parity against the WORLD.** Comparing a receipt to the
   plan compares the executor's bookkeeping with itself and stays green even if a
   recipe built nothing. Query the identities that are actually alive.

@@ -166,12 +166,43 @@ pub(crate) fn spawn_staged_actor(
     session_scope: SessionSpawnScope,
     req: &SpawnActorRequest,
 ) -> bevy::ecs::entity::Entity {
+    let root = commands.spawn_empty().id();
+    spawn_staged_actor_into(
+        commands,
+        character_catalog,
+        character_roster,
+        boss_catalog,
+        session_scope,
+        root,
+        req,
+    );
+    root
+}
+
+/// Populate a staged actor onto a root the construction executor allocated.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn spawn_staged_actor_into(
+    commands: &mut Commands,
+    character_catalog: &CharacterCatalog,
+    character_roster: &CharacterRoster,
+    boss_catalog: &BossCatalog,
+    session_scope: SessionSpawnScope,
+    root: bevy::ecs::entity::Entity,
+    req: &SpawnActorRequest,
+) {
     let aabb = ae::Aabb::new(req.pos, req.half_size);
     match &req.kind {
         SpawnActorKind::Boss { brain, overrides } => {
             let authored =
                 crate::rooms::Authored::new(req.id.clone(), req.name.clone(), aabb, brain.clone());
-            spawn_boss_with_overrides(commands, boss_catalog, session_scope, &authored, overrides)
+            spawn_boss_with_overrides_into(
+                commands,
+                boss_catalog,
+                session_scope,
+                root,
+                &authored,
+                overrides,
+            );
         }
         SpawnActorKind::Enemy { brain } => {
             let authored =
@@ -179,17 +210,17 @@ pub(crate) fn spawn_staged_actor(
             // Staged outside the authored RoomSpec lists: mark it so the
             // renderer's runtime-visual discovery gives it a sprite, the same as
             // any authored enemy.
-            let entity = spawn_enemy_with_faction(
+            spawn_enemy_with_faction_into(
                 commands,
                 character_catalog,
                 character_roster,
                 session_scope,
+                root,
                 &authored,
                 &[],
                 req.faction,
             );
-            commands.entity(entity).insert(super::RuntimeStagedActor);
-            entity
+            commands.entity(root).insert(super::RuntimeStagedActor);
         }
     }
 }
@@ -307,15 +338,31 @@ impl EnemyActorSpawnPlan {
         self
     }
 
+    /// Spawn onto a freshly allocated entity. Kept for the room loops that have
+    /// not moved onto the construction planner yet.
     pub(super) fn spawn(self, commands: &mut Commands, session_scope: SessionSpawnScope) -> Entity {
+        let root = commands.spawn_empty().id();
+        self.spawn_into(commands, session_scope, root);
+        root
+    }
+
+    /// Populate a root someone else allocated — the shape the construction
+    /// executor needs, since it owns authoritative-root allocation.
+    pub(super) fn spawn_into(
+        self,
+        commands: &mut Commands,
+        session_scope: SessionSpawnScope,
+        entity: Entity,
+    ) {
         let facing = self.enemy.kin.facing;
         let motion_model = self.enemy.config.tuning.motion_model();
         let (identity, disposition, combat, intent, cooldowns) =
             enemy_component_snapshot(&self.enemy);
         let cluster_bundle = self.enemy.into_components();
         let entity = commands
-            .spawn_session_scoped(
+            .insert_session_scoped(
                 session_scope,
+                entity,
                 (
                     Name::new(self.entity_name),
                     EnemyActorBundle::new(
@@ -379,7 +426,6 @@ impl EnemyActorSpawnPlan {
                     .insert(ambition_characters::brain::MovesetRanged);
             }
         }
-        entity
     }
 }
 
@@ -745,6 +791,27 @@ pub(super) fn spawn_boss_with_overrides(
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
     overrides: &BossOverrides,
 ) -> bevy::ecs::entity::Entity {
+    let root = commands.spawn_empty().id();
+    spawn_boss_with_overrides_into(
+        commands,
+        boss_catalog,
+        session_scope,
+        root,
+        authored,
+        overrides,
+    );
+    root
+}
+
+/// Populate a boss onto a root the construction executor allocated.
+pub(super) fn spawn_boss_with_overrides_into(
+    commands: &mut Commands,
+    boss_catalog: &BossCatalog,
+    session_scope: SessionSpawnScope,
+    root: bevy::ecs::entity::Entity,
+    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
+    overrides: &BossOverrides,
+) {
     let mut boss = BossClusterScratch::new(
         boss_catalog,
         authored.id.clone(),
@@ -869,8 +936,9 @@ pub(super) fn spawn_boss_with_overrides(
     // publish. Captured before `into_components` consumes the scratch.
     let boss_render_envelope = crate::combat::BodyEnvelope(boss.as_ref().render_size());
     let boss_components = boss.into_components();
-    let mut entity = commands.spawn_session_scoped(
+    let mut entity = commands.insert_session_scoped(
         session_scope,
+        root,
         (
             Name::new(format!("Feature boss: {}", authored.name)),
             FeatureSimEntity,
@@ -974,7 +1042,6 @@ pub(super) fn spawn_boss_with_overrides(
     // (`ambition_content::bosses::specials`), attached to every boss via
     // `register_required_components::<BossConfig, _>()` in the content plugin —
     // the engine spawn names no boss special.
-    entity.id()
 }
 /// Runtime minion spawner — used by boss EFFECTS consumers (e.g.
 /// PitTrap puppy_slug spawn, MinionCascade slop adds). Mirrors
@@ -995,6 +1062,7 @@ pub(super) fn spawn_boss_with_overrides(
 /// scopes the minion to a parent encounter so room reset / boss
 /// despawn cleans it up alongside the boss.
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn spawn_runtime_minion(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
@@ -1013,6 +1081,42 @@ pub(crate) fn spawn_runtime_minion(
     faction: super::ActorFaction,
     aggression: super::ActorAggression,
 ) -> bevy::ecs::entity::Entity {
+    let root = commands.spawn_empty().id();
+    spawn_runtime_minion_into(
+        commands,
+        catalog,
+        roster,
+        session_scope,
+        root,
+        id,
+        name,
+        world_pos,
+        half_size,
+        archetype_id,
+        encounter_id,
+        faction,
+        aggression,
+    );
+    root
+}
+
+/// Populate a summoned minion onto a root the construction executor allocated.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn spawn_runtime_minion_into(
+    commands: &mut Commands,
+    catalog: &CharacterCatalog,
+    roster: &CharacterRoster,
+    session_scope: SessionSpawnScope,
+    entity: bevy::ecs::entity::Entity,
+    id: impl Into<String>,
+    name: impl Into<String>,
+    world_pos: ae::Vec2,
+    half_size: ae::Vec2,
+    archetype_id: &str,
+    encounter_id: impl Into<String>,
+    faction: super::ActorFaction,
+    aggression: super::ActorAggression,
+) {
     let id = id.into();
     let name = name.into();
     let encounter_id = encounter_id.into();
@@ -1032,7 +1136,7 @@ pub(crate) fn spawn_runtime_minion(
     // the encounter, not a static sandbag.
     enemy.status.respawn_timer = 999_999.0;
     let feature_aabb = CenteredAabb::from_aabb(aabb);
-    let entity = EnemyActorSpawnPlan::hostile(
+    EnemyActorSpawnPlan::hostile(
         format!("Runtime minion: {name}"),
         id.clone(),
         name.clone(),
@@ -1041,7 +1145,7 @@ pub(crate) fn spawn_runtime_minion(
     )
     .with_faction(faction)
     .with_aggression(aggression)
-    .spawn(commands, session_scope);
+    .spawn_into(commands, session_scope, entity);
     commands
         .entity(entity)
         .insert(super::EncounterMob::new(encounter_id));
@@ -1054,7 +1158,6 @@ pub(crate) fn spawn_runtime_minion(
             .entity(entity)
             .insert(crate::features::ActorRenderSize(rs));
     }
-    entity
 }
 
 pub(super) fn spawn_enemy(
@@ -1091,6 +1194,37 @@ pub(super) fn spawn_enemy_with_faction(
     paths: &[(String, ambition_engine_core::KinematicPath)],
     faction: super::ActorFaction,
 ) -> bevy::ecs::entity::Entity {
+    let root = commands.spawn_empty().id();
+    spawn_enemy_with_faction_into(
+        commands,
+        catalog,
+        roster,
+        session_scope,
+        root,
+        authored,
+        paths,
+        faction,
+    );
+    root
+}
+
+/// Populate an enemy onto a root the construction executor allocated.
+///
+/// ⚠ A `"giant"`-class archetype ALSO spawns two hand limbs here, each with its
+/// own `SimId::spawned` identity. Those are authoritative roots this function
+/// creates that no plan row names — see the Phase-4 remaining-work note in
+/// `docs/planning/engine/immutable-content-and-transactional-construction.md`.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn spawn_enemy_with_faction_into(
+    commands: &mut Commands,
+    catalog: &CharacterCatalog,
+    roster: &CharacterRoster,
+    session_scope: SessionSpawnScope,
+    root: bevy::ecs::entity::Entity,
+    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+    paths: &[(String, ambition_engine_core::KinematicPath)],
+    faction: super::ActorFaction,
+) {
     let spec = roster.spec_for_brain(&authored.payload);
     let enemy = super::actor_clusters::ActorClusterSeed::new_in(
         catalog,
@@ -1101,8 +1235,16 @@ pub(super) fn spawn_enemy_with_faction(
         authored.payload.clone(),
         paths,
     );
-    let entity = spawn_solo_enemy(commands, catalog, session_scope, enemy, authored, faction);
-    attach_mount_role(commands, entity, &spec);
+    spawn_solo_enemy_into(
+        commands,
+        catalog,
+        session_scope,
+        root,
+        enemy,
+        authored,
+        faction,
+    );
+    attach_mount_role(commands, root, &spec);
     // Q18 (G3): a mount archetype that carries articulated hands (the `giant`-class
     // giant_gnu) grows a `LimbRig` + two hand limb bodies the rider boss's strikes
     // route to. v1 is scoped to the `"giant"` class (see `mount_has_hand_limbs`); a
@@ -1114,13 +1256,12 @@ pub(super) fn spawn_enemy_with_faction(
             catalog,
             roster,
             session_scope,
-            entity,
+            root,
             &authored.id,
             authored.aabb,
             &spec,
         );
     }
-    entity
 }
 
 /// v1 predicate (Q18): which mount archetypes carry driven hand limbs. Scoped to
@@ -1307,8 +1448,31 @@ pub(super) fn spawn_solo_enemy(
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
     faction: super::ActorFaction,
 ) -> bevy::ecs::entity::Entity {
+    let root = commands.spawn_empty().id();
+    spawn_solo_enemy_into(
+        commands,
+        catalog,
+        session_scope,
+        root,
+        enemy,
+        authored,
+        faction,
+    );
+    root
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn spawn_solo_enemy_into(
+    commands: &mut Commands,
+    catalog: &CharacterCatalog,
+    session_scope: SessionSpawnScope,
+    entity: bevy::ecs::entity::Entity,
+    enemy: super::actor_clusters::ActorClusterSeed,
+    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+    faction: super::ActorFaction,
+) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
-    let entity = EnemyActorSpawnPlan::hostile(
+    EnemyActorSpawnPlan::hostile(
         format!("Feature actor enemy: {}", authored.name),
         authored.id.clone(),
         authored.name.clone(),
@@ -1316,7 +1480,7 @@ pub(super) fn spawn_solo_enemy(
         enemy,
     )
     .with_faction(faction)
-    .spawn(commands, session_scope);
+    .spawn_into(commands, session_scope, entity);
     // A named catalog character carries its authored sprite render size on the
     // shared `ActorRenderSize` (the same component the peaceful-NPC path sets), so
     // the sprite draws at the authored scale and matches the body the per-frame
@@ -1330,7 +1494,6 @@ pub(super) fn spawn_solo_enemy(
             .entity(entity)
             .insert(crate::features::ActorRenderSize(rs));
     }
-    entity
 }
 /// Human label for an authored NPC: the catalog `display_name` for the
 /// spawn's `character_id`, falling back to the authored world-IR name.
@@ -1499,7 +1662,8 @@ pub fn apply_summon_effects(
     recipes: bevy::prelude::Res<crate::construction::ActorConstructionRegistry>,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
     identities: bevy::prelude::Query<&ambition_platformer_primitives::sim_id::SimId>,
-    mut counters: bevy::prelude::Query<&mut ambition_platformer_primitives::sim_id::SimIdCounter>,
+    // Read-only: the advance is a queued command, not a direct write.
+    counters: bevy::prelude::Query<&ambition_platformer_primitives::sim_id::SimIdCounter>,
 ) {
     use ambition_platformer_primitives::construction::{ConstructionPlan, ConstructionScope};
 
@@ -1561,10 +1725,10 @@ pub fn apply_summon_effects(
 
     let live: std::collections::BTreeSet<_> = identities.iter().cloned().collect();
     let scope = ConstructionScope {
-        // A summon is not a content artifact, so it states no epoch: the field
-        // exists to reject a plan carried across a content reload, and a plan
-        // built and committed inside one tick cannot be.
-        content_epoch: ambition_engine_core::ContentEpoch::default(),
+        // A summon is not a content artifact. It says so explicitly rather than
+        // by writing the same zero epoch a reset and a fixture also wrote, which
+        // is what made the three indistinguishable to a commit boundary.
+        binding: ambition_platformer_primitives::construction::ContentBinding::RuntimeDynamic,
         room: None,
     };
     let services = crate::construction::ActorConstructionServices {
@@ -1583,12 +1747,22 @@ pub fn apply_summon_effects(
                 services: &services,
             };
             plan.commit(&mut ctx);
-            // Only now are the identities really spent.
-            for (owner, advanced) in next_sequence {
-                if let Ok(mut counter) = counters.get_mut(owner) {
-                    counter.0 = advanced;
+            // The identities are spent when the construction that used them is
+            // APPLIED, not when it is queued. `commit` only enqueues commands —
+            // the roots, their components, the identity stamps — so writing the
+            // counters here would advance them ahead of the work they pay for,
+            // and a command that failed to apply would leave the counters
+            // advanced with nothing built. Queued last, they land after every
+            // command this commit produced, in order.
+            commands.queue(move |world: &mut bevy::prelude::World| {
+                for (owner, advanced) in next_sequence {
+                    if let Some(mut counter) =
+                        world.get_mut::<ambition_platformer_primitives::sim_id::SimIdCounter>(owner)
+                    {
+                        counter.0 = advanced;
+                    }
                 }
-            }
+            });
         }
         Err(error) => {
             // Nothing has been mutated: preparation is pure, and the sequence

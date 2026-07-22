@@ -149,13 +149,13 @@ pub use reset::reset_ecs_room_features;
 pub use save_sync::{
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
 };
-pub(crate) use spawn::spawn_runtime_minion;
 pub use spawn::{
     spawn_encounter_mob, spawn_room_feature_entities_from_plan, ActorConstructionContext,
     RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
     RoomFeatureConstructionError, RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt,
 };
-pub(crate) use spawn_actors::spawn_staged_actor;
+pub(crate) use spawn::{spawn_runtime_minion, spawn_runtime_minion_into};
+pub(crate) use spawn_actors::spawn_staged_actor_into;
 pub use spawn_actors::{
     apply_spawn_actor_requests, apply_summon_effects, BossOverrides, SpawnActorKind,
     SpawnActorRequest,

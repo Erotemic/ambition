@@ -351,26 +351,27 @@ pub fn spawn_pickup(
 /// a bare `return`, so an authored pickup naming a bad item produced no entity
 /// and no diagnostic. It is now a planning failure, which is detected while the
 /// live room is still intact.
-pub(crate) fn spawn_ground_item_resolved(
+/// Populate a ground item onto a root the construction executor allocated.
+pub(crate) fn spawn_ground_item_resolved_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
+    entity: bevy::ecs::entity::Entity,
     spec: &crate::rooms::GroundItemSpec,
     held: ambition_characters::brain::HeldItemSpec,
-) -> bevy::ecs::entity::Entity {
-    commands
-        .spawn_room_in_session(
-            session_scope,
-            (
-                Name::new(format!("Ground item: {}", spec.name)),
-                crate::items::pickup::GroundItem {
-                    spec: held,
-                    pos: spec.pos,
-                    vel: ambition_engine_core::Vec2::ZERO,
-                    half_extent: spec.half_extent,
-                },
-            ),
-        )
-        .id()
+) {
+    commands.insert_room_in_session(
+        session_scope,
+        entity,
+        (
+            Name::new(format!("Ground item: {}", spec.name)),
+            crate::items::pickup::GroundItem {
+                spec: held,
+                pos: spec.pos,
+                vel: ambition_engine_core::Vec2::ZERO,
+                half_extent: spec.half_extent,
+            },
+        ),
+    );
 }
 
 #[cfg(feature = "portal")]

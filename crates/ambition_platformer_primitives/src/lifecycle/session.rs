@@ -391,6 +391,29 @@ pub trait SpawnSessionScopedExt {
         scope: SessionSpawnScope,
         bundle: B,
     ) -> EntityCommands<'_>;
+
+    /// Populate an entity someone else allocated, giving it the same session
+    /// ownership [`Self::spawn_session_scoped`] would have.
+    ///
+    /// The construction executor allocates a planned entity's root itself so a
+    /// recipe cannot choose or commandeer one, which means recipes insert onto
+    /// an entity rather than spawning it. These are the insert-shaped siblings
+    /// of the spawn helpers above.
+    fn insert_session_scoped<B: Bundle>(
+        &mut self,
+        scope: SessionSpawnScope,
+        entity: Entity,
+        bundle: B,
+    ) -> EntityCommands<'_>;
+
+    /// Populate an allocated entity as owned by both the active authored room
+    /// and the captured gameplay session.
+    fn insert_room_in_session<B: Bundle>(
+        &mut self,
+        scope: SessionSpawnScope,
+        entity: Entity,
+        bundle: B,
+    ) -> EntityCommands<'_>;
 }
 
 impl SpawnSessionScopedExt for Commands<'_, '_> {
@@ -418,6 +441,30 @@ impl SpawnSessionScopedExt for Commands<'_, '_> {
         bundle: B,
     ) -> EntityCommands<'_> {
         let mut entity = self.spawn((RoomScopedEntity, bundle));
+        scope.apply_to(&mut entity);
+        entity
+    }
+
+    fn insert_session_scoped<B: Bundle>(
+        &mut self,
+        scope: SessionSpawnScope,
+        entity: Entity,
+        bundle: B,
+    ) -> EntityCommands<'_> {
+        let mut entity = self.entity(entity);
+        entity.insert(bundle);
+        scope.apply_to(&mut entity);
+        entity
+    }
+
+    fn insert_room_in_session<B: Bundle>(
+        &mut self,
+        scope: SessionSpawnScope,
+        entity: Entity,
+        bundle: B,
+    ) -> EntityCommands<'_> {
+        let mut entity = self.entity(entity);
+        entity.insert((RoomScopedEntity, bundle));
         scope.apply_to(&mut entity);
         entity
     }

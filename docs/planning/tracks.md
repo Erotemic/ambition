@@ -566,7 +566,24 @@ shrines, gravity zones and portal guns still take the family-specific loops in
 `apply_spawn_actor_requests` also survives on purpose — programmatic scene setup
 (RL reset, demo crony spawns) legitimately wants a message.
 
-⚠ **A same-day external review found five transactional gaps the tests could
+⚠ **A SECOND review round found four of those five repairs incomplete, and one
+encoding a new wrong invariant** — the relation rule permitted cutting a
+relation's target, which strands the untouched source on a dead `Entity` handle
+(proven: `Grudge(1v0)` vs a rebuilt `1v1`). All now repaired: symmetric relation
+rule + `relation_closure`; executor allocates the root via `ConstructionRoot` so
+a recipe cannot commandeer or nominate one; `AcceptsFn` and the request's
+`recipe` field deleted in favour of derived `recipe_of` + exhaustive
+`construct`; counter advance queued as part of the commit; `ContentBinding`
+replaces the thrice-overloaded epoch-zero sentinel.
+
+⚠ **PHASE 4 IS NOT STARTED.** Nine authoritative families and one parallel
+`apply_spawn_actor_requests` path remain outside the planner — the exact table is
+in the campaign doc. Two known holes in the current parity claim: giant hand
+limbs are authoritative roots no plan row names (and are reachable from inside a
+planned recipe), and `Limb`/`RidingOn` are raw `Entity` relationships invisible
+to cut-detection.
+
+⚠ **An earlier same-day review found five transactional gaps the tests could
 not see** — a counter spent before validation, an unchecked recipe/parameter
 pairing, an executor trusting the `Entity` a recipe returned, a parent stored
 twice, and `construct_one` silently dropping relations. All closed (plan schema

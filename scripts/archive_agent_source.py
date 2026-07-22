@@ -112,7 +112,9 @@ CONFIG = {
     # can be slower and require extra local cargo plugins.
     'run_ecs_inventory': True,
     'ecs_inventory_command': [
-        'python',
+        # `sys.executable`, matching every sibling command above: a bare
+        # 'python' is absent on stock Debian/Ubuntu and would fail this step.
+        sys.executable,
         'scripts/ecs_inventory.py',
         '--workspace',
         '--out-dir',
@@ -1506,15 +1508,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument('--skip-dirstats', action='store_true', help='do not generate the staged dirstats reports')
     parser.add_argument('--skip-live-inventory', action='store_true', help='do not generate the live-disk inventory or live git-status reports')
     parser.add_argument('--full', action='store_true', help='also run slower cargo reports: cargo check --workspace --lib and cargo-modules')
-    parser.add_argument('--quick', '--fast', action='store_true', help='only stage the shallow clones; skip every heavy step (agent index, navigation catalog, ECS inventory, dirstats, live-disk inventory). Implies all --skip-* flags and is incompatible with --full')
+    # `--slim` is the canonical spelling because it names WHAT IS INCLUDED
+    # rather than the side effect: the archive still carries the full source and
+    # git history, it just drops the generated payloads. It also reads as the
+    # natural antonym of `--full` above, with the default sitting between them.
+    # `--quick`/`--fast` stay as aliases so existing invocations keep working.
+    #
+    # Deliberately NOT `-f`: `--full` is this flag's opposite and also starts
+    # with "f", so `-f` would silently produce an archive missing everything the
+    # user meant to add. Deliberately NOT `-q`: that is `--quiet` below, which
+    # is what `-q` means nearly everywhere, and stealing it would turn an
+    # existing `-q` invocation into a payload-less archive that still exits 0.
+    parser.add_argument('-s', '--slim', '--quick', '--fast', action='store_true', help='stage source and history only; skip every generated payload (agent index, navigation catalog, ECS inventory, dirstats, live-disk inventory). Implies all --skip-* flags and is incompatible with --full')
     parser.add_argument('--allow-forbidden', action='store_true', help='bypass CONFIG["forbidden_path_globs"] guardrails for this run')
     parser.add_argument('--keep-stage', action='store_true', help='copy the staged archive root to .tmp-<prefix>-stage for debugging')
     parser.add_argument('-q', '--quiet', action='store_true', help='reduce logging')
     args = parser.parse_args(argv)
 
-    if args.quick:
+    if args.slim:
         if args.full:
-            parser.error('--quick and --full are mutually exclusive')
+            parser.error('--slim/--quick/--fast and --full are mutually exclusive')
         args.skip_index = True
         args.skip_ecs_inventory = True
         args.skip_agent_navigation = True

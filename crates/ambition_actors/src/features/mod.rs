@@ -119,6 +119,7 @@ pub use ecs::actor_clusters::{
     ActorClusterSeed, ActorConfig, ActorMotionPath, ActorMut, ActorStatus, BodyKinematics,
 };
 pub use ecs::actor_tuning::{ActorTuning, CharacterBrainSpec, CharacterBrainTemplate};
+pub use ecs::LastConstructionVerification;
 pub use ecs::{
     advance_actor_anim_overlays, apply_actor_contact_damage, apply_actor_stimuli,
     apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,

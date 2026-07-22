@@ -12,13 +12,61 @@
 use std::collections::BTreeMap;
 
 use bevy::ecs::resource::Resource;
-use bevy::prelude::Entity;
+use bevy::prelude::{Entity, World};
 
 use super::{ConstructionDomain, ConstructionExecCtx, RecipeId};
 
 /// Wires one declared relation once both ends exist.
 pub type RelationFn<D> =
     for<'w, 's, 'a> fn(Entity, Entity, &mut ConstructionExecCtx<'w, 's, 'a, D>);
+
+/// Proves, against the committed world, that a wired relation actually landed.
+///
+/// The counterpart to [`RelationFn`], and deliberately its twin: a relation is
+/// two facts — how to install it and what installed looks like — and splitting
+/// them across unrelated functions is how the earlier duplicated-fact bugs in
+/// this module started. They travel together in one [`RelationOps`], are
+/// registered together, and are frozen together onto a planned row.
+///
+/// Reads components, never debug strings. "The wiring function ran" is what a
+/// receipt already records; this answers the different question of whether the
+/// world now holds the relation the plan described.
+pub type RelationVerifyFn = fn(&World, Entity, Entity) -> RelationCheck;
+
+/// What inspecting a wired relation in the committed world found.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RelationCheck {
+    /// The source holds this relation, onto exactly the planned target.
+    Installed,
+    /// The source holds no relation of this kind. A no-op wiring function, a
+    /// relation removed after wiring, and a relation installed on some other
+    /// entity all land here — from the planned source's point of view they are
+    /// the same absence.
+    NotInstalled,
+    /// The source holds the relation, but onto something else — another entity,
+    /// or the pre-reconstruction generation of the right one. `found` is what it
+    /// points at, which is what distinguishes "overwritten" from "stale".
+    WrongTarget { found: Option<Entity> },
+    /// A bidirectional relation whose forward side is right and whose reverse
+    /// side disagrees. Checked separately because a half-wired pair passes every
+    /// forward-only test while leaving one side of the world lying.
+    ReverseMismatch { found: Option<Entity> },
+}
+
+/// The two frozen halves of one relation kind: how to install it, and how to
+/// prove it landed.
+pub struct RelationOps<D: ConstructionDomain> {
+    pub wire: RelationFn<D>,
+    pub verify: RelationVerifyFn,
+}
+
+impl<D: ConstructionDomain> Clone for RelationOps<D> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<D: ConstructionDomain> Copy for RelationOps<D> {}
 
 /// A stable identity for a kind of relation between two constructed entities.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -132,13 +180,13 @@ struct RecipeEntry {
 /// Carries the same canonical metadata a recipe does, and for the same reason:
 /// a relation's WIRING BEHAVIOUR can change while its kind and owner stay put,
 /// and without a schema id that change is invisible to the prepared-content
-/// fingerprint. The `wire` pointer itself is never canonicalised — it is
-/// runtime execution state, not content identity.
+/// fingerprint. The function pointers are never canonicalised — they are runtime
+/// execution state, not content identity.
 struct RelationEntry<D: ConstructionDomain> {
     owner: String,
     source: String,
     schema_id: String,
-    wire: RelationFn<D>,
+    ops: RelationOps<D>,
 }
 
 /// App-installed registry of construction recipe identities and relation
@@ -222,14 +270,30 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
         Ok(())
     }
 
-    /// Register the wiring for one relation kind.
+    /// Register the wiring and the postcondition check for one relation kind.
+    ///
+    /// **Registration identity is metadata, and only metadata.** This compared
+    /// `std::ptr::fn_addr_eq(existing.wire, wire)` as part of the idempotence
+    /// test, which is not a property a registry contract can rest on: the
+    /// compiler is free to merge two identical functions to one address and to
+    /// emit one function at several addresses across codegen units, so the same
+    /// registration could conflict or not depending on optimisation level. A
+    /// function address is an execution detail, not a semantic identity.
+    ///
+    /// The rule instead: same kind, owner, source, and schema id is idempotent,
+    /// whatever the pointers; any metadata disagreement is a conflict. What the
+    /// functions DO is governed by the schema contract, so changing their
+    /// behaviour means bumping `schema_id` — which is also exactly what makes
+    /// the change visible to the prepared-content fingerprint. A silent
+    /// behaviour swap under a fixed schema id was never detectable by pointer
+    /// comparison anyway: editing a function's body does not move it.
     pub fn try_register_relation(
         &mut self,
         kind: RelationKind,
         owner: impl Into<String>,
         source: impl Into<String>,
         schema_id: impl Into<String>,
-        wire: RelationFn<D>,
+        ops: RelationOps<D>,
     ) -> Result<(), ConstructionRegistrationError> {
         let (owner, source, schema_id) = (owner.into(), source.into(), schema_id.into());
         non_empty(&[
@@ -239,14 +303,9 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
             ("schema id", schema_id.as_str()),
         ])?;
         if let Some(existing) = self.relations.get(&kind) {
-            // Byte-identical metadata AND the same wiring is idempotent — the
-            // same policy recipes use. The pointer is compared here (a
-            // re-registration with different behaviour is a conflict) but never
-            // canonicalised into the dump.
             let identical = existing.owner == owner
                 && existing.source == source
-                && existing.schema_id == schema_id
-                && std::ptr::fn_addr_eq(existing.wire, wire);
+                && existing.schema_id == schema_id;
             return if identical {
                 Ok(())
             } else {
@@ -267,7 +326,7 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
                 owner,
                 source,
                 schema_id,
-                wire,
+                ops,
             },
         );
         Ok(())
@@ -280,8 +339,8 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
         self.recipes.contains_key(recipe)
     }
 
-    pub(super) fn relation(&self, kind: &RelationKind) -> Option<RelationFn<D>> {
-        self.relations.get(kind).map(|entry| entry.wire)
+    pub(super) fn relation(&self, kind: &RelationKind) -> Option<RelationOps<D>> {
+        self.relations.get(kind).map(|entry| entry.ops)
     }
 
     /// Stable owner/source/schema rows for prepared-content assembly, for

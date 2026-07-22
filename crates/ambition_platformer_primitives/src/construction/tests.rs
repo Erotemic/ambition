@@ -67,7 +67,52 @@ fn build(
 }
 
 fn wire_grudge(from: Entity, to: Entity, ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {
-    ctx.commands.entity(from).insert(Grudge(to));
+    // Relation-side sabotage, so the adversarial tests exercise the SAME wiring
+    // path ordinary construction takes. `RelationSabotage::None` is that path.
+    match RELATION_SABOTAGE.with(|s| s.get()) {
+        RelationSabotage::None => {
+            ctx.commands.entity(from).insert(Grudge(to));
+        }
+        // The case a receipt cannot see: the function ran, the world is unchanged.
+        RelationSabotage::NoOp => {}
+        RelationSabotage::WrongTarget => {
+            let elsewhere = ctx.commands.spawn_empty().id();
+            ctx.commands.entity(from).insert(Grudge(elsewhere));
+        }
+        RelationSabotage::WrongSource => {
+            let elsewhere = ctx.commands.spawn_empty().id();
+            ctx.commands.entity(elsewhere).insert(Grudge(to));
+        }
+        RelationSabotage::RemovedAfterWiring => {
+            ctx.commands.entity(from).insert(Grudge(to));
+            // A later command in the same flush, exactly as a competing system
+            // would issue.
+            ctx.commands.entity(from).remove::<Grudge>();
+        }
+        RelationSabotage::OverwrittenByAnotherCommand => {
+            ctx.commands.entity(from).insert(Grudge(to));
+            let usurper = ctx.commands.spawn_empty().id();
+            ctx.commands.entity(from).insert(Grudge(usurper));
+        }
+    }
+}
+
+/// The toy grudge's postcondition: read the component, do not trust the call.
+fn verify_grudge(world: &World, from: Entity, to: Entity) -> RelationCheck {
+    match world.get::<Grudge>(from) {
+        None => RelationCheck::NotInstalled,
+        Some(Grudge(found)) if *found == to => RelationCheck::Installed,
+        Some(Grudge(found)) => RelationCheck::WrongTarget {
+            found: Some(*found),
+        },
+    }
+}
+
+fn grudge_ops() -> RelationOps<Toy> {
+    RelationOps {
+        wire: wire_grudge,
+        verify: verify_grudge,
+    }
 }
 
 fn recipe() -> RecipeId {
@@ -84,7 +129,7 @@ fn registry() -> ConstructionRegistry<Toy> {
         .try_register_recipe(recipe(), "toy", "tests", "v1")
         .expect("first registration succeeds");
     registry
-        .try_register_relation(grudge(), "toy", "tests", "v1", wire_grudge)
+        .try_register_relation(grudge(), "toy", "tests", "v1", grudge_ops())
         .expect("first registration succeeds");
     registry
 }
@@ -1166,8 +1211,6 @@ fn commit_runs_the_constructor_preparation_resolved_not_a_fresh_one() {
 
 // ── Relation registrations carry canonical schema metadata ───────────────────
 
-fn other_wire(_: Entity, _: Entity, _: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {}
-
 /// A relation's WIRING can change while its kind and owner stay put, so the
 /// schema id is what makes such a change visible. It must reach the dump.
 #[test]
@@ -1175,7 +1218,7 @@ fn a_relation_schema_change_changes_the_registry_dump() {
     let dump_for = |schema: &str| {
         let mut registry = ConstructionRegistry::<Toy>::default();
         registry
-            .try_register_relation(grudge(), "toy", "aggression", schema, wire_grudge)
+            .try_register_relation(grudge(), "toy", "aggression", schema, grudge_ops())
             .unwrap();
         registry.deterministic_dump()
     };
@@ -1196,7 +1239,7 @@ fn relation_registration_order_does_not_change_the_dump() {
         };
         for kind in kinds {
             registry
-                .try_register_relation(kind, "toy", "tests", "v1", wire_grudge)
+                .try_register_relation(kind, "toy", "tests", "v1", grudge_ops())
                 .unwrap();
         }
         registry.deterministic_dump()
@@ -1204,29 +1247,26 @@ fn relation_registration_order_does_not_change_the_dump() {
     assert_eq!(dump_for(false), dump_for(true));
 }
 
-/// Identical metadata AND identical wiring is idempotent; anything else is a
-/// conflict, and a rejected registration leaves the registry untouched.
+/// Differing metadata is a conflict, and a rejected registration leaves the
+/// registry untouched.
 #[test]
 fn relation_metadata_conflicts_are_rejected_and_identical_ones_are_idempotent() {
     let mut registry = ConstructionRegistry::<Toy>::default();
     registry
-        .try_register_relation(grudge(), "toy", "aggression", "v1", wire_grudge)
+        .try_register_relation(grudge(), "toy", "aggression", "v1", grudge_ops())
         .unwrap();
     registry
-        .try_register_relation(grudge(), "toy", "aggression", "v1", wire_grudge)
+        .try_register_relation(grudge(), "toy", "aggression", "v1", grudge_ops())
         .expect("byte-identical re-registration is idempotent");
 
     let before = registry.deterministic_dump();
-    for (owner, source, schema, wire) in [
-        ("other", "aggression", "v1", wire_grudge as RelationFn<Toy>),
-        ("toy", "other-source", "v1", wire_grudge),
-        ("toy", "aggression", "v2", wire_grudge),
-        // Same metadata, DIFFERENT behaviour: still a conflict, because the
-        // dump could not otherwise tell the two apart.
-        ("toy", "aggression", "v1", other_wire),
+    for (owner, source, schema) in [
+        ("other", "aggression", "v1"),
+        ("toy", "other-source", "v1"),
+        ("toy", "aggression", "v2"),
     ] {
         let error = registry
-            .try_register_relation(grudge(), owner, source, schema, wire)
+            .try_register_relation(grudge(), owner, source, schema, grudge_ops())
             .expect_err("a differing relation registration must be rejected");
         assert!(matches!(
             error,
@@ -1237,6 +1277,56 @@ fn relation_metadata_conflicts_are_rejected_and_identical_ones_are_idempotent() 
         registry.deterministic_dump(),
         before,
         "rejected registrations leave the registry untouched"
+    );
+}
+
+/// **Registration identity is metadata, never a function address.**
+///
+/// Two DISTINCT functions declaring identical metadata re-register
+/// idempotently. This deliberately reverses the previous rule, which folded
+/// `std::ptr::fn_addr_eq` into the idempotence test and so made the outcome
+/// depend on codegen: the compiler may merge two identical functions to one
+/// address, and may emit one function at several addresses across codegen
+/// units, so the same pair of registrations could conflict or not between
+/// builds. A registry contract cannot rest on that.
+///
+/// Behaviour is governed by `schema_id` instead — which is also what makes a
+/// behaviour change visible to the prepared-content fingerprint. Note that
+/// pointer comparison never caught the realistic case anyway: editing a
+/// function's body does not move it.
+#[test]
+fn relation_registration_identity_does_not_depend_on_function_addresses() {
+    fn wire_a(from: Entity, to: Entity, ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {
+        ctx.commands.entity(from).insert(Grudge(to));
+    }
+    fn wire_b(from: Entity, _to: Entity, ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {
+        ctx.commands.entity(from).remove::<Grudge>();
+    }
+    let ops_a = RelationOps::<Toy> {
+        wire: wire_a,
+        verify: verify_grudge,
+    };
+    let ops_b = RelationOps::<Toy> {
+        wire: wire_b,
+        verify: verify_grudge,
+    };
+    assert!(
+        !std::ptr::fn_addr_eq(ops_a.wire, ops_b.wire),
+        "the two fixtures must genuinely be different functions for this to mean anything"
+    );
+
+    let mut registry = ConstructionRegistry::<Toy>::default();
+    registry
+        .try_register_relation(grudge(), "toy", "aggression", "v1", ops_a)
+        .unwrap();
+    let dump = registry.deterministic_dump();
+    registry
+        .try_register_relation(grudge(), "toy", "aggression", "v1", ops_b)
+        .expect("identical declared metadata re-registers idempotently, whatever the addresses");
+    assert_eq!(
+        registry.deterministic_dump(),
+        dump,
+        "an idempotent re-registration changes nothing"
     );
 }
 
@@ -1255,7 +1345,7 @@ fn empty_relation_metadata_fields_are_rejected() {
                 owner,
                 source,
                 schema,
-                wire_grudge
+                grudge_ops()
             ),
             Err(ConstructionRegistrationError::EmptyIdentity { field })
         );
@@ -1278,15 +1368,28 @@ enum Sabotage {
     DespawnRoot,
     DuplicateIdentity,
     SpawnExtraAuthoritativeRoot,
+    SpawnUnownedIdentity,
+    SpawnForeignScopedRoot,
     PresentationChild,
+}
+
+/// What each adversarial toy WIRING should do, so the relation postcondition
+/// checks exercise the real wiring path rather than a stand-in.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RelationSabotage {
+    None,
+    NoOp,
+    WrongTarget,
+    WrongSource,
+    RemovedAfterWiring,
+    OverwrittenByAnotherCommand,
 }
 
 thread_local! {
     static SABOTAGE: std::cell::Cell<Sabotage> = const { std::cell::Cell::new(Sabotage::None) };
+    static RELATION_SABOTAGE: std::cell::Cell<RelationSabotage> =
+        const { std::cell::Cell::new(RelationSabotage::None) };
 }
-
-#[derive(Component)]
-struct PresentationOnly;
 
 fn apply_sabotage(root: ConstructionRoot, ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {
     match SABOTAGE.with(|s| s.get()) {
@@ -1311,52 +1414,73 @@ fn apply_sabotage(root: ConstructionRoot, ctx: &mut ConstructionExecCtx<'_, '_, 
             ctx.commands.spawn(SimId::placement("a"));
         }
         Sabotage::SpawnExtraAuthoritativeRoot => {
-            // The shape the giant hand limbs already have.
-            ctx.commands.spawn(SimId::placement("uninvited"));
+            // A root wearing THIS transaction's ownership that no plan row
+            // named. The caller never lists it, which is exactly why the scope
+            // is read from the world instead of from the caller.
+            ctx.commands
+                .spawn((SimId::placement("uninvited"), ctx.scope.transaction()));
+        }
+        Sabotage::SpawnUnownedIdentity => {
+            // The shape the giant hand limbs already have TODAY: a real
+            // identity, minted outside the planner, owned by nothing.
+            ctx.commands.spawn(SimId::placement("giant/hand_left"));
+        }
+        Sabotage::SpawnForeignScopedRoot => {
+            // Another live transaction's root. Present in the world, none of
+            // this transaction's business, and must not be reported.
+            let elsewhere = ConstructionScope {
+                binding: ContentBinding::Content(ambition_engine_core::ContentEpoch(9)),
+                room: Some("some_other_room".into()),
+            };
+            ctx.commands.spawn((
+                SimId::placement("other_rooms_occupant"),
+                elsewhere.transaction(),
+            ));
         }
         Sabotage::PresentationChild => {
-            // Legal: a helper with no authoritative identity.
-            ctx.commands.spawn(PresentationOnly);
+            // Legal: identity-bearing, but explicitly declared non-authoritative.
+            // It must carry an identity for this to prove anything — an entity
+            // with no `SimId` was never in scope to begin with.
+            ctx.commands
+                .spawn((SimId::placement("a/visual"), PresentationOnly));
         }
     }
 }
 
-/// Runs a plan under one sabotage and verifies the resulting world.
+/// Runs a plan under one sabotage and verifies the resulting world, gathering
+/// the scope from the world exactly as the production boundary does.
 ///
-/// The sabotage flag is thread-local, and Rust runs tests on separate threads,
-/// so these do not interfere with each other or with the ordinary toy tests.
+/// The sabotage flags are thread-local, and Rust runs tests on separate
+/// threads, so these do not interfere with each other or with the ordinary toy
+/// tests.
 fn verify_under(
     sabotage: Sabotage,
     plan: &ConstructionPlan<Toy>,
 ) -> Result<(), Vec<RosterViolation>> {
+    verify_under_both(sabotage, RelationSabotage::None, plan)
+}
+
+fn verify_under_both(
+    sabotage: Sabotage,
+    relation_sabotage: RelationSabotage,
+    plan: &ConstructionPlan<Toy>,
+) -> Result<(), Vec<RosterViolation>> {
     SABOTAGE.with(|s| s.set(sabotage));
+    RELATION_SABOTAGE.with(|s| s.set(relation_sabotage));
     let services = Services::default();
     let mut world = World::new();
+    // Captured before construction, as production captures it: at this point the
+    // world is empty, so the baseline is empty and every root below is this
+    // transaction's doing.
+    let baseline =
+        TransactionBaseline::capture(&mut world).expect("an empty world has no duplicates");
     let receipt = commit_into(&mut world, plan, &services);
     SABOTAGE.with(|s| s.set(Sabotage::None));
+    RELATION_SABOTAGE.with(|s| s.set(RelationSabotage::None));
 
-    // The transaction's authoritative scope: every live identity. Nothing here
-    // parses an id or infers authority from a name.
-    let authoritative: Vec<(SimId, Entity)> = world
-        .query::<(Entity, &SimId)>()
-        .iter(&world)
-        .map(|(entity, id)| (id.clone(), entity))
-        .collect();
-    let live: std::collections::BTreeSet<Entity> = world.query::<Entity>().iter(&world).collect();
-    let origins: BTreeMap<Entity, SpawnOrigin> = world
-        .query::<(Entity, &SpawnOrigin)>()
-        .iter(&world)
-        .map(|(entity, origin)| (entity, origin.clone()))
-        .collect();
-
-    verify_committed_roster(
-        plan,
-        &receipt,
-        &TransactionBaseline::default(),
-        &authoritative,
-        &|entity| live.contains(&entity),
-        &|entity| origins.get(&entity).cloned(),
-    )
+    let transaction = plan.scope().transaction();
+    let scope = AuthoritativeScope::gather(&mut world, &transaction);
+    verify_committed_roster(plan, &receipt, &baseline, &scope, &world)
 }
 
 fn sabotage_plan() -> ConstructionPlan<Toy> {
@@ -1426,7 +1550,8 @@ fn a_duplicated_planned_identity_is_detected() {
     );
 }
 
-/// The shape the giant hand limbs already have today.
+/// An authoritative root wearing this transaction's ownership that no plan row
+/// named. **The caller never mentions it** — the scope is read from the world.
 #[test]
 fn an_unplanned_authoritative_root_is_detected() {
     let violations = verify_under(Sabotage::SpawnExtraAuthoritativeRoot, &sabotage_plan())
@@ -1439,8 +1564,40 @@ fn an_unplanned_authoritative_root_is_detected() {
     );
 }
 
-/// Presentation-only helpers stay legal — they carry no authoritative identity,
-/// so they are simply not in the transaction's authoritative scope.
+/// An identity-bearing entity with no ownership stamp is REPORTED, per the
+/// documented rule — never silently ignored, and never fatal while nine
+/// families still build roots outside the planner. The giant's hand limbs are
+/// exactly this shape today.
+#[test]
+fn an_unowned_identity_is_reported_but_does_not_fail_the_transaction() {
+    let violations = verify_under(Sabotage::SpawnUnownedIdentity, &sabotage_plan())
+        .expect_err("an unowned identity must be reported");
+    let unowned: Vec<_> = violations
+        .iter()
+        .filter(|v| matches!(v, RosterViolation::UnownedIdentity { .. }))
+        .collect();
+    assert_eq!(unowned.len(), 1, "got {violations:?}");
+    assert_eq!(unowned[0].severity(), Severity::Unmigrated);
+    assert!(
+        violations
+            .iter()
+            .all(|v| v.severity() == Severity::Unmigrated),
+        "nothing here should be fatal: {violations:?}"
+    );
+}
+
+/// A root belonging to a DIFFERENT live transaction is out of jurisdiction, and
+/// must not be reported at all.
+#[test]
+fn a_root_from_another_transaction_scope_is_not_reported() {
+    assert_eq!(
+        verify_under(Sabotage::SpawnForeignScopedRoot, &sabotage_plan()),
+        Ok(())
+    );
+}
+
+/// Presentation-only helpers stay legal even though they carry an identity —
+/// they are classified out by an explicit component, never by their spelling.
 #[test]
 fn a_presentation_only_child_is_permitted() {
     assert_eq!(
@@ -1449,29 +1606,433 @@ fn a_presentation_only_child_is_permitted() {
     );
 }
 
-/// Identities that were already live when the transaction began are not
-/// "unplanned" — that is what the baseline is for.
+// ── Baseline identity and multiplicity ───────────────────────────────────────
+//
+// An identity-only baseline could not tell an original from a replacement, a
+// survivor from a look-alike, or a pre-existing duplicate from a clean start.
+// These are the cases that motivated capturing entities.
+
+/// A world with a live entity, ready to be a baseline.
+fn world_with(ids: &[(&str, Entity)]) -> World {
+    let mut world = World::new();
+    for (id, _) in ids {
+        world.spawn(SimId::placement(*id));
+    }
+    world
+}
+
+fn baseline_of(world: &mut World) -> TransactionBaseline {
+    TransactionBaseline::capture(world).expect("no duplicates in this fixture")
+}
+
+fn verify_world(
+    world: &mut World,
+    plan: &ConstructionPlan<Toy>,
+    receipt: &ConstructionReceipt,
+    baseline: &TransactionBaseline,
+) -> Result<(), Vec<RosterViolation>> {
+    let transaction = plan.scope().transaction();
+    let scope = AuthoritativeScope::gather(world, &transaction);
+    verify_committed_roster(plan, receipt, baseline, &scope, world)
+}
+
+fn empty_plan() -> ConstructionPlan<Toy> {
+    ConstructionPlan::prepare(scope(), Vec::new(), &nothing_live(), &registry()).unwrap()
+}
+
+/// (1) A second entity spawned with a BASELINE identity. The identity set is
+/// unchanged, so a set comparison sees nothing.
+#[test]
+fn a_second_entity_wearing_a_baseline_identity_is_detected() {
+    let mut world = world_with(&[("survivor", Entity::PLACEHOLDER)]);
+    let baseline = baseline_of(&mut world);
+    world.spawn(SimId::placement("survivor"));
+
+    let violations = verify_world(
+        &mut world,
+        &empty_plan(),
+        &ConstructionReceipt::default(),
+        &baseline,
+    )
+    .expect_err("a duplicated baseline identity must be detected");
+    assert!(
+        violations
+            .iter()
+            .any(|v| matches!(v, RosterViolation::Duplicated { count, .. } if *count == 2)),
+        "got {violations:?}"
+    );
+}
+
+/// (2) A baseline entity despawned and replaced by another entity carrying the
+/// same identity. **Exactly one occupant, exactly the right identity, wrong
+/// body.** This is the case an identity-only baseline is structurally blind to.
+#[test]
+fn a_baseline_entity_replaced_by_a_look_alike_is_detected() {
+    let mut world = World::new();
+    let original = world.spawn(SimId::placement("survivor")).id();
+    let baseline = baseline_of(&mut world);
+    world.despawn(original);
+    let replacement = world.spawn(SimId::placement("survivor")).id();
+
+    let violations = verify_world(
+        &mut world,
+        &empty_plan(),
+        &ConstructionReceipt::default(),
+        &baseline,
+    )
+    .expect_err("a replaced baseline entity must be detected");
+    assert!(
+        violations.iter().any(|v| matches!(
+            v,
+            RosterViolation::BaselineReplaced { expected, found, .. }
+                if *expected == original && *found == replacement
+        )),
+        "got {violations:?}"
+    );
+}
+
+/// (3) Duplicate authoritative identities present BEFORE the transaction. The
+/// capture refuses rather than collapsing them, because every later
+/// multiplicity check would otherwise be measured against a baseline that had
+/// already lost the duplicate.
+#[test]
+fn a_baseline_that_already_contains_duplicates_is_refused_at_capture() {
+    let mut world = World::new();
+    let first = world.spawn(SimId::placement("twin")).id();
+    let second = world.spawn(SimId::placement("twin")).id();
+    let error = TransactionBaseline::capture(&mut world)
+        .expect_err("a pre-existing duplicate identity must refuse capture");
+    let BaselineCaptureError::DuplicateIdentity { sim_id, entities } = error;
+    assert_eq!(sim_id, SimId::placement("twin"));
+    let mut expected = vec![first, second];
+    expected.sort();
+    assert_eq!(entities, expected);
+}
+
+/// (4) An untouched baseline entity whose provenance is rewritten under it.
+#[test]
+fn mutating_an_untouched_baseline_entitys_provenance_is_detected() {
+    let mut world = World::new();
+    let survivor = world
+        .spawn((
+            SimId::placement("survivor"),
+            SpawnOrigin::Authored {
+                source: "room_a".into(),
+                instance: "survivor".into(),
+            },
+        ))
+        .id();
+    let baseline = baseline_of(&mut world);
+    world.entity_mut(survivor).insert(SpawnOrigin::Dynamic {
+        parent: SimId::placement("nobody"),
+        sequence: 1,
+    });
+
+    let violations = verify_world(
+        &mut world,
+        &empty_plan(),
+        &ConstructionReceipt::default(),
+        &baseline,
+    )
+    .expect_err("rewriting an untouched entity's provenance must be detected");
+    assert!(
+        violations
+            .iter()
+            .any(|v| matches!(v, RosterViolation::BaselineProvenanceChanged { .. })),
+        "got {violations:?}"
+    );
+}
+
+/// (5) A DECLARED reconstruction that changes only the permitted entity
+/// generation verifies clean — and the same world without the declaration does
+/// not. Permission is declared, never inferred from the plan naming the id.
+#[test]
+fn a_declared_reconstruction_changes_exactly_one_generation() {
+    let services = Services::default();
+    let mut world = World::new();
+    let original = world.spawn(SimId::placement("a")).id();
+    let bystander = world.spawn(SimId::placement("untouched")).id();
+    let baseline = baseline_of(&mut world);
+
+    // Retire the old body and rebuild the identity through the plan.
+    world.despawn(original);
+    let plan = ConstructionPlan::prepare(scope(), vec![request("a")], &nothing_live(), &registry())
+        .unwrap();
+    let receipt = commit_into(&mut world, &plan, &services);
+    let rebuilt = receipt.entity(&SimId::placement("a")).expect("committed");
+    assert_ne!(rebuilt, original, "reconstruction must mint a new body");
+
+    let declared = baseline.clone().reconstructing([SimId::placement("a")]);
+    assert_eq!(
+        verify_world(&mut world, &plan, &receipt, &declared),
+        Ok(()),
+        "a declared reconstruction with one new generation is clean"
+    );
+    assert!(
+        world.get_entity(bystander).is_ok(),
+        "the bystander's generation must be untouched"
+    );
+
+    // Without the declaration, the very same world is a violation: the plan
+    // naming the identity is NOT permission to have destroyed what held it.
+    let violations = verify_world(&mut world, &plan, &receipt, &baseline)
+        .expect_err("an undeclared reconstruction must be rejected");
+    assert!(
+        violations
+            .iter()
+            .any(|v| matches!(v, RosterViolation::PlannedOverBaseline { .. })),
+        "got {violations:?}"
+    );
+}
+
+/// A declared reconstruction that leaves the OLD body alive is still wrong:
+/// two generations of one identity, and dependants may hold either.
+#[test]
+fn a_reconstruction_that_leaves_the_old_body_alive_is_detected() {
+    let services = Services::default();
+    let mut world = World::new();
+    let original = world.spawn(SimId::placement("a")).id();
+    let baseline = baseline_of(&mut world).reconstructing([SimId::placement("a")]);
+
+    // Note: `original` is deliberately NOT despawned.
+    let plan = ConstructionPlan::prepare(scope(), vec![request("a")], &nothing_live(), &registry())
+        .unwrap();
+    let receipt = commit_into(&mut world, &plan, &services);
+
+    let violations = verify_world(&mut world, &plan, &receipt, &baseline)
+        .expect_err("the stale generation must be detected");
+    assert!(
+        violations.iter().any(|v| matches!(
+            v,
+            RosterViolation::ReconstructedOldSurvived { stale, .. } if *stale == original
+        )),
+        "got {violations:?}"
+    );
+}
+
+/// Identities that were already live and are untouched are not "unplanned" —
+/// that is what the baseline is for.
 #[test]
 fn a_baseline_identity_is_not_reported_as_unplanned() {
-    let plan = sabotage_plan();
-    let receipt = ConstructionReceipt::default();
-    let baseline = TransactionBaseline::new(BTreeSet::from([SimId::placement("survivor")]));
-    let violations = verify_committed_roster(
-        &plan,
-        &receipt,
+    let mut world = world_with(&[("survivor", Entity::PLACEHOLDER)]);
+    let baseline = baseline_of(&mut world);
+    let violations = verify_world(
+        &mut world,
+        &empty_plan(),
+        &ConstructionReceipt::default(),
         &baseline,
-        &[(
-            SimId::placement("survivor"),
-            Entity::from_raw_u32(7).unwrap(),
-        )],
-        &|_| true,
-        &|_| None,
+    );
+    assert_eq!(
+        violations,
+        Ok(()),
+        "a pre-existing, untouched identity is not a finding"
+    );
+}
+
+/// A declared retirement that did not happen.
+#[test]
+fn an_identity_declared_retired_that_survived_is_detected() {
+    let mut world = world_with(&[("doomed", Entity::PLACEHOLDER)]);
+    let baseline = baseline_of(&mut world).retiring([SimId::placement("doomed")]);
+    let violations = verify_world(
+        &mut world,
+        &empty_plan(),
+        &ConstructionReceipt::default(),
+        &baseline,
     )
-    .expect_err("the plan's own rows are still missing");
+    .expect_err("a survivor of a declared retirement must be detected");
     assert!(
-        !violations
+        violations
             .iter()
-            .any(|v| matches!(v, RosterViolation::Unplanned { .. })),
-        "a pre-existing identity is not an unplanned root: {violations:?}"
+            .any(|v| matches!(v, RosterViolation::RetiredSurvived { .. })),
+        "got {violations:?}"
+    );
+}
+
+// ── Relation postconditions ──────────────────────────────────────────────────
+//
+// The receipt records that a wiring function was CALLED. Every case below
+// produces a receipt identical to the clean one, so nothing here is detectable
+// without reading the committed components.
+
+fn related_plan() -> ConstructionPlan<Toy> {
+    let mut a = request("a");
+    a.relations.push(RelationRequest {
+        kind: grudge(),
+        to: SimId::placement("b"),
+    });
+    ConstructionPlan::prepare(scope(), vec![a, request("b")], &nothing_live(), &registry()).unwrap()
+}
+
+#[test]
+fn a_correctly_wired_relation_verifies() {
+    assert_eq!(
+        verify_under_both(Sabotage::None, RelationSabotage::None, &related_plan()),
+        Ok(())
+    );
+}
+
+/// Each of these produces a receipt that says the relation was wired.
+#[test]
+fn relation_wiring_defects_are_detected_against_the_committed_world() {
+    for sabotage in [
+        RelationSabotage::NoOp,
+        RelationSabotage::WrongTarget,
+        RelationSabotage::WrongSource,
+        RelationSabotage::RemovedAfterWiring,
+        RelationSabotage::OverwrittenByAnotherCommand,
+    ] {
+        let plan = related_plan();
+        let violations = verify_under_both(Sabotage::None, sabotage, &plan)
+            .expect_err("a relation defect must be detected");
+        assert!(
+            violations
+                .iter()
+                .any(|v| matches!(v, RosterViolation::RelationNotEstablished { .. })),
+            "got {violations:?}"
+        );
+    }
+}
+
+/// A no-op wiring function reads as absent, and an overwrite reads as pointing
+/// somewhere else. The distinction is what makes a failure diagnosable.
+#[test]
+fn a_relation_defect_reports_what_the_world_actually_holds() {
+    let plan = related_plan();
+    let violations = verify_under_both(Sabotage::None, RelationSabotage::NoOp, &plan).unwrap_err();
+    assert!(
+        violations.iter().any(|v| matches!(
+            v,
+            RosterViolation::RelationNotEstablished { check, .. }
+                if *check == RelationCheck::NotInstalled
+        )),
+        "got {violations:?}"
+    );
+
+    let violations =
+        verify_under_both(Sabotage::None, RelationSabotage::WrongTarget, &plan).unwrap_err();
+    assert!(
+        violations.iter().any(|v| matches!(
+            v,
+            RosterViolation::RelationNotEstablished { check, .. }
+                if matches!(check, RelationCheck::WrongTarget { found: Some(_) })
+        )),
+        "got {violations:?}"
+    );
+}
+
+/// A relation left pointing at the PRE-reconstruction body. The endpoints are
+/// live, the identity roster is perfect, and the source holds a handle to a
+/// corpse — the exact stale-handle class `RelationCutBySubset` refuses at plan
+/// time, here proven detectable after the fact.
+#[test]
+fn a_relation_onto_a_stale_generation_is_detected() {
+    let services = Services::default();
+    let mut world = World::new();
+    let baseline = baseline_of(&mut world);
+    let plan = related_plan();
+    let receipt = commit_into(&mut world, &plan, &services);
+
+    let a = receipt.entity(&SimId::placement("a")).unwrap();
+    let stale_b = receipt.entity(&SimId::placement("b")).unwrap();
+    // Rebuild `b`'s body and repoint the identity, WITHOUT rewiring the grudge.
+    world.despawn(stale_b);
+    let fresh_b = world
+        .spawn((
+            SimId::placement("b"),
+            SpawnOrigin::Authored {
+                source: "room_a".into(),
+                instance: "b".into(),
+            },
+            plan.scope().transaction(),
+        ))
+        .id();
+    assert_ne!(fresh_b, stale_b);
+    assert_eq!(
+        world.get::<Grudge>(a).map(|g| g.0),
+        Some(stale_b),
+        "the source still points at the body that died"
+    );
+
+    let violations = verify_world(&mut world, &plan, &receipt, &baseline)
+        .expect_err("a grudge onto a dead generation must be detected");
+    assert!(
+        violations.iter().any(
+            |v| matches!(v, RosterViolation::RelationNotEstablished { .. })
+                || matches!(v, RosterViolation::MovedRoot { .. })
+        ),
+        "got {violations:?}"
+    );
+}
+
+/// Rebuilding a relation's dependency closure rewires it correctly — the
+/// positive counterpart to the stale-generation case above.
+#[test]
+fn rebuilding_a_relation_closure_rewires_it() {
+    let services = Services::default();
+    let mut world = World::new();
+    let plan = related_plan();
+    let receipt = commit_into(&mut world, &plan, &services);
+
+    let closure = plan.relation_closure(&BTreeSet::from([SimId::placement("b")]));
+    assert_eq!(
+        closure,
+        BTreeSet::from([SimId::placement("a"), SimId::placement("b")]),
+        "the closure must pull in the source that points at `b`"
+    );
+    for id in &closure {
+        world.despawn(receipt.entity(id).unwrap());
+    }
+    let baseline = baseline_of(&mut world);
+    let rebuilt = {
+        let scope_value = plan.scope().clone();
+        let mut commands = world.commands();
+        let mut ctx = ConstructionExecCtx::<Toy> {
+            commands: &mut commands,
+            scope: &scope_value,
+            session: crate::lifecycle::SessionSpawnScope::UNSCOPED,
+            services: &services,
+        };
+        plan.commit_subset(&closure, &mut ctx)
+            .expect("the closure encloses the relation, so it cannot be refused")
+    };
+    world.flush();
+
+    assert_eq!(
+        verify_world(&mut world, &plan, &rebuilt, &baseline),
+        Ok(()),
+        "a closure rebuild wires the relation onto the new generation"
+    );
+}
+
+/// A presentation-only entity that was ALREADY alive when the transaction
+/// opened must not be reported as a lost baseline identity.
+///
+/// The baseline and the occupant count have to apply the same filter. When
+/// `capture` admitted presentation-only entities and the verifier's occupant
+/// count excluded them, every pre-existing visual double reported
+/// `BaselineLost` on every subsequent room load — an entity looked for among
+/// occupants that structurally could not contain it.
+#[test]
+fn a_pre_existing_presentation_only_entity_is_not_a_lost_baseline_identity() {
+    let mut world = World::new();
+    world.spawn((SimId::placement("hero/afterimage"), PresentationOnly));
+    world.spawn(SimId::placement("hero"));
+    let baseline = baseline_of(&mut world);
+    assert!(
+        !baseline.contains(&SimId::placement("hero/afterimage")),
+        "a presentation-only entity is not part of the authoritative baseline"
+    );
+    assert!(baseline.contains(&SimId::placement("hero")));
+
+    assert_eq!(
+        verify_world(
+            &mut world,
+            &empty_plan(),
+            &ConstructionReceipt::default(),
+            &baseline
+        ),
+        Ok(()),
+        "nothing changed, so nothing should be reported"
     );
 }

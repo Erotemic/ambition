@@ -160,11 +160,20 @@ NOMINATING a pre-existing entity as a row's root; it is not a capability that
 confines what a recipe may otherwise do, and pretending otherwise while raw
 `Commands` remain in scope would be a worse lie than the one it replaced.
 
-Two staged answers, neither yet implemented: near-term, verification at the
-transaction boundary that counts identities and checks root ownership after
-deferred construction has applied; structurally, migrating every authoritative
-entity a recipe creates internally into an explicit plan row, with giant limbs
-first. Both are Phase-4 work and are listed as such.
+Two staged answers. **The near-term one is now live**: `verify_committed_roster`
+runs at the real room-construction boundary, reads the authoritative scope from
+the world rather than from a caller-supplied list, and withholds `RoomLoaded`
+when it finds a fatal violation. The structural one is still Phase-4 work —
+migrating every authoritative entity a recipe creates internally into an explicit
+plan row, giant limbs first.
+
+Three vocabulary terms keep these apart, and are used consistently throughout:
+
+| term | what it means | status |
+|---|---|---|
+| **executor invariant** | the executor allocates each nominal planned root and freezes its constructor | held, mechanically |
+| **verification invariant** | the production boundary detects missing, duplicate, replaced, corrupted, or unexpected authoritative roots and incorrect relationships | held, as a detector |
+| **future structural invariant** | every authoritative root is an explicit plan row; recipes may create only explicitly non-authoritative helpers | NOT held — Phase 4 |
 
 **A domain supplies what core cannot know** — `ConstructionDomain::Parameters`
 (what a row carries) and `Services` (the frozen catalogs its recipes read).
@@ -258,7 +267,25 @@ a state where the two disagree with nothing to say which wins.
 - **After a room transaction commits, run `verify_committed_roster`.** It is a
   detector, not a preventer: recipes hold raw `Commands` and Bevy commands do
   not roll back, so a violation stops the transaction being published rather
-  than undoing it.
+  than undoing it. `RoomFeatureConstructionPlan::spawn` already does this by
+  queueing a capture command before its construction and a verify-and-publish
+  command after it; a new construction boundary must do the same rather than
+  writing its own success message.
+- **Never take the authoritative scope from a caller-supplied list.** A caller
+  enumerates what it remembers building, and the roots worth catching are the
+  ones nobody remembered. `AuthoritativeScope::gather` queries the world, and
+  treats an unclassified identity-bearing entity as a finding rather than as
+  absent. An entity that is genuinely not authoritative says so with
+  `PresentationOnly`.
+- **Registration identity is metadata; never compare function addresses.** The
+  compiler may merge identical functions to one address and emit one function at
+  several, so `fn_addr_eq` makes a registry contract depend on optimisation
+  level. Behaviour is governed by `schema_id`, which is also what makes a change
+  visible to the prepared-content fingerprint.
+- **A relation declares its postcondition alongside its wiring.** A receipt
+  records that a wiring function was CALLED, which a no-op, a write to the wrong
+  entity, and a later overwrite all satisfy identically. `RelationOps` carries
+  `wire` and `verify` together so the two cannot be edited apart.
 - **Never store a relationship between two authoritative entities as a bare
   `Entity` outside the plan.** `Limb`/`LimbRig` and `RidingOn`/`MountSlot` still
   do, which is why partial reconstruction cannot see them. Declare it as a

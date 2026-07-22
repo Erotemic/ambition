@@ -596,6 +596,26 @@ schema metadata that reaches the fingerprint; `verify_committed_roster` counts
 identities and flags unplanned roots, with six adversarial recipes proving it.
 ⚠ It DETECTS, it does not prevent — Bevy commands do not roll back.
 
+⚠ **Checkpoint 3 (substrate) landed:** verification became something a
+transaction has to pass rather than a function tests could call. The baseline
+holds entity + provenance per identity, not a `BTreeSet<SimId>` (which could not
+tell an original from a replacement), refuses capture on a pre-existing
+duplicate, and takes retirement/reconstruction as DECLARED rather than inferred
+from the plan. Authoritative scope is now gathered by querying the world and
+classified by component — this transaction's `TransactionId` stamp, another's,
+an explicit `PresentationOnly` opt-out, or no ownership at all — so a caller can
+no longer make the check incomplete by forgetting a root. Relations carry a
+frozen `verify` beside their `wire` and are checked against committed components
+(a receipt only proves the wiring function was CALLED). `fn_addr_eq` is gone from
+registration semantics: it made a registry contract depend on codegen.
+**`RoomFeatureConstructionPlan::spawn` no longer writes `RoomLoaded`** — a
+queued capture runs before construction and a queued verify-and-publish after
+it, and a fatal violation withholds publication.
+⚠ Still a detector: there is no staging world, so nothing rolls back.
+⚠ `Severity::Unmigrated` is a deliberate temporary hole — an identity with no
+ownership stamp is reported, not fatal, because nine families still build roots
+outside the planner.
+
 ⚠ **PHASE 4 IS NOT STARTED.** Nine authoritative families and one parallel
 `apply_spawn_actor_requests` path remain outside the planner — the exact table is
 in the campaign doc. Two known holes in the current parity claim: giant hand

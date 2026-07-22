@@ -1072,3 +1072,111 @@ fn a_counter_mutation_before_the_commit_applies_refuses_with_nothing_built() {
         "the interloper's value stands — there is no max() recovery path"
     );
 }
+
+// ── The production boundary publishes only what it verified ──────────────────
+//
+// These run the REAL path: `RoomFeatureConstructionPlan::prepare` →
+// `spawn_room_feature_entities_from_plan` → the queued capture/verify pair →
+// `RoomLoaded`. Nothing here reaches into the verifier directly.
+
+/// The engine's real recipes, but with the grudge's WIRING replaced by a no-op
+/// while its metadata and its verifier stay exactly as production declares them.
+///
+/// This is a genuine injection into the production path rather than a
+/// simulation of one: `prepare` reads whichever registry it is handed, and
+/// `install_actor_construction_recipes` is idempotent under identical metadata,
+/// so registering the broken ops FIRST leaves them in place while every other
+/// engine recipe registers normally.
+///
+/// It also demonstrates the registration policy from the other side: identical
+/// declared metadata makes these two ops interchangeable to the registry, which
+/// is precisely why behaviour is governed by `schema_id` and why a silent
+/// behaviour swap is the thing postcondition verification has to catch.
+fn recipes_with_a_grudge_that_never_lands() -> ActorConstructionRegistry {
+    fn wire_nothing(_from: Entity, _to: Entity, _ctx: &mut Ctx<'_, '_, '_>) {}
+    let mut registry = ActorConstructionRegistry::default();
+    registry
+        .try_register_relation(
+            relation_grudge(),
+            OWNER,
+            "aggression",
+            SCHEMA,
+            ambition_platformer_primitives::construction::RelationOps {
+                wire: wire_nothing,
+                verify: grudge_ops_for_tests().verify,
+            },
+        )
+        .expect("the broken ops register first");
+    install_actor_construction_recipes(&mut registry)
+        .expect("the engine's recipes register idempotently over identical metadata");
+    registry
+}
+
+fn room_loaded_count(app: &mut App) -> usize {
+    app.world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<crate::rooms::RoomLoaded>>()
+        .drain()
+        .count()
+}
+
+/// **The room is not published when its relations did not land.**
+///
+/// The receipt says the grudge was wired — the wiring function ran — and every
+/// identity is present and correct. Only reading the committed components
+/// catches this.
+#[test]
+fn a_room_whose_relation_never_lands_is_not_published() {
+    let (room, staging) = duelling_room();
+    let plan = prepare(&room, &staging, &recipes_with_a_grudge_that_never_lands())
+        .expect("the room plans: the defect is in wiring, not in planning");
+    let mut app = commit(plan);
+
+    let verification = app
+        .world()
+        .resource::<crate::features::LastConstructionVerification>()
+        .clone();
+    assert!(
+        !verification.published,
+        "a room whose relations did not land must not publish: {verification:?}"
+    );
+    assert!(
+        verification.fatal().any(|violation| matches!(
+            violation,
+            ambition_platformer_primitives::construction::RosterViolation::RelationNotEstablished {
+                ..
+            }
+        )),
+        "got {:?}",
+        verification.violations
+    );
+    assert_eq!(
+        room_loaded_count(&mut app),
+        0,
+        "RoomLoaded must not be written when verification failed"
+    );
+}
+
+/// Poison counterpart: the SAME room, the same code path, the real registry.
+/// Without this the test above would also pass if rooms never published at all.
+#[test]
+fn the_same_room_publishes_once_its_relation_lands() {
+    let (room, staging) = duelling_room();
+    let plan = prepare(&room, &staging, &engine_construction_registry()).expect("the room plans");
+    let mut app = commit(plan);
+
+    let verification = app
+        .world()
+        .resource::<crate::features::LastConstructionVerification>()
+        .clone();
+    assert!(
+        verification.fatal().next().is_none(),
+        "a correctly wired room has no fatal violations: {:?}",
+        verification.violations
+    );
+    assert!(verification.published, "{verification:?}");
+    assert_eq!(
+        room_loaded_count(&mut app),
+        1,
+        "a verified room publishes exactly once"
+    );
+}

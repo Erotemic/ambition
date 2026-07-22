@@ -35,10 +35,10 @@
 use ambition_platformer_primitives::construction::{
     ConstructionDomain, ConstructionExecCtx, ConstructionPlan, ConstructionRegistrationError,
     ConstructionRegistry, ConstructionRequest, ConstructionRoot, RecipeDispatch, RecipeId,
-    RelationKind, SpawnOrigin,
+    RelationCheck, RelationKind, RelationOps, SpawnOrigin,
 };
 use ambition_platformer_primitives::sim_id::SimId;
-use bevy::prelude::Entity;
+use bevy::prelude::{Entity, World};
 
 use crate::boss_encounter::BossCatalog;
 use crate::features::{SpawnActorKind, SpawnActorRequest};
@@ -261,14 +261,21 @@ fn construct_summoned_minion(
 
 // ── Relations ────────────────────────────────────────────────────────────────
 
-/// The grudge wiring, exposed so provider-side fingerprint tests can build a
-/// registry that matches the real one rather than a lookalike.
-pub fn wire_grudge_for_tests(
-    from: Entity,
-    to: Entity,
-    ctx: &mut ConstructionExecCtx<'_, '_, '_, ActorConstruction>,
-) {
-    wire_grudge(from, to, ctx)
+/// The grudge's wiring and its postcondition check, exposed so provider-side
+/// fingerprint tests can build a registry that matches the real one rather than
+/// a lookalike.
+pub fn grudge_ops_for_tests() -> RelationOps<ActorConstruction> {
+    grudge_ops()
+}
+
+/// The two halves of the grudge relation. Registered together and frozen
+/// together onto a planned row, so "how it is installed" and "what installed
+/// looks like" cannot be edited apart.
+fn grudge_ops() -> RelationOps<ActorConstruction> {
+    RelationOps {
+        wire: wire_grudge,
+        verify: verify_grudge,
+    }
 }
 
 /// Wire a personal grudge. Re-inserting `ActorAggression` is safe: staged
@@ -280,6 +287,26 @@ fn wire_grudge(from: Entity, to: Entity, ctx: &mut Ctx<'_, '_, '_>) {
             grudge: Some(to),
             ..crate::features::ActorAggression::hostile()
         });
+}
+
+/// Prove the grudge landed, by reading the component rather than trusting that
+/// [`wire_grudge`] was called.
+///
+/// The distinction matters because the two are separately fallible: the wiring
+/// runs through deferred `Commands`, so a later command in the same flush can
+/// overwrite `ActorAggression` wholesale, and the receipt records the call
+/// either way. A grudge onto a stale pre-reconstruction entity also reads as
+/// `WrongTarget` here — `found` names the corpse, which is what makes that case
+/// diagnosable rather than merely wrong.
+fn verify_grudge(world: &World, from: Entity, to: Entity) -> RelationCheck {
+    match world.get::<crate::features::ActorAggression>(from) {
+        None => RelationCheck::NotInstalled,
+        Some(aggression) => match aggression.grudge {
+            None => RelationCheck::NotInstalled,
+            Some(found) if found == to => RelationCheck::Installed,
+            found => RelationCheck::WrongTarget { found },
+        },
+    }
 }
 
 /// A standalone registry holding the engine's own recipes.
@@ -311,7 +338,7 @@ pub fn install_actor_construction_recipes(
     )?;
     registry.try_register_recipe(recipe_staged_actor(), OWNER, "content-staging", SCHEMA)?;
     registry.try_register_recipe(recipe_summoned_minion(), OWNER, "summon-effect", SCHEMA)?;
-    registry.try_register_relation(relation_grudge(), OWNER, "aggression", SCHEMA, wire_grudge)?;
+    registry.try_register_relation(relation_grudge(), OWNER, "aggression", SCHEMA, grudge_ops())?;
     Ok(())
 }
 

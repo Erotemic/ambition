@@ -914,10 +914,18 @@ pub fn prepare_platformer_content(
     // one is not safe to restore under the other. It was documented as
     // contributing to the fingerprint well before it actually did.
     //
-    // ⚠ Only what the dump carries is hashed: recipe id, owner, source, schema
-    // id, and relation kind + owner. A relation whose WIRING FUNCTION changes
-    // while its owner stays the same does not move the fingerprint. Bumping the
-    // schema id is what expresses such a change.
+    // ⚠ Only what the dump carries is hashed: for a recipe, its id + owner +
+    // source + schema id; for a relation, its kind + owner + source + schema id.
+    //
+    // Neither the wiring function nor the postcondition verifier is hashed, and
+    // neither can be: a `fn` address is process-local, so hashing one would make
+    // the fingerprint differ between two runs of the same binary. **Bumping the
+    // schema id is therefore the ONLY way a behaviour change reaches the
+    // fingerprint**, which is the same rule that governs relation registration
+    // identity — see `try_register_relation`, which deliberately does not
+    // compare function addresses either. Postcondition verification exists
+    // partly because of this gap: a relation whose wiring silently stopped
+    // working under an unchanged schema id is invisible here, and visible there.
     builder
         .add_section(
             "construction.recipes",
@@ -1473,7 +1481,7 @@ mod tests {
                 "ambition_actors",
                 "aggression",
                 schema,
-                ambition_actors::construction::wire_grudge_for_tests,
+                ambition_actors::construction::grudge_ops_for_tests(),
             )
             .unwrap();
         registry.deterministic_dump()

@@ -806,22 +806,126 @@ Phase-4 family migration:
    positive test that presentation-only children are permitted.
 5. Stale claims swept from code, ADR, and this document.
 
+## Substrate checkpoint 3 — verification made real (2026-07-22)
+
+Fourth external review round. The previous checkpoint built a verifier; this one
+makes it something a transaction actually has to pass.
+
+1. **`TransactionBaseline` preserves entity identity and multiplicity.** It was
+   a `BTreeSet<SimId>`, which cannot distinguish an original from a replacement,
+   a survivor from a look-alike, or a clean start from one that already held
+   duplicates. It is now `BTreeMap<SimId, BaselineEntry>` — entity **and**
+   provenance — captured by querying, with a duplicate identity refusing capture
+   outright. Retirement and reconstruction are **declared** on the baseline, never
+   inferred from the plan naming an identity: inferring would mean any plan
+   mentioning an id thereby authorised destroying whatever held it.
+2. **Authoritative scope is read from the world.** `verify_committed_roster` took
+   a caller-supplied `&[(SimId, Entity)]`, which made it exactly as complete as
+   the caller's memory. `AuthoritativeScope::gather` queries instead and
+   classifies by component: this transaction's `TransactionId` stamp, another
+   transaction's, an explicit `PresentationOnly` opt-out, or **no ownership at
+   all**. The opt-out direction is deliberate — an identity-bearing entity is
+   authoritative until something says otherwise, so forgetting to classify is a
+   loud finding rather than a quiet exemption.
+3. **Relations verify their postconditions.** A receipt records that a wiring
+   function was CALLED; a no-op, a write to the wrong entity, a removal, and a
+   later overwrite all produce an identical receipt. `RelationOps` now carries
+   `wire` **and** `verify` together, frozen onto the planned row, and the
+   verifier reads the committed components.
+4. **Function-address equality is gone from registration semantics.**
+   `std::ptr::fn_addr_eq` made a registry contract depend on codegen — the
+   compiler may merge identical functions to one address and emit one function at
+   several. Identity is metadata only; behaviour is governed by `schema_id`.
+5. **A real production path invokes it.** `RoomFeatureConstructionPlan::spawn`
+   queues a baseline capture BEFORE its construction and a verify-and-publish
+   AFTER it. Command queues apply in insertion order, so the sequencing is the
+   mechanism, not a scheduling hope — and the deferred path and the
+   exclusive-world `apply_to_world` path share one publication route rather than
+   growing a second architecture.
+
+⚠ **`RoomLoaded` is no longer written by `spawn`.** It used to be that
+function's last statement, which announced a room whose contents were still
+sitting unapplied in the command queue. Verification writes it now, or nothing
+does.
+
 ⚠ **Roster verification DETECTS; it does not PREVENT, and Bevy commands do not
 roll back.** By the time the verifier can run, construction has applied. A
 violation can stop a transaction being published as successful; it cannot undo
-it. The structural fix — every authoritative root an explicit plan row — is
-Phase-4 work.
+it. There is no staging world, so nothing here should be read as rollback
+atomicity. The structural fix — every authoritative root an explicit plan row —
+is Phase-4 work.
 
-⚠ **There is NO enforced plan-to-world roster parity, and the docs no longer
-claim one.** A recipe receives raw `Commands` and the root `Entity`, so it can
-despawn the root, remove or overwrite its `SimId`, mutate unrelated entities, or
-spawn additional entities that acquire authoritative identities.
-`ConstructionRoot` stops a recipe NOMINATING a pre-existing entity as a row's
-root — that and no more. Two staged answers, **neither implemented**:
-near-term, verification at the transaction boundary that counts identities and
-checks root ownership after deferred construction applies (a `BTreeSet<SimId>`
-comparison is insufficient — it hides duplicates); structurally, migrating every
-authoritative entity a recipe creates internally into an explicit plan row.
+⚠ **`Severity::Unmigrated` is a deliberate, temporary hole.** Nine families
+still build authoritative roots outside the planner, so an identity with no
+ownership stamp is REPORTED rather than fatal — making it fatal today would
+refuse rooms that work exactly as designed. The class empties as families
+migrate; Phase 4's last step deletes the severity split.
+
+⚠ **There is still NO enforced plan-to-world roster parity.** A recipe receives
+raw `Commands` and the root `Entity`, so it can despawn the root, remove or
+overwrite its `SimId`, mutate unrelated entities, or spawn additional entities
+that acquire authoritative identities. `ConstructionRoot` stops a recipe
+NOMINATING a pre-existing entity as a row's root — that and no more. What has
+changed is that all of it is now *detected at a real boundary*; what has not is
+that any of it is *prevented*.
+
+### Phase-4 readiness: what the first relation migration will find
+
+Surveyed before starting, so the migration uses the descriptor machinery above
+rather than provoking another redesign.
+
+**Both target pairs are bidirectional**, which means each needs a `verify` that
+checks *both* sides. A forward-only check passes on a half-wired pair while one
+side of the world lies — the exact class `RelationCheck::ReverseMismatch` was
+added for.
+
+| pair | forward | reverse | raw `Entity`? |
+|---|---|---|---|
+| limbs | `Limb { of }` on each limb | `LimbRig { limbs: Vec<Entity> }` on the host | both |
+| mounts | `RidingOn { mount }` on the rider | `MountSlot { rider: Option<Entity> }` on the mount | both |
+
+**The stable identities already exist for limbs.** `spawn_giant_hand_limbs`
+mints `SimId::spawned(&giant_sim, ordinal)` per hand, with `ordinal` fixed by the
+array literal (left = 0, right = 1), and `giant_hand_feature_id` is a pure
+function of the authored giant id. Nothing needs inventing; the identities are
+there and only the *relation* is unplanned. This is why limbs go first.
+
+**Dependency closure.** A limb's identity is derived from its host's, so the two
+are inseparable: any subset containing one must contain the other, which
+`relation_closure` already produces once the relation is planned. Mounts are the
+looser case — rider and mount are independently authored — so the closure there
+is genuinely two roots joined only by the link.
+
+**Two pre-existing defects the migration should absorb rather than preserve:**
+
+- **`MountSlot` is never inserted at spawn.** `attach_mount_role` inserts
+  `Mountable`/`CanPilot`/`Mass` and no slot; `resolve_pending_mount_links`
+  inserts it only when a link resolves. The post-rollback path in
+  `autonomous_reconcile` then does `world.get_mut::<MountSlot>(..)` — a mutation
+  that silently does nothing when the component is absent — while inserting
+  `RidingOn` unconditionally. A mount reconstructed without a surviving
+  `MountSlot` therefore ends up **one-directionally linked**, and nothing today
+  reports it. Planned-relation wiring writes both ends by construction.
+- **Limbs have no `SimId`-keyed shadow.** Mounts have one —
+  `TemporaryControl::Mounted { mount: SimId }`, with a real `SnapshotState`
+  codec — so a restore can rebuild the mount link from stable ids. There is no
+  `LimbRig` equivalent, no reconcile pass, and no id-keyed representation of the
+  rig at all.
+
+**The snapshot codecs preserve these handles in a way that only works inside a
+GGRS rollback.** All four register `rollback_component_clone` +
+`rollback_map_entities`, i.e. a byte clone of the raw `Entity` plus `LoadWorld`
+remapping. That remap has an old→new table only because the same entities are
+recreated within one `LoadWorld`. Outside that — a room rebuild, a partial
+reconstruction, any path that mints genuinely new entities — a restored giant's
+`LimbRig.limbs` and each hand's `Limb.of` are stale allocator slots. None of the
+four contributes a checksum projection either, since they use plain
+`rollback_component_clone` rather than the `_state` variant the registry
+documents for `Entity`-carrying components.
+
+**There are zero tests in `crates/ambition_runtime/src/rollback/` covering any of
+the four.** Nothing currently pins that a reconstructed rig or mount link comes
+back with correct handles, which is the gap the migration closes.
 
 ⚠ **Two facts that make the roster-parity claim narrower than it reads.**
 

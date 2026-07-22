@@ -38,7 +38,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use bevy::prelude::{Commands, Component, Entity};
+use bevy::prelude::{Commands, Component, Entity, World};
 
 use crate::sim_id::SimId;
 
@@ -46,7 +46,10 @@ mod registry;
 #[cfg(test)]
 mod tests;
 
-pub use registry::{ConstructionRegistrationError, ConstructionRegistry, RelationFn, RelationKind};
+pub use registry::{
+    ConstructionRegistrationError, ConstructionRegistry, RelationCheck, RelationFn, RelationKind,
+    RelationOps, RelationVerifyFn,
+};
 
 /// A stable internal identity for a construction recipe.
 ///
@@ -204,12 +207,20 @@ pub type ConstructFn<D> = for<'w, 's, 'a> fn(
 
 /// The authoritative entity the executor allocated for one planned row.
 ///
-/// A recipe receives this instead of creating its own body, which is what makes
-/// "one planned row, one authoritative root" a property of the machinery rather
-/// than of every recipe author's care. The inner `Entity` is reachable — a
-/// recipe legitimately needs it to insert components and to parent deliberate
-/// child entities — but only [`ConstructionPlan`] can mint one, so a recipe
-/// cannot nominate a pre-existing entity as a row's root.
+/// A recipe receives this instead of creating its own body. The inner `Entity`
+/// is reachable — a recipe legitimately needs it to insert components and to
+/// parent deliberate child entities — but only [`ConstructionPlan`] can mint
+/// one, so a recipe cannot nominate a pre-existing entity as a row's root.
+///
+/// ⚠ **This is the executor invariant, and it is narrower than "one planned
+/// row, one authoritative root".** What is mechanically guaranteed is that the
+/// executor allocates each nominal planned root and freezes its constructor.
+/// What is NOT guaranteed is that the recipe leaves that root alone or refrains
+/// from creating authoritative entities beside it: it holds raw `Commands`, so
+/// it can despawn the root, restamp it, or spawn ten more. Those are caught
+/// after the fact by [`verify_committed_roster`] — the verification invariant —
+/// not prevented here. Making every authoritative root an explicit plan row is
+/// the future structural invariant, and it is Phase-4 work.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ConstructionRoot(Entity);
 
@@ -276,6 +287,58 @@ impl ContentBinding {
         }
     }
 }
+
+impl ConstructionScope {
+    /// The ownership token every root this scope constructs will carry.
+    ///
+    /// Derived from the scope rather than drawn from a counter, so it needs no
+    /// clock, no randomness, and no rollback-registered state: preparing the
+    /// same room against the same content generation twice yields the same
+    /// token, which is what a deterministic simulation requires. Two different
+    /// rooms — or the same room at two content generations — differ, which is
+    /// what makes "a root from another live scope" a distinguishable thing
+    /// rather than a hopeful assumption.
+    pub fn transaction(&self) -> TransactionId {
+        TransactionId(format!(
+            "{}\t{}",
+            self.binding.canonical_summary(),
+            self.room.as_deref().unwrap_or("-")
+        ))
+    }
+}
+
+/// Which construction transaction owns an authoritative root.
+///
+/// **Stamped by the executor, on every root it allocates.** This is what lets
+/// verification ask the WORLD which roots are in scope instead of trusting a
+/// caller to list them — a caller that forgets the root a recipe invented is
+/// exactly the caller whose transaction most needs checking.
+#[derive(Component, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TransactionId(String);
+
+impl TransactionId {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for TransactionId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// Declares an identity-bearing entity to be deliberately NOT authoritative:
+/// a presentation child, a helper body, a visual double.
+///
+/// Opt-out rather than opt-in, and that asymmetry is the point. If scope
+/// membership required a positive marker, every entity a recipe invented
+/// without one would fall silently outside verification — which is precisely
+/// the failure being hunted. An identity-bearing entity is authoritative until
+/// something says otherwise, so forgetting to classify is a loud violation
+/// instead of a quiet exemption.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PresentationOnly;
 
 /// One requested entity, before validation.
 ///
@@ -367,12 +430,19 @@ impl<D: ConstructionDomain> PlannedEntity<D> {
     }
 }
 
-/// One validated relation with its wiring function already resolved.
+/// One validated relation with **both** its wiring function and its
+/// postcondition check already resolved.
+///
+/// Frozen at preparation for the same reason [`PlannedEntity::construct`] is:
+/// commit runs what the plan validated, not whatever a later lookup returns.
+/// The pair travels together because a relation is two halves of one fact, and
+/// this module's recurring bug has been letting two halves of one fact live in
+/// places that can disagree.
 pub struct PlannedRelation<D: ConstructionDomain> {
     from: SimId,
     kind: RelationKind,
     to: SimId,
-    wire: RelationFn<D>,
+    ops: RelationOps<D>,
 }
 
 impl<D: ConstructionDomain> Clone for PlannedRelation<D> {
@@ -381,7 +451,7 @@ impl<D: ConstructionDomain> Clone for PlannedRelation<D> {
             from: self.from.clone(),
             kind: self.kind.clone(),
             to: self.to.clone(),
-            wire: self.wire,
+            ops: self.ops,
         }
     }
 }
@@ -623,7 +693,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                 }
             }
             for relation in &request.relations {
-                let Some(wire) = registry.relation(&relation.kind) else {
+                let Some(ops) = registry.relation(&relation.kind) else {
                     return Err(ConstructionError::UnknownRelationKind {
                         from: request.sim_id.clone(),
                         kind: relation.kind.clone(),
@@ -640,7 +710,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                     from: request.sim_id.clone(),
                     kind: relation.kind.clone(),
                     to: relation.to.clone(),
-                    wire,
+                    ops,
                 });
             }
             entities.push(PlannedEntity {
@@ -672,8 +742,16 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         &self.relations
     }
 
-    /// The exact roster this plan will commit. Compared against
-    /// [`ConstructionReceipt::committed_ids`] to prove parity.
+    /// The identities this plan NOMINATES.
+    ///
+    /// ⚠ **Not "the exact committed roster".** It is what the plan asked for,
+    /// which is a different thing from what the world ends up holding: a recipe
+    /// can despawn its root, duplicate an identity onto a second body, or spawn
+    /// authoritative entities of its own, and none of that moves this set.
+    /// Comparing it to [`ConstructionReceipt::committed_ids`] compares the
+    /// executor's bookkeeping against itself and would stay green through every
+    /// one of those. [`verify_committed_roster`] compares against the WORLD,
+    /// which is the only comparison that can fail for a real reason.
     pub fn planned_ids(&self) -> BTreeSet<SimId> {
         self.entities
             .iter()
@@ -828,7 +906,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                     relation.from, relation.to
                 )
             };
-            (relation.wire)(from, to, ctx);
+            (relation.ops.wire)(from, to, ctx);
             receipt.relations_wired.insert((
                 relation.from.clone(),
                 relation.kind.clone(),
@@ -858,13 +936,16 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         ctx: &mut ConstructionExecCtx<'_, '_, '_, D>,
     ) -> Entity {
         let root = ctx.commands.spawn_empty().id();
-        // Identity and provenance go on before the recipe runs, so a recipe
-        // cannot forget them and reconstruction never sees a body without
-        // provenance. A recipe that inspects its own root finds them already
-        // there.
-        ctx.commands
-            .entity(root)
-            .insert((planned.sim_id.clone(), planned.origin.clone()));
+        // Identity, provenance, and transaction ownership go on before the
+        // recipe runs, so a recipe cannot forget them and reconstruction never
+        // sees a body without provenance. A recipe that inspects its own root
+        // finds them already there. The ownership stamp is what lets
+        // verification enumerate this transaction's roots from the world.
+        ctx.commands.entity(root).insert((
+            planned.sim_id.clone(),
+            planned.origin.clone(),
+            ctx.scope.transaction(),
+        ));
         // The constructor preparation resolved — NOT a fresh dispatch. A domain
         // whose `dispatch` reads mutable state would otherwise let commit run a
         // different constructor than the one the plan validated and dumped.
@@ -924,56 +1005,151 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 /// worse than the structural fix (every authoritative root an explicit plan
 /// row), which is Phase-4 work.
 ///
-/// `authoritative` supplies the identities in the transaction's scope, so the
-/// caller decides what counts rather than this function guessing. Presentation
-/// children and helpers a recipe creates are simply not in it, which is how they
-/// stay legal.
+/// **The scope is read from the world, not supplied.** An earlier version took
+/// a caller-curated `&[(SimId, Entity)]`, which made the check exactly as
+/// complete as the caller's imagination: the roots most worth catching are the
+/// ones nobody thought to list. [`AuthoritativeScope::gather`] queries instead,
+/// and treats an unclassified identity-bearing entity as a finding rather than
+/// as absent.
 pub fn verify_committed_roster<D: ConstructionDomain>(
     plan: &ConstructionPlan<D>,
     receipt: &ConstructionReceipt,
     baseline: &TransactionBaseline,
-    // Every (identity, entity) pair currently in the transaction's authoritative
-    // scope. Duplicates are meaningful and must NOT be pre-deduplicated.
-    authoritative: &[(SimId, Entity)],
-    is_live: &dyn Fn(Entity) -> bool,
-    origin_of: &dyn Fn(Entity) -> Option<SpawnOrigin>,
+    scope: &AuthoritativeScope,
+    world: &World,
 ) -> Result<(), Vec<RosterViolation>> {
     let mut violations = Vec::new();
+    let live = |entity: Entity| world.get_entity(entity).is_ok();
 
-    // Counted, not set-compared: a duplicate identity is invisible to a set.
-    let mut counts: BTreeMap<&SimId, Vec<Entity>> = BTreeMap::new();
-    for (sim_id, entity) in authoritative {
-        counts.entry(sim_id).or_default().push(*entity);
+    // Counted, not set-compared: a duplicate identity is invisible to a set,
+    // and "the identity set is exactly right while two bodies answer to one of
+    // them" is the failure this whole function exists for. Presentation-only
+    // entities are excluded by classification, not by their spelling.
+    let mut occupants: BTreeMap<&SimId, Vec<Entity>> = BTreeMap::new();
+    for member in scope.members() {
+        if member.classification != ScopeClassification::PresentationOnly {
+            occupants
+                .entry(&member.sim_id)
+                .or_default()
+                .push(member.entity);
+        }
+    }
+    let occupants_of = |sim_id: &SimId| occupants.get(sim_id).map_or(&[][..], Vec::as_slice);
+
+    let planned_ids = plan.planned_ids();
+
+    // ── Baseline preservation ────────────────────────────────────────────────
+    //
+    // Every identity that was live when the transaction opened, and that the
+    // transaction did not declare it was retiring or reconstructing, must come
+    // out the far side untouched: same identity, one occupant, the SAME entity
+    // it started on, and the same provenance. Checking the identity alone would
+    // accept a baseline root despawned and replaced by a look-alike, which is
+    // the case that motivated capturing entities in the first place.
+    for (sim_id, entry) in baseline.entries() {
+        if baseline.is_retired(sim_id) {
+            if !occupants_of(sim_id).is_empty() {
+                violations.push(RosterViolation::RetiredSurvived {
+                    sim_id: sim_id.clone(),
+                });
+            }
+            continue;
+        }
+        if baseline.is_reconstructed(sim_id) {
+            // The declared-reconstruction contract: the old body is gone, the
+            // new one is the receipt's, and there is exactly one of it.
+            if live(entry.entity) {
+                violations.push(RosterViolation::ReconstructedOldSurvived {
+                    sim_id: sim_id.clone(),
+                    stale: entry.entity,
+                });
+            }
+            match occupants_of(sim_id) {
+                [] => violations.push(RosterViolation::Missing {
+                    sim_id: sim_id.clone(),
+                }),
+                [found] => {
+                    if receipt.entity(sim_id) != Some(*found) {
+                        violations.push(RosterViolation::MovedRoot {
+                            sim_id: sim_id.clone(),
+                        });
+                    }
+                }
+                found => violations.push(RosterViolation::Duplicated {
+                    sim_id: sim_id.clone(),
+                    count: found.len(),
+                }),
+            }
+            continue;
+        }
+        // Not retired, not reconstructed: preserved.
+        if planned_ids.contains(sim_id) {
+            violations.push(RosterViolation::PlannedOverBaseline {
+                sim_id: sim_id.clone(),
+            });
+        }
+        match occupants_of(sim_id) {
+            [] => violations.push(RosterViolation::BaselineLost {
+                sim_id: sim_id.clone(),
+            }),
+            [found] if *found == entry.entity => {
+                let now = world.get::<SpawnOrigin>(entry.entity).cloned();
+                if now != entry.origin {
+                    violations.push(RosterViolation::BaselineProvenanceChanged {
+                        sim_id: sim_id.clone(),
+                        expected: entry.origin.clone(),
+                        found: now,
+                    });
+                }
+            }
+            // The identity survived on a DIFFERENT entity: something despawned
+            // the baseline body and minted a replacement wearing its name. A
+            // set comparison sees a perfectly intact roster here.
+            [found] => violations.push(RosterViolation::BaselineReplaced {
+                sim_id: sim_id.clone(),
+                expected: entry.entity,
+                found: *found,
+            }),
+            found => violations.push(RosterViolation::Duplicated {
+                sim_id: sim_id.clone(),
+                count: found.len(),
+            }),
+        }
     }
 
+    // ── Planned rows ─────────────────────────────────────────────────────────
     for planned in plan.entities() {
         let expected_root = receipt.entity(&planned.sim_id);
-        match counts.get(&planned.sim_id) {
-            None => violations.push(RosterViolation::Missing {
+        if expected_root.is_none() {
+            // Not part of this commit's subset; its relations are skipped below
+            // for the same reason.
+            continue;
+        }
+        match occupants_of(&planned.sim_id) {
+            [] => violations.push(RosterViolation::Missing {
                 sim_id: planned.sim_id.clone(),
             }),
-            Some(entities) if entities.len() > 1 => violations.push(RosterViolation::Duplicated {
-                sim_id: planned.sim_id.clone(),
-                count: entities.len(),
-            }),
-            Some(entities) => {
-                let found = entities[0];
-                if expected_root != Some(found) {
+            [found] => {
+                if expected_root != Some(*found) {
                     violations.push(RosterViolation::MovedRoot {
                         sim_id: planned.sim_id.clone(),
                     });
                 }
             }
+            found => violations.push(RosterViolation::Duplicated {
+                sim_id: planned.sim_id.clone(),
+                count: found.len(),
+            }),
         }
         if let Some(root) = expected_root {
-            if !is_live(root) {
+            if !live(root) {
                 violations.push(RosterViolation::Missing {
                     sim_id: planned.sim_id.clone(),
                 });
             } else {
                 // The executor stamped this before the recipe ran; a recipe that
                 // overwrote or removed it produced a body no restore can place.
-                let found = origin_of(root);
+                let found = world.get::<SpawnOrigin>(root).cloned();
                 if found.as_ref() != Some(&planned.origin) {
                     violations.push(RosterViolation::ProvenanceChanged {
                         sim_id: planned.sim_id.clone(),
@@ -985,26 +1161,73 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
         }
     }
 
-    let planned_ids = plan.planned_ids();
-    for (sim_id, _) in authoritative {
-        if !planned_ids.contains(sim_id) && !baseline.contains(sim_id) {
-            violations.push(RosterViolation::Unplanned {
-                sim_id: sim_id.clone(),
-            });
+    // ── Everything else the world holds in this scope ────────────────────────
+    for member in scope.members() {
+        if member.classification == ScopeClassification::PresentationOnly {
+            continue;
         }
+        if planned_ids.contains(&member.sim_id) || baseline.contains(&member.sim_id) {
+            continue;
+        }
+        violations.push(match member.classification {
+            // Stamped by THIS transaction's executor, yet no plan row named it.
+            ScopeClassification::TransactionAuthoritative => RosterViolation::Unplanned {
+                sim_id: member.sim_id.clone(),
+            },
+            // Identity-bearing, appeared during this transaction, owned by
+            // nobody. The documented rule is that this is REPORTED — see
+            // `RosterViolation::severity`.
+            ScopeClassification::Unowned => RosterViolation::UnownedIdentity {
+                sim_id: member.sim_id.clone(),
+            },
+            ScopeClassification::ForeignScope(_) | ScopeClassification::PresentationOnly => {
+                continue
+            }
+        });
     }
 
-    for (from, kind, to) in receipt.relations_wired() {
-        for end in [from, to] {
-            let live = receipt.entity(end).is_some_and(&is_live);
-            if !live {
-                violations.push(RosterViolation::DanglingRelation {
-                    from: from.clone(),
-                    kind: kind.clone(),
-                    to: to.clone(),
-                });
-                break;
-            }
+    // ── Relation postconditions ──────────────────────────────────────────────
+    //
+    // The receipt records that a wiring function was CALLED. That is a fact
+    // about the executor, not about the world: a wiring function that does
+    // nothing, writes to the wrong entity, or is overwritten by a later command
+    // produces an identical receipt. Each relation's frozen verifier reads the
+    // committed components instead.
+    for relation in plan.relations() {
+        let key = (
+            relation.from.clone(),
+            relation.kind.clone(),
+            relation.to.clone(),
+        );
+        if !receipt.relations_wired().contains(&key) {
+            continue;
+        }
+        let (Some(from), Some(to)) = (receipt.entity(&relation.from), receipt.entity(&relation.to))
+        else {
+            violations.push(RosterViolation::DanglingRelation {
+                from: relation.from.clone(),
+                kind: relation.kind.clone(),
+                to: relation.to.clone(),
+            });
+            continue;
+        };
+        if !live(from) || !live(to) {
+            violations.push(RosterViolation::DanglingRelation {
+                from: relation.from.clone(),
+                kind: relation.kind.clone(),
+                to: relation.to.clone(),
+            });
+            continue;
+        }
+        let check = (relation.ops.verify)(world, from, to);
+        if check != RelationCheck::Installed {
+            violations.push(RosterViolation::RelationNotEstablished {
+                from: relation.from.clone(),
+                kind: relation.kind.clone(),
+                to: relation.to.clone(),
+                expected: to,
+                check,
+            });
         }
     }
 
@@ -1025,8 +1248,8 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
 pub enum RosterViolation {
     /// A planned row produced no live entity carrying its identity.
     Missing { sim_id: SimId },
-    /// More than one live entity carries a planned identity. **This is the case
-    /// a `BTreeSet<SimId>` comparison cannot see**: the set of identities looks
+    /// More than one live entity carries one identity. **This is the case a
+    /// `BTreeSet<SimId>` comparison cannot see**: the set of identities looks
     /// exactly right while two bodies answer to one of them.
     Duplicated { sim_id: SimId, count: usize },
     /// The identity exists, but not on the entity the executor allocated for
@@ -1041,12 +1264,100 @@ pub enum RosterViolation {
     /// A transaction-scoped authoritative root exists that no plan row named.
     /// Recipes that create authoritative entities internally land here.
     Unplanned { sim_id: SimId },
+    /// An identity-bearing entity appeared during this transaction carrying no
+    /// ownership stamp at all — built outside the planner, by one of the
+    /// families that has not migrated. Reported rather than fatal; see
+    /// [`RosterViolation::severity`].
+    UnownedIdentity { sim_id: SimId },
+    /// A baseline identity the transaction did not declare it was touching is
+    /// no longer in the world.
+    BaselineLost { sim_id: SimId },
+    /// A baseline identity survived, **on a different entity**. Something
+    /// despawned the original and minted a replacement wearing its name. The
+    /// roster is exactly the right length and every identity is present, which
+    /// is why identity-only comparison is not enough.
+    BaselineReplaced {
+        sim_id: SimId,
+        expected: Entity,
+        found: Entity,
+    },
+    /// An untouched baseline entity's provenance was rewritten under it.
+    ///
+    /// Separate from [`Self::ProvenanceChanged`] because a baseline entity may
+    /// legitimately carry none — a persistent player is not a construction
+    /// product — so `expected` is an `Option` here and is not one there.
+    BaselineProvenanceChanged {
+        sim_id: SimId,
+        expected: Option<SpawnOrigin>,
+        found: Option<SpawnOrigin>,
+    },
+    /// An identity the transaction declared it was retiring is still present.
+    RetiredSurvived { sim_id: SimId },
+    /// A declared reconstruction left the pre-reconstruction body alive, so two
+    /// generations of one identity coexist and dependants may hold either.
+    ReconstructedOldSurvived { sim_id: SimId, stale: Entity },
+    /// A plan row names an identity that was already live and was not declared
+    /// a reconstruction, so committing it creates a second body for it.
+    PlannedOverBaseline { sim_id: SimId },
     /// A wired relation names an entity that is not live.
     DanglingRelation {
         from: SimId,
         kind: RelationKind,
         to: SimId,
     },
+    /// The wiring function ran and the world does not hold the relation.
+    ///
+    /// **The receipt cannot see this.** It records that a function was called,
+    /// which a no-op, a write to the wrong entity, and a later overwrite all
+    /// satisfy identically.
+    RelationNotEstablished {
+        from: SimId,
+        kind: RelationKind,
+        to: SimId,
+        expected: Entity,
+        check: RelationCheck,
+    },
+}
+
+/// Whether a violation means the transaction is unpublishable, or names a
+/// known un-migrated family.
+///
+/// **This distinction is load-bearing and temporary.** Nine authoritative
+/// families still construct roots through family-specific loops rather than as
+/// plan rows — the giant's hand limbs mint a `SimId` directly, for one — so
+/// treating every unowned identity as fatal today would refuse rooms that are
+/// working exactly as designed. Reporting them keeps the finding honest and
+/// visible without pretending the migration is finished; as each family becomes
+/// a plan row the class empties on its own, and Phase 4's last step is to delete
+/// [`Severity::Unmigrated`] and let the remainder be fatal.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Severity {
+    /// The transaction built something other than what it planned. Do not
+    /// publish.
+    Fatal,
+    /// A known-unmigrated family produced this. Report it; publish anyway.
+    Unmigrated,
+}
+
+impl RosterViolation {
+    pub const fn severity(&self) -> Severity {
+        match self {
+            Self::UnownedIdentity { .. } => Severity::Unmigrated,
+            Self::Missing { .. }
+            | Self::Duplicated { .. }
+            | Self::MovedRoot { .. }
+            | Self::ProvenanceChanged { .. }
+            | Self::Unplanned { .. }
+            | Self::BaselineLost { .. }
+            | Self::BaselineReplaced { .. }
+            | Self::BaselineProvenanceChanged { .. }
+            | Self::RetiredSurvived { .. }
+            | Self::ReconstructedOldSurvived { .. }
+            | Self::PlannedOverBaseline { .. }
+            | Self::DanglingRelation { .. }
+            | Self::RelationNotEstablished { .. } => Severity::Fatal,
+        }
+    }
 }
 
 impl std::fmt::Display for RosterViolation {
@@ -1078,9 +1389,66 @@ impl std::fmt::Display for RosterViolation {
                 "authoritative identity `{sim_id}` exists in this transaction but no plan row \
                  named it"
             ),
+            Self::UnownedIdentity { sim_id } => write!(
+                f,
+                "`{sim_id}` appeared during this transaction with no construction ownership: it \
+                 was built by a family that is not a plan row yet"
+            ),
+            Self::BaselineLost { sim_id } => write!(
+                f,
+                "`{sim_id}` was live when this transaction opened and this transaction did not \
+                 declare it was touching it, but it is gone"
+            ),
+            Self::BaselineReplaced {
+                sim_id,
+                expected,
+                found,
+            } => write!(
+                f,
+                "`{sim_id}` was live on {expected:?} and is now on {found:?}: the original was \
+                 replaced by a different entity wearing its identity"
+            ),
+            Self::BaselineProvenanceChanged {
+                sim_id,
+                expected,
+                found,
+            } => write!(
+                f,
+                "`{sim_id}` was untouched by this transaction but its provenance changed from \
+                 `{}` to `{}`",
+                expected
+                    .as_ref()
+                    .map_or("none", SpawnOrigin::canonical_kind),
+                found.as_ref().map_or("none", SpawnOrigin::canonical_kind),
+            ),
+            Self::RetiredSurvived { sim_id } => write!(
+                f,
+                "`{sim_id}` was declared retired by this transaction but is still in the world"
+            ),
+            Self::ReconstructedOldSurvived { sim_id, stale } => write!(
+                f,
+                "`{sim_id}` was reconstructed but its previous body {stale:?} is still alive, so \
+                 two generations of one identity coexist"
+            ),
+            Self::PlannedOverBaseline { sim_id } => write!(
+                f,
+                "`{sim_id}` is a plan row and was already live, without being declared a \
+                 reconstruction"
+            ),
             Self::DanglingRelation { from, kind, to } => write!(
                 f,
                 "wired relation `{from}` -`{kind}`-> `{to}` names an entity that is not live"
+            ),
+            Self::RelationNotEstablished {
+                from,
+                kind,
+                to,
+                expected,
+                check,
+            } => write!(
+                f,
+                "relation `{from}` -`{kind}`-> `{to}` was wired but the world does not hold it \
+                 onto {expected:?}: {check:?}"
             ),
         }
     }
@@ -1088,25 +1456,248 @@ impl std::fmt::Display for RosterViolation {
 
 impl std::error::Error for RosterViolation {}
 
-/// The authoritative identities that were already live when a transaction
-/// began, so verification can tell "a recipe created this" from "this was
-/// already here".
-///
-/// Explicit rather than inferred: nothing here parses a `SimId`, and nothing
-/// treats every entity in the world as in scope. The caller states the baseline
-/// it retired against, and the plan states what it intended to add.
-#[derive(Clone, Debug, Default)]
-pub struct TransactionBaseline {
-    live: BTreeSet<SimId>,
+/// What one baseline identity was sitting on when the transaction opened.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BaselineEntry {
+    /// The exact entity. **Not just the identity** — a baseline root despawned
+    /// and replaced by another entity carrying the same `SimId` leaves the
+    /// identity set untouched, so an identity-only baseline cannot see it.
+    pub entity: Entity,
+    /// Its provenance at capture, so a transaction that quietly rewrites an
+    /// untouched entity's origin is a finding rather than a surprise later.
+    pub origin: Option<SpawnOrigin>,
 }
 
+/// The world a transaction opened against: which identities were live, **on
+/// which entities**, carrying which provenance — plus what the transaction
+/// declared it was going to do to them.
+///
+/// Explicit rather than inferred: nothing here parses a `SimId`. And permission
+/// to remove or replace an identity is *declared*, never deduced from the
+/// candidate plan — inferring it would mean any plan naming an identity thereby
+/// authorised destroying whatever already held it, which is the opposite of a
+/// check.
+#[derive(Clone, Debug, Default)]
+pub struct TransactionBaseline {
+    entries: BTreeMap<SimId, BaselineEntry>,
+    retired: BTreeSet<SimId>,
+    reconstructed: BTreeSet<SimId>,
+}
+
+/// Why a baseline could not be captured.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BaselineCaptureError {
+    /// Two live entities already held one identity before the transaction even
+    /// started. Captured as a refusal rather than silently collapsed, because
+    /// every later multiplicity check would be measured against a baseline that
+    /// had already lost the duplicate.
+    DuplicateIdentity {
+        sim_id: SimId,
+        entities: Vec<Entity>,
+    },
+}
+
+impl std::fmt::Display for BaselineCaptureError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::DuplicateIdentity { sim_id, entities } => write!(
+                f,
+                "identity `{sim_id}` is already on {} entities before this transaction began: \
+                 {entities:?}",
+                entities.len()
+            ),
+        }
+    }
+}
+
+impl std::error::Error for BaselineCaptureError {}
+
 impl TransactionBaseline {
-    pub fn new(live: BTreeSet<SimId>) -> Self {
-        Self { live }
+    /// Capture every AUTHORITATIVE identity-bearing entity in the world, with
+    /// its entity and provenance. Duplicates are a refusal, not a merge.
+    ///
+    /// [`PresentationOnly`] entities are excluded, and must be: verification
+    /// counts occupants with the same exclusion, so a presentation-only entity
+    /// admitted here would be looked for among occupants that structurally
+    /// cannot contain it and reported as [`RosterViolation::BaselineLost`] every
+    /// time. The two filters are the same filter or the baseline is measuring
+    /// something the verifier is not.
+    pub fn capture(world: &mut World) -> Result<Self, BaselineCaptureError> {
+        let mut found: BTreeMap<SimId, Vec<(Entity, Option<SpawnOrigin>)>> = BTreeMap::new();
+        let mut query = world.query_filtered::<
+            (Entity, &SimId, Option<&SpawnOrigin>),
+            bevy::prelude::Without<PresentationOnly>,
+        >();
+        for (entity, sim_id, origin) in query.iter(world) {
+            found
+                .entry(sim_id.clone())
+                .or_default()
+                .push((entity, origin.cloned()));
+        }
+        Self::from_occupants(found)
+    }
+
+    /// Capture from explicit pairs, for fixtures and for callers that already
+    /// hold the roster. Duplicates refuse exactly as they do in [`Self::capture`].
+    pub fn from_pairs(
+        pairs: impl IntoIterator<Item = (SimId, Entity, Option<SpawnOrigin>)>,
+    ) -> Result<Self, BaselineCaptureError> {
+        let mut found: BTreeMap<SimId, Vec<(Entity, Option<SpawnOrigin>)>> = BTreeMap::new();
+        for (sim_id, entity, origin) in pairs {
+            found.entry(sim_id).or_default().push((entity, origin));
+        }
+        Self::from_occupants(found)
+    }
+
+    fn from_occupants(
+        found: BTreeMap<SimId, Vec<(Entity, Option<SpawnOrigin>)>>,
+    ) -> Result<Self, BaselineCaptureError> {
+        let mut entries = BTreeMap::new();
+        for (sim_id, mut occupants) in found {
+            if occupants.len() > 1 {
+                occupants.sort_by_key(|(entity, _)| *entity);
+                return Err(BaselineCaptureError::DuplicateIdentity {
+                    sim_id,
+                    entities: occupants.into_iter().map(|(entity, _)| entity).collect(),
+                });
+            }
+            let (entity, origin) = occupants.remove(0);
+            entries.insert(sim_id, BaselineEntry { entity, origin });
+        }
+        Ok(Self {
+            entries,
+            retired: BTreeSet::new(),
+            reconstructed: BTreeSet::new(),
+        })
+    }
+
+    /// Declare that this transaction intends to remove these identities without
+    /// replacing them.
+    pub fn retiring(mut self, ids: impl IntoIterator<Item = SimId>) -> Self {
+        self.retired.extend(ids);
+        self
+    }
+
+    /// Declare that this transaction intends to despawn these identities' bodies
+    /// and build new ones for the same identities.
+    pub fn reconstructing(mut self, ids: impl IntoIterator<Item = SimId>) -> Self {
+        self.reconstructed.extend(ids);
+        self
+    }
+
+    pub fn entries(&self) -> &BTreeMap<SimId, BaselineEntry> {
+        &self.entries
     }
 
     pub fn contains(&self, sim_id: &SimId) -> bool {
-        self.live.contains(sim_id)
+        self.entries.contains_key(sim_id)
+    }
+
+    pub fn is_retired(&self, sim_id: &SimId) -> bool {
+        self.retired.contains(sim_id)
+    }
+
+    pub fn is_reconstructed(&self, sim_id: &SimId) -> bool {
+        self.reconstructed.contains(sim_id)
+    }
+}
+
+/// How one identity-bearing entity relates to the transaction being verified.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ScopeClassification {
+    /// Stamped with this transaction's ownership by the executor.
+    TransactionAuthoritative,
+    /// Owned by a different construction transaction, and therefore none of
+    /// this one's business. Another room's persistent contents live here.
+    ForeignScope(TransactionId),
+    /// Explicitly declared non-authoritative by [`PresentationOnly`].
+    PresentationOnly,
+    /// Carries an identity and no ownership stamp. The documented rule is that
+    /// this is REPORTED, never silently dropped: it is what a family that has
+    /// not migrated to a plan row looks like from here.
+    Unowned,
+}
+
+/// One identity-bearing entity in the world, and what it is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScopeMember {
+    pub sim_id: SimId,
+    pub entity: Entity,
+    pub classification: ScopeClassification,
+}
+
+/// Every identity-bearing entity in the world, classified against one
+/// transaction.
+///
+/// **Gathered by querying, never curated.** The whole point of reading the
+/// world is that the roots most worth catching are the ones a caller would not
+/// have thought to list — a recipe that invents an authoritative entity does
+/// not also add itself to the caller's array.
+#[derive(Clone, Debug)]
+pub struct AuthoritativeScope {
+    transaction: TransactionId,
+    members: Vec<ScopeMember>,
+}
+
+impl AuthoritativeScope {
+    /// Query the world for every entity carrying a [`SimId`] and classify each
+    /// against `transaction`.
+    ///
+    /// Classification is by component, never by identity spelling: an entity is
+    /// [`ScopeClassification::PresentationOnly`] because it says so, and
+    /// authoritative because the executor stamped it, not because its `SimId`
+    /// starts with one prefix or another.
+    pub fn gather(world: &mut World, transaction: &TransactionId) -> Self {
+        let mut members = Vec::new();
+        let mut query = world.query::<(
+            Entity,
+            &SimId,
+            Option<&TransactionId>,
+            Option<&PresentationOnly>,
+        )>();
+        for (entity, sim_id, owner, presentation) in query.iter(world) {
+            let classification = if presentation.is_some() {
+                ScopeClassification::PresentationOnly
+            } else {
+                match owner {
+                    Some(owner) if owner == transaction => {
+                        ScopeClassification::TransactionAuthoritative
+                    }
+                    Some(other) => ScopeClassification::ForeignScope(other.clone()),
+                    None => ScopeClassification::Unowned,
+                }
+            };
+            members.push(ScopeMember {
+                sim_id: sim_id.clone(),
+                entity,
+                classification,
+            });
+        }
+        // Query iteration order is not stable across runs; violations derived
+        // from this must be, so sort by the pair that is.
+        members.sort_by(|a, b| (&a.sim_id, a.entity).cmp(&(&b.sim_id, b.entity)));
+        Self {
+            transaction: transaction.clone(),
+            members,
+        }
+    }
+
+    /// Build a scope from explicit members, for fixtures.
+    pub fn from_members(transaction: TransactionId, members: Vec<ScopeMember>) -> Self {
+        let mut members = members;
+        members.sort_by(|a, b| (&a.sim_id, a.entity).cmp(&(&b.sim_id, b.entity)));
+        Self {
+            transaction,
+            members,
+        }
+    }
+
+    pub fn transaction(&self) -> &TransactionId {
+        &self.transaction
+    }
+
+    pub fn members(&self) -> &[ScopeMember] {
+        &self.members
     }
 }
 

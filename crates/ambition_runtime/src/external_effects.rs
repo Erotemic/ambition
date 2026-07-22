@@ -22,26 +22,45 @@
 //!
 //! # The mechanism
 //!
-//! The sim's message channel becomes an **outbox**, drained every advance:
+//! Each advance runs with the effect channel **swapped out for an empty one**:
 //!
-//! 1. **Clear** at the start of each advance, so the outbox holds only what
-//!    *this* pass produced. This is load-bearing: [`Messages::drain`] takes both
-//!    of Bevy's double-buffers, so without it the previous render frame's
-//!    already-released effects would be journaled a second time and replayed.
-//! 2. **Journal** at the end of each advance: whatever the sim wrote is stamped
-//!    with the frame it was produced on and stored under that frame — *replacing*
+//! 1. **Open an outbox** at the start of each advance: the live channel is
+//!    lifted out whole and replaced with a fresh empty one, so anything the sim
+//!    writes lands in isolation.
+//! 2. **Journal** at the end of each advance: the outbox is drained, stamped
+//!    with the frame that produced it, and stored under that frame — *replacing*
 //!    any intents an earlier pass recorded for it. Re-simulating a frame that
 //!    now produces nothing therefore erases the phantom, which is the half a
-//!    boolean gate structurally cannot do.
-//! 3. **Release** once the frame is confirmed: the intents are written back into
-//!    the same channel, where the ordinary presentation consumers read them,
-//!    unchanged and unaware any of this happened.
+//!    boolean gate structurally cannot do. The lifted channel is then put back
+//!    exactly as it was.
+//! 3. **Release** once the frame is confirmed: the intents are written into
+//!    that same restored channel, where the ordinary presentation consumers read
+//!    them, unchanged and unaware any of this happened.
 //! 4. **Discard** on load: intents for frames after the one being restored came
 //!    from a timeline that has been abandoned, so they are dropped rather than
 //!    left to be released.
 //!
 //! Frames are released in ascending order, so effects reach presentation in
 //! simulation order even when several frames confirm at once.
+//!
+//! # Why swap rather than clear
+//!
+//! The first version of this cleared the channel at the start of each advance
+//! instead, which is simpler and wrong. **The sim is not the only writer.** Menu
+//! and shell SFX, and the render-side explosion/fireworks fan-out, write the
+//! same channels from `Update`; a clear at the next advance discarded whatever
+//! they had queued, so a rollback host silently swallowed menu sounds. The
+//! shipped test that caught it —
+//! `app_it::shell_host_rendered::provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work`
+//! — writes a message directly and asserts the consumer counted it.
+//!
+//! Draining and restoring the contents would not work either: a message already
+//! *consumed* by a reader is still physically present in Bevy's older buffer,
+//! and re-writing it hands it to that reader a second time. Only the reader's
+//! own cursor knows what it has seen. Lifting the whole [`Messages`] value —
+//! counters and both buffers together — and putting it back untouched is what
+//! keeps every reader's cursor meaningful, because from their side nothing
+//! happened at all.
 //!
 //! # Cost, honestly
 //!
@@ -51,12 +70,10 @@
 //! [`ConfirmedFrameBoundary`] at all, so none of these systems run and effects
 //! fire the instant they are written, exactly as before this module existed.
 //!
-//! One deliberate behavior change under a rollback host: a released effect whose
-//! consumer did not run that frame (a gated presentation system, no active
-//! session) is dropped by the next advance's clear instead of surviving into the
-//! following frame on Bevy's two-frame message lifetime. An effect for a session
-//! that no longer exists should not fire late; `physics_spawn_debris_messages`
-//! already made that call explicitly for its own channel.
+//! A released effect is an ordinary message in the ordinary channel, so it keeps
+//! Bevy's usual two-frame lifetime and reaches a consumer that happened not to
+//! run this frame. Deferral changes *when* an effect is handed over, and nothing
+//! else about it.
 //!
 //! # What does NOT belong here
 //!
@@ -82,8 +99,8 @@ use ambition_engine_core::ConfirmedFrameBoundary;
 /// Where the quarantine's four phases sit relative to everything else.
 #[derive(SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum ExternalEffectSet {
-    /// Sim schedule, before any gameplay: empty the outbox.
-    ClearOutbox,
+    /// Sim schedule, before any gameplay: swap in an empty outbox.
+    OpenOutbox,
     /// Sim schedule, after all gameplay: stamp the outbox with this frame.
     Journal,
     /// After the host finishes its advances: hand confirmed frames to presentation.
@@ -111,6 +128,10 @@ pub struct ExternalEffectJournal<M: Message> {
     /// Total intents handed to presentation. Test-facing: the exactly-once
     /// claim is a count, not a vibe.
     released: u64,
+    /// The real channel, held aside for the duration of one advance so the sim
+    /// writes into an empty one. See the module docs on why this is a swap
+    /// rather than a clear.
+    lifted: Option<Messages<M>>,
 }
 
 impl<M: Message> Resource for ExternalEffectJournal<M> {}
@@ -121,6 +142,7 @@ impl<M: Message> Default for ExternalEffectJournal<M> {
             pending: BTreeMap::new(),
             session: 0,
             released: 0,
+            lifted: None,
         }
     }
 }
@@ -180,19 +202,29 @@ impl<M: Message> ExternalEffectJournal<M> {
     }
 }
 
-/// Empty the sim's effect outbox before the pass that fills it. See the module
-/// docs — this is what stops an already-released effect being journaled twice.
-pub fn clear_sim_effect_outbox<M: Message>(mut messages: ResMut<Messages<M>>) {
-    messages.clear();
+/// Lift the live channel aside and give the sim an empty one to write into.
+///
+/// Paired with [`journal_sim_effects`], which puts it back. See the module docs
+/// on why this is a swap and not a clear — the sim is not the only writer, and
+/// discarding what the menu queued is how the first version of this broke.
+pub fn open_sim_effect_outbox<M: Message>(
+    mut messages: ResMut<Messages<M>>,
+    mut journal: ResMut<ExternalEffectJournal<M>>,
+) {
+    journal.lifted = Some(std::mem::take(&mut *messages));
 }
 
-/// Stamp everything this pass produced with the frame that produced it.
+/// Stamp everything this pass produced with the frame that produced it, and
+/// restore the channel [`open_sim_effect_outbox`] lifted aside.
 pub fn journal_sim_effects<M: Message>(
     boundary: Res<ConfirmedFrameBoundary>,
     mut messages: ResMut<Messages<M>>,
     mut journal: ResMut<ExternalEffectJournal<M>>,
 ) {
     let intents: Vec<M> = messages.drain().collect();
+    if let Some(lifted) = journal.lifted.take() {
+        *messages = lifted;
+    }
     journal.record(boundary.current, boundary.session, intents);
 }
 
@@ -248,8 +280,8 @@ impl<M: Message> Plugin for ExternalEffectQuarantinePlugin<M> {
         app.init_resource::<ExternalEffectJournal<M>>()
             .add_systems(
                 sim,
-                clear_sim_effect_outbox::<M>
-                    .in_set(ExternalEffectSet::ClearOutbox)
+                open_sim_effect_outbox::<M>
+                    .in_set(ExternalEffectSet::OpenOutbox)
                     .before(GameplaySimulationRoot)
                     .run_if(speculating),
             )

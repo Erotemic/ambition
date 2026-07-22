@@ -1510,13 +1510,20 @@ pub fn apply_summon_effects(
         return;
     };
 
+    // Sequence numbers are TAKEN here and WRITTEN BACK only if the plan commits.
+    // `SimIdCounter` is snapshot-registered authoritative state, so advancing it
+    // while assembling requests would mean a rejected batch had already consumed
+    // dynamic identities that no entity was ever built for — a mutation, and one
+    // that survives into the next snapshot. Staging it keeps "preparation is
+    // pure" true of the whole system rather than only of `prepare`.
+    let mut next_sequence: std::collections::BTreeMap<bevy::prelude::Entity, u64> =
+        std::collections::BTreeMap::new();
     let mut planned = Vec::new();
     for req in requests.read() {
         let ambition_vfx::Effect::Summon(s) = &req.effect else {
             continue;
         };
-        let (Ok(summoner), Ok(mut counter)) =
-            (identities.get(req.owner), counters.get_mut(req.owner))
+        let (Ok(summoner), Ok(counter)) = (identities.get(req.owner), counters.get(req.owner))
         else {
             // Loud, not silent: every body carrying a `FeatureId` is identified
             // at the head of the tick, so reaching this means the emitter is
@@ -1529,9 +1536,14 @@ pub fn apply_summon_effects(
             );
             continue;
         };
+        // Successive summons from one summoner in a single batch each advance
+        // the staged value, so two adds never claim one identity.
+        let sequence = next_sequence.entry(req.owner).or_insert(counter.0);
+        let taken = *sequence;
+        *sequence += 1;
         planned.push(crate::construction::summoned_minion_request(
             summoner,
-            counter.next(),
+            taken,
             crate::construction::SummonedMinionParams {
                 feature_id: s.id.clone(),
                 name: s.name.clone(),
@@ -1571,10 +1583,17 @@ pub fn apply_summon_effects(
                 services: &services,
             };
             plan.commit(&mut ctx);
+            // Only now are the identities really spent.
+            for (owner, advanced) in next_sequence {
+                if let Ok(mut counter) = counters.get_mut(owner) {
+                    counter.0 = advanced;
+                }
+            }
         }
         Err(error) => {
-            // Nothing has been mutated: preparation is pure. A summon batch that
-            // cannot plan is dropped loudly rather than half-applied.
+            // Nothing has been mutated: preparation is pure, and the sequence
+            // numbers this batch would have consumed were never written back, so
+            // the identities it planned are still available to the next one.
             bevy::log::error!(
                 target: "ambition::construction",
                 "summon batch rejected before mutation: {error}"

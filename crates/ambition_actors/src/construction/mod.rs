@@ -177,6 +177,22 @@ impl std::error::Error for ActorConstructionError {}
 // it at execution time. Each returns the one entity it created; the executor
 // stamps `SimId` and `SpawnOrigin` onto it.
 
+// Each recipe states which parameter variant it can build from. Preparation
+// asks before it plans, so the `unreachable!` in each recipe below is a claim
+// the planner has already proved rather than a hope.
+
+fn accepts_ground_item(parameters: &ActorConstructionParams) -> bool {
+    matches!(parameters, ActorConstructionParams::GroundItem { .. })
+}
+
+fn accepts_staged_actor(parameters: &ActorConstructionParams) -> bool {
+    matches!(parameters, ActorConstructionParams::StagedActor(_))
+}
+
+fn accepts_summoned_minion(parameters: &ActorConstructionParams) -> bool {
+    matches!(parameters, ActorConstructionParams::SummonedMinion(_))
+}
+
 fn construct_authored_ground_item(
     planned: &PlannedEntity<ActorConstruction>,
     ctx: &mut Ctx<'_, '_, '_>,
@@ -266,6 +282,7 @@ pub fn install_actor_construction_recipes(
         OWNER,
         "authored-room",
         SCHEMA,
+        accepts_ground_item,
         construct_authored_ground_item,
     )?;
     registry.try_register_recipe(
@@ -273,6 +290,7 @@ pub fn install_actor_construction_recipes(
         OWNER,
         "content-staging",
         SCHEMA,
+        accepts_staged_actor,
         construct_staged_actor,
     )?;
     registry.try_register_recipe(
@@ -280,6 +298,7 @@ pub fn install_actor_construction_recipes(
         OWNER,
         "summon-effect",
         SCHEMA,
+        accepts_summoned_minion,
         construct_summoned_minion,
     )?;
     registry.try_register_relation(relation_grudge(), OWNER, wire_grudge)?;
@@ -310,7 +329,6 @@ pub fn authored_ground_item_requests(
                     source: room.id.clone(),
                     instance: spec.id.clone(),
                 },
-                parent: None,
                 parameters: ActorConstructionParams::GroundItem {
                     spec: spec.clone(),
                     held,
@@ -339,7 +357,6 @@ pub fn staged_actor_requests(
                 room: room_id.to_string(),
                 instance: request.id.clone(),
             },
-            parent: None,
             parameters: ActorConstructionParams::StagedActor(request.clone()),
             relations: request
                 .grudge_against
@@ -369,10 +386,9 @@ pub fn summoned_minion_request(
         sim_id: SimId::spawned(summoner, sequence),
         recipe: recipe_summoned_minion(),
         origin: SpawnOrigin::Dynamic {
-            parent: Some(summoner.clone()),
+            parent: summoner.clone(),
             sequence,
         },
-        parent: Some(summoner.clone()),
         parameters: ActorConstructionParams::SummonedMinion(params),
         relations: Vec::new(),
     }

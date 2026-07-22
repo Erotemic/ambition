@@ -31,6 +31,19 @@ use super::{ConstructionDomain, ConstructionExecCtx, PlannedEntity, RecipeId};
 pub type RecipeFn<D> =
     for<'w, 's, 'a> fn(&PlannedEntity<D>, &mut ConstructionExecCtx<'w, 's, 'a, D>) -> Entity;
 
+/// Decides whether a recipe can build from the parameters a request carries.
+///
+/// **This is what makes [`RecipeFn`]'s infallibility true rather than merely
+/// asserted.** A [`ConstructionRequest`](super::ConstructionRequest) names a
+/// recipe and carries parameters as two independent public fields, so nothing in
+/// the type system stops a caller pairing the staged-actor recipe with
+/// ground-item parameters. Without this check that mismatch reaches the recipe,
+/// which can only panic — during commit, after earlier rows have already
+/// mutated the world. Preparation asks first, so the mismatch is a rejected plan
+/// instead of a half-applied one, and a recipe's `unreachable!` on the wrong
+/// variant becomes provably unreachable.
+pub type AcceptsFn<D> = fn(&<D as ConstructionDomain>::Parameters) -> bool;
+
 /// Wires one declared relation once both ends exist.
 pub type RelationFn<D> =
     for<'w, 's, 'a> fn(Entity, Entity, &mut ConstructionExecCtx<'w, 's, 'a, D>);
@@ -115,6 +128,7 @@ struct RecipeEntry<D: ConstructionDomain> {
     owner: String,
     source: String,
     schema_id: String,
+    accepts: AcceptsFn<D>,
     construct: RecipeFn<D>,
 }
 
@@ -159,6 +173,7 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
         owner: impl Into<String>,
         source: impl Into<String>,
         schema_id: impl Into<String>,
+        accepts: AcceptsFn<D>,
         construct: RecipeFn<D>,
     ) -> Result<(), ConstructionRegistrationError> {
         let (owner, source, schema_id) = (owner.into(), source.into(), schema_id.into());
@@ -172,6 +187,7 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
             let identical = existing.owner == owner
                 && existing.source == source
                 && existing.schema_id == schema_id
+                && std::ptr::fn_addr_eq(existing.accepts, accepts)
                 && std::ptr::fn_addr_eq(existing.construct, construct);
             return if identical {
                 Ok(())
@@ -193,6 +209,7 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
                 owner,
                 source,
                 schema_id,
+                accepts,
                 construct,
             },
         );
@@ -224,8 +241,13 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
         Ok(())
     }
 
-    pub(super) fn recipe(&self, recipe: &RecipeId) -> Option<RecipeFn<D>> {
-        self.recipes.get(recipe).map(|entry| entry.construct)
+    /// The pair preparation needs: what this recipe will accept, and what it
+    /// runs. Returned together so a caller cannot resolve one without the other
+    /// and validate against a recipe it is not about to store.
+    pub(super) fn recipe(&self, recipe: &RecipeId) -> Option<(AcceptsFn<D>, RecipeFn<D>)> {
+        self.recipes
+            .get(recipe)
+            .map(|entry| (entry.accepts, entry.construct))
     }
 
     pub(super) fn relation(&self, kind: &RelationKind) -> Option<RelationFn<D>> {

@@ -121,12 +121,12 @@ fn a_room_plans_its_authored_and_provider_staged_families_with_real_provenance()
 
     assert_eq!(
         plan.construction().deterministic_dump(),
-        "construction-plan-v1\n\
+        "construction-plan-v2\n\
          epoch:4\n\
          room\thall\n\
-         entity\tplacement:duel_blue\tambition.staged-actor\t-\tprovider-staged\ttest_provider\thall\tduel_blue\tstaged-actor duel_blue test_walker enemy\n\
-         entity\tplacement:duel_red\tambition.staged-actor\t-\tprovider-staged\ttest_provider\thall\tduel_red\tstaged-actor duel_red test_walker enemy\n\
-         entity\tplacement:pickup_a\tambition.authored-ground-item\t-\tauthored\thall\tpickup_a\tground-item pickup_a gun_sword\n\
+         entity\tplacement:duel_blue\tambition.staged-actor\tprovider-staged\ttest_provider\thall\tduel_blue\tstaged-actor duel_blue test_walker enemy\n\
+         entity\tplacement:duel_red\tambition.staged-actor\tprovider-staged\ttest_provider\thall\tduel_red\tstaged-actor duel_red test_walker enemy\n\
+         entity\tplacement:pickup_a\tambition.authored-ground-item\tauthored\thall\tpickup_a\tground-item pickup_a gun_sword\n\
          relation\tplacement:duel_blue\tambition.grudge\tplacement:duel_red\n\
          relation\tplacement:duel_red\tambition.grudge\tplacement:duel_blue\n",
         "the plan states each family's real origin, in canonical order"
@@ -134,6 +134,13 @@ fn a_room_plans_its_authored_and_provider_staged_families_with_real_provenance()
 }
 
 /// Exit criterion: *planned and committed `SimId` rosters match exactly.*
+///
+/// Asserted against the WORLD, not just the receipt. The receipt is written by
+/// the executor one row at a time, so comparing it to the plan compares the
+/// executor's bookkeeping with itself and would stay green even if a recipe
+/// built nothing, built something else, or handed back a body that already
+/// existed. What the criterion means is that the identities the plan declared
+/// are the identities alive afterwards — which only the world can say.
 #[test]
 fn the_committed_roster_is_exactly_the_planned_roster() {
     let recipes = engine_construction_registry();
@@ -155,16 +162,37 @@ fn the_committed_roster_is_exactly_the_planned_roster() {
     });
     app.update();
 
+    let in_world: std::collections::BTreeSet<SimId> = app
+        .world_mut()
+        .query::<&SimId>()
+        .iter(app.world())
+        .cloned()
+        .collect();
+    assert_eq!(
+        in_world, planned,
+        "every planned identity is alive in the world, and no identity is alive that the plan did \
+         not declare"
+    );
+    assert_eq!(planned.len(), 3);
+
+    // The receipt agrees with the world, so downstream callers may trust it.
     assert_eq!(
         committed
             .lock()
             .unwrap()
             .clone()
             .expect("the plan committed"),
-        planned,
-        "every planned identity was committed, and nothing else was"
+        in_world,
+        "the executor's receipt reports what actually reached the world"
     );
-    assert_eq!(planned.len(), 3);
+
+    // Each identity is on exactly ONE entity: a recipe that returned a body
+    // another row had already claimed would show up here as a short count.
+    assert_eq!(
+        app.world_mut().query::<&SimId>().iter(app.world()).count(),
+        3,
+        "three identities on three distinct entities"
+    );
 }
 
 /// Provenance reaches the live entity, so a restore can read it. Identity does
@@ -421,7 +449,7 @@ fn a_summoned_minion_is_planned_as_a_dynamic_child_of_its_summoner() {
     assert_eq!(
         row.origin(),
         &SpawnOrigin::Dynamic {
-            parent: Some(summoner.clone()),
+            parent: summoner.clone(),
             sequence: 7,
         }
     );
@@ -610,7 +638,7 @@ fn a_summoned_minion_reaches_the_world_as_a_dynamic_child() {
         vec![(
             "placement:boss_1/0".to_string(),
             SpawnOrigin::Dynamic {
-                parent: Some(SimId::placement("boss_1")),
+                parent: SimId::placement("boss_1"),
                 sequence: 0,
             }
         )],
@@ -672,4 +700,120 @@ fn a_summon_from_an_unidentified_emitter_is_refused() {
         0,
         "nothing was spawned for an emitter that cannot be descended from"
     );
+}
+
+/// A summon batch that cannot plan must not have SPENT anything. The sequence
+/// numbers it would have used are authoritative snapshot state, so advancing
+/// them while assembling requests would let a rejected batch consume dynamic
+/// identities no entity was ever built for — a mutation that outlives the
+/// refusal and rides into the next snapshot.
+#[test]
+fn a_rejected_summon_batch_does_not_spend_the_summoners_sequence_numbers() {
+    use ambition_platformer_primitives::sim_id::SimIdCounter;
+
+    let mut world = summon_world();
+    let boss = world
+        .spawn((SimId::placement("boss_1"), SimIdCounter::default()))
+        .id();
+    // Squat the identity this summon would take, so preparation refuses it.
+    world.spawn(SimId::from_snapshot("placement:boss_1/0".to_string()));
+
+    run_summon(&mut world, boss, summon_spec("slop_add"));
+
+    assert_eq!(
+        world.get::<SimIdCounter>(boss).map(|counter| counter.0),
+        Some(0),
+        "a refused batch leaves the counter exactly where it found it"
+    );
+    let minted = world
+        .query::<&SimId>()
+        .iter(&world)
+        .filter(|id| id.as_str().starts_with("placement:boss_1/"))
+        .count();
+    assert_eq!(minted, 1, "only the squatter is there — nothing was built");
+
+    // And the identity really is still available: once the squatter is gone the
+    // very next summon takes sequence 0, which it could not do had the refused
+    // batch consumed it.
+    let squatter = world
+        .query::<(Entity, &SimId)>()
+        .iter(&world)
+        .find(|(_, id)| id.as_str() == "placement:boss_1/0")
+        .map(|(entity, _)| entity)
+        .expect("the squatter exists");
+    world.despawn(squatter);
+    run_summon(&mut world, boss, summon_spec("slop_add"));
+    assert_eq!(
+        world.get::<SimIdCounter>(boss).map(|counter| counter.0),
+        Some(1),
+        "the retried summon took the sequence the refused batch had not spent"
+    );
+}
+
+// ── Partial reconstruction of a real family ──────────────────────────────────
+
+/// The duellists' grudge is a planned relation, so rebuilding one of them alone
+/// would put the fighter back without it — a body that looks right in the roster
+/// and no longer hunts its rival. Refused rather than half-applied.
+#[test]
+fn rebuilding_one_duellist_alone_is_refused_because_its_grudge_would_be_lost() {
+    let recipes = engine_construction_registry();
+    let (room, staging) = duelling_room();
+    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+
+    let mut app = App::new();
+    app.add_message::<crate::rooms::RoomLoaded>();
+    let outcome = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let sink = outcome.clone();
+    app.add_systems(Update, move |mut commands: Commands| {
+        *sink.lock().unwrap() = Some(plan.respawn_authoritative_entity(
+            &mut commands,
+            SessionSpawnScope::UNSCOPED,
+            "duel_red",
+        ));
+    });
+    app.update();
+
+    assert_eq!(
+        *outcome.lock().unwrap(),
+        Some(false),
+        "a relation-bearing row does not silently come back without its relation"
+    );
+    assert_eq!(
+        app.world_mut().query::<&SimId>().iter(app.world()).count(),
+        0,
+        "the refusal happened before anything was built"
+    );
+}
+
+/// The refusal is specific to relation-bearing rows, not a blanket ban on
+/// single-entity rebuilds: the authored pickup in the same plan still rebuilds
+/// on its own, which is what the same-room restore path depends on.
+#[test]
+fn a_relation_free_row_in_the_same_plan_still_rebuilds_alone() {
+    let recipes = engine_construction_registry();
+    let (room, staging) = duelling_room();
+    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+
+    let mut app = App::new();
+    app.add_message::<crate::rooms::RoomLoaded>();
+    let outcome = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let sink = outcome.clone();
+    app.add_systems(Update, move |mut commands: Commands| {
+        *sink.lock().unwrap() = Some(plan.respawn_authoritative_entity(
+            &mut commands,
+            SessionSpawnScope::UNSCOPED,
+            "pickup_a",
+        ));
+    });
+    app.update();
+
+    assert_eq!(*outcome.lock().unwrap(), Some(true));
+    let ids: Vec<String> = app
+        .world_mut()
+        .query::<&SimId>()
+        .iter(app.world())
+        .map(|id| id.as_str().to_string())
+        .collect();
+    assert_eq!(ids, vec!["placement:pickup_a".to_string()]);
 }

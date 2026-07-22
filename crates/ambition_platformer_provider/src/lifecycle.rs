@@ -1260,19 +1260,18 @@ mod tests {
 
     fn staging_registry(reverse: bool) -> ambition_actors::features::RoomContentStagingRegistry {
         let mut registry = ambition_actors::features::RoomContentStagingRegistry::default();
-        let mut register_a =
-            |registry: &mut ambition_actors::features::RoomContentStagingRegistry| {
-                registry
-                    .register(
-                        "same-room",
-                        "provider-a",
-                        "fixture-a",
-                        "fixture-a.v1",
-                        |_| Vec::new(),
-                    )
-                    .unwrap();
-            };
-        let mut register_b =
+        let register_a = |registry: &mut ambition_actors::features::RoomContentStagingRegistry| {
+            registry
+                .register(
+                    "same-room",
+                    "provider-a",
+                    "fixture-a",
+                    "fixture-a.v1",
+                    |_| Vec::new(),
+                )
+                .unwrap();
+        };
+        let register_b =
             |registry: &mut ambition_actors::features::RoomContentStagingRegistry| {
                 registry
                     .register(

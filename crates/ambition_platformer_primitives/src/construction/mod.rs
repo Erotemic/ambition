@@ -36,7 +36,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use bevy::prelude::{Commands, Component, Entity};
+use bevy::prelude::{Commands, Component, Entity, World};
 
 use crate::sim_id::SimId;
 
@@ -45,7 +45,8 @@ mod registry;
 mod tests;
 
 pub use registry::{
-    ConstructionRegistrationError, ConstructionRegistry, RecipeFn, RelationFn, RelationKind,
+    AcceptsFn, ConstructionRegistrationError, ConstructionRegistry, RecipeFn, RelationFn,
+    RelationKind,
 };
 
 /// A stable internal identity for a construction recipe.
@@ -100,10 +101,13 @@ pub enum SpawnOrigin {
     /// The running simulation minted this: a projectile, a summoned minion, a
     /// dropped item. `parent` is the spawner's identity — the fact that used to
     /// be recoverable only by splitting the child's own id string.
-    Dynamic {
-        parent: Option<SimId>,
-        sequence: u64,
-    },
+    ///
+    /// **`parent` is not optional.** A dynamic entity states which spawner it
+    /// descends from or it is unreconstructable, so "dynamic, parent unknown"
+    /// is not a state worth being able to spell. A spawn site that cannot name
+    /// its spawner's identity must refuse to spawn rather than mint a
+    /// provenance that says nothing.
+    Dynamic { parent: SimId, sequence: u64 },
 }
 
 impl SpawnOrigin {
@@ -122,7 +126,7 @@ impl SpawnOrigin {
     /// replaces parsing a spawned id's `/`-delimited parent prefix.
     pub const fn parent(&self) -> Option<&SimId> {
         match self {
-            Self::Dynamic { parent, .. } => parent.as_ref(),
+            Self::Dynamic { parent, .. } => Some(parent),
             Self::Authored { .. } | Self::ProviderStaged { .. } => None,
         }
     }
@@ -139,10 +143,7 @@ impl SpawnOrigin {
                 room,
                 instance,
             } => format!("provider-staged\t{provider}\t{room}\t{instance}"),
-            Self::Dynamic { parent, sequence } => format!(
-                "dynamic\t{}\t{sequence}",
-                parent.as_ref().map_or("-", SimId::as_str)
-            ),
+            Self::Dynamic { parent, sequence } => format!("dynamic\t{parent}\t{sequence}"),
         }
     }
 }
@@ -191,11 +192,17 @@ pub struct ConstructionScope {
 }
 
 /// One requested entity, before validation.
+///
+/// **There is no `parent` field.** The spawner an entity descends from is
+/// already stated by [`SpawnOrigin::Dynamic`], and a request that carried it
+/// twice would have a state where the validated parent and the recorded
+/// provenance disagree — with nothing to say which one reconstruction should
+/// believe. Preparation validates [`SpawnOrigin::parent`] directly, so the fact
+/// that is checked is the same fact that reaches the world.
 pub struct ConstructionRequest<D: ConstructionDomain> {
     pub sim_id: SimId,
     pub recipe: RecipeId,
     pub origin: SpawnOrigin,
-    pub parent: Option<SimId>,
     pub parameters: D::Parameters,
     /// Relations this entity declares onto others. Validated against the plan's
     /// own roster plus the live roster before anything is spawned.
@@ -219,7 +226,6 @@ pub struct PlannedEntity<D: ConstructionDomain> {
     sim_id: SimId,
     recipe: RecipeId,
     origin: SpawnOrigin,
-    parent: Option<SimId>,
     parameters: D::Parameters,
     construct: RecipeFn<D>,
 }
@@ -230,7 +236,6 @@ impl<D: ConstructionDomain> Clone for PlannedEntity<D> {
             sim_id: self.sim_id.clone(),
             recipe: self.recipe.clone(),
             origin: self.origin.clone(),
-            parent: self.parent.clone(),
             parameters: self.parameters.clone(),
             construct: self.construct,
         }
@@ -247,8 +252,10 @@ impl<D: ConstructionDomain> PlannedEntity<D> {
     pub fn origin(&self) -> &SpawnOrigin {
         &self.origin
     }
+    /// The spawner this row descends from — read from its provenance, which is
+    /// the only place it is stored.
     pub fn parent(&self) -> Option<&SimId> {
-        self.parent.as_ref()
+        self.origin.parent()
     }
     pub fn parameters(&self) -> &D::Parameters {
         &self.parameters
@@ -296,6 +303,15 @@ pub enum ConstructionError {
     IdentityAlreadyLive { sim_id: SimId },
     /// A row names a recipe the registry does not have.
     UnknownRecipe { sim_id: SimId, recipe: RecipeId },
+    /// A row pairs a registered recipe with parameters that recipe cannot build
+    /// from.
+    ///
+    /// A request names its recipe and carries its parameters as two independent
+    /// fields, so this pairing is the caller's to get right and nothing but a
+    /// check can prove they did. Without it the mismatch surfaces inside the
+    /// recipe, mid-commit, as a panic — which is the half-applied mutation
+    /// planning exists to prevent.
+    ParametersRejected { sim_id: SimId, recipe: RecipeId },
     /// A row's parent resolves to neither a planned nor a live identity.
     UnresolvedParent { sim_id: SimId, parent: SimId },
     /// A relation's target names nothing this plan knows about.
@@ -316,6 +332,19 @@ pub enum ConstructionError {
     UnknownRelationKind { from: SimId, kind: RelationKind },
     /// A single-row re-execution named an identity this plan does not contain.
     NotInPlan { sim_id: SimId },
+    /// A partial commit would have rebuilt an entity while leaving one of its
+    /// declared relations unwired, because the other end is not being rebuilt.
+    ///
+    /// Refused rather than best-effort: a body that comes back from a restore
+    /// without its grudge is a silent behavioural regression that no amount of
+    /// staring at the roster reveals — the entity count is right and only the
+    /// wiring is missing. Rebuilding a relation whose far end is merely *live*
+    /// needs the live identity index that Phase 4's commit boundary owns.
+    RelationOutsideSubset {
+        from: SimId,
+        kind: RelationKind,
+        to: SimId,
+    },
 }
 
 impl std::fmt::Display for ConstructionError {
@@ -344,9 +373,19 @@ impl std::fmt::Display for ConstructionError {
                 f,
                 "`{from}` declares relation `{kind}`, which no registered wiring handles"
             ),
+            Self::ParametersRejected { sim_id, recipe } => write!(
+                f,
+                "`{sim_id}` names construction recipe `{recipe}`, which cannot build from the \
+                 parameters this request carries"
+            ),
             Self::NotInPlan { sim_id } => {
                 write!(f, "this plan contains no entity `{sim_id}`")
             }
+            Self::RelationOutsideSubset { from, kind, to } => write!(
+                f,
+                "rebuilding `{from}` alone would leave its relation `{kind}` onto `{to}` unwired, \
+                 because `{to}` is not being rebuilt with it"
+            ),
         }
     }
 }
@@ -467,13 +506,25 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         let mut entities = Vec::with_capacity(requests.len());
         let mut relations: Vec<PlannedRelation<D>> = Vec::new();
         for request in requests {
-            let Some(construct) = registry.recipe(&request.recipe) else {
+            let Some((accepts, construct)) = registry.recipe(&request.recipe) else {
                 return Err(ConstructionError::UnknownRecipe {
                     sim_id: request.sim_id,
                     recipe: request.recipe,
                 });
             };
-            if let Some(parent) = &request.parent {
+            // Ask the recipe whether it can build from what this row carries.
+            // Recipe and parameters are chosen independently by the caller, so
+            // this is the only thing standing between a mispaired request and a
+            // panic inside the mutation.
+            if !accepts(&request.parameters) {
+                return Err(ConstructionError::ParametersRejected {
+                    sim_id: request.sim_id,
+                    recipe: request.recipe,
+                });
+            }
+            // The parent comes from the provenance, not from a second field
+            // beside it: the fact validated here is the fact the world receives.
+            if let Some(parent) = request.origin.parent() {
                 if !parent_resolvable(parent) {
                     return Err(ConstructionError::UnresolvedParent {
                         sim_id: request.sim_id.clone(),
@@ -506,7 +557,6 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                 sim_id: request.sim_id,
                 recipe: request.recipe,
                 origin: request.origin,
-                parent: request.parent,
                 parameters: request.parameters,
                 construct,
             });
@@ -547,21 +597,19 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 
     /// Construct one planned entity through its frozen recipe.
     ///
-    /// **This is the only constructor.** Ordinary construction calls it for
-    /// every row; reconstruction of a single entity calls it for one. There is
-    /// no second path that could drift from this one, which is the property the
-    /// whole plan exists to buy.
+    /// Reconstruction of a single entity. Refuses — before mutating — if that
+    /// entity declares a relation, because the far end is not being rebuilt
+    /// alongside it; see [`ConstructionError::RelationOutsideSubset`].
     pub fn construct_one(
         &self,
         sim_id: &SimId,
         ctx: &mut ConstructionExecCtx<'_, '_, '_, D>,
     ) -> Result<Entity, ConstructionError> {
-        let planned = self
-            .get(sim_id)
-            .ok_or_else(|| ConstructionError::NotInPlan {
-                sim_id: sim_id.clone(),
-            })?;
-        Ok(Self::commit_entity(planned, ctx))
+        let subset = BTreeSet::from([sim_id.clone()]);
+        let receipt = self.commit_subset(&subset, ctx)?;
+        Ok(receipt
+            .entity(sim_id)
+            .unwrap_or_else(|| unreachable!("a one-row commit that succeeded committed its row")))
     }
 
     /// Construct every planned entity, then wire every planned relation.
@@ -571,21 +619,83 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     /// is what lets a plan express a mutual pair (two duellists grudging each
     /// other) without either row needing the other to exist first.
     pub fn commit(&self, ctx: &mut ConstructionExecCtx<'_, '_, '_, D>) -> ConstructionReceipt {
+        self.execute(None, ctx).unwrap_or_else(|error| {
+            unreachable!(
+                "committing a plan in full names only its own rows and encloses every relation, \
+                 so it cannot be refused: {error}"
+            )
+        })
+    }
+
+    /// Construct the named rows, and wire exactly the relations that lie wholly
+    /// within them.
+    ///
+    /// **This is the only executor.** A full commit is this over every row; a
+    /// single-entity rebuild is this over one. Ordinary construction and
+    /// reconstruction cannot drift because there is nothing for them to drift
+    /// between.
+    ///
+    /// Every refusal happens before the first recipe runs, so a rejected subset
+    /// leaves the world exactly as it found it. A relation whose `from` is being
+    /// rebuilt but whose `to` is not is such a refusal: quietly rebuilding the
+    /// body without the wiring is the silent drop this module exists to delete.
+    /// A relation pointing *into* the subset from a row outside it is not — that
+    /// relation belongs to the outside row, which is not being rebuilt and still
+    /// holds it.
+    pub fn commit_subset(
+        &self,
+        ids: &BTreeSet<SimId>,
+        ctx: &mut ConstructionExecCtx<'_, '_, '_, D>,
+    ) -> Result<ConstructionReceipt, ConstructionError> {
+        self.execute(Some(ids), ctx)
+    }
+
+    /// `None` means every row — which is why a full commit allocates nothing to
+    /// describe itself and skips validation that cannot fail. Naming the whole
+    /// roster explicitly would clone every `SimId` in the plan, and a
+    /// reconstruction sweep calling `construct_one` per entity would pay that
+    /// once per entity.
+    fn execute(
+        &self,
+        subset: Option<&BTreeSet<SimId>>,
+        ctx: &mut ConstructionExecCtx<'_, '_, '_, D>,
+    ) -> Result<ConstructionReceipt, ConstructionError> {
+        let included = |id: &SimId| subset.is_none_or(|ids| ids.contains(id));
+        if let Some(ids) = subset {
+            if let Some(missing) = ids
+                .iter()
+                .find(|id| !self.entities.iter().any(|e| &e.sim_id == *id))
+            {
+                return Err(ConstructionError::NotInPlan {
+                    sim_id: missing.clone(),
+                });
+            }
+            for relation in &self.relations {
+                if ids.contains(&relation.from) && !ids.contains(&relation.to) {
+                    return Err(ConstructionError::RelationOutsideSubset {
+                        from: relation.from.clone(),
+                        kind: relation.kind.clone(),
+                        to: relation.to.clone(),
+                    });
+                }
+            }
+        }
+
         let mut receipt = ConstructionReceipt::default();
-        for planned in &self.entities {
+        for planned in self.entities.iter().filter(|e| included(&e.sim_id)) {
             let entity = Self::commit_entity(planned, ctx);
             receipt.committed.insert(planned.sim_id.clone(), entity);
         }
-        for relation in &self.relations {
-            // Both ends are rows in this plan — preparation rejects anything
-            // else — and every row above is now committed, so a miss here is a
-            // planner bug rather than a content error. It must not be swallowed.
+        for relation in self.relations.iter().filter(|r| included(&r.from)) {
+            // Both ends are rows in this subset — the refusal above guarantees
+            // it — and every row is now committed, so a miss here is a planner
+            // bug rather than a content error. It must not be swallowed.
             let (Some(from), Some(to)) = (
                 receipt.committed.get(&relation.from).copied(),
                 receipt.committed.get(&relation.to).copied(),
             ) else {
                 unreachable!(
-                    "planned relation {} -> {} names an identity this plan did not commit",
+                    "planned relation {} -> {} names an identity this commit did not build",
                     relation.from, relation.to
                 )
             };
@@ -596,7 +706,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                 relation.to.clone(),
             ));
         }
-        receipt
+        Ok(receipt)
     }
 
     fn commit_entity(
@@ -607,9 +717,35 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         // Identity and provenance are stamped by the executor, not by each
         // recipe: a recipe that forgot would produce an entity nothing could
         // reconstruct, and the omission would be invisible until a restore.
-        ctx.commands
-            .entity(entity)
-            .insert((planned.sim_id.clone(), planned.origin.clone()));
+        //
+        // Stamped through the world rather than with a plain `insert` so the
+        // stamp can also CHECK. A recipe hands back an arbitrary `Entity` and
+        // the executor has no way to know it was freshly created — a defective
+        // recipe could return a body that is already live, or the one the
+        // previous row just built, and a bare insert would silently overwrite
+        // that body's identity. Two identities landing on one entity is a
+        // desync, so it is worth a panic rather than a receipt that reports
+        // parity it does not have. This runs at flush, in queue order, so the
+        // previous row's stamp is already visible.
+        let sim_id = planned.sim_id.clone();
+        let origin = planned.origin.clone();
+        let recipe = planned.recipe.clone();
+        ctx.commands.queue(move |world: &mut World| {
+            let Ok(mut target) = world.get_entity_mut(entity) else {
+                panic!(
+                    "construction recipe `{recipe}` for `{sim_id}` returned entity {entity}, which \
+                     does not exist"
+                )
+            };
+            if let Some(existing) = target.get::<SimId>() {
+                panic!(
+                    "construction recipe `{recipe}` for `{sim_id}` returned entity {entity}, which \
+                     already holds identity `{existing}` — a recipe must create the entity it \
+                     returns"
+                )
+            }
+            target.insert((sim_id, origin));
+        });
         entity
     }
 
@@ -624,12 +760,14 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
             self.scope.room.as_deref().unwrap_or("-"),
         );
         for entity in &self.entities {
+            // No separate parent column: `canonical_summary` already carries it
+            // for the one origin that has one, and printing it twice would let
+            // a dump disagree with itself.
             let _ = writeln!(
                 out,
-                "entity\t{}\t{}\t{}\t{}\t{}",
+                "entity\t{}\t{}\t{}\t{}",
                 entity.sim_id,
                 entity.recipe,
-                entity.parent.as_ref().map_or("-", SimId::as_str),
                 entity.origin.canonical_summary(),
                 D::canonical_summary(&entity.parameters),
             );
@@ -647,4 +785,4 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 
 /// Bumped when the plan dump's shape changes. The dump is an inspection and
 /// comparison surface, so its shape is a compatibility contract.
-pub const CONSTRUCTION_PLAN_SCHEMA_VERSION: u32 = 1;
+pub const CONSTRUCTION_PLAN_SCHEMA_VERSION: u32 = 2;

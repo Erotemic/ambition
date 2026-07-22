@@ -67,7 +67,7 @@ fn minting_a_spawned_id_also_states_its_parent() {
     assert_eq!(
         world.get::<SpawnOrigin>(shot),
         Some(&SpawnOrigin::Dynamic {
-            parent: Some(SimId::placement("duel_pca")),
+            parent: SimId::placement("duel_pca"),
             sequence: 0,
         }),
         "and states that firer as data"
@@ -178,11 +178,14 @@ fn spawn_origin_round_trips_through_its_snapshot_codec() {
             instance: "duel_red".into(),
         },
         SpawnOrigin::Dynamic {
-            parent: Some(SimId::placement("boss_1")),
+            parent: SimId::placement("boss_1"),
             sequence: 9,
         },
+        // A deeply-nested parent: the id it carries is opaque to the codec, so
+        // a grammar with delimiters in it must survive verbatim rather than
+        // being re-split on the way back.
         SpawnOrigin::Dynamic {
-            parent: None,
+            parent: SimId::from_snapshot("placement:boss_1/3".to_string()),
             sequence: 0,
         },
     ];

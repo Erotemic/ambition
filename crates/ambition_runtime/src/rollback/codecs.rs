@@ -1631,10 +1631,7 @@ impl SnapshotState for ambition_platformer_primitives::construction::SpawnOrigin
             }
             O::Dynamic { parent, sequence } => {
                 put_u8(out, 2);
-                put_u8(out, u8::from(parent.is_some()));
-                if let Some(parent) = parent {
-                    put_str(out, parent.as_str());
-                }
+                put_str(out, parent.as_str());
                 put_u64(out, *sequence);
             }
         }
@@ -1654,11 +1651,7 @@ impl SnapshotState for ambition_platformer_primitives::construction::SpawnOrigin
                 instance: r.str()?.to_string(),
             },
             2 => O::Dynamic {
-                parent: match r.u8()? {
-                    0 => None,
-                    1 => Some(SimId::from_snapshot(r.str()?.to_string())),
-                    _ => return None,
-                },
+                parent: SimId::from_snapshot(r.str()?.to_string()),
                 sequence: r.u64()?,
             },
             _ => return None,
@@ -1787,7 +1780,7 @@ pub fn mint_spawned_sim_ids(
             id,
             ambition_platformer_primitives::sim_id::SimIdCounter::default(),
             ambition_platformer_primitives::construction::SpawnOrigin::Dynamic {
-                parent: Some(owner_id.clone()),
+                parent: owner_id.clone(),
                 sequence,
             },
         ));

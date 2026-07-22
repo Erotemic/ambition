@@ -279,10 +279,22 @@ impl RoomFeatureConstructionPlan {
                 session: session_scope,
                 services: &self.construction_services,
             };
-            return self
-                .construction
-                .construct_one(&planned_id, &mut ctx)
-                .is_ok();
+            return match self.construction.construct_one(&planned_id, &mut ctx) {
+                Ok(_) => true,
+                Err(error) => {
+                    // This row IS planned, so falling through to the other
+                    // families would be wrong — and returning a bare `false`
+                    // would report "no such entity" for what is really a
+                    // refusal. A relation-bearing row cannot be rebuilt alone
+                    // (see `ConstructionError::RelationOutsideSubset`); saying
+                    // so is the whole value of the refusal.
+                    bevy::log::error!(
+                        target: "ambition::construction",
+                        "`{authored_id}` is planned but could not be rebuilt on its own: {error}"
+                    );
+                    false
+                }
+            };
         }
         if self.placements.lower_one(
             commands,

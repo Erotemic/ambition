@@ -566,9 +566,20 @@ shrines, gravity zones and portal guns still take the family-specific loops in
 `apply_spawn_actor_requests` also survives on purpose — programmatic scene setup
 (RL reset, demo crony spawns) legitimately wants a message.
 
+⚠ **A same-day external review found five transactional gaps the tests could
+not see** — a counter spent before validation, an unchecked recipe/parameter
+pairing, an executor trusting the `Entity` a recipe returned, a parent stored
+twice, and `construct_one` silently dropping relations. All closed (plan schema
+is now **v2**); the Phase 3 account lists them. **Read that list before starting
+Phase 4** — every one was a boundary described as atomic with nothing enforcing
+it, which is exactly the risk Phase 4 multiplies.
+
 **Next in this campaign:** Phase 4 (migrate room lifecycle operations onto the
 planner, in the order activation → reset → transition → hot reload → snapshot
-reconstruction), which is what turns the remaining loops into plan rows.
+reconstruction), which is what turns the remaining loops into plan rows. It also
+owns the two limits this slice recorded rather than solved: enforcing
+`ConstructionScope::content_epoch` at a commit boundary, and the live identity
+index that would let a relation target an entity outside the plan.
 
 ## 6. Correct the fighter-rollout design before FB6 — [fable]
 

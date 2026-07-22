@@ -771,13 +771,55 @@ kind, and a partial sweep would have forked families rather than moved them.
 `apply_spawn_actor_requests` also survives, because programmatic scene setup
 (RL episode reset, demo crony spawns) legitimately wants a message.
 
-**Verification.** 18 domain tests (`ambition_actors::construction`), 18 planner
+**Verification.** 20 domain tests (`ambition_actors::construction`), 25 planner
 tests (`ambition_platformer_primitives::construction`), 6 provenance tests
 (`ambition_runtime::rollback::provenance_tests`). The provenance file records
 which of its tests actually DISCRIMINATE between the old and new mechanisms —
 two do, four are behavioural regression protection that passes either way — and
 that was established by running the file against the pre-change implementation
 rather than asserted.
+
+**Review round (same day): five transactional gaps, all closed.** An external
+review of the landed slice found five places where the *claim* was stronger than
+the *mechanism*. None were caught by the tests above, and the pattern is worth
+carrying into Phase 4: every one was a boundary that had been described as
+atomic without anything enforcing it.
+
+1. **`apply_summon_effects` advanced `SimIdCounter` before `prepare` ran**, so a
+   rejected batch permanently consumed dynamic identities no entity was built
+   for — while its error branch said "Nothing has been mutated". Sequence
+   numbers are now taken into a local map and written back only after commit.
+   *"Preparation is pure" has to be true of the caller, not only of `prepare`.*
+2. **Recipe and parameters were chosen independently**, so a valid public request
+   could pair them wrongly and reach the recipe's `unreachable!` mid-commit.
+   Every recipe now registers an `AcceptsFn`, checked during preparation.
+3. **The executor trusted the `Entity` a recipe returned**, so plan-to-world
+   parity was the executor's bookkeeping agreeing with itself. The identity
+   stamp now goes through the world and panics if the entity already holds a
+   `SimId`. The exit-criterion test was rewritten to query live identities.
+4. **`parent` was stored twice** — on the request and in `SpawnOrigin::Dynamic` —
+   validated on one and read on the other. The request field is deleted and
+   `Dynamic::parent` is no longer optional. The dump lost its now-redundant
+   parent column: **plan schema v2**.
+5. **`construct_one` never wired relations**, so rebuilding a duellist alone
+   silently dropped its grudge, and `respawn_authoritative_entity` swallowed the
+   result with `.is_ok()`. There is now ONE executor, `commit_subset`, which
+   refuses before mutating when a rebuilt row's relation leaves the subset.
+
+Deviation 1 below generalises as a result: *no fact about a planned entity is
+stored in two places*, whether that is the recipe or the parent.
+
+⚠ **Scope note the review prompted, worth stating plainly:**
+`respawn_authoritative_entity` — the single-entity reconstruction path — has **no
+production callers today**. `RoomConstructionPlan::apply_to_world` rebuilds a
+room by committing the whole plan, and the per-entity wrapper in `stage.rs` is
+reached only from tests. So "ordinary construction and reconstruction share one
+constructor" is proven by construction (there is literally one executor,
+`commit_subset`) and by test, but it is not yet exercised by a shipping code
+path. **Phase 4 is what makes it live.** Until then, treat the refusal semantics
+above as a contract being established rather than one being relied on — and note
+that a change here would ride a fully green suite, which is the same shape of
+gap that let `heal_projectile_owners` sit untested.
 
 #### Original card (retained for the record)
 

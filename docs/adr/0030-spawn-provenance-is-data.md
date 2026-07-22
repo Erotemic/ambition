@@ -2,7 +2,11 @@
 
 ## Status
 
-**Accepted; implemented for three origin families** (2026-07-22). Completes
+**Accepted; implemented for three origin families** (2026-07-22; revised the same
+day after external review closed five transactional gaps — see the Decision
+section's rules on parameter acceptance, partial-commit refusal, the executor's
+identity stamp, single-source parenthood, and commit-time counter writeback).
+Completes
 Milestone B of
 [`../planning/engine/immutable-content-and-transactional-construction.md`](../planning/engine/immutable-content-and-transactional-construction.md)
 and the provenance/planning half of that campaign's Phase-0 ADR obligation.
@@ -51,6 +55,16 @@ entity is precisely the case where nothing around it can still say where it came
 from. `SimId` spelling stays a human convenience and nothing may recover a fact
 from it.
 
+A dynamic entity's `parent` is **not optional and is stored exactly once**.
+"Dynamic, parent unknown" is not a state worth being able to spell — it is
+unreconstructable by definition — so a spawn site that cannot name its spawner's
+identity refuses to spawn rather than minting provenance that says nothing. And
+because a construction request could carry the same parent a second time beside
+the origin, it does not: preparation validates `SpawnOrigin::parent` directly, so
+the fact that is checked is the fact the world receives. Two fields that mean one
+thing eventually disagree, with nothing to say which one reconstruction should
+believe.
+
 **Construction is planned as a pure value, then committed.**
 `ambition_platformer_primitives::construction` owns the content-free vocabulary:
 `RecipeId`, `ConstructionRequest`, `ConstructionPlan`, `PlannedEntity`,
@@ -73,15 +87,43 @@ identity index.
 **One constructor serves ordinary construction and reconstruction.** A recipe is
 a plain `fn` pointer resolved at planning time and stored beside its row, so
 commit repeats no registry lookup and cannot discover a missing recipe after the
-outgoing world has begun to retire. Rebuilding one entity is the same call with
-one row.
+outgoing world has begun to retire. There is one executor — `commit_subset` — and
+a full commit is it over every row while a single-entity rebuild is it over one.
+They cannot drift because there is nothing for them to drift between.
 
-**A recipe is infallible by type.** It returns `Entity`, not
-`Result<Entity, _>`. Everything that can miss — a registry lookup, a catalog id,
-a relation target — resolves in the request builder, where failing is free and
-the live world is still whole. Expressing that as a signature rather than a
-convention means a recipe author cannot quietly move a content error inside the
-mutation, and it leaves commit with no failure path to half-apply.
+**A partial commit that would strand a relation is refused.** A subset that
+rebuilds a row while leaving one of its declared relations unwired is rejected
+before the first recipe runs, not wired best-effort. A duellist that comes back
+from a restore without its grudge is a silent behavioural regression of the worst
+kind: the roster is the right length, the entity is present, and only the
+behaviour is missing. A relation pointing *into* the subset is fine — it belongs
+to the row outside, which is not being rebuilt and still holds it. Rebuilding a
+relation whose far end is merely *live* needs the live identity index that Phase
+4's commit boundary owns.
+
+**A recipe is infallible by type, and preparation makes that true.** It returns
+`Entity`, not `Result<Entity, _>`. Everything that can miss — a registry lookup,
+a catalog id, a relation target — resolves in the request builder, where failing
+is free and the live world is still whole.
+
+That signature alone is not enough to earn the claim. A request names a recipe
+and carries its parameters as two independent fields, so a caller can pair the
+staged-actor recipe with ground-item parameters and nothing in the type system
+objects; the mismatch would then reach the recipe, which can only panic —
+mid-commit, after earlier rows have already mutated the world. So each registered
+recipe supplies an `AcceptsFn` alongside its constructor, and preparation asks
+before it plans. The `unreachable!` a recipe writes for the wrong variant is
+therefore a claim the planner has proved, not a hope.
+
+**The executor stamps identity through the world, so the stamp can also check.**
+A recipe hands back an arbitrary `Entity` and the executor cannot know it was
+freshly created. A defective recipe returning a body that is already live — or
+the one the previous row just built — would have that body's identity silently
+overwritten, two `SimId`s on one entity, while the receipt still reported clean
+parity. The stamp refuses to overwrite an existing identity and panics instead,
+because a receipt that agrees with the plan is bookkeeping and only the world is
+evidence. Recipes may still create *sub*-entities (a giant's hands); the row's
+entity is the one the plan names and the one parity is measured on.
 
 **A domain supplies what core cannot know** — `ConstructionDomain::Parameters`
 (what a row carries) and `Services` (the frozen catalogs its recipes read).
@@ -107,6 +149,13 @@ must be able to state the generation a plan was prepared against; allocation
 stayed where it was, and only the stamp moved. That stamp is **recorded, not
 enforced** — turning a stale plan into a refusal belongs to the commit boundary,
 which Phase 4 owns.
+
+Sequence numbers are **taken while planning and written back only on commit**.
+`SimIdCounter` is snapshot-registered authoritative state, so advancing it while
+assembling requests would let a rejected batch consume dynamic identities that no
+entity was ever built for — a mutation that outlives the refusal and rides into
+the next snapshot. "Preparation is pure" has to be true of the system that calls
+the planner, not only of `prepare`.
 
 A summon whose emitter has no simulation identity is now refused and logged
 rather than given a parentless dynamic id. Every body carrying a `FeatureId` is
@@ -154,8 +203,18 @@ a state where the two disagree with nothing to say which wins.
   builder, where failing costs nothing. A recipe that can fail has moved a
   content error inside the mutation.
 - **Do not add a second constructor for reconstruction.** Rebuild one entity
-  with `ConstructionPlan::construct_one`. Two constructors drift, and the drift
-  only shows up after a restore.
+  with `ConstructionPlan::construct_one` (a `commit_subset` of one). Two
+  constructors drift, and the drift only shows up after a restore.
+- **A new recipe registers an `AcceptsFn` that names the parameter variant it
+  builds from.** Returning `true` unconditionally re-opens the mid-commit panic
+  the check exists to close; the toy planner tests do it only because that domain
+  has a single parameter shape.
+- **Assert plan-to-world parity against the WORLD.** Comparing a receipt to the
+  plan compares the executor's bookkeeping with itself and stays green even if a
+  recipe built nothing. Query the identities that are actually alive.
+- **Take authoritative counters while planning; write them back on commit.** Any
+  spawn site that advances snapshot-registered state before its plan is validated
+  has mutated on the failure path, whatever its error branch claims.
 - When migrating a family in Phase 4, delete its family-specific spawn loop in
   the same commit that adds its recipe. A family that is planned *and* looped is
   a duplicate spawn, not a transition state.

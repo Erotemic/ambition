@@ -616,7 +616,21 @@ it, and a fatal violation withholds publication.
 ownership stamp is reported, not fatal, because nine families still build roots
 outside the planner.
 
-⚠ **PHASE 4 IS NOT STARTED.** Nine authoritative families and one parallel
+⚠ **Phase 4 STEP 1 landed:** `ambition.limb` and `ambition.mount` are registered
+relation kinds with bidirectional wiring AND bidirectional postcondition checks.
+Relations gained a typed `RelationPayload` because `Limb`'s `slot` and
+`home_offset` are both stated relative to the HOST — facts about the pairing, not
+about either body — so the dump gained a payload column and the plan schema is
+**v3**. One function writes both ends, which is what makes the half-write
+unspellable; the rig case accumulates in canonical relation order because
+`fan_out_limb_intents` reads it positionally. Reverse verification is not
+redundant: a limb outside its host's rig is INERT and a mount whose `MountSlot`
+does not point back stops obeying (`steer_mount_from_rider` queries
+`With<MountSlot>`), while every forward-only assertion passes in both cases.
+⚠ **No production caller declares either relation yet** — limbs/riders/mounts are
+not plan rows, so the old paths still run. That is the next commit.
+
+⚠ **PHASE 4 IS OTHERWISE NOT STARTED.** Nine authoritative families and one parallel
 `apply_spawn_actor_requests` path remain outside the planner — the exact table is
 in the campaign doc. Two known holes in the current parity claim: giant hand
 limbs are authoritative roots no plan row names (and are reachable from inside a

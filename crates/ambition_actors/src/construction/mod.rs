@@ -55,6 +55,12 @@ pub const RECIPE_STAGED_ACTOR: &str = "ambition.staged-actor";
 pub const RECIPE_SUMMONED_MINION: &str = "ambition.summoned-minion";
 /// A personal grudge from one constructed actor onto another.
 pub const RELATION_GRUDGE: &str = "ambition.grudge";
+/// A driven limb belonging to a host body's rig. **Bidirectional**: `Limb` on
+/// the limb, an entry in the host's `LimbRig` going back.
+pub const RELATION_LIMB: &str = "ambition.limb";
+/// A rider seated on a mount. **Bidirectional**: `RidingOn` on the rider,
+/// `MountSlot` on the mount going back.
+pub const RELATION_MOUNT: &str = "ambition.mount";
 
 const OWNER: &str = "ambition_actors";
 const SCHEMA: &str = "actor-construction-v1";
@@ -70,6 +76,34 @@ pub fn recipe_summoned_minion() -> RecipeId {
 }
 pub fn relation_grudge() -> RelationKind {
     RelationKind::new(RELATION_GRUDGE)
+}
+pub fn relation_limb() -> RelationKind {
+    RelationKind::new(RELATION_LIMB)
+}
+pub fn relation_mount() -> RelationKind {
+    RelationKind::new(RELATION_MOUNT)
+}
+
+/// What a declared actor relation carries beyond its two ends.
+///
+/// **`Limb` carries the slot and the home offset because both are stated
+/// relative to the HOST.** `LimbSlot::HandLeft` is meaningless without saying
+/// left hand *of what*, and `home_offset` is documented as a "host-local
+/// (body-frame) idle anchor" — it is read as `host.pos + gravity_frame(offset)`.
+/// Neither is a property the limb owns on its own, so neither belongs in the
+/// limb's construction parameters: that would put host-relative data on a body
+/// that does not learn its host until the relation is wired.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ActorRelationPayload {
+    /// A grudge is fully described by who resents whom.
+    Grudge,
+    /// Which slot of the host's rig this limb fills, and where it rests.
+    Limb {
+        slot: crate::features::LimbSlot,
+        home_offset: ambition_engine_core::Vec2,
+    },
+    /// A mount link is fully described by who rides what.
+    Mount,
 }
 
 /// What one planned actor-domain row carries into its recipe.
@@ -122,6 +156,7 @@ pub struct ActorConstruction;
 
 impl ConstructionDomain for ActorConstruction {
     type Parameters = ActorConstructionParams;
+    type RelationPayload = ActorRelationPayload;
     type Services = ActorConstructionServices;
 
     /// ONE match: each arm names both the recipe identity and the function that
@@ -161,6 +196,22 @@ impl ConstructionDomain for ActorConstruction {
             ActorConstructionParams::SummonedMinion(minion) => {
                 format!("minion {} {}", minion.feature_id, minion.archetype_id)
             }
+        }
+    }
+
+    fn canonical_relation_summary(payload: &Self::RelationPayload) -> String {
+        match payload {
+            ActorRelationPayload::Grudge => "-".to_string(),
+            ActorRelationPayload::Limb { slot, home_offset } => format!(
+                "{} {} {}",
+                match slot {
+                    crate::features::LimbSlot::HandLeft => "hand_left",
+                    crate::features::LimbSlot::HandRight => "hand_right",
+                },
+                home_offset.x,
+                home_offset.y,
+            ),
+            ActorRelationPayload::Mount => "-".to_string(),
         }
     }
 }
@@ -278,9 +329,150 @@ fn grudge_ops() -> RelationOps<ActorConstruction> {
     }
 }
 
+fn limb_ops() -> RelationOps<ActorConstruction> {
+    RelationOps {
+        wire: wire_limb,
+        verify: verify_limb,
+    }
+}
+
+fn mount_ops() -> RelationOps<ActorConstruction> {
+    RelationOps {
+        wire: wire_mount,
+        verify: verify_mount,
+    }
+}
+
+/// Wire a limb to its host: `Limb` on the limb, an entry in the host's
+/// `LimbRig` going back. **One function writes both ends.**
+///
+/// The rig is a `Vec`, so this ACCUMULATES rather than overwrites — a host with
+/// two hands is two relations. Append order is the plan's canonical relation
+/// order, which sorts by the limb's `SimId`; hands are `…/0` and `…/1`, so the
+/// rig comes out in the fan-out order `fan_out_limb_intents` expects, without
+/// that order being a property of when anything happened to spawn.
+///
+/// The append needs the host's CURRENT rig, which deferred `Commands` cannot
+/// read, so it queues an exclusive-world step. That step runs in queue order
+/// alongside every other relation's, which is what keeps the accumulation
+/// deterministic.
+fn wire_limb(
+    limb: Entity,
+    host: Entity,
+    payload: &ActorRelationPayload,
+    ctx: &mut Ctx<'_, '_, '_>,
+) {
+    let ActorRelationPayload::Limb { slot, home_offset } = payload else {
+        unreachable!("the limb relation is registered with a Limb payload")
+    };
+    let (slot, home_offset) = (*slot, *home_offset);
+    ctx.commands.entity(limb).insert(crate::features::Limb {
+        of: host,
+        slot,
+        home_offset,
+    });
+    ctx.commands.queue(move |world: &mut World| {
+        let Ok(mut host_ref) = world.get_entity_mut(host) else {
+            return;
+        };
+        if host_ref.contains::<crate::features::LimbRig>() {
+            let mut rig = host_ref
+                .get_mut::<crate::features::LimbRig>()
+                .unwrap_or_else(|| unreachable!("just checked it is there"));
+            if !rig.limbs.contains(&limb) {
+                rig.limbs.push(limb);
+            }
+        } else {
+            host_ref.insert(crate::features::LimbRig { limbs: vec![limb] });
+        }
+    });
+}
+
+/// Prove the limb link landed on BOTH sides, and with the slot the plan named.
+///
+/// Checking only `Limb.of` would accept a limb the host's rig does not drive —
+/// `fan_out_limb_intents` iterates the RIG, so a limb missing from it is inert
+/// while looking perfectly attached from its own side.
+fn verify_limb(
+    world: &World,
+    limb: Entity,
+    host: Entity,
+    payload: &ActorRelationPayload,
+) -> RelationCheck {
+    let ActorRelationPayload::Limb { slot, .. } = payload else {
+        unreachable!("the limb relation is registered with a Limb payload")
+    };
+    match world.get::<crate::features::Limb>(limb) {
+        None => RelationCheck::NotInstalled,
+        Some(attached) if attached.of != host => RelationCheck::WrongTarget {
+            found: Some(attached.of),
+        },
+        // A recipe that rewrote the slot produced a limb the router will drive
+        // from the wrong intent stream.
+        Some(attached) if attached.slot != *slot => RelationCheck::NotInstalled,
+        Some(_) => match world.get::<crate::features::LimbRig>(host) {
+            Some(rig) if rig.limbs.contains(&limb) => RelationCheck::Installed,
+            _ => RelationCheck::ReverseMismatch { found: None },
+        },
+    }
+}
+
+/// Wire a rider onto a mount: `RidingOn` + `Mounted` on the rider, `MountSlot`
+/// on the mount going back. **One function writes both ends.**
+fn wire_mount(
+    rider: Entity,
+    mount: Entity,
+    _payload: &ActorRelationPayload,
+    ctx: &mut Ctx<'_, '_, '_>,
+) {
+    ctx.commands.entity(rider).insert((
+        crate::features::RidingOn { mount },
+        crate::features::Mounted,
+    ));
+    ctx.commands
+        .entity(mount)
+        .insert(crate::features::MountSlot { rider: Some(rider) });
+}
+
+/// Prove the mount link landed on BOTH sides.
+///
+/// The reverse check is the one that matters here, because the half-write it
+/// catches is a defect that exists in the tree today: `attach_mount_role` never
+/// inserts `MountSlot`, and `reconcile_autonomous_actors` re-establishes the
+/// link with `world.get_mut::<MountSlot>(..)` — a mutation that silently does
+/// nothing when the component is absent — while inserting `RidingOn`
+/// unconditionally. That leaves a rider pointing at a mount that does not point
+/// back, and `steer_mount_from_rider` queries `With<MountSlot>`, so the mount
+/// stops obeying while every rider-side assertion still passes.
+fn verify_mount(
+    world: &World,
+    rider: Entity,
+    mount: Entity,
+    _payload: &ActorRelationPayload,
+) -> RelationCheck {
+    match world.get::<crate::features::RidingOn>(rider) {
+        None => RelationCheck::NotInstalled,
+        Some(riding) if riding.mount != mount => RelationCheck::WrongTarget {
+            found: Some(riding.mount),
+        },
+        Some(_) => match world
+            .get::<crate::features::MountSlot>(mount)
+            .and_then(|slot| slot.rider)
+        {
+            Some(back) if back == rider => RelationCheck::Installed,
+            found => RelationCheck::ReverseMismatch { found },
+        },
+    }
+}
+
 /// Wire a personal grudge. Re-inserting `ActorAggression` is safe: staged
 /// fighters spawn `hostile()` already, so this only adds the grudge.
-fn wire_grudge(from: Entity, to: Entity, ctx: &mut Ctx<'_, '_, '_>) {
+fn wire_grudge(
+    from: Entity,
+    to: Entity,
+    _payload: &ActorRelationPayload,
+    ctx: &mut Ctx<'_, '_, '_>,
+) {
     ctx.commands
         .entity(from)
         .insert(crate::features::ActorAggression {
@@ -298,7 +490,12 @@ fn wire_grudge(from: Entity, to: Entity, ctx: &mut Ctx<'_, '_, '_>) {
 /// either way. A grudge onto a stale pre-reconstruction entity also reads as
 /// `WrongTarget` here — `found` names the corpse, which is what makes that case
 /// diagnosable rather than merely wrong.
-fn verify_grudge(world: &World, from: Entity, to: Entity) -> RelationCheck {
+fn verify_grudge(
+    world: &World,
+    from: Entity,
+    to: Entity,
+    _payload: &ActorRelationPayload,
+) -> RelationCheck {
     match world.get::<crate::features::ActorAggression>(from) {
         None => RelationCheck::NotInstalled,
         Some(aggression) => match aggression.grudge {
@@ -339,6 +536,8 @@ pub fn install_actor_construction_recipes(
     registry.try_register_recipe(recipe_staged_actor(), OWNER, "content-staging", SCHEMA)?;
     registry.try_register_recipe(recipe_summoned_minion(), OWNER, "summon-effect", SCHEMA)?;
     registry.try_register_relation(relation_grudge(), OWNER, "aggression", SCHEMA, grudge_ops())?;
+    registry.try_register_relation(relation_limb(), OWNER, "limb-rig", SCHEMA, limb_ops())?;
+    registry.try_register_relation(relation_mount(), OWNER, "mount-link", SCHEMA, mount_ops())?;
     Ok(())
 }
 
@@ -400,6 +599,7 @@ pub fn staged_actor_requests(
                     |foe| ambition_platformer_primitives::construction::RelationRequest {
                         kind: relation_grudge(),
                         to: SimId::placement(foe),
+                        payload: ActorRelationPayload::Grudge,
                     },
                 )
                 .collect(),

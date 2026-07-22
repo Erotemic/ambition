@@ -17,8 +17,20 @@ use bevy::prelude::{Entity, World};
 use super::{ConstructionDomain, ConstructionExecCtx, RecipeId};
 
 /// Wires one declared relation once both ends exist.
-pub type RelationFn<D> =
-    for<'w, 's, 'a> fn(Entity, Entity, &mut ConstructionExecCtx<'w, 's, 'a, D>);
+///
+/// **A bidirectional relation wires BOTH sides here.** `Limb`/`LimbRig` and
+/// `RidingOn`/`MountSlot` are each two components that must agree, and the way
+/// they have historically disagreed is one site writing one side and forgetting
+/// the other — `resolve_pending_mount_links` inserts `MountSlot` while the
+/// post-rollback reconcile only `get_mut`s it, so a mount whose slot did not
+/// survive ends up pointing nowhere while the rider still points at it. One
+/// function writing both ends makes that particular half-write unspellable.
+pub type RelationFn<D> = for<'w, 's, 'a> fn(
+    Entity,
+    Entity,
+    &<D as ConstructionDomain>::RelationPayload,
+    &mut ConstructionExecCtx<'w, 's, 'a, D>,
+);
 
 /// Proves, against the committed world, that a wired relation actually landed.
 ///
@@ -31,7 +43,8 @@ pub type RelationFn<D> =
 /// Reads components, never debug strings. "The wiring function ran" is what a
 /// receipt already records; this answers the different question of whether the
 /// world now holds the relation the plan described.
-pub type RelationVerifyFn = fn(&World, Entity, Entity) -> RelationCheck;
+pub type RelationVerifyFn<D> =
+    fn(&World, Entity, Entity, &<D as ConstructionDomain>::RelationPayload) -> RelationCheck;
 
 /// What inspecting a wired relation in the committed world found.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -57,7 +70,7 @@ pub enum RelationCheck {
 /// prove it landed.
 pub struct RelationOps<D: ConstructionDomain> {
     pub wire: RelationFn<D>,
-    pub verify: RelationVerifyFn,
+    pub verify: RelationVerifyFn<D>,
 }
 
 impl<D: ConstructionDomain> Clone for RelationOps<D> {

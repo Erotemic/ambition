@@ -121,14 +121,14 @@ fn a_room_plans_its_authored_and_provider_staged_families_with_real_provenance()
 
     assert_eq!(
         plan.construction().deterministic_dump(),
-        "construction-plan-v2\n\
+        "construction-plan-v3\n\
          epoch:4\n\
          room\thall\n\
          entity\tplacement:duel_blue\tambition.staged-actor\tprovider-staged\ttest_provider\thall\tduel_blue\tstaged-actor duel_blue test_walker enemy\n\
          entity\tplacement:duel_red\tambition.staged-actor\tprovider-staged\ttest_provider\thall\tduel_red\tstaged-actor duel_red test_walker enemy\n\
          entity\tplacement:pickup_a\tambition.authored-ground-item\tauthored\thall\tpickup_a\tground-item pickup_a gun_sword\n\
-         relation\tplacement:duel_blue\tambition.grudge\tplacement:duel_red\n\
-         relation\tplacement:duel_red\tambition.grudge\tplacement:duel_blue\n",
+         relation\tplacement:duel_blue\tambition.grudge\tplacement:duel_red\t-\n\
+         relation\tplacement:duel_red\tambition.grudge\tplacement:duel_blue\t-\n",
         "the plan states each family's real origin, in canonical order"
     );
 }
@@ -1093,7 +1093,13 @@ fn a_counter_mutation_before_the_commit_applies_refuses_with_nothing_built() {
 /// is precisely why behaviour is governed by `schema_id` and why a silent
 /// behaviour swap is the thing postcondition verification has to catch.
 fn recipes_with_a_grudge_that_never_lands() -> ActorConstructionRegistry {
-    fn wire_nothing(_from: Entity, _to: Entity, _ctx: &mut Ctx<'_, '_, '_>) {}
+    fn wire_nothing(
+        _from: Entity,
+        _to: Entity,
+        _payload: &ActorRelationPayload,
+        _ctx: &mut Ctx<'_, '_, '_>,
+    ) {
+    }
     let mut registry = ActorConstructionRegistry::default();
     registry
         .try_register_relation(
@@ -1178,5 +1184,378 @@ fn the_same_room_publishes_once_its_relation_lands() {
         room_loaded_count(&mut app),
         1,
         "a verified room publishes exactly once"
+    );
+}
+
+// ── Bidirectional relations (Phase 4, first migration) ───────────────────────
+//
+// `Limb`/`LimbRig` and `RidingOn`/`MountSlot` are each TWO components that must
+// agree. Every test here checks both sides, because the way these pairs have
+// historically broken is one side landing and the other not — a failure that
+// every forward-only assertion passes straight through.
+
+use ambition_platformer_primitives::construction::{
+    verify_committed_roster, AuthoritativeScope, ConstructionReceipt, RelationCheck,
+    RelationRequest, RosterViolation, TransactionBaseline,
+};
+
+fn dynamic_scope() -> ConstructionScope {
+    ConstructionScope {
+        binding: ambition_platformer_primitives::construction::ContentBinding::RuntimeDynamic,
+        room: None,
+    }
+}
+
+fn bare_request(id: &str) -> ActorConstructionRequest {
+    ActorConstructionRequest {
+        sim_id: SimId::placement(id),
+        origin: SpawnOrigin::ProviderStaged {
+            provider: "test_provider".into(),
+            room: "hall".into(),
+            instance: id.into(),
+        },
+        parameters: ActorConstructionParams::StagedActor(staged_enemy(id, None)),
+        relations: Vec::new(),
+    }
+}
+
+fn test_services() -> ActorConstructionServices {
+    ActorConstructionServices {
+        context: crate::world::placements::ActorPlacementContext::new(
+            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+            &crate::features::enemies::test_roster(),
+        ),
+        boss_catalog: crate::boss_encounter::test_boss_catalog().clone(),
+    }
+}
+
+/// Commit a bare construction plan into a fresh world and hand back everything
+/// verification needs.
+fn commit_bare(plan: &ActorConstructionPlan) -> (World, ConstructionReceipt, TransactionBaseline) {
+    let mut world = World::new();
+    let baseline =
+        TransactionBaseline::capture(&mut world).expect("an empty world has no duplicates");
+    let services = test_services();
+    let receipt = {
+        let mut commands = world.commands();
+        let scope = plan.scope().clone();
+        let mut ctx = ambition_platformer_primitives::construction::ConstructionExecCtx {
+            commands: &mut commands,
+            scope: &scope,
+            session: SessionSpawnScope::UNSCOPED,
+            services: &services,
+        };
+        plan.commit(&mut ctx)
+    };
+    world.flush();
+    (world, receipt, baseline)
+}
+
+fn verify_bare(
+    world: &mut World,
+    plan: &ActorConstructionPlan,
+    receipt: &ConstructionReceipt,
+    baseline: &TransactionBaseline,
+) -> Result<(), Vec<RosterViolation>> {
+    let transaction = plan.scope().transaction();
+    let scope = AuthoritativeScope::gather(world, &transaction);
+    verify_committed_roster(plan, receipt, baseline, &scope, world)
+}
+
+/// A plan of `rows`, with `from` declaring `kind`/`payload` onto `to`.
+fn related_actor_plan(
+    rows: &[&str],
+    from: &str,
+    kind: ambition_platformer_primitives::construction::RelationKind,
+    to: &str,
+    payload: ActorRelationPayload,
+) -> ActorConstructionPlan {
+    let requests: Vec<_> = rows
+        .iter()
+        .map(|id| {
+            let mut request = bare_request(id);
+            if *id == from {
+                request.relations.push(RelationRequest {
+                    kind: kind.clone(),
+                    to: SimId::placement(to),
+                    payload: payload.clone(),
+                });
+            }
+            request
+        })
+        .collect();
+    ActorConstructionPlan::prepare(
+        dynamic_scope(),
+        requests,
+        &Default::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the plan is valid")
+}
+
+fn hand(slot: crate::features::LimbSlot) -> ActorRelationPayload {
+    ActorRelationPayload::Limb {
+        slot,
+        home_offset: ae::Vec2::new(12.0, -4.0),
+    }
+}
+
+/// One limb relation writes BOTH ends: `Limb` on the limb, an entry in the
+/// host's `LimbRig` going back.
+#[test]
+fn a_limb_relation_wires_the_limb_and_the_hosts_rig() {
+    let plan = related_actor_plan(
+        &["giant", "hand"],
+        "hand",
+        relation_limb(),
+        "giant",
+        hand(crate::features::LimbSlot::HandLeft),
+    );
+    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let limb = receipt.entity(&SimId::placement("hand")).expect("built");
+    let host = receipt.entity(&SimId::placement("giant")).expect("built");
+
+    let attached = world
+        .get::<crate::features::Limb>(limb)
+        .expect("the limb side landed");
+    assert_eq!(attached.of, host);
+    assert_eq!(attached.slot, crate::features::LimbSlot::HandLeft);
+    assert_eq!(attached.home_offset, ae::Vec2::new(12.0, -4.0));
+
+    let rig = world
+        .get::<crate::features::LimbRig>(host)
+        .expect("the host side landed");
+    assert_eq!(rig.limbs, vec![limb], "the rig drives exactly this limb");
+
+    assert_eq!(verify_bare(&mut world, &plan, &receipt, &baseline), Ok(()));
+}
+
+/// **A limb the host's rig does not contain is inert but looks attached.**
+///
+/// `fan_out_limb_intents` iterates the RIG, so a limb missing from it receives
+/// nothing — while `Limb.of` still names the right host and every forward-only
+/// check passes. This is the half-write the reverse verification exists for.
+#[test]
+fn a_limb_missing_from_its_hosts_rig_is_detected() {
+    let plan = related_actor_plan(
+        &["giant", "hand"],
+        "hand",
+        relation_limb(),
+        "giant",
+        hand(crate::features::LimbSlot::HandRight),
+    );
+    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let host = receipt.entity(&SimId::placement("giant")).expect("built");
+
+    // Exactly the half-write: strip the reverse side, leave the forward one.
+    world.entity_mut(host).remove::<crate::features::LimbRig>();
+
+    let violations = verify_bare(&mut world, &plan, &receipt, &baseline)
+        .expect_err("a limb outside its host's rig must be detected");
+    assert!(
+        violations.iter().any(|violation| matches!(
+            violation,
+            RosterViolation::RelationNotEstablished { check, .. }
+                if *check == RelationCheck::ReverseMismatch { found: None }
+        )),
+        "got {violations:?}"
+    );
+}
+
+/// The slot is part of the relation, so a rewritten slot is a defect: the
+/// router would drive this limb from the wrong intent stream.
+#[test]
+fn a_limb_whose_slot_was_rewritten_is_detected() {
+    let plan = related_actor_plan(
+        &["giant", "hand"],
+        "hand",
+        relation_limb(),
+        "giant",
+        hand(crate::features::LimbSlot::HandLeft),
+    );
+    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let limb = receipt.entity(&SimId::placement("hand")).expect("built");
+    let host = receipt.entity(&SimId::placement("giant")).expect("built");
+
+    world.entity_mut(limb).insert(crate::features::Limb {
+        of: host,
+        slot: crate::features::LimbSlot::HandRight,
+        home_offset: ae::Vec2::new(12.0, -4.0),
+    });
+
+    let violations = verify_bare(&mut world, &plan, &receipt, &baseline)
+        .expect_err("a rewritten slot must be detected");
+    assert!(
+        violations
+            .iter()
+            .any(|v| matches!(v, RosterViolation::RelationNotEstablished { .. })),
+        "got {violations:?}"
+    );
+}
+
+/// Two limbs ACCUMULATE into one rig, in the plan's canonical relation order
+/// rather than in whatever order anything happened to spawn.
+///
+/// The rig is a `Vec` and `fan_out_limb_intents` reads it positionally, so the
+/// order is content, not incident. Canonical order sorts by the limb's `SimId`,
+/// which is why the hands' `…/0` and `…/1` spawned ids come out left-then-right.
+#[test]
+fn two_limbs_accumulate_into_one_rig_in_canonical_order() {
+    let giant = SimId::placement("giant");
+    let mut host = bare_request("giant");
+    host.relations.clear();
+    let mut left = bare_request("giant/0");
+    left.relations.push(RelationRequest {
+        kind: relation_limb(),
+        to: giant.clone(),
+        payload: hand(crate::features::LimbSlot::HandLeft),
+    });
+    let mut right = bare_request("giant/1");
+    right.relations.push(RelationRequest {
+        kind: relation_limb(),
+        to: giant.clone(),
+        payload: hand(crate::features::LimbSlot::HandRight),
+    });
+
+    // Declared right-first on purpose: canonical ordering, not arrival order,
+    // must decide the rig's contents.
+    let plan = ActorConstructionPlan::prepare(
+        dynamic_scope(),
+        vec![right, host, left],
+        &Default::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the plan is valid");
+    let (mut world, receipt, baseline) = commit_bare(&plan);
+
+    let host_entity = receipt.entity(&SimId::placement("giant")).expect("built");
+    let left_entity = receipt.entity(&SimId::placement("giant/0")).expect("built");
+    let right_entity = receipt.entity(&SimId::placement("giant/1")).expect("built");
+    let rig = world
+        .get::<crate::features::LimbRig>(host_entity)
+        .expect("the rig accumulated");
+    assert_eq!(
+        rig.limbs,
+        vec![left_entity, right_entity],
+        "the rig is in canonical relation order (left = /0, right = /1)"
+    );
+    assert_eq!(verify_bare(&mut world, &plan, &receipt, &baseline), Ok(()));
+}
+
+/// A mount relation writes both ends: `RidingOn` + `Mounted` on the rider,
+/// `MountSlot` on the mount going back.
+#[test]
+fn a_mount_relation_wires_the_rider_and_the_mounts_slot() {
+    let plan = related_actor_plan(
+        &["rider", "mount"],
+        "rider",
+        relation_mount(),
+        "mount",
+        ActorRelationPayload::Mount,
+    );
+    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let rider = receipt.entity(&SimId::placement("rider")).expect("built");
+    let mount = receipt.entity(&SimId::placement("mount")).expect("built");
+
+    assert_eq!(
+        world
+            .get::<crate::features::RidingOn>(rider)
+            .expect("the rider side landed")
+            .mount,
+        mount
+    );
+    assert!(
+        world.get::<crate::features::Mounted>(rider).is_some(),
+        "the rider is marked mounted"
+    );
+    assert_eq!(
+        world
+            .get::<crate::features::MountSlot>(mount)
+            .expect("the mount side landed")
+            .rider,
+        Some(rider)
+    );
+    assert_eq!(verify_bare(&mut world, &plan, &receipt, &baseline), Ok(()));
+}
+
+/// **The half-write that exists in the tree today.**
+///
+/// `attach_mount_role` never inserts `MountSlot`, and
+/// `reconcile_autonomous_actors` re-establishes the link with
+/// `world.get_mut::<MountSlot>(..)` — a mutation that silently does nothing when
+/// the component is absent — while inserting `RidingOn` unconditionally. The
+/// result is a rider pointing at a mount that does not point back, and
+/// `steer_mount_from_rider` queries `With<MountSlot>`, so the mount quietly
+/// stops obeying while every rider-side assertion still passes.
+#[test]
+fn a_mount_that_does_not_point_back_at_its_rider_is_detected() {
+    let plan = related_actor_plan(
+        &["rider", "mount"],
+        "rider",
+        relation_mount(),
+        "mount",
+        ActorRelationPayload::Mount,
+    );
+    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let mount = receipt.entity(&SimId::placement("mount")).expect("built");
+
+    world
+        .entity_mut(mount)
+        .remove::<crate::features::MountSlot>();
+
+    let violations = verify_bare(&mut world, &plan, &receipt, &baseline)
+        .expect_err("a mount that does not point back must be detected");
+    assert!(
+        violations.iter().any(|violation| matches!(
+            violation,
+            RosterViolation::RelationNotEstablished { check, .. }
+                if *check == RelationCheck::ReverseMismatch { found: None }
+        )),
+        "got {violations:?}"
+    );
+}
+
+/// A mount whose slot points at somebody ELSE — two riders claiming one saddle.
+#[test]
+fn a_mount_holding_a_different_rider_is_detected() {
+    let plan = related_actor_plan(
+        &["rider", "mount"],
+        "rider",
+        relation_mount(),
+        "mount",
+        ActorRelationPayload::Mount,
+    );
+    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let mount = receipt.entity(&SimId::placement("mount")).expect("built");
+    let usurper = world.spawn_empty().id();
+
+    world.entity_mut(mount).insert(crate::features::MountSlot {
+        rider: Some(usurper),
+    });
+
+    let violations = verify_bare(&mut world, &plan, &receipt, &baseline)
+        .expect_err("a saddle holding the wrong rider must be detected");
+    assert!(
+        violations.iter().any(|violation| matches!(
+            violation,
+            RosterViolation::RelationNotEstablished { check, .. }
+                if matches!(check, RelationCheck::ReverseMismatch { found: Some(_) })
+        )),
+        "got {violations:?}"
+    );
+}
+
+/// Both new relations are in the registry dump, so a change to either one's
+/// schema moves the prepared-content fingerprint.
+#[test]
+fn the_limb_and_mount_relations_reach_the_registry_dump() {
+    let dump = engine_construction_registry().deterministic_dump();
+    assert!(
+        dump.contains("relation\tambition.limb\tambition_actors\tlimb-rig\t"),
+        "{dump}"
+    );
+    assert!(
+        dump.contains("relation\tambition.mount\tambition_actors\tmount-link\t"),
+        "{dump}"
     );
 }

@@ -927,6 +927,54 @@ documents for `Entity`-carrying components.
 the four.** Nothing currently pins that a reconstructed rig or mount link comes
 back with correct handles, which is the gap the migration closes.
 
+## Phase 4, step 1 — limbs and mounts are relation kinds (2026-07-22)
+
+`ambition.limb` and `ambition.mount` are registered relation kinds with
+bidirectional wiring and bidirectional postcondition checks.
+
+**Relations gained a typed payload.** `ConstructionDomain::RelationPayload`, on
+the request, frozen onto the planned row, passed to both `wire` and `verify`, and
+rendered into the dump. The reason is specific rather than general: `Limb` holds
+`slot` and `home_offset`, and **both are stated relative to the host** —
+`HandLeft` is meaningless without saying left hand *of what*, and `home_offset`
+is read as `host.pos + gravity_frame(offset)`. They are facts about the pairing.
+Putting them in the limb's construction parameters would place host-relative data
+on a body that does not learn its host until the relation is wired, which is the
+same shape as the duplicated `parent` field this campaign already deleted. A
+domain whose relations are pure adjacency uses `()`; the toy domain does.
+
+The dump gained a payload column, so **`CONSTRUCTION_PLAN_SCHEMA_VERSION` is 3**.
+It is content: two plans whose limbs fill different slots describe different
+worlds, and a dump that rendered them identically would call them the same plan.
+
+**One function writes both ends.** That is the whole point for these two pairs,
+because the way they break is a half-write. The rig case accumulates — a host
+with two hands is two relations, appending in the plan's canonical relation order
+(which sorts by the limb's `SimId`, so the hands' `…/0` and `…/1` come out
+left-then-right). `fan_out_limb_intents` reads the rig positionally, so that
+order is content, not incident.
+
+**Verification checks the reverse side, and that is not redundant:**
+
+- A limb absent from its host's `LimbRig` is **inert** — `fan_out_limb_intents`
+  iterates the rig — while `Limb.of` still names the right host. Every
+  forward-only assertion passes.
+- A mount whose `MountSlot` does not point back stops obeying, because
+  `steer_mount_from_rider` queries `With<MountSlot>`, while every rider-side
+  assertion passes. **This is a defect that exists in the tree today**:
+  `attach_mount_role` never inserts `MountSlot`, and
+  `reconcile_autonomous_actors` re-establishes the link with
+  `world.get_mut::<MountSlot>(..)`, a mutation that silently does nothing when the
+  component is absent, while inserting `RidingOn` unconditionally.
+
+⚠ **No production caller declares either relation yet.** Limbs, riders, and
+mounts are not plan rows — the giant's hands are minted inside
+`spawn_giant_hand_limbs`, and mount links still resolve a frame later through
+`PendingMountLinks` / `resolve_pending_mount_links`. The kinds are registered,
+fingerprinted, and tested against real components, but the migration is not
+complete until those endpoints become plan rows. That is the next commit, and
+until it lands the old paths remain the ones that run.
+
 ⚠ **Two facts that make the roster-parity claim narrower than it reads.**
 
 - `spawn_enemy_with_faction_into` spawns **two extra authoritative roots** (giant

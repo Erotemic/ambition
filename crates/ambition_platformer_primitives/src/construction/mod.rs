@@ -159,6 +159,18 @@ impl SpawnOrigin {
 pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     /// What one planned row carries into its recipe.
     type Parameters: Clone + Send + Sync + 'static;
+    /// What one declared RELATION carries into its wiring, beyond its two ends.
+    ///
+    /// Some relationships are pure adjacency — a grudge is fully described by
+    /// who resents whom. Others are not: a limb's slot and its host-local idle
+    /// anchor are both stated relative to the host, so they are facts about the
+    /// pairing rather than about either body. Storing them on the limb would put
+    /// host-relative data on an entity that does not know its host until the
+    /// relation is wired, which is the same shape of mistake as a `parent` field
+    /// beside a `SpawnOrigin::Dynamic`.
+    ///
+    /// A domain with no such relationships uses `()`.
+    type RelationPayload: Clone + Send + Sync + 'static;
     /// Frozen services recipes read at execution time. Whatever a domain puts
     /// here is captured before the plan commits, so execution has no fallible
     /// lookup left.
@@ -182,6 +194,14 @@ pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     /// Byte-stable one-line rendering of a row's parameters for the plan dump.
     /// Must not include tabs or newlines.
     fn canonical_summary(parameters: &Self::Parameters) -> String;
+
+    /// Byte-stable rendering of a relation's payload for the plan dump. Must
+    /// not include tabs or newlines.
+    ///
+    /// In the dump because it is content: two plans whose limbs fill different
+    /// slots describe different worlds, and a dump that rendered them
+    /// identically would call them the same plan.
+    fn canonical_relation_summary(payload: &Self::RelationPayload) -> String;
 }
 
 /// What one exhaustive dispatch decision yields: the row's recipe identity and
@@ -359,14 +379,25 @@ pub struct ConstructionRequest<D: ConstructionDomain> {
     pub parameters: D::Parameters,
     /// Relations this entity declares onto others. Validated against the plan's
     /// own roster plus the live roster before anything is spawned.
-    pub relations: Vec<RelationRequest>,
+    pub relations: Vec<RelationRequest<D>>,
 }
 
 /// A declared relation from the requesting entity onto another identity.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RelationRequest {
+pub struct RelationRequest<D: ConstructionDomain> {
     pub kind: RelationKind,
     pub to: SimId,
+    /// Facts about the PAIRING — see [`ConstructionDomain::RelationPayload`].
+    pub payload: D::RelationPayload,
+}
+
+impl<D: ConstructionDomain> Clone for RelationRequest<D> {
+    fn clone(&self) -> Self {
+        Self {
+            kind: self.kind.clone(),
+            to: self.to.clone(),
+            payload: self.payload.clone(),
+        }
+    }
 }
 
 /// One validated entity with its interpreter already resolved.
@@ -442,6 +473,7 @@ pub struct PlannedRelation<D: ConstructionDomain> {
     from: SimId,
     kind: RelationKind,
     to: SimId,
+    payload: D::RelationPayload,
     ops: RelationOps<D>,
 }
 
@@ -451,6 +483,7 @@ impl<D: ConstructionDomain> Clone for PlannedRelation<D> {
             from: self.from.clone(),
             kind: self.kind.clone(),
             to: self.to.clone(),
+            payload: self.payload.clone(),
             ops: self.ops,
         }
     }
@@ -465,6 +498,9 @@ impl<D: ConstructionDomain> PlannedRelation<D> {
     }
     pub fn to(&self) -> &SimId {
         &self.to
+    }
+    pub fn payload(&self) -> &D::RelationPayload {
+        &self.payload
     }
 }
 
@@ -710,6 +746,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                     from: request.sim_id.clone(),
                     kind: relation.kind.clone(),
                     to: relation.to.clone(),
+                    payload: relation.payload.clone(),
                     ops,
                 });
             }
@@ -906,7 +943,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                     relation.from, relation.to
                 )
             };
-            (relation.ops.wire)(from, to, ctx);
+            (relation.ops.wire)(from, to, &relation.payload, ctx);
             receipt.relations_wired.insert((
                 relation.from.clone(),
                 relation.kind.clone(),
@@ -979,8 +1016,11 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         for relation in &self.relations {
             let _ = writeln!(
                 out,
-                "relation\t{}\t{}\t{}",
-                relation.from, relation.kind, relation.to
+                "relation\t{}\t{}\t{}\t{}",
+                relation.from,
+                relation.kind,
+                relation.to,
+                D::canonical_relation_summary(&relation.payload),
             );
         }
         out
@@ -1219,7 +1259,7 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
             });
             continue;
         }
-        let check = (relation.ops.verify)(world, from, to);
+        let check = (relation.ops.verify)(world, from, to, &relation.payload);
         if check != RelationCheck::Installed {
             violations.push(RosterViolation::RelationNotEstablished {
                 from: relation.from.clone(),
@@ -1703,4 +1743,4 @@ impl AuthoritativeScope {
 
 /// Bumped when the plan dump's shape changes. The dump is an inspection and
 /// comparison surface, so its shape is a compatibility contract.
-pub const CONSTRUCTION_PLAN_SCHEMA_VERSION: u32 = 2;
+pub const CONSTRUCTION_PLAN_SCHEMA_VERSION: u32 = 3;

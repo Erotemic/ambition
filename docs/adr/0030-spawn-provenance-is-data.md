@@ -286,6 +286,18 @@ a state where the two disagree with nothing to say which wins.
   records that a wiring function was CALLED, which a no-op, a write to the wrong
   entity, and a later overwrite all satisfy identically. `RelationOps` carries
   `wire` and `verify` together so the two cannot be edited apart.
+- **A bidirectional relation wires and verifies BOTH ends in one function.**
+  `Limb`/`LimbRig` and `RidingOn`/`MountSlot` are pairs that must agree, and the
+  way they break is a half-write. Checking only the forward side accepts a limb
+  its host's rig does not drive (inert — `fan_out_limb_intents` iterates the rig)
+  and a mount that does not point back (disobedient —
+  `steer_mount_from_rider` queries `With<MountSlot>`).
+- **Facts stated relative to one end belong on the RELATION, not the entity.**
+  `Limb`'s `slot` and `home_offset` are both host-relative, so they ride on
+  `ConstructionDomain::RelationPayload`. Putting them in the limb's construction
+  parameters would place host-relative data on a body that does not learn its
+  host until wiring — the same shape as the duplicated `parent` field this ADR
+  already deleted.
 - **Never store a relationship between two authoritative entities as a bare
   `Entity` outside the plan.** `Limb`/`LimbRig` and `RidingOn`/`MountSlot` still
   do, which is why partial reconstruction cannot see them. Declare it as a

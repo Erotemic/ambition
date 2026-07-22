@@ -36,6 +36,11 @@ struct Toy;
 
 impl ConstructionDomain for Toy {
     type Parameters = Params;
+    /// The toy's relations are pure adjacency, which is the case `()` is for.
+    /// Payload-carrying relations are proven against the real `Limb` rig in
+    /// `ambition_actors`, where the slot and home offset are genuinely
+    /// host-relative rather than invented for a fixture.
+    type RelationPayload = ();
     type Services = Services;
 
     fn dispatch(_: &Self::Parameters) -> RecipeDispatch<Self> {
@@ -47,6 +52,10 @@ impl ConstructionDomain for Toy {
 
     fn canonical_summary(parameters: &Self::Parameters) -> String {
         parameters.label.clone()
+    }
+
+    fn canonical_relation_summary(_payload: &Self::RelationPayload) -> String {
+        "-".to_string()
     }
 }
 
@@ -66,7 +75,12 @@ fn build(
     apply_sabotage(root, ctx);
 }
 
-fn wire_grudge(from: Entity, to: Entity, ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {
+fn wire_grudge(
+    from: Entity,
+    to: Entity,
+    _payload: &(),
+    ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>,
+) {
     // Relation-side sabotage, so the adversarial tests exercise the SAME wiring
     // path ordinary construction takes. `RelationSabotage::None` is that path.
     match RELATION_SABOTAGE.with(|s| s.get()) {
@@ -98,7 +112,7 @@ fn wire_grudge(from: Entity, to: Entity, ctx: &mut ConstructionExecCtx<'_, '_, '
 }
 
 /// The toy grudge's postcondition: read the component, do not trust the call.
-fn verify_grudge(world: &World, from: Entity, to: Entity) -> RelationCheck {
+fn verify_grudge(world: &World, from: Entity, to: Entity, _payload: &()) -> RelationCheck {
     match world.get::<Grudge>(from) {
         None => RelationCheck::NotInstalled,
         Some(Grudge(found)) if *found == to => RelationCheck::Installed,
@@ -201,11 +215,13 @@ fn relation_order_does_not_change_the_plan() {
         let mut a = request(first);
         a.relations.push(RelationRequest {
             kind: grudge(),
+            payload: (),
             to: SimId::placement(second),
         });
         let mut b = request(second);
         b.relations.push(RelationRequest {
             kind: grudge(),
+            payload: (),
             to: SimId::placement(first),
         });
         vec![a, b]
@@ -225,6 +241,7 @@ fn the_plan_dump_has_a_stable_shape() {
     let mut a = request("a");
     a.relations.push(RelationRequest {
         kind: grudge(),
+        payload: (),
         to: SimId::placement("b"),
     });
     let mut b = request("b");
@@ -236,12 +253,12 @@ fn the_plan_dump_has_a_stable_shape() {
 
     assert_eq!(
         plan.deterministic_dump(),
-        "construction-plan-v2\n\
+        "construction-plan-v3\n\
          epoch:7\n\
          room\troom_a\n\
          entity\tplacement:a\ttoy.build\tauthored\troom_a\ta\ta\n\
          entity\tplacement:b\ttoy.build\tdynamic\tplacement:a\t4\tb\n\
-         relation\tplacement:a\ttoy.grudge\tplacement:b\n"
+         relation\tplacement:a\ttoy.grudge\tplacement:b\t-\n"
     );
 }
 
@@ -290,6 +307,7 @@ fn an_unresolved_relation_is_rejected() {
     let mut a = request("a");
     a.relations.push(RelationRequest {
         kind: grudge(),
+        payload: (),
         to: SimId::placement("ghost"),
     });
     let error = ConstructionPlan::prepare(scope(), vec![a], &nothing_live(), &registry)
@@ -319,6 +337,7 @@ fn a_relation_onto_a_merely_live_entity_is_rejected() {
     let mut a = request("a");
     a.relations.push(RelationRequest {
         kind: grudge(),
+        payload: (),
         to: SimId::placement("veteran"),
     });
     let error = ConstructionPlan::prepare(scope(), vec![a], &live, &registry)
@@ -390,6 +409,7 @@ fn an_unregistered_relation_kind_is_rejected() {
     let mut a = request("a");
     a.relations.push(RelationRequest {
         kind: RelationKind::new("toy.unknown"),
+        payload: (),
         to: SimId::placement("a"),
     });
     let error = ConstructionPlan::prepare(scope(), vec![a], &nothing_live(), &registry)
@@ -509,11 +529,13 @@ fn a_mutual_relation_wires_both_directions() {
     let mut a = request("a");
     a.relations.push(RelationRequest {
         kind: grudge(),
+        payload: (),
         to: SimId::placement("b"),
     });
     let mut b = request("b");
     b.relations.push(RelationRequest {
         kind: grudge(),
+        payload: (),
         to: SimId::placement("a"),
     });
     let plan = ConstructionPlan::prepare(scope(), vec![a, b], &nothing_live(), &registry).unwrap();
@@ -650,6 +672,7 @@ fn feuding_pair(registry: &ConstructionRegistry<Toy>) -> ConstructionPlan<Toy> {
     let mut a = request("a");
     a.relations.push(RelationRequest {
         kind: grudge(),
+        payload: (),
         to: SimId::placement("b"),
     });
     let b = request("b");
@@ -925,11 +948,13 @@ fn relation_closure_is_transitive_across_a_chain() {
     let mut a = request("a");
     a.relations.push(RelationRequest {
         kind: grudge(),
+        payload: (),
         to: SimId::placement("b"),
     });
     let mut b = request("b");
     b.relations.push(RelationRequest {
         kind: grudge(),
+        payload: (),
         to: SimId::placement("c"),
     });
     let plan = ConstructionPlan::prepare(
@@ -965,11 +990,13 @@ fn rebuilding_a_closure_rewires_relations_onto_the_new_generations() {
     let mut a = request("a");
     a.relations.push(RelationRequest {
         kind: grudge(),
+        payload: (),
         to: SimId::placement("b"),
     });
     let mut b = request("b");
     b.relations.push(RelationRequest {
         kind: grudge(),
+        payload: (),
         to: SimId::placement("c"),
     });
     let plan = ConstructionPlan::prepare(
@@ -1033,6 +1060,7 @@ fn a_row_in_no_relation_rebuilds_alone() {
     let mut a = request("a");
     a.relations.push(RelationRequest {
         kind: grudge(),
+        payload: (),
         to: SimId::placement("b"),
     });
     let plan = ConstructionPlan::prepare(
@@ -1101,6 +1129,7 @@ mod drifting {
 
     impl ConstructionDomain for Drifting {
         type Parameters = ();
+        type RelationPayload = ();
         type Services = ();
 
         fn dispatch(_: &Self::Parameters) -> RecipeDispatch<Self> {
@@ -1116,6 +1145,10 @@ mod drifting {
                     construct: construct_a,
                 }
             }
+        }
+
+        fn canonical_relation_summary(_: &Self::RelationPayload) -> String {
+            "-".to_string()
         }
 
         fn canonical_summary(_: &Self::Parameters) -> String {
@@ -1296,10 +1329,20 @@ fn relation_metadata_conflicts_are_rejected_and_identical_ones_are_idempotent() 
 /// function's body does not move it.
 #[test]
 fn relation_registration_identity_does_not_depend_on_function_addresses() {
-    fn wire_a(from: Entity, to: Entity, ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {
+    fn wire_a(
+        from: Entity,
+        to: Entity,
+        _payload: &(),
+        ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>,
+    ) {
         ctx.commands.entity(from).insert(Grudge(to));
     }
-    fn wire_b(from: Entity, _to: Entity, ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {
+    fn wire_b(
+        from: Entity,
+        _to: Entity,
+        _payload: &(),
+        ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>,
+    ) {
         ctx.commands.entity(from).remove::<Grudge>();
     }
     let ops_a = RelationOps::<Toy> {
@@ -1859,6 +1902,7 @@ fn related_plan() -> ConstructionPlan<Toy> {
     let mut a = request("a");
     a.relations.push(RelationRequest {
         kind: grudge(),
+        payload: (),
         to: SimId::placement("b"),
     });
     ConstructionPlan::prepare(scope(), vec![a, request("b")], &nothing_live(), &registry()).unwrap()

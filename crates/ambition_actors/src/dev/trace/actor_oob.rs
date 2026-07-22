@@ -133,10 +133,12 @@ pub fn record_actor_oob_frame_system(
         })
         .collect();
 
+    let timeline = boundary.as_deref().copied();
     let frame = ActorTraceFrame {
         seq: buffer.sequence,
         tick: buffer.tick,
-        sim_frame: boundary.map(|boundary| boundary.current),
+        sim_session: timeline.map(|boundary| boundary.session),
+        sim_frame: timeline.map(|boundary| boundary.current),
         real_dt,
         sim_dt,
         time_scale,
@@ -147,7 +149,7 @@ pub fn record_actor_oob_frame_system(
         bodies,
         solids,
     };
-    buffer.record(frame);
+    buffer.record(frame, timeline.map(|boundary| boundary.confirmed));
 }
 
 /// Flush a pending actor-trace dump to disk. Disk writes are unavailable on

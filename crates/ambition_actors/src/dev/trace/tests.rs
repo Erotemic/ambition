@@ -42,6 +42,7 @@ fn ring_buffer_caps_at_capacity() {
     let mut buf = GameplayTraceBuffer::with_capacity(4, 4);
     for i in 0..10 {
         buf.push_frame(GameplayTraceFrame {
+            sim_session: None,
             sim_frame: None,
             seq: i,
             tick: i,
@@ -201,7 +202,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
         "Standing",
     );
     let oob = detect_oob_scratch(&player, &world, OOB_MARGIN);
-    record_frame(&mut buf, frame, oob.as_ref(), false);
+    record_frame(&mut buf, frame, oob.as_ref(), false, None);
     assert_eq!(buf.frame_count(), 1);
     assert_eq!(buf.event_count(), 1, "OOB event should be pushed");
     assert!(matches!(buf.dump_request, Some(DumpReason::OobAuto { .. })));
@@ -232,7 +233,7 @@ fn write_dump_writes_two_files() {
         "Airborne",
         "Standing",
     );
-    record_frame(&mut buf, frame, None, false);
+    record_frame(&mut buf, frame, None, false, None);
     let dir = std::env::temp_dir().join("ambition_gameplay_trace_test_dump");
     let _ = std::fs::remove_dir_all(&dir);
     let json_path = write_dump(&buf, &DumpReason::Manual, &dir).expect("write dump");
@@ -583,6 +584,7 @@ fn frame_at(sim_frame: Option<i32>, pos: ae::Vec2) -> GameplayTraceFrame {
         "Airborne",
         "Standing",
     );
+    frame.sim_session = sim_frame.map(|_| 0);
     frame.sim_frame = sim_frame;
     frame
 }
@@ -595,6 +597,7 @@ fn a_corrected_pass_replaces_the_row_its_prediction_wrote() {
         frame_at(Some(4), ae::Vec2::new(10.0, 0.0)),
         None,
         false,
+        Some(4),
     );
     // The host rewinds and re-simulates frame 4; the body ends up elsewhere.
     record_frame(
@@ -602,6 +605,7 @@ fn a_corrected_pass_replaces_the_row_its_prediction_wrote() {
         frame_at(Some(4), ae::Vec2::new(99.0, 0.0)),
         None,
         true,
+        Some(4),
     );
 
     assert_eq!(
@@ -619,8 +623,20 @@ fn a_corrected_pass_replaces_the_row_its_prediction_wrote() {
 #[test]
 fn a_replaced_row_keeps_its_place_in_the_recording() {
     let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
-    record_frame(&mut buf, frame_at(Some(1), ae::Vec2::ZERO), None, false);
-    record_frame(&mut buf, frame_at(Some(2), ae::Vec2::ZERO), None, false);
+    record_frame(
+        &mut buf,
+        frame_at(Some(1), ae::Vec2::ZERO),
+        None,
+        false,
+        Some(1),
+    );
+    record_frame(
+        &mut buf,
+        frame_at(Some(2), ae::Vec2::ZERO),
+        None,
+        false,
+        Some(2),
+    );
     let seq_before = buf.frames().next().unwrap().seq;
 
     record_frame(
@@ -628,6 +644,7 @@ fn a_replaced_row_keeps_its_place_in_the_recording() {
         frame_at(Some(1), ae::Vec2::new(7.0, 0.0)),
         None,
         true,
+        Some(2),
     );
 
     let rows: Vec<_> = buf.frames().collect();
@@ -645,7 +662,13 @@ fn a_replaced_row_keeps_its_place_in_the_recording() {
 fn distinct_frames_still_append() {
     let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
     for frame in 0..4 {
-        record_frame(&mut buf, frame_at(Some(frame), ae::Vec2::ZERO), None, false);
+        record_frame(
+            &mut buf,
+            frame_at(Some(frame), ae::Vec2::ZERO),
+            None,
+            false,
+            Some(frame),
+        );
     }
     assert_eq!(buf.frame_count(), 4);
 }
@@ -656,17 +679,16 @@ fn distinct_frames_still_append() {
 fn without_frame_identity_every_row_appends() {
     let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
     for _ in 0..4 {
-        record_frame(&mut buf, frame_at(None, ae::Vec2::ZERO), None, false);
+        record_frame(&mut buf, frame_at(None, ae::Vec2::ZERO), None, false, None);
     }
     assert_eq!(buf.frame_count(), 4);
 }
 
-/// A dump is an irreversible file write, so it is armed once — on the pass
-/// that discovers the anomaly — even though the rows keep being corrected
-/// underneath it. Re-detecting the same OOB on every resimulation would append
-/// a duplicate event and could arm a second dump.
+/// A rollback-host anomaly is not externally reported until the corrected
+/// frame becomes confirmed. Re-simulating the same OOB replaces the pending
+/// assessment and produces one event/dump when the confirmation line reaches it.
 #[test]
-fn a_resimulated_anomaly_is_not_reported_twice() {
+fn a_resimulated_anomaly_is_reported_once_when_confirmed() {
     let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
     buf.min_context_frames = 0;
     let world = dummy_world();
@@ -680,23 +702,98 @@ fn a_resimulated_anomaly_is_not_reported_twice() {
         frame_at(Some(3), out_of_bounds),
         oob.as_ref(),
         false,
+        Some(2),
     );
-    assert_eq!(buf.event_count(), 1);
+    assert_eq!(buf.event_count(), 0, "frame 3 is still speculative");
+    assert!(buf.dump_request.is_none());
 
     record_frame(
         &mut buf,
         frame_at(Some(3), out_of_bounds),
         oob.as_ref(),
         true,
+        Some(3),
     );
-    assert_eq!(
-        buf.event_count(),
-        1,
-        "the same anomaly, re-simulated, must not be reported a second time"
-    );
+    assert_eq!(buf.event_count(), 1);
+    assert!(matches!(buf.dump_request, Some(DumpReason::OobAuto { .. })));
     assert_eq!(
         buf.frame_count(),
         1,
-        "and its row was replaced, not appended"
+        "the corrected row replaced its prediction rather than appending"
+    );
+}
+
+#[test]
+fn a_healthy_correction_cancels_a_speculative_oob() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    buf.min_context_frames = 0;
+    let world = dummy_world();
+    let player = dummy_player(ae::Vec2::new(2000.0, 50.0));
+    let oob = detect_oob_scratch(&player, &world, OOB_MARGIN);
+
+    record_frame(
+        &mut buf,
+        frame_at(Some(4), ae::Vec2::new(2000.0, 50.0)),
+        oob.as_ref(),
+        false,
+        Some(3),
+    );
+    record_frame(
+        &mut buf,
+        frame_at(Some(4), ae::Vec2::new(50.0, 50.0)),
+        None,
+        true,
+        Some(4),
+    );
+
+    assert_eq!(buf.event_count(), 0);
+    assert!(
+        buf.dump_request.is_none(),
+        "the abandoned prediction must not cause an irreversible dump"
+    );
+}
+
+#[test]
+fn an_oob_correction_replaces_a_healthy_prediction_before_confirmation() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    buf.min_context_frames = 0;
+    let world = dummy_world();
+    let player = dummy_player(ae::Vec2::new(2000.0, 50.0));
+    let oob = detect_oob_scratch(&player, &world, OOB_MARGIN);
+
+    record_frame(
+        &mut buf,
+        frame_at(Some(5), ae::Vec2::new(50.0, 50.0)),
+        None,
+        false,
+        Some(4),
+    );
+    record_frame(
+        &mut buf,
+        frame_at(Some(5), ae::Vec2::new(2000.0, 50.0)),
+        oob.as_ref(),
+        true,
+        Some(5),
+    );
+
+    assert_eq!(buf.event_count(), 1);
+    assert!(matches!(buf.dump_request, Some(DumpReason::OobAuto { .. })));
+}
+
+#[test]
+fn equal_frame_numbers_from_different_sessions_do_not_replace_each_other() {
+    let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
+    let mut first = frame_at(Some(0), ae::Vec2::new(10.0, 0.0));
+    first.sim_session = Some(1);
+    let mut second = frame_at(Some(0), ae::Vec2::new(20.0, 0.0));
+    second.sim_session = Some(2);
+
+    record_frame(&mut buf, first, None, false, Some(0));
+    record_frame(&mut buf, second, None, false, Some(0));
+
+    assert_eq!(buf.frame_count(), 2);
+    assert_eq!(
+        buf.frames().map(|row| row.player.pos.x).collect::<Vec<_>>(),
+        vec![10.0, 20.0]
     );
 }

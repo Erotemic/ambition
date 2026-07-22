@@ -677,20 +677,14 @@ pub fn incoming_player_damage_multiplier(
 /// teleports to the player spawn, so it never sets this flag.
 pub fn publish_kernel_reset_death(
     mut died: MessageWriter<ActorDiedMessage>,
-    bodies: Query<
-        (
-            &ambition_engine_core::BodyKinematics,
-            &crate::avatar::PlayerBodyFrameOutput,
-        ),
-        PrimaryPlayerOnly,
-    >,
+    bodies: Query<&crate::avatar::PlayerBodyFrameOutput, PrimaryPlayerOnly>,
 ) {
-    for (kin, frame_out) in &bodies {
-        if !frame_out.reset {
+    for frame_out in &bodies {
+        let Some(reset_origin) = frame_out.reset_origin else {
             continue;
-        }
+        };
         died.write(ActorDiedMessage {
-            pos: kin.pos,
+            pos: reset_origin,
             // The kernel gate does not distinguish spikes from the void, and
             // neither does any consumer today. `Hazard` is the honest category:
             // the world killed her, and no entity claims the kill.

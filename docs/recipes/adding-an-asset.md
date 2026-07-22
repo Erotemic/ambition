@@ -114,6 +114,12 @@ per-frame notice in `crates/ambition_game_shell/src/basic_presentation.rs`.
 
 ```bash
 git check-ignore -v <path>                  # payload ignored, manifest not
+python3 scripts/package_asset_guard.py compose \
+    --repo . \
+    --profile android \
+    --output target/package-assets/manual/assets \
+    --contract target/package-assets/manual/contract.json \
+    --hash-manifest target/package-assets/manual/contract.sha256
 cargo check -p ambition_app                 # the compile gate
 cargo test -p ambition_app --test app_it -- <module>
 ```

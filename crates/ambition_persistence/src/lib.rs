@@ -41,3 +41,19 @@ impl bevy::prelude::Plugin for PersistenceSchedulePlugin {
             );
     }
 }
+
+/// Serializes every test that repoints `AMBITION_DATA_DIR`.
+///
+/// That variable is process-global, and both the save and the settings suites
+/// resolve real on-disk paths through it. One lock per module is not mutual
+/// exclusion — the suites raced, and each other's scratch directory looked like
+/// a missing or unexpected file. A poisoned lock is deliberately tolerated:
+/// otherwise the first genuine assertion failure cascades into every later test
+/// reporting `PoisonError` instead of its own result.
+#[cfg(test)]
+pub(crate) fn lock_data_dir() -> std::sync::MutexGuard<'static, ()> {
+    static DATA_DIR: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    DATA_DIR
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}

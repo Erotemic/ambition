@@ -9,8 +9,8 @@ use super::*;
 /// SystemParam-friendly bundle: gives the player tick everything it
 /// needs to record one frame and (if requested) write a dump.
 ///
-/// `timeline` is `(the host's simulation frame, is this a re-simulation of a
-/// frame already recorded)`. `(None, false)` for every host that does not
+/// `timeline` is `(the host's confirmed-frame boundary, is this a re-simulation
+/// of a frame already recorded)`. `(None, false)` for every host that does not
 /// speculate, which is what the headless driver passes.
 #[allow(clippy::too_many_arguments)]
 pub fn record_simulation_frame(
@@ -29,9 +29,9 @@ pub fn record_simulation_frame(
     moving_platforms: &[crate::world::platforms::MovingPlatformState],
     locomotion: &str,
     body_mode: &str,
-    timeline: (Option<i32>, bool),
+    timeline: (Option<ae::ConfirmedFrameBoundary>, bool),
 ) {
-    let (sim_frame, replaying) = timeline;
+    let (boundary, replaying) = timeline;
     let oob = detect_oob_from_kinematics(
         clusters.kinematics.pos,
         clusters.kinematics.vel,
@@ -57,8 +57,15 @@ pub fn record_simulation_frame(
         locomotion,
         body_mode,
     );
-    frame.sim_frame = sim_frame;
-    record_frame(buffer, frame, oob.as_ref(), replaying);
+    frame.sim_session = boundary.map(|boundary| boundary.session);
+    frame.sim_frame = boundary.map(|boundary| boundary.current);
+    record_frame(
+        buffer,
+        frame,
+        oob.as_ref(),
+        replaying,
+        boundary.map(|boundary| boundary.confirmed),
+    );
 }
 
 /// Bevy system: drains pending dump requests, writes JSON+MD if any.
@@ -231,7 +238,7 @@ pub fn record_frame_system(
         &locomotion,
         &body_mode,
         (
-            boundary.map(|boundary| boundary.current),
+            boundary.as_deref().copied(),
             replay.is_some_and(|replay| replay.replaying_history),
         ),
     );

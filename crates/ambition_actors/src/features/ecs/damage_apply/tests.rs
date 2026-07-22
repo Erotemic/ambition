@@ -4,6 +4,9 @@
 //! `use super::*;`.
 
 use super::*;
+// The parent module imports only the handful of Bevy items its systems need,
+// so the App-level tests below bring in their own.
+use bevy::prelude::{default, App, Messages, Update};
 
 #[test]
 fn shield_blocks_only_hits_from_the_faced_side() {
@@ -843,4 +846,35 @@ fn outgoing_projectile_damage_scales_with_the_slider() {
     let base = ProjectileKind::Fireball.spec(origin, dir, 1.0).damage;
     let scaled = ProjectileKind::Fireball.spec(origin, dir, 4.0).damage;
     assert_eq!(scaled, base * 4, "outgoing damage follows the slider");
+}
+
+#[test]
+fn kernel_reset_death_reports_the_pre_respawn_impact_position() {
+    let mut app = App::new();
+    app.add_message::<ActorDiedMessage>();
+    app.add_systems(Update, publish_kernel_reset_death);
+
+    let impact = ae::Vec2::new(321.0, -45.0);
+    app.world_mut().spawn((
+        crate::actor::PlayerEntity,
+        crate::actor::PrimaryPlayer,
+        crate::avatar::PlayerBodyFrameOutput {
+            reset: true,
+            reset_origin: Some(impact),
+            ..default()
+        },
+    ));
+
+    app.update();
+
+    let deaths: Vec<_> = app
+        .world_mut()
+        .resource_mut::<Messages<ActorDiedMessage>>()
+        .drain()
+        .collect();
+    assert_eq!(deaths.len(), 1);
+    assert_eq!(
+        deaths[0].pos, impact,
+        "the death fact must preserve where the hazard struck, not the spawn destination"
+    );
 }

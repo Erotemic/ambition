@@ -48,6 +48,16 @@ pub struct RollbackSessionStatus {
     pub invalidation: Option<String>,
 }
 
+/// Monotonic identity for rollback timelines.
+///
+/// This resource deliberately survives session teardown. Frame numbers restart
+/// at zero for every GGRS session, so deriving a generation from the optional
+/// [`ConfirmedFrameBoundary`] aliases a stopped-and-restarted session with the
+/// one that preceded it. Host-side journals and traces use this generation to
+/// discard work from timelines that no longer exist.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct RollbackSessionGeneration(u64);
+
 #[derive(Resource, Clone, Debug, PartialEq, Eq)]
 pub struct RollbackSessionContract {
     pub content: Option<PreparedContentIdentity>,
@@ -143,12 +153,15 @@ fn install_session_with_ownership(
     world.insert_resource(ownership);
     world.insert_resource(session);
 
-    // A new session is a new timeline. Bumping the generation is what tells the
-    // external-effect journals that anything still pending belongs to a world
-    // that no longer exists — see `ambition_runtime::external_effects`.
-    let generation = world
-        .get_resource::<ConfirmedFrameBoundary>()
-        .map_or(0, |boundary| boundary.session.wrapping_add(1));
+    // A new session is a new timeline. The counter lives independently of the
+    // boundary because teardown removes the boundary; deriving from that optional
+    // resource would make every stop/restart cycle reuse generation zero.
+    let generation = {
+        let mut generation = world
+            .get_resource_or_insert_with::<RollbackSessionGeneration>(Default::default);
+        generation.0 = generation.0.wrapping_add(1);
+        generation.0
+    };
     world.insert_resource(ConfirmedFrameBoundary {
         current: 0,
         confirmed: -1,
@@ -156,21 +169,23 @@ fn install_session_with_ownership(
     });
 }
 
+/// Remove every resource whose presence means a rollback session is active.
+///
+/// The generation counter intentionally survives: the next installation must
+/// receive a different identity even after the boundary itself is removed.
 pub fn stop_session(world: &mut World) {
     world.remove_resource::<AmbitionGgrsSession>();
     world.remove_resource::<RollbackSessionContract>();
     world.remove_resource::<RollbackSessionOwnership>();
-    // Nothing speculates any more, so external effects go back to firing the
-    // instant they are written. Leaving the boundary installed would strand
-    // whatever is still pending behind a frame counter that never advances.
+    // Nothing speculates any more, so external effects and persistence return
+    // to their non-rollback behavior immediately. Leaving this installed would
+    // strand pending effects and keep confirmed-state save gates closed forever.
     world.remove_resource::<ConfirmedFrameBoundary>();
 }
 
-/// Queue the same complete session removal from a regular Bevy system.
+/// Queue the exact same teardown from a regular Bevy system.
 pub fn stop_session_deferred(commands: &mut Commands) {
-    commands.remove_resource::<AmbitionGgrsSession>();
-    commands.remove_resource::<RollbackSessionContract>();
-    commands.remove_resource::<RollbackSessionOwnership>();
+    commands.queue(|world: &mut World| stop_session(world));
 }
 
 /// Return a diagnostic error when GGRS invalidated the session contract or a
@@ -295,9 +310,9 @@ fn publish_ggrs_input(
 /// `SfxEmissionGate` keep phantoms and drop corrections. They now go through
 /// [`crate::external_effects`], which defers rather than suppresses.
 ///
-/// What remains are consumers that genuinely want "don't do this twice" and
-/// accept keeping the first pass's answer: the forensic trace's duplicate-append
-/// skip, and the falling-sand grid's step guard.
+/// What remains are consumers that genuinely need to know a frame is being
+/// revisited: the forensic trace uses it to avoid consuming per-logical-frame
+/// suppression windows twice, and the falling-sand grid uses it as a step guard.
 fn publish_replay_pass(
     replay: &mut ambition_platformer_primitives::schedule::SimulationReplayState,
     simulated_before: bool,
@@ -433,9 +448,7 @@ fn enforce_session_contract(world: &mut World) {
 }
 
 fn invalidate_session(world: &mut World, reason: String) {
-    world.remove_resource::<AmbitionGgrsSession>();
-    world.remove_resource::<RollbackSessionContract>();
-    world.remove_resource::<RollbackSessionOwnership>();
+    stop_session(world);
     world
         .get_resource_or_insert_with::<RollbackSessionStatus>(Default::default)
         .invalidation = Some(reason);
@@ -479,6 +492,69 @@ mod tests {
             world.resource::<Time<GgrsTime>>().elapsed(),
             std::time::Duration::ZERO,
             "a new frame-zero session must not retain elapsed time from the old timeline"
+        );
+    }
+
+    #[test]
+    fn stop_restart_uses_a_fresh_generation_after_the_boundary_was_removed() {
+        let mut world = World::new();
+        let settings = SyncTestSettings {
+            check_distance: 0,
+            max_prediction_window: 8,
+        };
+
+        start_sync_test_session(&mut world, settings).expect("first session starts");
+        let first = world.resource::<ConfirmedFrameBoundary>().session;
+        stop_session(&mut world);
+        assert!(
+            !world.contains_resource::<ConfirmedFrameBoundary>(),
+            "teardown must immediately disable quarantine and confirmation gates"
+        );
+
+        start_sync_test_session(&mut world, settings).expect("second session starts");
+        let second = world.resource::<ConfirmedFrameBoundary>().session;
+        assert_ne!(
+            first, second,
+            "frame zero in the restarted session must not alias frame zero from the old timeline"
+        );
+    }
+
+    #[test]
+    fn deferred_stop_removes_the_confirmed_boundary_too() {
+        fn queue_stop(mut commands: Commands) {
+            stop_session_deferred(&mut commands);
+        }
+
+        let mut app = App::new();
+        app.world_mut().insert_resource(ConfirmedFrameBoundary {
+            current: 9,
+            confirmed: 4,
+            session: 3,
+        });
+        app.add_systems(Update, queue_stop);
+        app.update();
+
+        assert!(
+            !app.world().contains_resource::<ConfirmedFrameBoundary>(),
+            "the deferred path must execute the same complete teardown as stop_session"
+        );
+    }
+
+    #[test]
+    fn invalidation_removes_the_confirmed_boundary_but_preserves_the_reason() {
+        let mut world = World::new();
+        world.insert_resource(ConfirmedFrameBoundary {
+            current: 7,
+            confirmed: 2,
+            session: 5,
+        });
+
+        invalidate_session(&mut world, "contract changed".into());
+
+        assert!(!world.contains_resource::<ConfirmedFrameBoundary>());
+        assert_eq!(
+            world.resource::<RollbackSessionStatus>().invalidation.as_deref(),
+            Some("contract changed")
         );
     }
 

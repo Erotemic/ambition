@@ -15,6 +15,7 @@ runtime architecture and must not become an alternate source of live authority.
 | Generated visuals | [`generated-visual-tools.md`](generated-visual-tools.md) | Generator target -> review -> explicit install/publish. |
 | ECS inventory | [`ecs-inventory-tool.md`](ecs-inventory-tool.md) | Commit-matched static Bevy localization evidence. |
 | Optimization/reporting | [`optimization-and-reporting.md`](optimization-and-reporting.md) | Reproducible diagnostic artifacts, not gameplay authority. |
+| Packaged assets | [`packaged-asset-guard.md`](packaged-asset-guard.md) | One composed tree plus byte contract for Android and installed desktop builds. |
 | Tool policy | [`tool-authoring-policy.md`](tool-authoring-policy.md) | Requirements for adding/promoting tools. |
 
 ## Discovery

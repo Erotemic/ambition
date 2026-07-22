@@ -79,95 +79,6 @@ warn() { printf '[android-build] warning: %s\n' "$*" >&2; }
 fatal() { printf '[android-build] error: %s\n' "$*" >&2; exit 1; }
 
 
-registered_character_sprite_filenames() {
-    local registry_src="$ROOT/crates/ambition_actors/src/character_sprites/assets.rs"
-    if [[ ! -f "$registry_src" ]]; then
-        warn "character sprite registry source not found at $registry_src; skipping registered sprite presence check"
-        return 0
-    fi
-    # The Rust-side character sprite registry is the source of truth for
-    # animated character PNGs. Parse the filename literals here instead of
-    # maintaining a second build-script list. This is intentionally warning-only:
-    # missing art should not block Android iteration, but it should be visible.
-    grep -Eo '"[A-Za-z0-9_./-]+_spritesheet\.png"' "$registry_src" \
-        | tr -d '"' \
-        | sort -u
-}
-
-warn_missing_registered_character_sprites() {
-    local src_dir="$ROOT/crates/ambition_actors/assets/sprites"
-    local apk_dir="$ASSETS_OUT/sprites"
-    local -a missing_src=()
-    local -a missing_apk=()
-    local -a registered=()
-    local filename
-
-    mapfile -t registered < <(registered_character_sprite_filenames)
-    if [[ "${#registered[@]}" -eq 0 ]]; then
-        warn "no registered character sprites were discovered; Android sprite presence check could not verify animated NPC/enemy sheets"
-        return 0
-    fi
-
-    for filename in "${registered[@]}"; do
-        if [[ ! -f "$src_dir/$filename" ]]; then
-            missing_src+=("sprites/$filename")
-        fi
-        if [[ ! -f "$apk_dir/$filename" ]]; then
-            missing_apk+=("sprites/$filename")
-        fi
-    done
-
-    if [[ "${#missing_src[@]}" -gt 0 ]]; then
-        warn "registered character sprite PNGs missing from source assets (${#missing_src[@]}): ${missing_src[*]}"
-    fi
-    if [[ "${#missing_apk[@]}" -gt 0 ]]; then
-        warn "registered character sprite PNGs missing from generated APK assets (${#missing_apk[@]}): ${missing_apk[*]}"
-    fi
-    if [[ "${#missing_src[@]}" -eq 0 && "${#missing_apk[@]}" -eq 0 ]]; then
-        log "verified ${#registered[@]} registered character sprite PNGs in source assets and generated APK assets"
-    fi
-}
-
-# Verify the `game://` content root actually landed in the APK.
-#
-# The manifests that DESCRIBE this content are committed and compiled into the
-# binary (`include_str!`), while the payloads they name are git-ignored. That
-# split is deliberate — it means absence is reportable rather than mysterious —
-# but it also means a packaging gap looks identical to a healthy build until the
-# game runs. Check the vanity card manifest's own frame list, since it is the
-# committed source of truth for a set of ignored PNGs.
-warn_missing_game_content_assets() {
-    local card_manifest="$ROOT/game/ambition_content/assets/data/vanity_card.ron"
-    local -a expected=()
-    local -a missing=()
-    local rel
-
-    for rel in worlds dialogue data; do
-        if [[ ! -d "$ASSETS_OUT/$rel" ]]; then
-            missing+=("$rel/")
-        fi
-    done
-    if [[ "${#missing[@]}" -gt 0 ]]; then
-        warn "game:// content directories missing from generated APK assets: ${missing[*]}"
-    fi
-
-    if [[ ! -f "$card_manifest" ]]; then
-        return 0
-    fi
-    mapfile -t expected < <(grep -Eo 'path:[[:space:]]*"[^"]+"' "$card_manifest" \
-        | sed -E 's/.*"(.*)"/\1/' \
-        | sort -u)
-    missing=()
-    for rel in "${expected[@]}"; do
-        [[ -f "$ASSETS_OUT/$rel" ]] || missing+=("$rel")
-    done
-    if [[ "${#missing[@]}" -gt 0 ]]; then
-        warn "vanity card frames missing from generated APK assets (${#missing[@]}/${#expected[@]}): ${missing[*]}"
-        warn "the startup card will render each absent frame as a visible 'missing frame' notice"
-    elif [[ "${#expected[@]}" -gt 0 ]]; then
-        log "verified ${#expected[@]} vanity card frames in generated APK assets"
-    fi
-}
 
 repo_root() {
     local root
@@ -254,57 +165,6 @@ rust_target_for_abi() {
     esac
 }
 
-copy_tree_contents() {
-    local src=$1
-    local dst=$2
-    mkdir -p "$dst"
-    if [[ ! -d "$src" ]]; then
-        warn "asset source not found: $src"
-        return 0
-    fi
-    if command -v rsync >/dev/null 2>&1; then
-        rsync -a --delete \
-            --exclude '.git/' \
-            --exclude '.DS_Store' \
-            "$src"/ "$dst"/
-    else
-        rm -rf "$dst"
-        mkdir -p "$dst"
-        (cd "$src" && tar cf - .) | (cd "$dst" && tar xf -)
-    fi
-}
-
-# Merge a second asset root ON TOP of an already-populated tree.
-#
-# Deliberately NOT --delete: this runs after copy_tree_contents has seeded the
-# destination, and the whole point is that the later root wins per-file while
-# leaving the earlier root's files intact.
-#
-# `--no-links` skips symlinks rather than copying them. A dev checkout has
-# `ambition_content/assets/sprites -> ../../../ambition_actors/assets/sprites`
-# for LDtk's relative tileset paths; inside the APK those images already landed
-# at `sprites/` from the first root, and Android's AssetManager cannot follow a
-# symlink anyway. Skipping it avoids duplicating ~186M into the package.
-overlay_tree_contents() {
-    local src=$1
-    local dst=$2
-    if [[ ! -d "$src" ]]; then
-        warn "overlay asset source not found: $src"
-        return 0
-    fi
-    mkdir -p "$dst"
-    if command -v rsync >/dev/null 2>&1; then
-        rsync -a --no-links \
-            --exclude '.git/' \
-            --exclude '.DS_Store' \
-            "$src"/ "$dst"/
-    else
-        # `-type l -prune -o -print0` emits every entry EXCEPT symlinks, which
-        # is the tar-only equivalent of rsync's --no-links above.
-        (cd "$src" && find . -type l -prune -o -print0 | tar cf - --null -T -) \
-            | (cd "$dst" && tar xf -)
-    fi
-}
 
 feature_list_has() {
     local needle=$1
@@ -642,6 +502,7 @@ fi
 need_cmd rustup "Install Rust via rustup."
 need_cmd cargo "Install Rust/Cargo via rustup."
 need_cmd cargo-ndk "Run: ./scripts/setup_android_prereqs.sh"
+need_cmd python3 "Install Python 3; packaged asset verification is mandatory."
 if ! command -v "$GRADLE_CMD" >/dev/null 2>&1; then
     fallback_gradle="$HOME/.local/share/gradle/gradle-8.9/bin/gradle"
     if [[ -x "$fallback_gradle" ]]; then
@@ -722,6 +583,8 @@ PROJECT_DIR="$ROOT/target/android/ambition_actors_android"
 APP_DIR="$PROJECT_DIR/app"
 JNI_OUT="$APP_DIR/src/main/jniLibs"
 ASSETS_OUT="$APP_DIR/src/main/assets"
+ASSET_CONTRACT="$PROJECT_DIR/asset-contract.android.json"
+ASSET_HASH_MANIFEST="$PROJECT_DIR/asset-contract.android.sha256"
 ANDROID_NATIVE_LIB_NAME="ambition_app"
 ANDROID_ICON_SRC="$ROOT/assets/icons/android_icon2.png"
 # Adaptive icon (mipmap-anydpi-v26): the launcher composites a
@@ -964,36 +827,17 @@ cat > "$APP_DIR/src/main/res/values/styles.xml" <<'EOF'
 </resources>
 EOF
 
-# A dev checkout composes TWO asset roots: the engine/generated tree
-# (ambition_actors, the default source) and the game's own content tree
-# (ambition_content, addressed through the `game://` source — worlds, dialogue,
-# data manifests, the vanity card). A PACKAGE has exactly one assets dir, so
-# both roots merge into it with content last, which reproduces the same
-# precedence `ProviderGameAssetReader` applies in a checkout: authored content
-# wins, the shared generated tree backs it. `deploy_to_steamdeck.sh` already
-# merges the same two roots the same way; Android predates the content split and
-# copied only the first, so every `game://` asset was silently absent on device.
-log "copying runtime assets into generated Android project"
-rm -rf "$ASSETS_OUT"
-copy_tree_contents "$ROOT/crates/ambition_actors/assets" "$ASSETS_OUT"
-overlay_tree_contents "$ROOT/game/ambition_content/assets" "$ASSETS_OUT"
-if [[ -d "$ASSETS_OUT/sprites" ]]; then
-    sprite_png_count=$(find "$ASSETS_OUT/sprites" -type f -name '*.png' | wc -l | tr -d ' ')
-    if [[ "$sprite_png_count" == "0" ]]; then
-        warn "no sprite PNGs were copied into the APK assets; the game will use colored-rectangle sprite fallbacks. Regenerate/copy sprites under crates/ambition_actors/assets/sprites before building Android."
-    else
-        log "copied $sprite_png_count sprite PNGs into APK assets"
-    fi
-else
-    warn "no sprites/ asset directory copied into APK; sprite art will fall back to colored rectangles"
-fi
-warn_missing_registered_character_sprites
-warn_missing_game_content_assets
-if [[ -f "$ASSETS_OUT/audio/sfx.bank" ]]; then
-    log "copied sfx.bank into APK assets: $(human_size "$ASSETS_OUT/audio/sfx.bank")"
-else
-    warn "no sfx.bank copied into APK assets; generated/fundsp SFX fallback will be used unless static_sfx_bank is enabled"
-fi
+# Desktop development exposes two roots with a content-first fallback, while
+# Android exposes one AssetManager tree. Compose that tree through the shared
+# package guard, which also rejects case collisions, symlinks, implicit
+# conflicting overrides, missing catalog declarations, and byte drift.
+log "composing and auditing runtime assets for Android"
+python3 "$ROOT/scripts/package_asset_guard.py" compose \
+    --repo "$ROOT" \
+    --profile android \
+    --output "$ASSETS_OUT" \
+    --contract "$ASSET_CONTRACT" \
+    --hash-manifest "$ASSET_HASH_MANIFEST"
 log "APK asset tree size: $(dir_size "$ASSETS_OUT")"
 
 rm -rf "$JNI_OUT/$TARGET_ABI"
@@ -1054,6 +898,15 @@ OUT_DIR="$ROOT/target/android/apks"
 mkdir -p "$OUT_DIR"
 OUT_APK="$OUT_DIR/ambition_actors-${APK_BUILD_TYPE}-${TARGET_ABI}.apk"
 cp "$APK" "$OUT_APK"
+
+# The staging directory is not proof that Gradle included the files. Read the
+# finished APK as a ZIP and verify every asset path and byte against the exact
+# contract generated before compilation.
+log "verifying final APK asset contract"
+python3 "$ROOT/scripts/package_asset_guard.py" audit-zip \
+    --contract "$ASSET_CONTRACT" \
+    --archive "$OUT_APK" \
+    --prefix assets/
 
 log "APK: $OUT_APK"
 log "size summary: native=$(human_size "$SO_PATH")  apk=$(human_size "$OUT_APK")  apk-assets=$(dir_size "$ASSETS_OUT")"

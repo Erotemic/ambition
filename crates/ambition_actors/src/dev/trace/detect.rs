@@ -204,6 +204,7 @@ pub fn build_frame(
         tick,
         // Stamped by the caller, which is the only layer that can see the
         // host's frame counters.
+        sim_session: None,
         sim_frame: None,
         real_dt,
         sim_dt,
@@ -486,55 +487,32 @@ pub(crate) fn synthesize_events_from_diff(
     }
 }
 
-/// Push the constructed frame into the buffer and (if not already armed)
-/// auto-request an OOB dump.
-/// Record one frame, and detect anomalies on the pass that discovers them.
+/// Push the constructed frame and record this pass's anomaly assessment.
 ///
-/// `replaying` splits two things that used to be one. The frame ROW wants the
-/// corrected state — that is why the recorder no longer skips replay passes,
-/// and why `push_frame` overwrites the row a mispredicted pass wrote. The
-/// anomaly EVENT and the dump request want to happen exactly once, because a
-/// dump is an irreversible file write; re-detecting the same OOB on every
-/// resimulation would append duplicate events and could re-arm a second dump.
-///
-/// The dump still contains corrected rows: it is requested here during the
-/// first pass, but written by `flush_pending_dump` in `PostUpdate`, long after
-/// the rewind has replaced the rows it will serialize.
+/// Frame rows and anomaly truth use the same `(session, frame)` identity. Under
+/// rollback, the OOB assessment stays pending until GGRS confirms that frame;
+/// a correction replaces the pending assessment before it can emit an event or
+/// arm an irreversible dump. Non-rollback hosts have no identity and preserve
+/// the old immediate behavior.
 pub fn record_frame(
     buffer: &mut GameplayTraceBuffer,
     frame: GameplayTraceFrame,
     oob: Option<&OobReason>,
     replaying: bool,
+    confirmed: Option<i32>,
 ) {
-    if replaying {
-        buffer.push_frame(frame);
-        return;
+    let identity = frame.simulation_identity();
+    let tick = buffer.recording_tick_for(&frame);
+    let anomaly = oob.map(|reason| (reason.short_label(), frame.player.pos));
+    let auto_dump_eligible = buffer.teleport_suppress_ticks == 0 && buffer.has_min_context();
+
+    buffer.record_oob_assessment(identity, confirmed, tick, anomaly, auto_dump_eligible);
+
+    // A corrected pass describes an existing logical frame; do not consume a
+    // second tick of the portal suppression window merely because GGRS replayed it.
+    if !replaying {
+        buffer.teleport_suppress_ticks = buffer.teleport_suppress_ticks.saturating_sub(1);
     }
-    if let Some(reason) = oob {
-        let label = reason.short_label();
-        buffer.push_event(GameplayTraceEvent::OobDetected {
-            tick: buffer.tick,
-            reason: label.clone(),
-            pos: frame.player.pos,
-        });
-        // Suppress the OOB auto-dump during a portal-transit window: a crossing
-        // lands the player at the exit before the exit-side carve opens, so it
-        // momentarily reads as inside-solid — that is not a stuck-body anomaly.
-        if buffer.auto_dump_armed
-            && buffer.dump_request.is_none()
-            && buffer.teleport_suppress_ticks == 0
-            && buffer.has_min_context()
-        {
-            buffer.dump_request = Some(DumpReason::OobAuto { reason: label });
-            buffer.auto_dump_armed = false;
-        }
-    } else if !buffer.auto_dump_armed {
-        // Player returned to a healthy state; rearm so a future OOB
-        // re-fires.
-        buffer.auto_dump_armed = true;
-    }
-    // Tick down the portal-transit suppression window once per recorded frame.
-    buffer.teleport_suppress_ticks = buffer.teleport_suppress_ticks.saturating_sub(1);
     buffer.push_frame(frame);
 }
 

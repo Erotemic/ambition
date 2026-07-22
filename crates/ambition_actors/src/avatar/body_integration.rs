@@ -47,6 +47,11 @@ pub struct PlayerBodyFrameOutput {
     /// phase; the home reset POLICY consumes this to run the full sandbox reset for
     /// the primary, and the PRESENTATION phase skips the frame.
     pub reset: bool,
+    /// Where the body was when the reset was triggered, before the home policy
+    /// teleported it to spawn. This preserves the causal location for death VFX,
+    /// replay tooling, and any other consumer that must not confuse respawn with
+    /// impact.
+    pub reset_origin: Option<ae::Vec2>,
 }
 
 /// How a ledge-grabbing player should react to the moving platform that carries
@@ -192,13 +197,17 @@ pub fn integrate_home_body(
         },
     );
 
-    // Respawn is home-body policy. The pure kernel only reports the reset event.
+    // Capture the causal position before home-body policy teleports to spawn.
+    // Reading kinematics after `reset_body_clusters` would report the respawn
+    // point as the death impact location.
+    let reset_origin = result.events.reset.then_some(clusters.kinematics.pos);
     if result.events.reset {
         ae::reset_body_clusters(motion_model, clusters, world.spawn);
     }
 
     *frame_out = PlayerBodyFrameOutput {
         reset: result.events.reset,
+        reset_origin,
         events: result.events,
     };
 

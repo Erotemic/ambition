@@ -45,12 +45,10 @@ impl Plugin for TraceSchedulePlugin {
             // record that quietly preserves the wrong version of history is
             // worse than one that lags.
             //
-            // Rows are now keyed by simulation frame and a re-simulation
-            // REPLACES the row it wrote before. Anomaly detection and dump
-            // arming remain first-pass-only inside `record_frame`, because a
-            // dump is a file write and must happen once — but the rows that end
-            // up in the file are still corrected, since the flush below runs
-            // after the rewind has replaced them.
+            // Rows and anomaly assessments are keyed by session generation +
+            // simulation frame. A re-simulation REPLACES both. Automatic dump
+            // arming waits for GGRS confirmation, so the irreversible file write
+            // reflects corrected truth rather than whichever pass happened first.
             .add_systems(
                 PostUpdate,
                 (super::flush_pending_dump, super::flush_actor_dump).chain(),

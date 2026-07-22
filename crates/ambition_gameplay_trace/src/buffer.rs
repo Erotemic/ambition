@@ -7,7 +7,14 @@ use crate::{
     DEFAULT_EVENT_CAPACITY, DEFAULT_FRAME_CAPACITY,
 };
 use bevy::prelude::*;
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
+
+#[derive(Clone, Debug)]
+struct PendingOobAssessment {
+    tick: u64,
+    anomaly: Option<(String, crate::TracePoint)>,
+    auto_dump_eligible: bool,
+}
 
 /// Top-level rolling buffer.
 #[derive(Resource, Debug)]
@@ -47,6 +54,12 @@ pub struct GameplayTraceBuffer {
     /// useless 1-frame snapshot. Manual (F8) dumps are never gated. Mirrors the
     /// actor trace's gate (see `DEFAULT_MIN_CONTEXT_FRAMES`).
     pub min_context_frames: usize,
+    /// Per-frame anomaly truth held until the rollback host confirms it. A
+    /// corrected pass replaces this entry exactly like it replaces the frame
+    /// row, so a speculative OOB cannot arm a permanent dump and a corrected
+    /// OOB cannot disappear merely because the first pass looked healthy.
+    pending_oob: BTreeMap<(u64, i32), PendingOobAssessment>,
+    pending_oob_session: Option<u64>,
 }
 
 /// How many frames a portal transit suppresses trace auto-dumps for: long enough
@@ -77,6 +90,8 @@ impl GameplayTraceBuffer {
             previous: None,
             teleport_suppress_ticks: 0,
             min_context_frames: crate::DEFAULT_MIN_CONTEXT_FRAMES,
+            pending_oob: BTreeMap::new(),
+            pending_oob_session: None,
         }
     }
 
@@ -104,6 +119,87 @@ impl GameplayTraceBuffer {
         }
     }
 
+    /// Tick assigned to the row this pass will append or replace.
+    pub fn recording_tick_for(&self, frame: &GameplayTraceFrame) -> u64 {
+        frame
+            .simulation_identity()
+            .and_then(|identity| {
+                self.frames
+                    .iter()
+                    .rfind(|row| row.simulation_identity() == Some(identity))
+                    .map(|row| row.tick)
+            })
+            .unwrap_or(frame.tick)
+    }
+
+    /// Record this pass's OOB assessment and publish only confirmed truth.
+    ///
+    /// Non-rollback hosts have no identity and are applied immediately. Under a
+    /// rollback host, the assessment is keyed by `(session, frame)` and held
+    /// until `confirmed` reaches it; a corrected pass replaces the pending value.
+    pub fn record_oob_assessment(
+        &mut self,
+        identity: Option<(u64, i32)>,
+        confirmed: Option<i32>,
+        tick: u64,
+        anomaly: Option<(String, crate::TracePoint)>,
+        auto_dump_eligible: bool,
+    ) {
+        let assessment = PendingOobAssessment {
+            tick,
+            anomaly,
+            auto_dump_eligible,
+        };
+        let Some((session, frame)) = identity else {
+            if self.pending_oob_session.take().is_some() {
+                self.pending_oob.clear();
+                self.auto_dump_armed = true;
+            }
+            self.apply_oob_assessment(assessment);
+            return;
+        };
+
+        if self.pending_oob_session != Some(session) {
+            self.pending_oob.clear();
+            self.pending_oob_session = Some(session);
+            self.auto_dump_armed = true;
+        }
+        self.pending_oob.insert((session, frame), assessment);
+
+        let Some(confirmed) = confirmed else {
+            return;
+        };
+        let ready: Vec<_> = self
+            .pending_oob
+            .range((session, i32::MIN)..=(session, confirmed))
+            .map(|(identity, _)| *identity)
+            .collect();
+        for identity in ready {
+            if let Some(assessment) = self.pending_oob.remove(&identity) {
+                self.apply_oob_assessment(assessment);
+            }
+        }
+    }
+
+    fn apply_oob_assessment(&mut self, assessment: PendingOobAssessment) {
+        if let Some((reason, pos)) = assessment.anomaly {
+            self.push_event(GameplayTraceEvent::OobDetected {
+                tick: assessment.tick,
+                reason: reason.clone(),
+                pos,
+            });
+            if self.auto_dump_armed
+                && self.dump_request.is_none()
+                && assessment.auto_dump_eligible
+            {
+                self.dump_request = Some(DumpReason::OobAuto { reason });
+                self.auto_dump_armed = false;
+            }
+        } else if !self.auto_dump_armed {
+            self.auto_dump_armed = true;
+        }
+    }
+
     /// Append a frame, or REPLACE the row already describing the same
     /// simulation frame.
     ///
@@ -118,11 +214,11 @@ impl GameplayTraceBuffer {
     /// change. Scanning from the back finds the slot in a handful of steps: a
     /// rollback reaches back at most the host's prediction window.
     pub fn push_frame(&mut self, frame: GameplayTraceFrame) {
-        if let Some(sim_frame) = frame.sim_frame {
+        if let Some(identity) = frame.simulation_identity() {
             if let Some(slot) = self
                 .frames
                 .iter()
-                .rposition(|row| row.sim_frame == Some(sim_frame))
+                .rposition(|row| row.simulation_identity() == Some(identity))
             {
                 let (seq, tick) = (self.frames[slot].seq, self.frames[slot].tick);
                 self.frames[slot] = GameplayTraceFrame { seq, tick, ..frame };

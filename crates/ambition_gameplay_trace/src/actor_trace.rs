@@ -19,7 +19,7 @@
 use crate::{timestamp_label, CollisionTraceShape, TraceAabb, TracePoint};
 use bevy::prelude::Resource;
 use serde::Serialize;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use std::{fs, io};
@@ -55,9 +55,12 @@ impl BodyTraceSnapshot {
 pub struct ActorTraceFrame {
     pub seq: u64,
     pub tick: u64,
+    /// The rollback-session generation this row belongs to, when there is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sim_session: Option<u64>,
     /// The host's simulation frame this row describes, when there is one. See
-    /// [`crate::GameplayTraceFrame::sim_frame`] — same rewindable identity, same
-    /// replace-on-correction rule.
+    /// [`crate::GameplayTraceFrame::sim_frame`] — together with `sim_session`,
+    /// the same rewindable identity and replace-on-correction rule.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sim_frame: Option<i32>,
     pub real_dt: f32,
@@ -79,6 +82,14 @@ pub struct ActorTraceFrame {
 }
 
 impl ActorTraceFrame {
+    /// Stable rollback identity for replacement/correction bookkeeping.
+    pub const fn simulation_identity(&self) -> Option<(u64, i32)> {
+        match (self.sim_session, self.sim_frame) {
+            (Some(session), Some(frame)) => Some((session, frame)),
+            _ => None,
+        }
+    }
+
     pub fn oob_bodies(&self) -> impl Iterator<Item = &BodyTraceSnapshot> {
         self.bodies.iter().filter(|b| b.is_oob())
     }
@@ -131,6 +142,12 @@ impl ActorDumpReason {
 /// point the ring is full anyway.
 pub const DEFAULT_MIN_CONTEXT_FRAMES: usize = 30;
 
+#[derive(Clone, Debug)]
+struct PendingActorAssessment {
+    oob_bodies: Vec<BodyTraceSnapshot>,
+    auto_dump_eligible: bool,
+}
+
 #[derive(Resource, Debug)]
 pub struct ActorTraceBuffer {
     pub capacity_frames: usize,
@@ -147,6 +164,9 @@ pub struct ActorTraceBuffer {
     pub min_context_frames: usize,
     pub last_dump_path: Option<String>,
     pub last_dump_status: Option<String>,
+    /// Correctable per-frame OOB truth awaiting the GGRS confirmation line.
+    pending_oob: BTreeMap<(u64, i32), PendingActorAssessment>,
+    pending_oob_session: Option<u64>,
 }
 
 impl Default for ActorTraceBuffer {
@@ -167,6 +187,8 @@ impl ActorTraceBuffer {
             min_context_frames: DEFAULT_MIN_CONTEXT_FRAMES,
             last_dump_path: None,
             last_dump_status: None,
+            pending_oob: BTreeMap::new(),
+            pending_oob_session: None,
         }
     }
 
@@ -182,47 +204,56 @@ impl ActorTraceBuffer {
         }
     }
 
-    /// Push a frame: update per-body OOB arming, request a dump for the
-    /// first newly-OOB body, and evict the oldest frame if at capacity.
+    /// Push or correct one frame and publish only confirmed OOB truth.
     ///
-    /// A re-simulation of an already-recorded frame REPLACES its row and
-    /// touches nothing else — see [`crate::GameplayTraceBuffer::push_frame`].
-    /// Anomaly detection and dump arming stay on the first pass deliberately:
-    /// a dump is an irreversible file write and must happen once, while the
-    /// rows that end up *inside* that file still get corrected, because the
-    /// flush runs in `PostUpdate` after the rewind has already replaced them.
-    pub fn record(&mut self, frame: ActorTraceFrame) {
-        if let Some(sim_frame) = frame.sim_frame {
+    /// A rollback pass replaces both the row and its pending anomaly assessment
+    /// under `(session, frame)`. Automatic dumps are armed only once that frame
+    /// is confirmed, so an abandoned prediction can neither create a false dump
+    /// nor hide an OOB that exists only on the corrected pass.
+    pub fn record(&mut self, frame: ActorTraceFrame, confirmed: Option<i32>) {
+        let identity = frame.simulation_identity();
+        let assessment = PendingActorAssessment {
+            oob_bodies: frame.oob_bodies().cloned().collect(),
+            auto_dump_eligible: self.frames.len() >= self.min_context_frames,
+        };
+
+        if let Some(identity) = identity {
+            let session = identity.0;
+            if self.pending_oob_session != Some(session) {
+                self.pending_oob.clear();
+                self.pending_oob_session = Some(session);
+                self.oob_disarmed.clear();
+            }
+            self.pending_oob.insert(identity, assessment);
+            if let Some(confirmed) = confirmed {
+                let ready: Vec<_> = self
+                    .pending_oob
+                    .range((session, i32::MIN)..=(session, confirmed))
+                    .map(|(identity, _)| *identity)
+                    .collect();
+                for identity in ready {
+                    if let Some(assessment) = self.pending_oob.remove(&identity) {
+                        self.apply_oob_assessment(assessment);
+                    }
+                }
+            }
+        } else {
+            if self.pending_oob_session.take().is_some() {
+                self.pending_oob.clear();
+                self.oob_disarmed.clear();
+            }
+            self.apply_oob_assessment(assessment);
+        }
+
+        if let Some(identity) = frame.simulation_identity() {
             if let Some(slot) = self
                 .frames
                 .iter()
-                .rposition(|row| row.sim_frame == Some(sim_frame))
+                .rposition(|row| row.simulation_identity() == Some(identity))
             {
                 let (seq, tick) = (self.frames[slot].seq, self.frames[slot].tick);
                 self.frames[slot] = ActorTraceFrame { seq, tick, ..frame };
                 return;
-            }
-        }
-
-        // Re-arm any previously-dumped body that is no longer OOB this
-        // frame (absent bodies count as "no longer OOB").
-        let oob_now: HashSet<&str> = frame.oob_bodies().map(|b| b.actor_id.as_str()).collect();
-        self.oob_disarmed.retain(|id| oob_now.contains(id.as_str()));
-
-        // The first still-armed OOB body requests the dump — but only once
-        // the buffer has warmed up enough to carry pre-anomaly context (and
-        // so spawn-settling transients don't dump a useless 1-frame trace).
-        if self.frames.len() >= self.min_context_frames {
-            for b in frame.oob_bodies() {
-                if !self.oob_disarmed.contains(&b.actor_id) {
-                    self.oob_disarmed.insert(b.actor_id.clone());
-                    self.request_dump(ActorDumpReason::OobAuto {
-                        actor_id: b.actor_id.clone(),
-                        name: b.name.clone(),
-                        kind: b.kind.clone(),
-                        reason: b.oob.clone().unwrap_or_default(),
-                    });
-                }
             }
         }
 
@@ -232,6 +263,29 @@ impl ActorTraceBuffer {
         self.frames.push_back(frame);
         self.sequence = self.sequence.saturating_add(1);
         self.tick = self.tick.saturating_add(1);
+    }
+
+    fn apply_oob_assessment(&mut self, assessment: PendingActorAssessment) {
+        let oob_now: HashSet<String> = assessment
+            .oob_bodies
+            .iter()
+            .map(|body| body.actor_id.clone())
+            .collect();
+        self.oob_disarmed.retain(|id| oob_now.contains(id));
+
+        if assessment.auto_dump_eligible {
+            for body in assessment.oob_bodies {
+                if !self.oob_disarmed.contains(&body.actor_id) {
+                    self.oob_disarmed.insert(body.actor_id.clone());
+                    self.request_dump(ActorDumpReason::OobAuto {
+                        actor_id: body.actor_id,
+                        name: body.name,
+                        kind: body.kind,
+                        reason: body.oob.unwrap_or_default(),
+                    });
+                }
+            }
+        }
     }
 
     pub fn frames(&self) -> impl Iterator<Item = &ActorTraceFrame> {
@@ -392,6 +446,7 @@ mod tests {
         ActorTraceFrame {
             seq: 0,
             tick: 0,
+            sim_session: None,
             sim_frame: None,
             real_dt: 0.016,
             sim_dt: 0.016,
@@ -409,8 +464,8 @@ mod tests {
     fn with_capacity_clamps_and_rings() {
         let mut b = ActorTraceBuffer::with_capacity(0);
         assert_eq!(b.capacity_frames, 1);
-        b.record(frame(vec![body("a", None)]));
-        b.record(frame(vec![body("a", None)]));
+        b.record(frame(vec![body("a", None)]), None);
+        b.record(frame(vec![body("a", None)]), None);
         assert_eq!(b.frame_count(), 1, "capacity 1 keeps only the newest frame");
         assert_eq!(b.tick, 2, "tick advances even as frames evict");
     }
@@ -420,13 +475,13 @@ mod tests {
         let mut b = ActorTraceBuffer::with_capacity(8);
         b.min_context_frames = 0; // test arming in isolation, no warm-up gate
                                   // In bounds: no dump.
-        b.record(frame(vec![body("boss", None)]));
+        b.record(frame(vec![body("boss", None)]), None);
         assert!(b.dump_request.is_none());
         // Goes OOB: dump requested, attributed to the boss.
         b.record(frame(vec![body(
             "boss",
             Some("outside world envelope (y)"),
-        )]));
+        )]), None);
         match b.dump_request.take() {
             Some(ActorDumpReason::OobAuto {
                 actor_id, reason, ..
@@ -440,16 +495,16 @@ mod tests {
         b.record(frame(vec![body(
             "boss",
             Some("outside world envelope (y)"),
-        )]));
+        )]), None);
         assert!(
             b.dump_request.is_none(),
             "a still-OOB body must not re-dump"
         );
         // Returns in bounds → re-armed.
-        b.record(frame(vec![body("boss", None)]));
+        b.record(frame(vec![body("boss", None)]), None);
         assert!(b.oob_disarmed.is_empty(), "returning in bounds re-arms");
         // Goes OOB again → dumps again.
-        b.record(frame(vec![body("boss", Some("inside solid (wall)"))]));
+        b.record(frame(vec![body("boss", Some("inside solid (wall)"))]), None);
         assert!(
             b.dump_request.is_some(),
             "a fresh OOB after recovery re-dumps"
@@ -464,11 +519,11 @@ mod tests {
         let mut b = ActorTraceBuffer::with_capacity(16);
         b.min_context_frames = 3;
         for _ in 0..3 {
-            b.record(frame(vec![body("boss", Some("inside solid (wall)"))]));
+            b.record(frame(vec![body("boss", Some("inside solid (wall)"))]), None);
             assert!(b.dump_request.is_none(), "no dump before warm-up completes");
         }
         // 4th record: 3 frames already buffered → context satisfied → dump.
-        b.record(frame(vec![body("boss", Some("inside solid (wall)"))]));
+        b.record(frame(vec![body("boss", Some("inside solid (wall)"))]), None);
         assert!(
             b.dump_request.is_some(),
             "dumps once enough pre-anomaly context is buffered"
@@ -476,21 +531,84 @@ mod tests {
     }
 
     #[test]
+    fn healthy_correction_cancels_speculative_actor_oob() {
+        let mut b = ActorTraceBuffer::with_capacity(8);
+        b.min_context_frames = 0;
+        let mut predicted = frame(vec![body("boss", Some("outside world envelope (y)"))]);
+        predicted.sim_session = Some(1);
+        predicted.sim_frame = Some(4);
+        b.record(predicted, Some(3));
+        assert!(b.dump_request.is_none());
+
+        let mut corrected = frame(vec![body("boss", None)]);
+        corrected.sim_session = Some(1);
+        corrected.sim_frame = Some(4);
+        b.record(corrected, Some(4));
+
+        assert!(
+            b.dump_request.is_none(),
+            "an abandoned actor OOB prediction must not create a dump"
+        );
+        assert!(b.oob_disarmed.is_empty());
+    }
+
+    #[test]
+    fn actor_oob_on_the_corrected_pass_is_reported_when_confirmed() {
+        let mut b = ActorTraceBuffer::with_capacity(8);
+        b.min_context_frames = 0;
+        let mut predicted = frame(vec![body("boss", None)]);
+        predicted.sim_session = Some(1);
+        predicted.sim_frame = Some(5);
+        b.record(predicted, Some(4));
+
+        let mut corrected = frame(vec![body("boss", Some("inside solid (wall)"))]);
+        corrected.sim_session = Some(1);
+        corrected.sim_frame = Some(5);
+        b.record(corrected, Some(5));
+
+        assert_eq!(b.dump_request.take().unwrap().actor_id(), Some("boss"));
+    }
+
+    #[test]
+    fn actor_rows_from_different_sessions_do_not_alias() {
+        let mut b = ActorTraceBuffer::with_capacity(8);
+        let mut first = frame(vec![body("old", None)]);
+        first.sim_session = Some(1);
+        first.sim_frame = Some(0);
+        let mut second = frame(vec![body("new", None)]);
+        second.sim_session = Some(2);
+        second.sim_frame = Some(0);
+
+        b.record(first, Some(0));
+        b.record(second, Some(0));
+
+        assert_eq!(b.frame_count(), 2);
+        assert_eq!(b.frames[0].bodies[0].actor_id, "old");
+        assert_eq!(b.frames[1].bodies[0].actor_id, "new");
+    }
+
+    #[test]
     fn each_body_arms_independently() {
         let mut b = ActorTraceBuffer::with_capacity(8);
         b.min_context_frames = 0;
         // Boss goes OOB first — one dump, attributed to the boss.
-        b.record(frame(vec![
-            body("boss", Some("absurd velocity (9000)")),
-            body("slug", None),
-        ]));
+        b.record(
+            frame(vec![
+                body("boss", Some("absurd velocity (9000)")),
+                body("slug", None),
+            ]),
+            None,
+        );
         assert_eq!(b.dump_request.take().unwrap().actor_id(), Some("boss"));
         // Boss still OOB (disarmed) but the slug now goes OOB too: the slug
         // is independently armed, so it still triggers a dump.
-        b.record(frame(vec![
-            body("boss", Some("absurd velocity (9000)")),
-            body("slug", Some("outside world envelope (x)")),
-        ]));
+        b.record(
+            frame(vec![
+                body("boss", Some("absurd velocity (9000)")),
+                body("slug", Some("outside world envelope (x)")),
+            ]),
+            None,
+        );
         assert_eq!(b.dump_request.take().unwrap().actor_id(), Some("slug"));
     }
 }

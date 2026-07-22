@@ -87,12 +87,31 @@ pub fn save_settings(path: &Path, settings: &UserSettings) -> std::io::Result<()
 /// inserted in `init_sandbox_resources`, so this only overrides when
 /// a file is found.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn load_settings_at_startup(mut settings: ResMut<UserSettings>) {
-    let path = settings_path();
+fn load_existing_settings(
+    path: &Path,
+    settings: &mut UserSettings,
+    last: &mut LastPersistedSettings,
+) -> bool {
     if !path.exists() {
+        return false;
+    }
+    *settings = load_settings(path);
+    // The file we just loaded is already the persisted value. Seeding the
+    // comparison shadow prevents the first Update from rewriting an unchanged
+    // file merely because `LastPersistedSettings` started at `None`.
+    last.0 = Some(settings.clone());
+    true
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn load_settings_at_startup(
+    mut settings: ResMut<UserSettings>,
+    mut last: ResMut<LastPersistedSettings>,
+) {
+    let path = settings_path();
+    if !load_existing_settings(&path, &mut settings, &mut last) {
         return;
     }
-    *settings = load_settings(&path);
     info!(
         target: "ambition::settings",
         "loaded user settings from {}",
@@ -148,7 +167,11 @@ pub fn save_settings_on_change(
 /// not persist user settings; the in-memory `Res<UserSettings>` keeps
 /// the defaults for the session. Browser persistence is a follow-up.
 #[cfg(target_arch = "wasm32")]
-pub fn load_settings_at_startup(_settings: ResMut<UserSettings>) {}
+pub fn load_settings_at_startup(
+    _settings: ResMut<UserSettings>,
+    _last: ResMut<LastPersistedSettings>,
+) {
+}
 
 /// Wasm (browser) no-op for settings writing. See [`load_settings_at_startup`].
 #[cfg(target_arch = "wasm32")]

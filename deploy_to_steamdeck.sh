@@ -4,6 +4,10 @@ set -euo pipefail
 REPO="${REPO:-$HOME/code/ambition}"
 DECK="${DECK:-deck@steamdeck}"
 APPDIR="${APPDIR:-/home/deck/Games/ambition}"
+PACKAGE_ROOT="$REPO/target/package-assets/steamdeck"
+PACKAGE_ASSETS="$PACKAGE_ROOT/assets"
+ASSET_CONTRACT="$PACKAGE_ROOT/asset-contract.steamdeck.json"
+ASSET_HASH_MANIFEST="$PACKAGE_ROOT/asset-contract.steamdeck.sha256"
 
 cd "$REPO"
 
@@ -12,17 +16,16 @@ PYTHONPATH="$REPO/tools/ambition_ldtk_tools" \
     python -m ambition_ldtk_tools validate \
     game/ambition_content/assets/worlds/sandbox.ldtk
 
-# Verify the distributable bundled fonts have been materialized locally.
-# Do not package assets/fonts/local; those are local-machine fallback fonts.
-for font_asset in \
-    crates/ambition_actors/assets/fonts/bundled/InterDisplay-Regular.otf \
-    crates/ambition_actors/assets/fonts/bundled/InterDisplay-SemiBold.otf \
-    crates/ambition_actors/assets/fonts/bundled/JetBrainsMono-Regular.ttf \
-    crates/ambition_actors/assets/fonts/bundled/licenses/Inter-4-1-OFL.txt \
-    crates/ambition_actors/assets/fonts/bundled/licenses/JetBrains-Mono-2-304-OFL.txt
- do
-    test -f "$font_asset"
-done
+# Compose the exact installed asset tree before building. This is the same
+# two-root collapse Android uses, with local-machine fallback fonts excluded.
+# The tool fails on missing declarations, case collisions, symlinks, conflicting
+# root overlays, or any byte mismatch in the composed tree.
+python3 "$REPO/scripts/package_asset_guard.py" compose \
+    --repo "$REPO" \
+    --profile steamdeck \
+    --output "$PACKAGE_ASSETS" \
+    --contract "$ASSET_CONTRACT" \
+    --hash-manifest "$ASSET_HASH_MANIFEST"
 
 # Safest build: keep default desktop features, add static_map fallback.
 cargo build -p ambition_app --bin ambition_game_bin --release --features static_map
@@ -33,21 +36,15 @@ rsync -av --delete \
     target/release/ambition_actors \
     "$DECK:$APPDIR/"
 
+# Deploy the already-composed tree, not two independently-maintained rsync
+# recipes. --delete makes the remote tree exactly match the audited package.
 rsync -av --delete \
-    --exclude '/fonts/local/' \
-    crates/ambition_actors/assets/ \
+    "$PACKAGE_ASSETS/" \
     "$DECK:$APPDIR/assets/"
-
-# The game's CONTENT assets (worlds, dialogue, data, audio registries —
-# post-R3.2 they live in ambition_content) merge into the same deck-side
-# assets/ dir; the app's `game://` asset source roots there under
-# BEVY_ASSET_ROOT.
 rsync -av \
-    game/ambition_content/assets/ \
-    "$DECK:$APPDIR/assets/"
-
-# Ensure old local-only fonts from previous deploys do not linger on the Deck.
-ssh "$DECK" "rm -rf '$APPDIR/assets/fonts/local'"
+    "$ASSET_CONTRACT" \
+    "$ASSET_HASH_MANIFEST" \
+    "$DECK:$APPDIR/"
 
 # Compatibility symlinks:
 # - BEVY_ASSET_ROOT should be the app/root dir. Bevy's default asset folder is
@@ -86,23 +83,18 @@ export RUST_LOG="${RUST_LOG:-warn}"
 exec "$APPDIR/ambition_actors" "$@"
 EOF_INNER
 
-# Remote sanity checks for both real files and compatibility paths.
+# Verify every remote file against the same byte contract used locally. A
+# successful rsync is not enough evidence if a launcher/deploy path moved or a
+# filesystem normalized names unexpectedly.
 ssh "$DECK" "bash -s" <<EOF_CHECK
 set -euo pipefail
 APPDIR='$APPDIR'
 test -x "\$APPDIR/ambition_actors"
-test -f "\$APPDIR/assets/sprites/robot_spritesheet.png"
+cd "\$APPDIR/assets"
+sha256sum -c "\$APPDIR/asset-contract.steamdeck.sha256"
+test ! -e "\$APPDIR/assets/fonts/local"
 test -f "\$APPDIR/sprites/robot_spritesheet.png"
-test -f "\$APPDIR/assets/sprites/entities/chest_closed.png"
-test -f "\$APPDIR/sprites/entities/chest_closed.png"
-test -f "\$APPDIR/assets/audio/music/generated/long_lofi_drift/full.ogg"
-test -f "\$APPDIR/audio/music/generated/long_lofi_drift/full.ogg"
 test -f "\$APPDIR/assets/assets/audio/music/generated/long_lofi_drift/full.ogg"
-test -f "\$APPDIR/assets/fonts/bundled/InterDisplay-Regular.otf"
-test -f "\$APPDIR/assets/fonts/bundled/InterDisplay-SemiBold.otf"
-test -f "\$APPDIR/assets/fonts/bundled/JetBrainsMono-Regular.ttf"
-test -f "\$APPDIR/fonts/bundled/InterDisplay-Regular.otf"
-test ! -e "\$APPDIR/assets/fonts/local/DejaVuSansMono.ttf"
 EOF_CHECK
 
 echo "Deployed to $DECK:$APPDIR"

@@ -181,13 +181,18 @@ pub struct MovingPlatformTraceState {
 pub struct GameplayTraceFrame {
     pub seq: u64,
     pub tick: u64,
+    /// The rollback-session generation this row belongs to, when there is one.
+    /// Frame numbers restart at zero for every session, so `sim_frame` is only a
+    /// stable identity together with this generation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sim_session: Option<u64>,
     /// The host's simulation frame this row describes, when there is one.
     ///
     /// `seq`/`tick` are the buffer's own append counters: they only ever go
-    /// up, so they cannot identify a frame that gets simulated twice. This is
-    /// the rewindable identity, and it is what lets a corrected pass REPLACE
-    /// the row a mispredicted pass wrote rather than appending a second,
-    /// contradictory row for the same instant.
+    /// up, so they cannot identify a frame that gets simulated twice. Together
+    /// with `sim_session`, this is the rewindable identity that lets a corrected
+    /// pass REPLACE the row a mispredicted pass wrote rather than appending a
+    /// second, contradictory row for the same instant.
     ///
     /// `None` on every host that does not speculate, where a row is written
     /// once and the distinction cannot arise.
@@ -204,6 +209,16 @@ pub struct GameplayTraceFrame {
     pub controls: ControlFrameTrace,
     pub nearby_collision: Vec<CollisionTraceShape>,
     pub moving_platforms: Vec<MovingPlatformTraceState>,
+}
+
+impl GameplayTraceFrame {
+    /// Stable rollback identity for replacement/correction bookkeeping.
+    pub const fn simulation_identity(&self) -> Option<(u64, i32)> {
+        match (self.sim_session, self.sim_frame) {
+            (Some(session), Some(frame)) => Some((session, frame)),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Serialize, Clone, Debug)]

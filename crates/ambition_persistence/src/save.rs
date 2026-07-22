@@ -169,9 +169,6 @@ pub fn autosave_sandbox_save(_save: Res<SandboxSave>, _last: ResMut<LastPersiste
 mod tests {
     use super::*;
     use crate::save_data::PersistedEncounterState;
-    use std::sync::Mutex;
-
-    static TEST_DIR_LOCK: Mutex<()> = Mutex::new(());
 
     fn temp_root(name: &str) -> PathBuf {
         let mut p = std::env::temp_dir();
@@ -182,7 +179,7 @@ mod tests {
 
     #[test]
     fn missing_file_returns_default_save() {
-        let _g = TEST_DIR_LOCK.lock().unwrap();
+        let _g = crate::lock_data_dir();
         let root = temp_root("missing");
         let path = save_path_under(&root);
         let s = load_save(&path);
@@ -191,7 +188,7 @@ mod tests {
 
     #[test]
     fn save_then_load_preserves_encounter_and_switch() {
-        let _g = TEST_DIR_LOCK.lock().unwrap();
+        let _g = crate::lock_data_dir();
         let root = temp_root("round_trip");
         let path = save_path_under(&root);
         let mut save = SandboxSaveData::default();
@@ -245,7 +242,7 @@ mod tests {
     /// the session, so committing a guess writes it into history.
     #[test]
     fn a_predicted_world_is_never_committed_to_disk() {
-        let _g = TEST_DIR_LOCK.lock().unwrap();
+        let _g = crate::lock_data_dir();
         let root = temp_root("predicted");
         let mut app = autosave_app(&root);
 
@@ -266,7 +263,7 @@ mod tests {
     /// write survives however long confirmation takes.
     #[test]
     fn a_change_made_while_predicting_is_written_once_it_confirms() {
-        let _g = TEST_DIR_LOCK.lock().unwrap();
+        let _g = crate::lock_data_dir();
         let root = temp_root("deferred");
         let mut app = autosave_app(&root);
 
@@ -295,7 +292,7 @@ mod tests {
     /// happened" probe.
     #[test]
     fn a_restore_that_changes_nothing_does_not_rewrite_the_file() {
-        let _g = TEST_DIR_LOCK.lock().unwrap();
+        let _g = crate::lock_data_dir();
         let root = temp_root("no_churn");
         let mut app = autosave_app(&root);
 
@@ -323,7 +320,7 @@ mod tests {
     /// every fixed-tick and headless game silently stops saving.
     #[test]
     fn without_a_rollback_host_the_save_is_written_immediately() {
-        let _g = TEST_DIR_LOCK.lock().unwrap();
+        let _g = crate::lock_data_dir();
         let root = temp_root("no_host");
         let mut app = autosave_app(&root);
 
@@ -339,7 +336,7 @@ mod tests {
 
     #[test]
     fn corrupt_save_falls_back_to_default() {
-        let _g = TEST_DIR_LOCK.lock().unwrap();
+        let _g = crate::lock_data_dir();
         let root = temp_root("corrupt");
         let path = save_path_under(&root);
         fs::create_dir_all(path.parent().unwrap()).unwrap();

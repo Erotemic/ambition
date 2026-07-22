@@ -210,6 +210,31 @@ fn an_abandoned_branch_is_discarded_on_load() {
 /// A new session is a new timeline. Anything still pending belongs to a world
 /// that no longer exists and must not surface in the next one.
 #[test]
+fn a_real_stop_restart_cannot_release_the_previous_sessions_pending_intents() {
+    let mut host = Host::new();
+    let settings = crate::rollback::SyncTestSettings {
+        check_distance: 0,
+        max_prediction_window: 8,
+    };
+
+    crate::rollback::start_sync_test_session(&mut host.world, settings)
+        .expect("first sync-test session starts");
+    host.advance(5, -1, &[42]);
+    assert_eq!(host.journal().depth(), 1);
+
+    crate::rollback::stop_session(&mut host.world);
+    crate::rollback::start_sync_test_session(&mut host.world, settings)
+        .expect("restarted sync-test session starts");
+    host.advance(0, 0, &[7]);
+
+    assert_eq!(
+        host.release(),
+        vec![7],
+        "session frame numbers restart at zero, but their generations must not alias"
+    );
+}
+
+#[test]
 fn a_new_session_invalidates_pending_intents() {
     let mut host = Host::new();
     host.advance(5, -1, &[42]);

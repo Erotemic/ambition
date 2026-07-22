@@ -371,7 +371,7 @@ fn rendered_ownership_across_the_title_and_two_games() {
 /// `MusicIntent`, and `MusicPlaybackState` — and asserts what the base channel
 /// actually plays at each stop:
 ///
-/// - title plays the host's configured frontend theme (`a_possible_morning`);
+/// - title plays the host's configured frontend theme (whatever the host named);
 /// - Ambition gameplay plays an Ambition-authored gameplay track (not the theme);
 /// - Quit to Home restores the frontend theme;
 /// - Sanic gameplay plays Sanic's own track — never Ambition's residue;
@@ -382,9 +382,20 @@ fn provider_relative_music_drives_the_base_channel() {
     let mut app = rendered_app();
     assert_recording_audio_output(&app);
     settle(&mut app);
+    // The host's configured theme, read from the host rather than hardcoded:
+    // which song plays is content, and pinning the name here would mean editing
+    // this test every time the title music changes. What is worth asserting is
+    // that the title plays THAT track, that gameplay replaces it, and that Quit
+    // to Home restores it.
+    let title = app
+        .world()
+        .resource::<ambition::audio::selection::FrontendAudioProfile>()
+        .title_track()
+        .expect("the shell host configures a title theme")
+        .to_owned();
     assert_eq!(
         active_music_track(&app),
-        "a_possible_morning",
+        title,
         "the title plays the host's configured frontend theme"
     );
 
@@ -395,7 +406,7 @@ fn provider_relative_music_drives_the_base_channel() {
     settle(&mut app);
     let ambition_track = active_music_track(&app);
     assert!(
-        !ambition_track.is_empty() && ambition_track != "a_possible_morning",
+        !ambition_track.is_empty() && ambition_track != title,
         "ambition gameplay plays an authored gameplay track, not the title theme \
          (got {ambition_track:?})"
     );
@@ -405,7 +416,7 @@ fn provider_relative_music_drives_the_base_channel() {
     settle(&mut app);
     assert_eq!(
         active_music_track(&app),
-        "a_possible_morning",
+        title,
         "Quit to Home restores the frontend policy (the title theme resumes)"
     );
 
@@ -422,7 +433,7 @@ fn provider_relative_music_drives_the_base_channel() {
 
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
-    assert_eq!(active_music_track(&app), "a_possible_morning");
+    assert_eq!(active_music_track(&app), title);
 
     // Mary-O authors its own "Support Theme": provider-relative audio switches
     // to Mary-O's track, never Sanic's you_are_too_slow or the retained title.

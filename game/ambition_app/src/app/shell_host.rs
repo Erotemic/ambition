@@ -70,7 +70,7 @@ pub fn compose_ambition_shell_host(app: &mut App) {
         ambition::audio::selection::FrontendAudioProfile::new(
             ambition_content::AMBITION_CONTENT_PROVIDER,
         )
-        .with_title_track("a_possible_morning")
+        .with_title_track("something_worth_building")
         .with_sfx([
             ambition::sfx::ids::UI_MENU_MOVE,
             ambition::sfx::ids::UI_MENU_ACCEPT,

@@ -72,6 +72,7 @@
         (id: "smirking_behemoth_boss", display_name: "You Have To Cut The Rope"),
         (id: "solo_soar", display_name: "Solo Soar"),
         (id: "solo_soar_9m08_loud", display_name: "Solo Soar (Loud, 9m)"),
+        (id: "something_worth_building", display_name: "Something Worth Building"),
         (id: "standing_on_shoulders", display_name: "Standing on Shoulders (GNU-ton)"),
         (id: "support_theme", display_name: "Support Theme"),
         (id: "tech_bros_disruption", display_name: "Tech Bros Disruption"),

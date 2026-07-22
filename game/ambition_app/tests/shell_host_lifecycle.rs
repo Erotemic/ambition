@@ -164,15 +164,15 @@ fn assert_home(app: &mut App, context: &str) {
         ),
         "{context}: the exact launcher activation owns frontend audio"
     );
-    assert_eq!(
-        selection.preferred_track(),
-        Some("a_possible_morning"),
-        "{context}: the launcher owns the host-selected title theme"
-    );
-    assert!(
-        selection.music_authority().allows("a_possible_morning"),
-        "{context}: title music is explicitly authorized"
-    );
+    // No title-track assertion here on purpose. `preferred_track()` and the
+    // music authority are both BUILT from `FrontendAudioProfile::title_track`,
+    // so comparing them to it only proves one field can be read through two
+    // accessors. What this test is actually about is ownership — asserted above
+    // and below: the exact launcher activation owns frontend audio, and menu
+    // SFX are authorized without granting gameplay SFX. Whether the configured
+    // theme reaches the speakers is proven end-to-end in
+    // `shell_host_rendered::provider_relative_music_drives_the_base_channel`,
+    // which drives the real director and reads the base channel.
     assert!(
         selection
             .sfx_authority()

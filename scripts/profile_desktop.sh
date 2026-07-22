@@ -26,6 +26,8 @@ report_preset="fast"
 report_timeout="45"
 include_raw_data="no"
 include_perf_script="no"
+timeline_chunks="8"
+marker_regex='room|boss|encounter|title|session|menu|spawn|load|demo'
 
 usage() {
     cat <<'USAGE'
@@ -39,6 +41,11 @@ Modes:
   stat-attach     Attach perf stat to an already-running ambition_game process.
   asset-run       Launch ./run_game.sh under strace and summarize repeated asset opens.
   asset-attach    Attach strace to an already-running ambition_game process.
+  timeline-run    Launch under perf record for the full duration, stamp game log
+                  output with seconds-since-launch, then slice the capture into
+                  time chunks and label each chunk with the log lines (room,
+                  boss, title, session...) seen in that window. One long capture
+                  covers startup, title screen, and gameplay phases in one run.
   all-run         Run perf-run, stat-run, then asset-run sequentially.
 
   Default mode: perf-run
@@ -46,6 +53,11 @@ Modes:
 Options:
   -h, --help              Show this help.
   -d, --duration SEC      Capture duration in seconds. Default: 30.
+                           timeline-run wants a longer window, e.g. 120-300.
+  --chunks N              timeline-run: number of equal time slices. Default: 8.
+  --marker-regex RE       timeline-run: case-insensitive grep -E pattern that
+                           picks scenario-marker lines out of the game log.
+                           Default: room|boss|encounter|title|session|menu|spawn|load|demo
   -F, --freq HZ           Sampling frequency for perf record. Default: 99.
   -I, --interval MS       perf stat interval in milliseconds. Default: 1000.
   -p, --pid PID           PID to attach to. If omitted, newest ambition_game_bin PID is used.
@@ -65,6 +77,7 @@ Options:
   --                      Arguments after -- are passed to ./run_game.sh for run modes.
 
 Examples:
+  scripts/profile_desktop.sh timeline-run --duration 180 -- -- --start-room you_have_to_cut_the_rope
   scripts/profile_desktop.sh perf-run --duration 30
   scripts/profile_desktop.sh perf-run --report-preset full --duration 30
   scripts/profile_desktop.sh perf-attach --duration 30
@@ -89,7 +102,7 @@ quote_cmd() { printf '%q ' "$@"; }
 
 parse_mode_or_option() {
     case "$1" in
-        perf-run|perf-attach|stat-run|stat-attach|asset-run|asset-attach|all-run)
+        perf-run|perf-attach|stat-run|stat-attach|asset-run|asset-attach|timeline-run|all-run)
             mode="$1"; return 0 ;;
         *) return 1 ;;
     esac
@@ -119,6 +132,10 @@ while [[ $# -gt 0 ]]; do
         --report-preset=*) report_preset="${1#--report-preset=}" ;;
         --report-timeout) shift; [[ $# -gt 0 ]] || fail "--report-timeout requires a value"; is_positive_int "$1" || fail "--report-timeout must be positive"; report_timeout="$1" ;;
         --report-timeout=*) report_timeout="${1#--report-timeout=}"; is_positive_int "$report_timeout" || fail "--report-timeout must be positive" ;;
+        --chunks) shift; [[ $# -gt 0 ]] || fail "--chunks requires a value"; is_positive_int "$1" || fail "--chunks must be positive"; timeline_chunks="$1" ;;
+        --chunks=*) timeline_chunks="${1#--chunks=}"; is_positive_int "$timeline_chunks" || fail "--chunks must be positive" ;;
+        --marker-regex) shift; [[ $# -gt 0 ]] || fail "--marker-regex requires a value"; marker_regex="$1" ;;
+        --marker-regex=*) marker_regex="${1#--marker-regex=}" ;;
         --include-perf-script) include_perf_script="yes" ;;
         --include-raw-data) include_raw_data="yes" ;;
         --no-raw-data) include_raw_data="no" ;;
@@ -162,6 +179,21 @@ find_game_pid() {
     fail "could not find ambition_game_bin or ambition_actors; pass --pid or use a *-run mode"
 }
 
+# The pgrep -f fallback can latch onto anything whose command line mentions an
+# ambition crate (e.g. a concurrent cargo build). Record and show what we
+# actually attached to so a wrong-target capture is obvious immediately.
+record_attach_target() {
+    local out_dir="$1" target_pid="$2" cmdline
+    record_attach_target "$out_dir" "$target_pid"
+    cmdline="$(ps -o args= -p "$target_pid" 2>/dev/null || true)"
+    printf '%s\n' "$cmdline" > "$out_dir/pid-cmdline.txt"
+    log "attach target PID $target_pid: ${cmdline:-<process not found>}"
+    case "$cmdline" in
+        *ambition_game_bin*|*mary_o_demo*|*sanic_demo*) ;;
+        *) log "WARNING: attach target does not look like a game binary; pass --pid to override" ;;
+    esac
+}
+
 # The kernel gate for unprivileged perf. Debian/Ubuntu ship
 # kernel.perf_event_paranoid=3 or 4, which blocks ALL unprivileged perf_event_open;
 # upstream 2 allows user-space-only samples; 1 additionally allows kernel-side
@@ -194,7 +226,7 @@ ensure_perf_kernel_level() {
     fi
 }
 
-mode_uses_launch() { case "$1" in perf-run|stat-run|asset-run) return 0 ;; *) return 1 ;; esac; }
+mode_uses_launch() { case "$1" in perf-run|stat-run|asset-run|timeline-run) return 0 ;; *) return 1 ;; esac; }
 warm_build_is_enabled_for() {
     case "$warm_build" in
         yes) return 0 ;;
@@ -268,6 +300,8 @@ write_metadata() {
         echo "perf_call_graph=$perf_call_graph"
         echo "perf_events=$perf_events"
         echo "report_preset=$report_preset"
+        echo "timeline_chunks=$timeline_chunks"
+        echo "marker_regex=$marker_regex"
         echo "report_timeout_seconds=$report_timeout"
         echo "include_raw_data=$include_raw_data"
         echo "include_perf_script=$include_perf_script"
@@ -301,8 +335,21 @@ run_capture_command() {
     local stem="${status_file%.status}"
     echo "$(quote_cmd "$@")" > "$stem.command.txt"
     log "running $(basename "$stem"): $(quote_cmd "$@")"
+    # Captures are silent while running; tick so a quiet terminal is not
+    # mistaken for a hang (Ctrl-C mid-capture leaves a truncated perf.data).
+    local heartbeat_pid=""
+    (
+        elapsed=0
+        while sleep 5; do
+            elapsed=$((elapsed + 5))
+            log "$(basename "$stem") capturing... ${elapsed}s elapsed (window: ${duration}s)"
+        done
+    ) &
+    heartbeat_pid=$!
     run_with_tee "$stem.stdout" "$stem.stderr" "$@"
     local status=$?
+    kill "$heartbeat_pid" 2>/dev/null || true
+    wait "$heartbeat_pid" 2>/dev/null || true
     echo "$status" > "$status_file"
     if [[ "$status" -ne 0 && "$status" -ne 124 && "$status" -ne 130 ]]; then
         log "command exited with status $status: $(quote_cmd "$@")"
@@ -328,7 +375,7 @@ run_timed_report() {
 }
 
 write_perf_reports() {
-    local out_dir="$1" data_file="$out_dir/perf.data"
+    local out_dir="$1"; local data_file="$out_dir/perf.data"
     if [[ ! -s "$data_file" ]]; then log "perf.data missing or empty; skipping perf reports"; return 0; fi
     stat -c '%s' "$data_file" > "$out_dir/perf.data.bytes" 2>/dev/null || true
     [[ "$report_preset" == "none" ]] && return 0
@@ -353,7 +400,7 @@ write_perf_reports() {
 }
 
 write_asset_summary() {
-    local out_dir="$1" trace_file="$out_dir/strace-assets.txt"
+    local out_dir="$1"; local trace_file="$out_dir/strace-assets.txt"
     if [[ ! -s "$trace_file" ]]; then log "strace output missing or empty; skipping asset summary"; return 0; fi
     python3 - "$trace_file" "$out_dir" <<'PY'
 import os, re, sys
@@ -435,7 +482,7 @@ PY
 }
 
 package_dir() {
-    local out_dir="$1" tarball="$out_dir.tar.gz" base
+    local out_dir="$1"; local tarball="$out_dir.tar.gz" base
     base="$(basename "$out_dir")"
     printf '%s\n' "$tarball" > "$out_dir/package-path.txt"
     if [[ "$include_raw_data" == "yes" ]]; then
@@ -458,7 +505,7 @@ run_perf_record() {
     write_metadata "$out_dir" "$local_mode"
     run_warm_build_if_needed "$out_dir" "$local_mode"
     if [[ "$local_mode" == "perf-attach" ]]; then
-        local target_pid; target_pid="$(find_game_pid)"; echo "$target_pid" > "$out_dir/pid.txt"
+        local target_pid; target_pid="$(find_game_pid)"; record_attach_target "$out_dir" "$target_pid"
         log "recording perf on PID $target_pid for ${duration}s"
         run_capture_command "$out_dir/perf-record.status" \
             perf record -F "$freq" -g --call-graph "$perf_call_graph" -o "$out_dir/perf.data" -p "$target_pid" -- sleep "$duration"
@@ -478,7 +525,7 @@ run_perf_stat() {
     write_metadata "$out_dir" "$local_mode"
     run_warm_build_if_needed "$out_dir" "$local_mode"
     if [[ "$local_mode" == "stat-attach" ]]; then
-        local target_pid; target_pid="$(find_game_pid)"; echo "$target_pid" > "$out_dir/pid.txt"
+        local target_pid; target_pid="$(find_game_pid)"; record_attach_target "$out_dir" "$target_pid"
         log "recording perf stat on PID $target_pid for ${duration}s"
         set +e
         perf stat -p "$target_pid" -I "$interval_ms" -e "$perf_events" -- sleep "$duration" > >(tee "$out_dir/perf-stat.stdout") 2> >(tee "$out_dir/perf-stat-interval.txt" >&2)
@@ -499,7 +546,7 @@ run_asset_trace() {
     write_metadata "$out_dir" "$local_mode"
     run_warm_build_if_needed "$out_dir" "$local_mode"
     if [[ "$local_mode" == "asset-attach" ]]; then
-        local target_pid; target_pid="$(find_game_pid)"; echo "$target_pid" > "$out_dir/pid.txt"
+        local target_pid; target_pid="$(find_game_pid)"; record_attach_target "$out_dir" "$target_pid"
         log "recording strace asset opens on PID $target_pid for ${duration}s"
         run_capture_command "$out_dir/strace.status" \
             timeout --signal=INT --kill-after=5s "${duration}s" \
@@ -513,6 +560,117 @@ run_asset_trace() {
     write_asset_summary "$out_dir"
 }
 
+write_timeline_reports() {
+    # NB: split locals — in `local a="$1" b="$a/x"`, $a expands from the OUTER
+    # scope, not the local being declared on the same line.
+    local out_dir="$1"; local data_file="$out_dir/perf.data"
+    if [[ ! -s "$data_file" ]]; then log "perf.data missing or empty; skipping timeline reports"; return 0; fi
+    # Whole-run reports first, then one flat report per equal time slice of the
+    # capture (perf's a%-b% --time filter operates on trace-relative time).
+    write_perf_reports "$out_dir"
+    local i lo hi label
+    for (( i = 0; i < timeline_chunks; i++ )); do
+        lo=$(( i * 100 / timeline_chunks ))
+        hi=$(( (i + 1) * 100 / timeline_chunks ))
+        label="$(printf 'perf-chunk-%02d' "$i")"
+        run_timed_report "$out_dir" "$label" \
+            perf report -i "$data_file" --stdio --sort comm,dso,symbol --call-graph none \
+            --percent-limit 0.5 --no-inline --no-source --time "${lo}%-${hi}%"
+    done
+}
+
+write_timeline_summary() {
+    local out_dir="$1"
+    python3 - "$out_dir" "$timeline_chunks" "$marker_regex" <<'PY'
+import os, re, sys
+out, chunks, marker = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+pat = re.compile(marker, re.I)
+stamp_pat = re.compile(r'^\[\s*([0-9.]+)s\]\s?(.*)$')
+events = []
+for name in ('game-stderr-stamped.txt', 'game-stdout-stamped.txt'):
+    path = os.path.join(out, name)
+    if not os.path.exists(path):
+        continue
+    with open(path, errors='replace') as f:
+        for line in f:
+            m = stamp_pat.match(line)
+            if m:
+                events.append((float(m.group(1)), m.group(2).rstrip()))
+events.sort(key=lambda e: e[0])
+total = max((t for t, _ in events), default=0.0)
+markers = [(t, s) for t, s in events if pat.search(s)]
+perc = re.compile(r'\s*[0-9]+(\.[0-9]+)?%')
+lines = ['# Timeline profile', '',
+         f'Observed span: {total:.1f}s, sliced into {chunks} chunks.',
+         f'Marker regex: `{marker}`', '',
+         'Chunk boundaries assume log time tracks trace time from launch;',
+         'if the game exited early or idled past the last log line, edges skew.', '']
+for i in range(chunks):
+    lo, hi = total * i / chunks, total * (i + 1) / chunks
+    lines.append(f'## Chunk {i}: {lo:.1f}s - {hi:.1f}s')
+    carry = [s for t, s in markers if t < lo]
+    if carry:
+        lines.append(f'Carried context: `{carry[-1][:200]}`')
+    inwin = [(t, s) for t, s in markers if lo <= t < hi]
+    if inwin:
+        lines += ['', 'Markers:', '```text']
+        shown = inwin if len(inwin) <= 10 else inwin[:5] + inwin[-5:]
+        for t, s in shown:
+            lines.append(f'{t:9.3f}s {s[:200]}')
+        if len(inwin) > 10:
+            lines.append(f'... {len(inwin) - 10} more marker lines omitted ...')
+        lines.append('```')
+    else:
+        lines.append('(no marker lines in this window)')
+    try:
+        with open(os.path.join(out, f'perf-chunk-{i:02d}.txt'), errors='replace') as f:
+            rpt = f.read()
+    except FileNotFoundError:
+        rpt = ''
+    top = [l[:200] for l in rpt.splitlines() if perc.match(l)][:15]
+    if top:
+        lines += ['', 'Top symbols:', '```text'] + top + ['```']
+    lines.append('')
+with open(os.path.join(out, 'timeline.md'), 'w') as f:
+    f.write('\n'.join(lines) + '\n')
+PY
+    log "timeline summary: $out_dir/timeline.md"
+}
+
+run_timeline() {
+    local local_mode="$1" out_dir="$2"
+    require_tool perf; require_tool python3
+    ensure_perf_kernel_level
+    write_metadata "$out_dir" "$local_mode"
+    run_warm_build_if_needed "$out_dir" "$local_mode"
+    log "timeline capture: ${duration}s window, ${timeline_chunks} chunks -- play through the phases you want profiled"
+    echo "$(quote_cmd timeout --signal=INT --kill-after=5s "${duration}s" \
+        perf record -F "$freq" -g --call-graph "$perf_call_graph" -o "$out_dir/perf.data" -- "${run_cmd[@]}")" \
+        > "$out_dir/perf-record.command.txt"
+    local stamp_py='
+import sys, time
+t0 = time.monotonic()
+for line in sys.stdin:
+    sys.stdout.write(f"[{time.monotonic()-t0:9.3f}s] {line}")
+    sys.stdout.flush()
+'
+    local heartbeat_pid=""
+    ( elapsed=0; while sleep 5; do elapsed=$((elapsed + 5)); log "timeline capturing... ${elapsed}s elapsed (window: ${duration}s)"; done ) &
+    heartbeat_pid=$!
+    set +e
+    timeout --signal=INT --kill-after=5s "${duration}s" \
+        perf record -F "$freq" -g --call-graph "$perf_call_graph" -o "$out_dir/perf.data" -- "${run_cmd[@]}" \
+        > >(python3 -u -c "$stamp_py" > "$out_dir/game-stdout-stamped.txt") \
+        2> >(python3 -u -c "$stamp_py" | tee "$out_dir/game-stderr-stamped.txt" >&2)
+    local status=$?
+    set -e
+    kill "$heartbeat_pid" 2>/dev/null || true
+    wait "$heartbeat_pid" 2>/dev/null || true
+    echo "$status" > "$out_dir/perf-record.status"
+    write_timeline_reports "$out_dir"
+    write_timeline_summary "$out_dir"
+}
+
 run_one_mode() {
     local local_mode="$1" out_dir="$2"
     mkdir -p "$out_dir"
@@ -520,6 +678,7 @@ run_one_mode() {
         perf-run|perf-attach) run_perf_record "$local_mode" "$out_dir" ;;
         stat-run|stat-attach) run_perf_stat "$local_mode" "$out_dir" ;;
         asset-run|asset-attach) run_asset_trace "$local_mode" "$out_dir" ;;
+        timeline-run) run_timeline "$local_mode" "$out_dir" ;;
         *) fail "unsupported mode '$local_mode'" ;;
     esac
     write_summary "$out_dir"

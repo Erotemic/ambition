@@ -125,6 +125,11 @@ def crate_has_tests(crate: Path) -> bool:
 class Job:
     name: str
     argv: list[str]
+    # Working directory for the job; None = the repo root. Cargo discovers
+    # `.cargo/config.toml` from the CWD upward (NOT from --manifest-path), so a
+    # job that must honor an out-of-tree crate's own config — the external
+    # consumer fixture's isolated target-dir — has to run from that directory.
+    cwd: str | None = None
 
 
 @dataclass
@@ -234,8 +239,8 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # unification hides it), and this job is the only gate that can see it.
     if not only and not fast:
         jobs.append(Job("external consumer: outlander",
-                        [CARGO, "test", "--manifest-path",
-                         "fixtures/external_consumer/Cargo.toml"]))
+                        [CARGO, "test"],
+                        cwd=str(REPO / "fixtures" / "external_consumer")))
 
     # Heavy pass: rerun including #[ignore]d tests, plus the shipping-entrypoint
     # acceptance cycles (full app boot). Whole-suite, non-fast only.
@@ -269,7 +274,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None) -> in
         print(f"\n\033[1m==> {j.name}\033[0m")
         print("    " + " ".join(j.argv))
         start = time.monotonic()
-        rc = subprocess.run(j.argv, cwd=REPO, env=env).returncode
+        rc = subprocess.run(j.argv, cwd=j.cwd or REPO, env=env).returncode
         results.append(JobResult(j.name, j.argv, rc == 0, time.monotonic() - start))
         if rc != 0:
             print(f"\033[31m    FAILED ({j.name})\033[0m")

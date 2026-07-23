@@ -914,6 +914,9 @@ pub fn run_web() {
     }));
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
     ambition::runtime::init_engine_states(&mut app);
+    // wasm has one thread; the multithreaded executor's bookkeeping is pure
+    // overhead there. Same measured rationale as the desktop adoption.
+    ambition::runtime::serialize_frame_schedules(&mut app);
     // GameAssetConfig defaults match the no-args desktop path — no
     // `std::env::args` parsing on the web because the browser provides
     // none and the helper hits stdlib paths that don't exist on wasm.

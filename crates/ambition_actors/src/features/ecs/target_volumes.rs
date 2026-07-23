@@ -34,13 +34,16 @@ pub fn refresh_actor_damageable_volumes(
         ),
     >,
 ) {
-    for (aabb, disposition, health, mut damageable) in &mut actors {
-        // Peaceful actors are always a valid player-strike target; hostile actors
-        // only while alive.
-        if disposition.is_peaceful() || health.is_some_and(|h| h.alive()) {
-            damageable.set_single(aabb.aabb());
-        } else {
+    for (aabb, _disposition, health, mut damageable) in &mut actors {
+        // Structural tangibility gate (Jon 2026-07-22): a live body — peaceful or
+        // hostile — is a valid player-strike / pogo target; a dead one is an
+        // intangible corpse and publishes no volume (so you cannot pogo off a
+        // corpse). Disposition governs AI and damage dealt TO the player, not
+        // whether the player can refresh a downslash from the body.
+        if crate::combat::util::body_is_corpse(health) {
             damageable.clear();
+        } else {
+            damageable.set_single(aabb.aabb());
         }
     }
 }

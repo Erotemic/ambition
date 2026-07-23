@@ -112,7 +112,14 @@ pub fn update_vortex_wells(
     world_time: Res<ambition_time::WorldTime>,
     mut commands: Commands,
     mut wells: Query<(Entity, &mut VortexWell)>,
-    mut actors: Query<(&mut BodyKinematics, &ActorFaction), With<FeatureSimEntity>>,
+    mut actors: Query<
+        (
+            &mut BodyKinematics,
+            &ActorFaction,
+            Option<&ambition_characters::actor::BodyHealth>,
+        ),
+        With<FeatureSimEntity>,
+    >,
 ) {
     let dt = world_time.scaled_dt;
     if dt <= 0.0 {
@@ -120,8 +127,10 @@ pub fn update_vortex_wells(
     }
     let factor = (VORTEX_PULL_RATE * dt).min(1.0);
     for (entity, mut well) in &mut wells {
-        for (mut kin, faction) in &mut actors {
-            if *faction != ActorFaction::Enemy {
+        for (mut kin, faction, health) in &mut actors {
+            // Structural tangibility gate (Jon 2026-07-22): a dead enemy is an
+            // intangible corpse — the well does not drag it.
+            if *faction != ActorFaction::Enemy || crate::combat::util::body_is_corpse(health) {
                 continue;
             }
             if kin.pos.distance(well.center) <= VORTEX_RADIUS {
@@ -198,6 +207,47 @@ mod tests {
         assert!(
             new_dist < start_dist,
             "enemy should be pulled toward the singularity: {start_dist} -> {new_dist}"
+        );
+    }
+
+    #[test]
+    fn vortex_does_not_pull_a_dead_enemy() {
+        // A dead enemy is an intangible corpse: the well must not drag it.
+        // (Enemies die and linger with a body, so this is reachable.) Poison:
+        // drop the `body_is_corpse` skip in `update_vortex_wells` and the corpse
+        // is pulled toward the singularity.
+        let mut app = test_app();
+        let player = spawn_primary_player_holding(&mut app, VORTEX_ID);
+        // A DEAD enemy just inside the radius (well spawns at 300,100).
+        let corpse = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                BodyKinematics {
+                    pos: ae::Vec2::new(420.0, 100.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+                ActorFaction::Enemy,
+                ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health {
+                    current: 0,
+                    max: 3,
+                    invulnerable: false,
+                }),
+            ))
+            .id();
+        app.world_mut()
+            .get_mut::<ActorControl>(player)
+            .unwrap()
+            .0
+            .melee_pressed = true;
+        app.update();
+        let pos = app.world().get::<BodyKinematics>(corpse).unwrap().pos;
+        assert_eq!(
+            pos,
+            ae::Vec2::new(420.0, 100.0),
+            "a dead enemy corpse must not be pulled by the vortex"
         );
     }
 

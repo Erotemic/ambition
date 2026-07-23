@@ -56,6 +56,7 @@ pub fn interact_ecs_actors_and_switches(
             &ActorDisposition,
             &ActorIdentity,
             &ActorInteraction,
+            Option<&ambition_characters::actor::BodyHealth>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -106,11 +107,13 @@ pub fn interact_ecs_actors_and_switches(
     let speaker_id =
         dialogue_identity(interactions.get(subject).ok(), identities.get(subject).ok())
             .or_else(|| dialogue.worn.get(subject).ok().map(|w| w.id().to_string()));
-    for (actor_entity, aabb, disposition, identity, interaction_payload) in &actors {
+    for (actor_entity, aabb, disposition, identity, interaction_payload, health) in &actors {
         let Some(speaker_id) = speaker_id.as_deref() else {
             break;
         };
-        if disposition.is_hostile() {
+        // A hostile actor gates dialogue off; a dead one is an intangible corpse
+        // and cannot be talked to (Jon 2026-07-22 — one tangibility policy).
+        if disposition.is_hostile() || crate::combat::util::body_is_corpse(health) {
             continue;
         }
         let interactable = &interaction_payload.interactable;

@@ -54,7 +54,15 @@ pub fn update_nearest_interactable(
             With<crate::actor::PrimaryPlayer>,
         ),
     >,
-    actors: Query<(&CenteredAabb, &ActorDisposition, &ActorInteraction), With<FeatureSimEntity>>,
+    actors: Query<
+        (
+            &CenteredAabb,
+            &ActorDisposition,
+            &ActorInteraction,
+            Option<&ambition_characters::actor::BodyHealth>,
+        ),
+        With<FeatureSimEntity>,
+    >,
     chests: Query<(&CenteredAabb, Option<&Opened>), (With<FeatureSimEntity>, With<ChestFeature>)>,
     switches: Query<&CenteredAabb, (With<FeatureSimEntity>, With<SwitchFeature>)>,
     mut out: ResMut<NearestInteractable>,
@@ -75,8 +83,10 @@ pub fn update_nearest_interactable(
     // carries `ActorInteraction`; a provoked one keeps it but flips to
     // `Hostile`, so the disposition gate drops it out of the prompt.
     let mut chosen = InteractVariant::None;
-    for (aabb, disposition, _interaction) in &actors {
-        if disposition.is_hostile() {
+    for (aabb, disposition, _interaction, health) in &actors {
+        // A hostile actor drops out of the Talk prompt; a dead one is an
+        // intangible corpse and offers no prompt (Jon 2026-07-22 — one policy).
+        if disposition.is_hostile() || crate::combat::util::body_is_corpse(health) {
             continue;
         }
         if aabb.aabb().strict_intersects(player_aabb) {

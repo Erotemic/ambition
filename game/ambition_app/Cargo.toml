@@ -26,6 +26,7 @@ desktop_dev = [
     "mobile_touch",
     "rl_sim",
     "falling_sand",
+    "mimalloc_alloc",
 ]
 
 # Swap the game binary's global allocator to mimalloc. Opt-in so profiling
@@ -98,6 +99,7 @@ android = [
     "mobile_touch",
     "rl_sim",
     "static_map",
+    "mimalloc_alloc",
 ]
 android_dev = ["android", "dev_tools"]
 

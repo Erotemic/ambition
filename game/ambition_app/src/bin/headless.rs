@@ -22,12 +22,6 @@
 
 use std::path::PathBuf;
 
-// Same allocator A/B lever as ambition_game_bin, so allocator experiments can
-// be measured headlessly: `cargo build --bin headless --features mimalloc_alloc`.
-#[cfg(feature = "mimalloc_alloc")]
-#[global_allocator]
-static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
 use ambition::actors::trace::{self, record_simulation_frame, DumpReason, GameplayTraceBuffer};
 use ambition::input::ControlFrame;
 use ambition_app::rl_sim::{AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};

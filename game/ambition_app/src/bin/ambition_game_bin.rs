@@ -10,12 +10,6 @@
 //! from `ambition_app::lib`, which calls `app::run_web` after the wasm module
 //! finishes loading. See `docs/recipes/web-build.md` for the bootstrap.
 
-// Allocator A/B lever (see mimalloc_alloc in Cargo.toml): glibc malloc holds
-// 5-8% of self-time across every phase of the desktop profile.
-#[cfg(all(not(target_arch = "wasm32"), feature = "mimalloc_alloc"))]
-#[global_allocator]
-static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
     ambition_app::app::run_visible();

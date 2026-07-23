@@ -10,6 +10,17 @@
 //! Binaries: `ambition_game_bin`, `headless`, `rl_random_walker`, `rl_smoke`,
 //! and `trace_replay` (rl_sim feature for the stepping drivers).
 
+// Process-wide allocator, declared in the LIB so it covers every entry point
+// that links it: the desktop bin, the headless drivers, AND the Android
+// cdylib (a bin-local declaration never reaches the shared library). Default
+// on via the platform bundles: glibc malloc measured 5-9% of self-time in
+// every desktop profile phase, mimalloc ~8% faster on the headless benchmark,
+// and Android's bionic malloc is weaker than glibc. Opt out by building
+// without `mimalloc_alloc`.
+#[cfg(all(feature = "mimalloc_alloc", not(target_arch = "wasm32")))]
+#[global_allocator]
+static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 pub mod app;
 pub mod dev;
 pub mod headless;

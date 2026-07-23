@@ -158,6 +158,11 @@ impl Plugin for HostInputBindingsPlugin {
             .init_resource::<PlayerDashTriggerState>()
             .init_resource::<ambition_input::ActiveInputKind>()
             .add_plugins(InputManagerPlugin::<SandboxAction>::default())
+            .add_systems(
+                bevy::app::PreUpdate,
+                tune_clash_strategy_to_bindings
+                    .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
+            )
             // Leafwing orders both its Tick set (which CLEARS the central
             // input store) and its Unify set (which recomputes it from
             // devices) before Update, but leaves Tick vs Unify UNORDERED — a
@@ -226,6 +231,43 @@ impl Plugin for HostInputBindingsPlugin {
                     .chain()
                     .before(SandboxSet::CoreSimulation),
             );
+    }
+}
+
+/// Derive leafwing's [`ClashStrategy`] from the live bindings: chord-free maps
+/// run `PressAll` (skipping the per-frame `possible_clash` pair scans — 1-2.6%
+/// of CPU in desktop-lifecycle-4, where no chord existed to resolve), and the
+/// moment any composed game authors a chorded binding the strategy flips back
+/// to `PrioritizeLongest` the same frame. Per-game by construction: each
+/// composition's actual `InputMap`s decide, no configuration to forget.
+#[cfg(feature = "input")]
+fn tune_clash_strategy_to_bindings(
+    maps: Query<
+        bevy::ecs::change_detection::Ref<
+            leafwing_input_manager::prelude::InputMap<ambition_input::SandboxAction>,
+        >,
+    >,
+    mut strategy: ResMut<leafwing_input_manager::prelude::ClashStrategy>,
+) {
+    use leafwing_input_manager::clashing_inputs::BasicInputs;
+    use leafwing_input_manager::prelude::ClashStrategy;
+    if !maps.iter().any(|map| map.is_changed()) {
+        return;
+    }
+    let any_chord = maps.iter().any(|map| {
+        map.iter_buttonlike().any(|(_, inputs)| {
+            inputs
+                .iter()
+                .any(|input| matches!(input.decompose(), BasicInputs::Chord(_)))
+        })
+    });
+    let desired = if any_chord {
+        ClashStrategy::PrioritizeLongest
+    } else {
+        ClashStrategy::PressAll
+    };
+    if *strategy != desired {
+        *strategy = desired;
     }
 }
 
@@ -304,5 +346,60 @@ impl Plugin for HostCameraPlugin {
                 crate::portal::tag_portal_camera_continuity_camera.after(camera_follow),
             );
         }
+    }
+}
+
+#[cfg(all(test, feature = "input"))]
+mod clash_strategy_tests {
+    use super::tune_clash_strategy_to_bindings;
+    use ambition_input::SandboxAction;
+    use bevy::prelude::*;
+    use leafwing_input_manager::prelude::{ButtonlikeChord, ClashStrategy, InputMap};
+
+    fn app_with_map(map: InputMap<SandboxAction>) -> App {
+        let mut app = App::new();
+        app.init_resource::<ClashStrategy>()
+            .add_systems(Update, tune_clash_strategy_to_bindings);
+        app.world_mut().spawn(map);
+        app
+    }
+
+    #[test]
+    fn chord_free_bindings_relax_to_press_all() {
+        let map = InputMap::new([(SandboxAction::Jump, KeyCode::Space)]);
+        let mut app = app_with_map(map);
+        app.update();
+        assert_eq!(
+            *app.world().resource::<ClashStrategy>(),
+            ClashStrategy::PressAll,
+        );
+    }
+
+    #[test]
+    fn authoring_a_chord_reenables_clash_resolution_same_frame() {
+        let map = InputMap::new([(SandboxAction::Jump, KeyCode::Space)]);
+        let mut app = app_with_map(map);
+        app.update();
+        assert_eq!(
+            *app.world().resource::<ClashStrategy>(),
+            ClashStrategy::PressAll,
+        );
+        let entity = app
+            .world_mut()
+            .query_filtered::<Entity, With<InputMap<SandboxAction>>>()
+            .single(app.world())
+            .unwrap();
+        app.world_mut()
+            .get_mut::<InputMap<SandboxAction>>(entity)
+            .unwrap()
+            .insert(
+                SandboxAction::Interact,
+                ButtonlikeChord::new([KeyCode::ControlLeft, KeyCode::KeyE]),
+            );
+        app.update();
+        assert_eq!(
+            *app.world().resource::<ClashStrategy>(),
+            ClashStrategy::PrioritizeLongest,
+        );
     }
 }

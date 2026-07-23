@@ -226,6 +226,25 @@ ensure_perf_kernel_level() {
     fi
 }
 
+# Separate knob from perf_event_paranoid: kptr_restrict=1 zeroes /proc/kallsyms
+# addresses for unprivileged readers, so kernel-side samples all show as
+# [unknown] 0xffffffff... rows. User-space symbols are unaffected; this only
+# recovers kernel attribution (futex vs ioctl vs page fault).
+ensure_kernel_symbol_visibility() {
+    local current
+    current="$(cat /proc/sys/kernel/kptr_restrict 2>/dev/null || true)"
+    if [[ ! "$current" =~ ^-?[0-9]+$ ]] || (( current == 0 )); then return 0; fi
+    if [[ "$(id -u)" == "0" ]]; then return 0; fi
+    local sudo_cmd=(sudo)
+    if [[ ! -t 0 ]]; then sudo_cmd=(sudo -n); fi
+    log "kernel.kptr_restrict=$current hides kernel symbols; requesting 0 for this boot"
+    if "${sudo_cmd[@]}" sysctl -w kernel.kptr_restrict=0; then
+        log "kernel.kptr_restrict=0 until reboot"
+    else
+        log "sudo declined/unavailable; kernel samples will stay [unknown] (user-space symbols unaffected)"
+    fi
+}
+
 mode_uses_launch() { case "$1" in perf-run|stat-run|asset-run|timeline-run) return 0 ;; *) return 1 ;; esac; }
 warm_build_is_enabled_for() {
     case "$warm_build" in
@@ -502,6 +521,7 @@ run_perf_record() {
     local local_mode="$1" out_dir="$2"
     require_tool perf
     ensure_perf_kernel_level
+    ensure_kernel_symbol_visibility
     write_metadata "$out_dir" "$local_mode"
     run_warm_build_if_needed "$out_dir" "$local_mode"
     if [[ "$local_mode" == "perf-attach" ]]; then
@@ -522,6 +542,7 @@ run_perf_stat() {
     local local_mode="$1" out_dir="$2"
     require_tool perf
     ensure_perf_kernel_level
+    ensure_kernel_symbol_visibility
     write_metadata "$out_dir" "$local_mode"
     run_warm_build_if_needed "$out_dir" "$local_mode"
     if [[ "$local_mode" == "stat-attach" ]]; then
@@ -641,6 +662,7 @@ run_timeline() {
     local local_mode="$1" out_dir="$2"
     require_tool perf; require_tool python3
     ensure_perf_kernel_level
+    ensure_kernel_symbol_visibility
     write_metadata "$out_dir" "$local_mode"
     run_warm_build_if_needed "$out_dir" "$local_mode"
     log "timeline capture: ${duration}s window, ${timeline_chunks} chunks -- play through the phases you want profiled"

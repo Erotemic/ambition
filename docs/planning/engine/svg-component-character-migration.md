@@ -351,3 +351,25 @@ re-verified `captured 36/36` under `--full` — now proving completeness, not
 intersection colour. Poison tests: `tests/test_fidelity_metric.py` (omitted /
 invented / wrong-alpha / in- and out-of-tolerance shift / colour-noise-over-
 complete-geometry / non-wrapping translate).
+
+**Round 2 — alpha-aware, not a `>200` cutoff.** The symmetric metric above
+still built its masks from a binary `alpha>200` "solid" threshold, discarding
+*every translucent pixel*, so a missing/invented/wrong-alpha translucent
+component (glow, beam, cloth, effect) beside matching opaque geometry scored
+`(0,0)` and passed. Replaced with a **continuous alpha-aware** metric (numpy),
+still two gates over the same non-wrapping ±1 search:
+`occupancy = Σ|ap−ar| / Σ max(ap,ar)` over the union of *meaningful* alpha
+(`>12/255`) — missing/invented/wrong-alpha geometry at any opacity lands here,
+proportional to alpha mass, while a soft AA/blur edge both frames render alike
+(`ap≈ar`) contributes ~0; `rgb = Σ min(ap,ar)·|Δrgb| / Σ min(ap,ar)` over the
+mutually-occupied region, so a missing part cannot leak into the colour term.
+Thresholds are calibrated to the measured complete-frame floor: mockingbird's
+extended translucent thruster beam floors at ~0.056 occupancy (resvg vs Pillow
+gradient alpha), so the occupancy bar is `0.07`; alpha-weighted rgb collapses
+to ~0.008, bar stays `0.12`. Like any raster check it cannot resolve a single
+tiny primitive from fringe, but reliably catches the reviewer's class
+(limb/beam/glow = 12–50% of alpha mass) at every opacity. GPT's three repro
+cases now score occupancy 0.12–0.14 and fail; mockingbird holds
+`captured 36/36`. Added poison tests for the translucent hole (omitted /
+invented / wrong-sub-threshold-alpha translucent component + a
+never-silently-discarded property test).

@@ -981,3 +981,51 @@ character-actions gates and touching the real-audio test harness is not zero-ris
   results card should be a beat you read, not one you die during. Fixing it
   would also let `act_completion.rs` carry the act-clear replay assertion
   directly, retiring the controlled-setup stand-in.
+
+## 2026-07-23 Two SFX bank registries answer the same question with different costs
+
+- **Smell:** `SfxBankResource` (bank_asset.rs, holds `Arc<BankProvider>`) and
+  `SfxBankRegistry` (catalog.rs, holds fingerprint fragments) both expose
+  `ids_for(provider) -> BTreeSet<SfxId>`, and callers pick one apparently by
+  proximity. `platformer_provider/lifecycle.rs:159` calls the registry version
+  every frame while a load is pending just to test `!is_empty()` — building a
+  373-entry set to throw it away; it wants a `has_bank(provider)` predicate.
+  The resource version walks the whole bank per call via `iter_ids`.
+- **Noticed while:** hunting the per-play full-bank FNV hashing (fixed in
+  1f2be62f9); the duplicate surface is why the hot path was hard to attribute.
+- **Why it went unseen:** both types live in ambition_audio with
+  near-identical doc comments; either compiles at every call site.
+- **Suggested fix / size:** M. Unify on one authority (registry as the id/
+  fingerprint read-model, resource as clip storage only), give it cheap
+  `has_bank`/`contains` predicates, and make `ids_for` return a cached
+  `Arc<BTreeSet>` instead of rebuilding.
+
+## 2026-07-23 Update is the everything-schedule: 311 add_systems(Update) call sites
+
+- **Smell:** 311 static `add_systems(Update, ...)` call sites (766 total
+  add_systems), zero use of FixedUpdate; the multithreaded executor's per-
+  system graph bookkeeping measured 10-18% of CPU self-time in EVERY phase of
+  the desktop-lifecycle-1 profile — title screen included, where almost none
+  of those systems have work.
+- **Noticed while:** profiling; no gameplay system cracked 1% but the
+  scheduler around them did.
+- **Why it went unseen:** each registration is individually reasonable; the
+  cost is the aggregate and only shows up in a profiler, not in review.
+- **Suggested fix / size:** L (tracked in perf campaign). `[schedule-census]`
+  (80e1cf900) prints the real runtime counts; next step is run_if-gating
+  whole sets by session phase and merging trivial systems. A grep-able
+  invariant ("new Update systems name a set with a run condition") may be
+  worth adding once the shape settles.
+
+## 2026-07-23 bevy_falling_sand ships its own on/off switch we never touched
+
+- **Smell:** upstream gates every set on `resource_exists::<ParticleSimulationRun>`
+  and then `init_resource`s it, i.e. defaults to "always simulate". We paid a
+  full-map chunk scan in every room of every game since integration.
+- **Noticed while:** chasing `par_handle_movement_by_chunks` in the profile;
+  fixed by mirroring room presence into the switch (22dc66752).
+- **Why it went unseen:** the cost is flat and silent (~1-3%), and the sand
+  room worked perfectly — nothing was broken, everything was slower.
+- **Suggested fix / size:** done for sand; pattern note: when integrating an
+  external sim crate, find its idle switch on day one and wire it to session
+  scope — "plugin added" should not mean "simulation running".

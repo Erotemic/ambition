@@ -286,82 +286,22 @@ fn enemy_death_and_inplace_revive_survive_rollback() {
 /// all — only the enemy brains, patrol paths, and feature timers running. A
 /// divergence here isolates the fault to the room's autonomous population
 /// before the full oracle's combat even starts.
+///
+/// During development this test carried a five-variant despawn matrix
+/// (no_enemies / no_brick / no_switch / no_pickups) plus a print-only pickup
+/// census — the bisection tools that cornered the `Collected` latch. Those
+/// cost five extra sim boots per suite run and their findings are fixed and
+/// pinned elsewhere, so the standing probe keeps only the intact room
+/// (2026-07-23 rollback review: trim the diagnostic matrix). Resurrect the
+/// matrix from git history if this ever goes red again.
 #[test]
 fn the_calibration_lab_is_checksum_stable_at_rest() {
-    {
-        let mut sim = SandboxSim::new_with_options(
-            SandboxSimOptions::default()
-                .with_timestep(TimestepMode::fixed_60hz())
-                .with_start_room("combat_calibration_lab"),
-        )
-        .expect("plain harness builds");
-        for frame in 0..16 {
-            let world = sim.world_mut();
-            let pickups = {
-                let mut q = world
-                    .query_filtered::<Entity, With<ambition::combat::components::PickupFeature>>();
-                q.iter(world).count()
-            };
-            eprintln!("[probe] frame {frame}: {pickups} pickups");
-            sim.step(AgentAction::default());
-        }
+    let mut sim = oracle_sim();
+    for frame in 0..48 {
+        sim.step(AgentAction::default());
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("frame {frame}: {error}"));
     }
-    let mut failures = Vec::new();
-    for variant in [
-        "intact",
-        "no_enemies",
-        "no_brick",
-        "no_switch",
-        "no_pickups",
-    ] {
-        let mut sim = oracle_sim();
-        {
-            let world = sim.world_mut();
-            let doomed: Vec<Entity> = match variant {
-                "no_enemies" => {
-                    let mut q = world.query_filtered::<Entity, (
-                        With<BodyHealth>,
-                        Without<ambition::platformer::markers::PrimaryPlayer>,
-                    )>();
-                    q.iter(world).collect()
-                }
-                "no_brick" => {
-                    let mut q = world
-                        .query_filtered::<Entity, With<ambition::combat::components::BreakableFeature>>();
-                    q.iter(world).collect()
-                }
-                "no_switch" => {
-                    let mut q = world
-                        .query_filtered::<Entity, With<ambition::actors::encounter::SwitchFeature>>(
-                        );
-                    q.iter(world).collect()
-                }
-                "no_pickups" => {
-                    let mut q = world
-                        .query_filtered::<Entity, With<ambition::combat::components::PickupFeature>>();
-                    q.iter(world).collect()
-                }
-                _ => Vec::new(),
-            };
-            for entity in doomed {
-                world.despawn(entity);
-            }
-        }
-        sim.rebase_rollback_history()
-            .expect("variant despawn setup becomes the rollback baseline");
-        for frame in 0..48 {
-            sim.step(AgentAction::default());
-            if let Err(error) = sim.rollback_health() {
-                failures.push(format!("{variant}: frame {frame}: {error}"));
-                break;
-            }
-        }
-    }
-    assert!(
-        failures.is_empty(),
-        "variants diverged:\n{}",
-        failures.join("\n")
-    );
 }
 
 #[test]

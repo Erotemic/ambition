@@ -215,9 +215,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "::features::banter::CombatBanterRegistry",
         "authored banter registry",
     ),
+    ("::features::enemies::CharacterRoster", "authored roster"),
     (
-        "::features::enemies::CharacterRoster",
-        "authored roster (and its registry)",
+        "::features::enemies::CharacterRosterRegistry",
+        "authored roster fragment registry",
     ),
     (
         "::actor::character_catalog::",
@@ -247,8 +248,12 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "authored LDtk project; hot reload restarts the session",
     ),
     (
-        "::session::data::SandboxData",
-        "authored data assets (spec, asset handle, and Assets store)",
+        "::session::data::SandboxDataSpec",
+        "authored data-spec value",
+    ),
+    (
+        "::session::data::SandboxDataAsset",
+        "authored data asset handle",
     ),
     (
         "::provider::AmbitionPreparedWorld",
@@ -328,7 +333,28 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "::app::player_clone::",
         "dev clone-spawn bookkeeping; the spawned clone's body is registered component state",
     ),
-    ("::intro::plugin::Intro", "install-once content markers"),
+    // Install-once content latches: set exactly once when the intro content
+    // plugin installs its fragments, never advanced inside a GGRS frame.
+    (
+        "::intro::plugin::IntroSpritesInstalled",
+        "install-once latch",
+    ),
+    (
+        "::intro::plugin::IntroPropSpritesInstalled",
+        "install-once latch",
+    ),
+    (
+        "::intro::plugin::IntroCutscenesInstalled",
+        "install-once latch",
+    ),
+    (
+        "::intro::plugin::IntroBanterInstalled",
+        "install-once latch",
+    ),
+    (
+        "::intro::plugin::IntroGatedZonesInstalled",
+        "install-once latch",
+    ),
     (
         "::cutscene_trigger::CutsceneTriggerQueue",
         "narrative trigger seam; seen-flags in the rollback-registered SandboxSave dedup re-fires",
@@ -367,6 +393,26 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
 ];
 
+/// Anchored waiver matching (2026-07-23 rollback review: "narrow waivers").
+///
+/// A bare substring `contains` let every type entry shadow its neighbors —
+/// `::enemies::CharacterRoster` silently waived `CharacterRosterRegistry`,
+/// and any NEW mutable resource whose path happened to contain a waived
+/// fragment vanished from the sweep. Entry spelling now selects scope:
+/// - ends with `::` — a deliberate MODULE-family waiver (`contains`);
+/// - ends with `<`  — a generic type's prefix (`contains`);
+/// - otherwise      — a full type-path SUFFIX (`ends_with`): one entry, one
+///   type, and a new sibling type must earn its own waiver row.
+fn resource_waived(name: &str) -> bool {
+    RESOURCE_WAIVED.iter().any(|(needle, _)| {
+        if needle.ends_with("::") || needle.ends_with('<') {
+            name.contains(needle)
+        } else {
+            name.ends_with(needle)
+        }
+    })
+}
+
 /// Strip Bevy's message-buffer wrapper so a buffer is judged by its message
 /// type: `clear_message_on_rollback` registrations record the MESSAGE type
 /// name, while `iter_resources` reports the `Messages<T>` wrapper.
@@ -396,12 +442,7 @@ fn unaccounted_resources(world: &World) -> Vec<String> {
         }
         seen_any = true;
         let name = unwrap_message_buffer(&full_name);
-        if known.contains(name)
-            || waiver(name).is_some()
-            || RESOURCE_WAIVED
-                .iter()
-                .any(|(needle, _)| name.contains(needle))
-        {
+        if known.contains(name) || waiver(name).is_some() || resource_waived(name) {
             continue;
         }
         unaccounted.push(full_name);

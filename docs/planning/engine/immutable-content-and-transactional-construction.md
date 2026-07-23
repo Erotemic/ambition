@@ -1652,8 +1652,14 @@ no hand-reviewed remainder, no latent unregistered authoritative state.
 - Authored, staged, and dynamic examples restore through the common
   construction seam (met by Phase 4).
 - The exit-oracle sync test passes: combat, equipment, switch, and breakable
-  state all survive a forced rollback window checksum-identically.
-- No enumerated demo-content state remains unregistered.
+  state all survive a forced rollback window checksum-identically. ✅ MET
+  2026-07-23 (`f5fdbb4b9`) — un-ignored, green, plus the two narrowed repros.
+- No enumerated demo-content state remains unregistered. ✅ MET — and
+  behaviorally proven (`d73391c8a`): each demo shell now has a
+  save→mutate→restore test on the GGRS host, which immediately caught both
+  demo mode owners being REGISTERED but UNANCHORED (bare state-holder
+  entities no engine rollback anchor reached — the registrations never
+  snapshotted anything until `require_rollback` anchored the owners).
 
 #### Phase 5c account — what the exit oracle found (2026-07-23)
 
@@ -1677,27 +1683,56 @@ could never see, in layers:
    rewind between strike and resolver UN-HIT the player. Fixed with
    `PendingPlayerHitEvents` — a rollback-registered FIFO staged at the end
    of Combat (the `SwitchActivationQueue` pattern, deep review §2.2).
-3. **OPEN (root cause CONFIRMED, fix pending): the second hit diverges via
-   the hitstop clock chain.** `apply_player_hit_events` (PlayerSimulation)
-   writes `ClockResetRequest`/hitstop on a landed hit, but the consumers —
-   `apply_clock_scale_requests` / `apply_clock_reset_requests` — run in
-   PlayerInput, the phase BEFORE it: the request crosses a frame boundary
-   in a message buffer, the same class as finding 2. A rewind between
-   write and consume loses the hitstop, the resimulated time scale
-   differs, and every timer shifts — surfacing ~50 frames later as the
-   second-hit checksum split. **Fix shape (corrected by the 2026-07-23
-   rollback review): NOT a uniform one-frame FIFO** — a blanket delay
-   breaks same-frame consumers (a FIFO attempt turned 7 clock/melee tests
-   red and was reverted) and would let WorldPrep re-observe an overlap
-   before the delayed hit applies. The right move is same-frame
-   consumption: run the clock-request consumers AFTER every producer in
-   the frame (schedule surgery on the PlayerInput clock chain), keeping
-   message clears valid because nothing crosses the boundary. The same
-   review flags the hits FIFO for the same reason — WorldPrep contact
-   damage was previously same-frame — plus lifecycle clearing and a
-   canonical checksum for `PendingPlayerHitEvents`. Three `#[ignore]`d
-   repros in `rollback_exit_oracle.rs` gate all of it; oracle setup
-   mutations now `rebase_rollback_history()` per the harness contract.
+3. **CLOSED 2026-07-23 (`f5fdbb4b9`): the second hit — TWO root causes,
+   found by a bit-exact per-pass probe** (print suspect state every sim
+   tick in the live pass AND every resim pass, diff lines with the same
+   tick; the workflow that finally cracked it after the clock theory
+   proved necessary but insufficient).
+   - **Strike volumes lived outside the rollback envelope.** The moveset
+     spawns each strike's damage volume as a Commands entity
+     (`Hitbox` + `HitboxHits` + `StrikeVolume`) whose hit-once set is
+     dedup TRUTH — and none of it was registered, so a rollback window
+     spanning the volume's spawn/despawn edge resimulated against a
+     fresh empty hit-set and the same swing re-hit the same victim
+     (observed: identical registered state in every pass, yet late
+     resim passes re-staged the striker's hit). Fixed the projectile
+     way: `require_rollback::<Hitbox>` anchors the family and
+     clone+map_entities registrations cover all five components. The
+     per-room sweep could never see this: strike volumes exist only
+     mid-swing, the exact population-dependence gap the sweep account
+     warns about.
+   - **The Combat chain consumed moveset messages one frame late BY
+     CONSTRUCTION.** `spawn_enemy_projectiles_from_brain_actions` (and
+     `ContentSpecials`) ran BEFORE `dispatch_move_events` in the chained
+     Combat tuple, so every moveset-fired `Ranged` shot and boss
+     `Effect{key}` special crossed the frame boundary as an in-flight
+     message — cleared on LoadWorld, so a rollback landing on the
+     boundary silently swallowed the shot (probe: move event fired at
+     frame N, projectile at N+1, the final resim pass of N never
+     re-fired; the sync test's per-advance re-saves then contaminated
+     neighboring snapshots). Fixed by reordering: the moveset runtime
+     (trigger → advance → dispatch) now runs before the EFFECTS
+     consumers, so production and consumption share the frame.
+   - **The clock chain moved to the frame tail** (the originally
+     planned surgery, kept because it is doctrine-correct): the
+     emit→apply→smooth→reset cluster now runs after `ResetProcessing`,
+     downstream of every `ClockScaleRequest`/`ClockResetRequest`
+     producer. Observable timing is unchanged (`refresh_world_time`
+     still snapshots at frame start); no clock message survives a frame
+     edge. The blanket-FIFO shape stays rejected (it turned 7
+     same-frame tests red and was reverted).
+   All three `#[ignore]`s are OFF: the two narrowed repros and the
+   PRINCIPAL exit oracle run green — melee landed, armor spent, brick
+   broken, switch flipped, checksum-identical under continuous forced
+   rollback (the full oracle now stages the player on the arena floor:
+   the authored spawn corner is a parkour tutorial, not this oracle's
+   subject, and the lab's in-place-reviving enemies pinned the old
+   "nearest melee target" walk in the spawn corner forever). Review
+   hardening landed with it (`fd7ddbc0c`): `PendingPlayerHitEvents` is
+   voided at lifecycle boundaries (a staged hit could otherwise survive
+   a covered room transition and land in the next room) and checksummed
+   through an entity-free canonical projection; the one-frame staging
+   lane is the accepted semantics.
 4. **Recorded boundary: sim-triggered room reset inside a rollback window
    is a guaranteed divergence** — reconstruction runs through Commands no
    rollback can undo (observed as a mid-brawl full-heal when the player
@@ -1731,6 +1766,35 @@ could never see, in layers:
 > 5. `[patch.crates-io]` does not cross workspaces — every consumer must
 >    replicate the `bevy_ggrs` fork entry until HACK(ggrs-accumulator)
 >    retires.
+> 6. a consumer sharing the engine's cargo target dir (which the repo's
+>    `.cargo/config.toml` silently imposes on anything under the tree) gets
+>    poisoned artifacts from interleaved workspace builds — the fixture now
+>    carries its own `target-dir` override, and a real out-of-tree consumer
+>    is immune by construction;
+> 7. preparation validation REFUSES a provider that registered no explicit
+>    audio fragment — deliberate silence must be DECLARED (an empty
+>    `AudioCatalogFragment`), which no umbrella doc says anywhere.
+>
+> **SECOND SLICE (2026-07-23, `50ea3efbe`): Outlander actually LAUNCHES.**
+> The first slice's headless binary was updating an empty un-routed host —
+> `ShellHostConfiguration::default()` is `spec: None`, so nothing was ever
+> prepared (GPT 5.6 review). The fixture now wires the shell like the
+> in-repo standalone demos (launcher home route + initial gameplay route)
+> and shares one acceptance walk between the binary and its own
+> integration test: session ACTIVE in 2 ticks (room set publishes
+> `outlander_ridge`), exactly one primary player plus the staged sentry
+> verified, then 177 ticks of held-right input until the ridge gate
+> `transit_body`s the player onto the upper ledge. `run_tests.py` gained
+> the `external consumer: outlander` job (`cargo test --manifest-path`
+> into the fixture's independent workspace) — the only gate that can see
+> an umbrella break that workspace feature unification hides in-repo.
+>
+> **Error-quality finding (task 7):** the audio-fragment refusal is a
+> well-worded `LoadFailure` ("provider registered no explicit audio
+> fragment") that a headless host surfaced NOWHERE — the route just sat
+> pending forever. The walkthrough's timeout diagnostics now dump the
+> router state; an engine-side answer (a headless load-failure log, or a
+> shell readiness probe on the umbrella) is the natural SDK follow-up.
 >
 > Remaining Phase-6 work: the visible-shell half of "visibly and headlessly
 > from the same content", and the task-7 workflow measurements beyond the

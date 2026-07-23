@@ -29,9 +29,17 @@ by hardness × payoff; every item below is executable today per its own doc.
    plan row, the outer roster is exactly `planned_ids()`, all five lifecycle
    paths share one transaction, and stale content bindings are refused at the
    boundary. Recorded-open in 4g: live identity index, staging world.
-   **← CURRENT (Jon, 2026-07-23): Phase 5 (rollback-envelope hardening,
-   rewritten under ADR 0027) then Phase 6 / Milestone E (external
-   engine-workflow proof), both per the campaign doc.**
+   **Phase 5 LANDED 2026-07-23** (`4af17280e`→`f5fdbb4b9`): coverage forcing
+   functions, demo registration (+ behavioral restore tests that caught the
+   unanchored mode owners, `d73391c8a`), and the track-0 exit oracle GREEN
+   un-ignored — strike volumes joined the rollback envelope, the Combat
+   chain consumes its own frame's messages, the clock chain moved to the
+   frame tail, and the victim-hit FIFO is lifecycle-voided + checksummed
+   (`fd7ddbc0c`). **Phase 6 second slice LANDED** (`50ea3efbe`): Outlander
+   LAUNCHES — activation walk + ridge-gate proof shared by binary and
+   fixture test, `external consumer: outlander` gate job.
+   **← CURRENT (Jon, 2026-07-23): Phase 6 remainder (visible-shell half,
+   task-7 measurements) per the campaign doc.**
 2. **FB6 rollout redesign** (track 6, [fable]) — the design task is unblocked;
    the implementation stays blocked until it lands.
 3. **Matchbox two-peer transport + predicted-A/corrected-B oracle**

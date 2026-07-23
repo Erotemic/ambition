@@ -1054,3 +1054,28 @@ exist on disk (it self-skips when they don't, which is why gates without
 generated sprites stay green). Owner of the deferral should either bind a
 cheap handle at startup or advance the test to the prefetch barrier it now
 asserts against.
+
+## 2026-07-23 robot_slash tests stale vs code (pre-existing)
+tests/test_robot_slash_hitboxes.py fails on main independent of the alpha-blending
+codemod (verified by reverting the file): the code emits a 'poke' row the test
+doesn't expect, and the first-frame sweep bbox assertion (x0<=4) fails at x0=50.
+Test lagging authored content — reconcile intent (is 'poke' wanted?) then update.
+
+
+## 2026-07-23 — sim behavior shifts when unrelated READ-ONLY systems are added
+
+While probing the rollback exit oracle, adding pure-reader diagnostic systems
+to the sim schedule changed the LIVE gameplay timeline between builds (the
+striker's fire cadence and the player's hit frames moved). Readers cannot
+change state, so the shift means the schedule contains ORDER-AMBIGUOUS
+system pairs whose topological tie-break moves when the node set changes.
+Within one build the order is fixed — the GGRS same-build contract holds and
+sync tests stay valid — but any add/remove of a system can silently re-roll
+gameplay timing, which makes timing-pinned tests brittle (see
+`unified_body_movement`, twice re-pinned) and would break cross-BUILD replay
+if we ever want it. The GgrsSchedule already runs single-threaded with
+ambiguity detection off BY POLICY (registration order is the tie-break);
+the smell is that Bevy's topo sort does not honor registration order under
+graph edits. Candidate fix shape: explicit `.after` edges for known
+cross-phase writer pairs, or an ambiguity audit for writer-writer pairs in
+the sim schedule. Opportunistic; recorded during the Phase-5 campaign.

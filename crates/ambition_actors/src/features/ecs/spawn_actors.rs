@@ -147,14 +147,19 @@ pub fn apply_spawn_actor_requests(
         return;
     };
     for req in requests.read() {
-        let entity = spawn_staged_actor(
+        // A refused request (`None`) produced NO entity and must not join the
+        // grudge batch either — otherwise a phantom id resolves and stamps
+        // `ActorAggression` onto nothing.
+        let Some(entity) = spawn_staged_actor(
             &mut commands,
             &character_catalog,
             &character_roster,
             &boss_catalog,
             session_scope,
             req,
-        );
+        ) else {
+            continue;
+        };
         if matches!(req.kind, SpawnActorKind::Enemy { .. }) {
             staged.push((req.id.clone(), entity, req.grudge_against.clone()));
         }
@@ -162,12 +167,17 @@ pub fn apply_spawn_actor_requests(
     wire_staged_grudges(&mut commands, &staged);
 }
 
-/// Materialize one staged actor.
+/// Materialize one staged actor, or refuse WITHOUT allocating anything.
 ///
-/// **The one staged-actor constructor.** Both the message-driven applier above
-/// and the `ambition.staged-actor` construction recipe
-/// ([`crate::construction`]) call it, so a room built through the planner and a
-/// programmatic scene-setup request cannot drift into different entity shapes.
+/// **The one staged-actor constructor for the programmatic path.** The
+/// message-driven applier above calls it; the `ambition.staged-actor`
+/// construction recipe calls [`spawn_staged_actor_into`] directly with a root
+/// the plan executor owns. `None` means the request was refused — validation
+/// runs BEFORE `spawn_empty`, because a refused request must produce no
+/// entity at all: an empty leaked root would still be recorded as a spawned
+/// enemy by the caller's batch grudge map and could receive `ActorAggression`
+/// through `wire_staged_grudges` (GPT 5.6 review: an in-recipe refusal is too
+/// late once the allocation belongs to the caller).
 pub(crate) fn spawn_staged_actor(
     commands: &mut Commands,
     character_catalog: &CharacterCatalog,
@@ -175,7 +185,20 @@ pub(crate) fn spawn_staged_actor(
     boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
     req: &SpawnActorRequest,
-) -> bevy::ecs::entity::Entity {
+) -> Option<bevy::ecs::entity::Entity> {
+    // The programmatic path does not lower through the planner, so it cannot
+    // mint a giant's host + two hand rows — refuse a giant-class spec like
+    // every other runtime origin, instead of silently producing a handless
+    // host.
+    if let SpawnActorKind::Enemy { brain } = &req.kind {
+        if reject_runtime_giant(
+            &character_roster.spec_for_brain(brain),
+            "programmatic staged actor",
+            &req.id,
+        ) {
+            return None;
+        }
+    }
     let root = commands.spawn_empty().id();
     spawn_staged_actor_into(
         commands,
@@ -186,7 +209,7 @@ pub(crate) fn spawn_staged_actor(
         root,
         req,
     );
-    root
+    Some(root)
 }
 
 /// Populate a staged actor onto a root the construction executor allocated.
@@ -215,10 +238,13 @@ pub(crate) fn spawn_staged_actor_into(
             );
         }
         SpawnActorKind::Enemy { brain } => {
-            // The programmatic path does not lower through the planner, so it
-            // cannot mint a giant's host + two hand rows — refuse a giant-class
-            // spec here like every other runtime origin, instead of silently
-            // producing a handless host (GPT 5.6 review finding 1a).
+            // Defense-in-depth for the RECIPE path only: the planner expands a
+            // giant-class staged actor into host + hand rows, so a giant spec
+            // reaching this arm means a planner regression. The programmatic
+            // path already refused BEFORE allocating the root
+            // (`spawn_staged_actor`), so leaving the caller-owned root empty
+            // here is deliberate — a plan row left unbuilt is exactly what the
+            // room transaction's roster verification exists to flag.
             if reject_runtime_giant(
                 &character_roster.spec_for_brain(brain),
                 "programmatic staged actor",
@@ -1859,5 +1885,66 @@ mod giant_hand_identity_tests {
         // It is a child of the giant, not a sibling authored placement.
         assert!(left.as_str().starts_with(giant.as_str()));
         assert_ne!(left, giant);
+    }
+}
+
+#[cfg(test)]
+mod runtime_giant_refusal_tests {
+    use super::*;
+    use bevy::prelude::{App, Update};
+
+    /// The giant refusal fires BEFORE the root allocation: a refused
+    /// programmatic request leaves the world untouched. The earlier in-recipe
+    /// refusal left an empty leaked root behind that the batch grudge map
+    /// still recorded as a spawned enemy (GPT 5.6 review) — this pins the
+    /// corrected contract at its sharpest observable: zero new entities.
+    #[test]
+    fn a_refused_programmatic_giant_allocates_no_entity() {
+        let mut app = App::new();
+        app.add_message::<SpawnActorRequest>();
+        app.insert_resource(crate::features::enemies::CharacterRoster::from_ron(
+            r#"{
+                    "combatant": (
+                        max_health: 2, patrol_speed: 0.0, chase_speed: 0.0,
+                        aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+                        damage_amount: 0, brain_template: StandStill, move_style: Walk,
+                    ),
+                    "test_giant": (
+                        max_health: 2, patrol_speed: 0.0, chase_speed: 0.0,
+                        aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+                        damage_amount: 0, brain_template: StandStill, move_style: Walk,
+                        mount_class: Some("giant"),
+                    ),
+                }"#,
+        ));
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<crate::boss_encounter::BossCatalog>();
+        app.init_resource::<ActiveSessionScope>();
+        app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+        app.add_systems(Update, apply_spawn_actor_requests);
+
+        let before = app.world().entities().len();
+        app.world_mut().write_message(SpawnActorRequest {
+            id: "giant_0".to_string(),
+            name: "Runtime Giant".to_string(),
+            pos: ae::Vec2::ZERO,
+            half_size: ae::Vec2::new(16.0, 16.0),
+            faction: super::super::ActorFaction::Enemy,
+            grudge_against: None,
+            kind: SpawnActorKind::Enemy {
+                brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                    "test_giant".to_string(),
+                ),
+            },
+        });
+        app.update();
+        assert_eq!(
+            app.world().entities().len(),
+            before,
+            "a refused giant request must allocate NOTHING — an empty root \
+             would rejoin the grudge map as a phantom spawned enemy"
+        );
     }
 }

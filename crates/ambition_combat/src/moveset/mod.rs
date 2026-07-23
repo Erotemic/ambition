@@ -232,6 +232,12 @@ pub struct StrikeVolume {
     pub window: usize,
 }
 
+impl bevy::ecs::entity::MapEntities for StrikeVolume {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        self.owner = mapper.get_mapped(self.owner);
+    }
+}
+
 /// **Despawn every strike volume whose owner's clock says it should not exist.**
 ///
 /// Runs every frame, before [`advance_move_playback`], and is a no-op in the ordinary

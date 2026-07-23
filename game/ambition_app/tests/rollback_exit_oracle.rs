@@ -79,6 +79,28 @@ fn wear_oracle_armor(sim: &mut SandboxSim) {
         .expect("oracle armor setup becomes the rollback baseline");
 }
 
+/// Stage the player on the open arena floor as part of the frame-0 baseline.
+///
+/// The authored spawn corner is capped by a head-height ledge + rebound pad
+/// (the room's parkour tutorial) — crossing it is a platforming exercise, and
+/// platforming is not this oracle's subject. The oracle's route (spitter,
+/// brick, striker, switch) all lives on the arena floor to the right, so the
+/// baseline places the player just east of the hazard cycle (x=720; the
+/// hazard band spans x 592-688 and eats a body staged inside it), like the
+/// armor row:
+/// a setup mutation folded into rollback frame zero by the rebase that follows.
+fn stage_player_on_arena_floor(sim: &mut SandboxSim) {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<&mut ambition::platformer::body::BodyKinematics, With<ambition::platformer::markers::PrimaryPlayer>>();
+    let mut kin = q
+        .single_mut(world)
+        .expect("the sim boots exactly one primary player");
+    kin.pos = ambition::engine_core::Vec2::new(720.0, kin.pos.y);
+    kin.vel = ambition::engine_core::Vec2::ZERO;
+    sim.rebase_rollback_history()
+        .expect("arena-floor staging becomes the rollback baseline");
+}
+
 struct OracleEvents {
     melee_landed: bool,
     armor_spent: bool,
@@ -175,13 +197,14 @@ fn target_positions(
     (enemies, brick, switch)
 }
 
-/// Sharpest probe: no armor, no attacks — walk to the enemy and get hit. The
-/// full oracle's divergences all followed the first HP-damaging hit on the
-/// player, so this isolates the victim-side damage path under rollback.
+/// Sharpest probe: no armor, no attacks — stand in the striker's path and take
+/// repeated hits. Isolates the victim-side damage path under rollback: every
+/// hit crosses the staging FIFO, the striker's swing runs its strike volume
+/// through GGRS despawn/respawn, and the post-hit clock ramp rewinds. This
+/// caught (in order) the unregistered `Collected` latch, the in-flight
+/// victim-hit loss (`PendingPlayerHitEvents`), and the strike-volume family
+/// living outside the rollback envelope.
 #[test]
-#[ignore = "OPEN Phase-5 finding: the SECOND enemy hit on the player still diverges under \
-resimulation (first hit fixed by PendingPlayerHitEvents). Repro: run this test. \
-Tracked in the campaign doc Phase 5 section."]
 fn a_player_taking_hp_damage_survives_rollback() {
     let mut sim = oracle_sim();
     let mut last_hp = i32::MAX;
@@ -212,8 +235,6 @@ fn a_player_taking_hp_damage_survives_rollback() {
 /// in-place revive and re-aggro. Isolates the death → respawn-timer → revive →
 /// re-engage cycle that the full oracle exposed.
 #[test]
-#[ignore = "OPEN Phase-5 finding: diverges at the same second-hit layer as \
-a_player_taking_hp_damage_survives_rollback; keep as the death/revive repro."]
 fn enemy_death_and_inplace_revive_survive_rollback() {
     let mut sim = oracle_sim();
     wear_oracle_armor(&mut sim);
@@ -344,12 +365,10 @@ fn the_calibration_lab_is_checksum_stable_at_rest() {
 }
 
 #[test]
-#[ignore = "OPEN Phase-5 finding: blocked on the second-hit divergence (see \
-a_player_taking_hp_damage_survives_rollback). The full oracle held checksums through \
-2400 frames of melee/brick/switch before the enemy-hit-player layer was reached."]
 fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     let mut sim = oracle_sim();
     wear_oracle_armor(&mut sim);
+    stage_player_on_arena_floor(&mut sim);
 
     let enemy_health_baseline: i32 = {
         let world = sim.world_mut();
@@ -377,22 +396,26 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
         let player = sim.observation();
         let (px, _py) = player.player_pos;
 
-        // The next objective, in route order: nearest live enemy or intact
-        // brick first (both are melee targets), then the switch.
-        let melee_target = enemies
+        // The next objective, in route order: take the armor hit from the
+        // nearest enemy first, then the brick, then any remaining melee proof,
+        // then the switch. The brick outranks enemies once armor is spent
+        // because the lab's enemies revive in place — "nearest melee target"
+        // forever re-selects the respawned neighbor and the walk never leaves
+        // the spawn corner.
+        let nearest_enemy = enemies
             .iter()
             .copied()
-            .chain(brick)
             .map(|(x, y)| (x, y, (x - px).abs()))
             .min_by(|a, b| a.2.total_cmp(&b.2));
-        let melee_work_left = !(events.melee_landed && events.brick_broken);
         let target_x = if events.switch_flipped {
             px
-        } else if let Some((x, _, _)) = melee_target.filter(|_| melee_work_left) {
-            x
+        } else if !events.armor_spent {
+            nearest_enemy.map(|(x, _, _)| x).unwrap_or(px)
+        } else if !events.brick_broken {
+            brick.map(|(x, _)| x).unwrap_or(px)
+        } else if !events.melee_landed {
+            nearest_enemy.map(|(x, _, _)| x).unwrap_or(px)
         } else if let Some((x, _)) = switch {
-            x
-        } else if let Some((x, _, _)) = melee_target {
             x
         } else {
             px

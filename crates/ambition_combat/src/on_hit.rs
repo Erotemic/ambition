@@ -74,6 +74,15 @@ impl HitboxOnHit {
     }
 }
 
+impl bevy::ecs::entity::MapEntities for HitboxOnHit {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        self.fired = std::mem::take(&mut self.fired)
+            .into_iter()
+            .map(|entity| mapper.get_mapped(entity))
+            .collect();
+    }
+}
+
 /// A landed on-hit: `effect` fires with the hit context. The consuming
 /// technique (the engine `pogo_bounce`, or a content technique) hydrates
 /// `effect.params` to its own type and acts on `owner` / `victim`.

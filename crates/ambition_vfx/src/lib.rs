@@ -129,9 +129,30 @@ pub struct HitboxLifetime {
 
 /// Hit-once set: targets the hitbox already damaged this strike, so a long
 /// active window can't re-hit a stationary target every frame.
-#[derive(Component, Default, Debug)]
+///
+/// `Clone` + [`MapEntities`](bevy::ecs::entity::MapEntities) because this set
+/// IS sim truth under rollback: a re-simulated strike volume restored without
+/// its hit-once memory re-hits every victim it already struck (the Phase-5
+/// second-hit desync). The whole strike-volume entity family snapshots
+/// through GGRS — see the `entity:hitbox` registration in `ambition_runtime`.
+#[derive(Component, Default, Debug, Clone)]
 pub struct HitboxHits {
     pub hit: std::collections::HashSet<Entity>,
+}
+
+impl bevy::ecs::entity::MapEntities for Hitbox {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        self.owner = mapper.get_mapped(self.owner);
+    }
+}
+
+impl bevy::ecs::entity::MapEntities for HitboxHits {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        self.hit = std::mem::take(&mut self.hit)
+            .into_iter()
+            .map(|entity| mapper.get_mapped(entity))
+            .collect();
+    }
 }
 
 impl Hitbox {

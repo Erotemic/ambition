@@ -49,24 +49,17 @@ impl Plugin for PlayerSchedulePlugin {
             || ambition_engine_core::CenteredAabb::new(ambition_engine_core::Vec2::ZERO, ambition_engine_core::Vec2::ZERO),
         );
 
-        // ── PlayerInput, part A: the time-control pipeline ────────────────
+        // ── PlayerInput, part A: the frame's time snapshot ────────────────
         //
         // Ordering subtleties (ADR 0010 §"Suspended time"):
         // * `apply_suspended_time_scale_system` runs FIRST so when gameplay
         //   is suspended (pause / dialogue / cutscene / room transition) the
         //   sim_clock target and `SandboxSimState::time_scale` are zeroed
         //   BEFORE `refresh_world_time` snapshots them.
-        // * The emit → apply → smooth trio is gated to `gameplay_allowed`
-        //   so it doesn't immediately re-populate `RequestedClockScale` /
-        //   `time_scale` back from the zero the suspended fallback just
-        //   wrote. On the first re-resumed frame they run again and the
-        //   smoother ramps back up from 0 to 1.0 at the authored rate.
-        // * Reset/respawn/transition requests snap the live sim clock back to
-        //   1.0 only while gameplay is allowed. While suspended, the request
-        //   stays queued and the suspended-zero path keeps pause/dialogue/room
-        //   transition frames frozen.
-        // * `refresh_world_time` then snapshots whichever path won this
-        //   frame, so downstream systems always see a coherent `scaled_dt`.
+        // * `refresh_world_time` snapshots whichever path won — the
+        //   suspended-zero fallback this frame, or the clock-request tail of
+        //   the PREVIOUS frame (below) — so downstream systems always see a
+        //   coherent `scaled_dt`.
         app.add_systems(
             sim,
             (
@@ -77,17 +70,6 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_time::advance_sim_tick,
                 ambition_actors::time::time_control::apply_suspended_time_scale_system
                     .run_if(gameplay_suspended),
-                ambition_actors::time::time_control::emit_player_time_intent_system
-                    .run_if(gameplay_allowed),
-                ambition_actors::time::time_control::apply_clock_scale_requests
-                    .run_if(gameplay_allowed),
-                ambition_actors::time::time_control::smooth_sim_clock_toward_target_system
-                    .run_if(gameplay_allowed),
-                ambition_actors::time::time_control::apply_clock_reset_requests
-                    .run_if(gameplay_allowed),
-                // Unconditional: snapshot whichever path (suspended-zero or
-                // gameplay-smoothed) wrote `SandboxSimState::time_scale` this
-                // frame into `WorldTime` for downstream readers.
                 ambition_time::refresh_world_time,
                 // Mirror the freshly-snapshotted `WorldTime::sim_dt()` into
                 // the runtime crate's neutral `SimDt` so every downstream
@@ -97,6 +79,48 @@ impl Plugin for PlayerSchedulePlugin {
             )
                 .chain()
                 .in_set(SandboxSet::PlayerInput),
+        );
+
+        // ── Frame tail: the time-control pipeline ─────────────────────────
+        //
+        // The clock-request consumers run AFTER every producer in the frame
+        // (hit resolver in PlayerSimulation, room commit in RoomTransition,
+        // session reset in ResetProcessing, plus the intent emitter here), so
+        // a `ClockScaleRequest`/`ClockResetRequest` is consumed the same sim
+        // frame it is written. That is the rollback doctrine (deep review
+        // §2.2): message buffers are cleared on GGRS `LoadWorld`, so a request
+        // crossing a frame boundary silently dies during re-simulation; the
+        // truth that DOES cross the boundary here is `RequestedClockScale` +
+        // `ClockState` — registered resources GGRS restores exactly.
+        //
+        // Observable timing is unchanged from the historical frame-start
+        // placement: `refresh_world_time` (part A above) still snapshots at
+        // the top of the NEXT frame, which is exactly when a frame-start
+        // consumer would first have exposed the effect of a request produced
+        // mid-frame. The one deliberate delta: the emitter now reads THIS
+        // frame's hitstop/blink facts instead of last frame's, so the tail
+        // consumes its request in-frame too.
+        //
+        // Gating mirrors part A: while gameplay is suspended the trio idles
+        // and the suspended-zero path keeps pause/dialogue/room-transition
+        // frames frozen; on resume the smoother ramps back up from 0 at the
+        // authored rate.
+        app.add_systems(
+            sim,
+            (
+                ambition_actors::time::time_control::emit_player_time_intent_system
+                    .run_if(gameplay_allowed),
+                ambition_actors::time::time_control::apply_clock_scale_requests
+                    .run_if(gameplay_allowed),
+                ambition_actors::time::time_control::smooth_sim_clock_toward_target_system
+                    .run_if(gameplay_allowed),
+                ambition_actors::time::time_control::apply_clock_reset_requests
+                    .run_if(gameplay_allowed),
+            )
+                .chain()
+                .in_set(ambition_platformer_primitives::schedule::GameplaySimulationRoot)
+                .after(SandboxSet::ResetProcessing)
+                .before(SandboxSet::FeatureViewSync),
         );
 
         // The dev-tools DOMAIN set (its systems live in `DevToolsSimPlugin`;

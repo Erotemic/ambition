@@ -180,7 +180,15 @@ pub fn register_engine_rollback_state(app: &mut App) {
         .require_rollback::<ambition_actors::gravity::GravityFlipSwitch>(
             ENGINE,
             "entity:gravity_flip_switch",
-        );
+        )
+        // In-flight strike volumes (moveset melee windows, DamageBox effects,
+        // world AOEs). These are Commands-spawned mid-swing with a hit-once
+        // set, so they MUST rewind like projectiles: a rollback window that
+        // spans the volume's spawn or despawn edge otherwise re-simulates
+        // against a fresh empty `HitboxHits` and the same swing hits the same
+        // victim twice (the Phase-5 second-hit desync — an armed strike
+        // re-staged its player hit on every late resim pass).
+        .require_rollback::<ambition_vfx::Hitbox>(ENGINE, "entity:hitbox");
 
     // Canonical live-session root. Authored definitions are immutable and bound
     // by PreparedContentIdentity; only mutable selection/cursor state rewinds.
@@ -378,6 +386,30 @@ pub fn register_engine_rollback_state(app: &mut App) {
     .rollback_component_canonical::<bc::BodyBaseSize>(ENGINE, "body.base_size")
     .rollback_component_canonical::<bc::SweepSample>(ENGINE, "body.sweep_sample")
     .rollback_component_canonical::<bc::BodyMana>(ENGINE, "body.mana");
+
+    // In-flight strike volumes — the components on the `entity:hitbox` family
+    // (see the require_rollback anchor above). Clone restore + entity mapping;
+    // the hit-once sets are dedup truth whose loss re-lands landed hits, and
+    // `StrikeVolume` is the owner/window key `retire_orphaned_strike_volumes`
+    // reconciles against restored `MovePlayback.live_boxes`.
+    app.rollback_component_clone::<ambition_vfx::Hitbox>(ENGINE, "combat.hitbox")
+        .rollback_map_entities::<ambition_vfx::Hitbox>(ENGINE, "map.hitbox")
+        .rollback_component_clone::<ambition_vfx::HitboxHits>(ENGINE, "combat.hitbox_hits")
+        .rollback_map_entities::<ambition_vfx::HitboxHits>(ENGINE, "map.hitbox_hits")
+        .rollback_component_clone::<ambition_vfx::HitboxLifetime>(ENGINE, "combat.hitbox_lifetime")
+        .rollback_component_clone::<ambition_combat::moveset::StrikeVolume>(
+            ENGINE,
+            "combat.strike_volume",
+        )
+        .rollback_map_entities::<ambition_combat::moveset::StrikeVolume>(
+            ENGINE,
+            "map.strike_volume",
+        )
+        .rollback_component_clone::<ambition_combat::on_hit::HitboxOnHit>(
+            ENGINE,
+            "combat.hitbox_on_hit",
+        )
+        .rollback_map_entities::<ambition_combat::on_hit::HitboxOnHit>(ENGINE, "map.hitbox_on_hit");
 
     // Actor, combat, and brain state.
     app.rollback_component_canonical::<ambition_combat::components::BodyMelee>(ENGINE, "actor.body_melee")

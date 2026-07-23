@@ -11,7 +11,6 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::features::ecs::attack::tick_body_melee_cooldowns;
 use ambition_platformer_primitives::schedule::SimScheduleExt;
 use ambition_platformer_primitives::schedule::{gameplay_allowed, CombatSet, SandboxSet};
 
@@ -72,12 +71,81 @@ impl Plugin for CombatSchedulePlugin {
                 // are deleted; this is only their surviving cooldown tick.
                 ambition_actors::features::ecs::attack::tick_body_melee_cooldowns
                     .run_if(gameplay_allowed),
-                // EFFECTS-stage consumer: reads ActorActionMessage::Ranged
-                // emitted upstream by `emit_brain_action_messages`
-                // (PlayerInput set) and spawns enemy projectiles. Runs
-                // BEFORE `update_enemy_projectiles` so projectiles spawned
-                // this tick already advance one step this frame, matching
-                // the pre-migration latency.
+                // ── Moveset runtime FIRST: produce this frame's action messages ──
+                //
+                // The move runtime (trigger → advance → dispatch) runs BEFORE the
+                // EFFECTS-stage consumers below so a `MoveEventKind::Ranged` /
+                // `Effect{key}` fired by a move this frame is consumed THIS frame.
+                // The old order put the consumers first, which made every
+                // moveset-fired shot cross a frame boundary as an in-flight
+                // message — state GGRS clears on `LoadWorld`, so a rollback
+                // window landing on the boundary silently swallowed the shot
+                // (Phase-5 exit-oracle finding: the striker's `shoot` move fired
+                // in the live pass and not in resimulation). Same-frame
+                // consumption is the rollback doctrine (deep review §2.2).
+                //
+                // Data-driven move TRIGGER: a body carrying an `ActorMoveset`
+                // repertoire whose control frame presses a verb edge starts the
+                // matching move (inserts `MovePlayback`). Before `advance` so a move
+                // triggered this tick advances the same frame (fable review §A1,
+                // Path B — the production insert the moveset runtime was missing).
+                ambition_actors::combat::moveset::trigger_moveset_moves.run_if(gameplay_allowed),
+                // Boss STRIKES trigger the SAME way: when a boss's `active_profile`
+                // (mirrored from its pattern this frame) is set, start the boss's
+                // move for that profile — a geometry strike's Active-window hit volume
+                // OR a content-technique special's per-frame `Effect{key}` sustain.
+                // ONE trigger for every boss strike, retiring both `sync_boss_strike_hitboxes`
+                // and `dispatch_boss_special` (§A1 — the moveset is the boss's melee system).
+                ambition_actors::features::trigger_boss_attack_moves.run_if(gameplay_allowed),
+                // Data-driven move playback (Smash-model timelines, W9):
+                // advances each playing MoveSpec on its OWNER'S proper time,
+                // manages window-scoped hit volumes, fires MoveEventMessages.
+                // Before apply_hitbox_damage so a window entered this tick
+                // resolves its hits this tick.
+                // A strike volume's existence is DERIVED from `(owner's move clock,
+                // window)`. This enforces that against the world before the clock
+                // moves — a no-op every ordinary frame, and the thing that keeps a
+                // rollback from stranding the boxes it rewound past.
+                (
+                    ambition_actors::combat::moveset::retire_orphaned_strike_volumes,
+                    ambition_actors::combat::moveset::advance_move_playback,
+                )
+                    .chain()
+                    .run_if(gameplay_allowed),
+                // Data-driven move EFFECT dispatch: resolve `MoveEventMessage`s —
+                // `Sfx{cue}` → play at the owner; `Effect{key}` → bridge to the SAME
+                // `ActorActionMessage::Special` the brain special path emits, so a
+                // move fires a content technique with no new plumbing (the seam the
+                // boss `Special(key)` profiles reuse). After `advance` so this
+                // frame's events dispatch this frame — and before every consumer
+                // below, so what it dispatches is also CONSUMED this frame.
+                ambition_actors::combat::moveset::dispatch_move_events.run_if(gameplay_allowed),
+                // Melee subsumption read-model (§A1 / §3a): a body whose melee is a
+                // moveset `"attack"` move has its `BodyMelee` swing PROJECTED from the
+                // live `MovePlayback` here (after `advance_move_playback` set/cleared
+                // it this frame), so the actor anim index, telegraph/view index, HUD,
+                // and melee tests keep reading the same read-model the flat swing used
+                // to publish. Writes no gameplay — the real strike is the move's own
+                // hitbox.
+                ambition_actors::combat::moveset::project_moveset_melee_to_body_melee
+                    .run_if(gameplay_allowed),
+                // Boss strike read-model PROJECTION (E53 Slice B+C): while a boss move
+                // is inside its Active window, `BossAttackState`'s active_* fields are
+                // DERIVED from the live `MovePlayback` (the move is the authority),
+                // mirroring the melee projection above. After `advance_move_playback`
+                // so `t` is current; provably equal to the brain's mirror today, it
+                // flips WHO owns the strike timing to the shared move runtime.
+                ambition_actors::features::project_boss_attack_state_from_move
+                    .run_if(gameplay_allowed),
+                // ── EFFECTS-stage consumers: drain this frame's messages ──
+                //
+                // EFFECTS-stage consumer: reads ActorActionMessage::Ranged —
+                // emitted upstream by `emit_brain_action_messages` (PlayerInput
+                // set) for flat-ranged bodies, and by `dispatch_move_events`
+                // ABOVE for moveset-ranged bodies — and spawns enemy
+                // projectiles, both same-frame. Runs BEFORE the projectile step
+                // so projectiles spawned this tick already advance one step
+                // this frame, matching the pre-migration latency.
                 ambition_actors::features::spawn_enemy_projectiles_from_brain_actions
                     .run_if(gameplay_allowed),
                 // The 11 per-boss special-attack Techniques (apple rain,
@@ -122,58 +190,6 @@ impl Plugin for CombatSchedulePlugin {
                 // Phase 3b player-pool spawn consumer: materializes player-fired
                 // bodies AFTER the step, so the new body first ticks next frame.
                 crate::projectile_schedule::apply_player_spawn_projectile_messages,
-                // Data-driven move TRIGGER: a body carrying an `ActorMoveset`
-                // repertoire whose control frame presses a verb edge starts the
-                // matching move (inserts `MovePlayback`). Before `advance` so a move
-                // triggered this tick advances the same frame (fable review §A1,
-                // Path B — the production insert the moveset runtime was missing).
-                ambition_actors::combat::moveset::trigger_moveset_moves.run_if(gameplay_allowed),
-                // Boss STRIKES trigger the SAME way: when a boss's `active_profile`
-                // (mirrored from its pattern this frame) is set, start the boss's
-                // move for that profile — a geometry strike's Active-window hit volume
-                // OR a content-technique special's per-frame `Effect{key}` sustain.
-                // ONE trigger for every boss strike, retiring both `sync_boss_strike_hitboxes`
-                // and `dispatch_boss_special` (§A1 — the moveset is the boss's melee system).
-                ambition_actors::features::trigger_boss_attack_moves.run_if(gameplay_allowed),
-                // Data-driven move playback (Smash-model timelines, W9):
-                // advances each playing MoveSpec on its OWNER'S proper time,
-                // manages window-scoped hit volumes, fires MoveEventMessages.
-                // Before apply_hitbox_damage so a window entered this tick
-                // resolves its hits this tick.
-                // A strike volume's existence is DERIVED from `(owner's move clock,
-                // window)`. This enforces that against the world before the clock
-                // moves — a no-op every ordinary frame, and the thing that keeps a
-                // rollback from stranding the boxes it rewound past.
-                (
-                    ambition_actors::combat::moveset::retire_orphaned_strike_volumes,
-                    ambition_actors::combat::moveset::advance_move_playback,
-                )
-                    .chain()
-                    .run_if(gameplay_allowed),
-                // Data-driven move EFFECT dispatch: resolve `MoveEventMessage`s —
-                // `Sfx{cue}` → play at the owner; `Effect{key}` → bridge to the SAME
-                // `ActorActionMessage::Special` the brain special path emits, so a
-                // move fires a content technique with no new plumbing (the seam the
-                // boss `Special(key)` profiles reuse). After `advance` so this
-                // frame's events dispatch this frame.
-                ambition_actors::combat::moveset::dispatch_move_events.run_if(gameplay_allowed),
-                // Melee subsumption read-model (§A1 / §3a): a body whose melee is a
-                // moveset `"attack"` move has its `BodyMelee` swing PROJECTED from the
-                // live `MovePlayback` here (after `advance_move_playback` set/cleared
-                // it this frame), so the actor anim index, telegraph/view index, HUD,
-                // and melee tests keep reading the same read-model the flat swing used
-                // to publish. Writes no gameplay — the real strike is the move's own
-                // hitbox.
-                ambition_actors::combat::moveset::project_moveset_melee_to_body_melee
-                    .run_if(gameplay_allowed),
-                // Boss strike read-model PROJECTION (E53 Slice B+C): while a boss move
-                // is inside its Active window, `BossAttackState`'s active_* fields are
-                // DERIVED from the live `MovePlayback` (the move is the authority),
-                // mirroring the melee projection above. After `advance_move_playback`
-                // so `t` is current; provably equal to the brain's mirror today, it
-                // flips WHO owns the strike timing to the shared move runtime.
-                ambition_actors::features::project_boss_attack_state_from_move
-                    .run_if(gameplay_allowed),
                 // Hitbox-entity lifecycle for melee strikes (Task A of the
                 // actor/brain follow-up plan). `apply_hitbox_damage`
                 // resolves overlap → damage event; `tick_and_despawn_hitboxes`
@@ -261,7 +277,11 @@ impl Plugin for CombatSchedulePlugin {
             sim,
             (
                 CombatSet::ContentSpecials
-                    .after(tick_body_melee_cooldowns)
+                    // After the enemy-action consumer — which now runs after
+                    // `dispatch_move_events`, so a boss move's `Effect{key}`
+                    // Special dispatched this frame reaches its content
+                    // technique THIS frame (same-frame doctrine, not next).
+                    .after(ambition_actors::features::spawn_enemy_projectiles_from_brain_actions)
                     .before(ambition_vfx::apply_effects)
                     .in_set(SandboxSet::Combat),
                 CombatSet::ContentFlavor

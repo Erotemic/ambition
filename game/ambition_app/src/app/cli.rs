@@ -779,6 +779,12 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     }
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
     ambition::runtime::init_engine_states(&mut app);
+    // Main-world frame schedules run serially: headless measurement showed
+    // gameplay bodies at <2% of CPU vs ~40% executor bookkeeping + thread
+    // parking (3.7x wall, 32x fewer context switches — see
+    // serialize_frame_schedules). The render sub-app keeps its own parallel
+    // schedules; this only serializes main-world dispatch.
+    ambition::runtime::serialize_frame_schedules(&mut app);
     let active_profile = asset_config.asset_profile;
     app.insert_resource(asset_config);
     // Launch-time "choose your character": inserted BEFORE the plugins so the

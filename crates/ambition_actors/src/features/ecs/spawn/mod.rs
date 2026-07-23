@@ -226,6 +226,8 @@ impl RoomFeatureConstructionPlan {
             &room.id,
             &paths,
         ));
+        // Phase 4d: the formerly-anonymous static families are plan rows too.
+        requests.extend(crate::construction::authored_static_requests(room));
         // Phase 4a/4b: EVERY authored enemy and boss is a plan row — ordinary
         // enemies as `AuthoredEnemy`, `"giant"`-class hosts as host + two hand
         // rows joined by limb relations, bosses as `AuthoredBoss`. The family
@@ -392,16 +394,6 @@ impl RoomFeatureConstructionPlan {
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
     ) -> RoomFeatureConstructionReceipt {
-        #[cfg(feature = "portal")]
-        for portal_gun in &self.room.portal_gun_spawns {
-            super::spawn_static::spawn_portal_gun_spawn(commands, session_scope, portal_gun);
-        }
-        for shrine in &self.room.shrines {
-            super::spawn_static::spawn_shrine(commands, session_scope, shrine);
-        }
-        for gravity_zone in &self.room.gravity_zones {
-            super::spawn_static::spawn_gravity_zone(commands, session_scope, gravity_zone);
-        }
         // Phase 4a/4b: enemies and bosses are plan rows, committed below with
         // their relations. No family loop remains for either.
         commands.insert_resource(crate::features::FactionRelations::default());

@@ -62,6 +62,12 @@ pub const RECIPE_GIANT_HAND: &str = "ambition.giant-hand";
 pub const RECIPE_AUTHORED_ENEMY: &str = "ambition.authored-enemy";
 /// One authored placement record, lowered through its frozen interpreter.
 pub const RECIPE_AUTHORED_PLACEMENT: &str = "ambition.authored-placement";
+/// An authored heal/save shrine.
+pub const RECIPE_AUTHORED_SHRINE: &str = "ambition.authored-shrine";
+/// An authored gravity zone.
+pub const RECIPE_AUTHORED_GRAVITY_ZONE: &str = "ambition.authored-gravity-zone";
+/// An authored portal-gun pickup (portal builds only).
+pub const RECIPE_AUTHORED_PORTAL_GUN: &str = "ambition.authored-portal-gun";
 /// An authored boss pulled into the planner because a relation names it.
 pub const RECIPE_AUTHORED_BOSS: &str = "ambition.authored-boss";
 /// A personal grudge from one constructed actor onto another.
@@ -103,6 +109,15 @@ pub fn recipe_authored_boss() -> RecipeId {
 }
 pub fn recipe_authored_placement() -> RecipeId {
     RecipeId::new(RECIPE_AUTHORED_PLACEMENT)
+}
+pub fn recipe_authored_shrine() -> RecipeId {
+    RecipeId::new(RECIPE_AUTHORED_SHRINE)
+}
+pub fn recipe_authored_gravity_zone() -> RecipeId {
+    RecipeId::new(RECIPE_AUTHORED_GRAVITY_ZONE)
+}
+pub fn recipe_authored_portal_gun() -> RecipeId {
+    RecipeId::new(RECIPE_AUTHORED_PORTAL_GUN)
 }
 pub fn relation_grudge() -> RelationKind {
     RelationKind::new(RELATION_GRUDGE)
@@ -203,6 +218,21 @@ pub enum ActorConstructionParams {
         paths: Vec<(String, ambition_engine_core::KinematicPath)>,
         lower: crate::world::placements::LoweringFn,
     },
+    /// An authored heal/save shrine — the formerly ANONYMOUS static family;
+    /// its spec always carried a stable LDtk iid, the entity just never wore
+    /// it. Now it is a plan row like everything else in the room.
+    Shrine {
+        spec: crate::rooms::ShrineSpec,
+    },
+    /// An authored gravity zone (same story as [`Self::Shrine`]).
+    GravityZone {
+        spec: crate::rooms::GravityZoneSpec,
+    },
+    /// An authored portal-gun pickup (portal builds only).
+    #[cfg(feature = "portal")]
+    PortalGunSpawn {
+        spec: crate::rooms::PortalGunSpawnSpec,
+    },
 }
 
 /// A minion resolved from `Effect::Summon`.
@@ -279,6 +309,19 @@ impl ConstructionDomain for ActorConstruction {
                 recipe: recipe_authored_placement(),
                 construct: construct_placement,
             },
+            ActorConstructionParams::Shrine { .. } => RecipeDispatch {
+                recipe: recipe_authored_shrine(),
+                construct: construct_shrine,
+            },
+            ActorConstructionParams::GravityZone { .. } => RecipeDispatch {
+                recipe: recipe_authored_gravity_zone(),
+                construct: construct_gravity_zone,
+            },
+            #[cfg(feature = "portal")]
+            ActorConstructionParams::PortalGunSpawn { .. } => RecipeDispatch {
+                recipe: recipe_authored_portal_gun(),
+                construct: construct_portal_gun_spawn,
+            },
         }
     }
 
@@ -348,6 +391,14 @@ impl ConstructionDomain for ActorConstruction {
                     record.id.as_str(),
                     record.kind().stable_id()
                 )
+            }
+            ActorConstructionParams::Shrine { spec } => format!("shrine {}", spec.id),
+            ActorConstructionParams::GravityZone { spec } => {
+                format!("gravity-zone {}", spec.id)
+            }
+            #[cfg(feature = "portal")]
+            ActorConstructionParams::PortalGunSpawn { spec } => {
+                format!("portal-gun {}", spec.id)
             }
         }
     }
@@ -656,6 +707,55 @@ fn construct_authored_boss(
         root.entity(),
         authored,
         &crate::features::BossOverrides::default(),
+    );
+}
+
+fn construct_shrine(
+    parameters: &ActorConstructionParams,
+    root: ConstructionRoot,
+    ctx: &mut Ctx<'_, '_, '_>,
+) {
+    let ActorConstructionParams::Shrine { spec } = parameters else {
+        unreachable!("dispatch pairs this fn with Shrine parameters")
+    };
+    crate::features::ecs::spawn_static::spawn_shrine_into(
+        ctx.commands,
+        ctx.session,
+        root.entity(),
+        spec,
+    );
+}
+
+fn construct_gravity_zone(
+    parameters: &ActorConstructionParams,
+    root: ConstructionRoot,
+    ctx: &mut Ctx<'_, '_, '_>,
+) {
+    let ActorConstructionParams::GravityZone { spec } = parameters else {
+        unreachable!("dispatch pairs this fn with GravityZone parameters")
+    };
+    crate::features::ecs::spawn_static::spawn_gravity_zone_into(
+        ctx.commands,
+        ctx.session,
+        root.entity(),
+        spec,
+    );
+}
+
+#[cfg(feature = "portal")]
+fn construct_portal_gun_spawn(
+    parameters: &ActorConstructionParams,
+    root: ConstructionRoot,
+    ctx: &mut Ctx<'_, '_, '_>,
+) {
+    let ActorConstructionParams::PortalGunSpawn { spec } = parameters else {
+        unreachable!("dispatch pairs this fn with PortalGunSpawn parameters")
+    };
+    crate::features::ecs::spawn_static::spawn_portal_gun_spawn_into(
+        ctx.commands,
+        ctx.session,
+        root.entity(),
+        spec,
     );
 }
 
@@ -1068,6 +1168,14 @@ pub fn install_actor_construction_recipes(
     registry.try_register_recipe(recipe_authored_enemy(), OWNER, "authored-room", SCHEMA)?;
     registry.try_register_recipe(recipe_authored_boss(), OWNER, "authored-room", SCHEMA)?;
     registry.try_register_recipe(recipe_authored_placement(), OWNER, "authored-room", SCHEMA)?;
+    registry.try_register_recipe(recipe_authored_shrine(), OWNER, "authored-room", SCHEMA)?;
+    registry.try_register_recipe(
+        recipe_authored_gravity_zone(),
+        OWNER,
+        "authored-room",
+        SCHEMA,
+    )?;
+    registry.try_register_recipe(recipe_authored_portal_gun(), OWNER, "authored-room", SCHEMA)?;
     // Metadata only — the wiring and the checks come from
     // `ActorConstruction::dispatch_relation`, so there is nothing here for an
     // outside registration to replace or to win an insertion-order race for.
@@ -1157,6 +1265,11 @@ pub fn mount_capabilities_of(
         // A placement is never a mount-link end today (links name enemy/boss
         // ids); an NPC that should ride something becomes an enemy/boss row.
         ActorConstructionParams::Placement { .. } => PlannedMountCapabilities::default(),
+        ActorConstructionParams::Shrine { .. } | ActorConstructionParams::GravityZone { .. } => {
+            PlannedMountCapabilities::default()
+        }
+        #[cfg(feature = "portal")]
+        ActorConstructionParams::PortalGunSpawn { .. } => PlannedMountCapabilities::default(),
         ActorConstructionParams::AuthoredBoss { authored } => PlannedMountCapabilities {
             mount_class: None,
             pilots: crate::boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
@@ -1183,6 +1296,10 @@ fn family_of(parameters: &ActorConstructionParams) -> &'static str {
         ActorConstructionParams::AuthoredEnemy { .. } => "authored-enemy",
         ActorConstructionParams::AuthoredBoss { .. } => "authored-boss",
         ActorConstructionParams::Placement { .. } => "placement",
+        ActorConstructionParams::Shrine { .. } => "shrine",
+        ActorConstructionParams::GravityZone { .. } => "gravity-zone",
+        #[cfg(feature = "portal")]
+        ActorConstructionParams::PortalGunSpawn { .. } => "portal-gun",
     }
 }
 
@@ -1655,6 +1772,50 @@ pub fn placement_requests(
                 paths: paths.to_vec(),
                 lower,
             },
+            relations: Vec::new(),
+        });
+    }
+    requests
+}
+
+/// Turn the formerly-anonymous static families — shrines, gravity zones, and
+/// (portal builds) portal-gun pickups — into construction rows. Their specs
+/// always carried stable LDtk iids; the entities now wear them.
+pub fn authored_static_requests(room: &crate::rooms::RoomSpec) -> Vec<ActorConstructionRequest> {
+    let mut requests = Vec::new();
+    for shrine in &room.shrines {
+        requests.push(ActorConstructionRequest {
+            sim_id: SimId::placement(&shrine.id),
+            origin: SpawnOrigin::Authored {
+                source: room.id.clone(),
+                instance: shrine.id.clone(),
+            },
+            parameters: ActorConstructionParams::Shrine {
+                spec: shrine.clone(),
+            },
+            relations: Vec::new(),
+        });
+    }
+    for zone in &room.gravity_zones {
+        requests.push(ActorConstructionRequest {
+            sim_id: SimId::placement(&zone.id),
+            origin: SpawnOrigin::Authored {
+                source: room.id.clone(),
+                instance: zone.id.clone(),
+            },
+            parameters: ActorConstructionParams::GravityZone { spec: zone.clone() },
+            relations: Vec::new(),
+        });
+    }
+    #[cfg(feature = "portal")]
+    for gun in &room.portal_gun_spawns {
+        requests.push(ActorConstructionRequest {
+            sim_id: SimId::placement(&gun.id),
+            origin: SpawnOrigin::Authored {
+                source: room.id.clone(),
+                instance: gun.id.clone(),
+            },
+            parameters: ActorConstructionParams::PortalGunSpawn { spec: gun.clone() },
             relations: Vec::new(),
         });
     }

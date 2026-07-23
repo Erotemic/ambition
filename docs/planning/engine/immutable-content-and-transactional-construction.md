@@ -1320,10 +1320,10 @@ legacy-family list emptied. Still outside the planner:
 | 4 | ~~hazard~~ | ~~placement lowering~~ | **MIGRATED 2026-07-23 (Phase 4c)** — plan row with stamped identity |
 | 5 | ~~pickup / chest / breakable / switch~~ | ~~placement lowering~~ | **MIGRATED 2026-07-23 (Phase 4c)** — plan rows with stamped identity |
 | 6 | ~~portal (`cfg`)~~ | ~~placement lowering~~ | **MIGRATED 2026-07-23 (Phase 4c)** — plan row with stamped identity |
-| 7 | shrine | `spawn/mod.rs` | anonymous |
-| 8 | gravity zone | `spawn/mod.rs` | anonymous |
-| 9 | portal gun pickup (`cfg`) | `spawn/mod.rs` | anonymous |
-| — | `apply_spawn_actor_requests` | `stage.rs` | parallel unplanned path to `spawn_staged_actor` |
+| 7 | ~~shrine~~ | ~~`spawn/mod.rs`~~ | **MIGRATED 2026-07-23 (Phase 4d)** — plan row (spec always had an iid) |
+| 8 | ~~gravity zone~~ | ~~`spawn/mod.rs`~~ | **MIGRATED 2026-07-23 (Phase 4d)** — plan row |
+| 9 | ~~portal gun pickup (`cfg`)~~ | ~~`spawn/mod.rs`~~ | **MIGRATED 2026-07-23 (Phase 4d)** — plan row |
+| — | `apply_spawn_actor_requests` | message applier | **SCOPED 2026-07-23 (Phase 4e)** — the ONE sanctioned out-of-plan path, programmatic scene setup only; never room content |
 
 **Verification.** 52 domain tests (`ambition_actors::construction`, +4 for the
 giant migration), 908 `ambition_actors` lib tests. The giant tests are
@@ -1481,9 +1481,30 @@ breakable, portal — lowers through plan rows now:
   rollback snapshot registry (the app-side coverage guardrail caught it the
   moment placements put it on ordinary simulated entities).
 
-Still outside the planner: shrines, gravity zones, portal-gun pickups (the
-ANONYMOUS `RoomSpec` families — they have no authored ids yet), and the
-deliberate `apply_spawn_actor_requests` programmatic path.
+Still outside the planner after 4c: shrines, gravity zones, portal-gun
+pickups, and the deliberate `apply_spawn_actor_requests` programmatic path.
+*(Superseded the same day — see Phase 4d/4e below.)*
+
+## Phase 4d/4e — the last families, and the one sanctioned exception (2026-07-23)
+
+- **Phase 4d:** shrines, gravity zones, and portal-gun pickups are plan rows
+  (`ambition.authored-shrine` / `-gravity-zone` / `-portal-gun`). Their specs
+  always carried stable LDtk iids — "anonymous" was a property of the spawned
+  entities, which now wear identity, provenance, and ownership like every
+  other row. The three family loops are deleted.
+- **Phase 4e:** `apply_spawn_actor_requests` carries the scope ruling in its
+  doc: the ONE sanctioned out-of-plan spawn path, for programmatic scene setup
+  only (RL resets, scenario fixtures, dev commands). Authored room content
+  never routes through it; a body that needs identity, reconstruction, or
+  relations has outgrown it and belongs in the planner.
+
+**With 4a–4e landed, every authored family in a shipped room is an explicit
+construction plan row, the outer roster is exactly `planned_ids()`, and the
+family-migration half of Phase 4 is COMPLETE.** Remaining in Phase 4: the
+lifecycle unification (reset / transition / hot reload / snapshot
+reconstruction as variations of one transaction) and the commit boundary
+(`content_epoch` enforcement, the live identity index, the staging world that
+turns detection into prevention).
 
 ### Phase 4 — migrate room lifecycle operations
 

@@ -112,11 +112,21 @@ pub struct BossOverrides {
 
 /// Drain [`SpawnActorRequest`]s and materialize each actor.
 ///
-/// Intentionally UNGATED by `gameplay_allowed`: programmatic scene setup (an RL
-/// episode reset, a scenario-test fixture) must apply regardless of the coarse
-/// `GameMode`, unlike the in-gameplay `apply_summon_effects`. The spawned
-/// entity's own systems are still gameplay-gated, so an actor placed during a
-/// transition just waits inert until play resumes.
+/// **Phase-4 scope ruling: this is the ONE sanctioned out-of-plan spawn path,
+/// and it is for PROGRAMMATIC scene setup only** — an RL episode reset, a
+/// scenario-test fixture, a dev command. Authored room content must never
+/// route through it: room occupants are construction plan rows (provider
+/// stagers included, via `RoomContentStagingRegistry`), stamped and verified
+/// at the room boundary. A body spawned here carries no plan identity and is
+/// invisible to boundary verification by design; the moment such a body needs
+/// identity, reconstruction, or relations, it has outgrown this path and
+/// belongs in the planner.
+///
+/// Intentionally UNGATED by `gameplay_allowed`: programmatic scene setup must
+/// apply regardless of the coarse `GameMode`, unlike the in-gameplay
+/// `apply_summon_effects`. The spawned entity's own systems are still
+/// gameplay-gated, so an actor placed during a transition just waits inert
+/// until play resumes.
 pub fn apply_spawn_actor_requests(
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<SpawnActorRequest>,

@@ -3008,3 +3008,55 @@ fn a_placement_respawns_through_the_planner() {
     world.flush();
     assert_ne!(find(world, &ring), old);
 }
+
+// ── Phase 4d: the formerly-anonymous static families ──────────────────────────
+
+/// Shrines and gravity zones always had stable authored iids; the entities now
+/// wear them as plan rows, verified at the boundary like everything else.
+#[test]
+fn shrines_and_gravity_zones_are_stamped_plan_rows() {
+    let mut room = empty_room("garden");
+    room.shrines.push(crate::rooms::ShrineSpec {
+        id: "rest_1".into(),
+        name: "Rest".into(),
+        pos: ae::Vec2::new(64.0, 32.0),
+        half_extent: ae::Vec2::splat(16.0),
+    });
+    room.gravity_zones.push(crate::rooms::GravityZoneSpec {
+        id: "flip_1".into(),
+        name: "Flip".into(),
+        center: ae::Vec2::new(160.0, 96.0),
+        half_extent: ae::Vec2::new(48.0, 96.0),
+        dir: ae::Vec2::new(0.0, 1.0),
+        oscillate_amplitude: 0.0,
+        oscillate_freq: 0.0,
+    });
+    let plan = prepare(
+        &room,
+        &crate::features::RoomContentStagingRegistry::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the garden plans");
+    for id in ["rest_1", "flip_1"] {
+        assert!(
+            plan.construction().get(&SimId::placement(id)).is_some(),
+            "`{id}` is a plan row"
+        );
+    }
+
+    let mut app = commit(plan);
+    let verification = app
+        .world()
+        .resource::<crate::world::rooms::LastConstructionVerification>();
+    assert!(verification.published, "{:?}", verification.violations);
+    assert_eq!(verification.violations, Vec::new());
+
+    let world = app.world_mut();
+    let mut shrines = world.query::<(&SimId, &crate::shrine::HealShrine)>();
+    let (sim, _) = shrines.iter(world).next().expect("the shrine is live");
+    assert_eq!(
+        *sim,
+        SimId::placement("rest_1"),
+        "identity and the populated shrine are the SAME entity"
+    );
+}

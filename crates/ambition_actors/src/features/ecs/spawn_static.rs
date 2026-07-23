@@ -398,13 +398,17 @@ pub(crate) fn spawn_ground_item_resolved_into(
 }
 
 #[cfg(feature = "portal")]
-pub(crate) fn spawn_portal_gun_spawn(
+/// Populate one portal-gun pickup onto a root the construction executor
+/// allocated.
+pub(crate) fn spawn_portal_gun_spawn_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
+    root: bevy::ecs::entity::Entity,
     spec: &crate::rooms::PortalGunSpawnSpec,
 ) {
-    commands.spawn_room_in_session(
+    commands.insert_room_in_session(
         session_scope,
+        root,
         (
             Name::new(format!("Portal gun pickup: {}", spec.name)),
             ambition_portal::PortalGunPickup {
@@ -475,13 +479,17 @@ pub(crate) fn spawn_portal_into(
     }
 }
 
-pub(crate) fn spawn_shrine(
+/// Populate one heal/save shrine onto a root the construction executor
+/// allocated.
+pub(crate) fn spawn_shrine_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
+    root: bevy::ecs::entity::Entity,
     spec: &crate::rooms::ShrineSpec,
 ) {
-    commands.spawn_room_in_session(
+    commands.insert_room_in_session(
         session_scope,
+        root,
         (
             Name::new(format!("Heal/save shrine: {}", spec.name)),
             crate::shrine::HealShrine {
@@ -492,13 +500,16 @@ pub(crate) fn spawn_shrine(
     );
 }
 
-pub(crate) fn spawn_gravity_zone(
+/// Populate one gravity zone onto a root the construction executor allocated.
+pub(crate) fn spawn_gravity_zone_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
+    root: bevy::ecs::entity::Entity,
     spec: &crate::rooms::GravityZoneSpec,
 ) {
-    let mut entity = commands.spawn_room_in_session(
+    let mut entity = commands.insert_room_in_session(
         session_scope,
+        root,
         (
             Name::new(format!("Gravity zone: {}", spec.name)),
             ambition_platformer_primitives::gravity::GravityZone {

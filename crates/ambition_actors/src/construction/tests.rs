@@ -726,9 +726,16 @@ fn a_summon_from_an_unidentified_emitter_is_refused() {
 
 /// The duellists' grudge is a planned relation, so rebuilding one of them alone
 /// would put the fighter back without it — a body that looks right in the roster
-/// and no longer hunts its rival. Refused rather than half-applied.
+/// and no longer hunts its rival. `respawn_authoritative_entity` rebuilds the
+/// RELATION CLOSURE, so asking for one duellist rebuilds **both** and the grudge
+/// is wired.
+///
+/// This used to REFUSE (the closure was not expanded, so `construct_one` hit
+/// `RelationCutBySubset`). Rebuilding the closure is the better contract: it is
+/// the only way to bring a related row back correctly, and it is exactly what the
+/// giant host + hands need. Both duellists come back with the grudge intact.
 #[test]
-fn rebuilding_one_duellist_alone_is_refused_because_its_grudge_would_be_lost() {
+fn rebuilding_one_duellist_rebuilds_its_grudge_partner_too() {
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
     let plan = prepare(&room, &staging, &recipes).expect("the room plans");
@@ -748,13 +755,19 @@ fn rebuilding_one_duellist_alone_is_refused_because_its_grudge_would_be_lost() {
 
     assert_eq!(
         *outcome.lock().unwrap(),
-        Some(false),
-        "a relation-bearing row does not silently come back without its relation"
+        Some(true),
+        "asking for one duellist rebuilds its grudge closure"
     );
-    assert_eq!(
-        app.world_mut().query::<&SimId>().iter(app.world()).count(),
-        0,
-        "the refusal happened before anything was built"
+    // Both duellists came back, and the grudge is wired between them.
+    let ids: std::collections::BTreeSet<String> = app
+        .world_mut()
+        .query::<&SimId>()
+        .iter(app.world())
+        .map(|id| id.as_str().to_owned())
+        .collect();
+    assert!(
+        ids.contains("placement:duel_red") && ids.contains("placement:duel_blue"),
+        "the whole grudge closure was rebuilt: {ids:?}"
     );
 }
 
@@ -1859,6 +1872,140 @@ fn a_compatible_rider_and_mount_pass_preflight() {
         relation: ActorRelation::Mount,
     });
     assert_eq!(preflight(vec![rider, mount]), Ok(()));
+}
+
+// ── Giant hands are explicit plan rows (Checkpoint B) ─────────────────────────
+
+fn giant_room() -> crate::rooms::RoomSpec {
+    let mut room = empty_room("arena");
+    room.enemy_spawns.push(crate::rooms::Authored::new(
+        "boss_mount",
+        "Giant GNU",
+        ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(60.0)),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu".into()),
+    ));
+    room
+}
+
+/// **The giant host and both hands are explicit plan rows joined by limb
+/// relations.** They used to be minted inside the enemy spawn helper as
+/// authoritative roots no plan named — the last legacy family.
+#[test]
+fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
+    let roster = crate::features::enemies::test_roster();
+    let requests = crate::construction::authored_giant_requests(&giant_room(), &roster);
+
+    // One host + two hands.
+    assert_eq!(requests.len(), 3, "host + two hands");
+    let host = SimId::placement("boss_mount");
+    let hand_l = SimId::spawned(&host, 0);
+    let hand_r = SimId::spawned(&host, 1);
+    let ids: std::collections::BTreeSet<_> = requests.iter().map(|r| r.sim_id.clone()).collect();
+    assert!(ids.contains(&host) && ids.contains(&hand_l) && ids.contains(&hand_r));
+
+    // Each hand declares one limb relation back onto the host, and the host
+    // declares none.
+    let host_relations = requests
+        .iter()
+        .find(|r| r.sim_id == host)
+        .expect("host row")
+        .relations
+        .len();
+    assert_eq!(
+        host_relations, 0,
+        "the host carries no relations; the hands do"
+    );
+    for hand in [&hand_l, &hand_r] {
+        let row = requests
+            .iter()
+            .find(|r| &r.sim_id == hand)
+            .expect("hand row");
+        assert_eq!(row.relations.len(), 1);
+        assert_eq!(row.relations[0].to, host);
+        assert!(matches!(
+            row.relations[0].relation,
+            ActorRelation::Limb { .. }
+        ));
+    }
+}
+
+/// The giant rows commit into a correctly wired rig, and the boundary verifier
+/// sees no violation — no legacy warning, because the hands are owned rows now.
+#[test]
+fn a_committed_giant_has_a_verified_two_hand_rig() {
+    let roster = crate::features::enemies::test_roster();
+    let requests = crate::construction::authored_giant_requests(&giant_room(), &roster);
+    let plan = ActorConstructionPlan::prepare(
+        dynamic_scope(),
+        requests,
+        &Default::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the giant plan is valid");
+
+    let host = SimId::placement("boss_mount");
+    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let host_entity = receipt.entity(&host).expect("host built");
+    let hand_l = receipt
+        .entity(&SimId::spawned(&host, 0))
+        .expect("left built");
+    let hand_r = receipt
+        .entity(&SimId::spawned(&host, 1))
+        .expect("right built");
+
+    let rig = world
+        .get::<crate::features::LimbRig>(host_entity)
+        .expect("the host carries a rig");
+    assert_eq!(rig.get(crate::features::LimbSlot::HandLeft), Some(hand_l));
+    assert_eq!(rig.get(crate::features::LimbSlot::HandRight), Some(hand_r));
+    assert_eq!(rig.limbs.len(), 2);
+    // The host owns the router's scratch state.
+    assert!(world
+        .get::<crate::features::LimbIntents>(host_entity)
+        .is_some());
+    assert!(world
+        .get::<crate::features::LimbRouteState>(host_entity)
+        .is_some());
+
+    assert_eq!(verify_bare(&mut world, &plan, &receipt, &baseline), Ok(()));
+}
+
+/// **Reconstruction closure: asking to rebuild any one of the three rebuilds all
+/// three.** The giant host is a relation target and each hand a source, so no
+/// one of them can be rebuilt alone — the closure holds the cluster together.
+#[test]
+fn the_giant_reconstruction_closure_is_the_whole_cluster() {
+    let roster = crate::features::enemies::test_roster();
+    let requests = crate::construction::authored_giant_requests(&giant_room(), &roster);
+    let plan = ActorConstructionPlan::prepare(
+        dynamic_scope(),
+        requests,
+        &Default::default(),
+        &engine_construction_registry(),
+    )
+    .expect("valid");
+
+    let host = SimId::placement("boss_mount");
+    let hand_l = SimId::spawned(&host, 0);
+    let hand_r = SimId::spawned(&host, 1);
+    for seed in [&host, &hand_l, &hand_r] {
+        let closure = plan.relation_closure(&std::collections::BTreeSet::from([seed.clone()]));
+        assert_eq!(
+            closure,
+            std::collections::BTreeSet::from([host.clone(), hand_l.clone(), hand_r.clone()]),
+            "the closure of {seed} is the whole giant cluster"
+        );
+    }
+}
+
+/// No family is enumerated as legacy any more — the list emptied when the giant
+/// hands migrated. Deletes with `Severity::Unmigrated` at Phase 4's end.
+#[test]
+fn the_legacy_family_list_is_empty() {
+    assert!(
+        ambition_platformer_primitives::construction::KNOWN_LEGACY_FAMILIES.is_empty(),
+        "the giant hands were the last legacy family"
+    );
 }
 
 /// Both new relations are in the registry dump, so a change to either one's

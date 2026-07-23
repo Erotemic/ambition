@@ -215,6 +215,10 @@ impl RoomFeatureConstructionPlan {
                 std::slice::from_ref(request),
             ));
         }
+        // Authored `"giant"`-class hosts and their hand limbs, prepared together
+        // as host + two hand rows joined by limb relations. The enemy loop in
+        // `spawn` skips these ids so the giant is not also built there.
+        requests.extend(crate::construction::authored_giant_requests(room, roster));
         // Actor-domain relation semantics, checked while the outgoing room is
         // still whole: cardinality (one host per limb, one rider per mount),
         // family legality, and pilot/mount class compatibility. The generic
@@ -286,25 +290,29 @@ impl RoomFeatureConstructionPlan {
     ) -> bool {
         let planned_id = ambition_platformer_primitives::sim_id::SimId::placement(authored_id);
         if self.construction.get(&planned_id).is_some() {
+            // Rebuild the RELATION CLOSURE, not the bare row. A row at either end
+            // of a planned relation cannot be rebuilt alone — rebuilding one end
+            // strands the other on a dead `Entity` handle
+            // (`ConstructionError::RelationCutBySubset`). A giant host and its two
+            // hands are exactly such a cluster: asking for any one of the three
+            // rebuilds all three. For an unrelated row the closure is just itself,
+            // so this is the same single-row commit as before.
+            let closure = self
+                .construction
+                .relation_closure(&std::collections::BTreeSet::from([planned_id.clone()]));
             let mut ctx = ambition_platformer_primitives::construction::ConstructionExecCtx {
                 commands,
                 scope: self.construction.scope(),
                 session: session_scope,
                 services: &self.construction_services,
             };
-            return match self.construction.construct_one(&planned_id, &mut ctx) {
+            return match self.construction.commit_subset(&closure, &mut ctx) {
                 Ok(_) => true,
                 Err(error) => {
-                    // This row IS planned, so falling through to the other
-                    // families would be wrong — and returning a bare `false`
-                    // would report "no such entity" for what is really a
-                    // refusal. A row at either end of a planned relation cannot
-                    // be rebuilt alone (see
-                    // `ConstructionError::RelationCutBySubset`); saying so is
-                    // the whole value of the refusal.
                     bevy::log::error!(
                         target: "ambition::construction",
-                        "`{authored_id}` is planned but could not be rebuilt on its own: {error}"
+                        "`{authored_id}` is planned but its reconstruction closure could not be \
+                         rebuilt: {error}"
                     );
                     false
                 }
@@ -387,7 +395,17 @@ impl RoomFeatureConstructionPlan {
         for gravity_zone in &self.room.gravity_zones {
             super::spawn_static::spawn_gravity_zone(commands, session_scope, gravity_zone);
         }
+        // `"giant"`-class hosts are plan rows now (committed above with their
+        // hands and limb relations), so the family loop skips them — building a
+        // giant here too would duplicate it.
+        let planned_giants = crate::construction::planned_giant_host_ids(
+            &self.room,
+            &self.construction_services.context.roster,
+        );
         for enemy in &self.room.enemy_spawns {
+            if planned_giants.contains(&enemy.id) {
+                continue;
+            }
             super::spawn_actors::spawn_enemy(
                 commands,
                 &self.construction_services.context.characters,

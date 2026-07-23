@@ -1210,10 +1210,14 @@ pub(super) fn spawn_enemy_with_faction(
 
 /// Populate an enemy onto a root the construction executor allocated.
 ///
-/// ⚠ A `"giant"`-class archetype ALSO spawns two hand limbs here, each with its
-/// own `SimId::spawned` identity. Those are authoritative roots this function
-/// creates that no plan row names — see the Phase-4 remaining-work note in
-/// `docs/planning/engine/immutable-content-and-transactional-construction.md`.
+/// **This no longer spawns a giant's hand limbs.** They were minted here as two
+/// authoritative roots no plan row named — the last `KNOWN_LEGACY_FAMILIES`
+/// entry. Giant hands are explicit construction rows now
+/// ([`crate::construction::authored_giant_requests`]); a `"giant"`-class host is
+/// built by [`populate_giant_host_into`] (this plus the host-side rig state) and
+/// each hand by [`populate_giant_hand_into`], with the two joined by
+/// `ambition.limb` relations. This function stays the path for every ordinary,
+/// unlimbed enemy.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn spawn_enemy_with_faction_into(
     commands: &mut Commands,
@@ -1245,23 +1249,130 @@ pub(super) fn spawn_enemy_with_faction_into(
         faction,
     );
     attach_mount_role(commands, root, &spec);
-    // Q18 (G3): a mount archetype that carries articulated hands (the `giant`-class
-    // giant_gnu) grows a `LimbRig` + two hand limb bodies the rider boss's strikes
-    // route to. v1 is scoped to the `"giant"` class (see `mount_has_hand_limbs`); a
-    // per-archetype `has_hand_limbs` flag is the data-driven generalization, left
-    // for when a second limbed mount lands.
-    if mount_has_hand_limbs(&spec) {
-        spawn_giant_hand_limbs(
-            commands,
-            catalog,
-            roster,
-            session_scope,
-            root,
-            &authored.id,
-            authored.aabb,
-            &spec,
-        );
-    }
+}
+
+/// Populate a `"giant"`-class LIMBED HOST onto an executor-allocated root: the
+/// ordinary enemy body, plus the host-side rig state the limb router reads.
+///
+/// The rig MEMBERSHIP (`LimbRig`) is installed by the `ambition.limb` relation
+/// wiring, one entry per hand; the two host-owned scratch components
+/// ([`super::LimbIntents`], [`super::LimbRouteState`]) belong to the host itself
+/// and are inserted here. `spawn_giant_hand_limbs` used to insert all three
+/// together while also minting the hand bodies; now the hands are their own plan
+/// rows and only their back-link is a relation.
+pub(crate) fn populate_giant_host_into(
+    commands: &mut Commands,
+    catalog: &CharacterCatalog,
+    roster: &CharacterRoster,
+    session_scope: SessionSpawnScope,
+    root: bevy::ecs::entity::Entity,
+    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+    paths: &[(String, ambition_engine_core::KinematicPath)],
+    faction: super::ActorFaction,
+) {
+    spawn_enemy_with_faction_into(
+        commands,
+        catalog,
+        roster,
+        session_scope,
+        root,
+        authored,
+        paths,
+        faction,
+    );
+    commands.entity(root).insert((
+        super::LimbIntents::default(),
+        super::LimbRouteState::default(),
+    ));
+}
+
+/// Populate one giant hand body onto an executor-allocated root. The `Limb`
+/// component and the host's rig entry are installed by the `ambition.limb`
+/// relation, not here — this builds the ordinary actor body and marks it
+/// non-hostile so targeting ignores it (the fan-out is its only driver).
+pub(crate) fn populate_giant_hand_into(
+    commands: &mut Commands,
+    catalog: &CharacterCatalog,
+    roster: &CharacterRoster,
+    session_scope: SessionSpawnScope,
+    root: bevy::ecs::entity::Entity,
+    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+) {
+    let enemy = super::actor_clusters::ActorClusterSeed::new_in(
+        catalog,
+        roster,
+        authored.id.clone(),
+        authored.name.clone(),
+        authored.aabb,
+        authored.payload.clone(),
+        &[],
+    );
+    spawn_solo_enemy_into(
+        commands,
+        catalog,
+        session_scope,
+        root,
+        enemy,
+        authored,
+        super::ActorFaction::Enemy,
+    );
+    commands
+        .entity(root)
+        .insert(super::ActorDisposition::Peaceful);
+}
+
+/// One giant hand's fully-resolved construction facts, computed at PLAN time
+/// from the giant's authored box — no `Entity`, no live world.
+pub struct GiantHandPlan {
+    pub slot: super::LimbSlot,
+    /// Stable spawned identity under the giant, deterministic across runs.
+    pub ordinal: u64,
+    /// Stable feature id, derived from the giant's authored id and the fixed side.
+    pub feature_id: String,
+    /// Where the hand body starts, in world space.
+    pub aabb: ae::Aabb,
+    /// Host-local idle anchor (the `Limb::home_offset`), stated relative to the
+    /// giant's center.
+    pub home_offset: ae::Vec2,
+}
+
+/// Whether an archetype is a limbed `"giant"`-class host. The one predicate the
+/// request builder and any remaining loop share, so they cannot disagree about
+/// which enemies are planned as hosts.
+pub(crate) fn spec_is_limbed_host(spec: &super::super::enemies::CharacterArchetypeSpec) -> bool {
+    mount_has_hand_limbs(spec)
+}
+
+/// Resolve the two hand plans for a giant, at plan time. The geometry that used
+/// to live inside `spawn_giant_hand_limbs` is pure and moves here so the hands
+/// can be prepared as rows before anything is spawned.
+pub(crate) fn giant_hand_plans(
+    giant_id: &str,
+    giant_aabb: ae::Aabb,
+    spec: &super::super::enemies::CharacterArchetypeSpec,
+) -> Vec<GiantHandPlan> {
+    let giant_half = spec
+        .default_size
+        .map(|s| s * 0.5)
+        .unwrap_or_else(|| giant_aabb.half_size());
+    let giant_center = giant_aabb.center();
+    let hand_size = ae::Vec2::new(giant_half.x * 0.7, giant_half.y * 0.7);
+    let home_l = ae::Vec2::new(-giant_half.x * 0.55, giant_half.y * 0.15);
+    let home_r = ae::Vec2::new(giant_half.x * 0.55, giant_half.y * 0.15);
+    [
+        (super::LimbSlot::HandLeft, home_l, "left"),
+        (super::LimbSlot::HandRight, home_r, "right"),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(ordinal, (slot, home, tag))| GiantHandPlan {
+        slot,
+        ordinal: ordinal as u64,
+        feature_id: giant_hand_feature_id(giant_id, tag),
+        aabb: ae::Aabb::new(giant_center + home, hand_size * 0.5),
+        home_offset: home,
+    })
+    .collect()
 }
 
 /// v1 predicate (Q18): which mount archetypes carry driven hand limbs. Scoped to
@@ -1271,22 +1382,6 @@ fn mount_has_hand_limbs(spec: &super::super::enemies::CharacterArchetypeSpec) ->
     spec.mount_class.as_deref() == Some("giant")
 }
 
-/// Q18 (G3): spawn the two hand limb bodies for a `giant`-class mount and wire the
-/// [`super::LimbRig`]. Each hand is an ORDINARY actor body (it integrates + renders
-/// the `giant_gnu_hands` sheet via the `npc_giant_gnu_hands` catalog row) carrying
-/// a [`super::Limb`] with its host-local `home_offset`; the giant carries the rig
-/// plus the router's [`super::LimbIntents`] / [`super::LimbRouteState`]. The rider
-/// boss's strikes reach these hands through `route_boss_strikes_to_limbs` +
-/// `fan_out_limb_intents` — the giant itself stays brainless (the rig owns no
-/// behavior).
-///
-/// Deviation from the R10.1 limbs doc ("no Brain/BodyHealth"): the hands reuse the
-/// full character-actor cluster — the SAME path slices 1+2 wired the brainless
-/// giant mount itself — so they get integration + rendering for free. Their
-/// `giant_gnu_hands` archetype is brainless (`StandStill`) and deals no contact
-/// damage, and the fan-out clobbers their `ActorControl` every tick, so the
-/// cluster's brain/health ride along inertly rather than justifying a bespoke
-/// minimal body.
 /// A giant hand's stable `FeatureId`, derived from the giant's AUTHORED id and the
 /// hand's fixed side — an entity-free game fact, so two sims that spawn the same
 /// giant give its hands the same identity. It deliberately takes `giant_id: &str`,
@@ -1295,110 +1390,6 @@ fn mount_has_hand_limbs(spec: &super::super::enemies::CharacterArchetypeSpec) ->
 /// determinism (netcode.md N3.2 boss-hand residual).
 fn giant_hand_feature_id(giant_id: &str, side: &str) -> String {
     format!("giant_gnu_hand_{side}_{giant_id}")
-}
-
-fn spawn_giant_hand_limbs(
-    commands: &mut Commands,
-    catalog: &CharacterCatalog,
-    roster: &CharacterRoster,
-    session_scope: SessionSpawnScope,
-    giant: bevy::ecs::entity::Entity,
-    giant_id: &str,
-    giant_aabb: ae::Aabb,
-    spec: &super::super::enemies::CharacterArchetypeSpec,
-) {
-    use ambition_platformer_primitives::sim_id::SimId;
-    // The giant's own snapshot identity (ensure_sim_id gives an authored body
-    // `SimId::placement(feature_id)`, and the giant's FeatureId IS its authored id).
-    // Each hand is a SPAWNED CHILD of it — `SimId::spawned(parent, ordinal)` — not
-    // an authored placement, so it lands in the spawned namespace parented to the
-    // giant rather than masquerading as a top-level authored entity.
-    let giant_sim = SimId::placement(giant_id);
-    let giant_half = spec
-        .default_size
-        .map(|s| s * 0.5)
-        .unwrap_or_else(|| giant_aabb.half_size());
-    let giant_center = giant_aabb.center();
-    // Hand body extent — a fraction of the giant so the two hands read as hands,
-    // not full-body copies (feel-tunable; the render is a box fallback until the
-    // giant_gnu_hands sheet is regenerated).
-    let hand_size = ae::Vec2::new(giant_half.x * 0.7, giant_half.y * 0.7);
-    // Host-local idle anchors: a hand off each shoulder, slightly forward/down of
-    // the giant's center (body-frame; the router rotates these into the gravity
-    // frame). These are the station-keeping home poses.
-    let home_l = ae::Vec2::new(-giant_half.x * 0.55, giant_half.y * 0.15);
-    let home_r = ae::Vec2::new(giant_half.x * 0.55, giant_half.y * 0.15);
-
-    let mut hands: Vec<(super::LimbSlot, bevy::ecs::entity::Entity)> = Vec::with_capacity(2);
-    for (ordinal, (slot, home, tag)) in [
-        (super::LimbSlot::HandLeft, home_l, "left"),
-        (super::LimbSlot::HandRight, home_r, "right"),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let center = giant_center + home;
-        let aabb = ae::Aabb::new(center, hand_size * 0.5);
-        // Deterministic + unique per giant instance: derived from the giant's
-        // AUTHORED id (not `giant.index()`), so two sims agree on the identity.
-        let hand_id = giant_hand_feature_id(giant_id, tag);
-        let seed = super::actor_clusters::ActorClusterSeed::new_in(
-            catalog,
-            roster,
-            hand_id.clone(),
-            "Giant GNU Hand",
-            aabb,
-            ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu_hands".into()),
-            &[],
-        );
-        let hand = spawn_solo_enemy(
-            commands,
-            catalog,
-            session_scope,
-            seed,
-            &crate::rooms::Authored {
-                id: hand_id,
-                name: "Giant GNU Hand".to_string(),
-                aabb,
-                payload: ambition_entity_catalog::placements::CharacterBrain::Custom(
-                    "giant_gnu_hands".into(),
-                ),
-            },
-            super::ActorFaction::Enemy,
-        );
-        commands.entity(hand).insert((
-            super::Limb {
-                of: giant,
-                slot,
-                home_offset: home,
-            },
-            // A hand is not itself a threat/target — flip it out of the hostile
-            // default so targeting/aggro ignore it; the fan-out is its only driver.
-            super::ActorDisposition::Peaceful,
-            // Snapshot identity: a spawned child of the giant, minted here so
-            // `ensure_sim_id` (which is `Without<SimId>`) skips it and never
-            // promotes its `FeatureId` into the authored `placement:` namespace.
-            // `ordinal` is the fixed loop order (left=0, right=1) — a per-spawner
-            // sequence, deterministic because the array literal is.
-            SimId::spawned(&giant_sim, ordinal as u64),
-            // This mints an authoritative identity outside the planner, so it
-            // SAYS SO, by a name the engine enumerates in
-            // `KNOWN_LEGACY_FAMILIES`. Without the marker a construction
-            // verifier cannot tell this hand from a recipe inventing an
-            // authoritative root, and treats it as fatal — correctly, because
-            // "unowned" is not evidence of anything.
-            ambition_platformer_primitives::construction::LegacyConstructionRoot::new(
-                "giant-hand-limb",
-            ),
-        ));
-        hands.push((slot, hand));
-    }
-
-    commands.entity(giant).insert((
-        super::LimbRig::from_pairs(hands),
-        super::LimbIntents::default(),
-        super::LimbRouteState::default(),
-    ));
 }
 
 /// ADR 0020: give a standalone actor its mount role from its archetype. A
@@ -1449,27 +1440,6 @@ fn attach_mount_role(
 
 /// Single-entity hostile spawn — the common path after composite
 /// mount/rider fan-out has been handled. Returns the spawned body entity.
-pub(super) fn spawn_solo_enemy(
-    commands: &mut Commands,
-    catalog: &CharacterCatalog,
-    session_scope: SessionSpawnScope,
-    enemy: super::actor_clusters::ActorClusterSeed,
-    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
-    faction: super::ActorFaction,
-) -> bevy::ecs::entity::Entity {
-    let root = commands.spawn_empty().id();
-    spawn_solo_enemy_into(
-        commands,
-        catalog,
-        session_scope,
-        root,
-        enemy,
-        authored,
-        faction,
-    );
-    root
-}
-
 #[allow(clippy::too_many_arguments)]
 pub(super) fn spawn_solo_enemy_into(
     commands: &mut Commands,

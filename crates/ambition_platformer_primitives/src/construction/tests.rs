@@ -1865,7 +1865,7 @@ fn an_unplanned_authoritative_root_is_detected() {
 /// is equally the signature of a recipe inventing an authoritative root, so the
 /// one failure the verifier exists to catch was the one it tolerated. A genuine
 /// legacy family now claims that status by name; see
-/// `an_explicitly_marked_known_legacy_root_is_reported_but_not_fatal`.
+/// `the_known_legacy_exception_maps_to_unmigrated_severity`.
 #[test]
 fn an_arbitrary_unowned_identity_is_fatal() {
     let violations = verify_under(Sabotage::SpawnUnownedIdentity, &sabotage_plan())
@@ -1882,27 +1882,35 @@ fn an_arbitrary_unowned_identity_is_fatal() {
     );
 }
 
-/// A root that explicitly claims an ENUMERATED legacy family is reported and
-/// published: the temporary, shrinking exception.
+/// The known-legacy EXCEPTION mechanism: an enumerated family maps to
+/// `Severity::Unmigrated` (reported, published), an unenumerated one to
+/// `Severity::Fatal`.
+///
+/// **The ledger is empty as of Checkpoint B** — the giant hands were the last
+/// entry — so there is no production family to drive the reported-but-not-fatal
+/// path end to end. The mechanism survives for the families that have yet to
+/// migrate to eager stamping, so this pins the severity MAPPING directly rather
+/// than through a live family: `LegacyConstruction` is `Unmigrated`,
+/// `UnknownLegacyFamily` is `Fatal`. When a family re-enters
+/// `KNOWN_LEGACY_FAMILIES`, the end-to-end `Sabotage::SpawnLegacyRoot` path
+/// covers it again.
 #[test]
-fn an_explicitly_marked_known_legacy_root_is_reported_but_not_fatal() {
-    let family = KNOWN_LEGACY_FAMILIES
-        .first()
-        .expect("the migration ledger still has entries; delete this test when it empties");
-    let violations = verify_under(Sabotage::SpawnLegacyRoot(family), &sabotage_plan())
-        .expect_err("a legacy root is still reported");
-    let legacy: Vec<_> = violations
-        .iter()
-        .filter(|v| matches!(v, RosterViolation::LegacyConstruction { .. }))
-        .collect();
-    assert_eq!(legacy.len(), 1, "got {violations:?}");
-    assert_eq!(legacy[0].severity(), Severity::Unmigrated);
+fn the_known_legacy_exception_maps_to_unmigrated_severity() {
     assert!(
-        violations
-            .iter()
-            .all(|v| v.severity() == Severity::Unmigrated),
-        "an enumerated legacy family must not block publication: {violations:?}"
+        KNOWN_LEGACY_FAMILIES.is_empty(),
+        "Checkpoint B emptied the ledger; if a family re-enters, restore the \
+         end-to-end SpawnLegacyRoot assertion"
     );
+    let known = RosterViolation::LegacyConstruction {
+        sim_id: SimId::placement("x"),
+        family: "some-future-family".into(),
+    };
+    assert_eq!(known.severity(), Severity::Unmigrated);
+    let unknown = RosterViolation::UnknownLegacyFamily {
+        sim_id: SimId::placement("x"),
+        family: "not-enumerated".into(),
+    };
+    assert_eq!(unknown.severity(), Severity::Fatal);
 }
 
 /// A root claiming a legacy family nobody enumerated is FATAL.

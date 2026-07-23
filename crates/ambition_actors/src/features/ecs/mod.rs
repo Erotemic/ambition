@@ -155,10 +155,13 @@ pub use spawn::{
     RoomFeatureConstructionError, RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt,
 };
 pub(crate) use spawn::{spawn_runtime_minion, spawn_runtime_minion_into};
-pub(crate) use spawn_actors::spawn_staged_actor_into;
 pub use spawn_actors::{
-    apply_spawn_actor_requests, apply_summon_effects, BossOverrides, SpawnActorKind,
+    apply_spawn_actor_requests, apply_summon_effects, BossOverrides, GiantHandPlan, SpawnActorKind,
     SpawnActorRequest,
+};
+pub(crate) use spawn_actors::{
+    giant_hand_plans, populate_giant_hand_into, populate_giant_host_into, spawn_staged_actor_into,
+    spec_is_limbed_host,
 };
 pub use target_volumes::{
     derive_pogo_target_volumes, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,

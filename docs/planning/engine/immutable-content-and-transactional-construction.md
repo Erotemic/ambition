@@ -1270,6 +1270,70 @@ provenance tests, 15 provider tests. Discriminating vs regression-only is noted
 per test; the mismatch-is-unrepresentable and registration-order tests are
 compile-shape and end-to-end proofs respectively, not poison tests, and say so.
 
+## Checkpoint B, step 1 — giant hands are explicit plan rows (2026-07-23)
+
+**The last `KNOWN_LEGACY_FAMILIES` entry migrated.** A `"giant"`-class enemy's
+two hand limbs were minted inside `spawn_enemy_with_faction_into`, each with its
+own `SimId::spawned`, as authoritative roots no plan named — the one family that
+carried an owned-but-unstamped identity the boundary verifier could actually see.
+They are construction rows now: `authored_giant_requests(room, roster)` emits one
+`ambition.giant-host` row plus two `ambition.giant-hand` rows per authored giant,
+joined by two `ambition.limb` relations, and the enemy loop skips the hosts it
+plans (`planned_giant_host_ids`) so nothing is built twice.
+
+- The hand identities are **unchanged** — `SimId::spawned(giant, ordinal)`, the
+  feature id a pure function of the giant's authored id — so a snapshot taken
+  before the migration still restores.
+- The geometry that lived inside `spawn_giant_hand_limbs` (hand size, home
+  offsets) is now a pure `giant_hand_plans` computed at plan time.
+- `spawn_giant_hand_limbs` is **deleted**. `spawn_enemy_with_faction_into` no
+  longer spawns hands for anyone; the giant host is `populate_giant_host_into`
+  (the ordinary enemy body plus the host-side `LimbIntents`/`LimbRouteState`),
+  each hand `populate_giant_hand_into`.
+- **Reconstruction is by relation closure.** `respawn_authoritative_entity` now
+  rebuilds `relation_closure({id})` rather than the bare row, so asking for the
+  host or either hand rebuilds all three with fresh generations and a rewired
+  rig. This also changed the duellist case: rebuilding one now rebuilds its
+  grudge partner too, which is the only correct way to bring a related row back.
+- `KNOWN_LEGACY_FAMILIES` is now **empty**. The type and `Severity::Unmigrated`
+  survive because the remaining families will need them when they migrate to
+  eager construction stamping — today they receive their `SimId` from
+  `ensure_sim_id` *after* the verification pass, so they carry no identity at
+  scope-gather time and are not classified at all.
+
+**Not done: authored mount links (Checkpoint B, step 2).** `PendingMountLinks` /
+`resolve_pending_mount_links` still resolve rider↔mount a frame later. Making
+them planned `ambition.mount` relations needs BOTH ends to be plan rows, and the
+rider is normally the `gnu_ton_rider` **boss** (a `boss_spawn`) or a rider enemy
+(the `enemy` family loop) — neither migrated. So step 2 is gated on migrating the
+boss and rider-enemy families into the planner, which is a further step, not a
+contained follow-on. The giant mount itself is now a plan row, but its rider is
+not, so the link stays on the frame-later path until those families move.
+
+### Remaining families after the giant migration (surveyed 2026-07-23)
+
+The count did **not** drop by a whole family — the enemy loop still builds every
+non-giant enemy — but the giant's "1 row → 3 entities" hole is closed and the
+legacy-family list emptied. Still outside the planner:
+
+| # | family | site | state |
+|---|---|---|---|
+| 1 | authored placement → NPC | `spawn/mod.rs` `lower_all` | authoritative (`SimId` via `ensure_sim_id`, post-verify) |
+| 2 | enemy (non-giant) | `spawn/mod.rs` enemy loop | authoritative; **giants now planned** |
+| 3 | boss | `spawn/mod.rs` boss loop | authoritative; blocks planned mount links |
+| 4 | hazard | placement lowering | `FeatureId`, no `SimId` |
+| 5 | pickup / chest / breakable / switch | placement lowering | identified, not in sim roster |
+| 6 | portal (`cfg`) | placement lowering | no `FeatureId` |
+| 7 | shrine | `spawn/mod.rs` | anonymous |
+| 8 | gravity zone | `spawn/mod.rs` | anonymous |
+| 9 | portal gun pickup (`cfg`) | `spawn/mod.rs` | anonymous |
+| — | `apply_spawn_actor_requests` | `stage.rs` | parallel unplanned path to `spawn_staged_actor` |
+
+**Verification.** 52 domain tests (`ambition_actors::construction`, +4 for the
+giant migration), 908 `ambition_actors` lib tests. The giant tests are
+discriminating: the row-count/relation-shape test and the committed-rig test both
+fail against the pre-migration helper (which built the hands invisibly).
+
 ### Phase 4 — migrate room lifecycle operations
 
 #### Objective

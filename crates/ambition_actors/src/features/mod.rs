@@ -91,6 +91,10 @@ pub use ecs::{actor_component_snapshot, boss_component_snapshot};
 // Runtime minion/summon spawner, re-exported so non-feature modules (e.g. the
 // puppy-slug gun) can summon actors without reaching into the private `ecs` tree.
 pub(crate) use ecs::spawn_staged_actor_into;
+pub use ecs::GiantHandPlan;
+pub(crate) use ecs::{
+    giant_hand_plans, populate_giant_hand_into, populate_giant_host_into, spec_is_limbed_host,
+};
 pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
 
 pub use components::{

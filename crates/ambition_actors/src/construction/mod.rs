@@ -53,6 +53,10 @@ pub const RECIPE_AUTHORED_GROUND_ITEM: &str = "ambition.authored-ground-item";
 pub const RECIPE_STAGED_ACTOR: &str = "ambition.staged-actor";
 /// A minion the running simulation summoned.
 pub const RECIPE_SUMMONED_MINION: &str = "ambition.summoned-minion";
+/// A `"giant"`-class limbed host — an authored enemy that carries a rig.
+pub const RECIPE_GIANT_HOST: &str = "ambition.giant-host";
+/// One hand of a giant host.
+pub const RECIPE_GIANT_HAND: &str = "ambition.giant-hand";
 /// A personal grudge from one constructed actor onto another.
 pub const RELATION_GRUDGE: &str = "ambition.grudge";
 /// A driven limb belonging to a host body's rig. **Bidirectional**: `Limb` on
@@ -77,6 +81,12 @@ pub fn recipe_staged_actor() -> RecipeId {
 }
 pub fn recipe_summoned_minion() -> RecipeId {
     RecipeId::new(RECIPE_SUMMONED_MINION)
+}
+pub fn recipe_giant_host() -> RecipeId {
+    RecipeId::new(RECIPE_GIANT_HOST)
+}
+pub fn recipe_giant_hand() -> RecipeId {
+    RecipeId::new(RECIPE_GIANT_HAND)
 }
 pub fn relation_grudge() -> RelationKind {
     RelationKind::new(RELATION_GRUDGE)
@@ -133,6 +143,21 @@ pub enum ActorConstructionParams {
     },
     StagedActor(SpawnActorRequest),
     SummonedMinion(SummonedMinionParams),
+    /// A `"giant"`-class limbed host: an ordinary authored enemy body plus the
+    /// host-side rig state its hands' limb relations attach to. Its two hands are
+    /// separate [`Self::GiantHand`] rows, joined by `ambition.limb` relations —
+    /// they used to be minted inside the enemy spawn helper as authoritative
+    /// roots no plan named (the last legacy family).
+    GiantHost {
+        authored: crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+        faction: crate::features::ActorFaction,
+        paths: Vec<(String, ambition_engine_core::KinematicPath)>,
+    },
+    /// One hand of a giant host. The body is built here; its `Limb` component and
+    /// the host's rig entry are installed by the `ambition.limb` relation.
+    GiantHand {
+        authored: crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+    },
 }
 
 /// A minion resolved from `Effect::Summon`.
@@ -189,6 +214,14 @@ impl ConstructionDomain for ActorConstruction {
                 recipe: recipe_summoned_minion(),
                 construct: construct_summoned_minion,
             },
+            ActorConstructionParams::GiantHost { .. } => RecipeDispatch {
+                recipe: recipe_giant_host(),
+                construct: construct_giant_host,
+            },
+            ActorConstructionParams::GiantHand { .. } => RecipeDispatch {
+                recipe: recipe_giant_hand(),
+                construct: construct_giant_hand,
+            },
         }
     }
 
@@ -239,6 +272,12 @@ impl ConstructionDomain for ActorConstruction {
             ),
             ActorConstructionParams::SummonedMinion(minion) => {
                 format!("minion {} {}", minion.feature_id, minion.archetype_id)
+            }
+            ActorConstructionParams::GiantHost { authored, .. } => {
+                format!("giant-host {} {}", authored.id, authored.name)
+            }
+            ActorConstructionParams::GiantHand { authored } => {
+                format!("giant-hand {}", authored.id)
             }
         }
     }
@@ -453,6 +492,49 @@ fn construct_summoned_minion(
         minion.encounter_id.clone(),
         minion.faction,
         crate::features::ActorAggression::hostile(),
+    );
+}
+
+fn construct_giant_host(
+    parameters: &ActorConstructionParams,
+    root: ConstructionRoot,
+    ctx: &mut Ctx<'_, '_, '_>,
+) {
+    let ActorConstructionParams::GiantHost {
+        authored,
+        faction,
+        paths,
+    } = parameters
+    else {
+        unreachable!("dispatch pairs this fn with GiantHost parameters")
+    };
+    crate::features::populate_giant_host_into(
+        ctx.commands,
+        &ctx.services.context.characters,
+        &ctx.services.context.roster,
+        ctx.session,
+        root.entity(),
+        authored,
+        paths,
+        *faction,
+    );
+}
+
+fn construct_giant_hand(
+    parameters: &ActorConstructionParams,
+    root: ConstructionRoot,
+    ctx: &mut Ctx<'_, '_, '_>,
+) {
+    let ActorConstructionParams::GiantHand { authored } = parameters else {
+        unreachable!("dispatch pairs this fn with GiantHand parameters")
+    };
+    crate::features::populate_giant_hand_into(
+        ctx.commands,
+        &ctx.services.context.characters,
+        &ctx.services.context.roster,
+        ctx.session,
+        root.entity(),
+        authored,
     );
 }
 
@@ -719,6 +801,8 @@ pub fn install_actor_construction_recipes(
     )?;
     registry.try_register_recipe(recipe_staged_actor(), OWNER, "content-staging", SCHEMA)?;
     registry.try_register_recipe(recipe_summoned_minion(), OWNER, "summon-effect", SCHEMA)?;
+    registry.try_register_recipe(recipe_giant_host(), OWNER, "authored-room", SCHEMA)?;
+    registry.try_register_recipe(recipe_giant_hand(), OWNER, "authored-room", SCHEMA)?;
     // Metadata only — the wiring and the checks come from
     // `ActorConstruction::dispatch_relation`, so there is nothing here for an
     // outside registration to replace or to win an insertion-order race for.
@@ -786,6 +870,16 @@ pub fn mount_capabilities_of(
                 pilots: spec.pilotable_mount_classes.clone(),
             }
         }
+        // A giant host is a mount (its archetype carries `mount_class`); its hands
+        // are neither mount nor pilot.
+        ActorConstructionParams::GiantHost { authored, .. } => {
+            let spec = roster.spec_for_brain(&authored.payload);
+            PlannedMountCapabilities {
+                mount_class: spec.mount_class.clone(),
+                pilots: spec.pilotable_mount_classes.clone(),
+            }
+        }
+        ActorConstructionParams::GiantHand { .. } => PlannedMountCapabilities::default(),
     }
 }
 
@@ -795,6 +889,8 @@ fn family_of(parameters: &ActorConstructionParams) -> &'static str {
         ActorConstructionParams::GroundItem { .. } => "ground-item",
         ActorConstructionParams::StagedActor(_) => "staged-actor",
         ActorConstructionParams::SummonedMinion(_) => "summoned-minion",
+        ActorConstructionParams::GiantHost { .. } => "giant-host",
+        ActorConstructionParams::GiantHand { .. } => "giant-hand",
     }
 }
 
@@ -1011,6 +1107,94 @@ pub fn staged_actor_requests(
                 )
                 .collect(),
         })
+        .collect()
+}
+
+/// Turn a room's authored `"giant"`-class enemies into construction rows: one
+/// host row plus two hand rows each, joined by `ambition.limb` relations.
+///
+/// **This is the migration that empties `KNOWN_LEGACY_FAMILIES`.** The hands used
+/// to be minted inside the enemy spawn helper as authoritative roots no plan
+/// named. Here they are prepared with the host, before anything spawns, so the
+/// reconstruction closure of the host or either hand includes all three and the
+/// boundary verifier sees a rig it planned rather than a legacy warning.
+///
+/// The hand identities are unchanged — `SimId::spawned(giant, ordinal)`, with the
+/// feature id a pure function of the giant's authored id — so a snapshot taken
+/// before this migration still restores. `roster` resolves each enemy's
+/// archetype; only limbed hosts (`spec_is_limbed_host`) produce rows here.
+pub fn authored_giant_requests(
+    room: &crate::rooms::RoomSpec,
+    roster: &crate::features::CharacterRoster,
+) -> Vec<ActorConstructionRequest> {
+    let mut requests = Vec::new();
+    for enemy in &room.enemy_spawns {
+        let spec = roster.spec_for_brain(&enemy.payload);
+        if !crate::features::spec_is_limbed_host(&spec) {
+            continue;
+        }
+        let giant_sim = SimId::placement(&enemy.id);
+        // The host row: the authored giant plus the host-side rig state.
+        requests.push(ActorConstructionRequest {
+            sim_id: giant_sim.clone(),
+            origin: SpawnOrigin::Authored {
+                source: room.id.clone(),
+                instance: enemy.id.clone(),
+            },
+            parameters: ActorConstructionParams::GiantHost {
+                authored: enemy.clone(),
+                faction: crate::features::ActorFaction::Enemy,
+                paths: Vec::new(),
+            },
+            relations: Vec::new(),
+        });
+        // One row per hand, each declaring a limb relation back onto the host.
+        for hand in crate::features::giant_hand_plans(&enemy.id, enemy.aabb, &spec) {
+            requests.push(ActorConstructionRequest {
+                // The hand's snapshot identity is unchanged from the legacy path.
+                sim_id: SimId::spawned(&giant_sim, hand.ordinal),
+                origin: SpawnOrigin::Authored {
+                    source: room.id.clone(),
+                    instance: hand.feature_id.clone(),
+                },
+                parameters: ActorConstructionParams::GiantHand {
+                    authored: crate::rooms::Authored {
+                        id: hand.feature_id.clone(),
+                        name: "Giant GNU Hand".to_string(),
+                        aabb: hand.aabb,
+                        payload: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                            "giant_gnu_hands".into(),
+                        ),
+                    },
+                },
+                relations: vec![
+                    ambition_platformer_primitives::construction::RelationRequest {
+                        to: giant_sim.clone(),
+                        relation: ActorRelation::Limb {
+                            slot: hand.slot,
+                            home_offset: hand.home_offset,
+                        },
+                    },
+                ],
+            });
+        }
+    }
+    requests
+}
+
+/// The authored ids this room constructs as `"giant"`-class hosts, so the
+/// family loop that still builds ordinary enemies can skip them — a giant is a
+/// plan row now, and building it on the loop too would duplicate it.
+pub fn planned_giant_host_ids(
+    room: &crate::rooms::RoomSpec,
+    roster: &crate::features::CharacterRoster,
+) -> std::collections::BTreeSet<String> {
+    room.enemy_spawns
+        .iter()
+        .filter(|enemy| {
+            crate::features::spec_is_limbed_host(&roster.spec_for_brain(&enemy.payload))
+        })
+        .map(|enemy| enemy.id.clone())
         .collect()
 }
 

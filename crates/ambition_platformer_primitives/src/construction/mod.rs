@@ -453,12 +453,15 @@ impl LegacyConstructionRoot {
 /// deleted. Kept here rather than in a domain crate because the exemption is an
 /// engine-level policy about what verification tolerates, and because a list a
 /// domain could extend at will would not be a shrinking list.
-pub const KNOWN_LEGACY_FAMILIES: &[&str] = &[
-    // A `giant`-class enemy's two hand limbs, minted inside
-    // `spawn_giant_hand_limbs` with `SimId::spawned` under the giant. Removed by
-    // Checkpoint B, which makes each hand an explicit plan row.
-    "giant-hand-limb",
-];
+/// **Empty as of Checkpoint B.** The one entry, `giant-hand-limb`, migrated: the
+/// giant's hands are explicit plan rows now, so no family mints an owned-but-
+/// unstamped identity that verification can see. Other families remain un-
+/// migrated, but they receive their `SimId` from `ensure_sim_id` *after* the
+/// verification pass, so they carry no identity at scope-gather time and are not
+/// classified at all — they will need this list when they migrate to eager
+/// construction stamping, which is why the type survives its empty list. Phase
+/// 4's final step deletes both once every family constructs through the planner.
+pub const KNOWN_LEGACY_FAMILIES: &[&str] = &[];
 
 /// One requested entity, before validation.
 ///

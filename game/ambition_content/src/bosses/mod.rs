@@ -197,6 +197,17 @@ impl Plugin for AmbitionBossContentPlugin {
         app.init_resource::<CutRopeBossArenaState>();
         app.init_resource::<CutRopeHeavyObjectCycle>();
         app.init_resource::<PendingCutRopeRoomReplay>();
+        // The cycle advances on room reset, and a reset can be sim-triggered
+        // (`SandboxResetRequested` is rollback state) — so a rewound reset that
+        // replays must not advance the choice twice. Copy-cheap; registered
+        // through the same content seam the specials use.
+        {
+            use ambition_runtime::rollback::AmbitionRollbackApp;
+            app.rollback_resource_clone::<CutRopeHeavyObjectCycle>(
+                "ambition_content::bosses",
+                "content.cut_rope_heavy_object_cycle",
+            );
+        }
 
         // The named per-boss special-attack Techniques (state attachment +
         // schedule into the engine's `CombatSet::ContentSpecials` slot) are

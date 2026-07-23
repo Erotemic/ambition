@@ -25,7 +25,8 @@
 //! rollback has to reproduce. It also catches state parked on an entity by a
 //! `Commands` insert, which a system-access walk would miss entirely.
 //!
-//! It does not see resources — those still need review by hand.
+//! Resources are covered by the sibling forcing function below — same
+//! contract, over `World::iter_resources` instead of entity composition.
 //!
 //! ## When this fails
 //!
@@ -162,6 +163,271 @@ fn every_component_on_a_simulated_entity_is_registered_derived_or_waived() {
         );
         for (type_name, count) in &unaccounted {
             report.push_str(&format!("  {type_name}  (on {count} sim entities)\n"));
+        }
+        panic!("{report}");
+    }
+}
+
+/// Resource type-name substrings that are NOT authoritative simulation state.
+///
+/// Same contract as [`WAIVED`]: each entry claims rewinding the named resource
+/// would be meaningless or harmful, with the reason. Crate-prefix waivers from
+/// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
+const RESOURCE_WAIVED: &[(&str, &str)] = &[
+    // Authored, immutable-by-contract content bound by PreparedContentIdentity;
+    // a changed generation invalidates the GGRS session before the next frame.
+    ("::boss_encounter::catalog::", "authored boss catalog"),
+    (
+        "::boss_encounter::registry::BossEncounterRegistry",
+        "authored encounter registry",
+    ),
+    (
+        "::features::banter::CombatBanterRegistry",
+        "authored banter registry",
+    ),
+    (
+        "::features::enemies::CharacterRoster",
+        "authored roster (and its registry)",
+    ),
+    (
+        "::actor::character_catalog::",
+        "authored character catalog family",
+    ),
+    (
+        "::authored_volumes::AuthoredAttackVolumeResolver",
+        "authored attack volumes",
+    ),
+    (
+        "ConstructionRegistry<",
+        "recipe identity registry, frozen at content preparation",
+    ),
+    ("PlacementLoweringRegistry<", "authored lowering registry"),
+    (
+        "::content_staging::RoomContentStagingRegistry",
+        "authored staging seam",
+    ),
+    (
+        "::visual::ProjectileVisualCatalog",
+        "authored projectile visuals",
+    ),
+    ("::gate_portal::GatePortalRegistry", "authored gate portals"),
+    ("::manifest::WorldManifest", "authored world manifest"),
+    (
+        "::project::SandboxLdtkProject",
+        "authored LDtk project; hot reload restarts the session",
+    ),
+    (
+        "::session::data::SandboxData",
+        "authored data assets (spec, asset handle, and Assets store)",
+    ),
+    (
+        "::provider::AmbitionPreparedWorld",
+        "prepared-content value handed to the provider lifecycle",
+    ),
+    (
+        "::bevy_runtime::indices::",
+        "derived index of authored geometry, immutable per content epoch",
+    ),
+    (
+        "::bevy_runtime::parity::",
+        "LDtk parity diagnostics, not gameplay state",
+    ),
+    (
+        "::hot_reload::LdtkHotReloadState",
+        "dev hot-reload machinery; a commit restarts the GGRS session",
+    ),
+    // Settings and tuning: forward-only knobs, not per-frame simulation state.
+    ("::settings::UserSettings", "user settings, forward-only"),
+    (
+        "::movement::tuning::ActiveMovementTuning",
+        "movement tuning, forward-only",
+    ),
+    (
+        "::time::feel::SandboxFeelTuning",
+        "feel tuning, forward-only",
+    ),
+    (
+        "::physics::PhysicsSandboxSettings",
+        "physics settings, forward-only",
+    ),
+    ("::tuning::PortalTuning", "portal tuning, forward-only"),
+    // Presentation state living in otherwise-simulation crates.
+    (
+        "::camera_ease::",
+        "camera presentation: ease/shake state and tuning follow the presented pose",
+    ),
+    (
+        "::shrine::ShrineActivationPulse",
+        "shrine presentation pulse",
+    ),
+    (
+        "::events::GameplayBanner",
+        "HUD banner read model (its request message is cleared on rollback)",
+    ),
+    (
+        "::avatar::trail::PlayerTrailEnabled",
+        "trail visuals toggle",
+    ),
+    // Host, lifecycle, and bookkeeping: never advanced inside a GGRS frame.
+    (
+        "::rollback::registry::RollbackRegistry",
+        "the registration contract itself",
+    ),
+    (
+        "ambition_runtime::SimulationHost",
+        "host composition mode, fixed for the session",
+    ),
+    (
+        "::content_identity::ContentEpochSequence",
+        "epoch allocator; mutated only by hot reload, which restarts the session",
+    ),
+    ("::schedule::SimSchedule", "schedule handle"),
+    (
+        "::rooms::stage::LastRoomConstructionCommit",
+        "construction receipt: lifecycle evidence, not frame state",
+    ),
+    (
+        "::rooms::transaction::",
+        "construction transaction bookkeeping (verification record, live binding)",
+    ),
+    (
+        "::world_flow::room_transition_loading::",
+        "room-load coordination, outside the sim frame",
+    ),
+    (
+        "::app::player_clone::",
+        "dev clone-spawn bookkeeping; the spawned clone's body is registered component state",
+    ),
+    ("::intro::plugin::Intro", "install-once content markers"),
+    (
+        "::cutscene_trigger::CutsceneTriggerQueue",
+        "narrative trigger seam; seen-flags in the rollback-registered SandboxSave dedup re-fires",
+    ),
+    (
+        "::brain::BrainActionCounter",
+        "diagnostic counter surfaced by HUD/debug tooling",
+    ),
+    (
+        "::developer_hotkeys::DeveloperAction",
+        "developer hotkey message",
+    ),
+    (
+        "::affordances::devices::ActiveInputMethod",
+        "last-used input device; drives prompt glyphs, not simulation",
+    ),
+    // Deliberate rollback exclusions, each with an in-code guard.
+    (
+        "::falling_sand_sim::",
+        "deliberately outside rollback: grid/ledger advance only on authoritative passes \
+         (simulation_pass_is_authoritative guard; module-level warning; falling-sand.md)",
+    ),
+    (
+        "::cut_rope::arena::CutRopeBossArenaState",
+        "per-frame mirror of the FallingHazard entity, rebuilt each frame",
+    ),
+    (
+        "::cut_rope::PendingCutRopeRoomReplay",
+        "dialog-flow latch consumed by the room-reset flow, presentation-gated",
+    ),
+    // Bevy wrapper resources around non-simulation machinery.
+    ("bevy_asset::", "asset plumbing"),
+    (
+        "bevy_state::",
+        "host session gating (GameMode); GGRS frames only advance in gameplay mode",
+    ),
+];
+
+/// Strip Bevy's message-buffer wrapper so a buffer is judged by its message
+/// type: `clear_message_on_rollback` registrations record the MESSAGE type
+/// name, while `iter_resources` reports the `Messages<T>` wrapper.
+fn unwrap_message_buffer(name: &str) -> &str {
+    name.strip_prefix("bevy_ecs::message::messages::Messages<")
+        .and_then(|inner| inner.strip_suffix('>'))
+        .unwrap_or(name)
+}
+
+/// The resource sweep shared by the forcing function and its poison test:
+/// every `ambition_`-named resource in `world` that is neither registered,
+/// declared derived, nor waived.
+fn unaccounted_resources(world: &World) -> Vec<String> {
+    let known: BTreeSet<String> = world
+        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .expect("rollback registry is installed by the engine plugins")
+        .descriptors()
+        .map(|d| d.type_name.clone())
+        .collect();
+
+    let mut unaccounted: Vec<String> = Vec::new();
+    let mut seen_any = false;
+    for (info, _) in world.iter_resources() {
+        let full_name = info.name().to_string();
+        if !full_name.contains("ambition_") {
+            continue;
+        }
+        seen_any = true;
+        let name = unwrap_message_buffer(&full_name);
+        if known.contains(name)
+            || waiver(name).is_some()
+            || RESOURCE_WAIVED
+                .iter()
+                .any(|(needle, _)| name.contains(needle))
+        {
+            continue;
+        }
+        unaccounted.push(full_name);
+    }
+    assert!(
+        seen_any,
+        "no ambition resources found — the fixture did not actually boot a world, \
+         so a green result here would be vacuous"
+    );
+    unaccounted.sort();
+    unaccounted
+}
+
+/// Poison: an unregistered, unwaived resource whose type path contains
+/// `ambition_` (via this module's name), so the sweep must flag it.
+mod ambition_poison {
+    #[derive(bevy::prelude::Resource, Default)]
+    pub struct DeliberatelyUnregistered;
+}
+
+#[test]
+fn the_resource_sweep_actually_catches_an_unregistered_resource() {
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    sim.world_mut()
+        .insert_resource(ambition_poison::DeliberatelyUnregistered);
+    let flagged = unaccounted_resources(sim.world());
+    assert!(
+        flagged
+            .iter()
+            .any(|name| name.contains("DeliberatelyUnregistered")),
+        "the sweep failed to flag a deliberately unregistered resource — \
+         every green result it has ever produced is suspect: {flagged:?}"
+    );
+}
+
+#[test]
+fn every_mutable_ambition_resource_is_registered_derived_or_waived() {
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    // Step a few frames so lazily-inserted runtime resources exist.
+    for _ in 0..8 {
+        sim.step(AgentAction::default());
+    }
+
+    let unaccounted = unaccounted_resources(sim.world());
+
+    if !unaccounted.is_empty() {
+        let mut report = String::from(
+            "Resources live in the simulated world that GGRS will not rewind.\n\
+             For each one: register it in `register_engine_rollback_state` (or the\n\
+             owning content plugin's rollback seam), declare it derived, or add a\n\
+             justified waiver to RESOURCE_WAIVED / WAIVED in this file.\n\n",
+        );
+        for type_name in &unaccounted {
+            report.push_str(&format!("  {type_name}\n"));
         }
         panic!("{report}");
     }

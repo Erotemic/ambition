@@ -14,7 +14,6 @@ use bevy::prelude::*;
 use crate::session_world::PreparedPlatformerSource;
 
 pub const CONTENT_FINGERPRINT_SCHEMA_VERSION: u32 = 1;
-pub const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct ContentFingerprintSchemaVersion(pub u32);

@@ -12,7 +12,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bevy::asset::{LoadState, UntypedAssetId};
-use bevy::prelude::{AssetServer, DetectChanges, Handle, Image, Res, ResMut, Resource, Time};
+use bevy::image::TextureAtlasLayout;
+use bevy::prelude::{
+    AssetServer, Assets, DetectChanges, Handle, Image, Res, ResMut, Resource, Time,
+};
 use bevy::time::Real;
 
 use ambition::actors::features::RoomContentStagingRegistry;
@@ -94,7 +97,10 @@ pub(crate) struct RoomPreparationPrefetchState {
 pub(crate) struct RoomTransitionAssetContext<'w> {
     pub(crate) assets: Option<ResMut<'w, GameAssets>>,
     pub(crate) catalog: Option<Res<'w, SandboxAssetCatalog>>,
+    pub(crate) character_catalog:
+        Option<Res<'w, ambition::characters::actor::character_catalog::CharacterCatalog>>,
     pub(crate) asset_server: Option<Res<'w, AssetServer>>,
+    pub(crate) layouts: Option<ResMut<'w, Assets<TextureAtlasLayout>>>,
     pub(crate) quality: Option<Res<'w, ResolvedVisualQuality>>,
     pub(crate) prefetch: Option<ResMut<'w, RoomPreparationPrefetchState>>,
     pub(crate) real_time: Option<Res<'w, Time<Real>>>,
@@ -160,6 +166,48 @@ fn add_named_character(
     }
 }
 
+/// Materialize every DEFERRED character sheet this room will show — NPC
+/// placements and the staged actor roster — before the manifest is built, so
+/// the reveal barrier waits on them exactly like it waits on parallax themes.
+/// Names that were never deferred (already loaded, or placeholder ids with no
+/// sheet) are no-ops; a gated/missing sheet keeps its colored-rectangle
+/// fallback, same as the eager loader.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn ensure_room_character_sprites(
+    room: &RoomSpec,
+    staged_actor_names: &[String],
+    assets: &mut GameAssets,
+    catalog: &SandboxAssetCatalog,
+    character_catalog: &ambition::characters::actor::character_catalog::CharacterCatalog,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    quality: &ResolvedVisualQuality,
+) {
+    let mut names: Vec<&str> = staged_actor_names.iter().map(String::as_str).collect();
+    for placement in &room.placements {
+        if let PlacementSchema::Interactable(spec) = &placement.schema {
+            if let InteractionKindSpec::Npc {
+                character_id: Some(character_id),
+                ..
+            } = &spec.kind
+            {
+                names.push(character_id);
+            }
+        }
+    }
+    for name in names {
+        ambition::actors::character_sprites::materialize_deferred_character_sprite(
+            &mut assets.characters,
+            character_catalog,
+            catalog,
+            asset_server,
+            layouts,
+            Some(&quality.budget),
+            name,
+        );
+    }
+}
+
 fn add_room_specific_sprites(
     room: &RoomSpec,
     staged_actor_names: &[String],
@@ -219,6 +267,13 @@ fn add_room_specific_sprites(
         add_named_character(by_label, assets, name);
     }
 
+    // Staged actors' own sheets join the barrier: with startup deferral these
+    // are materialized just before this walk, so the reveal now waits on them
+    // the same way it waits on placement NPCs and parallax themes.
+    for name in staged_actor_names {
+        add_named_character(by_label, assets, name);
+    }
+
     if !room.enemy_spawns.is_empty() || !staged_actor_names.is_empty() {
         if let Some(asset) = assets.characters.goblin.as_ref() {
             add_character_asset(by_label, "character-fallback:goblin", asset);
@@ -252,7 +307,9 @@ pub(crate) fn build_room_asset_manifest(
     staged_actor_names: &[String],
     assets: &mut GameAssets,
     catalog: &SandboxAssetCatalog,
+    character_catalog: &ambition::characters::actor::character_catalog::CharacterCatalog,
     asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
     quality: &ResolvedVisualQuality,
 ) -> RoomAssetManifest {
     ensure_parallax_layers_for_room(
@@ -261,6 +318,16 @@ pub(crate) fn build_room_asset_manifest(
         asset_server,
         &room.metadata,
         Some(&quality.budget),
+    );
+    ensure_room_character_sprites(
+        room,
+        staged_actor_names,
+        assets,
+        catalog,
+        character_catalog,
+        asset_server,
+        layouts,
+        quality,
     );
 
     build_loaded_room_asset_manifest(room, staged_actor_names, assets)
@@ -535,6 +602,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     mut assets: ResMut<GameAssets>,
     catalog: Res<SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
+    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
     quality: Res<ResolvedVisualQuality>,
     time: Res<Time<Real>>,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -620,7 +688,9 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             &staged_names,
             &mut assets,
             &catalog,
+            &character_catalog,
             &asset_server,
+            &mut layouts,
             &quality,
         );
         let replace = refresh_manifests

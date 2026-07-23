@@ -271,6 +271,62 @@ fn sprite_texture_scale(
 /// [`SandboxAssetCatalog::should_attempt_optional_load`]; missing
 /// files produce no map entry (callers fall back to colored
 /// rectangles).
+/// The characters whose sheets decode at startup: the typed hot-path slots
+/// every session touches before any room stages content. Everything else is
+/// deferred to room staging.
+const EAGER_CHARACTER_IDS: [&str; 4] = ["player", "robot", "goblin", "sandbag"];
+
+/// Load a deferred catalog character's sheets into `sprites.npcs` (under
+/// every key that mapped to its catalog id, mirroring the eager path's
+/// double-keying). Returns `true` when `name` resolves to a loaded asset —
+/// already loaded, or materialized here. `false` = unknown id or the catalog
+/// gated/failed the load (callers keep their colored-rectangle fallback).
+pub fn materialize_deferred_character_sprite(
+    sprites: &mut CharacterSpriteAssets,
+    character_catalog: &CharacterCatalog,
+    asset_catalog: &SandboxAssetCatalog,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    quality: Option<&VisualQualityBudget>,
+    name: &str,
+) -> bool {
+    if sprites.npcs.contains_key(name) {
+        return true;
+    }
+    let Some(cid) = sprites.deferred_npcs.get(name).cloned() else {
+        return false;
+    };
+    let Some(sheet_spec) = sheet_for_character_id_in(character_catalog, &cid) else {
+        return false;
+    };
+    let asset_id = ids::character_sprite(&cid);
+    let variant_tuning = character_variant_tuning(character_catalog, &cid);
+    let variant = variant_tuning.as_ref().map(|(t, tn)| (*t, tn));
+    let Some(asset) = build_optional_via_catalog(
+        asset_catalog,
+        asset_server,
+        layouts,
+        &asset_id,
+        &sheet_spec,
+        variant,
+        Some(&cid),
+        quality,
+    ) else {
+        return false;
+    };
+    let keys: Vec<String> = sprites
+        .deferred_npcs
+        .iter()
+        .filter(|(_, deferred_cid)| **deferred_cid == cid)
+        .map(|(key, _)| key.clone())
+        .collect();
+    for key in keys {
+        sprites.deferred_npcs.remove(&key);
+        sprites.npcs.insert(key, asset.clone());
+    }
+    true
+}
+
 pub fn load_character_sprites_in(
     character_catalog: &CharacterCatalog,
     asset_catalog: &SandboxAssetCatalog,
@@ -281,6 +337,7 @@ pub fn load_character_sprites_in(
     let mut out = CharacterSpriteAssets::default();
     let mut total = 0usize;
     let mut loaded = 0usize;
+    let mut deferred = 0usize;
     let mut skipped_no_spec: Vec<&str> = Vec::new();
     let mut skipped_no_path: Vec<&str> = Vec::new();
     for (cid, entry) in character_catalog.iter() {
@@ -293,6 +350,20 @@ pub fn load_character_sprites_in(
             skipped_no_spec.push(cid.as_str());
             continue;
         };
+        // Only the typed hot-path characters decode at startup. Everything
+        // else registers as DEFERRED: the room-transition asset-manifest step
+        // materializes the ids a room actually stages (see
+        // `materialize_deferred_character_sprite`), behind the same reveal
+        // barrier that already gates parallax themes — so the ~130-sheet PNG
+        // decode storm (20-25% of startup CPU) shrinks to the sheets a
+        // session actually shows, with no sprite pop-in.
+        if !EAGER_CHARACTER_IDS.contains(&cid.as_str()) {
+            deferred += 1;
+            out.deferred_npcs.insert(cid.clone(), cid.clone());
+            out.deferred_npcs
+                .insert(entry.display_name.clone(), cid.clone());
+            continue;
+        }
         let asset_id = ids::character_sprite(cid);
         let variant_tuning = character_variant_tuning(character_catalog, cid);
         let variant = variant_tuning.as_ref().map(|(t, tn)| (*t, tn));
@@ -352,8 +423,8 @@ pub fn load_character_sprites_in(
     // log filter without needing `RUST_LOG=debug`.
     bevy::log::info!(
         target: "ambition::character_sprites",
-        "character_sprites: {loaded}/{total} catalog entries loaded; \
-         {} no spec wired (placeholder), {} no asset path (placeholder)",
+        "character_sprites: {loaded}/{total} catalog entries loaded, {deferred} deferred \
+         to room staging; {} no spec wired (placeholder), {} no asset path (placeholder)",
         skipped_no_spec.len(),
         skipped_no_path.len(),
     );

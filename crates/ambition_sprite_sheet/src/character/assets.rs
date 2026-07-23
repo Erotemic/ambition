@@ -24,6 +24,13 @@ pub struct CharacterSpriteAssets {
     pub npcs: HashMap<String, CharacterSpriteAsset>,
     /// Per-prop sprite sheets keyed by the LDtk `Prop.kind` field.
     pub props: HashMap<String, CharacterSpriteAsset>,
+    /// Catalog characters whose sheet PNGs are NOT loaded yet: key (display
+    /// name or catalog id, same double-keying as `npcs`) → catalog id. Startup
+    /// registers most of the roster here instead of decoding ~130 sheets up
+    /// front; the room-transition asset-manifest step materializes the ids a
+    /// room actually stages into `npcs` before the reveal barrier, so
+    /// consumers still only ever see loaded entries.
+    pub deferred_npcs: HashMap<String, String>,
 }
 
 impl CharacterSpriteAssets {

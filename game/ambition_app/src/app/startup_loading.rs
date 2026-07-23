@@ -90,7 +90,11 @@ impl DirectStartupLoadingState {
 #[derive(SystemParam)]
 struct StartupAssetInputs<'w, 's> {
     asset_server: Res<'w, AssetServer>,
-    game_assets: Res<'w, GameAssets>,
+    game_assets: ResMut<'w, GameAssets>,
+    asset_catalog: Res<'w, ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    character_catalog: Res<'w, ambition::characters::actor::character_catalog::CharacterCatalog>,
+    layouts: ResMut<'w, Assets<TextureAtlasLayout>>,
+    quality: Res<'w, ambition::render::quality::ResolvedVisualQuality>,
     room_sets: Query<'w, 's, &'static RoomSet, With<SessionRoot>>,
     content_staging: Res<'w, RoomContentStagingRegistry>,
     ldtk_worlds: Option<Res<'w, LdtkWorldAssets>>,
@@ -359,6 +363,18 @@ fn build_startup_manifest(
         .iter()
         .map(|request| request.name.clone())
         .collect::<Vec<_>>();
+    // Deferred character sheets for the FIRST room materialize here, behind
+    // the startup cover — the same barrier semantics room transitions get.
+    super::world_flow::ensure_room_character_sprites(
+        room,
+        &staged_names,
+        &mut inputs.game_assets,
+        &inputs.asset_catalog,
+        &inputs.character_catalog,
+        &inputs.asset_server,
+        &mut inputs.layouts,
+        &inputs.quality,
+    );
     let room_manifest = build_loaded_room_asset_manifest(room, &staged_names, &inputs.game_assets);
 
     let mut supporting = Vec::new();

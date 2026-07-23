@@ -600,10 +600,19 @@ pub(crate) fn begin_room_transition_load_system(
         match (
             asset_context.assets.as_deref_mut(),
             asset_context.catalog.as_deref(),
+            asset_context.character_catalog.as_deref(),
             asset_context.asset_server.as_deref(),
+            asset_context.layouts.as_deref_mut(),
             asset_context.quality.as_deref(),
         ) {
-            (Some(assets), Some(catalog), Some(asset_server), Some(quality)) => {
+            (
+                Some(assets),
+                Some(catalog),
+                Some(character_catalog),
+                Some(asset_server),
+                Some(layouts),
+                Some(quality),
+            ) => {
                 #[cfg(not(target_arch = "wasm32"))]
                 let manifest_started = std::time::Instant::now();
                 let manifest = super::room_transition_assets::build_room_asset_manifest(
@@ -611,7 +620,9 @@ pub(crate) fn begin_room_transition_load_system(
                     &staged_names,
                     assets,
                     catalog,
+                    character_catalog,
                     asset_server,
+                    layouts,
                     quality,
                 );
                 #[cfg(not(target_arch = "wasm32"))]

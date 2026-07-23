@@ -29,6 +29,7 @@ Exit code is nonzero if any job fails. A pytest-style summary is printed last.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -126,6 +127,42 @@ class Job:
     argv: list[str]
 
 
+@dataclass
+class JobResult:
+    """One executed job: what ran, whether it passed, and how long it took."""
+    name: str
+    argv: list[str]
+    ok: bool
+    seconds: float
+
+
+def timing_report(results: list[JobResult]) -> str:
+    """Per-job timings ranked slowest -> fastest.
+
+    Success state rides along as a tag so a failed job's time is visible
+    without being confused for a slow-but-green one; pass/fail accounting
+    itself stays in the summary block, which lists failures separately.
+    """
+    lines = ["  job timings (slowest first):"]
+    for r in sorted(results, key=lambda r: -r.seconds):
+        tag = "ok  " if r.ok else "FAIL"
+        lines.append(f"    {r.seconds:8.1f}s  {tag}  {r.name}")
+    return "\n".join(lines)
+
+
+def timings_payload(results: list[JobResult]) -> list[dict]:
+    """Machine-readable timing rows (for --timings-json / RUN_TESTS_TIMINGS_JSON)."""
+    return [
+        {
+            "job": r.name,
+            "command": " ".join(r.argv),
+            "ok": r.ok,
+            "seconds": round(r.seconds, 3),
+        }
+        for r in results
+    ]
+
+
 def selected_members(only: list[str]) -> list[Path]:
     """Workspace members with a `Cargo.toml`, validated against `only`.
 
@@ -205,7 +242,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     return jobs
 
 
-def run(jobs: list[Job], list_only: bool) -> int:
+def run(jobs: list[Job], list_only: bool, timings_json: str | None = None) -> int:
     if list_only:
         print(f"Planned {len(jobs)} job(s):\n")
         for j in jobs:
@@ -216,26 +253,32 @@ def run(jobs: list[Job], list_only: bool) -> int:
     env = dict(os.environ)
     env.setdefault("RUST_BACKTRACE", "1")
     env.setdefault("CARGO_TERM_COLOR", "always")
-    results: list[tuple[str, bool, float]] = []
+    results: list[JobResult] = []
     for j in jobs:
         print(f"\n\033[1m==> {j.name}\033[0m")
         print("    " + " ".join(j.argv))
         start = time.monotonic()
         rc = subprocess.run(j.argv, cwd=REPO, env=env).returncode
-        results.append((j.name, rc == 0, time.monotonic() - start))
+        results.append(JobResult(j.name, j.argv, rc == 0, time.monotonic() - start))
         if rc != 0:
             print(f"\033[31m    FAILED ({j.name})\033[0m")
 
-    passed = sum(1 for _, ok, _ in results if ok)
-    failed = [n for n, ok, _ in results if not ok]
-    total = sum(d for _, _, d in results)
+    passed = sum(1 for r in results if r.ok)
+    failed = [r.name for r in results if not r.ok]
+    total = sum(r.seconds for r in results)
     print("\n" + "=" * 60)
     print(f"  {passed}/{len(results)} jobs passed in {total:.0f}s")
     if failed:
         print("  FAILED jobs:")
         for n in failed:
             print(f"    - {n}")
+    print(timing_report(results))
     print("=" * 60)
+
+    if timings_json:
+        Path(timings_json).write_text(
+            json.dumps(timings_payload(results), indent=2) + "\n")
+        print(f"  timings written to {timings_json}")
     return 1 if failed else 0
 
 
@@ -252,6 +295,10 @@ def main() -> int:
                     help="only tests whose name contains SUBSTR (libtest filter)")
     ap.add_argument("-p", "--package", action="append", default=[],
                     help="restrict to this crate's job (repeatable)")
+    ap.add_argument("--timings-json", metavar="PATH",
+                    default=os.environ.get("RUN_TESTS_TIMINGS_JSON"),
+                    help="also write per-job timings as JSON to PATH "
+                         "(or set RUN_TESTS_TIMINGS_JSON)")
     ap.add_argument("cargo_extra", nargs="*",
                     help="args after `--` forwarded to libtest")
     args = ap.parse_args()
@@ -261,7 +308,7 @@ def main() -> int:
         libtest_args.insert(0, args.k)
 
     jobs = build_jobs(args.package, args.heavy, libtest_args, fast=args.fast)
-    return run(jobs, args.list)
+    return run(jobs, args.list, timings_json=args.timings_json)
 
 
 if __name__ == "__main__":

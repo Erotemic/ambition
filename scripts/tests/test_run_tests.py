@@ -99,3 +99,49 @@ def test_heavy_pass_is_whole_suite_only():
     # A package filter must not drag in the heavy acceptance cycles.
     jobs = rt.build_jobs([KNOWN[0]], heavy=True, libtest_args=[])
     assert all("run_game.sh" not in " ".join(a) for a in _argvs(jobs))
+
+
+# ── Per-job timing report ─────────────────────────────────────────────────────
+
+
+def _results():
+    return [
+        rt.JobResult("fast-green", ["cargo", "test", "-p", "a"], True, 1.2),
+        rt.JobResult("slow-green", ["cargo", "test", "--workspace"], True, 300.7),
+        rt.JobResult("mid-red", ["cargo", "test", "-p", "b"], False, 42.0),
+    ]
+
+
+def test_timing_report_ranks_slowest_first():
+    report = rt.timing_report(_results())
+    lines = report.splitlines()
+    assert "slowest first" in lines[0]
+    order = [line.split()[-1] for line in lines[1:]]
+    assert order == ["slow-green", "mid-red", "fast-green"]
+
+
+def test_timing_report_tags_failures_without_hiding_their_time():
+    report = rt.timing_report(_results())
+    (red_line,) = [l for l in report.splitlines() if "mid-red" in l]
+    assert "FAIL" in red_line
+    assert "42.0s" in red_line
+    (green_line,) = [l for l in report.splitlines() if "slow-green" in l]
+    assert "FAIL" not in green_line
+
+
+def test_timings_payload_shape():
+    payload = rt.timings_payload(_results())
+    assert [row["job"] for row in payload] == ["fast-green", "slow-green", "mid-red"]
+    for row in payload:
+        assert set(row) == {"job", "command", "ok", "seconds"}
+        assert isinstance(row["ok"], bool)
+        assert isinstance(row["seconds"], float)
+    assert payload[1]["command"] == "cargo test --workspace"
+
+
+def test_timings_payload_is_json_serializable(tmp_path):
+    import json
+
+    path = tmp_path / "timings.json"
+    path.write_text(json.dumps(rt.timings_payload(_results())))
+    assert json.loads(path.read_text())[2]["ok"] is False

@@ -1691,7 +1691,36 @@ could never see, in layers:
    confirmed-frame deferral of reconstruction, the same quarantine external
    effects use — recorded here, not attempted.
 
-### Phase 6 — external architecture proof
+### Phase 6 — external architecture proof — **FIRST SLICE LANDED 2026-07-23**
+
+> **Account.** `fixtures/external_consumer` ("Outlander", `e9bb2499a`) is a
+> consumer game excluded from the workspace — own `[workspace]`, own
+> lockfile — depending on `ambition` + `bevy` only. It authors one room
+> (`RoomSpec` in code), one character (catalog RON), one enemy (roster
+> fragment + content-staging stager, lowered by Phase 4 as a REAL
+> construction plan row through `ambition.staged-actor` — task 5's "consume,
+> don't define"), and one transition (a `transit_body` ridge gate wired
+> through `SimScheduleExt`, never a literal schedule). `outlander_headless`
+> runs 120 ticks with zero engine edits; `outlander_dump` prints the
+> rollback schema fingerprint and registry dumps through public
+> `deterministic_dump()` alone.
+>
+> **Recorded API leaks (task 3 evidence, also inline in the fixture):**
+> 1. cross-room `LoadingZone` wiring is app-local in `ambition_app` — an
+>    external game only gets in-room transit;
+> 2. construction recipe BEHAVIOR is a closed enum (`ActorConstructionParams`)
+>    — identity is registrable, behavior is not;
+> 3. consumer-owned art has no asset-root home (the fixture reuses an engine
+>    spritesheet); no umbrella API layers a consumer asset directory;
+> 4. no engine-side dump CLI exists — the consumer hosts its own binary
+>    (which proves the library surface suffices);
+> 5. `[patch.crates-io]` does not cross workspaces — every consumer must
+>    replicate the `bevy_ggrs` fork entry until HACK(ggrs-accumulator)
+>    retires.
+>
+> Remaining Phase-6 work: the visible-shell half of "visibly and headlessly
+> from the same content", and the task-7 workflow measurements beyond the
+> qualitative ones above.
 
 #### Objective
 
@@ -1897,11 +1926,18 @@ document's sketch and what each one bought.
 
 ### Milestone E — external engine-workflow proof
 
-- an external fixture authors and runs content without engine-core edits;
-- it uses prepared content and construction APIs;
-- deliberate authoring failures produce actionable diagnostics;
-- the same content runs visibly and headlessly;
-- evidence exists to design a public recipe/prefab API.
+- ✅ an external fixture authors and runs content without engine-core edits
+  (`fixtures/external_consumer`, out-of-workspace, umbrella + bevy only);
+- ✅ it uses prepared content and construction APIs (its staged enemy is a
+  plan row through `ambition.staged-actor`; catalogs flow through the
+  provider preparation lifecycle);
+- deliberate authoring failures produce actionable diagnostics (the
+  `from_ron` seams reject malformed content; a systematic error-quality
+  pass remains open);
+- the same content runs headlessly today; the visible-shell half remains
+  open;
+- ✅ evidence exists to design a public recipe/prefab API — the five
+  recorded leaks in the Phase 6 account ARE that evidence.
 
 ## 13. Recommended execution sequence
 

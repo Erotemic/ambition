@@ -209,6 +209,15 @@ pub struct OutlanderExperiencePlugin;
 impl Plugin for OutlanderExperiencePlugin {
     fn build(&self, app: &mut App) {
         install_outlander_content(app);
+        // The §transition gate joins the SIM schedule through the same
+        // schedule-extension seam engine plugins use — external code never
+        // names a literal schedule, so the same system runs under the fixed
+        // tick and a GGRS host alike.
+        {
+            use ambition::platformer::schedule::{SandboxSet, SimScheduleExt};
+            let sim = app.sim_schedule();
+            app.add_systems(sim, ridge_gate_system.in_set(SandboxSet::PlayerSimulation));
+        }
         PlatformerExperienceAuthoring::new(
             OUTLANDER_EXPERIENCE,
             OUTLANDER_GAMEPLAY_ROUTE,

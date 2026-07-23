@@ -1903,7 +1903,7 @@ fn giant_room() -> crate::rooms::RoomSpec {
 #[test]
 fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
     let roster = crate::features::enemies::test_roster();
-    let requests = crate::construction::authored_giant_requests(&giant_room(), &roster, &[]);
+    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[]);
 
     // One host + two hands.
     assert_eq!(requests.len(), 3, "host + two hands");
@@ -1944,7 +1944,7 @@ fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
 #[test]
 fn a_committed_giant_has_a_verified_two_hand_rig() {
     let roster = crate::features::enemies::test_roster();
-    let requests = crate::construction::authored_giant_requests(&giant_room(), &roster, &[]);
+    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[]);
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -1986,7 +1986,7 @@ fn a_committed_giant_has_a_verified_two_hand_rig() {
 #[test]
 fn the_giant_reconstruction_closure_is_the_whole_cluster() {
     let roster = crate::features::enemies::test_roster();
-    let requests = crate::construction::authored_giant_requests(&giant_room(), &roster, &[]);
+    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[]);
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -2238,7 +2238,7 @@ fn committed_giant() -> (
     TransactionBaseline,
 ) {
     let roster = crate::features::enemies::test_roster();
-    let requests = crate::construction::authored_giant_requests(&giant_room(), &roster, &[]);
+    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[]);
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -2710,4 +2710,155 @@ fn the_mount_pair_reconstruction_closure_is_both_actors() {
             "the closure of {seed} is the whole pair"
         );
     }
+}
+
+// ── Phase 4a/4b: the enemy and boss FAMILIES are plan rows ────────────────────
+
+/// **Every authored enemy and boss is a plan row.** Ordinary enemy →
+/// `AuthoredEnemy`; giant → host + two hands; boss → `AuthoredBoss`. The family
+/// loops are deleted, so this is the only way a room's actors exist.
+#[test]
+fn every_authored_enemy_and_boss_is_a_plan_row() {
+    let mut room = giant_room();
+    room.enemy_spawns.push(crate::rooms::Authored::new(
+        "walker",
+        "Ordinary Walker",
+        ae::Aabb::new(ae::Vec2::new(300.0, 40.0), ae::Vec2::new(22.0, 39.0)),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+    ));
+    room.boss_spawns.push(crate::rooms::Authored::new(
+        "warden",
+        "clockwork warden",
+        ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
+        ambition_entity_catalog::placements::BossBrain::Dormant,
+    ));
+    let plan = prepare(
+        &room,
+        &crate::features::RoomContentStagingRegistry::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the mixed room plans");
+
+    let expect_kind = |id: &str, check: fn(&ActorConstructionParams) -> bool| {
+        let row = plan
+            .construction()
+            .get(&SimId::placement(id))
+            .unwrap_or_else(|| panic!("`{id}` is a plan row"));
+        assert!(check(row.parameters()), "`{id}` has the right family");
+    };
+    expect_kind("walker", |parameters| {
+        matches!(parameters, ActorConstructionParams::AuthoredEnemy { .. })
+    });
+    expect_kind("boss_mount", |parameters| {
+        matches!(parameters, ActorConstructionParams::GiantHost { .. })
+    });
+    expect_kind("warden", |parameters| {
+        matches!(parameters, ActorConstructionParams::AuthoredBoss { .. })
+    });
+
+    // The whole roster is planned: no enemy/boss id lives outside the plan.
+    let planned: std::collections::BTreeSet<String> = plan
+        .construction()
+        .planned_ids()
+        .iter()
+        .map(std::string::ToString::to_string)
+        .collect();
+    for id in ["walker", "boss_mount", "warden"] {
+        assert!(planned.contains(&SimId::placement(id).to_string()));
+    }
+}
+
+/// The migrated actors are VISIBLE to the boundary verifier: identity,
+/// provenance, and transaction ownership are stamped at construction, not
+/// assigned by `ensure_sim_id` after verification has already run. The room
+/// publishes with zero violations — the families this table row used to hide
+/// are now inside the checked roster.
+#[test]
+fn a_committed_actor_room_is_fully_visible_at_the_boundary() {
+    let mut room = empty_room("field");
+    room.enemy_spawns.push(crate::rooms::Authored::new(
+        "walker",
+        "Ordinary Walker",
+        ae::Aabb::new(ae::Vec2::new(300.0, 40.0), ae::Vec2::new(22.0, 39.0)),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+    ));
+    room.boss_spawns.push(crate::rooms::Authored::new(
+        "warden",
+        "clockwork warden",
+        ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
+        ambition_entity_catalog::placements::BossBrain::Dormant,
+    ));
+    let plan = prepare(
+        &room,
+        &crate::features::RoomContentStagingRegistry::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the room plans");
+    let mut app = commit(plan);
+
+    let verification = app
+        .world()
+        .resource::<crate::world::rooms::LastConstructionVerification>();
+    assert!(verification.published, "{:?}", verification.violations);
+    assert_eq!(verification.violations, Vec::new());
+
+    let world = app.world_mut();
+    let mut query = world.query::<(
+        &SimId,
+        &ambition_platformer_primitives::construction::SpawnOrigin,
+    )>();
+    let stamped: std::collections::BTreeSet<String> =
+        query.iter(world).map(|(sim, _)| sim.to_string()).collect();
+    for id in ["walker", "warden"] {
+        assert!(
+            stamped.contains(&SimId::placement(id).to_string()),
+            "`{id}` carries SimId + SpawnOrigin at the boundary, not after it"
+        );
+    }
+}
+
+/// A planned BOSS reconstructs through the planner like any row — the
+/// family-specific respawn fallbacks are deleted.
+#[test]
+fn a_boss_respawns_through_the_planner() {
+    let mut room = empty_room("lair");
+    room.boss_spawns.push(crate::rooms::Authored::new(
+        "warden",
+        "clockwork warden",
+        ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
+        ambition_entity_catalog::placements::BossBrain::Dormant,
+    ));
+    let plan = prepare(
+        &room,
+        &crate::features::RoomContentStagingRegistry::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the room plans");
+    let mut app = commit(plan.clone());
+    let world = app.world_mut();
+    let find = |world: &mut World, wanted: &SimId| {
+        let mut query = world.query::<(bevy::prelude::Entity, &SimId)>();
+        query
+            .iter(world)
+            .find(|(_, sim)| *sim == wanted)
+            .map(|(entity, _)| entity)
+            .unwrap_or_else(|| panic!("`{wanted}` is live"))
+    };
+    let warden = SimId::placement("warden");
+    let old = find(world, &warden);
+    world.despawn(old);
+    let rebuilt = {
+        let mut commands = world.commands();
+        plan.respawn_authoritative_entity(&mut commands, SessionSpawnScope::UNSCOPED, "warden")
+    };
+    assert!(rebuilt, "the planned boss row rebuilds");
+    world.flush();
+    let fresh = find(world, &warden);
+    assert_ne!(fresh, old);
+    assert!(
+        world
+            .get::<ambition_platformer_primitives::construction::SpawnOrigin>(fresh)
+            .is_some(),
+        "the rebuilt boss carries provenance"
+    );
 }

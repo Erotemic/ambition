@@ -1315,8 +1315,8 @@ legacy-family list emptied. Still outside the planner:
 | # | family | site | state |
 |---|---|---|---|
 | 1 | authored placement → NPC | `spawn/mod.rs` `lower_all` | authoritative (`SimId` via `ensure_sim_id`, post-verify) |
-| 2 | enemy (non-giant) | `spawn/mod.rs` enemy loop | authoritative; **giants + mount-link participants now planned** |
-| 3 | boss | `spawn/mod.rs` boss loop | authoritative; **mount-link riders now planned** |
+| 2 | ~~enemy (non-giant)~~ | ~~`spawn/mod.rs` enemy loop~~ | **MIGRATED 2026-07-23 (Phase 4a)** — every enemy is a plan row; loop deleted |
+| 3 | ~~boss~~ | ~~`spawn/mod.rs` boss loop~~ | **MIGRATED 2026-07-23 (Phase 4b)** — every boss is a plan row; loop deleted |
 | 4 | hazard | placement lowering | `FeatureId`, no `SimId` |
 | 5 | pickup / chest / breakable / switch | placement lowering | identified, not in sim roster |
 | 6 | portal (`cfg`) | placement lowering | no `FeatureId` |
@@ -1431,8 +1431,26 @@ links are construction relations now:
   compatibility-frozen, and the resource no longer exists to snapshot.
 
 The boss and enemy FAMILIES are otherwise unmigrated: only mount-link
-participants become plan rows. The remaining-family table above still holds,
-minus the mount-link members of families 2 and 3.
+participants become plan rows. *(Superseded hours later — see Phase 4a/4b
+below.)*
+
+## Phase 4a/4b — the enemy and boss families are plan rows (2026-07-23)
+
+`authored_actor_requests` emits every authored enemy (ordinary →
+`AuthoredEnemy`, `"giant"`-class → host + two hand rows + limb relations) and
+every authored boss (`AuthoredBoss`). Both family loops in
+`RoomFeatureConstructionPlan::spawn` are DELETED, along with the four
+allocating spawn wrappers (`spawn_enemy`, `spawn_enemy_with_faction`,
+`spawn_boss`, `spawn_boss_with_overrides`) and the enemy/boss respawn
+fallbacks — the planned branch covers every authored id those families own.
+`attach_authored_mount_links` shrank to pure relation attachment. What this
+buys, concretely: enemies and bosses are stamped with identity + provenance +
+transaction ownership AT construction and are therefore inside the boundary
+verifier's gathered scope — rows 2 and 3 of the table above stop being
+"incomplete visibility" families. `non_plan_authoritative_ids` is down to
+authored placements. Identities are unchanged (`SimId::placement(id)`, the
+spelling `ensure_sim_id` used to assign after the fact). 171/171 app
+integration tests pass over the migrated families.
 
 ### Phase 4 — migrate room lifecycle operations
 

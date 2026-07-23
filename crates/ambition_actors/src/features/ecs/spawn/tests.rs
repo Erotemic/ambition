@@ -2,7 +2,7 @@
 //! encounter mobs, and mounted-rider archetypes (ADR 0020).
 
 use super::super::brain_builders::{enemy_default_action_set, enemy_default_brain};
-use super::super::spawn_actors::spawn_boss;
+use super::super::spawn_actors::spawn_boss_with_overrides_into;
 use super::*;
 use crate::features::{
     ActorAggression, ActorConfig, ActorCooldowns, ActorDisposition, ActorIdentity, ActorIntent,
@@ -161,9 +161,10 @@ fn encounter_mob_brain_is_per_archetype_melee_brute() {
     ));
 }
 
-/// Regression net: spawn_boss attaches Brain (BossPattern) +
+/// Regression net: the boss populate function attaches Brain (BossPattern) +
 /// ActionSet + ActorControl alongside BossFeature. Pins the
-/// parallel-shape invariant.
+/// parallel-shape invariant. (Bosses are plan rows now, so the recipe calls
+/// this same `_into` on an executor-allocated root.)
 #[test]
 fn boss_spawn_attaches_brain_components() {
     use ambition_characters::brain::{ActionSet, ActorControl, Brain, StateMachineCfg};
@@ -175,11 +176,14 @@ fn boss_spawn_attaches_brain_components() {
             aabb: ae::Aabb::new(ae::Vec2::new(200.0, 100.0), ae::Vec2::new(40.0, 50.0)),
             payload: ambition_entity_catalog::placements::BossBrain::Dormant,
         };
-        spawn_boss(
+        let root = commands.spawn_empty().id();
+        spawn_boss_with_overrides_into(
             &mut commands,
             &crate::boss_encounter::test_boss_catalog(),
             ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
+            root,
             &authored,
+            &super::super::spawn_actors::BossOverrides::default(),
         );
     });
     app.update();

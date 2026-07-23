@@ -1395,20 +1395,21 @@ pub fn staged_actor_requests(
     rows
 }
 
-/// Turn a room's authored `"giant"`-class enemies into construction rows: one
-/// host row plus two hand rows each, joined by `ambition.limb` relations.
+/// Turn EVERY authored enemy and boss into construction rows — the Phase-4
+/// family migration for the two actor families.
 ///
-/// **This is the migration that empties `KNOWN_LEGACY_FAMILIES`.** The hands used
-/// to be minted inside the enemy spawn helper as authoritative roots no plan
-/// named. Here they are prepared with the host, before anything spawns, so the
-/// reconstruction closure of the host or either hand includes all three and the
-/// boundary verifier sees a rig it planned rather than a legacy warning.
-///
-/// The hand identities are unchanged — `SimId::spawned(giant, ordinal)`, with the
-/// feature id a pure function of the giant's authored id — so a snapshot taken
-/// before this migration still restores. `roster` resolves each enemy's
-/// archetype; only limbed hosts (`spec_is_limbed_host`) produce rows here.
-pub fn authored_giant_requests(
+/// An ordinary enemy is one [`ActorConstructionParams::AuthoredEnemy`] row; a
+/// `"giant"`-class limbed host expands to one host row plus two hand rows
+/// joined by `ambition.limb` relations (the migration that emptied
+/// `KNOWN_LEGACY_FAMILIES`); a boss is one
+/// [`ActorConstructionParams::AuthoredBoss`] row. Each row is built by the SAME
+/// populate function the deleted family loop called, so being planned changes
+/// who allocates the root, stamps identity/provenance/ownership, and
+/// wires/verifies relations — not what the actor is. Identities are
+/// `SimId::placement(id)` (hands `SimId::spawned(host, ordinal)`), the same
+/// spelling `ensure_sim_id` used to assign after the fact, so snapshots taken
+/// before the migration still restore.
+pub fn authored_actor_requests(
     room: &crate::rooms::RoomSpec,
     roster: &crate::features::CharacterRoster,
     paths: &[(String, ambition_engine_core::KinematicPath)],
@@ -1416,31 +1417,56 @@ pub fn authored_giant_requests(
     let mut requests = Vec::new();
     for enemy in &room.enemy_spawns {
         let spec = roster.spec_for_brain(&enemy.payload);
-        if !crate::features::spec_is_limbed_host(&spec) {
-            continue;
+        if crate::features::spec_is_limbed_host(&spec) {
+            let giant_sim = SimId::placement(&enemy.id);
+            let hands = crate::features::giant_hand_plans(&enemy.id, enemy.aabb, &spec);
+            let source = room.id.clone();
+            let hand_source = source.clone();
+            requests.append(&mut giant_cluster_rows(
+                giant_sim,
+                enemy.clone(),
+                crate::features::ActorFaction::Enemy,
+                // The host receives the SAME frozen room paths an ordinary
+                // authored enemy does; the pre-`e164f22` migration dropped
+                // them with `paths: Vec::new()`.
+                paths.to_vec(),
+                hands,
+                SpawnOrigin::Authored {
+                    source: source.clone(),
+                    instance: enemy.id.clone(),
+                },
+                move |hand| SpawnOrigin::Authored {
+                    source: hand_source.clone(),
+                    instance: hand.feature_id.clone(),
+                },
+            ));
+        } else {
+            requests.push(ActorConstructionRequest {
+                sim_id: SimId::placement(&enemy.id),
+                origin: SpawnOrigin::Authored {
+                    source: room.id.clone(),
+                    instance: enemy.id.clone(),
+                },
+                parameters: ActorConstructionParams::AuthoredEnemy {
+                    authored: enemy.clone(),
+                    paths: paths.to_vec(),
+                },
+                relations: Vec::new(),
+            });
         }
-        let giant_sim = SimId::placement(&enemy.id);
-        let hands = crate::features::giant_hand_plans(&enemy.id, enemy.aabb, &spec);
-        let source = room.id.clone();
-        let hand_source = source.clone();
-        requests.append(&mut giant_cluster_rows(
-            giant_sim,
-            enemy.clone(),
-            crate::features::ActorFaction::Enemy,
-            // The host receives the SAME frozen room paths an ordinary authored
-            // enemy does (`spawn_enemy(.., &self.paths)`); the pre-`e164f22`
-            // migration dropped them with `paths: Vec::new()`.
-            paths.to_vec(),
-            hands,
-            SpawnOrigin::Authored {
-                source: source.clone(),
-                instance: enemy.id.clone(),
+    }
+    for boss in &room.boss_spawns {
+        requests.push(ActorConstructionRequest {
+            sim_id: SimId::placement(&boss.id),
+            origin: SpawnOrigin::Authored {
+                source: room.id.clone(),
+                instance: boss.id.clone(),
             },
-            move |hand| SpawnOrigin::Authored {
-                source: hand_source.clone(),
-                instance: hand.feature_id.clone(),
+            parameters: ActorConstructionParams::AuthoredBoss {
+                authored: boss.clone(),
             },
-        ));
+            relations: Vec::new(),
+        });
     }
     requests
 }
@@ -1523,62 +1549,23 @@ pub fn planned_giant_host_ids(
 }
 
 /// Fold the room's authored mount links into the request batch as planned
-/// `ambition.mount` relations, pulling each named actor into the planner.
+/// `ambition.mount` relations.
 ///
-/// **This is the migration that deletes `PendingMountLinks`.** The live
-/// resolver matched `(rider_id, mount_id)` pairs by `FeatureId` a frame after
-/// spawn, retried missing actors forever, and DROPPED an incompatible pair
-/// with no diagnostic. Here every named actor becomes a plan row — an
-/// [`ActorConstructionParams::AuthoredEnemy`] or
-/// [`ActorConstructionParams::AuthoredBoss`], built by the SAME populate
-/// functions the family loops call — the rider row declares the relation, the
-/// engine-owned `wire_mount` installs BOTH ends at commit, and `verify_mount`
-/// plus the roster verifier prove it landed. A link naming a `"giant"`-class
-/// enemy rides on the giant host row [`authored_giant_requests`] already
-/// planned (the request batch is shared, so the endpoint resolves), and the
-/// gnu_ton_rider boss becomes a planned boss row with its `CanPilot` profile.
-///
-/// Mutates `requests` in place: existing rows gain the relation, missing rows
-/// are appended. A link naming nobody fails the room while it is whole.
+/// **This is the migration that deleted `PendingMountLinks`.** Every authored
+/// enemy and boss is already a plan row ([`authored_actor_requests`]), so a
+/// link is purely a relation between two existing rows: the rider row declares
+/// `ambition.mount`, the engine-owned `wire_mount` installs BOTH ends at
+/// commit, and `verify_mount` plus the roster verifier prove it landed. A link
+/// naming an id with no row fails the room while it is whole — the deleted
+/// frame-later resolver retried it silently forever.
 pub fn attach_authored_mount_links(
     room: &crate::rooms::RoomSpec,
-    roster: &crate::features::CharacterRoster,
-    paths: &[(String, ambition_engine_core::KinematicPath)],
     requests: &mut Vec<ActorConstructionRequest>,
 ) -> Result<(), ActorConstructionError> {
     for (rider_id, mount_id) in &room.mount_links {
         for (end, id) in [("mount", mount_id), ("rider", rider_id)] {
             let sim = SimId::placement(id);
-            if requests.iter().any(|request| request.sim_id == sim) {
-                continue;
-            }
-            if let Some(enemy) = room.enemy_spawns.iter().find(|enemy| &enemy.id == id) {
-                requests.push(ActorConstructionRequest {
-                    sim_id: sim,
-                    origin: SpawnOrigin::Authored {
-                        source: room.id.clone(),
-                        instance: enemy.id.clone(),
-                    },
-                    parameters: ActorConstructionParams::AuthoredEnemy {
-                        authored: enemy.clone(),
-                        // The same frozen room paths the enemy loop passes.
-                        paths: paths.to_vec(),
-                    },
-                    relations: Vec::new(),
-                });
-            } else if let Some(boss) = room.boss_spawns.iter().find(|boss| &boss.id == id) {
-                requests.push(ActorConstructionRequest {
-                    sim_id: sim,
-                    origin: SpawnOrigin::Authored {
-                        source: room.id.clone(),
-                        instance: boss.id.clone(),
-                    },
-                    parameters: ActorConstructionParams::AuthoredBoss {
-                        authored: boss.clone(),
-                    },
-                    relations: Vec::new(),
-                });
-            } else {
+            if !requests.iter().any(|request| request.sim_id == sim) {
                 return Err(ActorConstructionError::MountLinkNamesNobody {
                     room: room.id.clone(),
                     end,
@@ -1590,7 +1577,7 @@ pub fn attach_authored_mount_links(
         let rider_row = requests
             .iter_mut()
             .find(|request| request.sim_id == rider_sim)
-            .expect("the loop above guarantees the rider row exists");
+            .expect("checked above");
         rider_row.relations.push(
             ambition_platformer_primitives::construction::RelationRequest {
                 to: SimId::placement(mount_id),
@@ -1601,38 +1588,27 @@ pub fn attach_authored_mount_links(
     Ok(())
 }
 
-/// The authored ENEMY ids this room constructs as plan rows — the giants plus
-/// every enemy an authored mount link pulled in — so the enemy family loop
-/// skips them. Mirrors [`planned_authored_boss_ids`] for the boss loop.
+/// Every authored enemy id is a plan row now (Phase 4a); the helper survives
+/// so roster/diagnostic call sites keep one authority for "which enemy ids are
+/// planned" while other families migrate.
 pub fn planned_authored_enemy_ids(
     room: &crate::rooms::RoomSpec,
-    roster: &crate::features::CharacterRoster,
+    _roster: &crate::features::CharacterRoster,
 ) -> std::collections::BTreeSet<String> {
-    let mut ids = planned_giant_host_ids(room, roster);
-    for (rider_id, mount_id) in &room.mount_links {
-        for id in [rider_id, mount_id] {
-            if room.enemy_spawns.iter().any(|enemy| &enemy.id == id) {
-                ids.insert(id.clone());
-            }
-        }
-    }
-    ids
+    room.enemy_spawns
+        .iter()
+        .map(|enemy| enemy.id.clone())
+        .collect()
 }
 
-/// The authored BOSS ids this room constructs as plan rows (mount-link riders,
-/// e.g. gnu_ton_rider), so the boss loop skips them.
+/// Every authored boss id is a plan row now (Phase 4b).
 pub fn planned_authored_boss_ids(
     room: &crate::rooms::RoomSpec,
 ) -> std::collections::BTreeSet<String> {
-    let mut ids = std::collections::BTreeSet::new();
-    for (rider_id, mount_id) in &room.mount_links {
-        for id in [rider_id, mount_id] {
-            if room.boss_spawns.iter().any(|boss| &boss.id == id) {
-                ids.insert(id.clone());
-            }
-        }
-    }
-    ids
+    room.boss_spawns
+        .iter()
+        .map(|boss| boss.id.clone())
+        .collect()
 }
 
 /// Build the request for one summoned minion.

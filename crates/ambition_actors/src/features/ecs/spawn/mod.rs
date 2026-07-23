@@ -81,7 +81,6 @@ impl std::error::Error for RoomFeatureConstructionError {}
 #[derive(Clone)]
 pub struct RoomFeatureConstructionPlan {
     room: crate::rooms::RoomSpec,
-    paths: Vec<(String, ambition_engine_core::KinematicPath)>,
     placements: crate::world::placements::PlacementLoweringPlan<
         crate::world::placements::ActorPlacementContext,
     >,
@@ -221,18 +220,17 @@ impl RoomFeatureConstructionPlan {
                 roster,
             ));
         }
-        // Authored `"giant"`-class hosts and their hand limbs, prepared together
-        // as host + two hand rows joined by limb relations. The enemy loop in
-        // `spawn` skips these ids so the giant is not also built there.
-        requests.extend(crate::construction::authored_giant_requests(
+        // Phase 4a/4b: EVERY authored enemy and boss is a plan row — ordinary
+        // enemies as `AuthoredEnemy`, `"giant"`-class hosts as host + two hand
+        // rows joined by limb relations, bosses as `AuthoredBoss`. The family
+        // loops that used to build these in `spawn` are deleted.
+        requests.extend(crate::construction::authored_actor_requests(
             room, roster, &paths,
         ));
-        // Authored mount links become planned `ambition.mount` relations: every
-        // named rider/mount is pulled in as a plan row (the giant host rows
-        // above already count), the rider row declares the relation, and a link
-        // naming nobody fails HERE instead of being retried forever by the
-        // deleted frame-later resolver.
-        crate::construction::attach_authored_mount_links(room, roster, &paths, &mut requests)
+        // Authored mount links are planned `ambition.mount` relations between
+        // those rows; a link naming nobody fails HERE instead of being retried
+        // forever by the deleted frame-later resolver.
+        crate::construction::attach_authored_mount_links(room, &mut requests)
             .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         // Actor-domain relation semantics, checked while the outgoing room is
         // still whole: cardinality (one host per limb, one rider per mount),
@@ -271,7 +269,6 @@ impl RoomFeatureConstructionPlan {
             crate::world::placements::ActorPlacementContext::new(catalog, roster);
         Ok(Self {
             room: room.clone(),
-            paths,
             placements,
             construction_services: crate::construction::ActorConstructionServices {
                 context: placement_context,
@@ -328,36 +325,9 @@ impl RoomFeatureConstructionPlan {
         ) {
             return true;
         }
-        if let Some(enemy) = self
-            .room
-            .enemy_spawns
-            .iter()
-            .find(|enemy| enemy.id == authored_id)
-        {
-            super::spawn_actors::spawn_enemy(
-                commands,
-                &self.construction_services.context.characters,
-                &self.construction_services.context.roster,
-                session_scope,
-                enemy,
-                &self.paths,
-            );
-            return true;
-        }
-        if let Some(boss) = self
-            .room
-            .boss_spawns
-            .iter()
-            .find(|boss| boss.id == authored_id)
-        {
-            super::spawn_actors::spawn_boss(
-                commands,
-                &self.construction_services.boss_catalog,
-                session_scope,
-                boss,
-            );
-            return true;
-        }
+        // Phase 4a/4b: no enemy or boss fallback — both families are plan
+        // rows, so the planned branch above already covers every authored id
+        // they own. The one remaining family-specific path is placements.
         false
     }
 
@@ -428,20 +398,6 @@ impl RoomFeatureConstructionPlan {
     ) -> RoomFeatureConstructionReceipt {
         self.placements
             .lower_all(commands, session_scope, &self.construction_services.context);
-        // Mount-link riders (the gnu_ton_rider pattern) are plan rows now, so
-        // the boss loop skips them — same rule as the planned enemies below.
-        let planned_bosses = crate::construction::planned_authored_boss_ids(&self.room);
-        for boss in &self.room.boss_spawns {
-            if planned_bosses.contains(&boss.id) {
-                continue;
-            }
-            super::spawn_actors::spawn_boss(
-                commands,
-                &self.construction_services.boss_catalog,
-                session_scope,
-                boss,
-            );
-        }
         #[cfg(feature = "portal")]
         for portal_gun in &self.room.portal_gun_spawns {
             super::spawn_static::spawn_portal_gun_spawn(commands, session_scope, portal_gun);
@@ -452,26 +408,8 @@ impl RoomFeatureConstructionPlan {
         for gravity_zone in &self.room.gravity_zones {
             super::spawn_static::spawn_gravity_zone(commands, session_scope, gravity_zone);
         }
-        // Planned enemies — `"giant"`-class hosts and mount-link participants —
-        // are committed below with their relations, so the family loop skips
-        // them; building one here too would duplicate it.
-        let planned_enemies = crate::construction::planned_authored_enemy_ids(
-            &self.room,
-            &self.construction_services.context.roster,
-        );
-        for enemy in &self.room.enemy_spawns {
-            if planned_enemies.contains(&enemy.id) {
-                continue;
-            }
-            super::spawn_actors::spawn_enemy(
-                commands,
-                &self.construction_services.context.characters,
-                &self.construction_services.context.roster,
-                session_scope,
-                enemy,
-                &self.paths,
-            );
-        }
+        // Phase 4a/4b: enemies and bosses are plan rows, committed below with
+        // their relations. No family loop remains for either.
         commands.insert_resource(crate::features::FactionRelations::default());
 
         // The planned families commit through the one planner. Provider-staged
@@ -532,28 +470,15 @@ impl RoomFeatureConstructionPlan {
 /// avoid a second spelling of the same identity.
 fn non_plan_authoritative_ids(
     room: &crate::rooms::RoomSpec,
-    roster: &CharacterRoster,
+    _roster: &CharacterRoster,
 ) -> BTreeSet<String> {
     use ambition_platformer_primitives::sim_id::SimId;
-    let planned_enemies = crate::construction::planned_authored_enemy_ids(room, roster);
-    let planned_bosses = crate::construction::planned_authored_boss_ids(room);
-    let mut ids = BTreeSet::new();
-    for placement in &room.placements {
-        ids.insert(SimId::placement(&placement.id.0).to_string());
-    }
-    for boss in &room.boss_spawns {
-        if planned_bosses.contains(&boss.id) {
-            continue;
-        }
-        ids.insert(SimId::placement(&boss.id).to_string());
-    }
-    for enemy in &room.enemy_spawns {
-        if planned_enemies.contains(&enemy.id) {
-            continue;
-        }
-        ids.insert(SimId::placement(&enemy.id).to_string());
-    }
-    ids
+    // Phase 4a/4b removed enemies and bosses from this enumeration; authored
+    // placements are the one authoritative family still outside the planner.
+    room.placements
+        .iter()
+        .map(|placement| SimId::placement(&placement.id.0).to_string())
+        .collect()
 }
 
 /// Execute a previously prepared feature plan.

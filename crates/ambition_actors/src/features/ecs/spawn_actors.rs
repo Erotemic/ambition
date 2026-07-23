@@ -652,22 +652,6 @@ impl NpcActorSpawnPlan {
     }
 }
 
-/// Spawn a boss with no spawn-time tweaks (room-load + the default seam path).
-pub(super) fn spawn_boss(
-    commands: &mut Commands,
-    boss_catalog: &BossCatalog,
-    session_scope: SessionSpawnScope,
-    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
-) {
-    spawn_boss_with_overrides(
-        commands,
-        boss_catalog,
-        session_scope,
-        authored,
-        &BossOverrides::default(),
-    );
-}
-
 /// The flight ceiling a boss body steers under. A boss's `BossPattern` brain
 /// commands its full 2D velocity each tick (a free-mover), so the shared flight
 /// limb's terminal clamp (`velocity_target / flight_speed`) must sit well above
@@ -778,29 +762,6 @@ fn boss_actor_cluster(
             sprite_character_id: None,
         },
     )
-}
-
-/// Spawn a boss applying the per-spawn "tweaks Z" ([`BossOverrides`]). The
-/// overrides are attached as a component and applied at SEED time by
-/// `update_boss_encounters` (so the profile-application there can't clobber
-/// them); the encounter opt-out is honored by `sync_boss_encounter_entities`.
-pub(super) fn spawn_boss_with_overrides(
-    commands: &mut Commands,
-    boss_catalog: &BossCatalog,
-    session_scope: SessionSpawnScope,
-    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
-    overrides: &BossOverrides,
-) -> bevy::ecs::entity::Entity {
-    let root = commands.spawn_empty().id();
-    spawn_boss_with_overrides_into(
-        commands,
-        boss_catalog,
-        session_scope,
-        root,
-        authored,
-        overrides,
-    );
-    root
 }
 
 /// Populate a boss onto a root the construction executor allocated.
@@ -1161,54 +1122,6 @@ pub(crate) fn spawn_runtime_minion_into(
             .entity(entity)
             .insert(crate::features::ActorRenderSize(rs));
     }
-}
-
-pub(super) fn spawn_enemy(
-    commands: &mut Commands,
-    catalog: &CharacterCatalog,
-    roster: &CharacterRoster,
-    session_scope: SessionSpawnScope,
-    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
-    paths: &[(String, ambition_engine_core::KinematicPath)],
-) {
-    let _ = spawn_enemy_with_faction(
-        commands,
-        catalog,
-        roster,
-        session_scope,
-        authored,
-        paths,
-        super::ActorFaction::Enemy,
-    );
-}
-
-/// Like [`spawn_enemy`] but the spawned body takes `faction` (the duel/arena path
-/// puts its two fighters on DIFFERENT factions so they can damage each other under
-/// the physical damage rule). Composite mounts ignore the override (they fan out
-/// their own factions); the duel fighters are solo. Returns the spawned solo
-/// body's entity so a caller (the duel staging) can attach extra markers; `None`
-/// for the composite mount/rider path (it fans out two of its own entities).
-pub(super) fn spawn_enemy_with_faction(
-    commands: &mut Commands,
-    catalog: &CharacterCatalog,
-    roster: &CharacterRoster,
-    session_scope: SessionSpawnScope,
-    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
-    paths: &[(String, ambition_engine_core::KinematicPath)],
-    faction: super::ActorFaction,
-) -> bevy::ecs::entity::Entity {
-    let root = commands.spawn_empty().id();
-    spawn_enemy_with_faction_into(
-        commands,
-        catalog,
-        roster,
-        session_scope,
-        root,
-        authored,
-        paths,
-        faction,
-    );
-    root
 }
 
 /// Populate an enemy onto a root the construction executor allocated.

@@ -156,7 +156,9 @@ fn update_streamable_packed_sfx(
         .pending_packed_sfx
         .iter()
         .filter_map(|(load_id, pending)| {
-            (!banks.ids_for(pending.provider_id.as_str()).is_empty()).then_some(load_id.clone())
+            banks
+                .has_ids(pending.provider_id.as_str())
+                .then_some(load_id.clone())
         })
         .collect::<Vec<_>>();
     for load_id in ready {

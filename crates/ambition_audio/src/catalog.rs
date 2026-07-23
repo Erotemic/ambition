@@ -290,6 +290,15 @@ impl SfxBankRegistry {
             .unwrap_or_default()
     }
 
+    /// Whether `provider_id` has contributed a non-empty bank. Per-frame
+    /// readiness polls use this instead of building `ids_for`'s fresh
+    /// `BTreeSet` just to test emptiness.
+    pub fn has_ids(&self, provider_id: &str) -> bool {
+        self.fragments
+            .get(provider_id)
+            .is_some_and(|entries| !entries.is_empty())
+    }
+
     pub fn providers(&self) -> impl Iterator<Item = &str> {
         self.fragments.keys().map(String::as_str)
     }

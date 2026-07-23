@@ -71,6 +71,22 @@ fn player_y(sim: &mut SandboxSim) -> f32 {
     q.single(world).map(|k| k.pos.y).unwrap_or(0.0)
 }
 
+/// The rollback session generation — bumped once per session rebase, so a Track B
+/// confirmed lifecycle commit advances it exactly once.
+fn session_generation(sim: &SandboxSim) -> u64 {
+    sim.world()
+        .get_resource::<ambition::engine_core::ConfirmedFrameBoundary>()
+        .map(|boundary| boundary.session)
+        .unwrap_or(0)
+}
+
+/// Whether a deferred lifecycle intent is currently recorded (rollback state).
+fn intent_pending(sim: &SandboxSim) -> bool {
+    sim.world()
+        .get_resource::<ambition::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .is_some_and(|slot| slot.pending.is_some())
+}
+
 #[test]
 fn a_room_transition_survives_the_rollback_window() {
     let mut sim = repro_sim();
@@ -135,4 +151,80 @@ fn a_room_transition_survives_the_rollback_window() {
             )
         });
     }
+}
+
+/// **Track B principal timeline oracle (T6).** The deferred lifecycle intent must
+/// be RECORDED but NOT EXECUTED while its frame is still predicted, then COMMIT
+/// EXACTLY ONCE on confirmation — bumping the session generation — after which the
+/// slot is empty and no second commit ever fires.
+///
+/// (The correction-removal property — a mispredicted intent rewinding away with
+/// the world — is guaranteed by `PendingLifecycleCommit` being rollback state and
+/// is unit-tested in `ambition_actors::session::lifecycle_commit`; a
+/// `LocalSyncTest` re-simulates with the SAME input, so it cannot mispredict and
+/// that branch is not reachable here.)
+#[test]
+fn a_transition_intent_is_recorded_then_committed_exactly_once() {
+    let mut sim = repro_sim();
+    let start = sim.step(AgentAction::default());
+    assert_eq!(start.active_room.as_str(), SOURCE_ROOM);
+
+    let floor_y = player_y(&mut sim);
+    sim.teleport_player((1200.0, floor_y));
+    // Captured AFTER the teleport's own rebase, so the transition commit is the
+    // only generation bump we are counting.
+    let generation_before = session_generation(&sim);
+
+    // Walk into the exit. While predicted, the intent is recorded and the room has
+    // NOT reconstructed; on confirmation the committer flips the room.
+    let mut recorded_while_still_in_source = false;
+    let mut committed_at = None;
+    for frame in 0..240 {
+        let obs = sim.step(AgentAction::move_x(1.0));
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("frame {frame} (active={}): {error}", obs.active_room));
+        if intent_pending(&sim) && obs.active_room.as_str() == SOURCE_ROOM {
+            // Deferred, not eager: an intent exists but the room is untouched.
+            recorded_while_still_in_source = true;
+        }
+        if obs.active_room.as_str() == TARGET_ROOM {
+            committed_at = Some(frame);
+            break;
+        }
+    }
+    committed_at.expect("the deferred transition should have committed within 240 frames");
+
+    assert!(
+        recorded_while_still_in_source,
+        "the intent must be recorded while its frame is still predicted, without \
+         reconstructing the room — deferral, not eager execution"
+    );
+    let generation_after = session_generation(&sim);
+    assert_eq!(
+        generation_after,
+        generation_before + 1,
+        "the confirmed commit rebased the session exactly once"
+    );
+    assert!(
+        !intent_pending(&sim),
+        "the committer cleared the slot, so the intent cannot re-fire"
+    );
+
+    // No second commit: the generation holds and the room stays put, clean.
+    let generation_committed = session_generation(&sim);
+    for frame in 0..120 {
+        let obs = sim.step(AgentAction::default());
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("post-commit frame {frame}: {error}"));
+        assert_eq!(
+            obs.active_room.as_str(),
+            TARGET_ROOM,
+            "the room stays committed to the target"
+        );
+    }
+    assert_eq!(
+        session_generation(&sim),
+        generation_committed,
+        "no second rebase — the lifecycle op committed exactly once"
+    );
 }

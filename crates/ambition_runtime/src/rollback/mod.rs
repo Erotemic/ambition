@@ -147,6 +147,86 @@ fn ldtk_runtime_index_checksum(index: &ambition_actors::ldtk_world::LdtkRuntimeI
     checksum_bytes(index.active_area().as_bytes())
 }
 
+/// Entity-free canonical projection of the staged victim-hit FIFO.
+///
+/// The exact `Entity` handles (`attacker`, pre-resolved targets) stay out —
+/// the stable-id contract keeps allocator-local values out of every checksum —
+/// but everything that decides what the hit DOES participates, so a diverged
+/// queue surfaces as a sync-test mismatch at the staging frame instead of one
+/// frame later as mystery damage.
+fn pending_player_hits_checksum(pending: &ambition_combat::events::PendingPlayerHitEvents) -> u64 {
+    use ambition_combat::events::{HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
+    let mut bytes = Vec::new();
+    put_u64(&mut bytes, pending.0.len() as u64);
+    for event in &pending.0 {
+        let bounds = event.volume.bounds();
+        put_vec2(&mut bytes, bounds.min);
+        put_vec2(&mut bytes, bounds.max);
+        put_i32(&mut bytes, event.damage);
+        let (source_tag, source_payload) = match event.source {
+            HitSource::PlayerSlash { knock_x } => (0u8, knock_x),
+            HitSource::PlayerProjectile => (1, 0.0),
+            HitSource::PogoBounce => (2, 0.0),
+            HitSource::Hazard => (3, 0.0),
+            HitSource::EnemyBody => (4, 0.0),
+            HitSource::EnemyAttack => (5, 0.0),
+            HitSource::EnemyProjectile => (6, 0.0),
+            HitSource::EnemyChargeCrash => (7, 0.0),
+            HitSource::BossBody => (8, 0.0),
+            HitSource::BossAttack => (9, 0.0),
+        };
+        put_u8(&mut bytes, source_tag);
+        put_f32(&mut bytes, source_payload);
+        put_bool(&mut bytes, event.attacker.is_some());
+        put_u8(
+            &mut bytes,
+            match event.target {
+                HitTarget::Volume => 0,
+                HitTarget::Player(_) => 1,
+                HitTarget::Actor(_) => 2,
+                HitTarget::OrbMatch => 3,
+            },
+        );
+        put_u8(
+            &mut bytes,
+            match event.mode {
+                HitMode::Knockback => 0,
+                HitMode::SafeRespawn => 1,
+            },
+        );
+        match &event.knockback {
+            None => put_bool(&mut bytes, false),
+            Some(kb) => {
+                put_bool(&mut bytes, true);
+                put_f32(&mut bytes, kb.dir);
+                match kb.magnitude {
+                    HitKnockbackMagnitude::FeelScale(value) => {
+                        put_u8(&mut bytes, 0);
+                        put_f32(&mut bytes, value);
+                    }
+                    HitKnockbackMagnitude::LaunchSpeed(value) => {
+                        put_u8(&mut bytes, 1);
+                        put_f32(&mut bytes, value);
+                    }
+                }
+                put_vec2(&mut bytes, kb.source_pos);
+                put_vec2(&mut bytes, kb.impact_pos);
+                match kb.launch_dir {
+                    None => put_bool(&mut bytes, false),
+                    Some(dir) => {
+                        put_bool(&mut bytes, true);
+                        put_vec2(&mut bytes, dir);
+                    }
+                }
+            }
+        }
+        for key in &event.ignored_targets {
+            put_str(&mut bytes, key);
+        }
+    }
+    checksum_bytes(&bytes)
+}
+
 const ENGINE: &str = "ambition_runtime";
 
 /// The complete engine-owned GGRS rollback registration set. Domain content
@@ -335,9 +415,13 @@ pub fn register_engine_rollback_state(app: &mut App) {
         // same shape as `SwitchActivationQueue` above. Found by the Phase-5
         // exit oracle: as a message buffer this was cleared on LoadWorld, so a
         // rewind between the strike and the victim resolver un-hit the player.
-        .rollback_resource_clone::<ambition_combat::events::PendingPlayerHitEvents>(
+        // Checksummed (entity-free projection) so a diverged queue trips the
+        // sync test at the staging frame, not a frame later as applied damage.
+        .rollback_resource_clone_checksum::<ambition_combat::events::PendingPlayerHitEvents>(
             ENGINE,
             "resource.pending_player_hit_events",
+            "bevy_ggrs clone snapshot + entity-free staged-hit checksum projection",
+            pending_player_hits_checksum,
         )
         .rollback_resource_map_entities::<ambition_combat::events::PendingPlayerHitEvents>(
             ENGINE,

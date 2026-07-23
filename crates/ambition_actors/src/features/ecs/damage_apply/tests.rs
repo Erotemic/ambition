@@ -878,3 +878,77 @@ fn kernel_reset_death_reports_the_pre_respawn_impact_position() {
         "the death fact must preserve where the hazard struck, not the spawn destination"
     );
 }
+
+/// A staged victim hit must not survive a room-lifecycle boundary: the void
+/// system clears the FIFO when either boundary fact fired this frame, and
+/// leaves it alone otherwise (the ordinary drain owns the no-boundary case).
+#[test]
+fn a_lifecycle_boundary_voids_staged_player_hits() {
+    fn staged_hit() -> FeatureHitEvent {
+        FeatureHitEvent {
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)).into(),
+            damage: 1,
+            source: crate::combat::HitSource::EnemyAttack,
+            attacker: None,
+            target: crate::combat::HitTarget::Volume,
+            mode: crate::combat::HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        }
+    }
+    fn app_with_staged_hit() -> App {
+        let mut app = App::new();
+        app.add_message::<crate::combat::ResetRoomFeaturesEvent>()
+            .add_message::<crate::rooms::RoomLoaded>()
+            .init_resource::<crate::combat::events::PendingPlayerHitEvents>()
+            .add_systems(Update, void_pending_player_hits_at_lifecycle_boundaries);
+        app.world_mut()
+            .resource_mut::<crate::combat::events::PendingPlayerHitEvents>()
+            .0
+            .push(staged_hit());
+        app
+    }
+
+    // No boundary: the staged hit stays for the drain to consume.
+    let mut quiet = app_with_staged_hit();
+    quiet.update();
+    assert_eq!(
+        quiet
+            .world()
+            .resource::<crate::combat::events::PendingPlayerHitEvents>()
+            .0
+            .len(),
+        1,
+        "a quiet frame must not void the staged hit — draining is the resolver's job"
+    );
+
+    // Same-room reset boundary.
+    let mut reset = app_with_staged_hit();
+    reset
+        .world_mut()
+        .write_message(crate::combat::ResetRoomFeaturesEvent::default());
+    reset.update();
+    assert!(
+        reset
+            .world()
+            .resource::<crate::combat::events::PendingPlayerHitEvents>()
+            .0
+            .is_empty(),
+        "ResetRoomFeaturesEvent must void hits staged by the pre-reset population"
+    );
+
+    // Room (re)staging boundary — transitions, session resets, restores.
+    let mut loaded = app_with_staged_hit();
+    loaded.world_mut().write_message(crate::rooms::RoomLoaded {
+        room_id: "test_room".to_string(),
+    });
+    loaded.update();
+    assert!(
+        loaded
+            .world()
+            .resource::<crate::combat::events::PendingPlayerHitEvents>()
+            .0
+            .is_empty(),
+        "RoomLoaded must void hits staged by the outgoing room's population"
+    );
+}

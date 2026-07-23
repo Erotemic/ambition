@@ -262,6 +262,18 @@ impl Plugin for CombatSchedulePlugin {
                 .in_set(SandboxSet::Combat),
         );
 
+        // The FIFO's lifecycle guard: a room boundary voids staged hits from
+        // the outgoing population (see the system's docs for the exact leak
+        // window). Deliberately NOT gated on `gameplay_allowed` — boundaries
+        // happen precisely while gameplay is suspended.
+        app.add_systems(
+            sim,
+            ambition_actors::features::ecs::damage_apply::void_pending_player_hits_at_lifecycle_boundaries
+                .in_set(ambition_platformer_primitives::schedule::GameplaySimulationRoot)
+                .after(SandboxSet::ResetProcessing)
+                .before(SandboxSet::FeatureViewSync),
+        );
+
         // Map the content combat-extension slots into the chain. The app
         // owns this composition (where a domain-local set sits in the
         // global phase); the content plugins own the systems that hang on

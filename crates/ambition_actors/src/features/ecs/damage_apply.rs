@@ -713,6 +713,33 @@ pub fn stage_player_victim_hit_events(
     }
 }
 
+/// Void the staged victim-hit FIFO when this frame crossed a room-lifecycle
+/// boundary, so a hit staged by the OLD population can never land on the
+/// player in the NEW one.
+///
+/// The window is real: the FIFO's drain (`apply_player_hit_events`) is gated
+/// on `gameplay_allowed`, and every boundary suspends gameplay first — so a
+/// hit staged the frame before a transition sits in the queue through the
+/// whole covered load and would land on the first resumed frame, thrown by an
+/// enemy that no longer exists in a room the player already left.
+///
+/// Two messages cover every boundary: [`ResetRoomFeaturesEvent`] is the
+/// same-room reset (player reset input, room replay), and
+/// [`crate::rooms::RoomLoaded`] is the staging fact fired whenever a room's
+/// contents finish (re)spawning — transitions, session resets, and snapshot
+/// restores. Runs after `ResetProcessing` (the last boundary processor in the
+/// frame), before the next frame's drain.
+pub fn void_pending_player_hits_at_lifecycle_boundaries(
+    mut room_resets: MessageReader<crate::combat::ResetRoomFeaturesEvent>,
+    mut rooms_loaded: MessageReader<crate::rooms::RoomLoaded>,
+    mut pending: ResMut<crate::combat::events::PendingPlayerHitEvents>,
+) {
+    let crossed = room_resets.read().count() > 0 || rooms_loaded.read().count() > 0;
+    if crossed && !pending.0.is_empty() {
+        pending.0.clear();
+    }
+}
+
 pub fn apply_player_hit_events(
     // Bundled into one tuple param to stay under Bevy's 16-system-param ceiling
     // (S3e's relational `relations` + `attacker_factions` pushed this to 17).

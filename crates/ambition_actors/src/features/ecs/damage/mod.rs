@@ -286,6 +286,15 @@ pub fn apply_feature_hit_events(
             // The victim's held locomotion (local frame) drives DI (CM2).
             let di_input_local = control.map(|c| c.0.locomotion).unwrap_or_default();
             let mut em = cq.as_actor_mut();
+            // Structural tangibility gate (Jon 2026-07-22): a dead body is an
+            // intangible corpse — a strike neither lands on it nor barks back.
+            // This is the ONE place the player-slash actor path consults
+            // tangibility, so the peaceful branch (which has no alive check of its
+            // own) is covered too; `resolve_body_hit`'s alive check remains as
+            // last-line defense.
+            if crate::combat::util::body_is_corpse(Some(&*em.health)) {
+                continue;
+            }
             if apply_actor_hit(
                 &event,
                 catalog,
@@ -321,6 +330,12 @@ pub fn apply_feature_hit_events(
             bosses.iter_mut().filter(|_| actor_target.is_none())
         {
             if target_is_ignored(&event.ignored_targets, "boss", id.as_str()) {
+                continue;
+            }
+            // Structural tangibility gate: a defeated boss is intangible — no hit
+            // lands and no bark answers. (`apply_boss_hit` also guards on `alive()`
+            // as defense-in-depth.)
+            if crate::combat::util::body_is_corpse(Some(&*health)) {
                 continue;
             }
             if apply_boss_hit(

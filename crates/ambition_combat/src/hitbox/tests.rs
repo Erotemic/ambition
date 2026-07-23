@@ -171,6 +171,70 @@ fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHit
     }
 }
 
+#[derive(Resource, Default)]
+struct CapturedImpacts(usize);
+
+fn capture_impacts(mut reader: MessageReader<VfxMessage>, mut cap: ResMut<CapturedImpacts>) {
+    for m in reader.read() {
+        if matches!(m, VfxMessage::Impact { .. }) {
+            cap.0 += 1;
+        }
+    }
+}
+
+/// Structural tangibility gate (Jon 2026-07-22): a dead body is an intangible
+/// corpse — a swing passes through it, producing NO hit event and NO impact
+/// VFX. A live body in the exact same spot IS struck and DOES flash an impact,
+/// so the silence is the tangibility gate, not the geometry. This is the
+/// detection-layer half of "prevent intangible things from interacting or
+/// presenting in any way"; removing the `body_is_corpse` skip in
+/// `apply_hitbox_damage` reintroduces both the phantom hit and the corpse flash.
+#[test]
+fn a_dead_victim_is_intangible_to_a_swing() {
+    use ambition_characters::actor::{BodyHealth, Health};
+
+    fn arena_with_victim_hp(current: i32) -> (App, Entity) {
+        let mut relations = FactionRelations::default();
+        relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+        let (mut app, victim) = arena_hitbox_app(relations, ActorFaction::Boss);
+        app.init_resource::<CapturedImpacts>();
+        app.add_systems(Update, capture_impacts.after(apply_hitbox_damage));
+        app.world_mut()
+            .entity_mut(victim)
+            .insert(BodyHealth::new(Health {
+                current,
+                max: 3,
+                invulnerable: false,
+            }));
+        app.update();
+        (app, victim)
+    }
+
+    // Live control: HP 3 → the swing lands and presents an impact.
+    let (live, _) = arena_with_victim_hp(3);
+    assert_eq!(
+        live.world().resource::<CapturedHits>().0.len(),
+        1,
+        "a living body in the swing is struck"
+    );
+    assert!(
+        live.world().resource::<CapturedImpacts>().0 > 0,
+        "a living hit flashes an impact"
+    );
+
+    // Corpse: HP 0 → intangible. No hit, no impact.
+    let (dead, _) = arena_with_victim_hp(0);
+    assert!(
+        dead.world().resource::<CapturedHits>().0.is_empty(),
+        "a corpse is not a hurtbox — the swing passes through, no hit lands"
+    );
+    assert_eq!(
+        dead.world().resource::<CapturedImpacts>().0,
+        0,
+        "a corpse presents no impact VFX — a dead thing does not present"
+    );
+}
+
 /// The unification keystone: a **Player-faction** hitbox (a wielded boss
 /// AOE) emits exactly one attacker-side Volume `HitEvent` that
 /// `apply_feature_hit_events` then resolves against enemies/bosses — the

@@ -19,6 +19,7 @@
 
 
 * When you strike a dead character entity bbox when they are dead, they still bark. It might be worth something structural to prevent intangible things from interacting or presenting in any way.
+  * (potentially done) Structural tangibility gate added: `ambition_combat::util::body_is_corpse` (a body with `BodyHealth` at 0 HP is an intangible corpse) is now consulted at the hit-**detection** boundaries — `apply_hitbox_damage`'s victim loop and `apply_feature_hit_events`'s actor/boss loops — so a corpse produces NO hit event and NO impact VFX from any swing, and the peaceful strike branch (which had no alive check of its own) no longer barks. The ambient idle-bark ticker also skips the dead. Poison-tested both boundaries (combat `a_dead_victim_is_intangible_to_a_swing`, actors `a_struck_peaceful_corpse_is_silent_but_a_living_one_barks`). The same predicate is the seam to extend to the talk/interact and collision surfaces (a peaceful corpse is still talkable; unreachable today since peaceful actors don't die) and to future intangibility causes (phasing, spawn-in grace).
 
 
 

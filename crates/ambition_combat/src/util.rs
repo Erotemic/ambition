@@ -170,6 +170,23 @@ pub fn body_vulnerable(
     !offense.invincible && !dodge_rolling && !shield.parrying() && combat.vulnerable()
 }
 
+/// THE one "is this body an intangible corpse?" rule (Jon 2026-07-22: "prevent
+/// intangible things from interacting or presenting in any way"). A body that
+/// carries [`BodyHealth`] and has dropped to zero HP is dead: combat treats it
+/// as absent until it revives or despawns. No swing lands on it, no impact
+/// plays at it, no bark answers it.
+///
+/// This is the SINGLE tangibility gate the damage *detection* layer consults,
+/// so a dead thing is filtered ONCE at every hit boundary rather than relying on
+/// each consume-time resolver to re-check `alive()` (those checks remain as
+/// last-line defense). A body with no `BodyHealth` — a pure prop — is not
+/// governed here; a breakable owns its own `broken()` gate. Extend THIS function
+/// for any future intangibility cause (phasing, spawn-in grace) and every combat
+/// boundary inherits it at once.
+pub fn body_is_corpse(health: Option<&ambition_characters::actor::BodyHealth>) -> bool {
+    health.is_some_and(|h| !h.alive())
+}
+
 /// Whether a held shield blocks a hit coming from `hit_pos`: you can only guard
 /// the local side you face (a hit from behind still lands). A facing of exactly
 /// 0 (neutral) guards either side. Pure so the directional rule is unit-tested

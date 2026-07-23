@@ -208,6 +208,14 @@ pub fn apply_hitbox_damage(
                     if victim_entity == hitbox.owner {
                         continue;
                     }
+                    // Structural tangibility gate (Jon 2026-07-22): a dead body is
+                    // an intangible corpse — the swing passes through it. Skipping
+                    // here means NO event and NO impact VFX are produced at the
+                    // corpse, so a dead thing neither interacts nor presents. (The
+                    // consume-time `resolve_body_hit` alive check stays as defense.)
+                    if crate::util::body_is_corpse(victim_health) {
+                        continue;
+                    }
                     let victim_faction = effective_faction(*victim_faction, victim_brain);
                     if !damage_lands(
                         source_faction,

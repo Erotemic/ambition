@@ -11,7 +11,7 @@ use crate::features::{HitMode, HitTarget};
 use ambition_characters::actor::BodyHealth;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
-use bevy::prelude::{App, Update};
+use bevy::prelude::{App, IntoScheduleConfigs, Update};
 
 fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
@@ -211,6 +211,140 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     assert!(
         !app.world().get::<BodyHealth>(actor_entity).unwrap().alive(),
         "the killed enemy should be marked dead"
+    );
+}
+
+#[derive(bevy::prelude::Resource, Default)]
+struct CapturedBubbles(usize);
+
+fn capture_bubbles(
+    mut reader: bevy::prelude::MessageReader<VfxMessage>,
+    mut cap: bevy::prelude::ResMut<CapturedBubbles>,
+) {
+    for m in reader.read() {
+        if matches!(m, VfxMessage::SpeechBubble { .. }) {
+            cap.0 += 1;
+        }
+    }
+}
+
+/// A talkable peaceful NPC with a provoke accumulator + interaction payload, so
+/// its strike branch reaches the on-hit bark. `hp` sets the initial HP so the
+/// same body can be exercised alive or as a corpse.
+fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
+    let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    let interactable = ambition_interaction::Interactable::new(
+        "alice",
+        "Talk",
+        aabb,
+        ambition_interaction::InteractionKind::Npc {
+            character_id: None,
+            dialogue_id: None,
+            patrol_radius: 0.0,
+            patrol_path_id: None,
+            brain_override: None,
+        },
+    );
+    let (seed, _spawn) = crate::features::ecs::actor_clusters::ActorClusterSeed::new_peaceful_npc(
+        "alice",
+        "Alice",
+        aabb,
+        &interactable,
+        &[],
+    );
+    let (identity, disposition, combat, intent, cooldowns) =
+        crate::features::ecs::actors::actor_component_snapshot(
+            &seed,
+            crate::features::ActorDisposition::Peaceful,
+        );
+    let aggression = crate::features::ecs::ActorAggression {
+        mode: crate::features::ecs::AggressionMode::RetaliatesWhenHit {
+            strike_threshold: crate::features::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
+        },
+        target: None,
+        strikes: 0,
+        grudge: None,
+    };
+    let npc = app
+        .world_mut()
+        .spawn((
+            FeatureSimEntity,
+            FeatureId::new("alice"),
+            CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+            aggression,
+            crate::features::ecs::CombatKit::default(),
+            seed.into_components(),
+            crate::features::MotionModel::default(),
+            crate::features::ecs::ActorInteraction {
+                interactable,
+                talk_radius: crate::features::NPC_TALK_RADIUS,
+            },
+            identity,
+            disposition,
+            combat,
+            intent,
+            cooldowns,
+        ))
+        .id();
+    app.world_mut()
+        .get_mut::<BodyHealth>(npc)
+        .unwrap()
+        .health
+        .current = hp;
+    npc
+}
+
+/// A peaceful NPC has no death path of its own (it accumulates strikes and turns
+/// hostile), so its strike branch never consulted `alive()`: a body forced to a
+/// zero-HP corpse would keep barking a hit line. The structural tangibility gate
+/// in `apply_feature_hit_events` (`body_is_corpse` → skip) closes that: a living
+/// peaceful NPC still barks when struck, a dead one is silent — a dead thing
+/// does not present. Poison: remove the gate and the corpse's SpeechBubble
+/// reappears.
+#[test]
+fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
+    fn strike_and_count_bubbles(hp: i32) -> usize {
+        let mut app = App::new();
+        app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(crate::features::enemies::test_roster());
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.add_message::<HitEvent>();
+        app.add_message::<SetFlagRequested>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_message::<ActorStimulus>();
+        app.init_resource::<CapturedBubbles>();
+        app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
+
+        spawn_talkable_npc(&mut app, hp);
+        let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+        app.world_mut().write_message(HitEvent {
+            volume: event_volume.into(),
+            damage: 1,
+            source: HitSource::PlayerSlash { knock_x: 120.0 },
+            attacker: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+        app.update();
+        app.world().resource::<CapturedBubbles>().0
+    }
+
+    assert_eq!(
+        strike_and_count_bubbles(1),
+        1,
+        "a LIVING peaceful NPC barks a hit line when struck (control)"
+    );
+    assert_eq!(
+        strike_and_count_bubbles(0),
+        0,
+        "a peaceful CORPSE says nothing when struck — a dead thing does not present"
     );
 }
 

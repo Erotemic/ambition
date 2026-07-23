@@ -1482,6 +1482,7 @@ pub fn tick_npc_idle_barks(
             &ambition_characters::actor::BodyCombat,
             &ActorInteraction,
             &ActorDisposition,
+            &ambition_characters::actor::BodyHealth,
         ),
         With<FeatureSimEntity>,
     >,
@@ -1519,8 +1520,10 @@ pub fn tick_npc_idle_barks(
         ambition_characters::actor::character_catalog::BarkSituation::Hall => (28.0, 24_000),
         _ => (12.0, 8_000),
     };
-    for (kin, config, combat, interaction, disposition) in &npcs {
-        if disposition.is_hostile() || combat.hit_flash > 0.0 {
+    for (kin, config, combat, interaction, disposition, health) in &npcs {
+        // Structural tangibility gate (Jon 2026-07-22): a dead body does not
+        // present — an intangible corpse says nothing, ambient or otherwise.
+        if disposition.is_hostile() || combat.hit_flash > 0.0 || !health.alive() {
             continue;
         }
         let rotation = *state.rotations.get(&config.id).unwrap_or(&0);

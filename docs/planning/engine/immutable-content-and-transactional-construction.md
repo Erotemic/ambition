@@ -1155,6 +1155,121 @@ Prove the model on a narrow set that crosses all important origin categories.
   delimiters.
 - A failed plan leaves the active world unchanged.
 
+## Substrate checkpoint A — the relation and transaction substrate repaired (2026-07-23)
+
+Fifth external review round. Nine correctness gaps between what the last
+checkpoint *claimed* and what its mechanism *enforced*, all closed before any
+further family migration. Grouped by what each one stops being possible.
+
+**A relation kind can no longer disagree with what it carries.** The request
+held a caller-supplied `RelationKind` beside a separate payload, and nothing
+checked they matched: `kind: ambition.limb` next to a `Grudge` payload passed
+preparation, passed the registry check, and reached `unreachable!` *inside the
+wiring function during commit*, after the outgoing room was retired. The two are
+now one value — `ConstructionDomain::Relation` — and the kind, the wiring, and
+the verifier are all derived from it by one exhaustive `dispatch_relation` match.
+The mismatch is unrepresentable, not checked. `RelationPayload` is gone.
+
+**Relation wiring is engine-owned, so plugin insertion order cannot pick which
+implementation runs.** The registry stored a `RelationOps` and decided
+idempotence on metadata alone, so two registrations with identical
+owner/source/schema and *different* wiring functions were "the same" and the
+first won — under a dump and fingerprint that could not tell them apart. The
+registry now holds no function pointers at all; ops come from `dispatch_relation`.
+There is no table to race for. (An earlier attempt compared `fn_addr_eq`, which a
+registry contract cannot rest on — the compiler may merge or split function
+addresses.)
+
+**Duplicate and contradictory relations are refused before any spawn.** A
+duplicate `(from, kind, to)` would execute twice and receipt once — corruption
+for an accumulating relation. The generic planner refuses it, which also makes
+`(from, kind, to)` a total order so arrival order reaches neither the dump nor
+the execution sequence. The actor domain adds preflight cardinality and
+compatibility rules — one host per limb, one limb per slot, one rider per mount,
+one rider per mount, no self-mount, family legality, and pilot/mount class
+compatibility — each rejecting the room while it is still whole. The last one
+matters most: `resolve_pending_mount_links` *drops* an incompatible link with no
+diagnostic, so an authored typo produced a rider standing next to its mount and
+no explanation.
+
+**An unowned identity is fatal; a legacy family must name itself.** `Unowned`
+used to be `Severity::Unmigrated` — reported, published anyway — which made a
+recipe inventing an authoritative root indistinguishable from a known un-migrated
+family, so the one failure the verifier exists for was the one it tolerated. A
+genuine legacy family now carries `LegacyConstructionRoot { family }`, and only a
+name in the enumerated `KNOWN_LEGACY_FAMILIES` list is warned-and-published;
+anything else — an arbitrary unowned identity, or an unrecognised legacy claim —
+is fatal. The list is the migration ledger as code: it only shrinks, and Phase
+4's last step deletes it with `Severity::Unmigrated`. It currently holds exactly
+one entry, `giant-hand-limb`, which Checkpoint B removes.
+
+**Ownership is verified per planned root, and the ownership key distinguishes
+live sessions.** The executor stamps identity, provenance, AND transaction
+ownership in one insert; verification checked the first two and not the third —
+the one that *drives* scope classification, so an unstamped planned root was
+invisible to the next transaction's gathering forever. It is checked now. And the
+token was `binding + room`, a construction-scope identity, not a transaction
+identity: the shell host runs two sessions in one process, so two sessions
+committing the same room at the same content epoch minted the *same* token and
+each classified the other's roots as its own. The committing `SessionSpawnScope`
+is now part of the key.
+
+**Relation postconditions verify everything the relation installs, and a
+relation the executor never wired is a failure.** The limb check now verifies
+`Limb.of`, the slot on both sides, `home_offset`, rig membership, and no
+duplicate membership; the mount check verifies `RidingOn`, `Mounted`, `MountSlot`
+back-reference, and that both ends still carry the mount capabilities the
+preflight approved. `RelationCheck` gained `PayloadMismatch`, `MissingCapability`,
+and `DuplicateMembership`. And the verifier no longer `continue`s past a planned
+relation absent from the receipt — which had made the postcondition pass vacuous
+for exactly the relations that failed hardest. The owed set is derived from the
+identities actually committed.
+
+**`LimbRig` is keyed by slot.** It was a `Vec<Entity>` "in spawn order", but
+nothing read it positionally — `fan_out_limb_intents` looked up each limb's own
+`Limb::slot`, so the vector supplied membership and the limb supplied meaning,
+two places holding one fact, with a vector able to hold one limb twice or two
+limbs in one slot. A `BTreeMap<LimbSlot, Entity>` makes both unrepresentable and
+makes "the host's rig composition" an exactly checkable value. This deletes the
+"reads the rig positionally, so that order is content" claim from the step-1
+section above — that claim was the misconception.
+
+**The mount-reconciliation half-write is repaired.** `reconcile_autonomous_actors`
+re-established the rider→mount link with `world.get_mut::<MountSlot>(mount)`,
+which silently does nothing when the mount lacks the component — and it easily
+does, because `MountSlot` is installed by the pair wiring, not the mount's
+construction. `RidingOn` was inserted unconditionally, so the rider pointed at a
+mount that did not point back and `steer_mount_from_rider` (which queries
+`With<MountSlot>`) quietly stopped obeying. It now inserts the whole `MountSlot`
+side.
+
+**Publication moved to the outer room transaction boundary.** `RoomFeatureConstructionPlan::spawn`
+bracketed its own work with capture and verify-and-publish, but its caller
+`spawn_contents` queued the moving-platform bodies and the last-commit receipt
+*after* it returned — and command queues apply in insertion order, so `RoomLoaded`
+announced a room with no platforms and no receipt, verified before the room
+stopped being built. The bracket now lives in `spawn_contents` (a new
+`world/rooms/transaction.rs`): `open` first, every participant's work between,
+`close` last. A feature helper no longer publishes. An integration test observes
+the world the instant `RoomLoaded` is delivered and proves the platforms, the
+commit receipt, and the authoritative occupant are already present.
+
+⚠ **Still not rollback.** Withholding publication after mutation is not
+atomicity, and Bevy commands do not roll back. Every repair above is detection or
+structural-impossibility, not undo. A staging world would be needed for real
+rollback, and there isn't one. This is stated wherever the boundary is.
+
+⚠ **`CONSTRUCTION_PLAN_SCHEMA_VERSION` stays 3** — the dump shape did not change
+(the relation payload column was already there). The actor domain's relation
+*behaviour* changed, so its `SCHEMA` id moved to `actor-construction-v2`, which
+is what carries the change into the prepared-content fingerprint.
+
+**Verification.** 48 domain tests (`ambition_actors::construction`), 68 planner
+tests (`ambition_platformer_primitives::construction`), 7 reconcile tests, 6
+provenance tests, 15 provider tests. Discriminating vs regression-only is noted
+per test; the mismatch-is-unrepresentable and registration-order tests are
+compile-shape and end-to-end proofs respectively, not poison tests, and say so.
+
 ### Phase 4 — migrate room lifecycle operations
 
 #### Objective

@@ -12,6 +12,7 @@ use std::collections::BTreeSet;
 use bevy::prelude::{Component, Entity, World};
 
 use super::*;
+use crate::lifecycle::SessionSpawnScope;
 use crate::sim_id::SimId;
 
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
@@ -36,11 +37,11 @@ struct Toy;
 
 impl ConstructionDomain for Toy {
     type Parameters = Params;
-    /// The toy's relations are pure adjacency, which is the case `()` is for.
-    /// Payload-carrying relations are proven against the real `Limb` rig in
-    /// `ambition_actors`, where the slot and home offset are genuinely
-    /// host-relative rather than invented for a fixture.
-    type RelationPayload = ();
+    /// The toy's relations are pure adjacency. Fact-carrying relations are
+    /// proven against the real `Limb` rig in `ambition_actors`, where the slot
+    /// and home offset are genuinely host-relative rather than invented for a
+    /// fixture.
+    type Relation = ToyRelation;
     type Services = Services;
 
     fn dispatch(_: &Self::Parameters) -> RecipeDispatch<Self> {
@@ -54,9 +55,28 @@ impl ConstructionDomain for Toy {
         parameters.label.clone()
     }
 
-    fn canonical_relation_summary(_payload: &Self::RelationPayload) -> String {
-        "-".to_string()
+    fn dispatch_relation(relation: &Self::Relation) -> RelationDispatch<Self> {
+        match relation {
+            ToyRelation::Grudge => RelationDispatch {
+                kind: grudge(),
+                ops: grudge_ops(),
+            },
+        }
     }
+
+    fn canonical_relation_summary(relation: &Self::Relation) -> String {
+        match relation {
+            ToyRelation::Grudge => "-".to_string(),
+        }
+    }
+}
+
+/// What one toy relation IS. A one-variant enum is still the right shape: the
+/// KIND is derived from it, so a request cannot name a kind that disagrees with
+/// what it carries.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum ToyRelation {
+    Grudge,
 }
 
 fn build(
@@ -78,7 +98,7 @@ fn build(
 fn wire_grudge(
     from: Entity,
     to: Entity,
-    _payload: &(),
+    _relation: &ToyRelation,
     ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>,
 ) {
     // Relation-side sabotage, so the adversarial tests exercise the SAME wiring
@@ -112,7 +132,12 @@ fn wire_grudge(
 }
 
 /// The toy grudge's postcondition: read the component, do not trust the call.
-fn verify_grudge(world: &World, from: Entity, to: Entity, _payload: &()) -> RelationCheck {
+fn verify_grudge(
+    world: &World,
+    from: Entity,
+    to: Entity,
+    _relation: &ToyRelation,
+) -> RelationCheck {
     match world.get::<Grudge>(from) {
         None => RelationCheck::NotInstalled,
         Some(Grudge(found)) if *found == to => RelationCheck::Installed,
@@ -143,7 +168,7 @@ fn registry() -> ConstructionRegistry<Toy> {
         .try_register_recipe(recipe(), "toy", "tests", "v1")
         .expect("first registration succeeds");
     registry
-        .try_register_relation(grudge(), "toy", "tests", "v1", grudge_ops())
+        .try_register_relation(grudge(), "toy", "tests", "v1")
         .expect("first registration succeeds");
     registry
 }
@@ -214,15 +239,13 @@ fn relation_order_does_not_change_the_plan() {
     let pair = |first: &str, second: &str| {
         let mut a = request(first);
         a.relations.push(RelationRequest {
-            kind: grudge(),
-            payload: (),
             to: SimId::placement(second),
+            relation: ToyRelation::Grudge,
         });
         let mut b = request(second);
         b.relations.push(RelationRequest {
-            kind: grudge(),
-            payload: (),
             to: SimId::placement(first),
+            relation: ToyRelation::Grudge,
         });
         vec![a, b]
     };
@@ -240,9 +263,8 @@ fn the_plan_dump_has_a_stable_shape() {
     let registry = registry();
     let mut a = request("a");
     a.relations.push(RelationRequest {
-        kind: grudge(),
-        payload: (),
         to: SimId::placement("b"),
+        relation: ToyRelation::Grudge,
     });
     let mut b = request("b");
     b.origin = SpawnOrigin::Dynamic {
@@ -306,9 +328,8 @@ fn an_unresolved_relation_is_rejected() {
     let registry = registry();
     let mut a = request("a");
     a.relations.push(RelationRequest {
-        kind: grudge(),
-        payload: (),
         to: SimId::placement("ghost"),
+        relation: ToyRelation::Grudge,
     });
     let error = ConstructionPlan::prepare(scope(), vec![a], &nothing_live(), &registry)
         .expect_err("an unresolvable relation target must not plan");
@@ -336,9 +357,8 @@ fn a_relation_onto_a_merely_live_entity_is_rejected() {
     let live: BTreeSet<SimId> = [SimId::placement("veteran")].into_iter().collect();
     let mut a = request("a");
     a.relations.push(RelationRequest {
-        kind: grudge(),
-        payload: (),
         to: SimId::placement("veteran"),
+        relation: ToyRelation::Grudge,
     });
     let error = ConstructionPlan::prepare(scope(), vec![a], &live, &registry)
         .expect_err("a relation onto a non-planned identity must not plan");
@@ -403,23 +423,204 @@ fn an_unregistered_recipe_is_rejected() {
     );
 }
 
+/// A relation whose KIND nothing declared is refused.
+///
+/// The kind is derived from the relation value now, so the way to reach this is
+/// a registry that never declared it — which is also the only way it can still
+/// happen. A request naming a kind that disagrees with what it carries is no
+/// longer a state the type system permits, which is what
+/// `a_relation_cannot_name_a_kind_that_disagrees_with_its_payload` documents.
 #[test]
 fn an_unregistered_relation_kind_is_rejected() {
-    let registry = registry();
+    let mut registry = ConstructionRegistry::<Toy>::default();
+    registry
+        .try_register_recipe(recipe(), "toy", "tests", "v1")
+        .expect("the recipe registers");
     let mut a = request("a");
     a.relations.push(RelationRequest {
-        kind: RelationKind::new("toy.unknown"),
-        payload: (),
         to: SimId::placement("a"),
+        relation: ToyRelation::Grudge,
     });
     let error = ConstructionPlan::prepare(scope(), vec![a], &nothing_live(), &registry)
-        .expect_err("an unknown relation kind must not plan");
+        .expect_err("an unregistered relation kind must not plan");
     assert_eq!(
         error,
         ConstructionError::UnknownRelationKind {
             from: SimId::placement("a"),
-            kind: RelationKind::new("toy.unknown"),
+            kind: grudge(),
         }
+    );
+}
+
+/// **The kind/payload mismatch is unrepresentable.**
+///
+/// This is a compile-shape test, and deliberately so: there is nothing to assert
+/// at runtime because the illegal state cannot be constructed. A
+/// `RelationRequest` has exactly one field describing what the relation is, and
+/// [`ConstructionDomain::dispatch_relation`] derives the kind from it, so the
+/// pairing is a function rather than two independent inputs.
+///
+/// What this replaced: `RelationRequest { kind, to, payload }`, where nothing
+/// checked that `kind` and `payload` described the same relation. The registry
+/// validated the kind and knew nothing of payloads; the wiring function
+/// destructured the payload and `unreachable!`d on a mismatch — during COMMIT,
+/// after the outgoing room had been retired. See
+/// `crates/ambition_actors/src/construction/tests.rs` for the domain-level
+/// version, which is where a genuine multi-variant relation enum lives.
+#[test]
+fn a_relation_cannot_name_a_kind_that_disagrees_with_its_payload() {
+    let request = RelationRequest::<Toy> {
+        to: SimId::placement("a"),
+        relation: ToyRelation::Grudge,
+    };
+    // The kind is DERIVED. There is no second input for it to disagree with.
+    assert_eq!(
+        Toy::dispatch_relation(&request.relation).kind,
+        grudge(),
+        "the kind a relation resolves to is a function of the relation itself"
+    );
+}
+
+/// Two rows declaring the same relation are refused, not silently merged.
+///
+/// The receipt keys wired relations on `(from, kind, to)`, so a duplicate would
+/// execute twice and be recorded once — a receipt saying "wired" over a world
+/// holding it applied twice. For an accumulating relation that is real
+/// corruption, and every count-based check passes through it.
+#[test]
+fn a_duplicate_relation_is_refused_before_ordering() {
+    let registry = registry();
+    let mut a = request("a");
+    let b = request("b");
+    a.relations.push(RelationRequest {
+        to: SimId::placement("b"),
+        relation: ToyRelation::Grudge,
+    });
+    a.relations.push(RelationRequest {
+        to: SimId::placement("b"),
+        relation: ToyRelation::Grudge,
+    });
+    let error = ConstructionPlan::prepare(scope(), vec![a, b], &nothing_live(), &registry)
+        .expect_err("a duplicate relation must not plan");
+    assert_eq!(
+        error,
+        ConstructionError::DuplicateRelation {
+            from: SimId::placement("a"),
+            kind: grudge(),
+            to: SimId::placement("b"),
+        }
+    );
+}
+
+/// Request arrival order reaches neither the dump nor the execution sequence,
+/// **including for relations**.
+///
+/// Relations sort by `(from, kind, to)`, which is a TOTAL order only because
+/// duplicates are refused above — with duplicates admitted, two rows could sort
+/// equal and their relative order would be whatever the sort happened to do.
+#[test]
+fn relation_request_order_does_not_change_the_plan() {
+    let registry = registry();
+    let build = |reversed: bool| {
+        let mut a = request("a");
+        let mut b = request("b");
+        a.relations.push(RelationRequest {
+            to: SimId::placement("b"),
+            relation: ToyRelation::Grudge,
+        });
+        b.relations.push(RelationRequest {
+            to: SimId::placement("a"),
+            relation: ToyRelation::Grudge,
+        });
+        let requests = if reversed { vec![b, a] } else { vec![a, b] };
+        ConstructionPlan::prepare(scope(), requests, &nothing_live(), &registry)
+            .expect("both orders plan")
+            .deterministic_dump()
+    };
+    assert_eq!(
+        build(false),
+        build(true),
+        "two callers requesting the same set in different orders must produce one plan"
+    );
+}
+
+/// **Registration order cannot change committed behaviour.**
+///
+/// The registry holds no function pointers at all now, so there is no
+/// implementation for a second registration to install or to lose a race to:
+/// wiring comes from `dispatch_relation`. Registering in either order yields the
+/// same dump AND the same execution, which is what the old first-wins table
+/// could not promise — it accepted two registrations with identical metadata and
+/// different `RelationOps` as "idempotent" and kept whichever arrived first,
+/// under a dump and a fingerprint that could not tell them apart.
+#[test]
+fn relation_registration_order_changes_neither_the_dump_nor_behaviour() {
+    let other = RelationKind::new("toy.other");
+    let mut forward = ConstructionRegistry::<Toy>::default();
+    forward
+        .try_register_recipe(recipe(), "toy", "tests", "v1")
+        .expect("recipe registers");
+    forward
+        .try_register_relation(grudge(), "toy", "tests", "v1")
+        .expect("grudge registers");
+    forward
+        .try_register_relation(other.clone(), "toy", "tests", "v1")
+        .expect("other registers");
+
+    let mut reversed = ConstructionRegistry::<Toy>::default();
+    reversed
+        .try_register_relation(other, "toy", "tests", "v1")
+        .expect("other registers");
+    reversed
+        .try_register_relation(grudge(), "toy", "tests", "v1")
+        .expect("grudge registers");
+    reversed
+        .try_register_recipe(recipe(), "toy", "tests", "v1")
+        .expect("recipe registers");
+
+    assert_eq!(
+        forward.deterministic_dump(),
+        reversed.deterministic_dump(),
+        "ordered storage means insertion order does not reach the dump"
+    );
+
+    let plan = |registry: &ConstructionRegistry<Toy>| {
+        let mut a = request("a");
+        let b = request("b");
+        a.relations.push(RelationRequest {
+            to: SimId::placement("b"),
+            relation: ToyRelation::Grudge,
+        });
+        ConstructionPlan::prepare(scope(), vec![a, b], &nothing_live(), registry)
+            .expect("both registries plan the same relation")
+    };
+    let services = Services::default();
+    let (forward_world, forward_receipt) = commit(&plan(&forward), &services);
+    let (reversed_world, reversed_receipt) = commit(&plan(&reversed), &services);
+    assert_eq!(
+        forward_receipt.relations_wired(),
+        reversed_receipt.relations_wired()
+    );
+    let grudge_of = |world: &World, receipt: &ConstructionReceipt| {
+        let from = receipt
+            .entity(&SimId::placement("a"))
+            .expect("`a` committed");
+        world.get::<Grudge>(from).copied()
+    };
+    assert!(
+        grudge_of(&forward_world, &forward_receipt).is_some(),
+        "the relation was actually installed"
+    );
+    assert_eq!(
+        grudge_of(&forward_world, &forward_receipt).map(|Grudge(target)| forward_receipt
+            .committed_ids()
+            .contains(&SimId::placement("b"))
+            && target == reversed_receipt.entity(&SimId::placement("b")).unwrap()),
+        grudge_of(&reversed_world, &reversed_receipt).map(|Grudge(target)| reversed_receipt
+            .committed_ids()
+            .contains(&SimId::placement("b"))
+            && target == reversed_receipt.entity(&SimId::placement("b")).unwrap()),
+        "both orders wire the same relation onto the same identity"
     );
 }
 
@@ -528,15 +729,13 @@ fn a_mutual_relation_wires_both_directions() {
     let registry = registry();
     let mut a = request("a");
     a.relations.push(RelationRequest {
-        kind: grudge(),
-        payload: (),
         to: SimId::placement("b"),
+        relation: ToyRelation::Grudge,
     });
     let mut b = request("b");
     b.relations.push(RelationRequest {
-        kind: grudge(),
-        payload: (),
         to: SimId::placement("a"),
+        relation: ToyRelation::Grudge,
     });
     let plan = ConstructionPlan::prepare(scope(), vec![a, b], &nothing_live(), &registry).unwrap();
     let services = Services::default();
@@ -671,9 +870,8 @@ fn the_registry_dump_does_not_depend_on_registration_order() {
 fn feuding_pair(registry: &ConstructionRegistry<Toy>) -> ConstructionPlan<Toy> {
     let mut a = request("a");
     a.relations.push(RelationRequest {
-        kind: grudge(),
-        payload: (),
         to: SimId::placement("b"),
+        relation: ToyRelation::Grudge,
     });
     let b = request("b");
     ConstructionPlan::prepare(scope(), vec![a, b], &nothing_live(), registry).unwrap()
@@ -947,15 +1145,13 @@ fn relation_closure_is_transitive_across_a_chain() {
     let registry = registry();
     let mut a = request("a");
     a.relations.push(RelationRequest {
-        kind: grudge(),
-        payload: (),
         to: SimId::placement("b"),
+        relation: ToyRelation::Grudge,
     });
     let mut b = request("b");
     b.relations.push(RelationRequest {
-        kind: grudge(),
-        payload: (),
         to: SimId::placement("c"),
+        relation: ToyRelation::Grudge,
     });
     let plan = ConstructionPlan::prepare(
         scope(),
@@ -989,15 +1185,13 @@ fn rebuilding_a_closure_rewires_relations_onto_the_new_generations() {
     let registry = registry();
     let mut a = request("a");
     a.relations.push(RelationRequest {
-        kind: grudge(),
-        payload: (),
         to: SimId::placement("b"),
+        relation: ToyRelation::Grudge,
     });
     let mut b = request("b");
     b.relations.push(RelationRequest {
-        kind: grudge(),
-        payload: (),
         to: SimId::placement("c"),
+        relation: ToyRelation::Grudge,
     });
     let plan = ConstructionPlan::prepare(
         scope(),
@@ -1059,9 +1253,8 @@ fn a_row_in_no_relation_rebuilds_alone() {
     let registry = registry();
     let mut a = request("a");
     a.relations.push(RelationRequest {
-        kind: grudge(),
-        payload: (),
         to: SimId::placement("b"),
+        relation: ToyRelation::Grudge,
     });
     let plan = ConstructionPlan::prepare(
         scope(),
@@ -1129,7 +1322,7 @@ mod drifting {
 
     impl ConstructionDomain for Drifting {
         type Parameters = ();
-        type RelationPayload = ();
+        type Relation = ();
         type Services = ();
 
         fn dispatch(_: &Self::Parameters) -> RecipeDispatch<Self> {
@@ -1147,7 +1340,11 @@ mod drifting {
             }
         }
 
-        fn canonical_relation_summary(_: &Self::RelationPayload) -> String {
+        fn dispatch_relation(_: &Self::Relation) -> RelationDispatch<Self> {
+            unreachable!("the drift fixture declares no relations")
+        }
+
+        fn canonical_relation_summary(_: &Self::Relation) -> String {
             "-".to_string()
         }
 
@@ -1251,7 +1448,7 @@ fn a_relation_schema_change_changes_the_registry_dump() {
     let dump_for = |schema: &str| {
         let mut registry = ConstructionRegistry::<Toy>::default();
         registry
-            .try_register_relation(grudge(), "toy", "aggression", schema, grudge_ops())
+            .try_register_relation(grudge(), "toy", "aggression", schema)
             .unwrap();
         registry.deterministic_dump()
     };
@@ -1272,7 +1469,7 @@ fn relation_registration_order_does_not_change_the_dump() {
         };
         for kind in kinds {
             registry
-                .try_register_relation(kind, "toy", "tests", "v1", grudge_ops())
+                .try_register_relation(kind, "toy", "tests", "v1")
                 .unwrap();
         }
         registry.deterministic_dump()
@@ -1286,10 +1483,10 @@ fn relation_registration_order_does_not_change_the_dump() {
 fn relation_metadata_conflicts_are_rejected_and_identical_ones_are_idempotent() {
     let mut registry = ConstructionRegistry::<Toy>::default();
     registry
-        .try_register_relation(grudge(), "toy", "aggression", "v1", grudge_ops())
+        .try_register_relation(grudge(), "toy", "aggression", "v1")
         .unwrap();
     registry
-        .try_register_relation(grudge(), "toy", "aggression", "v1", grudge_ops())
+        .try_register_relation(grudge(), "toy", "aggression", "v1")
         .expect("byte-identical re-registration is idempotent");
 
     let before = registry.deterministic_dump();
@@ -1299,7 +1496,7 @@ fn relation_metadata_conflicts_are_rejected_and_identical_ones_are_idempotent() 
         ("toy", "aggression", "v2"),
     ] {
         let error = registry
-            .try_register_relation(grudge(), owner, source, schema, grudge_ops())
+            .try_register_relation(grudge(), owner, source, schema)
             .expect_err("a differing relation registration must be rejected");
         assert!(matches!(
             error,
@@ -1313,64 +1510,55 @@ fn relation_metadata_conflicts_are_rejected_and_identical_ones_are_idempotent() 
     );
 }
 
-/// **Registration identity is metadata, never a function address.**
+/// **A registration cannot supply executable behaviour at all.**
 ///
-/// Two DISTINCT functions declaring identical metadata re-register
-/// idempotently. This deliberately reverses the previous rule, which folded
-/// `std::ptr::fn_addr_eq` into the idempotence test and so made the outcome
-/// depend on codegen: the compiler may merge two identical functions to one
-/// address, and may emit one function at several addresses across codegen
-/// units, so the same pair of registrations could conflict or not between
-/// builds. A registry contract cannot rest on that.
+/// The first-wins hazard this replaces was concrete: `try_register_relation`
+/// took a `RelationOps` and decided idempotence on METADATA alone, so two
+/// registrations agreeing on owner/source/schema and disagreeing on the wiring
+/// function were accepted as "the same registration" and the first one won.
+/// The dump and the prepared-content fingerprint were byte-identical either way,
+/// so two builds could execute different construction behaviour under the same
+/// declared content identity, decided by plugin insertion order.
 ///
-/// Behaviour is governed by `schema_id` instead — which is also what makes a
-/// behaviour change visible to the prepared-content fingerprint. Note that
-/// pointer comparison never caught the realistic case anyway: editing a
+/// An earlier attempt compared `std::ptr::fn_addr_eq` instead, which a registry
+/// contract cannot rest on: the compiler may merge two identical functions to
+/// one address and emit one function at several addresses across codegen units,
+/// so the same pair of registrations could conflict or not between builds. And
+/// pointer comparison never caught the realistic case anyway — editing a
 /// function's body does not move it.
+///
+/// Both are gone because the table holds no functions. Wiring is resolved by
+/// `ConstructionDomain::dispatch_relation`, one exhaustive match in the domain
+/// that defines the relation enum, so there is nothing here to race for.
+/// `relation_registration_order_changes_neither_the_dump_nor_behaviour` proves
+/// the consequence end-to-end.
 #[test]
-fn relation_registration_identity_does_not_depend_on_function_addresses() {
-    fn wire_a(
-        from: Entity,
-        to: Entity,
-        _payload: &(),
-        ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>,
-    ) {
-        ctx.commands.entity(from).insert(Grudge(to));
-    }
-    fn wire_b(
-        from: Entity,
-        _to: Entity,
-        _payload: &(),
-        ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>,
-    ) {
-        ctx.commands.entity(from).remove::<Grudge>();
-    }
-    let ops_a = RelationOps::<Toy> {
-        wire: wire_a,
-        verify: verify_grudge,
-    };
-    let ops_b = RelationOps::<Toy> {
-        wire: wire_b,
-        verify: verify_grudge,
-    };
-    assert!(
-        !std::ptr::fn_addr_eq(ops_a.wire, ops_b.wire),
-        "the two fixtures must genuinely be different functions for this to mean anything"
-    );
-
+fn a_relation_registration_declares_identity_and_nothing_executable() {
     let mut registry = ConstructionRegistry::<Toy>::default();
     registry
-        .try_register_relation(grudge(), "toy", "aggression", "v1", ops_a)
-        .unwrap();
+        .try_register_relation(grudge(), "toy", "aggression", "v1")
+        .expect("first registration succeeds");
     let dump = registry.deterministic_dump();
     registry
-        .try_register_relation(grudge(), "toy", "aggression", "v1", ops_b)
-        .expect("identical declared metadata re-registers idempotently, whatever the addresses");
+        .try_register_relation(grudge(), "toy", "aggression", "v1")
+        .expect("identical declared metadata re-registers idempotently");
     assert_eq!(
         registry.deterministic_dump(),
         dump,
         "an idempotent re-registration changes nothing"
     );
+    // A metadata disagreement is still a transactional refusal.
+    assert!(matches!(
+        registry.try_register_relation(grudge(), "toy", "aggression", "v2"),
+        Err(ConstructionRegistrationError::ConflictingRelation { .. })
+    ));
+    assert_eq!(
+        registry.deterministic_dump(),
+        dump,
+        "a rejected registration leaves the registry untouched"
+    );
+    // Whatever any registration said, the ops come from the domain.
+    assert_eq!(Toy::dispatch_relation(&ToyRelation::Grudge).kind, grudge());
 }
 
 #[test]
@@ -1383,13 +1571,7 @@ fn empty_relation_metadata_fields_are_rejected() {
         ("toy.k", "toy", "tests", "", "schema id"),
     ] {
         assert_eq!(
-            registry.try_register_relation(
-                RelationKind::new(kind),
-                owner,
-                source,
-                schema,
-                grudge_ops()
-            ),
+            registry.try_register_relation(RelationKind::new(kind), owner, source, schema),
             Err(ConstructionRegistrationError::EmptyIdentity { field })
         );
     }
@@ -1414,6 +1596,11 @@ enum Sabotage {
     SpawnUnownedIdentity,
     SpawnForeignScopedRoot,
     PresentationChild,
+    /// An entity that CLAIMS a legacy construction family by name. Whether it
+    /// is tolerated depends on whether the name is enumerated.
+    SpawnLegacyRoot(&'static str),
+    RemoveTransactionId,
+    OverwriteTransactionId,
 }
 
 /// What each adversarial toy WIRING should do, so the relation postcondition
@@ -1460,13 +1647,37 @@ fn apply_sabotage(root: ConstructionRoot, ctx: &mut ConstructionExecCtx<'_, '_, 
             // A root wearing THIS transaction's ownership that no plan row
             // named. The caller never lists it, which is exactly why the scope
             // is read from the world instead of from the caller.
-            ctx.commands
-                .spawn((SimId::placement("uninvited"), ctx.scope.transaction()));
+            ctx.commands.spawn((
+                SimId::placement("uninvited"),
+                ctx.scope.transaction(ctx.session),
+            ));
         }
         Sabotage::SpawnUnownedIdentity => {
-            // The shape the giant hand limbs already have TODAY: a real
-            // identity, minted outside the planner, owned by nothing.
-            ctx.commands.spawn(SimId::placement("giant/hand_left"));
+            // A real identity, minted outside the planner, classified by
+            // nothing. Indistinguishable from a recipe inventing a root, which
+            // is why it is fatal.
+            ctx.commands.spawn(SimId::placement("mystery_body"));
+        }
+        Sabotage::SpawnLegacyRoot(family) => {
+            // The shape the giant hand limbs have TODAY, once they say so: a
+            // real identity minted outside the planner, explicitly naming the
+            // un-migrated family that minted it.
+            ctx.commands.spawn((
+                SimId::placement("giant/hand_left"),
+                LegacyConstructionRoot::new(family),
+            ));
+        }
+        Sabotage::RemoveTransactionId => {
+            ctx.commands.entity(root.entity()).remove::<TransactionId>();
+        }
+        Sabotage::OverwriteTransactionId => {
+            let elsewhere = ConstructionScope {
+                binding: ContentBinding::Content(ambition_engine_core::ContentEpoch(9)),
+                room: Some("some_other_room".into()),
+            };
+            ctx.commands
+                .entity(root.entity())
+                .insert(elsewhere.transaction(SessionSpawnScope::UNSCOPED));
         }
         Sabotage::SpawnForeignScopedRoot => {
             // Another live transaction's root. Present in the world, none of
@@ -1477,7 +1688,7 @@ fn apply_sabotage(root: ConstructionRoot, ctx: &mut ConstructionExecCtx<'_, '_, 
             };
             ctx.commands.spawn((
                 SimId::placement("other_rooms_occupant"),
-                elsewhere.transaction(),
+                elsewhere.transaction(SessionSpawnScope::UNSCOPED),
             ));
         }
         Sabotage::PresentationChild => {
@@ -1521,9 +1732,48 @@ fn verify_under_both(
     SABOTAGE.with(|s| s.set(Sabotage::None));
     RELATION_SABOTAGE.with(|s| s.set(RelationSabotage::None));
 
-    let transaction = plan.scope().transaction();
+    let transaction = plan.scope().transaction(SessionSpawnScope::UNSCOPED);
     let scope = AuthoritativeScope::gather(&mut world, &transaction);
     verify_committed_roster(plan, &receipt, &baseline, &scope, &world)
+}
+
+/// **A planned relation the executor never wired is a failure, not a skip.**
+///
+/// The verifier used to `continue` past any relation absent from
+/// `relations_wired`, which made the whole postcondition pass vacuous for
+/// exactly the relations that failed hardest: a relation the executor never
+/// attempted has no receipt entry, so "check the ones that were wired" checked
+/// everything except the broken one. Which relations were OWED is now derived
+/// from the identities actually committed.
+///
+/// The executor cannot be made to skip a relation from the outside — that is
+/// the point of the design — so this drops the entry from the receipt directly,
+/// standing in for an executor seam that failed to wire.
+#[test]
+fn a_planned_relation_missing_from_the_receipt_is_fatal() {
+    let plan = related_plan();
+    let services = Services::default();
+    let mut world = World::new();
+    let baseline =
+        TransactionBaseline::capture(&mut world).expect("an empty world has no duplicates");
+    let mut receipt = commit_into(&mut world, &plan, &services);
+
+    let key = (SimId::placement("a"), grudge(), SimId::placement("b"));
+    assert!(
+        receipt.relations_wired.remove(&key),
+        "the fixture must have wired the relation before we drop it"
+    );
+
+    let transaction = plan.scope().transaction(SessionSpawnScope::UNSCOPED);
+    let scope = AuthoritativeScope::gather(&mut world, &transaction);
+    let violations = verify_committed_roster(&plan, &receipt, &baseline, &scope, &world)
+        .expect_err("an unwired planned relation must be reported");
+    let missing: Vec<_> = violations
+        .iter()
+        .filter(|v| matches!(v, RosterViolation::RelationMissingFromReceipt { .. }))
+        .collect();
+    assert_eq!(missing.len(), 1, "got {violations:?}");
+    assert_eq!(missing[0].severity(), Severity::Fatal);
 }
 
 fn sabotage_plan() -> ConstructionPlan<Toy> {
@@ -1607,12 +1857,17 @@ fn an_unplanned_authoritative_root_is_detected() {
     );
 }
 
-/// An identity-bearing entity with no ownership stamp is REPORTED, per the
-/// documented rule — never silently ignored, and never fatal while nine
-/// families still build roots outside the planner. The giant's hand limbs are
-/// exactly this shape today.
+/// **An arbitrary identity-bearing entity with no ownership stamp is FATAL.**
+///
+/// This used to be `Severity::Unmigrated` — reported, published anyway — on the
+/// reasoning that "unowned" meant "a family that has not migrated yet". It did
+/// not mean that. It meant nothing in the world said what the entity was, which
+/// is equally the signature of a recipe inventing an authoritative root, so the
+/// one failure the verifier exists to catch was the one it tolerated. A genuine
+/// legacy family now claims that status by name; see
+/// `an_explicitly_marked_known_legacy_root_is_reported_but_not_fatal`.
 #[test]
-fn an_unowned_identity_is_reported_but_does_not_fail_the_transaction() {
+fn an_arbitrary_unowned_identity_is_fatal() {
     let violations = verify_under(Sabotage::SpawnUnownedIdentity, &sabotage_plan())
         .expect_err("an unowned identity must be reported");
     let unowned: Vec<_> = violations
@@ -1620,12 +1875,91 @@ fn an_unowned_identity_is_reported_but_does_not_fail_the_transaction() {
         .filter(|v| matches!(v, RosterViolation::UnownedIdentity { .. }))
         .collect();
     assert_eq!(unowned.len(), 1, "got {violations:?}");
-    assert_eq!(unowned[0].severity(), Severity::Unmigrated);
+    assert_eq!(
+        unowned[0].severity(),
+        Severity::Fatal,
+        "nothing in the world says what built this entity, so the transaction is unpublishable"
+    );
+}
+
+/// A root that explicitly claims an ENUMERATED legacy family is reported and
+/// published: the temporary, shrinking exception.
+#[test]
+fn an_explicitly_marked_known_legacy_root_is_reported_but_not_fatal() {
+    let family = KNOWN_LEGACY_FAMILIES
+        .first()
+        .expect("the migration ledger still has entries; delete this test when it empties");
+    let violations = verify_under(Sabotage::SpawnLegacyRoot(family), &sabotage_plan())
+        .expect_err("a legacy root is still reported");
+    let legacy: Vec<_> = violations
+        .iter()
+        .filter(|v| matches!(v, RosterViolation::LegacyConstruction { .. }))
+        .collect();
+    assert_eq!(legacy.len(), 1, "got {violations:?}");
+    assert_eq!(legacy[0].severity(), Severity::Unmigrated);
     assert!(
         violations
             .iter()
             .all(|v| v.severity() == Severity::Unmigrated),
-        "nothing here should be fatal: {violations:?}"
+        "an enumerated legacy family must not block publication: {violations:?}"
+    );
+}
+
+/// A root claiming a legacy family nobody enumerated is FATAL.
+///
+/// Without this the marker would be a universal opt-out: any entity could
+/// exempt itself from verification by asserting it was legacy. An unrecognised
+/// claim of legacy status is not evidence of legacy status.
+#[test]
+fn an_unknown_legacy_family_is_fatal() {
+    assert!(
+        !KNOWN_LEGACY_FAMILIES.contains(&"not-a-real-family"),
+        "the fixture must name a family the ledger does not list"
+    );
+    let violations = verify_under(
+        Sabotage::SpawnLegacyRoot("not-a-real-family"),
+        &sabotage_plan(),
+    )
+    .expect_err("an unrecognised legacy claim must be reported");
+    let unknown: Vec<_> = violations
+        .iter()
+        .filter(|v| matches!(v, RosterViolation::UnknownLegacyFamily { .. }))
+        .collect();
+    assert_eq!(unknown.len(), 1, "got {violations:?}");
+    assert_eq!(unknown[0].severity(), Severity::Fatal);
+}
+
+/// **A planned root that lost its ownership stamp is FATAL.**
+///
+/// The executor stamps identity, provenance, and ownership in one insert, and
+/// verification checked the first two. The third is the one that DRIVES scope
+/// classification, so an unstamped planned root is invisible to the next
+/// transaction's gathering — it becomes somebody else's problem permanently.
+#[test]
+fn a_planned_root_stripped_of_its_ownership_is_fatal() {
+    let violations = verify_under(Sabotage::RemoveTransactionId, &sabotage_plan())
+        .expect_err("a planned root without ownership must be detected");
+    // The sabotage runs in the recipe, so it strips EVERY planned row: both are
+    // reported, which is the point — the check is per-root, not a spot check.
+    let lost: Vec<_> = violations
+        .iter()
+        .filter(|v| matches!(v, RosterViolation::OwnershipLost { found: None, .. }))
+        .collect();
+    assert_eq!(lost.len(), 2, "got {violations:?}");
+    assert!(lost.iter().all(|v| v.severity() == Severity::Fatal));
+}
+
+/// Ownership OVERWRITTEN, rather than removed, is equally fatal — and the
+/// finding names what it found, so the two are diagnosable apart.
+#[test]
+fn a_planned_root_restamped_by_another_transaction_is_fatal() {
+    let violations = verify_under(Sabotage::OverwriteTransactionId, &sabotage_plan())
+        .expect_err("a restamped planned root must be detected");
+    assert!(
+        violations
+            .iter()
+            .any(|v| matches!(v, RosterViolation::OwnershipLost { found: Some(_), .. })),
+        "got {violations:?}"
     );
 }
 
@@ -1674,7 +2008,7 @@ fn verify_world(
     receipt: &ConstructionReceipt,
     baseline: &TransactionBaseline,
 ) -> Result<(), Vec<RosterViolation>> {
-    let transaction = plan.scope().transaction();
+    let transaction = plan.scope().transaction(SessionSpawnScope::UNSCOPED);
     let scope = AuthoritativeScope::gather(world, &transaction);
     verify_committed_roster(plan, receipt, baseline, &scope, world)
 }
@@ -1901,9 +2235,8 @@ fn an_identity_declared_retired_that_survived_is_detected() {
 fn related_plan() -> ConstructionPlan<Toy> {
     let mut a = request("a");
     a.relations.push(RelationRequest {
-        kind: grudge(),
-        payload: (),
         to: SimId::placement("b"),
+        relation: ToyRelation::Grudge,
     });
     ConstructionPlan::prepare(scope(), vec![a, request("b")], &nothing_live(), &registry()).unwrap()
 }
@@ -1988,7 +2321,7 @@ fn a_relation_onto_a_stale_generation_is_detected() {
                 source: "room_a".into(),
                 instance: "b".into(),
             },
-            plan.scope().transaction(),
+            plan.scope().transaction(SessionSpawnScope::UNSCOPED),
         ))
         .id();
     assert_ne!(fresh_b, stale_b);

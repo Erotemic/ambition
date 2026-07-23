@@ -1481,7 +1481,6 @@ mod tests {
                 "ambition_actors",
                 "aggression",
                 schema,
-                ambition_actors::construction::grudge_ops_for_tests(),
             )
             .unwrap();
         registry.deterministic_dump()

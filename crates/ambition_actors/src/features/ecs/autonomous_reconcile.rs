@@ -539,8 +539,25 @@ fn reconcile_temporary_control(world: &mut World) {
                     }
                 }
                 if let Some(mount_entity) = mount_entity {
-                    if let Some(mut slot) = world.get_mut::<MountSlot>(mount_entity) {
-                        slot.rider = Some(body.entity);
+                    // INSERT, not `get_mut`. This was
+                    // `if let Some(mut slot) = world.get_mut::<MountSlot>(..)`,
+                    // which silently did nothing when the mount had no
+                    // `MountSlot` — and a mount can easily lack one, because the
+                    // component is installed by the pair wiring rather than by
+                    // the mount's own construction. The rider-side `RidingOn`
+                    // above is inserted unconditionally, so the two disagreed:
+                    // the rider pointed at a mount that did not point back, and
+                    // `steer_mount_from_rider` queries `With<MountSlot>`, so the
+                    // mount stopped obeying while every rider-side assertion
+                    // still passed.
+                    //
+                    // Writing the whole relation side rather than mutating a
+                    // field also makes the restored link identical whether or not
+                    // a slot survived the rewind.
+                    if let Ok(mut mount_ref) = world.get_entity_mut(mount_entity) {
+                        mount_ref.insert(MountSlot {
+                            rider: Some(body.entity),
+                        });
                     }
                 }
             }
@@ -648,6 +665,63 @@ mod tests {
             proj.tuning.max_health,
             spec.tuning().max_health,
             "everything else still comes from the archetype"
+        );
+    }
+
+    /// **The mount reconcile INSERTS a missing `MountSlot` rather than skipping
+    /// it.**
+    ///
+    /// The bug: the restore path re-established the rider→mount link with
+    /// `world.get_mut::<MountSlot>(mount)`, which silently does nothing when the
+    /// mount has no `MountSlot` — and a mount easily lacks one, because the
+    /// component is installed by the pair wiring, not by the mount's own
+    /// construction. `RidingOn` was inserted unconditionally, so the two ends
+    /// disagreed: the rider pointed at a mount that did not point back, and
+    /// `steer_mount_from_rider` (which queries `With<MountSlot>`) quietly stopped
+    /// obeying while every rider-side assertion still passed.
+    ///
+    /// The fixture starts exactly there: a restored `Mounted` rider naming its
+    /// mount by id, the mount present, and NO `MountSlot` on it.
+    #[test]
+    fn the_mount_reconcile_inserts_a_missing_mount_slot() {
+        use crate::features::TemporaryControl;
+
+        let mut w = World::new();
+        w.insert_resource(test_roster());
+        w.insert_resource(catalog());
+
+        let mount = w.spawn((SimId::placement("shark"), config_fixture())).id();
+        let rider = w
+            .spawn((
+                SimId::placement("rider"),
+                config_fixture(),
+                Brain::stand_still(),
+                Mounted,
+                MountedBrainCache {
+                    brain: Brain::stand_still(),
+                    action_set: ambition_characters::brain::ActionSet::default(),
+                },
+                TemporaryControl::Mounted {
+                    mount: SimId::placement("shark"),
+                },
+            ))
+            .id();
+        assert!(
+            w.get::<MountSlot>(mount).is_none(),
+            "fixture: the mount begins with no MountSlot, the exact half-write shape"
+        );
+
+        reconcile_autonomous_actors(&mut w);
+
+        assert_eq!(
+            w.get::<RidingOn>(rider).map(|r| r.mount),
+            Some(mount),
+            "the rider still points at its mount"
+        );
+        assert_eq!(
+            w.get::<MountSlot>(mount).and_then(|slot| slot.rider),
+            Some(rider),
+            "and the mount now points back — both ends agree after reconciliation"
         );
     }
 

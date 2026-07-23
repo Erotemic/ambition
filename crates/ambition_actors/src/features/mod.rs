@@ -105,6 +105,7 @@ pub use components::{
 // Switch machinery + the quest-advance message live with their owning domains
 // (E2): the hub keeps the names importable until it dissolves (E7/E8).
 pub use crate::encounter::{SwitchActivated, SwitchFeature, SwitchOn};
+pub use crate::world::rooms::LastConstructionVerification;
 pub use ambition_persistence::quest::QuestAdvanceRequested;
 pub use ambition_platformer_primitives::feature_kind::{BoundFeatureKind, FeatureVisualKind};
 pub use brain_command::{
@@ -119,7 +120,6 @@ pub use ecs::actor_clusters::{
     ActorClusterSeed, ActorConfig, ActorMotionPath, ActorMut, ActorStatus, BodyKinematics,
 };
 pub use ecs::actor_tuning::{ActorTuning, CharacterBrainSpec, CharacterBrainTemplate};
-pub use ecs::LastConstructionVerification;
 pub use ecs::{
     advance_actor_anim_overlays, apply_actor_contact_damage, apply_actor_stimuli,
     apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,

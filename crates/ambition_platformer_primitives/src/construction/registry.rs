@@ -28,7 +28,7 @@ use super::{ConstructionDomain, ConstructionExecCtx, RecipeId};
 pub type RelationFn<D> = for<'w, 's, 'a> fn(
     Entity,
     Entity,
-    &<D as ConstructionDomain>::RelationPayload,
+    &<D as ConstructionDomain>::Relation,
     &mut ConstructionExecCtx<'w, 's, 'a, D>,
 );
 
@@ -44,7 +44,7 @@ pub type RelationFn<D> = for<'w, 's, 'a> fn(
 /// receipt already records; this answers the different question of whether the
 /// world now holds the relation the plan described.
 pub type RelationVerifyFn<D> =
-    fn(&World, Entity, Entity, &<D as ConstructionDomain>::RelationPayload) -> RelationCheck;
+    fn(&World, Entity, Entity, &<D as ConstructionDomain>::Relation) -> RelationCheck;
 
 /// What inspecting a wired relation in the committed world found.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,6 +64,23 @@ pub enum RelationCheck {
     /// side disagrees. Checked separately because a half-wired pair passes every
     /// forward-only test while leaving one side of the world lying.
     ReverseMismatch { found: Option<Entity> },
+    /// Both ends name each other, but a value the PAIRING carries did not land:
+    /// a limb wired into the wrong slot, a home offset overwritten after wiring.
+    ///
+    /// `field` labels which one for the diagnostic. It is not how the check was
+    /// performed — the verifier read the component and compared it to the planned
+    /// value — so this is a structured finding with a human label, not
+    /// verification by string.
+    PayloadMismatch { field: &'static str },
+    /// The relation's own components agree, but an entity is missing a component
+    /// the relation's semantics require of it: a rider without `Mounted`, a
+    /// mount without `Mountable`, a would-be pilot without `CanPilot`. A pair
+    /// that names each other and cannot function is still a broken relation.
+    MissingCapability { component: &'static str },
+    /// The reverse side names the source MORE THAN ONCE — a limb appended to its
+    /// host's rig twice. Every forward check and every "is it in there" check
+    /// passes; the host simply drives the limb twice per frame.
+    DuplicateMembership { count: usize },
 }
 
 /// The two frozen halves of one relation kind: how to install it, and how to
@@ -190,16 +207,24 @@ struct RecipeEntry {
 
 /// What a registered relation declares about itself.
 ///
-/// Carries the same canonical metadata a recipe does, and for the same reason:
-/// a relation's WIRING BEHAVIOUR can change while its kind and owner stay put,
-/// and without a schema id that change is invisible to the prepared-content
-/// fingerprint. The function pointers are never canonicalised — they are runtime
-/// execution state, not content identity.
-struct RelationEntry<D: ConstructionDomain> {
+/// **There are no function pointers here, and that is the fix for a real
+/// ordering hazard.** This used to store a [`RelationOps`] beside the metadata,
+/// with idempotence decided by the metadata alone — so two registrations with
+/// identical owner/source/schema and DIFFERENT wiring functions were accepted as
+/// "the same registration", and whichever plugin ran first won. The registry
+/// dump and the prepared-content fingerprint were byte-identical either way, so
+/// two builds could execute different construction behaviour while claiming the
+/// same content identity.
+///
+/// Executable behaviour now comes from [`ConstructionDomain::dispatch_relation`]
+/// — one exhaustive match in the domain that owns the relation enum — so there
+/// is no table for an outside registration to win a race in. This entry does
+/// what a recipe entry does: stable ownership, idempotent re-registration,
+/// conflict rejection, and an ordered fingerprint contribution.
+struct RelationEntry {
     owner: String,
     source: String,
     schema_id: String,
-    ops: RelationOps<D>,
 }
 
 /// App-installed registry of construction recipe identities and relation
@@ -216,7 +241,8 @@ struct RelationEntry<D: ConstructionDomain> {
 #[derive(Resource)]
 pub struct ConstructionRegistry<D: ConstructionDomain> {
     recipes: BTreeMap<RecipeId, RecipeEntry>,
-    relations: BTreeMap<RelationKind, RelationEntry<D>>,
+    relations: BTreeMap<RelationKind, RelationEntry>,
+    domain: std::marker::PhantomData<fn() -> D>,
 }
 
 impl<D: ConstructionDomain> Default for ConstructionRegistry<D> {
@@ -224,6 +250,7 @@ impl<D: ConstructionDomain> Default for ConstructionRegistry<D> {
         Self {
             recipes: BTreeMap::new(),
             relations: BTreeMap::new(),
+            domain: std::marker::PhantomData,
         }
     }
 }
@@ -283,30 +310,33 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
         Ok(())
     }
 
-    /// Register the wiring and the postcondition check for one relation kind.
+    /// Register a relation kind's IDENTITY. Re-registering byte-identical
+    /// ownership is idempotent; anything else conflicts.
     ///
-    /// **Registration identity is metadata, and only metadata.** This compared
-    /// `std::ptr::fn_addr_eq(existing.wire, wire)` as part of the idempotence
-    /// test, which is not a property a registry contract can rest on: the
-    /// compiler is free to merge two identical functions to one address and to
-    /// emit one function at several addresses across codegen units, so the same
-    /// registration could conflict or not depending on optimisation level. A
-    /// function address is an execution detail, not a semantic identity.
+    /// **This no longer takes a [`RelationOps`], and that is deliberate.** It
+    /// used to, with idempotence decided on metadata alone, which made the table
+    /// first-wins: two registrations agreeing on owner/source/schema and
+    /// disagreeing on the wiring function were "identical", so plugin insertion
+    /// order silently chose which one executed — under a dump and a fingerprint
+    /// that could not tell the two apart. An earlier version compared
+    /// `std::ptr::fn_addr_eq` instead, which is not a property a registry
+    /// contract can rest on either: the compiler may merge identical functions
+    /// to one address and emit one function at several addresses, so the same
+    /// registration could conflict or not depending on optimisation level.
     ///
-    /// The rule instead: same kind, owner, source, and schema id is idempotent,
-    /// whatever the pointers; any metadata disagreement is a conflict. What the
-    /// functions DO is governed by the schema contract, so changing their
-    /// behaviour means bumping `schema_id` — which is also exactly what makes
-    /// the change visible to the prepared-content fingerprint. A silent
-    /// behaviour swap under a fixed schema id was never detectable by pointer
-    /// comparison anyway: editing a function's body does not move it.
+    /// Neither is needed now. Executable behaviour is resolved by
+    /// [`ConstructionDomain::dispatch_relation`], one exhaustive match owned by
+    /// the domain that defines the relation enum, so a relation's wiring is not
+    /// something a registration can supply, replace, or race for. What an
+    /// outside provider contributes here is what it can honestly contribute:
+    /// identity, ownership, a schema version, and therefore a prepared-content
+    /// fingerprint contribution.
     pub fn try_register_relation(
         &mut self,
         kind: RelationKind,
         owner: impl Into<String>,
         source: impl Into<String>,
         schema_id: impl Into<String>,
-        ops: RelationOps<D>,
     ) -> Result<(), ConstructionRegistrationError> {
         let (owner, source, schema_id) = (owner.into(), source.into(), schema_id.into());
         non_empty(&[
@@ -339,7 +369,6 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
                 owner,
                 source,
                 schema_id,
-                ops,
             },
         );
         Ok(())
@@ -352,8 +381,11 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
         self.recipes.contains_key(recipe)
     }
 
-    pub(super) fn relation(&self, kind: &RelationKind) -> Option<RelationOps<D>> {
-        self.relations.get(kind).map(|entry| entry.ops)
+    /// Whether this relation kind is registered. Preparation refuses a relation
+    /// whose kind nothing declared — the same rule recipes get, and the reason
+    /// the table still matters now that it does not dispatch.
+    pub(super) fn has_relation(&self, kind: &RelationKind) -> bool {
+        self.relations.contains_key(kind)
     }
 
     /// Stable owner/source/schema rows for prepared-content assembly, for

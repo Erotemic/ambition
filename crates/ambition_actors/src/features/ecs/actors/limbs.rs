@@ -19,8 +19,9 @@
 //! `ControlGrant`, or the player after possession (M5) — because the fan-out
 //! reads only data on the host.
 //!
-//! Determinism: limbs fan out in `LimbRig::limbs` order (spawn order — a
-//! stable id, never `Entity` iteration order); a slot with no intent this
+//! Determinism: limbs fan out in `LimbSlot` order — the rig is keyed by slot,
+//! so iteration order is a property of the CONTENT rather than of when anything
+//! spawned, and never `Entity` iteration order; a slot with no intent this
 //! tick gets an explicit NEUTRAL frame, so stale intents can't drift.
 //!
 //! Schedule contract (registration lands with the first production rig,
@@ -33,7 +34,7 @@ use std::collections::BTreeMap;
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::brain::{ActorControl, BossAttackState};
 use ambition_engine_core as ae;
-use bevy::prelude::{Component, Entity, Query};
+use bevy::prelude::{Component, Entity, Query, With};
 
 use crate::boss_encounter::{LimbMotion, LimbRoute};
 use crate::features::{ActorSurfaceState, BodyKinematics, BossConfig, MountSlot};
@@ -59,11 +60,44 @@ impl LimbSlot {
     }
 }
 
-/// On the HOST body: its driven limbs, in spawn order (the stable fan-out
-/// order). The rig owns no behavior — it is a relationship, like `MountSlot`.
+/// On the HOST body: its driven limbs, **keyed by the slot each one fills**. The
+/// rig owns no behavior — it is a relationship, like `MountSlot`.
+///
+/// This was a `Vec<Entity>` "in spawn order (the stable fan-out order)", and
+/// that description overstated what the order did: nothing reads the rig
+/// positionally. [`fan_out_limb_intents`] looked up each limb's own `Limb::slot`
+/// to find its intent, so the vector supplied membership and the limb supplied
+/// meaning — two places holding one fact, with a vector able to contain the same
+/// limb twice (driving it twice per frame) or two limbs claiming one slot.
+///
+/// A `BTreeMap<LimbSlot, Entity>` makes both unrepresentable, gives iteration a
+/// deterministic order derived from the slot rather than from when anything
+/// spawned, and makes "the host's rig composition" an exactly checkable value.
 #[derive(Component, Clone, Default, Debug)]
 pub struct LimbRig {
-    pub limbs: Vec<Entity>,
+    pub limbs: BTreeMap<LimbSlot, Entity>,
+}
+
+impl LimbRig {
+    /// A rig holding exactly these slot→limb pairs.
+    pub fn from_pairs(pairs: impl IntoIterator<Item = (LimbSlot, Entity)>) -> Self {
+        Self {
+            limbs: pairs.into_iter().collect(),
+        }
+    }
+
+    pub fn get(&self, slot: LimbSlot) -> Option<Entity> {
+        self.limbs.get(&slot).copied()
+    }
+
+    /// Which slot this limb occupies, if any. Answerable at all only because
+    /// the rig is keyed by slot.
+    pub fn slot_of(&self, limb: Entity) -> Option<LimbSlot> {
+        self.limbs
+            .iter()
+            .find(|(_, &entity)| entity == limb)
+            .map(|(&slot, _)| slot)
+    }
 }
 
 /// On each LIMB body: which host it belongs to and which slot it fills.
@@ -101,16 +135,21 @@ pub struct LimbIntents(pub BTreeMap<LimbSlot, ActorControlFrame>);
 /// before `integrate_sim_bodies`.
 pub fn fan_out_limb_intents(
     hosts: Query<(&LimbRig, &LimbIntents)>,
-    mut limbs: Query<(&Limb, &mut ActorControl)>,
+    mut limbs: Query<&mut ActorControl, With<Limb>>,
 ) {
     for (rig, intents) in &hosts {
-        for &limb_entity in &rig.limbs {
-            let Ok((limb, mut control)) = limbs.get_mut(limb_entity) else {
+        // The RIG's key is the slot, so the intent a limb receives is decided by
+        // the host's own record of what that limb is for. Reading the limb's
+        // `Limb::slot` instead — as this used to — asked the driven body which
+        // instrument it was playing, which is the wrong end of the relationship
+        // and diverges silently if the two ever disagree.
+        for (&slot, &limb_entity) in &rig.limbs {
+            let Ok(mut control) = limbs.get_mut(limb_entity) else {
                 continue; // despawned/unspawned limb: the rig tolerates gaps
             };
             control.0 = intents
                 .0
-                .get(&limb.slot)
+                .get(&slot)
                 .copied()
                 .unwrap_or_else(ActorControlFrame::neutral);
         }
@@ -302,12 +341,12 @@ pub fn route_boss_strikes_to_limbs(
             if route_state.active_move.as_deref() != Some(m.as_str()));
         route_state.active_move = active_strike_move;
 
-        for &limb_entity in &rig.limbs {
+        for (&slot, &limb_entity) in &rig.limbs {
             let Ok((limb, limb_kin)) = limbs.get(limb_entity) else {
                 continue; // despawned/unspawned limb: the rig tolerates gaps
             };
             let frame = match &active {
-                Some(route) if route.engages(limb.slot, host_kin.facing) => strike_frame(
+                Some(route) if route.engages(slot, host_kin.facing) => strike_frame(
                     route.motion,
                     route.phase,
                     onset,
@@ -316,7 +355,7 @@ pub fn route_boss_strikes_to_limbs(
                 ),
                 _ => station_frame(limb, host_kin, limb_kin, gravity_dir),
             };
-            intents.0.insert(limb.slot, frame);
+            intents.0.insert(slot, frame);
         }
     }
 }
@@ -367,9 +406,7 @@ mod tests {
         right.velocity_target = ae::Vec2::new(0.0, -200.0);
         intents.0.insert(LimbSlot::HandRight, right);
         app.world_mut().entity_mut(host).insert((
-            LimbRig {
-                limbs: vec![hand_l, hand_r],
-            },
+            LimbRig::from_pairs([(LimbSlot::HandLeft, hand_l), (LimbSlot::HandRight, hand_r)]),
             intents,
         ));
 
@@ -401,7 +438,9 @@ mod tests {
 
 impl bevy::ecs::entity::MapEntities for LimbRig {
     fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
-        for entity in &mut self.limbs {
+        // Keys are slots, not entities, so remapping touches values only and
+        // cannot collide two limbs onto one key.
+        for entity in self.limbs.values_mut() {
             *entity = mapper.get_mapped(*entity);
         }
     }

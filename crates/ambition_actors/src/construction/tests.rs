@@ -93,13 +93,33 @@ fn prepare(
 }
 
 /// Commit a prepared room plan into a real `App` and hand back the world.
+///
+/// Brackets the work with the SAME transaction open/close
+/// `RoomConstructionPlan::spawn_contents` uses, because that is where the
+/// boundary lives: the feature plan does not publish, and a harness that called
+/// it alone would verify nothing.
 fn commit(plan: RoomFeatureConstructionPlan) -> App {
+    commit_over(plan, |_| {})
+}
+
+/// As [`commit`], with `seed` run against the world FIRST — before the
+/// transaction opens, so whatever it spawns is part of the opening baseline.
+fn commit_over(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut World)) -> App {
     let mut app = App::new();
     app.add_message::<crate::rooms::RoomLoaded>();
+    seed(app.world_mut());
     app.add_systems(Update, move |mut commands: Commands| {
-        crate::features::spawn_room_feature_entities_from_plan(
+        crate::world::rooms::transaction::open(&mut commands);
+        let receipt = crate::features::spawn_room_feature_entities_from_plan(
             &mut commands,
             &plan,
+            SessionSpawnScope::UNSCOPED,
+        );
+        crate::world::rooms::transaction::close(
+            &mut commands,
+            plan.construction(),
+            receipt.construction(),
+            plan.room().id.clone(),
             SessionSpawnScope::UNSCOPED,
         );
     });
@@ -1082,42 +1102,6 @@ fn a_counter_mutation_before_the_commit_applies_refuses_with_nothing_built() {
 /// The engine's real recipes, but with the grudge's WIRING replaced by a no-op
 /// while its metadata and its verifier stay exactly as production declares them.
 ///
-/// This is a genuine injection into the production path rather than a
-/// simulation of one: `prepare` reads whichever registry it is handed, and
-/// `install_actor_construction_recipes` is idempotent under identical metadata,
-/// so registering the broken ops FIRST leaves them in place while every other
-/// engine recipe registers normally.
-///
-/// It also demonstrates the registration policy from the other side: identical
-/// declared metadata makes these two ops interchangeable to the registry, which
-/// is precisely why behaviour is governed by `schema_id` and why a silent
-/// behaviour swap is the thing postcondition verification has to catch.
-fn recipes_with_a_grudge_that_never_lands() -> ActorConstructionRegistry {
-    fn wire_nothing(
-        _from: Entity,
-        _to: Entity,
-        _payload: &ActorRelationPayload,
-        _ctx: &mut Ctx<'_, '_, '_>,
-    ) {
-    }
-    let mut registry = ActorConstructionRegistry::default();
-    registry
-        .try_register_relation(
-            relation_grudge(),
-            OWNER,
-            "aggression",
-            SCHEMA,
-            ambition_platformer_primitives::construction::RelationOps {
-                wire: wire_nothing,
-                verify: grudge_ops_for_tests().verify,
-            },
-        )
-        .expect("the broken ops register first");
-    install_actor_construction_recipes(&mut registry)
-        .expect("the engine's recipes register idempotently over identical metadata");
-    registry
-}
-
 fn room_loaded_count(app: &mut App) -> usize {
     app.world_mut()
         .resource_mut::<bevy::ecs::message::Messages<crate::rooms::RoomLoaded>>()
@@ -1127,15 +1111,30 @@ fn room_loaded_count(app: &mut App) -> usize {
 
 /// **The room is not published when its relations did not land.**
 ///
-/// The receipt says the grudge was wired — the wiring function ran — and every
-/// identity is present and correct. Only reading the committed components
-/// catches this.
+/// **A room that fails verification does not publish, and does not write
+/// `RoomLoaded`.**
+///
+/// The failure here is a real production shape rather than an injected one: an
+/// entity already holds an identity this room plans, so committing the room
+/// creates a second body for it — `PlannedOverBaseline`. Nothing test-only is
+/// wired into the construction path to produce it.
+///
+/// It used to be produced by registering deliberately broken `RelationOps` into
+/// the registry ahead of the engine's own, which worked only because the
+/// registry stored executable behaviour and treated identical metadata as
+/// idempotent — the first-wins hazard itself. That hazard is gone, so the seam
+/// is gone with it; relation-postcondition detection is proven against the toy
+/// domain in `ambition_platformer_primitives` and, for the real limb and mount
+/// wiring, by the poison tests further down this file.
 #[test]
-fn a_room_whose_relation_never_lands_is_not_published() {
+fn a_room_that_fails_verification_is_not_published() {
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &recipes_with_a_grudge_that_never_lands())
-        .expect("the room plans: the defect is in wiring, not in planning");
-    let mut app = commit(plan);
+    let plan = prepare(&room, &staging, &engine_construction_registry())
+        .expect("the room plans: the defect is in the world, not in the plan");
+    let mut app = commit_over(plan, |world| {
+        // A live body already wearing an identity the room is about to build.
+        world.spawn(SimId::placement("duel_blue"));
+    });
 
     let verification = app
         .world()
@@ -1143,12 +1142,12 @@ fn a_room_whose_relation_never_lands_is_not_published() {
         .clone();
     assert!(
         !verification.published,
-        "a room whose relations did not land must not publish: {verification:?}"
+        "a room that failed verification must not publish: {verification:?}"
     );
     assert!(
         verification.fatal().any(|violation| matches!(
             violation,
-            ambition_platformer_primitives::construction::RosterViolation::RelationNotEstablished {
+            ambition_platformer_primitives::construction::RosterViolation::PlannedOverBaseline {
                 ..
             }
         )),
@@ -1257,7 +1256,7 @@ fn verify_bare(
     receipt: &ConstructionReceipt,
     baseline: &TransactionBaseline,
 ) -> Result<(), Vec<RosterViolation>> {
-    let transaction = plan.scope().transaction();
+    let transaction = plan.scope().transaction(SessionSpawnScope::UNSCOPED);
     let scope = AuthoritativeScope::gather(world, &transaction);
     verify_committed_roster(plan, receipt, baseline, &scope, world)
 }
@@ -1266,9 +1265,8 @@ fn verify_bare(
 fn related_actor_plan(
     rows: &[&str],
     from: &str,
-    kind: ambition_platformer_primitives::construction::RelationKind,
     to: &str,
-    payload: ActorRelationPayload,
+    relation: ActorRelation,
 ) -> ActorConstructionPlan {
     let requests: Vec<_> = rows
         .iter()
@@ -1276,9 +1274,8 @@ fn related_actor_plan(
             let mut request = bare_request(id);
             if *id == from {
                 request.relations.push(RelationRequest {
-                    kind: kind.clone(),
                     to: SimId::placement(to),
-                    payload: payload.clone(),
+                    relation: relation.clone(),
                 });
             }
             request
@@ -1293,8 +1290,26 @@ fn related_actor_plan(
     .expect("the plan is valid")
 }
 
-fn hand(slot: crate::features::LimbSlot) -> ActorRelationPayload {
-    ActorRelationPayload::Limb {
+/// Give a committed rider/mount pair the capability components their archetypes
+/// would carry, so the mount postcondition's capability checks have something to
+/// read. The bare fixtures build generic enemy bodies, which are neither mounts
+/// nor pilots; `verify_mount` legitimately requires `Mountable` on the mount and
+/// a compatible `CanPilot` on the rider, so a wiring test must equip the pair for
+/// the same reason a real room's archetypes do.
+fn equip_mount_pair(world: &mut World, rider: Entity, mount: Entity) {
+    world.entity_mut(mount).insert(crate::features::Mountable {
+        rider_offset: ae::Vec2::ZERO,
+        class: crate::features::MountClass("giant".into()),
+        control_grant: crate::features::ControlGrant::Total,
+        death_impact: crate::features::MountDeathImpact::Dismount,
+    });
+    world.entity_mut(rider).insert(crate::features::CanPilot {
+        classes: vec![crate::features::MountClass("giant".into())],
+    });
+}
+
+fn hand(slot: crate::features::LimbSlot) -> ActorRelation {
+    ActorRelation::Limb {
         slot,
         home_offset: ae::Vec2::new(12.0, -4.0),
     }
@@ -1307,7 +1322,6 @@ fn a_limb_relation_wires_the_limb_and_the_hosts_rig() {
     let plan = related_actor_plan(
         &["giant", "hand"],
         "hand",
-        relation_limb(),
         "giant",
         hand(crate::features::LimbSlot::HandLeft),
     );
@@ -1325,7 +1339,12 @@ fn a_limb_relation_wires_the_limb_and_the_hosts_rig() {
     let rig = world
         .get::<crate::features::LimbRig>(host)
         .expect("the host side landed");
-    assert_eq!(rig.limbs, vec![limb], "the rig drives exactly this limb");
+    assert_eq!(
+        rig.get(crate::features::LimbSlot::HandLeft),
+        Some(limb),
+        "the rig files the limb under exactly its planned slot"
+    );
+    assert_eq!(rig.limbs.len(), 1, "and drives no other limb");
 
     assert_eq!(verify_bare(&mut world, &plan, &receipt, &baseline), Ok(()));
 }
@@ -1340,7 +1359,6 @@ fn a_limb_missing_from_its_hosts_rig_is_detected() {
     let plan = related_actor_plan(
         &["giant", "hand"],
         "hand",
-        relation_limb(),
         "giant",
         hand(crate::features::LimbSlot::HandRight),
     );
@@ -1369,7 +1387,6 @@ fn a_limb_whose_slot_was_rewritten_is_detected() {
     let plan = related_actor_plan(
         &["giant", "hand"],
         "hand",
-        relation_limb(),
         "giant",
         hand(crate::features::LimbSlot::HandLeft),
     );
@@ -1398,23 +1415,22 @@ fn a_limb_whose_slot_was_rewritten_is_detected() {
 ///
 /// The rig is a `Vec` and `fan_out_limb_intents` reads it positionally, so the
 /// order is content, not incident. Canonical order sorts by the limb's `SimId`,
-/// which is why the hands' `…/0` and `…/1` spawned ids come out left-then-right.
+/// which is why the two hands file under their two distinct slots regardless of
+/// declaration order.
 #[test]
-fn two_limbs_accumulate_into_one_rig_in_canonical_order() {
+fn two_limbs_accumulate_into_one_rig_keyed_by_slot() {
     let giant = SimId::placement("giant");
     let mut host = bare_request("giant");
     host.relations.clear();
     let mut left = bare_request("giant/0");
     left.relations.push(RelationRequest {
-        kind: relation_limb(),
         to: giant.clone(),
-        payload: hand(crate::features::LimbSlot::HandLeft),
+        relation: hand(crate::features::LimbSlot::HandLeft),
     });
     let mut right = bare_request("giant/1");
     right.relations.push(RelationRequest {
-        kind: relation_limb(),
         to: giant.clone(),
-        payload: hand(crate::features::LimbSlot::HandRight),
+        relation: hand(crate::features::LimbSlot::HandRight),
     });
 
     // Declared right-first on purpose: canonical ordering, not arrival order,
@@ -1435,10 +1451,14 @@ fn two_limbs_accumulate_into_one_rig_in_canonical_order() {
         .get::<crate::features::LimbRig>(host_entity)
         .expect("the rig accumulated");
     assert_eq!(
-        rig.limbs,
-        vec![left_entity, right_entity],
-        "the rig is in canonical relation order (left = /0, right = /1)"
+        rig.get(crate::features::LimbSlot::HandLeft),
+        Some(left_entity)
     );
+    assert_eq!(
+        rig.get(crate::features::LimbSlot::HandRight),
+        Some(right_entity)
+    );
+    assert_eq!(rig.limbs.len(), 2, "exactly the two declared limbs");
     assert_eq!(verify_bare(&mut world, &plan, &receipt, &baseline), Ok(()));
 }
 
@@ -1446,13 +1466,7 @@ fn two_limbs_accumulate_into_one_rig_in_canonical_order() {
 /// `MountSlot` on the mount going back.
 #[test]
 fn a_mount_relation_wires_the_rider_and_the_mounts_slot() {
-    let plan = related_actor_plan(
-        &["rider", "mount"],
-        "rider",
-        relation_mount(),
-        "mount",
-        ActorRelationPayload::Mount,
-    );
+    let plan = related_actor_plan(&["rider", "mount"], "rider", "mount", ActorRelation::Mount);
     let (mut world, receipt, baseline) = commit_bare(&plan);
     let rider = receipt.entity(&SimId::placement("rider")).expect("built");
     let mount = receipt.entity(&SimId::placement("mount")).expect("built");
@@ -1475,6 +1489,7 @@ fn a_mount_relation_wires_the_rider_and_the_mounts_slot() {
             .rider,
         Some(rider)
     );
+    equip_mount_pair(&mut world, rider, mount);
     assert_eq!(verify_bare(&mut world, &plan, &receipt, &baseline), Ok(()));
 }
 
@@ -1489,15 +1504,11 @@ fn a_mount_relation_wires_the_rider_and_the_mounts_slot() {
 /// stops obeying while every rider-side assertion still passes.
 #[test]
 fn a_mount_that_does_not_point_back_at_its_rider_is_detected() {
-    let plan = related_actor_plan(
-        &["rider", "mount"],
-        "rider",
-        relation_mount(),
-        "mount",
-        ActorRelationPayload::Mount,
-    );
+    let plan = related_actor_plan(&["rider", "mount"], "rider", "mount", ActorRelation::Mount);
     let (mut world, receipt, baseline) = commit_bare(&plan);
+    let rider = receipt.entity(&SimId::placement("rider")).expect("built");
     let mount = receipt.entity(&SimId::placement("mount")).expect("built");
+    equip_mount_pair(&mut world, rider, mount);
 
     world
         .entity_mut(mount)
@@ -1518,15 +1529,11 @@ fn a_mount_that_does_not_point_back_at_its_rider_is_detected() {
 /// A mount whose slot points at somebody ELSE — two riders claiming one saddle.
 #[test]
 fn a_mount_holding_a_different_rider_is_detected() {
-    let plan = related_actor_plan(
-        &["rider", "mount"],
-        "rider",
-        relation_mount(),
-        "mount",
-        ActorRelationPayload::Mount,
-    );
+    let plan = related_actor_plan(&["rider", "mount"], "rider", "mount", ActorRelation::Mount);
     let (mut world, receipt, baseline) = commit_bare(&plan);
+    let rider = receipt.entity(&SimId::placement("rider")).expect("built");
     let mount = receipt.entity(&SimId::placement("mount")).expect("built");
+    equip_mount_pair(&mut world, rider, mount);
     let usurper = world.spawn_empty().id();
 
     world.entity_mut(mount).insert(crate::features::MountSlot {
@@ -1543,6 +1550,315 @@ fn a_mount_holding_a_different_rider_is_detected() {
         )),
         "got {violations:?}"
     );
+}
+
+/// **A limb wired into the wrong slot is detected — the slot is verified on
+/// both sides.**
+#[test]
+fn a_limb_filed_under_the_wrong_slot_is_detected() {
+    let plan = related_actor_plan(
+        &["giant", "hand"],
+        "hand",
+        "giant",
+        hand(crate::features::LimbSlot::HandLeft),
+    );
+    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let host = receipt.entity(&SimId::placement("giant")).expect("built");
+    let limb = receipt.entity(&SimId::placement("hand")).expect("built");
+
+    // File the same limb under the OTHER slot, leaving `Limb.slot` right.
+    let mut rig = world
+        .get_mut::<crate::features::LimbRig>(host)
+        .expect("the rig landed");
+    rig.limbs.clear();
+    rig.limbs.insert(crate::features::LimbSlot::HandRight, limb);
+
+    let violations = verify_bare(&mut world, &plan, &receipt, &baseline)
+        .expect_err("a limb filed under the wrong slot must be detected");
+    assert!(
+        violations.iter().any(|violation| matches!(
+            violation,
+            RosterViolation::RelationNotEstablished {
+                check: RelationCheck::PayloadMismatch { field: "rig_slot" },
+                ..
+            }
+        )),
+        "got {violations:?}"
+    );
+}
+
+/// **A limb whose home offset was overwritten after wiring is detected.**
+///
+/// The offset is the limb's entire idle behaviour; a corrupted one station-keeps
+/// to the wrong place forever, which no structural check would ever notice. This
+/// is the poison counterpart to `a_limb_relation_wires_the_limb_and_the_hosts_rig`,
+/// which asserts the offset lands: it did not fail before this check existed,
+/// because nothing read the offset back.
+#[test]
+fn a_limb_with_a_corrupted_home_offset_is_detected() {
+    let plan = related_actor_plan(
+        &["giant", "hand"],
+        "hand",
+        "giant",
+        hand(crate::features::LimbSlot::HandLeft),
+    );
+    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let limb = receipt.entity(&SimId::placement("hand")).expect("built");
+
+    world
+        .get_mut::<crate::features::Limb>(limb)
+        .unwrap()
+        .home_offset = ae::Vec2::new(999.0, 999.0);
+
+    let violations = verify_bare(&mut world, &plan, &receipt, &baseline)
+        .expect_err("a corrupted home offset must be detected");
+    assert!(
+        violations.iter().any(|violation| matches!(
+            violation,
+            RosterViolation::RelationNotEstablished {
+                check: RelationCheck::PayloadMismatch {
+                    field: "home_offset"
+                },
+                ..
+            }
+        )),
+        "got {violations:?}"
+    );
+}
+
+/// **A mount link missing `Mounted` is detected.**
+///
+/// `steer_mount_from_rider` queries `With<Mounted>`, so a rider linked without it
+/// sits on a mount that never receives its intent. Every `RidingOn`/`MountSlot`
+/// assertion passes.
+#[test]
+fn a_mount_link_missing_the_mounted_marker_is_detected() {
+    let plan = related_actor_plan(&["rider", "mount"], "rider", "mount", ActorRelation::Mount);
+    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let rider = receipt.entity(&SimId::placement("rider")).expect("built");
+    let mount = receipt.entity(&SimId::placement("mount")).expect("built");
+    equip_mount_pair(&mut world, rider, mount);
+
+    world.entity_mut(rider).remove::<crate::features::Mounted>();
+
+    let violations = verify_bare(&mut world, &plan, &receipt, &baseline)
+        .expect_err("a rider without Mounted must be detected");
+    assert!(
+        violations.iter().any(|violation| matches!(
+            violation,
+            RosterViolation::RelationNotEstablished {
+                check: RelationCheck::MissingCapability {
+                    component: "Mounted"
+                },
+                ..
+            }
+        )),
+        "got {violations:?}"
+    );
+}
+
+/// **A mount link whose rider cannot pilot the mount's class is detected.**
+///
+/// The preflight rejects this before construction; this is the runtime
+/// counterpart, for a pair that somehow reached the world incompatible.
+#[test]
+fn a_mount_link_with_an_incompatible_class_is_detected() {
+    let plan = related_actor_plan(&["rider", "mount"], "rider", "mount", ActorRelation::Mount);
+    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let rider = receipt.entity(&SimId::placement("rider")).expect("built");
+    let mount = receipt.entity(&SimId::placement("mount")).expect("built");
+    equip_mount_pair(&mut world, rider, mount);
+    // The rider can pilot "giant" but the mount is now a "shark".
+    world.entity_mut(mount).insert(crate::features::Mountable {
+        rider_offset: ae::Vec2::ZERO,
+        class: crate::features::MountClass("shark".into()),
+        control_grant: crate::features::ControlGrant::Total,
+        death_impact: crate::features::MountDeathImpact::Dismount,
+    });
+
+    let violations = verify_bare(&mut world, &plan, &receipt, &baseline)
+        .expect_err("an incompatible mount class must be detected");
+    assert!(
+        violations.iter().any(|violation| matches!(
+            violation,
+            RosterViolation::RelationNotEstablished {
+                check: RelationCheck::PayloadMismatch {
+                    field: "mount_class"
+                },
+                ..
+            }
+        )),
+        "got {violations:?}"
+    );
+}
+
+// ── Preflight: illegal relation configurations rejected before mutation ───────
+
+/// Build one summon request per row for a preflight fixture, so the relation
+/// rules can be exercised without a whole room.
+fn minion_request(id: &str, archetype: &str) -> ActorConstructionRequest {
+    summoned_minion_request(
+        &SimId::placement("summoner"),
+        id.bytes().map(u64::from).sum(),
+        SummonedMinionParams {
+            feature_id: id.to_string(),
+            name: id.to_string(),
+            pos: ae::Vec2::ZERO,
+            half_size: ae::Vec2::splat(10.0),
+            archetype_id: archetype.to_string(),
+            encounter_id: "e".into(),
+            faction: crate::features::ActorFaction::Enemy,
+        },
+    )
+}
+
+fn preflight(requests: Vec<ActorConstructionRequest>) -> Result<(), ActorConstructionError> {
+    preflight_actor_relations(
+        &requests,
+        &crate::features::enemies::test_roster(),
+        &crate::boss_encounter::test_boss_catalog(),
+    )
+}
+
+/// Two limbs claiming one host slot is refused before any spawn.
+#[test]
+fn two_limbs_in_one_slot_are_rejected() {
+    let host = minion_request("giant", "giant_gnu");
+    let mut a = minion_request("hand_a", "giant_gnu_hands");
+    let mut b = minion_request("hand_b", "giant_gnu_hands");
+    a.relations.push(RelationRequest {
+        to: host.sim_id.clone(),
+        relation: hand(crate::features::LimbSlot::HandLeft),
+    });
+    b.relations.push(RelationRequest {
+        to: host.sim_id.clone(),
+        relation: hand(crate::features::LimbSlot::HandLeft),
+    });
+    assert!(matches!(
+        preflight(vec![host, a, b]),
+        Err(ActorConstructionError::LimbSlotTaken { .. })
+    ));
+}
+
+/// One limb naming two hosts is refused.
+#[test]
+fn a_limb_with_two_hosts_is_rejected() {
+    let host_a = minion_request("giant_a", "giant_gnu");
+    let host_b = minion_request("giant_b", "giant_gnu");
+    let mut limb = minion_request("hand", "giant_gnu_hands");
+    limb.relations.push(RelationRequest {
+        to: host_a.sim_id.clone(),
+        relation: hand(crate::features::LimbSlot::HandLeft),
+    });
+    limb.relations.push(RelationRequest {
+        to: host_b.sim_id.clone(),
+        relation: hand(crate::features::LimbSlot::HandRight),
+    });
+    assert!(matches!(
+        preflight(vec![host_a, host_b, limb]),
+        Err(ActorConstructionError::LimbHasTwoHosts { .. })
+    ));
+}
+
+/// Two riders claiming one mount is refused before mutation.
+#[test]
+fn two_riders_on_one_mount_are_rejected() {
+    let mut rider_a = minion_request("rider_a", "pirate_raider");
+    let mut rider_b = minion_request("rider_b", "pirate_raider");
+    let mount = minion_request("shark", "burning_flying_shark");
+    rider_a.relations.push(RelationRequest {
+        to: mount.sim_id.clone(),
+        relation: ActorRelation::Mount,
+    });
+    rider_b.relations.push(RelationRequest {
+        to: mount.sim_id.clone(),
+        relation: ActorRelation::Mount,
+    });
+    assert!(matches!(
+        preflight(vec![rider_a, rider_b, mount]),
+        Err(ActorConstructionError::MountHasTwoRiders { .. })
+    ));
+}
+
+/// One rider naming two mounts is refused.
+#[test]
+fn one_rider_on_two_mounts_is_rejected() {
+    let mut rider = minion_request("rider", "pirate_raider");
+    let mount_a = minion_request("shark_a", "burning_flying_shark");
+    let mount_b = minion_request("shark_b", "burning_flying_shark");
+    rider.relations.push(RelationRequest {
+        to: mount_a.sim_id.clone(),
+        relation: ActorRelation::Mount,
+    });
+    rider.relations.push(RelationRequest {
+        to: mount_b.sim_id.clone(),
+        relation: ActorRelation::Mount,
+    });
+    assert!(matches!(
+        preflight(vec![rider, mount_a, mount_b]),
+        Err(ActorConstructionError::RiderOnTwoMounts { .. })
+    ));
+}
+
+/// A self-mount is refused.
+#[test]
+fn a_self_mount_is_rejected() {
+    let mut rider = minion_request("rider", "pirate_raider");
+    rider.relations.push(RelationRequest {
+        to: rider.sim_id.clone(),
+        relation: ActorRelation::Mount,
+    });
+    assert!(matches!(
+        preflight(vec![rider]),
+        Err(ActorConstructionError::SelfMount { .. })
+    ));
+}
+
+/// A rider whose class list does not include the mount's class is refused
+/// before mutation — where the live path drops the link silently.
+#[test]
+fn an_incompatible_pilot_and_mount_class_are_rejected() {
+    // A shark-rider cannot pilot a `giant`-class mount.
+    let mut rider = minion_request("rider", "pirate_raider");
+    let mount = minion_request("giant", "giant_gnu");
+    rider.relations.push(RelationRequest {
+        to: mount.sim_id.clone(),
+        relation: ActorRelation::Mount,
+    });
+    assert!(matches!(
+        preflight(vec![rider, mount]),
+        Err(ActorConstructionError::IncompatibleMountClass { .. })
+    ));
+}
+
+/// A mount relation whose "mount" end is not a mount at all is refused.
+#[test]
+fn a_mount_relation_onto_a_non_mount_is_rejected() {
+    let mut rider = minion_request("rider", "pirate_raider");
+    // A shark-rider ridden by nothing — but here we point it at another rider,
+    // which has no `mount_class`.
+    let not_a_mount = minion_request("also_rider", "pirate_raider");
+    rider.relations.push(RelationRequest {
+        to: not_a_mount.sim_id.clone(),
+        relation: ActorRelation::Mount,
+    });
+    assert!(matches!(
+        preflight(vec![rider, not_a_mount]),
+        Err(ActorConstructionError::WrongFamilyForRelation { end: "mount", .. })
+    ));
+}
+
+/// A compatible pair passes the preflight — the poison counterpart, so the
+/// rejections above are not merely "everything is rejected".
+#[test]
+fn a_compatible_rider_and_mount_pass_preflight() {
+    let mut rider = minion_request("rider", "pirate_raider");
+    let mount = minion_request("shark", "burning_flying_shark");
+    rider.relations.push(RelationRequest {
+        to: mount.sim_id.clone(),
+        relation: ActorRelation::Mount,
+    });
+    assert_eq!(preflight(vec![rider, mount]), Ok(()));
 }
 
 /// Both new relations are in the registry dump, so a change to either one's

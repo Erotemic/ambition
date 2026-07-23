@@ -151,9 +151,8 @@ pub use save_sync::{
 };
 pub use spawn::{
     spawn_encounter_mob, spawn_room_feature_entities_from_plan, ActorConstructionContext,
-    LastConstructionVerification, RoomContentStagingError, RoomContentStagingRegistrationError,
-    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
-    RoomFeatureConstructionReceipt,
+    RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
+    RoomFeatureConstructionError, RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt,
 };
 pub(crate) use spawn::{spawn_runtime_minion, spawn_runtime_minion_into};
 pub(crate) use spawn_actors::spawn_staged_actor_into;

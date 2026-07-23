@@ -159,7 +159,8 @@ impl SpawnOrigin {
 pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     /// What one planned row carries into its recipe.
     type Parameters: Clone + Send + Sync + 'static;
-    /// What one declared RELATION carries into its wiring, beyond its two ends.
+    /// **What one declared RELATION is** — its kind and everything the pairing
+    /// carries, as ONE value.
     ///
     /// Some relationships are pure adjacency — a grudge is fully described by
     /// who resents whom. Others are not: a limb's slot and its host-local idle
@@ -169,8 +170,16 @@ pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     /// relation is wired, which is the same shape of mistake as a `parent` field
     /// beside a `SpawnOrigin::Dynamic`.
     ///
-    /// A domain with no such relationships uses `()`.
-    type RelationPayload: Clone + Send + Sync + 'static;
+    /// **This used to be a payload sitting BESIDE a caller-supplied
+    /// `RelationKind`**, and that pair was exactly the mistake this module keeps
+    /// finding: two halves of one fact stored where they can disagree. A request
+    /// naming `ambition.limb` while carrying a `Grudge` payload passed
+    /// preparation, passed validation, passed the registry check — and reached
+    /// `unreachable!` inside the wiring function, mid-commit, with the outgoing
+    /// room already retired. The kind is now DERIVED from this value by
+    /// [`ConstructionDomain::dispatch_relation`], so the mismatch is not a state
+    /// that can be written down.
+    type Relation: Clone + Send + Sync + 'static;
     /// Frozen services recipes read at execution time. Whatever a domain puts
     /// here is captured before the plan commits, so execution has no fallible
     /// lookup left.
@@ -191,17 +200,44 @@ pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     /// lookup that could miss resolved in the request builder.
     fn dispatch(parameters: &Self::Parameters) -> RecipeDispatch<Self>;
 
+    /// Resolve what a declared relation IS: **its stable kind, its wiring, and
+    /// its postcondition check, from one exhaustive match**.
+    ///
+    /// The relation counterpart of [`Self::dispatch`], and it exists for the
+    /// same reason plus one more. The same one: a kind chosen in one place and
+    /// behaviour chosen in another can drift while still compiling. The extra
+    /// one: this is also what makes relation wiring **engine-owned**. Ops are
+    /// resolved here rather than looked up in the registry, so there is no table
+    /// an outside plugin can register executable behaviour into — and therefore
+    /// no insertion-order race deciding which implementation of a kind runs.
+    ///
+    /// Exhaustive over [`Self::Relation`], so a new relation variant with no arm
+    /// is a compile error. Infallible, like `dispatch`: every fallible lookup
+    /// resolved in the request builder.
+    fn dispatch_relation(relation: &Self::Relation) -> RelationDispatch<Self>;
+
     /// Byte-stable one-line rendering of a row's parameters for the plan dump.
     /// Must not include tabs or newlines.
     fn canonical_summary(parameters: &Self::Parameters) -> String;
 
-    /// Byte-stable rendering of a relation's payload for the plan dump. Must
-    /// not include tabs or newlines.
+    /// Byte-stable rendering of a relation's carried facts for the plan dump.
+    /// Must not include tabs or newlines.
     ///
     /// In the dump because it is content: two plans whose limbs fill different
     /// slots describe different worlds, and a dump that rendered them
-    /// identically would call them the same plan.
-    fn canonical_relation_summary(payload: &Self::RelationPayload) -> String;
+    /// identically would call them the same plan. The KIND is dumped separately
+    /// from [`RelationDispatch::kind`], so this renders only what the kind does
+    /// not already say.
+    fn canonical_relation_summary(relation: &Self::Relation) -> String;
+}
+
+/// What one exhaustive relation dispatch yields: the relation's stable identity
+/// and the two frozen halves of its behaviour.
+pub struct RelationDispatch<D: ConstructionDomain> {
+    /// Stable identity for the dump, the registry check, and the fingerprint.
+    pub kind: RelationKind,
+    /// How to install it, and how to prove it landed — see [`RelationOps`].
+    pub ops: RelationOps<D>,
 }
 
 /// What one exhaustive dispatch decision yields: the row's recipe identity and
@@ -309,20 +345,35 @@ impl ContentBinding {
 }
 
 impl ConstructionScope {
-    /// The ownership token every root this scope constructs will carry.
+    /// The ownership token every root this scope constructs under `session` will
+    /// carry.
     ///
-    /// Derived from the scope rather than drawn from a counter, so it needs no
-    /// clock, no randomness, and no rollback-registered state: preparing the
-    /// same room against the same content generation twice yields the same
-    /// token, which is what a deterministic simulation requires. Two different
-    /// rooms — or the same room at two content generations — differ, which is
-    /// what makes "a root from another live scope" a distinguishable thing
-    /// rather than a hopeful assumption.
-    pub fn transaction(&self) -> TransactionId {
+    /// Derived from the scope and the committing session rather than drawn from
+    /// a counter, so it needs no clock, no randomness, and no rollback-registered
+    /// state: committing the same room, at the same content generation, in the
+    /// same session, twice yields the same token — which is what a deterministic
+    /// simulation requires, and what makes a same-room reconstruction recognise
+    /// its own previous roots instead of calling them foreign.
+    ///
+    /// ⚠ **The session is part of the key, and it has to be.** This was
+    /// `binding + room` alone, which is a CONSTRUCTION-SCOPE identity, not a
+    /// transaction identity: the shell host runs two gameplay sessions in one
+    /// process, so two sessions committing the same room at the same content
+    /// epoch minted the same token. Each would then classify the other's roots
+    /// as [`ScopeClassification::TransactionAuthoritative`] — its own — and
+    /// report every one of them as [`RosterViolation::Unplanned`], while a root
+    /// genuinely belonging to the other session would be accepted as this one's.
+    /// Session ownership is a commit-time fact, so it enters here at commit time
+    /// rather than being folded into [`ConstructionScope`].
+    pub fn transaction(&self, session: crate::lifecycle::SessionSpawnScope) -> TransactionId {
         TransactionId(format!(
-            "{}\t{}",
+            "{}\t{}\t{}",
             self.binding.canonical_summary(),
-            self.room.as_deref().unwrap_or("-")
+            self.room.as_deref().unwrap_or("-"),
+            match session.id() {
+                Some(id) => format!("session:{id:?}"),
+                None => "unscoped".to_string(),
+            },
         ))
     }
 }
@@ -360,6 +411,55 @@ impl std::fmt::Display for TransactionId {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PresentationOnly;
 
+/// Declares an identity-bearing entity to have been built by a **named,
+/// enumerated, not-yet-migrated construction family** rather than by the planner.
+///
+/// This exists so that "unowned" can stop meaning "probably legacy, carry on".
+/// It used to: every entity carrying a `SimId` and no ownership stamp was
+/// reported at [`Severity::Unmigrated`] and published anyway, which made the
+/// check unable to distinguish a known un-migrated family from a recipe that
+/// invented an authoritative entity nobody planned — the exact failure the
+/// verifier exists to catch. Now a legacy family must SAY it is one, by name
+/// from [`KNOWN_LEGACY_FAMILIES`], and anything else is fatal.
+///
+/// The list is finite and shrinking, and Phase 4's last step deletes this type
+/// along with [`Severity::Unmigrated`].
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct LegacyConstructionRoot {
+    /// Which enumerated family. A value outside [`KNOWN_LEGACY_FAMILIES`] is
+    /// fatal rather than tolerated — an unrecognised claim of legacy status is
+    /// not evidence of legacy status.
+    pub family: String,
+}
+
+impl LegacyConstructionRoot {
+    pub fn new(family: impl Into<String>) -> Self {
+        Self {
+            family: family.into(),
+        }
+    }
+
+    pub fn is_known(&self) -> bool {
+        KNOWN_LEGACY_FAMILIES.contains(&self.family.as_str())
+    }
+}
+
+/// The construction families that still mint authoritative identities outside
+/// the planner, by name.
+///
+/// **The campaign's migration ledger, as code.** Each entry is a documented
+/// temporary exemption from [`Severity::Fatal`]; the count only goes down, and
+/// when it reaches zero both this constant and [`Severity::Unmigrated`] are
+/// deleted. Kept here rather than in a domain crate because the exemption is an
+/// engine-level policy about what verification tolerates, and because a list a
+/// domain could extend at will would not be a shrinking list.
+pub const KNOWN_LEGACY_FAMILIES: &[&str] = &[
+    // A `giant`-class enemy's two hand limbs, minted inside
+    // `spawn_giant_hand_limbs` with `SimId::spawned` under the giant. Removed by
+    // Checkpoint B, which makes each hand an explicit plan row.
+    "giant-hand-limb",
+];
+
 /// One requested entity, before validation.
 ///
 /// **There is no `recipe` field either.** Which recipe builds a row is derived
@@ -383,19 +483,26 @@ pub struct ConstructionRequest<D: ConstructionDomain> {
 }
 
 /// A declared relation from the requesting entity onto another identity.
+///
+/// **There is no `kind` field.** It is derived from `relation` by
+/// [`ConstructionDomain::dispatch_relation`], for the same reason
+/// [`ConstructionRequest`] has no `recipe`: a request that names one kind while
+/// carrying another's facts is not a thing that can be written down. It used to
+/// be, and the mismatch was caught nowhere — preparation checked the kind
+/// against the registry, the registry knew nothing about payloads, and the
+/// disagreement surfaced as an `unreachable!` inside the wiring function during
+/// commit, after the outgoing room was already gone.
 pub struct RelationRequest<D: ConstructionDomain> {
-    pub kind: RelationKind,
     pub to: SimId,
-    /// Facts about the PAIRING — see [`ConstructionDomain::RelationPayload`].
-    pub payload: D::RelationPayload,
+    /// What this relation IS — see [`ConstructionDomain::Relation`].
+    pub relation: D::Relation,
 }
 
 impl<D: ConstructionDomain> Clone for RelationRequest<D> {
     fn clone(&self) -> Self {
         Self {
-            kind: self.kind.clone(),
             to: self.to.clone(),
-            payload: self.payload.clone(),
+            relation: self.relation.clone(),
         }
     }
 }
@@ -471,9 +578,12 @@ impl<D: ConstructionDomain> PlannedEntity<D> {
 /// places that can disagree.
 pub struct PlannedRelation<D: ConstructionDomain> {
     from: SimId,
+    /// Derived at preparation by [`ConstructionDomain::dispatch_relation`] and
+    /// frozen here. Commit never redispatches, so the kind that was dumped,
+    /// deduplicated, registry-checked, and ordered is the kind that executes.
     kind: RelationKind,
     to: SimId,
-    payload: D::RelationPayload,
+    relation: D::Relation,
     ops: RelationOps<D>,
 }
 
@@ -483,7 +593,7 @@ impl<D: ConstructionDomain> Clone for PlannedRelation<D> {
             from: self.from.clone(),
             kind: self.kind.clone(),
             to: self.to.clone(),
-            payload: self.payload.clone(),
+            relation: self.relation.clone(),
             ops: self.ops,
         }
     }
@@ -499,8 +609,8 @@ impl<D: ConstructionDomain> PlannedRelation<D> {
     pub fn to(&self) -> &SimId {
         &self.to
     }
-    pub fn payload(&self) -> &D::RelationPayload {
-        &self.payload
+    pub fn relation(&self) -> &D::Relation {
+        &self.relation
     }
 }
 
@@ -530,8 +640,22 @@ pub enum ConstructionError {
         kind: RelationKind,
         to: SimId,
     },
-    /// A relation names a kind the registry does not know how to wire.
+    /// A relation resolves to a kind the registry does not declare.
     UnknownRelationKind { from: SimId, kind: RelationKind },
+    /// Two rows declare the same relation between the same two identities.
+    ///
+    /// Refused rather than deduplicated, because the two are not the same
+    /// outcome. Executing a duplicate runs the wiring TWICE while the receipt —
+    /// a `BTreeSet` keyed on exactly this triple — records it once, so the
+    /// receipt says "wired" and the world holds it applied twice. For an
+    /// accumulating relation that is a real corruption: a limb appended to its
+    /// host's rig twice is driven twice per frame, and every "is the limb in the
+    /// rig" check still passes.
+    DuplicateRelation {
+        from: SimId,
+        kind: RelationKind,
+        to: SimId,
+    },
     /// A single-row re-execution named an identity this plan does not contain.
     NotInPlan { sim_id: SimId },
     /// A partial commit would have cut a relation: exactly one of its two ends
@@ -579,7 +703,12 @@ impl std::fmt::Display for ConstructionError {
             ),
             Self::UnknownRelationKind { from, kind } => write!(
                 f,
-                "`{from}` declares relation `{kind}`, which no registered wiring handles"
+                "`{from}` declares relation `{kind}`, which no registration declares"
+            ),
+            Self::DuplicateRelation { from, kind, to } => write!(
+                f,
+                "relation `{from}` -`{kind}`-> `{to}` is declared more than once: it would be \
+                 wired twice and receipted once"
             ),
             Self::NotInPlan { sim_id } => {
                 write!(f, "this plan contains no entity `{sim_id}`")
@@ -708,6 +837,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 
         let mut entities = Vec::with_capacity(requests.len());
         let mut relations: Vec<PlannedRelation<D>> = Vec::new();
+        let mut declared_relations: BTreeSet<(SimId, RelationKind, SimId)> = BTreeSet::new();
         for request in requests {
             // Derived, not supplied — so it always matches the payload — and
             // resolved together with the executor that will build it.
@@ -729,25 +859,48 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                 }
             }
             for relation in &request.relations {
-                let Some(ops) = registry.relation(&relation.kind) else {
+                // Derived, not supplied — so the kind always matches what the
+                // relation carries — and resolved together with the wiring and
+                // the check that will run.
+                let dispatch = D::dispatch_relation(&relation.relation);
+                if !registry.has_relation(&dispatch.kind) {
                     return Err(ConstructionError::UnknownRelationKind {
                         from: request.sim_id.clone(),
-                        kind: relation.kind.clone(),
+                        kind: dispatch.kind,
                     });
-                };
+                }
                 if !planned_ids.contains(&relation.to) {
                     return Err(ConstructionError::UnresolvedRelation {
                         from: request.sim_id.clone(),
-                        kind: relation.kind.clone(),
+                        kind: dispatch.kind,
+                        to: relation.to.clone(),
+                    });
+                }
+                // A duplicate endpoint/kind row is refused HERE, before ordering.
+                // Two rows that sort equal would otherwise execute twice and
+                // collapse into ONE receipt entry — so the receipt would show a
+                // relation wired once while the world had it applied twice, which
+                // for an accumulating relation (a limb appended to a rig) is a
+                // real corruption that every count-based check passes. Refusing
+                // also makes `(from, kind, to)` a total order, so request arrival
+                // order cannot reach the dump or the execution sequence.
+                if !declared_relations.insert((
+                    request.sim_id.clone(),
+                    dispatch.kind.clone(),
+                    relation.to.clone(),
+                )) {
+                    return Err(ConstructionError::DuplicateRelation {
+                        from: request.sim_id.clone(),
+                        kind: dispatch.kind,
                         to: relation.to.clone(),
                     });
                 }
                 relations.push(PlannedRelation {
                     from: request.sim_id.clone(),
-                    kind: relation.kind.clone(),
+                    kind: dispatch.kind,
                     to: relation.to.clone(),
-                    payload: relation.payload.clone(),
-                    ops,
+                    relation: relation.relation.clone(),
+                    ops: dispatch.ops,
                 });
             }
             entities.push(PlannedEntity {
@@ -943,7 +1096,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                     relation.from, relation.to
                 )
             };
-            (relation.ops.wire)(from, to, &relation.payload, ctx);
+            (relation.ops.wire)(from, to, &relation.relation, ctx);
             receipt.relations_wired.insert((
                 relation.from.clone(),
                 relation.kind.clone(),
@@ -981,7 +1134,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         ctx.commands.entity(root).insert((
             planned.sim_id.clone(),
             planned.origin.clone(),
-            ctx.scope.transaction(),
+            ctx.scope.transaction(ctx.session),
         ));
         // The constructor preparation resolved — NOT a fresh dispatch. A domain
         // whose `dispatch` reads mutable state would otherwise let commit run a
@@ -1020,7 +1173,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                 relation.from,
                 relation.kind,
                 relation.to,
-                D::canonical_relation_summary(&relation.payload),
+                D::canonical_relation_summary(&relation.relation),
             );
         }
         out
@@ -1197,6 +1350,18 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
                         found,
                     });
                 }
+                // Ownership is stamped in the same insert as identity and
+                // provenance, so checking those two and not this one left the
+                // stamp that DRIVES scope classification as the only part of the
+                // executor's mark nothing confirmed.
+                let owner = world.get::<TransactionId>(root);
+                if owner != Some(scope.transaction()) {
+                    violations.push(RosterViolation::OwnershipLost {
+                        sim_id: planned.sim_id.clone(),
+                        expected: scope.transaction().clone(),
+                        found: owner.cloned(),
+                    });
+                }
             }
         }
     }
@@ -1209,16 +1374,25 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
         if planned_ids.contains(&member.sim_id) || baseline.contains(&member.sim_id) {
             continue;
         }
-        violations.push(match member.classification {
+        violations.push(match &member.classification {
             // Stamped by THIS transaction's executor, yet no plan row named it.
             ScopeClassification::TransactionAuthoritative => RosterViolation::Unplanned {
                 sim_id: member.sim_id.clone(),
             },
-            // Identity-bearing, appeared during this transaction, owned by
-            // nobody. The documented rule is that this is REPORTED — see
-            // `RosterViolation::severity`.
+            // Identity-bearing, appeared during this transaction, and nothing in
+            // the world says what built it. FATAL — see `RosterViolation::severity`.
             ScopeClassification::Unowned => RosterViolation::UnownedIdentity {
                 sim_id: member.sim_id.clone(),
+            },
+            ScopeClassification::UnknownLegacyFamily { family } => {
+                RosterViolation::UnknownLegacyFamily {
+                    sim_id: member.sim_id.clone(),
+                    family: family.clone(),
+                }
+            }
+            ScopeClassification::KnownLegacy { family } => RosterViolation::LegacyConstruction {
+                sim_id: member.sim_id.clone(),
+                family: family.clone(),
             },
             ScopeClassification::ForeignScope(_) | ScopeClassification::PresentationOnly => {
                 continue
@@ -1239,18 +1413,27 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
             relation.kind.clone(),
             relation.to.clone(),
         );
-        if !receipt.relations_wired().contains(&key) {
-            continue;
-        }
+        // Which relations this commit OWED is derived from the identities it
+        // actually committed, not from the receipt's own account of what it did.
+        // A subset commit encloses every relation it touches (see
+        // `RelationCutBySubset`), so both-endpoints-committed is exactly "this
+        // relation was in scope" — for a full commit that is every planned
+        // relation, and for a subset it is the ones wholly inside it.
         let (Some(from), Some(to)) = (receipt.entity(&relation.from), receipt.entity(&relation.to))
         else {
-            violations.push(RosterViolation::DanglingRelation {
+            continue;
+        };
+        if !receipt.relations_wired().contains(&key) {
+            // In scope and not wired. This used to `continue`, which meant the
+            // postcondition pass inspected every relation EXCEPT the ones the
+            // executor had failed to attempt.
+            violations.push(RosterViolation::RelationMissingFromReceipt {
                 from: relation.from.clone(),
                 kind: relation.kind.clone(),
                 to: relation.to.clone(),
             });
             continue;
-        };
+        }
         if !live(from) || !live(to) {
             violations.push(RosterViolation::DanglingRelation {
                 from: relation.from.clone(),
@@ -1259,7 +1442,7 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
             });
             continue;
         }
-        let check = (relation.ops.verify)(world, from, to, &relation.payload);
+        let check = (relation.ops.verify)(world, from, to, &relation.relation);
         if check != RelationCheck::Installed {
             violations.push(RosterViolation::RelationNotEstablished {
                 from: relation.from.clone(),
@@ -1305,10 +1488,44 @@ pub enum RosterViolation {
     /// Recipes that create authoritative entities internally land here.
     Unplanned { sim_id: SimId },
     /// An identity-bearing entity appeared during this transaction carrying no
-    /// ownership stamp at all — built outside the planner, by one of the
-    /// families that has not migrated. Reported rather than fatal; see
-    /// [`RosterViolation::severity`].
+    /// ownership stamp and no explicit classification. **Fatal.**
+    ///
+    /// This was tolerated on the reasoning that it meant "a family that has not
+    /// migrated". It did not mean that — it meant nobody knew what the entity
+    /// was, which is equally the signature of a recipe inventing an
+    /// authoritative root. A genuine legacy family now says so with
+    /// [`LegacyConstructionRoot`], leaving this variant to mean what it says.
     UnownedIdentity { sim_id: SimId },
+    /// An entity claims [`LegacyConstructionRoot`] with a family name that is not
+    /// in [`KNOWN_LEGACY_FAMILIES`]. **Fatal**, so the marker cannot become a
+    /// universal opt-out from verification.
+    UnknownLegacyFamily { sim_id: SimId, family: String },
+    /// An explicitly-marked known-legacy root. Reported, not fatal, temporary.
+    LegacyConstruction { sim_id: SimId, family: String },
+    /// A planned root does not carry this transaction's ownership stamp.
+    ///
+    /// The executor stamps it before the recipe runs, so this means a recipe
+    /// removed it, overwrote it, or moved the identity onto a body that never
+    /// had it. An unowned planned root is invisible to the next transaction's
+    /// scope gathering, so it would be counted as somebody else's problem
+    /// forever.
+    OwnershipLost {
+        sim_id: SimId,
+        expected: TransactionId,
+        found: Option<TransactionId>,
+    },
+    /// A planned relation whose two endpoints were both committed does not
+    /// appear in the receipt: the executor never wired it.
+    ///
+    /// Skipped silently before, which made the relation postcondition pass
+    /// vacuous for exactly the relations that failed hardest — a relation the
+    /// executor never attempted has no receipt entry, so "verify the ones that
+    /// were wired" verified everything except the broken one.
+    RelationMissingFromReceipt {
+        from: SimId,
+        kind: RelationKind,
+        to: SimId,
+    },
     /// A baseline identity the transaction did not declare it was touching is
     /// no longer in the world.
     BaselineLost { sim_id: SimId },
@@ -1382,8 +1599,14 @@ pub enum Severity {
 impl RosterViolation {
     pub const fn severity(&self) -> Severity {
         match self {
-            Self::UnownedIdentity { .. } => Severity::Unmigrated,
-            Self::Missing { .. }
+            // The ONE remaining tolerated class, and it is tolerated only
+            // because the family named itself and the name is enumerated.
+            Self::LegacyConstruction { .. } => Severity::Unmigrated,
+            Self::UnownedIdentity { .. }
+            | Self::UnknownLegacyFamily { .. }
+            | Self::OwnershipLost { .. }
+            | Self::RelationMissingFromReceipt { .. }
+            | Self::Missing { .. }
             | Self::Duplicated { .. }
             | Self::MovedRoot { .. }
             | Self::ProvenanceChanged { .. }
@@ -1431,8 +1654,33 @@ impl std::fmt::Display for RosterViolation {
             ),
             Self::UnownedIdentity { sim_id } => write!(
                 f,
-                "`{sim_id}` appeared during this transaction with no construction ownership: it \
-                 was built by a family that is not a plan row yet"
+                "`{sim_id}` appeared during this transaction carrying no construction ownership \
+                 and no classification: nothing in the world says what built it"
+            ),
+            Self::UnknownLegacyFamily { sim_id, family } => write!(
+                f,
+                "`{sim_id}` claims legacy construction family `{family}`, which is not one of the \
+                 enumerated un-migrated families"
+            ),
+            Self::LegacyConstruction { sim_id, family } => write!(
+                f,
+                "`{sim_id}` was built by known un-migrated family `{family}`, which is not a plan \
+                 row yet"
+            ),
+            Self::OwnershipLost {
+                sim_id,
+                expected,
+                found,
+            } => write!(
+                f,
+                "planned root `{sim_id}` should be owned by transaction `{expected}` but carries \
+                 `{}`",
+                found.as_ref().map_or("none", TransactionId::as_str),
+            ),
+            Self::RelationMissingFromReceipt { from, kind, to } => write!(
+                f,
+                "planned relation `{from}` -`{kind}`-> `{to}` has both endpoints committed but \
+                 the executor never wired it"
             ),
             Self::BaselineLost { sim_id } => write!(
                 f,
@@ -1652,9 +1900,18 @@ pub enum ScopeClassification {
     ForeignScope(TransactionId),
     /// Explicitly declared non-authoritative by [`PresentationOnly`].
     PresentationOnly,
-    /// Carries an identity and no ownership stamp. The documented rule is that
-    /// this is REPORTED, never silently dropped: it is what a family that has
-    /// not migrated to a plan row looks like from here.
+    /// Explicitly marked [`LegacyConstructionRoot`] with a family name that is
+    /// in [`KNOWN_LEGACY_FAMILIES`]. Reported, published anyway, temporary.
+    KnownLegacy { family: String },
+    /// Marked [`LegacyConstructionRoot`] with a family nobody enumerated. Fatal:
+    /// an unrecognised claim of legacy status is not evidence of one, and
+    /// accepting it would turn the marker into a universal opt-out.
+    UnknownLegacyFamily { family: String },
+    /// Carries an identity, no ownership stamp, and no explicit classification
+    /// at all. **Fatal.** This used to be the tolerated case, which meant a
+    /// recipe that invented an authoritative entity was indistinguishable from a
+    /// known un-migrated family — so the check could not fail for the one reason
+    /// it was built to fail for.
     Unowned,
 }
 
@@ -1694,17 +1951,27 @@ impl AuthoritativeScope {
             &SimId,
             Option<&TransactionId>,
             Option<&PresentationOnly>,
+            Option<&LegacyConstructionRoot>,
         )>();
-        for (entity, sim_id, owner, presentation) in query.iter(world) {
+        for (entity, sim_id, owner, presentation, legacy) in query.iter(world) {
+            // Order matters: an explicit ownership stamp outranks a legacy claim,
+            // so a family that has migrated cannot keep an exemption it no longer
+            // needs by leaving a stale marker behind.
             let classification = if presentation.is_some() {
                 ScopeClassification::PresentationOnly
             } else {
-                match owner {
-                    Some(owner) if owner == transaction => {
+                match (owner, legacy) {
+                    (Some(owner), _) if owner == transaction => {
                         ScopeClassification::TransactionAuthoritative
                     }
-                    Some(other) => ScopeClassification::ForeignScope(other.clone()),
-                    None => ScopeClassification::Unowned,
+                    (Some(other), _) => ScopeClassification::ForeignScope(other.clone()),
+                    (None, Some(legacy)) if legacy.is_known() => ScopeClassification::KnownLegacy {
+                        family: legacy.family.clone(),
+                    },
+                    (None, Some(legacy)) => ScopeClassification::UnknownLegacyFamily {
+                        family: legacy.family.clone(),
+                    },
+                    (None, None) => ScopeClassification::Unowned,
                 }
             };
             members.push(ScopeMember {

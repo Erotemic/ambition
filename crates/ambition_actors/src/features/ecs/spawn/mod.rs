@@ -9,7 +9,7 @@ use crate::boss_encounter::BossCatalog;
 use crate::features::CharacterRoster;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer_primitives::lifecycle::SessionSpawnScope;
-use bevy::prelude::{Commands, World};
+use bevy::prelude::Commands;
 use std::collections::BTreeSet;
 
 mod content_staging;
@@ -215,6 +215,13 @@ impl RoomFeatureConstructionPlan {
                 std::slice::from_ref(request),
             ));
         }
+        // Actor-domain relation semantics, checked while the outgoing room is
+        // still whole: cardinality (one host per limb, one rider per mount),
+        // family legality, and pilot/mount class compatibility. The generic
+        // planner below enforces the structural rules; these are the ones only
+        // this domain can state.
+        crate::construction::preflight_actor_relations(&requests, roster, boss_catalog)
+            .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         let construction_plan = crate::construction::ActorConstructionPlan::prepare(
             ambition_platformer_primitives::construction::ConstructionScope {
                 binding: construction.binding,
@@ -346,40 +353,20 @@ impl RoomFeatureConstructionPlan {
 
     /// Apply the exact feature decisions captured by [`Self::prepare`].
     ///
-    /// **Room success is published by verification, not by this function.** The
-    /// last statement here used to be `commands.write_message(RoomLoaded)`,
-    /// which announced a room whose contents had not been applied yet, let alone
-    /// checked — the construction commands were still sitting in the queue. Now
-    /// the boundary is an ordered pair of exclusive-world commands around the
-    /// construction it queues:
-    ///
-    /// 1. **capture** the baseline — queued FIRST, so it runs at flush with the
-    ///    world still in its pre-construction state;
-    /// 2. every family loop and the planned commit queue their work;
-    /// 3. **verify and publish** — queued LAST, so it runs once every one of
-    ///    those commands has applied.
-    ///
-    /// Command queues apply in insertion order, so that ordering is the
-    /// mechanism rather than a hope about scheduling. It also means the deferred
-    /// path and the exclusive-world `apply_to_world` path share ONE publication
-    /// route: whichever flush drains the queue runs the same two closures.
-    ///
-    /// ⚠ **This is not rollback.** By the time step 3 runs, the world has
-    /// already been mutated and Bevy commands cannot be undone. Verification can
-    /// withhold `RoomLoaded` and shout; it cannot restore the outgoing room. A
-    /// staging world would be needed for that, and there isn't one.
+    /// **This does not publish the room, and does not verify it.** It used to do
+    /// both, bracketing its own work with a baseline capture and a
+    /// verify-and-publish. That boundary was in the wrong place: this function's
+    /// CALLER queues moving platforms and the last-commit receipt after it
+    /// returns, and command queues apply in insertion order, so `RoomLoaded` was
+    /// written before the room was finished being built. A feature plan is one
+    /// participant in a room transaction, not the transaction, so it cannot know
+    /// when the room is complete. The bracket lives with the outer artifact that
+    /// does — see [`crate::world::rooms::transaction`].
     pub fn spawn(
         &self,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
     ) -> RoomFeatureConstructionReceipt {
-        // Queued before anything this transaction constructs, so what it sees is
-        // what was live when the transaction opened.
-        commands.queue(|world: &mut World| {
-            let captured =
-                ambition_platformer_primitives::construction::TransactionBaseline::capture(world);
-            world.insert_resource(PendingConstructionBaseline(captured));
-        });
         self.placements
             .lower_all(commands, session_scope, &self.construction_services.context);
         for boss in &self.room.boss_spawns {
@@ -435,155 +422,11 @@ impl RoomFeatureConstructionPlan {
             "construction execution diverged from its prepared roster",
         );
 
-        // Queued LAST: every command above has applied by the time this runs.
-        let plan = self.construction.clone();
-        let receipt = construction.clone();
-        let room_id = self.room.id.clone();
-        commands.queue(move |world: &mut World| {
-            verify_and_publish_room(world, &plan, &receipt, room_id);
-        });
-
         RoomFeatureConstructionReceipt {
             authoritative_ids: self.expected_authoritative_ids.clone(),
             construction,
         }
     }
-}
-
-/// The baseline captured at the head of a construction transaction, waiting for
-/// the verification pass at its tail.
-///
-/// A resource because the two ends are separate commands in one queue and
-/// nothing else can carry a value between them. Removed by the verification
-/// pass, so its presence means a transaction is open.
-#[derive(bevy::ecs::resource::Resource)]
-struct PendingConstructionBaseline(
-    Result<
-        ambition_platformer_primitives::construction::TransactionBaseline,
-        ambition_platformer_primitives::construction::BaselineCaptureError,
-    >,
-);
-
-/// What the last construction transaction's verification concluded.
-///
-/// Developer evidence and a test seam, kept for the same reason
-/// `LastRoomConstructionCommit` is: a room that failed verification is a fact
-/// worth being able to query rather than only to read in a log.
-#[derive(bevy::ecs::resource::Resource, Clone, Debug, Default)]
-pub struct LastConstructionVerification {
-    pub room_id: String,
-    /// Everything verification found, fatal and unmigrated alike.
-    pub violations: Vec<ambition_platformer_primitives::construction::RosterViolation>,
-    /// Whether `RoomLoaded` was written.
-    pub published: bool,
-}
-
-impl LastConstructionVerification {
-    /// The findings that withheld publication, as opposed to the ones that only
-    /// name an un-migrated family.
-    pub fn fatal(
-        &self,
-    ) -> impl Iterator<Item = &ambition_platformer_primitives::construction::RosterViolation> {
-        use ambition_platformer_primitives::construction::Severity;
-        self.violations
-            .iter()
-            .filter(|violation| violation.severity() == Severity::Fatal)
-    }
-}
-
-/// Verify the committed transaction against its plan, and publish the room only
-/// if nothing fatal was found.
-///
-/// Runs with exclusive world access after every construction command has
-/// applied, which is the only moment at which "what did this transaction
-/// actually build" is a question the world can answer.
-fn verify_and_publish_room(
-    world: &mut World,
-    plan: &crate::construction::ActorConstructionPlan,
-    receipt: &ambition_platformer_primitives::construction::ConstructionReceipt,
-    room_id: String,
-) {
-    use ambition_platformer_primitives::construction::{
-        verify_committed_roster, AuthoritativeScope, Severity,
-    };
-
-    let baseline = match world.remove_resource::<PendingConstructionBaseline>() {
-        Some(PendingConstructionBaseline(Ok(baseline))) => baseline,
-        Some(PendingConstructionBaseline(Err(error))) => {
-            // The world was already inconsistent before this transaction began.
-            // Publishing a room on top of that would bury the earlier fault.
-            bevy::log::error!(
-                target: "ambition::construction",
-                "room `{room_id}` cannot be verified: its opening baseline was invalid: {error}"
-            );
-            world.insert_resource(LastConstructionVerification {
-                room_id,
-                violations: Vec::new(),
-                published: false,
-            });
-            return;
-        }
-        None => {
-            // Nothing queued a capture, so there is no transaction to verify.
-            // Refusing here rather than verifying against an empty baseline:
-            // an empty baseline would call every persistent entity unplanned.
-            bevy::log::error!(
-                target: "ambition::construction",
-                "room `{room_id}` reached verification without an opening baseline"
-            );
-            world.insert_resource(LastConstructionVerification {
-                room_id,
-                violations: Vec::new(),
-                published: false,
-            });
-            return;
-        }
-    };
-
-    let transaction = plan.scope().transaction();
-    let scope = AuthoritativeScope::gather(world, &transaction);
-    let violations = verify_committed_roster(plan, receipt, &baseline, &scope, world)
-        .err()
-        .unwrap_or_default();
-
-    let fatal: Vec<_> = violations
-        .iter()
-        .filter(|violation| violation.severity() == Severity::Fatal)
-        .collect();
-    for violation in &violations {
-        match violation.severity() {
-            Severity::Fatal => bevy::log::error!(
-                target: "ambition::construction",
-                "room `{room_id}` failed construction verification: {violation}"
-            ),
-            Severity::Unmigrated => bevy::log::debug!(
-                target: "ambition::construction",
-                "room `{room_id}`: {violation}"
-            ),
-        }
-    }
-
-    let published = fatal.is_empty();
-    if published {
-        world.write_message(crate::rooms::RoomLoaded {
-            room_id: room_id.clone(),
-        });
-    } else {
-        // Loud, and NOT a `RoomLoaded`. The world keeps whatever the offending
-        // recipe produced — commands do not roll back — so the honest outcome is
-        // a room that never announces itself rather than one that lies.
-        bevy::log::error!(
-            target: "ambition::construction",
-            "room `{room_id}` was NOT published: {} fatal construction violation(s). The world \
-             has already been mutated and cannot be rolled back.",
-            fatal.len()
-        );
-    }
-    world.insert_resource(LastConstructionVerification {
-        room_id,
-        violations,
-        published,
-    });
 }
 
 /// Execute a previously prepared feature plan.

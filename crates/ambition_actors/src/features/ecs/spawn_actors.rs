@@ -1329,7 +1329,7 @@ fn spawn_giant_hand_limbs(
     let home_l = ae::Vec2::new(-giant_half.x * 0.55, giant_half.y * 0.15);
     let home_r = ae::Vec2::new(giant_half.x * 0.55, giant_half.y * 0.15);
 
-    let mut hands: Vec<bevy::ecs::entity::Entity> = Vec::with_capacity(2);
+    let mut hands: Vec<(super::LimbSlot, bevy::ecs::entity::Entity)> = Vec::with_capacity(2);
     for (ordinal, (slot, home, tag)) in [
         (super::LimbSlot::HandLeft, home_l, "left"),
         (super::LimbSlot::HandRight, home_r, "right"),
@@ -1381,12 +1381,21 @@ fn spawn_giant_hand_limbs(
             // `ordinal` is the fixed loop order (left=0, right=1) — a per-spawner
             // sequence, deterministic because the array literal is.
             SimId::spawned(&giant_sim, ordinal as u64),
+            // This mints an authoritative identity outside the planner, so it
+            // SAYS SO, by a name the engine enumerates in
+            // `KNOWN_LEGACY_FAMILIES`. Without the marker a construction
+            // verifier cannot tell this hand from a recipe inventing an
+            // authoritative root, and treats it as fatal — correctly, because
+            // "unowned" is not evidence of anything.
+            ambition_platformer_primitives::construction::LegacyConstructionRoot::new(
+                "giant-hand-limb",
+            ),
         ));
-        hands.push(hand);
+        hands.push((slot, hand));
     }
 
     commands.entity(giant).insert((
-        super::LimbRig { limbs: hands },
+        super::LimbRig::from_pairs(hands),
         super::LimbIntents::default(),
         super::LimbRouteState::default(),
     ));

@@ -19,7 +19,7 @@ use bevy::ecs::query::With;
 use bevy::ecs::world::World;
 use bevy::prelude::{Commands, Resource};
 
-use super::{RespawnRoomVisualsRequested, RoomSet, RoomSpec};
+use super::{transaction, RespawnRoomVisualsRequested, RoomSet, RoomSpec};
 use crate::features::{self, RoomFeatureConstructionPlan};
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::world::physics::{self, PhysicsRoomEntity};
@@ -292,7 +292,24 @@ impl RoomConstructionPlan {
 
     /// Enqueue the prepared room contents without changing active-room
     /// resources. Session startup uses this after those resources are installed.
+    ///
+    /// **This is the room transaction boundary.** Everything the room is made of
+    /// is queued between [`transaction::open`] and [`transaction::close`], so
+    /// the verification that publishes `RoomLoaded` runs after ALL of it: the
+    /// feature families, the planned roots, the planned relationships, the
+    /// moving-platform bodies, and the last-commit receipt. Active room
+    /// selection, room geometry, moving-platform resource state, and carried-
+    /// player handling are applied by every caller before this is reached, so
+    /// they precede publication too.
+    ///
+    /// The bracket sits HERE rather than inside the feature plan because the
+    /// feature plan does not know when the room is complete — it is one
+    /// participant. When it owned the bracket, the platform bodies and the
+    /// commit receipt below were queued after its verification had already run
+    /// and published, so `RoomLoaded` described a room that was still being
+    /// built.
     pub fn spawn_contents(&self, commands: &mut Commands) {
+        transaction::open(commands);
         let receipt = features::spawn_room_feature_entities_from_plan(
             commands,
             &self.features,
@@ -315,6 +332,13 @@ impl RoomConstructionPlan {
             authoritative_ids: receipt.authoritative_ids().clone(),
             moving_platform_count: self.platform_states.len(),
         });
+        transaction::close(
+            commands,
+            self.features.construction(),
+            receipt.construction(),
+            self.room_id().to_string(),
+            self.session_scope,
+        );
     }
 
     /// Retire the outgoing room's scoped entities. The transiting possessed
@@ -489,6 +513,113 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    /// **`RoomLoaded` is published only after the WHOLE room is applied.**
+    ///
+    /// The transaction boundary is `spawn_contents`, not the feature plan.
+    /// Command queues apply in insertion order, so the verify-and-publish queued
+    /// at the tail of `spawn_contents` runs after the moving-platform bodies and
+    /// the last-commit receipt at its middle — the ordering that failed when the
+    /// feature plan owned the bracket, publishing before its caller had queued
+    /// the platforms. An observer reads the world the instant `RoomLoaded` is
+    /// delivered and proves the platforms, the commit receipt, and the
+    /// authoritative bodies are already present.
+    #[test]
+    fn room_loaded_observes_a_fully_committed_room() {
+        let mut spec = empty_spec("published");
+        spec.moving_platforms
+            .push(MovingPlatformState::from_authored(
+                ae::Vec2::new(0.0, 200.0),
+                ae::Vec2::new(96.0, 16.0),
+                120.0,
+                60.0,
+            ));
+        // A CONTENT-STAGED actor, so it is a plan row: the executor stamps its
+        // `SimId` during construction, which is what lets an observer at
+        // publication time see it. An `enemy_spawn` gets its id from
+        // `ensure_sim_id` in a later system that this minimal app does not run.
+        let mut staging = features::RoomContentStagingRegistry::default();
+        staging
+            .register("published", "test_provider", "occ", "occ.v1", |_room| {
+                vec![features::SpawnActorRequest {
+                    id: "occupant".into(),
+                    name: "occupant".into(),
+                    pos: ae::Vec2::ZERO,
+                    half_size: ae::Vec2::splat(10.0),
+                    faction: features::ActorFaction::Npc,
+                    grudge_against: None,
+                    kind: features::SpawnActorKind::Enemy {
+                        brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                            "combatant".into(),
+                        ),
+                    },
+                }]
+            })
+            .expect("stager registers");
+        let recipes = crate::construction::engine_construction_registry();
+        let plan = RoomConstructionPlan::prepare_spec(
+            0,
+            spec,
+            &PlacementLoweringRegistry::default(),
+            &staging,
+            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+            &crate::features::enemies::test_roster(),
+            &crate::boss_encounter::BossCatalog::default(),
+            SessionSpawnScope::UNSCOPED,
+            features::ActorConstructionContext::new(&recipes, Default::default()),
+        )
+        .expect("plan");
+
+        let mut app = bevy::prelude::App::new();
+        app.add_message::<crate::rooms::RoomLoaded>();
+        app.add_message::<features::SpawnActorRequest>();
+
+        let observed = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let sink = observed.clone();
+        app.add_systems(
+            bevy::prelude::Update,
+            move |mut reader: bevy::ecs::message::MessageReader<crate::rooms::RoomLoaded>,
+                  commit: Option<bevy::prelude::Res<LastRoomConstructionCommit>>,
+                  platforms: bevy::prelude::Query<
+                &crate::world::platforms::MovingPlatformVisual,
+            >,
+                  ids: bevy::prelude::Query<
+                &ambition_platformer_primitives::sim_id::SimId,
+            >| {
+                if reader.read().next().is_some() {
+                    *sink.lock().unwrap() = Some((
+                        commit.map(|c| c.moving_platform_count),
+                        platforms.iter().count(),
+                        ids.iter().any(|id| id.as_str() == "placement:occupant"),
+                    ));
+                }
+            },
+        );
+
+        {
+            let mut commands = app.world_mut().commands();
+            plan.spawn_contents(&mut commands);
+        }
+        app.update();
+
+        let (commit_platforms, platform_bodies, saw_occupant) = observed
+            .lock()
+            .unwrap()
+            .expect("RoomLoaded must have published for a valid room");
+        assert_eq!(
+            commit_platforms,
+            Some(1),
+            "the last-commit receipt existed before RoomLoaded"
+        );
+        assert_eq!(
+            platform_bodies, 1,
+            "the moving-platform body was spawned before RoomLoaded"
+        );
+        assert!(
+            saw_occupant,
+            "the authoritative occupant existed before RoomLoaded"
+        );
     }
 
     #[test]

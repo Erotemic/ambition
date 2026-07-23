@@ -35,7 +35,7 @@
 use ambition_platformer_primitives::construction::{
     ConstructionDomain, ConstructionExecCtx, ConstructionPlan, ConstructionRegistrationError,
     ConstructionRegistry, ConstructionRequest, ConstructionRoot, RecipeDispatch, RecipeId,
-    RelationCheck, RelationKind, RelationOps, SpawnOrigin,
+    RelationCheck, RelationDispatch, RelationKind, RelationOps, SpawnOrigin,
 };
 use ambition_platformer_primitives::sim_id::SimId;
 use bevy::prelude::{Entity, World};
@@ -63,7 +63,11 @@ pub const RELATION_LIMB: &str = "ambition.limb";
 pub const RELATION_MOUNT: &str = "ambition.mount";
 
 const OWNER: &str = "ambition_actors";
-const SCHEMA: &str = "actor-construction-v1";
+// v2: relation wiring and postconditions changed — the rig became slot-keyed,
+// and limb/mount verification now checks home offset, `Mounted`, and mount
+// capabilities. Behaviour change under a fixed schema id would be invisible to
+// the prepared-content fingerprint, so the id moves with the behaviour.
+const SCHEMA: &str = "actor-construction-v2";
 
 pub fn recipe_authored_ground_item() -> RecipeId {
     RecipeId::new(RECIPE_AUTHORED_GROUND_ITEM)
@@ -84,7 +88,8 @@ pub fn relation_mount() -> RelationKind {
     RelationKind::new(RELATION_MOUNT)
 }
 
-/// What a declared actor relation carries beyond its two ends.
+/// **What one declared actor relation IS** — the kind and everything the pairing
+/// carries, in one value.
 ///
 /// **`Limb` carries the slot and the home offset because both are stated
 /// relative to the HOST.** `LimbSlot::HandLeft` is meaningless without saying
@@ -93,8 +98,14 @@ pub fn relation_mount() -> RelationKind {
 /// Neither is a property the limb owns on its own, so neither belongs in the
 /// limb's construction parameters: that would put host-relative data on a body
 /// that does not learn its host until the relation is wired.
+///
+/// This was `ActorRelationPayload`, requested alongside a separately-supplied
+/// `RelationKind`. [`ActorConstruction::dispatch_relation`] derives the kind from
+/// the variant now, so `kind: ambition.limb` beside `payload: Grudge` — which
+/// passed preparation and blew up inside the wiring function mid-commit — is no
+/// longer expressible.
 #[derive(Clone, Debug, PartialEq)]
-pub enum ActorRelationPayload {
+pub enum ActorRelation {
     /// A grudge is fully described by who resents whom.
     Grudge,
     /// Which slot of the host's rig this limb fills, and where it rests.
@@ -102,7 +113,9 @@ pub enum ActorRelationPayload {
         slot: crate::features::LimbSlot,
         home_offset: ambition_engine_core::Vec2,
     },
-    /// A mount link is fully described by who rides what.
+    /// A rider seated on a mount. Fully described by who rides what: the saddle
+    /// offset and the control grant are properties of the MOUNT's archetype
+    /// (`Mountable`), not of the pairing.
     Mount,
 }
 
@@ -156,7 +169,7 @@ pub struct ActorConstruction;
 
 impl ConstructionDomain for ActorConstruction {
     type Parameters = ActorConstructionParams;
-    type RelationPayload = ActorRelationPayload;
+    type Relation = ActorRelation;
     type Services = ActorConstructionServices;
 
     /// ONE match: each arm names both the recipe identity and the function that
@@ -175,6 +188,37 @@ impl ConstructionDomain for ActorConstruction {
             ActorConstructionParams::SummonedMinion(_) => RecipeDispatch {
                 recipe: recipe_summoned_minion(),
                 construct: construct_summoned_minion,
+            },
+        }
+    }
+
+    /// ONE match: each arm names the relation's stable kind AND the two frozen
+    /// halves of its behaviour. The kind is therefore a function of the variant,
+    /// which is what makes a kind/payload mismatch unrepresentable — and the ops
+    /// come from here rather than from a registry lookup, so nothing outside this
+    /// crate can supply, replace, or race to install actor relation wiring.
+    fn dispatch_relation(relation: &Self::Relation) -> RelationDispatch<Self> {
+        match relation {
+            ActorRelation::Grudge => RelationDispatch {
+                kind: relation_grudge(),
+                ops: RelationOps {
+                    wire: wire_grudge,
+                    verify: verify_grudge,
+                },
+            },
+            ActorRelation::Limb { .. } => RelationDispatch {
+                kind: relation_limb(),
+                ops: RelationOps {
+                    wire: wire_limb,
+                    verify: verify_limb,
+                },
+            },
+            ActorRelation::Mount => RelationDispatch {
+                kind: relation_mount(),
+                ops: RelationOps {
+                    wire: wire_mount,
+                    verify: verify_mount,
+                },
             },
         }
     }
@@ -199,19 +243,16 @@ impl ConstructionDomain for ActorConstruction {
         }
     }
 
-    fn canonical_relation_summary(payload: &Self::RelationPayload) -> String {
-        match payload {
-            ActorRelationPayload::Grudge => "-".to_string(),
-            ActorRelationPayload::Limb { slot, home_offset } => format!(
+    fn canonical_relation_summary(relation: &Self::Relation) -> String {
+        match relation {
+            ActorRelation::Grudge => "-".to_string(),
+            ActorRelation::Limb { slot, home_offset } => format!(
                 "{} {} {}",
-                match slot {
-                    crate::features::LimbSlot::HandLeft => "hand_left",
-                    crate::features::LimbSlot::HandRight => "hand_right",
-                },
+                limb_slot_key(*slot),
                 home_offset.x,
                 home_offset.y,
             ),
-            ActorRelationPayload::Mount => "-".to_string(),
+            ActorRelation::Mount => "-".to_string(),
         }
     }
 }
@@ -225,7 +266,56 @@ type Ctx<'w, 's, 'a> = ConstructionExecCtx<'w, 's, 'a, ActorConstruction>;
 /// are the failures that used to be silent skips at spawn time.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ActorConstructionError {
-    UnknownHeldItem { authored_id: String, item: String },
+    UnknownHeldItem {
+        authored_id: String,
+        item: String,
+    },
+    /// One limb declares two hosts. A limb is a part OF a body; two hosts is not
+    /// a configuration with a degraded meaning, it is a contradiction.
+    LimbHasTwoHosts {
+        limb: SimId,
+        hosts: Vec<SimId>,
+    },
+    /// Two limbs claim the same slot of the same host. The rig is keyed by slot,
+    /// so committing this would silently drop one of them.
+    LimbSlotTaken {
+        host: SimId,
+        slot: &'static str,
+        limbs: Vec<SimId>,
+    },
+    /// One rider declares two mounts.
+    RiderOnTwoMounts {
+        rider: SimId,
+        mounts: Vec<SimId>,
+    },
+    /// Two riders claim the same mount. `MountSlot` holds ONE rider, so
+    /// committing this would leave whichever lost pointing at a mount that
+    /// points at the other.
+    MountHasTwoRiders {
+        mount: SimId,
+        riders: Vec<SimId>,
+    },
+    /// An entity declares itself its own mount.
+    SelfMount {
+        rider: SimId,
+    },
+    /// A relation endpoint names a row whose construction family cannot hold
+    /// that end of the relation — a ground item cannot be a mount.
+    WrongFamilyForRelation {
+        sim_id: SimId,
+        relation: &'static str,
+        end: &'static str,
+        family: &'static str,
+    },
+    /// The rider's archetype does not list the mount's class among the classes it
+    /// can pilot. Checked while planning, so an illegal pairing never reaches a
+    /// world — the live path drops it silently instead.
+    IncompatibleMountClass {
+        rider: SimId,
+        mount: SimId,
+        mount_class: String,
+        rider_classes: Vec<String>,
+    },
 }
 
 impl std::fmt::Display for ActorConstructionError {
@@ -236,8 +326,64 @@ impl std::fmt::Display for ActorConstructionError {
                 "authored ground item `{authored_id}` names held item `{item}`, which no held-item \
                  registry entry provides"
             ),
+            Self::LimbHasTwoHosts { limb, hosts } => write!(
+                f,
+                "limb `{limb}` declares {} hosts ({}); a limb belongs to exactly one body",
+                hosts.len(),
+                join_ids(hosts),
+            ),
+            Self::LimbSlotTaken { host, slot, limbs } => write!(
+                f,
+                "host `{host}` has {} limbs claiming slot `{slot}` ({}); the rig holds one limb \
+                 per slot",
+                limbs.len(),
+                join_ids(limbs),
+            ),
+            Self::RiderOnTwoMounts { rider, mounts } => write!(
+                f,
+                "rider `{rider}` declares {} mounts ({}); a rider is seated on one",
+                mounts.len(),
+                join_ids(mounts),
+            ),
+            Self::MountHasTwoRiders { mount, riders } => write!(
+                f,
+                "mount `{mount}` is claimed by {} riders ({}); a mount seats one",
+                riders.len(),
+                join_ids(riders),
+            ),
+            Self::SelfMount { rider } => {
+                write!(f, "`{rider}` declares itself as its own mount")
+            }
+            Self::WrongFamilyForRelation {
+                sim_id,
+                relation,
+                end,
+                family,
+            } => write!(
+                f,
+                "`{sim_id}` is the {end} of relation `{relation}` but is constructed as a \
+                 `{family}`, which cannot hold that end"
+            ),
+            Self::IncompatibleMountClass {
+                rider,
+                mount,
+                mount_class,
+                rider_classes,
+            } => write!(
+                f,
+                "rider `{rider}` cannot pilot mount `{mount}` of class `{mount_class}`: it pilots \
+                 [{}]",
+                rider_classes.join(", "),
+            ),
         }
     }
+}
+
+fn join_ids(ids: &[SimId]) -> String {
+    ids.iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 impl std::error::Error for ActorConstructionError {}
@@ -312,58 +458,30 @@ fn construct_summoned_minion(
 
 // ── Relations ────────────────────────────────────────────────────────────────
 
-/// The grudge's wiring and its postcondition check, exposed so provider-side
-/// fingerprint tests can build a registry that matches the real one rather than
-/// a lookalike.
-pub fn grudge_ops_for_tests() -> RelationOps<ActorConstruction> {
-    grudge_ops()
-}
-
-/// The two halves of the grudge relation. Registered together and frozen
-/// together onto a planned row, so "how it is installed" and "what installed
-/// looks like" cannot be edited apart.
-fn grudge_ops() -> RelationOps<ActorConstruction> {
-    RelationOps {
-        wire: wire_grudge,
-        verify: verify_grudge,
-    }
-}
-
-fn limb_ops() -> RelationOps<ActorConstruction> {
-    RelationOps {
-        wire: wire_limb,
-        verify: verify_limb,
-    }
-}
-
-fn mount_ops() -> RelationOps<ActorConstruction> {
-    RelationOps {
-        wire: wire_mount,
-        verify: verify_mount,
+/// Stable dump/diagnostic key for a limb slot. Byte-stable because it reaches
+/// the plan dump, and matching the `snake_case` the route authoring already uses.
+fn limb_slot_key(slot: crate::features::LimbSlot) -> &'static str {
+    match slot {
+        crate::features::LimbSlot::HandLeft => "hand_left",
+        crate::features::LimbSlot::HandRight => "hand_right",
     }
 }
 
 /// Wire a limb to its host: `Limb` on the limb, an entry in the host's
 /// `LimbRig` going back. **One function writes both ends.**
 ///
-/// The rig is a `Vec`, so this ACCUMULATES rather than overwrites — a host with
-/// two hands is two relations. Append order is the plan's canonical relation
-/// order, which sorts by the limb's `SimId`; hands are `…/0` and `…/1`, so the
-/// rig comes out in the fan-out order `fan_out_limb_intents` expects, without
-/// that order being a property of when anything happened to spawn.
+/// The rig is keyed by slot, so this INSERTS AT THE SLOT rather than appending —
+/// a host with two hands is two relations filling two keys. Iteration order is
+/// therefore the slot order, a property of the content, and neither the relation
+/// order nor the spawn order can perturb it.
 ///
-/// The append needs the host's CURRENT rig, which deferred `Commands` cannot
+/// The insert needs the host's CURRENT rig, which deferred `Commands` cannot
 /// read, so it queues an exclusive-world step. That step runs in queue order
-/// alongside every other relation's, which is what keeps the accumulation
+/// alongside every other relation's, which is what keeps the composition
 /// deterministic.
-fn wire_limb(
-    limb: Entity,
-    host: Entity,
-    payload: &ActorRelationPayload,
-    ctx: &mut Ctx<'_, '_, '_>,
-) {
-    let ActorRelationPayload::Limb { slot, home_offset } = payload else {
-        unreachable!("the limb relation is registered with a Limb payload")
+fn wire_limb(limb: Entity, host: Entity, relation: &ActorRelation, ctx: &mut Ctx<'_, '_, '_>) {
+    let ActorRelation::Limb { slot, home_offset } = relation else {
+        unreachable!("dispatch_relation pairs this fn with the Limb variant")
     };
     let (slot, home_offset) = (*slot, *home_offset);
     ctx.commands.entity(limb).insert(crate::features::Limb {
@@ -375,56 +493,96 @@ fn wire_limb(
         let Ok(mut host_ref) = world.get_entity_mut(host) else {
             return;
         };
-        if host_ref.contains::<crate::features::LimbRig>() {
-            let mut rig = host_ref
-                .get_mut::<crate::features::LimbRig>()
-                .unwrap_or_else(|| unreachable!("just checked it is there"));
-            if !rig.limbs.contains(&limb) {
-                rig.limbs.push(limb);
-            }
+        if let Some(mut rig) = host_ref.get_mut::<crate::features::LimbRig>() {
+            rig.limbs.insert(slot, limb);
         } else {
-            host_ref.insert(crate::features::LimbRig { limbs: vec![limb] });
+            host_ref.insert(crate::features::LimbRig::from_pairs([(slot, limb)]));
         }
     });
 }
 
-/// Prove the limb link landed on BOTH sides, and with the slot the plan named.
+/// Prove the limb link landed on BOTH sides, with the slot AND the home offset
+/// the plan named.
 ///
 /// Checking only `Limb.of` would accept a limb the host's rig does not drive —
-/// `fan_out_limb_intents` iterates the RIG, so a limb missing from it is inert
-/// while looking perfectly attached from its own side.
+/// the fan-out iterates the RIG, so a limb missing from it is inert while
+/// looking perfectly attached from its own side. Checking the slot only on the
+/// limb would accept a rig that files it under a different one. And the home
+/// offset is checked because it is the limb's entire idle behaviour: a limb
+/// wired correctly with a corrupted anchor station-keeps to the wrong place
+/// forever, which no structural check would ever notice.
 fn verify_limb(
     world: &World,
     limb: Entity,
     host: Entity,
-    payload: &ActorRelationPayload,
+    relation: &ActorRelation,
 ) -> RelationCheck {
-    let ActorRelationPayload::Limb { slot, .. } = payload else {
-        unreachable!("the limb relation is registered with a Limb payload")
+    let ActorRelation::Limb { slot, home_offset } = relation else {
+        unreachable!("dispatch_relation pairs this fn with the Limb variant")
     };
-    match world.get::<crate::features::Limb>(limb) {
-        None => RelationCheck::NotInstalled,
-        Some(attached) if attached.of != host => RelationCheck::WrongTarget {
+    let Some(attached) = world.get::<crate::features::Limb>(limb) else {
+        return RelationCheck::NotInstalled;
+    };
+    if attached.of != host {
+        return RelationCheck::WrongTarget {
             found: Some(attached.of),
-        },
-        // A recipe that rewrote the slot produced a limb the router will drive
-        // from the wrong intent stream.
-        Some(attached) if attached.slot != *slot => RelationCheck::NotInstalled,
-        Some(_) => match world.get::<crate::features::LimbRig>(host) {
-            Some(rig) if rig.limbs.contains(&limb) => RelationCheck::Installed,
-            _ => RelationCheck::ReverseMismatch { found: None },
-        },
+        };
     }
+    if attached.slot != *slot {
+        return RelationCheck::PayloadMismatch { field: "slot" };
+    }
+    if attached.home_offset != *home_offset {
+        return RelationCheck::PayloadMismatch {
+            field: "home_offset",
+        };
+    }
+    let Some(rig) = world.get::<crate::features::LimbRig>(host) else {
+        return RelationCheck::ReverseMismatch { found: None };
+    };
+    // The rig must file this limb under the planned slot, and nowhere else. A
+    // slot-keyed map cannot hold the same key twice, but it CAN hold one limb
+    // under two different slots — which drives it from two intent streams.
+    let occupants: Vec<crate::features::LimbSlot> = rig
+        .limbs
+        .iter()
+        .filter(|(_, &entity)| entity == limb)
+        .map(|(&slot, _)| slot)
+        .collect();
+    match occupants.as_slice() {
+        [] => RelationCheck::ReverseMismatch {
+            found: rig.get(*slot),
+        },
+        [found] if found == slot => RelationCheck::Installed,
+        [_] => RelationCheck::PayloadMismatch { field: "rig_slot" },
+        many => RelationCheck::DuplicateMembership { count: many.len() },
+    }
+}
+
+/// The exact rig a plan describes for one host: every limb relation naming it,
+/// as slot → limb identity.
+///
+/// Separate from [`verify_limb`] because it is a different question. That one
+/// asks "did MY relation land"; a host whose rig gained an extra limb from
+/// somewhere else answers yes to every such question while carrying a rig the
+/// plan never described. Callers compare this against the committed
+/// [`crate::features::LimbRig`] to check composition rather than membership.
+pub fn planned_rig_for_host(
+    plan: &ActorConstructionPlan,
+    host: &SimId,
+) -> std::collections::BTreeMap<crate::features::LimbSlot, SimId> {
+    plan.relations()
+        .iter()
+        .filter(|relation| relation.to() == host)
+        .filter_map(|relation| match relation.relation() {
+            ActorRelation::Limb { slot, .. } => Some((*slot, relation.from().clone())),
+            ActorRelation::Grudge | ActorRelation::Mount => None,
+        })
+        .collect()
 }
 
 /// Wire a rider onto a mount: `RidingOn` + `Mounted` on the rider, `MountSlot`
 /// on the mount going back. **One function writes both ends.**
-fn wire_mount(
-    rider: Entity,
-    mount: Entity,
-    _payload: &ActorRelationPayload,
-    ctx: &mut Ctx<'_, '_, '_>,
-) {
+fn wire_mount(rider: Entity, mount: Entity, _relation: &ActorRelation, ctx: &mut Ctx<'_, '_, '_>) {
     ctx.commands.entity(rider).insert((
         crate::features::RidingOn { mount },
         crate::features::Mounted,
@@ -448,31 +606,57 @@ fn verify_mount(
     world: &World,
     rider: Entity,
     mount: Entity,
-    _payload: &ActorRelationPayload,
+    _relation: &ActorRelation,
 ) -> RelationCheck {
-    match world.get::<crate::features::RidingOn>(rider) {
-        None => RelationCheck::NotInstalled,
-        Some(riding) if riding.mount != mount => RelationCheck::WrongTarget {
+    let Some(riding) = world.get::<crate::features::RidingOn>(rider) else {
+        return RelationCheck::NotInstalled;
+    };
+    if riding.mount != mount {
+        return RelationCheck::WrongTarget {
             found: Some(riding.mount),
-        },
-        Some(_) => match world
-            .get::<crate::features::MountSlot>(mount)
-            .and_then(|slot| slot.rider)
-        {
-            Some(back) if back == rider => RelationCheck::Installed,
-            found => RelationCheck::ReverseMismatch { found },
-        },
+        };
+    }
+    // `Mounted` is not decoration: `steer_mount_from_rider` queries
+    // `With<Mounted>`, so a rider linked without it sits on a mount that never
+    // receives its intent — a pair that points at each other and does nothing.
+    if world.get::<crate::features::Mounted>(rider).is_none() {
+        return RelationCheck::MissingCapability {
+            component: "Mounted",
+        };
+    }
+    // Both ends must still carry the capabilities the preflight approved them
+    // on. A recipe that stripped `Mountable` leaves a link whose class nothing
+    // can re-check, and `steer_mount_from_rider` reads `Mountable` to route.
+    let Some(mountable) = world.get::<crate::features::Mountable>(mount) else {
+        return RelationCheck::MissingCapability {
+            component: "Mountable",
+        };
+    };
+    match world.get::<crate::features::CanPilot>(rider) {
+        Some(pilot) if pilot.can_pilot(&mountable.class) => {}
+        Some(_) => {
+            return RelationCheck::PayloadMismatch {
+                field: "mount_class",
+            }
+        }
+        None => {
+            return RelationCheck::MissingCapability {
+                component: "CanPilot",
+            }
+        }
+    }
+    match world
+        .get::<crate::features::MountSlot>(mount)
+        .and_then(|slot| slot.rider)
+    {
+        Some(back) if back == rider => RelationCheck::Installed,
+        found => RelationCheck::ReverseMismatch { found },
     }
 }
 
 /// Wire a personal grudge. Re-inserting `ActorAggression` is safe: staged
 /// fighters spawn `hostile()` already, so this only adds the grudge.
-fn wire_grudge(
-    from: Entity,
-    to: Entity,
-    _payload: &ActorRelationPayload,
-    ctx: &mut Ctx<'_, '_, '_>,
-) {
+fn wire_grudge(from: Entity, to: Entity, _relation: &ActorRelation, ctx: &mut Ctx<'_, '_, '_>) {
     ctx.commands
         .entity(from)
         .insert(crate::features::ActorAggression {
@@ -494,7 +678,7 @@ fn verify_grudge(
     world: &World,
     from: Entity,
     to: Entity,
-    _payload: &ActorRelationPayload,
+    _relation: &ActorRelation,
 ) -> RelationCheck {
     match world.get::<crate::features::ActorAggression>(from) {
         None => RelationCheck::NotInstalled,
@@ -535,9 +719,233 @@ pub fn install_actor_construction_recipes(
     )?;
     registry.try_register_recipe(recipe_staged_actor(), OWNER, "content-staging", SCHEMA)?;
     registry.try_register_recipe(recipe_summoned_minion(), OWNER, "summon-effect", SCHEMA)?;
-    registry.try_register_relation(relation_grudge(), OWNER, "aggression", SCHEMA, grudge_ops())?;
-    registry.try_register_relation(relation_limb(), OWNER, "limb-rig", SCHEMA, limb_ops())?;
-    registry.try_register_relation(relation_mount(), OWNER, "mount-link", SCHEMA, mount_ops())?;
+    // Metadata only — the wiring and the checks come from
+    // `ActorConstruction::dispatch_relation`, so there is nothing here for an
+    // outside registration to replace or to win an insertion-order race for.
+    registry.try_register_relation(relation_grudge(), OWNER, "aggression", SCHEMA)?;
+    registry.try_register_relation(relation_limb(), OWNER, "limb-rig", SCHEMA)?;
+    registry.try_register_relation(relation_mount(), OWNER, "mount-link", SCHEMA)?;
+    Ok(())
+}
+
+// ── Relation preflight ───────────────────────────────────────────────────────
+
+/// The mount capabilities a planned row will carry once it is constructed.
+///
+/// Derived from the same archetype data `attach_mount_role` and `spawn_boss`
+/// read when they install [`crate::features::Mountable`] /
+/// [`crate::features::CanPilot`], so a preflight decision here predicts the
+/// world the commit will produce rather than guessing at it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PlannedMountCapabilities {
+    /// The class this row is rideable AS, if its archetype makes it a mount.
+    pub mount_class: Option<String>,
+    /// The classes this row may pilot.
+    pub pilots: Vec<String>,
+}
+
+/// What a row will be able to do, mount-wise, once built.
+pub fn mount_capabilities_of(
+    parameters: &ActorConstructionParams,
+    roster: &crate::features::CharacterRoster,
+    bosses: &BossCatalog,
+) -> PlannedMountCapabilities {
+    match parameters {
+        // A pickup is neither rideable nor a pilot.
+        ActorConstructionParams::GroundItem { .. } => PlannedMountCapabilities::default(),
+        ActorConstructionParams::StagedActor(request) => match &request.kind {
+            SpawnActorKind::Enemy { brain } => {
+                let spec = roster.spec_for_brain(brain);
+                PlannedMountCapabilities {
+                    mount_class: spec.mount_class.clone(),
+                    pilots: spec.pilotable_mount_classes.clone(),
+                }
+            }
+            // A boss takes `CanPilot` from its behaviour profile and is never
+            // itself a mount — `spawn_boss` installs no `Mountable`. Resolved
+            // through the SAME pair `BossClusterScratch::new` uses, so the
+            // preflight reads the profile the commit will read.
+            SpawnActorKind::Boss { brain, .. } => PlannedMountCapabilities {
+                mount_class: None,
+                pilots: crate::boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
+                    bosses,
+                    &crate::boss_encounter::behavior::canonical_boss_id_from(&request.name, brain),
+                )
+                .pilotable_mount_classes
+                .clone(),
+            },
+        },
+        ActorConstructionParams::SummonedMinion(minion) => {
+            let spec = roster.spec_for_brain(
+                &ambition_entity_catalog::placements::CharacterBrain::Custom(
+                    minion.archetype_id.clone(),
+                ),
+            );
+            PlannedMountCapabilities {
+                mount_class: spec.mount_class.clone(),
+                pilots: spec.pilotable_mount_classes.clone(),
+            }
+        }
+    }
+}
+
+/// Which construction family a row is, for diagnostics and family-legality rules.
+fn family_of(parameters: &ActorConstructionParams) -> &'static str {
+    match parameters {
+        ActorConstructionParams::GroundItem { .. } => "ground-item",
+        ActorConstructionParams::StagedActor(_) => "staged-actor",
+        ActorConstructionParams::SummonedMinion(_) => "summoned-minion",
+    }
+}
+
+/// Reject illegal actor relation configurations **before any entity is
+/// spawned**.
+///
+/// The generic planner already refuses a duplicate `(from, kind, to)` and an
+/// unresolved endpoint. Those are structural. The rules here are the actor
+/// domain's own semantics, and each one names a way the live world silently
+/// coped instead of refusing:
+///
+/// - a limb with two hosts, or two limbs in one slot: the slot-keyed rig would
+///   drop one of them at commit and the plan would still claim both;
+/// - a rider with two mounts, or two riders on one mount: `MountSlot` holds ONE
+///   rider, so the loser ends up pointing at a mount that points elsewhere —
+///   exactly the half-linked pair this campaign keeps finding;
+/// - a self-mount: a body steering itself through `steer_mount_from_rider`;
+/// - an endpoint whose family cannot hold that end: a ground item is not a body;
+/// - an incompatible pilot/mount class: `resolve_pending_mount_links` checks
+///   this too, and DROPS the link with no diagnostic, so an authored typo
+///   produces a rider standing next to its mount and no explanation.
+///
+/// Runs on requests, so a refusal happens while the outgoing room is whole.
+pub fn preflight_actor_relations(
+    requests: &[ActorConstructionRequest],
+    roster: &crate::features::CharacterRoster,
+    bosses: &BossCatalog,
+) -> Result<(), ActorConstructionError> {
+    use std::collections::BTreeMap;
+
+    let family: BTreeMap<&SimId, &ActorConstructionParams> = requests
+        .iter()
+        .map(|request| (&request.sim_id, &request.parameters))
+        .collect();
+
+    // Ordered accumulators: a diagnostic that names "the two limbs in this slot"
+    // must name them in the same order every run.
+    let mut hosts_of_limb: BTreeMap<&SimId, Vec<SimId>> = BTreeMap::new();
+    let mut limbs_in_slot: BTreeMap<(&SimId, crate::features::LimbSlot), Vec<SimId>> =
+        BTreeMap::new();
+    let mut mounts_of_rider: BTreeMap<&SimId, Vec<SimId>> = BTreeMap::new();
+    let mut riders_of_mount: BTreeMap<&SimId, Vec<SimId>> = BTreeMap::new();
+
+    for request in requests {
+        for declared in &request.relations {
+            match &declared.relation {
+                ActorRelation::Grudge => {}
+                ActorRelation::Limb { slot, .. } => {
+                    hosts_of_limb
+                        .entry(&request.sim_id)
+                        .or_default()
+                        .push(declared.to.clone());
+                    limbs_in_slot
+                        .entry((&declared.to, *slot))
+                        .or_default()
+                        .push(request.sim_id.clone());
+                }
+                ActorRelation::Mount => {
+                    if request.sim_id == declared.to {
+                        return Err(ActorConstructionError::SelfMount {
+                            rider: request.sim_id.clone(),
+                        });
+                    }
+                    mounts_of_rider
+                        .entry(&request.sim_id)
+                        .or_default()
+                        .push(declared.to.clone());
+                    riders_of_mount
+                        .entry(&declared.to)
+                        .or_default()
+                        .push(request.sim_id.clone());
+                }
+            }
+        }
+    }
+
+    for (limb, hosts) in &hosts_of_limb {
+        if hosts.len() > 1 {
+            return Err(ActorConstructionError::LimbHasTwoHosts {
+                limb: (*limb).clone(),
+                hosts: hosts.clone(),
+            });
+        }
+    }
+    for ((host, slot), limbs) in &limbs_in_slot {
+        if limbs.len() > 1 {
+            return Err(ActorConstructionError::LimbSlotTaken {
+                host: (*host).clone(),
+                slot: limb_slot_key(*slot),
+                limbs: limbs.clone(),
+            });
+        }
+    }
+    for (rider, mounts) in &mounts_of_rider {
+        if mounts.len() > 1 {
+            return Err(ActorConstructionError::RiderOnTwoMounts {
+                rider: (*rider).clone(),
+                mounts: mounts.clone(),
+            });
+        }
+    }
+    for (mount, riders) in &riders_of_mount {
+        if riders.len() > 1 {
+            return Err(ActorConstructionError::MountHasTwoRiders {
+                mount: (*mount).clone(),
+                riders: riders.clone(),
+            });
+        }
+    }
+
+    // Family legality and pilot/mount compatibility. Both ends must be rows —
+    // the generic planner guarantees that — so a missing entry here is a planner
+    // bug rather than a content error, and is treated as "cannot hold that end"
+    // rather than silently skipped.
+    for (rider, mounts) in &mounts_of_rider {
+        let Some(mount) = mounts.first() else {
+            continue;
+        };
+        let rider_params = family.get(*rider).copied();
+        let mount_params = family.get(mount).copied();
+        let (Some(rider_params), Some(mount_params)) = (rider_params, mount_params) else {
+            continue;
+        };
+        let rider_caps = mount_capabilities_of(rider_params, roster, bosses);
+        let mount_caps = mount_capabilities_of(mount_params, roster, bosses);
+        let Some(mount_class) = mount_caps.mount_class.clone() else {
+            return Err(ActorConstructionError::WrongFamilyForRelation {
+                sim_id: mount.clone(),
+                relation: RELATION_MOUNT,
+                end: "mount",
+                family: family_of(mount_params),
+            });
+        };
+        if rider_caps.pilots.is_empty() {
+            return Err(ActorConstructionError::WrongFamilyForRelation {
+                sim_id: (*rider).clone(),
+                relation: RELATION_MOUNT,
+                end: "rider",
+                family: family_of(rider_params),
+            });
+        }
+        if !rider_caps.pilots.contains(&mount_class) {
+            return Err(ActorConstructionError::IncompatibleMountClass {
+                rider: (*rider).clone(),
+                mount: mount.clone(),
+                mount_class,
+                rider_classes: rider_caps.pilots.clone(),
+            });
+        }
+    }
+
     Ok(())
 }
 
@@ -597,9 +1005,8 @@ pub fn staged_actor_requests(
                 .iter()
                 .map(
                     |foe| ambition_platformer_primitives::construction::RelationRequest {
-                        kind: relation_grudge(),
                         to: SimId::placement(foe),
-                        payload: ActorRelationPayload::Grudge,
+                        relation: ActorRelation::Grudge,
                     },
                 )
                 .collect(),

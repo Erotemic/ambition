@@ -184,7 +184,7 @@ find_game_pid() {
 # actually attached to so a wrong-target capture is obvious immediately.
 record_attach_target() {
     local out_dir="$1" target_pid="$2" cmdline
-    record_attach_target "$out_dir" "$target_pid"
+    echo "$target_pid" > "$out_dir/pid.txt"
     cmdline="$(ps -o args= -p "$target_pid" 2>/dev/null || true)"
     printf '%s\n' "$cmdline" > "$out_dir/pid-cmdline.txt"
     log "attach target PID $target_pid: ${cmdline:-<process not found>}"

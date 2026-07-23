@@ -1577,6 +1577,19 @@ pub enum RosterViolation {
         expected: Entity,
         check: RelationCheck,
     },
+    /// A host's committed rig does not match the exact composition the plan
+    /// described for it.
+    ///
+    /// **The per-relation postcondition pass cannot see this.** That pass asks,
+    /// for each planned limb relation, "did MY relation land" — a question a host
+    /// whose rig gained an EXTRA limb from a second intent stream answers yes to
+    /// for every planned limb while carrying a rig the plan never described. This
+    /// is the composition check: exactly the planned slots, each holding the
+    /// planned identity, nothing more. `detail` names the specific fault (an
+    /// extra slot, a missing slot, a wrong or duplicated occupant, a reverse
+    /// disagreement); the domain that owns the rig components composes it, so the
+    /// primitive stays free of `LimbRig`/`LimbSlot`. **Fatal.**
+    RigComposition { host: SimId, detail: String },
 }
 
 /// Whether a violation means the transaction is unpublishable, or names a
@@ -1621,7 +1634,8 @@ impl RosterViolation {
             | Self::ReconstructedOldSurvived { .. }
             | Self::PlannedOverBaseline { .. }
             | Self::DanglingRelation { .. }
-            | Self::RelationNotEstablished { .. } => Severity::Fatal,
+            | Self::RelationNotEstablished { .. }
+            | Self::RigComposition { .. } => Severity::Fatal,
         }
     }
 }
@@ -1740,6 +1754,10 @@ impl std::fmt::Display for RosterViolation {
                 f,
                 "relation `{from}` -`{kind}`-> `{to}` was wired but the world does not hold it \
                  onto {expected:?}: {check:?}"
+            ),
+            Self::RigComposition { host, detail } => write!(
+                f,
+                "host `{host}` committed a rig that does not match its planned composition: {detail}"
             ),
         }
     }

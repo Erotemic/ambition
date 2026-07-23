@@ -1131,6 +1131,9 @@ pub(crate) fn spawn_runtime_minion_into(
         brain,
         &[],
     );
+    if reject_runtime_giant(&enemy.spec, "runtime minion", &id) {
+        return;
+    }
     // `ActorClusterSeed::new_in` already sets HP from the resolved spec.
     // Boss-spawned minions shouldn't auto-respawn — they're part of
     // the encounter, not a static sandbag.
@@ -1341,6 +1344,32 @@ pub struct GiantHandPlan {
 /// which enemies are planned as hosts.
 pub(crate) fn spec_is_limbed_host(spec: &super::super::enemies::CharacterArchetypeSpec) -> bool {
     mount_has_hand_limbs(spec)
+}
+
+/// Refuse a `"giant"`-class archetype on a runtime hostile-spawn path.
+///
+/// Summon effects, encounter waves, and runtime minions do NOT go through the
+/// construction planner, so they cannot lower a giant into its host + two hand
+/// rows (the only shape that gives a giant its rig — see [`giant_cluster_rows`]).
+/// Rather than silently produce a handless giant, these origins refuse a
+/// `"giant"`-class spec outright and log why. Authored and provider-staged giants
+/// ARE supported; they lower through the planner. Returns `true` (having logged)
+/// when the caller should skip the spawn.
+pub(crate) fn reject_runtime_giant(
+    spec: &super::super::enemies::CharacterArchetypeSpec,
+    origin: &str,
+    id: &str,
+) -> bool {
+    if spec_is_limbed_host(spec) {
+        bevy::log::error!(
+            target: "ambition::construction",
+            "{origin} refuses `{id}`: a \"giant\"-class actor carries a limb rig and is only \
+             constructible through the planner (authored or provider-staged); refusing rather than \
+             spawning a handless giant"
+        );
+        return true;
+    }
+    false
 }
 
 /// Resolve the two hand plans for a giant, at plan time. The geometry that used
@@ -1587,6 +1616,9 @@ pub(super) fn spawn_encounter_mob(
         brain,
         &[],
     );
+    if reject_runtime_giant(&enemy.spec, "encounter wave", &id) {
+        return;
+    }
     // `ActorClusterSeed::new_in` already sets HP from the resolved spec.
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.status.respawn_timer = 999_999.0;

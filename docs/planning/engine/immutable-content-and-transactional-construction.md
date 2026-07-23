@@ -1334,6 +1334,70 @@ giant migration), 908 `ambition_actors` lib tests. The giant tests are
 discriminating: the row-count/relation-shape test and the committed-rig test both
 fail against the pre-migration helper (which built the hands invisibly).
 
+## Checkpoint C — giant correctness across origins, honest outer artifacts (2026-07-23)
+
+The step-1 migration was correct for authored rooms and incomplete everywhere
+else; this checkpoint closes the review findings on it.
+
+- **Every construction origin either builds a whole giant or refuses one.** The
+  two plan-based origins (authored `enemy_spawns`, provider-staged
+  `SpawnActorRequest`) lower a `"giant"`-class spec through ONE shared helper
+  (`giant_cluster_rows`): host row + two hand rows + two limb relations,
+  whichever door it entered by. The origins that do not pass through the planner
+  (summon effect, runtime minion, encounter wave) **refuse** a giant spec during
+  preparation (`reject_runtime_giant`) instead of silently spawning a handless
+  host. Whether those runtime origins should later lower through the planner and
+  gain hands is deliberately left open; bosses cannot be giants on any path.
+- **The giant host keeps the room's frozen kinematic paths.** Step 1 planned the
+  host with `paths: Vec::new()`; the authored request builder now threads the
+  same frozen path set the ordinary enemy loop passes, resolved at planning.
+- **The outer roster is derived from the plan, not re-enumerated.** The
+  predicted roster is `planned_ids()` (hands included) ∪ an explicit
+  `non_plan_authoritative_ids()` for the families still outside the planner, all
+  in the one `SimId` spelling; the commit receipt unions `committed_ids()` the
+  same way, so the outer predicted-vs-committed assert is a real cross-check
+  instead of a clone compared with itself. The explicit non-plan union is the
+  Phase-4 migration surface and shrinks as families move.
+- **`RoomConstructionPlanId` is the identity of the complete frozen plan.** It
+  now hashes the spec JSON **plus `deterministic_dump()`** — recipe ids, derived
+  rows, relation payloads, content epoch — so a roster change that reshapes the
+  prepared world (a hand's home offset, giant-vs-ordinary expansion, an epoch
+  bump) moves the id even when the authored spec bytes are identical. Session
+  and transaction values stay excluded: they are commit-time, not frozen-plan.
+- **Exact rig composition is verified at the boundary.**
+  `verify_rig_composition` compares each planned row's committed `LimbRig`
+  slot-for-slot against `planned_rig_for_host` (which finally has a caller):
+  every planned slot holds exactly the planned limb's committed entity
+  (generation included), no extra slot, no duplicated limb body, and each
+  occupant's forward `Limb` agrees on host and slot. Faults surface as the new
+  fatal `RosterViolation::RigComposition` through the same
+  `LastConstructionVerification` gate.
+- **Reconstruction can start from a stable identity.**
+  `respawn_authoritative_sim_id` accepts any planned `SimId` — including a
+  hand's `SimId::spawned`, which no authored-id spelling reaches — and commits
+  the relation closure; the authored-id entry point is now a wrapper over it.
+
+### What verification honestly covers (Checkpoint C statement)
+
+Three different claims, deliberately kept separate:
+
+1. **Publication ordering is complete.** `RoomLoaded` is written by the outer
+   transaction close, after features, planned rows, relations, moving platforms,
+   and the commit receipt. No lifecycle path publishes earlier.
+2. **Verification is complete for migrated plan rows.** Baseline preservation,
+   roster occupancy, ownership, provenance, relation postconditions, and rig
+   composition are all checked for every plan row, and any fatal finding
+   withholds publication.
+3. **Visibility is incomplete for the enumerated legacy families.** The
+   families in the table above receive their `SimId` from `ensure_sim_id`
+   *after* the boundary verifier runs, so they are invisible to
+   `AuthoritativeScope::gather` at verification time — the verifier can neither
+   bless nor indict them. They are enumerated and finite
+   (`non_plan_authoritative_ids` names the authoritative ones), an unknown
+   unowned root remains **fatal**, and no check was weakened to accommodate
+   them. Do not read a published room as "fully verified" until the table
+   empties.
+
 ### Phase 4 — migrate room lifecycle operations
 
 #### Objective

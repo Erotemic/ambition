@@ -160,9 +160,17 @@ fn verify_and_publish(
     // executor stamped its roots with.
     let transaction = plan.scope().transaction(session);
     let scope = AuthoritativeScope::gather(world, &transaction);
-    let violations = verify_committed_roster(plan, receipt, &baseline, &scope, world)
+    let mut violations = verify_committed_roster(plan, receipt, &baseline, &scope, world)
         .err()
         .unwrap_or_default();
+    // The actor-domain composition pass: exact rig equality per planned host.
+    // The generic per-relation postconditions above prove each planned limb
+    // landed; only the domain that owns `LimbRig` can prove nothing EXTRA did.
+    violations.extend(crate::construction::verify_rig_composition(
+        plan, receipt, world,
+    ));
+    violations.sort_by_key(|violation| format!("{violation:?}"));
+    violations.dedup();
 
     let fatal = violations
         .iter()

@@ -567,9 +567,11 @@ impl CharacterRoster {
         Self::new(by_brain, fallback)
     }
 
-    /// Internal parser used by the engine-generic empty default and test fixture.
-    /// Provider code uses the fallible [`CharacterRosterFragment::from_ron`].
-    fn from_ron(ron: &str) -> Self {
+    /// Internal parser used by the engine-generic empty default and test
+    /// fixtures (crate-visible so sibling modules can build purpose-shaped
+    /// rosters). Provider code uses the fallible
+    /// [`CharacterRosterFragment::from_ron`].
+    pub(crate) fn from_ron(ron: &str) -> Self {
         let by_brain: std::collections::HashMap<String, CharacterArchetypeSpec> =
             ron::from_str(ron)
                 .unwrap_or_else(|err| panic!("enemy roster RON failed to deserialize: {err}"));

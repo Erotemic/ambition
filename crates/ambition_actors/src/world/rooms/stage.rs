@@ -230,7 +230,7 @@ impl RoomConstructionPlan {
             reason,
         })?;
         let platform_states = platforms::moving_platforms_for_room(&spec);
-        let id = construction_plan_id(&spec, feature_plan.expected_authoritative_ids());
+        let id = construction_plan_id(&spec, feature_plan.construction());
         Ok(Self {
             id,
             target_index,
@@ -284,6 +284,18 @@ impl RoomConstructionPlan {
     pub fn respawn_authoritative_entity(&self, commands: &mut Commands, authored_id: &str) -> bool {
         self.features
             .respawn_authoritative_entity(commands, self.session_scope, authored_id)
+    }
+
+    /// Rebuild one PLANNED root by its stable identity — the only form that can
+    /// name a derived row like a giant's hand (`SimId::spawned`), which no
+    /// authored-id spelling reaches.
+    pub fn respawn_authoritative_sim_id(
+        &self,
+        commands: &mut Commands,
+        sim_id: &ambition_platformer_primitives::sim_id::SimId,
+    ) -> bool {
+        self.features
+            .respawn_authoritative_sim_id(commands, self.session_scope, sim_id)
     }
 
     pub fn session_scope(&self) -> SessionSpawnScope {
@@ -431,9 +443,28 @@ impl RoomConstructionPlan {
     }
 }
 
+/// Identity of one prepared room-construction artifact, from EVERY frozen
+/// world-defining preparation product — not just the authored source.
+///
+/// The previous form hashed the `RoomSpec` plus a hand-built id set, which made
+/// two materially different prepared worlds collide: giant hand rows, limb
+/// relation payloads (slots, home offsets), recipe identities, and the content
+/// epoch are all derived from the character roster and registry — data OUTSIDE
+/// the `RoomSpec` — so a roster change that moved a hand's slot produced a
+/// different world under the SAME plan id. `deterministic_dump()` is the
+/// canonical rendering of exactly that derived surface (schema version, content
+/// binding/epoch, every plan row with recipe + origin + parameter summary, every
+/// relation with its canonical payload), so folding it in makes the id a function
+/// of the complete frozen plan.
+///
+/// Moving platforms and kinematic paths are pure functions of the spec, so the
+/// spec JSON already covers them. Deliberately EXCLUDED: `SessionSpawnScope` /
+/// `TransactionId` (commit-time, not frozen-plan), `Entity` values, and anything
+/// process-local. `DefaultHasher::new()` uses fixed keys, so the id is stable
+/// across runs and replays.
 fn construction_plan_id(
     spec: &RoomSpec,
-    expected_ids: &BTreeSet<String>,
+    construction: &crate::construction::ActorConstructionPlan,
 ) -> RoomConstructionPlanId {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     spec.id.hash(&mut hasher);
@@ -442,7 +473,7 @@ fn construction_plan_id(
     serde_json::to_vec(spec)
         .expect("RoomSpec serialization must succeed for construction identity")
         .hash(&mut hasher);
-    expected_ids.hash(&mut hasher);
+    construction.deterministic_dump().hash(&mut hasher);
     RoomConstructionPlanId(format!("room-plan:{:016x}", hasher.finish()))
 }
 
@@ -486,6 +517,220 @@ mod tests {
         assert_eq!(
             a.predicted_authoritative_ids(),
             b.predicted_authoritative_ids()
+        );
+    }
+
+    /// As [`prepare`], but with an explicit roster and content epoch — the two
+    /// preparation inputs OUTSIDE the `RoomSpec` that shape the derived plan.
+    fn prepare_with(
+        spec: RoomSpec,
+        roster: &features::CharacterRoster,
+        epoch: ae::ContentEpoch,
+    ) -> Result<RoomConstructionPlan, RoomConstructionError> {
+        let recipes = crate::construction::engine_construction_registry();
+        RoomConstructionPlan::prepare_spec(
+            0,
+            spec,
+            &PlacementLoweringRegistry::default(),
+            &features::RoomContentStagingRegistry::default(),
+            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+            roster,
+            &crate::boss_encounter::BossCatalog::default(),
+            SessionSpawnScope::UNSCOPED,
+            features::ActorConstructionContext::new(&recipes, epoch),
+        )
+    }
+
+    /// A minimal roster whose `"giant_gnu"` is a `"giant"`-class limbed host
+    /// with the given body size. The size drives `giant_hand_plans` geometry —
+    /// hand boxes and `home_offset` relation payloads — which lives NOWHERE in
+    /// the `RoomSpec`.
+    fn giant_roster(default_size: f32) -> features::CharacterRoster {
+        features::CharacterRoster::from_ron(&format!(
+            r#"{{
+                "combatant": (
+                    max_health: 2, patrol_speed: 0.0, chase_speed: 0.0,
+                    aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+                    damage_amount: 0, brain_template: StandStill, move_style: Walk,
+                ),
+                "giant_gnu": (
+                    max_health: 42, patrol_speed: 0.0, chase_speed: 0.0,
+                    aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+                    damage_amount: 0, brain_template: StandStill, move_style: Walk,
+                    mount_class: Some("giant"),
+                    default_size: Some(({default_size}, {default_size})),
+                ),
+                "giant_gnu_hands": (
+                    max_health: 42, patrol_speed: 0.0, chase_speed: 0.0,
+                    aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+                    damage_amount: 0, brain_template: StandStill, move_style: Walk,
+                ),
+            }}"#
+        ))
+    }
+
+    fn giant_spec(id: &str) -> RoomSpec {
+        let mut spec = empty_spec(id);
+        spec.enemy_spawns.push(crate::rooms::Authored::new(
+            "gnu",
+            "Giant GNU",
+            ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(60.0)),
+            ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu".into()),
+        ));
+        spec
+    }
+
+    /// **The plan id tracks the DERIVED construction surface, not just the
+    /// authored spec.** Two rosters that differ only in the giant's body size
+    /// produce byte-identical `RoomSpec`s but different hand `home_offset`
+    /// relation payloads — materially different prepared worlds. The previous id
+    /// (spec JSON + authored id set) collided them.
+    #[test]
+    fn the_plan_id_tracks_the_derived_relation_payloads() {
+        let small = prepare_with(
+            giant_spec("arena"),
+            &giant_roster(120.0),
+            ae::ContentEpoch(4),
+        )
+        .expect("small-giant plan");
+        let large = prepare_with(
+            giant_spec("arena"),
+            &giant_roster(140.0),
+            ae::ContentEpoch(4),
+        )
+        .expect("large-giant plan");
+        assert_ne!(
+            small.id(),
+            large.id(),
+            "different hand offsets are different prepared worlds"
+        );
+    }
+
+    /// The id also tracks the giant-vs-ordinary shape of the plan itself: the
+    /// same spec whose brain key stops resolving as a `"giant"`-class host loses
+    /// its host/hand rows AND their relations.
+    #[test]
+    fn the_plan_id_tracks_the_giant_expansion() {
+        let giant = prepare_with(
+            giant_spec("arena"),
+            &giant_roster(120.0),
+            ae::ContentEpoch(4),
+        )
+        .expect("giant plan");
+        // Same spec, but the roster has no idea "giant_gnu" is a giant.
+        let plain = prepare_with(
+            giant_spec("arena"),
+            &features::CharacterRoster::default(),
+            ae::ContentEpoch(4),
+        )
+        .expect("plain plan");
+        assert_ne!(giant.id(), plain.id());
+    }
+
+    /// The id tracks the prepared-content epoch: the same room prepared against
+    /// re-prepared content is a different transaction target.
+    #[test]
+    fn the_plan_id_tracks_the_content_epoch() {
+        let four = prepare_with(
+            giant_spec("arena"),
+            &giant_roster(120.0),
+            ae::ContentEpoch(4),
+        )
+        .expect("epoch-4 plan");
+        let five = prepare_with(
+            giant_spec("arena"),
+            &giant_roster(120.0),
+            ae::ContentEpoch(5),
+        )
+        .expect("epoch-5 plan");
+        assert_ne!(four.id(), five.id());
+    }
+
+    /// Frozen room path content reaches the id (through the spec AND through the
+    /// giant host row that now carries the paths).
+    #[test]
+    fn the_plan_id_tracks_frozen_path_content() {
+        let bare = prepare_with(
+            giant_spec("arena"),
+            &giant_roster(120.0),
+            ae::ContentEpoch(4),
+        )
+        .expect("pathless plan");
+        let mut with_path = giant_spec("arena");
+        with_path
+            .kinematic_paths
+            .push(ambition_world::rooms::KinematicPathSpec::new(
+                "patrol",
+                "patrol",
+                ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
+                ae::KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(64.0, 0.0), 24.0),
+            ));
+        let pathed = prepare_with(with_path, &giant_roster(120.0), ae::ContentEpoch(4))
+            .expect("pathed plan");
+        assert_ne!(bare.id(), pathed.id());
+    }
+
+    /// **One giant, every roster surface, one answer.** The prepared plan, the
+    /// predicted outer roster, the commit receipt, and the boundary verifier all
+    /// name the same three-cluster — and the hands are welcome plan rows, not
+    /// unexpected or legacy findings.
+    #[test]
+    fn a_giant_rooms_rosters_agree_from_plan_to_receipt_to_verifier() {
+        let plan = prepare_with(
+            giant_spec("arena"),
+            &giant_roster(120.0),
+            ae::ContentEpoch(4),
+        )
+        .expect("giant plan");
+
+        let host = ambition_platformer_primitives::sim_id::SimId::placement("gnu");
+        let cluster: BTreeSet<String> = [
+            host.to_string(),
+            ambition_platformer_primitives::sim_id::SimId::spawned(&host, 0).to_string(),
+            ambition_platformer_primitives::sim_id::SimId::spawned(&host, 1).to_string(),
+        ]
+        .into();
+
+        // Prepared plan: three giant-cluster identities.
+        let planned: BTreeSet<String> = plan
+            .features
+            .construction()
+            .planned_ids()
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
+        assert_eq!(planned, cluster, "host + two hands are the plan rows");
+        // Predicted outer roster: the same three (nothing else in this room).
+        assert_eq!(plan.predicted_authoritative_ids(), &cluster);
+
+        let expected_plan_id = plan.id().clone();
+        let mut app = bevy::prelude::App::new();
+        app.add_message::<crate::rooms::RoomLoaded>();
+        {
+            let mut commands = app.world_mut().commands();
+            plan.spawn_contents(&mut commands);
+        }
+        app.world_mut().flush();
+
+        // Commit receipt: the same three.
+        let commit = app.world().resource::<LastRoomConstructionCommit>();
+        assert_eq!(commit.plan_id, expected_plan_id);
+        assert_eq!(commit.authoritative_ids, cluster);
+
+        // Boundary verifier: published, and NOTHING flagged — a hand read as
+        // unexpected or legacy would appear here.
+        let verification = app
+            .world()
+            .resource::<crate::world::rooms::LastConstructionVerification>();
+        assert!(
+            verification.published,
+            "the giant room publishes: {:?}",
+            verification.violations
+        );
+        assert_eq!(
+            verification.violations,
+            Vec::new(),
+            "no hand is unexpected, legacy, or malformed"
         );
     }
 
@@ -649,13 +894,20 @@ mod tests {
         assert_eq!(receipt.room_id, "receipt");
         assert_eq!(receipt.authoritative_ids, expected);
 
+        // The roster speaks the `SimId` namespace now (it is derived from the
+        // construction plan, whose derived rows have no authored spelling). A
+        // family-loop enemy's body only receives its `SimId` from `ensure_sim_id`
+        // AFTER verification, so map its authored `FeatureId` through the same
+        // `placement:` spelling the roster uses for authored roots.
         let actual = {
             let mut query = app
                 .world_mut()
                 .query::<&ambition_combat::components::FeatureId>();
             query
                 .iter(app.world())
-                .map(|feature| feature.0.clone())
+                .map(|feature| {
+                    ambition_platformer_primitives::sim_id::SimId::placement(&feature.0).to_string()
+                })
                 .collect::<BTreeSet<_>>()
         };
         assert_eq!(

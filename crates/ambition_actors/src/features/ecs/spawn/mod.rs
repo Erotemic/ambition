@@ -185,7 +185,12 @@ impl RoomFeatureConstructionPlan {
             .iter()
             .map(|(_, request)| request.clone())
             .collect();
-        let authoritative_ids = room
+        // Authored-id uniqueness across every family, checked in the RAW authored
+        // namespace while the outgoing room is still whole. This stays separate
+        // from the plan-derived roster built below: several families (placements,
+        // bosses, non-giant enemies) are not plan rows yet, so their ids are only
+        // knowable from the `RoomSpec` here.
+        let authored_ids = room
             .placements
             .iter()
             .map(|placement| placement.id.0.clone())
@@ -193,9 +198,9 @@ impl RoomFeatureConstructionPlan {
             .chain(room.boss_spawns.iter().map(|boss| boss.id.clone()))
             .chain(room.ground_items.iter().map(|item| item.id.clone()))
             .chain(content_requests.iter().map(|request| request.id.clone()));
-        let mut expected_authoritative_ids = BTreeSet::new();
-        for id in authoritative_ids {
-            if !expected_authoritative_ids.insert(id.clone()) {
+        let mut seen_authored_ids = BTreeSet::new();
+        for id in authored_ids {
+            if !seen_authored_ids.insert(id.clone()) {
                 return Err(RoomFeatureConstructionError::DuplicateAuthoritativeId {
                     room: room.id.clone(),
                     id,
@@ -213,12 +218,15 @@ impl RoomFeatureConstructionPlan {
                 &room.id,
                 provider,
                 std::slice::from_ref(request),
+                roster,
             ));
         }
         // Authored `"giant"`-class hosts and their hand limbs, prepared together
         // as host + two hand rows joined by limb relations. The enemy loop in
         // `spawn` skips these ids so the giant is not also built there.
-        requests.extend(crate::construction::authored_giant_requests(room, roster));
+        requests.extend(crate::construction::authored_giant_requests(
+            room, roster, &paths,
+        ));
         // Actor-domain relation semantics, checked while the outgoing room is
         // still whole: cardinality (one host per limb, one rider per mount),
         // family legality, and pilot/mount class compatibility. The generic
@@ -238,6 +246,19 @@ impl RoomFeatureConstructionPlan {
             construction.recipes,
         )
         .map_err(RoomFeatureConstructionError::Construction)?;
+
+        // The authoritative roster the room PREDICTS, derived from the completed
+        // plan rather than re-enumerated by hand: `planned_ids()` covers every
+        // migrated family INCLUDING giant hands (a `SimId::spawned` row absent
+        // from the authored id list above), all in the one `SimId` namespace. The
+        // families that are still separate spawn loops are unioned in explicitly
+        // by [`non_plan_authoritative_ids`] and are the Phase-4 migration surface.
+        let mut expected_authoritative_ids: BTreeSet<String> = construction_plan
+            .planned_ids()
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
+        expected_authoritative_ids.extend(non_plan_authoritative_ids(room, roster));
 
         let placement_context =
             crate::world::placements::ActorPlacementContext::new(catalog, roster);
@@ -290,33 +311,7 @@ impl RoomFeatureConstructionPlan {
     ) -> bool {
         let planned_id = ambition_platformer_primitives::sim_id::SimId::placement(authored_id);
         if self.construction.get(&planned_id).is_some() {
-            // Rebuild the RELATION CLOSURE, not the bare row. A row at either end
-            // of a planned relation cannot be rebuilt alone — rebuilding one end
-            // strands the other on a dead `Entity` handle
-            // (`ConstructionError::RelationCutBySubset`). A giant host and its two
-            // hands are exactly such a cluster: asking for any one of the three
-            // rebuilds all three. For an unrelated row the closure is just itself,
-            // so this is the same single-row commit as before.
-            let closure = self
-                .construction
-                .relation_closure(&std::collections::BTreeSet::from([planned_id.clone()]));
-            let mut ctx = ambition_platformer_primitives::construction::ConstructionExecCtx {
-                commands,
-                scope: self.construction.scope(),
-                session: session_scope,
-                services: &self.construction_services,
-            };
-            return match self.construction.commit_subset(&closure, &mut ctx) {
-                Ok(_) => true,
-                Err(error) => {
-                    bevy::log::error!(
-                        target: "ambition::construction",
-                        "`{authored_id}` is planned but its reconstruction closure could not be \
-                         rebuilt: {error}"
-                    );
-                    false
-                }
-            };
+            return self.respawn_authoritative_sim_id(commands, session_scope, &planned_id);
         }
         if self.placements.lower_one(
             commands,
@@ -357,6 +352,55 @@ impl RoomFeatureConstructionPlan {
             return true;
         }
         false
+    }
+
+    /// Rebuild one PLANNED authoritative root by its stable identity — the form
+    /// that can name a derived row.
+    ///
+    /// [`Self::respawn_authoritative_entity`] converts its authored id through
+    /// `SimId::placement`, which can never spell a `SimId::spawned` identity —
+    /// so a giant's HAND was planned, closable, and yet unreachable through the
+    /// production API. Dynamic and derived authoritative roots need
+    /// reconstruction exactly as much as authored ones; this is their entry
+    /// point, and the authored-id form is now a convenience wrapper over the
+    /// same closure commit.
+    ///
+    /// Rebuilds the RELATION CLOSURE, not the bare row. A row at either end of a
+    /// planned relation cannot be rebuilt alone — rebuilding one end strands the
+    /// other on a dead `Entity` handle
+    /// (`ConstructionError::RelationCutBySubset`). A giant host and its two
+    /// hands are exactly such a cluster: asking for ANY one of the three — host,
+    /// left hand, right hand — rebuilds all three. For an unrelated row the
+    /// closure is just itself, so this is a plain single-row commit.
+    pub fn respawn_authoritative_sim_id(
+        &self,
+        commands: &mut Commands,
+        session_scope: SessionSpawnScope,
+        sim_id: &ambition_platformer_primitives::sim_id::SimId,
+    ) -> bool {
+        if self.construction.get(sim_id).is_none() {
+            return false;
+        }
+        let closure = self
+            .construction
+            .relation_closure(&std::collections::BTreeSet::from([sim_id.clone()]));
+        let mut ctx = ambition_platformer_primitives::construction::ConstructionExecCtx {
+            commands,
+            scope: self.construction.scope(),
+            session: session_scope,
+            services: &self.construction_services,
+        };
+        match self.construction.commit_subset(&closure, &mut ctx) {
+            Ok(_) => true,
+            Err(error) => {
+                bevy::log::error!(
+                    target: "ambition::construction",
+                    "`{sim_id}` is planned but its reconstruction closure could not be rebuilt: \
+                     {error}"
+                );
+                false
+            }
+        }
     }
 
     /// Apply the exact feature decisions captured by [`Self::prepare`].
@@ -440,11 +484,61 @@ impl RoomFeatureConstructionPlan {
             "construction execution diverged from its prepared roster",
         );
 
+        // The COMMITTED roster: what the plan families actually built
+        // (`committed_ids()`, giant hands included) unioned with the same
+        // not-yet-migrated families the prediction counted. Sharing
+        // `non_plan_authoritative_ids` with `prepare` means the outer
+        // predicted-vs-committed cross-check (`stage::spawn_contents`) reduces to
+        // "did every plan row commit", the one comparison that can differ.
+        let mut authoritative_ids: BTreeSet<String> = construction
+            .committed_ids()
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
+        authoritative_ids.extend(non_plan_authoritative_ids(
+            &self.room,
+            &self.construction_services.context.roster,
+        ));
+
         RoomFeatureConstructionReceipt {
-            authoritative_ids: self.expected_authoritative_ids.clone(),
+            authoritative_ids,
             construction,
         }
     }
+}
+
+/// The authoritative identities of the families that are NOT construction plan
+/// rows yet — placements, bosses, and non-giant enemies — in the `SimId` string
+/// namespace the plan uses, so a unified roster does not drift on spelling.
+///
+/// This is the Phase-4 migration surface. Every family here is still built by its
+/// own spawn loop rather than as a plan row, and its body receives its `SimId`
+/// AFTER the boundary verifier runs (`ensure_sim_id`), so these identities are
+/// invisible to `AuthoritativeScope::gather` at verification time — the honest
+/// "incomplete visibility for legacy families" the campaign doc records. As each
+/// family becomes a plan row it leaves this function and appears in
+/// `planned_ids()` on its own. Giant hosts are already plan rows, so the enemy
+/// enumeration skips them to avoid a second spelling of the same identity.
+fn non_plan_authoritative_ids(
+    room: &crate::rooms::RoomSpec,
+    roster: &CharacterRoster,
+) -> BTreeSet<String> {
+    use ambition_platformer_primitives::sim_id::SimId;
+    let planned_giants = crate::construction::planned_giant_host_ids(room, roster);
+    let mut ids = BTreeSet::new();
+    for placement in &room.placements {
+        ids.insert(SimId::placement(&placement.id.0).to_string());
+    }
+    for boss in &room.boss_spawns {
+        ids.insert(SimId::placement(&boss.id).to_string());
+    }
+    for enemy in &room.enemy_spawns {
+        if planned_giants.contains(&enemy.id) {
+            continue;
+        }
+        ids.insert(SimId::placement(&enemy.id).to_string());
+    }
+    ids
 }
 
 /// Execute a previously prepared feature plan.

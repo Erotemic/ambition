@@ -662,6 +662,123 @@ pub fn planned_rig_for_host(
         .collect()
 }
 
+/// Compare every planned row's committed rig against the EXACT composition the
+/// plan described for it — the composition question [`verify_limb`] cannot ask.
+///
+/// The per-relation postcondition pass proves each planned limb landed; it is
+/// structurally blind to a rig that ALSO holds something the plan never named
+/// (an extra slot, a duplicated limb entity, a second intent stream's leftover),
+/// because no planned relation points at the surplus. This pass derives the
+/// expected slot→identity map from the plan ([`planned_rig_for_host`]), resolves
+/// identities to entities through the receipt (which pins generation, not just
+/// index), and demands slot-for-slot equality both ways:
+///
+/// - every planned slot occupied, by exactly the planned limb's committed entity;
+/// - no slot the plan did not describe;
+/// - no limb entity appearing in two slots;
+/// - each occupant's forward [`crate::features::Limb`] agreeing on host AND slot
+///   (which catches a stale host generation: `Limb.of` carries the full
+///   `Entity`, so an old generation compares unequal);
+/// - a row with no planned limbs carrying no rig entries at all.
+///
+/// Runs over ALL planned rows, not just giant hosts, so an unplanned rig
+/// appearing on any committed row is a finding. Read-only; violations surface as
+/// [`RosterViolation::RigComposition`], which is fatal.
+pub fn verify_rig_composition(
+    plan: &ActorConstructionPlan,
+    receipt: &ambition_platformer_primitives::construction::ConstructionReceipt,
+    world: &World,
+) -> Vec<ambition_platformer_primitives::construction::RosterViolation> {
+    use ambition_platformer_primitives::construction::RosterViolation;
+    let mut violations = Vec::new();
+    for row in plan.entities() {
+        let host_sim = row.sim_id();
+        let planned = planned_rig_for_host(plan, host_sim);
+        let Some(host_entity) = receipt.entity(host_sim) else {
+            // Never committed: the generic roster pass already reports it, and
+            // there is no world-side rig to compare.
+            continue;
+        };
+        let committed: std::collections::BTreeMap<crate::features::LimbSlot, Entity> = world
+            .get::<crate::features::LimbRig>(host_entity)
+            .map(|rig| rig.limbs.clone())
+            .unwrap_or_default();
+        if planned.is_empty() && committed.is_empty() {
+            continue;
+        }
+        let mut fault = |detail: String| {
+            violations.push(RosterViolation::RigComposition {
+                host: host_sim.clone(),
+                detail,
+            });
+        };
+        // Slot-keyed comparison over the UNION of both sides, so surplus slots
+        // are as visible as missing ones.
+        let slots: std::collections::BTreeSet<crate::features::LimbSlot> =
+            planned.keys().chain(committed.keys()).copied().collect();
+        for slot in slots {
+            match (planned.get(&slot), committed.get(&slot)) {
+                (Some(limb_sim), Some(&occupant)) => {
+                    match receipt.entity(limb_sim) {
+                        Some(expected) if expected == occupant => {
+                            // Right occupant; now the forward half must agree.
+                            match world.get::<crate::features::Limb>(occupant) {
+                                None => fault(format!(
+                                    "slot {slot:?} occupant `{limb_sim}` carries no Limb component"
+                                )),
+                                Some(limb) if limb.of != host_entity => fault(format!(
+                                    "slot {slot:?} occupant `{limb_sim}` answers to \
+                                     {:?}, not its host {host_entity:?}",
+                                    limb.of
+                                )),
+                                Some(limb) if limb.slot != slot => fault(format!(
+                                    "slot {slot:?} occupant `{limb_sim}` believes it fills \
+                                     {:?}",
+                                    limb.slot
+                                )),
+                                Some(_) => {}
+                            }
+                        }
+                        Some(expected) => fault(format!(
+                            "slot {slot:?} holds {occupant:?}, but the plan committed \
+                             `{limb_sim}` onto {expected:?}"
+                        )),
+                        None => fault(format!(
+                            "slot {slot:?} names planned limb `{limb_sim}` which never committed"
+                        )),
+                    }
+                }
+                (Some(limb_sim), None) => {
+                    fault(format!(
+                        "planned slot {slot:?} (limb `{limb_sim}`) is empty"
+                    ));
+                }
+                (None, Some(&occupant)) => {
+                    fault(format!(
+                        "slot {slot:?} holds {occupant:?}, which the plan never described"
+                    ));
+                }
+                (None, None) => unreachable!("slot came from the union of both maps"),
+            }
+        }
+        // A limb entity answering to two slots is one body wearing two names —
+        // invisible to the per-slot pass when each slot individually "matches".
+        let mut seen: std::collections::BTreeMap<Entity, crate::features::LimbSlot> =
+            std::collections::BTreeMap::new();
+        for (&slot, &occupant) in &committed {
+            if let Some(&first) = seen.get(&occupant) {
+                violations.push(RosterViolation::RigComposition {
+                    host: host_sim.clone(),
+                    detail: format!("{occupant:?} occupies both {first:?} and {slot:?}"),
+                });
+            } else {
+                seen.insert(occupant, slot);
+            }
+        }
+    }
+    violations
+}
+
 /// Wire a rider onto a mount: `RidingOn` + `Mounted` on the rider, `MountSlot`
 /// on the mount going back. **One function writes both ends.**
 fn wire_mount(rider: Entity, mount: Entity, _relation: &ActorRelation, ctx: &mut Ctx<'_, '_, '_>) {
@@ -1085,29 +1202,80 @@ pub fn staged_actor_requests(
     room_id: &str,
     provider: &str,
     requests: &[SpawnActorRequest],
+    roster: &crate::features::CharacterRoster,
 ) -> Vec<ActorConstructionRequest> {
-    requests
-        .iter()
-        .map(|request| ActorConstructionRequest {
-            sim_id: SimId::placement(&request.id),
+    let mut rows = Vec::new();
+    for request in requests {
+        let host_sim = SimId::placement(&request.id);
+        let grudges: Vec<_> = request
+            .grudge_against
+            .iter()
+            .map(
+                |foe| ambition_platformer_primitives::construction::RelationRequest {
+                    to: SimId::placement(foe),
+                    relation: ActorRelation::Grudge,
+                },
+            )
+            .collect();
+        // A staged `"giant"`-class enemy lowers to the SAME host + two hand rows
+        // an authored giant does, through the one shared cluster helper — so a
+        // giant is never a handless host regardless of which origin staged it.
+        // (The pre-`e164f22` staged path routed every enemy through
+        // `spawn_enemy_with_faction_into`, which no longer spawns hands, so a
+        // staged giant lost its rig entirely.)
+        if let SpawnActorKind::Enemy { brain } = &request.kind {
+            let spec = roster.spec_for_brain(brain);
+            if crate::features::spec_is_limbed_host(&spec) {
+                let aabb = ambition_engine_core::Aabb::new(request.pos, request.half_size);
+                let host_authored = crate::rooms::Authored::new(
+                    request.id.clone(),
+                    request.name.clone(),
+                    aabb,
+                    brain.clone(),
+                );
+                let hands = crate::features::giant_hand_plans(&request.id, aabb, &spec);
+                let room = room_id.to_string();
+                let provider_owned = provider.to_string();
+                let host_origin = SpawnOrigin::ProviderStaged {
+                    provider: provider_owned.clone(),
+                    room: room.clone(),
+                    instance: request.id.clone(),
+                };
+                let mut cluster = giant_cluster_rows(
+                    host_sim,
+                    host_authored,
+                    request.faction,
+                    // Staged enemies carry no room-authored kinematic paths, the
+                    // same as the pre-migration staged spawn (it passed `&[]`).
+                    Vec::new(),
+                    hands,
+                    host_origin,
+                    move |hand| SpawnOrigin::ProviderStaged {
+                        provider: provider_owned.clone(),
+                        room: room.clone(),
+                        instance: hand.feature_id.clone(),
+                    },
+                );
+                // The host keeps any declared grudge; the hands never carry one.
+                if let Some(host) = cluster.first_mut() {
+                    host.relations.extend(grudges);
+                }
+                rows.append(&mut cluster);
+                continue;
+            }
+        }
+        rows.push(ActorConstructionRequest {
+            sim_id: host_sim,
             origin: SpawnOrigin::ProviderStaged {
                 provider: provider.to_string(),
                 room: room_id.to_string(),
                 instance: request.id.clone(),
             },
             parameters: ActorConstructionParams::StagedActor(request.clone()),
-            relations: request
-                .grudge_against
-                .iter()
-                .map(
-                    |foe| ambition_platformer_primitives::construction::RelationRequest {
-                        to: SimId::placement(foe),
-                        relation: ActorRelation::Grudge,
-                    },
-                )
-                .collect(),
-        })
-        .collect()
+            relations: grudges,
+        });
+    }
+    rows
 }
 
 /// Turn a room's authored `"giant"`-class enemies into construction rows: one
@@ -1126,6 +1294,7 @@ pub fn staged_actor_requests(
 pub fn authored_giant_requests(
     room: &crate::rooms::RoomSpec,
     roster: &crate::features::CharacterRoster,
+    paths: &[(String, ambition_engine_core::KinematicPath)],
 ) -> Vec<ActorConstructionRequest> {
     let mut requests = Vec::new();
     for enemy in &room.enemy_spawns {
@@ -1134,52 +1303,90 @@ pub fn authored_giant_requests(
             continue;
         }
         let giant_sim = SimId::placement(&enemy.id);
-        // The host row: the authored giant plus the host-side rig state.
-        requests.push(ActorConstructionRequest {
-            sim_id: giant_sim.clone(),
-            origin: SpawnOrigin::Authored {
-                source: room.id.clone(),
+        let hands = crate::features::giant_hand_plans(&enemy.id, enemy.aabb, &spec);
+        let source = room.id.clone();
+        let hand_source = source.clone();
+        requests.append(&mut giant_cluster_rows(
+            giant_sim,
+            enemy.clone(),
+            crate::features::ActorFaction::Enemy,
+            // The host receives the SAME frozen room paths an ordinary authored
+            // enemy does (`spawn_enemy(.., &self.paths)`); the pre-`e164f22`
+            // migration dropped them with `paths: Vec::new()`.
+            paths.to_vec(),
+            hands,
+            SpawnOrigin::Authored {
+                source: source.clone(),
                 instance: enemy.id.clone(),
             },
-            parameters: ActorConstructionParams::GiantHost {
-                authored: enemy.clone(),
-                faction: crate::features::ActorFaction::Enemy,
-                paths: Vec::new(),
+            move |hand| SpawnOrigin::Authored {
+                source: hand_source.clone(),
+                instance: hand.feature_id.clone(),
             },
-            relations: Vec::new(),
-        });
-        // One row per hand, each declaring a limb relation back onto the host.
-        for hand in crate::features::giant_hand_plans(&enemy.id, enemy.aabb, &spec) {
-            requests.push(ActorConstructionRequest {
-                // The hand's snapshot identity is unchanged from the legacy path.
-                sim_id: SimId::spawned(&giant_sim, hand.ordinal),
-                origin: SpawnOrigin::Authored {
-                    source: room.id.clone(),
-                    instance: hand.feature_id.clone(),
-                },
-                parameters: ActorConstructionParams::GiantHand {
-                    authored: crate::rooms::Authored {
-                        id: hand.feature_id.clone(),
-                        name: "Giant GNU Hand".to_string(),
-                        aabb: hand.aabb,
-                        payload: ambition_entity_catalog::placements::CharacterBrain::Custom(
-                            "giant_gnu_hands".into(),
-                        ),
-                    },
-                },
-                relations: vec![
-                    ambition_platformer_primitives::construction::RelationRequest {
-                        to: giant_sim.clone(),
-                        relation: ActorRelation::Limb {
-                            slot: hand.slot,
-                            home_offset: hand.home_offset,
-                        },
-                    },
-                ],
-            });
-        }
+        ));
     }
     requests
+}
+
+/// The shared lowering for a `"giant"`-class host: one `GiantHost` row plus two
+/// `GiantHand` rows joined by `ambition.limb` relations. Both the authored-enemy
+/// origin ([`authored_giant_requests`]) and the provider-staged origin
+/// ([`staged_actor_requests`]) lower through this ONE function, so a giant is the
+/// same three-row cluster regardless of where it entered — the property that
+/// makes "every plan origin builds a giant the same way" true rather than
+/// aspirational. Origins that do not go through the planner at all (summon,
+/// encounter, runtime minion, boss) reject giant-class specs during preparation
+/// rather than producing a handless host.
+///
+/// The hand identities are `SimId::spawned(host, ordinal)`, with the feature id a
+/// pure function of the host's authored id, so a snapshot taken before the
+/// explicit-hand migration still restores.
+#[allow(clippy::too_many_arguments)]
+fn giant_cluster_rows(
+    host_sim: SimId,
+    host_authored: crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+    faction: crate::features::ActorFaction,
+    paths: Vec<(String, ambition_engine_core::KinematicPath)>,
+    hands: Vec<crate::features::GiantHandPlan>,
+    host_origin: SpawnOrigin,
+    mut hand_origin: impl FnMut(&crate::features::GiantHandPlan) -> SpawnOrigin,
+) -> Vec<ActorConstructionRequest> {
+    let mut rows = vec![ActorConstructionRequest {
+        sim_id: host_sim.clone(),
+        origin: host_origin,
+        parameters: ActorConstructionParams::GiantHost {
+            authored: host_authored,
+            faction,
+            paths,
+        },
+        relations: Vec::new(),
+    }];
+    for hand in &hands {
+        rows.push(ActorConstructionRequest {
+            sim_id: SimId::spawned(&host_sim, hand.ordinal),
+            origin: hand_origin(hand),
+            parameters: ActorConstructionParams::GiantHand {
+                authored: crate::rooms::Authored {
+                    id: hand.feature_id.clone(),
+                    name: "Giant GNU Hand".to_string(),
+                    aabb: hand.aabb,
+                    payload: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                        "giant_gnu_hands".into(),
+                    ),
+                },
+            },
+            relations: vec![
+                ambition_platformer_primitives::construction::RelationRequest {
+                    to: host_sim.clone(),
+                    relation: ActorRelation::Limb {
+                        slot: hand.slot,
+                        home_offset: hand.home_offset,
+                    },
+                },
+            ],
+        });
+    }
+    rows
 }
 
 /// The authored ids this room constructs as `"giant"`-class hosts, so the

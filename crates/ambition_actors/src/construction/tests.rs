@@ -826,9 +826,14 @@ fn every_parameter_variant_constructs_its_root() {
         .expect("the ground item resolves")
         .pop()
         .expect("one request"),
-        staged_actor_requests("hall", "prov", &[staged_enemy("staged", None)])
-            .pop()
-            .expect("one request"),
+        staged_actor_requests(
+            "hall",
+            "prov",
+            &[staged_enemy("staged", None)],
+            &crate::features::enemies::test_roster(),
+        )
+        .pop()
+        .expect("one request"),
         summoned_minion_request(
             &summoner,
             0,
@@ -1018,9 +1023,14 @@ fn every_parameter_variant_matches_its_descriptor() {
         .expect("resolves")
         .pop()
         .expect("one request");
-    let staged = staged_actor_requests("hall", "prov", &[staged_enemy("staged", None)])
-        .pop()
-        .expect("one request");
+    let staged = staged_actor_requests(
+        "hall",
+        "prov",
+        &[staged_enemy("staged", None)],
+        &crate::features::enemies::test_roster(),
+    )
+    .pop()
+    .expect("one request");
     let summoned = summoned_minion_request(
         &SimId::placement("boss_1"),
         0,
@@ -1893,7 +1903,7 @@ fn giant_room() -> crate::rooms::RoomSpec {
 #[test]
 fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
     let roster = crate::features::enemies::test_roster();
-    let requests = crate::construction::authored_giant_requests(&giant_room(), &roster);
+    let requests = crate::construction::authored_giant_requests(&giant_room(), &roster, &[]);
 
     // One host + two hands.
     assert_eq!(requests.len(), 3, "host + two hands");
@@ -1934,7 +1944,7 @@ fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
 #[test]
 fn a_committed_giant_has_a_verified_two_hand_rig() {
     let roster = crate::features::enemies::test_roster();
-    let requests = crate::construction::authored_giant_requests(&giant_room(), &roster);
+    let requests = crate::construction::authored_giant_requests(&giant_room(), &roster, &[]);
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -1976,7 +1986,7 @@ fn a_committed_giant_has_a_verified_two_hand_rig() {
 #[test]
 fn the_giant_reconstruction_closure_is_the_whole_cluster() {
     let roster = crate::features::enemies::test_roster();
-    let requests = crate::construction::authored_giant_requests(&giant_room(), &roster);
+    let requests = crate::construction::authored_giant_requests(&giant_room(), &roster, &[]);
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -2006,6 +2016,428 @@ fn the_legacy_family_list_is_empty() {
         ambition_platformer_primitives::construction::KNOWN_LEGACY_FAMILIES.is_empty(),
         "the giant hands were the last legacy family"
     );
+}
+
+// ── Giants for every construction origin ─────────────────────────────────────
+
+fn staged_giant(id: &str) -> SpawnActorRequest {
+    SpawnActorRequest {
+        id: id.to_string(),
+        name: "Giant GNU".to_string(),
+        pos: ae::Vec2::new(100.0, 100.0),
+        half_size: ae::Vec2::splat(60.0),
+        faction: crate::features::ActorFaction::Enemy,
+        grudge_against: None,
+        kind: SpawnActorKind::Enemy {
+            brain: ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu".into()),
+        },
+    }
+}
+
+/// **A provider-staged giant lowers to the SAME three-row cluster an authored
+/// one does.** Before this, `staged_actor_requests` emitted a single
+/// `StagedActor` row whose recipe routed through the enemy spawn helper — which
+/// no longer spawns hands — so a staged giant was a handless host.
+#[test]
+fn a_staged_giant_becomes_a_host_row_and_two_hand_rows() {
+    let roster = crate::features::enemies::test_roster();
+    let requests = staged_actor_requests("hall", "prov", &[staged_giant("gnu")], &roster);
+
+    assert_eq!(requests.len(), 3, "host + two hands");
+    let host = SimId::placement("gnu");
+    for (sim_id, ordinal) in [(SimId::spawned(&host, 0), 0), (SimId::spawned(&host, 1), 1)] {
+        let row = requests
+            .iter()
+            .find(|r| r.sim_id == sim_id)
+            .unwrap_or_else(|| panic!("hand row {ordinal} exists"));
+        assert_eq!(row.relations.len(), 1);
+        assert_eq!(row.relations[0].to, host);
+        assert!(matches!(
+            row.relations[0].relation,
+            ActorRelation::Limb { .. }
+        ));
+        assert!(
+            matches!(&row.origin, SpawnOrigin::ProviderStaged { provider, room, .. }
+                if provider == "prov" && room == "hall"),
+            "a staged hand keeps its staged provenance: {:?}",
+            row.origin
+        );
+    }
+    let host_row = requests
+        .iter()
+        .find(|r| r.sim_id == host)
+        .expect("host row");
+    assert!(
+        matches!(
+            &host_row.parameters,
+            ActorConstructionParams::GiantHost { .. }
+        ),
+        "the staged giant is a GiantHost row, not a StagedActor row"
+    );
+}
+
+/// The giant expansion does not leak onto ordinary staged actors.
+#[test]
+fn a_staged_non_giant_stays_a_single_staged_actor_row() {
+    let roster = crate::features::enemies::test_roster();
+    let requests = staged_actor_requests("hall", "prov", &[staged_enemy("npc", None)], &roster);
+    assert_eq!(requests.len(), 1);
+    assert!(matches!(
+        &requests[0].parameters,
+        ActorConstructionParams::StagedActor(_)
+    ));
+}
+
+/// End to end: a provider STAGES a giant, the room commits, the boundary
+/// verifier publishes, and the world holds a fully wired two-hand rig.
+#[test]
+fn a_staged_giant_commits_into_a_published_room_with_a_wired_rig() {
+    let room = empty_room("hall");
+    let mut staging = crate::features::RoomContentStagingRegistry::default();
+    staging
+        .register("hall", "test_provider", "boss", "boss.v1", |_room| {
+            vec![staged_giant("gnu")]
+        })
+        .expect("stager registers");
+    let plan = prepare(&room, &staging, &engine_construction_registry()).expect("the room plans");
+    let mut app = commit(plan);
+
+    let verification = app
+        .world()
+        .resource::<crate::world::rooms::LastConstructionVerification>();
+    assert!(
+        verification.published,
+        "the staged-giant room publishes: {:?}",
+        verification.violations
+    );
+
+    let host = SimId::placement("gnu");
+    let world = app.world_mut();
+    let find = |world: &mut World, wanted: &SimId| {
+        let mut query = world.query::<(bevy::prelude::Entity, &SimId)>();
+        query
+            .iter(world)
+            .find(|(_, sim)| *sim == wanted)
+            .map(|(entity, _)| entity)
+            .unwrap_or_else(|| panic!("`{wanted}` is live"))
+    };
+    let host_entity = find(world, &host);
+    let hand_l = find(world, &SimId::spawned(&host, 0));
+    let hand_r = find(world, &SimId::spawned(&host, 1));
+    let rig = world
+        .get::<crate::features::LimbRig>(host_entity)
+        .expect("the staged host carries a rig");
+    assert_eq!(rig.get(crate::features::LimbSlot::HandLeft), Some(hand_l));
+    assert_eq!(rig.get(crate::features::LimbSlot::HandRight), Some(hand_r));
+}
+
+/// **The authored giant host carries the room's frozen kinematic paths** — the
+/// same seed data an ordinary authored enemy receives. The first migration
+/// passed `Vec::new()`, silently un-pathing every giant.
+#[test]
+fn an_authored_giant_host_carries_the_rooms_frozen_paths() {
+    let mut room = giant_room();
+    room.kinematic_paths
+        .push(ambition_world::rooms::KinematicPathSpec::new(
+            "patrol",
+            "patrol",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
+            ae::KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(64.0, 0.0), 24.0),
+        ));
+    let plan = prepare(
+        &room,
+        &crate::features::RoomContentStagingRegistry::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the pathed giant room plans");
+
+    let host = SimId::placement("boss_mount");
+    let row = plan
+        .construction()
+        .get(&host)
+        .expect("the giant host is a plan row");
+    let ActorConstructionParams::GiantHost { paths, .. } = row.parameters() else {
+        panic!("the host row is a GiantHost");
+    };
+    assert_eq!(
+        paths.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(),
+        vec!["patrol"],
+        "the host row froze the room's paths at planning"
+    );
+}
+
+/// A runtime-dynamic origin cannot lower a giant into plan rows, so it REFUSES
+/// the spec instead of spawning a handless host. The root allocated for the
+/// minion stays unpopulated.
+#[test]
+fn a_runtime_minion_giant_is_refused_before_it_spawns() {
+    let mut world = World::new();
+    let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+    let roster = crate::features::enemies::test_roster();
+    let root = {
+        let mut commands = world.commands();
+        crate::features::ecs::spawn_runtime_minion(
+            &mut commands,
+            &catalog,
+            &roster,
+            SessionSpawnScope::UNSCOPED,
+            "runaway",
+            "Giant GNU",
+            ae::Vec2::ZERO,
+            ae::Vec2::splat(60.0),
+            "giant_gnu",
+            "enc",
+            crate::features::ActorFaction::Enemy,
+            crate::features::ActorAggression::hostile(),
+        )
+    };
+    world.flush();
+    assert!(
+        world
+            .get::<ambition_combat::components::FeatureId>(root)
+            .is_none(),
+        "the refused giant populated nothing"
+    );
+}
+
+/// The encounter-wave origin refuses a giant the same way.
+#[test]
+fn an_encounter_wave_giant_is_refused_before_it_spawns() {
+    let mut world = World::new();
+    let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+    let roster = crate::features::enemies::test_roster();
+    {
+        let mut commands = world.commands();
+        crate::features::spawn_encounter_mob(
+            &mut commands,
+            &catalog,
+            &roster,
+            SessionSpawnScope::UNSCOPED,
+            "enc",
+            "wave_gnu".to_string(),
+            ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu".into()),
+            ae::Vec2::ZERO,
+            ae::Vec2::splat(120.0),
+        );
+    }
+    world.flush();
+    let mut features = world.query::<&ambition_combat::components::FeatureId>();
+    assert_eq!(
+        features.iter(&world).count(),
+        0,
+        "the refused wave giant spawned no body"
+    );
+}
+
+// ── Exact rig composition ─────────────────────────────────────────────────────
+
+fn committed_giant() -> (
+    ActorConstructionPlan,
+    World,
+    ConstructionReceipt,
+    TransactionBaseline,
+) {
+    let roster = crate::features::enemies::test_roster();
+    let requests = crate::construction::authored_giant_requests(&giant_room(), &roster, &[]);
+    let plan = ActorConstructionPlan::prepare(
+        dynamic_scope(),
+        requests,
+        &Default::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the giant plan is valid");
+    let (world, receipt, baseline) = commit_bare(&plan);
+    (plan, world, receipt, baseline)
+}
+
+fn rig_faults(plan: &ActorConstructionPlan, receipt: &ConstructionReceipt, world: &World) -> usize {
+    let faults = crate::construction::verify_rig_composition(plan, receipt, world);
+    for fault in &faults {
+        assert!(
+            matches!(fault, RosterViolation::RigComposition { .. }),
+            "the composition pass only speaks RigComposition: {fault:?}"
+        );
+        assert_eq!(
+            fault.severity(),
+            ambition_platformer_primitives::construction::Severity::Fatal,
+            "a composition fault is unpublishable"
+        );
+    }
+    faults.len()
+}
+
+/// The composition pass is quiet on a correctly committed cluster — the poison
+/// tests below are meaningful only if this baseline holds.
+#[test]
+fn a_clean_giant_rig_has_no_composition_faults() {
+    let (plan, world, receipt, _) = committed_giant();
+    assert_eq!(rig_faults(&plan, &receipt, &world), 0);
+}
+
+/// An EXTRA limb the plan never described: every planned relation still
+/// verifies, so only the composition pass can see the surplus.
+#[test]
+fn an_extra_unplanned_rig_entry_is_fatal() {
+    let (plan, mut world, receipt, baseline) = committed_giant();
+    let host = SimId::placement("boss_mount");
+    let host_entity = receipt.entity(&host).expect("host");
+    let interloper = world.spawn_empty().id();
+    // A one-hand plan would leave HandRight free; here we sabotage by pointing
+    // an occupied slot's entry at a THIRD body while both planned relations
+    // keep their own components intact — the shape a second intent stream
+    // leaves behind.
+    world
+        .get_mut::<crate::features::LimbRig>(host_entity)
+        .expect("rig")
+        .limbs
+        .insert(crate::features::LimbSlot::HandRight, interloper);
+    assert!(rig_faults(&plan, &receipt, &world) > 0);
+    // And the outer roster pass still passes its OWN checks minus the rig —
+    // proving the composition pass is the one that catches this.
+    let per_relation = verify_bare(&mut world, &plan, &receipt, &baseline);
+    assert!(
+        per_relation.is_err(),
+        "the reverse-membership check also notices the displaced hand"
+    );
+}
+
+/// One limb body answering to BOTH slots: each slot individually resolves to a
+/// committed hand, so only the duplicate scan sees one body wearing two names.
+#[test]
+fn a_duplicated_limb_entity_across_slots_is_fatal() {
+    let (plan, mut world, receipt, _) = committed_giant();
+    let host = SimId::placement("boss_mount");
+    let host_entity = receipt.entity(&host).expect("host");
+    let hand_l = receipt.entity(&SimId::spawned(&host, 0)).expect("left");
+    world
+        .get_mut::<crate::features::LimbRig>(host_entity)
+        .expect("rig")
+        .limbs
+        .insert(crate::features::LimbSlot::HandRight, hand_l);
+    assert!(rig_faults(&plan, &receipt, &world) > 0);
+}
+
+/// A planned slot with nothing in it. The limb's own components survive, so the
+/// forward checks pass; the hole is only visible slot-by-slot.
+#[test]
+fn a_missing_planned_slot_is_fatal() {
+    let (plan, mut world, receipt, _) = committed_giant();
+    let host = SimId::placement("boss_mount");
+    let host_entity = receipt.entity(&host).expect("host");
+    world
+        .get_mut::<crate::features::LimbRig>(host_entity)
+        .expect("rig")
+        .limbs
+        .remove(&crate::features::LimbSlot::HandLeft);
+    assert!(rig_faults(&plan, &receipt, &world) > 0);
+}
+
+/// Correct forward `Limb` data on both hands, corrupted HOST rig: the two rig
+/// entries are swapped, so each slot holds a real committed hand — the wrong
+/// one.
+#[test]
+fn a_swapped_rig_with_correct_forward_limbs_is_fatal() {
+    let (plan, mut world, receipt, _) = committed_giant();
+    let host = SimId::placement("boss_mount");
+    let host_entity = receipt.entity(&host).expect("host");
+    let hand_l = receipt.entity(&SimId::spawned(&host, 0)).expect("left");
+    let hand_r = receipt.entity(&SimId::spawned(&host, 1)).expect("right");
+    {
+        let mut rig = world
+            .get_mut::<crate::features::LimbRig>(host_entity)
+            .expect("rig");
+        rig.limbs
+            .insert(crate::features::LimbSlot::HandLeft, hand_r);
+        rig.limbs
+            .insert(crate::features::LimbSlot::HandRight, hand_l);
+    }
+    assert!(rig_faults(&plan, &receipt, &world) > 0);
+}
+
+/// Correct host rig, STALE limb forward pointer: the hand answers to an entity
+/// that is not its host's current body. `Limb.of` carries a full `Entity` —
+/// index AND generation — so a stale generation compares unequal.
+#[test]
+fn a_stale_limb_host_pointer_is_fatal() {
+    let (plan, mut world, receipt, _) = committed_giant();
+    let host = SimId::placement("boss_mount");
+    let hand_l = receipt.entity(&SimId::spawned(&host, 0)).expect("left");
+    let stale = world.spawn_empty().id();
+    world.despawn(stale);
+    world
+        .get_mut::<crate::features::Limb>(hand_l)
+        .expect("the hand carries a Limb")
+        .of = stale;
+    assert!(rig_faults(&plan, &receipt, &world) > 0);
+}
+
+// ── Reconstruction from a stable identity ─────────────────────────────────────
+
+/// **Production reconstruction can start from ANY cluster member — host, left
+/// hand, or right hand.** The authored-id entry point spells only
+/// `SimId::placement`, which can never name a hand; the `SimId` entry point can.
+/// Each rebuild produces three FRESH bodies with the rig and both forward limb
+/// pointers rewired onto the new generation.
+#[test]
+fn reconstructing_from_any_giant_cluster_member_rebuilds_all_three_fresh() {
+    let host = SimId::placement("boss_mount");
+    let hand_l = SimId::spawned(&host, 0);
+    let hand_r = SimId::spawned(&host, 1);
+    for seed in [&host, &hand_l, &hand_r] {
+        let plan = prepare(
+            &giant_room(),
+            &crate::features::RoomContentStagingRegistry::default(),
+            &engine_construction_registry(),
+        )
+        .expect("the giant room plans");
+        let mut app = commit(plan.clone());
+        let world = app.world_mut();
+
+        let find = |world: &mut World, wanted: &SimId| {
+            let mut query = world.query::<(bevy::prelude::Entity, &SimId)>();
+            query
+                .iter(world)
+                .find(|(_, sim)| *sim == wanted)
+                .map(|(entity, _)| entity)
+                .unwrap_or_else(|| panic!("`{wanted}` is live"))
+        };
+        let old: Vec<_> = [&host, &hand_l, &hand_r]
+            .into_iter()
+            .map(|id| find(world, id))
+            .collect();
+        for entity in &old {
+            world.despawn(*entity);
+        }
+
+        let rebuilt = {
+            let mut commands = world.commands();
+            plan.respawn_authoritative_sim_id(&mut commands, SessionSpawnScope::UNSCOPED, seed)
+        };
+        assert!(rebuilt, "the closure of `{seed}` rebuilds");
+        world.flush();
+
+        let new_host = find(world, &host);
+        let new_l = find(world, &hand_l);
+        let new_r = find(world, &hand_r);
+        for (fresh, stale) in [new_host, new_l, new_r].iter().zip(&old) {
+            assert_ne!(fresh, stale, "seed `{seed}` produced a fresh body");
+        }
+        let rig = world
+            .get::<crate::features::LimbRig>(new_host)
+            .expect("the rebuilt host carries a rig");
+        assert_eq!(rig.get(crate::features::LimbSlot::HandLeft), Some(new_l));
+        assert_eq!(rig.get(crate::features::LimbSlot::HandRight), Some(new_r));
+        for (hand, slot) in [
+            (new_l, crate::features::LimbSlot::HandLeft),
+            (new_r, crate::features::LimbSlot::HandRight),
+        ] {
+            let limb = world
+                .get::<crate::features::Limb>(hand)
+                .expect("the rebuilt hand carries a Limb");
+            assert_eq!(limb.of, new_host, "rewired onto the NEW host generation");
+            assert_eq!(limb.slot, slot);
+        }
+    }
 }
 
 /// Both new relations are in the registry dump, so a change to either one's

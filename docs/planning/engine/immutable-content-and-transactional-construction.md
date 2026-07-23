@@ -1734,11 +1734,148 @@ could never see, in layers:
    through an entity-free canonical projection; the one-frame staging
    lane is the accepted semantics.
 4. **Recorded boundary: sim-triggered room reset inside a rollback window
-   is a guaranteed divergence** — reconstruction runs through Commands no
-   rollback can undo (observed as a mid-brawl full-heal when the player
-   died and the room reset under the resim window). The fix shape is
-   confirmed-frame deferral of reconstruction, the same quarantine external
-   effects use — recorded here, not attempted.
+   — PARTIALLY CLOSED, re-scoped by reproduce-first 2026-07-23.** The
+   original observation (mid-brawl enemy full-heal, frame ~2147) was the
+   IN-PLACE reset path (`reset_ecs_room_features`, ops 1/2a/3). Written as
+   a reproduction, it corrected the diagnosis: a player-death reset with
+   damaged enemies + in-flight projectiles now survives 2400 sync-test
+   frames clean (`app_it::rollback_lifecycle_reset`) — the intervening
+   lifecycle-boundary hardening (`PendingPlayerHitEvents` voiding
+   `fd7ddbc0c`, strike-volume registration, the Combat chain reorder)
+   closed it, and the new coverage keeps it closed. Track B's remaining
+   target is RECONSTRUCTION (op 2b full reset / op 4 transition / op 5
+   snapshot — despawn+respawn a whole room via Commands), whose
+   divergence is still owed a reproduction; full design in **Track B**.
+
+### Track B — Confirmed-frame lifecycle commitment (DESIGN, 2026-07-23)
+
+> **Status:** DESIGN, not yet implemented. This is the largest unfinished
+> rollback item (GPT 5.6 concurred) and it GATES the Matchbox two-peer
+> track — death/reset/transition must not mutate the room during a
+> speculative frame before online work begins. Sequenced: reproduce → B →
+> C/D/E hardening checkpoint → Matchbox.
+
+**The problem (mapped 2026-07-23).** Under the GGRS host `app.sim_schedule()`
+IS `bevy_ggrs::GgrsSchedule` (`ambition_runtime/src/lib.rs:185`), and every
+`SandboxSet` phase registers into it. So **all five room-lifecycle operations
+execute inside the rollback schedule and mutate the authoritative world via
+Commands / direct writes on speculative frames.** No lifecycle path consults
+`ConfirmedFrameBoundary`; the only confirmed-frame deferral today is for
+*external presentation effects* (`external_effects.rs`) and persistence saves
+(`world_state_is_confirmed`). The publication transaction itself documents it
+is "detection, not rollback… commands cannot be undone"
+(`world/rooms/transaction.rs:39-42`).
+
+The five operations (all rollback-schedule, all Commands/direct-write):
+1. **Player-death reset** — `apply_home_reset_policy` (`app/player_tick.rs:40`,
+   `SandboxSet::PlayerSimulation`) reads `PlayerBodyFrameOutput.reset`, runs
+   `reset_sandbox`, writes `ResetRoomFeaturesEvent{PlayerDeath}` →
+   `reset_ecs_room_features` (`features/ecs/reset.rs:11`,
+   `SandboxSet::RoomTransition`): **in-place restore** — despawns transients,
+   `remove::<Collected|Opened|RespawnTimer>`, revives bosses via direct
+   `health.reset()`, resets actors to spawn. (This is the observed divergence:
+   mid-brawl enemy HP snap-back.)
+2. **Manual reset** — (2a) `reset_pressed` → `apply_player_reset_input_system`
+   (`app/sim_systems.rs:56`, `SandboxSet::PlayerInput`) → same in-place restore;
+   (2b) `SandboxResetRequested` (rollback-registered resource) →
+   `process_sandbox_reset_request` (`session/reset/mod.rs:112`,
+   `SandboxSet::ResetProcessing`) → **reconstruction** via
+   `RoomConstructionPlan::prepare_from_parts` + `commit_deferred`.
+3. **Room replay** — `RoomReplayRequested` → `apply_room_replay_request_system`
+   (`sandbox_reset.rs:115`, `SandboxSet::PlayerInput`) → in-place restore.
+4. **Room transition** — already a MULTI-TICK readiness state machine:
+   `detect_room_transition_system` → `RoomTransitionRequested` → composer chain
+   (`app/plugins.rs:235-248`, `SandboxSet::RoomTransition`); plan is
+   prepared mutation-free during `AwaitingReadiness`
+   (`room_transition_loading.rs:544`), committed a LATER tick via
+   `commit_ready_room_transition_system` → `commit_room_transition_geometry`
+   (`world/rooms/load.rs:36`) → `commit_deferred` (Commands reconstruction).
+5. **Snapshot reconstruction** — canonical `RoomConstructionPlan` transaction
+   (`world/rooms/stage.rs`): `prepare*` → `spawn_contents`/`commit_deferred`
+   (Commands) or **`apply_to_world(self, world)` (`stage.rs:393`) — exclusive
+   world, `world.flush()`, no production caller today**.
+
+All lifecycle SIGNALS (`ResetRoomFeaturesEvent`, `RoomReplayRequested`,
+`RoomTransitionRequested`, `SandboxResetRequested`, `RoomConstructionPlan`,
+`SpawnActorRequest`) are already rollback-registered
+(`rollback/mod.rs`) — so the TRIGGER is rollback-visible; only the CONSUMER
+executes eagerly. That is the seam.
+
+**Architectural correction (GPT 5.6).** This is NOT the external-effect
+quarantine mechanism. `ExternalEffectJournal` is explicitly *not* rollback
+state (`external_effects.rs:117-122`) because its consumers live outside the
+sim. Room reconstruction changes the AUTHORITATIVE world, so its intent must
+*be* rollback state, and once a lifecycle op is confirmed and executed, **GGRS
+must never restore a snapshot from before it.** Two pieces:
+
+**Piece 1 — rollback-visible lifecycle intent.** Each consumer above, under a
+rollback host, RECORDS a `PendingLifecycleCommit` (a rollback-REGISTERED
+resource, unlike the effect journal) instead of executing. The intent carries
+stable facts: originating sim frame; `RollbackSessionGeneration`; lifecycle
+kind (DeathReset | ManualReset | Replay | Transition{target zone/room} |
+FullReset); session scope; source/target room; `ActiveContentBinding` +
+plan/transaction identity; reset reason/policy. Because it is rollback state:
+resim reproduces it deterministically; corrected input (death disappears)
+removes it with the rewound state; repeated prediction cannot duplicate the
+eventual commit (it is idempotent STATE, not an accumulating command).
+Non-rollback hosts (no `ConfirmedFrameBoundary`) execute immediately as today —
+the `world_state_is_confirmed`/`resource_exists::<ConfirmedFrameBoundary>`
+gate, exactly like the effect quarantine, so the shipped fixed-tick/render
+hosts are untouched.
+
+**Piece 2 — confirmed authoritative discontinuity.** A host-side system
+(Update/`PreUpdate`, AFTER the host's advances, NOT in `GgrsSchedule`, gated on
+`ConfirmedFrameBoundary`) that, when `boundary.confirmed >= intent.frame`:
+claims the intent exactly once (frame-ordered, like
+`ExternalEffectJournal::take_confirmed`); executes the operation in EXCLUSIVE
+world — the in-place restore path (`reset_ecs_room_features` needs an
+exclusive-world twin) or reconstruction (`apply_to_world`, `stage.rs:393`, the
+existing but unused exclusive primitive); then **rebases the session** —
+`start_sync_test_session`-style (`session.rs:93`) which resets
+`RollbackFrameCount(0)` / `ConfirmedFrameCount(-1)` / `Time<GgrsTime>` and whose
+first frame-zero SaveWorld OVERWRITES every non-negative ring slot
+(`session.rs:97-114`) — bumping `RollbackSessionGeneration` so every
+generation-stamped consumer (`reset_if_new_session`, the trace's
+`pending_oob_session`) discards old-timeline work. The post-lifecycle world is
+the new frame-zero baseline; no earlier frame can restore the pre-op room.
+Merely running the transaction when `frame <= confirmed` is INSUFFICIENT — old
+ring history would still be restorable; the rebase is the load-bearing half.
+For `RollbackSessionOwnership::External` (Matchbox), a unilateral rebase is
+forbidden (`session.rs:73-77`) — the confirmed discontinuity there needs a
+coordinated peer barrier; B defines the `LocalSyncTest` rebase and leaves
+External as a documented seam (`invalidate_session` + coordinated restart, the
+same shape content-reload uses).
+
+**Reproduce FIRST (Jon's rule) — DONE, and it re-scoped B.**
+`app_it::rollback_lifecycle_reset` drove the two IN-PLACE reset levers
+(`AgentAction::reset()` manual; low-HP player-death with damaged enemies) under
+a live sync-test window. BOTH stay clean to 2400 frames — the in-place path
+(ops 1/2a/3) is already rollback-safe (the recorded boundary was closed by the
+`PendingPlayerHitEvents`/strike-volume hardening). Those tests are now kept as
+regression coverage. **The remaining reproduction — still owed — is the
+RECONSTRUCTION path**: an input-driven ROOM TRANSITION (op 4, walk the
+controlled body through a loading zone into a set-up target room) or a full
+sandbox reset (op 2b) inside the rollback window, which despawns+respawns a
+whole room's entities via Commands. Assert `rollback_health().is_err()` there,
+then B turns it green. The in-place work below (T3) is therefore likely a
+no-op-to-verify; the load-bearing work is T4/T5 (reconstruction + rebase).
+
+**Required principal oracle (the whole timeline contract, GPT 5.6):** predict a
+death → assert a pending intent but NO reconstruction → correct the input so
+death disappears → assert intent + reset gone → predict death again → confirm
+the frame → assert reconstruction happens EXACTLY once → assert
+`RollbackSessionGeneration` advanced → continue forced rollback with matching
+checksums → assert no stale pre-reset snapshot can restore the old population.
+Then smaller tests for manual reset and room transition through the same
+mechanism.
+
+**Task sequence:** (T1) reproduce the divergence; (T2) `PendingLifecycleCommit`
+type + rollback registration + the `ConfirmedFrameBoundary` gate; (T3) convert
+the in-place reset consumers (ops 1/2a/3) to record-not-execute + exclusive-world
+commit; (T4) same for reconstruction (ops 2b/4) reusing `apply_to_world`; (T5)
+the confirmed rebase + generation bump + old-generation discard; (T6) principal
+oracle + manual-reset/transition tests. Determinism-sacred throughout; no
+`Entity`/fn-pointer/iteration-order into any intent field.
 
 ### Phase 6 — external architecture proof — **FIRST SLICE LANDED 2026-07-23**
 

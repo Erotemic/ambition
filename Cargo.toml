@@ -52,6 +52,11 @@ members = [
     "game/ambition_menu_kaleidoscope",
     "tests/ambition_workspace_policy",
 ]
+# The Phase-6 external-architecture proof: a consumer game that must live
+# OUTSIDE the workspace so it exercises exactly what a third-party crate
+# would — the `ambition` umbrella via a path dependency, its own lockfile,
+# no workspace dependency table, no policy exemptions.
+exclude = ["fixtures/external_consumer"]
 resolver = "2"
 
 # One version per shared external dependency. Before this table existed, `ron`

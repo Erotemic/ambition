@@ -1,0 +1,37 @@
+# The Phase-6 external-architecture proof (campaign doc §Phase 6): a consumer
+# game that lives OUTSIDE the engine workspace — its own [workspace], its own
+# lockfile, no workspace dependency table, no policy exemptions — so what
+# compiles here is exactly what a third party gets from the `ambition`
+# umbrella. The dependency rule is the same one the in-repo demos prove:
+# `ambition` + `bevy`, nothing else (bevy only because component derives
+# resolve `bevy_ecs` through the CONSUMER's manifest).
+[package]
+name = "outlander"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[lib]
+crate-type = ["rlib"]
+
+[[bin]]
+name = "outlander_headless"
+path = "src/bin/headless.rs"
+
+[[bin]]
+name = "outlander_dump"
+path = "src/bin/dump.rs"
+
+[dependencies]
+ambition = { path = "../../crates/ambition", default-features = false }
+bevy = { version = "0.18.1", default-features = false }
+
+# LEAK (recorded, Phase-6 evidence): the engine only compiles under the
+# workspace's `bevy_ggrs` fork (HACK(ggrs-accumulator) — widened accumulator
+# visibility), and `[patch.crates-io]` does NOT cross a workspace boundary, so
+# every external consumer must replicate this entry verbatim until the
+# upstream PR releases.
+[patch.crates-io]
+bevy_ggrs = { git = "https://github.com/Erotemic/bevy_ggrs", rev = "da0fafdd5e715a6e0246dc3e0cc88fba0551d0d0" }

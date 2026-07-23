@@ -23,12 +23,15 @@ grammar beyond validation (boss-design.md's open iteration loop).
 One list, so choosing the next big push never requires re-deriving it. Ranked
 by hardness × payoff; every item below is executable today per its own doc.
 
-1. **Phase 4 — room lifecycle onto ONE construction transaction** (track 5
-   continuation; the campaign doc's §Phase 4). The substrate is DONE as of
-   2026-07-23 — outer transaction boundary, plan-derived roster, complete plan
-   identity, exact rig composition, planned limb/mount relations, stable-id
-   reconstruction — so this is now a pure family-migration + commit-boundary
-   campaign. **← CURRENT (Jon, 2026-07-23: proceed).**
+1. ~~**Phase 4 — room lifecycle onto ONE construction transaction**~~
+   **LANDED 2026-07-23** (`637797649`, `58c43e900`, `d1e26aa79`,
+   `37e041810`): every authored family in a shipped room is a construction
+   plan row, the outer roster is exactly `planned_ids()`, all five lifecycle
+   paths share one transaction, and stale content bindings are refused at the
+   boundary. Recorded-open in 4g: live identity index, staging world.
+   **← CURRENT (Jon, 2026-07-23): Phase 5 (rollback-envelope hardening,
+   rewritten under ADR 0027) then Phase 6 / Milestone E (external
+   engine-workflow proof), both per the campaign doc.**
 2. **FB6 rollout redesign** (track 6, [fable]) — the design task is unblocked;
    the implementation stays blocked until it lands.
 3. **Matchbox two-peer transport + predicted-A/corrected-B oracle**
@@ -45,8 +48,9 @@ by hardness × payoff; every item below is executable today per its own doc.
    (code_smells.md 2026-06-26, 30-site worklist) — incremental, parallel-safe.
 
 Hard but **gated**: falling-sand fluids (⛔ Jon's explicit go-ahead required);
-Phase 5 / Milestone D (needs its ADR-0027 rewrite, then Phase 4); boss-quality
-grammar (wants Jon's calibration in the loop).
+boss-quality grammar (wants Jon's calibration in the loop). Phase 5 /
+Milestone D was UNGATED 2026-07-23: Phase 4 landed and the ADR-0027 rewrite
+is done (campaign doc §7.5 + §Phase 5).
 
 ## ★ EXECUTION WAVE 1 (GPT-dialog keystones, 2026-07-19) — runs FIRST
 
@@ -687,8 +691,16 @@ is now **v2**); the Phase 3 account lists them. **Read that list before starting
 Phase 4** — every one was a boundary described as atomic with nothing enforcing
 it, which is exactly the risk Phase 4 multiplies.
 
-**CURRENT (Jon, 2026-07-23): Phase 4 — migrate room lifecycle operations onto
-one construction transaction.** The substrate above exists FOR this. Shape:
+**Phase 4 LANDED 2026-07-23** (`637797649`, `58c43e900`, `d1e26aa79`,
+`37e041810`; accounts in the campaign doc §Phase 4a–4g). All three parts below
+executed: every family migrated (the two ⚠s above dissolved —
+`non_plan_authoritative_ids` is deleted, the roster is exactly
+`planned_ids()`), the five lifecycle paths audited onto one transaction, and
+the commit boundary enforces content-binding staleness
+(`ContentBindingMismatch`, fatal). `apply_spawn_actor_requests` is explicitly
+scoped to programmatic scene setup. Recorded-open in 4g: the live identity
+index (no consumer yet) and the staging world (detection → prevention).
+The executed shape, kept for the record:
 
 1. **Family migration, largest loops first** — fold the remaining spawn loops
    into plan rows using the twice-proven pattern (giants, mount links): enemy
@@ -896,8 +908,10 @@ Small non-blocking work when it does not collide with the campaigns:
 
 - planning-doc repairs queued by the deep review: rewrite
   `engine/room-transition-loading.md` to current-architecture shape (Phases 1–4
-  landed; keep Phase 6 performance closure) [opus]; reframe
-  `engine/immutable-content-…md` §7.5–7.6 + Phase 5 under ADR 0027 [opus];
+  landed; keep Phase 6 performance closure) [opus]; ~~reframe
+  `engine/immutable-content-…md` §7.5–7.6 + Phase 5 under ADR 0027~~ **DONE
+  2026-07-23** (rewritten as rollback-envelope hardening; Milestone D
+  annotated with what ADR 0027 already delivers);
   fold `engine/boss-system.md`'s surviving rules into `boss-design.md` and
   archive it; compress `engine/encounter-orchestration.md` to the durable
   model; archive `engine/shell-vanity-sequence.md` once VC5 lands;

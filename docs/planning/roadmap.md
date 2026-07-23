@@ -42,21 +42,22 @@ placement, one provider-staged actor, and one runtime-dynamic family now share a
 pure, preflightable planner and a recipe-backed reconstruction path, and
 `SpawnOrigin` replaced the id-string parsing that stood in for provenance.
 
-The current broad architecture push is that doc's Phase 4 — making room
-activation, reset, transition, hot reload, and snapshot reconstruction
-variations of ONE construction transaction, which turns the remaining
-family-specific spawn loops into plan rows. **Its substrate closed 2026-07-23**
-(Checkpoints A through "C step 2"): the room transaction owns publication and
-verification at the outer boundary, the authoritative roster and plan identity
-derive from the completed plan, rig composition is verified exactly, and the
-first two families migrated by the pattern Phase 4 repeats — giant hosts+hands
-and authored mount links are plan rows with wired-and-verified relations
-(`PendingMountLinks` deleted). Remaining: the nine-family migration, lifecycle
-unification, and the staging/commit boundary that turns verification from a
-detector into a preventer (tracks.md #5 has the decomposition). That is the
-foundation for prefab-like authoring, broader transactional room replacement,
-persistence/reconstruction, and a credible external SDK. Rollback itself is
-owned by GGRS (ADR 0027).
+That doc's Phase 4 **LANDED 2026-07-23**: room activation, reset, transition,
+hot reload, and snapshot reconstruction are variations of ONE construction
+transaction. Every authored family in a shipped room is a plan row, the outer
+authoritative roster is exactly the plan's `planned_ids()`, rig composition is
+verified exactly at the boundary, and a plan prepared against a stale content
+generation is refused publication. Verification still DETECTS rather than
+PREVENTS — the staging world remains the recorded-open hardening item.
+
+The current push is the same doc's Phase 5 — rollback-envelope hardening under
+ADR 0027 (a computed resource-coverage forcing function, demo-content
+registration through the content-side seam, and the track-0 exit-oracle
+sync test) — followed by Phase 6, the external engine-workflow proof: an
+out-of-workspace consumer fixture authoring a room, character, enemy, recipe,
+and transition through the `ambition` umbrella with zero engine-crate edits.
+That is the foundation for prefab-like authoring, persistence/reconstruction,
+and a credible external SDK. Rollback itself is owned by GGRS (ADR 0027).
 
 Ambition-the-game remains the first customer throughout; it consumes capabilities
 rather than defining exceptions inside reusable crates.
@@ -85,7 +86,11 @@ in parallel (CURRENT):
         ↓
   transaction substrate: boundary/roster/plan-id/relations (done 2026-07-23)
         ↓
-  Phase 4 — nine-family migration + lifecycle unification + commit boundary
+  Phase 4 — family migration + lifecycle unification + commit boundary (done 2026-07-23)
+        ↓
+  Phase 5 — rollback-envelope hardening under ADR 0027   ← current
+        ↓
+  Phase 6 / Milestone E — external engine-workflow proof
 
   Super Mary-O level-1 acceptance (done 2026-07-21)
   Sanic complete-act acceptance (open — demos/sanic.md)

@@ -377,43 +377,55 @@ character definitions, moves, recipes, or other behaviorally meaningful content
 differ. Hot reload, saves, replay, and rollback need an exact prepared-content
 identity, not merely a routing identity.
 
-### 7.5 Supported restore is not yet a general rollback contract
+### 7.5 The rollback state envelope is not yet fully classified
 
-> **Superseded framing (2026-07-19):** this subsection and §7.6/Phase 5 predate
-> ADR 0027 — the custom snapshot substrate and its debt ledgers are DELETED;
-> GGRS owns rollback. The surviving obligations moved to `tracks.md` #0
-> (registration-coverage forcing function) and #5 (provenance/recipes). Read
-> Phase 5 as historical; a rewrite is queued in Parallel maintenance.
+> **Rewritten under ADR 0027 (2026-07-23).** The original subsection described
+> the Ambition-owned snapshot substrate, which is DELETED — GGRS and
+> `bevy_ggrs` are the sole rollback authority. What survives of the original
+> concern is coverage, not machinery.
 
-The snapshot substrate is strong, but known component/resource debt still needs
-classification, dynamic families vary in rebuildability, and some decode failures
-can occur after mutation begins. This campaign prepares the construction and
-content side; exact rollback promotion follows only after the supported state
-envelope and transactionality are explicit.
+Under ADR 0027 the restore contract already holds where it is implemented:
+`RollbackSessionContract` binds a session to the exact
+`PreparedContentIdentity` and the versioned, order-independent registration
+fingerprint, and `enforce_session_contract` invalidates the session before
+another GGRS frame can run when either changes
+(`crates/ambition_runtime/src/rollback/session.rs`). Restore itself is
+transactional because `bevy_ggrs` `LoadWorld` is atomic by construction.
+
+The residual problem is the **envelope**: proving that every piece of mutable
+authoritative state is inside it. Entity composition is guarded by a computed
+forcing function (`game/ambition_app/tests/rollback_coverage.rs`), but
+resources are reviewed by hand, demo-content state in `game/` crates
+(`BallDash`, `SanicActState`, `MaryOLevelState`, `FlagSequence`) is
+unregistered because those shells do not run a GGRS host yet, and the track-0
+exit oracle — a sync-test that lands a melee hit, spends armor, flips a
+switch, and breaks a brick across a forced rollback window — has never been
+written. Phase 5 closes exactly this list.
 
 ### 7.6 Current evidence map
 
-The first implementation pass should re-audit these sources rather than treating
-this document's static review as proof against a later HEAD:
+Re-audited 2026-07-23 against HEAD; the first implementation pass should
+still re-verify rather than trust this list against a later HEAD:
 
-- `crates/ambition_world/src/placements.rs` — imperative placement lowering and
-  its current registration/failure semantics;
-- `crates/ambition_actors/src/features/ecs/spawn/mod.rs` — the assembled room
-  construction path and family-specific loops;
-- `crates/ambition_actors/src/features/ecs/spawn/content_staging.rs` — the pure
-  actor-staging precedent;
-- `crates/ambition_runtime/src/snapshot/{mod.rs,registry.rs,restore.rs}` — snapshot
-  identity, registered state, dynamic anchors, preflight, and commit behavior;
-- `crates/ambition_entity_catalog/src/lib.rs` and
-  `crates/ambition_combat/src/moveset/prefabs.rs` — permissive schema/prefab
-  registry precedents;
-- `crates/ambition_characters/src/actor/character_catalog/registry.rs` and
-  `crates/ambition_audio/src/catalog.rs` — stronger deterministic/transactional
-  registry precedents;
-- `game/ambition_app/src/app/dev_runtime.rs` — current hot-reload preparation and
-  destructive commit orchestration;
-- `game/ambition_app/tests/desync_canary.rs` and the known component/resource debt
-  ledgers — current reconstruction evidence and unsupported-state pressure.
+- `crates/ambition_runtime/src/rollback/{mod.rs,registry.rs,session.rs,codecs.rs}`
+  — the registration substrate, schema fingerprint, session contract, and
+  canonical codecs (the deleted `snapshot/` subsystem's replacement);
+- `game/ambition_app/tests/rollback_coverage.rs` — the computed
+  entity-composition forcing function (explicitly blind to resources);
+- `game/ambition_app/tests/desync_canary.rs` — the sync-test scenarios that
+  exist today (rewind/resim proof, cross-instance determinism, dynamic-actor
+  churn, dash/air-jump/position checksum canary);
+- `game/ambition_content/src/bosses/specials/rollback.rs` — the content-side
+  registration-seam precedent a `game/` crate follows;
+- `crates/ambition_persistence/src/save.rs` — the separate persistence
+  boundary (confirmed-frame-gated autosave; deliberately not a second
+  rollback engine);
+- `crates/ambition_actors/src/construction/mod.rs` and
+  `crates/ambition_actors/src/features/ecs/spawn/mod.rs` — the construction
+  domain and the assembled room path (every authored family is a plan row as
+  of Phase 4);
+- `game/ambition_app/src/app/dev_runtime.rs` — hot-reload preparation, the
+  GGRS restart barrier, and transactional commit orchestration.
 
 ## 8. Provisional core concepts
 
@@ -1543,7 +1555,16 @@ vacuous by design.
   everything above narrows what it must protect to recipe-internal defects,
   since preparation is mutation-free and every family preflights.
 
-### Phase 4 — migrate room lifecycle operations
+### Phase 4 — migrate room lifecycle operations — **LANDED 2026-07-23**
+
+> Delivered across `637797649` (4a/4b enemies+bosses), `58c43e900` (4c
+> placements), `d1e26aa79` (4d/4e statics + the one sanctioned programmatic
+> exception), `37e041810` (4f lifecycle audit + 4g content-binding
+> enforcement); accounts in the Phase 4a–4g sections above. Every exit
+> criterion below is met; task 3's "staging/disposable world **or equivalent
+> commit boundary**" is met by the commit boundary (open/close +
+> `verify_and_publish`) — the staging world itself remains the recorded-open
+> hardening item in 4g.
 
 #### Objective
 
@@ -1583,44 +1604,56 @@ Make room replacement operations variations of one construction transaction.
 - The expected room roster is inspectable before commit.
 - Legacy construction adapters are explicitly enumerated and shrinking.
 
-### Phase 5 — snapshot and restore hardening
+### Phase 5 — rollback-envelope hardening under ADR 0027
+
+> **Rewritten 2026-07-23.** The original Phase 5 hardened the Ambition-owned
+> snapshot substrate; ADR 0027 deleted that substrate, and most of the
+> original tasks landed as side effects of the GGRS adoption: restore is
+> bound to prepared-content and schema fingerprints (`RollbackSessionContract`
+> enforced pre-frame), restore is atomic (`bevy_ggrs` `LoadWorld`),
+> dynamic-family detection by id-spelling is gone (Phase 3 deleted the one
+> parse site; provenance is a component), and cross-room reconstruction
+> consumes the common construction seam (Phase 4). What remains is proving
+> the ENVELOPE is complete — that no mutable authoritative state sits outside
+> registration — and exercising it with the oracle track 0 promised.
 
 #### Objective
 
-Close construction and transactionality gaps before promoting rollback as an
-engine feature.
+Make the supported rollback state envelope computed, complete, and exercised —
+no hand-reviewed remainder, no latent unregistered authoritative state.
 
 #### Tasks
 
-1. Classify known component/resource debt into:
-   - authoritative mutable simulation;
-   - structurally derived state;
-   - immutable session content;
-   - presentation-only state;
-   - ephemeral queues/caches;
-   - unsupported rollback state.
-2. Add explicit restore policy metadata where it improves enforcement or
-   inspection.
-3. Bind restore to content and snapshot-schema fingerprints.
-4. Replace dynamic-family detection by string/component-row heuristics wherever
-   construction provenance is available.
-5. Ensure supported codecs can be completely preflighted before commit.
-6. Where full preflight is impossible, restore into a disposable world and swap
-   only after successful completion.
-7. Add exact restore and replay-suffix tests using the migrated vertical slice.
-8. Make unsupported state refuse rollback explicitly rather than silently
-   omitting authority.
+1. Add a computed **resource-coverage forcing function** beside the
+   entity-composition one: boot the real sim, enumerate live resources, and
+   require each to be registered, structurally derived, presentation-only, or
+   waived with a reason. Kill the "resources still need review by hand" gap.
+2. Register the latent-unregistered engine resources it finds (known:
+   `FactionRelations`, `FriendlyFire` — today written only by `Default`, so
+   the omission is latent-safe; close it before something mutates them).
+3. Route the demo-content authoritative state (`BallDash`, `BallDashInput`,
+   `SanicActState`, `MaryOLevelState`, `FlagSequence`) through the
+   content-side registration seam (`bosses/specials/rollback.rs` is the
+   precedent), so the demo shells are GGRS-ready rather than silently
+   outside the envelope.
+4. Write the **track-0 exit oracle**: one sync-test run that lands a melee
+   hit, spends armor, flips a switch, and breaks a brick across a forced
+   rollback window and stays checksum-identical.
+5. Delete the vestigial `SNAPSHOT_SCHEMA_VERSION` constant
+   (`content_identity.rs`) — the live version authority is
+   `GGRS_ROLLBACK_SCHEMA_VERSION`.
 
 #### Exit
 
-- The supported rollback profile is explicit and inspectable.
-- Unsupported state fails at preflight.
-- Restore failure cannot partially mutate the active world.
-- Snapshot compatibility includes prepared-content and schema identity.
+- The supported rollback profile is explicit and inspectable — and COMPUTED
+  for both entity composition and resources.
+- Snapshot compatibility includes prepared-content and schema identity
+  (already met; `desync_canary.rs` pins it).
 - Authored, staged, and dynamic examples restore through the common
-  construction seam.
-- Remaining real-room non-losslessness is classified rather than hidden in an
-  undifferentiated debt count.
+  construction seam (met by Phase 4).
+- The exit-oracle sync test passes: combat, equipment, switch, and breakable
+  state all survive a forced rollback window checksum-identically.
+- No enumerated demo-content state remains unregistered.
 
 ### Phase 6 — external architecture proof
 
@@ -1814,13 +1847,17 @@ document's sketch and what each one bought.
 - hot reload prepares a new content epoch and room off to the side;
 - successful replacement is atomic from the application perspective.
 
-### Milestone D — restore-ready construction substrate
+### Milestone D — restore-ready construction substrate (under ADR 0027)
 
-- snapshot compatibility checks content and schema fingerprints;
-- restore uses explicit provenance;
-- the supported rollback state envelope is classified;
-- supported restore is transactional;
-- cross-room restore consumes the common construction seam.
+- ✅ snapshot compatibility checks content and schema fingerprints — the
+  session contract invalidates on either changing, before the next frame;
+- ✅ restore uses explicit provenance — `SpawnOrigin` is a component,
+  reconstruction commits `relation_closure` through the plan;
+- ✅ supported restore is transactional — `bevy_ggrs` `LoadWorld` is atomic;
+- ✅ cross-room restore consumes the common construction seam (Phase 4);
+- the supported rollback state envelope is classified **and computed** —
+  entity composition today, resources once Phase 5 task 1 lands, exercised
+  by the exit-oracle sync test.
 
 ### Milestone E — external engine-workflow proof
 

@@ -72,6 +72,11 @@ fn wear_oracle_armor(sim: &mut SandboxSim) {
         health.health.max = 200;
         health.health.current = 200;
     }
+    // Direct world_mut mutations must become the rollback baseline — GGRS's
+    // stored history predates them, and a restore would resurrect the
+    // pre-setup state (harness contract on `world_mut`; GPT 5.6 review §2).
+    sim.rebase_rollback_history()
+        .expect("oracle armor setup becomes the rollback baseline");
 }
 
 struct OracleEvents {
@@ -321,6 +326,8 @@ fn the_calibration_lab_is_checksum_stable_at_rest() {
                 world.despawn(entity);
             }
         }
+        sim.rebase_rollback_history()
+            .expect("variant despawn setup becomes the rollback baseline");
         for frame in 0..48 {
             sim.step(AgentAction::default());
             if let Err(error) = sim.rollback_health() {

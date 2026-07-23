@@ -1677,13 +1677,27 @@ could never see, in layers:
    rewind between strike and resolver UN-HIT the player. Fixed with
    `PendingPlayerHitEvents` — a rollback-registered FIFO staged at the end
    of Combat (the `SwitchActivationQueue` pattern, deep review §2.2).
-3. **OPEN: the second hit still diverges.** With the FIFO landed, the first
-   enemy hit on the player survives resimulation exactly; the SECOND hit
-   (~50 frames later) still splits checksums. Three `#[ignore]`d repro
-   tests in `rollback_exit_oracle.rs` carry the investigation; the at-rest
-   lab probe and both coverage sweeps are green. The full oracle held
-   checksums through 2400 frames of melee/brick/switch play — the
-   enemy-hits-player layer is the one remaining fault line.
+3. **OPEN (root cause CONFIRMED, fix pending): the second hit diverges via
+   the hitstop clock chain.** `apply_player_hit_events` (PlayerSimulation)
+   writes `ClockResetRequest`/hitstop on a landed hit, but the consumers —
+   `apply_clock_scale_requests` / `apply_clock_reset_requests` — run in
+   PlayerInput, the phase BEFORE it: the request crosses a frame boundary
+   in a message buffer, the same class as finding 2. A rewind between
+   write and consume loses the hitstop, the resimulated time scale
+   differs, and every timer shifts — surfacing ~50 frames later as the
+   second-hit checksum split. **Fix shape (corrected by the 2026-07-23
+   rollback review): NOT a uniform one-frame FIFO** — a blanket delay
+   breaks same-frame consumers (a FIFO attempt turned 7 clock/melee tests
+   red and was reverted) and would let WorldPrep re-observe an overlap
+   before the delayed hit applies. The right move is same-frame
+   consumption: run the clock-request consumers AFTER every producer in
+   the frame (schedule surgery on the PlayerInput clock chain), keeping
+   message clears valid because nothing crosses the boundary. The same
+   review flags the hits FIFO for the same reason — WorldPrep contact
+   damage was previously same-frame — plus lifecycle clearing and a
+   canonical checksum for `PendingPlayerHitEvents`. Three `#[ignore]`d
+   repros in `rollback_exit_oracle.rs` gate all of it; oracle setup
+   mutations now `rebase_rollback_history()` per the harness contract.
 4. **Recorded boundary: sim-triggered room reset inside a rollback window
    is a guaranteed divergence** — reconstruction runs through Commands no
    rollback can undo (observed as a mid-brawl full-heal when the player

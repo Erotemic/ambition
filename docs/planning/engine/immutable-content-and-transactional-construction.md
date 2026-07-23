@@ -1876,13 +1876,39 @@ same shape content-reload uses).
 a live sync-test window. BOTH stay clean to 2400 frames — the in-place path
 (ops 1/2a/3) is already rollback-safe (the recorded boundary was closed by the
 `PendingPlayerHitEvents`/strike-volume hardening). Those tests are now kept as
-regression coverage. **The remaining reproduction — still owed — is the
-RECONSTRUCTION path**: an input-driven ROOM TRANSITION (op 4, walk the
-controlled body through a loading zone into a set-up target room) or a full
-sandbox reset (op 2b) inside the rollback window, which despawns+respawns a
-whole room's entities via Commands. Assert `rollback_health().is_err()` there,
-then B turns it green. The in-place work below (T3) is therefore likely a
+regression coverage. The reset oracle was also STRENGTHENED (GPT 5.6): the
+manual-reset witness now folds a KNOWN damaged enemy + KNOWN broken brick into
+the rollback baseline and asserts the reset RESTORES them (not merely a clean
+checksum) — the exact "enemy fails to snap back" divergence, pinned as restored.
+
+**The RECONSTRUCTION reproduction is now DONE and it is RED (2026-07-23).**
+`app_it::rollback_room_transition::a_room_transition_survives_the_rollback_window`
+(`#[ignore]`d target-invariant test) walks the controlled body through the
+`combat_calibration_lab` east `EdgeExit` into `first_system_boss` inside a live
+sync-test window. It DIVERGES: `GGRS sync-test checksum mismatch at frames
+[9,10,11]` while `active == combat_calibration_lab` — i.e. in the transition
+LOAD phase, as the body overlaps the exit and the multi-tick transaction engages,
+BEFORE the room even flips. The same room brawled 2400 frames stays clean, so
+this is transition-caused. **Root cause (confirmed against the code map): the
+transition transaction machinery — `RoomTransitionLoadState`,
+`RoomTransitionContentEpoch`, `LoadCoordinator` (installed as plain resources in
+`app/plugins.rs:75-76`) — is NOT rollback-registered, while the entity/room state
+it drives IS. So a rollback straddling the transaction's tick span rewinds the
+world but not the transaction phase/barrier, and the eager reconstruction on a
+speculative frame cannot resimulate identically.** This is the gate GPT set:
+a reconstruction path IS actually red, so B's confirmed-frame deferral is
+warranted (not speculative architecture). The in-place work (T3) is a
 no-op-to-verify; the load-bearing work is T4/T5 (reconstruction + rebase).
+
+Note the divergence appears in the LOAD phase (before the Commands
+despawn/respawn commit), which sharpens the fix target: Piece 1 must intercept at
+DETECTION — record the `PendingLifecycleCommit` instead of letting
+`begin_room_transition_load_system` engage the unregistered load-state on a
+speculative frame — so the entire transaction (load + commit) is deferred to the
+confirmed frame as one unit. **Still owed: focused reproductions (or a shared-
+boundary argument) for op 2b full sandbox reset (`SandboxResetRequested`) and op 5
+snapshot — a RED transition does not by itself prove those differently-scheduled
+paths, per GPT.**
 
 **Required principal oracle (the whole timeline contract, GPT 5.6):** predict a
 death → assert a pending intent but NO reconstruction → correct the input so

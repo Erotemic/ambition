@@ -573,6 +573,26 @@ pub fn install_sanic_content(app: &mut App) {
     // Ambition's own intro-prop loader (a per-frame "insert if missing" GameAssets
     // mutation) rather than the catalog-fragment path — see smell #19.
     app.add_systems(bevy::prelude::Update, register_sanic_ring_prop_sheet);
+
+    // Sanic's mutable sim state joins the rollback contract through the same
+    // seam engine crates use — here, before either construction path
+    // fingerprints the App, so the schema fingerprint (part of the content
+    // identity) includes these rows; a non-GGRS shell records metadata only.
+    {
+        use ambition::runtime::rollback::AmbitionRollbackApp;
+        app.rollback_component_clone::<ball_dash::BallDash>(
+            "ambition_demo_sanic",
+            "content.sanic_ball_dash",
+        )
+        .rollback_component_clone::<ball_dash::BallDashInput>(
+            "ambition_demo_sanic",
+            "content.sanic_ball_dash_input",
+        )
+        .rollback_component_clone::<SanicActState>(
+            "ambition_demo_sanic",
+            "content.sanic_act_state",
+        );
+    }
 }
 
 /// Ensure the animated `sanic_ring_prop` sheet lives in `GameAssets.props` so the
@@ -823,7 +843,7 @@ fn sanic_setup(
 /// The act's live state, owned by the mode. It rides a `ModeScopedEntity`, so
 /// leaving the Sanic rooms tears it down through the engine's lifetime-scope
 /// vocabulary rather than a bespoke reset.
-#[derive(bevy::prelude::Component, Default, Debug)]
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct SanicActState {
     /// Seconds the act has been running (sim clock, so bullet-time slows it).
     pub elapsed: f32,

@@ -667,6 +667,22 @@ pub fn install_mary_o_content(app: &mut App) {
             .world_mut()
             .resource_mut::<ambition::actors::features::RoomContentStagingRegistry>(),
     );
+
+    // Mary-O's mutable sim state joins the rollback contract through the same
+    // seam engine crates use — here, before either construction path
+    // fingerprints the App, so the schema fingerprint (part of the content
+    // identity) includes these rows; a non-GGRS shell records metadata only.
+    {
+        use ambition::runtime::rollback::AmbitionRollbackApp;
+        app.rollback_component_clone::<MaryOLevelState>(
+            "ambition_demo_mary_o",
+            "content.mary_o_level_state",
+        )
+        .rollback_component_clone::<flag::FlagSequence>(
+            "ambition_demo_mary_o",
+            "content.mary_o_flag_sequence",
+        );
+    }
 }
 
 impl Plugin for MaryODemoContentPlugin {
@@ -772,7 +788,7 @@ fn mary_o_setup(
 /// The level clock, owned by the mode. It rides a `ModeScopedEntity`, so leaving
 /// Mary-O's rooms tears it down through the engine's lifetime-scope vocabulary
 /// rather than any teardown code in this crate.
-#[derive(bevy::prelude::Component, Debug)]
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
 pub struct MaryOLevelState {
     /// Counts DOWN from [`STARTING_TIME`]; clamps at zero.
     pub time_remaining: f32,

@@ -68,9 +68,21 @@ pub fn reset_ecs_room_features(
     falling_hazards: Query<Entity, With<crate::boss_encounter::FallingHazard>>,
     commanded_bosses: Query<Entity, With<crate::boss_encounter::CommandedMove>>,
 ) {
-    if reset_requests.read().next().is_none() {
+    let reasons: Vec<_> = reset_requests
+        .read()
+        .map(|request| request.reason)
+        .collect();
+    if reasons.is_empty() {
         return;
     }
+    // Visible marker for every full room-feature reset: repeated resets are a
+    // regression signature (they re-seed boss encounter state back to Intro
+    // and replay its stingers), and this line was the missing evidence when
+    // desktop-lifecycle-2 showed the boss phase flapping every ~2.5s.
+    bevy::log::info!(
+        target: "ambition::room_reset",
+        "room features reset: reasons={reasons:?}",
+    );
     // In-flight enemy volleys belong to the previous attempt; clear
     // them so the room reset doesn't leave hostile shots sailing
     // through the spawn point. Combat slot reservations are dropped

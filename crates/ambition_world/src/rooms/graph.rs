@@ -154,6 +154,12 @@ impl RoomSet {
         &self.rooms[self.active]
     }
 
+    /// The spec at `index`, if in range. Resolves a transition's target index to
+    /// its authored room id (Track B records the id in a deferred intent).
+    pub fn spec_at(&self, index: usize) -> Option<&RoomSpec> {
+        self.rooms.get(index)
+    }
+
     pub fn active_world(&self) -> &ae::World {
         &self.active_spec().world
     }

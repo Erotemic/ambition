@@ -99,6 +99,11 @@ pub fn detect_room_transition_system(
     bodies: Query<&crate::actor::BodyKinematics>,
     primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     world_time: Res<WorldTime>,
+    // Track B: under a rollback host, defer the transition instead of engaging
+    // the (not-rollback-registered) multi-tick load machine on a speculative
+    // frame. Absent on fixed-tick / render hosts, so the eager path is unchanged.
+    boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
+    mut pending_lifecycle: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
 ) {
     if sim_state.room_transition_cooldown > 0.0 {
         return;
@@ -138,5 +143,25 @@ pub fn detect_room_transition_system(
     // Clear the interact buffer so the same press doesn't re-trigger
     // a transition next frame before `load_room` resets it.
     slot_gestures.primary_mut().clear();
+    if let Some(boundary) = boundary {
+        // Rollback host: record a deferred reconstruction intent instead of
+        // firing the message. The host-side committer runs it on a confirmed
+        // frame and rebases the session. Earliest-sticky (see
+        // `PendingLifecycleCommit::record`), so a re-detected overlap on the next
+        // predicted frame — the body is still on the exit until the commit
+        // relocates it — is a no-op rather than a duplicate.
+        if let Some(spec) = room_set.spec_at(zone.target_room) {
+            let edge_exit = matches!(zone.zone.activation, LoadingZoneActivation::EdgeExit);
+            pending_lifecycle.record(
+                boundary.current,
+                crate::session::lifecycle_commit::LifecycleIntent::Transition {
+                    target_room: spec.id.clone(),
+                    arrival: zone.arrival,
+                    edge_exit,
+                },
+            );
+        }
+        return;
+    }
     transition_writer.write(RoomTransitionRequested::new(zone, zone_sfx));
 }

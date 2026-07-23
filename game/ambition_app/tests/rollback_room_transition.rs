@@ -15,22 +15,23 @@
 //!
 //! This test walks the controlled body through the east `EdgeExit` of the
 //! calibration lab into the adjacent boss room INSIDE a forced sync-test rollback
-//! window. It encodes the TARGET invariant: the transition actually occurs (the
-//! active room flips, the source roster is gone, a fresh target roster is present
-//! ⇒ new entity generations) AND the sim stays checksum-clean across and past the
+//! window. It encodes the invariant: the transition actually occurs (the active
+//! room flips, the source roster is gone, a fresh target roster is present ⇒ new
+//! entity generations) AND the sim stays checksum-clean across and past the
 //! commit.
 //!
-//! **OBSERVED: RED (2026-07-23).** It fails — `GGRS sync-test checksum mismatch at
-//! frames [9, 10, 11]` while `active == combat_calibration_lab` (the divergence
-//! lands in the transition LOAD phase, as the body overlaps the exit and the
-//! multi-tick transaction engages, BEFORE the room flips). The same room brawled
-//! for 2400 frames stays clean (`rollback_lifecycle_reset`), so this is
-//! transition-caused: the transaction machinery is executed eagerly on a
-//! speculative frame while its own progress state is not rollback-registered.
-//! This is the reproduce-first evidence that greenlights Track B's confirmed-frame
-//! deferral. `#[ignore]`d so the suite stays green; UN-IGNORE when Track B lands
-//! and this must pass (the transition then commits on a confirmed frame + session
-//! rebase, so resim cannot diverge). See the campaign doc Track B section.
+//! **History.** It was written RED (2026-07-23): `GGRS sync-test checksum mismatch
+//! at frames [9, 10, 11]` while `active == combat_calibration_lab` — the
+//! divergence landed in the transition LOAD phase, as the body overlapped the
+//! exit and the multi-tick transaction engaged, BEFORE the room flipped, because
+//! the transaction machinery ran eagerly on a speculative frame while its own
+//! progress state is not rollback-registered. It is now GREEN under **Track B**:
+//! `detect_room_transition_system` records a `LifecycleIntent::Transition` under a
+//! rollback host instead of engaging the load machine, and
+//! `lifecycle_commit::commit_confirmed_lifecycle` reconstructs the target room in
+//! the exclusive world and rebases the session once the frame is confirmed — so
+//! the reconstruction never runs on a speculative frame and resim cannot diverge.
+//! The same room brawled 2400 frames clean (`rollback_lifecycle_reset`).
 
 #![cfg(feature = "rl_sim")]
 
@@ -71,10 +72,6 @@ fn player_y(sim: &mut SandboxSim) -> f32 {
 }
 
 #[test]
-#[ignore = "RED reproduction: the room-transition reconstruction diverges under \
-            rollback (checksum mismatch in the load phase, ~frame 9-11) because \
-            the transition transaction machinery is not rollback-registered and \
-            runs eagerly on speculative frames. Un-ignore when Track B lands."]
 fn a_room_transition_survives_the_rollback_window() {
     let mut sim = repro_sim();
 

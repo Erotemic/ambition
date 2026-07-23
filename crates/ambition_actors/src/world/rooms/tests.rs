@@ -68,6 +68,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<Captured>();
     app.init_resource::<ambition_time::WorldTime>();
+    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
     app.add_message::<RoomTransitionRequested>();
     app.add_systems(Update, (detect_room_transition_system, capture).chain());
 
@@ -166,6 +167,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
     });
+    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
     app.add_message::<RoomTransitionRequested>();
     app.add_systems(Update, (detect_room_transition_system, capture).chain());
 

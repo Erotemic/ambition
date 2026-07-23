@@ -1747,13 +1747,29 @@ could never see, in layers:
    snapshot — despawn+respawn a whole room via Commands), whose
    divergence is still owed a reproduction; full design in **Track B**.
 
-### Track B — Confirmed-frame lifecycle commitment (DESIGN, 2026-07-23)
+### Track B — Confirmed-frame lifecycle commitment (TRANSITION SLICE LANDED, 2026-07-23)
 
-> **Status:** DESIGN, not yet implemented. This is the largest unfinished
-> rollback item (GPT 5.6 concurred) and it GATES the Matchbox two-peer
-> track — death/reset/transition must not mutate the room during a
-> speculative frame before online work begins. Sequenced: reproduce → B →
-> C/D/E hardening checkpoint → Matchbox.
+> **Status:** the TRANSITION path is LANDED and the RED reproduction is now GREEN
+> (`app_it::rollback_room_transition`). The architecture (Piece 1 rollback-visible
+> intent + Piece 2 confirmed exclusive commit + session rebase) is proven
+> end-to-end. STILL OWED: extend the same deferral to the reconstruction *full
+> sandbox reset* (op 2b) and, if a divergence is shown, the in-place reset family
+> (ops 1/2a/3 are already rollback-safe eager, so likely no-ops); plus the
+> principal timeline oracle (T6) and the `External`/Matchbox coordinated-rebase
+> seam. This is the largest rollback item (GPT 5.6 concurred) and it GATES the
+> Matchbox two-peer track. Sequenced: reproduce → B → C/D/E hardening → Matchbox.
+>
+> **Landed pieces (commit forthcoming this session):**
+> - `ambition_actors::session::lifecycle_commit`: `LifecycleIntent` +
+>   `PendingLifecycleCommit` (rollback-registered resource, earliest-sticky slot).
+> - `detect_room_transition_system`: under a rollback host, records a
+>   `Transition{target_room, arrival, edge_exit}` intent instead of firing
+>   `RoomTransitionRequested` (the eager path is unchanged on non-rollback hosts).
+> - `ambition_runtime::lifecycle_commit::commit_confirmed_lifecycle`: exclusive
+>   `PreUpdate.after(RunGgrsSystems)` system — on a confirmed intent it runs
+>   `RoomConstructionPlan::prepare` + `apply_to_world` + body-transit, then
+>   `start_sync_test_session` rebases (generation bump + ring overwrite). Gated to
+>   `LocalSyncTest`; `External` is the documented Matchbox seam.
 
 **The problem (mapped 2026-07-23).** Under the GGRS host `app.sim_schedule()`
 IS `bevy_ggrs::GgrsSchedule` (`ambition_runtime/src/lib.rs:185`), and every

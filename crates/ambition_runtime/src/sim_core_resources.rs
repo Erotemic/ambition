@@ -130,6 +130,9 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_platformer_primitives::camera_ease::CameraEaseTuning>()
             .init_resource::<ambition_platformer_primitives::camera_ease::CameraShakeState>()
             .init_resource::<ambition_actors::session::reset::SandboxResetRequested>()
+            // Track B: the rollback-registered slot a lifecycle op records into
+            // under a rollback host, committed on a confirmed frame.
+            .init_resource::<ambition_actors::session::lifecycle_commit::PendingLifecycleCommit>()
             // The always-available input seam (RL/headless writes it
             // programmatically; the windowed host's bridge fills it from
             // devices).

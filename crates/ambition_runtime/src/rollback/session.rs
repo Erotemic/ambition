@@ -257,6 +257,11 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             (
                 enforce_session_contract.before(RunGgrsSystems),
                 clear_historical_replay.after(RunGgrsSystems),
+                // Track B: execute a confirmed deferred lifecycle op in the
+                // exclusive world and rebase, after the advance batch is done.
+                crate::lifecycle_commit::commit_confirmed_lifecycle
+                    .after(RunGgrsSystems)
+                    .after(clear_historical_replay),
             ),
         )
         // Effects may only be released once this render frame's advances are

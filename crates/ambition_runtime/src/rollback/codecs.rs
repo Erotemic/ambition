@@ -2383,3 +2383,57 @@ impl SnapshotState for ambition_actors::SandboxSimState {
         })
     }
 }
+
+impl SnapshotState for ambition_actors::session::lifecycle_commit::PendingLifecycleCommit {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use ambition_actors::session::lifecycle_commit::LifecycleIntent;
+        match &self.pending {
+            None => put_bool(out, false),
+            Some(intent) => {
+                put_bool(out, true);
+                put_i32(out, intent.frame);
+                match &intent.kind {
+                    LifecycleIntent::DeathReset => put_u8(out, 0),
+                    LifecycleIntent::ManualReset => put_u8(out, 1),
+                    LifecycleIntent::Replay => put_u8(out, 2),
+                    LifecycleIntent::Transition {
+                        target_room,
+                        arrival,
+                        edge_exit,
+                    } => {
+                        put_u8(out, 3);
+                        put_str(out, target_room);
+                        put_vec2(out, *arrival);
+                        put_bool(out, *edge_exit);
+                    }
+                    LifecycleIntent::FullReset => put_u8(out, 4),
+                }
+            }
+        }
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_actors::session::lifecycle_commit::{
+            LifecycleIntent, PendingIntent, PendingLifecycleCommit,
+        };
+        if !r.bool()? {
+            return Some(PendingLifecycleCommit { pending: None });
+        }
+        let frame = r.i32()?;
+        let kind = match r.u8()? {
+            0 => LifecycleIntent::DeathReset,
+            1 => LifecycleIntent::ManualReset,
+            2 => LifecycleIntent::Replay,
+            3 => LifecycleIntent::Transition {
+                target_room: r.str()?.to_string(),
+                arrival: r.vec2()?,
+                edge_exit: r.bool()?,
+            },
+            4 => LifecycleIntent::FullReset,
+            _ => return None,
+        };
+        Some(PendingLifecycleCommit {
+            pending: Some(PendingIntent { frame, kind }),
+        })
+    }
+}

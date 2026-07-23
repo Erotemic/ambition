@@ -350,6 +350,10 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "resource.sandbox_reset_requested",
         )
+        .rollback_resource_canonical::<ambition_actors::session::lifecycle_commit::PendingLifecycleCommit>(
+            ENGINE,
+            "resource.pending_lifecycle_commit",
+        )
         .rollback_resource_canonical::<ambition_projectiles::enemy::EnemyProjectileState>(
             ENGINE,
             "resource.enemy_projectile_state",

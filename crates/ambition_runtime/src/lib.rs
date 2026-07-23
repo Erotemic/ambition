@@ -54,6 +54,7 @@ pub mod content_identity;
 /// so a rollback cannot duplicate one or leave a mispredicted one standing.
 pub mod external_effects;
 pub mod input_stream;
+pub mod lifecycle_commit;
 mod mode_scope;
 mod player_schedule;
 #[cfg(feature = "portal")]

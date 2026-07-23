@@ -10,6 +10,7 @@
 //! schedule wiring) calls into.
 
 pub mod data;
+pub mod lifecycle_commit;
 pub mod reset;
 pub mod setup;
 pub mod teardown;

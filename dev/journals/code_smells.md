@@ -1029,3 +1029,18 @@ character-actions gates and touching the real-audio test harness is not zero-ris
 - **Suggested fix / size:** done for sand; pattern note: when integrating an
   external sim crate, find its idle switch on day one and wire it to session
   scope — "plugin added" should not mean "simulation running".
+
+## 2026-07-23 — `published_local_sanic_forms_bind_through_game_assets` red on main (pre-existing, sheet-decode deferral)
+
+`ambition_demo_sanic_app::tests::published_local_sanic_forms_bind_through_game_assets`
+fails in the full gate (both the workspace job and the `[input,visible]`
+feature job). **Not introduced by the construction/mount campaign:** verified
+red at `ee7907c26` (pre-campaign) in a worktree once the generated sanic
+spritesheets are copied in. The test runs ONLY `Startup` and asserts the
+PNG+RON→`GameAssets` binding is already present; `ce2aed22f` ("Defer character
+sheet decode from startup to the room prefetch barrier") moved that binding
+past `Startup`, so the test's contract is stale wherever the published sprites
+exist on disk (it self-skips when they don't, which is why gates without
+generated sprites stay green). Owner of the deferral should either bind a
+cheap handle at startup or advance the test to the prefetch barrier it now
+asserts against.

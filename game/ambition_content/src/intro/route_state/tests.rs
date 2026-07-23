@@ -333,3 +333,87 @@ fn emit_chains_promotes_p5_to_route_memory() {
     let save = app.world().resource::<SandboxSave>();
     assert!(save.data().flag("route_memory_received"));
 }
+
+/// **The wall cache must observe the PROJECT, not just save + room.** A hot
+/// reload that swaps `SandboxLdtkProject` under an unchanged room id and save
+/// state used to keep serving walls computed from the replaced project — the
+/// invalidation checked `save.is_changed()` and the room string only.
+#[test]
+fn lock_walls_recompute_when_the_project_resource_changes() {
+    use ambition_actors::rooms::{RoomSet, RoomSpec};
+    use ambition_actors::world::ldtk_world::SandboxLdtkProject;
+    use ambition_engine_core as ae;
+    use ambition_persistence::save::SandboxSave;
+    use ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay;
+    use bevy::app::{App, Update};
+
+    let mut app = App::new();
+    app.insert_resource(SandboxLdtkProject(synthetic_alice_relay_project()));
+    app.insert_resource(SandboxSave::default());
+    app.insert_resource(FeatureEcsWorldOverlay::default());
+    ambition::platformer::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        RoomSet::from_parts(
+            "alice_relay",
+            vec![RoomSpec::new(
+                "alice_relay",
+                ae::World::new(
+                    "alice_relay",
+                    ae::Vec2::new(1024.0, 768.0),
+                    ae::Vec2::ZERO,
+                    Vec::new(),
+                ),
+            )],
+            Vec::new(),
+        ),
+    );
+    // Mirror the production ordering contract: the overlay rebuild clears
+    // `gate_solids` each frame BEFORE this system re-contributes.
+    app.add_systems(
+        Update,
+        (
+            |mut overlay: bevy::prelude::ResMut<FeatureEcsWorldOverlay>| {
+                overlay.gate_solids.clear();
+            },
+            super::sync_intro_flag_gated_lock_walls,
+        )
+            .chain(),
+    );
+
+    app.update();
+    assert_eq!(
+        app.world()
+            .resource::<FeatureEcsWorldOverlay>()
+            .gate_solids
+            .len(),
+        1,
+        "baseline: the synthetic project contributes its one lock wall"
+    );
+
+    // A quiet frame keeps serving the cached wall.
+    app.update();
+    assert_eq!(
+        app.world()
+            .resource::<FeatureEcsWorldOverlay>()
+            .gate_solids
+            .len(),
+        1
+    );
+
+    // Replace the project with one that has NO lock wall — same room id, same
+    // save state. Only the project resource changes.
+    {
+        let mut project = app.world_mut().resource_mut::<SandboxLdtkProject>();
+        project.0.levels[0].layer_instances[0]
+            .entity_instances
+            .clear();
+    }
+    app.update();
+    assert!(
+        app.world()
+            .resource::<FeatureEcsWorldOverlay>()
+            .gate_solids
+            .is_empty(),
+        "the wall result tracks the replaced project"
+    );
+}

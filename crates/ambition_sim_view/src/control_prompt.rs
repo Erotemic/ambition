@@ -144,9 +144,15 @@ pub fn rebuild_control_prompt(
     )>,
     cues: Option<Res<ActiveUiCues>>,
     mut prompt: ResMut<ControlPrompt>,
-    // (last subject, authority-presence bits) from the previous rebuild.
-    // `None` = never rebuilt, so the first frame always derives.
-    mut last: Local<Option<(Option<Entity>, [bool; 3])>>,
+    // (last subject, authority-presence bits, resource-presence bits) from the
+    // previous rebuild. `None` = never rebuilt, so the first frame always
+    // derives. The RESOURCE presence bits are part of the key because
+    // `is_changed()` on an `Option<Res<T>>` can only speak while the resource
+    // is `Some`: a removal contributes nothing to `inputs_changed`, so without
+    // the bits a quiet-frame removal of `ActiveInputContext` / `ActiveUiCues` /
+    // `ControlledSubject` would be skipped and the prompt would keep describing
+    // a context that no longer exists.
+    mut last: Local<Option<(Option<Entity>, [bool; 3], [bool; 3])>>,
 ) {
     // A frontend context (startup cards, launcher) owns the participant's
     // actions: its provider (`publish_frontend_context_prompt`) writes the
@@ -159,6 +165,11 @@ pub fn rebuild_control_prompt(
         .and_then(ActiveInputContext::owner)
         .is_some_and(|owner| owner != GAMEPLAY_CONTEXT)
     {
+        // While someone else writes the prompt, OUR cache key describes a
+        // prompt that no longer exists. Drop it, so the frame that hands
+        // ownership back (including by REMOVING the context resource, which no
+        // change detection reports) always re-derives.
+        *last = None;
         return;
     }
 
@@ -171,6 +182,13 @@ pub fn rebuild_control_prompt(
         || active_context.as_ref().is_some_and(|r| r.is_changed())
         || controlled.as_ref().is_some_and(|r| r.is_changed())
         || cues.as_ref().is_some_and(|r| r.is_changed());
+    // Presence is tracked separately from change: an `Option<Res<T>>` that went
+    // `Some -> None` reports no change at all (see `last`'s doc).
+    let resources = [
+        active_context.is_some(),
+        controlled.is_some(),
+        cues.is_some(),
+    ];
 
     // Menu / dialogue own input: no gameplay scheme. Publish an explicit context
     // + a confirm verb so the overlay relabels the select-functional buttons and
@@ -178,10 +196,10 @@ pub fn rebuild_control_prompt(
     // surface's published cue; absent that (no menu open, or a non-item focus),
     // fall back to the generic context verb.
     if !mode.get().allows_gameplay() {
-        if last.is_some() && !inputs_changed {
+        if matches!(*last, Some((_, _, seen)) if seen == resources) && !inputs_changed {
             return;
         }
-        *last = Some((None, [false; 3]));
+        *last = Some((None, [false; 3], resources));
         let (context, fallback) = match mode.get() {
             GameMode::Dialogue => (ControlContextKind::Dialogue, "Advance"),
             _ => (ControlContextKind::Menu, "Select"),
@@ -204,7 +222,7 @@ pub fn rebuild_control_prompt(
     else {
         // Cold start (no player yet) or a controlled body without authorities.
         set_prompt(&mut prompt, ControlContextKind::Empty, Vec::new(), None);
-        *last = Some((subject, [false; 3]));
+        *last = Some((subject, [false; 3], resources));
         return;
     };
 
@@ -217,10 +235,10 @@ pub fn rebuild_control_prompt(
         || moveset.as_ref().is_some_and(|r| r.is_changed())
         || action_set.as_ref().is_some_and(|r| r.is_changed())
         || techniques.as_ref().is_some_and(|r| r.is_changed());
-    if *last == Some((subject, presence)) && !inputs_changed && !authorities_changed {
+    if *last == Some((subject, presence, resources)) && !inputs_changed && !authorities_changed {
         return;
     }
-    *last = Some((subject, presence));
+    *last = Some((subject, presence, resources));
 
     let scheme = derive_action_scheme(
         &abilities.abilities,
@@ -560,5 +578,158 @@ mod tests {
             fires_melee(&app),
             "kit B (same tick as swap): prompt and gate still agree — no drift"
         );
+    }
+
+    /// **A removed cue resource must refresh the verb on an otherwise-quiet
+    /// frame.** `is_changed()` on an `Option<Res<T>>` says nothing at all about
+    /// a `Some -> None` transition, so before the presence bits joined the
+    /// cache key this frame was skipped and the prompt kept the dead cue's
+    /// verb.
+    #[test]
+    fn a_removed_cue_resource_refreshes_the_menu_verb() {
+        use ambition_input::InputContextId;
+        let mut app = app();
+        app.init_resource::<ActiveUiCues>();
+        app.world_mut()
+            .resource_mut::<ActiveUiCues>()
+            .declare(UiCue {
+                context: InputContextId("app.inventory"),
+                priority: 150,
+                submit_label: "Equip".to_owned(),
+            });
+        app.world_mut()
+            .resource_mut::<NextState<GameMode>>()
+            .set(GameMode::Paused);
+        app.update();
+        // A settle frame, so the mode transition's own change signal is spent.
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<ControlPrompt>()
+                .menu_confirm
+                .as_deref(),
+            Some("Equip")
+        );
+
+        // The ONLY event: the cue resource disappears. No mode change, no
+        // subject, no authority edit.
+        app.world_mut().remove_resource::<ActiveUiCues>();
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<ControlPrompt>()
+                .menu_confirm
+                .as_deref(),
+            Some("Select"),
+            "the dead cue's verb is not served from the cache"
+        );
+    }
+
+    /// The inverse transition: a cue resource INSERTED on a quiet menu frame
+    /// takes effect immediately.
+    #[test]
+    fn an_inserted_cue_resource_updates_the_menu_verb() {
+        use ambition_input::InputContextId;
+        let mut app = app();
+        app.world_mut()
+            .resource_mut::<NextState<GameMode>>()
+            .set(GameMode::Paused);
+        app.update();
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<ControlPrompt>()
+                .menu_confirm
+                .as_deref(),
+            Some("Select"),
+            "no cue resource -> the generic verb"
+        );
+
+        app.init_resource::<ActiveUiCues>();
+        app.world_mut()
+            .resource_mut::<ActiveUiCues>()
+            .declare(UiCue {
+                context: InputContextId("app.inventory"),
+                priority: 150,
+                submit_label: "Equip".to_owned(),
+            });
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<ControlPrompt>()
+                .menu_confirm
+                .as_deref(),
+            Some("Equip"),
+            "the fresh cue is picked up the frame it appears"
+        );
+    }
+
+    /// **Removing `ActiveInputContext` hands the prompt back to the sim.** While
+    /// a frontend context owns the prompt the rebuild yields; when the resource
+    /// is REMOVED (host teardown — a transition no change detection reports),
+    /// the next frame must re-derive the gameplay scheme rather than serve the
+    /// pre-yield cache key.
+    #[test]
+    fn a_removed_input_context_hands_the_prompt_back_to_the_sim() {
+        use ambition_input::participant::{context_priority, ContextClaim};
+        use ambition_input::{
+            resolve_active_input_context, InputParticipant, ParticipantContexts, LAUNCHER_CONTEXT,
+        };
+        use bevy::ecs::system::RunSystemOnce;
+
+        let mut app = app();
+        let body = app
+            .world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, authorities(true, Some("swat"))))
+            .id();
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(body);
+        app.update();
+        assert_eq!(
+            app.world().resource::<ControlPrompt>().context,
+            ControlContextKind::Gameplay,
+            "baseline: the sim owns the prompt"
+        );
+
+        // A launcher context takes ownership; the frontend provider (simulated
+        // by a direct write) puts its own prompt up, and the sim-side rebuild
+        // yields on these frames.
+        app.init_resource::<ActiveInputContext>();
+        let mut contexts = ParticipantContexts::default();
+        contexts.declare(ContextClaim::capturing(
+            LAUNCHER_CONTEXT,
+            context_priority::LAUNCHER,
+        ));
+        app.world_mut()
+            .spawn((InputParticipant::primary(), contexts));
+        app.world_mut()
+            .run_system_once(resolve_active_input_context)
+            .expect("the resolver runs");
+        {
+            let mut prompt = app.world_mut().resource_mut::<ControlPrompt>();
+            prompt.context = ControlContextKind::Menu;
+            prompt.entries = Vec::new();
+            prompt.menu_confirm = Some("Play".to_owned());
+        }
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<ControlPrompt>()
+                .menu_confirm
+                .as_deref(),
+            Some("Play"),
+            "the frontend's prompt survives while it owns input"
+        );
+
+        // The ONLY event: the context resource disappears. Subject and
+        // authorities untouched since the baseline frame.
+        app.world_mut().remove_resource::<ActiveInputContext>();
+        app.update();
+        let prompt = app.world().resource::<ControlPrompt>();
+        assert_eq!(
+            prompt.context,
+            ControlContextKind::Gameplay,
+            "the sim re-derives the frame ownership returns"
+        );
+        assert_eq!(prompt.label_for(ControlSlot::Attack), Some("Swat"));
     }
 }

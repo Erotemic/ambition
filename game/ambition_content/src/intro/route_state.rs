@@ -190,7 +190,15 @@ pub fn sync_intro_flag_gated_lock_walls(
         return;
     };
     let active_room_id = &room_set.active_spec().id;
-    if save.is_changed() || cache.room.as_deref() != Some(active_room_id.as_str()) {
+    // The cached walls are a function of THREE inputs: the save flags, the
+    // active room, and the LDtk project the walls are computed FROM. The
+    // project is the one that used to be missing — a hot reload that swaps
+    // `SandboxLdtkProject` under an unchanged room id and save state kept
+    // serving walls computed from the replaced project.
+    if save.is_changed()
+        || project.is_changed()
+        || cache.room.as_deref() != Some(active_room_id.as_str())
+    {
         cache.walls = compute_intro_flag_gated_lock_walls(&project.0, active_room_id, save.data());
         cache.room = Some(active_room_id.clone());
     }

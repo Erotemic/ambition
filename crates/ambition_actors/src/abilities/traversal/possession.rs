@@ -102,7 +102,12 @@ pub fn resolve_controlled_subject(
              using the first as the controlled subject"
         );
     }
-    subject.0 = chosen;
+    // Write only on an actual change of subject: an unconditional store marks
+    // the resource changed every frame, which defeats change detection for
+    // every downstream consumer (the control-prompt rebuild gates on it).
+    if subject.0 != chosen {
+        subject.0 = chosen;
+    }
 }
 
 /// Possession reach (px): Down+Interact possesses the nearest candidate within this.

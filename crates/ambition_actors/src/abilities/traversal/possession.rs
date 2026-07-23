@@ -191,7 +191,11 @@ pub fn possession_trigger_system(
     // possessable (progression/design) is a targeting-policy gate to add above
     // this, not a "bosses can never be controlled" exclusion in the body model.
     candidates: Query<
-        (Entity, &CenteredAabb),
+        (
+            Entity,
+            &CenteredAabb,
+            Option<&ambition_characters::actor::BodyHealth>,
+        ),
         (
             With<FeatureSimEntity>,
             With<ActorControl>,
@@ -253,7 +257,11 @@ pub fn possession_trigger_system(
     let home_pos = home_clusters.kinematics.pos;
     let nearest = candidates
         .iter()
-        .map(|(entity, aabb)| (entity, (aabb.center - home_pos).length()))
+        // Structural tangibility gate (Jon 2026-07-22): a dead body is an
+        // intangible corpse — you cannot possess a corpse. Excluded BEFORE
+        // distance selection so a nearer corpse never shadows a farther live body.
+        .filter(|(_, _, health)| !crate::combat::util::body_is_corpse(*health))
+        .map(|(entity, aabb, _)| (entity, (aabb.center - home_pos).length()))
         .filter(|(_, dist)| *dist <= POSSESS_RADIUS)
         .min_by(|a, b| a.1.total_cmp(&b.1));
     let Some((target, _)) = nearest else {

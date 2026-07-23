@@ -292,3 +292,67 @@ fn losing_the_target_hands_control_back_to_home() {
         .possessed
         .is_none());
 }
+
+fn spawn_dead_candidate(app: &mut App, pos: ambition_engine_core::Vec2) -> Entity {
+    let e = spawn_candidate(app, pos);
+    app.world_mut()
+        .entity_mut(e)
+        .insert(ambition_characters::actor::BodyHealth::new(
+            ambition_characters::actor::Health {
+                current: 0,
+                max: 3,
+                invulnerable: false,
+            },
+        ));
+    e
+}
+
+#[test]
+fn possession_skips_a_nearer_corpse_for_a_farther_living_body() {
+    // A dead enemy is an intangible corpse — you cannot possess it, even when it
+    // is the NEAREST brain-driven body. (Enemies die and linger with ActorControl
+    // + Brain + no PlayerEntity, so this is reachable.) Poison: drop the
+    // body_is_corpse filter in possession_trigger_system and the nearer corpse is
+    // possessed instead of the living body.
+    let mut app = trigger_app();
+    let home = spawn_home(&mut app);
+    let corpse = spawn_dead_candidate(&mut app, vec2(40.0, 0.0)); // nearer, DEAD
+    let living = spawn_candidate(&mut app, vec2(80.0, 0.0)); // farther, alive
+    hold_down_interact(&mut app, true);
+    app.update();
+    app.update(); // crosses the hold threshold → transfer
+    assert_eq!(
+        brain_slot(&app, living),
+        Some(PlayerSlot::PRIMARY),
+        "the farther LIVING body is possessed"
+    );
+    assert_eq!(
+        brain_slot(&app, corpse),
+        None,
+        "the nearer corpse is NOT possessed"
+    );
+    assert!(
+        app.world().get::<Brain>(home).is_none(),
+        "the home avatar vacated into the living body"
+    );
+}
+
+#[test]
+fn possession_finds_no_target_in_a_world_of_only_corpses() {
+    let mut app = trigger_app();
+    let home = spawn_home(&mut app);
+    let corpse = spawn_dead_candidate(&mut app, vec2(40.0, 0.0));
+    hold_down_interact(&mut app, true);
+    app.update();
+    app.update();
+    assert_eq!(
+        brain_slot(&app, home),
+        Some(PlayerSlot::PRIMARY),
+        "no living candidate → the home avatar keeps the player brain (no transfer)"
+    );
+    assert_eq!(
+        brain_slot(&app, corpse),
+        None,
+        "a corpse is never possessed"
+    );
+}

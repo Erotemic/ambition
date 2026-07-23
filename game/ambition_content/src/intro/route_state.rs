@@ -158,6 +158,21 @@ pub fn compute_intro_flag_gated_lock_walls(
 /// contribution is a clean per-frame derive) and before the WorldPrep collision
 /// consumers. The `intro_lock:<id>` block name lets the render layer surface
 /// each wall as a `LockWallVisual`, same as encounter lock walls.
+/// Per-frame cache for [`sync_intro_flag_gated_lock_walls`]: the overlay is
+/// rebuilt every frame so the blocks must be re-pushed, but the walls only
+/// change with the active room or the save flags. The uncached compute walked
+/// every LDtk level's `active_area()` field strings per frame — the single
+/// hottest our-code symbol in the serialized headless boss profile (~1.8%).
+#[derive(Default)]
+pub struct IntroLockWallCache {
+    room: Option<String>,
+    walls: Vec<(
+        String,
+        ambition_engine_core::Vec2,
+        ambition_engine_core::Vec2,
+    )>,
+}
+
 pub fn sync_intro_flag_gated_lock_walls(
     project: Option<Res<ambition_actors::world::ldtk_world::SandboxLdtkProject>>,
     room_set: Option<
@@ -167,19 +182,23 @@ pub fn sync_intro_flag_gated_lock_walls(
     overlay: Option<
         ResMut<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,
     >,
+    mut cache: Local<IntroLockWallCache>,
 ) {
     let (Some(project), Some(room_set), Some(save), Some(mut overlay)) =
         (project, room_set, save, overlay)
     else {
         return;
     };
-    let active_room_id = room_set.active_spec().id.clone();
-    let desired = compute_intro_flag_gated_lock_walls(&project.0, &active_room_id, save.data());
-    for (id, min, size) in desired {
+    let active_room_id = &room_set.active_spec().id;
+    if save.is_changed() || cache.room.as_deref() != Some(active_room_id.as_str()) {
+        cache.walls = compute_intro_flag_gated_lock_walls(&project.0, active_room_id, save.data());
+        cache.room = Some(active_room_id.clone());
+    }
+    for (id, min, size) in &cache.walls {
         overlay.gate_solids.push(ambition_engine_core::Block::solid(
             format!("intro_lock:{id}"),
-            min,
-            size,
+            *min,
+            *size,
         ));
     }
 }

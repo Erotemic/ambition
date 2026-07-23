@@ -226,12 +226,19 @@ Landed in `tools/ambition_sprite2d_renderer`:
   mechanical converter described above.
 - **First non-bone port (P2, the shared procedural humanoid family).**
   `_pirate_common` split into `paint_character` / `draw_character` (raster,
-  byte-identical) / `capture_character_svg` / `render_target_svg`. `pirate_raider`
-  PIL-vs-SVG authority = **contract-match**: identical contract, pixels differ
-  only in resvg-vs-Pillow outline/edge rendering — visually the same pirate.
+  byte-identical) / `capture_character_svg` / `render_target_svg`. Its part
+  clusters are bracketed with component scopes, so a captured pirate is a set of
+  named `legs`/`body`/`arms`/`head`/`chest_motif` Inkscape layers, not a flat
+  shape soup. The PIL-vs-SVG authority contract match is verified across
+  `pirate_raider`, `pirate_admiral` and `pirate_lookout` — all **contract-match**:
+  identical contract, pixels differ only in resvg-vs-Pillow outline/edge
+  rendering (visually the same pirate). `export_svgs` /
+  `equivalence_harness.py export` writes the editable per-frame SVG artifacts to
+  disk.
 
-Not yet done for the reconsideration gate: making the exported per-frame SVGs
-into one editable component scene + pose program (they are currently the
-"first representation"), the non-humanoid/topologically-unusual case, and a
-render-time result after part caching. Oiler (case 1) remains the hand-authored
-SVG-redesign exemplar; this pirate is the mechanical-conversion exemplar.
+Not yet done for the reconsideration gate: folding the exported per-frame SVGs
+into one editable rest-pose component scene + pose program (they are currently
+the mechanical "first representation"), the non-humanoid/topologically-unusual
+case, and a render-time result after part caching. Oiler (case 1) remains the
+hand-authored SVG-redesign exemplar; this pirate family is the
+mechanical-conversion exemplar.

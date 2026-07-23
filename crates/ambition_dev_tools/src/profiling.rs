@@ -79,6 +79,32 @@ pub fn report_startup_phases(mut profiler: ResMut<StartupProfiler>) {
     eprintln!("[startup] total before first frame: {total_ms:.1}ms");
 }
 
+/// One-shot census of how many systems each schedule carries. The
+/// multithreaded executor pays graph bookkeeping per system per run, so
+/// these counts are the denominator for any scheduling-overhead work:
+/// capture before gating/merging systems, compare after.
+///
+/// Runs from inside a schedule, so the schedule currently executing (and
+/// its ancestors, e.g. `Main`) are temporarily absent from `Schedules`
+/// and are not listed; register it somewhere innocuous like `PostStartup`.
+pub fn report_schedule_census(schedules: Res<Schedules>, mut reported: Local<bool>) {
+    if *reported {
+        return;
+    }
+    *reported = true;
+    let mut counts: Vec<(String, usize)> = schedules
+        .iter()
+        .map(|(label, schedule)| (format!("{label:?}"), schedule.systems_len()))
+        .filter(|(_, count)| *count > 0)
+        .collect();
+    counts.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    let total: usize = counts.iter().map(|(_, count)| count).sum();
+    for (label, count) in &counts {
+        eprintln!("[schedule-census] {label}: {count} systems");
+    }
+    eprintln!("[schedule-census] total (visible schedules): {total} systems");
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Wasm (browser) implementation — no Instant::now() calls.
 // ─────────────────────────────────────────────────────────────────────

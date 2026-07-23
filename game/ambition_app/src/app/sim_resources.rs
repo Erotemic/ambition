@@ -56,6 +56,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             (
                 ambition::dev_tools::profiling::phase_mark("post_startup_begin"),
                 ambition::dev_tools::profiling::report_startup_phases,
+                ambition::dev_tools::profiling::report_schedule_census,
             )
                 .chain(),
         );

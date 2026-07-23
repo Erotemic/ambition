@@ -80,6 +80,14 @@ A mechanically exported SVG is only the first representation. It becomes the
 accepted source after its groups, pivots, sockets, and view structure are
 reasonable to edit by hand.
 
+This recorder now exists for the procedural (non-bone) roster:
+`authoring/draw_recorder.py`'s `DrawRecorder` duck-types the `ImageDraw`
+subset (`polygon`/`line`/`ellipse`/`arc`) that every `sheet_build` character
+paints through, with a `component(name)` scope that groups elements under
+named `<g>` layers. A character whose paint pass takes an injectable `draw`
+(see `_pirate_common.paint_character`) captures its whole scene as SVG with no
+redraw.
+
 ## Component-scene capabilities
 
 The shared scene layer should support:
@@ -201,3 +209,29 @@ Do not authorize a roster-wide campaign until the P2 proof demonstrates:
 - no regression in metadata or runtime output;
 - a credible render-time result after caching;
 - a clean legacy-to-svg-to-consolidated lifecycle.
+
+## Progress (2026-07-23)
+
+Landed in `tools/ambition_sprite2d_renderer`:
+
+- **Equivalence harness (P1 check).** `core/equivalence.py` +
+  `equivalence_harness.py` compare two rendered output directories across the
+  whole published contract — layout, animations, geometry (body bbox / feet /
+  sockets), authored metadata, portraits, and registered per-frame pixels —
+  and classify `exact-pixels › raster-equivalent › contract-match › differs`.
+  Authority-agnostic: a pixel mismatch never fails on its own, only a broken
+  contract does, so a redesign like Oiler is a valid `contract-match`. Measured
+  geometry carries a small rasterizer tolerance; authored metadata stays exact.
+- **PIL→SVG recorder (P1 recipe).** `authoring/draw_recorder.py` — the
+  mechanical converter described above.
+- **First non-bone port (P2, the shared procedural humanoid family).**
+  `_pirate_common` split into `paint_character` / `draw_character` (raster,
+  byte-identical) / `capture_character_svg` / `render_target_svg`. `pirate_raider`
+  PIL-vs-SVG authority = **contract-match**: identical contract, pixels differ
+  only in resvg-vs-Pillow outline/edge rendering — visually the same pirate.
+
+Not yet done for the reconsideration gate: making the exported per-frame SVGs
+into one editable component scene + pose program (they are currently the
+"first representation"), the non-humanoid/topologically-unusual case, and a
+render-time result after part caching. Oiler (case 1) remains the hand-authored
+SVG-redesign exemplar; this pirate is the mechanical-conversion exemplar.

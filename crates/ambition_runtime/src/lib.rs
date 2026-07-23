@@ -472,7 +472,36 @@ pub fn add_headless_foundation(app: &mut App) {
     app.add_plugins(bevy::image::ImagePlugin::default());
     app.add_plugins(bevy::transform::TransformPlugin);
     app.add_plugins(bevy::state::app::StatesPlugin);
+    serialize_frame_schedules(app);
     init_engine_states(app);
+}
+
+/// Run the main-world frame schedules serially instead of on the
+/// multithreaded executor.
+///
+/// Profiling (headless boss room, 3600 ticks) measured ~1.5M voluntary
+/// context switches per run — hundreds per tick — with gameplay systems at
+/// <2% of CPU while executor bookkeeping + thread parking took ~40%+. With
+/// system bodies this small, cross-thread dispatch costs far more than it
+/// buys; `GgrsSchedule` already runs `SingleThreaded` for determinism.
+pub fn serialize_frame_schedules(app: &mut App) {
+    use bevy::app::{First, Last, PostUpdate, PreUpdate, Update};
+    use bevy::ecs::schedule::ExecutorKind;
+    app.edit_schedule(First, |s| {
+        s.set_executor_kind(ExecutorKind::SingleThreaded);
+    });
+    app.edit_schedule(PreUpdate, |s| {
+        s.set_executor_kind(ExecutorKind::SingleThreaded);
+    });
+    app.edit_schedule(Update, |s| {
+        s.set_executor_kind(ExecutorKind::SingleThreaded);
+    });
+    app.edit_schedule(PostUpdate, |s| {
+        s.set_executor_kind(ExecutorKind::SingleThreaded);
+    });
+    app.edit_schedule(Last, |s| {
+        s.set_executor_kind(ExecutorKind::SingleThreaded);
+    });
 }
 
 pub use session_world::{

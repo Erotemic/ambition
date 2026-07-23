@@ -137,13 +137,16 @@ pub fn rebuild_control_prompt(
     controlled: Option<Res<ControlledSubject>>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     authorities: Query<(
-        &BodyAbilities,
-        Option<&ActorMoveset>,
-        Option<&ActionSet>,
-        Option<&ActorTechniques>,
+        Ref<BodyAbilities>,
+        Option<Ref<ActorMoveset>>,
+        Option<Ref<ActionSet>>,
+        Option<Ref<ActorTechniques>>,
     )>,
     cues: Option<Res<ActiveUiCues>>,
     mut prompt: ResMut<ControlPrompt>,
+    // (last subject, authority-presence bits) from the previous rebuild.
+    // `None` = never rebuilt, so the first frame always derives.
+    mut last: Local<Option<(Option<Entity>, [bool; 3])>>,
 ) {
     // A frontend context (startup cards, launcher) owns the participant's
     // actions: its provider (`publish_frontend_context_prompt`) writes the
@@ -159,12 +162,26 @@ pub fn rebuild_control_prompt(
         return;
     }
 
+    // Change-detection gate: the derive below reads only these resources and
+    // the subject's authority components, and Bevy change detection fires the
+    // SAME frame as the mutation — so skipping quiet frames cannot lag a kit
+    // swap even one tick (the doc contract above). This was ~1.4% of frame
+    // CPU re-deriving an identical scheme.
+    let inputs_changed = mode.is_changed()
+        || active_context.as_ref().is_some_and(|r| r.is_changed())
+        || controlled.as_ref().is_some_and(|r| r.is_changed())
+        || cues.as_ref().is_some_and(|r| r.is_changed());
+
     // Menu / dialogue own input: no gameplay scheme. Publish an explicit context
     // + a confirm verb so the overlay relabels the select-functional buttons and
     // hides the rest. The SPECIFIC verb ("Equip" / "Use") comes from the owning
     // surface's published cue; absent that (no menu open, or a non-item focus),
     // fall back to the generic context verb.
     if !mode.get().allows_gameplay() {
+        if last.is_some() && !inputs_changed {
+            return;
+        }
+        *last = Some((None, [false; 3]));
         let (context, fallback) = match mode.get() {
             GameMode::Dialogue => (ControlContextKind::Dialogue, "Advance"),
             _ => (ControlContextKind::Menu, "Select"),
@@ -179,6 +196,7 @@ pub fn rebuild_control_prompt(
     }
 
     let subject = controlled
+        .as_deref()
         .and_then(|s| s.0)
         .or_else(|| primary.single().ok());
     let Some((abilities, moveset, action_set, techniques)) =
@@ -186,14 +204,29 @@ pub fn rebuild_control_prompt(
     else {
         // Cold start (no player yet) or a controlled body without authorities.
         set_prompt(&mut prompt, ControlContextKind::Empty, Vec::new(), None);
+        *last = Some((subject, [false; 3]));
         return;
     };
 
+    let presence = [
+        moveset.is_some(),
+        action_set.is_some(),
+        techniques.is_some(),
+    ];
+    let authorities_changed = abilities.is_changed()
+        || moveset.as_ref().is_some_and(|r| r.is_changed())
+        || action_set.as_ref().is_some_and(|r| r.is_changed())
+        || techniques.as_ref().is_some_and(|r| r.is_changed());
+    if *last == Some((subject, presence)) && !inputs_changed && !authorities_changed {
+        return;
+    }
+    *last = Some((subject, presence));
+
     let scheme = derive_action_scheme(
         &abilities.abilities,
-        moveset.map(|m| &m.0),
-        action_set,
-        techniques.map_or(&[], |t| t.0.as_slice()),
+        moveset.as_deref().map(|m| &m.0),
+        action_set.as_deref(),
+        techniques.as_deref().map_or(&[], |t| t.0.as_slice()),
     );
     let entries = scheme
         .iter()

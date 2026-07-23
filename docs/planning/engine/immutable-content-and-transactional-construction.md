@@ -1796,9 +1796,20 @@ could never see, in layers:
 > router state; an engine-side answer (a headless load-failure log, or a
 > shell readiness probe on the umbrella) is the natural SDK follow-up.
 >
-> Remaining Phase-6 work: the visible-shell half of "visibly and headlessly
-> from the same content", and the task-7 workflow measurements beyond the
-> qualitative ones above.
+> **Visible half:** `outlander_visible` (feature `visible` =
+> `ambition/visible` + `basic_shell_presentation` + `ambition/input`) shares
+> `compose_outlander_shell` with the headless binary — one provider, one
+> route table, two host faces. It compiles and links the full render chain
+> through the umbrella; the interactive run needs a display (this VM has
+> none). Two more recorded findings: the AssetServer root must be pointed at
+> the engine tree via `actors_desktop_asset_root()` (leak #3 made concrete),
+> and the standalone asset-resource install (`SandboxAssetCatalog` +
+> `GameAssets`) is app-local boilerplate no umbrella helper offers — the
+> binary ships without it and honestly draws colored primitives (leak #8).
+>
+> Remaining Phase-6 work: an interactive visible run on a machine with a
+> display, and the task-7 workflow measurements beyond the qualitative ones
+> above.
 
 #### Objective
 

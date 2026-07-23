@@ -24,6 +24,23 @@ path = "src/bin/headless.rs"
 name = "outlander_dump"
 path = "src/bin/dump.rs"
 
+# The windowed face. Feature-gated exactly like the in-repo demo shells: the
+# default build stays headless-lean, and `--features visible` adds the render
+# chain, the basic shell presentation, and the standard host input path.
+[[bin]]
+name = "outlander_visible"
+path = "src/bin/visible.rs"
+required-features = ["visible"]
+
+[features]
+default = []
+visible = [
+    "ambition/visible",
+    "ambition/basic_shell_presentation",
+    "ambition/input",
+    "bevy/default",
+]
+
 [dependencies]
 ambition = { path = "../../crates/ambition", default-features = false }
 bevy = { version = "0.18.1", default-features = false }

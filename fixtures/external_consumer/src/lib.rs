@@ -257,15 +257,27 @@ impl Plugin for OutlanderExperiencePlugin {
 /// prepares or activates ANY experience — an earlier draft of the headless
 /// binary "ran" 120 ticks of exactly that empty host (GPT 5.6 review finding).
 pub fn build_outlander_app() -> App {
+    let mut app = App::new();
+    ambition::engine::add_headless_foundation(&mut app);
+    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
+    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
+    compose_outlander_shell(&mut app);
+
+    // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
+    let timestep = app.world().resource::<Time<Fixed>>().timestep();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
+    app
+}
+
+/// The shell wiring the headless and visible hosts SHARE — one provider, one
+/// route table, one session lifecycle, exactly the "visibly and headlessly
+/// from the same content" claim.
+pub fn compose_outlander_shell(app: &mut App) {
     use ambition::game_shell::{
         ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog,
         ShellRouteSpec,
     };
 
-    let mut app = App::new();
-    ambition::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
-    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
     app.add_plugins(ambition::game_shell::MinimalShellPlugins);
     // The frontend audio context for launcher/loading frames. Outlander
     // authors no sounds, so the empty profile keeps those frames silent
@@ -289,11 +301,6 @@ pub fn build_outlander_app() -> App {
         OUTLANDER_GAMEPLAY_ROUTE,
         OUTLANDER_LAUNCHER_ROUTE,
     ));
-
-    // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
-    let timestep = app.world().resource::<Time<Fixed>>().timestep();
-    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
-    app
 }
 
 /// What the acceptance walk proved, for the binary to print and tests to pin.

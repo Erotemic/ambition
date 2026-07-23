@@ -42,12 +42,21 @@ placement, one provider-staged actor, and one runtime-dynamic family now share a
 pure, preflightable planner and a recipe-backed reconstruction path, and
 `SpawnOrigin` replaced the id-string parsing that stood in for provenance.
 
-The next broad architecture push is that doc's Phase 4 — making room activation,
-reset, transition, hot reload, and snapshot reconstruction variations of ONE
-construction transaction, which turns the remaining family-specific spawn loops
-into plan rows. That is the foundation for prefab-like authoring, broader
-transactional room replacement, persistence/reconstruction, and a credible
-external SDK. Rollback itself is owned by GGRS (ADR 0027).
+The current broad architecture push is that doc's Phase 4 — making room
+activation, reset, transition, hot reload, and snapshot reconstruction
+variations of ONE construction transaction, which turns the remaining
+family-specific spawn loops into plan rows. **Its substrate closed 2026-07-23**
+(Checkpoints A through "C step 2"): the room transaction owns publication and
+verification at the outer boundary, the authoritative roster and plan identity
+derive from the completed plan, rig composition is verified exactly, and the
+first two families migrated by the pattern Phase 4 repeats — giant hosts+hands
+and authored mount links are plan rows with wired-and-verified relations
+(`PendingMountLinks` deleted). Remaining: the nine-family migration, lifecycle
+unification, and the staging/commit boundary that turns verification from a
+detector into a preventer (tracks.md #5 has the decomposition). That is the
+foundation for prefab-like authoring, broader transactional room replacement,
+persistence/reconstruction, and a credible external SDK. Rollback itself is
+owned by GGRS (ADR 0027).
 
 Ambition-the-game remains the first customer throughout; it consumes capabilities
 rather than defining exceptions inside reusable crates.
@@ -67,15 +76,19 @@ track.
 ```text
 immutable PreparedContent + exact GGRS session identity (done)
         ↓
-confirmed-frame external-effect quarantine → Matchbox two-peer handshake
+confirmed-frame external-effect quarantine (done 2026-07-21)
+        ↓
+Matchbox two-peer handshake + predicted-A/corrected-B oracle   ← next online step
 
-in parallel:
+in parallel (CURRENT):
   explicit provenance + three-origin ConstructionPlan vertical slice (done)
         ↓
-  transactional room-lifecycle migration
+  transaction substrate: boundary/roster/plan-id/relations (done 2026-07-23)
+        ↓
+  Phase 4 — nine-family migration + lifecycle unification + commit boundary
 
-  Super Mary-O level-1 acceptance
-  Sanic complete-act acceptance
+  Super Mary-O level-1 acceptance (done 2026-07-21)
+  Sanic complete-act acceptance (open — demos/sanic.md)
 ```
 
 ## Acceptance-game matrix

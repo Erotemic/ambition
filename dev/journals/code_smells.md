@@ -34,7 +34,17 @@ Entry format:
 - **Noticed while:** landing the slice; deliberately NOT optimized (no evidence it matters yet).
 - **Suggested fix / size:** S if profiling ever names it.
 
-## 2026-07-19 Simulation-originated presentation effects have no seam and no confirmed-frame release
+## ✅ RESOLVED 2026-07-21 (verified 2026-07-23) — Simulation-originated presentation effects have no seam and no confirmed-frame release
+
+**Resolved by the tracks #1 confirmed-frame quarantine** (`ab8a5a564`,
+`14fbc6ec4`, `385a165ee`, `2eb14ef9e`):
+`ambition_runtime::external_effects` holds `VfxMessage`, `ExplosionRequest`,
+`FireworksRequest`, and `DebrisBurstMessage` at `ConfirmedFrameBoundary` and
+releases with `take_confirmed` — exactly the staged fix this entry demanded
+(confirmed, not ran-before; one seam, not 27 gated call sites).
+`EffectRequest` is deliberately absent: its readers are sim-internal, so it is
+not an external effect. Verified against the tree 2026-07-23 while ranking
+open smells; entry kept for the analysis below.
 - **Where:** 27 direct `MessageWriter<VfxMessage>` sites, plus FOUR more request families with their own direct writers — `EffectRequest` (6), `DebrisBurstMessage` (6), `ExplosionRequest` (3), `FireworksRequest` (1). Audio has exactly one producer (`ambition_sfx::SfxWriter`), which is why `010c84369` could add its guard in one place.
 - **Smell:** every one of these re-fires when a rollback re-simulates a frame, and there is no single place to intervene. Counting only `VfxMessage` UNDER-scopes the problem by four families.
 - **Do NOT** "add a VfxWriter then copy the audio one-liner." That gate answers *this frame ran before*, which is not *this frame is confirmed* — under predicted remote input it keeps the phantom effect and suppresses the corrected one (see `SfxEmissionGate`'s doc comment). Copying it would spread a known-wrong policy to five more families.

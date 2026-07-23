@@ -18,6 +18,36 @@ falling-sand solver correctness pass (pooling/termination — Jon: "getting
 falling sand to work right is part of the engine"); boss-fight *quality*
 grammar beyond validation (boss-design.md's open iteration loop).
 
+## Hardest UNBLOCKED work, ranked (survey 2026-07-23)
+
+One list, so choosing the next big push never requires re-deriving it. Ranked
+by hardness × payoff; every item below is executable today per its own doc.
+
+1. **Phase 4 — room lifecycle onto ONE construction transaction** (track 5
+   continuation; the campaign doc's §Phase 4). The substrate is DONE as of
+   2026-07-23 — outer transaction boundary, plan-derived roster, complete plan
+   identity, exact rig composition, planned limb/mount relations, stable-id
+   reconstruction — so this is now a pure family-migration + commit-boundary
+   campaign. **← CURRENT (Jon, 2026-07-23: proceed).**
+2. **FB6 rollout redesign** (track 6, [fable]) — the design task is unblocked;
+   the implementation stays blocked until it lands.
+3. **Matchbox two-peer transport + predicted-A/corrected-B oracle**
+   (netcode.md "next online slice"; unblocked since the confirmed-frame
+   quarantine landed 2026-07-21).
+4. **Participant-action PA1–PA7** (participant-action-system.md) — per-seat
+   input authorities; foundation for local-N SSB.
+5. **The 311-site `add_systems(Update, ...)` everything-schedule**
+   (code_smells.md 2026-07-23; perf campaign) — 10–18% executor self-time in
+   every phase, title screen included.
+6. **CM8 victim-side feedback seam** (track 8; design pre-solved in
+   combat-model.md §8; includes a live enemy-vs-enemy feedback bug).
+7. **Role evictions** (track 7) and the **glob-import untangle**
+   (code_smells.md 2026-06-26, 30-site worklist) — incremental, parallel-safe.
+
+Hard but **gated**: falling-sand fluids (⛔ Jon's explicit go-ahead required);
+Phase 5 / Milestone D (needs its ADR-0027 rewrite, then Phase 4); boss-quality
+grammar (wants Jon's calibration in the loop).
+
 ## ★ EXECUTION WAVE 1 (GPT-dialog keystones, 2026-07-19) — runs FIRST
 
 The GPT 5.6 dialog converged on six keystone initiatives; framing and full
@@ -627,15 +657,27 @@ unspellable; the rig case accumulates in canonical relation order because
 redundant: a limb outside its host's rig is INERT and a mount whose `MountSlot`
 does not point back stops obeying (`steer_mount_from_rider` queries
 `With<MountSlot>`), while every forward-only assertion passes in both cases.
-⚠ **No production caller declares either relation yet** — limbs/riders/mounts are
-not plan rows, so the old paths still run. That is the next commit.
+✅ **Production callers landed 2026-07-23** (superseding the two ⚠s that stood
+here): giant hosts + hands are explicit plan rows joined by `ambition.limb`
+relations for EVERY plan origin (authored and provider-staged share
+`giant_cluster_rows`; runtime origins REFUSE giant specs rather than spawn
+handless), and authored mount links are planned `ambition.mount` relations —
+`PendingMountLinks` and its frame-later resolver are DELETED, link-named
+enemies/bosses are plan rows, and both ends of the weld are wired at commit and
+verified before publication. The same push closed the outer-artifact holes: the
+authoritative roster derives from the completed plan (`planned_ids()` ∪ the
+enumerated non-plan families, one `SimId` spelling), `RoomConstructionPlanId`
+hashes the complete frozen plan (`deterministic_dump()`: derived rows, relation
+payloads, recipe ids, content epoch), exact rig composition is a fatal boundary
+check (`verify_rig_composition`), and reconstruction accepts any stable `SimId`
+(a hand's `SimId::spawned` included). Campaign doc: Checkpoints A, C, and
+"C step 2". Commits `77e4ce03f`, `e164f22e2`, `89b10c5a4`, `c8cee911a`.
 
-⚠ **PHASE 4 IS OTHERWISE NOT STARTED.** Nine authoritative families and one parallel
-`apply_spawn_actor_requests` path remain outside the planner — the exact table is
-in the campaign doc. Two known holes in the current parity claim: giant hand
-limbs are authoritative roots no plan row names (and are reachable from inside a
-planned recipe), and `Limb`/`RidingOn` are raw `Entity` relationships invisible
-to cut-detection.
+⚠ **Phase 4 proper is the remaining work.** Nine authoritative families and the
+parallel `apply_spawn_actor_requests` path remain outside the planner (table in
+the campaign doc; the enemy and boss families now MINUS their giant/mount-link
+members). Verification still DETECTS rather than PREVENTS — no staging world,
+Bevy commands do not roll back.
 
 ⚠ **An earlier same-day review found five transactional gaps the tests could
 not see** — a counter spent before validation, an unchecked recipe/parameter
@@ -645,12 +687,33 @@ is now **v2**); the Phase 3 account lists them. **Read that list before starting
 Phase 4** — every one was a boundary described as atomic with nothing enforcing
 it, which is exactly the risk Phase 4 multiplies.
 
-**Next in this campaign:** Phase 4 (migrate room lifecycle operations onto the
-planner, in the order activation → reset → transition → hot reload → snapshot
-reconstruction), which is what turns the remaining loops into plan rows. It also
-owns the two limits this slice recorded rather than solved: enforcing
-`ConstructionScope::content_epoch` at a commit boundary, and the live identity
-index that would let a relation target an entity outside the plan.
+**CURRENT (Jon, 2026-07-23): Phase 4 — migrate room lifecycle operations onto
+one construction transaction.** The substrate above exists FOR this. Shape:
+
+1. **Family migration, largest loops first** — fold the remaining spawn loops
+   into plan rows using the twice-proven pattern (giants, mount links): enemy
+   family, boss family, authored placements→NPCs, then the static families
+   (hazard, pickup/chest/breakable/switch, shrine, gravity zone, portal,
+   portal-gun). Each family keeps its populate function; being planned changes
+   who allocates the root and wires/verifies relations, not what the actor is.
+   Delete each family's loop as it migrates; `non_plan_authoritative_ids`
+   shrinks to empty and the "incomplete visibility" caveat in the campaign
+   doc's Checkpoint C statement dissolves with it.
+2. **Lifecycle unification** — activation → reset → transition → hot reload →
+   snapshot reconstruction become variations of ONE prepared transaction
+   (today they share the planner only for the migrated families). Hot reload
+   builds candidate `PreparedContent` + candidate room state before activating
+   either.
+3. **The commit boundary** — the recorded-not-solved limits: enforce
+   `ConstructionScope::content_epoch` at commit; the live identity index so a
+   relation can target an entity outside the plan; and the staging/disposable
+   world (or equivalent) that turns the boundary verifier from a detector into
+   a preventer. `RoomLoaded` publication ordering is already correct.
+
+**Exit:** every authoritative root in a shipped room is a plan row; the
+enumerated legacy list is empty; `apply_spawn_actor_requests` either lowers
+through the planner or is explicitly scoped to programmatic scene setup; a
+failed preparation cannot partially despawn or replace the active room.
 
 ## 6. Correct the fighter-rollout design before FB6 — [fable]
 

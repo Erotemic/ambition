@@ -158,6 +158,13 @@ impl SfxBankResource {
             .get(provider_id)
             .and_then(|provider| provider.fingerprint_of(id))
     }
+
+    /// Human-readable name for a bank id, when the bank ships a name section.
+    pub fn name_for(&self, provider_id: &str, id: SfxId) -> Option<&str> {
+        self.providers
+            .get(provider_id)
+            .and_then(|provider| provider.name_for(id))
+    }
 }
 
 #[derive(Asset, TypePath)]
@@ -237,8 +244,50 @@ impl Plugin for SfxBankAssetPlugin {
             .init_resource::<ProviderSfxHandleCache>()
             .init_resource::<SfxPlaybackState>()
             .add_systems(Startup, kick_off_bank_load)
-            .add_systems(Update, promote_loaded_sfx_bank);
+            .add_systems(Update, promote_loaded_sfx_bank)
+            .add_systems(Update, warn_on_sfx_playback_spam);
     }
+}
+
+/// A sustained accepted-playback rate above this is treated as a runaway
+/// emitter, not gameplay. Dense combat peaks around ~10 cues/second.
+const SFX_SPAM_WARN_PER_SECOND: f32 = 25.0;
+
+/// Once-per-second watchdog over [`SfxPlaybackState::accepted_playbacks`]:
+/// when the accepted rate is abnormal, log it with the most recent record —
+/// resolved to its bank name — so a runaway emitter names itself in the log
+/// instead of being an audible mystery ("walking into the boss room fires
+/// insane SFX", desktop-lifecycle-3, no trace in any log).
+fn warn_on_sfx_playback_spam(
+    state: Res<SfxPlaybackState>,
+    banks: Res<SfxBankResource>,
+    time: Res<bevy::prelude::Time>,
+    mut window: Local<Option<(f32, u64)>>,
+) {
+    let Some((elapsed, prev_accepted)) = window.as_mut() else {
+        *window = Some((0.0, state.accepted_playbacks));
+        return;
+    };
+    *elapsed += time.delta_secs();
+    if *elapsed < 1.0 {
+        return;
+    }
+    let rate = state.accepted_playbacks.saturating_sub(*prev_accepted) as f32 / *elapsed;
+    *window = Some((0.0, state.accepted_playbacks));
+    if rate < SFX_SPAM_WARN_PER_SECOND {
+        return;
+    }
+    let last = state.last_played.as_ref();
+    let name = last
+        .and_then(|record| banks.name_for(&record.provider_id, record.id))
+        .unwrap_or("<unnamed>");
+    bevy::log::warn!(
+        target: AUDIO_LOG_TARGET,
+        "sfx playback spam: {rate:.0} accepted/s (sane peak ~10/s); most recent: '{name}' {} owner={:?} source={:?}",
+        last.map(|r| r.id.to_string()).unwrap_or_default(),
+        last.map(|r| r.owner),
+        last.map(|r| &r.source),
+    );
 }
 
 fn kick_off_bank_load(

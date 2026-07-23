@@ -674,14 +674,20 @@ pub fn install_mary_o_content(app: &mut App) {
     // identity) includes these rows; a non-GGRS shell records metadata only.
     {
         use ambition::runtime::rollback::AmbitionRollbackApp;
-        app.rollback_component_clone::<MaryOLevelState>(
-            "ambition_demo_mary_o",
-            "content.mary_o_level_state",
-        )
-        .rollback_component_clone::<flag::FlagSequence>(
-            "ambition_demo_mary_o",
-            "content.mary_o_flag_sequence",
-        );
+        // The ANCHOR comes first: the mode owner is a bare state-holder entity
+        // — no body, no projectile, no feature marker — so none of the
+        // engine's rollback anchors reach it, and a registered-but-unanchored
+        // component silently never snapshots (found by the behavioral restore
+        // test: a dirty score survived a GGRS rollback).
+        app.require_rollback::<MaryOLevelState>("ambition_demo_mary_o", "entity:mary_o_mode_owner")
+            .rollback_component_clone::<MaryOLevelState>(
+                "ambition_demo_mary_o",
+                "content.mary_o_level_state",
+            )
+            .rollback_component_clone::<flag::FlagSequence>(
+                "ambition_demo_mary_o",
+                "content.mary_o_flag_sequence",
+            );
     }
 }
 

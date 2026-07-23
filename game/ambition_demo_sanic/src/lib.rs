@@ -580,18 +580,25 @@ pub fn install_sanic_content(app: &mut App) {
     // identity) includes these rows; a non-GGRS shell records metadata only.
     {
         use ambition::runtime::rollback::AmbitionRollbackApp;
-        app.rollback_component_clone::<ball_dash::BallDash>(
-            "ambition_demo_sanic",
-            "content.sanic_ball_dash",
-        )
-        .rollback_component_clone::<ball_dash::BallDashInput>(
-            "ambition_demo_sanic",
-            "content.sanic_ball_dash_input",
-        )
-        .rollback_component_clone::<SanicActState>(
-            "ambition_demo_sanic",
-            "content.sanic_act_state",
-        );
+        // The act-state ANCHOR comes first: the mode owner is a bare
+        // state-holder entity no engine rollback anchor reaches, and a
+        // registered-but-unanchored component silently never snapshots (the
+        // Mary-O behavioral restore test caught this class: a dirty mutation
+        // survived a GGRS rollback). `BallDash`/`BallDashInput` ride the
+        // player body, which `entity:body_kinematics` already anchors.
+        app.require_rollback::<SanicActState>("ambition_demo_sanic", "entity:sanic_mode_owner")
+            .rollback_component_clone::<ball_dash::BallDash>(
+                "ambition_demo_sanic",
+                "content.sanic_ball_dash",
+            )
+            .rollback_component_clone::<ball_dash::BallDashInput>(
+                "ambition_demo_sanic",
+                "content.sanic_ball_dash_input",
+            )
+            .rollback_component_clone::<SanicActState>(
+                "ambition_demo_sanic",
+                "content.sanic_act_state",
+            );
     }
 }
 

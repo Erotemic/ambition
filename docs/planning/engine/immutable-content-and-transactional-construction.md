@@ -1747,19 +1747,39 @@ could never see, in layers:
    snapshot — despawn+respawn a whole room via Commands), whose
    divergence is still owed a reproduction; full design in **Track B**.
 
-### Track B — Confirmed-frame lifecycle commitment (TRANSITION SLICE LANDED, 2026-07-23)
+### Track B — Confirmed-frame lifecycle commitment (LANDED for single-player/sync-test, 2026-07-23)
 
-> **Status:** the TRANSITION path is LANDED and the RED reproduction is now GREEN
-> (`app_it::rollback_room_transition`). The architecture (Piece 1 rollback-visible
-> intent + Piece 2 confirmed exclusive commit + session rebase) is proven
-> end-to-end. STILL OWED: extend the same deferral to the reconstruction *full
-> sandbox reset* (op 2b) and, if a divergence is shown, the in-place reset family
-> (ops 1/2a/3 are already rollback-safe eager, so likely no-ops); plus the
-> principal timeline oracle (T6) and the `External`/Matchbox coordinated-rebase
-> seam. This is the largest rollback item (GPT 5.6 concurred) and it GATES the
-> Matchbox two-peer track. Sequenced: reproduce → B → C/D/E hardening → Matchbox.
+> **Status:** LANDED. The reproduce-first campaign narrowed B to ONE genuinely
+> divergent path — the room TRANSITION — which is now fixed (RED→GREEN,
+> `app_it::rollback_room_transition`), and PROVED every other lifecycle path
+> already rollback-safe. The architecture (Piece 1 rollback-visible intent +
+> Piece 2 confirmed exclusive commit + session rebase) is proven end-to-end,
+> including the principal timeline oracle (recorded-not-executed while predicted →
+> commits exactly once + one generation bump → never re-commits). The only
+> remaining item is the `External`/Matchbox coordinated-rebase seam, which is
+> intentionally deferred to the Matchbox era (it needs a real peer barrier).
 >
-> **Landed pieces (commit forthcoming this session):**
+> **The reproduce-first verdict per op (this is the whole map now):**
+> - **op 4 room transition** — DIVERGED eager (checksum mismatch in the LOAD
+>   phase, frames [9-11]) because its MULTI-TICK load machinery
+>   (`RoomTransitionLoadState` / `RoomTransitionContentEpoch` / `LoadCoordinator`)
+>   is not rollback-registered. **FIXED** by confirmed-frame deferral + rebase.
+> - **op 2b full sandbox reset** — SINGLE-TICK Commands reconstruction, no such
+>   machinery. Driven under a forced window (`app_it::rollback_full_reset`,
+>   load-bearing roster-swap) it is **already rollback-safe**; no deferral.
+> - **op 5 snapshot** — `RoomConstructionPlan::apply_to_world` (was unused) is now
+>   the transition committer's exclusive reconstruction primitive, so the snapshot
+>   mutation boundary is exercised and clean.
+> - **ops 1/2a/3 in-place reset (death/manual/replay)** — already rollback-safe to
+>   2400 frames (`app_it::rollback_lifecycle_reset`, load-bearing: a damaged enemy
+>   + broken brick are restored). Left eager; no deferral needed.
+>
+> So the earlier "all five lifecycle ops mutate on speculative frames → all need
+> deferral" framing was too broad: only the multi-tick transition machine actually
+> diverged. B GATES the Matchbox two-peer track. Sequenced: reproduce → B →
+> C/D/E hardening → Matchbox.
+>
+> **Landed pieces (commits `c76497d63`, `9b1f5da98`, `e60089189`):**
 > - `ambition_actors::session::lifecycle_commit`: `LifecycleIntent` +
 >   `PendingLifecycleCommit` (rollback-registered resource, earliest-sticky slot).
 > - `detect_room_transition_system`: under a rollback host, records a

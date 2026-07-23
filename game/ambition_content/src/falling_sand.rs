@@ -151,13 +151,22 @@ impl Plugin for FallingSandRoomPlugin {
 /// ParticleSimulationRun>)`, so removing the resource idles the whole external
 /// sim. Presence keeps it running until the last particle is gone, so a room
 /// exit never strands live particles mid-drain.
+///
+/// Dirty chunks also hold the gate open: `advance_chunk_dirty_state` (gated)
+/// is the only thing that retires `ChunkDirtyState`, but the render collector
+/// `update_world_color_texture` (ungated) repacks every dirty texel every
+/// frame. Gating off with dirt outstanding pins a full-map GPU compute
+/// dispatch forever — measured at ~40% of CPU in desktop-lifecycle-2 after
+/// `redirty_all_chunks_on_pipeline_ready` fired with the gate closed.
 fn gate_bfs_simulation_to_room_presence(
     mut commands: Commands,
     state: Res<FallingSandRoomState>,
     particles: Query<(), With<Particle>>,
+    dirty: Query<&ChunkDirtyState>,
     gate: Option<Res<ParticleSimulationRun>>,
 ) {
-    let should_run = state.active_room || !particles.is_empty();
+    let should_run =
+        state.active_room || !particles.is_empty() || dirty.iter().any(ChunkDirtyState::is_dirty);
     if should_run && gate.is_none() {
         commands.init_resource::<ParticleSimulationRun>();
     } else if !should_run && gate.is_some() {

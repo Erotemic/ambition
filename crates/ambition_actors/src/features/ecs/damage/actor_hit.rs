@@ -169,7 +169,17 @@ pub(crate) fn apply_actor_hit(
         if resolution == crate::features::ecs::damage_apply::BodyHitResolution::Ignored {
             return false;
         }
-        if should_bark {
+        // CM1 death policy: an `Unbounded` (smash-percent) body never dies from
+        // its meter — the blast-zone/OOB gate owns its death — so a meter-kill
+        // is suppressed. `HpDepleted` (the default) kills as before: parity.
+        // Computed HERE, before the bark, so a LETHAL hit does not also speak a
+        // hit line: a dying body presents its death (the Death SFX + burst +
+        // debris below), not an "ow!" (Jon 2026-07-22: dead things don't bark).
+        let killed = matches!(
+            resolution,
+            crate::features::ecs::damage_apply::BodyHitResolution::Damaged { died: true, .. }
+        ) && em.config.tuning.death_policy.kills_at_max();
+        if should_bark && !killed {
             // Catalog-first: the actor seed carries the stable authored
             // character id through spawn. Display names remain presentation and
             // are never reverse-resolved into identity.
@@ -219,13 +229,6 @@ pub(crate) fn apply_actor_hit(
             // damage, no death, no knockback.
             return true;
         }
-        // CM1 death policy: an `Unbounded` (smash-percent) body never dies from
-        // its meter — the blast-zone/OOB gate owns its death — so a meter-kill
-        // is suppressed. `HpDepleted` (the default) kills as before: parity.
-        let killed = matches!(
-            resolution,
-            crate::features::ecs::damage_apply::BodyHitResolution::Damaged { died: true, .. }
-        ) && em.config.tuning.death_policy.kills_at_max();
         // §A2 step 6 (FEEL-BLIND): a struck actor rides the SAME feel-tuned,
         // frame-agnostic knockback resolution the player does — side away from
         // the source, rise against ITS gravity — replacing the old inline

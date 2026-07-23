@@ -1227,3 +1227,68 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         "a multi-tick player strike must hit once (5 -> 3), not many times"
     );
 }
+
+#[test]
+fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
+    // Reproduces the observed "it barks when it's dead" (Jon 2026-07-22). A
+    // struck enemy speaks a hit line every hit — and that INCLUDED the lethal
+    // one, so it said its hit bark on the very frame it died. A dying body should
+    // present its death (the Death SFX + burst + debris), not a conversational
+    // "ow!". Non-lethal hits still bark. NOTE: striking an ALREADY-dead corpse was
+    // never the culprit here — `resolve_body_hit` has always dropped hits on a
+    // zero-HP body, so that path is silent with or without this change; the
+    // reproducible bark was the death FRAME. Poison: drop the `&& !killed` guard
+    // in `apply_actor_hit` and the lethal case barks again.
+    fn hit_and_count_bubbles(start_hp: i32, damage: i32) -> (usize, bool) {
+        let mut app = App::new();
+        app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(crate::features::enemies::test_roster());
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        let mut banter = crate::features::banter::CombatBanterRegistry::default();
+        banter.set_hit_barks("Kernel Guide", vec!["ow!", "argh!", "stop!"]);
+        app.insert_resource(banter);
+        app.add_message::<HitEvent>();
+        app.add_message::<SetFlagRequested>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_message::<ActorStimulus>();
+        app.init_resource::<CapturedBubbles>();
+        app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
+        let e = spawn_hostile_actor(&mut app);
+        app.world_mut()
+            .get_mut::<BodyHealth>(e)
+            .unwrap()
+            .health
+            .current = start_hp;
+        app.world_mut().write_message(HitEvent {
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage,
+            source: HitSource::PlayerSlash { knock_x: 120.0 },
+            attacker: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+        app.update();
+        (
+            app.world().resource::<CapturedBubbles>().0,
+            app.world().get::<BodyHealth>(e).unwrap().alive(),
+        )
+    }
+    // Non-lethal (control): the enemy survives and barks a hit line.
+    let (bubbles, alive) = hit_and_count_bubbles(5, 2);
+    assert!(alive, "a 2-damage hit leaves the 5-HP enemy alive");
+    assert_eq!(bubbles, 1, "a surviving struck enemy barks a hit line");
+    // Lethal: the enemy dies WITHOUT speaking a hit line.
+    let (bubbles, alive) = hit_and_count_bubbles(2, 5);
+    assert!(!alive, "a 5-damage hit kills the 2-HP enemy");
+    assert_eq!(
+        bubbles, 0,
+        "a dying enemy does not speak a hit line — it presents its death instead"
+    );
+}

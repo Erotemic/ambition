@@ -287,9 +287,36 @@ pays off: a reviewed scene with good part grouping is the natural starting
 point for rigging a formerly procedural character.
 
 Still open: per-target Inkscape review by Jon (the acceptance gate for
-retiring any PIL generator); auto-discovered part grouping is `autoNNN`-named
+retiring any PIL generator); auto-discovered part grouping is `geomNNN`-named
 (cooperative scopes give semantic names — convert paint passes opportunistically
 for better grouping); bone-toolkit characters and multipart bosses run through
 the universal path but their raster-composited layers (rotate/paste) are
 capture gaps reported by coverage; assembler renormalization makes the
 conservative verifier under-report matches.
+
+### Discovery correctness pass (2026-07-23, GPT 5.6 review)
+
+Three structural bugs in the universal converter's part discovery were fixed
+(submodule `authoring/auto_capture.py` + `equivalence_harness.py`):
+
+- **Transform-aware matching.** Occurrences that differed only by an ancestor
+  transform (composite-fold `translate`, resize `scale`, layer `rotate`, or two
+  separately-transformed sibling layers in one frame) collapsed onto a single
+  placement — the second rendered at the first's location. Discovery now
+  flattens every flattenable transform into geometry first (`_flatten_tree`),
+  splicing away pure-positioning groups, while still peeling the shared
+  sole-child outer wrapper to a prefix so matching stays in the large
+  pre-downsample space (meaningful congruence tolerance + float precision).
+  Only the non-peelable inner transforms — where the bug lived — are baked in;
+  unflattenable residuals (rotated ellipse/image, `<use>`, filtered group) are
+  kept and treated as opaque, never dropped.
+- **Semantic identity is authoritative.** Named components (`left_thruster` /
+  `right_thruster`) with identical geometry no longer merge — candidate
+  identity is keyed on the full Inkscape label path. Unlabelled geometry keeps
+  geometry-only "inferred reuse" keys (`geomNNN`), distinct from semantic ones.
+- **Honest status.** `captured` now means *every* published frame was verified,
+  not a ~6-frame sample. `sampled` = complete + clean capture, subset checked;
+  `partial` = any gap. `autoconvert`/`coverage --full` verify every frame; the
+  mockingbird boss reaches `captured 36/36` under `--full` (`sampled 6/6`
+  otherwise). Poison tests pin all three in `tests/test_part_discovery.py` and
+  `tests/test_status_levels.py`.

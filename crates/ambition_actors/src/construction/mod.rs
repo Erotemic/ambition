@@ -57,6 +57,11 @@ pub const RECIPE_SUMMONED_MINION: &str = "ambition.summoned-minion";
 pub const RECIPE_GIANT_HOST: &str = "ambition.giant-host";
 /// One hand of a giant host.
 pub const RECIPE_GIANT_HAND: &str = "ambition.giant-hand";
+/// An ordinary authored enemy pulled into the planner because a relation
+/// (today: an authored mount link) names it.
+pub const RECIPE_AUTHORED_ENEMY: &str = "ambition.authored-enemy";
+/// An authored boss pulled into the planner because a relation names it.
+pub const RECIPE_AUTHORED_BOSS: &str = "ambition.authored-boss";
 /// A personal grudge from one constructed actor onto another.
 pub const RELATION_GRUDGE: &str = "ambition.grudge";
 /// A driven limb belonging to a host body's rig. **Bidirectional**: `Limb` on
@@ -87,6 +92,12 @@ pub fn recipe_giant_host() -> RecipeId {
 }
 pub fn recipe_giant_hand() -> RecipeId {
     RecipeId::new(RECIPE_GIANT_HAND)
+}
+pub fn recipe_authored_enemy() -> RecipeId {
+    RecipeId::new(RECIPE_AUTHORED_ENEMY)
+}
+pub fn recipe_authored_boss() -> RecipeId {
+    RecipeId::new(RECIPE_AUTHORED_BOSS)
 }
 pub fn relation_grudge() -> RelationKind {
     RelationKind::new(RELATION_GRUDGE)
@@ -158,6 +169,22 @@ pub enum ActorConstructionParams {
     GiantHand {
         authored: crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
     },
+    /// An ordinary authored enemy, planned because an authored mount link names
+    /// it as rider or mount. Built by the SAME populate function the enemy
+    /// family loop calls (`spawn_enemy_with_faction_into`, faction `Enemy`),
+    /// so being planned changes WHO wires its relations, not what it is. The
+    /// rest of the enemy family stays on the loop until Phase 4 migrates it.
+    AuthoredEnemy {
+        authored: crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+        paths: Vec<(String, ambition_engine_core::KinematicPath)>,
+    },
+    /// An authored boss, planned because an authored mount link names it as the
+    /// rider (the gnu_ton_rider pattern). Built by the same populate function
+    /// the boss loop calls, with default overrides — identical body, planned
+    /// identity.
+    AuthoredBoss {
+        authored: crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
+    },
 }
 
 /// A minion resolved from `Effect::Summon`.
@@ -222,6 +249,14 @@ impl ConstructionDomain for ActorConstruction {
                 recipe: recipe_giant_hand(),
                 construct: construct_giant_hand,
             },
+            ActorConstructionParams::AuthoredEnemy { .. } => RecipeDispatch {
+                recipe: recipe_authored_enemy(),
+                construct: construct_authored_enemy,
+            },
+            ActorConstructionParams::AuthoredBoss { .. } => RecipeDispatch {
+                recipe: recipe_authored_boss(),
+                construct: construct_authored_boss,
+            },
         }
     }
 
@@ -278,6 +313,12 @@ impl ConstructionDomain for ActorConstruction {
             }
             ActorConstructionParams::GiantHand { authored } => {
                 format!("giant-hand {}", authored.id)
+            }
+            ActorConstructionParams::AuthoredEnemy { authored, .. } => {
+                format!("authored-enemy {} {}", authored.id, authored.name)
+            }
+            ActorConstructionParams::AuthoredBoss { authored } => {
+                format!("authored-boss {} {}", authored.id, authored.name)
             }
         }
     }
@@ -355,6 +396,14 @@ pub enum ActorConstructionError {
         mount_class: String,
         rider_classes: Vec<String>,
     },
+    /// An authored mount link names an id no enemy or boss spawn in the room
+    /// carries. The live resolver retried such a pair forever, silently; a
+    /// typo'd link is a content error and fails the room while it is whole.
+    MountLinkNamesNobody {
+        room: String,
+        end: &'static str,
+        id: String,
+    },
 }
 
 impl std::fmt::Display for ActorConstructionError {
@@ -413,6 +462,11 @@ impl std::fmt::Display for ActorConstructionError {
                 "rider `{rider}` cannot pilot mount `{mount}` of class `{mount_class}`: it pilots \
                  [{}]",
                 rider_classes.join(", "),
+            ),
+            Self::MountLinkNamesNobody { room, end, id } => write!(
+                f,
+                "room `{room}` authors a mount link whose {end} `{id}` matches no enemy or boss \
+                 spawn in the room"
             ),
         }
     }
@@ -535,6 +589,44 @@ fn construct_giant_hand(
         ctx.session,
         root.entity(),
         authored,
+    );
+}
+
+fn construct_authored_enemy(
+    parameters: &ActorConstructionParams,
+    root: ConstructionRoot,
+    ctx: &mut Ctx<'_, '_, '_>,
+) {
+    let ActorConstructionParams::AuthoredEnemy { authored, paths } = parameters else {
+        unreachable!("dispatch pairs this fn with AuthoredEnemy parameters")
+    };
+    crate::features::spawn_enemy_with_faction_into(
+        ctx.commands,
+        &ctx.services.context.characters,
+        &ctx.services.context.roster,
+        ctx.session,
+        root.entity(),
+        authored,
+        paths,
+        crate::features::ActorFaction::Enemy,
+    );
+}
+
+fn construct_authored_boss(
+    parameters: &ActorConstructionParams,
+    root: ConstructionRoot,
+    ctx: &mut Ctx<'_, '_, '_>,
+) {
+    let ActorConstructionParams::AuthoredBoss { authored } = parameters else {
+        unreachable!("dispatch pairs this fn with AuthoredBoss parameters")
+    };
+    crate::features::spawn_boss_with_overrides_into(
+        ctx.commands,
+        &ctx.services.boss_catalog,
+        ctx.session,
+        root.entity(),
+        authored,
+        &crate::features::BossOverrides::default(),
     );
 }
 
@@ -920,6 +1012,8 @@ pub fn install_actor_construction_recipes(
     registry.try_register_recipe(recipe_summoned_minion(), OWNER, "summon-effect", SCHEMA)?;
     registry.try_register_recipe(recipe_giant_host(), OWNER, "authored-room", SCHEMA)?;
     registry.try_register_recipe(recipe_giant_hand(), OWNER, "authored-room", SCHEMA)?;
+    registry.try_register_recipe(recipe_authored_enemy(), OWNER, "authored-room", SCHEMA)?;
+    registry.try_register_recipe(recipe_authored_boss(), OWNER, "authored-room", SCHEMA)?;
     // Metadata only — the wiring and the checks come from
     // `ActorConstruction::dispatch_relation`, so there is nothing here for an
     // outside registration to replace or to win an insertion-order race for.
@@ -997,6 +1091,27 @@ pub fn mount_capabilities_of(
             }
         }
         ActorConstructionParams::GiantHand { .. } => PlannedMountCapabilities::default(),
+        ActorConstructionParams::AuthoredEnemy { authored, .. } => {
+            let spec = roster.spec_for_brain(&authored.payload);
+            PlannedMountCapabilities {
+                mount_class: spec.mount_class.clone(),
+                pilots: spec.pilotable_mount_classes.clone(),
+            }
+        }
+        // Same profile resolution as the staged boss arm above — and never a
+        // mount: `spawn_boss` installs no `Mountable`.
+        ActorConstructionParams::AuthoredBoss { authored } => PlannedMountCapabilities {
+            mount_class: None,
+            pilots: crate::boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
+                bosses,
+                &crate::boss_encounter::behavior::canonical_boss_id_from(
+                    &authored.name,
+                    &authored.payload,
+                ),
+            )
+            .pilotable_mount_classes
+            .clone(),
+        },
     }
 }
 
@@ -1008,6 +1123,8 @@ fn family_of(parameters: &ActorConstructionParams) -> &'static str {
         ActorConstructionParams::SummonedMinion(_) => "summoned-minion",
         ActorConstructionParams::GiantHost { .. } => "giant-host",
         ActorConstructionParams::GiantHand { .. } => "giant-hand",
+        ActorConstructionParams::AuthoredEnemy { .. } => "authored-enemy",
+        ActorConstructionParams::AuthoredBoss { .. } => "authored-boss",
     }
 }
 
@@ -1026,9 +1143,9 @@ fn family_of(parameters: &ActorConstructionParams) -> &'static str {
 ///   exactly the half-linked pair this campaign keeps finding;
 /// - a self-mount: a body steering itself through `steer_mount_from_rider`;
 /// - an endpoint whose family cannot hold that end: a ground item is not a body;
-/// - an incompatible pilot/mount class: `resolve_pending_mount_links` checks
-///   this too, and DROPS the link with no diagnostic, so an authored typo
-///   produces a rider standing next to its mount and no explanation.
+/// - an incompatible pilot/mount class: the deleted frame-later resolver
+///   checked this too, and DROPPED the link with no diagnostic, so an authored
+///   typo produced a rider standing next to its mount and no explanation.
 ///
 /// Runs on requests, so a refusal happens while the outgoing room is whole.
 pub fn preflight_actor_relations(
@@ -1403,6 +1520,119 @@ pub fn planned_giant_host_ids(
         })
         .map(|enemy| enemy.id.clone())
         .collect()
+}
+
+/// Fold the room's authored mount links into the request batch as planned
+/// `ambition.mount` relations, pulling each named actor into the planner.
+///
+/// **This is the migration that deletes `PendingMountLinks`.** The live
+/// resolver matched `(rider_id, mount_id)` pairs by `FeatureId` a frame after
+/// spawn, retried missing actors forever, and DROPPED an incompatible pair
+/// with no diagnostic. Here every named actor becomes a plan row — an
+/// [`ActorConstructionParams::AuthoredEnemy`] or
+/// [`ActorConstructionParams::AuthoredBoss`], built by the SAME populate
+/// functions the family loops call — the rider row declares the relation, the
+/// engine-owned `wire_mount` installs BOTH ends at commit, and `verify_mount`
+/// plus the roster verifier prove it landed. A link naming a `"giant"`-class
+/// enemy rides on the giant host row [`authored_giant_requests`] already
+/// planned (the request batch is shared, so the endpoint resolves), and the
+/// gnu_ton_rider boss becomes a planned boss row with its `CanPilot` profile.
+///
+/// Mutates `requests` in place: existing rows gain the relation, missing rows
+/// are appended. A link naming nobody fails the room while it is whole.
+pub fn attach_authored_mount_links(
+    room: &crate::rooms::RoomSpec,
+    roster: &crate::features::CharacterRoster,
+    paths: &[(String, ambition_engine_core::KinematicPath)],
+    requests: &mut Vec<ActorConstructionRequest>,
+) -> Result<(), ActorConstructionError> {
+    for (rider_id, mount_id) in &room.mount_links {
+        for (end, id) in [("mount", mount_id), ("rider", rider_id)] {
+            let sim = SimId::placement(id);
+            if requests.iter().any(|request| request.sim_id == sim) {
+                continue;
+            }
+            if let Some(enemy) = room.enemy_spawns.iter().find(|enemy| &enemy.id == id) {
+                requests.push(ActorConstructionRequest {
+                    sim_id: sim,
+                    origin: SpawnOrigin::Authored {
+                        source: room.id.clone(),
+                        instance: enemy.id.clone(),
+                    },
+                    parameters: ActorConstructionParams::AuthoredEnemy {
+                        authored: enemy.clone(),
+                        // The same frozen room paths the enemy loop passes.
+                        paths: paths.to_vec(),
+                    },
+                    relations: Vec::new(),
+                });
+            } else if let Some(boss) = room.boss_spawns.iter().find(|boss| &boss.id == id) {
+                requests.push(ActorConstructionRequest {
+                    sim_id: sim,
+                    origin: SpawnOrigin::Authored {
+                        source: room.id.clone(),
+                        instance: boss.id.clone(),
+                    },
+                    parameters: ActorConstructionParams::AuthoredBoss {
+                        authored: boss.clone(),
+                    },
+                    relations: Vec::new(),
+                });
+            } else {
+                return Err(ActorConstructionError::MountLinkNamesNobody {
+                    room: room.id.clone(),
+                    end,
+                    id: id.clone(),
+                });
+            }
+        }
+        let rider_sim = SimId::placement(rider_id);
+        let rider_row = requests
+            .iter_mut()
+            .find(|request| request.sim_id == rider_sim)
+            .expect("the loop above guarantees the rider row exists");
+        rider_row.relations.push(
+            ambition_platformer_primitives::construction::RelationRequest {
+                to: SimId::placement(mount_id),
+                relation: ActorRelation::Mount,
+            },
+        );
+    }
+    Ok(())
+}
+
+/// The authored ENEMY ids this room constructs as plan rows — the giants plus
+/// every enemy an authored mount link pulled in — so the enemy family loop
+/// skips them. Mirrors [`planned_authored_boss_ids`] for the boss loop.
+pub fn planned_authored_enemy_ids(
+    room: &crate::rooms::RoomSpec,
+    roster: &crate::features::CharacterRoster,
+) -> std::collections::BTreeSet<String> {
+    let mut ids = planned_giant_host_ids(room, roster);
+    for (rider_id, mount_id) in &room.mount_links {
+        for id in [rider_id, mount_id] {
+            if room.enemy_spawns.iter().any(|enemy| &enemy.id == id) {
+                ids.insert(id.clone());
+            }
+        }
+    }
+    ids
+}
+
+/// The authored BOSS ids this room constructs as plan rows (mount-link riders,
+/// e.g. gnu_ton_rider), so the boss loop skips them.
+pub fn planned_authored_boss_ids(
+    room: &crate::rooms::RoomSpec,
+) -> std::collections::BTreeSet<String> {
+    let mut ids = std::collections::BTreeSet::new();
+    for (rider_id, mount_id) in &room.mount_links {
+        for id in [rider_id, mount_id] {
+            if room.boss_spawns.iter().any(|boss| &boss.id == id) {
+                ids.insert(id.clone());
+            }
+        }
+    }
+    ids
 }
 
 /// Build the request for one summoned minion.

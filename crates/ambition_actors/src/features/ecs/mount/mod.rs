@@ -24,9 +24,12 @@
 //! Any character can be a mount if it carries [`Mountable`] data and
 //! any character can be a rider if it has a target to ride. Authored
 //! pairs come from two linked LDtk `EnemySpawn`s (a rider with a
-//! `mounted_on` entity-ref); [`resolve_pending_mount_links`] installs
-//! the runtime link. There is no "shark-rider knowledge" in the engine
-//! — the whole relationship is data (ADR 0020).
+//! `mounted_on` entity-ref); the room construction planner turns each
+//! pair into a planned `ambition.mount` relation whose engine-owned
+//! wiring installs BOTH ends at commit (`RidingOn` + `Mounted` on the
+//! rider, `MountSlot` on the mount), verified at the room boundary.
+//! There is no "shark-rider knowledge" in the engine — the whole
+//! relationship is data (ADR 0020).
 
 use bevy::prelude::{
     Commands, Component, Entity, Message, MessageWriter, Query, Res, ResMut, Resource, With,
@@ -212,71 +215,6 @@ pub struct Mounted;
 /// `spawn_size` to the same value so the rider keeps it after dismount/reset.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct MountedSize(pub ae::Vec2);
-
-/// Room-authored mount links awaiting resolution (ADR 0020). Populated by
-/// the registry-aware room staging path from `RoomSpec.mount_links` as `(rider_id,
-/// mount_id)` [`crate::combat::components::FeatureId`] pairs; drained by
-/// [`resolve_pending_mount_links`] once both actors exist. A pair whose
-/// entities have not spawned yet is retained for the next frame.
-#[derive(Resource, Default, Clone, Debug)]
-pub struct PendingMountLinks(pub Vec<(String, String)>);
-
-/// Resolve authored mount links into live `RidingOn`/`MountSlot` connections
-/// (ADR 0020). Matches each `(rider_id, mount_id)` pair by `FeatureId`, checks
-/// the rider's [`CanPilot`] against the mount's [`Mountable::class`], and
-/// installs the link (`RidingOn` + `Mounted` on the rider, `MountSlot.rider`
-/// on the mount). An incompatible pair (a rider that cannot pilot that class,
-/// or a "mount" with no [`Mountable`]) is dropped with no link; a pair whose
-/// entities have not spawned yet is retried next frame. Runs before
-/// [`sync_riders_to_mounts`] so a freshly-linked rider welds the same frame.
-pub fn resolve_pending_mount_links(
-    mut commands: Commands,
-    pending: Option<ResMut<PendingMountLinks>>,
-    ids: Query<(Entity, &crate::combat::components::FeatureId)>,
-    riders: Query<&CanPilot>,
-    mounts: Query<&Mountable>,
-) {
-    let Some(mut pending) = pending else {
-        return;
-    };
-    if pending.0.is_empty() {
-        return;
-    }
-    use std::collections::HashMap;
-    let mut by_id: HashMap<&str, Entity> = HashMap::new();
-    for (entity, fid) in &ids {
-        by_id.insert(fid.as_str(), entity);
-    }
-    let links = std::mem::take(&mut pending.0);
-    let mut unresolved = Vec::new();
-    for (rider_id, mount_id) in links {
-        let (Some(&rider), Some(&mount)) =
-            (by_id.get(rider_id.as_str()), by_id.get(mount_id.as_str()))
-        else {
-            // One or both actors have not spawned yet — retry next frame.
-            unresolved.push((rider_id, mount_id));
-            continue;
-        };
-        // Pilot-compatibility: the rider must be allowed to pilot this mount's
-        // class. A missing `CanPilot`, a class mismatch, or a non-mount target
-        // drops the link (no silent illegal mount).
-        let Ok(mountable) = mounts.get(mount) else {
-            continue;
-        };
-        let allowed = riders
-            .get(rider)
-            .map(|cp| cp.can_pilot(&mountable.class))
-            .unwrap_or(false);
-        if !allowed {
-            continue;
-        }
-        commands.entity(rider).insert((RidingOn { mount }, Mounted));
-        commands
-            .entity(mount)
-            .insert(MountSlot { rider: Some(rider) });
-    }
-    pending.0 = unresolved;
-}
 
 /// ADR 0020 control routing: the mount defers its locomotion to the rider.
 ///

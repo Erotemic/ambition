@@ -621,7 +621,7 @@ pub(super) fn convert_boss_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission
     // ADR 0020 (G4): a BOSS authored as a mount RIDER (GNU-ton the scholar aboard
     // his `giant_gnu` mount) carries a `mounted_on` EntityRef exactly like a rider
     // `EnemySpawn` does — mirror of `convert_enemy_spawn` above. `spawn_boss`
-    // attaches the boss's `CanPilot` (fork#2); `resolve_pending_mount_links`
+    // attaches the boss's `CanPilot` (fork#2); the planned `ambition.mount` relation
     // installs the `RidingOn`/`MountSlot` link from this authored `(rider, mount)`
     // pair, matching the mount's `FeatureId` (== its `iid`).
     if let Some(mount_id) = field_entity_ref(entity, "mounted_on") {

@@ -1301,14 +1301,10 @@ plans (`planned_giant_host_ids`) so nothing is built twice.
   `ensure_sim_id` *after* the verification pass, so they carry no identity at
   scope-gather time and are not classified at all.
 
-**Not done: authored mount links (Checkpoint B, step 2).** `PendingMountLinks` /
-`resolve_pending_mount_links` still resolve rider↔mount a frame later. Making
-them planned `ambition.mount` relations needs BOTH ends to be plan rows, and the
-rider is normally the `gnu_ton_rider` **boss** (a `boss_spawn`) or a rider enemy
-(the `enemy` family loop) — neither migrated. So step 2 is gated on migrating the
-boss and rider-enemy families into the planner, which is a further step, not a
-contained follow-on. The giant mount itself is now a plan row, but its rider is
-not, so the link stays on the frame-later path until those families move.
+**Authored mount links (Checkpoint B, step 2) — DONE 2026-07-23, see
+"Checkpoint C, step 2" below.** `PendingMountLinks` and its frame-later
+resolver are deleted; every authored link is a planned `ambition.mount`
+relation between plan rows.
 
 ### Remaining families after the giant migration (surveyed 2026-07-23)
 
@@ -1319,8 +1315,8 @@ legacy-family list emptied. Still outside the planner:
 | # | family | site | state |
 |---|---|---|---|
 | 1 | authored placement → NPC | `spawn/mod.rs` `lower_all` | authoritative (`SimId` via `ensure_sim_id`, post-verify) |
-| 2 | enemy (non-giant) | `spawn/mod.rs` enemy loop | authoritative; **giants now planned** |
-| 3 | boss | `spawn/mod.rs` boss loop | authoritative; blocks planned mount links |
+| 2 | enemy (non-giant) | `spawn/mod.rs` enemy loop | authoritative; **giants + mount-link participants now planned** |
+| 3 | boss | `spawn/mod.rs` boss loop | authoritative; **mount-link riders now planned** |
 | 4 | hazard | placement lowering | `FeatureId`, no `SimId` |
 | 5 | pickup / chest / breakable / switch | placement lowering | identified, not in sim roster |
 | 6 | portal (`cfg`) | placement lowering | no `FeatureId` |
@@ -1397,6 +1393,46 @@ Three different claims, deliberately kept separate:
    unowned root remains **fatal**, and no check was weakened to accommodate
    them. Do not read a published room as "fully verified" until the table
    empties.
+
+## Checkpoint C, step 2 — authored mount links are planned relations (2026-07-23)
+
+**`PendingMountLinks` is deleted.** The frame-later resolver matched authored
+`(rider, mount)` pairs by `FeatureId` after spawn, retried a missing actor
+forever, and dropped an incompatible pair with no diagnostic. Authored mount
+links are construction relations now:
+
+- `attach_authored_mount_links` folds each `RoomSpec.mount_links` pair into the
+  room's request batch: every named actor becomes a plan row — an ordinary
+  rider/mount enemy an `ambition.authored-enemy` row, the `gnu_ton_rider`-style
+  boss rider an `ambition.authored-boss` row — built by the SAME populate
+  functions the family loops call (`spawn_enemy_with_faction_into`,
+  `spawn_boss_with_overrides_into`), so being planned changes who wires the
+  relation, not what the actor is. A link naming a `"giant"`-class enemy rides
+  on the giant host row the giant expansion already planned.
+- The rider row declares `ambition.mount`; the engine-owned `wire_mount`
+  installs BOTH ends at commit (`RidingOn` + `Mounted` on the rider,
+  `MountSlot` on the mount) and `verify_mount` proves it landed — capabilities,
+  class compatibility, and the reverse pointer — before the room publishes.
+  There is no frame on which the room is published with the pair unlinked.
+- The domain preflight rejects a contradictory link set at preparation
+  (self-mount, two mounts per rider, two riders per mount, wrong family,
+  incompatible pilot class), and a link naming nobody is
+  `MountLinkNamesNobody` — the room fails while it is whole.
+- The family loops skip planned ids (`planned_authored_enemy_ids`,
+  `planned_authored_boss_ids`), and the outer roster counts them through
+  `planned_ids()` like every plan row.
+- The relation-substrate invariants re-confirmed before deletion: kind/payload
+  structurally coupled (`ActorRelation::Mount` is a variant), no first-wins
+  registration (relation ops come from `dispatch_relation`), missing receipt
+  entries fatal, the reconcile `MountSlot` half-write repaired, and
+  `relation_closure` keeps rider and mount together under reconstruction.
+- `PendingMountLinks` also left the rollback snapshot registry
+  (`resource.pending_mount_links`) — pre-release, snapshots are not
+  compatibility-frozen, and the resource no longer exists to snapshot.
+
+The boss and enemy FAMILIES are otherwise unmigrated: only mount-link
+participants become plan rows. The remaining-family table above still holds,
+minus the mount-link members of families 2 and 3.
 
 ### Phase 4 — migrate room lifecycle operations
 

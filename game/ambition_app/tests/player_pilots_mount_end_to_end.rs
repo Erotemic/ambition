@@ -11,8 +11,10 @@
 //! the mount cannot tell an AI Skirmisher rider from a possessing human.
 //!
 //! This pins the loop through `SandboxSim::step` with REAL slot input:
-//! 1. Spawn a shark mount + a pirate rider and resolve their authored link into
-//!    a live `RidingOn`/`MountSlot` weld.
+//! 1. Spawn a shark mount + a pirate rider and weld them (`RidingOn` +
+//!    `Mounted` + `MountSlot` — the exact components the planned
+//!    `ambition.mount` relation wiring installs for an authored pair; welded
+//!    directly here because this pair is runtime-spawned, not room-authored).
 //! 2. Transfer the player brain onto the rider (the control-seam handover
 //!    possession performs — here done directly so the test isolates the
 //!    piloting invariant, not the 2 s possess gesture, which
@@ -24,7 +26,7 @@
 
 use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition::actors::features::FeatureId;
-use ambition::actors::features::{Mounted, PendingMountLinks, RidingOn};
+use ambition::actors::features::{MountSlot, Mounted, RidingOn};
 use ambition::characters::brain::{ActorControl, Brain, PlayerSlot};
 use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::CharacterBrain;
@@ -91,19 +93,24 @@ fn a_player_pilots_a_mount_end_to_end() {
         .entity_mut(rider)
         .insert(Brain::stand_still());
 
-    // Author the (rider → mount) link and let `resolve_pending_mount_links` weld
-    // the pair over a couple of frames.
-    sim.world_mut().insert_resource(PendingMountLinks(vec![(
-        RIDER_ID.to_string(),
-        MOUNT_ID.to_string(),
-    )]));
+    // Weld the pair — both ends, the same components the planned
+    // `ambition.mount` relation wiring installs for a room-authored pair. (The
+    // frame-later `PendingMountLinks` resolver this test used to exercise is
+    // deleted; authored links are planned relations now, and this runtime pair
+    // is welded directly so the test keeps isolating PILOTING.)
+    sim.world_mut()
+        .entity_mut(rider)
+        .insert((RidingOn { mount }, Mounted));
+    sim.world_mut()
+        .entity_mut(mount)
+        .insert(MountSlot { rider: Some(rider) });
     for _ in 0..4 {
         sim.step(AgentAction::default());
     }
     assert!(
         sim.world_mut().get::<RidingOn>(rider).is_some()
             && sim.world_mut().get::<Mounted>(rider).is_some(),
-        "the authored link resolves into a live RidingOn/Mounted weld",
+        "the weld holds through live frames (enforce_mount_rider_link keeps it)",
     );
 
     // 2. Control-seam handover: vacate the home avatar's player brain and place

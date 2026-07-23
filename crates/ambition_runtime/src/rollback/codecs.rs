@@ -2344,25 +2344,6 @@ impl SnapshotState for ambition_actors::control::SlotInteractionState {
     }
 }
 
-impl SnapshotState for ambition_actors::features::PendingMountLinks {
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_u32(out, self.0.len() as u32);
-        for (rider, mount) in &self.0 {
-            put_str(out, rider);
-            put_str(out, mount);
-        }
-    }
-
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        let len = r.u32()? as usize;
-        let mut links = Vec::with_capacity(len);
-        for _ in 0..len {
-            links.push((r.str()?.to_owned(), r.str()?.to_owned()));
-        }
-        Some(Self(links))
-    }
-}
-
 impl SnapshotState for ambition_actors::session::reset::SandboxResetRequested {
     fn encode(&self, out: &mut Vec<u8>) {
         put_bool(out, self.request);

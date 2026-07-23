@@ -40,7 +40,8 @@ pub struct RoomSpec {
     pub debug_labels: Vec<Authored<crate::debug_label::DebugLabel>>,
     /// ADR 0020 authored mount links: `(rider_id, mount_id)` pairs. A rider
     /// `EnemySpawn` with a `mounted_on` entity-ref emits one; after the room's
-    /// actors spawn, `resolve_pending_mount_links` matches each pair by
+    /// actors spawn, the room construction planner turns each pair into a planned
+    /// `ambition.mount` relation, matched by
     /// `FeatureId` and installs the `RidingOn`/`MountSlot` link.
     pub mount_links: Vec<(String, String)>,
     /// Authored placement RECORDS (the [W-b] schema-over-record channel).

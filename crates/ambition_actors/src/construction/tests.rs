@@ -2454,3 +2454,260 @@ fn the_limb_and_mount_relations_reach_the_registry_dump() {
         "{dump}"
     );
 }
+
+// ── Authored mount links are planned relations ────────────────────────────────
+
+/// A room with a shark mount and its pirate rider, linked the way LDtk's
+/// `mounted_on` entity-ref lowers: `RoomSpec.mount_links = [(rider, mount)]`.
+fn mounted_pair_room() -> crate::rooms::RoomSpec {
+    let mut room = empty_room("cove");
+    room.enemy_spawns.push(crate::rooms::Authored::new(
+        "sky_shark",
+        "Burning Flying Shark",
+        ae::Aabb::new(ae::Vec2::new(200.0, 100.0), ae::Vec2::new(63.0, 26.0)),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("burning_flying_shark".into()),
+    ));
+    room.enemy_spawns.push(crate::rooms::Authored::new(
+        "sky_rider",
+        "Pirate Raider",
+        ae::Aabb::new(ae::Vec2::new(200.0, 40.0), ae::Vec2::new(22.0, 39.0)),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
+    ));
+    room.mount_links
+        .push(("sky_rider".to_string(), "sky_shark".to_string()));
+    room
+}
+
+/// **An authored mount link is a planned relation between two plan rows.** The
+/// deleted resolver matched the pair by `FeatureId` a frame after spawn; here
+/// both actors are pulled into the planner and the rider row declares
+/// `ambition.mount` before anything exists.
+#[test]
+fn an_authored_mount_link_becomes_planned_rows_with_a_mount_relation() {
+    let plan = prepare(
+        &mounted_pair_room(),
+        &crate::features::RoomContentStagingRegistry::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the mounted room plans");
+
+    let rider = SimId::placement("sky_rider");
+    let mount = SimId::placement("sky_shark");
+    let rider_row = plan
+        .construction()
+        .get(&rider)
+        .expect("the rider is a plan row");
+    assert!(matches!(
+        rider_row.parameters(),
+        ActorConstructionParams::AuthoredEnemy { .. }
+    ));
+    assert!(plan.construction().get(&mount).is_some());
+    let dump = plan.construction().deterministic_dump();
+    assert!(
+        dump.contains("relation\tplacement:sky_rider\tambition.mount\tplacement:sky_shark\t-"),
+        "{dump}"
+    );
+}
+
+/// End to end: the pair commits, the room publishes, and BOTH ends of the weld
+/// are live at the boundary — no frame-later resolution.
+#[test]
+fn a_committed_mount_pair_is_welded_both_ways_and_published() {
+    let plan = prepare(
+        &mounted_pair_room(),
+        &crate::features::RoomContentStagingRegistry::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the mounted room plans");
+    let mut app = commit(plan);
+
+    let verification = app
+        .world()
+        .resource::<crate::world::rooms::LastConstructionVerification>();
+    assert!(
+        verification.published,
+        "the mounted room publishes: {:?}",
+        verification.violations
+    );
+
+    let world = app.world_mut();
+    let find = |world: &mut World, wanted: &SimId| {
+        let mut query = world.query::<(bevy::prelude::Entity, &SimId)>();
+        query
+            .iter(world)
+            .find(|(_, sim)| *sim == wanted)
+            .map(|(entity, _)| entity)
+            .unwrap_or_else(|| panic!("`{wanted}` is live"))
+    };
+    let rider = find(world, &SimId::placement("sky_rider"));
+    let mount = find(world, &SimId::placement("sky_shark"));
+    assert_eq!(
+        world
+            .get::<crate::features::RidingOn>(rider)
+            .map(|riding| riding.mount),
+        Some(mount)
+    );
+    assert!(world.get::<crate::features::Mounted>(rider).is_some());
+    assert_eq!(
+        world
+            .get::<crate::features::MountSlot>(mount)
+            .and_then(|slot| slot.rider),
+        Some(rider),
+        "the mount points back — the half-write this campaign kept finding"
+    );
+}
+
+/// **The gnu_ton_rider pattern: a BOSS rider on a giant mount.** The boss
+/// becomes a planned row (`AuthoredBoss`, CanPilot from its profile), its
+/// relation targets the giant HOST row the giant expansion already planned —
+/// one row per identity, no duplicate.
+#[test]
+fn a_boss_rider_on_a_giant_becomes_a_planned_pair() {
+    let mut room = giant_room();
+    room.boss_spawns.push(crate::rooms::Authored::new(
+        "the_rider",
+        "gnu_ton_rider",
+        ae::Aabb::new(ae::Vec2::new(100.0, 20.0), ae::Vec2::splat(30.0)),
+        ambition_entity_catalog::placements::BossBrain::PhaseScript {
+            script_id: "gnu_ton_rider".into(),
+        },
+    ));
+    room.mount_links
+        .push(("the_rider".to_string(), "boss_mount".to_string()));
+    let plan = prepare(
+        &room,
+        &crate::features::RoomContentStagingRegistry::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the boss-rider room plans");
+
+    let rider = SimId::placement("the_rider");
+    let host = SimId::placement("boss_mount");
+    assert!(matches!(
+        plan.construction()
+            .get(&rider)
+            .expect("the boss is a plan row")
+            .parameters(),
+        ActorConstructionParams::AuthoredBoss { .. }
+    ));
+    assert!(matches!(
+        plan.construction()
+            .get(&host)
+            .expect("the giant host row exists ONCE")
+            .parameters(),
+        ActorConstructionParams::GiantHost { .. }
+    ));
+
+    // Commit: the whole cluster (host + hands + boss) publishes with the boss
+    // welded onto the giant.
+    let mut app = commit(plan);
+    let verification = app
+        .world()
+        .resource::<crate::world::rooms::LastConstructionVerification>();
+    assert!(
+        verification.published,
+        "the boss-rider room publishes: {:?}",
+        verification.violations
+    );
+    let world = app.world_mut();
+    let find = |world: &mut World, wanted: &SimId| {
+        let mut query = world.query::<(bevy::prelude::Entity, &SimId)>();
+        query
+            .iter(world)
+            .find(|(_, sim)| *sim == wanted)
+            .map(|(entity, _)| entity)
+            .unwrap_or_else(|| panic!("`{wanted}` is live"))
+    };
+    let rider_entity = find(world, &rider);
+    let host_entity = find(world, &host);
+    assert_eq!(
+        world
+            .get::<crate::features::RidingOn>(rider_entity)
+            .map(|riding| riding.mount),
+        Some(host_entity)
+    );
+    assert_eq!(
+        world
+            .get::<crate::features::MountSlot>(host_entity)
+            .and_then(|slot| slot.rider),
+        Some(rider_entity)
+    );
+}
+
+/// A link naming nobody fails the room while it is whole. The deleted resolver
+/// retried such a pair silently forever.
+#[test]
+fn a_mount_link_naming_nobody_fails_the_room_while_it_is_whole() {
+    let mut room = mounted_pair_room();
+    room.mount_links
+        .push(("sky_rider_typo".to_string(), "sky_shark".to_string()));
+    let error = prepare(
+        &room,
+        &crate::features::RoomContentStagingRegistry::default(),
+        &engine_construction_registry(),
+    )
+    .expect_err("a dangling link cannot plan");
+    assert!(
+        matches!(
+            error,
+            RoomFeatureConstructionError::ActorConstruction(
+                ActorConstructionError::MountLinkNamesNobody { ref id, .. }
+            ) if id == "sky_rider_typo"
+        ),
+        "{error:?}"
+    );
+}
+
+/// Two links claiming one mount are refused at preparation — the domain
+/// preflight sees the planned relations, not a frame-later race.
+#[test]
+fn two_riders_claiming_one_authored_mount_are_refused() {
+    let mut room = mounted_pair_room();
+    room.enemy_spawns.push(crate::rooms::Authored::new(
+        "second_rider",
+        "Pirate Raider",
+        ae::Aabb::new(ae::Vec2::new(260.0, 40.0), ae::Vec2::new(22.0, 39.0)),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
+    ));
+    room.mount_links
+        .push(("second_rider".to_string(), "sky_shark".to_string()));
+    let error = prepare(
+        &room,
+        &crate::features::RoomContentStagingRegistry::default(),
+        &engine_construction_registry(),
+    )
+    .expect_err("a double-claimed mount cannot plan");
+    assert!(
+        matches!(
+            error,
+            RoomFeatureConstructionError::ActorConstruction(
+                ActorConstructionError::MountHasTwoRiders { .. }
+            )
+        ),
+        "{error:?}"
+    );
+}
+
+/// The reconstruction closure keeps the pair together: rebuilding either end
+/// rebuilds both, so neither can strand the other on a dead entity handle.
+#[test]
+fn the_mount_pair_reconstruction_closure_is_both_actors() {
+    let plan = prepare(
+        &mounted_pair_room(),
+        &crate::features::RoomContentStagingRegistry::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the mounted room plans");
+    let rider = SimId::placement("sky_rider");
+    let mount = SimId::placement("sky_shark");
+    for seed in [&rider, &mount] {
+        let closure = plan
+            .construction()
+            .relation_closure(&std::collections::BTreeSet::from([(*seed).clone()]));
+        assert_eq!(
+            closure,
+            std::collections::BTreeSet::from([rider.clone(), mount.clone()]),
+            "the closure of {seed} is the whole pair"
+        );
+    }
+}

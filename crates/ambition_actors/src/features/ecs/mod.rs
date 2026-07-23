@@ -140,9 +140,9 @@ pub use hitbox::{
 };
 pub use interact::interact_ecs_actors_and_switches;
 pub use mount::{
-    enforce_mount_rider_link, resolve_pending_mount_links, steer_mount_from_rider,
-    sync_riders_to_mounts, CanPilot, ControlGrant, Mass, MountClass, MountDeathImpact, MountDied,
-    MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingMountLinks, RidingOn,
+    enforce_mount_rider_link, steer_mount_from_rider, sync_riders_to_mounts, CanPilot,
+    ControlGrant, Mass, MountClass, MountDeathImpact, MountDied, MountSlot, Mountable, Mounted,
+    MountedBrainCache, MountedSize, RidingOn,
 };
 pub use pickups::{collect_ecs_pickups, magnetize_pickups};
 pub use reset::reset_ecs_room_features;
@@ -160,7 +160,8 @@ pub use spawn_actors::{
     SpawnActorRequest,
 };
 pub(crate) use spawn_actors::{
-    giant_hand_plans, populate_giant_hand_into, populate_giant_host_into, spawn_staged_actor_into,
+    giant_hand_plans, populate_giant_hand_into, populate_giant_host_into,
+    spawn_boss_with_overrides_into, spawn_enemy_with_faction_into, spawn_staged_actor_into,
     spec_is_limbed_host,
 };
 pub use target_volumes::{

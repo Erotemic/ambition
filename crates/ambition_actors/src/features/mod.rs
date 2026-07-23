@@ -93,7 +93,8 @@ pub use ecs::{actor_component_snapshot, boss_component_snapshot};
 pub(crate) use ecs::spawn_staged_actor_into;
 pub use ecs::GiantHandPlan;
 pub(crate) use ecs::{
-    giant_hand_plans, populate_giant_hand_into, populate_giant_host_into, spec_is_limbed_host,
+    giant_hand_plans, populate_giant_hand_into, populate_giant_host_into,
+    spawn_boss_with_overrides_into, spawn_enemy_with_faction_into, spec_is_limbed_host,
 };
 pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
 
@@ -137,25 +138,24 @@ pub use ecs::{
     interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
     project_boss_attack_state_from_move, rebuild_feature_ecs_world_overlay,
     reconcile_autonomous_actors, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
-    refresh_breakable_damageable_volumes, reset_ecs_room_features, resolve_pending_mount_links,
-    route_boss_strikes_to_limbs, select_actor_targets, spawn_encounter_mob,
-    spawn_enemy_projectiles_from_brain_actions, spawn_room_feature_entities_from_plan,
-    steer_mount_from_rider, sync_actor_poses_from_feature_aabbs, sync_actor_read_model,
-    sync_boss_actor_components, sync_boss_encounter_phase, sync_boss_reward_chests_ecs,
-    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
-    sync_encounter_reward_chests_ecs, sync_riders_to_mounts, tick_actor_brains,
-    tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
-    tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables,
-    update_ecs_falling_chests, update_ecs_hazards, ActorConstructionContext, ActorSteering,
-    BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig, BossEncounter, BossMut,
-    BossOverrides, BossRef, CanPilot, ControlGrant, FactionRelations, FeatureEcsWorldOverlay,
-    FeatureSimEntity, FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits,
-    HitboxKnockback, HitboxLifetime, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, Mass,
-    MountClass, MountDeathImpact, MountDied, MountSlot, Mountable, Mounted, MountedBrainCache,
-    MountedSize, PendingChallenge, PendingMountLinks, RidingOn, RoomContentStagingError,
-    RoomContentStagingRegistrationError, RoomContentStagingRegistry, RoomFeatureConstructionError,
-    RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest,
-    CHALLENGE_GRACE_S,
+    refresh_breakable_damageable_volumes, reset_ecs_room_features, route_boss_strikes_to_limbs,
+    select_actor_targets, spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
+    spawn_room_feature_entities_from_plan, steer_mount_from_rider,
+    sync_actor_poses_from_feature_aabbs, sync_actor_read_model, sync_boss_actor_components,
+    sync_boss_encounter_phase, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
+    sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
+    sync_riders_to_mounts, tick_actor_brains, tick_and_despawn_hitboxes, tick_boss_brains_system,
+    tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges, trigger_boss_attack_moves,
+    update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards,
+    ActorConstructionContext, ActorSteering, BossClusterQueryData, BossClusterRef,
+    BossClusterScratch, BossConfig, BossEncounter, BossMut, BossOverrides, BossRef, CanPilot,
+    ControlGrant, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity, FriendlyFire,
+    HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
+    Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact,
+    MountDied, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge,
+    RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,
+    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
+    RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{
@@ -309,11 +309,6 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // read-model / contact are each their own scheduled system.
                 // Ambient NPC chatter (parrot squawks, etc.) on its own timer.
                 tick_npc_idle_barks,
-                // ADR 0020: resolve authored `(rider, mount)` links (from
-                // `RoomSpec.mount_links`) into live RidingOn/MountSlot once both
-                // actors exist. Runs before the pose sync so a freshly-linked
-                // rider welds to its mount the same frame.
-                resolve_pending_mount_links,
                 // Rider/mount pose sync. Runs immediately after the
                 // per-actor brain tick so the rider's brain has had
                 // a chance to emit fire intent for the target from

@@ -262,10 +262,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "resource.slot_interaction_state",
         )
-        .rollback_resource_canonical::<ambition_actors::features::PendingMountLinks>(
-            ENGINE,
-            "resource.pending_mount_links",
-        )
         .rollback_resource_canonical::<ambition_actors::session::reset::SandboxResetRequested>(
             ENGINE,
             "resource.sandbox_reset_requested",

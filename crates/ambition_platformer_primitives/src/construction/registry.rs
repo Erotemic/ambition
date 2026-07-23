@@ -21,7 +21,7 @@ use super::{ConstructionDomain, ConstructionExecCtx, RecipeId};
 /// **A bidirectional relation wires BOTH sides here.** `Limb`/`LimbRig` and
 /// `RidingOn`/`MountSlot` are each two components that must agree, and the way
 /// they have historically disagreed is one site writing one side and forgetting
-/// the other — `resolve_pending_mount_links` inserts `MountSlot` while the
+/// the other — the old frame-later mount resolver inserted `MountSlot` while the
 /// post-rollback reconcile only `get_mut`s it, so a mount whose slot did not
 /// survive ends up pointing nowhere while the rider still points at it. One
 /// function writing both ends makes that particular half-write unspellable.

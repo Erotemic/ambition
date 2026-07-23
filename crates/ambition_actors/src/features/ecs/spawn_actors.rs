@@ -804,7 +804,7 @@ pub(super) fn spawn_boss_with_overrides(
 }
 
 /// Populate a boss onto a root the construction executor allocated.
-pub(super) fn spawn_boss_with_overrides_into(
+pub(crate) fn spawn_boss_with_overrides_into(
     commands: &mut Commands,
     boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
@@ -1027,7 +1027,7 @@ pub(super) fn spawn_boss_with_overrides_into(
     // `spawn_solo_enemy` stay symmetric (a boss can board a `giant_gnu` mount).
     // `boss_attack_behavior` is a pre-`into_components` clone, still live here.
     // The `RidingOn`/`MountSlot` link is installed later by
-    // `resolve_pending_mount_links` from the room's authored `mounted_on` refs.
+    // the planned `ambition.mount` relation from the room's authored `mounted_on` refs.
     if !boss_attack_behavior.pilotable_mount_classes.is_empty() {
         entity.insert(super::CanPilot {
             classes: boss_attack_behavior
@@ -1222,7 +1222,7 @@ pub(super) fn spawn_enemy_with_faction(
 /// `ambition.limb` relations. This function stays the path for every ordinary,
 /// unlimbed enemy.
 #[allow(clippy::too_many_arguments)]
-pub(super) fn spawn_enemy_with_faction_into(
+pub(crate) fn spawn_enemy_with_faction_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     roster: &CharacterRoster,
@@ -1424,9 +1424,10 @@ fn giant_hand_feature_id(giant_id: &str, side: &str) -> String {
 /// ADR 0020: give a standalone actor its mount role from its archetype. A
 /// `mount_class` archetype becomes [`Mountable`] (a rideable platform); a
 /// `pilotable_mount_classes` archetype becomes a would-be rider ([`CanPilot`]).
-/// The `RidingOn`/`MountSlot` link itself is installed later by
-/// [`super::resolve_pending_mount_links`] from the room's authored `mounted_on`
-/// refs — this only tags the two roles.
+/// The `RidingOn`/`MountSlot` link itself is installed by the planned
+/// `ambition.mount` relation's engine-owned wiring (the room construction
+/// planner turns each authored `mounted_on` ref into one) — this only tags the
+/// two roles.
 fn attach_mount_role(
     commands: &mut Commands,
     entity: bevy::ecs::entity::Entity,

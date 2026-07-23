@@ -227,6 +227,13 @@ impl RoomFeatureConstructionPlan {
         requests.extend(crate::construction::authored_giant_requests(
             room, roster, &paths,
         ));
+        // Authored mount links become planned `ambition.mount` relations: every
+        // named rider/mount is pulled in as a plan row (the giant host rows
+        // above already count), the rider row declares the relation, and a link
+        // naming nobody fails HERE instead of being retried forever by the
+        // deleted frame-later resolver.
+        crate::construction::attach_authored_mount_links(room, roster, &paths, &mut requests)
+            .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         // Actor-domain relation semantics, checked while the outgoing room is
         // still whole: cardinality (one host per limb, one rider per mount),
         // family legality, and pilot/mount class compatibility. The generic
@@ -421,7 +428,13 @@ impl RoomFeatureConstructionPlan {
     ) -> RoomFeatureConstructionReceipt {
         self.placements
             .lower_all(commands, session_scope, &self.construction_services.context);
+        // Mount-link riders (the gnu_ton_rider pattern) are plan rows now, so
+        // the boss loop skips them — same rule as the planned enemies below.
+        let planned_bosses = crate::construction::planned_authored_boss_ids(&self.room);
         for boss in &self.room.boss_spawns {
+            if planned_bosses.contains(&boss.id) {
+                continue;
+            }
             super::spawn_actors::spawn_boss(
                 commands,
                 &self.construction_services.boss_catalog,
@@ -439,15 +452,15 @@ impl RoomFeatureConstructionPlan {
         for gravity_zone in &self.room.gravity_zones {
             super::spawn_static::spawn_gravity_zone(commands, session_scope, gravity_zone);
         }
-        // `"giant"`-class hosts are plan rows now (committed above with their
-        // hands and limb relations), so the family loop skips them — building a
-        // giant here too would duplicate it.
-        let planned_giants = crate::construction::planned_giant_host_ids(
+        // Planned enemies — `"giant"`-class hosts and mount-link participants —
+        // are committed below with their relations, so the family loop skips
+        // them; building one here too would duplicate it.
+        let planned_enemies = crate::construction::planned_authored_enemy_ids(
             &self.room,
             &self.construction_services.context.roster,
         );
         for enemy in &self.room.enemy_spawns {
-            if planned_giants.contains(&enemy.id) {
+            if planned_enemies.contains(&enemy.id) {
                 continue;
             }
             super::spawn_actors::spawn_enemy(
@@ -459,9 +472,6 @@ impl RoomFeatureConstructionPlan {
                 &self.paths,
             );
         }
-        commands.insert_resource(crate::features::PendingMountLinks(
-            self.room.mount_links.clone(),
-        ));
         commands.insert_resource(crate::features::FactionRelations::default());
 
         // The planned families commit through the one planner. Provider-staged
@@ -517,23 +527,28 @@ impl RoomFeatureConstructionPlan {
 /// invisible to `AuthoritativeScope::gather` at verification time — the honest
 /// "incomplete visibility for legacy families" the campaign doc records. As each
 /// family becomes a plan row it leaves this function and appears in
-/// `planned_ids()` on its own. Giant hosts are already plan rows, so the enemy
-/// enumeration skips them to avoid a second spelling of the same identity.
+/// `planned_ids()` on its own. Giant hosts and mount-link participants (rider
+/// bosses included) are already plan rows, so the enumerations skip them to
+/// avoid a second spelling of the same identity.
 fn non_plan_authoritative_ids(
     room: &crate::rooms::RoomSpec,
     roster: &CharacterRoster,
 ) -> BTreeSet<String> {
     use ambition_platformer_primitives::sim_id::SimId;
-    let planned_giants = crate::construction::planned_giant_host_ids(room, roster);
+    let planned_enemies = crate::construction::planned_authored_enemy_ids(room, roster);
+    let planned_bosses = crate::construction::planned_authored_boss_ids(room);
     let mut ids = BTreeSet::new();
     for placement in &room.placements {
         ids.insert(SimId::placement(&placement.id.0).to_string());
     }
     for boss in &room.boss_spawns {
+        if planned_bosses.contains(&boss.id) {
+            continue;
+        }
         ids.insert(SimId::placement(&boss.id).to_string());
     }
     for enemy in &room.enemy_spawns {
-        if planned_giants.contains(&enemy.id) {
+        if planned_enemies.contains(&enemy.id) {
             continue;
         }
         ids.insert(SimId::placement(&enemy.id).to_string());

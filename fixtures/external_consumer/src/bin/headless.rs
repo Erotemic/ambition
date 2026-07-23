@@ -2,24 +2,31 @@
 //! from the same content" proof, headless half. Mirrors the in-repo standalone
 //! demo shells (`ambition_demo_mary_o_app`): engine foundation + host +
 //! minimal shell + THIS crate's provider plugin, zero engine edits.
-
-use bevy::prelude::*;
+//!
+//! Not a boot smoke test: `run_outlander_walkthrough` fails unless the
+//! Outlander session ACTIVATES (room constructed, player + staged sentry
+//! present) and the ridge gate actually transits the walking body onto the
+//! upper ledge. An earlier draft updated an empty un-routed host 120 times and
+//! called that success (GPT 5.6 review finding).
 
 fn main() {
-    let mut app = App::new();
-    ambition::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
-    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
-    app.add_plugins(ambition::game_shell::MinimalShellPlugins);
-    app.add_plugins(ambition::load::AmbitionLoadPlugin);
-    app.add_plugins(outlander::OutlanderExperiencePlugin);
-
-    // Pin frame dt to the tick dt so one update is one sim tick.
-    let timestep = app.world().resource::<Time<Fixed>>().timestep();
-    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
-
-    for _ in 0..120 {
-        app.update();
+    let mut app = outlander::build_outlander_app();
+    match outlander::run_outlander_walkthrough(&mut app) {
+        Ok(report) => {
+            println!(
+                "outlander: session active after {} ticks (room {:?}, player + sentry verified)",
+                report.ticks_to_activate,
+                outlander::OUTLANDER_ROOM_ID,
+            );
+            println!(
+                "outlander: ridge gate transited the player after {} ticks of walking; \
+                 resting at ({:.1}, {:.1}) on the upper ledge",
+                report.ticks_to_gate, report.player_pos.x, report.player_pos.y,
+            );
+        }
+        Err(error) => {
+            eprintln!("outlander: FAILED: {error}");
+            std::process::exit(1);
+        }
     }
-    println!("outlander: 120 headless ticks complete");
 }

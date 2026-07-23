@@ -1,0 +1,13 @@
+# The engine repo's `.cargo/config.toml` sits above this directory, so without
+# an override here cargo would inherit its `target-dir` and co-mingle this
+# INDEPENDENT resolution's artifacts with the workspace's. The two graphs
+# resolve the same crates with different feature sets; sharing one target dir
+# lets an interleaved workspace build poison this one with same-version,
+# different-instance dependency artifacts ("multiple different versions of
+# crate `bevy_ecs`" on crates that compiled fine minutes earlier).
+#
+# Same virtiofs rationale as the parent config: keep the cache on the local
+# disk, outside the repo tree. A real third-party consumer never shares the
+# engine's build cache either — this isolation IS the fixture's premise.
+[build]
+target-dir = "/home/joncrall/ambition-target/outlander"

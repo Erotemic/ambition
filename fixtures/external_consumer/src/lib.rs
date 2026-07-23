@@ -35,9 +35,11 @@ use ambition::world::rooms::RoomSpec;
 
 pub const OUTLANDER_EXPERIENCE: &str = "outlander";
 pub const OUTLANDER_GAMEPLAY_ROUTE: &str = "outlander_gameplay";
+pub const OUTLANDER_LAUNCHER_ROUTE: &str = "outlander_launcher";
 pub const OUTLANDER_CHARACTER_ID: &str = "outlander_wanderer";
 pub const OUTLANDER_ROOM_ID: &str = "outlander_ridge";
 pub const OUTLANDER_ENEMY_BRAIN_KEY: &str = "outlander_sentry";
+pub const OUTLANDER_SENTRY_ID: &str = "outlander_sentry_0";
 
 // ── §character ──────────────────────────────────────────────────────────────
 // Reuses an engine-shipped spritesheet on purpose: consumer-owned art has no
@@ -173,6 +175,18 @@ pub fn install_outlander_content(app: &mut App) {
             |spec| sentry_spawn_requests(spec.world.spawn),
         )
         .expect("sentry staging registration is unique");
+    // DELIBERATE SILENCE, declared. Preparation validation refuses an
+    // experience whose provider registered no explicit audio fragment
+    // ("provider registered no explicit audio fragment" — a good message that
+    // a headless host surfaced NOWHERE; recorded in the Phase-6 error-quality
+    // account). The empty fragment is the declaration.
+    {
+        use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+        app.register_audio_catalog_fragment(
+            AudioCatalogFragment::new(OUTLANDER_EXPERIENCE, None, None)
+                .expect("the silent Outlander audio fragment is valid"),
+        );
+    }
 }
 
 // ── §transition ─────────────────────────────────────────────────────────────
@@ -228,6 +242,207 @@ impl Plugin for OutlanderExperiencePlugin {
         )
         .install(app, outlander_prepared_session_world);
     }
+}
+
+// ── §host ───────────────────────────────────────────────────────────────────
+/// Assemble Outlander under a standalone headless shell host, launched
+/// DIRECTLY into the gameplay route — the same composition the in-repo
+/// standalone demo shells use (`build_demo_app` in `ambition_demo_mary_o_app`):
+/// foundation + engine + host + minimal shell + THIS crate's provider, an
+/// initial route naming [`OUTLANDER_GAMEPLAY_ROUTE`], and a launcher home so
+/// `QuitToHome` has somewhere to land. Zero engine edits.
+///
+/// The route wiring is load-bearing: `ShellHostConfiguration::default()`
+/// carries `spec: None`, and a host that never names an initial route never
+/// prepares or activates ANY experience — an earlier draft of the headless
+/// binary "ran" 120 ticks of exactly that empty host (GPT 5.6 review finding).
+pub fn build_outlander_app() -> App {
+    use ambition::game_shell::{
+        ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog,
+        ShellRouteSpec,
+    };
+
+    let mut app = App::new();
+    ambition::engine::add_headless_foundation(&mut app);
+    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
+    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
+    app.add_plugins(ambition::game_shell::MinimalShellPlugins);
+    // The frontend audio context for launcher/loading frames. Outlander
+    // authors no sounds, so the empty profile keeps those frames silent
+    // rather than inheriting another provider's cached audio.
+    app.insert_resource(ambition::audio::selection::FrontendAudioProfile::new(
+        OUTLANDER_EXPERIENCE,
+    ));
+    app.add_plugins(ambition::load::AmbitionLoadPlugin);
+    app.add_plugins(ambition::load_presentation::MinimalShellLoadPresentationPlugins);
+    app.add_plugins(OutlanderExperiencePlugin);
+
+    app.world_mut()
+        .resource_mut::<ShellRouteCatalog>()
+        .register(ShellRouteSpec::new(
+            OUTLANDER_LAUNCHER_ROUTE,
+            ShellLaunchCatalog::basic_experience_id(),
+        ));
+    app.world_mut()
+        .resource_mut::<ShellHostConfiguration>()
+        .spec = Some(ShellHostSpec::new(
+        OUTLANDER_GAMEPLAY_ROUTE,
+        OUTLANDER_LAUNCHER_ROUTE,
+    ));
+
+    // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
+    let timestep = app.world().resource::<Time<Fixed>>().timestep();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
+    app
+}
+
+/// What the acceptance walk proved, for the binary to print and tests to pin.
+#[derive(Debug)]
+pub struct OutlanderRunReport {
+    /// Ticks from boot until the Outlander session was ACTIVE (room
+    /// constructed, player + sentry present).
+    pub ticks_to_activate: usize,
+    /// Ticks of rightward walking until the ridge gate transited the player
+    /// onto the upper ledge.
+    pub ticks_to_gate: usize,
+    /// Player position after the gate delivered it (upper-ledge coordinates).
+    pub player_pos: ae::Vec2,
+}
+
+/// Boot-to-gate acceptance walk through the PUBLIC surface only: update until
+/// the session activates, verify the constructed world (room identity, exactly
+/// one player, the staged sentry), then hold right on the input seam until the
+/// ridge gate transits the body onto the upper ledge. Errors name the first
+/// broken claim so the binary and the integration test fail identically.
+pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, String> {
+    use ambition::platformer::markers::PrimaryPlayer;
+    use bevy::prelude::With;
+
+    // 1. The session activates: the shell prepares the route, the provider's
+    //    prepared world commits, and the room set publishes the ridge.
+    let mut ticks_to_activate = None;
+    for tick in 0..600 {
+        app.update();
+        let world = app.world_mut();
+        let mut rooms = world.query::<&RoomSet>();
+        let active = rooms
+            .iter(world)
+            .next()
+            .map(|set| set.active_spec().id.clone());
+        if active.as_deref() == Some(OUTLANDER_ROOM_ID) {
+            ticks_to_activate = Some(tick + 1);
+            break;
+        }
+    }
+    let ticks_to_activate = ticks_to_activate.ok_or_else(|| {
+        // Name where the shell actually got stuck — the difference between
+        // "misconfigured route", "preparation never finished", and "activated
+        // into the wrong room" is the whole diagnosis.
+        let world = app.world_mut();
+        let router = world
+            .get_resource::<ambition::game_shell::ShellRouter>()
+            .map(|router| {
+                format!(
+                    "initialized: {}, active route: {:?}, pending: {}, prepared session: {:?}",
+                    router.is_initialized(),
+                    router.active.as_ref().map(|active| active.route_id.clone()),
+                    router.pending.is_some(),
+                    router
+                        .active
+                        .as_ref()
+                        .map(|active| active.prepared_session.is_some()),
+                )
+            })
+            .unwrap_or_else(|| "<no ShellRouter resource>".to_string());
+        let session = world
+            .get_resource::<ambition::game_shell::ActiveGameplaySession>()
+            .map(|session| format!("{:?}", session.0.is_some()))
+            .unwrap_or_else(|| "<no ActiveGameplaySession resource>".to_string());
+        let mut rooms = world.query::<&RoomSet>();
+        let active_rooms: Vec<String> = rooms
+            .iter(world)
+            .map(|set| set.active_spec().id.clone())
+            .collect();
+        format!(
+            "the Outlander session never activated in 600 ticks; \
+             router: {router}; session active: {session}; room sets: {active_rooms:?}"
+        )
+    })?;
+
+    // 2. The constructed world holds the authored population.
+    {
+        let world = app.world_mut();
+        let mut players = world.query_filtered::<
+            &ambition::platformer::body::BodyKinematics,
+            With<PrimaryPlayer>,
+        >();
+        let player_count = players.iter(world).count();
+        if player_count != 1 {
+            return Err(format!(
+                "expected exactly one primary player after activation, found {player_count}"
+            ));
+        }
+        let mut actors = world.query::<&ambition::actors::features::ActorConfig>();
+        if !actors.iter(world).any(|config| config.id == OUTLANDER_SENTRY_ID) {
+            let present: Vec<String> =
+                actors.iter(world).map(|config| config.id.clone()).collect();
+            return Err(format!(
+                "the staged sentry {OUTLANDER_SENTRY_ID:?} is missing; actors present: {present:?}"
+            ));
+        }
+    }
+
+    // 3. The ridge gate is load-bearing: hold right on the engine's input seam
+    //    until `transit_body` delivers the body onto the upper ledge.
+    let mut ticks_to_gate = None;
+    for tick in 0..1200 {
+        {
+            let mut control = app
+                .world_mut()
+                .resource_mut::<ambition::input::ControlFrame>();
+            *control = ambition::input::ControlFrame {
+                axis_x: 1.0,
+                ..Default::default()
+            };
+        }
+        app.update();
+        let world = app.world_mut();
+        let mut players = world.query_filtered::<
+            &ambition::platformer::body::BodyKinematics,
+            With<PrimaryPlayer>,
+        >();
+        let pos = players
+            .single(world)
+            .map(|kin| kin.pos)
+            .map_err(|error| format!("primary player lost mid-walk: {error}"))?;
+        // The gate delivers to GATE_EXIT (700, 180); the body then settles on
+        // the ledge (top y = 220). Anywhere in the upper half past the gate
+        // column is proof of transit — the lower floor sits near y = 470.
+        if pos.y < 300.0 {
+            ticks_to_gate = Some(tick + 1);
+            break;
+        }
+    }
+    let ticks_to_gate = ticks_to_gate.ok_or_else(|| {
+        "the player never reached the upper ledge — the ridge gate did not fire in 1200 ticks"
+            .to_string()
+    })?;
+
+    let world = app.world_mut();
+    let mut players = world.query_filtered::<
+        &ambition::platformer::body::BodyKinematics,
+        With<PrimaryPlayer>,
+    >();
+    let player_pos = players
+        .single(world)
+        .map(|kin| kin.pos)
+        .map_err(|error| format!("primary player lost after the gate: {error}"))?;
+
+    Ok(OutlanderRunReport {
+        ticks_to_activate,
+        ticks_to_gate,
+        player_pos,
+    })
 }
 
 /// The provider's authored source for the shared preparation lifecycle.

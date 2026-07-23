@@ -226,6 +226,17 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                             [CARGO, "test", "-p", name,
                              "--features", ",".join(extra), *libtest()]))
 
+    # The external-consumer fixture (Phase 6): its own [workspace], lockfile,
+    # and target dir, driven through --manifest-path so its INDEPENDENT
+    # dependency resolution is exactly what a third party gets from the
+    # `ambition` umbrella. Whole-suite, non-fast only — an umbrella API break
+    # can land while every in-repo job stays green (workspace feature
+    # unification hides it), and this job is the only gate that can see it.
+    if not only and not fast:
+        jobs.append(Job("external consumer: outlander",
+                        [CARGO, "test", "--manifest-path",
+                         "fixtures/external_consumer/Cargo.toml"]))
+
     # Heavy pass: rerun including #[ignore]d tests, plus the shipping-entrypoint
     # acceptance cycles (full app boot). Whole-suite, non-fast only.
     if heavy and not only and not fast:

@@ -1823,7 +1823,7 @@ dependencies = [
 [[package]]
 name = "bevy_ggrs"
 version = "0.21.0"
-source = "git+https://github.com/Erotemic/bevy_ggrs?rev=da0fafdd5e715a6e0246dc3e0cc88fba0551d0d0#da0fafdd5e715a6e0246dc3e0cc88fba0551d0d0"
+source = "git+https://github.com/Erotemic/bevy_ggrs?rev=4d2eff2a89f00c127e17fd26dd3f25d3a1113fa2#4d2eff2a89f00c127e17fd26dd3f25d3a1113fa2"
 dependencies = [
  "bevy",
  "disqualified",

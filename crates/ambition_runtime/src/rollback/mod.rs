@@ -52,23 +52,25 @@ impl Plugin for AmbitionRollbackSchemaPlugin {
     }
 }
 
-/// HACK(ggrs-accumulator): recover the intra-tick phase by reading the GGRS
-/// driver's own fixed-timestep accumulator.
-///
-/// **This reaches into a dependency's internals.** It compiles only because the
-/// `[patch.crates-io]` entry in the workspace manifest points `bevy_ggrs` at a
-/// fork branched from `v0.21.0` that widens `FixedTimestepData` and its
-/// `accumulator` to `pub` — two words, no behaviour change. A deliberate,
-/// documented bridge, not an accident; that manifest entry carries the diff's
-/// rationale and the condition that retires it.
+/// FORK(ggrs-frame-timing): recover the intra-tick phase from the GGRS
+/// driver's own fixed-timestep timing.
 ///
 /// Presentation draws on the render clock while the sim advances on a fixed
 /// tick, so a published pose is a step function; drawing it directly makes
 /// anything that moves shudder against a smoothly-easing camera. Removing that
 /// needs to know how far through the current tick this frame sits, and under
-/// GGRS the only truthful source is the accumulator that decides when to
-/// advance. `Time<Fixed>::overstep_fraction()` answers it for the plain fixed
-/// host and is unavailable here precisely because GGRS banks its own time.
+/// GGRS the only truthful source is the driver's own accumulator — the one
+/// that decides when to advance. `Time<Fixed>::overstep_fraction()` answers it
+/// for the plain fixed host and is unavailable here precisely because GGRS
+/// banks its own time.
+///
+/// `GgrsFrameTiming` publishes that quantity as a supported accessor:
+/// `overstep_fraction()` is the accumulator as a fraction of the *actual*
+/// timestep the last driver pass used, so it stays correct during run-slow
+/// catch-up where that timestep widens — better than dividing by the nominal
+/// rate. This compiles against a `bevy_ggrs` fork that backports the accessor
+/// onto the v0.21.0 / bevy-0.18 line; the `[patch.crates-io]` entry in the
+/// workspace manifest carries the rationale and the condition that retires it.
 ///
 /// A parallel accumulator was considered and rejected: it would agree only
 /// while nothing interesting happened, and diverge during run-slow catch-up,
@@ -76,21 +78,15 @@ impl Plugin for AmbitionRollbackSchemaPlugin {
 /// when a wrong phase shows most. A presentation clock that lies during a
 /// rollback is worse than no smoothing at all.
 ///
-/// Retire by switching to the released upstream accessor, then deleting the
-/// `[patch.crates-io]` entry and bumping the requirement.
+/// Retire when the accessor ships in a released `bevy_ggrs`: drop the
+/// `[patch.crates-io]` entry, bump the requirement, and use the released type.
 fn sample_ggrs_accumulator_phase(
-    timestep: Res<bevy_ggrs::FixedTimestepData>,
-    frame_rate: Res<RollbackFrameRate>,
+    timing: Res<bevy_ggrs::GgrsFrameTiming>,
     mut phase: ResMut<ambition_sim_view::PresentationPhase>,
 ) {
-    let hz = frame_rate.0 as f32;
-    if hz <= 0.0 {
-        phase.set(0.0);
-        return;
-    }
-    // The accumulator banks real time toward the NEXT advance, so its ratio to
-    // one timestep is the same quantity `overstep_fraction` reports.
-    phase.set(timestep.accumulator.as_secs_f32() * hz);
+    // `overstep_fraction` reports the accumulator as a fraction of the driver's
+    // timestep in `[0, 1)`, and yields 0 before the first driver pass.
+    phase.set(timing.overstep_fraction());
 }
 
 /// Installs GGRS schedules, snapshot storage, and session/request handling.

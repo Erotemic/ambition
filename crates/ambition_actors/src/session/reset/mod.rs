@@ -82,6 +82,10 @@ pub struct ResetPlayState<'w> {
     /// The construction recipe table — reset re-plans the start room's planned
     /// families through the SAME recipes setup/transition/restore use.
     recipes: Res<'w, crate::construction::ActorConstructionRegistry>,
+    /// The session's live content binding, so a reset's plan states the SAME
+    /// generation the session runs under instead of a default sentinel — the
+    /// commit boundary refuses a mismatched plan as stale.
+    active_binding: Option<Res<'w, crate::world::rooms::transaction::ActiveContentBinding>>,
 }
 
 /// Cross-system trigger for "wipe the save and rebuild the runtime."
@@ -165,12 +169,20 @@ pub fn process_sandbox_reset_request(
         &play_state.character_roster,
         &play_state.boss_catalog,
         session_scope,
-        crate::features::ActorConstructionContext::new(
-            &play_state.recipes,
+        {
             // A reset rebuilds the room the ACTIVE content already defines, so
-            // it states no new generation.
-            ambition_engine_core::ContentEpoch::default(),
-        ),
+            // it states the session's LIVE binding — stating a default sentinel
+            // here used to make every reset plan a stale-looking stranger to
+            // the epoch the session actually runs under.
+            let mut context = crate::features::ActorConstructionContext::new(
+                &play_state.recipes,
+                ambition_engine_core::ContentEpoch::default(),
+            );
+            if let Some(active) = play_state.active_binding.as_deref() {
+                context.binding = active.0;
+            }
+            context
+        },
     )
     .unwrap_or_else(|error| panic!("sandbox reset room preflight failed: {error}"));
 

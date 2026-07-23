@@ -115,6 +115,27 @@ pub(crate) fn close(
     });
 }
 
+/// The content generation the SESSION is live under — the commit boundary's
+/// comparison value for [`RosterViolation::ContentBindingMismatch`].
+///
+/// Written by the content activation authorities: session setup inserts it from
+/// the construction context it was handed, and a hot-reload commit that
+/// allocates a new epoch updates it. Room transitions and resets do not change
+/// content, so they never write it. Absent (headless fixtures, unit tests
+/// without a session) the boundary check is vacuous — an honest gap, not a
+/// waiver: a fixture with no content authority has nothing to be stale
+/// against.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ActiveContentBinding(pub ambition_platformer_primitives::construction::ContentBinding);
+
+impl ActiveContentBinding {
+    /// The binding for one exact prepared-content generation — the app-side
+    /// spelling for "the session now runs under this epoch".
+    pub fn content(epoch: ambition_engine_core::ContentEpoch) -> Self {
+        Self(ambition_platformer_primitives::construction::ContentBinding::Content(epoch))
+    }
+}
+
 fn verify_and_publish(
     world: &mut World,
     plan: &crate::construction::ActorConstructionPlan,
@@ -169,6 +190,20 @@ fn verify_and_publish(
     violations.extend(crate::construction::verify_rig_composition(
         plan, receipt, world,
     ));
+    // The commit-boundary staleness check (Phase 4g): a plan prepared against
+    // one content generation must not publish a room into a session that has
+    // moved to another. Enforced HERE because commit cannot yet be prevented
+    // (no staging world) — a stale plan's room is refused publication.
+    if let Some(live) = world.get_resource::<ActiveContentBinding>() {
+        if plan.scope().binding != live.0 {
+            violations.push(
+                ambition_platformer_primitives::construction::RosterViolation::ContentBindingMismatch {
+                    planned: plan.scope().binding,
+                    live: live.0,
+                },
+            );
+        }
+    }
     violations.sort_by_key(|violation| format!("{violation:?}"));
     violations.dedup();
 

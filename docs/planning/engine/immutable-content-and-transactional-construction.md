@@ -1506,6 +1506,43 @@ reconstruction as variations of one transaction) and the commit boundary
 (`content_epoch` enforcement, the live identity index, the staging world that
 turns detection into prevention).
 
+## Phase 4f/4g — lifecycle audit and the first commit-boundary enforcement (2026-07-23)
+
+**Phase 4f resolved by audit: all five lifecycle paths already flow through
+`RoomConstructionPlan`.** Activation (`session/setup.rs` →
+`prepare_from_parts` + `spawn_contents`), reset (`session/reset` → the same
+artifact + `retire_outgoing`), transition (`room_transition_loading` →
+prepare with prefetch promotion → `commit_deferred`), hot reload
+(`dev_runtime` → candidate `PreparedContent` AND candidate plan prepared
+before either activates — task 8's shape, already built), and snapshot
+reconstruction (`apply_to_world`). One publication route; no divergent
+lifecycle spawn path survives. The audit's one real finding: **reset stated
+`ContentEpoch::default()`** instead of the session's live generation.
+
+**Phase 4g, slice 1 — content-binding staleness is enforced at the boundary.**
+`ActiveContentBinding` (a `rooms::transaction` resource) is the session's live
+content generation: session setup inserts it from the construction context,
+and a hot-reload commit that allocates a new epoch updates it AFTER its own
+transaction closes (that plan deliberately states the epoch it was validated
+under). `verify_and_publish` refuses publication with the fatal
+`RosterViolation::ContentBindingMismatch` when a plan's binding differs from
+the live one — detection at the boundary because commit cannot yet be
+prevented. Reset now states the live binding, closing its default-sentinel
+lie. Absent the resource (fixtures without a content authority) the check is
+vacuous by design.
+
+**Recorded, still open in 4g:**
+- **The live identity index** — a relation targeting an entity OUTSIDE the
+  plan. No production consumer exists yet (every relation today joins two plan
+  rows); the shape when needed: `prepare` accepts live `SimId`s as relation
+  targets and `ConstructionExecCtx` carries a live `SimId → Entity` index for
+  the wiring functions.
+- **The staging world** — the piece that turns detection into prevention.
+  Real atomicity: build into a disposable `World`, verify there, then migrate
+  entities (with remapping) into the live world. Campaign-scale on its own;
+  everything above narrows what it must protect to recipe-internal defects,
+  since preparation is mutation-free and every family preflights.
+
 ### Phase 4 — migrate room lifecycle operations
 
 #### Objective

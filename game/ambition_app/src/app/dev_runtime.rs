@@ -453,6 +453,13 @@ pub(super) fn reload_ldtk_world_from_disk(
     let active_room = construction_plan.room_id().to_string();
     *room_set = transaction.next_room_set;
     construction_plan.commit_deferred(commands, room_set, world, moving_platforms);
+    // The session's live content binding follows the COMMITTED content. Queued
+    // after `commit_deferred`, so this transaction still verifies against the
+    // binding it was prepared under (the epoch that existed at preflight);
+    // every LATER transaction must state the new one or be refused as stale.
+    commands.insert_resource(ambition::actors::rooms::ActiveContentBinding::content(
+        committed_content.epoch(),
+    ));
 
     // The repaired placement is a discrete TRANSIT (ADR 0024 authority):
     // momentum kept for a same-spot reload, contacts/attachment reconciled

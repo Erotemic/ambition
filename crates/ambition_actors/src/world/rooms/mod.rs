@@ -26,7 +26,7 @@ pub use systems::{
     detect_room_transition_system, sync_active_room_metadata, sync_room_music_request,
     tick_portal_phases_system,
 };
-pub use transaction::LastConstructionVerification;
+pub use transaction::{ActiveContentBinding, LastConstructionVerification};
 
 #[cfg(test)]
 mod rooms_unit_tests {

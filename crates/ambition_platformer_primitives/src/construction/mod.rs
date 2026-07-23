@@ -1585,6 +1585,17 @@ pub enum RosterViolation {
         expected: Entity,
         check: RelationCheck,
     },
+    /// The plan was prepared against a content generation that is not the one
+    /// the session is live under. Committing it would stamp roots with a
+    /// transaction token derived from a binding the world has moved past —
+    /// invisible to the next transaction's scope gathering, and a plan-id that
+    /// names content nobody is running. **Fatal.** Detected at the room
+    /// boundary because commit cannot be prevented yet (no staging world); the
+    /// room is refused publication instead.
+    ContentBindingMismatch {
+        planned: ContentBinding,
+        live: ContentBinding,
+    },
     /// A host's committed rig does not match the exact composition the plan
     /// described for it.
     ///
@@ -1643,7 +1654,8 @@ impl RosterViolation {
             | Self::PlannedOverBaseline { .. }
             | Self::DanglingRelation { .. }
             | Self::RelationNotEstablished { .. }
-            | Self::RigComposition { .. } => Severity::Fatal,
+            | Self::RigComposition { .. }
+            | Self::ContentBindingMismatch { .. } => Severity::Fatal,
         }
     }
 }
@@ -1766,6 +1778,12 @@ impl std::fmt::Display for RosterViolation {
             Self::RigComposition { host, detail } => write!(
                 f,
                 "host `{host}` committed a rig that does not match its planned composition: {detail}"
+            ),
+            Self::ContentBindingMismatch { planned, live } => write!(
+                f,
+                "the plan was prepared against `{}` but the session is live under `{}`",
+                planned.canonical_summary(),
+                live.canonical_summary(),
             ),
         }
     }

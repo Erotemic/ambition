@@ -128,6 +128,12 @@ pub fn simulation_world(
     let _ = asset_server;
     let _ = ldtk_index;
 
+    // The session's content generation, published for the commit boundary:
+    // every later room transaction (transition, reset, reconstruction) must be
+    // prepared against THIS binding or be refused publication as stale.
+    commands.insert_resource(crate::world::rooms::transaction::ActiveContentBinding(
+        construction.binding,
+    ));
     let room_plan = crate::rooms::RoomConstructionPlan::prepare_from_parts(
         room_set,
         room_set.active,

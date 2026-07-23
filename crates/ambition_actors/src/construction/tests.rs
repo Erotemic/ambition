@@ -3060,3 +3060,56 @@ fn shrines_and_gravity_zones_are_stamped_plan_rows() {
         "identity and the populated shrine are the SAME entity"
     );
 }
+
+// ── Phase 4g (slice 1): the commit boundary refuses a stale content binding ───
+
+/// A plan prepared against one content generation must not publish a room into
+/// a session live under another. Detection, not prevention — the world has
+/// already been mutated — but the room never announces itself.
+#[test]
+fn a_stale_plans_room_is_refused_publication() {
+    let plan = prepare(
+        &giant_room(),
+        &crate::features::RoomContentStagingRegistry::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the room plans (epoch 4)");
+    let app = commit_over(plan, |world| {
+        world.insert_resource(crate::world::rooms::ActiveContentBinding::content(
+            ae::ContentEpoch(9),
+        ));
+    });
+    let verification = app
+        .world()
+        .resource::<crate::world::rooms::LastConstructionVerification>();
+    assert!(!verification.published, "a stale plan cannot publish");
+    assert!(
+        verification
+            .violations
+            .iter()
+            .any(|violation| matches!(violation, RosterViolation::ContentBindingMismatch { .. })),
+        "{:?}",
+        verification.violations
+    );
+}
+
+/// The matching binding publishes — the staleness check discriminates, it does
+/// not blanket-refuse.
+#[test]
+fn a_plan_matching_the_live_binding_publishes() {
+    let plan = prepare(
+        &giant_room(),
+        &crate::features::RoomContentStagingRegistry::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the room plans (epoch 4)");
+    let app = commit_over(plan, |world| {
+        world.insert_resource(crate::world::rooms::ActiveContentBinding::content(
+            ae::ContentEpoch(4),
+        ));
+    });
+    let verification = app
+        .world()
+        .resource::<crate::world::rooms::LastConstructionVerification>();
+    assert!(verification.published, "{:?}", verification.violations);
+}

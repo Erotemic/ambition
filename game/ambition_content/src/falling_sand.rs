@@ -126,6 +126,13 @@ impl Plugin for FallingSandRoomPlugin {
                     .after(crate::falling_sand_sim::capture_falling_sand_switch_interactions)
                     .in_set(ambition_platformer_primitives::schedule::SandboxSet::GameplayEffects),
             )
+            // `bevy_falling_sand` inits `ParticleSimulationRun` unconditionally,
+            // so its chunk scan (`par_handle_movement_by_chunks` over the full
+            // 32x32 map) burns CPU in every room of every game, particles or
+            // not. Hold the upstream gate open only while this room is active
+            // or bfs particles still exist (a frame of flip latency is fine —
+            // room transitions despawn the particles anyway).
+            .add_systems(Update, gate_bfs_simulation_to_room_presence)
             // The sand grid's presentation: a room-sized texture redrawn on
             // grid ticks ("always draw blind" — the sim half ships with its
             // visual, even though the author can't see it).
@@ -136,6 +143,25 @@ impl Plugin for FallingSandRoomPlugin {
             // whether they're reaching the floor wall band, and where
             // they're going if they vanish.
             .add_systems(Update, log_falling_sand_diagnostics);
+    }
+}
+
+/// Mirror room presence into `bevy_falling_sand`'s own on/off switch: its
+/// `PreUpdate`/`PostUpdate` sets all `run_if(resource_exists::<
+/// ParticleSimulationRun>)`, so removing the resource idles the whole external
+/// sim. Presence keeps it running until the last particle is gone, so a room
+/// exit never strands live particles mid-drain.
+fn gate_bfs_simulation_to_room_presence(
+    mut commands: Commands,
+    state: Res<FallingSandRoomState>,
+    particles: Query<(), With<Particle>>,
+    gate: Option<Res<ParticleSimulationRun>>,
+) {
+    let should_run = state.active_room || !particles.is_empty();
+    if should_run && gate.is_none() {
+        commands.init_resource::<ParticleSimulationRun>();
+    } else if !should_run && gate.is_some() {
+        commands.remove_resource::<ParticleSimulationRun>();
     }
 }
 

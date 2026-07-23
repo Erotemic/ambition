@@ -270,6 +270,22 @@ grouping in Inkscape. Landed:
   translucent glow is a documented divergence class). "partial" = needs
   review, never silently wrong.
 
+### Revised end-state (Jon, 2026-07-23 evening): SVG as interchange, not replacement
+
+For **non-rigged** characters, Python/PIL code is the better *compressed
+representation* and may never retire; the SVG scene is **another output
+format** — and, critically, the annotation medium: Jon edits the scene in
+Inkscape to *show* an agent exactly what is wrong with a PIL sprite, the
+agent back-ports the change into the PIL generator, regenerates, and the
+equivalence harness verifies convergence (`export` -> human edit ->
+`rebuild --scene` -> `compare --target X --against rebuilt/`). Scene SVGs are
+redundant/regenerable and stay out of the repo (gitignored `tmp/`).
+
+For **rigged** characters (Oiler, hunny_horror) SVG is where authoring
+shines, and the non-rigged -> rigged transition is exactly where this interop
+pays off: a reviewed scene with good part grouping is the natural starting
+point for rigging a formerly procedural character.
+
 Still open: per-target Inkscape review by Jon (the acceptance gate for
 retiring any PIL generator); auto-discovered part grouping is `autoNNN`-named
 (cooperative scopes give semantic names — convert paint passes opportunistically

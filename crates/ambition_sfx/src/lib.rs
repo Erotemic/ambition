@@ -129,17 +129,26 @@ pub trait SfxProvider: Send + Sync {
 
 pub struct BankProvider {
     bank: SfxBank,
+    // Hashing every payload costs O(total bank bytes); registration re-checks
+    // and per-id fingerprint queries must not pay that more than once.
+    fingerprints: std::sync::OnceLock<std::collections::BTreeMap<SfxId, u64>>,
 }
 
 impl BankProvider {
     pub fn from_path(path: &Path) -> Result<Self, SfxError> {
         let bank = SfxBank::from_path(path)?;
-        Ok(Self { bank })
+        Ok(Self {
+            bank,
+            fingerprints: std::sync::OnceLock::new(),
+        })
     }
 
     pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, SfxError> {
         let bank = SfxBank::from_bytes(bytes)?;
-        Ok(Self { bank })
+        Ok(Self {
+            bank,
+            fingerprints: std::sync::OnceLock::new(),
+        })
     }
 
     pub fn entry_count(&self) -> usize {
@@ -163,15 +172,27 @@ impl BankProvider {
     /// provider-qualified id for cache invalidation, diagnostics, and stable
     /// source-identity tests.
     pub fn content_fingerprints(&self) -> std::collections::BTreeMap<SfxId, u64> {
-        self.bank
-            .iter()
-            .map(|entry| {
-                (
-                    SfxId::from_hash(entry.record.id_hash),
-                    fnv1a_64(entry.payload),
-                )
-            })
-            .collect()
+        self.cached_fingerprints().clone()
+    }
+
+    /// Single-id fingerprint without cloning the map. The per-play audio path
+    /// resolves this on every accepted SFX request.
+    pub fn fingerprint_of(&self, id: SfxId) -> Option<u64> {
+        self.cached_fingerprints().get(&id).copied()
+    }
+
+    fn cached_fingerprints(&self) -> &std::collections::BTreeMap<SfxId, u64> {
+        self.fingerprints.get_or_init(|| {
+            self.bank
+                .iter()
+                .map(|entry| {
+                    (
+                        SfxId::from_hash(entry.record.id_hash),
+                        fnv1a_64(entry.payload),
+                    )
+                })
+                .collect()
+        })
     }
 }
 

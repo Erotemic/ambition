@@ -156,7 +156,7 @@ impl SfxBankResource {
     pub fn fingerprint_for(&self, provider_id: &str, id: SfxId) -> Option<u64> {
         self.providers
             .get(provider_id)
-            .and_then(|provider| provider.content_fingerprints().get(&id).copied())
+            .and_then(|provider| provider.fingerprint_of(id))
     }
 }
 

@@ -308,13 +308,20 @@ impl<'a> ActorMut<'a> {
         // anti-down otherwise. This keeps the read-model live for every body
         // (§B2) without any policy-specific branch.
         self.surface.surface_normal = result.surface_normal;
-        let events = result.events;
+        let mut events = result.events;
         // Two actor policies applied on the ONE ground/jump authority: a flying body
         // is never grounded (the collision sweep can still find support under a
         // hovering flyer), and a grounded body refreshes its air jumps each tick
         // (more forgiving than the player's jump-only refresh — an actor tuning).
         if flying {
             self.ground.on_ground = false;
+            // Overriding the support FACT means overriding its TRANSITION too:
+            // with the flag forced false, the kernel's sweep re-finds support
+            // under a floor-skimming flyer every tick and reports a fresh
+            // `Landed` — one land SFX + dust puff per tick (the boss-room
+            // "insane sfx" torrent: 'player.land' at 38-63 plays/s from the
+            // clockwork warden). A flying body emits no ground transitions.
+            events.ground_contact = ae::GroundContactTransition::Unchanged;
         }
         if self.ground.on_ground {
             self.jump.air_jumps_available = MAX_ENEMY_AIR_JUMPS;

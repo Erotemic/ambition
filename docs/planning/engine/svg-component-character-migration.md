@@ -320,3 +320,34 @@ Three structural bugs in the universal converter's part discovery were fixed
   mockingbird boss reaches `captured 36/36` under `--full` (`sampled 6/6`
   otherwise). Poison tests pin all three in `tests/test_part_discovery.py` and
   `tests/test_status_levels.py`.
+
+### Fidelity metric: symmetric + complete (2026-07-23, GPT 5.6 review)
+
+A follow-up review found `captured` was still overstated at the pixel level: the
+verifier compared colour only inside the *intersection* of opaque pixels
+(`mask = published_opaque * rendered_opaque`), so geometry the SVG dropped (a
+missing arm/thruster) or invented fell outside the mask and was never scored — a
+half-empty frame passed. The alignment search also used `ImageChops.offset`,
+which wraps content around the opposite edge.
+
+The verifier now grades two independent defect fractions over a ±1 alignment
+search that translates onto a transparent canvas (no wrap), in
+`equivalence_harness._frame_defects`:
+
+- **occupancy** — solid geometry present in one frame but absent in the other,
+  over the **union** of solid pixels. This is the completeness bar: an omitted or
+  invented part scores and fails. Held tight (5%), just above the
+  resvg-vs-Pillow edge/translucent-core fringe floor a complete complex frame
+  exhibits (~4% on mockingbird's extended-beam thrust frame). Reliably catches
+  the reviewer's defect class (arm/weapon/half a character = 5–50% of the union);
+  like any raster check it cannot resolve a single small primitive from fringe.
+- **rgb** — solid-in-both pixels whose colour disagrees, over the overlap. The
+  pre-existing rasterizer/AA slack, held looser (12%).
+
+A frame is `_frame_verified` only when both pass. A present-but-translucent
+region where the source is solid is caught as *missing* occupancy (wrong-alpha);
+translucent glow stays excluded from both (by-design divergence). Mockingbird
+re-verified `captured 36/36` under `--full` — now proving completeness, not
+intersection colour. Poison tests: `tests/test_fidelity_metric.py` (omitted /
+invented / wrong-alpha / in- and out-of-tolerance shift / colour-noise-over-
+complete-geometry / non-wrapping translate).

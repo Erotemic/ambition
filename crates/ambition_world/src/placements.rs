@@ -63,6 +63,14 @@ pub struct LoweringCtx<'w, 's, 'a, C: ?Sized = ()> {
     pub paths: &'a [(String, ae::KinematicPath)],
     /// Gameplay-session ownership captured when room staging was requested.
     pub session_scope: SessionSpawnScope,
+    /// The entity this placement POPULATES. Allocated by the caller — the
+    /// construction executor for planned rows — so identity, provenance, and
+    /// transaction ownership are stamped on the same body the interpreter
+    /// builds. Interpreters must insert onto this root rather than spawning a
+    /// primary entity of their own; before this field existed every
+    /// interpreter allocated internally, which is exactly why placements were
+    /// invisible to the construction roster.
+    pub root: bevy_ecs::entity::Entity,
     /// Runtime context supplied by the simulation layer. The world IR remains
     /// generic and content-free; callers choose the context type needed by
     /// their lowering interpreters.
@@ -125,11 +133,13 @@ impl<C: Send + Sync + 'static> PlacementLoweringPlan<C> {
         else {
             return false;
         };
+        let root = commands.spawn_empty().id();
         let mut ctx = LoweringCtx {
             commands,
             room_id: &self.room_id,
             paths: &self.paths,
             session_scope,
+            root,
             context,
         };
         (planned.lower)(&planned.record, &mut ctx);
@@ -144,15 +154,26 @@ impl<C: Send + Sync + 'static> PlacementLoweringPlan<C> {
         context: &C,
     ) {
         for planned in &self.placements {
+            let root = commands.spawn_empty().id();
             let mut ctx = LoweringCtx {
                 commands,
                 room_id: &self.room_id,
                 paths: &self.paths,
                 session_scope,
+                root,
                 context,
             };
             (planned.lower)(&planned.record, &mut ctx);
         }
+    }
+
+    /// The frozen (record, interpreter) decisions this plan holds, in authored
+    /// order — the construction planner reads these to turn each placement
+    /// into a plan row carrying its already-resolved interpreter.
+    pub fn planned(&self) -> impl Iterator<Item = (&PlacementRecord, LoweringFn<C>)> {
+        self.placements
+            .iter()
+            .map(|planned| (&planned.record, planned.lower))
     }
 }
 

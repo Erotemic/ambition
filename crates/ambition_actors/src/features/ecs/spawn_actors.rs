@@ -561,7 +561,21 @@ impl NpcActorSpawnPlan {
         }
     }
 
+    #[allow(dead_code)]
     pub(super) fn spawn(self, commands: &mut Commands, session_scope: SessionSpawnScope) -> Entity {
+        let root = commands.spawn_empty().id();
+        self.spawn_into(commands, session_scope, root);
+        root
+    }
+
+    /// Populate onto a root someone else allocated — the construction
+    /// executor's shape, mirroring `EnemyActorSpawnPlan::spawn_into`.
+    pub(super) fn spawn_into(
+        self,
+        commands: &mut Commands,
+        session_scope: SessionSpawnScope,
+        root: Entity,
+    ) -> Entity {
         let facing = self.seed.kin.facing;
         // Sprite-metadata render size lives on the SHARED `ActorRenderSize`
         // component so it survives a hostile flip (otherwise the body-sized
@@ -588,8 +602,9 @@ impl NpcActorSpawnPlan {
         );
         let motion_model = self.seed.config.tuning.motion_model();
         let cluster_bundle = self.seed.into_components();
-        let mut entity = commands.spawn_session_scoped(
+        let mut entity = commands.insert_session_scoped(
             session_scope,
+            root,
             (
                 Name::new(self.entity_name),
                 EnemyActorBundle::new(
@@ -1449,11 +1464,12 @@ fn npc_display_label(
     }
 }
 
-pub(super) fn spawn_interactable(
+pub(crate) fn spawn_interactable_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
+    root: bevy::ecs::entity::Entity,
     authored: &crate::rooms::Authored<crate::rooms::InteractableSpec>,
     paths: &[(String, ambition_engine_core::KinematicPath)],
 ) {
@@ -1484,11 +1500,12 @@ pub(super) fn spawn_interactable(
             interactable.clone(),
             paths,
         )
-        .spawn(commands, session_scope);
+        .spawn_into(commands, session_scope, root);
     } else if let ambition_interaction::InteractionKind::Custom(payload) = &interactable.kind {
         if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {
-            commands.spawn_session_scoped(
+            commands.insert_session_scoped(
                 session_scope,
+                root,
                 (
                     Name::new(format!("Feature switch: {}", authored.name)),
                     FeatureSimEntity,
@@ -1499,6 +1516,17 @@ pub(super) fn spawn_interactable(
                     SwitchFeature::new(activation),
                     SwitchOn(false),
                 ),
+            );
+        } else {
+            // An unparseable Custom interactable used to be a SILENT skip; the
+            // planner now refuses it at preparation (`InertPlacement`), so
+            // reaching here means the preflight was bypassed. Populate nothing
+            // and let the boundary verifier report the missing row.
+            bevy::log::error!(
+                target: "ambition::construction",
+                "interactable `{}` carries an unparseable Custom payload; the row will fail \
+                 boundary verification",
+                authored.id
             );
         }
     }

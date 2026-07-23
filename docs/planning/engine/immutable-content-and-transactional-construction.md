@@ -1314,12 +1314,12 @@ legacy-family list emptied. Still outside the planner:
 
 | # | family | site | state |
 |---|---|---|---|
-| 1 | authored placement → NPC | `spawn/mod.rs` `lower_all` | authoritative (`SimId` via `ensure_sim_id`, post-verify) |
+| 1 | ~~authored placement → NPC~~ | ~~`spawn/mod.rs` `lower_all`~~ | **MIGRATED 2026-07-23 (Phase 4c)** — every spawning placement is a plan row |
 | 2 | ~~enemy (non-giant)~~ | ~~`spawn/mod.rs` enemy loop~~ | **MIGRATED 2026-07-23 (Phase 4a)** — every enemy is a plan row; loop deleted |
 | 3 | ~~boss~~ | ~~`spawn/mod.rs` boss loop~~ | **MIGRATED 2026-07-23 (Phase 4b)** — every boss is a plan row; loop deleted |
-| 4 | hazard | placement lowering | `FeatureId`, no `SimId` |
-| 5 | pickup / chest / breakable / switch | placement lowering | identified, not in sim roster |
-| 6 | portal (`cfg`) | placement lowering | no `FeatureId` |
+| 4 | ~~hazard~~ | ~~placement lowering~~ | **MIGRATED 2026-07-23 (Phase 4c)** — plan row with stamped identity |
+| 5 | ~~pickup / chest / breakable / switch~~ | ~~placement lowering~~ | **MIGRATED 2026-07-23 (Phase 4c)** — plan rows with stamped identity |
+| 6 | ~~portal (`cfg`)~~ | ~~placement lowering~~ | **MIGRATED 2026-07-23 (Phase 4c)** — plan row with stamped identity |
 | 7 | shrine | `spawn/mod.rs` | anonymous |
 | 8 | gravity zone | `spawn/mod.rs` | anonymous |
 | 9 | portal gun pickup (`cfg`) | `spawn/mod.rs` | anonymous |
@@ -1451,6 +1451,39 @@ verifier's gathered scope — rows 2 and 3 of the table above stop being
 authored placements. Identities are unchanged (`SimId::placement(id)`, the
 spelling `ensure_sim_id` used to assign after the fact). 171/171 app
 integration tests pass over the migrated families.
+
+## Phase 4c — authored placements are plan rows (2026-07-23)
+
+The placement family — hazard, interactable/NPC/switch, pickup, chest,
+breakable, portal — lowers through plan rows now:
+
+- `LoweringCtx` gained `root: Entity`: the caller allocates the body an
+  interpreter POPULATES, so the executor's identity/provenance/ownership
+  stamps land on the same entity the interpreter builds. Every engine
+  interpreter converted to a `*_into` populate form; the allocating wrappers
+  are deleted (`spawn_pickup` survives as the public runtime-drop API).
+- `ActorConstructionParams::Placement` carries the `(record, interpreter)`
+  pair the lowering registry froze at preparation — the same freezing
+  `PlacementLoweringPlan` did, promoted to a row. The fn pointer never
+  reaches the canonical dump or the plan id; the summary is
+  `placement <id> <kind>`.
+- Records that spawn NOTHING today (Door interactables, inert Custom
+  payloads, the inner Chest/Pickup/Breakable interaction kinds) are skipped
+  at planning rather than planned into a fatal missing-row verdict —
+  behavior-preserving; upgrading inert Customs to planning errors is
+  deliberate future work.
+- `lower_all` is gone from room spawn; the `lower_one` respawn fallback is
+  gone with it (reconstruction takes the planned branch); the room plan no
+  longer stores the lowering plan at all.
+- **The outer roster is now EXACTLY `planned_ids()`** — the
+  `non_plan_authoritative_ids` union is deleted. Placements carry `SimId` +
+  `SpawnOrigin` + `TransactionId` at the boundary; `TransactionId` joined the
+  rollback snapshot registry (the app-side coverage guardrail caught it the
+  moment placements put it on ordinary simulated entities).
+
+Still outside the planner: shrines, gravity zones, portal-gun pickups (the
+ANONYMOUS `RoomSpec` families — they have no authored ids yet), and the
+deliberate `apply_spawn_actor_requests` programmatic path.
 
 ### Phase 4 — migrate room lifecycle operations
 

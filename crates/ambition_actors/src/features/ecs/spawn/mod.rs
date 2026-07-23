@@ -81,9 +81,6 @@ impl std::error::Error for RoomFeatureConstructionError {}
 #[derive(Clone)]
 pub struct RoomFeatureConstructionPlan {
     room: crate::rooms::RoomSpec,
-    placements: crate::world::placements::PlacementLoweringPlan<
-        crate::world::placements::ActorPlacementContext,
-    >,
     content_requests: Vec<super::spawn_actors::SpawnActorRequest>,
     /// The three planned origin families (Phase 3): authored ground items and
     /// provider-staged actors, planned here; summoned minions plan the same way
@@ -220,6 +217,15 @@ impl RoomFeatureConstructionPlan {
                 roster,
             ));
         }
+        // Phase 4c: EVERY authored placement is a plan row carrying its frozen
+        // interpreter; the executor allocates each root and the interpreter
+        // populates it. Records that spawn nothing (Door interactables, inert
+        // Custom payloads) are skipped by the builder, preserving behavior.
+        requests.extend(crate::construction::placement_requests(
+            &placements,
+            &room.id,
+            &paths,
+        ));
         // Phase 4a/4b: EVERY authored enemy and boss is a plan row — ordinary
         // enemies as `AuthoredEnemy`, `"giant"`-class hosts as host + two hand
         // rows joined by limb relations, bosses as `AuthoredBoss`. The family
@@ -258,18 +264,16 @@ impl RoomFeatureConstructionPlan {
         // from the authored id list above), all in the one `SimId` namespace. The
         // families that are still separate spawn loops are unioned in explicitly
         // by [`non_plan_authoritative_ids`] and are the Phase-4 migration surface.
-        let mut expected_authoritative_ids: BTreeSet<String> = construction_plan
+        let expected_authoritative_ids: BTreeSet<String> = construction_plan
             .planned_ids()
             .iter()
             .map(std::string::ToString::to_string)
             .collect();
-        expected_authoritative_ids.extend(non_plan_authoritative_ids(room, roster));
 
         let placement_context =
             crate::world::placements::ActorPlacementContext::new(catalog, roster);
         Ok(Self {
             room: room.clone(),
-            placements,
             construction_services: crate::construction::ActorConstructionServices {
                 context: placement_context,
                 boss_catalog: boss_catalog.clone(),
@@ -317,17 +321,9 @@ impl RoomFeatureConstructionPlan {
         if self.construction.get(&planned_id).is_some() {
             return self.respawn_authoritative_sim_id(commands, session_scope, &planned_id);
         }
-        if self.placements.lower_one(
-            commands,
-            session_scope,
-            &self.construction_services.context,
-            authored_id,
-        ) {
-            return true;
-        }
-        // Phase 4a/4b: no enemy or boss fallback — both families are plan
-        // rows, so the planned branch above already covers every authored id
-        // they own. The one remaining family-specific path is placements.
+        // Phase 4a-4c: no family-specific fallback survives — enemies, bosses,
+        // and placements are all plan rows, so the planned branch above covers
+        // every authored id they own.
         false
     }
 
@@ -396,8 +392,6 @@ impl RoomFeatureConstructionPlan {
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
     ) -> RoomFeatureConstructionReceipt {
-        self.placements
-            .lower_all(commands, session_scope, &self.construction_services.context);
         #[cfg(feature = "portal")]
         for portal_gun in &self.room.portal_gun_spawns {
             super::spawn_static::spawn_portal_gun_spawn(commands, session_scope, portal_gun);
@@ -438,47 +432,17 @@ impl RoomFeatureConstructionPlan {
         // `non_plan_authoritative_ids` with `prepare` means the outer
         // predicted-vs-committed cross-check (`stage::spawn_contents`) reduces to
         // "did every plan row commit", the one comparison that can differ.
-        let mut authoritative_ids: BTreeSet<String> = construction
+        let authoritative_ids: BTreeSet<String> = construction
             .committed_ids()
             .iter()
             .map(std::string::ToString::to_string)
             .collect();
-        authoritative_ids.extend(non_plan_authoritative_ids(
-            &self.room,
-            &self.construction_services.context.roster,
-        ));
 
         RoomFeatureConstructionReceipt {
             authoritative_ids,
             construction,
         }
     }
-}
-
-/// The authoritative identities of the families that are NOT construction plan
-/// rows yet — placements, bosses, and non-giant enemies — in the `SimId` string
-/// namespace the plan uses, so a unified roster does not drift on spelling.
-///
-/// This is the Phase-4 migration surface. Every family here is still built by its
-/// own spawn loop rather than as a plan row, and its body receives its `SimId`
-/// AFTER the boundary verifier runs (`ensure_sim_id`), so these identities are
-/// invisible to `AuthoritativeScope::gather` at verification time — the honest
-/// "incomplete visibility for legacy families" the campaign doc records. As each
-/// family becomes a plan row it leaves this function and appears in
-/// `planned_ids()` on its own. Giant hosts and mount-link participants (rider
-/// bosses included) are already plan rows, so the enumerations skip them to
-/// avoid a second spelling of the same identity.
-fn non_plan_authoritative_ids(
-    room: &crate::rooms::RoomSpec,
-    _roster: &CharacterRoster,
-) -> BTreeSet<String> {
-    use ambition_platformer_primitives::sim_id::SimId;
-    // Phase 4a/4b removed enemies and bosses from this enumeration; authored
-    // placements are the one authoritative family still outside the planner.
-    room.placements
-        .iter()
-        .map(|placement| SimId::placement(&placement.id.0).to_string())
-        .collect()
 }
 
 /// Execute a previously prepared feature plan.

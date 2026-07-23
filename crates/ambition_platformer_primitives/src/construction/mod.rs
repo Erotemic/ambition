@@ -391,6 +391,14 @@ impl TransactionId {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// Rebuild a stamp from its stored string — the snapshot codec's decode
+    /// half. Not a way to MINT ownership: the only live producer is
+    /// [`ConstructionScope::transaction`], and a rollback restore reproduces
+    /// exactly the stamp the executor wrote.
+    pub fn from_raw(raw: String) -> Self {
+        Self(raw)
+    }
 }
 
 impl std::fmt::Display for TransactionId {

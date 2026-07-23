@@ -530,11 +530,13 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
             ambition_characters::actor::character_catalog::CharacterCatalog,
         >,
               roster: bevy::prelude::Res<crate::features::enemies::CharacterRoster>| {
-            super::super::spawn_actors::spawn_interactable(
+            let root = commands.spawn_empty().id();
+            super::super::spawn_actors::spawn_interactable_into(
                 &mut commands,
                 &catalog,
                 &roster,
                 SessionSpawnScope::UNSCOPED,
+                root,
                 &authored,
                 &[],
             );

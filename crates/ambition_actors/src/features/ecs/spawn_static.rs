@@ -216,9 +216,12 @@ fn portal_color_from_spec(
     }
 }
 
-pub(crate) fn spawn_hazard(
+/// Populate one authored hazard onto a root the construction executor
+/// allocated (the placement plan-row shape).
+pub(crate) fn spawn_hazard_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
+    root: bevy::ecs::entity::Entity,
     authored: &crate::rooms::Authored<crate::rooms::HazardVolumeSpec>,
     paths: &[(String, ambition_engine_core::KinematicPath)],
 ) {
@@ -229,8 +232,9 @@ pub(crate) fn spawn_hazard(
         damage_volume_from_authored(authored),
         paths,
     );
-    commands.spawn_room_in_session(
+    commands.insert_room_in_session(
         session_scope,
+        root,
         (
             Name::new(format!("Feature hazard: {}", authored.name)),
             FeatureSimEntity,
@@ -266,7 +270,13 @@ pub(crate) fn lower_hazard_placement(
             enabled: true,
         },
     };
-    spawn_hazard(ctx.commands, ctx.session_scope, &authored, ctx.paths);
+    spawn_hazard_into(
+        ctx.commands,
+        ctx.session_scope,
+        ctx.root,
+        &authored,
+        ctx.paths,
+    );
 }
 
 pub(crate) fn lower_interactable_placement(
@@ -282,11 +292,12 @@ pub(crate) fn lower_interactable_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    super::spawn_actors::spawn_interactable(
+    super::spawn_actors::spawn_interactable_into(
         ctx.commands,
         &ctx.context.characters,
         &ctx.context.roster,
         ctx.session_scope,
+        ctx.root,
         &authored,
         ctx.paths,
     );
@@ -305,7 +316,7 @@ pub(crate) fn lower_pickup_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    spawn_pickup(ctx.commands, ctx.session_scope, &authored);
+    spawn_pickup_into(ctx.commands, ctx.session_scope, ctx.root, &authored);
 }
 
 /// Spawn ONE live pickup.
@@ -325,12 +336,24 @@ pub fn spawn_pickup(
     session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<crate::rooms::PickupSpec>,
 ) {
-    let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     // `PickupBundle` already carries `RoomScopedEntity` (via `FeatureRenderedBundle`),
-    // so spawn through the session-only helper — `spawn_room_in_session` would prepend
-    // a second `RoomScopedEntity` and trip Bevy's duplicate-component panic.
-    commands.spawn_session_scoped(
+    // so insert through the session-only helper — `insert_room_in_session` would
+    // prepend a second `RoomScopedEntity` and trip Bevy's duplicate-component panic.
+    let root = commands.spawn_empty().id();
+    spawn_pickup_into(commands, session_scope, root, authored);
+}
+
+/// Populate one pickup onto a root the construction executor allocated.
+pub(crate) fn spawn_pickup_into(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    root: bevy::ecs::entity::Entity,
+    authored: &crate::rooms::Authored<crate::rooms::PickupSpec>,
+) {
+    let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
+    commands.insert_session_scoped(
         session_scope,
+        root,
         (
             Name::new(format!("Feature pickup: {}", authored.name)),
             PickupBundle::new(
@@ -418,25 +441,23 @@ pub(crate) fn lower_portal_placement(
         link: schema.link.clone(),
         half_length: schema.half_length,
     };
-    spawn_portal(ctx.commands, ctx.session_scope, &spec);
+    spawn_portal_into(ctx.commands, ctx.session_scope, ctx.root, &spec);
 }
 
 #[cfg(feature = "portal")]
-pub(crate) fn spawn_portal(
+pub(crate) fn spawn_portal_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
+    root: bevy::ecs::entity::Entity,
     spec: &crate::rooms::PortalSpec,
 ) {
-    // Authored static portal: the same `Portal` component the gun fires, but
-    // pre-placed and color-paired. Room-scoped so a transition despawns it and
-    // the loader re-spawns it; never gun-owned, so it persists without a gun.
-    // Opening size: authored along-surface half-length if given, else default.
     let half_extent = match spec.half_length {
         Some(h) => ambition_portal::portal_half_extent_with_length(spec.normal, h),
         None => ambition_portal::portal_half_extent(spec.normal),
     };
-    let mut entity = commands.spawn_room_in_session(
+    let mut entity = commands.insert_room_in_session(
         session_scope,
+        root,
         (
             Name::new(format!("Portal ({}): {}", spec.color.name(), spec.name)),
             ambition_portal::PlacedPortal::fixed(
@@ -512,19 +533,22 @@ pub(crate) fn lower_chest_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    spawn_chest(ctx.commands, ctx.session_scope, &authored);
+    spawn_chest_into(ctx.commands, ctx.session_scope, ctx.root, &authored);
 }
 
-pub(crate) fn spawn_chest(
+/// Populate one chest onto a root the construction executor allocated.
+pub(crate) fn spawn_chest_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
+    root: bevy::ecs::entity::Entity,
     authored: &crate::rooms::Authored<crate::rooms::ChestSpec>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     // `ChestBundle` already carries `RoomScopedEntity` (via `FeatureRenderedBundle`),
-    // so spawn through the session-only helper — see the note in `spawn_pickup`.
-    commands.spawn_session_scoped(
+    // so insert through the session-only helper — see the note in `spawn_pickup`.
+    commands.insert_session_scoped(
         session_scope,
+        root,
         (
             Name::new(format!("Feature chest: {}", authored.name)),
             ChestBundle::new(
@@ -550,19 +574,22 @@ pub(crate) fn lower_breakable_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    spawn_breakable(ctx.commands, ctx.session_scope, &authored);
+    spawn_breakable_into(ctx.commands, ctx.session_scope, ctx.root, &authored);
 }
 
-pub(crate) fn spawn_breakable(
+/// Populate one breakable onto a root the construction executor allocated.
+pub(crate) fn spawn_breakable_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
+    root: bevy::ecs::entity::Entity,
     authored: &crate::rooms::Authored<crate::rooms::BreakableSpec>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     let breakable = breakable_from_authored(authored);
     let breakable = &breakable;
-    let mut entity = commands.spawn_room_in_session(
+    let mut entity = commands.insert_room_in_session(
         session_scope,
+        root,
         (
             Name::new(format!("Feature breakable: {}", authored.name)),
             FeatureSimEntity,

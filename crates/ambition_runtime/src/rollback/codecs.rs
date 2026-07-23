@@ -1610,6 +1610,16 @@ impl SnapshotState for ambition_platformer_primitives::sim_id::SimId {
 /// is precisely when nothing else can: its spawner may itself have been rebuilt,
 /// and the room that authored it is long past. This is the durable fact that
 /// replaced splitting a `/`-delimited parent out of the entity's own `SimId`.
+impl SnapshotState for ambition_platformer_primitives::construction::TransactionId {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_str(out, self.as_str());
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self::from_raw(r.str()?.to_owned()))
+    }
+}
+
 impl SnapshotState for ambition_platformer_primitives::construction::SpawnOrigin {
     fn encode(&self, out: &mut Vec<u8>) {
         use ambition_platformer_primitives::construction::SpawnOrigin as O;

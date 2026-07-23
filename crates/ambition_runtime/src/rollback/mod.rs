@@ -330,8 +330,15 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "body.sim_id_counter",
     )
-    // Provenance travels with the entity, so a blob-rebuilt body can still say
-    // where it came from when nothing around it can.
+    // Provenance and the construction-ownership stamp travel with the entity,
+    // so a blob-rebuilt body can still say where it came from — and which room
+    // transaction owns it — when nothing around it can. Every planned family
+    // carries both since Phase 4; losing the stamp across a rewind would read
+    // as OwnershipLost at the next boundary verification.
+    .rollback_component_canonical::<ambition_platformer_primitives::construction::TransactionId>(
+        ENGINE,
+        "component.construction_transaction_id",
+    )
     .rollback_component_canonical::<ambition_platformer_primitives::construction::SpawnOrigin>(
         ENGINE,
         "entity.spawn_origin",

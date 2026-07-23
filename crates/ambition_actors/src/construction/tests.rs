@@ -2862,3 +2862,149 @@ fn a_boss_respawns_through_the_planner() {
         "the rebuilt boss carries provenance"
     );
 }
+
+// ── Phase 4c: authored placements are plan rows ───────────────────────────────
+
+fn placement_registry() -> crate::world::placements::PlacementLoweringRegistry {
+    let mut registry = crate::world::placements::PlacementLoweringRegistry::default();
+    registry
+        .try_register(
+            ambition_entity_catalog::placements::PlacementKind::Pickup,
+            "ambition_actors",
+            "test",
+            "placement.pickup.v1",
+            crate::features::ecs::spawn_static::lower_pickup_placement,
+        )
+        .unwrap();
+    registry
+        .try_register(
+            ambition_entity_catalog::placements::PlacementKind::Interactable,
+            "ambition_actors",
+            "test",
+            "placement.interactable.v1",
+            crate::features::ecs::spawn_static::lower_interactable_placement,
+        )
+        .unwrap();
+    registry
+}
+
+fn placement_room() -> crate::rooms::RoomSpec {
+    use ambition_entity_catalog::placements::{
+        HazardRespawn, InteractableSpec, InteractionKindSpec, PickupKindSpec, PickupSpec,
+        PlacementSchema,
+    };
+    let mut room = empty_room("gallery");
+    room.placements
+        .push(crate::world::placements::PlacementRecord::new(
+            "ring_1",
+            PlacementSchema::Pickup(PickupSpec {
+                kind: PickupKindSpec::Health { amount: 1 },
+                respawn: HazardRespawn::Never,
+                collected: false,
+                sprite: None,
+            }),
+            ae::Aabb::new(ae::Vec2::new(64.0, 32.0), ae::Vec2::splat(8.0)),
+        ));
+    room.placements
+        .push(crate::world::placements::PlacementRecord::new(
+            "door_1",
+            PlacementSchema::Interactable(InteractableSpec::new(
+                "Enter",
+                InteractionKindSpec::Door { target: None },
+            )),
+            ae::Aabb::new(ae::Vec2::new(128.0, 32.0), ae::Vec2::splat(16.0)),
+        ));
+    room
+}
+
+fn prepare_with_placements(
+    room: &crate::rooms::RoomSpec,
+) -> Result<RoomFeatureConstructionPlan, RoomFeatureConstructionError> {
+    RoomFeatureConstructionPlan::prepare(
+        room,
+        &placement_registry(),
+        &crate::features::RoomContentStagingRegistry::default(),
+        &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        &crate::features::enemies::test_roster(),
+        &crate::boss_encounter::test_boss_catalog(),
+        ActorConstructionContext::new(&engine_construction_registry(), ae::ContentEpoch(4)),
+    )
+}
+
+/// **A spawning placement is a plan row; an inert one (a Door) is not.** The
+/// row carries the frozen interpreter; the Door record keeps its historical
+/// no-entity behavior instead of becoming a fatal missing row.
+#[test]
+fn a_spawning_placement_is_a_plan_row_and_an_inert_one_is_skipped() {
+    let plan = prepare_with_placements(&placement_room()).expect("the gallery plans");
+    let ring = plan
+        .construction()
+        .get(&SimId::placement("ring_1"))
+        .expect("the pickup placement is a plan row");
+    assert!(matches!(
+        ring.parameters(),
+        ActorConstructionParams::Placement { .. }
+    ));
+    assert!(
+        plan.construction()
+            .get(&SimId::placement("door_1"))
+            .is_none(),
+        "a Door interactable spawns nothing and is not planned"
+    );
+}
+
+/// The committed placement is stamped and verified at the boundary like every
+/// plan row — the placement family leaves the invisible list.
+#[test]
+fn a_committed_placement_room_publishes_with_a_stamped_pickup() {
+    let plan = prepare_with_placements(&placement_room()).expect("the gallery plans");
+    let mut app = commit(plan);
+    let verification = app
+        .world()
+        .resource::<crate::world::rooms::LastConstructionVerification>();
+    assert!(verification.published, "{:?}", verification.violations);
+    assert_eq!(verification.violations, Vec::new());
+
+    let world = app.world_mut();
+    let mut query = world.query::<(
+        &SimId,
+        &ambition_platformer_primitives::construction::SpawnOrigin,
+        &ambition_combat::components::FeatureId,
+    )>();
+    let ring = query
+        .iter(world)
+        .find(|(sim, _, _)| **sim == SimId::placement("ring_1"))
+        .expect("the pickup body is live");
+    assert_eq!(
+        ring.2.as_str(),
+        "ring_1",
+        "identity and the interpreter-populated body are the SAME entity"
+    );
+}
+
+/// A placement reconstructs through the planner — the `lower_one` fallback is
+/// deleted with the rest of the family-specific respawn branches.
+#[test]
+fn a_placement_respawns_through_the_planner() {
+    let plan = prepare_with_placements(&placement_room()).expect("the gallery plans");
+    let mut app = commit(plan.clone());
+    let world = app.world_mut();
+    let find = |world: &mut World, wanted: &SimId| {
+        let mut query = world.query::<(bevy::prelude::Entity, &SimId)>();
+        query
+            .iter(world)
+            .find(|(_, sim)| *sim == wanted)
+            .map(|(entity, _)| entity)
+            .unwrap_or_else(|| panic!("`{wanted}` is live"))
+    };
+    let ring = SimId::placement("ring_1");
+    let old = find(world, &ring);
+    world.despawn(old);
+    let rebuilt = {
+        let mut commands = world.commands();
+        plan.respawn_authoritative_entity(&mut commands, SessionSpawnScope::UNSCOPED, "ring_1")
+    };
+    assert!(rebuilt, "the planned placement row rebuilds");
+    world.flush();
+    assert_ne!(find(world, &ring), old);
+}

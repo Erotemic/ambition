@@ -60,6 +60,8 @@ pub const RECIPE_GIANT_HAND: &str = "ambition.giant-hand";
 /// An ordinary authored enemy pulled into the planner because a relation
 /// (today: an authored mount link) names it.
 pub const RECIPE_AUTHORED_ENEMY: &str = "ambition.authored-enemy";
+/// One authored placement record, lowered through its frozen interpreter.
+pub const RECIPE_AUTHORED_PLACEMENT: &str = "ambition.authored-placement";
 /// An authored boss pulled into the planner because a relation names it.
 pub const RECIPE_AUTHORED_BOSS: &str = "ambition.authored-boss";
 /// A personal grudge from one constructed actor onto another.
@@ -98,6 +100,9 @@ pub fn recipe_authored_enemy() -> RecipeId {
 }
 pub fn recipe_authored_boss() -> RecipeId {
     RecipeId::new(RECIPE_AUTHORED_BOSS)
+}
+pub fn recipe_authored_placement() -> RecipeId {
+    RecipeId::new(RECIPE_AUTHORED_PLACEMENT)
 }
 pub fn relation_grudge() -> RelationKind {
     RelationKind::new(RELATION_GRUDGE)
@@ -185,6 +190,19 @@ pub enum ActorConstructionParams {
     AuthoredBoss {
         authored: crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
     },
+    /// One authored placement record beside its ALREADY-RESOLVED interpreter —
+    /// the exact `(record, fn)` pair `PlacementLoweringPlan` froze at
+    /// preparation, promoted to a plan row so the executor allocates the root
+    /// and stamps identity/provenance/ownership on the same body the
+    /// interpreter populates. The fn pointer never reaches the canonical dump
+    /// or the plan id ([`ActorConstruction::canonical_summary`] prints the
+    /// record identity + kind); it is executable freight, exactly like every
+    /// row's frozen `construct`.
+    Placement {
+        record: crate::world::placements::PlacementRecord,
+        paths: Vec<(String, ambition_engine_core::KinematicPath)>,
+        lower: crate::world::placements::LoweringFn,
+    },
 }
 
 /// A minion resolved from `Effect::Summon`.
@@ -257,6 +275,10 @@ impl ConstructionDomain for ActorConstruction {
                 recipe: recipe_authored_boss(),
                 construct: construct_authored_boss,
             },
+            ActorConstructionParams::Placement { .. } => RecipeDispatch {
+                recipe: recipe_authored_placement(),
+                construct: construct_placement,
+            },
         }
     }
 
@@ -319,6 +341,13 @@ impl ConstructionDomain for ActorConstruction {
             }
             ActorConstructionParams::AuthoredBoss { authored } => {
                 format!("authored-boss {} {}", authored.id, authored.name)
+            }
+            ActorConstructionParams::Placement { record, .. } => {
+                format!(
+                    "placement {} {}",
+                    record.id.as_str(),
+                    record.kind().stable_id()
+                )
             }
         }
     }
@@ -628,6 +657,30 @@ fn construct_authored_boss(
         authored,
         &crate::features::BossOverrides::default(),
     );
+}
+
+fn construct_placement(
+    parameters: &ActorConstructionParams,
+    root: ConstructionRoot,
+    ctx: &mut Ctx<'_, '_, '_>,
+) {
+    let ActorConstructionParams::Placement {
+        record,
+        paths,
+        lower,
+    } = parameters
+    else {
+        unreachable!("dispatch pairs this fn with Placement parameters")
+    };
+    let mut lowering = crate::world::placements::LoweringCtx {
+        commands: ctx.commands,
+        room_id: ctx.scope.room.as_deref().unwrap_or(""),
+        paths,
+        session_scope: ctx.session,
+        root: root.entity(),
+        context: &ctx.services.context,
+    };
+    lower(record, &mut lowering);
 }
 
 // ── Relations ────────────────────────────────────────────────────────────────
@@ -1014,6 +1067,7 @@ pub fn install_actor_construction_recipes(
     registry.try_register_recipe(recipe_giant_hand(), OWNER, "authored-room", SCHEMA)?;
     registry.try_register_recipe(recipe_authored_enemy(), OWNER, "authored-room", SCHEMA)?;
     registry.try_register_recipe(recipe_authored_boss(), OWNER, "authored-room", SCHEMA)?;
+    registry.try_register_recipe(recipe_authored_placement(), OWNER, "authored-room", SCHEMA)?;
     // Metadata only — the wiring and the checks come from
     // `ActorConstruction::dispatch_relation`, so there is nothing here for an
     // outside registration to replace or to win an insertion-order race for.
@@ -1099,7 +1153,10 @@ pub fn mount_capabilities_of(
             }
         }
         // Same profile resolution as the staged boss arm above — and never a
-        // mount: `spawn_boss` installs no `Mountable`.
+        // mount: the boss populate function installs no `Mountable`.
+        // A placement is never a mount-link end today (links name enemy/boss
+        // ids); an NPC that should ride something becomes an enemy/boss row.
+        ActorConstructionParams::Placement { .. } => PlannedMountCapabilities::default(),
         ActorConstructionParams::AuthoredBoss { authored } => PlannedMountCapabilities {
             mount_class: None,
             pilots: crate::boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
@@ -1125,6 +1182,7 @@ fn family_of(parameters: &ActorConstructionParams) -> &'static str {
         ActorConstructionParams::GiantHand { .. } => "giant-hand",
         ActorConstructionParams::AuthoredEnemy { .. } => "authored-enemy",
         ActorConstructionParams::AuthoredBoss { .. } => "authored-boss",
+        ActorConstructionParams::Placement { .. } => "placement",
     }
 }
 
@@ -1546,6 +1604,61 @@ pub fn planned_giant_host_ids(
         })
         .map(|enemy| enemy.id.clone())
         .collect()
+}
+
+/// Turn a room's FROZEN placement-lowering decisions into construction rows —
+/// the Phase-4 migration for the placement family (hazard, interactable/NPC,
+/// pickup, chest, breakable, portal).
+///
+/// Each row carries the `(record, interpreter)` pair the lowering registry
+/// resolved at preparation, so commit repeats no lookup; the executor
+/// allocates the root and the interpreter populates it (`LoweringCtx::root`).
+/// Records that spawn NOTHING today are skipped rather than planned: a `Door`
+/// interactable is world-transition data, and the inner Chest/Pickup/Breakable
+/// interaction kinds plus an unparseable `Custom` payload have no spawning
+/// branch — planning them would turn a long-standing silent no-op into a fatal
+/// missing-row verdict. (Upgrading the unparseable-Custom case to a planning
+/// ERROR is deliberate future work; this slice is behavior-preserving.)
+pub fn placement_requests(
+    placements: &crate::world::placements::PlacementLoweringPlan<
+        crate::world::placements::ActorPlacementContext,
+    >,
+    room_id: &str,
+    paths: &[(String, ambition_engine_core::KinematicPath)],
+) -> Vec<ActorConstructionRequest> {
+    use ambition_entity_catalog::placements::{InteractionKindSpec, PlacementSchema};
+    let mut requests = Vec::new();
+    for (record, lower) in placements.planned() {
+        if let PlacementSchema::Interactable(spec) = &record.schema {
+            let spawns = match &spec.kind {
+                InteractionKindSpec::Npc { .. } => true,
+                InteractionKindSpec::Custom(payload) => {
+                    crate::encounter::SwitchActivation::parse_custom(payload).is_some()
+                }
+                InteractionKindSpec::Door { .. }
+                | InteractionKindSpec::Chest
+                | InteractionKindSpec::Pickup
+                | InteractionKindSpec::Breakable => false,
+            };
+            if !spawns {
+                continue;
+            }
+        }
+        requests.push(ActorConstructionRequest {
+            sim_id: SimId::placement(record.id.as_str()),
+            origin: SpawnOrigin::Authored {
+                source: room_id.to_string(),
+                instance: record.id.as_str().to_string(),
+            },
+            parameters: ActorConstructionParams::Placement {
+                record: record.clone(),
+                paths: paths.to_vec(),
+                lower,
+            },
+            relations: Vec::new(),
+        });
+    }
+    requests
 }
 
 /// Fold the room's authored mount links into the request batch as planned

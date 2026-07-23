@@ -236,9 +236,44 @@ Landed in `tools/ambition_sprite2d_renderer`:
   `equivalence_harness.py export` writes the editable per-frame SVG artifacts to
   disk.
 
-Not yet done for the reconsideration gate: folding the exported per-frame SVGs
-into one editable rest-pose component scene + pose program (they are currently
-the mechanical "first representation"), the non-humanoid/topologically-unusual
-case, and a render-time result after part caching. Oiler (case 1) remains the
-hand-authored SVG-redesign exemplar; this pirate family is the
-mechanical-conversion exemplar.
+### The authoring system (2026-07-23, second pass)
+
+The end state Jon specified: PIL remains a first-class authoring language for
+NEW sprites, but every target — characters, props, tiles — routes to an SVG
+backend whose **parts are registered once in an editable scene file** and
+whose frames are assembled from those parts; PIL generators are retired
+per-target only after Jon approves both the SVG visuals *and* the layer
+grouping in Inkscape. Landed:
+
+- **Component scene** (`authoring/svg_scene.py`): ONE SVG per target — a
+  visible `parts` gallery layer (labelled local-geometry groups) + hidden
+  per-animation/per-frame layers of `<use>` placements. Editing a part in the
+  gallery updates every frame that uses it. `load()` round-trips human edits;
+  `frame_doc()` re-renders frames from the (edited) file through the normal
+  sheet pipeline (`render_target_svg(scene_path=...)`, harness `rebuild`).
+  Verified: pirate hat recolored ONCE in the gallery → all 38 frames change;
+  rebuilt sheet stays contract-match.
+- **Cooperative seam** (best grouping): `DrawRecorder.part(name, origin, deg)`
+  records local-coordinate geometry, content-deduped; `PillowPartDraw` runs
+  the SAME paint pass against Pillow. Pirates converted (8 semantic parts,
+  22 defs incl. expression variants, 342 uses / 38 frames) with all 190
+  pixel-oracle frames byte-identical.
+- **Universal converter** (`authoring/auto_capture.py`): tees ImageDraw during
+  ANY target's existing render (published raster untouched), folds scratch
+  layers on alpha_composite, propagates GaussianBlur as native SVG filters,
+  then discovers parts by rigid-motion congruence across frames. Harness
+  `autoconvert` / `coverage` run it per-target / roster-wide, writing scenes
+  to `tmp/sprite-drift/auto_scenes/` + `coverage.json`.
+- **Verification is honest by construction**: sampled frames are compared
+  against the actually-published sheet pixels, scale-normalized, judged on
+  solid content (Pillow ImageDraw clobbers alpha; SVG composites properly —
+  translucent glow is a documented divergence class). "partial" = needs
+  review, never silently wrong.
+
+Still open: per-target Inkscape review by Jon (the acceptance gate for
+retiring any PIL generator); auto-discovered part grouping is `autoNNN`-named
+(cooperative scopes give semantic names — convert paint passes opportunistically
+for better grouping); bone-toolkit characters and multipart bosses run through
+the universal path but their raster-composited layers (rotate/paste) are
+capture gaps reported by coverage; assembler renormalization makes the
+conservative verifier under-report matches.

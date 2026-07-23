@@ -1,0 +1,31 @@
+Short-circuit clash handling under ClashStrategy::PressAll.
+
+handle_clashes() runs the full O(actions^2) possible_clashes() pair scan
+(decompose() allocations per pair, rebuilt every call, every frame, per
+InputMap) BEFORE the strategy is consulted; PressAll only nulls each
+clash inside resolve_clash(). With PressAll the whole pass is a
+semantic no-op, so return before scanning. Measured 2-4% of frame CPU
+in Ambition desktop profiling (desktop-lifecycle-5) with a single
+~20-action map and zero chords.
+
+Apply to a fork of leafwing-input-manager v0.20.0, then wire it in the
+workspace [patch.crates-io] exactly like the bevy_ggrs entry. Ambition
+side is already ready: tune_clash_strategy_to_bindings (ambition_host)
+keeps the strategy PressAll while no chord exists.
+
+--- a/src/clashing_inputs.rs
++++ b/src/clashing_inputs.rs
+@@ -173,6 +173,11 @@ impl<A: Actionlike> InputMap<A> {
+     pub fn handle_clashes(
+         &self,
+         updated_actions: &mut UpdatedActions<A>,
+         input_store: &CentralInputStore,
+         clash_strategy: ClashStrategy,
+         gamepad: Entity,
+     ) {
++        // PressAll never culls anything: every resolve_clash() call below
++        // would return None. Skip the O(actions^2) clash scan entirely.
++        if clash_strategy == ClashStrategy::PressAll {
++            return;
++        }
+         for clash in self.get_clashes(updated_actions, input_store, gamepad) {

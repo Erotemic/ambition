@@ -28,6 +28,10 @@ desktop_dev = [
     "falling_sand",
 ]
 
+# Swap the game binary's global allocator to mimalloc. Opt-in so profiling
+# can A/B it: `./run_game.sh --features mimalloc_alloc`.
+mimalloc_alloc = ["dep:mimalloc"]
+
 visible = [
     "ambition/visible",
     "ambition_content/portal",
@@ -144,6 +148,10 @@ serde = { workspace = true }
 serde_json = "1"
 ron = { workspace = true }
 image = { version = "0.25", default-features = false, features = ["png"] }
+# A/B lever for the allocator-churn optimization track: desktop profiling
+# (target/profiles/desktop-lifecycle-1) shows glibc malloc at 5-8% of
+# self-time in every phase. default-features off = plain fast mode.
+mimalloc = { version = "0.1", default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # Browser builds intentionally opt getrandom into the JS/Web Crypto backend.

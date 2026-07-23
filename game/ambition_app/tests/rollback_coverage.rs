@@ -106,16 +106,12 @@ fn waiver(type_name: &str) -> Option<&'static str> {
         .map(|(_, reason)| *reason)
 }
 
-#[test]
-fn every_component_on_a_simulated_entity_is_registered_derived_or_waived() {
-    let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
-    // Step a few frames so lazily-inserted runtime state (timers, resolved
-    // frames, published hurtboxes) is actually present on the bodies.
-    for _ in 0..8 {
-        sim.step(AgentAction::default());
-    }
-
+/// The component sweep for one booted room: every `ambition_`-named component
+/// on a simulated entity that is neither registered, declared derived, nor
+/// waived. The population differs per room — enemies, switches, and breakables
+/// only exist where a room authors them — so callers sweep representative
+/// rooms, not just the boot default.
+pub(crate) fn unaccounted_components(sim: &mut SandboxSim) -> BTreeMap<String, usize> {
     let known: BTreeSet<String> = sim
         .world()
         .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
@@ -153,19 +149,53 @@ fn every_component_on_a_simulated_entity_is_registered_derived_or_waived() {
             *unaccounted.entry(name).or_default() += 1;
         }
     }
+    unaccounted
+}
 
+fn assert_components_accounted(sim: &mut SandboxSim, room: &str) {
+    let unaccounted = unaccounted_components(sim);
     if !unaccounted.is_empty() {
-        let mut report = String::from(
-            "Components live on simulated entities that GGRS will not rewind.\n\
-             Each is a rollback desync waiting to happen. For each one: register it\n\
-             in `register_engine_rollback_state`, declare it derived, or add a\n\
-             justified waiver to WAIVED in this file.\n\n",
+        let mut report = format!(
+            "Components live on simulated entities in `{room}` that GGRS will not\n\
+             rewind. Each is a rollback desync waiting to happen. For each one:\n\
+             register it in `register_engine_rollback_state`, declare it derived,\n\
+             or add a justified waiver to WAIVED in this file.\n\n",
         );
         for (type_name, count) in &unaccounted {
             report.push_str(&format!("  {type_name}  (on {count} sim entities)\n"));
         }
         panic!("{report}");
     }
+}
+
+#[test]
+fn every_component_on_a_simulated_entity_is_registered_derived_or_waived() {
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    // Step a few frames so lazily-inserted runtime state (timers, resolved
+    // frames, published hurtboxes) is actually present on the bodies.
+    for _ in 0..8 {
+        sim.step(AgentAction::default());
+    }
+    assert_components_accounted(&mut sim, "default boot room");
+}
+
+/// The same sweep over the combat-calibration population: enemies, a switch,
+/// and a breakable, none of which exist in the default boot room. The exit
+/// oracle (`rollback_exit_oracle.rs`) runs its sync-test here, so this room's
+/// composition being fully accounted is what makes that checksum meaningful.
+#[test]
+fn every_component_in_the_combat_calibration_lab_is_registered_derived_or_waived() {
+    let mut sim = SandboxSim::new_with_options(
+        ambition_app::rl_sim::SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_start_room("combat_calibration_lab"),
+    )
+    .expect("sandbox sim builds in the calibration lab");
+    for _ in 0..8 {
+        sim.step(AgentAction::default());
+    }
+    assert_components_accounted(&mut sim, "combat_calibration_lab");
 }
 
 /// Resource type-name substrings that are NOT authoritative simulation state.

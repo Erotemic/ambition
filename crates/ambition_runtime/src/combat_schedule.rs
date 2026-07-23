@@ -230,6 +230,22 @@ impl Plugin for CombatSchedulePlugin {
                 .in_set(SandboxSet::Combat),
         );
 
+        // Hand the frame's victim-side hits from the message channel to the
+        // rollback-registered FIFO the player resolver (which runs in NEXT
+        // frame's PlayerSimulation) drains. Ordered after the attacker-side
+        // consumer (i.e. after every writer in this chain) and gated like both
+        // hit consumers so paused/dialog frames stage nothing. Registered
+        // outside the chain tuple above only because that tuple is at Bevy's
+        // arity limit.
+        app.add_systems(
+            sim,
+            ambition_actors::features::ecs::damage_apply::stage_player_victim_hit_events
+                .run_if(gameplay_allowed)
+                .after(ambition_actors::features::apply_feature_hit_events)
+                .before(ambition_actors::features::enforce_mount_rider_link)
+                .in_set(SandboxSet::Combat),
+        );
+
         // Map the content combat-extension slots into the chain. The app
         // owns this composition (where a domain-local set sits in the
         // global phase); the content plugins own the systems that hang on

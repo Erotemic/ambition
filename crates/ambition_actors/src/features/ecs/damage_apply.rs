@@ -696,6 +696,23 @@ pub fn publish_kernel_reset_death(
     }
 }
 
+/// Stage this frame's victim-side hits into the rollback-registered FIFO the
+/// player resolver drains next frame.
+///
+/// Runs at the END of the Combat phase, after every `HitEvent` writer, so the
+/// hand-off from message channel to snapshot state happens same-frame; only
+/// the FIFO — restored exactly by GGRS — crosses the frame boundary.
+pub fn stage_player_victim_hit_events(
+    mut hit_events: MessageReader<FeatureHitEvent>,
+    mut pending: ResMut<crate::combat::events::PendingPlayerHitEvents>,
+) {
+    for event in hit_events.read() {
+        if !event.source.is_attacker_side() {
+            pending.0.push(event.clone());
+        }
+    }
+}
+
 pub fn apply_player_hit_events(
     // Bundled into one tuple param to stay under Bevy's 16-system-param ceiling
     // (S3e's relational `relations` + `attacker_factions` pushed this to 17).
@@ -713,7 +730,12 @@ pub fn apply_player_hit_events(
     mut sim_state: ResMut<SandboxSimState>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut banner_requests: MessageWriter<GameplayBannerRequested>,
-    mut hit_events: MessageReader<FeatureHitEvent>,
+    // The rollback-registered FIFO `stage_player_victim_hit_events` filled at
+    // the END of the previous frame's Combat phase — NOT a `MessageReader`:
+    // this system runs before Combat, so the victim stream is consumed one
+    // frame after it is produced, and cross-frame combat truth must be
+    // snapshot state (see `PendingPlayerHitEvents`).
+    mut pending_hits: ResMut<crate::combat::events::PendingPlayerHitEvents>,
     mut died_writer: MessageWriter<ActorDiedMessage>,
     mut sfx_writer: SfxWriter,
     mut vfx_writer: MessageWriter<VfxMessage>,
@@ -760,14 +782,11 @@ pub fn apply_player_hit_events(
     >,
 ) {
     let primary = primary_q.single().ok();
-    // Drain only victim-side hits — attacker-side hits flow to
-    // `apply_feature_hit_events`. The two consumers read the same
-    // `HitEvent` channel from independent `MessageReader` positions
-    // so both see every event but each filters by source-direction.
+    // Drain the staged victim-side hits — attacker-side hits flow to
+    // `apply_feature_hit_events` off the message channel directly (same-frame).
     let friendly_fire = friendly_fire.map(|r| *r).unwrap_or_default();
-    let events: Vec<FeatureHitEvent> = hit_events
-        .read()
-        .filter(|e| !e.source.is_attacker_side())
+    let events: Vec<FeatureHitEvent> = std::mem::take(&mut pending_hits.0)
+        .into_iter()
         // Friendly-fire gate: a same-faction attacker (co-op ally) doesn't damage
         // the player unless friendly fire is on; any different-faction hit lands
         // (the observer takes a duel's strays). Hits with no entity attacker
@@ -782,7 +801,6 @@ pub fn apply_player_hit_events(
                 None => true,
             },
         )
-        .cloned()
         .collect();
 
     let difficulty_multiplier = incoming_player_damage_multiplier(&user_settings.gameplay);

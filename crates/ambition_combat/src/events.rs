@@ -341,6 +341,34 @@ pub enum HitTarget {
 /// - `Hazard` / `Enemy*` / `Boss*` with `target = Player(e)`: the
 ///   pre-resolved player victim takes the hit (mode + knockback
 ///   applied). `target = Volume` falls back to the primary player.
+/// The in-flight victim-side hits, staged at the end of the Combat phase for
+/// the player-victim resolver that runs in the NEXT frame's PlayerSimulation
+/// phase.
+///
+/// A message buffer cannot carry sim state across a frame boundary under GGRS:
+/// the buffer is cleared on `LoadWorld` (so a rewind between the strike's
+/// write and the victim's read silently un-hits the player), and reader
+/// cursors are `Local`s no snapshot can see. Cross-frame combat truth
+/// therefore lives in this rollback-registered FIFO — the
+/// `SwitchActivationQueue` pattern (deep review 2026-07-19 §2.2), found by the
+/// Phase-5 exit oracle when an enemy hit on the player failed to survive
+/// resimulation.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default)]
+pub struct PendingPlayerHitEvents(pub Vec<HitEvent>);
+
+impl bevy::ecs::entity::MapEntities for PendingPlayerHitEvents {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        for event in &mut self.0 {
+            if let Some(attacker) = event.attacker.as_mut() {
+                *attacker = mapper.get_mapped(*attacker);
+            }
+            if let HitTarget::Player(entity) = &mut event.target {
+                *entity = mapper.get_mapped(*entity);
+            }
+        }
+    }
+}
+
 #[derive(Message, Clone, Debug)]
 pub struct HitEvent {
     /// World-space volume the hit covers. For broadcast / orb-match

@@ -325,6 +325,19 @@ pub fn register_engine_rollback_state(app: &mut App) {
         .rollback_resource_clone::<ambition_combat::targeting::FriendlyFire>(
             ENGINE,
             "resource.friendly_fire",
+        )
+        // Cross-frame FIFO: victim-side hits staged in `Combat`, drained by
+        // `apply_player_hit_events` in the NEXT frame's `PlayerSimulation` —
+        // same shape as `SwitchActivationQueue` above. Found by the Phase-5
+        // exit oracle: as a message buffer this was cleared on LoadWorld, so a
+        // rewind between the strike and the victim resolver un-hit the player.
+        .rollback_resource_clone::<ambition_combat::events::PendingPlayerHitEvents>(
+            ENGINE,
+            "resource.pending_player_hit_events",
+        )
+        .rollback_resource_map_entities::<ambition_combat::events::PendingPlayerHitEvents>(
+            ENGINE,
+            "map.resource.pending_player_hit_events",
         );
 
     // Core body state.
@@ -644,6 +657,28 @@ pub fn register_engine_rollback_state(app: &mut App) {
     .rollback_component_clone::<ambition_combat::moveset::MovesetMelee>(
         ENGINE,
         "actor.moveset_melee",
+    )
+    // The ranged sibling, and the pickup/solid-contributor features — found by
+    // the combat-calibration-lab coverage sweep (the boot room has no ranged
+    // enemy, no pickups, and no breakable, so the boot-room sweep could not
+    // see them). Same recreated-entity reasoning as `SwitchFeature` above.
+    .rollback_component_clone::<ambition_characters::brain::MovesetRanged>(
+        ENGINE,
+        "actor.moveset_ranged",
+    )
+    .rollback_component_clone::<ambition_combat::components::PickupFeature>(
+        ENGINE,
+        "feature.pickup",
+    )
+    // The collected latch. Unregistered, a rewind past a collection could not
+    // REMOVE it: the resimulated pickup started already-collected, the magnet
+    // skipped it (`Without<Collected>`), and its registered `CenteredAabb`
+    // froze while the first pass had it moving — the exit oracle's first
+    // checksum divergence (combat_calibration_lab, frames 10–12).
+    .rollback_component_clone::<ambition_combat::components::Collected>(ENGINE, "feature.collected")
+    .rollback_component_clone::<ambition_combat::components::SandboxSolidContributor>(
+        ENGINE,
+        "feature.sandbox_solid_contributor",
     )
     .rollback_component_clone::<ambition_encounter::Encounter>(ENGINE, "encounter.identity")
     .rollback_component_clone::<ambition_encounter::EncounterObjective>(

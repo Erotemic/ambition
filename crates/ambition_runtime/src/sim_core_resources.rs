@@ -102,6 +102,10 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_actors::combat::slots::CombatSlotsRes>()
             .init_resource::<ambition_actors::encounter::SwitchActivationQueue>()
             .init_resource::<ambition_actors::encounter::EncounterSwitchIndex>()
+            // Victim-side hits staged in Combat, drained by the player resolver
+            // NEXT frame — cross-frame combat truth, so a registered FIFO
+            // rather than a message buffer (see `PendingPlayerHitEvents`).
+            .init_resource::<ambition_combat::events::PendingPlayerHitEvents>()
             // Room and encounter music intent live as components on the exact
             // session-world root. Frontend routes therefore have no gameplay
             // music request authority to inherit or mutate.

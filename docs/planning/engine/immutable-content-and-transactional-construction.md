@@ -1655,6 +1655,42 @@ no hand-reviewed remainder, no latent unregistered authoritative state.
   state all survive a forced rollback window checksum-identically.
 - No enumerated demo-content state remains unregistered.
 
+#### Phase 5c account — what the exit oracle found (2026-07-23)
+
+Building the oracle (`rollback_exit_oracle.rs`, in `combat_calibration_lab`
+with an authored brick) surfaced real desyncs the per-feature registrations
+could never see, in layers:
+
+1. **The `Collected` latch** — unregistered, so a rewind past a pickup
+   collection could not REMOVE it; the resimulated pickup started
+   already-collected, the magnet skipped it, and its checksummed
+   `CenteredAabb` froze. Fixed (registered clone), plus three more
+   composition gaps the lab's population exposed (`MovesetRanged`,
+   `PickupFeature`, `SandboxSolidContributor`) — found by extending the
+   coverage sweep to run per-room, since the boot room has no ranged enemy,
+   pickups, or breakables.
+2. **In-flight victim-side hits** — `apply_player_hit_events` runs in
+   `PlayerSimulation`, BEFORE the Combat phase that writes strike
+   `HitEvent`s, so the victim stream is consumed one frame after it is
+   produced. A message buffer cannot carry sim state across a frame boundary
+   under GGRS (cleared on LoadWorld; reader cursors are `Local`s), so a
+   rewind between strike and resolver UN-HIT the player. Fixed with
+   `PendingPlayerHitEvents` — a rollback-registered FIFO staged at the end
+   of Combat (the `SwitchActivationQueue` pattern, deep review §2.2).
+3. **OPEN: the second hit still diverges.** With the FIFO landed, the first
+   enemy hit on the player survives resimulation exactly; the SECOND hit
+   (~50 frames later) still splits checksums. Three `#[ignore]`d repro
+   tests in `rollback_exit_oracle.rs` carry the investigation; the at-rest
+   lab probe and both coverage sweeps are green. The full oracle held
+   checksums through 2400 frames of melee/brick/switch play — the
+   enemy-hits-player layer is the one remaining fault line.
+4. **Recorded boundary: sim-triggered room reset inside a rollback window
+   is a guaranteed divergence** — reconstruction runs through Commands no
+   rollback can undo (observed as a mid-brawl full-heal when the player
+   died and the room reset under the resim window). The fix shape is
+   confirmed-frame deferral of reconstruction, the same quarantine external
+   effects use — recorded here, not attempted.
+
 ### Phase 6 — external architecture proof
 
 #### Objective

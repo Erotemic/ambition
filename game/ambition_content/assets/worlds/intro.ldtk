@@ -11,7 +11,7 @@
 	"iid": "ambition-intro-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 104919,
+	"nextUid": 104920,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "GridVania",
@@ -18247,6 +18247,32 @@
 							],
 							"__worldX": 6568,
 							"__worldY": 64
+						},
+						{
+							"__identifier": "BreakablePlatform",
+							"__grid": [55,44],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#D8A15D",
+							"__worldX": 7408,
+							"__worldY": 704,
+							"iid": "BreakablePlatform-104919",
+							"width": 48,
+							"height": 48,
+							"defUid": 5000,
+							"px": [880,704],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "calibration_brick", "__tile": null, "defUid": 5010, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["calibration_brick"]
+								}] },
+								{ "__identifier": "max_hp", "__type": "Float", "__value": 2.0, "__tile": null, "defUid": 5011, "realEditorValues": [{ "id": "V_Float", "params": [2.0] }] },
+								{ "__identifier": "respawn", "__type": "String", "__value": "OnRoomReload", "__tile": null, "defUid": 5012, "realEditorValues": [] },
+								{ "__identifier": "respawn_seconds", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 5013, "realEditorValues": [] },
+								{ "__identifier": "collision", "__type": "LocalEnum.BreakablePlatformCollision", "__value": "Solid", "__tile": null, "defUid": 5014, "realEditorValues": [] },
+								{ "__identifier": "trigger", "__type": "String", "__value": "OnHit", "__tile": null, "defUid": 5015, "realEditorValues": [] }
+							]
 						}
 					]
 				},

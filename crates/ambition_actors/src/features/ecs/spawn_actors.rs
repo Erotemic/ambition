@@ -215,6 +215,17 @@ pub(crate) fn spawn_staged_actor_into(
             );
         }
         SpawnActorKind::Enemy { brain } => {
+            // The programmatic path does not lower through the planner, so it
+            // cannot mint a giant's host + two hand rows — refuse a giant-class
+            // spec here like every other runtime origin, instead of silently
+            // producing a handless host (GPT 5.6 review finding 1a).
+            if reject_runtime_giant(
+                &character_roster.spec_for_brain(brain),
+                "programmatic staged actor",
+                &req.id,
+            ) {
+                return;
+            }
             let authored =
                 crate::rooms::Authored::new(req.id.clone(), req.name.clone(), aabb, brain.clone());
             // Staged outside the authored RoomSpec lists: mark it so the

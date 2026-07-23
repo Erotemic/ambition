@@ -274,6 +274,7 @@ pub(crate) fn begin_room_transition_load_system(
     mut requests: MessageReader<rooms::RoomTransitionRequested>,
     mut state: ResMut<RoomTransitionLoadState>,
     content_epoch: Res<RoomTransitionContentEpoch>,
+    active_binding: Option<Res<ambition::actors::rooms::ActiveContentBinding>>,
     room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     construction_services: (
         Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
@@ -549,10 +550,20 @@ pub(crate) fn begin_room_transition_load_system(
                 &construction_services.3,
                 &construction_services.4,
                 session_scope,
-                ambition::actors::features::ActorConstructionContext::new(
-                    &construction_services.5,
-                    ambition::engine_core::ContentEpoch(content_epoch.get()),
-                ),
+                {
+                    let mut context = ambition::actors::features::ActorConstructionContext::new(
+                        &construction_services.5,
+                        ambition::engine_core::ContentEpoch(content_epoch.get()),
+                    );
+                    // A transition rebuilds a room the ACTIVE content already
+                    // defines, so the plan states the session's LIVE binding —
+                    // the transition-local counter is a prefetch cache key,
+                    // not a content generation (same fix reset received).
+                    if let Some(active) = active_binding.as_deref() {
+                        context.binding = active.0;
+                    }
+                    context
+                },
             )
             .map(Arc::new),
         };

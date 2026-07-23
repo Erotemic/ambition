@@ -195,6 +195,13 @@ pub(crate) fn ensure_room_character_sprites(
             }
         }
     }
+    // Authored enemies too: `add_room_specific_sprites` adds their sheets to
+    // the manifest by name, but a sheet still sitting in `deferred_npcs` is
+    // invisible to that lookup — the enemy would silently render as the
+    // goblin/rectangle fallback (GPT 5.6 review finding 4).
+    for enemy in &room.enemy_spawns {
+        names.push(&enemy.name);
+    }
     for name in names {
         ambition::actors::character_sprites::materialize_deferred_character_sprite(
             &mut assets.characters,
@@ -263,10 +270,6 @@ fn add_room_specific_sprites(
     for enemy in &room.enemy_spawns {
         add_named_character(by_label, assets, &enemy.name);
     }
-    for name in staged_actor_names {
-        add_named_character(by_label, assets, name);
-    }
-
     // Staged actors' own sheets join the barrier: with startup deferral these
     // are materialized just before this walk, so the reveal now waits on them
     // the same way it waits on placement NPCs and parallax themes.
@@ -598,7 +601,10 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<ambition::actors::features::CharacterRoster>,
     boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
-    construction_recipes: Res<ambition::actors::construction::ActorConstructionRegistry>,
+    (construction_recipes, active_binding): (
+        Res<ambition::actors::construction::ActorConstructionRegistry>,
+        Option<Res<ambition::actors::rooms::ActiveContentBinding>>,
+    ),
     mut assets: ResMut<GameAssets>,
     catalog: Res<SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
@@ -666,10 +672,20 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 &character_roster,
                 &boss_catalog,
                 spawn_scope,
-                ambition::actors::features::ActorConstructionContext::new(
-                    &construction_recipes,
-                    ambition::engine_core::ContentEpoch(content_epoch.get()),
-                ),
+                {
+                    let mut context = ambition::actors::features::ActorConstructionContext::new(
+                        &construction_recipes,
+                        ambition::engine_core::ContentEpoch(content_epoch.get()),
+                    );
+                    // Prefetched plans state the LIVE binding too: if a hot
+                    // reload moves the session to a new generation before this
+                    // plan commits, the boundary refuses the stale prefetch —
+                    // which is exactly the invalidation the cache needs.
+                    if let Some(active) = active_binding.as_deref() {
+                        context.binding = active.0;
+                    }
+                    context
+                },
             ) {
                 Ok(plan) => plan,
                 Err(error) => {

@@ -22,6 +22,7 @@ pub mod flag;
 pub mod movement;
 pub mod powerups;
 pub mod provider;
+pub mod scenery;
 
 pub use provider::{
     mary_o_session_world, MaryOExperiencePlugin, MaryOSessionWorld, MARY_O_CHARACTER_ID,
@@ -30,7 +31,7 @@ pub use provider::{
 
 use ambition::engine_core as ae;
 use ambition::prelude::*;
-use ambition::world::rooms::RoomSpec;
+use ambition::world::rooms::{PropSpec, RoomSpec};
 
 /// Stable room id for level 1-1.
 pub const LEVEL_1_1_ROOM_ID: &str = "mary_o_1_1";
@@ -105,12 +106,6 @@ const BRICK_BASE_INDEX: u16 = 20;
 /// [`level_1_1`] draws the block with; a band narrower than the pole is a level
 /// that cannot be finished.
 const POLE_WIDTH: f32 = T * 0.5;
-/// Flagpole placeholder colours. Flat quads until the pole has real art — the
-/// silhouette (pale shaft, bright knob, dark banner) is what makes it read as a
-/// goal rather than a bar, and it survives the sprite landing later.
-const POLE_COLOR: [f32; 4] = [0.78, 0.82, 0.80, 1.0];
-const POLE_KNOB_COLOR: [f32; 4] = [0.96, 0.88, 0.32, 1.0];
-const POLE_BANNER_COLOR: [f32; 4] = [0.24, 0.62, 0.34, 1.0];
 
 /// The level's world width and height. Named, rather than inlined into
 /// [`level_1_1`], because [`goal_pole`] must derive the flag's geometry from the
@@ -137,7 +132,6 @@ const PIPE_WIDTH_TILES: f32 = 2.0;
 const PIPE_HEIGHT_TILES: f32 = 2.0;
 const PIPE_NAME: &str = "secret_pipe";
 const EXIT_PIPE_NAME: &str = "vault_return_pipe";
-const PIPE_COLOR: [f32; 4] = [0.18, 0.62, 0.28, 1.0];
 const VAULT_STONE_COLOR: [f32; 4] = [0.24, 0.20, 0.30, 1.0];
 
 /// Coins waiting in the vault. The whole reward for finding the pipe.
@@ -313,17 +307,17 @@ pub fn level_1_1() -> RoomSpec {
     // into it at any height while still holding her up if she drops onto the top
     // from the stairs.
     //
-    // ART: flat colours, authored on the blocks. It used to claim to be "a flat
-    // colored quad" while actually taking the shared one-way PLATFORM texture,
-    // stretched down a 16x288 column into a smear — the shared block art assumes a
-    // footprint roughly matching its texture's aspect, which a pole violates
-    // badly. Declaring a placeholder colour is content saying "this shape has no
-    // sprite yet", and it stays a flat quad until one exists.
+    // ART: the collision blocks are made VISUALLY TRANSPARENT and a decorative
+    // `super_mary_o_flag_pole_*` construction sprite is layered over each (see
+    // `scenery.rs`). The shared block art can only key on `BlockKind`, so a
+    // one-way pole would take the platform texture stretched down a 16x288 column
+    // into a smear; a zero-alpha `art_color` shortcuts that, and the prop supplies
+    // the real look. Collision is unchanged, so the flag grab band is identical.
     //
-    // Three pieces so the goal READS as a flagpole instead of a bar: a pale shaft,
-    // a bright knob capping it, and a banner hanging off the top. All three are the
-    // SAME width and column as the pole, so none of them changes what is reachable
-    // or where the grab band is — the silhouette is new, the level is not.
+    // Three pieces so the goal READS as a flagpole instead of a bar: a shaft, a
+    // finial capping it, and a banner hanging off the top. All three are the SAME
+    // width and column as the pole, so none of them changes what is reachable or
+    // where the grab band is — the silhouette is new, the level is not.
     let pole_x = 90.0 * T;
     let pole_top = ground_top - 9.0 * T;
     blocks.push(
@@ -332,7 +326,7 @@ pub fn level_1_1() -> RoomSpec {
             ae::Vec2::new(pole_x, pole_top),
             ae::Vec2::new(POLE_WIDTH, 9.0 * T),
         )
-        .with_art_color(POLE_COLOR),
+        .with_art_color(scenery::TRANSPARENT),
     );
     blocks.push(
         ae::Block::one_way(
@@ -340,7 +334,7 @@ pub fn level_1_1() -> RoomSpec {
             ae::Vec2::new(pole_x, pole_top - POLE_WIDTH),
             ae::Vec2::splat(POLE_WIDTH),
         )
-        .with_art_color(POLE_KNOB_COLOR),
+        .with_art_color(scenery::TRANSPARENT),
     );
     blocks.push(
         ae::Block::one_way(
@@ -348,7 +342,7 @@ pub fn level_1_1() -> RoomSpec {
             ae::Vec2::new(pole_x, pole_top + POLE_WIDTH),
             ae::Vec2::new(POLE_WIDTH, POLE_WIDTH * 2.0),
         )
-        .with_art_color(POLE_BANNER_COLOR),
+        .with_art_color(scenery::TRANSPARENT),
     );
 
     // ── 6. The secret pipe, and the vault under the level ───────────────────
@@ -370,7 +364,7 @@ pub fn level_1_1() -> RoomSpec {
             "mary_o_pipe",
             0,
         )
-        .with_art_color(PIPE_COLOR),
+        .with_art_color(scenery::TRANSPARENT),
     );
 
     let vault = vault_bounds();
@@ -420,7 +414,7 @@ pub fn level_1_1() -> RoomSpec {
             "mary_o_pipe",
             1,
         )
-        .with_art_color(PIPE_COLOR),
+        .with_art_color(scenery::TRANSPARENT),
     );
 
     let spawn = ae::Vec2::new(2.0 * T, ground_top - 2.0 * T);
@@ -428,6 +422,58 @@ pub fn level_1_1() -> RoomSpec {
 
     let mut room = RoomSpec::new(LEVEL_1_1_ROOM_ID, world);
     room.metadata.mode = Some(MARY_O_MODE.to_string());
+
+    // ── Scenery: the flagpole + warp-pipe LOOK (decorative props over the
+    // transparent collision blocks; see `scenery.rs`). Presentation only — none
+    // of this changes geometry, the grab band, or the warp mouths.
+    //
+    // Flagpole: the finial caps the shaft, the shaft runs its full height, and the
+    // banner hangs off the top. The banner PROP is wider than its (pole-width)
+    // collision block and offset to the side, so the flag reads as a flag without
+    // widening what the body can touch.
+    let pipe_size = ae::Vec2::new(PIPE_WIDTH_TILES * T, PIPE_HEIGHT_TILES * T);
+    let pipe_lip = ae::Vec2::new(pipe_size.x, T);
+    let mut scenery_props = vec![
+        scenery::prop_over(
+            "goal_pole_shaft_art",
+            scenery::POLE_BODY_SPRITE,
+            ae::Vec2::new(pole_x, pole_top),
+            ae::Vec2::new(POLE_WIDTH, 9.0 * T),
+        ),
+        scenery::prop_over(
+            "goal_pole_finial_art",
+            scenery::POLE_TOP_SPRITE,
+            ae::Vec2::new(pole_x - POLE_WIDTH * 0.5, pole_top - POLE_WIDTH * 1.5),
+            ae::Vec2::splat(POLE_WIDTH * 2.0),
+        ),
+        // The banner: wider than the pole and hung to the right of the shaft top.
+        PropSpec {
+            id: "goal_pole_banner_art".to_string(),
+            name: "goal_pole_banner_art".to_string(),
+            kind: scenery::FLAG_SPRITE.to_string(),
+            pos: ae::Vec2::new(pole_x + T, pole_top + T),
+            size: ae::Vec2::new(1.5 * T, 1.5 * T),
+        },
+    ];
+    // Both warp pipes, each a lip prop stacked on a body prop over its 2×2 block.
+    let entry_pipe_min = ae::Vec2::new(PIPE_COLUMN * T, ground_top - PIPE_HEIGHT_TILES * T);
+    let return_pipe_min = ae::Vec2::new(vault_exit().min.x, vault.max.y - PIPE_HEIGHT_TILES * T);
+    for (tag, min) in [("entry", entry_pipe_min), ("return", return_pipe_min)] {
+        scenery_props.push(scenery::prop_over(
+            &format!("{tag}_pipe_lip_art"),
+            scenery::PIPE_TOP_SPRITE,
+            min,
+            pipe_lip,
+        ));
+        scenery_props.push(scenery::prop_over(
+            &format!("{tag}_pipe_body_art"),
+            scenery::PIPE_BODY_SPRITE,
+            ae::Vec2::new(min.x, min.y + T),
+            pipe_lip,
+        ));
+    }
+    room.props.extend(scenery_props);
+
     // The vault's reward, on the ordinary placements channel: `currency`
     // pickups the SHARED economy collects and credits to the body wallet. No
     // demo collection code, and they land in the HUD's COINS readout for free —
@@ -693,6 +739,14 @@ pub fn install_mary_o_content(app: &mut App) {
         &mut app
             .world_mut()
             .resource_mut::<ambition::actors::features::RoomContentStagingRegistry>(),
+    );
+    // The flagpole + warp-pipe LOOK: load the construction sheets into
+    // `GameAssets.props` so the decorative props authored on the level resolve to
+    // real art instead of the placeholder quad. Presentation-only, so it rides the
+    // plain `Update` schedule (self-heals after a `GameAssets` rebuild).
+    app.add_systems(
+        bevy::prelude::Update,
+        scenery::register_mary_o_construction_props,
     );
 
     // Mary-O's mutable sim state joins the rollback contract through the same

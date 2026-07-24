@@ -213,7 +213,7 @@ pub struct SpentPowerBlocks(pub std::collections::HashSet<ae::GeoId>);
 fn small_body_size() -> ae::Vec2 {
     ae::movement::default_player_body_size()
 }
-fn tall_body_size() -> ae::Vec2 {
+pub(crate) fn tall_body_size() -> ae::Vec2 {
     let s = small_body_size();
     ae::Vec2::new(s.x, s.y * 1.5)
 }

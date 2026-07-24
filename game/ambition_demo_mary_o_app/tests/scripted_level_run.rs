@@ -86,6 +86,19 @@ fn press_up() -> ControlFrame {
     frame
 }
 
+/// Her collider, so a setup beat can stand her ON a face instead of dropping her
+/// centre onto it — half a body inside a pipe is not a place a player can be.
+fn player_size(app: &mut App) -> Vec2 {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&ambition::engine_core::BodyKinematics, With<PrimaryPlayer>>();
+    query
+        .iter(app.world())
+        .next()
+        .expect("gameplay has a primary player")
+        .size
+}
+
 fn player_pos(app: &mut App) -> Vec2 {
     let mut query = app
         .world_mut()
@@ -266,9 +279,14 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     // scripted input is a platforming-precision test, not a connectivity one,
     // and it would make this run fragile to any jump-arc tuning change. Where
     // she stands is set up; what the pipe DOES is the claim.
+    // A mouth is a pipe's open FACE, and you enter one by TOUCHING it — so stand
+    // her ON that face (the band's centre line), not with her centre on it, which
+    // would bury half of her in the pipe's own collider.
+    let half_body = player_size(&mut app).y * 0.5;
     place_player(&mut app, {
         let mouth = ambition_demo_mary_o::pipe_mouth();
-        (mouth.min + mouth.max) * 0.5
+        let face = (mouth.min.y + mouth.max.y) * 0.5;
+        Vec2::new((mouth.min.x + mouth.max.x) * 0.5, face - half_body)
     });
     step(&mut app, ControlFrame::default());
     step(&mut app, press_down());
@@ -307,9 +325,13 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     );
 
     // ── And she can get back out ───────────────────────────────────────────
+    // Same rule at the other end, upside down: the return pipe hangs from the
+    // ceiling, so touching its mouth means her HEAD is at the lip.
+    let half_body = player_size(&mut app).y * 0.5;
     place_player(&mut app, {
         let exit = ambition_demo_mary_o::vault_exit();
-        (exit.min + exit.max) * 0.5
+        let face = (exit.min.y + exit.max.y) * 0.5;
+        Vec2::new((exit.min.x + exit.max.x) * 0.5, face + half_body)
     });
     step(&mut app, ControlFrame::default());
     step(&mut app, press_up());

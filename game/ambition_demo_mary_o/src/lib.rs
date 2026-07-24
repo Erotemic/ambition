@@ -138,8 +138,9 @@ const LEVEL_HEIGHT: f32 = SURFACE_HEIGHT + VAULT_DEPTH_TILES * T;
 ///   drop out of its vault half. Column 26 is the safe run between pit A and pit B:
 ///   far enough past the open teach that a player has learned the jump, close
 ///   enough that the first pipe they ever see is not at the end of the level.
-/// * The **ascent** tube at column 35 — press UP under its vault half at the far
-///   end of the chamber and you rise out of its surface half. Column 35 sits inside
+/// * The **ascent** tube at column 35 — press UP at its vault half's mouth, which
+///   hangs at head height at the far end of the chamber, and you rise out of its
+///   surface half. Column 35 sits inside
 ///   the vault's span [23,41] and on the solid run [22,42) before pit B, so the tube
 ///   is straight: you come up exactly where you were standing, nine tiles past where
 ///   you went down, with five clear tiles to build the run-up for pit B. (It used to
@@ -196,18 +197,12 @@ fn surface_pipe_size() -> ae::Vec2 {
 }
 
 /// How big a VAULT half is. It reaches most of the way DOWN the chamber rather
-/// than being a matching two-tile stub, so its mouth hangs just above head height
-/// instead of near the ceiling five tiles up. That is what makes pressing UP under
-/// it read as entering a pipe: a two-tile stub left you pressing up at a mouth
-/// nowhere near you, which is what "Mary-O can be anywhere under the pipe" was
-/// really describing. The chamber is [`VAULT_DEPTH_TILES`] - 2 tiles tall, so this
-/// leaves [`VAULT_PIPE_CLEARANCE_TILES`] of walking room beneath the lip.
+/// than being a matching two-tile stub, so its lip hangs at STANDING HEAD HEIGHT
+/// instead of near the ceiling five tiles up — see [`vault_pipe_clearance`] for
+/// why that height exactly. The chamber is [`VAULT_DEPTH_TILES`] - 2 tiles tall.
 fn vault_pipe_size() -> ae::Vec2 {
     let interior = vault_bounds().max.y - vault_bounds().min.y;
-    ae::Vec2::new(
-        PIPE_WIDTH_TILES * T,
-        interior - VAULT_PIPE_CLEARANCE_TILES * T,
-    )
+    ae::Vec2::new(PIPE_WIDTH_TILES * T, interior - vault_pipe_clearance())
 }
 
 /// The min corner of the SURFACE half of the tube at `column` — standing on the
@@ -223,11 +218,21 @@ fn vault_pipe_min(column: f32) -> ae::Vec2 {
     ae::Vec2::new(column * T, vault_bounds().min.y)
 }
 
-/// Walking room left under a vault half's lip. THREE tiles (96px): her tall form
-/// is 72px, so this clears her with headroom while still putting the lip barely
-/// above her head — she presses UP at a mouth she is standing in rather than at
-/// one five tiles across the room. Two tiles would be shorter than she is.
-const VAULT_PIPE_CLEARANCE_TILES: f32 = 3.0;
+/// Walking room left under a vault half's lip: **exactly one grown body, plus a
+/// hair.** That number is not a taste call — it is what makes the mouth reachable.
+///
+/// You enter a pipe by TOUCHING its mouth (see [`mouth_band`]), so a hanging pipe
+/// has to hang where a body standing under it can touch. Any less and her grown
+/// form cannot walk under it at all — she would be stopped by its side, outside
+/// the column, and could never reach the mouth. Any more and the mouth floats
+/// above every reachable head, which is the state that made pressing UP feel like
+/// a button that worked in a column of air.
+///
+/// The quarter-tile is clearance for the walk itself, so she is not scraping the
+/// lip on every step.
+fn vault_pipe_clearance() -> f32 {
+    powerups::tall_body_size().y + 0.25 * T
+}
 
 /// **Every pipe half in level 1-1**, as `(name, min corner, size, mouth points
 /// down, art index)`. ONE list, so the collision blocks and the art can never
@@ -269,12 +274,43 @@ fn pipe_halves() -> [(&'static str, ae::Vec2, ae::Vec2, bool, u16); 4] {
     ]
 }
 
-/// The mouth of the descent tube — the band you must be standing in to warp down.
+/// How close to a pipe's open face counts as touching it: half a tile.
+///
+/// Not a trigger zone — a contact tolerance. It is small enough that a body has
+/// to be AT the face (a grown body standing under a hanging lip is 8px from it;
+/// a small one is 32px away and has to hop into the mouth) and large enough that
+/// the press does not demand a pixel-exact overlap of two boxes that, resting on
+/// each other, only ever touch at the edge.
+const MOUTH_SLACK: f32 = 0.5 * T;
+
+/// **A pipe's mouth is its OPEN FACE** — the lip end — with [`MOUTH_SLACK`] of
+/// contact tolerance either side of it, spanning the pipe's own width.
+///
+/// One rule, derived from the half's own geometry, for both ends of every tube:
+/// the mouth cannot drift away from the pipe it belongs to, and there is nothing
+/// to hand-measure. Both mouths used to be authored as bands across the SURFACE
+/// YOU STAND ON, which is right for a pipe you stand on top of and wrong for one
+/// hanging overhead — it put the ascent trigger on the vault floor, several tiles
+/// below the pipe, so pressing UP worked anywhere in the pipe's column of air.
+fn mouth_band(min: ae::Vec2, size: ae::Vec2, mouth_down: bool) -> ae::Aabb {
+    let face = if mouth_down { min.y + size.y } else { min.y };
+    let band = ae::Vec2::new(size.x, 2.0 * MOUTH_SLACK);
+    let corner = ae::Vec2::new(min.x, face - MOUTH_SLACK);
+    ae::Aabb::new(corner + band * 0.5, band * 0.5)
+}
+
+/// The mouth of the pipe half called `name`, straight off [`pipe_halves`].
+fn mouth_of(name: &str) -> ae::Aabb {
+    let (_, min, size, mouth_down, _) = pipe_halves()
+        .into_iter()
+        .find(|half| half.0 == name)
+        .expect("every named mouth belongs to a pipe half in this level");
+    mouth_band(min, size, mouth_down)
+}
+
+/// The mouth of the descent tube — the open top of the pipe you stand on.
 pub fn pipe_mouth() -> ae::Aabb {
-    let top = surface_pipe_min(PIPE_COLUMN);
-    let size = ae::Vec2::new(PIPE_WIDTH_TILES * T, T);
-    let min = ae::Vec2::new(top.x, top.y - 0.5 * T);
-    ae::Aabb::new(min + size * 0.5, size * 0.5)
+    mouth_of(PIPE_NAME)
 }
 
 /// Where the descent tube drops you: out of its VAULT half's mouth, so you fall
@@ -294,20 +330,17 @@ pub fn pipe_arrival() -> ae::Vec2 {
     ae::Vec2::new(min.x + PIPE_WIDTH_TILES * 0.5 * T, min.y - T)
 }
 
-/// The ascent tube's mouth: a band straddling the patch of VAULT FLOOR directly
-/// under its vault half.
+/// The ascent tube's mouth — the open BOTTOM of the pipe hanging from the vault
+/// ceiling. The same [`mouth_band`] rule the descent uses, so both ends of a trip
+/// are one verb: **touch the mouth, press into it.**
 ///
-/// Exactly the shape [`pipe_mouth`] has — a band across the surface you are
-/// standing on — so both ends of a trip are the same verb: stand on the spot the
-/// pipe marks, press into it. It used to be the whole COLUMN of air beneath the
-/// pipe, on the theory that an overhead pipe deserved a forgiving trigger; that
-/// read as loose ("Mary-O can be anywhere under the pipe and press up") next to
-/// the precise descent, which you can only take from the pipe's own top face.
+/// It used to be a band across the vault FLOOR, several tiles below the pipe. A
+/// trigger that far from the thing it triggers reads as loose no matter how tight
+/// the band is — "Mary-O can be anywhere under the pipe and press up" is what a
+/// floor band feels like when the pipe is overhead. Now the pipe hangs at head
+/// height ([`vault_pipe_clearance`]) and you have to be at its lip.
 pub fn vault_exit() -> ae::Aabb {
-    let floor_top = vault_bounds().max.y;
-    let size = ae::Vec2::new(PIPE_WIDTH_TILES * T, T);
-    let min = ae::Vec2::new(EXIT_PIPE_COLUMN * T, floor_top - 0.5 * T);
-    ae::Aabb::new(min + size * 0.5, size * 0.5)
+    mouth_of(EXIT_PIPE_NAME)
 }
 
 /// Build Mary-O's level 1-1 through the `ambition` umbrella surface ONLY.
@@ -570,12 +603,24 @@ pub fn level_1_1() -> RoomSpec {
     // you drop in), BOTTOM tile for a vault half (mouth down, hanging from the
     // ceiling — you fall out of it, or rise into it), mirrored to match.
     for (name, min, size, mouth_down, _) in pipe_halves() {
-        let tiles = (size.y / T).round().max(1.0) as usize;
-        let lip_row = if mouth_down { tiles - 1 } else { 0 };
-        for row in 0..tiles {
-            let at = ae::Vec2::new(min.x, min.y + row as f32 * T);
-            let tile = ae::Vec2::new(size.x, T);
-            if row == lip_row {
+        // Laid FROM THE MOUTH inward, so the lip sits exactly on the open face
+        // however long the half is — a pipe's length is set by where its mouth
+        // has to be, not by a whole number of tiles, and only the far end (which
+        // meets the ground slab and is never seen end-on) takes the remainder.
+        let mut laid = 0.0f32;
+        let mut row = 0usize;
+        while laid < size.y - 0.5 {
+            let height = (size.y - laid).min(T);
+            let top = if mouth_down {
+                min.y + size.y - laid - height
+            } else {
+                min.y + laid
+            };
+            let at = ae::Vec2::new(min.x, top);
+            let tile = ae::Vec2::new(size.x, height);
+            laid += height;
+            row += 1;
+            if row == 1 {
                 // A mouth-down pipe is the SAME head sheet, mirrored — a pipe head
                 // drawn right way up under a ceiling reads as standing on nothing.
                 scenery_props.push(scenery::pipe_prop(
@@ -1393,8 +1438,14 @@ fn spend_lives_on_death(
 }
 
 /// **The secret pipe.** Press DOWN on the surface mouth and you fall out of the
-/// pipe hanging from the vault's ceiling; press UP under the pipe at the vault's
-/// far end and you rise out of its surface half, nine tiles further along.
+/// pipe hanging from the vault's ceiling; press UP at the mouth of the pipe at the
+/// vault's far end and you rise out of its surface half, nine tiles further along.
+///
+/// One verb at both ends: **touch a pipe's mouth and press into it.** The mouth is
+/// the pipe's own open face ([`mouth_band`]) and [`at_mouth`] is the whole test —
+/// centred on the pipe, box against the face. Nothing here measures a region of
+/// the room, which is what made the overhead end feel like a button that worked
+/// anywhere below the pipe.
 ///
 /// The warp is a real TRANSIT, not a position poke: `transit_body` is the engine
 /// authority for discretely relocating a body (ADR 0024), and it reconciles the
@@ -1403,8 +1454,8 @@ fn spend_lives_on_death(
 /// still clinging to a wall that is no longer there.
 ///
 /// The pipe is entered DIRECTIONALLY (Jon bug list #8): press DOWN standing on
-/// the entry mouth to drop in, press UP standing under the return pipe to surface —
-/// the classic warp-pipe verb. That does NOT break the "a single Up/Down must not
+/// the entry mouth to drop in, press UP with your head in the return pipe's mouth
+/// to surface — the classic warp-pipe verb. That does NOT break the "a single Up/Down must not
 /// trigger a door" rule: a pipe is not a door, and the press has to point INTO
 /// the pipe while you stand on its mouth, which reads as deliberate, not
 /// incidental. It also removes the ping-pong for free — the two ends need
@@ -1443,8 +1494,8 @@ fn warp_through_secret_pipe(
 
         // Each mouth answers only its own direction: DOWN at the entry pipe, UP
         // at the return pipe.
-        let at_entry = overlaps(body, pipe_mouth());
-        let at_return = overlaps(body, vault_exit());
+        let at_entry = at_mouth(body, pipe_mouth());
+        let at_return = at_mouth(body, vault_exit());
         let destination = warp_destination(down, up, at_entry, at_return);
         any_trigger |= destination.is_some();
         let Some(destination) = destination else {
@@ -1489,10 +1540,24 @@ fn warp_destination(down: bool, up: bool, at_entry: bool, at_return: bool) -> Op
     }
 }
 
-/// Plain AABB overlap. `IntersectsVolume` would do, but this keeps the warp rule
-/// readable at the call site and free of a trait import for one comparison.
-fn overlaps(a: ae::Aabb, b: ae::Aabb) -> bool {
-    a.min.x < b.max.x && a.max.x > b.min.x && a.min.y < b.max.y && a.max.y > b.min.y
+/// Is `body` **at** `mouth` — lined up with the pipe and touching its open face?
+///
+/// Two conditions, one for each half of "she is under the pipe and her box is
+/// close enough to it":
+/// * her CENTRE is inside the pipe's column, not merely a shoulder's worth of
+///   box overlapping its edge. A pipe is something you stand in front of, and
+///   grazing one is not entering it;
+/// * her box reaches the open face, within [`MOUTH_SLACK`].
+///
+/// The second condition is the one that makes an overhead pipe honest: standing
+/// on the vault floor is not enough, you have to reach the lip — grown you touch
+/// it standing, small you hop into it.
+fn at_mouth(body: ae::Aabb, mouth: ae::Aabb) -> bool {
+    let centre = (body.min.x + body.max.x) * 0.5;
+    centre >= mouth.min.x
+        && centre <= mouth.max.x
+        && body.min.y < mouth.max.y
+        && body.max.y > mouth.min.y
 }
 
 /// **Cyclic level completion.** Once the flag tally has settled, restart the
@@ -1903,9 +1968,6 @@ mod tests {
             "the vault floor must be inside the world bounds"
         );
 
-        // Both warp ends catch a player-sized body standing at them. A mouth
-        // that does not overlap is a pipe that cannot be entered.
-        let body_at = |p: ae::Vec2| ae::Aabb::new(p, ae::Vec2::new(0.5 * T, 0.9 * T));
         // Leaving the vault surfaces you standing ON the SURFACE EXIT pipe past pit
         // B — a visible pipe, not mid-air. Read the block's top off the AUTHORED
         // level, never the formula it was built from.
@@ -1941,13 +2003,52 @@ mod tests {
             .aabb
             .min
             .y;
-        let standing_under_return_pipe =
-            ae::Vec2::new(vault_exit().center().x, vault_floor - 0.9 * T);
+        //
+        // You enter a pipe by TOUCHING its mouth, so the pipe is hung at exactly
+        // the height where a GROWN body standing on that floor reaches its lip.
+        let standing = |size: ae::Vec2, x: f32| {
+            ae::Aabb::new(ae::Vec2::new(x, vault_floor - size.y * 0.5), size * 0.5)
+        };
+        let under = vault_exit().center().x;
         assert!(
-            overlaps(body_at(standing_under_return_pipe), vault_exit()),
-            "a body STANDING ON THE VAULT FLOOR under the return pipe must overlap \
-             the exit mouth, or the press can never fire and the vault is a one-way \
-             trip: body at {standing_under_return_pipe:?} vs mouth {:?}",
+            at_mouth(standing(powerups::tall_body_size(), under), vault_exit()),
+            "a GROWN body standing on the vault floor under the return pipe must \
+             reach its mouth, or the press can never fire and the vault is a \
+             one-way trip: mouth {:?}, floor {vault_floor}",
+            vault_exit()
+        );
+        // ...and standing OFF to the side is not, however close: a mouth is a
+        // place on the pipe, not a region of the room it hangs in.
+        assert!(
+            !at_mouth(
+                standing(
+                    powerups::tall_body_size(),
+                    under + PIPE_WIDTH_TILES * T // one pipe-width clear
+                ),
+                vault_exit()
+            ),
+            "standing beside the return pipe must NOT enter it: mouth {:?}",
+            vault_exit()
+        );
+        // The small form does not reach a lip hung for the grown one — she hops
+        // into it. That is the shape of the rule, not a gap in it: the trigger is
+        // contact with the pipe, so a body that is not touching does not warp.
+        // (While the mouth was a band on the FLOOR, every body standing anywhere
+        // in the pipe's column warped, which is what read as loose.)
+        let small = ae::movement::default_player_body_size();
+        assert!(
+            !at_mouth(standing(small, under), vault_exit()),
+            "the small form standing flat-footed is not touching a lip hung at \
+             grown head height: mouth {:?}",
+            vault_exit()
+        );
+        let hopped = {
+            let flat = standing(small, under);
+            ae::Aabb::new(flat.center() - ae::Vec2::new(0.0, T), flat.half_size())
+        };
+        assert!(
+            at_mouth(hopped, vault_exit()),
+            "...but a hop of one tile puts her head in the mouth: mouth {:?}",
             vault_exit()
         );
 
@@ -1969,22 +2070,23 @@ mod tests {
             .find(|b| b.name == EXIT_PIPE_NAME)
             .expect("the vault has a VISIBLE return pipe, not just an exit zone")
             .aabb;
-        // The mouth marks the patch of FLOOR under that pipe: same column, and it
-        // straddles the floor she stands on. So what she presses UP on is directly
-        // under the thing she can see, and it is a spot rather than a whole region.
+        // The mouth IS the pipe's open face: exactly its width, straddling its lip.
+        // Not a nearby region that happens to be under it — that is the difference
+        // between "press up while touching the pipe" and "press up somewhere below
+        // the pipe", and only the first one reads as entering anything.
         assert!(
             (vault_exit().min.x - return_pipe.min.x).abs() < 1.0
                 && (vault_exit().max.x - return_pipe.max.x).abs() < 1.0,
-            "the exit mouth is in the return pipe's own column: mouth {:?} vs pipe \
+            "the exit mouth spans the return pipe's own width: mouth {:?} vs pipe \
              {return_pipe:?}",
             vault_exit()
         );
         assert!(
-            vault_exit().min.y < vault.max.y && vault_exit().max.y > vault.max.y,
-            "and it straddles the vault floor, the surface she presses UP from: \
-             mouth {:?} vs floor {}",
-            vault_exit(),
-            vault.max.y
+            vault_exit().min.y < return_pipe.max.y && vault_exit().max.y > return_pipe.max.y,
+            "and it straddles that pipe's LIP — its open bottom face, the part she \
+             touches — not the floor several tiles below it: mouth {:?} vs pipe \
+             {return_pipe:?}",
+            vault_exit()
         );
         assert_eq!(
             room.placements
@@ -2063,23 +2165,27 @@ mod tests {
             );
         }
 
-        // A vault half REACHES DOWN to her. Its lip must clear her tallest form so
-        // she can walk under it, and must not be so high that pressing UP happens
-        // at a mouth nowhere near her — which is what "she can be anywhere under
-        // the pipe" was really describing.
+        // A vault half REACHES DOWN to her, because you enter a pipe by TOUCHING its
+        // mouth. Both bounds are forced: clear her tallest form or she cannot walk
+        // under it (and so can never reach the lip at all), but stay within touching
+        // distance of that same form or the mouth floats above every reachable head
+        // and pressing UP becomes a button that works in a column of air.
         let vault_floor = block("vault_floor").min.y;
+        let tall = powerups::tall_body_size().y;
         for name in [VAULT_ENTRY_PIPE_NAME, EXIT_PIPE_NAME] {
             let lip = block(name).max.y;
             let clearance = vault_floor - lip;
             assert!(
-                clearance > 72.0,
-                "{name}'s lip must clear Mary-O's TALL form (72px) or she cannot \
+                clearance > tall,
+                "{name}'s lip must clear Mary-O's TALL form ({tall}px) or she cannot \
                  walk under it: {clearance}px"
             );
             assert!(
-                clearance < 4.0 * T,
-                "...and must hang close enough that pressing UP under it reads as \
-                 entering a pipe rather than shouting at a distant one: {clearance}px"
+                clearance - tall < MOUTH_SLACK,
+                "...and must hang within touching distance of that form's head, or \
+                 she can stand under it and still not be at its mouth: {clearance}px \
+                 leaves a {}px gap, slack is {MOUTH_SLACK}px",
+                clearance - tall
             );
         }
 

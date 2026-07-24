@@ -5,7 +5,7 @@
 
 * In the Sanic demo, when sanic runs past a point, he turns super sanic no matter what and this should not happen. [likely fixed 2026-07-24: the cause was the `monitor_super` box breaking on a ROLL-THROUGH, and fast running IS rolling here, so carrying speed through its lane always transformed you. INTERPRETATION taken — the super form is now a DELIBERATE grab (stomp onto the lid only); ordinary speed monitors still pop on a roll-through. If you instead wanted it repositioned off the main lane, or super gated on rings like classic Sonic, say so and I'll redo it.]
 
-* The pipe to let Mary-o come back up is placed in a weird spot, and the button to interact with it is "interact" instead of being correctly bound to "down"  or "up" depending on if you go down into the pipe or up into the pipe.
+* The pipe to let Mary-o come back up is placed in a weird spot, and the button to interact with it is "interact" instead of being correctly bound to "down"  or "up" depending on if you go down into the pipe or up into the pipe. [BINDING fixed 2026-07-24: pipe entry is now DIRECTIONAL — press DOWN standing on the entry mouth to drop in, UP standing on the return mouth to surface (classic warp-pipe verb), no longer the generic Interact; the opposite-direction ends also kill the old ping-pong. The "weird spot" PLACEMENT is a separate LDtk-authoring fix, NOT addressed here.]
 
 * I see no way to get mary-o to have the fireflower, or whatever our equivalent is, and it does not change her sprite to the fireflower one. 
 

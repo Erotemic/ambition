@@ -1107,14 +1107,17 @@ fn spend_lives_on_death(
 /// a player who entered the pipe while wall-clinging would arrive in the vault
 /// still clinging to a wall that is no longer there.
 ///
-/// Both ends read Interact rather than a bare direction press, because a single
-/// Up/Down press must never trigger a door — the demo obeys the same interaction
-/// binding rule the rest of the game does.
+/// The pipe is entered DIRECTIONALLY (Jon bug list #8): press DOWN standing on
+/// the entry mouth to drop in, press UP standing on the return mouth to surface —
+/// the classic warp-pipe verb. That does NOT break the "a single Up/Down must not
+/// trigger a door" rule: a pipe is not a door, and the press has to point INTO
+/// the pipe while you stand on its mouth, which reads as deliberate, not
+/// incidental. It also removes the ping-pong for free — the two ends need
+/// OPPOSITE directions, so a held press that warped you down can never fire the
+/// up-return at the far end.
 fn warp_through_secret_pipe(
-    // Rising-edge latch. Without it a HELD Interact re-fires at the far end the
-    // moment the warp lands, ping-ponging the player between the two mouths for
-    // as long as the button is down — the pipe would read as "it doesn't work"
-    // to anyone who does not tap it exactly once.
+    // Rising-edge latch on the directional trigger, so a HELD press warps exactly
+    // once rather than re-firing every frame it stays down.
     mut was_pressed: bevy::prelude::Local<bool>,
     mut bodies: bevy::prelude::Query<
         (
@@ -1125,27 +1128,32 @@ fn warp_through_secret_pipe(
         ambition::platformer::markers::PrimaryPlayerOnly,
     >,
 ) {
-    let mut any_pressed = false;
+    // Body-local locomotion, `+y` toward the feet (screen-down under Mary-O's
+    // normal gravity): press toward the ground to go DOWN a pipe, away to go UP.
+    const DIR_DEADZONE: f32 = 0.5;
+    let mut any_trigger = false;
     for (clusters, mut model, control) in &mut bodies {
-        let pressed = control.0.interact_pressed;
-        any_pressed |= pressed;
-        if !pressed || *was_pressed {
-            continue;
-        }
+        let down = control.0.locomotion.y > DIR_DEADZONE;
+        let up = control.0.locomotion.y < -DIR_DEADZONE;
         let mut item = clusters;
         let mut clusters = item.as_clusters_mut();
         let body = ae::Aabb::new(clusters.kinematics.pos, clusters.kinematics.size * 0.5);
 
-        let destination = if overlaps(body, pipe_mouth()) {
-            Some(vault_arrival())
-        } else if overlaps(body, vault_exit()) {
-            Some(pipe_arrival())
-        } else {
-            None
-        };
+        // Each mouth answers only its own direction: DOWN at the entry pipe, UP
+        // at the return pipe.
+        let destination = warp_destination(
+            down,
+            up,
+            overlaps(body, pipe_mouth()),
+            overlaps(body, vault_exit()),
+        );
+        any_trigger |= destination.is_some();
         let Some(destination) = destination else {
             continue;
         };
+        if *was_pressed {
+            continue;
+        }
 
         ambition::engine_core::movement::transit_body(
             &mut model,
@@ -1154,7 +1162,24 @@ fn warp_through_secret_pipe(
             ambition::engine_core::movement::TransitVelocity::Zero,
         );
     }
-    *was_pressed = any_pressed;
+    *was_pressed = any_trigger;
+}
+
+/// Where a directional pipe press sends the body, if anywhere (Jon bug #8).
+///
+/// A mouth answers ONLY its own direction: DOWN drops you in at the entry pipe,
+/// UP surfaces you at the return pipe. Pressing the wrong way — or Interact,
+/// which is neither — does nothing, which is the whole point: you no longer warp
+/// by bumping a generic button, and the opposite-direction ends can never
+/// ping-pong a held press.
+fn warp_destination(down: bool, up: bool, at_entry: bool, at_return: bool) -> Option<ae::Vec2> {
+    if down && at_entry {
+        Some(vault_arrival())
+    } else if up && at_return {
+        Some(pipe_arrival())
+    } else {
+        None
+    }
 }
 
 /// Plain AABB overlap. `IntersectsVolume` would do, but this keeps the warp rule
@@ -1463,6 +1488,45 @@ mod tests {
     /// world or get stuck. So: assert the arrival is inside the chamber, that the
     /// chamber is under the ground slab, and that both warp ends actually
     /// overlap a body standing where the player would be.
+    /// Jon bug #8: the pipe is entered DIRECTIONALLY — DOWN drops in at the entry
+    /// mouth, UP surfaces at the return mouth — and a generic press (Interact,
+    /// which is neither direction, or the wrong direction) no longer warps you.
+    #[test]
+    fn the_pipe_only_answers_the_correct_directional_press() {
+        // The intended verbs work.
+        assert_eq!(
+            warp_destination(true, false, true, false),
+            Some(vault_arrival()),
+            "DOWN on the entry pipe drops into the vault"
+        );
+        assert_eq!(
+            warp_destination(false, true, false, true),
+            Some(pipe_arrival()),
+            "UP on the return pipe surfaces"
+        );
+        // The bug: a generic press (Interact = no direction) used to warp. It
+        // must not anymore.
+        assert_eq!(
+            warp_destination(false, false, true, false),
+            None,
+            "Interact / no direction must NOT warp at the entry"
+        );
+        assert_eq!(warp_destination(false, false, false, true), None);
+        // The WRONG direction at a mouth does nothing.
+        assert_eq!(
+            warp_destination(false, true, true, false),
+            None,
+            "pressing UP at the DOWN pipe does nothing"
+        );
+        assert_eq!(
+            warp_destination(true, false, false, true),
+            None,
+            "pressing DOWN at the UP pipe does nothing"
+        );
+        // Standing on no mouth: nothing warps whatever you press.
+        assert_eq!(warp_destination(true, true, false, false), None);
+    }
+
     #[test]
     fn the_pipe_leads_into_a_sealed_vault_and_back_out() {
         use ambition::engine_core::AabbExt;
@@ -1502,7 +1566,7 @@ mod tests {
         let body_at = |p: ae::Vec2| ae::Aabb::new(p, ae::Vec2::new(0.5 * T, 0.9 * T));
         assert!(
             overlaps(body_at(pipe_arrival()), pipe_mouth()),
-            "standing on the pipe overlaps its mouth, or Interact can never fire"
+            "standing on the pipe overlaps its mouth, or the directional press can never fire"
         );
         // Deliberately NOT `body_at(vault_exit().center())`. That point is
         // inside the return pipe's own SOLID geometry, so it asserted a

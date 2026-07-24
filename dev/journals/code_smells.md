@@ -1079,3 +1079,35 @@ the smell is that Bevy's topo sort does not honor registration order under
 graph edits. Candidate fix shape: explicit `.after` edges for known
 cross-phase writer pairs, or an ambiguity audit for writer-writer pairs in
 the sim schedule. Opportunistic; recorded during the Phase-5 campaign.
+
+## 2026-07-24 — `BodyOffense.damage_multiplier` is a dead, misnamed field (Wave-1 damage-multiplier follow-up)
+
+Investigating the Wave-1 tracks.md follow-up ("apply the outgoing damage scale to
+melee through ONE attacker seam; investigate the misnamed `offense.damage_multiplier: i32`
+field first — it holds melee base damage, not a multiplier").
+
+Finding: `BodyOffense.damage_multiplier` (`engine_core/src/body_clusters.rs:545`,
+an `i32`) is:
+- WRITTEN only by dev-tools (`ambition_dev_tools/.../editable.rs:523`,
+  `offense.damage_multiplier = stats.slash_damage.max(1)`) and round-tripped by the
+  rollback codec (`ambition_runtime/.../codecs.rs:326`);
+- READ nowhere at runtime. The ONLY reference is a STALE doc comment on
+  `AttackSpec.damage_override` (`ambition_combat/src/lib.rs:233`: "None falls back to
+  the player's `offense.damage_multiplier`") — but the melee-is-ONE-PATH landing
+  moved player melee onto the moveset volume (`HitVolume.damage` → `Hitbox.damage`),
+  which never consults this field. The advertised fallback is unimplemented.
+
+So it is a misnamed dead field (holds `slash_damage`, named `damage_multiplier`,
+scaled by nothing, read by nothing). Cleanup shape: delete the field + its dev-tools
+write + its codec column + the stale comment (verify no game/ crate reads it first),
+OR — if the dev-tools slash-damage knob should be live — wire it into the player's
+moveset attack damage. Bounded either way; the codec change touches snapshot layout,
+so it wants its own commit + a rollback check.
+
+Separately, the follow-up's real feature (apply the OUTGOING `player_damage_multiplier`
+power slider to player MELEE, the way `ambition_projectiles::kind::ProjectileKind::spec`
+already scales projectiles) is still open. The clean seam is the player-melee HitEvent
+creation in `apply_hitbox_damage`'s `HitSide::Player` branch: scale `HitEvent.damage`
+by a neutral outgoing-scale resource (published by the app from the setting, the
+`ActiveMovementTuning` pattern), gated on the player side so enemy melee is untouched.
+That is a new resource + app plumbing + one combat read — architected, not yet built.

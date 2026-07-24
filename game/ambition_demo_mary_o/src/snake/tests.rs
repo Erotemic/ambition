@@ -19,8 +19,8 @@ fn stomp() -> ShellInputs {
 }
 
 /// A stomp on a walker begins the in-place withdraw: it bounces the player, plays
-/// the `retreat` row, and the SAME body becomes a (dead, still) corpse — no
-/// despawn, no separate shell entity.
+/// the `retreat` row, and the SAME (still-alive) body becomes an inert shell — no
+/// death, no despawn, no separate shell entity.
 #[test]
 fn a_stomp_starts_an_in_place_withdraw() {
     let fx = step(SnakeShell::Walking, stomp());
@@ -32,7 +32,7 @@ fn a_stomp_starts_an_in_place_withdraw() {
     );
     assert!(
         !fx.alive,
-        "a withdrawing snake is a corpse: still and untouchable"
+        "a withdrawing snake is an inert shell: frozen and untouchable"
     );
     assert_eq!(
         fx.vel_x,
@@ -55,7 +55,7 @@ fn an_untouched_walker_stays_a_normal_walker() {
 }
 
 /// Left alone, the whole cycle runs retreat → boxed → peek → emerge → walk, and
-/// only the final beat brings the snake back to life.
+/// only the final beat turns the snake back into a live, moving threat.
 #[test]
 fn the_shell_cycle_runs_to_completion_and_revives_only_at_the_end() {
     // Retreat settles into the boxed pose.
@@ -70,21 +70,27 @@ fn the_shell_cycle_runs_to_completion_and_revives_only_at_the_end() {
     let fx = step(phase, ShellInputs::default());
     assert!(matches!(fx.phase, SnakeShell::Peeking(_)));
     assert_eq!(fx.anim, Some(CharacterAnim::Peek));
-    assert!(!fx.alive, "peeking is still a corpse");
+    assert!(!fx.alive, "peeking is still an inert shell");
 
     // Peek climbs into emerge.
     phase = SnakeShell::Peeking(0.0);
     let fx = step(phase, ShellInputs::default());
     assert!(matches!(fx.phase, SnakeShell::Emerging(_)));
     assert_eq!(fx.anim, Some(CharacterAnim::Emerge));
-    assert!(!fx.alive, "emerging is still a corpse until the last beat");
+    assert!(
+        !fx.alive,
+        "emerging is still an inert shell until the last beat"
+    );
 
     // Emerge finishes: a live walker again, pose pin dropped.
     phase = SnakeShell::Emerging(0.0);
     let fx = step(phase, ShellInputs::default());
     assert_eq!(fx.phase, SnakeShell::Walking);
     assert_eq!(fx.anim, None, "back to shared picking");
-    assert!(fx.alive, "only emerging fully brings it back to life");
+    assert!(
+        fx.alive,
+        "only emerging fully turns it back into a live threat"
+    );
     assert_eq!(fx.vel_x, None);
 }
 

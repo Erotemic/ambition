@@ -8,16 +8,23 @@
 //! emerge / death) through the engine's animation-override seam
 //! ([`ActorAnimOverride`]).
 //!
-//! ## Why the shell needs no brain swap or contact-damage plumbing
+//! ## Why the shell needs no brain swap, and never "dies"
 //!
-//! The withdraw is expressed as **death without despawn**: entering the shell sets
-//! the body's HP to 0. A zero-HP body is a `body_is_corpse` — the engine's enemy
-//! integration returns a NEUTRAL control frame for it (so it stops walking with no
-//! brain change) and the shared body-contact-damage pass skips it (so a resting
-//! shell is safe to walk up to and kick). Its `respawn` policy is NOT `InPlace`,
-//! so the engine never auto-revives it; this module owns the revive, restoring HP
-//! when it finishes emerging. Sliding is driven by writing the body's horizontal
-//! velocity each tick, exactly as the old shell prop did.
+//! A stomp does NOT hurt the snake — it CHANGES ITS STATE. The body stays alive
+//! (full HP) the whole time, so it is never hidden by the engine's "a dead hostile
+//! actor is invisible" render rule; a shelled snake is always on screen. "Shelled"
+//! is composed from two real engine levers, re-held on the SAME body each frame it
+//! is withdrawn:
+//!   * **Frozen in place** — its [`BodyCombat::recoil_lock_timer`] is refreshed:
+//!     the engine's "carried, can't steer" gate hard-zeros movement input, so the
+//!     Wanderer brain can't walk it while gravity still settles it on the ground.
+//!   * **Inert (harmless)** — its [`ActorConfig`] `body_contact_damage` tuning is
+//!     turned off, so the shared body-contact pass deals no damage: a resting shell
+//!     is safe to walk up to and kick.
+//!
+//! Emerging clears both and the snake is a live, threatening walker again — there
+//! is no revive-from-death, because it never died. Sliding is driven by writing the
+//! body's horizontal velocity each tick, exactly as the old shell prop did.
 //!
 //! The phase logic is a pure function ([`step_snake_shell`]) with the ECS system a
 //! thin shell over it, mirroring `flag.rs` — so the choreography is unit-tested
@@ -29,9 +36,9 @@ use bevy::prelude::*;
 
 use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
 use ambition::actors::combat::components::ActorFaction;
-use ambition::actors::features::{ActorAnimOverride, FeatureName};
+use ambition::actors::features::{ActorAnimOverride, ActorConfig, FeatureName};
 use ambition::actors::features::{SpawnActorKind, SpawnActorRequest};
-use ambition::characters::actor::BodyHealth;
+use ambition::characters::actor::BodyCombat;
 use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::CharacterBrain;
 use ambition::sprite_sheet::character::CharacterAnim;
@@ -71,6 +78,12 @@ const PEEK_S: f32 = 0.5;
 /// Seconds spent climbing back out (the `emerge` row) before it walks again.
 const EMERGE_S: f32 = 0.45;
 
+/// The freeze-lock duration re-stamped onto a withdrawn snake each tick (the
+/// engine's `recoil_lock_timer`, which hard-zeros movement input). Any value
+/// comfortably above one frame works: it is refreshed every shelled tick and
+/// cleared the instant the snake emerges, so it only has to outlast a tick's decay.
+const SHELL_FREEZE_LOCK: f32 = 1.0;
+
 /// A Solid Snake's shell lifecycle. `Walking` is the ordinary patroller; the rest
 /// are the withdraw cycle, driven by [`step_snake_shell`]. The `f32` is the
 /// remaining time in that stage, or (for `Sliding`) the travel direction.
@@ -92,9 +105,10 @@ pub struct ShellEffects {
     pub phase: SnakeShell,
     /// Pose to pin, or `None` to let the shared picker choose (Walking).
     pub anim: Option<CharacterAnim>,
-    /// Whether the body should read as ALIVE (tangible walker) this tick. Shell
-    /// phases are `false` — a corpse that doesn't walk and can't be touched for
-    /// damage — until it finishes emerging.
+    /// Whether the snake is a live, threatening WALKER this tick (`true`) or an
+    /// inert SHELL (`false`) — frozen in place and harmless to the touch. The snake
+    /// never dies: this toggles only its freeze lock + contact-damage threat, never
+    /// its HP, so a shelled snake stays visible and comes back.
     pub alive: bool,
     /// Horizontal velocity to command, or `None` to leave the body's own physics
     /// alone (Walking). Shell phases hold still (`Some(0.0)`) or slide.
@@ -221,7 +235,8 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
 /// Demo-owned hostile roster: ONE 1-HP `Wanderer` archetype. It walks forward and
 /// reverses at walls; `aggro_radius`/`attack_range` are ignored by that template.
 /// It carries no `melee`, so its only offense is the default-on body contact —
-/// which the shell's zero-HP corpse trick disables while withdrawn.
+/// which the shell state turns off (via its `body_contact_damage` tuning) while
+/// withdrawn, then back on when it walks again.
 const SNAKE_ROSTER_RON: &str = r#"{
     "mary_o_snake": (
         max_health: 1,
@@ -365,10 +380,11 @@ pub fn tag_mary_o_snakes(
 ///
 /// Reads what happened to each snake this tick (stomp / kick / wall-block),
 /// advances its phase, and reflects the result: bounce the stomper, pin the pose
-/// via [`ActorAnimOverride`], hold the body dead-and-still (or slide it), and
-/// revive it when it finishes emerging. A sliding shell also runs down other
-/// snakes. Ordered BEFORE the shared contact-damage pass so a stomp neutralizes
-/// the snake (to a corpse) before that pass could hurt the stomper.
+/// via [`ActorAnimOverride`], freeze the (still-alive) body and turn its contact
+/// threat off — or slide it — and let it walk and threaten again when it finishes
+/// emerging. A sliding shell also runs down other snakes. Ordered BEFORE the shared
+/// contact-damage pass so a stomp makes the snake inert that frame, before that pass
+/// could hurt the stomper.
 #[allow(clippy::too_many_arguments)]
 pub fn run_snake_shells(
     mut commands: Commands,
@@ -380,7 +396,8 @@ pub fn run_snake_shells(
         (
             Entity,
             &mut ae::BodyKinematics,
-            &mut BodyHealth,
+            &mut BodyCombat,
+            &mut ActorConfig,
             &mut SnakeShell,
         ),
         (Without<PrimaryPlayer>, Without<PlayerEntity>),
@@ -393,7 +410,7 @@ pub fn run_snake_shells(
     // First pass: advance every snake's phase and apply presentation/physics.
     // Collect sliding-shell hitboxes to run down other snakes in a second pass.
     let mut sliding_hitboxes: Vec<(Entity, ae::Aabb)> = Vec::new();
-    for (entity, mut kin, mut health, mut shell) in &mut snakes {
+    for (entity, mut kin, mut combat, mut config, mut shell) in &mut snakes {
         let inputs = shell_inputs_for(*shell, &kin, player_box);
         let fx = step_snake_shell(*shell, dt, inputs);
 
@@ -419,14 +436,16 @@ pub fn run_snake_shells(
             sfx.write(ambition::sfx::SfxMessage::Pogo { pos: kin.pos });
         }
 
-        // Reflect aliveness on the body: withdrawing zeroes HP (→ intangible,
-        // non-walking corpse); finishing emerging restores it to a live walker.
+        // A stomp changes the snake's STATE, it does not hurt it: the body stays
+        // alive (never hidden as a dead hostile actor) while these two levers make
+        // it a shell. A walker clears both — back to a moving, touchable threat.
         if fx.alive {
-            if !health.alive() {
-                health.health.current = health.health.max;
-            }
-        } else if health.alive() {
-            health.health.current = 0;
+            combat.recoil_lock_timer = 0.0;
+            config.tuning.body_contact_damage = true;
+        } else {
+            // Frozen in place (movement input hard-zeroed) and harmless to touch.
+            combat.recoil_lock_timer = SHELL_FREEZE_LOCK;
+            config.tuning.body_contact_damage = false;
         }
 
         // Command horizontal velocity for the shell stages; leave a walker's own
@@ -456,9 +475,9 @@ pub fn run_snake_shells(
     if sliding_hitboxes.is_empty() {
         return;
     }
-    for (entity, mut kin, mut health, mut shell) in &mut snakes {
-        // Only a live walker can be run down (a shell can't squash a shell).
-        if !matches!(*shell, SnakeShell::Walking) || !health.alive() {
+    for (entity, mut kin, mut combat, mut config, mut shell) in &mut snakes {
+        // Only a walker can be run down (a shell can't squash a shell).
+        if !matches!(*shell, SnakeShell::Walking) {
             continue;
         }
         let g = kin.aabb();
@@ -480,7 +499,10 @@ pub fn run_snake_shells(
             kind: ambition::vfx::ParticleKind::Dust,
         });
         sfx.write(ambition::sfx::SfxMessage::Pogo { pos: kin.pos });
-        health.health.current = 0;
+        // Pop this walker into its own withdraw — freeze it and make it inert,
+        // exactly as a stomp does, without ever dropping its HP.
+        combat.recoil_lock_timer = SHELL_FREEZE_LOCK;
+        config.tuning.body_contact_damage = false;
         kin.vel.x = 0.0;
         commands
             .entity(entity)

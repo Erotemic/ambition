@@ -539,3 +539,132 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
          (was {before}, now {after})"
     );
 }
+
+/// **A stomp SHELLS a snake — it never kills it.**
+///
+/// The bug this guards: the shell used to be a zero-HP "corpse", but a dead
+/// HOSTILE actor is hidden by the render's `visible = !hostile || alive` rule, so
+/// a stomped snake simply vanished ("just kills it") with the whole withdraw cycle
+/// running invisibly. The fix keeps the body ALIVE and expresses "shelled" as two
+/// real levers. This drives the ACTUAL production system on a REAL spawned snake
+/// and asserts the stomp: (a) leaves its HP untouched — so it stays visible — and
+/// (b) freezes it (`recoil_lock_timer`) and makes it inert (`body_contact_damage`
+/// off). Nothing here sets state by hand; it is the stomp, read from the world.
+#[test]
+fn a_stomp_shells_a_snake_alive_it_never_dies() {
+    use ambition::actors::features::{
+        spawn_encounter_mob, ActorConfig, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay,
+        GameplayBanner,
+    };
+    use ambition::characters::actor::character_catalog::CharacterCatalog;
+    use ambition::characters::actor::{BodyCombat, BodyHealth};
+    use ambition::entity_catalog::placements::CharacterBrain;
+    use ambition::platformer::lifecycle::SessionSpawnScope;
+    use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
+
+    // Snake head sits at y = 300 - 16 = 284 (size.y = 32). Player feet land in the
+    // stomp band just onto that head, falling (+y is down), overlapping in x.
+    const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
+
+    let mut app = App::new();
+    app.insert_resource(ambition::time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    ambition::platformer::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ae::RoomGeometry(ae::World::new(
+            "stomp_range",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            Vec::new(),
+        )),
+    );
+    app.insert_resource(CharacterCatalog::empty());
+    app.insert_resource(GameplayBanner::default());
+    app.init_resource::<ambition::actors::boss_encounter::BossCatalog>();
+    app.init_resource::<FeatureEcsWorldOverlay>();
+    app.add_message::<ambition::vfx::VfxMessage>();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+
+    ambition_demo_mary_o::snake::register_snake_roster(&mut app);
+    app.add_systems(Update, run_snake_shells);
+
+    // A falling player whose feet are on the snake's head.
+    app.world_mut().spawn((
+        PrimaryPlayer,
+        ae::BodyKinematics {
+            pos: ae::Vec2::new(400.0, 270.0),
+            vel: ae::Vec2::new(0.0, 120.0),
+            size: ae::Vec2::new(30.0, 48.0),
+            facing: 1.0,
+        },
+    ));
+
+    // One real snake, spawned through the ordinary encounter-mob path so it carries
+    // genuine BodyCombat + ActorConfig, then tagged a walker the way staging does.
+    {
+        let world = app.world_mut();
+        let catalog = world.resource::<CharacterCatalog>().clone();
+        let roster = world.resource::<CharacterRoster>().clone();
+        let mut commands = world.commands();
+        spawn_encounter_mob(
+            &mut commands,
+            &catalog,
+            &roster,
+            SessionSpawnScope::UNSCOPED,
+            "mary_o_stomp_range",
+            "stomped_snake".into(),
+            CharacterBrain::Custom("mary_o_snake".into()),
+            SNAKE_POS,
+            ae::Vec2::new(28.0, 32.0),
+        );
+    }
+    app.update(); // flush the spawn
+
+    let snake = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &ActorIdentity)>();
+        q.iter(world)
+            .find(|(_, id)| id.id() == "stomped_snake")
+            .map(|(e, _)| e)
+            .expect("the snake spawned as an ECS actor")
+    };
+    app.world_mut()
+        .entity_mut(snake)
+        .insert(SnakeShell::Walking);
+
+    // Unharmed, threatening, unfrozen before the stomp.
+    {
+        let e = app.world().entity(snake);
+        assert!(e.get::<BodyHealth>().unwrap().alive(), "starts alive");
+        assert!(
+            e.get::<ActorConfig>().unwrap().tuning.body_contact_damage,
+            "a walker is a contact threat before the stomp"
+        );
+    }
+
+    app.update(); // the stomp lands
+
+    let e = app.world().entity(snake);
+    assert!(
+        matches!(*e.get::<SnakeShell>().unwrap(), SnakeShell::Retreating(_)),
+        "the stomp starts the in-place withdraw"
+    );
+    let health = e.get::<BodyHealth>().unwrap();
+    assert!(
+        health.alive() && health.health.current == health.health.max,
+        "a stomp does NOT hurt the snake — full HP, so it is never hidden as a dead \
+         hostile actor (current {}, max {})",
+        health.health.current,
+        health.health.max
+    );
+    assert!(
+        e.get::<BodyCombat>().unwrap().recoil_lock_timer > 0.0,
+        "the shelled snake is frozen in place (movement input hard-zeroed)"
+    );
+    assert!(
+        !e.get::<ActorConfig>().unwrap().tuning.body_contact_damage,
+        "and inert — a resting shell is safe to walk up to and kick"
+    );
+}

@@ -228,3 +228,59 @@ fn a_transition_intent_is_recorded_then_committed_exactly_once() {
         "no second rebase — the lifecycle op committed exactly once"
     );
 }
+
+/// **Finding 2 poison test.** A lifecycle rebase installs a fresh
+/// `RollbackSessionStatus`, which would ERASE a `SyncTestMismatch` reported on
+/// the same update the intent confirms — laundering a diverged session into a
+/// clean baseline. The committer must instead REFUSE to rebase over an unhealthy
+/// session, so the diagnostic survives, no discontinuity is claimed, and the
+/// intent stays pending.
+#[test]
+fn a_confirmed_commit_refuses_to_rebase_over_a_diverged_session() {
+    let mut sim = repro_sim();
+    sim.step(AgentAction::default());
+    let floor_y = player_y(&mut sim);
+    sim.teleport_player((1200.0, floor_y));
+    let generation_before = session_generation(&sim);
+
+    // Walk until a transition intent is recorded, but poison BEFORE it commits.
+    let mut recorded = false;
+    for _ in 0..240 {
+        let obs = sim.step(AgentAction::move_x(1.0));
+        if obs.active_room.as_str() == TARGET_ROOM {
+            panic!("the intent committed before the session could be poisoned");
+        }
+        if intent_pending(&sim) {
+            recorded = true;
+            break;
+        }
+    }
+    assert!(recorded, "a transition intent was recorded while predicted");
+
+    // Poison: as if the sim diverged this window.
+    sim.world_mut()
+        .resource_mut::<ambition::runtime::rollback::RollbackSessionStatus>()
+        .mismatch_frames
+        .push(-999);
+
+    // Step past the confirmation horizon: the committer sees the unhealthy
+    // session and must NOT rebase (a rebase would erase the mismatch).
+    for _ in 0..40 {
+        let _ = sim.step(AgentAction::default());
+    }
+
+    assert!(
+        sim.rollback_health().is_err(),
+        "the injected mismatch must survive — a lifecycle rebase must not launder \
+         a diverged session clean"
+    );
+    assert_eq!(
+        session_generation(&sim),
+        generation_before,
+        "no rebase happened over the diverged session (generation unchanged)"
+    );
+    assert!(
+        intent_pending(&sim),
+        "the refused commit leaves the intent pending rather than losing it"
+    );
+}

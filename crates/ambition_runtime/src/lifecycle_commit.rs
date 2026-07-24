@@ -51,10 +51,27 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
         return;
     };
 
-    execute_lifecycle_commit(world, &kind);
+    // Never rebase over an already-diverged session. `start_sync_test_session`
+    // installs a fresh `RollbackSessionStatus`, which would ERASE a
+    // `SyncTestMismatch` reported during THIS same update — and the confirmation
+    // and the mismatch both fire at the check horizon, so they coincide. If the
+    // old timeline is unhealthy, leave the diagnostic visible and do not commit;
+    // a rebase must never launder a divergence into a clean baseline.
+    if crate::rollback::session_health(world).is_err() {
+        return;
+    }
 
-    // Clear the slot so the post-op world (about to become the new baseline)
-    // carries no pending intent.
+    // Atomic commit: only clear the intent and rebase if the reconstruction
+    // ACTUALLY happened. A failed commit (e.g. the target room fails to prepare)
+    // must not advertise an authoritative discontinuity that never occurred, nor
+    // silently lose the request — leave the intent pending to retry on a later
+    // confirmed frame.
+    if !execute_lifecycle_commit(world, &kind) {
+        return;
+    }
+
+    // Clear the slot so the post-op world (the new baseline) carries no pending
+    // intent.
     if let Some(mut pending) = world.get_resource_mut::<PendingLifecycleCommit>() {
         pending.take();
     }
@@ -69,7 +86,10 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     }
 }
 
-fn execute_lifecycle_commit(world: &mut World, kind: &LifecycleIntent) {
+/// Returns `true` iff the reconstruction actually committed (so the caller may
+/// clear the intent and rebase). `false` means the op could not complete and the
+/// intent must stay pending.
+fn execute_lifecycle_commit(world: &mut World, kind: &LifecycleIntent) -> bool {
     match kind {
         LifecycleIntent::Transition {
             target_room,
@@ -77,26 +97,33 @@ fn execute_lifecycle_commit(world: &mut World, kind: &LifecycleIntent) {
             edge_exit,
         } => commit_transition(world, target_room, *arrival, *edge_exit),
         // The in-place resets (death / manual / replay) are already rollback-safe
-        // executed eagerly, and the full sandbox reset is not yet deferred, so no
-        // consumer records these variants yet. They are handled here as a no-op so
-        // the match stays exhaustive as Track B extends deferral to them.
+        // executed eagerly, and the full sandbox reset was proven rollback-safe
+        // single-tick, so no consumer records these variants. Not committed here
+        // (returning `false` keeps a stray intent pending rather than laundering a
+        // rebase for a no-op); the match stays exhaustive if deferral extends.
         LifecycleIntent::DeathReset
         | LifecycleIntent::ManualReset
         | LifecycleIntent::Replay
-        | LifecycleIntent::FullReset => {}
+        | LifecycleIntent::FullReset => false,
     }
 }
 
 /// Reconstruct the target room synchronously and relocate the controlled body,
 /// mirroring `commit_room_transition_geometry` but in one exclusive-world call.
-fn commit_transition(world: &mut World, target_room: &str, arrival: ae::Vec2, edge_exit: bool) {
+fn commit_transition(
+    world: &mut World,
+    target_room: &str,
+    arrival: ae::Vec2,
+    edge_exit: bool,
+) -> bool {
     // Preparation is mutation-free and fallible — every room/content lookup
-    // happens here, before any world mutation.
+    // happens here, before any world mutation. A failure commits NOTHING (the
+    // caller keeps the intent pending).
     let plan = match RoomConstructionPlan::prepare(world, target_room) {
         Ok(plan) => plan,
         Err(error) => {
             error!("Track B: transition commit could not prepare room {target_room:?}: {error:?}");
-            return;
+            return false;
         }
     };
 
@@ -138,4 +165,5 @@ fn commit_transition(world: &mut World, target_room: &str, arrival: ae::Vec2, ed
     if let Some(mut sim_state) = world.get_resource_mut::<SandboxSimState>() {
         sim_state.room_transition_cooldown = cooldown;
     }
+    true
 }

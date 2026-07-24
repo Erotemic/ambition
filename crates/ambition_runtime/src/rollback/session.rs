@@ -259,9 +259,15 @@ pub(crate) fn install_session_bridge(app: &mut App) {
                 clear_historical_replay.after(RunGgrsSystems),
                 // Track B: execute a confirmed deferred lifecycle op in the
                 // exclusive world and rebase, after the advance batch is done.
+                // Ordered AFTER the external-effect Release: the rebase bumps the
+                // session generation, and the effect journal discards any pending
+                // confirmed effects stamped with the OLD generation — so they must
+                // be released to presentation first, or transition-adjacent
+                // SFX/VFX/debris confirmed before the rebase would be dropped.
                 crate::lifecycle_commit::commit_confirmed_lifecycle
                     .after(RunGgrsSystems)
-                    .after(clear_historical_replay),
+                    .after(clear_historical_replay)
+                    .after(crate::external_effects::ExternalEffectSet::Release),
             ),
         )
         // Effects may only be released once this render frame's advances are

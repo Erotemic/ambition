@@ -124,22 +124,38 @@ const VAULT_DEPTH_TILES: f32 = 9.0;
 
 const LEVEL_HEIGHT: f32 = SURFACE_HEIGHT + VAULT_DEPTH_TILES * T;
 
-/// The warp pipe: which tile column it stands in, and how big it is.
+/// **A warp pipe is a TUBE THROUGH THE GROUND SLAB.** Each one is authored as two
+/// halves at the SAME tile column: a SURFACE half standing on the ground with its
+/// mouth up, and a VAULT half hanging from the vault's ceiling with its mouth down.
+/// That is the whole geometric rule, and it buys three things the old layout was
+/// missing: every pipe you go INTO has a pipe you come OUT of, a pipe that leads
+/// upward hangs from the ceiling instead of standing on the floor pointing the
+/// wrong way, and the two ends of one tube line up the way a real tube would.
 ///
-/// Column 26 puts it on the safe run between pit A and pit B — far enough past
-/// the open teach that a player has learned the jump, close enough that the
-/// first pipe they ever see is not at the end of the level.
+/// There are two tubes:
+/// * The **descent** tube at column 26 — press DOWN on its surface mouth and you
+///   drop out of its vault half. Column 26 is the safe run between pit A and pit B:
+///   far enough past the open teach that a player has learned the jump, close
+///   enough that the first pipe they ever see is not at the end of the level.
+/// * The **ascent** tube at column 35 — press UP under its vault half at the far
+///   end of the chamber and you rise out of its surface half. Column 35 sits inside
+///   the vault's span [23,41] and on the solid run [22,42) before pit B, so the tube
+///   is straight: you come up exactly where you were standing, nine tiles past where
+///   you went down, with five clear tiles to build the run-up for pit B. (It used to
+///   surface ACROSS pit B, which bent the "tube" sideways through the ground for no
+///   reason a player could read.)
 const PIPE_COLUMN: f32 = 26.0;
+const EXIT_PIPE_COLUMN: f32 = 35.0;
 const PIPE_WIDTH_TILES: f32 = 2.0;
 const PIPE_HEIGHT_TILES: f32 = 2.0;
+/// The descent tube: the surface half you press DOWN on, and the vault half you
+/// drop out of directly below it.
 const PIPE_NAME: &str = "secret_pipe";
+const VAULT_ENTRY_PIPE_NAME: &str = "vault_entry_pipe";
+/// The ascent tube: the vault half you press UP under, and the surface half you
+/// rise out of directly above it.
 const EXIT_PIPE_NAME: &str = "vault_return_pipe";
-/// The SURFACE exit pipe: a visible pipe past pit B that the vault surfaces you
-/// beside, so the secret is a real Mario shortcut and you come out somewhere NEW
-/// instead of back on the entry pipe. Column 37 is the left edge of the ground
-/// segment [45,60) (just past the shifted pit B [42,45)), clear of the bricks.
 const SURFACE_EXIT_PIPE_NAME: &str = "surface_exit_pipe";
-const SURFACE_EXIT_COLUMN: f32 = 45.0;
 const VAULT_STONE_COLOR: [f32; 4] = [0.24, 0.20, 0.30, 1.0];
 
 /// Coins waiting in the vault. The whole reward for finding the pipe.
@@ -168,43 +184,61 @@ pub fn vault_bounds() -> ae::Aabb {
     ae::Aabb::new(min + size * 0.5, size * 0.5)
 }
 
-/// The mouth of the pipe — the rectangle you must be standing in to warp down.
-pub fn pipe_mouth() -> ae::Aabb {
+/// How big one half of a tube is.
+fn pipe_size() -> ae::Vec2 {
+    ae::Vec2::new(PIPE_WIDTH_TILES * T, PIPE_HEIGHT_TILES * T)
+}
+
+/// The min corner of the SURFACE half of the tube at `column` — standing on the
+/// ground slab, mouth up.
+fn surface_pipe_min(column: f32) -> ae::Vec2 {
     let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
-    let top = ground_top - PIPE_HEIGHT_TILES * T;
+    ae::Vec2::new(column * T, ground_top - PIPE_HEIGHT_TILES * T)
+}
+
+/// The min corner of the VAULT half of the tube at `column` — hanging from the
+/// vault's ceiling (which is the level's own ground slab), mouth down.
+fn vault_pipe_min(column: f32) -> ae::Vec2 {
+    ae::Vec2::new(column * T, vault_bounds().min.y)
+}
+
+/// The mouth of the descent tube — the band you must be standing in to warp down.
+pub fn pipe_mouth() -> ae::Aabb {
+    let top = surface_pipe_min(PIPE_COLUMN);
     let size = ae::Vec2::new(PIPE_WIDTH_TILES * T, T);
-    let min = ae::Vec2::new(PIPE_COLUMN * T, top - 0.5 * T);
+    let min = ae::Vec2::new(top.x, top.y - 0.5 * T);
     ae::Aabb::new(min + size * 0.5, size * 0.5)
 }
 
-/// Where the pipe drops you: just inside the vault, under its entrance.
+/// Where the descent tube drops you: out of its VAULT half's mouth, so you fall
+/// out of a pipe you can see rather than materializing in open stone.
 pub fn vault_arrival() -> ae::Vec2 {
-    let vault = vault_bounds();
-    ae::Vec2::new(vault.min.x + 1.5 * T, vault.min.y + 1.5 * T)
-}
-
-/// Where leaving the vault puts you: on top of the SURFACE EXIT pipe past pit B —
-/// a new location, so the secret is a shortcut rather than a there-and-back.
-pub fn pipe_arrival() -> ae::Vec2 {
-    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
+    let min = vault_pipe_min(PIPE_COLUMN);
     ae::Vec2::new(
-        (SURFACE_EXIT_COLUMN + PIPE_WIDTH_TILES * 0.5) * T,
-        ground_top - PIPE_HEIGHT_TILES * T - T,
+        min.x + PIPE_WIDTH_TILES * 0.5 * T,
+        min.y + (PIPE_HEIGHT_TILES + 1.0) * T,
     )
 }
 
-/// The return pipe's mouth: stand on it at the vault's far end and press
-/// Interact to surface.
+/// Where the ascent tube puts you: on top of its SURFACE half, directly above the
+/// vault pipe you entered — twelve tiles further into the level than you went down.
+pub fn pipe_arrival() -> ae::Vec2 {
+    let min = surface_pipe_min(EXIT_PIPE_COLUMN);
+    ae::Vec2::new(min.x + PIPE_WIDTH_TILES * 0.5 * T, min.y - T)
+}
+
+/// The ascent tube's mouth: the column of air UNDER its vault half, from the
+/// pipe's lip down to the vault floor.
 ///
-/// Sized and positioned like [`pipe_mouth`] — a band across the top of the pipe
-/// you are standing on — rather than a loose 2x2 block of air, so entering and
-/// leaving read the same way to the player.
+/// Not a thin band across a pipe's top face, because this pipe hangs overhead —
+/// you cannot stand on it. Standing anywhere beneath it and pressing UP takes you
+/// up the tube, which is both the forgiving read and the honest one: the whole
+/// space under the pipe is "in the pipe's way up".
 pub fn vault_exit() -> ae::Aabb {
     let vault = vault_bounds();
-    let pipe_top = vault.max.y - PIPE_HEIGHT_TILES * T;
-    let left = vault.max.x - PIPE_WIDTH_TILES * T;
-    let size = ae::Vec2::new(PIPE_WIDTH_TILES * T, T);
-    let min = ae::Vec2::new(left, pipe_top - 0.5 * T);
+    let lip = vault_pipe_min(EXIT_PIPE_COLUMN).y + PIPE_HEIGHT_TILES * T;
+    let min = ae::Vec2::new(EXIT_PIPE_COLUMN * T, lip);
+    let size = ae::Vec2::new(PIPE_WIDTH_TILES * T, vault.max.y - lip);
     ae::Aabb::new(min + size * 0.5, size * 0.5)
 }
 
@@ -369,40 +403,39 @@ pub fn level_1_1() -> RoomSpec {
 
     // ── 6. The secret pipe, and the vault under the level ───────────────────
     //
-    // A warp pipe standing on safe ground between pit A and pit B. Stand on its
-    // mouth and press Interact and you drop into a sealed coin vault built into
-    // the SAME room, below the ground slab — which is why the world grew
-    // downward rather than a second room being authored: cross-room transition
-    // lives in `ambition_app`'s `world_flow`, so a demo that ships its own app
-    // could not use it and would have worked only when Ambition hosted it.
+    // A warp pipe standing on safe ground between pit A and pit B. Press DOWN on
+    // its mouth and you drop into a sealed coin vault built into the SAME room,
+    // below the ground slab — which is why the world grew downward rather than a
+    // second room being authored: cross-room transition lives in `ambition_app`'s
+    // `world_flow`, so a demo that ships its own app could not use it and would
+    // have worked only when Ambition hosted it.
     //
     // The vault is reachable ONLY through the pipe: it is walled on all four
     // sides, and the ground slab above is its ceiling.
-    blocks.push(
-        ae::Block::solid_tiled(
-            PIPE_NAME,
-            ae::Vec2::new(PIPE_COLUMN * T, ground_top - PIPE_HEIGHT_TILES * T),
-            ae::Vec2::new(PIPE_WIDTH_TILES * T, PIPE_HEIGHT_TILES * T),
-            "mary_o_pipe",
-            0,
-        )
-        .with_art_color(scenery::TRANSPARENT),
-    );
-
-    // The SURFACE EXIT pipe: a second visible surface pipe, past pit B, that the
-    // vault surfaces you onto (`pipe_arrival`). Emergence-only — the way DOWN is
-    // the entry pipe at col 26; this one you rise up out of. Transparent collision,
-    // the prop supplies the look, exactly like the entry pipe.
-    blocks.push(
-        ae::Block::solid_tiled(
+    //
+    // Because BOTH ends of both warps live in this one room, each warp is one
+    // physical TUBE through that slab, authored as two halves at matching columns:
+    // surface + vault for the descent at col 26, vault + surface for the ascent at
+    // col 35. Transparent collision blocks; the props below supply the look.
+    for (name, min, art_index) in [
+        // The descent tube: you press DOWN on this one...
+        (PIPE_NAME, surface_pipe_min(PIPE_COLUMN), 0u16),
+        // ...and fall out of this one, hanging from the ceiling right below it.
+        (VAULT_ENTRY_PIPE_NAME, vault_pipe_min(PIPE_COLUMN), 1),
+        // The ascent tube: you press UP under this one near the vault's far end...
+        (EXIT_PIPE_NAME, vault_pipe_min(EXIT_PIPE_COLUMN), 2),
+        // ...and rise out of this one, straight up through the slab.
+        (
             SURFACE_EXIT_PIPE_NAME,
-            ae::Vec2::new(SURFACE_EXIT_COLUMN * T, ground_top - PIPE_HEIGHT_TILES * T),
-            ae::Vec2::new(PIPE_WIDTH_TILES * T, PIPE_HEIGHT_TILES * T),
-            "mary_o_pipe",
-            2,
-        )
-        .with_art_color(scenery::TRANSPARENT),
-    );
+            surface_pipe_min(EXIT_PIPE_COLUMN),
+            3,
+        ),
+    ] {
+        blocks.push(
+            ae::Block::solid_tiled(name, min, pipe_size(), "mary_o_pipe", art_index)
+                .with_art_color(scenery::TRANSPARENT),
+        );
+    }
 
     let vault = vault_bounds();
     let wall = T;
@@ -431,29 +464,6 @@ pub fn level_1_1() -> RoomSpec {
         );
     }
 
-    // The RETURN pipe. The vault's exit was a logical zone with no geometry —
-    // nothing to see and nothing to aim at, so the only way out was knowing it
-    // was there. A pipe you can see is the whole affordance.
-    //
-    // It STANDS ON THE VAULT FLOOR, and `vault_exit` is the band straddling its
-    // top face — exactly the relationship the entry pipe has with `pipe_mouth`.
-    // This used to derive the block's top from the BAND (`exit.max.y - height`),
-    // which floated it 48px clear of the floor and left its top face ABOVE its
-    // own band: a body standing on the pipe spanned 544..592 against a band at
-    // 624..656, so Interact could never fire and the vault had no working exit.
-    // The only way out was the hole pit B punches in its ceiling.
-    let exit = vault_exit();
-    blocks.push(
-        ae::Block::solid_tiled(
-            EXIT_PIPE_NAME,
-            ae::Vec2::new(exit.min.x, vault.max.y - PIPE_HEIGHT_TILES * T),
-            ae::Vec2::new(PIPE_WIDTH_TILES * T, PIPE_HEIGHT_TILES * T),
-            "mary_o_pipe",
-            1,
-        )
-        .with_art_color(scenery::TRANSPARENT),
-    );
-
     let spawn = ae::Vec2::new(2.0 * T, ground_top - 2.0 * T);
     let world = ae::World::new("Mary-O 1-1", ae::Vec2::new(width, height), spawn, blocks);
 
@@ -468,8 +478,7 @@ pub fn level_1_1() -> RoomSpec {
     // banner hangs off the top. The banner PROP is wider than its (pole-width)
     // collision block and offset to the side, so the flag reads as a flag without
     // widening what the body can touch.
-    let pipe_size = ae::Vec2::new(PIPE_WIDTH_TILES * T, PIPE_HEIGHT_TILES * T);
-    let pipe_lip = ae::Vec2::new(pipe_size.x, T);
+    let pipe_lip = ae::Vec2::new(pipe_size().x, T);
     let mut scenery_props = vec![
         scenery::prop_over(
             "goal_pole_shaft_art",
@@ -492,28 +501,32 @@ pub fn level_1_1() -> RoomSpec {
             size: ae::Vec2::new(1.5 * T, 1.5 * T),
         },
     ];
-    // Every warp pipe, each a lip prop stacked on a body prop over its 2×2 block:
-    // the surface ENTRY (down into the vault), the vault RETURN (up and out), and
-    // the surface EXIT past pit B that the return surfaces you onto.
-    let entry_pipe_min = ae::Vec2::new(PIPE_COLUMN * T, ground_top - PIPE_HEIGHT_TILES * T);
-    let return_pipe_min = ae::Vec2::new(vault_exit().min.x, vault.max.y - PIPE_HEIGHT_TILES * T);
-    let surface_exit_min =
-        ae::Vec2::new(SURFACE_EXIT_COLUMN * T, ground_top - PIPE_HEIGHT_TILES * T);
-    for (tag, min) in [
-        ("entry", entry_pipe_min),
-        ("return", return_pipe_min),
-        ("surface_exit", surface_exit_min),
+    // Every pipe half, drawn as a lip tile and a body tile over its 2×2 block. The
+    // LIP is the open end, so which tile it goes on is what makes a pipe point the
+    // right way: on top for a surface half (mouth up, you drop in), on the BOTTOM
+    // for a vault half (mouth down, hanging from the ceiling — you fall out of it,
+    // or rise into it).
+    for (tag, min, mouth_down) in [
+        ("entry", surface_pipe_min(PIPE_COLUMN), false),
+        ("vault_entry", vault_pipe_min(PIPE_COLUMN), true),
+        ("vault_return", vault_pipe_min(EXIT_PIPE_COLUMN), true),
+        ("surface_exit", surface_pipe_min(EXIT_PIPE_COLUMN), false),
     ] {
+        let (lip_y, body_y) = if mouth_down {
+            (min.y + T, min.y)
+        } else {
+            (min.y, min.y + T)
+        };
         scenery_props.push(scenery::prop_over(
             &format!("{tag}_pipe_lip_art"),
             scenery::PIPE_TOP_SPRITE,
-            min,
+            ae::Vec2::new(min.x, lip_y),
             pipe_lip,
         ));
         scenery_props.push(scenery::prop_over(
             &format!("{tag}_pipe_body_art"),
             scenery::PIPE_BODY_SPRITE,
-            ae::Vec2::new(min.x, min.y + T),
+            ae::Vec2::new(min.x, body_y),
             pipe_lip,
         ));
     }
@@ -1300,8 +1313,9 @@ fn spend_lives_on_death(
     replay.write(ambition::actors::session::reset::RoomReplayRequested);
 }
 
-/// **The secret pipe.** Stand on its mouth, press Interact, drop into the vault;
-/// stand at the vault's far end, press Interact, surface again.
+/// **The secret pipe.** Press DOWN on the surface mouth and you fall out of the
+/// pipe hanging from the vault's ceiling; press UP under the pipe at the vault's
+/// far end and you rise out of its surface half, nine tiles further along.
 ///
 /// The warp is a real TRANSIT, not a position poke: `transit_body` is the engine
 /// authority for discretely relocating a body (ADR 0024), and it reconciles the
@@ -1310,7 +1324,7 @@ fn spend_lives_on_death(
 /// still clinging to a wall that is no longer there.
 ///
 /// The pipe is entered DIRECTIONALLY (Jon bug list #8): press DOWN standing on
-/// the entry mouth to drop in, press UP standing on the return mouth to surface —
+/// the entry mouth to drop in, press UP standing under the return pipe to surface —
 /// the classic warp-pipe verb. That does NOT break the "a single Up/Down must not
 /// trigger a door" rule: a pipe is not a door, and the press has to point INTO
 /// the pipe while you stand on its mouth, which reads as deliberate, not
@@ -1819,30 +1833,30 @@ mod tests {
              arrival {:?} vs pipe {surface_exit:?}",
             pipe_arrival()
         );
-        // Deliberately NOT `body_at(vault_exit().center())`. That point is
-        // inside the return pipe's own SOLID geometry, so it asserted a
-        // position no player can occupy — which is why it stayed green while
-        // the vault had no working exit at all. Stand her on the pipe's top
-        // face, where a player actually ends up, and check from there.
-        // Read the top face off the AUTHORED block, never recompute it from the
-        // formula it was supposed to use — recomputing tests the intent and
-        // passes no matter where the block actually ended up.
-        let return_pipe_top = level_1_1()
+        // The return pipe hangs from the vault ceiling, so a player cannot stand
+        // ON it — they stand UNDER it and press UP. Assert from where a body
+        // actually ends up: on the vault FLOOR, beneath the pipe. Read the floor
+        // off the AUTHORED level, never recompute it from the formula it was
+        // supposed to use — recomputing tests the intent and passes no matter
+        // where the geometry actually ended up. (An earlier version of this test
+        // stood the body on the return pipe's top face; that face is now the
+        // ceiling, and standing there is not a thing a player can do.)
+        let vault_floor = level_1_1()
             .world
             .blocks
             .iter()
-            .find(|b| b.name == EXIT_PIPE_NAME)
-            .expect("the vault has a visible return pipe")
+            .find(|b| b.name == "vault_floor")
+            .expect("the vault has a floor")
             .aabb
             .min
             .y;
-        let standing_on_return_pipe =
-            ae::Vec2::new(vault_exit().center().x, return_pipe_top - 0.9 * T);
+        let standing_under_return_pipe =
+            ae::Vec2::new(vault_exit().center().x, vault_floor - 0.9 * T);
         assert!(
-            overlaps(body_at(standing_on_return_pipe), vault_exit()),
-            "a body STANDING ON the return pipe must overlap the exit band, or \
-             Interact can never fire and the vault is a one-way trip: body at \
-             {standing_on_return_pipe:?} vs band {:?}",
+            overlaps(body_at(standing_under_return_pipe), vault_exit()),
+            "a body STANDING ON THE VAULT FLOOR under the return pipe must overlap \
+             the exit mouth, or the press can never fire and the vault is a one-way \
+             trip: body at {standing_under_return_pipe:?} vs mouth {:?}",
             vault_exit()
         );
 
@@ -1862,11 +1876,15 @@ mod tests {
             .blocks
             .iter()
             .find(|b| b.name == EXIT_PIPE_NAME)
-            .expect("the vault has a VISIBLE return pipe, not just an exit zone");
+            .expect("the vault has a VISIBLE return pipe, not just an exit zone")
+            .aabb;
         assert!(
-            overlaps(return_pipe.aabb, vault_exit()),
-            "and the exit zone sits on that pipe's mouth, so what you press \
-             Interact on is the thing you can see"
+            (vault_exit().min.y - return_pipe.max.y).abs() < 1.0
+                && (vault_exit().min.x - return_pipe.min.x).abs() < 1.0
+                && (vault_exit().max.x - return_pipe.max.x).abs() < 1.0,
+            "and the exit mouth hangs directly beneath that pipe's lip, so what you \
+             press UP under is the thing you can see: mouth {:?} vs pipe {return_pipe:?}",
+            vault_exit()
         );
         assert_eq!(
             room.placements
@@ -1875,6 +1893,96 @@ mod tests {
                 .count(),
             VAULT_COINS,
             "the vault is stocked"
+        );
+    }
+
+    /// **A pipe you go INTO always has a pipe you come OUT of.**
+    ///
+    /// The three things Jon caught by looking at the level, which every test here
+    /// missed because they only ever checked a mouth against its own zone:
+    ///
+    /// 1. The descent pipe had NO output pipe — you pressed down on a pipe and
+    ///    materialized in open stone, with nothing at the far end to come out of.
+    /// 2. The vault's return pipe STOOD ON THE FLOOR pointing up out of solid rock,
+    ///    when the way it leads is up through the ceiling.
+    /// 3. Its surface pipe was across the pit instead of above it, so the "tube"
+    ///    bent sideways through the ground for no reason a player could read.
+    ///
+    /// **(1) is the universal rule** and the only one that is really about pipes:
+    /// wherever a warp puts you, there is a pipe there to come out of. A pipe whose
+    /// far end is in another room may well be nowhere near its entrance — what has
+    /// to hold is that it READS as connected, which means arriving at a visible
+    /// mouth.
+    ///
+    /// **(2) and (3) are the SAME-ROOM rule.** Both of level 1-1's tubes are one
+    /// physical object inside one room — a tube through the ground slab — so their
+    /// halves are genuinely connected and must line up: matching columns, one
+    /// hanging from the vault ceiling and one standing on the slab. That is a
+    /// property of these tubes, not of every pipe the engine will ever host.
+    #[test]
+    fn a_pipe_you_enter_always_has_a_pipe_you_come_out_of() {
+        let room = level_1_1();
+        let vault = vault_bounds();
+        let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
+        let block = |name: &str| {
+            room.world
+                .blocks
+                .iter()
+                .find(|b| b.name == name)
+                .unwrap_or_else(|| panic!("the level authors a `{name}` pipe"))
+                .aabb
+        };
+
+        // SAME-ROOM rule: these two tubes each pierce the slab inside one room, so
+        // each is one physical object and its halves must line up. A tube whose far
+        // end lived in a DIFFERENT room would be exempt — it only has to read as
+        // connected, which the arrival-at-a-mouth checks below cover.
+        for (surface_name, vault_name) in [
+            (PIPE_NAME, VAULT_ENTRY_PIPE_NAME),
+            (SURFACE_EXIT_PIPE_NAME, EXIT_PIPE_NAME),
+        ] {
+            let (surface, under) = (block(surface_name), block(vault_name));
+            assert!(
+                (surface.min.x - under.min.x).abs() < 1.0
+                    && (surface.max.x - under.max.x).abs() < 1.0,
+                "{surface_name} and {vault_name} are two halves of ONE tube and must \
+                 share a column: {surface:?} vs {under:?}"
+            );
+            // The surface half stands ON the ground slab...
+            assert!(
+                (surface.max.y - ground_top).abs() < 1.0,
+                "{surface_name} must stand on the ground slab, not float: {surface:?}"
+            );
+            // ...and the vault half HANGS FROM THE CEILING, which is that same slab.
+            // (The bug: the return pipe sat on the vault FLOOR.)
+            assert!(
+                (under.min.y - vault.min.y).abs() < 1.0,
+                "{vault_name} must hang from the vault ceiling — a pipe that leads UP \
+                 cannot stand on the floor: {under:?} vs ceiling {}",
+                vault.min.y
+            );
+        }
+
+        // THE UNIVERSAL RULE: each warp delivers you at a visible pipe's MOUTH, not
+        // into bare stone. This is the half that would still have to hold for a pipe
+        // whose far end is in another room entirely.
+        let dropped_out_of = block(VAULT_ENTRY_PIPE_NAME);
+        assert!(
+            vault_arrival().x > dropped_out_of.min.x
+                && vault_arrival().x < dropped_out_of.max.x
+                && vault_arrival().y >= dropped_out_of.max.y,
+            "going DOWN the descent tube must drop you out of its vault pipe's mouth: \
+             {:?} vs pipe {dropped_out_of:?}",
+            vault_arrival()
+        );
+        let rose_out_of = block(SURFACE_EXIT_PIPE_NAME);
+        assert!(
+            pipe_arrival().x > rose_out_of.min.x
+                && pipe_arrival().x < rose_out_of.max.x
+                && pipe_arrival().y <= rose_out_of.min.y,
+            "going UP the ascent tube must put you on top of its surface pipe: {:?} vs \
+             pipe {rose_out_of:?}",
+            pipe_arrival()
         );
     }
 

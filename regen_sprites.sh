@@ -367,6 +367,8 @@ expected_files=(
     cut_rope_piano_spritesheet.png cut_rope_piano_spritesheet.ron
     cut_rope_rope_spritesheet.png cut_rope_rope_spritesheet.ron
     super_mary_o_spritesheet.png super_mary_o_spritesheet.ron
+    super_mary_o_tall_spritesheet.png super_mary_o_tall_spritesheet.ron
+    super_mary_o_fire_spritesheet.png super_mary_o_fire_spritesheet.ron
     props/super_mary_o_milk_carton.png
     generic_explosions_spritesheet.png generic_explosions_spritesheet.ron
     smirking_behemoth_boss_spritesheet.png smirking_behemoth_boss_spritesheet.ron
@@ -795,6 +797,12 @@ tackon_targets=(
     # sprites/super_mary_o_spritesheet.*; without this publish a fresh
     # clone renders the demo character as a colored rectangle.
     super_mary_o
+    # Her power forms are SEPARATE targets in the same module (each a distinct
+    # SHEET, not a scaled copy): the grown form (`mary_o_tall` catalog row) and
+    # the fire-flower form (`mary_o_fire`, Jon bug #10). Both must publish or a
+    # fresh clone draws the powered-up player as a colored rectangle.
+    super_mary_o_tall
+    super_mary_o_fire
     # Mary-O's gameplay provider binds this generated pickup through
     # WorldItemArt at sprites/props/super_mary_o_milk_carton.png. Publish
     # the source target here, then copy its canonical pose into props/.

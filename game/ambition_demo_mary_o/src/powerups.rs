@@ -33,6 +33,16 @@ use crate::provider::MARY_O_CHARACTER_ID;
 /// the powerup grows Mary-O; reverting to [`MARY_O_CHARACTER_ID`] shrinks her.
 const TALL_CHARACTER_ID: &str = "mary_o_tall";
 
+/// The worn-character id of the FIRE form (the fire-flower analog). A distinct
+/// SHEET (`super_mary_o_fire`) with its own fireball pose, tinted the classic
+/// white-and-red fire palette — the SAME height as the grown form, so the spark
+/// blossom changes her LOOK + spark loadout without a size flicker. Wearing the
+/// [`SPARK_BLOSSOM_ID`] row selects this; losing the spark reverts to
+/// [`TALL_CHARACTER_ID`] (grown), then a second hit to [`MARY_O_CHARACTER_ID`]
+/// (small). Before this she wore the plain tall sheet while spark-powered, so
+/// there was no visible difference between grown and fire (Jon bug #10).
+const SPARK_CHARACTER_ID: &str = "mary_o_fire";
+
 /// The milk carton's half-extent — a small collectible box that pops out of a
 /// bonked ?-block and grows Mary-O when she touches it.
 const MILK_HALF: ae::Vec2 = ae::Vec2::new(12.0, 14.0);
@@ -310,24 +320,30 @@ pub fn sync_grown_form(
     let Ok((mut worn_char, mut base, mut kin, worn)) = players.single_mut() else {
         return;
     };
-    // BOTH power states are tall. The blossom downgrades INTO the cap, so during
-    // that transition she is continuously tall and only the spark is lost — the
-    // size never flickers between the two hits.
-    let wants_tall = worn.is_some_and(|w| w.wears(GROW_CAP_ID) || w.wears(SPARK_BLOSSOM_ID));
-    let is_tall = worn_char.0 == TALL_CHARACTER_ID;
-    if wants_tall == is_tall {
-        return;
-    }
-    let (id, size) = if wants_tall {
+    // THREE forms, chosen from what she wears. The fire (spark) and grown (cap)
+    // forms are the SAME height — the blossom downgrades INTO the cap on a hit, so
+    // across that transition she stays continuously tall and only her look + spark
+    // loadout change; the size flickers on neither the grow nor the spark→grown
+    // downgrade, only on the final grown→small hit.
+    let (target_id, target_size) = if worn.is_some_and(|w| w.wears(SPARK_BLOSSOM_ID)) {
+        (SPARK_CHARACTER_ID, tall_body_size())
+    } else if worn.is_some_and(|w| w.wears(GROW_CAP_ID)) {
         (TALL_CHARACTER_ID, tall_body_size())
     } else {
         (MARY_O_CHARACTER_ID, small_body_size())
     };
-    // Feet stay planted: shift the center up by half the height gain (up = -y).
-    kin.pos.y -= (size.y - kin.size.y) * 0.5;
-    kin.size = size;
-    base.base_size = size;
-    worn_char.0 = id.to_string();
+    if worn_char.0 == target_id {
+        return;
+    }
+    // Feet stay planted across a size change (grow / shrink): shift the center up
+    // by half the height gain (up = -y). The fire↔grown swap is same-size, so the
+    // guard skips the shift there and only her sheet changes.
+    if kin.size != target_size {
+        kin.pos.y -= (target_size.y - kin.size.y) * 0.5;
+        kin.size = target_size;
+        base.base_size = target_size;
+    }
+    worn_char.0 = target_id.to_string();
 }
 
 /// Re-arm every ?-block when level 1-1 (re)loads, so a cyclic replay pops fresh
@@ -577,14 +593,22 @@ mod tests {
             let k = app.world().get::<ae::BodyKinematics>(body).unwrap();
             k.pos.y + k.size.y * 0.5
         };
+        // "Tall" is a SIZE fact now, since the two power states share a height but
+        // NOT a sheet: the fire form has its own distinct look.
         let is_tall =
-            |app: &App| app.world().get::<WornCharacter>(body).unwrap().0 == TALL_CHARACTER_ID;
+            |app: &App| app.world().get::<ae::BodyKinematics>(body).unwrap().size.y > small.y;
+        let form = |app: &App| app.world().get::<WornCharacter>(body).unwrap().0.clone();
 
         app.update();
         let feet_tall = feet(&app);
         assert!(is_tall(&app), "wearing the blossom alone reads as tall");
+        assert_eq!(
+            form(&app),
+            SPARK_CHARACTER_ID,
+            "the blossom shows the DISTINCT fire sheet, not the plain grown one"
+        );
 
-        // Hit one: spark -> grown. Still tall, and she does not bob.
+        // Hit one: spark -> grown. Same height, but the sheet reverts to grown.
         app.world_mut()
             .get_mut::<WornEquipment>(body)
             .unwrap()
@@ -593,6 +617,11 @@ mod tests {
         assert!(
             is_tall(&app),
             "losing the spark leaves her GROWN, not small"
+        );
+        assert_eq!(
+            form(&app),
+            TALL_CHARACTER_ID,
+            "losing the spark drops the fire sheet back to the grown sheet"
         );
         assert!(
             (feet(&app) - feet_tall).abs() < 1e-3,
@@ -606,6 +635,11 @@ mod tests {
             .consume_armor();
         app.update();
         assert!(!is_tall(&app), "the second hit finally shrinks her");
+        assert_eq!(
+            form(&app),
+            MARY_O_CHARACTER_ID,
+            "the second hit shrinks her back to the small sheet"
+        );
         assert!(
             (feet(&app) - feet_tall).abs() < 1e-3,
             "feet stay planted through the shrink"

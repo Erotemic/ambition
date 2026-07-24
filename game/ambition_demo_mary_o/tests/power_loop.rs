@@ -43,6 +43,7 @@ use ambition_demo_mary_o::powerups::{
 use ambition_demo_mary_o::provider::MARY_O_CHARACTER_ID;
 
 const TALL_ID: &str = "mary_o_tall";
+const FIRE_ID: &str = "mary_o_fire";
 
 struct Loop {
     app: App,
@@ -190,7 +191,18 @@ impl Loop {
             .is_some_and(|w| w.wears(id))
     }
     fn is_tall(&self) -> bool {
-        self.app.world().get::<WornCharacter>(self.body).unwrap().0 == TALL_ID
+        // Both power forms (grown cap = `mary_o_tall`, fire blossom = `mary_o_fire`)
+        // share the tall SIZE and differ only from the small starting form, so
+        // "tall" is "wearing any power sheet" rather than one specific sheet.
+        self.app.world().get::<WornCharacter>(self.body).unwrap().0 != MARY_O_CHARACTER_ID
+    }
+    fn worn_character(&self) -> String {
+        self.app
+            .world()
+            .get::<WornCharacter>(self.body)
+            .unwrap()
+            .0
+            .clone()
     }
     fn has_ranged_move(&self) -> bool {
         self.app
@@ -237,6 +249,11 @@ fn the_whole_power_loop_runs_on_the_real_systems() {
         "the block gave a small Mary-O milk"
     );
     assert!(game.is_tall(), "collecting it grew her");
+    assert_eq!(
+        game.worn_character(),
+        TALL_ID,
+        "the milk shows the plain grown sheet"
+    );
     assert!(
         !game.has_ranged_move(),
         "the milk is armor only — it grants no verb"
@@ -250,6 +267,11 @@ fn the_whole_power_loop_runs_on_the_real_systems() {
         "the block gave a GROWN Mary-O the blossom, not another milk"
     );
     assert!(game.is_tall(), "she is still tall");
+    assert_eq!(
+        game.worn_character(),
+        FIRE_ID,
+        "the blossom swaps her to the DISTINCT fire sheet, not the plain grown one (Jon bug #10)"
+    );
     assert!(
         game.has_ranged_move(),
         "and the reconcile turned the blossom's grant into a fireable move"
@@ -279,6 +301,11 @@ fn the_whole_power_loop_runs_on_the_real_systems() {
     assert!(!game.wears(SPARK_BLOSSOM_ID), "the hit spent the blossom");
     assert!(game.wears(GROW_CAP_ID), "downgrading to the cap");
     assert!(game.is_tall(), "so she is still GROWN, not small");
+    assert_eq!(
+        game.worn_character(),
+        TALL_ID,
+        "losing the spark reverts the fire sheet back to the grown sheet"
+    );
     assert!(
         !game.has_ranged_move(),
         "but the spark verb was revoked with the row — no dangling action"

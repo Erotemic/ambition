@@ -619,6 +619,33 @@ const MARY_O_CATALOG_RON: &str = r#"(
             ),
             hall_dialogue_id: Some("hall_mary_o_tall"),
         ),
+        // FIRE Mary-O: the spark-blossom (fire-flower) form. A second power-up
+        // ABOVE the cap swaps the worn identity to this row — a DISTINCT fire sheet
+        // (`super_mary_o_fire`, the white-and-red fire palette with its own
+        // fireball pose), the SAME height as the grown form so `sync_grown_form`
+        // changes only her LOOK + spark loadout, never her size, on the
+        // grown↔fire transition. Kit mirrors `mary_o_tall` byte-for-byte: the
+        // fireball is granted by WEARING the spark blossom (see `MaryOSpark`), not
+        // by this row, so becoming fire never alters her base moveset. Before this
+        // she wore the plain tall sheet while spark-powered, so there was no
+        // visible fire form at all (Jon bug #10).
+        "mary_o_fire": (
+            display_name: "Mary-O (Fire)",
+            spritesheet: "sprites/super_mary_o_fire_spritesheet.png",
+            manifest: "sprites/super_mary_o_fire_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            abilities: Some([RunJump, WallMobility, FastFall]),
+            axis_tuning: Some((jump_speed: 913.0, max_run_speed: 320.0, run_accel: 900.0)),
+            playable_kit: Authored,
+            tags: ["player"],
+            barks: (
+                hall: ["One blossom, and every ceiling gets a warm answer.", "I throw solutions now — mind the sparks.", "Fireproof opinions, freshly lit."],
+            ),
+        ),
         // The crony's IDENTITY row: its sprite resolves from this display name.
         // It points its OWN name at the published `ai_slop` sheet (Ambition owns
         // the "Ai Slop" display name; a duplicate would fail catalog assembly when
@@ -1253,6 +1280,18 @@ mod tests {
             .world()
             .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>();
         assert!(catalog.get(provider::MARY_O_CHARACTER_ID).is_some());
+        // Her three power forms are all catalog characters — the small starting
+        // sheet, the grown (milk/cap) sheet, and the fire (spark-blossom) sheet.
+        // Before the fire row existed she wore the grown sheet while spark-powered,
+        // so there was no distinct fire look (Jon bug #10).
+        assert!(
+            catalog.get("mary_o_tall").is_some(),
+            "the grown power form is a catalog character"
+        );
+        assert!(
+            catalog.get("mary_o_fire").is_some(),
+            "the fire power form is a catalog character (Jon bug #10)"
+        );
         // Mary-O's authored grant list composes to her platformer moveset —
         // run+jump, wall mobility, fast fall — and NOTHING from the full Ambition
         // kit (blink/dash/fly/attack). This is her AbilityBase; the session mask

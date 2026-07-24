@@ -69,8 +69,21 @@ pub struct SpeedShoes {
     saved_ground_accel: f32,
 }
 
+/// Whether a monitor breaks this frame, given how the player touched it.
+///
+/// The SUPER form is game-changing, so grabbing it is a DELIBERATE act — a stomp
+/// onto the lid — never something you roll into "no matter what" just by carrying
+/// speed through its lane (Jon bug list #6: "runs past a point → turns super no
+/// matter what"). Fast running IS rolling in this demo, so a plain roll-through
+/// used to auto-transform. Ordinary monitors (speed shoes) still pop on a
+/// roll-through, the classic Sonic feel.
+fn monitor_breaks(is_super: bool, stomp: bool, roll: bool) -> bool {
+    stomp || (roll && !is_super)
+}
+
 /// **The break.** A falling player whose feet land on a monitor's lid, or a
-/// rolling player overlapping it, breaks it once: burst + cue + the grant.
+/// rolling player overlapping it, breaks it once: burst + cue + the grant. The
+/// SUPER monitor is stomp-only ([`monitor_breaks`]).
 pub fn break_monitor_boxes(
     mut commands: Commands,
     mut spent: ResMut<SpentMonitors>,
@@ -109,7 +122,8 @@ pub fn break_monitor_boxes(
         let stomp =
             falling && overlap_x && feet >= b.min.y - STOMP_BAND && feet <= b.min.y + STOMP_BAND;
         let roll = rolling && overlap_x && overlap_y;
-        if !stomp && !roll {
+        let is_super = block.name == SUPER_MONITOR;
+        if !monitor_breaks(is_super, stomp, roll) {
             continue;
         }
         spent.0.push(block.name.clone());
@@ -212,6 +226,32 @@ pub fn rearm_monitors_on_room_loaded(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Jon bug #6: rolling THROUGH the super monitor must not auto-transform you;
+    /// only a deliberate stomp grabs the super form. Ordinary monitors keep the
+    /// classic roll-through.
+    #[test]
+    fn the_super_monitor_is_stomp_only_but_others_pop_on_a_rollthrough() {
+        // Ordinary (speed) monitor: a roll-through OR a stomp breaks it.
+        assert!(
+            monitor_breaks(false, false, true),
+            "speed monitor pops on a roll-through"
+        );
+        assert!(monitor_breaks(false, true, false), "and on a stomp");
+        // Super monitor: a roll-through must NOT transform you...
+        assert!(
+            !monitor_breaks(true, false, true),
+            "rolling past the super monitor must NOT auto-transform (Jon bug #6)"
+        );
+        // ...only a deliberate stomp onto the lid does.
+        assert!(
+            monitor_breaks(true, true, false),
+            "a stomp onto the super monitor IS a deliberate grab"
+        );
+        // Touching neither way breaks nothing.
+        assert!(!monitor_breaks(false, false, false));
+        assert!(!monitor_breaks(true, false, false));
+    }
 
     #[test]
     fn a_broken_monitor_is_subtracted_from_the_collision_overlay() {

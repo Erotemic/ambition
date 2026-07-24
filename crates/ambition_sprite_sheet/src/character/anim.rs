@@ -181,6 +181,21 @@ pub enum CharacterAnim {
     /// other. Generator row `skid`. Selected while `BodyMotionFacts::skidding`
     /// is published (the surface-momentum integration owns the read).
     Skid = 46,
+    /// Shell-withdraw: a shelled enemy pulling INTO its shell after a stomp
+    /// (generator row `retreat`). One-shot into [`Self::ShellIdle`]. Not chosen by
+    /// the shared locomotion picker — a content shell state machine forces it via
+    /// an animation override.
+    Retreat = 47,
+    /// At rest inside the shell (generator row `boxed_idle`). The kickable pose.
+    ShellIdle = 48,
+    /// Starting to come back out — a wary look from inside the shell (generator
+    /// row `peek`). One-shot into [`Self::Emerge`].
+    Peek = 49,
+    /// Climbing back out of the shell to a walker (generator row `emerge`).
+    /// One-shot back to locomotion.
+    Emerge = 50,
+    /// An aggravated hiss/telegraph (generator row `hiss`).
+    Hiss = 51,
 }
 
 impl CharacterAnim {
@@ -262,6 +277,13 @@ impl CharacterAnim {
             // the one-shot dodge tumble so existing sheets keep their read.
             "ball" => Self::Roll,
             "skid" => Self::Skid,
+            // Shelled-enemy (Koopa-style) withdraw cycle. Driven by a content
+            // shell state machine through an animation override, not the picker.
+            "retreat" => Self::Retreat,
+            "boxed_idle" => Self::ShellIdle,
+            "peek" => Self::Peek,
+            "emerge" => Self::Emerge,
+            "hiss" => Self::Hiss,
             "wall_jump" => Self::WallJump,
             "interact" => Self::Interact,
             _ => return None,
@@ -345,6 +367,14 @@ impl CharacterAnim {
             LandRecovery => Idle,
             // Idle-variant gesture.
             Taunt => Idle,
+            // Shelled-enemy withdraw cycle: every stage degrades toward the
+            // at-rest shell pose, and the shell pose to plain Idle, so a sheet
+            // that drew only some of the rows still reads sensibly.
+            ShellIdle => Idle,
+            Retreat => ShellIdle,
+            Peek => ShellIdle,
+            Emerge => ShellIdle,
+            Hiss => Idle,
         })
     }
 }
@@ -378,5 +408,48 @@ pub fn non_looping(anim: CharacterAnim) -> bool {
             | CharacterAnim::Interact
             | CharacterAnim::Punch
             | CharacterAnim::Special
+            // Shell transitions are one-shot: the withdraw settles into the
+            // boxed pose and the re-emerge climbs back to a walker; only
+            // `ShellIdle` (and `Hiss`) loop.
+            | CharacterAnim::Retreat
+            | CharacterAnim::Peek
+            | CharacterAnim::Emerge
     )
+}
+
+#[cfg(test)]
+mod shell_anim_tests {
+    use super::{non_looping, CharacterAnim};
+
+    /// The Koopa-style shell rows the generator emits resolve to their own
+    /// variants, so a shelled-enemy sheet's `retreat`/`boxed_idle`/`peek`/
+    /// `emerge`/`hiss` rows land in `anim_rows` and are selectable — they used to
+    /// return `None` and be dropped from the sheet spec entirely.
+    #[test]
+    fn the_shell_rows_map_to_their_own_variants() {
+        assert_eq!(CharacterAnim::from_name("retreat"), Some(CharacterAnim::Retreat));
+        assert_eq!(CharacterAnim::from_name("boxed_idle"), Some(CharacterAnim::ShellIdle));
+        assert_eq!(CharacterAnim::from_name("peek"), Some(CharacterAnim::Peek));
+        assert_eq!(CharacterAnim::from_name("emerge"), Some(CharacterAnim::Emerge));
+        assert_eq!(CharacterAnim::from_name("hiss"), Some(CharacterAnim::Hiss));
+    }
+
+    /// The withdraw/re-emerge transitions hold their final frame; only the at-rest
+    /// shell (and the hiss telegraph) loop.
+    #[test]
+    fn the_shell_transitions_are_one_shot_but_the_boxed_pose_loops() {
+        assert!(non_looping(CharacterAnim::Retreat));
+        assert!(non_looping(CharacterAnim::Peek));
+        assert!(non_looping(CharacterAnim::Emerge));
+        assert!(!non_looping(CharacterAnim::ShellIdle));
+        assert!(!non_looping(CharacterAnim::Hiss));
+    }
+
+    /// A sheet missing a shell row degrades toward the boxed pose, then Idle —
+    /// never a hard snap that reads as "standing" mid-withdraw.
+    #[test]
+    fn missing_shell_rows_degrade_toward_idle() {
+        assert_eq!(CharacterAnim::Retreat.base_pose(), Some(CharacterAnim::ShellIdle));
+        assert_eq!(CharacterAnim::ShellIdle.base_pose(), Some(CharacterAnim::Idle));
+    }
 }

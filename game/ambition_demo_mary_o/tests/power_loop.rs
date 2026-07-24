@@ -386,17 +386,17 @@ fn the_authored_spark_arcs_bounces_and_expires() {
     );
 }
 
-/// **The spark kills a crony through the canonical hit path.**
+/// **The spark kills a snake through the canonical hit path.**
 ///
 /// The composition is the claim worth testing: the engine already proves its
 /// stepper damages actors, and the loop above already proves the blossom grants an
 /// ordinary ranged verb. What is left to show is that HER shot — authored flight,
 /// authored visual, content-marked — is not special to any of it. So this builds
 /// the projectile from the blossom's own grant, hands it to the shared stepper as
-/// a player-faction shot, and watches a crony lose HP through
+/// a player-faction shot, and watches a snake lose HP through
 /// `apply_feature_hit_events`. Nothing in the damage path knows what a spark is.
 #[test]
-fn her_spark_damages_a_crony_through_the_shared_hit_pipeline() {
+fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     use ambition::actors::features::{
         apply_feature_hit_events, spawn_encounter_mob, ActorIdentity, CharacterRoster,
         FeatureEcsWorldOverlay, GameplayBanner, HitEvent, SetFlagRequested,
@@ -412,7 +412,7 @@ fn her_spark_damages_a_crony_through_the_shared_hit_pipeline() {
         ProjectileVisualCatalog, ProjectileVisualId,
     };
 
-    const CRONY_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
+    const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
 
     let mut app = App::new();
     app.insert_resource(ambition::time::WorldTime {
@@ -443,8 +443,8 @@ fn her_spark_damages_a_crony_through_the_shared_hit_pipeline() {
     app.add_message::<ambition::sfx::OwnedSfxMessage>();
     app.add_message::<ambition::actors::avatar::PlayerHealRequested>();
 
-    // Mary-O's OWN crony archetype, registered exactly as the demo registers it.
-    ambition_demo_mary_o::crony::register_crony_roster(&mut app);
+    // Mary-O's OWN Solid Snake archetype, registered exactly as the demo registers it.
+    ambition_demo_mary_o::snake::register_snake_roster(&mut app);
     app.add_systems(Update, (step_projectiles, apply_feature_hit_events).chain());
 
     // A player-faction firer to own the shot.
@@ -461,7 +461,7 @@ fn her_spark_damages_a_crony_through_the_shared_hit_pipeline() {
         ))
         .id();
 
-    // One crony, spawned through the ordinary encounter-mob path.
+    // One snake, spawned through the ordinary encounter-mob path.
     {
         let world = app.world_mut();
         let catalog = world.resource::<CharacterCatalog>().clone();
@@ -473,9 +473,9 @@ fn her_spark_damages_a_crony_through_the_shared_hit_pipeline() {
             &roster,
             SessionSpawnScope::UNSCOPED,
             "mary_o_spark_range",
-            "crony_under_fire".into(),
-            CharacterBrain::Custom("mary_o_crony".into()),
-            CRONY_POS,
+            "snake_under_fire".into(),
+            CharacterBrain::Custom("mary_o_snake".into()),
+            SNAKE_POS,
             ae::Vec2::new(28.0, 32.0),
         );
     }
@@ -499,8 +499,8 @@ fn her_spark_damages_a_crony_through_the_shared_hit_pipeline() {
         world_hit: WorldHitPolicy::Bouncing,
         charge_tier: 0,
     });
-    // Aim it flat at the crony so the hit does not depend on arc tuning.
-    body.kin.pos = ae::Vec2::new(370.0, CRONY_POS.y);
+    // Aim it flat at the snake so the hit does not depend on arc tuning.
+    body.kin.pos = ae::Vec2::new(370.0, SNAKE_POS.y);
     body.kin.vel = ae::Vec2::new(600.0, 0.0);
 
     let seq = app
@@ -518,24 +518,24 @@ fn her_spark_damages_a_crony_through_the_shared_hit_pipeline() {
         ProjectileVisualId(ambition_demo_mary_o::powerups::SPARK_VISUAL.to_string()),
     ));
 
-    let crony_health = |app: &mut App| {
+    let snake_health = |app: &mut App| {
         let world = app.world_mut();
         let mut q = world.query::<(&ActorIdentity, &BodyHealth)>();
         q.iter(world)
-            .find(|(id, _)| id.id() == "crony_under_fire")
+            .find(|(id, _)| id.id() == "snake_under_fire")
             .map(|(_, h)| (h.health.current, h.health.max))
     };
-    let (before, max) = crony_health(&mut app).expect("the crony spawned as an ECS actor");
+    let (before, max) = snake_health(&mut app).expect("the snake spawned as an ECS actor");
     assert_eq!(before, max, "unharmed before the shot");
 
     for _ in 0..4 {
         app.update();
     }
 
-    let (after, _) = crony_health(&mut app).expect("the crony is still an entity");
+    let (after, _) = snake_health(&mut app).expect("the snake is still an entity");
     assert!(
         after < before,
-        "the spark damaged the crony through the shared hit pipeline \
+        "the spark damaged the snake through the shared hit pipeline \
          (was {before}, now {after})"
     );
 }

@@ -147,7 +147,7 @@ fn spark_shot() -> RangedActionSpec {
 
 /// Launch speed of a spark (px/s).
 const SPARK_SPEED: f32 = 300.0;
-/// Base damage before the blossom's x1.5 fold — enough to end a crony.
+/// Base damage before the blossom's x1.5 fold — enough to end a snake.
 const SPARK_DAMAGE: i32 = 4;
 /// Downward pull, which is what turns a flat shot into a skipping arc.
 const SPARK_GRAVITY: f32 = 900.0;
@@ -367,7 +367,7 @@ fn power_tier(character_id: &str) -> u8 {
 }
 
 /// Re-arm every ?-block when level 1-1 (re)loads, so a cyclic replay pops fresh
-/// milk. Mirrors the crony restage; the milk items themselves are room-scoped and
+/// milk. Mirrors the snake restage; the milk items themselves are room-scoped and
 /// despawn with the room.
 pub fn refill_power_blocks_on_room_loaded(
     mut rooms: MessageReader<RoomLoaded>,

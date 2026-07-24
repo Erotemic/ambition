@@ -17,7 +17,7 @@
 //! the rest of the M-track; see `docs/planning/demos/super-mary-o.md`.
 
 pub mod bricks;
-pub mod crony;
+pub mod snake;
 pub mod flag;
 pub mod movement;
 pub mod powerups;
@@ -72,7 +72,7 @@ const GROUND_TILES: f32 = 2.0;
 /// state-driven (milk while small, blossom once grown), so with only two blocks a
 /// player who took a hit between them could never reach the spark form at all —
 /// the first block re-grows her and the second is already spent. The third sits
-/// after the brick run, past the point where a crony is likely to have cost her
+/// after the brick run, past the point where a snake is likely to have cost her
 /// the cap, so the fire form is reachable on a normal messy playthrough rather
 /// than only on a clean one.
 const POWER_BLOCK_COLUMNS: [f32; 3] = [6.0, 30.0, 52.0];
@@ -692,16 +692,15 @@ const MARY_O_CATALOG_RON: &str = r#"(
                 hall: ["One blossom, and every ceiling gets a warm answer.", "I throw solutions now — mind the sparks.", "Fireproof opinions, freshly lit."],
             ),
         ),
-        // The crony's IDENTITY row: its sprite resolves from this display name.
-        // It points its OWN name at the published `ai_slop` sheet (Ambition owns
-        // the "Ai Slop" display name; a duplicate would fail catalog assembly when
-        // hosted). Behavior/HP/contact come from the `mary_o_crony` ROSTER
-        // archetype (see `crony.rs`), not this catalog row — this is only the
-        // sprite + name.
-        "mary_o_crony": (
-            display_name: "Mary-O Crony",
-            spritesheet: "sprites/ai_slop_spritesheet.png",
-            manifest: "sprites/ai_slop_spritesheet.ron",
+        // Solid Snake's IDENTITY row (the Koopa-equivalent): its sprite resolves
+        // from this display name. The `solid_snake` sheet carries the shell-withdraw
+        // rows (retreat / boxed_idle / peek / emerge) the in-place shell drives.
+        // Behavior/HP/contact come from the `mary_o_snake` ROSTER archetype (see
+        // `snake.rs`), not this catalog row — this is only the sprite + name.
+        "solid_snake": (
+            display_name: "Solid Snake",
+            spritesheet: "sprites/solid_snake_spritesheet.png",
+            manifest: "sprites/solid_snake_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             default_brain: "stand_still",
@@ -731,11 +730,11 @@ pub fn install_mary_o_content(app: &mut App) {
         )
         .expect("Mary-O character catalog should be valid"),
     );
-    // The crony's hostile archetype and room stager are authored content, so
+    // Solid Snake's hostile archetype and room stager are authored content, so
     // install both before direct or shell preparation fingerprints the App.
-    crony::register_crony_roster(app);
+    snake::register_snake_roster(app);
     app.init_resource::<ambition::actors::features::RoomContentStagingRegistry>();
-    crony::register_crony_content_staging(
+    snake::register_snake_content_staging(
         &mut app
             .world_mut()
             .resource_mut::<ambition::actors::features::RoomContentStagingRegistry>(),
@@ -768,6 +767,14 @@ pub fn install_mary_o_content(app: &mut App) {
             .rollback_component_clone::<flag::FlagSequence>(
                 "ambition_demo_mary_o",
                 "content.mary_o_flag_sequence",
+            )
+            // A snake's shell phase (and its stage timers) is authoritative sim
+            // state — two sims that disagree on where a shell is in its withdraw
+            // are in different states. It rides on the snake BODY, which the
+            // engine already anchors, so a plain component clone snapshots it.
+            .rollback_component_clone::<snake::SnakeShell>(
+                "ambition_demo_mary_o",
+                "content.mary_o_snake_shell",
             );
     }
 }
@@ -944,12 +951,12 @@ impl Plugin for MaryORulesPlugin {
         // does not, and a missing message is a hard system-param panic rather
         // than a skip. Idempotent, same as the rest of this block.
         app.add_message::<ambition::actors::ActorDiedMessage>();
-        // The crony stager reads room-load facts and writes spawn requests; the
+        // The snake stager reads room-load facts and writes spawn requests; the
         // engine registers both in a full app, but a thin rules-only test harness
         // may not, and `add_message` is idempotent.
         app.add_message::<ambition::actors::rooms::RoomLoaded>();
         app.add_message::<ambition::actors::features::SpawnActorRequest>();
-        // The crony squash pops a dust burst through the engine's vfx seam; a full
+        // The snake squash pops a dust burst through the engine's vfx seam; a full
         // app registers this via the presentation plugins, but a thin rules-only
         // harness may not, and `add_message` is idempotent.
         app.add_message::<ambition::vfx::VfxMessage>();
@@ -976,17 +983,14 @@ impl Plugin for MaryORulesPlugin {
         // authored-content composition seam shared by direct and shell hosts.
         // Rules consume the staged actors; they do not mutate construction
         // registries after prepared-content fingerprinting.
-        // The head-stomp runs BEFORE the engine's shared body-contact-damage
-        // pass so a squash never also hurts the stomper (the rule zeroes the
-        // crony's health that frame, which the contact pass then skips).
+        // Tag freshly staged snakes, then run the in-place shell mechanic. The
+        // shell system runs BEFORE the engine's shared body-contact-damage pass so
+        // a stomp neutralizes the snake (to a zero-HP corpse) that frame, which the
+        // contact pass then skips — the stomper is never also hurt.
         let cronies = (
-            crony::bounce_squash_cronies
+            snake::tag_mary_o_snakes,
+            snake::run_snake_shells
                 .before(ambition::actors::features::apply_actor_contact_damage),
-            // The shell trio, after the stomp that creates one: tag what the
-            // engine spawned, let the player kick it, then drive it.
-            crony::tag_mary_o_shells,
-            crony::kick_mary_o_shells,
-            crony::drive_mary_o_shells,
         )
             .chain();
         // The powerup rules on the two engine primitives: re-arm the ?-blocks on

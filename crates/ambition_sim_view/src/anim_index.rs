@@ -5,7 +5,8 @@
 use bevy::prelude::{Query, ResMut, Resource};
 
 use ambition_actors::features::{
-    boss_anim_state_for, ActorConfig, ActorStatus, BodyKinematics, BodyMelee, FeatureId,
+    boss_anim_state_for, ActorAnimOverride, ActorConfig, ActorStatus, BodyKinematics, BodyMelee,
+    FeatureId,
 };
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
@@ -47,6 +48,11 @@ pub struct ActorSpriteData {
     /// the component (a legacy / bespoke path) still animates its base ladder —
     /// it just shows no overlays (fable review §A9).
     pub anim: Option<&'static ambition_actors::actor::BodyAnimFacts>,
+    /// Content-driven pose PIN. When present it wins over the picked pose — a
+    /// content state machine (e.g. a shelled enemy's withdraw cycle) uses it to
+    /// show a pose the disposition-agnostic picker can't infer. `Option`, so an
+    /// ordinary actor is picked exactly as before.
+    pub anim_override: Option<&'static ActorAnimOverride>,
 }
 
 /// One actor's resolved animation frame for the renderer: the chosen anim plus
@@ -151,6 +157,9 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 rolling: a.anim.is_some_and(|f| f.rolling),
             },
         );
+        // A content pose PIN wins over the picked pose (e.g. a shelled enemy's
+        // withdraw cycle, which the disposition-agnostic picker cannot infer).
+        let anim = a.anim_override.map(|o| o.0).unwrap_or(anim);
         index.insert(
             a.feature_id.as_str(),
             ActorAnimFrame {

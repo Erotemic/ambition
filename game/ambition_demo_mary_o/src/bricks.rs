@@ -91,7 +91,7 @@ pub fn break_bricks(
         };
         if broken.mark(i) {
             // A fresh break shatters into brick-red shards through the engine's
-            // shared particle seam — the same `VfxMessage::Burst` the crony squash
+            // shared particle seam — the same `VfxMessage::Burst` the snake squash
             // pops, so a brick reads as breaking with no bespoke vfx.
             let center = brick_min(i) + ae::Vec2::splat(T * 0.5);
             vfx.write(ambition::vfx::VfxMessage::Burst {

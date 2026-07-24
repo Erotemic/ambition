@@ -7,7 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`bricks`](src/bricks.rs) | Mary-O's breakable bricks — the SECOND consumer of the reactive-block primitive. |
-| [`crony`](src/crony.rs) | Mary-O's crony — a stompable walker, authored as pure content. |
+| [`snake`](src/snake.rs) | Mary-O's Solid Snake — the Koopa-equivalent walker with an in-place animated shell. |
 | [`flag`](src/flag.rs) | **M3 — the flagpole sequence.** |
 | [`powerups`](src/powerups.rs) | Super Mary-O's powerups — the M1 equipment chain, authored as A3 data. |
 | [`provider`](src/provider.rs) | The Mary-O experience provider. |

@@ -30,7 +30,6 @@ use super::*;
 // re-exporting the shared body vocabulary.
 use crate::platformer_runtime::lifecycle::RoomVisual;
 use ambition_characters::actor::{BodyCombat, BodyHealth};
-use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use bevy::prelude::{
     Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut, With,

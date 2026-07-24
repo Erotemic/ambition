@@ -182,6 +182,7 @@ pub fn fire_dive_system(
     // The dash corridor cuts everything between start and landing — a one-shot
     // PlayerSlash volume (spares the player, shoves enemies along the dash).
     hits.write(crate::features::HitEvent {
+        strike_sfx: None,
         volume: dive_corridor(from, target).into(),
         damage: DIVE_DAMAGE,
         source: crate::features::HitSource::PlayerSlash {

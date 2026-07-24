@@ -822,6 +822,9 @@ fn boss_actor_cluster(
             // catalog id (their strike volumes are frame-authored).
             attack_cooldown_mult: 1.0,
             sprite_character_id: None,
+            // CM8: a struck boss reacts with the plain hurt profile (its death is
+            // handled by the boss-death feedback, not this).
+            hurt_feedback: ambition_vfx::HurtFeedback::ENEMY,
         },
     )
 }

@@ -886,6 +886,7 @@ fn kernel_reset_death_reports_the_pre_respawn_impact_position() {
 fn a_lifecycle_boundary_voids_staged_player_hits() {
     fn staged_hit() -> FeatureHitEvent {
         FeatureHitEvent {
+            strike_sfx: None,
             volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)).into(),
             damage: 1,
             source: crate::combat::HitSource::EnemyAttack,

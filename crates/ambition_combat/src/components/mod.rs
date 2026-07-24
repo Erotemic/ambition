@@ -223,6 +223,15 @@ pub struct CombatTuning {
     /// remains only for content-free fixtures. Combat forwards the stable id to
     /// the App-local authored-volume resolver.
     pub sprite_character_id: Option<String>,
+    /// How THIS body reacts to being struck (CM8): the victim-owned half of hit
+    /// feedback — the default hurt sound plus the spray/debris it throws. The
+    /// per-body home the survey (§8 fact 4) named, so a heavy body could later
+    /// clang where a light one squishes. Defaults to
+    /// [`ambition_vfx::HurtFeedback::ENEMY`] (plain tick, no spray), which is
+    /// what stops an enemy struck by another enemy from borrowing the player's
+    /// red "you got hurt" burst — the CM8 bug. The player is handled by its own
+    /// consumer with [`ambition_vfx::HurtFeedback::PLAYER`].
+    pub hurt_feedback: ambition_vfx::HurtFeedback,
 }
 
 impl Default for CombatTuning {
@@ -231,6 +240,7 @@ impl Default for CombatTuning {
             weight: 1.0,
             attack_cooldown_mult: 1.0,
             sprite_character_id: None,
+            hurt_feedback: ambition_vfx::HurtFeedback::ENEMY,
         }
     }
 }

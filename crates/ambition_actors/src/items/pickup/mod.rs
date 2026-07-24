@@ -591,6 +591,7 @@ fn emit_fireball_explosion(
     vfx: &mut MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     feature_damage.write(crate::features::HitEvent {
+        strike_sfx: None,
         volume: ae::Aabb::new(pos, Vec2::splat(half)).into(),
         damage,
         source: crate::features::HitSource::PlayerProjectile,
@@ -895,6 +896,7 @@ pub fn held_projectile_step(
         // Damage check against actors / bosses / breakables via the shared
         // attacker-side channel. `PlayerProjectile` broadcasts to features.
         let hit_event = crate::features::HitEvent {
+            strike_sfx: None,
             volume: HeldProjectile::contact_aabb(pos).into(),
             damage: proj.damage,
             source: crate::features::HitSource::PlayerProjectile,

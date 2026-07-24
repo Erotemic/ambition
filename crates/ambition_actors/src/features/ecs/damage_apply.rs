@@ -17,7 +17,7 @@
 use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut};
 
 use ambition_engine_core as ae;
-use ambition_vfx::vfx::VfxMessage;
+use ambition_vfx::vfx::{DebrisBurstMessage, VfxMessage};
 use ambition_world::collision::MovingPlatformSet;
 
 use crate::actor::BodyAnimFacts;
@@ -255,6 +255,7 @@ pub(crate) fn handle_player_damage_events(
     world: &ae::World,
     sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
+    debris: &mut MessageWriter<DebrisBurstMessage>,
     died: &mut MessageWriter<ActorDiedMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut SandboxSimState,
@@ -375,6 +376,15 @@ pub(crate) fn handle_player_damage_events(
         }
         BodyHitResolution::Damaged { died: false, .. } => match damage.mode {
             crate::combat::HitMode::SafeRespawn => {
+                // CM8: a safe-respawn is a "reset" reaction, not a hurt, so it
+                // keeps its own Reset cue — but the striking attack's sound
+                // (e.g. the spike) still plays, since the body did touch it.
+                if let Some(id) = damage.strike_sfx {
+                    sfx.write(SfxMessage::Play {
+                        id,
+                        pos: impact_pos,
+                    });
+                }
                 safe_respawn_player(
                     sfx,
                     vfx,
@@ -397,6 +407,7 @@ pub(crate) fn handle_player_damage_events(
                 apply_player_knockback(
                     sfx,
                     vfx,
+                    debris,
                     clusters,
                     combat,
                     tuning,
@@ -582,6 +593,7 @@ pub(crate) fn apply_body_hit_reaction(
 pub(crate) fn apply_player_knockback(
     sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
+    debris: &mut MessageWriter<DebrisBurstMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
     combat: &mut BodyCombat,
     tuning: ae::MovementTuning,
@@ -619,8 +631,18 @@ pub(crate) fn apply_player_knockback(
         &mut *clusters.jump,
         tuning.air_jumps,
     );
-    sfx.write(SfxMessage::Hit { pos: impact_pos });
-    vfx.write(VfxMessage::Impact { pos: impact_pos });
+    // CM8: THE one victim-side reaction. The player carries the rich hurt
+    // profile (its red "you got hurt" burst + debris) that used to be emitted
+    // attacker-side keyed on `is_player`; the striking attack's `strike_sfx`
+    // overrides the sound so an enemy sword and a hazard are heard apart.
+    crate::combat::util::emit_hit_feedback(
+        sfx,
+        vfx,
+        debris,
+        ambition_vfx::HurtFeedback::PLAYER,
+        damage.strike_sfx,
+        impact_pos,
+    );
 }
 
 /// Resolve this tick's victim-side `HitEvent`s and remember the last safe-spawn
@@ -745,10 +767,16 @@ pub fn apply_player_hit_events(
     // (S3e's relational `relations` + `attacker_factions` pushed this to 17).
     // `class_b` is the §3.2 transit ledger — death and hazard respawn are both
     // Class-B remaps, and this system is where the victim's entity id is known.
-    (world, moving_platforms, mut class_b): (
+    // CM8: `debris_writer` is bundled here rather than added as a top-level
+    // param — this system already sits at Bevy's 16-param ceiling (hence the
+    // tuple). It carries the player's hurt-debris puff into the ONE victim-side
+    // reaction, so the player keeps the impact debris that used to fire
+    // attacker-side.
+    (world, moving_platforms, mut class_b, mut debris_writer): (
         ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
         Res<MovingPlatformSet>,
         Option<ResMut<ambition_platformer_primitives::class_b::ClassBRemapLog>>,
+        MessageWriter<DebrisBurstMessage>,
     ),
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -890,6 +918,7 @@ pub fn apply_player_hit_events(
             &world.0,
             &mut sfx_writer,
             &mut vfx_writer,
+            &mut debris_writer,
             &mut died_writer,
             &mut clusters,
             &mut sim_state,

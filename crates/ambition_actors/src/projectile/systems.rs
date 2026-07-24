@@ -542,6 +542,7 @@ pub fn step_projectiles(
         // player + actors.
         if firer_faction == Some(ActorFaction::Player) {
             let hit_event = HitEvent {
+                strike_sfx: None,
                 volume: kin.aabb().into(),
                 damage: game.damage.max(1),
                 // Player shots always carry the kind component; default is
@@ -558,7 +559,10 @@ pub fn step_projectiles(
                 || crate::features::ecs_hit_event_hits_boss(&boss_catalog, &hit_event, &ecs_bosses);
             if hit {
                 feature_damage.write(hit_event);
-                sfx.write(SfxMessage::Hit { pos: kin.pos });
+                // CM8: no attacker-side hit sound here — the struck feature's own
+                // victim consumer (actor / boss reaction, or the breakable's
+                // Impact / shatter) owns the cue, so a projectile plink is
+                // consistent with a melee plink instead of playing an extra Hit.
                 trace.push_event(
                     ProjectileTraceEvent::Hit {
                         kind,
@@ -630,18 +634,11 @@ pub fn step_projectiles(
                     reflected = true;
                     break;
                 }
-                // §A2: the EVENT always flows — i-frames / dodge / shield resolve
-                // at CONSUME time in `resolve_body_hit`, identically for every
-                // body. Vulnerability is read here for FEEDBACK ONLY: don't play
-                // the hit sfx/vfx for a hit the consumer will ignore.
-                let feedback = vuln.is_none_or(|(offense, facts, shield, combat)| {
-                    crate::combat::util::body_vulnerable(
-                        offense,
-                        facts.dodge_rolling,
-                        shield,
-                        combat,
-                    )
-                });
+                // CM8: vulnerability is no longer read here to MUTE feedback —
+                // the ONE victim-side reaction fires only on a landed hit, so a
+                // dodged / parried / i-framed hit is muted for free at consume
+                // time (`resolve_body_hit`). (`vuln` is still read for the parry /
+                // shield reflect branch above.)
                 // Knockback side in the victim's LOCAL frame (fable review
                 // 2026-07-02 §B11): a screen-X difference degenerates exactly when
                 // sideways gravity separates the pair along world-Y.
@@ -661,6 +658,7 @@ pub fn step_projectiles(
                     (victim_body.center().y + kin.pos.y) * 0.5,
                 );
                 feature_damage.write(HitEvent {
+                    strike_sfx: None,
                     volume: kin.aabb().into(),
                     damage: game.damage.max(1),
                     source: HitSource::EnemyProjectile,
@@ -686,10 +684,10 @@ pub fn step_projectiles(
                     }),
                     ignored_targets: Vec::new(),
                 });
-                if feedback {
-                    sfx.write(SfxMessage::Hit { pos: kin.pos });
-                    vfx.write(VfxMessage::Impact { pos: kin.pos });
-                }
+                // CM8: the struck body's feedback (sound + spray) is emitted by
+                // the ONE victim-side reaction now — a player victim through
+                // `apply_player_hit_events`, an actor through `apply_actor_hit`.
+                // Emitting here too would double the cue.
                 struck = true;
                 break;
             }

@@ -252,6 +252,37 @@ fn authored_melee_adapter_matches_the_simple_melee_prefab() {
     assert_eq!(via_adapter, via_prefab);
 }
 
+/// CM8: the authored contact sound flows from the melee spec onto the strike
+/// volume — the first link of the authoring chain volume → hitbox → event →
+/// victim reaction. This is what lets a roster row give a character its own hit
+/// sound so a sword and a claw are heard apart.
+#[test]
+fn an_authored_hit_sfx_rides_the_swing_volume() {
+    let active_volume = |m: &MoveSpec| {
+        m.windows
+            .iter()
+            .find(|w| matches!(w.tag, WindowTag::Active))
+            .and_then(|w| w.volumes.first())
+            .cloned()
+            .expect("the Active window carries the strike volume")
+    };
+
+    let with_sound = simple_melee(&SimpleMeleeParams {
+        hit_sfx: Some("player.slash".to_string()),
+        ..Default::default()
+    });
+    assert_eq!(
+        active_volume(&with_sound).hit_sfx.as_deref(),
+        Some("player.slash"),
+        "the spec's authored contact sound reaches the volume"
+    );
+
+    // An unauthored swing carries no strike sound — the victim's own default
+    // hurt sound plays instead (parity with pre-CM8).
+    let plain = simple_melee(&SimpleMeleeParams::default());
+    assert_eq!(active_volume(&plain).hit_sfx, None);
+}
+
 /// The seed move: SwipeSpec-as-data (0.28 windup / 0.08 active with one
 /// forward rect volume / recovery), one timed Sfx event on the swing.
 fn swat() -> MoveSpec {

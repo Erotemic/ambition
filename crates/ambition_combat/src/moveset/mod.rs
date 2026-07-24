@@ -483,6 +483,10 @@ pub fn advance_move_playback(
                         // uniform).
                         let half_extent = body_frame.to_world_half(half_extent);
                         let hb = Hitbox {
+                            // CM8: the authored strike sound rides the volume onto
+                            // the spawned box, so it reaches the victim-side
+                            // reaction (a sword and a claw are heard apart).
+                            strike_sfx: volume.hit_sfx.as_deref().map(ambition_sfx::SfxId::new),
                             owner,
                             source: hit_side_from_actor_faction(strike_faction),
                             anchor: HitboxAnchor::FollowOwner { local_offset },

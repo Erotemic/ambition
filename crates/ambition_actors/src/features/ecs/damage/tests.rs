@@ -59,6 +59,7 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
     let actor_entity = spawn_hostile_actor(&mut app);
     let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
         volume: event_volume.into(),
         damage: 1,
         source: HitSource::EnemyBody,
@@ -81,6 +82,104 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
     );
 }
 
+/// CM8 END-TO-END (the actual bug): an enemy struck by another enemy runs
+/// through the REAL victim consumer (`apply_feature_hit_events` → `apply_actor_hit`)
+/// and reacts with its OWN `HurtFeedback::ENEMY` — a plain tick, NO
+/// `PLAYER_DAMAGE` grunt and NO red "you got hurt" burst. The attack's authored
+/// `strike_sfx` overrides only the sound, so a sword and the victim's default are
+/// heard apart without any `is_player` branch selecting the payload.
+#[test]
+fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
+    use bevy::ecs::message::Messages;
+
+    fn played_sounds(app: &App) -> Vec<ambition_sfx::SfxId> {
+        let msgs = app
+            .world()
+            .resource::<Messages<ambition_sfx::OwnedSfxMessage>>();
+        let mut cursor = msgs.get_cursor();
+        cursor
+            .read(msgs)
+            .filter_map(|m| match m.request {
+                ambition_sfx::SfxMessage::Play { id, .. } => Some(id),
+                _ => None,
+            })
+            .collect()
+    }
+    fn red_hurt_bursts(app: &App) -> usize {
+        let msgs = app.world().resource::<Messages<VfxMessage>>();
+        let mut cursor = msgs.get_cursor();
+        cursor
+            .read(msgs)
+            .filter(|m| {
+                matches!(
+                    m,
+                    VfxMessage::Burst { color, .. } if *color == [1.0, 0.34, 0.28, 0.88]
+                )
+            })
+            .count()
+    }
+    fn strike_an_enemy(strike_sfx: Option<ambition_sfx::SfxId>) -> App {
+        let mut app = App::new();
+        app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(crate::features::enemies::test_roster());
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.add_message::<HitEvent>();
+        app.add_message::<SetFlagRequested>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_message::<ActorStimulus>();
+        app.add_systems(Update, apply_feature_hit_events);
+        let victim = spawn_hostile_actor(&mut app);
+        // A non-lethal (damage 1 vs health 5) hit PRE-RESOLVED to this enemy —
+        // an enemy-vs-enemy contact, `HitTarget::Actor`.
+        app.world_mut().write_message(HitEvent {
+            strike_sfx,
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage: 1,
+            source: HitSource::EnemyBody,
+            attacker: None,
+            target: HitTarget::Actor(victim),
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+        app.update();
+        app
+    }
+
+    // Authored strike sound (a sword): it plays, and NOT the player's grunt.
+    let sword = ambition_sfx::SfxId::new("weapon.sword");
+    let by_sword = strike_an_enemy(Some(sword));
+    let sounds = played_sounds(&by_sword);
+    assert!(sounds.contains(&sword), "the sword's authored sound plays");
+    assert!(
+        !sounds.contains(&ambition_sfx::ids::PLAYER_DAMAGE),
+        "the enemy must NOT play the player's hurt grunt (the CM8 bug)"
+    );
+    assert_eq!(
+        red_hurt_bursts(&by_sword),
+        0,
+        "an enemy victim throws NO red player-hurt burst"
+    );
+
+    // Unauthored: the enemy's own default tick (PLAYER_HIT), still not the grunt.
+    let unauthored = strike_an_enemy(None);
+    let sounds = played_sounds(&unauthored);
+    assert!(
+        sounds.contains(&ambition_sfx::ids::PLAYER_HIT),
+        "an unauthored hit uses the enemy's default hurt sound"
+    );
+    assert!(
+        !sounds.contains(&ambition_sfx::ids::PLAYER_DAMAGE),
+        "still never the player's grunt"
+    );
+    assert_eq!(red_hurt_bursts(&unauthored), 0);
+}
+
 #[test]
 fn enemy_charge_crash_is_processed_as_enemy_damage() {
     let mut app = App::new();
@@ -99,6 +198,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
     let actor_entity = spawn_hostile_actor(&mut app);
     let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
         volume: event_volume.into(),
         damage: 10,
         source: HitSource::EnemyChargeCrash,
@@ -153,6 +253,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
 
     // First slash: 2 damage → 3 HP, still alive.
     app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
         volume: event_volume.into(),
         damage: 2,
         source: HitSource::PlayerSlash { knock_x: 120.0 },
@@ -189,6 +290,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
 
     // Lethal slash: 5 damage → dead through the normal kill path.
     app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
         volume: event_volume.into(),
         damage: 5,
         source: HitSource::PlayerSlash { knock_x: 120.0 },
@@ -323,6 +425,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
         spawn_talkable_npc(&mut app, hp);
         let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
         app.world_mut().write_message(HitEvent {
+            strike_sfx: None,
             volume: event_volume.into(),
             damage: 1,
             source: HitSource::PlayerSlash { knock_x: 120.0 },
@@ -373,6 +476,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
     let actor_entity = spawn_hostile_actor(&mut app); // HP 5
     let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     let slash = || HitEvent {
+        strike_sfx: None,
         volume: event_volume.into(),
         damage: 2,
         source: HitSource::PlayerSlash { knock_x: 120.0 },
@@ -456,6 +560,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
             .surface_normal = ae::Vec2::new(1.0, 0.0);
     }
     app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
         volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
         damage: 1,
         source: HitSource::PlayerSlash { knock_x: 0.0 },
@@ -561,6 +666,7 @@ fn player_slash_shatters_a_breakable() {
         .broken());
 
     app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
         volume: aabb.into(),
         damage: 2,
         source: HitSource::PlayerSlash { knock_x: 0.0 },
@@ -907,6 +1013,7 @@ fn shield_test_app() -> App {
 /// body AABB to land), dealing `damage`.
 fn slash_at(center: ae::Vec2, damage: i32) -> HitEvent {
     HitEvent {
+        strike_sfx: None,
         volume: ae::Aabb::new(center, ae::Vec2::new(32.0, 40.0)).into(),
         damage,
         source: HitSource::PlayerSlash { knock_x: 200.0 },
@@ -985,6 +1092,7 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
     // Attacker to the LEFT of the victim (victim at origin): expect a launch
     // toward +x with the feel-tuned enemy knockback, rising (world -y).
     app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
         volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0)).into(),
         damage: 2,
         source: HitSource::EnemyAttack,
@@ -1057,6 +1165,7 @@ fn an_actor_targeted_hit_damages_only_the_named_actor() {
     let victim = spawn_hostile_actor(&mut app);
     let bystander = spawn_hostile_actor(&mut app);
     app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
         volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0)).into(),
         damage: 2,
         // Victim-side source, yet the Actor target routes it to the actor consumer.
@@ -1111,6 +1220,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
     let enemy = spawn_hostile_actor(&mut app); // HP 5, box at origin
     let volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
         volume: volume.into(),
         damage: 2,
         source: HitSource::PlayerSlash { knock_x: 0.0 },
@@ -1201,6 +1311,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         .id();
     app.world_mut().spawn((
         ambition_vfx::Hitbox {
+            strike_sfx: None,
             owner: player,
             source: ambition_vfx::HitSide::Player,
             anchor: ambition_vfx::HitboxAnchor::FollowOwner {
@@ -1265,6 +1376,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
             .health
             .current = start_hp;
         app.world_mut().write_message(HitEvent {
+            strike_sfx: None,
             volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
             damage,
             source: HitSource::PlayerSlash { knock_x: 120.0 },

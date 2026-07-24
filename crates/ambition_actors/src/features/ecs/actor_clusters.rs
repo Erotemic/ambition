@@ -728,6 +728,11 @@ impl ActorClusterSeed {
             weight: self.config.tuning.weight,
             attack_cooldown_mult: self.config.tuning.attack_cooldown_mult,
             sprite_character_id: self.config.sprite_character_id.clone(),
+            // CM8: an ordinary actor reacts to being hit with the plain hurt
+            // profile — no red player-hurt spray. This is the per-body seam for
+            // future archetype-authored reactions (a metal body clangs, a slime
+            // squishes); every actor takes the ENEMY default today.
+            hurt_feedback: ambition_vfx::HurtFeedback::ENEMY,
         };
         (
             self.kin,

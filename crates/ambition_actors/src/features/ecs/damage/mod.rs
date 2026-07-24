@@ -31,7 +31,7 @@ use super::damage_predicates::target_is_ignored;
 #[cfg(test)]
 use super::PickupFeature;
 use crate::features::ActorStimulus;
-use ambition_sfx::{SfxMessage, SfxWriter};
+use ambition_sfx::SfxWriter;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
 
@@ -132,6 +132,11 @@ pub fn apply_feature_hit_events(
             // a policy). The crawler's typed cling-break detach goes through it.
             &'static mut crate::features::MotionModel,
             super::actor_clusters::ActorClusterQueryData,
+            // CM8: this body's own hurt reaction (its `CombatTuning.hurt_feedback`).
+            // `Option` for bare test fixtures spawned without the combat carrier
+            // (they fall back to the ENEMY default). The victim owns its spray;
+            // the attack owns only the strike sound.
+            Option<&'static crate::combat::CombatTuning>,
         ),
         // Bosses are handled by the disjoint `bosses` query; both take
         // `&mut BodyKinematics` (the unified component), so exclude bosses
@@ -157,6 +162,8 @@ pub fn apply_feature_hit_events(
             &mut ambition_characters::actor::BodyCombat,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
+            // CM8: the boss's own hurt reaction (ENEMY default).
+            Option<&crate::combat::CombatTuning>,
         ),
         (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,
@@ -263,6 +270,7 @@ pub fn apply_feature_hit_events(
             control,
             mut motion_model,
             mut cq,
+            combat_tuning,
         ) in &mut actors
         {
             // Pre-resolved actor victim: apply ONLY to that entity.
@@ -295,6 +303,7 @@ pub fn apply_feature_hit_events(
             if crate::combat::util::body_is_corpse(Some(&*em.health)) {
                 continue;
             }
+            let hurt = combat_tuning.map(|ct| ct.hurt_feedback).unwrap_or_default();
             if apply_actor_hit(
                 &event,
                 catalog,
@@ -310,6 +319,7 @@ pub fn apply_feature_hit_events(
                 combat_banter.as_deref(),
                 feel,
                 di_input_local,
+                hurt,
                 &mut writers,
             ) {
                 actor_hit_this_event = true;
@@ -326,8 +336,16 @@ pub fn apply_feature_hit_events(
         }
         let mut boss_hit_this_event = false;
         // A pre-resolved actor-vs-actor hit never spills onto bosses / breakables.
-        for (id, _aabb, mut feature, mut health, mut combat, attack_state, animation_frame) in
-            bosses.iter_mut().filter(|_| actor_target.is_none())
+        for (
+            id,
+            _aabb,
+            mut feature,
+            mut health,
+            mut combat,
+            attack_state,
+            animation_frame,
+            boss_tuning,
+        ) in bosses.iter_mut().filter(|_| actor_target.is_none())
         {
             if target_is_ignored(&event.ignored_targets, "boss", id.as_str()) {
                 continue;
@@ -338,6 +356,7 @@ pub fn apply_feature_hit_events(
             if crate::combat::util::body_is_corpse(Some(&*health)) {
                 continue;
             }
+            let hurt = boss_tuning.map(|ct| ct.hurt_feedback).unwrap_or_default();
             if apply_boss_hit(
                 &catalogs.bosses,
                 &event,
@@ -348,6 +367,7 @@ pub fn apply_feature_hit_events(
                 animation_frame,
                 &mut banner,
                 combat_banter.as_deref(),
+                hurt,
                 &mut writers,
             ) {
                 boss_hit_this_event = true;
@@ -376,7 +396,11 @@ pub fn apply_feature_hit_events(
                     if entity != attacker {
                         continue;
                     }
-                    combat.hitstop_timer = combat.hitstop_timer.max(0.06);
+                    // CM8 free cleanup: read the declared `attack_hitstop_time`
+                    // (0.055) that previously had NO reader — the attacker's
+                    // hit-landed hitstop was hardcoded 0.06. Now the feel field is
+                    // authoritative.
+                    combat.hitstop_timer = combat.hitstop_timer.max(feel.attack_hitstop_time);
                     combat.hit_flash = combat.hit_flash.max(0.10);
                     // Record the targets this slash just struck so the next active
                     // frame's emit ignores them (one hit per target per swing).
@@ -390,9 +414,11 @@ pub fn apply_feature_hit_events(
                     break;
                 }
             }
-            writers.sfx.write(SfxMessage::Hit {
-                pos: event.volume.center(),
-            });
+            // CM8: the hit SOUND is no longer emitted here (this shared confirm
+            // once played `SfxMessage::Hit`, doubling the victim's own sound). It
+            // now belongs to the ONE victim-side reaction, keyed on the attack's
+            // `strike_sfx` over the victim's `HurtFeedback`. This block keeps only
+            // the ATTACKER's feel (hitstop / flash / combo-confirm dedup).
         }
 
         // Struck breakables, keyed for the one-hit-per-target dedup. Unlike actors

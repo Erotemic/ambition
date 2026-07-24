@@ -69,6 +69,7 @@ pub fn tick_bomb_fuses(
         // Detonate: a broadcast player-side hit over the blast radius — a real
         // disc, so the blast is radial (corners of the old square no longer hit).
         hits.write(HitEvent {
+            strike_sfx: None,
             volume: ae::CombatVolume::circle(ground.pos, BOMB_BLAST_HALF),
             damage: BOMB_DAMAGE,
             source: HitSource::PlayerSlash { knock_x: 0.0 },

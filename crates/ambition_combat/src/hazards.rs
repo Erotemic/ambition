@@ -1,5 +1,7 @@
-//! Hazard tick: patrol motion, contact damage, and the impact SFX/VFX
-//! published to the presentation/audio buses.
+//! Hazard tick: patrol motion and contact damage. The contact hit's feedback
+//! (its strike sound + the victim's hurt spray) is published by the ONE
+//! victim-side reaction (`emit_hit_feedback`), keyed off `HitEvent::strike_sfx`
+//! that this system stamps — not emitted here (CM8).
 
 use super::util::hazard_sfx_id;
 use super::*;
@@ -7,9 +9,6 @@ use super::*;
 /// Tick ECS-authored hazards and publish player damage through Bevy messages.
 pub fn update_ecs_hazards(
     world_time: Res<WorldTime>,
-    mut sfx: ambition_sfx::SfxWriter,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
-    mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
     // `Without<FeatureSimEntity>` keeps this read of the player's published
     // `CenteredAabb` (§A6) provably disjoint from the mutable hazard query.
@@ -116,23 +115,13 @@ pub fn update_ecs_hazards(
             // per-tick resolved frame.
             let side = resolved_frame.basis().side;
             let knockback_dir = (pos - hazard.pos).dot(side).signum();
-            vfx.write(VfxMessage::Impact { pos });
-            vfx.write(VfxMessage::Burst {
-                pos,
-                count: 14,
-                speed: 300.0,
-                color: [1.0, 0.34, 0.28, 0.88],
-                kind: ParticleKind::Shard,
-            });
-            debris.write(DebrisBurstMessage {
-                pos,
-                cue: PhysicsDebrisCue::Impact,
-            });
-            sfx.write(ambition_sfx::SfxMessage::Play {
-                id: hazard_sfx_id(&hazard.name),
-                pos,
-            });
+            // CM8: the hazard's sound is its STRIKE SOUND — carried to the ONE
+            // victim-side reaction instead of emitted here. The red spray and
+            // debris the player used to get (and an actor did NOT — the old
+            // is_player fork) now come from the victim's `HurtFeedback`, so both
+            // halves of this hazard land uniformly on whoever it hits.
             hit_events.write(HitEvent {
+                strike_sfx: Some(hazard_sfx_id(&hazard.name)),
                 volume: hazard.aabb().into(),
                 damage: hazard.volume.damage.amount.max(1),
                 source: HitSource::Hazard,
@@ -177,13 +166,10 @@ pub fn update_ecs_hazards(
             {
                 continue;
             }
-            let pos = hurtbox.center;
-            vfx.write(VfxMessage::Impact { pos });
-            sfx.write(ambition_sfx::SfxMessage::Play {
-                id: hazard_sfx_id(&hazard.name),
-                pos,
-            });
+            // CM8: same hazard strike sound, carried to the victim-side reaction;
+            // the actor's knockback + feedback position derive from the event.
             hit_events.write(HitEvent {
+                strike_sfx: Some(hazard_sfx_id(&hazard.name)),
                 volume: hazard.aabb().into(),
                 damage: hazard.volume.damage.amount.max(1),
                 source: HitSource::Hazard,

@@ -246,6 +246,44 @@ pub fn emit_melee_slash(
     });
 }
 
+/// THE one victim-side hit-feedback reaction (CM8). Every place a strike LANDS
+/// on a body — the player-hurt path, the actor-hurt path, the boss-hurt path —
+/// calls this ONE rule at the moment its `resolve_body_hit` reports the hit
+/// registered, so the payload is never chosen by an `is_player` branch again.
+///
+/// The split it enforces: the ATTACK owns its `strike_sfx` (a sword and a claw
+/// sound apart), which overrides only the SOUND; the VICTIM owns the spray and
+/// debris through its [`HurtFeedback`] (an enemy struck by anything uses
+/// [`HurtFeedback::ENEMY`] and so never throws the player's red hurt burst,
+/// while the player always keeps its own). Exactly one hit sound plays: the
+/// attack's if it authored one, else the victim's default. The universal impact
+/// spark always fires; the richer spray/debris only if the victim's profile
+/// carries them.
+///
+/// Muting for dodged / parried / i-framed hits needs no gate here: the callers
+/// invoke this only on the LANDED branch, after `resolve_body_hit` already
+/// dropped an ignored hit.
+pub fn emit_hit_feedback(
+    sfx: &mut ambition_sfx::SfxWriter,
+    vfx: &mut MessageWriter<VfxMessage>,
+    debris: &mut MessageWriter<DebrisBurstMessage>,
+    hurt: ambition_vfx::HurtFeedback,
+    strike_sfx: Option<ambition_sfx::SfxId>,
+    pos: ae::Vec2,
+) {
+    sfx.write(ambition_sfx::SfxMessage::Play {
+        id: strike_sfx.unwrap_or(hurt.sfx),
+        pos,
+    });
+    vfx.write(VfxMessage::Impact { pos });
+    if let Some(burst) = hurt.burst {
+        vfx.write(burst.message(pos));
+    }
+    if let Some(cue) = hurt.debris {
+        debris.write(DebrisBurstMessage { pos, cue });
+    }
+}
+
 /// THE knockback-scaling law (CM1): the smash-percent growth term folded onto a
 /// hit's base knockback. A body that has accumulated more damage launches
 /// farther under the same hit, scaled down by its weight. Pure and
@@ -270,4 +308,154 @@ pub fn scaled_knockback(
         1.0
     };
     base + growth * victim_damage_taken.max(0) as f32 / weight
+}
+
+#[cfg(test)]
+mod hit_feedback_tests {
+    use super::*;
+    use ambition_sfx::{ids, OwnedSfxMessage, SfxId};
+    use ambition_vfx::vfx::DebrisBurstMessage;
+    use ambition_vfx::{HurtFeedback, VfxMessage};
+    use bevy::ecs::message::Messages;
+    use bevy::prelude::*;
+
+    #[derive(Resource, Clone, Copy)]
+    struct Input {
+        hurt: HurtFeedback,
+        strike: Option<SfxId>,
+    }
+
+    struct Emitted {
+        sfx: Vec<SfxId>,
+        impacts: usize,
+        bursts: usize,
+        debris: usize,
+    }
+
+    fn emit_system(
+        input: Res<Input>,
+        mut sfx: ambition_sfx::SfxWriter,
+        mut vfx: MessageWriter<VfxMessage>,
+        mut debris: MessageWriter<DebrisBurstMessage>,
+    ) {
+        emit_hit_feedback(
+            &mut sfx,
+            &mut vfx,
+            &mut debris,
+            input.hurt,
+            input.strike,
+            ae::Vec2::ZERO,
+        );
+    }
+
+    /// Drive the REAL `emit_hit_feedback` (through the real `SfxWriter`) once and
+    /// collect exactly what reached each bus.
+    fn run(hurt: HurtFeedback, strike: Option<SfxId>) -> Emitted {
+        let mut world = World::new();
+        world.init_resource::<Messages<OwnedSfxMessage>>();
+        world.init_resource::<Messages<VfxMessage>>();
+        world.init_resource::<Messages<DebrisBurstMessage>>();
+        world.insert_resource(Input { hurt, strike });
+        let mut schedule = Schedule::default();
+        schedule.add_systems(emit_system);
+        schedule.run(&mut world);
+
+        let sfx_msgs = world.resource::<Messages<OwnedSfxMessage>>();
+        let mut cursor = sfx_msgs.get_cursor();
+        let sfx: Vec<SfxId> = cursor
+            .read(sfx_msgs)
+            .filter_map(|m| match m.request {
+                ambition_sfx::SfxMessage::Play { id, .. } => Some(id),
+                _ => None,
+            })
+            .collect();
+
+        let vfx_msgs = world.resource::<Messages<VfxMessage>>();
+        let mut vcursor = vfx_msgs.get_cursor();
+        let mut impacts = 0;
+        let mut bursts = 0;
+        for m in vcursor.read(vfx_msgs) {
+            match m {
+                VfxMessage::Impact { .. } => impacts += 1,
+                VfxMessage::Burst { .. } => bursts += 1,
+                _ => {}
+            }
+        }
+
+        let debris_msgs = world.resource::<Messages<DebrisBurstMessage>>();
+        let mut dcursor = debris_msgs.get_cursor();
+        let debris = dcursor.read(debris_msgs).count();
+
+        Emitted {
+            sfx,
+            impacts,
+            bursts,
+            debris,
+        }
+    }
+
+    /// The exact CM8 property: a sword and a claw are heard apart. Two different
+    /// authored strike sounds over the SAME victim profile produce two different
+    /// hit sounds — no `is_player` branch anywhere selects the payload.
+    #[test]
+    fn a_sword_and_a_claw_are_heard_apart() {
+        let sword = SfxId::new("weapon.sword");
+        let claw = SfxId::new("creature.claw");
+        let with_sword = run(HurtFeedback::ENEMY, Some(sword));
+        let with_claw = run(HurtFeedback::ENEMY, Some(claw));
+        assert_eq!(with_sword.sfx, vec![sword], "the sword plays its own sound");
+        assert_eq!(with_claw.sfx, vec![claw], "the claw plays its own sound");
+        assert_ne!(
+            with_sword.sfx, with_claw.sfx,
+            "different attacks on the same body sound different"
+        );
+    }
+
+    /// The CM8 bug: an enemy struck by another enemy used to play the player's
+    /// `PLAYER_DAMAGE` sound and the red "you got hurt" burst. The ENEMY profile
+    /// carries neither, so no `is_player`-flavored payload can leak onto a
+    /// non-player victim.
+    #[test]
+    fn an_enemy_victim_never_throws_the_player_hurt_burst() {
+        // Unauthored enemy-vs-enemy hit (no strike sound → the victim's default).
+        let e = run(HurtFeedback::ENEMY, None);
+        assert_eq!(
+            e.sfx,
+            vec![ids::PLAYER_HIT],
+            "plain hit tick, not PLAYER_DAMAGE"
+        );
+        assert_ne!(
+            e.sfx,
+            vec![ids::PLAYER_DAMAGE],
+            "the enemy must NOT play the player's hurt grunt"
+        );
+        assert_eq!(e.bursts, 0, "no red hurt burst on an enemy victim");
+        assert_eq!(e.debris, 0, "no hurt debris on an enemy victim");
+        assert_eq!(e.impacts, 1, "still a plain impact spark");
+    }
+
+    /// The player keeps its rich hurt reaction — its red burst + debris + grunt —
+    /// because that reaction is the VICTIM's profile, not an attacker-side
+    /// `is_player` branch. And an authored strike sound overrides only the SOUND,
+    /// never the player's spray (so a sword still makes the player flash red).
+    #[test]
+    fn the_player_keeps_its_hurt_burst_under_any_attack() {
+        let unauthored = run(HurtFeedback::PLAYER, None);
+        assert_eq!(unauthored.sfx, vec![ids::PLAYER_DAMAGE]);
+        assert_eq!(unauthored.bursts, 1, "player throws its red hurt burst");
+        assert_eq!(unauthored.debris, 1, "player throws hurt debris");
+
+        let sword = SfxId::new("weapon.sword");
+        let by_sword = run(HurtFeedback::PLAYER, Some(sword));
+        assert_eq!(
+            by_sword.sfx,
+            vec![sword],
+            "the sword's sound overrides the grunt"
+        );
+        assert_eq!(
+            by_sword.bursts, 1,
+            "but the player STILL throws its own red hurt burst"
+        );
+        assert_eq!(by_sword.debris, 1);
+    }
 }

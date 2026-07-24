@@ -37,10 +37,8 @@ use super::events::{HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitS
 use super::targeting::{damage_lands, effective_faction};
 use super::util::midpoint;
 use crate::actor_faction_from_hit_side;
-use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_time::WorldTime;
-use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
-use ambition_vfx::vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::vfx::VfxMessage;
 
 // The hitbox COMPONENTS moved to the reusable `ambition_vfx` crate (the
 // damage-box primitive). Re-exported here so `combat::hitbox::Hitbox`
@@ -139,9 +137,11 @@ pub fn apply_hitbox_damage(
     // knockback side (§B11). Looked up by victim entity; a bare test hurtbox
     // without a body frame falls back to the engine default down.
     victim_frames: Query<&ambition_platformer_primitives::frame_env::ResolvedMotionFrame>,
-    mut sfx: SfxWriter,
+    // CM8: hostile melee overlap no longer emits hit feedback here — the ONE
+    // victim-side reaction (`emit_hit_feedback`) owns sfx/spray/debris now, so
+    // this system only needs the `VfxMessage` writer for the wielded-AOE landing
+    // cue (a Volume strike, not a per-victim reaction).
     mut vfx: MessageWriter<VfxMessage>,
-    mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
 ) {
     let friendly_fire = friendly_fire.map(|r| *r).unwrap_or_default();
@@ -199,7 +199,10 @@ pub fn apply_hitbox_damage(
                     victim_aabb,
                     victim_faction,
                     victim_brain,
-                    vuln,
+                    // CM8: the vulnerability cluster is still REQUIRED (only real
+                    // combat bodies are victims), but no longer READ here — i-frame
+                    // muting is the victim consumer's job now (see below).
+                    _vuln,
                     is_player,
                     victim_health,
                     victim_tuning,
@@ -234,40 +237,16 @@ pub fn apply_hitbox_damage(
                         continue;
                     }
                     // §A2: the EVENT always flows — i-frames resolve at CONSUME
-                    // time in `resolve_body_hit`, the same for every body (this
-                    // was the last emit/consume asymmetry). The vulnerability
-                    // read below is FEEDBACK policy only: don't play the
-                    // hit-landed sfx/burst for a hit the consumer will ignore
-                    // (dodge roll, parry, i-frame window).
-                    let (offense, facts, shield, combat) = vuln;
-                    let feedback = !is_player
-                        || crate::util::body_vulnerable(
-                            offense,
-                            facts.dodge_rolling,
-                            shield,
-                            combat,
-                        );
+                    // time in `resolve_body_hit`, the same for every body.
+                    // CM8: hit FEEDBACK (the sfx/spray/debris) is no longer
+                    // emitted here. It moved to the ONE victim-side reaction
+                    // (`emit_hit_feedback`), which fires only when the consumer's
+                    // `resolve_body_hit` reports the hit LANDED — so a dodged /
+                    // parried / i-framed hit is muted for free, without this side
+                    // recomputing vulnerability, and an enemy struck by another
+                    // enemy uses its OWN `HurtFeedback` instead of the player's
+                    // red "you got hurt" burst.
                     let impact = midpoint(victim_aabb.center, world_volume.center());
-                    if feedback {
-                        vfx.write(VfxMessage::Impact { pos: impact });
-                    }
-                    if is_player && feedback {
-                        sfx.write(SfxMessage::Play {
-                            id: ambition_sfx::ids::PLAYER_DAMAGE,
-                            pos: impact,
-                        });
-                        vfx.write(VfxMessage::Burst {
-                            pos: impact,
-                            count: 14,
-                            speed: 300.0,
-                            color: [1.0, 0.34, 0.28, 0.88],
-                            kind: ParticleKind::Shard,
-                        });
-                        debris.write(DebrisBurstMessage {
-                            pos: impact,
-                            cue: PhysicsDebrisCue::Impact,
-                        });
-                    }
                     // Knockback side in the victim's LOCAL frame (§B11): under
                     // sideways gravity the attacker and victim separate along
                     // world-Y, exactly when a screen-X comparison degenerates.
@@ -302,6 +281,7 @@ pub fn apply_hitbox_damage(
                         launch_dir: hitbox.launch_dir,
                     });
                     hit_events.write(HitEvent {
+                        strike_sfx: hitbox.strike_sfx,
                         volume: world_volume.clone(),
                         damage: hitbox.damage.max(1),
                         source: source_kind.clone(),
@@ -350,6 +330,7 @@ pub fn apply_hitbox_damage(
                         continue;
                     };
                     hit_events.write(HitEvent {
+                        strike_sfx: hitbox.strike_sfx,
                         volume: world_volume.clone(),
                         damage: hitbox.damage.max(1),
                         source: HitSource::PlayerSlash { knock_x: 0.0 },
@@ -368,6 +349,7 @@ pub fn apply_hitbox_damage(
                             pos: world_volume.center(),
                         });
                         hit_events.write(HitEvent {
+                            strike_sfx: hitbox.strike_sfx,
                             volume: world_volume.clone(),
                             damage: hitbox.damage.max(1),
                             source: HitSource::PlayerSlash { knock_x: 0.0 },

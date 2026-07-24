@@ -33,6 +33,7 @@ fn hitbox_knockback_units_remain_distinct() {
 #[test]
 fn follow_owner_hitbox_aabb_tracks_owner_position() {
     let hitbox = Hitbox {
+        strike_sfx: None,
         owner: dummy_entity(),
         source: HitSide::Enemy,
         anchor: HitboxAnchor::FollowOwner {
@@ -59,6 +60,7 @@ fn follow_owner_hitbox_aabb_tracks_owner_position() {
 #[test]
 fn world_anchor_hitbox_ignores_owner_position() {
     let hitbox = Hitbox {
+        strike_sfx: None,
         owner: dummy_entity(),
         source: HitSide::Boss,
         anchor: HitboxAnchor::World {
@@ -103,6 +105,7 @@ fn tick_and_despawn_drops_expired_hitboxes() {
         .world_mut()
         .spawn((
             Hitbox {
+                strike_sfx: None,
                 owner: dummy_entity(),
                 source: HitSide::Enemy,
                 anchor: HitboxAnchor::FollowOwner {
@@ -138,6 +141,7 @@ fn tick_and_despawn_keeps_live_hitboxes() {
         .world_mut()
         .spawn((
             Hitbox {
+                strike_sfx: None,
                 owner: dummy_entity(),
                 source: HitSide::Enemy,
                 anchor: HitboxAnchor::FollowOwner {
@@ -171,24 +175,15 @@ fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHit
     }
 }
 
-#[derive(Resource, Default)]
-struct CapturedImpacts(usize);
-
-fn capture_impacts(mut reader: MessageReader<VfxMessage>, mut cap: ResMut<CapturedImpacts>) {
-    for m in reader.read() {
-        if matches!(m, VfxMessage::Impact { .. }) {
-            cap.0 += 1;
-        }
-    }
-}
-
 /// Structural tangibility gate (Jon 2026-07-22): a dead body is an intangible
-/// corpse — a swing passes through it, producing NO hit event and NO impact
-/// VFX. A live body in the exact same spot IS struck and DOES flash an impact,
-/// so the silence is the tangibility gate, not the geometry. This is the
-/// detection-layer half of "prevent intangible things from interacting or
-/// presenting in any way"; removing the `body_is_corpse` skip in
-/// `apply_hitbox_damage` reintroduces both the phantom hit and the corpse flash.
+/// corpse — a swing passes through it, producing NO hit event. A live body in
+/// the exact same spot IS struck and emits one, so the silence is the
+/// tangibility gate, not the geometry. Since CM8 moved hit FEEDBACK downstream
+/// of the event (the ONE victim-side reaction fires only on a landed hit), "no
+/// event" now transitively means "no impact / sound presented" — a dead thing
+/// neither interacts nor presents. Removing the `body_is_corpse` skip in
+/// `apply_hitbox_damage` reintroduces the phantom hit (and, through it, the
+/// corpse flash).
 #[test]
 fn a_dead_victim_is_intangible_to_a_swing() {
     use ambition_characters::actor::{BodyHealth, Health};
@@ -197,8 +192,6 @@ fn a_dead_victim_is_intangible_to_a_swing() {
         let mut relations = FactionRelations::default();
         relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
         let (mut app, victim) = arena_hitbox_app(relations, ActorFaction::Boss);
-        app.init_resource::<CapturedImpacts>();
-        app.add_systems(Update, capture_impacts.after(apply_hitbox_damage));
         app.world_mut()
             .entity_mut(victim)
             .insert(BodyHealth::new(Health {
@@ -210,28 +203,19 @@ fn a_dead_victim_is_intangible_to_a_swing() {
         (app, victim)
     }
 
-    // Live control: HP 3 → the swing lands and presents an impact.
+    // Live control: HP 3 → the swing lands and emits exactly one hit event.
     let (live, _) = arena_with_victim_hp(3);
     assert_eq!(
         live.world().resource::<CapturedHits>().0.len(),
         1,
         "a living body in the swing is struck"
     );
-    assert!(
-        live.world().resource::<CapturedImpacts>().0 > 0,
-        "a living hit flashes an impact"
-    );
 
-    // Corpse: HP 0 → intangible. No hit, no impact.
+    // Corpse: HP 0 → intangible. No hit event (so nothing downstream presents).
     let (dead, _) = arena_with_victim_hp(0);
     assert!(
         dead.world().resource::<CapturedHits>().0.is_empty(),
         "a corpse is not a hurtbox — the swing passes through, no hit lands"
-    );
-    assert_eq!(
-        dead.world().resource::<CapturedImpacts>().0,
-        0,
-        "a corpse presents no impact VFX — a dead thing does not present"
     );
 }
 
@@ -243,9 +227,7 @@ fn a_dead_victim_is_intangible_to_a_swing() {
 fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     let owner = app
@@ -257,6 +239,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
         .id();
     app.world_mut().spawn((
         Hitbox {
+            strike_sfx: None,
             owner,
             source: HitSide::Player,
             anchor: HitboxAnchor::World {
@@ -301,9 +284,7 @@ use crate::targeting::FactionRelations;
 fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -> (App, Entity) {
     let mut app = App::new();
     app.add_message::<HitEvent>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
     app.init_resource::<CapturedHits>();
     app.insert_resource(relations);
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -316,6 +297,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
         .id();
     app.world_mut().spawn((
         Hitbox {
+            strike_sfx: None,
             owner,
             source: HitSide::Enemy,
             anchor: HitboxAnchor::World {
@@ -406,9 +388,7 @@ fn actor_vs_actor_damage_is_physical_for_different_factions() {
 fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
     let mut app = App::new();
     app.add_message::<HitEvent>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
     app.init_resource::<CapturedHits>();
     app.insert_resource(relations);
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -421,6 +401,7 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
         .id();
     app.world_mut().spawn((
         Hitbox {
+            strike_sfx: None,
             owner,
             source: HitSide::Enemy,
             anchor: HitboxAnchor::World {
@@ -509,9 +490,7 @@ fn enemy_hitbox_hits_a_non_targeted_player_strays_are_physical() {
 fn player_faction_hitbox_only_fires_once() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     let owner = app
@@ -520,6 +499,7 @@ fn player_faction_hitbox_only_fires_once() {
         .id();
     app.world_mut().spawn((
         Hitbox {
+            strike_sfx: None,
             owner,
             source: HitSide::Player,
             anchor: HitboxAnchor::World {
@@ -555,9 +535,7 @@ fn player_faction_hitbox_only_fires_once() {
 fn player_followowner_melee_strike_emits_a_swing_gated_player_slash() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
 
@@ -588,6 +566,7 @@ fn player_followowner_melee_strike_emits_a_swing_gated_player_slash() {
         .id();
     app.world_mut().spawn((
         Hitbox {
+            strike_sfx: None,
             owner,
             source: HitSide::Player,
             anchor: HitboxAnchor::FollowOwner {
@@ -623,9 +602,7 @@ fn player_followowner_melee_strike_emits_a_swing_gated_player_slash() {
 fn player_followowner_strike_without_a_swing_is_inert() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     let owner = app
@@ -637,6 +614,7 @@ fn player_followowner_strike_without_a_swing_is_inert() {
         .id();
     app.world_mut().spawn((
         Hitbox {
+            strike_sfx: None,
             owner,
             source: HitSide::Player,
             anchor: HitboxAnchor::FollowOwner {
@@ -659,4 +637,63 @@ fn player_followowner_strike_without_a_swing_is_inert() {
         0,
         "a Player FollowOwner hitbox with no armed swing emits nothing"
     );
+}
+
+/// CM8: an authored strike sound on a hitbox rides the overlap onto the emitted
+/// `HitEvent`, so the ONE victim-side reaction can play the ATTACK's sound (a
+/// sword vs a claw) instead of the victim's default. This is the middle link of
+/// the authoring chain volume → hitbox → event → reaction.
+#[test]
+fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
+    let sword = ambition_sfx::SfxId::new("weapon.sword");
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<VfxMessage>();
+    app.init_resource::<CapturedHits>();
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+    let owner = app
+        .world_mut()
+        .spawn(ae::CenteredAabb::new(
+            ae::Vec2::new(200.0, 0.0),
+            ae::Vec2::new(12.0, 16.0),
+        ))
+        .id();
+    app.world_mut().spawn((
+        Hitbox {
+            strike_sfx: Some(sword),
+            owner,
+            source: HitSide::Enemy,
+            anchor: HitboxAnchor::World {
+                center: ae::Vec2::new(0.0, 0.0),
+            },
+            half_extent: ae::Vec2::new(30.0, 30.0),
+            shape: None,
+            facing: 1.0,
+            damage: 4,
+            knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
+            launch_dir: None,
+            frame_down: ae::Vec2::new(0.0, 1.0),
+        },
+        HitboxLifetime { remaining_s: 0.2 },
+        HitboxHits::default(),
+    ));
+    // A player victim overlapping the enemy strike (different faction → lands).
+    app.world_mut().spawn((
+        ae::CenteredAabb::new(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(14.0, 20.0)),
+        ActorFaction::Player,
+        ambition_engine_core::BodyOffense::default(),
+        ambition_engine_core::BodyMotionFacts::default(),
+        ambition_engine_core::BodyShieldState::default(),
+        ambition_characters::actor::BodyCombat::default(),
+        ambition_platformer_primitives::markers::PlayerEntity,
+    ));
+    app.update();
+    let cap = app.world().resource::<CapturedHits>();
+    assert_eq!(cap.0.len(), 1, "the enemy strike lands on the player");
+    assert_eq!(
+        cap.0[0].strike_sfx,
+        Some(sword),
+        "the authored strike sound rides onto the HitEvent for the victim reaction"
+    );
+    assert!(matches!(cap.0[0].target, HitTarget::Player(_)));
 }

@@ -20,8 +20,8 @@ use ambition_platformer_primitives::projectile::EnemyProjectileSpawn;
 
 pub mod vfx;
 pub use vfx::{
-    explosion_sfx, move_vfx_kind, ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind,
-    VfxMessage,
+    explosion_sfx, move_vfx_kind, ExplosionKind, ExplosionRequest, FireworksRequest, HitBurst,
+    HurtFeedback, ParticleKind, VfxMessage,
 };
 
 // ===================================================================
@@ -109,6 +109,12 @@ pub struct Hitbox {
     /// gravity instead of pinning to screen-down (fable review 2026-07-02 §B10).
     /// World-anchored hazards author in world space and pass screen-down.
     pub frame_down: ae::Vec2,
+    /// Authored STRIKE SOUND identity (CM8): the sound THIS attack makes when it
+    /// lands, carried from the volume's `hit_sfx` tag so a sword and a goblin
+    /// swipe sound different even when they hit the same body. `None` = the
+    /// victim's own [`HurtFeedback`] default sound. A `Copy` `u64` id, so it
+    /// rides the GGRS-snapshotted strike-volume entity for free.
+    pub strike_sfx: Option<ambition_sfx::SfxId>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -214,6 +220,7 @@ pub fn spawn_damage_box(
 ) -> Entity {
     let mut e = commands.spawn((
         Hitbox {
+            strike_sfx: None,
             owner,
             source,
             anchor: HitboxAnchor::World { center },
@@ -329,6 +336,7 @@ mod hitbox_shape_tests {
         // A disc FollowOwner hitbox resolves to a Circle centered at owner+offset,
         // not the half_extent box.
         let hb = Hitbox {
+            strike_sfx: None,
             owner: Entity::PLACEHOLDER,
             source: HitSide::Player,
             anchor: HitboxAnchor::FollowOwner {
@@ -356,6 +364,7 @@ mod hitbox_shape_tests {
     #[test]
     fn unshaped_hitbox_falls_back_to_the_half_extent_box() {
         let hb = Hitbox {
+            strike_sfx: None,
             owner: Entity::PLACEHOLDER,
             source: HitSide::Enemy,
             anchor: HitboxAnchor::World {

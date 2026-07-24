@@ -726,6 +726,7 @@ pub(crate) fn integrate_actor_body(
     let mut frame = frame;
     if shark_crashed {
         hit_events.write(HitEvent {
+            strike_sfx: None,
             volume: em.aabb().into(),
             damage: em.health.current().max(1),
             source: HitSource::EnemyChargeCrash,
@@ -1055,9 +1056,10 @@ pub fn sync_actor_read_model(
 /// strike + boss damage use).
 #[allow(clippy::too_many_arguments)]
 pub fn apply_actor_contact_damage(
-    mut sfx: ambition_sfx::SfxWriter,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
-    mut debris: MessageWriter<DebrisBurstMessage>,
+    // CM8: contact hits no longer emit feedback here (they used to fire the
+    // player-hurt payload for EVERY victim). The struck body's own victim
+    // consumer emits its `HurtFeedback` now, so this system only writes the
+    // `HitEvent`.
     mut hit_events: MessageWriter<HitEvent>,
     // Attackers (mutable clusters) and victims (read) alias the same actor
     // archetypes now that contact damage targets ANY tracked body (fable
@@ -1126,27 +1128,13 @@ pub fn apply_actor_contact_damage(
             continue;
         }
         if let Some(damage) = attack.hit_event(attacker, target_entity, hurtbox.aabb(), is_player) {
-            let pos = damage
-                .knockback
-                .as_ref()
-                .map(|k| k.impact_pos)
-                .unwrap_or_else(|| damage.volume.center());
-            sfx.write(ambition_sfx::SfxMessage::Play {
-                id: ambition_sfx::ids::PLAYER_DAMAGE,
-                pos,
-            });
-            vfx.write(VfxMessage::Impact { pos });
-            vfx.write(VfxMessage::Burst {
-                pos,
-                count: 14,
-                speed: 300.0,
-                color: [1.0, 0.34, 0.28, 0.88],
-                kind: ParticleKind::Shard,
-            });
-            debris.write(DebrisBurstMessage {
-                pos,
-                cue: PhysicsDebrisCue::Impact,
-            });
+            // CM8: this used to emit the player-hurt payload (PLAYER_DAMAGE + red
+            // burst + debris) for EVERY victim — `is_player` was bound above but
+            // ignored here, so an enemy body-checking another enemy played the
+            // "player got hurt" cue. The feedback now belongs to the ONE
+            // victim-side reaction, which reads the VICTIM's `HurtFeedback`: the
+            // player keeps its red burst, an enemy gets the plain tick. The
+            // routing use of `is_player` (Player vs Actor target) stays.
             hit_events.write(damage);
         }
     }

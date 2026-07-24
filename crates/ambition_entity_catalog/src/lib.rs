@@ -268,6 +268,16 @@ pub struct HitVolume {
     /// default arc; the tag set is engine presentation vocabulary, not content.
     #[serde(default)]
     pub vfx: Option<String>,
+    /// Authored STRIKE SOUND id (CM8): the sound THIS attack makes on contact,
+    /// e.g. `"player.slash"` for a blade or `"world.rock.hit"` for a bludgeon —
+    /// so a sword and a goblin swipe are heard apart even when they land on the
+    /// same body. The string is the `SfxId` name (lowered via `SfxId::new` at
+    /// spawn); an id the bank never rendered simply plays nothing, so authoring
+    /// one is always safe. `None` = the victim's own default hurt sound. This is
+    /// the ATTACK's contribution to hit feedback; the spray/debris a solid hit
+    /// throws are the VICTIM's, carried on its `HurtFeedback`.
+    #[serde(default)]
+    pub hit_sfx: Option<String>,
 }
 
 /// One span of a move's timeline. Times are seconds of the owner's proper

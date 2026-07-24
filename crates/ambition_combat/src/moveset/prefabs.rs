@@ -41,6 +41,7 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
         // the prefab RON rows, not synthesized here.
         swing_sfx: None,
         swing_vfx: None,
+        hit_sfx: None,
     })
 }
 
@@ -74,6 +75,14 @@ pub struct SimpleMeleeParams {
     /// `"shockwave"`. A typo is a startup validation error, never silent.
     #[serde(default)]
     pub swing_vfx: Option<String>,
+    /// CM8: the CONTACT sound this swing makes when it LANDS on a body (an
+    /// `SfxId` name, e.g. `"player.slash"`), distinct from `swing_sfx` (the
+    /// whoosh at the Active edge). This is how a sword and a goblin claw are
+    /// heard apart — it rides the volume to the ONE victim-side reaction and
+    /// overrides the victim's default hurt sound. `None` = the victim's own
+    /// `HurtFeedback` sound (parity).
+    #[serde(default)]
+    pub hit_sfx: Option<String>,
 }
 
 fn smp_windup() -> f32 {
@@ -106,6 +115,7 @@ impl Default for SimpleMeleeParams {
             knockback: smp_knockback(),
             swing_sfx: None,
             swing_vfx: None,
+            hit_sfx: None,
         }
     }
 }
@@ -123,6 +133,10 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
     // mirrors it by facing and rotates it into the gravity frame at spawn.
     let half_x = (p.reach_px * 0.5).max(8.0);
     let volume = HitVolume {
+        // CM8: the authored contact sound rides the volume to the victim-side
+        // reaction (a sword vs a claw); unauthored swings fall back to the
+        // victim's own hurt sound.
+        hit_sfx: p.hit_sfx.clone(),
         shape: VolumeShape::Rect {
             offset: (p.reach_px * 0.6, 0.0),
             half_extents: (half_x, 16.0),
@@ -333,6 +347,10 @@ pub struct SimpleChargeParams {
     /// [`SimpleMeleeParams::swing_vfx`].
     #[serde(default)]
     pub swing_vfx: Option<String>,
+    /// CM8: the CONTACT sound when the charged strike lands. See
+    /// [`SimpleMeleeParams::hit_sfx`].
+    #[serde(default)]
+    pub hit_sfx: Option<String>,
 }
 
 fn scp_charge() -> f32 {
@@ -369,6 +387,7 @@ impl Default for SimpleChargeParams {
             smash_charge_mult: scp_charge_mult(),
             swing_sfx: None,
             swing_vfx: None,
+            hit_sfx: None,
         }
     }
 }
@@ -381,6 +400,8 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
     let duration = charge + active + recover;
     let half_x = (p.reach_px * 0.5).max(8.0);
     let volume = HitVolume {
+        // CM8: authored contact sound for the charged strike (see simple_melee).
+        hit_sfx: p.hit_sfx.clone(),
         shape: VolumeShape::Rect {
             offset: (p.reach_px * 0.6, 0.0),
             half_extents: (half_x, 18.0),

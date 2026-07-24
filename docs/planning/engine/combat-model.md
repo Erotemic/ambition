@@ -270,6 +270,53 @@ default `0.055`) has **no reader** — the attacker hitstop at `damage/mod.rs:36
 hardcodes `0.06`, and that write is itself gated on the attacker being a
 `PlayerEntity`, so an actor landing a hit gets no hitstop.
 
+**As landed (CM8 — 2026-07-24).** The split above is the shipped shape: the
+ATTACK owns its strike SOUND, the VICTIM owns its hurt reaction.
+
+- **`ambition_vfx::HurtFeedback`** (`Copy`: `sfx: SfxId` + `Option<HitBurst>` +
+  `Option<PhysicsDebrisCue>`) with consts `PLAYER` (the `player.damage` grunt +
+  the red 14-shard `HitBurst::HURT` + impact debris) and `ENEMY` (a plain
+  `player.hit` tick, no spray). Projected onto `CombatTuning.hurt_feedback` at
+  actor/boss spawn; the player consumer uses `HurtFeedback::PLAYER` directly (the
+  player carries no `CombatTuning`).
+- **Attack strike sound**: `HitVolume.hit_sfx: Option<String>` (an `SfxId` name)
+  → lowered to `Hitbox.strike_sfx: Option<SfxId>` at the moveset spawn
+  (`SfxId::new`) → copied to `HitEvent.strike_sfx` at overlap → carried through
+  the snapshotted `PendingPlayerHitEvents` FIFO (an `SfxId` is a `Copy` `u64`, so
+  no `String` weight, and both `Hitbox`/`CombatTuning` are clone-registered so the
+  new fields snapshot for free — no codec change). `SimpleMeleeParams`/
+  `SimpleChargeParams` gained a `hit_sfx` field so a roster row authors its own
+  contact sound.
+- **The ONE reaction**: `ambition_combat::util::emit_hit_feedback(sfx, vfx,
+  debris, hurt, strike_sfx, pos)` — one hit sound (`strike_sfx ?? hurt.sfx`), the
+  universal Impact spark, and the victim's spray/debris. Called from the player
+  (`apply_player_knockback`), actor (`apply_actor_hit`), and boss
+  (`apply_boss_hit`) consumers on the LANDED branch only, so i-frame/parry muting
+  is free (an Ignored hit never reaches it).
+- **Deleted forks**: the two attacker-side player payloads (`hitbox/mod.rs`
+  overlap, `actors/update.rs` body-contact — the latter the live bug where
+  `is_player` was bound but ignored, so enemy-vs-enemy played `PLAYER_DAMAGE` + the
+  red burst), the two hand-split hazard loops (now one `strike_sfx` stamp), the
+  shared post-hit `SfxMessage::Hit` (`damage/mod.rs`), and the two projectile
+  attacker-side cues — all removed, so exactly one reaction fires per landed hit.
+- **Free cleanup done**: the attacker hitstop now reads `feel.attack_hitstop_time`.
+
+Tests: `combat::util` (the rule — sword≠claw, enemy no red burst, player keeps
+its burst even under an authored strike), `combat::hitbox` (the overlap carries
+`strike_sfx`), `combat::moveset` (the spec→volume link), and
+`actors::damage` end-to-end (an enemy struck by another enemy reacts with its own
+profile, NOT `PLAYER_DAMAGE`/red-burst, through the real consumer).
+
+**Honestly still owed (not overclaimed):** (1) `CombatTuning.hurt_feedback` is
+READ by the consumers but every actor/boss carries the `ENEMY` default today —
+per-archetype authoring (a metal body clangs, a slime squishes) is the wired seam,
+not yet fed from authored `ActorTuning` data. (2) `hit_sfx` is authorable on every
+prefab melee row and tested, but no SHIPPED character authors a distinct one yet —
+that is a content pass, not engine work. (3) The peaceful-NPC poke keeps its own
+Impact-only cue (not routed through the seam — it is not an `is_player` payload
+fork). (4) The player wielded-AOE keeps its own center-flash Impact (the attack's
+landing cue, not a per-victim payload).
+
 ## 9. Slices
 
 | # | Slice | Grade |
@@ -280,7 +327,7 @@ hardcodes `0.06`, and that write is itself gated on the attacker being a
 | CM4 | ✅ LANDED. See §4 "As landed". Empty timeline = byte-parity reject (tested). `frame_data().cancel_windows` carries conditions (FB2-ready). | done |
 | CM5 | ✅ LANDED. See §5. `MoveSpec::presentation_problems(vfx_known)` (oracle injected — `entity_catalog` stays vfx-free) runs inside `MovePrefabRegistry::expand`. **NOTE: the slash-VFX black square is a SEPARATE render-side sprite-source quirk (needs a visual run), NOT closed here.** | done |
 | CM6 | Grab/throw/shield-stun — **design PINNED §8** | [opus, lands with SSB demo] |
-| CM8 | ONE victim-side hit/death feedback seam + authored per-attack contact effects — **survey + design PINNED §8; NOT started.** Retires three `is_player` payload forks and delivers "the goblin swipe sounds different from the sword". | [opus] |
+| CM8 | ✅ **LANDED 2026-07-24** (§8 "As landed"). ONE victim-side reaction (`emit_hit_feedback`): the ATTACK owns its `strike_sfx`, the VICTIM owns its `HurtFeedback` spray. The three `is_player` payload forks are deleted (incl. the live enemy-vs-enemy `PLAYER_DAMAGE`+red-burst bug), the free `attack_hitstop_time` cleanup is done, and "a sword and a claw are heard apart" is authorable + tested. OWED (§8): per-archetype hurt authoring + shipped distinct sounds are a content pass, not engine work. | [opus] |
 | CM7 | ✅ LANDED. `MoveSpec::frame_data() -> MoveFrameData { total_s, startup_s, active_spans, recovery_s, cancel_windows, reach }` — a PURE derivation, no storage, in `ambition_entity_catalog` so brain + boss validators reach it with no upward dep. Consumers (FB2 option scorer, boss validator) wire it when they land. | done |
 
 Exit: a headless test drives two archetypes through hit → DI → knockback →

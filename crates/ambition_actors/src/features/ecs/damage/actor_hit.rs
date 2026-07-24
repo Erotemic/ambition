@@ -61,6 +61,10 @@ pub(crate) fn apply_actor_hit(
     // The struck actor's held locomotion (local frame) for DI (CM2) — the SAME
     // `ActorControl` the brain writes, so a brain/RL victim DIs like a human.
     di_input_local: ae::Vec2,
+    // CM8: how THIS body reacts to being hurt (its `CombatTuning.hurt_feedback`,
+    // the ENEMY default today). The victim owns its spray/debris; the attack owns
+    // only the strike sound.
+    hurt: ambition_vfx::HurtFeedback,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     let session_scope = writers.session_spawn_scope();
@@ -270,8 +274,20 @@ pub(crate) fn apply_actor_hit(
                 feel,
             );
         }
+        // CM8: THE one victim-side reaction — the striking attack's `strike_sfx`
+        // (a sword vs a goblin claw) over this body's own `HurtFeedback` spray.
+        // An ordinary actor's profile is `ENEMY` (plain tick, no red burst), so
+        // this body never borrows the player's "you got hurt" cue. A killed body
+        // still gets its death drama below, layered on this landing reaction.
         let impact = midpoint(event.volume.center(), em.kin.pos);
-        writers.vfx.write(VfxMessage::Impact { pos: impact });
+        crate::combat::util::emit_hit_feedback(
+            &mut writers.sfx,
+            &mut writers.vfx,
+            &mut writers.debris,
+            hurt,
+            event.strike_sfx,
+            impact,
+        );
         // Cling-break: a struck crawler (puppy-slug) is knocked off its
         // surface — the TYPED detach operation on its movement policy plus a
         // peel impulse on shared velocity. It falls under the live frame until

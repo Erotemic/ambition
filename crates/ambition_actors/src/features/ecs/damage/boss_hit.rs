@@ -117,6 +117,9 @@ pub(crate) fn apply_boss_hit(
     animation_frame: Option<&crate::features::BossAnimationFrameSample>,
     banner: &mut GameplayBanner,
     combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
+    // CM8: how this boss reacts to being hurt (its `CombatTuning.hurt_feedback`,
+    // ENEMY by default). The attack contributes only its strike sound.
+    hurt: ambition_vfx::HurtFeedback,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     let session_scope = writers.session_spawn_scope();
@@ -152,7 +155,16 @@ pub(crate) fn apply_boss_hit(
         {
             combat.hit_flash = 0.18;
             let impact = midpoint(event.volume.center(), hit_aabb.center());
-            writers.vfx.write(VfxMessage::Impact { pos: impact });
+            // CM8: an honest strike clang + spark even though this puzzle boss
+            // takes no HP from the hit.
+            crate::combat::util::emit_hit_feedback(
+                &mut writers.sfx,
+                &mut writers.vfx,
+                &mut writers.debris,
+                hurt,
+                event.strike_sfx,
+                impact,
+            );
             return true;
         }
         return false;
@@ -202,7 +214,16 @@ pub(crate) fn apply_boss_hit(
         return false;
     }
     let impact = midpoint(event.volume.center(), hit_aabb.center());
-    writers.vfx.write(VfxMessage::Impact { pos: impact });
+    // CM8: THE one victim-side reaction (strike sound over the boss's own hurt
+    // spray); the killed branch layers its death drama on top.
+    crate::combat::util::emit_hit_feedback(
+        &mut writers.sfx,
+        &mut writers.vfx,
+        &mut writers.debris,
+        hurt,
+        event.strike_sfx,
+        impact,
+    );
     if killed {
         banner.show(format!("defeated boss {}", boss.config.name), 2.6);
         writers.vfx.write(VfxMessage::Burst {

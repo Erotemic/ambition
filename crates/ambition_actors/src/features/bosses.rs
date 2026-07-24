@@ -166,6 +166,7 @@ pub fn boss_attack_moveset(
                         let c = aabb.center();
                         let h = aabb.half_size();
                         HitVolume {
+                            hit_sfx: None,
                             shape: VolumeShape::Rect {
                                 offset: (c.x, c.y),
                                 half_extents: (h.x, h.y),

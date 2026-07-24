@@ -26,6 +26,7 @@ fn pogo_dair() -> MoveSpec {
             end_s: 0.12,
             tag: WindowTag::Active,
             volumes: vec![HitVolume {
+                hit_sfx: None,
                 // Body-local +y = gravity-down: the volume sits below the body.
                 shape: VolumeShape::Rect {
                     offset: (0.0, 24.0),

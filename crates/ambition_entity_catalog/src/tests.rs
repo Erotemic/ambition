@@ -189,6 +189,7 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
             tag: WindowTag::Active,
             volumes: vec![
                 HitVolume {
+                    hit_sfx: None,
                     shape: VolumeShape::Rect {
                         offset: (28.0, 0.0),
                         half_extents: (16.0, 12.0),
@@ -201,6 +202,7 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
                     vfx: None,
                 },
                 HitVolume {
+                    hit_sfx: None,
                     shape: VolumeShape::Circle {
                         offset: (30.0, 0.0),
                         radius: 20.0,

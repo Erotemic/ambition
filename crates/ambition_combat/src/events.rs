@@ -409,4 +409,11 @@ pub struct HitEvent {
     /// target source. Empty for ordinary one-frame projectiles /
     /// hazards / pogos.
     pub ignored_targets: Vec<String>,
+    /// Authored STRIKE SOUND identity (CM8): the sound the attack behind this
+    /// hit makes on contact, carried to the ONE victim-side reaction so the
+    /// payload is never chosen by an `is_player` branch. `None` = the victim's
+    /// own [`ambition_vfx::HurtFeedback`] default sound. A `Copy` `u64` id —
+    /// cheap weight on the snapshotted `PendingPlayerHitEvents` FIFO, unlike a
+    /// `String` — and excluded from the checksum like the other id fields.
+    pub strike_sfx: Option<ambition_sfx::SfxId>,
 }

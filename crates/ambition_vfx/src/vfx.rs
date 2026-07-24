@@ -44,6 +44,91 @@ pub struct DebrisBurstMessage {
     pub cue: PhysicsDebrisCue,
 }
 
+/// A particle burst thrown off when a strike lands on a body (CM8). `Copy` so it
+/// rides the projected [`HurtFeedback`] with no allocation. Turn it into a real
+/// [`VfxMessage::Burst`] with [`HitBurst::message`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HitBurst {
+    pub count: u32,
+    pub speed: f32,
+    pub color: [f32; 4],
+    pub kind: ParticleKind,
+}
+
+impl HitBurst {
+    /// The red shard spray a damaged body throws — historically the player's
+    /// "you got hurt" burst, now the reusable solid-hit spray any body's
+    /// reaction can claim.
+    pub const HURT: Self = Self {
+        count: 14,
+        speed: 300.0,
+        color: [1.0, 0.34, 0.28, 0.88],
+        kind: ParticleKind::Shard,
+    };
+
+    /// This burst as a positioned [`VfxMessage`].
+    pub fn message(self, pos: ae::Vec2) -> VfxMessage {
+        VfxMessage::Burst {
+            pos,
+            count: self.count,
+            speed: self.speed,
+            color: self.color,
+            kind: self.kind,
+        }
+    }
+}
+
+/// How ONE body reacts to being struck (CM8): the VICTIM-owned half of hit
+/// feedback — a default hurt sound plus the optional particle spray and physics
+/// debris that body throws off. The victim owns these because they describe the
+/// body being hurt, not the attack; an attack contributes only its own STRIKE
+/// SOUND, which overrides `sfx` but never the spray. That split is the whole
+/// point of CM8: an enemy struck by another enemy uses [`HurtFeedback::ENEMY`]
+/// and so never borrows the player's red "you got hurt" burst (the old
+/// `is_player`-keyed attacker-side payload, which fired for every victim of a
+/// body-contact hit), while the player always keeps its hurt flash regardless of
+/// what hit it.
+///
+/// `Copy`: projected onto the combat-owned `CombatTuning`, so it carries no
+/// snapshot weight of its own (`SfxId` is a `u64`, [`ParticleKind`]/
+/// [`PhysicsDebrisCue`] are small enums).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HurtFeedback {
+    /// The sound this body makes when hit and the attack authored no strike
+    /// sound of its own.
+    pub sfx: ambition_sfx::SfxId,
+    /// The particle spray this body throws on a solid hit, if any.
+    pub burst: Option<HitBurst>,
+    /// The physics debris this body throws on a solid hit, if any.
+    pub debris: Option<PhysicsDebrisCue>,
+}
+
+impl HurtFeedback {
+    /// The player's reaction: the `player.damage` grunt, the red shard spray,
+    /// and an impact debris puff — the rich payload that used to live
+    /// attacker-side, keyed on the victim being the player.
+    pub const PLAYER: Self = Self {
+        sfx: ambition_sfx::ids::PLAYER_DAMAGE,
+        burst: Some(HitBurst::HURT),
+        debris: Some(PhysicsDebrisCue::Impact),
+    };
+
+    /// An ordinary body's reaction: a plain `player.hit` tick, no spray, no
+    /// debris. Every non-player body defaults to this, so enemy-vs-enemy contact
+    /// no longer throws the player's hurt burst.
+    pub const ENEMY: Self = Self {
+        sfx: ambition_sfx::ids::PLAYER_HIT,
+        burst: None,
+        debris: None,
+    };
+}
+
+impl Default for HurtFeedback {
+    fn default() -> Self {
+        Self::ENEMY
+    }
+}
+
 /// Which explosion to play. The variants are pure data; the render mapping
 /// (`explosion_anim` → spritesheet row) and audio mapping (`explosion_sfx` →
 /// packed-bank id) live in the presentation layer, keeping this enum free of a

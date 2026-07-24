@@ -190,9 +190,24 @@ pub fn vault_bounds() -> ae::Aabb {
     ae::Aabb::new(min + size * 0.5, size * 0.5)
 }
 
-/// How big one half of a tube is.
-fn pipe_size() -> ae::Vec2 {
+/// How big a SURFACE half of a tube is: two tiles, the classic stub you stand on.
+fn surface_pipe_size() -> ae::Vec2 {
     ae::Vec2::new(PIPE_WIDTH_TILES * T, PIPE_HEIGHT_TILES * T)
+}
+
+/// How big a VAULT half is. It reaches most of the way DOWN the chamber rather
+/// than being a matching two-tile stub, so its mouth hangs just above head height
+/// instead of near the ceiling five tiles up. That is what makes pressing UP under
+/// it read as entering a pipe: a two-tile stub left you pressing up at a mouth
+/// nowhere near you, which is what "Mary-O can be anywhere under the pipe" was
+/// really describing. The chamber is [`VAULT_DEPTH_TILES`] - 2 tiles tall, so this
+/// leaves [`VAULT_PIPE_CLEARANCE_TILES`] of walking room beneath the lip.
+fn vault_pipe_size() -> ae::Vec2 {
+    let interior = vault_bounds().max.y - vault_bounds().min.y;
+    ae::Vec2::new(
+        PIPE_WIDTH_TILES * T,
+        interior - VAULT_PIPE_CLEARANCE_TILES * T,
+    )
 }
 
 /// The min corner of the SURFACE half of the tube at `column` — standing on the
@@ -206,6 +221,52 @@ fn surface_pipe_min(column: f32) -> ae::Vec2 {
 /// vault's ceiling (which is the level's own ground slab), mouth down.
 fn vault_pipe_min(column: f32) -> ae::Vec2 {
     ae::Vec2::new(column * T, vault_bounds().min.y)
+}
+
+/// Walking room left under a vault half's lip. THREE tiles (96px): her tall form
+/// is 72px, so this clears her with headroom while still putting the lip barely
+/// above her head — she presses UP at a mouth she is standing in rather than at
+/// one five tiles across the room. Two tiles would be shorter than she is.
+const VAULT_PIPE_CLEARANCE_TILES: f32 = 3.0;
+
+/// **Every pipe half in level 1-1**, as `(name, min corner, size, mouth points
+/// down, art index)`. ONE list, so the collision blocks and the art can never
+/// disagree about where a pipe is or which way it faces.
+fn pipe_halves() -> [(&'static str, ae::Vec2, ae::Vec2, bool, u16); 4] {
+    [
+        // The descent tube: you press DOWN on this one...
+        (
+            PIPE_NAME,
+            surface_pipe_min(PIPE_COLUMN),
+            surface_pipe_size(),
+            false,
+            0,
+        ),
+        // ...and fall out of this one, which hangs from the ceiling right below.
+        (
+            VAULT_ENTRY_PIPE_NAME,
+            vault_pipe_min(PIPE_COLUMN),
+            vault_pipe_size(),
+            true,
+            1,
+        ),
+        // The ascent tube: you press UP under this one near the vault's far end...
+        (
+            EXIT_PIPE_NAME,
+            vault_pipe_min(EXIT_PIPE_COLUMN),
+            vault_pipe_size(),
+            true,
+            2,
+        ),
+        // ...and rise out of this one, straight up through the slab.
+        (
+            SURFACE_EXIT_PIPE_NAME,
+            surface_pipe_min(EXIT_PIPE_COLUMN),
+            surface_pipe_size(),
+            false,
+            3,
+        ),
+    ]
 }
 
 /// The mouth of the descent tube — the band you must be standing in to warp down.
@@ -222,7 +283,7 @@ pub fn vault_arrival() -> ae::Vec2 {
     let min = vault_pipe_min(PIPE_COLUMN);
     ae::Vec2::new(
         min.x + PIPE_WIDTH_TILES * 0.5 * T,
-        min.y + (PIPE_HEIGHT_TILES + 1.0) * T,
+        min.y + vault_pipe_size().y + 0.5 * T,
     )
 }
 
@@ -424,22 +485,12 @@ pub fn level_1_1() -> RoomSpec {
     // physical TUBE through that slab, authored as two halves at matching columns:
     // surface + vault for the descent at col 26, vault + surface for the ascent at
     // col 35. Transparent collision blocks; the props below supply the look.
-    for (name, min, art_index) in [
-        // The descent tube: you press DOWN on this one...
-        (PIPE_NAME, surface_pipe_min(PIPE_COLUMN), 0u16),
-        // ...and fall out of this one, hanging from the ceiling right below it.
-        (VAULT_ENTRY_PIPE_NAME, vault_pipe_min(PIPE_COLUMN), 1),
-        // The ascent tube: you press UP under this one near the vault's far end...
-        (EXIT_PIPE_NAME, vault_pipe_min(EXIT_PIPE_COLUMN), 2),
-        // ...and rise out of this one, straight up through the slab.
-        (
-            SURFACE_EXIT_PIPE_NAME,
-            surface_pipe_min(EXIT_PIPE_COLUMN),
-            3,
-        ),
-    ] {
+    // A surface half is the classic two-tile stub; a vault half reaches down the
+    // chamber so its mouth hangs at head height (`mouth_down` is also what
+    // mirrors its lip art).
+    for (name, min, size, _, art_index) in pipe_halves() {
         blocks.push(
-            ae::Block::solid_tiled(name, min, pipe_size(), "mary_o_pipe", art_index)
+            ae::Block::solid_tiled(name, min, size, "mary_o_pipe", art_index)
                 .with_art_color(scenery::TRANSPARENT),
         );
     }
@@ -485,9 +536,12 @@ pub fn level_1_1() -> RoomSpec {
     // banner hangs off the top. The banner PROP is wider than its (pole-width)
     // collision block and offset to the side, so the flag reads as a flag without
     // widening what the body can touch.
-    let pipe_lip = ae::Vec2::new(pipe_size().x, T);
     let mut scenery_props = vec![
-        scenery::prop_over(
+        // BUILT WORLD, not scenery: character sizing derives a sprite's width
+        // from the box's LONGEST side, so a shaft whose box is nine tiles tall
+        // was drawn eighteen tiles WIDE. It stays behind the cast, though —
+        // she has to be visible climbing it.
+        scenery::structure_prop(
             "goal_pole_shaft_art",
             scenery::POLE_BODY_SPRITE,
             ae::Vec2::new(pole_x, pole_top),
@@ -510,38 +564,37 @@ pub fn level_1_1() -> RoomSpec {
             draw: Default::default(),
         },
     ];
-    // Every pipe half, drawn as a lip tile and a body tile over its 2×2 block. The
-    // LIP is the open end, so which tile it goes on is what makes a pipe point the
-    // right way: on top for a surface half (mouth up, you drop in), on the BOTTOM
-    // for a vault half (mouth down, hanging from the ceiling — you fall out of it,
-    // or rise into it).
-    for (tag, min, mouth_down) in [
-        ("entry", surface_pipe_min(PIPE_COLUMN), false),
-        ("vault_entry", vault_pipe_min(PIPE_COLUMN), true),
-        ("vault_return", vault_pipe_min(EXIT_PIPE_COLUMN), true),
-        ("surface_exit", surface_pipe_min(EXIT_PIPE_COLUMN), false),
-    ] {
-        let (lip_y, body_y) = if mouth_down {
-            (min.y + T, min.y)
-        } else {
-            (min.y, min.y + T)
-        };
-        // A mouth-down pipe is the SAME head sheet, mirrored — a pipe head drawn
-        // right way up under a ceiling reads as a pipe standing on nothing.
-        scenery_props.push(scenery::pipe_prop(
-            &format!("{tag}_pipe_lip_art"),
-            scenery::PIPE_TOP_SPRITE,
-            ae::Vec2::new(min.x, lip_y),
-            pipe_lip,
-            mouth_down,
-        ));
-        scenery_props.push(scenery::pipe_prop(
-            &format!("{tag}_pipe_body_art"),
-            scenery::PIPE_BODY_SPRITE,
-            ae::Vec2::new(min.x, body_y),
-            pipe_lip,
-            false,
-        ));
+    // Every pipe half, tiled over its OWN block from the same list the blocks came
+    // from: one LIP tile at the open end and body tiles filling the rest. The lip
+    // is what makes a pipe point somewhere — top tile for a surface half (mouth up,
+    // you drop in), BOTTOM tile for a vault half (mouth down, hanging from the
+    // ceiling — you fall out of it, or rise into it), mirrored to match.
+    for (name, min, size, mouth_down, _) in pipe_halves() {
+        let tiles = (size.y / T).round().max(1.0) as usize;
+        let lip_row = if mouth_down { tiles - 1 } else { 0 };
+        for row in 0..tiles {
+            let at = ae::Vec2::new(min.x, min.y + row as f32 * T);
+            let tile = ae::Vec2::new(size.x, T);
+            if row == lip_row {
+                // A mouth-down pipe is the SAME head sheet, mirrored — a pipe head
+                // drawn right way up under a ceiling reads as standing on nothing.
+                scenery_props.push(scenery::pipe_prop(
+                    &format!("{name}_lip_art"),
+                    scenery::PIPE_TOP_SPRITE,
+                    at,
+                    tile,
+                    mouth_down,
+                ));
+            } else {
+                scenery_props.push(scenery::pipe_prop(
+                    &format!("{name}_body_art_{row}"),
+                    scenery::PIPE_BODY_SPRITE,
+                    at,
+                    tile,
+                    false,
+                ));
+            }
+        }
     }
     room.props.extend(scenery_props);
 
@@ -2007,6 +2060,26 @@ mod tests {
                 "{vault_name} must hang from the vault ceiling — a pipe that leads UP \
                  cannot stand on the floor: {under:?} vs ceiling {}",
                 vault.min.y
+            );
+        }
+
+        // A vault half REACHES DOWN to her. Its lip must clear her tallest form so
+        // she can walk under it, and must not be so high that pressing UP happens
+        // at a mouth nowhere near her — which is what "she can be anywhere under
+        // the pipe" was really describing.
+        let vault_floor = block("vault_floor").min.y;
+        for name in [VAULT_ENTRY_PIPE_NAME, EXIT_PIPE_NAME] {
+            let lip = block(name).max.y;
+            let clearance = vault_floor - lip;
+            assert!(
+                clearance > 72.0,
+                "{name}'s lip must clear Mary-O's TALL form (72px) or she cannot \
+                 walk under it: {clearance}px"
+            );
+            assert!(
+                clearance < 4.0 * T,
+                "...and must hang close enough that pressing UP under it reads as \
+                 entering a pipe rather than shouting at a distant one: {clearance}px"
             );
         }
 

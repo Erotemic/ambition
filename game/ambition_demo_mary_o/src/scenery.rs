@@ -63,17 +63,31 @@ pub fn prop_over(id: &str, kind: &str, min: ae::Vec2, size: ae::Vec2) -> PropSpe
     }
 }
 
-/// A prop that is part of the BUILT WORLD rather than scenery, optionally
+/// A prop that is part of the BUILT WORLD a body goes INSIDE, optionally
 /// mirrored — what a warp pipe's art needs.
 ///
-/// [`PropDraw::Structure`] is what makes the art fill the authored box exactly,
-/// so the pipe's lip lands on the surface a body actually stands on, and what
-/// puts it in front of the cast so it can swallow a body sliding into it. The
-/// mirror is what makes one pipe-head sheet serve both a pipe standing on the
-/// ground and one hanging from a ceiling.
+/// [`PropDraw::Enclosure`] makes the art fill the authored box exactly, so the
+/// pipe's lip lands on the surface a body actually stands on, AND puts it in
+/// front of the cast so it can swallow a body sliding through. The mirror is
+/// what makes one pipe-head sheet serve both a pipe standing on the ground and
+/// one hanging from a ceiling.
 pub fn pipe_prop(id: &str, kind: &str, min: ae::Vec2, size: ae::Vec2, flip_y: bool) -> PropSpec {
     PropSpec {
         flip_y,
+        draw: PropDraw::Enclosure,
+        ..prop_over(id, kind, min, size)
+    }
+}
+
+/// A prop that is BUILT WORLD but not something you get inside — a flagpole
+/// shaft, a girder.
+///
+/// [`PropDraw::Structure`] fills the authored box exactly (the flagpole shaft
+/// was drawn EIGHTEEN tiles wide because character sizing derives its width from
+/// the box's LONGEST side, and the shaft's box is nine tiles TALL), while
+/// staying behind the cast — a body climbing the pole has to be visible on it.
+pub fn structure_prop(id: &str, kind: &str, min: ae::Vec2, size: ae::Vec2) -> PropSpec {
+    PropSpec {
         draw: PropDraw::Structure,
         ..prop_over(id, kind, min, size)
     }

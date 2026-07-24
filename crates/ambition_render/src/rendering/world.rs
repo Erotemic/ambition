@@ -270,13 +270,14 @@ pub(crate) fn prop_sprite_geometry(
     spec: &ambition_sprite_sheet::character::CharacterSheetSpec,
     collision: BVec2,
 ) -> (BVec2, Anchor) {
-    match draw {
+    if draw.fills_box() {
         // Built world lines up with the geometry, to the pixel.
-        PropDraw::Structure => (collision, Anchor::CENTER),
-        PropDraw::Decoration => (
+        (collision, Anchor::CENTER)
+    } else {
+        (
             ambition_sprite_sheet::character::sprite_render_size(spec, collision),
             feet_anchor_for(spec, collision),
-        ),
+        )
     }
 }
 
@@ -316,9 +317,10 @@ pub fn spawn_room_prop(
     // Built world takes the FRONT so a body inside it is swallowed rather than
     // drawn on top of it; scenery sits behind the cast. The spec says which kind
     // of thing this is, the renderer picks the layer.
-    let z = match prop.draw {
-        PropDraw::Structure => WORLD_Z_PLAYER + 1.0,
-        PropDraw::Decoration => feature_z(kind),
+    let z = if prop.draw.occludes_bodies() {
+        WORLD_Z_PLAYER + 1.0
+    } else {
+        feature_z(kind)
     };
     let translation = world_to_bevy(world, prop.pos, z);
     let collision = BVec2::new(prop.size.x, prop.size.y);

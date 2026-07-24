@@ -61,12 +61,29 @@ pub enum PropDraw {
     /// authored box — and drawn BEHIND the cast. Every LDtk prop is this.
     #[default]
     Decoration,
-    /// Part of the built world: a warp pipe, a shaft, a fixture. The art fills
-    /// the authored box EXACTLY (that box is the collider a body stands on, so
-    /// art that overflows it puts the world's surface somewhere the body cannot
-    /// stand), and it draws in FRONT of the cast, so a body that goes inside it
-    /// is swallowed rather than pasted on top.
+    /// Part of the built world: a flagpole shaft, a girder, a fixture. The art
+    /// fills the authored box EXACTLY — that box is the collider a body stands
+    /// on or climbs, so art that overflows it puts the world's surface somewhere
+    /// the body cannot be — and it still draws BEHIND the cast, because a body
+    /// on it must stay visible.
     Structure,
+    /// Built world a body goes INSIDE: a warp pipe. Fills its box like
+    /// [`Self::Structure`], but draws in FRONT of the cast, so a body within it
+    /// is swallowed rather than pasted on top of it.
+    Enclosure,
+}
+
+impl PropDraw {
+    /// Whether the art must fill the authored box exactly, rather than being
+    /// sized like a character (which overflows its box on purpose).
+    pub fn fills_box(self) -> bool {
+        matches!(self, Self::Structure | Self::Enclosure)
+    }
+
+    /// Whether the prop draws in FRONT of the cast.
+    pub fn occludes_bodies(self) -> bool {
+        matches!(self, Self::Enclosure)
+    }
 }
 
 /// LDtk-authored held item resting on the ground, pick-up-able with `Attack`.

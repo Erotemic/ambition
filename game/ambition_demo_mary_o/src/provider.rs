@@ -199,6 +199,26 @@ impl Plugin for MaryOExperiencePlugin {
                                 release: 0.12,
                                 noise: 0.0,
                             },
+                            // The warp: a long DESCENDING sine slide, voiced once
+                            // when a pipe transit begins and running roughly as
+                            // long as the swallow does — so the sound is the trip,
+                            // not a click at the start of it. Falling pitch reads
+                            // as "going in / going down a tube" whichever way the
+                            // tube actually points, the same way the classic warp
+                            // cue does. Procedural like the rest; retune freely,
+                            // the emit site names the id, not the timbre.
+                            ambition::audio::spec::SfxSpec {
+                                cue: None,
+                                id: Some(crate::pipe::PIPE_WARP_SFX.to_string()),
+                                waveform: ambition::audio::spec::WaveformSpec::Sine,
+                                frequency: 880.0,
+                                frequency_end: 165.0,
+                                duration: 0.45,
+                                volume: 0.22,
+                                attack: 0.006,
+                                release: 0.18,
+                                noise: 0.04,
+                            },
                         ],
                     }),
                 )

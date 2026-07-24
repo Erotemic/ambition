@@ -272,7 +272,12 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     });
     step(&mut app, ControlFrame::default());
     step(&mut app, press_down());
-    settle(&mut app);
+    // A warp is a MOVE: the press starts the slide in and out, which takes about
+    // a second, so hold frames until she is through rather than reading the
+    // world on the very next tick.
+    for _ in 0..120 {
+        step(&mut app, ControlFrame::default());
+    }
 
     let vault = ambition_demo_mary_o::vault_bounds();
     let inside = player_pos(&mut app);
@@ -308,7 +313,9 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     });
     step(&mut app, ControlFrame::default());
     step(&mut app, press_up());
-    settle(&mut app);
+    for _ in 0..120 {
+        step(&mut app, ControlFrame::default());
+    }
     let surfaced = player_pos(&mut app);
     assert!(
         surfaced.y < vault.min.y,
@@ -333,17 +340,21 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     panic!("the flag sequence never settled into a level cycle within 10 seconds");
 }
 
-/// **A stomped crony really does leave a workable shell.**
+/// **A spawned snake is really RECOGNISED by the demo that owns its shell.**
 ///
-/// The shell shipped broken and every focused test was green, because the
-/// fixtures hand-built a `Name` while the production spawner writes
+/// The shell mechanic shipped broken once and every focused test was green,
+/// because the fixtures hand-built a `Name` while the production spawner writes
 /// `"Feature actor enemy: {name}"` onto `Name` and the bare name onto
-/// `FeatureName`. The tag never fired, so shells spawned inert. This drives the
-/// REAL spawn path — request in, engine spawns, demo tags — which is the only
-/// thing that would have caught it.
+/// `FeatureName`. The tag never fired, so the enemy spawned inert. This drives
+/// the REAL spawn path — request in, engine spawns, demo tags — which is the
+/// only thing that would have caught it.
+///
+/// (It used to spawn the `crony`'s separate shell PROP. That entity is gone: a
+/// stomp now changes the SAME body's state instead of swapping it for a prop,
+/// so the thing to prove is that the walker itself gets tagged.)
 #[test]
-fn a_stomped_crony_leaves_a_shell_the_demo_actually_recognises() {
-    use ambition_demo_mary_o::crony::{MaryOShell, SHELL_DISPLAY_NAME};
+fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
+    use ambition_demo_mary_o::snake::{SnakeShell, SNAKE_BRAIN_KEY, SNAKE_DISPLAY_NAME};
 
     let mut app = build_demo_app();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
@@ -351,30 +362,36 @@ fn a_stomped_crony_leaves_a_shell_the_demo_actually_recognises() {
     ));
     settle(&mut app);
 
-    // Ask the engine for a shell exactly as the stomp does.
+    let before = {
+        let mut query = app.world_mut().query::<&SnakeShell>();
+        query.iter(app.world()).count()
+    };
+
+    // Ask the engine for a snake exactly as the level's staging does.
     app.world_mut()
         .write_message(ambition::actors::features::SpawnActorRequest {
-            id: "scripted_shell".to_string(),
-            name: SHELL_DISPLAY_NAME.to_string(),
+            id: "scripted_snake".to_string(),
+            name: SNAKE_DISPLAY_NAME.to_string(),
             pos: Vec2::new(600.0, 300.0),
-            half_size: Vec2::new(14.0, 12.0),
+            half_size: Vec2::new(14.0, 16.0),
             faction: ambition::actors::combat::components::ActorFaction::Enemy,
             grudge_against: None,
             kind: ambition::actors::features::SpawnActorKind::Enemy {
                 brain: ambition::entity_catalog::placements::CharacterBrain::Custom(
-                    ambition_demo_mary_o::crony::SHELL_BRAIN_KEY.to_string(),
+                    SNAKE_BRAIN_KEY.to_string(),
                 ),
             },
         });
     settle(&mut app);
 
     let tagged = {
-        let mut query = app.world_mut().query::<&MaryOShell>();
+        let mut query = app.world_mut().query::<&SnakeShell>();
         query.iter(app.world()).count()
     };
     assert_eq!(
-        tagged, 1,
-        "the engine spawned the shell and the demo TAGGED it — an untagged \
-         shell is an inert prop, which is exactly how this shipped broken"
+        tagged,
+        before + 1,
+        "the engine spawned the snake and the demo TAGGED it — an untagged snake \
+         never shells, which is exactly how this shipped broken"
     );
 }

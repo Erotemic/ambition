@@ -35,6 +35,22 @@ pub struct PropSpec {
     /// nominal collision footprint when computing render size from
     /// the sheet's `collision_scale`.
     pub size: ae::Vec2,
+    /// Mirror the sprite vertically when it is drawn.
+    ///
+    /// Which way a prop POINTS is authored data, not a second asset: a warp
+    /// pipe hanging from a ceiling is the same pipe head as one standing on the
+    /// ground, upside down. Defaults to `false`, so existing authored data (and
+    /// every LDtk prop) is unchanged.
+    #[serde(default)]
+    pub flip_y: bool,
+    /// Draw this prop ABOVE actors instead of below them.
+    ///
+    /// The renderer owns the actual layer; this only says which side of the
+    /// actors the prop belongs on. A warp pipe wants it: a body sliding into a
+    /// pipe has to be SWALLOWED by it, not drawn on top of it. Defaults to
+    /// `false` — decoration sits behind the cast.
+    #[serde(default)]
+    pub draws_over_actors: bool,
 }
 
 /// LDtk-authored held item resting on the ground, pick-up-able with `Attack`.

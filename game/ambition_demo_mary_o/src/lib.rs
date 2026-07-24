@@ -20,6 +20,7 @@ pub mod ai_slop;
 pub mod bricks;
 pub mod flag;
 pub mod movement;
+pub mod pipe;
 pub mod powerups;
 pub mod provider;
 pub mod scenery;
@@ -499,6 +500,8 @@ pub fn level_1_1() -> RoomSpec {
             kind: scenery::FLAG_SPRITE.to_string(),
             pos: ae::Vec2::new(pole_x + T, pole_top + T),
             size: ae::Vec2::new(1.5 * T, 1.5 * T),
+            flip_y: false,
+            draws_over_actors: false,
         },
     ];
     // Every pipe half, drawn as a lip tile and a body tile over its 2×2 block. The
@@ -517,17 +520,21 @@ pub fn level_1_1() -> RoomSpec {
         } else {
             (min.y, min.y + T)
         };
-        scenery_props.push(scenery::prop_over(
+        // A mouth-down pipe is the SAME head sheet, mirrored — a pipe head drawn
+        // right way up under a ceiling reads as a pipe standing on nothing.
+        scenery_props.push(scenery::pipe_prop(
             &format!("{tag}_pipe_lip_art"),
             scenery::PIPE_TOP_SPRITE,
             ae::Vec2::new(min.x, lip_y),
             pipe_lip,
+            mouth_down,
         ));
-        scenery_props.push(scenery::prop_over(
+        scenery_props.push(scenery::pipe_prop(
             &format!("{tag}_pipe_body_art"),
             scenery::PIPE_BODY_SPRITE,
             ae::Vec2::new(min.x, body_y),
             pipe_lip,
+            false,
         ));
     }
     room.props.extend(scenery_props);
@@ -899,6 +906,14 @@ pub fn install_mary_o_content(app: &mut App) {
             .rollback_component_clone::<ai_slop::AiSlop>(
                 "ambition_demo_mary_o",
                 "content.mary_o_ai_slop",
+            )
+            // A transit in flight is authoritative sim state — it OWNS the body's
+            // position for half a second, so a rewind that dropped it would put a
+            // half-swallowed player back on the surface. It rides on the player
+            // BODY, which the engine already anchors.
+            .rollback_component_clone::<pipe::PipeTransit>(
+                "ambition_demo_mary_o",
+                "content.mary_o_pipe_transit",
             );
     }
 }
@@ -1103,7 +1118,12 @@ impl Plugin for MaryORulesPlugin {
             // Reads the clock the tick above just settled, so a timeout is spent
             // on the frame it happens rather than one late.
             spend_lives_on_death,
+            // The press starts a transit; the transit drives the slide. Chained
+            // so the press is read before the slide advances (the insert itself
+            // flushes with the schedule, so a fresh transit picks up on the next
+            // tick at the latest — one frame, invisible).
             warp_through_secret_pipe,
+            pipe::run_pipe_transits,
             cycle_level_on_flag_tally,
         )
             .chain();
@@ -1331,38 +1351,42 @@ fn spend_lives_on_death(
 /// incidental. It also removes the ping-pong for free — the two ends need
 /// OPPOSITE directions, so a held press that warped you down can never fire the
 /// up-return at the far end.
+/// The press does not relocate the body — it STARTS a [`pipe::PipeTransit`], the
+/// scripted half-second slide in and out that `pipe::run_pipe_transits` drives.
+/// A body already in a tube is excluded from this query, so the trip cannot be
+/// re-triggered from inside itself.
 fn warp_through_secret_pipe(
     // Rising-edge latch on the directional trigger, so a HELD press warps exactly
     // once rather than re-firing every frame it stays down.
     mut was_pressed: bevy::prelude::Local<bool>,
-    mut bodies: bevy::prelude::Query<
+    mut commands: bevy::prelude::Commands,
+    mut sfx: ambition::sfx::SfxWriter,
+    bodies: bevy::prelude::Query<
         (
-            ae::BodyClusterQueryData,
-            &mut ambition::actors::features::MotionModel,
+            bevy::prelude::Entity,
+            &ae::BodyKinematics,
             &ambition::characters::brain::ActorControl,
         ),
-        ambition::platformer::markers::PrimaryPlayerOnly,
+        (
+            ambition::platformer::markers::PrimaryPlayerOnly,
+            bevy::prelude::Without<pipe::PipeTransit>,
+        ),
     >,
 ) {
     // Body-local locomotion, `+y` toward the feet (screen-down under Mary-O's
     // normal gravity): press toward the ground to go DOWN a pipe, away to go UP.
     const DIR_DEADZONE: f32 = 0.5;
     let mut any_trigger = false;
-    for (clusters, mut model, control) in &mut bodies {
+    for (entity, kin, control) in &bodies {
         let down = control.0.locomotion.y > DIR_DEADZONE;
         let up = control.0.locomotion.y < -DIR_DEADZONE;
-        let mut item = clusters;
-        let mut clusters = item.as_clusters_mut();
-        let body = ae::Aabb::new(clusters.kinematics.pos, clusters.kinematics.size * 0.5);
+        let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
 
         // Each mouth answers only its own direction: DOWN at the entry pipe, UP
         // at the return pipe.
-        let destination = warp_destination(
-            down,
-            up,
-            overlaps(body, pipe_mouth()),
-            overlaps(body, vault_exit()),
-        );
+        let at_entry = overlaps(body, pipe_mouth());
+        let at_return = overlaps(body, vault_exit());
+        let destination = warp_destination(down, up, at_entry, at_return);
         any_trigger |= destination.is_some();
         let Some(destination) = destination else {
             continue;
@@ -1371,12 +1395,20 @@ fn warp_through_secret_pipe(
             continue;
         }
 
-        ambition::engine_core::movement::transit_body(
-            &mut model,
-            &mut clusters,
-            destination,
-            ambition::engine_core::movement::TransitVelocity::Zero,
-        );
+        // The way INTO the near pipe: down the entry mouth, up the return pipe.
+        // Both tubes are vertical, so the axis is the press direction itself.
+        let axis = if at_entry {
+            ae::DEFAULT_GRAVITY_DIR
+        } else {
+            -ae::DEFAULT_GRAVITY_DIR
+        };
+        commands
+            .entity(entity)
+            .try_insert(pipe::PipeTransit::begin(kin.pos, destination, axis, T));
+        sfx.write(ambition::sfx::SfxMessage::Play {
+            id: ambition::sfx::SfxId::new(pipe::PIPE_WARP_SFX),
+            pos: kin.pos,
+        });
     }
     *was_pressed = any_trigger;
 }

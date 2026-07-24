@@ -268,7 +268,14 @@ pub fn spawn_room_prop(
     // no decorative-prop arm). Only the z is read here; the sprite comes from the
     // prop asset. SMELL: a dedicated neutral placeholder kind would be cleaner.
     let kind = FeatureVisualKind::Actor;
-    let z = feature_z(kind);
+    // `draws_over_actors` chooses the SIDE of the cast this prop belongs on; the
+    // exact layer is the renderer's business. A warp pipe takes the front so a
+    // body sliding into it is swallowed rather than drawn on top of it.
+    let z = if prop.draws_over_actors {
+        WORLD_Z_PLAYER + 1.0
+    } else {
+        feature_z(kind)
+    };
     let translation = world_to_bevy(world, prop.pos, z);
     let collision = BVec2::new(prop.size.x, prop.size.y);
 
@@ -288,7 +295,9 @@ pub fn spawn_room_prop(
     );
 
     if let Some(asset) = assets.and_then(|a| a.characters.prop_asset_for_kind(&prop.kind)) {
-        let sprite = build_character_sprite(asset, collision);
+        let mut sprite = build_character_sprite(asset, collision);
+        // Which way the prop POINTS is authored data, not a second sheet.
+        sprite.flip_y = prop.flip_y;
         entity.insert((
             sprite,
             feet_anchor_for(&asset.spec, collision),

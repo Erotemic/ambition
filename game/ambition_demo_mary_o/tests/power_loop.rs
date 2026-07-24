@@ -928,3 +928,127 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
         "and it stops sliding instead of drifting off invisibly"
     );
 }
+
+/// **A warp is a MOVE, not a teleport.**
+///
+/// Pressing DOWN on the pipe mouth used to relocate the body in a single frame:
+/// you were on the surface, then you were in the vault, with nothing in between.
+/// That reads as a teleport rather than as a pipe. This drives the REAL systems
+/// on a REAL body and asserts the trip: the press starts a transit instead of
+/// finishing one, the body is still near the mouth a frame later (sinking, not
+/// gone), and it arrives — exactly on the authored arrival — only after the
+/// authored slide has run. Nothing here sets a position by hand.
+#[test]
+fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
+    use ambition::characters::actor::BodyCombat;
+    use ambition::characters::brain::ActorControl;
+    use ambition::engine_core::AabbExt;
+    use ambition_demo_mary_o::pipe::{PipeTransit, EMERGE_S, SWALLOW_S};
+    use ambition_demo_mary_o::{pipe_mouth, vault_arrival};
+
+    let mut app = App::new();
+    app.insert_resource(ambition::time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_plugins(ambition_demo_mary_o::MaryORulesPlugin::global());
+
+    // A full body standing ON the entry pipe's mouth.
+    let mouth = pipe_mouth();
+    let body = app
+        .world_mut()
+        .spawn((
+            PrimaryPlayer,
+            ambition::platformer::markers::PlayerEntity,
+            ae::BodyKinematics {
+                pos: mouth.center(),
+                vel: ae::Vec2::ZERO,
+                size: ae::movement::default_player_body_size(),
+                facing: 1.0,
+            },
+            ambition::actors::actor::AncillaryMovementBundle::from_scratch(
+                ae::BodyClusterScratch::new_with_abilities(
+                    mouth.center(),
+                    ae::AbilitySet::sandbox_all(),
+                ),
+            ),
+            ambition::actors::features::MotionModel::default(),
+            BodyCombat::default(),
+            ActorControl::default(),
+        ))
+        .id();
+    app.insert_resource(ambition::platformer::markers::ControlledSubject(Some(body)));
+    // Deliberately NOT adding `run_pipe_transits` by hand: the plugin must wire
+    // the slide itself, or a warp starts and never finishes in the real game.
+    app.update();
+
+    let pos_of = |app: &App| app.world().get::<ae::BodyKinematics>(body).unwrap().pos;
+    let started = pos_of(&app);
+
+    // Press DOWN — the pipe's own verb.
+    app.world_mut()
+        .get_mut::<ActorControl>(body)
+        .unwrap()
+        .0
+        .locomotion
+        .y = 1.0;
+    app.update();
+
+    assert!(
+        app.world().get::<PipeTransit>(body).is_some(),
+        "the press must START a transit, not finish one"
+    );
+    // And the trip is AUDIBLE: the warp cue goes out once, through the shared sfx
+    // seam, on the demo's own authored id.
+    let warps = app
+        .world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<ambition::sfx::OwnedSfxMessage>>()
+        .drain()
+        .filter(|m| {
+            matches!(
+                m.request,
+                ambition::sfx::SfxMessage::Play { id, .. }
+                    if id == ambition::sfx::SfxId::new(ambition_demo_mary_o::pipe::PIPE_WARP_SFX)
+            )
+        })
+        .count();
+    assert_eq!(warps, 1, "entering a pipe voices the warp cue exactly once");
+    let after_one_frame = pos_of(&app);
+    assert!(
+        after_one_frame.distance(vault_arrival())
+            > 4.0 * ae::movement::default_player_body_size().y,
+        "one frame in she is still in the pipe, NOT already in the vault (the \
+         teleport this replaces): {after_one_frame:?} vs {:?}",
+        vault_arrival()
+    );
+    assert!(
+        after_one_frame.y > started.y,
+        "and she has begun to SINK into it ({} -> {})",
+        started.y,
+        after_one_frame.y
+    );
+
+    // Let the whole authored slide run.
+    let ticks = ((SWALLOW_S + EMERGE_S) / (1.0 / 60.0)).ceil() as usize + 4;
+    for _ in 0..ticks {
+        app.update();
+    }
+    assert!(
+        app.world().get::<PipeTransit>(body).is_none(),
+        "the transit ends and gives the body back"
+    );
+    assert_eq!(
+        pos_of(&app),
+        vault_arrival(),
+        "and she lands exactly on the authored arrival"
+    );
+    assert_eq!(
+        app.world()
+            .get::<BodyCombat>(body)
+            .unwrap()
+            .recoil_lock_timer,
+        0.0,
+        "with her controls returned — the transit's input lock is released"
+    );
+}

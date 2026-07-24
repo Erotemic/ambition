@@ -58,6 +58,20 @@ pub fn prop_over(id: &str, kind: &str, min: ae::Vec2, size: ae::Vec2) -> PropSpe
         kind: kind.to_string(),
         pos: ae::Vec2::new(min.x + size.x * 0.5, min.y + size.y * 0.5),
         size,
+        flip_y: false,
+        draws_over_actors: false,
+    }
+}
+
+/// A prop that MIRRORS vertically and draws in FRONT of the cast — what a warp
+/// pipe's art needs. The mirror is what makes one pipe-head sheet serve both a
+/// pipe standing on the ground and one hanging from a ceiling; drawing in front
+/// is what lets a pipe swallow a body sliding into it.
+pub fn pipe_prop(id: &str, kind: &str, min: ae::Vec2, size: ae::Vec2, flip_y: bool) -> PropSpec {
+    PropSpec {
+        flip_y,
+        draws_over_actors: true,
+        ..prop_over(id, kind, min, size)
     }
 }
 

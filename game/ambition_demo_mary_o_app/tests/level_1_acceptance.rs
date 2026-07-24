@@ -39,13 +39,12 @@
 //!   came back with a small collider while still wearing the cap and still
 //!   presenting the tall sprite. Fixed in `ambition_engine_core`.
 //!
-//! - **Pit B is not a pit.** It opens directly into the secret vault (the
-//!   vault spans x 800..1248; pit B is the gap 1088..1184 in the slab that is
-//!   supposed to be the vault's ceiling). Falling in is a soft landing in the
-//!   secret rather than a death, and jumping under it launches you out.
-//!   Reported, not fixed — where the vault sits is an authoring call. It is
-//!   why the vault walk below must NOT jump, and why a crony reaches the vault
-//!   at all (which this run then uses to exercise the cap's armor).
+//! - **Pit B was not a pit.** It used to open directly into the secret vault:
+//!   the vault's ceiling IS the ground slab, and the vault reached under pit B's
+//!   gap in it, so falling in was a soft landing in the secret rather than a
+//!   death and jumping under it launched you out. FIXED (`2ac119eed`) by
+//!   lengthening the level so the whole vault sits under unbroken ground, and
+//!   guarded since by `the_vault_ceiling_is_unbroken_no_pit_opens_a_hole`.
 
 #![cfg(not(feature = "input"))]
 
@@ -183,9 +182,15 @@ fn flag_phase(app: &mut App) -> Option<FlagPhaseKind> {
     })
 }
 
-fn with_interact(mut f: ControlFrame) -> ControlFrame {
-    f.interact_pressed = true;
-    f
+/// Press INTO a pipe. A warp is DIRECTIONAL (Jon bug #8) and its two ends need
+/// opposite presses: `+y` is screen-down, so DOWN takes the surface pipe and UP
+/// takes the ceiling pipe at the vault's far end. Interact does nothing at
+/// either — which is the whole point of the directional verb.
+fn press_into_pipe(down: bool) -> ControlFrame {
+    ControlFrame {
+        axis_y: if down { 1.0 } else { -1.0 },
+        ..ControlFrame::default()
+    }
 }
 
 /// Her banked coin balance, read from the same `PlayerHudFacts` the HUD's COINS
@@ -464,40 +469,40 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     let vault = ambition_demo_mary_o::vault_bounds();
     let hp_entering_vault = health(&mut app).expect("she has a health pool");
     let tall_entering_vault = body(&mut app).expect("she is in the world").is_tall();
-    let dropped_in = drive(&mut app, 180, |b| {
-        if b.pos.y > vault.min.y {
+    // DOWN on the mouth starts the transit — a half-second slide in and out, not
+    // a teleport — so this drives until she is actually through it.
+    let dropped_in = drive(&mut app, 240, |b| {
+        if b.pos.y > vault.min.y + 3.0 * 32.0 {
             return None;
         }
-        Some(with_interact(idle()))
+        Some(press_into_pipe(true))
     });
     assert!(
         dropped_in,
-        "Interact on the pipe mouth drops her into the vault; she is at {:?}",
+        "pressing DOWN on the pipe mouth slides her into the vault; she is at {:?}",
         body(&mut app)
     );
     eprintln!("IN VAULT {:?}", body(&mut app));
 
     // ── 3. Bank the vault and surface through the return pipe ─────────────
     //
-    // The walk stays on the vault floor: she must NOT jump while under pit B,
-    // because pit B is a hole in the vault's ceiling (see the module note) and
-    // jumping there launches her out of the secret instead of through it.
+    // A plain walk along the vault floor collects the coin row on the way. The
+    // vault is sealed now (see the module note), so there is nothing to avoid.
     let coins_before = wallet(&mut app);
+    // The return pipe HANGS FROM THE CEILING now — a tube up through the ground
+    // slab, not a stump on the floor. So she does not climb it: she walks the
+    // vault floor until she is UNDER it, which is where the exit mouth is.
     let return_pipe = block("vault_return_pipe");
     let at_exit = drive(&mut app, 900, |b| {
-        let inside = b.pos.y > vault.min.y;
-        if inside && b.on_ground && b.feet() <= return_pipe.min.y + 2.0 {
+        let under_pipe = b.pos.x > return_pipe.min.x + 4.0 && b.pos.x < return_pipe.max.x - 4.0;
+        if under_pipe && b.on_ground {
             return None;
         }
-        if b.right() < return_pipe.min.x - 8.0 {
-            Some(move_x(1.0, false))
-        } else {
-            Some(mount(b, return_pipe.center().x, return_pipe.min.y))
-        }
+        Some(move_x(1.0, false))
     });
     assert!(
         at_exit,
-        "she must walk the vault floor and climb its return pipe; she is at {:?}",
+        "she must walk the vault floor to stand under its return pipe; she is at {:?}",
         body(&mut app)
     );
     let coins_after = wallet(&mut app);
@@ -511,15 +516,15 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
         body(&mut app)
     );
 
-    let surfaced = drive(&mut app, 180, |b| {
+    let surfaced = drive(&mut app, 240, |b| {
         if b.pos.y < vault.min.y {
             return None;
         }
-        Some(with_interact(idle()))
+        Some(press_into_pipe(false))
     });
     assert!(
         surfaced,
-        "Interact at the vault exit surfaces her; she is at {:?}",
+        "pressing UP under the return pipe surfaces her; she is at {:?}",
         body(&mut app)
     );
     eprintln!("SURFACED {:?}", body(&mut app));
@@ -528,8 +533,9 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     //
     // `grow_cap` grants no verb; its whole effect is `OnHit::ConsumeAsArmor`.
     // So the way to exercise it is to take a hit and survive one that would
-    // otherwise have cost a life. A crony gets into the vault (see the module
-    // note on pit B), and she comes out the other side smaller but unhurt.
+    // otherwise have cost a life. CONDITIONAL: it fires only if something
+    // actually hit her on this run, which is why the assertions sit behind the
+    // tall→small check rather than being asserted outright.
     let small_now = !body(&mut app).expect("she is in the world").is_tall();
     if tall_entering_vault && small_now {
         assert!(

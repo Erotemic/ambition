@@ -35,7 +35,7 @@ mod room_transition_presentation;
 pub(crate) use room_flow::commit_ready_room_transition_system;
 pub(crate) use room_transition_assets::{
     build_loaded_room_asset_manifest, ensure_room_character_sprites, inspect_room_asset_manifest,
-    RoomAssetManifest,
+    materialize_primary_player_character_sheet, RoomAssetManifest,
 };
 pub(crate) use room_transition_loading::{
     advance_room_transition_content_epoch_system, authorize_ready_room_transition_system,

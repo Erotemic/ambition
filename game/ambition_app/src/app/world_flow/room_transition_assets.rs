@@ -14,7 +14,8 @@ use std::time::Duration;
 use bevy::asset::{LoadState, UntypedAssetId};
 use bevy::image::TextureAtlasLayout;
 use bevy::prelude::{
-    AssetServer, Assets, DetectChanges, Handle, Image, Res, ResMut, Resource, Time,
+    AssetServer, Assets, Changed, DetectChanges, Handle, Image, Query, Res, ResMut, Resource, Time,
+    With,
 };
 use bevy::time::Real;
 
@@ -211,6 +212,75 @@ pub(crate) fn ensure_room_character_sprites(
             layouts,
             Some(&quality.budget),
             name,
+        );
+    }
+}
+
+/// Materialize the PRIMARY PLAYER's currently-worn character sheet.
+///
+/// [`ensure_room_character_sprites`] materializes the deferred sheets a room
+/// STAGES — its enemies, NPCs, and placement actors — but the player avatar is
+/// *carried* across rooms, not staged as room content, so its worn id appears in
+/// neither list. Ambition's own protagonist (`player`) is a typed EAGER id that
+/// decodes at startup regardless, which hid this for the built-in game; a content
+/// game whose starting character is an ordinary (deferred) catalog id — Mary-O,
+/// Sanic — had its hero fall through to the colored-rectangle fallback forever,
+/// a regression from deferring the startup sheet decode.
+///
+/// Keying on [`Changed`] materializes the worn sheet the instant the identity
+/// first appears AND on every later swap, so it also covers a RUNTIME form change
+/// into another deferred sheet (Mary-O growing into `mary_o_tall` / `mary_o_fire`).
+/// The render binder's existing re-attempt then upgrades the fallback rectangle
+/// to the real sheet once it decodes. Absent asset resources (headless / art-free
+/// shell) no-op, exactly like the room barrier.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn materialize_primary_player_character_sheet(
+    players: Query<
+        &ambition::characters::actor::WornCharacter,
+        (
+            With<ambition::actors::actor::PrimaryPlayer>,
+            Changed<ambition::characters::actor::WornCharacter>,
+        ),
+    >,
+    assets: Option<ResMut<GameAssets>>,
+    catalog: Option<Res<SandboxAssetCatalog>>,
+    character_catalog: Option<
+        Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
+    >,
+    asset_server: Option<Res<AssetServer>>,
+    layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
+    quality: Option<Res<ResolvedVisualQuality>>,
+) {
+    if players.is_empty() {
+        return;
+    }
+    let (
+        Some(mut assets),
+        Some(catalog),
+        Some(character_catalog),
+        Some(asset_server),
+        Some(mut layouts),
+        Some(quality),
+    ) = (
+        assets,
+        catalog,
+        character_catalog,
+        asset_server,
+        layouts,
+        quality,
+    )
+    else {
+        return;
+    };
+    for worn in &players {
+        ambition::actors::character_sprites::materialize_deferred_character_sprite(
+            &mut assets.characters,
+            &character_catalog,
+            &catalog,
+            &asset_server,
+            &mut layouts,
+            Some(&quality.budget),
+            worn.id(),
         );
     }
 }

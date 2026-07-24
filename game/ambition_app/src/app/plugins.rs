@@ -42,7 +42,8 @@ use super::sim_systems::apply_player_reset_input_system;
 use super::world_flow::{
     advance_room_transition_content_epoch_system, authorize_ready_room_transition_system,
     begin_room_transition_load_system, commit_ready_room_transition_system,
-    finalize_unpresented_room_transition_failure_system, RoomTransitionContentEpoch,
+    finalize_unpresented_room_transition_failure_system,
+    materialize_primary_player_character_sheet, RoomTransitionContentEpoch,
     RoomTransitionLoadState,
 };
 
@@ -246,6 +247,13 @@ fn register_app_local_sim_systems(app: &mut App) {
             .after(ambition::actors::rooms::detect_room_transition_system)
             .before(ambition::actors::features::reset_ecs_room_features),
     );
+
+    // The player avatar is carried across rooms, not staged as room content, so
+    // the room asset barrier never materializes its (deferred) worn sheet. Keep
+    // the primary player's current form decoded — its starting id AND any runtime
+    // power-form swap — so a content game's hero draws its real sprite instead of
+    // the colored-rectangle fallback. Resource-guarded: a no-op in headless.
+    app.add_systems(Update, materialize_primary_player_character_sheet);
 }
 
 /// Register Bevy's `LdtkPlugin` plus the supporting Ambition glue

@@ -1,0 +1,17 @@
+# Add an AI Slop walker to the sandbox enemy room (basement_enemies).
+#
+# AI Slop is the plain stomp-and-die walker. Its BEHAVIOR is the `ai_slop`
+# Wanderer archetype (game/ambition_content/assets/data/character_archetypes.ron);
+# its IDENTITY/sprite is the Hall of Characters' frozen `npc_ai_slop` (display
+# "Ai Slop") — an EnemySpawn named "Ai Slop" resolves that character's sheet via
+# `id_for_display_name`, so the frozen Hall pedestal and this live walker are one
+# character in two modes. Placed in the gap between the small skitter (x=690) and
+# the guard striker (x=980), on the same ground line as the rest of the room.
+level_id: basement_enemies
+entities:
+  - type: EnemySpawn
+    px: [830, 660]
+    size: [30, 34]
+    fields:
+      name: "Ai Slop"
+      brain: ai_slop

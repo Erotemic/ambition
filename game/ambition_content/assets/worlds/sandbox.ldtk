@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 6844,
+	"nextUid": 6845,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -16969,6 +16969,31 @@
 							],
 							"__worldX": 5504,
 							"__worldY": 3104
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [51,41],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 4926,
+							"__worldY": 2964,
+							"iid": "EnemySpawn-6844",
+							"width": 30,
+							"height": 34,
+							"defUid": 2008,
+							"px": [830,660],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Ai Slop", "__tile": null, "defUid": 3018, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Ai Slop"]
+								}] },
+								{ "__identifier": "brain", "__type": "String", "__value": "ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ai_slop"]
+								}] }
+							]
 						}
 					]
 				},

@@ -793,4 +793,23 @@
         brain_template: Wanderer,
         move_style: Slither,
     ),
+    // AI Slop: the plain stomp-and-die walker (similar to a Goomba). A 1-HP
+    // Wanderer that paces the flats and reverses at walls; no melee, so its only
+    // offense is the default-on body contact. This is the SAME character the Hall
+    // of Characters shows frozen (`npc_ai_slop`, display "Ai Slop") — an EnemySpawn
+    // named "Ai Slop" resolves that character's sheet, so the frozen Hall pedestal
+    // and this live sandbox walker are one identity in two modes. Mirrors Mary-O's
+    // `mary_o_ai_slop` walker, promoted here so Ambition can spawn it too.
+    "ai_slop": (
+        respawn: OnRoomReenter,
+        max_health: 1,
+        patrol_speed: 42.0,
+        chase_speed: 42.0,
+        aggro_radius: 0.0,
+        attack_range: 0.0,
+        contact_strength: 0.5,
+        damage_amount: 1,
+        brain_template: Wanderer,
+        move_style: Walk,
+    ),
 }

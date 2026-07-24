@@ -53,28 +53,62 @@ animations at real frame counts. `tests/test_pirate_rig.py` pins structure, the
 socket-rides-tilt + legs-swing-in-world conventions (poison-tested), and a
 golden walk pose.
 
-### 2. Animations as clips on the skeleton — NEXT
+### 2. Minimal SVG paper-doll assembled by the rig — DONE (`e4c615b`)
 
-Translate each `animation_pose` branch (idle/walk/slash/taunt/hurt/death) into
-declarative clip channels over the pirate skeleton (const/expr/keys, the
-`rigdoc` channel vocabulary — e.g. idle `body_tilt` → `{"expr":"3*sin(tau*t)"}`).
-Verify each clip reproduces `animation_pose` sample-for-sample (a numeric parity
-test, env-independent), so the motion is now data on bones, editable without
-touching paint code. Keep the pirate's own convention; do **not** route through
-`humanoid_svg_rig`.
+`_pirate_common.build_scene(kind)` already captures the pirate as a **minimal**
+`ComponentScene`: 21–22 deduped rigid paper-doll parts (`torso`, `coat_tail_*`,
+`boot`, `sword`, `hat`, `face` + blink/mouth/x-eye variants, `chest_skull`)
+placed per frame by the explicit skeleton's joints (via the `draw.part` scopes),
+plus the posed limb/neck strokes. No dangling refs.
 
-### 3. Minimal SVG paper-doll + assembled animation
+**Reproduction verified near-perfect.** Rasterizing each `frame_doc` (resvg) and
+comparing to the authoritative PIL raster in supersampled paint space with the
+alpha-aware symmetric metric (`equivalence_harness._frame_defects`): **median
+occupancy ~0.047 across all 5 roles × all 38 frames**, visually indistinguishable
+(see `tmp/pirate-rig/proof_raider_pil_vs_svg.png`). The solid-geometry floor is a
+uniform ~0.045–0.05 — pure resvg-vs-Pillow stroke-edge AA (sub-2px fringe), not
+lost geometry. The only frames above the floor are the six **slash** frames
+(~0.075–0.09), and *entirely* because of the translucent swoosh arc: suppressing
+just that effect drops slash occupancy back to the ~0.045 floor. That divergence
+is the accepted translucent-compositing class (same as mockingbird's glow), not a
+reproduction defect. `tests/test_pirate_svg_fidelity.py` guards the envelope and
+pins that only slash exceeds the solid floor (so a real dropped part — which
+lands occupancy in the 0.2+ range — fails hard).
 
-Capture the pirate's rigid parts (the `draw.part` scopes) as a **minimal**,
-deduped SVG parts library (the auto-capture discovery from the companion doc),
-bind each part to its bone, and assemble frames by posing the parts with the
-skeleton + clips. Verify against the current sprite with the **alpha-aware,
-symmetric fidelity metric** (`equivalence_harness._frame_verified`): every frame
-must reproduce today's look. The articulated limbs (legs/arms drawn as lines)
-either become thin bone-bound parts or stay procedural on the same bones —
-decide by what keeps fidelity.
+The articulated limbs stay procedural strokes posed on the same skeleton joints
+(making them rigid `<use>` parts would change the stroke look — out of scope
+under "reproduce today's sprites exactly").
 
-### 4. Roll to the pirate family, then the next character
+### 3. The rig is the assembly driver
+
+`build_scene → paint_character → _pirate_rig.evaluate` — every part placement and
+limb comes from the skeleton, and the pose channels come from `animation_pose`
+(the pirate's parametric clip layer, kept in its own convention, **not** routed
+through `humanoid_svg_rig`). Scene SVGs stay regenerable/gitignored per the
+campaign rule.
+
+### 4. Adversarial pass + honest fidelity — DONE (`56d6994`)
+
+An independent adversarial review (which re-proved byte-identity across all 5
+kinds) drove a fix pass. Outcomes worth carrying forward:
+
+- **Honest claim:** the six **slash** frames do NOT pass the strict
+  `_frame_verified` (0.07) gate — entirely the translucent swoosh effect (nulling
+  the arc drops slash to the ~0.045 solid floor). That is the accepted
+  translucent-compositing divergence class, not lost geometry. Every other frame
+  and all solid geometry reproduce at the floor. The docs/tests state this
+  plainly rather than implying full raster-equivalence.
+- **Drop guard is structural**, not threshold-based: every core part must be
+  registered AND placed (its `<use>` referenced by a posed frame). Occupancy is
+  the *mislocation* guard; the structural check is the *drop* guard (occupancy
+  margins were razor-thin for small parts like a single boot).
+- **⚠ Gotcha — the death-branch alpha-0 stroke is an ERASER**, not dead code:
+  `blending_draw` carves on zero alpha, clearing a 1px seam below the feet on the
+  death settle. It looks like a no-op; removing it shifts the parity hash. Kept
+  and commented.
+- Golden test pins all 15 bones + root; removed genuinely-unused imports/param.
+
+### 5. Roll to the pirate family, then the next character
 
 The 5 pirate roles share `_pirate_common` (palette + cohort tags), so the rig +
 clips cover the whole family by construction — this is the only "variation" in

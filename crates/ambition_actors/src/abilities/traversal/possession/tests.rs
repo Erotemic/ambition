@@ -167,6 +167,70 @@ fn possession_transfers_the_player_brain_and_release_restores_it() {
     assert_eq!(home_pos, vec2(80.0, 0.0));
 }
 
+/// **Possession promotes the actor out of room scope (Jon / GPT review #1).**
+///
+/// A room-scoped actor despawns on every room load. Once you take it over it is
+/// the body you drive — it must survive transitions and be walkable to any room,
+/// like the home avatar — so possession swaps it to session scope. Release reverts
+/// it to room scope (a normal NPC in whatever room it now stands in). This is what
+/// removes the "possessed body vanishes during a rollback-confirmed transition's
+/// delay → the home player gets teleported instead" hazard at its source.
+#[test]
+fn possession_promotes_the_actor_out_of_room_scope_and_release_reverts_it() {
+    use ambition_platformer_primitives::lifecycle::{
+        ActiveSessionScope, RoomScopedEntity, SessionScopedEntity,
+    };
+
+    let mut app = trigger_app();
+    let mut scope = ActiveSessionScope::default();
+    scope.begin();
+    let scope_id = scope.current().expect("an active session has a scope id");
+    app.insert_resource(scope);
+
+    let home = spawn_home(&mut app);
+    let actor = spawn_candidate(&mut app, vec2(80.0, 0.0));
+    // The candidate starts room-scoped, like every authored room actor.
+    app.world_mut().entity_mut(actor).insert(RoomScopedEntity);
+    let _ = home;
+
+    let is_room_scoped = |app: &App, e: Entity| app.world().get::<RoomScopedEntity>(e).is_some();
+    let session_scope =
+        |app: &App, e: Entity| app.world().get::<SessionScopedEntity>(e).map(|s| s.0);
+    assert!(is_room_scoped(&app, actor), "candidate begins room-scoped");
+    assert_eq!(session_scope(&app, actor), None);
+
+    // Possess.
+    hold_down_interact(&mut app, true);
+    app.update();
+    app.update();
+
+    assert!(
+        !is_room_scoped(&app, actor),
+        "the possessed body leaves room scope so a room load can't despawn it"
+    );
+    assert_eq!(
+        session_scope(&app, actor),
+        Some(scope_id),
+        "it joins the active session's scope, exactly like the home avatar"
+    );
+
+    // Release.
+    hold_down_interact(&mut app, false);
+    app.update();
+    hold_down_interact(&mut app, true);
+    app.update();
+
+    assert!(
+        is_room_scoped(&app, actor),
+        "release returns the actor to room scope — a normal NPC where it now stands"
+    );
+    assert_eq!(
+        session_scope(&app, actor),
+        None,
+        "the session-scope promotion is undone on release"
+    );
+}
+
 #[test]
 fn exactly_one_body_carries_the_player_brain_before_and_after() {
     let mut app = trigger_app();

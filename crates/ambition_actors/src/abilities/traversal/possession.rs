@@ -170,6 +170,11 @@ pub fn possession_trigger_system(
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     world_time: Res<ambition_time::WorldTime>,
+    // The active session's lifetime scope. Possessing an actor PROMOTES it out of
+    // room scope into this scope (see the possess handover below), so the body you
+    // took over survives room transitions and can be walked anywhere — it is your
+    // character now, not a fixture of the room you found it in (Jon).
+    active_session: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
     mut state: ResMut<PossessionState>,
     mut commands: Commands,
     // Home avatar kinematics: its position seeds the candidate search, and on
@@ -284,8 +289,8 @@ pub fn possession_trigger_system(
         .entity(home_entity)
         .remove::<Brain>()
         .insert(ActorControl::default());
-    commands
-        .entity(target)
+    let mut target_cmds = commands.entity(target);
+    target_cmds
         .insert(Brain::Player(PlayerSlot::PRIMARY))
         .insert(ActorControl::default())
         // Record the possession by stable id so a snapshot restores the control
@@ -293,6 +298,23 @@ pub fn possession_trigger_system(
         .insert(TemporaryControl::Player {
             controller: SimId::player_slot(0),
         });
+    // PROMOTE the possessed body out of room scope. A room-scoped actor despawns
+    // on every room load; the home avatar you drive is session-scoped precisely so
+    // it survives transitions and can navigate anywhere. Possession makes the
+    // target the body you drive, so it takes the same lifetime — otherwise it
+    // would vanish the instant you carried it through an exit (or die during a
+    // rollback-confirmed transition's delay, which is exactly the substitution
+    // hazard GPT review #1 named). `release_possession` reverts it. The scope
+    // markers are rollback-snapshot state, so this rewinds with the possession
+    // decision. Absent an active session (a minimal test) it stays as it is.
+    if let Some(scope_id) = active_session
+        .as_deref()
+        .and_then(ambition_platformer_primitives::lifecycle::ActiveSessionScope::current)
+    {
+        target_cmds
+            .remove::<ambition_platformer_primitives::lifecycle::RoomScopedEntity>()
+            .insert(ambition_platformer_primitives::lifecycle::SessionScopedEntity(scope_id));
+    }
 }
 
 /// Restore the home avatar's player brain and the target's authored brain +
@@ -325,7 +347,17 @@ fn release_possession(
         if let Ok(mut ec) = commands.get_entity(target) {
             ec.insert(brain)
                 .insert(ActorControl::default())
-                .insert(TemporaryControl::Autonomous);
+                .insert(TemporaryControl::Autonomous)
+                // Revert the possess-time promotion: the released actor is no
+                // longer the body you drive, so it returns to room scope — a
+                // normal NPC belonging to whatever room it now stands in (it may
+                // have walked to a new one while possessed), despawning with that
+                // room like any other. Mirrors the promotion in
+                // `possession_trigger_system`; a body the promotion never touched
+                // (no active session) is unaffected because the marker swap is
+                // idempotent.
+                .remove::<ambition_platformer_primitives::lifecycle::SessionScopedEntity>()
+                .insert(ambition_platformer_primitives::lifecycle::RoomScopedEntity);
         }
     }
 

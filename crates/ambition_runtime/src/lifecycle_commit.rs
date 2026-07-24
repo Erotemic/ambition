@@ -79,13 +79,25 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     };
 
     // Now the fallible work is done. Reconstruct the room (also atomic: it
-    // prepares + preflights before its own infallible `apply_to_world`). A failed
-    // reconstruction must not advertise a discontinuity that never occurred nor
-    // silently lose the request — leave the intent pending to retry, and DROP the
-    // already-built session (installing it without the op would rebase over a
-    // room that never changed).
-    if !execute_lifecycle_commit(world, &kind) {
-        return;
+    // prepares + preflights before its own infallible `apply_to_world`).
+    match execute_lifecycle_commit(world, &kind) {
+        // A transient failure (target room not preparable yet) changed nothing —
+        // leave the intent pending to retry on a later confirmed frame and DROP
+        // the already-built session (installing it without the op would rebase
+        // over a room that never changed).
+        CommitOutcome::Retry => return,
+        // A void crossing (the recorded body is gone / had no identity): the
+        // intent can never succeed, so DROP it — without reconstructing or
+        // rebasing — and leave the source room authoritative. Not retried (it
+        // would fail forever) and NOT substituted with another body (GPT review
+        // #1). Dropping the built session is free; no world was touched.
+        CommitOutcome::Cancelled => {
+            if let Some(mut pending) = world.get_resource_mut::<PendingLifecycleCommit>() {
+                pending.take();
+            }
+            return;
+        }
+        CommitOutcome::Committed => {}
     }
 
     // From here NOTHING may fail. Clear the slot so the post-op world (the new
@@ -103,10 +115,28 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     install_rebased_sync_test_session(world, session, settings);
 }
 
-/// Returns `true` iff the reconstruction actually committed (so the caller may
-/// clear the intent and rebase). `false` means the op could not complete and the
-/// intent must stay pending.
-fn execute_lifecycle_commit(world: &mut World, kind: &LifecycleIntent) -> bool {
+/// What a commit attempt resolved to. The three outcomes differ in what happens
+/// to the pending intent and the session, so a bool cannot express them:
+///
+/// * [`Committed`](CommitOutcome::Committed) — reconstruction happened; clear the
+///   intent and rebase the session.
+/// * [`Retry`](CommitOutcome::Retry) — a TRANSIENT failure (the target room could
+///   not prepare yet); keep the intent pending and try again on a later confirmed
+///   frame. Nothing was mutated.
+/// * [`Cancelled`](CommitOutcome::Cancelled) — the intent is VOID and can never
+///   succeed (the crossing body is gone / had no identity); DROP the intent
+///   without reconstructing or rebasing, leaving the source room authoritative.
+///   The distinction from `Retry` is what stops a dead-subject transition from
+///   either retrying forever or laundering itself into a home-player teleport
+///   (GPT review #1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CommitOutcome {
+    Committed,
+    Retry,
+    Cancelled,
+}
+
+fn execute_lifecycle_commit(world: &mut World, kind: &LifecycleIntent) -> CommitOutcome {
     match kind {
         LifecycleIntent::Transition {
             subject,
@@ -116,37 +146,46 @@ fn execute_lifecycle_commit(world: &mut World, kind: &LifecycleIntent) -> bool {
         } => commit_transition(world, subject, target_room, *arrival, *edge_exit),
         // The in-place resets (death / manual / replay) are already rollback-safe
         // executed eagerly, and the full sandbox reset was proven rollback-safe
-        // single-tick, so no consumer records these variants. Not committed here
-        // (returning `false` keeps a stray intent pending rather than laundering a
-        // rebase for a no-op); the match stays exhaustive if deferral extends.
+        // single-tick, so no consumer records these variants. Keep a stray intent
+        // pending rather than laundering a rebase for a no-op; the match stays
+        // exhaustive if deferral extends.
         LifecycleIntent::DeathReset
         | LifecycleIntent::ManualReset
         | LifecycleIntent::Replay
-        | LifecycleIntent::FullReset => false,
+        | LifecycleIntent::FullReset => CommitOutcome::Retry,
     }
 }
 
-/// Resolve the body a deferred transition should transport.
+/// Resolve the EXACT body a deferred transition recorded, or `None`.
 ///
-/// The recorded [`SimId`] is the body that CROSSED the exit (finding 2) — look it
-/// up by exact identity. If it is gone by commit time (a possessed actor that
-/// died, or the trigger despawned during the confirmation delay) or the trigger
-/// carried no id, fall back to the PRIMARY player: the persistent home body, and
-/// where control returns when a possessed body dies. Deliberately NOT the live
-/// `ControlledSubject` — re-resolving current control at commit is exactly the
-/// bug finding 2 names, because possession may have changed since the trigger.
+/// The recorded [`SimId`] is the body that CROSSED the exit (GPT review #2) —
+/// look it up by exact identity and transit THAT body or nothing. It never
+/// substitutes another entity:
+///
+/// * `Some(id)` that still resolves → that body.
+/// * `Some(id)` that no longer resolves → `None`. The crossing body is gone (it
+///   died during the confirmation delay). Substituting the home player — as this
+///   once did — teleports a body that never touched the exit into the target
+///   room, silently moving the primary into a room the player never walked to
+///   (GPT review #1). A possessed body now un-room-scopes on possession (it can
+///   navigate rooms as itself), so the only way to reach this arm is genuine
+///   death, and a dead crossing is a VOID crossing, not a licence to move
+///   someone else.
+/// * `None` id → `None`. A controlled sim body with no `SimId` is an identity
+///   failure, not permission to pick another entity.
+///
+/// The caller maps `None` to a CANCELLED commit: the intent is dropped and the
+/// source room stays authoritative. Deliberately never the live
+/// `ControlledSubject`, because possession may have changed since the trigger.
 fn resolve_transition_subject(
     world: &mut World,
     subject: &Option<ambition_platformer_primitives::sim_id::SimId>,
 ) -> Option<Entity> {
-    if let Some(sim_id) = subject {
-        let mut ids = world.query::<(Entity, &ambition_platformer_primitives::sim_id::SimId)>();
-        if let Some((entity, _)) = ids.iter(world).find(|(_, id)| *id == sim_id) {
-            return Some(entity);
-        }
-    }
-    let mut primary = world.query_filtered::<Entity, ambition_actors::actor::PrimaryPlayerOnly>();
-    primary.iter(world).next()
+    let sim_id = subject.as_ref()?;
+    let mut ids = world.query::<(Entity, &ambition_platformer_primitives::sim_id::SimId)>();
+    ids.iter(world)
+        .find(|(_, id)| *id == sim_id)
+        .map(|(entity, _)| entity)
 }
 
 /// Reconstruct the target room synchronously and apply the CANONICAL transition
@@ -162,23 +201,30 @@ fn commit_transition(
     target_room: &str,
     arrival: ae::Vec2,
     edge_exit: bool,
-) -> bool {
+) -> CommitOutcome {
     // Preparation is mutation-free and fallible — every room/content lookup
-    // happens here, before any world mutation. A failure commits NOTHING (the
-    // caller keeps the intent pending).
+    // happens here, before any world mutation. A failure commits NOTHING and is
+    // treated as TRANSIENT (the target room may become preparable later), so the
+    // caller keeps the intent pending.
     let plan = match RoomConstructionPlan::prepare(world, target_room) {
         Ok(plan) => plan,
         Err(error) => {
             error!("Track B: transition commit could not prepare room {target_room:?}: {error:?}");
-            return false;
+            return CommitOutcome::Retry;
         }
     };
 
-    // Resolve + PREFLIGHT the subject BEFORE any destructive mutation (findings 2
-    // and 3): everything that can fail must fail with the world still whole.
+    // Resolve + PREFLIGHT the subject BEFORE any destructive mutation (GPT review
+    // #1/#2): everything that can fail must fail with the world still whole. A
+    // subject that no longer resolves is a VOID crossing — the body that crossed
+    // is gone — so the intent is CANCELLED (dropped), never substituted with
+    // another body and never retried forever.
     let Some(subject) = resolve_transition_subject(world, subject) else {
-        error!("Track B: transition commit found no body to transit");
-        return false;
+        error!(
+            "Track B: the recorded transition subject is gone; cancelling the crossing \
+             (no substitute body is transited)"
+        );
+        return CommitOutcome::Cancelled;
     };
     // The full body-transit contract, checked NOW: the subject must be a live
     // body carrying the exact components the transit below mutates. A body that
@@ -196,7 +242,7 @@ fn commit_transition(
                 "Track B: transition subject fails the body-transit contract; \
                  cancelling before any reconstruction"
             );
-            return false;
+            return CommitOutcome::Cancelled;
         }
     }
     let carry_body = world
@@ -330,7 +376,7 @@ fn commit_transition(
     // the external-effect quarantine with different timing, so they are
     // deliberately NOT emitted here; this is a presentation-only difference, not a
     // state divergence. Tracked in the campaign doc.
-    true
+    CommitOutcome::Committed
 }
 
 #[cfg(test)]
@@ -339,14 +385,15 @@ mod tests {
     use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
     use ambition_platformer_primitives::sim_id::SimId;
 
-    /// GPT review finding 2: the deferred transition transports the body that
-    /// CROSSED the exit — resolved by its recorded, rollback-stable `SimId` — and
-    /// never re-resolves whatever is controlled at commit time. A recorded id that
-    /// has since despawned, or an unstamped trigger, falls back to the primary
-    /// player (the persistent home body, where control returns after a possessed
-    /// body dies).
+    /// GPT review #1/#2: the deferred transition transports the body that CROSSED
+    /// the exit — resolved by its recorded, rollback-stable `SimId` — and NEVER
+    /// substitutes another body. A recorded id that has since despawned, or an
+    /// unstamped trigger, resolves to `None` (a cancelled crossing), NOT the home
+    /// player: substituting the primary teleports a body that never touched the
+    /// exit into the target room. The home player right next to the triggerer is
+    /// the tempting wrong answer this pins against.
     #[test]
-    fn the_transition_subject_is_the_recorded_id_not_current_control() {
+    fn a_missing_transition_subject_resolves_to_none_never_a_substitute() {
         let mut world = World::new();
         let triggerer = world.spawn(SimId::placement("triggerer")).id();
         let primary = world
@@ -361,13 +408,14 @@ mod tests {
         );
         assert_eq!(
             resolve_transition_subject(&mut world, &Some(SimId::placement("gone"))),
-            Some(primary),
-            "a recorded body that despawned before commit falls back to the primary"
+            None,
+            "a recorded body that despawned before commit is a void crossing, \
+             not a licence to teleport the home player"
         );
         assert_eq!(
             resolve_transition_subject(&mut world, &None),
-            Some(primary),
-            "an unstamped trigger uses the primary player"
+            None,
+            "an unstamped controlled body is an identity failure, not the primary"
         );
     }
 }

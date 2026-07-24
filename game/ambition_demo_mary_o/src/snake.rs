@@ -237,6 +237,61 @@ const SNAKE_ROSTER_RON: &str = r#"{
     ),
 }"#;
 
+/// The `solid_snake` sheet TARGET (also the catalog id) — the generated sheet the
+/// enemy render resolves for a Solid Snake.
+pub const SNAKE_SHEET_TARGET: &str = "solid_snake";
+
+/// **Ensure the `solid_snake` sheet is drawable**, keyed by BOTH its catalog id
+/// and its display name, so the enemy render's `npc_asset_for_name` finds it
+/// instead of falling back to the generic goblin sheet.
+///
+/// The catalog defers a non-eager character's sheet to a room-staging barrier
+/// that lives in the app host — a path a standalone demo, or a host that stages
+/// this enemy through the content registry rather than a room `enemy_spawn`, does
+/// not reliably drive (the same class of gap the player-avatar sheet hit). Rather
+/// than depend on that, the demo OWNS its enemy sheet the same way Sanic owns its
+/// ring prop: a per-frame insert-if-missing load through the target loader (which
+/// bypasses the lean sandbox catalog), self-healing across a `GameAssets` rebuild
+/// and a no-op headless / `--no-assets`.
+pub fn register_solid_snake_sheet(
+    game_assets: Option<ResMut<ambition::sprite_sheet::game_assets::GameAssets>>,
+    config: Option<Res<ambition::sprite_sheet::game_assets::GameAssetConfig>>,
+    asset_server: Option<Res<AssetServer>>,
+    layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
+) {
+    let (Some(mut game_assets), Some(config), Some(asset_server), Some(mut layouts)) =
+        (game_assets, config, asset_server, layouts)
+    else {
+        return;
+    };
+    if config.no_assets
+        || game_assets
+            .characters
+            .npc_asset_for_name(SNAKE_DISPLAY_NAME)
+            .is_some()
+    {
+        return;
+    }
+    if let Some(asset) = ambition::actors::character_sprites::load_prop_sheet_for_target(
+        &asset_server,
+        &mut layouts,
+        &config.sprite_folder,
+        SNAKE_SHEET_TARGET,
+        &ambition::sprite_sheet::character::SheetTuning::new(1.0, 0),
+    ) {
+        // Double-keyed exactly like the eager loader: the render resolves an actor
+        // by its display name, and other seams by the catalog id.
+        game_assets
+            .characters
+            .npcs
+            .insert(SNAKE_SHEET_TARGET.to_string(), asset.clone());
+        game_assets
+            .characters
+            .npcs
+            .insert(SNAKE_DISPLAY_NAME.to_string(), asset);
+    }
+}
+
 /// Register the demo's hostile roster fragment. Shares the Mary-O provider id so
 /// its brain key namespaces under this experience.
 pub fn register_snake_roster(app: &mut App) {

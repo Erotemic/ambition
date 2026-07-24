@@ -17,12 +17,12 @@
 //! the rest of the M-track; see `docs/planning/demos/super-mary-o.md`.
 
 pub mod bricks;
-pub mod snake;
 pub mod flag;
 pub mod movement;
 pub mod powerups;
 pub mod provider;
 pub mod scenery;
+pub mod snake;
 
 pub use provider::{
     mary_o_session_world, MaryOExperiencePlugin, MaryOSessionWorld, MARY_O_CHARACTER_ID,
@@ -745,7 +745,13 @@ pub fn install_mary_o_content(app: &mut App) {
     // plain `Update` schedule (self-heals after a `GameAssets` rebuild).
     app.add_systems(
         bevy::prelude::Update,
-        scenery::register_mary_o_construction_props,
+        (
+            scenery::register_mary_o_construction_props,
+            // Solid Snake owns its own sheet so its enemies never fall back to the
+            // generic goblin — the deferred room-staging barrier that would load it
+            // lives in the app host and isn't reliably driven for a demo-staged enemy.
+            snake::register_solid_snake_sheet,
+        ),
     );
 
     // Mary-O's mutable sim state joins the rollback contract through the same
@@ -989,8 +995,7 @@ impl Plugin for MaryORulesPlugin {
         // contact pass then skips — the stomper is never also hurt.
         let cronies = (
             snake::tag_mary_o_snakes,
-            snake::run_snake_shells
-                .before(ambition::actors::features::apply_actor_contact_damage),
+            snake::run_snake_shells.before(ambition::actors::features::apply_actor_contact_damage),
         )
             .chain();
         // The powerup rules on the two engine primitives: re-arm the ?-blocks on
@@ -1349,6 +1354,20 @@ mod tests {
         assert!(
             catalog.get("mary_o_fire").is_some(),
             "the fire power form is a catalog character (Jon bug #10)"
+        );
+        // Solid Snake (the Koopa) is a catalog character, its display name is what
+        // the enemy render resolves its sheet by, and — critically — a sheet SPEC
+        // must resolve for it. If it does NOT, the loader SKIPS the row entirely
+        // (not even deferring it), and the enemy falls back to the generic goblin
+        // sheet. This is the guard for "the snakes render as goblins".
+        let snake = catalog
+            .get("solid_snake")
+            .expect("Solid Snake is a catalog row");
+        assert_eq!(snake.display_name, snake::SNAKE_DISPLAY_NAME);
+        assert!(
+            ambition::actors::character_sprites::sheet_for_character_id_in(catalog, "solid_snake")
+                .is_some(),
+            "a sheet spec resolves for solid_snake — else it is skipped and renders as a goblin"
         );
         // Mary-O's authored grant list composes to her platformer moveset —
         // run+jump, wall mobility, fast fall — and NOTHING from the full Ambition

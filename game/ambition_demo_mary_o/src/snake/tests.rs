@@ -26,9 +26,19 @@ fn a_stomp_starts_an_in_place_withdraw() {
     let fx = step(SnakeShell::Walking, stomp());
     assert!(matches!(fx.phase, SnakeShell::Retreating(_)));
     assert_eq!(fx.anim, Some(CharacterAnim::Retreat));
-    assert!(fx.just_squashed, "the stomp bounces the player and pops dust");
-    assert!(!fx.alive, "a withdrawing snake is a corpse: still and untouchable");
-    assert_eq!(fx.vel_x, Some(0.0), "it stops walking the instant it is stomped");
+    assert!(
+        fx.just_squashed,
+        "the stomp bounces the player and pops dust"
+    );
+    assert!(
+        !fx.alive,
+        "a withdrawing snake is a corpse: still and untouchable"
+    );
+    assert_eq!(
+        fx.vel_x,
+        Some(0.0),
+        "it stops walking the instant it is stomped"
+    );
 }
 
 /// An un-stomped walker is just a walker: no pose pin, alive, its own physics.
@@ -38,7 +48,10 @@ fn an_untouched_walker_stays_a_normal_walker() {
     assert_eq!(fx.phase, SnakeShell::Walking);
     assert_eq!(fx.anim, None, "the shared picker chooses walk/idle");
     assert!(fx.alive);
-    assert_eq!(fx.vel_x, None, "the brain drives a walker; the shell doesn't");
+    assert_eq!(
+        fx.vel_x, None,
+        "the brain drives a walker; the shell doesn't"
+    );
 }
 
 /// Left alone, the whole cycle runs retreat → boxed → peek → emerge → walk, and
@@ -98,7 +111,11 @@ fn kicking_a_boxed_shell_sends_it_sliding_away() {
     let fx = step(SnakeShell::Boxed(BOXED_S), kick_right);
     assert_eq!(fx.phase, SnakeShell::Sliding(1.0));
     assert!(fx.just_kicked);
-    assert_eq!(fx.vel_x, Some(SHELL_SLIDE_SPEED), "kicked rightward at full speed");
+    assert_eq!(
+        fx.vel_x,
+        Some(SHELL_SLIDE_SPEED),
+        "kicked rightward at full speed"
+    );
 
     let kick_left = ShellInputs {
         side_kick: Some(-1.0),
@@ -122,7 +139,11 @@ fn a_sliding_shell_holds_speed_and_bounces_off_walls() {
         ..Default::default()
     };
     let fx = step(SnakeShell::Sliding(1.0), blocked);
-    assert_eq!(fx.phase, SnakeShell::Sliding(-1.0), "a wall flips its direction");
+    assert_eq!(
+        fx.phase,
+        SnakeShell::Sliding(-1.0),
+        "a wall flips its direction"
+    );
     assert_eq!(fx.vel_x, Some(-SHELL_SLIDE_SPEED));
 }
 
@@ -139,6 +160,9 @@ fn a_sliding_shell_stops_dead_when_stomped_or_bumped() {
         ..Default::default()
     };
     let fx = step(SnakeShell::Sliding(1.0), bump);
-    assert!(matches!(fx.phase, SnakeShell::Boxed(_)), "a side bump also stops it");
+    assert!(
+        matches!(fx.phase, SnakeShell::Boxed(_)),
+        "a side bump also stops it"
+    );
     assert_eq!(fx.vel_x, Some(0.0));
 }

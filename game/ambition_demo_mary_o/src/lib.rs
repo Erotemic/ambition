@@ -1023,6 +1023,10 @@ impl Plugin for MaryORulesPlugin {
         // sfx seam, a full app registers this via the audio plugins, and a thin
         // rules-only harness may not. `add_message` is idempotent.
         app.add_message::<ambition::sfx::OwnedSfxMessage>();
+        // A sliding snake shell deals damage through the shared `HitEvent` pipeline
+        // (`run_snake_shells`); the full app registers this via the engine's damage
+        // plugin, but a thin rules-only harness may not. `add_message` is idempotent.
+        app.add_message::<ambition::actors::features::HitEvent>();
         // The flag runs BEFORE the clock: a level whose flag has been grabbed is
         // over, and `tick_level_clock` reads the sequence to know it. The cycle
         // emitter runs LAST so it sees the settled tally and its clock reset is not

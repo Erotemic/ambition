@@ -153,22 +153,35 @@ fn a_sliding_shell_holds_speed_and_bounces_off_walls() {
     assert_eq!(fx.vel_x, Some(-SHELL_SLIDE_SPEED));
 }
 
-/// Stomping or bumping a sliding shell stops it dead — it becomes a fresh boxed
-/// shell you can re-kick, which is what makes a shell a tool and not a runaway.
+/// A stomp from ABOVE stops a running shell dead — it becomes a fresh boxed shell
+/// you can re-kick — and bounces the stomper, exactly like stomping a walker. This
+/// is the "stop the runaway" tech, and it is SAFE (no player damage).
 #[test]
-fn a_sliding_shell_stops_dead_when_stomped_or_bumped() {
+fn a_stomp_from_above_stops_a_sliding_shell_and_bounces() {
     let fx = step(SnakeShell::Sliding(1.0), stomp());
-    assert!(matches!(fx.phase, SnakeShell::Boxed(_)));
+    assert!(matches!(fx.phase, SnakeShell::Boxed(_)), "stomp stops it");
     assert_eq!(fx.vel_x, Some(0.0));
+    assert!(
+        fx.just_squashed,
+        "stomping a moving shell bounces you off it, like stomping a walker"
+    );
+}
 
-    let bump = ShellInputs {
+/// A SIDE hit does NOT stop a sliding shell — it keeps its speed and direction and
+/// runs on. (The player-damage half of a side hit is emitted by the ECS wrapper
+/// against the shared pipeline, not decided here — this only proves the shell does
+/// not stop, so a side touch is a threat and not a free stop.)
+#[test]
+fn a_side_hit_never_stops_a_sliding_shell() {
+    let side = ShellInputs {
         side_kick: Some(-1.0),
         ..Default::default()
     };
-    let fx = step(SnakeShell::Sliding(1.0), bump);
-    assert!(
-        matches!(fx.phase, SnakeShell::Boxed(_)),
-        "a side bump also stops it"
+    let fx = step(SnakeShell::Sliding(1.0), side);
+    assert_eq!(
+        fx.phase,
+        SnakeShell::Sliding(1.0),
+        "a side hit never stops a running shell"
     );
-    assert_eq!(fx.vel_x, Some(0.0));
+    assert_eq!(fx.vel_x, Some(SHELL_SLIDE_SPEED));
 }

@@ -36,7 +36,8 @@ use bevy::prelude::*;
 
 use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
 use ambition::actors::combat::components::ActorFaction;
-use ambition::actors::features::{ActorAnimOverride, ActorConfig, FeatureName};
+use ambition::actors::features::{ActorAnimOverride, ActorConfig, FeatureId, FeatureName};
+use ambition::actors::features::{HitEvent, HitMode, HitSource, HitTarget};
 use ambition::actors::features::{SpawnActorKind, SpawnActorRequest};
 use ambition::characters::actor::BodyCombat;
 use ambition::engine_core as ae;
@@ -61,8 +62,14 @@ const BOUNCE_SPEED: f32 = 430.0;
 /// reliably runs a line of them down instead of trailing behind.
 const SHELL_SLIDE_SPEED: f32 = 300.0;
 
-/// Forgiving band (px) for "the shell overlaps a snake" — same slack the stomp uses.
-const SHELL_HIT_BAND: f32 = 4.0;
+/// Damage a moving shell deals to another ENEMY it runs down — lethal, so a kicked
+/// shell one-shots the trash mobs it mows through (snakes, AI Slop), like a Koopa
+/// shell clearing a line. Routed through the shared hit pipeline, so the victim
+/// dies with the same drops/score/reaction any other kill produces.
+const SHELL_ENEMY_DAMAGE: i32 = 99;
+/// Damage a moving shell deals to the PLAYER on a SIDE hit — an ordinary contact
+/// tick (the shared i-frames keep it from re-hitting every frame it overlaps).
+const SHELL_PLAYER_DAMAGE: i32 = 1;
 
 /// Vertical tolerance (px) for "feet on the snake's head".
 const STOMP_BAND: f32 = 16.0;
@@ -192,10 +199,16 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
             }
         }
         Sliding(dir) => {
-            if inputs.stomped || inputs.side_kick.is_some() {
-                // A stomp or a bump stops a running shell dead — it becomes a fresh
-                // boxed shell you can re-kick.
-                shelled(Boxed(BOXED_S), CharacterAnim::ShellIdle)
+            if inputs.stomped {
+                // A stomp from ABOVE stops a running shell dead — it becomes a fresh
+                // boxed shell you can re-kick — and bounces the stomper, exactly like
+                // stomping a walker. A SIDE hit does NOT stop it: that is the shell
+                // running you (or an enemy) down, which the ECS turns into a real hit
+                // through the shared damage pipeline while the shell keeps going.
+                ShellEffects {
+                    just_squashed: true,
+                    ..shelled(Boxed(BOXED_S), CharacterAnim::ShellIdle)
+                }
             } else {
                 let dir = if inputs.blocked { -dir } else { dir };
                 ShellEffects {
@@ -385,19 +398,31 @@ pub fn tag_mary_o_snakes(
 /// advances its phase, and reflects the result: bounce the stomper, pin the pose
 /// via [`ActorAnimOverride`], freeze the (still-alive) body and turn its contact
 /// threat off — or slide it — and let it walk and threaten again when it finishes
-/// emerging. A sliding shell also runs down other snakes. Ordered BEFORE the shared
-/// contact-damage pass so a stomp makes the snake inert that frame, before that pass
-/// could hurt the stomper.
+/// emerging.
+///
+/// **A moving shell is a kinetic hazard.** Each tick it is sliding, it broadcasts a
+/// lethal hit over its own AABB through the SHARED damage pipeline ([`HitEvent`]),
+/// so it kills every ENEMY it runs down (other snakes, AI Slop, anything) with the
+/// same death/drops/reaction any other kill produces — no bespoke chain. The player
+/// is DIRECTIONAL, exactly like Mario: a stomp from ABOVE stops the shell and bounces
+/// you (handled by [`step_snake_shell`], safe); a SIDE hit hurts you (a real hit
+/// emitted here). The enemy broadcast never touches the player — the shared drain's
+/// actor query excludes the player — so the two are cleanly separate.
+///
+/// Ordered BEFORE the shared contact-damage pass so a stomp makes the snake inert
+/// that frame, before that pass could hurt the stomper.
 #[allow(clippy::too_many_arguments)]
 pub fn run_snake_shells(
     mut commands: Commands,
     world_time: Res<ambition::time::WorldTime>,
     mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
     mut sfx: ambition::sfx::SfxWriter,
-    mut players: Query<&mut ae::BodyKinematics, With<PrimaryPlayer>>,
+    mut hits: MessageWriter<HitEvent>,
+    mut players: Query<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>,
     mut snakes: Query<
         (
             Entity,
+            &FeatureId,
             &mut ae::BodyKinematics,
             &mut BodyCombat,
             &mut ActorConfig,
@@ -407,19 +432,25 @@ pub fn run_snake_shells(
     >,
 ) {
     let dt = world_time.scaled_dt;
-    // Read the player once; a missing player means no stomp/kick this tick.
-    let player_box = players.single().ok().map(|p| (p.aabb(), p.pos, p.vel));
+    // Read the player once (entity + body): a missing player means no stomp/hit.
+    let player_read = players
+        .single()
+        .ok()
+        .map(|(e, p)| (e, p.aabb(), p.pos, p.vel));
+    let player_box = player_read.map(|(_, aabb, pos, vel)| (aabb, pos, vel));
 
     // First pass: advance every snake's phase and apply presentation/physics.
-    // Collect sliding-shell hitboxes to run down other snakes in a second pass.
-    let mut sliding_hitboxes: Vec<(Entity, ae::Aabb)> = Vec::new();
-    for (entity, mut kin, mut combat, mut config, mut shell) in &mut snakes {
+    // Collect each sliding shell's (AABB, own-id, whether it is side-hitting the
+    // player) so the shared-pipeline hits below can be emitted after the borrow.
+    let mut sliding: Vec<(ae::Aabb, String, bool)> = Vec::new();
+    for (entity, feature_id, mut kin, mut combat, mut config, mut shell) in &mut snakes {
         let inputs = shell_inputs_for(*shell, &kin, player_box);
         let fx = step_snake_shell(*shell, dt, inputs);
 
-        // The stomp bounce is applied to the PLAYER (only when a real stomp began).
+        // The stomp bounce is applied to the PLAYER (a fresh stomp on a walker OR a
+        // stomp from above onto a moving shell — both stop the threat and bounce).
         if fx.just_squashed {
-            if let Ok(mut player) = players.single_mut() {
+            if let Ok((_, mut player)) = players.single_mut() {
                 ae::movement::set_jump_velocity(
                     &mut player.vel,
                     ae::DEFAULT_GRAVITY_DIR,
@@ -468,49 +499,49 @@ pub fn run_snake_shells(
         }
 
         if let SnakeShell::Sliding(_) = fx.phase {
-            sliding_hitboxes.push((entity, kin.aabb()));
+            let g = kin.aabb();
+            // A stomp from above turned the shell to Boxed (so it is not here); a
+            // sliding shell that still overlaps the player is doing so from the SIDE.
+            let side_hit = player_box.is_some_and(|(p, _, _)| {
+                p.min.x < g.max.x && p.max.x > g.min.x && p.min.y < g.max.y && p.max.y > g.min.y
+            });
+            sliding.push((g, feature_id.as_str().to_string(), side_hit));
         }
         *shell = fx.phase;
     }
 
-    // Second pass: a sliding shell runs down any OTHER snake it overlaps, popping
-    // it into its own withdraw (a chain-reaction down the line).
-    if sliding_hitboxes.is_empty() {
-        return;
-    }
-    for (entity, mut kin, mut combat, mut config, mut shell) in &mut snakes {
-        // Only a walker can be run down (a shell can't squash a shell).
-        if !matches!(*shell, SnakeShell::Walking) {
-            continue;
-        }
-        let g = kin.aabb();
-        let struck = sliding_hitboxes.iter().any(|(slider, s)| {
-            *slider != entity
-                && s.min.x < g.max.x + SHELL_HIT_BAND
-                && s.max.x > g.min.x - SHELL_HIT_BAND
-                && s.min.y < g.max.y
-                && s.max.y > g.min.y
+    // Second pass: every sliding shell deals its damage through the ONE shared hit
+    // pipeline. The enemy broadcast (Volume) reaches every actor in the volume EXCEPT
+    // the player (the drain's actor query is `Without<PlayerEntity>`) and EXCEPT the
+    // shell itself (ignored by both disposition prefixes); the side-hit player event
+    // is the only thing that can hurt the player.
+    for (aabb, self_id, side_hit) in sliding {
+        hits.write(HitEvent {
+            strike_sfx: None,
+            volume: aabb.into(),
+            damage: SHELL_ENEMY_DAMAGE,
+            source: HitSource::EnemyChargeCrash,
+            attacker: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: vec![format!("enemy:{self_id}"), format!("npc:{self_id}")],
         });
-        if !struck {
-            continue;
+        if side_hit {
+            if let Some((player_entity, ..)) = player_read {
+                hits.write(HitEvent {
+                    strike_sfx: None,
+                    volume: aabb.into(),
+                    damage: SHELL_PLAYER_DAMAGE,
+                    source: HitSource::EnemyBody,
+                    attacker: None,
+                    target: HitTarget::Player(player_entity),
+                    mode: HitMode::Knockback,
+                    knockback: None,
+                    ignored_targets: Vec::new(),
+                });
+            }
         }
-        vfx.write(ambition::vfx::VfxMessage::Burst {
-            pos: kin.pos,
-            count: 12,
-            speed: 130.0,
-            color: [0.80, 0.68, 0.48, 1.0],
-            kind: ambition::vfx::ParticleKind::Dust,
-        });
-        sfx.write(ambition::sfx::SfxMessage::Pogo { pos: kin.pos });
-        // Pop this walker into its own withdraw — freeze it and make it inert,
-        // exactly as a stomp does, without ever dropping its HP.
-        combat.recoil_lock_timer = SHELL_FREEZE_LOCK;
-        config.tuning.body_contact_damage = false;
-        kin.vel.x = 0.0;
-        commands
-            .entity(entity)
-            .try_insert(ActorAnimOverride(CharacterAnim::Retreat));
-        *shell = SnakeShell::Retreating(RETREAT_S);
     }
 }
 

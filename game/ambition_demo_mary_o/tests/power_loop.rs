@@ -554,7 +554,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
 fn a_stomp_shells_a_snake_alive_it_never_dies() {
     use ambition::actors::features::{
         spawn_encounter_mob, ActorConfig, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay,
-        GameplayBanner,
+        GameplayBanner, HitEvent,
     };
     use ambition::characters::actor::character_catalog::CharacterCatalog;
     use ambition::characters::actor::{BodyCombat, BodyHealth};
@@ -586,6 +586,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     app.init_resource::<FeatureEcsWorldOverlay>();
     app.add_message::<ambition::vfx::VfxMessage>();
     app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<HitEvent>();
 
     ambition_demo_mary_o::snake::register_snake_roster(&mut app);
     app.add_systems(Update, run_snake_shells);
@@ -666,5 +667,127 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     assert!(
         !e.get::<ActorConfig>().unwrap().tuning.body_contact_damage,
         "and inert — a resting shell is safe to walk up to and kick"
+    );
+}
+
+/// **A moving shell is a kinetic hazard through the SHARED hit pipeline.**
+///
+/// A sliding shell that overlaps the player from the SIDE (not a stomp) emits, in
+/// one `run_snake_shells` tick, TWO `HitEvent`s: a broadcast `Volume` kill over its
+/// own AABB (which the shared drain applies to every ENEMY it overlaps — snakes, AI
+/// Slop — but never the player, whose query the drain excludes), and a single
+/// `Player`-targeted hurt for the side contact. This is the whole point of routing
+/// through the pipeline: the shell kills real enemies and hurts the player without
+/// any bespoke damage code. (A stomp from ABOVE is the other branch — it stops the
+/// shell and bounces you, proven in the pure state-machine tests.)
+#[test]
+fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
+    use ambition::actors::features::{
+        spawn_encounter_mob, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay,
+        GameplayBanner, HitEvent, HitSource, HitTarget,
+    };
+    use ambition::characters::actor::character_catalog::CharacterCatalog;
+    use ambition::entity_catalog::placements::CharacterBrain;
+    use ambition::platformer::lifecycle::SessionSpawnScope;
+    use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
+
+    const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
+
+    let mut app = App::new();
+    app.insert_resource(ambition::time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    ambition::platformer::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ae::RoomGeometry(ae::World::new(
+            "shell_range",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            Vec::new(),
+        )),
+    );
+    app.insert_resource(CharacterCatalog::empty());
+    app.insert_resource(GameplayBanner::default());
+    app.init_resource::<ambition::actors::boss_encounter::BossCatalog>();
+    app.init_resource::<FeatureEcsWorldOverlay>();
+    app.add_message::<ambition::vfx::VfxMessage>();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<HitEvent>();
+
+    ambition_demo_mary_o::snake::register_snake_roster(&mut app);
+    app.add_systems(Update, run_snake_shells);
+
+    // The player overlaps the snake from the SIDE, at rest (vel.y == 0), so it is a
+    // side contact — NOT a stomp (which needs falling feet on the head).
+    let player = app
+        .world_mut()
+        .spawn((
+            PrimaryPlayer,
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(410.0, 300.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(30.0, 48.0),
+                facing: 1.0,
+            },
+        ))
+        .id();
+
+    {
+        let world = app.world_mut();
+        let catalog = world.resource::<CharacterCatalog>().clone();
+        let roster = world.resource::<CharacterRoster>().clone();
+        let mut commands = world.commands();
+        spawn_encounter_mob(
+            &mut commands,
+            &catalog,
+            &roster,
+            SessionSpawnScope::UNSCOPED,
+            "mary_o_shell_range",
+            "sliding_snake".into(),
+            CharacterBrain::Custom("mary_o_snake".into()),
+            SNAKE_POS,
+            ae::Vec2::new(28.0, 32.0),
+        );
+    }
+    app.update(); // flush the spawn
+
+    let snake = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &ActorIdentity)>();
+        q.iter(world)
+            .find(|(_, id)| id.id() == "sliding_snake")
+            .map(|(e, _)| e)
+            .expect("the snake spawned")
+    };
+    // Kick it into a slide directly (the kick geometry is covered elsewhere).
+    app.world_mut()
+        .entity_mut(snake)
+        .insert(SnakeShell::Sliding(1.0));
+
+    app.update(); // the sliding shell deals its damage
+
+    let hits: Vec<HitEvent> = app
+        .world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<HitEvent>>()
+        .drain()
+        .collect();
+
+    let enemy_kill = hits.iter().find(|h| {
+        matches!(h.target, HitTarget::Volume) && matches!(h.source, HitSource::EnemyChargeCrash)
+    });
+    assert!(
+        enemy_kill.is_some_and(|h| h.damage >= 2),
+        "a sliding shell broadcasts a lethal Volume hit that kills enemies it runs down"
+    );
+
+    let player_hit = hits.iter().find(|h| {
+        matches!(h.target, HitTarget::Player(e) if e == player)
+            && matches!(h.source, HitSource::EnemyBody)
+    });
+    assert!(
+        player_hit.is_some(),
+        "and a SIDE hit emits a real hit against the player (a stomp from above would \
+         instead stop the shell and bounce)"
     );
 }

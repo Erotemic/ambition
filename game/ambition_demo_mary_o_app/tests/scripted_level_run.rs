@@ -70,9 +70,19 @@ fn hold_right() -> ControlFrame {
     frame
 }
 
-fn press_interact() -> ControlFrame {
+/// Press DOWN (screen-down = `axis_y > 0`): the verb that drops you INTO the entry
+/// pipe. The warp is directional (Jon bug #8), so a plain Interact never warps.
+fn press_down() -> ControlFrame {
     let mut frame = ControlFrame::default();
-    frame.interact_pressed = true;
+    frame.axis_y = 1.0;
+    frame
+}
+
+/// Press UP (screen-up = `axis_y < 0`): the verb that surfaces you at the vault's
+/// return pipe.
+fn press_up() -> ControlFrame {
+    let mut frame = ControlFrame::default();
+    frame.axis_y = -1.0;
     frame
 }
 
@@ -256,9 +266,12 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     // scripted input is a platforming-precision test, not a connectivity one,
     // and it would make this run fragile to any jump-arc tuning change. Where
     // she stands is set up; what the pipe DOES is the claim.
-    place_player(&mut app, ambition_demo_mary_o::pipe_arrival());
+    place_player(&mut app, {
+        let mouth = ambition_demo_mary_o::pipe_mouth();
+        (mouth.min + mouth.max) * 0.5
+    });
     step(&mut app, ControlFrame::default());
-    step(&mut app, press_interact());
+    step(&mut app, press_down());
     settle(&mut app);
 
     let vault = ambition_demo_mary_o::vault_bounds();
@@ -268,7 +281,7 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
             && inside.x < vault.max.x
             && inside.y > vault.min.y
             && inside.y < vault.max.y,
-        "Interact on the pipe drops her into the vault: {inside:?} vs {vault:?}"
+        "DOWN on the entry pipe drops her into the vault: {inside:?} vs {vault:?}"
     );
 
     // ── The vault pays out through the SHARED economy ──────────────────────
@@ -294,12 +307,12 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
         (exit.min + exit.max) * 0.5
     });
     step(&mut app, ControlFrame::default());
-    step(&mut app, press_interact());
+    step(&mut app, press_up());
     settle(&mut app);
     let surfaced = player_pos(&mut app);
     assert!(
         surfaced.y < vault.min.y,
-        "Interact at the vault exit surfaces her above ground: {surfaced:?}"
+        "UP at the vault return pipe surfaces her above ground: {surfaced:?}"
     );
 
     // ── The flag ends the level, and the level cycles ──────────────────────

@@ -76,7 +76,7 @@ const GROUND_TILES: f32 = 2.0;
 /// after the brick run, past the point where a snake is likely to have cost her
 /// the cap, so the fire form is reachable on a normal messy playthrough rather
 /// than only on a clean one.
-const POWER_BLOCK_COLUMNS: [f32; 3] = [6.0, 30.0, 52.0];
+const POWER_BLOCK_COLUMNS: [f32; 3] = [6.0, 30.0, 60.0];
 const POWER_BLOCK_ROW: f32 = 4.0;
 /// The IntGrid tile layer the ?-blocks are filed under, and the merge ordinal the
 /// first ?-block's [`GeoId`](ae::GeoId) starts at. `solid_tiled` stamps
@@ -94,7 +94,7 @@ const POWER_BLOCK_BASE_INDEX: u16 = 10;
 /// ?-block ADDS a milk pickup, the brick SUBTRACTS itself. A short run over the
 /// ground after pit B, clear of the ?-blocks so the two motifs never blur. See
 /// [`bricks`].
-const BRICK_COLUMNS: [f32; 3] = [40.0, 41.0, 42.0];
+const BRICK_COLUMNS: [f32; 3] = [48.0, 49.0, 50.0];
 /// Bricks sit at the same bonk height as the ?-blocks.
 const BRICK_ROW: f32 = POWER_BLOCK_ROW;
 /// The IntGrid tile layer + merge-ordinal base for the bricks' durable `GeoId`s. A
@@ -111,7 +111,7 @@ const POLE_WIDTH: f32 = T * 0.5;
 /// The level's world width and height. Named, rather than inlined into
 /// [`level_1_1`], because [`goal_pole`] must derive the flag's geometry from the
 /// same numbers the flag's BLOCK is built from — see `flag_geometry_oracle`.
-const LEVEL_WIDTH: f32 = 96.0 * T;
+const LEVEL_WIDTH: f32 = 104.0 * T;
 
 /// The SURFACE half's height — every above-ground feature is placed against
 /// this, so growing the world downward for the vault below leaves the authored
@@ -133,6 +133,12 @@ const PIPE_WIDTH_TILES: f32 = 2.0;
 const PIPE_HEIGHT_TILES: f32 = 2.0;
 const PIPE_NAME: &str = "secret_pipe";
 const EXIT_PIPE_NAME: &str = "vault_return_pipe";
+/// The SURFACE exit pipe: a visible pipe past pit B that the vault surfaces you
+/// beside, so the secret is a real Mario shortcut and you come out somewhere NEW
+/// instead of back on the entry pipe. Column 37 is the left edge of the ground
+/// segment [45,60) (just past the shifted pit B [42,45)), clear of the bricks.
+const SURFACE_EXIT_PIPE_NAME: &str = "surface_exit_pipe";
+const SURFACE_EXIT_COLUMN: f32 = 45.0;
 const VAULT_STONE_COLOR: [f32; 4] = [0.24, 0.20, 0.30, 1.0];
 
 /// Coins waiting in the vault. The whole reward for finding the pipe.
@@ -143,11 +149,20 @@ const VAULT_COINS: usize = 8;
 ///
 /// One function so the level geometry, the warp destination, and the coin row
 /// can never disagree about where the room actually is.
+///
+/// It is a WIDE 18-tile chamber at columns [23,41], tucked entirely under the SOLID
+/// ground between pit A [20,22) and the (shifted-right) pit B [42,45). The original
+/// 14-tile chamber reached under pit B when pit B sat at [34,37), so its ceiling
+/// (the ground slab) had the pit's gap punched through it — a body that fell into
+/// pit B dropped straight into the secret ("the hole in the ceiling"). The level was
+/// LENGTHENED (pit B and everything past it pushed 8 tiles right) so a roomy vault
+/// fits under unbroken ground here, still directly under the entry pipe (col 26) so
+/// warping down is a short camera move, not a pan across the level.
 pub fn vault_bounds() -> ae::Aabb {
     let ceiling = SURFACE_HEIGHT;
     let floor = SURFACE_HEIGHT + (VAULT_DEPTH_TILES - 2.0) * T;
-    let left = (PIPE_COLUMN - 1.0) * T;
-    let size = ae::Vec2::new(14.0 * T, floor - ceiling);
+    let left = 23.0 * T;
+    let size = ae::Vec2::new(18.0 * T, floor - ceiling);
     let min = ae::Vec2::new(left, ceiling);
     ae::Aabb::new(min + size * 0.5, size * 0.5)
 }
@@ -167,11 +182,12 @@ pub fn vault_arrival() -> ae::Vec2 {
     ae::Vec2::new(vault.min.x + 1.5 * T, vault.min.y + 1.5 * T)
 }
 
-/// Where leaving the vault puts you: back on top of the pipe you came down.
+/// Where leaving the vault puts you: on top of the SURFACE EXIT pipe past pit B —
+/// a new location, so the secret is a shortcut rather than a there-and-back.
 pub fn pipe_arrival() -> ae::Vec2 {
     let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
     ae::Vec2::new(
-        (PIPE_COLUMN + PIPE_WIDTH_TILES * 0.5) * T,
+        (SURFACE_EXIT_COLUMN + PIPE_WIDTH_TILES * 0.5) * T,
         ground_top - PIPE_HEIGHT_TILES * T - T,
     )
 }
@@ -207,7 +223,7 @@ pub fn vault_exit() -> ae::Aabb {
 ///    when you grab it is [`flag`], and [`goal_pole`] is the one place both agree
 ///    on where it stands.
 pub fn level_1_1() -> RoomSpec {
-    let width = LEVEL_WIDTH; // 96 tiles — a real 1-1 is ~210; this is its grammar.
+    let width = LEVEL_WIDTH; // 104 tiles — a real 1-1 is ~210; this is its grammar.
     let height = LEVEL_HEIGHT;
     let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
 
@@ -226,11 +242,13 @@ pub fn level_1_1() -> RoomSpec {
         ));
     };
 
-    // 1 + 3. Open teach, then the widening pit rhythm.
+    // 1 + 3. Open teach, then the widening pit rhythm. The first run after pit A is
+    // extended (34 → 42) to roof the WIDE secret vault below it with unbroken ground;
+    // pit B and everything past it were pushed 8 tiles right to make that room.
     ground(&mut blocks, "ground_open_teach", 0, 0.0, 20.0);
-    ground(&mut blocks, "ground_after_pit_a", 1, 22.0, 34.0); // 2-tile pit at [20,22)
-    ground(&mut blocks, "ground_after_pit_b", 2, 37.0, 52.0); // 3-tile pit at [34,37)
-    ground(&mut blocks, "ground_after_pit_c", 3, 57.0, 96.0); // 5-tile pit at [52,57)
+    ground(&mut blocks, "ground_after_pit_a", 1, 22.0, 42.0); // 2-tile pit at [20,22)
+    ground(&mut blocks, "ground_after_pit_b", 2, 45.0, 60.0); // 3-tile pit at [42,45)
+    ground(&mut blocks, "ground_after_pit_c", 3, 65.0, 104.0); // 5-tile pit at [60,65)
 
     // 2. The first platform: over SAFE ground, at jump height. Tiled, like the
     // ground it teaches you to leave.
@@ -242,10 +260,11 @@ pub fn level_1_1() -> RoomSpec {
         0,
     ));
 
-    // 3. The widest pit's stepping stone: the same jump, now load-bearing.
+    // 3. The widest pit's stepping stone: the same jump, now load-bearing. (Pit C
+    // moved to [60,65) with the +8 shift, so its stone follows to column 62.)
     blocks.push(ae::Block::one_way_tiled(
         "pit_c_stepping_stone",
-        ae::Vec2::new(54.0 * T, ground_top - 3.0 * T),
+        ae::Vec2::new(62.0 * T, ground_top - 3.0 * T),
         ae::Vec2::new(1.0 * T, 0.5 * T),
         "mary_o_platform",
         1,
@@ -283,19 +302,20 @@ pub fn level_1_1() -> RoomSpec {
         ));
     }
 
-    // 4. The stair pyramid: four up at x=66.., a gap, four down ending at x=75.
+    // 4. The stair pyramid: four up at x=74.., a gap, four down ending at x=83.
+    // (Shifted +8 with the rest of the post-vault level.)
     for step in 1..=4u16 {
         let h = step as f32;
         blocks.push(ae::Block::solid_tiled(
             format!("stair_up_{step}"),
-            ae::Vec2::new((65.0 + h) * T, ground_top - h * T),
+            ae::Vec2::new((73.0 + h) * T, ground_top - h * T),
             ae::Vec2::new(T, h * T),
             "mary_o_stairs",
             step,
         ));
         blocks.push(ae::Block::solid_tiled(
             format!("stair_down_{step}"),
-            ae::Vec2::new((76.0 - h) * T, ground_top - (5.0 - h) * T),
+            ae::Vec2::new((84.0 - h) * T, ground_top - (5.0 - h) * T),
             ae::Vec2::new(T, (5.0 - h) * T),
             "mary_o_stairs",
             step + 4,
@@ -319,7 +339,7 @@ pub fn level_1_1() -> RoomSpec {
     // finial capping it, and a banner hanging off the top. All three are the SAME
     // width and column as the pole, so none of them changes what is reachable or
     // where the grab band is — the silhouette is new, the level is not.
-    let pole_x = 90.0 * T;
+    let pole_x = POLE_COLUMN * T;
     let pole_top = ground_top - 9.0 * T;
     blocks.push(
         ae::Block::one_way(
@@ -364,6 +384,21 @@ pub fn level_1_1() -> RoomSpec {
             ae::Vec2::new(PIPE_WIDTH_TILES * T, PIPE_HEIGHT_TILES * T),
             "mary_o_pipe",
             0,
+        )
+        .with_art_color(scenery::TRANSPARENT),
+    );
+
+    // The SURFACE EXIT pipe: a second visible surface pipe, past pit B, that the
+    // vault surfaces you onto (`pipe_arrival`). Emergence-only — the way DOWN is
+    // the entry pipe at col 26; this one you rise up out of. Transparent collision,
+    // the prop supplies the look, exactly like the entry pipe.
+    blocks.push(
+        ae::Block::solid_tiled(
+            SURFACE_EXIT_PIPE_NAME,
+            ae::Vec2::new(SURFACE_EXIT_COLUMN * T, ground_top - PIPE_HEIGHT_TILES * T),
+            ae::Vec2::new(PIPE_WIDTH_TILES * T, PIPE_HEIGHT_TILES * T),
+            "mary_o_pipe",
+            2,
         )
         .with_art_color(scenery::TRANSPARENT),
     );
@@ -456,10 +491,18 @@ pub fn level_1_1() -> RoomSpec {
             size: ae::Vec2::new(1.5 * T, 1.5 * T),
         },
     ];
-    // Both warp pipes, each a lip prop stacked on a body prop over its 2×2 block.
+    // Every warp pipe, each a lip prop stacked on a body prop over its 2×2 block:
+    // the surface ENTRY (down into the vault), the vault RETURN (up and out), and
+    // the surface EXIT past pit B that the return surfaces you onto.
     let entry_pipe_min = ae::Vec2::new(PIPE_COLUMN * T, ground_top - PIPE_HEIGHT_TILES * T);
     let return_pipe_min = ae::Vec2::new(vault_exit().min.x, vault.max.y - PIPE_HEIGHT_TILES * T);
-    for (tag, min) in [("entry", entry_pipe_min), ("return", return_pipe_min)] {
+    let surface_exit_min =
+        ae::Vec2::new(SURFACE_EXIT_COLUMN * T, ground_top - PIPE_HEIGHT_TILES * T);
+    for (tag, min) in [
+        ("entry", entry_pipe_min),
+        ("return", return_pipe_min),
+        ("surface_exit", surface_exit_min),
+    ] {
         scenery_props.push(scenery::prop_over(
             &format!("{tag}_pipe_lip_art"),
             scenery::PIPE_TOP_SPRITE,
@@ -482,7 +525,9 @@ pub fn level_1_1() -> RoomSpec {
     let vault = vault_bounds();
     let coin_y = vault.max.y - 1.5 * T;
     for i in 0..VAULT_COINS {
-        let x = vault.min.x + (1.0 + i as f32 * 1.5) * T;
+        // Spread across the wide chamber: 8 coins at 2-tile spacing span [+1,+15]
+        // inside the 18-tile vault.
+        let x = vault.min.x + (1.0 + i as f32 * 2.0) * T;
         room.placements
             .push(ambition::world::placements::PlacementRecord::new(
                 format!("vault_coin_{i}"),
@@ -564,12 +609,18 @@ pub fn goal_pole() -> flag::FlagPole {
     let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
     flag::FlagPole {
         // `Block::one_way` takes a MIN corner; the pole is `POLE_WIDTH` wide.
-        x: 90.0 * T + POLE_WIDTH * 0.5,
+        x: POLE_COLUMN * T + POLE_WIDTH * 0.5,
         top_y: ground_top - 9.0 * T,
         base_y: ground_top,
         half_width: POLE_WIDTH * 0.5,
     }
 }
+
+/// The goal pole's tile column — ONE source of truth shared by [`goal_pole`] and
+/// the `goal_pole` block in [`level_1_1`], so moving the level can never leave the
+/// flag's read-model behind (the drift the pole oracle guards against). Column 98
+/// after the level was lengthened by 8 tiles for the vault.
+const POLE_COLUMN: f32 = 98.0;
 
 /// The demo's one-character catalog. Every demo installs its own roster; the
 /// engine ships none (ADR 0017).
@@ -1749,9 +1800,23 @@ mod tests {
         // Both warp ends catch a player-sized body standing at them. A mouth
         // that does not overlap is a pipe that cannot be entered.
         let body_at = |p: ae::Vec2| ae::Aabb::new(p, ae::Vec2::new(0.5 * T, 0.9 * T));
+        // Leaving the vault surfaces you standing ON the SURFACE EXIT pipe past pit
+        // B — a visible pipe, not mid-air. Read the block's top off the AUTHORED
+        // level, never the formula it was built from.
+        let surface_exit = level_1_1()
+            .world
+            .blocks
+            .iter()
+            .find(|b| b.name == SURFACE_EXIT_PIPE_NAME)
+            .expect("the level has a visible surface exit pipe past pit B")
+            .aabb;
         assert!(
-            overlaps(body_at(pipe_arrival()), pipe_mouth()),
-            "standing on the pipe overlaps its mouth, or the directional press can never fire"
+            pipe_arrival().x > surface_exit.min.x
+                && pipe_arrival().x < surface_exit.max.x
+                && pipe_arrival().y <= surface_exit.min.y,
+            "the vault surfaces you standing on the exit pipe, not mid-air: \
+             arrival {:?} vs pipe {surface_exit:?}",
+            pipe_arrival()
         );
         // Deliberately NOT `body_at(vault_exit().center())`. That point is
         // inside the return pipe's own SOLID geometry, so it asserted a
@@ -1810,6 +1875,41 @@ mod tests {
             VAULT_COINS,
             "the vault is stocked"
         );
+    }
+
+    /// **The vault ceiling is unbroken — no surface pit punches a hole into it.**
+    ///
+    /// The vault's ceiling IS the level's ground slab. If any surface PIT sits over
+    /// the vault's x-range, the pit's gap in the slab is a hole straight into the
+    /// secret: a body that falls into that pit drops into the vault instead of
+    /// dying, and from inside you see daylight through the ceiling. That is exactly
+    /// what shipped — the 14-tile vault reached under pit B — and no existing test
+    /// caught it, because they all checked the pipes and the arrival, never the
+    /// roof. Sample across the whole vault width; every column must sit under the
+    /// slab, never over a pit.
+    #[test]
+    fn the_vault_ceiling_is_unbroken_no_pit_opens_a_hole() {
+        let vault = vault_bounds();
+        let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
+        let room = level_1_1();
+        // A ground-slab block (min.y at the slab top) covering world-x `x`.
+        let slab_covers = |x: f32| {
+            room.world.blocks.iter().any(|b| {
+                b.name.starts_with("ground_")
+                    && (b.aabb.min.y - ground_top).abs() < 1.0
+                    && b.aabb.min.x <= x
+                    && b.aabb.max.x >= x
+            })
+        };
+        let mut x = vault.min.x;
+        while x <= vault.max.x {
+            assert!(
+                slab_covers(x),
+                "the vault ceiling has a HOLE at x={x}: a surface pit sits above the \
+                 secret, so a faller drops into it (vault {vault:?})"
+            );
+            x += 4.0;
+        }
     }
 
     /// **A death spends a life, and running out of time is a death.**

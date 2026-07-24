@@ -146,9 +146,10 @@ pub fn register_ai_slop_sheet(
 }
 
 /// Tile x-columns (level grid) each AI Slop paces near — interleaved with the snake
-/// columns on the same ground segments (`[0,20) [22,34) [37,52) [57,96)`), clear of
-/// the pits, the spawn, and the stairs/flagpole.
-const AI_SLOP_TILE_COLUMNS: &[f32] = &[13.0, 24.0, 42.0, 60.0];
+/// columns on the same ground segments (`[0,20) [22,42) [45,60) [65,104)` after the
+/// level was lengthened for the vault), clear of the pits, the spawn, the surface
+/// exit pipe (column 45), and the stairs/flagpole.
+const AI_SLOP_TILE_COLUMNS: &[f32] = &[13.0, 24.0, 53.0, 70.0];
 
 /// The AI Slop spawn requests for level 1-1, dropped at the player's standing height
 /// so gravity settles each onto the ground beneath its column.

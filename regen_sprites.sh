@@ -370,8 +370,18 @@ expected_files=(
     super_mary_o_tall_spritesheet.png super_mary_o_tall_spritesheet.ron
     super_mary_o_fire_spritesheet.png super_mary_o_fire_spritesheet.ron
     props/super_mary_o_milk_carton.png
+    # Composable Mary-O construction pieces. Runtime level code can stack the
+    # body segments without stretching and attach the separately animated flag.
+    props/mary_o_pipe_body.png
+    props/mary_o_pipe_top.png
+    props/mary_o_flag_pole_body.png
+    props/mary_o_flag_pole_top.png
+    props/mary_o_flag.png
     generic_explosions_spritesheet.png generic_explosions_spritesheet.ron
     smirking_behemoth_boss_spritesheet.png smirking_behemoth_boss_spritesheet.ron
+    solid_snake_spritesheet.png solid_snake_spritesheet.ron
+    snakes_on_a_paper_plane_spritesheet.png snakes_on_a_paper_plane_spritesheet.ron
+    snakes_on_a_cartesian_plane_spritesheet.png snakes_on_a_cartesian_plane_spritesheet.ron
     stochastic_parrot_spritesheet.png stochastic_parrot_spritesheet.ron
     stochastic_parrot_v2_spritesheet.png stochastic_parrot_v2_spritesheet.ron
     imperfect_cellular_automaton_spritesheet.png imperfect_cellular_automaton_spritesheet.ron
@@ -807,8 +817,19 @@ tackon_targets=(
     # WorldItemArt at sprites/props/super_mary_o_milk_carton.png. Publish
     # the source target here, then copy its canonical pose into props/.
     super_mary_o_milk_carton
+    # Fixed-canvas construction pieces. The pipe and pole body targets repeat
+    # vertically; their top/finial and flag stay separate so level code can
+    # build arbitrary heights without stretching any sprite.
+    super_mary_o_pipe_body
+    super_mary_o_pipe_top
+    super_mary_o_flag_pole_body
+    super_mary_o_flag_pole_top
+    super_mary_o_flag
     generic_explosions
     smirking_behemoth_boss
+    solid_snake
+    snakes_on_a_paper_plane
+    snakes_on_a_cartesian_plane
     stochastic_parrot
     stochastic_parrot_v2
     imperfect_cellular_automaton
@@ -897,6 +918,29 @@ for pair in "${held_prop_map[@]}"; do
         echo "    $src_target -> props/${dst_name}.png"
     else
         echo "    warning: missing $canon (held-item prop not rendered)" >&2
+    fi
+done
+
+echo "==> Mary-O construction-piece canonicals (fixed canvas → $props_dir)"
+# These are level-construction sprites rather than held items. Keep their
+# transparent fixed canvases: seam coordinates and attachment anchors are part
+# of the authoring contract, so they must never be auto-cropped here.
+construction_prop_map=(
+    "super_mary_o_pipe_body:mary_o_pipe_body"
+    "super_mary_o_pipe_top:mary_o_pipe_top"
+    "super_mary_o_flag_pole_body:mary_o_flag_pole_body"
+    "super_mary_o_flag_pole_top:mary_o_flag_pole_top"
+    "super_mary_o_flag:mary_o_flag"
+)
+for pair in "${construction_prop_map[@]}"; do
+    src_target="${pair%%:*}"
+    dst_name="${pair##*:}"
+    canon="$renderer_dir/generated/$src_target/${src_target}_canonical_transparent.png"
+    if [ -f "$canon" ]; then
+        cp "$canon" "$props_dir/${dst_name}.png"
+        echo "    $src_target -> props/${dst_name}.png"
+    else
+        echo "    warning: missing $canon (Mary-O construction prop not rendered)" >&2
     fi
 done
 

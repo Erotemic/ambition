@@ -489,6 +489,7 @@ dependencies = [
  "ambition_platformer_primitives",
  "ambition_sfx",
  "bevy",
+ "tracing",
 ]
 
 [[package]]

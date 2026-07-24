@@ -10,14 +10,15 @@ use ambition_input::{
     InputParticipant, InputSet, ParticipantContexts, LAUNCHER_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
 };
 use ambition_load::{AmbitionLoadSet, LoadCoordinator};
+use tracing::{debug, error, warn};
 
 use crate::{
     ActiveGameplaySession, ActiveShellSequence, AmbitionGameShellSet, PreparedSessionRegistry,
-    ShellCommand, ShellEvent, ShellExperienceRegistry, ShellHostConfiguration, ShellLaunchCatalog,
-    ShellLauncherCommand, ShellLauncherPresentation, ShellLauncherState, ShellRouteCatalog,
-    ShellRouteHolds, ShellRouter, ShellScopedEntity, ShellSegmentScopedEntity,
-    ShellSequenceCatalog, ShellSequenceCommand, ShellSequenceRuntime, ShellSequenceSet,
-    BASIC_LAUNCHER_EXPERIENCE,
+    ShellCommand, ShellCommandRejection, ShellEvent, ShellExperienceRegistry,
+    ShellHostConfiguration, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherPresentation,
+    ShellLauncherState, ShellRouteCatalog, ShellRouteHolds, ShellRouter, ShellScopedEntity,
+    ShellSegmentScopedEntity, ShellSequenceCatalog, ShellSequenceCommand, ShellSequenceRuntime,
+    ShellSequenceSet, BASIC_LAUNCHER_EXPERIENCE,
 };
 
 #[derive(Default)]
@@ -66,7 +67,8 @@ impl Plugin for AmbitionGameShellPlugin {
             )
             .add_systems(
                 Update,
-                cleanup_scoped_entities.in_set(AmbitionGameShellSet::Cleanup),
+                (cleanup_scoped_entities, log_shell_routing_failures)
+                    .in_set(AmbitionGameShellSet::Cleanup),
             );
     }
 }
@@ -260,6 +262,70 @@ fn cleanup_scoped_entities(
                 commands.entity(entity).despawn();
             }
         }
+    }
+}
+
+/// Surface every terminal shell-routing failure to the log, in ANY host.
+///
+/// A windowed shell renders load failures through `ambition_load_presentation`,
+/// but a headless host — a scripted test, a CI gate, an out-of-tree consumer's
+/// binary — has no presentation layer. Before this, a failed route preparation
+/// stalled with its cause discarded (Phase 6 task-7 finding: an external
+/// consumer's content-load refusal "surfaced NOWHERE — the route just sat
+/// pending forever"). The router now carries the coordinator's well-worded
+/// [`LoadFailure`] reasons through [`ShellCommandRejection::LoadFailed`]; this
+/// system is what makes them observable. Logging is purely additive: it never
+/// suppresses the user-facing presentation, it only guarantees the developer
+/// detail reaches the log wherever the sim runs.
+fn log_shell_routing_failures(mut events: MessageReader<ShellEvent>) {
+    for event in events.read() {
+        match event {
+            ShellEvent::CommandRejected(rejection) => log_shell_rejection(rejection),
+            ShellEvent::ExperienceFailed {
+                activation_id,
+                message,
+            } => {
+                error!("shell experience {activation_id:?} failed: {message}");
+            }
+            _ => {}
+        }
+    }
+}
+
+fn log_shell_rejection(rejection: &ShellCommandRejection) {
+    match rejection {
+        ShellCommandRejection::LoadFailed {
+            readiness,
+            failures,
+        } => {
+            if failures.is_empty() {
+                // Cancellation / supersession are terminal but carry no per-work
+                // failure — routine navigation, not a fault worth an error line.
+                debug!("shell route load ended {readiness:?} with no per-work failure");
+            } else {
+                for failure in failures {
+                    if failure.retryable {
+                        warn!(
+                            "shell route load failed (retryable): {} ({})",
+                            failure.player_message, failure.developer_detail
+                        );
+                    } else {
+                        error!(
+                            "shell route load failed: {} ({})",
+                            failure.player_message, failure.developer_detail
+                        );
+                    }
+                }
+            }
+        }
+        // A command that targeted an activation the router already superseded is
+        // a benign navigation race, not a misconfiguration.
+        ShellCommandRejection::StaleActivation(activation_id) => {
+            debug!("shell command rejected — stale activation {activation_id:?}");
+        }
+        // Host misconfiguration or a load-commit contract violation: an author or
+        // integrator error the external consumer needs to see loudly.
+        other => error!("shell command rejected: {other:?}"),
     }
 }
 

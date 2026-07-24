@@ -3,7 +3,8 @@
 use std::collections::BTreeMap;
 
 use ambition_load::{
-    BarrierReadiness, LoadBarrierId, LoadBarrierRef, LoadCommitRejection, LoadCoordinator, LoadId,
+    BarrierReadiness, LoadBarrierId, LoadBarrierRef, LoadCommitRejection, LoadCoordinator,
+    LoadFailure, LoadId,
 };
 use bevy::prelude::{Component, Message, Resource};
 
@@ -191,7 +192,17 @@ pub enum ShellCommandRejection {
     HostNotConfigured,
     UnknownRoute(ShellRouteId),
     StaleActivation(ShellActivationId),
-    LoadFailed(BarrierReadiness),
+    /// A route's required load reached a terminal non-ready state. `failures`
+    /// carries the coordinator's well-worded [`LoadFailure`] reasons when
+    /// `readiness` is [`BarrierReadiness::Failed`] (empty for cancellation and
+    /// supersession, which carry no per-work failure) — without it a headless
+    /// host only ever saw "Failed" and the underlying provider reason (e.g.
+    /// "provider registered no explicit audio fragment") was discarded, so the
+    /// route appeared to stall forever with no diagnosable cause.
+    LoadFailed {
+        readiness: BarrierReadiness,
+        failures: Vec<LoadFailure>,
+    },
     LoadCommitRejected(LoadCommitRejection),
     PreparedSessionUnavailable(LoadBarrierRef),
 }
@@ -340,9 +351,8 @@ impl ShellRouter {
         if holds.is_held(&pending.route_id) {
             return Vec::new();
         }
-        let readiness = loads
-            .snapshot(&pending.barrier.load_id, &pending.barrier.barrier_id)
-            .map(|snapshot| snapshot.readiness);
+        let snapshot = loads.snapshot(&pending.barrier.load_id, &pending.barrier.barrier_id);
+        let readiness = snapshot.as_ref().map(|snapshot| snapshot.readiness);
         match readiness {
             Some(BarrierReadiness::Ready) => {
                 if pending.requires_prepared_session
@@ -389,8 +399,14 @@ impl ShellRouter {
                     if let Some(current) = self.pending.as_mut() {
                         current.terminal_reported = true;
                     }
+                    let failures = snapshot
+                        .map(|snapshot| snapshot.failures)
+                        .unwrap_or_default();
                     vec![ShellEvent::CommandRejected(
-                        ShellCommandRejection::LoadFailed(state),
+                        ShellCommandRejection::LoadFailed {
+                            readiness: state,
+                            failures,
+                        },
                     )]
                 }
             }
@@ -461,9 +477,8 @@ impl ShellRouter {
         }
 
         if let Some(barrier) = route.required_barrier.clone() {
-            let readiness = loads
-                .snapshot(&barrier.load_id, &barrier.barrier_id)
-                .map(|snapshot| snapshot.readiness);
+            let snapshot = loads.snapshot(&barrier.load_id, &barrier.barrier_id);
+            let readiness = snapshot.as_ref().map(|snapshot| snapshot.readiness);
             match readiness {
                 Some(BarrierReadiness::Ready) => {
                     if let Err(reason) = loads.request_commit(&barrier.load_id, &barrier.barrier_id)
@@ -486,9 +501,15 @@ impl ShellRouter {
                         requires_prepared_session: false,
                         terminal_reported: true,
                     });
+                    let failures = snapshot
+                        .map(|snapshot| snapshot.failures)
+                        .unwrap_or_default();
                     return vec![
                         ShellEvent::WaitingForLoad { route_id, barrier },
-                        ShellEvent::CommandRejected(ShellCommandRejection::LoadFailed(state)),
+                        ShellEvent::CommandRejected(ShellCommandRejection::LoadFailed {
+                            readiness: state,
+                            failures,
+                        }),
                     ];
                 }
                 Some(BarrierReadiness::Preparing) | None => {

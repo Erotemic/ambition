@@ -589,6 +589,83 @@ fn provider_retry_supersedes_the_failed_transaction_and_rejects_stale_publicatio
 }
 
 #[test]
+fn a_failed_route_preparation_surfaces_the_provider_reason_not_just_failed() {
+    // Regression for the Phase 6 task-7 diagnostics finding: a headless host saw
+    // a route "sit pending forever" because the router discarded the
+    // coordinator's well-worded LoadFailure and reported only the bare readiness
+    // enum. The terminal event must now carry the provider's developer detail so
+    // `log_shell_routing_failures` — and any headless consumer inspecting the
+    // event — can name the cause instead of watching the route stall.
+    let mut loads = LoadCoordinator::default();
+    let mut prepared = PreparedSessionRegistry::default();
+    let plan = ProviderPreparationPlan::new("Prepare fixture", "ready", "Ready")
+        .required("publish", "Publish prepared session");
+    let mut catalog = ShellRouteCatalog::default();
+    catalog.register(ShellRouteSpec::new("game", "fixture").preparing_with(plan));
+    let host = ShellHostConfiguration::default();
+    let mut router = ShellRouter::default();
+
+    let events = router.apply(
+        ShellCommand::GoTo(ShellRouteId::new("game")),
+        &catalog,
+        &host,
+        &mut loads,
+        &mut prepared,
+    );
+    let transaction = events
+        .iter()
+        .find_map(|event| match event {
+            ShellEvent::PreparationRequested(transaction) => Some(transaction.clone()),
+            _ => None,
+        })
+        .expect("GoTo on a preparing route requests a preparation");
+
+    // The provider refuses preparation with a specific, well-worded reason —
+    // exactly the audio-fragment refusal the Outlander fixture recorded.
+    loads.apply(LoadCommand::SetWorkState {
+        load_id: transaction.barrier.load_id.clone(),
+        work_id: ambition_load::LoadWorkId::new("publish"),
+        state: ambition_load::LoadWorkState::Failed(ambition_load::LoadFailure::new(
+            "This world could not be prepared.",
+            "provider registered no explicit audio fragment",
+        )),
+    });
+
+    let holds = ShellRouteHolds::default();
+    let events = router.advance_pending(&catalog, &mut loads, &mut prepared, &holds);
+    let failures = events
+        .iter()
+        .find_map(|event| match event {
+            ShellEvent::CommandRejected(ShellCommandRejection::LoadFailed {
+                readiness: ambition_load::BarrierReadiness::Failed,
+                failures,
+            }) => Some(failures.clone()),
+            _ => None,
+        })
+        .expect("a failed preparation is reported as LoadFailed(Failed)");
+    assert_eq!(
+        failures.len(),
+        1,
+        "the single failed work item's reason is carried through, not discarded",
+    );
+    assert_eq!(
+        failures[0].developer_detail, "provider registered no explicit audio fragment",
+        "the provider's developer detail reaches the terminal event — a headless \
+         host can now name why the route failed instead of watching it stall",
+    );
+
+    // The terminal report fires once, not on every advance, or a headless log
+    // would spam the same failure every frame the route stays pending.
+    let repeat = router.advance_pending(&catalog, &mut loads, &mut prepared, &holds);
+    assert!(
+        !repeat
+            .iter()
+            .any(|event| matches!(event, ShellEvent::CommandRejected(_))),
+        "the failure is reported once (terminal_reported latch), not re-emitted",
+    );
+}
+
+#[test]
 fn same_provider_relaunch_mints_a_fresh_load_transaction() {
     let mut loads = LoadCoordinator::default();
     let mut prepared = PreparedSessionRegistry::default();

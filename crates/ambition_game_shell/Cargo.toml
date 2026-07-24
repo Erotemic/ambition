@@ -53,3 +53,7 @@ bevy = { version = "0.18.1", default-features = false, features = [
     "bevy_input_focus",
     "gamepad",
 ] }
+# Logging facade (bevy logs through tracing). The shell emits route-load-failure
+# diagnostics through it so a headless host — with no load-presentation layer —
+# still surfaces WHY a route failed instead of stalling silently.
+tracing = "0.1"

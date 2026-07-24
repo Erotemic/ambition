@@ -2034,12 +2034,25 @@ oracle + manual-reset/transition tests. Determinism-sacred throughout; no
 > into the fixture's independent workspace) — the only gate that can see
 > an umbrella break that workspace feature unification hides in-repo.
 >
-> **Error-quality finding (task 7):** the audio-fragment refusal is a
-> well-worded `LoadFailure` ("provider registered no explicit audio
-> fragment") that a headless host surfaced NOWHERE — the route just sat
-> pending forever. The walkthrough's timeout diagnostics now dump the
-> router state; an engine-side answer (a headless load-failure log, or a
-> shell readiness probe on the umbrella) is the natural SDK follow-up.
+> **Error-quality finding (task 7) — ENGINE ANSWER LANDED 2026-07-24.** The
+> audio-fragment refusal is a well-worded `LoadFailure` ("provider registered
+> no explicit audio fragment") that a headless host surfaced NOWHERE — the
+> route just sat pending forever, because the router extracted only
+> `snapshot.readiness` and discarded `snapshot.failures`, so
+> `ShellCommandRejection::LoadFailed` carried a bare `Failed` with no cause.
+> Fixed in `ambition_game_shell`: `LoadFailed` now carries
+> `failures: Vec<LoadFailure>` (both `advance_pending` and the ready-barrier
+> `start_route` path propagate them from the coordinator snapshot), and a
+> host-agnostic `log_shell_routing_failures` system in the shell plugin's
+> `Cleanup` set emits every terminal rejection + `ExperienceFailed` through
+> `tracing` (retryable → `warn!`, terminal → `error!`, benign
+> supersession/stale-activation → `debug!`). A headless host now names the
+> cause wherever a subscriber is installed, and can also read the reason
+> straight off the event. Regression:
+> `a_failed_route_preparation_surfaces_the_provider_reason_not_just_failed`.
+> Still open as SDK polish: a queryable readiness/last-failure probe on the
+> umbrella (the router state is already `pub`, so this is convenience, not a
+> gap) and the walkthrough's timeout diagnostics dumping the router state.
 >
 > **Visible half:** `outlander_visible` (feature `visible` =
 > `ambition/visible` + `basic_shell_presentation` + `ambition/input`) shares

@@ -99,9 +99,14 @@ impl PipeTransit {
             elapsed: 0.0,
             from: at,
             to: at + travel,
-            // The far pipe's throat is `travel` BACK from the arrival: the body
-            // comes out the way it went in, so it emerges along the same axis.
-            throat: arrival + travel,
+            // **The emergence continues the journey, it does not reverse it.** The
+            // throat is a pipe-length BEHIND the arrival along the travel axis, so
+            // the body keeps moving the same way it entered: down a descent tube it
+            // comes DOWN out of the ceiling pipe, up an ascent tube it comes UP out
+            // of the ground. Adding `travel` instead put the throat on the far side
+            // of the arrival, so every exit ran backwards — you dropped below the
+            // mouth and rose into place going down, and overshot and sank going up.
+            throat: arrival - travel,
             arrival,
         }
     }

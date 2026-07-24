@@ -147,7 +147,12 @@ const LEVEL_HEIGHT: f32 = SURFACE_HEIGHT + VAULT_DEPTH_TILES * T;
 ///   reason a player could read.)
 const PIPE_COLUMN: f32 = 26.0;
 const EXIT_PIPE_COLUMN: f32 = 35.0;
-const PIPE_WIDTH_TILES: f32 = 2.0;
+/// THREE tiles wide, not the two a Mario pipe nominally is, because a pipe here
+/// has to be able to HIDE the body going through it. Mary-O's collision box is
+/// about one tile across but her SPRITE is drawn far wider than that (character
+/// art deliberately overflows its hitbox), so a two-tile pipe left her shoulders
+/// sticking out either side while she slid down it.
+const PIPE_WIDTH_TILES: f32 = 3.0;
 const PIPE_HEIGHT_TILES: f32 = 2.0;
 /// The descent tube: the surface half you press DOWN on, and the vault half you
 /// drop out of directly below it.
@@ -228,18 +233,19 @@ pub fn pipe_arrival() -> ae::Vec2 {
     ae::Vec2::new(min.x + PIPE_WIDTH_TILES * 0.5 * T, min.y - T)
 }
 
-/// The ascent tube's mouth: the column of air UNDER its vault half, from the
-/// pipe's lip down to the vault floor.
+/// The ascent tube's mouth: a band straddling the patch of VAULT FLOOR directly
+/// under its vault half.
 ///
-/// Not a thin band across a pipe's top face, because this pipe hangs overhead —
-/// you cannot stand on it. Standing anywhere beneath it and pressing UP takes you
-/// up the tube, which is both the forgiving read and the honest one: the whole
-/// space under the pipe is "in the pipe's way up".
+/// Exactly the shape [`pipe_mouth`] has — a band across the surface you are
+/// standing on — so both ends of a trip are the same verb: stand on the spot the
+/// pipe marks, press into it. It used to be the whole COLUMN of air beneath the
+/// pipe, on the theory that an overhead pipe deserved a forgiving trigger; that
+/// read as loose ("Mary-O can be anywhere under the pipe and press up") next to
+/// the precise descent, which you can only take from the pipe's own top face.
 pub fn vault_exit() -> ae::Aabb {
-    let vault = vault_bounds();
-    let lip = vault_pipe_min(EXIT_PIPE_COLUMN).y + PIPE_HEIGHT_TILES * T;
-    let min = ae::Vec2::new(EXIT_PIPE_COLUMN * T, lip);
-    let size = ae::Vec2::new(PIPE_WIDTH_TILES * T, vault.max.y - lip);
+    let floor_top = vault_bounds().max.y;
+    let size = ae::Vec2::new(PIPE_WIDTH_TILES * T, T);
+    let min = ae::Vec2::new(EXIT_PIPE_COLUMN * T, floor_top - 0.5 * T);
     ae::Aabb::new(min + size * 0.5, size * 0.5)
 }
 
@@ -1910,13 +1916,22 @@ mod tests {
             .find(|b| b.name == EXIT_PIPE_NAME)
             .expect("the vault has a VISIBLE return pipe, not just an exit zone")
             .aabb;
+        // The mouth marks the patch of FLOOR under that pipe: same column, and it
+        // straddles the floor she stands on. So what she presses UP on is directly
+        // under the thing she can see, and it is a spot rather than a whole region.
         assert!(
-            (vault_exit().min.y - return_pipe.max.y).abs() < 1.0
-                && (vault_exit().min.x - return_pipe.min.x).abs() < 1.0
+            (vault_exit().min.x - return_pipe.min.x).abs() < 1.0
                 && (vault_exit().max.x - return_pipe.max.x).abs() < 1.0,
-            "and the exit mouth hangs directly beneath that pipe's lip, so what you \
-             press UP under is the thing you can see: mouth {:?} vs pipe {return_pipe:?}",
+            "the exit mouth is in the return pipe's own column: mouth {:?} vs pipe \
+             {return_pipe:?}",
             vault_exit()
+        );
+        assert!(
+            vault_exit().min.y < vault.max.y && vault_exit().max.y > vault.max.y,
+            "and it straddles the vault floor, the surface she presses UP from: \
+             mouth {:?} vs floor {}",
+            vault_exit(),
+            vault.max.y
         );
         assert_eq!(
             room.placements

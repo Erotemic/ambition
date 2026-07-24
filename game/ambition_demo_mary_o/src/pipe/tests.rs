@@ -77,10 +77,40 @@ fn the_body_is_swallowed_before_it_crosses_and_emerges_from_inside_the_far_pipe(
     );
     assert_eq!(
         t.throat,
-        t.arrival + ae::Vec2::new(0.0, travel),
-        "and the emergence starts a whole pipe-length INSIDE the far pipe, so the \
-         body comes out the way it went in"
+        t.arrival - ae::Vec2::new(0.0, travel),
+        "and the emergence starts a whole pipe-length BEHIND the arrival, inside \
+         the far pipe"
     );
+}
+
+/// **The exit continues the journey; it never reverses it.**
+///
+/// Jon, on the feel: "the physics of exiting the pipe is weird. You sort of fall
+/// down and then bounce up, and when going up you push up and then fall down."
+/// That was the emergence running BACKWARDS — the throat sat on the far side of
+/// the arrival, so going down a pipe dropped you below the ceiling mouth and
+/// floated you up into place, and going up overshot and sank you back. Whichever
+/// way a tube points, the second half must travel the SAME way as the first.
+#[test]
+fn the_emergence_travels_the_same_way_as_the_entry() {
+    for (axis, what) in [
+        (ae::Vec2::new(0.0, 1.0), "down a descent tube"),
+        (ae::Vec2::new(0.0, -1.0), "up an ascent tube"),
+    ] {
+        let t = PipeTransit::begin(
+            ae::Vec2::new(100.0, 400.0),
+            ae::Vec2::new(500.0, 900.0),
+            axis,
+            TILE,
+        );
+        let entering = (t.to - t.from).normalize();
+        let leaving = (t.arrival - t.throat).normalize();
+        assert!(
+            entering.dot(leaving) > 0.99,
+            "going {what}, the body must LEAVE the far pipe the same way it entered \
+             the near one (entering {entering:?}, leaving {leaving:?})"
+        );
+    }
 }
 
 /// The slide EASES: it starts slow, moves fastest mid-tube, and settles. A linear

@@ -394,10 +394,10 @@ pub fn register_snake_roster(app: &mut App) {
 
 /// Tile x-columns (level grid) each snake paces near — the flats after the pit
 /// rhythm, so the walker is a hazard on solid ground, not stranded over a pit.
-/// Ground runs are now [0,20) [22,42) [45,60) [65,104) (pits [20,22) [42,45)
-/// [60,65)) after the level was lengthened for the vault; these columns sit clear
-/// of the pits and the surface exit pipe at column 45.
-const SNAKE_TILE_COLUMNS: &[f32] = &[9.0, 16.0, 27.0, 52.0, 68.0];
+/// Ground runs are [0,20) [22,42) [45,60) [65,104) (pits [20,22) [42,45)
+/// [60,65)); these columns sit clear of the pits AND of both warp pipes, which
+/// stand three tiles wide at columns [26,29) and [35,38).
+const SNAKE_TILE_COLUMNS: &[f32] = &[9.0, 16.0, 31.0, 52.0, 68.0];
 
 /// The snake spawn requests for level 1-1, dropped at the player's standing height
 /// so gravity settles each onto the ground beneath its column.

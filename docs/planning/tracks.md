@@ -39,7 +39,12 @@ by hardness × payoff; every item below is executable today per its own doc.
    LAUNCHES — activation walk + ridge-gate proof shared by binary and
    fixture test, `external consumer: outlander` gate job.
    **← CURRENT (Jon, 2026-07-23): Phase 6 remainder (visible-shell half,
-   task-7 measurements) per the campaign doc.**
+   task-7 measurements) per the campaign doc.** Task-7 error-diagnostics
+   slice LANDED 2026-07-24 (`35755d097`): headless content-load failures now
+   surface the provider reason (`ShellCommandRejection::LoadFailed` carries
+   `Vec<LoadFailure>`) + a host-agnostic `log_shell_routing_failures` system,
+   instead of a route stalling silently. Remaining: the visible run (needs a
+   display) and the quantitative workflow measurements.
 2. **FB6 rollout redesign** (track 6, [fable]) — the design task is unblocked;
    the implementation stays blocked until it lands.
 3. **Matchbox two-peer transport + predicted-A/corrected-B oracle**
@@ -50,8 +55,13 @@ by hardness × payoff; every item below is executable today per its own doc.
 5. **The 311-site `add_systems(Update, ...)` everything-schedule**
    (code_smells.md 2026-07-23; perf campaign) — 10–18% executor self-time in
    every phase, title screen included.
-6. **CM8 victim-side feedback seam** (track 8; design pre-solved in
-   combat-model.md §8; includes a live enemy-vs-enemy feedback bug).
+6. ~~**CM8 victim-side feedback seam** (track 8; design pre-solved in
+   combat-model.md §8; includes a live enemy-vs-enemy feedback bug).~~
+   **LANDED 2026-07-24** (`defc4e78e`): ONE `emit_hit_feedback` (attack owns
+   `strike_sfx`, victim owns `HurtFeedback`); the three `is_player` payload
+   forks — incl. the live enemy-vs-enemy `PLAYER_DAMAGE`+red-burst bug — are
+   deleted. OWED is a content pass only (per-archetype hurt authoring +
+   distinct sounds), not engine work. See combat-model.md §8 "As landed".
 7. **Role evictions** (track 7) and the **glob-import untangle**
    (code_smells.md 2026-06-26, 30-site worklist) — incremental, parallel-safe.
 
@@ -334,9 +344,15 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   (shape: fable-reply-2026-07-19-b.md §4; widen population by the static
   `BodyKinematics` filter, rename `rollback_inventory_smoke`, honest
   docstring). Runs only in the full gate by construction.
-- ▢ Kill the vacuous projectile-anchor `.all()` (`desync_canary.rs:142`)
-  + ONE strong mutable-state rewind canary. No scenario matrix — the old
-  Track-0 exit list is opportunity, not contract.
+- ✅ **DONE** (verified 2026-07-24) — Kill the vacuous projectile-anchor
+  `.all()` (`desync_canary.rs`) + ONE strong mutable-state rewind canary.
+  `assert_family_anchored` now REFUSES to pass on an empty family (asserts the
+  marker population is non-empty before counting unanchored, so a family with
+  no members can no longer "pass" vacuously). The strong mutable-state rewind
+  canary is the track-0 exit oracle (`rollback_exit_oracle.rs`, Phase 5 task 4):
+  melee hit + armor spend + switch flip + brick break survive a forced rollback
+  window checksum-identically. No scenario matrix — the old Track-0 exit list is
+  opportunity, not contract.
 - ▢ Base-SHA/overlap landing rule into existing agent instructions (doc
   only; a script waits for a second incident).
 - ▢ The ONE deletion-heavy docs pass (tracks→open cards; smells refiled

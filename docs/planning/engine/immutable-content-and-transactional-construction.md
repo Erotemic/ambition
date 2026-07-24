@@ -1643,6 +1643,20 @@ no hand-reviewed remainder, no latent unregistered authoritative state.
    (`content_identity.rs`) — the live version authority is
    `GGRS_ROLLBACK_SCHEMA_VERSION`.
 
+**STATUS — ALL FIVE TASKS DONE (re-verified 2026-07-24).** Tasks 3 + 4 were
+already annotated ✅ MET below; the remaining three are confirmed complete in
+the tree:
+- Task 1 (resource-coverage forcing function): `every_mutable_ambition_resource_is_registered_derived_or_waived`
+  in `game/ambition_app/tests/rollback_coverage.rs`, with a poison test
+  (`the_resource_sweep_actually_catches_an_unregistered_resource`) and anchored
+  waivers (the 2026-07-23 "narrow waivers" refinement). Runs green:
+  `cargo test -p ambition_app --features rl_sim --test app_it -- rollback_coverage`
+  → 8 passed.
+- Task 2 (`FactionRelations` / `FriendlyFire`): both registered at
+  `rollback/mod.rs` (`rollback_resource_clone`), no longer latent.
+- Task 5 (`SNAPSHOT_SCHEMA_VERSION`): deleted — no occurrences remain in the
+  tree; `GGRS_ROLLBACK_SCHEMA_VERSION` is the sole version authority.
+
 #### Exit
 
 - The supported rollback profile is explicit and inspectable — and COMPUTED

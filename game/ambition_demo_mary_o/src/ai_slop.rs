@@ -32,6 +32,7 @@ use ambition::characters::actor::BodyHealth;
 use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::CharacterBrain;
 
+use crate::stomp::{player_touch, PlayerTouch};
 use crate::{LEVEL_1_1_ROOM_ID, T};
 
 /// The catalog `display_name` an AI Slop renders from, and the name every AI Slop
@@ -50,10 +51,6 @@ pub const AI_SLOP_SHEET_TARGET: &str = "ai_slop";
 /// full jump so a stomp reads as a bounce, not a re-jump. Matches the snake's, so
 /// bouncing off either enemy feels identical.
 const BOUNCE_SPEED: f32 = 430.0;
-
-/// Vertical tolerance (px) for "feet on its head": the band within which a
-/// descending player's feet count as landing on top rather than hitting a side.
-const STOMP_BAND: f32 = 16.0;
 
 /// Marks a body as an AI Slop, so the stomp rule finds its own and never squashes a
 /// snake. Inserted by [`tag_mary_o_ai_slop`] off the authored [`FeatureName`].
@@ -202,8 +199,11 @@ pub fn tag_mary_o_ai_slop(
     }
 }
 
-/// **The head-stomp.** A player descending onto an AI Slop's head bounces up and
-/// squashes it — the classic contact stomp, NOT the engine's attack-hitbox pogo.
+/// **The head-stomp.** A player on an AI Slop's head bounces up and squashes it —
+/// the classic contact stomp, NOT the engine's attack-hitbox pogo. "On its head" is
+/// the shared [`crate::stomp::PlayerTouch::Top`] rule, so this and the snake's shell
+/// can never disagree about the same contact — and a player standing STILL on a mob
+/// is stomping it, not being hurt by it.
 ///
 /// Ordered BEFORE the shared body-contact-damage pass so a stomp never also hurts
 /// the stomper: on a squash the mob's health is zeroed THIS frame (a component
@@ -219,9 +219,6 @@ pub fn tag_mary_o_ai_slop(
 /// one thing a silent despawn would drop is the visible pop, so we emit a dust
 /// [`ambition::vfx::VfxMessage::Burst`] at the corpse through the engine's own vfx
 /// seam — a squash reads as a squash without adopting a wrong-ordered pipeline.
-///
-/// Mary-O runs under screen gravity (down = +y), so "descending" is `vel.y > 0`, her
-/// feet are the `+y` (max) edge, and the mob's head is its `-y` (min) edge.
 pub fn bounce_squash_ai_slop(
     mut commands: Commands,
     mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
@@ -235,21 +232,14 @@ pub fn bounce_squash_ai_slop(
     let Ok(mut player) = players.single_mut() else {
         return;
     };
-    // Only a falling player can stomp; a rising / level player that overlaps a mob
-    // is taking a side hit, which the contact pass owns.
-    if player.vel.y <= 0.0 {
-        return;
-    }
-    let p = player.aabb();
+    let (p, pvel) = (player.aabb(), player.vel);
     for (entity, mob_kin, mut health) in &mut mobs {
         if !health.alive() {
             continue;
         }
-        let g = mob_kin.aabb();
-        let overlap_x = p.min.x < g.max.x && p.max.x > g.min.x;
-        let feet = p.max.y;
-        let on_head = feet >= g.min.y - STOMP_BAND && feet <= g.min.y + STOMP_BAND;
-        if !(overlap_x && on_head) {
+        // The shared top/side rule: only a TOP contact squashes. A side (or an
+        // underside) touch is left alone here and lands as normal contact damage.
+        if player_touch(mob_kin.aabb(), p, pvel) != Some(PlayerTouch::Top) {
             continue;
         }
         ae::movement::set_jump_velocity(&mut player.vel, ae::DEFAULT_GRAVITY_DIR, BOUNCE_SPEED);

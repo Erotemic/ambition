@@ -107,7 +107,9 @@ fn a_boxed_shell_waits_out_its_timer_before_peeking() {
 }
 
 /// Kicking a boxed shell launches it AWAY from the player (dir from the kick) and
-/// sets its slide velocity on the spot — never a stationary "sliding" shell.
+/// sets its slide velocity on the spot — never a stationary "sliding" shell. The
+/// kick also arms the grace window, because you kick from the SIDE and are still
+/// standing inside the shell it just launched.
 #[test]
 fn kicking_a_boxed_shell_sends_it_sliding_away() {
     let kick_right = ShellInputs {
@@ -115,7 +117,13 @@ fn kicking_a_boxed_shell_sends_it_sliding_away() {
         ..Default::default()
     };
     let fx = step(SnakeShell::Boxed(BOXED_S), kick_right);
-    assert_eq!(fx.phase, SnakeShell::Sliding(1.0));
+    assert_eq!(
+        fx.phase,
+        SnakeShell::Sliding {
+            dir: 1.0,
+            grace: KICK_GRACE_S
+        }
+    );
     assert!(fx.just_kicked);
     assert_eq!(
         fx.vel_x,
@@ -128,26 +136,62 @@ fn kicking_a_boxed_shell_sends_it_sliding_away() {
         ..Default::default()
     };
     let fx = step(SnakeShell::Boxed(BOXED_S), kick_left);
-    assert_eq!(fx.phase, SnakeShell::Sliding(-1.0));
+    assert!(matches!(fx.phase, SnakeShell::Sliding { dir, .. } if dir == -1.0));
     assert_eq!(fx.vel_x, Some(-SHELL_SLIDE_SPEED));
+}
+
+/// **Kicking a shell must not hurt the kicker.** The kick comes FROM the side, so
+/// the shell starts moving while it still overlaps the player — the grace window is
+/// what stands between "kick a shell" and "kick a shell and take a hit for it". It
+/// burns down on the shell's own clock and expires.
+#[test]
+fn a_freshly_kicked_shell_cannot_hurt_the_kicker_until_its_grace_expires() {
+    let kick = ShellInputs {
+        side_kick: Some(1.0),
+        ..Default::default()
+    };
+    let mut phase = step(SnakeShell::Boxed(BOXED_S), kick).phase;
+    let grace_of = |p| match p {
+        SnakeShell::Sliding { grace, .. } => grace,
+        other => panic!("expected a sliding shell, got {other:?}"),
+    };
+    assert!(
+        grace_of(phase) > 0.0,
+        "the kick tick itself is graced — this is the hit the kicker used to take"
+    );
+
+    // It expires on its own within the window, and never goes negative. (`+ 1` tick
+    // for the float tail of subtracting `dt` off the window repeatedly.)
+    let ticks = (KICK_GRACE_S / DT).ceil() as usize + 1;
+    for _ in 0..ticks {
+        phase = step(phase, ShellInputs::default()).phase;
+    }
+    assert_eq!(
+        grace_of(phase),
+        0.0,
+        "past the window the shell is armed again — a ricochet back into you is a real threat"
+    );
 }
 
 /// A sliding shell keeps its speed, and reverses when the world blocks it (so it
 /// ricochets down a corridor instead of parking against a wall).
 #[test]
 fn a_sliding_shell_holds_speed_and_bounces_off_walls() {
-    let fx = step(SnakeShell::Sliding(1.0), ShellInputs::default());
-    assert_eq!(fx.phase, SnakeShell::Sliding(1.0));
+    let armed = SnakeShell::Sliding {
+        dir: 1.0,
+        grace: 0.0,
+    };
+    let fx = step(armed, ShellInputs::default());
+    assert_eq!(fx.phase, armed);
     assert_eq!(fx.vel_x, Some(SHELL_SLIDE_SPEED));
 
     let blocked = ShellInputs {
         blocked: true,
         ..Default::default()
     };
-    let fx = step(SnakeShell::Sliding(1.0), blocked);
-    assert_eq!(
-        fx.phase,
-        SnakeShell::Sliding(-1.0),
+    let fx = step(armed, blocked);
+    assert!(
+        matches!(fx.phase, SnakeShell::Sliding { dir, .. } if dir == -1.0),
         "a wall flips its direction"
     );
     assert_eq!(fx.vel_x, Some(-SHELL_SLIDE_SPEED));
@@ -158,7 +202,13 @@ fn a_sliding_shell_holds_speed_and_bounces_off_walls() {
 /// is the "stop the runaway" tech, and it is SAFE (no player damage).
 #[test]
 fn a_stomp_from_above_stops_a_sliding_shell_and_bounces() {
-    let fx = step(SnakeShell::Sliding(1.0), stomp());
+    let fx = step(
+        SnakeShell::Sliding {
+            dir: 1.0,
+            grace: 0.0,
+        },
+        stomp(),
+    );
     assert!(matches!(fx.phase, SnakeShell::Boxed(_)), "stomp stops it");
     assert_eq!(fx.vel_x, Some(0.0));
     assert!(
@@ -167,21 +217,38 @@ fn a_stomp_from_above_stops_a_sliding_shell_and_bounces() {
     );
 }
 
-/// A SIDE hit does NOT stop a sliding shell — it keeps its speed and direction and
-/// runs on. (The player-damage half of a side hit is emitted by the ECS wrapper
-/// against the shared pipeline, not decided here — this only proves the shell does
-/// not stop, so a side touch is a threat and not a free stop.)
+/// **Standing on a body must never be a kick.** THE bug: a player standing over a
+/// resting shell was classified as a side touch, which kicked the shell out from
+/// under their own feet and then registered that same overlap as a side HIT — over
+/// and over, for as long as they stood there. From the top a shell is re-seated and
+/// bounces you; it never launches.
 #[test]
-fn a_side_hit_never_stops_a_sliding_shell() {
-    let side = ShellInputs {
-        side_kick: Some(-1.0),
-        ..Default::default()
-    };
-    let fx = step(SnakeShell::Sliding(1.0), side);
-    assert_eq!(
-        fx.phase,
-        SnakeShell::Sliding(1.0),
-        "a side hit never stops a running shell"
+fn standing_on_a_resting_shell_bounces_it_never_kicks_it() {
+    let fx = step(SnakeShell::Boxed(1.0), stomp());
+    assert!(
+        matches!(fx.phase, SnakeShell::Boxed(t) if t > 1.0),
+        "a bounce re-seats the shell (its sit timer restarts) instead of launching it"
     );
-    assert_eq!(fx.vel_x, Some(SHELL_SLIDE_SPEED));
+    assert!(fx.just_squashed, "and bounces the player up off it");
+    assert!(!fx.just_kicked, "a stomp is NEVER a kick");
+    assert_eq!(fx.vel_x, Some(0.0), "it does not slide out from under you");
 }
+
+/// A stomp pre-empts the LATE phases too. Landing on a snake that is peeking or
+/// climbing out shoves it straight back into its shell — it cannot finish emerging
+/// under the player's feet and become a live contact threat on the same tick.
+#[test]
+fn a_stomp_shoves_a_peeking_or_emerging_snake_back_into_its_shell() {
+    for phase in [SnakeShell::Peeking(0.0), SnakeShell::Emerging(0.0)] {
+        let fx = step(phase, stomp());
+        assert!(
+            matches!(fx.phase, SnakeShell::Boxed(_)),
+            "{phase:?} + stomp must re-seat the shell"
+        );
+        assert!(!fx.alive, "and it must NOT come back as a live threat");
+        assert!(fx.just_squashed, "the stomper is bounced off it");
+    }
+}
+
+// (The top/side geometry itself is proven in `crate::stomp`, the ONE authority
+// both enemies read.)

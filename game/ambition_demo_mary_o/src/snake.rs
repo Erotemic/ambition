@@ -26,6 +26,14 @@
 //! is no revive-from-death, because it never died. Sliding is driven by writing the
 //! body's horizontal velocity each tick, exactly as the old shell prop did.
 //!
+//! ## Standing on a snake is ALWAYS safe
+//!
+//! Every player contact is classified once by the shared [`crate::stomp`] rule.
+//! From the TOP it is a stomp, and a stomp pre-empts every phase — walking, boxed,
+//! running, peeking, emerging — so the body under the player's feet is inert this
+//! tick and the bounce carries them off it. Only a SIDE contact with a running
+//! shell (past its post-kick grace) can hurt them.
+//!
 //! The phase logic is a pure function ([`step_snake_shell`]) with the ECS system a
 //! thin shell over it, mirroring `flag.rs` — so the choreography is unit-tested
 //! even though its LOOK is not visible headlessly.
@@ -44,6 +52,7 @@ use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::CharacterBrain;
 use ambition::sprite_sheet::character::CharacterAnim;
 
+use crate::stomp::{player_touch, PlayerTouch};
 use crate::{LEVEL_1_1_ROOM_ID, T};
 
 /// The catalog `display_name` a snake renders from, and the name every snake
@@ -71,8 +80,12 @@ const SHELL_ENEMY_DAMAGE: i32 = 99;
 /// tick (the shared i-frames keep it from re-hitting every frame it overlaps).
 const SHELL_PLAYER_DAMAGE: i32 = 1;
 
-/// Vertical tolerance (px) for "feet on the snake's head".
-const STOMP_BAND: f32 = 16.0;
+/// Seconds a freshly kicked shell cannot hurt the PLAYER. You kick a shell from
+/// the side, so the moment it starts moving it is still inside you — without this
+/// the kick would hurt the kicker every single time. It still mows down ENEMIES
+/// during the grace (kicking a shell into a crowd is instant), and long enough for
+/// a shell that ricochets straight back off a nearby wall to be a real threat again.
+const KICK_GRACE_S: f32 = 0.25;
 
 /// Seconds the snake spends pulling into its shell (the `retreat` row) before it
 /// is a settled, kickable shell.
@@ -92,15 +105,22 @@ const EMERGE_S: f32 = 0.45;
 const SHELL_FREEZE_LOCK: f32 = 1.0;
 
 /// A Solid Snake's shell lifecycle. `Walking` is the ordinary patroller; the rest
-/// are the withdraw cycle, driven by [`step_snake_shell`]. The `f32` is the
-/// remaining time in that stage, or (for `Sliding`) the travel direction.
+/// are the withdraw cycle, driven by [`step_snake_shell`]. Each timed stage's `f32`
+/// is the time it has left.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub enum SnakeShell {
     Walking,
     Retreating(f32),
     Boxed(f32),
-    /// Sliding along the ground. `-1.0` is leftward, `1.0` rightward.
-    Sliding(f32),
+    /// Sliding along the ground.
+    Sliding {
+        /// Travel direction: `-1.0` is leftward, `1.0` rightward.
+        dir: f32,
+        /// Seconds left of the post-kick grace, during which this shell cannot
+        /// hurt the PLAYER (it is still inside the person who kicked it). Enemies
+        /// it runs down are hit from the first tick.
+        grace: f32,
+    },
     Peeking(f32),
     Emerging(f32),
 }
@@ -128,11 +148,15 @@ pub struct ShellEffects {
 
 /// The discrete things that can happen TO a snake this tick, read from the world
 /// by the ECS wrapper and fed to the pure step.
+///
+/// `stomped` and `side_kick` are mutually exclusive by construction: both are
+/// derived from the ONE [`PlayerTouch`] classification, so a contact is a stomp or
+/// a side, never both and never neither-when-touching.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ShellInputs {
-    /// A falling player's feet are on this body's head this tick.
+    /// The player is on this body's head this tick ([`PlayerTouch::Top`]).
     pub stomped: bool,
-    /// The player is touching a boxed shell from a side; `Some(dir)` is the way to
+    /// The player is touching a boxed shell from a SIDE; `Some(dir)` is the way to
     /// launch it (away from the player).
     pub side_kick: Option<f32>,
     /// A sliding shell's velocity collapsed against a wall this tick.
@@ -154,24 +178,51 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
         just_squashed: false,
         just_kicked: false,
     };
+    // **A stomp pre-empts every phase.** It is the one input that always means "be
+    // in the shell", and it always bounces the stomper. That is what makes standing
+    // over ANY snake safe: whatever the body under the player's feet was doing —
+    // walking, running as a kicked shell, peeking back out — this tick it is inert,
+    // and the bounce carries them off it.
+    if inputs.stomped {
+        let reseat = ShellEffects {
+            just_squashed: true,
+            ..shelled(Boxed(BOXED_S), CharacterAnim::ShellIdle)
+        };
+        return match phase {
+            // A live walker starts the withdraw; the retreat row plays first.
+            Walking => ShellEffects {
+                just_squashed: true,
+                ..shelled(Retreating(RETREAT_S), CharacterAnim::Retreat)
+            },
+            // Mid-withdraw: let the retreat run out on its own clock.
+            Retreating(t) => {
+                let t = t - dt;
+                if t <= 0.0 {
+                    reseat
+                } else {
+                    ShellEffects {
+                        just_squashed: true,
+                        ..shelled(Retreating(t), CharacterAnim::Retreat)
+                    }
+                }
+            }
+            // Resting, running, peeking or climbing out: re-seat the shell. This is
+            // the "stop the runaway" tech, and it also shoves a snake that was about
+            // to emerge under the player's feet back into its shell.
+            Boxed(_) | Sliding { .. } | Peeking(_) | Emerging(_) => reseat,
+        };
+    }
     match phase {
         Walking => {
-            if inputs.stomped {
-                ShellEffects {
-                    just_squashed: true,
-                    ..shelled(Retreating(RETREAT_S), CharacterAnim::Retreat)
-                }
-            } else {
-                // The ordinary walker: let the shared picker choose walk/idle and
-                // the brain drive movement.
-                ShellEffects {
-                    phase: Walking,
-                    anim: None,
-                    alive: true,
-                    vel_x: None,
-                    just_squashed: false,
-                    just_kicked: false,
-                }
+            // The ordinary walker: let the shared picker choose walk/idle and
+            // the brain drive movement.
+            ShellEffects {
+                phase: Walking,
+                anim: None,
+                alive: true,
+                vel_x: None,
+                just_squashed: false,
+                just_kicked: false,
             }
         }
         Retreating(t) => {
@@ -187,7 +238,13 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
                 ShellEffects {
                     just_kicked: true,
                     vel_x: Some(dir * SHELL_SLIDE_SPEED),
-                    ..shelled(Sliding(dir), CharacterAnim::ShellIdle)
+                    ..shelled(
+                        Sliding {
+                            dir,
+                            grace: KICK_GRACE_S,
+                        },
+                        CharacterAnim::ShellIdle,
+                    )
                 }
             } else {
                 let t = t - dt;
@@ -198,23 +255,21 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
                 }
             }
         }
-        Sliding(dir) => {
-            if inputs.stomped {
-                // A stomp from ABOVE stops a running shell dead — it becomes a fresh
-                // boxed shell you can re-kick — and bounces the stomper, exactly like
-                // stomping a walker. A SIDE hit does NOT stop it: that is the shell
-                // running you (or an enemy) down, which the ECS turns into a real hit
-                // through the shared damage pipeline while the shell keeps going.
-                ShellEffects {
-                    just_squashed: true,
-                    ..shelled(Boxed(BOXED_S), CharacterAnim::ShellIdle)
-                }
-            } else {
-                let dir = if inputs.blocked { -dir } else { dir };
-                ShellEffects {
-                    vel_x: Some(dir * SHELL_SLIDE_SPEED),
-                    ..shelled(Sliding(dir), CharacterAnim::ShellIdle)
-                }
+        // A SIDE contact never stops a running shell: that is the shell running you
+        // (or an enemy) down, which the ECS turns into a real hit through the shared
+        // damage pipeline while the shell keeps going. (The stop-it-dead branch is
+        // the stomp pre-emption above.)
+        Sliding { dir, grace } => {
+            let dir = if inputs.blocked { -dir } else { dir };
+            ShellEffects {
+                vel_x: Some(dir * SHELL_SLIDE_SPEED),
+                ..shelled(
+                    Sliding {
+                        dir,
+                        grace: (grace - dt).max(0.0),
+                    },
+                    CharacterAnim::ShellIdle,
+                )
             }
         }
         Peeking(t) => {
@@ -406,14 +461,19 @@ pub fn tag_mary_o_snakes(
 /// **A moving shell is a kinetic hazard.** Each tick it is sliding, it broadcasts a
 /// lethal hit over its own AABB through the SHARED damage pipeline ([`HitEvent`]),
 /// so it kills every ENEMY it runs down (other snakes, AI Slop, anything) with the
-/// same death/drops/reaction any other kill produces — no bespoke chain. The player
-/// is DIRECTIONAL, exactly like Mario: a stomp from ABOVE stops the shell and bounces
-/// you (handled by [`step_snake_shell`], safe); a SIDE hit hurts you (a real hit
-/// emitted here). The enemy broadcast never touches the player — the shared drain's
-/// actor query excludes the player — so the two are cleanly separate.
+/// same death/drops/reaction any other kill produces — no bespoke chain. The enemy
+/// broadcast never touches the player (the shared drain's actor query excludes the
+/// player), so the player half is cleanly separate and DIRECTIONAL, exactly like
+/// Mario: [`PlayerTouch::Top`] is a stomp — it stops the shell and bounces you,
+/// always safe — and only [`PlayerTouch::Side`] on an ARMED shell (past its
+/// [`KICK_GRACE_S`] window) is a real hit.
 ///
 /// Ordered BEFORE the shared contact-damage pass so a stomp makes the snake inert
 /// that frame, before that pass could hurt the stomper.
+///
+/// **A snake that is actually DEAD leaves the machine entirely.** A shell can kill
+/// other snakes now, and the engine HIDES a dead hostile actor — so a corpse that
+/// kept stepping would slide on invisibly, dealing hits nothing on screen explains.
 #[allow(clippy::too_many_arguments)]
 pub fn run_snake_shells(
     mut commands: Commands,
@@ -426,6 +486,7 @@ pub fn run_snake_shells(
         (
             Entity,
             &FeatureId,
+            &ambition::characters::actor::BodyHealth,
             &mut ae::BodyKinematics,
             &mut BodyCombat,
             &mut ActorConfig,
@@ -446,8 +507,16 @@ pub fn run_snake_shells(
     // Collect each sliding shell's (AABB, own-id, whether it is side-hitting the
     // player) so the shared-pipeline hits below can be emitted after the borrow.
     let mut sliding: Vec<(ae::Aabb, String, bool)> = Vec::new();
-    for (entity, feature_id, mut kin, mut combat, mut config, mut shell) in &mut snakes {
-        let inputs = shell_inputs_for(*shell, &kin, player_box);
+    for (entity, feature_id, health, mut kin, mut combat, mut config, mut shell) in &mut snakes {
+        if !health.alive() {
+            // A corpse is out of the mechanic: it stops sliding, advances no phase,
+            // and deals no hits. Its shell state is left as-is so a respawned body
+            // (`OnRoomReenter`) that reuses it is not mistaken for a fresh walker.
+            kin.vel.x = 0.0;
+            continue;
+        }
+        let touch = player_box.and_then(|(p, _, pvel)| player_touch(kin.aabb(), p, pvel));
+        let inputs = shell_inputs_for(*shell, &kin, player_box.map(|(_, pos, _)| pos), touch);
         let fx = step_snake_shell(*shell, dt, inputs);
 
         // The stomp bounce is applied to the PLAYER (a fresh stomp on a walker OR a
@@ -501,14 +570,13 @@ pub fn run_snake_shells(
             }
         }
 
-        if let SnakeShell::Sliding(_) = fx.phase {
-            let g = kin.aabb();
-            // A stomp from above turned the shell to Boxed (so it is not here); a
-            // sliding shell that still overlaps the player is doing so from the SIDE.
-            let side_hit = player_box.is_some_and(|(p, _, _)| {
-                p.min.x < g.max.x && p.max.x > g.min.x && p.min.y < g.max.y && p.max.y > g.min.y
-            });
-            sliding.push((g, feature_id.as_str().to_string(), side_hit));
+        if let SnakeShell::Sliding { grace, .. } = fx.phase {
+            // The player is hurt only by a SIDE contact with an ARMED shell. From
+            // the top it is a stomp (the pre-emption above already turned this shell
+            // Boxed, so it is not even here), and during the post-kick grace the
+            // shell is still inside whoever kicked it.
+            let side_hit = grace <= 0.0 && touch == Some(PlayerTouch::Side);
+            sliding.push((kin.aabb(), feature_id.as_str().to_string(), side_hit));
         }
         *shell = fx.phase;
     }
@@ -548,40 +616,28 @@ pub fn run_snake_shells(
     }
 }
 
-/// Read what happened to one snake this tick from the world.
+/// Read what happened to one snake this tick from the world, given the already
+/// classified [`PlayerTouch`]. Both player-driven inputs come from that ONE
+/// classification, so "stomp" and "kick" can never disagree about a contact.
 fn shell_inputs_for(
     shell: SnakeShell,
     kin: &ae::BodyKinematics,
-    player: Option<(ae::Aabb, ae::Vec2, ae::Vec2)>,
+    player_pos: Option<ae::Vec2>,
+    touch: Option<PlayerTouch>,
 ) -> ShellInputs {
-    let g = kin.aabb();
-    let Some((p, ppos, pvel)) = player else {
-        // No player: a sliding shell can still notice a wall.
-        return ShellInputs {
-            blocked: matches!(shell, SnakeShell::Sliding(_))
-                && kin.vel.x.abs() < SHELL_SLIDE_SPEED * 0.25,
-            ..Default::default()
-        };
+    // A SIDE touch on a BOXED shell kicks it away from the player.
+    let side_kick = match (shell, touch, player_pos) {
+        (SnakeShell::Boxed(_), Some(PlayerTouch::Side), Some(ppos)) => {
+            Some(if ppos.x <= kin.pos.x { 1.0 } else { -1.0 })
+        }
+        _ => None,
     };
-    let overlap_x = p.min.x < g.max.x && p.max.x > g.min.x;
-    let overlap_y = p.min.y < g.max.y && p.max.y > g.min.y;
-    let touching = overlap_x && overlap_y;
-    // A falling player whose feet are on this body's head is stomping it.
-    let feet = p.max.y;
-    let on_head = feet >= g.min.y - STOMP_BAND && feet <= g.min.y + STOMP_BAND;
-    let stomped = pvel.y > 0.0 && overlap_x && on_head;
-    // A side touch on a BOXED shell (not a head stomp) kicks it away from the player.
-    let side_kick = if matches!(shell, SnakeShell::Boxed(_)) && touching && !stomped {
-        Some(if ppos.x <= kin.pos.x { 1.0 } else { -1.0 })
-    } else {
-        None
-    };
-    let blocked =
-        matches!(shell, SnakeShell::Sliding(_)) && kin.vel.x.abs() < SHELL_SLIDE_SPEED * 0.25;
     ShellInputs {
-        stomped,
+        stomped: touch == Some(PlayerTouch::Top),
         side_kick,
-        blocked,
+        // A sliding shell whose speed collapsed hit something.
+        blocked: matches!(shell, SnakeShell::Sliding { .. })
+            && kin.vel.x.abs() < SHELL_SLIDE_SPEED * 0.25,
     }
 }
 

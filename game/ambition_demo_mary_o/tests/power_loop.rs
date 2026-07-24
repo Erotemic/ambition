@@ -763,7 +763,10 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     // Kick it into a slide directly (the kick geometry is covered elsewhere).
     app.world_mut()
         .entity_mut(snake)
-        .insert(SnakeShell::Sliding(1.0));
+        .insert(SnakeShell::Sliding {
+            dir: 1.0,
+            grace: 0.0,
+        });
 
     app.update(); // the sliding shell deals its damage
 
@@ -789,5 +792,139 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
         player_hit.is_some(),
         "and a SIDE hit emits a real hit against the player (a stomp from above would \
          instead stop the shell and bounce)"
+    );
+}
+
+/// **A DEAD snake leaves the shell machine — no invisible hits.**
+///
+/// The bug this guards, the other half of "a dead snake keeps hitting me": a shell
+/// can kill other snakes now, and the engine HIDES a dead hostile actor
+/// (`visible = !hostile || alive`). A corpse that kept stepping would go on sliding
+/// forever — invisible, still broadcasting lethal `Volume` hits and still able to
+/// side-hit the player, with nothing on screen to explain any of it. This drives the
+/// real system on a real snake that is sliding AND dead, and asserts it emits
+/// nothing at all and stops moving.
+#[test]
+fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
+    use ambition::actors::features::{
+        spawn_encounter_mob, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay,
+        GameplayBanner, HitEvent,
+    };
+    use ambition::characters::actor::character_catalog::CharacterCatalog;
+    use ambition::characters::actor::BodyHealth;
+    use ambition::entity_catalog::placements::CharacterBrain;
+    use ambition::platformer::lifecycle::SessionSpawnScope;
+    use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
+
+    const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
+
+    let mut app = App::new();
+    app.insert_resource(ambition::time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    ambition::platformer::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ae::RoomGeometry(ae::World::new(
+            "corpse_range",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            Vec::new(),
+        )),
+    );
+    app.insert_resource(CharacterCatalog::empty());
+    app.insert_resource(GameplayBanner::default());
+    app.init_resource::<ambition::actors::boss_encounter::BossCatalog>();
+    app.init_resource::<FeatureEcsWorldOverlay>();
+    app.add_message::<ambition::vfx::VfxMessage>();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<HitEvent>();
+
+    ambition_demo_mary_o::snake::register_snake_roster(&mut app);
+    app.add_systems(Update, run_snake_shells);
+
+    // The player overlaps it from the side — the geometry that WOULD be a hit if
+    // the snake were alive (that is exactly what the sibling test proves).
+    app.world_mut().spawn((
+        PrimaryPlayer,
+        ae::BodyKinematics {
+            pos: ae::Vec2::new(410.0, 300.0),
+            vel: ae::Vec2::ZERO,
+            size: ae::Vec2::new(30.0, 48.0),
+            facing: 1.0,
+        },
+    ));
+
+    {
+        let world = app.world_mut();
+        let catalog = world.resource::<CharacterCatalog>().clone();
+        let roster = world.resource::<CharacterRoster>().clone();
+        let mut commands = world.commands();
+        spawn_encounter_mob(
+            &mut commands,
+            &catalog,
+            &roster,
+            SessionSpawnScope::UNSCOPED,
+            "mary_o_corpse_range",
+            "dead_snake".into(),
+            CharacterBrain::Custom("mary_o_snake".into()),
+            SNAKE_POS,
+            ae::Vec2::new(28.0, 32.0),
+        );
+    }
+    app.update(); // flush the spawn
+
+    let snake = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &ActorIdentity)>();
+        q.iter(world)
+            .find(|(_, id)| id.id() == "dead_snake")
+            .map(|(e, _)| e)
+            .expect("the snake spawned")
+    };
+    // A shell ran it down: killed mid-slide, still carrying slide velocity.
+    {
+        let mut e = app.world_mut().entity_mut(snake);
+        e.insert(SnakeShell::Sliding {
+            dir: 1.0,
+            grace: 0.0,
+        });
+        e.get_mut::<BodyHealth>().unwrap().health.current = 0;
+        e.get_mut::<ae::BodyKinematics>().unwrap().vel.x = 300.0;
+    }
+    app.world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<HitEvent>>()
+        .drain()
+        .for_each(drop);
+
+    app.update();
+
+    let hits: Vec<HitEvent> = app
+        .world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<HitEvent>>()
+        .drain()
+        .collect();
+    assert!(
+        !app.world()
+            .entity(snake)
+            .get::<BodyHealth>()
+            .unwrap()
+            .alive(),
+        "the fixture really is a corpse"
+    );
+    assert!(
+        hits.is_empty(),
+        "a dead snake is out of the mechanic: an invisible corpse must not keep \
+         hitting anything (got {hits:?})"
+    );
+    assert_eq!(
+        app.world()
+            .entity(snake)
+            .get::<ae::BodyKinematics>()
+            .unwrap()
+            .vel
+            .x,
+        0.0,
+        "and it stops sliding instead of drifting off invisibly"
     );
 }

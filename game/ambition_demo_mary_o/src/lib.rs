@@ -24,6 +24,7 @@ pub mod powerups;
 pub mod provider;
 pub mod scenery;
 pub mod snake;
+pub mod stomp;
 
 pub use provider::{
     mary_o_session_world, MaryOExperiencePlugin, MaryOSessionWorld, MARY_O_CHARACTER_ID,

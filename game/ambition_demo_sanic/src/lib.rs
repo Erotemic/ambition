@@ -606,6 +606,12 @@ pub fn install_sanic_content(app: &mut App) {
             .rollback_component_clone::<ScatteredRing>(
                 "ambition_demo_sanic",
                 "content.sanic_scattered_ring",
+            )
+            // The dropped-ring id sequence: authoritative, because two sims that
+            // minted a different number of ring ids are not in the same state.
+            .rollback_resource_clone::<SanicRingScatterSeq>(
+                "ambition_demo_sanic",
+                "content.sanic_ring_scatter_seq",
             );
     }
 }
@@ -923,6 +929,8 @@ impl Plugin for SanicRulesPlugin {
         // rules-only harness may not, and `add_message` is idempotent.
         app.add_message::<ambition::actors::session::reset::RoomReplayRequested>();
         app.init_resource::<ambition::actors::features::FeatureEcsWorldOverlay>();
+        // The dropped-ring id sequence (rollback-registered above).
+        app.init_resource::<SanicRingScatterSeq>();
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.init_resource::<ball_dash::BallDashTuning>();
@@ -1371,6 +1379,15 @@ pub struct ScatteredRing {
     pub lock: f32,
 }
 
+/// Monotonic sequence for scattered-ring identities. A dropped ring's `FeatureId`
+/// is rollback-authoritative, so it must be DETERMINISTIC and UNIQUE, never
+/// `Entity::index()` (allocator-local, and identical across two bursts by the
+/// same player while the first burst's rings still exist — an id collision).
+/// This counter is rollback-registered, so a resimulated burst mints the exact
+/// same ids and two overlapping bursts never collide.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default)]
+pub struct SanicRingScatterSeq(pub u64);
+
 /// **Rings absorb the hit.**
 ///
 /// This is the rule the whole ring economy exists to serve: carrying rings is
@@ -1403,6 +1420,10 @@ pub fn scatter_rings_on_hit(
         ),
         ambition::platformer::markers::PrimaryPlayerOnly,
     >,
+    // Deterministic, rollback-registered id sequence for the dropped rings.
+    // `Option` so minimal test worlds that never install it still run (their
+    // ids fall back to the per-burst index, fine for a single burst).
+    mut ring_seq: Option<bevy::prelude::ResMut<SanicRingScatterSeq>>,
 ) {
     let Some(scope) =
         ambition::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
@@ -1453,8 +1474,19 @@ pub fn scatter_rings_on_hit(
                 -angle.sin() * SCATTER_BURST_SPEED,
             );
             let size = ae::Vec2::splat(18.0);
+            // A DETERMINISTIC, unique id — never `entity.index()` (allocator-local
+            // and colliding across two bursts). The rollback-registered sequence
+            // is the spawner-side counter the repo's identity rule wants.
+            let seq = match ring_seq.as_mut() {
+                Some(counter) => {
+                    let n = counter.0;
+                    counter.0 += 1;
+                    n
+                }
+                None => i as u64,
+            };
             let authored = ambition::actors::rooms::Authored {
-                id: format!("sanic_dropped_ring_{}_{i}", entity.index()),
+                id: format!("sanic_dropped_ring_{seq}"),
                 name: "ring".to_string(),
                 // Every ring is born AT the body and flies out from there.
                 aabb: ae::Aabb::new(kin.pos, size * 0.5),
@@ -1473,11 +1505,18 @@ pub fn scatter_rings_on_hit(
                 scope,
                 &authored,
             );
-            commands.entity(ring).insert(ScatteredRing {
-                vel,
-                arc_pos: kin.pos,
-                lock: SCATTER_LOCK_S,
-            });
+            commands.entity(ring).insert((
+                ScatteredRing {
+                    vel,
+                    arc_pos: kin.pos,
+                    lock: SCATTER_LOCK_S,
+                },
+                // The collection lock is the REAL uncollectible gate: the magnet
+                // and the collector both skip a locked pickup, so the burst can't
+                // be reeled back or credited on the frame it spawns on top of the
+                // player. `arc_scattered_rings` drops it when the burst settles.
+                ambition::actors::features::PickupCollectLock,
+            ));
         }
 
         vfx.write(ambition::vfx::VfxMessage::Burst {
@@ -1515,15 +1554,24 @@ pub fn arc_scattered_rings(
 ) {
     let dt = time.scaled_dt;
     for (entity, mut ring, mut aabb) in &mut rings {
-        // The burst arc is authoritative while locked — overwrite whatever the
-        // magnet just did to the AABB.
-        aabb.center = ring.arc_pos;
-        let step = ring.vel * dt;
-        ring.arc_pos += step;
+        // Advance the burst FIRST, then publish it — so a ring is already
+        // displaced on its very first live tick and never lingers on top of the
+        // player. Collection can't happen during the burst anyway: the ring
+        // carries `PickupCollectLock`, which both the magnet and the collector
+        // skip.
+        let vel = ring.vel;
+        ring.arc_pos += vel * dt;
         ring.vel.y += SCATTER_GRAVITY * dt;
+        aabb.center = ring.arc_pos;
         ring.lock -= dt;
         if ring.lock <= 0.0 {
-            commands.entity(entity).remove::<ScatteredRing>();
+            // The burst has settled: drop BOTH the arc AND the collection lock,
+            // so the ring becomes an ordinary collectible pickup at where it
+            // landed.
+            commands
+                .entity(entity)
+                .remove::<ScatteredRing>()
+                .remove::<ambition::actors::features::PickupCollectLock>();
         }
     }
 }

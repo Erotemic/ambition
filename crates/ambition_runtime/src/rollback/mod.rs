@@ -792,6 +792,14 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // froze while the first pass had it moving — the exit oracle's first
     // checksum divergence (combat_calibration_lab, frames 10–12).
     .rollback_component_clone::<ambition_combat::components::Collected>(ENGINE, "feature.collected")
+    // The mid-toss collection lock (a scattered ring's uncollectible window),
+    // registered for the SAME reason `Collected` is: a rewind past the lock's
+    // removal must restore it, or the resimulated ring would be collectible a
+    // frame early — the magnet/collect guards read it, so it is authoritative.
+    .rollback_component_clone::<ambition_actors::features::PickupCollectLock>(
+        ENGINE,
+        "feature.pickup_collect_lock",
+    )
     .rollback_component_clone::<ambition_combat::components::SandboxSolidContributor>(
         ENGINE,
         "feature.sandbox_solid_contributor",

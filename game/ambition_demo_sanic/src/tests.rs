@@ -1368,6 +1368,196 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     );
 }
 
+/// The finding-1 regression proof: the burst's uncollectible window must hold
+/// under the REAL magnet → arc → collect chain. The isolation test above ran the
+/// arc alone and so never proved the rings aren't reclaimed the instant they
+/// spawn on top of the player. Here the whole chain runs in production order.
+#[test]
+fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
+    use ambition::characters::actor::{BodyHealth, BodyWallet, Health};
+    use ambition::platformer::lifecycle::ActiveSessionScope;
+    use bevy::prelude::{IntoScheduleConfigs, With};
+
+    let mut app = App::new();
+    app.add_message::<ambition::vfx::VfxMessage>();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition::actors::avatar::PlayerHealRequested>();
+    app.add_message::<ambition::actors::features::SetFlagRequested>();
+    app.insert_resource(ambition::actors::features::GameplayBanner::default());
+    let mut scope = ActiveSessionScope::default();
+    scope.begin();
+    app.insert_resource(scope);
+    app.insert_resource(ambition::time::WorldTime {
+        scaled_dt: 0.1,
+        ..Default::default()
+    });
+    // The REAL production order: magnet, then the burst arc, then collect.
+    app.add_systems(
+        bevy::prelude::Update,
+        (
+            crate::scatter_rings_on_hit,
+            ambition::actors::features::magnetize_pickups,
+            crate::arc_scattered_rings,
+            ambition::actors::features::collect_ecs_pickups,
+        )
+            .chain(),
+    );
+
+    let body = ae::Vec2::new(200.0, 200.0);
+    let mut kin = ae::BodyKinematics::default();
+    kin.pos = body;
+    kin.size = ae::Vec2::new(28.0, 32.0);
+    let sanic = app
+        .world_mut()
+        .spawn((
+            ambition::platformer::markers::PlayerEntity,
+            ambition::platformer::markers::PrimaryPlayer,
+            kin,
+            BodyHealth::new(Health::new(3)),
+            BodyWallet { balance: 6 },
+        ))
+        .id();
+    let wallet = |app: &App| app.world().get::<BodyWallet>(sanic).unwrap().balance;
+    let locked = |app: &mut App| {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<(), With<ambition::actors::features::PickupCollectLock>>();
+        q.iter(app.world()).count()
+    };
+
+    app.update(); // adopt starting health (no hit yet)
+    app.world_mut()
+        .get_mut::<BodyHealth>(sanic)
+        .unwrap()
+        .health
+        .current -= 1;
+    app.update(); // the hit spends the rings → they burst (spawned via commands)
+    app.update(); // the burst entities now exist; the full chain processes them
+
+    // The bug: the rings spawn ON the player, so without a real collection gate
+    // the collector credits them straight back. With the lock, the wallet stays
+    // EMPTY — the rings are not reclaimed on spawn.
+    assert_eq!(wallet(&app), 0, "the burst must NOT be refunded on spawn");
+    assert!(
+        locked(&mut app) > 0,
+        "the burst rings carry the collection lock"
+    );
+
+    // Still inside the lock window: no refund, and the rings travel away.
+    for _ in 0..3 {
+        app.update();
+    }
+    assert_eq!(wallet(&app), 0, "still uncollected while locked");
+    let max_dist = {
+        let mut q = app.world_mut().query::<&crate::ScatteredRing>();
+        q.iter(app.world())
+            .map(|r| (r.arc_pos - body).length())
+            .fold(0.0_f32, f32::max)
+    };
+    assert!(
+        max_dist > 20.0,
+        "the rings separated from the body, got {max_dist}"
+    );
+
+    // Past the lock, the rings unlock and become ordinary collectibles. Park the
+    // player on any survivor and prove it now credits through the shared path.
+    for _ in 0..10 {
+        app.update();
+    }
+    assert_eq!(
+        locked(&mut app),
+        0,
+        "the lock is gone once the burst settles"
+    );
+    let ring_pos = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&ae::CenteredAabb, With<ambition::actors::features::PickupFeature>>();
+        q.iter(app.world()).next().map(|a| a.center)
+    };
+    if let Some(pos) = ring_pos {
+        app.world_mut()
+            .get_mut::<ae::BodyKinematics>(sanic)
+            .unwrap()
+            .pos = pos;
+        app.update();
+    }
+    assert!(
+        wallet(&app) > 0,
+        "an unlocked ring the player reaches is collected (run back and grab them)"
+    );
+}
+
+/// Finding 4: a dropped ring's `FeatureId` is rollback-authoritative, so it must
+/// be DETERMINISTIC and unique — never `entity.index()`, which collides when a
+/// second burst by the SAME player lands while the first burst's rings still
+/// exist. The rollback-registered sequence makes two overlapping bursts mint
+/// disjoint ids.
+#[test]
+fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
+    use ambition::characters::actor::{BodyHealth, BodyWallet, Health};
+    use ambition::platformer::lifecycle::ActiveSessionScope;
+
+    let mut app = App::new();
+    app.add_message::<ambition::vfx::VfxMessage>();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.init_resource::<crate::SanicRingScatterSeq>();
+    let mut scope = ActiveSessionScope::default();
+    scope.begin();
+    app.insert_resource(scope);
+    app.add_systems(bevy::prelude::Update, crate::scatter_rings_on_hit);
+
+    let mut kin = ae::BodyKinematics::default();
+    kin.size = ae::Vec2::new(28.0, 32.0);
+    let sanic = app
+        .world_mut()
+        .spawn((
+            ambition::platformer::markers::PlayerEntity,
+            ambition::platformer::markers::PrimaryPlayer,
+            kin,
+            BodyHealth::new(Health::new(9)),
+            BodyWallet { balance: 4 },
+        ))
+        .id();
+    let hurt = |app: &mut App| {
+        app.world_mut()
+            .get_mut::<BodyHealth>(sanic)
+            .unwrap()
+            .health
+            .current -= 1;
+    };
+    app.update(); // adopt starting health
+    hurt(&mut app);
+    app.update(); // burst 1 (four rings); health is refunded to 9
+                  // An idle tick so the ring-loss watcher's `seen_health` catches up to the
+                  // refunded health — otherwise the next hit isn't seen as a fresh drop.
+    app.update();
+    app.world_mut()
+        .get_mut::<BodyWallet>(sanic)
+        .unwrap()
+        .balance = 4;
+    hurt(&mut app);
+    app.update(); // burst 2 (four more) while burst-1 rings still exist
+
+    let ids: Vec<String> = {
+        let mut q = app
+            .world_mut()
+            .query::<&ambition::actors::features::FeatureId>();
+        q.iter(app.world()).map(|f| f.0.clone()).collect()
+    };
+    let unique: std::collections::HashSet<_> = ids.iter().cloned().collect();
+    assert_eq!(
+        ids.len(),
+        unique.len(),
+        "two overlapping bursts must never reuse a dropped-ring id: {ids:?}"
+    );
+    assert_eq!(
+        ids.len(),
+        8,
+        "four rings per burst, two bursts, every id distinct"
+    );
+}
+
 /// **Going fast has to PAY, and rings have to cost something to keep.**
 ///
 /// The act score is the only place the demo's premise is expressed as a number,

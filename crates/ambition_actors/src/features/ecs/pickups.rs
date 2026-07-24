@@ -11,6 +11,17 @@ const PICKUP_MAGNET_RANGE: f32 = 130.0;
 /// How fast magnetized pickups close on the player (px/s).
 const PICKUP_MAGNET_SPEED: f32 = 340.0;
 
+/// A pickup that is temporarily NEITHER magnetizable NOR collectible — a piece
+/// of loot mid-toss that has not settled yet (Sanic's scattered rings burst from
+/// the body and must not be reeled straight back or credited the instant they
+/// spawn on top of the player). Both [`magnetize_pickups`] and
+/// [`collect_ecs_pickups`] skip a pickup carrying this, so a game can throw loot
+/// outward and make it collectible only once it removes the lock. It is
+/// authoritative sim state (it changes whether a pickup is collected this frame),
+/// so it is rollback-registered beside the other pickup components.
+#[derive(bevy::prelude::Component, Debug, Clone, Copy, Default)]
+pub struct PickupCollectLock;
+
 /// Pull nearby uncollected pickups toward the player. Runs before
 /// [`collect_ecs_pickups`], which still does the actual overlap grant — a pickup
 /// pulled into overlap is collected the same frame.
@@ -20,7 +31,16 @@ pub fn magnetize_pickups(
         &ambition_engine_core::BodyKinematics,
         With<ambition_platformer_primitives::markers::PrimaryPlayer>,
     >,
-    mut pickups: Query<&mut CenteredAabb, (With<PickupFeature>, Without<Collected>)>,
+    mut pickups: Query<
+        &mut CenteredAabb,
+        (
+            With<PickupFeature>,
+            Without<Collected>,
+            // A tossed pickup mid-flight owns its own motion (its game's toss
+            // system) and must not be reeled in until it settles.
+            Without<PickupCollectLock>,
+        ),
+    >,
 ) {
     let dt = time.scaled_dt;
     let Ok(player) = players.single() else {
@@ -51,7 +71,10 @@ pub fn collect_ecs_pickups(
             &PickupFeature,
             Option<&Collected>,
         ),
-        With<FeatureSimEntity>,
+        // A locked (mid-toss) pickup is not collectible yet, exactly as it is not
+        // magnetizable — the two guards MUST agree or a ring the magnet ignores
+        // could still be collected on overlap.
+        (With<FeatureSimEntity>, Without<PickupCollectLock>),
     >,
     mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,

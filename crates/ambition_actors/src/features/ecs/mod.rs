@@ -143,7 +143,7 @@ pub use mount::{
     ControlGrant, Mass, MountClass, MountDeathImpact, MountDied, MountSlot, Mountable, Mounted,
     MountedBrainCache, MountedSize, RidingOn,
 };
-pub use pickups::{collect_ecs_pickups, magnetize_pickups};
+pub use pickups::{collect_ecs_pickups, magnetize_pickups, PickupCollectLock};
 pub use reset::reset_ecs_room_features;
 pub use save_sync::{
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,

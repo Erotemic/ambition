@@ -11,7 +11,7 @@
 
 * In mary-o we need a "growing" animation when she grows or transforms. In single player this might request that time around the transforming character slows down as an effect, but in a multi-player setting the time slow needs to be agreed upon by all players, as we (should have) codified in the very early stages of development.
 
-* Mary-o Needs a transform SFX.
+* Mary-o Needs a transform SFX. [WIRED 2026-07-24: `sync_grown_form` now emits a `mary_o.transform` power-up chime (`SfxMessage::Play{id}`) when she steps UP a power tier (small→grown, grown→fire), and stays silent on a downgrade (the hit already speaks). PLACEHOLDER timbre — a procedural octave-up sine sweep (520→1040 Hz) declared in the provider's `SfxRegistry`, exactly like the existing Hit/Pogo placeholder specs; the emit names the id, not the sound, so retune freely. Test `stepping_up_a_power_tier_voices_the_transform_chime`. The GROWING ANIMATION (the separate bug above) is NOT addressed here — this is only the sound.]
 
 * In sanic, the rings don't explode outward when sanic gets hit and has rings. [likely fixed 2026-07-24: the lost rings now BURST from the body with real outward velocity and arc down under gravity (`ScatteredRing` + `arc_scattered_rings`), instead of appearing in a static fan; they're immune to the coin-magnet for a ~0.85s lock so they can't be refunded the instant they drop, then hand back to the ordinary pickup economy. Rollback-registered so the burst resimulates identically.]
 

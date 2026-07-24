@@ -178,6 +178,27 @@ impl Plugin for MaryOExperiencePlugin {
                                 release: 0.055,
                                 noise: 0.25,
                             },
+                            // The power-up chime: a bright octave-up sine sweep on
+                            // a TRANSFORM (grow, or gain fire), the classic "you
+                            // leveled up" voice. `sync_grown_form` emits it through
+                            // the `Play { id }` path when she steps UP a power tier
+                            // (not on a downgrade — the hit already speaks there).
+                            // Procedural + placeholder-quality like the Hit/Pogo
+                            // specs above: a first pass to make transforms audible
+                            // (Jon bug #14). Retune freely — the emit site names the
+                            // id, not the timbre.
+                            ambition::audio::spec::SfxSpec {
+                                cue: None,
+                                id: Some("mary_o.transform".to_string()),
+                                waveform: ambition::audio::spec::WaveformSpec::Sine,
+                                frequency: 520.0,
+                                frequency_end: 1040.0,
+                                duration: 0.22,
+                                volume: 0.24,
+                                attack: 0.004,
+                                release: 0.12,
+                                noise: 0.0,
+                            },
                         ],
                     }),
                 )

@@ -316,6 +316,7 @@ pub fn sync_grown_form(
         ),
         With<PrimaryPlayer>,
     >,
+    mut sfx: ambition::sfx::SfxWriter,
 ) {
     let Ok((mut worn_char, mut base, mut kin, worn)) = players.single_mut() else {
         return;
@@ -343,7 +344,26 @@ pub fn sync_grown_form(
         kin.size = target_size;
         base.base_size = target_size;
     }
+    // Power-UP voice (Jon bug #14): the transform chime plays only when she steps
+    // up a tier (small→grown, grown→fire, small→fire). A downgrade is a HIT, whose
+    // own sound already speaks, so it stays silent here.
+    if power_tier(target_id) > power_tier(&worn_char.0) {
+        sfx.write(ambition::sfx::SfxMessage::Play {
+            id: ambition::sfx::SfxId::new("mary_o.transform"),
+            pos: kin.pos,
+        });
+    }
     worn_char.0 = target_id.to_string();
+}
+
+/// Power-tier of a worn-character id: small (0) < grown (1) < fire (2). The
+/// transform chime fires only when [`sync_grown_form`] moves her UP this ladder.
+fn power_tier(character_id: &str) -> u8 {
+    match character_id {
+        SPARK_CHARACTER_ID => 2,
+        TALL_CHARACTER_ID => 1,
+        _ => 0,
+    }
 }
 
 /// Re-arm every ?-block when level 1-1 (re)loads, so a cyclic replay pops fresh
@@ -515,6 +535,7 @@ mod tests {
                 },
             ))
             .id();
+        app.add_message::<ambition::sfx::OwnedSfxMessage>();
         app.add_systems(Update, sync_grown_form);
 
         // Feet (screen up = -y, so feet = max.y = pos.y + size.y/2).
@@ -587,6 +608,7 @@ mod tests {
                 WornEquipment::new(vec![spark_blossom()]),
             ))
             .id();
+        app.add_message::<ambition::sfx::OwnedSfxMessage>();
         app.add_systems(Update, sync_grown_form);
 
         let feet = |app: &App| {
@@ -644,6 +666,69 @@ mod tests {
             (feet(&app) - feet_tall).abs() < 1e-3,
             "feet stay planted through the shrink"
         );
+    }
+
+    /// The transform chime (Jon bug #14) voices a step UP the power ladder —
+    /// small→grown, grown→fire — and stays silent on a downgrade, where the hit
+    /// already speaks its own sound.
+    #[test]
+    fn stepping_up_a_power_tier_voices_the_transform_chime() {
+        use ambition::sfx::{OwnedSfxMessage, SfxId, SfxMessage};
+
+        let mut app = App::new();
+        let small = small_body_size();
+        let body = app
+            .world_mut()
+            .spawn((
+                PrimaryPlayer,
+                WornCharacter(MARY_O_CHARACTER_ID.to_string()),
+                BodyBaseSize { base_size: small },
+                ae::BodyKinematics {
+                    pos: ae::Vec2::new(0.0, 100.0),
+                    vel: ae::Vec2::ZERO,
+                    size: small,
+                    facing: 1.0,
+                },
+            ))
+            .id();
+        app.add_message::<OwnedSfxMessage>();
+        app.add_systems(Update, sync_grown_form);
+
+        let chimes = |app: &mut App| -> usize {
+            app.world_mut()
+                .resource_mut::<bevy::ecs::message::Messages<OwnedSfxMessage>>()
+                .drain()
+                .filter(|m| {
+                    matches!(
+                        &m.request,
+                        SfxMessage::Play { id, .. } if *id == SfxId::new("mary_o.transform")
+                    )
+                })
+                .count()
+        };
+
+        // small -> grown: one chime.
+        app.world_mut()
+            .entity_mut(body)
+            .insert(WornEquipment::new(vec![grow_cap()]));
+        app.update();
+        assert_eq!(chimes(&mut app), 1, "growing a tier voices the chime once");
+
+        // grown -> fire: another chime (a second step up).
+        app.world_mut()
+            .entity_mut(body)
+            .insert(WornEquipment::new(vec![spark_blossom()]));
+        app.update();
+        assert_eq!(chimes(&mut app), 1, "gaining fire voices it again");
+
+        // fire -> grown (a hit spends the blossom): NO chime — a downgrade is a
+        // hit, which speaks elsewhere; the power-up voice must not fire on loss.
+        app.world_mut()
+            .get_mut::<WornEquipment>(body)
+            .unwrap()
+            .consume_armor();
+        app.update();
+        assert_eq!(chimes(&mut app), 0, "a downgrade is silent here");
     }
 
     /// A head-bonk on a ?-block pops exactly one milk, matched by the block's

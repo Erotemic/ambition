@@ -58,6 +58,8 @@ impl Loop {
             ..Default::default()
         });
         app.init_resource::<SpentPowerBlocks>();
+        // `sync_grown_form` now voices a transform chime through `SfxWriter`.
+        app.add_message::<ambition::sfx::OwnedSfxMessage>();
 
         let size = ae::movement::default_player_body_size();
         let body = app

@@ -199,6 +199,12 @@ pub fn apply_feature_hit_events(
     // slash) is known to have actually landed on someone; pre-resolved
     // victim events are marked by `mark_move_playback_landed_hits`.
     mut attacker_moves: Query<&mut crate::combat::moveset::MovePlayback>,
+    // The player's OUTGOING damage scale (the power slider). `Option` so minimal
+    // headless test worlds that never stand up settings still run at the neutral
+    // 1.0 — the same shape as `feel_tuning`. Read in a sim system exactly as the
+    // projectile spawn does; it is a menu-side (non-rollback) setting, constant
+    // across a rollback window, so reading it here is deterministic.
+    user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     // R3: boss damage mutates the boss ENTITY directly (`apply_boss_hit` →
     // `apply_entity_boss_damage`), so this system no longer needs the boss
     // encounter resources — death save/quest/music resolution lives in
@@ -206,7 +212,21 @@ pub fn apply_feature_hit_events(
 ) {
     let feel = feel_tuning.map(|r| *r).unwrap_or_default();
     let catalog = &*catalogs.characters;
-    for event in hit_events.read().cloned() {
+    // Wave-1 follow-up: apply the player's outgoing power-slider scale to their
+    // MELEE, the way `ProjectileKind::spec` already scales player projectiles.
+    // Enemy melee (a non-`PlayerSlash` source) is untouched; incoming
+    // difficulty/assist is the separate `resolve_body_hit` scale.
+    let outgoing_melee_scale = user_settings
+        .map(|s| s.gameplay.player_damage_multiplier)
+        .unwrap_or(1.0);
+    for mut event in hit_events.read().cloned() {
+        // The ONE seam a player slash's damage is applied to features (this
+        // resolver is the sole consumer of `PlayerSlash`-sourced hits). Scale
+        // once, before any victim reads `event.damage`. Projectiles are already
+        // scaled at spawn, so gating on `PlayerSlash` avoids double-scaling.
+        if matches!(event.source, HitSource::PlayerSlash { .. }) {
+            event.damage = (((event.damage as f32) * outgoing_melee_scale).round() as i32).max(1);
+        }
         // PogoBounce hits target only the breakable whose AABB
         // approximately matches the orb volume the engine reported.
         // Skip the actor / boss / broadcast-breakable scans entirely;

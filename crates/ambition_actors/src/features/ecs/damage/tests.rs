@@ -180,6 +180,78 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
     assert_eq!(red_hurt_bursts(&unauthored), 0);
 }
 
+/// Wave-1 follow-up: the player's OUTGOING power slider scales their MELEE
+/// damage (projectiles already scale at spawn), through the ONE
+/// `apply_feature_hit_events` seam — and it does NOT touch a non-player
+/// (`EnemyBody`) melee source, nor is it the separate incoming difficulty scale.
+#[test]
+fn player_melee_damage_scales_with_the_outgoing_slider() {
+    fn damage_dealt(multiplier: f32, source: HitSource) -> i32 {
+        let mut app = App::new();
+        app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(crate::features::enemies::test_roster());
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        let mut settings = ambition_persistence::settings::UserSettings::default();
+        settings.gameplay.player_damage_multiplier = multiplier;
+        app.insert_resource(settings);
+        app.add_message::<HitEvent>();
+        app.add_message::<SetFlagRequested>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_message::<ActorStimulus>();
+        app.add_systems(Update, apply_feature_hit_events);
+        let victim = spawn_hostile_actor(&mut app); // health 5
+        let before = app
+            .world()
+            .get::<BodyHealth>(victim)
+            .unwrap()
+            .health
+            .current;
+        app.world_mut().write_message(HitEvent {
+            strike_sfx: None,
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage: 2,
+            source,
+            attacker: None,
+            target: HitTarget::Actor(victim),
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+        app.update();
+        let after = app
+            .world()
+            .get::<BodyHealth>(victim)
+            .unwrap()
+            .health
+            .current;
+        before - after
+    }
+
+    // Player slash: base 2 × 2.0 slider = 4.
+    assert_eq!(
+        damage_dealt(2.0, HitSource::PlayerSlash { knock_x: 0.0 }),
+        4,
+        "a strong slider raises the player's own melee damage"
+    );
+    // Weak slider: 2 × 0.25 = 0.5, floored to the always-≥1 minimum.
+    assert_eq!(
+        damage_dealt(0.25, HitSource::PlayerSlash { knock_x: 0.0 }),
+        1,
+        "a weak slider lowers it, but a hit still deals at least 1"
+    );
+    // The SAME slider must NOT scale a non-player melee source.
+    assert_eq!(
+        damage_dealt(2.0, HitSource::EnemyBody),
+        2,
+        "the OUTGOING player slider never touches enemy melee"
+    );
+}
+
 #[test]
 fn enemy_charge_crash_is_processed_as_enemy_damage() {
     let mut app = App::new();

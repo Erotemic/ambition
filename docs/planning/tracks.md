@@ -70,10 +70,15 @@ this section is the bounded first wave, not a restatement. Vocabulary note
 
 **Immediate correctness** — [opus, fable-specced]
 - ✅ Damage-multiplier semantics (`5148b4820`): incoming = difficulty ×
-  assist only; slider scales outgoing. OPEN follow-up: apply the outgoing
-  scale to melee through ONE attacker seam (investigate the misnamed
-  `offense.damage_multiplier: i32` cluster field first — it holds melee
-  base damage, not a multiplier).
+  assist only; slider scales outgoing. ✅ **Follow-up DONE 2026-07-24:** the
+  outgoing `player_damage_multiplier` slider now scales player MELEE too (it
+  already scaled projectiles), through the ONE `apply_feature_hit_events` seam —
+  `event.damage` is scaled once for a `PlayerSlash` source, so enemy melee and
+  the separate incoming difficulty/assist scale are untouched, and projectiles
+  (scaled at spawn) don't double-scale. The investigation found the misnamed
+  `offense.damage_multiplier: i32` is a DEAD field (written by dev-tools +
+  snapshotted, read nowhere; stale `AttackSpec.damage_override` comment) —
+  logged in `dev/journals/code_smells.md`, not wired.
 - ✅ Keyboard-preset authority (`b10e45fbb`): `UserSettings.controls
   .keyboard_preset_index` is the one source; `SandboxDevState.preset_index`
   DELETED (it had no writer — the picker was a no-op).

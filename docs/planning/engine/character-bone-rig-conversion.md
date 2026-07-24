@@ -108,12 +108,54 @@ kinds) drove a fix pass. Outcomes worth carrying forward:
   and commented.
 - Golden test pins all 15 bones + root; removed genuinely-unused imports/param.
 
-### 5. Roll to the pirate family, then the next character
+### 5. Roll to the pirate family, then the cohort — DONE (`81736c9`, `19d9c2c`)
 
-The 5 pirate roles share `_pirate_common` (palette + cohort tags), so the rig +
-clips cover the whole family by construction — this is the only "variation" in
-scope (it maps onto existing sprites). Then pick the next PIL humanoid and give
-it its **own** rig by the same recipe.
+The 5 pirate roles share `_pirate_common`, so the rig covers the whole family by
+construction. For the rest of the humanoid cohort, a key structural finding: only
+the pirate family uses the clean **rotate-around-joint FK** model. Every other
+procedural humanoid (vikings, cutlass_viper, colonial, ghoul, dark_lord…) uses
+the **position-shift model** — a single body frame `root + rot(local, body_ang)`
+where a pose channel nudges a joint's *position* (`elbow = P(base + arm*k, …)`)
+rather than rotating a bone. So per Jon's call these are **faithful
+extractions**: lift the joint computation into a declared `_<char>_rig.py::
+evaluate(pose, …)`, byte-identical, no look change (re-rigging into true rotate
+bones would shift the look and was rejected).
+
+Ported so far (each raster byte-identical across all its animations, verified
+pristine-vs-refactored):
+
+- `viking_warrior` (`81736c9`, the worked shift-model template)
+- `viking_shieldmaiden`, `viking_heavy_warrior`, `viking_heavy_shieldmaiden`,
+  `colonial_statesman`, `ghoul_skulker`, `dark_lord`, `pirate_cutlass_viper`
+  (`19d9c2c`) — run as parallel byte-identity-gated extractions off the template.
+- `president_portrait` (`be16079`, colonial sibling)
+- `pirate_heavy` (`cba7db0`, variant-parameterised — `evaluate(pose, spec, …)`)
+
+That is 10 procedural humanoids on explicit rigs, plus the 5-strong pirate
+family = 15 total. Full suite green (only the pre-existing robot_slash reds).
+Each render entry differs (`_render_frame` vs per-variant `_draw_variant`); the
+existing discovery/smoke tests already import and render every target, so the
+ports are covered there. Per-character golden-joint tests (like the pirate's) are
+a worthwhile follow-up but were not added in the batch.
+
+**Recipe** (mechanical, delegatable): baseline-hash the module → find the
+skeletal anchors in `_render_frame` (body/head frames + hips/shoulders/elbows/
+hands, and inline knees/feet; leave `_draw_leg`-style helpers and geometry
+polygons in paint) → declare them in a rig dataclass + `evaluate` with the
+expressions copied *verbatim* → rewire `_render_frame` to read `J.*` → the raster
+hash must be unchanged. Variant-parameterised characters thread their `spec` into
+`evaluate`; multi-view characters get one `evaluate_*` per view.
+
+**Skipped:** `neil_ongras_turfson` is already a declarative `RigDocument`
+(`.rig.json`) — no inline joints to extract. Non-humanoid pattern-matches
+(`trex_enemy`, `flying_spaghetti_monster_boss`, `smart_house`) and the
+already-SVG `oiler` are out of scope.
+
+### 6. Follow-on
+
+The extracted rigs make each character's joints/pose editable data (the "boned"
+goal). The minimal-SVG paper-doll layer (the `draw.part` seam + fidelity check,
+as the pirate has) is the next step per character where wanted.
 
 ## Toolkit already in place
 

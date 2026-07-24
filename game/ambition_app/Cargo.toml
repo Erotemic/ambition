@@ -49,8 +49,14 @@ visible = [
     "frame_pacing",
     "bevy_ui_menu",
     "kaleidoscope_menu",
-    "ambition/basic_shell_presentation",
+    "basic_shell_presentation",
 ]
+
+# The universal shell pause menu + its `ShellPauseMenuSuppressed` bridge ship
+# with the umbrella's `basic_shell_presentation`. Declaring it locally lets
+# `ambition_app` code `#[cfg(feature = "basic_shell_presentation")]` the bridge
+# (see `app/shell_host.rs`); the minimal `web` build omits it.
+basic_shell_presentation = ["ambition/basic_shell_presentation"]
 
 portal = ["ambition/portal", "ambition_content/portal"]
 portal_render = ["portal", "ambition/portal_render", "ambition_content/portal_render"]

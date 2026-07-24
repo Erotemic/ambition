@@ -2,6 +2,42 @@ Repair Ambition’s supported WASM builds.
 
 Repository root: use the current Ambition checkout. Read the root `AGENTS.md` and any nearer `AGENTS.md` files before editing.
 
+## Progress (2026-07-24)
+
+Re-ran the check command below: the web `--lib` build was down to **9 errors**,
+now **4**. The contained failures are FIXED (native build stays green,
+verified):
+
+- **#2/#3/#4** (desktop builder compiled for wasm — `desktop_asset_root`,
+  `game_asset_source_builder`, `TerminalCtrlCHandlerPlugin`): `build_visible_app`
+  + `VisibleRenderMode` are now `#[cfg(not(target_arch = "wasm32"))]` (all callers
+  were already native-only). The `WindowResolution` / `WINDOW_W` / `WINDOW_H`
+  imports it alone used are gated with it.
+- **#5** (`run_web`'s `match render` on an undefined variable): replaced with a
+  direct windowed web plugin install (the browser has one canvas surface).
+- **#6** (`ShellPauseMenuSuppressed` unconditional in `shell_host.rs`): the
+  pause-suppression bridge + its system are now `#[cfg(feature = "basic_shell_presentation")]`,
+  a newly-DECLARED `ambition_app` feature forwarding to
+  `ambition/basic_shell_presentation` (the old direct dep-feature in `visible`
+  couldn't be `cfg`'d). Native `visible` keeps it (behavior identical); the
+  minimal `web` build omits it, the documented "standalone demo app" case.
+
+**REMAINING (4 errors) = §1 only:** `crate::menu::kaleidoscope_app` is
+`#[cfg(feature = "kaleidoscope_menu")]`, but `menu/dispatch.rs`,
+`menu/grid_backend.rs` (the bevy_ui backend!), and `app/plugins.rs` import
+backend-neutral items from it unconditionally: `install_unified_menu_shared`,
+`install_menu_confirm_provider`, `publish_menu_confirm_prompt`,
+`KaleidoscopeCursor`, `KaleidoscopeSystemNav`, `SystemMenuParams`,
+`focus_for_action`, `owned_item_action`, `play_ui`, `system_focus_nav`,
+`back_edge_focus`, `close_system_entry`, `rotate_sfx`, `CachedSystemMenu`,
+`AmbitionInventoryUiPlugin`. These are `bevy_lunex`-FREE (the `Lunex` mentions in
+the file are `InventoryUiBackend::LunexKaleidoscope` enum comparisons, not the
+crate). Per §1 below, move this shared substrate to an always-compiled module and
+keep only the actual Lunex cube rendering behind `#[cfg(feature = "kaleidoscope_menu")]`.
+This is the delicate part (interwoven in a 1937-line file) — do it focused, and
+verify BOTH native backends (bevy_ui + kaleidoscope) AND the wasm `--features web`
++ `--features web_served_assets` checks.
+
 ## Goal
 
 Make these exact commands compile successfully:

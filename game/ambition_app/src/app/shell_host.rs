@@ -115,10 +115,13 @@ pub fn compose_ambition_shell_host(app: &mut App) {
         AMBITION_LAUNCHER_ROUTE,
     ));
 
-    app.add_systems(
-        Update,
-        (exit_on_shell_request, sync_shell_pause_suppression),
-    );
+    app.add_systems(Update, exit_on_shell_request);
+    // The pause-suppression bridge only exists when the universal pause menu it
+    // yields to does — that menu (and its `ShellPauseMenuSuppressed`) ships with
+    // `basic_presentation`. The minimal web build omits both, exactly the
+    // "standalone demo app" case this bridge documents as absent.
+    #[cfg(feature = "basic_shell_presentation")]
+    app.add_systems(Update, sync_shell_pause_suppression);
 }
 
 /// Ambition's own gameplay has the richer kaleidoscope pause menu, so the
@@ -127,6 +130,7 @@ pub fn compose_ambition_shell_host(app: &mut App) {
 /// Ambition's own (no demo mode tag) — the exact complement of the kaleidoscope's
 /// gate — so the two menus partition every live session with no overlap. In a
 /// standalone demo app this bridge is absent and the flag stays `false`.
+#[cfg(feature = "basic_shell_presentation")]
 fn sync_shell_pause_suppression(
     active: Option<
         ambition::platformer::lifecycle::SessionWorldRef<

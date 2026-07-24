@@ -1,6 +1,10 @@
 use bevy::prelude::*;
+// Fixed-resolution desktop window sizing — only the native `build_visible_app`
+// sets it; the web build sizes its canvas from CSS.
+#[cfg(not(target_arch = "wasm32"))]
 use bevy::window::WindowResolution;
 
+#[cfg(not(target_arch = "wasm32"))]
 use ambition::engine_core::config::{WINDOW_H, WINDOW_W};
 use ambition::sprite_sheet::game_assets::GameAssetConfig;
 
@@ -666,6 +670,10 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
 }
 
 /// How [`build_visible_app`] creates its render surface.
+///
+/// Desktop-only: the browser build has exactly one surface (its `<canvas>`), so
+/// `run_web` composes plugins directly rather than selecting a mode.
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum VisibleRenderMode {
     /// A real desktop window.
@@ -679,6 +687,12 @@ pub enum VisibleRenderMode {
 /// Assemble the visible Ambition app — the ONE composition the desktop binary
 /// runs and the rendered ownership tests drive. `shell_hosted` selects the
 /// multi-game title-screen host (the default) or direct gameplay entry.
+///
+/// Desktop-only: it reaches the filesystem asset root and the `game://` source
+/// builder (both `not(wasm32)`) and disables the terminal Ctrl-C handler. Every
+/// caller (`run_visible`, the shared-host headless + acceptance runners) is
+/// already `not(wasm32)`; the browser entry is `run_web`.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     let asset_config = GameAssetConfig::from_args();
     let asset_root = desktop_asset_root();
@@ -938,23 +952,15 @@ pub fn run_web() {
     app.insert_resource(asset_config);
     // Launch-time starting-character override (no-op on wasm: env reads Err).
     insert_starting_character_override(&mut app);
-    match render {
-        VisibleRenderMode::Windowed => {
-            app.add_plugins((
-                SandboxSimulationPlugin,
-                SandboxLdtkPlugin,
-                SandboxPresentationPlugin,
-            ));
-        }
-        VisibleRenderMode::NoWindow => {
-            // bevy_ecs_tilemap (inside LdtkPlugin) requires a RenderApp, which
-            // the no-backend recipe deliberately omits. Ambition's own room
-            // visuals are ordinary sprites and still draw; only the painted
-            // LDtk tile spine is absent in this mode. The session LDtk roots
-            // guard on the asset registry so nothing dangles.
-            app.add_plugins((SandboxSimulationPlugin, SandboxPresentationPlugin));
-        }
-    }
+    // The browser has exactly one surface — the `<canvas>` configured on the
+    // WindowPlugin above — so install the windowed web composition directly.
+    // (repair_wasm.md failure #5: this used to `match render`, a variable copied
+    // from the native `build_visible_app` builder that never existed here.)
+    app.add_plugins((
+        SandboxSimulationPlugin,
+        SandboxLdtkPlugin,
+        SandboxPresentationPlugin,
+    ));
     // AssetSource registration runs LAST so EmbeddedAssetRegistry (added
     // by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(

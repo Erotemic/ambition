@@ -94,6 +94,47 @@ pub fn start_sync_test_session(
     world: &mut World,
     settings: SyncTestSettings,
 ) -> Result<(), ggrs::GgrsError> {
+    // The ONLY fallible step — pure GGRS construction, touches no world — runs
+    // first. A caller that must not mutate the world until it knows the session
+    // will exist (the atomic lifecycle commit) instead calls
+    // `build_sync_test_session` before its destructive step and
+    // `install_rebased_sync_test_session` after; this convenience wrapper is for
+    // callers that own the whole rebase (startup / harness restart).
+    let session = build_sync_test_session(settings)?;
+    install_rebased_sync_test_session(world, session, settings);
+    Ok(())
+}
+
+/// Construct the replacement sync-test session WITHOUT touching the world.
+///
+/// This is the sole fallible half of a rebase, and it depends only on
+/// `settings`, so it can be built BEFORE any destructive world mutation and the
+/// mutation skipped entirely if it fails — the atomicity the confirmed
+/// lifecycle commit needs. Pair it with [`install_rebased_sync_test_session`].
+pub fn build_sync_test_session(
+    settings: SyncTestSettings,
+) -> Result<AmbitionGgrsSession, ggrs::GgrsError> {
+    let session = SessionBuilder::<AmbitionGgrsConfig>::new()
+        .with_num_players(1)?
+        .with_fps(crate::SIM_TICK_HZ as usize)?
+        .with_max_prediction_window(settings.max_prediction_window)
+        .with_check_distance(settings.check_distance)
+        .add_player(PlayerType::Local, 0)?
+        .start_synctest_session()?;
+    Ok(AmbitionGgrsSession::SyncTest(session))
+}
+
+/// Install an already-built sync-test session as the new frame-zero baseline.
+///
+/// INFALLIBLE by construction: everything here is a world write. It performs the
+/// destructive resets a rebase entails — frame counters and, crucially, the
+/// `Time<GgrsTime>` clock — then installs the session. Because it cannot fail, a
+/// caller can run it AFTER its own destructive step knowing the rebase completes.
+pub fn install_rebased_sync_test_session(
+    world: &mut World,
+    session: AmbitionGgrsSession,
+    settings: SyncTestSettings,
+) {
     // A newly installed GGRS session always starts from the current live world
     // as frame zero. Snapshot stores are intentionally retained here: the first
     // SaveWorld request at frame zero replaces every non-negative frame in each
@@ -114,19 +155,11 @@ pub fn start_sync_test_session(
     // with its frame identity before the first frame-zero snapshot is saved.
     world.insert_resource(Time::<GgrsTime>::new_with(GgrsTime));
 
-    let session = SessionBuilder::<AmbitionGgrsConfig>::new()
-        .with_num_players(1)?
-        .with_fps(crate::SIM_TICK_HZ as usize)?
-        .with_max_prediction_window(settings.max_prediction_window)
-        .with_check_distance(settings.check_distance)
-        .add_player(PlayerType::Local, 0)?
-        .start_synctest_session()?;
     install_session_with_ownership(
         world,
-        AmbitionGgrsSession::SyncTest(session),
+        session,
         RollbackSessionOwnership::LocalSyncTest(settings),
     );
-    Ok(())
 }
 
 /// Install any already-constructed GGRS session behind Ambition's exact
@@ -503,6 +536,55 @@ mod tests {
             world.resource::<Time<GgrsTime>>().elapsed(),
             std::time::Duration::ZERO,
             "a new frame-zero session must not retain elapsed time from the old timeline"
+        );
+    }
+
+    /// **The atomicity seam.** The fallible half of a rebase
+    /// (`build_sync_test_session`) takes no `World` and can therefore be
+    /// completed BEFORE any destructive mutation; the world-touching half
+    /// (`install_rebased_sync_test_session`) is infallible. A caller (the
+    /// confirmed lifecycle commit) that builds first and only mutates + installs
+    /// once the build succeeded can never half-commit. This test proves the two
+    /// halves compose into the same end state the fused wrapper produces — and,
+    /// by its very signature, that the build needs no world to fail against.
+    #[test]
+    fn a_session_can_be_built_before_the_world_and_installed_after() {
+        let settings = SyncTestSettings {
+            check_distance: 0,
+            max_prediction_window: 8,
+        };
+
+        // Build with NO world in scope at all — the fallible step is pure.
+        let session = build_sync_test_session(settings)
+            .expect("a one-player baseline SyncTest session is valid");
+
+        // A destructive mutation would happen HERE in a real commit; only after
+        // it succeeds do we touch the world, and that step cannot fail.
+        let mut world = World::new();
+        let mut old_timeline = Time::<GgrsTime>::new_with(GgrsTime);
+        old_timeline.advance_to(std::time::Duration::from_secs(9));
+        world.insert_resource(old_timeline);
+        world.insert_resource(RollbackFrameCount(540));
+
+        install_rebased_sync_test_session(&mut world, session, settings);
+
+        assert_eq!(world.resource::<RollbackFrameCount>().0, 0);
+        assert_eq!(
+            world.resource::<Time<GgrsTime>>().elapsed(),
+            std::time::Duration::ZERO,
+            "install resets the clock exactly as the fused path does"
+        );
+        assert_eq!(
+            *world.resource::<RollbackSessionOwnership>(),
+            RollbackSessionOwnership::LocalSyncTest(settings),
+            "the pre-built session is installed under the sync-test ownership"
+        );
+        assert!(
+            matches!(
+                world.resource::<AmbitionGgrsSession>(),
+                AmbitionGgrsSession::SyncTest(_)
+            ),
+            "the installed session is the one that was built"
         );
     }
 

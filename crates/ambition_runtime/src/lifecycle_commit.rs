@@ -27,7 +27,9 @@ use ambition_actors::SandboxSimState;
 use ambition_engine_core as ae;
 use ambition_engine_core::ConfirmedFrameBoundary;
 
-use crate::rollback::{start_sync_test_session, RollbackSessionOwnership};
+use crate::rollback::{
+    build_sync_test_session, install_rebased_sync_test_session, RollbackSessionOwnership,
+};
 
 /// Execute a confirmed deferred lifecycle op in the exclusive world and rebase.
 ///
@@ -61,29 +63,44 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
         return;
     }
 
-    // Atomic commit: only clear the intent and rebase if the reconstruction
-    // ACTUALLY happened. A failed commit (e.g. the target room fails to prepare)
-    // must not advertise an authoritative discontinuity that never occurred, nor
-    // silently lose the request — leave the intent pending to retry on a later
-    // confirmed frame.
+    // ATOMICITY: build the replacement session — the ONLY fallible step of the
+    // whole commit — BEFORE any destructive mutation. It touches no world and
+    // depends only on `settings`, so if it fails the room is never reconstructed,
+    // the intent stays pending, and the timeline is untouched (it retries on a
+    // later confirmed frame). Constructing after the room mutation, as this once
+    // did, could leave a reconstructed room with the old session still installed,
+    // the clock reset, and no rebase — a half-committed state.
+    let session = match build_sync_test_session(settings) {
+        Ok(session) => session,
+        Err(error) => {
+            error!("Track B: failed to BUILD the rebase session; leaving the room and the pending intent untouched: {error}");
+            return;
+        }
+    };
+
+    // Now the fallible work is done. Reconstruct the room (also atomic: it
+    // prepares + preflights before its own infallible `apply_to_world`). A failed
+    // reconstruction must not advertise a discontinuity that never occurred nor
+    // silently lose the request — leave the intent pending to retry, and DROP the
+    // already-built session (installing it without the op would rebase over a
+    // room that never changed).
     if !execute_lifecycle_commit(world, &kind) {
         return;
     }
 
-    // Clear the slot so the post-op world (the new baseline) carries no pending
-    // intent.
+    // From here NOTHING may fail. Clear the slot so the post-op world (the new
+    // baseline) carries no pending intent...
     if let Some(mut pending) = world.get_resource_mut::<PendingLifecycleCommit>() {
         pending.take();
     }
 
-    // Rebase: the post-op world becomes the new frame-zero baseline. This bumps
-    // the session generation and the first frame-zero SaveWorld overwrites every
-    // ring slot, so no earlier frame can restore the pre-op room. Executing the
-    // op WITHOUT rebasing would leave old ring history restorable — the rebase is
-    // the load-bearing half of the confirmed authoritative discontinuity.
-    if let Err(error) = start_sync_test_session(world, settings) {
-        error!("Track B: failed to rebase the session after a lifecycle commit: {error}");
-    }
+    // ...and install the pre-built session as the new frame-zero baseline. This
+    // bumps the session generation and the first frame-zero SaveWorld overwrites
+    // every ring slot, so no earlier frame can restore the pre-op room. Executing
+    // the op WITHOUT rebasing would leave old ring history restorable — the rebase
+    // is the load-bearing half of the confirmed authoritative discontinuity, and
+    // the install is infallible so the commit cannot half-complete.
+    install_rebased_sync_test_session(world, session, settings);
 }
 
 /// Returns `true` iff the reconstruction actually committed (so the caller may

@@ -94,6 +94,12 @@ pub struct PropVisual {
     /// Authored nominal collision footprint used to rebuild the sprite if the
     /// quality profile reloads the underlying character-sheet asset.
     pub size: Vec2,
+    /// The authored [`PropDraw`], carried for the same reason as `size`: the
+    /// sprite is REBUILT on a `GameAssets` change, and a rebuild that does not
+    /// know a prop is built world silently reverts it to character sizing.
+    pub draw: ambition_world::rooms::PropDraw,
+    /// The authored vertical mirror, carried for the same reason.
+    pub flip_y: bool,
 }
 
 /// Tag on the portal + gate-ring visual entities so the generic

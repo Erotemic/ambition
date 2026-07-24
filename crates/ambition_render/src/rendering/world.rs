@@ -265,7 +265,7 @@ pub fn spawn_room_visuals(
 /// the frame aspect), which for a 64×32 warp-pipe piece is 128×64 — DOUBLE the
 /// collider in both axes, putting the pipe's lip well above the surface a body
 /// actually stands on. Correct for a character, wrong for anything built.
-pub(super) fn prop_sprite_geometry(
+pub(crate) fn prop_sprite_geometry(
     draw: PropDraw,
     spec: &ambition_sprite_sheet::character::CharacterSheetSpec,
     collision: BVec2,
@@ -278,6 +278,27 @@ pub(super) fn prop_sprite_geometry(
             feet_anchor_for(spec, collision),
         ),
     }
+}
+
+/// **The ONE way a prop's sprite is built.** Both the room-load spawn and the
+/// `GameAssets`-change rebuild go through here, because they must agree: the
+/// rebuild used to hardcode character sizing and a feet anchor, so it silently
+/// reverted every authored presentation fact (a structure prop's box-filling
+/// size, a mirrored prop's flip) the first time it ran. A provider that
+/// re-registers its own sheets each frame marks that resource changed
+/// constantly, so the revert landed every frame and the authored look never
+/// appeared at all.
+pub(crate) fn prop_sprite_bundle(
+    draw: PropDraw,
+    flip_y: bool,
+    asset: &ambition_sprite_sheet::character::CharacterSpriteAsset,
+    collision: BVec2,
+) -> (Sprite, Anchor, CharacterAnimator) {
+    let (render_size, anchor) = prop_sprite_geometry(draw, &asset.spec, collision);
+    let mut sprite = build_character_sprite_with_render_size(asset, render_size);
+    // Which way the prop POINTS is authored data, not a second sheet.
+    sprite.flip_y = flip_y;
+    (sprite, anchor, CharacterAnimator::new(asset))
 }
 
 pub fn spawn_room_prop(
@@ -313,16 +334,14 @@ pub fn spawn_room_prop(
                 kind: prop.kind.clone(),
                 name: prop.name.clone(),
                 size: BVec2::new(prop.size.x, prop.size.y),
+                draw: prop.draw,
+                flip_y: prop.flip_y,
             },
         ),
     );
 
     if let Some(asset) = assets.and_then(|a| a.characters.prop_asset_for_kind(&prop.kind)) {
-        let (render_size, anchor) = prop_sprite_geometry(prop.draw, &asset.spec, collision);
-        let mut sprite = build_character_sprite_with_render_size(asset, render_size);
-        // Which way the prop POINTS is authored data, not a second sheet.
-        sprite.flip_y = prop.flip_y;
-        entity.insert((sprite, anchor, CharacterAnimator::new(asset)));
+        entity.insert(prop_sprite_bundle(prop.draw, prop.flip_y, asset, collision));
     } else {
         // Fallback: a translucent placeholder rectangle so authors
         // see a visible marker for unregistered prop kinds. Same

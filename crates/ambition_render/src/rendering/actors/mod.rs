@@ -619,17 +619,19 @@ pub fn refresh_prop_sprites_on_game_assets_change(
         if images.get(&asset.texture).is_none() {
             continue;
         }
-        // Preserve the original prop-spawn convention: `PropSpec::size` is the
-        // nominal collision footprint used by `spawn_prop`, and the sheet's
-        // `collision_scale` derives the presentation render size from it.
+        // Rebuild EXACTLY what `spawn_room_prop` built, through the SAME builder
+        // — this used to hardcode character sizing + a feet anchor and reverted
+        // every authored presentation fact each time it ran (see the builder).
         // `animate_props` will capture the matching trim basis on its next tick.
-        let collision = prop.size;
-        commands.entity(entity).insert((
-            build_character_sprite(asset, collision),
-            feet_anchor_for(&asset.spec, collision),
-            CharacterAnimator::new(asset),
-            BoundSpriteQuality { scale },
-        ));
+        let bundle = crate::rendering::world::prop_sprite_bundle(
+            prop.draw,
+            prop.flip_y,
+            asset,
+            prop.size,
+        );
+        commands
+            .entity(entity)
+            .insert((bundle, BoundSpriteQuality { scale }));
     }
 }
 

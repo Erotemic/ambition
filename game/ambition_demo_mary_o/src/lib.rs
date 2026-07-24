@@ -16,9 +16,9 @@
 //! rows (M1), the camera scroll policy (M2), and the flagpole sequence (M3) are
 //! the rest of the M-track; see `docs/planning/demos/super-mary-o.md`.
 
+pub mod ai_slop;
 pub mod bricks;
 pub mod flag;
-pub mod goomba;
 pub mod movement;
 pub mod powerups;
 pub mod provider;
@@ -708,14 +708,21 @@ const MARY_O_CATALOG_RON: &str = r#"(
             default_action_set: "peaceful",
             tags: ["enemy"],
         ),
-        // The Goomba's IDENTITY row (the plain stompable walker): its sprite is the
-        // published `ai_slop` trash-mob sheet, resolved from this display name.
-        // Behavior/HP/contact come from the `mary_o_goomba` ROSTER archetype (see
-        // `goomba.rs`), not this catalog row — this is only the sprite + name. The
-        // name is NOT "Ai Slop" (Ambition's hosted catalog owns that; a duplicate
-        // display name fails assembly), so the demo points its own name at the sheet.
+        // AI Slop's IDENTITY row (the plain stompable walker): its sprite is the
+        // published `ai_slop` sheet, resolved from this display name. Behavior/HP/
+        // contact come from the `mary_o_ai_slop` ROSTER archetype (see `ai_slop.rs`),
+        // not this catalog row — this is only the sprite + name.
+        //
+        // AI Slop also appears in Ambition's Hall of Characters (a frozen display
+        // NPC, `npc_ai_slop`). They are the SAME character in different modes; ideally
+        // one shared catalog entry both experiences draw from, with each supplying its
+        // own behavior (the Hall freezes it; Mary-O makes it a stompable walker). Until
+        // that unification lands they are two rows — distinct catalog ids, and distinct
+        // display strings so the assembled catalog's display-name uniqueness holds when
+        // hosted. Nothing stops Mary-O from spawning the Hall's `npc_ai_slop` directly
+        // when Ambition is loaded; ids are the cross-provider identity.
         "ai_slop": (
-            display_name: "Mary-O Goomba",
+            display_name: "AI Slop",
             spritesheet: "sprites/ai_slop_spritesheet.png",
             manifest: "sprites/ai_slop_spritesheet.ron",
             tier: MainHall,
@@ -747,12 +754,12 @@ pub fn install_mary_o_content(app: &mut App) {
         )
         .expect("Mary-O character catalog should be valid"),
     );
-    // Mary-O's two enemies — Solid Snake (the Koopa-equivalent shell) and the
-    // Goomba (the plain ai_slop stomp-and-die walker) — are authored content, so
-    // install their archetypes and room stagers before direct or shell preparation
-    // fingerprints the App. Both archetypes share ONE roster fragment: assembly
-    // rejects a second fragment from the same provider, so the per-enemy
-    // `register_*_roster` helpers (used by single-enemy tests) are folded here.
+    // Mary-O's two enemies — Solid Snake (the shell) and AI Slop (the plain
+    // stomp-and-die walker) — are authored content, so install their archetypes and
+    // room stagers before direct or shell preparation fingerprints the App. Both
+    // archetypes share ONE roster fragment: assembly rejects a second fragment from
+    // the same provider, so the per-enemy `register_*_roster` helpers (used by
+    // single-enemy tests) are folded here.
     {
         use ambition::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
         app.register_character_roster_fragment(
@@ -762,7 +769,7 @@ pub fn install_mary_o_content(app: &mut App) {
                 &format!(
                     "{{{}{}}}",
                     snake::SNAKE_ROSTER_ROWS,
-                    goomba::GOOMBA_ROSTER_ROWS
+                    ai_slop::AI_SLOP_ROSTER_ROWS
                 ),
             )
             .expect("Mary-O enemy roster should be valid"),
@@ -774,7 +781,7 @@ pub fn install_mary_o_content(app: &mut App) {
             .world_mut()
             .resource_mut::<ambition::actors::features::RoomContentStagingRegistry>();
         snake::register_snake_content_staging(&mut registry);
-        goomba::register_goomba_content_staging(&mut registry);
+        ai_slop::register_ai_slop_content_staging(&mut registry);
     }
     // The flagpole + warp-pipe LOOK: load the construction sheets into
     // `GameAssets.props` so the decorative props authored on the level resolve to
@@ -789,7 +796,7 @@ pub fn install_mary_o_content(app: &mut App) {
             // them lives in the app host and isn't reliably driven for a demo-staged
             // enemy.
             snake::register_solid_snake_sheet,
-            goomba::register_ai_slop_sheet,
+            ai_slop::register_ai_slop_sheet,
         ),
     );
 
@@ -821,12 +828,12 @@ pub fn install_mary_o_content(app: &mut App) {
                 "ambition_demo_mary_o",
                 "content.mary_o_snake_shell",
             )
-            // The Goomba marker rides on the enemy BODY (already anchored). It is a
+            // The AI Slop marker rides on the enemy BODY (already anchored). It is a
             // bare tag, but snapshotting it keeps the stomp-eligible set identical
             // across a rollback rather than relying on the re-tag pass to converge.
-            .rollback_component_clone::<goomba::Goomba>(
+            .rollback_component_clone::<ai_slop::AiSlop>(
                 "ambition_demo_mary_o",
-                "content.mary_o_goomba",
+                "content.mary_o_ai_slop",
             );
     }
 }
@@ -1037,13 +1044,13 @@ impl Plugin for MaryORulesPlugin {
         // registries after prepared-content fingerprinting.
         // Tag freshly staged enemies, then run each one's stomp mechanic. Both run
         // BEFORE the engine's shared body-contact-damage pass so a stomp resolves
-        // the enemy (snake → inert shell; Goomba → dead) that frame, which the
+        // the enemy (snake → inert shell; AI Slop → dead) that frame, which the
         // contact pass then skips — the stomper is never also hurt.
         let cronies = (
             snake::tag_mary_o_snakes,
-            goomba::tag_mary_o_goombas,
+            ai_slop::tag_mary_o_ai_slop,
             snake::run_snake_shells.before(ambition::actors::features::apply_actor_contact_damage),
-            goomba::bounce_squash_goombas
+            ai_slop::bounce_squash_ai_slop
                 .before(ambition::actors::features::apply_actor_contact_damage),
         )
             .chain();
@@ -1418,11 +1425,10 @@ mod tests {
                 .is_some(),
             "a sheet spec resolves for solid_snake — else it is skipped and renders as a goblin"
         );
-        // The Goomba is the SECOND enemy: the plain ai_slop stomp-and-die walker.
-        // Same guard — its `ai_slop` sheet spec must resolve, or it renders as a
-        // goblin too.
-        let goomba = catalog.get("ai_slop").expect("the Goomba is a catalog row");
-        assert_eq!(goomba.display_name, goomba::GOOMBA_DISPLAY_NAME);
+        // AI Slop is the SECOND enemy: the plain stomp-and-die walker. Same guard —
+        // its `ai_slop` sheet spec must resolve, or it renders as a goblin too.
+        let ai_slop_row = catalog.get("ai_slop").expect("AI Slop is a catalog row");
+        assert_eq!(ai_slop_row.display_name, ai_slop::AI_SLOP_DISPLAY_NAME);
         assert!(
             ambition::actors::character_sprites::sheet_for_character_id_in(catalog, "ai_slop")
                 .is_some(),

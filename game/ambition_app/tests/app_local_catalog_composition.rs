@@ -110,9 +110,11 @@ fn three_real_providers_compose_independent_of_registration_order() {
         .combined_music_registry("ambition")
         .expect("real provider music ids must compose without collision");
 
-    // Ambition owns its enemy roster; Mary-O owns the crony's; Sanic owns the
-    // badnik's. Each is its own App-local hostile-roster provider
-    // (BTreeMap-sorted), composed independent of registration order.
+    // Each experience contributes its own hostile-roster archetypes (Ambition's
+    // enemies, Mary-O's snake + AI Slop, Sanic's badnik) as an App-local provider
+    // fragment. They compose into ONE roster, BTreeMap-sorted, independent of
+    // registration order — a character in any fragment is spawnable by any
+    // experience once loaded.
     assert_eq!(
         hostile_providers(&forward),
         vec!["ambition", "mary_o", "sanic"]

@@ -485,11 +485,15 @@ const SANIC_CATALOG_RON: &str = r#"(
             hall_dialogue_id: Some("hall_super_sanic"),
         ),
         // The badnik's IDENTITY row: its sprite resolves from this display
-        // name (the Mary-O crony pattern). It points its OWN name at the
-        // published `ai_slop` sheet — Ambition owns the "Ai Slop" display
-        // name, and a duplicate would fail catalog assembly when hosted.
-        // Behavior/HP/contact come from the `sanic_badnik` ROSTER archetype
-        // (see `badnik.rs`); this row is only the sprite + name.
+        // name. It reuses the published `ai_slop` sheet but under Sanic's own
+        // character id + display name — NOT because a name is "owned", but
+        // because the assembled catalog requires display names to be UNIQUE
+        // across every loaded provider (validator: duplicate display names are
+        // rejected), and this badnik is a distinct character from the Hall's
+        // `npc_ai_slop`. Characters are shared by ID: any experience can spawn
+        // any character present in the merged catalog. Behavior/HP/contact come
+        // from the `sanic_badnik` ROSTER archetype (see `badnik.rs`); this row
+        // is only the sprite + name.
         "sanic_badnik": (
             display_name: "Sanic Badnik",
             spritesheet: "sprites/ai_slop_spritesheet.png",

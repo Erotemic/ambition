@@ -1275,6 +1275,99 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
     assert_eq!(dropped(&mut app), 0, "and nothing scatters");
 }
 
+/// Jon's bug: "the rings don't explode outward when sanic gets hit." A scatter
+/// that PLACES rings in a static fan looks nothing like the classic burst. So
+/// each dropped ring must launch with a real outward velocity, ARC away from the
+/// body, and only THEN hand back to the ordinary pickup economy (so the coin
+/// magnet can't refund them the same instant they drop).
+#[test]
+fn scattered_rings_burst_outward_and_then_become_collectible() {
+    use ambition::characters::actor::{BodyHealth, BodyWallet, Health};
+    use ambition::platformer::lifecycle::ActiveSessionScope;
+
+    let mut app = App::new();
+    app.add_message::<ambition::vfx::VfxMessage>();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    let mut scope = ActiveSessionScope::default();
+    scope.begin();
+    app.insert_resource(scope);
+    app.insert_resource(ambition::time::WorldTime {
+        scaled_dt: 0.1,
+        ..Default::default()
+    });
+    app.add_systems(bevy::prelude::Update, crate::scatter_rings_on_hit);
+
+    let body = ae::Vec2::new(100.0, 100.0);
+    let mut kin = ae::BodyKinematics::default();
+    kin.pos = body;
+    kin.size = ae::Vec2::new(28.0, 32.0);
+    let sanic = app
+        .world_mut()
+        .spawn((
+            ambition::platformer::markers::PlayerEntity,
+            ambition::platformer::markers::PrimaryPlayer,
+            kin,
+            BodyHealth::new(Health::new(3)),
+            BodyWallet { balance: 6 },
+        ))
+        .id();
+
+    app.update(); // adopt starting health
+    app.world_mut()
+        .get_mut::<BodyHealth>(sanic)
+        .unwrap()
+        .health
+        .current -= 1;
+    app.update(); // the hit spends the rings → they burst
+
+    // Every lost ring launches with a REAL outward speed (not a static placement)
+    // and is born AT the body.
+    let bursts: Vec<crate::ScatteredRing> = {
+        let mut q = app.world_mut().query::<&crate::ScatteredRing>();
+        q.iter(app.world()).copied().collect()
+    };
+    assert_eq!(bursts.len(), 6, "all six lost rings burst outward");
+    for r in &bursts {
+        assert!(
+            r.vel.length() > 100.0,
+            "each ring has a real outward launch speed, got {}",
+            r.vel.length()
+        );
+        assert_eq!(r.arc_pos, body, "each ring is born at the body");
+    }
+    assert!(
+        bursts.iter().any(|r| r.vel.x > 0.0) && bursts.iter().any(|r| r.vel.x < 0.0),
+        "the burst sprays symmetrically to BOTH sides, not one direction"
+    );
+
+    // Arc them: they move AWAY from the body (the whole point of "explode
+    // outward"), then after the lock they hand off to the ordinary economy.
+    app.add_systems(bevy::prelude::Update, crate::arc_scattered_rings);
+    app.update();
+    let max_dist = {
+        let mut q = app.world_mut().query::<&crate::ScatteredRing>();
+        q.iter(app.world())
+            .map(|r| (r.arc_pos - body).length())
+            .fold(0.0_f32, f32::max)
+    };
+    assert!(
+        max_dist > 0.0,
+        "the rings travel outward from the body under the arc"
+    );
+
+    for _ in 0..12 {
+        app.update();
+    }
+    let remaining = {
+        let mut q = app.world_mut().query::<&crate::ScatteredRing>();
+        q.iter(app.world()).count()
+    };
+    assert_eq!(
+        remaining, 0,
+        "once the airborne lock ends every ring is an ordinary collectible pickup"
+    );
+}
+
 /// **Going fast has to PAY, and rings have to cost something to keep.**
 ///
 /// The act score is the only place the demo's premise is expressed as a number,

@@ -331,16 +331,19 @@ pub(crate) fn lower_pickup_placement(
 /// The spawned pickup is an ordinary one in every respect: the shared
 /// `collect_ecs_pickups` credits it, so a dropped ring and an authored ring are
 /// indistinguishable once they exist.
+/// Returns the spawned pickup root, so a caller can decorate it further (e.g. a
+/// tossed / scattered pickup that adds its own physics component).
 pub fn spawn_pickup(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<crate::rooms::PickupSpec>,
-) {
+) -> bevy::ecs::entity::Entity {
     // `PickupBundle` already carries `RoomScopedEntity` (via `FeatureRenderedBundle`),
     // so insert through the session-only helper — `insert_room_in_session` would
     // prepend a second `RoomScopedEntity` and trip Bevy's duplicate-component panic.
     let root = commands.spawn_empty().id();
     spawn_pickup_into(commands, session_scope, root, authored);
+    root
 }
 
 /// Populate one pickup onto a root the construction executor allocated.

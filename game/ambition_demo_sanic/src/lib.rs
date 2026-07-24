@@ -598,6 +598,14 @@ pub fn install_sanic_content(app: &mut App) {
             .rollback_component_clone::<SanicActState>(
                 "ambition_demo_sanic",
                 "content.sanic_act_state",
+            )
+            // A mid-burst scattered ring rides the currency pickup it decorates,
+            // which `CenteredAabb`/`PickupFeature` already anchor + snapshot — so
+            // like `BallDash` on the body, it only needs its own component
+            // registered. Without this the burst would silently not resimulate.
+            .rollback_component_clone::<ScatteredRing>(
+                "ambition_demo_sanic",
+                "content.sanic_scattered_ring",
             );
     }
 }
@@ -987,6 +995,13 @@ impl Plugin for SanicRulesPlugin {
         // AFTER it — the hit has to have landed before rings can absorb it.
         let ring_loss =
             scatter_rings_on_hit.after(ambition::actors::features::apply_actor_contact_damage);
+        // The scattered-ring burst flies out BETWEEN the coin magnet and the
+        // collect: it owns each ring's position during the lock so the magnet
+        // can't reclaim it, and collect then sees the ring out at its arc rather
+        // than on top of the knocked-back body.
+        let scatter_arc = arc_scattered_rings
+            .after(ambition::actors::features::magnetize_pickups)
+            .before(ambition::actors::features::collect_ecs_pickups);
         // Monitor boxes: re-arm on (re)load, break on stomp/roll, tick the
         // speed-shoes grant. Broken monitors contribute to the overlay's
         // `removed_block_names` AFTER the engine's per-frame rebuild clears it
@@ -1012,6 +1027,10 @@ impl Plugin for SanicRulesPlugin {
             );
             app.add_systems(
                 sim,
+                scatter_arc.run_if(ambition::runtime::in_mode(SANIC_MODE)),
+            );
+            app.add_systems(
+                sim,
                 monitor_rules.run_if(ambition::runtime::in_mode(SANIC_MODE)),
             );
             app.add_systems(
@@ -1023,6 +1042,7 @@ impl Plugin for SanicRulesPlugin {
             app.add_systems(sim, milestone_sfx);
             app.add_systems(sim, badniks);
             app.add_systems(sim, ring_loss);
+            app.add_systems(sim, scatter_arc);
             app.add_systems(sim, monitor_rules);
             app.add_systems(sim, monitor_overlay);
         }
@@ -1311,8 +1331,20 @@ mod tests;
 /// is what keeps a big purse from turning a hit into a shower.
 const SCATTERED_RINGS_MAX: usize = 12;
 
-/// How far a scattered ring lands from the body it came out of.
-const SCATTER_RADIUS: f32 = 46.0;
+/// Outward launch speed (px/s) a scattered ring bursts from the body with.
+const SCATTER_BURST_SPEED: f32 = 250.0;
+
+/// Downward pull (px/s²) that arcs a scattered ring back down, screen-relative
+/// (the demo runs under normal screen gravity).
+const SCATTER_GRAVITY: f32 = 900.0;
+
+/// How long (s) a scattered ring is airborne-and-uncollectible by the magnet:
+/// during this window `arc_scattered_rings` OWNS its position (bursting outward),
+/// so the coin magnet cannot vacuum it straight back the instant it drops. After
+/// it, the ring is an ordinary currency pickup the shared economy collects —
+/// that hand-off is what makes "run back and grab them" a real scramble rather
+/// than a same-frame refund. Just short of a second, the classic feel.
+const SCATTER_LOCK_S: f32 = 0.85;
 
 /// Marks the body's "I just lost my rings" window, so a single hit cannot be
 /// billed twice while the damage frame is still resolving.
@@ -1320,6 +1352,23 @@ const SCATTER_RADIUS: f32 = 46.0;
 pub struct SanicRingLoss {
     /// Health the body had last time this ran. A DROP is the hit edge.
     seen_health: Option<i32>,
+}
+
+/// A ring in mid-BURST after a hit (classic Sonic scatter): it flies out from the
+/// body and arcs down under gravity, and while its `lock` is live it is NOT yet
+/// magnet-collectible. Rollback-registered sim state — the burst has to
+/// resimulate identically, so its velocity/position/lock ride the snapshot the
+/// same way `BallDash` does. `arc_scattered_rings` integrates it; when the lock
+/// expires the component is removed and the ring becomes an ordinary pickup.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug)]
+pub struct ScatteredRing {
+    /// Current burst velocity (screen frame, px/s).
+    pub vel: ae::Vec2,
+    /// The position this system OWNS while locked — integrated here so it wins
+    /// over the coin magnet, which also writes the pickup's `CenteredAabb`.
+    pub arc_pos: ae::Vec2,
+    /// Seconds left in the airborne/uncollectible window.
+    pub lock: f32,
 }
 
 /// **Rings absorb the hit.**
@@ -1390,21 +1439,25 @@ pub fn scatter_rings_on_hit(
 
         let scattered = (carried as usize).min(SCATTERED_RINGS_MAX);
         for i in 0..scattered {
-            // A fan above the body — reachable on the way back down, which is
-            // what gives the player the scramble rather than a lottery.
+            // Classic Sonic: the rings BURST from the body and arc outward under
+            // gravity, rather than appearing in a static fan. Each ring launches
+            // up-and-out; alternating x-sign fans the spray symmetrically to both
+            // sides. The arc + the no-magnet lock live on `ScatteredRing`, ticked
+            // by `arc_scattered_rings`.
             let t = (i as f32 + 0.5) / scattered as f32;
-            let angle = std::f32::consts::PI * (0.15 + 0.7 * t);
-            let offset = ae::Vec2::new(
-                angle.cos() * SCATTER_RADIUS,
-                // Screen +y is down, so subtracting lifts them.
-                -angle.sin() * SCATTER_RADIUS * 0.8,
+            let angle = std::f32::consts::PI * (0.18 + 0.64 * t);
+            let dir = if i % 2 == 0 { 1.0 } else { -1.0 };
+            let vel = ae::Vec2::new(
+                angle.cos() * SCATTER_BURST_SPEED * dir,
+                // Screen +y is down, so a negative y launches them upward.
+                -angle.sin() * SCATTER_BURST_SPEED,
             );
             let size = ae::Vec2::splat(18.0);
-            let centre = kin.pos + offset;
             let authored = ambition::actors::rooms::Authored {
                 id: format!("sanic_dropped_ring_{}_{i}", entity.index()),
                 name: "ring".to_string(),
-                aabb: ae::Aabb::new(centre, size * 0.5),
+                // Every ring is born AT the body and flies out from there.
+                aabb: ae::Aabb::new(kin.pos, size * 0.5),
                 payload: {
                     let mut spec = ambition::entity_catalog::placements::PickupSpec::new(
                         ambition::entity_catalog::placements::PickupKindSpec::Currency {
@@ -1415,11 +1468,16 @@ pub fn scatter_rings_on_hit(
                     spec
                 },
             };
-            ambition::actors::features::ecs::spawn_static::spawn_pickup(
+            let ring = ambition::actors::features::ecs::spawn_static::spawn_pickup(
                 &mut commands,
                 scope,
                 &authored,
             );
+            commands.entity(ring).insert(ScatteredRing {
+                vel,
+                arc_pos: kin.pos,
+                lock: SCATTER_LOCK_S,
+            });
         }
 
         vfx.write(ambition::vfx::VfxMessage::Burst {
@@ -1433,6 +1491,40 @@ pub fn scatter_rings_on_hit(
             id: ambition::sfx::SfxId::from_static(SFX_BADNIK),
             pos: kin.pos,
         });
+    }
+}
+
+/// Fly the mid-burst scattered rings outward and arc them down (classic Sonic).
+///
+/// Ordered `.after(magnetize_pickups).before(collect_ecs_pickups)`: it OWNS the
+/// ring's `CenteredAabb` during the lock, so the coin magnet — which wrote the
+/// same AABB a step earlier — cannot reel the ring straight back, and `collect`
+/// then sees the ring out at its arced position (well away from the knocked-back
+/// body) instead of on top of the player. When the lock expires the component is
+/// dropped and the ring is an ordinary currency pickup again, collectible on the
+/// shared path. Deterministic (all state is the rollback-registered
+/// `ScatteredRing` plus the scaled sim dt), so it resimulates identically.
+pub fn arc_scattered_rings(
+    mut commands: bevy::prelude::Commands,
+    time: bevy::prelude::Res<ambition::time::WorldTime>,
+    mut rings: bevy::prelude::Query<(
+        bevy::prelude::Entity,
+        &mut ScatteredRing,
+        &mut ae::CenteredAabb,
+    )>,
+) {
+    let dt = time.scaled_dt;
+    for (entity, mut ring, mut aabb) in &mut rings {
+        // The burst arc is authoritative while locked — overwrite whatever the
+        // magnet just did to the AABB.
+        aabb.center = ring.arc_pos;
+        let step = ring.vel * dt;
+        ring.arc_pos += step;
+        ring.vel.y += SCATTER_GRAVITY * dt;
+        ring.lock -= dt;
+        if ring.lock <= 0.0 {
+            commands.entity(entity).remove::<ScatteredRing>();
+        }
     }
 }
 

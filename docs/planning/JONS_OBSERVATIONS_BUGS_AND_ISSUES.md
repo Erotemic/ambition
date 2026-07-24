@@ -13,7 +13,7 @@
 
 * Mary-o Needs a transform SFX.
 
-* In sanic, the rings don't explode outward when sanic gets hit and has rings.
+* In sanic, the rings don't explode outward when sanic gets hit and has rings. [likely fixed 2026-07-24: the lost rings now BURST from the body with real outward velocity and arc down under gravity (`ScatteredRing` + `arc_scattered_rings`), instead of appearing in a static fan; they're immune to the coin-magnet for a ~0.85s lock so they can't be refunded the instant they drop, then hand back to the ordinary pickup economy. Rollback-registered so the burst resimulates identically.]
 
 * Similarly to mary-o sanic needs the transform animation, probably SFX.
 

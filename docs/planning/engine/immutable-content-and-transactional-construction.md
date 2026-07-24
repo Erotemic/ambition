@@ -1747,17 +1747,34 @@ could never see, in layers:
    snapshot — despawn+respawn a whole room via Commands), whose
    divergence is still owed a reproduction; full design in **Track B**.
 
-### Track B — Confirmed-frame lifecycle commitment (LANDED for single-player/sync-test, 2026-07-23)
+### Track B — Confirmed-frame lifecycle commitment (transition path LANDED + hardened, 2026-07-23)
 
-> **Status:** LANDED. The reproduce-first campaign narrowed B to ONE genuinely
-> divergent path — the room TRANSITION — which is now fixed (RED→GREEN,
-> `app_it::rollback_room_transition`), and PROVED every other lifecycle path
-> already rollback-safe. The architecture (Piece 1 rollback-visible intent +
-> Piece 2 confirmed exclusive commit + session rebase) is proven end-to-end,
-> including the principal timeline oracle (recorded-not-executed while predicted →
-> commits exactly once + one generation bump → never re-commits). The only
-> remaining item is the `External`/Matchbox coordinated-rebase seam, which is
-> intentionally deferred to the Matchbox era (it needs a real peer barrier).
+> **Status:** the reproduce-first campaign narrowed B to ONE genuinely divergent
+> path — the room TRANSITION — now fixed (RED→GREEN, `app_it::rollback_room_transition`)
+> and PROVED every other lifecycle path already rollback-safe. A GPT 5.6 review of
+> the first cut found the confirmed committer was a REDUCED reimplementation and
+> the rebase had soundness holes; those are now fixed:
+> - The committer is now FAITHFUL to the canonical transition — it resolves the
+>   `ControlledSubject` (not just the primary player), carries a possessed
+>   room-scoped body past the despawn (`apply_to_world` takes `carry_body`),
+>   validates the arrival, preserves edge-exit momentum, refreshes jump/dash/flight,
+>   and applies the combat/safety/blink-camera/dialogue/clock resets
+>   (`commit_room_transition_geometry` + `apply_room_transition_resets`).
+> - The rebase no longer launders a diverged session (refuses to rebase when
+>   `session_health` is Err — poison-tested), is atomic (clears + rebases only on a
+>   successful reconstruction), and is ordered after the external-effect Release so
+>   old-generation confirmed effects aren't dropped.
+>
+> **Honestly still open:** (1) op 5 snapshot reconstruction — see the per-op map
+> below; (2) end-to-end *corrected-input cancellation* — it follows from the intent
+> being rollback state but a `LocalSyncTest` can't mispredict, so it is part of the
+> External/P2P work, not yet proven; (3) an end-to-end *possession → transition →
+> carry* test — the harness DERIVES `ControlledSubject`, so injecting a possession
+> is not cheap; the `carry_body` plumbing + controlled-subject resolution are in
+> place and edge-momentum is pinned, but the full possession orchestration test is
+> owed; (4) the transition's presentation SFX/VFX are deliberately not re-emitted
+> on the confirmed-commit path (presentation-only, not a state divergence); (5) the
+> `External`/Matchbox coordinated-rebase seam (needs a real peer barrier).
 >
 > **The reproduce-first verdict per op (this is the whole map now):**
 > - **op 4 room transition** — DIVERGED eager (checksum mismatch in the LOAD
@@ -1767,9 +1784,14 @@ could never see, in layers:
 > - **op 2b full sandbox reset** — SINGLE-TICK Commands reconstruction, no such
 >   machinery. Driven under a forced window (`app_it::rollback_full_reset`,
 >   load-bearing roster-swap) it is **already rollback-safe**; no deferral.
-> - **op 5 snapshot** — `RoomConstructionPlan::apply_to_world` (was unused) is now
->   the transition committer's exclusive reconstruction primitive, so the snapshot
->   mutation boundary is exercised and clean.
+> - **op 5 snapshot reconstruction** — STILL OPEN (GPT 5.6 correction). The
+>   transition committer now uses `RoomConstructionPlan::apply_to_world`, so that
+>   ONE reconstruction shape runs, but a real cross-room SNAPSHOT operation is not
+>   tested: content/schema compatibility, source-snapshot selection + decoding,
+>   rollback entity identity/remapping, restoration of non-room authoritative
+>   state, and pre-mutation rejection of an incompatible snapshot are all
+>   unexercised, and there is still no production snapshot caller. Do not read the
+>   transition's use of `apply_to_world` as closing op 5.
 > - **ops 1/2a/3 in-place reset (death/manual/replay)** — already rollback-safe to
 >   2400 frames (`app_it::rollback_lifecycle_reset`, load-bearing: a damaged enemy
 >   + broken brick are restored). Left eager; no deferral needed.

@@ -390,7 +390,13 @@ impl RoomConstructionPlan {
 
     /// Exclusive-world execution for snapshot reconstruction. Preparation is
     /// mutation-free; after it returns, this application has no fallible lookup.
-    pub fn apply_to_world(self, world: &mut World) {
+    ///
+    /// `carry_body` is the transiting controlled body (a possessed room-scoped
+    /// actor) that must ride along into the target room rather than be despawned
+    /// with the old room scope — the same exemption
+    /// `commit_room_transition_geometry` gives it. `None` for the ordinary
+    /// primary player, which is not room-scoped and so is never in `outgoing`.
+    pub fn apply_to_world(self, world: &mut World, carry_body: Option<Entity>) {
         if let Some(mut pending) =
             world.get_resource_mut::<bevy::ecs::message::Messages<features::SpawnActorRequest>>()
         {
@@ -408,7 +414,7 @@ impl RoomConstructionPlan {
         };
         {
             let mut commands = world.commands();
-            self.retire_outgoing(&mut commands, outgoing, None);
+            self.retire_outgoing(&mut commands, outgoing, carry_body);
         }
         world.flush();
 

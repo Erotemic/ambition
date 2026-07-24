@@ -158,11 +158,14 @@ fn a_room_transition_survives_the_rollback_window() {
 /// EXACTLY ONCE on confirmation — bumping the session generation — after which the
 /// slot is empty and no second commit ever fires.
 ///
-/// (The correction-removal property — a mispredicted intent rewinding away with
-/// the world — is guaranteed by `PendingLifecycleCommit` being rollback state and
-/// is unit-tested in `ambition_actors::session::lifecycle_commit`; a
-/// `LocalSyncTest` re-simulates with the SAME input, so it cannot mispredict and
-/// that branch is not reachable here.)
+/// (Corrected-input cancellation — a mispredicted intent rewinding away with the
+/// world — is NOT proven here and is NOT unit-tested. It FOLLOWS from
+/// `PendingLifecycleCommit` being rollback-registered state, so a rewind restores
+/// its pre-intent value, plus the codec round-trip — but a `LocalSyncTest`
+/// re-simulates with identical input and cannot mispredict, so end-to-end
+/// cancellation belongs to the External/P2P work. The
+/// `ambition_actors::session::lifecycle_commit` unit tests cover only
+/// earliest-sticky recording, the confirmation comparison, and `take()`.)
 #[test]
 fn a_transition_intent_is_recorded_then_committed_exactly_once() {
     let mut sim = repro_sim();
@@ -227,6 +230,44 @@ fn a_transition_intent_is_recorded_then_committed_exactly_once() {
         generation_committed,
         "no second rebase — the lifecycle op committed exactly once"
     );
+}
+
+/// **Finding 1 — edge-exit momentum is preserved.** The canonical transition
+/// keeps the body's velocity across an `EdgeExit` (you flow through the seam, you
+/// don't stop). The reduced committer zeroed it; the faithful committer restores
+/// it. A zeroing regression leaves the arrival velocity at 0.
+#[test]
+fn an_edge_exit_transition_preserves_the_body_momentum() {
+    let mut sim = repro_sim();
+    sim.step(AgentAction::default());
+    let floor_y = player_y(&mut sim);
+    sim.teleport_player((1200.0, floor_y));
+
+    let mut vel_in_source = 0.0f32;
+    let mut committed = false;
+    for _ in 0..240 {
+        let obs = sim.step(AgentAction::move_x(1.0));
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("frame (active={}): {error}", obs.active_room));
+        if obs.active_room.as_str() == SOURCE_ROOM {
+            // The last rightward speed carried into the EdgeExit.
+            vel_in_source = obs.player_vel.0;
+        } else if obs.active_room.as_str() == TARGET_ROOM {
+            assert!(
+                vel_in_source > 1.0,
+                "sanity: the body was actually moving into the exit ({vel_in_source})"
+            );
+            assert!(
+                obs.player_vel.0 > vel_in_source * 0.5,
+                "edge-exit momentum must survive the transition \
+                 (into-exit={vel_in_source}, arrival={}) — a zeroing bug leaves 0",
+                obs.player_vel.0
+            );
+            committed = true;
+            break;
+        }
+    }
+    assert!(committed, "the edge-exit transition committed");
 }
 
 /// **Finding 2 poison test.** A lifecycle rebase installs a fresh

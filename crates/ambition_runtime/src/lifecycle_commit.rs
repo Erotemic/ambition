@@ -108,8 +108,28 @@ fn execute_lifecycle_commit(world: &mut World, kind: &LifecycleIntent) -> bool {
     }
 }
 
-/// Reconstruct the target room synchronously and relocate the controlled body,
-/// mirroring `commit_room_transition_geometry` but in one exclusive-world call.
+/// Resolve the transition subject the way `detect_room_transition_system` does:
+/// the CONTROLLED body (home avatar or a possessed actor), falling back to the
+/// primary player. The transition must move the body that is actually driven, not
+/// always the home player.
+fn controlled_subject(world: &mut World) -> Option<Entity> {
+    if let Some(subject) = world
+        .get_resource::<ambition_platformer_primitives::markers::ControlledSubject>()
+        .and_then(|controlled| controlled.0)
+    {
+        return Some(subject);
+    }
+    let mut primary = world.query_filtered::<Entity, ambition_actors::actor::PrimaryPlayerOnly>();
+    primary.iter(world).next()
+}
+
+/// Reconstruct the target room synchronously and apply the CANONICAL transition
+/// body semantics to the controlled subject — faithful to
+/// `commit_room_transition_geometry` (`world/rooms/load.rs`) +
+/// `apply_room_transition_resets` (`app/world_flow/room_flow.rs`), which this
+/// mirrors so a deferred transition behaves like an eager one. Kept in sync with
+/// those by the line comments below; a change there without a matching change
+/// here is a regression.
 fn commit_transition(
     world: &mut World,
     target_room: &str,
@@ -127,43 +147,136 @@ fn commit_transition(
         }
     };
 
-    // Retire the source roster, publish the target geometry, spawn the target
-    // roster — synchronously, with `world.flush()` between phases.
-    plan.apply_to_world(world);
+    // Resolve the transiting body BEFORE reconstruction so a possessed,
+    // room-scoped controlled actor can be carried past the old-room despawn
+    // instead of being deleted with the room scope.
+    let Some(subject) = controlled_subject(world) else {
+        error!("Track B: transition commit found no controlled body to transit");
+        return false;
+    };
+    let carry_body = world
+        .get::<ambition_platformer_primitives::lifecycle::RoomScopedEntity>(subject)
+        .map(|_| subject);
 
-    // Relocate the controlled body to the arrival point in the new room. Without
-    // this the body would sit on the source-room exit coordinates and immediately
-    // re-trigger a transition.
+    // Retire the source roster (exempting the carried body), publish the target
+    // geometry, spawn the target roster — synchronously, with `world.flush()`.
+    plan.apply_to_world(world, carry_body);
+
+    // Tuning snapshots (primitive copies, so no borrow is held across the body
+    // mutation below).
+    let air_jumps = world
+        .get_resource::<ae::ActiveMovementTuning>()
+        .map(|tuning| tuning.0.air_jumps)
+        .unwrap_or(0);
+    let (edge_cd, door_cd, edge_flash, door_flash) = world
+        .get_resource::<SandboxFeelTuning>()
+        .map(|feel| {
+            (
+                feel.edge_transition_cooldown,
+                feel.door_transition_cooldown,
+                feel.edge_transition_flash,
+                feel.door_transition_flash,
+            )
+        })
+        .unwrap_or((0.0, 0.0, 0.0, 0.0));
+
+    // Validate the authored arrival against the (now target) geometry using the
+    // body's size — the same `validated_spawn` guard the canonical path applies,
+    // so the body is never placed inside a solid or out of bounds.
+    let player_size = world
+        .get::<ambition_platformer_primitives::body::BodyKinematics>(subject)
+        .map(|kin| kin.size)
+        .unwrap_or_else(ae::default_player_body_size);
+    let arrival = ambition_platformer_primitives::lifecycle::session_world_component::<
+        ae::RoomGeometry,
+    >(world)
+    .map(|geometry| ambition_world::rooms::validated_spawn(&geometry.0, arrival, player_size))
+    .unwrap_or(arrival);
+
+    // Body transit on the CONTROLLED subject (load.rs:55-80): reset clusters to
+    // the arrival, refresh jump/dash/flight, and preserve edge-exit momentum.
     {
-        let mut query = world.query_filtered::<(
+        let mut query = world.query::<(
             ae::BodyClusterQueryData,
             &mut ambition_actors::features::MotionModel,
-        ), ambition_actors::actor::PrimaryPlayerOnly>();
-        if let Ok((mut cluster_item, mut motion_model)) = query.single_mut(world) {
+        )>();
+        if let Ok((mut cluster_item, mut motion_model)) = query.get_mut(world, subject) {
             let mut clusters = cluster_item.as_clusters_mut();
-            ae::movement::transit_body(
-                &mut motion_model,
-                &mut clusters,
-                arrival,
-                ae::movement::TransitVelocity::Zero,
+            let old_velocity = clusters.kinematics.vel;
+            let fly_enabled = clusters.flight.fly_enabled;
+            ae::reset_body_clusters(&mut motion_model, &mut clusters, arrival);
+            ae::refresh_movement_resources_clusters(
+                clusters.abilities,
+                &mut clusters.dash,
+                &mut clusters.jump,
+                air_jumps,
             );
+            clusters.flight.fly_enabled = fly_enabled && clusters.abilities.abilities.fly;
+            if edge_exit {
+                clusters.kinematics.vel = old_velocity;
+            }
+        } else {
+            // The reconstruction already happened; the body just could not be
+            // relocated. Report but do NOT retry (that would re-reconstruct).
+            error!("Track B: transition committed but the controlled body could not be transited");
         }
     }
 
-    // Set the transition cooldown (rollback state, so it folds into the rebased
-    // baseline) so detection does not immediately re-fire.
-    let cooldown = world
-        .get_resource::<SandboxFeelTuning>()
-        .map(|feel| {
-            if edge_exit {
-                feel.edge_transition_cooldown
-            } else {
-                feel.door_transition_cooldown
-            }
-        })
-        .unwrap_or(0.0);
-    if let Some(mut sim_state) = world.get_resource_mut::<SandboxSimState>() {
-        sim_state.room_transition_cooldown = cooldown;
+    // Cross-domain per-transition resets (room_flow.rs:46-68), each a separate
+    // borrow so no query aliases. Optional components (safety/blink) are absent
+    // for a possessed non-home body, exactly as the canonical path allows.
+    if let Some(mut combat) = world.get_mut::<ambition_characters::actor::BodyCombat>(subject) {
+        combat.hit_flash = if edge_exit { edge_flash } else { door_flash };
+        combat.hitstop_timer = 0.0;
+        combat.damage_invuln_timer = 0.0;
+        combat.hitstun_timer = 0.0;
+        combat.recoil_lock_timer = 0.0;
     }
+    if let Some(mut safety) = world.get_mut::<ambition_actors::avatar::PlayerSafetyState>(subject) {
+        safety.last_safe_pos = arrival;
+    }
+    if let Some(mut blink) =
+        world.get_mut::<ambition_actors::avatar::PlayerBlinkCameraState>(subject)
+    {
+        blink.blink_in_timer = 0.0;
+        blink.blink_camera_from = arrival;
+        blink.blink_camera_to = arrival;
+        blink.camera_snap_timer = if edge_exit {
+            0.0
+        } else {
+            ambition_actors::ROOM_DOOR_CAMERA_SNAP_TIME
+        };
+    }
+
+    // Reset the sim clock (load.rs:81), close any open dialogue (room_flow.rs:68),
+    // flash the dev preset marker (load.rs:90), and set the transition cooldown
+    // (load.rs:85) so detection does not immediately re-fire.
+    if let Some(mut clock) = world
+        .get_resource_mut::<bevy::ecs::message::Messages<
+            ambition_actors::time::time_control::ClockResetRequest,
+        >>()
+    {
+        clock.write(
+            ambition_actors::time::time_control::ClockResetRequest::sim_clock(
+                ambition_actors::time::time_control::ClockRequester::Engine,
+                "room_transition",
+            ),
+        );
+    }
+    if let Some(mut dialogue) = world.get_resource_mut::<ambition_dialog::DialogState>() {
+        dialogue.close();
+    }
+    if let Some(mut dev_state) = world.get_resource_mut::<ambition_dev_tools::SandboxDevState>() {
+        dev_state.preset_flash = 1.0;
+    }
+    if let Some(mut sim_state) = world.get_resource_mut::<SandboxSimState>() {
+        sim_state.room_transition_cooldown = if edge_exit { edge_cd } else { door_cd };
+    }
+
+    // NOTE (bounded gap): the canonical path also emits the transition Reset
+    // SFX/VFX. Presentation effects on the confirmed-commit host path go through
+    // the external-effect quarantine with different timing, so they are
+    // deliberately NOT emitted here; this is a presentation-only difference, not a
+    // state divergence. Tracked in the campaign doc.
     true
 }

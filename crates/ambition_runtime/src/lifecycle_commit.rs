@@ -92,10 +92,11 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
 fn execute_lifecycle_commit(world: &mut World, kind: &LifecycleIntent) -> bool {
     match kind {
         LifecycleIntent::Transition {
+            subject,
             target_room,
             arrival,
             edge_exit,
-        } => commit_transition(world, target_room, *arrival, *edge_exit),
+        } => commit_transition(world, subject, target_room, *arrival, *edge_exit),
         // The in-place resets (death / manual / replay) are already rollback-safe
         // executed eagerly, and the full sandbox reset was proven rollback-safe
         // single-tick, so no consumer records these variants. Not committed here
@@ -108,23 +109,31 @@ fn execute_lifecycle_commit(world: &mut World, kind: &LifecycleIntent) -> bool {
     }
 }
 
-/// Resolve the transition subject the way `detect_room_transition_system` does:
-/// the CONTROLLED body (home avatar or a possessed actor), falling back to the
-/// primary player. The transition must move the body that is actually driven, not
-/// always the home player.
-fn controlled_subject(world: &mut World) -> Option<Entity> {
-    if let Some(subject) = world
-        .get_resource::<ambition_platformer_primitives::markers::ControlledSubject>()
-        .and_then(|controlled| controlled.0)
-    {
-        return Some(subject);
+/// Resolve the body a deferred transition should transport.
+///
+/// The recorded [`SimId`] is the body that CROSSED the exit (finding 2) — look it
+/// up by exact identity. If it is gone by commit time (a possessed actor that
+/// died, or the trigger despawned during the confirmation delay) or the trigger
+/// carried no id, fall back to the PRIMARY player: the persistent home body, and
+/// where control returns when a possessed body dies. Deliberately NOT the live
+/// `ControlledSubject` — re-resolving current control at commit is exactly the
+/// bug finding 2 names, because possession may have changed since the trigger.
+fn resolve_transition_subject(
+    world: &mut World,
+    subject: &Option<ambition_platformer_primitives::sim_id::SimId>,
+) -> Option<Entity> {
+    if let Some(sim_id) = subject {
+        let mut ids = world.query::<(Entity, &ambition_platformer_primitives::sim_id::SimId)>();
+        if let Some((entity, _)) = ids.iter(world).find(|(_, id)| *id == sim_id) {
+            return Some(entity);
+        }
     }
     let mut primary = world.query_filtered::<Entity, ambition_actors::actor::PrimaryPlayerOnly>();
     primary.iter(world).next()
 }
 
 /// Reconstruct the target room synchronously and apply the CANONICAL transition
-/// body semantics to the controlled subject — faithful to
+/// body semantics to the TRIGGERING body — faithful to
 /// `commit_room_transition_geometry` (`world/rooms/load.rs`) +
 /// `apply_room_transition_resets` (`app/world_flow/room_flow.rs`), which this
 /// mirrors so a deferred transition behaves like an eager one. Kept in sync with
@@ -132,6 +141,7 @@ fn controlled_subject(world: &mut World) -> Option<Entity> {
 /// here is a regression.
 fn commit_transition(
     world: &mut World,
+    subject: &Option<ambition_platformer_primitives::sim_id::SimId>,
     target_room: &str,
     arrival: ae::Vec2,
     edge_exit: bool,
@@ -147,19 +157,39 @@ fn commit_transition(
         }
     };
 
-    // Resolve the transiting body BEFORE reconstruction so a possessed,
-    // room-scoped controlled actor can be carried past the old-room despawn
-    // instead of being deleted with the room scope.
-    let Some(subject) = controlled_subject(world) else {
-        error!("Track B: transition commit found no controlled body to transit");
+    // Resolve + PREFLIGHT the subject BEFORE any destructive mutation (findings 2
+    // and 3): everything that can fail must fail with the world still whole.
+    let Some(subject) = resolve_transition_subject(world, subject) else {
+        error!("Track B: transition commit found no body to transit");
         return false;
     };
+    // The full body-transit contract, checked NOW: the subject must be a live
+    // body carrying the exact components the transit below mutates. A body that
+    // fails this is rejected BEFORE `apply_to_world` retires the old room — never
+    // logged-and-succeeded after the room is already gone (finding 3). It rides
+    // through the reconstruction (carried if room-scoped, otherwise session-
+    // scoped), so passing here means the transit after `apply_to_world` succeeds.
+    {
+        let mut transit = world.query::<(
+            ae::BodyClusterQueryData,
+            &mut ambition_actors::features::MotionModel,
+        )>();
+        if transit.get_mut(world, subject).is_err() {
+            error!(
+                "Track B: transition subject fails the body-transit contract; \
+                 cancelling before any reconstruction"
+            );
+            return false;
+        }
+    }
     let carry_body = world
         .get::<ambition_platformer_primitives::lifecycle::RoomScopedEntity>(subject)
         .map(|_| subject);
 
     // Retire the source roster (exempting the carried body), publish the target
     // geometry, spawn the target roster — synchronously, with `world.flush()`.
+    // From here nothing may fail: the subject and its transit contract were
+    // validated above.
     plan.apply_to_world(world, carry_body);
 
     // Tuning snapshots (primitive copies, so no borrow is held across the body
@@ -216,9 +246,14 @@ fn commit_transition(
                 clusters.kinematics.vel = old_velocity;
             }
         } else {
-            // The reconstruction already happened; the body just could not be
-            // relocated. Report but do NOT retry (that would re-reconstruct).
-            error!("Track B: transition committed but the controlled body could not be transited");
+            // UNREACHABLE after the preflight validated this exact query on this
+            // exact subject. If it ever fires, a carried body lost its transit
+            // components during reconstruction — an invariant violation, not a
+            // normal partial-failure outcome.
+            error!(
+                "Track B: BUG — a preflighted transit subject lost its components \
+                 during reconstruction"
+            );
         }
     }
 
@@ -279,4 +314,43 @@ fn commit_transition(
     // deliberately NOT emitted here; this is a presentation-only difference, not a
     // state divergence. Tracked in the campaign doc.
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
+    use ambition_platformer_primitives::sim_id::SimId;
+
+    /// GPT review finding 2: the deferred transition transports the body that
+    /// CROSSED the exit — resolved by its recorded, rollback-stable `SimId` — and
+    /// never re-resolves whatever is controlled at commit time. A recorded id that
+    /// has since despawned, or an unstamped trigger, falls back to the primary
+    /// player (the persistent home body, where control returns after a possessed
+    /// body dies).
+    #[test]
+    fn the_transition_subject_is_the_recorded_id_not_current_control() {
+        let mut world = World::new();
+        let triggerer = world.spawn(SimId::placement("triggerer")).id();
+        let primary = world
+            .spawn((SimId::player_slot(0), PlayerEntity, PrimaryPlayer))
+            .id();
+        assert_ne!(triggerer, primary);
+
+        assert_eq!(
+            resolve_transition_subject(&mut world, &Some(SimId::placement("triggerer"))),
+            Some(triggerer),
+            "the recorded triggering SimId is transported, not the current primary"
+        );
+        assert_eq!(
+            resolve_transition_subject(&mut world, &Some(SimId::placement("gone"))),
+            Some(primary),
+            "a recorded body that despawned before commit falls back to the primary"
+        );
+        assert_eq!(
+            resolve_transition_subject(&mut world, &None),
+            Some(primary),
+            "an unstamped trigger uses the primary player"
+        );
+    }
 }

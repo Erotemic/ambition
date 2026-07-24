@@ -31,12 +31,15 @@
 
 use bevy::prelude::*;
 
+use ambition_platformer_primitives::sim_id::SimId;
+
 /// Which room-lifecycle operation a deferred commit will perform.
 ///
 /// Carries only deterministic, rollback-safe data — a reason discriminant and,
-/// for a transition, the authored loading-zone id. Never an `Entity`, a
-/// fn-pointer, or anything whose value depends on map/query iteration order, so
-/// the enclosing [`PendingLifecycleCommit`] can BE rollback state.
+/// for a transition, the authored loading-zone id plus the rollback-stable
+/// [`SimId`] of the body that triggered it. Never an `Entity`, a fn-pointer, or
+/// anything whose value depends on map/query iteration order, so the enclosing
+/// [`PendingLifecycleCommit`] can BE rollback state.
 #[derive(Clone, Debug, PartialEq)]
 pub enum LifecycleIntent {
     /// In-place same-room reset triggered by a player death.
@@ -46,9 +49,18 @@ pub enum LifecycleIntent {
     /// In-place same-room replay of the current room.
     Replay,
     /// Reconstruction: transition into `target_room` (its authored id), placing
-    /// the controlled body at `arrival`. `edge_exit` selects the transition
+    /// the TRIGGERING body at `arrival`. `edge_exit` selects the transition
     /// cooldown/feel, mirroring `commit_room_transition_geometry`.
+    ///
+    /// `subject` is the rollback-stable [`SimId`] of the body that actually
+    /// crossed the exit — NOT re-resolved from live control at commit time,
+    /// because possession may have changed, ended, or the body may have died
+    /// during the confirmation delay (GPT review finding 2). `None` means the
+    /// trigger had no `SimId` (the home avatar on paths that don't stamp one);
+    /// the committer then transports the primary player, which is stable for the
+    /// unpossessed case.
     Transition {
+        subject: Option<SimId>,
         target_room: String,
         arrival: Vec2,
         edge_exit: bool,
@@ -131,6 +143,7 @@ mod tests {
         slot.record(
             10,
             LifecycleIntent::Transition {
+                subject: Some(SimId::placement("hero")),
                 target_room: "east".into(),
                 arrival: Vec2::new(1.0, 2.0),
                 edge_exit: true,

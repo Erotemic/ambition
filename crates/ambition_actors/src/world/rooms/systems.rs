@@ -97,6 +97,11 @@ pub fn detect_room_transition_system(
     controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
     mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
     bodies: Query<&crate::actor::BodyKinematics>,
+    // The triggering body's rollback-stable identity, recorded into the deferred
+    // transition so the confirmed commit transports the body that CROSSED the
+    // exit — not whatever is controlled later, after a possession change (GPT
+    // review finding 2).
+    sim_ids: Query<&ambition_platformer_primitives::sim_id::SimId>,
     primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     world_time: Res<WorldTime>,
     // Track B: under a rollback host, defer the transition instead of engaging
@@ -108,10 +113,13 @@ pub fn detect_room_transition_system(
     if sim_state.room_transition_cooldown > 0.0 {
         return;
     }
-    let subject = controlled
+    let Some(subject_entity) = controlled
         .and_then(|subject| subject.0)
-        .or_else(|| primary_q.single().ok());
-    let Some(kin) = subject.and_then(|subject| bodies.get(subject).ok()) else {
+        .or_else(|| primary_q.single().ok())
+    else {
+        return;
+    };
+    let Ok(kin) = bodies.get(subject_entity) else {
         return;
     };
     // CC2 (§3.3): sweep the body's frame path into the zone so a fast body
@@ -155,6 +163,8 @@ pub fn detect_room_transition_system(
             pending_lifecycle.record(
                 boundary.current,
                 crate::session::lifecycle_commit::LifecycleIntent::Transition {
+                    // The exact body that crossed the exit, by stable identity.
+                    subject: sim_ids.get(subject_entity).ok().cloned(),
                     target_room: spec.id.clone(),
                     arrival: zone.arrival,
                     edge_exit,

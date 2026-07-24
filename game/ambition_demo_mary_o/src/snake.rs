@@ -237,7 +237,10 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
 /// It carries no `melee`, so its only offense is the default-on body contact —
 /// which the shell state turns off (via its `body_contact_damage` tuning) while
 /// withdrawn, then back on when it walks again.
-const SNAKE_ROSTER_RON: &str = r#"{
+/// The Solid Snake archetype ROW (no outer braces), so it can register on its own
+/// for a single-enemy test OR fold into the combined Mary-O roster fragment — one
+/// fragment per provider, since assembly rejects a second from the same provider.
+pub(crate) const SNAKE_ROSTER_ROWS: &str = r#"
     "mary_o_snake": (
         max_health: 1,
         patrol_speed: 46.0,
@@ -250,7 +253,7 @@ const SNAKE_ROSTER_RON: &str = r#"{
         move_style: Walk,
         respawn: OnRoomReenter,
     ),
-}"#;
+"#;
 
 /// The `solid_snake` sheet TARGET (also the catalog id) — the generated sheet the
 /// enemy render resolves for a Solid Snake.
@@ -315,7 +318,7 @@ pub fn register_snake_roster(app: &mut App) {
         CharacterRosterFragment::from_ron(
             crate::provider::MARY_O_EXPERIENCE,
             None::<String>,
-            SNAKE_ROSTER_RON,
+            &format!("{{{SNAKE_ROSTER_ROWS}}}"),
         )
         .expect("Mary-O snake roster fragment should be valid"),
     );

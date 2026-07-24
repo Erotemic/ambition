@@ -22,7 +22,9 @@ pub mod declared;
 use bevy::prelude::*;
 
 use ambition_platformer_primitives::{
-    gameplay_presentation::{ResolvedGameplayPresentation, ScreenOccluder, SurroundRegion},
+    gameplay_presentation::{
+        ActiveHudDeclaration, ResolvedGameplayPresentation, ScreenOccluder, SurroundRegion,
+    },
     lifecycle::{ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt},
     markers::{PlayerEntity, PrimaryPlayer},
 };
@@ -215,6 +217,31 @@ pub fn place_player_hud(
         }
         if node.top != Val::Px(anchor.y) {
             node.top = Val::Px(anchor.y);
+        }
+    }
+}
+
+/// This built-in HP/MP/$ row is AMBITION's own HUD (see the module docs). Hide it
+/// whenever the active route's game declared its OWN HUD — Sanic's rings,
+/// Mary-O's score/coins/lives — so the vitals bars never overlay a game that has
+/// no health or mana (Jon bug #36). Ambition declares no custom HUD, so its
+/// built-in row stays visible; a game that genuinely wants vitals can declare a
+/// health slot of its own.
+///
+/// Presentation-only (a `Node.display` toggle), so it is outside any sim/rollback
+/// concern.
+pub fn toggle_builtin_hud_for_declared_games(
+    active: Res<ActiveHudDeclaration>,
+    mut roots: Query<&mut Node, With<PlayerHudRoot>>,
+) {
+    let want = if active.0.is_none() {
+        Display::Flex
+    } else {
+        Display::None
+    };
+    for mut node in &mut roots {
+        if node.display != want {
+            node.display = want;
         }
     }
 }
@@ -437,6 +464,33 @@ mod tests {
         }
         assert_eq!(hp_text.as_deref(), Some("HP 3/10"));
         assert_eq!(money_text.as_deref(), Some("$7"));
+    }
+
+    /// Jon bug #36: the built-in HP/MP/$ row is Ambition's own; it must hide when
+    /// another game declares its own HUD, so vitals never overlay Sanic's rings or
+    /// Mary-O's score.
+    #[test]
+    fn the_builtin_vitals_hud_hides_when_a_game_declares_its_own() {
+        use ambition_platformer_primitives::gameplay_presentation::{HudDeclaration, HudSlotSpec};
+        fn display_with(declaration: Option<HudDeclaration>) -> Display {
+            let mut app = App::new();
+            app.insert_resource(ActiveHudDeclaration(declaration));
+            app.world_mut().spawn((PlayerHudRoot, Node::default()));
+            app.add_systems(Update, toggle_builtin_hud_for_declared_games);
+            app.update();
+            let mut roots = app
+                .world_mut()
+                .query_filtered::<&Node, With<PlayerHudRoot>>();
+            roots.single(app.world()).expect("the HUD root").display
+        }
+        // Ambition declares no custom HUD → its built-in vitals row shows.
+        assert_eq!(display_with(None), Display::Flex);
+        // Sanic / Mary-O declare their own HUD → the vitals row hides, so it can
+        // never overlay the game's own readouts.
+        assert_eq!(
+            display_with(Some(HudDeclaration::new().slot(HudSlotSpec::new("rings")))),
+            Display::None,
+        );
     }
 
     #[test]

@@ -613,6 +613,10 @@ fn install_fx_and_hud_systems(app: &mut App) {
             ambition::actors::avatar::regen_player_mana,
             ambition::render::hud::spawn_player_hud,
             ambition::render::hud::update_player_hud,
+            // Ambition's built-in HP/MP/$ row hides whenever the active game
+            // declared its OWN HUD (Sanic rings, Mary-O score), so vitals never
+            // overlay a game that has no health/mana (Jon bug #36).
+            ambition::render::hud::toggle_builtin_hud_for_declared_games,
             // Consumes THIS frame's resolved HUD regions, so a profile that
             // reserves surround for HUD actually gets the HUD put there.
             ambition::render::hud::place_player_hud

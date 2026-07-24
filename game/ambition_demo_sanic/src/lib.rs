@@ -606,13 +606,11 @@ pub fn install_sanic_content(app: &mut App) {
             .rollback_component_clone::<ScatteredRing>(
                 "ambition_demo_sanic",
                 "content.sanic_scattered_ring",
-            )
-            // The dropped-ring id sequence: authoritative, because two sims that
-            // minted a different number of ring ids are not in the same state.
-            .rollback_resource_clone::<SanicRingScatterSeq>(
-                "ambition_demo_sanic",
-                "content.sanic_ring_scatter_seq",
             );
+        // The dropped-ring id sequence is no longer a resource: each ring now
+        // mints its identity from the SPAWNING player's own `SimIdCounter`
+        // (rollback-registered per-entity state), so there is no global counter
+        // to snapshot — and no cross-spawner coupling (ADR 0030).
     }
 }
 
@@ -929,8 +927,6 @@ impl Plugin for SanicRulesPlugin {
         // rules-only harness may not, and `add_message` is idempotent.
         app.add_message::<ambition::actors::session::reset::RoomReplayRequested>();
         app.init_resource::<ambition::actors::features::FeatureEcsWorldOverlay>();
-        // The dropped-ring id sequence (rollback-registered above).
-        app.init_resource::<SanicRingScatterSeq>();
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.init_resource::<ball_dash::BallDashTuning>();
@@ -1379,15 +1375,6 @@ pub struct ScatteredRing {
     pub lock: f32,
 }
 
-/// Monotonic sequence for scattered-ring identities. A dropped ring's `FeatureId`
-/// is rollback-authoritative, so it must be DETERMINISTIC and UNIQUE, never
-/// `Entity::index()` (allocator-local, and identical across two bursts by the
-/// same player while the first burst's rings still exist — an id collision).
-/// This counter is rollback-registered, so a resimulated burst mints the exact
-/// same ids and two overlapping bursts never collide.
-#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default)]
-pub struct SanicRingScatterSeq(pub u64);
-
 /// **Rings absorb the hit.**
 ///
 /// This is the rule the whole ring economy exists to serve: carrying rings is
@@ -1417,13 +1404,18 @@ pub fn scatter_rings_on_hit(
             &mut ambition::characters::actor::BodyHealth,
             &mut ambition::characters::actor::BodyWallet,
             Option<&mut SanicRingLoss>,
+            // The spawner's stable identity + its own per-spawner sequence
+            // counter — the ONLY legitimate source of a dynamic drop's id
+            // (`SimId::spawned`, ADR 0030). Required, not optional: a drop that
+            // cannot name its spawner is unreconstructable, so a body without an
+            // identity does not scatter rather than mint provenance that says
+            // nothing. `ensure_sim_id` stamps both on the primary player before
+            // any hit lands, so at runtime they are always present.
+            &ambition::platformer::sim_id::SimId,
+            &mut ambition::platformer::sim_id::SimIdCounter,
         ),
         ambition::platformer::markers::PrimaryPlayerOnly,
     >,
-    // Deterministic, rollback-registered id sequence for the dropped rings.
-    // `Option` so minimal test worlds that never install it still run (their
-    // ids fall back to the per-burst index, fine for a single burst).
-    mut ring_seq: Option<bevy::prelude::ResMut<SanicRingScatterSeq>>,
 ) {
     let Some(scope) =
         ambition::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
@@ -1433,7 +1425,7 @@ pub fn scatter_rings_on_hit(
         return;
     };
 
-    for (entity, kin, mut health, mut wallet, loss) in &mut bodies {
+    for (entity, kin, mut health, mut wallet, loss, player_id, mut counter) in &mut bodies {
         let current = health.health.current;
         let Some(mut loss) = loss else {
             // First sight: adopt the health we find rather than reading the
@@ -1474,19 +1466,17 @@ pub fn scatter_rings_on_hit(
                 -angle.sin() * SCATTER_BURST_SPEED,
             );
             let size = ae::Vec2::splat(18.0);
-            // A DETERMINISTIC, unique id — never `entity.index()` (allocator-local
-            // and colliding across two bursts). The rollback-registered sequence
-            // is the spawner-side counter the repo's identity rule wants.
-            let seq = match ring_seq.as_mut() {
-                Some(counter) => {
-                    let n = counter.0;
-                    counter.0 += 1;
-                    n
-                }
-                None => i as u64,
-            };
+            // The ring's identity is minted from the SPAWNER's own per-spawner
+            // counter — one stream per body (ADR 0030) — so two overlapping
+            // bursts by this player draw distinct, deterministic, resim-stable
+            // ids, and this player's stream is independent of every other
+            // spawner's. `SimId::spawned(player, seq)` is the authoritative id;
+            // the `FeatureId` string is derived from it so the economy label and
+            // the sim identity never disagree.
+            let seq = counter.next();
+            let ring_id = ambition::platformer::sim_id::SimId::spawned(player_id, seq);
             let authored = ambition::actors::rooms::Authored {
-                id: format!("sanic_dropped_ring_{seq}"),
+                id: ring_id.as_str().to_string(),
                 name: "ring".to_string(),
                 // Every ring is born AT the body and flies out from there.
                 aabb: ae::Aabb::new(kin.pos, size * 0.5),
@@ -1506,6 +1496,18 @@ pub fn scatter_rings_on_hit(
                 &authored,
             );
             commands.entity(ring).insert((
+                // The dynamic sim identity: the same `SimId` the `FeatureId` was
+                // derived from, its own `SimIdCounter` (every entity is a
+                // potential spawner), and the `SpawnOrigin::Dynamic` that names
+                // this player as the parent so the ring is reconstructable across
+                // a rollback rebase (ADR 0030) — the identity the old global
+                // `SanicRingScatterSeq` never gave it.
+                ring_id.clone(),
+                ambition::platformer::sim_id::SimIdCounter::default(),
+                ambition::platformer::construction::SpawnOrigin::Dynamic {
+                    parent: player_id.clone(),
+                    sequence: seq,
+                },
                 ScatteredRing {
                     vel,
                     arc_pos: kin.pos,

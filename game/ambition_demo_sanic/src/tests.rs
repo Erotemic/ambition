@@ -1215,6 +1215,10 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
                 kin,
                 BodyHealth::new(Health::new(3)),
                 BodyWallet { balance: rings },
+                // Identity the scatter path mints ring ids from — `ensure_sim_id`
+                // supplies these at runtime; the harness stamps them directly.
+                ambition::platformer::sim_id::SimId::player_slot(0),
+                ambition::platformer::sim_id::SimIdCounter::default(),
             ))
             .id()
     }
@@ -1309,6 +1313,8 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
             kin,
             BodyHealth::new(Health::new(3)),
             BodyWallet { balance: 6 },
+            ambition::platformer::sim_id::SimId::player_slot(0),
+            ambition::platformer::sim_id::SimIdCounter::default(),
         ))
         .id();
 
@@ -1415,6 +1421,8 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
             kin,
             BodyHealth::new(Health::new(3)),
             BodyWallet { balance: 6 },
+            ambition::platformer::sim_id::SimId::player_slot(0),
+            ambition::platformer::sim_id::SimIdCounter::default(),
         ))
         .id();
     let wallet = |app: &App| app.world().get::<BodyWallet>(sanic).unwrap().balance;
@@ -1491,17 +1499,20 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
 /// Finding 4: a dropped ring's `FeatureId` is rollback-authoritative, so it must
 /// be DETERMINISTIC and unique — never `entity.index()`, which collides when a
 /// second burst by the SAME player lands while the first burst's rings still
-/// exist. The rollback-registered sequence makes two overlapping bursts mint
-/// disjoint ids.
+/// exist. Minting each ring from the SPAWNER's own `SimIdCounter` (one
+/// monotonic stream per body, ADR 0030) makes two overlapping bursts mint
+/// disjoint ids — and every ring carries a real `SimId::spawned` +
+/// `SpawnOrigin::Dynamic` parented to the player, not just a bare label.
 #[test]
 fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
     use ambition::characters::actor::{BodyHealth, BodyWallet, Health};
+    use ambition::platformer::construction::SpawnOrigin;
     use ambition::platformer::lifecycle::ActiveSessionScope;
+    use ambition::platformer::sim_id::{SimId, SimIdCounter};
 
     let mut app = App::new();
     app.add_message::<ambition::vfx::VfxMessage>();
     app.add_message::<ambition::sfx::OwnedSfxMessage>();
-    app.init_resource::<crate::SanicRingScatterSeq>();
     let mut scope = ActiveSessionScope::default();
     scope.begin();
     app.insert_resource(scope);
@@ -1509,6 +1520,7 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
 
     let mut kin = ae::BodyKinematics::default();
     kin.size = ae::Vec2::new(28.0, 32.0);
+    let player_id = SimId::player_slot(0);
     let sanic = app
         .world_mut()
         .spawn((
@@ -1517,6 +1529,8 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
             kin,
             BodyHealth::new(Health::new(9)),
             BodyWallet { balance: 4 },
+            player_id.clone(),
+            SimIdCounter::default(),
         ))
         .id();
     let hurt = |app: &mut App| {
@@ -1539,6 +1553,8 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
     hurt(&mut app);
     app.update(); // burst 2 (four more) while burst-1 rings still exist
 
+    // The FeatureId string is derived from the ring's SimId, so uniqueness there
+    // is uniqueness of identity.
     let ids: Vec<String> = {
         let mut q = app
             .world_mut()
@@ -1556,6 +1572,48 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
         8,
         "four rings per burst, two bursts, every id distinct"
     );
+
+    // Every dropped ring is a first-class dynamic entity: a `SimId::spawned`
+    // parented to THIS player plus the matching `SpawnOrigin::Dynamic`, so a
+    // rollback rebase can reconstruct it — the identity the old global counter
+    // never gave it. The eight sequences are the player's own stream 0..8.
+    let mut rings: Vec<(SimId, SpawnOrigin)> = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<(&SimId, &SpawnOrigin), bevy::prelude::With<crate::ScatteredRing>>();
+        q.iter(app.world())
+            .map(|(id, origin)| (id.clone(), origin.clone()))
+            .collect()
+    };
+    assert_eq!(rings.len(), 8, "each burst ring carries a dynamic SimId");
+    let mut sequences: Vec<u64> = rings
+        .iter()
+        .map(|(_, origin)| match origin {
+            SpawnOrigin::Dynamic { parent, sequence } => {
+                assert_eq!(
+                    parent, &player_id,
+                    "the ring's spawn parent is the player that dropped it"
+                );
+                *sequence
+            }
+            other => panic!("a scattered ring must be SpawnOrigin::Dynamic, got {other:?}"),
+        })
+        .collect();
+    sequences.sort_unstable();
+    assert_eq!(
+        sequences,
+        (0..8).collect::<Vec<_>>(),
+        "the two bursts draw one contiguous per-spawner stream, no gaps or reuse"
+    );
+    // The SimId string is the spawner's id with the sequence appended.
+    rings.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
+    for (id, _) in &rings {
+        assert!(
+            id.as_str().starts_with(player_id.as_str()),
+            "the ring SimId descends from the player's id: {}",
+            id.as_str()
+        );
+    }
 }
 
 /// **Going fast has to PAY, and rings have to cost something to keep.**

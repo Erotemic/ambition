@@ -353,9 +353,10 @@ pub(super) fn convert_prop(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Stri
         kind: kind.trim().to_string(),
         pos: min + size * 0.5,
         size,
-        // LDtk props are plain decoration: unmirrored, behind the cast.
+        // LDtk props are plain decoration: unmirrored, character-sized,
+        // behind the cast.
         flip_y: false,
-        draws_over_actors: false,
+        draw: Default::default(),
     }))
 }
 

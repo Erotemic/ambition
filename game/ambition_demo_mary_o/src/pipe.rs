@@ -16,8 +16,9 @@
 //!   body while it is in the tube: gravity gets at most one tick before the next
 //!   transit puts it back on the path.
 //! * **The occlusion** is presentation data, not code: the pipe props are authored
-//!   `draws_over_actors`, so a body sliding into a pipe is swallowed by the pipe
-//!   art instead of being drawn on top of it.
+//!   `PropDraw::Structure`, so their art fills the collider a body stands on
+//!   exactly AND draws in front of the cast — which is what lets a pipe swallow a
+//!   body sliding into it instead of pasting that body on top of it.
 //! * **The lock** is [`BodyCombat::recoil_lock_timer`], the engine's existing
 //!   "carried, can't steer" gate, re-held every tick of the transit — the same
 //!   lever the snake's shell uses to be frozen. You cannot jump out of a pipe.

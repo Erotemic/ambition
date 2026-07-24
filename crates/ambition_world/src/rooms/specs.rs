@@ -43,14 +43,30 @@ pub struct PropSpec {
     /// every LDtk prop) is unchanged.
     #[serde(default)]
     pub flip_y: bool,
-    /// Draw this prop ABOVE actors instead of below them.
-    ///
-    /// The renderer owns the actual layer; this only says which side of the
-    /// actors the prop belongs on. A warp pipe wants it: a body sliding into a
-    /// pipe has to be SWALLOWED by it, not drawn on top of it. Defaults to
-    /// `false` — decoration sits behind the cast.
+    /// Whether this prop is scenery or part of the built world. See [`PropDraw`].
     #[serde(default)]
-    pub draws_over_actors: bool,
+    pub draw: PropDraw,
+}
+
+/// What KIND of thing a prop is, which decides how it is drawn.
+///
+/// The two cases pull in opposite directions, and conflating them is what makes
+/// a pipe look wrong: a character's art deliberately overflows its collision box
+/// (a 30×48 body wears a much larger sprite) and hangs off a FEET anchor, while a
+/// piece of built world has to line up with the geometry a body stands on, to the
+/// pixel.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PropDraw {
+    /// Scenery. Sized and anchored like a character — the art may overflow the
+    /// authored box — and drawn BEHIND the cast. Every LDtk prop is this.
+    #[default]
+    Decoration,
+    /// Part of the built world: a warp pipe, a shaft, a fixture. The art fills
+    /// the authored box EXACTLY (that box is the collider a body stands on, so
+    /// art that overflows it puts the world's surface somewhere the body cannot
+    /// stand), and it draws in FRONT of the cast, so a body that goes inside it
+    /// is swallowed rather than pasted on top.
+    Structure,
 }
 
 /// LDtk-authored held item resting on the ground, pick-up-able with `Attack`.

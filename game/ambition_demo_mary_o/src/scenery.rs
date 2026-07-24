@@ -19,7 +19,7 @@
 use bevy::prelude::*;
 
 use ambition::engine_core as ae;
-use ambition::world::rooms::PropSpec;
+use ambition::world::rooms::{PropDraw, PropSpec};
 
 /// The pipe's mouth lip (the wide rim you stand on) — a distinct sheet from the
 /// shaft so a tall pipe reads as a mouth on a body, not a stretched tube.
@@ -59,18 +59,22 @@ pub fn prop_over(id: &str, kind: &str, min: ae::Vec2, size: ae::Vec2) -> PropSpe
         pos: ae::Vec2::new(min.x + size.x * 0.5, min.y + size.y * 0.5),
         size,
         flip_y: false,
-        draws_over_actors: false,
+        draw: PropDraw::Decoration,
     }
 }
 
-/// A prop that MIRRORS vertically and draws in FRONT of the cast — what a warp
-/// pipe's art needs. The mirror is what makes one pipe-head sheet serve both a
-/// pipe standing on the ground and one hanging from a ceiling; drawing in front
-/// is what lets a pipe swallow a body sliding into it.
+/// A prop that is part of the BUILT WORLD rather than scenery, optionally
+/// mirrored — what a warp pipe's art needs.
+///
+/// [`PropDraw::Structure`] is what makes the art fill the authored box exactly,
+/// so the pipe's lip lands on the surface a body actually stands on, and what
+/// puts it in front of the cast so it can swallow a body sliding into it. The
+/// mirror is what makes one pipe-head sheet serve both a pipe standing on the
+/// ground and one hanging from a ceiling.
 pub fn pipe_prop(id: &str, kind: &str, min: ae::Vec2, size: ae::Vec2, flip_y: bool) -> PropSpec {
     PropSpec {
         flip_y,
-        draws_over_actors: true,
+        draw: PropDraw::Structure,
         ..prop_over(id, kind, min, size)
     }
 }

@@ -20,10 +20,11 @@ use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sprite_sheet::character::{
-    build_character_sprite, feet_anchor_for, CharacterAnimator,
+    build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
+    CharacterAnimator,
 };
 use ambition_sprite_sheet::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
-use ambition_world::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
+use ambition_world::rooms::{LoadingZone, LoadingZoneActivation, PropDraw, PropSpec};
 
 /// Presentation consumer of [`ambition_world::rooms::RespawnRoomVisualsRequested`].
 ///
@@ -256,6 +257,29 @@ pub fn spawn_room_visuals(
 ///   systems (gate-portal visibility / ring rotation, the cut-rope arena)
 ///   match it — a render-local fact; render no longer inserts the sim's
 ///   `FeatureName` (E4 slice 10).
+/// Render size + anchor for a prop's sprite, by what KIND of thing it is.
+///
+/// Pure, because the difference is exactly the bug that shipped twice: a
+/// character's art deliberately overflows its collision box and hangs off a FEET
+/// anchor (`sprite_render_size` renders `max(w, h) * collision_scale`, widened by
+/// the frame aspect), which for a 64×32 warp-pipe piece is 128×64 — DOUBLE the
+/// collider in both axes, putting the pipe's lip well above the surface a body
+/// actually stands on. Correct for a character, wrong for anything built.
+pub(super) fn prop_sprite_geometry(
+    draw: PropDraw,
+    spec: &ambition_sprite_sheet::character::CharacterSheetSpec,
+    collision: BVec2,
+) -> (BVec2, Anchor) {
+    match draw {
+        // Built world lines up with the geometry, to the pixel.
+        PropDraw::Structure => (collision, Anchor::CENTER),
+        PropDraw::Decoration => (
+            ambition_sprite_sheet::character::sprite_render_size(spec, collision),
+            feet_anchor_for(spec, collision),
+        ),
+    }
+}
+
 pub fn spawn_room_prop(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -268,13 +292,12 @@ pub fn spawn_room_prop(
     // no decorative-prop arm). Only the z is read here; the sprite comes from the
     // prop asset. SMELL: a dedicated neutral placeholder kind would be cleaner.
     let kind = FeatureVisualKind::Actor;
-    // `draws_over_actors` chooses the SIDE of the cast this prop belongs on; the
-    // exact layer is the renderer's business. A warp pipe takes the front so a
-    // body sliding into it is swallowed rather than drawn on top of it.
-    let z = if prop.draws_over_actors {
-        WORLD_Z_PLAYER + 1.0
-    } else {
-        feature_z(kind)
+    // Built world takes the FRONT so a body inside it is swallowed rather than
+    // drawn on top of it; scenery sits behind the cast. The spec says which kind
+    // of thing this is, the renderer picks the layer.
+    let z = match prop.draw {
+        PropDraw::Structure => WORLD_Z_PLAYER + 1.0,
+        PropDraw::Decoration => feature_z(kind),
     };
     let translation = world_to_bevy(world, prop.pos, z);
     let collision = BVec2::new(prop.size.x, prop.size.y);
@@ -295,14 +318,11 @@ pub fn spawn_room_prop(
     );
 
     if let Some(asset) = assets.and_then(|a| a.characters.prop_asset_for_kind(&prop.kind)) {
-        let mut sprite = build_character_sprite(asset, collision);
+        let (render_size, anchor) = prop_sprite_geometry(prop.draw, &asset.spec, collision);
+        let mut sprite = build_character_sprite_with_render_size(asset, render_size);
         // Which way the prop POINTS is authored data, not a second sheet.
         sprite.flip_y = prop.flip_y;
-        entity.insert((
-            sprite,
-            feet_anchor_for(&asset.spec, collision),
-            CharacterAnimator::new(asset),
-        ));
+        entity.insert((sprite, anchor, CharacterAnimator::new(asset)));
     } else {
         // Fallback: a translucent placeholder rectangle so authors
         // see a visible marker for unregistered prop kinds. Same
@@ -1182,6 +1202,53 @@ mod lock_wall_visual_tests {
         assert!(
             app.world().get_entity(brick).is_ok(),
             "no overlay ⇒ nothing is subtracted"
+        );
+    }
+}
+
+#[cfg(test)]
+mod prop_geometry_tests {
+    use super::*;
+    use ambition_sprite_sheet::character::sheets::{try_load_spec_for_target, SheetTuning};
+
+    /// **A pipe's art must match the surface a body stands on.**
+    ///
+    /// Jon, from a screenshot: "mary-o sinks into the pipe when she should stand
+    /// on the top." The pipe pieces were sized like a CHARACTER — whose art
+    /// deliberately overflows its collider and hangs off a feet anchor — so a
+    /// 64×32 pipe head rendered at 128×64 with its lip drawn a whole tile ABOVE
+    /// the block she actually stands on. It went unnoticed while the player drew
+    /// in front of props; the moment a pipe had to swallow her, it swallowed her
+    /// standing on it too.
+    ///
+    /// This reads the REAL baked pipe-head sheet, so it fails if the sheet's
+    /// frame geometry ever drifts from the box the level authors for it.
+    #[test]
+    fn a_structure_props_art_exactly_fills_the_collider_a_body_stands_on() {
+        let spec = try_load_spec_for_target("super_mary_o_pipe_top", &SheetTuning::new(1.0, 0))
+            .expect("the pipe-head sheet is baked into the manifest");
+        // What level 1-1 authors for one pipe piece: two tiles wide, one tall.
+        let authored = BVec2::new(64.0, 32.0);
+
+        let (size, anchor) = prop_sprite_geometry(PropDraw::Structure, &spec, authored);
+        assert_eq!(
+            size, authored,
+            "built world is drawn at exactly its authored box, or its surfaces are \
+             not where bodies stand on them"
+        );
+        assert_eq!(
+            anchor,
+            Anchor::CENTER,
+            "and centred on that box — a feet anchor would slide it off the block"
+        );
+
+        // The bug, stated as the thing it broke: character sizing does NOT agree
+        // with the authored box, which is exactly why built world must not use it.
+        let (decoration, _) = prop_sprite_geometry(PropDraw::Decoration, &spec, authored);
+        assert!(
+            decoration.y > authored.y * 1.5 && decoration.x > authored.x * 1.5,
+            "character sizing overflows the box on purpose ({decoration:?} vs \
+             {authored:?}) — correct for a body, wrong for a pipe"
         );
     }
 }

@@ -501,7 +501,7 @@ pub fn level_1_1() -> RoomSpec {
             pos: ae::Vec2::new(pole_x + T, pole_top + T),
             size: ae::Vec2::new(1.5 * T, 1.5 * T),
             flip_y: false,
-            draws_over_actors: false,
+            draw: Default::default(),
         },
     ];
     // Every pipe half, drawn as a lip tile and a body tile over its 2×2 block. The

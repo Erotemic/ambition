@@ -160,16 +160,24 @@ impl FlagSequence {
 ///
 /// Returns where the body should be this tick. `None` in `Idle` — the player is
 /// still playing, and the sequence has no opinion about where they are.
+/// `body_half_height` is what turns the pole's base — a GROUND LINE — into a
+/// body CENTRE. The slide used to end at `base_y` directly, which parked her
+/// centre on the ground surface and left her buried to the waist for the
+/// walk-off and the whole tally. A scripted pose overrules physics by design
+/// (that is the point of `constrain_body_pose`), so nothing downstream was ever
+/// going to lift her back out — and nothing should: this project does not shove
+/// bodies out of geometry, it puts them in the right place to begin with.
 pub fn step_flag_sequence(
     seq: &mut FlagSequence,
     pole: &FlagPole,
     body: ae::Vec2,
+    body_half_height: f32,
     dt: f32,
 ) -> Option<ae::Vec2> {
     // Once the sequence is driving, the body it is driving is the one IT last put
     // down, not whatever the physics step left behind.
     let body = seq.driven.unwrap_or(body);
-    let out = step_phase(seq, pole, body, dt);
+    let out = step_phase(seq, pole, body, body_half_height, dt);
     seq.driven = out;
     out
 }
@@ -178,8 +186,11 @@ fn step_phase(
     seq: &mut FlagSequence,
     pole: &FlagPole,
     body: ae::Vec2,
+    body_half_height: f32,
     dt: f32,
 ) -> Option<ae::Vec2> {
+    // Where her CENTRE rests when her feet are on the pole's base.
+    let stand_y = pole.base_y - body_half_height;
     match seq.phase {
         FlagPhase::Idle => {
             if (body.x - pole.x).abs() > pole.grab_half_width() || body.y > pole.base_y {
@@ -195,12 +206,14 @@ fn step_phase(
         }
         FlagPhase::Sliding { score } => {
             let y = body.y + SLIDE_SPEED * dt;
-            if y >= pole.base_y {
+            // The slide ends when her FEET reach the base, not her centre — the
+            // pole's base is a ground line.
+            if y >= stand_y {
                 seq.phase = FlagPhase::WalkingOff {
                     score,
                     remaining: WALK_OFF_PX,
                 };
-                return Some(ae::Vec2::new(pole.x, pole.base_y));
+                return Some(ae::Vec2::new(pole.x, stand_y));
             }
             Some(ae::Vec2::new(pole.x, y))
         }
@@ -226,6 +239,10 @@ mod tests {
     use super::*;
 
     const DT: f32 = 1.0 / 60.0;
+    /// A body half-height for the tests. The pole's base is a GROUND LINE, so the
+    /// slide must end this far above it — with her feet on the base, not her
+    /// middle buried in it.
+    const HALF_H: f32 = 24.0;
 
     fn pole() -> FlagPole {
         FlagPole {
@@ -239,7 +256,7 @@ mod tests {
     fn run_until_tallied(seq: &mut FlagSequence, pole: &FlagPole, start: ae::Vec2) -> u32 {
         let mut body = start;
         for _ in 0..2000 {
-            if let Some(next) = step_flag_sequence(seq, pole, body, DT) {
+            if let Some(next) = step_flag_sequence(seq, pole, body, HALF_H, DT) {
                 body = next;
             }
             if let FlagPhase::Tallied { score } = seq.phase {
@@ -258,20 +275,22 @@ mod tests {
         let p = pole();
         let mut seq = FlagSequence::default();
         assert_eq!(
-            step_flag_sequence(&mut seq, &p, ae::Vec2::new(900.0, 300.0), DT),
+            step_flag_sequence(&mut seq, &p, ae::Vec2::new(900.0, 300.0), HALF_H, DT),
             None
         );
         assert_eq!(seq.phase, FlagPhase::Idle);
 
         // Below the base: the player ran past the pole on the ground behind it.
         assert_eq!(
-            step_flag_sequence(&mut seq, &p, ae::Vec2::new(1000.0, 500.0), DT),
+            step_flag_sequence(&mut seq, &p, ae::Vec2::new(1000.0, 500.0), HALF_H, DT),
             None
         );
         assert_eq!(seq.phase, FlagPhase::Idle);
 
         // On it.
-        assert!(step_flag_sequence(&mut seq, &p, ae::Vec2::new(1005.0, 300.0), DT).is_some());
+        assert!(
+            step_flag_sequence(&mut seq, &p, ae::Vec2::new(1005.0, 300.0), HALF_H, DT).is_some()
+        );
         assert!(seq.active());
     }
 
@@ -281,7 +300,7 @@ mod tests {
     fn the_score_is_decided_at_the_moment_of_contact() {
         let p = pole();
         let mut seq = FlagSequence::default();
-        step_flag_sequence(&mut seq, &p, ae::Vec2::new(1000.0, 120.0), DT);
+        step_flag_sequence(&mut seq, &p, ae::Vec2::new(1000.0, 120.0), HALF_H, DT);
         let at_grab = seq.score().unwrap();
         assert_eq!(at_grab, 5000, "caught it near the top");
 
@@ -326,7 +345,7 @@ mod tests {
             if seen.last() != Some(&label) {
                 seen.push(label);
             }
-            if let Some(next) = step_flag_sequence(&mut seq, &p, body, DT) {
+            if let Some(next) = step_flag_sequence(&mut seq, &p, body, HALF_H, DT) {
                 body = next;
             }
             if matches!(seq.phase, FlagPhase::Tallied { .. }) {
@@ -346,19 +365,31 @@ mod tests {
         let mut body = ae::Vec2::new(1004.0, 200.0);
 
         // Grab snaps onto the pole's x.
-        body = step_flag_sequence(&mut seq, &p, body, DT).unwrap();
+        body = step_flag_sequence(&mut seq, &p, body, HALF_H, DT).unwrap();
         assert_eq!(body.x, p.x);
 
         while matches!(seq.phase, FlagPhase::Sliding { .. }) {
-            body = step_flag_sequence(&mut seq, &p, body, DT).unwrap();
+            body = step_flag_sequence(&mut seq, &p, body, HALF_H, DT).unwrap();
             assert_eq!(body.x, p.x, "the slide never drifts sideways");
         }
-        assert_eq!(body.y, p.base_y, "it stops at the base, not past it");
+        // Her FEET stop at the base — the base is a ground line, and a body
+        // whose CENTRE stops there is buried to the waist for the rest of the
+        // sequence (Jon, 2026-07-25: "her body is half way through the floor
+        // after the flag triggers").
+        assert_eq!(
+            body.y + HALF_H,
+            p.base_y,
+            "the slide plants her feet on the base, not her middle in it"
+        );
 
         let walk_start = body.x;
         while matches!(seq.phase, FlagPhase::WalkingOff { .. }) {
-            body = step_flag_sequence(&mut seq, &p, body, DT).unwrap();
-            assert_eq!(body.y, p.base_y, "the walk-off never leaves the ground");
+            body = step_flag_sequence(&mut seq, &p, body, HALF_H, DT).unwrap();
+            assert_eq!(
+                body.y + HALF_H,
+                p.base_y,
+                "and the walk-off never sinks her back into it"
+            );
         }
         assert!(
             (body.x - walk_start - WALK_OFF_PX).abs() < 0.001,
@@ -384,7 +415,7 @@ mod tests {
         let mut body = start;
         let mut score = None;
         for _ in 0..2000 {
-            if let Some(next) = step_flag_sequence(&mut kicked, &p, body, DT) {
+            if let Some(next) = step_flag_sequence(&mut kicked, &p, body, HALF_H, DT) {
                 // Physics runs after us and shoves the body a tile down and right.
                 body = next + ae::Vec2::new(16.0, 16.0);
             }
@@ -411,7 +442,10 @@ mod tests {
             driven: Some(body),
         };
         for _ in 0..600 {
-            assert_eq!(step_flag_sequence(&mut seq, &p, body, DT), Some(body));
+            assert_eq!(
+                step_flag_sequence(&mut seq, &p, body, HALF_H, DT),
+                Some(body)
+            );
         }
         assert_eq!(seq.score(), Some(800));
     }
@@ -423,7 +457,7 @@ mod tests {
     fn a_grab_from_above_the_top_starts_at_the_top() {
         let p = pole();
         let mut seq = FlagSequence::default();
-        let at = step_flag_sequence(&mut seq, &p, ae::Vec2::new(1000.0, 20.0), DT).unwrap();
+        let at = step_flag_sequence(&mut seq, &p, ae::Vec2::new(1000.0, 20.0), HALF_H, DT).unwrap();
         assert_eq!(at.y, p.top_y);
         assert_eq!(seq.score(), Some(5000));
     }
@@ -456,7 +490,12 @@ pub fn run_flag_sequence(
         return;
     };
 
-    let Some(next) = step_flag_sequence(&mut sequence, &pole, kin.pos, time.scaled_dt) else {
+    // Her LIVE half-height, so the slide plants the form she is actually wearing:
+    // small and tall Mary-O stand on the same ground line, and the tall one is
+    // not left with her knees in it.
+    let half_height = kin.size.y * 0.5;
+    let Some(next) = step_flag_sequence(&mut sequence, &pole, kin.pos, half_height, time.scaled_dt)
+    else {
         return;
     };
     // The scripted end-of-level slide is an external kinematic constraint

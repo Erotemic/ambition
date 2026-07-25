@@ -238,37 +238,38 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // Rollback participation. These anchors cover the canonical session root,
     // every simulated body, projectile-only entities, encounter authorities,
     // and any semantic-identity entity that does not fit those families.
-    app.require_rollback::<ambition_actors::rooms::RoomSet>(ENGINE, "root:room_set")
-        .require_rollback::<ambition_platformer_primitives::body::BodyKinematics>(
-            ENGINE,
-            "entity:body_kinematics",
-        )
-        .require_rollback::<ambition_projectiles::LiveProjectile>(ENGINE, "entity:live_projectile")
-        .require_rollback::<ambition_encounter::EncounterLifecycle>(
-            ENGINE,
-            "entity:encounter_lifecycle",
-        )
-        .require_rollback::<ambition_platformer_primitives::lifecycle::FeatureSimEntity>(
-            ENGINE,
-            "entity:feature_sim_entity",
-        )
-        .require_rollback::<ambition_actors::items::pickup::GroundItem>(
-            ENGINE,
-            "entity:ground_item",
-        )
-        .require_rollback::<ambition_portal::PlacedPortal>(ENGINE, "entity:placed_portal")
-        .require_rollback::<ambition_actors::gravity::GravityFlipSwitch>(
-            ENGINE,
-            "entity:gravity_flip_switch",
-        )
-        // In-flight strike volumes (moveset melee windows, DamageBox effects,
-        // world AOEs). These are Commands-spawned mid-swing with a hit-once
-        // set, so they MUST rewind like projectiles: a rollback window that
-        // spans the volume's spawn or despawn edge otherwise re-simulates
-        // against a fresh empty `HitboxHits` and the same swing hits the same
-        // victim twice (the Phase-5 second-hit desync — an armed strike
-        // re-staged its player hit on every late resim pass).
-        .require_rollback::<ambition_vfx::Hitbox>(ENGINE, "entity:hitbox");
+    app.require_rollback::<ambition_actors::features::transform_beat::TransformBeat>(
+        ENGINE,
+        "entity:transform_beat",
+    )
+    .require_rollback::<ambition_actors::rooms::RoomSet>(ENGINE, "root:room_set")
+    .require_rollback::<ambition_platformer_primitives::body::BodyKinematics>(
+        ENGINE,
+        "entity:body_kinematics",
+    )
+    .require_rollback::<ambition_projectiles::LiveProjectile>(ENGINE, "entity:live_projectile")
+    .require_rollback::<ambition_encounter::EncounterLifecycle>(
+        ENGINE,
+        "entity:encounter_lifecycle",
+    )
+    .require_rollback::<ambition_platformer_primitives::lifecycle::FeatureSimEntity>(
+        ENGINE,
+        "entity:feature_sim_entity",
+    )
+    .require_rollback::<ambition_actors::items::pickup::GroundItem>(ENGINE, "entity:ground_item")
+    .require_rollback::<ambition_portal::PlacedPortal>(ENGINE, "entity:placed_portal")
+    .require_rollback::<ambition_actors::gravity::GravityFlipSwitch>(
+        ENGINE,
+        "entity:gravity_flip_switch",
+    )
+    // In-flight strike volumes (moveset melee windows, DamageBox effects,
+    // world AOEs). These are Commands-spawned mid-swing with a hit-once
+    // set, so they MUST rewind like projectiles: a rollback window that
+    // spans the volume's spawn or despawn edge otherwise re-simulates
+    // against a fresh empty `HitboxHits` and the same swing hits the same
+    // victim twice (the Phase-5 second-hit desync — an armed strike
+    // re-staged its player hit on every late resim pass).
+    .require_rollback::<ambition_vfx::Hitbox>(ENGINE, "entity:hitbox");
 
     // Canonical live-session root. Authored definitions are immutable and bound
     // by PreparedContentIdentity; only mutable selection/cursor state rewinds.
@@ -1204,6 +1205,10 @@ pub fn register_engine_rollback_state(app: &mut App) {
     .clear_message_on_rollback::<ambition_actors::session::reset::RoomReplayRequested>(
         ENGINE,
         "message.room_replay_requested",
+    )
+    .clear_message_on_rollback::<ambition_actors::features::transform_beat::TransformBeatRequested>(
+        ENGINE,
+        "message.transform_beat_requested",
     )
     .clear_message_on_rollback::<ambition_actors::time::time_control::ClockResetRequest>(
         ENGINE,

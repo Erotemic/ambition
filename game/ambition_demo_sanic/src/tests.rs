@@ -1218,9 +1218,7 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
         let mut app = App::new();
         app.add_message::<ambition::vfx::VfxMessage>();
         app.add_message::<ambition::sfx::OwnedSfxMessage>();
-        app.add_message::<
-            ambition::actors::features::ecs::damage_apply::WalletShieldSpent,
-        >();
+        app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
         let mut scope = ActiveSessionScope::default();
         scope.begin();
         app.insert_resource(scope);

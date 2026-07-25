@@ -51,10 +51,7 @@ pub(crate) fn apply_actor_hit(
     // The body's combat state — the ONE post-hit i-frame authority for every
     // body (the player gates re-hits on the same `BodyCombat.damage_invuln_timer`).
     combat: &mut ambition_characters::actor::BodyCombat,
-    wallet_shield: Option<(
-        &mut ambition_characters::actor::BodyWallet,
-        &ambition_characters::actor::BodyWalletShield,
-    )>,
+    wallet_shield: Option<crate::features::ecs::damage_apply::WalletArmor<'_>>,
     aggression: Option<&mut crate::features::ActorAggression>,
     interactable: Option<&ambition_interaction::Interactable>,
     banner: &mut GameplayBanner,

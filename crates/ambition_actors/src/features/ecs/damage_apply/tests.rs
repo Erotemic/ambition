@@ -979,7 +979,7 @@ fn wallet_shield_spends_currency_before_a_lethal_hit_reaches_health() {
         &mut combat,
         Some(&mut health),
         None,
-        Some((&mut wallet, &shield)),
+        Some(WalletArmor::new(&mut wallet, &shield)),
         false,
         1.0,
         pos,
@@ -1010,7 +1010,7 @@ fn empty_wallet_shield_does_not_make_the_body_immortal() {
         &mut combat,
         Some(&mut health),
         None,
-        Some((&mut wallet, &shield)),
+        Some(WalletArmor::new(&mut wallet, &shield)),
         false,
         1.0,
         pos,
@@ -1022,6 +1022,12 @@ fn empty_wallet_shield_does_not_make_the_body_immortal() {
         TEST_FEEL,
     );
 
-    assert_eq!(res, BodyHitResolution::Damaged { damage: 1, died: true });
+    assert_eq!(
+        res,
+        BodyHitResolution::Damaged {
+            damage: 1,
+            died: true
+        }
+    );
     assert_eq!(health.current(), 0);
 }

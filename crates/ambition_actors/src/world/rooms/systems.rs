@@ -148,13 +148,6 @@ pub fn detect_room_transition_system(
             Some(RoomSfxId::new("world.portal.enter"))
         }
     };
-    let Some(target_spec) = room_set.spec_at(zone.target_room) else {
-        bevy::log::error!(
-            "transition target {:?} has no room spec; leaving input buffered",
-            zone.target_room
-        );
-        return;
-    };
     if let Some(boundary) = boundary {
         // Rollback host: record a deferred reconstruction intent instead of
         // firing the message. The host-side committer runs it on a confirmed
@@ -162,8 +155,24 @@ pub fn detect_room_transition_system(
         // `PendingLifecycleCommit::record`), so a re-detected overlap on the next
         // predicted frame — the body is still on the exit until the commit
         // relocates it — is a no-op rather than a duplicate.
+        // The deferred path — and ONLY the deferred path — needs the target's
+        // spec, because the recorded intent names the room by id rather than by
+        // index. The eager path never did, so this check stays inside the
+        // boundary branch instead of gating both.
+        //
+        // Both failures leave the press buffered on purpose (the transition is
+        // still wanted; we just cannot describe it yet), which means this system
+        // re-runs and re-logs every tick the body stays on the exit. `_once`
+        // keeps a stuck exit from drowning the log.
+        let Some(target_spec) = room_set.spec_at(zone.target_room) else {
+            bevy::log::error_once!(
+                "transition target {:?} has no room spec; leaving input buffered",
+                zone.target_room
+            );
+            return;
+        };
         let Ok(subject) = sim_ids.get(subject_entity) else {
-            bevy::log::error!(
+            bevy::log::error_once!(
                 "rollback transition subject {:?} has no SimId; refusing an ambiguous intent",
                 subject_entity
             );

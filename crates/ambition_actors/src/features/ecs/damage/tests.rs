@@ -13,6 +13,23 @@ use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 use bevy::prelude::{App, IntoScheduleConfigs, Update};
 
+/// Register every message the shared feature-hit pipeline writes.
+///
+/// `apply_feature_hit_events` fans out to sfx / vfx / debris / stimuli / wallet
+/// facts, and a Bevy `MessageWriter` for an unregistered message PANICS the
+/// system rather than no-opping. Each of these setups used to spell the list out
+/// by hand, so adding one writer to the pipeline meant editing fifteen tests and
+/// finding out which ones you missed by running them. One list, one edit.
+fn register_hit_pipeline_messages(app: &mut App) {
+    app.add_message::<HitEvent>();
+    app.add_message::<SetFlagRequested>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+}
+
 fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     let mut enemy = crate::features::ecs::actor_clusters::ActorClusterSeed::new(
@@ -48,13 +65,7 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.add_message::<HitEvent>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app);
@@ -127,13 +138,7 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
-        app.add_message::<HitEvent>();
-        app.add_message::<SetFlagRequested>();
-        app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
-        app.add_message::<DebrisBurstMessage>();
-        app.add_message::<ActorStimulus>();
-        app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+        register_hit_pipeline_messages(&mut app);
         app.add_systems(Update, apply_feature_hit_events);
         let victim = spawn_hostile_actor(&mut app);
         // A non-lethal (damage 1 vs health 5) hit PRE-RESOLVED to this enemy —
@@ -199,13 +204,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
         let mut settings = ambition_persistence::settings::UserSettings::default();
         settings.gameplay.player_damage_multiplier = multiplier;
         app.insert_resource(settings);
-        app.add_message::<HitEvent>();
-        app.add_message::<SetFlagRequested>();
-        app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
-        app.add_message::<DebrisBurstMessage>();
-        app.add_message::<ActorStimulus>();
-        app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+        register_hit_pipeline_messages(&mut app);
         app.add_systems(Update, apply_feature_hit_events);
         let victim = spawn_hostile_actor(&mut app); // health 5
         let before = app
@@ -262,13 +261,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.add_message::<HitEvent>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app);
@@ -314,13 +307,7 @@ fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.add_message::<HitEvent>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let player = app
@@ -377,13 +364,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.add_message::<HitEvent>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app); // HP 5
@@ -551,13 +532,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
-        app.add_message::<HitEvent>();
-        app.add_message::<SetFlagRequested>();
-        app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
-        app.add_message::<DebrisBurstMessage>();
-        app.add_message::<ActorStimulus>();
-        app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+        register_hit_pipeline_messages(&mut app);
         app.init_resource::<CapturedBubbles>();
         app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
 
@@ -604,13 +579,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.add_message::<HitEvent>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app); // HP 5
@@ -660,13 +629,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.add_message::<HitEvent>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor = spawn_hostile_actor(&mut app); // HP 5 — survives one slash
@@ -781,13 +744,7 @@ fn player_slash_shatters_a_breakable() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.add_message::<HitEvent>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 20.0));
@@ -1141,13 +1098,7 @@ fn shield_test_app() -> App {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.add_message::<HitEvent>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
     app
 }
@@ -1345,13 +1296,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.add_message::<HitEvent>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let attacker = app
@@ -1417,13 +1362,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.add_message::<HitEvent>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    register_hit_pipeline_messages(&mut app);
     app.add_systems(
         Update,
         (
@@ -1506,13 +1445,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
         let mut banter = crate::features::banter::CombatBanterRegistry::default();
         banter.set_hit_barks("Kernel Guide", vec!["ow!", "argh!", "stop!"]);
         app.insert_resource(banter);
-        app.add_message::<HitEvent>();
-        app.add_message::<SetFlagRequested>();
-        app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
-        app.add_message::<DebrisBurstMessage>();
-        app.add_message::<ActorStimulus>();
-        app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+        register_hit_pipeline_messages(&mut app);
         app.init_resource::<CapturedBubbles>();
         app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
         let e = spawn_hostile_actor(&mut app);
@@ -1559,16 +1492,8 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(
-        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-    );
-    app.add_message::<HitEvent>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     spawn_talkable_npc(&mut app, 1);

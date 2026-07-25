@@ -442,7 +442,9 @@ fn release_restores_a_preexisting_session_scope_exactly() {
     app.update();
     app.update();
     assert_eq!(
-        app.world().get::<SessionScopedEntity>(actor).map(|scope| scope.0),
+        app.world()
+            .get::<SessionScopedEntity>(actor)
+            .map(|scope| scope.0),
         Some(active_id),
         "the controlled body joins the active session while possessed"
     );
@@ -453,7 +455,9 @@ fn release_restores_a_preexisting_session_scope_exactly() {
     hold_down_interact(&mut app, true);
     app.update();
     assert_eq!(
-        app.world().get::<SessionScopedEntity>(actor).map(|scope| scope.0),
+        app.world()
+            .get::<SessionScopedEntity>(actor)
+            .map(|scope| scope.0),
         Some(original_id),
         "release restores the exact pre-possession session scope"
     );

@@ -925,9 +925,7 @@ impl Plugin for SanicRulesPlugin {
         // and `add_message`/`init_resource` are idempotent.
         app.add_message::<ambition::sfx::OwnedSfxMessage>();
         app.add_message::<ambition::vfx::VfxMessage>();
-        app.add_message::<
-            ambition::actors::features::ecs::damage_apply::WalletShieldSpent,
-        >();
+        app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
         app.add_message::<ambition::actors::rooms::RoomLoaded>();
         // The act cycle restarts the room on a clear, exactly as Mary-O's level
         // cycle does. The engine registers this in a full app; a thin
@@ -977,9 +975,7 @@ impl Plugin for SanicRulesPlugin {
                 sync_hosted_sanic_wallet_shield
                     .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
                     .after(ambition::actors::avatar::apply_worn_character_gameplay)
-                    .before(
-                        ambition::actors::features::ecs::damage_apply::apply_player_hit_events,
-                    ),
+                    .before(ambition::actors::features::ecs::damage_apply::apply_player_hit_events),
             );
         } else {
             app.add_systems(
@@ -987,9 +983,7 @@ impl Plugin for SanicRulesPlugin {
                 sync_sanic_wallet_shield
                     .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
                     .after(ambition::actors::avatar::apply_worn_character_gameplay)
-                    .before(
-                        ambition::actors::features::ecs::damage_apply::apply_player_hit_events,
-                    ),
+                    .before(ambition::actors::features::ecs::damage_apply::apply_player_hit_events),
             );
         }
 
@@ -1451,9 +1445,11 @@ fn sync_sanic_wallet_shield(
 
 fn sync_hosted_sanic_wallet_shield(
     mut commands: bevy::prelude::Commands,
-    active: Option<ambition::platformer::lifecycle::SessionWorldRef<
-        ambition::world::rooms::ActiveRoomMetadata,
-    >>,
+    active: Option<
+        ambition::platformer::lifecycle::SessionWorldRef<
+            ambition::world::rooms::ActiveRoomMetadata,
+        >,
+    >,
     bodies: SanicShieldBodies<'_, '_>,
 ) {
     let mode_active = active.is_some_and(|active| active.0.mode.as_deref() == Some(SANIC_MODE));
@@ -1491,6 +1487,19 @@ pub fn scatter_rings_on_hit(
 
     for event in spent.read() {
         let Ok((player_id, mut counter)) = bodies.get_mut(event.victim) else {
+            // The resolver ALREADY zeroed the wallet — survival and the spend are
+            // settled before this system runs. If the victim cannot be resolved
+            // here the currency is simply gone with no burst, no sound, and no
+            // way to run it back down: a silent robbery. It should be
+            // unreachable (`ensure_sim_id` stamps the primary player long before
+            // any hit lands), so say so loudly rather than swallowing it.
+            bevy::log::error_once!(
+                "wallet shield spent {} on {:?}, but the victim has no \
+                 SimId/SimIdCounter to mint scattered rings from — the spend is \
+                 invisible to the player",
+                event.amount,
+                event.victim
+            );
             continue;
         };
         let scattered = (event.amount.max(0) as usize).min(SCATTERED_RINGS_MAX);

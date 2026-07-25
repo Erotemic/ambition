@@ -31,11 +31,11 @@ use bevy::prelude::*;
 use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
 
 use crate::features::TemporaryControl;
-use ambition_platformer_primitives::markers::ControlledSubject;
-use ambition_platformer_primitives::sim_id::SimId;
 use ambition_platformer_primitives::lifecycle::{
     RoomScopedEntity, SessionScopeId, SessionScopedEntity,
 };
+use ambition_platformer_primitives::markers::ControlledSubject;
+use ambition_platformer_primitives::sim_id::SimId;
 
 use crate::actor::PlayerEntity;
 use crate::features::{CenteredAabb, FeatureSimEntity};
@@ -228,7 +228,11 @@ pub fn possession_trigger_system(
     // faction is NOT touched — effective allegiance (`Brain::Player` ⇒ combat
     // treats it as Player) makes the possessed body fight its former allies
     // without mutating `ActorFaction`.
-    target_data: Query<(&Brain, Option<&RoomScopedEntity>, Option<&SessionScopedEntity>)>,
+    target_data: Query<(
+        &Brain,
+        Option<&RoomScopedEntity>,
+        Option<&SessionScopedEntity>,
+    )>,
     // Read-only AABB lookup for the vacate exit on release.
     actor_aabbs: Query<&CenteredAabb>,
 ) {
@@ -367,9 +371,14 @@ fn release_possession(
     // (refreshed by `BrainCommand` if it switched during possession), so releasing
     // resumes the CURRENT selected source. Its temporary-control record returns to
     // `Autonomous`.
-    let restore_scope = std::mem::take(&mut state.restore_scope);
     if let Some(brain) = state.restore_brain.take() {
         if let Ok(mut ec) = commands.get_entity(target) {
+            // Taken INSIDE the guard: the recorded scope is only consumed on the
+            // path that actually restores it. Taking it above would, on any
+            // inconsistent state where the brain is already gone, discard the
+            // record while leaving the body wearing the possession-time session
+            // scope forever.
+            let restore_scope = std::mem::take(&mut state.restore_scope);
             ec.insert(brain)
                 .insert(ActorControl::default())
                 .insert(TemporaryControl::Autonomous)

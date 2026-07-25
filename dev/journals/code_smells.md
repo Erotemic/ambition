@@ -1111,3 +1111,32 @@ creation in `apply_hitbox_damage`'s `HitSide::Player` branch: scale `HitEvent.da
 by a neutral outgoing-scale resource (published by the app from the setting, the
 `ActiveMovementTuning` pattern), gated on the player side so enemy melee is untouched.
 That is a new resource + app plumbing + one combat read — architected, not yet built.
+
+## 2026-07-25 — Silent-failure trio surfaced by the GPT-5.6 physics review
+
+Three unrelated bugs in the same session shared ONE shape: a missing thing that
+produces no error, just absence. Worth naming as a class, because each was found
+by a human noticing something looked wrong rather than by anything failing.
+
+1. **`WorldItemArt` id → missing texture = invisible item.** Mary-O's spark
+   blossom bound `sprites/props/super_mary_o_spark_blossom.png`, which no
+   generator target produced. The item spawned, collided, and equipped
+   correctly — it was simply never drawn, from the day the spark form landed.
+   Nothing logs a missing prop texture. Candidate fix: a startup pass that
+   validates every registered `WorldItemArtEntry` path resolves, so an
+   unpublished prop is a boot error instead of an invisible pickup.
+
+2. **A Bevy query requiring a component silently skips the entities without it.**
+   Folding an authoritative `MaryOSparkCooldown` into the gait policy's query
+   made the entire walk/run throttle stop applying to any body missing the new
+   component — six tests failed with "the throttle didn't reach the body", none
+   of which mentioned the cooldown. Already recorded as a general hazard; this
+   is a fresh instance and the reason the cooldown tick is now its own system.
+
+3. **An authoritative latch that is not rollback-registered.** `spark_cooldown`
+   lived on a component documented as presentation bookkeeping, so it never got
+   registered. It gates whether a press FIRES. Same class as the `Local<bool>`
+   pipe latch fixed the day before. Heuristic worth applying broadly: if a field
+   can cause an input to be IGNORED, it is sim state regardless of which struct
+   it happens to live on.
+

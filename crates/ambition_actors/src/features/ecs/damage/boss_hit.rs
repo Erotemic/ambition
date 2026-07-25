@@ -44,10 +44,7 @@ pub(crate) fn apply_entity_boss_damage(
     status: &mut BossEncounter,
     health: &mut ambition_characters::actor::BodyHealth,
     combat: &mut ambition_characters::actor::BodyCombat,
-    wallet_shield: Option<(
-        &mut ambition_characters::actor::BodyWallet,
-        &ambition_characters::actor::BodyWalletShield,
-    )>,
+    wallet_shield: Option<crate::features::ecs::damage_apply::WalletArmor<'_>>,
     amount: i32,
 ) -> (bool, bool, Option<i32>) {
     // Phase-invuln is boss POLICY, gated before the shared mechanics.
@@ -122,10 +119,7 @@ pub(crate) fn apply_boss_hit(
     // authority, `BodyCombat.hit_flash` the one damage-blink.
     health: &mut ambition_characters::actor::BodyHealth,
     combat: &mut ambition_characters::actor::BodyCombat,
-    wallet_shield: Option<(
-        &mut ambition_characters::actor::BodyWallet,
-        &ambition_characters::actor::BodyWalletShield,
-    )>,
+    wallet_shield: Option<crate::features::ecs::damage_apply::WalletArmor<'_>>,
     attack_state: &ambition_characters::brain::BossAttackState,
     animation_frame: Option<&crate::features::BossAnimationFrameSample>,
     banner: &mut GameplayBanner,
@@ -228,13 +222,13 @@ pub(crate) fn apply_boss_hit(
         return false;
     }
     if let Some(spent) = wallet_spent {
-        writers.wallet_shield_spent.write(
-            crate::features::ecs::damage_apply::WalletShieldSpent {
+        writers
+            .wallet_shield_spent
+            .write(crate::features::ecs::damage_apply::WalletShieldSpent {
                 victim: boss_entity,
                 amount: spent,
                 pos: boss.kin.pos,
-            },
-        );
+            });
     }
     let impact = midpoint(event.volume.center(), hit_aabb.center());
     // CM8: THE one victim-side reaction (strike sound over the boss's own hurt
@@ -397,10 +391,8 @@ mod entity_damage_tests {
         // damage (player DPS against bosses is unchanged by the resolver).
         let (mut s, mut health) = boss(10, BossEncounterPhase::Phase1);
         let mut combat = ambition_characters::actor::BodyCombat::default();
-        let (a1, _, _) =
-            apply_entity_boss_damage(&mut s, &mut health, &mut combat, None, 3);
-        let (a2, _, _) =
-            apply_entity_boss_damage(&mut s, &mut health, &mut combat, None, 3);
+        let (a1, _, _) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, None, 3);
+        let (a2, _, _) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, None, 3);
         assert!(a1 && a2, "both hits apply — no i-frame swallows the second");
         assert_eq!(health.current(), 4, "both hits dealt full damage");
         assert!(

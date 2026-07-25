@@ -133,6 +133,30 @@ pub struct WalletShieldSpent {
     pub pos: ae::Vec2,
 }
 
+/// A wallet the resolver is permitted to spend as armor.
+///
+/// The capability is [`BodyWalletShield`] — owning currency is NOT the same fact
+/// as currency that absorbs damage, and the difference must survive into the
+/// resolver's signature. Passing a bare `&mut BodyWallet` would let a caller
+/// forget the marker query and silently turn every wallet into a shield; the
+/// constructor takes the marker by reference so the capability check cannot be
+/// skipped, and the resolver never has to carry a field it does not read.
+pub struct WalletArmor<'a>(&'a mut BodyWallet);
+
+impl<'a> WalletArmor<'a> {
+    /// Pair a wallet with the marker that makes it defensive. The marker is
+    /// carried only to make the capability a precondition of construction.
+    pub fn new(wallet: &'a mut BodyWallet, _shield: &BodyWalletShield) -> Self {
+        Self(wallet)
+    }
+
+    /// Spend the whole positive balance, or `None` when there is nothing to
+    /// spend and the hit must fall through to HP.
+    fn spend_all(self) -> Option<i32> {
+        (self.0.balance > 0).then(|| std::mem::replace(&mut self.0.balance, 0))
+    }
+}
+
 /// THE one victim-side hit resolver every body shares (fable review 2026-07-02
 /// §A2): consume-time i-frame gate → directional shield block → scaled damage →
 /// death flag → hit-flash/i-frame arming. The player and actor consumers both
@@ -153,7 +177,7 @@ pub fn resolve_body_hit(
     combat: &mut BodyCombat,
     mut health: Option<&mut BodyHealth>,
     armor: Option<&mut WornEquipment>,
-    wallet_shield: Option<(&mut BodyWallet, &BodyWalletShield)>,
+    wallet_shield: Option<WalletArmor<'_>>,
     shield_active: bool,
     facing: f32,
     body_pos: ae::Vec2,
@@ -195,14 +219,10 @@ pub fn resolve_body_hit(
     // Wallet-backed armor is resolved before HP and death. A lethal hit against
     // a one-health body carrying currency therefore spends the balance rather
     // than entering the respawn path.
-    if let Some((wallet, _shield)) = wallet_shield {
-        if wallet.balance > 0 {
-            let spent = wallet.balance;
-            wallet.balance = 0;
-            combat.hit_flash = feel.hit_flash;
-            combat.damage_invuln_timer = feel.damage_invuln_time;
-            return BodyHitResolution::WalletShielded { spent };
-        }
+    if let Some(spent) = wallet_shield.and_then(WalletArmor::spend_all) {
+        combat.hit_flash = feel.hit_flash;
+        combat.damage_invuln_timer = feel.damage_invuln_time;
+        return BodyHitResolution::WalletShielded { spent };
     }
     combat.hit_flash = feel.hit_flash;
     combat.damage_invuln_timer = feel.damage_invuln_time;
@@ -292,7 +312,7 @@ pub(crate) fn handle_player_damage_events(
     // A3: the player's worn equipment, so an armor row can absorb this hit before
     // it reaches HP. `None` for a player wearing nothing.
     armor: Option<&mut WornEquipment>,
-    wallet_shield: Option<(&mut BodyWallet, &BodyWalletShield)>,
+    wallet_shield: Option<WalletArmor<'_>>,
     wallet_shield_spent: &mut MessageWriter<WalletShieldSpent>,
     damage_events: &[FeatureHitEvent],
     tuning: ae::MovementTuning,
@@ -1009,7 +1029,8 @@ pub fn apply_player_hit_events(
             worn.map(|w| w.into_inner()),
             wallet
                 .map(|wallet| wallet.into_inner())
-                .zip(wallet_shield),
+                .zip(wallet_shield)
+                .map(|(wallet, shield)| WalletArmor::new(wallet, shield)),
             &mut wallet_shield_spent,
             &target_events,
             tuning,

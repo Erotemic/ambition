@@ -659,6 +659,38 @@ pub fn register_engine_rollback_state(app: &mut App) {
         "player.local_marker",
     )
     .rollback_component_clone::<ambition_actors::features::ActorConfig>(ENGINE, "actor.config")
+    // The transformation beat's VALUE, not just its participation. The anchor
+    // above only installs `bevy_ggrs::Rollback`; without this the beat's
+    // `remaining` and — worse — the `was_invulnerable` it borrowed never
+    // restore, so a rewind into the middle of a transformation can leave a body
+    // permanently untouchable.
+    .rollback_component_clone::<ambition_actors::features::transform_beat::TransformBeat>(
+        ENGINE,
+        "actor.transform_beat",
+    )
+    // The REQUEST is state for the same reason. It is necessarily written a
+    // frame before it is consumed, and as a message it died in that gap.
+    .rollback_component_clone::<ambition_actors::features::transform_beat::TransformBeatRequested>(
+        ENGINE,
+        "actor.transform_beat_requested",
+    )
+    // "A sequence is driving this body." Derived from the sequence that owns it,
+    // but derived a phase LATER than it is read — the blanking runs in
+    // `PlayerInput` and the death beat that inserts the marker runs in
+    // `GameplayEffects` — so a restore that did not carry it would hand the
+    // player one live frame in the middle of a scripted sequence.
+    .rollback_component_clone::<ambition_characters::brain::ScriptedControl>(
+        ENGINE,
+        "actor.scripted_control",
+    )
+    // The pose pin the beat and the snake shell both write. Snapshotting the
+    // slot itself is owner-agnostic and therefore correct for both: a restore
+    // reinstates whatever pin was actually in force. Deriving it from beat state
+    // instead would fight the shell for a component it does not own.
+    .rollback_component_clone::<ambition_actors::features::ActorAnimOverride>(
+        ENGINE,
+        "actor.anim_override",
+    )
     .rollback_component_clone::<ambition_actors::features::BossConfig>(ENGINE, "boss.config")
     .rollback_component_clone::<ambition_actors::features::LimbRig>(ENGINE, "limb.rig")
     .rollback_map_entities::<ambition_actors::features::LimbRig>(ENGINE, "map.limb_rig")
@@ -1205,10 +1237,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
     .clear_message_on_rollback::<ambition_actors::session::reset::RoomReplayRequested>(
         ENGINE,
         "message.room_replay_requested",
-    )
-    .clear_message_on_rollback::<ambition_actors::features::transform_beat::TransformBeatRequested>(
-        ENGINE,
-        "message.transform_beat_requested",
     )
     .clear_message_on_rollback::<ambition_actors::time::time_control::ClockResetRequest>(
         ENGINE,

@@ -112,11 +112,20 @@ fn waiver(type_name: &str) -> Option<&'static str> {
 /// only exist where a room authors them — so callers sweep representative
 /// rooms, not just the boot default.
 pub(crate) fn unaccounted_components(sim: &mut SandboxSim) -> BTreeMap<String, usize> {
+    // An ANCHOR is not coverage. `require_rollback` only installs the
+    // `bevy_ggrs::Rollback` marker so the entity participates; it snapshots
+    // nothing. Counting it as accounted is how `TransformBeat` shipped claiming
+    // to be "registered snapshot state" while its `remaining` and its borrowed
+    // invulnerability were never restored — this sweep said yes because a
+    // descriptor existed, without asking what kind. Every other anchored type
+    // also carries a canonical or clone registration, so ignoring the anchor
+    // kind here costs nothing and closes that hole.
     let known: BTreeSet<String> = sim
         .world()
         .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
+        .filter(|d| d.kind != ambition::runtime::rollback::RollbackEntryKind::RequiredRollback)
         .map(|d| d.type_name.clone())
         .collect();
 

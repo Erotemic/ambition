@@ -318,9 +318,7 @@ pub fn sync_grown_form(
         With<PrimaryPlayer>,
     >,
     mut sfx: ambition::sfx::SfxWriter,
-    mut transform: bevy::prelude::MessageWriter<
-        ambition::actors::features::transform_beat::TransformBeatRequested,
-    >,
+    mut commands: bevy::prelude::Commands,
 ) {
     let Ok((body, mut worn_char, mut base, mut kin, worn)) = players.single_mut() else {
         return;
@@ -360,8 +358,9 @@ pub fn sync_grown_form(
         // a downgrade is a hit, and a hit already has its own beat. The engine
         // owns what the beat DOES — the held pose, the untouchable window, and
         // asking the regime for the time dilation; this only says it happened.
-        transform
-            .write(ambition::actors::features::transform_beat::TransformBeatRequested { body });
+        commands
+            .entity(body)
+            .try_insert(ambition::actors::features::transform_beat::TransformBeatRequested);
     }
     worn_char.0 = target_id.to_string();
 }
@@ -575,7 +574,6 @@ mod tests {
             ))
             .id();
         app.add_message::<ambition::sfx::OwnedSfxMessage>();
-        app.add_message::<ambition::actors::features::transform_beat::TransformBeatRequested>();
         app.add_systems(Update, sync_grown_form);
 
         // Feet (screen up = -y, so feet = max.y = pos.y + size.y/2).
@@ -649,7 +647,6 @@ mod tests {
             ))
             .id();
         app.add_message::<ambition::sfx::OwnedSfxMessage>();
-        app.add_message::<ambition::actors::features::transform_beat::TransformBeatRequested>();
         app.add_systems(Update, sync_grown_form);
 
         let feet = |app: &App| {
@@ -733,7 +730,6 @@ mod tests {
             ))
             .id();
         app.add_message::<OwnedSfxMessage>();
-        app.add_message::<ambition::actors::features::transform_beat::TransformBeatRequested>();
         app.add_systems(Update, sync_grown_form);
 
         let chimes = |app: &mut App| -> usize {

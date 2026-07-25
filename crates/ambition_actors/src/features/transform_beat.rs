@@ -87,28 +87,42 @@ pub struct TransformBeat {
 /// "This body just became something else." Written by whoever owns the meaning
 /// of that — Mary-O's power tiers, Sanic's super form — because only the game
 /// knows which identity changes are a transformation and which are a downgrade.
-#[derive(Message, Clone, Copy, Debug)]
-pub struct TransformBeatRequested {
-    pub body: Entity,
-}
+///
+/// **A component, deliberately, and not a message.** The identity change and the
+/// decision to celebrate it have to survive a rollback together or the pair is
+/// not a transaction. Every producer necessarily runs LATER in the frame than
+/// [`begin_requested_transform_beats`] consumes — Mary-O's grow must follow the
+/// engine's `collect_world_items`, and the consumer must precede `Combat` so a
+/// body transforming this frame is untouchable for this frame's hits — so a
+/// request always waits a frame. As a message it was cleared by GGRS `LoadWorld`
+/// in exactly that gap, which restored the transformed identity and lost its
+/// beat permanently. As rollback-registered state it is restored with the
+/// identity that caused it.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct TransformBeatRequested;
 
-/// Start a beat for each request, if the body authored one.
+/// Start a beat for each requesting body, if it authored one.
 ///
 /// Re-requesting during a beat RESTARTS it rather than stacking: two powerups
 /// in half a second is one transformation as far as the player can see.
 pub fn begin_requested_transform_beats(
-    mut requests: MessageReader<TransformBeatRequested>,
     mut commands: Commands,
-    mut bodies: Query<(
-        &TransformBeatPolicy,
-        Option<&mut BodyHealth>,
-        Option<&TransformBeat>,
-    )>,
+    mut bodies: Query<
+        (
+            Entity,
+            Option<&TransformBeatPolicy>,
+            Option<&mut BodyHealth>,
+            Option<&TransformBeat>,
+        ),
+        With<TransformBeatRequested>,
+    >,
 ) {
-    for request in requests.read() {
-        let Ok((policy, health, existing)) = bodies.get_mut(request.body) else {
-            // No authored beat: the transformation is instant. Not an error —
-            // it is what every body did before this seam existed.
+    for (body, policy, health, existing) in &mut bodies {
+        // The request is consumed either way: an unauthored body transforms
+        // instantly, which is what every body did before this seam existed, and
+        // a request left behind would re-fire every frame.
+        commands.entity(body).remove::<TransformBeatRequested>();
+        let Some(policy) = policy else {
             continue;
         };
         // Capture the pre-beat invulnerability ONCE: a restart mid-beat must
@@ -124,7 +138,7 @@ pub fn begin_requested_transform_beats(
                 health.health.invulnerable = true;
             }
         }
-        commands.entity(request.body).try_insert(TransformBeat {
+        commands.entity(body).try_insert(TransformBeat {
             remaining: policy.duration,
             policy: *policy,
             was_invulnerable,
@@ -143,28 +157,42 @@ pub fn run_transform_beats(
     // or its duration becomes a function of its own effect.
     let dt = time.wall_dt();
     for (entity, mut beat, health) in &mut bodies {
+        beat.remaining -= dt;
+        let still_running = beat.remaining > 0.0;
+
+        // EXACTLY ONE clock request per frame: the dilation while the beat runs,
+        // the release on the frame it ends. Both on the ending frame would leave
+        // the dilation in force for one extra frame, because
+        // `apply_clock_scale_requests` keeps the strongest slow rather than the
+        // last one written. Releasing by ASKING for 1.0 rather than writing the
+        // scale keeps the regime in the loop on the way out too.
         if beat.policy.clock_scale != 1.0 {
             clock.write(ClockScaleRequest {
                 domain: ClockDomain::SimClock,
-                scale: beat.policy.clock_scale,
+                scale: if still_running {
+                    beat.policy.clock_scale
+                } else {
+                    1.0
+                },
                 requester: ClockRequester::Engine,
-                reason: "transform_beat",
+                reason: if still_running {
+                    "transform_beat"
+                } else {
+                    "transform_beat_end"
+                },
             });
         }
-        commands
-            .entity(entity)
-            .try_insert(ActorAnimOverride(beat.policy.anim));
 
-        beat.remaining -= dt;
-        if beat.remaining > 0.0 {
+        if still_running {
+            commands
+                .entity(entity)
+                .try_insert(ActorAnimOverride(beat.policy.anim));
             continue;
         }
-        // Done: release the pose and hand the clock back. Releasing by asking
-        // for 1.0 rather than by writing the scale keeps the regime in the loop
-        // on the way out too.
-        // Give back exactly what was borrowed. A transformation that GRANTS
-        // invulnerability (Sanic's super form) keeps it; one that did not gets
-        // its vulnerability back.
+
+        // Done: release the pose, and give back exactly what was borrowed. A
+        // transformation that GRANTS invulnerability (Sanic's super form) keeps
+        // it; one that did not gets its vulnerability back.
         if beat.policy.untouchable {
             if let Some(mut health) = health {
                 health.health.invulnerable = beat.was_invulnerable;
@@ -174,14 +202,6 @@ pub fn run_transform_beats(
             .entity(entity)
             .remove::<ActorAnimOverride>()
             .remove::<TransformBeat>();
-        if beat.policy.clock_scale != 1.0 {
-            clock.write(ClockScaleRequest {
-                domain: ClockDomain::SimClock,
-                scale: 1.0,
-                requester: ClockRequester::Engine,
-                reason: "transform_beat_end",
-            });
-        }
     }
 }
 
@@ -195,7 +215,6 @@ pub struct TransformBeatPlugin;
 impl Plugin for TransformBeatPlugin {
     fn build(&self, app: &mut App) {
         use ambition_platformer_primitives::schedule::{SandboxSet, SimScheduleExt};
-        app.add_message::<TransformBeatRequested>();
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
@@ -225,7 +244,6 @@ mod tests {
 
     fn app() -> App {
         let mut app = App::new();
-        app.add_message::<TransformBeatRequested>();
         app.add_message::<ClockScaleRequest>();
         app.init_resource::<WorldTime>();
         app.add_systems(
@@ -245,7 +263,8 @@ mod tests {
         let mut app = app();
         let body = app.world_mut().spawn(()).id();
         app.world_mut()
-            .write_message(TransformBeatRequested { body });
+            .entity_mut(body)
+            .insert(TransformBeatRequested);
         advance(&mut app, 0.016);
         assert!(
             app.world().get::<TransformBeat>(body).is_none(),
@@ -266,7 +285,8 @@ mod tests {
             })
             .id();
         app.world_mut()
-            .write_message(TransformBeatRequested { body });
+            .entity_mut(body)
+            .insert(TransformBeatRequested);
 
         advance(&mut app, 0.1);
         assert_eq!(
@@ -304,7 +324,8 @@ mod tests {
             })
             .id();
         app.world_mut()
-            .write_message(TransformBeatRequested { body });
+            .entity_mut(body)
+            .insert(TransformBeatRequested);
         advance(&mut app, 0.05);
 
         let requests = app.world().resource::<Messages<ClockScaleRequest>>();
@@ -348,7 +369,8 @@ mod tests {
                 ))
                 .id();
             app.world_mut()
-                .write_message(TransformBeatRequested { body });
+                .entity_mut(body)
+                .insert(TransformBeatRequested);
 
             advance(&mut app, 0.05);
             assert!(
@@ -385,10 +407,12 @@ mod tests {
             })
             .id();
         app.world_mut()
-            .write_message(TransformBeatRequested { body });
+            .entity_mut(body)
+            .insert(TransformBeatRequested);
         advance(&mut app, 0.2);
         app.world_mut()
-            .write_message(TransformBeatRequested { body });
+            .entity_mut(body)
+            .insert(TransformBeatRequested);
         advance(&mut app, 0.05);
 
         let remaining = app

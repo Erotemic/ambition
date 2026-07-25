@@ -115,6 +115,51 @@ fn solo_grant_writes_requested_clock_scale() {
     assert!((target.sim_clock - 0.125).abs() < 1e-6);
 }
 
+/// **The bug this arbitration exists for.** A transformation beat asks for 0.35
+/// from `PlayerSimulation`; `emit_player_time_intent_system` asks for 1.0 from
+/// the frame tail, every frame, because "nothing is happening" is how it says
+/// nothing. Under the old last-wins reduction the 1.0 landed second and the
+/// dilation never reached the clock — so both demos' transformation slow-motion
+/// did nothing at all, while the beat's own test (which asserts the message, not
+/// the effect) stayed green.
+///
+/// Asserted in both orders, because "it depends on who ran last" is the defect.
+#[test]
+fn the_strongest_slow_wins_regardless_of_who_asked_last() {
+    for reversed in [false, true] {
+        let mut app = App::new();
+        app.add_message::<ClockScaleRequest>()
+            .insert_resource(RegimePolicy::default())
+            .insert_resource(RequestedClockScale::default())
+            .add_systems(Update, apply_clock_scale_requests);
+
+        let beat = ClockScaleRequest {
+            domain: ClockDomain::SimClock,
+            scale: 0.35,
+            requester: ClockRequester::Engine,
+            reason: "transform_beat",
+        };
+        let idle = ClockScaleRequest {
+            scale: 1.0,
+            reason: "default",
+            ..beat
+        };
+        let order = if reversed { [idle, beat] } else { [beat, idle] };
+        for request in order {
+            app.world_mut().write_message(request);
+        }
+
+        app.update();
+
+        let target = app.world().resource::<RequestedClockScale>();
+        assert!(
+            (target.sim_clock - 0.35).abs() < 1e-6,
+            "the idle 1.0 overrode a live dilation (reversed: {reversed}, got {})",
+            target.sim_clock,
+        );
+    }
+}
+
 #[test]
 fn rl_regime_denies_blocks_the_scale_change() {
     let mut app = App::new();

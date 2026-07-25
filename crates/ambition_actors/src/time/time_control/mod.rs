@@ -194,27 +194,59 @@ impl Default for RequestedClockScale {
 /// before the smoother converts the resulting target into the
 /// current frame's time_scale.
 ///
-/// Multiple requests in one frame: later requests win for the same
-/// domain. SP wins on whatever the last grant says; deterministic
-/// because the message order is the schedule order.
+/// **Multiple requests in one frame: the STRONGEST slow wins, not the last one.**
+///
+/// Every requester in this engine asks time to slow — hitstop asks for 0.0,
+/// bullet-time and a transformation beat ask for a fraction, and "nothing is
+/// happening" is expressed as 1.0. So the granted requests reduce by `min`,
+/// which is what "the strongest effect in force" means and is the only reduction
+/// that does not depend on schedule order, query order, or which player ran last.
+///
+/// It used to be last-wins, and that was a live bug rather than a latent one:
+/// `emit_player_time_intent_system` writes a request EVERY frame, falling through
+/// to 1.0 when it has nothing to say, and it runs in the frame tail — after
+/// `PlayerSimulation`, where the transformation beat writes its 0.35. The beat's
+/// dilation was therefore written and then overwritten within the same frame,
+/// every frame, and the transformation slow-motion never once reached the clock.
+/// Its unit test asserted the message contents and never ran this reducer, so it
+/// stayed green throughout.
+///
+/// A requester that wants time to run FAST would not compose under `min` and is
+/// deliberately not modelled — no such requester exists, and inventing a
+/// precedence lattice for a hypothetical one would be harder to reason about than
+/// this. Add the lattice when the second kind of requester actually arrives.
+///
+/// A frame with no granted requests leaves the target untouched rather than
+/// snapping to 1.0: absence of an opinion is not an opinion. `ClockResetRequest`
+/// is the way to say "back to normal now".
 pub fn apply_clock_scale_requests(
     mut requests: MessageReader<ClockScaleRequest>,
     policy: Res<RegimePolicy>,
     mut target: ResMut<RequestedClockScale>,
 ) {
+    let mut strongest: Option<f32> = None;
     for req in requests.read() {
-        let permission = policy.permission_for(req.requester, req.domain);
-        match permission {
-            Permission::Grant => write_target(&mut target, req.domain, req.scale),
+        let domain = match policy.permission_for(req.requester, req.domain) {
+            Permission::Grant => req.domain,
             Permission::Deny => continue,
-            Permission::Rebind(other) => write_target(&mut target, other, req.scale),
-            Permission::Broadcast => {
-                // SP today has one player + one sim clock; broadcast
-                // collapses to a SimClock write. CoopConsensual will
-                // fan out to every PlayerClock here.
-                write_target(&mut target, ClockDomain::SimClock, req.scale);
+            Permission::Rebind(other) => other,
+            // SP today has one player + one sim clock; broadcast collapses to
+            // SimClock. CoopConsensual will fan out to every PlayerClock here.
+            Permission::Broadcast => ClockDomain::SimClock,
+        };
+        match domain {
+            // ADR 0011 §Two time-control operations — in SP the
+            // "boost-player-proper-time" path collapses onto SimClock (one
+            // observer, one frame). When MP lands, this arm diverges into
+            // per-PlayerClock targets.
+            ClockDomain::SimClock | ClockDomain::PlayerClock(_) => {
+                strongest = Some(strongest.map_or(req.scale, |held: f32| held.min(req.scale)));
             }
+            ClockDomain::WallClock => { /* wall clock is never scaled */ }
         }
+    }
+    if let Some(scale) = strongest {
+        target.sim_clock = scale;
     }
 }
 
@@ -244,18 +276,6 @@ fn reset_domain(target: &mut RequestedClockScale, clock: &mut ClockState, domain
             target.sim_clock = 1.0;
             clock.time_scale = 1.0;
         }
-        ClockDomain::WallClock => { /* wall clock is never scaled */ }
-    }
-}
-
-fn write_target(target: &mut RequestedClockScale, domain: ClockDomain, scale: f32) {
-    match domain {
-        ClockDomain::SimClock => target.sim_clock = scale,
-        // ADR 0011 §Two time-control operations — in SP the
-        // "boost-player-proper-time" path collapses onto SimClock
-        // (one observer, one frame). When MP lands, this arm
-        // diverges into per-PlayerClock targets.
-        ClockDomain::PlayerClock(_) => target.sim_clock = scale,
         ClockDomain::WallClock => { /* wall clock is never scaled */ }
     }
 }

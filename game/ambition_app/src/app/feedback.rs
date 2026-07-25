@@ -21,6 +21,12 @@ use ambition::vfx::VfxMessage;
 pub struct SandboxEventWriters<'w> {
     pub(super) sfx: SfxWriter<'w>,
     pub(super) vfx: MessageWriter<'w, VfxMessage>,
+    /// "Rebuild the active room's static visuals." The room-transition commit
+    /// asks for the redraw rather than performing it, so the commit chain names
+    /// no render crate and can live outside `ambition_app` — see
+    /// `world_flow::room_flow::load_room`.
+    pub(super) respawn_room_visuals:
+        MessageWriter<'w, ambition::actors::session::RespawnRoomVisualsRequested>,
 }
 
 /// Bundled combat-state resources that need to be torn down on a

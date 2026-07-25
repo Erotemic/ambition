@@ -697,3 +697,8 @@ Thinking about the Fia arc. It would make sense to have smaller storylines that
 will echo the larger one, in both directions. Show cases where loyalty pays
 off, show cases where it doesn't. Demonstrate how trust is a double edge sword
 in the stories.
+
+
+We should also include a Busy Beaver in the game, and have something it does
+linked to the Collatz Conjecture, so the character can ask him if he is going
+to repeat forever, and we can make a pun or joke around that.

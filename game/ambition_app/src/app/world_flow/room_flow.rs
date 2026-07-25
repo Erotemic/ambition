@@ -18,7 +18,6 @@ use ambition::actors::time::time_control::ClockResetRequest;
 use ambition::actors::world::physics;
 use ambition::engine_core::RoomGeometry;
 use ambition::engine_core::{self as ae, AabbExt};
-use ambition::render::rendering::spawn_room_visuals;
 use ambition::sfx::{SfxMessage, SfxWriter};
 use ambition::vfx::{ParticleKind, VfxMessage};
 
@@ -72,6 +71,7 @@ pub(crate) fn load_room(
     commands: &mut Commands,
     sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
+    respawn_visuals: &mut MessageWriter<rooms::RespawnRoomVisualsRequested>,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut ambition::dev_tools::SandboxDevState,
@@ -92,15 +92,12 @@ pub(crate) fn load_room(
     transition: rooms::RoomTransition,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
-    physics_settings: physics::PhysicsSandboxSettings,
-    assets: Option<&ambition::sprite_sheet::game_assets::GameAssets>,
-    quality: Option<&ambition::render::quality::ResolvedVisualQuality>,
 ) {
     // Runtime half: swap geometry, reset the body, rebuild platforms, spawn
     // feature entities. Lives in the world runtime (`ambition::actors`) so
     // the headless sim can load rooms without a render dependency.
     let rooms::RoomLoadResult {
-        spec,
+        spec: _,
         arrival_pos,
         edge_exit,
     } = rooms::commit_room_transition_geometry(
@@ -136,24 +133,15 @@ pub(crate) fn load_room(
         feel,
     );
 
-    // Presentation half (host-only): render-side spawns + arrival VFX. These name
-    // `ambition::render`, which the world runtime is forbidden from importing, so
-    // they stay here in the app where composition with render is allowed.
-    ambition::render::rendering::spawn_parallax_layers(
-        commands,
-        construction_plan.session_scope(),
-        &world.0,
-        &spec.metadata,
-        assets,
-        quality.map(|q| &q.budget.parallax),
-    );
-    spawn_room_visuals(
-        commands,
-        construction_plan.session_scope(),
-        &spec,
-        physics_settings,
-        assets,
-    );
+    // Presentation half: ASK, don't draw. A room's static visuals + parallax are
+    // rebuilt by `ambition_render::rendering::respawn_room_visuals_on_request`,
+    // which reads the active room out of `RoomSet` for itself — the same channel
+    // the sandbox reset (`session::reset`, step 7) and the room stager already
+    // use. Calling `spawn_room_visuals` here instead was the lone holdout: it is
+    // what made a room transition name `ambition::render`, and therefore what
+    // kept the whole commit chain app-local and unreachable by a demo host.
+    // A headless build has no consumer and correctly skips the visual respawn.
+    respawn_visuals.write(rooms::RespawnRoomVisualsRequested);
     if edge_exit {
         // Edge exits should feel like contiguous room scrolling, not a death-like
         // teleport. Only show an arrival puff in the new room because `from` was
@@ -228,11 +216,8 @@ pub(crate) fn commit_ready_room_transition_system(
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
-    physics_settings: Res<physics::PhysicsSandboxSettings>,
     // Bundled into one tuple param to stay within Bevy's 16-param system limit.
     load_resources: (
-        Option<Res<ambition::sprite_sheet::game_assets::GameAssets>>,
-        Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
         Option<Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
         Res<super::RoomTransitionContentEpoch>,
         ResMut<super::RoomTransitionLoadState>,
@@ -244,8 +229,6 @@ pub(crate) fn commit_ready_room_transition_system(
     mut combat_reset: super::super::feedback::CombatRoomReset,
 ) {
     let (
-        assets,
-        quality,
         active_session,
         content_epoch,
         mut transition_state,
@@ -419,6 +402,7 @@ pub(crate) fn commit_ready_room_transition_system(
         &mut commands,
         &mut event_writers.sfx,
         &mut event_writers.vfx,
+        &mut event_writers.respawn_room_visuals,
         &mut motion_model,
         &mut clusters,
         &mut dev_state,
@@ -437,9 +421,6 @@ pub(crate) fn commit_ready_room_transition_system(
         request.transition.clone(),
         active_tuning.0,
         *feel_tuning,
-        *physics_settings,
-        assets.as_deref(),
-        quality.as_deref(),
     );
     #[cfg(not(target_arch = "wasm32"))]
     let commit_duration = Some(commit_started.elapsed());

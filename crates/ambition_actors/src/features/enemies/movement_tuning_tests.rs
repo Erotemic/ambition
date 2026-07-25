@@ -7,7 +7,7 @@
 use super::resolve_movement_for;
 use crate::combat::{BodyMovementPatch, BodyMovementTuning};
 use ambition_entity_catalog::placements::CharacterBrain;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// The composition primitive: `Some` knobs override, `None` knobs inherit.
 #[test]
@@ -29,7 +29,7 @@ fn patch_apply_onto_overrides_only_specified_knobs() {
 /// parent's overrides AND the baseline, then layers its own.
 #[test]
 fn inheritance_chain_composes() {
-    let mut raw: HashMap<String, (BodyMovementPatch, Option<String>)> = HashMap::new();
+    let mut raw: BTreeMap<String, (BodyMovementPatch, Option<String>)> = BTreeMap::new();
     raw.insert(
         "parent".to_string(),
         (
@@ -64,7 +64,7 @@ fn inheritance_chain_composes() {
 /// recursing forever (a data smell, not a crash).
 #[test]
 fn inheritance_cycle_falls_back_to_baseline() {
-    let mut raw: HashMap<String, (BodyMovementPatch, Option<String>)> = HashMap::new();
+    let mut raw: BTreeMap<String, (BodyMovementPatch, Option<String>)> = BTreeMap::new();
     raw.insert(
         "a".to_string(),
         (BodyMovementPatch::default(), Some("a".to_string())),

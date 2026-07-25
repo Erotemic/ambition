@@ -345,7 +345,12 @@ pub fn apply_feature_hit_events(
                 &mut em,
                 &mut motion_model,
                 &mut combat,
-                wallet_shield.map(|(wallet, shield)| crate::features::ecs::damage_apply::WalletArmor::new(wallet.into_inner(), shield)),
+                wallet_shield.map(|(wallet, shield)| {
+                    crate::features::ecs::damage_apply::WalletArmor::new(
+                        wallet.into_inner(),
+                        shield,
+                    )
+                }),
                 aggression.as_deref_mut(),
                 interactable,
                 &mut banner,
@@ -399,7 +404,12 @@ pub fn apply_feature_hit_events(
                 feature.as_boss_mut(),
                 &mut health,
                 &mut combat,
-                wallet_shield.map(|(wallet, shield)| crate::features::ecs::damage_apply::WalletArmor::new(wallet.into_inner(), shield)),
+                wallet_shield.map(|(wallet, shield)| {
+                    crate::features::ecs::damage_apply::WalletArmor::new(
+                        wallet.into_inner(),
+                        shield,
+                    )
+                }),
                 attack_state,
                 animation_frame,
                 &mut banner,

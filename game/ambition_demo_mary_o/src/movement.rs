@@ -94,7 +94,6 @@ pub fn ensure_gait(
 /// simulation could never see the difference between a walk and a half-pushed
 /// stick.
 pub fn walk_by_default_run_while_held(
-    time: Res<ambition::time::WorldTime>,
     mut bodies: Query<
         (
             &mut ActorControl,

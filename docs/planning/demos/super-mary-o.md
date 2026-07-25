@@ -61,6 +61,29 @@ Remaining acceptance work
   with no demo collection code. NOTE: authoring placements made this demo
   require the pickup lowering interpreter, so its two bare-`App` unit harnesses
   now add `WorldPrepSchedulePlugin`; the real app already had it.
+- ✅ **A Solid Snake is the SHAPE its art is, per pose — 2026-07-25.** Jon:
+  *"the bounding box of the solid snake should change when it is in its box
+  (shell) … the sprite authoring should be the thing that gives how the collision
+  and hurtbox should be placed relative to the visuals and vice versa."* It was
+  a hand-guessed 28×32 rectangle for every phase of the withdraw cycle, and the
+  art it stood for is a 117×49 sprawled serpent — so it was wrong even walking,
+  and wildly wrong boxed.
+
+  The sheet is now the authority. `solid_snake` publishes per-animation body
+  rectangles (the generator's `animation_key_map` opt-in it simply never took),
+  and the new engine seam `character_sprites::posed_body` turns the rectangle for
+  the pose being SHOWN into three facts that cannot disagree: the collision box,
+  the sprite quad, and the quad's placement. One authored scalar — world units
+  per sheet pixel — is the whole input; everything else is read off the art.
+  Walking she is 58×26, boxed 26×19, so a stomp genuinely makes her a smaller
+  thing to kick and stand on. Resizes are feet-anchored (the +gravity face holds),
+  so nothing is ever shoved out of geometry.
+
+  The seam is opt-in per body (`SpritePosedBody`) and host-registered, so a
+  content crate cannot add the component and silently get nothing. The pose it
+  reads is the sim-side pin (`ActorAnimOverride`), never the render-side
+  locomotion picker — a collision box that depends on whether anyone is watching
+  is not a collision box.
 - ✅ **The brainless sliding shell — LANDED 2026-07-21.** A stomped crony now
   leaves a shell instead of nothing. Walk into a resting shell and it launches
   away from the side you touched, so you aim it; walk into a sliding one and it

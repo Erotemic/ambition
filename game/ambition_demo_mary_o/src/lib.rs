@@ -1310,7 +1310,12 @@ impl Plugin for MaryORulesPlugin {
         let cronies = (
             snake::tag_mary_o_snakes,
             ai_slop::tag_mary_o_ai_slop,
-            snake::run_snake_shells.before(ambition::actors::features::apply_actor_contact_damage),
+            // Pin the shell pose BEFORE the engine reshapes the body to it, so a
+            // snake that withdrew this tick is already box-shaped when it is
+            // swept and hit-tested — not a walker-shaped body wearing shell art.
+            snake::run_snake_shells
+                .before(ambition::actors::character_sprites::sync_sprite_posed_bodies)
+                .before(ambition::actors::features::apply_actor_contact_damage),
             ai_slop::bounce_squash_ai_slop
                 .before(ambition::actors::features::apply_actor_contact_damage),
         )

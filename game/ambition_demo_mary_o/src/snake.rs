@@ -327,6 +327,20 @@ pub(crate) const SNAKE_ROSTER_ROWS: &str = r#"
 /// enemy render resolves for a Solid Snake.
 pub const SNAKE_SHEET_TARGET: &str = "solid_snake";
 
+/// **World units per sheet pixel — the snake's ENTIRE authored geometry.**
+///
+/// A Solid Snake changes SHAPE, not just pose: sprawled it is a long low serpent,
+/// withdrawn it is a small cardboard cube. One hand-authored rectangle cannot be
+/// right for both, so the body's collision box, hurt box, sprite quad and quad
+/// placement all come from the sheet's per-animation body rectangles, scaled by
+/// this. Everything else about its size is READ OFF THE ART — including the fact
+/// that stomping it shrinks its box, which is the whole point.
+///
+/// `0.5` draws the 128px frame two tiles across, which puts the walker at about
+/// 1.8 tiles long and the kickable box at about three quarters of a tile: a
+/// snake you jump on, and a shell you kick down a line of them.
+const SNAKE_WORLD_PER_PIXEL: f32 = 0.5;
+
 /// **Ensure the `solid_snake` sheet is drawable**, keyed by BOTH its catalog id
 /// and its display name, so the enemy render's `npc_asset_for_name` finds it
 /// instead of falling back to the generic goblin sheet.
@@ -397,11 +411,34 @@ pub fn register_snake_roster(app: &mut App) {
 /// Ground runs are [0,20) [22,42) [45,60) [65,104) (pits [20,22) [42,45)
 /// [60,65)); these columns sit clear of the pits AND of both warp pipes, which
 /// stand three tiles wide at columns [26,29) and [35,38).
+///
+/// AMBITION_REVIEW(spatial): a sprawled snake is now about 1.8 tiles wide (its
+/// box comes from its art — see [`SNAKE_WORLD_PER_PIXEL`]), so each column needs
+/// roughly a tile of clearance either side. Every column above keeps at least
+/// three, and the nearest pipe edge is four tiles from column 31.
 const SNAKE_TILE_COLUMNS: &[f32] = &[9.0, 16.0, 31.0, 52.0, 68.0];
+
+/// The half-extents a freshly staged snake spawns with.
+///
+/// Read from the SAME sheet rectangle the shell system will hold it to, so the
+/// body never pops on its first tick. A sheet that publishes no body metrics
+/// (`--no-assets`, a stripped test fixture) falls back to a plain tile-ish box:
+/// the snake still walks and is still stompable, it just isn't art-shaped.
+fn snake_half_size() -> ae::Vec2 {
+    ambition::actors::character_sprites::posed_body_geometry(
+        SNAKE_SHEET_TARGET,
+        CharacterAnim::Idle,
+        SNAKE_WORLD_PER_PIXEL,
+    )
+    .map_or(ae::Vec2::new(14.0, 16.0), |geometry| {
+        geometry.collision * 0.5
+    })
+}
 
 /// The snake spawn requests for level 1-1, dropped at the player's standing height
 /// so gravity settles each onto the ground beneath its column.
 fn snake_spawn_requests(player_spawn: ae::Vec2) -> Vec<SpawnActorRequest> {
+    let half_size = snake_half_size();
     SNAKE_TILE_COLUMNS
         .iter()
         .enumerate()
@@ -409,7 +446,7 @@ fn snake_spawn_requests(player_spawn: ae::Vec2) -> Vec<SpawnActorRequest> {
             id: format!("mary_o_snake_{i}"),
             name: SNAKE_DISPLAY_NAME.to_string(),
             pos: ae::Vec2::new(col * T, player_spawn.y),
-            half_size: ae::Vec2::new(14.0, 16.0),
+            half_size,
             faction: ActorFaction::Enemy,
             grudge_against: None,
             kind: SpawnActorKind::Enemy {
@@ -436,16 +473,24 @@ pub fn register_snake_content_staging(
         .expect("snake staging registration is unique");
 }
 
-/// Tag freshly staged snakes with `SnakeShell::Walking`, so the shell system finds
-/// its own. Matches `FeatureName` (the authored name), NOT `Name` (which the
-/// spawner decorates) — matching `Name` is what silently broke the old shell tag.
+/// Tag freshly staged snakes with `SnakeShell::Walking` (so the shell system
+/// finds its own) and with `SpritePosedBody` (so its body geometry comes from
+/// the sheet, per pose — the box a stomp shrinks). Matches `FeatureName` (the
+/// authored name), NOT `Name` (which the spawner decorates) — matching `Name` is
+/// what silently broke the old shell tag.
 pub fn tag_mary_o_snakes(
     mut commands: Commands,
     fresh: Query<(Entity, &FeatureName), Without<SnakeShell>>,
 ) {
     for (entity, name) in &fresh {
         if name.0 == SNAKE_DISPLAY_NAME {
-            commands.entity(entity).try_insert(SnakeShell::Walking);
+            commands.entity(entity).try_insert((
+                SnakeShell::Walking,
+                ambition::actors::character_sprites::SpritePosedBody::new(
+                    SNAKE_SHEET_TARGET,
+                    SNAKE_WORLD_PER_PIXEL,
+                ),
+            ));
         }
     }
 }

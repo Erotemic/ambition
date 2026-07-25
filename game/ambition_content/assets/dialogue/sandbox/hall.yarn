@@ -1307,9 +1307,12 @@ title: hall_npc_hunny_horror_boss
 <<portrait_clip "snarl">>
 Hunny Horror: Oh. A visitor. Have you brought any? No? Then stand a little closer, so I can be sure.
 -> Brought any what?
+    <<portrait_clip "evil_flash">>
+    Hunny Horror: Honey.
     <<portrait_clip "roar">>
-    Hunny Horror: Honey. There was a pot. There was always a pot, and a little more in it than I needed, and then one day there was the same pot and nothing in it, and I have not been the same shape since.
+    Hunny Horror: There was a pot. There was always a pot, and a little more in it than I needed, and then one day there was the same pot and nothing in it, and I have not been the same shape since.
 -> You seem friendly enough.
+    <<portrait_clip "speaking">>
     Hunny Horror: I was. That is the frightening part, and everyone finds it out in the same order. First the voice. Then the paw. Then the pot.
 -> Why the basement?
     <<portrait_clip "snarl">>

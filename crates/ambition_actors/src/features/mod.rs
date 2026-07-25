@@ -61,6 +61,7 @@ pub use crate::combat::components;
 // over engine-owned water / ledge state and name no `crate::` type at all.
 pub mod ledge_grab;
 pub mod movement_fx;
+pub mod transform_beat;
 pub mod swim;
 pub use movement_fx::{
     advance_body_anim_overlays, arm_ground_contact_anim_overlay, arm_movement_anim_overlays,

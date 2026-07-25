@@ -99,21 +99,37 @@ impl KeyboardPreset {
                 special: KeyCode::KeyG,
                 quick_action: KeyCode::KeyE,
                 interact: KeyCode::KeyF,
-                // **X is the B button.** On the two-button pad this preset is
-                // named after, one button carries the "other" verb: it attacks
-                // in an action game and it is hold-to-run / press-to-fire in a
-                // classic platformer. Binding both `attack` and `modifier` to X
-                // is that pad, not a collision — Z jumps, X does everything
-                // else, exactly as Jon asked for Mary-O ("z is jump, and x is
-                // hold to run, or if you have the spark blossom it fireballs if
-                // you press it").
+                // ⚠ **X IS THE CLASSIC B BUTTON: hold to run, press to fire.**
+                // Binding `attack` AND `modifier` to the same key is DELIBERATE
+                // and is what Jon asked for ("z is jump, and x is hold to run,
+                // or if you have the spark blossom it fireballs if you press
+                // it"). It reads like a collision and has now been filed as a
+                // bug by two separate reviewers. It is not one. Do not "resolve"
+                // it by unbinding either action.
+                //
+                // How it actually works, since the obvious explanation is wrong:
+                // the run/fire pair is delivered ENTIRELY by the modifier slot —
+                // `modifier_held` is her run, `modifier_pressed` is her spark
+                // (see `mary_o::movement`). The `attack` binding on the same key
+                // is a SEPARATE semantic action that is simply inert for her.
+                // What makes it inert is the ATTACK side: `resolve_control_slots`
+                // calls `clear_attack` on a body that declares no melee verb, so
+                // `melee_pressed` never survives to a consumer. (A previous
+                // version of this comment credited the modifier slot for that
+                // gating. It does not gate: its arm has no `None` case and
+                // clears nothing.) For Sanic, X resolves to his `spin_dash`
+                // technique and his modifier goes unread.
+                //
+                // The note about gamepad-Special below refuses double-binding
+                // for a DIFFERENT reason — an unclaimed slot with no contextual
+                // meaning — and does not contradict this. The one composition
+                // that would genuinely fire two actions is an actor carrying
+                // both a melee verb and a modifier technique; no such actor
+                // exists, and that, not the binding, is what would need guarding.
                 //
                 // It used to be `S`, which is a WASD key on a preset that steers
                 // with the arrows: the run button sat in the middle of the
-                // keyboard, nowhere near the two buttons the layout is named
-                // for. Nothing double-fires today — a body only answers the
-                // modifier slot if it declares a technique there, and the one
-                // that does (Mary-O) has no melee at all.
+                // keyboard, nowhere near the two buttons the layout is named for.
                 modifier: KeyCode::KeyX,
                 utility: KeyCode::KeyD,
                 map: KeyCode::Tab,

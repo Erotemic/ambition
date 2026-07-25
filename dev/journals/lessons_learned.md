@@ -2,6 +2,35 @@
 
 This journal records unexpected errors encountered while iterating on the Ambition sandbox, especially places where an overlay or generated build script looked reasonable but failed in a real local/device test. The goal is to make future LLM-generated patches less likely to repeat the same mistakes.
 
+## 2026-07-25: Three features shipped green, tested, documented, and dead
+
+Symptom: a GPT-5.6 review of `b25acb0^..1c30de2` flagged rollback and scheduling problems in work that had landed the night before with tests passing and planning docs marked LANDED. Every one of the significant findings was real, and each described a feature that did **nothing at runtime**.
+
+What was actually wrong, and the shape each shares:
+
+- **The transformation slow-motion never reached the clock.** The beat wrote a `ClockScaleRequest` for 0.35 from `PlayerSimulation`. `apply_clock_scale_requests` was last-request-wins, and `emit_player_time_intent_system` writes a request *every frame* — falling through to 1.0 when it has nothing to say — from the frame tail. The dilation was written and overwritten within the same frame, forever. Its test asserted **the message contents** and never ran the reducer.
+- **`require_rollback` is not a snapshot.** It installs `bevy_ggrs::Rollback` so the entity participates; it copies no values. `TransformBeat`'s doc comment claimed "Registered snapshot state" and its commit message claimed it "joins the rollback envelope". The coverage sweep agreed, because it matched descriptors by type name **without asking what kind** — an anchor counted as coverage.
+- **Mary-O's death dwell suppressed nothing.** It blanked the control frame from `GameplayEffects`, which is after movement, collection, room-transition detection and damage, and the brain refilled it before the next reader. The blank was never observable.
+- **The death music was written and wiped every frame.** `update_boss_encounters` runs later, has no run condition, and cleared the shared priority tier whenever no boss was fighting — which in a demo with no bosses is always. Its test ran on a bare `App` that does not contain the boss system.
+
+Takeaways:
+- **Assert the EFFECT, not the request.** "A message with the right contents was written" and "the world changed" are different claims, and only the second is the feature. Every one of these tests asserted the first.
+- **A bare-`App` test cannot see a conflict with a system that isn't in it.** Anything writing to a slot other systems share has to be tested in a composed app, or the test is scoped to exclude the only failure mode.
+- **When two systems write the same slot, order is not a design.** Last-wins made the outcome depend on schedule position; strongest-slow-wins is a reduction, and reductions do not care who ran last. Same for the priority music tier, which now records a claimant so a writer releases only its own claim.
+- **A guardrail that accepts a weaker fact than the one it is checking will pass forever.** The coverage sweep asked "is this type registered?" when the question was "will this type's VALUE be restored?".
+- **A `Local<bool>` edge detector is a decision outside the rollback envelope.** Three of these bugs had one. If the edge decides whether something happens, it is simulation state and belongs on a snapshotted component.
+
+## 2026-07-25: The 120→20fps "regression" was a GPU that fell off the bus
+
+Symptom: a severe framerate drop, reported across every binary, concurrent with a large night of feature work. The natural reading — and the review's — was that the new room-transition/prefetch machinery had introduced a per-frame rebuild.
+
+What it actually was: the host's GPU had dropped off the bus and everything was running on `llvmpipe`. The profiler's by-layer rollup said so directly — **87.7% software rasterizer, 7.4% kernel, 4.6% game binary and deps** — and the real code finding underneath was unrelated to the reviewed range: one decorative prop bound to a shared sprite pack was decoding **880 MB** of textures at boot, because `page_count()` returns the highest page index plus one and the loader loaded the whole span rather than the sparse set actually used.
+
+Takeaways:
+- **Establish which adapter rendered the capture before reading a single symbol.** `scripts/profile_desktop.sh` now records the graphics environment and puts the selected adapter at the top of the summary, saying out loud when it is a CPU rasterizer, precisely because that one fact reorders every other number in the file.
+- **A plausible source-level suspect is not a cause.** The review's suspect — raw `is_changed()` as a cache-rebuild oracle — is a genuinely banned pattern here (see the kaleidoscope `RebuildKey` and its 2026-07 FPS-cliff regression test) and is still present in the room-transition epoch. But `git log -S` showed it predates the reviewed range by eight days, and no writer at HEAD dirties those resources per frame. It remains a latent hazard, filed as such, not a fix that was needed.
+- **A/B the same binary before and after in the SAME environment.** It is the one measurement that separates "this change" from "this machine", and it is cheaper than any amount of reading.
+
 ## 2026-07-25: A 24-hour agent run ended after 84 minutes because the goal's arbiter read prose
 
 Symptom: Jon armed `/goal "complete the 24 hour queue, don't stop unless jon specifically stops you"` at 00:51 local. The run stopped at 02:15 and the session then sat idle for **9 hours 1 minute** until he came back and compacted it by hand.

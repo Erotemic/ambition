@@ -130,6 +130,17 @@ Remaining acceptance work is product/content work
   triage. Folding the replay assertion back into `act_completion.rs` is now
   unblocked and still open.
 
+  ⚠ **The brake itself launched him — fixed 2026-07-25 (GPT-5.6 review).** It
+  cleared `locomotion`, `jump_pressed`, `jump_held` and nothing else, and it runs
+  before `gate_worn_player_control` while `capture_ball_dash_input` runs after.
+  Crouch IS `locomotion.y`, so zeroing it presented a crouch RELEASE to the ball
+  dash, and a spin dash charged on the approach fired the instant he crossed the
+  line. The goal now takes the WHOLE control frame through the shared
+  `ScriptedControl` seam — the same one Mary-O's death beat uses — and disarms
+  stored `BallDash` charge, because a stored charge is spent on an edge and the
+  blanking is what manufactures the edge. The survival test never pressed down,
+  so it could not have caught this.
+
   ⚠ **Found while proving that: the act is clearable and then immediately
   fatal.** `GOAL_X` is 400px from the right edge, and clearing neither brakes the
   body nor closes the course, so Sanic coasts off the end and dies well inside

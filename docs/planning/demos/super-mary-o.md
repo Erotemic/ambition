@@ -136,6 +136,49 @@ Remaining acceptance work
   rather than by guard. The engine gained `publish_kernel_reset_death` so that
   message finally covers the pit/drown/hazard death that never reaches the hit
   resolver. Regression: `a_replay_reset_is_not_a_death_so_lives_cannot_drain`.
+
+  ⚠ **The drain came back through the other door — fixed 2026-07-25 (GPT-5.6
+  review).** Once the death BEAT landed, she is pinned exactly where she fell for
+  1.6s, which for a pit death means the hazard keeps reporting her. `begin`
+  refused to restart a running beat, but `spend_lives_on_death` had no such guard
+  and charged a life per frame of her own death animation. The beat now carries
+  `life_spent`, so an attempt costs one life however many times it is reported —
+  the same shape as the `replay_pending` debt beside it. Both, plus the beat's
+  dwell and death position, are rollback-registered; none of them were, and the
+  replay edge lived in a `Local<bool>` outside the envelope entirely.
+
+  The dwell also did not actually suppress anything: every death system runs in
+  `GameplayEffects`, a full phase after movement, collection, room-transition
+  detection and damage, and the brain refilled the control frame it blanked
+  before any of them next read it. She could walk, collect, and take a pipe while
+  dead. That is now the engine's `ScriptedControl` seam, blanked immediately
+  after the brains write, which the flagpole slide and Sanic's act-clear brake
+  share.
+
+  **Playtest 2026-07-25 (Jon):** the dwell was 1.6s against a 3.2s sting, so the
+  death cue never resolved. `DEATH_DWELL` is now derived from the score — four
+  bars of 2/4 at 150bpm — rather than picked by feel, and the constant says so,
+  so a re-scored cue moves it.
+- ✅ **The course-clear sting plays — LANDED 2026-07-25.** `mary_o_flag_victory`
+  existed as a score and nothing asked for it. `flag::play_victory_music` claims
+  the priority tier from the grab to the tally, so the cue covers whatever the
+  sequence takes rather than a fixed window; slide + walk-off + `LEVEL_CYCLE_DWELL`
+  comfortably exceed its ~3.1s, so it finishes before the level loops. Same
+  claim/release seam as the death music, which is what stops the boss system's
+  every-frame release from silencing it.
+- ✅ **Landing on a resting shell KICKS it — LANDED 2026-07-25.** Jon: jumping on
+  a shell parked under a block trapped her in an endless bounce, which the
+  classic never does. A stomp on a `Boxed` shell now launches it away from
+  whichever side she is more on (dead centre goes right, so it stays a pure
+  function of the two poses). A shell already *running* is still stopped by a
+  stomp — that is the catch-the-runaway tech, and it is why the kick is scoped to
+  a resting shell.
+
+  This reverses an earlier fix, deliberately: kicking on a top touch used to
+  cause a kick-then-side-hit loop, and the fix then was "a stomp is never a
+  kick". What makes the kick safe now is `KICK_GRACE_S`, which postdates it — and
+  the grace is **spent by a wall bounce**, not only by its timer, because a shell
+  that turns around and comes back is a hit however recently you kicked it.
 - ◐ **The deterministic scripted SEAM run — LANDED 2026-07-21, but it is not the
   acceptance run** (`ambition_demo_mary_o_app/tests/scripted_level_run.rs`).
   Boots the real demo
@@ -269,7 +312,11 @@ Remaining acceptance work
 - the shared body/control path using the axis-swept motion model;
 - item/equipment and canonical action/moveset execution;
 - combat/contact vocabulary for stomps and sliding hazards;
-- world IR + LDtk rooms/loading zones;
+- world IR — her rooms and loading zones are constructed as `RoomSpec` values in
+  Rust rather than authored in LDtk. That is acceptable **because she is a demo**;
+  LDtk is still the preferred path and is required for the Ambition game itself
+  (see `demos/README.md` and ADR 0009). Do not grow the programmatic path — a
+  missing authoring concept goes into LDtk + the tooling;
 - the cutscene domain for presentation sequencing where appropriate;
 - `SimView` for HUD and programmatic observation.
 

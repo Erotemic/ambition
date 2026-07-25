@@ -27,8 +27,29 @@ RON is for tuning, save/settings, generated-audio specs, character/boss data, an
 
 World docs should point to `docs/systems/ldtk-world-composition.md`, `docs/recipes/ldtk-authoring.md`, `docs/tools/index.md`, and the LDtk-related tests/tools. Docs that still describe RON-based world/level authoring are stale and must be archived or rewritten — log stragglers in `dev/journals/code_smells.md`.
 
+## Refined by ADR 0021: LDtk is PREFERRED, and required where it matters most
+
+This ADR predates the backend-agnostic world IR. ADR 0021 made `ambition_world`
+the model and LDtk one backend that converts into it, so a generated / RON /
+programmatic source is not a special case. That does **not** demote LDtk. It
+remains the preferred way to make a room and the one that gets the investment:
+when a level needs a concept the authoring path does not have yet, the answer is
+to **add it to LDtk and the tooling**, not to route around them in Rust.
+
+Where each is acceptable (Jon, 2026-07-25):
+
+| Surface | Room authoring |
+|---|---|
+| Demo crates (`game/ambition_demo_*`) | Rust-constructed `RoomSpec` is **fine**. Mary-O's 1-1/1-2 are, and that is not a violation. |
+| The Ambition sandbox | **Prefer LDtk.** Programmatic rooms are tolerated, not encouraged; do not add more. |
+| The Ambition game proper (when we get to it) | **LDtk, required.** |
+
+Whichever backend, the IR is not optional: lower authored placement records
+rather than opening a parallel spawn channel.
+
 ## Current implications for agents
 
-- Treat LDtk as the world-composition source of truth; use LDtk tooling rather than hand-editing JSON.
-- Author placement in LDtk; instantiate runtime effects/actors *from* the authored data rather than hardcoding positions in code.
+- Treat LDtk as the world-composition source of truth for the sandbox and the game; use LDtk tooling rather than hand-editing JSON. A demo may build the IR in Rust.
+- Missing an authoring concept is a reason to EXTEND LDtk + `ambition_ldtk_tools`, not a reason to hand-build the room in code.
+- Author placement in the world IR and instantiate runtime effects/actors *from* the authored data rather than through a spawn channel that skips it.
 - Keep authored data, runtime execution, and presentation separate so each composes — and can be removed — independently.

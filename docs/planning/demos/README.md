@@ -15,11 +15,32 @@ classify it: a reusable platformer capability is an oracle-violation and becomes
 engine work; a named rule or presentation choice belongs in the provider;
 anything else is scope drift. Priorities may shuffle; the designs do not.
 
+## How a demo authors its world
+
+**LDtk is the preferred way to make a room — and for a DEMO, Rust is allowed.**
+Sanic's speedway comes from its own `.ldtk` through `ambition_ldtk_tools` (never
+hand-edited). Mary-O's 1-1 and 1-2 are constructed as `ambition_world` IR in Rust
+(`RoomSpec` + `LoadingZone` values), and that is fine for a demo — ADR 0021 made
+the IR backend-agnostic so a programmatic source is not a special case.
+
+The tolerance is graded, and demos sit at the loose end (Jon, 2026-07-25): demo
+rooms in Rust are fine, the Ambition **sandbox** should prefer LDtk, and the
+Ambition **game** proper will require it. So do not read Mary-O as licence to
+skip LDtk elsewhere, and do not treat "Rust is easier right now" as a reason to
+grow the programmatic path — **if the level needs a concept LDtk cannot express
+yet, add it to LDtk and the tooling.** That is where the investment goes.
+
+Either way the IR is not optional: lower authored placement records rather than
+spawning room content through a parallel channel.
+
+Reviewers keep filing Mary-O's Rust-authored rooms as an ADR 0009 violation. For
+a demo they are not one — say so rather than migrating.
+
 ## The shape (every demo, no exceptions)
 
 ```
 game/
-  ambition_demo_<name>/      — ONE content crate: worlds (own .ldtk), rosters/catalog rows,
+  ambition_demo_<name>/      — ONE content crate: worlds, rosters/catalog rows,
                                movesets, rules plugin(s), mode/match state, HUD data
   ambition_demo_<name>_app/  — explicit composition root: foundation plugins +
                                PlatformerEnginePlugins + PlatformerHostPlugins +

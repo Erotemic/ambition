@@ -15,7 +15,10 @@ use crate::actor::BodyAnimFacts;
 /// integrator already disables gravity in flight; the visual should
 /// reflect the active mode rather than whatever fall/run inertia
 /// happens to read.
-/// Death is not represented yet — the player respawns instantly today.
+/// Death is a TIMER for the player, not a liveness read: it respawns
+/// instantly, so it is alive again before anything could draw it dead.
+/// Whatever owns the death beat arms `BodyAnimFacts::death_anim_timer`
+/// and the `Death` row plays above everything until it runs out.
 /// `BlinkOut` is used while the blink button is held/aiming, and
 /// `BlinkIn` is held briefly after a committed blink so VFX/camera have
 /// time to sell the arrival.
@@ -343,6 +346,10 @@ pub fn pick_player_anim(
         abilities,
         shield,
     );
+    // The player is ALIVE again by the time anything draws it — the respawn is
+    // immediate — so its death cannot be read off liveness the way an actor's is.
+    // The beat that owns the death arms this timer; see `death_anim_timer`.
+    v.dead = anim.death_anim_timer > 0.0;
     v.hit = combat.hitstun_timer > 0.05;
     v.blink_in = blink_cam.blink_in_timer > 0.0;
     v.shooting = anim.shoot_anim_timer > 0.0;

@@ -18,6 +18,7 @@
 
 pub mod ai_slop;
 pub mod bricks;
+pub mod death;
 pub mod flag;
 pub mod movement;
 pub mod pipe;
@@ -858,6 +859,12 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             // apex.
             // All directions are interpreted through the resolved gravity frame.
             axis_tuning: Some($CLASSIC_AXIS_TUNING),
+            // The classic contract: whatever you are wearing absorbs the hit
+            // (spark -> cap -> nothing), and once there is no armor left the
+            // next one is fatal. One pool, authored on every form, so growing
+            // changes what a hit COSTS and never how much punishment the body
+            // underneath can take.
+            max_health: Some(1),
             playable_kit: Authored,
             tags: ["player"],
             barks: (
@@ -884,6 +891,12 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             default_action_set: "peaceful",
             abilities: Some([RunJump]),
             axis_tuning: Some($CLASSIC_AXIS_TUNING),
+            // The classic contract: whatever you are wearing absorbs the hit
+            // (spark -> cap -> nothing), and once there is no armor left the
+            // next one is fatal. One pool, authored on every form, so growing
+            // changes what a hit COSTS and never how much punishment the body
+            // underneath can take.
+            max_health: Some(1),
             playable_kit: Authored,
             tags: ["player"],
             barks: (
@@ -912,6 +925,12 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             default_action_set: "peaceful",
             abilities: Some([RunJump]),
             axis_tuning: Some($CLASSIC_AXIS_TUNING),
+            // The classic contract: whatever you are wearing absorbs the hit
+            // (spark -> cap -> nothing), and once there is no armor left the
+            // next one is fatal. One pool, authored on every form, so growing
+            // changes what a hit COSTS and never how much punishment the body
+            // underneath can take.
+            max_health: Some(1),
             playable_kit: Authored,
             tags: ["player"],
             barks: (
@@ -1284,9 +1303,17 @@ impl Plugin for MaryORulesPlugin {
             spawn_mary_o_mode_owner,
             flag::run_flag_sequence,
             tick_level_clock,
+            // The engine's death fact arms the beat before the life counter runs,
+            // so a hit death and a timeout reach `spend_lives_on_death` in the
+            // same state and it can treat them identically.
+            death::begin_death_sequence,
             // Reads the clock the tick above just settled, so a timeout is spent
             // on the frame it happens rather than one late.
             spend_lives_on_death,
+            // Then the beat itself: hold her in the death pose where she fell,
+            // and restart the level only once it has played out.
+            death::run_death_sequence,
+            death::restart_level_after_death,
             cycle_level_on_flag_tally,
         )
             .chain()
@@ -1432,7 +1459,11 @@ fn spawn_mary_o_mode_owner(
         commands
             .spawn_session_scoped(
                 spawn_scope,
-                (MaryOLevelState::default(), flag::FlagSequence::default()),
+                (
+                    MaryOLevelState::default(),
+                    flag::FlagSequence::default(),
+                    death::MaryODeathSequence::default(),
+                ),
             )
             .insert(ambition::platformer::lifecycle::ModeScopedEntity(
                 MARY_O_MODE.to_string(),
@@ -1489,20 +1520,26 @@ fn tick_level_clock(
 /// starting values and the room replays. That is the arcade loop — a game over
 /// is a fresh run, not a stuck screen.
 fn spend_lives_on_death(
-    mut level: bevy::prelude::Query<&mut MaryOLevelState>,
+    mut level: bevy::prelude::Query<(&mut MaryOLevelState, &mut death::MaryODeathSequence)>,
+    // The KINEMATICS are optional on purpose. Whether a life is spent must not
+    // depend on being able to read a position — a body that exists is what says
+    // an attempt was in progress, and requiring more silently skipped the whole
+    // system for any body without the extra component.
     bodies: bevy::prelude::Query<
-        bevy::prelude::Entity,
+        (
+            bevy::prelude::Entity,
+            Option<&ambition::engine_core::BodyKinematics>,
+        ),
         ambition::platformer::markers::PrimaryPlayerOnly,
     >,
     mut deaths: bevy::prelude::MessageReader<ambition::actors::ActorDiedMessage>,
-    mut replay: bevy::prelude::MessageWriter<ambition::actors::session::reset::RoomReplayRequested>,
 ) {
     // Drain unconditionally: the cursor must advance even on a frame with no
     // level, or a death that landed during a load would be re-read later and
     // charged to the next attempt.
     let died = deaths.read().count() > 0;
 
-    let Ok(mut level) = level.single_mut() else {
+    let Ok((mut level, mut death_beat)) = level.single_mut() else {
         return;
     };
     // No body, no attempt in progress — so nothing to lose. This matters for
@@ -1512,9 +1549,10 @@ fn spend_lives_on_death(
     // version got this for free by querying the body's `BodyLifetime`; the
     // authoritative signal does not need the body, so the guard is now
     // explicit.)
-    if bodies.iter().next().is_none() {
+    let Some((_, kin)) = bodies.iter().next() else {
         return;
-    }
+    };
+    let died_at = kin.map(|kin| kin.pos);
 
     // The clock reaching zero is its own death, and it must not fire twice
     // while the replay is in flight — restoring the clock below is what
@@ -1537,10 +1575,13 @@ fn spend_lives_on_death(
         level.lives = STARTING_LIVES;
         level.score = 0;
     }
-    // A timeout has no engine respawn behind it, so ask for one. A pit death
-    // already replayed the body; replaying the room too is what puts the
-    // rebuilt level under her.
-    replay.write(ambition::actors::session::reset::RoomReplayRequested);
+    // The RESTART is the death beat's, not this system's. Every lost attempt —
+    // a hit that got past her armor, a pit, the clock running out — plays the
+    // same death and leaves by the same door, so a timeout cannot silently skip
+    // the beat a death gets. A death has already armed it from the engine's own
+    // death fact; a timeout has no such fact, so arm it here from where she
+    // stands.
+    death_beat.begin(died_at);
 }
 
 /// **The secret pipe.** Press DOWN on the surface mouth and you fall out of the

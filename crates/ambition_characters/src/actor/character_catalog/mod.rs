@@ -267,6 +267,12 @@ impl CharacterCatalog {
         Some(ambition_engine_core::AbilitySet::compose(grants))
     }
 
+    /// The authored health pool for `character_id`'s playable body. `None` means
+    /// the row declared none, so the host's standard pool stands.
+    pub fn max_health(&self, character_id: &str) -> Option<i32> {
+        self.get(character_id)?.max_health
+    }
+
     pub fn body_kind(&self, character_id: &str) -> Option<CharacterBodyKind> {
         self.get(character_id).map(|entry| entry.body_kind)
     }

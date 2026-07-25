@@ -763,3 +763,79 @@ fn landing_on_a_snake_stomps_it_instead_of_hurting_her() {
         "falling onto a walking snake must put it into its shell"
     );
 }
+
+/// **A small Mary-O dies to one hit, and the level restarts.**
+///
+/// Jon: *"if mary-o is small and she takes damage she should die and use her
+/// death animation, then restart the level."*
+///
+/// Every part of that was unreachable: her body carried the host's twenty-point
+/// pool, so a contact hit cost 5% of a life bar; and her `Death` row was bound
+/// to a sheet row the generator named `dead` while the runtime looks for
+/// `death`, so nothing could have drawn it even at zero HP.
+///
+/// Driven through the real app: walk her INTO a snake from the side (a side
+/// contact is the one thing that hurts) and watch the whole beat.
+#[test]
+fn a_small_mary_o_dies_to_one_hit_and_the_level_restarts() {
+    let mut app = boot();
+    settle_until_playable(&mut app);
+
+    assert_eq!(
+        health(&mut app),
+        Some(1),
+        "she authors a one-hit body: armor absorbs, then the next hit is fatal"
+    );
+
+    let id = "mary_o_snake_0";
+    let (snake, _) = snake_by_id(&mut app, id).expect("level 1-1 stages Solid Snakes");
+    let lives_before = level(&mut app).0;
+
+    // Stand her beside it, on the ground, and let it walk into her. A SIDE
+    // contact is the hit; from the top it would be a stomp.
+    {
+        let mut kin = app
+            .world_mut()
+            .query_filtered::<&mut ae::BodyKinematics, With<PrimaryPlayer>>()
+            .single_mut(app.world_mut())
+            .expect("the controlled body");
+        kin.pos = ae::Vec2::new(snake.center().x, snake.max.y - kin.size.y * 0.5);
+        kin.vel = ae::Vec2::ZERO;
+    }
+
+    let mut saw_death_pose = false;
+    let mut died = false;
+    for _ in 0..600 {
+        step(&mut app, idle());
+        let dying = app
+            .world_mut()
+            .query_filtered::<&ambition::actors::actor::BodyAnimFacts, With<PrimaryPlayer>>()
+            .single(app.world())
+            .map(|anim| anim.death_anim_timer > 0.0)
+            .unwrap_or(false);
+        saw_death_pose |= dying;
+        if level(&mut app).0 < lives_before {
+            died = true;
+            break;
+        }
+    }
+    assert!(died, "a side contact with no armor left must kill her");
+    assert!(
+        saw_death_pose,
+        "and it must be VISIBLE — the death row plays before the level restarts"
+    );
+
+    // The beat holds, and only then does the level come back.
+    let restarted = drive(&mut app, 600, |b| {
+        if b.pos.distance(ae::Vec2::new(snake.center().x, snake.max.y)) > 200.0 {
+            return None;
+        }
+        Some(idle())
+    });
+    assert!(
+        restarted,
+        "past the death beat the level restarts and puts her back at spawn; \
+         she is at {:?}",
+        body(&mut app)
+    );
+}

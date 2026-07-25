@@ -531,6 +531,17 @@ pub struct CharacterCatalogEntry {
     /// the body on the shared editable tuning. See [`AxisTuningSpec`].
     #[serde(default)]
     pub axis_tuning: Option<AxisTuningSpec>,
+    /// How much punishment this character's PLAYABLE body takes before it dies.
+    /// `Some(1)` is the classic platformer contract: whatever armor you are
+    /// wearing absorbs the hit, and once there is none left the next one is
+    /// fatal. `None` (the default) keeps the host's standard pool, so every
+    /// existing row is untouched.
+    ///
+    /// The per-character analogue of [`abilities`](Self::abilities) and
+    /// [`axis_tuning`](Self::axis_tuning): a demo character declares its own
+    /// fragility in its row instead of forcing the whole host onto it.
+    #[serde(default)]
+    pub max_health: Option<i32>,
 }
 
 impl CharacterCatalogEntry {

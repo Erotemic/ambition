@@ -252,6 +252,18 @@ pub struct BodyAnimFacts {
     /// whatever verb owns the curl re-derives it every frame, and the picker
     /// plays the looping `Roll` row while it holds.
     pub rolling: bool,
+    /// Time remaining on the DEATH pose.
+    ///
+    /// A player body respawns the instant it dies, so its liveness is true again
+    /// before anything could have drawn it dead — which is why the `Death` row
+    /// was unreachable for the player no matter what a sheet published. This is
+    /// the fact that makes a death VISIBLE: whatever owns the death beat arms it,
+    /// and the picker plays `Death` above every other row until it runs out.
+    ///
+    /// A timer rather than a liveness read, precisely because the body is alive
+    /// again by then. It is presentation state on an already-presentation
+    /// cluster, so nothing about the sim depends on it.
+    pub death_anim_timer: f32,
 }
 
 impl BodyAnimFacts {

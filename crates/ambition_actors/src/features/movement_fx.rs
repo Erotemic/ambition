@@ -47,6 +47,7 @@ pub fn advance_body_anim_overlays(
     anim.shoot_anim_timer = (anim.shoot_anim_timer - frame_dt).max(0.0);
     anim.wall_jump_anim_timer = (anim.wall_jump_anim_timer - frame_dt).max(0.0);
     anim.interact_anim_timer = (anim.interact_anim_timer - frame_dt).max(0.0);
+    anim.death_anim_timer = (anim.death_anim_timer - frame_dt).max(0.0);
 
     anim.land_anim_timer = (anim.land_anim_timer - frame_dt).max(0.0);
 

@@ -27,6 +27,13 @@ use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_engine_core::RoomGeometry;
 use ambition_platformer_primitives::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 
+/// The health pool a playable body gets when its worn character authors none.
+///
+/// Ambition's own protagonist takes real damage over a run; a character whose
+/// game is "one hit and you start over" says so on its catalog row rather than
+/// bending this.
+pub const DEFAULT_PLAYER_HEALTH: i32 = 20;
+
 /// Borrowed inputs for `simulation_world`.
 ///
 /// Grouped as a struct because Bevy's max-system-param budget is tight and
@@ -171,7 +178,16 @@ pub fn simulation_world(
     // The player is a control box that WEARS a character. The protagonist takes
     // the untouched canonical path; any other selected character overlays its
     // moveset + name onto the same box (its sprite is bound presentation-side).
-    let player_health = ambition_characters::actor::Health::new(20);
+    // How fragile the body is travels WITH the worn character, exactly like its
+    // capability set above: a classic-platformer character authors `max_health: 1`
+    // (armor absorbs, then the next hit is fatal) rather than forcing the whole
+    // host onto a one-hit pool. A row that authors none keeps the standard pool,
+    // so Ambition's own protagonist is untouched.
+    let player_health = ambition_characters::actor::Health::new(
+        character_catalog
+            .max_health(starting_character.effective_id(default_character_id))
+            .unwrap_or(DEFAULT_PLAYER_HEALTH),
+    );
     let player_bundle = if starting_character.is_default() {
         crate::avatar::PlayerSimulationBundle::from_scratch(initial_scratch, player_health)
     } else {

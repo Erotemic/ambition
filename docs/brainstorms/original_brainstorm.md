@@ -690,3 +690,10 @@ Wondering if there is a way to incorporate NJW (Norman Wildberger).
 Might be fun to include Goeff Hinton as something like Jeff Hinter. An NPC that
 provides hints, and says 1000 very loudly to themselves as they visualize a 2d
 space.
+
+---
+
+Thinking about the Fia arc. It would make sense to have smaller storylines that
+will echo the larger one, in both directions. Show cases where loyalty pays
+off, show cases where it doesn't. Demonstrate how trust is a double edge sword
+in the stories.

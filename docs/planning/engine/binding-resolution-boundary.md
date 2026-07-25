@@ -1,6 +1,7 @@
 # The binding resolution boundary
 
-**Status:** LANDED 2026-07-25.
+**Status:** PARTIAL, landed 2026-07-25 and corrected the same day after an
+external review. Read §8 before trusting any coverage claim here.
 **Scope:** cross-layer references — how content names something, and what happens
 when the thing is not there.
 **Authority:** implements the capability the master plan
@@ -79,7 +80,6 @@ hard refusal beats a report.
 | `AnimRow` | `ambition_sprite_sheet::binding` | the sheet's own rows |
 | `WorldItemSprite` / `HeldItemSprite` | `ambition_platformer_primitives` | the unioned provider manifests |
 | `KinematicPathId`, `CharacterId`, `HeldItemId` | `ambition_actors::world::rooms::binding` | the room + the catalogs |
-| `RoomId`, `LoadingZoneId` | `ambition_world::rooms::binding` | the room set |
 
 Wired into the real paths, not offered beside them:
 
@@ -87,7 +87,6 @@ Wired into the real paths, not offered beside them:
   authored families and the spawn requests content staging hands it — and carries
   the report on the plan. The second channel is where Mary-O and Sanic keep their
   enemies, so without it the demos were the consumers the sweep could not see.
-- `RoomSet::from_parts` sweeps every link endpoint before building the graph.
 - The item and slash/shrine visuals resolve per frame through a
   `Local<ReportedOnce>`, so a missing id is said once rather than sixty times a
   second.
@@ -144,3 +143,57 @@ Enforced by two grep gates in the run's goal file, both counting to zero.
 - Namespaces not yet migrated: moveset clip bindings, music tracks, recipe ids,
   dialogue ids. Each is the same shape and should be a small slice, not a
   campaign.
+
+## 8. What this is NOT — corrections from the 2026-07-25 review
+
+An external review read the series and was right about most of it. The claims
+below were in this document and are false; they are recorded rather than quietly
+edited, because a plan that overstates its own coverage is the exact failure the
+feature exists to prevent.
+
+- **"Loading-zone links had no validation."** False. `RoomSet::layout_warnings()`
+  already warned on missing source and target zones, and session setup and LDtk
+  reload both run it. The room-link sweep this document described has been
+  **deleted** — it re-derived an existing authority beside it, which is worse
+  than a plainer message. Unknown ROOM ids in links keep their diagnostic in
+  `from_parts`.
+- **"The SFX diagnostic is production behavior."** It was not.
+  `AudioLibrary::refresh_sfx_from_bank` has no caller at all, despite its own doc
+  naming one. The real fix now lives in `audio_play_sfx_messages`, where a cue is
+  actually requested and resolves to nothing; it records `missing_source_ids` and
+  warns once per id instead of only bumping a counter.
+- **"References resolve ONCE."** Not universally. Construction-time namespaces do.
+  Item art and effect rows resolve during per-frame presentation sync, minting a
+  `Bound` that is immediately discarded. The honest description of those paths is
+  *checked lookup with structured diagnostics*, not one-time binding.
+- **"`Bound<N>` is proof."** It proves the id existed in SOME resolver of that
+  namespace, never that it came from THIS authority — the marker names the
+  family, not the sheet. `SheetRecord::row` now checks the agreement with a real
+  `assert!` (it was a `debug_assert!`, i.e. absent exactly where a wrong row is
+  least visible) and a test pins it. The general fix — an authority tag on
+  `Bound` — is NOT done; AnimRow is currently the only namespace whose slot-bearing
+  `Bound` escapes its resolver.
+- **"ONE unified report."** The type can hold several namespaces and construction
+  merges two channels into one. It is not a single production result across every
+  check: room construction, the per-visual `ReportedOnce` locals, and
+  `layout_warnings` remain separate. An empty report means the namespaces in
+  THAT sweep were clean, nothing more.
+- **"Authored content declares `Ref<N>`."** Mostly it does not. Authored structs
+  still hold `String`, and call sites mint a `Ref` immediately before resolving.
+  The authored data model did not become typed; the lookup and its diagnostics
+  did.
+
+Also open, from the same review and not yet addressed:
+
+- The miss path rebuilds a full diagnostic (clone available ids, compute a
+  suggestion, build and sort a report) on EVERY frame for a permanently missing
+  item-art id. `ReportedOnce` suppresses the log, not the work.
+- `ReportedOnce` keys on (namespace, declarer, id) and not on content epoch or
+  provider composition, so a defect fixed and reintroduced across a content
+  reload is suppressed by the stale entry.
+- `Resolver` deduplication is silently first-wins for every namespace. That
+  disagrees with the room map (last-wins on duplicate ids) and hides genuinely
+  ambiguous content — duplicate path aliases and duplicate sheet rows are
+  probably malformed data, not something to silently pick a winner for.
+- Held items are swept AND hard-refused by construction; only the refusal is
+  authoritative, and the sweep's entry is redundant.

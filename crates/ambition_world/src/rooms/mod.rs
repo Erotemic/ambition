@@ -4,7 +4,6 @@ use ambition_engine_core as ae;
 use bevy_ecs::prelude::{Component, Message};
 use petgraph::graph::{Graph, NodeIndex};
 
-pub mod binding;
 mod camera;
 mod gate_portal;
 mod graph;
@@ -14,7 +13,6 @@ mod room_graph;
 mod spawn;
 mod specs;
 
-pub use binding::sweep_room_links;
 pub use camera::*;
 pub use gate_portal::*;
 pub use loading_zone::*;

@@ -53,17 +53,28 @@ impl SheetRecord {
 
     /// The row a resolved reference names.
     ///
-    /// Infallible by construction: `bound` exists only because
-    /// [`Self::anim_rows`] found the row. The one way to break that is to resolve
-    /// against sheet A and index sheet B, which is why this takes `&self` and the
-    /// resolver is per-sheet rather than a global registry.
+    /// `Bound<AnimRow>` proves the row existed in SOME sheet, not in THIS one:
+    /// the namespace marker names the family, never the authority that assigned
+    /// the slot, so `sheet_b.row(&sheet_a_bound)` type-checks. Two sheets with
+    /// different layouts would then silently return an unrelated row at the same
+    /// index, or panic out of bounds.
+    ///
+    /// So the agreement is checked here, for real — an `assert!`, not a
+    /// `debug_assert!`, because a release build is exactly where a wrong row is
+    /// least visible. It costs one short string compare against a slot we are
+    /// about to index anyway. Using a bound from another sheet is a programmer
+    /// error, not a content typo, so it is loud rather than degradable.
     pub fn row(&self, bound: &BoundAnimRow) -> &SheetRow {
-        debug_assert_eq!(
-            self.rows
-                .get(bound.slot())
-                .map(|row| row.animation.as_str()),
+        let found = self.rows.get(bound.slot());
+        assert_eq!(
+            found.map(|row| row.animation.as_str()),
             Some(bound.id()),
-            "a Bound<AnimRow> from another sheet's resolver was used to index this one",
+            "sheet `{}` was indexed with a Bound<AnimRow> resolved against a different sheet \
+             (slot {} holds {:?}, the binding names `{}`)",
+            self.target,
+            bound.slot(),
+            found.map(|row| row.animation.as_str()),
+            bound.id(),
         );
         &self.rows[bound.slot()]
     }
@@ -127,6 +138,23 @@ mod tests {
             unresolved.available.contains(&"death".to_owned()),
             "the report shows the row that DOES exist: {unresolved}"
         );
+    }
+
+    /// A `Bound` from another sheet is caught rather than silently returning
+    /// whatever sits at the same index. The namespace marker cannot distinguish
+    /// two sheets, so this is the check that makes `row` honest in release.
+    #[test]
+    #[should_panic(expected = "resolved against a different sheet")]
+    fn a_binding_from_another_sheet_is_refused() {
+        let a = sheet_with_rows(&["idle", "walk", "death"]);
+        let b = sheet_with_rows(&["idle", "hurt", "run"]);
+        let bound = a
+            .anim_rows()
+            .resolve(&AnimRowRef::new("death"), "sheet a")
+            .expect("sheet a has it");
+        // Same slot exists in b, holding an unrelated row — the case that used
+        // to return `run` and draw the wrong animation.
+        let _ = b.row(&bound);
     }
 
     /// A resolved row indexes the authored rows directly, in sheet order — the

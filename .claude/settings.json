@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 scripts/goal_guard.py",
+            "timeout": 900,
+            "statusMessage": "Checking the armed goal..."
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 scripts/goal_guard.py --inject",
+            "timeout": 900,
+            "statusMessage": "Restating the armed goal..."
+          }
+        ]
+      }
+    ]
+  }
+}

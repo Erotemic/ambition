@@ -1,0 +1,35 @@
+{
+  "_comment": [
+    "Template for a long unattended run. Copy, edit, then:",
+    "  python3 scripts/goal_guard.py --arm scripts/goal_examples/queue-24h.json",
+    "",
+    "Write checks that name a TEST or a build, not a doc marker, wherever you can.",
+    "A doc marker is a file the agent edits; a failing test is a fact about the",
+    "code. The queue-marker check below is the weakest one here on purpose — it is",
+    "what makes the run END, and it is worth knowing that it is also the one an",
+    "agent could satisfy by editing a checkbox.",
+    "",
+    "`deadline_utc` is not optional in spirit: it is what makes 24 hours mean",
+    "24 hours in both directions."
+  ],
+
+  "goal": "complete the 24h queue in docs/planning/queue-24h-2026-07-25.md",
+  "deadline_utc": "2026-07-26T04:51:00Z",
+  "max_stalled_blocks": 3,
+
+  "checks": [
+    {
+      "name": "every queue item is closed",
+      "cmd": "! grep -q '▢' docs/planning/queue-24h-2026-07-25.md"
+    },
+    {
+      "name": "the app still compiles",
+      "cmd": "cargo check -p ambition_app --quiet",
+      "timeout": 1800
+    },
+    {
+      "name": "nothing is left uncommitted",
+      "cmd": "test -z \"$(git status --porcelain -- ':!.llm_resource_tally' ':!.goal')\""
+    }
+  ]
+}

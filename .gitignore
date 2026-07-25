@@ -138,3 +138,6 @@ untracked
 
 # Repo-root scripts venv (tree-sitter for ecs_inventory etc.)
 .venv/
+
+# Armed goal state for scripts/goal_guard.py (per-run, never shared)
+.goal/

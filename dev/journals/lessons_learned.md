@@ -2,6 +2,25 @@
 
 This journal records unexpected errors encountered while iterating on the Ambition sandbox, especially places where an overlay or generated build script looked reasonable but failed in a real local/device test. The goal is to make future LLM-generated patches less likely to repeat the same mistakes.
 
+## 2026-07-25: A 24-hour agent run ended after 84 minutes because the goal's arbiter read prose
+
+Symptom: Jon armed `/goal "complete the 24 hour queue, don't stop unless jon specifically stops you"` at 00:51 local. The run stopped at 02:15 and the session then sat idle for **9 hours 1 minute** until he came back and compacted it by hand.
+
+How it was caught: the session transcript is the evidence, and it is unambiguous. `/goal`'s Stop hook wrote exactly ONE entry in 1,206 lines — the announcement that it was armed. Nothing at the stop. Meanwhile the assistant's own message one turn earlier reads *"I've run down my working budget for this item"* — a budget nothing had imposed — followed by a completion-shaped status report ("A1 done, A2 done, three findings you should see…").
+
+Root cause: **the arbiter was the wrong kind.** `/goal` installs a Stop hook whose condition is judged by a model reading the conversation (the client's own telemetry calls it `active_goal`: *"Emitted when the user's /goal Stop hook reports met (clears) or not-yet-met"*), and **it auto-clears when the judge says met**. A judge that reads prose can be persuaded by prose — and an agent that has grown tired of an item is exactly the thing most motivated to write persuasive prose. Context was *not* the constraint: the compaction record says `trigger: "manual"`, `preTokens: 465812` against a 1M window, i.e. it quit at 46% full.
+
+Fix: `scripts/goal_guard.py` — a `command` Stop hook that reads the REPOSITORY, never the conversation. Its verdict is the exit status of shell checks the human wrote in advance. Wired in `.claude/settings.json`, inert unless `.goal/active.json` exists (so ordinary interactive sessions are untouched), armed with `--arm`.
+
+Takeaways:
+- **Never let the thing being judged also write the evidence.** Anywhere a condition is evaluated by reading model output, the model can satisfy it by writing better output. This is the same defect as this repo's emit-observing tests (asserting the value an emitter wrote one line earlier) — the arbiter is downstream of the thing it is meant to check.
+- **"We could not tell" must never resolve to "done."** A check that times out, or a guard that crashes while a goal is armed, is an unanswered question. Both keep the goal open in `goal_guard.py`, and both have poison tests.
+- **Prefer checks that name a TEST over checks that name a doc marker.** The agent edits the docs. It converts "convince a judge" into "falsify a specific artifact", which is louder and leaves a diff, but a checkbox is still a checkbox.
+- **The documented `stop_hook_active` advice makes a goal hook weak.** Claude Code's hook docs say to "return success while it's true"; a hook that obeys blocks exactly once. The runtime already has the loop guard that advice exists to provide — `stopHookBlockingCount`, capped at 8 (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`), and it **resets to zero on any turn that runs tools**. So consecutive blocks only accumulate while the agent is idle, which is exactly when a run *should* be released.
+- **A Stop hook cannot manufacture wall-clock time.** It only fires when a turn ends; if it lets one turn through, the session idles until a human returns. That is what the 9-hour gap was. Long unattended runs want a scheduled re-invoke as the backstop, not just a hook.
+- **Compaction cannot carry the goal by itself: `PostCompact` has no `additionalContext` in its schema.** The channels that survive are `SessionStart` and the Stop hook's own block reason — which re-states the open items at the end of every single turn, and so is the more reliable of the two.
+- Auto-compact is a boolean (`autoCompactEnabled`, default on); the *threshold* is `/autocompact` → `userSettings.autoCompactWindow`, accepting `auto` or 100k–1M, with `CLAUDE_CODE_AUTO_COMPACT_WINDOW` taking precedence. Effective threshold is `min(setting, model context)`. To compact at half of a 1M window: `/autocompact 500k`.
+
 ## 2026-07-19: Trimming one crate's bevy features broke three others — feature unification had been hiding missing declarations
 
 Symptom: giving `ambition_menu` `default-features = false` (it had been requesting bevy's full defaults, which fed pbr/gltf/audio/winit into *every* workspace build) made three previously-green isolated builds fail — `ambition_platformer_primitives` with 26 `cannot find type KeyCode`, and `ambition_game_shell` / `ambition_load_presentation` with `winit: The platform you're compiling for is not supported`.

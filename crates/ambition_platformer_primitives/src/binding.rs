@@ -319,10 +319,22 @@ impl<N: Namespace> Resolver<N> {
         reference: &Ref<N>,
         declared_by: impl Into<String>,
     ) -> Result<Bound<N>, UnresolvedRef> {
-        match self
-            .ids
-            .binary_search_by(|id| id.as_str().cmp(reference.id()))
-        {
+        self.resolve_str(reference.id(), || declared_by.into())
+    }
+
+    /// Resolve a borrowed id, building the declarer string ONLY if it fails.
+    ///
+    /// The lazy declarer is not a micro-optimization for its own sake: the item
+    /// visuals resolve every id every frame, and an eager
+    /// `format!("world item `{}`", row)` would allocate per item per frame to
+    /// describe a failure that almost never happens. The happy path here
+    /// allocates nothing but the returned `Bound`'s id.
+    pub fn resolve_str(
+        &self,
+        id: &str,
+        declared_by: impl FnOnce() -> String,
+    ) -> Result<Bound<N>, UnresolvedRef> {
+        match self.ids.binary_search_by(|known| known.as_str().cmp(id)) {
             Ok(index) => Ok(Bound {
                 id: self.ids[index].clone(),
                 slot: self.slots[index],
@@ -330,10 +342,10 @@ impl<N: Namespace> Resolver<N> {
             }),
             Err(_) => Err(UnresolvedRef {
                 namespace: N::NAME,
-                id: reference.id().to_owned(),
-                declared_by: declared_by.into(),
+                id: id.to_owned(),
+                declared_by: declared_by(),
                 available: self.ids.clone(),
-                did_you_mean: closest(reference.id(), &self.ids),
+                did_you_mean: closest(id, &self.ids),
             }),
         }
     }

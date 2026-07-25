@@ -3,9 +3,7 @@
 //! consumers of the sim-built `sim_view` item snapshots (E4 slices 11+12+16)
 //! — no live item/body queries.
 
-use ambition_platformer_primitives::binding::{
-    BindingLedger, Namespace, Ref, Resolver, UnresolvedRef,
-};
+use ambition_platformer_primitives::binding::{BindingLedger, Namespace, Resolver, UnresolvedRef};
 use ambition_platformer_primitives::held_item_art::HeldItemSprite;
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
@@ -120,12 +118,16 @@ impl<N: Namespace> ArtBindings<N> {
 
     /// The art for `id`, or the reason it has none. `declared_by` names the thing
     /// that asked, so the report points at content rather than at the renderer.
+    ///
+    /// It is a closure because these syncs run EVERY frame: describing the
+    /// declarer eagerly would allocate per item per frame to label a failure that
+    /// almost never happens.
     pub fn get(
         &self,
         id: &str,
-        declared_by: impl Into<String>,
+        declared_by: impl FnOnce() -> String,
     ) -> Result<(Handle<Image>, Vec2), UnresolvedRef> {
-        let bound = self.ids.resolve(&Ref::new(id), declared_by)?;
+        let bound = self.ids.resolve_str(id, declared_by)?;
         Ok(self.art[bound.slot()].clone())
     }
 
@@ -203,16 +205,18 @@ pub fn sync_ground_item_visuals(
     let mut ledger = BindingLedger::new();
     for ground in &grounds.0 {
         let translation = ambition_engine_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
-        let bound =
-            art.as_ref().and_then(
-                |art| match art.0.get(ground.item_id.as_str(), "ground item") {
-                    Ok(art) => Some(art),
-                    Err(unresolved) => {
-                        ledger.record(unresolved);
-                        None
-                    }
-                },
-            );
+        let bound = art.as_ref().and_then(|art| {
+            match art
+                .0
+                .get(ground.item_id.as_str(), || "ground item".to_owned())
+            {
+                Ok(art) => Some(art),
+                Err(unresolved) => {
+                    ledger.record(unresolved);
+                    None
+                }
+            }
+        });
         // The placeholder still draws; the ledger is what stops it being silent.
         let sprite = bound
             .map(|(image, size)| Sprite {
@@ -309,7 +313,7 @@ pub fn sync_world_item_visuals(
         // that declares one nobody registered is the spark-blossom bug, and does.
         let bound = item.sprite.as_deref().and_then(|id| {
             let art = art.as_ref()?;
-            match art.0.get(id, format!("world item `{}`", item.row_id)) {
+            match art.0.get(id, || format!("world item `{}`", item.row_id)) {
                 Ok(art) => Some(art),
                 Err(unresolved) => {
                     ledger.record(unresolved);
@@ -405,15 +409,15 @@ pub fn sync_held_item_visual(
     };
 
     let mut ledger = BindingLedger::new();
-    let bound = art
-        .as_ref()
-        .and_then(|art| match art.0.get(held.item_id.as_str(), "held item") {
+    let bound = art.as_ref().and_then(|art| {
+        match art.0.get(held.item_id.as_str(), || "held item".to_owned()) {
             Ok(art) => Some(art),
             Err(unresolved) => {
                 ledger.record(unresolved);
                 None
             }
-        });
+        }
+    });
     reported.log_new(&ledger.finish(), "held item visual");
 
     let sprite = bound

@@ -1167,3 +1167,27 @@ Two things it did NOT close, both worth their own slice:
 2. **Namespaces still resolving by bare string at their use site:** moveset clip
    bindings, music track ids, recipe ids, dialogue ids. Each is the same shape as
    the four that were migrated and should be a small slice apiece.
+
+## 2026-07-25 — `AudioLibrary::refresh_sfx_from_bank` has no caller
+
+Found by a GPT review of the binding-boundary series, and it was right. The
+method exists to re-decode typed cue handles when an async bank arrives late,
+and its doc says `bank_asset.rs::promote_loaded_sfx_bank` uses it. It does not.
+The live path promotes into `SfxBankResource` / `SfxBankRegistry` /
+`ActiveAudioSelection` and resolves per-request through `ProviderSfxHandleCache`;
+`AudioLibrary.sfx` is never refreshed by it.
+
+I had "improved" this method (naming its unbound cues) believing it was
+production. It was not, and the commit message overstated it. The improvement is
+reverted and the real fix lives where a cue is actually requested and found
+missing — `audio_play_sfx_messages` now records `missing_source_ids` and warns
+once per distinct id, instead of only bumping the `missing_source` COUNTER.
+
+Open: either wire `refresh_sfx_from_bank` into promotion (if late-bank cue
+refresh is still wanted for `AudioLibrary`-based playback) or delete it. Not
+decided here — it is another author's API and the live path may have superseded
+it entirely.
+
+Transferable: "improved behavior on an unused helper" reads exactly like a
+landed feature in a diff. Before claiming a path is production, grep for a
+caller — the method's own doc comment naming its caller is not evidence.

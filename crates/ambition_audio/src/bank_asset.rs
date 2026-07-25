@@ -429,6 +429,18 @@ pub fn audio_play_sfx_messages(
         );
         let Some(resolved) = resolved else {
             playback.missing_source = playback.missing_source.saturating_add(1);
+            // Name it, once. The counter says a cue went silent; it never said
+            // WHICH, and a cue with no bank entry stays silent for the whole
+            // session — so the id is the entire diagnostic. Same shape the
+            // binding boundary removed from item art: a request that resolves to
+            // nothing and reports only that it happened.
+            if playback.missing_source_ids.insert(id) {
+                bevy::log::warn!(
+                    target: AUDIO_LOG_TARGET,
+                    "ambition audio: provider '{provider_id}' has no clip for requested cue {id} \
+                     — it will stay silent for this session",
+                );
+            }
             continue;
         };
         if crate::output::emits_to_device(output.as_deref()) {

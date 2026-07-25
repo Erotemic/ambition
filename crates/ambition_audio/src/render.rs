@@ -216,6 +216,16 @@ pub struct SfxPlaybackState {
     pub rejected_wrong_owner: u64,
     pub rejected_unauthorized: u64,
     pub missing_source: u64,
+    /// WHICH cues were requested and had no clip, in id order.
+    ///
+    /// `missing_source` alone is a number: it says a cue went silent, never
+    /// which one. That is the same shape the binding boundary removed from item
+    /// art — a request that resolves to nothing and reports only that it
+    /// happened. A cue with no bank entry is silent for the whole session, so
+    /// the id is the entire diagnostic.
+    ///
+    /// Deduplicated, so a cue fired every frame contributes one entry.
+    pub missing_source_ids: std::collections::BTreeSet<ambition_sfx::SfxId>,
 }
 
 impl SfxPlaybackState {

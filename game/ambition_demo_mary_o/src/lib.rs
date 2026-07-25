@@ -747,9 +747,82 @@ pub fn goal_pole() -> flag::FlagPole {
 /// after the level was lengthened by 8 tiles for the vault.
 const POLE_COLUMN: f32 = 98.0;
 
+/// **Mary-O Classic's movement profile, authored ONCE.**
+///
+/// Every form she wears — small, tall, fire — must move identically; growing
+/// changes her LOOK and size, never her physics. That was previously three
+/// hand-copied blocks, where a one-line divergence would silently shrink her
+/// jump on a power-up. It is now one string substituted into each row, so the
+/// forms cannot disagree by construction rather than by test.
+///
+/// The numbers are the classic 16 px / 60 Hz tables converted to Mary-O's 32 px
+/// tile scale. The target is that she plays effectively the same as the original
+/// (Jon); the point of the demo is to show the ENGINE can express that as
+/// parameters, so any deviation has to earn itself.
+///
+/// `ground_coast_decel` is the FAITHFUL conversion: classic friction equals
+/// classic walk acceleration, so releasing the stick coasts to a stop in ~0.76 s
+/// over ~3.6 tiles. It was previously stiffened to 1200 because that slide read
+/// as skating — but "we deliberately flourished here" is not a licence to stop
+/// converging (Jon), so the deviation is gone and the classic slide is back.
+///
+/// ⚠ `ground_reverse_accel` (1500) is the one number still NOT sourced from the
+/// classic tables — the skid rate wants the real SMB1/SMB3 subpixel constant
+/// rather than a picked value. It is deliberately left visible here rather than
+/// blessed: converging it is a known outstanding item, not a settled choice.
+///
+/// Neutral AIR preserves momentum exactly, which IS faithful and is not in
+/// question.
+///
+/// The jump law picks one of four launch bands from body-local side speed, then
+/// runs weak gravity while the button is held and the body is rising, and full
+/// gravity after release or near apex. `speed_thresholds` are the converted
+/// classic cuts (1.0 / 1.5625 / 1.75 px-per-frame at 16 px scale), which puts
+/// the TOP band inside her 300 px/s run — a running jump is the highest jump,
+/// exactly as in the original. `launch_offsets` ride on `jump_speed`, so that
+/// one knob still moves her whole jump family together.
+///
+/// `coyote_time` and `jump_buffer` are 0 ON PURPOSE (confirmed by Jon): the
+/// original grants no ledge forgiveness and no pre-landing buffer, so neither
+/// does she. Do not "fix" these.
+///
+/// All directions are interpreted through the resolved gravity frame.
+const MARY_O_CLASSIC_AXIS_TUNING: &str = r#"(
+                horizontal_law: Momentum((
+                    ground_reverse_accel: 1500.0,
+                    ground_coast_decel: 393.75,
+                    air_reverse_accel: 900.0,
+                    air_coast_decel: 0.0,
+                )),
+                jump_law: PhasedGravity((
+                    speed_thresholds: (120.0, 187.5, 210.0),
+                    launch_offsets: (-30.0, -15.0, 0.0, 30.0),
+                    held_rise_gravity_scale: 0.2,
+                    released_rise_gravity_scale: 1.0,
+                    fall_gravity_scale: 1.0,
+                    held_phase_min_upward_speed: 240.0,
+                )),
+                gravity: 2250.0,
+                air_jumps: 0,
+                jump_speed: 450.0,
+                max_run_speed: 300.0,
+                run_accel: 393.75,
+                air_accel: 393.75,
+                max_fall_speed: 480.0,
+                coyote_time: 0.0,
+                jump_buffer: 0.0,
+            )"#;
+
+/// Assemble the demo catalog, substituting the one authored movement profile
+/// into every Mary-O form. `str::replace` rather than `format!` because the RON
+/// is full of braces that would all need escaping.
+fn mary_o_catalog_ron() -> String {
+    MARY_O_CATALOG_RON_TEMPLATE.replace("$CLASSIC_AXIS_TUNING", MARY_O_CLASSIC_AXIS_TUNING)
+}
+
 /// The demo's one-character catalog. Every demo installs its own roster; the
 /// engine ships none (ADR 0017).
-const MARY_O_CATALOG_RON: &str = r#"(
+const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
     brain_presets: { "stand_still": StandStill },
     action_set_presets: {
         "peaceful": (
@@ -784,31 +857,7 @@ const MARY_O_CATALOG_RON: &str = r#"(
             // gravity while held and rising and full gravity after release / near
             // apex.
             // All directions are interpreted through the resolved gravity frame.
-            axis_tuning: Some((
-                horizontal_law: Momentum((
-                    ground_reverse_accel: 1500.0,
-                    ground_coast_decel: 1200.0,
-                    air_reverse_accel: 900.0,
-                    air_coast_decel: 0.0,
-                )),
-                jump_law: PhasedGravity((
-                    speed_thresholds: (120.0, 240.0, 360.0),
-                    launch_speeds: (420.0, 435.0, 450.0, 480.0),
-                    held_rise_gravity_scale: 0.2,
-                    released_rise_gravity_scale: 1.0,
-                    fall_gravity_scale: 1.0,
-                    held_phase_min_upward_speed: 240.0,
-                )),
-                gravity: 2250.0,
-                air_jumps: 0,
-                jump_speed: 450.0,
-                max_run_speed: 300.0,
-                run_accel: 393.75,
-                air_accel: 393.75,
-                max_fall_speed: 480.0,
-                coyote_time: 0.0,
-                jump_buffer: 0.0,
-            )),
+            axis_tuning: Some($CLASSIC_AXIS_TUNING),
             playable_kit: Authored,
             tags: ["player"],
             barks: (
@@ -834,31 +883,7 @@ const MARY_O_CATALOG_RON: &str = r#"(
             default_brain: "stand_still",
             default_action_set: "peaceful",
             abilities: Some([RunJump]),
-            axis_tuning: Some((
-                horizontal_law: Momentum((
-                    ground_reverse_accel: 1500.0,
-                    ground_coast_decel: 1200.0,
-                    air_reverse_accel: 900.0,
-                    air_coast_decel: 0.0,
-                )),
-                jump_law: PhasedGravity((
-                    speed_thresholds: (120.0, 240.0, 360.0),
-                    launch_speeds: (420.0, 435.0, 450.0, 480.0),
-                    held_rise_gravity_scale: 0.2,
-                    released_rise_gravity_scale: 1.0,
-                    fall_gravity_scale: 1.0,
-                    held_phase_min_upward_speed: 240.0,
-                )),
-                gravity: 2250.0,
-                air_jumps: 0,
-                jump_speed: 450.0,
-                max_run_speed: 300.0,
-                run_accel: 393.75,
-                air_accel: 393.75,
-                max_fall_speed: 480.0,
-                coyote_time: 0.0,
-                jump_buffer: 0.0,
-            )),
+            axis_tuning: Some($CLASSIC_AXIS_TUNING),
             playable_kit: Authored,
             tags: ["player"],
             barks: (
@@ -886,31 +911,7 @@ const MARY_O_CATALOG_RON: &str = r#"(
             default_brain: "stand_still",
             default_action_set: "peaceful",
             abilities: Some([RunJump]),
-            axis_tuning: Some((
-                horizontal_law: Momentum((
-                    ground_reverse_accel: 1500.0,
-                    ground_coast_decel: 1200.0,
-                    air_reverse_accel: 900.0,
-                    air_coast_decel: 0.0,
-                )),
-                jump_law: PhasedGravity((
-                    speed_thresholds: (120.0, 240.0, 360.0),
-                    launch_speeds: (420.0, 435.0, 450.0, 480.0),
-                    held_rise_gravity_scale: 0.2,
-                    released_rise_gravity_scale: 1.0,
-                    fall_gravity_scale: 1.0,
-                    held_phase_min_upward_speed: 240.0,
-                )),
-                gravity: 2250.0,
-                air_jumps: 0,
-                jump_speed: 450.0,
-                max_run_speed: 300.0,
-                run_accel: 393.75,
-                air_accel: 393.75,
-                max_fall_speed: 480.0,
-                coyote_time: 0.0,
-                jump_buffer: 0.0,
-            )),
+            axis_tuning: Some($CLASSIC_AXIS_TUNING),
             playable_kit: Authored,
             tags: ["player"],
             barks: (
@@ -974,7 +975,7 @@ pub fn install_mary_o_content(app: &mut App) {
         CharacterCatalogFragment::from_ron(
             provider::MARY_O_EXPERIENCE,
             Some(provider::MARY_O_CHARACTER_ID),
-            MARY_O_CATALOG_RON,
+            &mary_o_catalog_ron(),
         )
         .expect("Mary-O character catalog should be valid"),
     );
@@ -1070,6 +1071,16 @@ pub fn install_mary_o_content(app: &mut App) {
             .rollback_component_clone::<pipe::PipeEntryLatch>(
                 "ambition_demo_mary_o",
                 "content.mary_o_pipe_entry_latch",
+            )
+            // The spark cadence GATES whether a press fires, so it is
+            // authoritative: a rewind that restored input and live sparks but
+            // left this at its future value would swallow the replayed press and
+            // diverge. It rides on the player BODY, which the engine anchors.
+            // Its sibling `MaryOGait` is deliberately NOT here — every field on
+            // it is rebuilt from the current tick's control frame.
+            .rollback_component_clone::<movement::MaryOSparkCooldown>(
+                "ambition_demo_mary_o",
+                "content.mary_o_spark_cooldown",
             );
     }
 }
@@ -1325,6 +1336,7 @@ impl Plugin for MaryORulesPlugin {
         let gait = (
             movement::ensure_gait,
             movement::walk_by_default_run_while_held,
+            movement::tick_spark_cooldown,
             movement::fire_spark_on_run_press,
             movement::sync_run_action_scheme,
         )
@@ -1769,20 +1781,52 @@ mod tests {
         assert_eq!(mary_o_tuning.run_accel, 393.75);
         assert_eq!(mary_o_tuning.air_accel, 393.75);
         assert_eq!(horizontal.ground_reverse_accel, 1500.0);
-        assert_eq!(horizontal.ground_coast_decel, 1200.0);
+        assert_eq!(
+            horizontal.ground_coast_decel, 393.75,
+            "the FAITHFUL conversion: classic friction equals classic walk \
+             acceleration. An earlier pass stiffened this to 1200 to kill the \
+             slide; converging on the source material won."
+        );
         assert_eq!(horizontal.air_coast_decel, 0.0);
 
         let jump = match mary_o_tuning.jump_law {
             ambition::engine_core::AxisJumpLaw::PhasedGravity(params) => params,
             other => panic!("Mary-O must use phased gravity, got {other:?}"),
         };
-        assert_eq!(jump.speed_thresholds, [120.0, 240.0, 360.0]);
-        assert_eq!(jump.launch_speeds, [420.0, 435.0, 450.0, 480.0]);
+        assert_eq!(jump.speed_thresholds, [120.0, 187.5, 210.0]);
+        assert_eq!(jump.launch_offsets, [-30.0, -15.0, 0.0, 30.0]);
         assert_eq!(jump.held_rise_gravity_scale, 0.2);
         assert_eq!(jump.released_rise_gravity_scale, 1.0);
         assert_eq!(jump.fall_gravity_scale, 1.0);
         assert_eq!(jump.held_phase_min_upward_speed, 240.0);
         assert_eq!(mary_o_tuning.max_fall_speed, 480.0);
+        // THE band decision, pinned: a RUNNING jump is her highest jump, exactly
+        // as in the original. The top band's cut sits inside her run cap, so all
+        // four bands are reachable through ordinary locomotion — none of them is
+        // reserved for externally supplied overspeed. Flip this assertion (and
+        // the threshold) if the top band is ever meant to be a fling-only reward.
+        assert!(
+            jump.top_band_speed() < mary_o_tuning.max_run_speed,
+            "the top launch band must be reachable by running ({} vs cap {})",
+            jump.top_band_speed(),
+            mary_o_tuning.max_run_speed
+        );
+        assert_eq!(
+            jump.band_for_side_speed(mary_o_tuning.max_run_speed),
+            3,
+            "full run selects the top band"
+        );
+        assert_eq!(
+            jump.band_for_side_speed(movement::WALK_THROTTLE * mary_o_tuning.max_run_speed),
+            1,
+            "a walk selects a lower band, so the two gaits jump differently"
+        );
+        // The base knob still owns the whole family: every band is an offset
+        // from it, so there is exactly ONE ground-jump height authority.
+        assert_eq!(
+            jump.launch_speed_for_band(mary_o_tuning.jump_speed, 3),
+            mary_o_tuning.jump_speed + 30.0
+        );
         assert_eq!(mary_o_tuning.coyote_time, 0.0);
         assert_eq!(
             mary_o_tuning.jump_buffer, 0.0,

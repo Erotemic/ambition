@@ -17,13 +17,26 @@ Landed:
   speed-banded launch, weak held-ascent gravity, strong released/fall gravity,
   gravity-zone covariance, and rollback-complete jump-arc state. Wall mobility
   and generic fast-fall were removed from her core kit pending dedicated wall
-  jump and ground-pound abilities;
+  jump and ground-pound abilities. Her whole profile is authored ONCE
+  (`MARY_O_CLASSIC_AXIS_TUNING`) and substituted into every form, so small,
+  tall, and fire cannot drift apart;
+- launch bands ride as OFFSETS on `jump_speed`, so there is exactly one
+  ground-jump height authority, and the top band's threshold sits inside her run
+  cap — a running jump is her highest jump, as in the original;
+- zero `coyote_time` and zero `jump_buffer` are DELIBERATE (Jon): the classic
+  games grant no ledge forgiveness and no pre-landing buffer. Do not "fix" them;
 - provider/demo shells, the authored level-1 room grammar, fixed-tick simulation,
   and the mode-scoped level clock;
 - ?-block bonks that spawn real world-item pickups, with equip-on-touch through
   the shared item/equipment path;
 - the grow-cap armor row, distinct tall worn identity, collider/body-size update,
-  feet-planted grow/shrink behavior, and spark-blossom ranged move;
+  feet-planted grow/shrink behavior, and spark-blossom ranged move. ⚠ The
+  blossom PICKUP was invisible from the day the spark form landed: the runtime
+  bound `sprites/props/super_mary_o_spark_blossom.png` through `WorldItemArt`,
+  but no generator target ever produced that file, so the item was collectible
+  and undrawable. The target now exists in `super_mary_o_props.py` and publishes
+  through `regen_sprites.sh`. Lesson: a `WorldItemArt` id that names a missing
+  texture fails SILENTLY — nothing errors, the item is simply never drawn;
 - breakable bricks through durable block-contact identity;
 - crony enemies and shared stomp behavior;
 - forward-only authored camera policy; and

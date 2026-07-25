@@ -37,6 +37,10 @@ pub const MAX_LIVE_SPARKS: usize = 2;
 
 /// Mary-O's gait bookkeeping. Presentation reads it; the movement kernel does not
 /// know it exists.
+///
+/// Every field here is DERIVED from this tick's control frame and velocity, so
+/// it is rebuilt from scratch each tick and needs no rollback registration. The
+/// spark cooldown deliberately does NOT live here — see [`MaryOSparkCooldown`].
 #[derive(Component, Debug, Default)]
 pub struct MaryOGait {
     /// True while she is running (the slot is sustained) AND actually moving.
@@ -44,17 +48,39 @@ pub struct MaryOGait {
     /// True while her input opposes her velocity at speed — the readable slide
     /// that says "she has weight". Drives the skid pose/SFX.
     pub skidding: bool,
-    /// Counts down between sparks.
-    pub spark_cooldown: f32,
 }
 
-/// Attach the gait bookkeeping to Mary-O's body the first tick it exists.
+/// **Authoritative** spark cadence — sim state, not presentation.
+///
+/// This gates whether a press FIRES, so two sims that disagree about it are in
+/// different states: a rewind that restored input and projectiles but left this
+/// at its future value would silently swallow the replayed press and diverge.
+/// It therefore lives in its own rollback-registered component rather than
+/// riding along on the derived [`MaryOGait`], which must stay unregistered
+/// because it is rebuilt every tick.
+///
+/// Same lesson as `PipeEntryLatch`: an input-gating latch is authoritative even
+/// when it looks like bookkeeping.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct MaryOSparkCooldown {
+    /// Counts down between sparks.
+    pub remaining: f32,
+}
+
+/// Attach the gait bookkeeping and the authoritative spark cadence to Mary-O's
+/// body the first tick it exists.
 pub fn ensure_gait(
     mut commands: Commands,
     bodies: Query<Entity, (With<PrimaryPlayer>, Without<MaryOGait>)>,
+    uncooled: Query<Entity, (With<PrimaryPlayer>, Without<MaryOSparkCooldown>)>,
 ) {
     for body in &bodies {
         commands.entity(body).try_insert(MaryOGait::default());
+    }
+    for body in &uncooled {
+        commands
+            .entity(body)
+            .try_insert(MaryOSparkCooldown::default());
     }
 }
 
@@ -96,7 +122,22 @@ pub fn walk_by_default_run_while_held(
             .unwrap_or(kin.vel.x);
         gait.skidding =
             intent.abs() > 0.01 && side_speed * intent < 0.0 && side_speed.abs() > SKID_SPEED;
-        gait.spark_cooldown = (gait.spark_cooldown - time.scaled_dt).max(0.0);
+    }
+}
+
+/// Wind the authoritative spark cadence down.
+///
+/// Its OWN system rather than a line inside the gait policy: the gait policy
+/// runs on every body with a `MaryOGait`, and folding an unrelated required
+/// component into that query makes the whole walk/run throttle silently skip any
+/// body missing it (Bevy queries drop non-matching entities — no error, no log).
+/// Keeping the cadence separate means neither system can disable the other.
+pub fn tick_spark_cooldown(
+    time: Res<ambition::time::WorldTime>,
+    mut bodies: Query<&mut MaryOSparkCooldown, With<PrimaryPlayer>>,
+) {
+    for mut spark in &mut bodies {
+        spark.remaining = (spark.remaining - time.scaled_dt).max(0.0);
     }
 }
 
@@ -114,7 +155,7 @@ pub fn fire_spark_on_run_press(
     mut bodies: Query<
         (
             &mut ActorControl,
-            &mut MaryOGait,
+            &mut MaryOSparkCooldown,
             &ae::BodyKinematics,
             &WornEquipment,
         ),
@@ -122,18 +163,18 @@ pub fn fire_spark_on_run_press(
     >,
     live_sparks: Query<&crate::powerups::MaryOSpark>,
 ) {
-    for (mut control, mut gait, kin, worn) in &mut bodies {
+    for (mut control, mut spark, kin, worn) in &mut bodies {
         if !worn.wears(SPARK_BLOSSOM_ID) {
             continue;
         }
         let frame = &mut control.0;
-        if !frame.modifier_pressed || gait.spark_cooldown > 0.0 {
+        if !frame.modifier_pressed || spark.remaining > 0.0 {
             continue;
         }
         if live_sparks.iter().count() >= MAX_LIVE_SPARKS {
             continue;
         }
-        gait.spark_cooldown = SPARK_COOLDOWN_S;
+        spark.remaining = SPARK_COOLDOWN_S;
         // Primarily along her facing; the shot's own authored gravity supplies the
         // arc, so no launch angle is baked in here.
         frame.fire = Some(

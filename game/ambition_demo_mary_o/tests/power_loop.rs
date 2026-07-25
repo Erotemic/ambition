@@ -34,7 +34,8 @@ use ambition::engine_core::collision_semantics::{ContactKind, ContactSource};
 use ambition::platformer::markers::ControlledSubject;
 
 use ambition_demo_mary_o::movement::{
-    fire_spark_on_run_press, walk_by_default_run_while_held, MaryOGait, WALK_THROTTLE,
+    fire_spark_on_run_press, tick_spark_cooldown, walk_by_default_run_while_held, MaryOGait,
+    MaryOSparkCooldown, WALK_THROTTLE,
 };
 use ambition_demo_mary_o::powerups::{
     bonk_power_blocks, spark_blossom, sync_grown_form, SpentPowerBlocks, GROW_CAP_ID,
@@ -81,6 +82,7 @@ impl Loop {
                 ActorMoveset(Default::default()),
                 ActorControl::default(),
                 MaryOGait::default(),
+                MaryOSparkCooldown::default(),
                 PlayerBodyFrameOutput::default(),
             ))
             .id();
@@ -94,6 +96,7 @@ impl Loop {
                 reconcile_equipment_grants,
                 sync_grown_form,
                 walk_by_default_run_while_held,
+                tick_spark_cooldown,
                 fire_spark_on_run_press,
             )
                 .chain(),

@@ -11,6 +11,7 @@ fn body(app: &mut App) -> Entity {
         .spawn((
             PrimaryPlayer,
             MaryOGait::default(),
+            MaryOSparkCooldown::default(),
             ActorControl::default(),
             ae::BodyKinematics {
                 pos: ae::Vec2::ZERO,
@@ -159,8 +160,7 @@ fn her_authored_gait_makes_speed_something_she_builds_and_keeps() {
     };
 
     // Releasing run lowers the target to a walk and uses the authored coast
-    // rate. It decelerates rather than snapping, but completes the transition
-    // quickly enough that the avatar no longer reads as skating.
+    // rate. It decelerates rather than snapping.
     let dt = 1.0 / 60.0;
     let walk_target = WALK_THROTTLE * tuning.max_run_speed;
     let after_one_tick = tuning.max_run_speed - momentum.ground_coast_decel * dt;
@@ -170,10 +170,16 @@ fn her_authored_gait_makes_speed_something_she_builds_and_keeps() {
          it does not snap to it"
     );
 
+    // THE classic relationship, and the reason this is an assertion rather than
+    // a magic number: in the games this converts, ground friction IS the walk
+    // acceleration, so coasting to a stop takes exactly as long as winding up to
+    // top speed. An earlier pass stiffened the coast to ~3x to kill the slide;
+    // that flourish is reverted, and this pins the faithful equality so the next
+    // "it feels slidey" impulse has to argue with the source material.
     let coast_time = tuning.max_run_speed / momentum.ground_coast_decel;
     assert!(
-        coast_time < wind_up * 0.5,
-        "stopping must be substantially faster than building top speed \
+        (coast_time - wind_up).abs() < 1.0e-4,
+        "classic friction equals classic acceleration \
          ({coast_time}s coast versus {wind_up}s wind-up)"
     );
 
@@ -197,7 +203,7 @@ fn her_authored_gait_makes_speed_something_she_builds_and_keeps() {
         ae::AxisJumpLaw::PhasedGravity(params) => params,
         other => panic!("Mary-O must author phased gravity, got {other:?}"),
     };
-    assert_eq!(jump.launch_speeds, [420.0, 435.0, 450.0, 480.0]);
+    assert_eq!(jump.launch_offsets, [-30.0, -15.0, 0.0, 30.0]);
     assert_eq!(jump.held_rise_gravity_scale, 0.2);
     assert_eq!(jump.released_rise_gravity_scale, 1.0);
 

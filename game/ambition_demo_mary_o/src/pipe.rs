@@ -73,7 +73,9 @@ pub fn ensure_pipe_entry_latch(
     bodies: Query<Entity, (With<PlayerEntity>, Without<PipeEntryLatch>)>,
 ) {
     for entity in &bodies {
-        commands.entity(entity).try_insert(PipeEntryLatch::default());
+        commands
+            .entity(entity)
+            .try_insert(PipeEntryLatch::default());
     }
 }
 

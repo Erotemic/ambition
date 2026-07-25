@@ -54,6 +54,7 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app);
@@ -132,6 +133,7 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
         app.add_message::<VfxMessage>();
         app.add_message::<DebrisBurstMessage>();
         app.add_message::<ActorStimulus>();
+        app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
         app.add_systems(Update, apply_feature_hit_events);
         let victim = spawn_hostile_actor(&mut app);
         // A non-lethal (damage 1 vs health 5) hit PRE-RESOLVED to this enemy —
@@ -203,6 +205,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
         app.add_message::<VfxMessage>();
         app.add_message::<DebrisBurstMessage>();
         app.add_message::<ActorStimulus>();
+        app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
         app.add_systems(Update, apply_feature_hit_events);
         let victim = spawn_hostile_actor(&mut app); // health 5
         let before = app
@@ -265,6 +268,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app);
@@ -302,6 +306,67 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
 }
 
 #[test]
+fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player() {
+    use crate::combat::moveset::{simple_melee, MovePlayback, SimpleMeleeParams};
+
+    let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.add_message::<HitEvent>();
+    app.add_message::<SetFlagRequested>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let player = app
+        .world_mut()
+        .spawn((
+            crate::actor::PlayerEntity,
+            crate::actor::PrimaryPlayer,
+            ambition_characters::actor::BodyCombat::default(),
+            MovePlayback::new(simple_melee(&SimpleMeleeParams::default()), 1.0),
+        ))
+        .id();
+    let shell = app.world_mut().spawn_empty().id();
+    let victim = spawn_hostile_actor(&mut app);
+    let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
+        volume: event_volume.into(),
+        damage: 2,
+        source: HitSource::EnemyChargeCrash,
+        attacker: Some(shell),
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+    });
+
+    app.update();
+
+    assert_eq!(
+        app.world().get::<BodyHealth>(victim).unwrap().current(),
+        3,
+        "the shell hit still lands on its feature victim"
+    );
+    let combat = app
+        .world()
+        .get::<ambition_characters::actor::BodyCombat>(player)
+        .unwrap();
+    assert_eq!(combat.hitstop_timer, 0.0);
+    assert_eq!(combat.hit_flash, 0.0);
+    assert!(
+        !app.world().get::<MovePlayback>(player).unwrap().landed_hit,
+        "a remote shell must not confirm the primary player's move"
+    );
+}
+
+#[test]
 fn player_slash_damages_and_can_kill_a_hostile_actor() {
     // The core attack loop through the unified HitEvent path: a
     // player slash (attacker-side source) reduces a hostile
@@ -318,6 +383,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app); // HP 5
@@ -491,6 +557,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
         app.add_message::<VfxMessage>();
         app.add_message::<DebrisBurstMessage>();
         app.add_message::<ActorStimulus>();
+        app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
         app.init_resource::<CapturedBubbles>();
         app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
 
@@ -543,6 +610,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app); // HP 5
@@ -598,6 +666,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor = spawn_hostile_actor(&mut app); // HP 5 — survives one slash
@@ -718,6 +787,7 @@ fn player_slash_shatters_a_breakable() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_systems(Update, apply_feature_hit_events);
 
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 20.0));
@@ -1077,6 +1147,7 @@ fn shield_test_app() -> App {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_systems(Update, apply_feature_hit_events);
     app
 }
@@ -1280,6 +1351,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_systems(Update, apply_feature_hit_events);
 
     let attacker = app
@@ -1351,6 +1423,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_systems(
         Update,
         (
@@ -1439,6 +1512,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
         app.add_message::<VfxMessage>();
         app.add_message::<DebrisBurstMessage>();
         app.add_message::<ActorStimulus>();
+        app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
         app.init_resource::<CapturedBubbles>();
         app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
         let e = spawn_hostile_actor(&mut app);
@@ -1475,4 +1549,49 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
         bubbles, 0,
         "a dying enemy does not speak a hit line — it presents its death instead"
     );
+}
+
+#[test]
+fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
+    use bevy::ecs::message::Messages;
+
+    let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+    );
+    app.add_message::<HitEvent>();
+    app.add_message::<SetFlagRequested>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    app.add_systems(Update, apply_feature_hit_events);
+
+    spawn_talkable_npc(&mut app, 1);
+    app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+        damage: 1,
+        source: HitSource::PlayerSlash { knock_x: 120.0 },
+        attacker: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+    });
+    app.update();
+
+    let messages = app
+        .world()
+        .resource::<Messages<ambition_sfx::OwnedSfxMessage>>();
+    let mut cursor = messages.get_cursor();
+    let plays = cursor
+        .read(messages)
+        .filter(|message| matches!(message.request, ambition_sfx::SfxMessage::Play { .. }))
+        .count();
+    assert_eq!(plays, 1, "the peaceful victim emits exactly one hit sound");
 }

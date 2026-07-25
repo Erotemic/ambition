@@ -41,6 +41,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<FireworksRequest>()
             .add_message::<DebrisBurstMessage>()
             .add_message::<ActorDiedMessage>()
+            .add_message::<ambition_actors::features::ecs::damage_apply::WalletShieldSpent>()
             .add_message::<ambition_combat::SetFlagRequested>()
             .add_message::<ambition_actors::features::QuestAdvanceRequested>()
             .add_message::<ambition_actors::features::SwitchActivated>()

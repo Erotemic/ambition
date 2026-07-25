@@ -94,6 +94,7 @@ fn resolver_ignores_a_hit_inside_the_i_frame_window() {
         &mut combat,
         Some(&mut health),
         None,
+        None,
         false,
         1.0,
         pos,
@@ -119,6 +120,7 @@ fn resolver_ignores_a_hit_on_a_dead_body() {
         &mut combat,
         Some(&mut health),
         None,
+        None,
         false,
         1.0,
         pos,
@@ -140,6 +142,7 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
     let res = resolve_body_hit(
         &mut combat,
         Some(&mut health),
+        None,
         None,
         true,
         1.0,
@@ -163,6 +166,7 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
     let res = resolve_body_hit(
         &mut combat,
         Some(&mut health),
+        None,
         None,
         true,
         1.0,
@@ -192,6 +196,7 @@ fn resolver_scales_damage_arms_feel_and_floors_at_one() {
         &mut combat,
         Some(&mut health),
         None,
+        None,
         false,
         1.0,
         pos,
@@ -217,6 +222,7 @@ fn resolver_scales_damage_arms_feel_and_floors_at_one() {
     let res = resolve_body_hit(
         &mut combat,
         Some(&mut health),
+        None,
         None,
         false,
         1.0,
@@ -246,6 +252,7 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
         &mut combat,
         Some(&mut health),
         None,
+        None,
         false,
         1.0,
         pos,
@@ -272,6 +279,7 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
         &mut combat,
         Some(&mut health),
         None,
+        None,
         false,
         1.0,
         pos,
@@ -294,6 +302,7 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
     let mut combat = BodyCombat::default();
     let res = resolve_body_hit(
         &mut combat,
+        None,
         None,
         None,
         false,
@@ -753,6 +762,7 @@ fn a3_worn_armor_absorbs_a_hit_downgrades_then_the_next_hit_damages_hp() {
         &mut combat,
         Some(&mut health),
         Some(&mut worn),
+        None,
         false,
         1.0,
         pos,
@@ -781,6 +791,7 @@ fn a3_worn_armor_absorbs_a_hit_downgrades_then_the_next_hit_damages_hp() {
         &mut combat,
         Some(&mut health),
         Some(&mut worn),
+        None,
         false,
         1.0,
         pos,
@@ -952,4 +963,65 @@ fn a_lifecycle_boundary_voids_staged_player_hits() {
             .is_empty(),
         "RoomLoaded must void hits staged by the outgoing room's population"
     );
+}
+
+#[test]
+fn wallet_shield_spends_currency_before_a_lethal_hit_reaches_health() {
+    use ambition_characters::actor::{BodyWallet, BodyWalletShield};
+
+    let mut combat = BodyCombat::default();
+    let mut health = test_health(1);
+    let mut wallet = BodyWallet { balance: 7 };
+    let shield = BodyWalletShield;
+    let pos = ae::Vec2::new(10.0, 20.0);
+
+    let res = resolve_body_hit(
+        &mut combat,
+        Some(&mut health),
+        None,
+        Some((&mut wallet, &shield)),
+        false,
+        1.0,
+        pos,
+        pos,
+        DOWN,
+        99,
+        1.0,
+        false,
+        TEST_FEEL,
+    );
+
+    assert_eq!(res, BodyHitResolution::WalletShielded { spent: 7 });
+    assert_eq!(health.current(), 1, "the lethal hit never reaches HP");
+    assert_eq!(wallet.balance, 0, "the whole defensive balance is spent");
+}
+
+#[test]
+fn empty_wallet_shield_does_not_make_the_body_immortal() {
+    use ambition_characters::actor::{BodyWallet, BodyWalletShield};
+
+    let mut combat = BodyCombat::default();
+    let mut health = test_health(1);
+    let mut wallet = BodyWallet { balance: 0 };
+    let shield = BodyWalletShield;
+    let pos = ae::Vec2::new(10.0, 20.0);
+
+    let res = resolve_body_hit(
+        &mut combat,
+        Some(&mut health),
+        None,
+        Some((&mut wallet, &shield)),
+        false,
+        1.0,
+        pos,
+        pos,
+        DOWN,
+        1,
+        1.0,
+        false,
+        TEST_FEEL,
+    );
+
+    assert_eq!(res, BodyHitResolution::Damaged { damage: 1, died: true });
+    assert_eq!(health.current(), 0);
 }

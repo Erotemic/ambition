@@ -504,9 +504,10 @@ pub fn run_snake_shells(
     let player_box = player_read.map(|(_, aabb, pos, vel)| (aabb, pos, vel));
 
     // First pass: advance every snake's phase and apply presentation/physics.
-    // Collect each sliding shell's (AABB, own-id, whether it is side-hitting the
-    // player) so the shared-pipeline hits below can be emitted after the borrow.
-    let mut sliding: Vec<(ae::Aabb, String, bool)> = Vec::new();
+    // Collect each sliding shell's (entity, AABB, own-id, whether it is
+    // side-hitting the player) so the shared-pipeline hits below retain causal
+    // attribution after the mutable query borrow ends.
+    let mut sliding: Vec<(Entity, ae::Aabb, String, bool)> = Vec::new();
     for (entity, feature_id, health, mut kin, mut combat, mut config, mut shell) in &mut snakes {
         if !health.alive() {
             // A corpse is out of the mechanic: it stops sliding, advances no phase,
@@ -576,7 +577,12 @@ pub fn run_snake_shells(
             // Boxed, so it is not even here), and during the post-kick grace the
             // shell is still inside whoever kicked it.
             let side_hit = grace <= 0.0 && touch == Some(PlayerTouch::Side);
-            sliding.push((kin.aabb(), feature_id.as_str().to_string(), side_hit));
+            sliding.push((
+                entity,
+                kin.aabb(),
+                feature_id.as_str().to_string(),
+                side_hit,
+            ));
         }
         *shell = fx.phase;
     }
@@ -586,13 +592,13 @@ pub fn run_snake_shells(
     // the player (the drain's actor query is `Without<PlayerEntity>`) and EXCEPT the
     // shell itself (ignored by both disposition prefixes); the side-hit player event
     // is the only thing that can hurt the player.
-    for (aabb, self_id, side_hit) in sliding {
+    for (shell_entity, aabb, self_id, side_hit) in sliding {
         hits.write(HitEvent {
             strike_sfx: None,
             volume: aabb.into(),
             damage: SHELL_ENEMY_DAMAGE,
             source: HitSource::EnemyChargeCrash,
-            attacker: None,
+            attacker: Some(shell_entity),
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
             knockback: None,
@@ -605,7 +611,7 @@ pub fn run_snake_shells(
                     volume: aabb.into(),
                     damage: SHELL_PLAYER_DAMAGE,
                     source: HitSource::EnemyBody,
-                    attacker: None,
+                    attacker: Some(shell_entity),
                     target: HitTarget::Player(player_entity),
                     mode: HitMode::Knockback,
                     knockback: None,

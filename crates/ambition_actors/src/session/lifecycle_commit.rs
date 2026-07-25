@@ -55,12 +55,10 @@ pub enum LifecycleIntent {
     /// `subject` is the rollback-stable [`SimId`] of the body that actually
     /// crossed the exit — NOT re-resolved from live control at commit time,
     /// because possession may have changed, ended, or the body may have died
-    /// during the confirmation delay (GPT review finding 2). `None` means the
-    /// trigger had no `SimId` (the home avatar on paths that don't stamp one);
-    /// the committer then transports the primary player, which is stable for the
-    /// unpossessed case.
+    /// during the confirmation delay. A body without stable identity cannot
+    /// produce a deferred transition intent.
     Transition {
-        subject: Option<SimId>,
+        subject: SimId,
         target_room: String,
         arrival: Vec2,
         edge_exit: bool,
@@ -143,7 +141,7 @@ mod tests {
         slot.record(
             10,
             LifecycleIntent::Transition {
-                subject: Some(SimId::placement("hero")),
+                subject: SimId::placement("hero"),
                 target_room: "east".into(),
                 arrival: Vec2::new(1.0, 2.0),
                 edge_exit: true,

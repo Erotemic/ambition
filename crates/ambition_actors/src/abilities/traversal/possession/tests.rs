@@ -420,3 +420,79 @@ fn possession_finds_no_target_in_a_world_of_only_corpses() {
         "a corpse is never possessed"
     );
 }
+
+#[test]
+fn release_restores_a_preexisting_session_scope_exactly() {
+    use ambition_platformer_primitives::lifecycle::{
+        ActiveSessionScope, RoomScopedEntity, SessionScopeId, SessionScopedEntity,
+    };
+
+    let mut app = trigger_app();
+    let mut active = ActiveSessionScope::default();
+    let active_id = active.begin();
+    app.insert_resource(active);
+    let _home = spawn_home(&mut app);
+    let actor = spawn_candidate(&mut app, vec2(80.0, 0.0));
+    let original_id = SessionScopeId(active_id.0 + 41);
+    app.world_mut()
+        .entity_mut(actor)
+        .insert(SessionScopedEntity(original_id));
+
+    hold_down_interact(&mut app, true);
+    app.update();
+    app.update();
+    assert_eq!(
+        app.world().get::<SessionScopedEntity>(actor).map(|scope| scope.0),
+        Some(active_id),
+        "the controlled body joins the active session while possessed"
+    );
+    assert!(app.world().get::<RoomScopedEntity>(actor).is_none());
+
+    hold_down_interact(&mut app, false);
+    app.update();
+    hold_down_interact(&mut app, true);
+    app.update();
+    assert_eq!(
+        app.world().get::<SessionScopedEntity>(actor).map(|scope| scope.0),
+        Some(original_id),
+        "release restores the exact pre-possession session scope"
+    );
+    assert!(app.world().get::<RoomScopedEntity>(actor).is_none());
+}
+
+#[test]
+fn release_restores_an_initially_unscoped_candidate() {
+    use ambition_platformer_primitives::lifecycle::{
+        ActiveSessionScope, RoomScopedEntity, SessionScopedEntity,
+    };
+
+    let mut app = trigger_app();
+    let mut active = ActiveSessionScope::default();
+    active.begin();
+    app.insert_resource(active);
+    let _home = spawn_home(&mut app);
+    let actor = spawn_candidate(&mut app, vec2(80.0, 0.0));
+    assert!(app.world().get::<RoomScopedEntity>(actor).is_none());
+    assert!(app.world().get::<SessionScopedEntity>(actor).is_none());
+
+    hold_down_interact(&mut app, true);
+    app.update();
+    app.update();
+    assert!(
+        app.world().get::<SessionScopedEntity>(actor).is_some(),
+        "an unscoped body is temporarily promoted while controlled"
+    );
+
+    hold_down_interact(&mut app, false);
+    app.update();
+    hold_down_interact(&mut app, true);
+    app.update();
+    assert!(
+        app.world().get::<RoomScopedEntity>(actor).is_none(),
+        "release must not invent room ownership"
+    );
+    assert!(
+        app.world().get::<SessionScopedEntity>(actor).is_none(),
+        "release returns the candidate to its original unscoped state"
+    );
+}

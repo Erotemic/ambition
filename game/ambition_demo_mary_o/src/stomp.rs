@@ -38,7 +38,10 @@ pub fn player_touch(body: ae::Aabb, player: ae::Aabb, player_vel: ae::Vec2) -> O
         return None;
     }
     let feet = player.max.y;
-    let on_head = feet >= body.min.y - STOMP_BAND && feet <= body.min.y + STOMP_BAND;
+    // The band is penetration tolerance, not reach: the player's feet must have
+    // reached the head plane. Allowing `head - STOMP_BAND` classified a player
+    // hovering up to sixteen pixels above an enemy as a stomp.
+    let on_head = feet >= body.min.y && feet <= body.min.y + STOMP_BAND;
     // Falling onto the head, or standing on it (`vel.y == 0`), is a stomp. Rising
     // INTO it from below is not — that is a hit, exactly like Mario.
     if on_head && player_vel.y >= 0.0 {

@@ -1185,20 +1185,42 @@ fn the_speedway_tags_every_ring_with_the_animated_sprite() {
 /// **Rings are a life, not a score.** A hit taken holding rings is survived and
 /// costs the rings; a hit taken holding none lands normally.
 ///
-/// Worth pinning because both halves are invisible from the outside and each
-/// fails silently in the opposite direction: a scatter that forgets to refund
-/// the health kills a player who should have survived, and one that refunds it
-/// unconditionally makes the body immortal the moment it owns a single ring.
-/// Nothing on screen distinguishes either from "working".
+/// Feed the Sanic presentation boundary directly. Shared-resolver tests pin
+/// survival and wallet spending; these tests pin only the deterministic burst
+/// produced from that settled victim-side fact.
+fn emit_ring_shield_spend(app: &mut App, victim: bevy::prelude::Entity, amount: i32) {
+    let pos = app
+        .world()
+        .get::<ae::BodyKinematics>(victim)
+        .expect("ring-shield victim has kinematics")
+        .pos;
+    if let Some(mut wallet) = app
+        .world_mut()
+        .get_mut::<ambition::characters::actor::BodyWallet>(victim)
+    {
+        wallet.balance = 0;
+    }
+    app.world_mut().write_message(
+        ambition::actors::features::ecs::damage_apply::WalletShieldSpent {
+            victim,
+            amount,
+            pos,
+        },
+    );
+}
+
 #[test]
 fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
     use ambition::characters::actor::{BodyHealth, BodyWallet, Health};
-    use ambition::platformer::lifecycle::{ActiveSessionScope, SessionScopeId};
+    use ambition::platformer::lifecycle::ActiveSessionScope;
 
     fn app_with_session() -> App {
         let mut app = App::new();
         app.add_message::<ambition::vfx::VfxMessage>();
         app.add_message::<ambition::sfx::OwnedSfxMessage>();
+        app.add_message::<
+            ambition::actors::features::ecs::damage_apply::WalletShieldSpent,
+        >();
         let mut scope = ActiveSessionScope::default();
         scope.begin();
         app.insert_resource(scope);
@@ -1238,19 +1260,13 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
     // ── Holding rings: the hit is spent on them ─────────────────────────────
     let mut app = app_with_session();
     let sanic = spawn_sanic(&mut app, 7);
-    app.update(); // adopt the starting health
-
-    app.world_mut()
-        .get_mut::<BodyHealth>(sanic)
-        .unwrap()
-        .health
-        .current -= 1;
+    emit_ring_shield_spend(&mut app, sanic, 7);
     app.update();
 
     assert_eq!(
         health(&mut app, sanic),
         3,
-        "a hit taken with rings is REFUNDED — that is what carrying rings buys"
+        "a hit taken with rings never reaches HP — that is what carrying rings buys"
     );
     assert_eq!(rings(&mut app, sanic), 0, "and it costs every ring");
     assert_eq!(
@@ -1259,24 +1275,8 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
         "which scatter as real pickups, so they can be run back down"
     );
 
-    // ── Holding none: the hit lands ─────────────────────────────────────────
-    let mut app = app_with_session();
-    let broke = spawn_sanic(&mut app, 0);
-    app.update();
-    app.world_mut()
-        .get_mut::<BodyHealth>(broke)
-        .unwrap()
-        .health
-        .current -= 1;
-    app.update();
-
-    assert_eq!(
-        health(&mut app, broke),
-        2,
-        "with no rings the hit lands normally — ring loss is a privilege of \
-         carrying rings, not a blanket shield"
-    );
-    assert_eq!(dropped(&mut app), 0, "and nothing scatters");
+    // The no-currency lethal path is pinned in the shared resolver tests; this
+    // content test owns only the presentation of a successful spend.
 }
 
 /// Jon's bug: "the rings don't explode outward when sanic gets hit." A scatter
@@ -1292,6 +1292,7 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     let mut app = App::new();
     app.add_message::<ambition::vfx::VfxMessage>();
     app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
     let mut scope = ActiveSessionScope::default();
     scope.begin();
     app.insert_resource(scope);
@@ -1318,12 +1319,7 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
         ))
         .id();
 
-    app.update(); // adopt starting health
-    app.world_mut()
-        .get_mut::<BodyHealth>(sanic)
-        .unwrap()
-        .health
-        .current -= 1;
+    emit_ring_shield_spend(&mut app, sanic, 6);
     app.update(); // the hit spends the rings → they burst
 
     // Every lost ring launches with a REAL outward speed (not a static placement)
@@ -1387,6 +1383,7 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     let mut app = App::new();
     app.add_message::<ambition::vfx::VfxMessage>();
     app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_message::<ambition::actors::avatar::PlayerHealRequested>();
     app.add_message::<ambition::actors::features::SetFlagRequested>();
     app.insert_resource(ambition::actors::features::GameplayBanner::default());
@@ -1433,12 +1430,7 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
         q.iter(app.world()).count()
     };
 
-    app.update(); // adopt starting health (no hit yet)
-    app.world_mut()
-        .get_mut::<BodyHealth>(sanic)
-        .unwrap()
-        .health
-        .current -= 1;
+    emit_ring_shield_spend(&mut app, sanic, 6);
     app.update(); // the hit spends the rings → they burst (spawned via commands)
     app.update(); // the burst entities now exist; the full chain processes them
 
@@ -1513,6 +1505,7 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
     let mut app = App::new();
     app.add_message::<ambition::vfx::VfxMessage>();
     app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
     let mut scope = ActiveSessionScope::default();
     scope.begin();
     app.insert_resource(scope);
@@ -1533,24 +1526,13 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
             SimIdCounter::default(),
         ))
         .id();
-    let hurt = |app: &mut App| {
-        app.world_mut()
-            .get_mut::<BodyHealth>(sanic)
-            .unwrap()
-            .health
-            .current -= 1;
-    };
-    app.update(); // adopt starting health
-    hurt(&mut app);
-    app.update(); // burst 1 (four rings); health is refunded to 9
-                  // An idle tick so the ring-loss watcher's `seen_health` catches up to the
-                  // refunded health — otherwise the next hit isn't seen as a fresh drop.
-    app.update();
+    emit_ring_shield_spend(&mut app, sanic, 4);
+    app.update(); // burst 1 (four rings); health was never touched
     app.world_mut()
         .get_mut::<BodyWallet>(sanic)
         .unwrap()
         .balance = 4;
-    hurt(&mut app);
+    emit_ring_shield_spend(&mut app, sanic, 4);
     app.update(); // burst 2 (four more) while burst-1 rings still exist
 
     // The FeatureId string is derived from the ring's SimId, so uniqueness there

@@ -1066,6 +1066,10 @@ pub fn install_mary_o_content(app: &mut App) {
             .rollback_component_clone::<pipe::PipeTransit>(
                 "ambition_demo_mary_o",
                 "content.mary_o_pipe_transit",
+            )
+            .rollback_component_clone::<pipe::PipeEntryLatch>(
+                "ambition_demo_mary_o",
+                "content.mary_o_pipe_entry_latch",
             );
     }
 }
@@ -1259,10 +1263,9 @@ impl Plugin for MaryORulesPlugin {
         // (`run_snake_shells`); the full app registers this via the engine's damage
         // plugin, but a thin rules-only harness may not. `add_message` is idempotent.
         app.add_message::<ambition::actors::features::HitEvent>();
-        // The flag runs BEFORE the clock: a level whose flag has been grabbed is
-        // over, and `tick_level_clock` reads the sequence to know it. The cycle
-        // emitter runs LAST so it sees the settled tally and its clock reset is not
-        // immediately decremented on the same frame.
+        // Level progression lives in the canonical gameplay-effects phase. The
+        // flag runs before the clock; the cycle emitter runs last so it sees the
+        // settled tally and its clock reset is not immediately decremented.
         let rules = (
             spawn_mary_o_mode_owner,
             flag::run_flag_sequence,
@@ -1270,15 +1273,21 @@ impl Plugin for MaryORulesPlugin {
             // Reads the clock the tick above just settled, so a timeout is spent
             // on the frame it happens rather than one late.
             spend_lives_on_death,
-            // The press starts a transit; the transit drives the slide. Chained
-            // so the press is read before the slide advances (the insert itself
-            // flushes with the schedule, so a fresh transit picks up on the next
-            // tick at the latest — one frame, invisible).
-            warp_through_secret_pipe,
-            pipe::run_pipe_transits,
             cycle_level_on_flag_tally,
         )
-            .chain();
+            .chain()
+            .in_set(ambition::platformer::schedule::SandboxSet::GameplayEffects);
+        // Pipe input is authoritative rollback state on the player body. Entry
+        // and transit run after ordinary WorldPrep movement, so the scripted
+        // position wins this frame instead of racing the shared integrator.
+        let pipe_input = pipe::ensure_pipe_entry_latch
+            .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
+            .after(ambition::actors::avatar::tick_player_brains)
+            .before(warp_through_secret_pipe);
+        let pipe_rules = (warp_through_secret_pipe, pipe::run_pipe_transits)
+            .chain()
+            .in_set(ambition::platformer::schedule::SandboxSet::PlayerSimulation)
+            .after(ambition::actors::features::ecs::damage_apply::apply_player_hit_events);
         // The walkers are registered by `install_mary_o_content`, the single
         // authored-content composition seam shared by direct and shell hosts.
         // Rules consume the staged actors; they do not mutate construction
@@ -1294,7 +1303,8 @@ impl Plugin for MaryORulesPlugin {
             ai_slop::bounce_squash_ai_slop
                 .before(ambition::actors::features::apply_actor_contact_damage),
         )
-            .chain();
+            .chain()
+            .in_set(ambition::platformer::schedule::SandboxSet::WorldPrep);
         // The powerup rules on the two engine primitives: re-arm the ?-blocks on
         // (re)load, pop milk on a head-bonk, and keep the tall form in sync with
         // wearing the cap. The engine's `collect_world_items` (touch → equip) sits
@@ -1304,7 +1314,9 @@ impl Plugin for MaryORulesPlugin {
             powerups::bonk_power_blocks,
             powerups::sync_grown_form,
             powerups::tag_mary_o_sparks,
-        );
+        )
+            .chain()
+            .in_set(ambition::platformer::schedule::SandboxSet::FeatureInteraction);
         // Mary-O's locomotion POLICY and her spark's press edge. Both read the
         // sustained control slot off the body's freshly-produced `ActorControl`,
         // so they sit after the brain tick and before the shared movement phase
@@ -1317,6 +1329,7 @@ impl Plugin for MaryORulesPlugin {
             movement::sync_run_action_scheme,
         )
             .chain()
+            .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
             .after(ambition::actors::avatar::tick_player_brains);
         // The bricks — the reactive-block primitive's SECOND consumer: re-arm on
         // (re)load, break the bonked one, and contribute broken bricks to the
@@ -1324,11 +1337,22 @@ impl Plugin for MaryORulesPlugin {
         // the render reconcile, drawing). The contribution runs AFTER the engine's
         // overlay rebuild clears that list — the same slot `contribute_encounter_lock_walls`
         // takes — so the removals survive the per-frame clean slate.
-        let bricks = (bricks::refill_bricks_on_room_loaded, bricks::break_bricks);
+        let bricks = (bricks::refill_bricks_on_room_loaded, bricks::break_bricks)
+            .chain()
+            .in_set(ambition::platformer::schedule::SandboxSet::FeatureInteraction);
         let brick_overlay = bricks::contribute_broken_bricks_to_overlay
+            .in_set(ambition::platformer::schedule::SandboxSet::WorldPrep)
             .after(ambition::actors::features::rebuild_feature_ecs_world_overlay);
         if self.hosted {
             app.add_systems(sim, rules.run_if(ambition::runtime::in_mode(MARY_O_MODE)));
+            app.add_systems(
+                sim,
+                pipe_input.run_if(ambition::runtime::in_mode(MARY_O_MODE)),
+            );
+            app.add_systems(
+                sim,
+                pipe_rules.run_if(ambition::runtime::in_mode(MARY_O_MODE)),
+            );
             app.add_systems(sim, cronies.run_if(ambition::runtime::in_mode(MARY_O_MODE)));
             app.add_systems(
                 sim,
@@ -1342,6 +1366,8 @@ impl Plugin for MaryORulesPlugin {
             );
         } else {
             app.add_systems(sim, rules);
+            app.add_systems(sim, pipe_input);
+            app.add_systems(sim, pipe_rules);
             app.add_systems(sim, cronies);
             app.add_systems(sim, powerups);
             app.add_systems(sim, bricks);
@@ -1514,16 +1540,14 @@ fn spend_lives_on_death(
 /// A body already in a tube is excluded from this query, so the trip cannot be
 /// re-triggered from inside itself.
 fn warp_through_secret_pipe(
-    // Rising-edge latch on the directional trigger, so a HELD press warps exactly
-    // once rather than re-firing every frame it stays down.
-    mut was_pressed: bevy::prelude::Local<bool>,
     mut commands: bevy::prelude::Commands,
     mut sfx: ambition::sfx::SfxWriter,
-    bodies: bevy::prelude::Query<
+    mut bodies: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
             &ae::BodyKinematics,
             &ambition::characters::brain::ActorControl,
+            &mut pipe::PipeEntryLatch,
         ),
         (
             ambition::platformer::markers::PrimaryPlayerOnly,
@@ -1534,8 +1558,7 @@ fn warp_through_secret_pipe(
     // Body-local locomotion, `+y` toward the feet (screen-down under Mary-O's
     // normal gravity): press toward the ground to go DOWN a pipe, away to go UP.
     const DIR_DEADZONE: f32 = 0.5;
-    let mut any_trigger = false;
-    for (entity, kin, control) in &bodies {
+    for (entity, kin, control, mut latch) in &mut bodies {
         let down = control.0.locomotion.y > DIR_DEADZONE;
         let up = control.0.locomotion.y < -DIR_DEADZONE;
         let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
@@ -1545,11 +1568,13 @@ fn warp_through_secret_pipe(
         let at_entry = at_mouth(body, pipe_mouth());
         let at_return = at_mouth(body, vault_exit());
         let destination = warp_destination(down, up, at_entry, at_return);
-        any_trigger |= destination.is_some();
+        let pressed = destination.is_some();
+        let rising_edge = pressed && !latch.pressed;
+        latch.pressed = pressed;
         let Some(destination) = destination else {
             continue;
         };
-        if *was_pressed {
+        if !rising_edge {
             continue;
         }
 
@@ -1568,7 +1593,6 @@ fn warp_through_secret_pipe(
             pos: kin.pos,
         });
     }
-    *was_pressed = any_trigger;
 }
 
 /// Where a directional pipe press sends the body, if anywhere (Jon bug #8).

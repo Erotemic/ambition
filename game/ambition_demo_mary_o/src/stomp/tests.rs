@@ -61,3 +61,20 @@ fn rising_into_a_head_from_below_is_a_side_hit_not_a_stomp() {
         "the same geometry falling is still a stomp"
     );
 }
+
+#[test]
+fn a_gap_above_the_head_is_not_a_stomp() {
+    // Head is y=284. Feet at 283 (one-pixel gap) and 269 (fifteen-pixel gap)
+    // are both spatially separate, regardless of downward velocity.
+    let falling = ae::Vec2::new(0.0, 200.0);
+    assert_eq!(
+        player_touch(body(), player_at(400.0, 259.0), falling),
+        None,
+        "a one-pixel gap is not contact"
+    );
+    assert_eq!(
+        player_touch(body(), player_at(400.0, 245.0), falling),
+        None,
+        "the stomp tolerance cannot reach through empty space"
+    );
+}

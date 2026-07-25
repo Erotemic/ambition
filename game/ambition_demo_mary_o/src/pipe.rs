@@ -12,9 +12,9 @@
 //!   engine's authority for discretely relocating a body (ADR 0024) and it
 //!   reconciles the motion model's private attachment/maneuver state each time, so
 //!   a player who enters the pipe mid-wall-cling is not still clinging inside it.
-//!   Re-asserting each tick also means the shared movement phase cannot drift the
-//!   body while it is in the tube: gravity gets at most one tick before the next
-//!   transit puts it back on the path.
+//!   The ECS wrapper is scheduled after ordinary movement, so the transit's
+//!   authored position wins every frame instead of allowing an unordered
+//!   integrator to displace it after the snap.
 //! * **The occlusion** is presentation data, not code: the pipe props are authored
 //!   `PropDraw::Structure`, so their art fills the collider a body stands on
 //!   exactly AND draws in front of the cast — which is what lets a pipe swallow a
@@ -55,6 +55,27 @@ const TRANSIT_LOCK: f32 = 1.0;
 /// audio fragment (see `provider.rs`). Named as an id rather than a shared
 /// `SoundCueKey` because "went down a pipe" is Mary-O's verb, not the engine's.
 pub const PIPE_WARP_SFX: &str = "mary_o.pipe";
+
+/// Rollback-safe rising-edge state for directional pipe entry.
+///
+/// A system-local `Local<bool>` survives GGRS world restores and can therefore
+/// suppress an input edge during resimulation. Keeping the latch on the body
+/// makes the edge part of the same authoritative snapshot as the transit it
+/// creates.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PipeEntryLatch {
+    pub pressed: bool,
+}
+
+/// Attach the per-body pipe-entry latch before the entry reader runs.
+pub fn ensure_pipe_entry_latch(
+    mut commands: Commands,
+    bodies: Query<Entity, (With<PlayerEntity>, Without<PipeEntryLatch>)>,
+) {
+    for entity in &bodies {
+        commands.entity(entity).try_insert(PipeEntryLatch::default());
+    }
+}
 
 /// Which half of the transit is running.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -33,9 +33,23 @@ use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
 use crate::features::TemporaryControl;
 use ambition_platformer_primitives::markers::ControlledSubject;
 use ambition_platformer_primitives::sim_id::SimId;
+use ambition_platformer_primitives::lifecycle::{
+    RoomScopedEntity, SessionScopeId, SessionScopedEntity,
+};
 
 use crate::actor::PlayerEntity;
 use crate::features::{CenteredAabb, FeatureSimEntity};
+
+/// Exact lifecycle ownership a possessed body had before control transfer.
+/// Release restores this value rather than assuming every candidate began as a
+/// room fixture.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PossessionRestoreScope {
+    #[default]
+    Unscoped,
+    Room,
+    Session(SessionScopeId),
+}
 
 /// Brain-transfer bookkeeping for possession.
 ///
@@ -53,6 +67,8 @@ pub struct PossessionState {
     pub home: Option<Entity>,
     /// The possessed actor's brain before transfer, restored on release.
     pub restore_brain: Option<Brain>,
+    /// Exact lifecycle scope to restore on release.
+    pub restore_scope: PossessionRestoreScope,
     /// How long Down+Interact has been held toward the possess threshold.
     ///
     /// Lives HERE rather than in a `Local<f32>` on the trigger system because
@@ -212,7 +228,7 @@ pub fn possession_trigger_system(
     // faction is NOT touched — effective allegiance (`Brain::Player` ⇒ combat
     // treats it as Player) makes the possessed body fight its former allies
     // without mutating `ActorFaction`.
-    target_data: Query<&Brain>,
+    target_data: Query<(&Brain, Option<&RoomScopedEntity>, Option<&SessionScopedEntity>)>,
     // Read-only AABB lookup for the vacate exit on release.
     actor_aabbs: Query<&CenteredAabb>,
 ) {
@@ -272,7 +288,7 @@ pub fn possession_trigger_system(
     let Some((target, _)) = nearest else {
         return;
     };
-    let Ok(target_brain) = target_data.get(target) else {
+    let Ok((target_brain, room_scope, session_scope)) = target_data.get(target) else {
         return;
     };
 
@@ -283,6 +299,13 @@ pub fn possession_trigger_system(
     // left untouched — effective allegiance handles its player-side combat.
     state.home = Some(home_entity);
     state.restore_brain = Some(target_brain.clone());
+    state.restore_scope = if let Some(scope) = session_scope {
+        PossessionRestoreScope::Session(scope.0)
+    } else if room_scope.is_some() {
+        PossessionRestoreScope::Room
+    } else {
+        PossessionRestoreScope::Unscoped
+    };
     state.possessed = Some(target);
 
     commands
@@ -312,14 +335,15 @@ pub fn possession_trigger_system(
         .and_then(ambition_platformer_primitives::lifecycle::ActiveSessionScope::current)
     {
         target_cmds
-            .remove::<ambition_platformer_primitives::lifecycle::RoomScopedEntity>()
-            .insert(ambition_platformer_primitives::lifecycle::SessionScopedEntity(scope_id));
+            .remove::<RoomScopedEntity>()
+            .remove::<SessionScopedEntity>()
+            .insert(SessionScopedEntity(scope_id));
     }
 }
 
-/// Restore the home avatar's player brain and the target's authored brain +
-/// faction, then step the home body out to the vacated actor's position so the
-/// camera (which was following the actor) doesn't snap back.
+/// Restore the home avatar's player brain and the target's authored brain plus
+/// exact pre-possession lifecycle scope, then step the home body out to the
+/// vacated actor's position so the camera does not snap back.
 fn release_possession(
     commands: &mut Commands,
     state: &mut PossessionState,
@@ -343,21 +367,23 @@ fn release_possession(
     // (refreshed by `BrainCommand` if it switched during possession), so releasing
     // resumes the CURRENT selected source. Its temporary-control record returns to
     // `Autonomous`.
+    let restore_scope = std::mem::take(&mut state.restore_scope);
     if let Some(brain) = state.restore_brain.take() {
         if let Ok(mut ec) = commands.get_entity(target) {
             ec.insert(brain)
                 .insert(ActorControl::default())
                 .insert(TemporaryControl::Autonomous)
-                // Revert the possess-time promotion: the released actor is no
-                // longer the body you drive, so it returns to room scope — a
-                // normal NPC belonging to whatever room it now stands in (it may
-                // have walked to a new one while possessed), despawning with that
-                // room like any other. Mirrors the promotion in
-                // `possession_trigger_system`; a body the promotion never touched
-                // (no active session) is unaffected because the marker swap is
-                // idempotent.
-                .remove::<ambition_platformer_primitives::lifecycle::SessionScopedEntity>()
-                .insert(ambition_platformer_primitives::lifecycle::RoomScopedEntity);
+                .remove::<RoomScopedEntity>()
+                .remove::<SessionScopedEntity>();
+            match restore_scope {
+                PossessionRestoreScope::Unscoped => {}
+                PossessionRestoreScope::Room => {
+                    ec.insert(RoomScopedEntity);
+                }
+                PossessionRestoreScope::Session(scope_id) => {
+                    ec.insert(SessionScopedEntity(scope_id));
+                }
+            }
         }
     }
 
@@ -406,6 +432,7 @@ pub fn release_possession_if_target_lost(
     }
     state.possessed = None;
     state.restore_brain = None;
+    state.restore_scope = PossessionRestoreScope::Unscoped;
 }
 
 #[cfg(test)]

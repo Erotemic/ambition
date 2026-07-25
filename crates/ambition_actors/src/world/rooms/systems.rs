@@ -148,9 +148,13 @@ pub fn detect_room_transition_system(
             Some(RoomSfxId::new("world.portal.enter"))
         }
     };
-    // Clear the interact buffer so the same press doesn't re-trigger
-    // a transition next frame before `load_room` resets it.
-    slot_gestures.primary_mut().clear();
+    let Some(target_spec) = room_set.spec_at(zone.target_room) else {
+        bevy::log::error!(
+            "transition target {:?} has no room spec; leaving input buffered",
+            zone.target_room
+        );
+        return;
+    };
     if let Some(boundary) = boundary {
         // Rollback host: record a deferred reconstruction intent instead of
         // firing the message. The host-side committer runs it on a confirmed
@@ -158,20 +162,30 @@ pub fn detect_room_transition_system(
         // `PendingLifecycleCommit::record`), so a re-detected overlap on the next
         // predicted frame — the body is still on the exit until the commit
         // relocates it — is a no-op rather than a duplicate.
-        if let Some(spec) = room_set.spec_at(zone.target_room) {
-            let edge_exit = matches!(zone.zone.activation, LoadingZoneActivation::EdgeExit);
-            pending_lifecycle.record(
-                boundary.current,
-                crate::session::lifecycle_commit::LifecycleIntent::Transition {
-                    // The exact body that crossed the exit, by stable identity.
-                    subject: sim_ids.get(subject_entity).ok().cloned(),
-                    target_room: spec.id.clone(),
-                    arrival: zone.arrival,
-                    edge_exit,
-                },
+        let Ok(subject) = sim_ids.get(subject_entity) else {
+            bevy::log::error!(
+                "rollback transition subject {:?} has no SimId; refusing an ambiguous intent",
+                subject_entity
             );
-        }
+            return;
+        };
+        // Consume the gesture only after every invariant required to record the
+        // deferred transition has been validated.
+        slot_gestures.primary_mut().clear();
+        let edge_exit = matches!(zone.zone.activation, LoadingZoneActivation::EdgeExit);
+        pending_lifecycle.record(
+            boundary.current,
+            crate::session::lifecycle_commit::LifecycleIntent::Transition {
+                subject: subject.clone(),
+                target_room: target_spec.id.clone(),
+                arrival: zone.arrival,
+                edge_exit,
+            },
+        );
         return;
     }
+    // Eager hosts need no deferred stable identity, but still consume the press
+    // only once the transition is known to be actionable.
+    slot_gestures.primary_mut().clear();
     transition_writer.write(RoomTransitionRequested::new(zone, zone_sfx));
 }

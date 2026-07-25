@@ -2403,13 +2403,7 @@ impl SnapshotState for ambition_actors::session::lifecycle_commit::PendingLifecy
                         edge_exit,
                     } => {
                         put_u8(out, 3);
-                        match subject {
-                            Some(sim_id) => {
-                                put_bool(out, true);
-                                put_str(out, sim_id.as_str());
-                            }
-                            None => put_bool(out, false),
-                        }
+                        put_str(out, subject.as_str());
                         put_str(out, target_room);
                         put_vec2(out, *arrival);
                         put_bool(out, *edge_exit);
@@ -2433,15 +2427,9 @@ impl SnapshotState for ambition_actors::session::lifecycle_commit::PendingLifecy
             1 => LifecycleIntent::ManualReset,
             2 => LifecycleIntent::Replay,
             3 => LifecycleIntent::Transition {
-                subject: if r.bool()? {
-                    Some(
-                        ambition_platformer_primitives::sim_id::SimId::from_snapshot(
-                            r.str()?.to_string(),
-                        ),
-                    )
-                } else {
-                    None
-                },
+                subject: ambition_platformer_primitives::sim_id::SimId::from_snapshot(
+                    r.str()?.to_string(),
+                ),
                 target_room: r.str()?.to_string(),
                 arrival: r.vec2()?,
                 edge_exit: r.bool()?,

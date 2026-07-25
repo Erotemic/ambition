@@ -1157,6 +1157,9 @@ pub fn register_engine_rollback_state(app: &mut App) {
         "message.room_transition_requested",
     )
     .clear_message_on_rollback::<ambition_actors::ActorDiedMessage>(ENGINE, "message.actor_died")
+    .clear_message_on_rollback::<
+        ambition_actors::features::ecs::damage_apply::WalletShieldSpent,
+    >(ENGINE, "message.wallet_shield_spent")
     .clear_message_on_rollback::<ambition_actors::avatar::PlayerHealRequested>(
         ENGINE,
         "message.player_heal_requested",

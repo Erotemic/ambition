@@ -300,6 +300,22 @@ impl HitSource {
                 | HitSource::EnemyChargeCrash
         )
     }
+
+    /// Whether a legacy hit with no explicit attacker may be attributed to the
+    /// primary player for attacker-side confirmation.
+    ///
+    /// Only genuinely player-originated sources qualify. Environmental and
+    /// enemy self-crash hits must carry their own entity or remain unattributed;
+    /// otherwise a remote shell/explosion grants the player hitstop, move
+    /// confirms, and per-swing bookkeeping it did not earn.
+    pub fn defaults_to_primary_attacker(&self) -> bool {
+        matches!(
+            self,
+            HitSource::PlayerSlash { .. }
+                | HitSource::PlayerProjectile
+                | HitSource::PogoBounce
+        )
+    }
 }
 
 /// How a hit event resolves its victim.
@@ -416,4 +432,19 @@ pub struct HitEvent {
     /// cheap weight on the snapshotted `PendingPlayerHitEvents` FIFO, unlike a
     /// `String` — and excluded from the checksum like the other id fields.
     pub strike_sfx: Option<ambition_sfx::SfxId>,
+}
+
+#[cfg(test)]
+mod attacker_default_tests {
+    use super::HitSource;
+
+    #[test]
+    fn only_legacy_player_sources_default_to_the_primary_attacker() {
+        assert!(HitSource::PlayerSlash { knock_x: 0.0 }.defaults_to_primary_attacker());
+        assert!(HitSource::PlayerProjectile.defaults_to_primary_attacker());
+        assert!(HitSource::PogoBounce.defaults_to_primary_attacker());
+        assert!(!HitSource::EnemyChargeCrash.defaults_to_primary_attacker());
+        assert!(!HitSource::EnemyBody.defaults_to_primary_attacker());
+        assert!(!HitSource::Hazard.defaults_to_primary_attacker());
+    }
 }

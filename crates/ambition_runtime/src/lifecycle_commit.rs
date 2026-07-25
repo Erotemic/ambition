@@ -124,7 +124,8 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
 ///   not prepare yet); keep the intent pending and try again on a later confirmed
 ///   frame. Nothing was mutated.
 /// * [`Cancelled`](CommitOutcome::Cancelled) — the intent is VOID and can never
-///   succeed (the crossing body is gone / had no identity); DROP the intent
+///   succeed (the crossing body is gone or fails the transit contract); DROP
+///   the intent
 ///   without reconstructing or rebasing, leaving the source room authoritative.
 ///   The distinction from `Retry` is what stops a dead-subject transition from
 ///   either retrying forever or laundering itself into a home-player teleport
@@ -162,8 +163,8 @@ fn execute_lifecycle_commit(world: &mut World, kind: &LifecycleIntent) -> Commit
 /// look it up by exact identity and transit THAT body or nothing. It never
 /// substitutes another entity:
 ///
-/// * `Some(id)` that still resolves → that body.
-/// * `Some(id)` that no longer resolves → `None`. The crossing body is gone (it
+/// * An id that still resolves → that body.
+/// * An id that no longer resolves → `None`. The crossing body is gone (it
 ///   died during the confirmation delay). Substituting the home player — as this
 ///   once did — teleports a body that never touched the exit into the target
 ///   room, silently moving the primary into a room the player never walked to
@@ -171,20 +172,16 @@ fn execute_lifecycle_commit(world: &mut World, kind: &LifecycleIntent) -> Commit
 ///   navigate rooms as itself), so the only way to reach this arm is genuine
 ///   death, and a dead crossing is a VOID crossing, not a licence to move
 ///   someone else.
-/// * `None` id → `None`. A controlled sim body with no `SimId` is an identity
-///   failure, not permission to pick another entity.
-///
 /// The caller maps `None` to a CANCELLED commit: the intent is dropped and the
 /// source room stays authoritative. Deliberately never the live
 /// `ControlledSubject`, because possession may have changed since the trigger.
 fn resolve_transition_subject(
     world: &mut World,
-    subject: &Option<ambition_platformer_primitives::sim_id::SimId>,
+    subject: &ambition_platformer_primitives::sim_id::SimId,
 ) -> Option<Entity> {
-    let sim_id = subject.as_ref()?;
     let mut ids = world.query::<(Entity, &ambition_platformer_primitives::sim_id::SimId)>();
     ids.iter(world)
-        .find(|(_, id)| *id == sim_id)
+        .find(|(_, id)| *id == subject)
         .map(|(entity, _)| entity)
 }
 
@@ -197,7 +194,7 @@ fn resolve_transition_subject(
 /// here is a regression.
 fn commit_transition(
     world: &mut World,
-    subject: &Option<ambition_platformer_primitives::sim_id::SimId>,
+    subject: &ambition_platformer_primitives::sim_id::SimId,
     target_room: &str,
     arrival: ae::Vec2,
     edge_exit: bool,

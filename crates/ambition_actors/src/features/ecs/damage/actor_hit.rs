@@ -51,6 +51,10 @@ pub(crate) fn apply_actor_hit(
     // The body's combat state — the ONE post-hit i-frame authority for every
     // body (the player gates re-hits on the same `BodyCombat.damage_invuln_timer`).
     combat: &mut ambition_characters::actor::BodyCombat,
+    wallet_shield: Option<(
+        &mut ambition_characters::actor::BodyWallet,
+        &ambition_characters::actor::BodyWalletShield,
+    )>,
     aggression: Option<&mut crate::features::ActorAggression>,
     interactable: Option<&ambition_interaction::Interactable>,
     banner: &mut GameplayBanner,
@@ -74,8 +78,8 @@ pub(crate) fn apply_actor_hit(
         // a hit within the last `ACTOR_DAMAGE_IFRAME_S` ignores further hits,
         // collapsing a sustained 60 fps overlap (lingering attack volume, body
         // contact, dialog-pinned body next to an enemy) to one hit per window.
-        // Returns false so the caller's `actor_hit_this_event` stays unset
-        // (no sfx/hitstop, no per-swing dedup record).
+        // An i-framed repeat returns false so the caller's
+        // `actor_hit_this_event` stays unset (no feedback or hit bookkeeping).
         if !combat.vulnerable() {
             return false;
         }
@@ -87,7 +91,14 @@ pub(crate) fn apply_actor_hit(
         combat.hit_flash = 0.18;
         combat.damage_invuln_timer = super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S;
         let impact = midpoint(event.volume.center(), pos);
-        writers.vfx.write(VfxMessage::Impact { pos: impact });
+        crate::combat::util::emit_hit_feedback(
+            &mut writers.sfx,
+            &mut writers.vfx,
+            &mut writers.debris,
+            hurt,
+            event.strike_sfx,
+            impact,
+        );
         writers.actor_stimuli.write(ActorStimulus::DamagedBy {
             actor: actor_entity,
             source: event.attacker,
@@ -155,6 +166,7 @@ pub(crate) fn apply_actor_hit(
             // No actor archetype wears equipment armor today; the resolver
             // supports it generically, but nothing threads a `WornEquipment` here.
             None,
+            wallet_shield,
             em.shield.active,
             em.kin.facing,
             em.kin.pos,
@@ -226,6 +238,17 @@ pub(crate) fn apply_actor_hit(
                 kind: ParticleKind::Spark,
             });
             return true;
+        }
+        if let crate::features::ecs::damage_apply::BodyHitResolution::WalletShielded { spent } =
+            resolution
+        {
+            writers.wallet_shield_spent.write(
+                crate::features::ecs::damage_apply::WalletShieldSpent {
+                    victim: actor_entity,
+                    amount: spent,
+                    pos: em.kin.pos,
+                },
+            );
         }
         if resolution == crate::features::ecs::damage_apply::BodyHitResolution::Armored {
             // A worn armor row absorbed the hit (no actor wears one today; kept

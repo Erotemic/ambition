@@ -29,8 +29,7 @@ use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::{
     remember_safe_player_position, ActorDiedMessage, SafePositionContext, SandboxSimState,
 };
-use ambition_characters::actor::BodyCombat;
-use ambition_characters::actor::BodyHealth;
+use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
 use ambition_characters::equipment::WornEquipment;
 use ambition_engine_core::RoomGeometry;
 use ambition_sfx::{SfxMessage, SfxWriter};
@@ -116,9 +115,22 @@ pub enum BodyHitResolution {
     /// downgraded), and the SAME brief i-frames a damaging hit arms are armed.
     /// The hit registered, but it never reaches HP or the death path.
     Armored,
+    /// A wallet-backed shield absorbed the hit before HP/death resolution.
+    /// `spent` is the entire positive balance consumed by the resolver.
+    WalletShielded { spent: i32 },
     /// The hit landed. `damage` is the post-multiplier amount applied; `died`
     /// is whether it killed the body.
     Damaged { damage: i32, died: bool },
+}
+
+/// Deterministic victim-side fact emitted when a [`BodyWalletShield`] spends a
+/// wallet balance. The generic resolver owns survival; game content owns how
+/// the spent currency is presented (for example, as scattered rings).
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq)]
+pub struct WalletShieldSpent {
+    pub victim: Entity,
+    pub amount: i32,
+    pub pos: ae::Vec2,
 }
 
 /// THE one victim-side hit resolver every body shares (fable review 2026-07-02
@@ -141,6 +153,7 @@ pub fn resolve_body_hit(
     combat: &mut BodyCombat,
     mut health: Option<&mut BodyHealth>,
     armor: Option<&mut WornEquipment>,
+    wallet_shield: Option<(&mut BodyWallet, &BodyWalletShield)>,
     shield_active: bool,
     facing: f32,
     body_pos: ae::Vec2,
@@ -177,6 +190,18 @@ pub fn resolve_body_hit(
             combat.hit_flash = feel.hit_flash;
             combat.damage_invuln_timer = feel.damage_invuln_time;
             return BodyHitResolution::Armored;
+        }
+    }
+    // Wallet-backed armor is resolved before HP and death. A lethal hit against
+    // a one-health body carrying currency therefore spends the balance rather
+    // than entering the respawn path.
+    if let Some((wallet, _shield)) = wallet_shield {
+        if wallet.balance > 0 {
+            let spent = wallet.balance;
+            wallet.balance = 0;
+            combat.hit_flash = feel.hit_flash;
+            combat.damage_invuln_timer = feel.damage_invuln_time;
+            return BodyHitResolution::WalletShielded { spent };
         }
     }
     combat.hit_flash = feel.hit_flash;
@@ -252,6 +277,7 @@ pub(crate) fn death_respawn_player(
 /// records into `ClassBRemapLog`.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn handle_player_damage_events(
+    player_entity: Entity,
     world: &ae::World,
     sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
@@ -266,6 +292,8 @@ pub(crate) fn handle_player_damage_events(
     // A3: the player's worn equipment, so an armor row can absorb this hit before
     // it reaches HP. `None` for a player wearing nothing.
     armor: Option<&mut WornEquipment>,
+    wallet_shield: Option<(&mut BodyWallet, &BodyWalletShield)>,
+    wallet_shield_spent: &mut MessageWriter<WalletShieldSpent>,
     damage_events: &[FeatureHitEvent],
     tuning: ae::MovementTuning,
     // The body's frame down direction, resolved by the environment.
@@ -310,6 +338,7 @@ pub(crate) fn handle_player_damage_events(
         combat,
         player_health.as_deref_mut(),
         armor,
+        wallet_shield,
         clusters.shield.active,
         clusters.kinematics.facing,
         clusters.kinematics.pos,
@@ -345,6 +374,49 @@ pub(crate) fn handle_player_damage_events(
             });
             banner_requests.write(GameplayBannerRequested::new("POWERUP LOST", 1.4));
             false
+        }
+        BodyHitResolution::WalletShielded { spent } => {
+            wallet_shield_spent.write(WalletShieldSpent {
+                victim: player_entity,
+                amount: spent,
+                pos: clusters.kinematics.pos,
+            });
+            // The shield prevents HP loss and death, not the ordinary physical
+            // reaction. This preserves hazard reset and knockback feel without
+            // making positive currency a no-recoil invincibility exploit.
+            match damage.mode {
+                crate::combat::HitMode::SafeRespawn => {
+                    safe_respawn_player(
+                        sfx,
+                        vfx,
+                        clusters,
+                        clock_resets,
+                        safety,
+                        combat,
+                        tuning,
+                        feel,
+                        impact_pos,
+                        motion_model,
+                    );
+                    true
+                }
+                crate::combat::HitMode::Knockback => {
+                    ae::movement::knock_off_ledge(motion_model, clusters.ledge);
+                    apply_player_knockback(
+                        sfx,
+                        vfx,
+                        debris,
+                        clusters,
+                        combat,
+                        tuning,
+                        gravity_dir,
+                        feel,
+                        &damage,
+                        di_input_local,
+                    );
+                    false
+                }
+            }
         }
         BodyHitResolution::Damaged { died: true, .. } => {
             // Attribution for the death fact: the killing hit's source category
@@ -772,11 +844,12 @@ pub fn apply_player_hit_events(
     // tuple). It carries the player's hurt-debris puff into the ONE victim-side
     // reaction, so the player keeps the impact debris that used to fire
     // attacker-side.
-    (world, moving_platforms, mut class_b, mut debris_writer): (
+    (world, moving_platforms, mut class_b, mut debris_writer, mut wallet_shield_spent): (
         ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
         Res<MovingPlatformSet>,
         Option<ResMut<ambition_platformer_primitives::class_b::ClassBRemapLog>>,
         MessageWriter<DebrisBurstMessage>,
+        MessageWriter<WalletShieldSpent>,
     ),
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -813,6 +886,10 @@ pub fn apply_player_hit_events(
             // A3: the player's worn equipment (mushroom/flower). `Option` so a
             // player wearing nothing still resolves — the common case.
             Option<&mut WornEquipment>,
+            // Optional generic wallet-backed armor. The marker determines
+            // whether a positive wallet balance is defensive currency.
+            Option<&mut BodyWallet>,
+            Option<&BodyWalletShield>,
             &mut BodyAnimFacts,
             &mut BodyCombat,
             &mut PlayerSafetyState,
@@ -891,6 +968,8 @@ pub fn apply_player_hit_events(
         mut cluster_item,
         player_health,
         worn,
+        wallet,
+        wallet_shield,
         mut anim,
         mut combat,
         mut safety,
@@ -915,6 +994,7 @@ pub fn apply_player_hit_events(
         // movement integrated under this tick.
         let victim_gravity_dir = resolved_frame.down();
         let remapped = handle_player_damage_events(
+            player_entity,
             &world.0,
             &mut sfx_writer,
             &mut vfx_writer,
@@ -927,6 +1007,10 @@ pub fn apply_player_hit_events(
             &mut banner_requests,
             player_health.map(|h| h.into_inner()),
             worn.map(|w| w.into_inner()),
+            wallet
+                .map(|wallet| wallet.into_inner())
+                .zip(wallet_shield),
+            &mut wallet_shield_spent,
             &target_events,
             tuning,
             victim_gravity_dir,

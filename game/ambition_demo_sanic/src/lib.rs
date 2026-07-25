@@ -925,6 +925,9 @@ impl Plugin for SanicRulesPlugin {
         // and `add_message`/`init_resource` are idempotent.
         app.add_message::<ambition::sfx::OwnedSfxMessage>();
         app.add_message::<ambition::vfx::VfxMessage>();
+        app.add_message::<
+            ambition::actors::features::ecs::damage_apply::WalletShieldSpent,
+        >();
         app.add_message::<ambition::actors::rooms::RoomLoaded>();
         // The act cycle restarts the room on a clear, exactly as Mary-O's level
         // cycle does. The engine registers this in a full app; a thin
@@ -965,6 +968,30 @@ impl Plugin for SanicRulesPlugin {
             app.add_systems(sim, sanic_pre_gate);
             app.add_systems(sim, sanic_post_gate);
         }
+        // The marker is identity-derived. In a hosted app it is also mode-derived:
+        // leaving the Sanic rooms removes the shield even if the same worn persona
+        // remains selected elsewhere, where no ring-scatter consumer is awake.
+        if self.hosted {
+            app.add_systems(
+                sim,
+                sync_hosted_sanic_wallet_shield
+                    .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
+                    .after(ambition::actors::avatar::apply_worn_character_gameplay)
+                    .before(
+                        ambition::actors::features::ecs::damage_apply::apply_player_hit_events,
+                    ),
+            );
+        } else {
+            app.add_systems(
+                sim,
+                sync_sanic_wallet_shield
+                    .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
+                    .after(ambition::actors::avatar::apply_worn_character_gameplay)
+                    .before(
+                        ambition::actors::features::ecs::damage_apply::apply_player_hit_events,
+                    ),
+            );
+        }
 
         // The ball dash is a RULE, not world content: it exists while the Sanic
         // mode is live and nowhere else, exactly like the act clock. Effects run
@@ -997,17 +1024,20 @@ impl Plugin for SanicRulesPlugin {
         // The badnik defeat runs BEFORE the engine's shared body-contact-damage
         // pass so a stomp/roll never also hurts Sanic (the rule zeroes the
         // badnik's health that frame; the contact pass skips a dead attacker).
-        let badniks =
-            badnik::defeat_badniks.before(ambition::actors::features::apply_actor_contact_damage);
-        // Ring loss reads the health the contact pass just wrote, so it runs
-        // AFTER it — the hit has to have landed before rings can absorb it.
-        let ring_loss =
-            scatter_rings_on_hit.after(ambition::actors::features::apply_actor_contact_damage);
+        let badniks = badnik::defeat_badniks
+            .in_set(ambition::platformer::schedule::SandboxSet::WorldPrep)
+            .before(ambition::actors::features::apply_actor_contact_damage);
+        // The shared player resolver spends wallet armor before death and emits
+        // the deterministic fact this Sanic presentation consumes.
+        let ring_loss = scatter_rings_on_hit
+            .in_set(ambition::platformer::schedule::SandboxSet::PlayerSimulation)
+            .after(ambition::actors::features::ecs::damage_apply::apply_player_hit_events);
         // The scattered-ring burst flies out BETWEEN the coin magnet and the
         // collect: it owns each ring's position during the lock so the magnet
         // can't reclaim it, and collect then sees the ring out at its arc rather
         // than on top of the knocked-back body.
         let scatter_arc = arc_scattered_rings
+            .in_set(ambition::platformer::schedule::SandboxSet::FeatureCollection)
             .after(ambition::actors::features::magnetize_pickups)
             .before(ambition::actors::features::collect_ecs_pickups);
         // Monitor boxes: re-arm on (re)load, break on stomp/roll, tick the
@@ -1019,8 +1049,11 @@ impl Plugin for SanicRulesPlugin {
             monitors::rearm_monitors_on_room_loaded,
             monitors::break_monitor_boxes,
             monitors::tick_speed_shoes,
-        );
+        )
+            .chain()
+            .in_set(ambition::platformer::schedule::SandboxSet::GameplayEffects);
         let monitor_overlay = monitors::contribute_broken_monitors_to_overlay
+            .in_set(ambition::platformer::schedule::SandboxSet::WorldPrep)
             .after(ambition::actors::features::rebuild_feature_ecs_world_overlay);
         if self.hosted {
             app.add_systems(sim, rules.run_if(ambition::runtime::in_mode(SANIC_MODE)));
@@ -1354,14 +1387,6 @@ const SCATTER_GRAVITY: f32 = 900.0;
 /// than a same-frame refund. Just short of a second, the classic feel.
 const SCATTER_LOCK_S: f32 = 0.85;
 
-/// Marks the body's "I just lost my rings" window, so a single hit cannot be
-/// billed twice while the damage frame is still resolving.
-#[derive(bevy::prelude::Component, Debug, Default)]
-pub struct SanicRingLoss {
-    /// Health the body had last time this ran. A DROP is the hit edge.
-    seen_health: Option<i32>,
-}
-
 /// A ring in mid-BURST after a hit (classic Sonic scatter): it flies out from the
 /// body and arcs down under gravity, and while its `lock` is live it is NOT yet
 /// magnet-collectible. Rollback-registered sim state — the burst has to
@@ -1379,42 +1404,77 @@ pub struct ScatteredRing {
     pub lock: f32,
 }
 
-/// **Rings absorb the hit.**
+/// Keep the generic wallet-backed shield aligned with the worn Sanic persona.
 ///
-/// This is the rule the whole ring economy exists to serve: carrying rings is
-/// not a score, it is a life. Take a hit holding rings and you survive it and
-/// they scatter; take one holding none and it lands normally.
+/// This is derived state, not an input edge: rebuilding it every frame avoids a
+/// rollback latch while keeping the shared damage resolver content-agnostic.
+type SanicShieldBodies<'w, 's> = bevy::prelude::Query<
+    'w,
+    's,
+    (
+        bevy::prelude::Entity,
+        &'static ambition::characters::actor::WornCharacter,
+        Option<&'static ambition::characters::actor::BodyWalletShield>,
+    ),
+    ambition::platformer::markers::PrimaryPlayerOnly,
+>;
+
+fn reconcile_sanic_wallet_shield(
+    commands: &mut bevy::prelude::Commands,
+    bodies: &SanicShieldBodies<'_, '_>,
+    mode_active: bool,
+) {
+    for (entity, worn, shield) in bodies {
+        let enabled = mode_active && matches!(worn.id(), "sanic" | "super_sanic");
+        match (enabled, shield.is_some()) {
+            (true, false) => {
+                commands
+                    .entity(entity)
+                    .try_insert(ambition::characters::actor::BodyWalletShield);
+            }
+            (false, true) => {
+                commands
+                    .entity(entity)
+                    .remove::<ambition::characters::actor::BodyWalletShield>();
+            }
+            _ => {}
+        }
+    }
+}
+
+fn sync_sanic_wallet_shield(
+    mut commands: bevy::prelude::Commands,
+    bodies: SanicShieldBodies<'_, '_>,
+) {
+    reconcile_sanic_wallet_shield(&mut commands, &bodies, true);
+}
+
+fn sync_hosted_sanic_wallet_shield(
+    mut commands: bevy::prelude::Commands,
+    active: Option<ambition::platformer::lifecycle::SessionWorldRef<
+        ambition::world::rooms::ActiveRoomMetadata,
+    >>,
+    bodies: SanicShieldBodies<'_, '_>,
+) {
+    let mode_active = active.is_some_and(|active| active.0.mode.as_deref() == Some(SANIC_MODE));
+    reconcile_sanic_wallet_shield(&mut commands, &bodies, mode_active);
+}
+
+/// Present a wallet-shield spend as a classic ring burst.
 ///
-/// The hit is detected as a DROP in the body's health rather than by listening
-/// for a damage message, for the same reason Mary-O counts deaths off the
-/// engine's respawn counter: every current and future source of damage — badnik
-/// contact, spikes, a hazard nobody has authored yet — is already accounted for,
-/// with no per-source wiring.
-///
-/// The scattered rings are ordinary `currency` pickups spawned through the
-/// engine's own `spawn_pickup`, so the shared economy collects them on the exact
-/// path an authored ring takes. A dropped ring and an authored ring are the same
-/// thing once they exist, which is what makes "run back and grab them" work
-/// without a single line of demo collection code.
+/// Survival is already decided inside the shared victim resolver before HP or
+/// death is evaluated. This system consumes the deterministic fact from that
+/// resolver and owns only Sanic-specific entity spawning, VFX, and SFX.
 pub fn scatter_rings_on_hit(
     mut commands: bevy::prelude::Commands,
     active_session: Option<bevy::prelude::Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
+    mut spent: bevy::prelude::MessageReader<
+        ambition::actors::features::ecs::damage_apply::WalletShieldSpent,
+    >,
     mut vfx: bevy::prelude::MessageWriter<ambition::vfx::VfxMessage>,
     mut sfx: ambition::sfx::SfxWriter,
     mut bodies: bevy::prelude::Query<
         (
-            bevy::prelude::Entity,
-            &ae::BodyKinematics,
-            &mut ambition::characters::actor::BodyHealth,
-            &mut ambition::characters::actor::BodyWallet,
-            Option<&mut SanicRingLoss>,
-            // The spawner's stable identity + its own per-spawner sequence
-            // counter — the ONLY legitimate source of a dynamic drop's id
-            // (`SimId::spawned`, ADR 0030). Required, not optional: a drop that
-            // cannot name its spawner is unreconstructable, so a body without an
-            // identity does not scatter rather than mint provenance that says
-            // nothing. `ensure_sim_id` stamps both on the primary player before
-            // any hit lands, so at runtime they are always present.
             &ambition::platformer::sim_id::SimId,
             &mut ambition::platformer::sim_id::SimIdCounter,
         ),
@@ -1429,61 +1489,31 @@ pub fn scatter_rings_on_hit(
         return;
     };
 
-    for (entity, kin, mut health, mut wallet, loss, player_id, mut counter) in &mut bodies {
-        let current = health.health.current;
-        let Some(mut loss) = loss else {
-            // First sight: adopt the health we find rather than reading the
-            // session's starting value as a hit.
-            commands.entity(entity).try_insert(SanicRingLoss {
-                seen_health: Some(current),
-            });
+    for event in spent.read() {
+        let Ok((player_id, mut counter)) = bodies.get_mut(event.victim) else {
             continue;
         };
-        let previous = *loss.seen_health.get_or_insert(current);
-        let took_a_hit = current < previous;
-        loss.seen_health = Some(current);
-
-        if !took_a_hit || wallet.balance <= 0 {
-            // No rings: the hit lands exactly as it would have. Ring loss is a
-            // privilege of carrying rings, not a blanket shield.
+        let scattered = (event.amount.max(0) as usize).min(SCATTERED_RINGS_MAX);
+        if scattered == 0 {
             continue;
         }
-
-        // Carrying rings: the hit is SPENT on them instead of on health.
-        health.health.current = previous;
-        let carried = wallet.balance;
-        wallet.balance = 0;
-
-        let scattered = (carried as usize).min(SCATTERED_RINGS_MAX);
         for i in 0..scattered {
             // Classic Sonic: the rings BURST from the body and arc outward under
-            // gravity, rather than appearing in a static fan. Each ring launches
-            // up-and-out; alternating x-sign fans the spray symmetrically to both
-            // sides. The arc + the no-magnet lock live on `ScatteredRing`, ticked
-            // by `arc_scattered_rings`.
+            // gravity, rather than appearing in a static fan.
             let t = (i as f32 + 0.5) / scattered as f32;
             let angle = std::f32::consts::PI * (0.18 + 0.64 * t);
             let dir = if i % 2 == 0 { 1.0 } else { -1.0 };
             let vel = ae::Vec2::new(
                 angle.cos() * SCATTER_BURST_SPEED * dir,
-                // Screen +y is down, so a negative y launches them upward.
                 -angle.sin() * SCATTER_BURST_SPEED,
             );
             let size = ae::Vec2::splat(18.0);
-            // The ring's identity is minted from the SPAWNER's own per-spawner
-            // counter — one stream per body (ADR 0030) — so two overlapping
-            // bursts by this player draw distinct, deterministic, resim-stable
-            // ids, and this player's stream is independent of every other
-            // spawner's. `SimId::spawned(player, seq)` is the authoritative id;
-            // the `FeatureId` string is derived from it so the economy label and
-            // the sim identity never disagree.
             let seq = counter.next();
             let ring_id = ambition::platformer::sim_id::SimId::spawned(player_id, seq);
             let authored = ambition::actors::rooms::Authored {
                 id: ring_id.as_str().to_string(),
                 name: "ring".to_string(),
-                // Every ring is born AT the body and flies out from there.
-                aabb: ae::Aabb::new(kin.pos, size * 0.5),
+                aabb: ae::Aabb::new(event.pos, size * 0.5),
                 payload: {
                     let mut spec = ambition::entity_catalog::placements::PickupSpec::new(
                         ambition::entity_catalog::placements::PickupKindSpec::Currency {
@@ -1500,12 +1530,6 @@ pub fn scatter_rings_on_hit(
                 &authored,
             );
             commands.entity(ring).insert((
-                // The dynamic sim identity: the same `SimId` the `FeatureId` was
-                // derived from, its own `SimIdCounter` (every entity is a
-                // potential spawner), and the `SpawnOrigin::Dynamic` that names
-                // this player as the parent so the ring is reconstructable across
-                // a rollback rebase (ADR 0030) — the identity the old global
-                // `SanicRingScatterSeq` never gave it.
                 ring_id.clone(),
                 ambition::platformer::sim_id::SimIdCounter::default(),
                 ambition::platformer::construction::SpawnOrigin::Dynamic {
@@ -1514,27 +1538,23 @@ pub fn scatter_rings_on_hit(
                 },
                 ScatteredRing {
                     vel,
-                    arc_pos: kin.pos,
+                    arc_pos: event.pos,
                     lock: SCATTER_LOCK_S,
                 },
-                // The collection lock is the REAL uncollectible gate: the magnet
-                // and the collector both skip a locked pickup, so the burst can't
-                // be reeled back or credited on the frame it spawns on top of the
-                // player. `arc_scattered_rings` drops it when the burst settles.
                 ambition::actors::features::PickupCollectLock,
             ));
         }
 
         vfx.write(ambition::vfx::VfxMessage::Burst {
-            pos: kin.pos,
+            pos: event.pos,
             count: 18,
             speed: 210.0,
             color: [1.0, 0.86, 0.28, 1.0],
             kind: ambition::vfx::ParticleKind::Dust,
         });
         sfx.write(ambition::sfx::SfxMessage::Play {
-            id: ambition::sfx::SfxId::from_static(SFX_BADNIK),
-            pos: kin.pos,
+            id: ambition::sfx::SfxId::from_static(SFX_RING_LOSS),
+            pos: event.pos,
         });
     }
 }

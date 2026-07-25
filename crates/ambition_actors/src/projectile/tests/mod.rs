@@ -118,6 +118,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::features::ActorStimulus>();
+    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_message::<crate::projectile::SpawnProjectile>();
     // The unified stepper can heal the player on a parry, so the message must be
     // registered even though player projectiles never trigger it.

@@ -42,6 +42,8 @@ pub struct FeatureHitWriters<'w, 's> {
     pub sfx: SfxWriter<'w>,
     pub vfx: MessageWriter<'w, VfxMessage>,
     pub debris: MessageWriter<'w, DebrisBurstMessage>,
+    pub wallet_shield_spent:
+        MessageWriter<'w, crate::features::ecs::damage_apply::WalletShieldSpent>,
     /// Refactor 3: spawning loot/respawns on a hit is a one-liner
     /// (`writers.commands.spawn(...)`) instead of hand-threading a separate
     /// `&mut Commands` through every helper that already takes `writers`.
@@ -131,6 +133,10 @@ pub fn apply_feature_hit_events(
             // The body's explicit movement policy — required (absence is never
             // a policy). The crawler's typed cling-break detach goes through it.
             &'static mut crate::features::MotionModel,
+            Option<(
+                &'static mut ambition_characters::actor::BodyWallet,
+                &'static ambition_characters::actor::BodyWalletShield,
+            )>,
             super::actor_clusters::ActorClusterQueryData,
             // CM8: this body's own hurt reaction (its `CombatTuning.hurt_feedback`).
             // `Option` for bare test fixtures spawned without the combat carrier
@@ -151,6 +157,7 @@ pub fn apply_feature_hit_events(
     >,
     mut bosses: Query<
         (
+            Entity,
             &FeatureId,
             &CenteredAabb,
             super::boss_clusters::BossClusterQueryData,
@@ -160,6 +167,10 @@ pub fn apply_feature_hit_events(
             // below (the actor query is already `Without<BossConfig>`).
             &mut ambition_characters::actor::BodyHealth,
             &mut ambition_characters::actor::BodyCombat,
+            Option<(
+                &mut ambition_characters::actor::BodyWallet,
+                &ambition_characters::actor::BodyWalletShield,
+            )>,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
             // CM8: the boss's own hurt reaction (ENEMY default).
@@ -171,10 +182,10 @@ pub fn apply_feature_hit_events(
     // attacker that landed the hit. Iterates every player and uses
     // `HitEvent::attacker` (now stamped by every player-attacker
     // emit site — slash, pogo, and player projectile). Events with
-    // `attacker = None` are environmental / anonymous hits (hazards,
-    // enemy strikes) and fall back to primary on the rare path
-    // where a feature-target consumer ever needs to apply hitstop
-    // for them.
+    // `attacker = None` remain unattributed unless the source is one of the
+    // legacy player-originated variants whose producer predates explicit
+    // attacker stamping. Enemy/environmental hits never borrow the primary
+    // player's identity.
     mut player_combat_q: Query<
         (
             bevy::prelude::Entity,
@@ -289,6 +300,7 @@ pub fn apply_feature_hit_events(
             interaction,
             control,
             mut motion_model,
+            wallet_shield,
             mut cq,
             combat_tuning,
         ) in &mut actors
@@ -333,6 +345,7 @@ pub fn apply_feature_hit_events(
                 &mut em,
                 &mut motion_model,
                 &mut combat,
+                wallet_shield.map(|(wallet, shield)| (wallet.into_inner(), shield)),
                 aggression.as_deref_mut(),
                 interactable,
                 &mut banner,
@@ -357,11 +370,13 @@ pub fn apply_feature_hit_events(
         let mut boss_hit_this_event = false;
         // A pre-resolved actor-vs-actor hit never spills onto bosses / breakables.
         for (
+            boss_entity,
             id,
             _aabb,
             mut feature,
             mut health,
             mut combat,
+            wallet_shield,
             attack_state,
             animation_frame,
             boss_tuning,
@@ -380,9 +395,11 @@ pub fn apply_feature_hit_events(
             if apply_boss_hit(
                 &catalogs.bosses,
                 &event,
+                boss_entity,
                 feature.as_boss_mut(),
                 &mut health,
                 &mut combat,
+                wallet_shield.map(|(wallet, shield)| (wallet.into_inner(), shield)),
                 attack_state,
                 animation_frame,
                 &mut banner,
@@ -396,7 +413,13 @@ pub fn apply_feature_hit_events(
         }
 
         if actor_hit_this_event || boss_hit_this_event {
-            let target_attacker = event.attacker.or_else(|| primary_q.single().ok());
+            let target_attacker = event.attacker.or_else(|| {
+                event
+                    .source
+                    .defaults_to_primary_attacker()
+                    .then(|| primary_q.single().ok())
+                    .flatten()
+            });
             if let Some(attacker) = target_attacker {
                 let record_dedup = matches!(event.source, HitSource::PlayerSlash { .. });
                 // CM4: the strike connected — the attacker's playing move

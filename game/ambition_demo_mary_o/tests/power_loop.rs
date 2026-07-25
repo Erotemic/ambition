@@ -438,6 +438,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition::actors::features::ActorStimulus>();
+    app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_message::<ambition::vfx::VfxMessage>();
     app.add_message::<ambition::vfx::vfx::DebrisBurstMessage>();
     app.add_message::<ambition::sfx::OwnedSfxMessage>();
@@ -780,8 +781,8 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
         matches!(h.target, HitTarget::Volume) && matches!(h.source, HitSource::EnemyChargeCrash)
     });
     assert!(
-        enemy_kill.is_some_and(|h| h.damage >= 2),
-        "a sliding shell broadcasts a lethal Volume hit that kills enemies it runs down"
+        enemy_kill.is_some_and(|h| h.damage >= 2 && h.attacker == Some(snake)),
+        "a sliding shell broadcasts a lethal Volume hit attributed to the shell entity"
     );
 
     let player_hit = hits.iter().find(|h| {
@@ -789,9 +790,9 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
             && matches!(h.source, HitSource::EnemyBody)
     });
     assert!(
-        player_hit.is_some(),
-        "and a SIDE hit emits a real hit against the player (a stomp from above would \
-         instead stop the shell and bounce)"
+        player_hit.is_some_and(|h| h.attacker == Some(snake)),
+        "and a SIDE hit against the player retains the same shell attribution (a stomp \
+         from above would instead stop the shell and bounce)"
     );
 }
 

@@ -26,6 +26,16 @@ pub struct BodyWallet {
     pub balance: i32,
 }
 
+/// Marks a body whose positive wallet balance absorbs one incoming hit.
+///
+/// The shared victim resolver spends the entire balance before HP or death is
+/// evaluated, then publishes a `WalletShieldSpent` fact for game-specific
+/// presentation. This is deliberately body vocabulary rather than a Sanic
+/// special case: any persona may author a wallet-backed shield without adding
+/// another damage pipeline.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct BodyWalletShield;
+
 impl BodyWallet {
     /// Credit the wallet (clamped at zero so a negative `amount` can't drive it
     /// below zero).

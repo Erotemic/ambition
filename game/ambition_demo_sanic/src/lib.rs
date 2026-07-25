@@ -946,7 +946,14 @@ impl Plugin for SanicRulesPlugin {
         // (clearing the raw melee verb). Utility is D in the classic preset; the
         // transform system consumes that edge so it cannot also toggle a host-code
         // flight ability inherited by the control box.
-        let sanic_pre_gate = (ball_dash::attach_ball_dash, toggle_sanic_form)
+        let sanic_pre_gate = (
+            ball_dash::attach_ball_dash,
+            toggle_sanic_form,
+            // Once cleared, the course drives him: the goal takes the stick away
+            // and brakes him, so he cannot coast off the end and die inside his
+            // own results card (room-replay triage §1).
+            take_the_controls_at_the_goal,
+        )
             .chain()
             .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
             .after(ambition::actors::avatar::tick_player_brains)
@@ -1814,6 +1821,80 @@ pub fn act_time_text(seconds: f32) -> String {
 /// Captures the time and the rings AT THE CLEAR — the results card reads those,
 /// not the live values, so picking a ring up during the outro cannot rewrite a
 /// result the player is already looking at.
+/// After the goal, the course drives him — not the player.
+///
+/// Registered in `PlayerInput` AFTER `tick_player_brains`, which is the whole
+/// trick: the brain refills `ActorControl` from the stick every frame, so a
+/// system that zeroes it in `GameplayEffects` (where this started) is
+/// overwritten before the body ever reads it. Measured, not guessed — with the
+/// late registration he decelerated and then crept forward at a constant
+/// ~100 px/s forever, which is exactly what "held right, still accelerating"
+/// looks like under a brake.
+///
+/// Found while proving the act-clear replay (room-replay triage §1): `GOAL_X` is
+/// 400px from the right edge, and clearing neither braked him nor closed the
+/// course, so he crossed the line at speed, ran out of level, and DIED inside
+/// his own four-second results card. That also made `act_completion.rs`
+/// structurally unable to assert the replay, because the death respawn rebuilt
+/// the room by itself.
+///
+/// The fix is the classic one: the goal takes the controls away and he coasts to
+/// a stop on his own friction. Zeroing the CONTROL rather than poking velocity
+/// matters here — he rides the surface-momentum kernel, so a poked `vel` is
+/// overwritten from his surface parameter on the next tick, exactly as a poked
+/// `pos` is.
+fn take_the_controls_at_the_goal(
+    subject: Option<bevy::prelude::Res<ambition::platformer::markers::ControlledSubject>>,
+    time: bevy::prelude::Res<ambition::time::WorldTime>,
+    act: bevy::prelude::Query<&SanicActState>,
+    mut bodies: bevy::prelude::Query<&mut ambition::characters::brain::ActorControl>,
+    mut models: bevy::prelude::Query<&mut ambition::actors::features::MotionModel>,
+    mut kinematics: bevy::prelude::Query<&mut ae::BodyKinematics>,
+) {
+    let cleared = act
+        .iter()
+        .any(|state| matches!(state.phase, SanicActPhase::Cleared { .. }));
+    if !cleared {
+        return;
+    }
+    let Some(entity) = subject.and_then(|subject| subject.0) else {
+        return;
+    };
+    let Ok(mut control) = bodies.get_mut(entity) else {
+        return;
+    };
+    control.0.locomotion = ae::Vec2::ZERO;
+    control.0.jump_pressed = false;
+    control.0.jump_held = false;
+
+    // Dropping the stick is not enough, and measuring is what showed it: at
+    // finish-line speed his own friction covers the last 400px of course in well
+    // under a second, so he still ran off the end. The authority for how fast he
+    // is going is the momentum state's tangential speed `v_t` — NOT `vel`, which
+    // is derived while riding — so the brake damps that. `vel` is damped too for
+    // the airborne case, where it IS authoritative.
+    let Ok(mut motion) = models.get_mut(entity) else {
+        return;
+    };
+    // Sized by MEASUREMENT, not taste: exponential decay at rate k covers
+    // roughly v/k px before stopping, and he crosses the line at ~1100 px/s with
+    // 400px of course left. k=4 left him ~370px of coast, which put him over the
+    // edge; k=9 stops him in ~120 and leaves real margin.
+    const BRAKE_PER_SECOND: f32 = 9.0;
+    let keep = (1.0 - BRAKE_PER_SECOND * time.sim_dt()).clamp(0.0, 1.0);
+    match &mut *motion {
+        ae::MotionModel::SurfaceMomentum(momentum) => {
+            if let ae::SurfaceMotion::Riding { v_t, .. } = &mut momentum.state {
+                *v_t *= keep;
+            }
+        }
+        _ => {}
+    }
+    if let Ok(mut kin) = kinematics.get_mut(entity) {
+        kin.vel.x *= keep;
+    }
+}
+
 pub fn clear_act_at_goal(
     player: bevy::prelude::Query<
         (

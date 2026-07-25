@@ -154,8 +154,8 @@ fn sanic_speedway_composes_through_the_umbrella() {
         .filter(|b| matches!(b.kind, ae::BlockKind::Hazard))
         .count();
     assert!(
-        hazards >= 3,
-        "the pit floor and both spike strips are hazards: {hazards}"
+        hazards >= 2,
+        "the pit floor and the mid-course spike strip are hazards: {hazards}"
     );
     for monitor in [monitors::SUPER_MONITOR, monitors::SPEED_MONITOR] {
         assert!(

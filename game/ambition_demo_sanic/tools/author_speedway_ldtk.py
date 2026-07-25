@@ -194,11 +194,20 @@ def area_spec() -> dict:
         rect("ReboundPad", (1640, 650), (72, 22), impulseX=1120, impulseY=-260),
         rect("ReboundPad", (4680, 648), (48, 24), impulseX=0, impulseY=-1000),
         rect("ReboundPad", (5152, 648), (48, 24), impulseX=700, impulseY=-700),
-        # Hazards: the pit floor (reset), a mid-course spike strip, and the
-        # finish warning spikes.
+        # Hazards: the pit floor (reset) and a mid-course spike strip.
+        #
+        # A third strip, "finish_warning_spikes", used to sit at x=6144 — 144px
+        # PAST the goal at GOAL_X=6000. It was not a warning about the finish; it
+        # was a punishment for reaching it. Crossing the line at speed carried
+        # Sanic into it and he died inside his own four-second results card
+        # (room-replay triage §1, which mis-diagnosed this as running out of
+        # level — measuring showed the death at x≈6130, well inside a 6400-wide
+        # course). Moving it before the line just made it an unjumpable wall on
+        # the only route, so it is DELETED: it never sat on a playable stretch,
+        # and the only thing it ever did was kill you after you won. A real last
+        # obstacle before the line is authoring work with a route to clear it.
         rect("HazardBlock", (PIT_LEFT, 704), (PIT_RIGHT - PIT_LEFT, 16), name="pit_hazard"),
         rect("HazardBlock", (5648, 656), (96, 16), name="mid_spikes"),
-        rect("HazardBlock", (6144, 656), (112, 16), name="finish_warning_spikes"),
         # Badniks pace the flats (axis walkers cannot patrol chain hills yet —
         # see dev/journals/code_smells.md).
         rect("EnemySpawn", (3136, 640), (28, 32), brain="sanic_badnik"),

@@ -149,3 +149,70 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
     assert_eq!(still, held, "the clock stops on a clear");
     eprintln!("sanic completed the act at frame {frame} in {time:.2}s with {rings} rings");
 }
+
+/// **He must survive his own results card.**
+///
+/// Room-replay triage §1: `GOAL_X` sits 400px from the right edge and clearing
+/// the act neither braked him nor closed the course, so he crossed the line at
+/// speed, ran out of level, and died well inside the four-second dwell his own
+/// card was still counting down.
+///
+/// Measured while writing this, and it is worse than the triage says: the death
+/// does not disturb `SanicActPhase` at all. The card keeps counting down, the
+/// captured time and rings stay on screen, and the player is quietly back at
+/// spawn RUNNING THE ACT AGAIN underneath it. So the observable has to be his
+/// POSITION — a respawn is a jump of thousands of pixels backwards — and any
+/// proof that watched the phase would have passed throughout the bug. (The first
+/// draft of this test did exactly that, and its poison run passed.)
+#[test]
+fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
+    let mut app = build_demo_app();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f32(1.0 / 60.0),
+    ));
+    app.init_resource::<ScriptedStick>();
+    app.add_systems(PreUpdate, apply_scripted_stick);
+    for _ in 0..8 {
+        app.update();
+    }
+    let stick = |jump: bool| {
+        let mut frame = ControlFrame::default();
+        frame.axis_x = 1.0;
+        frame.right_pressed = true;
+        frame.jump_pressed = jump;
+        frame.jump_held = jump;
+        frame
+    };
+    let approaching_pit = |x: f32| {
+        x > ambition_demo_sanic::PIT_LEFT_X - 220.0 && x < ambition_demo_sanic::PIT_RIGHT_X
+    };
+
+    let mut cleared = false;
+    for _ in 0..2400 {
+        let x = player_x(&mut app);
+        app.world_mut().resource_mut::<ScriptedStick>().0 = stick(approaching_pit(x));
+        app.update();
+        if matches!(phase(&mut app), Some(SanicActPhase::Cleared { .. })) {
+            cleared = true;
+            break;
+        }
+    }
+    assert!(cleared, "never reached the goal, so this proves nothing");
+
+    // Keep HOLDING RIGHT through the dwell — the exact input that used to run
+    // him off the end. The goal is supposed to take the controls away.
+    let dwell_frames = (ambition_demo_sanic::ACT_CLEAR_DWELL * 60.0).ceil() as usize;
+    let mut furthest_back = f32::MAX;
+    for _ in 0..dwell_frames {
+        app.world_mut().resource_mut::<ScriptedStick>().0 = stick(false);
+        app.update();
+        furthest_back = furthest_back.min(player_x(&mut app));
+    }
+    assert!(
+        furthest_back > GOAL_X - 400.0,
+        "he ended up at x={furthest_back:.0} during his own {}s results card, \
+         from a goal at {GOAL_X} — he ran off the end of the course, died, and \
+         is replaying the act while the card still shows his time",
+        ambition_demo_sanic::ACT_CLEAR_DWELL,
+    );
+}

@@ -68,14 +68,21 @@ fn apply_scripted_stick(stick: Res<ScriptedStick>, mut frame: ResMut<ControlFram
     *frame = stick.0;
 }
 
-/// Everything the controller may look at: where she is, how fast, how big, and
-/// whether she has footing. This is the information a player reads off the
-/// screen — no privileged access to level state.
+/// Everything the controller may look at: where she is, how fast, how big,
+/// whether she has footing, and what is coming at her. This is the information a
+/// player reads off the screen — no privileged access to level state.
 #[derive(Clone, Copy, Debug)]
 struct Body {
     pos: Vec2,
     size: Vec2,
     on_ground: bool,
+    /// Gap to the nearest live hostile ahead of her, if one is in view.
+    ///
+    /// She is a ONE-HIT body now, so an enemy in the path is not a tax on a
+    /// health bar — it is the run. A controller that cannot see enemies cannot
+    /// play this level, and pretending otherwise would make the acceptance run
+    /// a proof about a level with nothing in it.
+    threat_ahead: Option<f32>,
 }
 
 impl Body {
@@ -88,16 +95,49 @@ impl Body {
     fn is_tall(&self) -> bool {
         self.size.y > 60.0
     }
+    /// Close enough that the next thing to do is jump ON it.
+    ///
+    /// From the top a stomp is always safe; from the side, with no armor left,
+    /// it is the end of the attempt. The window is a running jump's worth of
+    /// approach, so she leaves the ground before the gap closes.
+    fn should_stomp(&self) -> bool {
+        self.on_ground && self.threat_ahead.is_some_and(|gap| gap < 96.0)
+    }
 }
 
 fn body(app: &mut App) -> Option<Body> {
+    let mut hostiles = app.world_mut().query_filtered::<(
+        &ambition::actors::features::CenteredAabb,
+        &ambition::characters::actor::BodyHealth,
+    ), (
+        With<ambition::actors::features::ActorDisposition>,
+        Without<PrimaryPlayer>,
+    )>();
+    let threats: Vec<ae::Aabb> = hostiles
+        .iter(app.world())
+        .filter(|(_, health)| health.alive())
+        .map(|(aabb, _)| aabb.aabb())
+        .collect();
     let mut q = app
         .world_mut()
         .query_filtered::<(&ae::BodyKinematics, &ae::BodyGroundState), With<PrimaryPlayer>>();
-    q.iter(app.world()).next().map(|(kin, ground)| Body {
-        pos: kin.pos,
-        size: kin.size,
-        on_ground: ground.on_ground,
+    q.iter(app.world()).next().map(|(kin, ground)| {
+        let right = kin.pos.x + kin.size.x * 0.5;
+        let feet = kin.pos.y + kin.size.y * 0.5;
+        let threat_ahead = threats
+            .iter()
+            .filter(|t| t.max.x > right && (t.max.y - feet).abs() < 96.0)
+            .map(|t| t.min.x - right)
+            .filter(|gap| *gap < 220.0)
+            .fold(None, |best: Option<f32>, gap| {
+                Some(best.map_or(gap, |b| b.min(gap)))
+            });
+        Body {
+            pos: kin.pos,
+            size: kin.size,
+            on_ground: ground.on_ground,
+            threat_ahead,
+        }
     })
 }
 
@@ -193,6 +233,19 @@ fn press_into_pipe(down: bool) -> ControlFrame {
     }
 }
 
+/// Press into the pipe while STAYING on its mouth.
+///
+/// She arrives on the lip still carrying the momentum that got her up there, and
+/// her classic friction coasts her clean off the far edge before the transit
+/// arms. A player holds back against that; so does this. The horizontal input is
+/// a correction toward the mouth, never a run.
+fn press_into_pipe_at(b: Body, mouth_x: f32, down: bool) -> ControlFrame {
+    ControlFrame {
+        axis_x: ((mouth_x - b.pos.x) / 16.0).clamp(-1.0, 1.0),
+        ..press_into_pipe(down)
+    }
+}
+
 /// Her banked coin balance, read from the same `PlayerHudFacts` the HUD's COINS
 /// readout draws — so this covers placement all the way to the screen.
 fn wallet(app: &mut App) -> i32 {
@@ -224,6 +277,11 @@ fn run_right_to(app: &mut App, target_x: f32, pits: &[(f32, f32)], budget: usize
         if stalled > 4 && b.on_ground {
             stalled = 0;
             return Some(with_jump(move_x(1.0, true)));
+        }
+        // An enemy in the path is dealt with the only way a one-hit body can:
+        // from ABOVE. Walking into it is the end of the attempt.
+        if b.should_stomp() {
+            return Some(with_jump(move_x(1.0, false)));
         }
         Some(approach_and_clear(b, pits))
     })
@@ -272,9 +330,15 @@ fn mount(b: Body, target_x: f32, ledge_top: f32) -> ControlFrame {
     if b.on_ground {
         return with_jump(move_x(0.0, false));
     }
-    // Clear of the ledge's face and not yet over the target: drift.
-    if b.feet() < ledge_top - 2.0 && b.pos.x < target_x {
-        with_jump(move_x(1.0, false))
+    // Clear of the ledge's face: steer FOR the target rather than pushing right
+    // until it passes underneath. Air control against a classic coast is a
+    // correction, not a shove — cut the input at the target and she sails on by,
+    // which is how she used to land beyond the pipe every time.
+    if b.feet() < ledge_top - 2.0 {
+        with_jump(move_x(
+            ((target_x - b.pos.x) / 24.0).clamp(-1.0, 1.0),
+            false,
+        ))
     } else {
         with_jump(move_x(0.0, false))
     }
@@ -382,13 +446,36 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     // The reward pops out RESTING ON the block's top face, so collecting it is
     // a second, separate platforming act — she has to get up there.
     let block0 = block("power_block_0");
+    // Three things this beat has to respect, all of which a player learns in the
+    // first ten seconds of the real game:
+    //
+    // * She is CLASSIC-slippery. Her ground friction is the faithful conversion,
+    //   so letting go of the stick coasts a long way — run at the block and
+    //   release and she sails past it. Steer toward the column the whole time,
+    //   airborne included.
+    // * Jump is an EDGE. Holding it from the approach spends the one press early
+    //   and then she walks under the block with the button already down.
+    // * There is a Solid Snake just past the block. With no armor yet, touching
+    //   its side ends the run, so stomp it when it closes.
     let bonk_x = block0.center().x;
     let took_off = drive(&mut app, 400, |b| {
-        if b.pos.x < bonk_x - 4.0 {
-            return Some(move_x(1.0, false));
+        let toward = (bonk_x - b.pos.x).clamp(-1.0, 1.0);
+        let under_it = (b.pos.x - bonk_x).abs() < 8.0;
+        // The snake comes FIRST. She is a one-hit body here — no cap yet — so a
+        // live walker in the same stretch is the run, and the block will still be
+        // there once it is a shell. Jump for it with room to spare: the arc has
+        // to land on its head, and a stomp attempted at touching distance is a
+        // side contact.
+        if b.should_stomp() {
+            return Some(with_jump(move_x(1.0, false)));
+        }
+        // Standing under the block: go STRAIGHT up. Steering while airborne is
+        // what carries her over it instead of into its underside.
+        if b.on_ground && under_it {
+            return Some(with_jump(move_x(0.0, false)));
         }
         if b.on_ground {
-            return Some(with_jump(move_x(0.0, false)));
+            return Some(move_x(toward, false));
         }
         Some(with_jump(move_x(0.0, false)))
     });
@@ -453,9 +540,21 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     // The pipe is a 64px wall in her path with a 64px-wide top face. A running
     // jump sails clean over it, so this is a walked mount: rise against the
     // face, then feed rightward input only while above the lip.
+    // "On the pipe" has to mean ON THE MOUTH, not balanced on its corner. She
+    // arrives carrying the run that got her up there and coasts — accept her at
+    // the lip and she slides off the far edge before the transit can arm, which
+    // is exactly what a player feels as "I keep missing the pipe".
     let on_pipe = drive(&mut app, 240, |b| {
-        if b.on_ground && b.feet() <= pipe.min.y + 2.0 && b.pos.x > pipe.min.x {
+        let over_mouth = b.pos.x > pipe.min.x + 24.0 && b.pos.x < pipe.max.x - 24.0;
+        if b.on_ground && b.feet() <= pipe.min.y + 2.0 && over_mouth {
             return None;
+        }
+        // Once she is up, stop running and steer for the middle.
+        if b.on_ground && b.feet() <= pipe.min.y + 2.0 {
+            return Some(move_x(
+                ((pipe.center().x - b.pos.x) / 16.0).clamp(-1.0, 1.0),
+                false,
+            ));
         }
         Some(mount(b, pipe.center().x, pipe.min.y))
     });
@@ -471,11 +570,12 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     let tall_entering_vault = body(&mut app).expect("she is in the world").is_tall();
     // DOWN on the mouth starts the transit — a half-second slide in and out, not
     // a teleport — so this drives until she is actually through it.
+    let mouth_x = pipe.center().x;
     let dropped_in = drive(&mut app, 240, |b| {
         if b.pos.y > vault.min.y + 3.0 * 32.0 {
             return None;
         }
-        Some(press_into_pipe(true))
+        Some(press_into_pipe_at(b, mouth_x, true))
     });
     assert!(
         dropped_in,

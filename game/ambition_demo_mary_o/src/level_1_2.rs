@@ -59,6 +59,9 @@ fn floor_top() -> f32 {
     (HEIGHT_TILES - SLAB_TILES) * T
 }
 
+/// Where the ceiling slab ENDS — the headroom the room's tests measure against.
+/// Only the tests need it: the slab itself is placed from its top edge.
+#[cfg(test)]
 fn ceiling_bottom() -> f32 {
     SLAB_TILES * T
 }

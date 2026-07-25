@@ -556,6 +556,7 @@ pub fn install_sanic_content(app: &mut App) {
                     id: "you_are_too_slow".to_string(),
                     display_name: "You Are Too Slow".to_string(),
                     asset_path: Some(SANIC_MUSIC_ASSET_PATH.to_string()),
+                    one_shot: false,
                 }],
             }),
             // Sanic AUTHORS the cues it emits (Dash, Jump) rather than

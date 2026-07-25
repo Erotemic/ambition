@@ -27,6 +27,14 @@ pub const MARY_O_MUSIC_ASSET_PATH: &str = "audio/music/generated/support_theme/f
 /// no explicit path.
 pub const MARY_O_DEATH_MUSIC_TRACK: &str = "mary_o_you_died";
 
+/// The course-clear sting, played over the flagpole sequence.
+///
+/// Same arrangement as the death track — its own score
+/// (`scores/active/mary_o_flag_victory.music.yaml`), resolved by the ordinary
+/// `audio/music/generated/<id>/full.ogg` convention. Two bars at 156bpm, so
+/// about 3.1 seconds, which is what [`crate::flag`] sizes its beats against.
+pub const MARY_O_VICTORY_MUSIC_TRACK: &str = "mary_o_flag_victory";
+
 #[derive(Clone)]
 pub struct MaryOSessionWorld {
     pub geometry: ae::RoomGeometry,
@@ -148,6 +156,7 @@ impl Plugin for MaryOExperiencePlugin {
                                 id: MARY_O_MUSIC_TRACK.to_string(),
                                 display_name: "Support Theme".to_string(),
                                 asset_path: Some(MARY_O_MUSIC_ASSET_PATH.to_string()),
+                                one_shot: false,
                             },
                             // Declaring the death track is what AUTHORIZES it:
                             // under provider-relative playback a session plays
@@ -158,6 +167,13 @@ impl Plugin for MaryOExperiencePlugin {
                                 id: MARY_O_DEATH_MUSIC_TRACK.to_string(),
                                 display_name: "Mary O You Died".to_string(),
                                 asset_path: None,
+                                one_shot: true,
+                            },
+                            ambition::audio::spec::MusicTrack {
+                                id: MARY_O_VICTORY_MUSIC_TRACK.to_string(),
+                                display_name: "Mary O Flag Victory".to_string(),
+                                asset_path: None,
+                                one_shot: true,
                             },
                         ],
                     }),

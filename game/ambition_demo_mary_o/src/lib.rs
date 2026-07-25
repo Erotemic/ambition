@@ -1104,6 +1104,14 @@ pub fn install_mary_o_content(app: &mut App) {
                 "ambition_demo_mary_o",
                 "content.mary_o_flag_sequence",
             )
+            // The death beat rides the same owner entity as those two and was
+            // simply missed: it decides how long the level is held, where the
+            // body is pinned, and whether the replay has been asked for, none of
+            // which a rewind could reproduce without it.
+            .rollback_component_clone::<death::MaryODeathSequence>(
+                "ambition_demo_mary_o",
+                "content.mary_o_death_sequence",
+            )
             // A snake's shell phase (and its stage timers) is authoritative sim
             // state — two sims that disagree on where a shell is in its withdraw
             // are in different states. It rides on the snake BODY, which the
@@ -1311,10 +1319,6 @@ impl Plugin for MaryORulesPlugin {
         // engine registers it too (`SandboxResetSchedulePlugin`), but a thin host
         // may not, and `add_message` is idempotent — a no-op when already present.
         app.add_message::<ambition::actors::session::reset::RoomReplayRequested>();
-        // Her power-tier edge asks the engine for a transformation beat. The
-        // engine's `TransformBeatPlugin` registers this too; a rules-only
-        // harness has no engine group, and `add_message` is idempotent.
-        app.add_message::<ambition::actors::features::transform_beat::TransformBeatRequested>();
         // The authoritative attempt-lost fact `spend_lives_on_death` reads. The
         // engine registers it in `SimCoreResourcesPlugin`; a rules-only harness
         // does not, and a missing message is a hard system-param panic rather
@@ -1346,6 +1350,7 @@ impl Plugin for MaryORulesPlugin {
         let rules = (
             spawn_mary_o_mode_owner,
             flag::run_flag_sequence,
+            flag::play_victory_music,
             tick_level_clock,
             // The engine's death fact arms the beat before the life counter runs,
             // so a hit death and a timeout reach `spend_lives_on_death` in the
@@ -1623,8 +1628,26 @@ fn spend_lives_on_death(
     if !died && !timed_out {
         return;
     }
+    // The RESTART is the death beat's, not this system's. Every lost attempt —
+    // a hit that got past her armor, a pit, the clock running out — plays the
+    // same death and leaves by the same door, so a timeout cannot silently skip
+    // the beat a death gets. A hit death has already armed it from the engine's
+    // own death fact one system earlier; a timeout has no such fact, so arming
+    // here from where she stands is what makes the two identical by the time the
+    // life is counted.
+    death_beat.begin(died_at);
+
     // ONE attempt lost costs ONE life, however many ways it was reported. A
-    // frame can carry both a lethal hit and a hazard reset for the same fall.
+    // frame can carry both a lethal hit and a hazard reset for the same fall —
+    // and a death during the DWELL is the same attempt too. She is pinned
+    // exactly where she fell, so a pit keeps reporting her, and without this
+    // she spent a life on every frame of her own death animation until the run
+    // was over. The beat carries the debt because the beat is what knows which
+    // attempt is being lost.
+    if death_beat.life_spent {
+        return;
+    }
+    death_beat.life_spent = true;
 
     level.lives = level.lives.saturating_sub(1);
     level.time_remaining = STARTING_TIME;
@@ -1637,13 +1660,6 @@ fn spend_lives_on_death(
         level.lives = STARTING_LIVES;
         level.score = 0;
     }
-    // The RESTART is the death beat's, not this system's. Every lost attempt —
-    // a hit that got past her armor, a pit, the clock running out — plays the
-    // same death and leaves by the same door, so a timeout cannot silently skip
-    // the beat a death gets. A death has already armed it from the engine's own
-    // death fact; a timeout has no such fact, so arm it here from where she
-    // stands.
-    death_beat.begin(died_at);
 }
 
 /// **The secret pipe.** Press DOWN on the surface mouth and you fall out of the
@@ -1976,11 +1992,6 @@ mod tests {
         );
     }
 
-    /// **The 1-1 grammar, asserted as geometry rather than as a screenshot.** An
-    /// open teach run, three WIDENING pits, a stepping stone inside the widest,
-    /// a stair pyramid, a goal past it. If a future edit flattens the rhythm this
-    /// fails — which is what makes it a level design and not a pile of boxes.
-    #[test]
     /// Jon reported "pit B is not a pit — it opens directly into the secret
     /// vault", and the triage filed it as unfixed. It is NOT live at HEAD: the
     /// level was lengthened (pit B and everything past it pushed 8 tiles right)
@@ -2022,6 +2033,10 @@ mod tests {
         }
     }
 
+    /// **The 1-1 grammar, asserted as geometry rather than as a screenshot.** An
+    /// open teach run, three WIDENING pits, a stepping stone inside the widest,
+    /// a stair pyramid, a goal past it. If a future edit flattens the rhythm this
+    /// fails — which is what makes it a level design and not a pile of boxes.
     #[test]
     fn level_1_1_carries_the_grammar_it_claims() {
         let room = level_1_1();

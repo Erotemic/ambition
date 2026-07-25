@@ -119,6 +119,10 @@ pub enum SnakeShell {
         /// Seconds left of the post-kick grace, during which this shell cannot
         /// hurt the PLAYER (it is still inside the person who kicked it). Enemies
         /// it runs down are hit from the first tick.
+        ///
+        /// **Spent immediately by a wall bounce**, not only by the clock: a shell
+        /// that turns around is coming back at the player, and that is a hit
+        /// however recently they kicked it.
         grace: f32,
     },
     Peeking(f32),
@@ -156,9 +160,15 @@ pub struct ShellEffects {
 pub struct ShellInputs {
     /// The player is on this body's head this tick ([`PlayerTouch::Top`]).
     pub stomped: bool,
-    /// The player is touching a boxed shell from a SIDE; `Some(dir)` is the way to
-    /// launch it (away from the player).
-    pub side_kick: Option<f32>,
+    /// The player is touching a RESTING shell, from any side; `Some(dir)` is the
+    /// way to launch it — `-1.0` left, `1.0` right.
+    ///
+    /// Set for a stomp as well as a side bump, because in the game this pays
+    /// homage to both kick it. The direction is away from whichever side of the
+    /// shell the player is more on, and a body exactly at its center kicks it
+    /// RIGHT: some answer has to be picked, and picking by position keeps it a
+    /// pure function of the two poses rather than of arrival order.
+    pub kick_dir: Option<f32>,
     /// A sliding shell's velocity collapsed against a wall this tick.
     pub blocked: bool,
 }
@@ -188,6 +198,29 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
             just_squashed: true,
             ..shelled(Boxed(BOXED_S), CharacterAnim::ShellIdle)
         };
+        // **Landing on a RESTING shell kicks it**, exactly as a side bump does.
+        // It used to re-seat in place, and that is what let a shell under a
+        // ?-block trap her: she bounced off it, the block stopped her rise, she
+        // fell back onto it, forever. The classic never does that — you land on
+        // a still shell and it shoots out from under you.
+        //
+        // Only a RESTING shell. A shell already running is stopped by a stomp
+        // (that is the tech), and a walker, a mid-withdraw snake or one climbing
+        // back out has no shell to kick yet.
+        if let (Boxed(_), Some(dir)) = (phase, inputs.kick_dir) {
+            return ShellEffects {
+                just_squashed: true,
+                just_kicked: true,
+                vel_x: Some(dir * SHELL_SLIDE_SPEED),
+                ..shelled(
+                    Sliding {
+                        dir,
+                        grace: KICK_GRACE_S,
+                    },
+                    CharacterAnim::ShellIdle,
+                )
+            };
+        }
         return match phase {
             // A live walker starts the withdraw; the retreat row plays first.
             Walking => ShellEffects {
@@ -234,7 +267,7 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
             }
         }
         Boxed(t) => {
-            if let Some(dir) = inputs.side_kick {
+            if let Some(dir) = inputs.kick_dir {
                 ShellEffects {
                     just_kicked: true,
                     vel_x: Some(dir * SHELL_SLIDE_SPEED),
@@ -260,16 +293,21 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
         // damage pipeline while the shell keeps going. (The stop-it-dead branch is
         // the stomp pre-emption above.)
         Sliding { dir, grace } => {
-            let dir = if inputs.blocked { -dir } else { dir };
+            // **A wall ARMS it.** The grace exists for one reason — the shell is
+            // still inside the body that just kicked it, and a shell you cannot
+            // get off is not a mechanic. A shell that has hit a wall and turned
+            // around is not that shell any more: it is coming BACK at you, which
+            // is the whole danger of kicking one down a corridor. So the bounce
+            // spends the grace outright rather than letting it run out on a
+            // timer that might still be ticking when the shell returns.
+            let (dir, grace) = if inputs.blocked {
+                (-dir, 0.0)
+            } else {
+                (dir, (grace - dt).max(0.0))
+            };
             ShellEffects {
                 vel_x: Some(dir * SHELL_SLIDE_SPEED),
-                ..shelled(
-                    Sliding {
-                        dir,
-                        grace: (grace - dt).max(0.0),
-                    },
-                    CharacterAnim::ShellIdle,
-                )
+                ..shelled(Sliding { dir, grace }, CharacterAnim::ShellIdle)
             }
         }
         Peeking(t) => {
@@ -714,16 +752,17 @@ fn shell_inputs_for(
     player_pos: Option<ae::Vec2>,
     touch: Option<PlayerTouch>,
 ) -> ShellInputs {
-    // A SIDE touch on a BOXED shell kicks it away from the player.
-    let side_kick = match (shell, touch, player_pos) {
-        (SnakeShell::Boxed(_), Some(PlayerTouch::Side), Some(ppos)) => {
+    // ANY touch on a RESTING shell kicks it away from the player — a stomp from
+    // above as much as a bump from the side. Ties (dead centre) go right.
+    let kick_dir = match (shell, touch, player_pos) {
+        (SnakeShell::Boxed(_), Some(PlayerTouch::Top | PlayerTouch::Side), Some(ppos)) => {
             Some(if ppos.x <= kin.pos.x { 1.0 } else { -1.0 })
         }
         _ => None,
     };
     ShellInputs {
         stomped: touch == Some(PlayerTouch::Top),
-        side_kick,
+        kick_dir,
         // A sliding shell whose speed collapsed hit something.
         blocked: matches!(shell, SnakeShell::Sliding { .. })
             && kin.vel.x.abs() < SHELL_SLIDE_SPEED * 0.25,

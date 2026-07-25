@@ -113,7 +113,7 @@ fn a_boxed_shell_waits_out_its_timer_before_peeking() {
 #[test]
 fn kicking_a_boxed_shell_sends_it_sliding_away() {
     let kick_right = ShellInputs {
-        side_kick: Some(1.0),
+        kick_dir: Some(1.0),
         ..Default::default()
     };
     let fx = step(SnakeShell::Boxed(BOXED_S), kick_right);
@@ -132,7 +132,7 @@ fn kicking_a_boxed_shell_sends_it_sliding_away() {
     );
 
     let kick_left = ShellInputs {
-        side_kick: Some(-1.0),
+        kick_dir: Some(-1.0),
         ..Default::default()
     };
     let fx = step(SnakeShell::Boxed(BOXED_S), kick_left);
@@ -147,7 +147,7 @@ fn kicking_a_boxed_shell_sends_it_sliding_away() {
 #[test]
 fn a_freshly_kicked_shell_cannot_hurt_the_kicker_until_its_grace_expires() {
     let kick = ShellInputs {
-        side_kick: Some(1.0),
+        kick_dir: Some(1.0),
         ..Default::default()
     };
     let mut phase = step(SnakeShell::Boxed(BOXED_S), kick).phase;
@@ -217,21 +217,81 @@ fn a_stomp_from_above_stops_a_sliding_shell_and_bounces() {
     );
 }
 
-/// **Standing on a body must never be a kick.** THE bug: a player standing over a
-/// resting shell was classified as a side touch, which kicked the shell out from
-/// under their own feet and then registered that same overlap as a side HIT — over
-/// and over, for as long as they stood there. From the top a shell is re-seated and
-/// bounces you; it never launches.
+/// **Landing on a resting shell kicks it, and bounces you.**
+///
+/// ⚠ This test asserted the OPPOSITE until 2026-07-25, and the history is worth
+/// keeping because both rules are defensible in isolation. The original bug was
+/// that a player standing over a resting shell kicked it AND took a side hit
+/// from the same overlap, over and over; the fix at the time was to make a top
+/// touch never kick. That made a stomped shell stay put — so a shell under a
+/// ?-block trapped her in an endless bounce, which the classic never does, and
+/// Jon reported it. The kick is back; what keeps the original bug from returning
+/// is `KICK_GRACE_S`, which did not exist then: a freshly kicked shell cannot
+/// hurt the player at all, so the kick-then-hit loop cannot form.
 #[test]
-fn standing_on_a_resting_shell_bounces_it_never_kicks_it() {
-    let fx = step(SnakeShell::Boxed(1.0), stomp());
-    assert!(
-        matches!(fx.phase, SnakeShell::Boxed(t) if t > 1.0),
-        "a bounce re-seats the shell (its sit timer restarts) instead of launching it"
+fn landing_on_a_resting_shell_kicks_it_out_from_under_you() {
+    let fx = step(
+        SnakeShell::Boxed(1.0),
+        ShellInputs {
+            kick_dir: Some(1.0),
+            ..stomp()
+        },
     );
-    assert!(fx.just_squashed, "and bounces the player up off it");
-    assert!(!fx.just_kicked, "a stomp is NEVER a kick");
-    assert_eq!(fx.vel_x, Some(0.0), "it does not slide out from under you");
+    assert!(
+        matches!(fx.phase, SnakeShell::Sliding { dir, grace }
+            if dir > 0.0 && grace > 0.0),
+        "a stomped shell slides away, with the grace that stops it hitting you back"
+    );
+    assert!(
+        fx.just_squashed,
+        "and it still bounces the player up off it"
+    );
+    assert!(fx.just_kicked, "and it is a kick, so it sounds like one");
+    assert!(
+        fx.vel_x.is_some_and(|v| v > 0.0),
+        "it really moves, rather than sitting under her for another bounce"
+    );
+}
+
+/// **A shell that bounces off a wall is armed again**, even mid-grace. The grace
+/// only ever meant "it is still inside the person who kicked it"; one that has
+/// turned around is coming back at them, and that is a hit.
+#[test]
+fn a_wall_bounce_arms_a_freshly_kicked_shell() {
+    let fx = step(
+        SnakeShell::Sliding {
+            dir: 1.0,
+            grace: 0.25,
+        },
+        ShellInputs {
+            blocked: true,
+            ..Default::default()
+        },
+    );
+    assert!(
+        matches!(fx.phase, SnakeShell::Sliding { dir, grace }
+            if dir < 0.0 && grace == 0.0),
+        "it reverses AND spends its grace, so the return trip can hurt her"
+    );
+}
+
+/// A shell already RUNNING is stopped by a stomp rather than re-kicked — that is
+/// the classic "catch the runaway" tech, and it is why the kick above is scoped
+/// to a resting shell rather than to every stomp.
+#[test]
+fn stomping_a_running_shell_still_stops_it() {
+    let fx = step(
+        SnakeShell::Sliding {
+            dir: 1.0,
+            grace: 0.0,
+        },
+        ShellInputs {
+            kick_dir: None,
+            ..stomp()
+        },
+    );
+    assert!(matches!(fx.phase, SnakeShell::Boxed(_)), "it re-seats");
+    assert_eq!(fx.vel_x, Some(0.0), "and stops dead");
 }
 
 /// A stomp pre-empts the LATE phases too. Landing on a snake that is peeking or

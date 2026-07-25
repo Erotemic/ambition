@@ -631,6 +631,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_engine_core",
  "bevy",
+ "tracing",
 ]
 
 [[package]]

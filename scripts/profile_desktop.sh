@@ -11,14 +11,19 @@ set -euo pipefail
 original_args=("$@")
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-mode="perf-run"
-duration="30"
+mode="timeline-run"
+# Empty means "run until the game exits" (timeline-run's default). The bounded
+# modes below substitute default_bounded_duration when nothing was requested.
+duration=""
+default_bounded_duration="30"
 freq="99"
 interval_ms="1000"
 pid=""
 out_base="${AMBITION_PROFILE_BASE:-$repo_root/target/profiles}"
 profile_name=""
-perf_call_graph="dwarf,8192"
+# Empty means "pick per mode": timeline-run records without call graphs so an
+# open-ended session stays small on disk; bounded modes keep DWARF stacks.
+perf_call_graph=""
 perf_events="task-clock,cycles,instructions,context-switches,cpu-migrations,page-faults,cache-misses"
 run_args=()
 warm_build="auto"
@@ -26,13 +31,18 @@ report_preset="fast"
 report_timeout="45"
 include_raw_data="no"
 include_perf_script="no"
-timeline_chunks="8"
+timeline_chunks="12"
 marker_regex='room|boss|encounter|title|session|menu|spawn|load|demo'
 
 usage() {
     cat <<'USAGE'
 Usage:
   scripts/profile_desktop.sh [MODE] [OPTIONS] [-- RUN_GAME_ARGS ...]
+
+With no arguments: builds the game (same cargo profile ./run_game.sh would
+use), launches it under perf, records until you quit the game, then slices the
+capture into labelled time chunks. Read
+target/profiles/desktop-timeline-run-*/timeline.md afterwards.
 
 Modes:
   perf-run        Launch ./run_game.sh under perf record, then emit bounded text reports.
@@ -41,20 +51,23 @@ Modes:
   stat-attach     Attach perf stat to an already-running ambition_game process.
   asset-run       Launch ./run_game.sh under strace and summarize repeated asset opens.
   asset-attach    Attach strace to an already-running ambition_game process.
-  timeline-run    Launch under perf record for the full duration, stamp game log
-                  output with seconds-since-launch, then slice the capture into
-                  time chunks and label each chunk with the log lines (room,
-                  boss, title, session...) seen in that window. One long capture
-                  covers startup, title screen, and gameplay phases in one run.
+  timeline-run    Launch under perf record and record until the game exits (or
+                  until --duration, if given), stamping game log output with
+                  seconds-since-launch, then slice the capture into time chunks
+                  and label each chunk with the log lines (room, boss, title,
+                  session...) seen in that window. One capture covers startup,
+                  title screen, and gameplay phases in one run.
   all-run         Run perf-run, stat-run, then asset-run sequentially.
 
-  Default mode: perf-run
+  Default mode: timeline-run
 
 Options:
   -h, --help              Show this help.
-  -d, --duration SEC      Capture duration in seconds. Default: 30.
-                           timeline-run wants a longer window, e.g. 120-300.
-  --chunks N              timeline-run: number of equal time slices. Default: 8.
+  -d, --duration SEC      Capture duration in seconds. timeline-run defaults to
+                           running until the game exits; every other mode
+                           defaults to 30. Quitting the game always ends a
+                           *-run capture early, whatever this is set to.
+  --chunks N              timeline-run: number of equal time slices. Default: 12.
   --marker-regex RE       timeline-run: case-insensitive grep -E pattern that
                            picks scenario-marker lines out of the game log.
                            Default: room|boss|encounter|title|session|menu|spawn|load|demo
@@ -64,7 +77,9 @@ Options:
   -o, --out DIR           Output base directory. Default: target/profiles.
   --name NAME             Output directory name suffix. Default: MODE-UTC_TIMESTAMP.
   --events LIST           perf stat events. Default: task-clock,cycles,instructions,...
-  --call-graph SPEC       perf call graph spec. Default: dwarf,8192.
+  --call-graph SPEC       perf call graph spec, or 'none'. Default: none for
+                           timeline-run (an open-ended capture with DWARF stacks
+                           can reach gigabytes), dwarf,8192 for other modes.
   --report-preset PRESET  none, fast, or full. Default: fast.
                            fast: one flat symbol report + summary.
                            full: flat + children + self reports.
@@ -77,7 +92,10 @@ Options:
   --                      Arguments after -- are passed to ./run_game.sh for run modes.
 
 Examples:
-  scripts/profile_desktop.sh timeline-run --duration 180 -- -- --start-room you_have_to_cut_the_rope
+  scripts/profile_desktop.sh
+  scripts/profile_desktop.sh -- release
+  scripts/profile_desktop.sh --chunks 20 -- release -- --start-room you_have_to_cut_the_rope
+  scripts/profile_desktop.sh timeline-run --duration 180
   scripts/profile_desktop.sh perf-run --duration 30
   scripts/profile_desktop.sh perf-run --report-preset full --duration 30
   scripts/profile_desktop.sh perf-attach --duration 30
@@ -85,12 +103,16 @@ Examples:
   scripts/profile_desktop.sh stat-attach --duration 30
 
 Notes:
+  - Ctrl-C during a capture ends the recording and still writes the reports.
   - Report generation is time-limited. If a report times out, the script packages
     the status/stderr and keeps going.
   - Raw perf.data is excluded from tarballs by default because DWARF stacks can
     produce hundreds of MB. Re-run with --include-raw-data when raw data is needed.
   - Launch modes warm-build first by default so compile time is not profiled.
-  - The default DWARF stack dump is capped to 8 KiB to avoid huge perf.data files.
+    The cargo profile is whatever ./run_game.sh would use; pass '-- release' to
+    profile an optimized build.
+  - Where DWARF stacks are recorded, the stack dump is capped to 8 KiB to avoid
+    huge perf.data files.
 USAGE
 }
 
@@ -150,6 +172,38 @@ done
 
 case "$report_preset" in none|fast|full) ;; *) fail "--report-preset must be none, fast, or full" ;; esac
 run_cmd=("$repo_root/run_game.sh" "${run_args[@]}")
+
+# timeline-run is the "just record my session" mode: it runs until the game
+# exits and skips call-graph capture, so an open-ended session cannot balloon
+# perf.data. Every other mode keeps the old bounded-window defaults.
+if [[ "$mode" != "timeline-run" && -z "$duration" ]]; then duration="$default_bounded_duration"; fi
+if [[ -z "$perf_call_graph" ]]; then
+    case "$mode" in
+        timeline-run) perf_call_graph="none" ;;
+        *) perf_call_graph="dwarf,8192" ;;
+    esac
+fi
+
+# perf rejects `-g` alongside no call graph, so drop both flags for 'none'
+# rather than passing a spec perf may or may not accept.
+perf_record_argv() {
+    local data_file="$1"
+    local args=(perf record -F "$freq")
+    if [[ "$perf_call_graph" != "none" ]]; then args+=(-g --call-graph "$perf_call_graph"); fi
+    args+=(-o "$data_file")
+    printf '%s\0' "${args[@]}"
+}
+
+# Empty duration means "until the process exits" -- emit the command unwrapped
+# instead of under `timeout`.
+bounded_argv() {
+    if [[ -n "$duration" ]]; then printf '%s\0' timeout --signal=INT --kill-after=5s "${duration}s"; fi
+    printf '%s\0' "$@"
+}
+
+describe_window() {
+    if [[ -n "$duration" ]]; then printf 'window: %ss' "$duration"; else printf 'until you quit the game'; fi
+}
 
 make_profile_dir() {
     local local_mode="$1" suffix
@@ -313,7 +367,7 @@ write_metadata() {
         echo "utc_stamp=$stamp"
         echo "repo_root=$repo_root"
         echo "output_dir=$out_dir"
-        echo "duration_seconds=$duration"
+        echo "duration_seconds=${duration:-until-game-exits}"
         echo "sampling_frequency_hz=$freq"
         echo "stat_interval_ms=$interval_ms"
         echo "perf_call_graph=$perf_call_graph"
@@ -361,7 +415,7 @@ run_capture_command() {
         elapsed=0
         while sleep 5; do
             elapsed=$((elapsed + 5))
-            log "$(basename "$stem") capturing... ${elapsed}s elapsed (window: ${duration}s)"
+            log "$(basename "$stem") capturing... ${elapsed}s elapsed ($(describe_window))"
         done
     ) &
     heartbeat_pid=$!
@@ -524,16 +578,19 @@ run_perf_record() {
     ensure_kernel_symbol_visibility
     write_metadata "$out_dir" "$local_mode"
     run_warm_build_if_needed "$out_dir" "$local_mode"
+    local record_argv=() item
+    while IFS= read -r -d '' item; do record_argv+=("$item"); done < <(perf_record_argv "$out_dir/perf.data")
     if [[ "$local_mode" == "perf-attach" ]]; then
         local target_pid; target_pid="$(find_game_pid)"; record_attach_target "$out_dir" "$target_pid"
         log "recording perf on PID $target_pid for ${duration}s"
         run_capture_command "$out_dir/perf-record.status" \
-            perf record -F "$freq" -g --call-graph "$perf_call_graph" -o "$out_dir/perf.data" -p "$target_pid" -- sleep "$duration"
+            "${record_argv[@]}" -p "$target_pid" -- sleep "$duration"
     else
-        log "launching under perf for ${duration}s: $(quote_cmd "${run_cmd[@]}")"
-        run_capture_command "$out_dir/perf-record.status" \
-            timeout --signal=INT --kill-after=5s "${duration}s" \
-            perf record -F "$freq" -g --call-graph "$perf_call_graph" -o "$out_dir/perf.data" -- "${run_cmd[@]}"
+        local capture_argv=()
+        while IFS= read -r -d '' item; do capture_argv+=("$item"); done \
+            < <(bounded_argv "${record_argv[@]}" -- "${run_cmd[@]}")
+        log "launching under perf ($(describe_window)): $(quote_cmd "${run_cmd[@]}")"
+        run_capture_command "$out_dir/perf-record.status" "${capture_argv[@]}"
     fi
     write_perf_reports "$out_dir"
 }
@@ -665,10 +722,15 @@ run_timeline() {
     ensure_kernel_symbol_visibility
     write_metadata "$out_dir" "$local_mode"
     run_warm_build_if_needed "$out_dir" "$local_mode"
-    log "timeline capture: ${duration}s window, ${timeline_chunks} chunks -- play through the phases you want profiled"
-    echo "$(quote_cmd timeout --signal=INT --kill-after=5s "${duration}s" \
-        perf record -F "$freq" -g --call-graph "$perf_call_graph" -o "$out_dir/perf.data" -- "${run_cmd[@]}")" \
-        > "$out_dir/perf-record.command.txt"
+    local capture_argv=() item
+    while IFS= read -r -d '' item; do capture_argv+=("$item"); done < <(
+        record_argv=()
+        while IFS= read -r -d '' item; do record_argv+=("$item"); done < <(perf_record_argv "$out_dir/perf.data")
+        bounded_argv "${record_argv[@]}" -- "${run_cmd[@]}"
+    )
+    log "timeline capture: $(describe_window), ${timeline_chunks} chunks -- play through the phases you want profiled"
+    if [[ -z "$duration" ]]; then log "quit the game (or Ctrl-C here) when you are done; reports are written after it exits"; fi
+    echo "$(quote_cmd "${capture_argv[@]}")" > "$out_dir/perf-record.command.txt"
     local stamp_py='
 import sys, time
 t0 = time.monotonic()
@@ -677,15 +739,20 @@ for line in sys.stdin:
     sys.stdout.flush()
 '
     local heartbeat_pid=""
-    ( elapsed=0; while sleep 5; do elapsed=$((elapsed + 5)); log "timeline capturing... ${elapsed}s elapsed (window: ${duration}s)"; done ) &
+    ( elapsed=0; while sleep 5; do elapsed=$((elapsed + 5)); log "timeline capturing... ${elapsed}s elapsed ($(describe_window))"; done ) &
     heartbeat_pid=$!
+    # A handler (not `trap '' INT`) is deliberate: ignoring INT would be
+    # inherited by perf as SIG_IGN, so Ctrl-C would no longer stop the capture.
+    # With a handler installed, perf still takes the interrupt and flushes
+    # perf.data, and this script survives to write the reports.
+    trap 'log "interrupt received; ending capture and writing reports"' INT
     set +e
-    timeout --signal=INT --kill-after=5s "${duration}s" \
-        perf record -F "$freq" -g --call-graph "$perf_call_graph" -o "$out_dir/perf.data" -- "${run_cmd[@]}" \
+    "${capture_argv[@]}" \
         > >(python3 -u -c "$stamp_py" > "$out_dir/game-stdout-stamped.txt") \
         2> >(python3 -u -c "$stamp_py" | tee "$out_dir/game-stderr-stamped.txt" >&2)
     local status=$?
     set -e
+    trap - INT
     kill "$heartbeat_pid" 2>/dev/null || true
     wait "$heartbeat_pid" 2>/dev/null || true
     echo "$status" > "$out_dir/perf-record.status"

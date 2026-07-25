@@ -152,18 +152,37 @@ since `profile` is opt-in.
 
 ### Desktop perf/stat/strace captures
 
-For bounded desktop captures without Tracy, use
+For desktop captures without Tracy, use
 [`scripts/profile_desktop.sh`](../../scripts/profile_desktop.sh):
 
 ```bash
 scripts/profile_desktop.sh
+scripts/profile_desktop.sh -- release
 scripts/profile_desktop.sh perf-run --duration 30
 scripts/profile_desktop.sh perf-attach --duration 30
 scripts/profile_desktop.sh stat-run --duration 30
 scripts/profile_desktop.sh asset-run --duration 30
 ```
 
-With no arguments, the script does a `perf-run`.
+With no arguments the script does a `timeline-run`: it launches the game the
+way `./run_game.sh` would, records until you quit the game (Ctrl-C in the
+terminal works too), then slices the capture into 12 time chunks and labels
+each with the room/boss/title/session log lines seen in that window. Read
+`target/profiles/desktop-timeline-run-*/timeline.md`; each chunk lists its
+own top symbols, so "what got slow when I entered the room" is a diff between
+two chunks rather than a whole-run average.
+
+Because that capture is open-ended, `timeline-run` records without call
+graphs (~15 KB/s of `perf.data`, so a long session stays manageable) and the
+per-chunk reports are flat self-time symbol lists. When you need caller
+attribution for a specific hotspot, follow up with a bounded capture:
+`scripts/profile_desktop.sh perf-run --duration 30 --report-preset full`,
+which keeps the DWARF stacks.
+
+The cargo profile is whatever `run_game.sh` defaults to; pass `-- release` to
+profile an optimized build, and a second `--` to reach game arguments
+(`-- release -- --start-room mary_o_level_1`).
+
 Attach modes look for the current desktop game process, `ambition_game_bin`,
 and also accept the historical `ambition_actors` name for older local
 builds.

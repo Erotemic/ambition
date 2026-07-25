@@ -7,7 +7,21 @@
 //! from his surface parameter rather than set. You cannot teleport him to the
 //! goal to check; the only way to know the finish line is reachable is to run
 //! there.
-#![cfg(not(feature = "input"))]
+//! ## Driving the stick under either composition
+//!
+//! This ran in `PreUpdate` behind `#![cfg(not(feature = "input"))]`, and that
+//! cfg reads THIS crate's `input` feature while the thing that erases a scripted
+//! write is `ambition/input` — the participant pipeline in the dependency, which
+//! workspace feature unification turns on regardless. The first test grew a
+//! runtime SKIP for it; the second never did, and failed in the gate the moment
+//! the earlier `two_rooms` failure stopped masking it.
+//!
+//! Both are fixed the same way `two_rooms` is: order the scripted write against
+//! the authority instead of guessing at the composition. `InputSet::Route` is
+//! where the pipeline declares its `ControlFrame` writers, and
+//! `accumulate_control_frame_latch` is what the sim actually consumes under a
+//! fixed-tick host. The SKIP is gone with the guard — a skipped proof is a
+//! silent pass, which is what let this rot.
 
 use ambition::engine_core as ae;
 use ambition::input::ControlFrame;
@@ -49,23 +63,20 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
     app.init_resource::<ScriptedStick>();
-    // `PreUpdate`: Bevy runs the fixed-timestep loop BEFORE `Update`, so intent
-    // written later is not seen by the tick it is meant to drive.
-    app.add_systems(PreUpdate, apply_scripted_stick);
+    app.add_systems(
+        Update,
+        apply_scripted_stick
+            .after(ambition::input::InputSet::Route)
+            .before(ambition::engine_core::accumulate_control_frame_latch),
+    );
     for _ in 0..8 {
         app.update();
     }
 
-    // The crate-level `cfg(not(feature = "input"))` guard is NOT sufficient: it
-    // reads THIS crate's `input` feature, while the thing that erases a scripted
-    // write is `ambition/input` — the participant pipeline in the dependency.
-    // Under `cargo test --workspace` cargo unifies features across the graph, so
-    // `ambition` is built WITH `input` while this crate's own flag stays off;
-    // the guard passes and every scripted frame is then overwritten from device
-    // state. That is how this failed in the gate: "furthest x reached was 160 of
-    // a goal at 6000", which reads like unreachable level geometry rather than
-    // like discarded input. Reproduce with
-    // `--features ambition/input`. Ask the composition, not the feature flag.
+    // Prove the stick reaches the sim before spending 2400 frames on a run that
+    // would otherwise fail as "unreachable level geometry" — the misreading that
+    // cost someone an afternoon here once already ("furthest x reached was 160 of
+    // a goal at 6000").
     app.world_mut().resource_mut::<ScriptedStick>().0 = {
         let mut frame = ControlFrame::default();
         frame.axis_x = 1.0;
@@ -73,15 +84,11 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
         frame
     };
     app.update();
-    if app.world().resource::<ControlFrame>().axis_x < 0.5 {
-        eprintln!(
-            "SKIP: a participant pipeline owns `ControlFrame` in this build \
-             (`ambition/input` is on, likely via workspace feature unification), \
-             so scripted input never reaches the sim. A completion run is only \
-             meaningful in the headless sim composition."
-        );
-        return;
-    }
+    assert!(
+        app.world().resource::<ControlFrame>().axis_x >= 0.5,
+        "the scripted stick must survive into the sim's `ControlFrame`; if this \
+         fails the ordering above no longer reaches the authority that writes it"
+    );
 
     let start = player_x(&mut app);
     assert!(
@@ -171,7 +178,12 @@ fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
     app.init_resource::<ScriptedStick>();
-    app.add_systems(PreUpdate, apply_scripted_stick);
+    app.add_systems(
+        Update,
+        apply_scripted_stick
+            .after(ambition::input::InputSet::Route)
+            .before(ambition::engine_core::accumulate_control_frame_latch),
+    );
     for _ in 0..8 {
         app.update();
     }

@@ -1999,7 +1999,7 @@ the confirmed rebase + generation bump + old-generation discard; (T6) principal
 oracle + manual-reset/transition tests. Determinism-sacred throughout; no
 `Entity`/fn-pointer/iteration-order into any intent field.
 
-### Phase 6 — external architecture proof — **FIRST SLICE LANDED 2026-07-23**
+### Phase 6 — external provider-composition proof — **FIRST SLICE LANDED 2026-07-23**
 
 > **Account.** `fixtures/external_consumer` ("Outlander", `e9bb2499a`) is a
 > consumer game excluded from the workspace — own `[workspace]`, own
@@ -2009,7 +2009,7 @@ oracle + manual-reset/transition tests. Determinism-sacred throughout; no
 > construction plan row through `ambition.staged-actor` — task 5's "consume,
 > don't define"), and one transition (a `transit_body` ridge gate wired
 > through `SimScheduleExt`, never a literal schedule). `outlander_headless`
-> runs 120 ticks with zero engine edits; `outlander_dump` prints the
+> runs 120 ticks through the public surface; `outlander_dump` prints the
 > rollback schema fingerprint and registry dumps through public
 > `deterministic_dump()` alone.
 >
@@ -2108,7 +2108,9 @@ prematurely freezing a public prefab contract.
 
 #### Exit
 
-- The fixture runs without editing reusable engine crates.
+- The fixture uses supported public surfaces; any reusable gap it discovers is
+  recorded as engine work rather than patched with provider-local infrastructure
+  or a game-named core branch.
 - It does not reconstruct entities through a separate path.
 - Internal API leaks are documented as evidence for SDK design.
 - No final public prefab API has been guessed prematurely.

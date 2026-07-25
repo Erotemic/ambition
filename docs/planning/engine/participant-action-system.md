@@ -512,10 +512,12 @@ Begin only after a real external provider requires a non-standard action.
 - Delete any temporary adapter used for the proof; do not maintain two action
   systems.
 
-**Exit:** an external game adds one custom action without editing core and
-without implementing a device-specific path.
+**Exit:** a provider registers one custom action through the supported schema
+and carries it through binding, context, consumer, cue, and touch projection
+without a game-named core branch or a device-specific parallel path. A reusable
+missing capability may still justify an engine change.
 
-## 10. Tests and forcing oracles
+## 10. Tests and forcing cases
 
 ### Source ownership
 

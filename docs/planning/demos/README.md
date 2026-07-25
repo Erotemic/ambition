@@ -10,9 +10,10 @@ demo name, character, and asset is a parody-original — homage in grammar,
 never a copy. Each demo doc carries a **Consumes (by role) / Owns** section:
 "consumes" lists engine crates by their [role handles]
 ([`../engine/architecture.md`](../engine/architecture.md) §2); "owns" is what
-the demo builds for itself. If work appears that fits neither list, stop —
-it's either an oracle-violation (engine work, file it in tracks.md) or scope
-drift. Priorities may shuffle; the designs do not.
+the demo builds for itself. If work appears that fits neither list, stop and
+classify it: a reusable platformer capability belongs in an engine campaign; a
+named rule or presentation choice belongs in the provider; anything else is
+scope drift. Priorities may shuffle; the designs do not.
 
 ## The shape (every demo, no exceptions)
 
@@ -26,15 +27,14 @@ game/
 ```
 
 **The executable reference:** each demo installs the common engine/runtime/host
-composition and registers its provider explicitly. The accepted provider-lifecycle
-extraction will consolidate preparation, exact activation, session construction,
-and cleanup; demo apps should not copy those mechanics or call low-level session
-setup directly.
+composition and registers its provider explicitly. The provider lifecycle owns
+preparation, exact activation, session construction, and cleanup; demo apps should
+not copy those mechanics or call low-level session setup directly.
 
-- **Standalone:** depends only on engine crates. `git log --stat` for the
-  demo touches ZERO engine crates. Every needed core change files an
-  `oracle-violation` in [`../tracks.md`](../tracks.md) and becomes engine
-  work executed OUTSIDE the demo's commits.
+- **Standalone:** depends only on engine crates and composes them through public
+  Bevy/Ambition seams. A demo may expose reusable engine work; that work must be
+  stated as a general platformer capability and must not introduce a demo-named
+  branch. Provider commits continue to own the demo's named content and policy.
 - **The `bevy` manifest line is expected, not a violation:** a content crate
   that defines its own `#[derive(Component)]`/`#[derive(Resource)]` must list
   `bevy` directly in its `Cargo.toml`, even though it reaches engine types
@@ -42,8 +42,10 @@ setup directly.
   consumer's own manifest, which the umbrella's re-export cannot satisfy. One
   line, version pinned by the workspace — authoring through the umbrella "alone"
   carries this asterisk.
-- **Adversarial discipline:** the demo agent may not "quickly fix" the
-  engine. The violation log is the product as much as the demo.
+- **Adversarial discipline:** the demo agent may not hide a missing engine
+  capability in provider-local infrastructure or add a demo-specific core hack.
+  Surface the ownership question, then put reusable machinery in the engine and
+  named policy in the provider.
 - **Headless-first:** every demo ships scripted reachability/win-path
   tests (complete the level / win a match via `SlotControls` headlessly)
   before any feel pass. Visuals draw blind and ship.
@@ -75,5 +77,6 @@ global app state:
 Demo work is [opus] by default (the engine tracks it depends on carry
 their own grades); art draws blind per the standing rule; each demo doc
 lists its engine dependencies — a demo agent finding a dependency unmet
-STOPS demo work and files/executes the engine track instead (per its own
-grade), never inlines engine changes into demo commits.
+STOPS to classify the gap. Reusable capability becomes an engine track; named
+policy remains demo work. Do not disguise engine work as provider-local glue or
+provider policy as a reusable core abstraction.

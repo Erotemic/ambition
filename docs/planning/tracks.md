@@ -792,8 +792,9 @@ ruling stands — these are ROLE moves, each with a named destination):
   catalog; `deep_dream_strength` → content-owned presentation knob;
   `puppy_slug_gun.rs` → parameterized summon-ally ability + content data.
 
-**Exit:** actors' out-degree drops (no menu/settings_menu/ui_nav edges); the
-oracle "add a character/item without editing core" holds for items.
+**Exit:** actors' out-degree drops (no menu/settings_menu/ui_nav edges); item
+identity and policy enter through the provider-owned seam without a closed engine
+roster or a game-named core branch.
 
 ## 8. Combat unification batch — [opus] (first item LANDED 2026-07-19)
 

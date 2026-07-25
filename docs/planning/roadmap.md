@@ -4,8 +4,9 @@ Current source-backed state is in [`status.md`](status.md); execution order is i
 [`tracks.md`](tracks.md); direct Jon decisions and confidence are in
 [`maintainer-decisions.md`](maintainer-decisions.md).
 
-**North-star oracle:** could another platformer be built by adding a provider and
-content crate without editing core?
+**North-star composition principle:** providers add named game policy and content
+through Bevy plugins and supported Ambition seams. Core changes are reserved for
+reusable platformer capabilities rather than forbidden categorically.
 
 ## Phases
 
@@ -16,92 +17,51 @@ content crate without editing core?
   bar. Placement lowering, provider lifecycle, session ownership, programmatic
   simulation, selected content ownership, touch separation, and repaired
   render/domain seams have one authoritative path.
-- **P3 — complete external-game proofs:** current product priority. Finish one
-  complete headless/visible Super Mary-O level and one complete Sanic act without
-  engine exceptions.
-- **P4 — richer mechanics and second consumers:** encounter lifecycle
-  convergence closed 2026-07-16; later customers include Super Smash Siblings
-  and Hollow Lite. Real second consumers decide menu or other crate boundaries.
-- **P5 — rollback and broader generalization:** GGRS/bevy_ggrs now drive the
-  real simulation harness and the custom rollback engine is gone. Production
-  online work starts with confirmed-frame side-effect quarantine and a
-  Matchbox-backed two-peer handshake; broader generalization continues through
-  ConstructionPlan, stronger frame mechanics, and additional acceptance games.
+- **P3 — acceptance-game pressure tests:** current product maturity phase. Super
+  Mary-O has closed its level-1 gate; Sanic's complete-act proof and the remaining
+  external provider-composition workflow evidence are still live. A demo may
+  expose reusable engine work, but it may not create a named core branch or a
+  private replacement for an ordinary engine responsibility.
+- **P4 — richer mechanics and second consumers:** encounter lifecycle convergence
+  is closed; later customers include Super Smash Siblings and Hollow Lite. Real
+  second consumers decide optional domain and presentation seams.
+- **P5 — broader maturity:** GGRS/bevy_ggrs drive rollback; later work includes
+  stronger simulation-participation guarantees, local-N and optional online
+  transport, additional acceptance games, measured budgets, and mature provider
+  documentation.
 
 The phase labels describe customer maturity, not a requirement to serialize all
-work. Encounter convergence and atomic room restore may proceed while P3 demos
-close.
+work.
 
-## Next major engine-architecture push
+## Engine-competitiveness master plan
 
-The immutable prepared-content and exact session-identity milestone of
-[`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md)
-is complete, and so is its explicit-provenance plus three-origin
-`ConstructionPlan` vertical slice (Milestone B, 2026-07-22): one authored
-placement, one provider-staged actor, and one runtime-dynamic family now share a
-pure, preflightable planner and a recipe-backed reconstruction path, and
-`SpawnOrigin` replaced the id-string parsing that stood in for provenance.
+The complete capability destination, Bevy/Ambition ownership split, campaign
+breakdown, and strategic dependency order live in
+[`engine/competitive-2d-platformer-engine-roadmap.md`](engine/competitive-2d-platformer-engine-roadmap.md).
+This file remains the durable phase map and decision register. Current facts live
+in [`status.md`](status.md); executable ordering lives in [`tracks.md`](tracks.md).
 
-That doc's Phase 4 **LANDED 2026-07-23**: room activation, reset, transition,
-hot reload, and snapshot reconstruction are variations of ONE construction
-transaction. Every authored family in a shipped room is a plan row, the outer
-authoritative roster is exactly the plan's `planned_ids()`, rig composition is
-verified exactly at the boundary, and a plan prepared against a stale content
-generation is refused publication. Verification still DETECTS rather than
-PREVENTS — the staging world remains the recorded-open hardening item.
+The durable architecture sequence is:
 
-The current push is the same doc's Phase 5 — rollback-envelope hardening under
-ADR 0027 (a computed resource-coverage forcing function, demo-content
-registration through the content-side seam, and the track-0 exit-oracle
-sync test) — followed by Phase 6, the external engine-workflow proof: an
-out-of-workspace consumer fixture authoring a room, character, enemy, recipe,
-and transition through the `ambition` umbrella with zero engine-crate edits.
-That is the foundation for prefab-like authoring, persistence/reconstruction,
-and a credible external SDK. Rollback itself is owned by GGRS (ADR 0027).
+1. finish the already-active construction/provider-composition closure;
+2. make authoritative simulation participation and rewind proof difficult to omit;
+3. finish participant action routing and add shared temporal action ownership on
+   top of the landed slot-to-action and `MovePlayback` seams;
+4. finish and enforce the existing swept collision/contact doctrine, then migrate
+   remaining ad hoc consumers onto its cast/contact conventions;
+5. compose shippable resource, input, presentation, persistence, and host
+   capabilities with Bevy according to demonstrated game needs;
+6. mature platformer-specific diagnosis, budgets, and supported provider seams.
 
-Ambition-the-game remains the first customer throughout; it consumes capabilities
-rather than defining exceptions inside reusable crates.
-
-### Immediate room-loading integration — LANDED 2026-07-17
-
-[`engine/room-transition-loading.md`](engine/room-transition-loading.md)'s
-Phases 1–4 executed: ordinary transitions mint a real readiness barrier through
-the load coordinator, the source room stays authoritative until one-shot
-commit, presentation is contributor-neutral (`LoadPresentationCommand` + shell
-adapter), and neighbor prefetch with promotion is concrete. Remaining: Phase 6
-performance closure; full canonical-plan convergence rides the provenance
-track.
-
-## Current critical path
-
-```text
-immutable PreparedContent + exact GGRS session identity (done)
-        ↓
-confirmed-frame external-effect quarantine (done 2026-07-21)
-        ↓
-Matchbox two-peer handshake + predicted-A/corrected-B oracle   ← next online step
-
-in parallel (CURRENT):
-  explicit provenance + three-origin ConstructionPlan vertical slice (done)
-        ↓
-  transaction substrate: boundary/roster/plan-id/relations (done 2026-07-23)
-        ↓
-  Phase 4 — family migration + lifecycle unification + commit boundary (done 2026-07-23)
-        ↓
-  Phase 5 — rollback-envelope hardening under ADR 0027   ← current
-        ↓
-  Phase 6 / Milestone E — external engine-workflow proof
-
-  Super Mary-O level-1 acceptance (done 2026-07-21)
-  Sanic complete-act acceptance (open — demos/sanic.md)
-```
+Online transport may remain a live product track, but it is not a prerequisite
+for declaring the single-player/local platformer engine core coherent.
 
 ## Acceptance-game matrix
 
 | Game | Primary stress | Phase / state |
 |---|---|---|
 | **Sanic** | momentum movement, provider-owned playable identity, hosted rules | P3; mechanics/host path proven, complete act open |
-| **Super Mary-O** | classic AABB, equipment/powerups, sequencing | P3; core level mechanics landed, full level proof open |
+| **Super Mary-O** | classic AABB, equipment/powerups, sequencing | P3; level-1 acceptance gate closed |
 | **Super Smash Siblings** | N bodies/slots, full combat, local match state | P4 |
 | **Hollow Lite** | exploration, encounter/boss quality, respawn/save policy | P4 |
 | MoneySeize | precision feel and economy | P5 |

@@ -6,8 +6,9 @@ allowed composition, not a historical carve ledger. Current gaps are in
 [`../tracks.md`](../tracks.md); settled recon decisions are in
 [`decisions-2026-07-16.md`](decisions-2026-07-16.md).
 
-**Design oracle:** could another platformer be built by adding a provider and
-content crate without editing reusable engine crates?
+**Composition principle:** named game content and policy enter through provider
+crates, Bevy plugins, and supported Ambition seams. Reusable platformer capability
+belongs in the engine; game-specific policy does not.
 
 ## 1. Repository shape
 

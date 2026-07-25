@@ -3,7 +3,7 @@ id: engine-mental-model
 aliases: []
 status: current
 authority: durable-concept
-last_verified: 2026-07-18
+last_verified: 2026-07-24
 related_docs:
   - docs/planning/vision.md
   - docs/planning/engine/architecture.md
@@ -25,13 +25,15 @@ Ambition is two things developed together:
 1. a reusable, composable, Bevy-native 2D platformer engine; and
 2. Ambition, the first game/provider built on that engine.
 
-The design oracle is:
+The provider-composition principle is:
 
-> Could another platformer be built by adding a provider/content crate and a
-> thin host without editing reusable engine crates?
+> Named game content and policy enter through provider crates, Bevy plugins, and
+> supported Ambition seams. Reusable platformer capability belongs in the engine;
+> game-specific policy does not.
 
-The demo games make that question executable. Game-specific names, rosters,
-worlds, art, dialogue, music, and rules belong above the reusable engine.
+The demo games pressure-test that division. They may expose missing reusable
+engine capability, but game-specific names, rosters, worlds, art, dialogue, music,
+and rules remain above the reusable engine.
 
 ## The seven-layer picture
 
@@ -168,7 +170,8 @@ Ask these questions in order:
 3. Which single domain owns mutation authority?
 4. Does another controller/body/provider already do this on a different path?
 5. Can it run and be tested headlessly?
-6. Can another game provide a different implementation without editing core?
+6. Can another game provide a different policy through supported Bevy/Ambition
+   seams without duplicating an ordinary engine responsibility?
 7. Can reset/restore/provider switch reconstruct it exactly?
 
 Then localize the current owner:

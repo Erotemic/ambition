@@ -79,12 +79,15 @@ Ambition is:
   Architecture is not deferred when the wrong shape would create technical
   debt.
 
-The design oracle is:
+The provider-composition principle is:
 
-> Could another platformer be built by adding a content crate without editing
-> core engine crates?
+> Named game content and policy enter through provider crates, Bevy plugins, and
+> supported Ambition seams. Reusable platformer capability belongs in the engine;
+> game-specific policy does not.
 
-The demo suite exists to make that oracle executable.
+The demo suite pressure-tests that division. A demo may reveal legitimate reusable
+engine work, but it must not create a named game branch or a private replacement
+for an ordinary engine responsibility.
 
 ## Durable engine shape
 

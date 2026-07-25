@@ -12,22 +12,28 @@ plans, and review evidence belong under [`docs/archive/`](../archive/).
 4. [`status.md`](status.md) — current source-backed state.
 5. [`tracks.md`](tracks.md) — executable queue only.
 6. [`roadmap.md`](roadmap.md) — phases and durable architecture decisions.
-7. Only the focused engine, demo, or game plan needed for the task.
+7. For cross-track engine strategy,
+   [`engine/competitive-2d-platformer-engine-roadmap.md`](engine/competitive-2d-platformer-engine-roadmap.md).
+8. Only the focused engine, demo, or game plan needed for the task.
 
 ## What belongs here
 
 - `engine/` — normative architecture and active engine designs.
+  The engine-competitiveness master plan is
+  [`engine/competitive-2d-platformer-engine-roadmap.md`](engine/competitive-2d-platformer-engine-roadmap.md).
+  It defines the complete capability destination and dependency order; `tracks.md`
+  remains the live executable queue and focused plans own active campaign detail.
   The longer-term character-authoring direction is
   [`engine/svg-component-character-migration.md`](engine/svg-component-character-migration.md):
   editable SVG component scenes, freeform Python animation, and a gradual
   legacy-to-shadow-to-SVG migration with raster-equivalence checks.
-  The next major architecture campaign is
+  The active construction campaign and its remaining closure are recorded in
   [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md).
-  Its immediate room-lifecycle customer is
+  Its room-lifecycle customer is
   [`engine/room-transition-loading.md`](engine/room-transition-loading.md), which
   completes adaptive readiness-gated room transitions without flashing loading
-  UI for fast loads or exposing partial rooms for slow loads. The external-game
-  input endpoint and its participant/action/context migration live in
+  UI for fast loads or exposing partial rooms for slow loads. The participant
+  input/action/context migration lives in
   [`engine/participant-action-system.md`](engine/participant-action-system.md);
   [`engine/participant-input.md`](engine/participant-input.md) records the landed
   startup/launcher slice. Cross-cutting ownership, shipping/bootstrap, measured
@@ -71,7 +77,8 @@ decision-relevant.
 
 North star: *every upgrade a theorem, every boss a failed objective function,
 every biome a mathematical world model.* The game is the first engine customer.
-The oracle is: *could another platformer be built by adding a provider/content
-crate without editing core?* Elegance is the objective function; behavior is not
-sacred pre-release; verify against the real headless simulation; delete duplicate
-paths rather than bridging them.
+Provider composition is the design principle: named game policy and content enter
+through Bevy plugins and supported Ambition seams, while reusable platformer
+capabilities belong in the engine. Elegance is the objective function; behavior
+is not sacred pre-release; verify against the real headless simulation; delete
+duplicate paths rather than bridging them.

@@ -177,9 +177,10 @@ in-game **board action is deferred**.
 
 ## Consequences
 
-- Mounts/vehicles become **pure content**: a new game adds a drivable thing by
-  adding a `Mountable` actor + a `CanPilot` rider + an authored link, editing no
-  engine code — satisfying the engine-for-other-games oracle.
+- Mounts/vehicles become **pure content in the common case**: a provider adds a
+  drivable thing through a `Mountable` actor + a `CanPilot` rider + an authored
+  link, demonstrating the provider-composition seam without a mount-specific core
+  branch. A genuinely new reusable mount capability may still justify engine work.
 - The `pirate_on_shark` fused archetype, `composite_visual`, `composite_rider_name`
   and the `rider_name_suffix` strip are removed; the two shark-rider variants
   become a rider archetype (its own gun/HP) + the standard `burning_flying_shark`

@@ -4,7 +4,7 @@ aliases:
   - architecture review checklist
   - fresh agent review questions
   - ownership and lifecycle questions
-last_verified: 2026-07-17
+last_verified: 2026-07-24
 related_docs:
   - docs/recipes/fresh-agent-navigation.md
   - docs/planning/decision-principles.md
@@ -94,7 +94,8 @@ contract until the provenance model is explicit.
 
 - Is this API exposing a proven ownership boundary or an internal transitional
   mechanism?
-- Can a different game add content or behavior without editing the core?
+- Can a different game supply its policy through supported Bevy/Ambition seams
+  without a named core branch or a private replacement for ordinary engine work?
 - Does the facade reveal the supported abstraction while keeping implementation
   details replaceable?
 - Are duplicate registration, override, ordering, and failure semantics explicit?

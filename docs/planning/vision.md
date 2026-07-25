@@ -31,14 +31,16 @@ is best-in-class external tools speaking through validated data seams. We
 compete on **architecture, expressibility, headless testability, and agent
 navigability**, not on shipping an editor binary.
 
-**The design oracle** (unchanged, permanent):
+**The provider-composition principle:**
 
-> *Could another platformer be built by ADDING a content crate, without
-> editing core?*
+> A platformer should add its named content and game policy through provider
+> crates, Bevy plugins, and supported Ambition seams. Core changes are legitimate
+> when they add a reusable platformer capability; game-specific policy remains
+> provider-owned.
 
-The demo games make the oracle executable. Each demo's `git log --stat` must
-touch zero engine crates; every violation files an `oracle-violation` and
-becomes engine work.
+The demos are pressure tests for this principle, not a zero-core-diff rule.
+Their implementation should expose missing reusable capabilities and misplaced
+policy without turning all engine evolution into a violation.
 
 ## 2. The four product pillars
 
@@ -80,8 +82,8 @@ becomes engine work.
   product/presentation/observation code leaves the sim heart through the
   open seams (the `ControlPrompt` inversion pattern), and navigability below
   crate level comes from module ownership + the generated `.agent` maps.
-- All four named demos exist and pass the oracle; the ambition sandbox can
-  host each demo in-world (§5).
+- All four named demos exercise the shared engine contracts without parallel
+  private engine paths; the ambition sandbox can host each demo in-world (§5).
 - The collision doctrine of
   [`engine/collision-and-ccd.md`](engine/collision-and-ccd.md) holds: every
   mover and every trigger is swept (no discrete sampling anywhere), the OOB
@@ -103,10 +105,11 @@ becomes engine work.
 
 ## 4. The demo suite is written in stone
 
-Each demo is a **standalone system depending only on the engine**:
+Each demo is a **standalone provider composed from the engine**:
 `<demo>-content` (one crate: world, rosters, rules, match/level state) + a
-`<demo>-app` (~100-line thin shell). No demo may edit an engine crate; no
-engine crate may name a demo. Full designs live in [`demos/`](demos/):
+`<demo>-app` (~100-line thin shell). A demo may expose reusable engine work, but
+no engine crate may name the demo and no provider may build a private replacement
+for an ordinary engine responsibility. Full designs live in [`demos/`](demos/):
 
 | Demo | Inspiration | Proves |
 |---|---|---|
@@ -133,13 +136,15 @@ to build all of this at once — but every demo is DESIGNED for it from day one.
 
 ## 6. How we get there (the arc, one paragraph)
 
-Finish the engine face: complete `ambition_runtime` (the demo gate), execute
-the decomposition playbook until the monolith is gone, keep the collision/
-combat/netcode doctrines ahead of the demos that need them. Ship Sanic and
-Super Mary-O against the oracle. Land local-N + the combat stack, ship Super
-Smash Siblings. Land the boss pipeline + fighter brain, ship Hollow Lite.
-Then Ambition-the-game gets built ON a finished engine — which was the plan
-since the north star was written. Phases and status:
+Finish the engine face: complete the provider/runtime seams, make simulation
+participation mechanically safe, and perform role-driven ownership moves where
+the architecture identifies misplaced policy. Keep the collision, combat, and
+netcode doctrines ahead of the games that need them. Ship Sanic and Super
+Mary-O as pressure tests of the shared engine contracts. Land local-N plus the
+combat stack, then ship Super Smash Siblings. Land the boss pipeline and fighter
+brain, then ship Hollow Lite. Ambition-the-game expands on the engine throughout
+this process and becomes its deepest integrated customer rather than waiting for
+an abstractly finished engine. Phases and status:
 [`roadmap.md`](roadmap.md); the live queue: [`tracks.md`](tracks.md).
 
 ## 7. Who does what (the model ladder)

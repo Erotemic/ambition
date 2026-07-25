@@ -19,6 +19,14 @@ pub const MARY_O_CHARACTER_ID: &str = "mary_o";
 pub const MARY_O_MUSIC_TRACK: &str = "support_theme";
 pub const MARY_O_MUSIC_ASSET_PATH: &str = "audio/music/generated/support_theme/full.ogg";
 
+/// The track that plays over her death.
+///
+/// Authored as its own score (`scores/active/mary_o_you_died.music.yaml`) with a
+/// `death_sting` section. It resolves its OGG by the ordinary convention
+/// (`audio/music/generated/<id>/full.ogg`), so unlike the level theme it needs
+/// no explicit path.
+pub const MARY_O_DEATH_MUSIC_TRACK: &str = "mary_o_you_died";
+
 #[derive(Clone)]
 pub struct MaryOSessionWorld {
     pub geometry: ae::RoomGeometry,
@@ -112,11 +120,23 @@ impl Plugin for MaryOExperiencePlugin {
                     // and play it under provider-relative audio.
                     Some(ambition::audio::spec::MusicRegistry {
                         default_track: MARY_O_MUSIC_TRACK.to_string(),
-                        tracks: vec![ambition::audio::spec::MusicTrack {
-                            id: MARY_O_MUSIC_TRACK.to_string(),
-                            display_name: "Support Theme".to_string(),
-                            asset_path: Some(MARY_O_MUSIC_ASSET_PATH.to_string()),
-                        }],
+                        tracks: vec![
+                            ambition::audio::spec::MusicTrack {
+                                id: MARY_O_MUSIC_TRACK.to_string(),
+                                display_name: "Support Theme".to_string(),
+                                asset_path: Some(MARY_O_MUSIC_ASSET_PATH.to_string()),
+                            },
+                            // Declaring the death track is what AUTHORIZES it:
+                            // under provider-relative playback a session plays
+                            // only what its own fragment names, so a cue nobody
+                            // declared is gated to silence no matter who asks
+                            // for it.
+                            ambition::audio::spec::MusicTrack {
+                                id: MARY_O_DEATH_MUSIC_TRACK.to_string(),
+                                display_name: "Mary O You Died".to_string(),
+                                asset_path: None,
+                            },
+                        ],
                     }),
                     // Mary-O AUTHORS the cues she emits. The movement kernel writes
                     // `SfxMessage::Jump` on every jump, but under provider-relative

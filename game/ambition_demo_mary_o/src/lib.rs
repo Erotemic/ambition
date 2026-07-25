@@ -1313,6 +1313,7 @@ impl Plugin for MaryORulesPlugin {
             // Then the beat itself: hold her in the death pose where she fell,
             // and restart the level only once it has played out.
             death::run_death_sequence,
+            death::play_death_music,
             death::restart_level_after_death,
             cycle_level_on_flag_tally,
         )

@@ -100,12 +100,39 @@ pub fn begin_death_sequence(
     if !sequence.begin(Some(death.pos)) {
         return;
     }
-    // The engine's shared reset cue. AMBITION_REVIEW(audio): the authored
-    // `mary_o_you_died` score has a `death_sting` section for this exact moment;
-    // it attaches HERE once the track is rendered and registered. Deliberately
-    // not named yet — a cue id with nothing behind it fails silently, which is
-    // the failure mode this demo has already been bitten by twice.
+    // The engine's shared reset cue voices the moment itself; the music the beat
+    // plays over is `play_death_music` below.
     sfx.write(ambition::sfx::SfxMessage::Reset { pos: death.pos });
+}
+
+/// **Her death has its own music.**
+///
+/// Written into the encounter layer's PRIORITY tier — the same slot a focused
+/// fight claims — because that is the one tier that outranks the room's own
+/// theme. It is set every frame the beat is live and cleared the frame it ends,
+/// so the level theme returns on its own with no second system to keep in sync
+/// and nothing to leak if the beat is interrupted.
+///
+/// The track is authorized by Mary-O's audio fragment
+/// ([`crate::provider::MARY_O_DEATH_MUSIC_TRACK`]); under provider-relative
+/// playback an undeclared id is gated to silence however loudly it is requested.
+pub fn play_death_music(
+    sequences: Query<&MaryODeathSequence>,
+    music: Option<
+        ambition::platformer::lifecycle::SessionWorldMut<
+            ambition::actors::encounter::EncounterMusicRequest,
+        >,
+    >,
+) {
+    let (Ok(sequence), Some(mut music)) = (sequences.single(), music) else {
+        return;
+    };
+    let wanted = sequence
+        .active()
+        .then(|| crate::provider::MARY_O_DEATH_MUSIC_TRACK.to_string());
+    if music.priority_track != wanted {
+        music.priority_track = wanted;
+    }
 }
 
 /// Hold her at the place she died, in the death pose, for the beat.

@@ -2,6 +2,7 @@
 
 use super::*;
 use ambition::engine_core as ae;
+use bevy::prelude::IntoScheduleConfigs;
 
 const DT: f32 = 1.0 / 60.0;
 
@@ -181,4 +182,88 @@ fn a_quiet_level_never_restarts_itself() {
         .single(app.world())
         .unwrap()
         .active());
+}
+
+/// **The death track is DECLARED, not just requested.**
+///
+/// Under provider-relative playback a session plays only the tracks its own
+/// audio fragment names, so asking for an undeclared id is gated to silence —
+/// the request succeeds, the music does not. That is the exact shape of every
+/// other thing in this demo that "worked" while producing nothing, so pin the
+/// declaration rather than trusting it.
+#[test]
+fn the_death_track_is_authorized_by_the_provider_fragment() {
+    let mut app = App::new();
+    app.add_plugins(crate::provider::MaryOExperiencePlugin);
+    let registry = app
+        .world()
+        .resource::<ambition::audio::catalog::AudioCatalogRegistry>()
+        .combined_music_registry(crate::provider::MARY_O_EXPERIENCE)
+        .expect("Mary-O's audio fragment assembles");
+    assert!(
+        registry
+            .tracks
+            .iter()
+            .any(|track| track.id == crate::provider::MARY_O_DEATH_MUSIC_TRACK),
+        "her death track must be declared by the fragment that authorizes it; \
+         got {:?}",
+        registry.tracks.iter().map(|t| &t.id).collect::<Vec<_>>()
+    );
+}
+
+/// It plays for the beat and hands the level's own theme back afterwards.
+#[test]
+fn the_death_music_claims_the_priority_tier_and_releases_it() {
+    let mut app = app();
+    let died_at = ae::Vec2::new(300.0, 300.0);
+    spawn_owner_and_body(&mut app, died_at);
+    let root = app
+        .world_mut()
+        .spawn((
+            ambition::platformer::lifecycle::SessionRoot(session_scope_for_test()),
+            ambition::actors::encounter::EncounterMusicRequest::default(),
+        ))
+        .id();
+    // Same order as the shipped chain: the beat is armed before the music that
+    // plays over it is chosen, or the claim lands a frame late.
+    app.add_systems(
+        bevy::prelude::Update,
+        play_death_music.after(restart_level_after_death),
+    );
+
+    app.update();
+    assert_eq!(
+        requested(&app, root),
+        None,
+        "a level nobody has died on plays its own theme"
+    );
+
+    kill(&mut app, died_at);
+    app.update();
+    assert_eq!(
+        requested(&app, root).as_deref(),
+        Some(crate::provider::MARY_O_DEATH_MUSIC_TRACK),
+        "her death takes the priority tier — the one slot that outranks the room"
+    );
+
+    for _ in 0..((DEATH_DWELL / DT).ceil() as usize + 10) {
+        app.update();
+    }
+    assert_eq!(
+        requested(&app, root),
+        None,
+        "and gives it straight back, so the level theme returns on its own"
+    );
+}
+
+/// A session scope id for a bare test root.
+fn session_scope_for_test() -> ambition::platformer::lifecycle::SessionScopeId {
+    let mut scope = ambition::platformer::lifecycle::ActiveSessionScope::default();
+    scope.begin()
+}
+
+fn requested(app: &App, root: bevy::prelude::Entity) -> Option<String> {
+    app.world()
+        .get::<ambition::actors::encounter::EncounterMusicRequest>(root)
+        .and_then(|music| music.priority_track.clone())
 }

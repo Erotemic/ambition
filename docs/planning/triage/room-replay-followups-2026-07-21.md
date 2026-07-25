@@ -5,7 +5,28 @@
 > surfaced by the same work: moving the `RoomReplayRequested` consumer into
 > `ambition_runtime` and writing the first proofs that a replay actually replays.
 
-## 1. Sanic clears the act and then dies off the end of it — [sonnet]
+## 1. Sanic clears the act and then dies off the end of it — **FIXED 2026-07-25** (`914a7ee3d`)
+
+> **The diagnosis below was wrong, and measuring is what showed it.** He was not
+> running out of level: he died at x≈6130 in a 6400-wide course, on
+> `finish_warning_spikes` authored at x=6144 — 144px PAST the goal. That strip
+> only ever punished finishing, and it is deleted (moving it before the line made
+> it an unjumpable wall on the only route).
+>
+> Two further findings, both of which a careless fix would have missed:
+> - **the phase does not notice a death.** `SanicActPhase::Cleared` survives it
+>   untouched, so the card keeps counting down with his time on it while he is
+>   back at spawn replaying the act. The first proof written here watched the
+>   phase and its POISON RUN PASSED; the observable has to be his position.
+> - **dropping the stick is not a brake.** The speed authority is the momentum
+>   state's `v_t` (not `vel`, which is derived while riding), and the braking
+>   system has to run in `PlayerInput` after `tick_player_brains` or the brain
+>   refills the stick from held-right before the body ever reads the zero.
+>
+> Proven by `clearing_the_act_does_not_kill_him_before_the_card_retires`,
+> poison-tested. The clause below about folding the replay assertion back into
+> `act_completion.rs` is now UNBLOCKED and still open.
+
 
 `GOAL_X = LEVEL_WIDTH - 400.0` (6000 of 6400), against `ACT_CLEAR_DWELL = 4.0`.
 Clearing the act neither brakes the body nor closes the course, so Sanic crosses

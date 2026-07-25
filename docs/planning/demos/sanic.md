@@ -122,6 +122,14 @@ Remaining acceptance work is product/content work
   `PlatformerEnginePlugins` into all three hosts (tracks §2.5), proved per host
   in `tests/room_replay.rs`.
 
+  ✅ **FIXED 2026-07-25** (`914a7ee3d`) — and the cause was not what this said.
+  He died on a hazard strip authored 144px PAST the goal, not by running out of
+  level; a death leaves `SanicActPhase::Cleared` untouched, so a proof that
+  watches the phase passes throughout the bug; and braking needs the momentum
+  state's `v_t` in `PlayerInput` after the brains run. Full account in the
+  triage. Folding the replay assertion back into `act_completion.rs` is now
+  unblocked and still open.
+
   ⚠ **Found while proving that: the act is clearable and then immediately
   fatal.** `GOAL_X` is 400px from the right edge, and clearing neither brakes the
   body nor closes the course, so Sanic coasts off the end and dies well inside

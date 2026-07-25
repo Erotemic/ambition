@@ -1475,13 +1475,22 @@ fn spawn_mary_o_mode_owner(
 /// as they slow everything else. It clamps at zero rather than going negative.
 fn tick_level_clock(
     time: bevy::prelude::Res<ambition::time::WorldTime>,
-    mut level: bevy::prelude::Query<(&mut MaryOLevelState, &flag::FlagSequence)>,
+    mut level: bevy::prelude::Query<(
+        &mut MaryOLevelState,
+        &flag::FlagSequence,
+        &death::MaryODeathSequence,
+    )>,
 ) {
-    for (mut state, sequence) in &mut level {
+    for (mut state, flag, dying) in &mut level {
         state.intro_card = (state.intro_card - time.scaled_dt).max(0.0);
         // A level whose flag has been grabbed is over. The clock stopping is what
         // turns the remaining time from a threat into a score.
-        if sequence.active() {
+        //
+        // A level she just died on is over too, and for the same reason: the
+        // attempt has already been decided, and a clock that kept draining
+        // through the death beat would eat the fresh attempt's time before she
+        // ever got it.
+        if flag.active() || dying.active() {
             continue;
         }
         state.time_remaining = (state.time_remaining - time.scaled_dt).max(0.0);

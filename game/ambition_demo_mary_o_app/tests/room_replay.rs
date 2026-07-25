@@ -205,7 +205,14 @@ fn the_level_timeout_actually_replays_the_room() {
         let mut level = query.iter_mut(world).next().expect("the level owner");
         level.time_remaining = 0.0;
     }
+    // Running out of time is a DEATH, so it plays her death beat before the
+    // level comes back — the same beat a fatal hit gets, which is the whole
+    // point of routing every lost attempt through one door. Drive past it.
     for _ in 0..4 {
+        app.update();
+    }
+    let beat_frames = (ambition_demo_mary_o::death::DEATH_DWELL / (1.0 / 60.0)).ceil() as usize;
+    for _ in 0..beat_frames + 30 {
         app.update();
     }
 

@@ -3113,3 +3113,83 @@ fn a_plan_matching_the_live_binding_publishes() {
         .resource::<crate::world::rooms::LastConstructionVerification>();
     assert!(verification.published, "{:?}", verification.violations);
 }
+
+/// The room sweep is not merely available — the REAL prepare path runs it, on
+/// both channels, and hands the result to the plan.
+///
+/// The two references here are the ones with NO failure mode of their own. An
+/// authored patrol path that matches nothing leaves the enemy passive;
+/// `spec_for_brain` cannot fail, so an unknown staged brain key becomes the
+/// generic `combatant`. Both used to construct without complaint and simply come
+/// out wrong.
+///
+/// Held items are deliberately not part of this: `authored_static_requests`
+/// already REFUSES an unknown `held_item` (`UnknownHeldItem`), which is stronger
+/// than reporting it. The sweep keeps the namespace for callers outside
+/// construction, but construction's own rule stays the authority.
+#[test]
+fn prepare_hands_the_plan_what_the_room_could_not_bind() {
+    let mut room = empty_room("hall");
+    room.kinematic_paths
+        .push(crate::rooms::KinematicPathSpec::new(
+            "ledge_patrol",
+            "Ledge Patrol",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
+            ae::KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(64.0, 0.0), 30.0),
+        ));
+    room.enemy_spawns.push(crate::rooms::Authored::new(
+        "walker_authored",
+        "Walker",
+        ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
+        ambition_entity_catalog::placements::CharacterBrain::Patrol {
+            path_id: Some("ledge_patrl".into()),
+        },
+    ));
+
+    let mut staging = crate::features::RoomContentStagingRegistry::default();
+    staging
+        .register("hall", "test_provider", "typo", "typo.v1", |_room| {
+            let mut enemy = staged_enemy("walker_a", None);
+            enemy.kind = SpawnActorKind::Enemy {
+                brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                    "medium_strikr".into(),
+                ),
+            };
+            vec![enemy]
+        })
+        .expect("stager registers");
+
+    let plan = prepare(&room, &staging, &engine_construction_registry())
+        .expect("an unbound reference is a content defect, not a reason to refuse the room");
+
+    let report = plan.binding_report();
+    assert_eq!(report.len(), 2, "both channels are swept:\n{report}");
+
+    let found: Vec<_> = report
+        .unresolved()
+        .iter()
+        .map(|u| (u.namespace, u.id.as_str()))
+        .collect();
+    assert_eq!(
+        found,
+        vec![
+            ("character", "medium_strikr"),
+            ("kinematic path", "ledge_patrl"),
+        ],
+    );
+    assert_eq!(
+        report.unresolved()[0].did_you_mean.as_deref(),
+        Some("medium_striker"),
+    );
+
+    // The clean room next door reports nothing — the sweep is discriminating,
+    // not just noisy.
+    let (clean_room, clean_staging) = duelling_room();
+    let clean =
+        prepare(&clean_room, &clean_staging, &engine_construction_registry()).expect("prepares");
+    assert!(
+        clean.binding_report().is_empty(),
+        "a room whose references all resolve says nothing:\n{}",
+        clean.binding_report(),
+    );
+}

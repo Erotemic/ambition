@@ -94,6 +94,15 @@ pub struct RoomFeatureConstructionPlan {
     /// read it directly, so a cached plan holds one of each rather than a pair.
     construction_services: crate::construction::ActorConstructionServices,
     expected_authoritative_ids: BTreeSet<String>,
+    /// What this room POINTS AT and did not find. Empty for a clean room.
+    ///
+    /// Carried on the plan rather than returned as an error: an unresolved
+    /// reference is a content defect, not a reason to refuse to build the room —
+    /// the placeholder art and passive fallbacks are deliberate, and a blind run
+    /// must still show something. What changed is that the plan now KNOWS, so a
+    /// test can assert on it and the commit logs it instead of the defect living
+    /// only in whichever consumer shrugged first.
+    binding_report: ambition_platformer_primitives::binding::BindingReport,
 }
 
 /// What construction planning needs beyond the room's authored content: the
@@ -181,6 +190,27 @@ impl RoomFeatureConstructionPlan {
             .iter()
             .map(|(_, request)| request.clone())
             .collect();
+        // Every id this room POINTS AT, resolved before construction mutates
+        // anything. None of these can fail at their own use site — an unknown
+        // patrol path goes passive, an unknown brain key becomes the `combatant`
+        // fallback, an unknown held item is skipped at spawn — so this pass is the
+        // only place a typo is ever going to be visible.
+        let bindings = crate::rooms::RoomBindings::default()
+            .with_characters(roster.brain_keys())
+            .with_held_items(ambition_characters::brain::held_item_ids());
+        let mut binding_report = bindings.sweep(room);
+        binding_report.absorb(bindings.sweep_characters(content_requests.iter().filter_map(
+            |request| match &request.kind {
+                super::spawn_actors::SpawnActorKind::Enemy {
+                    brain: ambition_entity_catalog::placements::CharacterBrain::Custom(archetype),
+                } => Some((
+                    archetype.clone(),
+                    format!("staged spawn `{}`", request.id),
+                )),
+                _ => None,
+            },
+        )));
+        binding_report.log(&format!("room `{}` construction", room.id));
         // Authored-id uniqueness across every family, checked in the RAW authored
         // namespace while the outgoing room is still whole. This stays separate
         // from the plan-derived roster built below: several families (placements,
@@ -283,7 +313,16 @@ impl RoomFeatureConstructionPlan {
             content_requests,
             construction: construction_plan,
             expected_authoritative_ids,
+            binding_report,
         })
+    }
+
+    /// Every reference this room makes and does not keep.
+    ///
+    /// Empty means each id the room points at was found. A test asserts on this
+    /// directly; the commit logs it; neither has to scrape a consumer's warning.
+    pub fn binding_report(&self) -> &ambition_platformer_primitives::binding::BindingReport {
+        &self.binding_report
     }
 
     /// The Phase-3 construction plan for this room's planned families.

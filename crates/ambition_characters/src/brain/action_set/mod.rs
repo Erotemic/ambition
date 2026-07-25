@@ -372,6 +372,18 @@ pub fn held_item_by_id(id: &str) -> Option<HeldItemSpec> {
     HELD_ITEMS.get(id).cloned()
 }
 
+/// Every held-item id this registry answers to, sorted.
+///
+/// The binding sweep needs the list, not just the lookup: a `GroundItemSpec`
+/// naming an unregistered item is (in its own doc's words) "skipped at spawn
+/// rather than erroring", so the only way that typo becomes visible is to resolve
+/// the room's references against what actually exists, ahead of time.
+pub fn held_item_ids() -> Vec<String> {
+    let mut ids: Vec<String> = HELD_ITEMS.keys().map(|id| (*id).to_owned()).collect();
+    ids.sort();
+    ids
+}
+
 /// Concrete melee actions an actor can perform. Each variant carries
 /// its **own** animation timing (windup → active → recover) — there
 /// is no separate `TelegraphSpec`.

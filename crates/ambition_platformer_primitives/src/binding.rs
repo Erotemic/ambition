@@ -468,6 +468,22 @@ impl BindingReport {
         self.unresolved.iter().any(|u| u.namespace == N::NAME)
     }
 
+    /// Merge another report in, keeping the sort order.
+    ///
+    /// A construction fans out — the room's own families, then the content staged
+    /// into it — and the whole point is that a reader gets ONE list rather than
+    /// one per pass.
+    pub fn absorb(&mut self, other: BindingReport) {
+        self.unresolved.extend(other.unresolved);
+        self.unresolved.sort_by(|a, b| {
+            a.namespace
+                .cmp(b.namespace)
+                .then_with(|| a.declared_by.cmp(&b.declared_by))
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        self.unresolved.dedup();
+    }
+
     /// Say what did not bind, at `error` level, tagged with `context` (the room,
     /// the visual, the provider).
     ///

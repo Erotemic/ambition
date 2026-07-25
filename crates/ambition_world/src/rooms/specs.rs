@@ -101,8 +101,12 @@ pub struct GroundItemSpec {
     /// LDtk display name (editor-facing / entity naming only).
     pub name: String,
     /// Held-item registry id, e.g. `meteor`, `bomb`, `puppy_slug_gun`,
-    /// `gun_sword`. Resolved via `ambition_characters::brain::held_item_by_id`; an
-    /// unregistered id is skipped at spawn rather than erroring.
+    /// `gun_sword`. Resolved via `ambition_characters::brain::held_item_by_id`.
+    ///
+    /// An unregistered id REFUSES construction (`UnknownHeldItem`) — it does not
+    /// skip at spawn, whatever this comment used to say. The planned-construction
+    /// campaign made it a hard boundary check and left the note behind; the room
+    /// binding sweep found the contradiction.
     pub held_item: String,
     /// World-space center of the pickup box.
     pub pos: ae::Vec2,

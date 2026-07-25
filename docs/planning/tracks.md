@@ -1000,6 +1000,15 @@ Small non-blocking work when it does not collide with the campaigns:
   index (+15 link rows; its own message says "journals index backfilled").
   Recomputed at HEAD: all 31 journal files are linked from `index.md`, 0
   unindexed;
+- **declared-id resolution checks — LOW PRIORITY, triaged 2026-07-25**
+  ([`triage/declared-id-resolution-checks.md`](triage/declared-id-resolution-checks.md)):
+  five things in the Mary-O/Sanic round were invisible or unreachable because a
+  declared string id named a target that did not exist, and every one failed
+  SILENTLY — `Option` cannot distinguish "this build has no assets" from "this
+  content named nothing". A boot-time pass is REJECTED (Jon, startup cost); the
+  triage records the two zero-runtime-cost options (extend the existing
+  `every_*` registry tests in the direction they do not currently check, plus
+  `error_once!` at the ~6 miss sites) and the compile-time end state;
 - ui_nav adoption in `ambition_menu`/`ambition_settings_menu`; the shared
   input-suspended gate for cutscene/encounter [opus];
 - one structurally complete content eviction at a time when a real named

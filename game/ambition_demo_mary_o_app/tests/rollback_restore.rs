@@ -27,7 +27,8 @@ fn build_rollback_demo_app() -> App {
     app.insert_resource(ambition::audio::selection::FrontendAudioProfile::new(
         ambition_demo_mary_o::MARY_O_EXPERIENCE,
     ));
-    app.add_plugins(ambition::load::AmbitionLoadPlugin);
+    // No `AmbitionLoadPlugin` here — the engine group supplies it (the
+    // room-transition transaction is a load plan), and a duplicate panics.
     app.add_plugins(ambition::load_presentation::MinimalShellLoadPresentationPlugins);
     app.add_plugins(MaryOExperiencePlugin);
     app.world_mut()

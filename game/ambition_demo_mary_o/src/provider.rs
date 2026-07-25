@@ -39,7 +39,30 @@ pub fn mary_o_session_world() -> MaryOSessionWorld {
     let room = level_1_1();
     let geometry = ae::RoomGeometry(room.world.clone());
     let metadata = ActiveRoomMetadata(room.metadata.clone());
-    let room_set = RoomSet::from_parts(LEVEL_1_1_ROOM_ID, vec![room], Vec::new());
+    // TWO rooms, linked both ways. The demo could not express this until the
+    // room-transition transaction became engine-side (2026-07-25): its consumer
+    // lived in `ambition_app`, which no demo depends on, so a second room would
+    // have been unreachable in this binary.
+    let room_set = RoomSet::from_parts(
+        LEVEL_1_1_ROOM_ID,
+        vec![room, crate::level_1_2::level_1_2()],
+        vec![
+            ambition::world::rooms::RoomLink {
+                from_room: LEVEL_1_1_ROOM_ID.to_string(),
+                from_zone: crate::level_1_2::DESCENT_ZONE_ID.to_string(),
+                to_room: crate::level_1_2::LEVEL_1_2_ROOM_ID.to_string(),
+                to_zone: crate::level_1_2::ARRIVAL_ZONE_ID.to_string(),
+                bidirectional: false,
+            },
+            ambition::world::rooms::RoomLink {
+                from_room: crate::level_1_2::LEVEL_1_2_ROOM_ID.to_string(),
+                from_zone: crate::level_1_2::EXIT_ZONE_ID.to_string(),
+                to_room: LEVEL_1_1_ROOM_ID.to_string(),
+                to_zone: crate::level_1_2::SURFACE_RETURN_ZONE_ID.to_string(),
+                bidirectional: false,
+            },
+        ],
+    );
     MaryOSessionWorld {
         geometry,
         room_set,

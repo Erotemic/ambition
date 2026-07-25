@@ -62,7 +62,9 @@ fn compose_sanic_shell(app: &mut App, home_route: &str) {
             ambition::sfx::ids::UI_MENU_BACK,
         ]),
     );
-    app.add_plugins(ambition::load::AmbitionLoadPlugin);
+    // `AmbitionLoadPlugin` is NOT added here: the engine group supplies it,
+    // because the room-transition transaction it carries IS a load plan. Adding
+    // a second copy is a hard Bevy panic.
     app.add_plugins(ambition::load_presentation::MinimalShellLoadPresentationPlugins);
     app.add_plugins(SanicExperiencePlugin);
 

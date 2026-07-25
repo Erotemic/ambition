@@ -20,6 +20,7 @@ pub mod ai_slop;
 pub mod bricks;
 pub mod death;
 pub mod flag;
+pub mod level_1_2;
 pub mod movement;
 pub mod pipe;
 pub mod powerups;
@@ -670,7 +671,46 @@ pub fn level_1_1() -> RoomSpec {
                 },
             ));
     }
+
+    // The two ends of the trip to World 1-2. Walk-in zones, not a third pipe:
+    // the vault's own pipes answer a directional press (Jon's rule), and a
+    // shaft in the floor is a different affordance rather than a competing one.
+    room.loading_zones
+        .extend([descent_to_1_2(), surface_return_from_1_2()]);
     room
+}
+
+/// The open shaft at the vault's far end that drops into World 1-2.
+///
+/// It sits ON the vault floor. The return pipe shipped floating 48px clear of
+/// its own band (`cbc6902d2`) and its test passed anyway by probing a point
+/// inside solid rock, so "does this thing meet the floor" is now something both
+/// rooms assert.
+pub fn descent_to_1_2() -> ambition::world::rooms::LoadingZone {
+    let vault = vault_bounds();
+    let size = ae::Vec2::new(T, 1.5 * T);
+    let center = ae::Vec2::new(vault.max.x - 1.5 * T, vault.max.y - size.y * 0.5);
+    ambition::world::rooms::LoadingZone {
+        id: level_1_2::DESCENT_ZONE_ID.to_string(),
+        name: "Down to 1-2".to_string(),
+        activation: ambition::world::rooms::LoadingZoneActivation::Walk,
+        aabb: ae::Aabb::new(center, size * 0.5),
+    }
+}
+
+/// Where 1-2 puts you back on the surface: past pit B, on the long run before
+/// the stair pyramid. Going underground is a SHORTCUT — you skip two pits — so
+/// the route competes with the surface run instead of merely detouring from it.
+pub fn surface_return_from_1_2() -> ambition::world::rooms::LoadingZone {
+    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
+    let size = ae::Vec2::new(T, 1.5 * T);
+    let center = ae::Vec2::new(57.0 * T, ground_top - size.y * 0.5);
+    ambition::world::rooms::LoadingZone {
+        id: level_1_2::SURFACE_RETURN_ZONE_ID.to_string(),
+        name: "Back to the surface".to_string(),
+        activation: ambition::world::rooms::LoadingZoneActivation::Walk,
+        aabb: ae::Aabb::new(center, size * 0.5),
+    }
 }
 
 /// The min corner of ?-block `i`, from the SAME constants [`level_1_1`] builds the

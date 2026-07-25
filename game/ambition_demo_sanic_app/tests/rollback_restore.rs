@@ -27,7 +27,8 @@ fn build_rollback_demo_app() -> App {
     app.insert_resource(ambition::audio::selection::FrontendAudioProfile::new(
         ambition_demo_sanic::SANIC_EXPERIENCE,
     ));
-    app.add_plugins(ambition::load::AmbitionLoadPlugin);
+    // The engine group supplies `AmbitionLoadPlugin` (the room-transition
+    // transaction is a load plan); a duplicate is a hard panic.
     app.add_plugins(ambition::load_presentation::MinimalShellLoadPresentationPlugins);
     app.add_plugins(SanicExperiencePlugin);
     app.world_mut()

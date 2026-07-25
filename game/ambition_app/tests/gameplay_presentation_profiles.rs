@@ -25,7 +25,8 @@ use ambition::presentation::gameplay_presentation::{
 fn provider_app(install: impl FnOnce(&mut App)) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalShellPlugins);
-    app.add_plugins(ambition::load::AmbitionLoadPlugin);
+    // The engine group supplies `AmbitionLoadPlugin` (the room-transition
+    // transaction is a load plan); a duplicate is a hard panic.
     install(&mut app);
     app
 }

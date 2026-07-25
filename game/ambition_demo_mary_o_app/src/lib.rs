@@ -49,7 +49,9 @@ fn compose_mary_o_shell(app: &mut App, home_route: &str) {
     app.insert_resource(ambition::audio::selection::FrontendAudioProfile::new(
         ambition_demo_mary_o::MARY_O_EXPERIENCE,
     ));
-    app.add_plugins(ambition::load::AmbitionLoadPlugin);
+    // `AmbitionLoadPlugin` is NOT added here: the engine group supplies it,
+    // because the room-transition transaction it carries IS a load plan. Adding
+    // a second copy is a hard Bevy panic.
     app.add_plugins(ambition::load_presentation::MinimalShellLoadPresentationPlugins);
     app.add_plugins(MaryOExperiencePlugin);
 

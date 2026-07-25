@@ -188,3 +188,96 @@ fn the_two_rooms_are_linked_both_ways() {
         );
     }
 }
+
+/// The ferry in 1-2 is not decoration: the chasm has no stepping stone, so a
+/// body that is not CARRIED cannot cross, and 1-2 is impassable.
+///
+/// Carrying is engine behavior — the platform advance runs once per frame ahead
+/// of the body tick, and the ride/ledge-carry logic reads its delta — so this
+/// asserts the invariant rather than a tuned speed: a body standing on the
+/// platform moves by the platform's own displacement, with no input at all.
+#[test]
+fn a_body_standing_on_the_ferry_is_carried_by_it() {
+    let mut app = boot();
+    reach_level_1_2(&mut app);
+
+    let (platform_pos, platform_size) = ferry(&mut app);
+    // Stand her ON the deck: feet on its top face, not centre-on-centre.
+    let feet_offset = {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<&ambition::engine_core::BodyKinematics, With<PrimaryPlayer>>();
+        let size = query
+            .iter(app.world())
+            .next()
+            .expect("a primary player")
+            .size;
+        size.y * 0.5
+    };
+    place_player(
+        &mut app,
+        Vec2::new(
+            platform_pos.x + platform_size.x * 0.5,
+            platform_pos.y - feet_offset - 1.0,
+        ),
+    );
+    for _ in 0..6 {
+        step(&mut app, ControlFrame::default());
+    }
+
+    let body_before = player_pos(&mut app).x;
+    let deck_before = ferry(&mut app).0.x;
+    for _ in 0..40 {
+        step(&mut app, ControlFrame::default());
+    }
+    let body_moved = player_pos(&mut app).x - body_before;
+    let deck_moved = ferry(&mut app).0.x - deck_before;
+
+    assert!(
+        deck_moved.abs() > 1.0,
+        "the ferry never moved, so this proves nothing about riding it",
+    );
+    assert!(
+        (body_moved - deck_moved).abs() <= 2.0,
+        "she did not ride the ferry: it moved {deck_moved:.1}px, she moved {body_moved:.1}px",
+    );
+}
+
+/// Where the 1-2 ferry is right now, out of the live platform set.
+fn ferry(app: &mut App) -> (Vec2, Vec2) {
+    let set = app
+        .world()
+        .resource::<ambition::world::collision::MovingPlatformSet>();
+    let platform = set
+        .0
+        .iter()
+        .find(|platform| platform.id == "mary_o_1_2_ferry")
+        .expect("1-2's ferry is in the live platform set");
+    (platform.pos, platform.size)
+}
+
+/// Play from the surface into 1-2, the same way the walk proof does.
+fn reach_level_1_2(app: &mut App) {
+    let mouth = ambition_demo_mary_o::pipe_mouth();
+    place_player(app, Vec2::new(mouth.center().x, mouth.center().y - 24.0));
+    for _ in 0..8 {
+        step(app, ControlFrame::default());
+    }
+    for _ in 0..60 {
+        step(app, press_down());
+        if player_pos(app).y > ambition_demo_mary_o::vault_bounds().min.y {
+            break;
+        }
+    }
+    for _ in 0..600 {
+        step(app, hold_right());
+        if active_room(app) == LEVEL_1_2_ROOM_ID {
+            break;
+        }
+    }
+    assert_eq!(
+        active_room(app),
+        LEVEL_1_2_ROOM_ID,
+        "could not reach 1-2 to test its ferry",
+    );
+}

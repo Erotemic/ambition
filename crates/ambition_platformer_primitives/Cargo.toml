@@ -28,3 +28,8 @@ bevy = { version = "0.18.1", default-features = false, features = [
 # it (ADR 0019); the generic ECS systems moved here operate on engine_core
 # bodies/world. Foundation-only — still NEVER ambition_actors.
 ambition_engine_core = { path = "../ambition_engine_core" }
+
+# Logging facade (bevy logs through tracing). The binding report is the ONE sink
+# for "content named something that does not exist", so it emits here rather than
+# leaving each consumer to invent its own warn!.
+tracing = "0.1"

@@ -111,21 +111,22 @@ impl<N: Namespace> Ref<N> {
     }
 }
 
-/// A reference that HAS resolved: the id exists in the namespace, and `index` is
-/// its position in the resolver's sorted id list.
+/// A reference that HAS resolved: the id exists in the namespace, and [`slot`]
+/// is the position it was DECLARED at — a sheet's row index, a manifest's entry
+/// index — so a consumer indexes straight into the authored data.
 ///
 /// There is no public constructor. A consumer holding a `Bound<N>` is holding
 /// proof that resolution happened, which is the whole invariant this module
 /// exists to create.
 pub struct Bound<N: Namespace> {
     id: String,
-    index: usize,
+    slot: usize,
     _namespace: PhantomData<fn() -> N>,
 }
 
 impl<N: Namespace> std::fmt::Debug for Bound<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Bound<{}>({}#{})", N::NAME, self.id, self.index)
+        write!(f, "Bound<{}>({}#{})", N::NAME, self.id, self.slot)
     }
 }
 
@@ -133,7 +134,7 @@ impl<N: Namespace> Clone for Bound<N> {
     fn clone(&self) -> Self {
         Self {
             id: self.id.clone(),
-            index: self.index,
+            slot: self.slot,
             _namespace: PhantomData,
         }
     }
@@ -141,7 +142,7 @@ impl<N: Namespace> Clone for Bound<N> {
 
 impl<N: Namespace> PartialEq for Bound<N> {
     fn eq(&self, other: &Self) -> bool {
-        self.index == other.index && self.id == other.id
+        self.slot == other.slot && self.id == other.id
     }
 }
 
@@ -149,7 +150,7 @@ impl<N: Namespace> Eq for Bound<N> {}
 
 impl<N: Namespace> std::hash::Hash for Bound<N> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.index.hash(state);
+        self.slot.hash(state);
         self.id.hash(state);
     }
 }
@@ -160,10 +161,11 @@ impl<N: Namespace> Bound<N> {
         &self.id
     }
 
-    /// Position in the resolver's sorted id list — a dense key for consumers that
-    /// want an array index rather than a string compare on a hot path.
-    pub fn index(&self) -> usize {
-        self.index
+    /// The position this id was declared at: the sheet row, the manifest entry.
+    /// Indexing the authored collection with it needs no bounds check in spirit —
+    /// a `Bound` only exists because that entry does.
+    pub fn slot(&self) -> usize {
+        self.slot
     }
 }
 
@@ -209,8 +211,13 @@ impl std::fmt::Display for UnresolvedRef {
 /// Build it once, from the authority for that family: the sheet's row list, the
 /// unioned art manifest, the sfx bank's cue table.
 pub struct Resolver<N: Namespace> {
-    /// Sorted and deduplicated, so `index()` is stable across runs.
+    /// Sorted and deduplicated, so lookup is a binary search and `available` in
+    /// a report reads alphabetically.
     ids: Vec<String>,
+    /// `slots[i]` is the position `ids[i]` was DECLARED at upstream — the sheet
+    /// row, the manifest entry. Parallel to `ids`, so sorting for lookup does not
+    /// cost the consumer its index into the authored data.
+    slots: Vec<usize>,
     _namespace: PhantomData<fn() -> N>,
 }
 
@@ -224,6 +231,7 @@ impl<N: Namespace> Clone for Resolver<N> {
     fn clone(&self) -> Self {
         Self {
             ids: self.ids.clone(),
+            slots: self.slots.clone(),
             _namespace: PhantomData,
         }
     }
@@ -233,6 +241,7 @@ impl<N: Namespace> Default for Resolver<N> {
     fn default() -> Self {
         Self {
             ids: Vec::new(),
+            slots: Vec::new(),
             _namespace: PhantomData,
         }
     }
@@ -240,11 +249,16 @@ impl<N: Namespace> Default for Resolver<N> {
 
 impl<N: Namespace> FromIterator<String> for Resolver<N> {
     fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> Self {
-        let mut ids: Vec<String> = iter.into_iter().collect();
-        ids.sort();
-        ids.dedup();
+        // Declaration order is the payload, so pair each id with its position
+        // BEFORE sorting for lookup. A duplicate id keeps its first slot: content
+        // that declares `idle` twice means the first one.
+        let mut pairs: Vec<(String, usize)> = iter.into_iter().zip(0usize..).collect();
+        pairs.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+        pairs.dedup_by(|a, b| a.0 == b.0);
+        let (ids, slots) = pairs.into_iter().unzip();
         Self {
             ids,
+            slots,
             _namespace: PhantomData,
         }
     }
@@ -285,7 +299,7 @@ impl<N: Namespace> Resolver<N> {
         {
             Ok(index) => Ok(Bound {
                 id: self.ids[index].clone(),
-                index,
+                slot: self.slots[index],
                 _namespace: PhantomData,
             }),
             Err(_) => Err(UnresolvedRef {
@@ -427,6 +441,22 @@ impl BindingReport {
     pub fn has<N: Namespace>(&self) -> bool {
         self.unresolved.iter().any(|u| u.namespace == N::NAME)
     }
+
+    /// Say what did not bind, at `error` level, tagged with `context` (the room,
+    /// the visual, the provider).
+    ///
+    /// This is the ONE sink for "content named something that does not exist", so
+    /// the message reads the same everywhere and a consumer never has to invent
+    /// its own `warn!`. A visible run gets it in the console; a headless run gets
+    /// it in the captured log; a test asserts on the report itself.
+    ///
+    /// Empty reports say nothing — silence here means every reference bound,
+    /// which is the one time silence is the honest answer.
+    pub fn log(&self, context: &str) {
+        for unresolved in &self.unresolved {
+            tracing::error!("{context}: {unresolved}");
+        }
+    }
 }
 
 impl std::fmt::Display for BindingReport {
@@ -509,19 +539,19 @@ mod tests {
         );
     }
 
-    /// A `Bound` carries the resolver's dense index, and equal ids resolve to the
-    /// same index across resolvers built from differently-ordered input — the
-    /// determinism `index()` is only useful under.
+    /// `slot()` is the position the id was DECLARED at, not its position in the
+    /// sorted lookup table — that is what lets a consumer index straight into the
+    /// authored data (a sheet's `rows[slot]`) after resolving by name.
     #[test]
-    fn binding_is_order_independent() {
-        let forward: Resolver<AnimRow> = Resolver::new(["idle", "walk", "death"]);
-        let backward: Resolver<AnimRow> = Resolver::new(["death", "walk", "idle"]);
+    fn a_binding_carries_its_declaration_slot() {
+        // Deliberately not alphabetical: sorting for lookup must not disturb it.
+        let rows: Resolver<AnimRow> = Resolver::new(["idle", "walk", "death"]);
+        assert_eq!(rows.ids(), ["death", "idle", "walk"], "sorted for lookup");
 
-        let reference = Ref::new("walk");
-        let a = forward.resolve(&reference, "x").expect("resolves");
-        let b = backward.resolve(&reference, "x").expect("resolves");
-        assert_eq!(a.index(), b.index());
-        assert_eq!(a.id(), "walk");
+        for (declared_at, id) in ["idle", "walk", "death"].iter().enumerate() {
+            let bound = rows.resolve(&Ref::new(*id), "sheet").expect("resolves");
+            assert_eq!(bound.slot(), declared_at, "{id} keeps its authored row");
+        }
     }
 
     /// An empty namespace says so, rather than offering a bare "not found" that

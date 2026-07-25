@@ -13,40 +13,62 @@
 //! pack-group classification), so page 0 + the page-local flat index is the
 //! whole story here; if an effect ever needs paging/trim it graduates to the
 //! `CharacterAnimator` path that already drives both.
+//!
+//! Name resolution goes through the binding boundary. These adapters used to
+//! return `Option` per fact and every caller spelled the miss `unwrap_or(0)` /
+//! `unwrap_or(1)`, so a regenerated sheet that renamed a row drew frame 0 for
+//! one frame and said nothing. Now a miss is recorded in the caller's
+//! [`BindingLedger`] and the caller reports it; the visible fallback stays, but
+//! the run also says what it could not find.
 
+use ambition_platformer_primitives::binding::BindingLedger;
 use ambition_sprite_sheet::character::build_atlas_layout;
-use ambition_sprite_sheet::SheetRecord;
+use ambition_sprite_sheet::{AnimRowRef, SheetRecord};
 use bevy::image::TextureAtlasLayout;
 
 /// Per-frame inset (px) trimmed off each atlas cell to avoid neighbour bleed
 /// when the sprite is scaled. One pixel is enough at our frame sizes.
 const FRAME_INSET: u32 = 1;
 
+/// Everything needed to play one row of an effect sheet: where its frames start
+/// in the flat atlas, how many there are, and how long each is held.
+///
+/// One struct rather than three name-keyed lookups, because the three facts come
+/// from the same row and a caller that resolves the name once cannot end up
+/// mixing row `up`'s start with row `down`'s frame count.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct RowPlayback {
+    pub(crate) start: usize,
+    pub(crate) frames: usize,
+    pub(crate) frame_duration: f32,
+}
+
 /// Build a [`TextureAtlasLayout`] whose cells are the record's page-0 frames in
-/// flat row-major order — the order [`row_start_index`] counts in.
+/// flat row-major order — the order [`RowPlayback::start`] counts in.
 pub(crate) fn atlas_layout_from_record(record: &SheetRecord) -> TextureAtlasLayout {
     build_atlas_layout(&record.atlas_page(0, FRAME_INSET))
 }
 
-/// Flat atlas index of the first frame of `animation`, or `None` if the sheet
-/// has no such row.
-pub(crate) fn row_start_index(record: &SheetRecord, animation: &str) -> Option<usize> {
-    let row = record.row_index_of(animation)?;
-    Some(record.flat_index_in_page(row, 0))
-}
-
-pub(crate) fn row_frame_count(record: &SheetRecord, animation: &str) -> Option<usize> {
-    record
-        .rows
-        .iter()
-        .find(|row| row.animation == animation)
-        .map(|row| row.frame_count as usize)
-}
-
-pub(crate) fn row_duration(record: &SheetRecord, animation: &str) -> Option<f32> {
-    record
-        .rows
-        .iter()
-        .find(|row| row.animation == animation)
-        .map(|row| row.duration_secs)
+/// Resolve `animation` against `record`'s rows, recording a miss in `ledger`.
+///
+/// `declared_by` names the visual asking, so the report reads
+/// "unknown anim row `activate` declared by `shrine visual`" rather than leaving
+/// a reader to guess which of a dozen effect sheets is wrong.
+pub(crate) fn row_playback(
+    record: &SheetRecord,
+    animation: &str,
+    declared_by: &str,
+    ledger: &mut BindingLedger,
+) -> Option<RowPlayback> {
+    let bound = ledger.resolve(
+        &record.anim_rows(),
+        &AnimRowRef::new(animation),
+        declared_by,
+    )?;
+    let row = record.row(&bound);
+    Some(RowPlayback {
+        start: record.flat_index_in_page(bound.slot(), 0),
+        frames: (row.frame_count as usize).max(1),
+        frame_duration: row.duration_secs.max(0.001),
+    })
 }

@@ -267,13 +267,6 @@ impl SheetRecord {
             .iter()
             .any(|row| row.uses_explicit_rects() && row.rects.iter().any(|r| r.off != (0, 0)))
     }
-
-    /// Row index of the first row whose `animation` matches `name`, or `None`.
-    /// The universal name→row resolver every string-keyed reader (props, melee
-    /// effects, projectiles) uses before delegating to the frame algebra.
-    pub fn row_index_of(&self, name: &str) -> Option<usize> {
-        self.rows.iter().position(|r| r.animation == name)
-    }
 }
 
 #[cfg(test)]

@@ -2,9 +2,8 @@
 //! sprite sync + activation-pulse animation. Reads the sim shrine state
 //! (HealShrine plus the lower ShrineActivationPulse resource) from the sim/read-model seam.
 
-use super::sheet_atlas::{
-    atlas_layout_from_record, row_duration, row_frame_count, row_start_index,
-};
+use super::sheet_atlas::{atlas_layout_from_record, row_playback, RowPlayback};
+use ambition_platformer_primitives::binding::BindingLedger;
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -275,15 +274,37 @@ fn shrine_visual_source_from_record(
 ) -> ShrineVisualSource {
     let layout = atlas_layouts.add(atlas_layout_from_record(record));
     let image = asset_server.load("sprites/shrine_spritesheet.png");
+
+    // Resolve both rows through one ledger so a regenerated sheet that renamed
+    // EITHER is reported — the old code took `unwrap_or` per fact and a renamed
+    // `activate` left the shrine looping its idle with nothing said.
+    let mut ledger = BindingLedger::new();
+    let idle = row_playback(record, "idle", "shrine visual", &mut ledger);
+    let activate = row_playback(record, "activate", "shrine visual", &mut ledger);
+    ledger.finish().log("shrine visual");
+
+    // The fallbacks stay: a shrine with an unresolvable row still draws (blind
+    // runs must never go black). The report above is what makes it not silent.
+    let idle = idle.unwrap_or(RowPlayback {
+        start: 0,
+        frames: 1,
+        frame_duration: 0.15,
+    });
+    let activate = activate.unwrap_or(RowPlayback {
+        start: 0,
+        frames: 1,
+        frame_duration: 0.09,
+    });
+
     ShrineVisualSource::Atlas {
         image,
         layout,
-        idle_start: row_start_index(record, "idle").unwrap_or(0),
-        idle_frame_count: row_frame_count(record, "idle").unwrap_or(1),
-        idle_duration: row_duration(record, "idle").unwrap_or(0.15),
-        activate_start: row_start_index(record, "activate").unwrap_or(0),
-        activate_frame_count: row_frame_count(record, "activate").unwrap_or(1),
-        activate_duration: row_duration(record, "activate").unwrap_or(0.09),
+        idle_start: idle.start,
+        idle_frame_count: idle.frames,
+        idle_duration: idle.frame_duration,
+        activate_start: activate.start,
+        activate_frame_count: activate.frames,
+        activate_duration: activate.frame_duration,
     }
 }
 
@@ -333,9 +354,16 @@ mod tests {
         let registry = ambition_sprite_sheet::baked_sheet_registry();
         let record = registry.get("shrine").expect("shrine sheet record");
         assert_eq!(record.rows.len(), 2);
-        assert_eq!(row_start_index(record, "idle"), Some(0));
-        assert_eq!(row_start_index(record, "activate"), Some(6));
-        assert_eq!(row_frame_count(record, "idle"), Some(6));
-        assert_eq!(row_frame_count(record, "activate"), Some(8));
+
+        let mut ledger = BindingLedger::new();
+        let idle = row_playback(record, "idle", "test", &mut ledger).expect("idle row");
+        let activate = row_playback(record, "activate", "test", &mut ledger).expect("activate row");
+        assert!(
+            ledger.finish().is_empty(),
+            "the shipped shrine sheet still spells both rows the visual asks for"
+        );
+
+        assert_eq!((idle.start, idle.frames), (0, 6));
+        assert_eq!((activate.start, activate.frames), (6, 8));
     }
 }

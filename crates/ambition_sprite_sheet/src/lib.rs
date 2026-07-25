@@ -27,6 +27,9 @@ use bevy::prelude::*;
 use serde::Deserialize;
 use tracing::{info, warn};
 
+pub mod binding;
+pub use binding::{AnimRow, AnimRowRef, BoundAnimRow};
+
 mod frames;
 pub use frames::{trimmed_render, AtlasPage, FrameTrim};
 

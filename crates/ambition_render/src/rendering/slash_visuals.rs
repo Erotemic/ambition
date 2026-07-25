@@ -23,20 +23,11 @@ use ambition_platformer_primitives::lifecycle::{
 };
 use ambition_vfx::vfx::{SlashKind, SlashPose, VfxMessage};
 
-use super::sheet_atlas::{
-    atlas_layout_from_record, row_duration, row_frame_count, row_start_index,
-};
+use super::sheet_atlas::{atlas_layout_from_record, row_playback, RowPlayback};
+use ambition_platformer_primitives::binding::BindingLedger;
 
 /// The `robot_slash` sheet name in the baked [`SheetRegistry`].
 const SLASH_SHEET: &str = "robot_slash";
-
-/// One row of the slash sheet, flattened into atlas indices.
-#[derive(Clone, Copy, Debug)]
-struct SlashRow {
-    start: usize,
-    frames: usize,
-    frame_duration: f32,
-}
 
 /// Loaded-once handles + per-pose indexing for the slash sheet. `side` is the
 /// forward crescent, `up` the overhead anti-air row, and `down` the downward
@@ -46,13 +37,13 @@ struct SlashRow {
 pub(crate) struct SlashSource {
     image: Handle<Image>,
     layout: Handle<TextureAtlasLayout>,
-    side_arc: SlashRow,
-    up_arc: SlashRow,
-    down_slash: SlashRow,
+    side_arc: RowPlayback,
+    up_arc: RowPlayback,
+    down_slash: RowPlayback,
 }
 
 impl SlashSource {
-    fn row(&self, kind: SlashKind, pose: SlashPose) -> SlashRow {
+    fn row(&self, kind: SlashKind, pose: SlashPose) -> RowPlayback {
         match pose {
             SlashPose::Up if kind == SlashKind::Arc => self.up_arc,
             SlashPose::Down => self.down_slash,
@@ -103,10 +94,17 @@ fn slash_source(
     }
     let record = registry?.get(SLASH_SHEET)?;
     let layout = atlas_layouts.add(atlas_layout_from_record(record));
-    let row = |name: &str| SlashRow {
-        start: row_start_index(record, name).unwrap_or(0),
-        frames: row_frame_count(record, name).unwrap_or(1).max(1),
-        frame_duration: row_duration(record, name).unwrap_or(0.05).max(0.001),
+    // All three rows through one ledger, so a regenerated sheet that renamed any
+    // of them is reported together rather than one silent `unwrap_or(0)` each.
+    let mut ledger = BindingLedger::new();
+    let mut row = |name: &str| {
+        row_playback(record, name, "slash visual", &mut ledger).unwrap_or(RowPlayback {
+            // The effect still draws (blind runs never go black); the report is
+            // what stops the wrong art from being silent.
+            start: 0,
+            frames: 1,
+            frame_duration: 0.05,
+        })
     };
     let source = SlashSource {
         image: asset_server.load(format!("sprites/{SLASH_SHEET}_spritesheet.png")),
@@ -115,6 +113,7 @@ fn slash_source(
         up_arc: row("up"),
         down_slash: row("down"),
     };
+    ledger.finish().log("slash visual");
     *cache = Some(source.clone());
     Some(source)
 }
@@ -257,12 +256,20 @@ mod tests {
             .get(SLASH_SHEET)
             .expect("robot_slash sheet must be baked into the registry");
         // 5 frames/row: side=0..4, up=5..9, down=10..14.
-        assert_eq!(row_start_index(record, "side"), Some(0));
-        assert_eq!(row_start_index(record, "up"), Some(5));
-        assert_eq!(row_start_index(record, "down"), Some(10));
-        for row in ["side", "up", "down"] {
-            assert_eq!(row_frame_count(record, row), Some(5), "{row} frames");
+        let mut ledger = BindingLedger::new();
+        let mut row = |name: &str| {
+            row_playback(record, name, "test", &mut ledger).expect("the sheet has this row")
+        };
+        assert_eq!(row("side").start, 0);
+        assert_eq!(row("up").start, 5);
+        assert_eq!(row("down").start, 10);
+        for name in ["side", "up", "down"] {
+            assert_eq!(row(name).frames, 5, "{name} frames");
         }
+        assert!(
+            ledger.finish().is_empty(),
+            "the shipped sheet still spells every row the effect asks for"
+        );
     }
 
     /// The slash effect must orient in the attacker's reference frame: under

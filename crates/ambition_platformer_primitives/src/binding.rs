@@ -450,12 +450,6 @@ impl BindingLedger {
         }
     }
 
-    /// Merge another ledger in — for a construction that fans out across
-    /// subsystems and collects their ledgers at the boundary.
-    pub fn absorb(&mut self, other: BindingLedger) {
-        self.unresolved.extend(other.unresolved);
-    }
-
     /// Close the ledger into a sorted report.
     pub fn finish(self) -> BindingReport {
         let mut unresolved = self.unresolved;
@@ -494,12 +488,6 @@ impl BindingReport {
     /// How many references failed.
     pub fn len(&self) -> usize {
         self.unresolved.len()
-    }
-
-    /// True when any failure was in namespace `N` — for a consumer that only
-    /// cares about its own family.
-    pub fn has<N: Namespace>(&self) -> bool {
-        self.unresolved.iter().any(|u| u.namespace == N::NAME)
     }
 
     /// Merge another report in, keeping the sort order.
@@ -577,12 +565,6 @@ impl ReportedOnce {
             }
         }
     }
-
-    /// How many distinct references this has reported — the count a diagnostic
-    /// overlay or a test can read without scraping the log.
-    pub fn reported(&self) -> usize {
-        self.seen.len()
-    }
 }
 
 #[cfg(test)]
@@ -627,7 +609,6 @@ mod tests {
 
         let report = ledger.finish();
         assert_eq!(report.len(), 2, "one report, both namespaces:\n{report}");
-        assert!(report.has::<AnimRow>() && report.has::<ItemSprite>());
 
         // Sorted by namespace, so `anim row` precedes `item sprite`.
         let row = &report.unresolved()[0];

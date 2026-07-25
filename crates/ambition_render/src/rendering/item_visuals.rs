@@ -130,12 +130,6 @@ impl<N: Namespace> ArtBindings<N> {
         let bound = self.ids.resolve_str(id, declared_by)?;
         Ok(self.art[bound.slot()].clone())
     }
-
-    /// True when no provider registered any art at all — the headless and
-    /// no-manifest case, distinct from a misspelled id.
-    pub fn is_empty(&self) -> bool {
-        self.ids.is_empty()
-    }
 }
 
 /// Marks a sprite entity visualizing a [`GroundItem`].

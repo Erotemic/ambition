@@ -8,6 +8,7 @@
 # The default path is intentionally complete:
 #   - install Ubuntu/Debian host libraries and offline audio tools;
 #   - install Rust plus the developer Cargo utilities used by repo scripts;
+#   - install the profiling toolchain the repo's own scripts depend on;
 #   - initialize every git submodule recursively;
 #   - create one Python virtualenv per active authoring tool;
 #   - install each tool from its own pyproject metadata;
@@ -18,6 +19,7 @@
 #   ./run_developer_setup.sh
 #   ./run_developer_setup.sh --skip-system-packages
 #   ./run_developer_setup.sh --skip-rust
+#   ./run_developer_setup.sh --no-profile
 #   ./run_developer_setup.sh --skip-submodules
 #   ./run_developer_setup.sh --skip-python
 #   ./run_developer_setup.sh --skip-assets
@@ -37,6 +39,14 @@ skip_submodules=0
 skip_python=0
 skip_assets=0
 skip_cargo_check=0
+skip_profiling=0
+
+# Tracy speaks a versioned wire protocol and REFUSES to connect to a client
+# built against a different version, so the server we build must match the
+# `tracy-client-sys` crate the game links. This default is verified against
+# that crate at build time (see tracy_required_version); it is a fallback for
+# when the crate source has not been fetched yet, not an independent opinion.
+tracy_fallback_version="0.13.1"
 
 usage() {
     awk '
@@ -68,6 +78,7 @@ while [ "$#" -gt 0 ]; do
         --skip-python) skip_python=1 ;;
         --skip-assets) skip_assets=1 ;;
         --skip-cargo-check) skip_cargo_check=1 ;;
+        --no-profile) skip_profiling=1 ;;
         -h|--help) usage; exit 0 ;;
         *) fatal "unknown option: $1" ;;
     esac
@@ -126,7 +137,44 @@ install_system_packages() {
         sox
         timgm6mb-soundfont
     )
+    # The profiling toolchain. `scripts/profile_desktop.sh` already requires
+    # perf and strace and reads vulkaninfo/glxinfo for its host-environment
+    # report; nothing installed them, so a fresh clone could not profile at
+    # all. cmake builds Tracy below. hotspot/heaptrack are the GUI companions
+    # for perf.data and allocation traces.
+    local -a profiling_pkgs=(
+        cmake
+        heaptrack
+        hotspot
+        linux-tools-common
+        linux-tools-generic
+        mesa-utils
+        strace
+        vulkan-tools
+    )
+    # Tracy's GUI server. Its CLI tools need none of this; these are only so
+    # the interactive profiler can build for a developer sitting at a desktop.
+    local -a tracy_gui_pkgs=(
+        libcapstone-dev
+        libcurl4-openssl-dev
+        libdbus-1-dev
+        libegl1-mesa-dev
+        libfreetype-dev
+        libglfw3-dev
+        libpugixml-dev
+        libwayland-bin
+        wayland-protocols
+    )
     local -a optional_pkgs=(musescore-general-soundfont)
+    if [ "$skip_profiling" -eq 0 ]; then
+        required_pkgs+=("${profiling_pkgs[@]}")
+        # Optional, not required: a headless box has no use for the Tracy GUI,
+        # and its absence must not fail setup or block the CLI tools.
+        optional_pkgs+=("${tracy_gui_pkgs[@]}")
+    else
+        log "skipping profiling toolchain packages (--no-profile)"
+    fi
+
     local -a missing_pkgs=()
     local -a missing_optional=()
     local pkg
@@ -209,6 +257,123 @@ ensure_cargo_tool() {
     else
         log "installing $package"
         cargo install --locked "$package"
+    fi
+}
+
+# Tracy is not packaged for Ubuntu, so it is built from source, pinned to the
+# version the game's own `tracy-client-sys` vendors. Read that version out of
+# the crate rather than trusting a constant here: a Bevy upgrade bumps it, and
+# a mismatched server does not warn -- it just refuses the connection.
+tracy_required_version() {
+    local header
+    # registry/src/<index>/<crate>/tracy/common/TracyVersion.hpp is five levels
+    # down; a shallower cap finds nothing and silently yields the fallback.
+    header="$(find "${CARGO_HOME:-$HOME/.cargo}/registry/src" -maxdepth 6 \
+        -path '*tracy-client-sys-*/tracy/common/TracyVersion.hpp' -print -quit 2>/dev/null || true)"
+    if [ -z "$header" ] || [ ! -f "$header" ]; then
+        printf '%s\n' "$tracy_fallback_version"
+        return 0
+    fi
+    local major minor patch
+    major="$(awk -F'[ =}]+' '/Major/ {print $(NF-1)}' "$header")"
+    minor="$(awk -F'[ =}]+' '/Minor/ {print $(NF-1)}' "$header")"
+    patch="$(awk -F'[ =}]+' '/Patch/ {print $(NF-1)}' "$header")"
+    if [ -z "$major" ] || [ -z "$minor" ] || [ -z "$patch" ]; then
+        printf '%s\n' "$tracy_fallback_version"
+        return 0
+    fi
+    printf '%s.%s.%s\n' "$major" "$minor" "$patch"
+}
+
+# Build one Tracy CMake sub-project. NO_FILESELECTOR keeps the native file
+# dialog (and with it a hard dbus/GTK dependency) out of the CLI tools, which
+# is what lets them build from build-essential + cmake alone.
+build_tracy_tool() {
+    local src_dir="$1" subproject="$2" binary="$3" dest="$4"
+    local build_dir="$src_dir/build-$subproject"
+    log "building $binary"
+    if ! cmake -B "$build_dir" -S "$src_dir/$subproject" \
+        -DCMAKE_BUILD_TYPE=Release -DNO_FILESELECTOR=ON >/dev/null 2>&1; then
+        warn "cmake configure failed for $binary"
+        return 1
+    fi
+    if ! cmake --build "$build_dir" --parallel "$(nproc 2>/dev/null || echo 4)" >/dev/null 2>&1; then
+        warn "build failed for $binary"
+        return 1
+    fi
+    local built
+    built="$(find "$build_dir" -maxdepth 2 -type f -name "$binary" -perm -u+x -print -quit)"
+    [ -n "$built" ] || { warn "$binary was not produced by its build"; return 1; }
+    install -Dm755 "$built" "$dest/$binary"
+}
+
+ensure_profiling_tools() {
+    if [ "$skip_profiling" -eq 1 ]; then
+        log "skipping profiling toolchain (--no-profile)"
+        return 0
+    fi
+
+    # A flame graph as a file, for the workflow that does not want a GUI.
+    if have cargo; then
+        ensure_cargo_tool flamegraph flamegraph
+    else
+        warn "cargo unavailable; skipping cargo-flamegraph"
+    fi
+
+    have cmake || { warn "cmake is unavailable; skipping Tracy (rerun without --skip-system-packages)"; return 0; }
+    have git || { warn "git is unavailable; skipping Tracy"; return 0; }
+
+    local version cache_dir src_dir bin_dir stamp
+    version="$(tracy_required_version)"
+    cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/ambition"
+    src_dir="$cache_dir/tracy-$version"
+    bin_dir="$HOME/.local/bin"
+    stamp="$cache_dir/.tracy-$version-installed"
+
+    # Test the installed files, not `have`: when ~/.local/bin is off PATH the
+    # binaries are present but invisible to command -v, and a PATH lookup here
+    # would rebuild Tracy from source on every single setup run.
+    if [ -f "$stamp" ] && [ -x "$bin_dir/tracy-capture" ] && [ -x "$bin_dir/tracy-csvexport" ]; then
+        log "Tracy $version already installed in $bin_dir"
+        return 0
+    fi
+
+    log "installing Tracy $version (matches the tracy-client the game links)"
+    mkdir -p "$cache_dir" "$bin_dir"
+    if [ ! -d "$src_dir/.git" ]; then
+        rm -rf "$src_dir"
+        if ! git clone --depth 1 --branch "v$version" \
+            https://github.com/wolfpld/tracy.git "$src_dir" >/dev/null 2>&1; then
+            warn "could not clone Tracy v$version; skipping (profiling still works via perf)"
+            return 0
+        fi
+    fi
+
+    # The headless pair is the point: tracy-capture records without a GUI and
+    # tracy-csvexport turns the trace into a table, which is the only Tracy
+    # path an agent working from a terminal can actually read.
+    local built_cli=1
+    build_tracy_tool "$src_dir" capture tracy-capture "$bin_dir" || built_cli=0
+    build_tracy_tool "$src_dir" csvexport tracy-csvexport "$bin_dir" || built_cli=0
+
+    # The interactive server, best-effort: it needs a desktop's worth of
+    # libraries, and a failure here must not cost you the CLI tools above.
+    if pkg-config --exists egl wayland-egl wayland-cursor xkbcommon 2>/dev/null; then
+        build_tracy_tool "$src_dir" profiler tracy-profiler "$bin_dir" \
+            || warn "Tracy GUI build failed; the headless capture/export tools are still installed"
+    else
+        log "Tracy GUI deps missing; installed the headless tools only"
+    fi
+
+    if [ "$built_cli" -eq 1 ]; then
+        : > "$stamp"
+        log "Tracy tools installed to $bin_dir"
+        case ":$PATH:" in
+            *":$bin_dir:"*) ;;
+            *) warn "$bin_dir is not on PATH; add it to use tracy-capture" ;;
+        esac
+    else
+        warn "Tracy CLI tools did not build; perf-based profiling is unaffected"
     fi
 }
 
@@ -418,6 +583,7 @@ check_desktop_target() {
 
 install_system_packages
 ensure_rust
+ensure_profiling_tools
 ensure_submodules
 ensure_python_tools
 regenerate_assets

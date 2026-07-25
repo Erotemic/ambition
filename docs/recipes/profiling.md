@@ -10,7 +10,7 @@ hours. Pick by the question you are actually asking:
 | Which machine layer owns the CPU — game code, GPU driver, or a software rasterizer? | `scripts/profile_desktop.sh` (default) | text, agent-readable |
 | Where did startup time go? | `[startup]` phase logger (always on) | text, agent-readable |
 | Which native function is hot, and during which part of my session? | `scripts/profile_desktop.sh` timeline chunks | text, agent-readable |
-| Which *Bevy system* is hot? | `--features profile` → Tracy | **GUI only** |
+| Which *Bevy system* is hot? | `--features profile` → Tracy | GUI, or `tracy-capture` + `tracy-csvexport` as text |
 | Which *render pass* is hot? | not yet wired (`RenderDiagnosticsPlugin`) | — |
 | Am I re-reading assets from disk every frame? | `profile_desktop.sh asset-run` | text, agent-readable |
 | Is this CPU-bound, memory-bound, or stalled? | `profile_desktop.sh stat-run` | text, agent-readable |
@@ -26,10 +26,27 @@ falls back to a CPU rasterizer, most cycles land in JIT-compiled shader code
 that has no symbols at all and never will — `perf` can prove *that*
 rasterization dominates and nothing about *what* is being rasterized.
 
-**Tracy answers the Bevy-level questions, but only a human can read it.**
-It needs a GUI client attached to a running game. An agent working from a
-terminal cannot use it, which is why the text-emitting instruments above
-carry the load for automated work.
+**Tracy answers the Bevy-level questions.** Its GUI needs a human, but it
+also ships two CLI tools that do not: `tracy-capture` records a trace from a
+running game headlessly, and `tracy-csvexport` turns that trace into a table
+of zone statistics — per-Bevy-system timings an agent can rank.
+
+### Getting the tools
+
+`./run_developer_setup.sh` installs the whole profiling toolchain: `perf` and
+`strace` (which `profile_desktop.sh` requires), `vulkaninfo`/`glxinfo` (which
+its host-environment report reads), `cargo-flamegraph`, `hotspot`,
+`heaptrack`, and Tracy built from source into `~/.local/bin`. Pass
+`--no-profile` to skip all of it.
+
+Tracy is built rather than installed because Ubuntu does not package it, and
+it is pinned to the version read out of the `tracy-client-sys` crate the game
+actually links. That pin is not cosmetic: Tracy speaks a versioned wire
+protocol and a mismatched server does not warn — it silently refuses to
+connect. The headless `capture`/`csvexport` tools build from
+`build-essential` + `cmake` alone (~25s each); the GUI needs a desktop's worth
+of libraries and is attempted only when they are present, so its absence never
+costs you the CLI tools.
 
 Two layers of in-process instrumentation are wired in:
 

@@ -13,7 +13,7 @@ fn main() {
     app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
     app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
     app.add_plugins(ambition::game_shell::MinimalShellPlugins);
-    app.add_plugins(ambition::load::AmbitionLoadPlugin);
+    // Not `AmbitionLoadPlugin`: `PlatformerEnginePlugins` above supplies it.
     app.add_plugins(outlander::OutlanderExperiencePlugin);
 
     let world = app.world_mut();

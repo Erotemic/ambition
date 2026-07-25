@@ -430,14 +430,65 @@ mod tests {
         let assets = app
             .world()
             .resource::<ambition::sprite_sheet::game_assets::GameAssets>();
+        // Both forms must be REGISTERED for materialization. Startup no longer
+        // decodes them: the perf campaign made every non-hot-path character
+        // deferred (`EAGER_CHARACTER_IDS` is player/robot/goblin/sandbag), and
+        // room staging materializes what a session actually shows. Asserting on
+        // `npcs` here tested the pre-lazy world and had been red since.
+        let deferred: Vec<&str> = assets
+            .characters
+            .deferred_npcs
+            .keys()
+            .map(String::as_str)
+            .collect();
         for (character_id, _) in forms {
             assert!(
-                assets
-                    .characters
-                    .asset_for_character_id(character_id)
-                    .is_some(),
-                "published {character_id} PNG+RON must bind through the shared GameAssets path"
+                assets.characters.deferred_npcs.contains_key(character_id),
+                "published {character_id} must register for deferred materialization \
+                 (registered: {deferred:?})"
             );
         }
+
+        // ...and materializing must actually produce the asset. That is the half
+        // that proves the PNG+RON are on disk and parse: a registration alone
+        // would pass with no art published at all.
+        let quality = app
+            .world()
+            .get_resource::<ambition::render::quality::ResolvedVisualQuality>()
+            .map(|q| q.budget.clone());
+        let character_catalog = app
+            .world()
+            .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>()
+            .clone();
+        let asset_catalog = app
+            .world()
+            .resource::<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>()
+            .clone();
+        let asset_server = app.world().resource::<bevy::asset::AssetServer>().clone();
+        let mut game_assets = app
+            .world_mut()
+            .remove_resource::<ambition::sprite_sheet::game_assets::GameAssets>()
+            .expect("game assets were loaded");
+        app.world_mut().resource_scope(
+            |_world,
+             mut layouts: bevy::ecs::change_detection::Mut<
+                bevy::asset::Assets<bevy::image::TextureAtlasLayout>,
+            >| {
+                for (character_id, sheet_stem) in forms {
+                    assert!(
+                        ambition::actors::character_sprites::materialize_deferred_character_sprite(
+                            &mut game_assets.characters,
+                            &character_catalog,
+                            &asset_catalog,
+                            &asset_server,
+                            &mut layouts,
+                            quality.as_ref(),
+                            character_id,
+                        ),
+                        "published {sheet_stem}.png + .ron must materialize for {character_id}"
+                    );
+                }
+            },
+        );
     }
 }

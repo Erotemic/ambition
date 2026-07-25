@@ -285,7 +285,14 @@ pub fn compose_outlander_shell(app: &mut App) {
     app.insert_resource(ambition::audio::selection::FrontendAudioProfile::new(
         OUTLANDER_EXPERIENCE,
     ));
-    app.add_plugins(ambition::load::AmbitionLoadPlugin);
+    // `AmbitionLoadPlugin` is NOT added here: `PlatformerEnginePlugins` supplies
+    // it (the room-transition transaction IS a load plan), and a second copy is a
+    // hard Bevy panic. The in-repo shells carry the same note.
+    //
+    // LEAK (recorded): the engine group's guarded `add_plugins` makes "who owes
+    // the load coordinator" an undocumented composition rule. Both in-repo demos
+    // were edited when it moved; this fixture — outside the workspace, invisible
+    // to a repo grep — was not, and sat red until someone read the panic.
     app.add_plugins(ambition::load_presentation::MinimalShellLoadPresentationPlugins);
     app.add_plugins(OutlanderExperiencePlugin);
 
@@ -379,10 +386,8 @@ pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, St
     // 2. The constructed world holds the authored population.
     {
         let world = app.world_mut();
-        let mut players = world.query_filtered::<
-            &ambition::platformer::body::BodyKinematics,
-            With<PrimaryPlayer>,
-        >();
+        let mut players = world
+            .query_filtered::<&ambition::platformer::body::BodyKinematics, With<PrimaryPlayer>>();
         let player_count = players.iter(world).count();
         if player_count != 1 {
             return Err(format!(
@@ -390,9 +395,11 @@ pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, St
             ));
         }
         let mut actors = world.query::<&ambition::actors::features::ActorConfig>();
-        if !actors.iter(world).any(|config| config.id == OUTLANDER_SENTRY_ID) {
-            let present: Vec<String> =
-                actors.iter(world).map(|config| config.id.clone()).collect();
+        if !actors
+            .iter(world)
+            .any(|config| config.id == OUTLANDER_SENTRY_ID)
+        {
+            let present: Vec<String> = actors.iter(world).map(|config| config.id.clone()).collect();
             return Err(format!(
                 "the staged sentry {OUTLANDER_SENTRY_ID:?} is missing; actors present: {present:?}"
             ));
@@ -414,10 +421,8 @@ pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, St
         }
         app.update();
         let world = app.world_mut();
-        let mut players = world.query_filtered::<
-            &ambition::platformer::body::BodyKinematics,
-            With<PrimaryPlayer>,
-        >();
+        let mut players = world
+            .query_filtered::<&ambition::platformer::body::BodyKinematics, With<PrimaryPlayer>>();
         let pos = players
             .single(world)
             .map(|kin| kin.pos)
@@ -436,10 +441,8 @@ pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, St
     })?;
 
     let world = app.world_mut();
-    let mut players = world.query_filtered::<
-        &ambition::platformer::body::BodyKinematics,
-        With<PrimaryPlayer>,
-    >();
+    let mut players =
+        world.query_filtered::<&ambition::platformer::body::BodyKinematics, With<PrimaryPlayer>>();
     let player_pos = players
         .single(world)
         .map(|kin| kin.pos)

@@ -1,0 +1,541 @@
+//! The binding resolution boundary: authored references resolve ONCE, and what
+//! fails to resolve is named out loud.
+//!
+//! Ambition is full of cross-layer references authored as strings — an anim row
+//! (`"death"`), a world-item sprite id (`"spark_blossom"`), an sfx cue, a recipe,
+//! a brain, a music track. Historically each was looked up at USE time, by the
+//! consumer, through a fallible map:
+//!
+//! ```ignore
+//! let Some(row) = sheet.row_index_of(name) else { return };   // and nothing draws
+//! ```
+//!
+//! That shape has one failure mode and it is always the same one: the reference
+//! misses, the consumer degrades to silence, and the defect ships. It cost this
+//! project an unreachable death animation (the sheet spelled it `death`, the
+//! policy said `dead`), invisible rings, a spark blossom that was never drawn,
+//! and a character that shipped as a fully transparent sprite sheet.
+//!
+//! # The boundary
+//!
+//! 1. Content declares a [`Ref<N>`] — an id in a named [`Namespace`] — never a
+//!    bare `String` that a consumer will later guess at.
+//! 2. A [`Resolver<N>`], built once from the ids that actually exist, turns each
+//!    `Ref` into a [`Bound<N>`]. `Bound` has no public constructor, so a consumer
+//!    CANNOT hold one it did not resolve.
+//! 3. Whatever fails lands in a [`BindingLedger`], which closes into one
+//!    [`BindingReport`] naming the namespace, the id, WHO declared it, and what
+//!    ids were actually available — with a did-you-mean when one is close.
+//!
+//! The point is not that resolution can never fail. Content has typos; that is
+//! normal. The point is that a failure is a *value someone holds*, not an early
+//! `return` nobody sees.
+//!
+//! # Draw blind, but say so
+//!
+//! A non-empty report does not mean "draw nothing". Presentation keeps its
+//! visible fallback (the magenta placeholder quad) so a blind run still shows
+//! that something is wrong on screen. The report is the other half: the run also
+//! *says* what is wrong, in a form a headless test can assert on.
+//!
+//! # Determinism
+//!
+//! `Resolver` is a sorted `Vec` and the report is sorted by
+//! `(namespace, declared_by, id)`, so two runs over the same content produce a
+//! byte-identical report regardless of iteration order upstream (ADR 0023).
+
+use std::marker::PhantomData;
+
+/// A family of ids that resolve against one another — anim rows, item sprites,
+/// sfx cues. Implemented by a zero-sized marker type per family.
+///
+/// `NAME` is what the report prints, so it reads as a noun phrase in a sentence
+/// like "unknown anim row `dead`": prefer `"anim row"` over `"AnimRow"`.
+pub trait Namespace: 'static {
+    /// Human-readable name of this family, used in diagnostics.
+    const NAME: &'static str;
+}
+
+/// An authored, NOT-yet-resolved reference into namespace `N`.
+///
+/// This is what content holds. It is deliberately inert: it has no lookup method,
+/// because a reference that can look itself up is a reference that can silently
+/// fail to. Ask a [`Resolver`].
+// The std derives would demand `N: Debug + Clone + ...` on the marker type, which
+// `PhantomData<fn() -> N>` does not actually need. Hand-written impls keep
+// namespace markers bare unit structs.
+pub struct Ref<N: Namespace> {
+    id: String,
+    _namespace: PhantomData<fn() -> N>,
+}
+
+impl<N: Namespace> std::fmt::Debug for Ref<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Ref<{}>({})", N::NAME, self.id)
+    }
+}
+
+impl<N: Namespace> Clone for Ref<N> {
+    fn clone(&self) -> Self {
+        Self::new(self.id.clone())
+    }
+}
+
+impl<N: Namespace> PartialEq for Ref<N> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<N: Namespace> Eq for Ref<N> {}
+
+impl<N: Namespace> std::hash::Hash for Ref<N> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl<N: Namespace> Ref<N> {
+    /// Declare a reference to `id`. Call this at the authoring seam (RON load,
+    /// LDtk field, provider registration) — not at the use site.
+    pub fn new(id: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            _namespace: PhantomData,
+        }
+    }
+
+    /// The authored id, for diagnostics and round-tripping back to content.
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+}
+
+/// A reference that HAS resolved: the id exists in the namespace, and `index` is
+/// its position in the resolver's sorted id list.
+///
+/// There is no public constructor. A consumer holding a `Bound<N>` is holding
+/// proof that resolution happened, which is the whole invariant this module
+/// exists to create.
+pub struct Bound<N: Namespace> {
+    id: String,
+    index: usize,
+    _namespace: PhantomData<fn() -> N>,
+}
+
+impl<N: Namespace> std::fmt::Debug for Bound<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Bound<{}>({}#{})", N::NAME, self.id, self.index)
+    }
+}
+
+impl<N: Namespace> Clone for Bound<N> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            index: self.index,
+            _namespace: PhantomData,
+        }
+    }
+}
+
+impl<N: Namespace> PartialEq for Bound<N> {
+    fn eq(&self, other: &Self) -> bool {
+        self.index == other.index && self.id == other.id
+    }
+}
+
+impl<N: Namespace> Eq for Bound<N> {}
+
+impl<N: Namespace> std::hash::Hash for Bound<N> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.index.hash(state);
+        self.id.hash(state);
+    }
+}
+
+impl<N: Namespace> Bound<N> {
+    /// The resolved id.
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Position in the resolver's sorted id list — a dense key for consumers that
+    /// want an array index rather than a string compare on a hot path.
+    pub fn index(&self) -> usize {
+        self.index
+    }
+}
+
+/// One reference that did not resolve, carrying everything needed to fix it
+/// without opening a debugger.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnresolvedRef {
+    /// [`Namespace::NAME`] of the family searched.
+    pub namespace: &'static str,
+    /// The id content asked for.
+    pub id: String,
+    /// Who declared it — a plan row, character id, catalog entry. Free-form, but
+    /// it must let a reader find the authored line.
+    pub declared_by: String,
+    /// Every id that WAS available, sorted. This is the half that turns a puzzle
+    /// into a typo: `dead` is obviously wrong once you can see `death` beside it.
+    pub available: Vec<String>,
+    /// The closest available id, when one is close enough to be worth naming.
+    pub did_you_mean: Option<String>,
+}
+
+impl std::fmt::Display for UnresolvedRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "unknown {} `{}` declared by `{}`",
+            self.namespace, self.id, self.declared_by
+        )?;
+        if let Some(suggestion) = &self.did_you_mean {
+            write!(f, " — did you mean `{suggestion}`?")?;
+        }
+        if self.available.is_empty() {
+            write!(f, " (nothing is registered in this namespace)")
+        } else {
+            write!(f, " (available: {})", self.available.join(", "))
+        }
+    }
+}
+
+/// The ids that exist in namespace `N`, and the only thing that can mint a
+/// [`Bound<N>`].
+///
+/// Build it once, from the authority for that family: the sheet's row list, the
+/// unioned art manifest, the sfx bank's cue table.
+pub struct Resolver<N: Namespace> {
+    /// Sorted and deduplicated, so `index()` is stable across runs.
+    ids: Vec<String>,
+    _namespace: PhantomData<fn() -> N>,
+}
+
+impl<N: Namespace> std::fmt::Debug for Resolver<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Resolver<{}>{:?}", N::NAME, self.ids)
+    }
+}
+
+impl<N: Namespace> Clone for Resolver<N> {
+    fn clone(&self) -> Self {
+        Self {
+            ids: self.ids.clone(),
+            _namespace: PhantomData,
+        }
+    }
+}
+
+impl<N: Namespace> Default for Resolver<N> {
+    fn default() -> Self {
+        Self {
+            ids: Vec::new(),
+            _namespace: PhantomData,
+        }
+    }
+}
+
+impl<N: Namespace> FromIterator<String> for Resolver<N> {
+    fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> Self {
+        let mut ids: Vec<String> = iter.into_iter().collect();
+        ids.sort();
+        ids.dedup();
+        Self {
+            ids,
+            _namespace: PhantomData,
+        }
+    }
+}
+
+impl<N: Namespace> Resolver<N> {
+    /// Build from anything string-ish — `&str`, `String`, a map's keys.
+    pub fn new<I, S>(ids: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        ids.into_iter().map(Into::into).collect()
+    }
+
+    /// Every id that exists here, sorted.
+    pub fn ids(&self) -> &[String] {
+        &self.ids
+    }
+
+    /// True when nothing was ever registered. Worth distinguishing in a report:
+    /// "you spelled it wrong" and "the provider never registered anything" are
+    /// different bugs with different fixes.
+    pub fn is_empty(&self) -> bool {
+        self.ids.is_empty()
+    }
+
+    /// Resolve `reference`, or describe why it failed. `declared_by` names the
+    /// authored thing that carried the reference.
+    pub fn resolve(
+        &self,
+        reference: &Ref<N>,
+        declared_by: impl Into<String>,
+    ) -> Result<Bound<N>, UnresolvedRef> {
+        match self
+            .ids
+            .binary_search_by(|id| id.as_str().cmp(reference.id()))
+        {
+            Ok(index) => Ok(Bound {
+                id: self.ids[index].clone(),
+                index,
+                _namespace: PhantomData,
+            }),
+            Err(_) => Err(UnresolvedRef {
+                namespace: N::NAME,
+                id: reference.id().to_owned(),
+                declared_by: declared_by.into(),
+                available: self.ids.clone(),
+                did_you_mean: closest(reference.id(), &self.ids),
+            }),
+        }
+    }
+}
+
+/// The closest available id, when it is close enough to be a likely typo rather
+/// than a coincidence.
+///
+/// Two edits, but never more than half the id — so `dead`→`death` is offered
+/// (substitute `d`→`t`, insert `h`: distance 2, and 2 ≤ half of 4 rounded up)
+/// while `run`→`jump` is not, and a long id like `spark_blossom` only ever
+/// suggests a genuine near-miss rather than the least-distant unrelated entry.
+fn closest(needle: &str, haystack: &[String]) -> Option<String> {
+    let budget = 2.min(needle.len().div_ceil(2));
+    haystack
+        .iter()
+        .map(|candidate| (edit_distance(needle, candidate), candidate))
+        // Ties go to the first in sorted order, so the suggestion is deterministic.
+        .filter(|(distance, _)| *distance <= budget)
+        .min_by_key(|(distance, _)| *distance)
+        .map(|(_, candidate)| candidate.clone())
+}
+
+/// Levenshtein distance, two rows. Small inputs (ids), so the straightforward
+/// implementation is the right one.
+fn edit_distance(a: &str, b: &str) -> usize {
+    let b_chars: Vec<char> = b.chars().collect();
+    let mut previous: Vec<usize> = (0..=b_chars.len()).collect();
+    let mut current = vec![0usize; b_chars.len() + 1];
+
+    for (i, a_char) in a.chars().enumerate() {
+        current[0] = i + 1;
+        for (j, &b_char) in b_chars.iter().enumerate() {
+            let substitution = previous[j] + usize::from(a_char != b_char);
+            current[j + 1] = substitution.min(previous[j + 1] + 1).min(current[j] + 1);
+        }
+        std::mem::swap(&mut previous, &mut current);
+    }
+
+    previous[b_chars.len()]
+}
+
+/// Accumulates unresolved references across every namespace into ONE report.
+///
+/// The cross-namespace part is the point. A room's construction touches anim
+/// rows, item sprites, cues, and recipes; a reader chasing "why is this room
+/// wrong" should get one list, not four scattered warnings from four crates with
+/// four different error types.
+#[derive(Debug, Default, Clone)]
+pub struct BindingLedger {
+    unresolved: Vec<UnresolvedRef>,
+}
+
+impl BindingLedger {
+    /// An empty ledger.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record a failure.
+    pub fn record(&mut self, unresolved: UnresolvedRef) {
+        self.unresolved.push(unresolved);
+    }
+
+    /// Resolve through `resolver`, recording the failure and yielding `None`
+    /// rather than short-circuiting — so ONE pass reports every bad reference
+    /// instead of stopping at the first and hiding the rest.
+    pub fn resolve<N: Namespace>(
+        &mut self,
+        resolver: &Resolver<N>,
+        reference: &Ref<N>,
+        declared_by: impl Into<String>,
+    ) -> Option<Bound<N>> {
+        match resolver.resolve(reference, declared_by) {
+            Ok(bound) => Some(bound),
+            Err(unresolved) => {
+                self.record(unresolved);
+                None
+            }
+        }
+    }
+
+    /// Merge another ledger in — for a construction that fans out across
+    /// subsystems and collects their ledgers at the boundary.
+    pub fn absorb(&mut self, other: BindingLedger) {
+        self.unresolved.extend(other.unresolved);
+    }
+
+    /// Close the ledger into a sorted report.
+    pub fn finish(self) -> BindingReport {
+        let mut unresolved = self.unresolved;
+        unresolved.sort_by(|a, b| {
+            a.namespace
+                .cmp(b.namespace)
+                .then_with(|| a.declared_by.cmp(&b.declared_by))
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        unresolved.dedup();
+        BindingReport { unresolved }
+    }
+}
+
+/// What did not bind, after a construction (or a whole-content sweep) finished.
+///
+/// Empty means every authored reference in scope found its target. That is the
+/// assertion a headless test makes, and the condition a room construction
+/// requires before it publishes.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct BindingReport {
+    unresolved: Vec<UnresolvedRef>,
+}
+
+impl BindingReport {
+    /// Every reference that failed, sorted by `(namespace, declared_by, id)`.
+    pub fn unresolved(&self) -> &[UnresolvedRef] {
+        &self.unresolved
+    }
+
+    /// Nothing failed to bind.
+    pub fn is_empty(&self) -> bool {
+        self.unresolved.is_empty()
+    }
+
+    /// How many references failed.
+    pub fn len(&self) -> usize {
+        self.unresolved.len()
+    }
+
+    /// True when any failure was in namespace `N` — for a consumer that only
+    /// cares about its own family.
+    pub fn has<N: Namespace>(&self) -> bool {
+        self.unresolved.iter().any(|u| u.namespace == N::NAME)
+    }
+}
+
+impl std::fmt::Display for BindingReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.unresolved.is_empty() {
+            return write!(f, "every authored reference resolved");
+        }
+        writeln!(f, "{} unresolved binding(s):", self.unresolved.len())?;
+        for unresolved in &self.unresolved {
+            writeln!(f, "  ▢ {unresolved}")?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The anim rows of a sprite sheet.
+    struct AnimRow;
+    impl Namespace for AnimRow {
+        const NAME: &'static str = "anim row";
+    }
+
+    /// The world-item art ids a provider registered.
+    struct ItemSprite;
+    impl Namespace for ItemSprite {
+        const NAME: &'static str = "item sprite";
+    }
+
+    /// The load-bearing property: a construction that touches several namespaces
+    /// produces ONE report, and each entry carries enough to fix the content
+    /// without reading engine source — who declared it, and what existed.
+    ///
+    /// The two failures here are the real ones this boundary was built for: the
+    /// anim row Mary-O's death was authored as (`dead`, sheet says `death`), and
+    /// a world item whose art id no provider ever registered.
+    #[test]
+    fn unresolved_refs_land_in_one_report() {
+        let rows: Resolver<AnimRow> = Resolver::new(["idle", "walk", "run", "jump", "death"]);
+        let sprites: Resolver<ItemSprite> = Resolver::new(["milk", "ring"]);
+
+        let mut ledger = BindingLedger::new();
+        // Resolution keeps going after a failure, so one pass finds both.
+        assert!(ledger
+            .resolve(&rows, &Ref::new("walk"), "mary_o/anim")
+            .is_some());
+        assert!(ledger
+            .resolve(&rows, &Ref::new("dead"), "mary_o/anim")
+            .is_none());
+        assert!(ledger
+            .resolve(&sprites, &Ref::new("spark_blossom"), "level_1_2/item#12")
+            .is_none());
+
+        let report = ledger.finish();
+        assert_eq!(report.len(), 2, "one report, both namespaces:\n{report}");
+        assert!(report.has::<AnimRow>() && report.has::<ItemSprite>());
+
+        // Sorted by namespace, so `anim row` precedes `item sprite`.
+        let row = &report.unresolved()[0];
+        assert_eq!(row.namespace, "anim row");
+        assert_eq!(row.declared_by, "mary_o/anim", "the report names WHO");
+        assert_eq!(
+            row.did_you_mean.as_deref(),
+            Some("death"),
+            "`dead` is two edits from `death` — the real Mary-O typo"
+        );
+        assert!(
+            row.available.contains(&"death".to_owned()),
+            "the report names what WAS available"
+        );
+
+        let sprite = &report.unresolved()[1];
+        assert_eq!(sprite.namespace, "item sprite");
+        assert_eq!(sprite.id, "spark_blossom");
+        assert_eq!(
+            sprite.did_you_mean, None,
+            "nothing registered is close; do not invent a suggestion"
+        );
+    }
+
+    /// A `Bound` carries the resolver's dense index, and equal ids resolve to the
+    /// same index across resolvers built from differently-ordered input — the
+    /// determinism `index()` is only useful under.
+    #[test]
+    fn binding_is_order_independent() {
+        let forward: Resolver<AnimRow> = Resolver::new(["idle", "walk", "death"]);
+        let backward: Resolver<AnimRow> = Resolver::new(["death", "walk", "idle"]);
+
+        let reference = Ref::new("walk");
+        let a = forward.resolve(&reference, "x").expect("resolves");
+        let b = backward.resolve(&reference, "x").expect("resolves");
+        assert_eq!(a.index(), b.index());
+        assert_eq!(a.id(), "walk");
+    }
+
+    /// An empty namespace says so, rather than offering a bare "not found" that
+    /// reads like a typo. "The provider registered nothing" is a different bug.
+    #[test]
+    fn an_empty_namespace_reports_that_it_is_empty() {
+        let sprites: Resolver<ItemSprite> = Resolver::default();
+        let unresolved = sprites
+            .resolve(&Ref::new("milk"), "level_1_1/item#3")
+            .expect_err("nothing is registered");
+        assert!(sprites.is_empty());
+        assert!(
+            unresolved.to_string().contains("nothing is registered"),
+            "{unresolved}"
+        );
+    }
+}

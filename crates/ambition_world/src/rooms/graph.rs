@@ -38,16 +38,18 @@ impl RoomSet {
             by_id.insert(room.id.clone(), (index, node));
         }
 
+        // Every link endpoint, resolved before the graph is built. This used to
+        // be two `eprintln!`s that checked only the ROOMS; the zones went
+        // straight into the edge weight unchecked, and a link naming a zone that
+        // does not exist becomes a door the player walks into where nothing
+        // happens — `transition_from_zone` returns None and says nothing.
+        super::binding::sweep_room_links(&rooms, &links).log("room graph");
+
         for link in &links {
             let Some((_, from_node)) = by_id.get(&link.from_room).copied() else {
-                eprintln!(
-                    "room graph warning: unknown source room '{}'",
-                    link.from_room
-                );
                 continue;
             };
             let Some((_, to_node)) = by_id.get(&link.to_room).copied() else {
-                eprintln!("room graph warning: unknown target room '{}'", link.to_room);
                 continue;
             };
             graph.add_edge(

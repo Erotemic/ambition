@@ -348,13 +348,35 @@ impl<N: Namespace> Resolver<N> {
 /// suggests a genuine near-miss rather than the least-distant unrelated entry.
 fn closest(needle: &str, haystack: &[String]) -> Option<String> {
     let budget = 2.min(needle.len().div_ceil(2));
-    haystack
+    let typo = haystack
         .iter()
         .map(|candidate| (edit_distance(needle, candidate), candidate))
         // Ties go to the first in sorted order, so the suggestion is deterministic.
         .filter(|(distance, _)| *distance <= budget)
         .min_by_key(|(distance, _)| *distance)
-        .map(|(_, candidate)| candidate.clone())
+        .map(|(_, candidate)| candidate.clone());
+    typo.or_else(|| affix_rename(needle, haystack))
+}
+
+/// The other common way a reference goes stale: not a typo but a RENAME that
+/// added or dropped a suffix — `stair` when the zone became `stair_top`,
+/// `patrol` when the path became `patrol_a`. Edit distance scores those as
+/// far apart, and it is right to: they are not misspellings. They are still
+/// almost always the id the author meant.
+///
+/// Only offered when exactly ONE candidate is an extension of the needle (or the
+/// needle of it), so an ambiguous stem suggests nothing rather than guessing.
+fn affix_rename(needle: &str, haystack: &[String]) -> Option<String> {
+    const MIN_STEM: usize = 3;
+    if needle.len() < MIN_STEM {
+        return None;
+    }
+    let mut matches = haystack.iter().filter(|candidate| {
+        candidate.len() >= MIN_STEM
+            && (candidate.starts_with(needle) || needle.starts_with(candidate.as_str()))
+    });
+    let first = matches.next()?;
+    matches.next().is_none().then(|| first.clone())
 }
 
 /// Levenshtein distance, two rows. Small inputs (ids), so the straightforward

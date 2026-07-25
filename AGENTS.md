@@ -164,6 +164,8 @@ Use narrower tests when a focused test already covers the touched concept.
 
 ## Avoid bullshit guardrails
 
+Do not waste time testing the tests.
+Only add the minimal tests needed for the task at hand.
 Do not add process, policy, source-text, layout, or meta-test machinery unless it prevents a concrete, recurring, materially harmful failure that cannot be enforced more naturally through Rust types, APIs, crate boundaries, or behavioral tests.
 Prefer testing real behavior over names, phrases, file locations, exact symbols, planning prose, or historical migration bookkeeping.
 Poison tests are for realistic harmful states, not for proving that every scanner detects its own fixture. Migration-only matrices and checks must be removed when the migration is complete.

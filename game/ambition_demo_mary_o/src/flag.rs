@@ -474,11 +474,9 @@ pub fn run_flag_sequence(
     time: Res<ambition::time::WorldTime>,
     pole: Option<Res<FlagPole>>,
     subject: Option<Res<ambition::platformer::markers::ControlledSubject>>,
+    mut commands: Commands,
     mut sequences: Query<&mut FlagSequence>,
-    mut bodies: Query<(
-        &mut ae::BodyKinematics,
-        &mut ambition::characters::brain::ActorControl,
-    )>,
+    mut bodies: Query<&mut ae::BodyKinematics>,
 ) {
     let (Some(pole), Some(entity)) = (pole, subject.and_then(|s| s.0)) else {
         return;
@@ -486,9 +484,23 @@ pub fn run_flag_sequence(
     let Ok(mut sequence) = sequences.single_mut() else {
         return;
     };
-    let Ok((mut kin, mut control)) = bodies.get_mut(entity) else {
+    let Ok(mut kin) = bodies.get_mut(entity) else {
         return;
     };
+    // The pole owns the body from the grab to the tally. This used to blank the
+    // control frame right here, which did nothing — `GameplayEffects` runs after
+    // every reader and the brain refills the frame before the next one. The
+    // engine's `ScriptedControl` blanks at the one point where it is observable,
+    // and takes her out of the pickup pass while she is on the pole.
+    if matches!(sequence.phase, FlagPhase::Idle) {
+        commands
+            .entity(entity)
+            .remove::<ambition::characters::brain::ScriptedControl>();
+    } else {
+        commands
+            .entity(entity)
+            .try_insert(ambition::characters::brain::ScriptedControl);
+    }
 
     // Her LIVE half-height, so the slide plants the form she is actually wearing:
     // small and tall Mary-O stand on the same ground line, and the tall one is
@@ -501,5 +513,43 @@ pub fn run_flag_sequence(
     // The scripted end-of-level slide is an external kinematic constraint
     // (ADR 0024 authority): the sequence owns the pose while it plays.
     ae::movement::constrain_body_pose(&mut kin, next, ae::Vec2::ZERO);
-    control.0 = ambition::characters::actor::control::ActorControlFrame::default();
+}
+
+/// This sequence's claim on the encounter layer's priority music tier.
+const VICTORY_MUSIC_OWNER: &str = "mary_o_flag";
+
+/// **Clearing the course has its own music.**
+///
+/// The same priority-tier claim her death uses, for the same reason: it is the
+/// one tier that outranks the room's own theme, and claiming rather than
+/// assigning means the boss system's every-frame release cannot silence it.
+///
+/// It runs from the grab to the tally rather than for a fixed window, so the
+/// cue covers whatever the sequence actually takes. `mary_o_flag_victory` is two
+/// bars of 4/4 at 156bpm — about 3.1 seconds — and the slide, walk-off and
+/// `LEVEL_CYCLE_DWELL` together comfortably exceed that, so the sting finishes
+/// before the level loops rather than being cut off by the replay.
+///
+/// The track is authorized by Mary-O's audio fragment
+/// ([`crate::provider::MARY_O_VICTORY_MUSIC_TRACK`]); under provider-relative
+/// playback an undeclared id is gated to silence however loudly it is requested.
+pub fn play_victory_music(
+    sequences: Query<&FlagSequence>,
+    music: Option<
+        ambition::platformer::lifecycle::SessionWorldMut<
+            ambition::actors::encounter::EncounterMusicRequest,
+        >,
+    >,
+) {
+    let (Ok(sequence), Some(mut music)) = (sequences.single(), music) else {
+        return;
+    };
+    if matches!(sequence.phase, FlagPhase::Idle) {
+        music.release_priority(VICTORY_MUSIC_OWNER);
+    } else {
+        music.claim_priority(
+            VICTORY_MUSIC_OWNER,
+            crate::provider::MARY_O_VICTORY_MUSIC_TRACK,
+        );
+    }
 }

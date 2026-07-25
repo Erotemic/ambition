@@ -66,8 +66,8 @@ pub use starting_character::{
 pub use components::{PlayerBlinkCameraState, PlayerSafetyState};
 pub use events::PlayerHealRequested;
 pub use systems::{
-    apply_player_heal_requests, regen_player_mana, sync_player_actor_poses, tick_player_brains,
-    write_player_ecs_components,
+    apply_player_heal_requests, blank_scripted_control_frames, regen_player_mana,
+    sync_player_actor_poses, tick_player_brains, write_player_ecs_components,
 };
 
 /// Build a `BodyClusterScratch` for the primary player at `spawn`

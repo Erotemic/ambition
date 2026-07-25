@@ -92,7 +92,13 @@ pub fn spawn_world_item(commands: &mut Commands, item: WorldItem) {
 pub fn collect_world_items(
     mut commands: Commands,
     controlled: Res<ControlledSubject>,
-    mut bodies: Query<(&BodyKinematics, Option<&mut WornEquipment>)>,
+    mut bodies: Query<
+        (&BodyKinematics, Option<&mut WornEquipment>),
+        // A body the game is driving does not shop. Collection is proximity-
+        // based, so blanking the control frame cannot stop it — a corpse held
+        // where it fell would still pocket whatever it landed on.
+        Without<ambition_characters::brain::ScriptedControl>,
+    >,
     items: Query<(Entity, &WorldItem)>,
 ) {
     let Some(subject) = controlled.0 else {

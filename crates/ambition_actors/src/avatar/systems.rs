@@ -8,8 +8,29 @@ use super::movement_components::{BodyGroundState, BodyKinematics};
 use crate::actor::BodyMelee;
 use crate::features::ActorPose;
 use ambition_characters::actor::{BodyCombat, BodyHealth};
-use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot, SlotControls};
+use ambition_characters::brain::{
+    ActorControl, Brain, BrainSnapshot, ScriptedControl, SlotControls,
+};
 use ambition_engine_core as ae;
+
+/// Blank the control frame of every body a scripted sequence is driving.
+///
+/// Ordered immediately AFTER the brains write, which is the whole point. The
+/// sequences that predate [`ScriptedControl`] each blanked the frame from their
+/// own phase — Mary-O's death beat from `GameplayEffects` — and the brain simply
+/// refilled it at the next frame's `PlayerInput` before anything read it. The
+/// only position where blanking is observable is between the producer and the
+/// frame's consumers, so the engine owns that position rather than asking each
+/// sequence to find it.
+///
+/// This clears the frame the body ACTS on; it does not touch the device layer,
+/// so a held button is still held and resumes on its own once the sequence
+/// retires.
+pub fn blank_scripted_control_frames(mut bodies: Query<&mut ActorControl, With<ScriptedControl>>) {
+    for mut control in &mut bodies {
+        control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
+    }
+}
 
 /// Mirror authoritative player body state into the generic gameplay
 /// [`ActorPose`] used by the brain/action resolver.

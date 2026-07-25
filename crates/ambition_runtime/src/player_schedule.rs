@@ -177,6 +177,13 @@ impl Plugin for PlayerSchedulePlugin {
                 // Universal-brain seam: translate this frame's slot input into
                 // each controlled body's ActorControl frame.
                 ambition_actors::avatar::tick_player_brains,
+                // A body a scripted sequence is driving (a death beat, a
+                // flagpole slide, an act clear) stops answering input HERE —
+                // after the brain wrote the frame, before anything reads it.
+                // That position is the only one where blanking is observable,
+                // which is why the sequences that blanked from their own phase
+                // suppressed nothing.
+                ambition_actors::avatar::blank_scripted_control_frames,
                 // ActionSet gates the generic resolver, but the body shield,
                 // slash/recoil, and charge-projectile paths still read raw control.
                 // Sanitize those direct verbs from the same worn kit before any

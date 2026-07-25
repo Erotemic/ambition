@@ -603,6 +603,10 @@ pub fn install_sanic_content(app: &mut App) {
                 "ambition_demo_sanic",
                 "content.sanic_act_state",
             )
+            .rollback_component_clone::<SuperFormLatch>(
+                "ambition_demo_sanic",
+                "content.sanic_super_form_latch",
+            )
             // A mid-burst scattered ring rides the currency pickup it decorates,
             // which `CenteredAabb`/`PickupFeature` already anchor + snapshot — so
             // like `BallDash` on the body, it only needs its own component
@@ -924,10 +928,6 @@ impl Plugin for SanicRulesPlugin {
         // these through the engine plugins; a thin rules-only harness may not,
         // and `add_message`/`init_resource` are idempotent.
         app.add_message::<ambition::sfx::OwnedSfxMessage>();
-        // His super-form edge asks the engine for a transformation beat. The
-        // engine's `TransformBeatPlugin` registers this too; a rules-only
-        // harness has no engine group, and `add_message` is idempotent.
-        app.add_message::<ambition::actors::features::transform_beat::TransformBeatRequested>();
         app.add_message::<ambition::vfx::VfxMessage>();
         app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
         app.add_message::<ambition::actors::rooms::RoomLoaded>();
@@ -1216,18 +1216,16 @@ fn sync_super_form_traits(
     time: bevy::prelude::Res<ambition::time::WorldTime>,
     mut sparkle_accum: bevy::prelude::Local<f32>,
     mut sparkle_orbit: bevy::prelude::Local<f32>,
-    mut was_super: bevy::prelude::Local<bool>,
     mut vfx: bevy::prelude::MessageWriter<ambition::vfx::VfxMessage>,
     mut sfx: ambition::sfx::SfxWriter,
-    mut transform: bevy::prelude::MessageWriter<
-        ambition::actors::features::transform_beat::TransformBeatRequested,
-    >,
+    mut commands: bevy::prelude::Commands,
     mut players: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
             &ambition::characters::actor::WornCharacter,
             &mut ambition::characters::actor::BodyHealth,
             &ae::BodyKinematics,
+            Option<&SuperFormLatch>,
         ),
         bevy::prelude::With<ambition::actors::actor::PrimaryPlayer>,
     >,
@@ -1235,26 +1233,33 @@ fn sync_super_form_traits(
     // `None` = no controlled player (the session has retired; a player is present
     // for every in-session frame, surviving room changes). Derive invincibility
     // and capture the emit position while the body is borrowed.
-    let (worn_is_super, pos, body) = match players.single_mut() {
-        Ok((body, worn, mut health, kinematics)) => {
+    let (worn_is_super, pos, body, was_super) = match players.single_mut() {
+        Ok((body, worn, mut health, kinematics, latch)) => {
             let is_super = worn.id() == SUPER_SANIC_CHARACTER_ID;
             if health.health.invulnerable != is_super {
                 health.health.invulnerable = is_super;
             }
-            (Some(is_super), kinematics.pos, Some(body))
+            (
+                Some(is_super),
+                kinematics.pos,
+                Some(body),
+                latch.is_some_and(|latch| latch.0),
+            )
         }
-        Err(_) => (None, ae::Vec2::ZERO, None),
+        Err(_) => (None, ae::Vec2::ZERO, None, false),
     };
 
     // The transform SOUND derives from the worn-identity EDGE, so it fires once no
     // matter what wore the form (the D-toggle, a monitor, a future ring drain). The
-    // edge is resolved session-turnover-safe: no controlled player RESETS the latch
-    // so the edge state never leaks into the next session — otherwise a session that
-    // ended super would fire a phantom detransform on the next session's first
-    // frame. These `Local` latches can't be reached by the resource-only
-    // `SessionTeardownPlugin`, so this IS their reset-on-retirement.
-    let (cue, next_super) = super_form_edge(worn_is_super, *was_super);
-    *was_super = next_super;
+    // edge is resolved session-turnover-safe: no controlled player resolves to
+    // `false` so the edge state never leaks into the next session — otherwise a
+    // session that ended super would fire a phantom detransform on the next
+    // session's first frame. The latch rides the BODY now, so a retired session
+    // takes it with the body rather than needing teardown to reach it.
+    let (cue, next_super) = super_form_edge(worn_is_super, was_super);
+    if let Some(body) = body {
+        commands.entity(body).try_insert(SuperFormLatch(next_super));
+    }
     if let Some(to_super) = cue {
         sfx.write(ambition::sfx::SfxMessage::Play {
             id: ambition::sfx::SfxId::from_static(if to_super {
@@ -1270,9 +1275,9 @@ fn sync_super_form_traits(
         // what the beat does; this only says it happened.
         if to_super {
             if let Some(body) = body {
-                transform.write(
-                    ambition::actors::features::transform_beat::TransformBeatRequested { body },
-                );
+                commands
+                    .entity(body)
+                    .try_insert(ambition::actors::features::transform_beat::TransformBeatRequested);
             }
         }
     }
@@ -1303,6 +1308,16 @@ fn sync_super_form_traits(
         });
     }
 }
+
+/// Whether this body wore the super form last frame.
+///
+/// Rollback state rather than a `Local<bool>`: the edge it feeds decides whether
+/// a transformation beat happens, and a latch the rewind cannot see makes that
+/// decision unreproducible — resimulating a rewound frame would re-fire a beat
+/// that already played, or skip one that had not. It rides the body so it is
+/// restored, despawned, and re-derived with the body it describes.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct SuperFormLatch(pub bool);
 
 /// The super-form transform-cue edge, resolved so session-local latch state never
 /// leaks across a session turnover.
@@ -1847,25 +1862,38 @@ fn take_the_controls_at_the_goal(
     subject: Option<bevy::prelude::Res<ambition::platformer::markers::ControlledSubject>>,
     time: bevy::prelude::Res<ambition::time::WorldTime>,
     act: bevy::prelude::Query<&SanicActState>,
-    mut bodies: bevy::prelude::Query<&mut ambition::characters::brain::ActorControl>,
+    mut commands: bevy::prelude::Commands,
+    mut dashes: bevy::prelude::Query<&mut ball_dash::BallDash>,
     mut models: bevy::prelude::Query<&mut ambition::actors::features::MotionModel>,
     mut kinematics: bevy::prelude::Query<&mut ae::BodyKinematics>,
 ) {
     let cleared = act
         .iter()
         .any(|state| matches!(state.phase, SanicActPhase::Cleared { .. }));
-    if !cleared {
-        return;
-    }
     let Some(entity) = subject.and_then(|subject| subject.0) else {
         return;
     };
-    let Ok(mut control) = bodies.get_mut(entity) else {
+    if !cleared {
+        commands
+            .entity(entity)
+            .remove::<ambition::characters::brain::ScriptedControl>();
         return;
-    };
-    control.0.locomotion = ae::Vec2::ZERO;
-    control.0.jump_pressed = false;
-    control.0.jump_held = false;
+    }
+    // The course drives him now — the whole frame, not the three fields this
+    // used to clear. Clearing only locomotion was actively harmful: crouch is
+    // `locomotion.y`, so zeroing it looked like a crouch RELEASE to
+    // `capture_ball_dash_input`, and a spin dash charged on the approach fired
+    // itself the instant he crossed the line. The brake launched him.
+    commands
+        .entity(entity)
+        .try_insert(ambition::characters::brain::ScriptedControl);
+    // Blanking the frame stops him building any MORE charge, but a charge
+    // already stored is spent on an edge, and the edge is exactly what the
+    // blanking manufactures. Disarm it rather than trying to hide it.
+    if let Ok(mut dash) = dashes.get_mut(entity) {
+        dash.charge = 0.0;
+        dash.crouched = false;
+    }
 
     // Dropping the stick is not enough, and measuring is what showed it: at
     // finish-line speed his own friction covers the last 400px of course in well

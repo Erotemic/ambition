@@ -958,8 +958,6 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
     // `sync_super_form_traits` now emits the transform cue on the worn-identity
     // edge, so the SFX channel must exist for the SfxWriter system param.
     app.add_message::<ambition::sfx::OwnedSfxMessage>();
-    // …and the transformation-beat request it now raises on the same edge.
-    app.add_message::<ambition::actors::features::transform_beat::TransformBeatRequested>();
     app.add_systems(bevy::prelude::Update, sync_super_form_traits);
     let player = app
         .world_mut()

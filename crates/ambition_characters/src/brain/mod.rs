@@ -320,6 +320,37 @@ impl Brain {
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct ActorControl(pub crate::actor::control::ActorControlFrame);
 
+/// **The game is driving this body, not whoever normally controls it.**
+///
+/// A death beat, a flagpole slide, an act-clear brake: the sequence owns the
+/// body until it retires, and ordinary gameplay must stop acting on it. ADR 0024
+/// already names the POSITIONAL half of this — `constrain_body_pose` is
+/// documented as "a mount's saddle, a scripted flagpole slide". This is the
+/// control half, which had no name and was therefore reinvented at every site.
+///
+/// It is a marker rather than a set of flags on purpose. Every consumer so far
+/// wants the same thing — the body stops answering input — and a flag per
+/// consumer would let a sequence be half-scripted, which is exactly the state
+/// that produced the bugs this replaces: Mary-O's death blanked the control
+/// frame in `GameplayEffects`, a full phase after everything that reads it and
+/// one phase before the brain refilled it, so it suppressed nothing at all; and
+/// Sanic's goal brake cleared locomotion but not the rest, which read as a
+/// crouch RELEASE and fired the spin dash he had been charging.
+///
+/// Insert it when the sequence begins and remove it when the sequence retires.
+/// Whoever inserts it is responsible for driving the body meanwhile — a blanked
+/// control frame is not a frozen body, and gravity will happily walk an
+/// undriven one out from under its pose.
+///
+/// **One scripted sequence per body at a time.** Consumers remove this without
+/// checking who put it there, which is fine while a death beat, a flagpole
+/// slide, and an act clear are mutually exclusive on the controlled body — they
+/// are. A second concurrent sequence would need a claimant, the way the
+/// encounter layer's priority music tier does; do that rather than letting two
+/// owners race to remove each other's marker.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct ScriptedControl;
+
 /// Module-local Bevy plugin: registers the universal-brain
 /// message channel + counter resource. Use this in place of the
 /// raw `app.add_message::<ActorActionMessage>() + init_resource`

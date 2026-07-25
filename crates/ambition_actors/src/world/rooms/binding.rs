@@ -148,6 +148,31 @@ impl RoomBindings {
 
         ledger.finish()
     }
+
+    /// Resolve character-archetype references a provider declares OUTSIDE the
+    /// room spec — through content staging, a summon, or a scripted spawn.
+    ///
+    /// Mary-O and Sanic stage their enemies as spawn requests rather than authored
+    /// `enemy_spawns`, so [`Self::sweep`] never sees those brain keys. They are the
+    /// ones that need checking most: `CharacterRoster::spec_for_brain` cannot
+    /// fail, so a misspelled key becomes the generic `combatant` fallback and the
+    /// demo quietly ships the wrong enemy with the right name.
+    ///
+    /// Each item is `(archetype id, who declared it)`.
+    pub fn sweep_characters<I, S, D>(&self, refs: I) -> BindingReport
+    where
+        I: IntoIterator<Item = (S, D)>,
+        S: AsRef<str>,
+        D: Into<String>,
+    {
+        let mut ledger = BindingLedger::new();
+        if let Some(characters) = &self.characters {
+            for (archetype, declared_by) in refs {
+                ledger.resolve(characters, &Ref::new(archetype.as_ref()), declared_by);
+            }
+        }
+        ledger.finish()
+    }
 }
 
 /// The room's paths, under every spelling each answers to.

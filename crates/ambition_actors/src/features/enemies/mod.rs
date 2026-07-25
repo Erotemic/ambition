@@ -534,6 +534,18 @@ impl CharacterRoster {
     /// Resolve the authored spec for a spawn `CharacterBrain` payload by its
     /// `Custom("…")` brain key, falling back to the roster's default for an
     /// unknown key or a non-`Custom` brain.
+    /// Every brain key this roster answers to, sorted.
+    ///
+    /// The binding sweep needs it because [`Self::spec_for_brain`] cannot fail:
+    /// an unknown key silently becomes the `combatant` fallback, so a provider
+    /// that misspells its own archetype gets a generic enemy instead of an error.
+    /// Resolving against this list is how that stops being invisible.
+    pub fn brain_keys(&self) -> Vec<String> {
+        let mut keys: Vec<String> = self.by_brain.keys().cloned().collect();
+        keys.sort();
+        keys
+    }
+
     pub(crate) fn spec_for_brain(
         &self,
         brain: &ambition_entity_catalog::placements::CharacterBrain,

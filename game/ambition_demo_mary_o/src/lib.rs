@@ -17,6 +17,8 @@
 //! the rest of the M-track; see `docs/planning/demos/super-mary-o.md`.
 
 pub mod ai_slop;
+#[cfg(test)]
+mod binding_tests;
 pub mod bricks;
 pub mod death;
 pub mod flag;

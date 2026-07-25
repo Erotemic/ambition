@@ -1311,6 +1311,10 @@ impl Plugin for MaryORulesPlugin {
         // engine registers it too (`SandboxResetSchedulePlugin`), but a thin host
         // may not, and `add_message` is idempotent — a no-op when already present.
         app.add_message::<ambition::actors::session::reset::RoomReplayRequested>();
+        // Her power-tier edge asks the engine for a transformation beat. The
+        // engine's `TransformBeatPlugin` registers this too; a rules-only
+        // harness has no engine group, and `add_message` is idempotent.
+        app.add_message::<ambition::actors::features::transform_beat::TransformBeatRequested>();
         // The authoritative attempt-lost fact `spend_lives_on_death` reads. The
         // engine registers it in `SimCoreResourcesPlugin`; a rules-only harness
         // does not, and a missing message is a hard system-param panic rather
@@ -1362,6 +1366,14 @@ impl Plugin for MaryORulesPlugin {
         // Pipe input is authoritative rollback state on the player body. Entry
         // and transit run after ordinary WorldPrep movement, so the scripted
         // position wins this frame instead of racing the shared integrator.
+        // Her transformation numbers ride her body, so the engine beat reads
+        // authored feel instead of a default.
+        app.add_systems(
+            sim,
+            powerups::ensure_transform_beat_policy
+                .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
+                .run_if(ambition::runtime::in_mode(MARY_O_MODE)),
+        );
         let pipe_input = pipe::ensure_pipe_entry_latch
             .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
             .after(ambition::actors::avatar::tick_player_brains)

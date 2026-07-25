@@ -430,6 +430,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(PlayerSchedulePlugin)
             // Room-transition detection + per-room feature reset; the host's
             // transition APPLY (the composition tier) slots in between.
+            .add(ambition_actors::features::transform_beat::TransformBeatPlugin)
             .add(RoomTransitionSchedulePlugin)
             // The readiness transaction + authorized commit that sits in the gap
             // `RoomTransitionSchedulePlugin` documents. Engine-side since

@@ -153,6 +153,27 @@ pub fn run_transform_beats(
     }
 }
 
+/// Register the beat.
+///
+/// `PlayerSimulation` because the beat is body state that gates being hit, and
+/// the Combat phase runs after it: a body that begins transforming this frame is
+/// untouchable for the hits resolved this frame, not the next one.
+pub struct TransformBeatPlugin;
+
+impl Plugin for TransformBeatPlugin {
+    fn build(&self, app: &mut App) {
+        use ambition_platformer_primitives::schedule::{SandboxSet, SimScheduleExt};
+        app.add_message::<TransformBeatRequested>();
+        let sim = app.sim_schedule();
+        app.add_systems(
+            sim,
+            (begin_requested_transform_beats, run_transform_beats)
+                .chain()
+                .in_set(SandboxSet::PlayerSimulation),
+        );
+    }
+}
+
 /// True while this body is mid-transformation and its policy says it cannot be
 /// touched. Consulted by the hit path the same way `body_is_corpse` is.
 pub fn body_is_transforming(beat: Option<&TransformBeat>) -> bool {

@@ -309,6 +309,7 @@ fn next_power_reward(worn: Option<&WornEquipment>) -> Option<PowerReward> {
 pub fn sync_grown_form(
     mut players: Query<
         (
+            bevy::prelude::Entity,
             &mut WornCharacter,
             &mut BodyBaseSize,
             &mut ae::BodyKinematics,
@@ -317,8 +318,11 @@ pub fn sync_grown_form(
         With<PrimaryPlayer>,
     >,
     mut sfx: ambition::sfx::SfxWriter,
+    mut transform: bevy::prelude::MessageWriter<
+        ambition::actors::features::transform_beat::TransformBeatRequested,
+    >,
 ) {
-    let Ok((mut worn_char, mut base, mut kin, worn)) = players.single_mut() else {
+    let Ok((body, mut worn_char, mut base, mut kin, worn)) = players.single_mut() else {
         return;
     };
     // THREE forms, chosen from what she wears. The fire (spark) and grown (cap)
@@ -352,8 +356,43 @@ pub fn sync_grown_form(
             id: ambition::sfx::SfxId::new("mary_o.transform"),
             pos: kin.pos,
         });
+        // The GROWING moment Jon asked for (bug #4). Stepping UP a tier only:
+        // a downgrade is a hit, and a hit already has its own beat. The engine
+        // owns what the beat DOES — the held pose, the untouchable window, and
+        // asking the regime for the time dilation; this only says it happened.
+        transform
+            .write(ambition::actors::features::transform_beat::TransformBeatRequested { body });
     }
     worn_char.0 = target_id.to_string();
+}
+
+/// Mary-O's transformation numbers, attached to her body so the engine beat can
+/// read them. Authored HERE because they are feel, and feel is the game's.
+///
+/// The Death row is the closest thing her sheets have to a "growing" pose (a
+/// held, non-locomotion frame); a dedicated `grow` row is a generator change and
+/// a separate piece of work. The dilation is mild and short — a beat you notice
+/// rather than one you wait through — and BLIND until Jon plays it.
+pub fn ensure_transform_beat_policy(
+    mut commands: bevy::prelude::Commands,
+    bodies: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        (
+            With<PrimaryPlayer>,
+            bevy::prelude::Without<ambition::actors::features::transform_beat::TransformBeatPolicy>,
+        ),
+    >,
+) {
+    for entity in &bodies {
+        commands.entity(entity).try_insert(
+            ambition::actors::features::transform_beat::TransformBeatPolicy {
+                duration: 0.5,
+                anim: ambition::sprite_sheet::character::CharacterAnim::Death,
+                clock_scale: 0.35,
+                untouchable: true,
+            },
+        );
+    }
 }
 
 /// Power-tier of a worn-character id: small (0) < grown (1) < fire (2). The
@@ -536,6 +575,7 @@ mod tests {
             ))
             .id();
         app.add_message::<ambition::sfx::OwnedSfxMessage>();
+        app.add_message::<ambition::actors::features::transform_beat::TransformBeatRequested>();
         app.add_systems(Update, sync_grown_form);
 
         // Feet (screen up = -y, so feet = max.y = pos.y + size.y/2).
@@ -609,6 +649,7 @@ mod tests {
             ))
             .id();
         app.add_message::<ambition::sfx::OwnedSfxMessage>();
+        app.add_message::<ambition::actors::features::transform_beat::TransformBeatRequested>();
         app.add_systems(Update, sync_grown_form);
 
         let feet = |app: &App| {
@@ -692,6 +733,7 @@ mod tests {
             ))
             .id();
         app.add_message::<OwnedSfxMessage>();
+        app.add_message::<ambition::actors::features::transform_beat::TransformBeatRequested>();
         app.add_systems(Update, sync_grown_form);
 
         let chimes = |app: &mut App| -> usize {

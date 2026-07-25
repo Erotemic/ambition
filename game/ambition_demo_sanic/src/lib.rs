@@ -924,6 +924,10 @@ impl Plugin for SanicRulesPlugin {
         // these through the engine plugins; a thin rules-only harness may not,
         // and `add_message`/`init_resource` are idempotent.
         app.add_message::<ambition::sfx::OwnedSfxMessage>();
+        // His super-form edge asks the engine for a transformation beat. The
+        // engine's `TransformBeatPlugin` registers this too; a rules-only
+        // harness has no engine group, and `add_message` is idempotent.
+        app.add_message::<ambition::actors::features::transform_beat::TransformBeatRequested>();
         app.add_message::<ambition::vfx::VfxMessage>();
         app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
         app.add_message::<ambition::actors::rooms::RoomLoaded>();
@@ -1001,6 +1005,9 @@ impl Plugin for SanicRulesPlugin {
             // both the launch (insert) and the stand-up (remove) have settled,
             // so the looping `ball` row tracks the physical ball for the frame.
             ball_dash::mirror_ball_anim_fact,
+            // His transformation numbers ride his body, so the engine beat
+            // reads authored feel rather than a default.
+            ensure_sanic_transform_beat_policy,
             // The super form's derived traits (invincibility + sparkles) track
             // the worn identity every frame — toggle- and monitor-agnostic.
             sync_super_form_traits,
@@ -1170,6 +1177,34 @@ const SUPER_SPARKLE_RISE: f32 = 8.0;
 /// it off, and every trait here reverts the same frame because it is derived,
 /// never stored. Badnik destroy-on-touch derives from the same identity read
 /// in `badnik::defeat_badniks`.
+/// Sanic's transformation numbers.
+///
+/// Shorter and lighter than Mary-O's: going super is a burst, not a ceremony,
+/// and this demo's whole premise is speed — a long freeze would fight it. BLIND
+/// until Jon plays it; `taunt` is the closest held pose his sheet owns until a
+/// dedicated transform row exists.
+fn ensure_sanic_transform_beat_policy(
+    mut commands: bevy::prelude::Commands,
+    bodies: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        (
+            bevy::prelude::With<ambition::actors::actor::PrimaryPlayer>,
+            bevy::prelude::Without<ambition::actors::features::transform_beat::TransformBeatPolicy>,
+        ),
+    >,
+) {
+    for entity in &bodies {
+        commands.entity(entity).try_insert(
+            ambition::actors::features::transform_beat::TransformBeatPolicy {
+                duration: 0.35,
+                anim: ambition::sprite_sheet::character::CharacterAnim::Taunt,
+                clock_scale: 0.5,
+                untouchable: true,
+            },
+        );
+    }
+}
+
 fn sync_super_form_traits(
     time: bevy::prelude::Res<ambition::time::WorldTime>,
     mut sparkle_accum: bevy::prelude::Local<f32>,
@@ -1177,8 +1212,12 @@ fn sync_super_form_traits(
     mut was_super: bevy::prelude::Local<bool>,
     mut vfx: bevy::prelude::MessageWriter<ambition::vfx::VfxMessage>,
     mut sfx: ambition::sfx::SfxWriter,
+    mut transform: bevy::prelude::MessageWriter<
+        ambition::actors::features::transform_beat::TransformBeatRequested,
+    >,
     mut players: bevy::prelude::Query<
         (
+            bevy::prelude::Entity,
             &ambition::characters::actor::WornCharacter,
             &mut ambition::characters::actor::BodyHealth,
             &ae::BodyKinematics,
@@ -1189,15 +1228,15 @@ fn sync_super_form_traits(
     // `None` = no controlled player (the session has retired; a player is present
     // for every in-session frame, surviving room changes). Derive invincibility
     // and capture the emit position while the body is borrowed.
-    let (worn_is_super, pos) = match players.single_mut() {
-        Ok((worn, mut health, kinematics)) => {
+    let (worn_is_super, pos, body) = match players.single_mut() {
+        Ok((body, worn, mut health, kinematics)) => {
             let is_super = worn.id() == SUPER_SANIC_CHARACTER_ID;
             if health.health.invulnerable != is_super {
                 health.health.invulnerable = is_super;
             }
-            (Some(is_super), kinematics.pos)
+            (Some(is_super), kinematics.pos, Some(body))
         }
-        Err(_) => (None, ae::Vec2::ZERO),
+        Err(_) => (None, ae::Vec2::ZERO, None),
     };
 
     // The transform SOUND derives from the worn-identity EDGE, so it fires once no
@@ -1218,6 +1257,17 @@ fn sync_super_form_traits(
             }),
             pos,
         });
+        // The transformation MOMENT, off the same edge the sound uses — Jon
+        // asked for it for Sanic too. Becoming super only: dropping the form is
+        // a loss, and a loss does not get a celebratory beat. The engine owns
+        // what the beat does; this only says it happened.
+        if to_super {
+            if let Some(body) = body {
+                transform.write(
+                    ambition::actors::features::transform_beat::TransformBeatRequested { body },
+                );
+            }
+        }
     }
 
     // Sparkles only while a super body is present; otherwise the accumulator + orbit

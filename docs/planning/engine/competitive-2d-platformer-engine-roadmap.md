@@ -688,6 +688,22 @@ composition plus documented Ambition contracts.
 
 ---
 
+### Task 6.5 — the binding resolution boundary — **LANDED 2026-07-25**
+
+Cross-layer references (anim row, item art, brain key, patrol path, room link)
+resolve ONCE at construction into typed handles, and what does not resolve lands
+in one report naming the declarer and the available ids. The silent
+`row_index_of -> unwrap_or(0)` / `HashMap::get -> placeholder` paths are deleted.
+
+This was not on the original task list, and it should have been: it is the
+readiness-and-failure half of Task 7, the precondition for Task 9 (a provider
+cannot own animation policy until a misnamed row fails loudly), and the first
+inspectable-causality surface Task 12 wants — as a value, not a UI.
+
+See [`binding-resolution-boundary.md`](binding-resolution-boundary.md).
+
+---
+
 ### Task 7 — Bevy asset lifecycle and cross-target content validation
 
 **Goal**

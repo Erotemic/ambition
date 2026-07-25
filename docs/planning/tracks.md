@@ -71,6 +71,17 @@ by hardness × payoff; every item below is executable today per its own doc.
    forks — incl. the live enemy-vs-enemy `PLAYER_DAMAGE`+red-burst bug — are
    deleted. OWED is a content pass only (per-archetype hurt authoring +
    distinct sounds), not engine work. See combat-model.md §8 "As landed".
+6.5. ~~**The binding resolution boundary**~~ **LANDED 2026-07-25** — every
+   cross-layer reference (anim row, item art, brain key, patrol path, room
+   link) resolves once at construction into a typed handle; what does not
+   resolve lands in ONE report naming the declarer and the available ids.
+   `SheetRecord::row_index_of` and both `HashMap<String, _>` art maps are
+   DELETED, so the `unwrap_or(0)` / silent-placeholder paths cannot be
+   rewritten. Swept in the real `prepare` (both channels) and in
+   `RoomSet::from_parts`. See
+   [`engine/binding-resolution-boundary.md`](engine/binding-resolution-boundary.md).
+   Remaining namespaces (moveset clips, music, recipes, dialogue) are small
+   slices, logged in `dev/journals/code_smells.md`.
 7. **Role evictions** (track 7) and the **glob-import untangle**
    (code_smells.md 2026-06-26, 30-site worklist) — incremental, parallel-safe.
 

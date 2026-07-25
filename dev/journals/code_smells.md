@@ -1140,3 +1140,30 @@ by a human noticing something looked wrong rather than by anything failing.
    can cause an input to be IGNORED, it is sim state regardless of which struct
    it happens to live on.
 
+
+## 2026-07-25 — The silent-failure trio's shape, closed as a class
+
+The entry above named three bugs sharing "a missing thing that produces no error,
+just absence", and proposed a startup pass validating `WorldItemArtEntry` paths.
+The binding resolution boundary landed the general version instead — see
+[`docs/planning/engine/binding-resolution-boundary.md`](../../docs/planning/engine/binding-resolution-boundary.md).
+Item 1 is fixed at the seam rather than by a bespoke pass: `WorldItemArt` is no
+longer a `HashMap<String, _>` whose `get` collapses "misspelled" and "nobody
+registered any" into one `None`.
+
+Two things it did NOT close, both worth their own slice:
+
+1. **`game/ambition_content/src/content_validation.rs` is now partly duplicated.**
+   Its `validate_patrol_brain_paths` is subsumed by the room IR sweep, EXCEPT for
+   the bare-`Patrol:` (empty path_id) warning, which the IR sweep skips because
+   `path_id: None` is a legitimate authored state. Its dialogue-id, quest, and
+   encounter/boss checks are not duplicated at all — the IR does not carry those
+   references. Deleting the overlap needs the bare-`Patrol:` case rehomed first,
+   so nothing was deleted here. Note also that `push_warning` is still
+   `#[allow(dead_code)]` ("haven't been wired into startup yet") and
+   `panic_if_errors` is dead outside tests: the game-level validator is half
+   unwired regardless of the overlap.
+
+2. **Namespaces still resolving by bare string at their use site:** moveset clip
+   bindings, music track ids, recipe ids, dialogue ids. Each is the same shape as
+   the four that were migrated and should be a small slice apiece.

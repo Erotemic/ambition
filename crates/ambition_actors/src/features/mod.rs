@@ -400,11 +400,13 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
         );
         // A body whose SHEET authors its geometry adopts the box for the pose it
-        // is showing, BEFORE that box is swept or hit-tested. Host-owned so every
-        // game gets it: the component is the opt-in, and a content crate that
-        // adds the component without a system to honour it would silently get
-        // nothing. Content pins the pose earlier in `WorldPrep` and orders itself
-        // `.before` this, so the box tracks the pose within the same tick.
+        // is showing, BEFORE the movement phase sweeps that box. Host-owned so
+        // every game gets it: the component is the opt-in, and a content crate
+        // that adds the component without a system to honour it would silently
+        // get nothing. The content rule that PINS the pose runs after movement
+        // (it classifies contacts against resolved positions), so the box trails
+        // the pin by one tick — see the module docs for why that is the right
+        // way round.
         app.add_systems(
             sim,
             crate::character_sprites::sync_sprite_posed_bodies

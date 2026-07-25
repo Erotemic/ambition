@@ -1262,6 +1262,9 @@ impl Plugin for MaryORulesPlugin {
         // may not, and `add_message` is idempotent.
         app.add_message::<ambition::actors::rooms::RoomLoaded>();
         app.add_message::<ambition::actors::features::SpawnActorRequest>();
+        // The snake reset listens to the engine's ONE "put this room back"
+        // signal, which a full host emits and a rules-only harness does not.
+        app.add_message::<ambition::actors::features::ResetRoomFeaturesEvent>();
         // The snake squash pops a dust burst through the engine's vfx seam; a full
         // app registers this via the presentation plugins, but a thin rules-only
         // harness may not, and `add_message` is idempotent.
@@ -1303,23 +1306,35 @@ impl Plugin for MaryORulesPlugin {
         // authored-content composition seam shared by direct and shell hosts.
         // Rules consume the staged actors; they do not mutate construction
         // registries after prepared-content fingerprinting.
-        // Tag freshly staged enemies, then run each one's stomp mechanic. Both run
-        // BEFORE the engine's shared body-contact-damage pass so a stomp resolves
-        // the enemy (snake → inert shell; AI Slop → dead) that frame, which the
-        // contact pass then skips — the stomper is never also hurt.
+        // Tag freshly staged enemies, then run each one's stomp mechanic.
+        //
+        // **Both sit BETWEEN the movement phase and the shared body-contact
+        // pass**, and both edges matter:
+        //
+        // * `.after(integrate_sim_bodies)` — a stomp is classified from where the
+        //   bodies ARE, and the contact pass that follows reads exactly the same
+        //   post-movement positions. Read pre-movement instead and the two
+        //   disagree by one frame of falling: on the landing frame the contact
+        //   pass sees the overlap while the stomp rule saw the player still in
+        //   the air, so the enemy stays armed and landing on it HURTS. (That is
+        //   not hypothetical — it is the regression that made this edge explicit
+        //   rather than an accident of plugin insertion order.)
+        // * `.before(apply_actor_contact_damage)` — a stomp resolves the enemy
+        //   (snake → inert shell; AI Slop → dead) in time for that pass to skip
+        //   it, so the stomper is never also hurt.
         let cronies = (
+            // A reset hands back walkers, never the shell state the last attempt
+            // left behind. First in the chain so a snake reset this frame is a
+            // walker for every rule that follows it.
+            snake::reset_snakes_on_room_reset,
             snake::tag_mary_o_snakes,
             ai_slop::tag_mary_o_ai_slop,
-            // Pin the shell pose BEFORE the engine reshapes the body to it, so a
-            // snake that withdrew this tick is already box-shaped when it is
-            // swept and hit-tested — not a walker-shaped body wearing shell art.
-            snake::run_snake_shells
-                .before(ambition::actors::character_sprites::sync_sprite_posed_bodies)
-                .before(ambition::actors::features::apply_actor_contact_damage),
-            ai_slop::bounce_squash_ai_slop
-                .before(ambition::actors::features::apply_actor_contact_damage),
+            snake::run_snake_shells,
+            ai_slop::bounce_squash_ai_slop,
         )
             .chain()
+            .after(ambition::actors::features::integrate_sim_bodies)
+            .before(ambition::actors::features::apply_actor_contact_damage)
             .in_set(ambition::platformer::schedule::SandboxSet::WorldPrep);
         // The powerup rules on the two engine primitives: re-arm the ?-blocks on
         // (re)load, pop milk on a head-bonk, and keep the tall form in sync with

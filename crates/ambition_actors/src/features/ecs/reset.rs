@@ -40,6 +40,14 @@ pub fn reset_ecs_room_features(
             Without<super::boss_clusters::BossConfig>,
         ),
     >,
+    // Content pose PINS. `ActorAnimOverride` is an engine-provided override slot
+    // a content state machine writes (a shelled enemy's withdraw cycle), and it
+    // is a plain component — so it survived every reset, and a room that came
+    // back "fresh" came back with its enemies still wearing whatever pose the
+    // last attempt left them in. The engine owns the slot, so the engine clears
+    // it: after a reset the shared picker chooses again, which is what a reset
+    // MEANS. `Entity`-only fetch, so no aliasing with the actor query above.
+    pinned_poses: Query<Entity, With<crate::features::ActorAnimOverride>>,
     mut switches: Query<&mut SwitchOn, With<SwitchFeature>>,
     mut bosses: Query<
         (
@@ -101,6 +109,11 @@ pub fn reset_ecs_room_features(
     }
     for entity in &post_boss_npcs {
         commands.entity(entity).despawn();
+    }
+    for entity in &pinned_poses {
+        commands
+            .entity(entity)
+            .remove::<crate::features::ActorAnimOverride>();
     }
     for (entity, mut feature, stand_timer) in &mut breakables {
         feature.breakable.state = ambition_interaction::BreakableState::Intact;

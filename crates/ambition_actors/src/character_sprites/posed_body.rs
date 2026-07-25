@@ -41,6 +41,16 @@
 //! deliberately NOT consulted: it lives in the render plugin, so a headless or
 //! RL build would resolve a different box than the drawn one, and a collision
 //! box that depends on whether anyone is watching is not a collision box.
+//!
+//! ## When
+//!
+//! Before the movement phase, so the box a body sweeps with is the one it is
+//! showing. That puts it BEFORE the content rule that pins the pose (which has
+//! to run after movement, since it classifies contacts against resolved
+//! positions), so the box trails the pin by exactly one tick. That is the right
+//! way round: a stomp is judged against the body you actually landed on, and the
+//! shape it collapses into applies from the next tick — not retroactively to the
+//! contact that caused it.
 
 use bevy::prelude::*;
 

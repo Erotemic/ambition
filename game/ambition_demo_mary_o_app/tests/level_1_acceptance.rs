@@ -685,3 +685,81 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
         body(&mut app)
     );
 }
+
+/// One named Solid Snake's box and phase. Keyed by id, NOT "the first one the
+/// query yields" — that is hash order, so it names a different snake from frame
+/// to frame and can watch the wrong body entirely.
+fn snake_by_id(
+    app: &mut App,
+    id: &str,
+) -> Option<(ae::Aabb, ambition_demo_mary_o::snake::SnakeShell)> {
+    let mut q = app.world_mut().query::<(
+        &ambition::actors::features::FeatureId,
+        &ambition::actors::features::CenteredAabb,
+        &ambition_demo_mary_o::snake::SnakeShell,
+    )>();
+    q.iter(app.world())
+        .find(|(feature_id, ..)| feature_id.as_str() == id)
+        .map(|(_, aabb, shell)| (aabb.aabb(), *shell))
+}
+
+/// **Landing on a Solid Snake is a STOMP, never a hit.**
+///
+/// Regression proof for a scheduling bug, so it has to run the real schedule:
+/// the demo's shell rule and the engine's shared body-contact pass both look at
+/// the same contact, and they must look at it at the same MOMENT. The shell rule
+/// classifies from body positions; the contact pass is documented to read
+/// post-movement positions. Order the shell rule before the movement phase and
+/// the two disagree by one frame of falling — on the landing frame the contact
+/// pass sees the overlap while the shell rule still saw her in the air, so the
+/// snake stays armed and landing on it hurts.
+///
+/// No scripted input is needed (and so no skip): she is dropped, and gravity is
+/// the whole experiment.
+#[test]
+fn landing_on_a_snake_stomps_it_instead_of_hurting_her() {
+    let mut app = boot();
+    settle_until_playable(&mut app);
+
+    let id = "mary_o_snake_0";
+    let (snake, phase) = snake_by_id(&mut app, id).expect("level 1-1 stages Solid Snakes");
+    assert_eq!(
+        phase,
+        ambition_demo_mary_o::snake::SnakeShell::Walking,
+        "the snake starts as a live walker"
+    );
+    let hp_before = health(&mut app).expect("she has a health pool");
+
+    // Put her directly above it, high enough to be in free fall by the time she
+    // arrives — a stationary body resting on the head would prove nothing about
+    // the frame the contact first appears.
+    {
+        let mut kin = app
+            .world_mut()
+            .query_filtered::<&mut ae::BodyKinematics, With<PrimaryPlayer>>()
+            .single_mut(app.world_mut())
+            .expect("the controlled body");
+        kin.pos = ae::Vec2::new(snake.center().x, snake.min.y - 160.0);
+        kin.vel = ae::Vec2::ZERO;
+    }
+
+    let mut stomped = false;
+    for _ in 0..240 {
+        step(&mut app, idle());
+        assert_eq!(
+            health(&mut app),
+            Some(hp_before),
+            "she must not take a scratch for landing on a snake"
+        );
+        if snake_by_id(&mut app, id).is_some_and(|(_, phase)| {
+            !matches!(phase, ambition_demo_mary_o::snake::SnakeShell::Walking)
+        }) {
+            stomped = true;
+            break;
+        }
+    }
+    assert!(
+        stomped,
+        "falling onto a walking snake must put it into its shell"
+    );
+}

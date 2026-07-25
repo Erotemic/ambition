@@ -389,9 +389,68 @@ write_metadata() {
         echo "git_status_porcelain_end"
         echo "perf_version=$(perf --version 2>/dev/null || true)"
         echo "perf_event_paranoid=$(cat /proc/sys/kernel/perf_event_paranoid 2>/dev/null || true)"
+        # -1/0 here is what lets kernel symbols resolve. Recorded because a
+        # capture is usually read on a different machine, where re-running
+        # `perf report` resolves kernel addresses against the WRONG kallsyms
+        # and silently prints raw 0xffffffff... rows.
+        echo "kptr_restrict=$(cat /proc/sys/kernel/kptr_restrict 2>/dev/null || true)"
         echo "strace_version=$(strace --version 2>/dev/null | head -1 || true)"
         echo "python3_version=$(python3 --version 2>/dev/null || true)"
     } > "$out_dir/metadata.txt"
+    write_host_environment "$out_dir"
+}
+
+# Samples alone cannot tell you which GPU -- if any -- the run actually used,
+# and that single fact reorders every other number here: a software-rendered
+# run puts ~90% of cycles in the rasterizer's JIT'd shader code, where no
+# symbol will ever explain them. Captures are also routinely read on a
+# different machine than they were taken on, so record the graphics
+# environment next to the samples rather than leaving the reader to inspect
+# their own box and reach confident, wrong conclusions.
+write_host_environment() {
+    local out_dir="$1"
+    {
+        echo "## CPU / memory"
+        grep -m1 'model name' /proc/cpuinfo 2>/dev/null || true
+        echo "logical_cpus=$(nproc 2>/dev/null || true)"
+        grep -m1 MemTotal /proc/meminfo 2>/dev/null || true
+        echo
+        echo "## Session"
+        echo "XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-<unset>}"
+        echo "DISPLAY=${DISPLAY:-<unset>}"
+        echo "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-<unset>}"
+        echo
+        echo "## Graphics env overrides (these can force software rendering)"
+        env | grep -E '^(VK_|WGPU_|MESA_|LIBGL|GALLIUM_|__NV_|__GL|__VK|NVIDIA_|DRI_|AMD_)' | sort || true
+        echo
+        echo "## DRM render nodes"
+        ls -l /dev/dri/ 2>&1 || true
+        echo
+        echo "## Vulkan ICDs installed"
+        ls /usr/share/vulkan/icd.d/ /etc/vulkan/icd.d/ 2>&1 || true
+        echo
+        echo "## NVIDIA"
+        if command -v nvidia-smi >/dev/null 2>&1; then
+            timeout 10s nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv 2>&1 || true
+        else
+            echo "nvidia-smi not found"
+        fi
+        cat /proc/driver/nvidia/version 2>/dev/null || true
+        echo
+        echo "## Vulkan adapters"
+        if command -v vulkaninfo >/dev/null 2>&1; then
+            timeout 20s vulkaninfo --summary 2>&1 | sed -n '/Devices:/,$p' | head -40 || true
+        else
+            echo "vulkaninfo not found (apt install vulkan-tools to enumerate adapters)"
+        fi
+        echo
+        echo "## GL"
+        if command -v glxinfo >/dev/null 2>&1; then
+            timeout 10s glxinfo -B 2>&1 | head -12 || true
+        else
+            echo "glxinfo not found (apt install mesa-utils)"
+        fi
+    } > "$out_dir/host-environment.txt" 2>&1
 }
 
 run_with_tee() {
@@ -456,6 +515,15 @@ write_perf_reports() {
     # Fast, robust, no callgraph report first. This is the one most likely to finish.
     run_timed_report "$out_dir" perf-report-flat-fast \
         perf report -i "$data_file" --stdio --sort comm,dso,symbol --call-graph none --percent-limit 0.25 --no-inline --no-source
+
+    # Whole-population rollups at no percent limit. These answer "which layer
+    # owns the machine" (renderer vs game code vs kernel) in one read, and they
+    # must be produced HERE, on the capture host: re-deriving them later on
+    # another machine resolves symbols against the wrong binaries.
+    run_timed_report "$out_dir" perf-report-by-dso \
+        perf report -i "$data_file" --stdio --sort dso --call-graph none --percent-limit 0 --no-inline --no-source
+    run_timed_report "$out_dir" perf-report-by-thread \
+        perf report -i "$data_file" --stdio --sort comm --call-graph none --percent-limit 0 --no-inline --no-source
 
     if [[ "$report_preset" == "full" ]]; then
         run_timed_report "$out_dir" perf-report-self-symbols \
@@ -525,6 +593,77 @@ def read(name):
 def status(name):
     txt = read(name + '.status').strip(); return txt or 'missing'
 lines = ['# Desktop profile summary', '']
+
+# Which adapter the game actually got, first thing, before any symbol table.
+# Bevy logs this once at startup; it decides whether the rest of this file is
+# about game code or about a CPU emulating a GPU.
+adapter = ''
+for name in ('game-stderr-stamped.txt', 'game-stdout-stamped.txt', 'perf-record.stderr',
+             'perf-record.stdout', 'perf-stat.stdout', 'strace.stderr'):
+    found = re.search(r'AdapterInfo \{[^}]*\}', read(name))
+    if found:
+        adapter = found.group(0)
+        break
+if adapter:
+    software = ('device_type: Cpu' in adapter or 'llvmpipe' in adapter or 'lavapipe' in adapter
+                or 'swiftshader' in adapter.lower())
+    lines += ['## Renderer', '', '```text', adapter, '```', '']
+    if software:
+        lines += [
+            '**SOFTWARE RENDERING — READ THIS BEFORE THE SYMBOLS BELOW.**',
+            '',
+            'This run had no GPU: every pixel was rasterized on the CPU. Expect the',
+            'bulk of samples in llvmpipe/lavapipe threads and in unsymbolized `[JIT]`',
+            'frames, which are the rasterizer\'s runtime-compiled shaders -- perf can',
+            'never attribute those to a pass, a material, or a draw call. Game-code',
+            'symbols in this profile describe only the few percent left over, so',
+            'ranking them tells you almost nothing about why frames are slow.',
+            '',
+            'Check `host-environment.txt` for why no GPU adapter was selected',
+            '(missing ICD, VK_*/WGPU_* override, no DRM render node, headless session)',
+            'and fix adapter selection before optimizing anything listed below.',
+            '',
+        ]
+else:
+    lines += ['## Renderer', '',
+              '(no `AdapterInfo` line found in the captured logs; see host-environment.txt)', '']
+
+# Which LAYER owns the machine. Symbol rankings answer "which function is
+# hot" only once you know the answer here is "game code" -- when it is the
+# renderer or a software rasterizer instead, the function list is a footnote.
+dso_report = read('perf-report-by-dso.txt')
+if dso_report:
+    buckets = [
+        ('software rasterizer (CPU emulating a GPU)',
+         ('llvmpipe', 'lvp', 'lavapipe', 'swiftshader', 'softpipe', '[JIT]')),
+        ('GPU driver / graphics stack',
+         ('nvidia', 'radeonsi', 'iris', 'amdgpu', 'i965', 'libvulkan', 'libGLX', 'libEGL', 'libdrm', 'zink')),
+        ('kernel', ('[kernel', '[kvm', '[nvidia_uvm', '[snd', '[vdso')),
+        ('audio', ('pipewire', 'pulse', 'alsa', 'libspa')),
+    ]
+    tally, total = {}, 0.0
+    for line in dso_report.splitlines():
+        m = re.match(r'\s+([0-9.]+)%\s+(\S.*?)\s*$', line)
+        if not m:
+            continue
+        pct, dso = float(m.group(1)), m.group(2)
+        total += pct
+        low = dso.lower()
+        label = 'game binary + its Rust/C deps'
+        for name, needles in buckets:
+            if any(n.lower() in low for n in needles):
+                label = name
+                break
+        tally[label] = tally.get(label, 0.0) + pct
+    if total > 0:
+        lines += ['## Where the time went (by layer)', '', '```text']
+        for label, pct in sorted(tally.items(), key=lambda kv: -kv[1]):
+            lines.append(f'{pct:6.1f}%  {label}')
+        lines += ['```', '',
+                  'Derived from perf-report-by-dso.txt. If the top bucket is not the game',
+                  'binary, optimizing the symbol list further down is optimizing the wrong',
+                  'machine layer.', '']
+
 lines.append('## Status')
 for name in ['warm-build','perf-record','perf-report-flat-fast','perf-report-self-symbols','perf-report-children-symbols','perf-script','perf-stat','strace']:
     p = os.path.join(out, name + '.status')
@@ -665,6 +804,7 @@ out, chunks, marker = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 pat = re.compile(marker, re.I)
 stamp_pat = re.compile(r'^\[\s*([0-9.]+)s\]\s?(.*)$')
 events = []
+adapter = ''
 for name in ('game-stderr-stamped.txt', 'game-stdout-stamped.txt'):
     path = os.path.join(out, name)
     if not os.path.exists(path):
@@ -674,6 +814,10 @@ for name in ('game-stderr-stamped.txt', 'game-stdout-stamped.txt'):
             m = stamp_pat.match(line)
             if m:
                 events.append((float(m.group(1)), m.group(2).rstrip()))
+            if not adapter:
+                found = re.search(r'AdapterInfo \{[^}]*\}', line)
+                if found:
+                    adapter = found.group(0)
 events.sort(key=lambda e: e[0])
 total = max((t for t, _ in events), default=0.0)
 markers = [(t, s) for t, s in events if pat.search(s)]
@@ -683,6 +827,16 @@ lines = ['# Timeline profile', '',
          f'Marker regex: `{marker}`', '',
          'Chunk boundaries assume log time tracks trace time from launch;',
          'if the game exited early or idled past the last log line, edges skew.', '']
+if adapter:
+    software = ('device_type: Cpu' in adapter or 'llvmpipe' in adapter
+                or 'lavapipe' in adapter or 'swiftshader' in adapter.lower())
+    if software:
+        lines += ['> **SOFTWARE RENDERING.** This run had no GPU, so the per-chunk symbols',
+                  '> below are mostly the CPU rasterizer\'s unsymbolized JIT frames, not',
+                  '> your code. See the Renderer section of desktop-profile-summary.md',
+                  '> and host-environment.txt before drawing conclusions.', '']
+    else:
+        lines += [f'Renderer: `{adapter}`', '']
 for i in range(chunks):
     lo, hi = total * i / chunks, total * (i + 1) / chunks
     lines.append(f'## Chunk {i}: {lo:.1f}s - {hi:.1f}s')
@@ -731,13 +885,31 @@ run_timeline() {
     log "timeline capture: $(describe_window), ${timeline_chunks} chunks -- play through the phases you want profiled"
     if [[ -z "$duration" ]]; then log "quit the game (or Ctrl-C here) when you are done; reports are written after it exits"; fi
     echo "$(quote_cmd "${capture_argv[@]}")" > "$out_dir/perf-record.command.txt"
+    # Bevy colorizes its log; the escapes survive into the file and break
+    # naive greps for module paths (`[2mambition::save[0m`). Strip them so the
+    # stamped log is plain text a reader or script can match against.
+    # NB: keep every quote in here a double quote -- this is a single-quoted
+    # bash string, so an escaped \" would reach Python verbatim and fail to
+    # parse, silently producing an EMPTY stamped log.
     local stamp_py='
-import sys, time
+import re, sys, time
+ansi = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 t0 = time.monotonic()
 for line in sys.stdin:
-    sys.stdout.write(f"[{time.monotonic()-t0:9.3f}s] {line}")
+    clean = ansi.sub("", line)
+    sys.stdout.write(f"[{time.monotonic()-t0:9.3f}s] {clean}")
     sys.stdout.flush()
 '
+    # If the stamper cannot start, its pipe closes, perf takes a SIGPIPE
+    # mid-capture, and perf.data is silently truncated to an unreadable stub --
+    # the whole session lost, discovered only at report time. Prove it runs
+    # before anything is recorded.
+    if ! printf '' | python3 -c "$stamp_py" >/dev/null 2>"$out_dir/stamper-check.stderr"; then
+        log "log stamper failed to start; see $out_dir/stamper-check.stderr"
+        fail "refusing to record a capture that would be truncated by a dead stamper"
+    fi
+    rm -f "$out_dir/stamper-check.stderr"
+
     local heartbeat_pid=""
     ( elapsed=0; while sleep 5; do elapsed=$((elapsed + 5)); log "timeline capturing... ${elapsed}s elapsed ($(describe_window))"; done ) &
     heartbeat_pid=$!
@@ -771,6 +943,11 @@ run_one_mode() {
         *) fail "unsupported mode '$local_mode'" ;;
     esac
     write_summary "$out_dir"
+    if grep -q "SOFTWARE RENDERING" "$out_dir/desktop-profile-summary.md" 2>/dev/null; then
+        log "WARNING: this run had NO GPU (software rasterizer). Most samples are the"
+        log "         CPU rasterizer's JIT'd shaders, not game code. See the Renderer"
+        log "         section of $out_dir/desktop-profile-summary.md"
+    fi
 }
 
 main() {

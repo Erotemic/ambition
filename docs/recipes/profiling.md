@@ -1,6 +1,37 @@
 # Profiling Ambition
 
-Two layers of instrumentation are wired in:
+## Which instrument answers which question
+
+These tools are not interchangeable, and reaching for the wrong one wastes
+hours. Pick by the question you are actually asking:
+
+| Question | Instrument | Reads as |
+|---|---|---|
+| Which machine layer owns the CPU — game code, GPU driver, or a software rasterizer? | `scripts/profile_desktop.sh` (default) | text, agent-readable |
+| Where did startup time go? | `[startup]` phase logger (always on) | text, agent-readable |
+| Which native function is hot, and during which part of my session? | `scripts/profile_desktop.sh` timeline chunks | text, agent-readable |
+| Which *Bevy system* is hot? | `--features profile` → Tracy | **GUI only** |
+| Which *render pass* is hot? | not yet wired (`RenderDiagnosticsPlugin`) | — |
+| Am I re-reading assets from disk every frame? | `profile_desktop.sh asset-run` | text, agent-readable |
+| Is this CPU-bound, memory-bound, or stalled? | `profile_desktop.sh stat-run` | text, agent-readable |
+| Give me a flame graph picture | `cargo flamegraph` | SVG, browser |
+
+Two properties matter more than they look:
+
+**`perf` sees native symbols, not engine concepts.** It reports
+`<ambition_render::foo>` and `libvulkan_lvp.so`. It cannot tell you "the
+bloom pass costs 4ms" or "system `sync_camera` costs 0.3ms", because those
+are Bevy-level concepts with no one-to-one symbol. Worse, when rendering
+falls back to a CPU rasterizer, most cycles land in JIT-compiled shader code
+that has no symbols at all and never will — `perf` can prove *that*
+rasterization dominates and nothing about *what* is being rasterized.
+
+**Tracy answers the Bevy-level questions, but only a human can read it.**
+It needs a GUI client attached to a running game. An agent working from a
+terminal cannot use it, which is why the text-emitting instruments above
+carry the load for automated work.
+
+Two layers of in-process instrumentation are wired in:
 
 1. **Lightweight startup phase logger** (always on, zero deps).
 2. **Bevy + Tracy per-system profiling** (gated behind `--features profile`).
@@ -171,6 +202,15 @@ each with the room/boss/title/session log lines seen in that window. Read
 `target/profiles/desktop-timeline-run-*/timeline.md`; each chunk lists its
 own top symbols, so "what got slow when I entered the room" is a diff between
 two chunks rather than a whole-run average.
+
+Every capture also writes `host-environment.txt` (GPU, DRM render nodes,
+installed Vulkan ICDs, `VK_*`/`WGPU_*`/`MESA_*` overrides, session type) and
+puts the adapter the game actually selected at the top of
+`desktop-profile-summary.md`. Read that section first. Captures are often
+analyzed on a different machine than they were taken on, and if the run fell
+back to a CPU rasterizer then ~90% of the samples are the rasterizer's
+unsymbolized JIT'd shader code — the symbol rankings below it are then
+describing the few percent left over, and adapter selection is the bug.
 
 Because that capture is open-ended, `timeline-run` records without call
 graphs (~15 KB/s of `perf.data`, so a long session stays manageable) and the

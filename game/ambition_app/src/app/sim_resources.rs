@@ -59,6 +59,17 @@ impl Plugin for SandboxSimulationResourcesPlugin {
                 ambition::dev_tools::profiling::report_schedule_census,
             )
                 .chain(),
+        )
+        // The steady-state counterparts of the one-shot reports above.
+        // `Last` so the frame census measures the whole frame, render work
+        // included, rather than the part of it that happens to precede
+        // whatever schedule we registered in.
+        .add_systems(
+            Last,
+            (
+                ambition::dev_tools::profiling::report_frame_census,
+                ambition::render::asset_census::report_image_census,
+            ),
         );
     }
 }

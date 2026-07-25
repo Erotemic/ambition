@@ -1,0 +1,165 @@
+//! Text census of texture decoding, in the style of the `[startup]` and
+//! `[schedule-census]` loggers in `ambition_dev_tools::profiling`.
+//!
+//! Launch profiles kept showing the same shape: the first seconds dominated by
+//! `fdeflate::Decompressor::read` and `png::filter::paeth::unfilter` across the
+//! IO task pools, while the startup logger reported ~100ms and looked innocent.
+//! Native symbols name the DECODER but never the ASSET, so a profile could
+//! prove "we are decoding PNGs" and never answer the question that matters:
+//! WHICH sheets, HOW MANY megapixels, and WHEN.
+//!
+//! This answers exactly that, on stderr, so `scripts/profile_desktop.sh` stamps
+//! it into the timeline chunk the decode happened in.
+
+use bevy::asset::AssetEvent;
+use bevy::image::Image;
+use bevy::prelude::*;
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::Instant;
+
+/// Running totals for decoded images.
+#[derive(Resource)]
+pub struct ImageCensus {
+    #[cfg(not(target_arch = "wasm32"))]
+    started_at: Instant,
+    #[cfg(not(target_arch = "wasm32"))]
+    window_started_at: Instant,
+    total_images: u64,
+    total_megapixels: f64,
+    total_bytes: u64,
+    window_images: u64,
+    window_megapixels: f64,
+}
+
+impl Default for ImageCensus {
+    fn default() -> Self {
+        Self {
+            #[cfg(not(target_arch = "wasm32"))]
+            started_at: Instant::now(),
+            #[cfg(not(target_arch = "wasm32"))]
+            window_started_at: Instant::now(),
+            total_images: 0,
+            total_megapixels: 0.0,
+            total_bytes: 0,
+            window_images: 0,
+            window_megapixels: 0.0,
+        }
+    }
+}
+
+impl ImageCensus {
+    /// Per-image lines only for sheets big enough to matter. Below this a
+    /// texture is a UI glyph or an icon, and one line each would bury the
+    /// sheets that actually cost decode time.
+    pub const NOTABLE_MEGAPIXELS: f64 = 1.0;
+    /// Rollup cadence, matching the frame census so the two interleave
+    /// readably in one log.
+    pub const WINDOW_SECS: f64 = 5.0;
+
+    /// Total pixels decoded so far, in megapixels.
+    pub fn total_megapixels(&self) -> f64 {
+        self.total_megapixels
+    }
+
+    /// Total decoded images seen so far.
+    pub fn total_images(&self) -> u64 {
+        self.total_images
+    }
+}
+
+/// Log every notable texture as it lands, plus a periodic rollup.
+///
+/// `AssetEvent::Added` fires when the asset reaches `Assets<Image>` — after the
+/// IO pool decoded it — so these timestamps mark decode COMPLETION, which is
+/// what lines up with a frame spike and a sprite re-bind.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn report_image_census(
+    mut events: MessageReader<AssetEvent<Image>>,
+    images: Res<Assets<Image>>,
+    asset_server: Res<AssetServer>,
+    mut census: ResMut<ImageCensus>,
+) {
+    for event in events.read() {
+        let AssetEvent::Added { id } = event else {
+            continue;
+        };
+        let Some(image) = images.get(*id) else {
+            continue;
+        };
+        let (width, height) = (image.width(), image.height());
+        let megapixels = f64::from(width) * f64::from(height) / 1.0e6;
+        let bytes = image.data.as_ref().map_or(0, |data| data.len() as u64);
+
+        census.total_images += 1;
+        census.total_megapixels += megapixels;
+        census.total_bytes += bytes;
+        census.window_images += 1;
+        census.window_megapixels += megapixels;
+
+        if megapixels >= ImageCensus::NOTABLE_MEGAPIXELS {
+            let at = census.started_at.elapsed().as_secs_f64();
+            // The asset PATH is the whole point: it is the one thing a perf
+            // symbol can never tell you, and the only handle you can act on.
+            let path = asset_server
+                .get_path(*id)
+                .map(|path| path.to_string())
+                .unwrap_or_else(|| "<runtime-generated>".to_string());
+            eprintln!("[image] {at:8.3}s {width}x{height} {megapixels:6.1}MP {path}");
+        }
+    }
+
+    let now = Instant::now();
+    if now.duration_since(census.window_started_at).as_secs_f64() < ImageCensus::WINDOW_SECS {
+        return;
+    }
+    // Stay silent through quiet windows: a steady stream of "+0 images" lines
+    // would drown the windows that actually decoded something.
+    if census.window_images > 0 {
+        let at = now.duration_since(census.started_at).as_secs_f64();
+        eprintln!(
+            "[image-census] {at:8.3}s +{} images (+{:.1}MP) | total {} images, {:.1}MP, {:.1}MB resident",
+            census.window_images,
+            census.window_megapixels,
+            census.total_images,
+            census.total_megapixels,
+            census.total_bytes as f64 / 1.0e6,
+        );
+    }
+    census.window_images = 0;
+    census.window_megapixels = 0.0;
+    census.window_started_at = now;
+}
+
+/// Wasm has no `Instant`; the census stays a no-op there (use browser devtools).
+#[cfg(target_arch = "wasm32")]
+pub fn report_image_census(
+    mut events: MessageReader<AssetEvent<Image>>,
+    _images: Res<Assets<Image>>,
+    _asset_server: Res<AssetServer>,
+    _census: ResMut<ImageCensus>,
+) {
+    events.clear();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn notable_threshold_admits_sheets_and_rejects_icons() {
+        // A 4150x4046 character sheet is the thing worth a line.
+        let sheet = f64::from(4150u32) * f64::from(4046u32) / 1.0e6;
+        assert!(sheet >= ImageCensus::NOTABLE_MEGAPIXELS);
+        // A 64x64 icon is not.
+        let icon = f64::from(64u32) * f64::from(64u32) / 1.0e6;
+        assert!(icon < ImageCensus::NOTABLE_MEGAPIXELS);
+    }
+
+    #[test]
+    fn census_starts_empty() {
+        let census = ImageCensus::default();
+        assert_eq!(census.total_images(), 0);
+        assert_eq!(census.total_megapixels(), 0.0);
+    }
+}

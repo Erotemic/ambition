@@ -12,6 +12,8 @@
 //! the old actor-side presentation umbrella; consumers (content, app) import
 //! `ambition_render::*` directly.
 
+/// Text census of texture decoding: which sheets landed, how big, and when.
+pub mod asset_census;
 pub mod cutscene;
 /// Provider-selectable dialogue presentation: one shared lifecycle / ordering
 /// seam plus a plain opt-in default renderer over `ambition_sim_view::DialogView`.

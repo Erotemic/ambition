@@ -11,6 +11,9 @@ hours. Pick by the question you are actually asking:
 | Where did startup time go? | `[startup]` phase logger (always on) | text, agent-readable |
 | Which native function is hot, and during which part of my session? | `scripts/profile_desktop.sh` timeline chunks | text, agent-readable |
 | Which *Bevy system* is hot? | `--features profile` → Tracy | GUI, or `tracy-capture` + `tracy-csvexport` as text |
+| Which frames stuttered, and when? | `[frame-spike]` / `[frame-census]` (always on) | text, agent-readable |
+| Which textures decoded, how big, and when? | `[image]` / `[image-census]` (always on) | text, agent-readable |
+| Did a sprite get re-bound at a different size? | `[sprite-bind]` (always on) | text, agent-readable |
 | Which *render pass* is hot? | not yet wired (`RenderDiagnosticsPlugin`) | — |
 | Am I re-reading assets from disk every frame? | `profile_desktop.sh asset-run` | text, agent-readable |
 | Is this CPU-bound, memory-bound, or stalled? | `profile_desktop.sh stat-run` | text, agent-readable |
@@ -89,6 +92,38 @@ chaining `phase_mark(...)` between Startup systems in
 Code lives in
 [crates/ambition_dev_tools/src/profiling.rs](../../crates/ambition_dev_tools/src/profiling.rs)
 (re-exported on the historical `ambition_actors::dev::profiling` path).
+
+## 1b. Steady-state censuses
+
+The startup logger above stops at the first frame. These four cover what
+happens after it, on stderr, so `profile_desktop.sh` stamps them into the
+timeline chunk they occurred in:
+
+```text
+[frame-spike]    0.512s   184.3ms
+[frame-census]   5.000s-10.000s frames=300 p50=16.7ms p95=18.1ms p99=24.0ms max=41.2ms
+[image]          0.412s 4150x4046   16.8MP sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.png
+[image-census]   1.000s +38 images (+212.4MP) | total 38 images, 212.4MP, 849.6MB resident
+[sprite-bind] worn character 'player' collision=30x48 render=64x64 (seed: default body constant)
+```
+
+Why each exists:
+
+- **`[frame-spike]`** gives a stutter a *timestamp*, which is what lets you
+  line it up against a perf chunk. Frames slower than 33.4ms, capped at 60
+  lines so a bad run cannot make logging the slow thing.
+- **`[frame-census]`** answers "is it smooth now" from a log rather than from
+  a number on screen, which the FPS overlay cannot do for an agent.
+- **`[image]` / `[image-census]`** name the *asset*. A native profile can
+  prove you are inside `png::filter::paeth::unfilter` and can never say which
+  sheet that was — this is the instrument for "are we loading everything at
+  startup instead of scoping it to the room".
+- **`[sprite-bind]`** records every character-sprite bind with its collision
+  and render size. Two lines with different sizes are a visible mid-launch
+  resize, and the `seed:` field says which of the two bind sites produced it.
+
+Code: [`ambition_dev_tools::profiling`](../../crates/ambition_dev_tools/src/profiling.rs)
+and [`ambition_render::asset_census`](../../crates/ambition_render/src/asset_census.rs).
 
 ## 2a. cargo flamegraph (no-GUI flame graph SVG)
 

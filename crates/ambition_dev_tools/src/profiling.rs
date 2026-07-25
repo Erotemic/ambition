@@ -105,6 +105,115 @@ pub fn report_schedule_census(schedules: Res<Schedules>, mut reported: Local<boo
     eprintln!("[schedule-census] total (visible schedules): {total} systems");
 }
 
+/// Steady-state twin of [`report_startup_phases`].
+///
+/// The startup logger measures Startup-schedule systems and stops. That window
+/// is genuinely fast (~100ms), which made a multi-second launch hitch look
+/// undiagnosable: the cost is the ASYNC asset pipeline landing over the frames
+/// AFTER the first one, where no instrument was watching. This one watches the
+/// frames.
+///
+/// Two outputs, both plain stderr so `scripts/profile_desktop.sh` stamps them
+/// into the timeline chunk they occurred in:
+///
+/// - `[frame-spike]` — one line per frame slower than [`Self::SPIKE_MS`], so a
+///   stutter gets a TIMESTAMP that can be lined up against a profile chunk.
+/// - `[frame-census]` — a periodic percentile summary, so "is it smooth now"
+///   is answerable from a log rather than from a number on the screen.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Resource)]
+pub struct FrameCensus {
+    started_at: Instant,
+    last_frame_at: Option<Instant>,
+    window_started_at: Instant,
+    window_frames_ms: Vec<f64>,
+    spikes_logged: usize,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl Default for FrameCensus {
+    fn default() -> Self {
+        let now = Instant::now();
+        Self {
+            started_at: now,
+            last_frame_at: None,
+            window_started_at: now,
+            window_frames_ms: Vec::new(),
+            spikes_logged: 0,
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl FrameCensus {
+    /// A frame this slow dropped below 30fps and is worth a line of its own.
+    pub const SPIKE_MS: f64 = 33.4;
+    /// Summary cadence. Short enough that a 12-chunk timeline gets several
+    /// summaries per chunk, long enough to stay quiet during normal play.
+    pub const WINDOW_SECS: f64 = 5.0;
+    /// A pathological run must not turn the log into the slow thing. After
+    /// this many spikes the per-frame lines stop; the percentile summaries
+    /// keep reporting, so nothing is silently lost.
+    pub const SPIKE_LOG_CAP: usize = 60;
+
+    fn percentile(sorted: &[f64], q: f64) -> f64 {
+        if sorted.is_empty() {
+            return 0.0;
+        }
+        let rank = (q * (sorted.len() - 1) as f64).round() as usize;
+        sorted[rank.min(sorted.len() - 1)]
+    }
+}
+
+/// Per-frame tick for [`FrameCensus`]. Register in `Last` so it sees the whole
+/// frame, including render extract/queue work.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn report_frame_census(mut census: ResMut<FrameCensus>) {
+    let now = Instant::now();
+    // The first observation has no predecessor to subtract, and the interval
+    // from app construction to frame one is startup, not a frame time —
+    // counting it would report a fake multi-second spike every launch.
+    let Some(previous) = census.last_frame_at.replace(now) else {
+        return;
+    };
+    let frame_ms = now.duration_since(previous).as_secs_f64() * 1000.0;
+    let at = now.duration_since(census.started_at).as_secs_f64();
+
+    if frame_ms >= FrameCensus::SPIKE_MS && census.spikes_logged < FrameCensus::SPIKE_LOG_CAP {
+        census.spikes_logged += 1;
+        eprintln!("[frame-spike] {at:8.3}s {frame_ms:7.1}ms");
+        if census.spikes_logged == FrameCensus::SPIKE_LOG_CAP {
+            eprintln!(
+                "[frame-spike] {at:8.3}s reached {} logged spikes; further per-frame lines \
+                 suppressed (percentile summaries continue)",
+                FrameCensus::SPIKE_LOG_CAP
+            );
+        }
+    }
+
+    census.window_frames_ms.push(frame_ms);
+    if now.duration_since(census.window_started_at).as_secs_f64() < FrameCensus::WINDOW_SECS {
+        return;
+    }
+
+    let window_start = census
+        .window_started_at
+        .duration_since(census.started_at)
+        .as_secs_f64();
+    let mut sorted = core::mem::take(&mut census.window_frames_ms);
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
+    let count = sorted.len();
+    eprintln!(
+        "[frame-census] {window_start:8.3}s-{at:.3}s frames={count} \
+         p50={:.1}ms p95={:.1}ms p99={:.1}ms max={:.1}ms",
+        FrameCensus::percentile(&sorted, 0.50),
+        FrameCensus::percentile(&sorted, 0.95),
+        FrameCensus::percentile(&sorted, 0.99),
+        sorted.last().copied().unwrap_or(0.0),
+    );
+    census.window_started_at = now;
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Wasm (browser) implementation — no Instant::now() calls.
 // ─────────────────────────────────────────────────────────────────────
@@ -145,6 +254,15 @@ pub fn phase_mark(_name: &'static str) -> impl FnMut(ResMut<StartupProfiler>) {
 /// Pairs with the native [`report_startup_phases`] so the
 /// `PostStartup` registration in `add_simulation_plugins` is identical
 /// across platforms.
+/// Wasm placeholder for [`FrameCensus`]: `Instant::now()` panics there, so the
+/// resource exists for API parity and the tick below does nothing.
+#[cfg(target_arch = "wasm32")]
+#[derive(Resource, Default)]
+pub struct FrameCensus;
+
+#[cfg(target_arch = "wasm32")]
+pub fn report_frame_census(_census: ResMut<FrameCensus>) {}
+
 #[cfg(target_arch = "wasm32")]
 pub fn report_startup_phases(mut profiler: ResMut<StartupProfiler>) {
     if profiler.reported {

@@ -115,6 +115,22 @@ pub fn bind_worn_character_presentation(
             let player_render = player_placeholder_render_size(&asset.spec, player_collision);
             let sprite = build_character_sprite_with_render_size(asset, player_render);
             let anchor = feet_anchor_for_render_size(&asset.spec, player_collision, player_render);
+            // A visible sprite RESIZE mid-launch has no other trace: nothing
+            // else records that the quad changed size, or which of the two
+            // bind sites seeded it. Both seed `standing_collision` differently
+            // (this one from the default body constant, the assets-changed
+            // rebind from the live pose) and the render size is not linear in
+            // collision, so knowing WHICH bound is the difference between
+            // diagnosing this and guessing.
+            eprintln!(
+                "[sprite-bind] worn character '{}' collision={:.0}x{:.0} render={:.0}x{:.0} \
+                 (seed: default body constant)",
+                worn.id(),
+                player_collision.x,
+                player_collision.y,
+                player_render.x,
+                player_render.y,
+            );
             commands.entity(entity).insert((
                 sprite,
                 anchor,
@@ -190,6 +206,7 @@ pub fn sync_visuals(
         (&FeatureVisual, &mut Transform, &mut Sprite, &mut Visibility),
         Without<PlayerVisual>,
     >,
+    mut warned_unsized_player: Local<bool>,
 ) {
     let player = (primary_player.iter().count() == 1)
         .then(|| primary_player.iter().next())
@@ -252,6 +269,26 @@ pub fn sync_visuals(
                         baseline.standing_render.y * scale_y * stance_ratio_y,
                     ));
                 }
+            } else if !*warned_unsized_player {
+                // The third case, which had no branch: a TEXTURED player sprite
+                // with no `PlayerSpriteBaseline`. Neither arm above assigns
+                // `custom_size`, and a Bevy sprite with `custom_size: None`
+                // draws at its atlas frame's NATIVE pixel size — on a 4000px
+                // sheet, enormously oversized, until something inserts the
+                // baseline and the next frame snaps it down.
+                //
+                // Every bind site inserts sprite and baseline together, so this
+                // should be unreachable. Say so out loud rather than silently
+                // rendering the wrong size: if the line never appears, the
+                // launch-time resize is the two bind sites disagreeing instead,
+                // and that is worth knowing just as much.
+                *warned_unsized_player = true;
+                bevy::log::warn!(
+                    target: "ambition::sprites",
+                    "player sprite is textured but has no PlayerSpriteBaseline; \
+                     custom_size is unset, so it renders at the atlas frame's native \
+                     pixel size until a baseline arrives",
+                );
             }
         }
     }
@@ -594,6 +631,15 @@ pub fn refresh_player_sprites_on_game_assets_change(
         }
         let collision = BVec2::new(pose.base_size.x, pose.base_size.y);
         let render = player_placeholder_render_size(&asset.spec, collision);
+        // The counterpart line to the one in `bind_worn_character_sprites`.
+        // This one fires when GameAssets changes -- i.e. when deferred sheets
+        // finish decoding -- so a size that differs from the earlier bind is
+        // the visible mid-launch pop, timestamped.
+        eprintln!(
+            "[sprite-bind] rebind character '{}' collision={:.0}x{:.0} render={:.0}x{:.0} \
+             (seed: live pose, trigger: assets changed)",
+            start_id, collision.x, collision.y, render.x, render.y,
+        );
         commands.entity(entity).insert((
             build_character_sprite_with_render_size(asset, render),
             feet_anchor_for_render_size(&asset.spec, collision, render),

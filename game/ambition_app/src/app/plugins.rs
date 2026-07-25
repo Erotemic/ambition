@@ -389,6 +389,7 @@ pub fn add_presentation_plugins(app: &mut App) {
 fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
         .init_resource::<ambition::render::quality::ResolvedVisualQuality>()
+        .init_resource::<ambition::render::asset_census::ImageCensus>()
         .insert_resource(windowing::DisplayModeState::default())
         .register_type::<DeveloperTools>()
         .register_type::<PlayerBodyProfile>()

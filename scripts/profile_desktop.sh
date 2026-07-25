@@ -32,7 +32,9 @@ report_timeout="45"
 include_raw_data="no"
 include_perf_script="no"
 timeline_chunks="12"
-marker_regex='room|boss|encounter|title|session|menu|spawn|load|demo'
+# Scenario markers AND the in-process censuses. A frame spike that does not
+# appear next to the chunk it happened in is a spike nobody can attribute.
+marker_regex='room|boss|encounter|title|session|menu|spawn|load|demo|frame-spike|frame-census|image-census|sprite-bind'
 
 usage() {
     cat <<'USAGE'
@@ -70,7 +72,9 @@ Options:
   --chunks N              timeline-run: number of equal time slices. Default: 12.
   --marker-regex RE       timeline-run: case-insensitive grep -E pattern that
                            picks scenario-marker lines out of the game log.
-                           Default: room|boss|encounter|title|session|menu|spawn|load|demo
+                           Defaults to scenario markers plus the game's own
+                           [frame-spike]/[frame-census]/[image-census]/
+                           [sprite-bind] census lines.
   -F, --freq HZ           Sampling frequency for perf record. Default: 99.
   -I, --interval MS       perf stat interval in milliseconds. Default: 1000.
   -p, --pid PID           PID to attach to. If omitted, newest ambition_game_bin PID is used.
@@ -199,6 +203,120 @@ perf_record_argv() {
 bounded_argv() {
     if [[ -n "$duration" ]]; then printf '%s\0' timeout --signal=INT --kill-after=5s "${duration}s"; fi
     printf '%s\0' "$@"
+}
+
+# Tracy answers what perf structurally cannot: per-Bevy-system and per-render-
+# pass timings. It is used when it is USABLE and skipped loudly otherwise --
+# never installed, never silently enabled, and never a reason for the default
+# run to fail. Two independent conditions must hold: the tools exist (setup
+# installs them) and the binary was built with --features profile (which the
+# default build is not, because forcing it would silently change what is being
+# profiled).
+tracy_tools_present() {
+    command -v tracy-capture >/dev/null 2>&1 && command -v tracy-csvexport >/dev/null 2>&1
+}
+
+binary_has_tracy() {
+    local bin="${1:-}"
+    [[ -n "$bin" && -f "$bin" ]] || return 1
+    # The tracy client leaves its symbols in the binary; no need to run it.
+    strings -a "$bin" 2>/dev/null | grep -q "TracyPlot\|tracy_emit_zone_begin"
+}
+
+game_binary_path() {
+    local candidate
+    for candidate in \
+        "${CARGO_TARGET_DIR:-$repo_root/target}/debug/ambition_game_bin" \
+        "${CARGO_TARGET_DIR:-$repo_root/target}/release/ambition_game_bin" \
+        "$HOME/ambition-target/debug/ambition_game_bin" \
+        "$HOME/ambition-target/release/ambition_game_bin"; do
+        [[ -f "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
+    done
+    return 1
+}
+
+# Start a Tracy capture in the background if this run can produce one. Echoes
+# the capture PID so the caller can wait on it; echoes nothing when skipped.
+start_tracy_capture() {
+    local out_dir="$1" bin
+    if ! tracy_tools_present; then
+        echo "tracy-capture/tracy-csvexport not found; per-system timings unavailable" \
+            > "$out_dir/tracy.skipped"
+        log "Tracy tools not installed; skipping per-system capture (run ./run_developer_setup.sh)"
+        return 0
+    fi
+    bin="$(game_binary_path || true)"
+    if ! binary_has_tracy "$bin"; then
+        echo "game binary lacks the tracy client; rebuild with: ./run_game.sh --features profile" \
+            > "$out_dir/tracy.skipped"
+        log "binary has no Tracy client; skipping per-system capture"
+        log "  for Bevy-system timings, rerun as: $0 $(quote_cmd "${original_args[@]}") -- --features profile"
+        return 0
+    fi
+    log "Tracy client detected; capturing per-system timings alongside perf"
+    tracy-capture -o "$out_dir/trace.tracy" -f > "$out_dir/tracy-capture.log" 2>&1 &
+    printf '%s\n' "$!"
+}
+
+# Turn the trace into the thing that is actually readable without a GUI: a
+# ranked table of the costliest zones (Bevy systems and render passes).
+finish_tracy_capture() {
+    local out_dir="$1" capture_pid="${2:-}"
+    [[ -n "$capture_pid" ]] || return 0
+    # tracy-capture exits on its own when the game disconnects; give it a
+    # moment, then stop waiting rather than hanging the whole profile run.
+    local waited=0
+    while kill -0 "$capture_pid" 2>/dev/null && (( waited < 30 )); do
+        sleep 1
+        waited=$((waited + 1))
+    done
+    kill "$capture_pid" 2>/dev/null || true
+    wait "$capture_pid" 2>/dev/null || true
+    [[ -s "$out_dir/trace.tracy" ]] || { log "Tracy produced no trace"; return 0; }
+    if ! tracy-csvexport "$out_dir/trace.tracy" > "$out_dir/tracy-zones.csv" 2>"$out_dir/tracy-csvexport.stderr"; then
+        log "tracy-csvexport failed; the raw trace.tracy is still usable in the GUI"
+        return 0
+    fi
+    python3 - "$out_dir" <<'PY'
+import csv, os, sys
+out = sys.argv[1]
+path = os.path.join(out, 'tracy-zones.csv')
+try:
+    with open(path, newline='', errors='replace') as f:
+        rows = list(csv.DictReader(f))
+except FileNotFoundError:
+    sys.exit(0)
+
+def num(row, *names):
+    for name in names:
+        value = row.get(name)
+        if value not in (None, ''):
+            try:
+                return float(value)
+            except ValueError:
+                pass
+    return 0.0
+
+# Rank by total time in the zone: that is what a frame budget is spent on,
+# regardless of whether it is one slow call or ten thousand cheap ones.
+ranked = sorted(rows, key=lambda r: num(r, 'total_ns', 'total', 'sum_ns'), reverse=True)
+lines = ['# Tracy zones (per-Bevy-system / per-pass timings)', '',
+         'Ranked by total time. perf cannot produce this: a Bevy system is not',
+         'a native symbol. Counts matter as much as totals -- a cheap zone run',
+         'ten thousand times is a scheduling problem, not a slow function.', '',
+         '```text',
+         f'{"total_ms":>10} {"mean_us":>9} {"count":>8}  zone']
+for row in ranked[:40]:
+    total_ns = num(row, 'total_ns', 'total', 'sum_ns')
+    count = num(row, 'counts', 'count')
+    mean_ns = num(row, 'mean_ns', 'mean') or (total_ns / count if count else 0.0)
+    name = row.get('name') or row.get('zone') or '<unnamed>'
+    lines.append(f'{total_ns/1e6:10.1f} {mean_ns/1e3:9.1f} {count:8.0f}  {name[:90]}')
+lines.append('```')
+with open(os.path.join(out, 'tracy-zones.md'), 'w') as f:
+    f.write('\n'.join(lines) + '\n')
+print(f'[profile-desktop] tracy zone table: {os.path.join(out, "tracy-zones.md")}', file=sys.stderr)
+PY
 }
 
 describe_window() {
@@ -628,6 +746,36 @@ else:
     lines += ['## Renderer', '',
               '(no `AdapterInfo` line found in the captured logs; see host-environment.txt)', '']
 
+# The game's own censuses, if it emitted any. These name assets and frames --
+# things a native profile cannot -- so they belong above the symbol tables.
+game_log = read('game-stderr-stamped.txt') or read('perf-record.stderr')
+if game_log:
+    spikes = [l for l in game_log.splitlines() if '[frame-spike]' in l]
+    windows = [l for l in game_log.splitlines() if '[frame-census]' in l]
+    binds = [l for l in game_log.splitlines() if '[sprite-bind]' in l]
+    decodes = [l for l in game_log.splitlines() if '[image-census]' in l]
+    if spikes or windows:
+        lines += ['## Frame time', '', '```text']
+        # Worst first: the tail is the complaint, not the average.
+        def spike_ms(line):
+            try:
+                return float(line.split()[-1].rstrip('ms'))
+            except (ValueError, IndexError):
+                return 0.0
+        for line in sorted(spikes, key=spike_ms, reverse=True)[:12]:
+            lines.append(line[:200])
+        if len(spikes) > 12:
+            lines.append(f'... {len(spikes) - 12} more spikes; see game-stderr-stamped.txt ...')
+        lines += [''] + [w[:200] for w in windows[:12]] + ['```', '']
+    if decodes or binds:
+        lines += ['## Textures and sprite binds', '', '```text']
+        lines += [d[:200] for d in decodes[:10]]
+        lines += [b[:200] for b in binds[:10]]
+        lines += ['```', '',
+                  'Per-texture lines (`[image]`) are in game-stderr-stamped.txt. A decode',
+                  'window overlapping a frame spike is the launch hitch; two [sprite-bind]',
+                  'lines with different render sizes are a visible mid-launch resize.', '']
+
 # Which LAYER owns the machine. Symbol rankings answer "which function is
 # hot" only once you know the answer here is "game code" -- when it is the
 # renderer or a software rasterizer instead, the function list is a footnote.
@@ -910,6 +1058,9 @@ for line in sys.stdin:
     fi
     rm -f "$out_dir/stamper-check.stderr"
 
+    local tracy_pid=""
+    tracy_pid="$(start_tracy_capture "$out_dir")"
+
     local heartbeat_pid=""
     ( elapsed=0; while sleep 5; do elapsed=$((elapsed + 5)); log "timeline capturing... ${elapsed}s elapsed ($(describe_window))"; done ) &
     heartbeat_pid=$!
@@ -928,6 +1079,7 @@ for line in sys.stdin:
     kill "$heartbeat_pid" 2>/dev/null || true
     wait "$heartbeat_pid" 2>/dev/null || true
     echo "$status" > "$out_dir/perf-record.status"
+    finish_tracy_capture "$out_dir" "$tracy_pid"
     write_timeline_reports "$out_dir"
     write_timeline_summary "$out_dir"
 }

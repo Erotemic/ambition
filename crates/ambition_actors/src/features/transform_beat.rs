@@ -34,6 +34,7 @@
 
 use bevy::prelude::*;
 
+use ambition_characters::actor::BodyHealth;
 use ambition_sprite_sheet::character::CharacterAnim;
 use ambition_time::{ClockDomain, WorldTime};
 
@@ -76,6 +77,11 @@ impl Default for TransformBeatPolicy {
 pub struct TransformBeat {
     pub remaining: f32,
     pub policy: TransformBeatPolicy,
+    /// Whether the body was already invulnerable when the beat started, so
+    /// ending it RESTORES rather than clears. Sanic's super form is invulnerable
+    /// on its own; a beat that ended by writing `false` would strip the very
+    /// trait the transformation just granted.
+    pub was_invulnerable: bool,
 }
 
 /// "This body just became something else." Written by whoever owns the meaning
@@ -93,17 +99,35 @@ pub struct TransformBeatRequested {
 pub fn begin_requested_transform_beats(
     mut requests: MessageReader<TransformBeatRequested>,
     mut commands: Commands,
-    bodies: Query<&TransformBeatPolicy>,
+    mut bodies: Query<(
+        &TransformBeatPolicy,
+        Option<&mut BodyHealth>,
+        Option<&TransformBeat>,
+    )>,
 ) {
     for request in requests.read() {
-        let Ok(policy) = bodies.get(request.body) else {
+        let Ok((policy, health, existing)) = bodies.get_mut(request.body) else {
             // No authored beat: the transformation is instant. Not an error —
             // it is what every body did before this seam existed.
             continue;
         };
+        // Capture the pre-beat invulnerability ONCE: a restart mid-beat must
+        // not record the beat's own grant as the state to restore.
+        let was_invulnerable = match existing {
+            Some(beat) => beat.was_invulnerable,
+            None => health
+                .as_deref()
+                .is_some_and(|health| health.health.invulnerable),
+        };
+        if policy.untouchable {
+            if let Some(mut health) = health {
+                health.health.invulnerable = true;
+            }
+        }
         commands.entity(request.body).try_insert(TransformBeat {
             remaining: policy.duration,
             policy: *policy,
+            was_invulnerable,
         });
     }
 }
@@ -113,12 +137,12 @@ pub fn run_transform_beats(
     time: Res<WorldTime>,
     mut commands: Commands,
     mut clock: MessageWriter<ClockScaleRequest>,
-    mut bodies: Query<(Entity, &mut TransformBeat)>,
+    mut bodies: Query<(Entity, &mut TransformBeat, Option<&mut BodyHealth>)>,
 ) {
     // WALL time: a beat that slows the clock must not also slow its own timer,
     // or its duration becomes a function of its own effect.
     let dt = time.wall_dt();
-    for (entity, mut beat) in &mut bodies {
+    for (entity, mut beat, health) in &mut bodies {
         if beat.policy.clock_scale != 1.0 {
             clock.write(ClockScaleRequest {
                 domain: ClockDomain::SimClock,
@@ -138,6 +162,14 @@ pub fn run_transform_beats(
         // Done: release the pose and hand the clock back. Releasing by asking
         // for 1.0 rather than by writing the scale keeps the regime in the loop
         // on the way out too.
+        // Give back exactly what was borrowed. A transformation that GRANTS
+        // invulnerability (Sanic's super form) keeps it; one that did not gets
+        // its vulnerability back.
+        if beat.policy.untouchable {
+            if let Some(mut health) = health {
+                health.health.invulnerable = beat.was_invulnerable;
+            }
+        }
         commands
             .entity(entity)
             .remove::<ActorAnimOverride>()
@@ -175,7 +207,14 @@ impl Plugin for TransformBeatPlugin {
 }
 
 /// True while this body is mid-transformation and its policy says it cannot be
-/// touched. Consulted by the hit path the same way `body_is_corpse` is.
+/// touched.
+///
+/// The ENFORCEMENT is not here: the beat sets the body's existing
+/// `Health::invulnerable` for its duration and restores it after, so a
+/// transformation is untouchable through the one seam every other invulnerable
+/// state already uses — i-frames, Sanic's super form — rather than a second
+/// intangibility mechanism the hit path would have to learn about. This
+/// predicate is for readers that want to know WHY a body is untouchable.
 pub fn body_is_transforming(beat: Option<&TransformBeat>) -> bool {
     beat.is_some_and(|beat| beat.policy.untouchable && beat.remaining > 0.0)
 }
@@ -286,6 +325,53 @@ mod tests {
             scales.contains(&1.0),
             "the beat ended without releasing the clock ({scales:?})",
         );
+    }
+
+    /// The clause that makes `untouchable` real, and the trap in it: Sanic's
+    /// super form is ALREADY invulnerable when its beat starts, so a beat that
+    /// ended by writing `false` would strip the trait the transformation just
+    /// granted.
+    #[test]
+    fn the_beat_borrows_invulnerability_and_gives_back_what_it_borrowed() {
+        for already_invulnerable in [false, true] {
+            let mut app = app();
+            let mut health = BodyHealth::new(ambition_characters::actor::Health::new(3));
+            health.health.invulnerable = already_invulnerable;
+            let body = app
+                .world_mut()
+                .spawn((
+                    TransformBeatPolicy {
+                        duration: 0.2,
+                        ..Default::default()
+                    },
+                    health,
+                ))
+                .id();
+            app.world_mut()
+                .write_message(TransformBeatRequested { body });
+
+            advance(&mut app, 0.05);
+            assert!(
+                app.world()
+                    .get::<BodyHealth>(body)
+                    .unwrap()
+                    .health
+                    .invulnerable,
+                "she can be hit out of her own transformation",
+            );
+
+            advance(&mut app, 0.3);
+            assert_eq!(
+                app.world()
+                    .get::<BodyHealth>(body)
+                    .unwrap()
+                    .health
+                    .invulnerable,
+                already_invulnerable,
+                "the beat did not give back the invulnerability it borrowed \
+                 (started {already_invulnerable})",
+            );
+        }
     }
 
     #[test]

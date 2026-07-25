@@ -14,10 +14,23 @@
 //! in-process, each asserting a value the emitter wrote one line earlier. Not
 //! again.)
 //!
-//! Gated off `input` for the same reason as `scripted_level_run`: under that
-//! feature the participant pipeline owns `ControlFrame` and erases a scripted
-//! write, so driving this seam is only meaningful in the headless composition.
-#![cfg(not(feature = "input"))]
+//! ## Driving the stick under either composition
+//!
+//! The scripted stick used to run in `PreUpdate` behind
+//! `#![cfg(not(feature = "input"))]`, which was the WRONG PREDICATE and made
+//! this file red under `cargo test --workspace` for as long as that command has
+//! existed. The cfg reads THIS crate's `input` feature, but what actually
+//! decides whether the participant pipeline owns `ControlFrame` is
+//! `ambition/input` — and workspace feature unification turns that on from
+//! `ambition_app`'s defaults no matter what this crate asked for. So the guard
+//! silently stopped guarding: the file compiled, the pipeline ran in `Update`
+//! and overwrote every `PreUpdate` write, and Mary-O simply never moved.
+//!
+//! The fix is to stop guessing and order against the authority: the stick is
+//! written in `Update` after `InputSet::Route`, which is where the pipeline
+//! declares all its `ControlFrame`-writing systems live. That is last-writer-wins
+//! by construction rather than by composition luck, so this proof holds under
+//! `-p` and `--workspace` alike.
 
 use ambition::engine_core::AabbExt;
 use ambition::input::ControlFrame;
@@ -38,7 +51,22 @@ fn apply_scripted_stick(stick: Res<ScriptedStick>, mut frame: ResMut<ControlFram
 fn boot() -> App {
     let mut app = build_demo_app();
     app.init_resource::<ScriptedStick>();
-    app.add_systems(PreUpdate, apply_scripted_stick);
+    // AFTER the pipeline's routing stage and BEFORE the frame->tick latch reads
+    // it. Both edges are load-bearing under a fixed-tick host: `InputSet::Route`
+    // is where the participant pipeline writes `ControlFrame`, and
+    // `accumulate_control_frame_latch` is what the sim actually consumes —
+    // `publish_latched_control_frame` overwrites `ControlFrame` from the latch
+    // inside the sim schedule, so a write that misses the latch never reaches
+    // gameplay no matter how late it lands in `Update`.
+    //
+    // Ordering against a set or system nobody composed is a no-op, so the
+    // headless frame-stepped composition (which has no latch) is unaffected.
+    app.add_systems(
+        Update,
+        apply_scripted_stick
+            .after(ambition::input::InputSet::Route)
+            .before(ambition::engine_core::accumulate_control_frame_latch),
+    );
     // Settle activation: the provider publishes its world over several frames.
     for _ in 0..90 {
         app.update();

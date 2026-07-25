@@ -311,14 +311,26 @@ impl AudioLibrary {
     /// library was already constructed with no bank — without this
     /// refresh the typed cues would stay silent for the whole session.
     /// Missing entries keep the existing handle (silent stub by default).
+    ///
+    /// Returns the cues the bank did NOT supply. A cue with no bank entry stays
+    /// a silent stub forever, and the count this used to log ("refreshed 187")
+    /// could never say WHICH thirteen were missing — so a cue dropped by a
+    /// repack was indistinguishable from a cue that simply never fires.
+    ///
+    /// This is the binding boundary's rule (resolve once, name what did not
+    /// bind) without its machinery: the cue set is a compile-time constant and
+    /// the resolver is `SfxProvider`, so the generic `Resolver` would buy nothing
+    /// here except a parry2d-transitive dependency in the leanest audio crate.
     pub fn refresh_sfx_from_bank(
         &mut self,
         audio_sources: &mut Assets<KiraAudioSource>,
         sfx_provider: &dyn SfxProvider,
-    ) {
+    ) -> Vec<SoundCue> {
         let mut refreshed = 0usize;
+        let mut unbound = Vec::new();
         for cue in SoundCue::ALL {
             let Some(clip) = sfx_provider.provide_clip(cue.sfx_id()) else {
+                unbound.push(cue);
                 continue;
             };
             match audio_source_from_sfx_clip(clip) {
@@ -329,12 +341,29 @@ impl AudioLibrary {
                 }
                 Err(error) => {
                     warn!("bank entry for {cue:?} failed to decode ({error})");
+                    unbound.push(cue);
                 }
             }
         }
         if refreshed > 0 {
             info!("audio library: refreshed {refreshed} typed SFX cue handle(s) from bank");
         }
+        // A bank that supplied NOTHING is the headless/silent-provider case and is
+        // expected; naming all twelve there would be noise, not news.
+        if !unbound.is_empty() && refreshed > 0 {
+            warn!(
+                "audio library: the bank supplies no clip for {} cue(s), which stay silent: {}",
+                unbound.len(),
+                unbound
+                    .iter()
+                    // `SfxId` is a hash, not a name — print both, because the
+                    // hash is what `sfx.bank.txt` is greppable by.
+                    .map(|cue| format!("{cue:?} ({})", cue.sfx_id()))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
+        }
+        unbound
     }
 
     pub fn track(&self, id: &str) -> Option<&MusicTrackRuntime> {

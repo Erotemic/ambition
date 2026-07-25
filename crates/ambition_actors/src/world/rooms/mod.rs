@@ -9,15 +9,19 @@
 #![allow(unused_imports)]
 use ambition_engine_core as ae;
 
+pub mod binding;
 mod load;
 mod stage;
 mod systems;
 pub(crate) mod transaction;
 
 #[cfg(test)]
+mod binding_tests;
+#[cfg(test)]
 mod tests;
 
 pub use ambition_world::rooms::*;
+pub use binding::RoomBindings;
 pub use load::{commit_room_transition_geometry, RoomLoadResult};
 pub use stage::{
     LastRoomConstructionCommit, RoomConstructionError, RoomConstructionPlan, RoomConstructionPlanId,

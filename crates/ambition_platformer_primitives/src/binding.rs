@@ -274,6 +274,32 @@ impl<N: Namespace> Resolver<N> {
         ids.into_iter().map(Into::into).collect()
     }
 
+    /// Build where one entry answers to SEVERAL spellings: each `(alias, slot)`
+    /// resolves to the same declaration.
+    ///
+    /// Kinematic paths are the case — a room's paths are addressable by authored
+    /// id and by display name, and content legitimately references either. Every
+    /// alias appears in a report's `available` list, because "the id you used is
+    /// not one of the spellings this path answers to" is the useful message.
+    pub fn with_aliases<I, S>(entries: I) -> Self
+    where
+        I: IntoIterator<Item = (S, usize)>,
+        S: Into<String>,
+    {
+        let mut pairs: Vec<(String, usize)> = entries
+            .into_iter()
+            .map(|(alias, slot)| (alias.into(), slot))
+            .collect();
+        pairs.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+        pairs.dedup_by(|a, b| a.0 == b.0);
+        let (ids, slots) = pairs.into_iter().unzip();
+        Self {
+            ids,
+            slots,
+            _namespace: PhantomData,
+        }
+    }
+
     /// Every id that exists here, sorted.
     pub fn ids(&self) -> &[String] {
         &self.ids

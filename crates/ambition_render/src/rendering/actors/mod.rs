@@ -207,6 +207,7 @@ pub fn sync_visuals(
         Without<PlayerVisual>,
     >,
     mut warned_unsized_player: Local<bool>,
+    mut last_player_render_size: Local<Option<BVec2>>,
 ) {
     let player = (primary_player.iter().count() == 1)
         .then(|| primary_player.iter().next())
@@ -288,6 +289,32 @@ pub fn sync_visuals(
                     "player sprite is textured but has no PlayerSpriteBaseline; \
                      custom_size is unset, so it renders at the atlas frame's native \
                      pixel size until a baseline arrives",
+                );
+            }
+
+            // The bind sites report what they SEEDED; this reports what is
+            // actually drawn. A visible mid-launch resize is a change here,
+            // and the two need not agree: a size can change without a rebind
+            // (pose/stance scaling) and a rebind can leave the size identical.
+            // `None` is its own event — it means nothing assigned a size and
+            // the quad falls back to the atlas frame's native pixel size.
+            // Sub-pixel drift is stance scaling doing its job, not a resize
+            // worth a line; crouching would otherwise emit one per frame.
+            let size_changed = match (*last_player_render_size, sprite.custom_size) {
+                (Some(previous), Some(current)) => previous.distance(current) > 0.5,
+                (previous, current) => previous.is_some() != current.is_some(),
+            };
+            if size_changed {
+                let previous = *last_player_render_size;
+                *last_player_render_size = sprite.custom_size;
+                let describe = |size: Option<BVec2>| match size {
+                    Some(size) => format!("{:.0}x{:.0}", size.x, size.y),
+                    None => "NONE (draws at native frame size)".to_string(),
+                };
+                eprintln!(
+                    "[sprite-size] player render size {} -> {}",
+                    describe(previous),
+                    describe(sprite.custom_size),
                 );
             }
         }

@@ -384,11 +384,17 @@ mod tests {
 
     /// GPT review #1/#2: the deferred transition transports the body that CROSSED
     /// the exit — resolved by its recorded, rollback-stable `SimId` — and NEVER
-    /// substitutes another body. A recorded id that has since despawned, or an
-    /// unstamped trigger, resolves to `None` (a cancelled crossing), NOT the home
-    /// player: substituting the primary teleports a body that never touched the
-    /// exit into the target room. The home player right next to the triggerer is
-    /// the tempting wrong answer this pins against.
+    /// substitutes another body. A recorded id that has since despawned resolves
+    /// to `None` (a cancelled crossing), NOT the home player: substituting the
+    /// primary teleports a body that never touched the exit into the target room.
+    /// The home player right next to the triggerer is the tempting wrong answer
+    /// this pins against.
+    ///
+    /// The third historical case — an *unstamped* trigger — is no longer
+    /// representable: `LifecycleIntent::Transition.subject` is a `SimId`, not an
+    /// `Option<SimId>`, so a body without stable identity cannot produce a
+    /// deferred intent at all. The type is the proof; there is nothing left to
+    /// assert.
     #[test]
     fn a_missing_transition_subject_resolves_to_none_never_a_substitute() {
         let mut world = World::new();
@@ -399,20 +405,15 @@ mod tests {
         assert_ne!(triggerer, primary);
 
         assert_eq!(
-            resolve_transition_subject(&mut world, &Some(SimId::placement("triggerer"))),
+            resolve_transition_subject(&mut world, &SimId::placement("triggerer")),
             Some(triggerer),
             "the recorded triggering SimId is transported, not the current primary"
         );
         assert_eq!(
-            resolve_transition_subject(&mut world, &Some(SimId::placement("gone"))),
+            resolve_transition_subject(&mut world, &SimId::placement("gone")),
             None,
             "a recorded body that despawned before commit is a void crossing, \
              not a licence to teleport the home player"
-        );
-        assert_eq!(
-            resolve_transition_subject(&mut world, &None),
-            None,
-            "an unstamped controlled body is an identity failure, not the primary"
         );
     }
 }

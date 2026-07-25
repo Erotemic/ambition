@@ -109,6 +109,38 @@ pub struct ResolvedSfxHandle {
     pub source: SfxSourceIdentity,
 }
 
+/// Why a cue produced no playable source.
+///
+/// The three cases are different bugs with different fixes, and collapsing them
+/// into one "no clip" message is how a diagnostic starts lying: a cue requested
+/// before its bank finished loading is not a missing cue, and a clip that will
+/// not decode is not an absent one. Reported verbatim by the playback path.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum SfxSourceMiss {
+    /// No bank is registered for this provider yet and no procedural spec
+    /// answers the cue. Possibly transient — the bank may still be loading, and
+    /// [`ProviderSfxHandleCache`] deliberately caches nothing so the first
+    /// request after promotion succeeds.
+    NoProviderBank,
+    /// The provider's bank is loaded, has no entry for this cue, and no
+    /// procedural fallback exists. This is the terminal "nobody authored it".
+    NotInBank,
+    /// The bank HAD the clip and it would not decode, with no procedural
+    /// fallback to fall back to. The content exists and is broken — a different
+    /// fix from authoring it.
+    DecodeFailed,
+}
+
+impl std::fmt::Display for SfxSourceMiss {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::NoProviderBank => "no bank is registered for this provider (yet)",
+            Self::NotInBank => "the provider's bank has no entry for it",
+            Self::DecodeFailed => "the provider's bank entry failed to decode",
+        })
+    }
+}
+
 /// Lazy provider-qualified handle cache. Missing sources are not cached so a
 /// bank that arrives after activation becomes usable immediately.
 #[derive(Resource, Default)]
@@ -117,6 +149,8 @@ pub struct ProviderSfxHandleCache {
 }
 
 impl ProviderSfxHandleCache {
+    /// The playable source for `id` under `provider_id`, or [`SfxSourceMiss`]
+    /// saying which of the several distinct failures happened.
     pub fn handle_for(
         &mut self,
         provider_id: &str,
@@ -125,11 +159,11 @@ impl ProviderSfxHandleCache {
         bank: Option<&dyn SfxProvider>,
         bank_fingerprint: Option<u64>,
         audio_sources: &mut Assets<KiraAudioSource>,
-    ) -> Option<ResolvedSfxHandle> {
+    ) -> Result<ResolvedSfxHandle, SfxSourceMiss> {
         let key = (provider_id.to_owned(), id);
         if let Some(handle) = self.handles.get(&key) {
             if cached_sfx_source_is_current(handle.source, bank_fingerprint) {
-                return Some(handle.clone());
+                return Ok(handle.clone());
             }
             // A procedural fallback may have been rendered before this
             // provider's packed bank finished loading. Do not let that fallback
@@ -140,6 +174,14 @@ impl ProviderSfxHandleCache {
         // Packed provider content is the highest-fidelity authored source.
         // Procedural specs are provider-local fallbacks and the complete source
         // for providers such as Sanic that intentionally ship no packed bank.
+        //
+        // Track WHY the bank did not answer while we still know: once we are
+        // past this point, "no clip" and "a clip that would not decode" are
+        // indistinguishable, and the caller has to guess. It used to guess wrong.
+        let mut miss = match bank {
+            None => SfxSourceMiss::NoProviderBank,
+            Some(_) => SfxSourceMiss::NotInBank,
+        };
         let from_bank = bank
             .and_then(|bank| bank.provide_clip(id))
             .and_then(|clip| match audio_source_from_sfx_clip(clip) {
@@ -152,6 +194,7 @@ impl ProviderSfxHandleCache {
                 }),
                 Err(error) => {
                     warn!("provider '{provider_id}' SFX id {id} failed to decode ({error})");
+                    miss = SfxSourceMiss::DecodeFailed;
                     None
                 }
             });
@@ -167,10 +210,13 @@ impl ProviderSfxHandleCache {
                     },
                 })
         });
-        if let Some(resolved) = resolved.as_ref() {
-            self.handles.insert(key, resolved.clone());
+        match resolved {
+            Some(resolved) => {
+                self.handles.insert(key, resolved.clone());
+                Ok(resolved)
+            }
+            None => Err(miss),
         }
-        resolved
     }
 
     pub fn clear_provider(&mut self, provider_id: &str) {
@@ -216,16 +262,23 @@ pub struct SfxPlaybackState {
     pub rejected_wrong_owner: u64,
     pub rejected_unauthorized: u64,
     pub missing_source: u64,
-    /// WHICH cues were requested and had no clip, in id order.
+    /// WHICH cues went silent under WHICH provider, and why.
     ///
     /// `missing_source` alone is a number: it says a cue went silent, never
     /// which one. That is the same shape the binding boundary removed from item
     /// art — a request that resolves to nothing and reports only that it
-    /// happened. A cue with no bank entry is silent for the whole session, so
-    /// the id is the entire diagnostic.
+    /// happened.
     ///
-    /// Deduplicated, so a cue fired every frame contributes one entry.
-    pub missing_source_ids: std::collections::BTreeSet<ambition_sfx::SfxId>,
+    /// Keyed by `(provider, cue)` rather than by cue alone, because the cue is
+    /// only half the fact: providers hold independent banks, and "Sanic has no
+    /// clip for `player.land`" says nothing about Mary-O. Keying on the cue made
+    /// the second provider's identical failure invisible.
+    ///
+    /// The value is the diagnosis, so a cue that failed one way and later fails
+    /// another — requested before its bank loaded, then found genuinely absent —
+    /// is reported again with the corrected reason instead of being suppressed
+    /// by the stale one.
+    pub missing_sources: std::collections::BTreeMap<(String, ambition_sfx::SfxId), SfxSourceMiss>,
 }
 
 impl SfxPlaybackState {
@@ -236,6 +289,25 @@ impl SfxPlaybackState {
             .is_some_and(|record| record.owner == owner)
         {
             self.last_played = None;
+        }
+    }
+
+    /// Record a miss, answering whether it is worth saying out loud: a
+    /// `(provider, cue)` pair not seen before, or one whose diagnosis changed.
+    pub fn note_missing_source(
+        &mut self,
+        provider_id: &str,
+        id: ambition_sfx::SfxId,
+        miss: SfxSourceMiss,
+    ) -> bool {
+        self.missing_source = self.missing_source.saturating_add(1);
+        match self.missing_sources.get(&(provider_id.to_owned(), id)) {
+            Some(known) if *known == miss => false,
+            _ => {
+                self.missing_sources
+                    .insert((provider_id.to_owned(), id), miss);
+                true
+            }
         }
     }
 }

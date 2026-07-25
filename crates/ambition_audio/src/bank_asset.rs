@@ -20,8 +20,9 @@ use bevy_kira_audio::prelude::{AudioChannel, AudioControl, AudioSource as KiraAu
 
 use crate::catalog::SfxBankRegistry;
 use crate::library::{sfx_message_target_id, SfxChannel};
-use crate::render::{ProviderSfxHandleCache, SfxPlaybackRecord, SfxPlaybackState};
+use crate::render::{ProviderSfxHandleCache, SfxPlaybackRecord, SfxPlaybackState, SfxSourceMiss};
 use crate::selection::ActiveAudioSelection;
+use crate::spec::SfxRegistry;
 use crate::web_unlock::AUDIO_LOG_TARGET;
 
 /// Host-supplied provider-qualified asset path for one packed bank.
@@ -139,6 +140,19 @@ impl SfxBankResource {
             .map(|provider| provider.as_ref() as &dyn SfxProvider)
     }
 
+    /// The authored spelling of `id` according to ANY loaded bank.
+    ///
+    /// Deliberately not scoped to one provider: the caller asking is the one
+    /// reporting that a cue is missing HERE, so the only banks that can name it
+    /// are the ones that do have it. "Sanic has no clip for `boss.shatter`" is
+    /// the sentence worth printing, and only Ambition's bank can supply the
+    /// `boss.shatter` half of it.
+    pub fn name_anywhere(&self, id: SfxId) -> Option<&str> {
+        self.providers
+            .values()
+            .find_map(|provider| provider.name_for(id))
+    }
+
     pub fn ids_for(&self, provider_id: &str) -> std::collections::BTreeSet<SfxId> {
         self.providers
             .get(provider_id)
@@ -230,6 +244,15 @@ impl AssetLoader for SfxBankLoader {
 #[derive(Resource, Default)]
 pub struct PendingSfxBankHandles {
     handles: BTreeMap<String, Handle<SfxBankAsset>>,
+}
+
+impl PendingSfxBankHandles {
+    /// This provider's bank is still in flight, so a cue that misses right now
+    /// may well play a moment later. The difference between "not yet" and
+    /// "never" is the whole value of the miss diagnostic.
+    pub fn is_loading(&self, provider_id: &str) -> bool {
+        self.handles.contains_key(provider_id)
+    }
 }
 
 pub struct SfxBankAssetPlugin;
@@ -381,10 +404,37 @@ fn promote_loaded_sfx_bank(
     }
 }
 
+/// Name a cue for a human, from whatever authority can still spell it.
+///
+/// An [`SfxId`] is a one-way hash, so a diagnostic holding only the id prints
+/// `SfxId(0x…)` — which names nothing an author can grep for. Three authorities
+/// between them know almost every spelling in the game: the engine's `ids` table
+/// (every typed cue), the active procedural registry (open ids authored in RON),
+/// and the name section of every loaded bank (open ids some OTHER provider
+/// packs). A cue none of them knows is genuinely anonymous, and the message says
+/// so rather than pretending the hash is an answer.
+fn describe_sfx_id(id: SfxId, procedural: Option<&SfxRegistry>, banks: &SfxBankResource) -> String {
+    let name = ambition_sfx::ids::name_of(id)
+        .or_else(|| banks.name_anywhere(id))
+        .map(str::to_owned)
+        .or_else(|| {
+            procedural?
+                .sfx
+                .iter()
+                .find(|spec| spec.sfx_id().ok() == Some(id))
+                .and_then(|spec| spec.id.clone())
+        });
+    match name {
+        Some(name) => format!("`{name}` ({id})"),
+        None => format!("{id} (no loaded bank or registry knows its authored name)"),
+    }
+}
+
 pub fn audio_play_sfx_messages(
     mut messages: MessageReader<OwnedSfxMessage>,
     selection: Res<ActiveAudioSelection>,
     banks: Res<SfxBankResource>,
+    pending: Option<Res<PendingSfxBankHandles>>,
     sfx_channel: Res<AudioChannel<SfxChannel>>,
     output: Option<Res<crate::output::AudioOutputMode>>,
     mut cache: ResMut<ProviderSfxHandleCache>,
@@ -427,21 +477,34 @@ pub fn audio_play_sfx_messages(
             banks.fingerprint_for(provider_id, id),
             audio_sources.as_mut(),
         );
-        let Some(resolved) = resolved else {
-            playback.missing_source = playback.missing_source.saturating_add(1);
-            // Name it, once. The counter says a cue went silent; it never said
-            // WHICH, and a cue with no bank entry stays silent for the whole
-            // session — so the id is the entire diagnostic. Same shape the
-            // binding boundary removed from item art: a request that resolves to
-            // nothing and reports only that it happened.
-            if playback.missing_source_ids.insert(id) {
-                bevy::log::warn!(
-                    target: AUDIO_LOG_TARGET,
-                    "ambition audio: provider '{provider_id}' has no clip for requested cue {id} \
-                     — it will stay silent for this session",
-                );
+        let resolved = match resolved {
+            Ok(resolved) => resolved,
+            Err(miss) => {
+                // Name it, and say WHY, once per (provider, cue, diagnosis). The
+                // counter said a cue went silent and never which one; the first
+                // version of this warning named the cue but asserted one cause
+                // for four different failures, including a cue that was merely
+                // early. A wrong diagnosis costs more than no diagnosis.
+                let first_word = playback.note_missing_source(provider_id, id, miss);
+                if first_word {
+                    let cue = describe_sfx_id(id, selection.sfx(), &banks);
+                    let outlook = if miss == SfxSourceMiss::NoProviderBank
+                        && pending
+                            .as_deref()
+                            .is_some_and(|pending| pending.is_loading(provider_id))
+                    {
+                        "its bank is still loading, so this may resolve itself"
+                    } else {
+                        "it will stay silent until the content changes"
+                    };
+                    bevy::log::warn!(
+                        target: AUDIO_LOG_TARGET,
+                        "ambition audio: provider '{provider_id}' cannot play cue {cue} — \
+                         {miss}; {outlook}",
+                    );
+                }
+                continue;
             }
-            continue;
         };
         if crate::output::emits_to_device(output.as_deref()) {
             sfx_channel.play(resolved.handle);
@@ -500,6 +563,46 @@ mod tests {
             request: SfxMessage::Dash { pos: Vec2::ZERO },
         };
         assert!(!selection.accepts_request_owner(stale.owner));
+    }
+
+    /// The suppression key is the fact, and the fact has three parts: which
+    /// provider, which cue, and what went wrong. Keyed on the cue alone (as it
+    /// first shipped), the second provider's identical silence was invisible,
+    /// and a cue that missed because its bank had not loaded yet stayed
+    /// diagnosed that way after the bank arrived and proved it truly absent.
+    #[test]
+    fn a_miss_speaks_once_per_provider_and_again_when_the_diagnosis_changes() {
+        use crate::render::{SfxPlaybackState, SfxSourceMiss};
+        let cue = SfxId::from_static("boss.shatter");
+        let mut playback = SfxPlaybackState::default();
+
+        assert!(playback.note_missing_source("ambition", cue, SfxSourceMiss::NotInBank));
+        assert!(!playback.note_missing_source("ambition", cue, SfxSourceMiss::NotInBank));
+        assert!(
+            playback.note_missing_source("sanic", cue, SfxSourceMiss::NotInBank),
+            "another provider's bank is another fact"
+        );
+        assert!(
+            playback.note_missing_source("ambition", cue, SfxSourceMiss::DecodeFailed),
+            "the reason changed, so the earlier line was wrong and must be corrected"
+        );
+        assert_eq!(playback.missing_source, 4, "every miss still counts");
+    }
+
+    /// A hash names nothing. The engine's id table is the authority for typed
+    /// cues; the loaded banks' name sections cover open provider-local ids that
+    /// some OTHER provider packs — which is exactly the case being reported.
+    #[test]
+    fn a_missing_cue_is_named_not_hashed() {
+        let banks = SfxBankResource::default();
+        let described = describe_sfx_id(ambition_sfx::ids::PLAYER_LAND, None, &banks);
+        assert!(described.starts_with("`player.land`"), "{described}");
+
+        let anonymous = describe_sfx_id(SfxId::from_static("nobody.packs.this"), None, &banks);
+        assert!(
+            anonymous.contains("no loaded bank or registry knows"),
+            "an unnamed cue says so rather than passing a hash off as an answer: {anonymous}"
+        );
     }
 
     #[test]

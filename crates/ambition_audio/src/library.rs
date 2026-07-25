@@ -305,44 +305,6 @@ impl AudioLibrary {
             .unwrap_or_else(|| self.fallback_sfx.clone())
     }
 
-    /// Replace the per-cue SFX handles with freshly-decoded clips from
-    /// `sfx_provider`. Used when an async-loaded SFX bank arrives
-    /// (`audio/bank_asset.rs::promote_loaded_sfx_bank`) after the
-    /// library was already constructed with no bank — without this
-    /// refresh the typed cues would stay silent for the whole session.
-    /// Missing entries keep the existing handle (silent stub by default).
-    ///
-    /// NOTE (2026-07-25): this method currently has NO CALLER. The live bank
-    /// path is `bank_asset::promote_loaded_sfx_bank` ->
-    /// `SfxBankResource`/`ProviderSfxHandleCache`, which never reaches here.
-    /// A missing cue is named where one is actually requested, in
-    /// `audio_play_sfx_messages`. Logged in dev/journals/code_smells.md.
-    pub fn refresh_sfx_from_bank(
-        &mut self,
-        audio_sources: &mut Assets<KiraAudioSource>,
-        sfx_provider: &dyn SfxProvider,
-    ) {
-        let mut refreshed = 0usize;
-        for cue in SoundCue::ALL {
-            let Some(clip) = sfx_provider.provide_clip(cue.sfx_id()) else {
-                continue;
-            };
-            match audio_source_from_sfx_clip(clip) {
-                Ok(source) => {
-                    let handle = audio_sources.add(source);
-                    self.sfx.insert(cue, handle);
-                    refreshed += 1;
-                }
-                Err(error) => {
-                    warn!("bank entry for {cue:?} failed to decode ({error})");
-                }
-            }
-        }
-        if refreshed > 0 {
-            info!("audio library: refreshed {refreshed} typed SFX cue handle(s) from bank");
-        }
-    }
-
     pub fn track(&self, id: &str) -> Option<&MusicTrackRuntime> {
         self.music_tracks.iter().find(|track| track.id == id)
     }

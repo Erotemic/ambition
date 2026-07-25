@@ -60,6 +60,14 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             )
                 .chain(),
         )
+        // The image census counts decoded textures, so it reads as a
+        // presentation concern and its resource is installed with the other
+        // presentation resources — but the SYSTEM is registered here, which a
+        // headless app also runs. That split panicked every headless test with
+        // "Resource does not exist". Initialising it beside its own system is
+        // what makes the pairing local; `init_resource` is a no-op when the
+        // presentation side has already inserted it.
+        .init_resource::<ambition::render::asset_census::ImageCensus>()
         // The steady-state counterparts of the one-shot reports above.
         // `Last` so the frame census measures the whole frame, render work
         // included, rather than the part of it that happens to precede

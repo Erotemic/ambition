@@ -367,6 +367,13 @@ pub(crate) fn spawn_pickup_into(
             ),
         ),
     );
+    // Carry the authored art id onto the entity so a pickup spawned at RUNTIME
+    // (with no room spec behind it) can still be drawn — see `PickupArt`.
+    if let Some(sprite) = authored.payload.sprite.clone() {
+        commands
+            .entity(root)
+            .insert(crate::features::ecs::pickups::PickupArt(sprite));
+    }
 }
 
 /// Spawn one authored ground item from an ALREADY-RESOLVED held-item spec.

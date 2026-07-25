@@ -356,16 +356,16 @@ pub fn rebuild_projectile_views(
 }
 
 /// One dynamically-introduced feature's spawn facts (E4 slice 9): encounter
-/// mobs, staged duel actors, post-boss NPCs, and reward chests appear after
-/// room load, so render discovers them from THIS list instead of declaring
-/// the marker/config queries itself.
+/// mobs, staged duel actors, post-boss NPCs, reward chests, and loot the running
+/// simulation minted appear after room load, so render discovers them from THIS
+/// list instead of declaring the marker/config queries itself.
 #[derive(Clone, Debug)]
 pub struct DynamicFeatureFact {
     pub id: String,
     /// Display label for the visual's debug `Name`.
     pub label: String,
     /// Family label ("Encounter mob" / "Staged actor" / "Post-boss NPC" /
-    /// "Reward chest") — presentation naming only.
+    /// "Reward chest" / "Dropped pickup") — presentation naming only.
     pub family: &'static str,
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
@@ -374,6 +374,10 @@ pub struct DynamicFeatureFact {
     /// The placeholder entity-sprite the spawn resolves to (from the actor's
     /// brain / the NPC's interactable / the chest payload).
     pub sprite_key: Option<ambition_sprite_sheet::game_assets::EntitySprite>,
+    /// An ANIMATED prop-sheet id to draw instead of the placeholder (a spinning
+    /// ring, a pulsing gem) — the same `GameAssets.characters.props` key the
+    /// room-load pass resolves for an authored pickup. `None` ⇒ the placeholder.
+    pub prop_sheet: Option<String>,
 }
 
 #[derive(Resource, Default, Clone, Debug)]
@@ -422,6 +426,25 @@ pub fn rebuild_dynamic_feature_views(
             With<ambition_actors::features::BossRewardChest>,
         )>,
     >,
+    // Loot the running simulation MINTED — Sanic's scattered rings, and every
+    // future drop. Selected by construction PROVENANCE (`SpawnOrigin::Dynamic`)
+    // rather than a per-game marker: "this pickup was not in the room spec" is
+    // exactly the condition under which the room-load visual pass could not have
+    // seen it, so it is exactly the set that needs discovering here. An authored
+    // pickup already has its visual and is filtered out below.
+    dropped_pickups: Query<
+        (
+            &ambition_actors::features::FeatureId,
+            &ambition_actors::features::FeatureName,
+            &ambition_actors::features::CenteredAabb,
+            &ambition_platformer_primitives::construction::SpawnOrigin,
+            Option<&ambition_actors::features::PickupArt>,
+        ),
+        (
+            With<ambition_actors::features::PickupFeature>,
+            Without<ambition_actors::features::Collected>,
+        ),
+    >,
 ) {
     use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
     use ambition_sprite_sheet::game_assets;
@@ -440,6 +463,7 @@ pub fn rebuild_dynamic_feature_views(
             visual_kind: FeatureVisualKind::Actor,
             fighting: true,
             sprite_key: game_assets::entity_sprite_for_enemy(&config.brain),
+            prop_sheet: None,
         });
     }
     for (id, aabb, disposition, config) in &staged_actors {
@@ -455,6 +479,7 @@ pub fn rebuild_dynamic_feature_views(
             visual_kind: FeatureVisualKind::Actor,
             fighting: true,
             sprite_key: game_assets::entity_sprite_for_enemy(&config.brain),
+            prop_sheet: None,
         });
     }
     for (id, name, aabb, disposition, config, interaction) in &post_boss_npcs {
@@ -481,6 +506,7 @@ pub fn rebuild_dynamic_feature_views(
             visual_kind: FeatureVisualKind::Actor,
             fighting,
             sprite_key,
+            prop_sheet: None,
         });
     }
     for (id, aabb, chest) in &ecs_reward_chests {
@@ -493,6 +519,28 @@ pub fn rebuild_dynamic_feature_views(
             visual_kind: FeatureVisualKind::Chest,
             fighting: false,
             sprite_key: game_assets::entity_sprite_for_runtime_chest(&chest.chest),
+            prop_sheet: None,
+        });
+    }
+    for (id, name, aabb, origin, art) in &dropped_pickups {
+        if !matches!(
+            origin,
+            ambition_platformer_primitives::construction::SpawnOrigin::Dynamic { .. }
+        ) {
+            continue;
+        }
+        view.0.push(DynamicFeatureFact {
+            id: id.as_str().to_string(),
+            label: name.0.clone(),
+            family: "Dropped pickup",
+            pos: aabb.center,
+            size: aabb.size(),
+            visual_kind: FeatureVisualKind::Pickup,
+            fighting: false,
+            // The static per-kind fallback, used only when the drop names no
+            // animated sheet or that sheet hasn't loaded.
+            sprite_key: Some(game_assets::EntitySprite::PickupCurrency),
+            prop_sheet: art.map(|art| art.0.clone()),
         });
     }
 }

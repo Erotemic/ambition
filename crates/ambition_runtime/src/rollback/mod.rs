@@ -814,6 +814,11 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "feature.pickup_collect_lock",
     )
+    // Which sheet a pickup is drawn with. Only a RUNTIME-spawned pickup carries
+    // it, and a runtime-spawned pickup is exactly the thing a rewind
+    // re-creates — dropping it would leave the resimulated loot invisible while
+    // the original was drawn, which is the bug this component exists to fix.
+    .rollback_component_clone::<ambition_actors::features::PickupArt>(ENGINE, "feature.pickup_art")
     .rollback_component_clone::<ambition_combat::components::SandboxSolidContributor>(
         ENGINE,
         "feature.sandbox_solid_contributor",

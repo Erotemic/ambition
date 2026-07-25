@@ -22,6 +22,20 @@ const PICKUP_MAGNET_SPEED: f32 = 340.0;
 #[derive(bevy::prelude::Component, Debug, Clone, Copy, Default)]
 pub struct PickupCollectLock;
 
+/// The animated sheet a pickup is DRAWN with, carried on the sim entity.
+///
+/// The authored `PickupSpec.sprite` id used to be read only at room-load, off
+/// the room spec, by the pass that spawns static visuals. That works right up
+/// until something spawns a pickup at RUNTIME — Sanic's scattered rings — at
+/// which point the spec is long gone and the pickup's art is unrecoverable: it
+/// simulates, magnetizes and credits perfectly while drawing nothing at all.
+///
+/// Putting the id on the ENTITY makes a pickup self-describing, so the
+/// dynamic-visual pass can bind the same spinning sheet the authored pass binds
+/// without needing the room spec that no longer applies.
+#[derive(bevy::prelude::Component, Debug, Clone)]
+pub struct PickupArt(pub String);
+
 /// Pull nearby uncollected pickups toward the player. Runs before
 /// [`collect_ecs_pickups`], which still does the actual overlap grant — a pickup
 /// pulled into overlap is collected the same frame.

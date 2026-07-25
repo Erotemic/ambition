@@ -299,8 +299,11 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             Update,
             (
                 // Spawn visual entities for encounter-spawned enemies
-                // BEFORE sync_visuals reads positions for them.
+                // BEFORE sync_visuals reads positions for them, and retire the
+                // ones whose sim feature is gone (an expired loot drop) so a
+                // room doesn't accumulate invisible sprites.
                 features::spawn_dynamic_feature_visuals,
+                features::despawn_dead_dynamic_feature_visuals,
                 // The reusable selected-character binder: install (and rebind) the
                 // worn character's sheet/animator/anchor from the canonical
                 // `WornCharacter` identity. Runs BEFORE the fallback so a

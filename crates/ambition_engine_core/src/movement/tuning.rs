@@ -386,8 +386,19 @@ pub enum AxisJumpLaw {
 /// gravity contribution only; external force-zone acceleration is unchanged.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PhasedGravityJumpTuning {
+    /// Ascending body-local side-speed cuts between the four launch bands. Band
+    /// `i` is selected by the first threshold the speed falls under; a speed at
+    /// or above the last threshold takes the top band. Authors are expected to
+    /// place the last cut BELOW `max_run_speed` when the top band is meant to be
+    /// reachable by running (see [`Self::top_band_speed`]).
     pub speed_thresholds: [f32; 3],
-    pub launch_speeds: [f32; 4],
+    /// Per-band launch OFFSETS applied to [`AxisLocomotion::jump_speed`].
+    ///
+    /// Deliberately offsets rather than absolute speeds: `jump_speed` stays THE
+    /// one ground-jump height knob for every law, so retuning it moves the whole
+    /// band family together and a character cannot end up with two disagreeing
+    /// launch authorities. `[0.0; 4]` is a flat arc that still latches bands.
+    pub launch_offsets: [f32; 4],
     pub held_rise_gravity_scale: f32,
     pub released_rise_gravity_scale: f32,
     pub fall_gravity_scale: f32,
@@ -398,7 +409,7 @@ impl Default for PhasedGravityJumpTuning {
     fn default() -> Self {
         Self {
             speed_thresholds: [f32::INFINITY; 3],
-            launch_speeds: [JUMP_SPEED; 4],
+            launch_offsets: [0.0; 4],
             held_rise_gravity_scale: 1.0,
             released_rise_gravity_scale: 1.0,
             fall_gravity_scale: 1.0,
@@ -417,20 +428,30 @@ impl PhasedGravityJumpTuning {
             .unwrap_or(3) as u8
     }
 
-    pub fn launch_speed_for_band(self, band: u8) -> f32 {
-        self.launch_speeds[usize::from(band.min(3))]
+    /// The launch speed for `band`, resolved against the body's base
+    /// `jump_speed`. Clamped at zero so a hostile offset cannot invert the jump.
+    pub fn launch_speed_for_band(self, base_speed: f32, band: u8) -> f32 {
+        (base_speed + self.launch_offsets[usize::from(band.min(3))]).max(0.0)
+    }
+
+    /// The lowest side speed that selects the TOP band. An authored profile
+    /// whose `max_run_speed` is below this reserves the top band for externally
+    /// supplied overspeed (a fling, a conveyor, knockback) rather than running.
+    /// Exposed so a character can assert which of the two it meant.
+    pub fn top_band_speed(self) -> f32 {
+        self.speed_thresholds[2]
     }
 }
 
 impl AxisJumpLaw {
-    /// Resolve a ground-jump launch. The optional band is latched by the
-    /// phased-gravity runtime state.
-    pub fn ground_launch(self, fallback_speed: f32, side_speed: f32) -> (f32, Option<u8>) {
+    /// Resolve a ground-jump launch from the body's base `jump_speed`. The
+    /// optional band is latched by the phased-gravity runtime state.
+    pub fn ground_launch(self, base_speed: f32, side_speed: f32) -> (f32, Option<u8>) {
         match self {
-            Self::VelocityCut => (fallback_speed, None),
+            Self::VelocityCut => (base_speed, None),
             Self::PhasedGravity(params) => {
                 let band = params.band_for_side_speed(side_speed);
-                (params.launch_speed_for_band(band), Some(band))
+                (params.launch_speed_for_band(base_speed, band), Some(band))
             }
         }
     }

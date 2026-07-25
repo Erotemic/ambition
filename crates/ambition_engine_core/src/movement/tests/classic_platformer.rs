@@ -15,8 +15,8 @@ fn classic_tuning() -> MovementTuning {
             air_coast_decel: 0.0,
         }),
         jump_law: AxisJumpLaw::PhasedGravity(PhasedGravityJumpTuning {
-            speed_thresholds: [120.0, 240.0, 360.0],
-            launch_speeds: [420.0, 435.0, 450.0, 480.0],
+            speed_thresholds: [120.0, 187.5, 210.0],
+            launch_offsets: [-30.0, -15.0, 0.0, 30.0],
             held_rise_gravity_scale: 0.2,
             released_rise_gravity_scale: 1.0,
             fall_gravity_scale: 1.0,
@@ -70,6 +70,17 @@ fn step_spine(
     frame: MotionFrame,
     on_ground: bool,
 ) {
+    step_spine_with_variable_jump(vel, phase, input, frame, on_ground, true);
+}
+
+fn step_spine_with_variable_jump(
+    vel: &mut Vec2,
+    phase: &mut PhasedJumpState,
+    input: InputState,
+    frame: MotionFrame,
+    on_ground: bool,
+    can_variable_jump: bool,
+) {
     let mut fast_falling = false;
     let mut gliding = false;
     let mut carried_run = 0.0;
@@ -79,11 +90,94 @@ fn step_spine(
         &mut gliding,
         &mut carried_run,
         phase,
-        NormalSpineCtx::bare(on_ground),
+        NormalSpineCtx {
+            can_variable_jump,
+            ..NormalSpineCtx::bare(on_ground)
+        },
         input,
         1.0 / 60.0,
         frame,
         classic_tuning().axis_swept_params(),
+    );
+}
+
+/// The phased-gravity law resolves its arc in the INTEGRATOR, not in
+/// `apply_jump_release`, so it has to re-apply the same `variable_jump`
+/// capability gate the velocity-cut law gets for free. Without this, selecting
+/// `PhasedGravity` silently hands out variable jump height to a body whose grant
+/// list never granted it — the law would be mis-composable for every character
+/// but the one it was written for.
+#[test]
+fn a_body_without_variable_jump_cannot_shorten_a_phased_arc() {
+    let frame = MotionFrame::from_direction(Vec2::Y, 2250.0);
+    let released = jump_edge(false, false, true);
+
+    // Same state, same released input; only the capability differs.
+    let mut with_capability = Vec2::new(0.0, -420.0);
+    let mut phase = PhasedJumpState::default();
+    phase.begin(0);
+    step_spine_with_variable_jump(
+        &mut with_capability,
+        &mut phase,
+        released,
+        frame,
+        false,
+        true,
+    );
+    assert!(
+        phase.hold_cancelled,
+        "a variable-jump body ends its weak-ascent phase on release"
+    );
+    assert!(
+        (with_capability.y - (-382.5)).abs() < 1.0e-4,
+        "and takes a full-gravity tick"
+    );
+
+    let mut without_capability = Vec2::new(0.0, -420.0);
+    let mut phase = PhasedJumpState::default();
+    phase.begin(0);
+    step_spine_with_variable_jump(
+        &mut without_capability,
+        &mut phase,
+        released,
+        frame,
+        false,
+        false,
+    );
+    assert!(
+        !phase.hold_cancelled,
+        "a body denied variable_jump commits to the whole arc; the button cannot end it"
+    );
+    assert!(
+        (without_capability.y - (-412.5)).abs() < 1.0e-4,
+        "it keeps the 20% held-ascent gravity until the apex threshold, \
+         not the 100% release gravity"
+    );
+}
+
+/// The apex threshold — never the button — is what ends a committed arc, so a
+/// fixed-height jump still lands instead of floating forever.
+#[test]
+fn a_committed_arc_still_ends_at_the_apex_threshold() {
+    let frame = MotionFrame::from_direction(Vec2::Y, 2250.0);
+    let mut vel = Vec2::new(0.0, -200.0); // already below held_phase_min_upward_speed
+    let mut phase = PhasedJumpState::default();
+    phase.begin(0);
+    step_spine_with_variable_jump(
+        &mut vel,
+        &mut phase,
+        jump_held_input(0.0),
+        frame,
+        false,
+        false,
+    );
+    assert!(
+        phase.hold_cancelled,
+        "below the apex threshold the weak phase ends even while held"
+    );
+    assert!(
+        (vel.y - (-162.5)).abs() < 1.0e-4,
+        "and full gravity brings it down"
     );
 }
 
@@ -92,15 +186,23 @@ fn classic_speed_bands_match_the_converted_reference_table() {
     let AxisJumpLaw::PhasedGravity(params) = classic_tuning().jump_law else {
         panic!("classic profile must use phased gravity");
     };
+    let base = classic_tuning().jump_speed;
     assert_eq!(params.band_for_side_speed(0.0), 0);
     assert_eq!(params.band_for_side_speed(119.999), 0);
     assert_eq!(params.band_for_side_speed(120.0), 1);
-    assert_eq!(params.band_for_side_speed(240.0), 2);
-    assert_eq!(params.band_for_side_speed(360.0), 3);
-    assert_eq!(params.launch_speed_for_band(0), 420.0);
-    assert_eq!(params.launch_speed_for_band(1), 435.0);
-    assert_eq!(params.launch_speed_for_band(2), 450.0);
-    assert_eq!(params.launch_speed_for_band(3), 480.0);
+    assert_eq!(params.band_for_side_speed(187.5), 2);
+    assert_eq!(params.band_for_side_speed(210.0), 3);
+    assert_eq!(params.launch_speed_for_band(base, 0), 420.0);
+    assert_eq!(params.launch_speed_for_band(base, 1), 435.0);
+    assert_eq!(params.launch_speed_for_band(base, 2), 450.0);
+    assert_eq!(params.launch_speed_for_band(base, 3), 480.0);
+    // The top band is reachable by RUNNING, not only by an external fling: a
+    // running jump is the highest jump, as in the classic games this converts.
+    assert!(params.top_band_speed() < classic_tuning().max_run_speed);
+    assert_eq!(
+        params.band_for_side_speed(classic_tuning().max_run_speed),
+        3
+    );
 }
 
 #[test]
@@ -109,7 +211,7 @@ fn ground_jump_selects_and_latches_the_local_speed_band() {
     let abilities = AbilitySet::compose(&[AbilityGrant::RunJump]);
     let mut scratch = BodyClusterScratch::new_with_abilities(world.spawn, abilities);
     scratch.ground.on_ground = true;
-    scratch.kinematics.vel.x = 250.0;
+    scratch.kinematics.vel.x = 187.5;
     let tuning = TestTuning::from(classic_tuning());
 
     update_player_with_tuning_scratch(

@@ -50,6 +50,13 @@ pub fn complete_blink_clusters(
     state.wall_clinging = false;
     state.wall_climbing = false;
     state.dash_timer = 0.0;
+    // A blink takes ownership of vertical motion: it teleports the body and
+    // rewrites its fall/rise speed above. Any phased-gravity arc in flight is
+    // over — leaving it armed lets the pre-blink weak-ascent phase resume once
+    // the grace window ends, from state the blink already invalidated. Every
+    // other maneuver that seizes vertical motion (dash, dodge, fly, rebound,
+    // wall jump, ground/ceiling contact) clears it too.
+    state.phased_jump.clear();
     state.blink_grace_timer = tuning.abilities.blink_grace_time;
 
     blink.cooldown = tuning.abilities.blink_cooldown;

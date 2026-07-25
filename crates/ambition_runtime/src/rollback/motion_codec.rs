@@ -451,8 +451,8 @@ fn put_axis_jump_law(out: &mut Vec<u8>, law: ambition_engine_core::AxisJumpLaw) 
             for threshold in params.speed_thresholds {
                 put_f32(out, threshold);
             }
-            for speed in params.launch_speeds {
-                put_f32(out, speed);
+            for offset in params.launch_offsets {
+                put_f32(out, offset);
             }
             put_f32(out, params.held_rise_gravity_scale);
             put_f32(out, params.released_rise_gravity_scale);
@@ -468,7 +468,7 @@ fn axis_jump_law(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisJumpLaw
         0 => AxisJumpLaw::VelocityCut,
         1 => AxisJumpLaw::PhasedGravity(PhasedGravityJumpTuning {
             speed_thresholds: [r.f32()?, r.f32()?, r.f32()?],
-            launch_speeds: [r.f32()?, r.f32()?, r.f32()?, r.f32()?],
+            launch_offsets: [r.f32()?, r.f32()?, r.f32()?, r.f32()?],
             held_rise_gravity_scale: r.f32()?,
             released_rise_gravity_scale: r.f32()?,
             fall_gravity_scale: r.f32()?,
@@ -497,8 +497,8 @@ mod tests {
             air_coast_decel: 0.0,
         });
         params.locomotion.jump_law = AxisJumpLaw::PhasedGravity(PhasedGravityJumpTuning {
-            speed_thresholds: [120.0, 240.0, 360.0],
-            launch_speeds: [420.0, 435.0, 450.0, 480.0],
+            speed_thresholds: [120.0, 187.5, 210.0],
+            launch_offsets: [-30.0, -15.0, 0.0, 30.0],
             held_rise_gravity_scale: 0.2,
             released_rise_gravity_scale: 1.0,
             fall_gravity_scale: 1.0,

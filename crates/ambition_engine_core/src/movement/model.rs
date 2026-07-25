@@ -263,6 +263,18 @@ impl MotionModel {
     pub fn apply_spec(&mut self, spec: MotionModelSpec) {
         match (self, spec) {
             (Self::AxisSwept(current), MotionModelSpec::AxisSwept(params)) => {
+                // A same-variant refresh preserves private maneuver state — that
+                // is the whole point of the in-place path (a live tuning edit
+                // must not restart the arc the body is mid-way through). But the
+                // JUMP LAW is what gives `phased_jump` its meaning: swapping the
+                // law re-interprets, rather than re-tunes, the arc. Drop the arc
+                // when the law's variant changes so a dormant phased arc cannot
+                // survive a trip through `VelocityCut` and re-arm later.
+                if std::mem::discriminant(&current.params.locomotion.jump_law)
+                    != std::mem::discriminant(&params.locomotion.jump_law)
+                {
+                    current.state.phased_jump.clear();
+                }
                 current.params = params;
             }
             (Self::SurfaceMomentum(current), MotionModelSpec::SurfaceMomentum(params)) => {

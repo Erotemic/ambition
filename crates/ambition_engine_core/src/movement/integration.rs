@@ -331,6 +331,7 @@ pub(super) fn integrate_normal_clusters(
             can_fast_fall: abilities.abilities.fast_fall,
             can_glide: abilities.abilities.glide,
             can_move_horizontal: abilities.abilities.move_horizontal,
+            can_variable_jump: abilities.abilities.variable_jump,
         },
         input,
         dt,
@@ -354,6 +355,12 @@ pub struct NormalSpineCtx {
     pub can_fast_fall: bool,
     pub can_glide: bool,
     pub can_move_horizontal: bool,
+    /// `AbilitySet::variable_jump` — whether an early button release may shorten
+    /// this body's jump arc. The `VelocityCut` law reads the same capability in
+    /// `apply_jump_release`; `PhasedGravity` resolves its arc HERE, so without
+    /// this the integrator would grant variable height to a body whose ability
+    /// set denies it.
+    pub can_variable_jump: bool,
 }
 
 impl NormalSpineCtx {
@@ -367,6 +374,7 @@ impl NormalSpineCtx {
             can_fast_fall: false,
             can_glide: false,
             can_move_horizontal: true,
+            can_variable_jump: false,
         }
     }
 }
@@ -402,10 +410,15 @@ pub fn integrate_normal_spine(
             AxisJumpLaw::PhasedGravity(params) => {
                 if phased_jump.active && down_speed < 0.0 {
                     let upward_speed = -down_speed;
-                    if !phased_jump.hold_cancelled
-                        && input.jump_held()
-                        && upward_speed > params.held_phase_min_upward_speed
-                    {
+                    // A body whose ability set denies `variable_jump` commits to
+                    // the whole arc: only the apex threshold ends the weak-ascent
+                    // phase, never the button. This is the same capability gate
+                    // `apply_jump_release` applies to the `VelocityCut` law —
+                    // without it, selecting `PhasedGravity` would silently hand
+                    // out variable jump height the grant list never granted.
+                    let sustaining = !ctx.can_variable_jump
+                        || (!phased_jump.hold_cancelled && input.jump_held());
+                    if sustaining && upward_speed > params.held_phase_min_upward_speed {
                         params.held_rise_gravity_scale
                     } else {
                         // The weak-ascent phase is one-way. Once the button is
@@ -480,12 +493,20 @@ pub fn integrate_normal_spine(
             AxisHorizontalLaw::Momentum(params) => {
                 let has_input = run.abs() > 0.1;
                 if !has_input {
-                    let decel = if ctx.on_ground {
-                        params.ground_coast_decel
+                    // Hands-off coasting decays toward the CARRIED floor, not to
+                    // zero — the same portal-fling / knockback doctrine the
+                    // responsive law's stop assist honors. A momentum profile
+                    // that coasts (`air_coast_decel > 0`) must still not bleed
+                    // away speed the WORLD imparted; `carried_run` is 0 for
+                    // ordinary locomotion, so this is identity for a body that
+                    // was never flung. Mary-O coasts at 0 in air, which makes it
+                    // identity for her either way.
+                    let (decel, floor) = if ctx.on_ground {
+                        (params.ground_coast_decel, 0.0)
                     } else {
-                        params.air_coast_decel
+                        (params.air_coast_decel, *carried_run)
                     };
-                    approach(along, 0.0, decel * dt)
+                    approach(along, floor, decel * dt)
                 } else {
                     let target = run * tuning.locomotion.max_run_speed;
                     let opposing = along.abs() > 1.0e-4 && along.signum() != run.signum();

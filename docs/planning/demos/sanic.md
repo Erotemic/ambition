@@ -35,6 +35,30 @@ these but this list had drifted):
 Remaining acceptance work is product/content work
 (**this list is the single source; status.md and tracks.md refer here**):
 
+- ✅ **The scatter is a real scatter, and you can SEE it — 2026-07-25.**
+  Jon: *"the rings from sanic are not visible when he gets hit"*, and the spray
+  should be radial, untouchable for a moment, then bounce and be recollectable
+  for a brief window before disappearing. Three separate gaps, all now closed:
+  1. **Invisible.** A runtime-spawned pickup had no presentation at all.
+     `spawn_room_visuals` draws pickups from the ROOM SPEC at load, and
+     `rebuild_dynamic_feature_views` covered only four families (encounter mobs,
+     staged actors, post-boss NPCs, reward chests) — so a ring that the sim
+     minted simulated, magnetised and credited perfectly while drawing nothing.
+     There is now a **dropped-pickup family** selected by construction
+     provenance (`SpawnOrigin::Dynamic`), and the pickup's art id rides the
+     entity (`PickupArt`) so the drop binds the same spinning `sanic_ring_prop`
+     sheet an authored ring does. Dynamic visuals are also now RETIRED when
+     their feature goes, instead of accumulating one hidden sprite per drop.
+  2. **Not radial, and far too small.** The burst was an upward fan at
+     250 px/s. It is now an even full-circle spray in shells of six at 520 px/s
+     (the classic four-pixels-per-frame, converted to this tile scale), pinned
+     by a test that requires a ring in every quadrant and near-zero net
+     direction — which no fan can satisfy however wide.
+  3. **No bounce, and no end.** Rings fell through the level forever and never
+     expired. They now sweep against room geometry and rebound (0.55), shed
+     speed in the air so the outermost pair cannot leave the screen, and vanish
+     after 4.2s. The untouchable window is 0.6s, so a hit always costs
+     something and recovery is a scramble rather than a same-frame refund.
 - ✅ **Ring drop-on-hit scatter — LANDED 2026-07-21.** Rings are a life, not a
   score: a hit taken holding rings is survived and costs the rings, which
   are placed in a static fan above the body as REAL `currency` pickups you can

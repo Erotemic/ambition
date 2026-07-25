@@ -1329,42 +1329,155 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     assert_eq!(bursts.len(), 6, "all six lost rings burst outward");
     for r in &bursts {
         assert!(
-            r.vel.length() > 100.0,
-            "each ring has a real outward launch speed, got {}",
+            r.vel.length() >= crate::SCATTER_BURST_SPEED - 0.01,
+            "the outer shell launches at the full burst speed, got {}",
             r.vel.length()
         );
-        assert_eq!(r.arc_pos, body, "each ring is born at the body");
+        assert_eq!(r.life, crate::SCATTER_LIFE_S, "each ring starts its clock");
     }
+
+    // RADIAL, not a fan. Every quadrant gets a ring, and the velocities sum to
+    // (nearly) nothing — which is what "even spray in all directions" means and
+    // what an upward fan can never satisfy, however wide you make it.
+    for (name, right, down) in [
+        ("up-right", true, false),
+        ("down-right", true, true),
+        ("up-left", false, false),
+        ("down-left", false, true),
+    ] {
+        assert!(
+            bursts
+                .iter()
+                .any(|r| (r.vel.x > 0.0) == right && (r.vel.y > 0.0) == down),
+            "the burst must throw a ring {name}; got {:?}",
+            bursts.iter().map(|r| r.vel).collect::<Vec<_>>()
+        );
+    }
+    let net: ae::Vec2 = bursts.iter().fold(ae::Vec2::ZERO, |acc, r| acc + r.vel);
     assert!(
-        bursts.iter().any(|r| r.vel.x > 0.0) && bursts.iter().any(|r| r.vel.x < 0.0),
-        "the burst sprays symmetrically to BOTH sides, not one direction"
+        net.length() < crate::SCATTER_BURST_SPEED * 0.1,
+        "an even radial spray has (almost) no net direction; got {net:?}"
     );
 
     // Arc them: they move AWAY from the body (the whole point of "explode
     // outward"), then after the lock they hand off to the ordinary economy.
     app.add_systems(bevy::prelude::Update, crate::arc_scattered_rings);
     app.update();
-    let max_dist = {
-        let mut q = app.world_mut().query::<&crate::ScatteredRing>();
-        q.iter(app.world())
-            .map(|r| (r.arc_pos - body).length())
-            .fold(0.0_f32, f32::max)
-    };
+    let max_dist = ring_spread(&mut app, body);
     assert!(
         max_dist > 0.0,
         "the rings travel outward from the body under the arc"
     );
 
-    for _ in 0..12 {
+    // The lock ends but the ring does NOT: it keeps arcing, now collectible.
+    for _ in 0..8 {
+        app.update();
+    }
+    let mid_life = {
+        let mut q = app.world_mut().query::<&crate::ScatteredRing>();
+        q.iter(app.world()).count()
+    };
+    assert_eq!(
+        mid_life, 6,
+        "past the untouchable window a ring is still a ring — collectible, not gone"
+    );
+
+    // …and then it expires. A scatter you can come back to forever is not a cost.
+    for _ in 0..40 {
         app.update();
     }
     let remaining = {
         let mut q = app.world_mut().query::<&crate::ScatteredRing>();
         q.iter(app.world()).count()
     };
+    assert_eq!(remaining, 0, "every uncollected ring eventually disappears");
+    let pickups = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<(), bevy::prelude::With<ambition::actors::features::PickupFeature>>();
+        q.iter(app.world()).count()
+    };
     assert_eq!(
-        remaining, 0,
-        "once the airborne lock ends every ring is an ordinary collectible pickup"
+        pickups, 0,
+        "an expired ring leaves no orphan pickup behind to be collected later"
+    );
+}
+
+/// Max distance any live scattered ring has travelled from `origin`.
+fn ring_spread(app: &mut App, origin: ae::Vec2) -> f32 {
+    let mut q = app
+        .world_mut()
+        .query_filtered::<&ae::CenteredAabb, bevy::prelude::With<crate::ScatteredRing>>();
+    q.iter(app.world())
+        .map(|a| (a.center - origin).length())
+        .fold(0.0_f32, f32::max)
+}
+
+/// Jon's report: the rings were not visible, and they did not behave like the
+/// classic scatter. This pins the BEHAVIOUR half — a ring bounces off the floor
+/// instead of falling through the level — against real room geometry.
+#[test]
+fn a_scattered_ring_bounces_off_the_floor_it_lands_on() {
+    let floor_y = 260.0;
+    let world = ae::World::new(
+        "ring-bounce",
+        ae::Vec2::new(800.0, 600.0),
+        ae::Vec2::new(64.0, 64.0),
+        vec![ae::Block::solid(
+            "floor",
+            ae::Vec2::new(0.0, floor_y),
+            ae::Vec2::new(800.0, 40.0),
+        )],
+    );
+
+    let mut app = App::new();
+    app.insert_resource(ambition::time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    let mut scope = ambition::platformer::lifecycle::ActiveSessionScope::default();
+    let session = scope.begin();
+    app.insert_resource(scope);
+    app.world_mut().spawn((
+        ambition::platformer::lifecycle::SessionRoot(session),
+        ae::RoomGeometry(world),
+    ));
+    let ring = app
+        .world_mut()
+        .spawn((
+            crate::ScatteredRing {
+                // Straight down, fast, from just above the floor.
+                vel: ae::Vec2::new(0.0, 400.0),
+                lock: crate::SCATTER_LOCK_S,
+                life: crate::SCATTER_LIFE_S,
+            },
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(400.0, floor_y - 40.0),
+                ae::Vec2::splat(18.0),
+            ),
+        ))
+        .id();
+    app.add_systems(bevy::prelude::Update, crate::arc_scattered_rings);
+
+    let mut rebounded = false;
+    let mut deepest = f32::MIN;
+    for _ in 0..30 {
+        app.update();
+        let Some(aabb) = app.world().get::<ae::CenteredAabb>(ring).copied() else {
+            break;
+        };
+        deepest = deepest.max(aabb.center.y + aabb.half_size.y);
+        if app.world().get::<crate::ScatteredRing>(ring).unwrap().vel.y < 0.0 {
+            rebounded = true;
+        }
+    }
+    assert!(
+        rebounded,
+        "the ring must come back UP off the floor — a ring that only falls is          the bug (it sinks through the level and is never recoverable)"
+    );
+    assert!(
+        deepest <= floor_y + 1.0,
+        "the ring never penetrates the floor; deepest edge {deepest} vs floor {floor_y}"
     );
 }
 
@@ -1386,12 +1499,28 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     app.add_message::<ambition::actors::features::SetFlagRequested>();
     app.insert_resource(ambition::actors::features::GameplayBanner::default());
     let mut scope = ActiveSessionScope::default();
-    scope.begin();
+    let session = scope.begin();
     app.insert_resource(scope);
     app.insert_resource(ambition::time::WorldTime {
         scaled_dt: 0.1,
         ..Default::default()
     });
+    // A floor to land on. Without it the rings fall forever and "run back and
+    // grab them" is not a thing you can do — which is the shape of the bug this
+    // whole test is about.
+    app.world_mut().spawn((
+        ambition::platformer::lifecycle::SessionRoot(session),
+        ae::RoomGeometry(ae::World::new(
+            "ring-chain",
+            ae::Vec2::new(800.0, 600.0),
+            ae::Vec2::new(200.0, 200.0),
+            vec![ae::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 260.0),
+                ae::Vec2::new(800.0, 40.0),
+            )],
+        )),
+    ));
     // The REAL production order: magnet, then the burst arc, then collect.
     app.add_systems(
         bevy::prelude::Update,
@@ -1446,12 +1575,7 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
         app.update();
     }
     assert_eq!(wallet(&app), 0, "still uncollected while locked");
-    let max_dist = {
-        let mut q = app.world_mut().query::<&crate::ScatteredRing>();
-        q.iter(app.world())
-            .map(|r| (r.arc_pos - body).length())
-            .fold(0.0_f32, f32::max)
-    };
+    let max_dist = ring_spread(&mut app, body);
     assert!(
         max_dist > 20.0,
         "the rings separated from the body, got {max_dist}"

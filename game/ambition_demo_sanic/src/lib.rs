@@ -1367,35 +1367,74 @@ mod tests;
 const SCATTERED_RINGS_MAX: usize = 12;
 
 /// Outward launch speed (px/s) a scattered ring bursts from the body with.
-const SCATTER_BURST_SPEED: f32 = 250.0;
+///
+/// The classic burst throws rings roughly four 16px pixels per frame; this world
+/// runs at twice that tile scale, so the faithful conversion is ~480 px/s and
+/// this sits just above it. It wants to read as an EXPLOSION you have to chase,
+/// not a spill at your feet.
+const SCATTER_BURST_SPEED: f32 = 520.0;
+
+/// How many rings make up one shell of the burst. Past this, the next shell
+/// launches slower, so a big purse bursts as an outer ring plus an inner one
+/// instead of one over-dense circle.
+const SCATTER_RINGS_PER_SHELL: usize = 6;
+
+/// Speed multiplier for each shell inside the first — the classic halving,
+/// softened slightly so the inner shell still clears the body.
+const SCATTER_INNER_SHELL_SCALE: f32 = 0.55;
 
 /// Downward pull (px/s²) that arcs a scattered ring back down, screen-relative
 /// (the demo runs under normal screen gravity).
-const SCATTER_GRAVITY: f32 = 900.0;
+///
+/// Paired with the launch speed, this is what SIZES the scatter: it pulls the
+/// spray into an arc about three tiles high and a dozen wide — big enough to
+/// read as an explosion and to make recovery a run, small enough that the rings
+/// stay on the same screen you lost them on.
+const SCATTER_GRAVITY: f32 = 1400.0;
 
-/// How long (s) a scattered ring is airborne-and-uncollectible by the magnet:
-/// during this window `arc_scattered_rings` OWNS its position (bursting outward),
-/// so the coin magnet cannot vacuum it straight back the instant it drops. After
-/// it, the ring is an ordinary currency pickup the shared economy collects —
-/// that hand-off is what makes "run back and grab them" a real scramble rather
-/// than a same-frame refund. Just short of a second, the classic feel.
-const SCATTER_LOCK_S: f32 = 0.85;
+/// Fraction of speed a loose ring sheds per second in the air.
+///
+/// Without it a ring launched horizontally never slows until it happens to clip
+/// the floor, so the outermost pair of a burst simply leaves the level. Drag is
+/// what BOUNDS the scatter: the rings still fly, but they land somewhere you
+/// can get to.
+const SCATTER_AIR_DRAG: f32 = 0.9;
 
-/// A ring in mid-BURST after a hit (classic Sonic scatter): it flies out from the
-/// body and arcs down under gravity, and while its `lock` is live it is NOT yet
-/// magnet-collectible. Rollback-registered sim state — the burst has to
-/// resimulate identically, so its velocity/position/lock ride the snapshot the
-/// same way `BallDash` does. `arc_scattered_rings` integrates it; when the lock
-/// expires the component is removed and the ring becomes an ordinary pickup.
+/// Fraction of speed a scattered ring keeps when it bounces off geometry.
+///
+/// Well under 1, so a ring settles into a short chatter near where it landed
+/// instead of pinballing across the level — the classic read is "they hit the
+/// floor and dance", not "they escape".
+const SCATTER_RESTITUTION: f32 = 0.55;
+
+/// How long (s) a scattered ring is untouchable. The ring is already bursting
+/// and bouncing during this window; what it cannot do is be collected, so the
+/// hit costs you something even for the instant you are standing in the spray.
+/// Without it a hit would refund itself on the same frame it landed.
+const SCATTER_LOCK_S: f32 = 0.6;
+
+/// How long (s) a scattered ring exists at all. Past this it is gone, which is
+/// what makes recovery a SCRAMBLE: the window is short enough that a big spray
+/// is never fully recoverable, so a hit always costs something.
+const SCATTER_LIFE_S: f32 = 4.2;
+
+/// A ring the player LOST, mid-scatter (classic Sonic): it bursts from the body,
+/// arcs down under gravity, bounces off whatever it lands on, spends a moment
+/// untouchable, is collectible for the rest of its short life, and then is gone.
+///
+/// Rollback-registered sim state — the whole scatter has to resimulate
+/// identically, so its velocity and both clocks ride the snapshot the same way
+/// `BallDash` does. Position is NOT duplicated here: the ring's `CenteredAabb`
+/// is the one position authority, so a magnet nudge and this system's arc
+/// compose instead of one silently overwriting the other.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug)]
 pub struct ScatteredRing {
-    /// Current burst velocity (screen frame, px/s).
+    /// Current scatter velocity (screen frame, px/s).
     pub vel: ae::Vec2,
-    /// The position this system OWNS while locked — integrated here so it wins
-    /// over the coin magnet, which also writes the pickup's `CenteredAabb`.
-    pub arc_pos: ae::Vec2,
-    /// Seconds left in the airborne/uncollectible window.
+    /// Seconds left before the ring can be collected.
     pub lock: f32,
+    /// Seconds left before the ring vanishes.
+    pub life: f32,
 }
 
 /// Keep the generic wallet-backed shield aligned with the worn Sanic persona.
@@ -1506,16 +1545,18 @@ pub fn scatter_rings_on_hit(
         if scattered == 0 {
             continue;
         }
+        // Rings leave in evenly-spaced SHELLS around the full circle. The
+        // half-slot offset keeps the spray symmetric about both axes and stops
+        // any ring launching straight down into the floor it is standing on.
+        let shell_size = SCATTER_RINGS_PER_SHELL.min(scattered);
         for i in 0..scattered {
-            // Classic Sonic: the rings BURST from the body and arc outward under
-            // gravity, rather than appearing in a static fan.
-            let t = (i as f32 + 0.5) / scattered as f32;
-            let angle = std::f32::consts::PI * (0.18 + 0.64 * t);
-            let dir = if i % 2 == 0 { 1.0 } else { -1.0 };
-            let vel = ae::Vec2::new(
-                angle.cos() * SCATTER_BURST_SPEED * dir,
-                -angle.sin() * SCATTER_BURST_SPEED,
-            );
+            // Classic Sonic: the rings BURST from the body in every direction and
+            // arc under gravity — an explosion you chase, not a fan you catch.
+            let shell = i / shell_size;
+            let t = ((i % shell_size) as f32 + 0.5) / shell_size as f32;
+            let angle = std::f32::consts::TAU * t;
+            let speed = SCATTER_BURST_SPEED * SCATTER_INNER_SHELL_SCALE.powi(shell as i32);
+            let vel = ae::Vec2::new(angle.cos(), angle.sin()) * speed;
             let size = ae::Vec2::splat(18.0);
             let seq = counter.next();
             let ring_id = ambition::platformer::sim_id::SimId::spawned(player_id, seq);
@@ -1547,8 +1588,8 @@ pub fn scatter_rings_on_hit(
                 },
                 ScatteredRing {
                     vel,
-                    arc_pos: event.pos,
                     lock: SCATTER_LOCK_S,
+                    life: SCATTER_LIFE_S,
                 },
                 ambition::actors::features::PickupCollectLock,
             ));
@@ -1556,8 +1597,10 @@ pub fn scatter_rings_on_hit(
 
         vfx.write(ambition::vfx::VfxMessage::Burst {
             pos: event.pos,
-            count: 18,
-            speed: 210.0,
+            count: 24,
+            // Matched to the rings' own launch speed, so the sparkle reads as the
+            // same event and not a separate, smaller puff at the centre.
+            speed: SCATTER_BURST_SPEED,
             color: [1.0, 0.86, 0.28, 1.0],
             kind: ambition::vfx::ParticleKind::Dust,
         });
@@ -1568,19 +1611,30 @@ pub fn scatter_rings_on_hit(
     }
 }
 
-/// Fly the mid-burst scattered rings outward and arc them down (classic Sonic).
+/// **The whole life of a lost ring**: burst outward, arc down, bounce off what
+/// it lands on, become collectible, and expire.
 ///
-/// Ordered `.after(magnetize_pickups).before(collect_ecs_pickups)`: it OWNS the
-/// ring's `CenteredAabb` during the lock, so the coin magnet — which wrote the
-/// same AABB a step earlier — cannot reel the ring straight back, and `collect`
-/// then sees the ring out at its arced position (well away from the knocked-back
-/// body) instead of on top of the player. When the lock expires the component is
-/// dropped and the ring is an ordinary currency pickup again, collectible on the
-/// shared path. Deterministic (all state is the rollback-registered
-/// `ScatteredRing` plus the scaled sim dt), so it resimulates identically.
+/// Ordered `.after(magnetize_pickups).before(collect_ecs_pickups)`, so a ring is
+/// already at this frame's position when the collector tests it, rather than
+/// being credited at the spot it occupied on top of the knocked-back body. It
+/// ADDS to the ring's `CenteredAabb` rather than owning it, so once the ring is
+/// collectible the magnet's pull and this arc compose — the ring drifts toward a
+/// nearby player while still falling, which is what makes a late grab feel
+/// generous instead of impossible.
+///
+/// Deterministic: all state is the rollback-registered `ScatteredRing`, the
+/// ring's own AABB, the scaled sim dt, and the room's static geometry — so it
+/// resimulates identically.
 pub fn arc_scattered_rings(
     mut commands: bevy::prelude::Commands,
     time: bevy::prelude::Res<ambition::time::WorldTime>,
+    // Optional on purpose: `SessionWorldRef` is a `Single`, and a Single that
+    // matches nothing SKIPS the system entirely — which would freeze every ring
+    // in mid-air, forever, in any session without room geometry. Absent geometry
+    // means "nothing to bounce off", not "stop simulating".
+    world: Option<
+        ambition::platformer::lifecycle::SessionWorldRef<ambition::engine_core::RoomGeometry>,
+    >,
     mut rings: bevy::prelude::Query<(
         bevy::prelude::Entity,
         &mut ScatteredRing,
@@ -1588,26 +1642,74 @@ pub fn arc_scattered_rings(
     )>,
 ) {
     let dt = time.scaled_dt;
+    let solids = world.as_deref().map(|geometry| &geometry.0);
     for (entity, mut ring, mut aabb) in &mut rings {
-        // Advance the burst FIRST, then publish it — so a ring is already
-        // displaced on its very first live tick and never lingers on top of the
-        // player. Collection can't happen during the burst anyway: the ring
-        // carries `PickupCollectLock`, which both the magnet and the collector
-        // skip.
-        let vel = ring.vel;
-        ring.arc_pos += vel * dt;
-        ring.vel.y += SCATTER_GRAVITY * dt;
-        aabb.center = ring.arc_pos;
-        ring.lock -= dt;
-        if ring.lock <= 0.0 {
-            // The burst has settled: drop BOTH the arc AND the collection lock,
-            // so the ring becomes an ordinary collectible pickup at where it
-            // landed.
-            commands
-                .entity(entity)
-                .remove::<ScatteredRing>()
-                .remove::<ambition::actors::features::PickupCollectLock>();
+        ring.life -= dt;
+        if ring.life <= 0.0 {
+            // Time's up. Despawning (rather than marking `Collected`) is right:
+            // nobody took this ring, so there is nothing to credit and no state
+            // worth keeping — the ring simply stopped existing.
+            commands.entity(entity).despawn();
+            continue;
         }
+        ring.vel.y += SCATTER_GRAVITY * dt;
+        ring.vel *= (1.0 - SCATTER_AIR_DRAG * dt).max(0.0);
+        let (moved, bounced) = ring_step(solids, aabb.aabb(), ring.vel * dt);
+        aabb.center += moved;
+        if let Some(normal) = bounced {
+            // Reflect and damp. The classic read is a ring that chatters where
+            // it fell, so it keeps a little over half its speed each contact and
+            // settles quickly.
+            ring.vel = (ring.vel - normal * (2.0 * ring.vel.dot(normal))) * SCATTER_RESTITUTION;
+        }
+        if ring.lock > 0.0 {
+            ring.lock -= dt;
+            if ring.lock <= 0.0 {
+                // Untouchable moment over: it is an ordinary currency pickup for
+                // the rest of its life, on the shared collection path.
+                commands
+                    .entity(entity)
+                    .remove::<ambition::actors::features::PickupCollectLock>();
+            }
+        }
+    }
+}
+
+/// Move a ring by `delta` against the room's solid geometry, stopping at the
+/// first surface it meets.
+///
+/// Returns the displacement actually taken and the contact normal, if any. One
+/// contact per tick: a ring that clips a corner keeps the remainder of its step
+/// rather than resolving a chain, which is invisible at these speeds and keeps
+/// the step a fixed amount of work.
+fn ring_step(
+    world: Option<&ae::World>,
+    ring: ae::Aabb,
+    delta: ae::Vec2,
+) -> (ae::Vec2, Option<ae::Vec2>) {
+    use ambition::engine_core::cast::SolidWorldQuery;
+    let (Some(world), true) = (world, delta != ae::Vec2::ZERO) else {
+        return (delta, None);
+    };
+    let mut nearest: Option<ambition::engine_core::geometry::AabbSweepHit> = None;
+    // One-way platforms count only while the ring is FALLING — the same rule a
+    // body gets. A ring should land on the platform you are standing on (that is
+    // the point of a scatter you can run back through), but a ring thrown upward
+    // must pass through its underside rather than bonk off it.
+    let falling = delta.y > 0.0;
+    world.for_each_solid_aabb(falling, &mut |solid| {
+        if let Some(hit) = ae::AabbExt::sweep_hit(ring, delta, solid) {
+            if nearest.is_none_or(|best| hit.time_of_impact < best.time_of_impact) {
+                nearest = Some(hit);
+            }
+        }
+    });
+    match nearest {
+        Some(hit) => (
+            delta * hit.time_of_impact.clamp(0.0, 1.0),
+            Some(hit.normal1),
+        ),
+        None => (delta, None),
     }
 }
 

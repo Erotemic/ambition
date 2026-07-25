@@ -77,6 +77,13 @@ impl CharacterSheetSpec {
         self.record.page_count()
     }
 
+    /// The pages this sheet's frames actually draw from — a sparse subset of
+    /// `0..page_count()` for a target inside a shared pack. Loaders want this,
+    /// not the count: see [`SheetRecord::used_pages`].
+    pub fn used_pages(&self) -> std::collections::BTreeSet<u32> {
+        self.record.used_pages()
+    }
+
     /// Which page image `(anim, frame)` draws from (per-frame: a freely-packed
     /// sheet can scatter one animation across pages).
     pub fn page_of(&self, anim: CharacterAnim, frame: usize) -> u32 {

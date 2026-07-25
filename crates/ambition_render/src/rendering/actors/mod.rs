@@ -207,7 +207,13 @@ pub fn sync_visuals(
         Without<PlayerVisual>,
     >,
     mut warned_unsized_player: Local<bool>,
-    mut last_player_render_size: Local<Option<BVec2>>,
+    // Option<Option<_>>, and the nesting is the point: the OUTER None means
+    // "never observed", which is not the same fact as an observed
+    // `custom_size: None`. Collapsing them made the first observation of a
+    // perfectly correct sprite report a NONE -> 75x75 transition that never
+    // happened -- the player entity does not exist until its room loads, so
+    // the first observation is not a change.
+    mut last_player_render_size: Local<Option<Option<BVec2>>>,
 ) {
     let player = (primary_player.iter().count() == 1)
         .then(|| primary_player.iter().next())
@@ -298,24 +304,38 @@ pub fn sync_visuals(
             // (pose/stance scaling) and a rebind can leave the size identical.
             // `None` is its own event — it means nothing assigned a size and
             // the quad falls back to the atlas frame's native pixel size.
-            // Sub-pixel drift is stance scaling doing its job, not a resize
-            // worth a line; crouching would otherwise emit one per frame.
-            let size_changed = match (*last_player_render_size, sprite.custom_size) {
-                (Some(previous), Some(current)) => previous.distance(current) > 0.5,
-                (previous, current) => previous.is_some() != current.is_some(),
+            let describe = |size: Option<BVec2>| match size {
+                Some(size) => format!("{:.0}x{:.0}", size.x, size.y),
+                None => "NONE (draws at native frame size)".to_string(),
             };
-            if size_changed {
-                let previous = *last_player_render_size;
-                *last_player_render_size = sprite.custom_size;
-                let describe = |size: Option<BVec2>| match size {
-                    Some(size) => format!("{:.0}x{:.0}", size.x, size.y),
-                    None => "NONE (draws at native frame size)".to_string(),
-                };
-                eprintln!(
-                    "[sprite-size] player render size {} -> {}",
-                    describe(previous),
-                    describe(sprite.custom_size),
-                );
+            match *last_player_render_size {
+                // First sighting of this player. Report the state, not a
+                // transition, and say which it is -- an opening NONE is a
+                // genuine finding, an opening 75x75 is a healthy sprite.
+                None => {
+                    *last_player_render_size = Some(sprite.custom_size);
+                    eprintln!(
+                        "[sprite-size] player first observed at {}",
+                        describe(sprite.custom_size)
+                    );
+                }
+                Some(previous) => {
+                    // Sub-pixel drift is stance scaling doing its job, not a
+                    // resize worth a line; crouching would otherwise emit one
+                    // per frame.
+                    let changed = match (previous, sprite.custom_size) {
+                        (Some(before), Some(after)) => before.distance(after) > 0.5,
+                        (before, after) => before.is_some() != after.is_some(),
+                    };
+                    if changed {
+                        *last_player_render_size = Some(sprite.custom_size);
+                        eprintln!(
+                            "[sprite-size] player render size {} -> {}",
+                            describe(previous),
+                            describe(sprite.custom_size),
+                        );
+                    }
+                }
             }
         }
     }

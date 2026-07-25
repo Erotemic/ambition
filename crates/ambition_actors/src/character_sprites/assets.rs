@@ -524,8 +524,24 @@ fn load_sprite_pages(
         .map(|(dir, _)| dir)
         .unwrap_or("");
     let page_count = spec.page_count().max(1);
+    // `pages` stays indexed BY PAGE NUMBER — the animator addresses it as
+    // `pages[frame_page]` — so the vector keeps its full length. What changes
+    // is which entries carry a real handle: only the pages this target's
+    // frames actually reference. For a dedicated sheet that is every page and
+    // nothing changes; for a target inside a shared pack it is a handful
+    // instead of the whole pack.
+    let used_pages = spec.used_pages();
     let pages: Vec<CharacterSpritePage> = (0..page_count)
         .map(|page| {
+            if !used_pages.contains(&page) {
+                // Never sampled: no frame rect names this page. A default
+                // handle costs no decode and no VRAM, and reaching it would
+                // mean the frame→page mapping disagrees with `used_pages`.
+                return CharacterSpritePage {
+                    texture: Handle::default(),
+                    layout: Handle::default(),
+                };
+            }
             // Page 0 uses the resolved path verbatim; later pages resolve
             // their filename against page 0's directory.
             let page_path = if page == 0 {
@@ -548,8 +564,14 @@ fn load_sprite_pages(
             }
         })
         .collect();
-    let texture = pages[0].texture.clone();
-    let layout = pages[0].layout.clone();
+    // The representative texture/layout must name a page that actually
+    // LOADS: readiness guards test `images.get(&asset.texture)`, and page 0
+    // can be absent from a packed target's set entirely, which would leave
+    // those guards waiting on a handle nothing is loading. Identical to the
+    // old `pages[0]` whenever page 0 is used, which is every dedicated sheet.
+    let representative = used_pages.iter().copied().next().unwrap_or(0) as usize;
+    let texture = pages[representative].texture.clone();
+    let layout = pages[representative].layout.clone();
     CharacterSpriteAsset {
         texture,
         layout,

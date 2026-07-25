@@ -21,7 +21,7 @@
     reason = "deserialize surface that mirrors the on-disk RON schema; not every field is queried at runtime yet"
 )]
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use bevy::prelude::*;
 use serde::Deserialize;
@@ -116,6 +116,37 @@ impl SheetRecord {
             .map(|p| p + 1)
             .unwrap_or(1);
         (self.images.len() as u32).max(by_frames)
+    }
+
+    /// The pages this sheet's frames actually draw from.
+    ///
+    /// [`Self::page_count`] is a COUNT — the highest page index plus one —
+    /// which is the right answer for a dedicated sheet, whose pages are its
+    /// own and contiguous. It is the wrong answer for a target inside a
+    /// SHARED pack: there the target's frames occupy a sparse subset of a
+    /// pack-wide page list, and treating `0..page_count` as the load set
+    /// pulls in every intervening page of the whole pack. One prop whose
+    /// frames land on pages 4 and 53 was loading all 54 ultrapack pages
+    /// (~221 megapixels, ~880 MB) at boot.
+    ///
+    /// Per-frame `rect.page` is authoritative wherever it exists (the packer
+    /// places frames freely); `row.page` is the per-row fallback for the
+    /// unpacked multi-page layout, so it only counts for rows with no rects.
+    /// Returns a sorted, deduplicated set — never empty, so a sheet with no
+    /// rows still loads page 0.
+    pub fn used_pages(&self) -> BTreeSet<u32> {
+        let mut pages = BTreeSet::new();
+        for row in &self.rows {
+            if row.rects.is_empty() {
+                pages.insert(row.page);
+            } else {
+                pages.extend(row.rects.iter().map(|rect| rect.page));
+            }
+        }
+        if pages.is_empty() {
+            pages.insert(0);
+        }
+        pages
     }
 
     /// Filename of the PNG holding `page`. Falls back to the single `image`

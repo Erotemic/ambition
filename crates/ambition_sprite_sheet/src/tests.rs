@@ -276,3 +276,98 @@ fn quality_variant_records_do_not_clobber_the_base_registry() {
     assert!(is_quality_variant_file_root("robot_slash.0_5x"));
     assert!(!is_quality_variant_file_root("slash"));
 }
+
+/// A target packed into a SHARED pack references a sparse subset of the
+/// pack's pages, and the loader must load that subset — not the range
+/// `0..page_count`.
+///
+/// This is the boot-time regression that made one decorative prop pull in
+/// every page of the ultrapack: its frames sit on pages 4 and 53, so
+/// `page_count()` reports 54 and a `0..54` load decoded ~221 megapixels of
+/// pages nothing would ever sample. `used_pages()` reports exactly `{4, 53}`.
+#[test]
+fn packed_target_uses_only_the_pages_its_frames_reference() {
+    let ron_text = r#"
+    [(
+        target: "intro_cart",
+        image: "ultrapack_0.png",
+        images: ["ultrapack_0.png", "ultrapack_4.png", "ultrapack_53.png"],
+        label_width: 0,
+        frame_width: 64,
+        frame_height: 64,
+        rows: [
+            (animation: "idle", row_index: 0, frame_count: 2, duration_ms: 120, duration_secs: 0.12,
+             rects: [(x: 0, y: 0, w: 64, h: 64, page: 4), (x: 64, y: 0, w: 64, h: 64, page: 53)]),
+        ],
+    )]
+    "#;
+    let records: Vec<SheetRecord> =
+        ron::from_str(ron_text).expect("packed SheetRecord should deserialize");
+    let record = &records[0];
+    // The count is still the high-water mark — that contract is unchanged.
+    assert_eq!(record.page_count(), 54);
+    // The LOAD SET is what shrank.
+    let used: Vec<u32> = record.used_pages().into_iter().collect();
+    assert_eq!(
+        used,
+        vec![4, 53],
+        "a packed target must not claim the 52 pages between its frames"
+    );
+}
+
+/// The sparse-page path must not change the common case: a dedicated sheet
+/// owns contiguous pages, so its used set IS `0..page_count` and the loader
+/// behaves exactly as before.
+#[test]
+fn dedicated_sheet_uses_every_page_it_counts() {
+    let ron_text = r#"
+    [(
+        target: "huge_boss",
+        image: "huge_boss_spritesheet.png",
+        images: ["huge_boss_spritesheet.png", "huge_boss_spritesheet.1.png"],
+        label_width: 100,
+        frame_width: 384,
+        frame_height: 529,
+        rows: [
+            (animation: "idle", row_index: 0, frame_count: 1, duration_ms: 120, duration_secs: 0.12,
+             rects: [(x: 100, y: 0, w: 384, h: 529)]),
+            (animation: "charge", row_index: 1, frame_count: 1, duration_ms: 90, duration_secs: 0.09,
+             page: 1,
+             rects: [(x: 100, y: 0, w: 384, h: 529, page: 1)]),
+        ],
+    )]
+    "#;
+    let records: Vec<SheetRecord> = ron::from_str(ron_text).expect("should deserialize");
+    let record = &records[0];
+    let used: Vec<u32> = record.used_pages().into_iter().collect();
+    assert_eq!(used, vec![0, 1]);
+    assert_eq!(used.len() as u32, record.page_count());
+}
+
+/// An unpacked multi-page row carries its page on the ROW, with no per-rect
+/// page. Falling back to `row.page` only when rects are absent is what keeps
+/// that layout loading its pages at all.
+#[test]
+fn unpacked_rows_fall_back_to_the_row_page() {
+    let ron_text = r#"
+    [(
+        target: "legacy",
+        image: "legacy.png",
+        images: ["legacy.png", "legacy.1.png", "legacy.2.png"],
+        label_width: 0,
+        frame_width: 32,
+        frame_height: 32,
+        rows: [
+            (animation: "idle", row_index: 0, frame_count: 1, duration_ms: 100, duration_secs: 0.1,
+             page: 2, rects: []),
+        ],
+    )]
+    "#;
+    let records: Vec<SheetRecord> = ron::from_str(ron_text).expect("should deserialize");
+    let used: Vec<u32> = records[0].used_pages().into_iter().collect();
+    assert_eq!(
+        used,
+        vec![2],
+        "row.page is authoritative when rects are empty"
+    );
+}

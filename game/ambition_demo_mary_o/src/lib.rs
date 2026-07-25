@@ -1969,6 +1969,48 @@ mod tests {
     /// a stair pyramid, a goal past it. If a future edit flattens the rhythm this
     /// fails — which is what makes it a level design and not a pile of boxes.
     #[test]
+    /// Jon reported "pit B is not a pit — it opens directly into the secret
+    /// vault", and the triage filed it as unfixed. It is NOT live at HEAD: the
+    /// level was lengthened (pit B and everything past it pushed 8 tiles right)
+    /// so the vault fits under UNBROKEN ground, which closed it as a side
+    /// effect. This pins that, because the bug is invisible until someone falls
+    /// in — a pit whose floor is the secret's ceiling reads as a normal pit
+    /// right up until you drop through it.
+    #[test]
+    fn no_pit_drops_into_the_secret_vault() {
+        let room = level_1_1();
+        let vault = vault_bounds();
+        let named = |n: &str| {
+            room.world
+                .blocks
+                .iter()
+                .find(|b| b.name == n)
+                .unwrap_or_else(|| panic!("block {n}"))
+                .aabb
+        };
+
+        // Each pit is the gap between consecutive ground runs.
+        let runs = [
+            named("ground_open_teach"),
+            named("ground_after_pit_a"),
+            named("ground_after_pit_b"),
+        ];
+        for pair in runs.windows(2) {
+            let (left, right) = (pair[0], pair[1]);
+            let gap_min = left.max.x;
+            let gap_max = right.min.x;
+            assert!(gap_max > gap_min, "these runs do not bound a pit");
+            assert!(
+                gap_max <= vault.min.x || gap_min >= vault.max.x,
+                "a pit spans [{gap_min}, {gap_max}] and the vault spans \
+                 [{}, {}] — falling in the pit lands you in the secret",
+                vault.min.x,
+                vault.max.x,
+            );
+        }
+    }
+
+    #[test]
     fn level_1_1_carries_the_grammar_it_claims() {
         let room = level_1_1();
         let world = &room.world;

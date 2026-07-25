@@ -82,7 +82,22 @@ fixed here. Three bugs fell out of the acceptance run; two are fixed in their
 own commits (`4e4bd0fd8` the body reset, `cbc6902d2` the vault exit pipe). These
 two are not.
 
-## 5. Pit B is not a pit — it opens into the secret vault — [fable/Jon: authoring call]
+## 5. Pit B is not a pit — it opens into the secret vault — **NOT LIVE at HEAD (verified 2026-07-25)**
+
+> **Closed by a change made for another reason.** The level was later LENGTHENED
+> — pit B and everything past it pushed 8 tiles right — so the wide vault would
+> fit under UNBROKEN ground. That moved pit B clear of the vault footprint as a
+> side effect, and nobody noticed this entry was answered. Verified by measuring
+> HEAD, not by reading the commit: `no_pit_drops_into_the_secret_vault`
+> (`ambition_demo_mary_o`) asserts every pit's gap lies entirely outside
+> `vault_bounds()`, which is the property all four consequences below depend on.
+> Pinned rather than deleted, because the bug is invisible until someone falls
+> in: a pit whose floor is the secret's ceiling reads as an ordinary pit right up
+> until you drop through it.
+>
+> The numbers below describe the level as it stood on 2026-07-21 and are kept as
+> the record of what was wrong.
+
 
 `vault_bounds()` spans x `800..1248` at y `480..704`. The vault's ceiling is the
 level's own ground slab — but pit B is the gap `1088..1184` in exactly that

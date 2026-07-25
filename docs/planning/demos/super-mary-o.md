@@ -191,8 +191,12 @@ Remaining acceptance work
   - a **body reset redefined the body**: `reset_body_clusters` hardcoded the
     default size into `base_size`, so a grown Mary-O who fell in a pit came back
     with a small collider while still wearing the cap. FIXED (`4e4bd0fd8`);
-  - **pit B is not a pit** — it opens directly into the secret vault. REPORTED,
-    not fixed (authoring call): [`../triage/room-replay-followups-2026-07-21.md`](../triage/room-replay-followups-2026-07-21.md) §5.
+  - **pit B is not a pit** — it opened directly into the secret vault. **NOT
+    LIVE at HEAD, verified 2026-07-25**: lengthening the level to fit the wide
+    vault under unbroken ground moved pit B clear of it, and nobody noticed the
+    report was answered. Now pinned by `no_pit_drops_into_the_secret_vault`
+    rather than trusted, since the bug is invisible until someone falls in.
+    [`../triage/room-replay-followups-2026-07-21.md`](../triage/room-replay-followups-2026-07-21.md) §5.
 - ✅ **World 1-2, and the reason it could not exist — 2026-07-25.** The demo's
   world was one `RoomSpec` because it had to be: `RoomTransitionRequested` had
   exactly one consumer and only `ambition_app` registered it, and no demo depends

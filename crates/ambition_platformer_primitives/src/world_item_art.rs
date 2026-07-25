@@ -20,6 +20,23 @@
 use ambition_engine_core as ae;
 use bevy::prelude::{App, Resource};
 
+use crate::binding::{Namespace, Ref, Resolver};
+
+/// The world-item art ids every provider registered.
+///
+/// This namespace is why a spark blossom fell through the world and never drew:
+/// the item carried a `sprite` id with no matching entry, and the renderer's map
+/// lookup simply missed. Registering nothing and misspelling something used to be
+/// the same silence.
+pub struct WorldItemSprite;
+
+impl Namespace for WorldItemSprite {
+    const NAME: &'static str = "world item sprite";
+}
+
+/// An authored world-item art reference.
+pub type WorldItemSpriteRef = Ref<WorldItemSprite>;
+
 /// One game's declaration of art for a walk-into world item: the presentation
 /// `sprite` id → the asset path to draw and its on-screen size. Pure data (no
 /// render types), so a provider crate contributes it without a render dependency.
@@ -53,6 +70,33 @@ impl WorldItemArtEntry {
 /// composing several games unions their pickup art.
 #[derive(Resource, Default, Debug)]
 pub struct WorldItemArtManifest(pub Vec<WorldItemArtEntry>);
+
+impl WorldItemArtManifest {
+    /// The entries that actually bind: one per `sprite_id`, the LAST registration
+    /// winning, ordered by id.
+    ///
+    /// Last-wins is the behaviour of the map-insert loop this replaced, and it is
+    /// the useful one for a merge target — a host composing providers lets the
+    /// later one override. Resolve and load from THIS list, not from `self.0`, so
+    /// a binding's `slot()` indexes the art that actually won.
+    pub fn effective(&self) -> Vec<&WorldItemArtEntry> {
+        let mut winners: std::collections::BTreeMap<&str, &WorldItemArtEntry> =
+            std::collections::BTreeMap::new();
+        for entry in &self.0 {
+            winners.insert(entry.sprite_id.as_str(), entry);
+        }
+        winners.into_values().collect()
+    }
+
+    /// The art ids this manifest binds. Slots index [`Self::effective`].
+    pub fn sprite_ids(&self) -> Resolver<WorldItemSprite> {
+        Resolver::new(
+            self.effective()
+                .into_iter()
+                .map(|entry| entry.sprite_id.as_str()),
+        )
+    }
+}
 
 /// Register a game's walk-into pickup art (data only). The render layer's startup
 /// loader turns these into real image handles; a headless app simply never reads
@@ -104,5 +148,26 @@ mod tests {
         assert_eq!(manifest.0.len(), 2, "both providers' entries survive");
         assert!(manifest.0.iter().any(|e| e.sprite_id == "milk"));
         assert!(manifest.0.iter().any(|e| e.sprite_id == "ring"));
+    }
+
+    /// A later registration overrides an earlier one for the same id (the merge
+    /// rule a host composing providers relies on), and a resolved id's `slot()`
+    /// indexes the winner — the alignment the render layer loads handles against.
+    #[test]
+    fn a_later_registration_wins_and_its_slot_addresses_it() {
+        let manifest = WorldItemArtManifest(vec![
+            WorldItemArtEntry::new("milk", "base/milk.png", ae::Vec2::new(24.0, 28.0)),
+            WorldItemArtEntry::new("ring", "base/ring.png", ae::Vec2::new(16.0, 16.0)),
+            WorldItemArtEntry::new("milk", "override/milk.png", ae::Vec2::new(24.0, 28.0)),
+        ]);
+
+        let effective = manifest.effective();
+        assert_eq!(effective.len(), 2, "one entry per id");
+
+        let bound = manifest
+            .sprite_ids()
+            .resolve(&WorldItemSpriteRef::new("milk"), "test")
+            .expect("milk is registered");
+        assert_eq!(effective[bound.slot()].asset_path, "override/milk.png");
     }
 }

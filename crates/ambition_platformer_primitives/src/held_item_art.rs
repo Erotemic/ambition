@@ -21,6 +21,18 @@
 use ambition_engine_core as ae;
 use bevy::prelude::{App, Resource};
 
+use crate::binding::{Namespace, Ref, Resolver};
+
+/// The held/inventory item art ids every provider registered.
+pub struct HeldItemSprite;
+
+impl Namespace for HeldItemSprite {
+    const NAME: &'static str = "held item art";
+}
+
+/// An authored held-item art reference.
+pub type HeldItemSpriteRef = Ref<HeldItemSprite>;
+
 /// One game's declaration of art for a held/inventory item: the held-item spec
 /// id → the asset path to draw and its on-screen size. Pure data (no render
 /// types), so a provider crate contributes it without a render dependency.
@@ -52,6 +64,29 @@ impl HeldItemArtEntry {
 /// folds the `Vec` in registration order), which is deterministic plugin-add order.
 #[derive(Resource, Default, Debug)]
 pub struct HeldItemArtManifest(pub Vec<HeldItemArtEntry>);
+
+impl HeldItemArtManifest {
+    /// The entries that actually bind: one per `item_id`, the LAST registration
+    /// winning (the documented merge rule above), ordered by id. Resolve and load
+    /// from THIS list so a binding's `slot()` indexes the art that won.
+    pub fn effective(&self) -> Vec<&HeldItemArtEntry> {
+        let mut winners: std::collections::BTreeMap<&str, &HeldItemArtEntry> =
+            std::collections::BTreeMap::new();
+        for entry in &self.0 {
+            winners.insert(entry.item_id.as_str(), entry);
+        }
+        winners.into_values().collect()
+    }
+
+    /// The art ids this manifest binds. Slots index [`Self::effective`].
+    pub fn item_ids(&self) -> Resolver<HeldItemSprite> {
+        Resolver::new(
+            self.effective()
+                .into_iter()
+                .map(|entry| entry.item_id.as_str()),
+        )
+    }
+}
 
 /// Register a game's held/inventory item art (data only). The render layer's
 /// startup loader turns these into real image handles; a headless app simply

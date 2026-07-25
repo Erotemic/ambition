@@ -3,9 +3,14 @@
 //! consumers of the sim-built `sim_view` item snapshots (E4 slices 11+12+16)
 //! — no live item/body queries.
 
+use ambition_platformer_primitives::binding::{
+    BindingLedger, Namespace, Ref, Resolver, UnresolvedRef,
+};
+use ambition_platformer_primitives::held_item_art::HeldItemSprite;
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
+use ambition_platformer_primitives::world_item_art::WorldItemSprite;
 use ambition_sim_view::{GroundItemsView, HeldItemView, HeldShotsView};
 
 const FIREBALL_ID: &str = "fireball";
@@ -73,6 +78,64 @@ pub fn lasersword_projectile_sprite(
 
 // Presentation (visible build only).
 
+/// Provider-contributed art, resolved once at startup: the ids that bound, and
+/// the loaded `(image, display size)` for each, indexed by the binding's slot.
+///
+/// This replaces the `HashMap<String, _>` both art resources used to be. The map
+/// was not wrong about storage — it was wrong about FAILURE. Its `get` returned
+/// `None` for "you misspelled the id" and for "no provider ever registered art",
+/// and every caller collapsed both into the same placeholder quad, which is how a
+/// spark blossom that no manifest mentioned drew nothing and said nothing.
+///
+/// Resolution now yields a report the caller must do something with. The
+/// placeholder still draws — that part was right, and a blind run must never go
+/// black — but the run also names what it could not find.
+pub struct ArtBindings<N: Namespace> {
+    ids: Resolver<N>,
+    /// Parallel to the resolver's declaration slots.
+    art: Vec<(Handle<Image>, Vec2)>,
+}
+
+impl<N: Namespace> Default for ArtBindings<N> {
+    fn default() -> Self {
+        Self {
+            ids: Resolver::default(),
+            art: Vec::new(),
+        }
+    }
+}
+
+impl<N: Namespace> ArtBindings<N> {
+    /// Pair a manifest's resolver with the handles loaded from the SAME effective
+    /// entry list, so slot `i` of one addresses slot `i` of the other.
+    pub fn new(ids: Resolver<N>, art: impl IntoIterator<Item = (Handle<Image>, Vec2)>) -> Self {
+        let art: Vec<_> = art.into_iter().collect();
+        debug_assert_eq!(
+            ids.ids().len(),
+            art.len(),
+            "resolver and handles must come from the same effective entry list",
+        );
+        Self { ids, art }
+    }
+
+    /// The art for `id`, or the reason it has none. `declared_by` names the thing
+    /// that asked, so the report points at content rather than at the renderer.
+    pub fn get(
+        &self,
+        id: &str,
+        declared_by: impl Into<String>,
+    ) -> Result<(Handle<Image>, Vec2), UnresolvedRef> {
+        let bound = self.ids.resolve(&Ref::new(id), declared_by)?;
+        Ok(self.art[bound.slot()].clone())
+    }
+
+    /// True when no provider registered any art at all — the headless and
+    /// no-manifest case, distinct from a misspelled id.
+    pub fn is_empty(&self) -> bool {
+        self.ids.is_empty()
+    }
+}
+
 /// Marks a sprite entity visualizing a [`GroundItem`].
 #[derive(Component)]
 pub struct GroundItemVisual;
@@ -86,7 +149,7 @@ pub struct GroundItemVisual;
 /// knowledge out of the reusable renderer. Absent / unmatched ⇒ the placeholder
 /// quad.
 #[derive(Resource, Default)]
-pub struct HeldItemArt(pub std::collections::HashMap<String, (Handle<Image>, Vec2)>);
+pub struct HeldItemArt(pub ArtBindings<HeldItemSprite>);
 
 /// Resolve every provider-contributed
 /// [`HeldItemArtEntry`](ambition_platformer_primitives::held_item_art::HeldItemArtEntry)
@@ -101,25 +164,19 @@ pub fn build_held_item_art(
     assets: Res<AssetServer>,
     manifest: Option<Res<ambition_platformer_primitives::held_item_art::HeldItemArtManifest>>,
 ) {
-    let mut art = HeldItemArt::default();
-    if let Some(manifest) = manifest {
-        for entry in &manifest.0 {
-            art.0.insert(
-                entry.item_id.clone(),
+    let art = match manifest {
+        Some(manifest) => HeldItemArt(ArtBindings::new(
+            manifest.item_ids(),
+            manifest.effective().into_iter().map(|entry| {
                 (
                     assets.load(entry.asset_path.clone()),
                     Vec2::new(entry.size.x, entry.size.y),
-                ),
-            );
-        }
-    }
+                )
+            }),
+        )),
+        None => HeldItemArt::default(),
+    };
     commands.insert_resource(art);
-}
-
-/// `(image, display size)` for a held-item spec id, if a provider registered art
-/// for it.
-fn item_sprite(art: &HeldItemArt, spec_id: &str) -> Option<(Handle<Image>, Vec2)> {
-    art.0.get(spec_id).cloned()
 }
 
 pub fn sync_ground_item_visuals(
@@ -131,6 +188,9 @@ pub fn sync_ground_item_visuals(
     active_session: Option<Res<ActiveSessionScope>>,
     visuals: Query<Entity, With<GroundItemVisual>>,
     grounds: Res<GroundItemsView>,
+    // This system rebuilds every frame, so a missing id would otherwise be
+    // sixty identical log lines a second.
+    mut reported: Local<ambition_platformer_primitives::binding::ReportedOnce>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
@@ -140,11 +200,21 @@ pub fn sync_ground_item_visuals(
     else {
         return;
     };
+    let mut ledger = BindingLedger::new();
     for ground in &grounds.0 {
         let translation = ambition_engine_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
-        let sprite = art
-            .as_ref()
-            .and_then(|a| item_sprite(a, ground.item_id.as_str()))
+        let bound =
+            art.as_ref().and_then(
+                |art| match art.0.get(ground.item_id.as_str(), "ground item") {
+                    Ok(art) => Some(art),
+                    Err(unresolved) => {
+                        ledger.record(unresolved);
+                        None
+                    }
+                },
+            );
+        // The placeholder still draws; the ledger is what stops it being silent.
+        let sprite = bound
             .map(|(image, size)| Sprite {
                 image,
                 custom_size: Some(size),
@@ -163,6 +233,7 @@ pub fn sync_ground_item_visuals(
             ),
         );
     }
+    reported.log_new(&ledger.finish(), "ground item visual");
 }
 
 /// Marks a sprite entity visualizing a [`WorldItem`](ambition_actors::items::world_item::WorldItem).
@@ -176,7 +247,7 @@ pub struct WorldItemVisual;
 /// own pickups' images (e.g. Mary-O's milk carton), keeping asset knowledge out of
 /// the reusable renderer. Absent / unmatched ⇒ the row-tinted placeholder quad.
 #[derive(Resource, Default)]
-pub struct WorldItemArt(pub std::collections::HashMap<String, (Handle<Image>, Vec2)>);
+pub struct WorldItemArt(pub ArtBindings<WorldItemSprite>);
 
 /// Resolve the provider-contributed
 /// [`WorldItemArtManifest`](ambition_platformer_primitives::world_item_art::WorldItemArtManifest)
@@ -191,18 +262,18 @@ pub fn build_world_item_art(
     assets: Res<AssetServer>,
     manifest: Option<Res<ambition_platformer_primitives::world_item_art::WorldItemArtManifest>>,
 ) {
-    let mut art = WorldItemArt::default();
-    if let Some(manifest) = manifest {
-        for entry in &manifest.0 {
-            art.0.insert(
-                entry.sprite_id.clone(),
+    let art = match manifest {
+        Some(manifest) => WorldItemArt(ArtBindings::new(
+            manifest.sprite_ids(),
+            manifest.effective().into_iter().map(|entry| {
                 (
                     assets.load(entry.asset_path.clone()),
                     Vec2::new(entry.size.x, entry.size.y),
-                ),
-            );
-        }
-    }
+                )
+            }),
+        )),
+        None => WorldItemArt::default(),
+    };
     commands.insert_resource(art);
 }
 
@@ -220,6 +291,7 @@ pub fn sync_world_item_visuals(
     art: Option<Res<WorldItemArt>>,
     visuals: Query<Entity, With<WorldItemVisual>>,
     items: Res<ambition_sim_view::WorldItemsView>,
+    mut reported: Local<ambition_platformer_primitives::binding::ReportedOnce>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
@@ -229,13 +301,21 @@ pub fn sync_world_item_visuals(
     else {
         return;
     };
+    let mut ledger = BindingLedger::new();
     for item in &items.0 {
         let translation = ambition_engine_core::config::world_to_bevy(&world.0, item.pos, 8.0);
-        // A real bound sprite wins; otherwise the row-tinted quad.
+        // A real bound sprite wins; otherwise the row-tinted quad. An item that
+        // declares NO sprite id is authored that way and reports nothing; an item
+        // that declares one nobody registered is the spark-blossom bug, and does.
         let bound = item.sprite.as_deref().and_then(|id| {
-            art.as_ref()
-                .and_then(|a| a.0.get(id))
-                .map(|(image, size)| (image.clone(), *size))
+            let art = art.as_ref()?;
+            match art.0.get(id, format!("world item `{}`", item.row_id)) {
+                Ok(art) => Some(art),
+                Err(unresolved) => {
+                    ledger.record(unresolved);
+                    None
+                }
+            }
         });
         let sprite = match bound {
             Some((image, size)) => Sprite {
@@ -262,6 +342,7 @@ pub fn sync_world_item_visuals(
             ),
         );
     }
+    reported.log_new(&ledger.finish(), "world item visual");
 }
 
 /// Marks the sprite shown in the player's hand for the currently held item.
@@ -286,6 +367,7 @@ pub fn sync_held_item_visual(
     active_session: Option<Res<ActiveSessionScope>>,
     held_view: Res<HeldItemView>,
     visuals: Query<Entity, With<HeldItemVisual>>,
+    mut reported: Local<ambition_platformer_primitives::binding::ReportedOnce>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
@@ -322,9 +404,19 @@ pub fn sync_held_item_visual(
         (Quat::IDENTITY, facing < 0.0, false)
     };
 
-    let sprite = art
+    let mut ledger = BindingLedger::new();
+    let bound = art
         .as_ref()
-        .and_then(|a| item_sprite(a, held.item_id.as_str()))
+        .and_then(|art| match art.0.get(held.item_id.as_str(), "held item") {
+            Ok(art) => Some(art),
+            Err(unresolved) => {
+                ledger.record(unresolved);
+                None
+            }
+        });
+    reported.log_new(&ledger.finish(), "held item visual");
+
+    let sprite = bound
         .map(|(image, size)| Sprite {
             image,
             custom_size: Some(size),

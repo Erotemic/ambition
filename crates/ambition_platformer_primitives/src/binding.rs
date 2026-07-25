@@ -472,6 +472,43 @@ impl std::fmt::Display for BindingReport {
     }
 }
 
+/// Remembers which unresolved references have already been reported, so a
+/// consumer that resolves EVERY FRAME says each one once.
+///
+/// Presentation is the case that needs this: the item-visual sync clears and
+/// rebuilds its sprites each frame, so a single missing art id would otherwise
+/// emit sixty identical lines a second and bury everything else. Keep one in a
+/// `Local<ReportedOnce>` beside the system that resolves.
+///
+/// It deliberately does NOT suppress across contexts — the same missing sprite
+/// reported by two different visuals is two different facts about the content.
+#[derive(Debug, Default, Clone)]
+pub struct ReportedOnce {
+    seen: std::collections::BTreeSet<(&'static str, String, String)>,
+}
+
+impl ReportedOnce {
+    /// Log whatever in `report` has not been logged before, at `context`.
+    pub fn log_new(&mut self, report: &BindingReport, context: &str) {
+        for unresolved in &report.unresolved {
+            let key = (
+                unresolved.namespace,
+                unresolved.declared_by.clone(),
+                unresolved.id.clone(),
+            );
+            if self.seen.insert(key) {
+                tracing::error!("{context}: {unresolved}");
+            }
+        }
+    }
+
+    /// How many distinct references this has reported — the count a diagnostic
+    /// overlay or a test can read without scraping the log.
+    pub fn reported(&self) -> usize {
+        self.seen.len()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -66,6 +66,15 @@ pub struct FeatureView {
     /// Actor rows only: the sandbag/training-dummy depiction flag the debug
     /// health overlay colors by.
     pub training_dummy: bool,
+    /// `Some` ⇒ this body PUBLISHES where its sprite quad goes relative to
+    /// `pos` (see `ActorSpriteOffset`), and that placement is authoritative:
+    /// the renderer centres the quad and shifts it by this, instead of using
+    /// the sheet's one static feet anchor. The two are alternatives, never
+    /// summed — a per-pose placement already accounts for the feet.
+    ///
+    /// `None` (every other feature, and every actor that doesn't opt in) ⇒ the
+    /// legacy placement, unchanged.
+    pub sprite_offset: Option<ae::Vec2>,
 }
 
 /// Per-frame snapshot of every ECS-owned feature's `FeatureView`, keyed
@@ -172,6 +181,9 @@ pub fn rebuild_feature_view_index(
             // Portal aerial-roll (same component the player uses) so actors
             // somersault + self-right through portals just like the player.
             Option<&ambition_actors::platformer_runtime::orientation::ActorRoll>,
+            // Sheet-authored quad placement, for a body whose art does not sit
+            // centred in its frame. Absent for every ordinary actor.
+            Option<&ambition_actors::features::ActorSpriteOffset>,
         ),
         // Bosses carry the shared actor read-models (`ActorDisposition` etc., synced
         // by `sync_boss_actor_components`) but are their OWN feature family below.
@@ -222,6 +234,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                sprite_offset: None,
             },
         );
     }
@@ -244,6 +257,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                sprite_offset: None,
             },
         );
     }
@@ -266,6 +280,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: breakable.breakable.health.current,
                 hp_max: breakable.breakable.health.max,
                 training_dummy: false,
+                sprite_offset: None,
             },
         );
     }
@@ -288,10 +303,13 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                sprite_offset: None,
             },
         );
     }
-    for (id, aabb, disposition, combat, health, attack, config, surface, roll) in &actors {
+    for (id, aabb, disposition, combat, health, attack, config, surface, roll, sprite_offset) in
+        &actors
+    {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
         // ONE actor kind. "enemy vs NPC vs training-dummy" was never a render
         // *type* — it's the actor's STATE (fighting-or-not) plus its depiction
@@ -351,6 +369,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: health.map_or(0, |h| h.current()),
                 hp_max: health.map_or(0, |h| h.max()),
                 training_dummy: combat.is_some_and(|c| c.training_dummy),
+                sprite_offset: sprite_offset.map(|o| o.0),
             },
         );
     }
@@ -373,6 +392,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                sprite_offset: None,
             },
         );
     }
@@ -410,6 +430,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: health.map_or(0, |h| h.current()),
                 hp_max: health.map_or(0, |h| h.max()),
                 training_dummy: false,
+                sprite_offset: None,
             },
         );
     }
@@ -826,6 +847,7 @@ mod view_index_tests {
             hp_current: 0,
             hp_max: 0,
             training_dummy: false,
+            sprite_offset: None,
         }
     }
 

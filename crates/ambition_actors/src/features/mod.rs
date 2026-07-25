@@ -100,12 +100,12 @@ pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
 
 pub use components::{
     ActorAggression, ActorCooldowns, ActorDisposition, ActorFaction, ActorIdentity, ActorIntent,
-    ActorInteraction, ActorPose, ActorRenderSize, ActorTarget, AggressionMode, AggressionTarget,
-    BodyMelee, BossDeathAnimation, BossPatternTimer, BossPhase, BossRewardChest, BreakableFeature,
-    CenteredAabb, ChestFeature, Collected, CombatKit, DamageableVolumes, EncounterMob,
-    EncounterRewardChest, FallingChest, FeatureId, FeatureName, MeleeSwing, Opened, PersistKey,
-    PickupFeature, PogoPolicy, PogoTargetContributor, PogoTargetVolumes, PostBossNpc, RespawnTimer,
-    RuntimeStagedActor, SandboxSolidContributor, StandTimer,
+    ActorInteraction, ActorPose, ActorRenderSize, ActorSpriteOffset, ActorTarget, AggressionMode,
+    AggressionTarget, BodyMelee, BossDeathAnimation, BossPatternTimer, BossPhase, BossRewardChest,
+    BreakableFeature, CenteredAabb, ChestFeature, Collected, CombatKit, DamageableVolumes,
+    EncounterMob, EncounterRewardChest, FallingChest, FeatureId, FeatureName, MeleeSwing, Opened,
+    PersistKey, PickupFeature, PogoPolicy, PogoTargetContributor, PogoTargetVolumes, PostBossNpc,
+    RespawnTimer, RuntimeStagedActor, SandboxSolidContributor, StandTimer,
 };
 // Switch machinery + the quest-advance message live with their owning domains
 // (E2): the hub keeps the names importable until it dissolves (E7/E8).
@@ -154,9 +154,10 @@ pub use ecs::{
     HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
     Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact,
     MountDied, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge,
-    PickupCollectLock, RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,
-    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
-    RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    PickupArt, PickupCollectLock, RidingOn, RoomContentStagingError,
+    RoomContentStagingRegistrationError, RoomContentStagingRegistry, RoomFeatureConstructionError,
+    RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest,
+    CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{
@@ -396,6 +397,18 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .chain()
                 .after(select_actor_targets)
                 .before(tick_npc_idle_barks)
+                .in_set(crate::schedule::SandboxSet::WorldPrep),
+        );
+        // A body whose SHEET authors its geometry adopts the box for the pose it
+        // is showing, BEFORE that box is swept or hit-tested. Host-owned so every
+        // game gets it: the component is the opt-in, and a content crate that
+        // adds the component without a system to honour it would silently get
+        // nothing. Content pins the pose earlier in `WorldPrep` and orders itself
+        // `.before` this, so the box tracks the pose within the same tick.
+        app.add_systems(
+            sim,
+            crate::character_sprites::sync_sprite_posed_bodies
+                .before(integrate_sim_bodies)
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
         );
         // The body-orientation righting reflex: feet toward gravity — or, for a

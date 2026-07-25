@@ -713,6 +713,20 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "actor.render_size",
     )
+    // The quad's placement travels with its size: both are re-derived per pose
+    // from the sheet, so restoring one without the other would leave a body
+    // drawn at the right scale in the wrong place until the next pose change.
+    .rollback_component_clone::<ambition_combat::components::ActorSpriteOffset>(
+        ENGINE,
+        "actor.sprite_offset",
+    )
+    // The pose→geometry binding itself. Constant per body, but a body the
+    // rewind RE-CREATES must come back still bound to its sheet — otherwise it
+    // silently reverts to whatever box it was spawned with and never recovers.
+    .rollback_component_clone::<ambition_actors::character_sprites::SpritePosedBody>(
+        ENGINE,
+        "actor.sprite_posed_body",
+    )
     .rollback_component_clone::<ambition_combat::components::BossDeathAnimation>(
         ENGINE,
         "boss.death_animation",
@@ -1157,9 +1171,10 @@ pub fn register_engine_rollback_state(app: &mut App) {
         "message.room_transition_requested",
     )
     .clear_message_on_rollback::<ambition_actors::ActorDiedMessage>(ENGINE, "message.actor_died")
-    .clear_message_on_rollback::<
-        ambition_actors::features::ecs::damage_apply::WalletShieldSpent,
-    >(ENGINE, "message.wallet_shield_spent")
+    .clear_message_on_rollback::<ambition_actors::features::ecs::damage_apply::WalletShieldSpent>(
+        ENGINE,
+        "message.wallet_shield_spent",
+    )
     .clear_message_on_rollback::<ambition_actors::avatar::PlayerHealRequested>(
         ENGINE,
         "message.player_heal_requested",

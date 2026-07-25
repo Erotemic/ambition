@@ -278,12 +278,59 @@ impl AnimationBoxFrame {
     }
 }
 
+impl BodyMetrics {
+    /// **The pose's body rectangle, in sheet-frame pixels** — the sprite
+    /// author's answer to "where is this character, in the frame, right now".
+    ///
+    /// A body whose silhouette changes shape between poses (a snake that
+    /// withdraws into a cardboard box, a boss that unfolds its arms) has no
+    /// single honest collision rectangle: the idle-frame bbox is wrong for
+    /// every pose that is not idle. When the sheet publishes per-animation
+    /// hurtboxes this returns the one for `anim`; otherwise it falls back to
+    /// the static [`Self::body_pixel_bbox`], which is the whole answer for the
+    /// (common) characters whose silhouette barely moves.
+    ///
+    /// The `animations` map is keyed by the GENERATOR's row/gameplay key, so
+    /// the match runs through [`CharacterAnim::from_name`] — the same alias
+    /// table the sheet spec uses to bind rows. That keeps ONE naming authority:
+    /// a generator that renames `boxed_idle` cannot silently desync the
+    /// hurtbox from the row it belongs to without also losing the row.
+    ///
+    /// AMBITION_REVIEW(determinism): several row names can alias to one
+    /// `CharacterAnim` (`rest` / `front_idle` / `side_idle` all mean `Idle`), so
+    /// a sheet carrying two of them offers two candidate rectangles. This is
+    /// SIM state — it becomes a collision box — so the winner is the
+    /// lexicographically first key rather than whichever the `HashMap` happens
+    /// to yield first.
+    pub fn pose_body_bbox(&self, anim: character::CharacterAnim) -> Option<PixelRect> {
+        self.animations
+            .iter()
+            .filter(|(name, _)| character::CharacterAnim::from_name(name) == Some(anim))
+            .filter_map(|(name, metrics)| Some((name, metrics.hurtbox.as_ref()?.bbox?)))
+            .min_by(|(a, _), (b, _)| a.cmp(b))
+            .map(|(_, bbox)| bbox)
+            .or(self.body_pixel_bbox)
+            .filter(|bbox| bbox.w > 0 && bbox.h > 0)
+    }
+}
+
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
 pub struct PixelRect {
     pub x: i32,
     pub y: i32,
     pub w: i32,
     pub h: i32,
+}
+
+impl PixelRect {
+    /// Centre of the rectangle in the same pixel space, as floats — the
+    /// quantity a consumer needs to place the rectangle against a frame.
+    pub fn center(self) -> (f32, f32) {
+        (
+            self.x as f32 + self.w as f32 * 0.5,
+            self.y as f32 + self.h as f32 * 0.5,
+        )
+    }
 }
 
 /// A named pixel rectangle in sprite-frame space, used for

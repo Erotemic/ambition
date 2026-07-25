@@ -73,6 +73,21 @@ impl ActorDisposition {
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorRenderSize(pub ae::Vec2);
 
+/// Where to draw an actor's sprite quad RELATIVE to its body centre.
+///
+/// The companion to [`ActorRenderSize`]: that one says how big the quad is,
+/// this one says where it goes. Both exist because a sheet frame is not its
+/// character — the art sits somewhere inside the frame, usually off-centre, and
+/// a quad centred on the body draws the character wherever the padding happens
+/// to put it. Non-zero ⇒ shift the quad so the ART lands on the collision box.
+///
+/// Absent (the overwhelming majority) ⇒ the quad is centred on the body, which
+/// is right for every sheet whose art is already frame-centred. Written by
+/// `character_sprites::posed_body`, whose whole job is deriving this and
+/// `ActorRenderSize` from the same authored rectangle so they cannot disagree.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ActorSpriteOffset(pub ae::Vec2);
+
 /// The body's GROSS coarse-hurtbox footprint — the full-size box the published
 /// `CenteredAabb` covers, distinct from `kin.size` (the collision box the
 /// movement seam sweeps against walls) and from [`ActorRenderSize`] (the sprite

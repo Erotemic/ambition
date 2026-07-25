@@ -20,10 +20,13 @@
 //!   construction.
 //! - `ambition_sprite_sheet::character::animator` — lower authority for the
 //!   `CharacterAnimator` per-entity cursor component.
+//! - [`posed_body`] — the sheet as the AUTHORITY for an actor's collision box,
+//!   sprite quad, and quad placement, resolved per pose.
 
 mod anim;
 mod assets;
 mod attack_hitbox;
+mod posed_body;
 
 #[cfg(test)]
 mod tests;
@@ -31,6 +34,9 @@ mod tests;
 pub use ambition_sprite_sheet::character::{CharacterAnimator, RenderBasis};
 pub use ambition_sprite_sheet::{baked_sheet_registry, SheetRegistryPlugin};
 pub use anim::{pick_actor_anim, pick_player_anim, ActorAnimState, CharacterAnim};
+pub use posed_body::{
+    posed_body_geometry, sync_sprite_posed_bodies, PosedBodyGeometry, SpritePosedBody,
+};
 #[allow(
     unused_imports,
     reason = "manifest_attack_hitbox_world is the reusable core; player_attack_hitbox_world is the live consumer (the debug-overlay hitbox source)."

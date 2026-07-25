@@ -7,6 +7,7 @@
 use ambition_engine_core as ae;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
 
 use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
@@ -262,7 +263,12 @@ pub fn sync_visuals(
         };
         // Patrolling enemies and moving props step on the tick clock exactly as
         // the player body does, so they get the same frame-clock treatment.
-        let draw_pos = presented_features.presented(&visual.id, view.pos);
+        // The QUAD's centre: the body's centre, plus whatever the sheet says
+        // about where this pose's art sits inside the frame. Absent for every
+        // feature that publishes no placement, so this is the identity
+        // everywhere it always was.
+        let draw_pos = presented_features.presented(&visual.id, view.pos)
+            + view.sprite_offset.unwrap_or(ae::Vec2::ZERO);
         transform.translation = world_to_bevy(&world.0, draw_pos, feature_z(view.kind));
         // Surface-walking enemies (PuppySlug) rotate the sprite so
         // its authored "up" axis aligns with the surface normal —
@@ -507,6 +513,17 @@ pub fn upgrade_actor_sprites(
         // so the sprite doesn't balloon once collision already equals the body.
         let render_size = actor.render_size.map(|r| BVec2::new(r.x, r.y));
         let (sprite, anchor) = match render_size {
+            // This body publishes where its quad goes, per pose (the sheet's
+            // per-animation body rectangle). That placement already puts the
+            // art's feet on the box's gravity face for the pose being shown, so
+            // the quad is CENTRED and `sync_visuals` does the shifting. Stacking
+            // the sheet's one static feet anchor on top would double-count it —
+            // and that anchor is derived from the idle frame, which is precisely
+            // the wrong answer for a body that changes silhouette.
+            Some(render_size) if view.sprite_offset.is_some() => (
+                build_character_sprite_with_render_size(character_asset, render_size),
+                Anchor::CENTER,
+            ),
             Some(render_size) => (
                 build_character_sprite_with_render_size(character_asset, render_size),
                 feet_anchor_for_render_size(&character_asset.spec, collision, render_size),

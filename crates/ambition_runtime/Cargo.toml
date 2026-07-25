@@ -38,6 +38,10 @@ ambition_persistence = { path = "../ambition_persistence" }
 ambition_menu = { path = "../ambition_menu" }
 ambition_items = { path = "../ambition_items" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
+# The room-transition readiness transaction is an `ambition_load` plan: the
+# barrier, its work items, and the one-shot commit authorization. `ambition_load`
+# is a leaf (bevy only), so this adds no graph depth.
+ambition_load = { path = "../ambition_load" }
 ambition_dev_tools = { path = "../ambition_dev_tools" }
 # The authored world IR — `ActiveRoomMetadata` is what the mode-scope seam
 # (D-C) reads to decide which hosted ruleset is awake.

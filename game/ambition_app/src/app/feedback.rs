@@ -21,50 +21,6 @@ use ambition::vfx::VfxMessage;
 pub struct SandboxEventWriters<'w> {
     pub(super) sfx: SfxWriter<'w>,
     pub(super) vfx: MessageWriter<'w, VfxMessage>,
-    /// "Rebuild the active room's static visuals." The room-transition commit
-    /// asks for the redraw rather than performing it, so the commit chain names
-    /// no render crate and can live outside `ambition_app` — see
-    /// `world_flow::room_flow::load_room`.
-    pub(super) respawn_room_visuals:
-        MessageWriter<'w, ambition::actors::session::RespawnRoomVisualsRequested>,
-}
-
-/// Bundled combat-state resources that need to be torn down on a
-/// room transition or same-room reset (per-target slot reservations,
-/// in-flight enemy projectiles, …) PLUS the feature-overlay
-/// read-side that the transition logger needs. Bundling keeps
-/// consumers like `commit_ready_room_transition_system` under Bevy's
-/// 16-`SystemParam` budget — without this they'd need a separate
-/// ResMut/Res for each piece.
-#[derive(SystemParam)]
-pub struct CombatRoomReset<'w, 's> {
-    pub commands: Commands<'w, 's>,
-    // In-flight enemy projectiles are ECS entities now (Phase 3c-iii); despawn
-    // them instead of clearing a Vec.
-    pub enemy_projectiles:
-        Query<'w, 's, Entity, With<ambition::projectiles::enemy::EnemyProjectile>>,
-    pub slot_board: ResMut<'w, ambition::actors::combat::slots::CombatSlotsRes>,
-    pub feature_overlay: Res<'w, ambition::platformer::feature_overlay::FeatureEcsWorldOverlay>,
-    pub base_gravity: ResMut<'w, ambition::actors::physics::BaseGravity>,
-}
-
-impl<'w, 's> CombatRoomReset<'w, 's> {
-    /// Drop every in-flight enemy projectile + every slot
-    /// reservation. Called by the room-transition path so a fresh
-    /// arena doesn't inherit hostile shots or stale assignments
-    /// from the room the player just left, AND by the same-room
-    /// reset path so a player death + respawn comes back to a
-    /// clean combat state.
-    pub fn clear_carryover(&mut self) {
-        for entity in &self.enemy_projectiles {
-            self.commands.entity(entity).despawn();
-        }
-        self.slot_board.0.clear_assignments();
-        // Resetting the AMBIENT is the real gravity reset; the presentation
-        // `GravityField` is a per-tick mirror of the primary body's resolved
-        // frame and has exactly one writer (`resolve_active_gravity`).
-        *self.base_gravity = ambition::actors::physics::BaseGravity::default();
-    }
 }
 
 /// Mutable producer streams the player tick writes into during the gameplay

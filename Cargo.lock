@@ -727,6 +727,7 @@ dependencies = [
  "ambition_engine_core",
  "ambition_input",
  "ambition_items",
+ "ambition_load",
  "ambition_menu",
  "ambition_persistence",
  "ambition_platformer_primitives",

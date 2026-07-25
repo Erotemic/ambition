@@ -1,7 +1,7 @@
 //! Readiness-gated ordinary room transitions.
 //!
 //! A detected loading-zone crossing no longer tears down the active room in the
-//! same system pass. It first becomes an exact [`ambition::load`] transaction,
+//! same system pass. It first becomes an exact [`ambition_load`] transaction,
 //! preflights the target without mutating room authority, and may commit only on
 //! a later simulation tick after the required barrier is ready and one-shot
 //! authorization succeeds.
@@ -18,12 +18,12 @@ use bevy::prelude::{
     DetectChanges, MessageReader, MessageWriter, NextState, Res, ResMut, Resource,
 };
 
-use ambition::actors::rooms;
-use ambition::load::{
+use ambition_actors::rooms;
+use ambition_load::{
     BarrierReadiness, LoadBarrierRef, LoadBarrierSpec, LoadCommitRejection, LoadCoordinator,
     LoadEvent, LoadFailure, LoadId, LoadPlanSpec, LoadWorkId, LoadWorkSpec, LoadWorkState,
 };
-use ambition::time::SimTick;
+use ambition_time::SimTick;
 
 const ROOM_READY_BARRIER: &str = "room-transition.ready";
 const TARGET_LOOKUP_WORK: &str = "room-transition.target-lookup";
@@ -32,7 +32,7 @@ const CONSTRUCTION_PREFLIGHT_WORK: &str = "room-transition.construction-prefligh
 const ROOM_ASSET_WORK_PREFIX: &str = "room-transition.assets";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum RoomTransitionLoadPhase {
+pub enum RoomTransitionLoadPhase {
     AwaitingReadiness,
     CommitAuthorized,
     Committed,
@@ -45,7 +45,23 @@ pub(crate) enum RoomTransitionLoadPhase {
 /// authorized. When present, the visible adapter must prove an opaque cover
 /// survived a presentation frame before the synchronous commit can begin.
 #[derive(Resource, Default, Debug, Clone, Copy)]
-pub(crate) struct RoomTransitionPresentationAvailable;
+pub struct RoomTransitionPresentationAvailable;
+
+/// Marker installed by a host that answers the room-asset readiness contributor.
+///
+/// The barrier always DECLARES the asset work item, because "did the destination
+/// room's art arrive" is a real question about a room transition whatever host
+/// asks it. What differs is who can answer: a host with a sprite catalog, an
+/// asset server, and a resolved visual quality builds the target room's manifest
+/// and reports settled/failed against it; a headless or minimal host cannot, and
+/// its work item is honestly `Skipped` rather than silently pretending an asset
+/// loaded.
+///
+/// Present ⇒ the engine leaves the item `Running` and a host system
+/// (`ambition_app`'s `contribute_room_transition_assets`) owns resolving it.
+/// Absent ⇒ the engine skips it as it always did for headless.
+#[derive(Resource, Default, Debug, Clone, Copy)]
+pub struct RoomTransitionAssetContributor;
 
 /// Monotonic identity for the App-local inputs that define room construction.
 ///
@@ -53,26 +69,35 @@ pub(crate) struct RoomTransitionPresentationAvailable;
 /// any change to room data, lowering, stagers, or actor catalogs invalidates
 /// prefetched plans and prevents an in-flight plan from committing stale content.
 #[derive(Resource, Default, Debug, Clone, Copy)]
-pub(crate) struct RoomTransitionContentEpoch {
+pub struct RoomTransitionContentEpoch {
     value: u64,
 }
 
 impl RoomTransitionContentEpoch {
-    pub(crate) fn get(&self) -> u64 {
+    pub fn get(&self) -> u64 {
         self.value
+    }
+
+    /// Invalidate every in-flight and prefetched plan.
+    ///
+    /// The engine advances this for the construction inputs it owns. A host with
+    /// construction inputs of its own — Ambition's asset catalog and resolved
+    /// visual quality, which decide what a committed room DRAWS — calls this
+    /// when those change, instead of the engine naming them. Same epoch, one
+    /// meaning: "anything a prepared plan assumed may no longer hold".
+    pub fn bump(&mut self) {
+        self.value = self.value.wrapping_add(1).max(1);
     }
 }
 
 /// Advance the transition content epoch when any construction input changes.
-pub(crate) fn advance_room_transition_content_epoch_system(
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
-    placement_lowering: Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
-    content_staging: Res<ambition::actors::features::RoomContentStagingRegistry>,
-    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
-    character_roster: Res<ambition::actors::features::CharacterRoster>,
-    boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
-    asset_catalog: Option<Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>>,
-    visual_quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
+pub fn advance_room_transition_content_epoch_system(
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<rooms::RoomSet>,
+    placement_lowering: Res<ambition_actors::world::placements::PlacementLoweringRegistry>,
+    content_staging: Res<ambition_actors::features::RoomContentStagingRegistry>,
+    character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+    character_roster: Res<ambition_actors::features::CharacterRoster>,
+    boss_catalog: Res<ambition_actors::boss_encounter::BossCatalog>,
     mut epoch: ResMut<RoomTransitionContentEpoch>,
 ) {
     if room_set.is_changed()
@@ -81,53 +106,49 @@ pub(crate) fn advance_room_transition_content_epoch_system(
         || character_catalog.is_changed()
         || character_roster.is_changed()
         || boss_catalog.is_changed()
-        || asset_catalog
-            .as_ref()
-            .is_some_and(|catalog| catalog.is_changed())
-        || visual_quality
-            .as_ref()
-            .is_some_and(|quality| quality.is_changed())
     {
-        epoch.value = epoch.value.wrapping_add(1).max(1);
+        epoch.bump();
     }
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct ActiveRoomTransitionLoad {
-    pub(crate) sequence: u64,
-    pub(crate) content_epoch: u64,
-    pub(crate) session_scope: Option<ambition::platformer::lifecycle::SessionScopeId>,
-    pub(crate) source_room: usize,
-    pub(crate) source_room_id: String,
-    pub(crate) target_room_id: String,
-    pub(crate) request: rooms::RoomTransitionRequested,
-    pub(crate) construction_plan: Option<Arc<rooms::RoomConstructionPlan>>,
-    pub(crate) barrier: LoadBarrierRef,
-    pub(crate) commit_not_before_tick: u64,
-    pub(crate) cover_required: bool,
-    pub(crate) cover_presented: bool,
-    pub(crate) phase: RoomTransitionLoadPhase,
-    pub(crate) failure: Option<String>,
-    pub(crate) asset_work_id: LoadWorkId,
-    pub(crate) asset_manifest: Option<Arc<super::room_transition_assets::RoomAssetManifest>>,
-    pub(crate) asset_readiness_complete: bool,
-    pub(crate) last_asset_progress: Option<(usize, usize)>,
-    pub(crate) prefetch_hit: bool,
-    pub(crate) construction_preflight_duration: Option<Duration>,
-    pub(crate) asset_manifest_duration: Option<Duration>,
-    pub(crate) requested_at: Option<Duration>,
-    pub(crate) asset_ready_at: Option<Duration>,
-    pub(crate) ready_at: Option<Duration>,
-    pub(crate) cover_presented_at: Option<Duration>,
-    pub(crate) commit_duration: Option<Duration>,
-    pub(crate) committed_at: Option<Duration>,
+pub struct ActiveRoomTransitionLoad {
+    pub sequence: u64,
+    pub content_epoch: u64,
+    pub session_scope: Option<ambition_platformer_primitives::lifecycle::SessionScopeId>,
+    pub source_room: usize,
+    pub source_room_id: String,
+    pub target_room_id: String,
+    pub request: rooms::RoomTransitionRequested,
+    pub construction_plan: Option<Arc<rooms::RoomConstructionPlan>>,
+    pub barrier: LoadBarrierRef,
+    pub commit_not_before_tick: u64,
+    pub cover_required: bool,
+    pub cover_presented: bool,
+    pub phase: RoomTransitionLoadPhase,
+    pub failure: Option<String>,
+    pub asset_work_id: LoadWorkId,
+    /// The actor names this transition's plan stages, published for the host's
+    /// asset contributor so it does not become a second authority on them.
+    pub staged_actor_names: Vec<String>,
+    pub asset_readiness_complete: bool,
+    pub last_asset_progress: Option<(usize, usize)>,
+    pub prefetch_hit: bool,
+    pub construction_preflight_duration: Option<Duration>,
+    pub asset_manifest_duration: Option<Duration>,
+    pub requested_at: Option<Duration>,
+    pub asset_ready_at: Option<Duration>,
+    pub ready_at: Option<Duration>,
+    pub cover_presented_at: Option<Duration>,
+    pub commit_duration: Option<Duration>,
+    pub committed_at: Option<Duration>,
 }
 
 impl ActiveRoomTransitionLoad {
     fn same_destination(
         &self,
         request: &rooms::RoomTransitionRequested,
-        session_scope: Option<ambition::platformer::lifecycle::SessionScopeId>,
+        session_scope: Option<ambition_platformer_primitives::lifecycle::SessionScopeId>,
         content_epoch: u64,
     ) -> bool {
         self.content_epoch == content_epoch
@@ -143,9 +164,9 @@ impl ActiveRoomTransitionLoad {
 /// loading zone is ignored while it is in flight; a genuinely different target
 /// supersedes it through the load coordinator's exact supersession path.
 #[derive(Resource, Default, Debug)]
-pub(crate) struct RoomTransitionLoadState {
+pub struct RoomTransitionLoadState {
     next_sequence: u64,
-    pub(crate) active: Option<ActiveRoomTransitionLoad>,
+    pub active: Option<ActiveRoomTransitionLoad>,
 }
 
 impl RoomTransitionLoadState {
@@ -158,14 +179,14 @@ impl RoomTransitionLoadState {
 fn apply_load_command(
     loads: &mut LoadCoordinator,
     events: &mut MessageWriter<LoadEvent>,
-    command: ambition::load::LoadCommand,
+    command: ambition_load::LoadCommand,
 ) {
     for event in loads.apply(command) {
         events.write(event);
     }
 }
 
-pub(crate) fn set_room_transition_work_state(
+pub fn set_room_transition_work_state(
     loads: &mut LoadCoordinator,
     events: &mut MessageWriter<LoadEvent>,
     load_id: &LoadId,
@@ -175,7 +196,7 @@ pub(crate) fn set_room_transition_work_state(
     apply_load_command(
         loads,
         events,
-        ambition::load::LoadCommand::SetWorkState {
+        ambition_load::LoadCommand::SetWorkState {
             load_id: load_id.clone(),
             work_id,
             state,
@@ -218,7 +239,7 @@ fn close_discovery(
     apply_load_command(
         loads,
         events,
-        ambition::load::LoadCommand::SetDiscovery {
+        ambition_load::LoadCommand::SetDiscovery {
             load_id: barrier.load_id.clone(),
             barrier_id: barrier.barrier_id.clone(),
             open: false,
@@ -230,7 +251,7 @@ fn close_discovery(
 /// Convert a post-authorization commit precondition failure into ordinary load
 /// evidence. The source room is still intact at every caller, so visible hosts
 /// can offer retry/cancel and headless hosts can retire the failed transaction.
-pub(crate) fn fail_room_transition_commit_precondition(
+pub fn fail_room_transition_commit_precondition(
     state: &mut RoomTransitionLoadState,
     loads: &mut LoadCoordinator,
     events: &mut MessageWriter<LoadEvent>,
@@ -270,27 +291,29 @@ pub(crate) fn fail_room_transition_commit_precondition(
 /// work until they settle. The old room remains authoritative until a later
 /// tick observes the complete barrier and receives one-shot authorization.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn begin_room_transition_load_system(
+pub fn begin_room_transition_load_system(
     mut requests: MessageReader<rooms::RoomTransitionRequested>,
     mut state: ResMut<RoomTransitionLoadState>,
     content_epoch: Res<RoomTransitionContentEpoch>,
-    active_binding: Option<Res<ambition::actors::rooms::ActiveContentBinding>>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
+    active_binding: Option<Res<ambition_actors::rooms::ActiveContentBinding>>,
+    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<rooms::RoomSet>,
     construction_services: (
-        Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
-        Res<ambition::actors::features::RoomContentStagingRegistry>,
-        Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
-        Res<ambition::actors::features::CharacterRoster>,
-        Res<ambition::actors::boss_encounter::BossCatalog>,
-        Res<ambition::actors::construction::ActorConstructionRegistry>,
+        Res<ambition_actors::world::placements::PlacementLoweringRegistry>,
+        Res<ambition_actors::features::RoomContentStagingRegistry>,
+        Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+        Res<ambition_actors::features::CharacterRoster>,
+        Res<ambition_actors::boss_encounter::BossCatalog>,
+        Res<ambition_actors::construction::ActorConstructionRegistry>,
     ),
-    mut asset_context: super::room_transition_assets::RoomTransitionAssetContext,
-    active_session: Option<Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
+    asset_contributor: Option<Res<RoomTransitionAssetContributor>>,
+    mut plan_prefetch: Option<ResMut<super::prefetch::RoomConstructionPlanPrefetch>>,
+    real_time: Option<Res<bevy::prelude::Time<bevy::prelude::Real>>>,
+    active_session: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
     presentation_available: Option<Res<RoomTransitionPresentationAvailable>>,
     tick: Res<SimTick>,
     mut loads: ResMut<LoadCoordinator>,
     mut load_events: MessageWriter<LoadEvent>,
-    mut next_mode: ResMut<NextState<ambition::platformer::schedule::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_platformer_primitives::schedule::GameMode>>,
 ) {
     let current_session = active_session.as_deref().and_then(|scope| scope.current());
     for request in requests.read() {
@@ -327,7 +350,7 @@ pub(crate) fn begin_room_transition_load_system(
         apply_load_command(
             &mut loads,
             &mut load_events,
-            ambition::load::LoadCommand::Begin(plan),
+            ambition_load::LoadCommand::Begin(plan),
         );
         if let Some(old) = superseded {
             // The supersession event has already been published. The room
@@ -338,7 +361,7 @@ pub(crate) fn begin_room_transition_load_system(
         apply_load_command(
             &mut loads,
             &mut load_events,
-            ambition::load::LoadCommand::DeclareBarrier {
+            ambition_load::LoadCommand::DeclareBarrier {
                 load_id: load_id.clone(),
                 spec: LoadBarrierSpec::new(ROOM_READY_BARRIER, "Preparing destination room"),
             },
@@ -368,14 +391,14 @@ pub(crate) fn begin_room_transition_load_system(
             apply_load_command(
                 &mut loads,
                 &mut load_events,
-                ambition::load::LoadCommand::UpsertWork {
+                ambition_load::LoadCommand::UpsertWork {
                     load_id: load_id.clone(),
                     spec,
                 },
             );
         }
 
-        next_mode.set(ambition::platformer::schedule::GameMode::RoomTransition);
+        next_mode.set(ambition_platformer_primitives::schedule::GameMode::RoomTransition);
 
         let cover_required = presentation_available.is_some();
         let mut active = ActiveRoomTransitionLoad {
@@ -397,16 +420,13 @@ pub(crate) fn begin_room_transition_load_system(
             phase: RoomTransitionLoadPhase::AwaitingReadiness,
             failure: None,
             asset_work_id: asset_work_id.clone(),
-            asset_manifest: None,
+            staged_actor_names: Vec::new(),
             asset_readiness_complete: false,
             last_asset_progress: None,
             prefetch_hit: false,
             construction_preflight_duration: None,
             asset_manifest_duration: None,
-            requested_at: asset_context
-                .real_time
-                .as_deref()
-                .map(|time| time.elapsed()),
+            requested_at: real_time.as_deref().map(|time| time.elapsed()),
             asset_ready_at: None,
             ready_at: None,
             cover_presented_at: None,
@@ -501,7 +521,7 @@ pub(crate) fn begin_room_transition_load_system(
         );
 
         let Some(session_scope) =
-            ambition::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
+            ambition_platformer_primitives::lifecycle::SessionSpawnScope::for_optional_active_session(
                 active_session.as_deref(),
             )
         else {
@@ -530,8 +550,8 @@ pub(crate) fn begin_room_transition_load_system(
         };
         #[cfg(not(target_arch = "wasm32"))]
         let construction_preflight_started = std::time::Instant::now();
-        let prefetched_construction = asset_context.prefetch.as_deref_mut().and_then(|cache| {
-            cache.promote_construction_plan(
+        let prefetched_construction = plan_prefetch.as_deref_mut().and_then(|cache| {
+            cache.promote(
                 content_epoch.get(),
                 current_session,
                 &active.source_room_id,
@@ -551,9 +571,9 @@ pub(crate) fn begin_room_transition_load_system(
                 &construction_services.4,
                 session_scope,
                 {
-                    let mut context = ambition::actors::features::ActorConstructionContext::new(
+                    let mut context = ambition_actors::features::ActorConstructionContext::new(
                         &construction_services.5,
-                        ambition::engine_core::ContentEpoch(content_epoch.get()),
+                        ambition_engine_core::ContentEpoch(content_epoch.get()),
                     );
                     // A transition rebuilds a room the ACTIVE content already
                     // defines, so the plan states the session's LIVE binding —
@@ -608,120 +628,39 @@ pub(crate) fn begin_room_transition_load_system(
             LoadWorkState::Complete,
         );
 
-        match (
-            asset_context.assets.as_deref_mut(),
-            asset_context.catalog.as_deref(),
-            asset_context.character_catalog.as_deref(),
-            asset_context.asset_server.as_deref(),
-            asset_context.layouts.as_deref_mut(),
-            asset_context.quality.as_deref(),
-        ) {
-            (
-                Some(assets),
-                Some(catalog),
-                Some(character_catalog),
-                Some(asset_server),
-                Some(layouts),
-                Some(quality),
-            ) => {
-                #[cfg(not(target_arch = "wasm32"))]
-                let manifest_started = std::time::Instant::now();
-                let manifest = super::room_transition_assets::build_room_asset_manifest(
-                    target_spec,
-                    &staged_names,
-                    assets,
-                    catalog,
-                    character_catalog,
-                    asset_server,
-                    layouts,
-                    quality,
-                );
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    active.asset_manifest_duration = Some(manifest_started.elapsed());
-                }
-                let prefetch_now = asset_context
-                    .real_time
-                    .as_deref()
-                    .map(|time| time.elapsed());
-                if let Some(cache) = asset_context.prefetch.as_deref_mut() {
-                    let assets_promoted = cache.classify_promotion(
-                        content_epoch.get(),
-                        current_session,
-                        &active.source_room_id,
-                        &manifest,
-                        prefetch_now,
-                    );
-                    active.prefetch_hit &= assets_promoted;
-                }
-                let manifest_is_empty = manifest.is_empty();
-                let readiness = super::room_transition_assets::inspect_room_asset_manifest(
-                    asset_server,
-                    &manifest,
-                );
-                active.asset_manifest = Some(Arc::new(manifest));
-                active.last_asset_progress = Some((readiness.settled, readiness.total));
-                if !readiness.failed.is_empty() {
-                    let detail = format!(
-                        "room '{}' failed to load {} activation-critical asset(s): {}",
-                        active.target_room_id,
-                        readiness.failed.len(),
-                        readiness.failed.join(", "),
-                    );
-                    active.asset_readiness_complete = true;
-                    set_room_transition_work_state(
-                        &mut loads,
-                        &mut load_events,
-                        &load_id,
-                        asset_work_id.clone(),
-                        LoadWorkState::Failed(
-                            LoadFailure::new(
-                                "The destination room's visuals could not be loaded.",
-                                detail.clone(),
-                            )
-                            .retryable(true),
-                        ),
-                    );
-                    bevy::log::error!(target: "ambition::room_transition", "{detail}");
-                } else if manifest_is_empty || readiness.is_ready() {
-                    active.asset_readiness_complete = true;
-                    active.asset_ready_at = prefetch_now;
-                    set_room_transition_work_state(
-                        &mut loads,
-                        &mut load_events,
-                        &load_id,
-                        asset_work_id.clone(),
-                        LoadWorkState::Complete,
-                    );
-                } else {
-                    set_room_transition_work_state(
-                        &mut loads,
-                        &mut load_events,
-                        &load_id,
-                        asset_work_id.clone(),
-                        LoadWorkState::Running {
-                            progress: Some(ambition::load::UnitProgress::new(
-                                readiness.settled as f32,
-                                readiness.total as f32,
-                            )),
-                        },
-                    );
-                }
-            }
-            _ => {
-                // Headless/minimal hosts have no presentation asset authority.
-                // Their room barrier is still honest: this contributor is not
-                // applicable rather than silently pretending an asset loaded.
-                active.asset_readiness_complete = true;
-                active.asset_ready_at = active.requested_at;
-                set_room_transition_work_state(
-                    &mut loads,
-                    &mut load_events,
-                    &load_id,
-                    asset_work_id.clone(),
-                    LoadWorkState::Skipped,
-                );
-            }
+        // ── The asset contributor seam ──────────────────────────────────
+        //
+        // "Has the destination room's art arrived" is a real question about a
+        // room transition, so the work item is always DECLARED. Answering it
+        // needs a sprite catalog, an asset server, and a resolved visual
+        // quality — host property, not engine property. A host that has them
+        // installs `RoomTransitionAssetContributor` and owns resolving this
+        // item; a headless or minimal host has no presentation asset authority
+        // and its barrier stays honest by SKIPPING the contributor rather than
+        // pretending an asset loaded.
+        //
+        // `staged_names` is published for the contributor because it is derived
+        // from the plan the engine just preflighted — recomputing it host-side
+        // would be a second authority on what the target room stages.
+        if asset_contributor.is_some() {
+            active.staged_actor_names = staged_names;
+            set_room_transition_work_state(
+                &mut loads,
+                &mut load_events,
+                &load_id,
+                asset_work_id.clone(),
+                LoadWorkState::Running { progress: None },
+            );
+        } else {
+            active.asset_readiness_complete = true;
+            active.asset_ready_at = active.requested_at;
+            set_room_transition_work_state(
+                &mut loads,
+                &mut load_events,
+                &load_id,
+                asset_work_id.clone(),
+                LoadWorkState::Skipped,
+            );
         }
         close_discovery(&mut loads, &mut load_events, &barrier);
         state.active = Some(active);
@@ -732,7 +671,7 @@ pub(crate) fn begin_room_transition_load_system(
 ///
 /// The deliberate next-tick gate prevents the old request/apply same-pass path
 /// from reappearing even while all current contributors are immediate.
-pub(crate) fn authorize_ready_room_transition_system(
+pub fn authorize_ready_room_transition_system(
     tick: Res<SimTick>,
     real_time: Option<Res<bevy::prelude::Time<bevy::prelude::Real>>>,
     mut state: ResMut<RoomTransitionLoadState>,
@@ -805,12 +744,12 @@ pub(crate) fn authorize_ready_room_transition_system(
 /// presentation adapter. A windowed host keeps the failed transaction resident
 /// so the loading foreground can offer retry/cancel while the source room stays
 /// intact.
-pub(crate) fn finalize_unpresented_room_transition_failure_system(
+pub fn finalize_unpresented_room_transition_failure_system(
     presentation_available: Option<Res<RoomTransitionPresentationAvailable>>,
     mut state: ResMut<RoomTransitionLoadState>,
     mut loads: ResMut<LoadCoordinator>,
     mut load_events: MessageWriter<LoadEvent>,
-    mut next_mode: ResMut<NextState<ambition::platformer::schedule::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_platformer_primitives::schedule::GameMode>>,
 ) {
     if presentation_available.is_some()
         || !state
@@ -827,19 +766,19 @@ pub(crate) fn finalize_unpresented_room_transition_failure_system(
     apply_load_command(
         &mut loads,
         &mut load_events,
-        ambition::load::LoadCommand::Cancel {
+        ambition_load::LoadCommand::Cancel {
             load_id: active.barrier.load_id.clone(),
         },
     );
     loads.retire(&active.barrier.load_id);
-    next_mode.set(ambition::platformer::schedule::GameMode::Playing);
+    next_mode.set(ambition_platformer_primitives::schedule::GameMode::Playing);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition::engine_core as ae;
-    use ambition::world::rooms::{LoadingZone, LoadingZoneActivation, RoomTransition};
+    use ambition_engine_core as ae;
+    use ambition_world::rooms::{LoadingZone, LoadingZoneActivation, RoomTransition};
 
     fn request(zone: &str, target_room: usize) -> rooms::RoomTransitionRequested {
         rooms::RoomTransitionRequested::new(
@@ -875,7 +814,7 @@ mod tests {
             phase: RoomTransitionLoadPhase::AwaitingReadiness,
             failure: None,
             asset_work_id: LoadWorkId::new("room-transition.assets:b"),
-            asset_manifest: None,
+            staged_actor_names: Vec::new(),
             asset_readiness_complete: false,
             last_asset_progress: None,
             prefetch_hit: false,
@@ -894,7 +833,7 @@ mod tests {
         assert!(!active.same_destination(&request("door", 1), None, 2));
         assert!(!active.same_destination(
             &request("door", 1),
-            Some(ambition::platformer::lifecycle::SessionScopeId(9)),
+            Some(ambition_platformer_primitives::lifecycle::SessionScopeId(9)),
             1,
         ));
     }
@@ -917,7 +856,7 @@ mod tests {
             phase: RoomTransitionLoadPhase::AwaitingReadiness,
             failure: None,
             asset_work_id: LoadWorkId::new("room-transition.assets:b"),
-            asset_manifest: None,
+            staged_actor_names: Vec::new(),
             asset_readiness_complete: false,
             last_asset_progress: None,
             prefetch_hit: false,

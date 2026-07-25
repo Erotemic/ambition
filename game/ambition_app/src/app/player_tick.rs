@@ -28,7 +28,7 @@ use super::feedback::SandboxEventWriters;
 use super::phases::sync_player_presentation as sync_player_presentation_phase;
 use ambition::runtime::reset_sandbox;
 
-use super::world_flow::RoomClock;
+use ambition::runtime::room_transition::RoomClock;
 
 /// PHASE — home reset policy. The one thing the actor path does NOT do (an actor
 /// owns its own hazard reaction; it never teleports to the player spawn). Reads the

@@ -32,8 +32,9 @@ use ambition::sprite_sheet::game_assets::{
     ensure_parallax_layers_for_room, EntitySprite, GameAssets, ParallaxLayerAsset, ParallaxTheme,
 };
 
-use super::room_transition_loading::{
-    set_room_transition_work_state, RoomTransitionLoadPhase, RoomTransitionLoadState,
+use ambition::runtime::room_transition::{
+    set_room_transition_work_state, RoomConstructionPlanPrefetch, RoomTransitionLoadPhase,
+    RoomTransitionLoadState,
 };
 
 /// One concrete image handle whose successful load contributes to room visual
@@ -66,7 +67,11 @@ impl RoomAssetManifest {
 #[derive(Clone, Debug)]
 struct PrefetchedRoomPreparation {
     manifest: RoomAssetManifest,
-    construction_plan: Option<Arc<ambition::actors::rooms::RoomConstructionPlan>>,
+    /// True once the matching construction plan has been published into the
+    /// engine's [`RoomConstructionPlanPrefetch`]. The PLAN itself lives there:
+    /// it is an engine artifact keyed by engine identity, and a transition
+    /// promotes it without asking this host anything.
+    plan_published: bool,
     requested_at: Duration,
     settled_at: Option<Duration>,
 }
@@ -500,25 +505,6 @@ impl RoomPreparationPrefetchState {
         changed
     }
 
-    /// Promote the exact immutable construction artifact prepared for a graph
-    /// neighbor. A same-id hot reload, provider/catalog replacement, or session
-    /// change becomes a miss because the prepared spec/scope must still match.
-    pub(crate) fn promote_construction_plan(
-        &mut self,
-        content_epoch: u64,
-        session_scope: Option<SessionScopeId>,
-        source_room_id: &str,
-        target: &RoomSpec,
-    ) -> Option<Arc<ambition::actors::rooms::RoomConstructionPlan>> {
-        self.reset_for(content_epoch, session_scope, source_room_id);
-        let entry = self.entries.get(&target.id)?;
-        let plan = entry.construction_plan.as_ref()?;
-        if !plan.matches_room_spec(target) || plan.session_scope().id() != session_scope {
-            return None;
-        }
-        Some(Arc::clone(plan))
-    }
-
     pub(crate) fn classify_promotion(
         &mut self,
         content_epoch: u64,
@@ -583,12 +569,167 @@ impl RoomPreparationPrefetchState {
     }
 }
 
+/// The manifest for the transition currently in flight, keyed by the engine's
+/// transition `sequence`.
+///
+/// It lives here rather than on `ActiveRoomTransitionLoad` because a
+/// `RoomAssetManifest` is a bag of Bevy asset ids under a resolved visual
+/// quality — a fact about THIS host's presentation pipeline, which the engine
+/// cannot name and has no use for. The engine owns the transaction and its
+/// identity; the contributor owns its own evidence.
+#[derive(Resource, Default, Debug)]
+pub(crate) struct ContributedRoomAssets {
+    sequence: Option<u64>,
+    manifest: Option<Arc<RoomAssetManifest>>,
+}
+
+/// Build the destination room's dependency set the first time the engine hands
+/// this host a transition, and report the contributor's opening state.
+///
+/// This is the half of the old in-`begin_room_transition_load_system` block that
+/// only a host can do. The engine declares the asset work item and leaves it
+/// `Running` whenever `RoomTransitionAssetContributor` is installed; this system
+/// is what installs that marker's promise.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn contribute_room_transition_assets_system(
+    room_set: SessionWorldRef<RoomSet>,
+    mut transitions: ResMut<RoomTransitionLoadState>,
+    mut contributed: ResMut<ContributedRoomAssets>,
+    mut context: RoomTransitionAssetContext,
+    mut loads: ResMut<LoadCoordinator>,
+    mut load_events: bevy::prelude::MessageWriter<LoadEvent>,
+) {
+    let Some(active) = transitions.active.as_mut() else {
+        contributed.sequence = None;
+        contributed.manifest = None;
+        return;
+    };
+    if contributed.sequence == Some(active.sequence) || active.asset_readiness_complete {
+        return;
+    }
+    contributed.sequence = Some(active.sequence);
+    contributed.manifest = None;
+
+    let (
+        Some(assets),
+        Some(catalog),
+        Some(character_catalog),
+        Some(asset_server),
+        Some(layouts),
+        Some(quality),
+    ) = (
+        context.assets.as_deref_mut(),
+        context.catalog.as_deref(),
+        context.character_catalog.as_deref(),
+        context.asset_server.as_deref(),
+        context.layouts.as_deref_mut(),
+        context.quality.as_deref(),
+    )
+    else {
+        // The marker promised an answer this host cannot give. Say so instead of
+        // stalling the barrier forever.
+        active.asset_readiness_complete = true;
+        set_room_transition_work_state(
+            &mut loads,
+            &mut load_events,
+            &active.barrier.load_id,
+            active.asset_work_id.clone(),
+            LoadWorkState::Skipped,
+        );
+        return;
+    };
+
+    let Some(target_spec) = room_set.rooms.get(active.request.transition.target_room) else {
+        return;
+    };
+
+    #[cfg(not(target_arch = "wasm32"))]
+    let manifest_started = std::time::Instant::now();
+    let manifest = build_room_asset_manifest(
+        target_spec,
+        &active.staged_actor_names,
+        assets,
+        catalog,
+        character_catalog,
+        asset_server,
+        layouts,
+        quality,
+    );
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        active.asset_manifest_duration = Some(manifest_started.elapsed());
+    }
+    let now = context.real_time.as_deref().map(|time| time.elapsed());
+    if let Some(cache) = context.prefetch.as_deref_mut() {
+        let assets_promoted = cache.classify_promotion(
+            active.content_epoch,
+            active.session_scope,
+            &active.source_room_id,
+            &manifest,
+            now,
+        );
+        active.prefetch_hit &= assets_promoted;
+    }
+    let manifest_is_empty = manifest.is_empty();
+    let readiness = inspect_room_asset_manifest(asset_server, &manifest);
+    active.last_asset_progress = Some((readiness.settled, readiness.total));
+    contributed.manifest = Some(Arc::new(manifest));
+
+    if !readiness.failed.is_empty() {
+        let detail = format!(
+            "room '{}' failed to load {} activation-critical asset(s): {}",
+            active.target_room_id,
+            readiness.failed.len(),
+            readiness.failed.join(", "),
+        );
+        active.asset_readiness_complete = true;
+        set_room_transition_work_state(
+            &mut loads,
+            &mut load_events,
+            &active.barrier.load_id,
+            active.asset_work_id.clone(),
+            LoadWorkState::Failed(
+                LoadFailure::new(
+                    "The destination room's visuals could not be loaded.",
+                    detail.clone(),
+                )
+                .retryable(true),
+            ),
+        );
+        bevy::log::error!(target: "ambition::room_transition", "{detail}");
+    } else if manifest_is_empty || readiness.is_ready() {
+        active.asset_readiness_complete = true;
+        active.asset_ready_at = now;
+        set_room_transition_work_state(
+            &mut loads,
+            &mut load_events,
+            &active.barrier.load_id,
+            active.asset_work_id.clone(),
+            LoadWorkState::Complete,
+        );
+    } else {
+        set_room_transition_work_state(
+            &mut loads,
+            &mut load_events,
+            &active.barrier.load_id,
+            active.asset_work_id.clone(),
+            LoadWorkState::Running {
+                progress: Some(UnitProgress::new(
+                    readiness.settled as f32,
+                    readiness.total.max(1) as f32,
+                )),
+            },
+        );
+    }
+}
+
 /// Poll the active transition's concrete room dependency set and publish real
 /// unit progress into its required load work.
 pub(crate) fn poll_room_transition_asset_readiness_system(
     asset_server: Res<AssetServer>,
     time: Res<Time<Real>>,
     mut transitions: ResMut<RoomTransitionLoadState>,
+    contributed: Res<ContributedRoomAssets>,
     mut loads: ResMut<LoadCoordinator>,
     mut load_events: bevy::prelude::MessageWriter<LoadEvent>,
 ) {
@@ -599,7 +740,10 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
     {
         return;
     }
-    let Some(manifest) = active.asset_manifest.as_ref() else {
+    if contributed.sequence != Some(active.sequence) {
+        return;
+    }
+    let Some(manifest) = contributed.manifest.as_ref() else {
         return;
     };
 
@@ -665,15 +809,16 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn prefetch_neighbor_room_preparation_system(
     room_set: SessionWorldRef<RoomSet>,
-    content_epoch: Res<super::room_transition_loading::RoomTransitionContentEpoch>,
+    content_epoch: Res<ambition::runtime::room_transition::RoomTransitionContentEpoch>,
     placement_lowering: Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
     content_staging: Res<RoomContentStagingRegistry>,
     character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<ambition::actors::features::CharacterRoster>,
     boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
-    (construction_recipes, active_binding): (
+    (construction_recipes, active_binding, mut plan_prefetch): (
         Res<ambition::actors::construction::ActorConstructionRegistry>,
         Option<Res<ambition::actors::rooms::ActiveContentBinding>>,
+        ResMut<RoomConstructionPlanPrefetch>,
     ),
     mut assets: ResMut<GameAssets>,
     catalog: Res<SandboxAssetCatalog>,
@@ -716,9 +861,13 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         .filter_map(|&index| room_set.rooms.get(index))
         .map(|room| room.id.clone())
         .collect::<BTreeSet<_>>();
-    cache
-        .entries
-        .retain(|room_id, _| neighbor_ids.contains(room_id));
+    cache.entries.retain(|room_id, entry| {
+        let keep = neighbor_ids.contains(room_id);
+        if !keep && entry.plan_published {
+            plan_prefetch.forget(room_id);
+        }
+        keep
+    });
 
     for index in neighbor_indices {
         let Some(room) = room_set.rooms.get(index) else {
@@ -728,7 +877,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             && cache
                 .entries
                 .get(&room.id)
-                .is_some_and(|entry| entry.construction_plan.is_some())
+                .is_some_and(|entry| entry.plan_published)
         {
             continue;
         }
@@ -760,6 +909,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 Ok(plan) => plan,
                 Err(error) => {
                     cache.entries.remove(&room.id);
+                    plan_prefetch.forget(&room.id);
                     bevy::log::warn!(
                         target: "ambition::room_transition",
                         "could not prefetch construction for neighbor room '{}': {error}",
@@ -781,14 +931,15 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         );
         let replace = refresh_manifests
             || cache.entries.get(&room.id).map_or(true, |entry| {
-                entry.manifest != manifest || entry.construction_plan.is_none()
+                entry.manifest != manifest || !entry.plan_published
             });
         if replace {
+            plan_prefetch.publish(&room.id, Arc::new(construction_plan));
             cache.entries.insert(
                 room.id.clone(),
                 PrefetchedRoomPreparation {
                     manifest,
-                    construction_plan: Some(Arc::new(construction_plan)),
+                    plan_published: true,
                     requested_at: time.elapsed(),
                     settled_at: None,
                 },
@@ -822,7 +973,7 @@ mod tests {
             "hall".to_string(),
             PrefetchedRoomPreparation {
                 manifest: empty.clone(),
-                construction_plan: None,
+                plan_published: false,
                 requested_at: Duration::ZERO,
                 settled_at: Some(Duration::ZERO),
             },

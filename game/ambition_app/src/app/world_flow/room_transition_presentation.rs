@@ -24,10 +24,10 @@ use ambition::load_presentation::{
 use ambition::platformer::schedule::GameMode;
 
 use super::room_transition_assets::{
-    poll_room_transition_asset_readiness_system, prefetch_neighbor_room_preparation_system,
-    RoomPreparationPrefetchState,
+    contribute_room_transition_assets_system, poll_room_transition_asset_readiness_system,
+    prefetch_neighbor_room_preparation_system, RoomPreparationPrefetchState,
 };
-use super::room_transition_loading::{
+use ambition::runtime::room_transition::{
     RoomTransitionLoadPhase, RoomTransitionLoadState, RoomTransitionPresentationAvailable,
 };
 
@@ -194,7 +194,13 @@ fn experience(config: &RoomTransitionPresentationConfig) -> LoadExperienceSpec {
 /// install it through `add_presentation_plugins` and use the exact same room
 /// transaction state as simulation.
 pub(crate) fn install_room_transition_presentation(app: &mut App) {
-    app.init_resource::<RoomTransitionPresentationAvailable>()
+    // This host CAN answer "did the destination room's art arrive", so it
+    // installs the engine's contributor marker and owns resolving that work
+    // item. A demo host that installs neither marker gets a barrier that
+    // honestly skips the contributor.
+    app.init_resource::<ambition::runtime::room_transition::RoomTransitionAssetContributor>()
+        .init_resource::<super::room_transition_assets::ContributedRoomAssets>()
+        .init_resource::<RoomTransitionPresentationAvailable>()
         .init_resource::<RoomTransitionPresentationConfig>()
         .init_resource::<RoomTransitionPresentationState>()
         .init_resource::<RoomTransitionTelemetry>()
@@ -202,6 +208,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
         .add_systems(
             Update,
             (
+                contribute_room_transition_assets_system,
                 poll_room_transition_asset_readiness_system,
                 drive_room_transition_presentation,
             )

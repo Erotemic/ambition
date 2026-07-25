@@ -39,13 +39,7 @@ use super::setup_systems::{
     setup_presentation_system, setup_simulation_system,
 };
 use super::sim_systems::apply_player_reset_input_system;
-use super::world_flow::{
-    advance_room_transition_content_epoch_system, authorize_ready_room_transition_system,
-    begin_room_transition_load_system, commit_ready_room_transition_system,
-    finalize_unpresented_room_transition_failure_system,
-    materialize_primary_player_character_sheet, RoomTransitionContentEpoch,
-    RoomTransitionLoadState,
-};
+use super::world_flow::materialize_primary_player_character_sheet;
 
 /// Register core simulation plugins, message types, and the gameplay
 /// schedule. Headless and visible both call this.
@@ -73,8 +67,8 @@ pub fn add_simulation_plugins(app: &mut App) {
     if !app.is_plugin_added::<ambition::load::AmbitionLoadPlugin>() {
         app.add_plugins(ambition::load::AmbitionLoadPlugin);
     }
-    app.init_resource::<RoomTransitionLoadState>()
-        .init_resource::<RoomTransitionContentEpoch>();
+    // `RoomTransitionLoadState` / `RoomTransitionContentEpoch` are the engine's
+    // now — `RoomTransitionComposerPlugin` owns them.
 
     // The canonical simulation-phase sets + engine resources now live in
     // `ambition::runtime::SandboxSetsPlugin` (first in the engine group below).
@@ -225,28 +219,12 @@ fn register_app_local_sim_systems(app: &mut App) {
             .before(ambition::actors::features::ecs::damage_apply::apply_player_hit_events),
     );
 
-    // ── The RoomTransition gap: readiness transaction + authorized commit ──
-    //
-    // Detection emits `RoomTransitionRequested`. The app turns it into an
-    // exact `ambition_load` plan, preflights the target while the source room
-    // remains authoritative, obtains one-shot authorization on a later sim
-    // tick, and only then performs the existing synchronous construction and
-    // render commit. Visible hosts additionally require a cover that has
-    // survived a presentation frame before authorization can succeed.
-    app.add_systems(
-        sim,
-        (
-            advance_room_transition_content_epoch_system,
-            begin_room_transition_load_system,
-            authorize_ready_room_transition_system,
-            finalize_unpresented_room_transition_failure_system,
-            commit_ready_room_transition_system,
-        )
-            .chain()
-            .in_set(SandboxSet::RoomTransition)
-            .after(ambition::actors::rooms::detect_room_transition_system)
-            .before(ambition::actors::features::reset_ecs_room_features),
-    );
+    // The RoomTransition gap — readiness transaction + authorized commit — is
+    // filled by the ENGINE now (`ambition::runtime::room_transition`), carried
+    // by `PlatformerEnginePlugins` so a demo host gets it too. This app keeps
+    // only its two optional CONTRIBUTORS: the asset manifest/readiness half
+    // (`world_flow::room_transition_assets`) and the cover
+    // (`install_room_transition_presentation`).
 
     // The player avatar is carried across rooms, not staged as room content, so
     // the room asset barrier never materializes its (deferred) worn sheet. Keep

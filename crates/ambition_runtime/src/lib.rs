@@ -64,6 +64,7 @@ pub mod projectile_schedule;
 /// GGRS rollback integration: typed state registration, input/session bridge, and exact schema identity.
 pub mod rollback;
 mod room_schedule;
+pub mod room_transition;
 /// The shared sandbox-reset authority (`reset_sandbox`) and the one
 /// `RoomReplayRequested` consumer every host drains.
 pub mod sandbox_reset;
@@ -84,6 +85,7 @@ pub use player_schedule::PlayerSchedulePlugin;
 pub use portal_schedule::PortalSchedulePlugin;
 pub use progression_schedule::ProgressionSchedulePlugin;
 pub use room_schedule::RoomTransitionSchedulePlugin;
+pub use room_transition::RoomTransitionComposerPlugin;
 pub use sandbox_reset::{
     apply_room_replay_request_system, reset_sandbox, RoomReplaySchedulePlugin,
 };
@@ -429,6 +431,10 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Room-transition detection + per-room feature reset; the host's
             // transition APPLY (the composition tier) slots in between.
             .add(RoomTransitionSchedulePlugin)
+            // The readiness transaction + authorized commit that sits in the gap
+            // `RoomTransitionSchedulePlugin` documents. Engine-side since
+            // 2026-07-25 so a demo host can change rooms at all.
+            .add(RoomTransitionComposerPlugin)
             // The one `RoomReplayRequested` consumer + the two content slots
             // that must precede it. In the group because content in EVERY host
             // emits the request: without a consumer here, a standalone demo

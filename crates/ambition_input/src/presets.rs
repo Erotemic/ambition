@@ -99,7 +99,22 @@ impl KeyboardPreset {
                 special: KeyCode::KeyG,
                 quick_action: KeyCode::KeyE,
                 interact: KeyCode::KeyF,
-                modifier: KeyCode::KeyS,
+                // **X is the B button.** On the two-button pad this preset is
+                // named after, one button carries the "other" verb: it attacks
+                // in an action game and it is hold-to-run / press-to-fire in a
+                // classic platformer. Binding both `attack` and `modifier` to X
+                // is that pad, not a collision — Z jumps, X does everything
+                // else, exactly as Jon asked for Mary-O ("z is jump, and x is
+                // hold to run, or if you have the spark blossom it fireballs if
+                // you press it").
+                //
+                // It used to be `S`, which is a WASD key on a preset that steers
+                // with the arrows: the run button sat in the middle of the
+                // keyboard, nowhere near the two buttons the layout is named
+                // for. Nothing double-fires today — a body only answers the
+                // modifier slot if it declares a technique there, and the one
+                // that does (Mary-O) has no melee at all.
+                modifier: KeyCode::KeyX,
                 utility: KeyCode::KeyD,
                 map: KeyCode::Tab,
                 inventory: KeyCode::KeyI,

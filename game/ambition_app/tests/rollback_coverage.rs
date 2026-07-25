@@ -204,6 +204,31 @@ fn every_component_in_the_combat_calibration_lab_is_registered_derived_or_waived
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
+    // The room-transition transaction, engine-side since 2026-07-25. Under a
+    // rollback host `detect_room_transition_system` DEFERS the crossing to the
+    // confirmed-frame boundary (`PendingLifecycleCommit`) precisely so this
+    // multi-tick load machine never engages on a speculative frame — the policy
+    // predates the move and is why it was never rollback state. If a transition
+    // ever starts on a predicted frame, this waiver is wrong and the resource
+    // has to be registered, not re-justified.
+    (
+        "::room_transition::loading::RoomTransitionLoadState",
+        "transition transactions are deferred to confirmed frames",
+    ),
+    // Monotonic identity for the CONTENT inputs a room plan assumes. Content is
+    // immutable within a session and a change invalidates the session, so
+    // resimulation cannot move this.
+    (
+        "::room_transition::loading::RoomTransitionContentEpoch",
+        "content identity, not simulation state",
+    ),
+    // A cache of prepared, immutable artifacts keyed by that same identity. A
+    // stale entry is refused by `promote`, so the only cost of getting it wrong
+    // on a rewind is a miss and a rebuild.
+    (
+        "::room_transition::prefetch::RoomConstructionPlanPrefetch",
+        "speculative cache of immutable plans; a miss is safe",
+    ),
     // Authored, immutable-by-contract content bound by PreparedContentIdentity;
     // a changed generation invalidates the GGRS session before the next frame.
     ("::boss_encounter::catalog::", "authored boss catalog"),

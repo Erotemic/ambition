@@ -19,6 +19,9 @@ use super::{
     default_boss_profiles, events::publish_events, BossCatalog, BossEncounterRegistry, BossProfile,
 };
 
+/// This system's claim on the encounter layer's priority music tier.
+pub const BOSS_MUSIC_OWNER: &str = "boss_encounter";
+
 pub fn populate_boss_encounter_registry(
     catalog: Res<BossCatalog>,
     mut registry: ResMut<BossEncounterRegistry>,
@@ -258,16 +261,15 @@ pub fn update_boss_encounters(
     // so no boss entities exist) so room music resumes. Pinned by
     // `boss_music_plays_during_the_fight` +
     // `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music`.
+    //
+    // It releases only its OWN claim. This system has no run condition, so it
+    // reaches the "no boss is fighting" arm on every frame of every game — and
+    // when that arm cleared the tier outright it silenced every other claimant
+    // in the engine. A demo with no bosses at all could not hold priority music
+    // for a single frame.
     match active_music_track {
-        Some(track) => {
-            if music_request.priority_track.as_deref() != Some(track.as_str()) {
-                music_request.priority_track = Some(track);
-            }
-        }
-        None if music_request.priority_track.is_some() => {
-            music_request.priority_track = None;
-        }
-        None => {}
+        Some(track) => music_request.claim_priority(BOSS_MUSIC_OWNER, track),
+        None => music_request.release_priority(BOSS_MUSIC_OWNER),
     }
 
     crate::features::sync_boss_reward_chests_ecs(

@@ -24,6 +24,9 @@ use crate::features::CenteredAabb;
 use ambition_encounter::{EncounterEffect, EncounterGate, EncounterParticipants, EncounterScript};
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
+/// A scripted encounter beat's claim on the priority music tier.
+pub const SCRIPT_MUSIC_OWNER: &str = "encounter_script";
+
 use ambition_platformer_primitives::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -67,7 +70,10 @@ pub fn tick_encounter_scripts(
                     }
                 }
                 EncounterEffect::Banner { text, secs } => banner.show(text.clone(), *secs),
-                EncounterEffect::SetMusic(track) => music.priority_track = track.clone(),
+                EncounterEffect::SetMusic(track) => match track {
+                    Some(track) => music.claim_priority(SCRIPT_MUSIC_OWNER, track.clone()),
+                    None => music.release_priority(SCRIPT_MUSIC_OWNER),
+                },
                 EncounterEffect::CommandMoveTo {
                     member,
                     target,

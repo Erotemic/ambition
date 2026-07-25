@@ -165,6 +165,7 @@ fn session_activation_owns_audio_authority_and_home_retires_it() {
                         id: "test_theme".into(),
                         display_name: "Test theme".into(),
                         asset_path: None,
+                        one_shot: false,
                     }],
                 }),
                 None,

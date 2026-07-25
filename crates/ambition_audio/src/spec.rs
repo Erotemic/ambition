@@ -207,6 +207,19 @@ pub struct MusicTrack {
     pub display_name: String,
     #[serde(default)]
     pub asset_path: Option<String>,
+    /// Play once and stop, instead of looping.
+    ///
+    /// A STING — a death cue, a course-clear fanfare — is written to end. The
+    /// music channel loops everything by default, which is right for a level
+    /// theme and wrong for these: Mary-O's three-second victory fanfare played
+    /// on repeat until the level reset. Marking the cue is better than teaching
+    /// each caller to stop it on a timer, because the length that matters is the
+    /// one baked into the file.
+    ///
+    /// The tier stays CLAIMED after the sting ends, so what follows is silence
+    /// rather than the level theme resuming for the last second of a sequence.
+    #[serde(default)]
+    pub one_shot: bool,
 }
 
 impl MusicTrack {

@@ -37,6 +37,7 @@ fn synthetic_track(id: &str) -> MusicTrack {
         id: id.into(),
         display_name: format!("{id} display"),
         asset_path: None,
+        one_shot: false,
     }
 }
 

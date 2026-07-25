@@ -161,6 +161,9 @@ struct TrackSource {
 pub struct MusicTrackRuntime {
     pub id: String,
     pub display_name: String,
+    /// This cue plays once and stops rather than looping — see
+    /// [`crate::spec::MusicTrack::one_shot`].
+    pub one_shot: bool,
     source: TrackSource,
 }
 
@@ -280,6 +283,7 @@ impl AudioLibrary {
             music_tracks.push(MusicTrackRuntime {
                 id: track.id.clone(),
                 display_name: track.display_name.clone(),
+                one_shot: track.one_shot,
                 source: TrackSource {
                     asset_path,
                     handle: None,
@@ -428,6 +432,16 @@ impl AudioLibrary {
         track_id: &str,
         asset_server: &AssetServer,
     ) -> Option<Handle<KiraAudioSource>> {
+        Some(self.resolve_track(track_id, asset_server)?.0)
+    }
+
+    /// The handle plus whether this cue loops. A sting must not repeat, and the
+    /// spec is the only thing that knows which cues are stings.
+    pub fn resolve_track(
+        &mut self,
+        track_id: &str,
+        asset_server: &AssetServer,
+    ) -> Option<(Handle<KiraAudioSource>, bool)> {
         let track = self
             .music_tracks
             .iter_mut()
@@ -435,7 +449,7 @@ impl AudioLibrary {
         if track.source.handle.is_none() {
             track.source.handle = Some(asset_server.load(track.source.asset_path.clone()));
         }
-        track.source.handle.clone()
+        Some((track.source.handle.clone()?, track.one_shot))
     }
 
     /// Warm a file-backed track's handle ahead of likely use (e.g. when
@@ -606,14 +620,18 @@ fn play_music_track(
     music_channel: &AudioChannel<MusicChannel>,
     output: crate::output::AudioOutputMode,
 ) {
-    let Some(handle) = library.resolve_track_handle(track_id, asset_server) else {
+    let Some((handle, one_shot)) = library.resolve_track(track_id, asset_server) else {
         warn!("cannot play missing music track '{track_id}'");
         return;
     };
     if output.emits_to_device() {
-        music_channel.play(handle).looped().fade_in(AudioTween::new(
-            Duration::from_millis(220),
-            AudioEasing::InPowi(2),
-        ));
+        let fade = AudioTween::new(Duration::from_millis(220), AudioEasing::InPowi(2));
+        // A sting ends. Looping one turns a three-second fanfare into a nag that
+        // runs until whatever ends the sequence gets round to it.
+        if one_shot {
+            music_channel.play(handle).fade_in(fade);
+        } else {
+            music_channel.play(handle).looped().fade_in(fade);
+        }
     }
 }

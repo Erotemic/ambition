@@ -11,6 +11,9 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
+/// This boss's claim on the encounter layer's priority music tier.
+const CUT_ROPE_MUSIC_OWNER: &str = "cut_rope_boss";
+
 use ambition_actors::boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterEffect, EncounterScript, EncounterTrigger,
     ReleaseOnDeath,
@@ -177,7 +180,10 @@ pub fn reset_cut_rope_boss_attempt(
         data.set_flag("smirking_behemoth_victory_npc_seen", false);
     }
     if let Some(music) = music_request {
-        music.priority_track = intro_track.filter(|track| !track.is_empty());
+        match intro_track.filter(|track| !track.is_empty()) {
+            Some(track) => music.claim_priority(CUT_ROPE_MUSIC_OWNER, track),
+            None => music.release_priority(CUT_ROPE_MUSIC_OWNER),
+        }
     }
 }
 

@@ -174,11 +174,13 @@ fn audio_library_resolves_default_and_override_paths() {
                 id: "convention".into(),
                 display_name: "Convention".into(),
                 asset_path: None,
+                one_shot: false,
             },
             MusicTrack {
                 id: "override".into(),
                 display_name: "Override".into(),
                 asset_path: Some("audio/music/x.ogg".into()),
+                one_shot: false,
             },
         ],
     };

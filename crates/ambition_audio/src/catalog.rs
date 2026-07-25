@@ -478,6 +478,7 @@ mod tests {
                 id: id.to_string(),
                 display_name: id.to_string(),
                 asset_path: None,
+                one_shot: false,
             }],
         }
     }
@@ -491,6 +492,7 @@ mod tests {
                 id: id.to_string(),
                 display_name: id.to_string(),
                 asset_path: Some(asset_path.to_string()),
+                one_shot: false,
             }],
         }
     }

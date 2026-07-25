@@ -281,3 +281,72 @@ fn reach_level_1_2(app: &mut App) {
         "could not reach 1-2 to test its ferry",
     );
 }
+
+/// A room is a place, not a save file: crossing between them must not reset the
+/// RUN.
+///
+/// This is the class of bug the level-1 gate already caught once — a body reset
+/// redefined the body (`4e4bd0fd8`), silently, because every test asserted the
+/// value an emitter had just written. So each clause here reads state that
+/// crossing the boundary would plausibly clobber, on both sides of the crossing.
+///
+/// ⚠ NOT covered yet: crossing while GROWN. Getting her powered takes a real
+/// ?-block bonk (`level_1_acceptance` owns that ladder), and a set-up equip
+/// would prove the transition preserves something a player never obtained.
+#[test]
+fn the_run_survives_the_crossing() {
+    let mut app = boot();
+
+    // Bank the vault's coins on the way to the shaft — real currency through the
+    // shared economy, not a number poked into a resource.
+    reach_level_1_2(&mut app);
+
+    let coins = wallet(&mut app);
+    assert!(
+        coins > 0,
+        "she banked no coins walking the vault, so this proves nothing about \
+         carrying them across",
+    );
+    let (lives, score) = run_state(&mut app);
+    assert_eq!(lives, 3, "she should not have spent a life getting here");
+
+    // Settle well past the transition: a clobber that happens one frame later
+    // than the commit is still a clobber.
+    for _ in 0..120 {
+        step(&mut app, ControlFrame::default());
+    }
+
+    assert_eq!(
+        active_room(&mut app),
+        LEVEL_1_2_ROOM_ID,
+        "she did not stay in 1-2",
+    );
+    assert_eq!(wallet(&mut app), coins, "the crossing spent her coins");
+    assert_eq!(
+        run_state(&mut app),
+        (lives, score),
+        "the crossing reset her lives or her score",
+    );
+}
+
+fn wallet(app: &mut App) -> i32 {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&ambition::characters::actor::BodyWallet, With<PrimaryPlayer>>();
+    query
+        .iter(app.world())
+        .next()
+        .expect("the player has a wallet")
+        .balance
+}
+
+fn run_state(app: &mut App) -> (u8, u32) {
+    let mut query = app
+        .world_mut()
+        .query::<&ambition_demo_mary_o::MaryOLevelState>();
+    let state = query
+        .iter(app.world())
+        .next()
+        .expect("the mode owner exists in gameplay");
+    (state.lives, state.score)
+}

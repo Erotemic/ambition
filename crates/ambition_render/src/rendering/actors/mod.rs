@@ -623,12 +623,8 @@ pub fn refresh_prop_sprites_on_game_assets_change(
         // — this used to hardcode character sizing + a feet anchor and reverted
         // every authored presentation fact each time it ran (see the builder).
         // `animate_props` will capture the matching trim basis on its next tick.
-        let bundle = crate::rendering::world::prop_sprite_bundle(
-            prop.draw,
-            prop.flip_y,
-            asset,
-            prop.size,
-        );
+        let bundle =
+            crate::rendering::world::prop_sprite_bundle(prop.draw, prop.flip_y, asset, prop.size);
         commands
             .entity(entity)
             .insert((bundle, BoundSpriteQuality { scale }));

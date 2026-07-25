@@ -59,9 +59,9 @@ pub(super) fn wants_drop_through(descend: f32, jump_pressed: bool) -> bool {
 use super::dec;
 use super::events::FrameEvents;
 use super::input::InputState;
-use super::model::AxisManeuverState;
+use super::model::{AxisManeuverState, PhasedJumpState};
 use super::ops::MovementOp;
-use super::tuning::AxisSweptParams;
+use super::tuning::{AxisHorizontalLaw, AxisJumpLaw, AxisSweptParams};
 use crate::MotionFrame;
 
 /// Apply one frame of velocity integration to the player: mode-select
@@ -255,6 +255,15 @@ pub(super) fn integrate_velocity_clusters(
         state.wall_clinging = false;
         state.wall_climbing = false;
         state.drop_through_timer = 0.0;
+        state.phased_jump.clear();
+    } else if events
+        .contacts
+        .iter()
+        .any(|contact| contact.kind == crate::collision_semantics::ContactKind::Head)
+    {
+        // A ceiling impact ends the controllable ascent. The next tick is a
+        // normal fall in whatever gravity frame the environment resolves then.
+        state.phased_jump.clear();
     }
 
     if clusters.abilities.abilities.rebound && state.rebound_cooldown <= 0.0 {
@@ -270,6 +279,7 @@ pub(super) fn integrate_velocity_clusters(
                 tuning.locomotion.air_jumps,
             );
             clusters.ground.on_ground = false;
+            state.phased_jump.clear();
             state.rebound_cooldown = 0.18;
             events.op_clusters(clusters.combo_trace, MovementOp::Rebound);
         }
@@ -313,6 +323,7 @@ pub(super) fn integrate_normal_clusters(
         &mut state.fast_falling,
         &mut state.gliding,
         &mut flight.carried_run,
+        &mut state.phased_jump,
         NormalSpineCtx {
             on_ground: ground.on_ground,
             blink_grace: state.blink_grace_timer > 0.0,
@@ -371,6 +382,7 @@ pub fn integrate_normal_spine(
     fast_falling: &mut bool,
     gliding: &mut bool,
     carried_run: &mut f32,
+    phased_jump: &mut PhasedJumpState,
     ctx: NormalSpineCtx,
     input: InputState,
     dt: f32,
@@ -384,7 +396,33 @@ pub fn integrate_normal_spine(
     let blink_hang_active = ctx.blink_grace && kin_vel.dot(g) >= 0.0;
     let water_gravity_scale = ctx.water.map(|c| c.spec.gravity_scale).unwrap_or(1.0);
     if !blink_hang_active {
-        *kin_vel += frame.acceleration() * water_gravity_scale * dt;
+        let down_speed = kin_vel.dot(g);
+        let jump_gravity_scale = match tuning.locomotion.jump_law {
+            AxisJumpLaw::VelocityCut => 1.0,
+            AxisJumpLaw::PhasedGravity(params) => {
+                if phased_jump.active && down_speed < 0.0 {
+                    let upward_speed = -down_speed;
+                    if !phased_jump.hold_cancelled
+                        && input.jump_held()
+                        && upward_speed > params.held_phase_min_upward_speed
+                    {
+                        params.held_rise_gravity_scale
+                    } else {
+                        // The weak-ascent phase is one-way. Once the button is
+                        // released OR the jump slows into its apex regime, a
+                        // later gravity-frame rotation or button re-press must
+                        // not resurrect it.
+                        phased_jump.cancel_hold();
+                        params.released_rise_gravity_scale
+                    }
+                } else {
+                    phased_jump.cancel_hold();
+                    params.fall_gravity_scale
+                }
+            }
+        };
+        *kin_vel += frame.gravity_acceleration() * (water_gravity_scale * jump_gravity_scale) * dt;
+        *kin_vel += frame.external_acceleration() * dt;
     }
     if input.fast_fall_pressed() && ctx.can_fast_fall && !ctx.on_ground {
         *fast_falling = true;
@@ -401,59 +439,89 @@ pub fn integrate_normal_spine(
         && kin_vel.dot(g) > 0.0;
 
     if ctx.can_move_horizontal {
-        let accel = if ctx.on_ground {
-            tuning.locomotion.run_accel
-        } else if *gliding {
-            tuning.locomotion.glide_air_accel
-        } else {
-            tuning.locomotion.air_accel
-        };
         // Run/friction act along the PHYSICAL run axis (`side`, perpendicular to
-        // gravity). The input-frame mode chooses how the stick projects onto it:
-        // `stick(...).x` is the run component (Hybrid: just `axis_x`; Screen: the
-        // screen stick's run-along-the-ground component). So `+run` walks the body
-        // toward THEIR right at any gravity orientation, screen-relative or not.
+        // gravity). The input-frame mode chooses how the stick projects onto it.
         let m = frame.side();
         let run = input.local_axis().x;
         let along = kin_vel.dot(m);
-        // CARRIED MOMENTUM: the world has no air drag, but the CONTROLLER has
-        // a tight stop assist. `carried_run` is the run-axis velocity the
-        // WORLD imparted (a portal fling, knockback) — the floor the
-        // hands-off stop assist decays toward instead of zero. Ordinary jump
-        // drift (carried = 0) stops on release exactly as before; imparted
-        // momentum is conserved until input, a wall, or landing consumes it.
-        // Airborne input steers as an equilibrium (accelerates toward the
-        // held direction up to the run cap, never brakes speed already
-        // beyond it in that direction — the fall cap's `relax`); OPPOSING
-        // input brakes at full air control and eats the carried floor with
-        // it. `carried_decay` optionally bleeds the floor over time.
         *carried_run = approach(*carried_run, 0.0, tuning.locomotion.carried_decay * dt);
-        let new_along = if ctx.on_ground {
-            let mut v = approach(along, run * tuning.locomotion.max_run_speed, accel * dt);
-            if run.abs() <= 0.1 {
-                v = approach(v, 0.0, tuning.locomotion.ground_friction * dt);
+
+        let new_along = match tuning.locomotion.horizontal_law {
+            AxisHorizontalLaw::Responsive => {
+                let accel = if ctx.on_ground {
+                    tuning.locomotion.run_accel
+                } else if *gliding {
+                    tuning.locomotion.glide_air_accel
+                } else {
+                    tuning.locomotion.air_accel
+                };
+                if ctx.on_ground {
+                    let mut v = approach(along, run * tuning.locomotion.max_run_speed, accel * dt);
+                    if run.abs() <= 0.1 {
+                        v = approach(v, 0.0, tuning.locomotion.ground_friction * dt);
+                    }
+                    v
+                } else if run > 0.1 {
+                    approach(
+                        along,
+                        (run * tuning.locomotion.max_run_speed).max(along),
+                        accel * dt,
+                    )
+                } else if run < -0.1 {
+                    approach(
+                        along,
+                        (run * tuning.locomotion.max_run_speed).min(along),
+                        accel * dt,
+                    )
+                } else {
+                    approach(along, *carried_run, tuning.locomotion.air_stop_assist * dt)
+                }
             }
-            v
-        } else if run > 0.1 {
-            approach(
-                along,
-                (run * tuning.locomotion.max_run_speed).max(along),
-                accel * dt,
-            )
-        } else if run < -0.1 {
-            approach(
-                along,
-                (run * tuning.locomotion.max_run_speed).min(along),
-                accel * dt,
-            )
-        } else {
-            // Hands-off: tight stop assist down to the carried floor.
-            approach(along, *carried_run, tuning.locomotion.air_stop_assist * dt)
+            AxisHorizontalLaw::Momentum(params) => {
+                let has_input = run.abs() > 0.1;
+                if !has_input {
+                    let decel = if ctx.on_ground {
+                        params.ground_coast_decel
+                    } else {
+                        params.air_coast_decel
+                    };
+                    approach(along, 0.0, decel * dt)
+                } else {
+                    let target = run * tuning.locomotion.max_run_speed;
+                    let opposing = along.abs() > 1.0e-4 && along.signum() != run.signum();
+                    let reducing_same_direction = !opposing && along.abs() > target.abs();
+                    let accel = if ctx.on_ground {
+                        if opposing {
+                            params.ground_reverse_accel
+                        } else if reducing_same_direction {
+                            params.ground_coast_decel
+                        } else {
+                            tuning.locomotion.run_accel
+                        }
+                    } else if opposing {
+                        params.air_reverse_accel
+                    } else if *gliding {
+                        tuning.locomotion.glide_air_accel
+                    } else {
+                        tuning.locomotion.air_accel
+                    };
+                    // On the ground, a lowered target (notably releasing the
+                    // run modifier while still holding a direction) coasts back
+                    // toward that gait instead of preserving overspeed forever.
+                    // In air, same-direction input preserves externally acquired
+                    // overspeed, matching the kernel's portal/impulse doctrine.
+                    let equilibrium = if ctx.on_ground {
+                        target
+                    } else if run > 0.0 {
+                        target.max(along)
+                    } else {
+                        target.min(along)
+                    };
+                    approach(along, equilibrium, accel * dt)
+                }
+            }
         };
         *kin_vel += (new_along - along) * m;
-        // The floor never exceeds the actual velocity: opposing input, wall
-        // impacts (the sweep zeroes the run component), and grounded friction
-        // all shrink it naturally through this clamp.
         *carried_run = carried_run.clamp(new_along.min(0.0), new_along.max(0.0));
     }
 

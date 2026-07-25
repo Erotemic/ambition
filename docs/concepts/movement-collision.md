@@ -35,6 +35,11 @@ geometry or outcomes.
   from a renderer sprite as authority.
 - Gravity/orientation assumptions are explicit. Tests should exercise rotated
   or transformed frames where the mechanic claims covariance.
+- Axis-swept collision is independent of the selected control law. Responsive
+  target-velocity movement and momentum/phased-gravity platforming are authored
+  policy data that share the same sweep/contact authority.
+- Gravity-responsive movement may scale only the frame's gravity contribution;
+  external acceleration remains independently applied in world space.
 - Moving geometry and attached bodies use explicit reference-frame semantics.
 - Out-of-bounds behavior is a world/lifecycle contract, not an ad hoc player
   clamp.

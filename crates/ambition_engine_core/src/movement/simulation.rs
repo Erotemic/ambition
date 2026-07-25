@@ -3,7 +3,7 @@ use crate::world::World;
 use super::events::FrameEvents;
 use super::input::InputState;
 use super::ops::MovementOp;
-use super::tuning::{AxisSweptParams, ONE_WAY_DROP_THROUGH_GRACE};
+use super::tuning::{AxisJumpLaw, AxisSweptParams, ONE_WAY_DROP_THROUGH_GRACE};
 use crate::player_state::BodyMode;
 use crate::MotionFrame;
 
@@ -37,7 +37,11 @@ pub fn handle_jump_buffer_clusters(
     tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
-    if state.buffer_jump <= 0.0 {
+    // A zero-duration buffer still means "honor the press on this tick". The
+    // timer extends that edge into later ticks; it is not the authority for the
+    // edge that is already present in this input frame.
+    let current_press = input.jump_pressed() && abilities.abilities.jump;
+    if !current_press && state.buffer_jump <= 0.0 {
         return;
     }
 
@@ -113,6 +117,7 @@ pub fn handle_jump_buffer_clusters(
             frame.down(),
             tuning.locomotion.jump_speed * 0.94,
         );
+        state.phased_jump.clear();
         wall.on_wall = false;
         state.wall_clinging = false;
         state.wall_climbing = false;
@@ -123,11 +128,16 @@ pub fn handle_jump_buffer_clusters(
         && !flying
         && (ground.on_ground || state.coyote_timer > 0.0 || can_ladder_jump)
     {
-        super::integration::set_jump_velocity(
-            &mut kinematics.vel,
-            frame.down(),
-            tuning.locomotion.jump_speed,
-        );
+        let side_speed = kinematics.vel.dot(frame.side()).abs();
+        let (launch_speed, launch_band) = tuning
+            .locomotion
+            .jump_law
+            .ground_launch(tuning.locomotion.jump_speed, side_speed);
+        super::integration::set_jump_velocity(&mut kinematics.vel, frame.down(), launch_speed);
+        match launch_band {
+            Some(band) => state.phased_jump.begin(band),
+            None => state.phased_jump.clear(),
+        }
         ground.on_ground = false;
         state.buffer_jump = 0.0;
         state.coyote_timer = 0.0;
@@ -141,6 +151,15 @@ pub fn handle_jump_buffer_clusters(
             frame.down(),
             tuning.locomotion.double_jump_speed,
         );
+        // Air jumps are independent ability impulses. Do not accidentally
+        // inherit a ground jump's weak-gravity phase.
+        match tuning.locomotion.jump_law {
+            AxisJumpLaw::VelocityCut => state.phased_jump.clear(),
+            AxisJumpLaw::PhasedGravity(params) => {
+                let band = params.band_for_side_speed(kinematics.vel.dot(frame.side()).abs());
+                state.phased_jump.begin(band);
+            }
+        }
         ground.on_ground = false;
         wall.on_wall = false;
         state.wall_clinging = false;

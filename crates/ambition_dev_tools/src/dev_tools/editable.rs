@@ -176,6 +176,11 @@ impl EditableMovementTuning {
     pub fn as_engine(self) -> ae::MovementTuning {
         ae::MovementTuning {
             gravity: self.gravity,
+            // The current inspector edits the historical responsive profile.
+            // Authored character profiles may select the newer composable laws
+            // without being flattened through this legacy control surface.
+            horizontal_law: ae::AxisHorizontalLaw::Responsive,
+            jump_law: ae::AxisJumpLaw::VelocityCut,
             // Runtime-overridden each frame from the world GravityField; default
             // upright here.
             // Default; the live control preference is applied per-frame alongside

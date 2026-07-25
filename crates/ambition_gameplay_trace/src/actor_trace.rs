@@ -487,10 +487,10 @@ mod tests {
         b.record(frame(vec![body("boss", None)]), None);
         assert!(b.dump_request.is_none());
         // Goes OOB: dump requested, attributed to the boss.
-        b.record(frame(vec![body(
-            "boss",
-            Some("outside world envelope (y)"),
-        )]), None);
+        b.record(
+            frame(vec![body("boss", Some("outside world envelope (y)"))]),
+            None,
+        );
         match b.dump_request.take() {
             Some(ActorDumpReason::OobAuto {
                 actor_id, reason, ..
@@ -501,10 +501,10 @@ mod tests {
             other => panic!("expected OobAuto for the boss, got {other:?}"),
         }
         // Still OOB next frame: disarmed, so NO new dump (no spam).
-        b.record(frame(vec![body(
-            "boss",
-            Some("outside world envelope (y)"),
-        )]), None);
+        b.record(
+            frame(vec![body("boss", Some("outside world envelope (y)"))]),
+            None,
+        );
         assert!(
             b.dump_request.is_none(),
             "a still-OOB body must not re-dump"

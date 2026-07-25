@@ -427,10 +427,19 @@ mod shell_anim_tests {
     /// return `None` and be dropped from the sheet spec entirely.
     #[test]
     fn the_shell_rows_map_to_their_own_variants() {
-        assert_eq!(CharacterAnim::from_name("retreat"), Some(CharacterAnim::Retreat));
-        assert_eq!(CharacterAnim::from_name("boxed_idle"), Some(CharacterAnim::ShellIdle));
+        assert_eq!(
+            CharacterAnim::from_name("retreat"),
+            Some(CharacterAnim::Retreat)
+        );
+        assert_eq!(
+            CharacterAnim::from_name("boxed_idle"),
+            Some(CharacterAnim::ShellIdle)
+        );
         assert_eq!(CharacterAnim::from_name("peek"), Some(CharacterAnim::Peek));
-        assert_eq!(CharacterAnim::from_name("emerge"), Some(CharacterAnim::Emerge));
+        assert_eq!(
+            CharacterAnim::from_name("emerge"),
+            Some(CharacterAnim::Emerge)
+        );
         assert_eq!(CharacterAnim::from_name("hiss"), Some(CharacterAnim::Hiss));
     }
 
@@ -449,7 +458,13 @@ mod shell_anim_tests {
     /// never a hard snap that reads as "standing" mid-withdraw.
     #[test]
     fn missing_shell_rows_degrade_toward_idle() {
-        assert_eq!(CharacterAnim::Retreat.base_pose(), Some(CharacterAnim::ShellIdle));
-        assert_eq!(CharacterAnim::ShellIdle.base_pose(), Some(CharacterAnim::Idle));
+        assert_eq!(
+            CharacterAnim::Retreat.base_pose(),
+            Some(CharacterAnim::ShellIdle)
+        );
+        assert_eq!(
+            CharacterAnim::ShellIdle.base_pose(),
+            Some(CharacterAnim::Idle)
+        );
     }
 }

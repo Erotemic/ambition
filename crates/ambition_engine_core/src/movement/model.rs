@@ -52,6 +52,36 @@ pub enum MotionModelSpec {
     AdhesiveCrawler(CrawlerParams),
 }
 
+/// Persistent state for a phased-gravity jump arc.
+///
+/// The selected launch band and release latch survive frame changes and rollback,
+/// but no world-space direction is cached: every tick reinterprets the arc in
+/// the environment's current [`crate::MotionFrame`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PhasedJumpState {
+    pub active: bool,
+    pub launch_band: u8,
+    pub hold_cancelled: bool,
+}
+
+impl PhasedJumpState {
+    pub fn begin(&mut self, launch_band: u8) {
+        self.active = true;
+        self.launch_band = launch_band.min(3);
+        self.hold_cancelled = false;
+    }
+
+    pub fn cancel_hold(&mut self) {
+        if self.active {
+            self.hold_cancelled = true;
+        }
+    }
+
+    pub fn clear(&mut self) {
+        *self = Self::default();
+    }
+}
+
 /// The axis-swept policy's PRIVATE persistent maneuver state. Lives INSIDE the
 /// model variant (ADR 0024): no other policy can read it, leaving axis movement
 /// cannot leak stale maneuver facts, and a same-variant parameter refresh
@@ -83,6 +113,7 @@ pub struct AxisManeuverState {
     pub gliding: bool,
     pub fast_falling: bool,
     pub flight_phase: f32,
+    pub phased_jump: PhasedJumpState,
 }
 
 impl Default for AxisManeuverState {
@@ -112,6 +143,7 @@ impl Default for AxisManeuverState {
             gliding: false,
             fast_falling: false,
             flight_phase: 0.0,
+            phased_jump: PhasedJumpState::default(),
         }
     }
 }
@@ -367,6 +399,36 @@ mod tests {
         assert_eq!(motion.state, riding);
         assert_eq!(motion.depth_lane, -1);
         assert_eq!(motion.params, updated);
+    }
+
+    #[test]
+    fn same_axis_model_parameter_refresh_preserves_phased_jump_state() {
+        let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+        let MotionModel::AxisSwept(motion) = &mut model else {
+            unreachable!();
+        };
+        motion.state.phased_jump.begin(2);
+        motion.state.phased_jump.cancel_hold();
+        motion.state.coyote_timer = 0.075;
+
+        let mut updated = AxisSweptParams::default();
+        updated.locomotion.max_run_speed += 25.0;
+        switch_motion_model(&mut model, MotionModelSpec::AxisSwept(updated));
+
+        let MotionModel::AxisSwept(motion) = model else {
+            panic!("same-variant refresh changed movement policy");
+        };
+        assert_eq!(motion.params, updated);
+        assert_eq!(
+            motion.state.phased_jump,
+            PhasedJumpState {
+                active: true,
+                launch_band: 2,
+                hold_cancelled: true,
+            },
+            "a live tuning refresh must not restart or reinterpret the active arc"
+        );
+        assert_eq!(motion.state.coyote_timer, 0.075);
     }
 
     #[test]

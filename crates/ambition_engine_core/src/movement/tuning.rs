@@ -243,12 +243,18 @@ impl From<MovementTuning> for ActiveMovementTuning {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MovementTuning {
     /// Authored gravity RESPONSE magnitude (px/s²) — an input the environment's
     /// frame resolver composes with the live gravity direction and any per-body
     /// response scale. Not a policy parameter.
     pub gravity: f32,
+    /// Selects the reusable horizontal controller used by AxisSwept.
+    #[serde(default)]
+    pub horizontal_law: AxisHorizontalLaw,
+    /// Selects the reusable jump-arc controller used by AxisSwept.
+    #[serde(default)]
+    pub jump_law: AxisJumpLaw,
     pub run_accel: f32,
     pub air_accel: f32,
     pub ground_friction: f32,
@@ -324,12 +330,120 @@ pub struct MovementTuning {
     pub ledge_momentum: LedgeMomentumTuning,
 }
 
+/// Horizontal response law used by the axis-swept policy.
+///
+/// `Responsive` is Ambition's tight target-velocity controller. `Momentum`
+/// preserves neutral airborne speed and gives acceleration, reversal, and coast
+/// distinct rates. Both operate on the scalar velocity along the resolved
+/// frame's side axis; neither owns a world direction.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub enum AxisHorizontalLaw {
+    #[default]
+    Responsive,
+    Momentum(MomentumHorizontalTuning),
+}
+
+/// Additional rates needed by a momentum-preserving horizontal law.
+///
+/// Forward acceleration and speed caps remain the shared `run_accel`,
+/// `air_accel`, and `max_run_speed` fields on [`AxisLocomotion`]. These values
+/// define only the cases the responsive law historically conflated.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MomentumHorizontalTuning {
+    pub ground_reverse_accel: f32,
+    pub ground_coast_decel: f32,
+    pub air_reverse_accel: f32,
+    pub air_coast_decel: f32,
+}
+
+impl Default for MomentumHorizontalTuning {
+    fn default() -> Self {
+        Self {
+            ground_reverse_accel: RUN_ACCEL,
+            ground_coast_decel: GROUND_FRICTION,
+            air_reverse_accel: AIR_ACCEL,
+            air_coast_decel: 0.0,
+        }
+    }
+}
+
+/// Vertical jump-arc law used by the axis-swept policy.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub enum AxisJumpLaw {
+    /// Historical Ambition behavior: one launch speed, with early release
+    /// directly scaling the current upward velocity.
+    #[default]
+    VelocityCut,
+    /// Speed-banded launch plus weak held-ascent gravity and stronger
+    /// release/fall gravity.
+    PhasedGravity(PhasedGravityJumpTuning),
+}
+
+/// Parameters for a classic phased-gravity jump.
+///
+/// Thresholds and launch speeds are expressed in body-local side speed and
+/// world units per second. Gravity values are multipliers on the frame's
+/// gravity contribution only; external force-zone acceleration is unchanged.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PhasedGravityJumpTuning {
+    pub speed_thresholds: [f32; 3],
+    pub launch_speeds: [f32; 4],
+    pub held_rise_gravity_scale: f32,
+    pub released_rise_gravity_scale: f32,
+    pub fall_gravity_scale: f32,
+    pub held_phase_min_upward_speed: f32,
+}
+
+impl Default for PhasedGravityJumpTuning {
+    fn default() -> Self {
+        Self {
+            speed_thresholds: [f32::INFINITY; 3],
+            launch_speeds: [JUMP_SPEED; 4],
+            held_rise_gravity_scale: 1.0,
+            released_rise_gravity_scale: 1.0,
+            fall_gravity_scale: 1.0,
+            held_phase_min_upward_speed: 0.0,
+        }
+    }
+}
+
+impl PhasedGravityJumpTuning {
+    /// Select the takeoff band from absolute body-local side speed.
+    pub fn band_for_side_speed(self, side_speed: f32) -> u8 {
+        let speed = side_speed.abs();
+        self.speed_thresholds
+            .iter()
+            .position(|threshold| speed < *threshold)
+            .unwrap_or(3) as u8
+    }
+
+    pub fn launch_speed_for_band(self, band: u8) -> f32 {
+        self.launch_speeds[usize::from(band.min(3))]
+    }
+}
+
+impl AxisJumpLaw {
+    /// Resolve a ground-jump launch. The optional band is latched by the
+    /// phased-gravity runtime state.
+    pub fn ground_launch(self, fallback_speed: f32, side_speed: f32) -> (f32, Option<u8>) {
+        match self {
+            Self::VelocityCut => (fallback_speed, None),
+            Self::PhasedGravity(params) => {
+                let band = params.band_for_side_speed(side_speed);
+                (params.launch_speed_for_band(band), Some(band))
+            }
+        }
+    }
+}
+
 /// The axis-swept LOCOMOTION law: ground/air run, jumps, walls, falling.
 ///
 /// These parameters define how the body moves; ability verbs and the flight
 /// limb are separate groups. No field here may describe the live environment.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AxisLocomotion {
+    pub horizontal_law: AxisHorizontalLaw,
+    pub jump_law: AxisJumpLaw,
     pub run_accel: f32,
     pub air_accel: f32,
     pub ground_friction: f32,
@@ -423,6 +537,8 @@ impl MovementTuning {
     pub const fn axis_swept_params(self) -> AxisSweptParams {
         AxisSweptParams {
             locomotion: AxisLocomotion {
+                horizontal_law: self.horizontal_law,
+                jump_law: self.jump_law,
                 run_accel: self.run_accel,
                 air_accel: self.air_accel,
                 ground_friction: self.ground_friction,
@@ -487,6 +603,8 @@ pub const DEFAULT_AXIS_SWEPT_PARAMS: AxisSweptParams = DEFAULT_TUNING.axis_swept
 
 pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     gravity: GRAVITY,
+    horizontal_law: AxisHorizontalLaw::Responsive,
+    jump_law: AxisJumpLaw::VelocityCut,
     run_accel: RUN_ACCEL,
     air_accel: AIR_ACCEL,
     ground_friction: GROUND_FRICTION,

@@ -12,6 +12,12 @@ Classic behavior must be authored through engine seams rather than a privileged
 
 Landed:
 
+- Mary-O Classic physics through reusable `AxisSwept` laws: separate
+  acceleration/coast/skid rates, neutral-air momentum preservation,
+  speed-banded launch, weak held-ascent gravity, strong released/fall gravity,
+  gravity-zone covariance, and rollback-complete jump-arc state. Wall mobility
+  and generic fast-fall were removed from her core kit pending dedicated wall
+  jump and ground-pound abilities;
 - provider/demo shells, the authored level-1 room grammar, fixed-tick simulation,
   and the mode-scoped level clock;
 - ?-block bonks that spawn real world-item pickups, with equip-on-touch through

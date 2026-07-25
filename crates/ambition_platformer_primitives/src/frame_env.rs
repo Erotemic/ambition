@@ -154,11 +154,17 @@ impl FrameEnv<'_> {
     ///   gravity response and without rotating the basis.
     pub fn resolve(&self, body: ambition_engine_core::Aabb, gravity_response: f32) -> MotionFrame {
         let dir = self.gravity.dir_for(body);
-        let mut accel = dir * gravity_response.max(0.0);
-        if let Some(forces) = self.forces.as_deref() {
-            accel += forces.accel_for(body);
-        }
-        MotionFrame::new(AccelerationFrame::new(dir), accel)
+        let gravity_acceleration = dir * gravity_response.max(0.0);
+        let external_acceleration = self
+            .forces
+            .as_deref()
+            .map(|forces| forces.accel_for(body))
+            .unwrap_or(Vec2::ZERO);
+        MotionFrame::with_accelerations(
+            AccelerationFrame::new(dir),
+            gravity_acceleration,
+            external_acceleration,
+        )
     }
 }
 
@@ -213,6 +219,8 @@ mod tests {
         let body = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0));
         let frame = resolve_in(&mut app, body, 900.0);
         assert_eq!(frame.down(), Vec2::new(0.0, 1.0), "wind does not rotate");
+        assert_eq!(frame.gravity_acceleration(), Vec2::new(0.0, 900.0));
+        assert_eq!(frame.external_acceleration(), Vec2::new(300.0, 0.0));
         assert_eq!(
             frame.acceleration(),
             Vec2::new(300.0, 900.0),
@@ -235,6 +243,8 @@ mod tests {
         let body = Aabb::new(Vec2::ZERO, Vec2::new(10.0, 10.0));
         // Zero gravity response: force zones still reach the body, unscaled.
         let frame = resolve_in(&mut app, body, 0.0);
+        assert_eq!(frame.gravity_acceleration(), Vec2::ZERO);
+        assert_eq!(frame.external_acceleration(), Vec2::new(200.0, -100.0));
         assert_eq!(frame.acceleration(), Vec2::new(200.0, -100.0));
         assert_eq!(frame.down(), Vec2::new(0.0, 1.0));
     }

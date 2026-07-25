@@ -63,6 +63,7 @@ pub(super) fn apply_fly_toggle(
             state.wall_climbing = false;
             state.dash_timer = 0.0;
             state.blink_grace_timer = 0.0;
+            state.phased_jump.clear();
         }
         events.op_clusters(combo_trace, MovementOp::FlyToggle);
     }
@@ -97,6 +98,7 @@ pub(super) fn apply_dodge(
         kinematics.vel =
             frame.side() * (dir * tuning.abilities.dodge_roll_speed) + frame.down() * descend;
         state.dodge_roll_timer = tuning.abilities.dodge_roll_time;
+        state.phased_jump.clear();
         dodge.cooldown = tuning.abilities.dodge_roll_cooldown;
         state.buffer_dash = 0.0;
         events.op_clusters(combo_trace, MovementOp::DodgeRoll);
@@ -163,14 +165,29 @@ pub(super) fn apply_shield(
 /// Variable jump height: cut the rising jump short on an early button release.
 pub(super) fn apply_jump_release(
     kinematics: &mut BodyKinematics,
+    state: &mut AxisManeuverState,
     abilities: &BodyAbilities,
     input: InputState,
     frame: MotionFrame,
+    tuning: AxisSweptParams,
 ) {
-    let ascend_speed = -kinematics.vel.dot(frame.down());
-    if abilities.abilities.variable_jump && input.jump_released() && ascend_speed > 120.0 {
-        let along_down = kinematics.vel.dot(frame.down());
-        kinematics.vel += frame.down() * (along_down * 0.54 - along_down);
+    if !abilities.abilities.variable_jump || !input.jump_released() {
+        return;
+    }
+    match tuning.locomotion.jump_law {
+        super::tuning::AxisJumpLaw::VelocityCut => {
+            let ascend_speed = -kinematics.vel.dot(frame.down());
+            if ascend_speed > 120.0 {
+                let along_down = kinematics.vel.dot(frame.down());
+                kinematics.vel += frame.down() * (along_down * 0.54 - along_down);
+            }
+        }
+        super::tuning::AxisJumpLaw::PhasedGravity(_) => {
+            // Do not rewrite velocity. The next integration tick observes the
+            // latched release and applies the stronger gravity phase in the
+            // body's current resolved frame.
+            state.phased_jump.cancel_hold();
+        }
     }
 }
 
@@ -204,6 +221,7 @@ pub(super) fn apply_dash(
         let aim = input.local_axis().normalize_or(fallback);
         kinematics.vel = frame.to_world(aim) * tuning.abilities.dash_speed;
         state.dash_timer = tuning.abilities.dash_time;
+        state.phased_jump.clear();
         dash.cooldown = tuning.abilities.dash_cooldown;
         state.buffer_dash = 0.0;
         let before = dash.charges_available;

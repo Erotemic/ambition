@@ -107,13 +107,13 @@ an alternate movement entry.
 The per-tick frame is one immutable value with two independent parts:
 
 - a normalized reference basis expressed in world space (`side`, `down`);
-- the complete world-space linear acceleration vector for the tick.
+- a gravity/orienting acceleration contribution and independently retained
+  external world-space acceleration contributions for the tick.
 
-The current `MotionFrame { basis: AccelerationFrame, acceleration }` is an
-acceptable migration representation. The long-term vocabulary should make the
-semantics explicit (`ReferenceBasis2` and `WorldAcceleration` or equivalent);
-`AccelerationFrame` must not be interpreted as permission to derive orientation
-from every force vector.
+`MotionFrame` retains that decomposition so a movement law may change its
+gravity response (for example, weak held-ascent gravity) without weakening wind,
+tractor fields, or inertial acceleration. `AccelerationFrame` must not be
+interpreted as permission to derive orientation from every force vector.
 
 The environment may therefore represent:
 

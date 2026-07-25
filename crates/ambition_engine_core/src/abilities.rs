@@ -23,7 +23,7 @@ pub struct AbilitySet {
     pub move_horizontal: bool,
     /// Basic jump from ground/coyote time.
     pub jump: bool,
-    /// Early jump release clips upward velocity.
+    /// Early jump release shortens the active jump arc according to the selected jump law.
     pub variable_jump: bool,
     /// One extra air jump in the current tuning pass.
     pub double_jump: bool,

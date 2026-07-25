@@ -177,15 +177,28 @@ impl MomentumParamsSpec {
 /// (the default) leaves the body on the shared editable tuning, so every
 /// existing character — and the F3 dev workflow — is untouched.
 ///
-/// The vocabulary is exactly the knobs a character varies today (the air-jump
-/// count, which turns the `AirJump` grant from a double into a triple jump; and
-/// the ground jump's launch speed, which sets how HIGH one press carries a
-/// body). Finer axis knobs (a bespoke gravity curve) are added HERE as a real
-/// consumer lands — the same discipline the grant vocabulary follows — and an
-/// omitted knob stays at the shared default, so `axis_tuning: Some(())` is the
-/// default feel with an authored *marker* (the body still escapes the F3 slider).
+/// Character-owned projection of the reusable axis-swept movement laws.
+///
+/// The common case remains sparse: omitted fields retain the shared default, so
+/// `axis_tuning: Some(())` is the default feel with an authored marker (the body
+/// still escapes the session F3 slider). Characters whose identity depends on
+/// locomotion may select a horizontal law, a jump law, and the small set of
+/// scalar limits those laws consume without forking the collision kernel.
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 pub struct AxisTuningSpec {
+    /// Horizontal controller selected by this character. The default preserves
+    /// Ambition's responsive controller; momentum-oriented characters opt into
+    /// the reusable acceleration/brake/coast law explicitly.
+    #[serde(default)]
+    pub horizontal_law: ae::AxisHorizontalLaw,
+    /// Jump-arc controller selected by this character. The default preserves
+    /// Ambition's historical velocity-cut jump.
+    #[serde(default)]
+    pub jump_law: ae::AxisJumpLaw,
+    /// Authored gravity response magnitude (px/s²). The environment still owns
+    /// direction and zones; this is only the character's response strength.
+    #[serde(default = "at_gravity")]
+    pub gravity: f32,
     /// Mid-air jump count. Needs the `AirJump` grant to have any effect (the
     /// grant lights the *capability*; this is the *count*). The shared default
     /// is 1 (a double jump); `2` makes `AirJump` a triple jump.
@@ -210,6 +223,22 @@ pub struct AxisTuningSpec {
     /// same approach, how far it slides when reversing. Low values read as weight.
     #[serde(default = "at_run_accel")]
     pub run_accel: f32,
+    /// Airborne forward acceleration along the body-local side axis.
+    #[serde(default = "at_air_accel")]
+    pub air_accel: f32,
+    /// Gravity-relative terminal fall speed.
+    #[serde(default = "at_max_fall_speed")]
+    pub max_fall_speed: f32,
+    /// Grounded jump forgiveness after leaving support.
+    #[serde(default = "at_coyote_time")]
+    pub coyote_time: f32,
+    /// Pre-landing jump input buffer.
+    #[serde(default = "at_jump_buffer")]
+    pub jump_buffer: f32,
+}
+
+fn at_gravity() -> f32 {
+    ae::DEFAULT_TUNING.gravity
 }
 
 fn at_max_run_speed() -> f32 {
@@ -218,6 +247,22 @@ fn at_max_run_speed() -> f32 {
 
 fn at_run_accel() -> f32 {
     ae::DEFAULT_TUNING.run_accel
+}
+
+fn at_air_accel() -> f32 {
+    ae::DEFAULT_TUNING.air_accel
+}
+
+fn at_max_fall_speed() -> f32 {
+    ae::DEFAULT_TUNING.max_fall_speed
+}
+
+fn at_coyote_time() -> f32 {
+    ae::DEFAULT_TUNING.coyote_time
+}
+
+fn at_jump_buffer() -> f32 {
+    ae::DEFAULT_TUNING.jump_buffer
 }
 
 fn at_air_jumps() -> u8 {
@@ -231,10 +276,17 @@ fn at_jump_speed() -> f32 {
 impl Default for AxisTuningSpec {
     fn default() -> Self {
         Self {
+            horizontal_law: ae::AxisHorizontalLaw::default(),
+            jump_law: ae::AxisJumpLaw::default(),
+            gravity: at_gravity(),
             air_jumps: at_air_jumps(),
             jump_speed: at_jump_speed(),
             max_run_speed: at_max_run_speed(),
             run_accel: at_run_accel(),
+            air_accel: at_air_accel(),
+            max_fall_speed: at_max_fall_speed(),
+            coyote_time: at_coyote_time(),
+            jump_buffer: at_jump_buffer(),
         }
     }
 }
@@ -246,10 +298,17 @@ impl AxisTuningSpec {
     /// carries diverge from [`DEFAULT_TUNING`](ambition_engine_core::DEFAULT_TUNING).
     pub fn to_kernel(&self) -> ae::MovementTuning {
         ae::MovementTuning {
+            horizontal_law: self.horizontal_law,
+            jump_law: self.jump_law,
+            gravity: self.gravity,
             air_jumps: self.air_jumps,
             jump_speed: self.jump_speed,
             max_run_speed: self.max_run_speed,
             run_accel: self.run_accel,
+            air_accel: self.air_accel,
+            max_fall_speed: self.max_fall_speed,
+            coyote_time: self.coyote_time,
+            jump_buffer: self.jump_buffer,
             ..ae::DEFAULT_TUNING
         }
     }

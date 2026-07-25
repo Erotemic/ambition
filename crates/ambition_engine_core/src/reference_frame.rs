@@ -283,30 +283,50 @@ pub struct AccelerationFrame {
 /// The complete per-body acceleration-relative frame consumed by the movement kernel.
 ///
 /// [`AccelerationFrame`] stores the environment-supplied orthonormal reference
-/// basis; `MotionFrame` pairs it with the complete world-space acceleration. The
-/// two facts are deliberately independent even when ordinary gravity aligns
-/// them. Construct this once per body tick and pass the same value through input
-/// interpretation and whichever movement policy is active.
+/// basis; `MotionFrame` pairs it with separately retained gravity/orienting and
+/// external world-space acceleration contributions. The facts are deliberately
+/// independent even when ordinary gravity aligns them. Construct this once per
+/// body tick and pass the same value through input interpretation and whichever
+/// movement policy is active.
 ///
 /// This is deliberately runtime/environment state, never movement-model
 /// configuration.  Swapping physics policies therefore cannot freeze, reset, or
 /// reinterpret the body's current frame.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MotionFrame {
-    acceleration: Vec2,
+    gravity_acceleration: Vec2,
+    external_acceleration: Vec2,
     basis: AccelerationFrame,
 }
 
 impl MotionFrame {
-    /// Build a frame from an explicit basis and world-space acceleration.
+    /// Build a frame from an explicit basis and one orienting acceleration.
     ///
-    /// The basis and force vector are separate on purpose: the environment may
-    /// define the controlled body's orientation while composing additional
-    /// inertial or lateral acceleration.  Zero acceleration is therefore fully
-    /// specified rather than silently snapping to normal gravity.
-    pub const fn new(basis: AccelerationFrame, acceleration: Vec2) -> Self {
+    /// This constructor preserves the historical meaning used by tests and
+    /// callers that have only one force vector: the supplied acceleration is the
+    /// gravity/orienting contribution and there is no independent external
+    /// contribution. Environment resolution should prefer
+    /// [`Self::with_accelerations`] so jump laws may scale gravity without also
+    /// scaling wind, tractor fields, or inertial acceleration.
+    pub const fn new(basis: AccelerationFrame, gravity_acceleration: Vec2) -> Self {
+        Self::with_accelerations(basis, gravity_acceleration, Vec2::ZERO)
+    }
+
+    /// Build a frame while preserving the environment's acceleration
+    /// decomposition.
+    ///
+    /// `gravity_acceleration` defines the body-relative gravity response and is
+    /// the only contribution a phased jump may scale. `external_acceleration`
+    /// remains world-space and unscaled. The basis stays authoritative even when
+    /// either contribution is zero.
+    pub const fn with_accelerations(
+        basis: AccelerationFrame,
+        gravity_acceleration: Vec2,
+        external_acceleration: Vec2,
+    ) -> Self {
         Self {
-            acceleration,
+            gravity_acceleration,
+            external_acceleration,
             basis,
         }
     }
@@ -328,13 +348,23 @@ impl MotionFrame {
     }
 
     /// Full world-space acceleration applied this tick.
-    pub const fn acceleration(self) -> Vec2 {
-        self.acceleration
+    pub fn acceleration(self) -> Vec2 {
+        self.gravity_acceleration + self.external_acceleration
     }
 
-    /// Acceleration magnitude in world units per second squared.
+    /// The gravity/orienting contribution. Jump-arc laws may scale this term.
+    pub const fn gravity_acceleration(self) -> Vec2 {
+        self.gravity_acceleration
+    }
+
+    /// Non-orienting world-space acceleration. Jump-arc laws must not scale it.
+    pub const fn external_acceleration(self) -> Vec2 {
+        self.external_acceleration
+    }
+
+    /// Magnitude of the complete acceleration in world units per second squared.
     pub fn magnitude(self) -> f32 {
-        self.acceleration.length()
+        self.acceleration().length()
     }
 
     /// The acceleration-relative body basis.

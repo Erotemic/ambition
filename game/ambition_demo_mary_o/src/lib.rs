@@ -769,37 +769,46 @@ const MARY_O_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            // A PROPER Mary-O moveset, composed grant-by-grant: the run+jump
-            // floor, wall mobility (cling + kick), and a fast fall (the
-            // ground-pound dive). Each is a single-verb grant appended to the list
-            // — NOT a preset the roster forks — and the union of them is her
-            // AbilityBase. Deliberately WITHOUT `AirJump`: hers is the classic
-            // one-press arc, so the only way to clear a gap is to commit to the
-            // jump from the ground. It also keeps her OFF the full Ambition kit
-            // (blink, dash, fly, fireball) without touching the shared session
-            // ability set, so the multi-game host's own protagonist is unaffected;
-            // the session mask can gate these verbs off but can never clobber the
-            // base back up to sandbox_all. Paired with the `peaceful` authored kit
-            // (Authored, not HostCode) so she carries no combat verbs either.
-            abilities: Some([RunJump, WallMobility, FastFall]),
-            // That one jump is a BIG one: 2.1x the default apex, which is what a
-            // ?-block at bonk height and a three-tile pit are drawn around. Apex is
-            // v²/(2·gravity), so 2.1x the height is √2.1 ≈ 1.449x the launch speed
-            // — 630 * √2.1 = 913. Gravity is untouched, so she falls on the shared
-            // curve and simply hangs √2.1x longer on the way up. It rides an
-            // AuthoredMovementTuning marker so it comes from HER row, never the
-            // shared F3 dev tuning (which every other body still follows) — the
-            // axis-path analogue of Sanic's authored `momentum`.
-            // Her GAIT, alongside her arc. `max_run_speed` 320 is her hold-to-run
-            // top speed; the walk is half of it (the demo's WALK_THROTTLE), which
-            // is the classic two-gear feel. `run_accel` 900 is the important one:
-            // the shared default (5200) reaches top speed in ~0.06s, which reads
-            // as a velocity snap. At 900 she takes ~0.35s to wind up to a run, and
-            // a reversal at speed spends ~0.7s sliding through zero — the skid
-            // that says she has weight. Both ride the same AuthoredMovementTuning
-            // marker her jump does, so they come from HER row and leave every
-            // other body on the shared F3 dev tuning.
-            axis_tuning: Some((jump_speed: 913.0, max_run_speed: 320.0, run_accel: 900.0)),
+            // Mary-O Classic is deliberately only the run/jump floor. Wall jump
+            // and ground pound are later, independent abilities; the existing
+            // Hollow-Knight-style wall bundle and generic fast fall must not leak
+            // into the core movement oracle.
+            abilities: Some([RunJump]),
+            // Reusable AxisSwept laws. Launch, gravity, and acceleration start
+            // from the classic 16 px / 60 Hz tables converted to Mary-O's 32 px
+            // tile scale. Ground coast and reversal are deliberately polished:
+            // the direct friction conversion took about 0.76 seconds and 3.6
+            // tiles to stop from full speed, which read as excessive sliding in
+            // Ambition. Neutral air still preserves momentum. The jump law selects
+            // one of four launch speeds from body-local side speed, then uses weak
+            // gravity while held and rising and full gravity after release / near
+            // apex.
+            // All directions are interpreted through the resolved gravity frame.
+            axis_tuning: Some((
+                horizontal_law: Momentum((
+                    ground_reverse_accel: 1500.0,
+                    ground_coast_decel: 1200.0,
+                    air_reverse_accel: 900.0,
+                    air_coast_decel: 0.0,
+                )),
+                jump_law: PhasedGravity((
+                    speed_thresholds: (120.0, 240.0, 360.0),
+                    launch_speeds: (420.0, 435.0, 450.0, 480.0),
+                    held_rise_gravity_scale: 0.2,
+                    released_rise_gravity_scale: 1.0,
+                    fall_gravity_scale: 1.0,
+                    held_phase_min_upward_speed: 240.0,
+                )),
+                gravity: 2250.0,
+                air_jumps: 0,
+                jump_speed: 450.0,
+                max_run_speed: 300.0,
+                run_accel: 393.75,
+                air_accel: 393.75,
+                max_fall_speed: 480.0,
+                coyote_time: 0.0,
+                jump_buffer: 0.0,
+            )),
             playable_kit: Authored,
             tags: ["player"],
             barks: (
@@ -811,7 +820,7 @@ const MARY_O_CATALOG_RON: &str = r#"(
         // this row (a distinct SHEET — `super_mary_o_tall` — not a scaled copy of
         // the small sheet, per Jon), and the powerup runtime bumps her body size so
         // the taller art draws bigger. Kit is byte-identical to `mary_o` — same
-        // grant list, same tall-jump `axis_tuning` (re-wearing re-reads
+        // grant list, same Mary-O Classic `axis_tuning` (re-wearing re-reads
         // `axis_tuning`, so a mismatch here would silently shrink her jump on grow)
         // and the same peaceful Authored kit — so growing changes only her LOOK and
         // size, never her moveset.
@@ -824,17 +833,32 @@ const MARY_O_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            abilities: Some([RunJump, WallMobility, FastFall]),
-            // Her GAIT, alongside her arc. `max_run_speed` 320 is her hold-to-run
-            // top speed; the walk is half of it (the demo's WALK_THROTTLE), which
-            // is the classic two-gear feel. `run_accel` 900 is the important one:
-            // the shared default (5200) reaches top speed in ~0.06s, which reads
-            // as a velocity snap. At 900 she takes ~0.35s to wind up to a run, and
-            // a reversal at speed spends ~0.7s sliding through zero — the skid
-            // that says she has weight. Both ride the same AuthoredMovementTuning
-            // marker her jump does, so they come from HER row and leave every
-            // other body on the shared F3 dev tuning.
-            axis_tuning: Some((jump_speed: 913.0, max_run_speed: 320.0, run_accel: 900.0)),
+            abilities: Some([RunJump]),
+            axis_tuning: Some((
+                horizontal_law: Momentum((
+                    ground_reverse_accel: 1500.0,
+                    ground_coast_decel: 1200.0,
+                    air_reverse_accel: 900.0,
+                    air_coast_decel: 0.0,
+                )),
+                jump_law: PhasedGravity((
+                    speed_thresholds: (120.0, 240.0, 360.0),
+                    launch_speeds: (420.0, 435.0, 450.0, 480.0),
+                    held_rise_gravity_scale: 0.2,
+                    released_rise_gravity_scale: 1.0,
+                    fall_gravity_scale: 1.0,
+                    held_phase_min_upward_speed: 240.0,
+                )),
+                gravity: 2250.0,
+                air_jumps: 0,
+                jump_speed: 450.0,
+                max_run_speed: 300.0,
+                run_accel: 393.75,
+                air_accel: 393.75,
+                max_fall_speed: 480.0,
+                coyote_time: 0.0,
+                jump_buffer: 0.0,
+            )),
             playable_kit: Authored,
             tags: ["player"],
             barks: (
@@ -861,8 +885,32 @@ const MARY_O_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            abilities: Some([RunJump, WallMobility, FastFall]),
-            axis_tuning: Some((jump_speed: 913.0, max_run_speed: 320.0, run_accel: 900.0)),
+            abilities: Some([RunJump]),
+            axis_tuning: Some((
+                horizontal_law: Momentum((
+                    ground_reverse_accel: 1500.0,
+                    ground_coast_decel: 1200.0,
+                    air_reverse_accel: 900.0,
+                    air_coast_decel: 0.0,
+                )),
+                jump_law: PhasedGravity((
+                    speed_thresholds: (120.0, 240.0, 360.0),
+                    launch_speeds: (420.0, 435.0, 450.0, 480.0),
+                    held_rise_gravity_scale: 0.2,
+                    released_rise_gravity_scale: 1.0,
+                    fall_gravity_scale: 1.0,
+                    held_phase_min_upward_speed: 240.0,
+                )),
+                gravity: 2250.0,
+                air_jumps: 0,
+                jump_speed: 450.0,
+                max_run_speed: 300.0,
+                run_accel: 393.75,
+                air_accel: 393.75,
+                max_fall_speed: 480.0,
+                coyote_time: 0.0,
+                jump_buffer: 0.0,
+            )),
             playable_kit: Authored,
             tags: ["player"],
             barks: (
@@ -1660,10 +1708,9 @@ mod tests {
                 .is_some(),
             "a sheet spec resolves for ai_slop — else it is skipped and renders as a goblin"
         );
-        // Mary-O's authored grant list composes to her platformer moveset —
-        // run+jump, wall mobility, fast fall — and NOTHING from the full Ambition
-        // kit (blink/dash/fly/attack). This is her AbilityBase; the session mask
-        // can only narrow it, never restore the sandbox kit.
+        // Mary-O Classic is deliberately the run/jump floor only. Wall jump
+        // and ground pound are later abilities; the current Hollow-Knight wall
+        // bundle and generic fast-fall must not contaminate the core oracle.
         let mary_o_kit = catalog
             .ability_set(provider::MARY_O_CHARACTER_ID)
             .expect("Mary-O authors a grant list");
@@ -1671,54 +1718,62 @@ mod tests {
             mary_o_kit,
             ambition::engine_core::AbilitySet::compose(&[
                 ambition::engine_core::AbilityGrant::RunJump,
-                ambition::engine_core::AbilityGrant::WallMobility,
-                ambition::engine_core::AbilityGrant::FastFall,
             ]),
-            "Mary-O composes to the classic platformer moveset"
+            "Mary-O Classic composes to ordinary horizontal movement + one variable jump"
         );
+        assert!(mary_o_kit.jump && mary_o_kit.move_horizontal && mary_o_kit.variable_jump);
         assert!(
-            mary_o_kit.jump
-                && mary_o_kit.move_horizontal
-                && mary_o_kit.wall_jump
-                && mary_o_kit.wall_cling
-                && mary_o_kit.fast_fall,
-            "the platformer verbs are all lit"
-        );
-        assert!(
-            !mary_o_kit.double_jump,
-            "but NOT the air jump: hers is a single committed arc, so no AirJump \
-             grant means air_jump_count is 0 no matter what any tuning says"
-        );
-        assert!(
-            !mary_o_kit.blink
+            !mary_o_kit.double_jump
+                && !mary_o_kit.wall_jump
+                && !mary_o_kit.wall_cling
+                && !mary_o_kit.fast_fall
+                && !mary_o_kit.blink
                 && !mary_o_kit.dash
                 && !mary_o_kit.fly
-                && !mary_o_kit.attack
-                && !mary_o_kit.wall_climb,
-            "but none of the full Ambition kit"
+                && !mary_o_kit.attack,
+            "advanced movement and the full Ambition kit stay out of the classic core"
         );
-        // That single jump is 2.1x the default apex. She authors it as a
-        // per-character axis tuning riding an AuthoredMovementTuning marker, so the
-        // launch speed comes from HER row rather than the shared F3 dev tuning.
-        // This is the axis-path analogue of `momentum`.
+
         let mary_o_tuning = catalog
             .axis_tuning(provider::MARY_O_CHARACTER_ID)
             .expect("Mary-O authors an axis tuning");
-        let default_tuning = ambition::engine_core::DEFAULT_TUNING;
-        // Apex = v²/(2·gravity), and she shares the default gravity, so the height
-        // ratio is exactly the SPEED ratio squared. Assert the ratio, not the
-        // magic number: retuning the shared jump keeps her 2.1x relationship.
-        let height_ratio = (mary_o_tuning.jump_speed / default_tuning.jump_speed).powi(2);
-        assert!(
-            (height_ratio - 2.1).abs() < 0.005,
-            "Mary-O jumps ~2.1x the default height, got {height_ratio}x"
-        );
-        // Everything else in her feel stays at the shared default — she overrides
-        // only what she authors (the gravity Jon blessed is untouched, so she falls
-        // on the same curve every other body does).
+        let horizontal = match mary_o_tuning.horizontal_law {
+            ambition::engine_core::AxisHorizontalLaw::Momentum(params) => params,
+            other => panic!("Mary-O must use the momentum law, got {other:?}"),
+        };
+        assert_eq!(mary_o_tuning.max_run_speed, 300.0);
+        assert_eq!(mary_o_tuning.run_accel, 393.75);
+        assert_eq!(mary_o_tuning.air_accel, 393.75);
+        assert_eq!(horizontal.ground_reverse_accel, 1500.0);
+        assert_eq!(horizontal.ground_coast_decel, 1200.0);
+        assert_eq!(horizontal.air_coast_decel, 0.0);
+
+        let jump = match mary_o_tuning.jump_law {
+            ambition::engine_core::AxisJumpLaw::PhasedGravity(params) => params,
+            other => panic!("Mary-O must use phased gravity, got {other:?}"),
+        };
+        assert_eq!(jump.speed_thresholds, [120.0, 240.0, 360.0]);
+        assert_eq!(jump.launch_speeds, [420.0, 435.0, 450.0, 480.0]);
+        assert_eq!(jump.held_rise_gravity_scale, 0.2);
+        assert_eq!(jump.released_rise_gravity_scale, 1.0);
+        assert_eq!(jump.fall_gravity_scale, 1.0);
+        assert_eq!(jump.held_phase_min_upward_speed, 240.0);
+        assert_eq!(mary_o_tuning.max_fall_speed, 480.0);
+        assert_eq!(mary_o_tuning.coyote_time, 0.0);
         assert_eq!(
-            mary_o_tuning.gravity, default_tuning.gravity,
-            "an un-authored knob stays at the default feel"
+            mary_o_tuning.jump_buffer, 0.0,
+            "Classic honors only the current press; it adds no pre-landing forgiveness"
+        );
+        assert_eq!(mary_o_tuning.gravity, 2250.0);
+        assert_eq!(
+            catalog.axis_tuning("mary_o_tall"),
+            Some(mary_o_tuning),
+            "growing changes Mary-O's body/art, not her physics profile"
+        );
+        assert_eq!(
+            catalog.axis_tuning("mary_o_fire"),
+            Some(mary_o_tuning),
+            "the spark form keeps the exact same classic physics"
         );
         let defaults = app
             .world()

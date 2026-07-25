@@ -141,6 +141,9 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &ambition_engine_core::Axis
     put_bool(out, state.gliding);
     put_bool(out, state.fast_falling);
     put_f32(out, state.flight_phase);
+    put_bool(out, state.phased_jump.active);
+    put_u8(out, state.phased_jump.launch_band);
+    put_bool(out, state.phased_jump.hold_cancelled);
 }
 
 fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisManeuverState> {
@@ -166,6 +169,11 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisM
         gliding: r.bool()?,
         fast_falling: r.bool()?,
         flight_phase: r.f32()?,
+        phased_jump: ambition_engine_core::PhasedJumpState {
+            active: r.bool()?,
+            launch_band: r.u8()?,
+            hold_cancelled: r.bool()?,
+        },
     })
 }
 
@@ -282,6 +290,8 @@ fn momentum_params(r: &mut Reader<'_>) -> Option<ambition_engine_core::MomentumP
 
 fn put_axis_swept_params(out: &mut Vec<u8>, p: &ambition_engine_core::AxisSweptParams) {
     let l = &p.locomotion;
+    put_axis_horizontal_law(out, l.horizontal_law);
+    put_axis_jump_law(out, l.jump_law);
     put_f32(out, l.run_accel);
     put_f32(out, l.air_accel);
     put_f32(out, l.ground_friction);
@@ -342,6 +352,8 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisSwe
     };
     Some(AxisSweptParams {
         locomotion: AxisLocomotion {
+            horizontal_law: axis_horizontal_law(r)?,
+            jump_law: axis_jump_law(r)?,
             run_accel: r.f32()?,
             air_accel: r.f32()?,
             ground_friction: r.f32()?,
@@ -400,4 +412,117 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisSwe
             direct_velocity: r.bool()?,
         },
     })
+}
+
+fn put_axis_horizontal_law(out: &mut Vec<u8>, law: ambition_engine_core::AxisHorizontalLaw) {
+    use ambition_engine_core::AxisHorizontalLaw;
+    match law {
+        AxisHorizontalLaw::Responsive => put_u8(out, 0),
+        AxisHorizontalLaw::Momentum(params) => {
+            put_u8(out, 1);
+            put_f32(out, params.ground_reverse_accel);
+            put_f32(out, params.ground_coast_decel);
+            put_f32(out, params.air_reverse_accel);
+            put_f32(out, params.air_coast_decel);
+        }
+    }
+}
+
+fn axis_horizontal_law(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisHorizontalLaw> {
+    use ambition_engine_core::{AxisHorizontalLaw, MomentumHorizontalTuning};
+    Some(match r.u8()? {
+        0 => AxisHorizontalLaw::Responsive,
+        1 => AxisHorizontalLaw::Momentum(MomentumHorizontalTuning {
+            ground_reverse_accel: r.f32()?,
+            ground_coast_decel: r.f32()?,
+            air_reverse_accel: r.f32()?,
+            air_coast_decel: r.f32()?,
+        }),
+        _ => return None,
+    })
+}
+
+fn put_axis_jump_law(out: &mut Vec<u8>, law: ambition_engine_core::AxisJumpLaw) {
+    use ambition_engine_core::AxisJumpLaw;
+    match law {
+        AxisJumpLaw::VelocityCut => put_u8(out, 0),
+        AxisJumpLaw::PhasedGravity(params) => {
+            put_u8(out, 1);
+            for threshold in params.speed_thresholds {
+                put_f32(out, threshold);
+            }
+            for speed in params.launch_speeds {
+                put_f32(out, speed);
+            }
+            put_f32(out, params.held_rise_gravity_scale);
+            put_f32(out, params.released_rise_gravity_scale);
+            put_f32(out, params.fall_gravity_scale);
+            put_f32(out, params.held_phase_min_upward_speed);
+        }
+    }
+}
+
+fn axis_jump_law(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisJumpLaw> {
+    use ambition_engine_core::{AxisJumpLaw, PhasedGravityJumpTuning};
+    Some(match r.u8()? {
+        0 => AxisJumpLaw::VelocityCut,
+        1 => AxisJumpLaw::PhasedGravity(PhasedGravityJumpTuning {
+            speed_thresholds: [r.f32()?, r.f32()?, r.f32()?],
+            launch_speeds: [r.f32()?, r.f32()?, r.f32()?, r.f32()?],
+            held_rise_gravity_scale: r.f32()?,
+            released_rise_gravity_scale: r.f32()?,
+            fall_gravity_scale: r.f32()?,
+            held_phase_min_upward_speed: r.f32()?,
+        }),
+        _ => return None,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn phased_axis_profile_and_active_arc_round_trip() {
+        use ambition_engine_core::{
+            AxisHorizontalLaw, AxisJumpLaw, MomentumHorizontalTuning, MotionModel,
+            PhasedGravityJumpTuning,
+        };
+
+        let mut params = ambition_engine_core::AxisSweptParams::default();
+        params.locomotion.horizontal_law = AxisHorizontalLaw::Momentum(MomentumHorizontalTuning {
+            ground_reverse_accel: 900.0,
+            ground_coast_decel: 393.75,
+            air_reverse_accel: 900.0,
+            air_coast_decel: 0.0,
+        });
+        params.locomotion.jump_law = AxisJumpLaw::PhasedGravity(PhasedGravityJumpTuning {
+            speed_thresholds: [120.0, 240.0, 360.0],
+            launch_speeds: [420.0, 435.0, 450.0, 480.0],
+            held_rise_gravity_scale: 0.2,
+            released_rise_gravity_scale: 1.0,
+            fall_gravity_scale: 1.0,
+            held_phase_min_upward_speed: 240.0,
+        });
+
+        let mut model = MotionModel::axis_swept(params);
+        let MotionModel::AxisSwept(axis) = &mut model else {
+            unreachable!();
+        };
+        axis.state.phased_jump.begin(2);
+        axis.state.phased_jump.cancel_hold();
+        axis.state.buffer_jump = 0.03125;
+
+        let bytes = encode_state(&model);
+        let restored =
+            decode_state::<MotionModel>(&bytes).expect("codec must accept its own bytes");
+        let MotionModel::AxisSwept(axis) = restored else {
+            panic!("axis policy identity did not survive rollback");
+        };
+        assert_eq!(axis.params, params);
+        assert_eq!(axis.state.phased_jump.launch_band, 2);
+        assert!(axis.state.phased_jump.active);
+        assert!(axis.state.phased_jump.hold_cancelled);
+        assert_eq!(axis.state.buffer_jump, 0.03125);
+    }
 }

@@ -136,7 +136,7 @@ pub use ecs::{
     ecs_boss_animation_frame_sample, ecs_breakable_state, ecs_chest_opened,
     ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
     enforce_mount_rider_link, fan_out_limb_intents, integrate_boss_bodies, integrate_sim_bodies,
-    interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests, PickupCollectLock,
+    interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
     project_boss_attack_state_from_move, rebuild_feature_ecs_world_overlay,
     reconcile_autonomous_actors, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, route_boss_strikes_to_limbs,
@@ -154,7 +154,7 @@ pub use ecs::{
     HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
     Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact,
     MountDied, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge,
-    RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,
+    PickupCollectLock, RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,
     RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
     RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };

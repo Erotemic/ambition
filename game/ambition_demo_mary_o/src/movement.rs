@@ -1,30 +1,13 @@
-//! **Walk by default, run while the modifier slot is held** — Mary-O's own
-//! locomotion policy, and the press-edge that fires her spark.
+//! Mary-O Classic presentation/control glue.
 //!
-//! The engine carries a sustained control slot into the simulation and attaches no
-//! meaning to it. This file is where the meaning is assigned, and it is
-//! deliberately tiny: the whole run/walk feel is expressed as a THROTTLE on the
-//! body-local locomotion intent, which the shared movement kernel already resolves
-//! as `throttle * max_run_speed` with authored acceleration.
+//! The actual physics live in the reusable `AxisSwept` momentum-horizontal and
+//! phased-gravity jump laws authored on Mary-O's catalog row. This module owns
+//! only her two-gear input grammar — walk by default, run while the modifier is
+//! held — plus gait facts and the modifier press-edge used by the spark blossom.
 //!
-//! That one multiply buys every property of the classic feel, because the kernel
-//! already has them:
-//!
-//! - **acceleration, not a velocity jump** — the kernel approaches its target at
-//!   `run_accel`; Mary-O authors a low one in her catalog row, so top speed takes
-//!   about a third of a second to reach;
-//! - **skid on reversal** — reversing points the target at the opposite sign and
-//!   the same approach walks velocity through zero, which reads as a slide;
-//! - **release does not erase momentum** — letting go of run lowers the TARGET to
-//!   walk speed; the body still decelerates into it at `run_accel`;
-//! - **airborne momentum is preserved** — the kernel's air branch never brakes
-//!   speed already beyond the cap in the held direction, so a running jump keeps
-//!   its speed even if run is released mid-flight;
-//! - **a running jump goes farther** — free, for the same reason.
-//!
-//! So there is no Mary-O movement code in the movement path at all. She states a
-//! throttle; the ordinary body executes it. This is emphatically NOT the dash
-//! impulse — nothing here adds velocity.
+//! The throttle remains body-local. Acceleration, coasting, skidding, airborne
+//! momentum, speed-banded launch, held/released gravity, collision, and rotated
+//! gravity frames are all handled by the shared movement kernel.
 
 use bevy::prelude::*;
 
@@ -32,13 +15,14 @@ use ambition::actors::actor::PrimaryPlayer;
 use ambition::characters::brain::ActorControl;
 use ambition::characters::equipment::WornEquipment;
 use ambition::engine_core as ae;
+use ambition::platformer::frame_env::ResolvedMotionFrame;
 
 use crate::powerups::SPARK_BLOSSOM_ID;
 
-/// Walking is half of Mary-O's run speed. Her catalog row authors the run speed
-/// itself (`max_run_speed`), so this is the only number the policy owns: the
-/// RATIO between her two gaits.
-pub const WALK_THROTTLE: f32 = 0.5;
+/// Walking is 60% of Mary-O's run speed: 180 px/s versus 300 px/s in the
+/// initial classic profile. Her catalog row owns the absolute cap; this system
+/// owns only the semantic walk/run ratio.
+pub const WALK_THROTTLE: f32 = 0.6;
 
 /// Below this speed a reversal is just a turn, not a skid. Presentation-only.
 const SKID_SPEED: f32 = 120.0;
@@ -86,11 +70,16 @@ pub fn ensure_gait(
 pub fn walk_by_default_run_while_held(
     time: Res<ambition::time::WorldTime>,
     mut bodies: Query<
-        (&mut ActorControl, &mut MaryOGait, &ae::BodyKinematics),
+        (
+            &mut ActorControl,
+            &mut MaryOGait,
+            &ae::BodyKinematics,
+            Option<&ResolvedMotionFrame>,
+        ),
         With<PrimaryPlayer>,
     >,
 ) {
-    for (mut control, mut gait, kin) in &mut bodies {
+    for (mut control, mut gait, kin, resolved_frame) in &mut bodies {
         let frame = &mut control.0;
         let running = frame.modifier_held;
         if !running {
@@ -102,8 +91,11 @@ pub fn walk_by_default_run_while_held(
 
         let intent = frame.locomotion.x;
         gait.running = running && intent.abs() > 0.01;
+        let side_speed = resolved_frame
+            .map(|resolved| kin.vel.dot(resolved.get().side()))
+            .unwrap_or(kin.vel.x);
         gait.skidding =
-            intent.abs() > 0.01 && kin.vel.x * intent < 0.0 && kin.vel.x.abs() > SKID_SPEED;
+            intent.abs() > 0.01 && side_speed * intent < 0.0 && side_speed.abs() > SKID_SPEED;
         gait.spark_cooldown = (gait.spark_cooldown - time.scaled_dt).max(0.0);
     }
 }

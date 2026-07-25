@@ -188,9 +188,7 @@ impl GameplayTraceBuffer {
                 reason: reason.clone(),
                 pos,
             });
-            if self.auto_dump_armed
-                && self.dump_request.is_none()
-                && assessment.auto_dump_eligible
+            if self.auto_dump_armed && self.dump_request.is_none() && assessment.auto_dump_eligible
             {
                 self.dump_request = Some(DumpReason::OobAuto { reason });
                 self.auto_dump_armed = false;

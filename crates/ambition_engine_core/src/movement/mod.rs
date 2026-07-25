@@ -3,7 +3,8 @@
 //! [`step_motion`] is the ONLY movement entry. Every movable body carries one
 //! explicit [`MotionModel`], and every policy receives the same immutable
 //! [`MotionFrame`] resolved once by the environment from a reference basis and
-//! the complete world-space acceleration for that body tick. The active frame
+//! separately retained gravity and external acceleration contributions for that
+//! body tick. The active frame
 //! is environmental state: it is neither authored into model parameters nor
 //! cached in model-private runtime state, and every directional quantity
 //! crossing this boundary carries its frame in its type (see
@@ -72,22 +73,23 @@ pub use integration::{integrate_normal_spine, NormalSpineCtx};
 pub use kernel::{step_motion, MotionStepContext, MotionStepResult, SupportFact};
 pub use model::{
     knock_off_ledge, switch_motion_model, AxisManeuverState, AxisSweptMotion, MotionModel,
-    MotionModelKind, MotionModelSpec, SurfaceMomentumMotion,
+    MotionModelKind, MotionModelSpec, PhasedJumpState, SurfaceMomentumMotion,
 };
 pub use ops::{ComboMark, MovementOp};
 pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
 pub use tuning::{
-    ActiveMovementTuning, AxisLocomotion, AxisSweptParams, FlightTuning, LedgeMomentumTuning,
-    MovementTuning, TraversalAbilityTuning, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN,
-    BLINK_DISTANCE, BLINK_GRACE_TIME, BLINK_HOLD_THRESHOLD, BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME,
-    DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS,
-    DEFAULT_GRAVITY_DIR, DEFAULT_TUNING, DODGE_ROLL_COOLDOWN, DODGE_ROLL_SPEED, DODGE_ROLL_TIME,
-    DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG,
-    FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED, FLIGHT_TERMINAL_SPEED, GLIDE_AIR_ACCEL, GLIDE_FALL_SPEED,
-    GRAVITY, GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED,
-    ONE_WAY_DROP_THROUGH_GRACE, PARRY_WINDOW_TIME, POGO_SPEED, PRECISION_BLINK_AIM_SPEED,
-    PRECISION_BLINK_DISTANCE, PRECISION_BLINK_MAX_DOWNWARD_SPEED, RUN_ACCEL, SLASH_RECOIL,
-    WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
+    ActiveMovementTuning, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisSweptParams,
+    FlightTuning, LedgeMomentumTuning, MomentumHorizontalTuning, MovementTuning,
+    PhasedGravityJumpTuning, TraversalAbilityTuning, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS,
+    BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_GRACE_TIME, BLINK_HOLD_THRESHOLD,
+    BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME,
+    DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING, DODGE_ROLL_COOLDOWN,
+    DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED,
+    FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED, FLIGHT_TERMINAL_SPEED,
+    GLIDE_AIR_ACCEL, GLIDE_FALL_SPEED, GRAVITY, GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED,
+    MAX_FALL_SPEED, MAX_RUN_SPEED, ONE_WAY_DROP_THROUGH_GRACE, PARRY_WINDOW_TIME, POGO_SPEED,
+    PRECISION_BLINK_AIM_SPEED, PRECISION_BLINK_DISTANCE, PRECISION_BLINK_MAX_DOWNWARD_SPEED,
+    RUN_ACCEL, SLASH_RECOIL, WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
 };
 
 #[cfg(test)]
@@ -195,7 +197,14 @@ pub(crate) fn update_body_control_in_frame(
         &mut events,
     );
 
-    abilities::apply_jump_release(clusters.kinematics, clusters.abilities, input, frame);
+    abilities::apply_jump_release(
+        clusters.kinematics,
+        state,
+        clusters.abilities,
+        input,
+        frame,
+        tuning,
+    );
 
     events
 }

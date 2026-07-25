@@ -370,6 +370,7 @@ expected_files=(
     super_mary_o_tall_spritesheet.png super_mary_o_tall_spritesheet.ron
     super_mary_o_fire_spritesheet.png super_mary_o_fire_spritesheet.ron
     props/super_mary_o_milk_carton.png
+    props/super_mary_o_spark_blossom.png
     # Composable Mary-O construction pieces. Runtime level code can stack the
     # body segments without stretching and attach the separately animated flag.
     props/mary_o_pipe_body.png
@@ -813,10 +814,15 @@ tackon_targets=(
     # fresh clone draws the powered-up player as a colored rectangle.
     super_mary_o_tall
     super_mary_o_fire
-    # Mary-O's gameplay provider binds this generated pickup through
-    # WorldItemArt at sprites/props/super_mary_o_milk_carton.png. Publish
-    # the source target here, then copy its canonical pose into props/.
+    # Mary-O's gameplay provider binds these generated pickups through
+    # WorldItemArt at sprites/props/<name>.png. Publish the source targets
+    # here, then copy their canonical poses into props/.
+    #
+    # The spark blossom was referenced by the runtime from the day the spark
+    # form landed but never had a render target, so the fire-flower pickup was
+    # collectible and invisible in-game. Publishing it is the fix.
     super_mary_o_milk_carton
+    super_mary_o_spark_blossom
     # Fixed-canvas construction pieces. The pipe and pole body targets repeat
     # vertically; their top/finial and flag stay separate so level code can
     # build arbitrary heights without stretching any sprite.
@@ -908,6 +914,7 @@ held_prop_map=(
     "portal_gun_blue:portal_gun_blue"
     "portal_gun_orange:portal_gun_orange"
     "super_mary_o_milk_carton:super_mary_o_milk_carton"
+    "super_mary_o_spark_blossom:super_mary_o_spark_blossom"
 )
 for pair in "${held_prop_map[@]}"; do
     src_target="${pair%%:*}"

@@ -79,15 +79,23 @@ Ambition is:
   Architecture is not deferred when the wrong shape would create technical
   debt.
 
-The provider-composition principle is:
+The design oracle is:
 
-> Named game content and policy enter through provider crates, Bevy plugins, and
-> supported Ambition seams. Reusable platformer capability belongs in the engine;
-> game-specific policy does not.
+> Could another platformer be built by adding a provider/content crate without
+> editing core engine crates?
 
-The demo suite pressure-tests that division. A demo may reveal legitimate reusable
-engine work, but it must not create a named game branch or a private replacement
-for an ordinary engine responsibility.
+It judges the end state, not each commit: reusable engine capability grows
+constantly, and named game content and policy enter through provider crates, Bevy
+plugins, and supported Ambition seams. What the oracle forbids is a core that
+cannot be extended additively — a game-named branch, a closed roster, or a private
+replacement for an ordinary engine responsibility.
+
+The demo suite runs the oracle continuously.
+[`fixtures/external_consumer/`](fixtures/external_consumer/) (Outlander) runs it
+adversarially: a game authored from outside the workspace, with its own lockfile,
+against the `ambition` umbrella alone. `external consumer: outlander` gates it in
+`scripts/run_tests.py`, and every engine-internal assumption it is forced to lean
+on is recorded as a named API leak.
 
 ## Durable engine shape
 

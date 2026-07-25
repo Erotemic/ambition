@@ -317,16 +317,27 @@ The convergence point should be narrow and semantic. It should not force human
 input devices, AI deliberation, and network transport to share irrelevant
 upstream details.
 
-### North star C — Bevy-native provider composition
+### North star C — Bevy-native provider composition, under the design oracle
 
-A game provider composes Ambition platformer capabilities through Bevy plugins,
-components, resources, assets, and explicit content seams. Ambition adds
-platformer contracts while leaving generic Bevy facilities available.
+The standing test is Jon's oracle: *could another platformer be built by ADDING a
+provider/content crate, without editing core?* A game provider composes Ambition
+platformer capabilities through Bevy plugins, components, resources, assets, and
+explicit content seams. Ambition adds platformer contracts while leaving generic
+Bevy facilities available.
 
-A provider may legitimately reveal a missing reusable engine capability. The
-goal is not an absolute ban on engine changes. The goal is that ordinary game
-policy does not require private global schedules, duplicated engine services, or
+The oracle judges the end state, so a provider may legitimately reveal a missing
+reusable engine capability — that capability is then landed as engine work, in
+its own commit, not inlined into the provider's. What must never be required is a
+game-named core branch, a private global schedule, a duplicated engine service, or
 knowledge of unstable implementation internals.
+
+The oracle has an executable instrument:
+[`fixtures/external_consumer/`](../../../fixtures/external_consumer/)
+(Outlander) authors a room, character, enemy, recipe, and transition from outside
+the workspace through the `ambition` umbrella alone, gated by `external consumer:
+outlander` in `scripts/run_tests.py`, with each engine-internal assumption it must
+lean on recorded as a named API leak. Tasks 3, 4, 6, and 8 below should each
+retire leaks rather than add them.
 
 ---
 
@@ -1039,7 +1050,8 @@ remain provider-owned even when they are sophisticated.
   origins;
 - headless and rollback scenarios prove the same authoritative outcomes;
 - providers compose through Bevy plugins and explicit Ambition semantics rather
-  than private global paths.
+  than private global paths, and the out-of-workspace consumer fixture holds the
+  oracle with a shrinking API-leak list.
 
 ### Shippable runtime competitive
 

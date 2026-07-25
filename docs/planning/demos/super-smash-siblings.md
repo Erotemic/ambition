@@ -27,10 +27,11 @@ stretch). Percent-style damage display. A character select screen.
 | [the observation boundary] | damage-meter + facts read for the percent HUD (the sim never knows "percent" exists) | E4 |
 | [the authoring spine] + [the sprite-geometry authority] | roster rows, movesets, sheets | landed |
 
-Anything beyond this list that turns out to be needed engine-side must be
-classified explicitly. A reusable platform-fighter/platformer capability becomes
-engine work; match-specific policy remains in the demo. Never hide the former in
-provider-local infrastructure or the latter in a named core branch.
+Anything beyond this list that turns out to be needed engine-side is an
+**oracle-violation**: a reusable platform-fighter/platformer capability, landed
+as engine work, never inlined in demo commits. Match-specific policy remains in
+the demo. Never hide the former in provider-local infrastructure or the latter in
+a named core branch.
 
 ## What the demo OWNS (builds for itself, in `ssb_content`)
 
@@ -83,9 +84,9 @@ provider-local infrastructure or the latter in a named core branch.
 
 ## Exit (Jon's, verbatim + sharpened)
 
-One content crate + thin app; no demo-named branch or private replacement for
-an ordinary engine capability; at least two different body profiles fighting in
-one arena (we ship both
+One content crate + thin app; no engine crate edits to add the demo, no
+demo-named branch, no private replacement for an ordinary engine capability; at
+least two different body profiles fighting in one arena (we ship both
 movers across five characters); match state lives outside engine core.
 Plus: a full 3-stock 4-CPU match completes headlessly with a
 deterministic replay; DI measurably extends survival in that replay; two

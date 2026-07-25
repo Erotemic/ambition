@@ -111,14 +111,14 @@ Prefer the solution that best respects the project's **layer boundaries**:
 - **Machinery must not import named game content.** (Enforced by
   `architecture_boundaries`; see the three-layer split in AGENTS.md.)
 
-The end-state these boundaries serve is **provider composition**: named game
-content and policy enter through provider crates, idiomatic Bevy plugins, and
-supported Ambition seams; reusable platformer capability belongs in the engine.
-Core evolution is legitimate when it improves that reusable capability, but a
-provider must not require a named core branch or rebuild an ordinary engine
-responsibility privately. This serves Jon's four standing goals: **(1)**
-incremental compile time, **(2)** agent-navigability, **(3)** idiomatic Bevy
-plugins, **(4)** audit-grade reuse.
+The end-state these boundaries serve — the **oracle** for any structural choice:
+_could a different platformer be built by ADDING a provider/content crate without
+editing core?_ Choices that move toward "yes" are choices Jon wants. It judges the
+end state: core evolution is legitimate when it adds reusable platformer
+capability; what the oracle forbids is a provider needing a game-named core branch
+or a private rebuild of an ordinary engine responsibility. These serve
+his four standing goals: **(1)** incremental compile time, **(2)**
+agent-navigability, **(3)** idiomatic Bevy plugins, **(4)** audit-grade reuse.
 
 Prefer the solution that is more **runtime efficient**, especially in hot paths or
 repeated simulation work. Keep hot paths allocation-free and avoid repeated

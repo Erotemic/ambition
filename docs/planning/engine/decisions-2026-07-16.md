@@ -36,7 +36,7 @@ questions from LOC counts or terminology alone.
    concrete duplication naturally exposes them. No universal sequence DSL.
 5. **Host registration stays explicit.** The two-line provider registration in
    `ambition_app` (`Cargo.toml` dep + the `shell_host.rs` plugin tuple) is the
-   intended Bevy composition model, not a failure of provider reuse. No opaque
+   documented, intentional exception to the additive-content oracle. No opaque
    plugin discovery. Revisit only when a fifth+ provider makes it hurt.
 6. **Boss carve deferred** until boss attacks/phase behavior converge onto the
    canonical moveset/action path; reassess whether a standalone crate is still
@@ -108,8 +108,8 @@ questions from LOC counts or terminology alone.
    the same lowering function. Do NOT expand this patch into the whole N3.2
    campaign. Nuance, recorded honestly: no provider registers a seventh
    interpreter at HEAD (the closed six-family schema — see deferred #1), so
-   the bypass breaks the intended provider-extension seam and reset/restore
-   parity rather than a currently-exercised extension.
+   the bypass breaks the intended extension oracle and reset/restore parity
+   rather than a currently-exercised extension.
 2. **Render dead-dep removals — COMPLETED in `7d972b6`.** Removed
    `ambition_interaction`, `ambition_input`, and the vestigial optional
    `leafwing-input-manager` from `ambition_render`.

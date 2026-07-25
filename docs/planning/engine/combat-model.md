@@ -111,8 +111,8 @@ a gameplay switch (it gates the sprite-manifest hit-polygon override,
 
 ## 6. Grabs, throws, shield-stun (staged vocabulary, SSB-gated)
 
-Not speculative — Super Smash Siblings needs them; they land with that demo
-under the provider-composition discipline. Design pinned in §8.
+Not speculative — Super Smash Siblings needs them; they land WITH that demo
+under the oracle discipline. Design pinned in §8.
 
 ## 7. Match/mode state lives OUTSIDE the engine
 
@@ -121,9 +121,9 @@ platforms-only stages, victory conditions — ALL demo-content (see
 [`../demos/super-smash-siblings.md`](../demos/super-smash-siblings.md)). The
 engine's obligations end at: the damage axis (§1), OOB events a mode can
 consume as "blast", spawn/respawn primitives, and local-N slot routing
-([`netcode.md`](netcode.md) N1). If SSB exposes another reusable engine need,
-state and land that capability explicitly; do not smuggle match policy into core
-or rebuild the missing engine facility privately in the demo.
+([`netcode.md`](netcode.md) N1). If SSB needs anything else engine-side, that's
+an oracle-violation to state and land as engine work, not a quiet edit — and not
+smuggled match policy in core or a privately rebuilt engine facility in the demo.
 
 ## 8. Design sketches for the UNLANDED slices (pre-solved; do not re-derive)
 

@@ -4,6 +4,11 @@ This file is the live queue, not a completion ledger. The completed July 15–16
 architecture campaign is summarized in [`status.md`](status.md); the 2026-07-19
 deep-review evidence behind the newer tracks is
 [`../archive/reviews/deep-review-2026-07-19.md`](../archive/reviews/deep-review-2026-07-19.md).
+Cross-track engine strategy — the capability destination and the dependency order
+between campaigns — is
+[`engine/competitive-2d-platformer-engine-roadmap.md`](engine/competitive-2d-platformer-engine-roadmap.md);
+this queue may reorder bounded slices ahead of it when a concrete game or platform
+blocker has higher immediate value, but should record why.
 
 **Executor grades** (vision §7, restored): **[fable]** genuinely hard
 design/kernel work; **[opus, fable-specced]** the spec in the named doc IS the
@@ -47,9 +52,13 @@ by hardness × payoff; every item below is executable today per its own doc.
    display) and the quantitative workflow measurements.
 2. **FB6 rollout redesign** (track 6, [fable]) — the design task is unblocked;
    the implementation stays blocked until it lands.
-3. **Matchbox two-peer transport + predicted-A/corrected-B oracle**
+3. ~~**Matchbox two-peer transport + predicted-A/corrected-B oracle**
    (netcode.md "next online slice"; unblocked since the confirmed-frame
-   quarantine landed 2026-07-21).
+   quarantine landed 2026-07-21).~~ **DEFERRED to the Super Smash Siblings era
+   (Jon, 2026-07-24).** Matchbox/P2P netplay is out of scope until a game needs
+   it; the transport, the coordinated peer barrier, and the External rebase seam
+   stay documented seams, not queue items. Agents keep drifting here — pick a
+   different lane. The sync-test rollback foundation is enough for now.
 4. **Participant-action PA1–PA7** (participant-action-system.md) — per-seat
    input authorities; foundation for local-N SSB.
 5. **The 311-site `add_systems(Update, ...)` everything-schedule**
@@ -472,9 +481,11 @@ test would be timing-flaky in a repo whose determinism doctrine forbids exactly
 that. **Owed when the Matchbox transport lands** — the transport and the proof
 are the same piece of work, and that is the honest place for it.
 
-**Still open from this track:** attach a Matchbox transport through the existing
-`install_session` seam (unchanged by this work — no simulation system was
-touched) and land the two-peer predicted-A/corrected-B oracle with it.
+**Still open from this track, DEFERRED with #3 (Jon, 2026-07-24):** attaching a
+Matchbox transport through the existing `install_session` seam (unchanged by this
+work — no simulation system was touched) and landing the two-peer
+predicted-A/corrected-B oracle with it. Both wait for the Super Smash Siblings
+era; the seam is documented and stays untouched until then.
 
 ## 2. Build-graph hygiene (compile-time wins) — **LANDED 2026-07-19**
 
@@ -792,9 +803,10 @@ ruling stands — these are ROLE moves, each with a named destination):
   catalog; `deep_dream_strength` → content-owned presentation knob;
   `puppy_slug_gun.rs` → parameterized summon-ally ability + content data.
 
-**Exit:** actors' out-degree drops (no menu/settings_menu/ui_nav edges); item
-identity and policy enter through the provider-owned seam without a closed engine
-roster or a game-named core branch.
+**Exit:** actors' out-degree drops (no menu/settings_menu/ui_nav edges); the
+oracle "add a character/item without editing core" holds for items — identity and
+policy enter through the provider-owned seam, with no closed engine roster and no
+game-named core branch.
 
 ## 8. Combat unification batch — [opus] (first item LANDED 2026-07-19)
 

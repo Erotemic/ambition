@@ -11,9 +11,9 @@ never a copy. Each demo doc carries a **Consumes (by role) / Owns** section:
 "consumes" lists engine crates by their [role handles]
 ([`../engine/architecture.md`](../engine/architecture.md) §2); "owns" is what
 the demo builds for itself. If work appears that fits neither list, stop and
-classify it: a reusable platformer capability belongs in an engine campaign; a
-named rule or presentation choice belongs in the provider; anything else is
-scope drift. Priorities may shuffle; the designs do not.
+classify it: a reusable platformer capability is an oracle-violation and becomes
+engine work; a named rule or presentation choice belongs in the provider;
+anything else is scope drift. Priorities may shuffle; the designs do not.
 
 ## The shape (every demo, no exceptions)
 
@@ -32,9 +32,11 @@ preparation, exact activation, session construction, and cleanup; demo apps shou
 not copy those mechanics or call low-level session setup directly.
 
 - **Standalone:** depends only on engine crates and composes them through public
-  Bevy/Ambition seams. A demo may expose reusable engine work; that work must be
-  stated as a general platformer capability and must not introduce a demo-named
-  branch. Provider commits continue to own the demo's named content and policy.
+  Bevy/Ambition seams. `git log --stat` for the demo touches ZERO engine crates.
+  A demo may expose reusable engine work; that work is stated as a general
+  platformer capability, introduces no demo-named branch, and lands in its own
+  engine commit — not inside the demo's. Provider commits own the demo's named
+  content and policy.
 - **The `bevy` manifest line is expected, not a violation:** a content crate
   that defines its own `#[derive(Component)]`/`#[derive(Resource)]` must list
   `bevy` directly in its `Cargo.toml`, even though it reaches engine types
@@ -42,10 +44,13 @@ not copy those mechanics or call low-level session setup directly.
   consumer's own manifest, which the umbrella's re-export cannot satisfy. One
   line, version pinned by the workspace — authoring through the umbrella "alone"
   carries this asterisk.
-- **Adversarial discipline:** the demo agent may not hide a missing engine
-  capability in provider-local infrastructure or add a demo-specific core hack.
-  Surface the ownership question, then put reusable machinery in the engine and
-  named policy in the provider.
+- **Adversarial discipline:** the demo agent may not "quickly fix" the engine,
+  hide a missing engine capability in provider-local infrastructure, or add a
+  demo-specific core hack. Surface the ownership question, then put reusable
+  machinery in the engine and named policy in the provider. The recorded gap is
+  the product as much as the demo — see the named API leaks in
+  [`fixtures/external_consumer/`](../../../fixtures/external_consumer/), the
+  out-of-workspace version of this same discipline.
 - **Headless-first:** every demo ships scripted reachability/win-path
   tests (complete the level / win a match via `SlotControls` headlessly)
   before any feel pass. Visuals draw blind and ship.
@@ -77,6 +82,7 @@ global app state:
 Demo work is [opus] by default (the engine tracks it depends on carry
 their own grades); art draws blind per the standing rule; each demo doc
 lists its engine dependencies — a demo agent finding a dependency unmet
-STOPS to classify the gap. Reusable capability becomes an engine track; named
-policy remains demo work. Do not disguise engine work as provider-local glue or
-provider policy as a reusable core abstraction.
+STOPS to classify the gap. Reusable capability becomes an engine track, executed
+per its own grade and never inlined into a demo commit; named policy remains demo
+work. Do not disguise engine work as provider-local glue or provider policy as a
+reusable core abstraction.

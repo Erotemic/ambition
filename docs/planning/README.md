@@ -77,8 +77,10 @@ decision-relevant.
 
 North star: *every upgrade a theorem, every boss a failed objective function,
 every biome a mathematical world model.* The game is the first engine customer.
-Provider composition is the design principle: named game policy and content enter
-through Bevy plugins and supported Ambition seams, while reusable platformer
-capabilities belong in the engine. Elegance is the objective function; behavior
+The oracle is: *could another platformer be built by adding a provider/content
+crate without editing core?* — an end-state test: named game policy and
+content enter through Bevy plugins and supported Ambition seams,
+while reusable platformer capabilities belong in the engine. Elegance is the
+objective function; behavior
 is not sacred pre-release; verify against the real headless simulation; delete
 duplicate paths rather than bridging them.

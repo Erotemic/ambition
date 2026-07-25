@@ -31,16 +31,26 @@ is best-in-class external tools speaking through validated data seams. We
 compete on **architecture, expressibility, headless testability, and agent
 navigability**, not on shipping an editor binary.
 
-**The provider-composition principle:**
+**The design oracle** (Jon's, permanent):
 
-> A platformer should add its named content and game policy through provider
-> crates, Bevy plugins, and supported Ambition seams. Core changes are legitimate
-> when they add a reusable platformer capability; game-specific policy remains
-> provider-owned.
+> *Could another platformer be built by ADDING a provider/content crate, without
+> editing core?*
 
-The demos are pressure tests for this principle, not a zero-core-diff rule.
-Their implementation should expose missing reusable capabilities and misplaced
-policy without turning all engine evolution into a violation.
+It judges the end state, not each commit. Reusable platformer capability grows in
+the engine constantly; named game content and policy enter through provider
+crates, Bevy plugins, and supported Ambition seams. What the oracle forbids is a
+core that cannot be extended additively — a game-named branch, a closed roster,
+or a private replacement for an ordinary engine responsibility.
+
+The oracle is executable. The demos run it continuously: a demo's implementation
+exposes missing reusable capability and misplaced policy, and each gap lands as
+engine work or as provider work rather than a demo-shaped core hack.
+[`fixtures/external_consumer/`](../../fixtures/external_consumer/) (Outlander)
+runs it adversarially: a room, character, enemy, recipe, and transition authored
+from OUTSIDE the workspace — own `[workspace]`, own lockfile, no policy
+exemptions — through the `ambition` umbrella alone, gated by `external consumer:
+outlander` in `scripts/run_tests.py`, with every engine-internal assumption it
+must lean on recorded as a named API leak.
 
 ## 2. The four product pillars
 
@@ -82,8 +92,9 @@ policy without turning all engine evolution into a violation.
   product/presentation/observation code leaves the sim heart through the
   open seams (the `ControlPrompt` inversion pattern), and navigability below
   crate level comes from module ownership + the generated `.agent` maps.
-- All four named demos exercise the shared engine contracts without parallel
-  private engine paths; the ambition sandbox can host each demo in-world (§5).
+- All four named demos exist and pass the oracle — they exercise the shared
+  engine contracts with no parallel private engine paths; the ambition sandbox
+  can host each demo in-world (§5).
 - The collision doctrine of
   [`engine/collision-and-ccd.md`](engine/collision-and-ccd.md) holds: every
   mover and every trigger is swept (no discrete sampling anywhere), the OOB
@@ -107,8 +118,9 @@ policy without turning all engine evolution into a violation.
 
 Each demo is a **standalone provider composed from the engine**:
 `<demo>-content` (one crate: world, rosters, rules, match/level state) + a
-`<demo>-app` (~100-line thin shell). A demo may expose reusable engine work, but
-no engine crate may name the demo and no provider may build a private replacement
+`<demo>-app` (~100-line thin shell). A demo's own commits edit no engine crate
+and no engine crate may name a demo. A demo may expose reusable engine work —
+that work lands as engine work in its own commit, never as a private replacement
 for an ordinary engine responsibility. Full designs live in [`demos/`](demos/):
 
 | Demo | Inspiration | Proves |
@@ -140,8 +152,8 @@ Finish the engine face: complete the provider/runtime seams, make simulation
 participation mechanically safe, and perform role-driven ownership moves where
 the architecture identifies misplaced policy. Keep the collision, combat, and
 netcode doctrines ahead of the games that need them. Ship Sanic and Super
-Mary-O as pressure tests of the shared engine contracts. Land local-N plus the
-combat stack, then ship Super Smash Siblings. Land the boss pipeline and fighter
+Mary-O against the oracle. Land local-N plus the combat stack, then ship Super
+Smash Siblings. Land the boss pipeline and fighter
 brain, then ship Hollow Lite. Ambition-the-game expands on the engine throughout
 this process and becomes its deepest integrated customer rather than waiting for
 an abstractly finished engine. Phases and status:

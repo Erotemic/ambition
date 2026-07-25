@@ -94,8 +94,9 @@ contract until the provenance model is explicit.
 
 - Is this API exposing a proven ownership boundary or an internal transitional
   mechanism?
-- Can a different game supply its policy through supported Bevy/Ambition seams
-  without a named core branch or a private replacement for ordinary engine work?
+- Can a different game add content or behavior through supported Bevy/Ambition
+  seams without editing core — no game-named branch, no private replacement for
+  ordinary engine work?
 - Does the facade reveal the supported abstraction while keeping implementation
   details replaceable?
 - Are duplicate registration, override, ordering, and failure semantics explicit?

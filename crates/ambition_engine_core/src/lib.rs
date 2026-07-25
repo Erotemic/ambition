@@ -104,8 +104,8 @@ pub use movement::{
     WALL_SLIDE_SPEED,
 };
 pub use player_state::{
-    classify_safety_from_kinematics, try_change_body_mode_clusters, BodyMode, BodyShape,
-    LocomotionState, PlayerSafetyVerdict, ResourceMeter,
+    classify_safety_from_kinematics, resize_feet_planted, try_change_body_mode_clusters, BodyMode,
+    BodyShape, LocomotionState, PlayerSafetyVerdict, ResourceMeter,
 };
 pub use reference_frame::{
     AccelerationFrame, ControlFrameModes, GameplayFramePolicy, InputFrameMode, LocalAxes,

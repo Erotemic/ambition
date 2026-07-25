@@ -548,6 +548,10 @@ pub fn begin_room_transition_load_system(
             state.active = Some(active);
             continue;
         };
+        // AMBITION_REVIEW(determinism): same as `commit_duration` — wall clock
+        // feeding the write-only `construction_preflight_duration` diagnostic,
+        // observed by no sim decision and not rollback-registered. Preflight cost
+        // is a player-facing latency question, so the feel clock is the right one.
         #[cfg(not(target_arch = "wasm32"))]
         let construction_preflight_started = std::time::Instant::now();
         let prefetched_construction = plan_prefetch.as_deref_mut().and_then(|cache| {

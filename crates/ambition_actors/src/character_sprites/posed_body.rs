@@ -151,14 +151,14 @@ pub fn sync_sprite_posed_bodies(
             continue;
         };
         if kin.size != geometry.collision {
-            // Feet-anchored: hold the +gravity face and move the centre by half
-            // the change, so a withdraw/emerge never drives the body through the
-            // ground it is standing on. Bodies on this seam are ordinary
-            // gravity-down actors; a flipped-gravity variant would read the
-            // body's own gravity here.
-            let shrink = kin.size - geometry.collision;
-            kin.pos += ae::DEFAULT_GRAVITY_DIR * (shrink * 0.5);
-            kin.size = geometry.collision;
+            // Feet-anchored, through the engine's one feet-planted resize op:
+            // hold the +gravity face and move the centre by half the change, so a
+            // withdraw/emerge never drives the body through the ground it is
+            // standing on. This used to be a bare `kin.pos +=` here, which ADR
+            // 0024 forbids precisely because it re-derives an authority that
+            // already exists. Bodies on this seam are ordinary gravity-down
+            // actors; a flipped-gravity variant passes its own gravity instead.
+            ae::resize_feet_planted(&mut kin, geometry.collision, ae::DEFAULT_GRAVITY_DIR);
         }
         if render_size.map(|r| r.0) != Some(geometry.render) {
             commands

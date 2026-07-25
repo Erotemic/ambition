@@ -469,7 +469,7 @@ fn default_weight() -> f32 {
 /// production resolution.
 #[derive(bevy::prelude::Resource, Clone, Debug)]
 pub struct CharacterRoster {
-    by_brain: std::collections::HashMap<String, CharacterArchetypeSpec>,
+    by_brain: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
     fallback: CharacterArchetypeSpec,
     #[cfg(test)]
     provider_fallbacks: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
@@ -480,7 +480,7 @@ impl CharacterRoster {
     /// (resolved for any unknown brain key, mirroring `from_brain`'s
     /// `Combatant` default).
     pub(crate) fn new(
-        by_brain: std::collections::HashMap<String, CharacterArchetypeSpec>,
+        by_brain: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
         fallback: CharacterArchetypeSpec,
     ) -> Self {
         Self {
@@ -492,7 +492,7 @@ impl CharacterRoster {
     }
 
     fn with_provider_fallbacks(
-        by_brain: std::collections::HashMap<String, CharacterArchetypeSpec>,
+        by_brain: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
         fallback: CharacterArchetypeSpec,
         provider_fallbacks: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
     ) -> Self {
@@ -540,10 +540,11 @@ impl CharacterRoster {
     /// an unknown key silently becomes the `combatant` fallback, so a provider
     /// that misspells its own archetype gets a generic enemy instead of an error.
     /// Resolving against this list is how that stops being invisible.
+    ///
+    /// Sorted by construction — `by_brain` is a `BTreeMap` precisely so a roster
+    /// read never depends on `RandomState` (ADR 0023).
     pub fn brain_keys(&self) -> Vec<String> {
-        let mut keys: Vec<String> = self.by_brain.keys().cloned().collect();
-        keys.sort();
-        keys
+        self.by_brain.keys().cloned().collect()
     }
 
     pub(crate) fn spec_for_brain(
@@ -565,7 +566,7 @@ impl CharacterRoster {
     /// `from_brain` default). This is the roster-enum-free construction path:
     /// the map keys ARE the spawn brain keys, so no `CharacterArchetype` is named.
     pub(crate) fn from_map(
-        mut by_brain: std::collections::HashMap<String, CharacterArchetypeSpec>,
+        mut by_brain: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
     ) -> Self {
         // Resolve each archetype's movement tuning by folding its patch along the
         // inheritance chain. Done HERE — the single chokepoint every roster passes
@@ -584,7 +585,7 @@ impl CharacterRoster {
     /// rosters). Provider code uses the fallible
     /// [`CharacterRosterFragment::from_ron`].
     pub(crate) fn from_ron(ron: &str) -> Self {
-        let by_brain: std::collections::HashMap<String, CharacterArchetypeSpec> =
+        let by_brain: std::collections::BTreeMap<String, CharacterArchetypeSpec> =
             ron::from_str(ron)
                 .unwrap_or_else(|err| panic!("enemy roster RON failed to deserialize: {err}"));
         Self::from_map(by_brain)
@@ -597,16 +598,18 @@ impl CharacterRoster {
 /// falls back to the baseline rather than panicking (a malformed `inherits` is a
 /// data smell, not a crash).
 fn resolve_movement_inheritance(
-    specs: &mut std::collections::HashMap<String, CharacterArchetypeSpec>,
+    specs: &mut std::collections::BTreeMap<String, CharacterArchetypeSpec>,
 ) {
     // Snapshot the authored (patch, parent) so resolution reads immutable data
     // while we write resolved values back into the same map.
-    let raw: std::collections::HashMap<String, (crate::combat::BodyMovementPatch, Option<String>)> =
-        specs
-            .iter()
-            .map(|(k, s)| (k.clone(), (s.movement, s.inherits.clone())))
-            .collect();
-    let resolved: std::collections::HashMap<String, crate::combat::BodyMovementTuning> = raw
+    let raw: std::collections::BTreeMap<
+        String,
+        (crate::combat::BodyMovementPatch, Option<String>),
+    > = specs
+        .iter()
+        .map(|(k, s)| (k.clone(), (s.movement, s.inherits.clone())))
+        .collect();
+    let resolved: std::collections::BTreeMap<String, crate::combat::BodyMovementTuning> = raw
         .keys()
         .map(|k| {
             (
@@ -630,7 +633,7 @@ fn resolve_movement_inheritance(
 /// so a cycle (or self-reference) stops at the baseline instead of recursing
 /// forever.
 fn resolve_movement_for(
-    raw: &std::collections::HashMap<String, (crate::combat::BodyMovementPatch, Option<String>)>,
+    raw: &std::collections::BTreeMap<String, (crate::combat::BodyMovementPatch, Option<String>)>,
     id: &str,
     seen: &mut Vec<String>,
 ) -> crate::combat::BodyMovementTuning {
@@ -779,7 +782,7 @@ impl CharacterRosterRegistry {
     }
 
     pub fn assemble(&self) -> Result<CharacterRoster, CharacterRosterAssemblyError> {
-        let mut by_brain = std::collections::HashMap::new();
+        let mut by_brain = std::collections::BTreeMap::new();
         let mut owners = std::collections::BTreeMap::<String, String>::new();
         let mut provider_fallback_ids = std::collections::BTreeMap::<String, String>::new();
         for (provider_id, fragment) in &self.fragments {

@@ -259,6 +259,28 @@ impl BodyShape {
     }
 }
 
+/// Resize a body to `new_size` while keeping its FEET planted.
+///
+/// The feet are the AABB face in the acceleration direction (+Y down under
+/// normal gravity, the top edge inverted, a side edge under sideways gravity),
+/// so the centre moves by half the change along `gravity_dir` and the body never
+/// sinks through the ground it is standing on when its shape changes.
+///
+/// This is the unconditional sibling of [`try_change_body_mode_clusters`]: no
+/// `BodyMode`, no world predicate, for callers whose new shape is authored data
+/// rather than a mode — a sprite's per-animation collision box, for instance.
+/// It exists so "feet-planted resize" is ONE engine op rather than a bare
+/// `kin.pos +=` re-derived per domain, which is what ADR 0024 asks for.
+pub fn resize_feet_planted(
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    new_size: Vec2,
+    gravity_dir: Vec2,
+) {
+    let shrink = kinematics.size - new_size;
+    kinematics.pos += gravity_dir * (shrink * 0.5);
+    kinematics.size = new_size;
+}
+
 /// Attempt to change `player.body_mode` to `new_mode`.
 ///
 /// Computes the new local-body shape via `BodyMode::shape(player.base_size)`,

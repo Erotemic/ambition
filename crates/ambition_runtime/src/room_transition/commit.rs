@@ -491,6 +491,12 @@ pub fn commit_ready_room_transition_system(
     }
 
     let target_room = request.transition.target_room;
+    // AMBITION_REVIEW(determinism): wall clock, and deliberately so — this
+    // measures how long the commit TOOK for `commit_duration`, a write-only
+    // diagnostic field on `ActiveRoomTransitionLoad`. It is never read back, and
+    // `RoomTransitionLoadState` is not rollback-registered, so no sim decision
+    // can observe it. Timing a transaction with `SimTick` would measure the
+    // wrong thing: the point is wall-clock cost to the player.
     #[cfg(not(target_arch = "wasm32"))]
     let commit_started = std::time::Instant::now();
     load_room(

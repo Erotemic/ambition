@@ -282,6 +282,23 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     // A mouth is a pipe's open FACE, and you enter one by TOUCHING it — so stand
     // her ON that face (the band's centre line), not with her centre on it, which
     // would bury half of her in the pipe's own collider.
+    // She is a ONE-HIT body, and a Solid Snake patrols the corridor between the
+    // two pipes — so standing on a mouth waiting out a transit is, for her,
+    // standing still in a patrol lane. Whether she can handle that is the
+    // ACCEPTANCE run's claim (she stomps it there, and arrives wearing the cap);
+    // this run's claim is that the pipe WORKS. Take the enemy out of the
+    // question the same way this file takes the pits out of it — by setting up
+    // what is not being asked.
+    {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&mut ambition::characters::actor::BodyHealth, With<PrimaryPlayer>>();
+        let world = app.world_mut();
+        for mut health in q.iter_mut(world) {
+            health.health.invulnerable = true;
+        }
+    }
+
     let half_body = player_size(&mut app).y * 0.5;
     place_player(&mut app, {
         let mouth = ambition_demo_mary_o::pipe_mouth();

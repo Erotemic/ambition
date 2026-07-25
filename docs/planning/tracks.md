@@ -598,6 +598,32 @@ item, and level state with no Mary-O-only engine path.
 
 **Now unblocked:** additional authored levels, which were gated behind this.
 
+## 3.5 Room transitions are an ENGINE capability — **LANDED 2026-07-25**
+
+`RoomTransitionRequested` had exactly one consumer, registered only by
+`ambition_app`, so no demo host could change rooms — a direct hit on the oracle
+and the reason Mary-O's secret vault had to be dug into the same `RoomSpec` as
+her surface. The readiness transaction, one-shot authorization, and commit now
+live in `ambition_runtime::room_transition`, carried by `PlatformerEnginePlugins`
+into every host. The §2.5 shape repeats exactly: **the blocker was one CALL, not
+a dependency** — the commit drew the new room itself (`spawn_room_visuals`), so
+it named `ambition_render`; it now writes `RespawnRoomVisualsRequested`, the
+channel the sandbox reset and the room stager already used.
+
+Two host-owned contributors stay, both marker-gated so absence is honest rather
+than silent: `RoomTransitionAssetContributor` (a headless host cannot answer
+"did the room's art arrive", so its work item is `Skipped`, not pending forever)
+and the existing cover gate. The neighbor prefetch split along the same line —
+the prepared `RoomConstructionPlan` is an engine artifact promoted by engine
+identity; the asset manifest belongs to the host that can name it.
+
+Customer: Mary-O **World 1-2** ([`demos/super-mary-o.md`](demos/super-mary-o.md)),
+proven by a run that PLAYS into it and by a ferry-ride proof. ⚠ The engine group
+now supplies `AmbitionLoadPlugin`; five hosts that added their own copy were
+panicking on a duplicate.
+
+Open: cross-room continuity (score/coins/lives/worn power).
+
 ## 4. Close one complete Sanic act — [opus]
 
 Corrected 2026-07-19: the ring economy (35 authored rings, collect SFX) and the

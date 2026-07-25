@@ -193,8 +193,50 @@ Remaining acceptance work
     with a small collider while still wearing the cap. FIXED (`4e4bd0fd8`);
   - **pit B is not a pit** — it opens directly into the secret vault. REPORTED,
     not fixed (authoring call): [`../triage/room-replay-followups-2026-07-21.md`](../triage/room-replay-followups-2026-07-21.md) §5.
-- ▢ additional planned levels — **now unblocked**: the level-1 acceptance gate
-  closed 2026-07-21.
+- ✅ **World 1-2, and the reason it could not exist — 2026-07-25.** The demo's
+  world was one `RoomSpec` because it had to be: `RoomTransitionRequested` had
+  exactly one consumer and only `ambition_app` registered it, and no demo depends
+  on `ambition_app`. In this binary the message went into a registered channel
+  that nothing drained, so a second room was not unauthored — it was
+  UNREACHABLE. That is also why the secret vault had to be dug under the surface
+  in the same room.
+
+  The readiness transaction, the one-shot authorization, and the commit now live
+  in `ambition_runtime::room_transition`, carried by `PlatformerEnginePlugins`
+  into every host — the same move §2.5 made for `RoomReplayRequested`, stuck for
+  the same kind of reason: not a dependency, ONE call. The commit DREW the new
+  room (`spawn_room_visuals`), which named `ambition_render`. It now writes
+  `RespawnRoomVisualsRequested`, the channel the sandbox reset and the room
+  stager already used.
+
+  A host keeps only what a host can answer, marker-gated so absence is honest:
+  the asset contributor (`RoomTransitionAssetContributor` — "did the destination
+  room's art arrive", which needs a sprite catalog and an asset server, so a
+  headless host is `Skipped` rather than waiting forever) and the existing cover
+  gate. The neighbor prefetch split the same way: a prepared
+  `RoomConstructionPlan` is an engine artifact keyed by engine identity, so
+  promoting one is engine business; the asset manifest stays with the host.
+
+  1-2 itself is the underground level the V1 design names: unbroken roof, a coin
+  shelf, and a five-tile chasm with NO stepping stone, so its one new verb — an
+  authored moving-platform sweep — is load-bearing exactly once, the rule 1-1's
+  own stepping stone follows. Entry and exit are `Walk` zones rather than a third
+  pipe (the vault's pipes answer a directional press; an open shaft is a
+  different affordance, not a competing one), and the exit returns her past pit B
+  so going under is a SHORTCUT and the two routes compete.
+
+  Proven by playing, not by bookkeeping (`tests/two_rooms.rs`): she takes the
+  pipe with the real DOWN verb, then WALKS the vault floor to the shaft with no
+  placement after that, and the assertion is that the AUTHORITATIVE room changed
+  and her body is inside the new room's bounds. Poison-tested. A separate proof
+  rides the ferry, because if carrying silently failed the chasm would be
+  impassable and every other test would still pass.
+
+  ⚠ Fallout: the engine group now supplies `AmbitionLoadPlugin` (the transition
+  IS a load plan), so both demo hosts and three test hosts that added their own
+  copy were panicking on a duplicate. One owner now.
+- ▢ still open on 1-2: cross-room CONTINUITY (score, coins, lives, worn power),
+  and further authored levels.
 
 ## Consumes
 

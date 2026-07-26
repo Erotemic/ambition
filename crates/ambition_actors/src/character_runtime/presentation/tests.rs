@@ -336,3 +336,37 @@ fn a_projectile_keeps_its_firers_source_after_the_firer_is_gone() {
          not grant: it owns bodies, not everything that carries the component"
     );
 }
+
+/// **G5: within one session the cast ACCUMULATES, and that is the contract.**
+///
+/// Pinned rather than left to be inferred, because "this session's cast" reads like
+/// a live roster and is not one. `ActiveAudioSelection` has no revoke — a source is
+/// added by `authorize_sfx_source` and the map is only cleared by starting a new
+/// session — so a cast that shrank could not un-authorize anybody, and a resource
+/// that shrank would imply a revocation nothing performs.
+///
+/// The counterpart is [`a_new_session_does_not_inherit_the_previous_casts_providers`]:
+/// the session is where this resets, and that is the boundary the fifty-character
+/// roster problem actually lives on.
+#[test]
+fn a_second_room_in_one_session_adds_to_the_cast_rather_than_replacing_it() {
+    let mut app = session_app();
+    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+
+    stage(&mut app, "mary_o");
+    app.update();
+    // A later room in the SAME session, staging somebody else.
+    stage(&mut app, "sanic");
+    app.update();
+
+    let states = app
+        .world()
+        .resource::<crate::character_runtime::CharacterLoadStates>();
+    assert_eq!(
+        states.cast().ids().collect::<Vec<_>>(),
+        ["mary_o", "sanic"],
+        "one session's capability set is the union of what it staged"
+    );
+    assert!(is_authorized(&app, "mary_o_demo") && is_authorized(&app, "sanic_demo"));
+}

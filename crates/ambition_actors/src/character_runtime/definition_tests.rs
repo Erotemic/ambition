@@ -372,7 +372,10 @@ fn a_definition_carries_no_controller_binding() {
 fn sheets_portraits_and_derived_vfx_are_resolved_at_preparation() {
     let definition = CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo")
         .with_sheet("super_mary_o_sprtiesheet") // typo
-        .with_moveset(moveset_with(&[("attack", "slash")], vec![slash("slash", "swing", "hit")]));
+        .with_moveset(moveset_with(
+            &[("attack", "slash")],
+            vec![slash("slash", "swing", "hit")],
+        ));
 
     // Nothing supplied: every art namespace reports NOT CHECKED, and the report is
     // clean — because nobody looked, which must not read as "looked and fine".
@@ -412,4 +415,71 @@ fn a_derived_vfx_tag_no_renderer_knows_is_named() {
         "§4.6 derives the vfx inventory from the moves that request it; deriving it \
          faithfully into a list nobody resolves is only half the boundary"
     );
+}
+
+/// **A display name is an addressing key whether or not it was meant to be one.**
+///
+/// Rooms author `enemy.name`, interactables author `character_id`, rosters author
+/// labels — and three authorities resolve those labels independently:
+/// `PreparedCharacterRegistry::id_for_display_name` takes the first match in id
+/// order, the catalog takes the first match in ITS order, and
+/// `CharacterSpriteAssets::declare` inserts into a map so the LAST declaration wins.
+/// With two "Hero"s, a demand for "Hero" could stage `alpha`, authorize `alpha`'s
+/// provider, and decode `zeta`'s sheet: one character's sounds on another's body.
+///
+/// So the ambiguity is refused at the seam, rather than each resolver being taught
+/// to break the tie the same way — which is the arrangement that produced the split
+/// in the first place.
+#[test]
+fn two_characters_cannot_present_under_the_same_display_name() {
+    let mut app = App::new();
+    app.register_character(CharacterDefinition::new("alpha", "Hero", "provider_a"));
+    let error = app
+        .try_register_character(
+            CharacterDefinition::new("zeta", "Hero", "provider_b"),
+            CharacterBindings::default(),
+        )
+        .err()
+        .expect("an ambiguous display name must be refused");
+    assert_eq!(
+        error,
+        CharacterRegistrationError::AmbiguousDisplayName {
+            display_name: "Hero".to_string(),
+            first_id: "alpha".to_string(),
+            second_id: "zeta".to_string(),
+        }
+    );
+
+    let registry = app.world().resource::<PreparedCharacterRegistry>();
+    assert_eq!(
+        registry.id_for_display_name("Hero"),
+        Some("alpha"),
+        "the rejected registration leaves the first character addressable"
+    );
+    assert!(
+        registry.get("zeta").is_none(),
+        "and does not publish the second"
+    );
+}
+
+/// Re-registering the SAME character is a duplicate id, not an ambiguous name.
+///
+/// Both checks look at the display name, and ordering them wrongly would report
+/// `alpha` as ambiguous with itself — a confusing message for the ordinary mistake
+/// of registering one character twice.
+#[test]
+fn re_registering_one_character_still_reports_the_duplicate_id() {
+    let mut app = App::new();
+    app.register_character(CharacterDefinition::new("alpha", "Hero", "provider_a"));
+    let error = app
+        .try_register_character(
+            CharacterDefinition::new("alpha", "Hero", "provider_b"),
+            CharacterBindings::default(),
+        )
+        .err()
+        .expect("a duplicate id must be refused");
+    assert!(matches!(
+        error,
+        CharacterRegistrationError::DuplicateId { .. }
+    ));
 }

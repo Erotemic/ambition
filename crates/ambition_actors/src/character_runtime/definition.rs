@@ -598,6 +598,25 @@ pub enum CharacterRegistrationError {
         first_provider: String,
         second_provider: String,
     },
+    /// Two DIFFERENT characters present under the same display name.
+    ///
+    /// Rooms, LDtk entities, and roster entries all legitimately name characters
+    /// by the label a designer typed, so a display name is an addressing key
+    /// whether or not it was meant to be one — and three authorities resolve it
+    /// independently. `PreparedCharacterRegistry::id_for_display_name` takes the
+    /// first match in id order; `CharacterSpriteAssets::declare` inserts the alias
+    /// into a map, so the LAST declaration wins. With `alpha` and `zeta` both
+    /// presenting as "Hero", a demand for "Hero" could stage `alpha`, authorize
+    /// `alpha`'s provider, and decode `zeta`'s sheet — a fighter with one
+    /// character's sounds and another's body (GPT 5.6, 2026-07-26).
+    ///
+    /// Rejected rather than disambiguated, for the same reason as a duplicate id:
+    /// picking a winner means two authorities can pick differently.
+    AmbiguousDisplayName {
+        display_name: String,
+        first_id: String,
+        second_id: String,
+    },
 }
 
 impl std::fmt::Display for CharacterRegistrationError {
@@ -614,6 +633,14 @@ impl std::fmt::Display for CharacterRegistrationError {
                  `{second_provider}`; a stable id is what saves, replays, and peers key on, \
                  so one of them must be renamed (a crossover variant is its own product with \
                  its own id — see §4.3)"
+            ),
+            Self::AmbiguousDisplayName {
+                display_name,
+                first_id,
+                second_id,
+            } => write!(
+                f,
+                "`{first_id}` and `{second_id}` both present as `{display_name}`. Content                  addresses characters by display name — a room's `enemy.name`, an                  interactable's `character_id`, a roster entry — and the registry, the                  catalog, and the sprite alias table each resolve that name their own way,                  so an ambiguous one can stage one character and decode another's art.                  Give one of them a distinct display name"
             ),
         }
     }
@@ -687,6 +714,18 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
             .get_resource::<PreparedCharacterRegistry>()
             .cloned()
             .unwrap_or_default();
+        // A display name already spoken for by a DIFFERENT id is rejected before the
+        // insert, so the registry can never hold the ambiguity that
+        // `id_for_display_name` would then have to resolve arbitrarily.
+        if let Some(first_id) = candidate.id_for_display_name(&prepared.display_name) {
+            if first_id != prepared.id {
+                return Err(CharacterRegistrationError::AmbiguousDisplayName {
+                    display_name: prepared.display_name.clone(),
+                    first_id: first_id.to_string(),
+                    second_id: prepared.id.clone(),
+                });
+            }
+        }
         if let Some(first_provider) = candidate.insert(prepared) {
             return Err(CharacterRegistrationError::DuplicateId {
                 character_id: id,

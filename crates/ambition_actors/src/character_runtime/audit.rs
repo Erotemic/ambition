@@ -124,6 +124,129 @@ pub fn audit_character_capabilities(world: &World) -> Vec<CharacterCapabilityGap
     gaps
 }
 
+/// **Two declaration authorities disagreeing about one character.**
+///
+/// The prepared registry and the assembled catalog are both real authorities during
+/// the migration, and every lookup in the engine prefers one or the other by rule:
+/// the sheet resolver takes the registry first, `provider_of_character` takes the
+/// registry first, the sprite alias table takes whatever declared last. Those rules
+/// only agree when the two authorities agree, and nothing checked that they did — so
+/// a character could be spawned with the catalog's moveset, drawn from the registry's
+/// sheet, and credited to the registry's provider (GPT 5.6, 2026-07-26).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CharacterAuthorityConflict {
+    /// One display name, two different characters, across the combined namespace.
+    /// The registration seam rejects this WITHIN the registry; this is the case it
+    /// cannot see, because the catalog is assembled separately and may arrive after.
+    AmbiguousDisplayName {
+        display_name: String,
+        ids: Vec<String>,
+    },
+    /// One id declared by both authorities, with different art.
+    SheetDisagreement {
+        character_id: String,
+        registry_sheet: String,
+        catalog_sheet: String,
+    },
+}
+
+impl std::fmt::Display for CharacterAuthorityConflict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::AmbiguousDisplayName { display_name, ids } => write!(
+                f,
+                "display name `{display_name}` is claimed by {} — content addresses \
+                 characters by that label (a room's `enemy.name`, an interactable's \
+                 `character_id`, a roster entry) and the registry, the catalog and the \
+                 sprite alias table each resolve it their own way, so a demand for it can \
+                 stage one character and decode another's art. Give one a distinct name.",
+                quoted(ids)
+            ),
+            Self::SheetDisagreement {
+                character_id,
+                registry_sheet,
+                catalog_sheet,
+            } => write!(
+                f,
+                "`{character_id}` is declared by BOTH authorities with different art: the \
+                 registry says `{registry_sheet}`, the catalog says `{catalog_sheet}`. \
+                 Every resolver in the engine prefers the registry, so the catalog's \
+                 sheet is dead content that still looks authoritative — and anything \
+                 reading the catalog directly disagrees with what is drawn."
+            ),
+        }
+    }
+}
+
+/// Compare the two declaration authorities. Empty when they agree, or when only
+/// one of them exists — which is the ordinary case and not a conflict.
+pub fn audit_character_authority_parity(world: &World) -> Vec<CharacterAuthorityConflict> {
+    let registry = world.get_resource::<super::PreparedCharacterRegistry>();
+    let catalog = world.get_resource::<CharacterCatalog>();
+    let mut conflicts = Vec::new();
+
+    // Display names across the COMBINED namespace, so a registry entry and a
+    // catalog entry that present alike are caught even though neither authority
+    // can see the collision on its own.
+    let mut by_display: std::collections::BTreeMap<&str, std::collections::BTreeSet<&str>> =
+        std::collections::BTreeMap::new();
+    if let Some(registry) = registry {
+        for (id, prepared) in registry.iter() {
+            by_display
+                .entry(prepared.display_name.as_str())
+                .or_default()
+                .insert(id);
+        }
+    }
+    if let Some(catalog) = catalog {
+        for (id, entry) in catalog.iter() {
+            by_display
+                .entry(entry.display_name.as_str())
+                .or_default()
+                .insert(id.as_str());
+        }
+    }
+    for (display_name, ids) in by_display {
+        if ids.len() > 1 {
+            conflicts.push(CharacterAuthorityConflict::AmbiguousDisplayName {
+                display_name: display_name.to_string(),
+                ids: ids.into_iter().map(str::to_string).collect(),
+            });
+        }
+    }
+
+    // And the art, for an id both authorities declare. Only when the registry
+    // actually named a sheet: a registration that names none is deferring to the
+    // catalog on purpose, which is agreement, not conflict.
+    if let (Some(registry), Some(catalog)) = (registry, catalog) {
+        for (id, prepared) in registry.iter() {
+            let Some(registry_sheet) = prepared.sheet.as_deref() else {
+                continue;
+            };
+            let Some(entry) = catalog.get(id) else {
+                continue;
+            };
+            if entry.spritesheet != registry_sheet && entry.manifest != registry_sheet {
+                conflicts.push(CharacterAuthorityConflict::SheetDisagreement {
+                    character_id: id.to_string(),
+                    registry_sheet: registry_sheet.to_string(),
+                    catalog_sheet: entry.spritesheet.clone(),
+                });
+            }
+        }
+    }
+    conflicts
+}
+
+/// Report authority conflicts. `error!` for the same reason capability gaps are:
+/// a composition where two authorities disagree about who a character is will
+/// produce a fighter assembled from both, and nothing else says so.
+pub fn report_character_authority_conflicts(world: &mut World) {
+    for conflict in audit_character_authority_parity(world) {
+        bevy::log::error!(target: "ambition::character_runtime", "{conflict}");
+    }
+}
+
 /// Report capability gaps once per frame in which staged characters cannot be
 /// served. `error!` rather than `warn!`: a staged character that can never get
 /// art is a broken composition, and the whole point is that this stopped being
@@ -132,5 +255,94 @@ pub fn report_character_capability_gaps(world: &mut World) {
     let gaps = audit_character_capabilities(world);
     for gap in gaps {
         bevy::log::error!(target: "ambition::character_runtime", "{gap}");
+    }
+}
+
+#[cfg(test)]
+mod authority_parity_tests {
+    use super::*;
+    use crate::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+    use ambition_characters::actor::character_catalog::parse_catalog;
+
+    /// One catalog character, so the two authorities have something to disagree
+    /// about. `mary_o` is spelled the same way the registration below spells it.
+    const CATALOG: &str = r#"(
+    brain_presets: { "idle": StandStill },
+    action_set_presets: { "peaceful": (move_style: Walk) },
+    characters: {
+        "mary_o": (
+            display_name: "Mary-O",
+            spritesheet: "catalog_sheet.png",
+            manifest: "catalog_sheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            default_brain: "idle",
+            default_action_set: "peaceful",
+        ),
+    },
+)"#;
+
+    fn app_with_catalog() -> App {
+        let mut app = App::new();
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+                parse_catalog(CATALOG),
+            ),
+        );
+        app
+    }
+
+    /// **The migration hazard, named.** Both authorities declare `mary_o`, with
+    /// different art. Every resolver in the engine prefers the registry, so the
+    /// catalog's sheet is dead content that still reads as authoritative — and
+    /// anything consulting the catalog directly disagrees with what is drawn.
+    #[test]
+    fn a_character_declared_by_both_authorities_with_different_art_is_a_conflict() {
+        let mut app = app_with_catalog();
+        app.register_character(
+            CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo")
+                .with_sheet("registry_sheet"),
+        );
+
+        let conflicts = audit_character_authority_parity(app.world());
+        assert!(
+            conflicts.contains(&CharacterAuthorityConflict::SheetDisagreement {
+                character_id: "mary_o".to_string(),
+                registry_sheet: "registry_sheet".to_string(),
+                catalog_sheet: "catalog_sheet.png".to_string(),
+            }),
+            "two authorities naming different art for one character must be \
+             reported, not silently resolved by whichever lookup ran: {conflicts:?}"
+        );
+    }
+
+    /// A registration that names NO sheet is deferring to the catalog on purpose.
+    /// That is the ordinary migration state and must not be reported as a conflict,
+    /// or the report becomes noise and stops being read.
+    #[test]
+    fn deferring_to_the_catalog_for_art_is_not_a_conflict() {
+        let mut app = app_with_catalog();
+        app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+        assert_eq!(audit_character_authority_parity(app.world()), Vec::new());
+    }
+
+    /// The collision the registration seam CANNOT see: the catalog is assembled
+    /// separately, so a registry entry and a catalog entry presenting under one
+    /// display name are two authorities that each look internally consistent.
+    #[test]
+    fn a_display_name_claimed_across_both_authorities_is_a_conflict() {
+        let mut app = app_with_catalog();
+        // A different id, the same label the catalog already uses.
+        app.register_character(CharacterDefinition::new("mary_o_alt", "Mary-O", "other"));
+
+        let conflicts = audit_character_authority_parity(app.world());
+        assert!(
+            conflicts.contains(&CharacterAuthorityConflict::AmbiguousDisplayName {
+                display_name: "Mary-O".to_string(),
+                ids: vec!["mary_o".to_string(), "mary_o_alt".to_string()],
+            }),
+            "registration rejects an ambiguous name within the registry, and this is \
+             the half it cannot reach: {conflicts:?}"
+        );
     }
 }

@@ -179,6 +179,31 @@ pub enum CharacterLoadOutcome {
 ///
 /// This resource holds ids, resolved through the declaration authorities, and it
 /// belongs to one [`SessionScopeId`].
+///
+/// ## What it is, exactly: a session CAPABILITY set, not a live roster
+///
+/// Within one session it only grows. Stage A and B, walk three rooms, stage C and
+/// D, and all four are in it — it is not "the characters standing on the field right
+/// now", and comments that read that way were imprecise (GPT 5.6, 2026-07-26).
+///
+/// That is the right shape for its one consumer, and deliberately so rather than by
+/// omission. Its consumer is
+/// [`authorize_staged_character_presentation_sources`](presentation::authorize_staged_character_presentation_sources),
+/// and `ActiveAudioSelection` has no REVOKE: `authorize_sfx_source` adds a source
+/// and only `select_gameplay` — a new session — clears the map. So a shrinking cast
+/// could not un-authorize anybody, and modelling it as a live roster would produce a
+/// resource whose contents implied a revocation the audio layer never performs. The
+/// two facts are kept the same size on purpose.
+///
+/// The session boundary is where it resets, which is the boundary that matters:
+/// authorizing a fifty-character roster after an evening of play is the bug this
+/// closed, and a fifty-character roster is a fifty-character SESSION.
+///
+/// If a per-match live roster is ever wanted — a versus mode that reports who is on
+/// stage, or an audio layer that gains revocation — it is a different resource with
+/// a match generation, not a narrowing of this one. Adding a generation here without
+/// giving `ActiveAudioSelection` a revoke would only make the authorization drift
+/// out of sync with the thing that names it.
 #[derive(Default, Debug, Clone)]
 pub struct StagedCast {
     scope: Option<ambition_platformer_primitives::lifecycle::SessionScopeId>,
@@ -186,9 +211,12 @@ pub struct StagedCast {
 }
 
 impl StagedCast {
-    /// Every character id on stage for the current session, in deterministic
-    /// order — including the ones whose art failed, because a fighter with no
-    /// sheet is still in the fight and still needs its cues authorized.
+    /// Every character id THIS SESSION has staged, in deterministic order —
+    /// including the ones whose art failed, because a fighter with no sheet is
+    /// still in the fight and still needs its cues authorized.
+    ///
+    /// Accumulates for the session's lifetime; see the type docs for why that is the
+    /// contract and not an oversight.
     pub fn ids(&self) -> impl Iterator<Item = &str> {
         self.ids.iter().map(String::as_str)
     }
@@ -706,6 +734,17 @@ impl Plugin for CharacterRuntimePlugin {
                     // Before the drain: the audit reads OUTSTANDING demand, and the
                     // materializer empties it.
                     audit::report_character_capability_gaps,
+                    // G4: the two declaration authorities, compared. Gated on the
+                    // catalog CHANGING rather than run every frame — it walks both
+                    // authorities, and the answer can only change when one of them
+                    // does. `resource_changed` fires on insertion, so a composition
+                    // that assembles its catalog after the plugin still gets checked
+                    // on the first frame the catalog exists.
+                    audit::report_character_authority_conflicts.run_if(
+                        bevy::ecs::schedule::common_conditions::resource_exists_and_changed::<
+                            CharacterCatalog,
+                        >,
+                    ),
                     materialize_demanded_character_sheets.run_if(
                         bevy::ecs::schedule::common_conditions::resource_exists::<CharacterCatalog>,
                     ),

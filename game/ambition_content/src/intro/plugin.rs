@@ -218,14 +218,14 @@ pub(crate) fn load_intro_npc_sprites_system(
         return;
     }
     for (name, filename, spec) in intro_npc_sprite_rows(&character_catalog) {
-        if game_assets.characters.npcs.contains_key(name) {
+        if game_assets.characters.sheet(name).is_some() {
             continue;
         }
         let id = crate::intro::sprites::intro_npc_asset_id(name);
         if let Some(asset) =
             build_npc_sprite_asset(&catalog, &asset_server, &mut layouts, &id, &spec)
         {
-            game_assets.characters.npcs.insert(name.to_string(), asset);
+            game_assets.characters.publish_under(name, asset);
         } else {
             eprintln!(
                 "[intro] NPC sheet '{name}' (catalog id {id}) not loadable under {} \

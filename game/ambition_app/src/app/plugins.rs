@@ -39,7 +39,6 @@ use super::setup_systems::{
     setup_presentation_system, setup_simulation_system,
 };
 use super::sim_systems::apply_player_reset_input_system;
-use super::world_flow::materialize_primary_player_character_sheet;
 
 /// Register core simulation plugins, message types, and the gameplay
 /// schedule. Headless and visible both call this.
@@ -231,7 +230,6 @@ fn register_app_local_sim_systems(app: &mut App) {
     // the primary player's current form decoded — its starting id AND any runtime
     // power-form swap — so a content game's hero draws its real sprite instead of
     // the colored-rectangle fallback. Resource-guarded: a no-op in headless.
-    app.add_systems(Update, materialize_primary_player_character_sheet);
 }
 
 /// Register Bevy's `LdtkPlugin` plus the supporting Ambition glue

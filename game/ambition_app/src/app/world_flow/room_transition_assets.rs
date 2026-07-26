@@ -14,8 +14,7 @@ use std::time::Duration;
 use bevy::asset::{LoadState, UntypedAssetId};
 use bevy::image::TextureAtlasLayout;
 use bevy::prelude::{
-    AssetServer, Assets, Changed, DetectChanges, Handle, Image, Query, Res, ResMut, Resource, Time,
-    With,
+    AssetServer, Assets, DetectChanges, Handle, Image, Res, ResMut, Resource, Time,
 };
 use bevy::time::Real;
 
@@ -29,12 +28,12 @@ use ambition::render::quality::ResolvedVisualQuality;
 use ambition::sprite_sheet::boss::BossSpriteAsset;
 use ambition::sprite_sheet::character::CharacterSpriteAsset;
 use ambition::sprite_sheet::game_assets::{
-    ensure_parallax_layers_for_room, EntitySprite, GameAssets, ParallaxLayerAsset, ParallaxTheme,
+    EntitySprite, GameAssets, ParallaxLayerAsset, ParallaxTheme, ensure_parallax_layers_for_room,
 };
 
 use ambition::runtime::room_transition::{
-    set_room_transition_work_state, RoomConstructionPlanPrefetch, RoomTransitionLoadPhase,
-    RoomTransitionLoadState,
+    RoomConstructionPlanPrefetch, RoomTransitionLoadPhase, RoomTransitionLoadState,
+    set_room_transition_work_state,
 };
 
 /// One concrete image handle whose successful load contributes to room visual
@@ -108,6 +107,11 @@ pub(crate) struct RoomTransitionAssetContext<'w> {
     pub(crate) asset_server: Option<Res<'w, AssetServer>>,
     pub(crate) layouts: Option<ResMut<'w, Assets<TextureAtlasLayout>>>,
     pub(crate) quality: Option<Res<'w, ResolvedVisualQuality>>,
+    /// The engine's per-character load ledger. Not optional: the engine plugin
+    /// installs it unconditionally, so its absence would mean a composition with
+    /// no materialization service at all — which the startup audit reports.
+    pub(crate) character_load_states:
+        Option<ResMut<'w, ambition::actors::character_runtime::CharacterLoadStates>>,
     pub(crate) prefetch: Option<ResMut<'w, RoomPreparationPrefetchState>>,
     pub(crate) real_time: Option<Res<'w, Time<Real>>>,
 }
@@ -167,19 +171,23 @@ fn add_named_character(
     assets: &GameAssets,
     character_id: &str,
 ) {
-    if let Some(asset) = assets.characters.asset_for_authored_character(character_id) {
+    if let Some(asset) = assets.characters.sheet(character_id) {
         add_character_asset(by_label, &format!("character:{character_id}"), asset);
     }
 }
 
-/// Materialize every DEFERRED character sheet this room will show — NPC
-/// placements and the staged actor roster — before the manifest is built, so
-/// the reveal barrier waits on them exactly like it waits on parallax themes.
-/// Names that were never deferred (already loaded, or placeholder ids with no
-/// sheet) are no-ops; a gated/missing sheet keeps its colored-rectangle
-/// fallback, same as the eager loader.
+/// Name every character this room stages and hand the list to the ENGINE to
+/// decode, before the manifest is built — so the reveal barrier waits on those
+/// sheets exactly like it waits on parallax themes.
+///
+/// This function used to BE the materializer, which is the defect the character
+/// plan opens on: the step that turns a declared character into loaded art lived
+/// in an application crate, so `ambition_demo_mary_o_app` never ran it (Mary-O
+/// rendered as a rectangle in her own game) and `ambition_demo_sanic_app`
+/// hand-rolled a copy. All that is left here is naming what this room stages,
+/// which is content knowledge the host legitimately has.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn ensure_room_character_sprites(
+pub(crate) fn demand_room_character_sheets(
     room: &RoomSpec,
     staged_actor_names: &[String],
     assets: &mut GameAssets,
@@ -188,6 +196,7 @@ pub(crate) fn ensure_room_character_sprites(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: &ResolvedVisualQuality,
+    states: &mut ambition::actors::character_runtime::CharacterLoadStates,
 ) {
     let mut names: Vec<&str> = staged_actor_names.iter().map(String::as_str).collect();
     for placement in &room.placements {
@@ -202,92 +211,28 @@ pub(crate) fn ensure_room_character_sprites(
         }
     }
     // Authored enemies too: `add_room_specific_sprites` adds their sheets to
-    // the manifest by name, but a sheet still sitting in `deferred_npcs` is
+    // the manifest by name, but a sheet that is still only DECLARED is
     // invisible to that lookup — the enemy would silently render as the
     // goblin/rectangle fallback (GPT 5.6 review finding 4).
     for enemy in &room.enemy_spawns {
         names.push(&enemy.name);
     }
-    for name in names {
-        ambition::actors::character_sprites::materialize_deferred_character_sprite(
-            &mut assets.characters,
-            character_catalog,
-            catalog,
-            asset_server,
-            layouts,
-            Some(&quality.budget),
-            name,
-        );
-    }
-}
-
-/// Materialize the PRIMARY PLAYER's currently-worn character sheet.
-///
-/// [`ensure_room_character_sprites`] materializes the deferred sheets a room
-/// STAGES — its enemies, NPCs, and placement actors — but the player avatar is
-/// *carried* across rooms, not staged as room content, so its worn id appears in
-/// neither list. Ambition's own protagonist (`player`) is a typed EAGER id that
-/// decodes at startup regardless, which hid this for the built-in game; a content
-/// game whose starting character is an ordinary (deferred) catalog id — Mary-O,
-/// Sanic — had its hero fall through to the colored-rectangle fallback forever,
-/// a regression from deferring the startup sheet decode.
-///
-/// Keying on [`Changed`] materializes the worn sheet the instant the identity
-/// first appears AND on every later swap, so it also covers a RUNTIME form change
-/// into another deferred sheet (Mary-O growing into `mary_o_tall` / `mary_o_fire`).
-/// The render binder's existing re-attempt then upgrades the fallback rectangle
-/// to the real sheet once it decodes. Absent asset resources (headless / art-free
-/// shell) no-op, exactly like the room barrier.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn materialize_primary_player_character_sheet(
-    players: Query<
-        &ambition::characters::actor::WornCharacter,
-        (
-            With<ambition::actors::actor::PrimaryPlayer>,
-            Changed<ambition::characters::actor::WornCharacter>,
-        ),
-    >,
-    assets: Option<ResMut<GameAssets>>,
-    catalog: Option<Res<SandboxAssetCatalog>>,
-    character_catalog: Option<
-        Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
-    >,
-    asset_server: Option<Res<AssetServer>>,
-    layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
-    quality: Option<Res<ResolvedVisualQuality>>,
-) {
-    if players.is_empty() {
-        return;
-    }
-    let (
-        Some(mut assets),
-        Some(catalog),
-        Some(character_catalog),
-        Some(asset_server),
-        Some(mut layouts),
-        Some(quality),
-    ) = (
-        assets,
-        catalog,
+    // Submit DEMAND and let the engine decode it. The host names what this room
+    // stages — that is content knowledge it legitimately has — but the decode
+    // itself is the engine's, so every application gets it whether or not it has
+    // a room-transition step at all.
+    let mut demand = ambition::actors::character_runtime::CharacterLoadDemand::default();
+    demand.request_all(names);
+    ambition::actors::character_runtime::materialize_character_demand(
+        &mut demand,
+        states,
+        &mut assets.characters,
         character_catalog,
+        catalog,
         asset_server,
         layouts,
-        quality,
-    )
-    else {
-        return;
-    };
-    for worn in &players {
-        ambition::actors::character_sprites::materialize_deferred_character_sprite(
-            &mut assets.characters,
-            &character_catalog,
-            &catalog,
-            &asset_server,
-            &mut layouts,
-            Some(&quality.budget),
-            worn.id(),
-        );
-    }
+        Some(&quality.budget),
+    );
 }
 
 fn add_room_specific_sprites(
@@ -352,11 +297,9 @@ fn add_room_specific_sprites(
         add_named_character(by_label, assets, name);
     }
 
-    if !room.enemy_spawns.is_empty() || !staged_actor_names.is_empty() {
-        if let Some(asset) = assets.characters.goblin.as_ref() {
-            add_character_asset(by_label, "character-fallback:goblin", asset);
-        }
-    }
+    // No fallback-sheet row: §4.10 deleted the borrowed goblin sheet, so there is
+    // no shared handle for the reveal barrier to wait on. An actor with no art of
+    // its own draws the marked placeholder and says so.
 
     if !room.boss_spawns.is_empty() {
         if let Some(asset) = assets.boss.as_ref() {
@@ -389,6 +332,7 @@ pub(crate) fn build_room_asset_manifest(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: &ResolvedVisualQuality,
+    states: &mut ambition::actors::character_runtime::CharacterLoadStates,
 ) -> RoomAssetManifest {
     ensure_parallax_layers_for_room(
         assets,
@@ -397,7 +341,7 @@ pub(crate) fn build_room_asset_manifest(
         &room.metadata,
         Some(&quality.budget),
     );
-    ensure_room_character_sprites(
+    demand_room_character_sheets(
         room,
         staged_actor_names,
         assets,
@@ -406,6 +350,7 @@ pub(crate) fn build_room_asset_manifest(
         asset_server,
         layouts,
         quality,
+        states,
     );
 
     build_loaded_room_asset_manifest(room, staged_actor_names, assets)
@@ -617,6 +562,7 @@ pub(crate) fn contribute_room_transition_assets_system(
         Some(asset_server),
         Some(layouts),
         Some(quality),
+        Some(character_load_states),
     ) = (
         context.assets.as_deref_mut(),
         context.catalog.as_deref(),
@@ -624,6 +570,7 @@ pub(crate) fn contribute_room_transition_assets_system(
         context.asset_server.as_deref(),
         context.layouts.as_deref_mut(),
         context.quality.as_deref(),
+        context.character_load_states.as_deref_mut(),
     )
     else {
         // The marker promised an answer this host cannot give. Say so instead of
@@ -654,6 +601,7 @@ pub(crate) fn contribute_room_transition_assets_system(
         asset_server,
         layouts,
         quality,
+        character_load_states,
     );
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -823,7 +771,11 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     mut assets: ResMut<GameAssets>,
     catalog: Res<SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
-    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+    (mut layouts, mut character_load_states): (
+        ResMut<Assets<TextureAtlasLayout>>,
+        // Grouped with `layouts` to stay under Bevy's SystemParam arity limit.
+        ResMut<ambition::actors::character_runtime::CharacterLoadStates>,
+    ),
     quality: Res<ResolvedVisualQuality>,
     time: Res<Time<Real>>,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -928,6 +880,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             &asset_server,
             &mut layouts,
             &quality,
+            &mut character_load_states,
         );
         let replace = refresh_manifests
             || cache.entries.get(&room.id).map_or(true, |entry| {

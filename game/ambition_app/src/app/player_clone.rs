@@ -23,8 +23,8 @@ use ambition::engine_core as ae;
 use ambition::engine_core::RoomGeometry;
 use ambition::render::rendering::{PlayerSpriteBaseline, PlayerVisual};
 use ambition::sprite_sheet::character::{
-    build_character_sprite_with_render_size, feet_anchor_for_render_size,
-    player_placeholder_render_size, CharacterAnimator,
+    CharacterAnimator, build_character_sprite_with_render_size, feet_anchor_for_render_size,
+    player_placeholder_render_size,
 };
 use ambition::sprite_sheet::game_assets::GameAssets;
 
@@ -65,8 +65,14 @@ pub fn spawn_requested_player_clone(
     game_assets: Option<Res<GameAssets>>,
     // PRIMARY-only: spawn the clone relative to the camera body. Once a clone is
     // itself a PlayerEntity, a bare single() here would Err on the second spawn.
+    // The clone mirrors the primary's WORN IDENTITY as well as its position, so it
+    // looks like whoever the player currently is rather than like a hardcoded
+    // protagonist. `Option` because a bare test/demo body may wear nothing.
     player_q: Query<
-        &ambition::actors::actor::BodyKinematics,
+        (
+            &ambition::actors::actor::BodyKinematics,
+            Option<&ambition::characters::actor::WornCharacter>,
+        ),
         ambition::actors::actor::PrimaryPlayerOnly,
     >,
 ) {
@@ -74,7 +80,7 @@ pub fn spawn_requested_player_clone(
         return;
     }
     request.0 = false;
-    let Ok(player_kin) = player_q.single() else {
+    let Ok((player_kin, worn)) = player_q.single() else {
         return;
     };
     // Spawn a little to the left of the player so it reads as a separate body.
@@ -149,9 +155,14 @@ pub fn spawn_requested_player_clone(
         ae::DEFAULT_PLAYER_BODY_WIDTH,
         ae::DEFAULT_PLAYER_BODY_HEIGHT,
     );
+    // The clone wears whatever the PLAYER wears. This used to read the typed
+    // `player` slot and fall back to `robot`, which is two engine-known ids
+    // standing in for "the protagonist" — wrong the moment the protagonist is
+    // Mary-O. `worn_id` comes from the body being cloned.
     let asset = game_assets
         .as_ref()
-        .and_then(|g| g.characters.player.as_ref().or(g.characters.robot.as_ref()));
+        .zip(worn)
+        .and_then(|(g, worn)| g.characters.sheet(worn.id()));
     if let Some(asset) = asset {
         let render = player_placeholder_render_size(&asset.spec, collision);
         let clone_anchor = feet_anchor_for_render_size(&asset.spec, collision, render);

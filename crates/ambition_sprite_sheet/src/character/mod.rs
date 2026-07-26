@@ -14,7 +14,7 @@ pub mod sheets;
 
 pub use anim::{non_looping, CharacterAnim};
 pub use animator::{CharacterAnimator, RenderBasis};
-pub use assets::CharacterSpriteAssets;
+pub use assets::{CharacterSheetState, CharacterSpriteAssets};
 pub use sheets::*;
 
 /// Texture-quality tiers understood by the baked sprite variant tables.

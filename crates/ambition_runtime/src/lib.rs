@@ -368,6 +368,11 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_menu::map::MapStatePlugin)
             // The world-prep phase (body integration, gravity collection, etc.).
             .add(ambition_actors::features::WorldPrepSchedulePlugin)
+            // Turning a declared character into loaded art. Added here,
+            // unconditionally, so NO application can compose the engine without
+            // it — the step used to live in `ambition_app`, which is why Mary-O
+            // rendered as a rectangle standalone and Sanic hand-rolled a copy.
+            .add(ambition_actors::character_runtime::CharacterRuntimePlugin)
             // Universal-brain messages/resources (player/NPC/enemy/boss).
             .add(ambition_characters::brain::BrainPlugin)
             // Traversal ability/weapon kit + shared app state.

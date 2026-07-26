@@ -405,7 +405,7 @@ pub fn register_solid_snake_sheet(
     if config.no_assets
         || game_assets
             .characters
-            .npc_asset_for_name(SNAKE_DISPLAY_NAME)
+            .sheet(SNAKE_DISPLAY_NAME)
             .is_some()
     {
         return;
@@ -421,12 +421,8 @@ pub fn register_solid_snake_sheet(
         // by its display name, and other seams by the catalog id.
         game_assets
             .characters
-            .npcs
-            .insert(SNAKE_SHEET_TARGET.to_string(), asset.clone());
-        game_assets
-            .characters
-            .npcs
-            .insert(SNAKE_DISPLAY_NAME.to_string(), asset);
+            .publish_under(SNAKE_SHEET_TARGET, asset.clone());
+        game_assets.characters.publish_under(SNAKE_DISPLAY_NAME, asset);
     }
 }
 

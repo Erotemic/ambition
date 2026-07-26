@@ -70,6 +70,6 @@ pub use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
 pub use assets::{
     all_character_sprite_filenames_in, build_npc_sprite_asset, build_prop_sprite_asset,
     build_prop_sprite_asset_packed, load_character_sprites_in, load_prop_sheet_for_target,
-    materialize_deferred_character_sprite, sheet_for_character_id_in,
+    materialize_declared_character_sprite, sheet_for_character_id_in,
     sprite_body_collision_for_character_id_in, CharacterSpriteAssets, SpriteBodyCollision,
 };

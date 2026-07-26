@@ -11,7 +11,7 @@
 mod room_transition_assets;
 mod room_transition_presentation;
 pub(crate) use room_transition_assets::{
-    build_loaded_room_asset_manifest, ensure_room_character_sprites, inspect_room_asset_manifest,
-    materialize_primary_player_character_sheet, RoomAssetManifest,
+    build_loaded_room_asset_manifest, demand_room_character_sheets, inspect_room_asset_manifest,
+    RoomAssetManifest,
 };
 pub(crate) use room_transition_presentation::install_room_transition_presentation;

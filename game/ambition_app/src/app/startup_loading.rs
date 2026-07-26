@@ -97,6 +97,7 @@ struct StartupAssetInputs<'w, 's> {
     quality: Res<'w, ambition::render::quality::ResolvedVisualQuality>,
     room_sets: Query<'w, 's, &'static RoomSet, With<SessionRoot>>,
     content_staging: Res<'w, RoomContentStagingRegistry>,
+    character_load_states: ResMut<'w, ambition::actors::character_runtime::CharacterLoadStates>,
     ldtk_worlds: Option<Res<'w, LdtkWorldAssets>>,
     ui_fonts: Option<Res<'w, UiFonts>>,
     #[cfg(feature = "audio")]
@@ -365,7 +366,7 @@ fn build_startup_manifest(
         .collect::<Vec<_>>();
     // Deferred character sheets for the FIRST room materialize here, behind
     // the startup cover — the same barrier semantics room transitions get.
-    super::world_flow::ensure_room_character_sprites(
+    super::world_flow::demand_room_character_sheets(
         room,
         &staged_names,
         &mut inputs.game_assets,
@@ -374,6 +375,7 @@ fn build_startup_manifest(
         &inputs.asset_server,
         &mut inputs.layouts,
         &inputs.quality,
+        &mut inputs.character_load_states,
     );
     let room_manifest = build_loaded_room_asset_manifest(room, &staged_names, &inputs.game_assets);
 

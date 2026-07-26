@@ -74,6 +74,7 @@ pub mod affordances;
 pub mod assets;
 pub mod body_mode;
 pub mod boss_encounter;
+pub mod character_runtime;
 pub mod character_sprites;
 pub mod config;
 pub mod cutscene;

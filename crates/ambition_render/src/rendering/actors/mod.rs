@@ -10,8 +10,8 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use super::primitives::{
-    feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
-    PropVisual,
+    FeatureVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, feature_color, feature_z,
+    switch_on_color,
 };
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_persistence::settings::TextureResolutionScale;
@@ -19,8 +19,8 @@ use ambition_platformer_primitives::feature_kind::{BoundFeatureKind, FeatureVisu
 use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_sim_view::FeatureViewIndex;
 use ambition_sprite_sheet::character::{
-    build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
-    feet_anchor_for_render_size, player_placeholder_render_size, CharacterAnimator,
+    CharacterAnimator, build_character_sprite, build_character_sprite_with_render_size,
+    feet_anchor_for, feet_anchor_for_render_size, player_placeholder_render_size,
 };
 use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 
@@ -100,9 +100,7 @@ pub fn bind_worn_character_presentation(
         );
         // Resolve the sheet — absent `GameAssets` (art-free demo) and an id with no
         // sheet both fall through to the rectangle, so a worn player is ALWAYS drawn.
-        let asset = assets
-            .as_ref()
-            .and_then(|a| a.characters.asset_for_character_id(worn.id()));
+        let asset = assets.as_ref().and_then(|a| a.characters.sheet(worn.id()));
         // Skip only when already CORRECTLY bound: same id AND either a real sheet is
         // installed or none is available to upgrade to. A body sitting on a fallback
         // (marker matches but no animator) is re-attempted once its sheet appears, so
@@ -541,47 +539,40 @@ pub fn upgrade_actor_sprites(
         let override_name = actor.sprite_override_name.as_deref();
         let actor_name = Some(actor.name.as_str());
         let named = override_name
-            .and_then(|n| assets.characters.npc_asset_for_name(n))
-            .or_else(|| actor_name.and_then(|n| assets.characters.npc_asset_for_name(n)));
-        let character_asset = match named {
-            Some(asset) => Some(asset),
-            None => {
-                // No registered sheet: fall back by STATE (the two deleted
-                // `visual_kind` helpers' logic survives HERE and nowhere else). A
-                // sandbag → the sandbag sheet; a fighting actor → the generic
-                // enemy sheet; a peaceful, un-registered actor keeps its
-                // terminal-rectangle placeholder (the old NPC behavior — `None`).
-                match assets
-                    .characters
-                    .actor_fallback_asset(actor.is_sandbag, view.fighting)
-                {
-                    Some(fallback) => {
-                        // A *named* actor reaching the generic fallback almost
-                        // always means its `display_name` doesn't match the
-                        // character catalog (a typo / decorated name like "Puppy
-                        // Slug (ally)"), which used to render the goblin default
-                        // silently. Surface it once per name (a warning, not a
-                        // panic — a genuinely missing/late asset file is handled by
-                        // the `images.get(..).is_none()` guard below).
-                        if let Some(missed) = override_name.or(actor_name) {
-                            if warned_sprite_names.insert(missed.to_string()) {
-                                bevy::log::warn!(
-                                    target: "ambition::sprites",
-                                    "actor '{missed}' resolved no registered sprite — using the \
-                                     generic fallback sheet. If it should have its own sprite, its \
-                                     display_name doesn't match the character catalog (likely a \
-                                     typo / decorated name).",
-                                );
-                            }
-                        }
-                        Some(fallback)
-                    }
-                    // Peaceful, un-registered actor: keep the terminal placeholder.
-                    None => None,
+            .and_then(|n| assets.characters.sheet(n))
+            .or_else(|| actor_name.and_then(|n| assets.characters.sheet(n)));
+        let Some(character_asset) = named else {
+            // §4.10, Jon's ruling: there is NO fallback sheet. An actor whose own
+            // sheet does not resolve draws the marked placeholder rectangle,
+            // everywhere, and the binding report names the id.
+            //
+            // A fighting actor used to borrow the GOBLIN's sheet here. That made
+            // missing art invisible — a body with no sprite of its own looked like
+            // a deliberate goblin, so nobody ever went and drew it. Ambition's own
+            // enemies visibly regress until each gets art, which is the point: it
+            // turns silent debt into visible work.
+            if let Some(missed) = override_name.or(actor_name) {
+                if warned_sprite_names.insert(missed.to_string()) {
+                    // Name what the table actually knows, so a TYPO and an
+                    // undecoded sheet stop reading as the same problem.
+                    let diagnosis = match assets.characters.sheet_state(missed) {
+                        ambition_sprite_sheet::character::CharacterSheetState::Declared {
+                            character_id,
+                        } => format!(
+                            "declared as '{character_id}' but not materialized — nothing \
+                             demanded it, so the engine never decoded its sheet"
+                        ),
+                        _ => "no loaded content declares this name — check for a typo or a \
+                              decorated display name (\"Puppy Slug (ally)\"), or publish its art"
+                            .to_string(),
+                    };
+                    bevy::log::warn!(
+                        target: "ambition::sprites",
+                        "actor '{missed}' resolved no sprite and is drawing the placeholder \
+                         rectangle: {diagnosis}",
+                    );
                 }
             }
-        };
-        let Some(character_asset) = character_asset else {
             continue;
         };
         // Android loads assets out of the APK asynchronously, and missing or
@@ -667,7 +658,7 @@ pub fn refresh_player_sprites_on_game_assets_change(
         // bound from. If an old test fixture lacks the marker, fall back to the
         // content default id used by the base sandbox catalog.
         let start_id = character.map(|c| c.id.as_str()).unwrap_or("player");
-        let Some(asset) = assets.characters.asset_for_character_id(start_id) else {
+        let Some(asset) = assets.characters.sheet(start_id) else {
             continue;
         };
         if images.get(&asset.texture).is_none() {

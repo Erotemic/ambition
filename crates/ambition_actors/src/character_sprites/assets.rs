@@ -271,30 +271,34 @@ fn sprite_texture_scale(
 /// [`SandboxAssetCatalog::should_attempt_optional_load`]; missing
 /// files produce no map entry (callers fall back to colored
 /// rectangles).
-/// The characters whose sheets decode at startup: the typed hot-path slots
-/// every session touches before any room stages content. Everything else is
-/// deferred to room staging.
-const EAGER_CHARACTER_IDS: [&str; 4] = ["player", "robot", "goblin", "sandbag"];
 
-/// Load a deferred catalog character's sheets into `sprites.npcs` (under
-/// every key that mapped to its catalog id, mirroring the eager path's
-/// double-keying). Returns `true` when `name` resolves to a loaded asset —
-/// already loaded, or materialized here. `false` = unknown id or the catalog
-/// gated/failed the load (callers keep their colored-rectangle fallback).
-pub fn materialize_deferred_character_sprite(
+/// Decode one DECLARED character's sheet and publish it under every token that
+/// resolves to it.
+///
+/// Returns `true` when `token` resolves to a ready sheet afterwards — already
+/// decoded, or decoded here. `false` = unknown token, or the asset catalog gated
+/// / failed the load (the caller keeps its placeholder rectangle).
+///
+/// This used to be the only way a non-privileged character ever got art, and it
+/// was called from application crates. It is now an implementation detail of the
+/// engine materializer in [`crate::character_runtime`]; nothing outside the
+/// engine should reach for it, because an app that forgets to is an app whose
+/// characters silently render as rectangles.
+pub fn materialize_declared_character_sprite(
     sprites: &mut CharacterSpriteAssets,
     character_catalog: &CharacterCatalog,
     asset_catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: Option<&VisualQualityBudget>,
-    name: &str,
+    token: &str,
 ) -> bool {
-    if sprites.npcs.contains_key(name) {
-        return true;
-    }
-    let Some(cid) = sprites.deferred_npcs.get(name).cloned() else {
-        return false;
+    let cid = match sprites.sheet_state(token) {
+        ambition_sprite_sheet::character::CharacterSheetState::Ready(_) => return true,
+        ambition_sprite_sheet::character::CharacterSheetState::Declared {
+            character_id,
+        } => character_id.to_string(),
+        ambition_sprite_sheet::character::CharacterSheetState::Unknown => return false,
     };
     let Some(sheet_spec) = sheet_for_character_id_in(character_catalog, &cid) else {
         return false;
@@ -314,119 +318,57 @@ pub fn materialize_deferred_character_sprite(
     ) else {
         return false;
     };
-    let keys: Vec<String> = sprites
-        .deferred_npcs
-        .iter()
-        .filter(|(_, deferred_cid)| **deferred_cid == cid)
-        .map(|(key, _)| key.clone())
-        .collect();
-    for key in keys {
-        sprites.deferred_npcs.remove(&key);
-        sprites.npcs.insert(key, asset.clone());
-    }
+    sprites.publish(&cid, asset);
     true
 }
 
+/// Declare every catalog character's sheet WITHOUT decoding any of it.
+///
+/// Nothing is privileged. There used to be four ids (`player`, `robot`,
+/// `goblin`, `sandbag`) that decoded here at startup because they were the
+/// "typed hot-path slots"; every other character deferred to room staging. That
+/// made eagerness a property of the ENGINE's opinion about four names, so a
+/// provider whose protagonist is an ordinary catalog id — Mary-O, Sanic — had its
+/// hero fall through to the placeholder rectangle, and the workaround was a
+/// hand-written materialization step in each application crate.
+///
+/// Eagerness is now whatever the DEMAND says: the engine materializer in
+/// [`crate::character_runtime`] decodes the ids a session actually stages, behind
+/// the reveal barrier. Startup does no sheet decoding at all, which is strictly
+/// less than the four it used to do.
+///
+/// `asset_server`/`layouts`/`quality` are no longer needed to declare, but stay
+/// in the signature: this is still where a caller proves it HAS an asset pipeline,
+/// and dropping them would silently make the art-free path look identical.
 pub fn load_character_sprites_in(
     character_catalog: &CharacterCatalog,
-    asset_catalog: &SandboxAssetCatalog,
-    asset_server: &AssetServer,
-    layouts: &mut Assets<TextureAtlasLayout>,
-    quality: Option<&VisualQualityBudget>,
+    _asset_catalog: &SandboxAssetCatalog,
+    _asset_server: &AssetServer,
+    _layouts: &mut Assets<TextureAtlasLayout>,
+    _quality: Option<&VisualQualityBudget>,
 ) -> CharacterSpriteAssets {
     let mut out = CharacterSpriteAssets::default();
     let mut total = 0usize;
-    let mut loaded = 0usize;
-    let mut deferred = 0usize;
+    let mut declared = 0usize;
     let mut skipped_no_spec: Vec<&str> = Vec::new();
-    let mut skipped_no_path: Vec<&str> = Vec::new();
     for (cid, entry) in character_catalog.iter() {
         total += 1;
-        let Some(sheet_spec) = sheet_for_character_id_in(character_catalog, cid) else {
-            // Neither a hardcoded const nor a manifest in
-            // `assets/sprites/` exists for this id — skip silently.
-            // The character falls back to the colored-rectangle
-            // visual until its sprite is published.
+        if sheet_for_character_id_in(character_catalog, cid).is_none() {
+            // Neither a hardcoded const nor a manifest in `assets/sprites/`
+            // exists for this id — nothing to declare. The character draws the
+            // marked placeholder until its sprite is published.
             skipped_no_spec.push(cid.as_str());
             continue;
-        };
-        // Only the typed hot-path characters decode at startup. Everything
-        // else registers as DEFERRED: the room-transition asset-manifest step
-        // materializes the ids a room actually stages (see
-        // `materialize_deferred_character_sprite`), behind the same reveal
-        // barrier that already gates parallax themes — so the ~130-sheet PNG
-        // decode storm (20-25% of startup CPU) shrinks to the sheets a
-        // session actually shows, with no sprite pop-in.
-        if !EAGER_CHARACTER_IDS.contains(&cid.as_str()) {
-            deferred += 1;
-            out.deferred_npcs.insert(cid.clone(), cid.clone());
-            out.deferred_npcs
-                .insert(entry.display_name.clone(), cid.clone());
-            continue;
         }
-        let asset_id = ids::character_sprite(cid);
-        let variant_tuning = character_variant_tuning(character_catalog, cid);
-        let variant = variant_tuning.as_ref().map(|(t, tn)| (*t, tn));
-        let Some(asset) = build_optional_via_catalog(
-            asset_catalog,
-            asset_server,
-            layouts,
-            &asset_id,
-            &sheet_spec,
-            variant,
-            Some(cid),
-            quality,
-        ) else {
-            skipped_no_path.push(cid.as_str());
-            continue;
-        };
-        loaded += 1;
-        match cid.as_str() {
-            "player" => {
-                // Store under the typed field for the runtime's
-                // fast-path consumers (`runtime/setup.rs`,
-                // `enemy_asset`). ALSO key the npcs HashMap by the
-                // display name so a hall pedestal with
-                // character_id="player" — whose Authored.name is the
-                // display "Player" — resolves through
-                // `npc_asset_for_name`. This double-keying applies
-                // to every base character that ships its own typed
-                // slot.
-                out.npcs.insert(cid.clone(), asset.clone());
-                out.npcs.insert(entry.display_name.clone(), asset.clone());
-                out.player = Some(asset);
-            }
-            "robot" => {
-                out.npcs.insert(cid.clone(), asset.clone());
-                out.npcs.insert(entry.display_name.clone(), asset.clone());
-                out.robot = Some(asset);
-            }
-            "goblin" => {
-                out.npcs.insert(cid.clone(), asset.clone());
-                out.npcs.insert(entry.display_name.clone(), asset.clone());
-                out.goblin = Some(asset);
-            }
-            "sandbag" => {
-                out.npcs.insert(cid.clone(), asset.clone());
-                out.npcs.insert(entry.display_name.clone(), asset.clone());
-                out.sandbag = Some(asset);
-            }
-            _ => {
-                out.npcs.insert(cid.clone(), asset.clone());
-                out.npcs.insert(entry.display_name.clone(), asset);
-            }
-        }
+        declared += 1;
+        out.declare(cid, &entry.display_name);
     }
-    // Single-line startup census so a developer running the game
-    // can confirm at a glance whether the catalog→sprite chain is
-    // working. Bumped up to INFO so it appears under the default
-    // log filter without needing `RUST_LOG=debug`.
     bevy::log::info!(
         target: "ambition::character_sprites",
-        "character_sprites: {loaded}/{total} catalog entries loaded, {deferred} deferred \
-         to room staging; {} no spec wired (placeholder), {} no asset path (placeholder)",
+        "character_sprites: {declared}/{total} catalog entries declared, 0 decoded at startup \
+         (the engine materializer decodes what a session demands); \
+         {} no spec wired (placeholder)",
         skipped_no_spec.len(),
-        skipped_no_path.len(),
     );
     if !skipped_no_spec.is_empty() {
         bevy::log::debug!(
@@ -434,14 +376,9 @@ pub fn load_character_sprites_in(
             "character_sprites: no_spec ids: {skipped_no_spec:?}",
         );
     }
-    if !skipped_no_path.is_empty() {
-        bevy::log::debug!(
-            target: "ambition::character_sprites",
-            "character_sprites: no_path ids: {skipped_no_path:?}",
-        );
-    }
     out
 }
+
 
 /// Resolve the catalog id, gate on profile policy via
 /// `try_path_for_load`, and call `asset_server.load(...)` if the gate

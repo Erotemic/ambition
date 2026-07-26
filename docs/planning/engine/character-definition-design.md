@@ -25,44 +25,76 @@ several providers, live in one session, all player-drivable.
 > Everything below it is the durable design; this is only "where things stand
 > and what I would tell you in person." Rewrite it wholesale — do not append.
 
-*Written 2026-07-26 by Claude Opus 5, after landing the binding-boundary work
-and settling this design across two GPT-5.6 review rounds. Suite was 18/18 green
-at commit `984d88062`, confirmed independently by Jon.*
+*Rewritten 2026-07-26 by Claude Opus 5, mid-run, during a 24-hour execution pass
+enforced by `scripts/goal_guard.py` (`.goal/character-definition-plan.json`,
+deadline 2026-07-27T07:15Z).*
 
-**Nothing here is built.** The design is settled; the code is untouched.
+### Built so far
 
-### Two things that are not obvious from the rest of this document
+**6 of 11 slices are landed**, in this order — §7.3, §7.4, §7.5, §7.9, §7.11's
+schema half, then §7.1 and §7.2 together.
 
-**1. §7.2 is the point, and it is the one you will skip.**
+| Slice | State |
+|---|---|
+| 7.1 engine-owned materialization + unprivilege | **DONE** |
+| 7.2 readiness invariant + capability audit | **DONE** |
+| 7.3 strict provider-local `inherits` | **DONE** |
+| 7.4 `AttackDir::Forward` + attack held/released | **DONE** |
+| 7.5 music: one runtime, `one_shot` survives generation | **DONE** |
+| 7.9 `AttackGestureState` + tilt/smash | **DONE** |
+| 7.11 hurtbox authoring **schema** | **DONE** (runtime half open) |
+| 7.6 character manifest + prepared registry | open |
+| 7.7 source-qualified presentation emission | open |
+| 7.8 match participants + `CharacterLoadDemand` | partly — the three staging
+  projections exist (`character_runtime::staging`); match seating is open |
+| 7.10 two characters actually fight | open |
+| 7.11 hurtbox **runtime** (live sim clock, selection) | open |
 
-Every bug that opened this investigation is one defect class: *an engine step
-written in an application crate, so every other app silently loses it.* Three
-instances, all found in a single session — sprites (§2), music (§3.6), movement
-inheritance (§3.4). §7.1 fixes the sprite instance and makes Mary-O playable
-again, which will feel like the job is done. **It is not.** After §7.1 nothing
-is visibly broken, so §7.2 — the engine-owned readiness invariant — reads like
-polish and gets deferred. It is the only item that stops the class from
-recurring, and the class has a 3-for-3 record. Jon's framing: *"the only thing
-that should change is what quit to title goes to."*
+§7.2 was **not** skipped. It landed in the same commit as §7.1, which is what
+§0 previously begged the next agent to do.
 
-**2. §7.3 is free right now, and that expires.**
+### What changed structurally, so you do not re-derive it
 
-Making `inherits` strict and provider-local is a no-op migration *because zero
-`.ron` files author `inherits` today* (§3.4 — grepped, confirmed). The moment
-anyone authors a template — a Smash "heavy body" archetype is the obvious first
-one — the strict policy stops being free and starts being a content migration.
-Do it while it costs an afternoon and nothing else.
+`crates/ambition_actors/src/character_runtime/` is new and is the answer to §2.
+It owns `CharacterLoadDemand` → materializer → `CharacterLoadStates`, is added
+unconditionally by the engine plugin group in `ambition_runtime/src/lib.rs`, and
+**no application can compose the engine without it**. Applications declare and
+submit demand; they never decode. `audit.rs` holds the readiness invariant and
+the capability audit; `staging.rs` holds the three §4.8 projections.
 
-### How to start
+`CharacterSpriteAssets` no longer has typed slots or a name `match`. It is one
+double-keyed table plus a declared set, and `sheet_state()` answers
+Ready / Declared / **Unknown** — a typo and a pending decode stopped being the
+same answer. `EAGER_CHARACTER_IDS`, `deferred_npcs`, and `actor_fallback_asset`
+are gone; startup now decodes **zero** sheets instead of four.
 
-- **Solo, want the game playable:** §7.1, then §7.2. Do not stop between them.
-- **Handing work to a second agent (GPT patch or otherwise):** §7.3, §7.4, and
-  §7.5 are parallel-safe — disjoint files, no dependency on the character work,
-  each independently valuable. §7.5 (the music fork) is the one Jon has already
-  asked for by name and has not received.
-- **Before writing any code:** read §3. Those facts cost real time to establish
-  and every one of them was checked against the source. Several contradict what
-  the surrounding comments claim.
+⚠ **§4.10's accepted regression is now live.** Nothing borrows the goblin sheet,
+so an Ambition enemy with no art of its own draws the marked placeholder and logs
+which id and why. That is the intended trade — visible work instead of a goblin
+in disguise — but it is the first thing you will notice in-game.
+
+### Two traps this run actually hit
+
+**1. `cargo check --workspace --all-targets` does NOT compile the demo apps.**
+Their code is behind `input,visible`. Two vestigial startup blocks in
+`ambition_demo_mary_o_app` and `ambition_demo_sanic_app` compiled fine and were
+invisible until `./run_tests.sh` (all 18 jobs) ran. `--fast` is job 1 only. Run
+the FULL suite before believing a cross-cutting change.
+
+**2. `Option<Res<CharacterCatalog>>` is forbidden** by
+`engine.character-authority-is-app-local`, and the policy test caught it. Making
+the catalog optional is how a missing catalog silently becomes an empty one. The
+materializer takes `Res<CharacterCatalog>` and is gated on the resource existing;
+a composition without one is NAMED by the audit rather than quietly doing nothing.
+
+### Also fixed, adjacent
+
+Two genuinely unrewound rollback components (`IdentityKit`, `PlayerVisual`) and
+two holes in the coverage instrument that hid them: the sweep never inspected the
+PLAYER (`PlayerBundle` has no `FeatureSimEntity`) and never inspected transients.
+See `docs/planning/triage/rollback-equipment-oracle-divergence.md` — the
+equipment oracle is `#[ignore]`d there, narrowed but not fixed, and it is NOT
+caused by this work.
 
 ### What a reviewer got wrong, so you weigh the next one correctly
 
@@ -71,7 +103,9 @@ correction note). But it twice reasoned confidently from an assumption the code
 disproved — the audio retrofit is far smaller than it argued, because
 `ProviderSfxHandleCache` is already source-qualified (§3.5). **Verify before
 conceding or rejecting.** Its file/line claims were reliable; its inferences
-about scale were not.
+about scale were not. Its patches for §7.3–7.5, §7.9, and §7.11's schema applied
+cleanly and were good; each still needed real review (see those commits for what
+I changed).
 
 ---
 

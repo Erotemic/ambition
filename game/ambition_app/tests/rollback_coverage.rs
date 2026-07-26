@@ -225,6 +225,21 @@ fn every_component_in_the_combat_calibration_lab_is_registered_derived_or_waived
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
+    // The engine character-art load pipeline (§7.1). Which SHEETS have been
+    // decoded is presentation, not simulation: a body's collision, health, and
+    // moves are identical whether its art arrived or it is drawing the marked
+    // placeholder, so rewinding a decode would change nothing a checksum can see.
+    //
+    // Re-triggering is safe by construction rather than by luck. A rollback that
+    // re-inserts `WornCharacter` marks it `Changed`, so the demand system asks
+    // again; `request` is idempotent, decoding an already-decoded sheet is a
+    // no-op, and demand order is a `BTreeSet`. If materialization ever gains a
+    // gameplay consequence — art-derived hitboxes would be exactly that, and
+    // §4.11 forbids it for this reason — this waiver becomes wrong.
+    (
+        "ambition_actors::character_runtime::",
+        "character art load bookkeeping; decoded-ness has no simulation consequence",
+    ),
     // The room-transition transaction, engine-side since 2026-07-25. Under a
     // rollback host `detect_room_transition_system` DEFERS the crossing to the
     // confirmed-frame boundary (`PendingLifecycleCommit`) precisely so this

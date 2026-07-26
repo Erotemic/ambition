@@ -333,7 +333,7 @@ impl PlatformerPreparation<'_> {
         let sprite_bound = self.game_assets.as_deref().is_some_and(|assets| {
             assets
                 .characters
-                .asset_for_character_id(authored.starting_character.as_str())
+                .sheet(authored.starting_character.as_str())
                 .is_some()
         });
         self.complete(transaction, PREPARE_SPRITES_WORK_ID);

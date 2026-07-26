@@ -40,7 +40,7 @@ fn compose_mary_o_shell(app: &mut App, home_route: &str) {
         ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog,
         ShellRouteSpec,
     };
-    use ambition_demo_mary_o::{MaryOExperiencePlugin, MARY_O_GAMEPLAY_ROUTE};
+    use ambition_demo_mary_o::{MARY_O_GAMEPLAY_ROUTE, MaryOExperiencePlugin};
 
     app.add_plugins(ambition::game_shell::MinimalShellPlugins);
     // The standalone launcher is an explicit frontend audio context. Mary-O
@@ -85,8 +85,8 @@ fn compose_mary_o_shell(app: &mut App, home_route: &str) {
 /// `tests/ov1_draws_the_world.rs` meaningful without a GPU.
 #[cfg(feature = "visible")]
 pub fn build_windowed_demo_app(render: RenderMode) -> App {
-    use bevy::render::settings::{RenderCreation, WgpuSettings};
     use bevy::render::RenderPlugin;
+    use bevy::render::settings::{RenderCreation, WgpuSettings};
     use bevy::window::{ExitCondition, WindowPlugin};
 
     let mut app = App::new();
@@ -232,6 +232,7 @@ fn load_mary_o_game_assets(
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
     mut game_assets: ResMut<ambition::sprite_sheet::game_assets::GameAssets>,
+    mut character_demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
 ) {
     // Startup asset binding precedes gameplay activation, so derive the theme from
     // Mary-O's immutable authored room rather than a not-yet-published session root.
@@ -247,27 +248,16 @@ fn load_mary_o_game_assets(
         quality.as_deref().map(|q| &q.budget),
     );
 
-    for (character_id, sheet_stem) in [
-        (
-            ambition_demo_mary_o::MARY_O_CHARACTER_ID,
-            "super_mary_o_spritesheet",
-        ),
-        ("mary_o_tall", "super_mary_o_tall_spritesheet"),
-    ] {
-        if game_assets
-            .characters
-            .asset_for_character_id(character_id)
-            .is_some()
-        {
-            info!("mary_o_demo: bound sprites/{sheet_stem}.png through the shared character asset path");
-        } else {
-            warn!(
-                "mary_o_demo: no {character_id} sheet was bound; expected assets/sprites/\
-                 {sheet_stem}.png and {sheet_stem}.ron. The marked player fallback remains \
-                 visible. Rebuild after publishing the generated manifest (regen_sprites.sh)."
-            );
-        }
-    }
+    // DEMAND Mary-O's forms; the engine materializer decodes them.
+    //
+    // This used to check whether the sheets were bound right here and `warn!` when
+    // they were not — and it warned on every boot, because nothing in this
+    // application ever ran the step that decodes them. That was the bug: the
+    // materializer lived in `ambition_app`, so Mary-O drew a rectangle in her own
+    // game and correctly in the multi-game host. Asking is all a provider does
+    // now, and `CharacterLoadStates` records the answer for every form, including
+    // the ones a runtime growth swaps into later.
+    character_demand.request_all([ambition_demo_mary_o::MARY_O_CHARACTER_ID, "mary_o_tall"]);
 
     // The milk-carton pickup art is now contributed as data by
     // `MaryOExperiencePlugin` (`register_world_item_art`) and resolved into a real
@@ -315,15 +305,14 @@ fn setup_mary_o_audio_library(
     let sfx = catalogs
         .sfx_for(ambition_demo_mary_o::MARY_O_EXPERIENCE)
         .expect("Mary-O provider registered its App-local SFX catalog");
-    let (library, music_state) =
-        ambition::audio::library::AudioLibrary::new_with_playback_state(
-            &mut audio_sources,
-            sfx,
-            music,
-            None,
-            None,
-            None,
-        );
+    let (library, music_state) = ambition::audio::library::AudioLibrary::new_with_playback_state(
+        &mut audio_sources,
+        sfx,
+        music,
+        None,
+        None,
+        None,
+    );
     commands.insert_resource(library);
     commands.insert_resource(music_state);
 }

@@ -117,7 +117,7 @@ pub fn register_ai_slop_sheet(
     if config.no_assets
         || game_assets
             .characters
-            .npc_asset_for_name(AI_SLOP_DISPLAY_NAME)
+            .sheet(AI_SLOP_DISPLAY_NAME)
             .is_some()
     {
         return;
@@ -133,12 +133,8 @@ pub fn register_ai_slop_sheet(
         // by its display name, and other seams by the catalog id.
         game_assets
             .characters
-            .npcs
-            .insert(AI_SLOP_SHEET_TARGET.to_string(), asset.clone());
-        game_assets
-            .characters
-            .npcs
-            .insert(AI_SLOP_DISPLAY_NAME.to_string(), asset);
+            .publish_under(AI_SLOP_SHEET_TARGET, asset.clone());
+        game_assets.characters.publish_under(AI_SLOP_DISPLAY_NAME, asset);
     }
 }
 

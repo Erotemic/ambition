@@ -49,7 +49,7 @@ fn compose_sanic_shell(app: &mut App, home_route: &str) {
         ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog,
         ShellRouteSpec,
     };
-    use ambition_demo_sanic::{SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
+    use ambition_demo_sanic::{SANIC_GAMEPLAY_ROUTE, SanicExperiencePlugin};
 
     app.add_plugins(ambition::game_shell::MinimalShellPlugins);
     app.insert_resource(
@@ -100,8 +100,8 @@ fn compose_sanic_shell(app: &mut App, home_route: &str) {
 /// `tests/ov1_draws_the_world.rs` meaningful without a GPU.
 #[cfg(feature = "visible")]
 pub fn build_windowed_demo_app(render: RenderMode) -> App {
-    use bevy::render::settings::{RenderCreation, WgpuSettings};
     use bevy::render::RenderPlugin;
+    use bevy::render::settings::{RenderCreation, WgpuSettings};
     use bevy::window::{ExitCondition, WindowPlugin};
 
     let mut app = App::new();
@@ -243,6 +243,7 @@ fn load_sanic_game_assets(
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
     mut game_assets: ResMut<ambition::sprite_sheet::game_assets::GameAssets>,
+    mut character_demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
 ) {
     // Startup asset binding precedes gameplay activation in the shared host, so
     // derive the presentation theme from Sanic's immutable authored world rather
@@ -264,29 +265,16 @@ fn load_sanic_game_assets(
     // (`register_sanic_ring_prop_sheet`, added in `install_sanic_content`) so it
     // loads identically here and in the multi-game host — not app-side.
 
-    for (character_id, sheet_stem) in [
-        (ambition_demo_sanic::SANIC_CHARACTER_ID, "sanic_spritesheet"),
-        (
-            ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID,
-            "super_sanic_spritesheet",
-        ),
-    ] {
-        if game_assets
-            .characters
-            .asset_for_character_id(character_id)
-            .is_some()
-        {
-            info!(
-                "sanic_demo: bound sprites/{sheet_stem}.png through the shared character asset path"
-            );
-        } else {
-            warn!(
-                "sanic_demo: no {character_id} sheet was bound; expected assets/sprites/\
-                 {sheet_stem}.png and {sheet_stem}.ron. The marked player fallback \
-                 remains visible. Rebuild after publishing the generated manifest."
-            );
-        }
-    }
+    // DEMAND both Sanic forms; the ENGINE decodes them (§7.1).
+    //
+    // This app used to hand-roll the decode AND check the result here, warning on
+    // every boot because startup no longer decodes anything. Both halves are gone:
+    // a provider asks, the engine materializes, and `CharacterLoadStates` records
+    // a terminal answer for each form.
+    character_demand.request_all([
+        ambition_demo_sanic::SANIC_CHARACTER_ID,
+        ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID,
+    ]);
     info!(
         "sanic_demo: loaded {} parallax layer handle(s) for the active room",
         game_assets.parallax_layers.len()
@@ -333,15 +321,14 @@ fn setup_sanic_audio_library(
     let sfx = catalogs
         .sfx_for(ambition_demo_sanic::SANIC_EXPERIENCE)
         .expect("Sanic provider registered its App-local SFX catalog");
-    let (library, music_state) =
-        ambition::audio::library::AudioLibrary::new_with_playback_state(
-            &mut audio_sources,
-            sfx,
-            music,
-            None,
-            None,
-            None,
-        );
+    let (library, music_state) = ambition::audio::library::AudioLibrary::new_with_playback_state(
+        &mut audio_sources,
+        sfx,
+        music,
+        None,
+        None,
+        None,
+    );
     commands.insert_resource(library);
     commands.insert_resource(music_state);
 }
@@ -423,68 +410,63 @@ mod tests {
         app.finish();
         app.cleanup();
         app.world_mut().run_schedule(bevy::app::Startup);
-        let assets = app
-            .world()
-            .resource::<ambition::sprite_sheet::game_assets::GameAssets>();
-        // Both forms must be REGISTERED for materialization. Startup no longer
-        // decodes them: the perf campaign made every non-hot-path character
-        // deferred (`EAGER_CHARACTER_IDS` is player/robot/goblin/sandbag), and
-        // room staging materializes what a session actually shows. Asserting on
-        // `npcs` here tested the pre-lazy world and had been red since.
-        let deferred: Vec<&str> = assets
-            .characters
-            .deferred_npcs
-            .keys()
-            .map(String::as_str)
-            .collect();
+        // Both forms must be DECLARED, then materialize through the ENGINE.
+        //
+        // This test used to hand-roll the decode itself, calling the engine's
+        // internal materializer directly with resources it scraped out of the
+        // world — a duplicate of the step that lived in `ambition_app`. That
+        // duplication is the defect §7.1 removes, so the test now does what a
+        // provider actually does: submit DEMAND and let the engine decode it.
+        let declared: Vec<String> = {
+            let assets = app
+                .world()
+                .resource::<ambition::sprite_sheet::game_assets::GameAssets>();
+            assets
+                .characters
+                .declared_character_ids()
+                .into_iter()
+                .map(str::to_string)
+                .collect()
+        };
         for (character_id, _) in forms {
             assert!(
-                assets.characters.deferred_npcs.contains_key(character_id),
-                "published {character_id} must register for deferred materialization \
-                 (registered: {deferred:?})"
+                declared.iter().any(|id| id == character_id),
+                "published {character_id} must be declared for materialization \
+                 (declared: {declared:?})"
             );
         }
 
-        // ...and materializing must actually produce the asset. That is the half
-        // that proves the PNG+RON are on disk and parse: a registration alone
-        // would pass with no art published at all.
-        let quality = app
+        // Demand them, run one Update, and the engine's materializer decodes
+        // them. That the PNG+RON are on disk and parse is what makes this pass;
+        // a declaration alone would pass with no art published at all.
+        {
+            let mut demand =
+                app.world_mut()
+                    .resource_mut::<ambition::actors::character_runtime::CharacterLoadDemand>();
+            for (character_id, _) in forms {
+                demand.request(character_id);
+            }
+        }
+        app.update();
+
+        let states = app
             .world()
-            .get_resource::<ambition::render::quality::ResolvedVisualQuality>()
-            .map(|q| q.budget.clone());
-        let character_catalog = app
+            .resource::<ambition::actors::character_runtime::CharacterLoadStates>();
+        for (character_id, sheet_stem) in forms {
+            assert_eq!(
+                states.outcome(character_id),
+                Some(ambition::actors::character_runtime::CharacterLoadOutcome::Ready),
+                "published {sheet_stem}.png + .ron must materialize for {character_id}"
+            );
+        }
+        let assets = app
             .world()
-            .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>()
-            .clone();
-        let asset_catalog = app
-            .world()
-            .resource::<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>()
-            .clone();
-        let asset_server = app.world().resource::<bevy::asset::AssetServer>().clone();
-        let mut game_assets = app
-            .world_mut()
-            .remove_resource::<ambition::sprite_sheet::game_assets::GameAssets>()
-            .expect("game assets were loaded");
-        app.world_mut().resource_scope(
-            |_world,
-             mut layouts: bevy::ecs::change_detection::Mut<
-                bevy::asset::Assets<bevy::image::TextureAtlasLayout>,
-            >| {
-                for (character_id, sheet_stem) in forms {
-                    assert!(
-                        ambition::actors::character_sprites::materialize_deferred_character_sprite(
-                            &mut game_assets.characters,
-                            &character_catalog,
-                            &asset_catalog,
-                            &asset_server,
-                            &mut layouts,
-                            quality.as_ref(),
-                            character_id,
-                        ),
-                        "published {sheet_stem}.png + .ron must materialize for {character_id}"
-                    );
-                }
-            },
-        );
+            .resource::<ambition::sprite_sheet::game_assets::GameAssets>();
+        for (character_id, _) in forms {
+            assert!(
+                assets.characters.sheet(character_id).is_some(),
+                "{character_id} must resolve a decoded sheet after materialization"
+            );
+        }
     }
 }

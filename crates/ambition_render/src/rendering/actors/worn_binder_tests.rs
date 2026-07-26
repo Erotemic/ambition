@@ -9,7 +9,7 @@ use super::bind_worn_character_presentation;
 use super::{PlayerSpriteCharacter, PlayerVisual};
 use ambition_characters::actor::WornCharacter;
 use ambition_sprite_sheet::character::{
-    try_load_spec_for_character_id, CharacterAnimator, CharacterSpriteAsset,
+    CharacterAnimator, CharacterSpriteAsset, try_load_spec_for_character_id,
 };
 use ambition_sprite_sheet::game_assets::GameAssets;
 use bevy::prelude::*;
@@ -32,8 +32,11 @@ fn fixture(sheet_root: &str) -> CharacterSpriteAsset {
 /// marked with their own id.
 fn two_character_assets() -> GameAssets {
     let mut assets = GameAssets::default();
-    assets.characters.robot = Some(fixture("robot"));
-    assets.characters.goblin = Some(fixture("goblin"));
+    // Published by id through the ONE sheet table. These used to be assignments
+    // to typed `robot` / `goblin` fields, which is exactly the privilege §7.1
+    // removed: the binder resolves both the same way it resolves anyone's.
+    assets.characters.publish("robot", fixture("robot"));
+    assets.characters.publish("goblin", fixture("goblin"));
     assets
 }
 
@@ -85,7 +88,7 @@ fn rebinds_and_leaves_no_stale_sheet_components_on_identity_change() {
     // Only "robot" has a sheet; the second identity has NONE, exercising the
     // sheet → fallback rebind (the stale-component path).
     let mut assets = GameAssets::default();
-    assets.characters.robot = Some(fixture("robot"));
+    assets.characters.publish("robot", fixture("robot"));
     app.insert_resource(assets);
     app.add_systems(Update, bind_worn_character_presentation);
 

@@ -330,8 +330,25 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     // placements. Walking the length of the vault should bank them, and the
     // balance is read from the same `PlayerHudFacts` the HUD's COINS readout
     // draws — so this covers the whole chain from placement to screen.
+    // Walk only as far as the COINS. The vault's far end is not a wall: a
+    // walk-activated `descent_to_1_2` shaft sits on its floor at
+    // `vault.max.x - 1.5T`, and holding right for a flat 240 frames walked her
+    // straight through it into World 1-2 around frame 135. The wallet assertion
+    // below still passed (the coins are collected long before the shaft), so the
+    // run went green here and failed three beats later in a room where
+    // `vault_exit()` and `goal_pole()` mean nothing — which read as a broken return
+    // pipe and was nothing of the kind.
+    //
+    // The stop line comes from the shaft itself rather than a tile count, so it
+    // cannot drift out of agreement with the room: walk until she is one body-width
+    // short of its near face. The eight coins all sit well left of it.
     let before = wallet(&mut app);
+    let shaft = ambition_demo_mary_o::descent_to_1_2().aabb;
+    let stop_x = shaft.min.x - player_size(&mut app).x;
     for _ in 0..240 {
+        if player_pos(&mut app).x >= stop_x {
+            break;
+        }
         step(&mut app, hold_right());
     }
     let after = wallet(&mut app);
@@ -339,6 +356,20 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
         after > before,
         "walking the vault collects its coins through the shared economy \
          ({before} -> {after}) — nothing in this demo collects them by hand"
+    );
+
+    // The premise the beats below depend on: she is STILL IN THE VAULT. Without
+    // this, walking out of the room is indistinguishable from the return pipe
+    // failing, and the next assertion blames the wrong mechanism.
+    let after_walk = player_pos(&mut app);
+    assert!(
+        after_walk.x > vault.min.x
+            && after_walk.x < vault.max.x
+            && after_walk.y > vault.min.y
+            && after_walk.y < vault.max.y,
+        "the coin walk must leave her inside the vault: {after_walk:?} vs {vault:?}. \
+         Past the far end is the descent shaft to World 1-2, and every beat after \
+         this one is written about 1-1"
     );
 
     // ── And she can get back out ───────────────────────────────────────────

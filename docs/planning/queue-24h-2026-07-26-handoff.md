@@ -96,33 +96,32 @@ make that question mechanical rather than remembered.
 
 ## 5. State of play
 
-**Closed and committed:** A1–A9, A11, A12, A17, A18, A19, plus A5's provenance
-half. The rollback oracle is green and un-quarantined. Suite green; 12 of 13 guard
-checks green.
+**Closed and committed:** A1–A9, A11, A12, A13, A17, A18, A19, plus A5's
+provenance half. The rollback oracle is green and un-quarantined. Suite green; 12 of
+13 guard checks green (the ledger row is the open one, by design).
+
+**The goal is DISARMED** as of the handoff, at Jon's instruction — a fresh agent
+re-arms it (§1). Nothing is mid-edit: the last commit is `366d0f5a7` and the tree
+is clean apart from `assets/manual-art/` (not mine) and the usual scratch paths.
 
 **Open, in the order I would take them:**
 
-1. **A13** — per-body presentation source. Only the moveset timeline calls
-   `SfxWriter::write_from`; jump/dash/transformation/damage/death still take their
-   source from the one global `SfxEmissionContext`, so they attribute to the session
-   provider rather than the character. Deliberately not half-built: a component only
-   the moveset consumed would repeat A4 exactly.
-2. **A16** — the oracle's route has NEVER broken the brick or flipped the switch.
+1. **A16** — the oracle's route has NEVER broken the brick or flipped the switch.
    Currently guarded by an INVERTED assertion that goes red the moment the route
    reaches them; restore the real assertions then.
-3. **A10** — audit for other vacuous A-not-B fixtures (see §2).
-4. **A20/A21** — mounts, falling sand and the shop have no LDtk room, so sweeping
+2. **A10** — audit for other vacuous A-not-B fixtures (see §2).
+3. **A20/A21** — mounts, falling sand and the shop have no LDtk room, so sweeping
    them needs a Rust fixture; and the default-features demo jobs are outside the
    plan.
-5. **A14** — `MessageReader` cursors are `Local` state GGRS never rewinds. Measured
+4. **A14** — `MessageReader` cursors are `Local` state GGRS never rewinds. Measured
    NOT to be A6's cause (hoisting both changed the checksums not at all, so it was
    reverted rather than landed as churn) but a real latent hazard the roadmap's
    Task 1 already calls out.
-6. **C1–C4** — `character-definition-design.md` §0 follow-ups: the effort migration
+5. **C1–C4** — `character-definition-design.md` §0 follow-ups: the effort migration
    off absolute `patrol_speed`/`chase_speed`; **no character authors a `HurtboxDoc`
    yet** (now worth doing, since as of A7 the seam genuinely reaches damage); the
    prepared authority still coexisting with the six old seams; no versus mode.
-7. **D1–D4** — `competitive-2d-platformer-engine-roadmap.md`: eleven of twelve tasks
+6. **D1–D4** — `competitive-2d-platformer-engine-roadmap.md`: eleven of twelve tasks
    still carry no status marker, which is its own defect.
 
 ## 6. Jon's answered question, for continuity

@@ -33,6 +33,12 @@ pub fn apply_enemy_projectile_effect_requests(
     mut seq: ResMut<ProjectileSeqCounter>,
     mut requests: MessageReader<ambition_vfx::EffectRequest>,
     active_session: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
+    // Whose voice the shot lands in. Stamped HERE, at materialization, rather than
+    // by the engine's inheritance pass — this executor is followed immediately by
+    // `step_projectiles`, so a bolt that spawns and hits a wall inside one tick had
+    // already emitted its impact before any later system could give it a source
+    // (GPT 5.6, 2026-07-26). Attribution has to happen where the entity is born.
+    sources: Query<&ambition_sfx::BodyPresentationSource>,
 ) {
     use ambition_platformer_primitives::lifecycle::{RoomScopedEntity, SessionSpawnScope};
     // A projectile is ROOM- and SESSION-scoped like the rest of a room's
@@ -68,6 +74,9 @@ pub fn apply_enemy_projectile_effect_requests(
             scope.apply_to(&mut entity);
             if req.owner != Entity::PLACEHOLDER {
                 entity.insert(ProjectileOwner(req.owner));
+                if let Ok(source) = sources.get(req.owner) {
+                    entity.insert(source.clone());
+                }
             }
         }
     }

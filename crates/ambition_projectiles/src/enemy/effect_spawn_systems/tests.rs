@@ -102,3 +102,67 @@ fn placeholder_owner_remains_ownerless() {
         "placeholder effects do not fabricate an owner component"
     );
 }
+
+/// **H1: the bolt carries its firer's voice from the frame it exists.**
+///
+/// Not "eventually". This executor is followed immediately by `step_projectiles`
+/// in the same `Combat` set, so a shot that spawns and hits a wall inside one tick
+/// has emitted its impact before any later system runs. The engine's inheritance
+/// pass runs EARLIER in that set and therefore could never reach these — it filled
+/// the gap for player shots (which first step next frame) and silently missed the
+/// whole enemy pool (GPT 5.6, 2026-07-26).
+///
+/// So the assertion is deliberately made on the same `update` that spawns it, with
+/// no second tick: that is the ordering the bug lived in.
+#[test]
+fn a_shot_carries_its_firers_presentation_source_on_the_frame_it_spawns() {
+    let mut app = App::new();
+    app.add_message::<ambition_vfx::EffectRequest>();
+    app.init_resource::<ProjectileSeqCounter>();
+    app.add_systems(Update, apply_enemy_projectile_effect_requests);
+
+    let firer = app
+        .world_mut()
+        .spawn(ambition_sfx::BodyPresentationSource(
+            ambition_sfx::PresentationSourceId::new("sanic_demo"),
+        ))
+        .id();
+    let mut request = spawn_request("sanic", "bolt");
+    request.owner = firer;
+    app.world_mut().write_message(request);
+    app.update();
+
+    let mut q = app
+        .world_mut()
+        .query_filtered::<&ambition_sfx::BodyPresentationSource, With<EnemyProjectile>>();
+    let sources: Vec<String> = q
+        .iter(app.world())
+        .map(|source| source.id().as_str().to_string())
+        .collect();
+    assert_eq!(
+        sources,
+        vec!["sanic_demo".to_string()],
+        "a shot that spawns and steps in one tick must already know whose it is"
+    );
+}
+
+/// An OWNERLESS shot — an environmental volley with no firing body — carries no
+/// source, and falls back to the session context. Absent is the honest answer for
+/// something nobody fired, and is a different fact from an empty source.
+#[test]
+fn an_ownerless_shot_carries_no_presentation_source() {
+    let mut app = App::new();
+    app.add_message::<ambition_vfx::EffectRequest>();
+    app.init_resource::<ProjectileSeqCounter>();
+    app.add_systems(Update, apply_enemy_projectile_effect_requests);
+
+    app.world_mut()
+        .write_message(spawn_request("hazard", "bolt"));
+    app.update();
+
+    let mut q = app
+        .world_mut()
+        .query_filtered::<Option<&ambition_sfx::BodyPresentationSource>, With<EnemyProjectile>>();
+    let sources: Vec<bool> = q.iter(app.world()).map(|s| s.is_some()).collect();
+    assert_eq!(sources, vec![false]);
+}

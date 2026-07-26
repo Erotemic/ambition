@@ -89,7 +89,7 @@ pub fn register_badnik_roster(app: &mut App) {
 pub fn defeat_badniks(
     mut commands: Commands,
     mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
-    mut sfx: ambition::sfx::SfxWriter,
+    mut sfx: ambition::sfx::BodySfxWriter,
     mut players: Query<
         (
             &mut ae::BodyKinematics,
@@ -145,10 +145,14 @@ pub fn defeat_badniks(
             color: [0.85, 0.62, 0.35, 1.0],
             kind: ambition::vfx::ParticleKind::Dust,
         });
-        sfx.write(ambition::sfx::SfxMessage::Play {
-            id: ambition::sfx::SfxId::from_static(crate::SFX_BADNIK),
-            pos: badnik_kin.pos,
-        });
+        // H2: the badnik is a BODY, and this is it popping. Its own voice.
+        sfx.write_for(
+            entity,
+            ambition::sfx::SfxMessage::Play {
+                id: ambition::sfx::SfxId::from_static(crate::SFX_BADNIK),
+                pos: badnik_kin.pos,
+            },
+        );
         // Neutralize before the contact pass runs, then remove the body.
         health.health.current = 0;
         commands.entity(entity).despawn();

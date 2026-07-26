@@ -32,7 +32,7 @@ use ambition::characters::actor::BodyHealth;
 use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::CharacterBrain;
 
-use crate::stomp::{PlayerTouch, player_touch};
+use crate::stomp::{player_touch, PlayerTouch};
 use crate::{LEVEL_1_1_ROOM_ID, T};
 
 /// The catalog `display_name` an AI Slop renders from, and the name every AI Slop
@@ -215,14 +215,14 @@ pub fn tag_mary_o_ai_slop(
 pub fn bounce_squash_ai_slop(
     mut commands: Commands,
     mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
-    mut sfx: ambition::sfx::SfxWriter,
-    mut players: Query<&mut ae::BodyKinematics, With<PrimaryPlayer>>,
+    mut sfx: ambition::sfx::BodySfxWriter,
+    mut players: Query<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>,
     mut mobs: Query<
         (Entity, &ae::BodyKinematics, &mut BodyHealth),
         (With<AiSlop>, Without<PrimaryPlayer>, Without<PlayerEntity>),
     >,
 ) {
-    let Ok(mut player) = players.single_mut() else {
+    let Ok((player_entity, mut player)) = players.single_mut() else {
         return;
     };
     let (p, pvel) = (player.aabb(), player.vel);
@@ -247,7 +247,13 @@ pub fn bounce_squash_ai_slop(
         });
         // ...and the stomp thuds on the shared `Pogo` cue (the "you bounced off
         // something" verb a head-stomp is), voiced by the provider's own spec.
-        sfx.write(ambition::sfx::SfxMessage::Pogo { pos: mob_kin.pos });
+        //
+        // H2: the STOMPER's, like every other pogo. The mob is what got bounced off,
+        // not what made the sound.
+        sfx.write_for(
+            player_entity,
+            ambition::sfx::SfxMessage::Pogo { pos: mob_kin.pos },
+        );
         // Neutralize before the contact pass runs THIS frame, then remove the body.
         health.health.current = 0;
         commands.entity(entity).despawn();

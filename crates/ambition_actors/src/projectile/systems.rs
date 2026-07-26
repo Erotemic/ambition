@@ -36,11 +36,26 @@ const PARRY_HEAL: i32 = 1;
 /// for the player and any shielding actor (a possessed body, a mixed-faction
 /// duelist); the player's parry HEAL stays a player-facing reward at the call site
 /// (fable review 2026-07-02 §A10).
+///
+/// # Combat ownership moves; the bolt's VOICE does not (H1/H7)
+///
+/// The re-own above is a combat fact: damage now routes off the parrier's faction.
+/// It deliberately does NOT re-stamp `BodyPresentationSource`, so the shot's impact
+/// still sounds like the character that FIRED it. Those are two different questions
+/// — the same split `AudioContextOwner` and `PresentationSourceId` already draw —
+/// and a fireball does not become a different fireball because somebody swatted it
+/// back. What changes hands is who it is aimed at.
+///
+/// The CLANG is the other side of that: parrying is the parrier's technique, so the
+/// reflect cue takes the parrier's source. Pinned by
+/// `parry_tests::a_reflected_shot_keeps_its_firers_voice_and_the_clang_is_the_parriers`,
+/// because the policy is a choice and not a consequence.
 fn reflect_parried_shot(
     commands: &mut Commands,
     proj_entity: Entity,
     kin: &mut BodyKinematics,
     parrier: Entity,
+    parrier_source: Option<&ambition_sfx::PresentationSourceId>,
     sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
 ) {
@@ -48,10 +63,13 @@ fn reflect_parried_shot(
         .entity(proj_entity)
         .insert(ProjectileOwner(parrier));
     kin.vel = -kin.vel * PROJECTILE_REFLECT_SPEED_SCALE;
-    sfx.write(SfxMessage::Play {
-        id: ambition_sfx::ids::WORLD_ROCK_HIT,
-        pos: kin.pos,
-    });
+    sfx.write_for_body(
+        parrier_source,
+        SfxMessage::Play {
+            id: ambition_sfx::ids::WORLD_ROCK_HIT,
+            pos: kin.pos,
+        },
+    );
     vfx.write(VfxMessage::Impact { pos: kin.pos });
 }
 const PLAYER_PROJECTILE_MUZZLE_CLEARANCE: f32 = 4.0;
@@ -403,6 +421,10 @@ pub fn step_projectiles(
             Entity,
             &crate::features::CenteredAabb,
             &ActorFaction,
+            // H7: the victim's own voice, for the parry clang. A COLUMN rather than
+            // a second query, because this system is already at Bevy's parameter
+            // limit — and it is the same body either way.
+            Option<&ambition_sfx::BodyPresentationSource>,
             Option<&ambition_characters::brain::Brain>,
             // The vulnerability cluster is OPTIONAL, deliberately. A shot must be
             // able to hit any body that has a hurtbox and a faction — including a
@@ -591,8 +613,15 @@ pub fn step_projectiles(
             // the grudge term, and only the player side re-checked vulnerability.
             let mut struck = false;
             let mut reflected = false;
-            for (victim_entity, victim_aabb, victim_faction, victim_brain, vuln, is_player) in
-                &victims
+            for (
+                victim_entity,
+                victim_aabb,
+                victim_faction,
+                parrier_source,
+                victim_brain,
+                vuln,
+                is_player,
+            ) in &victims
             {
                 if Some(victim_entity) == owner_entity {
                     continue;
@@ -630,6 +659,7 @@ pub fn step_projectiles(
                         proj_entity,
                         &mut kin,
                         victim_entity,
+                        parrier_source.map(ambition_sfx::BodyPresentationSource::id),
                         &mut sfx,
                         &mut vfx,
                     );
@@ -763,11 +793,88 @@ mod parry_tests {
         parrier: Res<Parrier>,
         mut sfx: SfxWriter,
         mut vfx: MessageWriter<VfxMessage>,
+        sources: Query<&ambition_sfx::BodyPresentationSource>,
         mut shots: Query<(Entity, &mut BodyKinematics)>,
     ) {
+        let parrier_source = sources.get(parrier.0).ok().map(|s| s.id().clone());
         for (proj, mut kin) in &mut shots {
-            reflect_parried_shot(&mut commands, proj, &mut kin, parrier.0, &mut sfx, &mut vfx);
+            reflect_parried_shot(
+                &mut commands,
+                proj,
+                &mut kin,
+                parrier.0,
+                parrier_source.as_ref(),
+                &mut sfx,
+                &mut vfx,
+            );
         }
+    }
+
+    /// **H7: a reflected shot keeps its firer's voice; the clang is the parrier's.**
+    ///
+    /// The re-own is a COMBAT fact — damage routes off the parrier's faction from
+    /// the next tick. It is not a presentation fact, and the two were easy to
+    /// conflate now that a projectile carries a source at all (GPT 5.6 asked for
+    /// whichever policy is intended to be pinned, since neither follows from the
+    /// other).
+    ///
+    /// The choice: a fireball does not become a different fireball because somebody
+    /// swatted it back, so its impact keeps sounding like whoever made it. Parrying,
+    /// on the other hand, is the parrier's own technique, so the clang is theirs.
+    #[test]
+    fn a_reflected_shot_keeps_its_firers_voice_and_the_clang_is_the_parriers() {
+        let mut app = App::new();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<VfxMessage>();
+        let parrier = app
+            .world_mut()
+            .spawn(ambition_sfx::BodyPresentationSource(
+                ambition_sfx::PresentationSourceId::new("mary_o_demo"),
+            ))
+            .id();
+        app.world_mut()
+            .spawn((
+                BodyKinematics {
+                    pos: ae::Vec2::ZERO,
+                    vel: ae::Vec2::new(100.0, 0.0),
+                    size: ae::Vec2::new(8.0, 8.0),
+                    facing: 1.0,
+                },
+                ambition_sfx::BodyPresentationSource(ambition_sfx::PresentationSourceId::new(
+                    "sanic_demo",
+                )),
+            ))
+            .id();
+        app.insert_resource(Parrier(parrier));
+        app.add_systems(Update, reflect_the_shot);
+        app.update();
+
+        let clang_sources: Vec<String> = app
+            .world()
+            .resource::<bevy::ecs::message::Messages<ambition_sfx::OwnedSfxMessage>>()
+            .iter_current_update_messages()
+            .map(|message| message.source.as_str().to_string())
+            .collect();
+        assert_eq!(
+            clang_sources,
+            vec!["mary_o_demo".to_string()],
+            "the parry is the PARRIER's technique, so the clang is their cue"
+        );
+
+        let mut shots = app
+            .world_mut()
+            .query::<(&ProjectileOwner, &ambition_sfx::BodyPresentationSource)>();
+        let world = app.world();
+        let rows: Vec<(Entity, String)> = shots
+            .iter(world)
+            .map(|(owner, source)| (owner.0, source.id().as_str().to_string()))
+            .collect();
+        assert_eq!(
+            rows,
+            vec![(parrier, "sanic_demo".to_string())],
+            "combat ownership moved to the parrier and the bolt's VOICE did not — \
+             the shot still impacts in the voice of whoever fired it"
+        );
     }
 
     /// The body-generic parry reflect — the ONE mechanic the player parry and the

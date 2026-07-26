@@ -32,8 +32,8 @@ pub mod snake;
 pub mod stomp;
 
 pub use provider::{
-    MARY_O_CHARACTER_ID, MARY_O_EXPERIENCE, MARY_O_GAMEPLAY_ROUTE, MARY_O_LAUNCHER_ROUTE,
-    MaryOExperiencePlugin, MaryOSessionWorld, mary_o_session_world,
+    mary_o_session_world, MaryOExperiencePlugin, MaryOSessionWorld, MARY_O_CHARACTER_ID,
+    MARY_O_EXPERIENCE, MARY_O_GAMEPLAY_ROUTE, MARY_O_LAUNCHER_ROUTE,
 };
 
 use ambition::engine_core as ae;
@@ -1722,7 +1722,7 @@ fn spend_lives_on_death(
 /// re-triggered from inside itself.
 fn warp_through_secret_pipe(
     mut commands: bevy::prelude::Commands,
-    mut sfx: ambition::sfx::SfxWriter,
+    mut sfx: ambition::sfx::BodySfxWriter,
     mut bodies: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
@@ -1769,10 +1769,14 @@ fn warp_through_secret_pipe(
         commands
             .entity(entity)
             .try_insert(pipe::PipeTransit::begin(kin.pos, destination, axis, T));
-        sfx.write(ambition::sfx::SfxMessage::Play {
-            id: ambition::sfx::SfxId::new(pipe::PIPE_WARP_SFX),
-            pos: kin.pos,
-        });
+        // H2: the warp is the entering BODY's — she is the one sliding down it.
+        sfx.write_for(
+            entity,
+            ambition::sfx::SfxMessage::Play {
+                id: ambition::sfx::SfxId::new(pipe::PIPE_WARP_SFX),
+                pos: kin.pos,
+            },
+        );
     }
 }
 

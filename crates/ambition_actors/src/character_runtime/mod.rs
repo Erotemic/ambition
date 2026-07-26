@@ -712,9 +712,11 @@ impl Plugin for CharacterRuntimePlugin {
                 // missing) attribution on exactly the ticks a rollback resimulates.
                 (
                     presentation::publish_body_presentation_sources,
-                    // G1: and a projectile inherits the firer's, in the same window
-                    // — a bolt fired and landing inside one tick still lands in its
-                    // character's voice.
+                    // G1/H1: the BACKSTOP for a projectile that reached the world
+                    // without a source. The materializers stamp it themselves —
+                    // this slot cannot cover a bolt that spawns and hits inside one
+                    // tick, because the enemy pool spawns later in this same set
+                    // and steps immediately.
                     presentation::inherit_projectile_presentation_sources,
                 )
                     .chain()
@@ -734,16 +736,30 @@ impl Plugin for CharacterRuntimePlugin {
                     // Before the drain: the audit reads OUTSTANDING demand, and the
                     // materializer empties it.
                     audit::report_character_capability_gaps,
-                    // G4: the two declaration authorities, compared. Gated on the
-                    // catalog CHANGING rather than run every frame — it walks both
-                    // authorities, and the answer can only change when one of them
-                    // does. `resource_changed` fires on insertion, so a composition
-                    // that assembles its catalog after the plugin still gets checked
-                    // on the first frame the catalog exists.
+                    // G4/H3: the declaration authorities, compared. Gated on any of
+                    // the THREE changing rather than run every frame — it walks all
+                    // of them, and the answer can only change when one does.
+                    //
+                    // Gating on the catalog alone was wrong even though startup
+                    // masked it (both resources are new on the first frame): a
+                    // character registered later, into an unchanged catalog, would
+                    // never be compared against it. The condition has to name every
+                    // input the audit reads, or it is a claim about invalidation
+                    // that the schedule does not make (GPT 5.6, 2026-07-26).
                     audit::report_character_authority_conflicts.run_if(
                         bevy::ecs::schedule::common_conditions::resource_exists_and_changed::<
                             CharacterCatalog,
-                        >,
+                        >
+                        .or(
+                            bevy::ecs::schedule::common_conditions::resource_exists_and_changed::<
+                                PreparedCharacterRegistry,
+                            >,
+                        )
+                        .or(
+                            bevy::ecs::schedule::common_conditions::resource_exists_and_changed::<
+                                ambition_characters::actor::character_catalog::CharacterCatalogOwners,
+                            >,
+                        ),
                     ),
                     materialize_demanded_character_sheets.run_if(
                         bevy::ecs::schedule::common_conditions::resource_exists::<CharacterCatalog>,

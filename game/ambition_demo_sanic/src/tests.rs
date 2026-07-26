@@ -643,6 +643,66 @@ fn semantic_utility_toggles_both_sanic_forms_and_is_consumed() {
     );
 }
 
+/// **H2: Sanic's transformation sounds like Sanic, not like the host.**
+///
+/// The engine's attribution sweep converted every ability, damage path and
+/// projectile impact, which made the infrastructure look finished while the
+/// flagship character content was still writing through the session context
+/// (GPT 5.6, 2026-07-26). In a Sanic-only game that is invisible, because the
+/// session's provider and the character's provider are the same string. This
+/// fixture makes them differ — the session belongs to `some_host`, the body to
+/// `sanic_demo` — which is the only arrangement where the bug is observable, and
+/// is exactly what a crossover session is.
+#[test]
+fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
+    let mut app = App::new();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition::vfx::VfxMessage>();
+    app.init_resource::<ambition::time::WorldTime>();
+    // A session whose speakers belong to somebody else.
+    let mut context = ambition::sfx::SfxEmissionContext::default();
+    context.set(ambition::sfx::AudioContextOwner::Gameplay(1), "some_host");
+    app.insert_resource(context);
+
+    let entity = app
+        .world_mut()
+        .spawn((
+            ambition::actors::actor::PrimaryPlayer,
+            ambition::characters::actor::BodyHealth::new(ambition::characters::actor::Health::new(
+                3,
+            )),
+            ambition::characters::brain::ActorControl::default(),
+            ambition::characters::actor::WornCharacter::new(SUPER_SANIC_CHARACTER_ID),
+            ae::BodyKinematics::default(),
+            // What `publish_body_presentation_sources` derives in production; the
+            // derivation itself is tested in `character_runtime::presentation`.
+            ambition::sfx::BodyPresentationSource(ambition::sfx::PresentationSourceId::new(
+                "sanic_demo",
+            )),
+        ))
+        .id();
+    app.insert_resource(ambition::platformer::markers::ControlledSubject(Some(
+        entity,
+    )));
+    app.add_systems(bevy::app::Update, sync_super_form_traits);
+    app.update();
+
+    let sources: Vec<String> = app
+        .world()
+        .resource::<bevy::prelude::Messages<ambition::sfx::OwnedSfxMessage>>()
+        .iter_current_update_messages()
+        .map(|message| message.source.as_str().to_string())
+        .collect();
+    assert_eq!(
+        sources,
+        vec!["sanic_demo".to_string()],
+        "the transformation is the most character-defining sound a body makes, and \
+         it was credited to whoever owned the session — so in a crossover it played \
+         out of the host's bank, or was denied outright because `sanic_demo` was \
+         not the authorized source for that cue"
+    );
+}
+
 /// **The D-C pattern, end to end.** `SanicRulesPlugin::hosted()` ticks the act
 /// timer only inside the Sanic rooms; `::global()` ticks it everywhere. The
 /// mode-owner entity is `spawn_mode_scoped`, so the engine tears it down when
@@ -1729,7 +1789,7 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
 /// exists to disprove.
 #[test]
 fn the_act_score_pays_for_speed_and_for_rings_kept() {
-    use crate::{ACT_PAR_SECONDS, act_score, act_time_text};
+    use crate::{act_score, act_time_text, ACT_PAR_SECONDS};
 
     // Faster is worth more, all else equal.
     let quick = act_score(20.0, 0);

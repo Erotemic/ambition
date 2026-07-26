@@ -27,6 +27,11 @@ pub fn apply_player_spawn_projectile_messages(
     mut seq: ResMut<ProjectileSeqCounter>,
     mut spawn_projectiles: MessageReader<SpawnProjectile>,
     active_session: Option<Res<ActiveSessionScope>>,
+    // Stamped at materialization, like the enemy pool. A player shot first steps
+    // NEXT frame, so the engine's inheritance pass would reach it in time — but
+    // depending on that is depending on a schedule edge nobody declared, and the
+    // enemy pool proved what happens when the edge is not there.
+    sources: Query<&ambition_sfx::BodyPresentationSource>,
 ) {
     let Some(scope) = SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
@@ -49,6 +54,9 @@ pub fn apply_player_spawn_projectile_messages(
             RoomScopedEntity,
             Name::new("Player projectile (sim)"),
         ));
+        if let Ok(source) = sources.get(owner) {
+            entity.insert(source.clone());
+        }
         scope.apply_to(&mut entity);
         // The named gameplay kind rides as its own component (the engine body is
         // generic): combat attribution and trace read it off the entity. The

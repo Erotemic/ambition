@@ -110,7 +110,8 @@ impl MaryODeathSequence {
 pub fn begin_death_sequence(
     mut deaths: MessageReader<ambition::actors::ActorDiedMessage>,
     mut sequences: Query<&mut MaryODeathSequence>,
-    mut sfx: ambition::sfx::SfxWriter,
+    subject: Option<bevy::prelude::Res<ambition::platformer::markers::ControlledSubject>>,
+    mut sfx: ambition::sfx::BodySfxWriter,
 ) {
     // Drain unconditionally so a death that landed during a load cannot be
     // re-read and charged to the next attempt (the same rule the life counter
@@ -126,7 +127,14 @@ pub fn begin_death_sequence(
     }
     // The engine's shared reset cue voices the moment itself; the music the beat
     // plays over is `play_death_music` below.
-    sfx.write(ambition::sfx::SfxMessage::Reset { pos: death.pos });
+    //
+    // H2: hers. `ActorDiedMessage` carries the position and not the body, so this
+    // reads the CONTROLLED subject — the death beat only ever runs for the body the
+    // player is driving, which is the same body the message came from.
+    match subject.and_then(|s| s.0) {
+        Some(body) => sfx.write_for(body, ambition::sfx::SfxMessage::Reset { pos: death.pos }),
+        None => sfx.write_global(ambition::sfx::SfxMessage::Reset { pos: death.pos }),
+    }
 }
 
 /// **Her death has its own music.**

@@ -266,7 +266,7 @@ pub fn tick_ball_dash(
     mut commands: Commands,
     time: Res<ambition::time::WorldTime>,
     tuning: Res<BallDashTuning>,
-    mut sfx: ambition::sfx::SfxWriter,
+    mut sfx: ambition::sfx::BodySfxWriter,
     mut bodies: Query<(
         Entity,
         &BallDashInput,
@@ -320,10 +320,13 @@ pub fn tick_ball_dash(
                     // The rev climbs: the post-tap charge picks one of three
                     // ascending tiers, so a full three-tap rev reads as the
                     // classic "reh-reh-REH" without per-play pitch.
-                    sfx.write(ambition::sfx::SfxMessage::Play {
-                        id: ambition::sfx::SfxId::from_static(crate::rev_tier_id(charge)),
-                        pos: kin.pos,
-                    });
+                    sfx.write_for(
+                        entity,
+                        ambition::sfx::SfxMessage::Play {
+                            id: ambition::sfx::SfxId::from_static(crate::rev_tier_id(charge)),
+                            pos: kin.pos,
+                        },
+                    );
                 }
             }
             BallDashStep::Launch(charge) => {
@@ -342,10 +345,13 @@ pub fn tick_ball_dash(
                     }
                 }
                 // The release whoosh — distinct from the generic dash cue.
-                sfx.write(ambition::sfx::SfxMessage::Play {
-                    id: ambition::sfx::SfxId::from_static(crate::SFX_LAUNCH),
-                    pos: kin.pos,
-                });
+                sfx.write_for(
+                    entity,
+                    ambition::sfx::SfxMessage::Play {
+                        id: ambition::sfx::SfxId::from_static(crate::SFX_LAUNCH),
+                        pos: kin.pos,
+                    },
+                );
                 if rolling.is_none() {
                     commands.entity(entity).insert(Rolling {
                         restore_size: kin.size,

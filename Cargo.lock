@@ -685,6 +685,7 @@ dependencies = [
  "ambition_input",
  "ambition_platformer_primitives",
  "ambition_portal",
+ "ambition_sfx",
  "ambition_vfx",
  "ambition_world",
  "bevy",

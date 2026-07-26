@@ -144,19 +144,39 @@ struct OracleTargets {
     switch: String,
 }
 
+/// The authored ids, from `intro.ldtk`'s `combat_calibration_lab` level: the
+/// `BreakablePlatform` named `calibration_brick` and the `Switch` whose id is
+/// `combat_lab_classify_switch`.
+///
+/// Named as constants rather than taken from `bricks.first()`, which is what the
+/// first version did: Bevy query order is not an authored contract, so a room that
+/// later gains a second breakable would silently retarget the oracle onto a
+/// different prop while still reporting that it names the one it aims at (GPT 5.6,
+/// 2026-07-26). If the authoring changes these ids the calibration below fails and
+/// says so, which is the correct outcome — the route is aimed at these two props.
+const ORACLE_BRICK_NAME: &str = "calibration_brick";
+const ORACLE_SWITCH_ID: &str = "combat_lab_classify_switch";
+
 /// Identify the route's targets and ASSERT they start in the state the route is
 /// supposed to change. A calibration that cannot find them, or finds them already
 /// done, fails here rather than producing a green run that proved nothing.
 fn calibrate_targets(sim: &mut SandboxSim) -> OracleTargets {
     let world = sim.world_mut();
 
-    let bricks: Vec<(String, bool)> = {
+    // Matched on the authored NAME and recorded by runtime id: LDtk gives a
+    // breakable its `iid` as `FeatureId` (`BreakablePlatform-104919`), which is
+    // stable but opaque, while the designer-facing handle is the `name` field on
+    // `FeatureName`. Naming the readable one keeps the constant meaningful; keying
+    // the observation by `FeatureId` keeps it stable across bevy_ggrs recreating
+    // the entity.
+    let bricks: Vec<(String, String, bool)> = {
         let mut q = world.query::<(
             &ambition::combat::components::FeatureId,
+            &ambition::combat::components::FeatureName,
             &ambition::combat::components::BreakableFeature,
         )>();
         q.iter(world)
-            .map(|(id, feature)| (id.0.clone(), feature.broken()))
+            .map(|(id, name, feature)| (id.0.clone(), name.0.clone(), feature.broken()))
             .collect()
     };
     let switches: Vec<(String, bool)> = {
@@ -167,18 +187,33 @@ fn calibrate_targets(sim: &mut SandboxSim) -> OracleTargets {
         q.iter(world).map(|(id, on)| (id.0.clone(), on.0)).collect()
     };
 
-    let (brick, already_broken) = bricks
-        .first()
+    let (brick, _, already_broken) = bricks
+        .iter()
+        .find(|(_, name, _)| name == ORACLE_BRICK_NAME)
         .cloned()
-        .expect("the calibration lab authors a breakable brick on the arena floor");
+        .unwrap_or_else(|| {
+            panic!(
+                "the calibration lab must author a breakable named `{ORACLE_BRICK_NAME}` \
+                 — the route is aimed at THAT prop, and taking whichever breakable the \
+                 query yielded first would silently retarget the oracle. Present: {:?}",
+                bricks.iter().map(|(_, name, _)| name).collect::<Vec<_>>()
+            )
+        });
     assert!(
         !already_broken,
         "`{brick}` is ALREADY broken at calibration, so the brick objective is          satisfied before the route starts and proves nothing"
     );
     let (switch, already_on) = switches
-        .first()
+        .iter()
+        .find(|(id, _)| id == ORACLE_SWITCH_ID)
         .cloned()
-        .expect("the calibration lab authors the classify-console switch");
+        .unwrap_or_else(|| {
+            panic!(
+                "the calibration lab must author a switch with id \
+                 `{ORACLE_SWITCH_ID}`. Present: {:?}",
+                switches.iter().map(|(id, _)| id).collect::<Vec<_>>()
+            )
+        });
     assert!(
         !already_on,
         "`{switch}` is ALREADY on at calibration, so the switch objective is          satisfied before the route starts and proves nothing"
@@ -423,161 +458,360 @@ fn every_state_bearing_rollback_registration_owns_a_localization_probe() {
 /// looked-at ones are only counted.
 #[test]
 fn every_presence_only_probe_is_named_with_its_reason() {
-    // (type name suffix, why this registration cannot see its own value)
+    // EXACT full Rust type names, and a reason each. Substring fragments were the
+    // first version and manufactured their own false confidence: an entry reading
+    // `"::Encounter"` silently absolved a future `EncounterMutableRuntimeState`
+    // (GPT 5.6, 2026-07-26). An allowlist that approximately matches is one that
+    // grows without anybody deciding.
     //
-    // Zero-sized markers are NOT here: `ProbeStrength::Complete` distinguishes them
-    // mechanically, because presence is not a partial view of a marker's state, it
-    // is all of it. What remains is state with a value that no projection measures.
+    // DERIVED registrations are not listed here. Their justification is the rebuild
+    // promise they already declare at the registration site — `declare_rollback_derived_*`
+    // takes a `reason` that lands in the descriptor's `detail` — and copying it into
+    // a test list would create a second copy to drift. The rule below checks that
+    // promise is actually written down instead.
     const PRESENCE_ONLY: &[(&str, &str)] = &[
-        // ── Authored at spawn, never written again ───────────────────────────
-        //
-        // The registration exists because bevy_ggrs DESTROYS and recreates rollback
-        // entities, so an unregistered authored component is simply absent
-        // afterwards. Its value cannot drift, so a carrier count answers the only
-        // question a restore can get wrong about it. The premise is "nothing mutates
-        // this after spawn" — if that stops being true for one of these, it needs a
-        // value probe, and this line is where to notice.
-        ("::ActorConfig", "authored actor definition"),
-        ("::BossConfig", "authored boss definition"),
-        ("::BossOverrides", "authored spawn overrides"),
-        ("::BossCapability", "authored capability set"),
-        ("::EncounterDef", "authored encounter definition"),
-        ("::EncounterRegistry", "authored registry"),
-        ("::EncounterObjective", "authored objective"),
-        ("::EncounterTrack", "authored track"),
-        ("::EncounterLockWall", "authored staging geometry"),
-        ("::EncounterCameraZoom", "authored staging camera"),
-        ("::EncounterMusicRequest", "authored music request"),
-        ("::Encounter", "authored encounter handle"),
-        ("::AuthoredHurtboxes", "authored hurtbox document"),
-        ("::SwitchFeature", "authored switch payload"),
-        ("::BreakableFeature", "authored breakable payload"),
-        ("::ChestFeature", "authored chest payload"),
-        ("::PickupFeature", "authored pickup payload"),
-        ("::HazardFeature", "authored hazard payload"),
-        ("::FeatureId", "authored stable id"),
-        ("::FeatureName", "authored name"),
-        ("::ActorIdentity", "authored identity"),
-        ("::ActorInteraction", "authored interaction payload"),
-        ("::ActorRenderSize", "authored size"),
-        ("::ActorSpriteOffset", "authored offset"),
-        ("::PickupArt", "authored art id"),
-        ("::PogoPolicy", "authored policy"),
-        ("::FriendlyFire", "authored policy"),
-        ("::FactionRelations", "authored relation matrix"),
-        ("::ActorFaction", "authored faction"),
-        ("::PlayerSlot", "authored slot index"),
-        ("::CombatTuning", "authored tuning"),
-        ("::CombatCapabilities", "authored capability set"),
-        ("::CombatKit", "authored kit"),
-        ("::ActorMoveset", "authored moveset"),
-        ("::IdentityKit", "authored kit"),
-        ("::ActionSet", "authored action set"),
-        ("::StashedActionSet", "authored action set, stashed"),
-        ("::HeldItem", "authored item spec"),
-        ("::GroundItem", "authored item spec"),
-        ("::MountSlot", "authored mount geometry"),
-        ("::MountedSize", "authored size"),
-        ("::Mountable", "authored capability"),
-        ("::CanPilot", "authored capability"),
-        ("::Mass", "authored mass"),
-        ("::RoomGeometry", "authored room geometry"),
-        ("::ActiveRoomMetadata", "authored room metadata"),
-        ("::RoomMusicRequest", "authored music request"),
-        ("::PortalPolicy", "authored policy"),
-        ("::BossDeathAnimation", "authored animation spec"),
-        ("::SpritePosedBody", "authored per-pose body table"),
-        ("::LimbRig", "authored rig"),
-        ("::Limb", "authored limb"),
-        ("::QuestRegistry", "authored quest registry"),
-        ("bevy_ecs::name::Name", "authored debug name"),
-        // ── Holds ENTITY handles: needs the stable-identity projection ───────
-        //
-        // The same treatment `ProjectileOwner` now has
-        // (`rollback_component_clone_entity_ref`). A raw handle differs after a load
-        // by design, so these cannot be probed by value until each names which field
-        // is the reference. That is the next piece of work on this axis, and it is
-        // the one with real failure modes behind it — a remap that lands on the wrong
-        // body is invisible today.
         (
-            "::RidingOn",
-            "entity handle: wants the stable-identity projection",
+            "ambition_actors::abilities::traversal::possession::PossessionState",
+            "holds an entity handle; wants the stable-identity pair projection (G2b)",
         ),
         (
-            "::MountedBrainCache",
-            "entity handle: wants the stable-identity projection",
+            "ambition_actors::avatar::components::PlayerBlinkCameraState",
+            "presentation camera state, republished from the blink clock",
         ),
         (
-            "::PossessionState",
-            "entity handle: wants the stable-identity projection",
+            "ambition_actors::boss_encounter::encounter_entity::EncounterDef",
+            "authored encounter definition; immutable at runtime",
         ),
         (
-            "::HitboxHits",
-            "entity SET: wants the stable-identity projection",
-        ),
-        ("ambition_vfx::Hitbox", "carries its owner handle"),
-        ("::StrikeVolume", "carries its owner handle"),
-        ("::HitboxOnHit", "carries per-victim fired handles"),
-        (
-            "::SwitchActivationQueue",
-            "queued activations carry target handles",
-        ),
-        ("::PortalFrameHistory", "per-frame body handles"),
-        ("::PortalEmission", "carries the emitting portal handle"),
-        ("::PortalTransit", "carries the transiting pair"),
-        ("::PlacedPortal", "carries its partner handle"),
-        ("::PortalShot", "carries its firer handle"),
-        // ── Large or derived-shaped state: a projection would cost more than it
-        //    buys, or the value is republished every tick anyway ──────────────
-        ("::SandboxSave", "the whole save document"),
-        (
-            "::OwnedItems",
-            "inventory set; wants a canonical projection",
+            "ambition_actors::character_runtime::hurtbox::AuthoredHurtboxes",
+            "authored hurtbox document; immutable at runtime",
         ),
         (
-            "::WornEquipment",
-            "equipment rows; wants a canonical projection",
+            "ambition_actors::character_sprites::posed_body::SpritePosedBody",
+            "authored per-pose body table; immutable at runtime",
         ),
         (
-            "::DamageableVolumes",
-            "republished every tick from the hurtbox resolver",
+            "ambition_actors::encounter::switches::SwitchActivationQueue",
+            "queued activations carry target handles; wants stable identities (G2b)",
         ),
-        ("::PogoTargetVolumes", "republished every tick"),
-        ("::BodyAnimFacts", "republished every tick from motion"),
-        ("::ActorAnimOverride", "republished from the move clock"),
-        ("::LimbIntents", "republished every tick by the limb router"),
         (
-            "::LimbRouteState",
+            "ambition_actors::encounter::switches::SwitchFeature",
+            "authored switch payload; the mutable half is SwitchOn, value-probed",
+        ),
+        (
+            "ambition_actors::features::ecs::actor_clusters::ActorAnimOverride",
+            "republished from the move clock by the moveset animator",
+        ),
+        (
+            "ambition_actors::features::ecs::actor_clusters::ActorConfig",
+            "authored actor definition; nothing writes it after spawn",
+        ),
+        (
+            "ambition_actors::features::ecs::actors::limbs::Limb",
+            "authored limb payload; immutable at runtime",
+        ),
+        (
+            "ambition_actors::features::ecs::actors::limbs::LimbIntents",
             "republished every tick by the limb router",
         ),
-        ("::AbilityBase", "refreshed every tick from the ability set"),
-        ("::PlayerBlinkCameraState", "presentation camera state"),
-        ("::GravityFlipSwitch", "authored switch payload"),
-        ("::CutRopeHeavyObjectCycle", "authored boss cycle"),
         (
-            "::PortalGun",
-            "held-gun state; wants a canonical projection",
+            "ambition_actors::features::ecs::actors::limbs::LimbRig",
+            "authored rig; immutable at runtime",
         ),
         (
-            "::PortalGunPickup",
-            "arm timer; wants a canonical projection",
+            "ambition_actors::features::ecs::actors::limbs::LimbRouteState",
+            "republished every tick by the limb router",
         ),
-        ("::InputStreamRecorder", "the recorded stream itself"),
+        (
+            "ambition_actors::features::ecs::boss_clusters::BossConfig",
+            "authored boss definition; nothing writes it after spawn",
+        ),
+        (
+            "ambition_actors::features::ecs::mount::CanPilot",
+            "authored capability payload; immutable at runtime",
+        ),
+        (
+            "ambition_actors::features::ecs::mount::Mass",
+            "authored mass; immutable at runtime",
+        ),
+        (
+            "ambition_actors::features::ecs::mount::MountSlot",
+            "authored mount geometry; immutable at runtime",
+        ),
+        (
+            "ambition_actors::features::ecs::mount::Mountable",
+            "authored capability payload; immutable at runtime",
+        ),
+        (
+            "ambition_actors::features::ecs::mount::MountedBrainCache",
+            "holds an entity handle; wants the stable-identity pair projection (G2b)",
+        ),
+        (
+            "ambition_actors::features::ecs::mount::MountedSize",
+            "authored size; immutable at runtime",
+        ),
+        (
+            "ambition_actors::features::ecs::mount::RidingOn",
+            "holds an entity handle; wants the stable-identity pair projection (G2b)",
+        ),
+        (
+            "ambition_actors::features::ecs::pickups::PickupArt",
+            "authored art id; immutable at runtime",
+        ),
+        (
+            "ambition_actors::features::ecs::spawn_actors::BossOverrides",
+            "authored spawn overrides; immutable at runtime",
+        ),
+        (
+            "ambition_actors::gravity::lifecycle::GravityFlipSwitch",
+            "authored switch payload; immutable at runtime",
+        ),
+        (
+            "ambition_actors::items::pickup::GroundItem",
+            "authored item spec; immutable while it lies on the ground",
+        ),
+        (
+            "ambition_actors::items::pickup::StashedActionSet",
+            "authored action set held across a possession",
+        ),
+        (
+            "ambition_characters::actor::body::BodyAnimFacts",
+            "republished every tick from motion by the body animator",
+        ),
+        (
+            "ambition_characters::actor::pose::ActorFaction",
+            "authored faction; changed only by possession, which respawns the body",
+        ),
+        (
+            "ambition_characters::brain::PlayerSlot",
+            "authored slot index; immutable for the session",
+        ),
+        (
+            "ambition_characters::brain::action_set::ActionSet",
+            "authored action set; immutable at runtime",
+        ),
+        (
+            "ambition_characters::brain::action_set::IdentityKit",
+            "authored kit; immutable at runtime",
+        ),
+        (
+            "ambition_characters::brain::boss_pattern::BossCapability",
+            "authored capability set; immutable at runtime",
+        ),
+        (
+            "ambition_characters::equipment::WornEquipment",
+            "equipment rows; wants a canonical projection (G2b)",
+        ),
+        (
+            "ambition_combat::components::CombatCapabilities",
+            "authored capability set; immutable at runtime",
+        ),
+        (
+            "ambition_combat::components::CombatTuning",
+            "authored tuning; immutable at runtime",
+        ),
+        (
+            "ambition_combat::components::actors::ActorIdentity",
+            "authored identity; immutable at runtime",
+        ),
+        (
+            "ambition_combat::components::actors::ActorInteraction",
+            "authored interaction payload; immutable at runtime",
+        ),
+        (
+            "ambition_combat::components::actors::ActorRenderSize",
+            "authored render size; immutable at runtime",
+        ),
+        (
+            "ambition_combat::components::actors::ActorSpriteOffset",
+            "authored sprite offset; immutable at runtime",
+        ),
+        (
+            "ambition_combat::components::actors::BossDeathAnimation",
+            "authored animation spec; immutable at runtime",
+        ),
+        (
+            "ambition_combat::components::actors::CombatKit",
+            "authored kit; immutable at runtime",
+        ),
+        (
+            "ambition_combat::components::features::BreakableFeature",
+            "authored breakable payload; the mutable half is its broken flag",
+        ),
+        (
+            "ambition_combat::components::features::ChestFeature",
+            "authored chest payload; the mutable half is the Opened marker",
+        ),
+        (
+            "ambition_combat::components::features::DamageableVolumes",
+            "republished every tick by refresh_body_damageable_volumes",
+        ),
+        (
+            "ambition_combat::components::features::FeatureId",
+            "authored stable id; immutable at runtime",
+        ),
+        (
+            "ambition_combat::components::features::FeatureName",
+            "authored name; immutable at runtime",
+        ),
+        (
+            "ambition_combat::components::features::PickupFeature",
+            "authored pickup payload; the mutable half is the Collected marker",
+        ),
+        (
+            "ambition_combat::components::features::PogoPolicy",
+            "authored policy; immutable at runtime",
+        ),
+        (
+            "ambition_combat::components::features::PogoTargetVolumes",
+            "republished every tick by the pogo-target publisher",
+        ),
+        (
+            "ambition_combat::hazard_runtime::HazardFeature",
+            "authored hazard payload; immutable at runtime",
+        ),
+        (
+            "ambition_combat::held_items::HeldItem",
+            "item spec, replaced wholesale on pickup rather than mutated in place",
+        ),
+        (
+            "ambition_combat::moveset::ActorMoveset",
+            "authored moveset; the mutable half is MovePlayback, canonical",
+        ),
+        (
+            "ambition_combat::moveset::StrikeVolume",
+            "carries its owner handle; wants the stable-identity pair projection (G2b)",
+        ),
+        (
+            "ambition_combat::on_hit::HitboxOnHit",
+            "carries per-victim fired handles; wants stable identities (G2b)",
+        ),
+        (
+            "ambition_combat::targeting::FactionRelations",
+            "authored relation matrix; immutable at runtime",
+        ),
+        (
+            "ambition_combat::targeting::FriendlyFire",
+            "authored policy; immutable at runtime",
+        ),
+        (
+            "ambition_content::bosses::cut_rope::CutRopeHeavyObjectCycle",
+            "authored boss cycle; immutable at runtime",
+        ),
+        (
+            "ambition_encounter::entity::Encounter",
+            "authored encounter handle; immutable at runtime",
+        ),
+        (
+            "ambition_encounter::music::EncounterMusicRequest",
+            "authored music request; immutable at runtime",
+        ),
+        (
+            "ambition_encounter::objective::EncounterObjective",
+            "authored objective; immutable at runtime",
+        ),
+        (
+            "ambition_encounter::registry::EncounterRegistry",
+            "authored registry; immutable at runtime",
+        ),
+        (
+            "ambition_encounter::staging::EncounterCameraZoom",
+            "authored staging camera; immutable at runtime",
+        ),
+        (
+            "ambition_encounter::staging::EncounterLockWall",
+            "authored staging geometry; immutable at runtime",
+        ),
+        (
+            "ambition_encounter::staging::EncounterTrack",
+            "authored track reference; immutable at runtime",
+        ),
+        (
+            "ambition_engine_core::body_clusters::AbilityBase",
+            "refreshed every tick from the ability set",
+        ),
+        (
+            "ambition_engine_core::world::RoomGeometry",
+            "authored room geometry; immutable while the room is loaded",
+        ),
+        (
+            "ambition_items::OwnedItems",
+            "inventory set; wants a canonical projection (G2b)",
+        ),
+        (
+            "ambition_persistence::quest::registry::QuestRegistry",
+            "authored quest registry; immutable at runtime",
+        ),
+        (
+            "ambition_persistence::save::SandboxSave",
+            "the whole save document; rewritten wholesale, never edited in place",
+        ),
+        (
+            "ambition_portal::eviction::PortalFrameHistory",
+            "per-frame body handles; wants stable identities (G2b)",
+        ),
+        (
+            "ambition_portal::gun::PortalGun",
+            "carries its held-portal handles; wants stable identities (G2b)",
+        ),
+        (
+            "ambition_portal::gun_pickup::PortalGunPickup",
+            "arm timer plus a claim handle; wants a canonical projection (G2b)",
+        ),
+        (
+            "ambition_portal::gun_projectile::PortalShot",
+            "carries its firer handle; wants stable identities (G2b)",
+        ),
+        (
+            "ambition_portal::transit::PortalEmission",
+            "carries the emitting portal handle; wants stable identities (G2b)",
+        ),
+        (
+            "ambition_portal::transit::PortalPolicy",
+            "authored policy; immutable at runtime",
+        ),
+        (
+            "ambition_portal::transit::PortalTransit",
+            "carries the transiting pair; wants stable identities (G2b)",
+        ),
+        (
+            "ambition_portal::types::PlacedPortal",
+            "carries its partner handle; wants stable identities (G2b)",
+        ),
+        (
+            "ambition_runtime::input_stream::InputStreamRecorder",
+            "the recorded input stream itself; grows every frame by design",
+        ),
+        (
+            "ambition_vfx::Hitbox",
+            "carries its owner handle; wants the stable-identity pair projection (G2b)",
+        ),
+        (
+            "ambition_vfx::HitboxHits",
+            "holds an entity SET; wants a stable-identity multiset projection (G2b)",
+        ),
+        (
+            "ambition_world::rooms::metadata::ActiveRoomMetadata",
+            "authored room metadata; replaced on room load",
+        ),
+        (
+            "ambition_world::rooms::metadata::RoomMusicRequest",
+            "authored music request; immutable at runtime",
+        ),
+        (
+            "bevy_ecs::name::Name",
+            "authored debug name; immutable at runtime",
+        ),
         (
             "bevy_transform::components::transform::Transform",
-            "presentation transform, republished from BodyKinematics",
+            "presentation transform, republished from BodyKinematics every frame",
         ),
-        // ── Derived declarations ─────────────────────────────────────────────
-        // A derived component is legitimately ABSENT right after a load, so its
-        // contract is tested across resimulation, not restore. Presence catches the
-        // failure that actually shipped (`ProjectileOwner`'s unkept derived promise:
-        // nothing rebuilt it at all). It cannot catch a value rebuilt wrongly, and
-        // `declare_rollback_derived_component_state` is the arm for the ones that can
-        // do better.
-        ("derived:", "derived state; see the note above"),
     ];
 
     let sim = oracle_sim();
+    let registry = sim
+        .world()
+        .resource::<ambition::runtime::rollback::RollbackRegistry>();
     let probes = sim
         .world()
         .resource::<ambition::runtime::rollback::RollbackChecksumProbes>();
@@ -588,47 +822,90 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         .map(|probe| probe.type_name)
         .collect();
 
-    let mut unlisted: Vec<&str> = Vec::new();
-    for type_name in &presence_only {
-        if derived.contains(type_name) {
-            continue;
-        }
-        if PRESENCE_ONLY
-            .iter()
-            .any(|(needle, _)| *needle != "derived:" && type_name.contains(needle))
-        {
-            continue;
-        }
-        unlisted.push(type_name);
-    }
+    // EXACT full type names, both directions. Substring matching was the first
+    // version and it manufactured its own false confidence: an entry reading
+    // `"::Encounter"` silently absolved a future `EncounterMutableRuntimeState`,
+    // which would then be presence-only, unreviewed, and reported as intentional
+    // (GPT 5.6, 2026-07-26). An allowlist that approximately matches is an allowlist
+    // that grows without anyone deciding.
+    //
+    // Derived probes are listed individually too, rather than skipped as a class.
+    // "It is derived" is a real reason and it is also the reason `ProjectileOwner`'s
+    // broken derived promise went unnoticed for a day — so each one says which
+    // system is supposed to rebuild it.
+    let listed: std::collections::BTreeMap<&str, &str> = PRESENCE_ONLY.iter().copied().collect();
+    assert_eq!(
+        listed.len(),
+        PRESENCE_ONLY.len(),
+        "the presence-only list has a duplicate entry"
+    );
+    assert!(
+        listed.values().all(|reason| reason.len() > 12),
+        "every entry needs a real reason, not a placeholder"
+    );
+
+    // A derived presence-only probe is justified by the rebuild promise its
+    // declaration makes. Empty or perfunctory is a declaration nobody wrote.
+    let declared_reason: std::collections::BTreeMap<&str, &str> = registry
+        .descriptors()
+        .filter(|d| d.kind == ambition::runtime::rollback::RollbackEntryKind::Derived)
+        .map(|d| (d.type_name.as_str(), d.detail.as_str()))
+        .collect();
+    let mut unpromised: Vec<&str> = derived
+        .iter()
+        .filter(|type_name| presence_only.contains(*type_name))
+        .filter(|type_name| {
+            declared_reason
+                .get(*type_name)
+                .is_none_or(|reason| reason.len() < 20)
+        })
+        .copied()
+        .collect();
+    unpromised.sort();
+    assert!(
+        unpromised.is_empty(),
+        "{} derived registration(s) have a presence-only probe and no substantive \
+         rebuild promise on the declaration. Presence can see that nobody rebuilt \
+         the component — the failure `ProjectileOwner` actually shipped — and cannot \
+         see one rebuilt WRONG, so the declaration has to say which system owes the \
+         rebuild:\n  {}",
+        unpromised.len(),
+        unpromised.join("\n  ")
+    );
+
+    let mut unlisted: Vec<&str> = presence_only
+        .iter()
+        .filter(|type_name| !derived.contains(*type_name))
+        .filter(|type_name| !listed.contains_key(*type_name))
+        .copied()
+        .collect();
     unlisted.sort();
     assert!(
         unlisted.is_empty(),
-        "{} snapshot registration(s) carry a PRESENCE-ONLY localization probe and are          not named in this test's list. A presence probe satisfies the coverage test          above while seeing nothing of the value, so each one needs either a value          projection (`rollback_component_clone_entity_ref` for a handle,          `rollback_component_clone_checksum` for anything else) or an entry here          saying why it cannot have one:
-  {}",
+        "{} registration(s) carry a PRESENCE-ONLY localization probe and are not named \
+         in this test's list. A presence probe satisfies the coverage test above while \
+         seeing nothing of the value, so each needs either a value projection \
+         (`rollback_component_clone_entity_ref` for a handle, \
+         `rollback_component_clone_probed` for anything else, \
+         `declare_rollback_derived_component_state` for derived state) or an entry \
+         here saying why it cannot have one:\n  {}",
         unlisted.len(),
-        unlisted.join("
-  ")
+        unlisted.join("\n  ")
     );
 
-    // And the reverse: an entry that is no longer presence-only must be removed, or
-    // the list becomes a description of a world that has moved on.
-    let mut stale: Vec<&str> = Vec::new();
-    for (needle, _) in PRESENCE_ONLY {
-        if *needle == "derived:" {
-            continue;
-        }
-        let probed_at_all = probes
-            .probes()
-            .any(|probe| probe.type_name.contains(needle));
-        let still_weak = presence_only.iter().any(|name| name.contains(needle));
-        if probed_at_all && !still_weak {
-            stale.push(needle);
-        }
-    }
+    // And the reverse: an entry that no longer describes a presence-only probe —
+    // the type gained a value projection, or is no longer registered at all — must
+    // be dropped, or the list drifts into a description of a world that has moved on.
+    let mut stale: Vec<&str> = listed
+        .keys()
+        .filter(|name| !presence_only.contains(*name) || derived.contains(*name))
+        .copied()
+        .collect();
+    stale.sort();
     assert!(
         stale.is_empty(),
-        "these types now have VALUE probes and must be dropped from the          presence-only list: {stale:?}"
+        "these entries no longer describe a presence-only probe:\n  {}",
+        stale.join("\n  ")
     );
 
     let (complete, value, presence) = probes.strength_tally();

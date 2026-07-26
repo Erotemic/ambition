@@ -400,6 +400,10 @@ where
 /// sentinel for a target that carries no `SimId` or no longer exists — which still
 /// distinguishes "remapped to a body with no identity" from "remapped to nothing".
 ///
+/// The census folds `(carrier identity, target identity)` PAIRS rather than targets
+/// alone, so it catches a permutation as well as a redirect: swapping two bolts'
+/// owners leaves the multiset of targets untouched and would have matched.
+///
 /// This is the strength difference in one function: a restore that puts back the right
 /// NUMBER of references and points one of them at a different body changes this census
 /// and does not change a presence count.
@@ -410,23 +414,58 @@ pub fn census_entity_reference<T>(
 where
     T: Component,
 {
-    let targets: Vec<Entity> = {
-        let mut query = world.query::<&T>();
-        query.iter(world).map(referenced).collect()
+    let pairs: Vec<(Entity, Entity)> = {
+        let mut query = world.query::<(Entity, &T)>();
+        query
+            .iter(world)
+            .map(|(carrier, value)| (carrier, referenced(value)))
+            .collect()
     };
-    let count = targets.len();
+    let count = pairs.len();
     let mut sum: u64 = 0;
-    for target in targets {
-        let projected = match world.get::<ambition_platformer_primitives::sim_id::SimId>(target) {
-            Some(id) => super::checksum_bytes(id.as_str().as_bytes()),
-            // Two different sentinels, because they are two different facts: a live
-            // body with no authored identity, and a reference into nothing.
-            None if world.get_entity(target).is_ok() => 0x1111_1111_1111_1111,
-            None => 0xDEAD_BEEF_DEAD_BEEF,
-        };
-        sum = sum.wrapping_add(projected);
+    for (carrier, target) in pairs {
+        // HASH THE PAIR. Summing target identities alone cannot see a permutation:
+        // swap two bolts' owners and the multiset of targets is unchanged, so the
+        // census matched while every association was wrong — the precise failure
+        // this probe exists to catch (GPT 5.6, 2026-07-26).
+        //
+        // And it has to be a hash of the two together, not an arithmetic blend of
+        // two hashes: any `a*K + b` mixture decomposes back into
+        // `K*Σtargets + Σcarriers` under the outer sum, both of which are
+        // permutation-invariant. (Measured — the first version of this did exactly
+        // that and its swap test failed.) Hashing the concatenated bytes has no such
+        // decomposition, while the outer wrapping SUM keeps the census independent
+        // of iteration order, which the whole module depends on.
+        let mut pair = [0u8; 16];
+        pair[..8].copy_from_slice(&stable_identity(world, carrier).to_le_bytes());
+        pair[8..].copy_from_slice(&stable_identity(world, target).to_le_bytes());
+        sum = sum.wrapping_add(super::checksum_bytes(&pair));
     }
     ComponentCensus { count, xor: sum }
+}
+
+/// An entity's rollback-stable identity, folded into a probe.
+///
+/// `SimId` when it has one — the authored string a correct remap preserves. The two
+/// fallbacks are deliberately DIFFERENT constants because they are different facts:
+/// a live body that carries no authored identity, and a reference into nothing.
+///
+/// ⚠ A carrier with no `SimId` degrades the pairing above back toward target-only:
+/// every such carrier contributes the same constant, so a permutation among
+/// identity-less carriers is still invisible.
+///
+/// Projectiles are minted one by `mint_spawned_sim_ids` — but only when their OWNER
+/// carries both a `SimId` and a `SimIdCounter`, which that system's query requires.
+/// So the permutation sensitivity is real for the owned pool this was built for and
+/// degrades to redirect-only for a bolt whose firer has no authored identity. Stated
+/// rather than assumed, because the whole point of `ProbeStrength` is that an
+/// instrument's reach should be written down and not inferred from its name.
+fn stable_identity(world: &World, entity: Entity) -> u64 {
+    match world.get::<ambition_platformer_primitives::sim_id::SimId>(entity) {
+        Some(id) => super::checksum_bytes(id.as_str().as_bytes()),
+        None if world.get_entity(entity).is_ok() => 0x1111_1111_1111_1111,
+        None => 0xDEAD_BEEF_DEAD_BEEF,
+    }
 }
 
 /// Census PRESENCE only, for state registered with NO checksum projection at all.
@@ -774,6 +813,58 @@ mod tests {
             correct.xor, wrong.xor,
             "pointing the bolt at a different body must change the census"
         );
+    }
+
+    /// **H4: a PERMUTATION is a wrong restore too.**
+    ///
+    /// Two bolts, two owners, swapped. The carrier count is unchanged and so is the
+    /// multiset of targets, so a census that summed target identities alone reported
+    /// these two worlds as identical — which is exactly the "right number of owners,
+    /// wrong bolt-to-owner association" case the probe was added for (GPT 5.6,
+    /// 2026-07-26).
+    #[test]
+    fn swapping_two_carriers_owners_changes_the_census() {
+        let mut world = World::new();
+        let alpha = world.spawn(SimId::placement("alpha")).id();
+        let beta = world.spawn(SimId::placement("beta")).id();
+        let bolt_a = world.spawn((SimId::placement("bolt_a"), Owner(alpha))).id();
+        let bolt_b = world.spawn((SimId::placement("bolt_b"), Owner(beta))).id();
+
+        let correct = census_entity_reference::<Owner>(&mut world, |owner| owner.0);
+        world.entity_mut(bolt_a).insert(Owner(beta));
+        world.entity_mut(bolt_b).insert(Owner(alpha));
+        let swapped = census_entity_reference::<Owner>(&mut world, |owner| owner.0);
+
+        assert_eq!((correct.count, swapped.count), (2, 2));
+        assert_ne!(
+            correct.xor, swapped.xor,
+            "the same two owners, attached to the other bolts, is a different world"
+        );
+    }
+
+    /// And it is still order-independent, which is the property the whole module
+    /// depends on: bevy_ggrs recreates entities, so archetype order changes on every
+    /// load and a census that noticed would report a difference every time.
+    ///
+    /// Rebuilding the same associations in the opposite order must census the same.
+    #[test]
+    fn the_pairing_is_still_independent_of_iteration_order() {
+        fn build(reversed: bool) -> u64 {
+            let mut world = World::new();
+            let alpha = world.spawn(SimId::placement("alpha")).id();
+            let beta = world.spawn(SimId::placement("beta")).id();
+            let pairs = [("bolt_a", alpha), ("bolt_b", beta)];
+            let ordered: Vec<_> = if reversed {
+                pairs.iter().rev().copied().collect()
+            } else {
+                pairs.to_vec()
+            };
+            for (name, owner) in ordered {
+                world.spawn((SimId::placement(name), Owner(owner)));
+            }
+            census_entity_reference::<Owner>(&mut world, |owner| owner.0).xor
+        }
+        assert_eq!(build(false), build(true));
     }
 
     /// A reference into nothing is distinguishable from a reference to an

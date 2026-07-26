@@ -25,7 +25,7 @@ use ambition::actors::rooms::RoomLoaded;
 use ambition::engine_core as ae;
 use ambition::engine_core::collision_semantics::{ContactKind, ContactSource};
 
-use crate::{BRICK_COUNT, LEVEL_1_1_ROOM_ID, T, brick_index_for, brick_min, brick_name};
+use crate::{brick_index_for, brick_min, brick_name, BRICK_COUNT, LEVEL_1_1_ROOM_ID, T};
 
 // One bit per brick in [`BrokenBricks`]; the level authors far fewer than 32.
 const _: () = assert!(
@@ -73,7 +73,7 @@ impl BrokenBricks {
 pub fn break_bricks(
     mut broken: ResMut<BrokenBricks>,
     mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
-    mut sfx: ambition::sfx::SfxWriter,
+    mut sfx: ambition::sfx::BodySfxWriter,
     players: Query<&PlayerBodyFrameOutput, With<PrimaryPlayer>>,
 ) {
     let Ok(frame) = players.single() else {
@@ -107,7 +107,10 @@ pub fn break_bricks(
             // thunk. It reads as a smash and needs no asset; a bespoke crumble can
             // replace the authored spec later without touching this call site,
             // because what is emitted here is the SEMANTIC cue, not a sound.
-            sfx.write(ambition::sfx::SfxMessage::Hit { pos: center });
+            // H2: GLOBAL, classified. A brick is authored room geometry, not a
+            // body — it has no character to sound like. The SMASHER's own cue (the
+            // head-bonk, the swing) is emitted by the smasher.
+            sfx.write_global(ambition::sfx::SfxMessage::Hit { pos: center });
         }
     }
 }

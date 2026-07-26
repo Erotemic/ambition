@@ -20,7 +20,7 @@ use ambition::characters::equipment::{
 
 use ambition::actors::actor::{BodyBaseSize, PrimaryPlayer};
 use ambition::actors::avatar::PlayerBodyFrameOutput;
-use ambition::actors::items::{WorldItem, spawn_world_item};
+use ambition::actors::items::{spawn_world_item, WorldItem};
 use ambition::actors::rooms::RoomLoaded;
 use ambition::characters::actor::WornCharacter;
 use ambition::engine_core as ae;
@@ -317,7 +317,7 @@ pub fn sync_grown_form(
         ),
         With<PrimaryPlayer>,
     >,
-    mut sfx: ambition::sfx::SfxWriter,
+    mut sfx: ambition::sfx::BodySfxWriter,
     mut commands: bevy::prelude::Commands,
 ) {
     let Ok((body, mut worn_char, mut base, mut kin, worn)) = players.single_mut() else {
@@ -350,10 +350,15 @@ pub fn sync_grown_form(
     // up a tier (small→grown, grown→fire, small→fire). A downgrade is a HIT, whose
     // own sound already speaks, so it stays silent here.
     if power_tier(target_id) > power_tier(&worn_char.0) {
-        sfx.write(ambition::sfx::SfxMessage::Play {
-            id: ambition::sfx::SfxId::new("mary_o.transform"),
-            pos: kin.pos,
-        });
+        // H2: a transformation is the most character-defining sound a body makes,
+        // and it was taking the session's source.
+        sfx.write_for(
+            body,
+            ambition::sfx::SfxMessage::Play {
+                id: ambition::sfx::SfxId::new("mary_o.transform"),
+                pos: kin.pos,
+            },
+        );
         // The GROWING moment Jon asked for (bug #4). Stepping UP a tier only:
         // a downgrade is a hit, and a hit already has its own beat. The engine
         // owns what the beat DOES — the held pose, the untouchable window, and
@@ -421,7 +426,7 @@ pub fn refill_power_blocks_on_room_loaded(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition::characters::equipment::{WornEquipment, apply_equipment_grants, resolved_ranged};
+    use ambition::characters::equipment::{apply_equipment_grants, resolved_ranged, WornEquipment};
 
     /// The grow-cap absorbs one hit and is then spent — the A3 armor half of
     /// Mary-O's "big → small". (The tall LOOK/size is `sync_grown_form`'s pure
@@ -445,7 +450,7 @@ mod tests {
     #[test]
     fn spark_blossom_grants_a_scaled_bouncing_spark() {
         use ambition::characters::brain::action_set::ActionSet;
-        use ambition::combat::moveset::{RANGED_VERB, build_actor_moveset};
+        use ambition::combat::moveset::{build_actor_moveset, RANGED_VERB};
 
         let worn = WornEquipment::new(vec![spark_blossom()]);
 

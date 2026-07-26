@@ -196,13 +196,26 @@ pub fn publish_body_presentation_sources(
     }
 }
 
-/// **A projectile inherits its firer's presentation source, once.**
+/// **The BACKSTOP for a projectile that reached the world without a source.**
 ///
 /// The bolt is the emitter: it is the entity that owns the impact and the
 /// detonation, and it routinely outlives the body that fired it. So the source is
 /// STAMPED at spawn rather than looked up at impact — a shot whose firer has since
 /// died still lands in that character's voice, which is the whole reason
 /// `ProjectileOwner` being `Option` is not an accident.
+///
+/// Both materializers now stamp it themselves
+/// (`ambition_projectiles::{spawn_systems, enemy::effect_spawn_systems}`), because
+/// this system alone was not enough and could not be: it runs before the move clock,
+/// while `apply_enemy_projectile_effects` spawns LATER in the same `Combat` set and
+/// `step_projectiles` runs immediately after it. An enemy bolt that spawned and hit
+/// a wall inside one tick emitted its impact before this could ever see it (GPT 5.6,
+/// 2026-07-26). Attribution belongs where the entity is born.
+///
+/// This remains as the backstop for any other path that stamps `ProjectileOwner`
+/// without a source — the reflect re-own does exactly that — and for a firer whose
+/// own source is published after its first shot. `Without<BodyPresentationSource>`
+/// means it can only ever fill a gap, never overwrite an answer.
 ///
 /// `Without<BodyPresentationSource>` rather than `Added<ProjectileOwner>`: bevy_ggrs
 /// destroys and recreates rollback entities, so an `Added` filter fires again on

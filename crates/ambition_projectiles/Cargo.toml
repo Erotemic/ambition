@@ -27,6 +27,7 @@ ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 ambition_input = { path = "../ambition_input" }
 # Effect-request vocabulary consumed by the enemy-pool projectile spawn executor.
 ambition_vfx = { path = "../ambition_vfx" }
+ambition_sfx = { path = "../ambition_sfx" }
 # Serde derives on the shot kind + visual-kind art descriptors (ron-room bake).
 serde = { workspace = true }
 # ECS component/message/resource derives.

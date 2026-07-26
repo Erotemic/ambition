@@ -513,8 +513,8 @@ pub mod monitors;
 pub mod provider;
 
 pub use provider::{
-    SANIC_EXPERIENCE, SANIC_GAMEPLAY_ROUTE, SANIC_LAUNCHER_ROUTE, SanicExperiencePlugin,
-    SanicSessionWorld, sanic_session_world,
+    sanic_session_world, SanicExperiencePlugin, SanicSessionWorld, SANIC_EXPERIENCE,
+    SANIC_GAMEPLAY_ROUTE, SANIC_LAUNCHER_ROUTE,
 };
 
 /// Content plugin for the Sanic movement demo: registers Sanic's App-local
@@ -1127,17 +1127,26 @@ fn emit_sanic_skid_sfx(
     subject: Option<bevy::prelude::Res<ambition::platformer::markers::ControlledSubject>>,
     mut was_skidding: bevy::prelude::Local<bool>,
     bodies: bevy::prelude::Query<(&ae::BodyMotionFacts, &ae::BodyKinematics)>,
-    mut sfx: ambition::sfx::SfxWriter,
+    mut sfx: ambition::sfx::BodySfxWriter,
 ) {
-    let skid = subject.and_then(|s| s.0).and_then(|e| bodies.get(e).ok());
+    let subject = subject.and_then(|s| s.0);
+    let skid = subject.and_then(|e| bodies.get(e).ok());
     let (skidding, pos) = skid.map_or((false, ae::Vec2::ZERO), |(facts, kin)| {
         (facts.skidding, kin.pos)
     });
     if skidding && !*was_skidding {
-        sfx.write(ambition::sfx::SfxMessage::Play {
-            id: ambition::sfx::SfxId::from_static(SFX_SKID),
-            pos,
-        });
+        // H2: the scrape is the SKIDDING BODY's, not the session owner's. In a
+        // Sanic-only game those agree; in a crossover they do not, and Sanic's
+        // most recognisable sound would come out of the host's bank.
+        if let Some(subject) = subject {
+            sfx.write_for(
+                subject,
+                ambition::sfx::SfxMessage::Play {
+                    id: ambition::sfx::SfxId::from_static(SFX_SKID),
+                    pos,
+                },
+            );
+        }
     }
     *was_skidding = skidding;
 }
@@ -1236,7 +1245,7 @@ fn sync_super_form_traits(
     mut sparkle_accum: bevy::prelude::Local<f32>,
     mut sparkle_orbit: bevy::prelude::Local<f32>,
     mut vfx: bevy::prelude::MessageWriter<ambition::vfx::VfxMessage>,
-    mut sfx: ambition::sfx::SfxWriter,
+    mut sfx: ambition::sfx::BodySfxWriter,
     mut commands: bevy::prelude::Commands,
     mut players: bevy::prelude::Query<
         (
@@ -1280,14 +1289,21 @@ fn sync_super_form_traits(
         commands.entity(body).try_insert(SuperFormLatch(next_super));
     }
     if let Some(to_super) = cue {
-        sfx.write(ambition::sfx::SfxMessage::Play {
+        // H2: a transformation is the most character-defining sound a body makes.
+        // Attributed to the transforming body, falling back to the session only
+        // when nothing published a source for it.
+        let transform = ambition::sfx::SfxMessage::Play {
             id: ambition::sfx::SfxId::from_static(if to_super {
                 SFX_TRANSFORM
             } else {
                 SFX_DETRANSFORM
             }),
             pos,
-        });
+        };
+        match body {
+            Some(body) => sfx.write_for(body, transform),
+            None => sfx.write_global(transform),
+        }
         // The transformation MOMENT, off the same edge the sound uses — Jon
         // asked for it for Sanic too. Becoming super only: dropping the form is
         // a loss, and a loss does not get a celebratory beat. The engine owns
@@ -1361,7 +1377,7 @@ fn spawn_sanic_mode_owner(
     mut commands: bevy::prelude::Commands,
     existing: bevy::prelude::Query<(), bevy::prelude::With<SanicActState>>,
     session: Option<bevy::prelude::Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
-    mut sfx: ambition::sfx::SfxWriter,
+    mut sfx: ambition::sfx::BodySfxWriter,
 ) {
     use ambition::platformer::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
     // Sleep when a session-scoped host has retired the live session (i.e. at the
@@ -1388,7 +1404,11 @@ fn spawn_sanic_mode_owner(
         // Audible confirmation that the standalone shell is draining the
         // standard SfxMessage seam. Distance markers emit alternating cues as
         // the player advances, so this one also proves the bank at room entry.
-        sfx.write(ambition::sfx::SfxMessage::Dash {
+        //
+        // H2: GLOBAL, classified. A distance marker belongs to the COURSE — the
+        // room announces that the runner passed it — and in a crossover the course
+        // is still Sanic's regardless of who is running it.
+        sfx.write_global(ambition::sfx::SfxMessage::Dash {
             pos: ae::Vec2::ZERO,
         });
     }
@@ -1417,7 +1437,7 @@ fn emit_sanic_milestone_sfx(
         bevy::prelude::With<ambition::actors::actor::PrimaryPlayer>,
     >,
     mut act: bevy::prelude::Query<&mut SanicActState>,
-    mut sfx: ambition::sfx::SfxWriter,
+    mut sfx: ambition::sfx::BodySfxWriter,
 ) {
     let Ok(kin) = player.single() else {
         return;
@@ -1432,7 +1452,9 @@ fn emit_sanic_milestone_sfx(
             } else {
                 ambition::sfx::SfxMessage::Jump { pos: kin.pos }
             };
-            sfx.write(message);
+            // H2: GLOBAL. A distance marker is the COURSE announcing that the
+            // runner passed it — the room's event, not the runner's.
+            sfx.write_global(message);
             state.next_milestone += 1;
         }
     }
@@ -1598,7 +1620,7 @@ pub fn scatter_rings_on_hit(
         ambition::actors::features::ecs::damage_apply::WalletShieldSpent,
     >,
     mut vfx: bevy::prelude::MessageWriter<ambition::vfx::VfxMessage>,
-    mut sfx: ambition::sfx::SfxWriter,
+    mut sfx: ambition::sfx::BodySfxWriter,
     mut bodies: bevy::prelude::Query<
         (
             &ambition::platformer::sim_id::SimId,
@@ -1695,10 +1717,14 @@ pub fn scatter_rings_on_hit(
             color: [1.0, 0.86, 0.28, 1.0],
             kind: ambition::vfx::ParticleKind::Dust,
         });
-        sfx.write(ambition::sfx::SfxMessage::Play {
-            id: ambition::sfx::SfxId::from_static(SFX_RING_LOSS),
-            pos: event.pos,
-        });
+        // H2: losing your rings is the struck BODY's cue.
+        sfx.write_for(
+            event.victim,
+            ambition::sfx::SfxMessage::Play {
+                id: ambition::sfx::SfxId::from_static(SFX_RING_LOSS),
+                pos: event.pos,
+            },
+        );
     }
 }
 
@@ -1951,7 +1977,7 @@ pub fn clear_act_at_goal(
         ambition::platformer::markers::PrimaryPlayerOnly,
     >,
     mut act: bevy::prelude::Query<&mut SanicActState>,
-    mut sfx: ambition::sfx::SfxWriter,
+    mut sfx: ambition::sfx::BodySfxWriter,
     mut vfx: bevy::prelude::MessageWriter<ambition::vfx::VfxMessage>,
 ) {
     let Ok((kin, wallet)) = player.single() else {
@@ -1973,7 +1999,9 @@ pub fn clear_act_at_goal(
             color: [1.0, 0.92, 0.35, 1.0],
             kind: ambition::vfx::ParticleKind::Dust,
         });
-        sfx.write(ambition::sfx::SfxMessage::Play {
+        // H2: GLOBAL. Clearing the act is the ACT's fanfare, which belongs to the
+        // course the way the goal jingle does — not to whoever happened to run it.
+        sfx.write_global(ambition::sfx::SfxMessage::Play {
             id: ambition::sfx::SfxId::from_static(SFX_TRANSFORM),
             pos: kin.pos,
         });

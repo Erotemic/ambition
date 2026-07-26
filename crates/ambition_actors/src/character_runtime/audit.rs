@@ -148,6 +148,17 @@ pub enum CharacterAuthorityConflict {
         registry_sheet: String,
         catalog_sheet: String,
     },
+    /// One id, two PROVIDERS. The sharpest form of the split, and the one the
+    /// first version of this audit did not check (GPT 5.6, 2026-07-26): the
+    /// provider is what authorizes a presentation source and what selects a cue
+    /// bank, and `provider_of_character` prefers the registry while everything
+    /// reading `CharacterCatalogOwners` gets the other answer. A character can end
+    /// up constructed from catalog provider A and SOUNDING like registry provider B.
+    ProviderDisagreement {
+        character_id: String,
+        registry_provider: String,
+        catalog_provider: String,
+    },
 }
 
 impl std::fmt::Display for CharacterAuthorityConflict {
@@ -174,6 +185,19 @@ impl std::fmt::Display for CharacterAuthorityConflict {
                  sheet is dead content that still looks authoritative — and anything \
                  reading the catalog directly disagrees with what is drawn."
             ),
+            Self::ProviderDisagreement {
+                character_id,
+                registry_provider,
+                catalog_provider,
+            } => write!(
+                f,
+                "`{character_id}` is authored by `{registry_provider}` according to the \
+                 prepared registry and by `{catalog_provider}` according to the catalog \
+                 owners map. The provider decides which presentation source is \
+                 authorized and which cue bank answers, and `provider_of_character` \
+                 prefers the registry — so this character is constructed as one \
+                 provider's and sounds like the other's."
+            ),
         }
     }
 }
@@ -183,6 +207,8 @@ impl std::fmt::Display for CharacterAuthorityConflict {
 pub fn audit_character_authority_parity(world: &World) -> Vec<CharacterAuthorityConflict> {
     let registry = world.get_resource::<super::PreparedCharacterRegistry>();
     let catalog = world.get_resource::<CharacterCatalog>();
+    let owners = world
+        .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalogOwners>();
     let mut conflicts = Vec::new();
 
     // Display names across the COMBINED namespace, so a registry entry and a
@@ -231,6 +257,25 @@ pub fn audit_character_authority_parity(world: &World) -> Vec<CharacterAuthority
                     character_id: id.to_string(),
                     registry_sheet: registry_sheet.to_string(),
                     catalog_sheet: entry.spritesheet.clone(),
+                });
+            }
+        }
+    }
+
+    // And the AUTHOR, which is the field with teeth: it picks the cue bank and the
+    // authorized presentation source. Checked against `CharacterCatalogOwners` —
+    // the catalog's own record of who contributed each id — rather than against the
+    // catalog entry, which does not carry a provider at all.
+    if let (Some(registry), Some(owners)) = (registry, owners) {
+        for (id, prepared) in registry.iter() {
+            let Some(catalog_provider) = owners.provider_for(id) else {
+                continue;
+            };
+            if catalog_provider != prepared.provider {
+                conflicts.push(CharacterAuthorityConflict::ProviderDisagreement {
+                    character_id: id.to_string(),
+                    registry_provider: prepared.provider.clone(),
+                    catalog_provider: catalog_provider.to_string(),
                 });
             }
         }
@@ -322,6 +367,57 @@ mod authority_parity_tests {
     #[test]
     fn deferring_to_the_catalog_for_art_is_not_a_conflict() {
         let mut app = app_with_catalog();
+        app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+        assert_eq!(audit_character_authority_parity(app.world()), Vec::new());
+    }
+
+    /// **H3: the field with teeth.** Two authorities, two different AUTHORS for
+    /// one character.
+    ///
+    /// Sharper than the sheet disagreement, because the provider is what
+    /// authorizes a presentation source and what selects a cue bank —
+    /// `provider_of_character` prefers the registry while everything reading
+    /// `CharacterCatalogOwners` gets the other answer, so the character is built as
+    /// one provider's and sounds like the other's. The first version of this audit
+    /// explained that exact hazard in its own doc comment and then checked only art
+    /// and display names (GPT 5.6, 2026-07-26).
+    #[test]
+    fn a_character_authored_by_two_different_providers_is_a_conflict() {
+        let mut app = app_with_catalog();
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalogOwners(
+                [("mary_o".to_string(), "catalog_provider".to_string())]
+                    .into_iter()
+                    .collect(),
+            ),
+        );
+        app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+
+        let conflicts = audit_character_authority_parity(app.world());
+        assert!(
+            conflicts.contains(&CharacterAuthorityConflict::ProviderDisagreement {
+                character_id: "mary_o".to_string(),
+                registry_provider: "mary_o_demo".to_string(),
+                catalog_provider: "catalog_provider".to_string(),
+            }),
+            "the provider picks the cue bank and the authorized source, so two \
+             authorities naming different ones is the split that matters most: \
+             {conflicts:?}"
+        );
+    }
+
+    /// Agreeing providers are not a conflict — the ordinary state of a character
+    /// that is declared twice during the migration.
+    #[test]
+    fn agreeing_providers_are_not_a_conflict() {
+        let mut app = app_with_catalog();
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalogOwners(
+                [("mary_o".to_string(), "mary_o_demo".to_string())]
+                    .into_iter()
+                    .collect(),
+            ),
+        );
         app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
         assert_eq!(audit_character_authority_parity(app.world()), Vec::new());
     }

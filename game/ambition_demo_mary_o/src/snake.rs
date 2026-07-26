@@ -52,7 +52,7 @@ use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::CharacterBrain;
 use ambition::sprite_sheet::character::CharacterAnim;
 
-use crate::stomp::{PlayerTouch, player_touch};
+use crate::stomp::{player_touch, PlayerTouch};
 use crate::{LEVEL_1_1_ROOM_ID, T};
 
 /// The catalog `display_name` a snake renders from, and the name every snake
@@ -593,7 +593,7 @@ pub fn run_snake_shells(
     mut commands: Commands,
     world_time: Res<ambition::time::WorldTime>,
     mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
-    mut sfx: ambition::sfx::SfxWriter,
+    mut sfx: ambition::sfx::BodySfxWriter,
     mut hits: MessageWriter<HitEvent>,
     mut players: Query<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>,
     mut snakes: Query<
@@ -637,12 +637,14 @@ pub fn run_snake_shells(
         // The stomp bounce is applied to the PLAYER (a fresh stomp on a walker OR a
         // stomp from above onto a moving shell — both stop the threat and bounce).
         if fx.just_squashed {
-            if let Ok((_, mut player)) = players.single_mut() {
+            let mut stomper = None;
+            if let Ok((player_entity, mut player)) = players.single_mut() {
                 ae::movement::set_jump_velocity(
                     &mut player.vel,
                     ae::DEFAULT_GRAVITY_DIR,
                     BOUNCE_SPEED,
                 );
+                stomper = Some(player_entity);
             }
             vfx.write(ambition::vfx::VfxMessage::Burst {
                 pos: kin.pos,
@@ -651,10 +653,24 @@ pub fn run_snake_shells(
                 color: [0.80, 0.68, 0.48, 1.0],
                 kind: ambition::vfx::ParticleKind::Dust,
             });
-            sfx.write(ambition::sfx::SfxMessage::Pogo { pos: kin.pos });
+            // H2: a stomp is the STOMPER's verb — the same rule the engine's pogo
+            // uses, where the bouncing owner owns the cue. It is the player who
+            // bounced off this shell, so the thud is the player's.
+            match stomper {
+                Some(stomper) => {
+                    sfx.write_for(stomper, ambition::sfx::SfxMessage::Pogo { pos: kin.pos })
+                }
+                None => sfx.write_global(ambition::sfx::SfxMessage::Pogo { pos: kin.pos }),
+            }
         }
         if fx.just_kicked {
-            sfx.write(ambition::sfx::SfxMessage::Pogo { pos: kin.pos });
+            let kicker = players.single().ok().map(|(entity, _)| entity);
+            match kicker {
+                Some(kicker) => {
+                    sfx.write_for(kicker, ambition::sfx::SfxMessage::Pogo { pos: kin.pos })
+                }
+                None => sfx.write_global(ambition::sfx::SfxMessage::Pogo { pos: kin.pos }),
+            }
         }
 
         // A stomp changes the snake's STATE, it does not hurt it: the body stays

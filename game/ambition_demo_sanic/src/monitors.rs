@@ -89,7 +89,7 @@ pub fn break_monitor_boxes(
     mut spent: ResMut<SpentMonitors>,
     geometry: SessionWorldRef<ae::RoomGeometry>,
     mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
-    mut sfx: ambition::sfx::SfxWriter,
+    mut sfx: ambition::sfx::BodySfxWriter,
     mut players: Query<
         (
             Entity,
@@ -137,7 +137,11 @@ pub fn break_monitor_boxes(
         });
         // The monitor's own pop (the super grant's transform sound fires
         // separately from the worn-identity edge in `sync_super_form_traits`).
-        sfx.write(ambition::sfx::SfxMessage::Play {
+        //
+        // H2: GLOBAL, classified. A monitor is a world PROP authored into the
+        // course — it is not a body and has no character to sound like. The
+        // BREAKER's cue (the roll, the stomp bounce) is emitted by the breaker.
+        sfx.write_global(ambition::sfx::SfxMessage::Play {
             id: ambition::sfx::SfxId::from_static(crate::SFX_MONITOR),
             pos: center,
         });

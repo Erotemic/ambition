@@ -2617,6 +2617,24 @@
                 48,
             ],
             fields: (
+                character_id: "npc_player_robot_v2",
+                prompt: "Inspect",
+                dialogue_id: "",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1072,
+                352,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
                 character_id: "npc_carl_stargan",
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_carl_stargan",
@@ -2627,7 +2645,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 352,
             ],
             size: [
@@ -2645,7 +2663,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 352,
             ],
             size: [
@@ -2663,7 +2681,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 352,
             ],
             size: [
@@ -2681,7 +2699,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 352,
             ],
             size: [
@@ -2699,7 +2717,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 352,
             ],
             size: [
@@ -2717,7 +2735,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 352,
             ],
             size: [
@@ -2735,7 +2753,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 352,
             ],
             size: [
@@ -2753,8 +2771,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                352,
+                48,
+                160,
             ],
             size: [
                 32,
@@ -2771,7 +2789,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 160,
             ],
             size: [
@@ -2789,7 +2807,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 160,
             ],
             size: [

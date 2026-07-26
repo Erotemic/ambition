@@ -235,25 +235,49 @@ fn the_full_hall_validates_with_all_three_provider_catalogs() {
             let entry = catalog
                 .get(&character_id)
                 .unwrap_or_else(|| panic!("validated Hall character {character_id} disappeared"));
+            // The exhibit must have SOMETHING to say. Resolved through `bark`,
+            // not the raw `hall` pool: a character generated from its sprite
+            // target ships suggested lines and no per-situation pools, and it
+            // speaks those on its pedestal. Requiring a hand-written `hall` pool
+            // would mean every new character stands mute until someone writes
+            // four of them, which is the failure this pipeline exists to remove.
             assert!(
-                !entry.barks.hall.is_empty(),
-                "Hall exhibit {character_id} has no authored Hall bark"
+                entry
+                    .bark(
+                        ambition::characters::actor::character_catalog::BarkSituation::Hall,
+                        0
+                    )
+                    .is_some(),
+                "Hall exhibit {character_id} has nothing to say -- no hall bark pool and no \
+                 fallback_dialogue. Author `dialogue_hints.suggested_barks` on its sprite target."
             );
-            let expected_dialogue_id = entry.hall_dialogue_id.as_deref().unwrap_or_else(|| {
-                panic!("Hall exhibit {character_id} has no catalog hall_dialogue_id")
-            });
-            let authored_dialogue_id = field_string(entity, "dialogue_id")
-                .filter(|id| !id.trim().is_empty())
-                .unwrap_or_else(|| panic!("Hall exhibit {character_id} has no LDtk dialogue_id"));
-            assert_eq!(
-                authored_dialogue_id.trim(),
-                expected_dialogue_id,
-                "Hall exhibit {character_id} dialogue binding drifted from its catalog row"
-            );
-            assert!(
-                yarn_titles.contains(expected_dialogue_id),
-                "Hall exhibit {character_id} references missing Yarn node {expected_dialogue_id}"
-            );
+            // A bespoke Yarn conversation is OPTIONAL -- most exhibits are just a
+            // body with a voice. What is not optional is agreement: if either
+            // side names a dialogue scene, both must name the same live one.
+            let authored_dialogue_id =
+                field_string(entity, "dialogue_id").filter(|id| !id.trim().is_empty());
+            match (entry.hall_dialogue_id.as_deref(), &authored_dialogue_id) {
+                (Some(expected), Some(authored)) => {
+                    assert_eq!(
+                        authored.trim(),
+                        expected,
+                        "Hall exhibit {character_id} dialogue binding drifted from its catalog row"
+                    );
+                    assert!(
+                        yarn_titles.contains(expected),
+                        "Hall exhibit {character_id} references missing Yarn node {expected}"
+                    );
+                }
+                (Some(expected), None) => panic!(
+                    "Hall exhibit {character_id} declares hall_dialogue_id '{expected}' but its \
+                     LDtk spawn authors none"
+                ),
+                (None, Some(authored)) => panic!(
+                    "Hall exhibit {character_id} LDtk spawn authors dialogue_id '{authored}' with \
+                     no catalog hall_dialogue_id to match it"
+                ),
+                (None, None) => {}
+            }
             checked += 1;
         }
     }

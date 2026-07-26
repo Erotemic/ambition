@@ -298,7 +298,11 @@ fn parse_spritesheets_under(
 fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
     // (id, collision_scale, frame_sample_inset)
     let expected = [
-        ("player", 1.35, 1),
+        // NOT "player": its art was replaced by the authored SVG rig, and that
+        // sheet ships its own `collision_scale` in its manifest. Pinning the
+        // pre-migration 1.35 here would forbid ever retuning the protagonist --
+        // this list guards the ONE-TIME move of tuning out of hardcoded statics
+        // into the catalog, not the values themselves forever.
         ("robot", 2.1, 1),
         ("goblin", 2.1, 1),
         ("sandbag", 1.38, 1),

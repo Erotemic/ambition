@@ -67,11 +67,18 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
         },
         SpawnActorRequest {
             id: DUEL_ROBOT_ID.to_string(),
-            // The robot copy of the player uses the player-robot body sheet, which
-            // lives under the catalog's "Player" display_name (player_robot
-            // spritesheet, proportionate scale). Actor display names aren't shown
-            // in-game, so this drives only sprite + hitbox-metadata resolution.
-            name: "Player".to_string(),
+            // The duellist is the player's PREVIOUS build, not its current one.
+            // Fighting a former version of yourself is the point of the exhibit,
+            // and it also decouples the duel from the live protagonist's art:
+            // re-rigging the player used to silently re-body this fighter,
+            // because the sheet's per-animation bbox authors the collision box.
+            // "Player Robot v2" is its own catalog row with its own sheet, so
+            // the duel now only changes when someone changes the DUELLIST.
+            // Display name MUST match the catalog `display_name` — sprite AND
+            // authored hitbox metadata both resolve from it
+            // (`character_id_for_display_name`); a mismatch silently falls back
+            // to a placeholder.
+            name: "Player Robot v2".to_string(),
             pos: center + ae::Vec2::new(75.0, 0.0),
             half_size: ae::Vec2::new(14.0, 23.0),
             faction: ActorFaction::Npc,

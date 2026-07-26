@@ -208,11 +208,17 @@ pub(crate) fn npc_dialogue_request(
     name: &str,
     id: &str,
 ) -> NpcDialogueRequest {
+    // An authored id must be non-EMPTY, not merely present. LDtk stores an
+    // unset string field as `""`, so a spawn with no conversation arrives here
+    // as `Some("")` and used to be forwarded verbatim -- the dialogue bridge
+    // then logged `start(""): Yarn node not found` and the NPC opened nothing.
+    // Blank is the same statement as absent: this character has no bespoke
+    // scene, so it gets the generic one.
     let dialogue_id = match &interactable.kind {
         InteractionKind::Npc {
             dialogue_id: Some(dialogue_id),
             ..
-        } => dialogue_id.clone(),
+        } if !dialogue_id.trim().is_empty() => dialogue_id.clone(),
         _ => "generic_npc".to_string(),
     };
     NpcDialogueRequest {
@@ -225,6 +231,54 @@ pub(crate) fn npc_dialogue_request(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// LDtk writes an unset string field as `""`, so a pedestal with no bespoke
+    /// conversation reaches the dialogue bridge as `Some("")`. Forwarding that
+    /// produced `start(""): Yarn node not found` and an NPC that opened nothing
+    /// when you pressed interact -- the exact shape of "this character has no
+    /// dialogue", reported as a missing Yarn node.
+    #[test]
+    fn a_blank_dialogue_id_means_absent_not_a_yarn_node_named_nothing() {
+        let blank = Interactable::new(
+            "voice",
+            "Talk",
+            ambition_engine_core::Aabb::new(
+                ambition_engine_core::Vec2::ZERO,
+                ambition_engine_core::Vec2::new(1.0, 1.0),
+            ),
+            InteractionKind::Npc {
+                character_id: Some("npc_marie_curry".to_string()),
+                dialogue_id: Some(String::new()),
+                patrol_radius: 0.0,
+                patrol_path_id: None,
+                brain_override: None,
+            },
+        );
+        assert_eq!(
+            npc_dialogue_request(&blank, "Marie Curry", "pedestal").dialogue_id,
+            "generic_npc",
+        );
+        // Whitespace is blank too.
+        let spaces = Interactable::new(
+            "voice",
+            "Talk",
+            ambition_engine_core::Aabb::new(
+                ambition_engine_core::Vec2::ZERO,
+                ambition_engine_core::Vec2::new(1.0, 1.0),
+            ),
+            InteractionKind::Npc {
+                character_id: None,
+                dialogue_id: Some("   ".to_string()),
+                patrol_radius: 0.0,
+                patrol_path_id: None,
+                brain_override: None,
+            },
+        );
+        assert_eq!(
+            npc_dialogue_request(&spaces, "X", "y").dialogue_id,
+            "generic_npc",
+        );
+    }
     use ambition_characters::actor::character_catalog::{parse_catalog, CharacterCatalog};
 
     const FIRST: &str = r#"(

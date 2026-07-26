@@ -175,6 +175,40 @@ fn exemplar_barks_resolve_from_catalog() {
     );
 }
 
+/// The whole point of shipping suggested lines with the art: a character whose
+/// sprite target authored `dialogue_hints` and NO bark pools still speaks on its
+/// Hall pedestal, in its own voice. Marie Curry is exactly that shape, and this
+/// is checked against the REAL catalog because the failure it guards -- a
+/// character standing silently on a pedestal -- is invisible in a fixture.
+#[test]
+fn a_character_with_only_suggested_lines_still_speaks_in_the_hall() {
+    use ambition_characters::actor::character_catalog::BarkSituation;
+    let cat = catalog();
+    assert!(
+        cat.get("npc_marie_curry")
+            .expect("Marie Curry catalog row")
+            .barks
+            .pool(BarkSituation::Hall)
+            .is_empty(),
+        "fixture assumption: she authored no Hall pool, only suggested lines",
+    );
+    assert_eq!(
+        cat.bark_line("npc_marie_curry", BarkSituation::Hall, 0),
+        Some("Careful, it is still reactive."),
+    );
+    // ...and the same voice answers every other occasion until a pool exists.
+    for situation in [
+        BarkSituation::OnHit,
+        BarkSituation::Provoked,
+        BarkSituation::Idle,
+    ] {
+        assert!(
+            cat.bark_line("npc_marie_curry", situation, 0).is_some(),
+            "{situation:?} should reach the fallback pool",
+        );
+    }
+}
+
 #[test]
 fn exemplar_hall_dialogue_ids_resolve() {
     // hall_dialogue_id round-trips against the catalog. (The

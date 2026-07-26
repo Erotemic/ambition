@@ -173,6 +173,79 @@ pub(crate) fn unaccounted_components(sim: &mut SandboxSim) -> BTreeMap<String, u
     unaccounted
 }
 
+/// Every component on a simulated entity that is accounted ONLY by a waiver.
+///
+/// A9 found `BossAnimFrame` — a sim-owned animation cursor that boss hurtbox
+/// geometry derives from — silently swallowed by the `ambition_sprite_sheet::`
+/// prefix waiver, whose stated reason is "sprite metadata / asset binding". A
+/// prefix waiver assumes a crate holds exactly one kind of thing, and crates grow.
+///
+/// This lists what each waiver is actually covering so the claim can be re-read
+/// against reality instead of against the crate name.
+pub(crate) fn waived_components(sim: &mut SandboxSim) -> BTreeMap<String, &'static str> {
+    let known: BTreeSet<String> = sim
+        .world()
+        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .expect("rollback registry is installed by the engine plugins")
+        .descriptors()
+        .map(|d| d.type_name.clone())
+        .collect();
+    let sim_entities: Vec<Entity> = {
+        let world = sim.world_mut();
+        let mut tagged = world
+            .query_filtered::<Entity, With<ambition::platformer::lifecycle::FeatureSimEntity>>();
+        let mut found: BTreeSet<Entity> = tagged.iter(world).collect();
+        let mut bodies =
+            world.query_filtered::<Entity, With<ambition::actors::actor::BodyKinematics>>();
+        found.extend(bodies.iter(world));
+        found.into_iter().collect()
+    };
+    let mut waived: BTreeMap<String, &'static str> = BTreeMap::new();
+    let world = sim.world();
+    for entity in sim_entities {
+        let Ok(components) = world.inspect_entity(entity) else {
+            continue;
+        };
+        for info in components {
+            let name = info.name().to_string();
+            if !name.contains("ambition_") || known.contains(&name) {
+                continue;
+            }
+            if let Some(reason) = waiver(&name) {
+                waived.insert(name, reason);
+            }
+        }
+    }
+    waived
+}
+
+/// **Print what every waiver is actually covering.** (A18)
+///
+/// Not an assertion — a listing, so the claims can be re-read against reality.
+/// `BossAnimFrame` was swallowed by `ambition_sprite_sheet::` ("sprite metadata /
+/// asset binding") while being a sim-owned cursor that boss hurtbox geometry
+/// derives from. A prefix waiver assumes a crate holds exactly one kind of thing,
+/// and crates grow.
+#[test]
+#[ignore = "audit listing: prints what each waiver covers; read it, do not assert on it"]
+fn list_what_every_waiver_actually_covers() {
+    for room in ["combat_calibration_lab", "mockingbird_arena"] {
+        let mut sim = SandboxSim::new_with_options(
+            ambition_app::rl_sim::SandboxSimOptions::default()
+                .with_timestep(TimestepMode::fixed_60hz())
+                .with_start_room(room),
+        )
+        .expect("sandbox sim builds");
+        for _ in 0..8 {
+            sim.step(AgentAction::default());
+        }
+        println!("\n=== {room} ===");
+        for (name, reason) in waived_components(&mut sim) {
+            println!("  {name}\n      waived as: {reason}");
+        }
+    }
+}
+
 fn assert_components_accounted(sim: &mut SandboxSim, room: &str) {
     let unaccounted = unaccounted_components(sim);
     if !unaccounted.is_empty() {
@@ -248,6 +321,33 @@ fn every_component_in_a_boss_arena_is_registered_derived_or_waived() {
         sim.step(AgentAction::default());
     }
     assert_components_accounted(&mut sim, "mockingbird_arena");
+}
+
+/// **Populations no sweep had ever visited.** (A19)
+///
+/// This instrument is POPULATION-driven: it can only report on components that
+/// exist in the rooms it boots. It has now been confidently empty three times
+/// about something it never looked at — the player (no `FeatureSimEntity`),
+/// transients (sampled one instant), and every boss-only component (no swept room
+/// had a boss). Adding rooms is therefore not padding; it is the only way this
+/// test's silence means anything.
+///
+/// Each room here is chosen for what it AUTHORS that the others do not: portals,
+/// NPCs and dialogue state, hazards and chests.
+#[test]
+fn every_component_in_unswept_populations_is_registered_derived_or_waived() {
+    for room in ["portal_lab", "basement_npcs", "basement_hazards"] {
+        let mut sim = SandboxSim::new_with_options(
+            ambition_app::rl_sim::SandboxSimOptions::default()
+                .with_timestep(TimestepMode::fixed_60hz())
+                .with_start_room(room),
+        )
+        .unwrap_or_else(|error| panic!("sandbox sim builds in `{room}`: {error}"));
+        for _ in 0..8 {
+            sim.step(AgentAction::default());
+        }
+        assert_components_accounted(&mut sim, room);
+    }
 }
 
 /// Resource type-name substrings that are NOT authoritative simulation state.

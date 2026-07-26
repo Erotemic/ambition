@@ -832,6 +832,22 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "feature.breakable",
     )
+    // A chest's PAYLOAD AND STATE, and the marker that says it was opened.
+    //
+    // `Collected` and `PickupFeature` were both registered; their chest
+    // counterparts were not, so a chest opened in an abandoned future kept its
+    // reward spent through the rewind — the exact defect the comment above
+    // describes for bricks, one feature family over. `Opened` is the same marker
+    // class as `PlayerVisual`: bevy_ggrs recreates the entity and an unregistered
+    // marker simply does not come back.
+    //
+    // Found by A19's unswept-population sweep; no room the sweep visited had ever
+    // contained a chest.
+    .rollback_component_clone::<ambition_combat::components::ChestFeature>(
+        ENGINE,
+        "feature.chest",
+    )
+    .rollback_component_clone::<ambition_combat::components::Opened>(ENGINE, "feature.opened")
     .rollback_component_clone::<ambition_combat::components::RespawnTimer>(
         ENGINE,
         "feature.respawn_timer",
@@ -871,6 +887,24 @@ pub fn register_engine_rollback_state(app: &mut App) {
     .rollback_component_clone::<ambition_combat::components::PogoPolicy>(
         ENGINE,
         "feature.pogo_policy",
+    )
+    // The two pogo CAPABILITY markers, beside the policy and volumes that were
+    // already registered. Same reasoning as `PlayerVisual`: bevy_ggrs recreates
+    // the entity, and a marker that does not come back silently revokes a
+    // capability — `apply_pogo_bounce` gates on `PogoTarget`, and a
+    // stand-to-crumble surface's pogo affordance IS `PogoTargetContributor`. A
+    // body that stops being bounceable after a rewind is a gameplay divergence
+    // that no amount of correct geometry can repair.
+    //
+    // Found by sweeping rooms nobody had swept before (A19). Their registered
+    // siblings sat two lines away this whole time.
+    .rollback_component_clone::<ambition_combat::on_hit::PogoTarget>(
+        ENGINE,
+        "feature.pogo_target",
+    )
+    .rollback_component_clone::<ambition_combat::components::PogoTargetContributor>(
+        ENGINE,
+        "feature.pogo_target_contributor",
     )
     .rollback_component_clone::<ambition_combat::components::PogoTargetVolumes>(
         ENGINE,

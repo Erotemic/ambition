@@ -245,6 +245,12 @@ ensure_rust() {
     ensure_cargo_tool cargo-llvm-cov cargo-llvm-cov
     ensure_cargo_tool cargo-modules cargo-modules
     ensure_cargo_tool cargo-sweep cargo-sweep
+    # Per-test wall times, which stable libtest cannot report: `--report-time`
+    # is nightly-only, so ranking the slowest tests in a 1600s suite otherwise
+    # means timing each test binary by hand. nextest also runs each test in its
+    # own process, so a test that only passes on a sibling's leftover state
+    # shows up as a failure instead of hiding.
+    ensure_cargo_tool cargo-nextest cargo-nextest
 
     log "Rust ready: $(rustc --version)"
 }

@@ -528,6 +528,31 @@ impl SnapshotResolve for ambition_combat::moveset::MovePlayback {
     }
 }
 
+/// **The boss's animation cursor** — sim-owned, and gameplay geometry reads it.
+///
+/// A cursor projection: `spec` is the authored sheet contract and never changes
+/// during a session, while `current` / `drive_phase` / `frame` / `elapsed` /
+/// `clip_held` are advanced every tick by `drive_boss_animators` on
+/// `world_time.entity_dt`. `BossAnimationFrameSample` — the boss's ACTIVE HURTBOX
+/// PARTS — is derived from exactly those fields.
+///
+/// It was not rollback state, and the coverage sweep could not say so: the type
+/// lives in `ambition_sprite_sheet`, and that crate is waived wholesale as
+/// "sprite metadata / asset binding". Its own first doc line says *Sim-owned*.
+/// A crate-prefix waiver assumes a crate holds one kind of thing, and this one
+/// swallowed authoritative combat state — the same shape as the equipment
+/// oracle's `ProjectileOwner`, which was registered as a lie rather than waived
+/// as one.
+impl SnapshotCursor for ambition_actors::boss_encounter::sprites::BossAnimFrame {
+    fn encode_cursor(&self, out: &mut Vec<u8>) {
+        put_u8(out, self.current as u8);
+        put_u8(out, self.drive_phase as u8);
+        put_u32(out, self.frame as u32);
+        put_f32(out, self.elapsed);
+        put_bool(out, self.clip_held);
+    }
+}
+
 /// **The boss's encounter phase**, and the `ActorPhaseState` it is forwarded from.
 ///
 /// A cursor, because the rest of `BossEncounter` is sprite metrics derived from the

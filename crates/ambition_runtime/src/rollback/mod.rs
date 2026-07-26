@@ -1153,6 +1153,20 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // `MovePlayback` uses for its own `live_boxes` handles. A derived declaration
     // is only as good as the system that honours it, and this one names a
     // component the system cannot even see.
+    // The boss's SIM-OWNED animation cursor, and the hurtbox sample derived from
+    // it. Neither was rollback state, and the coverage sweep never visited a room
+    // with a boss in it, so nothing said so. See `rollback_coverage`'s boss-arena
+    // sweep, added with this.
+    app.rollback_component_cursor::<ambition_actors::boss_encounter::sprites::BossAnimFrame>(
+        ENGINE,
+        "component.boss_anim_frame",
+    )
+    .declare_rollback_derived::<ambition_actors::features::BossAnimationFrameSample>(
+        ENGINE,
+        "derived.boss_animation_frame_sample",
+        "republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor",
+    );
+
     app.rollback_component_clone::<ambition_projectiles::ProjectileOwner>(
         ENGINE,
         "component.projectile_owner",

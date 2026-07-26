@@ -219,6 +219,37 @@ fn every_component_in_the_combat_calibration_lab_is_registered_derived_or_waived
     assert_components_accounted(&mut sim, "combat_calibration_lab");
 }
 
+/// **The same sweep over a BOSS population, which nothing swept before.**
+///
+/// The two rooms above contain no boss, so every boss-only component — the
+/// animation cursor, the pattern timer, the death animation, the encounter
+/// authority — had never appeared in this sweep's population at all. That is the
+/// same shape as the two holes this instrument has already had (it did not
+/// inspect the player; it did not inspect transients): a confident empty result
+/// produced by never looking.
+///
+/// It is not hypothetical. `BossAnimFrame` is a SIM-owned animation cursor —
+/// `drive_boss_animators` advances it on `world_time.entity_dt`, and
+/// `BossAnimationFrameSample` turns it into the boss's active hurtbox parts — and
+/// it was not rollback state. A rewind left the cursor wherever an abandoned
+/// future put it, so the boss's damageable geometry after a rollback was derived
+/// from the wrong frame. Exactly the class that produced the equipment-oracle
+/// divergence: registered-looking state feeding combat geometry, invisible to the
+/// instrument because of population, not because of accounting.
+#[test]
+fn every_component_in_a_boss_arena_is_registered_derived_or_waived() {
+    let mut sim = SandboxSim::new_with_options(
+        ambition_app::rl_sim::SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_start_room("mockingbird_arena"),
+    )
+    .expect("sandbox sim builds in a boss arena");
+    for _ in 0..8 {
+        sim.step(AgentAction::default());
+    }
+    assert_components_accounted(&mut sim, "mockingbird_arena");
+}
+
 /// Resource type-name substrings that are NOT authoritative simulation state.
 ///
 /// Same contract as [`WAIVED`]: each entry claims rewinding the named resource

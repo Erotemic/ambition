@@ -23,7 +23,7 @@ use super::{
 };
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 3;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 4;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

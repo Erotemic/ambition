@@ -38,6 +38,10 @@ use ambition_time::ProperTimeScale;
 use super::components::{ActorFaction, BodyMelee, MeleeSwing};
 use super::hitbox::{Hitbox, HitboxAnchor, HitboxHits};
 use crate::{hit_side_from_actor_faction, AttackIntent, AttackSpec};
+use ambition_characters::actor::attack_gesture::{
+    resolve_attack_gesture, AttackGestureState, AttackGestureTuning, AttackPosture,
+    AttackStrength, ResolvedAttackGesture,
+};
 use ambition_characters::brain::action_set::{
     ActionRequest, MeleeActionSpec, RangedActionSpec, SpecialActionSpec,
 };
@@ -48,6 +52,10 @@ use ambition_time::WorldTime;
 
 /// The canonical verb id a body's basic melee swing binds to in its moveset.
 pub const ATTACK_VERB: &str = "attack";
+/// Strong directional attacks use the same authored verb machinery under the
+/// distinct `smash` base. A moveset that authors no smash verb falls back to its
+/// ordinary attack repertoire.
+pub const SMASH_VERB: &str = "smash";
 
 /// [`HitVolume::vfx`] tags the move runtime knows (§7.2): the sweeping slash
 /// arc and the grounded down-tilt's horizontal poke. Unknown tags draw the arc
@@ -620,22 +628,35 @@ pub fn advance_move_playback(
 /// the head under ANY gravity), so `y < 0` is Up with no facing term. Vertical
 /// wins ties so a clear up/down aim beats slight horizontal drift.
 pub fn attack_dir_from_axis(axis: ae::Vec2, facing: f32) -> AttackDir {
-    const DEADZONE: f32 = 0.5;
-    // `facing` is ±1, so `(axis.x * facing).abs() == axis.x.abs()`: the tie
-    // comparison is unchanged; only the forward/back SIGN depends on facing.
-    let forward = axis.x * facing;
-    if axis.y.abs() >= axis.x.abs() && axis.y.abs() > DEADZONE {
-        if axis.y < 0.0 {
-            AttackDir::Up
-        } else {
-            AttackDir::Down
-        }
-    } else if forward > DEADZONE {
-        AttackDir::Forward
-    } else if forward < -DEADZONE {
-        AttackDir::Back
-    } else {
-        AttackDir::Neutral
+    ambition_characters::actor::attack_gesture::attack_dir_from_axis(axis, facing, 0.5)
+}
+
+/// Interpret raw actor-control edges into deterministic semantic attack edges.
+/// This runs once for every body immediately before move triggering. The
+/// multi-tick state is rollback-authoritative; the resolved frame is derived.
+pub fn resolve_attack_gestures(
+    mut bodies: Query<(
+        &ActorControl,
+        &ae::BodyKinematics,
+        Option<&ambition_engine_core::BodyGroundState>,
+        &mut AttackGestureState,
+        &AttackGestureTuning,
+        &mut ResolvedAttackGesture,
+    )>,
+) {
+    for (control, kin, ground, mut state, tuning, mut resolved) in &mut bodies {
+        let frame = &control.0;
+        *resolved = resolve_attack_gesture(
+            &mut state,
+            *tuning,
+            frame.attack_axis,
+            kin.facing,
+            ground.map(|g| g.on_ground).unwrap_or(true),
+            frame.melee_pressed,
+            frame.melee_held,
+            frame.melee_released,
+            frame.melee_strong_hint,
+        );
     }
 }
 
@@ -664,6 +685,7 @@ pub fn trigger_moveset_moves(
         Entity,
         &ActorMoveset,
         &ActorControl,
+        &ResolvedAttackGesture,
         // The body's per-tick resolved frame (ADR 0024): a move's authored
         // body-local start impulse rotates through the SAME frame the body's
         // movement integrated under. `Option` for bare test bodies.
@@ -680,7 +702,9 @@ pub fn trigger_moveset_moves(
         Option<&mut MovePlayback>,
     )>,
 ) {
-    for (entity, moveset, control, resolved_frame, mut kin, ground, playback) in &mut bodies {
+    for (entity, moveset, control, gesture, resolved_frame, mut kin, ground, playback) in
+        &mut bodies
+    {
         let body_frame = resolved_frame
             .map(|frame| frame.basis())
             .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
@@ -696,21 +720,44 @@ pub fn trigger_moveset_moves(
                     .move_for_directional_verb(SPECIAL_VERB, dir, grounded),
                 &[SPECIAL_VERB],
             )
-        } else if frame.melee_pressed || frame.pogo_pressed {
+        } else if gesture.pressed.is_some() || frame.pogo_pressed {
             // A dedicated pogo press IS a down-air (the move carrying the pogo
             // on-hit technique); a plain melee press resolves by aim. When only
             // pogo is pressed, force Down so an aerial body reaches `attack_air_down`.
-            let dir = if frame.pogo_pressed && !frame.melee_pressed {
-                AttackDir::Down
+            let (base_verb, dir, gesture_grounded) =
+                if frame.pogo_pressed && gesture.pressed.is_none() {
+                    (ATTACK_VERB, AttackDir::Down, grounded)
+                } else if let Some(intent) = gesture.pressed {
+                    (
+                        if intent.strength == AttackStrength::Smash {
+                            SMASH_VERB
+                        } else {
+                            ATTACK_VERB
+                        },
+                        intent.direction,
+                        intent.posture == AttackPosture::Grounded,
+                    )
+                } else {
+                    (ATTACK_VERB, AttackDir::Down, grounded)
+                };
+            let spec = moveset
+                .0
+                .move_for_directional_verb(base_verb, dir, gesture_grounded)
+                .or_else(|| {
+                    if base_verb == SMASH_VERB {
+                        moveset
+                            .0
+                            .move_for_directional_verb(ATTACK_VERB, dir, gesture_grounded)
+                    } else {
+                        None
+                    }
+                });
+            let verb_names: &[&str] = if base_verb == SMASH_VERB {
+                &[SMASH_VERB, ATTACK_VERB, "any_attack"]
             } else {
-                attack_dir_from_axis(frame.attack_axis, kin.facing)
+                &[ATTACK_VERB, "any_attack"]
             };
-            (
-                moveset
-                    .0
-                    .move_for_directional_verb(ATTACK_VERB, dir, grounded),
-                &[ATTACK_VERB, "any_attack"],
-            )
+            (spec, verb_names)
         } else if frame.fire.is_some() {
             // A ranged intent (`frame.fire = Some(dir)`) starts the body's `"ranged"`
             // move; its fire event spawns the projectile, sampling live aim. The move

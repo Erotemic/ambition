@@ -759,7 +759,14 @@ fn pressing_special_starts_the_real_players_folded_bubble_shield_move() {
     .expect("player moveset");
 
     let mut app = App::new();
-    app.add_systems(Update, ambition_combat::moveset::trigger_moveset_moves);
+    app.add_systems(
+        Update,
+        (
+            ambition_combat::moveset::resolve_attack_gestures,
+            ambition_combat::moveset::trigger_moveset_moves,
+        )
+            .chain(),
+    );
     let mut frame = ActorControlFrame::neutral();
     frame.special_pressed = true;
     let body = app

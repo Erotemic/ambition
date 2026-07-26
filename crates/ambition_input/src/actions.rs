@@ -32,6 +32,10 @@ pub enum SandboxAction {
     MoveDown,
     Jump,
     Attack,
+    /// Device-side strong-attack hint. It is intentionally separate from the
+    /// character action-slot vocabulary: the sim combines it with Attack and
+    /// authoritative flick history to classify tilt versus smash.
+    StrongAttack,
     Dash,
     Blink,
     /// Player signature SPECIAL — a dedicated slot, distinct from [`Self::Blink`].

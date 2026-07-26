@@ -65,6 +65,19 @@ fn attack_pressed_routes_to_melee_intent() {
 }
 
 #[test]
+fn strong_attack_hint_routes_without_device_specific_state() {
+    let input = input_with(|c| {
+        c.attack_pressed = true;
+        c.attack_strong_hint = true;
+    });
+    let s = BrainSnapshot::idle();
+    let mut out = crate::actor::control::ActorControlFrame::default();
+    tick_player_brain_from_control(&input, &s, &mut out);
+    assert!(out.melee_pressed);
+    assert!(out.melee_strong_hint);
+}
+
+#[test]
 fn attack_level_and_release_route_to_melee_intent() {
     let input = input_with(|c| {
         c.attack_held = true;

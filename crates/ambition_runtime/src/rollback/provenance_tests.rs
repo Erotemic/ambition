@@ -200,3 +200,29 @@ fn spawn_origin_round_trips_through_its_snapshot_codec() {
         );
     }
 }
+
+#[test]
+fn attack_gesture_history_round_trips_through_rollback_codec() {
+    use super::{decode_state, encode_state};
+    use ambition_characters::actor::attack_gesture::{
+        AttackDir, AttackGestureIntent, AttackGestureState, AttackInputPhase, AttackPosture,
+        AttackStrength, RecentAttackFlick,
+    };
+
+    let intent = AttackGestureIntent {
+        direction: AttackDir::Forward,
+        strength: AttackStrength::Smash,
+        posture: AttackPosture::Airborne,
+        phase: AttackInputPhase::Press,
+    };
+    let state = AttackGestureState {
+        flick_armed: false,
+        recent_flick: Some(RecentAttackFlick {
+            direction: AttackDir::Forward,
+            age_ticks: 2,
+        }),
+        active: Some(intent),
+    };
+    let bytes = encode_state(&state);
+    assert_eq!(decode_state::<AttackGestureState>(&bytes), Some(state));
+}

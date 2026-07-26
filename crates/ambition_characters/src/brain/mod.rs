@@ -318,6 +318,11 @@ impl Brain {
 /// component (rather than a field on `Brain`) so brain swaps don't
 /// disturb the frame's value mid-tick.
 #[derive(Component, Clone, Copy, Debug, Default)]
+#[require(
+    crate::actor::attack_gesture::AttackGestureState,
+    crate::actor::attack_gesture::AttackGestureTuning,
+    crate::actor::attack_gesture::ResolvedAttackGesture
+)]
 pub struct ActorControl(pub crate::actor::control::ActorControlFrame);
 
 /// **The game is driving this body, not whoever normally controls it.**

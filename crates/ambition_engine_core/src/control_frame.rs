@@ -68,6 +68,10 @@ pub struct ControlFrame {
     pub attack_held: bool,
     /// Attack button falling edge.
     pub attack_released: bool,
+    /// Device-independent request to classify this attack press as strong.
+    /// A dedicated smash key, C-stick adapter, replay, remote peer, or RL
+    /// policy may set it; the multi-tick flick history stays sim-side.
+    pub attack_strong_hint: bool,
     pub pogo_pressed: bool,
     pub fly_toggle_pressed: bool,
     /// Generic context interaction. This is a dedicated interact action plus
@@ -156,6 +160,7 @@ impl ControlFrame {
             special_pressed: self.special_pressed | sample.special_pressed,
             attack_pressed: self.attack_pressed | sample.attack_pressed,
             attack_released: self.attack_released | sample.attack_released,
+            attack_strong_hint: self.attack_strong_hint | sample.attack_strong_hint,
             pogo_pressed: self.pogo_pressed | sample.pogo_pressed,
             fly_toggle_pressed: self.fly_toggle_pressed | sample.fly_toggle_pressed,
             interact_pressed: self.interact_pressed | sample.interact_pressed,
@@ -282,6 +287,7 @@ mod latch_tests {
         latch.accumulate(ControlFrame {
             attack_pressed: true,
             attack_held: true,
+            attack_strong_hint: true,
             ..ControlFrame::default()
         });
         latch.accumulate(ControlFrame {
@@ -292,11 +298,13 @@ mod latch_tests {
         let tick = latch.take();
         assert!(tick.attack_pressed);
         assert!(tick.attack_released);
+        assert!(tick.attack_strong_hint);
         assert!(!tick.attack_held);
 
         let next = latch.take();
         assert!(!next.attack_pressed);
         assert!(!next.attack_released);
+        assert!(!next.attack_strong_hint);
         assert!(!next.attack_held);
     }
 

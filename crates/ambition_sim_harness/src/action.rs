@@ -41,6 +41,8 @@ pub struct AgentAction {
     pub attack: bool,
     pub attack_held: bool,
     pub attack_released: bool,
+    /// Device-independent strong-attack hint (dedicated smash key / C-stick).
+    pub attack_strong: bool,
     /// Signature special (`SandboxAction::Special`). A dedicated slot since the
     /// `special_pressed = blink_pressed` alias was retired: pressing `blink` no
     /// longer fires a body's special, so an agent/scripted driver sets THIS to
@@ -142,6 +144,7 @@ impl From<AgentAction> for ControlFrame {
             attack_pressed: a.attack,
             attack_held: a.attack_held,
             attack_released: a.attack_released,
+            attack_strong_hint: a.attack_strong,
             pogo_pressed: a.pogo,
             fly_toggle_pressed: a.fly_toggle,
             interact_pressed: a.interact,

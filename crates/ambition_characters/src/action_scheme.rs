@@ -117,6 +117,7 @@ fn clear_attack(control: &mut ActorControlFrame) {
     control.melee_pressed = false;
     control.melee_held = false;
     control.melee_released = false;
+    control.melee_strong_hint = false;
     control.pogo_pressed = false;
     control.attack_axis = ambition_engine_core::Vec2::ZERO;
 }

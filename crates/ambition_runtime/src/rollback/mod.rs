@@ -628,6 +628,14 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "actor.control",
         )
+        .rollback_component_canonical::<ambition_characters::actor::attack_gesture::AttackGestureState>(
+            ENGINE,
+            "actor.attack_gesture_state",
+        )
+        .rollback_component_canonical::<ambition_characters::actor::attack_gesture::AttackGestureTuning>(
+            ENGINE,
+            "actor.attack_gesture_tuning",
+        )
         .rollback_component_canonical::<ambition_time::ProperTimeScale>(
             ENGINE,
             "actor.proper_time_scale",
@@ -977,6 +985,11 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "derived.resolved_technique_edges",
         "cleared and republished from current input every frame",
+    )
+    .declare_rollback_derived::<ambition_characters::actor::attack_gesture::ResolvedAttackGesture>(
+        ENGINE,
+        "derived.resolved_attack_gesture",
+        "republished from ActorControl and rollback-backed gesture history before move triggering",
     )
     .declare_rollback_derived::<bevy::prelude::GlobalTransform>(
         ENGINE,

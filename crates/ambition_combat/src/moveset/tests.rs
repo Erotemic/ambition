@@ -1132,6 +1132,7 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
     app.add_systems(
         Update,
         (
+            resolve_attack_gestures,
             trigger_moveset_moves,
             advance_move_playback,
             apply_hitbox_damage,
@@ -1193,7 +1194,7 @@ fn a_forward_special_selects_the_directional_move() {
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
-    app.add_systems(Update, trigger_moveset_moves);
+    app.add_systems(Update, (resolve_attack_gestures, trigger_moveset_moves).chain());
 
     let make_move = |id: &str| MoveSpec {
         id: id.to_string(),
@@ -1241,6 +1242,79 @@ fn a_forward_special_selects_the_directional_move() {
     );
 }
 
+fn gesture_test_move(id: &str) -> MoveSpec {
+    MoveSpec {
+        id: id.to_string(),
+        clip: ClipBinding {
+            clip: id.to_string(),
+            fallbacks: vec![],
+        },
+        duration_s: 0.3,
+        windows: vec![],
+        events: vec![],
+        gates: Default::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+    }
+}
+
+fn trigger_gesture_move(include_smash: bool, strong: bool) -> String {
+    let mut app = App::new();
+    app.add_systems(
+        Update,
+        (resolve_attack_gestures, trigger_moveset_moves).chain(),
+    );
+    let mut verbs = std::collections::BTreeMap::from([(
+        "attack_forward".to_string(),
+        "forward_tilt".to_string(),
+    )]);
+    let mut moves = vec![gesture_test_move("forward_tilt")];
+    if include_smash {
+        verbs.insert("smash_forward".to_string(), "forward_smash".to_string());
+        moves.push(gesture_test_move("forward_smash"));
+    }
+
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.melee_pressed = true;
+    // Above the directional deadzone but below the flick threshold, so this is
+    // a tilt unless the explicit device-independent strong hint is present.
+    frame.attack_axis = ae::Vec2::new(0.6, 0.0);
+    frame.melee_strong_hint = strong;
+    let body = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                facing: 1.0,
+                ..Default::default()
+            },
+            ActorMoveset(MovesetContract { verbs, moves }),
+            ActorControl(frame),
+        ))
+        .id();
+    app.update();
+    app.world()
+        .get::<MovePlayback>(body)
+        .expect("the semantic attack edge starts a move")
+        .spec
+        .id
+        .clone()
+}
+
+#[test]
+fn attack_gesture_selects_tilt_or_smash_from_the_same_direction() {
+    assert_eq!(trigger_gesture_move(true, false), "forward_tilt");
+    assert_eq!(trigger_gesture_move(true, true), "forward_smash");
+}
+
+#[test]
+fn strong_attack_falls_back_to_the_ordinary_directional_move() {
+    assert_eq!(
+        trigger_gesture_move(false, true),
+        "forward_tilt",
+        "existing movesets need not author a smash vocabulary"
+    );
+}
+
 /// A move authoring `start_impulse` lunges the body toward its facing at
 /// trigger — the self-motion the flat directional swings applied at
 /// `start_attack`, now move DATA the player-melee fold rides.
@@ -1252,7 +1326,7 @@ fn a_move_start_impulse_lunges_the_body_toward_facing() {
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
-    app.add_systems(Update, trigger_moveset_moves);
+    app.add_systems(Update, (resolve_attack_gestures, trigger_moveset_moves).chain());
     let mv = MoveSpec {
         id: ATTACK_VERB.into(),
         clip: ClipBinding {
@@ -1495,7 +1569,7 @@ fn a_fire_intent_triggers_the_ranged_move() {
     );
 
     let mut app = App::new();
-    app.add_systems(Update, trigger_moveset_moves);
+    app.add_systems(Update, (resolve_attack_gestures, trigger_moveset_moves).chain());
     let mut control = ActorControl::default();
     control.0.fire = Some(ActorFireRequest::world_space(
         ae::Vec2::new(1.0, 0.0),
@@ -1591,7 +1665,7 @@ use ambition_entity_catalog::{CancelCondition, MoveWindow};
 /// verb on its control frame while a move plays.
 fn trigger_app() -> App {
     let mut app = App::new();
-    app.add_systems(Update, trigger_moveset_moves);
+    app.add_systems(Update, (resolve_attack_gestures, trigger_moveset_moves).chain());
     app
 }
 

@@ -112,6 +112,7 @@ pub fn tick_player_brain_from_control(
     out.melee_pressed = c.attack_pressed;
     out.melee_held = c.attack_held;
     out.melee_released = c.attack_released;
+    out.melee_strong_hint = c.attack_strong_hint;
     // Per-tilt direction for the attack, in the controlled body's local frame.
     // Zero still means "use facing".
     out.attack_axis = local_axis;

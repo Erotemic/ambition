@@ -89,7 +89,12 @@ impl Plugin for CombatSchedulePlugin {
                 // matching move (inserts `MovePlayback`). Before `advance` so a move
                 // triggered this tick advances the same frame (fable review §A1,
                 // Path B — the production insert the moveset runtime was missing).
-                ambition_actors::combat::moveset::trigger_moveset_moves.run_if(gameplay_allowed),
+                (
+                    ambition_actors::combat::moveset::resolve_attack_gestures,
+                    ambition_actors::combat::moveset::trigger_moveset_moves,
+                )
+                    .chain()
+                    .run_if(gameplay_allowed),
                 // Boss STRIKES trigger the SAME way: when a boss's `active_profile`
                 // (mirrored from its pattern this frame) is set, start the boss's
                 // move for that profile — a geometry strike's Active-window hit volume

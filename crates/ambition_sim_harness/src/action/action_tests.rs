@@ -76,6 +76,18 @@ fn explicit_edge_flags_are_forwarded() {
 }
 
 #[test]
+fn strong_attack_hint_crosses_the_agent_seam() {
+    let cf: ControlFrame = AgentAction {
+        attack: true,
+        attack_strong: true,
+        ..Default::default()
+    }
+    .into();
+    assert!(cf.attack_pressed);
+    assert!(cf.attack_strong_hint);
+}
+
+#[test]
 fn converter_always_neutralizes_unsourced_fields() {
     // shield_held and fast_fall_pressed have no AgentAction source.
     let cf: ControlFrame = AgentAction {

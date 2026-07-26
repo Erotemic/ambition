@@ -1,0 +1,302 @@
+//! Deterministic attack-input interpretation for every controlled body.
+//!
+//! Controllers emit raw button edges, an aim axis, and an optional strong hint
+//! through [`ActorControlFrame`](super::control::ActorControlFrame). This module
+//! owns the authoritative multi-tick gesture history that turns those values into
+//! a stable directional tilt/smash intent. The state belongs to the BODY, not to
+//! a device adapter or a character: human, brain, replay, RL, and remote control
+//! all traverse the same interpreter.
+
+use ambition_engine_core::Vec2;
+pub use ambition_entity_catalog::AttackDir;
+use bevy::prelude::Component;
+
+/// Tilt versus smash classification. Characters map this semantic result to
+/// their own authored move verbs; they never own flick thresholds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AttackStrength {
+    Tilt,
+    Smash,
+}
+
+/// Ground/air posture sampled when the attack begins.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AttackPosture {
+    Grounded,
+    Airborne,
+}
+
+/// Input edge represented by one semantic attack intent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AttackInputPhase {
+    Press,
+    Hold,
+    Release,
+}
+
+/// Direction/strength/posture of one attack, plus the input edge being emitted.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AttackGestureIntent {
+    pub direction: AttackDir,
+    pub strength: AttackStrength,
+    pub posture: AttackPosture,
+    pub phase: AttackInputPhase,
+}
+
+impl AttackGestureIntent {
+    fn with_phase(self, phase: AttackInputPhase) -> Self {
+        Self { phase, ..self }
+    }
+}
+
+/// All semantic attack edges produced this tick. Press and release are separate
+/// so a tap that begins and ends between simulation ticks remains lossless.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ResolvedAttackGesture {
+    pub pressed: Option<AttackGestureIntent>,
+    pub held: Option<AttackGestureIntent>,
+    pub released: Option<AttackGestureIntent>,
+}
+
+/// Ruleset/player-owned interpretation thresholds. This component is required
+/// by [`crate::brain::ActorControl`]; a participant or ruleset may replace the
+/// default on that body. Character definitions must not tune these values.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct AttackGestureTuning {
+    /// Axis magnitude that begins a directional flick.
+    pub flick_threshold: f32,
+    /// Axis magnitude below which a future flick is re-armed.
+    pub rearm_threshold: f32,
+    /// Number of simulation ticks after a flick in which Attack counts as Smash.
+    pub flick_window_ticks: u8,
+    /// Directional deadzone used when reducing an axis to [`AttackDir`].
+    pub directional_deadzone: f32,
+}
+
+impl Default for AttackGestureTuning {
+    fn default() -> Self {
+        Self {
+            flick_threshold: 0.8,
+            rearm_threshold: 0.35,
+            flick_window_ticks: 4,
+            directional_deadzone: 0.5,
+        }
+    }
+}
+
+/// A recently detected directional flick.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RecentAttackFlick {
+    pub direction: AttackDir,
+    pub age_ticks: u8,
+}
+
+/// Authoritative per-body gesture history. This is rollback state: restoring in
+/// the middle of a flick window must classify the replayed press identically.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AttackGestureState {
+    pub flick_armed: bool,
+    pub recent_flick: Option<RecentAttackFlick>,
+    pub active: Option<AttackGestureIntent>,
+}
+
+impl Default for AttackGestureState {
+    fn default() -> Self {
+        Self {
+            flick_armed: true,
+            recent_flick: None,
+            active: None,
+        }
+    }
+}
+
+/// Reduce an attack axis to a facing-relative direction. Vertical wins ties so
+/// a clear up/down aim is not lost to slight horizontal drift.
+pub fn attack_dir_from_axis(axis: Vec2, facing: f32, deadzone: f32) -> AttackDir {
+    let forward = axis.x * facing;
+    if axis.y.abs() >= axis.x.abs() && axis.y.abs() > deadzone {
+        if axis.y < 0.0 {
+            AttackDir::Up
+        } else {
+            AttackDir::Down
+        }
+    } else if forward > deadzone {
+        AttackDir::Forward
+    } else if forward < -deadzone {
+        AttackDir::Back
+    } else {
+        AttackDir::Neutral
+    }
+}
+
+fn posture(grounded: bool) -> AttackPosture {
+    if grounded {
+        AttackPosture::Grounded
+    } else {
+        AttackPosture::Airborne
+    }
+}
+
+/// Advance one body's interpreter by one simulation tick.
+///
+/// `strong_hint` is device-independent. A C-stick adapter, dedicated smash key,
+/// replay, remote peer, or RL policy may set it; the accumulated flick history
+/// remains body-local and is never streamed as resolved state.
+pub fn resolve_attack_gesture(
+    state: &mut AttackGestureState,
+    tuning: AttackGestureTuning,
+    axis: Vec2,
+    facing: f32,
+    grounded: bool,
+    pressed: bool,
+    held: bool,
+    released: bool,
+    strong_hint: bool,
+) -> ResolvedAttackGesture {
+    if let Some(mut flick) = state.recent_flick {
+        flick.age_ticks = flick.age_ticks.saturating_add(1);
+        state.recent_flick = (flick.age_ticks <= tuning.flick_window_ticks).then_some(flick);
+    }
+
+    let magnitude = axis.length();
+    if magnitude <= tuning.rearm_threshold {
+        state.flick_armed = true;
+    } else if state.flick_armed && magnitude >= tuning.flick_threshold {
+        let direction = attack_dir_from_axis(axis, facing, tuning.directional_deadzone);
+        if direction != AttackDir::Neutral {
+            state.recent_flick = Some(RecentAttackFlick {
+                direction,
+                age_ticks: 0,
+            });
+            state.flick_armed = false;
+        }
+    }
+
+    let mut out = ResolvedAttackGesture::default();
+    if pressed {
+        let direction = attack_dir_from_axis(axis, facing, tuning.directional_deadzone);
+        let recent_matches = state
+            .recent_flick
+            .is_some_and(|flick| flick.direction == direction);
+        let base = AttackGestureIntent {
+            direction,
+            strength: if strong_hint || recent_matches {
+                AttackStrength::Smash
+            } else {
+                AttackStrength::Tilt
+            },
+            posture: posture(grounded),
+            phase: AttackInputPhase::Press,
+        };
+        state.active = Some(base);
+        out.pressed = Some(base);
+    }
+
+    if held {
+        if let Some(active) = state.active {
+            out.held = Some(active.with_phase(AttackInputPhase::Hold));
+        }
+    }
+
+    if released {
+        if let Some(active) = state.active {
+            out.released = Some(active.with_phase(AttackInputPhase::Release));
+        }
+        state.active = None;
+    }
+
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tick(
+        state: &mut AttackGestureState,
+        tuning: AttackGestureTuning,
+        axis: Vec2,
+        facing: f32,
+        pressed: bool,
+        held: bool,
+        released: bool,
+        strong: bool,
+    ) -> ResolvedAttackGesture {
+        resolve_attack_gesture(
+            state, tuning, axis, facing, true, pressed, held, released, strong,
+        )
+    }
+
+    #[test]
+    fn forward_and_back_are_facing_relative() {
+        let tuning = AttackGestureTuning::default();
+        assert_eq!(
+            attack_dir_from_axis(Vec2::X, 1.0, tuning.directional_deadzone),
+            AttackDir::Forward
+        );
+        assert_eq!(
+            attack_dir_from_axis(-Vec2::X, -1.0, tuning.directional_deadzone),
+            AttackDir::Forward
+        );
+        assert_eq!(
+            attack_dir_from_axis(Vec2::X, -1.0, tuning.directional_deadzone),
+            AttackDir::Back
+        );
+    }
+
+    #[test]
+    fn recent_flick_makes_the_press_a_smash() {
+        let tuning = AttackGestureTuning::default();
+        let mut state = AttackGestureState::default();
+        tick(&mut state, tuning, Vec2::X, 1.0, false, false, false, false);
+        let out = tick(&mut state, tuning, Vec2::X, 1.0, true, true, false, false);
+        assert_eq!(out.pressed.unwrap().strength, AttackStrength::Smash);
+    }
+
+    #[test]
+    fn expired_flick_makes_the_press_a_tilt() {
+        let tuning = AttackGestureTuning {
+            flick_window_ticks: 1,
+            ..Default::default()
+        };
+        let mut state = AttackGestureState::default();
+        tick(&mut state, tuning, Vec2::X, 1.0, false, false, false, false);
+        tick(&mut state, tuning, Vec2::X, 1.0, false, false, false, false);
+        tick(&mut state, tuning, Vec2::X, 1.0, false, false, false, false);
+        let out = tick(&mut state, tuning, Vec2::X, 1.0, true, true, false, false);
+        assert_eq!(out.pressed.unwrap().strength, AttackStrength::Tilt);
+    }
+
+    #[test]
+    fn strong_hint_does_not_require_a_flick() {
+        let tuning = AttackGestureTuning::default();
+        let mut state = AttackGestureState::default();
+        let out = tick(&mut state, tuning, Vec2::ZERO, 1.0, true, true, false, true);
+        assert_eq!(out.pressed.unwrap().strength, AttackStrength::Smash);
+        assert_eq!(out.pressed.unwrap().direction, AttackDir::Neutral);
+    }
+
+    #[test]
+    fn press_hold_release_keep_the_initial_semantics() {
+        let tuning = AttackGestureTuning::default();
+        let mut state = AttackGestureState::default();
+        let press = tick(&mut state, tuning, Vec2::Y, 1.0, true, true, false, true);
+        let hold = tick(&mut state, tuning, -Vec2::X, -1.0, false, true, false, false);
+        let release = tick(&mut state, tuning, Vec2::ZERO, 1.0, false, false, true, false);
+        assert_eq!(press.pressed.unwrap().direction, AttackDir::Down);
+        assert_eq!(hold.held.unwrap().direction, AttackDir::Down);
+        assert_eq!(release.released.unwrap().direction, AttackDir::Down);
+        assert_eq!(release.released.unwrap().phase, AttackInputPhase::Release);
+        assert!(state.active.is_none());
+    }
+
+    #[test]
+    fn sub_tick_tap_emits_press_and_release_together() {
+        let tuning = AttackGestureTuning::default();
+        let mut state = AttackGestureState::default();
+        let out = tick(&mut state, tuning, Vec2::ZERO, 1.0, true, false, true, false);
+        assert!(out.pressed.is_some());
+        assert!(out.released.is_some());
+        assert!(state.active.is_none());
+    }
+}

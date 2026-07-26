@@ -169,6 +169,7 @@ fn keyboard_glyph(action: SandboxAction, preset: &KeyboardPreset) -> &'static st
         | SandboxAction::MenuStick => movement_label,
         SandboxAction::Jump => key_glyph(keys.jump),
         SandboxAction::Attack => key_glyph(keys.attack),
+        SandboxAction::StrongAttack => "",
         SandboxAction::Dash => key_glyph(keys.dash),
         SandboxAction::Blink => key_glyph(keys.secondary),
         SandboxAction::Special => key_glyph(keys.special),
@@ -229,6 +230,7 @@ fn gamepad_glyph(action: SandboxAction, kind: GamepadKind) -> &'static str {
         | SandboxAction::MenuStick => "L-Stick",
         SandboxAction::Jump => south,
         SandboxAction::Attack => west,
+        SandboxAction::StrongAttack => "",
         SandboxAction::Dash => rt,
         SandboxAction::Blink => east,
         // No gamepad Special binding yet (face + shoulders full); empty glyph

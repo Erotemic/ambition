@@ -1429,6 +1429,7 @@ impl SnapshotState for ambition_characters::brain::ActorControl {
         put_bool(out, f.melee_pressed);
         put_bool(out, f.melee_held);
         put_bool(out, f.melee_released);
+        put_bool(out, f.melee_strong_hint);
         match &f.fire {
             None => put_bool(out, false),
             Some(fire) => {
@@ -1480,6 +1481,7 @@ impl SnapshotState for ambition_characters::brain::ActorControl {
         let melee_pressed = r.bool()?;
         let melee_held = r.bool()?;
         let melee_released = r.bool()?;
+        let melee_strong_hint = r.bool()?;
         let fire = if r.bool()? {
             Some(ActorFireRequest {
                 dir: r.vec2()?,
@@ -1503,6 +1505,7 @@ impl SnapshotState for ambition_characters::brain::ActorControl {
                 melee_pressed,
                 melee_held,
                 melee_released,
+                melee_strong_hint,
                 fire,
                 attack_axis,
                 jump_pressed: flags[0],
@@ -2445,6 +2448,152 @@ impl SnapshotState for ambition_actors::session::lifecycle_commit::PendingLifecy
         };
         Some(PendingLifecycleCommit {
             pending: Some(PendingIntent { frame, kind }),
+        })
+    }
+}
+
+fn attack_dir_tag(dir: ambition_characters::actor::attack_gesture::AttackDir) -> u8 {
+    use ambition_characters::actor::attack_gesture::AttackDir;
+    match dir {
+        AttackDir::Neutral => 0,
+        AttackDir::Forward => 1,
+        AttackDir::Up => 2,
+        AttackDir::Down => 3,
+        AttackDir::Back => 4,
+    }
+}
+
+fn attack_dir_from_tag(tag: u8) -> Option<ambition_characters::actor::attack_gesture::AttackDir> {
+    use ambition_characters::actor::attack_gesture::AttackDir;
+    Some(match tag {
+        0 => AttackDir::Neutral,
+        1 => AttackDir::Forward,
+        2 => AttackDir::Up,
+        3 => AttackDir::Down,
+        4 => AttackDir::Back,
+        _ => return None,
+    })
+}
+
+fn put_attack_gesture_intent(
+    out: &mut Vec<u8>,
+    intent: ambition_characters::actor::attack_gesture::AttackGestureIntent,
+) {
+    use ambition_characters::actor::attack_gesture::{
+        AttackInputPhase, AttackPosture, AttackStrength,
+    };
+    put_u8(out, attack_dir_tag(intent.direction));
+    put_u8(
+        out,
+        match intent.strength {
+            AttackStrength::Tilt => 0,
+            AttackStrength::Smash => 1,
+        },
+    );
+    put_u8(
+        out,
+        match intent.posture {
+            AttackPosture::Grounded => 0,
+            AttackPosture::Airborne => 1,
+        },
+    );
+    put_u8(
+        out,
+        match intent.phase {
+            AttackInputPhase::Press => 0,
+            AttackInputPhase::Hold => 1,
+            AttackInputPhase::Release => 2,
+        },
+    );
+}
+
+fn read_attack_gesture_intent(
+    r: &mut Reader<'_>,
+) -> Option<ambition_characters::actor::attack_gesture::AttackGestureIntent> {
+    use ambition_characters::actor::attack_gesture::{
+        AttackGestureIntent, AttackInputPhase, AttackPosture, AttackStrength,
+    };
+    Some(AttackGestureIntent {
+        direction: attack_dir_from_tag(r.u8()?)?,
+        strength: match r.u8()? {
+            0 => AttackStrength::Tilt,
+            1 => AttackStrength::Smash,
+            _ => return None,
+        },
+        posture: match r.u8()? {
+            0 => AttackPosture::Grounded,
+            1 => AttackPosture::Airborne,
+            _ => return None,
+        },
+        phase: match r.u8()? {
+            0 => AttackInputPhase::Press,
+            1 => AttackInputPhase::Hold,
+            2 => AttackInputPhase::Release,
+            _ => return None,
+        },
+    })
+}
+
+impl SnapshotState for ambition_characters::actor::attack_gesture::AttackGestureState {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_bool(out, self.flick_armed);
+        match self.recent_flick {
+            None => put_bool(out, false),
+            Some(flick) => {
+                put_bool(out, true);
+                put_u8(out, attack_dir_tag(flick.direction));
+                put_u8(out, flick.age_ticks);
+            }
+        }
+        match self.active {
+            None => put_bool(out, false),
+            Some(intent) => {
+                put_bool(out, true);
+                put_attack_gesture_intent(out, intent);
+            }
+        }
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_characters::actor::attack_gesture::{
+            AttackGestureState, RecentAttackFlick,
+        };
+        let flick_armed = r.bool()?;
+        let recent_flick = if r.bool()? {
+            Some(RecentAttackFlick {
+                direction: attack_dir_from_tag(r.u8()?)?,
+                age_ticks: r.u8()?,
+            })
+        } else {
+            None
+        };
+        let active = if r.bool()? {
+            Some(read_attack_gesture_intent(r)?)
+        } else {
+            None
+        };
+        Some(AttackGestureState {
+            flick_armed,
+            recent_flick,
+            active,
+        })
+    }
+}
+
+impl SnapshotState for ambition_characters::actor::attack_gesture::AttackGestureTuning {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.flick_threshold);
+        put_f32(out, self.rearm_threshold);
+        put_u8(out, self.flick_window_ticks);
+        put_f32(out, self.directional_deadzone);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self {
+            flick_threshold: r.f32()?,
+            rearm_threshold: r.f32()?,
+            flick_window_ticks: r.u8()?,
+            directional_deadzone: r.f32()?,
         })
     }
 }

@@ -188,6 +188,10 @@ pub struct ActorControlFrame {
     pub melee_held: bool,
     /// Falling edge: the melee/attack button was released this tick.
     pub melee_released: bool,
+    /// Device-independent strong-attack hint for the sim-side gesture
+    /// interpreter. Brains/replays/RL may set this directly; characters never
+    /// own its timing thresholds.
+    pub melee_strong_hint: bool,
     /// Brain wants to fire a projectile this tick. `Some` carries the
     /// launch direction + speed; `None` is "no shot".
     pub fire: Option<ActorFireRequest>,
@@ -375,6 +379,7 @@ impl ActorControlFrame {
         self.melee_pressed
             || self.melee_held
             || self.melee_released
+            || self.melee_strong_hint
             // The dedicated pogo button is a melee-swing trigger (the air-down
             // variant), so a pogo-only frame genuinely wants an action — omitting it
             // made any `resolve()`/processing gated on this drop the pogo swing.
@@ -400,6 +405,7 @@ impl ActorControlFrame {
         self.special_pressed = false;
         self.melee_pressed = false;
         self.melee_released = false;
+        self.melee_strong_hint = false;
         self.fire = None;
     }
 }
@@ -424,6 +430,7 @@ mod tests {
         frame.jump_pressed = true;
         frame.dash_pressed = true;
         frame.melee_pressed = true;
+        frame.melee_strong_hint = true;
         frame.shield_held = true;
         let input = frame.to_input_state();
         assert_eq!(input.axes.x, 0.6, "locomotion.x → local x");
@@ -442,6 +449,7 @@ mod tests {
         assert!(!frame.melee_pressed);
         assert!(!frame.melee_held);
         assert!(!frame.melee_released);
+        assert!(!frame.melee_strong_hint);
         assert!(frame.fire.is_none());
         assert_eq!(frame.attack_axis, Vec2::ZERO);
         assert!(!frame.jump_pressed);
@@ -496,6 +504,9 @@ mod tests {
         let mut h = baseline;
         h.jump_released = true;
         assert_ne!(baseline, h, "jump_released should be in PartialEq");
+        let mut i = baseline;
+        i.melee_strong_hint = true;
+        assert_ne!(baseline, i, "melee_strong_hint should be in PartialEq");
     }
 
     #[test]
@@ -545,6 +556,9 @@ mod tests {
         frame.melee_pressed = true;
         assert!(frame.wants_any_action());
         let mut frame = ActorControlFrame::neutral();
+        frame.melee_strong_hint = true;
+        assert!(frame.wants_any_action(), "strong hint should count");
+        let mut frame = ActorControlFrame::neutral();
         frame.jump_pressed = true;
         assert!(frame.wants_any_action(), "jump_pressed should count");
         let mut frame = ActorControlFrame::neutral();
@@ -573,10 +587,12 @@ mod tests {
         frame.melee_pressed = true;
         frame.melee_held = true;
         frame.melee_released = true;
+        frame.melee_strong_hint = true;
         frame.clear_edges();
         assert!(!frame.melee_pressed);
         assert!(frame.melee_held);
         assert!(!frame.melee_released);
+        assert!(!frame.melee_strong_hint);
     }
 
     #[test]

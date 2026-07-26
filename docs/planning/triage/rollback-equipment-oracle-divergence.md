@@ -1,6 +1,6 @@
 # The combat-equipment rollback divergence
 
-**Status:** OPEN, narrowed. The oracle is `#[ignore]`d with this document as its
+**Status:** OPEN, LOCALIZED to one boolean. The oracle is `#[ignore]`d with this document as its
 reason. Opened 2026-07-26 while establishing a green baseline for the character
 definition work; **not caused by that work.**
 
@@ -92,12 +92,84 @@ geometry. Candidates, in order:
    input is registered.
 3. `SimId` allocation for attack-spawned transients across a rewind.
 
-**The missing tool** is per-component checksum localization. A GGRS sync test
+## LOCALIZED 2026-07-26: `MovePlayback.landed_hit`
+
+The missing tool below was built (`crates/ambition_runtime/src/rollback/probes.rs`,
+driven by `which_component_does_the_rollback_divergence_live_in`). It answered in
+about three seconds what bisection had not answered in a day:
+
+```
+frame 149: `ambition_combat::moveset::MovePlayback` was recomputed differently on
+           replay — first 1 entities, then 1 entities  (and 150, 151)
+```
+
+Across **99 probed types** — every rollback-registered component AND resource —
+that is the only one that disagrees, and only on the three frames the aggregate
+already named. Field-level tracing narrowed it further:
+
+| pass | `id` | `t` | `landed_hit` |
+|---|---|---|---|
+| 1 (original) | `ranged` | 0.149999991 | **true** |
+| 2 (replay) | `ranged` | 0.149999991 | true |
+| 3 (replay) | `ranged` | 0.149999991 | true |
+| 4 (replay) | `ranged` | 0.149999991 | **false** |
+
+Identical move, identical clock. The diverging value is the single boolean
+`landed_hit` — an ENEMY's `ranged` move learning that its shot connected. It is a
+real gameplay divergence, not a checksum artifact: `landed_hit` gates `OnHit` /
+`OnWhiff` cancel windows.
+
+## What is now additionally ruled OUT
+
+- **The restore — ruled out.** 148 loads were compared against their own saved
+  census; every registered component and resource came back identical. The
+  snapshot is faithful. The divergence is produced by the REPLAY.
+- **`WorldTime`, `ProperTimeScale`, and every other registered input — ruled out.**
+  All 99 probes agree, so nothing `advance_move_playback` reads from registered
+  state differs.
+- **The event going missing — ruled out.** The `HitEvent` buffer holds exactly one
+  event at frame 149 on ALL FOUR passes. The event is emitted every time; the
+  fourth pass fails to APPLY it.
+- **`MessageReader` cursors — ruled out as the cause.** Both writers of
+  `landed_hit` (`mark_move_playback_landed_hits` and `apply_feature_hit_events`)
+  read through `Local` cursors that GGRS does not rewind, which is a genuine
+  latent hazard and was the leading hypothesis. Hoisting both cursors into
+  rollback-registered resources changed the divergence **not at all** — byte
+  identical xors — so it was reverted rather than landed as churn that buys
+  nothing. The hazard is logged separately; it is not this bug.
+- **Removing `clear_message_on_rollback::<HitEvent>` — ruled out, and harmful.**
+  It moves the first divergence *earlier* (frame 14 instead of 149). The clear is
+  load-bearing.
+
+## Where to look next, sharpened
+
+The event exists and is not applied, so the difference is in the APPLY: either
+`event.attacker` names an entity the fourth pass cannot resolve to a
+`MovePlayback` (entity remapping — messages are not remapped, and the attacker is
+an enemy whose body bevy_ggrs destroyed and recreated), or the target lookup
+`playbacks.get_mut(attacker)` misses because the attacker's move ended and
+restarted across the boundary. Instrument `attacker` id + lookup success at the
+apply site; that is one more trace of the same kind and should finish it.
+
+## The tool that found it
+
+ A GGRS sync test
 reports one aggregate, so "frames [149, 150, 151] differ" is all it can say. The
 registry already installs per-component checksum projections
 (`RollbackApp::checksum_component`), so dumping those per frame and diffing across
 the save/load boundary would name the component directly instead of by bisection.
-That is the next thing to build, and it would have answered this in minutes.
+That is now built. It registers a probe beside every checksum registration — so a
+component cannot be rollback-registered and stay invisible to localization — and
+combines per-entity checksums with an order-independent wrapping SUM, because
+bevy_ggrs recreates entities and any order-dependent fold would report everything
+as diverging. (It started as XOR, which annihilates equal pairs: a component held
+identically by exactly two entities censused as `0x0`. Addition has no such
+blind spot.)
+
+It also refuses to report a green result it did not earn: the test asserts the
+audit actually performed comparisons, because a localizer that says "nothing
+diverged" while comparing nothing launders an absence of evidence into evidence
+of absence.
 
 ## Related
 

@@ -16,7 +16,7 @@ use bevy::{
 use bevy_ggrs::{GgrsPlugin, RollbackFrameRate};
 
 pub use bevy_ggrs::{
-    AdvanceWorld, AdvanceWorldSystems, ConfirmedFrameCount, GgrsSchedule, LoadWorld,
+    AdvanceWorld, AdvanceWorldSystems, ConfirmedFrameCount, GgrsSchedule, LoadWorld, SaveWorld,
     LoadWorldSystems, Rollback, RollbackFrameCount, RunGgrsSystems,
 };
 
@@ -32,10 +32,12 @@ mod codecs;
 mod motion_codec;
 #[cfg(test)]
 mod provenance_tests;
+mod probes;
 mod registry;
 mod session;
 
 pub use codec::*;
+pub use probes::*;
 pub use codecs::{ensure_sim_id, heal_projectile_owners, mint_spawned_sim_ids};
 pub use registry::*;
 pub use session::*;
@@ -130,6 +132,20 @@ impl Plugin for AmbitionRollbackPlugin {
         .add_systems(
             bevy_ggrs::LoadWorld,
             codecs::reconcile_brain_bindings.in_set(AmbitionLoadWorldSet::Reconcile),
+        );
+
+        // ── Per-component restore localization (opt-in) ──
+        //
+        // Census every registered component's checksum projection at SAVE, and
+        // again at LOAD of the same frame, so a divergence NAMES the component
+        // instead of naming a frame. Inert unless `RollbackRestoreAudit::enabled`,
+        // because censusing every registered type on every save and load is far
+        // too expensive to leave on — but installed unconditionally, so a
+        // diagnostic session is one resource insert away rather than a rebuild.
+        app.add_systems(bevy_ggrs::SaveWorld, probes::record_saved_census);
+        app.add_systems(
+            bevy_ggrs::LoadWorld,
+            probes::compare_restored_census.after(AmbitionLoadWorldSet::Reconcile),
         );
         session::install_session_bridge(app);
     }

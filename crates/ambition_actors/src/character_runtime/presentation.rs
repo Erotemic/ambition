@@ -19,6 +19,7 @@ use bevy::prelude::*;
 use std::collections::BTreeSet;
 
 use ambition_characters::actor::character_catalog::CharacterCatalogOwners;
+use ambition_sfx::PresentationSourceId;
 
 use super::{CharacterLoadStates, PreparedCharacterRegistry};
 
@@ -89,6 +90,19 @@ pub fn authorize_staged_character_presentation_sources(
             continue;
         };
         if !authorized.insert(provider.to_string()) {
+            continue;
+        }
+        // NEVER redefine a source the session already established.
+        //
+        // `select_gameplay` registers the session owner's own provider as a
+        // presentation source, with the registry and bank allowlist it had at
+        // selection time. A cast member from that same provider must not
+        // re-authorize it: `authorize_sfx_source` PANICS on a repeat with a
+        // different definition, and the definitions legitimately differ — bank ids
+        // load asynchronously, so this system's view is whatever has arrived.
+        // Late-loading banks are refreshed per provider by the audio layer, which
+        // is the seam that owns that problem.
+        if selection.is_sfx_source_authorized(&PresentationSourceId::new(provider)) {
             continue;
         }
         let sfx = audio_catalog

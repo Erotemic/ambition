@@ -596,3 +596,72 @@ fn which_population_does_the_rollback_divergence_need() {
         findings.join("\n")
     );
 }
+
+/// **Which COMPONENT does the divergence live in?** — per-component localization.
+///
+/// The sibling localizer above answers "which entity class", by bisection over
+/// five sim boots. This answers the sharper question directly, in one run: for
+/// every registered rollback component, census its checksum projection when GGRS
+/// saves a frame, and census it again when GGRS loads that same frame. A component
+/// whose census changed did not survive its own snapshot, and it is named.
+///
+/// This is the tool the triage doc ends by asking for. Two things it deliberately
+/// does NOT do:
+///
+/// * it does not compare two independent runs — that reproduces the aggregate
+///   checksum's blindness with more machinery;
+/// * it does not fold per-entity checksums in iteration order. bevy_ggrs destroys
+///   and recreates rollback entities, so ids and archetype order both change across
+///   a load; an order-dependent fold would report every component as diverging.
+///   XOR plus a count is invariant under reordering and still catches a changed
+///   value, a lost carrier, or a gained one.
+///
+/// `#[ignore]` for cost, like its sibling: it censuses every registered type on
+/// every save and every load. Run it with
+/// `./run_tests.sh --heavy -k which_component`.
+#[test]
+#[ignore = "diagnostic: per-component restore census on every save/load; run when the oracle is red"]
+fn which_component_does_the_rollback_divergence_live_in() {
+    let mut sim = oracle_sim();
+    sim.world_mut()
+        .insert_resource(ambition::runtime::rollback::RollbackRestoreAudit::enabled());
+    wear_oracle_armor(&mut sim);
+    stage_player_on_arena_floor(&mut sim);
+
+    let probes = sim
+        .world()
+        .resource::<ambition::runtime::rollback::RollbackChecksumProbes>()
+        .len();
+    assert!(
+        probes > 0,
+        "no localization probes were registered, so this test can only ever \
+         report success — the probe registration is coupled to the checksum \
+         registration precisely so that cannot happen silently"
+    );
+
+    let _ = walk_the_combat_route(&mut sim);
+
+    let audit = sim
+        .world()
+        .resource::<ambition::runtime::rollback::RollbackRestoreAudit>();
+    // Vacuity guard FIRST. A localizer that reports "nothing diverged" while never
+    // comparing anything launders an absence of evidence into evidence of absence,
+    // which is the single most useless thing a diagnostic can do.
+    assert!(
+        audit.comparisons > 0 && audit.resimulations > 0,
+        "the audit compared nothing, so its verdict is meaningless: {}",
+        audit.coverage()
+    );
+    assert!(
+        audit.divergences.is_empty(),
+        "{} registered component(s) did not survive their own snapshot across \
+         {probes} probed types. THIS IS THE ANSWER the aggregate checksum could \
+         not give:\n{}",
+        audit.diverging_types().len(),
+        audit.report()
+    );
+    // Report coverage on success too: the useful negative result is "N frames were
+    // compared and every registered component came back identical", not "no
+    // assertion fired".
+    println!("[localizer] {}", audit.coverage());
+}

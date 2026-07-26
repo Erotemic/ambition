@@ -124,6 +124,20 @@ pub enum RollbackRegistrationOutcome {
     RecordedOnly,
 }
 
+
+/// Record a localization probe beside the checksum projection.
+///
+/// Called from the SAME arm that installs the GGRS checksum, so a component
+/// cannot be rollback-registered and stay invisible to
+/// [`crate::rollback::RollbackRestoreAudit`]. Both holes in the previous
+/// instrument were "the sweep did not know to look here", and coupling the two
+/// registrations is what stops that from recurring.
+fn record_probe(app: &mut App, probe: crate::rollback::ChecksumProbe) {
+    app.world_mut()
+        .get_resource_or_insert_with(crate::rollback::RollbackChecksumProbes::default)
+        .register(probe);
+}
+
 impl RollbackRegistry {
     pub fn try_register(
         &mut self,
@@ -370,6 +384,13 @@ impl AmbitionRollbackApp for App {
         {
             self.add_plugins(ComponentSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
             RollbackApp::checksum_component(self, state_checksum::<T>);
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(
+                    std::any::type_name::<T>(),
+                    crate::rollback::census_state::<T>,
+                ),
+            );
         }
         self
     }
@@ -390,6 +411,13 @@ impl AmbitionRollbackApp for App {
         {
             RollbackApp::rollback_component_with_clone::<T>(self);
             RollbackApp::checksum_component(self, cursor_checksum::<T>);
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(
+                    std::any::type_name::<T>(),
+                    crate::rollback::census_cursor::<T>,
+                ),
+            );
         }
         self
     }
@@ -414,6 +442,13 @@ impl AmbitionRollbackApp for App {
         {
             RollbackApp::rollback_component_with_clone::<T>(self);
             RollbackApp::checksum_component(self, resolved_checksum::<T>);
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(
+                    std::any::type_name::<T>(),
+                    crate::rollback::census_resolved::<T>,
+                ),
+            );
         }
         self
     }
@@ -507,6 +542,13 @@ impl AmbitionRollbackApp for App {
         {
             self.add_plugins(ResourceSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
             RollbackApp::checksum_resource(self, state_checksum::<T>);
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(
+                    std::any::type_name::<T>(),
+                    crate::rollback::census_resource_state::<T>,
+                ),
+            );
         }
         self
     }
@@ -527,6 +569,13 @@ impl AmbitionRollbackApp for App {
         {
             RollbackApp::rollback_resource_with_clone::<T>(self);
             RollbackApp::checksum_resource(self, cursor_checksum::<T>);
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(
+                    std::any::type_name::<T>(),
+                    crate::rollback::census_resource_cursor::<T>,
+                ),
+            );
         }
         self
     }

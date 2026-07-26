@@ -68,6 +68,37 @@ impl Namespace for MoveId {
     const NAME: &'static str = "move";
 }
 
+/// Sheet manifest targets the composition can actually resolve.
+///
+/// A character's `sheet` is the single most consequential cross-layer reference it
+/// makes — get it wrong and the character draws a marked rectangle for the rest of
+/// the session. It was never resolved at preparation, so a typo here was reported
+/// only later, by the art pipeline, as `NoSheetResolved`: true, but at load time
+/// and without a did-you-mean.
+pub struct SheetTarget;
+
+impl Namespace for SheetTarget {
+    const NAME: &'static str = "sheet target";
+}
+
+/// Select-screen portrait targets.
+pub struct PortraitTarget;
+
+impl Namespace for PortraitTarget {
+    const NAME: &'static str = "portrait target";
+}
+
+/// The vfx tags a session's renderers know how to draw.
+///
+/// §4.6 derives the vfx inventory from the moves that request it, exactly like
+/// cues — and then nothing resolved it, so a misspelled `vfx` on a hit volume was
+/// derived faithfully into a dependency list nobody checked.
+pub struct VfxTag;
+
+impl Namespace for VfxTag {
+    const NAME: &'static str = "vfx tag";
+}
+
 /// Non-authoritative provenance for a generated crossover variant (§4.3).
 ///
 /// `mary_o` and `mary_o_smash` are two independent, fully-resolved products with
@@ -278,6 +309,9 @@ fn derive_presentation_dependencies(
 #[derive(Default)]
 pub struct CharacterBindings {
     cues: Option<Resolver<SfxCueId>>,
+    sheets: Option<Resolver<SheetTarget>>,
+    portraits: Option<Resolver<PortraitTarget>>,
+    vfx: Option<Resolver<VfxTag>>,
 }
 
 impl CharacterBindings {
@@ -291,10 +325,75 @@ impl CharacterBindings {
         self
     }
 
+    /// Check authored sheet targets against what the composition can resolve.
+    pub fn with_available_sheets<I, S>(mut self, targets: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.sheets = Some(Resolver::new(targets));
+        self
+    }
+
+    pub fn with_available_portraits<I, S>(mut self, targets: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.portraits = Some(Resolver::new(targets));
+        self
+    }
+
+    /// Fill in the engine's baked sheet vocabulary unless the caller supplied one.
+    ///
+    /// Kept OUT of `prepare_character`, which stays a pure function of its
+    /// arguments: reaching into a baked global from inside preparation would make
+    /// the same definition prepare differently depending on the build. This is the
+    /// registration seam's job, because registration is where the engine is.
+    pub fn with_engine_sheet_vocabulary(mut self) -> Self {
+        if self.sheets.is_none() {
+            self.sheets = Some(Resolver::new(
+                ambition_sprite_sheet::character::sheets::available_targets(),
+            ));
+        }
+        self
+    }
+
+    /// Check the DERIVED vfx inventory against the tags renderers know.
+    pub fn with_known_vfx_tags<I, S>(mut self, tags: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.vfx = Some(Resolver::new(tags));
+        self
+    }
+
     fn checked(&self) -> Vec<&'static str> {
+        // `MoveId` is always checkable: a verb and a hurtbox override resolve
+        // against the character's OWN moves, so no session vocabulary is needed.
+        // Everything else is only checked when a resolver was supplied, and its
+        // absence from this list is the honest report of "we did not look".
+        //
+        // NOT listed, deliberately: `BodySource` is an inline enum, not a
+        // reference — `SpriteAuthored { world_per_pixel }` and
+        // `Explicit { half_extents }` name nothing outside the character — so
+        // there is no "body" namespace to resolve. GPT-5.6's review listed bodies
+        // alongside sheets and portraits; that part of the finding does not apply,
+        // and inventing a namespace to satisfy it would be a resolver that always
+        // succeeds.
         let mut out = vec![MoveId::NAME];
         if self.cues.is_some() {
             out.push(SfxCueId::NAME);
+        }
+        if self.sheets.is_some() {
+            out.push(SheetTarget::NAME);
+        }
+        if self.portraits.is_some() {
+            out.push(PortraitTarget::NAME);
+        }
+        if self.vfx.is_some() {
+            out.push(VfxTag::NAME);
         }
         out
     }
@@ -362,6 +461,30 @@ pub fn prepare_character(
         for cue in &cue_dependencies {
             if cue_resolver.bind(cue).is_none() {
                 ledger.record(cue_resolver.explain(cue, declared_by.clone()));
+            }
+        }
+    }
+
+    // The art references. Each is checked only when the composition supplied the
+    // vocabulary; `checked` reports which ones it could.
+    if let (Some(resolver), Some(sheet)) = (bindings.sheets.as_ref(), definition.sheet.as_deref()) {
+        if resolver.bind(sheet).is_none() {
+            ledger.record(resolver.explain(sheet, declared_by.clone()));
+        }
+    }
+    if let (Some(resolver), Some(portrait)) =
+        (bindings.portraits.as_ref(), definition.portrait.as_deref())
+    {
+        if resolver.bind(portrait).is_none() {
+            ledger.record(resolver.explain(portrait, declared_by.clone()));
+        }
+    }
+    // The DERIVED vfx inventory, resolved the same way the derived cue inventory
+    // is. §4.6 derived this list and then nothing looked at it.
+    if let Some(resolver) = bindings.vfx.as_ref() {
+        for tag in &vfx_dependencies {
+            if resolver.bind(tag).is_none() {
+                ledger.record(resolver.explain(tag, declared_by.clone()));
             }
         }
     }
@@ -503,11 +626,11 @@ pub trait CharacterDefinitionAppExt {
     fn try_register_character(
         &mut self,
         definition: CharacterDefinition,
-        bindings: &CharacterBindings,
+        bindings: CharacterBindings,
     ) -> Result<&mut Self, CharacterRegistrationError>;
 
     fn register_character(&mut self, definition: CharacterDefinition) -> &mut Self {
-        self.try_register_character(definition, &CharacterBindings::default())
+        self.try_register_character(definition, CharacterBindings::default())
             .unwrap_or_else(|error| panic!("{error}"))
     }
 }
@@ -516,15 +639,21 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
     fn try_register_character(
         &mut self,
         definition: CharacterDefinition,
-        bindings: &CharacterBindings,
+        bindings: CharacterBindings,
     ) -> Result<&mut Self, CharacterRegistrationError> {
         if definition.id.trim().is_empty() {
             return Err(CharacterRegistrationError::BlankId);
         }
         let provider = definition.provider.clone();
+        // The engine supplies its OWN vocabulary. A sheet target resolves against
+        // the baked manifest index, which the engine always knows, so every
+        // registration gets its sheet reference checked with a did-you-mean whether
+        // or not the provider thought to pass a resolver. A boundary that only
+        // works when the caller opts in is a boundary most callers will not have.
+        let bindings = bindings.with_engine_sheet_vocabulary();
         let PreparedCharacter {
             prepared, report, ..
-        } = prepare_character(definition, bindings);
+        } = prepare_character(definition, &bindings);
         let id = prepared.id.clone();
 
         // Transactional: assemble the candidate, and only publish if the id is

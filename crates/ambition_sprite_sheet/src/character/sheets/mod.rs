@@ -190,6 +190,17 @@ fn record_index() -> &'static HashMap<String, SheetRecord> {
 /// has a catalog `manifest_target()` can read the record's generator-emitted
 /// `body_metrics` / frame dims without going through the Bevy
 /// [`SheetRegistry`] resource (works headless / pre-asset-load).
+/// Every baked sheet manifest target, sorted.
+///
+/// The vocabulary a character's `sheet` reference resolves against. The engine
+/// always knows this — it is baked — so a provider should never have to hand it
+/// over just to have its typo caught.
+pub fn available_targets() -> Vec<&'static str> {
+    let mut out: Vec<&'static str> = record_index().keys().map(String::as_str).collect();
+    out.sort_unstable();
+    out
+}
+
 pub fn record_for_target(target: &str) -> Option<&'static SheetRecord> {
     record_index().get(target)
 }

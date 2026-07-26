@@ -263,7 +263,7 @@ fn preparation_provenance_survives_registration() {
     let mut app = App::new();
     app.try_register_character(
         mary_o(),
-        &CharacterBindings::default().with_authorized_cues(["swing", "hit_flesh"]),
+        CharacterBindings::default().with_authorized_cues(["swing", "hit_flesh"]),
     )
     .expect("registers");
     let checked = app
@@ -317,7 +317,7 @@ fn two_providers_cannot_author_the_same_stable_id() {
     let error = app
         .try_register_character(
             CharacterDefinition::new("mary_o", "Impostor", "other_provider"),
-            &CharacterBindings::default(),
+            CharacterBindings::default(),
         )
         .err()
         .expect("a duplicate stable id must be refused");
@@ -359,4 +359,57 @@ fn a_definition_carries_no_controller_binding() {
         vitals: _,
         moveset: _,
     } = def;
+}
+
+/// **A12.** Sheets, portraits and the DERIVED vfx inventory are resolved too.
+///
+/// `CharacterBindings` carried only a cue resolver, so `was_checked` reported
+/// honestly about four namespaces nobody checked. A misspelled sheet target was
+/// reported later by the art pipeline as `NoSheetResolved` — true, but at load
+/// time, without a did-you-mean, and indistinguishable from a legitimately
+/// art-free build.
+#[test]
+fn sheets_portraits_and_derived_vfx_are_resolved_at_preparation() {
+    let definition = CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo")
+        .with_sheet("super_mary_o_sprtiesheet") // typo
+        .with_moveset(moveset_with(&[("attack", "slash")], vec![slash("slash", "swing", "hit")]));
+
+    // Nothing supplied: every art namespace reports NOT CHECKED, and the report is
+    // clean — because nobody looked, which must not read as "looked and fine".
+    let unchecked = prepare_character(definition.clone(), &CharacterBindings::default());
+    assert!(!unchecked.prepared.was_checked(SheetTarget::NAME));
+    assert!(unchecked.is_clean());
+
+    // Vocabulary supplied: the typo is NAMED at preparation.
+    let checked = prepare_character(
+        definition,
+        &CharacterBindings::default()
+            .with_available_sheets(["super_mary_o_spritesheet", "sanic_spritesheet"]),
+    );
+    assert!(checked.prepared.was_checked(SheetTarget::NAME));
+    assert!(
+        !checked.is_clean(),
+        "a misspelled sheet target must be reported at preparation, not left for \
+         the art pipeline to call `NoSheetResolved` at load time"
+    );
+}
+
+/// A derived vfx tag nobody can draw is named — the same treatment cues get.
+#[test]
+fn a_derived_vfx_tag_no_renderer_knows_is_named() {
+    let mut spec = slash("slash", "swing", "hit");
+    spec.windows[0].volumes[0].vfx = Some("spark_blosom".to_string()); // typo
+    let definition = CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo")
+        .with_moveset(moveset_with(&[("attack", "slash")], vec![spec]));
+
+    let prepared = prepare_character(
+        definition,
+        &CharacterBindings::default().with_known_vfx_tags(["spark_blossom"]),
+    );
+    assert!(prepared.prepared.was_checked(VfxTag::NAME));
+    assert!(
+        !prepared.is_clean(),
+        "§4.6 derives the vfx inventory from the moves that request it; deriving it \
+         faithfully into a list nobody resolves is only half the boundary"
+    );
 }

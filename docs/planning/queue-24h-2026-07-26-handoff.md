@@ -67,6 +67,14 @@ registration seam: a type cannot be rollback-registered, or declared derived,
 without also getting a probe. **If any rollback divergence appears, run the
 localizer FIRST.**
 
+⚠ That coupling sentence was written before it was true (F3). `record_probe` was
+called from five of the ten state-bearing registration arms, so 145 types —
+including `ProjectileOwner`, the state A6 turned on — were invisible to the
+localizer while it reported success. All five arms probe now, and
+`every_state_bearing_rollback_registration_owns_a_localization_probe` (not
+`#[ignore]`d) is what makes the sentence checkable rather than aspirational. If
+you add a registration arm, it needs a probe or that test fails.
+
 Two design points that matter if you extend it: per-entity checksums combine with
 a wrapping SUM (XOR annihilates equal pairs — a component held identically by two
 entities censused as `0x0`), and derived probes are compared at the RESIMULATION
@@ -97,12 +105,25 @@ make that question mechanical rather than remembered.
 ## 5. State of play
 
 **Closed and committed:** A1–A9, A11, A12, A13, A17, A18, A19, plus A5's
-provenance half. The rollback oracle is green and un-quarantined. Suite green; 12 of
-13 guard checks green (the ledger row is the open one, by design).
+provenance half, plus **F1–F5** (a second GPT-5.6 review of the same run —
+section F of the ledger). The rollback oracle is green and un-quarantined.
 
-**The goal is DISARMED** as of the handoff, at Jon's instruction — a fresh agent
-re-arms it (§1). Nothing is mid-edit: the last commit is `366d0f5a7` and the tree
-is clean apart from `assets/manual-art/` (not mine) and the usual scratch paths.
+**The goal is ARMED**, 19 checks: the original 13 plus one per closed F row. Six
+of the F checks were green at arming rather than red, which is the correct state
+for a regression guard on already-closed work — the RED-at-arming rule in §1
+applies to a check for work not yet done.
+
+**What F1–F5 changed, if you are picking up cold:**
+
+* a body's cue attribution is read from `BodyPresentationSource`, published on the
+  SIM schedule before the move clock; `advance_move_playback` re-derives nothing;
+* `CharacterLoadStates` is history (`staged_tokens()`), `StagedCast` is the roster
+  (`cast()`), and it belongs to one `SessionScopeId`;
+* the rollback localizer probes all 250 state-bearing registrations, not 105, and
+  a non-ignored test forces that coupling;
+* the coverage sweep's population comes from the rollback VOCABULARY, so it
+  reaches transients — which turned up `PortalGunPickup` and `PortalHostScanned`
+  as unregistered sim state.
 
 **Open, in the order I would take them:**
 
@@ -117,10 +138,15 @@ is clean apart from `assets/manual-art/` (not mine) and the usual scratch paths.
    NOT to be A6's cause (hoisting both changed the checksums not at all, so it was
    reverted rather than landed as churn) but a real latent hazard the roadmap's
    Task 1 already calls out.
-5. **C1–C4** — `character-definition-design.md` §0 follow-ups: the effort migration
-   off absolute `patrol_speed`/`chase_speed`; **no character authors a `HurtboxDoc`
-   yet** (now worth doing, since as of A7 the seam genuinely reaches damage); the
-   prepared authority still coexisting with the six old seams; no versus mode.
+5. **C3 first, then C1/C2/C4** — `character-definition-design.md` §0 follow-ups.
+   C3 was promoted by F6: production fighter construction still reads
+   `CharacterCatalog` for its action set, moveset, and movement tuning, so
+   registering a character does NOT yet reach a production-spawned body. The
+   §7.10 fight test projects the prepared definition by hand, and the slice table
+   now says so. Doing C3 is what makes "read models derive from the prepared
+   authority" true. Then: the effort migration off absolute
+   `patrol_speed`/`chase_speed`; **no character authors a `HurtboxDoc` yet** (now
+   worth doing, since as of A7 the seam genuinely reaches damage); no versus mode.
 6. **D1–D4** — `competitive-2d-platformer-engine-roadmap.md`: eleven of twelve tasks
    still carry no status marker, which is its own defect.
 
@@ -128,7 +154,12 @@ is clean apart from `assets/manual-art/` (not mine) and the usual scratch paths.
 
 He asked whether we can start **Super Smash Siblings**. Answer given: the character
 layer is ready — two providers' characters trade damage through the production
-chain, and percent-scaling knockback already exists (`scaled_knockback`). What does
+chain, and percent-scaling knockback already exists (`scaled_knockback`).
+
+⚠ Sharpen that first clause with what F6 established: the DAMAGE path is production,
+and the body CONSTRUCTION in that test is not. A Smash match will need C3 (project
+the prepared definition onto a spawned fighter) before it can seat a registered
+character without hand-inserting its components. What does
 not exist is a MATCH layer: `ControllerBinding` has no consumer outside its own
 module and the fight test, and there are zero hits repo-wide for stocks, blast
 zones, or KO. Recommended first slice: a `MatchSession` consuming

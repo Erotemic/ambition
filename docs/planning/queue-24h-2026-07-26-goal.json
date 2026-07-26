@@ -42,7 +42,7 @@
   "checks": [
     {
       "name": "the open-items ledger has no open rows (refill it rather than stopping)",
-      "cmd": "! grep -q '▢' docs/planning/queue-24h-2026-07-26.md"
+      "cmd": "! grep -q '\u25a2' docs/planning/queue-24h-2026-07-26.md"
     },
     {
       "name": "A1 registration is DECLARATIVE: it no longer demands art itself",
@@ -102,6 +102,36 @@
     {
       "name": "nothing is left uncommitted",
       "cmd": "test -z \"$(git status --porcelain -- ':!.llm_resource_tally' ':!.goal' ':!untracked' ':!tools/ambition_sprite2d_renderer' ':!game/ambition_content/assets/data/character_drafts' ':!docs/planning/gpt-diff.patch' ':!assets/manual-art')\""
+    },
+    {
+      "name": "F1 a swing is credited to the character that swung it, not the session owner",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib two_provider_characters_trade_damage_through_the_real_damage_path 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
+    },
+    {
+      "name": "F2 the cast is THIS session's, by canonical id (display names + a second session)",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib character_runtime::presentation::tests::a_new_session_does_not_inherit_the_previous_casts_providers 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
+    },
+    {
+      "name": "F2 a room staging a DISPLAY NAME authorizes that character's provider",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib staging_a_character_by_display_name_authorizes_its_provider 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
+    },
+    {
+      "name": "F3 every state-bearing rollback registration owns a localization probe",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_app --features rl_sim --test app_it rollback_exit_oracle::every_state_bearing_rollback_registration_owns_a_localization_probe 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
+    },
+    {
+      "name": "F4 the decode path declares a registered character itself (no system-order race)",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib the_decode_path_declares_a_registered_character_itself 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
+    },
+    {
+      "name": "F5 the coverage sweep inspects a strike volume while it is LIVE",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_app --features rl_sim --test app_it rollback_coverage::every_component_on_a_live_strike_volume_is_registered_derived_or_waived 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
     }
   ]
 }

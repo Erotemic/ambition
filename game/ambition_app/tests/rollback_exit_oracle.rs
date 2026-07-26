@@ -11,11 +11,19 @@
 //! The scenario runs in `combat_calibration_lab` — the combat-verb calibration
 //! room — which authors a patrol enemy, a striker pair, a breakable brick, and
 //! the classify-console switch along one floor route. A steering policy walks
-//! the route: melee whatever is in reach (enemies and the brick), absorb one
-//! enemy hit with a worn armor row, and flip the switch at the end. Every
-//! event is asserted from world state, so a green run can't be vacuous — if
-//! the policy never actually landed the hit, the test fails on the
-//! observation, not the checksum.
+//! the route: absorb one enemy hit with a worn armor row, break the brick, land a
+//! melee hit, and flip the switch. Every event is asserted from world state, so a
+//! green run can't be vacuous — if the policy never actually landed the hit, the
+//! test fails on the observation, not the checksum.
+//!
+//! ⚠ That last sentence is the whole design, and it is load-bearing because this
+//! route DID stop doing two of the four things and stayed green for it. The
+//! walker aimed at the breakable brick's centre, walked into a block whose top
+//! face stands 32 above the floor, hopped onto it, and swung horizontally over
+//! the thing it was breaking — so `brick_broken` and (gated behind it in route
+//! order) `switch_flipped` were false on every pass. A steering policy is
+//! CONTENT-SHAPED: it can stop reaching a prop because the room changed, with no
+//! compile error and no failing assertion unless the assertion exists.
 
 #![cfg(feature = "rl_sim")]
 
@@ -26,6 +34,9 @@ use bevy::prelude::{Entity, With, Without};
 
 const ORACLE_ARMOR_ID: &str = "oracle_armor";
 const MAX_FRAMES: usize = 2400;
+/// Frames the route keeps resimulating even after every observation has landed.
+/// See the early-exit guard in `walk_the_combat_route`.
+const MIN_FRAMES: usize = 600;
 
 fn oracle_sim() -> SandboxSim {
     SandboxSim::new_with_options(
@@ -174,11 +185,40 @@ fn enemy_positions(sim: &mut SandboxSim) -> Vec<(f32, f32)> {
         .collect()
 }
 
+/// A prop's box, in sim space: center plus half-width.
+///
+/// The half-width is not decoration. The brick is a 48x48 block whose top face
+/// stands 32 above the floor, so a policy that steers at its CENTER walks into it,
+/// climbs it (the route's periodic hop is enough), and then swings horizontally
+/// over the thing it is trying to break. That is exactly what this route did for
+/// its whole existence — see `brick_standoff`.
+#[derive(Clone, Copy, Debug)]
+struct PropBox {
+    x: f32,
+    y: f32,
+    half_w: f32,
+}
+
+/// Where to STAND to hit the brick, rather than where the brick is.
+///
+/// Approach from whichever side the player is already on, and stop clear of the
+/// block's face by its half-width plus the swing's reach. The strike volume is
+/// offset forward of the body, so standing flush against the face puts the volume
+/// PAST the block — and standing on top of it puts the volume above it.
+fn brick_standoff(brick: PropBox, px: f32) -> f32 {
+    const STANDOFF: f32 = 26.0;
+    if px <= brick.x {
+        brick.x - brick.half_w - STANDOFF
+    } else {
+        brick.x + brick.half_w + STANDOFF
+    }
+}
+
 /// Positions of the actionable things, in sim space, queried live so the
 /// policy needs no knowledge of the room's coordinate frame.
 fn target_positions(
     sim: &mut SandboxSim,
-) -> (Vec<(f32, f32)>, Option<(f32, f32)>, Option<(f32, f32)>) {
+) -> (Vec<(f32, f32)>, Option<PropBox>, Option<(f32, f32)>) {
     let enemies = enemy_positions(sim);
     let world = sim.world_mut();
 
@@ -189,7 +229,11 @@ fn target_positions(
         )>();
         q.iter(world)
             .find(|(feature, _)| !feature.broken())
-            .map(|(_, aabb)| (aabb.center.x, aabb.center.y))
+            .map(|(_, aabb)| PropBox {
+                x: aabb.center.x,
+                y: aabb.center.y,
+                half_w: aabb.size().x / 2.0,
+            })
     };
 
     let switch = {
@@ -444,12 +488,16 @@ fn walk_the_combat_route(
             .copied()
             .map(|(x, y)| (x, y, (x - px).abs()))
             .min_by(|a, b| a.2.total_cmp(&b.2));
+        // Is the brick the current objective? Kept as its own flag because two
+        // parts of the action below depend on it, and re-deriving the condition in
+        // both is how they drift apart.
+        let breaking_brick = events.armor_spent && !events.brick_broken && brick.is_some();
         let target_x = if events.switch_flipped {
             px
         } else if !events.armor_spent {
             nearest_enemy.map(|(x, _, _)| x).unwrap_or(px)
-        } else if !events.brick_broken {
-            brick.map(|(x, _)| x).unwrap_or(px)
+        } else if breaking_brick {
+            brick.map(|b| brick_standoff(b, px)).unwrap_or(px)
         } else if !events.melee_landed {
             nearest_enemy.map(|(x, _, _)| x).unwrap_or(px)
         } else if let Some((x, _)) = switch {
@@ -471,9 +519,15 @@ fn walk_the_combat_route(
             // Interact pulses flip the switch once the player stands in its
             // region; harmless elsewhere (single-press Up never triggers).
             interact: near && frame % 10 == 5,
-            // An occasional hop un-sticks the walk against bodies and debris.
-            jump: frame % 90 == 40,
-            jump_held: frame % 90 >= 40 && frame % 90 < 48,
+            // An occasional hop un-sticks the walk against bodies and debris —
+            // but NEVER while the brick is the objective. The brick's top face
+            // stands 32 above the floor, well within one hop, and a walker that
+            // lands on top of it is a walker whose forward strike sweeps the air
+            // above the block forever. This route spent its entire existence up
+            // there (A16): standing at x=900 on a brick centred at (904, 728),
+            // swinging, and reporting no break.
+            jump: !breaking_brick && frame % 90 == 40,
+            jump_held: !breaking_brick && frame % 90 >= 40 && frame % 90 < 48,
             ..AgentAction::default()
         };
 
@@ -512,29 +566,40 @@ fn walk_the_combat_route(
             );
         }
         frames_run = frame + 1;
-        if events.all() {
+        // Do not stop the moment the route is complete. Every event now lands
+        // inside the first ~180 frames, and the divergence this oracle was built
+        // for lived at frames 149-151 — a run that exits at the last event would
+        // have a rollback window barely wider than the bug it is guarding. Keep
+        // resimulating to the floor, holding position, so the enemies' revive and
+        // re-aggro cycles keep churning combat state inside the window.
+        if events.all() && frames_run >= MIN_FRAMES {
             break;
         }
     }
     (Ok(()), events, frames_run, census)
 }
 
-/// ⚠ **Known red, narrowed, not fixed** — see
-/// `docs/planning/triage/rollback-equipment-oracle-divergence.md`.
+/// **Track 0's exit criterion, in one run.** All four events, checksum-identical.
 ///
-/// It went red when the protagonist got a new sheet (`560c923cd`) and diverges at
-/// frames ~[149, 150, 151] with `melee=true armor=true`. Two genuine unrewound
-/// components were found and fixed while chasing it (`IdentityKit`,
-/// `PlayerVisual`), and the coverage instrument was widened twice — it had never
-/// inspected the player, nor any transient entity — but the divergence survives
-/// all of that, so it is a VALUE divergence in registered state rather than a
-/// coverage gap. The triage doc records what is ruled out and what to build next
-/// (per-component checksum localization).
+/// This was `#[ignore]`d and red for a long time, and the history is worth keeping
+/// because two different failures were tangled together in it:
 ///
-/// `#[ignore]`d rather than deleted or weakened: there is no threshold here to
-/// loosen — a sync-test checksum matches or it does not — so the only honest
-/// options are "fixed" or "named and quarantined". This is the second, and
-/// `--heavy` still runs it.
+/// * a genuine **value divergence** at frames ~[149, 150, 151] —
+///   `docs/planning/triage/rollback-equipment-oracle-divergence.md` records the
+///   bisection. `IdentityKit` and `PlayerVisual` were found and fixed on the way;
+///   the actual cause was `ProjectileOwner` declared rollback-DERIVED on the
+///   promise of a system whose query could not see enemy projectiles. Fixed, and
+///   the quarantine lifted;
+/// * a **route** that never touched either prop. Hidden by the first failure — the
+///   checksum blew up at frame ~153, so nobody saw how far the walker got. It
+///   steered at the brick's centre, climbed the block, and swung over it. Fixed by
+///   standing off the face and not hopping while the brick is the objective.
+///
+/// The order matters for anyone reading the git history: the determinism fix made
+/// the route's silence visible, and only then could the two prop assertions be
+/// restored. A green checksum over a route that does nothing is the failure mode
+/// this file is most exposed to, which is why every event is observed from world
+/// state and every observation is asserted.
 #[test]
 fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     let mut sim = oracle_sim();
@@ -561,24 +626,31 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
         "the armor row was never consumed in {frames_run} frames — the oracle \
          never exercised equipment state"
     );
-    // ⚠ The brick and the switch are NOT asserted, and that is a recorded gap
-    // rather than a loosened guard.
+    // A16: these two are asserted again, and the route reaches them.
     //
-    // Both were false on every run of this route, before and after the divergence
-    // was fixed — the `#[ignore]` simply hid it, because the checksum blew up at
-    // frame ~153 and the route never got that far. Now that it walks all 2400
-    // frames the truth is visible: the walker reaches the enemies and takes its
-    // armor hit, and never lands a strike on either prop.
+    // They were replaced by an inverted guard for one run, because both were false
+    // on every pass of this route — before and after the determinism fix — and
+    // asserting something the walker had never done would have made the oracle red
+    // for a reason unrelated to the determinism it exists to guard. The inverted
+    // guard is what reported that the route had started reaching them.
     //
-    // Asserting them would be asserting something the route has never done, which
-    // makes the whole oracle red for a reason unrelated to determinism — the thing
-    // it exists to guard. The melee and armor guards below DO fire, so the
-    // checksum agreement above is agreement about live combat and equipment state,
-    // not about an idle world. Restoring prop coverage is A16 in the 24h queue.
+    // What was actually wrong was the STEERING, not the props: the policy aimed at
+    // the brick's centre, walked into a 48x48 block whose top face stands 32 above
+    // the floor, and the route's periodic hop put the player ON it — swinging
+    // horizontally over the thing it was trying to break, for 2400 frames. It now
+    // stops clear of the face and does not hop while the brick is the objective.
+    // The switch was never unreachable; it was simply gated behind the brick in
+    // route order.
     assert!(
-        !events.brick_broken && !events.switch_flipped,
-        "the route now reaches the props — delete this and restore the two \
-         assertions it replaced (queue item A16)"
+        events.brick_broken,
+        "the brick was never broken in {frames_run} frames — Track 0's exit \
+         criterion names it explicitly, and breakable state is registered rollback \
+         state that nothing else in this suite exercises inside a rewind window"
+    );
+    assert!(
+        events.switch_flipped,
+        "the switch was never flipped in {frames_run} frames — the walker either \
+         never reached x≈1132 or its interact pulses did not land"
     );
 
     let stats = sim

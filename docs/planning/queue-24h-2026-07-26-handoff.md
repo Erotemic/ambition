@@ -104,7 +104,7 @@ make that question mechanical rather than remembered.
 
 ## 5. State of play
 
-**Closed and committed:** A1–A9, A11, A12, A13, A17, A18, A19, plus A5's
+**Closed and committed:** A1–A9, A11–A13, A16, A17, A18, A19, plus A5's
 provenance half, plus **F1–F5** (a second GPT-5.6 review of the same run —
 section F of the ledger). The rollback oracle is green and un-quarantined.
 
@@ -125,20 +125,25 @@ applies to a check for work not yet done.
   reaches transients — which turned up `PortalGunPickup` and `PortalHostScanned`
   as unregistered sim state.
 
+**A16 is closed too, and its lesson is not about rollback.** The exit oracle's
+route had stopped reaching two of its four objectives because it steered at a
+breakable brick's CENTRE, climbed the block, and swung over it. A steering policy
+is content-shaped: it can quietly stop reaching a prop when a room changes, with
+no compile error. The oracle now runs a `MIN_FRAMES` floor of 600 so completing
+the route early does not shrink the rollback window below the frames-149-151 bug
+it exists to guard.
+
 **Open, in the order I would take them:**
 
-1. **A16** — the oracle's route has NEVER broken the brick or flipped the switch.
-   Currently guarded by an INVERTED assertion that goes red the moment the route
-   reaches them; restore the real assertions then.
-2. **A10** — audit for other vacuous A-not-B fixtures (see §2).
-3. **A20/A21** — mounts, falling sand and the shop have no LDtk room, so sweeping
+1. **A10** — audit for other vacuous A-not-B fixtures (see §2).
+2. **A20/A21** — mounts, falling sand and the shop have no LDtk room, so sweeping
    them needs a Rust fixture; and the default-features demo jobs are outside the
    plan.
-4. **A14** — `MessageReader` cursors are `Local` state GGRS never rewinds. Measured
+3. **A14** — `MessageReader` cursors are `Local` state GGRS never rewinds. Measured
    NOT to be A6's cause (hoisting both changed the checksums not at all, so it was
    reverted rather than landed as churn) but a real latent hazard the roadmap's
    Task 1 already calls out.
-5. **C3 first, then C1/C2/C4** — `character-definition-design.md` §0 follow-ups.
+4. **C3 first, then C1/C2/C4** — `character-definition-design.md` §0 follow-ups.
    C3 was promoted by F6: production fighter construction still reads
    `CharacterCatalog` for its action set, moveset, and movement tuning, so
    registering a character does NOT yet reach a production-spawned body. The
@@ -147,7 +152,7 @@ applies to a check for work not yet done.
    authority" true. Then: the effort migration off absolute
    `patrol_speed`/`chase_speed`; **no character authors a `HurtboxDoc` yet** (now
    worth doing, since as of A7 the seam genuinely reaches damage); no versus mode.
-6. **D1–D4** — `competitive-2d-platformer-engine-roadmap.md`: eleven of twelve tasks
+5. **D1–D4** — `competitive-2d-platformer-engine-roadmap.md`: eleven of twelve tasks
    still carry no status marker, which is its own defect.
 
 ## 6. Jon's answered question, for continuity

@@ -132,6 +132,11 @@
       "name": "F5 the coverage sweep inspects a strike volume while it is LIVE",
       "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_app --features rl_sim --test app_it rollback_coverage::every_component_on_a_live_strike_volume_is_registered_derived_or_waived 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
+    },
+    {
+      "name": "A16 the oracle route BREAKS the brick and FLIPS the switch (not just melee+armor)",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_app --features rl_sim --test app_it rollback_exit_oracle::combat_equipment_switch_and_breakable_survive_forced_rollback_identically 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
     }
   ]
 }

@@ -121,11 +121,24 @@ real gameplay divergence, not a checksum artifact: `landed_hit` gates `OnHit` /
 
 ## What is now additionally ruled OUT
 
+⚠ **Read the two "every registered ..." bullets below with their 2026-07-26
+correction.** When they were written, the localizer probed 105 of 250
+state-bearing registrations — five of the ten registration arms recorded no probe
+at all, so `RoomSet`, `LdtkRuntimeIndex`, `EncounterParticipants`,
+`PendingPlayerHitEvents` and `ProjectileOwner` were invisible to it (GPT-5.6
+review, finding F3). A statement about "every registered component" could not be
+supported by that run, and `ProjectileOwner` being among the blind spots is not a
+coincidence — it is what this whole triage turned out to be about.
+
+All ten arms probe now, and the localizer was re-run over all 250 types across
+2395 compared loads: still clean. The conclusions below therefore hold, but they
+hold on the re-run, not on the run that first stated them.
+
 - **The restore — ruled out.** 148 loads were compared against their own saved
   census; every registered component and resource came back identical. The
   snapshot is faithful. The divergence is produced by the REPLAY.
 - **`WorldTime`, `ProperTimeScale`, and every other registered input — ruled out.**
-  All 99 probes agree, so nothing `advance_move_playback` reads from registered
+  All probes agree, so nothing `advance_move_playback` reads from registered
   state differs.
 - **The event going missing — ruled out.** The `HitEvent` buffer holds exactly one
   event at frame 149 on ALL FOUR passes. The event is emitted every time; the

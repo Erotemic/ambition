@@ -21,6 +21,12 @@ pub fn refresh_actor_damageable_volumes(
             &CenteredAabb,
             &ActorDisposition,
             Option<&ambition_characters::actor::BodyHealth>,
+            // §7.10: a body that AUTHORED hurtboxes publishes those instead of its
+            // coarse envelope. Exactly the seam the boss path already uses for its
+            // head/hand volumes -- an authored silhouette beats a bounding
+            // rectangle, and now any character can have one, not just a boss.
+            Option<&crate::character_runtime::ResolvedHurtboxes>,
+            Option<&crate::actor::BodyKinematics>,
             &mut DamageableVolumes,
         ),
         // Exclude bosses: they ALSO carry `DamageableVolumes` + the shared
@@ -34,7 +40,7 @@ pub fn refresh_actor_damageable_volumes(
         ),
     >,
 ) {
-    for (aabb, _disposition, health, mut damageable) in &mut actors {
+    for (aabb, _disposition, health, hurtboxes, kin, mut damageable) in &mut actors {
         // Structural tangibility gate (Jon 2026-07-22): a live body — peaceful or
         // hostile — is a valid player-strike / pogo target; a dead one is an
         // intangible corpse and publishes no volume (so you cannot pogo off a
@@ -42,8 +48,21 @@ pub fn refresh_actor_damageable_volumes(
         // whether the player can refresh a downslash from the body.
         if crate::combat::util::body_is_corpse(health) {
             damageable.clear();
-        } else {
-            damageable.set_single(aabb.aabb());
+            continue;
+        }
+        // Authored volumes win. `Some(vec![])` is a real authored answer meaning
+        // "invulnerable during this window", so it must NOT fall through to the
+        // coarse box -- that fallthrough would silently delete an authored
+        // invulnerability.
+        let authored = hurtboxes.zip(kin).and_then(|(resolved, kin)| {
+            use bevy::math::bounding::BoundingVolume;
+            resolved.world_volumes(kin.aabb().center(), kin.facing)
+        });
+        match authored {
+            Some(volumes) => {
+                damageable.volumes = volumes.into_iter().map(|v| v.aabb()).collect();
+            }
+            None => damageable.set_single(aabb.aabb()),
         }
     }
 }

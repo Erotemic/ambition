@@ -778,6 +778,21 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // The pose→geometry binding itself. Constant per body, but a body the
     // rewind RE-CREATES must come back still bound to its sheet — otherwise it
     // silently reverts to whatever box it was spawned with and never recovers.
+    // A body's pose clock ACCUMULATES, and its elapsed value selects which hurtbox
+    // keyframe is live -- so a rewind that lost it would resolve a body's damageable
+    // silhouette from a different instant than the confirmed timeline did.
+    .rollback_component_clone::<ambition_actors::character_runtime::BodyPoseClock>(
+        ENGINE,
+        "actor.body_pose_clock",
+    )
+    // Authored and immutable at runtime, but bevy_ggrs DESTROYS AND RECREATES
+    // rollback entities: unregistered, the doc is simply absent afterwards and the
+    // body silently reverts to its sprite-derived compatibility box forever. Same
+    // reasoning as `SwitchFeature`.
+    .rollback_component_clone::<ambition_actors::character_runtime::AuthoredHurtboxes>(
+        ENGINE,
+        "actor.authored_hurtboxes",
+    )
     .rollback_component_clone::<ambition_actors::character_sprites::SpritePosedBody>(
         ENGINE,
         "actor.sprite_posed_body",
@@ -985,6 +1000,15 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "derived.resolved_technique_edges",
         "cleared and republished from current input every frame",
+    )
+    // Recomputed every tick from the authored doc plus the move/pose clocks before
+    // anything tests against it, so there is nothing to restore -- and registering
+    // it would invite someone to MUTATE it, which is how a hurtbox stops being a
+    // pure function of authoritative state (§4.11).
+    .declare_rollback_derived::<ambition_actors::character_runtime::ResolvedHurtboxes>(
+        ENGINE,
+        "derived.resolved_hurtboxes",
+        "recomputed from AuthoredHurtboxes plus the move and pose clocks each tick",
     )
     .declare_rollback_derived::<ambition_characters::actor::attack_gesture::ResolvedAttackGesture>(
         ENGINE,

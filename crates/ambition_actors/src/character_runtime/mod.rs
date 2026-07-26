@@ -36,6 +36,7 @@
 
 pub mod audit;
 pub mod definition;
+pub mod hurtbox;
 pub mod staging;
 
 pub use audit::{
@@ -43,9 +44,13 @@ pub use audit::{
     unsettled_staged_characters,
 };
 pub use definition::{
-    prepare_character, BodySource, CharacterBindings, CharacterDefinition,
-    CharacterDefinitionAppExt, CharacterRegistrationError, Lineage, PreparedCharacter,
-    PreparedCharacterDefinition, PreparedCharacterRegistry, Vitals,
+    BodySource, CharacterBindings, CharacterDefinition, CharacterDefinitionAppExt,
+    CharacterRegistrationError, Lineage, PreparedCharacter, PreparedCharacterDefinition,
+    PreparedCharacterRegistry, Vitals, prepare_character,
+};
+pub use hurtbox::{
+    AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
+    ResolvedHurtboxes, resolve_hurtboxes,
 };
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
@@ -123,6 +128,15 @@ pub enum CharacterLoadFailure {
     /// load or the decode produced nothing. The character draws the marked
     /// placeholder; this is legitimate for an art-free or reduced-asset build.
     NoSheetResolved,
+    /// This composition has NO asset pipeline at all — a headless simulation, an
+    /// RL rollout, an art-free shell. Legitimate, and a different fact from "the
+    /// sheet did not resolve": nothing was ever going to decode.
+    ///
+    /// It is a TERMINAL state rather than leaving the demand pending, because
+    /// §4.9's invariant forbids silence, and a headless run whose reveal barrier
+    /// waits forever on art that cannot exist is exactly that silence with extra
+    /// steps.
+    NoAssetPipeline,
 }
 
 impl CharacterLoadFailure {
@@ -132,6 +146,7 @@ impl CharacterLoadFailure {
             Self::NoSheetResolved => {
                 "declared, but no sheet resolved under the active asset profile"
             }
+            Self::NoAssetPipeline => "this composition has no asset pipeline (headless / art-free)",
         }
     }
 }
@@ -281,23 +296,36 @@ pub fn materialize_demanded_character_sheets(
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
 ) {
-    let (
-        Some(mut demand),
-        Some(mut states),
-        Some(mut assets),
-        Some(asset_catalog),
-        Some(asset_server),
-        Some(mut layouts),
-    ) = (demand, states, assets, asset_catalog, asset_server, layouts)
-    else {
-        // No asset pipeline at all (headless sim, art-free shell). The demand
-        // stays pending, which is honest: nothing was decoded and nothing claims
-        // otherwise.
+    // The ledger and the demand come first and separately: the no-pipeline path
+    // still has to SETTLE what was staged, so it cannot be inside a destructuring
+    // that also consumes them.
+    let (Some(mut demand), Some(mut states)) = (demand, states) else {
         return;
     };
     if demand.is_empty() {
         return;
     }
+
+    let (Some(mut assets), Some(asset_catalog), Some(asset_server), Some(mut layouts)) =
+        (assets, asset_catalog, asset_server, layouts)
+    else {
+        // No asset pipeline in this composition (headless sim, RL rollout, art-free
+        // shell). SETTLE the demand with a NAMED terminal state rather than leaving
+        // it pending: §4.9 forbids silence, and a reveal barrier waiting forever on
+        // art that was never going to exist is that silence with extra steps.
+        //
+        // This is a legitimate outcome, not a defect — which is exactly why it needs
+        // its own variant instead of borrowing `NoSheetResolved`. "Nothing was ever
+        // going to decode here" and "the decode produced nothing" call for different
+        // responses from whoever reads the ledger.
+        for token in demand.take() {
+            states.record(
+                token,
+                CharacterLoadOutcome::Failed(CharacterLoadFailure::NoAssetPipeline),
+            );
+        }
+        return;
+    };
     // Same source `ResolvedVisualQuality` mirrors, read directly so the engine
     // does not depend on the render crate to know its own texture budget.
     let budget = settings.map(|settings| settings.video.quality.resolved_budget());
@@ -328,6 +356,26 @@ impl Plugin for CharacterRuntimePlugin {
             .add_systems(
                 Update,
                 (
+                    // Hurtboxes resolve from SIM clocks, so they belong in the sim
+                    // ordering, not beside the art load. They are here because this
+                    // plugin is the character runtime; the pose clock must advance
+                    // before the resolve reads it.
+                    // Gated, not `Option<Res<..>>`: a world with no clock has no
+                    // pose elapsed to advance, and a system that quietly treats a
+                    // missing clock as dt=0 would freeze every pose timeline
+                    // without saying so.
+                    hurtbox::advance_body_pose_clocks.run_if(
+                        bevy::ecs::schedule::common_conditions::resource_exists::<
+                            ambition_time::WorldTime,
+                        >,
+                    ),
+                    hurtbox::resolve_body_hurtboxes,
+                )
+                    .chain(),
+            )
+            .add_systems(
+                Update,
+                (
                     demand_worn_character_sheets,
                     // Before the drain: the audit reads OUTSTANDING demand, and the
                     // materializer empties it.
@@ -343,5 +391,7 @@ impl Plugin for CharacterRuntimePlugin {
 
 #[cfg(test)]
 mod definition_tests;
+#[cfg(test)]
+mod fight_tests;
 #[cfg(test)]
 mod tests;

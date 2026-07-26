@@ -1070,42 +1070,42 @@ pub fn register_engine_rollback_state(app: &mut App) {
         "derived.global_transform",
         "Bevy transform propagation rebuilds it from Transform and hierarchy",
     )
-    .declare_rollback_derived::<ambition_actors::features::ActorSteering>(
+    .declare_rollback_derived_resource::<ambition_actors::features::ActorSteering>(
         ENGINE,
         "derived.actor_steering",
         "rebuilt from the authoritative actor population before movement",
     )
-    .declare_rollback_derived::<ambition_characters::brain::SlotControls>(
+    .declare_rollback_derived_resource::<ambition_characters::brain::SlotControls>(
         ENGINE,
         "derived.slot_controls",
         "republished from GGRS PlayerInputs at the head of every frame",
     )
-    .declare_rollback_derived::<ambition_platformer_primitives::markers::ControlledSubject>(
+    .declare_rollback_derived_resource::<ambition_platformer_primitives::markers::ControlledSubject>(
         ENGINE,
         "derived.controlled_subject",
         "resolved from the entity carrying Brain::Player for the active slot",
     )
-    .declare_rollback_derived::<ambition_portal::PlayerMovementIntent>(
+    .declare_rollback_derived_resource::<ambition_portal::PlayerMovementIntent>(
         ENGINE,
         "derived.portal_player_movement_intent",
         "republished from the current controller frame before portal transit",
     )
-    .declare_rollback_derived::<ambition_portal::PortalCarves>(
+    .declare_rollback_derived_resource::<ambition_portal::PortalCarves>(
         ENGINE,
         "derived.portal_carves",
         "rebuilt from placed portals and transit occupancy each frame",
     )
-    .declare_rollback_derived::<ambition_platformer_primitives::class_b::ClassBRemapLog>(
+    .declare_rollback_derived_resource::<ambition_platformer_primitives::class_b::ClassBRemapLog>(
         ENGINE,
         "derived.class_b_remap_log",
         "frame-local diagnostic ledger cleared before every simulation step",
     )
-    .declare_rollback_derived::<ambition_platformer_primitives::gravity::GravityZones>(
+    .declare_rollback_derived_resource::<ambition_platformer_primitives::gravity::GravityZones>(
         ENGINE,
         "derived.gravity_zones",
         "rebuilt from authoritative GravityZone components before body integration",
     )
-    .declare_rollback_derived::<ambition_portal::PortalHostDepths>(
+    .declare_rollback_derived_resource::<ambition_portal::PortalHostDepths>(
         ENGINE,
         "derived.portal_host_depths",
         "republished from the authoritative collision world each frame",
@@ -1247,57 +1247,57 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // Frame-derived RESOURCES (Phase 5 resource-coverage pass): each is
     // republished by its ordinary maintenance system before anything reads it,
     // so a rewind that keeps a stale value is overwritten before it matters.
-    .declare_rollback_derived::<ambition_engine_core::control_frame::ControlFrame>(
+    .declare_rollback_derived_resource::<ambition_engine_core::control_frame::ControlFrame>(
         ENGINE,
         "derived.control_frame",
         "per-tick input frame regenerated from the synchronized input stream",
     )
-    .declare_rollback_derived::<ambition_platformer_primitives::frame_env::ForceZones>(
+    .declare_rollback_derived_resource::<ambition_platformer_primitives::frame_env::ForceZones>(
         ENGINE,
         "derived.force_zones",
         "per-tick zone snapshot rebuilt by collect_force_zones",
     )
-    .declare_rollback_derived::<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>(
+    .declare_rollback_derived_resource::<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>(
         ENGINE,
         "derived.feature_ecs_world_overlay",
         "collision contributions rebuilt from ECS feature state every tick",
     )
-    .declare_rollback_derived::<ambition_actors::features::ecs::perception::PerceptionPeers>(
+    .declare_rollback_derived_resource::<ambition_actors::features::ecs::perception::PerceptionPeers>(
         ENGINE,
         "derived.perception_peers",
         "perception snapshot rebuilt every tick before brains read it",
     )
-    .declare_rollback_derived::<ambition_actors::features::ecs::perception::PerceptionProjectiles>(
+    .declare_rollback_derived_resource::<ambition_actors::features::ecs::perception::PerceptionProjectiles>(
         ENGINE,
         "derived.perception_projectiles",
         "perception snapshot rebuilt every tick before brains read it",
     )
-    .declare_rollback_derived::<ambition_actors::encounter::EncounterSwitchIndex>(
+    .declare_rollback_derived_resource::<ambition_actors::encounter::EncounterSwitchIndex>(
         ENGINE,
         "derived.encounter_switch_index",
         "rebuilt from SwitchFeature + SwitchOn components each frame",
     )
-    .declare_rollback_derived::<ambition_encounter::entity::EncounterView>(
+    .declare_rollback_derived_resource::<ambition_encounter::entity::EncounterView>(
         ENGINE,
         "derived.encounter_view",
         "presentation-intent read model republished each tick",
     )
-    .declare_rollback_derived::<ambition_actors::affordances::PlayerAffordances>(
+    .declare_rollback_derived_resource::<ambition_actors::affordances::PlayerAffordances>(
         ENGINE,
         "derived.player_affordances",
         "affordance read model recomputed per frame from body state",
     )
-    .declare_rollback_derived::<ambition_actors::affordances::intent::PlayerIntent>(
+    .declare_rollback_derived_resource::<ambition_actors::affordances::intent::PlayerIntent>(
         ENGINE,
         "derived.player_intent",
         "affordance read model recomputed per frame from control input",
     )
-    .declare_rollback_derived::<ambition_actors::affordances::interactable_proximity::NearestInteractable>(
+    .declare_rollback_derived_resource::<ambition_actors::affordances::interactable_proximity::NearestInteractable>(
         ENGINE,
         "derived.nearest_interactable",
         "proximity read model recomputed per frame",
     )
-    .declare_rollback_derived::<ambition_actors::affordances::pogo_proximity::PogoTargetBelow>(
+    .declare_rollback_derived_resource::<ambition_actors::affordances::pogo_proximity::PogoTargetBelow>(
         ENGINE,
         "derived.pogo_target_below",
         "proximity read model recomputed per frame",

@@ -376,6 +376,21 @@ pub trait AmbitionRollbackApp {
     where
         T: Component;
 
+    /// Declare derived state that is a RESOURCE, and register a presence probe.
+    ///
+    /// Same contract and same reason as
+    /// [`Self::declare_rollback_derived_component`]. Split only because
+    /// `declare_rollback_derived` bounds `T: 'static` and a probe needs to know
+    /// whether to look in the component store or the resource store.
+    fn declare_rollback_derived_resource<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        reason: &'static str,
+    ) -> &mut Self
+    where
+        T: Resource;
+
     fn declare_dynamic_anchor<T>(
         &mut self,
         owner: &'static str,
@@ -728,6 +743,26 @@ impl AmbitionRollbackApp for App {
                 clear_message_channel::<T>.in_set(LoadWorldSystems::Mapping),
             );
         }
+        self
+    }
+
+    fn declare_rollback_derived_resource<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        reason: &'static str,
+    ) -> &mut Self
+    where
+        T: Resource,
+    {
+        self.declare_rollback_derived::<T>(owner, name, reason);
+        record_probe(
+            self,
+            crate::rollback::ChecksumProbe::derived(
+                std::any::type_name::<T>(),
+                crate::rollback::census_resource_presence::<T>,
+            ),
+        );
         self
     }
 

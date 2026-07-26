@@ -501,7 +501,11 @@ pub fn register_engine_rollback_state(app: &mut App) {
         .rollback_map_entities::<ambition_vfx::Hitbox>(ENGINE, "map.hitbox")
         .rollback_component_clone::<ambition_vfx::HitboxHits>(ENGINE, "combat.hitbox_hits")
         .rollback_map_entities::<ambition_vfx::HitboxHits>(ENGINE, "map.hitbox_hits")
-        .rollback_component_clone::<ambition_vfx::HitboxLifetime>(ENGINE, "combat.hitbox_lifetime")
+        .rollback_component_clone_probed::<ambition_vfx::HitboxLifetime>(
+            ENGINE,
+            "combat.hitbox_lifetime",
+            |lifetime| lifetime.remaining_s.to_bits() as u64,
+        )
         .rollback_component_clone::<ambition_combat::moveset::StrikeVolume>(
             ENGINE,
             "combat.strike_volume",
@@ -688,9 +692,10 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // `remaining` and — worse — the `was_invulnerable` it borrowed never
     // restore, so a rewind into the middle of a transformation can leave a body
     // permanently untouchable.
-    .rollback_component_clone::<ambition_actors::features::transform_beat::TransformBeat>(
+    .rollback_component_clone_probed::<ambition_actors::features::transform_beat::TransformBeat>(
         ENGINE,
         "actor.transform_beat",
+        |beat| beat.remaining.to_bits() as u64 ^ u64::from(beat.was_invulnerable) << 32,
     )
     // The REQUEST is state for the same reason. It is necessarily written a
     // frame before it is consumed, and as a message it died in that gap.
@@ -797,9 +802,10 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // A body's pose clock ACCUMULATES, and its elapsed value selects which hurtbox
     // keyframe is live -- so a rewind that lost it would resolve a body's damageable
     // silhouette from a different instant than the confirmed timeline did.
-    .rollback_component_clone::<ambition_actors::character_runtime::BodyPoseClock>(
+    .rollback_component_clone_probed::<ambition_actors::character_runtime::BodyPoseClock>(
         ENGINE,
         "actor.body_pose_clock",
+        |clock| checksum_bytes(clock.pose.as_bytes()) ^ clock.elapsed_s.to_bits() as u64,
     )
     // Authored and immutable at runtime, but bevy_ggrs DESTROYS AND RECREATES
     // rollback entities: unregistered, the doc is simply absent afterwards and the
@@ -845,13 +851,15 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // contained a chest.
     .rollback_component_clone::<ambition_combat::components::ChestFeature>(ENGINE, "feature.chest")
     .rollback_component_clone::<ambition_combat::components::Opened>(ENGINE, "feature.opened")
-    .rollback_component_clone::<ambition_combat::components::RespawnTimer>(
+    .rollback_component_clone_probed::<ambition_combat::components::RespawnTimer>(
         ENGINE,
         "feature.respawn_timer",
+        |timer| timer.0.to_bits() as u64,
     )
-    .rollback_component_clone::<ambition_combat::components::StandTimer>(
+    .rollback_component_clone_probed::<ambition_combat::components::StandTimer>(
         ENGINE,
         "feature.stand_timer",
+        |timer| timer.0.to_bits() as u64,
     )
     .rollback_component_clone::<ambition_combat::hazard_runtime::HazardFeature>(
         ENGINE,
@@ -860,7 +868,11 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // Switch liveness. The `SwitchActivated` MESSAGE is cleared on rollback, but
     // the state that message produced was not rewound — so a switch flipped in an
     // abandoned future stayed on.
-    .rollback_component_clone::<ambition_actors::encounter::SwitchOn>(ENGINE, "feature.switch_on")
+    .rollback_component_clone_probed::<ambition_actors::encounter::SwitchOn>(
+        ENGINE,
+        "feature.switch_on",
+        |on| u64::from(on.0),
+    )
     // The switch's authored payload. Immutable at runtime, but bevy_ggrs
     // DESTROYS AND RECREATES rollback entities — anything not registered is
     // simply absent on the recreated entity, so an unregistered authored
@@ -986,6 +998,27 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "marker.runtime_staged_actor",
     )
+    // Which provider's bank an entity's cues come out of (G1). For a BODY this is
+    // republished every sim tick from its worn character, so it would survive a
+    // restore either way — but for a PROJECTILE it is stamped once, at spawn, from a
+    // firer that may be dead by the time the bolt lands. Unregistered, bevy_ggrs
+    // recreates the bolt without it and the impact reverts to the session's voice
+    // for the rest of the shot's life. Same class as `PlayerVisual` and
+    // `RuntimeStagedActor`: presentation, but presentation whose ABSENCE is
+    // permanent. Probed by value, because the value is the whole fact and a count
+    // of "how many entities have a source" says nothing about WHOSE.
+    .rollback_component_clone_probed::<ambition_sfx::BodyPresentationSource>(
+        ENGINE,
+        "presentation.body_source",
+        |source| checksum_bytes(source.id().as_str().as_bytes()),
+    )
+    // The marker that says the per-tick derivation OWNS that source and may retract
+    // it. Losing it across a restore would strand a body's source: the derivation
+    // stops maintaining what it can no longer recognise as its own.
+    .rollback_component_clone::<ambition_sfx::DerivedPresentationSource>(
+        ENGINE,
+        "presentation.body_source_derived",
+    )
     .rollback_component_clone::<ambition_platformer_primitives::markers::PrimaryPlayer>(
         ENGINE,
         "marker.primary_player",
@@ -999,9 +1032,10 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // so a rewind could carry a cooldown latch or an in-flight shot in from an
     // abandoned future — permitting or blocking a transit the confirmed
     // timeline never saw.
-    .rollback_component_clone::<ambition_portal::PortalTransitCooldown>(
+    .rollback_component_clone_probed::<ambition_portal::PortalTransitCooldown>(
         ENGINE,
         "portal.transit_cooldown",
+        |cooldown| cooldown.remaining.to_bits() as u64,
     )
     // The pickup's ARM TIMER is ticked every sim tick by `arm_portal_pickups`, so a
     // rewind that kept an abandoned future's timer would let the same press that
@@ -1223,9 +1257,15 @@ pub fn register_engine_rollback_state(app: &mut App) {
         "republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor",
     );
 
-    app.rollback_component_clone::<ambition_projectiles::ProjectileOwner>(
+    // G2: probed through the OWNER's stable `SimId`, not by counting carriers. The
+    // presence probe this used to carry could not tell a correct remap from one that
+    // put back the right number of owners and pointed a bolt at the wrong body —
+    // which is the failure mode this registration exists to prevent, so the probe
+    // was blind to precisely the thing it was added for.
+    app.rollback_component_clone_entity_ref::<ambition_projectiles::ProjectileOwner>(
         ENGINE,
         "component.projectile_owner",
+        |owner| owner.0,
     )
     .rollback_map_entities::<ambition_projectiles::ProjectileOwner>(
         ENGINE,

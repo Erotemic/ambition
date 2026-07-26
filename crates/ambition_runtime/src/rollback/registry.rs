@@ -306,6 +306,45 @@ pub trait AmbitionRollbackApp {
     where
         T: Component<Mutability = Mutable> + Clone;
 
+    /// Clone-snapshot a component that holds an ENTITY REFERENCE, and probe it
+    /// through the target's stable sim identity.
+    ///
+    /// The same snapshot contract as [`Self::rollback_component_clone`] — no GGRS
+    /// checksum, because a raw entity id legitimately differs after a load and
+    /// putting it in the aggregate would report a desync on every rewind. What it
+    /// adds is a VALUE-sensitive localization probe: a restore that puts back the
+    /// right number of references and points one of them at a different body changes
+    /// this census, and does not change a presence count.
+    ///
+    /// `referenced` extracts the handle. Pair this with
+    /// [`Self::rollback_map_entities`], which is what actually remaps it.
+    fn rollback_component_clone_entity_ref<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> bevy::prelude::Entity,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone;
+
+    /// Clone-snapshot with a projection the LOCALIZER measures and the GGRS
+    /// aggregate does not.
+    ///
+    /// The distinction matters and is easy to lose: `rollback_component_clone_checksum`
+    /// hands the same projection to both, which makes any nondeterminism in it a
+    /// session-wide desync report. This arm strengthens only the diagnostic. Use it
+    /// for per-tick mutable state whose restore you want localizable without changing
+    /// what the sync test calls a divergence — sharpening an instrument should not
+    /// move the guard it is used to investigate.
+    fn rollback_component_clone_probed<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone;
+
     /// Clone the exact component for load/mapping, but checksum a canonical
     /// projection. Use this for state containing `Entity` handles or authored
     /// references that GGRS must preserve and remap rather than decode itself.
@@ -399,9 +438,19 @@ pub trait AmbitionRollbackApp {
     /// declaration that lies is worse than no declaration, because it satisfies
     /// the coverage sweep.
     ///
-    /// The probe makes it falsifiable: `RollbackRestoreAudit` compares each frame's
-    /// census against the first pass, so a derived component that FAILS to be
-    /// rebuilt on a replayed frame shows up by name.
+    /// The probe makes it PARTLY falsifiable: `RollbackRestoreAudit` compares each
+    /// frame's census against the first pass, so a derived component that FAILS to be
+    /// rebuilt on a replayed frame shows up by name. That is the failure that shipped,
+    /// and the one this arm was added for.
+    ///
+    /// It is not the whole contract, and the earlier version of this comment claimed
+    /// it was (GPT 5.6, 2026-07-26). A presence census sees a MISSING derived
+    /// component; it cannot see one rebuilt with entirely wrong values on the right
+    /// number of carriers, and for a singleton derived resource "present" is nearly a
+    /// constant. `declare_rollback_derived_component_state` is the value-sensitive
+    /// twin, and gameplay-significant derived state should use it. Which of these are
+    /// still presence-only is enumerated by
+    /// `rollback_exit_oracle::every_presence_only_probe_is_named_with_its_reason`.
     fn declare_rollback_derived_component<T>(
         &mut self,
         owner: &'static str,
@@ -410,6 +459,15 @@ pub trait AmbitionRollbackApp {
     ) -> &mut Self
     where
         T: Component;
+
+    fn declare_rollback_derived_component_state<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        reason: &'static str,
+    ) -> &mut Self
+    where
+        T: Component + SnapshotState;
 
     /// Declare derived state that is a RESOURCE, and register a presence probe.
     ///
@@ -425,6 +483,15 @@ pub trait AmbitionRollbackApp {
     ) -> &mut Self
     where
         T: Resource;
+
+    fn declare_rollback_derived_resource_state<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        reason: &'static str,
+    ) -> &mut Self
+    where
+        T: Resource + SnapshotState;
 
     fn declare_dynamic_anchor<T>(
         &mut self,
@@ -544,14 +611,82 @@ impl AmbitionRollbackApp for App {
             // PRESENCE only, because this arm's contract is "snapshotted here,
             // value checksummed by some other authoritative projection" — there is
             // no projection to measure. A count still catches a carrier that
-            // bevy_ggrs did not put back, which is `PlayerVisual`'s exact failure,
-            // and `ProjectileOwner` is registered through here.
+            // bevy_ggrs did not put back, which is `PlayerVisual`'s exact failure.
+            //
+            // It is genuinely weaker, and G2 made that weakness enumerable rather
+            // than implied: a presence probe satisfies the F3 coverage test, which
+            // compares type NAMES, while saying nothing about the value. If the type
+            // has any stable projection at all — including an entity reference's
+            // target identity — reach for `rollback_component_clone_entity_ref` instead.
             record_probe(
                 self,
-                crate::rollback::ChecksumProbe::new(
+                crate::rollback::ChecksumProbe::presence_for::<T>(
                     std::any::type_name::<T>(),
                     crate::rollback::census_presence::<T>,
                 ),
+            );
+        }
+        self
+    }
+
+    fn rollback_component_clone_entity_ref<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> bevy::prelude::Entity,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone,
+    {
+        if register_app_descriptor(
+            self,
+            descriptor::<T>(
+                owner,
+                name,
+                RollbackEntryKind::ComponentClone,
+                "bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity",
+            ),
+        ) == RollbackRegistrationOutcome::Inserted
+        {
+            RollbackApp::rollback_component_with_clone::<T>(self);
+            // No GGRS checksum, for the same reason as the plain clone arm: the raw
+            // handle differs across a load by design. But the TARGET's identity does
+            // not, so localization is not stuck at presence.
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
+                    crate::rollback::census_entity_reference::<T>(world, referenced)
+                }),
+            );
+        }
+        self
+    }
+
+    fn rollback_component_clone_probed<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone,
+    {
+        if register_app_descriptor(
+            self,
+            descriptor::<T>(
+                owner,
+                name,
+                RollbackEntryKind::ComponentClone,
+                "bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum",
+            ),
+        ) == RollbackRegistrationOutcome::Inserted
+        {
+            RollbackApp::rollback_component_with_clone::<T>(self);
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
+                    crate::rollback::census_with::<T>(world, projection)
+                }),
             );
         }
         self
@@ -696,11 +831,12 @@ impl AmbitionRollbackApp for App {
         {
             RollbackApp::rollback_resource_with_clone::<T>(self);
             // Presence only, for the same reason as the component arm: no
-            // projection was supplied. 0-or-1 still distinguishes "absent after a
-            // load" from "present but different".
+            // projection was supplied. 0-or-1 distinguishes "absent after a load"
+            // from "present", and nothing else — for a singleton resource that is
+            // almost always "present", which is the narrowest a probe gets.
             record_probe(
                 self,
-                crate::rollback::ChecksumProbe::new(
+                crate::rollback::ChecksumProbe::presence_for::<T>(
                     std::any::type_name::<T>(),
                     crate::rollback::census_resource_presence::<T>,
                 ),
@@ -834,11 +970,37 @@ impl AmbitionRollbackApp for App {
         T: Resource,
     {
         self.declare_rollback_derived::<T>(owner, name, reason);
+        // PRESENCE, and for a singleton resource that means 0-or-1: it can catch a
+        // derived resource that was never rebuilt, and cannot catch one rebuilt
+        // WRONG. `declare_rollback_derived_resource_state` is the value-sensitive
+        // twin, and gameplay-significant derived state should use it (G2).
         record_probe(
             self,
-            crate::rollback::ChecksumProbe::derived(
+            crate::rollback::ChecksumProbe::derived_for::<T>(
                 std::any::type_name::<T>(),
                 crate::rollback::census_resource_presence::<T>,
+            ),
+        );
+        self
+    }
+
+    /// Declare derived state that HAS a canonical projection, so the resimulation
+    /// comparison sees a wrongly-rebuilt value and not merely a missing one.
+    fn declare_rollback_derived_resource_state<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        reason: &'static str,
+    ) -> &mut Self
+    where
+        T: Resource + SnapshotState,
+    {
+        self.declare_rollback_derived::<T>(owner, name, reason);
+        record_probe(
+            self,
+            crate::rollback::ChecksumProbe::derived_value(
+                std::any::type_name::<T>(),
+                crate::rollback::census_resource_state::<T>,
             ),
         );
         self
@@ -854,11 +1016,36 @@ impl AmbitionRollbackApp for App {
         T: Component,
     {
         self.declare_rollback_derived::<T>(owner, name, reason);
+        // PRESENCE: catches a derived component nobody rebuilt (which is what
+        // `ProjectileOwner`'s broken derived promise actually was), and cannot catch
+        // a motion sample rebuilt with entirely wrong values on the right number of
+        // entities. `declare_rollback_derived_component_state` is the strong twin.
         record_probe(
             self,
-            crate::rollback::ChecksumProbe::derived(
+            crate::rollback::ChecksumProbe::derived_for::<T>(
                 std::any::type_name::<T>(),
                 crate::rollback::census_presence::<T>,
+            ),
+        );
+        self
+    }
+
+    /// Declare a derived COMPONENT that has a canonical projection.
+    fn declare_rollback_derived_component_state<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        reason: &'static str,
+    ) -> &mut Self
+    where
+        T: Component + SnapshotState,
+    {
+        self.declare_rollback_derived::<T>(owner, name, reason);
+        record_probe(
+            self,
+            crate::rollback::ChecksumProbe::derived_value(
+                std::any::type_name::<T>(),
+                crate::rollback::census_state::<T>,
             ),
         );
         self

@@ -57,6 +57,39 @@ pub struct ComponentCensus {
     pub xor: u64,
 }
 
+/// **How much of a component's state a probe can actually see.**
+///
+/// The distinction is load-bearing and was invisible until GPT 5.6 named it: the
+/// forcing test that closed F3 compares TYPE NAMES, so a presence-only probe
+/// satisfies "this registration owns a probe" while reporting nothing about the
+/// value. `ProjectileOwner` is the case that matters — snapshotted by clone, remapped
+/// as an entity reference, and probed by counting carriers. A restore that put back
+/// the right NUMBER of owners and pointed one of them at the wrong body was
+/// indistinguishable from a correct one, on exactly the state the equipment
+/// divergence turned on.
+///
+/// So strength is recorded, [`RollbackChecksumProbes::presence_only_type_names`]
+/// enumerates the weak ones, and the guard compares that enumeration against an
+/// explicit list with stated reasons. A weakness that has to be written down is a
+/// different thing from one that has to be noticed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ProbeStrength {
+    /// Counts carriers. Detects a lost or gained carrier; blind to the value.
+    Presence,
+    /// Counts carriers of a ZERO-SIZED type, where presence IS the whole value.
+    ///
+    /// Mechanically distinguished (`size_of::<T>() == 0`) rather than listed, and
+    /// that distinction carries most of the weight: a marker like `Collected`,
+    /// `PrimaryPlayer`, or `SwitchOn` has no state a value projection could examine,
+    /// so a carrier count is not a weaker measurement of it — it is the measurement.
+    /// Filing those under "presence-only, reason unstated" would have buried the
+    /// handful of genuinely under-probed types in eighty-odd markers.
+    Complete,
+    /// Folds a projection of each carrier's VALUE. Detects a changed value as well
+    /// as a changed population.
+    Value,
+}
+
 /// A type-erased census probe for one registered rollback component.
 ///
 /// The census is boxed rather than a bare `fn` pointer because two registration
@@ -80,6 +113,7 @@ pub struct ChecksumProbe {
     /// exactly that and accused `ProjectileView`, a presentation read model, of
     /// being a determinism defect.
     derived: bool,
+    strength: ProbeStrength,
 }
 
 impl ChecksumProbe {
@@ -104,6 +138,14 @@ impl ChecksumProbe {
 /// `rollback_exit_oracle::every_state_bearing_rollback_registration_owns_a_localization_probe`,
 /// which compares `type_names` against every descriptor whose
 /// `RollbackEntryKind::carries_state`. A comment is not a coupling.
+///
+/// ⚠ And "owns a probe" is still weaker than it reads, which is why
+/// [`ProbeStrength`] exists. That test compares type NAMES, so a probe that counts
+/// carriers satisfies it while seeing nothing of the value —
+/// `every_presence_only_probe_is_named_with_its_reason` is the second half, and it
+/// is what keeps "254 of 254 probed" from being read as "254 of 254 checked".
+/// Today that is 112 value probes, 22 markers where presence IS the value, and 120
+/// presence-only registrations each named with the reason it cannot do better.
 #[derive(Resource, Default, Clone)]
 pub struct RollbackChecksumProbes {
     probes: Vec<ChecksumProbe>,
@@ -136,6 +178,32 @@ impl RollbackChecksumProbes {
         self.probes.iter().map(|probe| probe.type_name).collect()
     }
 
+    /// Every type whose probe can see only PRESENCE, not value.
+    ///
+    /// What the coverage guard enumerates. A registration in this set is snapshotted
+    /// and remapped correctly as far as the localizer can tell, which is not the same
+    /// claim as "restored identically".
+    pub fn presence_only_type_names(&self) -> BTreeSet<&'static str> {
+        self.probes
+            .iter()
+            .filter(|probe| probe.strength == ProbeStrength::Presence)
+            .map(|probe| probe.type_name)
+            .collect()
+    }
+
+    /// Count by strength: `(complete, value, presence_only)`.
+    pub fn strength_tally(&self) -> (usize, usize, usize) {
+        let mut tally = (0, 0, 0);
+        for probe in &self.probes {
+            match probe.strength {
+                ProbeStrength::Complete => tally.0 += 1,
+                ProbeStrength::Value => tally.1 += 1,
+                ProbeStrength::Presence => tally.2 += 1,
+            }
+        }
+        tally
+    }
+
     /// The subset that is SNAPSHOT state — the only thing a restore must reproduce.
     pub fn snapshot_type_names(&self) -> BTreeSet<&'static str> {
         self.probes
@@ -147,6 +215,7 @@ impl RollbackChecksumProbes {
 }
 
 impl ChecksumProbe {
+    /// A VALUE probe: the census folds a projection of each carrier's state.
     pub fn new(
         type_name: &'static str,
         census: impl Fn(&mut World) -> ComponentCensus + Send + Sync + 'static,
@@ -155,10 +224,71 @@ impl ChecksumProbe {
             type_name,
             census: std::sync::Arc::new(census),
             derived: false,
+            strength: ProbeStrength::Value,
+        }
+    }
+
+    /// A PRESENCE-only probe, for a registration that supplied no projection to
+    /// measure. Named separately from [`Self::new`] so that choosing the weaker one
+    /// is a decision at the call site rather than a property of which census
+    /// function happened to be passed.
+    ///
+    /// The strength recorded is [`ProbeStrength::Complete`] for a ZERO-SIZED type,
+    /// where there is no value beyond the carrier: a marker's presence is not a
+    /// partial view of its state, it is all of it.
+    pub fn presence(
+        type_name: &'static str,
+        census: impl Fn(&mut World) -> ComponentCensus + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            type_name,
+            census: std::sync::Arc::new(census),
+            derived: false,
+            strength: ProbeStrength::Presence,
+        }
+    }
+
+    /// Presence for a zero-sized type — [`ProbeStrength::Complete`].
+    pub fn marker(
+        type_name: &'static str,
+        census: impl Fn(&mut World) -> ComponentCensus + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            type_name,
+            census: std::sync::Arc::new(census),
+            derived: false,
+            strength: ProbeStrength::Complete,
+        }
+    }
+
+    /// A presence census whose strength is decided by whether the type has any state
+    /// at all. The registration arms that supply no projection call this.
+    pub fn presence_for<T: 'static>(
+        type_name: &'static str,
+        census: impl Fn(&mut World) -> ComponentCensus + Send + Sync + 'static,
+    ) -> Self {
+        if std::mem::size_of::<T>() == 0 {
+            Self::marker(type_name, census)
+        } else {
+            Self::presence(type_name, census)
         }
     }
 
     /// A probe for DERIVED state: compared across resimulation, not across restore.
+    /// Strength follows the same zero-sized rule as [`Self::presence_for`].
+    pub fn derived_for<T: 'static>(
+        type_name: &'static str,
+        census: impl Fn(&mut World) -> ComponentCensus + Send + Sync + 'static,
+    ) -> Self {
+        let mut probe = if std::mem::size_of::<T>() == 0 {
+            Self::marker(type_name, census)
+        } else {
+            Self::presence(type_name, census)
+        };
+        probe.derived = true;
+        probe
+    }
+
     pub fn derived(
         type_name: &'static str,
         census: impl Fn(&mut World) -> ComponentCensus + Send + Sync + 'static,
@@ -167,11 +297,31 @@ impl ChecksumProbe {
             type_name,
             census: std::sync::Arc::new(census),
             derived: true,
+            strength: ProbeStrength::Presence,
+        }
+    }
+
+    /// A derived declaration that DID supply a value projection, so the
+    /// resimulation comparison can see a wrongly-REBUILT value and not merely a
+    /// missing one.
+    pub fn derived_value(
+        type_name: &'static str,
+        census: impl Fn(&mut World) -> ComponentCensus + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            type_name,
+            census: std::sync::Arc::new(census),
+            derived: true,
+            strength: ProbeStrength::Value,
         }
     }
 
     pub fn is_derived(&self) -> bool {
         self.derived
+    }
+
+    pub fn strength(&self) -> ProbeStrength {
+        self.strength
     }
 }
 
@@ -234,6 +384,49 @@ where
     T: Resource,
 {
     fold_resource(world, projection)
+}
+
+/// **Census a component holding an ENTITY REFERENCE, through stable sim identity.**
+///
+/// A raw `Entity` cannot be folded into a census: bevy_ggrs destroys and recreates
+/// rollback entities, so the index and generation both change across a load and a
+/// value probe over them would report a difference on every restore — all noise. That
+/// is the honest reason `ProjectileOwner` shipped with a presence-only probe.
+///
+/// The projection that DOES survive is the referenced entity's authored identity:
+/// [`SimId`](ambition_platformer_primitives::sim_id::SimId) is a stable string minted
+/// from a placement, a player slot, or a summoner, and a correct remap points at the
+/// same one. So this folds `hash(SimId of the target)` per carrier, and a distinct
+/// sentinel for a target that carries no `SimId` or no longer exists — which still
+/// distinguishes "remapped to a body with no identity" from "remapped to nothing".
+///
+/// This is the strength difference in one function: a restore that puts back the right
+/// NUMBER of references and points one of them at a different body changes this census
+/// and does not change a presence count.
+pub fn census_entity_reference<T>(
+    world: &mut World,
+    referenced: fn(&T) -> Entity,
+) -> ComponentCensus
+where
+    T: Component,
+{
+    let targets: Vec<Entity> = {
+        let mut query = world.query::<&T>();
+        query.iter(world).map(referenced).collect()
+    };
+    let count = targets.len();
+    let mut sum: u64 = 0;
+    for target in targets {
+        let projected = match world.get::<ambition_platformer_primitives::sim_id::SimId>(target) {
+            Some(id) => super::checksum_bytes(id.as_str().as_bytes()),
+            // Two different sentinels, because they are two different facts: a live
+            // body with no authored identity, and a reference into nothing.
+            None if world.get_entity(target).is_ok() => 0x1111_1111_1111_1111,
+            None => 0xDEAD_BEEF_DEAD_BEEF,
+        };
+        sum = sum.wrapping_add(projected);
+    }
+    ComponentCensus { count, xor: sum }
 }
 
 /// Census PRESENCE only, for state registered with NO checksum projection at all.
@@ -544,4 +737,63 @@ fn current_rollback_frame(world: &World) -> Option<i32> {
     world
         .get_resource::<bevy_ggrs::RollbackFrameCount>()
         .map(|count| count.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer_primitives::sim_id::SimId;
+
+    #[derive(Component, Clone)]
+    struct Owner(Entity);
+
+    /// **A value probe over an entity reference actually sees a wrong target.**
+    ///
+    /// The claim `ProbeStrength::Value` makes is falsifiable only if a mis-mapped
+    /// reference changes the census, so this asserts it directly rather than trusting
+    /// the label. Same carrier count both times — which is exactly what the presence
+    /// probe this replaced could measure, and all it could measure.
+    #[test]
+    fn remapping_a_reference_to_a_different_body_changes_the_census() {
+        let mut world = World::new();
+        let alpha = world.spawn(SimId::placement("alpha")).id();
+        let beta = world.spawn(SimId::placement("beta")).id();
+        let bolt = world.spawn(Owner(alpha)).id();
+
+        let correct = census_entity_reference::<Owner>(&mut world, |owner| owner.0);
+        world.entity_mut(bolt).insert(Owner(beta));
+        let wrong = census_entity_reference::<Owner>(&mut world, |owner| owner.0);
+
+        assert_eq!(
+            (correct.count, wrong.count),
+            (1, 1),
+            "the population is unchanged, so a presence probe reports these two \
+             worlds as identical — that is the blindness this projection removes"
+        );
+        assert_ne!(
+            correct.xor, wrong.xor,
+            "pointing the bolt at a different body must change the census"
+        );
+    }
+
+    /// A reference into nothing is distinguishable from a reference to an
+    /// identity-less body: they are different failures and want different answers.
+    #[test]
+    fn a_dangling_reference_and_an_unidentified_target_are_different_censuses() {
+        let mut world = World::new();
+        let anonymous = world.spawn_empty().id();
+        let bolt = world.spawn(Owner(anonymous)).id();
+        let unidentified = census_entity_reference::<Owner>(&mut world, |owner| owner.0);
+
+        world.entity_mut(anonymous).despawn();
+        let dangling = census_entity_reference::<Owner>(&mut world, |owner| owner.0);
+        assert_ne!(unidentified.xor, dangling.xor);
+
+        // And a body WITH an identity is a third answer, not folded in with either.
+        let identified = world.spawn(SimId::placement("gamma")).id();
+        world.entity_mut(bolt).insert(Owner(identified));
+        let named = census_entity_reference::<Owner>(&mut world, |owner| owner.0);
+        assert_ne!(named.xor, unidentified.xor);
+        assert_ne!(named.xor, dangling.xor);
+    }
 }

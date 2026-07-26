@@ -117,5 +117,55 @@ pub fn authorize_staged_character_presentation_sources(
     }
 }
 
+/// **Publish each body's presentation source, once per tick.**
+///
+/// The derivation `advance_move_playback` used to do inline, hoisted onto the body
+/// so every emitter can attribute a cue without repeating it — and so a cue
+/// attributed to the wrong provider is one bug in one place.
+///
+/// A body's source is its WORN character's author, falling back to the sprite
+/// character its combat tuning names. A body wearing nothing gets no component at
+/// all rather than an empty source: absent means "ask the session", which is the
+/// honest answer for a hazard or an unworn body, and is materially different from
+/// "this body belongs to nobody".
+pub fn publish_body_presentation_sources(
+    mut commands: Commands,
+    registry: Option<Res<PreparedCharacterRegistry>>,
+    owners: Option<Res<CharacterCatalogOwners>>,
+    bodies: Query<(
+        Entity,
+        Option<&ambition_characters::actor::WornCharacter>,
+        Option<&crate::combat::CombatTuning>,
+        Option<&ambition_sfx::BodyPresentationSource>,
+    )>,
+) {
+    for (entity, worn, tuning, current) in &bodies {
+        let character_id = worn
+            .map(ambition_characters::actor::WornCharacter::id)
+            .or_else(|| tuning.and_then(|t| t.sprite_character_id.as_deref()));
+        let provider = character_id.and_then(|id| {
+            provider_of_character(registry.as_deref(), owners.as_deref(), id)
+        });
+        match provider {
+            Some(provider) => {
+                let next = ambition_sfx::PresentationSourceId::new(provider);
+                // Change detection: a body's author is stable for the whole session
+                // in every ordinary case, and this runs over every body every tick.
+                if current.map(|c| c.id()) != Some(&next) {
+                    commands
+                        .entity(entity)
+                        .insert(ambition_sfx::BodyPresentationSource(next));
+                }
+            }
+            None if current.is_some() => {
+                commands
+                    .entity(entity)
+                    .remove::<ambition_sfx::BodyPresentationSource>();
+            }
+            None => {}
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests;

@@ -119,11 +119,14 @@ pub fn sync_player_presentation(
             &mut ambition::actors::avatar::PlayerBlinkCameraState,
             &PlayerBodyFrameOutput,
             Option<&ambition::actors::actor::PrimaryPlayer>,
+            // A13: whose cues this player body emits.
+            Option<&ambition::sfx::BodyPresentationSource>,
         ),
         With<ambition::actors::actor::PlayerEntity>,
     >,
 ) {
-    for (mut cluster_item, mut anim, mut combat, mut blink_cam, frame_out, primary) in &mut player_q
+    for (mut cluster_item, mut anim, mut combat, mut blink_cam, frame_out, primary, source) in
+        &mut player_q
     {
         let is_primary = primary.is_some();
         let clusters = cluster_item.as_clusters_mut();
@@ -137,6 +140,7 @@ pub fn sync_player_presentation(
             &mut event_writers.vfx,
             &mut shake,
             is_primary,
+            source.map(ambition::sfx::BodyPresentationSource::id),
         );
     }
 }

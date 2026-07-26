@@ -12,6 +12,7 @@
 //! while a Dash queued by Sanic session A cannot play during Sanic session B.
 
 use crate::SfxId;
+use bevy_ecs::component::Component;
 use bevy_ecs::message::{Message, MessageWriter};
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{Res, SystemParam};
@@ -88,6 +89,25 @@ impl From<String> for PresentationSourceId {
 impl fmt::Display for PresentationSourceId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
+    }
+}
+
+/// **The presentation source a BODY emits under.**
+///
+/// Derived once per tick from the body's worn character and that character's
+/// author, so every emitter can attribute a cue without repeating the lookup — and
+/// so a cue attributed to the wrong provider becomes one bug in one place instead
+/// of one per emitter.
+///
+/// Lives here, beside [`PresentationSourceId`], because the mechanics crates that
+/// EMIT (`ambition_combat`'s hit feedback, movement fx) must be able to name it
+/// without depending on the character catalog that DERIVES it.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct BodyPresentationSource(pub PresentationSourceId);
+
+impl BodyPresentationSource {
+    pub fn id(&self) -> &PresentationSourceId {
+        &self.0
     }
 }
 
@@ -219,6 +239,25 @@ impl SfxWriter<'_> {
             source,
             request,
         });
+    }
+
+    /// Emit a cue attributed to a BODY, when that body has a known source.
+    ///
+    /// The `Option` is the whole point, and it is deliberately not hidden behind a
+    /// default: `None` means "this body has no presentation source", which falls
+    /// back to the session context exactly as `write` does. Collapsing the two
+    /// would silently attribute every character cue to the session provider — which
+    /// is precisely the state §7.7 shipped in, where `write_from` existed and one
+    /// caller used it.
+    pub fn write_for_body(
+        &mut self,
+        source: Option<&PresentationSourceId>,
+        request: SfxMessage,
+    ) {
+        match source {
+            Some(source) => self.write_from(source.clone(), request),
+            None => self.write(request),
+        }
     }
 
     /// Emit a cue from a source other than the context's default package.

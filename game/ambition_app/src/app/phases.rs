@@ -31,6 +31,9 @@ pub(super) fn sync_player_presentation(
     vfx_writer: &mut MessageWriter<VfxMessage>,
     shake: &mut ambition::platformer::camera_ease::CameraShakeState,
     is_primary: bool,
+    // A13: the player body's presentation source, so its jump/dash/land cues
+    // resolve in ITS character's bank rather than the session provider's.
+    source: Option<&ambition::sfx::PresentationSourceId>,
 ) {
     if frame_out.reset {
         return;
@@ -44,10 +47,13 @@ pub(super) fn sync_player_presentation(
     );
     if is_primary && shake_amplitude > 0.0 {
         shake.kick(shake_amplitude);
-        sfx_writer.write(SfxMessage::Play {
-            id: ambition::sfx::ids::PLAYER_LAND,
-            pos: clusters.kinematics.pos,
-        });
+        sfx_writer.write_for_body(
+            source,
+            SfxMessage::Play {
+                id: ambition::sfx::ids::PLAYER_LAND,
+                pos: clusters.kinematics.pos,
+            },
+        );
     }
     handle_player_events(
         sfx_writer,
@@ -57,5 +63,6 @@ pub(super) fn sync_player_presentation(
         blink_cam,
         anim,
         frame_out.events.clone(),
+        source,
     );
 }

@@ -164,7 +164,11 @@ pub(crate) fn apply_boss_hit(
             let impact = midpoint(event.volume.center(), hit_aabb.center());
             // CM8: an honest strike clang + spark even though this puzzle boss
             // takes no HP from the hit.
-            crate::combat::util::emit_hit_feedback(
+            // A13: the authored strike sound is the ATTACKER's cue; the hurt fallback is
+        // the VICTIM's, so both are resolved before the emitter borrows the writers.
+        let attacker_source = writers.source_of(event.attacker);
+        let victim_source = writers.source_of(Some(boss_entity));
+        crate::combat::util::emit_hit_feedback(
                 &mut writers.sfx,
                 &mut writers.vfx,
                 &mut writers.debris,
@@ -172,6 +176,8 @@ pub(crate) fn apply_boss_hit(
                 event.strike_sfx,
                 event.damage,
                 impact,
+                attacker_source.as_ref(),
+                victim_source.as_ref(),
             );
             return true;
         }
@@ -234,6 +240,9 @@ pub(crate) fn apply_boss_hit(
     let impact = midpoint(event.volume.center(), hit_aabb.center());
     // CM8: THE one victim-side reaction (strike sound over the boss's own hurt
     // spray); the killed branch layers its death drama on top.
+    // A13: attacker's cue vs victim's fallback, resolved before the borrows.
+    let attacker_source = writers.source_of(event.attacker);
+    let victim_source = writers.source_of(Some(boss_entity));
     crate::combat::util::emit_hit_feedback(
         &mut writers.sfx,
         &mut writers.vfx,
@@ -242,6 +251,8 @@ pub(crate) fn apply_boss_hit(
         event.strike_sfx,
         event.damage,
         impact,
+        attacker_source.as_ref(),
+        victim_source.as_ref(),
     );
     if killed {
         banner.show(format!("defeated boss {}", boss.config.name), 2.6);

@@ -690,6 +690,8 @@ pub(crate) fn horizontal_front_wall_clearance(
 /// adapter branch, not deletion of a path. The shared seam is
 /// `integrate_actor_body`; keep this as the boss orchestrator around that seam.
 pub fn integrate_boss_bodies(
+    // A13: whose cues each boss body emits.
+    body_sources: Query<&ambition_sfx::BodyPresentationSource>,
     world_time: Res<WorldTime>,
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
         ambition_engine_core::RoomGeometry,
@@ -755,6 +757,7 @@ pub fn integrate_boss_bodies(
         em.kin.size = combat_size;
         super::super::actors::integrate_actor_body(
             entity,
+            body_sources.get(entity).ok().map(|s| s.id()),
             &mut em,
             &mut aabb,
             &mut combat,

@@ -111,3 +111,85 @@ fn an_unclaimed_character_authorizes_nothing() {
             .is_none()
     );
 }
+
+/// **A13.** A body's cues are attributed to ITS character's provider.
+///
+/// `write_from` had exactly one caller — the moveset timeline — so jump, dash,
+/// damage and death all took their source from the single global
+/// `SfxEmissionContext` and were attributed to whoever owned the session. In a
+/// crossover fight that means Sanic's jump plays out of Ambition's bank.
+///
+/// The source is now derived onto the body once per tick, and every emitter reads
+/// it. This asserts the derivation: the same body, two different characters, two
+/// different sources — and no component at all for a body wearing nothing, which
+/// is materially different from an empty source.
+#[test]
+fn a_body_emits_under_its_own_characters_provider() {
+    let mut app = session_app();
+    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+
+    let sanic_body = app
+        .world_mut()
+        .spawn(ambition_characters::actor::WornCharacter::new("sanic"))
+        .id();
+    let mary_body = app
+        .world_mut()
+        .spawn(ambition_characters::actor::WornCharacter::new("mary_o"))
+        .id();
+    let bare_body = app.world_mut().spawn_empty().id();
+    app.update();
+    // Guard against the whole test being vacuous: if the derivation never ran, all
+    // three lookups would be `None` and the two positive assertions below would be
+    // the only thing failing — which reads as a wiring bug, not as "nothing ran".
+    assert!(
+        app.world()
+            .get::<ambition_sfx::BodyPresentationSource>(sanic_body)
+            .is_some(),
+        "the derivation system did not run at all"
+    );
+
+    let source_of = |app: &App, entity| {
+        app.world()
+            .get::<ambition_sfx::BodyPresentationSource>(entity)
+            .map(|source| source.id().as_str().to_string())
+    };
+    assert_eq!(source_of(&app, sanic_body).as_deref(), Some("sanic_demo"));
+    assert_eq!(source_of(&app, mary_body).as_deref(), Some("mary_o_demo"));
+    assert_eq!(
+        source_of(&app, bare_body),
+        None,
+        "a body wearing no character gets NO component: absent means `ask the \
+         session`, which is the honest answer for a hazard, and is a different \
+         fact from `belongs to nobody`"
+    );
+}
+
+/// Putting on a different identity re-attributes the body's cues.
+///
+/// The whole point of deriving this every tick rather than at spawn: possession,
+/// transformation, and an assist swap all change who a body sounds like.
+#[test]
+fn changing_worn_identity_changes_the_bodys_source() {
+    let mut app = session_app();
+    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+    let body = app
+        .world_mut()
+        .spawn(ambition_characters::actor::WornCharacter::new("sanic"))
+        .id();
+    app.update();
+
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_characters::actor::WornCharacter::new("mary_o"));
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .get::<ambition_sfx::BodyPresentationSource>(body)
+            .map(|source| source.id().as_str().to_string())
+            .as_deref(),
+        Some("mary_o_demo"),
+    );
+}

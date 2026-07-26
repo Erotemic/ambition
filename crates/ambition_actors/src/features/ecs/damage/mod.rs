@@ -51,6 +51,31 @@ pub struct FeatureHitWriters<'w, 's> {
     /// Captured gameplay-session owner for loot, minions, and death effects.
     pub active_session:
         Option<Res<'w, ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
+    /// **Whose cues each body emits** (A13). Read-only, looked up by entity.
+    ///
+    /// Bundled here rather than added to five helper signatures: every hit-feedback
+    /// caller already takes `writers`, and hit feedback is exactly where attribution
+    /// matters most — an authored strike sound belongs to the ATTACKER's bank and
+    /// the hurt fallback to the VICTIM's, so the emitter needs both.
+    pub body_sources: Query<'w, 's, &'static ambition_sfx::BodyPresentationSource>,
+}
+
+impl FeatureHitWriters<'_, '_> {
+    /// The presentation source for one body, if it has one.
+    ///
+    /// Returns an OWNED id rather than a reference: callers need it alongside
+    /// `&mut writers.sfx`, and a borrow of `self` cannot coexist with that. One
+    /// small clone per LANDED hit is a price worth paying to keep the emitter's
+    /// signature honest about taking two different sources.
+    pub fn source_of(
+        &self,
+        entity: Option<bevy::prelude::Entity>,
+    ) -> Option<ambition_sfx::PresentationSourceId> {
+        self.body_sources
+            .get(entity?)
+            .ok()
+            .map(|source| source.id().clone())
+    }
 }
 
 impl FeatureHitWriters<'_, '_> {

@@ -298,6 +298,10 @@ pub(crate) fn death_respawn_player(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn handle_player_damage_events(
     player_entity: Entity,
+    // A13: the attacker's bank and this body's own, resolved by the caller which
+    // holds the queries.
+    attacker_source: Option<&ambition_sfx::PresentationSourceId>,
+    victim_source: Option<&ambition_sfx::PresentationSourceId>,
     world: &ae::World,
     sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
@@ -433,6 +437,8 @@ pub(crate) fn handle_player_damage_events(
                         feel,
                         &damage,
                         di_input_local,
+                        attacker_source,
+                        victim_source,
                     );
                     false
                 }
@@ -507,6 +513,8 @@ pub(crate) fn handle_player_damage_events(
                     feel,
                     &damage,
                     di_input_local,
+                        attacker_source,
+                        victim_source,
                 );
                 false
             }
@@ -695,6 +703,10 @@ pub(crate) fn apply_player_knockback(
     damage: &FeatureHitEvent,
     // The controlled body's held locomotion (local frame) for DI (CM2).
     di_input_local: ae::Vec2,
+    // A13: the two banks this hit's sound could belong to. The attacker's if the
+    // strike authored a cue, the struck body's otherwise.
+    attacker_source: Option<&ambition_sfx::PresentationSourceId>,
+    victim_source: Option<&ambition_sfx::PresentationSourceId>,
 ) {
     let boss_hit = matches!(
         damage.source,
@@ -735,6 +747,8 @@ pub(crate) fn apply_player_knockback(
         damage.strike_sfx,
         damage.damage,
         impact_pos,
+        attacker_source,
+        victim_source,
     );
 }
 
@@ -865,12 +879,15 @@ pub fn apply_player_hit_events(
     // tuple). It carries the player's hurt-debris puff into the ONE victim-side
     // reaction, so the player keeps the impact debris that used to fire
     // attacker-side.
-    (world, moving_platforms, mut class_b, mut debris_writer, mut wallet_shield_spent): (
+    (world, moving_platforms, mut class_b, mut debris_writer, mut wallet_shield_spent, body_sources): (
         ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
         Res<MovingPlatformSet>,
         Option<ResMut<ambition_platformer_primitives::class_b::ClassBRemapLog>>,
         MessageWriter<DebrisBurstMessage>,
         MessageWriter<WalletShieldSpent>,
+        // A13: whose cues each body emits. Bundled here for the same reason the
+        // writers are — this system is at Bevy's param ceiling.
+        Query<&ambition_sfx::BodyPresentationSource>,
     ),
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -1014,8 +1031,21 @@ pub fn apply_player_hit_events(
         // knockback launch are frame-relative) — the same value its own
         // movement integrated under this tick.
         let victim_gravity_dir = resolved_frame.down();
+        // A13: resolved BEFORE the writers are borrowed. The attacker is whoever
+        // the first pending event names; the victim is this body.
+        let attacker_source = target_events
+            .first()
+            .and_then(|event| event.attacker)
+            .and_then(|attacker| body_sources.get(attacker).ok())
+            .map(|source| source.id().clone());
+        let victim_source = body_sources
+            .get(player_entity)
+            .ok()
+            .map(|source| source.id().clone());
         let remapped = handle_player_damage_events(
             player_entity,
+            attacker_source.as_ref(),
+            victim_source.as_ref(),
             &world.0,
             &mut sfx_writer,
             &mut vfx_writer,

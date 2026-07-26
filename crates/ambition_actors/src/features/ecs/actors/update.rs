@@ -625,6 +625,9 @@ pub(crate) fn crawler_neighbor_blocks(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn integrate_actor_body(
     actor_entity: Entity,
+    // Whose cues this body emits (A13). Read-only, looked up by entity so it does
+    // not have to ride the already-12-wide cluster tuple.
+    presentation_source: Option<&ambition_sfx::PresentationSourceId>,
     em: &mut ActorMut<'_>,
     aabb: &mut CenteredAabb,
     combat: &mut BodyCombat,
@@ -751,6 +754,7 @@ pub(crate) fn integrate_actor_body(
         em.kin.pos,
         em.kin.facing,
         em.kin.size,
+        presentation_source,
     );
     // Arm the op-driven overlay POSES this body earned this frame (the wall-jump
     // push-off) on its `BodyAnimFacts`, through the SAME body-generic arming the
@@ -813,6 +817,10 @@ pub(crate) fn integrate_actor_body(
 /// published to [`ActorSteering`].
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_sim_bodies(
+    // A13: whose cues each body emits, looked up by entity. A separate read-only
+    // query rather than another member of the cluster tuple, which is already at
+    // twelve.
+    body_sources: Query<&ambition_sfx::BodyPresentationSource>,
     world_time: Res<WorldTime>,
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
         ambition_engine_core::RoomGeometry,
@@ -909,6 +917,7 @@ pub fn integrate_sim_bodies(
         let mut em = cq.as_actor_mut();
         integrate_actor_body(
             actor_entity,
+            body_sources.get(actor_entity).ok().map(|s| s.id()),
             &mut em,
             &mut aabb,
             &mut combat,

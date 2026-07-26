@@ -318,11 +318,37 @@ pub fn emit_hit_feedback(
     strike_sfx: Option<ambition_sfx::SfxId>,
     damage: i32,
     pos: ae::Vec2,
+    // BOTH sides' presentation sources, because this function emits ONE sound
+    // whose provenance depends on which cue won.
+    //
+    // The split this function already enforces — the ATTACK owns the sound, the
+    // VICTIM owns the spray — is exactly the split attribution needs. An authored
+    // `strike_sfx` is the attacker's cue and must resolve in the ATTACKER's bank;
+    // the fallback is the victim's `HurtFeedback::sfx` and must resolve in the
+    // VICTIM's. Passing one source for both would mis-attribute half the hits in
+    // any fight between two providers, which is the only kind of fight this
+    // machinery exists for.
+    //
+    // `None` on either side falls back to the session provider, which is the right
+    // answer for a hazard, a breakable, or a body wearing no character.
+    attacker_source: Option<&ambition_sfx::PresentationSourceId>,
+    victim_source: Option<&ambition_sfx::PresentationSourceId>,
 ) {
-    sfx.write(ambition_sfx::SfxMessage::Play {
-        id: resolve_strike_sfx(hurt, strike_sfx, damage),
-        pos,
-    });
+    // Which bank the resolved sound belongs to follows `resolve_strike_sfx`'s own
+    // precedence: an authored strike sound wins (attacker), otherwise the victim's
+    // hurt profile answers.
+    let sound_source = if strike_sfx.is_some() {
+        attacker_source
+    } else {
+        victim_source
+    };
+    sfx.write_for_body(
+        sound_source,
+        ambition_sfx::SfxMessage::Play {
+            id: resolve_strike_sfx(hurt, strike_sfx, damage),
+            pos,
+        },
+    );
     vfx.write(VfxMessage::Impact { pos });
     if let Some(burst) = hurt.burst {
         vfx.write(burst.message(pos));
@@ -395,6 +421,8 @@ mod hit_feedback_tests {
             input.strike,
             input.damage,
             ae::Vec2::ZERO,
+            None,
+            None,
         );
     }
 

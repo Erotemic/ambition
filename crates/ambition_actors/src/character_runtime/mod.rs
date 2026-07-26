@@ -55,6 +55,7 @@ pub use hurtbox::{
 };
 pub use presentation::{
     authorize_staged_character_presentation_sources, provider_of_character,
+    publish_body_presentation_sources,
 };
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
@@ -479,6 +480,9 @@ impl Plugin for CharacterRuntimePlugin {
                     // Declare before anything asks: a character registered only
                     // through `register_character` must not read as `Unknown`.
                     declare_registered_characters,
+                    // A13: publish each body's presentation source so every cue
+                    // emitter can attribute without repeating the lookup.
+                    presentation::publish_body_presentation_sources,
                     demand_worn_character_sheets,
                     // Before the drain: the audit reads OUTSTANDING demand, and the
                     // materializer empties it.

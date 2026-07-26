@@ -127,15 +127,19 @@ pub fn emit_movement_fx(
     pos: ae::Vec2,
     facing: f32,
     size: ae::Vec2,
+    // The body's presentation source, so a jump sounds like the character that
+    // jumped. `None` = the session provider, which is the honest answer for a body
+    // wearing no character.
+    source: Option<&ambition_sfx::PresentationSourceId>,
 ) {
     for op in &events.operations {
         match op {
             ae::MovementOp::Jump | ae::MovementOp::WallJump => {
-                sfx.write(SfxMessage::Jump { pos });
+                sfx.write_for_body(source, SfxMessage::Jump { pos });
                 vfx.write(VfxMessage::Dust { pos, facing });
             }
             ae::MovementOp::DoubleJump => {
-                sfx.write(SfxMessage::DoubleJump { pos });
+                sfx.write_for_body(source, SfxMessage::DoubleJump { pos });
                 vfx.write(VfxMessage::Burst {
                     pos,
                     count: 14,
@@ -145,7 +149,7 @@ pub fn emit_movement_fx(
                 });
             }
             ae::MovementOp::Dash | ae::MovementOp::DoubleDash => {
-                sfx.write(SfxMessage::Dash { pos });
+                sfx.write_for_body(source, SfxMessage::Dash { pos });
                 vfx.write(VfxMessage::Burst {
                     pos,
                     count: 10,
@@ -155,7 +159,7 @@ pub fn emit_movement_fx(
                 });
             }
             ae::MovementOp::DodgeRoll => {
-                sfx.write(SfxMessage::Dash { pos });
+                sfx.write_for_body(source, SfxMessage::Dash { pos });
                 vfx.write(VfxMessage::Burst {
                     pos,
                     count: 8,
@@ -177,10 +181,10 @@ pub fn emit_movement_fx(
                 });
             }
             ae::MovementOp::Pogo | ae::MovementOp::Rebound => {
-                sfx.write(SfxMessage::Pogo { pos });
+                sfx.write_for_body(source, SfxMessage::Pogo { pos });
             }
             ae::MovementOp::SwimStroke => {
-                sfx.write(SfxMessage::Jump { pos });
+                sfx.write_for_body(source, SfxMessage::Jump { pos });
                 vfx.write(VfxMessage::Burst {
                     pos,
                     count: 8,
@@ -193,7 +197,7 @@ pub fn emit_movement_fx(
                 vfx.write(VfxMessage::Dust { pos, facing });
             }
             ae::MovementOp::LedgeJump => {
-                sfx.write(SfxMessage::Jump { pos });
+                sfx.write_for_body(source, SfxMessage::Jump { pos });
                 vfx.write(VfxMessage::Burst {
                     pos,
                     count: 8,
@@ -206,7 +210,7 @@ pub fn emit_movement_fx(
                 // Reuse the dash sfx — the ledge roll IS a dodge-roll
                 // semantically (invuln rolling motion). Adds a small
                 // dust burst at the platform lip for visual feedback.
-                sfx.write(SfxMessage::Dash { pos });
+                sfx.write_for_body(source, SfxMessage::Dash { pos });
                 vfx.write(VfxMessage::Dust { pos, facing });
             }
             ae::MovementOp::LedgeGetupAttack => {
@@ -222,7 +226,7 @@ pub fn emit_movement_fx(
             ae::MovementOp::ShieldUp => {
                 // Reuse the quick blink tone as a placeholder until a
                 // dedicated Shield SoundCue is added to the sfxbank.
-                sfx.write(SfxMessage::Blink {
+                sfx.write_for_body(source, SfxMessage::Blink {
                     pos,
                     precision: false,
                 });
@@ -241,12 +245,12 @@ pub fn emit_movement_fx(
             | ae::MovementOp::WallClimb
             | ae::MovementOp::Slash => {}
             ae::MovementOp::Reset => {
-                sfx.write(SfxMessage::Reset { pos });
+                sfx.write_for_body(source, SfxMessage::Reset { pos });
             }
         }
     }
     for blink in &events.blinks {
-        sfx.write(SfxMessage::Blink {
+        sfx.write_for_body(source, SfxMessage::Blink {
             pos: blink.from,
             precision: blink.precision,
         });
@@ -263,7 +267,7 @@ pub fn emit_movement_fx(
         let feet = pos + ae::Vec2::new(0.0, size.y * 0.5);
         // Touchdown footfall. Emitted for every body; provider authority gates
         // it, so a game hears it only by authoring `player.land`.
-        sfx.write(SfxMessage::Land { pos: feet });
+        sfx.write_for_body(source, SfxMessage::Land { pos: feet });
         vfx.write(VfxMessage::Dust { pos: feet, facing });
     }
 }
@@ -277,12 +281,15 @@ pub fn handle_player_events(
     blink_cam: &mut PlayerBlinkCameraState,
     anim: &mut BodyAnimFacts,
     events: ae::FrameEvents,
+    // A13: the player is a character too. Its jump should sound like ITS provider,
+    // not like whoever owns the session.
+    source: Option<&ambition_sfx::PresentationSourceId>,
 ) {
     let pos = clusters.kinematics.pos;
     let facing = clusters.kinematics.facing;
     let size = clusters.kinematics.size;
     // Body-generic SFX/VFX — the SAME emitter the actor tick uses.
-    emit_movement_fx(sfx, vfx, &events, pos, facing, size);
+    emit_movement_fx(sfx, vfx, &events, pos, facing, size, source);
     arm_ground_contact_anim_overlay(anim, events.ground_contact);
     // Body-generic op-driven overlay poses (the wall-jump push-off) — the SAME
     // arming the actor tick runs (§A9). Player-specific presentation the shared
@@ -324,6 +331,7 @@ mod tests {
             ae::Vec2::ZERO,
             1.0,
             ae::Vec2::new(20.0, 40.0),
+            None,
         );
     }
 

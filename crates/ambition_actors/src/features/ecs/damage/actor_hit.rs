@@ -88,6 +88,10 @@ pub(crate) fn apply_actor_hit(
         combat.hit_flash = 0.18;
         combat.damage_invuln_timer = super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S;
         let impact = midpoint(event.volume.center(), pos);
+        // A13: the authored strike sound is the ATTACKER's cue; the hurt fallback is
+        // the VICTIM's, so both are resolved before the emitter borrows the writers.
+        let attacker_source = writers.source_of(event.attacker);
+        let victim_source = writers.source_of(Some(actor_entity));
         crate::combat::util::emit_hit_feedback(
             &mut writers.sfx,
             &mut writers.vfx,
@@ -96,6 +100,8 @@ pub(crate) fn apply_actor_hit(
             event.strike_sfx,
             event.damage,
             impact,
+            attacker_source.as_ref(),
+            victim_source.as_ref(),
         );
         writers.actor_stimuli.write(ActorStimulus::DamagedBy {
             actor: actor_entity,
@@ -301,6 +307,10 @@ pub(crate) fn apply_actor_hit(
         // this body never borrows the player's "you got hurt" cue. A killed body
         // still gets its death drama below, layered on this landing reaction.
         let impact = midpoint(event.volume.center(), em.kin.pos);
+        // A13: the authored strike sound is the ATTACKER's cue; the hurt fallback is
+        // the VICTIM's, so both are resolved before the emitter borrows the writers.
+        let attacker_source = writers.source_of(event.attacker);
+        let victim_source = writers.source_of(Some(actor_entity));
         crate::combat::util::emit_hit_feedback(
             &mut writers.sfx,
             &mut writers.vfx,
@@ -309,6 +319,8 @@ pub(crate) fn apply_actor_hit(
             event.strike_sfx,
             event.damage,
             impact,
+            attacker_source.as_ref(),
+            victim_source.as_ref(),
         );
         // Cling-break: a struck crawler (puppy-slug) is knocked off its
         // surface — the TYPED detach operation on its movement policy plus a

@@ -514,7 +514,14 @@ pub fn prepare_character(
 
 /// The prepared authority: one entry per character, keyed by stable id.
 ///
-/// Subsystem read models are DERIVED from this rather than registered beside it.
+/// ⚠ §4.1's end state is that subsystem read models are DERIVED from this rather
+/// than registered beside it. That is where this is GOING, not where it is: the
+/// sprite declarations, the cue authorization, and each body's presentation source
+/// resolve through here today, but production fighter construction still reads
+/// `CharacterCatalog` for its action set, moveset, and movement tuning
+/// (`avatar::starting_character`, `features::ecs::spawn_actors`). Registering a
+/// character does not yet cause a production-spawned body to receive what that
+/// character authored — the §7.10 fight test projects it by hand. Tracked as C3.
 #[derive(bevy::prelude::Resource, Debug, Clone, Default)]
 pub struct PreparedCharacterRegistry {
     by_id: BTreeMap<String, PreparedCharacterDefinition>,

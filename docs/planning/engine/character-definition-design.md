@@ -42,15 +42,29 @@ command hook that reads the repository, 19/19 checks green, suite 18/18.
 | 7.3 strict provider-local `inherits` | **DONE** |
 | 7.4 `AttackDir::Forward` + attack held/released | **DONE** |
 | 7.5 music: one runtime, `one_shot` survives generation | **DONE** |
-| 7.6 `register_character` + prepared authority | **DONE** |
+| 7.6 `register_character` + prepared authority | **DONE for declaration; NOT for production spawn** — see below |
 | 7.7 source-qualified presentation emission | **DONE** |
 | 7.8 match participants + `CharacterLoadDemand` | **DONE** |
 | 7.9 `AttackGestureState` + tilt/smash | **DONE** |
-| 7.10 two characters actually fight | **DONE** |
+| 7.10 two characters actually fight | **DONE in a test**, which projects the definition onto the bodies by hand |
 | 7.11 hurtbox schema + runtime | **DONE** |
 
 §7.2 was **not** skipped — it landed in the same commit as §7.1, which is what
 this section previously begged the next agent to do.
+
+⚠ **What "7.6 DONE" does and does not claim** (GPT-5.6 review, 2026-07-26, §6).
+The declaration side is real: one `register_character` call publishes a prepared
+definition, the sprite declarations resolve through it, a staged cast authorizes
+its providers' cues from it, and each body's presentation source is derived from
+it. Production fighter CONSTRUCTION is not: `avatar::starting_character` and
+`features::ecs::spawn_actors` still take the action set, moveset, and movement
+tuning from `CharacterCatalog` and the roster seeds. The §7.10 fight test reads the
+prepared definition and inserts `ActorMoveset` / `AuthoredHurtboxes` / the control
+components ITSELF, so what it proves is that projecting a prepared definition into
+the right ECS components produces a real fight — not that registering a character
+causes a production-spawned fighter to receive those components. That projection is
+C3, and until it lands, the sentence "subsystem read models derive from the prepared
+authority" describes the destination.
 
 ### What is NOT done, and is worth a slice each
 

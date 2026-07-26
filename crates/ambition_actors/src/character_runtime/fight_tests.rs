@@ -16,6 +16,7 @@
 //! install some step, this test is the one that goes red.
 
 use super::*;
+use ambition_engine_core::AabbExt;
 use ambition_engine_core::Vec2;
 use ambition_entity_catalog::{
     ClipBinding, HitVolume, HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, MoveGates,
@@ -337,11 +338,43 @@ fn spawn_fighter(
         .get(character_id)
         .expect("the fighter must be registered before it is staged")
         .clone();
-    // Deliberately WIDER than the authored torso (±10 in `hurtboxes()`): if the
-    // body's bounding box and its authored silhouette are the same rectangle, no
-    // test here can tell which one damage consulted. That is not a hypothetical —
-    // the first version of these tests used a 20-wide body and proved nothing.
+    // Deliberately WIDER than the authored torso: if the body's bounding box and
+    // its authored silhouette are the same rectangle, no test here can tell which
+    // one damage consulted. That is not a hypothetical — the first version of these
+    // tests used a 20-wide body and proved nothing.
     let body = Vec2::new(40.0, 32.0);
+    // ...and that is ASSERTED, not commented. A comment naming `±10 in hurtboxes()`
+    // is a second copy of a number, and the whole A10 defect class is two fixture
+    // values that must differ silently becoming equal. Read the authored width off
+    // the definition and check it here, so widening the torso breaks the fixture
+    // that depends on it being narrow rather than quietly making every
+    // silhouette-vs-box assertion in this file vacuous.
+    {
+        let widest_authored = prepared
+            .hurtboxes
+            .as_ref()
+            .and_then(|doc| doc.default.as_ref())
+            .map(|timeline| {
+                timeline
+                    .keyframes
+                    .iter()
+                    .flat_map(|keyframe| keyframe.volumes.iter())
+                    .map(|volume| match volume.shape {
+                        VolumeShape::Rect { half_extents, .. } => half_extents.0,
+                        _ => 0.0,
+                    })
+                    .fold(0.0_f32, f32::max)
+            })
+            .unwrap_or(0.0);
+        assert!(
+            widest_authored > 0.0 && widest_authored * 2.0 < body.x,
+            "`{character_id}`'s authored torso is {widest_authored} half-wide against \
+             a {} half-wide body box: the two geometries must DIFFER or every \
+             hit-on-the-silhouette assertion in this file is also satisfied by \
+             hitting the box",
+            body.x / 2.0
+        );
+    }
     let aabb = ambition_engine_core::Aabb::new(at, body / 2.0);
     let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new(
         character_id.to_string(),
@@ -620,9 +653,74 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
     press_attack(&mut app, mary);
     app.update();
     release_attack(&mut app, mary);
+
+    // ── The premise, CHECKED, on the tick the strike is live ──────────────────
+    //
+    // The comment above computes three spans by hand, and a hand-computed premise
+    // is the A10 defect class waiting to happen: move Sanic to x = 90 and this test
+    // still passes, having proven only that a strike which reaches nothing hits
+    // nothing. So walk to the live strike volume and assert what the comment
+    // claims — the coarse box overlaps it, the published silhouette does not.
+    let mut checked = false;
     for _ in 0..14 {
         app.update();
+        // The strike's world box, resolved the SAME way `apply_hitbox_damage`
+        // resolves it: a `FollowOwner` hitbox carries a local offset and tracks the
+        // owner's box centre, so there is no world rectangle on the entity to read.
+        let strike = {
+            let world = app.world_mut();
+            let mut q = world.query_filtered::<&crate::combat::hitbox::Hitbox, With<
+                crate::combat::moveset::StrikeVolume,
+            >>();
+            let hitbox = q.iter(world).next().cloned();
+            hitbox.map(|hitbox| {
+                let owner_pos = world
+                    .get::<ambition_engine_core::CenteredAabb>(hitbox.owner)
+                    .map(|aabb| aabb.center)
+                    .expect("the attacking fighter carries its coarse box");
+                hitbox.world_aabb(owner_pos)
+            })
+        };
+        let Some(strike) = strike else { continue };
+        let coarse = app
+            .world()
+            .get::<ambition_engine_core::CenteredAabb>(sanic)
+            .expect("a spawned fighter carries its coarse box")
+            .aabb();
+        let published = app
+            .world()
+            .get::<crate::combat::components::DamageableVolumes>(sanic)
+            .expect("the volume publisher ran");
+        assert!(
+            published.published(),
+            "nothing published Sanic's silhouette, so `overlaps the box but not the \
+             silhouette` is not a distinction this world can make"
+        );
+        assert!(
+            strike.strict_intersects(coarse),
+            "the strike must overlap Sanic's COARSE box ({coarse:?}) or this test \
+             proves nothing: a strike that reaches neither geometry misses for the \
+             uninteresting reason (strike {strike:?})"
+        );
+        assert!(
+            !published
+                .volumes
+                .iter()
+                .any(|volume| strike.strict_intersects(*volume)),
+            "the strike must NOT overlap Sanic's published silhouette \
+             ({:?}) — otherwise a hit would be correct and the assertion below is \
+             testing the opposite of what it says (strike {strike:?})",
+            published.volumes
+        );
+        checked = true;
     }
+    assert!(
+        checked,
+        "no strike volume was ever live during the window, so the geometry premise \
+         was never checked and the health assertion below is satisfied by the move \
+         never happening"
+    );
+
     assert_eq!(
         health(&app, sanic),
         10,

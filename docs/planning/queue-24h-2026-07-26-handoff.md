@@ -46,6 +46,13 @@ python3 scripts/goal_guard.py --arm .goal/planning-sweep.json
   the wrong reason this run, and one fixture made its own point vacuous (an
   authored torso the same size as the body box). Break the fix, watch the test
   fail, restore.
+- **A premise in a COMMENT is the same defect with a longer fuse** (A10). Three
+  tests said "the strike overlaps the box but not the silhouette" in prose, with
+  the spans computed by hand. Two of them would have passed with the victim moved
+  out of reach entirely. If a test's point is "A not B", assert A ≠ B in code —
+  and if the premise involves live geometry, resolve it the way the production
+  path does (`Hitbox::world_aabb` off the owner's centre, not a rectangle on the
+  entity: a `FollowOwner` hitbox does not carry one).
 - **Read the output, not the exit code.** A background job reported success while
   the suite was 17/18.
 - Cargo lives at `$HOME/.cargo/bin/cargo`; the hook PATH has no cargo.
@@ -104,7 +111,7 @@ make that question mechanical rather than remembered.
 
 ## 5. State of play
 
-**Closed and committed:** A1–A9, A11–A13, A16, A17, A18, A19, plus A5's
+**Closed and committed:** A1–A13, A16, A17, A18, A19, plus A5's
 provenance half, plus **F1–F5** (a second GPT-5.6 review of the same run —
 section F of the ledger). The rollback oracle is green and un-quarantined.
 
@@ -135,15 +142,14 @@ it exists to guard.
 
 **Open, in the order I would take them:**
 
-1. **A10** — audit for other vacuous A-not-B fixtures (see §2).
-2. **A20/A21** — mounts, falling sand and the shop have no LDtk room, so sweeping
+1. **A20/A21** — mounts, falling sand and the shop have no LDtk room, so sweeping
    them needs a Rust fixture; and the default-features demo jobs are outside the
    plan.
-3. **A14** — `MessageReader` cursors are `Local` state GGRS never rewinds. Measured
+2. **A14** — `MessageReader` cursors are `Local` state GGRS never rewinds. Measured
    NOT to be A6's cause (hoisting both changed the checksums not at all, so it was
    reverted rather than landed as churn) but a real latent hazard the roadmap's
    Task 1 already calls out.
-4. **C3 first, then C1/C2/C4** — `character-definition-design.md` §0 follow-ups.
+3. **C3 first, then C1/C2/C4** — `character-definition-design.md` §0 follow-ups.
    C3 was promoted by F6: production fighter construction still reads
    `CharacterCatalog` for its action set, moveset, and movement tuning, so
    registering a character does NOT yet reach a production-spawned body. The
@@ -152,7 +158,7 @@ it exists to guard.
    authority" true. Then: the effort migration off absolute
    `patrol_speed`/`chase_speed`; **no character authors a `HurtboxDoc` yet** (now
    worth doing, since as of A7 the seam genuinely reaches damage); no versus mode.
-5. **D1–D4** — `competitive-2d-platformer-engine-roadmap.md`: eleven of twelve tasks
+4. **D1–D4** — `competitive-2d-platformer-engine-roadmap.md`: eleven of twelve tasks
    still carry no status marker, which is its own defect.
 
 ## 6. Jon's answered question, for continuity

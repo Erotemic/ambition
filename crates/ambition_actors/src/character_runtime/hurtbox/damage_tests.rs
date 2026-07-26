@@ -18,7 +18,7 @@ use bevy::prelude::*;
 
 use ambition_combat::components::{ActorFaction, CenteredAabb, DamageableVolumes};
 use ambition_combat::events::HitEvent;
-use ambition_combat::hitbox::{apply_hitbox_damage, Hitbox, HitboxHits, HitboxLifetime, HitSide};
+use ambition_combat::hitbox::{apply_hitbox_damage, HitSide, Hitbox, HitboxHits, HitboxLifetime};
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 use ambition_entity_catalog::{HurtboxKeyframe, HurtboxTimeline, VolumeShape};
@@ -79,6 +79,20 @@ fn fight_app() -> App {
 }
 
 /// Spawn an attacker plus a `World`-anchored strike box at `strike_x`.
+/// The world box a strike spawned by [`spawn_strike`] occupies.
+///
+/// Kept beside the spawner so the two cannot disagree, and used to CHECK the
+/// premise of the miss case rather than state it in a comment. The prose said the
+/// strike overlaps the coarse box; move the strike to x = 40 and the miss would
+/// still "pass", having proven only that a strike reaching nothing hits nothing —
+/// the A10 defect class.
+fn strike_box(strike_x: f32, half_width: f32) -> ae::Aabb {
+    ae::Aabb::new(
+        ae::Vec2::new(strike_x, 0.0),
+        ae::Vec2::new(half_width, 18.0),
+    )
+}
+
 fn spawn_strike(app: &mut App, strike_x: f32, half_width: f32) {
     let owner = app
         .world_mut()
@@ -155,6 +169,13 @@ fn a_player_shaped_body_is_hit_on_its_authored_hurtbox() {
     let mut app = fight_app();
     let player = spawn_authored_body(&mut app, true);
     spawn_strike(&mut app, 20.0, 8.0);
+    // The premise, checked: this strike must genuinely reach the coarse box, or the
+    // miss below is the uninteresting kind.
+    assert!(
+        strike_box(20.0, 8.0).strict_intersects(ae::Aabb::new(ae::Vec2::ZERO, COARSE_HALF)),
+        "the strike must overlap the body's COARSE box, or `hit on the silhouette \
+         and not the box` is not the distinction this case is making"
+    );
     app.update();
     assert!(
         app.world().resource::<CapturedHits>().0.is_empty(),
@@ -407,7 +428,9 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
     app.add_message::<ambition_combat::moveset::MoveEventMessage>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<ambition_time::WorldTime>();
-    app.insert_resource(ambition_combat::authored_volumes::AuthoredAttackVolumeResolver::disabled());
+    app.insert_resource(
+        ambition_combat::authored_volumes::AuthoredAttackVolumeResolver::disabled(),
+    );
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     {
         let mut time = app.world_mut().resource_mut::<ambition_time::WorldTime>();

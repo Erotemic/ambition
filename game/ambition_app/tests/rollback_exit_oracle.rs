@@ -125,8 +125,74 @@ impl OracleEvents {
     }
 }
 
+/// **The exact props the route is supposed to act on, by authored id.**
+///
+/// The objectives used to read "any breakable is broken" and "any switch is on",
+/// with the initial states stated in a comment (GPT 5.6, 2026-07-26). Author one
+/// decorative already-shattered crate into this room, or one switch that starts
+/// active, and both objectives pass before the player reaches anything — the same
+/// defect class as A10's silhouette premise, in the test that was just cleaned up
+/// for it.
+///
+/// Pinned by [`FeatureId`] rather than by `Entity`: bevy_ggrs DESTROYS and recreates
+/// rollback entities, so a handle captured at calibration names nothing after the
+/// first forced rewind. The authored id is the identity that survives, which is the
+/// same reason the localizer projects entity references through `SimId`.
+#[derive(Clone, Debug)]
+struct OracleTargets {
+    brick: String,
+    switch: String,
+}
+
+/// Identify the route's targets and ASSERT they start in the state the route is
+/// supposed to change. A calibration that cannot find them, or finds them already
+/// done, fails here rather than producing a green run that proved nothing.
+fn calibrate_targets(sim: &mut SandboxSim) -> OracleTargets {
+    let world = sim.world_mut();
+
+    let bricks: Vec<(String, bool)> = {
+        let mut q = world.query::<(
+            &ambition::combat::components::FeatureId,
+            &ambition::combat::components::BreakableFeature,
+        )>();
+        q.iter(world)
+            .map(|(id, feature)| (id.0.clone(), feature.broken()))
+            .collect()
+    };
+    let switches: Vec<(String, bool)> = {
+        let mut q = world.query::<(
+            &ambition::combat::components::FeatureId,
+            &ambition::actors::encounter::SwitchOn,
+        )>();
+        q.iter(world).map(|(id, on)| (id.0.clone(), on.0)).collect()
+    };
+
+    let (brick, already_broken) = bricks
+        .first()
+        .cloned()
+        .expect("the calibration lab authors a breakable brick on the arena floor");
+    assert!(
+        !already_broken,
+        "`{brick}` is ALREADY broken at calibration, so the brick objective is          satisfied before the route starts and proves nothing"
+    );
+    let (switch, already_on) = switches
+        .first()
+        .cloned()
+        .expect("the calibration lab authors the classify-console switch");
+    assert!(
+        !already_on,
+        "`{switch}` is ALREADY on at calibration, so the switch objective is          satisfied before the route starts and proves nothing"
+    );
+    OracleTargets { brick, switch }
+}
+
 /// Read every oracle observation from live world state.
-fn observe(sim: &mut SandboxSim, enemy_health_baseline: i32, events: &mut OracleEvents) {
+fn observe(
+    sim: &mut SandboxSim,
+    targets: &OracleTargets,
+    enemy_health_baseline: i32,
+    events: &mut OracleEvents,
+) {
     let world = sim.world_mut();
 
     let enemy_health: i32 = {
@@ -148,16 +214,27 @@ fn observe(sim: &mut SandboxSim, enemy_health_baseline: i32, events: &mut Oracle
         }
     }
 
+    // THE brick and THE switch the route is aimed at, by authored id — not "any
+    // breakable" and "any switch", which a second prop in a different initial state
+    // would satisfy for free.
     {
-        let mut q = world.query::<&ambition::combat::components::BreakableFeature>();
-        if q.iter(world).any(|feature| feature.broken()) {
+        let mut q = world.query::<(
+            &ambition::combat::components::FeatureId,
+            &ambition::combat::components::BreakableFeature,
+        )>();
+        if q.iter(world)
+            .any(|(id, feature)| id.0 == targets.brick && feature.broken())
+        {
             events.brick_broken = true;
         }
     }
 
     {
-        let mut q = world.query::<&ambition::actors::encounter::SwitchOn>();
-        if q.iter(world).any(|on| on.0) {
+        let mut q = world.query::<(
+            &ambition::combat::components::FeatureId,
+            &ambition::actors::encounter::SwitchOn,
+        )>();
+        if q.iter(world).any(|(id, on)| id.0 == targets.switch && on.0) {
             events.switch_flipped = true;
         }
     }
@@ -218,18 +295,22 @@ fn brick_standoff(brick: PropBox, px: f32) -> f32 {
 /// policy needs no knowledge of the room's coordinate frame.
 fn target_positions(
     sim: &mut SandboxSim,
+    targets: &OracleTargets,
 ) -> (Vec<(f32, f32)>, Option<PropBox>, Option<(f32, f32)>) {
     let enemies = enemy_positions(sim);
     let world = sim.world_mut();
 
+    // The SAME props `observe` watches. Steering at one brick while asserting on
+    // another is how a route can walk past its objective and still report it done.
     let brick = {
         let mut q = world.query::<(
+            &ambition::combat::components::FeatureId,
             &ambition::combat::components::BreakableFeature,
             &ambition::engine_core::geometry::CenteredAabb,
         )>();
         q.iter(world)
-            .find(|(feature, _)| !feature.broken())
-            .map(|(_, aabb)| PropBox {
+            .find(|(id, feature, _)| id.0 == targets.brick && !feature.broken())
+            .map(|(_, _, aabb)| PropBox {
                 x: aabb.center.x,
                 y: aabb.center.y,
                 half_w: aabb.size().x / 2.0,
@@ -238,12 +319,13 @@ fn target_positions(
 
     let switch = {
         let mut q = world.query::<(
+            &ambition::combat::components::FeatureId,
             &ambition::actors::encounter::SwitchFeature,
             &ambition::engine_core::geometry::CenteredAabb,
         )>();
         q.iter(world)
-            .next()
-            .map(|(_, aabb)| (aabb.center.x, aabb.center.y))
+            .find(|(id, _, _)| id.0 == targets.switch)
+            .map(|(_, _, aabb)| (aabb.center.x, aabb.center.y))
     };
 
     (enemies, brick, switch)
@@ -702,6 +784,10 @@ fn walk_the_combat_route(
         );
         total
     };
+    // The props the route must change, with their initial states CHECKED. Anything
+    // this cannot find, or finds already done, fails here — before a run that would
+    // otherwise report those objectives satisfied by the room's authoring.
+    let targets = calibrate_targets(&mut *sim);
 
     let mut events = OracleEvents {
         melee_landed: false,
@@ -712,7 +798,7 @@ fn walk_the_combat_route(
 
     let mut frames_run = 0usize;
     for frame in 0..MAX_FRAMES {
-        let (enemies, brick, switch) = target_positions(&mut *sim);
+        let (enemies, brick, switch) = target_positions(&mut *sim, &targets);
         let player = sim.observation();
         let (px, _py) = player.player_pos;
 
@@ -791,7 +877,7 @@ fn walk_the_combat_route(
             events.brick_broken,
             events.switch_flipped,
         );
-        observe(sim, enemy_health_baseline, &mut events);
+        observe(sim, &targets, enemy_health_baseline, &mut events);
         let after = (
             events.melee_landed,
             events.armor_spent,

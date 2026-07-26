@@ -226,6 +226,33 @@ pub fn advance_gameplay_elapsed(
 
 /// Schedules `WorldPrep`: LDtk hot-reload, feature-world overlay rebuild,
 /// and per-frame hazard/actor/boss ticks before player simulation reads them.
+/// Register the DAMAGE-facing publication of every body's damageable volumes.
+///
+/// Extracted from `WorldPrepSchedulePlugin` so the ordering is expressed exactly
+/// once, and so a test can assert the production wiring instead of asserting a
+/// copy of it. A `.before`/`.after` naming an unregistered system is silently
+/// ignored by Bevy, which makes a hand-rebuilt ordering in a test the easiest
+/// possible way to prove nothing.
+///
+/// This is the SECOND invocation of `refresh_body_damageable_volumes`; the first
+/// runs in `WorldPrep` for the pogo derivation and the collision overlay. Same
+/// function, same rule, two consumers with different timing needs — see the
+/// system's own documentation for why that is a refresh and not a clobber.
+pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
+    use ambition_platformer_primitives::schedule::SimScheduleExt;
+    let sim = app.sim_schedule();
+    app.add_systems(
+        sim,
+        refresh_body_damageable_volumes
+            .in_set(crate::schedule::SandboxSet::Combat)
+            // Authored silhouettes are resolved from sim clocks by the character
+            // runtime, which is pinned to the same window; publish after that, or
+            // a move's first active frame publishes the previous frame's volumes.
+            .after(crate::character_runtime::hurtbox::resolve_body_hurtboxes)
+            .before(crate::combat::hitbox::apply_hitbox_damage),
+    );
+}
+
 pub struct WorldPrepSchedulePlugin;
 
 impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
@@ -366,17 +393,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         //
         // `in_set(CoreSimulation)` keeps it inside `GameplaySimulationRoot`, so the
         // session gate covers it like everything else.
-        app.add_systems(
-            sim,
-            refresh_body_damageable_volumes
-                .in_set(crate::schedule::SandboxSet::Combat)
-                // Authored silhouettes are resolved from sim clocks by the
-                // character runtime, which is pinned to the same window; publish
-                // after that, or a move's first active frame publishes the
-                // previous frame's volumes.
-                .after(crate::character_runtime::hurtbox::resolve_body_hurtboxes)
-                .before(crate::combat::hitbox::apply_hitbox_damage),
-        );
+        register_damage_facing_volume_publication(app);
         // The decomposed per-actor pipeline: brain → intent, movement integration,
         // read-model mirror, and contact-damage observer, as four explicit phases.
         // Chained (they share the actor cluster + `ActorControl`/`BodyCombat`) and

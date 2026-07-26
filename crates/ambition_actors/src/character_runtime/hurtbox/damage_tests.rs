@@ -312,3 +312,167 @@ fn an_unauthored_body_is_still_hit_on_its_coarse_box() {
         "no authored doc ⇒ the coarse box is still the silhouette"
     );
 }
+
+/// The schedule slot is part of the contract, so it is asserted, not commented.
+///
+/// `resolve_body_hurtboxes` lived in `Update` at first. That is wrong twice over:
+/// `Update` runs once per FRAME while the sim schedule re-runs many times per
+/// frame during rollback resimulation, so every rewound tick read a stale
+/// silhouette — for state declared rollback-DERIVED on the promise that the sim
+/// rebuilds it — and a frame-rate-dependent hurtbox means two peers at different
+/// frame rates disagree about what got hit.
+///
+/// It is now pinned between `advance_move_playback` and `apply_hitbox_damage`,
+/// and this test asserts the CONSEQUENCE of that pinning rather than the graph
+/// edges, because Bevy encodes `.after(some_fn)` as an edge from that function's
+/// `SystemTypeSet` — so a naive system-to-system edge lookup finds nothing and
+/// passes for the wrong reason.
+///
+/// The move's silhouette WIDENS at t = 0.1s. A strike is parked where only the
+/// wide keyframe reaches it. If resolution runs after the move clock, the hit
+/// lands on the very tick the clock crosses 0.1s; if it runs before, the wide
+/// keyframe is selected a tick late and the hit lands a tick late. One tick is
+/// the entire difference between these two schedules, and it is exactly the
+/// error a comment cannot catch.
+#[test]
+fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
+    use ambition_platformer_primitives::schedule::SimScheduleExt;
+
+    const WIDEN_AT_S: f32 = 0.1;
+    let doc = HurtboxDoc {
+        default: Some(HurtboxTimeline {
+            keyframes: vec![HurtboxKeyframe {
+                at_s: 0.0,
+                volumes: vec![HurtboxVolume {
+                    shape: VolumeShape::Rect {
+                        offset: (0.0, 0.0),
+                        half_extents: (4.0, 18.0),
+                    },
+                }],
+            }],
+        }),
+        poses: Default::default(),
+        moves: std::collections::BTreeMap::from([(
+            "swing".to_string(),
+            HurtboxTimeline {
+                keyframes: vec![
+                    HurtboxKeyframe {
+                        at_s: 0.0,
+                        volumes: vec![HurtboxVolume {
+                            shape: VolumeShape::Rect {
+                                offset: (0.0, 0.0),
+                                half_extents: (4.0, 18.0),
+                            },
+                        }],
+                    },
+                    HurtboxKeyframe {
+                        at_s: WIDEN_AT_S,
+                        volumes: vec![HurtboxVolume {
+                            shape: VolumeShape::Rect {
+                                offset: (0.0, 0.0),
+                                half_extents: (30.0, 18.0),
+                            },
+                        }],
+                    },
+                ],
+            },
+        )]),
+    };
+
+    let mut app = App::new();
+    crate::schedule::configure_sandbox_sets(&mut app);
+    // The session gate (`simulation_authorized`) requires EXACTLY ONE
+    // `SessionRoot`, and every gameplay set is nested inside it. Without this
+    // entity the whole simulation is structurally dormant and a test like this
+    // one fails with "nothing was ever hit" — which reads like a geometry bug.
+    app.world_mut()
+        .spawn(ambition_platformer_primitives::lifecycle::SessionRoot(
+            ambition_platformer_primitives::lifecycle::SessionScopeId(0),
+        ));
+    app.add_plugins(crate::character_runtime::CharacterRuntimePlugin);
+    // The PRODUCTION registration of the publication, ordering included.
+    crate::features::register_damage_facing_volume_publication(&mut app);
+    let sim = app.sim_schedule();
+    app.add_systems(
+        sim,
+        (
+            ambition_combat::moveset::advance_move_playback,
+            apply_hitbox_damage,
+            capture_hits,
+        )
+            .in_set(crate::schedule::SandboxSet::Combat),
+    );
+    app.add_message::<HitEvent>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<ambition_combat::moveset::MoveEventMessage>();
+    app.init_resource::<CapturedHits>();
+    app.init_resource::<ambition_time::WorldTime>();
+    app.insert_resource(ambition_combat::authored_volumes::AuthoredAttackVolumeResolver::disabled());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    {
+        let mut time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
+        time.scaled_dt = 1.0 / 60.0;
+        time.raw_dt = 1.0 / 60.0;
+    }
+
+    let body = app
+        .world_mut()
+        .spawn((
+            CenteredAabb::new(ae::Vec2::ZERO, ae::Vec2::new(4.0, 18.0)),
+            ae::BodyKinematics {
+                pos: ae::Vec2::ZERO,
+                size: ae::Vec2::new(8.0, 36.0),
+                facing: 1.0,
+                ..Default::default()
+            },
+            ActorFaction::Player,
+            DamageableVolumes::default(),
+            AuthoredHurtboxes(doc),
+            ResolvedHurtboxes::default(),
+            ae::BodyOffense::default(),
+            ae::BodyMotionFacts::default(),
+            ae::BodyShieldState::default(),
+            ambition_characters::actor::BodyCombat::default(),
+            ambition_combat::moveset::MovePlayback::new(widening_swing(), 1.0),
+        ))
+        .id();
+    // Parked where ONLY the wide keyframe reaches: x in [20, 36]. The narrow
+    // silhouette stops at x = 4; the wide one reaches x = 30.
+    spawn_strike(&mut app, 28.0, 8.0);
+
+    let mut landed_at: Option<f32> = None;
+    for _ in 0..20 {
+        app.update();
+        if !app.world().resource::<CapturedHits>().0.is_empty() {
+            landed_at = app
+                .world()
+                .get::<ambition_combat::moveset::MovePlayback>(body)
+                .map(|p| p.t);
+            break;
+        }
+    }
+    let t = landed_at.expect("the widened silhouette must eventually be hit");
+    assert!(
+        t < WIDEN_AT_S + 1.5 / 60.0,
+        "the hit landed at t = {t}s, but the silhouette widens at {WIDEN_AT_S}s — \
+         more than one tick of slack means hurtbox resolution is reading a move \
+         clock it has not yet advanced"
+    );
+}
+
+/// A move long enough to outlive its own widening keyframe.
+fn widening_swing() -> ambition_entity_catalog::MoveSpec {
+    ambition_entity_catalog::MoveSpec {
+        id: "swing".to_string(),
+        clip: ambition_entity_catalog::ClipBinding {
+            clip: "swing".to_string(),
+            fallbacks: vec![],
+        },
+        duration_s: 1.0,
+        events: vec![],
+        windows: vec![],
+        gates: ambition_entity_catalog::MoveGates { grounded: None },
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+    }
+}

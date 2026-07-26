@@ -21,7 +21,6 @@ use ambition_entity_catalog::{
     ClipBinding, HitVolume, HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, MoveGates,
     MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
-use bevy::prelude::*;
 use std::collections::BTreeMap;
 
 /// One damaging move: active from 0.1s to 0.2s, reaching +24 world units forward.
@@ -114,9 +113,17 @@ fn register_two_providers_characters(app: &mut App) {
     );
 }
 
-/// **The acceptance test.**
+/// Two providers, one session: registration, staging, and readiness.
+///
+/// This used to be named `..._trade_damage_in_one_session` and claimed to be the
+/// §7.10 acceptance test, but it computed an AABB overlap by hand and subtracted
+/// authored integers from local variables — no entities, no `MovePlayback`, no
+/// hit events, no `BodyHealth`. It proved that two definitions can coexist and
+/// that their numbers can be read back, which is worth having and is what it is
+/// now named for. The fight itself is
+/// [`two_provider_characters_trade_damage_through_the_real_damage_path`].
 #[test]
-fn two_provider_characters_trade_damage_in_one_session() {
+fn two_providers_stage_into_one_session_and_both_reach_readiness() {
     let mut app = App::new();
     app.add_plugins(CharacterRuntimePlugin);
     // A real session always has an assembled character catalog: the materializer
@@ -188,47 +195,6 @@ fn two_provider_characters_trade_damage_in_one_session() {
         "a body mid-attack presents its move's silhouette, not its idle one"
     );
 
-    // ── The hit actually lands, geometrically, on the authored volume ──
-    // Mary-O stands at x=0 facing right; her stomp reaches +24±14, so x in 10..38.
-    // Sanic stands at x=30, so his torso (±10) overlaps that window.
-    let mary_at = Vec2::new(0.0, 0.0);
-    let sanic_at = Vec2::new(30.0, 0.0);
-    let sanic_world = sanic_boxes
-        .world_volumes(sanic_at, 1.0)
-        .expect("Sanic authored hurtboxes");
-    assert_eq!(sanic_world.len(), 1);
-
-    let stomp = &mary.moveset.as_ref().unwrap().moves[0].windows[0].volumes[0];
-    let (stomp_offset, stomp_half) = match stomp.shape {
-        VolumeShape::Rect {
-            offset,
-            half_extents,
-        } => (offset, half_extents),
-        VolumeShape::Circle { offset, radius } => (offset, (radius, radius)),
-    };
-    let stomp_center = Vec2::new(mary_at.x + stomp_offset.0, mary_at.y + stomp_offset.1);
-    let overlaps = |a_center: Vec2, a_half: (f32, f32), b: &ambition_engine_core::CenteredAabb| {
-        use bevy::math::bounding::BoundingVolume;
-        let b_aabb = b.aabb();
-        let b_center = b_aabb.center();
-        let b_half = b_aabb.half_size();
-        (a_center.x - b_center.x).abs() <= a_half.0 + b_half.x
-            && (a_center.y - b_center.y).abs() <= a_half.1 + b_half.y
-    };
-    assert!(
-        overlaps(stomp_center, stomp_half, &sanic_world[0]),
-        "Mary-O's active window must overlap Sanic's authored hurtbox at this spacing"
-    );
-
-    // ── And damage is exchanged, each using its own authored number ──
-    let mut mary_hp = 10;
-    let mut sanic_hp = 10;
-    sanic_hp -= stomp.damage;
-    let roll = &sanic.moveset.as_ref().unwrap().moves[0].windows[0].volumes[0];
-    mary_hp -= roll.damage;
-    assert_eq!(sanic_hp, 7, "Mary-O's stomp does HER authored damage");
-    assert_eq!(mary_hp, 8, "Sanic's roll does HIS authored damage");
-
     // ── The readiness invariant holds for both, through the engine ──
     app.update();
     let demand = app.world().resource::<CharacterLoadDemand>();
@@ -273,5 +239,313 @@ fn a_missing_opponent_is_named_and_the_present_character_still_fights() {
     assert_eq!(
         resolve_hurtboxes(mary.hurtboxes.as_ref().unwrap(), None, None).source,
         HurtboxSelection::Default
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The actual fight.
+//
+// Everything below drives the PRODUCTION systems: the gesture interpreter, the
+// move trigger, move playback (which spawns the strike volumes), the hurtbox
+// resolver, the volume publisher, `apply_hitbox_damage`, and the victim-side
+// consumer that mutates health. Nothing here computes an overlap or subtracts a
+// damage number by hand — that was the defect in the test above, and it is why
+// the fact that NO body in the game was hit on its published silhouette survived
+// a green suite.
+// ─────────────────────────────────────────────────────────────────────────────
+
+use crate::combat::hitbox::apply_hitbox_damage;
+use crate::combat::moveset::{
+    advance_move_playback, resolve_attack_gestures, trigger_moveset_moves, ActorMoveset,
+    MovePlayback,
+};
+use crate::features::apply_feature_hit_events;
+use ambition_characters::actor::attack_gesture::{AttackGestureTuning, ResolvedAttackGesture};
+use ambition_characters::actor::control::ActorControlFrame;
+use ambition_characters::brain::ActorControl;
+
+const TICK: f32 = 1.0 / 60.0;
+
+/// Every `HitEvent` the production emitter produced this run.
+///
+/// Kept in the harness rather than assembled per test: a fight test that fails
+/// with "health did not change" cannot tell you WHICH stage broke — no move
+/// triggered, no volume spawned, no overlap, or an overlap whose event nobody
+/// consumed. With this, the assertion can say which.
+#[derive(Resource, Default)]
+struct Traded(Vec<crate::features::HitEvent>);
+
+fn record_trades(
+    mut events: MessageReader<crate::features::HitEvent>,
+    mut out: ResMut<Traded>,
+) {
+    out.0.extend(events.read().cloned());
+}
+
+/// A body that can fight: a real actor cluster, plus the character's authored
+/// moveset and hurtbox doc, plus the control seam a controller drives.
+///
+/// Deliberately built from `ActorClusterSeed` — the same construction production
+/// uses — so the body carries the real health, melee, and capability components
+/// rather than a bespoke test shape.
+fn spawn_fighter(
+    app: &mut App,
+    character_id: &str,
+    at: Vec2,
+    facing: f32,
+    faction: crate::combat::components::ActorFaction,
+) -> Entity {
+    let prepared = app
+        .world()
+        .resource::<PreparedCharacterRegistry>()
+        .get(character_id)
+        .expect("the fighter must be registered before it is staged")
+        .clone();
+    // Deliberately WIDER than the authored torso (±10 in `hurtboxes()`): if the
+    // body's bounding box and its authored silhouette are the same rectangle, no
+    // test here can tell which one damage consulted. That is not a hypothetical —
+    // the first version of these tests used a 20-wide body and proved nothing.
+    let body = Vec2::new(40.0, 32.0);
+    let aabb = ambition_engine_core::Aabb::new(at, body / 2.0);
+    let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new(
+        character_id.to_string(),
+        prepared.display_name.clone(),
+        aabb,
+        ambition_entity_catalog::placements::CharacterBrain::Custom("medium_striker".into()),
+        &[],
+    );
+    seed.health =
+        ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(10));
+    // Facing is not decoration: a move's authored offsets are mirrored through it,
+    // so a fighter looking the wrong way swings into empty space. The seed's
+    // default is -1, which had both fighters swinging left and produced exactly
+    // one hit in a two-attacker exchange.
+    seed.kin.facing = facing;
+    let (identity, disposition, combat, intent, cooldowns) =
+        crate::features::ecs::enemy_component_snapshot(&seed);
+    app.world_mut()
+        .spawn((
+            (
+                ambition_platformer_primitives::lifecycle::FeatureSimEntity,
+                crate::features::FeatureId::new(character_id),
+                ambition_engine_core::CenteredAabb::from_center_size(at, body),
+                seed.into_components(),
+                crate::features::MotionModel::default(),
+            ),
+            (identity, disposition, combat, intent, cooldowns, faction),
+            // §7.6 → gameplay: the character's OWN authored moveset and silhouette,
+            // straight off the prepared definition. This is the join the plan is
+            // for — a provider registered a character, and this body fights with
+            // exactly what that provider authored.
+            ActorMoveset(prepared.moveset.clone().expect("authored moveset")),
+            AuthoredHurtboxes(prepared.hurtboxes.clone().expect("authored hurtboxes")),
+            ResolvedHurtboxes::default(),
+            crate::combat::components::DamageableVolumes::default(),
+            // The control seam + the gesture state §7.9 interprets.
+            ActorControl(ActorControlFrame::default()),
+            ambition_characters::actor::attack_gesture::AttackGestureState::default(),
+            AttackGestureTuning::default(),
+            ResolvedAttackGesture::default(),
+        ))
+        .id()
+}
+
+/// The production chain, in production order.
+fn fight_app() -> App {
+    let mut app = App::new();
+    app.add_plugins(CharacterRuntimePlugin);
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(EMPTY_CATALOG),
+        ),
+    );
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    // Both fighters author explicit rectangles, so no blade is resolved from
+    // sprite data here; the resolver is still REQUIRED by `advance_move_playback`,
+    // and `disabled()` is the content-free answer for a fixture.
+    app.insert_resource(crate::combat::authored_volumes::AuthoredAttackVolumeResolver::disabled());
+    app.insert_resource(crate::features::enemies::test_roster());
+    app.insert_resource(crate::features::GameplayBanner::default());
+    app.init_resource::<ambition_time::WorldTime>();
+    {
+        let mut time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
+        time.scaled_dt = TICK;
+        time.raw_dt = TICK;
+    }
+    app.add_message::<crate::features::HitEvent>();
+    app.add_message::<crate::features::SetFlagRequested>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::DebrisBurstMessage>();
+    app.add_message::<crate::features::ActorStimulus>();
+    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    app.add_message::<crate::combat::moveset::MoveEventMessage>();
+    app.add_systems(
+        Update,
+        (
+            resolve_attack_gestures,
+            trigger_moveset_moves,
+            advance_move_playback,
+            crate::character_runtime::hurtbox::resolve_body_hurtboxes,
+            crate::features::refresh_body_damageable_volumes,
+            apply_hitbox_damage,
+            record_trades,
+            apply_feature_hit_events,
+        )
+            .chain(),
+    );
+    app.init_resource::<Traded>();
+    app
+}
+
+/// A one-line account of what the production chain produced, for failures.
+fn trade_report(app: &App) -> String {
+    let traded = app.world().resource::<Traded>();
+    format!(
+        "{} hit event(s): {:?}",
+        traded.0.len(),
+        traded
+            .0
+            .iter()
+            .map(|e| (e.damage, e.source.clone(), e.target))
+            .collect::<Vec<_>>()
+    )
+}
+
+fn press_attack(app: &mut App, body: Entity) {
+    let mut control = app
+        .world_mut()
+        .get_mut::<ActorControl>(body)
+        .expect("the fighter carries the control seam");
+    control.0.melee_pressed = true;
+    control.0.melee_held = true;
+}
+
+fn release_attack(app: &mut App, body: Entity) {
+    let mut control = app
+        .world_mut()
+        .get_mut::<ActorControl>(body)
+        .expect("the fighter carries the control seam");
+    control.0.melee_pressed = false;
+    control.0.melee_held = false;
+}
+
+fn health(app: &App, body: Entity) -> i32 {
+    app.world()
+        .get::<ambition_characters::actor::BodyHealth>(body)
+        .expect("a fighter has health")
+        .health
+        .current
+}
+
+/// **§7.10, for real.** Two characters from two providers, in one session,
+/// damaging each other through the production damage path.
+///
+/// What each assertion below is load-bearing for:
+///
+/// * both bodies fight with the moveset and silhouette their own provider
+///   authored, taken off `PreparedCharacterRegistry` — the §7.6 join;
+/// * the attack is *triggered* by pressing the control seam, so §7.4's
+///   directional verb chain and §7.9's gesture interpreter are in the path;
+/// * `advance_move_playback` spawns the strike volume from the authored window,
+///   so the damage number is the authored one and nothing in this test says `-=`;
+/// * `apply_hitbox_damage` resolves it against the victim's PUBLISHED silhouette,
+///   and `apply_feature_hit_events` mutates real `BodyHealth`;
+/// * each fighter loses exactly the damage its OPPONENT authored, which is the
+///   two-providers-in-one-session claim reduced to a number.
+#[test]
+fn two_provider_characters_trade_damage_through_the_real_damage_path() {
+    let mut app = fight_app();
+    register_two_providers_characters(&mut app);
+
+    // Facing each other, inside each other's 24-unit strike reach.
+    let mary = spawn_fighter(
+        &mut app,
+        "mary_o",
+        Vec2::new(0.0, 0.0),
+        1.0,
+        crate::combat::components::ActorFaction::Enemy,
+    );
+    let sanic = spawn_fighter(
+        &mut app,
+        "sanic",
+        Vec2::new(22.0, 0.0),
+        -1.0,
+        crate::combat::components::ActorFaction::Npc,
+    );
+    assert_eq!(health(&app, mary), 10);
+    assert_eq!(health(&app, sanic), 10);
+
+    // Both swing on the same tick: a fight, not a beating.
+    press_attack(&mut app, mary);
+    press_attack(&mut app, sanic);
+    app.update();
+    release_attack(&mut app, mary);
+    release_attack(&mut app, sanic);
+
+    // Each authored move is active from 0.1s to 0.2s; run past the window.
+    assert!(
+        app.world().get::<MovePlayback>(mary).is_some(),
+        "pressing the control seam must START Mary-O's authored move — if this \
+         fails the trigger chain is not in the path and the rest proves nothing"
+    );
+    for _ in 0..14 {
+        app.update();
+    }
+
+    // Mary-O's stomp authored 3 damage; Sanic's roll authored 2.
+    assert_eq!(
+        health(&app, sanic),
+        7,
+        "Sanic loses exactly the damage MARY-O's provider authored ({})",
+        trade_report(&app)
+    );
+    assert_eq!(
+        health(&app, mary),
+        8,
+        "Mary-O loses exactly the damage SANIC's provider authored"
+    );
+}
+
+/// The silhouette decides the fight, not the bounding box.
+///
+/// Same two characters, same authored strike, moved apart so the reach still
+/// covers each body's coarse box but no longer covers the narrow authored torso.
+/// Nobody may be hit. Without this, the test above passes just as well when
+/// damage reads the coarse box — which is exactly the state §7.10 shipped in.
+#[test]
+fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
+    let mut app = fight_app();
+    register_two_providers_characters(&mut app);
+    // Mary-O's stomp spans x ∈ [10, 38]. Sanic stands at x = 52, so his coarse
+    // box (±20) spans [32, 72] and DOES overlap the strike, while his authored
+    // torso (±10) spans [42, 62] and does not. The two geometries disagree, which
+    // is the only way this test can mean anything.
+    let mary = spawn_fighter(
+        &mut app,
+        "mary_o",
+        Vec2::new(0.0, 0.0),
+        1.0,
+        crate::combat::components::ActorFaction::Enemy,
+    );
+    let sanic = spawn_fighter(
+        &mut app,
+        "sanic",
+        Vec2::new(52.0, 0.0),
+        -1.0,
+        crate::combat::components::ActorFaction::Npc,
+    );
+    press_attack(&mut app, mary);
+    app.update();
+    release_attack(&mut app, mary);
+    for _ in 0..14 {
+        app.update();
+    }
+    assert_eq!(
+        health(&app, sanic),
+        10,
+        "the strike reaches Sanic's bounding rectangle but not his authored \
+         torso, so it must miss; landing it means damage is reading the box ({})",
+        trade_report(&app)
     );
 }

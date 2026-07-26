@@ -369,13 +369,13 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             refresh_body_damageable_volumes
-                .in_set(crate::schedule::SandboxSet::CoreSimulation)
-                .after(crate::schedule::SandboxSet::PlayerSimulation)
-                .before(crate::schedule::SandboxSet::Combat)
+                .in_set(crate::schedule::SandboxSet::Combat)
                 // Authored silhouettes are resolved from sim clocks by the
-                // character runtime; publish after that, or the first frame of a
-                // move would present the previous frame's volumes.
-                .after(crate::character_runtime::hurtbox::resolve_body_hurtboxes),
+                // character runtime, which is pinned to the same window; publish
+                // after that, or a move's first active frame publishes the
+                // previous frame's volumes.
+                .after(crate::character_runtime::hurtbox::resolve_body_hurtboxes)
+                .before(crate::combat::hitbox::apply_hitbox_damage),
         );
         // The decomposed per-actor pipeline: brain → intent, movement integration,
         // read-model mirror, and contact-damage observer, as four explicit phases.

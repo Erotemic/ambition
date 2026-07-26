@@ -380,12 +380,19 @@ impl Plugin for CharacterRuntimePlugin {
                     hurtbox::resolve_body_hurtboxes,
                 )
                     .chain()
-                    // Before `Combat`, where damage resolves, and after the bodies
-                    // have moved — the volume publication that consumes this is
-                    // pinned to the same window (see `features::FeaturePlugin`).
-                    .in_set(crate::schedule::SandboxSet::CoreSimulation)
-                    .after(crate::schedule::SandboxSet::PlayerSimulation)
-                    .before(crate::schedule::SandboxSet::Combat),
+                    // Pinned to one exact window inside `Combat`: AFTER the move
+                    // clock advances, BEFORE damage resolves.
+                    //
+                    // Both edges are load-bearing. A move override is selected by
+                    // the move clock, so resolving before `advance_move_playback`
+                    // would present the previous tick's silhouette on the first
+                    // active frame — the frame that matters most. And every body's
+                    // position is already post-movement here (`PlayerSimulation`
+                    // and `WorldPrep` both precede `Combat`), so this is the one
+                    // slot where clocks and positions are simultaneously current.
+                    .in_set(crate::schedule::SandboxSet::Combat)
+                    .after(crate::combat::moveset::advance_move_playback)
+                    .before(crate::combat::hitbox::apply_hitbox_damage),
             )
             .add_systems(
                 Update,

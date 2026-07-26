@@ -37,6 +37,7 @@
 pub mod audit;
 pub mod definition;
 pub mod hurtbox;
+pub mod presentation;
 pub mod staging;
 
 pub use audit::{
@@ -51,6 +52,9 @@ pub use definition::{
 pub use hurtbox::{
     AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
     ResolvedHurtboxes, resolve_hurtboxes,
+};
+pub use presentation::{
+    authorize_staged_character_presentation_sources, provider_of_character,
 };
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
@@ -184,6 +188,15 @@ impl CharacterLoadStates {
                 CharacterLoadOutcome::Failed(failure) => Some((token.as_str(), *failure)),
                 CharacterLoadOutcome::Ready => None,
             })
+    }
+
+    /// Every token this session staged, in deterministic order.
+    ///
+    /// The cast, as far as the load ledger is concerned — including the ones that
+    /// reached a named failure, because a character whose sheet did not resolve is
+    /// still IN the fight and still needs its cues authorized.
+    pub fn staged_characters(&self) -> impl Iterator<Item = &str> {
+        self.by_token.keys().map(String::as_str)
     }
 
     pub fn len(&self) -> usize {
@@ -473,6 +486,10 @@ impl Plugin for CharacterRuntimePlugin {
                     materialize_demanded_character_sheets.run_if(
                         bevy::ecs::schedule::common_conditions::resource_exists::<CharacterCatalog>,
                     ),
+                    // AFTER the materializer has settled the demand: the staged
+                    // cast is what authorizes presentation sources, and the
+                    // ledger is where "staged" is written down.
+                    presentation::authorize_staged_character_presentation_sources,
                 )
                     .chain(),
             );

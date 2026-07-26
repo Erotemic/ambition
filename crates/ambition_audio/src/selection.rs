@@ -401,6 +401,19 @@ impl ActiveAudioSelection {
         self.current.as_ref()?.sfx_sources.get(source)?.sfx.as_ref()
     }
 
+    /// Is this presentation source allowed to resolve cues in the current session?
+    ///
+    /// Distinct from [`Self::sfx_for_source`], which answers "and does it have a
+    /// PROCEDURAL registry" — a source authorized with `sfx: None` (bank-only, or a
+    /// provider whose catalog has not loaded) is fully authorized and would read as
+    /// unauthorized through that lookup. Conflating the two makes a legitimately
+    /// registry-free provider look denied.
+    pub fn is_sfx_source_authorized(&self, source: &PresentationSourceId) -> bool {
+        self.current
+            .as_ref()
+            .is_some_and(|current| current.sfx_sources.contains_key(source))
+    }
+
     pub fn sfx_provider_for_source(&self, source: &PresentationSourceId) -> Option<&str> {
         self.current
             .as_ref()?

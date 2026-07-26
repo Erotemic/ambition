@@ -580,3 +580,299 @@ fn proper_time_integration_is_callers_dt_sum() {
     assert_eq!(swat.active_volumes_at(dilated).count(), 0);
     assert_eq!(swat.active_volumes_at(undilated - 0.65).count(), 1);
 }
+
+fn hurt_rect(offset: (f32, f32), half_extents: (f32, f32)) -> HurtboxVolume {
+    HurtboxVolume {
+        shape: VolumeShape::Rect {
+            offset,
+            half_extents,
+        },
+    }
+}
+
+fn hurt_circle(offset: (f32, f32), radius: f32) -> HurtboxVolume {
+    HurtboxVolume {
+        shape: VolumeShape::Circle { offset, radius },
+    }
+}
+
+fn hurt_timeline(keyframes: Vec<HurtboxKeyframe>) -> HurtboxTimeline {
+    HurtboxTimeline { keyframes }
+}
+
+#[test]
+fn hurtbox_timeline_is_piecewise_constant_and_supports_multiple_volumes() {
+    let standing = hurt_rect((0.0, 0.0), (8.0, 16.0));
+    let compressed = hurt_circle((0.0, 2.0), 10.0);
+    let tail = hurt_rect((-12.0, 0.0), (5.0, 4.0));
+    let timeline = hurt_timeline(vec![
+        HurtboxKeyframe {
+            at_s: 0.0,
+            volumes: vec![standing],
+        },
+        HurtboxKeyframe {
+            at_s: 0.2,
+            volumes: vec![compressed, tail],
+        },
+    ]);
+
+    assert_eq!(timeline.volumes_at(-0.001), Some(&[standing][..]));
+    assert_eq!(timeline.volumes_at(0.199), Some(&[standing][..]));
+    assert_eq!(
+        timeline.volumes_at(0.2),
+        Some(&[compressed, tail][..]),
+        "the keyframe owns its exact start time"
+    );
+    assert_eq!(timeline.volumes_at(99.0), Some(&[compressed, tail][..]));
+    assert_eq!(timeline.volumes_at(f32::NAN), None);
+}
+
+#[test]
+fn hurtbox_doc_selects_move_then_pose_then_default() {
+    let default = hurt_rect((0.0, 0.0), (8.0, 16.0));
+    let crouch = hurt_rect((0.0, -5.0), (9.0, 10.0));
+    let roll_start = hurt_circle((0.0, 0.0), 9.0);
+    let roll_late = hurt_circle((6.0, 0.0), 7.0);
+    let doc = HurtboxDoc {
+        default: Some(hurt_timeline(vec![HurtboxKeyframe {
+            at_s: 0.0,
+            volumes: vec![default],
+        }])),
+        poses: BTreeMap::from([(
+            "crouch".to_string(),
+            hurt_timeline(vec![HurtboxKeyframe {
+                at_s: 0.0,
+                volumes: vec![crouch],
+            }]),
+        )]),
+        moves: BTreeMap::from([(
+            "roll".to_string(),
+            hurt_timeline(vec![
+                HurtboxKeyframe {
+                    at_s: 0.0,
+                    volumes: vec![roll_start],
+                },
+                HurtboxKeyframe {
+                    at_s: 0.3,
+                    volumes: vec![roll_late],
+                },
+            ]),
+        )]),
+    };
+
+    assert_eq!(
+        doc.volumes_for(Some(("roll", 0.4)), Some(("crouch", 0.0))),
+        Some(&[roll_late][..])
+    );
+    assert_eq!(
+        doc.volumes_for(Some(("unknown", 0.0)), Some(("crouch", 0.0))),
+        Some(&[crouch][..])
+    );
+    assert_eq!(
+        doc.volumes_for(None, Some(("unknown", 0.0))),
+        Some(&[default][..])
+    );
+
+    let unauthored = HurtboxDoc::default();
+    assert_eq!(unauthored.volumes_for(None, None), None);
+}
+
+#[test]
+fn hurtbox_validation_names_the_exact_profile_keyframe_and_volume() {
+    let doc = HurtboxDoc {
+        default: Some(HurtboxTimeline::default()),
+        poses: BTreeMap::from([(
+            " ".to_string(),
+            hurt_timeline(vec![HurtboxKeyframe {
+                at_s: 0.1,
+                volumes: vec![hurt_circle((0.0, 0.0), 0.0)],
+            }]),
+        )]),
+        moves: BTreeMap::from([(
+            "roll".to_string(),
+            hurt_timeline(vec![
+                HurtboxKeyframe {
+                    at_s: 0.0,
+                    volumes: vec![hurt_circle((0.0, 0.0), 4.0)],
+                },
+                HurtboxKeyframe {
+                    at_s: 0.0,
+                    volumes: vec![],
+                },
+            ]),
+        )]),
+    };
+
+    let errors = doc.validate();
+    assert!(errors.contains(&HurtboxError::EmptyTimeline {
+        source: HurtboxSource::Default,
+    }));
+    assert!(errors.contains(&HurtboxError::EmptySourceId {
+        source: HurtboxSource::Pose(" ".to_string()),
+    }));
+    assert!(errors.contains(&HurtboxError::FirstKeyframeNotZero {
+        source: HurtboxSource::Pose(" ".to_string()),
+    }));
+    assert!(errors.contains(&HurtboxError::DegenerateVolume {
+        source: HurtboxSource::Pose(" ".to_string()),
+        keyframe: 0,
+        volume: 0,
+    }));
+    assert!(errors.contains(&HurtboxError::NonIncreasingKeyframeTime {
+        source: HurtboxSource::Move("roll".to_string()),
+        index: 1,
+    }));
+    assert!(errors.contains(&HurtboxError::EmptyKeyframe {
+        source: HurtboxSource::Move("roll".to_string()),
+        index: 1,
+    }));
+}
+
+#[test]
+fn entity_catalog_parses_and_validates_authored_hurtboxes() {
+    let ron = r#"
+(
+    schema_version: 1,
+    entities: [
+        (
+            id: "ball_fighter",
+            contracts: (
+                body: Some((half_extents: (10.0, 16.0))),
+                hurtboxes: Some((
+                    default: Some((keyframes: [
+                        (at_s: 0.0, volumes: [
+                            (shape: Rect(offset: (0.0, 0.0), half_extents: (10.0, 16.0))),
+                        ]),
+                    ])),
+                    poses: {
+                        "crouch": (keyframes: [
+                            (at_s: 0.0, volumes: [
+                                (shape: Rect(offset: (0.0, -4.0), half_extents: (11.0, 10.0))),
+                            ]),
+                        ]),
+                    },
+                    moves: {
+                        "roll": (keyframes: [
+                            (at_s: 0.0, volumes: [
+                                (shape: Circle(offset: (0.0, 0.0), radius: 9.0)),
+                            ]),
+                            (at_s: 0.25, volumes: [
+                                (shape: Circle(offset: (5.0, 0.0), radius: 8.0)),
+                            ]),
+                        ]),
+                    },
+                )),
+                moveset: Some((
+                    verbs: { "attack": "roll" },
+                    moves: [
+                        (
+                            id: "roll",
+                            clip: (clip: "roll", fallbacks: []),
+                            duration_s: 0.8,
+                            windows: [],
+                            events: [],
+                            gates: (grounded: None),
+                        ),
+                    ],
+                )),
+            ),
+        ),
+    ],
+)
+"#;
+
+    let doc = EntityCatalogDoc::parse(ron).expect("hurtbox document parses as RON");
+    assert!(doc.validate().is_empty(), "{:?}", doc.validate());
+    let hurtboxes = doc
+        .entity("ball_fighter")
+        .and_then(|entity| entity.contracts.hurtboxes.as_ref())
+        .expect("character carries authored hurtboxes");
+    assert_eq!(
+        hurtboxes.volumes_for(Some(("roll", 0.3)), Some(("crouch", 0.0))),
+        Some(&[hurt_circle((5.0, 0.0), 8.0)][..])
+    );
+}
+
+#[test]
+fn catalog_validation_wraps_hurtbox_problems_with_the_entity_id() {
+    let doc = EntityCatalogDoc {
+        schema_version: 1,
+        entities: vec![EntityDef {
+            id: "bad_body".to_string(),
+            contracts: EntityContracts {
+                hurtboxes: Some(HurtboxDoc {
+                    default: Some(HurtboxTimeline::default()),
+                    moves: BTreeMap::from([(
+                        "missing_move".to_string(),
+                        hurt_timeline(vec![HurtboxKeyframe {
+                            at_s: 0.0,
+                            volumes: vec![hurt_circle((0.0, 0.0), 4.0)],
+                        }]),
+                    )]),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+        }],
+    };
+
+    assert_eq!(
+        doc.validate(),
+        vec![
+            CatalogError::Hurtbox {
+                entity: "bad_body".to_string(),
+                problem: HurtboxError::EmptyTimeline {
+                    source: HurtboxSource::Default,
+                },
+            },
+            CatalogError::UnknownHurtboxMove {
+                entity: "bad_body".to_string(),
+                move_id: "missing_move".to_string(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn move_hurtbox_keyframes_must_fit_inside_the_move_clock() {
+    let mut roll = bare_move("roll", None);
+    roll.duration_s = 0.2;
+    let doc = EntityCatalogDoc {
+        schema_version: 1,
+        entities: vec![EntityDef {
+            id: "ball_fighter".to_string(),
+            contracts: EntityContracts {
+                hurtboxes: Some(HurtboxDoc {
+                    moves: BTreeMap::from([(
+                        "roll".to_string(),
+                        hurt_timeline(vec![
+                            HurtboxKeyframe {
+                                at_s: 0.0,
+                                volumes: vec![hurt_circle((0.0, 0.0), 4.0)],
+                            },
+                            HurtboxKeyframe {
+                                at_s: 0.3,
+                                volumes: vec![hurt_circle((3.0, 0.0), 4.0)],
+                            },
+                        ]),
+                    )]),
+                    ..Default::default()
+                }),
+                moveset: Some(MovesetContract {
+                    verbs: BTreeMap::from([("attack".to_string(), "roll".to_string())]),
+                    moves: vec![roll],
+                }),
+                ..Default::default()
+            },
+        }],
+    };
+
+    assert_eq!(
+        doc.validate(),
+        vec![CatalogError::HurtboxKeyframeOutOfMoveRange {
+            entity: "ball_fighter".to_string(),
+            move_id: "roll".to_string(),
+            index: 1,
+        }]
+    );
+}

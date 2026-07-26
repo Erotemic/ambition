@@ -292,6 +292,287 @@ pub struct HitVolume {
     pub hit_sfx: Option<String>,
 }
 
+// ---------------------------------------------------------------------------
+// Hurtboxes: body-state and move-clock authored timelines.
+// ---------------------------------------------------------------------------
+
+/// One damageable body volume in entity-local logical space.
+///
+/// Kept distinct from [`HitVolume`] even though both reuse [`VolumeShape`]: a
+/// hurtbox carries no attack payload. The wrapper leaves room for future
+/// per-region hurt behavior without changing the timeline container.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct HurtboxVolume {
+    pub shape: VolumeShape,
+}
+
+/// One piecewise-constant hurtbox keyframe.
+///
+/// Its volumes remain active from `at_s` until the next keyframe. The clock is
+/// supplied by authoritative simulation state: move elapsed time for a move
+/// override, hitstun/tumble elapsed time for those pose profiles, or a
+/// deterministic locomotion phase. Rendering and decoded sprite frames never
+/// participate.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HurtboxKeyframe {
+    pub at_s: f32,
+    pub volumes: Vec<HurtboxVolume>,
+}
+
+/// A deterministic, piecewise-constant hurtbox timeline.
+///
+/// Validation requires a first keyframe at `0.0`, strictly increasing finite
+/// times, and at least one non-degenerate volume per keyframe. Those rules make
+/// sampling total for every non-negative authoritative clock value and avoid
+/// implicit interpolation or fallback gaps.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct HurtboxTimeline {
+    pub keyframes: Vec<HurtboxKeyframe>,
+}
+
+impl HurtboxTimeline {
+    /// Sample the most recent keyframe at or before `elapsed_s`.
+    ///
+    /// A malformed/unvalidated empty timeline or non-finite time returns
+    /// `None`. Negative values clamp to the first keyframe so a tiny numerical
+    /// underflow at state entry cannot select a different profile.
+    pub fn volumes_at(&self, elapsed_s: f32) -> Option<&[HurtboxVolume]> {
+        if self.keyframes.is_empty() || !elapsed_s.is_finite() {
+            return None;
+        }
+        let elapsed_s = elapsed_s.max(0.0);
+        let index = self
+            .keyframes
+            .partition_point(|keyframe| keyframe.at_s <= elapsed_s)
+            .saturating_sub(1);
+        Some(self.keyframes[index].volumes.as_slice())
+    }
+}
+
+/// Authored hurtbox sources for one body.
+///
+/// Selection precedence is the settled character rule:
+///
+/// 1. active move override,
+/// 2. current body pose/status profile,
+/// 3. default authored body timeline,
+/// 4. no authored answer (the runtime may use its sprite-derived bbox
+///    compatibility fallback).
+///
+/// Pose ids intentionally remain an engine/content vocabulary rather than an
+/// enum here: idle, run, crouch, shield, hitstun, tumble, airborne, ledge-hang,
+/// and future deterministic body states all use the same data shape.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct HurtboxDoc {
+    #[serde(default)]
+    pub default: Option<HurtboxTimeline>,
+    #[serde(default)]
+    pub poses: BTreeMap<String, HurtboxTimeline>,
+    #[serde(default)]
+    pub moves: BTreeMap<String, HurtboxTimeline>,
+}
+
+impl HurtboxDoc {
+    /// Resolve authored volumes using move -> pose -> default precedence.
+    pub fn volumes_for(
+        &self,
+        active_move: Option<(&str, f32)>,
+        pose: Option<(&str, f32)>,
+    ) -> Option<&[HurtboxVolume]> {
+        if let Some((move_id, elapsed_s)) = active_move {
+            if let Some(volumes) = self
+                .moves
+                .get(move_id)
+                .and_then(|timeline| timeline.volumes_at(elapsed_s))
+            {
+                return Some(volumes);
+            }
+        }
+        if let Some((pose_id, elapsed_s)) = pose {
+            if let Some(volumes) = self
+                .poses
+                .get(pose_id)
+                .and_then(|timeline| timeline.volumes_at(elapsed_s))
+            {
+                return Some(volumes);
+            }
+        }
+        self.default
+            .as_ref()
+            .and_then(|timeline| timeline.volumes_at(0.0))
+    }
+
+    /// Validate every authored profile without consulting rendering or assets.
+    pub fn validate(&self) -> Vec<HurtboxError> {
+        let mut errors = Vec::new();
+        if let Some(default) = self.default.as_ref() {
+            validate_hurtbox_timeline(HurtboxSource::Default, default, &mut errors);
+        }
+        for (pose_id, timeline) in &self.poses {
+            let source = HurtboxSource::Pose(pose_id.clone());
+            if pose_id.trim().is_empty() {
+                errors.push(HurtboxError::EmptySourceId {
+                    source: source.clone(),
+                });
+            }
+            validate_hurtbox_timeline(source, timeline, &mut errors);
+        }
+        for (move_id, timeline) in &self.moves {
+            let source = HurtboxSource::Move(move_id.clone());
+            if move_id.trim().is_empty() {
+                errors.push(HurtboxError::EmptySourceId {
+                    source: source.clone(),
+                });
+            }
+            validate_hurtbox_timeline(source, timeline, &mut errors);
+        }
+        errors
+    }
+}
+
+/// Which authored clock/source owns a malformed hurtbox timeline.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HurtboxSource {
+    Default,
+    Pose(String),
+    Move(String),
+}
+
+impl std::fmt::Display for HurtboxSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Default => f.write_str("default"),
+            Self::Pose(id) => write!(f, "pose `{id}`"),
+            Self::Move(id) => write!(f, "move `{id}`"),
+        }
+    }
+}
+
+/// Structural hurtbox-authoring failures detected before publication.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HurtboxError {
+    EmptySourceId {
+        source: HurtboxSource,
+    },
+    EmptyTimeline {
+        source: HurtboxSource,
+    },
+    FirstKeyframeNotZero {
+        source: HurtboxSource,
+    },
+    InvalidKeyframeTime {
+        source: HurtboxSource,
+        index: usize,
+    },
+    NonIncreasingKeyframeTime {
+        source: HurtboxSource,
+        index: usize,
+    },
+    EmptyKeyframe {
+        source: HurtboxSource,
+        index: usize,
+    },
+    DegenerateVolume {
+        source: HurtboxSource,
+        keyframe: usize,
+        volume: usize,
+    },
+}
+
+impl std::fmt::Display for HurtboxError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EmptySourceId { source } => write!(f, "{source}: empty profile id"),
+            Self::EmptyTimeline { source } => write!(f, "{source}: empty hurtbox timeline"),
+            Self::FirstKeyframeNotZero { source } => {
+                write!(f, "{source}: first hurtbox keyframe must start at 0")
+            }
+            Self::InvalidKeyframeTime { source, index } => {
+                write!(f, "{source}: keyframe[{index}] has an invalid time")
+            }
+            Self::NonIncreasingKeyframeTime { source, index } => write!(
+                f,
+                "{source}: keyframe[{index}] does not follow a strictly increasing time"
+            ),
+            Self::EmptyKeyframe { source, index } => {
+                write!(f, "{source}: keyframe[{index}] has no hurt volumes")
+            }
+            Self::DegenerateVolume {
+                source,
+                keyframe,
+                volume,
+            } => write!(
+                f,
+                "{source}: keyframe[{keyframe}] volume[{volume}] is degenerate"
+            ),
+        }
+    }
+}
+
+fn validate_hurtbox_timeline(
+    source: HurtboxSource,
+    timeline: &HurtboxTimeline,
+    errors: &mut Vec<HurtboxError>,
+) {
+    let Some(first) = timeline.keyframes.first() else {
+        errors.push(HurtboxError::EmptyTimeline { source });
+        return;
+    };
+    if first.at_s != 0.0 {
+        errors.push(HurtboxError::FirstKeyframeNotZero {
+            source: source.clone(),
+        });
+    }
+    for (index, keyframe) in timeline.keyframes.iter().enumerate() {
+        if !keyframe.at_s.is_finite() || keyframe.at_s < 0.0 {
+            errors.push(HurtboxError::InvalidKeyframeTime {
+                source: source.clone(),
+                index,
+            });
+        }
+        if index > 0 && keyframe.at_s <= timeline.keyframes[index - 1].at_s {
+            errors.push(HurtboxError::NonIncreasingKeyframeTime {
+                source: source.clone(),
+                index,
+            });
+        }
+        if keyframe.volumes.is_empty() {
+            errors.push(HurtboxError::EmptyKeyframe {
+                source: source.clone(),
+                index,
+            });
+        }
+        for (volume, hurtbox) in keyframe.volumes.iter().enumerate() {
+            if !valid_volume_shape(hurtbox.shape) {
+                errors.push(HurtboxError::DegenerateVolume {
+                    source: source.clone(),
+                    keyframe: index,
+                    volume,
+                });
+            }
+        }
+    }
+}
+
+fn valid_volume_shape(shape: VolumeShape) -> bool {
+    match shape {
+        VolumeShape::Rect {
+            offset,
+            half_extents,
+        } => {
+            offset.0.is_finite()
+                && offset.1.is_finite()
+                && half_extents.0.is_finite()
+                && half_extents.1.is_finite()
+                && half_extents.0 > 0.0
+                && half_extents.1 > 0.0
+        }
+        VolumeShape::Circle { offset, radius } => {
+            offset.0.is_finite() && offset.1.is_finite() && radius.is_finite() && radius > 0.0
+        }
+    }
+}
+
 /// One span of a move's timeline. Times are seconds of the owner's proper
 /// time, relative to move start.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -787,6 +1068,10 @@ impl MovesetContract {
 pub struct EntityContracts {
     #[serde(default)]
     pub body: Option<Body2dContract>,
+    /// Simulation-authored damageable body shapes. Absent means the runtime may
+    /// use its visible sprite-bounds compatibility fallback.
+    #[serde(default)]
+    pub hurtboxes: Option<HurtboxDoc>,
     #[serde(default)]
     pub presentation: Option<PresentationContract>,
     #[serde(default)]
@@ -869,6 +1154,22 @@ pub enum CatalogError {
         entity: String,
         mv: String,
     },
+    /// A body-state or move-clock hurtbox profile is structurally malformed.
+    Hurtbox {
+        entity: String,
+        problem: HurtboxError,
+    },
+    /// A move-clock hurtbox override names no move on the same entity.
+    UnknownHurtboxMove {
+        entity: String,
+        move_id: String,
+    },
+    /// A move-clock hurtbox keyframe cannot be reached before the move ends.
+    HurtboxKeyframeOutOfMoveRange {
+        entity: String,
+        move_id: String,
+        index: usize,
+    },
 }
 
 impl std::fmt::Display for CatalogError {
@@ -918,6 +1219,23 @@ impl std::fmt::Display for CatalogError {
             CatalogError::EmptyClipBinding { entity, mv } => {
                 write!(f, "{entity}/{mv}: empty clip binding")
             }
+            CatalogError::Hurtbox { entity, problem } => {
+                write!(f, "{entity}: {problem}")
+            }
+            CatalogError::UnknownHurtboxMove { entity, move_id } => {
+                write!(
+                    f,
+                    "{entity}: hurtbox override names undeclared move `{move_id}`"
+                )
+            }
+            CatalogError::HurtboxKeyframeOutOfMoveRange {
+                entity,
+                move_id,
+                index,
+            } => write!(
+                f,
+                "{entity}/{move_id}: hurtbox keyframe[{index}] lies after the move duration"
+            ),
         }
     }
 }
@@ -945,10 +1263,56 @@ impl EntityCatalogDoc {
                     id: entity.id.clone(),
                 });
             }
+            if let Some(hurtboxes) = entity.contracts.hurtboxes.as_ref() {
+                errors.extend(hurtboxes.validate().into_iter().map(|problem| {
+                    CatalogError::Hurtbox {
+                        entity: entity.id.clone(),
+                        problem,
+                    }
+                }));
+            }
             let Some(moveset) = &entity.contracts.moveset else {
+                if let Some(hurtboxes) = entity.contracts.hurtboxes.as_ref() {
+                    errors.extend(hurtboxes.moves.keys().cloned().map(|move_id| {
+                        CatalogError::UnknownHurtboxMove {
+                            entity: entity.id.clone(),
+                            move_id,
+                        }
+                    }));
+                }
                 continue;
             };
             let declared: HashSet<&str> = moveset.moves.iter().map(|m| m.id.as_str()).collect();
+            if let Some(hurtboxes) = entity.contracts.hurtboxes.as_ref() {
+                errors.extend(
+                    hurtboxes
+                        .moves
+                        .keys()
+                        .filter(|move_id| !declared.contains(move_id.as_str()))
+                        .cloned()
+                        .map(|move_id| CatalogError::UnknownHurtboxMove {
+                            entity: entity.id.clone(),
+                            move_id,
+                        }),
+                );
+                for (move_id, timeline) in &hurtboxes.moves {
+                    let Some(mv) = moveset.move_by_id(move_id) else {
+                        continue;
+                    };
+                    errors.extend(
+                        timeline
+                            .keyframes
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, keyframe)| keyframe.at_s > mv.duration_s)
+                            .map(|(index, _)| CatalogError::HurtboxKeyframeOutOfMoveRange {
+                                entity: entity.id.clone(),
+                                move_id: move_id.clone(),
+                                index,
+                            }),
+                    );
+                }
+            }
             let mut seen_moves = HashSet::new();
             for mv in &moveset.moves {
                 if !seen_moves.insert(mv.id.as_str()) {

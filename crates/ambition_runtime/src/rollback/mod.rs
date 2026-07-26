@@ -1139,10 +1139,27 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // for the largest pool in the game. The handle was actually recovered by
     // splitting the projectile's own `SimId` on `/`. It is now recovered from
     // declared provenance, which is what this line always claimed in spirit.
-    app.declare_rollback_derived::<ambition_projectiles::ProjectileOwner>(
+    // ⚠ This was DECLARED DERIVED, on the promise that
+    // `heal_projectile_owners` re-resolves it from
+    // `SpawnOrigin::Dynamic { parent }`. The promise is not kept: that system's
+    // query requires `&SpawnOrigin`, and enemy projectiles carry NONE — measured,
+    // `has_origin=false` for every live projectile in the oracle route. So after
+    // bevy_ggrs recreated the entity the component was simply gone, the shot's
+    // `HitEvent` was emitted with `attacker: None`, and the firer's `ranged` move
+    // never learned it connected. That is the equipment oracle's divergence:
+    // `MovePlayback.landed_hit` true on three passes and false on the fourth.
+    //
+    // It is now ordinary rollback state with entity remapping — the same pairing
+    // `MovePlayback` uses for its own `live_boxes` handles. A derived declaration
+    // is only as good as the system that honours it, and this one names a
+    // component the system cannot even see.
+    app.rollback_component_clone::<ambition_projectiles::ProjectileOwner>(
         ENGINE,
-        "derived.projectile_owner",
-        "re-resolved from SpawnOrigin::Dynamic { parent } by the ordinary identity maintenance system",
+        "component.projectile_owner",
+    )
+    .rollback_map_entities::<ambition_projectiles::ProjectileOwner>(
+        ENGINE,
+        "map.projectile_owner",
     )
     .declare_rollback_derived::<ambition_engine_core::body_clusters::BodyEnvironmentContact>(
         ENGINE,

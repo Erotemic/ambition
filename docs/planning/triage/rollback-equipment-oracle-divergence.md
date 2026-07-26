@@ -1,6 +1,6 @@
 # The combat-equipment rollback divergence
 
-**Status:** OPEN, LOCALIZED to one boolean. The oracle is `#[ignore]`d with this document as its
+**Status:** ✅ **CLOSED 2026-07-26.** Root cause and fix below; the oracle is un-`#[ignore]`d and green. The oracle is `#[ignore]`d with this document as its
 reason. Opened 2026-07-26 while establishing a green baseline for the character
 definition work; **not caused by that work.**
 
@@ -141,7 +141,46 @@ real gameplay divergence, not a checksum artifact: `landed_hit` gates `OnHit` /
   It moves the first divergence *earlier* (frame 14 instead of 149). The clear is
   load-bearing.
 
-## Where to look next, sharpened
+## ROOT CAUSE — `ProjectileOwner` was declared derived on a promise nothing kept
+
+One more trace answered it: at frame 149 the `HitEvent` carried
+`attacker = Some(10v0)` on passes 1–3 and **`attacker = None`** on pass 4. The
+attacker was lost at EMISSION, not at apply.
+
+`ProjectileOwner(Entity)` — the component that attributes a shot to its firer —
+was registered as `declare_rollback_derived`, with the reason *"re-resolved from
+`SpawnOrigin::Dynamic { parent }` by the ordinary identity maintenance system"*.
+That system is `heal_projectile_owners`, and its query requires `&SpawnOrigin`.
+
+**Enemy projectiles carry no `SpawnOrigin`.** Measured: `has_origin=false` for
+every live projectile on the route. So the healing system could not see them, and
+the promise the derived declaration rested on was never kept for this family.
+bevy_ggrs destroyed and recreated the projectile entity, the component did not
+come back, the shot's `HitEvent` was emitted with no attacker, and the firer's
+`ranged` move never learned it connected — `MovePlayback.landed_hit`, false on
+exactly one pass.
+
+**Fix:** `ProjectileOwner` is now ordinary rollback state —
+`rollback_component_clone` + `rollback_map_entities`, the same pairing
+`MovePlayback` already uses for its own entity handles — plus a `MapEntities` impl.
+It no longer depends on provenance that the projectile does not carry.
+
+**The lesson worth keeping:** a `declare_rollback_derived` is only as good as the
+system named in its reason. This one named a component that system cannot even
+query. A derived declaration is an assertion about behaviour, and nothing was
+checking it — which is why it survived a coverage sweep that was, correctly,
+looking for UNREGISTERED state. `ProjectileOwner` was registered. It was
+registered as a lie.
+
+## Where the route still falls short
+
+With the divergence gone the oracle walks all 2400 frames, and that exposed a
+second thing the `#[ignore]` was hiding: the route has **never** broken the brick
+or flipped the switch — `brick=false switch=false` on every run, before and after.
+The melee and armor guards do fire, so the checksum agreement is agreement about
+live combat and equipment state. Restoring prop coverage is queue item A16.
+
+## Where to look next, sharpened (historical — superseded by the root cause above)
 
 The event exists and is not applied, so the difference is in the APPLY: either
 `event.attacker` names an entity the fourth pass cannot resolve to a

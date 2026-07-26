@@ -41,6 +41,12 @@ pub struct PlayerProjectile;
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ProjectileOwner(pub Entity);
 
+impl bevy::ecs::entity::MapEntities for ProjectileOwner {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        self.0 = mapper.get_mapped(self.0);
+    }
+}
+
 /// Monotonic spawn-sequence id. Assigned from [`ProjectileSeqCounter`] at spawn
 /// time. The step system sorts in-flight projectiles by this so iteration order
 /// is deterministic and reproduces the historical `Vec` order (oldest first).

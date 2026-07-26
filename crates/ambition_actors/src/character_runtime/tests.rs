@@ -402,3 +402,75 @@ fn an_app_that_stages_no_characters_reports_no_gaps() {
     app.add_systems(Update, report_character_capability_gaps);
     app.update();
 }
+
+/// **A1.** A character declared ONLY through `register_character` is known to the
+/// art pipeline.
+///
+/// This was the sharp end of the review finding. `register_character` accepted a
+/// `sheet`, published a `PreparedCharacterDefinition`, and then the materializer
+/// consulted `CharacterCatalog` and nothing else — so a character that existed
+/// solely on the new seam came back `UnknownCharacter`, which means "no loaded
+/// content declares this character; waiting will never fix it". Content had just
+/// declared it. The ledger was reporting a typo about a provider's own protagonist.
+///
+/// Two facts are asserted, and the second is the one that matters: `Declared`
+/// versus `Unknown` is the difference between "a decode has not happened yet" and
+/// "this id does not exist", and §7.1 separated them precisely because a caller
+/// must respond differently.
+#[test]
+fn a_character_registered_only_through_register_character_gets_art() {
+    use crate::character_runtime::definition::CharacterDefinitionAppExt;
+
+    let mut app = App::new();
+    app.add_plugins(CharacterRuntimePlugin);
+    // A catalog with NO characters in it: the only declaration is the registration.
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+    );
+    app.insert_resource(ambition_sprite_sheet::game_assets::GameAssets::default());
+    app.register_character(
+        crate::character_runtime::definition::CharacterDefinition::new(
+            "mary_o",
+            "Mary-O",
+            "mary_o_demo",
+        )
+        .with_sheet("super_mary_o_spritesheet"),
+    );
+
+    app.update();
+
+    let sprites = &app
+        .world()
+        .resource::<ambition_sprite_sheet::game_assets::GameAssets>()
+        .characters;
+    assert!(
+        !sprites.sheet_state("mary_o").is_unknown(),
+        "a registered character must be DECLARED to the sheet table; `Unknown` \
+         tells every caller this id does not exist"
+    );
+    assert!(
+        !sprites.sheet_state("Mary-O").is_unknown(),
+        "and under its display name, since content names characters both ways"
+    );
+
+    // Now stage her, the way a session does, and check the ledger's verdict is not
+    // the "no such character" one.
+    {
+        let mut demand = app.world_mut().resource_mut::<CharacterLoadDemand>();
+        demand.request("mary_o");
+    }
+    app.update();
+    let outcome = app
+        .world()
+        .resource::<CharacterLoadStates>()
+        .outcome("mary_o");
+    assert!(
+        !matches!(
+            outcome,
+            Some(CharacterLoadOutcome::Failed(
+                CharacterLoadFailure::UnknownCharacter
+            ))
+        ),
+        "a registered character must never be reported as unknown (was {outcome:?})"
+    );
+}

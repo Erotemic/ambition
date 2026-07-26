@@ -98,6 +98,10 @@ struct StartupAssetInputs<'w, 's> {
     room_sets: Query<'w, 's, &'static RoomSet, With<SessionRoot>>,
     content_staging: Res<'w, RoomContentStagingRegistry>,
     character_load_states: ResMut<'w, ambition::actors::character_runtime::CharacterLoadStates>,
+    /// Registered character definitions: a real source of sheets, since a
+    /// character may be declared only through `register_character`.
+    prepared_characters:
+        Option<Res<'w, ambition::actors::character_runtime::PreparedCharacterRegistry>>,
     ldtk_worlds: Option<Res<'w, LdtkWorldAssets>>,
     ui_fonts: Option<Res<'w, UiFonts>>,
     #[cfg(feature = "audio")]
@@ -376,6 +380,10 @@ fn build_startup_manifest(
         &mut inputs.layouts,
         &inputs.quality,
         &mut inputs.character_load_states,
+        inputs
+            .prepared_characters
+            .as_deref()
+            .unwrap_or(&Default::default()),
     );
     let room_manifest = build_loaded_room_asset_manifest(room, &staged_names, &inputs.game_assets);
 

@@ -189,6 +189,15 @@ pub struct PreparedCharacterDefinition {
     cue_dependencies: BTreeSet<String>,
     /// DERIVED: every vfx tag its moves request.
     vfx_dependencies: BTreeSet<String>,
+    /// Namespaces preparation actually RESOLVED, carried on the published value.
+    ///
+    /// This lived only on the transient [`PreparedCharacter`] and was dropped on
+    /// the floor by registration, so once a character was published there was no
+    /// way to ask whether its cues had been checked against a real vocabulary or
+    /// whether nobody had looked. Those must never read the same — that confusion
+    /// is the entire reason the binding boundary exists — and a distinction that
+    /// survives only until the value is stored is not a distinction.
+    checked: Vec<&'static str>,
 }
 
 impl PreparedCharacterDefinition {
@@ -199,6 +208,19 @@ impl PreparedCharacterDefinition {
 
     pub fn vfx_dependencies(&self) -> impl ExactSizeIterator<Item = &str> {
         self.vfx_dependencies.iter().map(String::as_str)
+    }
+
+    /// Namespaces preparation resolved against a real vocabulary.
+    pub fn checked_namespaces(&self) -> impl ExactSizeIterator<Item = &&'static str> {
+        self.checked.iter()
+    }
+
+    /// Was this namespace actually verified for this character?
+    ///
+    /// `false` means NOT CHECKED — no resolver was supplied — and says nothing
+    /// about whether the references are good.
+    pub fn was_checked(&self, namespace: &str) -> bool {
+        self.checked.iter().any(|name| *name == namespace)
     }
 
     /// The token the engine materializer demands for this character's art.
@@ -357,11 +379,13 @@ pub fn prepare_character(
         moveset: definition.moveset,
         cue_dependencies,
         vfx_dependencies,
+        checked: bindings.checked(),
     };
+    let checked = prepared.checked.clone();
     PreparedCharacter {
         prepared,
         report: ledger.finish(),
-        checked: bindings.checked(),
+        checked,
     }
 }
 
@@ -452,10 +476,25 @@ impl std::error::Error for CharacterRegistrationError {}
 
 /// **The single registration seam.** (§4.1)
 ///
-/// Prepares the definition, publishes it into the prepared authority, and demands
-/// its art through the engine materializer — so a provider makes ONE call and does
-/// not have to know that sheets, cues, and gameplay numbers are consumed by
-/// different subsystems.
+/// Prepares the definition and publishes it into the prepared authority. A
+/// provider makes ONE call and does not have to know that sheets, cues, and
+/// gameplay numbers are consumed by different subsystems.
+///
+/// # Registration is DECLARATIVE — it does not load anything
+///
+/// This used to end by calling `CharacterLoadDemand::request`, on the reasoning
+/// that a provider should not need a second call. That reasoning was wrong, and
+/// the mistake gets worse the better the plan works: as more characters migrate
+/// onto this seam, merely *installing* a provider's plugin would demand every one
+/// of its characters' art. That is precisely the startup decode storm §7.1
+/// deleted — four privileged ids decoding at boot because someone decided in
+/// advance which characters mattered — rebuilt from the other end.
+///
+/// Loading is driven by a PROJECTION of what a session actually stages: a room
+/// plan, a match roster, a startup spec, or a body putting on an identity
+/// (`StagesCharacters`). Registration says *what exists*; staging says *what is
+/// needed now*. A game with fifty registered fighters and two on screen decodes
+/// two sheets.
 ///
 /// The binding report is logged rather than returned as an error: see
 /// [`prepare_character`] for why an unresolved reference degrades loudly instead
@@ -487,7 +526,6 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
             prepared, report, ..
         } = prepare_character(definition, bindings);
         let id = prepared.id.clone();
-        let token = prepared.art_load_token().to_string();
 
         // Transactional: assemble the candidate, and only publish if the id is
         // free. A rejected registration leaves the previous authority active.
@@ -508,10 +546,6 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
         if !report.is_empty() {
             report.log(&format!("preparing character `{id}`"));
         }
-        // DERIVED, not separately registered: the art-load requirement.
-        self.world_mut()
-            .get_resource_or_insert_with(super::CharacterLoadDemand::default)
-            .request(token);
         Ok(self)
     }
 }

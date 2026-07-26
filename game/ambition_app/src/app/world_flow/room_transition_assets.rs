@@ -112,6 +112,12 @@ pub(crate) struct RoomTransitionAssetContext<'w> {
     /// no materialization service at all — which the startup audit reports.
     pub(crate) character_load_states:
         Option<ResMut<'w, ambition::actors::character_runtime::CharacterLoadStates>>,
+    /// Registered character definitions. A character may be declared ONLY through
+    /// `register_character`, in which case this is the only place its sheet is
+    /// named — so the synchronous room decode has to consult it or a
+    /// registered-only fighter reaches the reveal barrier as a placeholder.
+    pub(crate) prepared_characters:
+        Option<Res<'w, ambition::actors::character_runtime::PreparedCharacterRegistry>>,
     pub(crate) prefetch: Option<ResMut<'w, RoomPreparationPrefetchState>>,
     pub(crate) real_time: Option<Res<'w, Time<Real>>>,
 }
@@ -197,6 +203,7 @@ pub(crate) fn demand_room_character_sheets(
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: &ResolvedVisualQuality,
     states: &mut ambition::actors::character_runtime::CharacterLoadStates,
+    registry: &ambition::actors::character_runtime::PreparedCharacterRegistry,
 ) {
     let mut names: Vec<&str> = staged_actor_names.iter().map(String::as_str).collect();
     for placement in &room.placements {
@@ -228,6 +235,7 @@ pub(crate) fn demand_room_character_sheets(
         states,
         &mut assets.characters,
         character_catalog,
+        registry,
         catalog,
         asset_server,
         layouts,
@@ -333,6 +341,7 @@ pub(crate) fn build_room_asset_manifest(
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: &ResolvedVisualQuality,
     states: &mut ambition::actors::character_runtime::CharacterLoadStates,
+    registry: &ambition::actors::character_runtime::PreparedCharacterRegistry,
 ) -> RoomAssetManifest {
     ensure_parallax_layers_for_room(
         assets,
@@ -351,6 +360,7 @@ pub(crate) fn build_room_asset_manifest(
         layouts,
         quality,
         states,
+        registry,
     );
 
     build_loaded_room_asset_manifest(room, staged_actor_names, assets)
@@ -586,6 +596,12 @@ pub(crate) fn contribute_room_transition_assets_system(
         return;
     };
 
+    let prepared_characters = context
+        .prepared_characters
+        .as_deref()
+        .cloned()
+        .unwrap_or_default();
+
     let Some(target_spec) = room_set.rooms.get(active.request.transition.target_room) else {
         return;
     };
@@ -602,6 +618,7 @@ pub(crate) fn contribute_room_transition_assets_system(
         layouts,
         quality,
         character_load_states,
+        &prepared_characters,
     );
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -771,16 +788,19 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     mut assets: ResMut<GameAssets>,
     catalog: Res<SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
-    (mut layouts, mut character_load_states): (
+    (mut layouts, mut character_load_states, prepared_characters): (
         ResMut<Assets<TextureAtlasLayout>>,
         // Grouped with `layouts` to stay under Bevy's SystemParam arity limit.
         ResMut<ambition::actors::character_runtime::CharacterLoadStates>,
+        Option<Res<ambition::actors::character_runtime::PreparedCharacterRegistry>>,
     ),
     quality: Res<ResolvedVisualQuality>,
     time: Res<Time<Real>>,
     active_session: Option<Res<ActiveSessionScope>>,
     mut cache: ResMut<RoomPreparationPrefetchState>,
 ) {
+    let empty_registry =
+        ambition::actors::character_runtime::PreparedCharacterRegistry::default();
     let Some(source_room) = room_set.rooms.get(room_set.active) else {
         cache.entries.clear();
         cache.source_room_id = None;
@@ -881,6 +901,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             &mut layouts,
             &quality,
             &mut character_load_states,
+            prepared_characters.as_deref().unwrap_or(&empty_registry),
         );
         let replace = refresh_manifests
             || cache.entries.get(&room.id).map_or(true, |entry| {

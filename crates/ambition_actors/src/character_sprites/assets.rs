@@ -91,6 +91,59 @@ fn sheet_for_character_id_from_data(
     spec
 }
 
+/// Resolve a declared character's sheet, with the REGISTERED definition winning.
+///
+/// `register_character` accepts a `sheet` manifest target, and until now nothing
+/// in production read it: the materializer resolved sheets exclusively from
+/// `CharacterCatalog`, so a character registered only through the new seam got
+/// `UnknownCharacter` from the art pipeline, and a character registered through
+/// BOTH could name one sheet in its definition and a different one in its catalog
+/// row with nothing noticing.
+///
+/// Precedence and why it is this way round:
+///
+/// * the **registered target** decides WHICH sheet. The definition is the
+///   authority §4.1 is building toward, and a provider that names a sheet in the
+///   call it makes should not be overruled by a fragment it may not own.
+/// * the **catalog row** still supplies resolution-independent TUNING
+///   (`collision_scale`, `frame_sample_inset`, `feet_anchor_y`) and the scaled
+///   variant lookup, because that is where quality tiers are authored. Taking the
+///   target from one place and the tuning from the other is deliberate, not a
+///   layering accident.
+/// * a disagreement is LOGGED rather than silently resolved, since it means two
+///   declarations of the same character exist and one of them is stale — exactly
+///   the drift the single-registration seam is meant to end.
+pub fn sheet_for_declared_character(
+    character_catalog: &CharacterCatalog,
+    registered_target: Option<&str>,
+    character_id: &str,
+) -> Option<CharacterSheetSpec> {
+    let catalog_target = character_catalog
+        .get(character_id)
+        .and_then(|entry| entry.manifest_target());
+    match (registered_target, catalog_target) {
+        (Some(registered), Some(from_catalog)) if registered != from_catalog => {
+            bevy::log::warn!(
+                target: "ambition::character_sprites",
+                "character `{character_id}` names sheet `{registered}` in its registered \
+                 definition but `{from_catalog}` in its catalog row; using the registered \
+                 one. Two declarations of one character disagree — delete the stale one.",
+            );
+        }
+        _ => {}
+    }
+    let Some(target) = registered_target.or(catalog_target) else {
+        // Neither names a target: fall back to the manifest-by-id lookup, which is
+        // how most catalog characters have always resolved.
+        return sheet_for_character_id_in(character_catalog, character_id);
+    };
+    let tuning = character_variant_tuning(character_catalog, character_id)
+        .map(|(_, tuning)| tuning)
+        .unwrap_or_default();
+    sheets::try_load_spec_for_target(target, &tuning)
+        .or_else(|| sheets::try_load_spec_for_character_id(character_id))
+}
+
 /// Resolve a sheet from the caller's assembled App-local catalog.
 pub fn sheet_for_character_id_in(
     character_catalog: &CharacterCatalog,
@@ -291,6 +344,10 @@ pub fn materialize_declared_character_sprite(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: Option<&VisualQualityBudget>,
+    // The sheet manifest target the character's REGISTERED definition names, when
+    // it has one. See [`sheet_for_declared_character`] for why this outranks the
+    // catalog row.
+    registered_target: Option<&str>,
     token: &str,
 ) -> bool {
     let cid = match sprites.sheet_state(token) {
@@ -300,7 +357,8 @@ pub fn materialize_declared_character_sprite(
         } => character_id.to_string(),
         ambition_sprite_sheet::character::CharacterSheetState::Unknown => return false,
     };
-    let Some(sheet_spec) = sheet_for_character_id_in(character_catalog, &cid) else {
+    let Some(sheet_spec) = sheet_for_declared_character(character_catalog, registered_target, &cid)
+    else {
         return false;
     };
     let asset_id = ids::character_sprite(&cid);

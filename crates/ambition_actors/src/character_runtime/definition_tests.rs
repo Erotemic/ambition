@@ -6,6 +6,7 @@ use ambition_entity_catalog::{
     ClipBinding, HitVolume, HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, MoveEvent,
     MoveEventKind, MoveGates, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
+use ambition_platformer_primitives::binding::Namespace;
 use bevy::prelude::App;
 use std::collections::BTreeMap;
 
@@ -199,10 +200,18 @@ fn a_hurtbox_override_for_an_undeclared_move_is_named() {
     assert!(report.contains("nonexistent_move"), "{report}");
 }
 
-/// One call publishes the prepared authority AND demands the art. A provider
-/// should not have to know those are different subsystems.
+/// **Registration DECLARES. It does not load.**
+///
+/// This test used to assert the opposite — that registering demanded the art —
+/// on the reasoning that a provider should not need a second call. The reasoning
+/// inverts as the plan succeeds: once fifty fighters are registered through this
+/// seam, merely installing their providers would demand fifty sheets, which is
+/// the startup decode storm §7.1 deleted, rebuilt from the other end.
+///
+/// Loading is driven by what a session STAGES (`StagesCharacters` — a room plan,
+/// a match roster, a startup spec, a worn identity), never by what exists.
 #[test]
-fn one_registration_publishes_the_authority_and_demands_the_art() {
+fn registration_declares_without_demanding_art() {
     let mut app = App::new();
     app.register_character(mary_o());
 
@@ -212,12 +221,61 @@ fn one_registration_publishes_the_authority_and_demands_the_art() {
     assert_eq!(prepared.display_name, "Mary-O");
     assert_eq!(prepared.art_load_token(), "mary_o");
 
-    // DERIVED, not registered separately: the art-load requirement.
-    let demand = app.world().resource::<CharacterLoadDemand>();
-    assert_eq!(
-        demand.pending().collect::<Vec<_>>(),
-        vec!["mary_o"],
-        "registering a character must demand its art without a second call"
+    assert!(
+        app.world()
+            .get_resource::<CharacterLoadDemand>()
+            .is_none_or(CharacterLoadDemand::is_empty),
+        "registering a character must not demand its art: a registry of what \
+         EXISTS is not a list of what a session needs decoded now"
+    );
+}
+
+/// **Preparation provenance survives registration.** (A5)
+///
+/// `PreparedCharacter::checked` names the namespaces preparation actually resolved,
+/// and registration used to drop it — so after publication there was no way to
+/// distinguish "these cues were verified against a real vocabulary" from "nobody
+/// looked". Those must never read the same; that confusion is the whole reason the
+/// binding boundary exists, and a distinction that survives only until the value is
+/// stored is not a distinction.
+#[test]
+fn preparation_provenance_survives_registration() {
+    // Registered with NO cue resolver: moves are checked, cues are not.
+    let mut app = App::new();
+    app.register_character(mary_o());
+    let unchecked = app
+        .world()
+        .resource::<PreparedCharacterRegistry>()
+        .get("mary_o")
+        .expect("published")
+        .clone();
+    assert!(
+        unchecked.was_checked(MoveId::NAME),
+        "verb targets are always resolvable from the character's own moves"
+    );
+    assert!(
+        !unchecked.was_checked(SfxCueId::NAME),
+        "no cue resolver was supplied, so cues are NOT CHECKED — which must not \
+         read as 'checked and fine'"
+    );
+
+    // Registered WITH one: now the cue namespace is genuinely verified.
+    let mut app = App::new();
+    app.try_register_character(
+        mary_o(),
+        &CharacterBindings::default().with_authorized_cues(["swing", "hit_flesh"]),
+    )
+    .expect("registers");
+    let checked = app
+        .world()
+        .resource::<PreparedCharacterRegistry>()
+        .get("mary_o")
+        .expect("published")
+        .clone();
+    assert!(
+        checked.was_checked(SfxCueId::NAME),
+        "a supplied resolver means the cues WERE checked, and the published value \
+         must say so"
     );
 }
 

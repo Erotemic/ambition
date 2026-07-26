@@ -220,6 +220,10 @@ pub fn materialize_character_demand(
     states: &mut CharacterLoadStates,
     sprites: &mut CharacterSpriteAssets,
     character_catalog: &CharacterCatalog,
+    // The registered definitions. A character may be declared HERE and nowhere
+    // else — that is the point of the single seam — so this is a real source of
+    // sheets, not decoration.
+    registry: &PreparedCharacterRegistry,
     asset_catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
@@ -242,6 +246,7 @@ pub fn materialize_character_demand(
             asset_server,
             layouts,
             quality,
+            registered_sheet_target(registry, sprites, &token),
             &token,
         );
         let outcome = if ready {
@@ -250,6 +255,61 @@ pub fn materialize_character_demand(
             CharacterLoadOutcome::Failed(CharacterLoadFailure::NoSheetResolved)
         };
         states.record(token, outcome);
+    }
+}
+
+/// The sheet target the registered definition names for this token, if any.
+///
+/// The token may be a catalog id or a display name, so resolve it the same way
+/// the sheet table does before asking the registry.
+fn registered_sheet_target<'a>(
+    registry: &'a PreparedCharacterRegistry,
+    sprites: &CharacterSpriteAssets,
+    token: &str,
+) -> Option<&'a str> {
+    let id = match sprites.sheet_state(token) {
+        CharacterSheetState::Declared { character_id } => character_id,
+        _ => token,
+    };
+    registry.get(id).and_then(|p| p.sheet.as_deref())
+}
+
+/// **Declare every registered character into the sprite read model.**
+///
+/// The sheet table used to be populated exclusively from `CharacterCatalog`, so a
+/// character registered only through `register_character` was `Unknown` to the art
+/// pipeline — the load state reported "no loaded content declares this character"
+/// about a character a provider had just declared. The prepared registry is a
+/// source of declarations, and this is where it becomes one.
+///
+/// Idempotent, and cheap: declaring does NOT decode. It only teaches the table
+/// that the id exists and which display name aliases it, which is what turns
+/// `Unknown` (a typo — waiting will not help) into `Declared` (a decode that has
+/// not happened yet). Those two answers demand different responses, which is why
+/// §7.1 separated them in the first place.
+pub fn declare_registered_characters(
+    registry: Option<Res<PreparedCharacterRegistry>>,
+    // The sheet table lives INSIDE `GameAssets`, not as a standalone resource.
+    assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
+) {
+    let (Some(registry), Some(mut assets)) = (registry, assets) else {
+        // No registered characters, or no sprite table at all (an art-free
+        // composition). The demand path reports `NoAssetPipeline` for the latter,
+        // which is a named terminal state, not silence.
+        return;
+    };
+    if !registry.is_changed() {
+        return;
+    }
+    let sprites = &mut assets.characters;
+    for id in registry.ids() {
+        if matches!(sprites.sheet_state(id), CharacterSheetState::Unknown) {
+            let display_name = registry
+                .get(id)
+                .map(|p| p.display_name.as_str())
+                .unwrap_or(id);
+            sprites.declare(id, display_name);
+        }
     }
 }
 
@@ -292,6 +352,10 @@ pub fn materialize_demanded_character_sheets(
     // resource existing instead, and a composition that reaches staging without
     // one is NAMED by the capability audit rather than quietly doing nothing.
     character_catalog: Res<CharacterCatalog>,
+    // Registered definitions are a real source of sheets (see
+    // `sheet_for_declared_character`). `Option` because a composition may have no
+    // registered characters at all, which is not an error.
+    registry: Option<Res<PreparedCharacterRegistry>>,
     asset_catalog: Option<Res<SandboxAssetCatalog>>,
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
@@ -330,11 +394,13 @@ pub fn materialize_demanded_character_sheets(
     // Same source `ResolvedVisualQuality` mirrors, read directly so the engine
     // does not depend on the render crate to know its own texture budget.
     let budget = settings.map(|settings| settings.video.quality.resolved_budget());
+    let fallback_registry = PreparedCharacterRegistry::default();
     materialize_character_demand(
         &mut demand,
         &mut states,
         &mut assets.characters,
         &character_catalog,
+        registry.as_deref().unwrap_or(&fallback_registry),
         &asset_catalog,
         &asset_server,
         &mut layouts,
@@ -397,6 +463,9 @@ impl Plugin for CharacterRuntimePlugin {
             .add_systems(
                 Update,
                 (
+                    // Declare before anything asks: a character registered only
+                    // through `register_character` must not read as `Unknown`.
+                    declare_registered_characters,
                     demand_worn_character_sheets,
                     // Before the drain: the audit reads OUTSTANDING demand, and the
                     // materializer empties it.

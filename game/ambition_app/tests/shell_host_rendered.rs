@@ -451,12 +451,29 @@ fn play_owned_sfx(
     app: &mut App,
     request: ambition::sfx::SfxMessage,
 ) -> Option<ambition::audio::render::SfxPlaybackRecord> {
+    let source = app
+        .world()
+        .resource::<ambition::audio::selection::ActiveAudioSelection>()
+        .primary_sfx_source()
+        .cloned()
+        .expect("active audio context publishes a primary SFX source");
+    play_owned_sfx_from(app, source, request)
+}
+
+fn play_owned_sfx_from(
+    app: &mut App,
+    source: ambition::sfx::PresentationSourceId,
+    request: ambition::sfx::SfxMessage,
+) -> Option<ambition::audio::render::SfxPlaybackRecord> {
     let owner = app
         .world()
         .resource::<ambition::audio::selection::ActiveAudioSelection>()
         .owner();
-    app.world_mut()
-        .write_message(ambition::sfx::OwnedSfxMessage { owner, request });
+    app.world_mut().write_message(ambition::sfx::OwnedSfxMessage {
+        owner,
+        source,
+        request,
+    });
     app.update();
     app.update();
     app.world()
@@ -505,6 +522,47 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
         ambition_dash.owner,
         AudioContextOwner::Gameplay(_)
     ));
+
+    // One crossover session owns the speakers while each authored package
+    // keeps its own cue namespace and source definitions. Authorize Sanic as a
+    // secondary presentation source without changing Ambition's primary music
+    // or audio provider, then request the SAME logical Dash id from Sanic.
+    let sanic_sfx = app
+        .world()
+        .resource::<ambition::audio::catalog::AudioCatalogRegistry>()
+        .sfx_for("sanic")
+        .cloned();
+    let sanic_bank_ids = app
+        .world()
+        .resource::<ambition::audio::catalog::SfxBankRegistry>()
+        .ids_for("sanic");
+    app.world_mut()
+        .resource_mut::<ambition::audio::selection::ActiveAudioSelection>()
+        .authorize_sfx_source("sanic.cast", "sanic", sanic_sfx, sanic_bank_ids);
+    let crossover_sanic_dash = play_owned_sfx_from(
+        &mut app,
+        "sanic.cast".into(),
+        SfxMessage::Dash { pos: Vec2::ZERO },
+    )
+    .expect("an authorized secondary source resolves inside the same session");
+    assert_eq!(
+        crossover_sanic_dash.presentation_source.as_str(),
+        "sanic.cast"
+    );
+    assert_eq!(crossover_sanic_dash.provider_id, "sanic");
+    assert_eq!(crossover_sanic_dash.source.kind, SfxSourceKind::Procedural);
+    assert_ne!(
+        crossover_sanic_dash.source.fingerprint,
+        ambition_dash.source.fingerprint,
+        "source identity, not the active primary provider, selects the authored Dash"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition::audio::selection::ActiveAudioSelection>()
+            .provider_id(),
+        Some(ambition_content::AMBITION_CONTENT_PROVIDER),
+        "secondary SFX authorization must not replace the session's primary provider"
+    );
 
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
@@ -572,6 +630,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
         .rejected_wrong_owner;
     app.world_mut().write_message(OwnedSfxMessage {
         owner: Some(first_sanic_owner),
+        source: "sanic".into(),
         request: SfxMessage::Dash { pos: Vec2::ZERO },
     });
     app.update();

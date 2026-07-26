@@ -1,13 +1,15 @@
 //! Provider-relative SFX source resolution and Kira adapters.
 //!
-//! The combined App may cache many providers' authored sources, but a playback
-//! request resolves through the active provider first. Procedural definitions
-//! synthesize from that provider's [`SfxRegistry`](crate::spec::SfxRegistry);
-//! packed entries decode from that provider's bank. Authorization can therefore
-//! never accidentally select an Ambition handle for a Sanic cue with the same
-//! logical id.
+//! The combined App may cache many providers' authored sources. Every playback
+//! request carries a stable presentation-source id, and the active session binds
+//! each authorized source to one provider registry/bank. Procedural definitions
+//! synthesize from that source's [`SfxRegistry`](crate::spec::SfxRegistry);
+//! packed entries decode from its provider bank. The session's primary provider
+//! therefore cannot steal a same-named cue emitted by another cast member.
 
-use ambition_sfx::{self as sfx, AudioContextOwner, SfxId, SfxProvider};
+use ambition_sfx::{
+    self as sfx, AudioContextOwner, PresentationSourceId, SfxId, SfxProvider,
+};
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::{
@@ -251,6 +253,7 @@ fn cached_sfx_source_is_current(cached: SfxSourceIdentity, bank_fingerprint: Opt
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SfxPlaybackRecord {
     pub owner: AudioContextOwner,
+    pub presentation_source: PresentationSourceId,
     pub provider_id: String,
     pub id: SfxId,
     pub source: SfxSourceIdentity,

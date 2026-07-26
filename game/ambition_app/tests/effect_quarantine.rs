@@ -65,6 +65,7 @@ fn noisy_action(frame: usize) -> AgentAction {
 /// are quantized because the two runs advance the same simulation but the
 /// harness's own float bookkeeping need not be bit-identical for this claim.
 fn fingerprint(message: &OwnedSfxMessage) -> String {
+    let source = message.source.as_str();
     let (name, pos) = match message.request {
         SfxMessage::Jump { pos } => ("jump", pos),
         SfxMessage::DoubleJump { pos } => ("double_jump", pos),
@@ -76,9 +77,11 @@ fn fingerprint(message: &OwnedSfxMessage) -> String {
         SfxMessage::Hit { pos } => ("hit", pos),
         SfxMessage::Death { pos } => ("death", pos),
         SfxMessage::Reset { pos } => ("reset", pos),
-        SfxMessage::Play { id, pos } => return format!("play:{id:?}@{:.0},{:.0}", pos.x, pos.y),
+        SfxMessage::Play { id, pos } => {
+            return format!("{source}::play:{id:?}@{:.0},{:.0}", pos.x, pos.y)
+        }
     };
-    format!("{name}@{:.0},{:.0}", pos.x, pos.y)
+    format!("{source}::{name}@{:.0},{:.0}", pos.x, pos.y)
 }
 
 /// Play the script and return every effect presentation would have observed,

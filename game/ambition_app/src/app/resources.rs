@@ -94,7 +94,10 @@ pub fn init_sandbox_resources(app: &mut App) {
         app.insert_resource(ambition::sfx::SfxEmissionContext::default());
         app.world_mut()
             .resource_mut::<ambition::sfx::SfxEmissionContext>()
-            .set(ambition::sfx::AudioContextOwner::Direct);
+            .set(
+                ambition::sfx::AudioContextOwner::Direct,
+                ambition_content::AMBITION_CONTENT_PROVIDER,
+            );
     }
     let character_catalog = app
         .world()

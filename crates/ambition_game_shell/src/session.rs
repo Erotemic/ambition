@@ -418,7 +418,7 @@ fn select_shell_audio_context(
                     catalogs.sfx_for(provider).cloned(),
                     sfx_banks.ids_for(provider),
                 );
-                emission.set(instance.audio.owner);
+                emission.set(instance.audio.owner, provider.to_owned());
                 let current = selection.owner();
                 if previous != current {
                     context_changes.write(AudioContextChanged { previous, current });
@@ -448,9 +448,9 @@ fn select_shell_audio_context(
             {
                 let owner = AudioContextOwner::Frontend(activation.activation_id.0);
                 let previous = selection.owner();
-                emission.set(owner);
                 if let Some(frontend) = frontend.as_deref() {
                     let provider = frontend.provider_id();
+                    emission.set(owner, provider.to_owned());
                     assert!(
                         catalogs.has_provider(provider),
                         "frontend audio provider '{provider}' registered no audio fragment",
@@ -464,6 +464,7 @@ fn select_shell_audio_context(
                     );
                 } else {
                     selection.clear();
+                    emission.clear();
                 }
                 let current = selection.owner();
                 if previous != current {

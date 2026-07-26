@@ -47,7 +47,7 @@ use ambition_characters::brain::action_set::{
 };
 use ambition_characters::brain::{ActorActionMessage, ActorControl};
 use ambition_entity_catalog::placements::DamageKind;
-use ambition_sfx::{SfxId, SfxMessage, SfxWriter};
+use ambition_sfx::{PresentationSourceId, SfxId, SfxMessage, SfxWriter};
 use ambition_time::WorldTime;
 
 /// The canonical verb id a body's basic melee swing binds to in its moveset.
@@ -131,6 +131,12 @@ pub struct MovesetMelee;
 pub struct MoveEventMessage {
     pub owner: Entity,
     pub move_id: String,
+    /// Stable authored package that owns this move's presentation cues.
+    ///
+    /// Real playback derives it from the body's catalog character owner. The
+    /// unscoped sentinel exists only for narrow fixtures and legacy synthetic
+    /// bodies; dispatch then uses the active context's primary source.
+    pub presentation_source: PresentationSourceId,
     pub kind: MoveEventKind,
 }
 
@@ -324,6 +330,9 @@ pub fn advance_move_playback(
     // test body without one uses the engine default down.
     owner_frames: Query<&ambition_platformer_primitives::frame_env::ResolvedMotionFrame>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+    character_owners: Option<
+        Res<ambition_characters::actor::character_catalog::CharacterCatalogOwners>,
+    >,
     authored_volumes: Res<super::authored_volumes::AuthoredAttackVolumeResolver>,
     mut events: MessageWriter<MoveEventMessage>,
     // §7.2: a vfx-tagged volume draws its slash FROM the spawned hitbox
@@ -356,6 +365,17 @@ pub fn advance_move_playback(
 ) {
     for (owner, mut playback, faction, brain, config, worn, kin, scale) in &mut players {
         let strike_faction = crate::targeting::effective_faction(*faction, brain);
+        let character_id = worn
+            .map(ambition_characters::actor::WornCharacter::id)
+            .or_else(|| config.and_then(|tuning| tuning.sprite_character_id.as_deref()));
+        let presentation_source = character_id
+            .and_then(|id| {
+                character_owners
+                    .as_deref()
+                    .and_then(|owners| owners.provider_for(id))
+            })
+            .map(PresentationSourceId::new)
+            .unwrap_or_else(PresentationSourceId::unscoped);
         // ADR 0011: entity dt collapses to sim dt when the actor carries no
         // ProperTimeScale — undilated actors are the identity case.
         let dt = world_time.entity_dt(scale.copied().unwrap_or_default());
@@ -373,6 +393,7 @@ pub fn advance_move_playback(
                 events.write(MoveEventMessage {
                     owner,
                     move_id: pb.spec.id.clone(),
+                    presentation_source: presentation_source.clone(),
                     kind: ev.kind.clone(),
                 });
             }
@@ -390,6 +411,7 @@ pub fn advance_move_playback(
                     events.write(MoveEventMessage {
                         owner,
                         move_id: pb.spec.id.clone(),
+                        presentation_source: presentation_source.clone(),
                         kind: MoveEventKind::Effect(effect.clone()),
                     });
                 }
@@ -894,10 +916,15 @@ pub fn dispatch_move_events(
                     .get(ev.owner)
                     .map(|k| k.pos)
                     .unwrap_or(ae::Vec2::ZERO);
-                sfx.write(SfxMessage::Play {
+                let request = SfxMessage::Play {
                     id: SfxId::new(cue),
                     pos,
-                });
+                };
+                if ev.presentation_source.is_unscoped() {
+                    sfx.write(request);
+                } else {
+                    sfx.write_from(ev.presentation_source.clone(), request);
+                }
             }
             MoveEventKind::Vfx { effect } => {
                 // CM5 per-move cosmetic burst: resolve the id against the

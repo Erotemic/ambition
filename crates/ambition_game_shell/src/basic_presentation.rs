@@ -757,7 +757,7 @@ mod semantic_input_tests {
         app.init_resource::<ambition_sfx::SfxEmissionContext>();
         app.world_mut()
             .resource_mut::<ambition_sfx::SfxEmissionContext>()
-            .set(ambition_sfx::AudioContextOwner::Frontend(9));
+            .set(ambition_sfx::AudioContextOwner::Frontend(9), "shell.test");
         app.init_resource::<ShellLauncherState>();
         app.init_resource::<ActiveShellSequence>();
         app.init_resource::<MenuControlFrame>();
@@ -811,8 +811,9 @@ mod semantic_input_tests {
             sfx.as_slice(),
             [OwnedSfxMessage {
                 owner: Some(ambition_sfx::AudioContextOwner::Frontend(9)),
+                source,
                 request: SfxMessage::Play { id, .. },
-            }] if *id == ids::UI_MENU_MOVE
+            }] if source.as_str() == "shell.test" && *id == ids::UI_MENU_MOVE
         ));
         intent(&mut app, |f| f.up = true);
         assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Previous]);

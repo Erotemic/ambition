@@ -502,19 +502,21 @@ pub fn audio_play_sfx_messages(
             playback.rejected_wrong_owner = playback.rejected_wrong_owner.saturating_add(1);
             continue;
         };
-        let Some(provider_id) = selection.provider_id() else {
-            playback.rejected_wrong_owner = playback.rejected_wrong_owner.saturating_add(1);
+        let source = &owned.source;
+        let Some(provider_id) = selection.sfx_provider_for_source(source) else {
+            playback.rejected_unauthorized = playback.rejected_unauthorized.saturating_add(1);
             continue;
         };
         let id = sfx_message_target_id(request);
-        if !selection.sfx_authority().allows(id) {
+        if !selection.sfx_authority_for_source(source).allows(id) {
             playback.rejected_unauthorized = playback.rejected_unauthorized.saturating_add(1);
             continue;
         }
+        let source_registry = selection.sfx_for_source(source);
         let resolved = cache.handle_for(
             provider_id,
             id,
-            selection.sfx(),
+            source_registry,
             banks.provider(provider_id),
             banks.fingerprint_for(provider_id, id),
             audio_sources.as_mut(),
@@ -535,7 +537,7 @@ pub fn audio_play_sfx_messages(
                 // early. A wrong diagnosis costs more than no diagnosis.
                 let first_word = playback.note_missing_source(provider_id, id, miss);
                 if first_word {
-                    let cue = describe_sfx_id(id, selection.sfx(), &banks);
+                    let cue = describe_sfx_id(id, source_registry, &banks);
                     let outlook = if miss == SfxSourceMiss::NoProviderBank
                         && pending
                             .as_deref()
@@ -560,6 +562,7 @@ pub fn audio_play_sfx_messages(
         playback.accepted_playbacks = playback.accepted_playbacks.saturating_add(1);
         playback.last_played = Some(SfxPlaybackRecord {
             owner,
+            presentation_source: source.clone(),
             provider_id: provider_id.to_owned(),
             id,
             source: resolved.source,
@@ -656,6 +659,7 @@ mod tests {
         );
         let stale = OwnedSfxMessage {
             owner: Some(AudioContextOwner::Gameplay(1)),
+            source: "sanic".into(),
             request: SfxMessage::Dash { pos: Vec2::ZERO },
         };
         assert!(!selection.accepts_request_owner(stale.owner));

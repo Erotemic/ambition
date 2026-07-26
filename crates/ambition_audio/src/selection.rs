@@ -6,9 +6,9 @@
 //! the same mechanism: a title screen may own title music and menu SFX, while a
 //! retired gameplay activation cannot leak queued work into it.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-use ambition_sfx::{AudioContextOwner, SfxId};
+use ambition_sfx::{AudioContextOwner, PresentationSourceId, SfxId};
 use bevy::prelude::{Message, Resource};
 
 use crate::spec::{MusicRegistry, SfxRegistry};
@@ -168,26 +168,77 @@ pub struct ActiveAudioSelection {
     current: Option<ActiveAudioAuthority>,
 }
 
+/// One presentation source authorized inside the active audio context.
+///
+/// Source identity is stable and authored; provider identity selects the
+/// backing procedural registry/bank. They are separate so a future prepared
+/// character or stage may expose a stable package id without coupling every
+/// emitter to storage details.
+#[derive(Debug, Clone)]
+struct ActiveSfxSource {
+    provider_id: String,
+    sfx: Option<SfxRegistry>,
+    authorized: BTreeSet<SfxId>,
+    /// `None` means all provider ids are eligible. `Some` is a narrow frontend
+    /// allowlist that remains narrow when a packed bank arrives later.
+    explicit_allowlist: Option<BTreeSet<SfxId>>,
+}
+
+impl ActiveSfxSource {
+    fn new(
+        provider_id: String,
+        sfx: Option<SfxRegistry>,
+        bank_ids: BTreeSet<SfxId>,
+        explicit_allowlist: Option<BTreeSet<SfxId>>,
+    ) -> Self {
+        let authorized = Self::authorized_ids(&sfx, bank_ids, explicit_allowlist.as_ref());
+        Self {
+            provider_id,
+            sfx,
+            authorized,
+            explicit_allowlist,
+        }
+    }
+
+    fn authorized_ids(
+        sfx: &Option<SfxRegistry>,
+        bank_ids: BTreeSet<SfxId>,
+        explicit_allowlist: Option<&BTreeSet<SfxId>>,
+    ) -> BTreeSet<SfxId> {
+        let mut provider_sfx = sfx
+            .as_ref()
+            .map(SfxRegistry::authorized_cue_ids)
+            .unwrap_or_default();
+        provider_sfx.extend(bank_ids);
+        explicit_allowlist
+            .map(|allowlist| allowlist.intersection(&provider_sfx).copied().collect())
+            .unwrap_or(provider_sfx)
+    }
+
+    fn refresh_bank_ids(&mut self, bank_ids: BTreeSet<SfxId>) {
+        self.authorized =
+            Self::authorized_ids(&self.sfx, bank_ids, self.explicit_allowlist.as_ref());
+    }
+}
+
 /// One frontend, gameplay, or direct-entry context's live audio authority.
 #[derive(Debug, Clone)]
 pub struct ActiveAudioAuthority {
     owner: AudioContextOwner,
     provider_id: String,
+    primary_sfx_source: PresentationSourceId,
     music: Option<MusicRegistry>,
-    sfx: Option<SfxRegistry>,
     authorized_music: BTreeSet<String>,
     authorized_cues: BTreeSet<String>,
-    authorized_sfx: BTreeSet<SfxId>,
-    /// `None` means all provider bank ids are part of this context (gameplay /
-    /// direct entry). `Some` is the frontend's explicit narrow allowlist.
-    explicit_sfx_allowlist: Option<BTreeSet<SfxId>>,
+    sfx_sources: BTreeMap<PresentationSourceId, ActiveSfxSource>,
     preferred_track: Option<String>,
 }
 
 impl ActiveAudioSelection {
-    /// Select a gameplay session. Every track/cue/SFX authored by its provider
-    /// is eligible; exact request ownership still decides whether queued work is
-    /// current.
+    /// Select a gameplay session. Every track/cue/SFX authored by its primary
+    /// provider is eligible; exact request ownership still decides whether
+    /// queued work is current. Additional cast/stage/ruleset sources may be
+    /// authorized with [`Self::authorize_sfx_source`].
     pub fn select_gameplay(
         &mut self,
         owner: u64,
@@ -285,29 +336,17 @@ impl ActiveAudioSelection {
                     .collect::<BTreeSet<_>>()
             })
             .unwrap_or(provider_music);
-        let mut provider_sfx = sfx
-            .as_ref()
-            .map(SfxRegistry::authorized_cue_ids)
-            .unwrap_or_default();
-        provider_sfx.extend(bank_ids);
-        let authorized_sfx = explicit_sfx_allowlist
-            .as_ref()
-            .map(|allowlist| {
-                allowlist
-                    .intersection(&provider_sfx)
-                    .copied()
-                    .collect::<BTreeSet<_>>()
-            })
-            .unwrap_or(provider_sfx);
+        let primary_sfx_source = PresentationSourceId::new(provider_id.clone());
+        let primary =
+            ActiveSfxSource::new(provider_id.clone(), sfx, bank_ids, explicit_sfx_allowlist);
         self.current = Some(ActiveAudioAuthority {
             owner,
             provider_id,
+            primary_sfx_source: primary_sfx_source.clone(),
             music,
-            sfx,
             authorized_music,
             authorized_cues: BTreeSet::new(),
-            authorized_sfx,
-            explicit_sfx_allowlist,
+            sfx_sources: BTreeMap::from([(primary_sfx_source, primary)]),
             preferred_track,
         });
     }
@@ -340,16 +379,34 @@ impl ActiveAudioSelection {
             .map(|authority| authority.provider_id.as_str())
     }
 
+    pub fn primary_sfx_source(&self) -> Option<&PresentationSourceId> {
+        self.current
+            .as_ref()
+            .map(|authority| &authority.primary_sfx_source)
+    }
+
     pub fn music(&self) -> Option<&MusicRegistry> {
         self.current
             .as_ref()
             .and_then(|authority| authority.music.as_ref())
     }
 
+    /// Compatibility view of the primary provider's procedural registry.
     pub fn sfx(&self) -> Option<&SfxRegistry> {
+        let source = self.primary_sfx_source()?;
+        self.sfx_for_source(source)
+    }
+
+    pub fn sfx_for_source(&self, source: &PresentationSourceId) -> Option<&SfxRegistry> {
+        self.current.as_ref()?.sfx_sources.get(source)?.sfx.as_ref()
+    }
+
+    pub fn sfx_provider_for_source(&self, source: &PresentationSourceId) -> Option<&str> {
         self.current
-            .as_ref()
-            .and_then(|authority| authority.sfx.as_ref())
+            .as_ref()?
+            .sfx_sources
+            .get(source)
+            .map(|source| source.provider_id.as_str())
     }
 
     pub fn preferred_track(&self) -> Option<&str> {
@@ -358,26 +415,52 @@ impl ActiveAudioSelection {
             .and_then(|authority| authority.preferred_track.as_deref())
     }
 
+    /// Add one authored presentation source to the current session authority.
+    ///
+    /// This does not change the session owner or primary music provider. The
+    /// character/stage preparation layer supplies the exact source set; audio
+    /// owns only the stable source-to-provider binding and cue allowlist.
+    pub fn authorize_sfx_source(
+        &mut self,
+        source: impl Into<PresentationSourceId>,
+        provider_id: impl Into<String>,
+        sfx: Option<SfxRegistry>,
+        bank_ids: BTreeSet<SfxId>,
+    ) {
+        let Some(current) = self.current.as_mut() else {
+            return;
+        };
+        let source = source.into();
+        let provider_id = provider_id.into();
+        let candidate = ActiveSfxSource::new(provider_id, sfx, bank_ids, None);
+        match current.sfx_sources.get(&source) {
+            Some(existing)
+                if existing.provider_id == candidate.provider_id
+                    && existing.sfx == candidate.sfx
+                    && existing.authorized == candidate.authorized => {}
+            Some(_) => panic!(
+                "presentation source '{}' was authorized twice with different definitions",
+                source
+            ),
+            None => {
+                current.sfx_sources.insert(source, candidate);
+            }
+        }
+    }
+
     /// Refresh one provider's runtime bank identities after asynchronous load.
-    /// The live context changes only when it belongs to that provider.
+    /// Every active source backed by that provider changes together.
     pub fn refresh_provider_sfx_ids(&mut self, provider_id: &str, bank_ids: BTreeSet<SfxId>) {
         let Some(current) = self.current.as_mut() else {
             return;
         };
-        if current.provider_id != provider_id {
-            return;
+        for source in current
+            .sfx_sources
+            .values_mut()
+            .filter(|source| source.provider_id == provider_id)
+        {
+            source.refresh_bank_ids(bank_ids.clone());
         }
-        let mut provider_sfx = current
-            .sfx
-            .as_ref()
-            .map(SfxRegistry::authorized_cue_ids)
-            .unwrap_or_default();
-        provider_sfx.extend(bank_ids);
-        current.authorized_sfx = current
-            .explicit_sfx_allowlist
-            .as_ref()
-            .map(|allowlist| allowlist.intersection(&provider_sfx).copied().collect())
-            .unwrap_or(provider_sfx);
     }
 
     pub fn authorize_adaptive_cues(&mut self, cues: impl IntoIterator<Item = String>) {
@@ -386,11 +469,20 @@ impl ActiveAudioSelection {
         }
     }
 
+    /// Compatibility view of the primary source authority.
     pub fn sfx_authority(&self) -> SfxAuthority {
+        let Some(source) = self.primary_sfx_source() else {
+            return SfxAuthority::Denied;
+        };
+        self.sfx_authority_for_source(source)
+    }
+
+    pub fn sfx_authority_for_source(&self, source: &PresentationSourceId) -> SfxAuthority {
         self.current
             .as_ref()
-            .map(|authority| SfxAuthority::Governed {
-                authorized: authority.authorized_sfx.clone(),
+            .and_then(|authority| authority.sfx_sources.get(source))
+            .map(|source| SfxAuthority::Governed {
+                authorized: source.authorized.clone(),
             })
             .unwrap_or(SfxAuthority::Denied)
     }
@@ -495,6 +587,114 @@ mod tests {
         assert_eq!(selection.owner(), Some(AudioContextOwner::Gameplay(2)));
         selection.clear_if_owner(AudioContextOwner::Gameplay(2));
         assert!(selection.current().is_none());
+    }
+
+    #[test]
+    fn one_session_can_authorize_two_independent_presentation_sources() {
+        let mut selection = ActiveAudioSelection::default();
+        selection.select_gameplay(
+            3,
+            "ambition",
+            None,
+            Some(sfx([SoundCueKey::Dash])),
+            BTreeSet::new(),
+        );
+        selection.authorize_sfx_source(
+            "sanic.cast",
+            "sanic",
+            Some(sfx([SoundCueKey::Dash, SoundCueKey::Jump])),
+            BTreeSet::new(),
+        );
+
+        let ambition = PresentationSourceId::new("ambition");
+        let sanic = PresentationSourceId::new("sanic.cast");
+        assert_eq!(
+            selection.sfx_provider_for_source(&ambition),
+            Some("ambition")
+        );
+        assert_eq!(selection.sfx_provider_for_source(&sanic), Some("sanic"));
+        assert!(
+            selection
+                .sfx_authority_for_source(&sanic)
+                .allows(SoundCueKey::Jump.sfx_id())
+        );
+        assert!(
+            !selection
+                .sfx_authority_for_source(&ambition)
+                .allows(SoundCueKey::Jump.sfx_id()),
+            "equal cue vocabularies remain source-relative"
+        );
+        assert_eq!(selection.provider_id(), Some("ambition"));
+    }
+
+    /// **§4.5, and §3.5's single point of loss.**
+    ///
+    /// The bug this closes: `audio_play_sfx_messages` took the provider from
+    /// `selection.provider_id()` -- the ONE active provider -- rather than from the
+    /// request. `ProviderSfxHandleCache` was already keyed `(provider_id, SfxId)`,
+    /// so the resolution table was source-qualified the whole time and only the
+    /// emission had lost the emitter.
+    ///
+    /// So the sharp case is ONE logical cue id emitted from two sources. Under the
+    /// old routing both resolved to the session's primary provider and Sanic's dash
+    /// played Ambition's sound. Here they must resolve to different providers.
+    #[test]
+    fn cue_resolves_through_its_emitting_source_not_the_active_provider() {
+        let mut selection = ActiveAudioSelection::default();
+        // An Ambition-owned session (a crossover match: one owner, several sources).
+        selection.select_gameplay(
+            9,
+            "ambition",
+            None,
+            Some(sfx([SoundCueKey::Dash])),
+            BTreeSet::new(),
+        );
+        selection.authorize_sfx_source(
+            "sanic.cast",
+            "sanic",
+            Some(sfx([SoundCueKey::Dash])),
+            BTreeSet::new(),
+        );
+
+        let host = PresentationSourceId::new("ambition");
+        let guest = PresentationSourceId::new("sanic.cast");
+        let dash = SoundCueKey::Dash.sfx_id();
+
+        // Both sources authorize the SAME cue id...
+        assert!(selection.sfx_authority_for_source(&host).allows(dash));
+        assert!(selection.sfx_authority_for_source(&guest).allows(dash));
+        // ...and each resolves against its OWN provider registry/bank, which is the
+        // whole point: same id, different sound.
+        assert_eq!(selection.sfx_provider_for_source(&host), Some("ambition"));
+        assert_eq!(
+            selection.sfx_provider_for_source(&guest),
+            Some("sanic"),
+            "a guest cast member's cue must not resolve through the session's \
+             primary provider merely because that provider is the active one"
+        );
+        // The session owner is unchanged by any of this: ownership says which live
+        // session may reach the speakers, source says whose package supplies the
+        // cue, and overloading one into the other is what §4.5 forbids.
+        assert_eq!(selection.owner(), Some(AudioContextOwner::Gameplay(9)));
+        assert_eq!(selection.provider_id(), Some("ambition"));
+    }
+
+    #[test]
+    fn an_unknown_source_is_denied_even_when_its_cue_is_primary_authorized() {
+        let mut selection = ActiveAudioSelection::default();
+        selection.select_gameplay(
+            3,
+            "ambition",
+            None,
+            Some(sfx([SoundCueKey::Dash])),
+            BTreeSet::new(),
+        );
+        let unknown = PresentationSourceId::new("not.staged");
+        assert_eq!(
+            selection.sfx_authority_for_source(&unknown),
+            SfxAuthority::Denied
+        );
+        assert_eq!(selection.sfx_provider_for_source(&unknown), None);
     }
 
     #[test]

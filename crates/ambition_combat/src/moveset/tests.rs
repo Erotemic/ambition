@@ -215,6 +215,7 @@ fn move_event_dispatch_bridges_vfx_to_a_cosmetic_burst() {
         .write(MoveEventMessage {
             owner,
             move_id: "smash".into(),
+            presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
             kind: MoveEventKind::Vfx {
                 effect: "starburst".to_string(),
             },
@@ -549,6 +550,70 @@ fn run_seconds(app: &mut App, seconds: f32) {
     for _ in 0..steps {
         app.update();
     }
+}
+
+fn one_tick_sfx_move(cue: &str) -> MoveSpec {
+    let mut spec = simple_melee(&SimpleMeleeParams::default());
+    spec.events = vec![MoveEvent {
+        at_s: 0.01,
+        kind: MoveEventKind::Sfx {
+            cue: cue.to_string(),
+        },
+    }];
+    spec
+}
+
+/// Authored move events capture their CHARACTER PROVIDER at the move clock,
+/// before the event enters the external-effect quarantine. A crossover match
+/// can therefore play Sanic and Mary-O cues under one session owner without
+/// guessing from whichever provider supplies the session's background music.
+#[test]
+fn move_events_capture_character_provider_presentation_sources() {
+    let (mut app, _victim) = app_with_victim();
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalogOwners(
+            std::collections::BTreeMap::from([
+                ("sanic".to_string(), "sanic".to_string()),
+                ("mary_o".to_string(), "mary_o".to_string()),
+            ]),
+        ),
+    );
+
+    let worn = spawn_attacker(
+        &mut app,
+        ae::Vec2::new(70.0, 100.0),
+        ae::Vec2::new(16.0, 24.0),
+        one_tick_sfx_move("sanic.spin"),
+    );
+    app.world_mut()
+        .entity_mut(worn)
+        .insert(ambition_characters::actor::WornCharacter::new("sanic"));
+
+    let actor = spawn_attacker(
+        &mut app,
+        ae::Vec2::new(170.0, 100.0),
+        ae::Vec2::new(16.0, 24.0),
+        one_tick_sfx_move("mary_o.jump"),
+    );
+    app.world_mut().entity_mut(actor).insert(crate::components::CombatTuning {
+        sprite_character_id: Some("mary_o".to_string()),
+        ..Default::default()
+    });
+
+    app.update();
+
+    let messages = app
+        .world()
+        .resource::<Messages<MoveEventMessage>>();
+    let mut cursor = messages.get_cursor();
+    let sources: std::collections::BTreeSet<String> = cursor
+        .read(messages)
+        .map(|message| message.presentation_source.as_str().to_string())
+        .collect();
+    assert_eq!(
+        sources,
+        std::collections::BTreeSet::from(["mary_o".to_string(), "sanic".to_string()])
+    );
 }
 
 /// §7.1 + §7.2 (the bespoke-path parity restored onto the moveset):
@@ -1403,6 +1468,7 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
         .write(MoveEventMessage {
             owner,
             move_id: "sig".into(),
+            presentation_source: ambition_sfx::PresentationSourceId::new("sanic.moves"),
             kind: MoveEventKind::Sfx {
                 cue: "pca.signature".into(),
             },
@@ -1412,6 +1478,7 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
         .write(MoveEventMessage {
             owner,
             move_id: "sig".into(),
+            presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
             kind: MoveEventKind::Effect(EffectRef {
                 key: "pca_glider".into(),
                 // A1: authored params must SURVIVE the bridge so the keyed
@@ -1422,15 +1489,15 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
         });
     app.update();
 
-    let sfx: Vec<SfxMessage> = app
+    let sfx: Vec<ambition_sfx::OwnedSfxMessage> = app
         .world_mut()
         .resource_mut::<Messages<ambition_sfx::OwnedSfxMessage>>()
         .drain()
-        .map(|message| message.request)
         .collect();
     assert_eq!(sfx.len(), 1, "the Sfx event played one sound");
+    assert_eq!(sfx[0].source.as_str(), "sanic.moves");
     assert!(
-        matches!(sfx[0], SfxMessage::Play { pos, .. } if pos == ae::Vec2::new(42.0, 7.0)),
+        matches!(sfx[0].request, SfxMessage::Play { pos, .. } if pos == ae::Vec2::new(42.0, 7.0)),
         "played at the owner's position"
     );
     let acts: Vec<ActorActionMessage> = app
@@ -1506,6 +1573,7 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
         .write(MoveEventMessage {
             owner,
             move_id: "fire".into(),
+            presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
             kind: MoveEventKind::Ranged,
         });
     app.update();

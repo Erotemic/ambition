@@ -391,7 +391,13 @@ impl CharacterBarks {
     }
 
     /// Pick a line for `situation`, rotating by `rotation` so repeated barks
-    /// cycle the pool. `None` when the pool is empty (caller falls back).
+    /// cycle the pool. `None` when the pool is empty.
+    ///
+    /// This is the situation-pool primitive, NOT the thing that answers "what
+    /// does this character say" — it cannot see the row's `fallback_dialogue`.
+    /// Call [`CharacterCatalogEntry::bark`] (or `CharacterCatalog::bark_line`)
+    /// instead, or a character whose voice lives entirely in its fallback pool
+    /// goes silent here.
     pub fn pick(&self, situation: BarkSituation, rotation: u32) -> Option<&str> {
         let pool = self.pool(situation);
         if pool.is_empty() {
@@ -488,6 +494,21 @@ pub struct CharacterCatalogEntry {
     /// generator uses `tags = ["boss"]` to fence basement entries).
     #[serde(default)]
     pub tags: Vec<String>,
+    /// Behind-the-scenes authoring context: who or what the character parodies,
+    /// the name joke, visual/thematic references, and design intent that future
+    /// artists and writers should preserve. This is not necessarily canonical
+    /// dialogue or lore. Empty for legacy rows that have not been migrated.
+    #[serde(default)]
+    pub authoring_description: String,
+    /// Suggested combat identity and mechanical translation of the character's
+    /// source ideas. Games may adopt, revise, or ignore this design guidance.
+    /// Empty for legacy rows that have not been migrated.
+    #[serde(default)]
+    pub gameplay_description: String,
+    /// Reusable conversation lines for contexts without bespoke scene/Yarn
+    /// dialogue. These are authoring defaults rather than immutable canon.
+    #[serde(default)]
+    pub fallback_dialogue: Vec<String>,
     /// Gameplay sprite tuning (collision scale / sample inset / feet
     /// anchor override). `None` = defaults. Replaces the old
     /// hardcoded `*_SHEET` statics in `character_sprites/sheets.rs`.
@@ -556,6 +577,29 @@ impl CharacterCatalogEntry {
     pub fn manifest_target(&self) -> Option<&str> {
         let file = self.manifest.rsplit('/').next()?;
         file.strip_suffix("_spritesheet.ron")
+    }
+
+    /// A line this character says in `situation`: its authored pool for that
+    /// situation, else its [`fallback_dialogue`](Self::fallback_dialogue), else
+    /// `None` (the caller drops back to the engine-generic line, or stays
+    /// silent).
+    ///
+    /// The fallback pool applies to EVERY situation deliberately. A character
+    /// arrives from the sprite pipeline with a voice long before anyone writes
+    /// four separate pools for it, and an in-voice line that does not quite fit
+    /// the moment beats a voiceless engine-generic one — the fallback exists so
+    /// a newly authored character is never mute. Writing a situation pool
+    /// silences the fallback for that situation and nothing else.
+    ///
+    /// `rotation` cycles whichever pool answered, so repeat barks vary.
+    pub fn bark(&self, situation: BarkSituation, rotation: u32) -> Option<&str> {
+        if let Some(line) = self.barks.pick(situation, rotation) {
+            return Some(line);
+        }
+        if self.fallback_dialogue.is_empty() {
+            return None;
+        }
+        Some(self.fallback_dialogue[(rotation as usize) % self.fallback_dialogue.len()].as_str())
     }
 }
 

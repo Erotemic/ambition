@@ -12,6 +12,38 @@ The common case is provider data plus generated/published presentation. Adding a
 character must not require editing core movement/combat code or adding a new
 actor species.
 
+## 0. The short path
+
+A character whose sprite target already declares `ACTOR_METADATA` is three
+commands away from standing on a Hall pedestal and speaking in its own voice:
+
+```bash
+# 1. catalog row, including the target's prose and its suggested lines
+PYTHONPATH=tools/ambition_ldtk_tools:tools/ambition_sprite2d_renderer \
+  python3 -m ambition_ldtk_tools.character_notes --splice --target <target>
+
+# 2. a pedestal in the Hall
+PYTHONPATH=tools/ambition_ldtk_tools \
+  python3 -m ambition_ldtk_tools.generate_hall_of_characters
+
+# 3. the sheet itself (generated; gitignored)
+PYTHONPATH=$PWD/tools/ambition_sprite2d_renderer PYTHON=python3 \
+  ./regen_sprites.sh --target <target>
+```
+
+Step 1 is idempotent and never rewrites a row that already exists, so re-running
+it after hand-tuning a row is safe. Run it with no `--target` to REPORT which
+targets are missing which notes; it refuses to splice a whole-renderer scan,
+because not every render target is a character (variant rigs like
+`npc_pirate_heavy` are intentionally row-less).
+
+The generated row is a starting posture — `patrol_peaceful` + `striker_swipe`,
+`tier: MainHall`. Retune it afterwards; getting the character into the game is
+the part worth automating.
+
+The rest of this recipe is the long form: what those fields mean, and what to do
+when the short path does not apply.
+
 ## 1. Localize the current contracts
 
 ```bash
@@ -39,7 +71,30 @@ possible:
 - default brain preset;
 - default action-set/action-scheme inputs;
 - sprite target/manifest;
-- dialogue/roster/tags as applicable.
+- dialogue/roster/tags as applicable;
+- an `authoring_description` recording the parody/source figure, name joke,
+  visual and thematic references, and behind-the-scenes design intent;
+- a `gameplay_description` translating that concept into a suggested role and
+  mechanics without replacing the live brain/action-set authorities;
+- character-specific bark pools plus `fallback_dialogue` lines for contexts
+  that do not yet have bespoke scene/Yarn writing.
+
+The authoring and gameplay descriptions are guidance, not necessarily canonical
+lore. Barks and fallback dialogue are usable defaults that later scene writing
+may expand, replace, or ignore. New characters should author all of them even
+though the fields default empty while legacy rows are migrated.
+
+Author these on the SPRITE TARGET's `ACTOR_METADATA` (under
+`authoring_description`, `gameplay_description`, and
+`dialogue_hints.suggested_barks` / `dialogue_hints.fallback_dialogue`) rather
+than typing them into the catalog by hand — §0 carries them across, and the
+character's writing then travels with its art.
+
+`fallback_dialogue` is not decoration: `CharacterCatalogEntry::bark` reaches for
+it whenever a situation has no authored pool, so a character with suggested
+lines and no bark pools still speaks in its own voice when struck, when
+provoked, while idling, and on its pedestal. Writing a real pool for a situation
+takes that situation back and leaves the others on the fallback.
 
 Copy a nearby current entry rather than a snippet from an old document. Run the
 catalog tests immediately; the schema changes faster than this recipe should.

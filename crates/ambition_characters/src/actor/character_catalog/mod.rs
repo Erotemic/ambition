@@ -211,6 +211,32 @@ impl CharacterCatalog {
             .map(|entry| entry.display_name.as_str())
     }
 
+    /// Behind-the-scenes design context for authoring tools. Legacy rows with
+    /// an empty description return `None` rather than an unhelpful empty string.
+    pub fn authoring_description(&self, character_id: &str) -> Option<&str> {
+        let description = self.get(character_id)?.authoring_description.as_str();
+        (!description.is_empty()).then_some(description)
+    }
+
+    /// Suggested gameplay identity for authoring tools. This is guidance, not
+    /// a replacement for the live action-set and brain authorities.
+    pub fn gameplay_description(&self, character_id: &str) -> Option<&str> {
+        let description = self.get(character_id)?.gameplay_description.as_str();
+        (!description.is_empty()).then_some(description)
+    }
+
+    /// Generic conversation lines available when no bespoke scene dialogue is
+    /// authored. The returned slice may be empty for legacy characters.
+    ///
+    /// Unlike the two description accessors, an unwritten pool stays `Some(&[])`
+    /// rather than collapsing to `None`: an authoring tool asking "does this
+    /// character exist, and has anyone given it lines yet" needs those two
+    /// answers apart. To simply GET a line, call [`Self::bark_line`] — it
+    /// already consults this pool.
+    pub fn fallback_dialogue(&self, character_id: &str) -> Option<&[String]> {
+        Some(self.get(character_id)?.fallback_dialogue.as_slice())
+    }
+
     /// Resolve an authored display name to its stable character id.
     ///
     /// Catalog validation rejects duplicate display names across the assembled
@@ -223,13 +249,17 @@ impl CharacterCatalog {
             .map(|(id, _)| id.as_str())
     }
 
+    /// THE bark authority: what this character says in `situation`. Resolves
+    /// through [`CharacterCatalogEntry::bark`], so a character with no pool for
+    /// this situation still speaks its own `fallback_dialogue` rather than the
+    /// engine-generic line. Every bark consumer goes through here.
     pub fn bark_line(
         &self,
         character_id: &str,
         situation: BarkSituation,
         rotation: u32,
     ) -> Option<&str> {
-        self.get(character_id)?.barks.pick(situation, rotation)
+        self.get(character_id)?.bark(situation, rotation)
     }
 
     pub fn playable_kit_source(&self, character_id: &str) -> Option<PlayableKitSource> {
@@ -394,6 +424,125 @@ mod tests {
         // An empty pool yields no line (caller falls back).
         assert_eq!(barks.pick(BarkSituation::Hall, 0), None);
         assert_eq!(barks.pick(BarkSituation::Idle, 7), None);
+    }
+
+    #[test]
+    fn character_authoring_guidance_defaults_and_round_trips() {
+        let legacy = portrait_catalog_fixture("None");
+        assert_eq!(legacy.authoring_description("npc_sample"), None);
+        assert_eq!(legacy.gameplay_description("npc_sample"), None);
+        assert!(legacy
+            .fallback_dialogue("npc_sample")
+            .expect("fixture row")
+            .is_empty());
+
+        let data = parse_catalog(
+            r#"(
+                brain_presets: { "idle": StandStill },
+                action_set_presets: { "peaceful": (move_style: Walk) },
+                characters: {
+                    "npc_authored": (
+                        display_name: "Authored",
+                        spritesheet: "sprites/authored_spritesheet.png",
+                        manifest: "sprites/authored_spritesheet.ron",
+                        tier: MainHall,
+                        body_kind: Standard,
+                        composition: None,
+                        default_brain: "idle",
+                        default_action_set: "peaceful",
+                        tags: [],
+                        authoring_description: "Behind the scenes.",
+                        gameplay_description: "Precision fighter.",
+                        fallback_dialogue: ["A reusable line."],
+                    ),
+                },
+            )"#,
+        );
+        let catalog = CharacterCatalog::from_data(data);
+        assert_eq!(
+            catalog.authoring_description("npc_authored"),
+            Some("Behind the scenes.")
+        );
+        assert_eq!(
+            catalog.gameplay_description("npc_authored"),
+            Some("Precision fighter.")
+        );
+        let fallback = catalog
+            .fallback_dialogue("npc_authored")
+            .expect("authored row");
+        assert_eq!(fallback.len(), 1);
+        assert_eq!(fallback[0], "A reusable line.");
+    }
+
+    /// The point of shipping suggested lines with the art: a character authored
+    /// with `fallback_dialogue` and no situation pools still speaks in its own
+    /// voice everywhere, and an authored pool takes that situation back.
+    #[test]
+    fn fallback_dialogue_answers_every_situation_a_pool_does_not() {
+        let data = parse_catalog(
+            r#"(
+                brain_presets: { "idle": StandStill },
+                action_set_presets: { "peaceful": (move_style: Walk) },
+                characters: {
+                    "npc_only_fallback": (
+                        display_name: "Only Fallback",
+                        spritesheet: "sprites/of_spritesheet.png",
+                        manifest: "sprites/of_spritesheet.ron",
+                        tier: MainHall, body_kind: Standard, composition: None,
+                        default_brain: "idle", default_action_set: "peaceful", tags: [],
+                        fallback_dialogue: ["Measured.", "Reactive."],
+                        barks: (),
+                    ),
+                    "npc_pool_wins": (
+                        display_name: "Pool Wins",
+                        spritesheet: "sprites/pw_spritesheet.png",
+                        manifest: "sprites/pw_spritesheet.ron",
+                        tier: MainHall, body_kind: Standard, composition: None,
+                        default_brain: "idle", default_action_set: "peaceful", tags: [],
+                        fallback_dialogue: ["Generic."],
+                        barks: ( on_hit: ["Ow, specifically."] ),
+                    ),
+                    "npc_mute": (
+                        display_name: "Mute",
+                        spritesheet: "sprites/m_spritesheet.png",
+                        manifest: "sprites/m_spritesheet.ron",
+                        tier: MainHall, body_kind: Standard, composition: None,
+                        default_brain: "idle", default_action_set: "peaceful", tags: [],
+                        barks: (),
+                    ),
+                },
+            )"#,
+        );
+        let catalog = CharacterCatalog::from_data(data);
+
+        for situation in [
+            BarkSituation::OnHit,
+            BarkSituation::Provoked,
+            BarkSituation::Idle,
+            BarkSituation::Hall,
+        ] {
+            assert_eq!(
+                catalog.bark_line("npc_only_fallback", situation, 0),
+                Some("Measured."),
+                "{situation:?} should reach the fallback pool"
+            );
+        }
+        // Rotation cycles the fallback pool the same way a situation pool cycles.
+        assert_eq!(
+            catalog.bark_line("npc_only_fallback", BarkSituation::Idle, 1),
+            Some("Reactive.")
+        );
+        // An authored pool takes back its own situation, and only its own.
+        assert_eq!(
+            catalog.bark_line("npc_pool_wins", BarkSituation::OnHit, 0),
+            Some("Ow, specifically.")
+        );
+        assert_eq!(
+            catalog.bark_line("npc_pool_wins", BarkSituation::Hall, 0),
+            Some("Generic.")
+        );
+        // Nothing authored at all stays `None`, so callers keep their generic.
+        assert_eq!(catalog.bark_line("npc_mute", BarkSituation::Idle, 0), None);
     }
 
     #[test]

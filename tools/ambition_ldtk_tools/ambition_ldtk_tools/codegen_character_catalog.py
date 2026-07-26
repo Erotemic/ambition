@@ -114,6 +114,10 @@ CATEGORY: dict[str, str] = {
     "weird_hermit": "peaceful",  # dialogue-flavored
     "galwah": "peaceful",
     "girdle": "peaceful",
+    "anne_druid": "peaceful",
+    "hypatia_prime": "peaceful",
+    "le_beast": "peaceful",
+    "richard_duckling": "peaceful",
     "mami_marzakhani": "peaceful",
     # ===== Mathematician parodies (2026-07-20 sprite generators).
     # Peaceful exhibits: they argue rather than swing. The two

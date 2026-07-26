@@ -170,6 +170,7 @@ pub(crate) fn apply_boss_hit(
                 &mut writers.debris,
                 hurt,
                 event.strike_sfx,
+                event.damage,
                 impact,
             );
             return true;
@@ -239,6 +240,7 @@ pub(crate) fn apply_boss_hit(
         &mut writers.debris,
         hurt,
         event.strike_sfx,
+        event.damage,
         impact,
     );
     if killed {

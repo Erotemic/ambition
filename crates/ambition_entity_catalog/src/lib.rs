@@ -65,6 +65,18 @@ impl ParamValue {
         Ok(ParamValue(ron::from_str(ron_text)?))
     }
 
+    /// Build params FROM a technique's own typed struct — the inverse of
+    /// [`hydrate`](Self::hydrate), for the case where code composes an effect
+    /// that an author could equally have written by hand. Round-trips through
+    /// the authored RON text so the stored value is byte-identical to the
+    /// hand-written form.
+    pub fn from_typed<T: Serialize>(value: &T) -> Result<Self, ron::Error> {
+        let text = ron::ser::to_string(value)?;
+        ron::from_str(&text)
+            .map(ParamValue)
+            .map_err(|spanned| spanned.code)
+    }
+
     /// Hydrate these params into a technique/prefab's own `Deserialize` type.
     /// The concrete type is declared AT the consumer — this crate never names
     /// it. A missing required field or a type mismatch fails here (the basis of

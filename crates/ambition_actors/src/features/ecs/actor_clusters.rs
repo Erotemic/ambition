@@ -364,6 +364,8 @@ pub struct ActorClusterSeed {
     /// Spawn-resolved special-behavior flags (kit vocabulary), spawned
     /// alongside the clusters by [`Self::into_components`].
     pub caps: crate::combat::CombatCapabilities,
+    /// Victim-owned contact material/profile resolved from the catalog row.
+    pub hurt_feedback: ambition_vfx::HurtFeedback,
     /// The authored roster spec (resolved by string key from the spawn
     /// brain). Spawn-time ONLY: brain / combat-kit / held-item construction
     /// reads it here before the entity exists; it is deliberately NOT
@@ -415,6 +417,32 @@ pub fn sprite_render_size_for_name_in(
         .map(|b| b.render_size)
 }
 
+/// Catalog tags that declare a body as MECHANICAL — the vocabulary an author
+/// writes to make a material-aware strike land as a machine hit instead of a
+/// flesh one. No character ID appears here: a body is a machine because its
+/// catalog row SAYS so, which is what keeps a second provider's robot working
+/// without teaching the engine its name.
+const MECHANICAL_BODY_TAGS: [&str; 4] = ["robot", "automaton", "mechanical", "synthetic"];
+
+fn actor_hurt_feedback(
+    catalog: &CharacterCatalog,
+    character_id: Option<&str>,
+) -> ambition_vfx::HurtFeedback {
+    let mechanical = character_id
+        .and_then(|id| catalog.get(id))
+        .is_some_and(|entry| {
+            entry
+                .tags
+                .iter()
+                .any(|tag| MECHANICAL_BODY_TAGS.contains(&tag.as_str()))
+        });
+    if mechanical {
+        ambition_vfx::HurtFeedback::ROBOT
+    } else {
+        ambition_vfx::HurtFeedback::ENEMY
+    }
+}
+
 impl ActorClusterSeed {
     /// Build an actor seed while resolving authored character identity from the
     /// caller's App-local catalog. Content-free tests pass an explicit empty
@@ -434,6 +462,7 @@ impl ActorClusterSeed {
         // (the same name → sheet join presentation does). `None` for a generic
         // enemy whose name isn't a catalog character.
         let sprite_character_id = catalog.id_for_display_name(&name).map(String::from);
+        let hurt_feedback = actor_hurt_feedback(catalog, sprite_character_id.as_deref());
         let motion = match &brain {
             ambition_entity_catalog::placements::CharacterBrain::Patrol {
                 path_id: Some(path_id),
@@ -495,6 +524,7 @@ impl ActorClusterSeed {
             motion: ActorMotionPath(motion),
             body: ActorBody::from_kit(spec.movement_kit(), spec.is_aerial),
             caps: spec.combat_capabilities(),
+            hurt_feedback,
             spec,
         };
         seed
@@ -644,6 +674,7 @@ impl ActorClusterSeed {
             // shared flight limb from spawn; a grounded NPC runs the grounded spine.
             body: ActorBody::from_kit(ae::AbilitySet::NONE, is_aerial),
             caps: crate::combat::CombatCapabilities::default(),
+            hurt_feedback: actor_hurt_feedback(catalog, character_id),
             // Inert: peaceful actors never spawn through the archetype path that
             // reads `spec`. `Passive` resolves to the roster's fallback row.
             spec: roster
@@ -747,9 +778,9 @@ impl ActorClusterSeed {
             sprite_character_id: self.config.sprite_character_id.clone(),
             // CM8: an ordinary actor reacts to being hit with the plain hurt
             // profile — no red player-hurt spray. This is the per-body seam for
-            // future archetype-authored reactions (a metal body clangs, a slime
-            // squishes); every actor takes the ENEMY default today.
-            hurt_feedback: ambition_vfx::HurtFeedback::ENEMY,
+            // catalog-authored reactions (robot-tagged bodies crunch; ordinary
+            // bodies keep the ENEMY/flesh default).
+            hurt_feedback: self.hurt_feedback,
         };
         (
             self.kin,
@@ -811,6 +842,51 @@ impl ActorClusterSeed {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A mechanical body is one whose CATALOG ROW says so — the engine knows
+    /// the tag vocabulary, never a character id. An unknown/absent row is
+    /// flesh, so a content-free spawn keeps the ordinary enemy reaction.
+    #[test]
+    fn a_mechanical_tag_is_what_selects_the_machine_hurt_profile() {
+        const CATALOG: &str = r#"(
+            brain_presets: { "idle": StandStill },
+            action_set_presets: { "peaceful": (move_style: Walk) },
+            characters: {
+                "tin_man": (
+                    display_name: "Tin Man", spritesheet: "tin.png",
+                    manifest: "tin_spritesheet.ron", tier: MainHall,
+                    body_kind: Standard, composition: None,
+                    default_brain: "idle", default_action_set: "peaceful",
+                    tags: ["enemy", "automaton"],
+                    barks: (),
+                ),
+                "ogre": (
+                    display_name: "Ogre", spritesheet: "ogre.png",
+                    manifest: "ogre_spritesheet.ron", tier: MainHall,
+                    body_kind: Standard, composition: None,
+                    default_brain: "idle", default_action_set: "peaceful",
+                    tags: ["enemy"],
+                    barks: (),
+                ),
+            },
+        )"#;
+        let catalog = CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(CATALOG),
+        );
+
+        assert_eq!(
+            actor_hurt_feedback(&catalog, Some("tin_man")),
+            ambition_vfx::HurtFeedback::ROBOT,
+        );
+        assert_eq!(
+            actor_hurt_feedback(&catalog, Some("ogre")),
+            ambition_vfx::HurtFeedback::ENEMY,
+        );
+        assert_eq!(
+            actor_hurt_feedback(&catalog, None),
+            ambition_vfx::HurtFeedback::ENEMY,
+        );
+    }
 
     #[test]
     fn sprite_sized_spawn_preserves_authored_feet() {

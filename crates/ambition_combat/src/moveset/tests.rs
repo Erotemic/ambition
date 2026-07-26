@@ -283,6 +283,92 @@ fn an_authored_hit_sfx_rides_the_swing_volume() {
     assert_eq!(active_volume(&plain).hit_sfx, None);
 }
 
+/// The robot-player presentation is an identity-scoped overlay: it replaces
+/// only the engine-default air swing and fills only unauthored slash contacts.
+/// Explicit character/weapon SFX remain authoritative.
+#[test]
+fn player_robot_slash_overlay_preserves_authored_sfx() {
+    let mut default_move = simple_melee(&SimpleMeleeParams::default());
+    // The down-air's rebound, as the variant builder authors it: a paramless
+    // `pogo_bounce` carrying no cue of its own.
+    for window in &mut default_move.windows {
+        for volume in &mut window.volumes {
+            volume.on_hit = Some(ambition_entity_catalog::EffectRef::new(
+                crate::on_hit::POGO_BOUNCE_KEY,
+            ));
+        }
+    }
+    let mut authored_move = simple_melee(&SimpleMeleeParams {
+        swing_sfx: Some("weapon.authored.swing".to_string()),
+        hit_sfx: Some("weapon.authored.hit".to_string()),
+        ..Default::default()
+    });
+    authored_move.id = "attack_authored".to_string();
+
+    let mut moveset = ambition_entity_catalog::MovesetContract {
+        verbs: Default::default(),
+        moves: vec![default_move, authored_move],
+    };
+    apply_player_robot_slash_sfx(&mut moveset);
+
+    fn sfx_event(m: &MoveSpec) -> Option<&str> {
+        m.events.iter().find_map(|event| match &event.kind {
+            MoveEventKind::Sfx { cue } => Some(cue.as_str()),
+            _ => None,
+        })
+    }
+    fn hit_sfx(m: &MoveSpec) -> Option<&str> {
+        m.windows
+            .iter()
+            .flat_map(|window| &window.volumes)
+            .find(|volume| {
+                matches!(
+                    volume.vfx.as_deref(),
+                    Some(SLASH_ARC_VFX) | Some(SLASH_POKE_VFX)
+                )
+            })
+            .and_then(|volume| volume.hit_sfx.as_deref())
+    }
+
+    assert_eq!(
+        sfx_event(&moveset.moves[0]),
+        Some(PLAYER_ROBOT_SWING_SFX_CUE)
+    );
+    assert_eq!(
+        hit_sfx(&moveset.moves[0]),
+        Some(PLAYER_ROBOT_IMPACT_SFX_CUE)
+    );
+    assert_eq!(sfx_event(&moveset.moves[1]), Some("weapon.authored.swing"));
+    assert_eq!(hit_sfx(&moveset.moves[1]), Some("weapon.authored.hit"));
+
+    // The rebound cue rides the pogo EFFECT, not a character-id branch in the
+    // technique: the overlay authors it, and the un-overlaid rise survives.
+    let pogo = moveset.moves[0]
+        .windows
+        .iter()
+        .flat_map(|window| &window.volumes)
+        .find_map(|volume| volume.on_hit.as_ref())
+        .expect("the default move kept its pogo effect");
+    assert_eq!(
+        crate::on_hit::pogo_sfx_from(pogo),
+        Some(ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT_POGO),
+    );
+    assert_eq!(
+        crate::on_hit::pogo_rise_from(pogo),
+        crate::on_hit::pogo_rise_from(&ambition_entity_catalog::EffectRef::new(
+            crate::on_hit::POGO_BOUNCE_KEY
+        )),
+    );
+    // A body that never ran the overlay says nothing, so the technique falls
+    // back to the engine's generic pogo cue.
+    assert_eq!(
+        crate::on_hit::pogo_sfx_from(&ambition_entity_catalog::EffectRef::new(
+            crate::on_hit::POGO_BOUNCE_KEY
+        )),
+        None,
+    );
+}
+
 /// The seed move: SwipeSpec-as-data (0.28 windup / 0.08 active with one
 /// forward rect volume / recovery), one timed Sfx event on the swing.
 fn swat() -> MoveSpec {

@@ -2309,6 +2309,22 @@
         ),
         hall_dialogue_id: Some("hall_npc_martin_cutta"),
         ),
+        "npc_anne_druid": (
+            display_name: "Anne Druid",
+            spritesheet: "sprites/anne_druid_spritesheet.png",
+            manifest: "sprites/anne_druid_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["story", "scientist", "science_communicator", "cosmic_druid", "golden_record_keeper", "peaceful"],
+        barks: (
+            idle: ["The record is not a time capsule. It is an introduction.", "Listen long enough and the universe stops sounding empty."],
+            hall: ["We sent music, greetings, a heartbeat, and the sound of a kiss. Optimism is sometimes an engineering decision.", "A message for strangers begins with the hope that strangers can understand.", "The map points home, but only if you already know how to read a pulsar.", "Wonder without skepticism is fog. Skepticism without wonder is a locked door."],
+        ),
+        hall_dialogue_id: None,
+        ),
         "npc_carl_stargan": (
             display_name: "Carl Stargan",
             spritesheet: "sprites/carl_stargan_spritesheet.png",

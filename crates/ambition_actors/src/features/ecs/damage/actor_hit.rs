@@ -94,6 +94,7 @@ pub(crate) fn apply_actor_hit(
             &mut writers.debris,
             hurt,
             event.strike_sfx,
+            event.damage,
             impact,
         );
         writers.actor_stimuli.write(ActorStimulus::DamagedBy {
@@ -306,6 +307,7 @@ pub(crate) fn apply_actor_hit(
             &mut writers.debris,
             hurt,
             event.strike_sfx,
+            event.damage,
             impact,
         );
         // Cling-break: a struck crawler (puppy-slug) is knocked off its

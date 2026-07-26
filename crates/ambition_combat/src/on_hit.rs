@@ -191,11 +191,14 @@ pub struct PogoTarget;
 
 /// Params for the `pogo_bounce` technique. `rise` is the gravity-up rebound
 /// speed (engine units); omitted → the default pop (matches the flat player
-/// `pogo_speed` for feel parity).
-#[derive(serde::Deserialize)]
+/// `pogo_speed` for feel parity). `sfx` names the contact cue this particular
+/// body's rebound makes; omitted → the engine's generic `Pogo` cue.
+#[derive(serde::Serialize, serde::Deserialize)]
 struct PogoBounceParams {
     #[serde(default = "default_pogo_rise")]
     rise: f32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    sfx: Option<String>,
 }
 
 fn default_pogo_rise() -> f32 {
@@ -206,6 +209,7 @@ impl Default for PogoBounceParams {
     fn default() -> Self {
         Self {
             rise: default_pogo_rise(),
+            sfx: None,
         }
     }
 }
@@ -219,6 +223,41 @@ pub fn pogo_rise_from(effect: &EffectRef) -> f32 {
         .hydrate::<PogoBounceParams>()
         .unwrap_or_default()
         .rise
+}
+
+/// The contact cue a `pogo_bounce` [`EffectRef`] authored, if any. `None` means
+/// "this body has nothing special to say about rebounding" and the caller falls
+/// back to the engine's generic pogo cue.
+///
+/// This is what keeps the pogo sound ATTACK-owned: without it, a body whose
+/// blade should clang differently on a rebound could only be told apart by its
+/// character id, and the technique doc's claim to be "a data-authored `on_hit`
+/// rather than a hardcoded player branch" would stop being true.
+pub fn pogo_sfx_from(effect: &EffectRef) -> Option<ambition_sfx::SfxId> {
+    effect
+        .params
+        .hydrate::<PogoBounceParams>()
+        .ok()
+        .and_then(|params| params.sfx)
+        .map(|cue| ambition_sfx::SfxId::new(&cue))
+}
+
+/// Author `cue` as this `pogo_bounce` effect's contact sound, preserving any
+/// `rise` already on it. Applied when a body's presentation family is overlaid
+/// onto its derived moveset, so the runtime never has to ask WHO bounced.
+pub fn set_pogo_sfx(effect: &mut EffectRef, cue: &str) {
+    let mut params = effect
+        .params
+        .hydrate::<PogoBounceParams>()
+        .unwrap_or_default();
+    params.sfx = Some(cue.to_string());
+    // The params are opaque `ron::Value` by design, so this stores exactly the
+    // text an author would have written by hand. The value being serialized is
+    // this module's own two-field struct, so a failure here is a broken schema,
+    // not bad content — and swallowing it would spend the rest of the session
+    // playing the generic pogo with nothing to say why.
+    effect.params = ambition_entity_catalog::ParamValue::from_typed(&params)
+        .expect("PogoBounceParams must round-trip through its own authored RON form");
 }
 
 /// The engine pogo technique: rebound the OWNER (gravity-up) when its on-hit
@@ -246,6 +285,7 @@ pub fn apply_pogo_bounce(
             continue;
         }
         let rise = pogo_rise_from(&msg.effect);
+        let cue = pogo_sfx_from(&msg.effect);
         let Ok((resolved_frame, mut kin, mut ground)) = owners.get_mut(msg.owner) else {
             continue;
         };
@@ -257,7 +297,10 @@ pub fn apply_pogo_bounce(
         let pos = kin.pos;
         ae::movement::set_jump_velocity(&mut kin.vel, gdir, rise);
         ground.on_ground = false;
-        sfx.write(SfxMessage::Pogo { pos });
+        sfx.write(match cue {
+            Some(id) => SfxMessage::Play { id, pos },
+            None => SfxMessage::Pogo { pos },
+        });
     }
 }
 

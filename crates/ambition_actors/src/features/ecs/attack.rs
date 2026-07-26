@@ -221,7 +221,8 @@ pub fn pogo_moveset_off_world_orbs(
     // block, not an entity), so — like the entity pogo dedups by victim — this
     // dedups the whole strike with the OWNER as the sentinel key. Without it the
     // bounce + `Pogo` sfx re-fired every frame the box overlapped the orb.
-    let pogo: Vec<(Entity, Entity, ae::Aabb, f32)> = hitboxes
+    // (hitbox, owner, world box, rise, the cue the effect authored)
+    let pogo: Vec<(Entity, Entity, ae::Aabb, f32, Option<ambition_sfx::SfxId>)> = hitboxes
         .iter()
         .filter(|(_, _, on_hit)| on_hit.effect.key == crate::combat::on_hit::POGO_BOUNCE_KEY)
         .filter(|(_, hitbox, on_hit)| !on_hit.has_fired(hitbox.owner))
@@ -233,6 +234,7 @@ pub fn pogo_moveset_off_world_orbs(
                 hitbox.owner,
                 world_box,
                 crate::combat::on_hit::pogo_rise_from(&on_hit.effect),
+                crate::combat::on_hit::pogo_sfx_from(&on_hit.effect),
             ))
         })
         .collect();
@@ -244,7 +246,7 @@ pub fn pogo_moveset_off_world_orbs(
         &moving_platforms.0,
         &feature_ecs_overlay,
     );
-    for (hb_entity, owner, world_box, rise) in pogo {
+    for (hb_entity, owner, world_box, rise, cue) in pogo {
         if pogo_target_for_attack_hitbox(&assembled, world_box).is_none() {
             continue;
         }
@@ -257,7 +259,10 @@ pub fn pogo_moveset_off_world_orbs(
         let pos = kin.pos;
         ae::movement::set_jump_velocity(&mut kin.vel, gdir, rise);
         ground.on_ground = false;
-        sfx.write(SfxMessage::Pogo { pos });
+        sfx.write(match cue {
+            Some(id) => SfxMessage::Play { id, pos },
+            None => SfxMessage::Pogo { pos },
+        });
         // One bounce per strike: mark this hitbox as having world-bounced so a
         // sustained overlap doesn't re-pogo every frame (the entity pogo's
         // `HitboxOnHit.fired` dedup, extended to the entity-less world orb).

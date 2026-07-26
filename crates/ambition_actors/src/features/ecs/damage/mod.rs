@@ -498,9 +498,26 @@ pub fn apply_feature_hit_events(
             }
             let broke = feature.breakable.apply_damage(event.damage.max(1));
             breakable_keys.push(format!("breakable:{}", id.as_str()));
-            writers.vfx.write(VfxMessage::Impact {
-                pos: midpoint(event.volume.center(), aabb.center),
-            });
+            let impact = midpoint(event.volume.center(), aabb.center);
+            // CM8 on a prop: a breakable has no `HurtFeedback` of its own (no
+            // spray, no debris — breaking already has its own FX), so it only
+            // borrows the ATTACK's half of the rule. An attack that authored a
+            // strike sound is heard here exactly as it is on a body; one that
+            // authored none stays silent, as it always has. `METAL` is the
+            // material a rigid prop resolves a material-aware strike against —
+            // it is NOT a sound the prop makes on its own, so no
+            // `strike_sfx == <this cue>` test is needed to keep it quiet.
+            if let Some(strike) = event.strike_sfx {
+                writers.sfx.write(ambition_sfx::SfxMessage::Play {
+                    id: crate::combat::util::resolve_strike_sfx(
+                        ambition_vfx::HurtFeedback::METAL,
+                        Some(strike),
+                        event.damage,
+                    ),
+                    pos: impact,
+                });
+            }
+            writers.vfx.write(VfxMessage::Impact { pos: impact });
             if broke {
                 begin_ecs_breakable_respawn(&mut writers.commands, entity, &feature.breakable);
                 banner.show(format!("broke {}", name.0.as_str()), 2.6);

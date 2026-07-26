@@ -733,6 +733,7 @@ pub(crate) fn apply_player_knockback(
         debris,
         ambition_vfx::HurtFeedback::PLAYER,
         damage.strike_sfx,
+        damage.damage,
         impact_pos,
     );
 }

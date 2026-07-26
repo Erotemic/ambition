@@ -246,6 +246,51 @@ pub fn emit_melee_slash(
     });
 }
 
+/// Damage at or above this value reads as a committed/heavy contact for the
+/// canonical robot blade. Ordinary jabs and default slashes remain light.
+///
+/// ⚠ **NOT REACHABLE BY ANY SHIPPED ATTACK TODAY.** The robot player's only
+/// slash comes from `default_player_action_set` at `damage: 1` on a prefab whose
+/// `smash_charge_mult` is `1.0`, and no equipment path scales melee damage — so
+/// every strike resolves LIGHT and the rendered `…flesh.deep` / `…metal.gong`
+/// samples cannot currently play. This threshold is the hook a charged smash or
+/// a heavier authored blade lands on; until one exists, two authored sounds are
+/// visible unfinished work rather than a silent binding failure.
+const PLAYER_ROBOT_DEEP_IMPACT_DAMAGE: i32 = 3;
+
+/// Resolve an attack-owned strike id against the victim's material profile and
+/// the already-authored damage strength. Only the canonical robot-player
+/// selector is special; every concrete authored strike id remains byte-for-byte
+/// attack-owned behavior.
+pub fn resolve_strike_sfx(
+    hurt: ambition_vfx::HurtFeedback,
+    strike_sfx: Option<ambition_sfx::SfxId>,
+    damage: i32,
+) -> ambition_sfx::SfxId {
+    let Some(strike) = strike_sfx else {
+        return hurt.sfx;
+    };
+    if strike != ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT {
+        return strike;
+    }
+    let deep = damage >= PLAYER_ROBOT_DEEP_IMPACT_DAMAGE;
+    match hurt.material {
+        ambition_vfx::ImpactMaterial::Flesh if deep => {
+            ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_DEEP
+        }
+        ambition_vfx::ImpactMaterial::Flesh => {
+            ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_LIGHT
+        }
+        ambition_vfx::ImpactMaterial::Robot => ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT_ROBOT,
+        ambition_vfx::ImpactMaterial::Metal if deep => {
+            ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT_METAL_GONG
+        }
+        ambition_vfx::ImpactMaterial::Metal => {
+            ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT_METAL_CHINK
+        }
+    }
+}
+
 /// THE one victim-side hit-feedback reaction (CM8). Every place a strike LANDS
 /// on a body — the player-hurt path, the actor-hurt path, the boss-hurt path —
 /// calls this ONE rule at the moment its `resolve_body_hit` reports the hit
@@ -256,9 +301,11 @@ pub fn emit_melee_slash(
 /// debris through its [`HurtFeedback`] (an enemy struck by anything uses
 /// [`HurtFeedback::ENEMY`] and so never throws the player's red hurt burst,
 /// while the player always keeps its own). Exactly one hit sound plays: the
-/// attack's if it authored one, else the victim's default. The universal impact
-/// spark always fires; the richer spray/debris only if the victim's profile
-/// carries them.
+/// attack's if it authored one, else the victim's default — except for the one
+/// attack-owned MATERIAL SELECTOR, which asks to be resolved against the
+/// victim's [`ambition_vfx::ImpactMaterial`] (see [`resolve_strike_sfx`]); the
+/// attack still chooses whether to ask. The universal impact spark always fires;
+/// the richer spray/debris only if the victim's profile carries them.
 ///
 /// Muting for dodged / parried / i-framed hits needs no gate here: the callers
 /// invoke this only on the LANDED branch, after `resolve_body_hit` already
@@ -269,10 +316,11 @@ pub fn emit_hit_feedback(
     debris: &mut MessageWriter<DebrisBurstMessage>,
     hurt: ambition_vfx::HurtFeedback,
     strike_sfx: Option<ambition_sfx::SfxId>,
+    damage: i32,
     pos: ae::Vec2,
 ) {
     sfx.write(ambition_sfx::SfxMessage::Play {
-        id: strike_sfx.unwrap_or(hurt.sfx),
+        id: resolve_strike_sfx(hurt, strike_sfx, damage),
         pos,
     });
     vfx.write(VfxMessage::Impact { pos });
@@ -323,6 +371,7 @@ mod hit_feedback_tests {
     struct Input {
         hurt: HurtFeedback,
         strike: Option<SfxId>,
+        damage: i32,
     }
 
     struct Emitted {
@@ -344,18 +393,23 @@ mod hit_feedback_tests {
             &mut debris,
             input.hurt,
             input.strike,
+            input.damage,
             ae::Vec2::ZERO,
         );
     }
 
     /// Drive the REAL `emit_hit_feedback` (through the real `SfxWriter`) once and
     /// collect exactly what reached each bus.
-    fn run(hurt: HurtFeedback, strike: Option<SfxId>) -> Emitted {
+    fn run_at_damage(hurt: HurtFeedback, strike: Option<SfxId>, damage: i32) -> Emitted {
         let mut world = World::new();
         world.init_resource::<Messages<OwnedSfxMessage>>();
         world.init_resource::<Messages<VfxMessage>>();
         world.init_resource::<Messages<DebrisBurstMessage>>();
-        world.insert_resource(Input { hurt, strike });
+        world.insert_resource(Input {
+            hurt,
+            strike,
+            damage,
+        });
         let mut schedule = Schedule::default();
         schedule.add_systems(emit_system);
         schedule.run(&mut world);
@@ -392,6 +446,45 @@ mod hit_feedback_tests {
             bursts,
             debris,
         }
+    }
+
+    fn run(hurt: HurtFeedback, strike: Option<SfxId>) -> Emitted {
+        run_at_damage(hurt, strike, 1)
+    }
+
+    /// The player-robot selector is the only strike id that consults victim
+    /// material and authored damage strength; all concrete ids remain authored
+    /// attack sounds.
+    #[test]
+    fn robot_player_selector_resolves_material_and_contact_depth() {
+        assert_eq!(
+            resolve_strike_sfx(HurtFeedback::ENEMY, Some(ids::PLAYER_ROBOT_SLASH_IMPACT), 1),
+            ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_LIGHT,
+        );
+        assert_eq!(
+            resolve_strike_sfx(
+                HurtFeedback::ENEMY,
+                Some(ids::PLAYER_ROBOT_SLASH_IMPACT),
+                PLAYER_ROBOT_DEEP_IMPACT_DAMAGE
+            ),
+            ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_DEEP,
+        );
+        assert_eq!(
+            resolve_strike_sfx(HurtFeedback::ROBOT, Some(ids::PLAYER_ROBOT_SLASH_IMPACT), 8),
+            ids::PLAYER_ROBOT_SLASH_IMPACT_ROBOT,
+        );
+        assert_eq!(
+            resolve_strike_sfx(HurtFeedback::METAL, Some(ids::PLAYER_ROBOT_SLASH_IMPACT), 1),
+            ids::PLAYER_ROBOT_SLASH_IMPACT_METAL_CHINK,
+        );
+        assert_eq!(
+            resolve_strike_sfx(
+                HurtFeedback::METAL,
+                Some(ids::PLAYER_ROBOT_SLASH_IMPACT),
+                PLAYER_ROBOT_DEEP_IMPACT_DAMAGE
+            ),
+            ids::PLAYER_ROBOT_SLASH_IMPACT_METAL_GONG,
+        );
     }
 
     /// The exact CM8 property: a sword and a claw are heard apart. Two different

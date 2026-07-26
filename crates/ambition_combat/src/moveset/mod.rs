@@ -62,6 +62,31 @@ pub const SLASH_POKE_VFX: &str = "slash_poke";
 /// `"melee_swing"` string matched no bank sample and no procedural cue, so it
 /// silently no-op-ed — the "no attack SFX" bug.)
 pub const SWING_SFX_CUE: &str = "player.slash";
+/// Dry blade-through-air cue reserved for the canonical robot protagonist.
+pub const PLAYER_ROBOT_SWING_SFX_CUE: &str = "player.robot.slash.air";
+/// Material selector carried by the canonical robot protagonist's slash volume.
+/// The victim-side resolver ([`crate::util::resolve_strike_sfx`]) recognises it
+/// by [`ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT`], so a cue authored here
+/// that no longer hashes to that id would silently stop resolving to a material
+/// variant and play the selector itself. Both spellings are therefore pinned to
+/// the id table at compile time rather than trusted to stay in sync.
+pub const PLAYER_ROBOT_IMPACT_SFX_CUE: &str = "player.robot.slash.impact";
+const _: () = assert!(
+    ambition_sfx::SfxId::from_static(PLAYER_ROBOT_SWING_SFX_CUE).hash()
+        == ambition_sfx::ids::PLAYER_ROBOT_SLASH_AIR.hash()
+);
+const _: () = assert!(
+    ambition_sfx::SfxId::from_static(PLAYER_ROBOT_IMPACT_SFX_CUE).hash()
+        == ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT.hash()
+);
+/// Rebound cue the canonical robot protagonist's down-air pogo authors onto its
+/// `pogo_bounce` effect. Every other body leaves it unauthored and keeps the
+/// engine's generic pogo cue.
+pub const PLAYER_ROBOT_POGO_SFX_CUE: &str = "player.robot.slash.impact.pogo";
+const _: () = assert!(
+    ambition_sfx::SfxId::from_static(PLAYER_ROBOT_POGO_SFX_CUE).hash()
+        == ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT_POGO.hash()
+);
 
 /// The canonical verb id a body's ranged shot binds to in its moveset.
 pub const RANGED_VERB: &str = "ranged";

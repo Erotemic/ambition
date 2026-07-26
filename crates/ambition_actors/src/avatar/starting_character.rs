@@ -260,11 +260,27 @@ fn apply_worn_character_kit(
     // (`dispatch_boss_special` / signature moves), so folding a generic shell move
     // here would CONFLICT: a possessed boss's `special_pressed` would fire the
     // shell instead of (or on top of) its authored special.
-    let special = match source {
-        Some(ambition_characters::actor::character_catalog::PlayableKitSource::Authored) => None,
-        _ => set.special.as_ref(),
+    let wears_host_code_kit = !matches!(
+        source,
+        Some(ambition_characters::actor::character_catalog::PlayableKitSource::Authored)
+    );
+    let special = if wears_host_code_kit {
+        set.special.as_ref()
+    } else {
+        None
     };
-    let derived = build_actor_moveset(None, set.melee.as_ref(), None, special).unwrap_or_default();
+    let mut derived =
+        build_actor_moveset(None, set.melee.as_ref(), None, special).unwrap_or_default();
+    // The robot blade's SFX family belongs to the code-built kit, not to a
+    // character named "player": whoever is wearing that kit is swinging that
+    // blade, and an AUTHORED persona brings its own cues. Keyed on the row's
+    // declared `playable_kit` so a second provider's protagonist is not
+    // silently handed our protagonist's sword sounds — and so this agrees with
+    // `PlayerSimulationBundle::from_scratch`, which builds the same code kit and
+    // applies the same overlay.
+    if wears_host_code_kit {
+        crate::combat::moveset::apply_player_robot_slash_sfx(&mut derived);
+    }
     // Publish what IDENTITY alone derived, before any equipment overlay. This is
     // the baseline `reconcile_equipment_grants` re-derives the live kit from, which
     // is what makes a granted verb revocable: without it, a consumed or downgraded

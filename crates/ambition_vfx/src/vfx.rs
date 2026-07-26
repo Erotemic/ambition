@@ -78,6 +78,21 @@ impl HitBurst {
     }
 }
 
+/// Broad physical surface used only to resolve an attack-owned material
+/// selector into a concrete contact sound. This is deliberately small: it is
+/// not a general rendering material system, and the attack still owns whether
+/// it asks for material-aware audio at all.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ImpactMaterial {
+    /// Living / soft tissue: wet, dense contact.
+    #[default]
+    Flesh,
+    /// Articulated machine body: hard shell plus internal crunch.
+    Robot,
+    /// Rigid world metal: bright ring over a hard impact.
+    Metal,
+}
+
 /// How ONE body reacts to being struck (CM8): the VICTIM-owned half of hit
 /// feedback — a default hurt sound plus the optional particle spray and physics
 /// debris that body throws off. The victim owns these because they describe the
@@ -97,6 +112,9 @@ pub struct HurtFeedback {
     /// The sound this body makes when hit and the attack authored no strike
     /// sound of its own.
     pub sfx: ambition_sfx::SfxId,
+    /// The physical body family used when an attack asks for a material-aware
+    /// contact variant. Ordinary attacks ignore it.
+    pub material: ImpactMaterial,
     /// The particle spray this body throws on a solid hit, if any.
     pub burst: Option<HitBurst>,
     /// The physics debris this body throws on a solid hit, if any.
@@ -109,6 +127,7 @@ impl HurtFeedback {
     /// attacker-side, keyed on the victim being the player.
     pub const PLAYER: Self = Self {
         sfx: ambition_sfx::ids::PLAYER_DAMAGE,
+        material: ImpactMaterial::Robot,
         burst: Some(HitBurst::HURT),
         debris: Some(PhysicsDebrisCue::Impact),
     };
@@ -118,6 +137,25 @@ impl HurtFeedback {
     /// no longer throws the player's hurt burst.
     pub const ENEMY: Self = Self {
         sfx: ambition_sfx::ids::PLAYER_HIT,
+        material: ImpactMaterial::Flesh,
+        burst: None,
+        debris: None,
+    };
+
+    /// A mechanical actor: same conservative visual reaction as an ordinary
+    /// enemy, but material-aware player attacks resolve to a crunchy machine hit.
+    pub const ROBOT: Self = Self {
+        sfx: ambition_sfx::ids::PLAYER_HIT,
+        material: ImpactMaterial::Robot,
+        burst: None,
+        debris: None,
+    };
+
+    /// A rigid metal world surface. Used by breakables / props only when the
+    /// striking attack explicitly requests material-aware contact audio.
+    pub const METAL: Self = Self {
+        sfx: ambition_sfx::ids::WORLD_ROCK_HIT,
+        material: ImpactMaterial::Metal,
         burst: None,
         debris: None,
     };

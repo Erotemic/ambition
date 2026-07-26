@@ -136,15 +136,15 @@ impl PlayerSimulationBundle {
         health: ambition_characters::actor::Health,
     ) -> Self {
         let action_set = default_player_action_set(scratch.abilities.abilities);
-        let moveset = crate::combat::moveset::ActorMoveset(
-            crate::combat::moveset::build_actor_moveset(
-                None,
-                action_set.melee.as_ref(),
-                None,
-                action_set.special.as_ref(),
-            )
-            .unwrap_or_default(),
-        );
+        let mut derived_moveset = crate::combat::moveset::build_actor_moveset(
+            None,
+            action_set.melee.as_ref(),
+            None,
+            action_set.special.as_ref(),
+        )
+        .unwrap_or_default();
+        crate::combat::moveset::apply_player_robot_slash_sfx(&mut derived_moveset);
+        let moveset = crate::combat::moveset::ActorMoveset(derived_moveset);
         let initial_safe_pos = scratch.kinematics.pos;
         // `BodyKinematics` is the shared kinematic truth (its own component);
         // copy it out before the rest folds into the shared movement bundle.

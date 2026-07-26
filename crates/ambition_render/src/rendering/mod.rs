@@ -153,7 +153,8 @@ pub struct PlayerVisualSchedulePlugin;
 impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Startup, Update};
-        app.add_systems(Startup, morph_ball::build_morph_ball_sprite)
+        app.init_resource::<item_visuals::FailedItemArt>()
+            .add_systems(Startup, morph_ball::build_morph_ball_sprite)
             .add_systems(
                 Update,
                 (
@@ -205,6 +206,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     slash_visuals::animate_slash,
                     mark_beacon::sync_mark_beacon_visual.after(actors::sync_visuals),
                 )
+                    .after(item_visuals::report_unloadable_item_art)
                     .run_if(session_presentation_is_ready),
             );
 

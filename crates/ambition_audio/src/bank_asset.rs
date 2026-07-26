@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use ambition_sfx::{BankProvider, OwnedSfxMessage, SfxError, SfxId, SfxProvider};
 use bevy::asset::{
-    io::Reader, Asset, AssetApp, AssetLoader, AssetServer, Assets, Handle, LoadContext,
+    io::Reader, Asset, AssetApp, AssetLoader, AssetServer, Assets, Handle, LoadContext, LoadState,
 };
 use bevy::log::{debug, info};
 use bevy::prelude::{
@@ -250,9 +250,20 @@ impl PendingSfxBankHandles {
     /// This provider's bank is still in flight, so a cue that misses right now
     /// may well play a moment later. The difference between "not yet" and
     /// "never" is the whole value of the miss diagnostic.
-    pub fn is_loading(&self, provider_id: &str) -> bool {
-        self.handles.contains_key(provider_id)
+    pub fn is_loading(&self, provider_id: &str, asset_server: &AssetServer) -> bool {
+        self.handles
+            .get(provider_id)
+            .is_some_and(|handle| asset_server.load_state(handle).is_loading())
     }
+}
+
+/// Provider bank assets that reached a terminal load failure.
+///
+/// Kept after the pending handle is removed so later cue diagnostics can say
+/// "the bank failed" instead of regressing to "no bank is registered yet".
+#[derive(Resource, Default)]
+pub struct FailedSfxBankLoads {
+    errors: BTreeMap<String, String>,
 }
 
 pub struct SfxBankAssetPlugin;
@@ -266,6 +277,7 @@ impl Plugin for SfxBankAssetPlugin {
             .init_resource::<SfxBankRegistry>()
             .init_resource::<ProviderSfxHandleCache>()
             .init_resource::<SfxPlaybackState>()
+            .init_resource::<FailedSfxBankLoads>()
             .add_systems(Startup, kick_off_bank_load)
             .add_systems(Update, promote_loaded_sfx_bank)
             .add_systems(Update, warn_on_sfx_playback_spam);
@@ -363,14 +375,41 @@ fn kick_off_bank_load(
 fn promote_loaded_sfx_bank(
     mut commands: Commands,
     pending: Option<ResMut<PendingSfxBankHandles>>,
+    asset_server: Res<AssetServer>,
     assets: Res<Assets<SfxBankAsset>>,
     mut banks: ResMut<SfxBankResource>,
     mut bank_ids: ResMut<SfxBankRegistry>,
     mut selection: ResMut<ActiveAudioSelection>,
+    mut failed_banks: ResMut<FailedSfxBankLoads>,
 ) {
     let Some(mut pending) = pending else {
         return;
     };
+    let failed: Vec<(String, String)> = pending
+        .handles
+        .iter()
+        .filter_map(|(provider, handle)| match asset_server.load_state(handle) {
+            LoadState::Failed(error) => Some((provider.clone(), format!("{error:?}"))),
+            _ => None,
+        })
+        .collect();
+    for (provider_id, error) in failed {
+        let handle = pending
+            .handles
+            .remove(&provider_id)
+            .expect("failed provider handle remains pending");
+        let path = asset_server
+            .get_path(handle.id())
+            .map(|path| path.to_string())
+            .unwrap_or_else(|| "<no path>".to_owned());
+        bevy::log::error!(
+            target: AUDIO_LOG_TARGET,
+            "ambition audio: provider '{provider_id}' SFX bank '{path}' failed to load: {error}",
+        );
+        failed_banks
+            .errors
+            .insert(provider_id, format!("{path}: {error}"));
+    }
     let ready: Vec<String> = pending
         .handles
         .iter()
@@ -385,6 +424,7 @@ fn promote_loaded_sfx_bank(
             .get(&handle)
             .expect("ready provider bank asset remains available");
         let provider = asset.provider.clone();
+        failed_banks.errors.remove(&provider_id);
         let fingerprints = provider.content_fingerprints();
         bank_ids
             .register(provider_id.clone(), fingerprints)
@@ -435,6 +475,8 @@ pub fn audio_play_sfx_messages(
     selection: Res<ActiveAudioSelection>,
     banks: Res<SfxBankResource>,
     pending: Option<Res<PendingSfxBankHandles>>,
+    failed_banks: Res<FailedSfxBankLoads>,
+    asset_server: Res<AssetServer>,
     sfx_channel: Res<AudioChannel<SfxChannel>>,
     output: Option<Res<crate::output::AudioOutputMode>>,
     mut cache: ResMut<ProviderSfxHandleCache>,
@@ -478,6 +520,12 @@ pub fn audio_play_sfx_messages(
             audio_sources.as_mut(),
         );
         let resolved = match resolved {
+            Err(SfxSourceMiss::NoProviderBank) if failed_banks.errors.contains_key(provider_id) => {
+                Err(SfxSourceMiss::BankLoadFailed)
+            }
+            other => other,
+        };
+        let resolved = match resolved {
             Ok(resolved) => resolved,
             Err(miss) => {
                 // Name it, and say WHY, once per (provider, cue, diagnosis). The
@@ -491,7 +539,7 @@ pub fn audio_play_sfx_messages(
                     let outlook = if miss == SfxSourceMiss::NoProviderBank
                         && pending
                             .as_deref()
-                            .is_some_and(|pending| pending.is_loading(provider_id))
+                            .is_some_and(|pending| pending.is_loading(provider_id, &asset_server))
                     {
                         "its bank is still loading, so this may resolve itself"
                     } else {
@@ -522,11 +570,17 @@ pub fn audio_play_sfx_messages(
 #[cfg(test)]
 mod tests {
     use std::collections::{BTreeMap, BTreeSet};
+    use std::time::{Duration, Instant};
 
     use ambition_sfx::{AudioContextOwner, OwnedSfxMessage, SfxId, SfxMessage};
+    use bevy::asset::AssetPlugin;
     use bevy::math::Vec2;
+    use bevy::prelude::{App, MinimalPlugins};
 
-    use super::{describe_sfx_id, SfxBankResource};
+    use super::{
+        describe_sfx_id, FailedSfxBankLoads, PendingSfxBankHandles, SfxBankAssetAppExt,
+        SfxBankAssetPlugin, SfxBankResource,
+    };
     use crate::catalog::SfxBankRegistry;
     use crate::selection::ActiveAudioSelection;
     use crate::spec::{SfxRegistry, SfxSpec, SoundCueKey, WaveformSpec};
@@ -547,6 +601,47 @@ mod tests {
                 noise: 0.0,
             }],
         }
+    }
+
+    #[test]
+    fn failed_bank_asset_leaves_pending_and_records_a_terminal_failure() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(AssetPlugin::default())
+            .init_resource::<ActiveAudioSelection>()
+            .register_sfx_bank_asset(
+                "broken_provider",
+                "__ambition_test_missing__/broken_provider.sfxbank",
+            )
+            .add_plugins(SfxBankAssetPlugin);
+
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while Instant::now() < deadline
+            && !app
+                .world()
+                .resource::<FailedSfxBankLoads>()
+                .errors
+                .contains_key("broken_provider")
+        {
+            app.update();
+            std::thread::sleep(Duration::from_millis(1));
+        }
+
+        assert!(
+            app.world()
+                .resource::<FailedSfxBankLoads>()
+                .errors
+                .contains_key("broken_provider"),
+            "a failed bank must become terminal diagnostic state"
+        );
+        assert!(
+            app.world()
+                .get_resource::<PendingSfxBankHandles>()
+                .map_or(true, |pending| {
+                    !pending.handles.contains_key("broken_provider")
+                }),
+            "a failed handle must not remain classified as loading forever"
+        );
     }
 
     #[test]

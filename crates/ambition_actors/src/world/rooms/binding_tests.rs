@@ -141,6 +141,49 @@ fn a_room_that_declares_one_path_twice_says_so() {
     assert_eq!(ambiguous, vec![("kinematic path", "ledge_patrol")]);
 }
 
+/// The validator must accept every spelling the runtime accepts, including the
+/// normalized display-name slug used by LDtk-authored patrol references.
+#[test]
+fn normalized_path_name_is_not_a_false_binding_error() {
+    let mut room = RoomSpec::new("slug_room", empty_world());
+    room.kinematic_paths.push(KinematicPathSpec::new(
+        "enemy_patrol_a",
+        "enemy patrol path A",
+        aabb(0.0, 0.0),
+        ae::KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(64.0, 0.0), 30.0),
+    ));
+    room.enemy_spawns.push(Authored::new(
+        "goomba_a",
+        "Goomba A",
+        aabb(32.0, 0.0),
+        CharacterBrain::Patrol {
+            path_id: Some("enemy_patrol_path_a".to_owned()),
+        },
+    ));
+
+    let report = RoomBindings::default().sweep(&room);
+    assert!(
+        report.is_empty(),
+        "runtime-valid alias was rejected:\n{report}"
+    );
+}
+
+/// An id and display name that happen to be identical are two spellings of one
+/// declaration, not two competing declarations.
+#[test]
+fn repeated_alias_for_one_path_is_not_ambiguous() {
+    let mut room = RoomSpec::new("same_alias_room", empty_world());
+    room.kinematic_paths.push(KinematicPathSpec::new(
+        "patrol",
+        "patrol",
+        aabb(0.0, 0.0),
+        ae::KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(64.0, 0.0), 30.0),
+    ));
+
+    let report = RoomBindings::default().sweep(&room);
+    assert!(report.ambiguous().is_empty(), "{report}");
+}
+
 /// A sweep with no catalogs still checks the room against ITSELF, and says so.
 ///
 /// This is the honest half: an absent resolver means "not checked", never

@@ -316,7 +316,11 @@ impl<N: Namespace> Resolver<N> {
         pairs.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
         let mut duplicates: Vec<Arc<str>> = pairs
             .windows(2)
-            .filter(|pair| pair[0].0 == pair[1].0)
+            // Repeating the same spelling for the SAME declaration is benign:
+            // a path whose authored id equals its display name contributes the
+            // alias twice, but there is still only one target. Ambiguity begins
+            // only when one spelling reaches two distinct slots.
+            .filter(|pair| pair[0].0 == pair[1].0 && pair[0].1 != pair[1].1)
             .map(|pair| pair[0].0.clone())
             .collect();
         duplicates.dedup();
@@ -377,10 +381,12 @@ impl<N: Namespace> Resolver<N> {
             .zip(self.slots.iter().copied())
     }
 
-    /// Ids declared more than once, sorted. Non-empty means the content is
-    /// ambiguous: two sheet rows called `idle`, two paths answering to the same
-    /// alias. Resolution still succeeds — it takes the first declaration — so
-    /// this is the only way anyone learns the second one is unreachable.
+    /// Ids that point at more than one declaration slot, sorted. Non-empty means
+    /// the content is ambiguous: two sheet rows called `idle`, two distinct
+    /// paths answering to the same alias. Repeating one alias for the same slot
+    /// is harmless and is not reported. Resolution still succeeds — it takes
+    /// the first declaration — so this is the only way anyone learns the second
+    /// one is unreachable.
     pub fn duplicates(&self) -> impl ExactSizeIterator<Item = &str> {
         self.duplicates.iter().map(Arc::as_ref)
     }
@@ -904,6 +910,18 @@ mod tests {
             let bound = rows.resolve(&Ref::new(*id), "sheet").expect("resolves");
             assert_eq!(bound.slot(), declared_at, "{id} keeps its authored row");
         }
+    }
+
+    #[test]
+    fn duplicate_alias_means_distinct_targets_not_repeated_input() {
+        let one_target: Resolver<AnimRow> = Resolver::with_aliases([("idle", 0), ("idle", 0)]);
+        assert!(
+            one_target.duplicates().next().is_none(),
+            "one declaration may contribute the same alias twice"
+        );
+
+        let two_targets: Resolver<AnimRow> = Resolver::with_aliases([("idle", 0), ("idle", 1)]);
+        assert_eq!(two_targets.duplicates().collect::<Vec<_>>(), vec!["idle"]);
     }
 
     /// An empty namespace says so, rather than offering a bare "not found" that

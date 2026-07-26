@@ -12,6 +12,7 @@ use ambition_platformer_primitives::lifecycle::{
 };
 use ambition_platformer_primitives::world_item_art::WorldItemSprite;
 use ambition_sim_view::{GroundItemsView, HeldItemView, HeldShotsView};
+use std::collections::{BTreeMap, BTreeSet};
 
 const FIREBALL_ID: &str = "fireball";
 use bevy::prelude::*;
@@ -152,6 +153,27 @@ impl<N: Namespace> ArtBindings<N> {
     }
 }
 
+/// Registered art ids whose image asset reached a terminal failed state.
+///
+/// The binding itself remains valid — the manifest and consumer agree on the
+/// id — but renderers must use their visible placeholder instead of continuing
+/// to submit a sprite backed by a handle that can never produce an image.
+#[derive(Resource, Default)]
+pub struct FailedItemArt {
+    world: BTreeSet<String>,
+    held: BTreeSet<String>,
+}
+
+/// Handles that have not yet reached a terminal load state.
+///
+/// Loaded and failed entries are removed, so the build-health watcher does not
+/// probe every successful image forever.
+#[derive(Default)]
+pub struct ItemArtLoadWatch {
+    world: BTreeMap<String, Handle<Image>>,
+    held: BTreeMap<String, Handle<Image>>,
+}
+
 /// Resolve `id` through `art`, reporting a miss at most once per distinct
 /// failure and paying for the diagnostic only then.
 ///
@@ -160,12 +182,16 @@ impl<N: Namespace> ArtBindings<N> {
 /// anything on a defect already on the record.
 fn resolve_art<N: Namespace>(
     art: Option<&ArtBindings<N>>,
+    failed: Option<&BTreeSet<String>>,
     id: &str,
     declared_by: impl FnOnce() -> String,
     reported: &mut ReportedOnce,
     context: &str,
 ) -> Option<(Handle<Image>, Vec2)> {
     let art = art?;
+    if failed.is_some_and(|failed| failed.contains(id)) {
+        return None;
+    }
     if let Some(found) = art.get(id) {
         return Some(found);
     }
@@ -176,53 +202,98 @@ fn resolve_art<N: Namespace>(
     None
 }
 
-/// Say so when a bound art id's IMAGE never arrives.
+/// Re-arm the watch because the art resource was replaced: every id is unsettled
+/// again, and a failure recorded against the OLD manifest is not evidence about
+/// the new one.
+fn reset_art_watch<N: Namespace>(
+    art: Option<&ArtBindings<N>>,
+    pending: &mut BTreeMap<String, Handle<Image>>,
+    failed: &mut BTreeSet<String>,
+) {
+    pending.clear();
+    failed.clear();
+    if let Some(art) = art {
+        pending.extend(
+            art.entries()
+                .map(|(id, image)| (id.to_owned(), image.clone())),
+        );
+    }
+}
+
+/// Drain the watch: anything that has settled leaves it, and anything that
+/// settled as a FAILURE is named once and remembered so the render path can
+/// choose the placeholder over a handle that will never produce a picture.
+fn poll_art_watch(
+    assets: &AssetServer,
+    context: &str,
+    pending: &mut BTreeMap<String, Handle<Image>>,
+    failed: &mut BTreeSet<String>,
+) {
+    pending.retain(|id, image| match assets.load_state(image.id()) {
+        bevy::asset::LoadState::Loaded => false,
+        bevy::asset::LoadState::Failed(_) => {
+            failed.insert(id.clone());
+            let path = assets
+                .get_path(image.id())
+                .map(|path| path.to_string())
+                .unwrap_or_else(|| "<no path>".to_owned());
+            error!(
+                "{context}: `{id}` is registered and bound, but its image `{path}` failed to load — \
+                 the id is fine and the FILE is missing or unreadable (check the generator target)",
+            );
+            false
+        }
+        _ => true,
+    });
+}
+
+/// Say so when a bound art id's IMAGE never arrives — and stop drawing it.
 ///
 /// This is the other half of the spark blossom, and the half a resolver cannot
-/// see. That pickup drew nothing for weeks with its id correctly registered:
-/// the manifest named `sprites/props/super_mary_o_spark_blossom.png`, no
-/// generator produced the file, `AssetServer::load` handed back a handle
-/// regardless — a handle is a promise, not a picture — and the binding resolved
-/// perfectly into art that would never exist. An id namespace can only ever
-/// prove that content agrees with content. Whether the FILE showed up is a
-/// separate question, and this is where it gets asked.
+/// see. That pickup drew nothing for weeks with its id correctly registered: the
+/// manifest named `sprites/props/super_mary_o_spark_blossom.png`, no generator
+/// produced the file, `AssetServer::load` handed back a handle regardless — a
+/// handle is a promise, not a picture — and the binding resolved perfectly into
+/// art that would never exist. An id namespace can only ever prove that content
+/// agrees with content. Whether the FILE showed up is a separate question, and
+/// this is where it gets asked.
 ///
-/// Runs every frame and costs a load-state probe per registered entry until each
-/// one settles. A failure is named once, with its path, because that is what a
-/// reader needs: the id points at the manifest line, the path at the generator.
+/// Naming it is not enough on its own: a bound id whose image failed would still
+/// take the sprite branch and draw nothing, which is the same invisible pickup
+/// with a log line beside it. The ids that settle as failures land in
+/// [`FailedItemArt`], and the render path treats them as unresolved so the
+/// placeholder quad comes back. Draw blind, but visibly.
+///
+/// Each entry is probed only until it settles — loaded and failed handles both
+/// leave the watch — so this costs nothing once a room's art is resolved.
 pub fn report_unloadable_item_art(
     assets: Res<AssetServer>,
     world_art: Option<Res<WorldItemArt>>,
     held_art: Option<Res<HeldItemArt>>,
-    mut reported: Local<std::collections::BTreeSet<String>>,
+    mut failed: ResMut<FailedItemArt>,
+    mut watch: Local<ItemArtLoadWatch>,
 ) {
-    let world = world_art.as_deref().map(|art| &art.0);
-    let held = held_art.as_deref().map(|art| &art.0);
-    let entries = world
-        .into_iter()
-        .flat_map(ArtBindings::entries)
-        .map(|entry| ("world item art", entry))
-        .chain(
-            held.into_iter()
-                .flat_map(ArtBindings::entries)
-                .map(|entry| ("held item art", entry)),
-        );
-    for (context, (id, image)) in entries {
-        if !matches!(assets.load_state(image), bevy::asset::LoadState::Failed(_)) {
-            continue;
-        }
-        if !reported.insert(format!("{context}/{id}")) {
-            continue;
-        }
-        let path = assets
-            .get_path(image.id())
-            .map(|path| path.to_string())
-            .unwrap_or_else(|| "<no path>".to_owned());
-        error!(
-            "{context}: `{id}` is registered and bound, but its image `{path}` failed to load — \
-             the id is fine and the FILE is missing or unreadable (check the generator target)",
+    if world_art.as_ref().is_some_and(|art| art.is_changed()) {
+        reset_art_watch(
+            world_art.as_deref().map(|art| &art.0),
+            &mut watch.world,
+            &mut failed.world,
         );
     }
+    if held_art.as_ref().is_some_and(|art| art.is_changed()) {
+        reset_art_watch(
+            held_art.as_deref().map(|art| &art.0),
+            &mut watch.held,
+            &mut failed.held,
+        );
+    }
+    poll_art_watch(
+        &assets,
+        "world item art",
+        &mut watch.world,
+        &mut failed.world,
+    );
+    poll_art_watch(&assets, "held item art", &mut watch.held, &mut failed.held);
 }
 
 /// Marks a sprite entity visualizing a [`GroundItem`].
@@ -274,6 +345,7 @@ pub fn sync_ground_item_visuals(
         ambition_engine_core::RoomGeometry,
     >,
     art: Option<Res<HeldItemArt>>,
+    failed_art: Option<Res<FailedItemArt>>,
     active_session: Option<Res<ActiveSessionScope>>,
     visuals: Query<Entity, With<GroundItemVisual>>,
     grounds: Res<GroundItemsView>,
@@ -298,6 +370,7 @@ pub fn sync_ground_item_visuals(
         let translation = ambition_engine_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
         let bound = resolve_art(
             art.as_deref().map(|art| &art.0),
+            failed_art.as_deref().map(|failed| &failed.held),
             ground.item_id.as_str(),
             || "ground item".to_owned(),
             &mut reported,
@@ -378,6 +451,7 @@ pub fn sync_world_item_visuals(
     >,
     active_session: Option<Res<ActiveSessionScope>>,
     art: Option<Res<WorldItemArt>>,
+    failed_art: Option<Res<FailedItemArt>>,
     visuals: Query<Entity, With<WorldItemVisual>>,
     items: Res<ambition_sim_view::WorldItemsView>,
     mut reported: Local<ReportedOnce>,
@@ -401,6 +475,7 @@ pub fn sync_world_item_visuals(
         let bound = item.sprite.as_deref().and_then(|id| {
             resolve_art(
                 art.as_deref().map(|art| &art.0),
+                failed_art.as_deref().map(|failed| &failed.world),
                 id,
                 || format!("world item `{}`", item.row_id),
                 &mut reported,
@@ -453,6 +528,7 @@ pub fn sync_held_item_visual(
         ambition_engine_core::RoomGeometry,
     >,
     art: Option<Res<HeldItemArt>>,
+    failed_art: Option<Res<FailedItemArt>>,
     active_session: Option<Res<ActiveSessionScope>>,
     held_view: Res<HeldItemView>,
     visuals: Query<Entity, With<HeldItemVisual>>,
@@ -498,6 +574,7 @@ pub fn sync_held_item_visual(
     }
     let bound = resolve_art(
         art.as_deref().map(|art| &art.0),
+        failed_art.as_deref().map(|failed| &failed.held),
         held.item_id.as_str(),
         || "held item".to_owned(),
         &mut reported,
@@ -609,6 +686,106 @@ pub fn sync_held_projectile_visuals(
                 },
                 Name::new("Gun-sword laser shot"),
             ),
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::asset::{AssetApp, AssetPlugin};
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn missing_image_asset_reaches_the_failed_art_resource() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(AssetPlugin::default())
+            .init_asset::<Image>()
+            .init_resource::<FailedItemArt>()
+            .add_systems(Update, report_unloadable_item_art);
+
+        let image = app
+            .world()
+            .resource::<AssetServer>()
+            .load::<Image>("__ambition_test_missing__/spark_blossom.png");
+        app.world_mut()
+            .insert_resource(WorldItemArt(ArtBindings::new(
+                Resolver::<WorldItemSprite>::new(["spark_blossom"]),
+                [(image, Vec2::splat(16.0))],
+            )));
+
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while Instant::now() < deadline
+            && !app
+                .world()
+                .resource::<FailedItemArt>()
+                .world
+                .contains("spark_blossom")
+        {
+            app.update();
+            std::thread::sleep(Duration::from_millis(1));
+        }
+
+        assert!(
+            app.world()
+                .resource::<FailedItemArt>()
+                .world
+                .contains("spark_blossom"),
+            "the AssetServer's terminal failure must reach the render fallback state"
+        );
+    }
+
+    #[test]
+    fn failed_bound_art_uses_the_placeholder_path() {
+        let art = ArtBindings::new(
+            Resolver::<WorldItemSprite>::new(["spark_blossom"]),
+            [(Handle::<Image>::default(), Vec2::splat(16.0))],
+        );
+        let failed = BTreeSet::from(["spark_blossom".to_owned()]);
+        let mut reported = ReportedOnce::default();
+
+        assert!(
+            resolve_art(
+                Some(&art),
+                Some(&failed),
+                "spark_blossom",
+                || "world item `spark_blossom`".to_owned(),
+                &mut reported,
+                "world item visual",
+            )
+            .is_none(),
+            "a terminally failed image must select the caller's visible fallback"
+        );
+        assert!(
+            resolve_art(
+                Some(&art),
+                None,
+                "spark_blossom",
+                || "world item `spark_blossom`".to_owned(),
+                &mut reported,
+                "world item visual",
+            )
+            .is_some(),
+            "the logical binding remains valid when no asset failure is known"
+        );
+    }
+
+    #[test]
+    fn replacing_art_resets_failed_and_pending_state() {
+        let art = ArtBindings::new(
+            Resolver::<WorldItemSprite>::new(["new_art"]),
+            [(Handle::<Image>::default(), Vec2::splat(16.0))],
+        );
+        let mut pending = BTreeMap::from([("old_art".to_owned(), Handle::<Image>::default())]);
+        let mut failed = BTreeSet::from(["old_art".to_owned()]);
+
+        reset_art_watch(Some(&art), &mut pending, &mut failed);
+
+        assert!(failed.is_empty());
+        assert_eq!(
+            pending.keys().map(String::as_str).collect::<Vec<_>>(),
+            vec!["new_art"]
         );
     }
 }

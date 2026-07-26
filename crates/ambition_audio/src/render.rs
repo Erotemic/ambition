@@ -111,7 +111,7 @@ pub struct ResolvedSfxHandle {
 
 /// Why a cue produced no playable source.
 ///
-/// The three cases are different bugs with different fixes, and collapsing them
+/// The cases are different bugs with different fixes, and collapsing them
 /// into one "no clip" message is how a diagnostic starts lying: a cue requested
 /// before its bank finished loading is not a missing cue, and a clip that will
 /// not decode is not an absent one. Reported verbatim by the playback path.
@@ -122,6 +122,10 @@ pub enum SfxSourceMiss {
     /// [`ProviderSfxHandleCache`] deliberately caches nothing so the first
     /// request after promotion succeeds.
     NoProviderBank,
+    /// The provider declared a bank asset, but that bank file or its decoding
+    /// failed before it could be registered. This is terminal for the current
+    /// content, unlike [`Self::NoProviderBank`].
+    BankLoadFailed,
     /// The provider's bank is loaded, has no entry for this cue, and no
     /// procedural fallback exists. This is the terminal "nobody authored it".
     NotInBank,
@@ -135,6 +139,7 @@ impl std::fmt::Display for SfxSourceMiss {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
             Self::NoProviderBank => "no bank is registered for this provider (yet)",
+            Self::BankLoadFailed => "the provider's bank asset failed to load",
             Self::NotInBank => "the provider's bank has no entry for it",
             Self::DecodeFailed => {
                 "the provider's bank entry failed to decode (the decoder's own \

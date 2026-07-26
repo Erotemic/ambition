@@ -98,9 +98,9 @@ impl RoomBindings {
 
     /// Resolve every reference `room` declares that this sweep can decide.
     ///
-    /// One pass, one report: a room with a bad patrol path AND a bad pickup id
-    /// names both, so fixing content is one edit session rather than a sequence
-    /// of run-crash-fix cycles.
+    /// One pass, one report: a room with a bad patrol path AND a bad character
+    /// archetype names both, so fixing content is one edit session rather than a
+    /// sequence of run-crash-fix cycles.
     pub fn sweep(&self, room: &RoomSpec) -> BindingReport {
         let mut ledger = BindingLedger::new();
         let paths = room_paths(room);
@@ -164,14 +164,18 @@ impl RoomBindings {
 
 /// The room's paths, under every spelling each answers to.
 ///
-/// `KinematicPathSpec::matches_id` accepts the authored id and the display name,
-/// so the resolver must too — otherwise this sweep would report references that
-/// the runtime resolves perfectly well, which is worse than not checking.
+/// `KinematicPathSpec::matches_id` also accepts the normalized display-name
+/// slug, so the resolver must consume the exact same alias set — otherwise this
+/// sweep reports references that the runtime resolves perfectly well, which is
+/// worse than not checking.
 fn room_paths(room: &RoomSpec) -> Resolver<KinematicPathId> {
     Resolver::with_aliases(
         room.kinematic_paths
             .iter()
             .enumerate()
-            .flat_map(|(slot, path)| path.aliases().map(move |alias| (alias, slot))),
+            .flat_map(|(slot, path)| {
+                path.resolution_aliases()
+                    .map(move |alias| (alias.into_owned(), slot))
+            }),
     )
 }

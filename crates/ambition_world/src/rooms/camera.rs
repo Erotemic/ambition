@@ -4,6 +4,7 @@
 //! parent re-exports every type so `rooms::*` paths are unchanged.
 
 use ambition_engine_core as ae;
+use std::borrow::Cow;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CameraClampMode {
@@ -150,29 +151,39 @@ impl KinematicPathSpec {
         }
     }
 
-    pub fn aliases(&self) -> impl Iterator<Item = &str> {
+    /// The two AUTHORED spellings. Private on purpose: this is not the set a
+    /// query resolves against, and a caller that reached for it would rebuild
+    /// the validator/runtime disagreement that
+    /// [`Self::resolution_aliases`] exists to end.
+    fn authored_aliases(&self) -> impl Iterator<Item = &str> {
         [self.id.as_str(), self.name.as_str()].into_iter()
     }
 
+    /// Every spelling accepted by [`Self::matches_id`] — the ONE authority.
+    ///
+    /// Validation and runtime resolution must share this exact set. They did
+    /// not: `matches_id` also accepted the normalized display-name slug while
+    /// the binding sweep only knew the authored id and name, so the sweep
+    /// reported `enemy_patrol_path_a` as broken content that the runtime
+    /// resolved perfectly. Reporting a working reference as broken is worse
+    /// than not checking at all.
+    ///
+    /// The slug is accepted because LDtk derives a path's lookup id from its
+    /// name with `_path_` collapsed away (`enemy patrol path A` →
+    /// `enemy_patrol_a`), while authors reference the raw name-slug
+    /// (`enemy_patrol_path_a`). Both spellings are in shipped content. See
+    /// `validate_patrol_brain_paths` in `content_validation.rs`.
+    ///
+    /// The normalized name is owned because it is derived; the authored id and
+    /// display name stay borrowed.
+    pub fn resolution_aliases(&self) -> impl Iterator<Item = Cow<'_, str>> {
+        self.authored_aliases()
+            .map(Cow::Borrowed)
+            .chain(name_slug(&self.name).map(Cow::Owned))
+    }
+
     pub fn matches_id(&self, query: &str) -> bool {
-        if self.aliases().any(|alias| alias == query) {
-            return true;
-        }
-        // Tolerate `compact_path_name`-style normalization (used by
-        // the LDtk path-lookup-id derivation): if the query, after
-        // slugifying the spec's `name` field with the same rules
-        // *minus* the "_path_" stripping, matches, accept it. This
-        // resolves the latent mismatch between authors who reference
-        // a path by its raw name-slug (e.g. `enemy_patrol_path_a`)
-        // and the runtime id derived from the same name with
-        // `_path_` collapsed away (`enemy_patrol_a`). See the comment
-        // on `validate_patrol_brain_paths` in `content_validation.rs`.
-        if let Some(slug) = name_slug(&self.name) {
-            if slug == query {
-                return true;
-            }
-        }
-        false
+        self.resolution_aliases().any(|alias| alias == query)
     }
 }
 

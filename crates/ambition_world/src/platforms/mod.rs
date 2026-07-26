@@ -51,7 +51,7 @@ impl MovingPlatformSpec {
             let Some(path_spec) = paths.iter().find(|path| path.matches_id(path_id)) else {
                 let known = paths
                     .iter()
-                    .flat_map(|path| path.aliases())
+                    .flat_map(|path| path.resolution_aliases())
                     .collect::<Vec<_>>()
                     .join(", ");
                 return Err(format!(

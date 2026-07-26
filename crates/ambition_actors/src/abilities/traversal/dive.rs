@@ -95,7 +95,7 @@ pub fn fire_dive_system(
         &crate::physics::ResolvedMotionFrame,
         &HeldItem,
     )>,
-    mut sfx: ambition_sfx::SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
     mut hits: MessageWriter<crate::features::HitEvent>,
     // Optional: the diagnostic-only Class-B ledger (§3.2). A minimal test app
     // that never added the engine's schedule plugin still dives.
@@ -194,10 +194,13 @@ pub fn fire_dive_system(
         knockback: None,
         ignored_targets: Vec::new(),
     });
-    sfx.write(ambition_sfx::SfxMessage::Play {
-        id: ambition_sfx::ids::PLAYER_BLINK,
-        pos: target,
-    });
+    sfx.write_for(
+        player,
+        ambition_sfx::SfxMessage::Play {
+            id: ambition_sfx::ids::PLAYER_BLINK,
+            pos: target,
+        },
+    );
 }
 
 #[cfg(test)]

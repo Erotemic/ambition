@@ -165,10 +165,10 @@ pub(crate) fn apply_boss_hit(
             // CM8: an honest strike clang + spark even though this puzzle boss
             // takes no HP from the hit.
             // A13: the authored strike sound is the ATTACKER's cue; the hurt fallback is
-        // the VICTIM's, so both are resolved before the emitter borrows the writers.
-        let attacker_source = writers.source_of(event.attacker);
-        let victim_source = writers.source_of(Some(boss_entity));
-        crate::combat::util::emit_hit_feedback(
+            // the VICTIM's, so both are resolved before the emitter borrows the writers.
+            let attacker_source = writers.source_of(event.attacker);
+            let victim_source = writers.source_of(Some(boss_entity));
+            crate::combat::util::emit_hit_feedback(
                 &mut writers.sfx,
                 &mut writers.vfx,
                 &mut writers.debris,
@@ -267,7 +267,11 @@ pub(crate) fn apply_boss_hit(
             pos: boss.kin.pos,
             cue: PhysicsDebrisCue::BossRagdoll,
         });
-        writers.sfx.write(SfxMessage::Death { pos: boss.kin.pos });
+        // The boss dies in its own voice (G1), like every other body.
+        writers.sfx.write_for_body(
+            victim_source.as_ref(),
+            SfxMessage::Death { pos: boss.kin.pos },
+        );
         // A jackpot of coins + a heal for the hardest fight, on top of the ability.
         drop_currency_coin(
             &mut writers.commands,

@@ -13,9 +13,10 @@
 
 use crate::SfxId;
 use bevy_ecs::component::Component;
+use bevy_ecs::entity::Entity;
 use bevy_ecs::message::{Message, MessageWriter};
 use bevy_ecs::resource::Resource;
-use bevy_ecs::system::{Res, SystemParam};
+use bevy_ecs::system::{Query, Res, SystemParam};
 use bevy_math::Vec2;
 use std::fmt;
 
@@ -110,6 +111,22 @@ impl BodyPresentationSource {
         &self.0
     }
 }
+
+/// Marks a [`BodyPresentationSource`] the per-tick DERIVATION granted, and may
+/// therefore retract.
+///
+/// Without this the derivation cannot tell "a body that stopped wearing a character,
+/// whose claim on that provider must be dropped" from "an entity whose source came
+/// from somewhere else entirely" — and it would delete the second one. A projectile
+/// inherits its firer's source at spawn and has no worn character of its own, so
+/// under a single unmarked component every bolt lost its provenance on the tick
+/// after it was fired, and impacted in the session's voice.
+///
+/// So: the derivation retracts only what the derivation granted. Anything else that
+/// stamps a source owns its lifetime, which for a projectile is exactly the
+/// projectile's.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DerivedPresentationSource;
 
 /// The context captured by [`SfxWriter`] for newly-authored requests.
 #[derive(Resource, Clone, Debug, Default)]
@@ -249,11 +266,7 @@ impl SfxWriter<'_> {
     /// would silently attribute every character cue to the session provider — which
     /// is precisely the state §7.7 shipped in, where `write_from` existed and one
     /// caller used it.
-    pub fn write_for_body(
-        &mut self,
-        source: Option<&PresentationSourceId>,
-        request: SfxMessage,
-    ) {
+    pub fn write_for_body(&mut self, source: Option<&PresentationSourceId>, request: SfxMessage) {
         match source {
             Some(source) => self.write_from(source.clone(), request),
             None => self.write(request),
@@ -272,6 +285,65 @@ impl SfxWriter<'_> {
             source: source.into(),
             request,
         });
+    }
+}
+
+/// **A writer that can attribute a cue to the body that caused it.**
+///
+/// [`SfxWriter::write_for_body`] takes the source, which means every caller that
+/// wanted to use it had to grow a `Query<&BodyPresentationSource>` and thread the
+/// lookup down to the emit site. That cost is why §7.7 shipped with one
+/// source-qualified caller and eighty-six plain ones: the mechanism existed and
+/// using it was a refactor per call site.
+///
+/// This does the lookup, so a call site names the emitting entity — which it always
+/// has, since it just resolved that entity to read its position — and the choice at
+/// each site becomes the honest one: is this sound made BY something, or by the
+/// world?
+///
+/// - [`write_for`](Self::write_for): a body's own cue. Its death, its block, its
+///   ability, its footfall. Falls back to the session context when the entity has no
+///   source, which is what an unworn body or a hazard should do.
+/// - [`write_global`](Self::write_global): genuinely world-owned. A menu blip, a
+///   room transition, a checkpoint chime. Identical to [`SfxWriter::write`], named
+///   differently so that reading the call tells you the site was CLASSIFIED rather
+///   than merely not converted.
+///
+/// Any emitting entity may carry the source, not just a worn body: a projectile
+/// inherits its firer's at spawn, so a bolt that outlives its owner still impacts in
+/// its own character's voice.
+#[derive(SystemParam)]
+pub struct BodySfxWriter<'w, 's> {
+    sfx: SfxWriter<'w>,
+    sources: Query<'w, 's, &'static BodyPresentationSource>,
+}
+
+impl BodySfxWriter<'_, '_> {
+    /// Emit a cue caused by `body`, under `body`'s presentation source.
+    pub fn write_for(&mut self, body: Entity, request: SfxMessage) {
+        let source = self.sources.get(body).ok().map(BodyPresentationSource::id);
+        self.sfx.write_for_body(source, request);
+    }
+
+    /// Emit a cue caused by `body` when the caller already holds its source —
+    /// avoids a second lookup in the hit paths, which resolve attacker and victim
+    /// sources up front so both are available before the writers are borrowed.
+    pub fn write_for_body(&mut self, source: Option<&PresentationSourceId>, request: SfxMessage) {
+        self.sfx.write_for_body(source, request);
+    }
+
+    /// Emit a cue that belongs to the WORLD, not to any body.
+    pub fn write_global(&mut self, request: SfxMessage) {
+        self.sfx.write(request);
+    }
+
+    /// This entity's presentation source, for a caller that must resolve it before
+    /// it can borrow the writer.
+    pub fn source_of(&self, body: Entity) -> Option<PresentationSourceId> {
+        self.sources
+            .get(body)
+            .ok()
+            .map(|source| source.id().clone())
     }
 }
 

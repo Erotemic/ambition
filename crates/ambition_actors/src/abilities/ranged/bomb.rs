@@ -54,7 +54,7 @@ pub fn tick_bomb_fuses(
     mut commands: Commands,
     mut bombs: Query<(Entity, &GroundItem, &mut BombFuse)>,
     mut hits: MessageWriter<HitEvent>,
-    mut sfx: ambition_sfx::SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     let dt = time.sim_dt();
@@ -79,10 +79,15 @@ pub fn tick_bomb_fuses(
             knockback: None,
             ignored_targets: Vec::new(),
         });
-        sfx.write(ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::WORLD_ROCK_HIT,
-            pos: ground.pos,
-        });
+        // The bomb inherits its thrower's source at spawn, so the blast is the
+        // thrower's cue — and falls back to the session when nothing stamped it.
+        sfx.write_for(
+            entity,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                pos: ground.pos,
+            },
+        );
         vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
             pos: ground.pos,
             kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,

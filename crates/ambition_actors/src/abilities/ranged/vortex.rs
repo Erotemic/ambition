@@ -62,7 +62,7 @@ pub fn fire_vortex_system(
         Option<&SessionScopedEntity>,
     )>,
     mut commands: Commands,
-    mut sfx: ambition_sfx::SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     let Some(subject) = controlled.0 else {
         return;
@@ -98,10 +98,13 @@ pub fn fire_vortex_system(
             Name::new("Vortex singularity"),
         ),
     );
-    sfx.write(ambition_sfx::SfxMessage::Play {
-        id: ambition_sfx::ids::PLAYER_BLINK,
-        pos: center,
-    });
+    sfx.write_for(
+        subject,
+        ambition_sfx::SfxMessage::Play {
+            id: ambition_sfx::ids::PLAYER_BLINK,
+            pos: center,
+        },
+    );
 }
 
 /// Drag every Enemy-faction actor within [`VORTEX_RADIUS`] of each live well

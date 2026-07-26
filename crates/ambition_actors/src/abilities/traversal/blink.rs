@@ -108,7 +108,7 @@ pub fn blink_system(
         Option<&mut crate::ability_cooldown::AbilityCooldown>,
         &mut crate::features::MotionModel,
     )>,
-    mut sfx: ambition_sfx::SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
     // Optional: the diagnostic-only Class-B ledger (§3.2). A minimal test app
@@ -200,10 +200,13 @@ pub fn blink_system(
         knockback: None,
         ignored_targets: Vec::new(),
     });
-    sfx.write(ambition_sfx::SfxMessage::Play {
-        id: ambition_sfx::ids::PLAYER_BLINK,
-        pos: target,
-    });
+    sfx.write_for(
+        player,
+        ambition_sfx::SfxMessage::Play {
+            id: ambition_sfx::ids::PLAYER_BLINK,
+            pos: target,
+        },
+    );
     // A wisp where you left, a flash where you arrive.
     vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
         pos: from,

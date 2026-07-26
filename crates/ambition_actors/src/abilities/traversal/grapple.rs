@@ -49,7 +49,7 @@ pub fn grapple_system(
         &HeldItem,
         Option<&mut crate::ability_cooldown::AbilityCooldown>,
     )>,
-    mut sfx: ambition_sfx::SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
@@ -81,10 +81,13 @@ pub fn grapple_system(
         crate::platformer_runtime::collision::raycast_solids(&*w, from, dir, GRAPPLE_RANGE, false)
     }) else {
         // Grapple into empty space: a dry fizzle, no pull (and no cooldown burned).
-        sfx.write(ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::PLAYER_DASH,
-            pos: from,
-        });
+        sfx.write_for(
+            player,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::PLAYER_DASH,
+                pos: from,
+            },
+        );
         return;
     };
     // Only a successful latch is on cooldown — a miss above costs nothing.
@@ -100,10 +103,13 @@ pub fn grapple_system(
     // it). A burst velocity, not a teleport, so the movement reads as a pull.
     let pull = (hit - from).normalize_or_zero();
     kin.vel = pull * GRAPPLE_PULL_SPEED;
-    sfx.write(ambition_sfx::SfxMessage::Play {
-        id: ambition_sfx::ids::PLAYER_DASH,
-        pos: from,
-    });
+    sfx.write_for(
+        player,
+        ambition_sfx::SfxMessage::Play {
+            id: ambition_sfx::ids::PLAYER_DASH,
+            pos: from,
+        },
+    );
     // Draw the grapple LINE as a tan spark trail from the player to the latch
     // point, so the ability READS as a grapple rope being thrown and reeling you
     // in — not just a mysterious sudden yank (#53 "not sure what it does").

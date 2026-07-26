@@ -26,7 +26,7 @@ use crate::world::overlay::FeatureEcsWorldOverlay;
 use crate::physics;
 use crate::time::feel::SandboxFeelTuning;
 use ambition_engine_core::RoomGeometry;
-use ambition_sfx::{SfxMessage, SfxWriter};
+use ambition_sfx::SfxMessage;
 use ambition_world::collision::MovingPlatformSet;
 
 /// Build the engine's `InputState` purely from `ActorControl` —
@@ -213,7 +213,7 @@ pub fn pogo_moveset_off_world_orbs(
         &mut ae::BodyKinematics,
         &mut ambition_engine_core::BodyGroundState,
     )>,
-    mut sfx: SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     // The pogo hitboxes live this frame + where their volume covers. A hitbox that
     // has ALREADY world-bounced this strike is skipped: the world-orb pogo carries
@@ -259,10 +259,15 @@ pub fn pogo_moveset_off_world_orbs(
         let pos = kin.pos;
         ae::movement::set_jump_velocity(&mut kin.vel, gdir, rise);
         ground.on_ground = false;
-        sfx.write(match cue {
-            Some(id) => SfxMessage::Play { id, pos },
-            None => SfxMessage::Pogo { pos },
-        });
+        // The bounce is the OWNER's technique, so it is the owner's cue (G1) —
+        // both the authored override and the generic pogo.
+        sfx.write_for(
+            owner,
+            match cue {
+                Some(id) => SfxMessage::Play { id, pos },
+                None => SfxMessage::Pogo { pos },
+            },
+        );
         // One bounce per strike: mark this hitbox as having world-bounced so a
         // sustained overlap doesn't re-pogo every frame (the entity pogo's
         // `HitboxOnHit.fired` dedup, extended to the entity-less world orb).

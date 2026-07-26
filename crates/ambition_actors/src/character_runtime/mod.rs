@@ -54,8 +54,8 @@ pub use hurtbox::{
     POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
 };
 pub use presentation::{
-    authorize_staged_character_presentation_sources, provider_of_character,
-    publish_body_presentation_sources,
+    authorize_staged_character_presentation_sources, inherit_projectile_presentation_sources,
+    provider_of_character, publish_body_presentation_sources,
 };
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
@@ -682,7 +682,14 @@ impl Plugin for CharacterRuntimePlugin {
                 // reads it. The move clock is the emitter this whole attribution
                 // exists for, so a frame-scheduled publish would hand it stale (or
                 // missing) attribution on exactly the ticks a rollback resimulates.
-                presentation::publish_body_presentation_sources
+                (
+                    presentation::publish_body_presentation_sources,
+                    // G1: and a projectile inherits the firer's, in the same window
+                    // — a bolt fired and landing inside one tick still lands in its
+                    // character's voice.
+                    presentation::inherit_projectile_presentation_sources,
+                )
+                    .chain()
                     .in_set(crate::schedule::SandboxSet::Combat)
                     .before(crate::combat::moveset::advance_move_playback),
             )

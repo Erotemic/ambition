@@ -32,7 +32,7 @@ use ambition_entity_catalog::EffectRef;
 
 use super::components::{ActorAggression, ActorFaction};
 use super::targeting::{damage_lands, effective_faction};
-use ambition_sfx::{SfxMessage, SfxWriter};
+use ambition_sfx::SfxMessage;
 use ambition_vfx::Hitbox;
 
 // ---------------------------------------------------------------------------
@@ -274,7 +274,7 @@ pub fn apply_pogo_bounce(
         &mut ae::BodyKinematics,
         &mut ambition_engine_core::BodyGroundState,
     )>,
-    mut sfx: SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     for msg in messages.read() {
         if msg.effect.key != POGO_BOUNCE_KEY {
@@ -297,10 +297,14 @@ pub fn apply_pogo_bounce(
         let pos = kin.pos;
         ae::movement::set_jump_velocity(&mut kin.vel, gdir, rise);
         ground.on_ground = false;
-        sfx.write(match cue {
-            Some(id) => SfxMessage::Play { id, pos },
-            None => SfxMessage::Pogo { pos },
-        });
+        // The owner's technique, so the owner's cue (G1).
+        sfx.write_for(
+            msg.owner,
+            match cue {
+                Some(id) => SfxMessage::Play { id, pos },
+                None => SfxMessage::Pogo { pos },
+            },
+        );
     }
 }
 

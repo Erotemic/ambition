@@ -378,6 +378,10 @@ pub fn step_projectiles(
             &ProjectileSeq,
             Option<&crate::projectile::ProjectileKind>,
             Option<&crate::projectile::ProjectileVisualId>,
+            // G1: the firer's presentation source, stamped on the bolt at spawn.
+            // Read from the PROJECTILE rather than chased back through the owner,
+            // because a shot outlives its firer and must still sound like it.
+            Option<&ambition_sfx::BodyPresentationSource>,
         ),
         (
             With<LiveProjectile>,
@@ -474,16 +478,17 @@ pub fn step_projectiles(
     // across both factions; the seq counter is shared at spawn).
     let mut ordered: Vec<(Entity, ProjectileSeq)> = projectiles
         .iter()
-        .map(|(entity, _, _, _, _, seq, _, _)| (entity, *seq))
+        .map(|(entity, _, _, _, _, seq, _, _, _)| (entity, *seq))
         .collect();
     ordered.sort_by_key(|(_, seq)| *seq);
 
     for (proj_entity, _) in ordered {
-        let Ok((_, mut kin, mut game, owner, _owner_id, _, kind, visual_id)) =
+        let Ok((_, mut kin, mut game, owner, _owner_id, _, kind, visual_id, bolt_source)) =
             projectiles.get_mut(proj_entity)
         else {
             continue;
         };
+        let bolt_source = bolt_source.map(|source| source.id().clone());
         // Named kind for player shots (None for kind-less enemy volleys).
         let kind = kind.copied();
         // Open visual id (every spawned shot carries one; empty reads as the
@@ -714,16 +719,19 @@ pub fn step_projectiles(
             gravity_dir,
         ) {
             WorldHitOutcome::Bounced { pos } => {
-                sfx.write(SfxMessage::Hit { pos });
+                sfx.write_for_body(bolt_source.as_ref(), SfxMessage::Hit { pos });
             }
             WorldHitOutcome::Expired { pos } => {
                 match expiry_burst.map(|b| b.to_message(pos)) {
                     Some(boom) => {
                         vfx.write(boom);
-                        sfx.write(SfxMessage::Play {
-                            id: ambition_sfx::ids::WORLD_EXPLOSION,
-                            pos,
-                        });
+                        sfx.write_for_body(
+                            bolt_source.as_ref(),
+                            SfxMessage::Play {
+                                id: ambition_sfx::ids::WORLD_EXPLOSION,
+                                pos,
+                            },
+                        );
                     }
                     None => {
                         trace.push_event(

@@ -205,10 +205,18 @@ fn an_unclaimed_character_authorizes_nothing() {
 /// `SfxEmissionContext` and were attributed to whoever owned the session. In a
 /// crossover fight that means Sanic's jump plays out of Ambition's bank.
 ///
-/// The source is now derived onto the body once per tick, and every emitter reads
-/// it. This asserts the derivation: the same body, two different characters, two
+/// This asserts the DERIVATION only: the same body, two different characters, two
 /// different sources — and no component at all for a body wearing nothing, which
 /// is materially different from an empty source.
+///
+/// It deliberately does not claim that every emitter reads it, which is what an
+/// earlier version of this comment said while eighty-six call sites still wrote
+/// through the session context (GPT 5.6, 2026-07-26 — the claim was wider than the
+/// code). What each emitter is credited with is asserted where that emitter runs:
+/// `fight_tests::a_dying_body_dies_in_its_own_voice` for the death branch,
+/// `two_provider_characters_trade_damage_through_the_real_damage_path` for the move
+/// timeline, and [`a_projectile_keeps_its_firers_source_after_the_firer_is_gone`]
+/// for a bolt. A cue with no such test is a cue nobody has checked.
 #[test]
 fn a_body_emits_under_its_own_characters_provider() {
     let mut app = session_app();
@@ -277,5 +285,54 @@ fn changing_worn_identity_changes_the_bodys_source() {
             .map(|source| source.id().as_str().to_string())
             .as_deref(),
         Some("mary_o_demo"),
+    );
+}
+
+/// **G1: a projectile lands in the voice of whoever fired it — including after
+/// that body is gone.**
+///
+/// The impact and the detonation are emitted by the BOLT, so an attribution that
+/// chased the owner back through `ProjectileOwner` at impact time attributed every
+/// orphaned shot to the session. Stamping at spawn is what makes the bolt's own
+/// provenance outlive its firer, and the second half of this test is the whole
+/// reason for the stamp rather than the lookup.
+#[test]
+fn a_projectile_keeps_its_firers_source_after_the_firer_is_gone() {
+    let mut app = session_app();
+    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+    let firer = app
+        .world_mut()
+        .spawn(ambition_characters::actor::WornCharacter::new("sanic"))
+        .id();
+    app.update();
+
+    let bolt = app
+        .world_mut()
+        .spawn(ambition_projectiles::ProjectileOwner(firer))
+        .id();
+    app.update();
+
+    let source_of = |app: &App, entity| {
+        app.world()
+            .get::<ambition_sfx::BodyPresentationSource>(entity)
+            .map(|source| source.id().as_str().to_string())
+    };
+    assert_eq!(
+        source_of(&app, bolt).as_deref(),
+        Some("sanic_demo"),
+        "the bolt must inherit its firer's source at spawn"
+    );
+
+    app.world_mut().entity_mut(firer).despawn();
+    app.update();
+    app.update();
+
+    assert_eq!(
+        source_of(&app, bolt).as_deref(),
+        Some("sanic_demo"),
+        "and must KEEP it once the firer is gone — a shot in flight when its \
+         character dies still impacts in that character's voice. This is also the \
+         assertion that the per-tick derivation does not retract a source it did \
+         not grant: it owns bodies, not everything that carries the component"
     );
 }

@@ -51,7 +51,7 @@ pub fn fire_shockwave_system(
         &mut BodyMana,
     )>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
-    mut sfx: ambition_sfx::SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     for (entity, control, held, kin, resolved_frame, mut mana) in &mut wielders {
         if !control.0.melee_pressed || control.0.shield_held {
@@ -78,10 +78,13 @@ pub fn fire_shockwave_system(
                 name: Some("Shockwave AOE"),
             }),
         });
-        sfx.write(ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::WORLD_ROCK_HIT,
-            pos: kin.pos,
-        });
+        sfx.write_for(
+            entity,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                pos: kin.pos,
+            },
+        );
     }
 }
 

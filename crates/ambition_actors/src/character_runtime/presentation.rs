@@ -155,10 +155,15 @@ pub fn publish_body_presentation_sources(
         // filters are exactly the components the body arms below read: the first
         // two are the identity sources, and the third keeps an entity matched
         // long enough for the removal arm to see it lose its identity.
+        //
+        // The third is the DERIVED marker rather than the source itself, because
+        // this system is not the only thing that stamps a source: a projectile
+        // inherits its firer's, and matching on the source alone made the removal
+        // arm delete exactly those inherited ones on the very next tick.
         Or<(
             With<ambition_characters::actor::WornCharacter>,
             With<crate::combat::CombatTuning>,
-            With<ambition_sfx::BodyPresentationSource>,
+            With<ambition_sfx::DerivedPresentationSource>,
         )>,
     >,
 ) {
@@ -174,17 +179,52 @@ pub fn publish_body_presentation_sources(
                 // Change detection: a body's author is stable for the whole session
                 // in every ordinary case, and this runs over every body every tick.
                 if current.map(|c| c.id()) != Some(&next) {
-                    commands
-                        .entity(entity)
-                        .insert(ambition_sfx::BodyPresentationSource(next));
+                    commands.entity(entity).insert((
+                        ambition_sfx::BodyPresentationSource(next),
+                        ambition_sfx::DerivedPresentationSource,
+                    ));
                 }
             }
             None if current.is_some() => {
                 commands
                     .entity(entity)
-                    .remove::<ambition_sfx::BodyPresentationSource>();
+                    .remove::<ambition_sfx::BodyPresentationSource>()
+                    .remove::<ambition_sfx::DerivedPresentationSource>();
             }
             None => {}
+        }
+    }
+}
+
+/// **A projectile inherits its firer's presentation source, once.**
+///
+/// The bolt is the emitter: it is the entity that owns the impact and the
+/// detonation, and it routinely outlives the body that fired it. So the source is
+/// STAMPED at spawn rather than looked up at impact — a shot whose firer has since
+/// died still lands in that character's voice, which is the whole reason
+/// `ProjectileOwner` being `Option` is not an accident.
+///
+/// `Without<BodyPresentationSource>` rather than `Added<ProjectileOwner>`: bevy_ggrs
+/// destroys and recreates rollback entities, so an `Added` filter fires again on
+/// every restored frame while the change-detection tick the filter reads is not the
+/// sim's. Filtering on the absence of the component is idempotent under any number
+/// of loads, and the snapshot restores the stamp for a projectile whose firer is
+/// gone by the time it comes back.
+///
+/// A firer with no source of its own leaves the bolt unstamped, which falls back to
+/// the session context — correct for an environmental hazard's shot, and identical
+/// to what every projectile did before this existed.
+pub fn inherit_projectile_presentation_sources(
+    mut commands: Commands,
+    unstamped: Query<
+        (Entity, &ambition_projectiles::ProjectileOwner),
+        Without<ambition_sfx::BodyPresentationSource>,
+    >,
+    sources: Query<&ambition_sfx::BodyPresentationSource>,
+) {
+    for (projectile, owner) in &unstamped {
+        if let Ok(source) = sources.get(owner.0) {
+            commands.entity(projectile).insert(source.clone());
         }
     }
 }

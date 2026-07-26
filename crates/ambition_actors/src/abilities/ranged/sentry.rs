@@ -59,6 +59,7 @@ pub struct Sentry {
 /// `BodyMana` is the implicit gate (player-only today).
 pub fn fire_sentry_system(
     mut wielders: Query<(
+        Entity,
         &ActorControl,
         &BodyKinematics,
         &HeldItem,
@@ -66,9 +67,9 @@ pub fn fire_sentry_system(
         Option<&SessionScopedEntity>,
     )>,
     mut commands: Commands,
-    mut sfx: ambition_sfx::SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
 ) {
-    for (control, kin, held, mut mana, owner) in &mut wielders {
+    for (wielder, control, kin, held, mut mana, owner) in &mut wielders {
         if !control.0.melee_pressed || control.0.shield_held {
             continue;
         }
@@ -78,7 +79,11 @@ pub fn fire_sentry_system(
         if !mana.meter.try_spend(SENTRY_MANA_COST) {
             continue;
         }
-        commands.spawn_session_scoped(
+        // G1: the turret INHERITS its summoner's presentation source, so the
+        // shots it fires minutes later still sound like the character that placed
+        // it — and still do after that character has left the field.
+        let inherited = sfx.source_of(wielder);
+        let mut turret = commands.spawn_session_scoped(
             SessionSpawnScope::new(owner.map(|owner| owner.0)),
             (
                 Sentry {
@@ -90,10 +95,16 @@ pub fn fire_sentry_system(
                 Name::new("Sentry turret"),
             ),
         );
-        sfx.write(ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::WORLD_ROCK_HIT,
-            pos: kin.pos,
-        });
+        if let Some(source) = inherited {
+            turret.insert(ambition_sfx::BodyPresentationSource(source));
+        }
+        sfx.write_for(
+            wielder,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                pos: kin.pos,
+            },
+        );
     }
 }
 
@@ -113,7 +124,7 @@ pub fn update_sentries(
         With<FeatureSimEntity>,
     >,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
-    mut sfx: ambition_sfx::SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     let dt = world_time.scaled_dt;
     if dt <= 0.0 {
@@ -175,10 +186,14 @@ pub fn update_sentries(
             },
         });
         sentry.fire_cooldown = SENTRY_FIRE_INTERVAL_S;
-        sfx.write(ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::WORLD_ROCK_HIT,
-            pos: sentry.pos,
-        });
+        // The TURRET fires, and it inherited its summoner's source at spawn.
+        sfx.write_for(
+            entity,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                pos: sentry.pos,
+            },
+        );
     }
 }
 

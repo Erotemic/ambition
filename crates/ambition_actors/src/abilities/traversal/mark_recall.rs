@@ -64,7 +64,7 @@ pub fn mark_recall_system(
         &HeldItem,
         Option<&mut PlayerMark>,
     )>,
-    mut sfx: ambition_sfx::SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
     // Optional: the diagnostic-only Class-B ledger (§3.2). A minimal test app
@@ -97,10 +97,13 @@ pub fn mark_recall_system(
                     .insert(PlayerMark { pos: Some(pos) });
             }
         }
-        sfx.write(ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::PLAYER_DASH,
-            pos,
-        });
+        sfx.write_for(
+            player,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::PLAYER_DASH,
+                pos,
+            },
+        );
         vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
             pos,
             kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
@@ -138,10 +141,13 @@ pub fn mark_recall_system(
                 knockback: None,
                 ignored_targets: Vec::new(),
             });
-            sfx.write(ambition_sfx::SfxMessage::Play {
-                id: ambition_sfx::ids::PLAYER_BLINK,
-                pos: target,
-            });
+            sfx.write_for(
+                player,
+                ambition_sfx::SfxMessage::Play {
+                    id: ambition_sfx::ids::PLAYER_BLINK,
+                    pos: target,
+                },
+            );
             vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
                 pos: target,
                 kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,

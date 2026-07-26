@@ -152,6 +152,11 @@ pub(crate) fn apply_actor_hit(
         // line index reads pre-damage HP. A blocked hit barks too (the body
         // was struck), matching the resolver's "registered hit" notion.
         let should_bark = combat.hit_flash < 0.05;
+        // G1: resolved once for the whole branch, because every reaction below is
+        // one of the two bodies' own — this actor's block clang, its hurt spray, its
+        // death — and each was previously attributed to whoever owned the session.
+        let attacker_source = writers.source_of(event.attacker);
+        let victim_source = writers.source_of(Some(actor_entity));
         let strikes = (em.health.max() - em.health.current()).max(0) as u32;
         let gravity_dir = -em
             .surface
@@ -229,10 +234,15 @@ pub(crate) fn apply_actor_hit(
             // knockback, just a clang. A blocked hit still counts as "took the
             // hit" (returns true) so the caller plays the shared hitstop.
             let impact = midpoint(event.volume.center(), em.kin.pos);
-            writers.sfx.write(SfxMessage::Play {
-                id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                pos: em.kin.pos,
-            });
+            // The guard is the VICTIM's, so the clang is the victim's cue: a
+            // shielded Sanic clangs out of Sanic's bank.
+            writers.sfx.write_for_body(
+                victim_source.as_ref(),
+                SfxMessage::Play {
+                    id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                    pos: em.kin.pos,
+                },
+            );
             writers.vfx.write(VfxMessage::Impact { pos: impact });
             writers.vfx.write(VfxMessage::Burst {
                 pos: impact,
@@ -308,9 +318,8 @@ pub(crate) fn apply_actor_hit(
         // still gets its death drama below, layered on this landing reaction.
         let impact = midpoint(event.volume.center(), em.kin.pos);
         // A13: the authored strike sound is the ATTACKER's cue; the hurt fallback is
-        // the VICTIM's, so both are resolved before the emitter borrows the writers.
-        let attacker_source = writers.source_of(event.attacker);
-        let victim_source = writers.source_of(Some(actor_entity));
+        // the VICTIM's. Both were resolved at the top of this branch, before the
+        // emitters borrow the writers.
         crate::combat::util::emit_hit_feedback(
             &mut writers.sfx,
             &mut writers.vfx,
@@ -438,7 +447,12 @@ pub(crate) fn apply_actor_hit(
                 pos: em.kin.pos,
                 cue: PhysicsDebrisCue::EnemyRagdoll,
             });
-            writers.sfx.write(SfxMessage::Death { pos: em.kin.pos });
+            // A body dies in its OWN voice. This was the session's until G1: a
+            // Badnik and a Goomba died to the same sample even in a crossover.
+            writers.sfx.write_for_body(
+                victim_source.as_ref(),
+                SfxMessage::Death { pos: em.kin.pos },
+            );
         }
         true
     }

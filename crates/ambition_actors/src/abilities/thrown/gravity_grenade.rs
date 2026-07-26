@@ -63,7 +63,7 @@ pub fn tick_gravity_grenade_fuses(
         &mut GravityGrenadeFuse,
         Option<&SessionScopedEntity>,
     )>,
-    mut sfx: ambition_sfx::SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     let dt = time.sim_dt();
@@ -88,10 +88,13 @@ pub fn tick_gravity_grenade_fuses(
                 Name::new("Gravity well (grenade)"),
             ),
         );
-        sfx.write(ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::PORTAL_POWERUP,
-            pos: ground.pos,
-        });
+        sfx.write_for(
+            entity,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::PORTAL_POWERUP,
+                pos: ground.pos,
+            },
+        );
         vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
             pos: ground.pos,
             kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,

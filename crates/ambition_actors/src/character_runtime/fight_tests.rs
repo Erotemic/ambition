@@ -298,23 +298,52 @@ fn record_trades(mut events: MessageReader<crate::features::HitEvent>, mut out: 
 /// Every cue the production dispatcher handed the audio authority, with the
 /// source it was credited to.
 #[derive(Resource, Default)]
-struct Heard(Vec<(ambition_sfx::SfxId, String)>);
+struct Heard {
+    /// Authored cues, by the id the move named.
+    played: Vec<(ambition_sfx::SfxId, String)>,
+    /// Sources credited with a `Death`. Its own list because `SfxMessage::Death`
+    /// carries no id to look up — it is the semantic cue every provider voices
+    /// differently, and G1 found it taking the SESSION's source on every body in
+    /// the game.
+    deaths: Vec<String>,
+}
 
 impl Heard {
     /// The source a given cue was credited to, or `None` if it never played.
     fn source_of(&self, cue: &str) -> Option<&str> {
         let id = ambition_sfx::SfxId::new(cue);
-        self.0
+        self.played
             .iter()
             .find(|(heard, _)| *heard == id)
             .map(|(_, source)| source.as_str())
     }
 }
 
+/// The body-generic reaction decay the actor tick performs
+/// (`features::ecs::actors::update` calls `decay_reaction_timers` on exactly this
+/// component, once per tick).
+///
+/// Present because without it the post-hit i-frame window never expires, so this
+/// fixture could land a FIRST hit on a body and never a second — three of four
+/// strikes in the death test were silently swallowed. Calling the same one function
+/// the actor tick calls is cheaper than composing the whole actor update, and is the
+/// same fact.
+fn decay_reaction_timers(mut bodies: Query<&mut ambition_characters::actor::BodyCombat>) {
+    for mut combat in &mut bodies {
+        combat.decay_reaction_timers(TICK);
+    }
+}
+
 fn record_cues(mut messages: MessageReader<ambition_sfx::OwnedSfxMessage>, mut out: ResMut<Heard>) {
     for message in messages.read() {
-        if let ambition_sfx::SfxMessage::Play { id, .. } = &message.request {
-            out.0.push((*id, message.source.as_str().to_string()));
+        match &message.request {
+            ambition_sfx::SfxMessage::Play { id, .. } => {
+                out.played.push((*id, message.source.as_str().to_string()))
+            }
+            ambition_sfx::SfxMessage::Death { .. } => {
+                out.deaths.push(message.source.as_str().to_string())
+            }
+            _ => {}
         }
     }
 }
@@ -486,6 +515,7 @@ fn fight_app() -> App {
             record_trades,
             record_cues,
             apply_feature_hit_events,
+            decay_reaction_timers,
         )
             .chain(),
     );
@@ -617,7 +647,7 @@ fn two_provider_characters_trade_damage_through_the_real_damage_path() {
              session owner: a cue tagged with the wrong source plays out of the \
              wrong bank, and one tagged `__unscoped__` is DENIED with nothing \
              reported (heard: {:?})",
-            heard.0
+            heard.played
         );
     }
 }
@@ -727,5 +757,73 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
         "the strike reaches Sanic's bounding rectangle but not his authored \
          torso, so it must miss; landing it means damage is reading the box ({})",
         trade_report(&app)
+    );
+}
+
+/// **G1: a body dies in its OWN voice.**
+///
+/// The move timeline was the one emitter that read `BodyPresentationSource`, so
+/// every other body-owned sound — the block clang, the armor loss, the pogo, the
+/// ability cast, the projectile impact, and this, the death — was attributed to
+/// whoever owned the session. A crossover fight therefore had two characters who
+/// swung in their own voices and died in the host's.
+///
+/// This drives the same production chain as the trade test, and keeps swinging
+/// until Mary-O's authored stomp actually kills Sanic, so the assertion is about the
+/// real `apply_actor_hit` death branch rather than a synthesized message.
+#[test]
+fn a_dying_body_dies_in_its_own_voice() {
+    let mut app = fight_app();
+    register_two_providers_characters(&mut app);
+
+    let mary = spawn_fighter(
+        &mut app,
+        "mary_o",
+        Vec2::new(0.0, 0.0),
+        1.0,
+        crate::combat::components::ActorFaction::Enemy,
+    );
+    let sanic = spawn_fighter(
+        &mut app,
+        "sanic",
+        Vec2::new(22.0, 0.0),
+        -1.0,
+        crate::combat::components::ActorFaction::Npc,
+    );
+
+    // Mary-O's stomp authors 3 damage against 10 HP, and a struck body holds
+    // i-frames for a moment, so this is a sequence of separate swings — not one
+    // sustained overlap that would be gated down to a single hit.
+    for _ in 0..8 {
+        if health(&app, sanic) <= 0 {
+            break;
+        }
+        press_attack(&mut app, mary);
+        app.update();
+        release_attack(&mut app, mary);
+        for _ in 0..20 {
+            app.update();
+        }
+    }
+
+    // The premise: he actually died on the production path. Without this the
+    // source assertion below passes vacuously whenever nothing died at all.
+    assert!(
+        health(&app, sanic) <= 0,
+        "Sanic never died, so this test says nothing about the death cue's \
+         attribution (mary={} sanic={} {})",
+        health(&app, mary),
+        health(&app, sanic),
+        trade_report(&app)
+    );
+
+    let heard = app.world().resource::<Heard>();
+    assert_eq!(
+        heard.deaths.as_slice(),
+        ["sanic_demo"],
+        "the death must be credited to SANIC's provider — the body that died — \
+         not to `session_owner`, which is what every death in the game was \
+         attributed to before G1 (cues heard: {:?})",
+        heard.played
     );
 }

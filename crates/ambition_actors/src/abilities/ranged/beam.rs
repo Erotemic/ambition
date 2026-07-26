@@ -91,7 +91,7 @@ pub fn fire_beam_system(
         &mut BodyMana,
     )>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
-    mut sfx: ambition_sfx::SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     let Some(subject) = controlled.0 else {
         return;
@@ -129,10 +129,14 @@ pub fn fire_beam_system(
             name: Some("Focus Beam"),
         }),
     });
-    sfx.write(ambition_sfx::SfxMessage::Play {
-        id: ambition_sfx::ids::WORLD_ROCK_HIT,
-        pos: kin.pos,
-    });
+    // G1: the beam is this body's ability, so it speaks in this body's voice.
+    sfx.write_for(
+        entity,
+        ambition_sfx::SfxMessage::Play {
+            id: ambition_sfx::ids::WORLD_ROCK_HIT,
+            pos: kin.pos,
+        },
+    );
 }
 
 #[cfg(test)]

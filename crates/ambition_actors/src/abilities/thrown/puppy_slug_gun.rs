@@ -53,7 +53,7 @@ pub fn fire_puppy_slug_gun_system(
         Option<&SessionScopedEntity>,
     )>,
     allies: Query<(), With<PuppySlugAlly>>,
-    mut sfx: ambition_sfx::SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     let Some(subject) = controlled.0 else {
         return;
@@ -102,10 +102,14 @@ pub fn fire_puppy_slug_gun_system(
         ActorAggression::passive(),
     );
     commands.entity(entity).insert(PuppySlugAlly);
-    sfx.write(ambition_sfx::SfxMessage::Play {
-        id: ambition_sfx::ids::WORLD_HEALTH_COLLECT,
-        pos: kin.pos,
-    });
+    // The GUN is the caster's, not the summoned slug's.
+    sfx.write_for(
+        subject,
+        ambition_sfx::SfxMessage::Play {
+            id: ambition_sfx::ids::WORLD_HEALTH_COLLECT,
+            pos: kin.pos,
+        },
+    );
 }
 
 #[cfg(test)]

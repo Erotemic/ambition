@@ -70,7 +70,7 @@ pub fn fire_volley_system(
         &mut BodyMana,
     )>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
-    mut sfx: ambition_sfx::SfxWriter,
+    mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     let Some(subject) = controlled.0 else {
         return;
@@ -131,10 +131,13 @@ pub fn fire_volley_system(
             },
         });
     }
-    sfx.write(ambition_sfx::SfxMessage::Play {
-        id: ambition_sfx::ids::WORLD_ROCK_HIT,
-        pos: kin.pos,
-    });
+    sfx.write_for(
+        entity,
+        ambition_sfx::SfxMessage::Play {
+            id: ambition_sfx::ids::WORLD_ROCK_HIT,
+            pos: kin.pos,
+        },
+    );
 }
 
 #[cfg(test)]

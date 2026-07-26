@@ -243,6 +243,10 @@ pub fn resolve_body_hit(
 pub(crate) fn death_respawn_player(
     world: &ae::World,
     sfx: &mut SfxWriter,
+    // G1: the dying body's own presentation source. A death is the most
+    // character-specific sound a body makes and it was the one most reliably
+    // attributed to the session owner.
+    victim_source: Option<&ambition_sfx::PresentationSourceId>,
     vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<ActorDiedMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
@@ -285,7 +289,7 @@ pub(crate) fn death_respawn_player(
         "PLAYER DOWN: respawned at room start with full HP",
         2.4,
     ));
-    sfx.write(SfxMessage::Death { pos: from });
+    sfx.write_for_body(victim_source, SfxMessage::Death { pos: from });
     vfx.write(VfxMessage::ResetEffects { from, to });
     died.write(ActorDiedMessage { pos: from, cause });
 }
@@ -381,10 +385,14 @@ pub(crate) fn handle_player_damage_events(
     match resolution {
         BodyHitResolution::Ignored => false,
         BodyHitResolution::Blocked => {
-            sfx.write(SfxMessage::Play {
-                id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                pos: clusters.kinematics.pos,
-            });
+            // The guard is this body's (G1).
+            sfx.write_for_body(
+                victim_source,
+                SfxMessage::Play {
+                    id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                    pos: clusters.kinematics.pos,
+                },
+            );
             banner_requests.write(GameplayBannerRequested::new("blocked", 1.0));
             false
         }
@@ -392,10 +400,14 @@ pub(crate) fn handle_player_damage_events(
         // no respawn/teleport (so no Class-B remap), just the spent powerup and
         // the brief i-frames the resolver already armed.
         BodyHitResolution::Armored => {
-            sfx.write(SfxMessage::Play {
-                id: ambition_sfx::ids::PLAYER_DAMAGE,
-                pos: impact_pos,
-            });
+            // The armor was WORN by this body, so losing it is its cue (G1).
+            sfx.write_for_body(
+                victim_source,
+                SfxMessage::Play {
+                    id: ambition_sfx::ids::PLAYER_DAMAGE,
+                    pos: impact_pos,
+                },
+            );
             banner_requests.write(GameplayBannerRequested::new("POWERUP LOST", 1.4));
             false
         }
@@ -412,6 +424,7 @@ pub(crate) fn handle_player_damage_events(
                 crate::combat::HitMode::SafeRespawn => {
                     safe_respawn_player(
                         sfx,
+                        victim_source,
                         vfx,
                         clusters,
                         clock_resets,
@@ -454,6 +467,7 @@ pub(crate) fn handle_player_damage_events(
             death_respawn_player(
                 world,
                 sfx,
+                victim_source,
                 vfx,
                 died,
                 clusters,
@@ -478,13 +492,19 @@ pub(crate) fn handle_player_damage_events(
                 // keeps its own Reset cue — but the striking attack's sound
                 // (e.g. the spike) still plays, since the body did touch it.
                 if let Some(id) = damage.strike_sfx {
-                    sfx.write(SfxMessage::Play {
-                        id,
-                        pos: impact_pos,
-                    });
+                    // The ATTACK's sound, so the attacker's source — the same
+                    // split `emit_hit_feedback` makes (A13).
+                    sfx.write_for_body(
+                        attacker_source,
+                        SfxMessage::Play {
+                            id,
+                            pos: impact_pos,
+                        },
+                    );
                 }
                 safe_respawn_player(
                     sfx,
+                    victim_source,
                     vfx,
                     clusters,
                     clock_resets,
@@ -513,8 +533,8 @@ pub(crate) fn handle_player_damage_events(
                     feel,
                     &damage,
                     di_input_local,
-                        attacker_source,
-                        victim_source,
+                    attacker_source,
+                    victim_source,
                 );
                 false
             }
@@ -525,6 +545,8 @@ pub(crate) fn handle_player_damage_events(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn safe_respawn_player(
     sfx: &mut SfxWriter,
+    // G1: the reset chime is this body's, for the same reason its death is.
+    victim_source: Option<&ambition_sfx::PresentationSourceId>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
@@ -552,7 +574,7 @@ pub(crate) fn safe_respawn_player(
         ClockRequester::Engine,
         "safe_respawn",
     ));
-    sfx.write(SfxMessage::Reset { pos: to });
+    sfx.write_for_body(victim_source, SfxMessage::Reset { pos: to });
     vfx.write(VfxMessage::ResetEffects { from, to });
 }
 
@@ -879,7 +901,14 @@ pub fn apply_player_hit_events(
     // tuple). It carries the player's hurt-debris puff into the ONE victim-side
     // reaction, so the player keeps the impact debris that used to fire
     // attacker-side.
-    (world, moving_platforms, mut class_b, mut debris_writer, mut wallet_shield_spent, body_sources): (
+    (
+        world,
+        moving_platforms,
+        mut class_b,
+        mut debris_writer,
+        mut wallet_shield_spent,
+        body_sources,
+    ): (
         ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
         Res<MovingPlatformSet>,
         Option<ResMut<ambition_platformer_primitives::class_b::ClassBRemapLog>>,
